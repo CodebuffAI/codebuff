@@ -445,6 +445,7 @@ export async function run({
     repoId: undefined,
     clientSessionId: promptId,
     userId,
+    signal: signal ?? new AbortController().signal,
   })
 
   return promise

@@ -27,11 +27,16 @@ import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 describe('runAgentStep - set_output tool', () => {
   let testAgent: AgentTemplate
   let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
+  let runAgentStepBaseParams: ParamsExcluding<
+    typeof runAgentStep,
+    'agentType' | 'prompt' | 'localAgentTemplates' | 'agentState'
+  >
 
   beforeAll(() => {
     disableLiveUserInputCheck()
@@ -106,6 +111,24 @@ describe('runAgentStep - set_output tool', () => {
       return 'Test response'
     }
     clearAgentGeneratorCache(agentRuntimeImpl)
+
+    runAgentStepBaseParams = {
+      ...agentRuntimeImpl,
+      textOverride: null,
+      runId: 'test-run-id',
+      ancestorRunIds: [],
+      repoId: undefined,
+      repoUrl: undefined,
+      userId: TEST_USER_ID,
+      userInputId: 'test-input',
+      clientSessionId: 'test-session',
+      fingerprintId: 'test-fingerprint',
+      fileContext: mockFileContext,
+      onResponseChunk: () => {},
+      spawnParams: undefined,
+      system: 'Test system prompt',
+      signal: new AbortController().signal,
+    }
   })
 
   afterEach(() => {
@@ -150,7 +173,7 @@ describe('runAgentStep - set_output tool', () => {
       '\n\n' +
       getToolCallString('end_turn', {})
 
-    agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
       yield { type: 'text' as const, text: mockResponse }
       return 'mock-message-id'
     }
@@ -162,24 +185,11 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     const result = await runAgentStep({
-      ...agentRuntimeImpl,
-      textOverride: null,
-      runId: 'test-run-id',
-      ancestorRunIds: [],
-      repoId: undefined,
-      repoUrl: undefined,
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
+      ...runAgentStepBaseParams,
       agentType: 'test-set-output-agent',
-      fileContext: mockFileContext,
       localAgentTemplates,
       agentState,
       prompt: 'Analyze the codebase',
-      spawnParams: undefined,
-      system: 'Test system prompt',
     })
 
     expect(result.agentState.output).toEqual({
@@ -196,7 +206,7 @@ describe('runAgentStep - set_output tool', () => {
         findings: ['Bug in auth.ts', 'Missing validation'],
       }) + getToolCallString('end_turn', {})
 
-    agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
       yield { type: 'text' as const, text: mockResponse }
       return 'mock-message-id'
     }
@@ -208,24 +218,11 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     const result = await runAgentStep({
-      ...agentRuntimeImpl,
-      textOverride: null,
-      runId: 'test-run-id',
-      ancestorRunIds: [],
-      repoId: undefined,
-      repoUrl: undefined,
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
+      ...runAgentStepBaseParams,
       agentType: 'test-set-output-agent',
-      fileContext: mockFileContext,
       localAgentTemplates,
       agentState,
       prompt: 'Analyze the codebase',
-      spawnParams: undefined,
-      system: 'Test system prompt',
     })
 
     expect(result.agentState.output).toEqual({
@@ -243,7 +240,7 @@ describe('runAgentStep - set_output tool', () => {
         existingField: 'updated value',
       }) + getToolCallString('end_turn', {})
 
-    agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
       yield { type: 'text' as const, text: mockResponse }
       return 'mock-message-id'
     }
@@ -260,24 +257,11 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     const result = await runAgentStep({
-      ...agentRuntimeImpl,
-      textOverride: null,
-      runId: 'test-run-id',
-      ancestorRunIds: [],
-      repoId: undefined,
-      repoUrl: undefined,
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
-      agentType: 'test-set-output-agent',
-      fileContext: mockFileContext,
+      ...runAgentStepBaseParams,
       localAgentTemplates,
       agentState,
       prompt: 'Update the output',
-      spawnParams: undefined,
-      system: 'Test system prompt',
+      agentType: 'test-set-output-agent',
     })
 
     expect(result.agentState.output).toEqual({
@@ -290,7 +274,7 @@ describe('runAgentStep - set_output tool', () => {
     const mockResponse =
       getToolCallString('set_output', {}) + getToolCallString('end_turn', {})
 
-    agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
       yield { type: 'text' as const, text: mockResponse }
       return 'mock-message-id'
     }
@@ -303,24 +287,11 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     const result = await runAgentStep({
-      ...agentRuntimeImpl,
-      textOverride: null,
-      runId: 'test-run-id',
-      ancestorRunIds: [],
-      repoId: undefined,
-      repoUrl: undefined,
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
-      agentType: 'test-set-output-agent',
-      fileContext: mockFileContext,
+      ...runAgentStepBaseParams,
       localAgentTemplates,
       agentState,
+      agentType: 'test-set-output-agent',
       prompt: 'Update with empty object',
-      spawnParams: undefined,
-      system: 'Test system prompt',
     })
 
     // Should replace with empty object
@@ -361,7 +332,7 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     // Mock requestFiles to return test file content
-    agentRuntimeImpl.requestFiles = async ({ filePaths }) => {
+    runAgentStepBaseParams.requestFiles = async ({ filePaths }) => {
       const results: Record<string, string | null> = {}
       filePaths.forEach((p) => {
         if (p === 'src/test.ts') {
@@ -374,7 +345,7 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     // Mock the LLM stream to return a response that doesn't end the turn
-    agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
       yield { type: 'text' as const, text: 'Continuing with the analysis...' } // Non-empty response, no tool calls
       return 'mock-message-id'
     }
@@ -401,24 +372,11 @@ describe('runAgentStep - set_output tool', () => {
     const initialMessageCount = agentState.messageHistory.length
 
     const result = await runAgentStep({
-      ...agentRuntimeImpl,
-      textOverride: null,
-      runId: 'test-run-id',
-      ancestorRunIds: [],
-      repoId: undefined,
-      repoUrl: undefined,
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
+      ...runAgentStepBaseParams,
       agentType: 'test-handlesteps-agent',
-      fileContext: mockFileContext,
       localAgentTemplates: mockAgentRegistry,
       agentState,
       prompt: 'Test the handleSteps functionality',
-      spawnParams: undefined,
-      system: 'Test system prompt',
     })
 
     // Should end turn because toolCalls.length === 0 && toolResults.length === 0 from LLM processing
@@ -528,7 +486,7 @@ describe('runAgentStep - set_output tool', () => {
     }
 
     // Mock the LLM stream to spawn the inline agent
-    agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
       yield {
         type: 'text' as const,
         text: getToolCallString('spawn_agent_inline', {
@@ -565,24 +523,11 @@ describe('runAgentStep - set_output tool', () => {
     ]
 
     const result = await runAgentStep({
-      ...agentRuntimeImpl,
-      textOverride: null,
-      runId: 'test-run-id',
-      ancestorRunIds: [],
-      repoId: undefined,
-      repoUrl: undefined,
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
+      ...runAgentStepBaseParams,
       agentType: 'parent-agent',
-      fileContext: mockFileContext,
       localAgentTemplates: mockAgentRegistry,
       agentState,
       prompt: 'Spawn an inline agent to clean up messages',
-      spawnParams: undefined,
-      system: 'Parent system prompt',
     })
 
     const finalMessages = result.agentState.messageHistory

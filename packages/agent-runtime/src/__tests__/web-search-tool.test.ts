@@ -27,10 +27,15 @@ import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 
 let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
+let runAgentStepBaseParams: ParamsExcluding<
+  typeof runAgentStep,
+  'localAgentTemplates' | 'agentState' | 'prompt'
+>
 function mockAgentStream(content: string | string[]) {
-  agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
+  runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
     if (typeof content === 'string') {
       content = [content]
     }
@@ -53,31 +58,48 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
         return success({ chargedToOrganization: false })
       },
     }
+    runAgentStepBaseParams = {
+      ...agentRuntimeImpl,
+      textOverride: null,
+      system: 'Test system prompt',
+      userId: TEST_USER_ID,
+      userInputId: 'test-input',
+      clientSessionId: 'test-session',
+      fingerprintId: 'test-fingerprint',
+      onResponseChunk: () => {},
+      agentType: 'researcher',
+      fileContext: mockFileContext,
+      repoId: undefined,
+      repoUrl: undefined,
+      spawnParams: undefined,
+      runId: 'test-run-id',
+      ancestorRunIds: [],
+      signal: new AbortController().signal,
+    }
 
     // Mock analytics and tracing
     spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
-    analytics.initAnalytics(agentRuntimeImpl)
+    analytics.initAnalytics(runAgentStepBaseParams)
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
     spyOn(bigquery, 'insertTrace').mockImplementation(() =>
       Promise.resolve(true),
     )
 
     // Mock websocket actions
-    agentRuntimeImpl.requestFiles = async () => ({})
-    agentRuntimeImpl.requestOptionalFile = async () => null
-    agentRuntimeImpl.requestToolCall = async () => ({
+    runAgentStepBaseParams.requestFiles = async () => ({})
+    runAgentStepBaseParams.requestOptionalFile = async () => null
+    runAgentStepBaseParams.requestToolCall = async () => ({
       output: [{ type: 'json', value: 'Tool call success' }],
     })
 
     // Mock LLM APIs
-    agentRuntimeImpl.promptAiSdk = async function () {
+    runAgentStepBaseParams.promptAiSdk = async function () {
       return 'Test response'
     }
   })
 
   afterEach(() => {
     mock.restore()
-    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
   })
 
   const mockFileContextWithAgents = {
@@ -108,24 +130,10 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
     })
 
     await runAgentStep({
-      ...agentRuntimeImpl,
-      textOverride: null,
-      system: 'Test system prompt',
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
-      agentType: 'researcher',
-      fileContext: mockFileContext,
+      ...runAgentStepBaseParams,
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Search for test',
-      repoId: undefined,
-      repoUrl: undefined,
-      spawnParams: undefined,
-      runId: 'test-run-id',
-      ancestorRunIds: [],
     })
 
     expect(spy).toHaveBeenCalledWith(
@@ -157,24 +165,10 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
     })
 
     const { agentState: newAgentState } = await runAgentStep({
-      ...agentRuntimeImpl,
-      textOverride: null,
-      system: 'Test system prompt',
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
-      agentType: 'researcher',
-      fileContext: mockFileContext,
+      ...runAgentStepBaseParams,
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Search for Next.js 15 new features',
-      repoId: undefined,
-      repoUrl: undefined,
-      spawnParams: undefined,
-      runId: 'test-run-id',
-      ancestorRunIds: [],
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
@@ -210,24 +204,10 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
     })
 
     await runAgentStep({
-      ...agentRuntimeImpl,
-      textOverride: null,
-      system: 'Test system prompt',
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
-      agentType: 'researcher',
-      fileContext: mockFileContext,
+      ...runAgentStepBaseParams,
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Search deep',
-      repoId: undefined,
-      repoUrl: undefined,
-      spawnParams: undefined,
-      runId: 'test-run-id',
-      ancestorRunIds: [],
     })
 
     expect(webApi.callWebSearchAPI).toHaveBeenCalledWith(
@@ -256,24 +236,10 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
     })
 
     const { agentState: newAgentState } = await runAgentStep({
-      ...agentRuntimeImpl,
-      textOverride: null,
-      system: 'Test system prompt',
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
-      agentType: 'researcher',
-      fileContext: mockFileContext,
+      ...runAgentStepBaseParams,
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Search nothing',
-      repoId: undefined,
-      repoUrl: undefined,
-      spawnParams: undefined,
-      runId: 'test-run-id',
-      ancestorRunIds: [],
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
@@ -307,24 +273,10 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
     })
 
     const { agentState: newAgentState } = await runAgentStep({
-      ...agentRuntimeImpl,
-      textOverride: null,
-      system: 'Test system prompt',
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
-      agentType: 'researcher',
-      fileContext: mockFileContext,
+      ...runAgentStepBaseParams,
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Search for something',
-      repoId: undefined,
-      repoUrl: undefined,
-      spawnParams: undefined,
-      runId: 'test-run-id',
-      ancestorRunIds: [],
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
@@ -358,24 +310,10 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
     })
 
     const { agentState: newAgentState } = await runAgentStep({
-      ...agentRuntimeImpl,
-      textOverride: null,
-      system: 'Test system prompt',
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
-      agentType: 'researcher',
-      fileContext: mockFileContext,
+      ...runAgentStepBaseParams,
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Search for something',
-      repoId: undefined,
-      repoUrl: undefined,
-      spawnParams: undefined,
-      runId: 'test-run-id',
-      ancestorRunIds: [],
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
@@ -410,24 +348,10 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
     })
 
     const { agentState: newAgentState } = await runAgentStep({
-      ...agentRuntimeImpl,
-      textOverride: null,
-      system: 'Test system prompt',
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
-      agentType: 'researcher',
-      fileContext: mockFileContext,
+      ...runAgentStepBaseParams,
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Test search result formatting',
-      repoId: undefined,
-      repoUrl: undefined,
-      spawnParams: undefined,
-      runId: 'test-run-id',
-      ancestorRunIds: [],
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
@@ -466,24 +390,10 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
     const initialCredits = agentState.creditsUsed
 
     const { agentState: newAgentState } = await runAgentStep({
-      ...agentRuntimeImpl,
-      textOverride: null,
-      system: 'Test system prompt',
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
-      agentType: 'researcher',
-      fileContext: mockFileContext,
+      ...runAgentStepBaseParams,
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Search for test',
-      repoId: undefined,
-      repoUrl: undefined,
-      spawnParams: undefined,
-      runId: 'test-run-id',
-      ancestorRunIds: [],
     })
 
     // Verify that the credits from the web search API were added to agent state

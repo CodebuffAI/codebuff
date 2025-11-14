@@ -88,6 +88,7 @@ describe('QuickJS Sandbox Generator', () => {
       localAgentTemplates: {},
       stepsComplete: false,
       stepNumber: 1,
+      signal: new AbortController().signal,
     }
   })
 

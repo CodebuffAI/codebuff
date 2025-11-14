@@ -17,12 +17,25 @@ import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
+import type {
+  ParamsExcluding,
+  ParamsOf,
+} from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 describe('Spawn Agents Message History', () => {
   let mockSendSubagentChunk: any
   let mockLoopAgentSteps: any
   let capturedSubAgentState: any
+
+  let handleSpawnAgentsBaseParams: ParamsExcluding<
+    typeof handleSpawnAgents,
+    'toolCall' | 'state' | 'getLatestState'
+  >
+  let baseState: Omit<
+    ParamsOf<typeof handleSpawnAgents>['state'],
+    'agentTemplate' | 'localAgentTemplates' | 'agentState' | 'messages'
+  >
 
   beforeEach(() => {
     // Mock sendSubagentChunk
@@ -45,6 +58,26 @@ describe('Spawn Agents Message History', () => {
         output: { type: 'lastMessage', value: 'Mock agent response' },
       }
     })
+
+    handleSpawnAgentsBaseParams = {
+      ...TEST_AGENT_RUNTIME_IMPL,
+      repoId: undefined,
+      repoUrl: undefined,
+      previousToolCallFinished: Promise.resolve(),
+      fileContext: mockFileContext,
+      clientSessionId: 'test-session',
+      userInputId: 'test-input',
+      ancestorRunIds: [],
+      writeToClient: () => {},
+      signal: new AbortController().signal,
+    }
+
+    baseState = {
+      fingerprintId: 'test-fingerprint',
+      userId: TEST_USER_ID,
+      sendSubagentChunk: mockSendSubagentChunk,
+      system: 'Test system prompt',
+    }
   })
 
   afterEach(() => {
@@ -105,26 +138,15 @@ describe('Spawn Agents Message History', () => {
     ]
 
     const { result } = handleSpawnAgents({
-      ...TEST_AGENT_RUNTIME_IMPL,
-      repoId: undefined,
-      repoUrl: undefined,
-      previousToolCallFinished: Promise.resolve(),
+      ...handleSpawnAgentsBaseParams,
       toolCall,
-      fileContext: mockFileContext,
-      clientSessionId: 'test-session',
-      userInputId: 'test-input',
-      ancestorRunIds: [],
-      writeToClient: () => {},
       getLatestState: () => ({ messages: mockMessages }),
       state: {
-        fingerprintId: 'test-fingerprint',
-        userId: TEST_USER_ID,
+        ...baseState,
         agentTemplate: parentAgent,
         localAgentTemplates: { 'child-agent': childAgent },
-        sendSubagentChunk: mockSendSubagentChunk,
         messages: mockMessages,
         agentState: sessionState.mainAgentState,
-        system: 'Test system prompt',
       },
     })
 
@@ -178,26 +200,15 @@ describe('Spawn Agents Message History', () => {
     ]
 
     const { result } = handleSpawnAgents({
-      ...TEST_AGENT_RUNTIME_IMPL,
-      repoId: undefined,
-      repoUrl: undefined,
-      previousToolCallFinished: Promise.resolve(),
+      ...handleSpawnAgentsBaseParams,
       toolCall,
-      fileContext: mockFileContext,
-      clientSessionId: 'test-session',
-      userInputId: 'test-input',
-      ancestorRunIds: [],
-      writeToClient: () => {},
       getLatestState: () => ({ messages: mockMessages }),
       state: {
-        fingerprintId: 'test-fingerprint',
-        userId: TEST_USER_ID,
+        ...baseState,
         agentTemplate: parentAgent,
         localAgentTemplates: { 'child-agent': childAgent },
-        sendSubagentChunk: mockSendSubagentChunk,
         messages: mockMessages,
         agentState: sessionState.mainAgentState,
-        system: 'Test system prompt',
       },
     })
 
@@ -216,26 +227,15 @@ describe('Spawn Agents Message History', () => {
     const mockMessages: Message[] = [] // Empty message history
 
     const { result } = handleSpawnAgents({
-      ...TEST_AGENT_RUNTIME_IMPL,
-      repoId: undefined,
-      repoUrl: undefined,
-      previousToolCallFinished: Promise.resolve(),
+      ...handleSpawnAgentsBaseParams,
       toolCall,
-      fileContext: mockFileContext,
-      clientSessionId: 'test-session',
-      userInputId: 'test-input',
-      ancestorRunIds: [],
-      writeToClient: () => {},
       getLatestState: () => ({ messages: mockMessages }),
       state: {
-        fingerprintId: 'test-fingerprint',
-        userId: TEST_USER_ID,
+        ...baseState,
         agentTemplate: parentAgent,
         localAgentTemplates: { 'child-agent': childAgent },
-        sendSubagentChunk: mockSendSubagentChunk,
         messages: mockMessages,
         agentState: sessionState.mainAgentState,
-        system: 'Test system prompt',
       },
     })
 
@@ -257,26 +257,15 @@ describe('Spawn Agents Message History', () => {
     ]
 
     const { result } = handleSpawnAgents({
-      ...TEST_AGENT_RUNTIME_IMPL,
-      repoId: undefined,
-      repoUrl: undefined,
-      previousToolCallFinished: Promise.resolve(),
+      ...handleSpawnAgentsBaseParams,
       toolCall,
-      fileContext: mockFileContext,
-      clientSessionId: 'test-session',
-      userInputId: 'test-input',
-      ancestorRunIds: [],
-      writeToClient: () => {},
       getLatestState: () => ({ messages: mockMessages }),
       state: {
-        fingerprintId: 'test-fingerprint',
-        userId: TEST_USER_ID,
+        ...baseState,
         agentTemplate: parentAgent,
         localAgentTemplates: { 'child-agent': childAgent },
-        sendSubagentChunk: mockSendSubagentChunk,
         messages: mockMessages,
         agentState: sessionState.mainAgentState,
-        system: 'Test system prompt',
       },
     })
 

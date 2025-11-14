@@ -22,6 +22,7 @@ import type {
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
 import type { SendActionFn } from '@codebuff/common/types/contracts/client'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { Mock } from 'bun:test'
 
@@ -85,17 +86,14 @@ const mockFileContext: ProjectFileContext = {
 describe('Cost Aggregation Integration Tests', () => {
   let mockLocalAgentTemplates: Record<string, any>
   let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
+  let mainPromptBaseParams: ParamsExcluding<typeof mainPrompt, 'action'>
+  let callMainPromptBaseParams: ParamsExcluding<typeof callMainPrompt, 'action'>
 
   beforeAll(() => {
     disableLiveUserInputCheck()
   })
 
   beforeEach(async () => {
-    agentRuntimeImpl = {
-      ...TEST_AGENT_RUNTIME_IMPL,
-      sendAction: mock(() => {}),
-    }
-
     // Setup mock agent templates
     mockLocalAgentTemplates = {
       base: {
@@ -135,65 +133,88 @@ describe('Cost Aggregation Integration Tests', () => {
     // Mock LLM streaming
     let callCount = 0
     const creditHistory: number[] = []
-    agentRuntimeImpl.promptAiSdkStream = async function* (options) {
-      callCount++
-      const credits = callCount === 1 ? 10 : 7 // Main agent vs subagent costs
-      creditHistory.push(credits)
+    agentRuntimeImpl = {
+      ...TEST_AGENT_RUNTIME_IMPL,
+      sendAction: mock(() => {}),
+      promptAiSdkStream: async function* (options) {
+        callCount++
+        const credits = callCount === 1 ? 10 : 7 // Main agent vs subagent costs
+        creditHistory.push(credits)
 
-      if (options.onCostCalculated) {
-        await options.onCostCalculated(credits)
-      }
-
-      // Simulate different responses based on call
-      if (callCount === 1) {
-        // Main agent spawns a subagent
-        yield {
-          type: 'text' as const,
-          text: '<codebuff_tool_call>\n{"cb_tool_name": "spawn_agents", "agents": [{"agent_type": "editor", "prompt": "Write a simple hello world file"}]}\n</codebuff_tool_call>',
+        if (options.onCostCalculated) {
+          await options.onCostCalculated(credits)
         }
-      } else {
-        // Subagent writes a file
-        yield {
-          type: 'text' as const,
-          text: '<codebuff_tool_call>\n{"cb_tool_name": "write_file", "path": "hello.txt", "instructions": "Create hello world file", "content": "Hello, World!"}\n</codebuff_tool_call>',
-        }
-      }
-      return 'mock-message-id'
-    }
 
-    // Mock tool call execution
-    agentRuntimeImpl.requestToolCall = async ({ toolName, input }) => {
-      if (toolName === 'write_file') {
+        // Simulate different responses based on call
+        if (callCount === 1) {
+          // Main agent spawns a subagent
+          yield {
+            type: 'text' as const,
+            text: '<codebuff_tool_call>\n{"cb_tool_name": "spawn_agents", "agents": [{"agent_type": "editor", "prompt": "Write a simple hello world file"}]}\n</codebuff_tool_call>',
+          }
+        } else {
+          // Subagent writes a file
+          yield {
+            type: 'text' as const,
+            text: '<codebuff_tool_call>\n{"cb_tool_name": "write_file", "path": "hello.txt", "instructions": "Create hello world file", "content": "Hello, World!"}\n</codebuff_tool_call>',
+          }
+        }
+        return 'mock-message-id'
+      },
+      // Mock tool call execution
+      requestToolCall: async ({ toolName, input }) => {
+        if (toolName === 'write_file') {
+          return {
+            output: [
+              {
+                type: 'json',
+                value: {
+                  message: `File ${input.path} created successfully`,
+                },
+              },
+            ],
+          }
+        }
         return {
           output: [
             {
               type: 'json',
               value: {
-                message: `File ${input.path} created successfully`,
+                message: 'Tool executed successfully',
               },
             },
           ],
         }
-      }
-      return {
-        output: [
-          {
-            type: 'json',
-            value: {
-              message: 'Tool executed successfully',
-            },
-          },
-        ],
-      }
+      },
+      // Mock file reading
+      requestFiles: async (params: { filePaths: string[] }) => {
+        const results: Record<string, string | null> = {}
+        params.filePaths.forEach((path) => {
+          results[path] = path === 'hello.txt' ? 'Hello, World!' : null
+        })
+        return results
+      },
     }
 
-    // Mock file reading
-    agentRuntimeImpl.requestFiles = async (params: { filePaths: string[] }) => {
-      const results: Record<string, string | null> = {}
-      params.filePaths.forEach((path) => {
-        results[path] = path === 'hello.txt' ? 'Hello, World!' : null
-      })
-      return results
+    mainPromptBaseParams = {
+      ...agentRuntimeImpl,
+      repoId: undefined,
+      repoUrl: undefined,
+      userId: TEST_USER_ID,
+      clientSessionId: 'test-session',
+      onResponseChunk: () => {},
+      localAgentTemplates: mockLocalAgentTemplates,
+      signal: new AbortController().signal,
+    }
+
+    callMainPromptBaseParams = {
+      ...agentRuntimeImpl,
+      repoId: undefined,
+      repoUrl: undefined,
+      userId: TEST_USER_ID,
+      promptId: 'test-prompt',
+      clientSessionId: 'test-session',
+      signal: new AbortController().signal,
     }
 
     // Mock getAgentTemplate to return our mock templates
@@ -225,14 +246,8 @@ describe('Cost Aggregation Integration Tests', () => {
     }
 
     const result = await mainPrompt({
-      ...agentRuntimeImpl,
-      repoId: undefined,
-      repoUrl: undefined,
+      ...mainPromptBaseParams,
       action,
-      userId: TEST_USER_ID,
-      clientSessionId: 'test-session',
-      onResponseChunk: () => {},
-      localAgentTemplates: mockLocalAgentTemplates,
     })
 
     // Verify the total cost includes both main agent and subagent costs
@@ -261,18 +276,13 @@ describe('Cost Aggregation Integration Tests', () => {
 
     // Call through websocket action handler to test full integration
     await callMainPrompt({
-      ...agentRuntimeImpl,
-      repoId: undefined,
-      repoUrl: undefined,
+      ...callMainPromptBaseParams,
       action,
-      userId: TEST_USER_ID,
-      promptId: 'test-prompt',
-      clientSessionId: 'test-session',
     })
 
     // Verify final cost is included in prompt response
     const promptResponse = (
-      agentRuntimeImpl.sendAction as Mock<SendActionFn>
+      callMainPromptBaseParams.sendAction as Mock<SendActionFn>
     ).mock.calls
       .map((call) => call[0].action)
       .find((action: ServerAction) => action.type === 'prompt-response') as any
@@ -287,7 +297,7 @@ describe('Cost Aggregation Integration Tests', () => {
   it('should handle multi-level subagent hierarchies correctly', async () => {
     // Mock a more complex scenario with nested subagents
     let callCount = 0
-    agentRuntimeImpl.promptAiSdkStream = async function* (options) {
+    mainPromptBaseParams.promptAiSdkStream = async function* (options) {
       callCount++
 
       if (options.onCostCalculated) {
@@ -332,14 +342,8 @@ describe('Cost Aggregation Integration Tests', () => {
     }
 
     const result = await mainPrompt({
-      ...agentRuntimeImpl,
-      repoId: undefined,
-      repoUrl: undefined,
+      ...mainPromptBaseParams,
       action,
-      userId: TEST_USER_ID,
-      clientSessionId: 'test-session',
-      onResponseChunk: () => {},
-      localAgentTemplates: mockLocalAgentTemplates,
     })
 
     // Should aggregate costs from all levels: main + sub1 + sub2
@@ -351,7 +355,7 @@ describe('Cost Aggregation Integration Tests', () => {
   it('should maintain cost integrity when subagents fail', async () => {
     // Mock scenario where subagent fails after incurring partial costs
     let callCount = 0
-    agentRuntimeImpl.promptAiSdkStream = async function* (options) {
+    mainPromptBaseParams.promptAiSdkStream = async function* (options) {
       callCount++
 
       if (options.onCostCalculated) {
@@ -389,14 +393,8 @@ describe('Cost Aggregation Integration Tests', () => {
     let result
     try {
       result = await mainPrompt({
-        ...agentRuntimeImpl,
-        repoId: undefined,
-        repoUrl: undefined,
+        ...mainPromptBaseParams,
         action,
-        userId: TEST_USER_ID,
-        clientSessionId: 'test-session',
-        onResponseChunk: () => {},
-        localAgentTemplates: mockLocalAgentTemplates,
       })
     } catch (error) {
       // Expected to fail, but costs may still be tracked
@@ -428,14 +426,8 @@ describe('Cost Aggregation Integration Tests', () => {
     }
 
     await mainPrompt({
-      ...agentRuntimeImpl,
-      repoId: undefined,
-      repoUrl: undefined,
+      ...mainPromptBaseParams,
       action,
-      userId: TEST_USER_ID,
-      clientSessionId: 'test-session',
-      onResponseChunk: () => {},
-      localAgentTemplates: mockLocalAgentTemplates,
     })
 
     // Verify no duplicate message IDs (no double-counting)
@@ -469,13 +461,8 @@ describe('Cost Aggregation Integration Tests', () => {
 
     // Call through websocket action to test server-side reset
     await callMainPrompt({
-      ...agentRuntimeImpl,
-      repoId: undefined,
-      repoUrl: undefined,
+      ...callMainPromptBaseParams,
       action,
-      userId: TEST_USER_ID,
-      promptId: 'test-prompt',
-      clientSessionId: 'test-session',
     })
 
     // Server should have reset the malicious value and calculated correct cost
