@@ -1,4 +1,5 @@
 import { getSystemMessage } from './message-history'
+import { useLoginStore } from '../state/login-store'
 
 import type { User } from './auth'
 import type { AgentMode } from './constants'
@@ -76,8 +77,10 @@ export function handleSlashCommands(params: {
     stopStreaming()
     setCanProcessQueue(false)
 
+    const { resetLoginState } = useLoginStore.getState()
     logoutMutation.mutate(undefined, {
       onSettled: () => {
+        resetLoginState()
         const msg = {
           id: `sys-${Date.now()}`,
           variant: 'ai' as const,
