@@ -7,6 +7,7 @@ import {
 } from '@codebuff/common/json-config/constants'
 
 import { getProjectRoot } from '../project-files'
+import { getSystemMessage } from '../utils/message-history'
 
 import type { PostUserMessageFn } from '../types/contracts/send-message'
 
@@ -19,13 +20,7 @@ export function handleInitializationFlowLocally(): {
   if (existsSync(configPath)) {
     const postUserMessage: PostUserMessageFn = (prev) => [
       ...prev,
-
-      {
-        id: `sys-${Date.now()}`,
-        variant: 'ai' as const,
-        content: `📋 ${codebuffConfigFile} already exists.`,
-        timestamp: new Date().toISOString(),
-      },
+      getSystemMessage(`📋 ${codebuffConfigFile} already exists.`),
     ]
     return {
       postUserMessage,
@@ -37,12 +32,7 @@ export function handleInitializationFlowLocally(): {
 
   const postUserMessage: PostUserMessageFn = (prev) => [
     ...prev,
-    {
-      id: `sys-${Date.now()}`,
-      variant: 'ai' as const,
-      content: `✅ Created \`${codebuffConfigFile}\``,
-      timestamp: new Date().toISOString(),
-    },
+    getSystemMessage(`✅ Created \`${codebuffConfigFile}\``),
   ]
   return { postUserMessage }
 }

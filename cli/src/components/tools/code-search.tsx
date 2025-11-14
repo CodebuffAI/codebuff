@@ -13,7 +13,7 @@ import type { ToolRenderConfig } from './types'
 export const CodeSearchComponent = defineToolComponent({
   toolName: 'code_search',
 
-  render(toolBlock, theme, options): ToolRenderConfig | null {
+  render(toolBlock, theme, options): ToolRenderConfig {
     const input = toolBlock.input as any
     const pattern = input?.pattern ?? ''
     const flags = input?.flags ?? ''

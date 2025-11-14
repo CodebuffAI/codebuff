@@ -311,7 +311,8 @@ export async function executeSubagent(
       parentAgentState: AgentState
       onResponseChunk: (chunk: string | PrintModeEvent) => void
       isOnlyChild?: boolean
-    } & ParamsExcluding<typeof loopAgentSteps, 'agentType'>,
+      ancestorRunIds: string[]
+    } & ParamsExcluding<typeof loopAgentSteps, 'agentType' | 'ancestorRunIds'>,
     'isOnlyChild' | 'clearUserPromptMessagesAfterResponse'
   >,
 ) {
@@ -320,8 +321,13 @@ export async function executeSubagent(
     clearUserPromptMessagesAfterResponse: true,
     ...options,
   }
-  const { onResponseChunk, agentTemplate, parentAgentState, isOnlyChild } =
-    withDefaults
+  const {
+    onResponseChunk,
+    agentTemplate,
+    parentAgentState,
+    isOnlyChild,
+    ancestorRunIds,
+  } = withDefaults
 
   const startEvent = {
     type: 'subagent_start' as const,
@@ -335,6 +341,7 @@ export async function executeSubagent(
 
   const result = await loopAgentSteps({
     ...withDefaults,
+    ancestorRunIds: [...ancestorRunIds, parentAgentState.runId ?? ''],
     agentType: agentTemplate.id,
   })
 

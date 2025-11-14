@@ -1,4 +1,5 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { env } from '@codebuff/internal/env'
 import { NextResponse } from 'next/server'
@@ -201,6 +202,8 @@ export async function postChatCompletions(params: {
       )
     }
 
+    const openrouterApiKey = req.headers.get(BYOK_OPENROUTER_HEADER)
+
     // Handle streaming vs non-streaming
     try {
       if (bodyStream) {
@@ -225,6 +228,7 @@ export async function postChatCompletions(params: {
               body,
               userId,
               agentId,
+              openrouterApiKey,
               fetch,
               logger,
               insertMessageBigquery,
@@ -254,6 +258,7 @@ export async function postChatCompletions(params: {
           body,
           userId,
           agentId,
+          openrouterApiKey,
           fetch,
           logger,
           insertMessageBigquery,

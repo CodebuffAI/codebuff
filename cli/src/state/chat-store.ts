@@ -17,6 +17,7 @@ export type ChatStoreState = {
   messages: ChatMessage[]
   streamingAgents: Set<string>
   collapsedAgents: Set<string>
+  autoCollapsedAgents: Set<string>
   focusedAgentId: string | null
   inputValue: string
   cursorPosition: number
@@ -29,6 +30,7 @@ export type ChatStoreState = {
   agentMode: AgentMode
   hasReceivedPlanResponse: boolean
   lastMessageMode: AgentMode | null
+  sessionCreditsUsed: number
 }
 
 type ChatStoreActions = {
@@ -40,6 +42,9 @@ type ChatStoreActions = {
   ) => void
   setCollapsedAgents: (
     value: Set<string> | ((prev: Set<string>) => Set<string>),
+  ) => void
+  addAutoCollapsedAgent: (
+    value: string
   ) => void
   setFocusedAgentId: (
     value: string | null | ((prev: string | null) => string | null),
@@ -58,6 +63,7 @@ type ChatStoreActions = {
   toggleAgentMode: () => void
   setHasReceivedPlanResponse: (value: boolean) => void
   setLastMessageMode: (mode: AgentMode | null) => void
+  addSessionCredits: (credits: number) => void
   reset: () => void
 }
 
@@ -69,6 +75,7 @@ const initialState: ChatStoreState = {
   messages: [],
   streamingAgents: new Set<string>(),
   collapsedAgents: new Set<string>(),
+  autoCollapsedAgents: new Set<string>(),
   focusedAgentId: null,
   inputValue: '',
   cursorPosition: 0,
@@ -81,6 +88,7 @@ const initialState: ChatStoreState = {
   agentMode: 'DEFAULT',
   hasReceivedPlanResponse: false,
   lastMessageMode: null,
+  sessionCreditsUsed: 0,
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -103,6 +111,10 @@ export const useChatStore = create<ChatStore>()(
       set((state) => {
         state.collapsedAgents =
           typeof value === 'function' ? value(state.collapsedAgents) : value
+      }),
+    addAutoCollapsedAgent: (value) =>
+      set((state) => {
+        state.autoCollapsedAgents.add(value)
       }),
 
     setFocusedAgentId: (value) =>
@@ -180,6 +192,11 @@ export const useChatStore = create<ChatStore>()(
         state.lastMessageMode = mode
       }),
 
+    addSessionCredits: (credits) =>
+      set((state) => {
+        state.sessionCreditsUsed += credits
+      }),
+
     reset: () =>
       set((state) => {
         state.messages = initialState.messages.slice()
@@ -197,6 +214,7 @@ export const useChatStore = create<ChatStore>()(
         state.agentMode = initialState.agentMode
         state.hasReceivedPlanResponse = initialState.hasReceivedPlanResponse
         state.lastMessageMode = initialState.lastMessageMode
+        state.sessionCreditsUsed = initialState.sessionCreditsUsed
       }),
   })),
 )

@@ -7,7 +7,7 @@ import {
 const definition: SecretAgentDefinition = {
   id: 'scout',
   publisher,
-  model: 'openai/gpt-5-chat',
+  model: 'openai/gpt-5.1-chat',
   displayName: 'Lewis & Clark',
   spawnableAgents: ['file-explorer', 'researcher-web', 'researcher-docs'],
   toolNames: ['spawn_agents', 'read_files', 'code_search', 'end_turn'],

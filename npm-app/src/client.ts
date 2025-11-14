@@ -1154,6 +1154,17 @@ export class Client {
         } else {
           printModeLog(chunk)
           printSubagentHeader(chunk)
+          if (
+            chunk.type === 'reasoning_delta' &&
+            chunk.ancestorRunIds.length === 0
+          ) {
+            if (!this.streamStarted) {
+              this.streamStarted = true
+              onStreamStart()
+            }
+            Spinner.get().stop()
+            process.stdout.write(gray(chunk.text))
+          }
         }
       },
       userInputId,

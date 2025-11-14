@@ -5,7 +5,7 @@ import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 const definition: SecretAgentDefinition = {
   id: 'thinker-gpt-5',
   publisher,
-  model: 'openai/gpt-5',
+  model: 'openai/gpt-5.1',
   displayName: 'Theo the Theorizer',
   spawnerPrompt:
     'Does deep thinking given the current messages and a specific prompt to focus on. Use this to help you solve a specific problem.',

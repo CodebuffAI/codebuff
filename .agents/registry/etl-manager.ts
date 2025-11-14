@@ -10,7 +10,7 @@ import type { AgentDefinition, ToolCall } from '../types/agent-definition'
 const agent: AgentDefinition = {
   id: 'etl-manager',
   displayName: 'ETL Pipeline Manager',
-  model: 'openai/gpt-5',
+  model: 'openai/gpt-5.1',
   publisher: 'brandon',
 
   toolNames: ['spawn_agents', 'think_deeply', 'add_message'],

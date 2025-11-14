@@ -9,7 +9,7 @@ import { PLACEHOLDER } from '../types/secret-agent-definition'
 const definition: SecretAgentDefinition = {
   id: 'ask',
   publisher,
-  model: 'openai/gpt-5',
+  model: 'openai/gpt-5.1',
   displayName: 'Ask Buffy',
   spawnerPrompt: 'Base ask-mode agent that orchestrates the full response.',
   inputSchema: {

@@ -136,6 +136,8 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   excludeToolFromMessageHistory?: boolean
   fetch: typeof globalThis.fetch
   fromHandleSteps?: boolean
+  onCostCalculated: (credits: number) => Promise<void>
+  ancestorRunIds: string[]
 } & AgentRuntimeDeps &
   AgentRuntimeScopedDeps
 
@@ -166,6 +168,7 @@ export function executeToolCall<T extends ToolName>(
     requestMcpToolData,
     logger,
     fromHandleSteps = false,
+    onCostCalculated,
   } = params
   const toolCall: CodebuffToolCall<T> | ToolCallError = parseRawToolCall<T>({
     rawToolCall: {
@@ -265,12 +268,20 @@ export function executeToolCall<T extends ToolName>(
     if (key === 'agentState' && typeof value === 'object' && value !== null) {
       // Replace the agentState reference to ensure all updates are captured
       state.agentState = value
+    } else if (key === 'creditsUsed') {
+      // Handle both synchronous and asynchronous creditsUsed values
+      if (value instanceof Promise) {
+        // Store the promise to be awaited later
+        state.creditsUsed = value
+      } else if (typeof value === 'number') {
+        onCostCalculated(value)
+      }
     } else {
       state[key] = value
     }
   }
 
-  return toolResultPromise.then((result) => {
+  return toolResultPromise.then(async (result) => {
     const toolResult: ToolResultPart = {
       type: 'tool-result',
       toolName,
@@ -299,6 +310,19 @@ export function executeToolCall<T extends ToolName>(
         role: 'tool' as const,
         content: toolResult,
       })
+    }
+
+    // After tool completes, resolve any pending creditsUsed promise
+    if (state.creditsUsed instanceof Promise) {
+      const credits = await state.creditsUsed
+      if (typeof credits === 'number') {
+        onCostCalculated(credits)
+        logger.debug(
+          { credits, totalCredits: state.agentState.creditsUsed },
+          `Added ${credits} credits from ${toolName} to agent state`,
+        )
+      }
+      delete state.creditsUsed
     }
   })
 }

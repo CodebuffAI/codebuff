@@ -1,7 +1,7 @@
 import { TextAttributes } from '@opentui/core'
 
-import { useTheme } from '../../hooks/use-theme'
 import { defineToolComponent } from './types'
+import { useTheme } from '../../hooks/use-theme'
 
 import type { ToolRenderConfig } from './types'
 
@@ -47,7 +47,7 @@ const ReadFilesSimpleToolCallItem = ({
 export const ReadFilesComponent = defineToolComponent({
   toolName: 'read_files',
 
-  render(toolBlock, theme, options): ToolRenderConfig | null {
+  render(toolBlock, theme, options): ToolRenderConfig {
     const input = toolBlock.input as any
 
     // Extract file paths from input
@@ -60,7 +60,7 @@ export const ReadFilesComponent = defineToolComponent({
     }
 
     if (filePaths.length === 0) {
-      return null
+      return { content: null }
     }
 
     return {

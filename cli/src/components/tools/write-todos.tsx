@@ -1,7 +1,8 @@
 import { TextAttributes } from '@opentui/core'
 
-import { useTheme } from '../../hooks/use-theme'
 import { defineToolComponent } from './types'
+import { useTheme } from '../../hooks/use-theme'
+
 import type { ToolRenderConfig } from './types'
 
 interface WriteTodosItemProps {
@@ -68,7 +69,7 @@ const WriteTodosItem = ({ todos }: WriteTodosItemProps) => {
 export const WriteTodosComponent = defineToolComponent({
   toolName: 'write_todos',
 
-  render(toolBlock, theme, options): ToolRenderConfig | null {
+  render(toolBlock, theme, options): ToolRenderConfig {
     const { input } = toolBlock
 
     // Extract todos from input
@@ -84,7 +85,7 @@ export const WriteTodosComponent = defineToolComponent({
     }
 
     if (todos.length === 0) {
-      return null
+      return { content: null }
     }
 
     return {

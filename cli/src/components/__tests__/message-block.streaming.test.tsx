@@ -1,11 +1,11 @@
-import React from 'react'
-
 import { describe, test, expect } from 'bun:test'
+import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
-import { MessageBlock } from '../message-block'
-import '../../state/theme-store' // Initialize theme store
+import { initializeThemeStore } from '../../hooks/use-theme'
 import { chatThemes, createMarkdownPalette } from '../../utils/theme-system'
+import { MessageBlock } from '../message-block'
+
 import type { MarkdownPalette } from '../../utils/markdown-renderer'
 
 const theme = chatThemes.dark
@@ -37,10 +37,13 @@ const baseProps = {
   availableWidth: 80,
   markdownPalette: basePalette,
   collapsedAgents: new Set<string>(),
+  autoCollapsedAgents: new Set<string>(),
   streamingAgents: new Set<string>(),
   onToggleCollapsed: () => {},
   onBuildFast: () => {},
   onBuildMax: () => {},
+  setCollapsedAgents: () => {},
+  addAutoCollapsedAgent: () => {},
 }
 
 const createTimerStartTime = (elapsedSeconds: number): number | null =>
@@ -71,3 +74,4 @@ describe('MessageBlock streaming indicator', () => {
     expect(markup).not.toContain('0s')
   })
 })
+initializeThemeStore()

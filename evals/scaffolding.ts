@@ -228,6 +228,7 @@ export async function runAgentStepScaffolding(
     localAgentTemplates,
     agentState,
     prompt,
+    ancestorRunIds: [],
     spawnParams: undefined,
     repoUrl: undefined,
     repoId: undefined,

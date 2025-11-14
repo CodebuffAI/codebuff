@@ -11,7 +11,7 @@ import type { ToolRenderConfig } from './types'
 export const GlobComponent = defineToolComponent({
   toolName: 'glob',
 
-  render(toolBlock, theme, options): ToolRenderConfig | null {
+  render(toolBlock, theme, options): ToolRenderConfig {
     const input = toolBlock.input as any
     const pattern = input?.pattern ?? ''
     const cwd = input?.cwd ?? ''
@@ -39,7 +39,7 @@ export const GlobComponent = defineToolComponent({
     }
 
     if (!pattern) {
-      return null
+      return { content: null }
     }
 
     // Build single-line summary

@@ -116,6 +116,7 @@ describe('runProgrammaticStep', () => {
     mockParams = {
       ...agentRuntimeImpl,
       runId: 'test-run-id',
+      ancestorRunIds: [],
       repoId: undefined,
       repoUrl: undefined,
       agentState: mockAgentState,
@@ -127,6 +128,7 @@ describe('runProgrammaticStep', () => {
       clientSessionId: 'test-session',
       fingerprintId: 'test-fingerprint',
       onResponseChunk: () => {},
+      onCostCalculated: async () => {},
       fileContext: mockFileContext,
       localAgentTemplates: {},
       system: undefined,

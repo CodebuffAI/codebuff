@@ -2,7 +2,10 @@ import { TextAttributes } from '@opentui/core'
 import { useState } from 'react'
 
 import { defineToolComponent } from './types'
+import { useTerminalDimensions } from '../../hooks/use-terminal-dimensions'
 import { useTheme } from '../../hooks/use-theme'
+import { getLastNVisualLines } from '../../utils/text-layout'
+import { Button } from '../button'
 
 import type { ToolRenderConfig } from './types'
 
@@ -14,16 +17,12 @@ import type { ToolRenderConfig } from './types'
 export const RunTerminalCommandComponent = defineToolComponent({
   toolName: 'run_terminal_command',
 
-  render(toolBlock, theme): ToolRenderConfig | null {
+  render(toolBlock, theme): ToolRenderConfig {
     // Extract command from input
     const command =
       toolBlock.input && typeof (toolBlock.input as any).command === 'string'
         ? (toolBlock.input as any).command.trim()
         : null
-
-    if (!command) {
-      return null
-    }
 
     // Extract output if available
     const output = toolBlock.output ? toolBlock.output.trim() : null
@@ -48,6 +47,8 @@ const TerminalCommandContent = ({
   output,
 }: TerminalCommandContentProps) => {
   const theme = useTheme()
+  const { contentMaxWidth } = useTerminalDimensions()
+  const padding = 5
   const [isExpanded, setIsExpanded] = useState(false)
 
   if (!output) {
@@ -67,12 +68,43 @@ const TerminalCommandContent = ({
     )
   }
 
-  const lines = output.split('\n')
-  const hasMoreThanFiveLines = lines.length > 5
-  const displayLines =
-    isExpanded || !hasMoreThanFiveLines ? lines : lines.slice(0, 5)
-  const displayOutput = displayLines.join('\n')
-  const hiddenLinesCount = lines.length - 5
+  // Use visual line calculation based on terminal width
+  const width = Math.max(10, Math.min(contentMaxWidth - padding * 2, 120))
+  const allLines = output.split('\n')
+
+  // Calculate total visual lines across all output lines
+  let totalVisualLines = 0
+  const visualLinesByOriginalLine: string[][] = []
+
+  for (const line of allLines) {
+    const { lines: wrappedLines } = getLastNVisualLines(line, width, Infinity)
+    visualLinesByOriginalLine.push(wrappedLines)
+    totalVisualLines += wrappedLines.length
+  }
+
+  const hasMoreThanFiveLines = totalVisualLines > 5
+  const hiddenLinesCount = totalVisualLines - 5
+
+  // Build display output
+  let displayOutput: string
+  if (isExpanded || !hasMoreThanFiveLines) {
+    displayOutput = output
+  } else {
+    // Take first 5 visual lines
+    const displayLines: string[] = []
+    let count = 0
+
+    for (const wrappedLines of visualLinesByOriginalLine) {
+      for (const line of wrappedLines) {
+        if (count >= 5) break
+        displayLines.push(line)
+        count++
+      }
+      if (count >= 5) break
+    }
+
+    displayOutput = displayLines.join('\n')
+  }
 
   return (
     <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
@@ -98,9 +130,9 @@ const TerminalCommandContent = ({
           {displayOutput}
         </text>
         {hasMoreThanFiveLines && (
-          <box
+          <Button
             style={{ marginTop: 0 }}
-            onMouseDown={() => setIsExpanded(!isExpanded)}
+            onClick={() => setIsExpanded(!isExpanded)}
           >
             <text
               fg={theme.secondary}
@@ -111,7 +143,7 @@ const TerminalCommandContent = ({
                 ? 'Show less'
                 : `Show ${hiddenLinesCount} more ${hiddenLinesCount === 1 ? 'line' : 'lines'}`}
             </text>
-          </box>
+          </Button>
         )}
       </box>
     </box>

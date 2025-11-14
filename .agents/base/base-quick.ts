@@ -6,7 +6,7 @@ import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 const definition: SecretAgentDefinition = {
   id: 'base-quick',
   publisher,
-  ...base('openai/gpt-5-chat', 'lite'),
+  ...base('openai/gpt-5.1-chat', 'lite'),
   toolNames: [
     'create_plan',
     'run_terminal_command',

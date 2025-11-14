@@ -5,7 +5,7 @@ import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
 const definition: SecretAgentDefinition = {
   id: 'iterative-orchestrator-step',
   publisher,
-  model: 'openai/gpt-5',
+  model: 'openai/gpt-5.1',
   displayName: 'Iterative Orchestrator Step',
   spawnerPrompt:
     'Orchestrates the completion of a large task through batches of independent steps.',

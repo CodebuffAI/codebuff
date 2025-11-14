@@ -1,6 +1,7 @@
 import path from 'path'
 
 import { callMainPrompt } from '@codebuff/agent-runtime/main-prompt'
+import { getCancelledAdditionalMessages } from '@codebuff/agent-runtime/util/messages'
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
 import { getMCPClient, listMCPTools } from '@codebuff/common/mcp/client'
 import { toOptionalFile } from '@codebuff/common/old-constants'
@@ -37,6 +38,7 @@ import type {
 } from '@codebuff/common/tools/list'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+import type { CodebuffSpawn } from '@codebuff/common/types/spawn'
 import type {
   ToolResultOutput,
   ToolResultPart,
@@ -67,6 +69,8 @@ export type CodebuffClientOptions = {
         }
       | {
           type: 'reasoning_chunk'
+          agentId: string
+          ancestorRunIds: string[]
           chunk: string
         },
   ) => void | Promise<void>
@@ -86,6 +90,7 @@ export type CodebuffClientOptions = {
   customToolDefinitions?: CustomToolDefinition[]
 
   fsSource?: Source<CodebuffFileSystem>
+  spawnSource?: Source<CodebuffSpawn>
   logger?: Logger
 }
 
@@ -96,17 +101,6 @@ export type RunOptions = {
   previousRun?: RunState
   extraToolResults?: ToolResultPart[]
   signal?: AbortSignal
-}
-
-class AbortError extends Error {
-  name = 'AbortError'
-}
-
-function checkAborted(signal?: AbortSignal): AbortError | null {
-  if (!signal?.aborted) {
-    return null
-  }
-  return new AbortError('Run cancelled by user')
 }
 
 type RunReturnType = Awaited<ReturnType<typeof run>>
@@ -128,6 +122,7 @@ export async function run({
   customToolDefinitions,
 
   fsSource = () => require('fs').promises,
+  spawnSource,
   logger,
 
   agent,
@@ -142,6 +137,9 @@ export async function run({
     fingerprintId: string
   }): Promise<RunState> {
   const fs = await (typeof fsSource === 'function' ? fsSource() : fsSource)
+  const spawn: CodebuffSpawn = (
+    spawnSource ? await spawnSource : require('child_process').spawn
+  ) as CodebuffSpawn
 
   // Init session state
   let agentId
@@ -175,20 +173,9 @@ export async function run({
       projectFiles,
       maxAgentSteps,
       fs,
+      spawn,
       logger,
     })
-  }
-  {
-    const aborted = checkAborted(signal)
-    if (aborted) {
-      return {
-        sessionState,
-        output: {
-          type: 'error',
-          message: aborted.message,
-        },
-      }
-    }
   }
 
   let resolve: (value: RunReturnType) => any = () => {}
@@ -202,41 +189,59 @@ export async function run({
     }
   }
 
+  let pendingAgentResponse = ''
+  /** Calculates the current session state if cancelled.
+   *
+   * This includes the user'e message and pending assistant message.
+   */
+  function getCancelledSessionState(): SessionState {
+    const state = cloneDeep(sessionState)
+    state.mainAgentState.messageHistory.push(
+      ...getCancelledAdditionalMessages({
+        prompt,
+        params,
+        pendingAgentResponse,
+      }),
+    )
+    return state
+  }
+  function getCancelledRunState(): RunState {
+    return {
+      sessionState: getCancelledSessionState(),
+      output: {
+        type: 'error',
+        message: 'Run cancelled by user',
+      },
+    }
+  }
+
   const buffers: Record<string | 0, string> = { 0: '' }
 
-  let reasoning = ''
-  async function flushReasoning() {
-    if (reasoning) {
-      await handleEvent?.({
-        type: 'reasoning',
-        text: reasoning,
-      })
-    }
-    reasoning = ''
-  }
   const onResponseChunk = async (
     action: ServerAction<'response-chunk'>,
   ): Promise<void> => {
-    const aborted = checkAborted(signal)
-    if (aborted) {
-      resolve({
-        sessionState,
-        output: {
-          type: 'error',
-          message: aborted.message,
-        },
-      })
+    if (signal?.aborted) {
       return
     }
     const { chunk } = action
+    addToPendingAssistantMessage: if (typeof chunk === 'string') {
+      pendingAgentResponse += chunk
+    } else if (
+      chunk.type === 'reasoning_delta' &&
+      chunk.ancestorRunIds.length === 0
+    ) {
+      pendingAgentResponse += chunk.text
+    }
+
     if (typeof chunk !== 'string') {
-      if (chunk.type === 'reasoning') {
+      if (chunk.type === 'reasoning_delta') {
         handleStreamChunk?.({
           type: 'reasoning_chunk',
           chunk: chunk.text,
+          agentId: chunk.runId,
+          ancestorRunIds: chunk.ancestorRunIds,
         })
       } else {
-        await flushReasoning()
         await handleEvent?.(chunk)
       }
       return
@@ -255,7 +260,6 @@ export async function run({
         }
 
         if (value.chunk) {
-          await flushReasoning()
           await handleStreamChunk(value.chunk)
         }
       }
@@ -264,15 +268,7 @@ export async function run({
   const onSubagentResponseChunk = async (
     action: ServerAction<'subagent-response-chunk'>,
   ) => {
-    const aborted = checkAborted(signal)
-    if (aborted) {
-      resolve({
-        sessionState,
-        output: {
-          type: 'error',
-          message: aborted.message,
-        },
-      })
+    if (signal?.aborted) {
       return
     }
     const { agentId, agentType, chunk } = action
@@ -414,19 +410,6 @@ export async function run({
   const promptId = Math.random().toString(36).substring(2, 15)
 
   // Send input
-  {
-    const aborted = checkAborted(signal)
-    if (aborted) {
-      return {
-        sessionState,
-        output: {
-          type: 'error',
-          message: aborted.message,
-        },
-      }
-    }
-  }
-
   const userInfo = await getUserInfoFromApiKey({
     ...agentRuntimeImpl,
     apiKey,
@@ -436,6 +419,13 @@ export async function run({
     throw new Error('No user found for key')
   }
   const userId = userInfo.id
+
+  signal?.addEventListener('abort', () => {
+    resolve(getCancelledRunState())
+  })
+  if (signal?.aborted) {
+    return getCancelledRunState()
+  }
 
   callMainPrompt({
     ...agentRuntimeImpl,
@@ -614,15 +604,13 @@ async function handlePromptResponse({
 }) {
   if (action.type === 'prompt-error') {
     onError({ message: action.message })
-    resolve(
-      {
-        sessionState: initialSessionState,
-        output: {
-          type: 'error',
-          message: action.message,
-        },
+    resolve({
+      sessionState: initialSessionState,
+      output: {
+        type: 'error',
+        message: action.message,
       },
-    )
+    })
   } else if (action.type === 'prompt-response') {
     // Stop enforcing session state schema! It's a black box we will pass back to the server.
     // Only check the output schema.

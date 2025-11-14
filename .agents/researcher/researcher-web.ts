@@ -1,4 +1,5 @@
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
+import type { ToolCall } from '../types/agent-definition'
 import { publisher } from '../constants'
 
 const definition: SecretAgentDefinition = {
@@ -6,7 +7,7 @@ const definition: SecretAgentDefinition = {
   publisher,
   model: 'x-ai/grok-4-fast',
   displayName: 'Weeb',
-  spawnerPrompt: `Expert at browsing the web to find relevant information.`,
+  spawnerPrompt: `Browses the web to find relevant information.`,
   inputSchema: {
     prompt: {
       type: 'string',
@@ -23,15 +24,27 @@ const definition: SecretAgentDefinition = {
 
 Use web_search to find current information. Repeat the web_search tool call until you have gathered all the relevant information.
 
-Then, write up a report that includes key findings, relevant insights, and actionable recommendations for the user's prompt.
+Then, write up a concise report that includes key findings for the user's prompt.
 `.trim(),
 
   handleSteps: function* ({ agentState, prompt, params }) {
-    yield {
+    const { toolResult } = yield {
       toolName: 'web_search' as const,
       input: { query: prompt || '', depth: 'standard' as const },
+      includeToolCall: false,
+    } satisfies ToolCall<'web_search'>
+
+    const results = (toolResult
+      ?.filter((r) => r.type === 'json')
+      ?.map((r) => r.value)?.[0] ?? {}) as {
+      result: string | undefined
+      errorMessage: string | undefined
     }
-    yield 'STEP_ALL'
+
+    yield {
+      type: 'STEP_TEXT',
+      text: results.result ?? results.errorMessage ?? '',
+    }
   },
 }
 

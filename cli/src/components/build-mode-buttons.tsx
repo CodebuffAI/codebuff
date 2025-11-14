@@ -2,6 +2,8 @@ import { useState } from 'react'
 import type { ChatTheme } from '../types/theme-system'
 import { BORDER_CHARS } from '../utils/ui-constants'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
+import { Button } from './button'
+
 export const BuildModeButtons = ({
   theme,
   onBuildFast,
@@ -16,21 +18,20 @@ export const BuildModeButtons = ({
   )
   const { terminalWidth } = useTerminalDimensions()
   const isNarrow = terminalWidth < 55
+
   return (
     <box
       style={{
-        flexDirection: 'row',
-        gap: 1,
+        flexDirection: 'column',
+        gap: 0,
         paddingTop: 0,
         paddingBottom: 0,
         paddingLeft: 1,
-        alignItems: 'center',
-        justifyContent: 'space-between',
       }}
     >
       {isNarrow ? null : (
-        <text style={{ wrapMode: 'none' }}>
-          <span fg={theme.secondary}>Ready to build?</span>
+        <text style={{ wrapMode: 'none' }} selectable={false}>
+          <span fg={theme.secondary}>Choose an option to build this plan:</span>
         </text>
       )}
       <box
@@ -39,7 +40,7 @@ export const BuildModeButtons = ({
           gap: 1,
         }}
       >
-        <box
+        <Button
           style={{
             flexDirection: 'row',
             alignItems: 'center',
@@ -50,15 +51,15 @@ export const BuildModeButtons = ({
               hoveredButton === 'fast' ? theme.foreground : theme.secondary,
             customBorderChars: BORDER_CHARS,
           }}
-          onMouseDown={onBuildFast}
+          onClick={onBuildFast}
           onMouseOver={() => setHoveredButton('fast')}
           onMouseOut={() => setHoveredButton(null)}
         >
           <text wrapMode="none">
             <span fg={theme.foreground}>Build DEFAULT</span>
           </text>
-        </box>
-        <box
+        </Button>
+        <Button
           style={{
             flexDirection: 'row',
             alignItems: 'center',
@@ -69,14 +70,14 @@ export const BuildModeButtons = ({
               hoveredButton === 'max' ? theme.foreground : theme.secondary,
             customBorderChars: BORDER_CHARS,
           }}
-          onMouseDown={onBuildMax}
+          onClick={onBuildMax}
           onMouseOver={() => setHoveredButton('max')}
           onMouseOut={() => setHoveredButton(null)}
         >
           <text wrapMode="none">
             <span fg={theme.foreground}>Build MAX</span>
           </text>
-        </box>
+        </Button>
       </box>
     </box>
   )

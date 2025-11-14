@@ -1,8 +1,8 @@
 import { TextAttributes } from '@opentui/core'
 
-import { useTheme } from '../../hooks/use-theme'
-import { defineToolComponent } from './types'
 import { DiffViewer } from './diff-viewer'
+import { defineToolComponent } from './types'
+import { useTheme } from '../../hooks/use-theme'
 
 import type { ToolRenderConfig } from './types'
 
@@ -82,7 +82,7 @@ const EditBody = ({ name, filePath, diffText }: EditBodyProps) => {
 export const StrReplaceComponent = defineToolComponent({
   toolName: 'str_replace',
 
-  render(toolBlock, _theme, options): ToolRenderConfig | null {
+  render(toolBlock, _theme, options): ToolRenderConfig {
     const outputStr =
       typeof toolBlock.output === 'string' ? toolBlock.output : ''
     const diff =

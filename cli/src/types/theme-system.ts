@@ -24,6 +24,8 @@ export interface MarkdownThemeOverrides {
  * This makes theming easier and more intuitive
  */
 export interface ChatTheme {
+  /** Theme identifier ('dark' or 'light') */
+  name: ThemeName
   // ============================================================================
   // CORE SEMANTIC COLORS
   // ============================================================================
@@ -91,16 +93,8 @@ export interface ChatTheme {
 
   /** Agent content background */
   agentContentBg: string
-
-  // Input specific
-  /** Input background */
-  inputBg: string
-
   /** Input text color */
   inputFg: ThemeColor
-
-  /** Focused input background */
-  inputFocusedBg: string
 
   /** Focused input text color */
   inputFocusedFg: ThemeColor

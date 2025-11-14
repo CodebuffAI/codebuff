@@ -7,7 +7,7 @@ import { baseAgentAgentStepPrompt } from './base-prompts.ts'
 const definition: SecretAgentDefinition = {
   id: 'base-lite',
   publisher,
-  ...base('openai/gpt-5', 'lite'),
+  ...base('openai/gpt-5.1', 'lite'),
   reasoningOptions: {
     enabled: true,
     effort: 'medium',
@@ -33,7 +33,7 @@ const definition: SecretAgentDefinition = {
   ],
 
   stepPrompt:
-    baseAgentAgentStepPrompt('openai/gpt-5') +
+    baseAgentAgentStepPrompt('openai/gpt-5.1') +
     ` Don't forget to spawn any helper agents as you go: file-explorer, find-all-referencer, researcher-web, researcher-docs, thinker, reviewer-lite`,
 }
 

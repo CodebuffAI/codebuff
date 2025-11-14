@@ -156,7 +156,7 @@ const result = await client.run({
 const myCustomAgent: AgentDefinition = {
   id: 'greeter',
   displayName: 'Greeter',
-  model: 'openai/gpt-5',
+  model: 'openai/gpt-5.1',
   instructionsPrompt: 'Say hello!',
 }
 await client.run({

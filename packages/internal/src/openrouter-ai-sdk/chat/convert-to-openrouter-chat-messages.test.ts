@@ -89,17 +89,6 @@ describe('user messages', () => {
       },
     ])
   })
-
-  it('should convert messages with only a text part to a string content', async () => {
-    const result = convertToOpenRouterChatMessages([
-      {
-        role: 'user',
-        content: [{ type: 'text', text: 'Hello' }],
-      },
-    ])
-
-    expect(result).toEqual([{ role: 'user', content: 'Hello' }])
-  })
 })
 
 describe('cache control', () => {
@@ -234,7 +223,7 @@ describe('cache control', () => {
     expect(result).toEqual([
       {
         role: 'user',
-        content: 'Hello',
+        content: [{ type: 'text', text: 'Hello' }],
       },
     ])
   })

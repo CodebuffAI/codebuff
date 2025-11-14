@@ -3,7 +3,7 @@ import { describe, it, expect } from 'bun:test'
 import { convertToOpenAICompatibleChatMessages } from './convert-to-openai-compatible-chat-messages'
 
 describe('user messages', () => {
-  it('should convert messages with only a text part to a string content', async () => {
+  it('should keep messages with only a text part', async () => {
     const result = convertToOpenAICompatibleChatMessages([
       {
         role: 'user',
@@ -11,7 +11,9 @@ describe('user messages', () => {
       },
     ])
 
-    expect(result).toEqual([{ role: 'user', content: 'Hello' }])
+    expect(result).toEqual([
+      { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
+    ])
   })
 
   it('should convert messages with image parts', async () => {
@@ -244,13 +246,18 @@ describe('provider-specific metadata merging', () => {
     expect(result).toEqual([
       {
         role: 'user',
-        content: 'Hello',
-        cacheControl: { type: 'ephemeral' },
+        content: [
+          {
+            type: 'text',
+            text: 'Hello',
+            cacheControl: { type: 'ephemeral' },
+          },
+        ],
       },
     ])
   })
 
-  it('should prioritize content-level metadata when merging', async () => {
+  it('should keep both content-level and message-level metadata', async () => {
     const result = convertToOpenAICompatibleChatMessages([
       {
         role: 'user',
@@ -276,8 +283,8 @@ describe('provider-specific metadata merging', () => {
     expect(result).toEqual([
       {
         role: 'user',
-        content: 'Hello',
-        contentLevel: true,
+        content: [{ type: 'text', text: 'Hello', contentLevel: true }],
+        messageLevel: true,
       },
     ])
   })

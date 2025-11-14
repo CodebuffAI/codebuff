@@ -1,6 +1,8 @@
 import { runTerminalCommand } from '@codebuff/sdk'
 
 import { handleInitializationFlowLocally } from './init'
+import { handleUsageCommand } from './usage'
+import { getSystemMessage, getUserMessage } from '../utils/message-history'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
 import type { InputValue } from '../state/chat-store'
@@ -10,7 +12,7 @@ import type { User } from '../utils/auth'
 import type { AgentMode } from '../utils/constants'
 import type { UseMutationResult } from '@tanstack/react-query'
 
-export function routeUserPrompt(params: {
+export async function routeUserPrompt(params: {
   abortControllerRef: React.MutableRefObject<AbortController | null>
   agentMode: AgentMode
   inputRef: React.MutableRefObject<MultilineInputHandle | null>
@@ -21,6 +23,7 @@ export function routeUserPrompt(params: {
   streamMessageIdRef: React.MutableRefObject<string | null>
   addToQueue: (message: string) => void
   clearMessages: () => void
+  clearQueue: () => string[]
   handleCtrlC: () => true
   saveToHistory: (message: string) => void
   scrollToLatest: () => void
@@ -48,6 +51,7 @@ export function routeUserPrompt(params: {
     streamMessageIdRef,
     addToQueue,
     clearMessages,
+    clearQueue,
     handleCtrlC,
     saveToHistory,
     scrollToLatest,
@@ -79,19 +83,8 @@ export function routeUserPrompt(params: {
 
     setMessages((prev) => [
       ...prev,
-      {
-        id: `user-${Date.now()}`,
-        variant: 'user',
-        content: trimmed,
-        timestamp: new Date().toISOString(),
-      },
-      {
-        id: `sys-${Date.now()}`,
-        variant: 'ai',
-        content: '',
-        blocks: [resultBlock],
-        timestamp: new Date().toISOString(),
-      },
+      getUserMessage(trimmed),
+      getSystemMessage([resultBlock]),
     ])
 
     runTerminalCommand({
@@ -131,13 +124,12 @@ export function routeUserPrompt(params: {
   const normalized = trimmed.startsWith('/') ? trimmed.slice(1) : trimmed
   const cmd = normalized.split(/\s+/)[0].toLowerCase()
   if (cmd === 'login' || cmd === 'signin') {
-    const msg = {
-      id: `sys-${Date.now()}`,
-      variant: 'ai' as const,
-      content: "You're already in the app. Use /logout to switch accounts.",
-      timestamp: new Date().toISOString(),
-    }
-    setMessages((prev) => [...prev, msg])
+    setMessages((prev) => [
+      ...prev,
+      getSystemMessage(
+        "You're already in the app. Use /logout to switch accounts.",
+      ),
+    ])
     setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     return
   }
@@ -148,13 +140,7 @@ export function routeUserPrompt(params: {
 
     logoutMutation.mutate(undefined, {
       onSettled: () => {
-        const msg = {
-          id: `sys-${Date.now()}`,
-          variant: 'ai' as const,
-          content: 'Logged out.',
-          timestamp: new Date().toISOString(),
-        }
-        setMessages((prev) => [...prev, msg])
+        setMessages((prev) => [...prev, getSystemMessage('Logged out.')])
         setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
         setTimeout(() => {
           setUser(null)
@@ -166,11 +152,7 @@ export function routeUserPrompt(params: {
   }
 
   if (cmd === 'exit' || cmd === 'quit') {
-    abortControllerRef.current?.abort()
-    stopStreaming()
-    setCanProcessQueue(false)
-    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
-    handleCtrlC()
+    process.kill(process.pid, 'SIGINT')
     return
   }
 
@@ -191,6 +173,14 @@ export function routeUserPrompt(params: {
     // do not return, continue and send to agent runtime
   }
 
+  if (cmd === 'usage' || cmd === 'credits') {
+    const { postUserMessage: usagePostMessage } = await handleUsageCommand()
+    setMessages((prev) => usagePostMessage(prev))
+    saveToHistory(trimmed)
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+    return
+  }
+
   saveToHistory(trimmed)
   setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
 
@@ -202,6 +192,15 @@ export function routeUserPrompt(params: {
     addToQueue(trimmed)
     setInputFocused(true)
     inputRef.current?.focus()
+    return
+  }
+
+  if (trimmed.startsWith('/') && cmd !== 'init') {
+    setMessages((prev) => [
+      ...prev,
+      getUserMessage(trimmed),
+      getSystemMessage(`Command not found: ${JSON.stringify(trimmed)}`),
+    ])
     return
   }
 

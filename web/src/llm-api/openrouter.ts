@@ -35,6 +35,7 @@ export async function handleOpenRouterNonStream({
   body,
   userId,
   agentId,
+  openrouterApiKey,
   fetch,
   logger,
   insertMessageBigquery,
@@ -42,6 +43,7 @@ export async function handleOpenRouterNonStream({
   body: any
   userId: string
   agentId: string
+  openrouterApiKey: string | null
   fetch: typeof globalThis.fetch
   logger: Logger
   insertMessageBigquery: InsertMessageBigqueryFn
@@ -55,12 +57,13 @@ export async function handleOpenRouterNonStream({
   const startTime = new Date()
   const { clientId, clientRequestId } = extractRequestMetadata({ body, logger })
 
+  const byok = openrouterApiKey !== null
   const response = await fetch(
     'https://openrouter.ai/api/v1/chat/completions',
     {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${env.OPEN_ROUTER_API_KEY}`,
+        Authorization: `Bearer ${openrouterApiKey ?? env.OPEN_ROUTER_API_KEY}`,
         'HTTP-Referer': 'https://codebuff.com',
         'X-Title': 'Codebuff',
         'Content-Type': 'application/json',
@@ -128,6 +131,7 @@ export async function handleOpenRouterNonStream({
     cacheReadInputTokens: usage?.prompt_tokens_details?.cached_tokens ?? 0,
     reasoningTokens: usage?.completion_tokens_details?.reasoning_tokens ?? null,
     outputTokens: usage?.completion_tokens ?? 0,
+    byok,
     logger,
   })
 
@@ -138,6 +142,7 @@ export async function handleOpenRouterStream({
   body,
   userId,
   agentId,
+  openrouterApiKey,
   fetch,
   logger,
   insertMessageBigquery,
@@ -145,6 +150,7 @@ export async function handleOpenRouterStream({
   body: any
   userId: string
   agentId: string
+  openrouterApiKey: string | null
   fetch: typeof globalThis.fetch
   logger: Logger
   insertMessageBigquery: InsertMessageBigqueryFn
@@ -158,12 +164,13 @@ export async function handleOpenRouterStream({
   const startTime = new Date()
   const { clientId, clientRequestId } = extractRequestMetadata({ body, logger })
 
+  const byok = openrouterApiKey !== null
   const response = await fetch(
     'https://openrouter.ai/api/v1/chat/completions',
     {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${env.OPEN_ROUTER_API_KEY}`,
+        Authorization: `Bearer ${openrouterApiKey ?? env.OPEN_ROUTER_API_KEY}`,
         'HTTP-Referer': 'https://codebuff.com',
         'X-Title': 'Codebuff',
         'Content-Type': 'application/json',
@@ -231,6 +238,7 @@ export async function handleOpenRouterStream({
               agentId,
               clientId,
               clientRequestId,
+              byok,
               startTime,
               request: body,
               line,
@@ -288,6 +296,7 @@ async function handleLine({
   agentId,
   clientId,
   clientRequestId,
+  byok,
   startTime,
   request,
   line,
@@ -299,6 +308,7 @@ async function handleLine({
   agentId: string
   clientId: string | null
   clientRequestId: string | null
+  byok: boolean
   startTime: Date
   request: unknown
   line: string
@@ -340,6 +350,7 @@ async function handleLine({
     agentId,
     clientId,
     clientRequestId,
+    byok,
     startTime,
     request,
     data: parsed.data,
@@ -354,6 +365,7 @@ async function handleResponse({
   agentId,
   clientId,
   clientRequestId,
+  byok,
   startTime,
   request,
   data,
@@ -365,6 +377,7 @@ async function handleResponse({
   agentId: string
   clientId: string | null
   clientRequestId: string | null
+  byok: boolean
   startTime: Date
   request: unknown
   data: OpenRouterStreamChatCompletionChunk
@@ -425,6 +438,7 @@ async function handleResponse({
     cacheReadInputTokens: usage.prompt_tokens_details?.cached_tokens ?? 0,
     reasoningTokens: usage.completion_tokens_details?.reasoning_tokens ?? null,
     outputTokens: usage.completion_tokens,
+    byok,
     logger,
   })
 

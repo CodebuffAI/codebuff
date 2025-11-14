@@ -4,6 +4,7 @@ import React, { memo, type ReactNode } from 'react'
 import { useTheme } from '../hooks/use-theme'
 import { BORDER_CHARS } from '../utils/ui-constants'
 import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
+import { Button } from './button'
 
 interface AgentBranchItemProps {
   name: string
@@ -180,7 +181,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
           width: '100%',
         }}
       >
-        <box
+        <Button
           style={{
             flexDirection: 'row',
             alignItems: 'center',
@@ -190,7 +191,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
             paddingBottom: isCollapsed ? 0 : 1,
             width: '100%',
           }}
-          onMouseDown={onToggle}
+          onClick={onToggle}
         >
           <text style={{ wrapMode: 'none' }}>
             <span fg={toggleIconColor}>{toggleLabel}</span>
@@ -214,7 +215,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
               </span>
             ) : null}
           </text>
-        </box>
+        </Button>
 
         {isCollapsed ? (
           showCollapsedPreview ? (
@@ -257,7 +258,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
                 <box
                   style={{
                     width: 1,
-                    backgroundColor: theme.userLine,
+                    backgroundColor: theme.aiLine,
                     marginTop: 0,
                     marginBottom: 0,
                   }}
@@ -280,17 +281,17 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
             )}
             {renderExpandedContent(children)}
             {onToggle && (
-              <box
+              <Button
                 style={{
                   alignSelf: 'flex-end',
                   marginTop: 1,
                 }}
-                onMouseDown={onToggle}
+                onClick={onToggle}
               >
                 <text fg={theme.secondary} style={{ wrapMode: 'none' }}>
                   ▴ collapse
                 </text>
-              </box>
+              </Button>
             )}
           </box>
         )}

@@ -1,20 +1,17 @@
-import { TextAttributes } from '@opentui/core'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { routeUserPrompt } from './commands/router'
 import { AgentModeToggle } from './components/agent-mode-toggle'
+import { Button } from './components/button'
 import { LoginModal } from './components/login-modal'
-import { MessageRenderer } from './components/message-renderer'
+import { MessageWithAgents } from './components/message-with-agents'
 import {
   MultilineInput,
   type MultilineInputHandle,
 } from './components/multiline-input'
-import {
-  StatusIndicator,
-  StatusElapsedTime,
-  getStatusIndicatorState,
-} from './components/status-indicator'
+import { getStatusIndicatorState } from './utils/status-indicator-state'
+import { StatusBar } from './components/status-bar'
 import { SuggestionMenu } from './components/suggestion-menu'
 import { SLASH_COMMANDS } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
@@ -35,25 +32,20 @@ import { useSuggestionMenuHandlers } from './hooks/use-suggestion-menu-handlers'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTheme } from './hooks/use-theme'
 import { useValidationBanner } from './hooks/use-validation-banner'
+import { useQueueUi } from './hooks/use-queue-ui'
+import { useQueueControls } from './hooks/use-queue-controls'
 import { useChatStore } from './state/chat-store'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
-import { formatQueuedPreview } from './utils/helpers'
 import { loadLocalAgents } from './utils/local-agent-registry'
 import { buildMessageTree } from './utils/message-tree-utils'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
 import { BORDER_CHARS } from './utils/ui-constants'
 
-import type { SendMessageTimerEvent } from './hooks/use-send-message'
 import type { ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
+import type { FileTreeNode } from '@codebuff/common/util/file'
 import type { ScrollBoxRenderable } from '@opentui/core'
-
-const DEFAULT_AGENT_IDS = {
-  DEFAULT: 'base2',
-  MAX: 'base2-max',
-  PLAN: 'base2-plan',
-} as const
 
 export const Chat = ({
   headerContent,
@@ -63,6 +55,7 @@ export const Chat = ({
   hasInvalidCredentials,
   loadedAgentsData,
   validationErrors,
+  fileTree,
 }: {
   headerContent: React.ReactNode
   initialPrompt: string | null
@@ -74,6 +67,7 @@ export const Chat = ({
     agentsDir: string
   } | null
   validationErrors: Array<{ id: string; message: string }>
+  fileTree: FileTreeNode[]
 }) => {
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const inputRef = useRef<MultilineInputHandle | null>(null)
@@ -103,6 +97,8 @@ export const Chat = ({
     setAgentSelectedIndex,
     collapsedAgents,
     setCollapsedAgents,
+    autoCollapsedAgents,
+    addAutoCollapsedAgent,
     streamingAgents,
     setStreamingAgents,
     focusedAgentId,
@@ -119,6 +115,7 @@ export const Chat = ({
     setHasReceivedPlanResponse,
     lastMessageMode,
     setLastMessageMode,
+    addSessionCredits,
     resetChatStore,
   } = useChatStore(
     useShallow((store) => ({
@@ -134,6 +131,8 @@ export const Chat = ({
       setAgentSelectedIndex: store.setAgentSelectedIndex,
       collapsedAgents: store.collapsedAgents,
       setCollapsedAgents: store.setCollapsedAgents,
+      autoCollapsedAgents: store.autoCollapsedAgents,
+      addAutoCollapsedAgent: store.addAutoCollapsedAgent,
       streamingAgents: store.streamingAgents,
       setStreamingAgents: store.setStreamingAgents,
       focusedAgentId: store.focusedAgentId,
@@ -151,6 +150,7 @@ export const Chat = ({
       setHasReceivedPlanResponse: store.setHasReceivedPlanResponse,
       lastMessageMode: store.lastMessageMode,
       setLastMessageMode: store.setLastMessageMode,
+      addSessionCredits: store.addSessionCredits,
       resetChatStore: store.reset,
     })),
   )
@@ -191,15 +191,6 @@ export const Chat = ({
     setInputFocused,
     resetChatStore,
   })
-
-  const showAgentDisplayName = !!agentId
-  const agentDisplayName = useMemo(() => {
-    if (!loadedAgentsData) return null
-
-    const currentAgentId = agentId || DEFAULT_AGENT_IDS[agentMode]
-    const agent = loadedAgentsData.agents.find((a) => a.id === currentAgentId)
-    return agent?.displayName || currentAgentId
-  }, [loadedAgentsData, agentId, agentMode])
 
   // Refs for tracking state across renders
   const activeAgentStreamsRef = useRef<number>(0)
@@ -279,24 +270,20 @@ export const Chat = ({
 
   const localAgents = useMemo(() => loadLocalAgents(), [])
 
-  const { handleCtrlC, nextCtrlCWillExit } = useExitHandler({
-    inputValue,
-    setInputValue,
-  })
-
-  const [scrollIndicatorHovered, setScrollIndicatorHovered] = useState(false)
-
   const {
     slashContext,
     mentionContext,
     slashMatches,
     agentMatches,
+    fileMatches,
     slashSuggestionItems,
     agentSuggestionItems,
+    fileSuggestionItems,
   } = useSuggestionEngine({
     inputValue,
     slashCommands: SLASH_COMMANDS,
     localAgents,
+    fileTree,
   })
 
   // Reset suggestion menu indexes when context changes
@@ -326,19 +313,26 @@ export const Chat = ({
   }, [mentionContext.active, mentionContext.query, setAgentSelectedIndex])
 
   useEffect(() => {
-    if (agentMatches.length > 0 && agentSelectedIndex >= agentMatches.length) {
-      setAgentSelectedIndex(agentMatches.length - 1)
+    const totalMatches = agentMatches.length + fileMatches.length
+    if (totalMatches > 0 && agentSelectedIndex >= totalMatches) {
+      setAgentSelectedIndex(totalMatches - 1)
     }
-    if (agentMatches.length === 0 && agentSelectedIndex !== 0) {
+    if (totalMatches === 0 && agentSelectedIndex !== 0) {
       setAgentSelectedIndex(0)
     }
-  }, [agentMatches.length, agentSelectedIndex, setAgentSelectedIndex])
+  }, [
+    agentMatches.length,
+    fileMatches.length,
+    agentSelectedIndex,
+    setAgentSelectedIndex,
+  ])
 
   const { handleSuggestionMenuKey } = useSuggestionMenuHandlers({
     slashContext,
     mentionContext,
     slashMatches,
     agentMatches,
+    fileMatches,
     slashSelectedIndex,
     agentSelectedIndex,
     inputValue,
@@ -355,18 +349,50 @@ export const Chat = ({
   const {
     queuedMessages,
     streamStatus,
+    queuePaused,
     streamMessageIdRef,
     addToQueue,
     startStreaming,
     stopStreaming,
     setStreamStatus,
     setCanProcessQueue,
+    pauseQueue,
+    resumeQueue,
+    clearQueue,
+    isQueuePausedRef,
   } = useMessageQueue(
     (content: string) =>
       sendMessageRef.current?.({ content, agentMode }) ?? Promise.resolve(),
     isChainInProgressRef,
     activeAgentStreamsRef,
   )
+
+  const {
+    queuedCount,
+    shouldShowQueuePreview,
+    queuePreviewTitle,
+    pausedQueueText,
+    inputPlaceholder,
+  } = useQueueUi({
+    queuePaused,
+    queuedMessages,
+    separatorWidth,
+    terminalWidth,
+  })
+
+  const { handleCtrlC: baseHandleCtrlC, nextCtrlCWillExit } = useExitHandler({
+    inputValue,
+    setInputValue,
+  })
+
+  const { handleCtrlC, ensureQueueActiveBeforeSubmit } = useQueueControls({
+    queuePaused,
+    queuedCount,
+    clearQueue,
+    resumeQueue,
+    inputHasText: Boolean(inputValue),
+    baseHandleCtrlC,
+  })
 
   // Derive boolean flags from streamStatus for convenience
   const isWaitingForResponse = streamStatus === 'waiting'
@@ -403,6 +429,9 @@ export const Chat = ({
     setHasReceivedPlanResponse,
     lastMessageMode,
     setLastMessageMode,
+    addSessionCredits,
+    isQueuePausedRef,
+    resumeQueue,
   })
 
   sendMessageRef.current = sendMessage
@@ -417,45 +446,60 @@ export const Chat = ({
     sendMessageRef,
   })
 
-  const handleSubmit = useCallback(
-    () =>
-      routeUserPrompt({
-        abortControllerRef,
-        agentMode,
-        inputRef,
-        inputValue,
-        isChainInProgressRef,
-        isStreaming,
-        logoutMutation,
-        streamMessageIdRef,
-        addToQueue,
-        clearMessages,
-        handleCtrlC,
-        saveToHistory,
-        scrollToLatest,
-        sendMessage,
-        setCanProcessQueue,
-        setInputFocused,
-        setInputValue,
-        setIsAuthenticated,
-        setMessages,
-        setUser,
-        stopStreaming,
-      }),
-    [
-      agentMode,
-      inputValue,
-      isStreaming,
-      sendMessage,
-      saveToHistory,
-      addToQueue,
-      streamMessageIdRef,
-      isChainInProgressRef,
-      scrollToLatest,
-      handleCtrlC,
-    ],
-  )
+  const handleSubmit = useCallback(() => {
+    ensureQueueActiveBeforeSubmit()
 
+    return routeUserPrompt({
+      abortControllerRef,
+      agentMode,
+      inputRef,
+      inputValue,
+      isChainInProgressRef,
+      isStreaming,
+      logoutMutation,
+      streamMessageIdRef,
+      addToQueue,
+      clearMessages,
+      clearQueue,
+      handleCtrlC,
+      saveToHistory,
+      scrollToLatest,
+      sendMessage,
+      setCanProcessQueue,
+      setInputFocused,
+      setInputValue,
+      setIsAuthenticated,
+      setMessages,
+      setUser,
+      stopStreaming,
+    })
+  }, [
+    abortControllerRef,
+    agentMode,
+    inputRef,
+    inputValue,
+    isChainInProgressRef,
+    isStreaming,
+    logoutMutation,
+    streamMessageIdRef,
+    addToQueue,
+    clearMessages,
+    clearQueue,
+    handleCtrlC,
+    saveToHistory,
+    scrollToLatest,
+    sendMessage,
+    setCanProcessQueue,
+    setInputFocused,
+    setInputValue,
+    setIsAuthenticated,
+    setMessages,
+    setUser,
+    stopStreaming,
+    ensureQueueActiveBeforeSubmit,
+  ])
+
+  const totalMentionMatches = agentMatches.length + fileMatches.length
   const historyNavUpEnabled =
     lastEditDueToNav ||
     (cursorPosition === 0 &&
@@ -468,7 +512,7 @@ export const Chat = ({
       ((slashContext.active &&
         slashSelectedIndex === slashMatches.length - 1) ||
         (mentionContext.active &&
-          agentSelectedIndex === agentMatches.length - 1) ||
+          agentSelectedIndex === totalMentionMatches - 1) ||
         (!slashContext.active && !mentionContext.active)))
 
   useKeyboardHandlers({
@@ -484,6 +528,11 @@ export const Chat = ({
     navigateDown,
     toggleAgentMode,
     onCtrlC: handleCtrlC,
+    onInterrupt: () => {
+      if (queuedMessages.length > 0) {
+        pauseQueue()
+      }
+    },
     historyNavUpEnabled,
     historyNavDownEnabled,
   })
@@ -512,20 +561,13 @@ export const Chat = ({
       </text>
     ) : null
 
-  const shouldShowQueuePreview = queuedMessages.length > 0
-  const queuePreviewTitle = useMemo(() => {
-    if (!shouldShowQueuePreview) return undefined
-    const previewWidth = Math.max(30, separatorWidth - 20)
-    return formatQueuedPreview(queuedMessages, previewWidth)
-  }, [queuedMessages, separatorWidth, shouldShowQueuePreview])
   const hasSlashSuggestions =
     slashContext.active && slashSuggestionItems.length > 0
   const hasMentionSuggestions =
     !slashContext.active &&
     mentionContext.active &&
-    agentSuggestionItems.length > 0
+    (agentSuggestionItems.length > 0 || fileSuggestionItems.length > 0)
   const hasSuggestionMenu = hasSlashSuggestions || hasMentionSuggestions
-  const showAgentStatusLine = showAgentDisplayName && loadedAgentsData
 
   const inputLayoutMetrics = useMemo(() => {
     const text = inputValue ?? ''
@@ -547,8 +589,7 @@ export const Chat = ({
     })
   }, [inputValue, cursorPosition, inputWidth])
   const isMultilineInput = inputLayoutMetrics.heightLines > 1
-  const shouldCenterInputVertically =
-    !hasSuggestionMenu && !showAgentStatusLine && !isMultilineInput
+  const shouldCenterInputVertically = !hasSuggestionMenu && !isMultilineInput
   const statusIndicatorState = getStatusIndicatorState({
     clipboardMessage,
     streamStatus,
@@ -556,26 +597,24 @@ export const Chat = ({
     isConnected,
   })
   const hasStatusIndicatorContent = statusIndicatorState.kind !== 'idle'
+  const inputBoxTitle = useMemo(() => {
+    const segments: string[] = []
+
+    if (queuePreviewTitle) {
+      segments.push(queuePreviewTitle)
+    } else if (pausedQueueText) {
+      segments.push(`⏸ ${pausedQueueText}`)
+    }
+
+    if (segments.length === 0) {
+      return undefined
+    }
+
+    return ` ${segments.join('   ')} `
+  }, [queuePreviewTitle, pausedQueueText])
 
   const shouldShowStatusLine =
     hasStatusIndicatorContent || shouldShowQueuePreview || !isAtBottom
-
-  const statusIndicatorNode = (
-    <StatusIndicator
-      clipboardMessage={clipboardMessage}
-      streamStatus={streamStatus}
-      timerStartTime={timerStartTime}
-      nextCtrlCWillExit={nextCtrlCWillExit}
-      isConnected={isConnected}
-    />
-  )
-
-  const elapsedTimeNode = (
-    <StatusElapsedTime
-      streamStatus={streamStatus}
-      timerStartTime={timerStartTime}
-    />
-  )
 
   const validationBanner = useValidationBanner({
     liveValidationErrors: validationErrors,
@@ -627,25 +666,34 @@ export const Chat = ({
       >
         {headerContent}
         {virtualizationNotice}
-        <MessageRenderer
-          messages={messages}
-          messageTree={messageTree}
-          topLevelMessages={virtualTopLevelMessages}
-          availableWidth={separatorWidth}
-          theme={theme}
-          markdownPalette={markdownPalette}
-          collapsedAgents={collapsedAgents}
-          streamingAgents={streamingAgents}
-          isWaitingForResponse={isWaitingForResponse}
-          timerStartTime={timerStartTime}
-          onCollapseToggle={handleCollapseToggle}
-          setCollapsedAgents={setCollapsedAgents}
-          setFocusedAgentId={setFocusedAgentId}
-          userOpenedAgents={userOpenedAgents}
-          setUserOpenedAgents={setUserOpenedAgents}
-          onBuildFast={handleBuildFast}
-          onBuildMax={handleBuildMax}
-        />
+        {topLevelMessages.map((message, idx) => {
+          const isLast = idx === topLevelMessages.length - 1
+          return (
+            <MessageWithAgents
+              key={message.id}
+              message={message}
+              depth={0}
+              isLastMessage={isLast}
+              theme={theme}
+              markdownPalette={markdownPalette}
+              collapsedAgents={collapsedAgents}
+              autoCollapsedAgents={autoCollapsedAgents}
+              streamingAgents={streamingAgents}
+              messageTree={messageTree}
+              messages={messages}
+              availableWidth={separatorWidth}
+              setCollapsedAgents={setCollapsedAgents}
+              addAutoCollapsedAgent={addAutoCollapsedAgent}
+              setUserOpenedAgents={setUserOpenedAgents}
+              setFocusedAgentId={setFocusedAgentId}
+              isWaitingForResponse={isWaitingForResponse}
+              timerStartTime={timerStartTime}
+              onToggleCollapsed={handleCollapseToggle}
+              onBuildFast={handleBuildFast}
+              onBuildMax={handleBuildMax}
+            />
+          )
+        })}
       </scrollbox>
 
       <box
@@ -655,83 +703,27 @@ export const Chat = ({
         }}
       >
         {shouldShowStatusLine && (
-          <box
-            style={{
-              flexDirection: 'column',
-              width: '100%',
-            }}
-          >
-            {/* Main status line: status indicator | scroll indicator | elapsed time */}
-            <box
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                width: '100%',
-              }}
-            >
-              {/* Left section - status indicator */}
-              <box
-                style={{
-                  flexGrow: 1,
-                  flexShrink: 1,
-                  flexBasis: 0,
-                }}
-              >
-                <text style={{ wrapMode: 'none' }}>{statusIndicatorNode}</text>
-              </box>
-
-              {/* Center section - scroll indicator (always centered) */}
-              <box style={{ flexShrink: 0 }}>
-                {!isAtBottom && (
-                  <box
-                    style={{ paddingLeft: 2, paddingRight: 2 }}
-                    onMouseDown={() => scrollToLatest()}
-                    onMouseOver={() => setScrollIndicatorHovered(true)}
-                    onMouseOut={() => setScrollIndicatorHovered(false)}
-                  >
-                    <text>
-                      <span
-                        fg={theme.info}
-                        attributes={
-                          scrollIndicatorHovered
-                            ? TextAttributes.BOLD
-                            : TextAttributes.DIM
-                        }
-                      >
-                        {scrollIndicatorHovered ? '↓ Scroll to bottom ↓' : '↓'}
-                      </span>
-                    </text>
-                  </box>
-                )}
-              </box>
-
-              {/* Right section - elapsed time */}
-              <box
-                style={{
-                  flexGrow: 1,
-                  flexShrink: 1,
-                  flexBasis: 0,
-                  flexDirection: 'row',
-                  justifyContent: 'flex-end',
-                }}
-              >
-                <text style={{ wrapMode: 'none' }}>{elapsedTimeNode}</text>
-              </box>
-            </box>
-          </box>
+          <StatusBar
+            clipboardMessage={clipboardMessage}
+            streamStatus={streamStatus}
+            timerStartTime={timerStartTime}
+            nextCtrlCWillExit={nextCtrlCWillExit}
+            isConnected={isConnected}
+            isAtBottom={isAtBottom}
+            scrollToLatest={scrollToLatest}
+          />
         )}
 
         {/* Wrap the input row in a single OpenTUI border so the toggle stays inside the flex layout.
-            The queue preview is injected via the border title rather than custom text nodes, which
-            keeps the border coupled to the content height while preserving the inline preview look. */}
+            Non-actionable queue context is injected via the border title to keep the content
+            area stable while still surfacing that information. */}
         <box
-          title={queuePreviewTitle ? ` ${queuePreviewTitle} ` : undefined}
+          title={inputBoxTitle}
           titleAlignment="center"
           style={{
             width: '100%',
             borderStyle: 'single',
-            borderColor: theme.secondary,
-            focusedBorderColor: theme.foreground,
+            borderColor: theme.foreground,
             customBorderChars: BORDER_CHARS,
             paddingLeft: 1,
             paddingRight: 1,
@@ -751,7 +743,7 @@ export const Chat = ({
           ) : null}
           {hasMentionSuggestions ? (
             <SuggestionMenu
-              items={agentSuggestionItems}
+              items={[...agentSuggestionItems, ...fileSuggestionItems]}
               selectedIndex={agentSelectedIndex}
               maxVisible={10}
               prefix="@"
@@ -764,7 +756,7 @@ export const Chat = ({
                 ? 'center'
                 : 'flex-start',
               minHeight: shouldCenterInputVertically ? 3 : undefined,
-              gap: showAgentStatusLine ? 1 : 0,
+              gap: 0,
             }}
           >
             <box
@@ -781,11 +773,7 @@ export const Chat = ({
                   value={inputValue}
                   onChange={setInputValue}
                   onSubmit={handleSubmit}
-                  placeholder={
-                    terminalWidth < 65
-                      ? 'Enter a coding task'
-                      : 'Enter a coding task or / for commands'
-                  }
+                  placeholder={inputPlaceholder}
                   focused={inputFocused}
                   maxHeight={5}
                   width={inputWidth}
@@ -808,20 +796,6 @@ export const Chat = ({
                 />
               </box>
             </box>
-            {/* Agent status line - right-aligned under toggle */}
-            {showAgentStatusLine && (
-              <box
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'flex-end',
-                  paddingTop: 0,
-                }}
-              >
-                <text>
-                  <span fg={theme.muted}>Agent: {agentDisplayName}</span>
-                </text>
-              </box>
-            )}
           </box>
         </box>
       </box>

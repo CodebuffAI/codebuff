@@ -10,15 +10,21 @@ export const useMessageQueue = (
   const [queuedMessages, setQueuedMessages] = useState<string[]>([])
   const [streamStatus, setStreamStatus] = useState<StreamStatus>('idle')
   const [canProcessQueue, setCanProcessQueue] = useState<boolean>(true)
+  const [queuePaused, setQueuePaused] = useState<boolean>(false)
 
   const queuedMessagesRef = useRef<string[]>([])
   const streamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const streamMessageIdRef = useRef<string | null>(null)
+  const isQueuePausedRef = useRef<boolean>(false)
 
   useEffect(() => {
     queuedMessagesRef.current = queuedMessages
   }, [queuedMessages])
+
+  useEffect(() => {
+    isQueuePausedRef.current = queuePaused
+  }, [queuePaused])
 
   const clearStreaming = useCallback(() => {
     if (streamTimeoutRef.current) {
@@ -41,7 +47,7 @@ export const useMessageQueue = (
   }, [clearStreaming])
 
   useEffect(() => {
-    if (!canProcessQueue) return
+    if (!canProcessQueue || queuePaused) return
     if (streamStatus !== 'idle') return
     if (streamMessageIdRef.current) return
     if (isChainInProgressRef.current) return
@@ -61,6 +67,7 @@ export const useMessageQueue = (
     return () => clearTimeout(timeoutId)
   }, [
     canProcessQueue,
+    queuePaused,
     streamStatus,
     sendMessage,
     isChainInProgressRef,
@@ -73,6 +80,23 @@ export const useMessageQueue = (
     setQueuedMessages(newQueue)
   }, [])
 
+  const pauseQueue = useCallback(() => {
+    setQueuePaused(true)
+    setCanProcessQueue(false)
+  }, [])
+
+  const resumeQueue = useCallback(() => {
+    setQueuePaused(false)
+    setCanProcessQueue(true)
+  }, [])
+
+  const clearQueue = useCallback(() => {
+    const current = queuedMessagesRef.current
+    queuedMessagesRef.current = []
+    setQueuedMessages([])
+    return current
+  }, [])
+
   const startStreaming = useCallback(() => {
     setStreamStatus('streaming')
     setCanProcessQueue(false)
@@ -80,13 +104,14 @@ export const useMessageQueue = (
 
   const stopStreaming = useCallback(() => {
     setStreamStatus('idle')
-    setCanProcessQueue(true)
-  }, [])
+    setCanProcessQueue(!queuePaused)
+  }, [queuePaused])
 
   return {
     queuedMessages,
     streamStatus,
     canProcessQueue,
+    queuePaused,
     streamMessageIdRef,
     addToQueue,
     startStreaming,
@@ -94,5 +119,9 @@ export const useMessageQueue = (
     setStreamStatus,
     clearStreaming,
     setCanProcessQueue,
+    pauseQueue,
+    resumeQueue,
+    clearQueue,
+    isQueuePausedRef,
   }
 }

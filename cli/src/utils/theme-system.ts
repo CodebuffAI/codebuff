@@ -4,6 +4,8 @@ import { dirname, join } from 'path'
 
 import { detectShell } from './detect-shell'
 import { logger } from './logger'
+import { detectTerminalTheme } from './terminal-color-detection'
+import { withTerminalInputGuard } from './terminal-input-guard'
 
 import type { MarkdownPalette } from './markdown-renderer'
 import type {
@@ -472,6 +474,10 @@ const extractZedTheme = (content: string): ThemeName | null => {
 }
 
 const detectZedTheme = (): ThemeName | null => {
+  if (!isZedTerminal()) {
+    return null
+  }
+
   const settingsPaths = collectExistingPaths(resolveZedSettingsPaths())
   for (const settingsPath of settingsPaths) {
     const content = safeReadFile(settingsPath)
@@ -503,7 +509,7 @@ const detectZedTheme = (): ThemeName | null => {
   return null
 }
 
-const detectIDETheme = (): ThemeName | null => {
+export const detectIDETheme = (): ThemeName | null => {
   const detectors = [detectVSCodeTheme, detectJetBrainsTheme, detectZedTheme]
   for (const detector of detectors) {
     const theme = detector()
@@ -670,9 +676,6 @@ const runSystemCommand = (command: string[]): string | null => {
 function detectWindowsPowerShellTheme(): ThemeName | null {
   if (process.platform !== 'win32') return null
 
-  const shell = detectShell()
-  if (shell !== 'powershell') return null
-
   const bgColor = runSystemCommand([
     'powershell',
     '-NoProfile',
@@ -685,9 +688,27 @@ function detectWindowsPowerShellTheme(): ThemeName | null {
   const colorLower = bgColor.toLowerCase()
 
   // Dark background colors in PowerShell
-  const darkColors = ['black', 'darkblue', 'darkgreen', 'darkcyan', 'darkred', 'darkmagenta', 'darkyellow', 'darkgray']
+  const darkColors = [
+    'black',
+    'darkblue',
+    'darkgreen',
+    'darkcyan',
+    'darkred',
+    'darkmagenta',
+    'darkyellow',
+    'darkgray',
+  ]
   // Light background colors in PowerShell
-  const lightColors = ['gray', 'blue', 'green', 'cyan', 'red', 'magenta', 'yellow', 'white']
+  const lightColors = [
+    'gray',
+    'blue',
+    'green',
+    'cyan',
+    'red',
+    'magenta',
+    'yellow',
+    'white',
+  ]
 
   if (darkColors.includes(colorLower)) return 'dark'
   if (lightColors.includes(colorLower)) return 'light'
@@ -695,23 +716,14 @@ function detectWindowsPowerShellTheme(): ThemeName | null {
   return null
 }
 
-const detectTerminalOverrides = (): ThemeName | null => {
+export const detectTerminalOverrides = (): ThemeName | null => {
   const termProgram = (process.env.TERM_PROGRAM ?? '').toLowerCase()
   const term = (process.env.TERM ?? '').toLowerCase()
-
-  // Ghostty renders our light theme text too dark; force dark for legibility
-  if (
-    termProgram.includes('ghostty') ||
-    term.includes('ghostty') ||
-    typeof process.env.GHOSTTY_RESOURCES_DIR === 'string'
-  ) {
-    return 'dark'
-  }
 
   return null
 }
 
-function detectPlatformTheme(): ThemeName {
+export function detectPlatformTheme(): ThemeName {
   if (typeof Bun !== 'undefined') {
     if (process.platform === 'darwin') {
       const value = runSystemCommand([
@@ -755,44 +767,9 @@ function detectPlatformTheme(): ThemeName {
   return 'dark'
 }
 
-export const detectSystemTheme = (): ThemeName => {
-  const envPreference = process.env.OPEN_TUI_THEME ?? process.env.OPENTUI_THEME
-  const normalizedEnv = envPreference?.toLowerCase()
-
-  if (normalizedEnv === 'dark' || normalizedEnv === 'light') {
-    return normalizedEnv
-  }
-
-  // Helper to detect theme with priority: Terminal override > IDE > OSC > Platform > Default
-  const detectPreferredTheme = (): ThemeName => {
-    const terminalOverrideTheme = detectTerminalOverrides()
-    if (terminalOverrideTheme) {
-      return terminalOverrideTheme
-    }
-
-    const ideTheme = detectIDETheme()
-    if (ideTheme) {
-      return ideTheme
-    }
-
-    if (oscDetectedTheme) {
-      return oscDetectedTheme
-    }
-
-    return detectPlatformTheme()
-  }
-
-  const preferredTheme = detectPreferredTheme()
-
-  if (normalizedEnv === 'opposite') {
-    return preferredTheme === 'dark' ? 'light' : 'dark'
-  }
-
-  return preferredTheme
-}
-
 const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
   dark: {
+    name: 'dark',
     // Core semantic colors
     primary: '#facc15',
     secondary: '#a3aed0',
@@ -804,13 +781,13 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     // Neutral scale
     foreground: '#f1f5f9',
     background: 'transparent',
-    muted: '#9ca3af',
-    border: '#334155',
-    surface: '#000000',
+    muted: '#acb3bf',
+    border: '#536175',
+    surface: '#202327',
     surfaceHover: '#334155',
 
     // Context-specific
-    aiLine: '#34d399',
+    aiLine: '#6b7280',
     userLine: '#38bdf8',
 
     // Agent backgrounds
@@ -818,11 +795,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     agentToggleExpandedBg: '#1d4ed8',
     agentFocusedBg: '#334155',
     agentContentBg: '#000000',
-
-    // Input
-    inputBg: '#000000',
     inputFg: '#f5f5f5',
-    inputFocusedBg: '#000000',
     inputFocusedFg: '#ffffff',
 
     // Mode toggles
@@ -856,6 +829,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     },
   },
   light: {
+    name: 'light',
     // Core semantic colors
     primary: '#f59e0b',
     secondary: '#6b7280',
@@ -873,7 +847,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     surfaceHover: '#e5e7eb',
 
     // AI/User context
-    aiLine: '#059669',
+    aiLine: '#6b7280',
     userLine: '#3b82f6',
 
     // Agent context
@@ -881,11 +855,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     agentToggleExpandedBg: '#1d4ed8',
     agentFocusedBg: '#f3f4f6',
     agentContentBg: '#ffffff',
-
-    // Input
-    inputBg: '#f9fafb',
     inputFg: '#111827',
-    inputFocusedBg: '#ffffff',
     inputFocusedFg: '#000000',
 
     // Mode toggles
@@ -1012,8 +982,17 @@ const FILE_WATCHER_DEBOUNCE_MS = 250
 
 let lastDetectedTheme: ThemeName | null = null
 let themeStoreUpdater: ((name: ThemeName) => void) | null = null
+// OSC detections happen asynchronously and at most once.
+// We cache the resolved value so synchronous theme code can read it later
+// without triggering terminal I/O.
 let oscDetectedTheme: ThemeName | null = null
 let pendingRecomputeTimer: NodeJS.Timeout | null = null
+let themeResolver: (() => ThemeName) | null = null
+
+export const getOscDetectedTheme = (): ThemeName | null => oscDetectedTheme
+export const setThemeResolver = (resolver: () => ThemeName) => {
+  themeResolver = resolver
+}
 
 /**
  * Initialize theme store updater
@@ -1036,7 +1015,11 @@ const recomputeSystemTheme = (source: string) => {
     return
   }
 
-  const newTheme = detectSystemTheme()
+  if (!themeResolver) {
+    return
+  }
+
+  const newTheme = themeResolver()
 
   // Always call the updater and let it decide if an update is needed
   lastDetectedTheme = newTheme
@@ -1143,9 +1126,12 @@ process.on('SIGUSR2', () => {
  * Initialize OSC theme detection with a one-time check
  * Runs in a separate process to avoid blocking and hiding I/O from user
  */
-export async function initializeOSCDetection(): Promise<void> {
-  // Don't await - fire and forget
-  detectOSCInBackground()
+export function initializeOSCDetection(): void {
+  const ideTheme = detectIDETheme()
+  if (ideTheme) {
+    return
+  }
+  void detectOSCInBackground()
 }
 
 /**
@@ -1158,48 +1144,18 @@ async function detectOSCInBackground() {
     return
   }
 
-  try {
-    // Spawn self with internal flag to run OSC detection
-    // Use stored CLI entry point path
-    const cliEntryPoint = (globalThis as any).__CLI_ENTRY_POINT || Bun.main
-    const proc = Bun.spawn({
-      cmd: [process.execPath, cliEntryPoint, '--internal-osc-detect'],
-      stdio: ['ignore', 'pipe', 'ignore'], // pipe stdout only, ignore stdin/stderr
-      timeout: 2000, // 2 second timeout to allow for module loading
-      env: {
-        ...process.env,
-        __INTERNAL_OSC_DETECT: '1', // Suppress console output
-      },
-    })
-
-    // Read result from stdout
-    const text = await new Response(proc.stdout).text()
-
-    // Extract JSON from output (ignore any console.log noise)
-    // Look for the last line that starts with { or contains "theme"
-    const lines = text.trim().split('\n')
-    let jsonLine = ''
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const line = lines[i].trim()
-      if (line.startsWith('{') && line.includes('theme')) {
-        jsonLine = line
-        break
+  await withTerminalInputGuard(async () => {
+    try {
+      const theme = await detectTerminalTheme()
+      if (theme) {
+        oscDetectedTheme = theme
+        recomputeSystemTheme('osc-inline')
       }
+    } catch (error) {
+      logger.warn(
+        { error: error instanceof Error ? error.message : String(error) },
+        'OSC detection failed',
+      )
     }
-
-    if (!jsonLine) return
-
-    const result = JSON.parse(jsonLine) as { theme: 'dark' | 'light' | null }
-
-    if (result.theme) {
-      oscDetectedTheme = result.theme
-      // Trigger theme recomputation to apply OSC-detected theme
-      recomputeSystemTheme('osc-background')
-    }
-  } catch (error) {
-    logger.warn(
-      { error: error instanceof Error ? error.message : String(error) },
-      'OSC detection failed',
-    )
-  }
+  })
 }

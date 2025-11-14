@@ -13,6 +13,8 @@ import { createValidationErrorBlocks } from './utils/create-validation-error-blo
 import { openFileAtPath } from './utils/open-file'
 import { pluralize } from '@codebuff/common/util/string'
 
+import type { FileTreeNode } from '@codebuff/common/util/file'
+
 interface AppProps {
   initialPrompt: string | null
   agentId?: string
@@ -23,6 +25,7 @@ interface AppProps {
     agentsDir: string
   } | null
   validationErrors: Array<{ id: string; message: string }>
+  fileTree: FileTreeNode[]
 }
 
 export const App = ({
@@ -32,6 +35,7 @@ export const App = ({
   hasInvalidCredentials,
   loadedAgentsData,
   validationErrors,
+  fileTree,
 }: AppProps) => {
   const { contentMaxWidth, separatorWidth } = useTerminalDimensions()
   const theme = useTheme()
@@ -177,6 +181,7 @@ export const App = ({
       hasInvalidCredentials={hasInvalidCredentials}
       loadedAgentsData={loadedAgentsData}
       validationErrors={validationErrors}
+      fileTree={fileTree}
     />
   )
 }

@@ -293,8 +293,8 @@ export type ModelName =
   // Recommended Models
 
   // OpenAI
-  | 'openai/gpt-5'
-  | 'openai/gpt-5-chat'
+  | 'openai/gpt-5.1'
+  | 'openai/gpt-5.1-chat'
   | 'openai/gpt-5-mini'
   | 'openai/gpt-5-nano'
 

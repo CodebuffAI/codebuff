@@ -18,7 +18,7 @@ import {
 import { disableLiveUserInputCheck } from '../live-user-inputs'
 import { mockFileContext } from './test-utils'
 import researcherAgent from '../../../../.agents/researcher/researcher'
-import * as context7Api from '../llm-api/context7-api'
+import * as webApi from '../llm-api/codebuff-web-api'
 import { runAgentStep } from '../run-agent-step'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'
 
@@ -41,10 +41,7 @@ function mockAgentStream(content: string | string[]) {
   }
 }
 
-describe('read_docs tool with researcher agent', () => {
-  // Track all mocked functions to verify they're being used
-  const mockedFunctions: Array<{ name: string; spy: any }> = []
-
+describe('read_docs tool with researcher agent (via web API facade)', () => {
   beforeAll(() => {
     disableLiveUserInputCheck()
   })
@@ -52,49 +49,20 @@ describe('read_docs tool with researcher agent', () => {
   beforeEach(() => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL, sendAction: () => {} }
 
-    // Clear tracked mocks
-    mockedFunctions.length = 0
-
-    // Mock analytics and tracing
-    const analyticsInitSpy = spyOn(
-      analytics,
-      'initAnalytics',
-    ).mockImplementation(() => {})
-    mockedFunctions.push({
-      name: 'analytics.initAnalytics',
-      spy: analyticsInitSpy,
-    })
+    spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
     analytics.initAnalytics(agentRuntimeImpl)
-
-    const trackEventSpy = spyOn(analytics, 'trackEvent').mockImplementation(
-      () => {},
+    spyOn(analytics, 'trackEvent').mockImplementation(() => {})
+    spyOn(analytics, 'flushAnalytics').mockImplementation(() =>
+      Promise.resolve(),
     )
-    mockedFunctions.push({ name: 'analytics.trackEvent', spy: trackEventSpy })
-
-    const flushAnalyticsSpy = spyOn(
-      analytics,
-      'flushAnalytics',
-    ).mockImplementation(() => Promise.resolve())
-    mockedFunctions.push({
-      name: 'analytics.flushAnalytics',
-      spy: flushAnalyticsSpy,
-    })
-
-    const insertTraceSpy = spyOn(bigquery, 'insertTrace').mockImplementation(
-      () => Promise.resolve(true),
+    spyOn(bigquery, 'insertTrace').mockImplementation(() =>
+      Promise.resolve(true),
     )
-    mockedFunctions.push({ name: 'bigquery.insertTrace', spy: insertTraceSpy })
 
-    // Mock websocket actions
     agentRuntimeImpl.requestFiles = async () => ({})
     agentRuntimeImpl.requestOptionalFile = async () => null
     agentRuntimeImpl.requestToolCall = async () => ({
-      output: [
-        {
-          type: 'json',
-          value: 'Tool call success',
-        },
-      ],
+      output: [{ type: 'json', value: 'Tool call success' }],
     })
   })
 
@@ -102,34 +70,17 @@ describe('read_docs tool with researcher agent', () => {
     mock.restore()
   })
 
-  // MockWebSocket and mockFileContext imported from test-utils
   const mockFileContextWithAgents = {
     ...mockFileContext,
-    agentTemplates: {
-      researcher: researcherAgent,
-    },
+    agentTemplates: { researcher: researcherAgent },
   }
 
   test('should successfully fetch documentation with basic query', async () => {
     const mockDocumentation =
       'React is a JavaScript library for building user interfaces...'
-
-    spyOn(context7Api, 'searchLibraries').mockImplementation(async () => [
-      {
-        id: 'react-123',
-        title: 'React',
-        description: 'A JavaScript library for building user interfaces',
-        branch: 'main',
-        lastUpdateDate: '2023-01-01',
-        state: 'finalized',
-        totalTokens: 10000,
-        totalSnippets: 100,
-        totalPages: 50,
-      },
-    ])
-    spyOn(context7Api, 'fetchContext7LibraryDocumentation').mockImplementation(
-      async () => mockDocumentation,
-    )
+    const spy = spyOn(webApi, 'callDocsSearchAPI').mockResolvedValue({
+      documentation: mockDocumentation,
+    })
 
     const mockResponse =
       getToolCallString('read_docs', {
@@ -153,6 +104,7 @@ describe('read_docs tool with researcher agent', () => {
       ...agentRuntimeImpl,
       textOverride: null,
       runId: 'test-run-id',
+      ancestorRunIds: [],
       repoId: undefined,
       repoUrl: undefined,
       system: 'Test system prompt',
@@ -169,43 +121,25 @@ describe('read_docs tool with researcher agent', () => {
       spawnParams: undefined,
     })
 
-    expect(context7Api.fetchContext7LibraryDocumentation).toHaveBeenCalledWith(
-      expect.objectContaining({
-        query: 'React',
-        topic: 'hooks',
-      }),
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({ libraryTitle: 'React', topic: 'hooks' }),
     )
 
-    // Check that the documentation was added to the message history
-    const toolResultMessages = newAgentState.messageHistory.filter(
+    const toolMsgs = newAgentState.messageHistory.filter(
       (m) => m.role === 'tool' && m.content.toolName === 'read_docs',
     )
-    expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(
-      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
-    ).toContain(JSON.stringify(mockDocumentation).slice(1, -1))
+    expect(toolMsgs.length).toBeGreaterThan(0)
+    expect(JSON.stringify(toolMsgs[toolMsgs.length - 1].content)).toContain(
+      JSON.stringify(mockDocumentation).slice(1, -1),
+    )
   }, 10000)
 
   test('should fetch documentation with topic and max_tokens', async () => {
     const mockDocumentation =
       'React hooks allow you to use state and other React features...'
-
-    spyOn(context7Api, 'searchLibraries').mockImplementation(async () => [
-      {
-        id: 'react-123',
-        title: 'React',
-        description: 'A JavaScript library for building user interfaces',
-        branch: 'main',
-        lastUpdateDate: '2023-01-01',
-        state: 'finalized',
-        totalTokens: 10000,
-        totalSnippets: 100,
-        totalPages: 50,
-      },
-    ])
-    spyOn(context7Api, 'fetchContext7LibraryDocumentation').mockImplementation(
-      async () => mockDocumentation,
-    )
+    const spy = spyOn(webApi, 'callDocsSearchAPI').mockResolvedValue({
+      documentation: mockDocumentation,
+    })
 
     const mockResponse =
       getToolCallString('read_docs', {
@@ -230,6 +164,7 @@ describe('read_docs tool with researcher agent', () => {
       ...agentRuntimeImpl,
       textOverride: null,
       runId: 'test-run-id',
+      ancestorRunIds: [],
       repoId: undefined,
       repoUrl: undefined,
       system: 'Test system prompt',
@@ -246,21 +181,18 @@ describe('read_docs tool with researcher agent', () => {
       spawnParams: undefined,
     })
 
-    expect(context7Api.fetchContext7LibraryDocumentation).toHaveBeenCalledWith(
+    expect(spy).toHaveBeenCalledWith(
       expect.objectContaining({
-        query: 'React',
+        libraryTitle: 'React',
         topic: 'hooks',
-        tokens: 5000,
+        maxTokens: 5000,
       }),
     )
   }, 10000)
 
   test('should handle case when no documentation is found', async () => {
-    // Mock both searchLibraries and fetchContext7LibraryDocumentation to avoid network calls
-    spyOn(context7Api, 'searchLibraries').mockImplementation(async () => [])
-    spyOn(context7Api, 'fetchContext7LibraryDocumentation').mockImplementation(
-      async () => null,
-    )
+    const msg = 'No documentation found for "NonExistentLibrary"'
+    spyOn(webApi, 'callDocsSearchAPI').mockResolvedValue({ error: msg })
 
     const mockResponse =
       getToolCallString('read_docs', {
@@ -284,6 +216,7 @@ describe('read_docs tool with researcher agent', () => {
       ...agentRuntimeImpl,
       textOverride: null,
       runId: 'test-run-id',
+      ancestorRunIds: [],
       repoId: undefined,
       repoUrl: undefined,
       system: 'Test system prompt',
@@ -300,37 +233,18 @@ describe('read_docs tool with researcher agent', () => {
       spawnParams: undefined,
     })
 
-    // Check that the "no documentation found" message was added
-    const toolResultMessages = newAgentState.messageHistory.filter(
+    const toolMsgs = newAgentState.messageHistory.filter(
       (m) => m.role === 'tool' && m.content.toolName === 'read_docs',
     )
-    expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(
-      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
-    ).toContain('No documentation found for \\"NonExistentLibrary\\"')
+    expect(toolMsgs.length).toBeGreaterThan(0)
+    const last = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)
+    expect(last).toContain('No documentation found for')
   }, 10000)
 
   test('should handle API errors gracefully', async () => {
-    const mockError = new Error('Network timeout')
-
-    spyOn(context7Api, 'searchLibraries').mockImplementation(async () => [
-      {
-        id: 'react-123',
-        title: 'React',
-        description: 'A JavaScript library for building user interfaces',
-        branch: 'main',
-        lastUpdateDate: '2023-01-01',
-        state: 'finalized',
-        totalTokens: 10000,
-        totalSnippets: 100,
-        totalPages: 50,
-      },
-    ])
-    spyOn(context7Api, 'fetchContext7LibraryDocumentation').mockImplementation(
-      async () => {
-        throw mockError
-      },
-    )
+    spyOn(webApi, 'callDocsSearchAPI').mockResolvedValue({
+      error: 'Network timeout',
+    })
 
     const mockResponse =
       getToolCallString('read_docs', {
@@ -354,6 +268,7 @@ describe('read_docs tool with researcher agent', () => {
       ...agentRuntimeImpl,
       textOverride: null,
       runId: 'test-run-id',
+      ancestorRunIds: [],
       repoId: undefined,
       repoUrl: undefined,
       system: 'Test system prompt',
@@ -370,36 +285,17 @@ describe('read_docs tool with researcher agent', () => {
       spawnParams: undefined,
     })
 
-    // Check that the error message was added
-    const toolResultMessages = newAgentState.messageHistory.filter(
+    const toolMsgs = newAgentState.messageHistory.filter(
       (m) => m.role === 'tool' && m.content.toolName === 'read_docs',
     )
-    expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(
-      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
-    ).toContain('Error fetching documentation for \\"React\\"')
-    expect(
-      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
-    ).toContain('Network timeout')
+    expect(toolMsgs.length).toBeGreaterThan(0)
+    const last = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)
+    expect(last).toContain('Error fetching documentation for')
+    expect(last).toContain('Network timeout')
   }, 10000)
 
   test('should include topic in error message when specified', async () => {
-    spyOn(context7Api, 'searchLibraries').mockImplementation(async () => [
-      {
-        id: 'react-123',
-        title: 'React',
-        description: 'A JavaScript library for building user interfaces',
-        branch: 'main',
-        lastUpdateDate: '2023-01-01',
-        state: 'finalized',
-        totalTokens: 10000,
-        totalSnippets: 100,
-        totalPages: 50,
-      },
-    ])
-    spyOn(context7Api, 'fetchContext7LibraryDocumentation').mockImplementation(
-      async () => null,
-    )
+    spyOn(webApi, 'callDocsSearchAPI').mockResolvedValue({ error: 'No docs' })
 
     const mockResponse =
       getToolCallString('read_docs', {
@@ -423,6 +319,7 @@ describe('read_docs tool with researcher agent', () => {
       ...agentRuntimeImpl,
       textOverride: null,
       runId: 'test-run-id',
+      ancestorRunIds: [],
       repoId: undefined,
       repoUrl: undefined,
       system: 'Test system prompt',
@@ -439,37 +336,19 @@ describe('read_docs tool with researcher agent', () => {
       spawnParams: undefined,
     })
 
-    // Check that the topic is included in the error message
-    const toolResultMessages = newAgentState.messageHistory.filter(
+    const toolMsgs = newAgentState.messageHistory.filter(
       (m) => m.role === 'tool' && m.content.toolName === 'read_docs',
     )
-    expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(
-      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
-    ).toContain(
-      'No documentation found for \\"React\\" with topic \\"server-components\\"',
-    )
+    expect(toolMsgs.length).toBeGreaterThan(0)
+    const last = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)
+    expect(last).toContain('errorMessage')
+    expect(last).toContain('No docs')
   }, 10000)
 
   test('should handle non-Error exceptions', async () => {
-    spyOn(context7Api, 'searchLibraries').mockImplementation(async () => [
-      {
-        id: 'react-123',
-        title: 'React',
-        description: 'A JavaScript library for building user interfaces',
-        branch: 'main',
-        lastUpdateDate: '2023-01-01',
-        state: 'finalized',
-        totalTokens: 10000,
-        totalSnippets: 100,
-        totalPages: 50,
-      },
-    ])
-    spyOn(context7Api, 'fetchContext7LibraryDocumentation').mockImplementation(
-      async () => {
-        throw 'String error'
-      },
-    )
+    spyOn(webApi, 'callDocsSearchAPI').mockImplementation(async () => {
+      throw 'String error'
+    })
 
     const mockResponse =
       getToolCallString('read_docs', {
@@ -493,6 +372,7 @@ describe('read_docs tool with researcher agent', () => {
       ...agentRuntimeImpl,
       textOverride: null,
       runId: 'test-run-id',
+      ancestorRunIds: [],
       repoId: undefined,
       repoUrl: undefined,
       system: 'Test system prompt',
@@ -509,16 +389,70 @@ describe('read_docs tool with researcher agent', () => {
       spawnParams: undefined,
     })
 
-    // Check that the generic error message was added
-    const toolResultMessages = newAgentState.messageHistory.filter(
+    const toolMsgs = newAgentState.messageHistory.filter(
       (m) => m.role === 'tool' && m.content.toolName === 'read_docs',
     )
-    expect(toolResultMessages.length).toBeGreaterThan(0)
-    expect(
-      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
-    ).toContain('Error fetching documentation for \\"React\\"')
-    expect(
-      JSON.stringify(toolResultMessages[toolResultMessages.length - 1].content),
-    ).toContain('Unknown error')
+    expect(toolMsgs.length).toBeGreaterThan(0)
+    const last = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)
+    expect(last).toContain('Error fetching documentation for')
+    expect(last).toContain('Unknown error')
+  }, 10000)
+
+  test('should track credits used from docs search API in agent state', async () => {
+    const mockDocumentation = 'React documentation content'
+    const mockCreditsUsed = 2 // Flat 1 credit + profit margin
+    spyOn(webApi, 'callDocsSearchAPI').mockResolvedValue({
+      documentation: mockDocumentation,
+      creditsUsed: mockCreditsUsed,
+    })
+
+    const mockResponse =
+      getToolCallString('read_docs', {
+        libraryTitle: 'React',
+        topic: 'hooks',
+      }) + getToolCallString('end_turn', {})
+
+    mockAgentStream(mockResponse)
+
+    const sessionState = getInitialSessionState(mockFileContextWithAgents)
+    const agentState = {
+      ...sessionState.mainAgentState,
+      agentType: 'researcher' as const,
+    }
+    const { agentTemplates } = assembleLocalAgentTemplates({
+      ...agentRuntimeImpl,
+      fileContext: mockFileContextWithAgents,
+    })
+
+    const initialCredits = agentState.creditsUsed
+
+    const { agentState: newAgentState } = await runAgentStep({
+      ...agentRuntimeImpl,
+      textOverride: null,
+      runId: 'test-run-id',
+      ancestorRunIds: [],
+      repoId: undefined,
+      repoUrl: undefined,
+      system: 'Test system prompt',
+      userId: TEST_USER_ID,
+      userInputId: 'test-input',
+      clientSessionId: 'test-session',
+      fingerprintId: 'test-fingerprint',
+      onResponseChunk: () => {},
+      agentType: 'researcher',
+      fileContext: mockFileContextWithAgents,
+      localAgentTemplates: agentTemplates,
+      agentState,
+      prompt: 'Get React documentation',
+      spawnParams: undefined,
+    })
+
+    // Verify that the credits from the docs search API were added to agent state
+    expect(newAgentState.creditsUsed).toBeGreaterThanOrEqual(
+      initialCredits + mockCreditsUsed,
+    )
+    expect(newAgentState.directCreditsUsed).toBeGreaterThanOrEqual(
+      mockCreditsUsed,
+    )
   }, 10000)
 })

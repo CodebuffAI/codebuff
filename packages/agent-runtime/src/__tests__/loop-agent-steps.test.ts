@@ -172,6 +172,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       localAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
     })
 
@@ -219,6 +220,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       localAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
     })
 
@@ -268,6 +270,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       localAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
     })
 
@@ -316,6 +319,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       localAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
     })
 
@@ -357,6 +361,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       localAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
     })
 
@@ -390,6 +395,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       localAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
     })
 
@@ -425,6 +431,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       localAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
     })
 
@@ -477,6 +484,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       localAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
     })
 
@@ -534,6 +542,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       localAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
     })
 
@@ -605,6 +614,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       localAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
     })
 
@@ -689,6 +699,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       localAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
     })
 
@@ -763,6 +774,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       localAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
     })
 
@@ -810,6 +822,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       localAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
     })
 
@@ -879,6 +892,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       localAgentTemplates,
       userId: TEST_USER_ID,
       clientSessionId: 'test-session',
+      ancestorRunIds: [],
       onResponseChunk: () => {},
     })
 

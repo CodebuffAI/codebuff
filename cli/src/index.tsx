@@ -1,28 +1,10 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 
-const cliEntryPoint =
-  (typeof Bun !== 'undefined' && typeof Bun.main === 'string' && Bun.main) ||
-  (typeof process !== 'undefined' &&
-    Array.isArray(process.argv) &&
-    process.argv[1]) ||
-  ''
-
-if (cliEntryPoint && typeof globalThis !== 'undefined') {
-  const globalScope = globalThis as Record<string, unknown>
-  if (!('__CLI_ENTRY_POINT' in globalScope)) {
-    Object.defineProperty(globalScope, '__CLI_ENTRY_POINT', {
-      value: cliEntryPoint,
-      enumerable: false,
-      writable: false,
-      configurable: false,
-    })
-  }
-}
-
-import './polyfills/bun-strip-ansi'
+import { promises as fs } from 'fs'
 import { createRequire } from 'module'
 
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
+import { getProjectFileTree } from '@codebuff/common/project-file-tree'
 import { validateAgents } from '@codebuff/sdk'
 import { render } from '@opentui/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -30,15 +12,25 @@ import { Command } from 'commander'
 import React from 'react'
 
 import { App } from './app'
+import { initializeThemeStore } from './hooks/use-theme'
+import { getProjectRoot } from './project-files'
 import { getUserCredentials } from './utils/auth'
 import { loadAgentDefinitions } from './utils/load-agent-definitions'
 import { getLoadedAgentsData } from './utils/local-agent-registry'
-import { clearLogFile } from './utils/logger'
-import { initializeThemeStore } from './state/theme-store'
+import { clearLogFile, logger } from './utils/logger'
+
+import type { FileTreeNode } from '@codebuff/common/util/file'
 
 const require = createRequire(import.meta.url)
 
 const INTERNAL_OSC_FLAG = '--internal-osc-detect'
+const OSC_DEBUG_ENABLED = process.env.CODEBUFF_OSC_DEBUG === '1'
+
+function logOscDebug(message: string, data?: Record<string, unknown>) {
+  if (!OSC_DEBUG_ENABLED) return
+  const payload = data ? ` ${JSON.stringify(data)}` : ''
+  console.error(`[osc:subprocess] ${message}${payload}`)
+}
 
 function isOscDetectionRun(): boolean {
   return process.argv.includes(INTERNAL_OSC_FLAG)
@@ -48,13 +40,21 @@ async function runOscDetectionSubprocess(): Promise<void> {
   // Set env vars to keep subprocess quiet
   process.env.__INTERNAL_OSC_DETECT = '1'
   process.env.CODEBUFF_GITHUB_ACTIONS = 'true'
+  if (process.env.CODEBUFF_OSC_DEBUG === undefined) {
+    process.env.CODEBUFF_OSC_DEBUG = '1'
+  }
+  logOscDebug('Starting OSC detection flag run')
 
   // Avoid importing logger or other modules that produce output
   const { detectTerminalTheme, terminalSupportsOSC } = await import(
     './utils/terminal-color-detection'
   )
 
-  if (!terminalSupportsOSC()) {
+  const oscSupported = terminalSupportsOSC()
+  logOscDebug('terminalSupportsOSC result', { oscSupported })
+
+  if (!oscSupported) {
+    logOscDebug('Terminal does not support OSC queries, returning null theme')
     console.log(JSON.stringify({ theme: null }))
     await new Promise((resolve) => setImmediate(resolve))
     process.exit(0)
@@ -62,9 +62,13 @@ async function runOscDetectionSubprocess(): Promise<void> {
 
   try {
     const theme = await detectTerminalTheme()
+    logOscDebug('detectTerminalTheme resolved', { theme })
     console.log(JSON.stringify({ theme }))
     await new Promise((resolve) => setImmediate(resolve))
-  } catch {
+  } catch (error) {
+    logOscDebug('detectTerminalTheme threw', {
+      error: error instanceof Error ? error.message : String(error),
+    })
     console.log(JSON.stringify({ theme: null }))
     await new Promise((resolve) => setImmediate(resolve))
   }
@@ -171,6 +175,7 @@ async function bootstrapCli(): Promise<void> {
     const [requireAuth, setRequireAuth] = React.useState<boolean | null>(null)
     const [hasInvalidCredentials, setHasInvalidCredentials] =
       React.useState(false)
+    const [fileTree, setFileTree] = React.useState<FileTreeNode[]>([])
 
     React.useEffect(() => {
       const userCredentials = getUserCredentials()
@@ -187,6 +192,26 @@ async function bootstrapCli(): Promise<void> {
       setRequireAuth(false)
     }, [])
 
+    React.useEffect(() => {
+      const loadFileTree = async () => {
+        try {
+          const projectRoot = getProjectRoot()
+          if (projectRoot) {
+            const tree = await getProjectFileTree({
+              projectRoot,
+              fs: fs,
+            })
+            logger.info({ tree }, 'Loaded file tree')
+            setFileTree(tree)
+          }
+        } catch (error) {
+          // Silently fail - fileTree is optional for @ menu
+        }
+      }
+
+      loadFileTree()
+    }, [])
+
     return (
       <App
         initialPrompt={initialPrompt}
@@ -195,6 +220,7 @@ async function bootstrapCli(): Promise<void> {
         hasInvalidCredentials={hasInvalidCredentials}
         loadedAgentsData={loadedAgentsData}
         validationErrors={validationErrors}
+        fileTree={fileTree}
       />
     )
   }

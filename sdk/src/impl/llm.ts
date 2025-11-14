@@ -4,6 +4,10 @@ import {
   checkLiveUserInput,
   getLiveUserInputIds,
 } from '@codebuff/agent-runtime/live-user-inputs'
+import {
+  BYOK_OPENROUTER_ENV_VAR,
+  BYOK_OPENROUTER_HEADER,
+} from '@codebuff/common/constants/byok'
 import { models, PROFIT_MARGIN } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
@@ -102,6 +106,7 @@ function getAiSdkModel(params: {
     },
   }
 
+  const openrouterApiKey = process.env[BYOK_OPENROUTER_ENV_VAR]
   const codebuffBackendModel = new OpenAICompatibleChatLanguageModel(model, {
     provider: 'codebuff',
     url: ({ path: endpoint }) =>
@@ -109,9 +114,14 @@ function getAiSdkModel(params: {
     headers: () => ({
       Authorization: `Bearer ${apiKey}`,
       'user-agent': `ai-sdk/openai-compatible/${VERSION}/codebuff`,
+      ...(openrouterApiKey && { [BYOK_OPENROUTER_HEADER]: openrouterApiKey }),
     }),
     metadataExtractor: {
       extractMetadata: async ({ parsedBody }: { parsedBody: any }) => {
+        if (openrouterApiKey !== undefined) {
+          return { codebuff: { usage: openrouterUsage } }
+        }
+
         if (typeof parsedBody?.usage?.cost === 'number') {
           openrouterUsage.cost = parsedBody.usage.cost
         }
@@ -126,6 +136,10 @@ function getAiSdkModel(params: {
       },
       createStreamExtractor: () => ({
         processChunk: (parsedChunk: any) => {
+          if (openrouterApiKey !== undefined) {
+            return
+          }
+
           if (typeof parsedChunk?.usage?.cost === 'number') {
             openrouterUsage.cost = parsedChunk.usage.cost
           }
