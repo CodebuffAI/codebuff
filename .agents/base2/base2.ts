@@ -17,7 +17,7 @@ export function createBase2(
   },
 ): Omit<SecretAgentDefinition, 'id'> {
   const {
-    hasNoValidation = false,
+    hasNoValidation = mode === 'fast',
     planOnly = false,
     hasCodeReviewer = false,
     hasCodeReviewerBestOfN = false,
@@ -32,11 +32,7 @@ export function createBase2(
 
   return {
     publisher,
-    model: isGpt5
-      ? 'openai/gpt-5.1'
-      : isFast
-        ? 'z-ai/glm-4.6:nitro'
-        : 'anthropic/claude-sonnet-4.5',
+    model: isGpt5 ? 'openai/gpt-5.1' : 'anthropic/claude-sonnet-4.5',
     ...(isGpt5 && {
       reasoningModel: {
         effort: 'high',
@@ -66,7 +62,7 @@ export function createBase2(
       'spawn_agents',
       'read_files',
       'read_subtree',
-      'write_todos',
+      !isFast && 'write_todos',
       'str_replace',
       'write_file',
       isGpt5 && 'task_completed',
@@ -161,8 +157,11 @@ For other questions, you can direct them to codebuff.com, or especially codebuff
 # Other response guidelines
 
 ${buildArray(
-  '- Your goal is to produce the highest quality results, even if it comes at the cost of more credits used.',
-  '- Speed is a secondary goal.',
+  !isFast &&
+    '- Your goal is to produce the highest quality results, even if it comes at the cost of more credits used.',
+  !isFast && '- Speed is important, but a secondary goal.',
+  isFast &&
+    '- Prioritize speed: quickly getting the user request done is your first priority. Do not call any unnecessary tools. Spawn more agents in parallel to speed up the process. Be extremely concise in your responses. Use 2 words where you would have used 2 sentences.',
   '- If a tool fails, try again, or try a different tool or approach.',
   '- Context is managed for you. The context-pruner agent will automatically run as needed. Gather as much context as you need without worrying about it.',
   isSonnet &&
@@ -257,8 +256,14 @@ The user asks you to implement a new feature. You respond in multiple steps:
 
 ${buildArray(
   EXPLORE_PROMPT,
-  `- Important: Read as many files as could possibly be relevant to the task over several steps to improve your understanding of the user's request and produce the best possible code changes. Find more examples within the codebase similar to the user's request, dependencies that help with understanding how things work, tests, etc. This is frequently 12-20 files, depending on the task.`,
-  `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${hasCodeReviewer ? ' Include a step to review the code changes with the code-reviewer agent after you have made them.' : ''}${hasCodeReviewerBestOfN ? ' Include a step to review the code changes with the code-reviewer-best-of-n agent after you have made them.' : ''}${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} Skip write_todos for simple tasks like quick edits or answering questions.`,
+  !isFast &&
+    `- Important: Read as many files as could possibly be relevant to the task over several steps to improve your understanding of the user's request and produce the best possible code changes. Find more examples within the codebase similar to the user's request, dependencies that help with understanding how things work, tests, etc. This is frequently 12-20 files, depending on the task.`,
+  !isFast &&
+    `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${hasCodeReviewer ? ' Include a step to review the code changes with the code-reviewer agent after you have made them.' : ''}${hasCodeReviewerBestOfN ? ' Include a step to review the code changes with the code-reviewer-best-of-n agent after you have made them.' : ''}${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} Skip write_todos for simple tasks like quick edits or answering questions.`,
+  isFast &&
+    '- Implement the changes in one go. Pause after making all the changes to see the tool results of your edits.',
+  isFast &&
+    '- Do a single typecheck targeted for your changes at most (if applicable for the project). Or skip this step if the change was small.',
   !isFast &&
     !withImplementorGpt5 &&
     `- IMPORTANT: You must spawn the ${isGpt5 ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious.`,
@@ -295,7 +300,7 @@ function buildImplementationStepPrompt({
       `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
     !isFast &&
       `You must spawn the ${withImplementorGpt5 ? 'editor-implementor-gpt-5' : isGpt5 ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement code changes, since it will generate the best code changes.`,
-    `After completing the user request, summarize your changes in a sentence or a few short bullet points.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}. Don't repeat yourself -- especially if you already summarized your changes then just end your turn.`,
+    `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}. Don't repeat yourself -- especially if you already summarized your changes then just end your turn.`,
     isGpt5 &&
       `IMPORTANT: You must include at least one tool call ("<codebuff_tool_call>") per message response. If you are completely done with the user's request or require more information from the user, you must call the task_completed tool to end your turn.`,
   ).join('\n')
