@@ -73,7 +73,7 @@ const EditBody = ({ name, filePath, diffText }: EditBodyProps) => {
     <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
       <EditHeader name={name} filePath={filePath} />
       <box style={{ paddingLeft: 2, width: '100%' }}>
-        <DiffViewer diffText={diffText} />
+        <DiffViewer diffText={diffText} filePath={filePath ?? undefined} />
       </box>
     </box>
   )
