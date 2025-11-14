@@ -38,7 +38,6 @@ import type {
 } from '@codebuff/common/tools/list'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
-import type { CodebuffSpawn } from '@codebuff/common/types/spawn'
 import type {
   ToolResultOutput,
   ToolResultPart,
@@ -46,6 +45,7 @@ import type {
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { SessionState } from '@codebuff/common/types/session-state'
 import type { Source } from '@codebuff/common/types/source'
+import type { CodebuffSpawn } from '@codebuff/common/types/spawn'
 
 export type CodebuffClientOptions = {
   apiKey?: string
@@ -194,23 +194,25 @@ export async function run({
    *
    * This includes the user'e message and pending assistant message.
    */
-  function getCancelledSessionState(): SessionState {
+  function getCancelledSessionState(message: string): SessionState {
     const state = cloneDeep(sessionState)
     state.mainAgentState.messageHistory.push(
       ...getCancelledAdditionalMessages({
         prompt,
         params,
         pendingAgentResponse,
+        systemMessage: message,
       }),
     )
     return state
   }
-  function getCancelledRunState(): RunState {
+  function getCancelledRunState(message?: string): RunState {
+    message = message ?? 'Run cancelled by user.'
     return {
-      sessionState: getCancelledSessionState(),
+      sessionState: getCancelledSessionState(message),
       output: {
         type: 'error',
-        message: 'Run cancelled by user',
+        message,
       },
     }
   }
@@ -416,8 +418,9 @@ export async function run({
     fields: ['id'],
   })
   if (!userInfo) {
-    throw new Error('No user found for key')
+    return getCancelledRunState('Invalid API key or user not found')
   }
+
   const userId = userInfo.id
 
   signal?.addEventListener('abort', () => {
@@ -446,7 +449,7 @@ export async function run({
     clientSessionId: promptId,
     userId,
     signal: signal ?? new AbortController().signal,
-  })
+  }).catch((error) => resolve(getCancelledRunState(error.message)))
 
   return promise
 }
