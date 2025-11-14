@@ -31,7 +31,7 @@ export function createBase2(
   return {
     publisher,
     model: isGpt5
-      ? 'openai/gpt-5'
+      ? 'openai/gpt-5.1'
       : isFast
         ? 'z-ai/glm-4.6:nitro'
         : 'anthropic/claude-sonnet-4.5',

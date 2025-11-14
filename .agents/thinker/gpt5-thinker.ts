@@ -5,7 +5,7 @@ const definition: AgentDefinition = {
   id: 'gpt5-thinker',
   displayName: 'GPT-5 Quick Thinker',
   publisher,
-  model: 'openai/gpt-5',
+  model: 'openai/gpt-5.1',
   reasoningOptions: {
     enabled: true,
     effort: 'low',
