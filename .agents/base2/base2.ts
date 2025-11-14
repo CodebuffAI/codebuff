@@ -13,6 +13,7 @@ export function createBase2(
     planOnly?: boolean
     hasCodeReviewer?: boolean
     hasCodeReviewerBestOfN?: boolean
+    withImplementorGpt5?: boolean
   },
 ): Omit<SecretAgentDefinition, 'id'> {
   const {
@@ -20,6 +21,7 @@ export function createBase2(
     planOnly = false,
     hasCodeReviewer = false,
     hasCodeReviewerBestOfN = false,
+    withImplementorGpt5 = false,
   } = options ?? {}
   const isDefault = mode === 'default'
   const isFast = mode === 'fast'
@@ -77,8 +79,9 @@ export function createBase2(
       'researcher-web',
       'researcher-docs',
       'commander',
-      isDefault && 'editor-best-of-n',
-      isGpt5 && 'editor-best-of-n-gpt-5',
+      withImplementorGpt5 && 'editor-implementor-gpt-5',
+      isDefault && !withImplementorGpt5 && 'editor-best-of-n',
+      isGpt5 && !withImplementorGpt5 && 'editor-best-of-n-gpt-5',
       isDefault && 'thinker-best-of-n',
       isGpt5 && 'thinker-best-of-n-gpt-5',
       hasCodeReviewer && (isGpt5 ? 'code-reviewer-gpt-5' : 'code-reviewer'),
@@ -133,7 +136,10 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
   ${buildArray(
     '- Spawn context-gathering agents (file pickers, code-searcher, directory-lister, glob-matcher, and web/docs researchers) before making edits.',
-    `- Spawn a ${isGpt5 ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
+    !withImplementorGpt5 &&
+      `- Spawn a ${isGpt5 ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
+    withImplementorGpt5 &&
+      `- Spawn a editor-implementor-gpt-5 agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools.`,
     '- Spawn commanders sequentially if the second command depends on the the first.',
     hasCodeReviewer &&
       '- Spawn a code-reviewer agent to review the code changes after you have made them.',
@@ -186,6 +192,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           hasNoValidation,
           hasCodeReviewer,
           hasCodeReviewerBestOfN,
+          withImplementorGpt5,
         }),
     stepPrompt: planOnly
       ? buildPlanOnlyStepPrompt({})
@@ -195,6 +202,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           isGpt5,
           hasNoValidation,
           isSonnet,
+          withImplementorGpt5,
         }),
 
     handleSteps: function* ({ params }) {
@@ -229,6 +237,7 @@ function buildImplementationInstructionsPrompt({
   hasNoValidation,
   hasCodeReviewer,
   hasCodeReviewerBestOfN,
+  withImplementorGpt5,
 }: {
   isSonnet: boolean
   isGpt5: boolean
@@ -238,6 +247,7 @@ function buildImplementationInstructionsPrompt({
   hasNoValidation: boolean
   hasCodeReviewer: boolean
   hasCodeReviewerBestOfN: boolean
+  withImplementorGpt5: boolean
 }) {
   return `Act as a helpful assistant and freely respond to the user's request however would be most helpful to the user. Use your judgement to orchestrate the completion of the user's request using your specialized sub-agents and tools as needed. Take your time and be comprehensive.
 
@@ -250,7 +260,10 @@ ${buildArray(
   `- Important: Read as many files as could possibly be relevant to the task over several steps to improve your understanding of the user's request and produce the best possible code changes. Find more examples within the codebase similar to the user's request, dependencies that help with understanding how things work, tests, etc. This is frequently 12-20 files, depending on the task.`,
   `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${hasCodeReviewer ? ' Include a step to review the code changes with the code-reviewer agent after you have made them.' : ''}${hasCodeReviewerBestOfN ? ' Include a step to review the code changes with the code-reviewer-best-of-n agent after you have made them.' : ''}${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} Skip write_todos for simple tasks like quick edits or answering questions.`,
   !isFast &&
+    !withImplementorGpt5 &&
     `- IMPORTANT: You must spawn the ${isGpt5 ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious.`,
+  withImplementorGpt5 &&
+    `- IMPORTANT: You must spawn the editor-implementor-gpt-5 agent to implement non-trivial code changes, since it will generate the best code changes using a smarter reasoning model. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious.`,
   hasCodeReviewer &&
     `- Spawn a code-reviewer agent to review the code changes after you have made them. You can skip this step for small changes that are obvious and don't require a review.`,
   hasCodeReviewerBestOfN &&
@@ -268,18 +281,20 @@ function buildImplementationStepPrompt({
   isGpt5,
   hasNoValidation,
   isSonnet,
+  withImplementorGpt5,
 }: {
   isFast: boolean
   isMax: boolean
   isGpt5: boolean
   hasNoValidation: boolean
   isSonnet: boolean
+  withImplementorGpt5: boolean
 }) {
   return buildArray(
     isMax &&
       `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
     !isFast &&
-      `You must spawn the ${isGpt5 ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement code changes, since it will generate the best code changes.`,
+      `You must spawn the ${withImplementorGpt5 ? 'editor-implementor-gpt-5' : isGpt5 ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement code changes, since it will generate the best code changes.`,
     `After completing the user request, summarize your changes in a sentence or a few short bullet points.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}. Don't repeat yourself -- especially if you already summarized your changes then just end your turn.`,
     isGpt5 &&
       `IMPORTANT: You must include at least one tool call ("<codebuff_tool_call>") per message response. If you are completely done with the user's request or require more information from the user, you must call the task_completed tool to end your turn.`,
