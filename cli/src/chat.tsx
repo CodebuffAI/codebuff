@@ -75,7 +75,7 @@ export const Chat = ({
 }) => {
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
 
-  const { separatorWidth, terminalWidth } = useTerminalDimensions()
+  const { separatorWidth, terminalWidth, terminalHeight } = useTerminalDimensions()
 
   const theme = useTheme()
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
@@ -574,9 +574,9 @@ export const Chat = ({
       layoutContent,
       cursorProbe,
       cols,
-      maxHeight: 5,
+      maxHeight: Math.floor(terminalHeight / 2),
     })
-  }, [inputValue, cursorPosition, inputWidth])
+  }, [inputValue, cursorPosition, inputWidth, terminalHeight])
   const isMultilineInput = inputLayoutMetrics.heightLines > 1
   const shouldCenterInputVertically = !hasSuggestionMenu && !isMultilineInput
   const statusIndicatorState = getStatusIndicatorState({
@@ -764,7 +764,7 @@ export const Chat = ({
                   onSubmit={handleSubmit}
                   placeholder={inputPlaceholder}
                   focused={inputFocused}
-                  maxHeight={5}
+                  maxHeight={Math.floor(terminalHeight / 2)}
                   width={inputWidth}
                   onKeyIntercept={handleSuggestionMenuKey}
                   textAttributes={theme.messageTextAttributes}

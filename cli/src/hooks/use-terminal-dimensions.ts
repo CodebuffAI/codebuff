@@ -19,7 +19,13 @@ export const useTerminalDimensions = () => {
     [measuredWidth, renderer?.width],
   )
 
+  const resolvedTerminalHeight = useMemo(
+    () => sanitizeDimension(renderer?.height) ?? 24,
+    [renderer?.height],
+  )
+
   const terminalWidth = resolvedTerminalWidth
+  const terminalHeight = resolvedTerminalHeight
   const separatorWidth = useMemo(
     () => Math.max(1, Math.floor(terminalWidth) - 2),
     [terminalWidth],
@@ -32,6 +38,7 @@ export const useTerminalDimensions = () => {
 
   return {
     terminalWidth,
+    terminalHeight,
     separatorWidth,
     contentMaxWidth,
   }

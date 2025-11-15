@@ -266,20 +266,27 @@ export const MultilineInput = forwardRef<
   const isPlaceholder = value.length === 0 && placeholder.length > 0
   const displayValue = isPlaceholder ? placeholder : value
   const showCursor = focused
-  
+
   // Replace tabs with spaces for proper rendering
   // Terminal tab stops are typically 8 columns, but 4 is more readable
   const TAB_WIDTH = 4
-  const displayValueForRendering = displayValue.replace(/\t/g, ' '.repeat(TAB_WIDTH))
-  
+  const displayValueForRendering = displayValue.replace(
+    /\t/g,
+    ' '.repeat(TAB_WIDTH),
+  )
+
   // Calculate cursor position in the expanded string (accounting for tabs)
   let renderCursorPosition = 0
   for (let i = 0; i < cursorPosition && i < displayValue.length; i++) {
     renderCursorPosition += displayValue[i] === '\t' ? TAB_WIDTH : 1
   }
-  
-  const beforeCursor = showCursor ? displayValueForRendering.slice(0, renderCursorPosition) : ''
-  const afterCursor = showCursor ? displayValueForRendering.slice(renderCursorPosition) : ''
+
+  const beforeCursor = showCursor
+    ? displayValueForRendering.slice(0, renderCursorPosition)
+    : ''
+  const afterCursor = showCursor
+    ? displayValueForRendering.slice(renderCursorPosition)
+    : ''
   const activeChar = afterCursor.charAt(0) || ' '
   const shouldHighlight =
     showCursor &&
@@ -773,22 +780,12 @@ export const MultilineInput = forwardRef<
     [layoutContent, cursorProbe, getEffectiveCols, maxHeight],
   )
 
-  const height = layoutMetrics.heightLines
-
-  const shouldRenderBottomGutter = layoutMetrics.gutterEnabled
-
   const inputColor = isPlaceholder
     ? theme.muted
     : focused
       ? theme.inputFocusedFg
       : theme.inputFg
 
-  const textStyle: Record<string, unknown> = {
-    bg: 'transparent',
-    fg: inputColor,
-  }
-
-  const cursorFg = theme.info
   const highlightBg = '#7dd3fc' // Lighter blue for highlight background
 
   return (
@@ -803,7 +800,7 @@ export const MultilineInput = forwardRef<
         flexShrink: 0,
         rootOptions: {
           width: '100%',
-          height: height,
+          height: layoutMetrics.heightLines,
           backgroundColor: 'transparent',
           flexGrow: 0,
           flexShrink: 0,
@@ -818,7 +815,10 @@ export const MultilineInput = forwardRef<
         },
       }}
     >
-      <text ref={textRef} style={{ ...textStyle, wrapMode: 'word' }}>
+      <text
+        ref={textRef}
+        style={{ bg: 'transparent', fg: inputColor, wrapMode: 'word' }}
+      >
         {showCursor ? (
           <>
             {beforeCursor}
@@ -831,10 +831,7 @@ export const MultilineInput = forwardRef<
                 {activeChar === ' ' ? '\u00a0' : activeChar}
               </span>
             ) : (
-              <span
-                {...(cursorFg ? { fg: cursorFg } : undefined)}
-                attributes={TextAttributes.BOLD}
-              >
+              <span fg={theme.info} attributes={TextAttributes.BOLD}>
                 {CURSOR_CHAR}
               </span>
             )}
@@ -843,12 +840,12 @@ export const MultilineInput = forwardRef<
                 ? afterCursor.slice(1)
                 : ''
               : afterCursor}
-            {shouldRenderBottomGutter ? '\n' : ''}
+            {layoutMetrics.gutterEnabled ? '\n' : ''}
           </>
         ) : (
           <>
             {displayValueForRendering}
-            {shouldRenderBottomGutter ? '\n' : ''}
+            {layoutMetrics.gutterEnabled ? '\n' : ''}
           </>
         )}
       </text>
