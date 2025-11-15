@@ -217,7 +217,7 @@ export const MultilineInput = forwardRef<
     // viewport.width already reflects inner content area; don't subtract again
     const cols = Math.max(1, vpWidth)
     setMeasuredCols(cols)
-  }, [width])
+  }, [scrollBoxRef.current, width])
 
   const textRef = useRef<TextRenderable | null>(null)
 
