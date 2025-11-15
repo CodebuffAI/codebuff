@@ -14,6 +14,7 @@ export function createBase2(
     hasCodeReviewer?: boolean
     hasCodeReviewerBestOfN?: boolean
     withImplementorGpt5?: boolean
+    withDecisionMaker?: boolean
   },
 ): Omit<SecretAgentDefinition, 'id'> {
   const {
@@ -22,6 +23,7 @@ export function createBase2(
     hasCodeReviewer = false,
     hasCodeReviewerBestOfN = false,
     withImplementorGpt5 = false,
+    withDecisionMaker = false,
   } = options ?? {}
   const isDefault = mode === 'default'
   const isFast = mode === 'fast'
@@ -75,6 +77,7 @@ export function createBase2(
       'researcher-web',
       'researcher-docs',
       'commander',
+      withDecisionMaker && 'decision-maker',
       withImplementorGpt5 && 'editor-implementor-gpt-5',
       isDefault && !withImplementorGpt5 && 'editor-best-of-n',
       isGpt5 && !withImplementorGpt5 && 'editor-best-of-n-gpt-5',
@@ -192,6 +195,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           hasCodeReviewer,
           hasCodeReviewerBestOfN,
           withImplementorGpt5,
+          withDecisionMaker,
         }),
     stepPrompt: planOnly
       ? buildPlanOnlyStepPrompt({})
@@ -237,6 +241,7 @@ function buildImplementationInstructionsPrompt({
   hasCodeReviewer,
   hasCodeReviewerBestOfN,
   withImplementorGpt5,
+  withDecisionMaker,
 }: {
   isSonnet: boolean
   isGpt5: boolean
@@ -247,6 +252,7 @@ function buildImplementationInstructionsPrompt({
   hasCodeReviewer: boolean
   hasCodeReviewerBestOfN: boolean
   withImplementorGpt5: boolean
+  withDecisionMaker: boolean
 }) {
   return `Act as a helpful assistant and freely respond to the user's request however would be most helpful to the user. Use your judgement to orchestrate the completion of the user's request using your specialized sub-agents and tools as needed. Take your time and be comprehensive.
 
@@ -258,6 +264,8 @@ ${buildArray(
   EXPLORE_PROMPT,
   !isFast &&
     `- Important: Read as many files as could possibly be relevant to the task over several steps to improve your understanding of the user's request and produce the best possible code changes. Find more examples within the codebase similar to the user's request, dependencies that help with understanding how things work, tests, etc. This is frequently 12-20 files, depending on the task.`,
+  withDecisionMaker &&
+    `- Before planning or implementing, spawn decision-maker agents for a few of the most important decisions that need to be made. This will improve the quality of your decisions and your implementation.`,
   !isFast &&
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${hasCodeReviewer ? ' Include a step to review the code changes with the code-reviewer agent after you have made them.' : ''}${hasCodeReviewerBestOfN ? ' Include a step to review the code changes with the code-reviewer-best-of-n agent after you have made them.' : ''}${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} Skip write_todos for simple tasks like quick edits or answering questions.`,
   isFast &&
