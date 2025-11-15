@@ -549,6 +549,7 @@ export const Chat = ({
     },
     historyNavUpEnabled,
     historyNavDownEnabled,
+    disabled: isFeedbackOpen,
   })
 
   const { tree: messageTree, topLevelMessages } = useMemo(
