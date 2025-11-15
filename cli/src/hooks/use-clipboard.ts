@@ -17,7 +17,7 @@ function formatDefaultClipboardMessage(text: string): string | null {
 
 export const useClipboard = () => {
   const renderer = useRenderer()
-  const [clipboardMessage, setClipboardMessage] = useState<string | null>(null)
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const pendingCopyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   )
@@ -26,7 +26,7 @@ export const useClipboard = () => {
   const lastCopiedRef = useRef<string | null>(null)
 
   useEffect(() => {
-    return subscribeClipboardMessages(setClipboardMessage)
+    return subscribeClipboardMessages(setStatusMessage)
   }, [])
 
   useEffect(() => {
@@ -94,6 +94,6 @@ export const useClipboard = () => {
   }, [])
 
   return {
-    clipboardMessage,
+    statusMessage,
   }
 }

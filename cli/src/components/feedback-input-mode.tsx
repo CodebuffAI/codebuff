@@ -145,10 +145,7 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
           onKeyIntercept={(key) => {
             const isEnter = key.name === 'return' || key.name === 'enter'
             if (!isEnter) return false
-            if (key.meta) {
-              if (canSubmit) onSubmit()
-              return true
-            }
+            // Just add newline on Enter
             const newText = feedbackText.slice(0, feedbackCursor) + '\n' + feedbackText.slice(feedbackCursor)
             onFeedbackTextChange(newText, feedbackCursor + 1)
             return true
@@ -198,8 +195,7 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
           }}
         >
           <text style={{ wrapMode: 'none' }}>
-            <span fg={canSubmit ? theme.foreground : theme.muted}>SUBMIT </span>
-            <span fg={theme.muted}>⌘↵</span>
+            <span fg={canSubmit ? theme.foreground : theme.muted}>SUBMIT</span>
           </text>
         </Button>
       </box>

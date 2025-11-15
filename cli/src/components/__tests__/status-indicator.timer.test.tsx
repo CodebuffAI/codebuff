@@ -14,7 +14,7 @@ describe('StatusIndicator state transitions', () => {
       const now = Date.now()
       const markup = renderToStaticMarkup(
         <StatusIndicator
-          clipboardMessage={null}
+          statusMessage={null}
           streamStatus="waiting"
           timerStartTime={now - 5000}
           nextCtrlCWillExit={false}
@@ -35,7 +35,7 @@ describe('StatusIndicator state transitions', () => {
       const now = Date.now()
       const markup = renderToStaticMarkup(
         <StatusIndicator
-          clipboardMessage={null}
+          statusMessage={null}
           streamStatus="streaming"
           timerStartTime={now - 5000}
           nextCtrlCWillExit={false}
@@ -53,7 +53,7 @@ describe('StatusIndicator state transitions', () => {
     test('shows nothing when inactive (streamStatus = idle)', () => {
       const markup = renderToStaticMarkup(
         <StatusIndicator
-          clipboardMessage={null}
+          statusMessage={null}
           streamStatus="idle"
           timerStartTime={null}
           nextCtrlCWillExit={false}
@@ -70,7 +70,7 @@ describe('StatusIndicator state transitions', () => {
       const now = Date.now()
       const markup = renderToStaticMarkup(
         <StatusIndicator
-          clipboardMessage="Copied!"
+          statusMessage="Copied!"
           streamStatus="waiting"
           timerStartTime={now - 5000}
           nextCtrlCWillExit={true}
@@ -88,7 +88,7 @@ describe('StatusIndicator state transitions', () => {
       const now = Date.now()
       const markup = renderToStaticMarkup(
         <StatusIndicator
-          clipboardMessage="Copied!"
+          statusMessage="Copied!"
           streamStatus="waiting"
           timerStartTime={now - 12000}
           nextCtrlCWillExit={false}
@@ -105,7 +105,7 @@ describe('StatusIndicator state transitions', () => {
     test('shows "connecting..." shimmer when offline and idle', () => {
       const markup = renderToStaticMarkup(
         <StatusIndicator
-          clipboardMessage={null}
+          statusMessage={null}
           streamStatus="idle"
           timerStartTime={null}
           nextCtrlCWillExit={false}
@@ -120,7 +120,7 @@ describe('StatusIndicator state transitions', () => {
 
     test('getStatusIndicatorState reports connecting state when offline', () => {
       const state = getStatusIndicatorState({
-        clipboardMessage: null,
+        statusMessage: null,
         streamStatus: 'idle',
         nextCtrlCWillExit: false,
         isConnected: false,

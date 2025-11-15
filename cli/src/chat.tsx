@@ -24,6 +24,7 @@ import { useAgentValidation } from './hooks/use-agent-validation'
 import { useAuthState } from './hooks/use-auth-state'
 import { useChatInput } from './hooks/use-chat-input'
 import { useClipboard } from './hooks/use-clipboard'
+import { showClipboardMessage } from './utils/clipboard'
 import { useConnectionStatus } from './hooks/use-connection-status'
 import { useElapsedTime } from './hooks/use-elapsed-time'
 import { useExitHandler } from './hooks/use-exit-handler'
@@ -223,7 +224,7 @@ export const Chat = ({
   const abortControllerRef = useRef<AbortController | null>(null)
   const sendMessageRef = useRef<SendMessageFn>()
 
-  const { clipboardMessage } = useClipboard()
+  const { statusMessage } = useClipboard()
   const isConnected = useConnectionStatus()
   const mainAgentTimer = useElapsedTime()
   const timerStartTime = mainAgentTimer.startTime
@@ -459,7 +460,7 @@ export const Chat = ({
   const [savedInputValue, setSavedInputValue] = useState('')
   const [savedCursorPosition, setSavedCursorPosition] = useState(0)
   const [showFeedbackConfirmation, setShowFeedbackConfirmation] = useState(false)
-  const [feedbackSentMessage, setFeedbackSentMessage] = useState<string | null>(null)
+
   const [messagesWithFeedback, setMessagesWithFeedback] = useState<Set<string>>(new Set())
 
   const openFeedbackForMessage = useCallback((id: string) => {
@@ -522,14 +523,16 @@ export const Chat = ({
       setMessagesWithFeedback(prev => new Set(prev).add(feedbackMessageId))
     }
 
-    // Show success in status indicator and exit feedback mode
+    // Exit feedback mode first
     setFeedbackMode(false)
     setFeedbackText('')
     setFeedbackCategory('other')
-    setFeedbackSentMessage('Feedback sent ✔')
-    setTimeout(() => {
-      setFeedbackSentMessage(null)
-    }, 5000)
+    
+    // Show success message in status indicator for 5 seconds
+    showClipboardMessage('Feedback sent ✔', { durationMs: 5000 })
+    
+    // Restore input focus
+    setInputFocused(true)
   }, [feedbackText, feedbackCategory, feedbackMessageId, messages, agentMode, sessionCreditsUsed])
 
   const handleFeedbackCancel = useCallback(() => {
@@ -700,7 +703,7 @@ export const Chat = ({
   const shouldCenterInputVertically =
     !hasSuggestionMenu && !showAgentStatusLine && !isMultilineInput
   const statusIndicatorState = getStatusIndicatorState({
-    clipboardMessage,
+    statusMessage,
     streamStatus,
     nextCtrlCWillExit,
     isConnected,
@@ -712,7 +715,7 @@ export const Chat = ({
 
   const statusIndicatorNode = (
     <StatusIndicator
-      clipboardMessage={feedbackSentMessage ?? clipboardMessage}
+      statusMessage={statusMessage}
       streamStatus={streamStatus}
       timerStartTime={timerStartTime}
       nextCtrlCWillExit={nextCtrlCWillExit}
