@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react'
-import { useRenderer } from '@opentui/react'
+import { useRenderer, useKeyboard } from '@opentui/react'
 
 import { MultilineInput, type MultilineInputHandle } from './multiline-input'
 import { Button } from './button'
@@ -37,6 +37,40 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ open, onClose, onS
     setFeedbackText('')
     setCategory('other')
   }, [onSubmit, feedbackText, category])
+
+  // Handle Ctrl+C: clear input first, then close if already empty
+  // Handle Escape: close modal directly
+  useKeyboard(
+    useCallback(
+      (key) => {
+        if (!open) return
+
+        const isCtrlC = key.ctrl && key.name === 'c'
+        const isEscape = key.name === 'escape'
+
+        if (!isCtrlC && !isEscape) return
+
+        if ('preventDefault' in key && typeof key.preventDefault === 'function') {
+          key.preventDefault()
+        }
+
+        if (isEscape) {
+          // Escape always closes the modal
+          onClose()
+        } else if (isCtrlC) {
+          if (feedbackText.length === 0) {
+            // Input is already empty, close the modal
+            onClose()
+          } else {
+            // Clear the input
+            setFeedbackText('')
+            setFeedbackCursor(0)
+          }
+        }
+      },
+      [open, feedbackText, onClose]
+    )
+  )
 
   if (!open) return null
 
@@ -170,7 +204,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ open, onClose, onS
           }}
         >
           <text style={{ wrapMode: 'none' }}>
-            <span fg={canSubmit ? theme.foreground : theme.muted}>{'< SUBMIT'}</span>
+            <span fg={canSubmit ? theme.foreground : theme.muted}>{'SUBMIT'}</span>
           </text>
         </Button>
       </box>

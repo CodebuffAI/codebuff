@@ -12,6 +12,7 @@ import {
 
 import { useOpentuiPaste } from '../hooks/use-opentui-paste'
 import { useTheme } from '../hooks/use-theme'
+import { InputCursor } from './input-cursor'
 import { clamp } from '../utils/math'
 import { computeInputLayoutMetrics } from '../utils/text-layout'
 import { calculateNewCursorPosition } from '../utils/word-wrap-utils'
@@ -126,6 +127,13 @@ export const MultilineInput = forwardRef<
   const theme = useTheme()
   const scrollBoxRef = useRef<ScrollBoxRenderable | null>(null)
   const [measuredCols, setMeasuredCols] = useState<number | null>(null)
+  const [lastActivity, setLastActivity] = useState(Date.now())
+
+  // Update last activity on value or cursor changes
+  useEffect(() => {
+    setLastActivity(Date.now())
+  }, [value, cursorPosition])
+
   const getEffectiveCols = useCallback(() => {
     // Prefer measured viewport columns; fallback to a conservative
     // estimate: outer width minus border(2) minus padding(2) = 4.
@@ -787,12 +795,12 @@ export const MultilineInput = forwardRef<
                 {activeChar === ' ' ? '\u00a0' : activeChar}
               </span>
             ) : (
-              <span
-                {...(cursorFg ? { fg: cursorFg } : undefined)}
-                attributes={TextAttributes.BOLD}
-              >
-                {CURSOR_CHAR}
-              </span>
+              <InputCursor
+                visible={true}
+                focused={focused}
+                color={cursorFg}
+                key={lastActivity}
+              />
             )}
             {shouldHighlight
               ? afterCursor.length > 0
