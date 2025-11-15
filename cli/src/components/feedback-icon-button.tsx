@@ -36,8 +36,8 @@ export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({ onClick,
   }
   const handleMouseOut = () => hover.scheduleClose()
 
-  const textCollapsed = isOpen ? '[x]' : '[?]'
-  const textExpanded = isOpen ? '[close x]' : '[share feedback]'
+  const textCollapsed = '[?]'
+  const textExpanded = '[share feedback]'
 
   return (
     <Button
@@ -51,8 +51,8 @@ export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({ onClick,
       onMouseOver={handleMouseOver}
       onMouseOut={handleMouseOut}
     >
-      <text style={{ wrapMode: 'none', fg: hover.isOpen ? theme.foreground : theme.muted }}>
-        {hover.isOpen ? textExpanded : textCollapsed}
+      <text style={{ wrapMode: 'none', fg: hover.isOpen || isOpen ? theme.foreground : theme.muted }}>
+        {hover.isOpen || isOpen ? textExpanded : textCollapsed}
       </text>
     </Button>
   )

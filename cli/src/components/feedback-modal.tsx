@@ -1,5 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react'
 import { useRenderer, useKeyboard } from '@opentui/react'
+import { TextAttributes } from '@opentui/core'
 
 import { MultilineInput, type MultilineInputHandle } from './multiline-input'
 import { Button } from './button'
@@ -75,8 +76,8 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ open, onClose, onS
   if (!open) return null
 
   const categoryOptions = [
-    { id: 'good_code', label: 'Good code', highlight: theme.success },
-    { id: 'bad_code', label: 'Bad code', highlight: theme.error },
+    { id: 'good_code', label: 'Good result', highlight: theme.success },
+    { id: 'bad_code', label: 'Bad result', highlight: theme.error },
     { id: 'bug', label: 'Bug', highlight: theme.warning },
     { id: 'other', label: 'Other', highlight: theme.info },
   ] as const
@@ -186,7 +187,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ open, onClose, onS
 
       <box style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
         <text style={{ wrapMode: 'none' }}>
-          <span fg={theme.muted}>Auto-attached: Message content • Trace data • Session info</span>
+          <span fg={theme.muted}>Auto-attached: message • trace • session</span>
         </text>
         <Button
           onClick={() => {
@@ -200,10 +201,10 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ open, onClose, onS
             borderStyle: 'single',
             borderColor: canSubmit ? theme.foreground : theme.border,
             customBorderChars: BORDER_CHARS,
-            backgroundColor: canSubmit ? theme.surface : undefined,
+            backgroundColor: 'transparent',
           }}
         >
-          <text style={{ wrapMode: 'none' }}>
+          <text style={{ wrapMode: 'none' }} attributes={canSubmit ? undefined : TextAttributes.DIM | TextAttributes.ITALIC}>
             <span fg={canSubmit ? theme.foreground : theme.muted}>{'SUBMIT'}</span>
           </text>
         </Button>

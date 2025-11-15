@@ -1,5 +1,6 @@
-import React, { useCallback, useRef } from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import { useKeyboard } from '@opentui/react'
+import { TextAttributes } from '@opentui/core'
 
 import { MultilineInput, type MultilineInputHandle } from './multiline-input'
 import { Button } from './button'
@@ -32,6 +33,7 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
   const theme = useTheme()
   const inputRef = useRef<MultilineInputHandle | null>(null)
   const canSubmit = feedbackText.trim().length > 0
+  const [closeButtonHovered, setCloseButtonHovered] = useState(false)
 
   // Handle keyboard shortcuts
   useKeyboard(
@@ -63,8 +65,8 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
   )
 
   const categoryOptions = [
-    { id: 'good_code', label: 'Good code', highlight: theme.success },
-    { id: 'bad_code', label: 'Bad code', highlight: theme.error },
+    { id: 'good_code', label: 'Good result', highlight: theme.success },
+    { id: 'bad_code', label: 'Bad result', highlight: theme.error },
     { id: 'bug', label: 'Bug', highlight: theme.warning },
     { id: 'other', label: 'Other', highlight: theme.info },
   ] as const
@@ -85,10 +87,17 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
       }}
     >
 
-      {/* Helper text */}
-      <text style={{ wrapMode: 'none' }}>
-        <span fg={theme.secondary}>Share feedback — thanks for helping us improve!</span>
-      </text>
+      {/* Header: helper text + close X */}
+      <box style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <text style={{ wrapMode: 'none' }}>
+          <span fg={theme.secondary}>Share feedback — thanks for helping us improve!</span>
+        </text>
+        <box onMouseDown={onCancel} onMouseOver={() => setCloseButtonHovered(true)} onMouseOut={() => setCloseButtonHovered(false)}>
+          <text style={{ wrapMode: 'none' }} selectable={false}>
+            <span fg={closeButtonHovered ? theme.foreground : theme.muted}>X</span>
+          </text>
+        </box>
+      </box>
 
       {/* Category buttons */}
       <box style={{ flexDirection: 'row', gap: 1, paddingTop: 0, paddingBottom: 0 }}>
@@ -177,7 +186,7 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
         gap: 2
       }}>
         <text style={{ wrapMode: 'none' }}>
-          <span fg={theme.muted}>Auto-attached: Message • Trace • Session</span>
+          <span fg={theme.muted}>Auto-attached: message • trace • session</span>
         </text>
         <Button
           onClick={() => {
@@ -194,7 +203,7 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
             backgroundColor: 'transparent',
           }}
         >
-          <text style={{ wrapMode: 'none' }}>
+          <text style={{ wrapMode: 'none' }} attributes={canSubmit ? undefined : TextAttributes.DIM | TextAttributes.ITALIC}>
             <span fg={canSubmit ? theme.foreground : theme.muted}>SUBMIT</span>
           </text>
         </Button>
