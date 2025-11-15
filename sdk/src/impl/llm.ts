@@ -31,6 +31,7 @@ import type {
 } from '@codebuff/common/types/contracts/llm'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { JSONObject } from '@codebuff/common/types/json'
+import type { OpenRouterProviderRoutingOptions } from '@codebuff/common/types/agent-template'
 import type { OpenRouterProviderOptions } from '@openrouter/ai-sdk-provider'
 import type z from 'zod/v4'
 
@@ -68,11 +69,30 @@ function getProviderOptions(params: {
   runId: string
   clientSessionId: string
   providerOptions?: Record<string, JSONObject>
+  agentProviderOptions?: OpenRouterProviderRoutingOptions
 }): { codebuff: JSONObject } {
-  const { model, runId, clientSessionId, providerOptions } = params
+  const {
+    model,
+    runId,
+    clientSessionId,
+    providerOptions,
+    agentProviderOptions,
+  } = params
 
-  // Set allow_fallbacks based on whether model is explicitly defined
-  const isExplicitlyDefined = isExplicitlyDefinedModel(model)
+  let providerConfig: Record<string, any>
+
+  // Use agent's provider options if provided, otherwise use defaults
+  if (agentProviderOptions) {
+    providerConfig = agentProviderOptions
+  } else {
+    // Set allow_fallbacks based on whether model is explicitly defined
+    const isExplicitlyDefined = isExplicitlyDefinedModel(model)
+
+    providerConfig = {
+      order: providerOrder[model as keyof typeof providerOrder],
+      allow_fallbacks: !isExplicitlyDefined,
+    }
+  }
 
   return {
     ...providerOptions,
@@ -85,10 +105,7 @@ function getProviderOptions(params: {
         client_id: clientSessionId,
       },
       transforms: ['middle-out'],
-      provider: {
-        order: providerOrder[model as keyof typeof providerOrder],
-        allow_fallbacks: !isExplicitlyDefined,
-      },
+      provider: providerConfig,
     },
   }
 }
@@ -191,7 +208,10 @@ export async function* promptAiSdkStream(
     prompt: undefined,
     model: aiSDKModel,
     messages: convertCbToModelMessages(params),
-    providerOptions: getProviderOptions(params),
+    providerOptions: getProviderOptions({
+      ...params,
+      agentProviderOptions: params.agentProviderOptions,
+    }),
   })
 
   let content = ''
@@ -337,7 +357,10 @@ export async function promptAiSdk(
     prompt: undefined,
     model: aiSDKModel,
     messages: convertCbToModelMessages(params),
-    providerOptions: getProviderOptions(params),
+    providerOptions: getProviderOptions({
+      ...params,
+      agentProviderOptions: params.agentProviderOptions,
+    }),
   })
   const content = response.text
 
@@ -388,7 +411,10 @@ export async function promptAiSdkStructured<T>(
     model: aiSDKModel,
     output: 'object',
     messages: convertCbToModelMessages(params),
-    providerOptions: getProviderOptions(params),
+    providerOptions: getProviderOptions({
+      ...params,
+      agentProviderOptions: params.agentProviderOptions,
+    }),
   })
 
   const content = response.object
