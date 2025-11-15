@@ -8,7 +8,7 @@ import { AgentModeToggle } from './components/agent-mode-toggle'
 import { Button } from './components/button'
 import { LoginModal } from './components/login-modal'
 import { MessageWithAgents } from './components/message-with-agents'
-import { FeedbackModal } from './components/feedback-modal'
+import { FeedbackInputMode } from './components/feedback-input-mode'
 import {
   MultilineInput,
   type MultilineInputHandle,
@@ -451,13 +451,29 @@ export const Chat = ({
   })
 
   // Feedback state and handlers
-  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false)
   const [feedbackMessageId, setFeedbackMessageId] = useState<string | null>(null)
+  const [feedbackMode, setFeedbackMode] = useState(false)
+  const [feedbackText, setFeedbackText] = useState('')
+  const [feedbackCursor, setFeedbackCursor] = useState(0)
+  const [feedbackCategory, setFeedbackCategory] = useState<string>('other')
+  const [savedInputValue, setSavedInputValue] = useState('')
+  const [savedCursorPosition, setSavedCursorPosition] = useState(0)
+  const [showFeedbackConfirmation, setShowFeedbackConfirmation] = useState(false)
+  const [feedbackSentMessage, setFeedbackSentMessage] = useState<string | null>(null)
+  const [messagesWithFeedback, setMessagesWithFeedback] = useState<Set<string>>(new Set())
 
   const openFeedbackForMessage = useCallback((id: string) => {
+    // Save current input state
+    setSavedInputValue(inputValue)
+    setSavedCursorPosition(cursorPosition)
+
+    // Enter feedback mode
     setFeedbackMessageId(id)
-    setIsFeedbackOpen(true)
-  }, [])
+    setFeedbackMode(true)
+    setFeedbackText('')
+    setFeedbackCursor(0)
+    setFeedbackCategory('other')
+  }, [inputValue, cursorPosition])
 
   const openFeedbackForLatestMessage = useCallback(() => {
     const latest = [...messages]
@@ -469,6 +485,66 @@ export const Chat = ({
     openFeedbackForMessage(latest.id)
     return true
   }, [messages, openFeedbackForMessage])
+
+  const handleFeedbackSubmit = useCallback(() => {
+    const text = feedbackText.trim()
+    if (text.length === 0) return
+
+    const target = messages.find((m) => m.id === feedbackMessageId)
+    const recent = messages.slice(Math.max(0, messages.length - 5)).map((m) => ({
+      id: m.id,
+      variant: m.variant,
+      timestamp: m.timestamp,
+      hasBlocks: !!m.blocks,
+      contentPreview: (m.content || '').slice(0, 400),
+    }))
+
+    logger.info(
+      {
+        eventId: AnalyticsEvent.FEEDBACK_SUBMITTED,
+        source: 'cli',
+        messageId: target?.id,
+        variant: target?.variant,
+        completionTime: target?.completionTime,
+        credits: target?.credits,
+        agentMode,
+        sessionCreditsUsed,
+        recentMessages: recent,
+        feedback: {
+          text,
+          category: feedbackCategory,
+        },
+      },
+    )
+
+    // Mark this message as having feedback submitted
+    if (feedbackMessageId) {
+      setMessagesWithFeedback(prev => new Set(prev).add(feedbackMessageId))
+    }
+
+    // Show success in status indicator and exit feedback mode
+    setFeedbackMode(false)
+    setFeedbackText('')
+    setFeedbackCategory('other')
+    setFeedbackSentMessage('Feedback sent ✔')
+    setTimeout(() => {
+      setFeedbackSentMessage(null)
+    }, 5000)
+  }, [feedbackText, feedbackCategory, feedbackMessageId, messages, agentMode, sessionCreditsUsed])
+
+  const handleFeedbackCancel = useCallback(() => {
+    // Restore saved input
+    setInputValue((prev) => ({
+      text: savedInputValue,
+      cursorPosition: savedCursorPosition,
+      lastEditDueToNav: false
+    }))
+
+    // Exit feedback mode
+    setFeedbackMode(false)
+    setFeedbackText('')
+    setFeedbackCategory('other')
+  }, [savedInputValue, savedCursorPosition, setInputValue])
 
   const handleSubmit = useCallback(
     () =>
@@ -549,7 +625,7 @@ export const Chat = ({
     },
     historyNavUpEnabled,
     historyNavDownEnabled,
-    disabled: isFeedbackOpen,
+    disabled: feedbackMode,
   })
 
   const { tree: messageTree, topLevelMessages } = useMemo(
@@ -636,7 +712,7 @@ export const Chat = ({
 
   const statusIndicatorNode = (
     <StatusIndicator
-      clipboardMessage={clipboardMessage}
+      clipboardMessage={feedbackSentMessage ?? clipboardMessage}
       streamStatus={streamStatus}
       timerStartTime={timerStartTime}
       nextCtrlCWillExit={nextCtrlCWillExit}
@@ -655,6 +731,9 @@ export const Chat = ({
   useKeyboard(
     useCallback(
       (key) => {
+        // Don't handle if already in feedback mode
+        if (feedbackMode) return
+
         if (key?.ctrl && key.name === 'f') {
           if ('preventDefault' in key && typeof key.preventDefault === 'function') {
             key.preventDefault()
@@ -662,7 +741,7 @@ export const Chat = ({
           openFeedbackForLatestMessage()
         }
       },
-      [openFeedbackForLatestMessage],
+      [openFeedbackForLatestMessage, feedbackMode],
     ),
   )
 
@@ -742,6 +821,10 @@ export const Chat = ({
               onBuildFast={handleBuildFast}
               onBuildMax={handleBuildMax}
               onFeedback={openFeedbackForMessage}
+              feedbackOpenMessageId={feedbackMessageId}
+              feedbackMode={feedbackMode}
+              onCloseFeedback={handleFeedbackCancel}
+              messagesWithFeedback={messagesWithFeedback}
             />
           )
         })}
@@ -823,6 +906,42 @@ export const Chat = ({
         {/* Wrap the input row in a single OpenTUI border so the toggle stays inside the flex layout.
             The queue preview is injected via the border title rather than custom text nodes, which
             keeps the border coupled to the content height while preserving the inline preview look. */}
+        {feedbackMode ? (
+          <FeedbackInputMode
+            feedbackText={feedbackText}
+            feedbackCursor={feedbackCursor}
+            category={feedbackCategory}
+            onFeedbackTextChange={(text, cursor) => {
+              setFeedbackText(text)
+              setFeedbackCursor(cursor)
+            }}
+            onCategoryChange={setFeedbackCategory}
+            onSubmit={handleFeedbackSubmit}
+            onCancel={handleFeedbackCancel}
+            width={terminalWidth - 2}
+            terminalWidth={terminalWidth}
+          />
+        ) : showFeedbackConfirmation ? (
+          <box
+            border
+            style={{
+              width: '100%',
+              borderStyle: 'single',
+              borderColor: theme.success,
+              customBorderChars: BORDER_CHARS,
+              paddingLeft: 1,
+              paddingRight: 1,
+              paddingTop: 1,
+              paddingBottom: 1,
+              flexDirection: 'row',
+              justifyContent: 'center',
+            }}
+          >
+            <text>
+              <span fg={theme.success}>✓ Feedback sent! Thanks for helping us improve.</span>
+            </text>
+          </box>
+        ) : (
         <box
           title={queuePreviewTitle ? ` ${queuePreviewTitle} ` : undefined}
           titleAlignment="center"
@@ -884,7 +1003,7 @@ export const Chat = ({
                       ? 'Enter a coding task'
                       : 'Enter a coding task or / for commands'
                   }
-                  focused={inputFocused && !isFeedbackOpen}
+                  focused={inputFocused && !feedbackMode}
                   maxHeight={5}
                   width={inputWidth}
                   onKeyIntercept={handleSuggestionMenuKey}
@@ -922,6 +1041,7 @@ export const Chat = ({
             )}
           </box>
         </box>
+        )}
 
         {/* Paused queue indicator - fake bottom border continuation */}
         {pausedQueueText && (
@@ -962,41 +1082,6 @@ export const Chat = ({
         />
       )}
 
-      {isFeedbackOpen && (
-        <FeedbackModal
-          open={isFeedbackOpen}
-          message={messages.find((m) => m.id === feedbackMessageId) ?? null}
-          onClose={() => setIsFeedbackOpen(false)}
-          onSubmit={(data) => {
-            const target = messages.find((m) => m.id === feedbackMessageId)
-            const recent = messages.slice(Math.max(0, messages.length - 5)).map((m) => ({
-              id: m.id,
-              variant: m.variant,
-              timestamp: m.timestamp,
-              hasBlocks: !!m.blocks,
-              contentPreview: (m.content || '').slice(0, 400),
-            }))
-            logger.info(
-              {
-                eventId: AnalyticsEvent.FEEDBACK_SUBMITTED,
-                source: 'cli',
-                messageId: target?.id,
-                variant: target?.variant,
-                completionTime: target?.completionTime,
-                credits: target?.credits,
-                agentMode,
-                sessionCreditsUsed,
-                feedbackCategory: data.category,
-                feedbackText: data.text,
-                runState: target?.metadata?.runState,
-                recentMessages: recent,
-              },
-              'User submitted feedback',
-            )
-            setIsFeedbackOpen(false)
-          }}
-        />
-      )}
     </box>
   )
 }

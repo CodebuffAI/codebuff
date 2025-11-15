@@ -125,8 +125,8 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ open, onClose, onS
       </text>
 
       <box style={{ flexDirection: 'column', gap: 0 }}>
-        <text style={{ wrapMode: 'none', paddingBottom: 1 }}>
-          <span fg={theme.muted}>Select a category:</span>
+        <text style={{ wrapMode: 'none' }}>
+          <span fg={theme.muted}>Category:</span>
         </text>
         <box style={{ flexDirection: 'row', gap: 1, flexWrap: 'wrap' }}>
           {categoryOptions.map((option) => {
@@ -146,7 +146,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ open, onClose, onS
                   borderStyle: 'single',
                   borderColor: isSelected ? option.highlight : theme.border,
                   customBorderChars: BORDER_CHARS,
-                  backgroundColor: isSelected ? theme.surface : undefined,
+                  backgroundColor: 'transparent',
                 }}
               >
                 <text style={{ wrapMode: 'none' }}>
@@ -184,7 +184,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ open, onClose, onS
         />
       </box>
 
-      <box style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+      <box style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
         <text style={{ wrapMode: 'none' }}>
           <span fg={theme.muted}>Auto-attached: Message content • Trace data • Session info</span>
         </text>

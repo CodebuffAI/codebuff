@@ -9,10 +9,12 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 interface FeedbackIconButtonProps {
   onClick?: () => void
+  onClose?: () => void
+  isOpen?: boolean
   messageId?: string
 }
 
-export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({ onClick, messageId }) => {
+export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({ onClick, onClose, isOpen, messageId }) => {
   const theme = useTheme()
   const hover = useHoverToggle()
   const hoveredOnceRef = useRef(false)
@@ -34,8 +36,8 @@ export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({ onClick,
   }
   const handleMouseOut = () => hover.scheduleClose()
 
-  const textCollapsed = '[?]'
-  const textExpanded = '[share feedback]'
+  const textCollapsed = isOpen ? '[x]' : '[?]'
+  const textExpanded = isOpen ? '[close x]' : '[share feedback]'
 
   return (
     <Button
@@ -45,7 +47,7 @@ export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({ onClick,
         paddingLeft: 0,
         paddingRight: 0,
       }}
-      onClick={() => onClick?.()}
+      onClick={() => (isOpen ? onClose?.() : onClick?.())}
       onMouseOver={handleMouseOver}
       onMouseOut={handleMouseOut}
     >

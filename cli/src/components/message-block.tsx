@@ -46,6 +46,11 @@ interface MessageBlockProps {
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
+  onFeedback?: (messageId: string) => void
+  feedbackOpenMessageId?: string | null
+  feedbackMode?: boolean
+  onCloseFeedback?: () => void
+  messagesWithFeedback?: Set<string>
 }
 
 export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
@@ -75,6 +80,10 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
     setCollapsedAgents,
     addAutoCollapsedAgent,
     onFeedback,
+    feedbackOpenMessageId,
+    feedbackMode,
+    onCloseFeedback,
+    messagesWithFeedback,
   } = props
   useWhyDidYouUpdateById('MessageBlock', messageId, props, {
     logLevel: 'debug',
@@ -172,7 +181,14 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
                 {completionTime}
                 {typeof credits === 'number' && credits > 0 && ` • ${pluralize(credits, 'credit')}`}
               </text>
-              <FeedbackIconButton onClick={() => onFeedback?.(messageId)} messageId={messageId} />
+              {!messagesWithFeedback?.has(messageId) && (
+                <FeedbackIconButton
+                  onClick={() => onFeedback?.(messageId)}
+                  onClose={onCloseFeedback}
+                  isOpen={Boolean(feedbackMode && feedbackOpenMessageId === messageId)}
+                  messageId={messageId}
+                />
+              )}
             </box>
           )}
         </>
@@ -250,6 +266,10 @@ interface MessageBlockProps {
   setCollapsedAgents: (value: (prev: Set<string>) => Set<string>) => void
   addAutoCollapsedAgent: (value: string) => void
   onFeedback?: (messageId: string) => void
+  feedbackOpenMessageId?: string | null
+  feedbackMode?: boolean
+  onCloseFeedback?: () => void
+  messagesWithFeedback?: Set<string>
 }
 
 interface AgentBodyProps {

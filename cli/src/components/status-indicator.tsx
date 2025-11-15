@@ -90,7 +90,7 @@ export const StatusIndicator = ({
   }
 
   if (state.kind === 'clipboard') {
-    return <span fg={theme.primary}>{state.message}</span>
+    return <span fg={theme.success}>{state.message}</span>
   }
 
   if (state.kind === 'connecting') {

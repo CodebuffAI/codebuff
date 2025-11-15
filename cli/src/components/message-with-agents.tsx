@@ -62,7 +62,11 @@ export const MessageWithAgents = memo(
     onBuildFast,
     onBuildMax,
     onFeedback,
-  }: MessageWithAgentsProps): ReactNode => {
+    feedbackOpenMessageId,
+    feedbackMode,
+    onCloseFeedback,
+    messagesWithFeedback,
+  }: MessageWithAgentsProps & { feedbackOpenMessageId?: string | null; feedbackMode?: boolean; onCloseFeedback?: () => void; messagesWithFeedback?: Set<string> }): ReactNode => {
     const SIDE_GUTTER = 1
     const isAgent = message.variant === 'agent'
 
@@ -213,6 +217,10 @@ export const MessageWithAgents = memo(
                   setCollapsedAgents={setCollapsedAgents}
                   addAutoCollapsedAgent={addAutoCollapsedAgent}
                   onFeedback={onFeedback}
+                  feedbackOpenMessageId={feedbackOpenMessageId}
+                  feedbackMode={feedbackMode}
+                  onCloseFeedback={onCloseFeedback}
+                  messagesWithFeedback={messagesWithFeedback}
                 />
               </box>
             </box>
@@ -256,7 +264,11 @@ export const MessageWithAgents = memo(
                 onBuildMax={onBuildMax}
                 setCollapsedAgents={setCollapsedAgents}
                 addAutoCollapsedAgent={addAutoCollapsedAgent}
-                onFeedback={onFeedback}
+              onFeedback={onFeedback}
+              feedbackOpenMessageId={feedbackOpenMessageId}
+              feedbackMode={feedbackMode}
+              onCloseFeedback={onCloseFeedback}
+              messagesWithFeedback={messagesWithFeedback}
               />
             </box>
           )}
