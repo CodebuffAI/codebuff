@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useKeyboard } from '@opentui/react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { routeUserPrompt } from './commands/router'
 import { AgentModeToggle } from './components/agent-mode-toggle'
 import { MessageWithAgents } from './components/message-with-agents'
 import { FeedbackInputMode } from './components/feedback-input-mode'
+import { FeedbackUiProvider } from './contexts/feedback-ui-context'
 import {
   MultilineInput,
   type MultilineInputHandle,
@@ -44,7 +44,7 @@ import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
 import { BORDER_CHARS } from './utils/ui-constants'
 
-import type { ContentBlock } from './types/chat'
+import type { ChatMessage, ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
 import type { User } from './utils/auth'
 import type { FileTreeNode } from '@codebuff/common/util/file'
@@ -458,6 +458,15 @@ export const Chat = ({
   const [messagesWithFeedback, setMessagesWithFeedback] = useState<Set<string>>(new Set())
   const [messageFeedbackCategories, setMessageFeedbackCategories] = useState<Map<string, string>>(new Map())
 
+  const inputValueRef = useRef(inputValue)
+  const cursorPositionRef = useRef(cursorPosition)
+  useEffect(() => {
+    inputValueRef.current = inputValue
+  }, [inputValue])
+  useEffect(() => {
+    cursorPositionRef.current = cursorPosition
+  }, [cursorPosition])
+
   const resetFeedbackForm = useCallback(() => {
     setFeedbackText('')
     setFeedbackCursor(0)
@@ -466,38 +475,33 @@ export const Chat = ({
 
   const openFeedbackForMessage = useCallback((id: string) => {
     // Save current input state
-    setSavedInputValue(inputValue)
-    setSavedCursorPosition(cursorPosition)
+    setSavedInputValue(inputValueRef.current)
+    setSavedCursorPosition(cursorPositionRef.current)
 
     // Enter feedback mode
     setFeedbackMessageId(id)
     setFeedbackMode(true)
     resetFeedbackForm()
-  }, [inputValue, cursorPosition, resetFeedbackForm])
-
-  const openFeedbackForLatestMessage = useCallback(() => {
-    const latest = [...messages]
-      .reverse()
-      .find((m) => m.variant === 'ai' && m.isComplete)
-    if (!latest) {
-      return false
-    }
-    openFeedbackForMessage(latest.id)
-    return true
-  }, [messages, openFeedbackForMessage])
+  }, [resetFeedbackForm])
 
   const handleFeedbackSubmit = useCallback(() => {
     const text = feedbackText.trim()
     if (text.length === 0) return
 
-    const target = feedbackMessageId ? messages.find((m) => m.id === feedbackMessageId) : null
-    const recent = messages.slice(Math.max(0, messages.length - 5)).map((m) => ({
+    const target = feedbackMessageId
+      ? messages.find((m) => m.id === feedbackMessageId)
+      : null
+    const summarizeMessage = (m: ChatMessage) => ({
       id: m.id,
       variant: m.variant,
       timestamp: m.timestamp,
       hasBlocks: !!m.blocks,
       contentPreview: (m.content || '').slice(0, 400),
-    }))
+    })
+    const recent =
+      feedbackMessageId && target
+        ? [summarizeMessage(target)]
+        : messages.slice(Math.max(0, messages.length - 5)).map(summarizeMessage)
 
     logger.info(
       {
@@ -582,7 +586,7 @@ export const Chat = ({
     })
 
     // Handle /feedback command
-    if (result && 'openFeedbackMode' in result && result.openFeedbackMode) {
+    if (result?.openFeedbackMode) {
       setSavedInputValue('')
       setSavedCursorPosition(0)
       setFeedbackMessageId(null) // General feedback, not tied to a message
@@ -734,24 +738,6 @@ export const Chat = ({
   const shouldShowStatusLine =
     !feedbackMode && (hasStatusIndicatorContent || shouldShowQueuePreview || !isAtBottom)
 
-  // Ctrl+F to open feedback for latest completed AI message
-  useKeyboard(
-    useCallback(
-      (key) => {
-        // Don't handle if already in feedback mode
-        if (feedbackMode) return
-
-        if (key?.ctrl && key.name === 'f') {
-          if ('preventDefault' in key && typeof key.preventDefault === 'function') {
-            key.preventDefault()
-          }
-          openFeedbackForLatestMessage()
-        }
-      },
-      [openFeedbackForLatestMessage, feedbackMode],
-    ),
-  )
-
   const validationBanner = useValidationBanner({
     liveValidationErrors: validationErrors,
     loadedAgentsData,
@@ -802,40 +788,43 @@ export const Chat = ({
       >
         {headerContent}
         {virtualizationNotice}
-        {topLevelMessages.map((message, idx) => {
-          const isLast = idx === topLevelMessages.length - 1
-          return (
-            <MessageWithAgents
-              key={message.id}
-              message={message}
-              depth={0}
-              isLastMessage={isLast}
-              theme={theme}
-              markdownPalette={markdownPalette}
-              collapsedAgents={collapsedAgents}
-              autoCollapsedAgents={autoCollapsedAgents}
-              streamingAgents={streamingAgents}
-              messageTree={messageTree}
-              messages={messages}
-              availableWidth={separatorWidth}
-              setCollapsedAgents={setCollapsedAgents}
-              addAutoCollapsedAgent={addAutoCollapsedAgent}
-              setUserOpenedAgents={setUserOpenedAgents}
-              setFocusedAgentId={setFocusedAgentId}
-              isWaitingForResponse={isWaitingForResponse}
-              timerStartTime={timerStartTime}
-              onToggleCollapsed={handleCollapseToggle}
-              onBuildFast={handleBuildFast}
-              onBuildMax={handleBuildMax}
-              onFeedback={openFeedbackForMessage}
-              feedbackOpenMessageId={feedbackMessageId}
-              feedbackMode={feedbackMode}
-              onCloseFeedback={handleFeedbackCancel}
-              messagesWithFeedback={messagesWithFeedback}
-              messageFeedbackCategories={messageFeedbackCategories}
-            />
-          )
-        })}
+        <FeedbackUiProvider
+          onFeedback={openFeedbackForMessage}
+          onClose={handleFeedbackCancel}
+          isFeedbackMode={feedbackMode}
+          openMessageId={feedbackMessageId}
+          submittedMessageIds={messagesWithFeedback}
+          categorySelections={messageFeedbackCategories}
+        >
+          {topLevelMessages.map((message, idx) => {
+            const isLast = idx === topLevelMessages.length - 1
+            return (
+              <MessageWithAgents
+                key={message.id}
+                message={message}
+                depth={0}
+                isLastMessage={isLast}
+                theme={theme}
+                markdownPalette={markdownPalette}
+                collapsedAgents={collapsedAgents}
+                autoCollapsedAgents={autoCollapsedAgents}
+                streamingAgents={streamingAgents}
+                messageTree={messageTree}
+                messages={messages}
+                availableWidth={separatorWidth}
+                setCollapsedAgents={setCollapsedAgents}
+                addAutoCollapsedAgent={addAutoCollapsedAgent}
+                setUserOpenedAgents={setUserOpenedAgents}
+                setFocusedAgentId={setFocusedAgentId}
+                isWaitingForResponse={isWaitingForResponse}
+                timerStartTime={timerStartTime}
+                onToggleCollapsed={handleCollapseToggle}
+                onBuildFast={handleBuildFast}
+                onBuildMax={handleBuildMax}
+              />
+            )
+          })}
+        </FeedbackUiProvider>
       </scrollbox>
 
       <box

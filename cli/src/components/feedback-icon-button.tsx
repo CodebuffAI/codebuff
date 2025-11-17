@@ -4,13 +4,12 @@ import React, { useRef } from 'react'
 import { useHoverToggle } from './agent-mode-toggle'
 import { Button } from './button'
 import { useTheme } from '../hooks/use-theme'
-import { BORDER_CHARS } from '../utils/ui-constants'
 import { logger } from '../utils/logger'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 interface FeedbackIconButtonProps {
-  onClick?: () => void
-  onClose?: () => void
+  onClick: () => void
+  onClose: () => void
   isOpen?: boolean
   messageId?: string
   selectedCategory?: string
@@ -26,6 +25,10 @@ export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({
   const theme = useTheme()
   const hover = useHoverToggle()
   const hoveredOnceRef = useRef(false)
+  const handleClick = () => {
+    const action = isOpen ? onClose : onClick
+    action()
+  }
 
   const handleMouseOver = () => {
     hover.clearCloseTimer()
@@ -65,7 +68,7 @@ export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({
         paddingLeft: 0,
         paddingRight: 0,
       }}
-      onClick={() => (isOpen ? onClose?.() : onClick?.())}
+      onClick={handleClick}
       onMouseOver={handleMouseOver}
       onMouseOut={handleMouseOut}
     >

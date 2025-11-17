@@ -93,7 +93,7 @@ function preventKeyDefault(key: KeyWithPreventDefault) {
 
 interface MultilineInputProps {
   value: string
-  onChange: (value: InputValue | ((prev: InputValue) => InputValue)) => void
+  onChange: (value: InputValue) => void
   onSubmit: () => void
   onKeyIntercept?: (key: KeyEvent) => boolean
   placeholder?: string
@@ -170,11 +170,11 @@ export const MultilineInput = forwardRef<
 
         const newValue =
           value.slice(0, cursorPosition) + text + value.slice(cursorPosition)
-        onChange((prev) => ({
+        onChange({
           text: newValue,
-          cursorPosition: prev.cursorPosition + text.length,
+          cursorPosition: cursorPosition + text.length,
           lastEditDueToNav: false,
-        }))
+        })
       },
       [focused, value, cursorPosition, onChange],
     ),
@@ -441,11 +441,11 @@ export const MultilineInput = forwardRef<
           // For other newline shortcuts, just insert newline
           const newValue =
             value.slice(0, cursorPosition) + '\n' + value.slice(cursorPosition)
-          onChange((prev) => ({
+          onChange({
             text: newValue,
-            cursorPosition: prev.cursorPosition + 1,
+            cursorPosition: cursorPosition + 1,
             lastEditDueToNav: false,
-          }))
+          })
           return
         }
 

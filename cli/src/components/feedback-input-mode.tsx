@@ -7,6 +7,45 @@ import { Button } from './button'
 import { useTheme } from '../hooks/use-theme'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
+type CategoryHighlightKey = 'success' | 'error' | 'warning' | 'info'
+
+type CategoryOption = {
+  id: 'good_result' | 'bad_result' | 'app_bug' | 'other'
+  label: string
+  highlightKey: CategoryHighlightKey
+  placeholder: string
+}
+
+const CATEGORY_OPTIONS: readonly CategoryOption[] = [
+  {
+    id: 'good_result',
+    label: 'Good result',
+    highlightKey: 'success',
+    placeholder:
+      'What did you like? (e.g., "Fast and accurate", "Great explanation")',
+  },
+  {
+    id: 'bad_result',
+    label: 'Bad result',
+    highlightKey: 'error',
+    placeholder:
+      'What went wrong? (e.g., "Incorrect changes", "Missed the requirement")',
+  },
+  {
+    id: 'app_bug',
+    label: 'App bug',
+    highlightKey: 'warning',
+    placeholder:
+      'Report a problem with Codebuff (crashes, errors, UI issues, etc.)',
+  },
+  {
+    id: 'other',
+    label: 'Other',
+    highlightKey: 'info',
+    placeholder: 'Tell us more (what happened, what you expected)...',
+  },
+] as const
+
 interface FeedbackInputModeProps {
   feedbackText: string
   feedbackCursor: number
@@ -62,13 +101,6 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
     )
   )
 
-  const categoryOptions = [
-    { id: 'good_result', label: 'Good result', highlight: theme.success, placeholder: 'What did you like? (e.g., "Fast and accurate", "Great explanation")' },
-    { id: 'bad_result', label: 'Bad result', highlight: theme.error, placeholder: 'What went wrong? (e.g., "Incorrect changes", "Missed the requirement")' },
-    { id: 'app_bug', label: 'App bug', highlight: theme.warning, placeholder: 'Report a problem with Codebuff (crashes, errors, UI issues, etc.)' },
-    { id: 'other', label: 'Other', highlight: theme.info, placeholder: 'Tell us more (what happened, what you expected)...' },
-  ] as const
-
   return (
     <box
       border
@@ -99,7 +131,8 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
 
       {/* Category buttons */}
       <box style={{ flexDirection: 'row', gap: 1, paddingTop: 0, paddingBottom: 0 }}>
-        {categoryOptions.map((option) => {
+        {CATEGORY_OPTIONS.map((option) => {
+          const optionHighlight = theme[option.highlightKey]
           const isSelected = category === option.id
           return (
             <Button
@@ -114,12 +147,13 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
                 paddingTop: 0,
                 paddingBottom: 0,
                 borderStyle: 'single',
-                borderColor: isSelected ? option.highlight : theme.border,
-                customBorderChars: BORDER_CHARS,                  backgroundColor: 'transparent',
+                borderColor: isSelected ? optionHighlight : theme.border,
+                customBorderChars: BORDER_CHARS,
+                backgroundColor: 'transparent',
               }}
             >
               <text style={{ wrapMode: 'none' }}>
-                <span fg={isSelected ? option.highlight : theme.muted}>
+                <span fg={isSelected ? optionHighlight : theme.muted}>
                   {isSelected ? '◉' : '◯'}
                 </span>
                 <span fg={isSelected ? theme.foreground : theme.secondary}>
@@ -142,11 +176,8 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
       <box style={{ paddingTop: 0, paddingBottom: 0 }}>
         <MultilineInput
           value={feedbackText}
-          onChange={(next: { text: string; cursorPosition: number; lastEditDueToNav: boolean } | ((prev: { text: string; cursorPosition: number; lastEditDueToNav: boolean }) => { text: string; cursorPosition: number; lastEditDueToNav: boolean })) => {
-            const v = typeof next === 'function'
-              ? next({ text: feedbackText, cursorPosition: feedbackCursor, lastEditDueToNav: false })
-              : next
-            onFeedbackTextChange(v.text, v.cursorPosition)
+          onChange={({ text, cursorPosition }) => {
+            onFeedbackTextChange(text, cursorPosition)
           }}
           onSubmit={onSubmit}
           onKeyIntercept={(key) => {
@@ -157,7 +188,10 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
             onFeedbackTextChange(newText, feedbackCursor + 1)
             return true
           }}
-          placeholder={categoryOptions.find(opt => opt.id === category)?.placeholder || 'Tell us more (what happened, what you expected)...'}
+          placeholder={
+            CATEGORY_OPTIONS.find((opt) => opt.id === category)?.placeholder ||
+            'Tell us more (what happened, what you expected)...'
+          }
           focused={true}
           maxHeight={5}
           minHeight={3}
@@ -185,7 +219,7 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
         gap: 2
       }}>
         <text style={{ wrapMode: 'none' }}>
-          <span fg={theme.muted}>Auto-attached: message • trace • session</span>
+          <span fg={theme.muted}>Session details are auto-attached</span>
         </text>
         <Button
           onClick={() => {

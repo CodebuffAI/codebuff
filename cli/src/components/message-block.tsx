@@ -10,6 +10,7 @@ import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
 import { isTextBlock, isToolBlock } from '../types/chat'
 import { logger } from '../utils/logger'
 import { type MarkdownPalette } from '../utils/markdown-renderer'
+import { useFeedbackUi } from '../contexts/feedback-ui-context'
 
 import type {
   ContentBlock,
@@ -42,15 +43,13 @@ interface MessageBlockProps {
   availableWidth: number
   markdownPalette: MarkdownPalette
   collapsedAgents: Set<string>
+  autoCollapsedAgents: Set<string>
   streamingAgents: Set<string>
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
-  onFeedback?: (messageId: string) => void
-  feedbackOpenMessageId?: string | null
-  feedbackMode?: boolean
-  onCloseFeedback?: () => void
-  messagesWithFeedback?: Set<string>
+  setCollapsedAgents: (value: (prev: Set<string>) => Set<string>) => void
+  addAutoCollapsedAgent: (value: string) => void
 }
 
 export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
@@ -79,12 +78,6 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
     onBuildMax,
     setCollapsedAgents,
     addAutoCollapsedAgent,
-    onFeedback,
-    feedbackOpenMessageId,
-    feedbackMode,
-    onCloseFeedback,
-    messagesWithFeedback,
-    messageFeedbackCategories,
   } = props
   useWhyDidYouUpdateById('MessageBlock', messageId, props, {
     logLevel: 'debug',
@@ -92,7 +85,107 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
   })
 
   const theme = useTheme()
+  const feedbackUi = useFeedbackUi()
   const resolvedTextColor = textColor ?? theme.foreground
+  const shouldShowLoadingTimer = isAi && isLoading && !isComplete
+  const shouldShowCompletionFooter = isAi && isComplete
+  const isFeedbackOpen = Boolean(
+    feedbackUi?.isFeedbackMode && feedbackUi.openMessageId === messageId,
+  )
+  const hasSubmittedFeedback = Boolean(
+    feedbackUi?.submittedMessageIds?.has(messageId),
+  )
+  const selectedFeedbackCategory = feedbackUi?.categorySelections?.get(
+    messageId,
+  )
+  const canRequestFeedback = Boolean(
+    shouldShowCompletionFooter && feedbackUi && !hasSubmittedFeedback,
+  )
+
+  const renderLoadingTimer = () => {
+    if (!shouldShowLoadingTimer) {
+      return null
+    }
+    return (
+      <text
+        attributes={TextAttributes.DIM}
+        style={{
+          wrapMode: 'none',
+          marginTop: 0,
+          marginBottom: 0,
+          alignSelf: 'flex-end',
+        }}
+      >
+        <ElapsedTimer
+          startTime={timerStartTime}
+          attributes={TextAttributes.DIM}
+        />
+      </text>
+    )
+  }
+
+  const renderCompletionMeta = () => (
+    <text
+      attributes={TextAttributes.DIM}
+      style={{
+        wrapMode: 'none',
+        fg: theme.secondary,
+        marginTop: 0,
+        marginBottom: 0,
+      }}
+    >
+      {completionTime}
+      {typeof credits === 'number' && credits > 0 &&
+        ` • ${pluralize(credits, 'credit')}`}
+    </text>
+  )
+
+  const renderFeedbackControls = () => {
+    if (!canRequestFeedback || !feedbackUi) {
+      return null
+    }
+    return (
+      <>
+        <text
+          attributes={TextAttributes.DIM}
+          style={{
+            wrapMode: 'none',
+            fg: theme.muted,
+            marginTop: 0,
+            marginBottom: 0,
+          }}
+        >
+          •
+        </text>
+        <FeedbackIconButton
+          onClick={() => feedbackUi.onFeedback(messageId)}
+          onClose={feedbackUi.onClose}
+          isOpen={isFeedbackOpen}
+          messageId={messageId}
+          selectedCategory={selectedFeedbackCategory}
+        />
+      </>
+    )
+  }
+
+  const renderCompletionFooter = () => {
+    if (!shouldShowCompletionFooter) {
+      return null
+    }
+    return (
+      <box
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          alignSelf: 'flex-end',
+          gap: 1,
+        }}
+      >
+        {renderCompletionMeta()}
+        {renderFeedbackControls()}
+      </box>
+    )
+  }
 
   return (
     <>
@@ -145,67 +238,8 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
       )}
       {isAi && (
         <>
-          {isLoading && !isComplete && (
-            <text
-              attributes={TextAttributes.DIM}
-              style={{
-                wrapMode: 'none',
-                marginTop: 0,
-                marginBottom: 0,
-                alignSelf: 'flex-end',
-              }}
-            >
-              <ElapsedTimer
-                startTime={timerStartTime}
-                attributes={TextAttributes.DIM}
-              />
-            </text>
-          )}
-          {isComplete && (
-            <box
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                alignSelf: 'flex-end',
-                gap: 1,
-              }}
-            >
-              <text
-                attributes={TextAttributes.DIM}
-                style={{
-                  wrapMode: 'none',
-                  fg: theme.secondary,
-                  marginTop: 0,
-                  marginBottom: 0,
-                }}
-              >
-                {completionTime}
-                {typeof credits === 'number' && credits > 0 && ` • ${pluralize(credits, 'credit')}`}
-              </text>
-              {!messagesWithFeedback?.has(messageId) && (
-                <>
-                  <text
-                    attributes={TextAttributes.DIM}
-                    style={{
-                      wrapMode: 'none',
-                      fg: theme.muted,
-                      marginTop: 0,
-                      marginBottom: 0,
-                    }}
-                  >
-                    •
-                  </text>
-                  <FeedbackIconButton
-                    onClick={() => onFeedback?.(messageId)}
-                    onClose={onCloseFeedback}
-                    isOpen={Boolean(feedbackMode && feedbackOpenMessageId === messageId)}
-                    messageId={messageId}
-                    selectedCategory={messageFeedbackCategories?.get(messageId)}
-                  />
-                </>
-              )}
-            </box>
-          )}
+          {renderLoadingTimer()}
+          {renderCompletionFooter()}
         </>
       )}
     </>
@@ -253,39 +287,6 @@ const isRenderableTimelineBlock = (
     default:
       return false
   }
-}
-
-interface MessageBlockProps {
-  messageId: string
-  blocks?: ContentBlock[]
-  content: string
-  isUser: boolean
-  isAi: boolean
-  isLoading: boolean
-  timestamp: string
-  isComplete?: boolean
-  completionTime?: string
-  credits?: number
-  timerStartTime: number | null
-  textColor?: ThemeColor
-  timestampColor: string
-  markdownOptions: { codeBlockWidth: number; palette: MarkdownPalette }
-  availableWidth: number
-  markdownPalette: MarkdownPalette
-  collapsedAgents: Set<string>
-  autoCollapsedAgents: Set<string>
-  streamingAgents: Set<string>
-  onToggleCollapsed: (id: string) => void
-  onBuildFast: () => void
-  onBuildMax: () => void
-  setCollapsedAgents: (value: (prev: Set<string>) => Set<string>) => void
-  addAutoCollapsedAgent: (value: string) => void
-  onFeedback?: (messageId: string) => void
-  feedbackOpenMessageId?: string | null
-  feedbackMode?: boolean
-  onCloseFeedback?: () => void
-  messagesWithFeedback?: Set<string>
-  messageFeedbackCategories?: Map<string, string>
 }
 
 interface AgentBodyProps {
