@@ -1,8 +1,10 @@
 import { TextAttributes } from '@opentui/core'
+import { pluralize } from '@codebuff/common/util/string'
 import React, { memo, useCallback, type ReactNode } from 'react'
 
 import { AgentBranchItem } from './agent-branch-item'
 import { ElapsedTimer } from './elapsed-timer'
+import { FeedbackIconButton } from './feedback-icon-button'
 import { useTheme } from '../hooks/use-theme'
 import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
 import { isTextBlock, isToolBlock } from '../types/chat'
@@ -44,6 +46,11 @@ interface MessageBlockProps {
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
+  onFeedback?: (messageId: string) => void
+  feedbackOpenMessageId?: string | null
+  feedbackMode?: boolean
+  onCloseFeedback?: () => void
+  messagesWithFeedback?: Set<string>
 }
 
 export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
@@ -72,6 +79,12 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
     onBuildMax,
     setCollapsedAgents,
     addAutoCollapsedAgent,
+    onFeedback,
+    feedbackOpenMessageId,
+    feedbackMode,
+    onCloseFeedback,
+    messagesWithFeedback,
+    messageFeedbackCategories,
   } = props
   useWhyDidYouUpdateById('MessageBlock', messageId, props, {
     logLevel: 'debug',
@@ -149,19 +162,49 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
             </text>
           )}
           {isComplete && (
-            <text
-              attributes={TextAttributes.DIM}
+            <box
               style={{
-                wrapMode: 'none',
-                fg: theme.secondary,
-                marginTop: 0,
-                marginBottom: 0,
+                flexDirection: 'row',
+                alignItems: 'center',
                 alignSelf: 'flex-end',
+                gap: 1,
               }}
             >
-              {completionTime}
-              {credits && ` • ${credits} credits`}
-            </text>
+              <text
+                attributes={TextAttributes.DIM}
+                style={{
+                  wrapMode: 'none',
+                  fg: theme.secondary,
+                  marginTop: 0,
+                  marginBottom: 0,
+                }}
+              >
+                {completionTime}
+                {typeof credits === 'number' && credits > 0 && ` • ${pluralize(credits, 'credit')}`}
+              </text>
+              {!messagesWithFeedback?.has(messageId) && (
+                <>
+                  <text
+                    attributes={TextAttributes.DIM}
+                    style={{
+                      wrapMode: 'none',
+                      fg: theme.muted,
+                      marginTop: 0,
+                      marginBottom: 0,
+                    }}
+                  >
+                    •
+                  </text>
+                  <FeedbackIconButton
+                    onClick={() => onFeedback?.(messageId)}
+                    onClose={onCloseFeedback}
+                    isOpen={Boolean(feedbackMode && feedbackOpenMessageId === messageId)}
+                    messageId={messageId}
+                    selectedCategory={messageFeedbackCategories?.get(messageId)}
+                  />
+                </>
+              )}
+            </box>
           )}
         </>
       )}
@@ -237,6 +280,12 @@ interface MessageBlockProps {
   onBuildMax: () => void
   setCollapsedAgents: (value: (prev: Set<string>) => Set<string>) => void
   addAutoCollapsedAgent: (value: string) => void
+  onFeedback?: (messageId: string) => void
+  feedbackOpenMessageId?: string | null
+  feedbackMode?: boolean
+  onCloseFeedback?: () => void
+  messagesWithFeedback?: Set<string>
+  messageFeedbackCategories?: Map<string, string>
 }
 
 interface AgentBodyProps {

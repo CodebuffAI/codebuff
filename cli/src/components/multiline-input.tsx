@@ -12,6 +12,7 @@ import {
 
 import { useOpentuiPaste } from '../hooks/use-opentui-paste'
 import { useTheme } from '../hooks/use-theme'
+import { InputCursor } from './input-cursor'
 import { clamp } from '../utils/math'
 import { computeInputLayoutMetrics } from '../utils/text-layout'
 import { calculateNewCursorPosition } from '../utils/word-wrap-utils'
@@ -77,6 +78,7 @@ function findNextWordBoundary(text: string, cursor: number): number {
 
 const CURSOR_CHAR = '▍'
 const CONTROL_CHAR_REGEX = /[\u0000-\u0008\u000b-\u000c\u000e-\u001f\u007f]/
+const TAB_WIDTH = 4
 
 type KeyWithPreventDefault =
   | {
@@ -97,6 +99,7 @@ interface MultilineInputProps {
   placeholder?: string
   focused?: boolean
   maxHeight?: number
+  minHeight?: number
   width: number
   textAttributes?: number
   cursorPosition: number
@@ -117,6 +120,7 @@ export const MultilineInput = forwardRef<
     placeholder = '',
     focused = true,
     maxHeight = 5,
+    minHeight = 1,
     width,
     textAttributes,
     onKeyIntercept,
@@ -127,6 +131,13 @@ export const MultilineInput = forwardRef<
   const theme = useTheme()
   const scrollBoxRef = useRef<ScrollBoxRenderable | null>(null)
   const [measuredCols, setMeasuredCols] = useState<number | null>(null)
+  const [lastActivity, setLastActivity] = useState(Date.now())
+
+  // Update last activity on value or cursor changes
+  useEffect(() => {
+    setLastActivity(Date.now())
+  }, [value, cursorPosition])
+
   const getEffectiveCols = useCallback(() => {
     // Prefer measured viewport columns; fallback to a conservative
     // estimate: outer width minus border(2) minus padding(2) = 4.
@@ -213,7 +224,10 @@ export const MultilineInput = forwardRef<
   useEffect(() => {
     const node = scrollBoxRef.current
     if (!node) return
-    const vpWidth = Math.max(0, Math.floor(node.viewport.width || 0))
+    const viewportWidth = Number(node.viewport?.width ?? 0)
+    if (!Number.isFinite(viewportWidth)) return
+    const vpWidth = Math.floor(viewportWidth)
+    if (vpWidth <= 0) return
     // viewport.width already reflects inner content area; don't subtract again
     const cols = Math.max(1, vpWidth)
     setMeasuredCols(cols)
@@ -268,8 +282,6 @@ export const MultilineInput = forwardRef<
   const showCursor = focused
 
   // Replace tabs with spaces for proper rendering
-  // Terminal tab stops are typically 8 columns, but 4 is more readable
-  const TAB_WIDTH = 4
   const displayValueForRendering = displayValue.replace(
     /\t/g,
     ' '.repeat(TAB_WIDTH),
@@ -281,19 +293,78 @@ export const MultilineInput = forwardRef<
     renderCursorPosition += displayValue[i] === '\t' ? TAB_WIDTH : 1
   }
 
-  const beforeCursor = showCursor
-    ? displayValueForRendering.slice(0, renderCursorPosition)
-    : ''
-  const afterCursor = showCursor
-    ? displayValueForRendering.slice(renderCursorPosition)
-    : ''
-  const activeChar = afterCursor.charAt(0) || ' '
-  const shouldHighlight =
-    showCursor &&
-    !isPlaceholder &&
-    cursorPosition < displayValue.length &&
-    displayValue[cursorPosition] !== '\n' &&
-    displayValue[cursorPosition] !== '\t'
+  const {
+    beforeCursor,
+    afterCursor,
+    activeChar,
+    shouldHighlight,
+    layoutContent,
+    cursorProbe,
+  } = useMemo(() => {
+    if (!showCursor) {
+      const layoutText = displayValueForRendering
+      const safeCursor = Math.max(
+        0,
+        Math.min(renderCursorPosition, layoutText.length),
+      )
+
+      return {
+        beforeCursor: '',
+        afterCursor: '',
+        activeChar: ' ',
+        shouldHighlight: false,
+        layoutContent: layoutText,
+        cursorProbe: layoutText.slice(0, safeCursor),
+      }
+    }
+
+    const beforeCursor = displayValueForRendering.slice(0, renderCursorPosition)
+    const afterCursor = displayValueForRendering.slice(renderCursorPosition)
+    const activeChar = afterCursor.charAt(0) || ' '
+    const shouldHighlight =
+      !isPlaceholder &&
+      renderCursorPosition < displayValueForRendering.length &&
+      displayValue[cursorPosition] !== '\n' &&
+      displayValue[cursorPosition] !== '\t'
+
+    // Use the actual input contents for measurement so placeholder text
+    // doesn't change height calculations when the user starts typing.
+    const measurementValue = isPlaceholder
+      ? value.replace(/\t/g, ' '.repeat(TAB_WIDTH))
+      : displayValueForRendering
+
+    // Calculate measurement cursor position (accounting for tabs in actual value)
+    let measurementCursor = 0
+    const sourceValue = isPlaceholder ? value : displayValue
+    for (let i = 0; i < cursorPosition && i < sourceValue.length; i++) {
+      measurementCursor += sourceValue[i] === '\t' ? TAB_WIDTH : 1
+    }
+
+    const layoutContent = shouldHighlight
+      ? measurementValue
+      : `${measurementValue.slice(0, measurementCursor)}${CURSOR_CHAR}${measurementValue.slice(measurementCursor)}`
+
+    const cursorProbe = shouldHighlight
+      ? measurementValue.slice(0, measurementCursor + 1)
+      : `${measurementValue.slice(0, measurementCursor)}${CURSOR_CHAR}`
+
+    return {
+      beforeCursor,
+      afterCursor,
+      activeChar,
+      shouldHighlight,
+      layoutContent,
+      cursorProbe,
+    }
+  }, [
+    showCursor,
+    displayValueForRendering,
+    renderCursorPosition,
+    cursorPosition,
+    isPlaceholder,
+    value,
+    displayValue,
+  ])
 
   // Handle all keyboard input with advanced shortcuts
   useKeyboard(
@@ -755,20 +826,6 @@ export const MultilineInput = forwardRef<
     ),
   )
 
-  // Calculate display with cursor
-
-  const layoutContent = showCursor
-    ? shouldHighlight
-      ? displayValueForRendering
-      : `${beforeCursor}${CURSOR_CHAR}${afterCursor}`
-    : displayValueForRendering
-
-  const cursorProbe = showCursor
-    ? shouldHighlight
-      ? displayValueForRendering.slice(0, renderCursorPosition + 1)
-      : `${beforeCursor}${CURSOR_CHAR}`
-    : displayValueForRendering.slice(0, renderCursorPosition)
-
   const layoutMetrics = useMemo(
     () =>
       computeInputLayoutMetrics({
@@ -776,8 +833,9 @@ export const MultilineInput = forwardRef<
         cursorProbe,
         cols: getEffectiveCols(),
         maxHeight,
+        minHeight,
       }),
-    [layoutContent, cursorProbe, getEffectiveCols, maxHeight],
+    [layoutContent, cursorProbe, getEffectiveCols, maxHeight, minHeight],
   )
 
   const inputColor = isPlaceholder
@@ -811,7 +869,7 @@ export const MultilineInput = forwardRef<
           border: false,
         },
         contentOptions: {
-          justifyContent: 'flex-end',
+          justifyContent: 'flex-start',
         },
       }}
     >
@@ -831,9 +889,12 @@ export const MultilineInput = forwardRef<
                 {activeChar === ' ' ? '\u00a0' : activeChar}
               </span>
             ) : (
-              <span fg={theme.info} attributes={TextAttributes.BOLD}>
-                {CURSOR_CHAR}
-              </span>
+              <InputCursor
+                visible={true}
+                focused={focused}
+                color={theme.info}
+                key={lastActivity}
+              />
             )}
             {shouldHighlight
               ? afterCursor.length > 0

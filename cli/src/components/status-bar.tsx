@@ -10,7 +10,7 @@ import type { StreamStatus } from '../hooks/use-message-queue'
 const SHIMMER_INTERVAL_MS = 160
 
 interface StatusBarProps {
-  clipboardMessage: string | null
+  statusMessage: string | null
   streamStatus: StreamStatus
   timerStartTime: number | null
   nextCtrlCWillExit: boolean
@@ -20,7 +20,7 @@ interface StatusBarProps {
 }
 
 export const StatusBar = ({
-  clipboardMessage,
+  statusMessage,
   streamStatus,
   timerStartTime,
   nextCtrlCWillExit,
@@ -56,8 +56,10 @@ export const StatusBar = ({
       return <span fg={theme.secondary}>Press Ctrl-C again to exit</span>
     }
 
-    if (clipboardMessage) {
-      return <span fg={theme.primary}>{clipboardMessage}</span>
+    if (statusMessage) {
+      // Use green color for feedback success messages
+      const isFeedbackSuccess = statusMessage.includes('Feedback sent')
+      return <span fg={isFeedbackSuccess ? theme.success : theme.primary}>{statusMessage}</span>
     }
 
     if (!isConnected) {

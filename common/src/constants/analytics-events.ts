@@ -24,6 +24,8 @@ export enum AnalyticsEvent {
   TERMINAL_COMMAND_COMPLETED_SINGLE = 'cli.terminal_command_completed_single',
   USER_INPUT_COMPLETE = 'cli.user_input_complete',
   UPDATE_CODEBUFF_FAILED = 'cli.update_codebuff_failed',
+  FEEDBACK_SUBMITTED = 'cli.feedback_submitted',
+  FEEDBACK_BUTTON_HOVERED = 'cli.feedback_button_hovered',
 
   // Backend
   AGENT_STEP = 'backend.agent_step',

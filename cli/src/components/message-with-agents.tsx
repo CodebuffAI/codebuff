@@ -36,6 +36,12 @@ interface MessageWithAgentsProps {
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
+  onFeedback: (messageId: string) => void
+  feedbackOpenMessageId?: string | null
+  feedbackMode?: boolean
+  onCloseFeedback?: () => void
+  messagesWithFeedback?: Set<string>
+  messageFeedbackCategories?: Map<string, string>
 }
 
 export const MessageWithAgents = memo(
@@ -60,6 +66,12 @@ export const MessageWithAgents = memo(
     onToggleCollapsed,
     onBuildFast,
     onBuildMax,
+    onFeedback,
+    feedbackOpenMessageId,
+    feedbackMode,
+    onCloseFeedback,
+    messagesWithFeedback,
+    messageFeedbackCategories,
   }: MessageWithAgentsProps): ReactNode => {
     const SIDE_GUTTER = 1
     const isAgent = message.variant === 'agent'
@@ -86,6 +98,12 @@ export const MessageWithAgents = memo(
           onToggleCollapsed={onToggleCollapsed}
           onBuildFast={onBuildFast}
           onBuildMax={onBuildMax}
+          onFeedback={onFeedback}
+          feedbackOpenMessageId={feedbackOpenMessageId}
+          feedbackMode={feedbackMode}
+          onCloseFeedback={onCloseFeedback}
+          messagesWithFeedback={messagesWithFeedback}
+          messageFeedbackCategories={messageFeedbackCategories}
         />
       )
     }
@@ -209,6 +227,12 @@ export const MessageWithAgents = memo(
                   onBuildMax={onBuildMax}
                   setCollapsedAgents={setCollapsedAgents}
                   addAutoCollapsedAgent={addAutoCollapsedAgent}
+                onFeedback={onFeedback}
+                feedbackOpenMessageId={feedbackOpenMessageId}
+                feedbackMode={feedbackMode}
+                onCloseFeedback={onCloseFeedback}
+                messagesWithFeedback={messagesWithFeedback}
+                messageFeedbackCategories={messageFeedbackCategories}
                 />
               </box>
             </box>
@@ -252,6 +276,12 @@ export const MessageWithAgents = memo(
                 onBuildMax={onBuildMax}
                 setCollapsedAgents={setCollapsedAgents}
                 addAutoCollapsedAgent={addAutoCollapsedAgent}
+        onFeedback={onFeedback}
+        feedbackOpenMessageId={feedbackOpenMessageId}
+        feedbackMode={feedbackMode}
+        onCloseFeedback={onCloseFeedback}
+        messagesWithFeedback={messagesWithFeedback}
+        messageFeedbackCategories={messageFeedbackCategories}
               />
             </box>
           )}
@@ -282,6 +312,12 @@ export const MessageWithAgents = memo(
                   onToggleCollapsed={onToggleCollapsed}
                   onBuildFast={onBuildFast}
                   onBuildMax={onBuildMax}
+                  onFeedback={onFeedback}
+                  feedbackOpenMessageId={feedbackOpenMessageId}
+                  feedbackMode={feedbackMode}
+                  onCloseFeedback={onCloseFeedback}
+                  messagesWithFeedback={messagesWithFeedback}
+                  messageFeedbackCategories={messageFeedbackCategories}
                 />
               </box>
             ))}
@@ -312,6 +348,12 @@ interface AgentMessageProps {
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
+  onFeedback: (messageId: string) => void
+  feedbackOpenMessageId?: string | null
+  feedbackMode?: boolean
+  onCloseFeedback?: () => void
+  messagesWithFeedback?: Set<string>
+  messageFeedbackCategories?: Map<string, string>
 }
 
 const AgentMessage = memo(
@@ -335,6 +377,12 @@ const AgentMessage = memo(
     onToggleCollapsed,
     onBuildFast,
     onBuildMax,
+    onFeedback,
+    feedbackOpenMessageId,
+    feedbackMode,
+    onCloseFeedback,
+    messagesWithFeedback,
+    messageFeedbackCategories,
   }: AgentMessageProps): ReactNode => {
     const agentInfo = message.agent!
     const isCollapsed = collapsedAgents.has(message.id)
@@ -532,6 +580,12 @@ const AgentMessage = memo(
                   onToggleCollapsed={onToggleCollapsed}
                   onBuildFast={onBuildFast}
                   onBuildMax={onBuildMax}
+                  onFeedback={onFeedback}
+                  feedbackOpenMessageId={feedbackOpenMessageId}
+                  feedbackMode={feedbackMode}
+                  onCloseFeedback={onCloseFeedback}
+                  messagesWithFeedback={messagesWithFeedback}
+                  messageFeedbackCategories={messageFeedbackCategories}
                 />
               </box>
             ))}

@@ -78,4 +78,26 @@ describe('MessageBlock completion time', () => {
     expect(markup).not.toContain('7s')
     expect(markup).not.toContain('3 credits')
   })
+
+  test('pluralizes credit label correctly', () => {
+    const singularMarkup = renderToStaticMarkup(
+      <MessageBlock
+        {...baseProps}
+        isComplete={true}
+        completionTime="7s"
+        credits={1}
+      />,
+    )
+    expect(singularMarkup).toContain('1 credit')
+
+    const pluralMarkup = renderToStaticMarkup(
+      <MessageBlock
+        {...baseProps}
+        isComplete={true}
+        completionTime="7s"
+        credits={4}
+      />,
+    )
+    expect(pluralMarkup).toContain('4 credits')
+  })
 })

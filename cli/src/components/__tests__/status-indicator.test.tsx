@@ -6,7 +6,7 @@ import type { StatusIndicatorStateArgs } from '../../utils/status-indicator-stat
 describe('StatusIndicator state logic', () => {
   describe('getStatusIndicatorState', () => {
     const baseArgs: StatusIndicatorStateArgs = {
-      clipboardMessage: null,
+      statusMessage: null,
       streamStatus: 'idle',
       nextCtrlCWillExit: false,
       isConnected: true,
@@ -21,7 +21,7 @@ describe('StatusIndicator state logic', () => {
       const state = getStatusIndicatorState({
         ...baseArgs,
         nextCtrlCWillExit: true,
-        clipboardMessage: 'Some message',
+        statusMessage: 'Some message',
         streamStatus: 'streaming',
         isConnected: false,
       })
@@ -31,7 +31,7 @@ describe('StatusIndicator state logic', () => {
     test('returns clipboard state when message exists (second priority)', () => {
       const state = getStatusIndicatorState({
         ...baseArgs,
-        clipboardMessage: 'Copied to clipboard!',
+        statusMessage: 'Copied to clipboard!',
         streamStatus: 'streaming',
         isConnected: false,
       })
@@ -69,7 +69,7 @@ describe('StatusIndicator state logic', () => {
     test('handles empty clipboard message as falsy', () => {
       const state = getStatusIndicatorState({
         ...baseArgs,
-        clipboardMessage: '',
+        statusMessage: '',
         streamStatus: 'streaming',
       })
       // Empty string is falsy, should fall through to streaming state
@@ -81,7 +81,7 @@ describe('StatusIndicator state logic', () => {
         const state = getStatusIndicatorState({
           ...baseArgs,
           nextCtrlCWillExit: true,
-          clipboardMessage: 'Test',
+          statusMessage: 'Test',
         })
         expect(state.kind).toBe('ctrlC')
       })
@@ -89,7 +89,7 @@ describe('StatusIndicator state logic', () => {
       test('clipboard beats connecting', () => {
         const state = getStatusIndicatorState({
           ...baseArgs,
-          clipboardMessage: 'Test',
+          statusMessage: 'Test',
           isConnected: false,
         })
         expect(state.kind).toBe('clipboard')
