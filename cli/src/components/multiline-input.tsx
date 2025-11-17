@@ -249,21 +249,69 @@ export const MultilineInput = forwardRef<
   const isPlaceholder = value.length === 0 && placeholder.length > 0
   const displayValue = isPlaceholder ? placeholder : value
   const showCursor = focused
-  const beforeCursor = showCursor ? displayValue.slice(0, cursorPosition) : ''
-  const afterCursor = showCursor ? displayValue.slice(cursorPosition) : ''
-  const activeChar = afterCursor.charAt(0) || ' '
-  const shouldHighlight =
-    showCursor &&
-    !isPlaceholder &&
-    cursorPosition < displayValue.length &&
-    displayValue[cursorPosition] !== '\n'
 
-  // Use the actual input contents for measurement so placeholder text
-  // doesn't change height calculations when the user starts typing.
-  const measurementValue = isPlaceholder ? value : displayValue
-  const measurementAfterCursor = showCursor
-    ? measurementValue.slice(cursorPosition)
-    : ''
+  const {
+    beforeCursor,
+    afterCursor,
+    activeChar,
+    shouldHighlight,
+    layoutContent,
+    cursorProbe,
+  } = useMemo(() => {
+    if (!showCursor) {
+      const layoutText = displayValue
+      const safeCursor = Math.max(
+        0,
+        Math.min(cursorPosition, layoutText.length),
+      )
+
+      return {
+        beforeCursor: '',
+        afterCursor: '',
+        activeChar: ' ',
+        shouldHighlight: false,
+        layoutContent: layoutText,
+        cursorProbe: layoutText.slice(0, safeCursor),
+      }
+    }
+
+    const displayCursor = Math.max(
+      0,
+      Math.min(cursorPosition, displayValue.length),
+    )
+    const beforeCursor = displayValue.slice(0, displayCursor)
+    const afterCursor = displayValue.slice(displayCursor)
+    const activeChar = afterCursor.charAt(0) || ' '
+    const shouldHighlight =
+      !isPlaceholder &&
+      displayCursor < displayValue.length &&
+      displayValue[displayCursor] !== '\n'
+
+    // Use the actual input contents for measurement so placeholder text
+    // doesn't change height calculations when the user starts typing.
+    const measurementValue = isPlaceholder ? value : displayValue
+    const measurementCursor = Math.max(
+      0,
+      Math.min(cursorPosition, measurementValue.length),
+    )
+
+    const layoutContent = shouldHighlight
+      ? measurementValue
+      : `${measurementValue.slice(0, measurementCursor)}${CURSOR_CHAR}${measurementValue.slice(measurementCursor)}`
+
+    const cursorProbe = shouldHighlight
+      ? measurementValue.slice(0, measurementCursor + 1)
+      : `${measurementValue.slice(0, measurementCursor)}${CURSOR_CHAR}`
+
+    return {
+      beforeCursor,
+      afterCursor,
+      activeChar,
+      shouldHighlight,
+      layoutContent,
+      cursorProbe,
+    }
+  }, [showCursor, displayValue, cursorPosition, isPlaceholder, value])
 
   // Handle all keyboard input with advanced shortcuts
   useKeyboard(
@@ -723,20 +771,6 @@ export const MultilineInput = forwardRef<
       ],
     ),
   )
-
-  // Calculate display with cursor
-
-  const layoutContent = showCursor
-    ? shouldHighlight
-      ? measurementValue
-      : `${measurementValue.slice(0, cursorPosition)}${CURSOR_CHAR}${measurementAfterCursor}`
-    : measurementValue
-
-  const cursorProbe = showCursor
-    ? shouldHighlight
-      ? measurementValue.slice(0, cursorPosition + 1)
-      : `${measurementValue.slice(0, cursorPosition)}${CURSOR_CHAR}`
-    : measurementValue.slice(0, cursorPosition)
 
   const layoutMetrics = useMemo(
     () =>

@@ -63,10 +63,10 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
   )
 
   const categoryOptions = [
-    { id: 'good_code', label: 'Good result', highlight: theme.success },
-    { id: 'bad_code', label: 'Bad result', highlight: theme.error },
-    { id: 'bug', label: 'Bug', highlight: theme.warning },
-    { id: 'other', label: 'Other', highlight: theme.info },
+    { id: 'good_result', label: 'Good result', highlight: theme.success, placeholder: 'What did you like? (e.g., "Fast and accurate", "Great explanation")' },
+    { id: 'bad_result', label: 'Bad result', highlight: theme.error, placeholder: 'What went wrong? (e.g., "Incorrect changes", "Missed the requirement")' },
+    { id: 'app_bug', label: 'App bug', highlight: theme.warning, placeholder: 'Report a problem with Codebuff (crashes, errors, UI issues, etc.)' },
+    { id: 'other', label: 'Other', highlight: theme.info, placeholder: 'Tell us more (what happened, what you expected)...' },
   ] as const
 
   return (
@@ -157,7 +157,7 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
             onFeedbackTextChange(newText, feedbackCursor + 1)
             return true
           }}
-          placeholder={'Tell us more (what happened, what you expected)...'}
+          placeholder={categoryOptions.find(opt => opt.id === category)?.placeholder || 'Tell us more (what happened, what you expected)...'}
           focused={true}
           maxHeight={5}
           minHeight={3}

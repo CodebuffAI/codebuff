@@ -84,6 +84,7 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
     feedbackMode,
     onCloseFeedback,
     messagesWithFeedback,
+    messageFeedbackCategories,
   } = props
   useWhyDidYouUpdateById('MessageBlock', messageId, props, {
     logLevel: 'debug',
@@ -182,12 +183,26 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
                 {typeof credits === 'number' && credits > 0 && ` • ${pluralize(credits, 'credit')}`}
               </text>
               {!messagesWithFeedback?.has(messageId) && (
-                <FeedbackIconButton
-                  onClick={() => onFeedback?.(messageId)}
-                  onClose={onCloseFeedback}
-                  isOpen={Boolean(feedbackMode && feedbackOpenMessageId === messageId)}
-                  messageId={messageId}
-                />
+                <>
+                  <text
+                    attributes={TextAttributes.DIM}
+                    style={{
+                      wrapMode: 'none',
+                      fg: theme.muted,
+                      marginTop: 0,
+                      marginBottom: 0,
+                    }}
+                  >
+                    •
+                  </text>
+                  <FeedbackIconButton
+                    onClick={() => onFeedback?.(messageId)}
+                    onClose={onCloseFeedback}
+                    isOpen={Boolean(feedbackMode && feedbackOpenMessageId === messageId)}
+                    messageId={messageId}
+                    selectedCategory={messageFeedbackCategories?.get(messageId)}
+                  />
+                </>
               )}
             </box>
           )}
@@ -270,6 +285,7 @@ interface MessageBlockProps {
   feedbackMode?: boolean
   onCloseFeedback?: () => void
   messagesWithFeedback?: Set<string>
+  messageFeedbackCategories?: Map<string, string>
 }
 
 interface AgentBodyProps {

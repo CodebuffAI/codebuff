@@ -462,6 +462,7 @@ export const Chat = ({
   const [showFeedbackConfirmation, setShowFeedbackConfirmation] = useState(false)
 
   const [messagesWithFeedback, setMessagesWithFeedback] = useState<Set<string>>(new Set())
+  const [messageFeedbackCategories, setMessageFeedbackCategories] = useState<Map<string, string>>(new Map())
 
   const resetFeedbackForm = useCallback(() => {
     setFeedbackText('')
@@ -526,6 +527,12 @@ export const Chat = ({
     // Mark this message as having feedback submitted
     if (feedbackMessageId) {
       setMessagesWithFeedback(prev => new Set(prev).add(feedbackMessageId))
+      // Remove the category since feedback is submitted
+      setMessageFeedbackCategories(prev => {
+        const next = new Map(prev)
+        next.delete(feedbackMessageId)
+        return next
+      })
     }
 
     // Exit feedback mode first
@@ -842,6 +849,7 @@ export const Chat = ({
               feedbackMode={feedbackMode}
               onCloseFeedback={handleFeedbackCancel}
               messagesWithFeedback={messagesWithFeedback}
+              messageFeedbackCategories={messageFeedbackCategories}
             />
           )
         })}
@@ -932,7 +940,13 @@ export const Chat = ({
               setFeedbackText(text)
               setFeedbackCursor(cursor)
             }}
-            onCategoryChange={setFeedbackCategory}
+            onCategoryChange={(category) => {
+              setFeedbackCategory(category)
+              // Store category selection for this message so button can show it
+              if (feedbackMessageId) {
+                setMessageFeedbackCategories(prev => new Map(prev).set(feedbackMessageId, category))
+              }
+            }}
           onSubmit={handleFeedbackSubmit}
           onCancel={handleFeedbackCancel}
           width={terminalWidth - 2}

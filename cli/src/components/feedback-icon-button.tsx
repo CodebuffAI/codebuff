@@ -1,3 +1,4 @@
+import { TextAttributes } from '@opentui/core'
 import React, { useRef } from 'react'
 
 import { useHoverToggle } from './agent-mode-toggle'
@@ -12,9 +13,16 @@ interface FeedbackIconButtonProps {
   onClose?: () => void
   isOpen?: boolean
   messageId?: string
+  selectedCategory?: string
 }
 
-export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({ onClick, onClose, isOpen, messageId }) => {
+export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({
+  onClick,
+  onClose,
+  isOpen,
+  messageId,
+  selectedCategory,
+}) => {
   const theme = useTheme()
   const hover = useHoverToggle()
   const hoveredOnceRef = useRef(false)
@@ -36,8 +44,18 @@ export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({ onClick,
   }
   const handleMouseOut = () => hover.scheduleClose()
 
-  const textCollapsed = '[?]'
-  const textExpanded = '[share feedback]'
+  // Determine which symbol to show based on selected category
+  const getSymbol = () => {
+    if (selectedCategory === 'good_result') {
+      return '▲▽' // Good selected - filled up, outlined down
+    } else if (selectedCategory === 'bad_result') {
+      return '△▼' // Bad selected - outlined up, filled down
+    }
+    return '△▽' // Default - both outlined
+  }
+
+  const textCollapsed = `${getSymbol()}`
+  const textExpanded = '[how was this?]'
 
   return (
     <Button
@@ -51,8 +69,17 @@ export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({ onClick,
       onMouseOver={handleMouseOver}
       onMouseOut={handleMouseOut}
     >
-      <text style={{ wrapMode: 'none', fg: hover.isOpen || isOpen ? theme.foreground : theme.muted }}>
-        {hover.isOpen || isOpen ? textExpanded : textCollapsed}
+      <text
+        style={{
+          wrapMode: 'none',
+          fg: hover.isOpen || isOpen ? theme.foreground : theme.muted,
+        }}
+      >
+        {hover.isOpen || isOpen ? (
+          textExpanded
+        ) : (
+          <span attributes={TextAttributes.DIM}>{textCollapsed}</span>
+        )}
       </text>
     </Button>
   )
