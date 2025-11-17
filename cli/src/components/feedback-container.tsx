@@ -49,6 +49,7 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
   const messages = useChatStore((state) => state.messages)
   const agentMode = useChatStore((state) => state.agentMode)
   const sessionCreditsUsed = useChatStore((state) => state.sessionCreditsUsed)
+  const runState = useChatStore((state) => state.runState)
 
   const previousFeedbackModeRef = useRef(feedbackMode)
 
@@ -86,6 +87,7 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
         category: feedbackCategory,
         type: feedbackMessageId ? 'message' : 'general',
       },
+      ...(runState && { runState }),
     })
 
     if (feedbackMessageId) {
@@ -106,6 +108,7 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
     messages,
     agentMode,
     sessionCreditsUsed,
+    runState,
     markMessageFeedbackSubmitted,
     resetFeedbackForm,
     closeFeedback,

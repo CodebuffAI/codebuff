@@ -210,6 +210,7 @@ interface UseSendMessageOptions {
   lastMessageMode: AgentMode | null
   setLastMessageMode: (mode: AgentMode | null) => void
   addSessionCredits: (credits: number) => void
+  setRunState: (runState: any | null) => void
   isQueuePausedRef?: React.MutableRefObject<boolean>
   resumeQueue?: () => void
   continueChat: boolean
@@ -244,6 +245,7 @@ export const useSendMessage = ({
   lastMessageMode,
   setLastMessageMode,
   addSessionCredits,
+  setRunState,
   isQueuePausedRef,
   resumeQueue,
   continueChat,
@@ -259,6 +261,7 @@ export const useSendMessage = ({
       const loadedState = loadMostRecentChatState()
       if (loadedState) {
         previousRunStateRef.current = loadedState.runState
+        setRunState(loadedState.runState)
         setMessages(loadedState.messages)
         
         // Collapse all subagents and tools by default when continuing
@@ -275,7 +278,7 @@ export const useSendMessage = ({
         logger.info('No previous chat state found to continue from')
       }
     }
-  }, [continueChat, setMessages, setCollapsedAgents])
+  }, [continueChat, setMessages, setCollapsedAgents, setRunState])
   const spawnAgentsMapRef = useRef<
     Map<string, { index: number; agentType: string }>
   >(new Map())
@@ -1561,7 +1564,8 @@ export const useSendMessage = ({
         })
 
         previousRunStateRef.current = runState
-        
+        setRunState(runState)
+
         // Save both runState and current messages
         applyMessageUpdate((currentMessages) => {
           saveChatState(runState, currentMessages)

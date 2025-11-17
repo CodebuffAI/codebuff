@@ -128,6 +128,7 @@ export const Chat = ({
     addSessionCredits,
     resetChatStore,
     sessionCreditsUsed,
+    setRunState,
   } = useChatStore(
     useShallow((store) => ({
       inputValue: store.inputValue,
@@ -164,6 +165,7 @@ export const Chat = ({
       addSessionCredits: store.addSessionCredits,
       resetChatStore: store.reset,
       sessionCreditsUsed: store.sessionCreditsUsed,
+      setRunState: store.setRunState,
     })),
   )
 
@@ -428,6 +430,7 @@ export const Chat = ({
     lastMessageMode,
     setLastMessageMode,
     addSessionCredits,
+    setRunState,
     isQueuePausedRef,
     resumeQueue,
     continueChat,

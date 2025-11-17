@@ -1,4 +1,3 @@
-import { enableMapSet } from 'immer'
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
@@ -31,6 +30,7 @@ export type ChatStoreState = {
   hasReceivedPlanResponse: boolean
   lastMessageMode: AgentMode | null
   sessionCreditsUsed: number
+  runState: any | null // Using any to avoid Immer type issues with complex RunState type
 }
 
 type ChatStoreActions = {
@@ -64,12 +64,11 @@ type ChatStoreActions = {
   setHasReceivedPlanResponse: (value: boolean) => void
   setLastMessageMode: (mode: AgentMode | null) => void
   addSessionCredits: (credits: number) => void
+  setRunState: (runState: any | null) => void
   reset: () => void
 }
 
 type ChatStore = ChatStoreState & ChatStoreActions
-
-enableMapSet()
 
 const initialState: ChatStoreState = {
   messages: [],
@@ -89,6 +88,7 @@ const initialState: ChatStoreState = {
   hasReceivedPlanResponse: false,
   lastMessageMode: null,
   sessionCreditsUsed: 0,
+  runState: null,
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -197,6 +197,11 @@ export const useChatStore = create<ChatStore>()(
         state.sessionCreditsUsed += credits
       }),
 
+    setRunState: (runState) =>
+      set((state) => {
+        state.runState = runState
+      }),
+
     reset: () =>
       set((state) => {
         state.messages = initialState.messages.slice()
@@ -215,6 +220,7 @@ export const useChatStore = create<ChatStore>()(
         state.hasReceivedPlanResponse = initialState.hasReceivedPlanResponse
         state.lastMessageMode = initialState.lastMessageMode
         state.sessionCreditsUsed = initialState.sessionCreditsUsed
+        state.runState = initialState.runState
       }),
   })),
 )
