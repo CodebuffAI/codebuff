@@ -123,6 +123,14 @@ export async function routeUserPrompt(params: {
 
   const normalized = trimmed.startsWith('/') ? trimmed.slice(1) : trimmed
   const cmd = normalized.split(/\s+/)[0].toLowerCase()
+  
+  if (cmd === 'feedback') {
+    // Return special flag to open feedback mode
+    saveToHistory(trimmed)
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+    return { openFeedbackMode: true }
+  }
+  
   if (cmd === 'login' || cmd === 'signin') {
     setMessages((prev) => [
       ...prev,
@@ -131,7 +139,7 @@ export async function routeUserPrompt(params: {
       ),
     ])
     setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
-    return
+    return undefined
   }
   if (cmd === 'logout' || cmd === 'signout') {
     abortControllerRef.current?.abort()
@@ -148,12 +156,12 @@ export async function routeUserPrompt(params: {
         }, 300)
       },
     })
-    return
+    return undefined
   }
 
   if (cmd === 'exit' || cmd === 'quit') {
     process.kill(process.pid, 'SIGINT')
-    return
+    return undefined
   }
 
   if (cmd === 'clear' || cmd === 'new') {
@@ -165,7 +173,7 @@ export async function routeUserPrompt(params: {
 
     stopStreaming()
     setCanProcessQueue(false)
-    return
+    return undefined
   }
 
   if (cmd === 'init') {
@@ -178,7 +186,7 @@ export async function routeUserPrompt(params: {
     setMessages((prev) => usagePostMessage(prev))
     saveToHistory(trimmed)
     setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
-    return
+    return undefined
   }
 
   saveToHistory(trimmed)
@@ -192,7 +200,7 @@ export async function routeUserPrompt(params: {
     addToQueue(trimmed)
     setInputFocused(true)
     inputRef.current?.focus()
-    return
+    return undefined
   }
 
   if (trimmed.startsWith('/') && cmd !== 'init') {
@@ -201,7 +209,7 @@ export async function routeUserPrompt(params: {
       getUserMessage(trimmed),
       getSystemMessage(`Command not found: ${JSON.stringify(trimmed)}`),
     ])
-    return
+    return undefined
   }
 
   sendMessage({ content: trimmed, agentMode, postUserMessage })
@@ -209,4 +217,6 @@ export async function routeUserPrompt(params: {
   setTimeout(() => {
     scrollToLatest()
   }, 0)
+  
+  return undefined
 }

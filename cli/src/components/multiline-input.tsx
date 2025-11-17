@@ -778,7 +778,7 @@ export const MultilineInput = forwardRef<
           border: false,
         },
         contentOptions: {
-          justifyContent: 'flex-end',
+          justifyContent: 'flex-start',
         },
       }}
     >

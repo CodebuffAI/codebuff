@@ -56,4 +56,9 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     description: 'Start a fresh conversation session',
     aliases: ['reset', 'clear'],
   },
+  {
+    id: 'feedback',
+    label: 'feedback',
+    description: 'Share general feedback about Codebuff',
+  },
 ]

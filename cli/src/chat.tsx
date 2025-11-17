@@ -463,6 +463,12 @@ export const Chat = ({
 
   const [messagesWithFeedback, setMessagesWithFeedback] = useState<Set<string>>(new Set())
 
+  const resetFeedbackForm = useCallback(() => {
+    setFeedbackText('')
+    setFeedbackCursor(0)
+    setFeedbackCategory('other')
+  }, [])
+
   const openFeedbackForMessage = useCallback((id: string) => {
     // Save current input state
     setSavedInputValue(inputValue)
@@ -471,10 +477,8 @@ export const Chat = ({
     // Enter feedback mode
     setFeedbackMessageId(id)
     setFeedbackMode(true)
-    setFeedbackText('')
-    setFeedbackCursor(0)
-    setFeedbackCategory('other')
-  }, [inputValue, cursorPosition])
+    resetFeedbackForm()
+  }, [inputValue, cursorPosition, resetFeedbackForm])
 
   const openFeedbackForLatestMessage = useCallback(() => {
     const latest = [...messages]
@@ -491,7 +495,7 @@ export const Chat = ({
     const text = feedbackText.trim()
     if (text.length === 0) return
 
-    const target = messages.find((m) => m.id === feedbackMessageId)
+    const target = feedbackMessageId ? messages.find((m) => m.id === feedbackMessageId) : null
     const recent = messages.slice(Math.max(0, messages.length - 5)).map((m) => ({
       id: m.id,
       variant: m.variant,
@@ -504,16 +508,17 @@ export const Chat = ({
       {
         eventId: AnalyticsEvent.FEEDBACK_SUBMITTED,
         source: 'cli',
-        messageId: target?.id,
-        variant: target?.variant,
-        completionTime: target?.completionTime,
-        credits: target?.credits,
+        messageId: target?.id || null,
+        variant: target?.variant || null,
+        completionTime: target?.completionTime || null,
+        credits: target?.credits || null,
         agentMode,
         sessionCreditsUsed,
         recentMessages: recent,
         feedback: {
           text,
           category: feedbackCategory,
+          type: feedbackMessageId ? 'message' : 'general',
         },
       },
     )
@@ -525,8 +530,7 @@ export const Chat = ({
 
     // Exit feedback mode first
     setFeedbackMode(false)
-    setFeedbackText('')
-    setFeedbackCategory('other')
+    resetFeedbackForm()
     
     // Show success message in status indicator for 5 seconds
     showClipboardMessage('Feedback sent ✔', { durationMs: 5000 })
@@ -545,13 +549,12 @@ export const Chat = ({
 
     // Exit feedback mode
     setFeedbackMode(false)
-    setFeedbackText('')
-    setFeedbackCategory('other')
-  }, [savedInputValue, savedCursorPosition, setInputValue])
+    resetFeedbackForm()
+  }, [resetFeedbackForm, savedInputValue, savedCursorPosition, setInputValue])
 
   const handleSubmit = useCallback(
-    () =>
-      routeUserPrompt({
+    async () => {
+      const result = await routeUserPrompt({
         abortControllerRef,
         agentMode,
         inputRef,
@@ -574,7 +577,17 @@ export const Chat = ({
         setMessages,
         setUser,
         stopStreaming,
-      }),
+      })
+      
+      // Handle /feedback command
+      if (result && 'openFeedbackMode' in result && result.openFeedbackMode) {
+        setSavedInputValue('')
+        setSavedCursorPosition(0)
+        setFeedbackMessageId(null) // General feedback, not tied to a message
+        setFeedbackMode(true)
+        resetFeedbackForm()
+      }
+    },
     [
       agentMode,
       inputValue,
@@ -589,6 +602,7 @@ export const Chat = ({
       clearQueue,
       queuedMessages,
       pauseQueue,
+      resetFeedbackForm,
     ],
   )
 
@@ -711,7 +725,7 @@ export const Chat = ({
   const hasStatusIndicatorContent = statusIndicatorState.kind !== 'idle'
 
   const shouldShowStatusLine =
-    hasStatusIndicatorContent || shouldShowQueuePreview || !isAtBottom
+    !feedbackMode && (hasStatusIndicatorContent || shouldShowQueuePreview || !isAtBottom)
 
   const statusIndicatorNode = (
     <StatusIndicator
@@ -910,20 +924,19 @@ export const Chat = ({
             The queue preview is injected via the border title rather than custom text nodes, which
             keeps the border coupled to the content height while preserving the inline preview look. */}
         {feedbackMode ? (
-          <FeedbackInputMode
-            feedbackText={feedbackText}
-            feedbackCursor={feedbackCursor}
-            category={feedbackCategory}
+        <FeedbackInputMode
+          feedbackText={feedbackText}
+          feedbackCursor={feedbackCursor}
+          category={feedbackCategory}
             onFeedbackTextChange={(text, cursor) => {
               setFeedbackText(text)
               setFeedbackCursor(cursor)
             }}
             onCategoryChange={setFeedbackCategory}
-            onSubmit={handleFeedbackSubmit}
-            onCancel={handleFeedbackCancel}
-            width={terminalWidth - 2}
-            terminalWidth={terminalWidth}
-          />
+          onSubmit={handleFeedbackSubmit}
+          onCancel={handleFeedbackCancel}
+          width={terminalWidth - 2}
+        />
         ) : showFeedbackConfirmation ? (
           <box
             border

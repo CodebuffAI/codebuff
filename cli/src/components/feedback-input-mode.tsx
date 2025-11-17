@@ -16,7 +16,6 @@ interface FeedbackInputModeProps {
   onSubmit: () => void
   onCancel: () => void
   width: number
-  terminalWidth: number
 }
 
 export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
@@ -28,7 +27,6 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
   onSubmit,
   onCancel,
   width,
-  terminalWidth,
 }) => {
   const theme = useTheme()
   const inputRef = useRef<MultilineInputHandle | null>(null)
@@ -141,7 +139,7 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
       </box>
 
       {/* Feedback input */}
-      <box style={{ paddingTop: 0, paddingBottom: 0, flexGrow: 1 }}>
+      <box style={{ paddingTop: 0, paddingBottom: 0 }}>
         <MultilineInput
           value={feedbackText}
           onChange={(next: { text: string; cursorPosition: number; lastEditDueToNav: boolean } | ((prev: { text: string; cursorPosition: number; lastEditDueToNav: boolean }) => { text: string; cursorPosition: number; lastEditDueToNav: boolean })) => {
