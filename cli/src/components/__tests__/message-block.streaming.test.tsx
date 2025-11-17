@@ -26,6 +26,7 @@ const baseProps = {
   isAi: true,
   isComplete: false,
   timestamp: '12:00',
+  timestampNote: undefined,
   completionTime: undefined,
   credits: undefined,
   textColor: theme.foreground,

@@ -144,7 +144,14 @@ export const ShimmerText = ({
   const chars = text.split('')
   const numChars = chars.length
 
+  if (numChars === 0) {
+    return null
+  }
+
   useEffect(() => {
+    if (numChars === 0) {
+      return
+    }
     const pulseInterval = setInterval(() => {
       setPulse((prev) => (prev + 1) % numChars)
     }, interval)
@@ -152,52 +159,48 @@ export const ShimmerText = ({
     return () => clearInterval(pulseInterval)
   }, [interval, numChars])
 
-  const generateColors = (length: number, colorPalette: string[]): string[] => {
+  const generateColors = (length: number, palette: string[]): string[] => {
     if (length === 0) return []
-    if (colorPalette.length === 0) {
+    if (palette.length === 0) {
       return Array.from({ length }, () => theme.muted)
     }
-    if (colorPalette.length === 1) {
-      return Array.from({ length }, () => colorPalette[0])
+    if (palette.length === 1) {
+      return Array.from({ length }, () => palette[0])
     }
-    const generatedColors: string[] = []
+    const generated: string[] = []
     for (let i = 0; i < length; i++) {
       const ratio = length === 1 ? 0 : i / (length - 1)
       const colorIndex = Math.min(
-        colorPalette.length - 1,
-        Math.floor(ratio * (colorPalette.length - 1)),
+        palette.length - 1,
+        Math.floor(ratio * (palette.length - 1)),
       )
-      generatedColors.push(colorPalette[colorIndex])
+      generated.push(palette[colorIndex])
     }
-    return generatedColors
+    return generated
   }
 
   const palette = useMemo(() => {
     if (colors && colors.length > 0) {
       return colors
     }
-    if (primaryColor) {
-      const paletteSize = Math.max(8, Math.min(20, Math.ceil(numChars * 1.5)))
-      return generatePaletteFromPrimary(primaryColor, paletteSize, theme.muted)
-    }
-    // Use theme shimmer color as default
     const paletteSize = Math.max(8, Math.min(20, Math.ceil(numChars * 1.5)))
-    return generatePaletteFromPrimary(theme.info, paletteSize, theme.muted)
+    const seedColor = primaryColor ?? theme.info
+    return generatePaletteFromPrimary(seedColor, paletteSize, theme.muted)
   }, [colors, primaryColor, numChars, theme.info, theme.muted])
 
   const generateAttributes = (length: number): number[] => {
-    const attributes: number[] = []
+    const attrs: number[] = []
     for (let i = 0; i < length; i++) {
       const ratio = length <= 1 ? 0 : i / (length - 1)
       if (ratio < 0.23) {
-        attributes.push(TextAttributes.BOLD)
+        attrs.push(TextAttributes.BOLD)
       } else if (ratio < 0.69) {
-        attributes.push(TextAttributes.NONE)
+        attrs.push(TextAttributes.NONE)
       } else {
-        attributes.push(TextAttributes.DIM)
+        attrs.push(TextAttributes.DIM)
       }
     }
-    return attributes
+    return attrs
   }
 
   const generatedColors = useMemo(
@@ -207,39 +210,48 @@ export const ShimmerText = ({
   const attributes = useMemo(() => generateAttributes(numChars), [numChars])
 
   const parts: { text: string; color: string; attr: number }[] = []
-  let currentColor = generatedColors[0]
-  let currentAttr = attributes[0]
-  let currentText = ''
+  let currentColor: string | undefined
+  let currentAttr: number | undefined
+  let buffer = ''
 
   chars.forEach((char, index) => {
     const phase = (pulse - index + numChars) % numChars
-    const charColor = generatedColors[phase]
-    const charAttr = attributes[phase]
+    const charColor = generatedColors[phase] ?? theme.muted
+    const charAttr = attributes[phase] ?? TextAttributes.NONE
+
+    if (currentColor === undefined) {
+      currentColor = charColor
+      currentAttr = charAttr
+    }
 
     if (charColor === currentColor && charAttr === currentAttr) {
-      currentText += char
+      buffer += char
     } else {
-      if (currentText) {
+      if (buffer) {
         parts.push({
-          text: currentText,
-          color: currentColor,
-          attr: currentAttr,
+          text: buffer,
+          color: currentColor ?? theme.muted,
+          attr: currentAttr ?? TextAttributes.NONE,
         })
       }
-      currentText = char
+      buffer = char
       currentColor = charColor
       currentAttr = charAttr
     }
   })
 
-  if (currentText) {
-    parts.push({ text: currentText, color: currentColor, attr: currentAttr })
+  if (buffer) {
+    parts.push({
+      text: buffer,
+      color: currentColor ?? theme.muted,
+      attr: currentAttr ?? TextAttributes.NONE,
+    })
   }
 
   return (
     <>
       {parts.map((part, index) => (
-        <span key={index} fg={part.color} attributes={part.attr}>
+        <span key={`${part.color}-${index}`} fg={part.color} attributes={part.attr}>
           {part.text}
         </span>
       ))}

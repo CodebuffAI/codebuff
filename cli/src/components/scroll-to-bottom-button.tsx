@@ -21,13 +21,11 @@ export const ScrollToBottomButton = ({
       onMouseOver={() => setHovered(true)}
       onMouseOut={() => setHovered(false)}
     >
-      <text>
-        <span
-          fg={theme.info}
-          attributes={hovered ? TextAttributes.BOLD : TextAttributes.DIM}
-        >
-          {hovered ? '↓ Scroll to bottom ↓' : '↓'}
-        </span>
+      <text
+        fg={theme.info}
+        attributes={hovered ? TextAttributes.BOLD : TextAttributes.DIM}
+      >
+        {hovered ? '↓ Scroll to bottom ↓' : '↓'}
       </text>
     </Button>
   )

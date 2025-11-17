@@ -77,6 +77,7 @@ export type ChatMessage = {
   content: string
   blocks?: ContentBlock[]
   timestamp: string
+  timestampNote?: string
   parentId?: string
   agent?: AgentMessage
   isCompletion?: boolean

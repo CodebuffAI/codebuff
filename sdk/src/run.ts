@@ -20,6 +20,7 @@ import { glob } from './tools/glob'
 import { listDirectory } from './tools/list-directory'
 import { getFiles } from './tools/read-files'
 import { runTerminalCommand } from './tools/run-terminal-command'
+import { NetworkError } from './errors'
 
 import type { CustomToolDefinition } from './custom-tool'
 import type { RunState } from './run-state'
@@ -50,6 +51,7 @@ import type { CodebuffSpawn } from '@codebuff/common/types/spawn'
 export type CodebuffClientOptions = {
   apiKey?: string
   fingerprintId?: string
+  streamTimeoutMs?: number
 
   cwd?: string
   projectFiles?: Record<string, string>
@@ -116,6 +118,7 @@ export async function run({
   agentDefinitions,
   maxAgentSteps = MAX_AGENT_STEPS_DEFAULT,
   env,
+  streamTimeoutMs = 15_000,
 
   handleEvent,
   handleStreamChunk,
@@ -132,7 +135,7 @@ export async function run({
   params,
   previousRun,
   extraToolResults,
-  signal,
+  signal: externalSignal,
 }: RunOptions &
   CodebuffClientOptions & {
     apiKey: string
@@ -180,10 +183,86 @@ export async function run({
     })
   }
 
-  let resolve: (value: RunReturnType) => any = () => {}
-  const promise = new Promise<RunReturnType>((res) => {
-    resolve = res
+  const abortController = new AbortController()
+  const abortSignal = abortController.signal
+  const hasStreamTimeout =
+    Number.isFinite(streamTimeoutMs) && streamTimeoutMs > 0
+  let inactivityTimer: ReturnType<typeof setTimeout> | null = null
+  let streamTimedOut = false
+  let settled = false
+  let externalAbortHandler: (() => void) | null = null
+
+  const clearStreamTimeout = () => {
+    if (inactivityTimer) {
+      clearTimeout(inactivityTimer)
+      inactivityTimer = null
+    }
+  }
+
+  const removeExternalAbortHandler = () => {
+    if (externalAbortHandler && externalSignal) {
+      externalSignal.removeEventListener('abort', externalAbortHandler)
+      externalAbortHandler = null
+    }
+  }
+
+  if (externalSignal?.aborted) {
+    clearStreamTimeout()
+    return getCancelledRunState()
+  }
+
+  let settleResolve!: (value: RunReturnType) => void
+  let settleReject!: (reason?: unknown) => void
+  const promise = new Promise<RunReturnType>((resolvePromise, rejectPromise) => {
+    settleResolve = (value) => {
+      if (settled) {
+        return
+      }
+      settled = true
+      clearStreamTimeout()
+      removeExternalAbortHandler()
+      resolvePromise(value)
+    }
+    settleReject = (reason) => {
+      if (settled) {
+        return
+      }
+      settled = true
+      clearStreamTimeout()
+      removeExternalAbortHandler()
+      rejectPromise(reason)
+    }
   })
+
+  const resetStreamTimeout = () => {
+    if (!hasStreamTimeout || settled) {
+      return
+    }
+    clearStreamTimeout()
+    inactivityTimer = setTimeout(() => {
+      if (settled) {
+        return
+      }
+      streamTimedOut = true
+      abortController.abort(new Error('Stream inactivity timeout'))
+      const timeoutError = new NetworkError(
+        `Stream timed out after ${streamTimeoutMs}ms`,
+        { streamTimedOut: true },
+      )
+      settleReject(timeoutError)
+    }, streamTimeoutMs)
+  }
+
+  if (externalSignal) {
+    externalAbortHandler = () => {
+      if (settled) {
+        return
+      }
+      abortController.abort(externalSignal.reason)
+      settleResolve(getCancelledRunState())
+    }
+    externalSignal.addEventListener('abort', externalAbortHandler)
+  }
 
   async function onError(error: { message: string }) {
     if (handleEvent) {
@@ -224,9 +303,10 @@ export async function run({
   const onResponseChunk = async (
     action: ServerAction<'response-chunk'>,
   ): Promise<void> => {
-    if (signal?.aborted) {
+    if (abortSignal.aborted) {
       return
     }
+    resetStreamTimeout()
     const { chunk } = action
     addToPendingAssistantMessage: if (typeof chunk === 'string') {
       pendingAgentResponse += chunk
@@ -272,9 +352,10 @@ export async function run({
   const onSubagentResponseChunk = async (
     action: ServerAction<'subagent-response-chunk'>,
   ) => {
-    if (signal?.aborted) {
+    if (abortSignal.aborted) {
       return
     }
+    resetStreamTimeout()
     const { agentId, agentType, chunk } = action
 
     if (handleStreamChunk) {
@@ -375,7 +456,7 @@ export async function run({
       if (action.type === 'prompt-response') {
         handlePromptResponse({
           action,
-          resolve,
+          resolve: settleResolve,
           onError,
           initialSessionState: sessionState,
         })
@@ -384,7 +465,7 @@ export async function run({
       if (action.type === 'prompt-error') {
         handlePromptResponse({
           action,
-          resolve,
+          resolve: settleResolve,
           onError,
           initialSessionState: sessionState,
         })
@@ -422,42 +503,47 @@ export async function run({
   if (!userInfo) {
     const errorMessage = 'Invalid API key or user not found'
     await onError({ message: errorMessage })
+    clearStreamTimeout()
+    removeExternalAbortHandler()
     return getCancelledRunState(errorMessage)
   }
 
   const userId = userInfo.id
 
-  signal?.addEventListener('abort', () => {
-    resolve(getCancelledRunState())
-  })
-  if (signal?.aborted) {
-    return getCancelledRunState()
-  }
-
-  callMainPrompt({
-    ...agentRuntimeImpl,
-    promptId,
-    action: {
-      type: 'prompt',
+  try {
+    resetStreamTimeout()
+    callMainPrompt({
+      ...agentRuntimeImpl,
       promptId,
-      prompt,
-      promptParams: params,
-      fingerprintId: fingerprintId,
-      costMode: 'normal',
-      sessionState,
-      toolResults: extraToolResults ?? [],
-      agentId,
-    },
-    repoUrl: undefined,
-    repoId: undefined,
-    clientSessionId: promptId,
-    userId,
-    signal: signal ?? new AbortController().signal,
-  }).catch(async (error) => {
-    const errorMessage = error.message || String(error)
-    await onError({ message: errorMessage })
-    resolve(getCancelledRunState(errorMessage))
-  })
+      action: {
+        type: 'prompt',
+        promptId,
+        prompt,
+        promptParams: params,
+        fingerprintId: fingerprintId,
+        costMode: 'normal',
+        sessionState,
+        toolResults: extraToolResults ?? [],
+        agentId,
+      },
+      repoUrl: undefined,
+      repoId: undefined,
+      clientSessionId: promptId,
+      userId,
+      signal: abortSignal,
+    }).catch(async (error) => {
+      if (streamTimedOut || externalSignal?.aborted) {
+        return
+      }
+      const errorMessage = error.message || String(error)
+      await onError({ message: errorMessage })
+      settleResolve(getCancelledRunState(errorMessage))
+    })
+  } catch (error) {
+    clearStreamTimeout()
+    removeExternalAbortHandler()
+    throw error
+  }
 
   return promise
 }

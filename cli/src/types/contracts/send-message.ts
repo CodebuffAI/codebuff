@@ -7,4 +7,5 @@ export type SendMessageFn = (params: {
   content: string
   agentMode: AgentMode
   postUserMessage?: PostUserMessageFn
+  retryOfMessageId?: string
 }) => Promise<void>

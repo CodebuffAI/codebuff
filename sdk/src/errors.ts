@@ -13,6 +13,7 @@ export interface ErrorWithStatus extends ErrorWithCode {
 export interface NetworkErrorDetails extends ErrorWithCode {
   status?: number
   originalError?: any
+  streamTimedOut?: boolean
 }
 
 /**
@@ -37,12 +38,17 @@ export class NetworkError extends Error implements NetworkErrorDetails {
   code = 'NETWORK_ERROR' as const
   status?: number
   originalError?: any
+  streamTimedOut?: boolean
 
-  constructor(message: string, options?: { status?: number; originalError?: any }) {
+  constructor(
+    message: string,
+    options?: { status?: number; originalError?: any; streamTimedOut?: boolean },
+  ) {
     super(message)
     this.name = 'NetworkError'
     this.status = options?.status
     this.originalError = options?.originalError
+    this.streamTimedOut = options?.streamTimedOut
     Object.setPrototypeOf(this, NetworkError.prototype)
   }
 }

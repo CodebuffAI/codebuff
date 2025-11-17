@@ -35,12 +35,14 @@ export class CodebuffClient {
     const fingerprintId =
       options.fingerprintId ??
       `codebuff-sdk-${Math.random().toString(36).substring(2, 15)}`
+    const streamTimeoutMs = options.streamTimeoutMs ?? 15_000
 
     this.options = {
       apiKey: foundApiKey,
       ...options,
       fingerprintId,
       handleEvent: options.handleEvent ?? defaultHandleEvent,
+      streamTimeoutMs,
     }
   }
 

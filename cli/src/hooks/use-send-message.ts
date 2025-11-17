@@ -1,5 +1,5 @@
 import { has, isEqual } from 'lodash'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { getCodebuffClient, formatToolOutput } from '../utils/codebuff-client'
 import {
@@ -14,6 +14,7 @@ import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 import { getLoadedAgentsData } from '../utils/local-agent-registry'
 import { logger } from '../utils/logger'
 import { getUserMessage } from '../utils/message-history'
+import { isNetworkError } from '@codebuff/sdk'
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
 import type { StreamStatus } from './use-message-queue'
@@ -29,6 +30,8 @@ const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
   'end_turn',
   'spawn_agents',
 ])
+
+const STREAM_INACTIVITY_TIMEOUT_MS = 15_000
 
 const yieldToEventLoop = () =>
   new Promise<void>((resolve) => {
@@ -211,6 +214,7 @@ interface UseSendMessageOptions {
   addSessionCredits: (credits: number) => void
   isQueuePausedRef?: React.MutableRefObject<boolean>
   resumeQueue?: () => void
+  isConnectedRef: React.MutableRefObject<boolean>
 }
 
 export const useSendMessage = ({
@@ -244,9 +248,12 @@ export const useSendMessage = ({
   addSessionCredits,
   isQueuePausedRef,
   resumeQueue,
+  isConnectedRef,
 }: UseSendMessageOptions): {
   sendMessage: SendMessageFn
   clearMessages: () => void
+  pendingRetryCount: number
+  retryPendingMessages: () => Promise<void>
 } => {
   const previousRunStateRef = useRef<any>(null)
   const spawnAgentsMapRef = useRef<
@@ -257,6 +264,19 @@ export const useSendMessage = ({
   const rootStreamSeenRef = useRef(false)
   const planExtractedRef = useRef(false)
   const autoCollapsedThinkingIdsRef = useRef<Set<string>>(new Set())
+  const pendingRetriesRef = useRef<
+    Map<string, { content: string; agentMode: AgentMode }>
+  >(new Map())
+  const [pendingRetryCount, setPendingRetryCount] = useState(0)
+  const streamInactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  )
+  const streamInactivityTriggeredRef = useRef(false)
+  const currentRunContextRef = useRef<{
+    userMessageId: string
+    content: string
+    agentMode: AgentMode
+  } | null>(null)
 
   const updateChainInProgress = useCallback(
     (value: boolean) => {
@@ -367,19 +387,143 @@ export const useSendMessage = ({
     [flushPendingUpdates, setMessages],
   )
 
+  const setUserMessageTimestampNote = useCallback(
+    (messageId: string, note?: string) => {
+      queueMessageUpdate((messages) =>
+        messages.map((msg) =>
+          msg.id === messageId ? { ...msg, timestampNote: note } : msg,
+        ),
+      )
+    },
+    [queueMessageUpdate],
+  )
+
+  const markAiMessageInterrupted = useCallback(
+    (messageId: string) => {
+      applyMessageUpdate((prev) =>
+        prev.map((msg) => {
+          if (msg.id !== messageId) {
+            return msg
+          }
+
+          const blocks: ContentBlock[] = msg.blocks ? [...msg.blocks] : []
+          const lastBlock = blocks[blocks.length - 1]
+
+          if (lastBlock && lastBlock.type === 'text') {
+            const interruptedBlock: ContentBlock = {
+              ...lastBlock,
+              content: `${lastBlock.content}\n\n[response interrupted]`,
+            }
+            return {
+              ...msg,
+              blocks: [...blocks.slice(0, -1), interruptedBlock],
+              isComplete: true,
+            }
+          }
+
+          const interruptionNotice: ContentBlock = {
+            type: 'text',
+            content: '[response interrupted]',
+          }
+          return {
+            ...msg,
+            blocks: [...blocks, interruptionNotice],
+            isComplete: true,
+          }
+        }),
+      )
+    },
+    [applyMessageUpdate],
+  )
+
+  const schedulePendingRetry = useCallback(
+    ({
+      userMessageId,
+      content,
+      agentMode,
+      note,
+    }: {
+      userMessageId: string
+      content: string
+      agentMode: AgentMode
+      note: string
+    }) => {
+      if (!userMessageId) {
+        return
+      }
+      const pending = pendingRetriesRef.current
+      const alreadyScheduled = pending.has(userMessageId)
+      pending.set(userMessageId, { content, agentMode })
+      if (!alreadyScheduled) {
+        setPendingRetryCount(pending.size)
+      }
+      setUserMessageTimestampNote(userMessageId, note)
+      setCanProcessQueue(false)
+    },
+    [setUserMessageTimestampNote, setCanProcessQueue],
+  )
+
+  const clearPendingRetryForMessage = useCallback((messageId: string) => {
+    if (!messageId) {
+      return
+    }
+    const pending = pendingRetriesRef.current
+    if (pending.delete(messageId)) {
+      setPendingRetryCount(pending.size)
+    }
+  }, [])
+
+  const clearStreamInactivityTimer = useCallback(() => {
+    if (streamInactivityTimerRef.current) {
+      clearTimeout(streamInactivityTimerRef.current)
+      streamInactivityTimerRef.current = null
+    }
+  }, [])
+
+  const handleStreamInactivityTimeout = useCallback(() => {
+    clearStreamInactivityTimer()
+    const context = currentRunContextRef.current
+    if (!context) {
+      return
+    }
+    streamInactivityTriggeredRef.current = true
+    schedulePendingRetry({
+      ...context,
+      note: 'Timed out…',
+    })
+    const controller = abortControllerRef.current
+    if (controller && !controller.signal.aborted) {
+      controller.abort(new Error('Stream inactivity timeout'))
+    }
+  }, [abortControllerRef, clearStreamInactivityTimer, schedulePendingRetry])
+
+  const refreshStreamInactivityTimer = useCallback(() => {
+    clearStreamInactivityTimer()
+    if (!currentRunContextRef.current) {
+      return
+    }
+    streamInactivityTimerRef.current = setTimeout(
+      handleStreamInactivityTimeout,
+      STREAM_INACTIVITY_TIMEOUT_MS,
+    )
+  }, [clearStreamInactivityTimer, handleStreamInactivityTimeout])
+
   useEffect(() => {
     return () => {
       if (flushTimeoutRef.current) {
         clearTimeout(flushTimeoutRef.current)
         flushTimeoutRef.current = null
       }
+      clearStreamInactivityTimer()
+      currentRunContextRef.current = null
       flushPendingUpdates()
     }
-  }, [flushPendingUpdates])
+  }, [clearStreamInactivityTimer, flushPendingUpdates])
 
   const sendMessage = useCallback<SendMessageFn>(
     async (params: ParamsOf<SendMessageFn>) => {
-      const { content, agentMode, postUserMessage } = params
+      const { content, agentMode, postUserMessage, retryOfMessageId } = params
+      let userMessageId = retryOfMessageId ?? ''
 
       if (agentMode !== 'PLAN') {
         setHasReceivedPlanResponse(false)
@@ -398,7 +542,8 @@ export const useSendMessage = ({
       // Check if mode changed and insert divider if needed
       // Also show divider on first message (when lastMessageMode is null)
       const shouldInsertDivider =
-        lastMessageMode === null || lastMessageMode !== agentMode
+        !retryOfMessageId &&
+        (lastMessageMode === null || lastMessageMode !== agentMode)
 
       applyMessageUpdate((prev) => {
         let newMessages = [...prev]
@@ -420,10 +565,14 @@ export const useSendMessage = ({
           newMessages.push(dividerMessage)
         }
 
-        // Add user message to UI first
-        newMessages.push(getUserMessage(content))
+        // Add user message to UI first (only for new sends)
+        if (!retryOfMessageId) {
+          const userMessage = getUserMessage(content)
+          newMessages.push(userMessage)
+          userMessageId = userMessage.id
+        }
 
-        if (postUserMessage) {
+        if (!retryOfMessageId && postUserMessage) {
           newMessages = postUserMessage(newMessages)
         }
         if (newMessages.length > 100) {
@@ -431,6 +580,20 @@ export const useSendMessage = ({
         }
         return newMessages
       })
+
+      if (!userMessageId) {
+        logger.error(
+          { retryOfMessageId },
+          'Unable to determine user message id for send operation',
+        )
+        return
+      }
+
+      if (retryOfMessageId) {
+        setUserMessageTimestampNote(retryOfMessageId, 'Retried')
+      }
+
+      clearPendingRetryForMessage(userMessageId)
 
       // Update last message mode
       setLastMessageMode(agentMode)
@@ -746,44 +909,23 @@ export const useSendMessage = ({
       const abortController = new AbortController()
       abortControllerRef.current = abortController
       abortController.signal.addEventListener('abort', () => {
+        clearStreamInactivityTimer()
+        currentRunContextRef.current = null
         setStreamStatus('idle')
-        setCanProcessQueue(!isQueuePausedRef?.current)
+        setCanProcessQueue(false)
         updateChainInProgress(false)
         timerController.stop('aborted')
 
-        applyMessageUpdate((prev) =>
-          prev.map((msg) => {
-            if (msg.id !== aiMessageId) {
-              return msg
-            }
-
-            const blocks: ContentBlock[] = msg.blocks ? [...msg.blocks] : []
-            const lastBlock = blocks[blocks.length - 1]
-
-            if (lastBlock && lastBlock.type === 'text') {
-              const interruptedBlock: ContentBlock = {
-                type: 'text',
-                content: `${lastBlock.content}\n\n[response interrupted]`,
-              }
-              return {
-                ...msg,
-                blocks: [...blocks.slice(0, -1), interruptedBlock],
-                isComplete: true,
-              }
-            }
-
-            const interruptionNotice: ContentBlock = {
-              type: 'text',
-              content: '[response interrupted]',
-            }
-            return {
-              ...msg,
-              blocks: [...blocks, interruptionNotice],
-              isComplete: true,
-            }
-          }),
-        )
+        markAiMessageInterrupted(aiMessageId)
       })
+
+      currentRunContextRef.current = {
+        userMessageId,
+        content,
+        agentMode,
+      }
+      streamInactivityTriggeredRef.current = false
+      refreshStreamInactivityTimer()
 
       try {
         // Load local agent definitions from .agents directory
@@ -811,6 +953,7 @@ export const useSendMessage = ({
           maxAgentSteps: 40,
 
           handleStreamChunk: (event) => {
+            refreshStreamInactivityTimer()
             if (
               typeof event === 'string' ||
               (event.type === 'reasoning_chunk' &&
@@ -879,10 +1022,11 @@ export const useSendMessage = ({
                 { errorMessage: event.message },
                 'SDK error event received',
               )
-
+              clearStreamInactivityTimer()
+              currentRunContextRef.current = null
               // Stop streaming and update UI
               setStreamStatus('idle')
-              setCanProcessQueue(!isQueuePausedRef?.current)
+              setCanProcessQueue(false)
               updateChainInProgress(false)
               timerController.stop('error')
 
@@ -915,6 +1059,8 @@ export const useSendMessage = ({
               const text = event.text
 
               if (typeof text !== 'string' || !text) return
+
+              refreshStreamInactivityTimer()
 
               // Track if main agent (no agentId) started streaming
               if (!hasReceivedContent && !event.agentId) {
@@ -1569,6 +1715,9 @@ export const useSendMessage = ({
         previousRunStateRef.current = runState
 
         if (!runState.output || runState.output.type === 'error') {
+          clearStreamInactivityTimer()
+          currentRunContextRef.current = null
+          setCanProcessQueue(false)
           logger.warn(
             {
               errorMessage:
@@ -1581,8 +1730,10 @@ export const useSendMessage = ({
           return
         }
 
+        clearStreamInactivityTimer()
+        currentRunContextRef.current = null
         setStreamStatus('idle')
-        if (resumeQueue) {
+        if (resumeQueue && !isQueuePausedRef?.current) {
           resumeQueue()
         }
         setCanProcessQueue(true)
@@ -1619,12 +1770,16 @@ export const useSendMessage = ({
           'SDK client.run() failed',
         )
         setStreamStatus('idle')
-        setCanProcessQueue(true)
+        setCanProcessQueue(false)
         updateChainInProgress(false)
         timerController.stop('error')
 
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error occurred'
+        const timedOutDueToCli = streamInactivityTriggeredRef.current
+        if (!timedOutDueToCli) {
+          markAiMessageInterrupted(aiMessageId)
+        }
         applyMessageUpdate((prev) =>
           prev.map((msg) => {
             if (msg.id !== aiMessageId) {
@@ -1647,6 +1802,26 @@ export const useSendMessage = ({
             return { ...msg, isComplete: true }
           }),
         )
+
+        const pendingAlreadyScheduled =
+          pendingRetriesRef.current.has(userMessageId)
+        const timedOutDueToSdk =
+          isNetworkError(error) && Boolean(error.streamTimedOut)
+        streamInactivityTriggeredRef.current = false
+
+        if (!pendingAlreadyScheduled) {
+          const note = !isConnectedRef.current
+            ? 'Waiting for connection…'
+            : timedOutDueToCli || timedOutDueToSdk
+              ? 'Timed out…'
+              : 'Stream interrupted'
+          schedulePendingRetry({
+            userMessageId,
+            content,
+            agentMode,
+            note,
+          })
+        }
       }
     },
     [
@@ -1678,8 +1853,29 @@ export const useSendMessage = ({
       setLastMessageMode,
       addSessionCredits,
       resumeQueue,
+      setUserMessageTimestampNote,
+      clearPendingRetryForMessage,
+      schedulePendingRetry,
+      clearStreamInactivityTimer,
+      refreshStreamInactivityTimer,
+      isConnectedRef,
+      markAiMessageInterrupted,
     ],
   )
 
-  return { sendMessage, clearMessages }
+  const retryPendingMessages = useCallback(async () => {
+    const pendingEntries = Array.from(pendingRetriesRef.current.entries())
+    pendingRetriesRef.current.clear()
+    setPendingRetryCount(0)
+
+    for (const [messageId, payload] of pendingEntries) {
+      await sendMessage({
+        content: payload.content,
+        agentMode: payload.agentMode,
+        retryOfMessageId: messageId,
+      })
+    }
+  }, [sendMessage])
+
+  return { sendMessage, clearMessages, pendingRetryCount, retryPendingMessages }
 }

@@ -30,6 +30,7 @@ interface MessageBlockProps {
   isAi: boolean
   isLoading: boolean
   timestamp: string
+  timestampNote?: string
   isComplete?: boolean
   completionTime?: string
   credits?: number
@@ -55,6 +56,7 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
     isAi,
     isLoading,
     timestamp,
+    timestampNote,
     isComplete,
     completionTime,
     credits,
@@ -80,6 +82,9 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
 
   const theme = useTheme()
   const resolvedTextColor = textColor ?? theme.foreground
+  const timestampDisplay = timestampNote
+    ? `[${timestamp} · ${timestampNote}]`
+    : `[${timestamp}]`
 
   return (
     <>
@@ -94,7 +99,7 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
             alignSelf: 'flex-start',
           }}
         >
-          {`[${timestamp}]`}
+          {timestampDisplay}
         </text>
       )}
       {blocks ? (

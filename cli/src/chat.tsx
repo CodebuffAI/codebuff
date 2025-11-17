@@ -193,6 +193,10 @@ export const Chat = ({
 
   const { clipboardMessage } = useClipboard()
   const isConnected = useConnectionStatus()
+  const isConnectedRef = useRef(isConnected)
+  useEffect(() => {
+    isConnectedRef.current = isConnected
+  }, [isConnected])
   const mainAgentTimer = useElapsedTime()
   const timerStartTime = mainAgentTimer.startTime
 
@@ -393,10 +397,11 @@ export const Chat = ({
   // Timer events are currently tracked but not used for UI updates
   // Future: Could be used for analytics or debugging
 
-  const { sendMessage, clearMessages } = useSendMessage({
-    messages,
-    allToggleIds,
-    setMessages,
+  const { sendMessage, clearMessages, pendingRetryCount, retryPendingMessages } =
+    useSendMessage({
+      messages,
+      allToggleIds,
+      setMessages,
     setFocusedAgentId,
     setInputFocused,
     inputRef,
@@ -421,10 +426,11 @@ export const Chat = ({
     setHasReceivedPlanResponse,
     lastMessageMode,
     setLastMessageMode,
-    addSessionCredits,
-    isQueuePausedRef,
-    resumeQueue,
-  })
+      addSessionCredits,
+      isQueuePausedRef,
+      resumeQueue,
+      isConnectedRef,
+    })
 
   sendMessageRef.current = sendMessage
 
@@ -704,6 +710,8 @@ export const Chat = ({
             isConnected={isConnected}
             isAtBottom={isAtBottom}
             scrollToLatest={scrollToLatest}
+            pendingRetryCount={pendingRetryCount}
+            retryPendingMessages={retryPendingMessages}
           />
         )}
 

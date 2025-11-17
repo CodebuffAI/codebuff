@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 
 import { ShimmerText } from './shimmer-text'
 import { ScrollToBottomButton } from './scroll-to-bottom-button'
+import { Button } from './button'
 import { useTheme } from '../hooks/use-theme'
 import { formatElapsedTime } from '../utils/format-elapsed-time'
 
@@ -17,6 +18,8 @@ interface StatusBarProps {
   isConnected: boolean
   isAtBottom: boolean
   scrollToLatest: () => void
+  pendingRetryCount: number
+  retryPendingMessages: () => Promise<void>
 }
 
 export const StatusBar = ({
@@ -27,6 +30,8 @@ export const StatusBar = ({
   isConnected,
   isAtBottom,
   scrollToLatest,
+  pendingRetryCount,
+  retryPendingMessages,
 }: StatusBarProps) => {
   const theme = useTheme()
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
@@ -51,37 +56,49 @@ export const StatusBar = ({
     return () => clearInterval(interval)
   }, [timerStartTime, shouldShowTimer])
 
+  const renderShimmer = (
+    shimmerProps: React.ComponentProps<typeof ShimmerText>,
+  ) => (
+    <text style={{ wrapMode: 'none' }}>
+      <ShimmerText {...shimmerProps} />
+    </text>
+  )
+
   const renderStatusIndicator = () => {
     if (nextCtrlCWillExit) {
-      return <span fg={theme.secondary}>Press Ctrl-C again to exit</span>
+      return (
+        <text fg={theme.secondary} style={{ wrapMode: 'none' }}>
+          Press Ctrl-C again to exit
+        </text>
+      )
     }
 
     if (clipboardMessage) {
-      return <span fg={theme.primary}>{clipboardMessage}</span>
+      return (
+        <text fg={theme.primary} style={{ wrapMode: 'none' }}>
+          {clipboardMessage}
+        </text>
+      )
     }
 
     if (!isConnected) {
-      return <ShimmerText text="connecting..." />
+      return renderShimmer({ text: 'connecting...' })
     }
 
     if (streamStatus === 'waiting') {
-      return (
-        <ShimmerText
-          text="thinking..."
-          interval={SHIMMER_INTERVAL_MS}
-          primaryColor={theme.secondary}
-        />
-      )
+      return renderShimmer({
+        text: 'thinking...',
+        interval: SHIMMER_INTERVAL_MS,
+        primaryColor: theme.secondary,
+      })
     }
 
     if (streamStatus === 'streaming') {
-      return (
-        <ShimmerText
-          text="working..."
-          interval={SHIMMER_INTERVAL_MS}
-          primaryColor={theme.secondary}
-        />
-      )
+      return renderShimmer({
+        text: 'working...',
+        interval: SHIMMER_INTERVAL_MS,
+        primaryColor: theme.secondary,
+      })
     }
 
     return null
@@ -92,15 +109,54 @@ export const StatusBar = ({
       return null
     }
 
-    return <span fg={theme.secondary}>{formatElapsedTime(elapsedSeconds)}</span>
+    return (
+      <text fg={theme.secondary} style={{ wrapMode: 'none' }}>
+        {formatElapsedTime(elapsedSeconds)}
+      </text>
+    )
   }
 
   const statusIndicatorContent = renderStatusIndicator()
   const elapsedTimeContent = renderElapsedTime()
-  
+  const hasPendingRetries = pendingRetryCount > 0
+  const pendingRetryMessage =
+    pendingRetryCount === 1
+      ? 'Message send interrupted'
+      : `${pendingRetryCount} messages interrupted`
+  const handleRetryClick = () => {
+    void retryPendingMessages()
+  }
+  const pendingRetryContent = hasPendingRetries ? (
+    <box
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 1,
+      }}
+    >
+      <text fg={theme.primary} style={{ wrapMode: 'none' }}>
+        {pendingRetryMessage}
+      </text>
+      <Button
+        style={{
+          borderStyle: 'round',
+          borderColor: theme.primary,
+          paddingLeft: 1,
+          paddingRight: 1,
+        }}
+        onClick={handleRetryClick}
+      >
+        <text fg={theme.primary} style={{ wrapMode: 'none' }}>
+          Retry now
+        </text>
+      </Button>
+    </box>
+  ) : null
+
   // Only show gray background when there's status indicator or timer content
-  const hasContent = statusIndicatorContent || elapsedTimeContent
-  
+  const hasContent =
+    hasPendingRetries || statusIndicatorContent || elapsedTimeContent
+
   return (
     <box
       style={{
@@ -120,7 +176,7 @@ export const StatusBar = ({
           flexBasis: 0,
         }}
       >
-        <text style={{ wrapMode: 'none' }}>{statusIndicatorContent}</text>
+        {pendingRetryContent ?? statusIndicatorContent}
       </box>
 
       <box style={{ flexShrink: 0 }}>
@@ -136,7 +192,7 @@ export const StatusBar = ({
           justifyContent: 'flex-end',
         }}
       >
-        <text style={{ wrapMode: 'none' }}>{elapsedTimeContent}</text>
+        {elapsedTimeContent}
       </box>
     </box>
   )

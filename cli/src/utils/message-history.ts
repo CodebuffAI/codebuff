@@ -8,7 +8,10 @@ import type { ChatMessage, ContentBlock } from '../types/chat'
 
 const MAX_HISTORY_SIZE = 1000
 
-export function getUserMessage(message: string | ContentBlock[]): ChatMessage {
+export function getUserMessage(
+  message: string | ContentBlock[],
+  options?: { timestampNote?: string },
+): ChatMessage {
   return {
     id: `user-${Date.now()}`,
     variant: 'user',
@@ -21,6 +24,7 @@ export function getUserMessage(message: string | ContentBlock[]): ChatMessage {
           blocks: message,
         }),
     timestamp: new Date().toISOString(),
+    ...(options?.timestampNote && { timestampNote: options.timestampNote }),
   }
 }
 
