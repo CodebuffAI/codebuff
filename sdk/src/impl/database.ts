@@ -5,6 +5,7 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import z from 'zod/v4'
 
 import { WEBSITE_URL } from '../constants'
+import { AuthenticationError, NetworkError, isAuthenticationError, isNetworkError } from '../errors'
 
 import type {
   AddAgentStepFn,
@@ -65,17 +66,11 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
       )
       // Throw specific error for authentication failures to distinguish from network errors
       if (response.status === 401 || response.status === 403) {
-        const error = new Error('Authentication failed') as any
-        error.code = 'AUTH_FAILED'
-        error.status = response.status
-        throw error
+        throw new AuthenticationError('Authentication failed', response.status)
       }
       // For 5xx errors, throw network error
       if (response.status >= 500) {
-        const error = new Error(`Server error: ${response.statusText}`) as any
-        error.code = 'NETWORK_ERROR'
-        error.status = response.status
-        throw error
+        throw new NetworkError(`Server error: ${response.statusText}`, { status: response.status })
       }
       return null
     }
@@ -85,7 +80,7 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
     const errorObj = getErrorObject(error)
 
     // Check if this is an error we already threw (auth or network)
-    if ((error as any)?.code === 'AUTH_FAILED' || (error as any)?.code === 'NETWORK_ERROR') {
+    if (isAuthenticationError(error) || isNetworkError(error)) {
       throw error // Re-throw errors we already handled
     }
 
@@ -97,10 +92,7 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
 
     // Throw network error with specific code
     const errorMessage = error instanceof Error ? error.message : 'Unable to reach server'
-    const networkError = new Error(`Network error: ${errorMessage}`) as any
-    networkError.code = 'NETWORK_ERROR'
-    networkError.originalError = errorObj
-    throw networkError
+    throw new NetworkError(`Network error: ${errorMessage}`, { originalError: errorObj })
   }
 
   const userInfo = userInfoCache[apiKey]

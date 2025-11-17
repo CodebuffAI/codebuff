@@ -1,6 +1,7 @@
 import { describe, expect, test, beforeEach, mock } from 'bun:test'
 import { getUserInfoFromApiKey } from '../impl/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import { isAuthenticationError, isNetworkError } from '../errors'
 
 describe('getUserInfoFromApiKey error handling', () => {
   const originalFetch = globalThis.fetch
@@ -35,10 +36,13 @@ describe('getUserInfoFromApiKey error handling', () => {
           logger: mockLogger,
         })
         expect(true).toBe(false) // Should not reach here
-      } catch (error: any) {
-        expect(error.code).toBe('AUTH_FAILED')
-        expect(error.status).toBe(401)
-        expect(error.message).toBe('Authentication failed')
+      } catch (error) {
+        expect(isAuthenticationError(error)).toBe(true)
+        if (isAuthenticationError(error)) {
+          expect(error.code).toBe('AUTH_FAILED')
+          expect(error.status).toBe(401)
+          expect(error.message).toBe('Authentication failed')
+        }
       }
     })
 
@@ -57,10 +61,13 @@ describe('getUserInfoFromApiKey error handling', () => {
           logger: mockLogger,
         })
         expect(true).toBe(false) // Should not reach here
-      } catch (error: any) {
-        expect(error.code).toBe('AUTH_FAILED')
-        expect(error.status).toBe(403)
-        expect(error.message).toBe('Authentication failed')
+      } catch (error) {
+        expect(isAuthenticationError(error)).toBe(true)
+        if (isAuthenticationError(error)) {
+          expect(error.code).toBe('AUTH_FAILED')
+          expect(error.status).toBe(403)
+          expect(error.message).toBe('Authentication failed')
+        }
       }
     })
 
@@ -80,10 +87,13 @@ describe('getUserInfoFromApiKey error handling', () => {
           logger: mockLogger,
         })
         expect(true).toBe(false) // Should not reach here
-      } catch (error: any) {
-        expect(error.code).toBe('NETWORK_ERROR')
-        expect(error.message).toContain('Server error')
-        expect(error.status).toBe(500)
+      } catch (error) {
+        expect(isNetworkError(error)).toBe(true)
+        if (isNetworkError(error)) {
+          expect(error.code).toBe('NETWORK_ERROR')
+          expect(error.message).toContain('Server error')
+          expect(error.status).toBe(500)
+        }
       }
     })
   })

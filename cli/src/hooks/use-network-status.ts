@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuthQuery } from './use-auth-query'
+import { isNetworkError } from '@codebuff/sdk'
 
 export type NetworkStatus =
   | { isOnline: true; error: null }
@@ -18,8 +19,8 @@ export function useNetworkStatus(options: UseNetworkStatusOptions = {}): Network
   const authQuery = useAuthQuery()
 
   // Check auth query for network errors
-  const authNetworkError = authQuery.error && (authQuery.error as any)?.code === 'NETWORK_ERROR'
-    ? (authQuery.error as any).message || 'Unable to reach server'
+  const authNetworkError = authQuery.error && isNetworkError(authQuery.error)
+    ? authQuery.error.message || 'Unable to reach server'
     : null
 
   // Determine overall network status

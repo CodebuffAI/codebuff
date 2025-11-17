@@ -4,6 +4,7 @@ import {
 } from '@codebuff/common/templates/agent-validation'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 import { WEBSITE_URL } from './constants'
+import { NetworkError } from './errors'
 
 export interface ValidationResult {
   success: boolean
@@ -102,10 +103,7 @@ export async function validateAgents(
 
         // For 5xx errors, throw network error
         if (response.status >= 500) {
-          const networkError = new Error(`Server error: ${errorMessage}`) as any
-          networkError.code = 'NETWORK_ERROR'
-          networkError.status = response.status
-          throw networkError
+          throw new NetworkError(`Server error: ${errorMessage}`, { status: response.status })
         }
 
         // For client errors (4xx), return as validation errors
@@ -128,10 +126,7 @@ export async function validateAgents(
         error instanceof Error ? error.message : String(error)
 
       // Throw network errors instead of returning them as validation errors
-      const networkError = new Error(`Failed to connect to validation API: ${errorMessage}`) as any
-      networkError.code = 'NETWORK_ERROR'
-      networkError.originalError = error
-      throw networkError
+      throw new NetworkError(`Failed to connect to validation API: ${errorMessage}`, { originalError: error })
     }
   } else {
     // Local validation: use common package validation logic

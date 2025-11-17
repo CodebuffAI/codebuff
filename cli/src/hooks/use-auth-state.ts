@@ -4,6 +4,7 @@ import { useAuthQuery, useLogoutMutation } from './use-auth-query'
 import { useLoginStore } from '../state/login-store'
 import { getUserCredentials } from '../utils/auth'
 import { resetCodebuffClient } from '../utils/codebuff-client'
+import { isAuthenticationError, isNetworkError } from '@codebuff/sdk'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
 import type { User } from '../utils/auth'
@@ -64,10 +65,10 @@ export const useAuthState = ({
         setUser(userData)
       }
     } else if (authQuery.isError) {
-      const error = authQuery.error as any
+      const error = authQuery.error
 
       // Check if this is a network error
-      if (error?.code === 'NETWORK_ERROR') {
+      if (isNetworkError(error)) {
         // For network errors, don't force login - allow access to the main app
         setAuthError({
           type: 'network',
@@ -75,7 +76,7 @@ export const useAuthState = ({
         })
         // Don't set isAuthenticated to false for network errors
         // This allows the app to continue working offline
-      } else if (error?.code === 'AUTH_FAILED') {
+      } else if (isAuthenticationError(error)) {
         // For authentication errors, require login
         setAuthError({
           type: 'authentication',

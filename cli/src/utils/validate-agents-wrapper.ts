@@ -1,4 +1,4 @@
-import { validateAgents as validateAgentsSDK } from '@codebuff/sdk'
+import { validateAgents as validateAgentsSDK, isNetworkError } from '@codebuff/sdk'
 import type { AgentDefinition } from '@codebuff/sdk'
 
 export type ValidationResult = {
@@ -23,9 +23,9 @@ export async function validateAgentsWithNetworkHandling(
       validationErrors: result.validationErrors,
       networkError: null,
     }
-  } catch (error: any) {
+  } catch (error) {
     // Handle network errors separately
-    if (error?.code === 'NETWORK_ERROR') {
+    if (isNetworkError(error)) {
       return {
         success: true, // Don't block on network errors
         validationErrors: [],
