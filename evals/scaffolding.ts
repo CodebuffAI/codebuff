@@ -233,6 +233,7 @@ export async function runAgentStepScaffolding(
     repoUrl: undefined,
     repoId: undefined,
     system: 'Test system prompt',
+    signal: new AbortController().signal,
   })
 
   return {

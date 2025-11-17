@@ -26,11 +26,16 @@ import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 
 let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
+let runAgentStepBaseParams: ParamsExcluding<
+  typeof runAgentStep,
+  'fileContext' | 'localAgentTemplates' | 'agentState' | 'prompt'
+>
 
 function mockAgentStream(content: string | string[]) {
-  agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
+  const mockPromptAiSdkStream = async function* ({}) {
     if (typeof content === 'string') {
       content = [content]
     }
@@ -39,6 +44,8 @@ function mockAgentStream(content: string | string[]) {
     }
     return 'mock-message-id'
   }
+  agentRuntimeImpl.promptAiSdkStream = mockPromptAiSdkStream
+  runAgentStepBaseParams.promptAiSdkStream = mockPromptAiSdkStream
 }
 
 describe('read_docs tool with researcher agent (via web API facade)', () => {
@@ -64,6 +71,24 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
     agentRuntimeImpl.requestToolCall = async () => ({
       output: [{ type: 'json', value: 'Tool call success' }],
     })
+
+    runAgentStepBaseParams = {
+      ...agentRuntimeImpl,
+      textOverride: null,
+      runId: 'test-run-id',
+      ancestorRunIds: [],
+      repoId: undefined,
+      repoUrl: undefined,
+      system: 'Test system prompt',
+      userId: TEST_USER_ID,
+      userInputId: 'test-input',
+      clientSessionId: 'test-session',
+      fingerprintId: 'test-fingerprint',
+      onResponseChunk: () => {},
+      agentType: 'researcher',
+      spawnParams: undefined,
+      signal: new AbortController().signal,
+    }
   })
 
   afterEach(() => {
@@ -101,24 +126,11 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
     })
 
     const { agentState: newAgentState } = await runAgentStep({
-      ...agentRuntimeImpl,
-      textOverride: null,
-      runId: 'test-run-id',
-      ancestorRunIds: [],
-      repoId: undefined,
-      repoUrl: undefined,
-      system: 'Test system prompt',
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
-      agentType: 'researcher',
+      ...runAgentStepBaseParams,
       fileContext: mockFileContextWithAgents,
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Get React documentation',
-      spawnParams: undefined,
     })
 
     expect(spy).toHaveBeenCalledWith(
@@ -161,24 +173,11 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
     })
 
     await runAgentStep({
-      ...agentRuntimeImpl,
-      textOverride: null,
-      runId: 'test-run-id',
-      ancestorRunIds: [],
-      repoId: undefined,
-      repoUrl: undefined,
-      system: 'Test system prompt',
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
-      agentType: 'researcher',
+      ...runAgentStepBaseParams,
       fileContext: mockFileContextWithAgents,
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Get React hooks documentation',
-      spawnParams: undefined,
     })
 
     expect(spy).toHaveBeenCalledWith(
@@ -213,24 +212,12 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
     })
 
     const { agentState: newAgentState } = await runAgentStep({
-      ...agentRuntimeImpl,
+      ...runAgentStepBaseParams,
       textOverride: null,
-      runId: 'test-run-id',
-      ancestorRunIds: [],
-      repoId: undefined,
-      repoUrl: undefined,
-      system: 'Test system prompt',
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
-      agentType: 'researcher',
       fileContext: mockFileContextWithAgents,
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Get documentation for NonExistentLibrary',
-      spawnParams: undefined,
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
@@ -265,24 +252,11 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
     })
 
     const { agentState: newAgentState } = await runAgentStep({
-      ...agentRuntimeImpl,
-      textOverride: null,
-      runId: 'test-run-id',
-      ancestorRunIds: [],
-      repoId: undefined,
-      repoUrl: undefined,
-      system: 'Test system prompt',
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
-      agentType: 'researcher',
+      ...runAgentStepBaseParams,
       fileContext: mockFileContextWithAgents,
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Get React documentation',
-      spawnParams: undefined,
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
@@ -316,24 +290,11 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
     })
 
     const { agentState: newAgentState } = await runAgentStep({
-      ...agentRuntimeImpl,
-      textOverride: null,
-      runId: 'test-run-id',
-      ancestorRunIds: [],
-      repoId: undefined,
-      repoUrl: undefined,
-      system: 'Test system prompt',
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
-      agentType: 'researcher',
+      ...runAgentStepBaseParams,
       fileContext: mockFileContextWithAgents,
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Get React server components documentation',
-      spawnParams: undefined,
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
@@ -369,24 +330,11 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
     })
 
     const { agentState: newAgentState } = await runAgentStep({
-      ...agentRuntimeImpl,
-      textOverride: null,
-      runId: 'test-run-id',
-      ancestorRunIds: [],
-      repoId: undefined,
-      repoUrl: undefined,
-      system: 'Test system prompt',
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
-      agentType: 'researcher',
+      ...runAgentStepBaseParams,
       fileContext: mockFileContextWithAgents,
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Get React documentation',
-      spawnParams: undefined,
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
@@ -427,24 +375,11 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
     const initialCredits = agentState.creditsUsed
 
     const { agentState: newAgentState } = await runAgentStep({
-      ...agentRuntimeImpl,
-      textOverride: null,
-      runId: 'test-run-id',
-      ancestorRunIds: [],
-      repoId: undefined,
-      repoUrl: undefined,
-      system: 'Test system prompt',
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      onResponseChunk: () => {},
-      agentType: 'researcher',
+      ...runAgentStepBaseParams,
       fileContext: mockFileContextWithAgents,
       localAgentTemplates: agentTemplates,
       agentState,
       prompt: 'Get React documentation',
-      spawnParams: undefined,
     })
 
     // Verify that the credits from the docs search API were added to agent state

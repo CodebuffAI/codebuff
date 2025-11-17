@@ -134,6 +134,41 @@ export const DynamicAgentDefinitionSchema = z.object({
       ]),
     )
     .optional(),
+  providerOptions: z
+    .object({
+      order: z.array(z.string()).optional(),
+      allow_fallbacks: z.boolean().optional(),
+      require_parameters: z.boolean().optional(),
+      data_collection: z.enum(['allow', 'deny']).optional(),
+      only: z.array(z.string()).optional(),
+      ignore: z.array(z.string()).optional(),
+      quantizations: z
+        .array(
+          z.enum([
+            'int4',
+            'int8',
+            'fp4',
+            'fp6',
+            'fp8',
+            'fp16',
+            'bf16',
+            'fp32',
+            'unknown',
+          ]),
+        )
+        .optional(),
+      sort: z.enum(['price', 'throughput', 'latency']).optional(),
+      max_price: z
+        .object({
+          prompt: z.union([z.number(), z.string()]).optional(),
+          completion: z.union([z.number(), z.string()]).optional(),
+          image: z.union([z.number(), z.string()]).optional(),
+          audio: z.union([z.number(), z.string()]).optional(),
+          request: z.union([z.number(), z.string()]).optional(),
+        })
+        .optional(),
+    })
+    .optional(),
 
   // Tools and spawnable agents
   mcpServers: z.record(z.string(), mcpConfigSchema).default(() => ({})),

@@ -136,6 +136,7 @@ describe('runProgrammaticStep', () => {
       stepNumber: 1,
 
       logger,
+      signal: new AbortController().signal,
     }
   })
 

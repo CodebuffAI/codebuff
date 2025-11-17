@@ -2,6 +2,7 @@ import { runTerminalCommand } from '@codebuff/sdk'
 
 import { handleInitializationFlowLocally } from './init'
 import { handleUsageCommand } from './usage'
+import { useLoginStore } from '../state/login-store'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
@@ -138,8 +139,10 @@ export async function routeUserPrompt(params: {
     stopStreaming()
     setCanProcessQueue(false)
 
+    const { resetLoginState } = useLoginStore.getState()
     logoutMutation.mutate(undefined, {
       onSettled: () => {
+        resetLoginState()
         setMessages((prev) => [...prev, getSystemMessage('Logged out.')])
         setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
         setTimeout(() => {

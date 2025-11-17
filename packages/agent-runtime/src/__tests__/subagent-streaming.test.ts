@@ -20,6 +20,10 @@ import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 import type { AgentTemplate } from '../templates/types'
 import type { SendSubagentChunk } from '../tools/handlers/tool/spawn-agents'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
+import type {
+  ParamsExcluding,
+  ParamsOf,
+} from '@codebuff/common/types/function-params'
 import type { Mock } from 'bun:test'
 
 describe('Subagent Streaming', () => {
@@ -28,6 +32,14 @@ describe('Subagent Streaming', () => {
   let mockAgentTemplate: any
   let mockWriteToClient: Mock<
     Parameters<typeof handleSpawnAgents>[0]['writeToClient']
+  >
+  let handleSpawnAgentsBaseParams: ParamsExcluding<
+    typeof handleSpawnAgents,
+    'toolCall' | 'state'
+  >
+  let baseState: Omit<
+    ParamsOf<typeof handleSpawnAgents>['state'],
+    'agentTemplate' | 'localAgentTemplates' | 'agentState'
   >
 
   beforeEach(() => {
@@ -50,6 +62,28 @@ describe('Subagent Streaming', () => {
       systemPrompt: '',
       instructionsPrompt: '',
       stepPrompt: '',
+    }
+
+    handleSpawnAgentsBaseParams = {
+      ...TEST_AGENT_RUNTIME_IMPL,
+      repoId: undefined,
+      repoUrl: undefined,
+      previousToolCallFinished: Promise.resolve(),
+      fileContext: mockFileContext,
+      clientSessionId: 'test-session',
+      userInputId: 'test-input',
+      writeToClient: mockWriteToClient,
+      ancestorRunIds: [],
+      getLatestState: () => ({ messages: [] }),
+      signal: new AbortController().signal,
+    }
+
+    baseState = {
+      fingerprintId: 'test-fingerprint',
+      userId: TEST_USER_ID,
+      sendSubagentChunk: mockSendSubagentChunk,
+      messages: [],
+      system: 'Test system prompt',
     }
   })
 
@@ -126,28 +160,15 @@ describe('Subagent Streaming', () => {
     }
 
     const { result } = handleSpawnAgents({
-      ...TEST_AGENT_RUNTIME_IMPL,
-      repoId: undefined,
-      repoUrl: undefined,
-      previousToolCallFinished: Promise.resolve(),
+      ...handleSpawnAgentsBaseParams,
       toolCall,
-      fileContext: mockFileContext,
-      clientSessionId: 'test-session',
-      userInputId: 'test-input',
-      writeToClient: mockWriteToClient,
-      ancestorRunIds: [],
-      getLatestState: () => ({ messages: [] }),
       state: {
-        fingerprintId: 'test-fingerprint',
-        userId: TEST_USER_ID,
+        ...baseState,
         agentTemplate: parentTemplate,
         localAgentTemplates: {
           [mockAgentTemplate.id]: mockAgentTemplate,
         },
-        sendSubagentChunk: mockSendSubagentChunk,
-        messages: [],
         agentState,
-        system: 'Test system prompt',
       },
     })
 
@@ -193,28 +214,15 @@ describe('Subagent Streaming', () => {
     }
 
     const { result } = handleSpawnAgents({
-      ...TEST_AGENT_RUNTIME_IMPL,
-      repoId: undefined,
-      repoUrl: undefined,
-      previousToolCallFinished: Promise.resolve(),
+      ...handleSpawnAgentsBaseParams,
       toolCall,
-      fileContext: mockFileContext,
-      clientSessionId: 'test-session',
-      userInputId: 'test-input-123',
-      ancestorRunIds: [],
-      writeToClient: () => {},
-      getLatestState: () => ({ messages: [] }),
       state: {
-        fingerprintId: 'test-fingerprint',
-        userId: TEST_USER_ID,
+        ...baseState,
         agentTemplate: parentTemplate,
         localAgentTemplates: {
           [mockAgentTemplate.id]: mockAgentTemplate,
         },
-        sendSubagentChunk: mockSendSubagentChunk,
-        messages: [],
         agentState,
-        system: 'Test system prompt',
       },
     })
     await result
@@ -238,7 +246,7 @@ describe('Subagent Streaming', () => {
     expect(firstCall.agentId).toBe(secondCall.agentId) // Same agent ID
     expect(firstCall.agentType).toBe('thinker')
     expect(secondCall.agentType).toBe('thinker')
-    expect(firstCall.userInputId).toBe('test-input-123')
-    expect(secondCall.userInputId).toBe('test-input-123')
+    expect(firstCall.userInputId).toBe('test-input')
+    expect(secondCall.userInputId).toBe('test-input')
   })
 })

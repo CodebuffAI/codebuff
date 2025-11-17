@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react'
 
-import { useTheme } from '../hooks/use-theme'
 import { Button } from './button'
+import { useTheme } from '../hooks/use-theme'
 
 type FormatLinesFn = (text: string, maxWidth?: number) => string[]
 
@@ -20,6 +20,7 @@ export interface TerminalLinkProps {
 }
 
 const defaultFormatLines: FormatLinesFn = (text) => [text]
+const PREFIXES_TO_STRIP = ['https://', 'http://']
 
 export const TerminalLink: React.FC<TerminalLinkProps> = ({
   text,
@@ -42,7 +43,14 @@ export const TerminalLink: React.FC<TerminalLinkProps> = ({
   const [isHovered, setIsHovered] = useState(false)
 
   const displayLines = useMemo(() => {
-    const formatted = formatLines(text, maxWidth)
+    let displayText = text.trim()
+    for (const prefix of PREFIXES_TO_STRIP) {
+      if (displayText.startsWith(prefix)) {
+        displayText = displayText.slice(prefix.length)
+      }
+    }
+
+    const formatted = formatLines(displayText, maxWidth)
     if (formatted.length <= 1) {
       return formatted
     }

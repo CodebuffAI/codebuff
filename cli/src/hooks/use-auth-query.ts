@@ -8,6 +8,7 @@ import {
   logoutUser as logoutUserUtil,
   type User,
 } from '../utils/auth'
+import { resetCodebuffClient } from '../utils/codebuff-client'
 import { logger as defaultLogger } from '../utils/logger'
 
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
@@ -159,6 +160,8 @@ export function useLogoutMutation(deps: UseLogoutMutationDeps = {}) {
   return useMutation({
     mutationFn: logoutUser,
     onSuccess: () => {
+      // Reset the SDK client after logout
+      resetCodebuffClient()
       // Clear all auth-related cache
       queryClient.removeQueries({ queryKey: authQueryKeys.all })
     },

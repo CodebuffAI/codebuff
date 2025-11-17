@@ -19,26 +19,81 @@ import type { z } from 'zod/v4'
 
 export type AgentId = `${string}/${string}@${number}.${number}.${number}`
 
-export type OpenRouterProviderOptions = {
-  models?: string[]
-
+export type OpenRouterReasoningOptions = {
   /**
    * https://openrouter.ai/docs/use-cases/reasoning-tokens
    * One of `max_tokens` or `effort` is required.
    * If `exclude` is true, reasoning will be removed from the response. Default is false.
    */
-  reasoning?: {
-    enabled?: boolean
-    exclude?: boolean
-  } & (
-    | {
-        max_tokens: number
-      }
-    | {
-        effort: 'high' | 'medium' | 'low'
-      }
-  )
+  enabled?: boolean
+  exclude?: boolean
+} & (
+  | {
+      max_tokens: number
+    }
+  | {
+      effort: 'high' | 'medium' | 'low'
+    }
+)
 
+export type OpenRouterProviderRoutingOptions = {
+  /**
+   * List of provider slugs to try in order (e.g. ["anthropic", "openai"])
+   */
+  order?: string[]
+  /**
+   * Whether to allow backup providers when primary is unavailable (default: true)
+   */
+  allow_fallbacks?: boolean
+  /**
+   * Only use providers that support all parameters in your request (default: false)
+   */
+  require_parameters?: boolean
+  /**
+   * Control whether to use providers that may store data
+   */
+  data_collection?: 'allow' | 'deny'
+  /**
+   * List of provider slugs to allow for this request
+   */
+  only?: string[]
+  /**
+   * List of provider slugs to skip for this request
+   */
+  ignore?: string[]
+  /**
+   * List of quantization levels to filter by (e.g. ["int4", "int8"])
+   */
+  quantizations?: Array<
+    | 'int4'
+    | 'int8'
+    | 'fp4'
+    | 'fp6'
+    | 'fp8'
+    | 'fp16'
+    | 'bf16'
+    | 'fp32'
+    | 'unknown'
+  >
+  /**
+   * Sort providers by price, throughput, or latency
+   */
+  sort?: 'price' | 'throughput' | 'latency'
+  /**
+   * Maximum pricing you want to pay for this request
+   */
+  max_price?: {
+    prompt?: number | string
+    completion?: number | string
+    image?: number | string
+    audio?: number | string
+    request?: number | string
+  }
+}
+
+export type OpenRouterProviderOptions = {
+  models?: string[]
+  reasoning?: OpenRouterReasoningOptions
   /**
    * A unique identifier representing your end-user, which can
    * help OpenRouter to monitor and detect abuse.
@@ -57,7 +112,8 @@ export type AgentTemplate<
   id: AgentTemplateType
   displayName: string
   model: Model
-  reasoningOptions?: OpenRouterProviderOptions['reasoning']
+  reasoningOptions?: OpenRouterReasoningOptions
+  providerOptions?: OpenRouterProviderRoutingOptions
 
   mcpServers: Record<string, MCPConfig>
   toolNames: (ToolName | (string & {}))[]
