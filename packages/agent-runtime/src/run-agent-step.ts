@@ -287,8 +287,7 @@ export const runAgentStep = async (
       onCostCalculated,
       n: params.n,
     })
-    logger.info({ responsesString }, 'Responses string')
-    const nResponses = [responsesString] //JSON.parse(responsesString) as string[]
+    const nResponses = JSON.parse(responsesString) as string[]
     return {
       agentState,
       fullResponse: responsesString,

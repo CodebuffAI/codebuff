@@ -107,7 +107,6 @@ Write out your complete implementation now as a series of file editing tool call
 
 function* handleStepsSonnet({
   params,
-  logger,
 }: AgentStepContext): ReturnType<
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
@@ -115,19 +114,15 @@ function* handleStepsSonnet({
   const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 5))
 
   // Use GENERATE_N to generate n implementations
-  const { nResponses } = yield {
+  const { nResponses = [] } = yield {
     type: 'GENERATE_N',
     n,
   }
 
-  logger.info({ nResponses }, 'Generated responses')
-
-  const implementorsResult = nResponses ?? []
-
   // Extract all the plans from the structured outputs
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
   // Parse implementations from tool results
-  const implementations = implementorsResult.map((content, index) => ({
+  const implementations = nResponses.map((content, index) => ({
     id: letters[index],
     content,
   }))
@@ -244,17 +239,15 @@ function* handleStepsGpt5({
   const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 5))
 
   // Use GENERATE_N to generate n implementations
-  const { nResponses } = yield {
+  const { nResponses = [] } = yield {
     type: 'GENERATE_N',
     n,
   }
 
-  const implementorsResult = nResponses ?? []
-
   // Extract all the plans from the structured outputs
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
   // Parse implementations from tool results
-  const implementations = implementorsResult.map((content, index) => ({
+  const implementations = nResponses.map((content, index) => ({
     id: letters[index],
     content,
   }))

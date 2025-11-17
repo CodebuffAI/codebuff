@@ -248,6 +248,8 @@ export async function postChatCompletions(params: {
           typeof model === 'string' &&
           model.startsWith('openai/') &&
           OPENAI_SUPPORTED_MODELS.includes(shortModelName as any)
+        // Only use OpenAI endpoint for OpenAI models with n parameter
+        // All other models (including non-OpenAI with n parameter) should use OpenRouter
         const shouldUseOpenAIEndpoint = isOpenAIDirectModel && (body as any)?.n
 
         const result = await (shouldUseOpenAIEndpoint

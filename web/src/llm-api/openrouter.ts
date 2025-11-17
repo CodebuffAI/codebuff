@@ -28,7 +28,8 @@ function extractRequestMetadata(params: { body: unknown; logger: Logger }) {
     logger.warn({ body }, 'Received request without run_id')
   }
 
-  return { clientId, clientRequestId }
+  const n = (body as any)?.codebuff_metadata?.n
+  return { clientId, clientRequestId, ...(n && { n }) }
 }
 
 export async function handleOpenRouterNonStream({
@@ -55,9 +56,140 @@ export async function handleOpenRouterNonStream({
   body.usage.include = true
 
   const startTime = new Date()
-  const { clientId, clientRequestId } = extractRequestMetadata({ body, logger })
-
+  const { clientId, clientRequestId, n } = extractRequestMetadata({
+    body,
+    logger,
+  })
   const byok = openrouterApiKey !== null
+
+  // If n > 1, make n parallel requests
+  if (n > 1) {
+    const requests = Array.from({ length: n }, () =>
+      fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${openrouterApiKey ?? env.OPEN_ROUTER_API_KEY}`,
+          'HTTP-Referer': 'https://codebuff.com',
+          'X-Title': 'Codebuff',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      }),
+    )
+
+    const responses = await Promise.all(requests)
+    if (responses.every((r) => !r.ok)) {
+      throw new Error(
+        `Failed to make all ${n} requests: ${responses.map((r) => r.statusText).join(', ')}`,
+      )
+    }
+    const allData = await Promise.all(responses.map((r) => r.json()))
+
+    // Collect all response contents
+    const responseContents: string[] = []
+    let totalCost = 0
+    let totalInputTokens = 0
+    let totalOutputTokens = 0
+    let totalCacheReadInputTokens = 0
+    let totalReasoningTokens = 0
+
+    for (const data of allData) {
+      const usage = data.usage
+      const content = data.choices?.[0]?.message?.content ?? ''
+      responseContents.push(content)
+
+      const openRouterCost = usage?.cost ?? 0
+      const upstreamCost = usage?.cost_details?.upstream_inference_cost ?? 0
+      totalCost += openRouterCost + upstreamCost
+      totalInputTokens += usage?.prompt_tokens ?? 0
+      totalOutputTokens += usage?.completion_tokens ?? 0
+      totalCacheReadInputTokens +=
+        usage?.prompt_tokens_details?.cached_tokens ?? 0
+      totalReasoningTokens +=
+        usage?.completion_tokens_details?.reasoning_tokens ?? 0
+    }
+
+    const responseText = JSON.stringify(responseContents)
+    const reasoningText = ''
+
+    // Use the first response's ID and model for tracking
+    const firstData = allData[0]
+
+    // Insert into BigQuery (don't await)
+    setupBigQuery({ logger }).then(async () => {
+      const success = await insertMessageBigquery({
+        row: {
+          id: firstData.id,
+          user_id: userId,
+          finished_at: new Date(),
+          created_at: startTime,
+          request: body,
+          reasoning_text: reasoningText,
+          response: responseText,
+          output_tokens: totalOutputTokens,
+          reasoning_tokens:
+            totalReasoningTokens > 0 ? totalReasoningTokens : undefined,
+          cost: totalCost,
+          upstream_inference_cost: undefined,
+          input_tokens: totalInputTokens,
+          cache_read_input_tokens:
+            totalCacheReadInputTokens > 0
+              ? totalCacheReadInputTokens
+              : undefined,
+        },
+        logger,
+      })
+      if (!success) {
+        logger.error(
+          { request: body },
+          'Failed to insert message into BigQuery',
+        )
+      }
+    })
+
+    // Consume credits
+    await consumeCreditsAndAddAgentStep({
+      messageId: firstData.id,
+      userId,
+      agentId,
+      clientId,
+      clientRequestId,
+      startTime,
+      model: firstData.model,
+      reasoningText,
+      response: responseText,
+      cost: totalCost,
+      credits: Math.round(totalCost * 100 * (1 + PROFIT_MARGIN)),
+      inputTokens: totalInputTokens,
+      cacheCreationInputTokens: null,
+      cacheReadInputTokens: totalCacheReadInputTokens,
+      reasoningTokens: totalReasoningTokens > 0 ? totalReasoningTokens : null,
+      outputTokens: totalOutputTokens,
+      byok,
+      logger,
+    })
+
+    // Return the first response with aggregated data
+    // Put the stringified array in the first choice's content for AI SDK compatibility
+    return {
+      ...firstData,
+      choices: [
+        {
+          index: 0,
+          message: { content: responseText, role: 'assistant' },
+          finish_reason: 'stop',
+        },
+      ],
+      usage: {
+        prompt_tokens: totalInputTokens,
+        completion_tokens: totalOutputTokens,
+        total_tokens: totalInputTokens + totalOutputTokens,
+        cost: totalCost,
+      },
+    }
+  }
+
+  // Original single request logic
   const response = await fetch(
     'https://openrouter.ai/api/v1/chat/completions',
     {
