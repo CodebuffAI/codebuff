@@ -1,9 +1,12 @@
-import { setupBigQuery } from '@codebuff/bigquery'
-import { consumeCreditsAndAddAgentStep } from '@codebuff/billing'
-import { PROFIT_MARGIN } from '@codebuff/common/old-constants'
-import { getErrorObject } from '@codebuff/common/util/error'
 import { env } from '@codebuff/internal/env'
 
+import {
+  consumeCreditsForMessage,
+  extractRequestMetadata,
+  insertMessageToBigQuery,
+} from './helpers'
+
+import type { UsageData } from './helpers'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
@@ -20,22 +23,6 @@ const OUTPUT_TOKEN_COSTS: Record<OpenAIModel, number> = {
   'gpt-5': 10,
 } as const
 
-function extractRequestMetadata(params: { body: unknown; logger: Logger }) {
-  const { body, logger } = params
-  const rawClientId = (body as any)?.codebuff_metadata?.client_id
-  const clientId = typeof rawClientId === 'string' ? rawClientId : null
-  if (!clientId) {
-    logger.warn({ body }, 'Received request without client_id')
-  }
-  const rawRunId = (body as any)?.codebuff_metadata?.run_id
-  const clientRequestId: string | null =
-    typeof rawRunId === 'string' ? rawRunId : null
-  if (!clientRequestId) {
-    logger.warn({ body }, 'Received request without run_id')
-  }
-  return { clientId, clientRequestId }
-}
-
 type OpenAIUsage = {
   prompt_tokens?: number
   prompt_tokens_details?: { cached_tokens?: number } | null
@@ -47,7 +34,10 @@ type OpenAIUsage = {
   cost_details?: { upstream_inference_cost?: number | null } | null
 }
 
-function computeCostDollars(usage: OpenAIUsage, model: OpenAIModel): number {
+function extractUsageAndCost(
+  usage: OpenAIUsage,
+  model: OpenAIModel,
+): UsageData {
   const inputTokenCost = INPUT_TOKEN_COSTS[model]
   const cachedInputTokenCost = CACHED_INPUT_TOKEN_COSTS[model]
   const outputTokenCost = OUTPUT_TOKEN_COSTS[model]
@@ -55,11 +45,18 @@ function computeCostDollars(usage: OpenAIUsage, model: OpenAIModel): number {
   const inTokens = usage.prompt_tokens ?? 0
   const cachedInTokens = usage.prompt_tokens_details?.cached_tokens ?? 0
   const outTokens = usage.completion_tokens ?? 0
-  return (
+  const cost =
     (inTokens / 1_000_000) * inputTokenCost +
     (cachedInTokens / 1_000_000) * cachedInputTokenCost +
     (outTokens / 1_000_000) * outputTokenCost
-  )
+
+  return {
+    inputTokens: inTokens,
+    outputTokens: outTokens,
+    cacheReadInputTokens: cachedInTokens,
+    reasoningTokens: usage.completion_tokens_details?.reasoning_tokens ?? 0,
+    cost,
+  }
 }
 
 export async function handleOpenAINonStream({
@@ -144,10 +141,10 @@ export async function handleOpenAINonStream({
 
   // Extract usage and content from all choices
   const usage: OpenAIUsage = data.usage ?? {}
-  const cost = computeCostDollars(usage, modelShortName as OpenAIModel)
+  const usageData = extractUsageAndCost(usage, modelShortName as OpenAIModel)
 
   // Inject cost into response
-  data.usage.cost = cost
+  data.usage.cost = usageData.cost
   data.usage.cost_details = { upstream_inference_cost: null }
 
   // Collect all response content from all choices into an array
@@ -161,34 +158,21 @@ export async function handleOpenAINonStream({
   const reasoningText = ''
 
   // BigQuery insert (do not await)
-  setupBigQuery({ logger }).then(async () => {
-    const success = await insertMessageBigquery({
-      row: {
-        id: data.id,
-        user_id: userId,
-        finished_at: new Date(),
-        created_at: startTime,
-        request: body,
-        reasoning_text: reasoningText,
-        response: responseText,
-        output_tokens: usage.completion_tokens ?? 0,
-        reasoning_tokens: usage.completion_tokens_details?.reasoning_tokens,
-        cost: cost,
-        upstream_inference_cost: null,
-        input_tokens: usage.prompt_tokens ?? 0,
-        cache_read_input_tokens: usage.prompt_tokens_details?.cached_tokens,
-      },
-      logger,
-    })
-    if (!success) {
-      logger.error(
-        { request: body },
-        'Failed to insert message into BigQuery (OpenAI)',
-      )
-    }
+  insertMessageToBigQuery({
+    messageId: data.id,
+    userId,
+    startTime,
+    request: body,
+    reasoningText,
+    responseText,
+    usageData,
+    logger,
+    insertMessageBigquery,
+  }).catch((error) => {
+    logger.error({ error }, 'Failed to insert message into BigQuery (OpenAI)')
   })
 
-  await consumeCreditsAndAddAgentStep({
+  await consumeCreditsForMessage({
     messageId: data.id,
     userId,
     agentId,
@@ -197,15 +181,8 @@ export async function handleOpenAINonStream({
     startTime,
     model: data.model,
     reasoningText,
-    response: responseText,
-    cost,
-    credits: Math.round(cost * 100 * (1 + PROFIT_MARGIN)),
-    inputTokens: usage.prompt_tokens ?? 0,
-    cacheCreationInputTokens: null,
-    cacheReadInputTokens: usage.prompt_tokens_details?.cached_tokens ?? 0,
-    reasoningTokens:
-      usage.completion_tokens_details?.reasoning_tokens ?? null,
-    outputTokens: usage.completion_tokens ?? 0,
+    responseText,
+    usageData,
     byok: false,
     logger,
   })
