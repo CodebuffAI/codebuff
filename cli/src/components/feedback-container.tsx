@@ -18,19 +18,33 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
   onExitFeedback,
   width,
 }) => {
-  const feedbackMode = useFeedbackStore((state) => state.feedbackMode)
-  const feedbackText = useFeedbackStore((state) => state.feedbackText)
-  const feedbackCursor = useFeedbackStore((state) => state.feedbackCursor)
-  const feedbackCategory = useFeedbackStore((state) => state.feedbackCategory)
-  const feedbackMessageId = useFeedbackStore((state) => state.feedbackMessageId)
-
-  const setFeedbackText = useFeedbackStore((state) => state.setFeedbackText)
-  const setFeedbackCursor = useFeedbackStore((state) => state.setFeedbackCursor)
-  const setFeedbackCategory = useFeedbackStore((state) => state.setFeedbackCategory)
-  const closeFeedback = useFeedbackStore((state) => state.closeFeedback)
-  const resetFeedbackForm = useFeedbackStore((state) => state.resetFeedbackForm)
-  const markMessageFeedbackSubmitted = useFeedbackStore((state) => state.markMessageFeedbackSubmitted)
-  const restoreSavedInput = useFeedbackStore((state) => state.restoreSavedInput)
+  const {
+    feedbackMode,
+    feedbackText,
+    feedbackCursor,
+    feedbackCategory,
+    feedbackMessageId,
+    setFeedbackText,
+    setFeedbackCursor,
+    setFeedbackCategory,
+    closeFeedback,
+    resetFeedbackForm,
+    markMessageFeedbackSubmitted,
+    restoreSavedInput,
+  } = useFeedbackStore((state) => ({
+    feedbackMode: state.feedbackMode,
+    feedbackText: state.feedbackText,
+    feedbackCursor: state.feedbackCursor,
+    feedbackCategory: state.feedbackCategory,
+    feedbackMessageId: state.feedbackMessageId,
+    setFeedbackText: state.setFeedbackText,
+    setFeedbackCursor: state.setFeedbackCursor,
+    setFeedbackCategory: state.setFeedbackCategory,
+    closeFeedback: state.closeFeedback,
+    resetFeedbackForm: state.resetFeedbackForm,
+    markMessageFeedbackSubmitted: state.markMessageFeedbackSubmitted,
+    restoreSavedInput: state.restoreSavedInput,
+  }))
 
   const messages = useChatStore((state) => state.messages)
   const agentMode = useChatStore((state) => state.agentMode)
