@@ -29,9 +29,7 @@ export function createBestOfNEditor(
       'set_messages',
       'set_output',
     ],
-    spawnableAgents: isGpt5
-      ? ['best-of-n-selector-gpt-5']
-      : ['best-of-n-selector'],
+    spawnableAgents: ['best-of-n-selector'],
 
     inputSchema: {
       params: {
@@ -101,257 +99,133 @@ More style notes:
 
 Write out your complete implementation now as a series of file editing tool calls.`,
 
-    handleSteps: isGpt5 ? handleStepsGpt5 : handleStepsSonnet,
-  }
-}
+    handleSteps: function* ({
+      params,
+    }: AgentStepContext): ReturnType<
+      NonNullable<SecretAgentDefinition['handleSteps']>
+    > {
+      const selectorAgent = 'best-of-n-selector'
+      const n = Math.min(
+        10,
+        Math.max(1, (params?.n as number | undefined) ?? 5),
+      )
 
-function* handleStepsSonnet({
-  params,
-}: AgentStepContext): ReturnType<
-  NonNullable<SecretAgentDefinition['handleSteps']>
-> {
-  const selectorAgent = 'best-of-n-selector'
-  const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 5))
+      // Use GENERATE_N to generate n implementations
+      const { nResponses = [] } = yield {
+        type: 'GENERATE_N',
+        n,
+      }
 
-  // Use GENERATE_N to generate n implementations
-  const { nResponses = [] } = yield {
-    type: 'GENERATE_N',
-    n,
-  }
+      // Extract all the plans from the structured outputs
+      const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+      // Parse implementations from tool results
+      const implementations = nResponses.map((content, index) => ({
+        id: letters[index],
+        content,
+      }))
 
-  // Extract all the plans from the structured outputs
-  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-  // Parse implementations from tool results
-  const implementations = nResponses.map((content, index) => ({
-    id: letters[index],
-    content,
-  }))
-
-  // Spawn selector with implementations as params
-  const { toolResult: selectorResult } = yield {
-    toolName: 'spawn_agents',
-    input: {
-      agents: [
-        {
-          agent_type: selectorAgent,
-          params: { implementations },
+      // Spawn selector with implementations as params
+      const { toolResult: selectorResult } = yield {
+        toolName: 'spawn_agents',
+        input: {
+          agents: [
+            {
+              agent_type: selectorAgent,
+              params: { implementations },
+            },
+          ],
         },
-      ],
-    },
-    includeToolCall: false,
-  } satisfies ToolCall<'spawn_agents'>
+        includeToolCall: false,
+      } satisfies ToolCall<'spawn_agents'>
 
-  const selectorOutput = extractSpawnResults<{
-    implementationId: string
-    reasoning: string
-  }>(selectorResult)[0]
+      const selectorOutput = extractSpawnResults<{
+        implementationId: string
+        reasoning: string
+      }>(selectorResult)[0]
 
-  if ('errorMessage' in selectorOutput) {
-    yield {
-      toolName: 'set_output',
-      input: { error: selectorOutput.errorMessage },
-    } satisfies ToolCall<'set_output'>
-    return
-  }
-  const { implementationId } = selectorOutput
-  const chosenImplementation = implementations.find(
-    (implementation) => implementation.id === implementationId,
-  )
-  if (!chosenImplementation) {
-    yield {
-      toolName: 'set_output',
-      input: { error: 'Failed to find chosen implementation.' },
-    } satisfies ToolCall<'set_output'>
-    return
-  }
+      if ('errorMessage' in selectorOutput) {
+        yield {
+          toolName: 'set_output',
+          input: { error: selectorOutput.errorMessage },
+        } satisfies ToolCall<'set_output'>
+        return
+      }
+      const { implementationId } = selectorOutput
+      const chosenImplementation = implementations.find(
+        (implementation) => implementation.id === implementationId,
+      )
+      if (!chosenImplementation) {
+        yield {
+          toolName: 'set_output',
+          input: { error: 'Failed to find chosen implementation.' },
+        } satisfies ToolCall<'set_output'>
+        return
+      }
 
-  // Apply the chosen implementation using STEP_TEXT (only tool calls, no commentary)
-  const toolCallsOnly = extractToolCallsOnly(
-    typeof chosenImplementation.content === 'string'
-      ? chosenImplementation.content
-      : '',
-  )
-  const { agentState: postEditsAgentState } = yield {
-    type: 'STEP_TEXT',
-    text: toolCallsOnly,
-  } as StepText
-  const { messageHistory } = postEditsAgentState
-  const lastAssistantMessageIndex = messageHistory.findLastIndex(
-    (message) => message.role === 'assistant',
-  )
-  const editToolResults = messageHistory
-    .slice(lastAssistantMessageIndex)
-    .filter((message) => message.role === 'tool')
-    .flatMap((message) => message.content.output)
-    .filter((output) => output.type === 'json')
-    .map((output) => output.value)
+      // Apply the chosen implementation using STEP_TEXT (only tool calls, no commentary)
+      const toolCallsOnly = extractToolCallsOnly(
+        typeof chosenImplementation.content === 'string'
+          ? chosenImplementation.content
+          : '',
+      )
+      const { agentState: postEditsAgentState } = yield {
+        type: 'STEP_TEXT',
+        text: toolCallsOnly,
+      } as StepText
+      const { messageHistory } = postEditsAgentState
+      const lastAssistantMessageIndex = messageHistory.findLastIndex(
+        (message) => message.role === 'assistant',
+      )
+      const editToolResults = messageHistory
+        .slice(lastAssistantMessageIndex)
+        .filter((message) => message.role === 'tool')
+        .flatMap((message) => message.content.output)
+        .filter((output) => output.type === 'json')
+        .map((output) => output.value)
 
-  // Set output with the chosen implementation and reasoning
-  yield {
-    toolName: 'set_output',
-    input: {
-      response: chosenImplementation.content,
-      toolResults: editToolResults,
-    },
-    includeToolCall: false,
-  } satisfies ToolCall<'set_output'>
-
-  function extractSpawnResults<T>(
-    results: any[] | undefined,
-  ): (T | { errorMessage: string })[] {
-    if (!results) return []
-    const spawnedResults = results
-      .filter((result) => result.type === 'json')
-      .map((result) => result.value)
-      .flat() as {
-      agentType: string
-      value: { value?: T; errorMessage?: string }
-    }[]
-    return spawnedResults.map(
-      (result) =>
-        result.value.value ?? {
-          errorMessage:
-            result.value.errorMessage ?? 'Error extracting spawn results',
+      // Set output with the chosen implementation and reasoning
+      yield {
+        toolName: 'set_output',
+        input: {
+          response: chosenImplementation.content,
+          toolResults: editToolResults,
         },
-    )
-  }
+        includeToolCall: false,
+      } satisfies ToolCall<'set_output'>
 
-  // Extract only tool calls from text, removing any commentary
-  function extractToolCallsOnly(text: string): string {
-    const toolExtractionPattern =
-      /<codebuff_tool_call>\n(.*?)\n<\/codebuff_tool_call>/gs
-    const matches: string[] = []
+      function extractSpawnResults<T>(
+        results: any[] | undefined,
+      ): (T | { errorMessage: string })[] {
+        if (!results) return []
+        const spawnedResults = results
+          .filter((result) => result.type === 'json')
+          .map((result) => result.value)
+          .flat() as {
+          agentType: string
+          value: { value?: T; errorMessage?: string }
+        }[]
+        return spawnedResults.map(
+          (result) =>
+            result.value.value ?? {
+              errorMessage:
+                result.value.errorMessage ?? 'Error extracting spawn results',
+            },
+        )
+      }
 
-    for (const match of text.matchAll(toolExtractionPattern)) {
-      matches.push(match[0]) // Include the full tool call with tags
-    }
+      // Extract only tool calls from text, removing any commentary
+      function extractToolCallsOnly(text: string): string {
+        const toolExtractionPattern =
+          /<codebuff_tool_call>\n(.*?)\n<\/codebuff_tool_call>/gs
+        const matches: string[] = []
 
-    return matches.join('\n')
-  }
-}
+        for (const match of text.matchAll(toolExtractionPattern)) {
+          matches.push(match[0]) // Include the full tool call with tags
+        }
 
-function* handleStepsGpt5({
-  params,
-}: AgentStepContext): ReturnType<
-  NonNullable<SecretAgentDefinition['handleSteps']>
-> {
-  const selectorAgent = 'best-of-n-selector-gpt-5'
-  const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 5))
-
-  // Use GENERATE_N to generate n implementations
-  const { nResponses = [] } = yield {
-    type: 'GENERATE_N',
-    n,
-  }
-
-  // Extract all the plans from the structured outputs
-  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-  // Parse implementations from tool results
-  const implementations = nResponses.map((content, index) => ({
-    id: letters[index],
-    content,
-  }))
-
-  // Spawn selector with implementations as params
-  const { toolResult: selectorResult } = yield {
-    toolName: 'spawn_agents',
-    input: {
-      agents: [
-        {
-          agent_type: selectorAgent,
-          params: { implementations },
-        },
-      ],
+        return matches.join('\n')
+      }
     },
-    includeToolCall: false,
-  } satisfies ToolCall<'spawn_agents'>
-
-  const selectorOutput = extractSpawnResults<{
-    implementationId: string
-    reasoning: string
-  }>(selectorResult)[0]
-
-  if ('errorMessage' in selectorOutput) {
-    yield {
-      toolName: 'set_output',
-      input: { error: selectorOutput.errorMessage },
-    } satisfies ToolCall<'set_output'>
-    return
-  }
-  const { implementationId } = selectorOutput
-  const chosenImplementation = implementations.find(
-    (implementation) => implementation.id === implementationId,
-  )
-  if (!chosenImplementation) {
-    yield {
-      toolName: 'set_output',
-      input: { error: 'Failed to find chosen implementation.' },
-    } satisfies ToolCall<'set_output'>
-    return
-  }
-
-  // Apply the chosen implementation using STEP_TEXT (only tool calls, no commentary)
-  const toolCallsOnly = extractToolCallsOnly(
-    typeof chosenImplementation.content === 'string'
-      ? chosenImplementation.content
-      : '',
-  )
-  const { agentState: postEditsAgentState } = yield {
-    type: 'STEP_TEXT',
-    text: toolCallsOnly,
-  } as StepText
-  const { messageHistory } = postEditsAgentState
-  const lastAssistantMessageIndex = messageHistory.findLastIndex(
-    (message) => message.role === 'assistant',
-  )
-  const editToolResults = messageHistory
-    .slice(lastAssistantMessageIndex)
-    .filter((message) => message.role === 'tool')
-    .flatMap((message) => message.content.output)
-    .filter((output) => output.type === 'json')
-    .map((output) => output.value)
-
-  // Set output with the chosen implementation and reasoning
-  yield {
-    toolName: 'set_output',
-    input: {
-      response: chosenImplementation.content,
-      toolResults: editToolResults,
-    },
-    includeToolCall: false,
-  } satisfies ToolCall<'set_output'>
-
-  function extractSpawnResults<T>(
-    results: any[] | undefined,
-  ): (T | { errorMessage: string })[] {
-    if (!results) return []
-    const spawnedResults = results
-      .filter((result) => result.type === 'json')
-      .map((result) => result.value)
-      .flat() as {
-      agentType: string
-      value: { value?: T; errorMessage?: string }
-    }[]
-    return spawnedResults.map(
-      (result) =>
-        result.value.value ?? {
-          errorMessage:
-            result.value.errorMessage ?? 'Error extracting spawn results',
-        },
-    )
-  }
-
-  // Extract only tool calls from text, removing any commentary
-  function extractToolCallsOnly(text: string): string {
-    const toolExtractionPattern =
-      /<codebuff_tool_call>\n(.*?)\n<\/codebuff_tool_call>/gs
-    const matches: string[] = []
-
-    for (const match of text.matchAll(toolExtractionPattern)) {
-      matches.push(match[0]) // Include the full tool call with tags
-    }
-
-    return matches.join('\n')
   }
 }
 
