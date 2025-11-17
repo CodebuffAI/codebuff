@@ -38,6 +38,7 @@ export type AgentContentBlock = {
   status: 'running' | 'complete' | 'failed'
   blocks?: ContentBlock[]
   initialPrompt?: string
+  params?: Record<string, any>
 }
 export type AgentListContentBlock = {
   type: 'agent-list'

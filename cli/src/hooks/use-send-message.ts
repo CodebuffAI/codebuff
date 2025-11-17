@@ -982,6 +982,8 @@ export const useSendMessage = ({
                     parentAgentId: event.parentAgentId || 'ROOT',
                     hasParentAgentId: !!event.parentAgentId,
                     eventKeys: Object.keys(event),
+                    params: event.params,
+                    prompt: event.prompt,
                   },
                   'CLI: subagent_start event received',
                 )
@@ -1027,6 +1029,8 @@ export const useSendMessage = ({
                                 blockToMove = {
                                   ...block,
                                   agentId: event.agentId,
+                                  ...(event.params && { params: event.params }),
+                                  ...(event.prompt && block.initialPrompt === '' && { initialPrompt: event.prompt }),
                                 }
                                 // Don't add to result - we're extracting it
                               } else if (
@@ -1167,7 +1171,8 @@ export const useSendMessage = ({
                         content: '',
                         status: 'running' as const,
                         blocks: [] as ContentBlock[],
-                        initialPrompt: '',
+                        initialPrompt: event.prompt || '',
+                        ...(event.params && { params: event.params }),
                       }
 
                       // If parentAgentId exists, nest inside parent agent
