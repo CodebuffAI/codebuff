@@ -547,6 +547,13 @@ const AgentBranchWrapper = memo(
       onToggleCollapsed(agentBlock.agentId)
     }, [onToggleCollapsed, agentBlock.agentId])
 
+    // Create a status message for editor-best-of-n agent
+    const nParameterMessage =
+      agentBlock.params?.n !== undefined &&
+      agentBlock.agentType.includes('editor-best-of-n')
+        ? `Generating ${agentBlock.params.n} implementations...`
+        : undefined
+
     return (
       <box key={keyPrefix} style={{ flexDirection: 'column', gap: 0 }}>
         <AgentBranchItem
@@ -562,6 +569,18 @@ const AgentBranchWrapper = memo(
           statusIndicator={statusIndicator}
           onToggle={onToggle}
         >
+          {nParameterMessage && (
+            <text
+              style={{
+                wrapMode: 'word',
+                fg: theme.muted,
+                marginBottom: 1,
+              }}
+              attributes={TextAttributes.ITALIC}
+            >
+              {nParameterMessage}
+            </text>
+          )}
           <AgentBody
             agentBlock={agentBlock}
             indentLevel={indentLevel + 1}
