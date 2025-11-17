@@ -63,6 +63,7 @@ export const Chat = ({
   setIsAuthenticated,
   setUser,
   logoutMutation,
+  continueChat,
 }: {
   headerContent: React.ReactNode
   initialPrompt: string | null
@@ -77,6 +78,7 @@ export const Chat = ({
   setIsAuthenticated: Dispatch<SetStateAction<boolean | null>>
   setUser: Dispatch<SetStateAction<User | null>>
   logoutMutation: UseMutationResult<boolean, Error, void, unknown>
+  continueChat: boolean
 }) => {
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
 
@@ -428,6 +430,7 @@ export const Chat = ({
     addSessionCredits,
     isQueuePausedRef,
     resumeQueue,
+    continueChat,
   })
 
   sendMessageRef.current = sendMessage

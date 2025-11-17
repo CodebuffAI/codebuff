@@ -117,6 +117,7 @@ type ParsedArgs = {
   initialPrompt: string | null
   agent?: string
   clearLogs: boolean
+  continue: boolean
 }
 
 function parseArgs(): ParsedArgs {
@@ -131,6 +132,10 @@ function parseArgs(): ParsedArgs {
       'Specify which agent to use (e.g., "base", "ask", "file-picker")',
     )
     .option('--clear-logs', 'Remove any existing CLI log files before starting')
+    .option(
+      '--continue',
+      'Continue from the last conversation, maintaining context',
+    )
     .helpOption('-h, --help', 'Show this help message')
     .argument('[prompt...]', 'Initial prompt to send to the agent')
     .allowExcessArguments(true)
@@ -143,11 +148,12 @@ function parseArgs(): ParsedArgs {
     initialPrompt: args.length > 0 ? args.join(' ') : null,
     agent: options.agent,
     clearLogs: options.clearLogs || false,
+    continue: options.continue || false,
   }
 }
 
 async function bootstrapCli(): Promise<void> {
-  const { initialPrompt, agent, clearLogs } = parseArgs()
+  const { initialPrompt, agent, clearLogs, continue: continueChat } = parseArgs()
 
   initializeThemeStore()
 
@@ -222,6 +228,7 @@ async function bootstrapCli(): Promise<void> {
         loadedAgentsData={loadedAgentsData}
         validationErrors={validationErrors}
         fileTree={fileTree}
+        continueChat={continueChat}
       />
     )
   }

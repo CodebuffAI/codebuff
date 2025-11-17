@@ -14,6 +14,7 @@ import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 import { getLoadedAgentsData } from '../utils/local-agent-registry'
 import { logger } from '../utils/logger'
 import { getUserMessage } from '../utils/message-history'
+import { loadMostRecentChatState, saveChatState, getAllToggleIdsFromMessages } from '../utils/run-state-storage'
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
 import type { StreamStatus } from './use-message-queue'
@@ -211,6 +212,7 @@ interface UseSendMessageOptions {
   addSessionCredits: (credits: number) => void
   isQueuePausedRef?: React.MutableRefObject<boolean>
   resumeQueue?: () => void
+  continueChat: boolean
 }
 
 export const useSendMessage = ({
@@ -244,11 +246,36 @@ export const useSendMessage = ({
   addSessionCredits,
   isQueuePausedRef,
   resumeQueue,
+  continueChat,
 }: UseSendMessageOptions): {
   sendMessage: SendMessageFn
   clearMessages: () => void
 } => {
   const previousRunStateRef = useRef<any>(null)
+
+  // Load previous chat state on mount if continueChat is true
+  useEffect(() => {
+    if (continueChat && !previousRunStateRef.current) {
+      const loadedState = loadMostRecentChatState()
+      if (loadedState) {
+        previousRunStateRef.current = loadedState.runState
+        setMessages(loadedState.messages)
+        
+        // Collapse all subagents and tools by default when continuing
+        const toggleIds = getAllToggleIdsFromMessages(loadedState.messages)
+        if (toggleIds.length > 0) {
+          setCollapsedAgents(new Set(toggleIds))
+        }
+        
+        logger.info(
+          { messageCount: loadedState.messages.length, collapsedCount: toggleIds.length },
+          'Loaded previous chat state for continuation'
+        )
+      } else {
+        logger.info('No previous chat state found to continue from')
+      }
+    }
+  }, [continueChat, setMessages, setCollapsedAgents])
   const spawnAgentsMapRef = useRef<
     Map<string, { index: number; agentType: string }>
   >(new Map())
@@ -1529,6 +1556,12 @@ export const useSendMessage = ({
         })
 
         previousRunStateRef.current = runState
+        
+        // Save both runState and current messages
+        applyMessageUpdate((currentMessages) => {
+          saveChatState(runState, currentMessages)
+          return currentMessages
+        })
 
         if (!runState.output || runState.output.type === 'error') {
           logger.warn(

@@ -1,4 +1,4 @@
-import { mkdirSync } from 'fs'
+import { mkdirSync, readdirSync, statSync } from 'fs'
 import path from 'path'
 
 import { findGitRoot } from './utils/git'
@@ -48,7 +48,44 @@ export function getProjectDataDir(): string {
   return baseDir
 }
 
-export function getCurrentChatDir() {
+/**
+ * Find the most recent chat directory based on modification time
+ * Returns null if no chat directories exist
+ */
+export function getMostRecentChatDir(): string | null {
+  try {
+    const chatsDir = path.join(getProjectDataDir(), 'chats')
+    if (!statSync(chatsDir, { throwIfNoEntry: false })) {
+      return null
+    }
+
+    const chatDirs = readdirSync(chatsDir)
+      .map((name) => {
+        const fullPath = path.join(chatsDir, name)
+        try {
+          const stat = statSync(fullPath)
+          return { name, fullPath, mtime: stat.mtime }
+        } catch {
+          return null
+        }
+      })
+      .filter((item): item is { name: string; fullPath: string; mtime: Date } => 
+        item !== null && statSync(item.fullPath).isDirectory()
+      )
+
+    if (chatDirs.length === 0) {
+      return null
+    }
+
+    // Sort by modification time, most recent first
+    chatDirs.sort((a, b) => b.mtime.getTime() - a.mtime.getTime())
+    return chatDirs[0].fullPath
+  } catch {
+    return null
+  }
+}
+
+export function getCurrentChatDir(): string {
   const chatId = getCurrentChatId()
   const dir = path.join(getProjectDataDir(), 'chats', chatId)
   ensureChatDirectory(dir)
