@@ -219,14 +219,12 @@ export async function runProgrammaticStep(
       creditsBefore = state.agentState.directCreditsUsed
       childrenBefore = state.agentState.childRunIds.length
 
-      logger.info({ nResponses }, 'Responses runProgrammaticStep')
       const result = generator!.next({
         agentState: getPublicAgentState(state.agentState),
         toolResult,
         stepsComplete,
         nResponses,
       })
-      logger.info({ result }, 'Generator result')
 
       if (result.done) {
         endTurn = true

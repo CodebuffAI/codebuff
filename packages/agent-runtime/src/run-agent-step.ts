@@ -806,7 +806,6 @@ export async function loopAgentSteps(
       currentAgentState = newAgentState
       shouldEndTurn = llmShouldEndTurn
       nResponses = generatedResponses
-      logger.info({ nResponses }, 'Generated responses loopAgentSteps')
 
       currentPrompt = undefined
       currentParams = undefined
