@@ -9,6 +9,7 @@ import { LoginModal } from './components/login-modal'
 import { TerminalLink } from './components/terminal-link'
 import { ToolCallItem } from './components/tools/tool-call-item'
 import { useAuthState } from './hooks/use-auth-state'
+import { useNetworkStatus } from './hooks/use-network-status'
 import { useLogo } from './hooks/use-logo'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTheme } from './hooks/use-theme'
@@ -31,7 +32,7 @@ interface AppProps {
   } | null
   validationErrors: Array<{ id: string; message: string }>
   fileTree: FileTreeNode[]
-  networkValidationError: { id: string; message: string } | null
+  validationNetworkError: string | null
 }
 
 export const App = ({
@@ -42,7 +43,7 @@ export const App = ({
   loadedAgentsData,
   validationErrors,
   fileTree,
-  networkValidationError,
+  validationNetworkError,
 }: AppProps) => {
   const { contentMaxWidth, separatorWidth } = useTerminalDimensions()
   const theme = useTheme()
@@ -71,6 +72,11 @@ export const App = ({
     inputRef,
     setInputFocused,
     resetChatStore,
+  })
+
+  // Get unified network status
+  const networkStatus = useNetworkStatus({
+    validationNetworkError,
   })
 
   const headerContent = useMemo(() => {
@@ -173,7 +179,7 @@ export const App = ({
             dense
           />
         </box>
-        {validationErrors.length > 0 && authError?.type !== 'network' && (
+        {validationErrors.length > 0 && networkStatus.isOnline && (
           <box style={{ flexDirection: 'column', gap: 0 }}>
             {createValidationErrorBlocks({
               errors: validationErrors,
@@ -200,14 +206,14 @@ export const App = ({
     isAgentListCollapsed,
     validationErrors,
     separatorWidth,
-    authError,
+    networkStatus.isOnline,
   ])
 
   // Only show login modal for actual authentication failures, not network errors
   if (
     requireAuth !== null &&
     isAuthenticated === false &&
-    authError?.type !== 'network'
+    networkStatus.isOnline // Only require login when we're online
   ) {
     return (
       <LoginModal
@@ -229,8 +235,7 @@ export const App = ({
       setIsAuthenticated={setIsAuthenticated}
       setUser={setUser}
       logoutMutation={logoutMutation}
-      authError={authError}
-      networkValidationError={networkValidationError}
+      networkStatus={networkStatus}
     />
   )
 }

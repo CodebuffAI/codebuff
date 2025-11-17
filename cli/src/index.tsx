@@ -5,7 +5,7 @@ import { createRequire } from 'module'
 
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { getProjectFileTree } from '@codebuff/common/project-file-tree'
-import { validateAgents } from '@codebuff/sdk'
+import { validateAgentsWithNetworkHandling } from './utils/validate-agents-wrapper'
 import { render } from '@opentui/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Command } from 'commander'
@@ -158,29 +158,16 @@ async function bootstrapCli(): Promise<void> {
   const loadedAgentsData = getLoadedAgentsData()
 
   let validationErrors: Array<{ id: string; message: string }> = []
-  let networkValidationError: { id: string; message: string } | null = null
+  let validationNetworkError: string | null = null
 
   if (loadedAgentsData) {
     const agentDefinitions = loadAgentDefinitions()
-    const validationResult = await validateAgents(agentDefinitions, {
+    const validationResult = await validateAgentsWithNetworkHandling(agentDefinitions, {
       remote: true,
     })
 
-    if (!validationResult.success) {
-      // Separate network errors from other validation errors
-      const networkError = validationResult.validationErrors.find(
-        (error) => error.id === 'network_error'
-      )
-
-      if (networkError) {
-        networkValidationError = networkError
-      }
-
-      // Only keep non-network validation errors
-      validationErrors = validationResult.validationErrors.filter(
-        (error) => error.id !== 'network_error'
-      )
-    }
+    validationErrors = validationResult.validationErrors
+    validationNetworkError = validationResult.networkError
   }
 
   const queryClient = createQueryClient()
@@ -236,7 +223,7 @@ async function bootstrapCli(): Promise<void> {
         loadedAgentsData={loadedAgentsData}
         validationErrors={validationErrors}
         fileTree={fileTree}
-        networkValidationError={networkValidationError}
+        validationNetworkError={validationNetworkError}
       />
     )
   }

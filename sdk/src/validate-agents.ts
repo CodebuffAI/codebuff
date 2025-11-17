@@ -100,12 +100,21 @@ export async function validateAgents(
           (errorData as any).error ||
           `HTTP ${response.status}: ${response.statusText}`
 
+        // For 5xx errors, throw network error
+        if (response.status >= 500) {
+          const networkError = new Error(`Server error: ${errorMessage}`) as any
+          networkError.code = 'NETWORK_ERROR'
+          networkError.status = response.status
+          throw networkError
+        }
+
+        // For client errors (4xx), return as validation errors
         return {
           success: false,
           validationErrors: [
             {
-              id: 'network_error',
-              message: `Failed to validate via API: ${errorMessage}`,
+              id: 'validation_api_error',
+              message: `Validation error: ${errorMessage}`,
             },
           ],
           errorCount: 1,
@@ -118,16 +127,11 @@ export async function validateAgents(
       const errorMessage =
         error instanceof Error ? error.message : String(error)
 
-      return {
-        success: false,
-        validationErrors: [
-          {
-            id: 'network_error',
-            message: `Failed to connect to validation API: ${errorMessage}`,
-          },
-        ],
-        errorCount: 1,
-      }
+      // Throw network errors instead of returning them as validation errors
+      const networkError = new Error(`Failed to connect to validation API: ${errorMessage}`) as any
+      networkError.code = 'NETWORK_ERROR'
+      networkError.originalError = error
+      throw networkError
     }
   } else {
     // Local validation: use common package validation logic

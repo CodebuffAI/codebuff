@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 
-import { validateAgents } from '@codebuff/sdk'
+import { validateAgentsWithNetworkHandling } from '../utils/validate-agents-wrapper'
 
 import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 import { logger } from '../utils/logger'
@@ -40,33 +40,21 @@ export const useAgentValidation = (
     try {
       const agentDefinitions = loadAgentDefinitions()
 
-      const validationResult = await validateAgents(agentDefinitions, {
-        remote: true,
-      })
+      const validationResult = await validateAgentsWithNetworkHandling(
+        agentDefinitions,
+        { remote: true }
+      )
 
-      if (validationResult.success) {
-        setValidationErrors([])
-        return { success: true, errors: [] }
-      } else {
-        // Filter out network_error - it's handled separately by the auth system
-        const filteredErrors = validationResult.validationErrors.filter(
-          (error) => error.id !== 'network_error'
-        )
+      setValidationErrors(validationResult.validationErrors)
 
-        if (filteredErrors.length > 0) {
-          setValidationErrors(filteredErrors)
-          return { success: false, errors: filteredErrors }
-        } else {
-          // If only network errors, don't block sending messages
-          // The network error is already handled by the auth system
-          setValidationErrors([])
-          return { success: true, errors: [] }
-        }
+      // Network errors are handled separately and don't block message sending
+      return {
+        success: validationResult.success || validationResult.networkError !== null,
+        errors: validationResult.validationErrors,
       }
     } catch (error) {
       logger.error({ error }, 'Agent validation failed with exception')
       // Don't update validation errors on exception - keep previous state
-      // Return failure to block message sending on validation errors
       return { success: false, errors: [] }
     } finally {
       setIsValidating(false)
