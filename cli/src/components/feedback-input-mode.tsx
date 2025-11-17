@@ -160,6 +160,7 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
           placeholder={'Tell us more (what happened, what you expected)...'}
           focused={true}
           maxHeight={5}
+          minHeight={3}
           width={width - 4}
           textAttributes={undefined}
           ref={inputRef}

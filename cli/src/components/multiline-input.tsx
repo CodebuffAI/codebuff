@@ -97,6 +97,7 @@ interface MultilineInputProps {
   placeholder?: string
   focused?: boolean
   maxHeight?: number
+  minHeight?: number
   width: number
   textAttributes?: number
   cursorPosition: number
@@ -117,6 +118,7 @@ export const MultilineInput = forwardRef<
     placeholder = '',
     focused = true,
     maxHeight = 5,
+    minHeight = 1,
     width,
     textAttributes,
     onKeyIntercept,
@@ -220,7 +222,10 @@ export const MultilineInput = forwardRef<
   useEffect(() => {
     const node = scrollBoxRef.current
     if (!node) return
-    const vpWidth = Math.max(0, Math.floor(node.viewport.width || 0))
+    const viewportWidth = Number(node.viewport?.width ?? 0)
+    if (!Number.isFinite(viewportWidth)) return
+    const vpWidth = Math.floor(viewportWidth)
+    if (vpWidth <= 0) return
     // viewport.width already reflects inner content area; don't subtract again
     const cols = Math.max(1, vpWidth)
     setMeasuredCols(cols)
@@ -252,6 +257,13 @@ export const MultilineInput = forwardRef<
     !isPlaceholder &&
     cursorPosition < displayValue.length &&
     displayValue[cursorPosition] !== '\n'
+
+  // Use the actual input contents for measurement so placeholder text
+  // doesn't change height calculations when the user starts typing.
+  const measurementValue = isPlaceholder ? value : displayValue
+  const measurementAfterCursor = showCursor
+    ? measurementValue.slice(cursorPosition)
+    : ''
 
   // Handle all keyboard input with advanced shortcuts
   useKeyboard(
@@ -716,15 +728,15 @@ export const MultilineInput = forwardRef<
 
   const layoutContent = showCursor
     ? shouldHighlight
-      ? displayValue
-      : `${displayValue.slice(0, cursorPosition)}${CURSOR_CHAR}${afterCursor}`
-    : displayValue
+      ? measurementValue
+      : `${measurementValue.slice(0, cursorPosition)}${CURSOR_CHAR}${measurementAfterCursor}`
+    : measurementValue
 
   const cursorProbe = showCursor
     ? shouldHighlight
-      ? displayValue.slice(0, cursorPosition + 1)
-      : `${displayValue.slice(0, cursorPosition)}${CURSOR_CHAR}`
-    : displayValue.slice(0, cursorPosition)
+      ? measurementValue.slice(0, cursorPosition + 1)
+      : `${measurementValue.slice(0, cursorPosition)}${CURSOR_CHAR}`
+    : measurementValue.slice(0, cursorPosition)
 
   const layoutMetrics = useMemo(
     () =>
@@ -733,8 +745,9 @@ export const MultilineInput = forwardRef<
         cursorProbe,
         cols: getEffectiveCols(),
         maxHeight,
+        minHeight,
       }),
-    [layoutContent, cursorProbe, getEffectiveCols, maxHeight],
+    [layoutContent, cursorProbe, getEffectiveCols, maxHeight, minHeight],
   )
 
   const height = layoutMetrics.heightLines

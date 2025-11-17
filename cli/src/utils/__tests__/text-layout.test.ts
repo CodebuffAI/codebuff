@@ -53,4 +53,30 @@ describe('computeInputLayoutMetrics', () => {
     expect(metrics.heightLines).toBe(2)
     expect(metrics.gutterEnabled).toBe(false)
   })
+
+  test('respects a minimum height constraint', () => {
+    const metrics = computeInputLayoutMetrics({
+      layoutContent: 'short',
+      cursorProbe: 'short',
+      cols: 40,
+      maxHeight: 5,
+      minHeight: 3,
+    })
+
+    expect(metrics.heightLines).toBe(3)
+    expect(metrics.gutterEnabled).toBe(false)
+  })
+
+  test('caps the minimum height at the max height', () => {
+    const metrics = computeInputLayoutMetrics({
+      layoutContent: 'tiny',
+      cursorProbe: 'tiny',
+      cols: 40,
+      maxHeight: 2,
+      minHeight: 5,
+    })
+
+    expect(metrics.heightLines).toBe(2)
+    expect(metrics.gutterEnabled).toBe(false)
+  })
 })
