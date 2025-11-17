@@ -11,6 +11,16 @@ describe('getUserInfoFromApiKey error handling', () => {
   const originalFetch = globalThis.fetch
   let mockLogger: Logger
 
+  const runGetUserInfo = (options?: {
+    apiKey?: string
+    fields?: Array<'id' | 'email'>
+  }) =>
+    getUserInfoFromApiKey({
+      apiKey: options?.apiKey ?? 'test-key',
+      fields: options?.fields ?? ['id', 'email'],
+      logger: mockLogger,
+    })
+
   beforeEach(() => {
     // Reset fetch before each test
     globalThis.fetch = originalFetch
@@ -34,11 +44,7 @@ describe('getUserInfoFromApiKey error handling', () => {
       )
 
       try {
-        await getUserInfoFromApiKey({
-          apiKey: 'invalid-key',
-          fields: ['id', 'email'],
-          logger: mockLogger,
-        })
+        await runGetUserInfo({ apiKey: 'invalid-key' })
         expect(true).toBe(false) // Should not reach here
       } catch (error) {
         expect(isAuthenticationError(error)).toBe(true)
@@ -59,11 +65,7 @@ describe('getUserInfoFromApiKey error handling', () => {
       )
 
       try {
-        await getUserInfoFromApiKey({
-          apiKey: 'forbidden-key',
-          fields: ['id', 'email'],
-          logger: mockLogger,
-        })
+        await runGetUserInfo({ apiKey: 'forbidden-key' })
         expect(true).toBe(false) // Should not reach here
       } catch (error) {
         expect(isAuthenticationError(error)).toBe(true)
@@ -85,11 +87,7 @@ describe('getUserInfoFromApiKey error handling', () => {
       )
 
       try {
-        await getUserInfoFromApiKey({
-          apiKey: 'test-key',
-          fields: ['id', 'email'],
-          logger: mockLogger,
-        })
+        await runGetUserInfo()
         expect(true).toBe(false) // Should not reach here
       } catch (error) {
         expect(isNetworkError(error)).toBe(true)
@@ -107,11 +105,7 @@ describe('getUserInfoFromApiKey error handling', () => {
       setMockFetch(() => Promise.reject(new Error('Network request failed')))
 
       try {
-        await getUserInfoFromApiKey({
-          apiKey: 'test-key',
-          fields: ['id', 'email'],
-          logger: mockLogger,
-        })
+        await runGetUserInfo()
         expect(true).toBe(false) // Should not reach here
       } catch (error: any) {
         expect(error.code).toBe('NETWORK_ERROR')
@@ -124,11 +118,7 @@ describe('getUserInfoFromApiKey error handling', () => {
       setMockFetch(() => Promise.reject(new Error('Connection timeout')))
 
       try {
-        await getUserInfoFromApiKey({
-          apiKey: 'test-key',
-          fields: ['id', 'email'],
-          logger: mockLogger,
-        })
+        await runGetUserInfo()
         expect(true).toBe(false) // Should not reach here
       } catch (error: any) {
         expect(error.code).toBe('NETWORK_ERROR')
@@ -140,11 +130,7 @@ describe('getUserInfoFromApiKey error handling', () => {
       setMockFetch(() => Promise.reject(new Error('Network failure')))
 
       try {
-        await getUserInfoFromApiKey({
-          apiKey: 'super-secret-key-12345',
-          fields: ['id', 'email'],
-          logger: mockLogger,
-        })
+        await runGetUserInfo({ apiKey: 'super-secret-key-12345' })
       } catch (error: any) {
         // Verify logger was called with masked API key
         const logCall = (mockLogger.error as any).mock.calls[0]
@@ -170,11 +156,7 @@ describe('getUserInfoFromApiKey error handling', () => {
         } as Response),
       )
 
-      const result = await getUserInfoFromApiKey({
-        apiKey: 'valid-key',
-        fields: ['id', 'email'],
-        logger: mockLogger,
-      })
+      const result = await runGetUserInfo({ apiKey: 'valid-key' })
 
       expect(result).toEqual({
         id: 'user-123',
@@ -198,18 +180,10 @@ describe('getUserInfoFromApiKey error handling', () => {
       const apiKey = 'cache-test-key'
 
       // First call
-      await getUserInfoFromApiKey({
-        apiKey,
-        fields: ['id', 'email'],
-        logger: mockLogger,
-      })
+      await runGetUserInfo({ apiKey })
 
       // Second call should use cache
-      await getUserInfoFromApiKey({
-        apiKey,
-        fields: ['id', 'email'],
-        logger: mockLogger,
-      })
+      await runGetUserInfo({ apiKey })
 
       // Fetch should only be called once due to caching
       expect(mockFetch).toHaveBeenCalledTimes(1)
@@ -226,11 +200,7 @@ describe('getUserInfoFromApiKey error handling', () => {
       )
 
       try {
-        await getUserInfoFromApiKey({
-          apiKey: 'invalid-key',
-          fields: ['id', 'email'],
-          logger: mockLogger,
-        })
+        await runGetUserInfo({ apiKey: 'invalid-key' })
         expect(true).toBe(false)
       } catch (error: any) {
         // Should be the original AUTH_FAILED error, not wrapped in NETWORK_ERROR
@@ -242,11 +212,7 @@ describe('getUserInfoFromApiKey error handling', () => {
       setMockFetch(() => Promise.reject(new Error('Random error')))
 
       try {
-        await getUserInfoFromApiKey({
-          apiKey: 'test-key',
-          fields: ['id', 'email'],
-          logger: mockLogger,
-        })
+        await runGetUserInfo()
         expect(true).toBe(false)
       } catch (error: any) {
         expect(error.code).toBe('NETWORK_ERROR')

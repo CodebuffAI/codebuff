@@ -10,6 +10,21 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
  * network errors and authentication errors.
  */
 
+const baseUser = (overrides?: Partial<{ id: string; email: string; discord_id: string | null }>) => ({
+  id: 'user-123',
+  email: 'test@example.com',
+  discord_id: null,
+  ...overrides,
+})
+
+const mockResolves = (value: Awaited<ReturnType<GetUserInfoFromApiKeyFn>>) =>
+  mock<GetUserInfoFromApiKeyFn>(async () => value)
+
+const mockRejects = (error: Error & { code?: string }) =>
+  mock<GetUserInfoFromApiKeyFn>(async () => {
+    throw error
+  })
+
 describe('validateApiKey', () => {
   let mockLogger: Logger
   let mockGetUserInfoFromApiKey: ReturnType<typeof mock<GetUserInfoFromApiKeyFn>>
@@ -29,11 +44,7 @@ describe('validateApiKey', () => {
 
   describe('successful validation', () => {
     test('returns user info for valid API key', async () => {
-      mockGetUserInfoFromApiKey = mock<GetUserInfoFromApiKeyFn>(async () => ({
-        id: 'user-123',
-        email: 'test@example.com',
-        discord_id: null,
-      }))
+      mockGetUserInfoFromApiKey = mockResolves(baseUser())
 
       const result = await validateApiKey({
         apiKey: 'valid-key',
@@ -49,11 +60,9 @@ describe('validateApiKey', () => {
     })
 
     test('passes correct parameters to getUserInfoFromApiKey', async () => {
-      mockGetUserInfoFromApiKey = mock<GetUserInfoFromApiKeyFn>(async () => ({
-        id: 'user-456',
-        email: 'user@test.com',
-        discord_id: null,
-      }))
+      mockGetUserInfoFromApiKey = mockResolves(
+        baseUser({ id: 'user-456', email: 'user@test.com' }),
+      )
 
       await validateApiKey({
         apiKey: 'test-api-key',
@@ -75,9 +84,7 @@ describe('validateApiKey', () => {
       ) as any
       networkError.code = 'NETWORK_ERROR'
 
-      mockGetUserInfoFromApiKey = mock<GetUserInfoFromApiKeyFn>(async () => {
-        throw networkError
-      })
+      mockGetUserInfoFromApiKey = mockRejects(networkError)
 
       try {
         await validateApiKey({
@@ -96,9 +103,7 @@ describe('validateApiKey', () => {
       const networkError = new Error('Network timeout') as any
       networkError.code = 'NETWORK_ERROR'
 
-      mockGetUserInfoFromApiKey = mock<GetUserInfoFromApiKeyFn>(async () => {
-        throw networkError
-      })
+      mockGetUserInfoFromApiKey = mockRejects(networkError)
 
       try {
         await validateApiKey({
@@ -118,7 +123,7 @@ describe('validateApiKey', () => {
 
   describe('authentication errors', () => {
     test('throws AUTH_FAILED error for invalid credentials', async () => {
-      mockGetUserInfoFromApiKey = mock<GetUserInfoFromApiKeyFn>(async () => null)
+      mockGetUserInfoFromApiKey = mockResolves(null)
 
       try {
         await validateApiKey({
@@ -136,9 +141,7 @@ describe('validateApiKey', () => {
       const authError = new Error('Authentication failed') as any
       authError.code = 'AUTH_FAILED'
 
-      mockGetUserInfoFromApiKey = mock<GetUserInfoFromApiKeyFn>(async () => {
-        throw authError
-      })
+      mockGetUserInfoFromApiKey = mockRejects(authError)
 
       try {
         await validateApiKey({
@@ -157,9 +160,7 @@ describe('validateApiKey', () => {
       const authError = new Error('Auth failed') as any
       authError.code = 'AUTH_FAILED'
 
-      mockGetUserInfoFromApiKey = mock<GetUserInfoFromApiKeyFn>(async () => {
-        throw authError
-      })
+      mockGetUserInfoFromApiKey = mockRejects(authError)
 
       try {
         await validateApiKey({
@@ -181,9 +182,7 @@ describe('validateApiKey', () => {
     test('logs and re-throws unknown errors', async () => {
       const unknownError = new Error('Something went wrong')
 
-      mockGetUserInfoFromApiKey = mock<GetUserInfoFromApiKeyFn>(async () => {
-        throw unknownError
-      })
+      mockGetUserInfoFromApiKey = mockRejects(unknownError)
 
       try {
         await validateApiKey({
@@ -203,7 +202,7 @@ describe('validateApiKey', () => {
     })
 
     test('handles null response as authentication error', async () => {
-      mockGetUserInfoFromApiKey = mock<GetUserInfoFromApiKeyFn>(async () => null)
+      mockGetUserInfoFromApiKey = mockResolves(null)
 
       try {
         await validateApiKey({
@@ -249,9 +248,7 @@ describe('validateApiKey', () => {
         const error = new Error('Test error') as any
         error.code = testCase.errorCode
 
-        mockGetUserInfoFromApiKey = mock<GetUserInfoFromApiKeyFn>(async () => {
-          throw error
-        })
+        mockGetUserInfoFromApiKey = mockRejects(error)
 
         try {
           await validateApiKey({
