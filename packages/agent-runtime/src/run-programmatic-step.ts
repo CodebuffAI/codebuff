@@ -203,7 +203,7 @@ export async function runProgrammaticStep(
     messages: cloneDeep(agentState.messageHistory),
   }
 
-  let toolResult: ToolResultOutput[] = []
+  let toolResult: ToolResultOutput[] | undefined = undefined
   let endTurn = false
   let textOverride: string | null = null
   let generateN: number | undefined = undefined
@@ -221,7 +221,7 @@ export async function runProgrammaticStep(
 
       const result = generator!.next({
         agentState: getPublicAgentState(state.agentState),
-        toolResult,
+        toolResult: toolResult ?? [],
         stepsComplete,
         nResponses,
       })
@@ -246,8 +246,8 @@ export async function runProgrammaticStep(
       if ('type' in result.value && result.value.type === 'GENERATE_N') {
         logger.info({ resultValue: result.value }, 'GENERATE_N yielded')
         // Handle GENERATE_N: generate n responses using the LLM
-        const n = result.value.n
-        generateN = n
+        generateN = result.value.n
+        endTurn = false
         break
       }
 
@@ -366,7 +366,8 @@ export async function runProgrammaticStep(
       state.agentState.messageHistory = state.messages
 
       // Get the latest tool result
-      toolResult = toolResults[toolResults.length - 1]?.output
+      const latestToolResult = toolResults[toolResults.length - 1]
+      toolResult = latestToolResult?.output
 
       if (state.agentState.runId) {
         await addAgentStep({
@@ -445,6 +446,7 @@ export async function runProgrammaticStep(
       textOverride: null,
       endTurn,
       stepNumber,
+      generateN: undefined,
     }
   } finally {
     if (endTurn) {

@@ -278,7 +278,8 @@ export const runAgentStep = async (
     `Start agent ${agentType} step ${iterationNum} (${userInputId}${prompt ? ` - Prompt: ${prompt.slice(0, 20)}` : ''})`,
   )
 
-  if (params.n) {
+  // Handle n parameter for generating multiple responses
+  if (params.n !== undefined) {
     const responsesString = await params.promptAiSdk({
       ...params,
       messages: agentMessages,
@@ -288,6 +289,13 @@ export const runAgentStep = async (
       n: params.n,
     })
     const nResponses = JSON.parse(responsesString) as string[]
+    
+    // Update agent state with the message history including the generations
+    agentState = {
+      ...agentState,
+      messageHistory: agentMessages,
+    }
+    
     return {
       agentState,
       fullResponse: responsesString,
