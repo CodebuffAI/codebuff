@@ -65,6 +65,8 @@ export const printModeSubagentStartSchema = z.object({
   displayName: z.string(),
   onlyChild: z.boolean(),
   parentAgentId: z.string().optional(),
+  params: z.record(z.string(), z.any()).optional(),
+  prompt: z.string().optional(),
 })
 export type PrintModeSubagentStart = z.infer<
   typeof printModeSubagentStartSchema
@@ -77,6 +79,8 @@ export const printModeSubagentFinishSchema = z.object({
   displayName: z.string(),
   onlyChild: z.boolean(),
   parentAgentId: z.string().optional(),
+  params: z.record(z.string(), z.any()).optional(),
+  prompt: z.string().optional(),
 })
 export type PrintModeSubagentFinish = z.infer<
   typeof printModeSubagentFinishSchema
