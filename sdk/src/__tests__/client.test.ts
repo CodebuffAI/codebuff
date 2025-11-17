@@ -1,4 +1,4 @@
-import { describe, expect, test, mock, afterEach } from 'bun:test'
+import { describe, expect, test, mock, afterEach, spyOn } from 'bun:test'
 import { CodebuffClient } from '../client'
 
 describe('CodebuffClient', () => {
@@ -136,6 +136,94 @@ describe('CodebuffClient', () => {
       const result = await client.checkConnection()
 
       expect(result).toBe(false)
+    })
+  })
+
+  describe('error handling options', () => {
+    test('uses default error handler when handleEvent not provided', () => {
+      const consoleErrorSpy = spyOn(console, 'error').mockImplementation(() => {})
+
+      const client = new CodebuffClient({ apiKey: 'test-key' })
+
+      // Trigger the default error handler
+      const defaultHandler = client.options.handleEvent
+      if (defaultHandler) {
+        defaultHandler({ type: 'error', message: 'Test error' })
+      }
+
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(2) // Error message + tip
+      consoleErrorSpy.mockRestore()
+    })
+
+    test('does not add default error handler when disableConsoleErrors is true', () => {
+      const consoleErrorSpy = spyOn(console, 'error').mockImplementation(() => {})
+
+      const client = new CodebuffClient({
+        apiKey: 'test-key',
+        disableConsoleErrors: true,
+      })
+
+      // handleEvent should be undefined when disableConsoleErrors is true and no custom handler
+      expect(client.options.handleEvent).toBeUndefined()
+
+      consoleErrorSpy.mockRestore()
+    })
+
+    test('uses custom handleEvent when provided', () => {
+      const customHandler = mock((event: any) => {
+        if (event.type === 'error') {
+          // Custom handling
+        }
+      })
+
+      const client = new CodebuffClient({
+        apiKey: 'test-key',
+        handleEvent: customHandler,
+      })
+
+      expect(client.options.handleEvent).toBe(customHandler)
+    })
+
+    test('custom handleEvent works even with disableConsoleErrors', () => {
+      const consoleErrorSpy = spyOn(console, 'error').mockImplementation(() => {})
+      const customHandler = mock((event: any) => {})
+
+      const client = new CodebuffClient({
+        apiKey: 'test-key',
+        handleEvent: customHandler,
+        disableConsoleErrors: true,
+      })
+
+      // Should use custom handler, not default
+      expect(client.options.handleEvent).toBe(customHandler)
+
+      // Trigger the handler
+      if (client.options.handleEvent) {
+        client.options.handleEvent({ type: 'error', message: 'Test' })
+      }
+
+      // Custom handler should be called, not console.error
+      expect(customHandler).toHaveBeenCalledTimes(1)
+      expect(consoleErrorSpy).not.toHaveBeenCalled()
+
+      consoleErrorSpy.mockRestore()
+    })
+
+    test('default handler logs error message and tip to console', () => {
+      const consoleErrorSpy = spyOn(console, 'error').mockImplementation(() => {})
+
+      const client = new CodebuffClient({ apiKey: 'test-key' })
+
+      const defaultHandler = client.options.handleEvent
+      if (defaultHandler) {
+        defaultHandler({ type: 'error', message: 'Connection failed' })
+      }
+
+      const calls = consoleErrorSpy.mock.calls
+      expect(calls[0][0]).toContain('Connection failed')
+      expect(calls[1][0]).toContain('Tip:')
+
+      consoleErrorSpy.mockRestore()
     })
   })
 })

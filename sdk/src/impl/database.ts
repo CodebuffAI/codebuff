@@ -70,6 +70,13 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
         error.status = response.status
         throw error
       }
+      // For 5xx errors, throw network error
+      if (response.status >= 500) {
+        const error = new Error(`Server error: ${response.statusText}`) as any
+        error.code = 'NETWORK_ERROR'
+        error.status = response.status
+        throw error
+      }
       return null
     }
 
@@ -77,19 +84,20 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
   } catch (error) {
     const errorObj = getErrorObject(error)
 
-    // Check if this is an authentication error we threw
-    if ((error as any)?.code === 'AUTH_FAILED') {
-      throw error // Re-throw auth errors
+    // Check if this is an error we already threw (auth or network)
+    if ((error as any)?.code === 'AUTH_FAILED' || (error as any)?.code === 'NETWORK_ERROR') {
+      throw error // Re-throw errors we already handled
     }
 
-    // This is a network error (connection failed, timeout, etc.)
+    // This is a new network error (connection failed, timeout, etc.)
     logger.error(
       { error: errorObj, apiKey: apiKey.substring(0, 10) + '...', fields },
       'getUserInfoFromApiKey network error',
     )
 
     // Throw network error with specific code
-    const networkError = new Error('Network error: Unable to reach server') as any
+    const errorMessage = error instanceof Error ? error.message : 'Unable to reach server'
+    const networkError = new Error(`Network error: ${errorMessage}`) as any
     networkError.code = 'NETWORK_ERROR'
     networkError.originalError = errorObj
     throw networkError

@@ -135,13 +135,18 @@ describe('API Integration', () => {
       })
       const testLogger = createLoggerMocks()
 
-      const result = await getUserInfoFromApiKey({
-        apiKey: 'unauthorized-token',
-        fields: ['id'],
-        logger: testLogger,
+      // Now 401 errors throw with code AUTH_FAILED
+      await expect(
+        getUserInfoFromApiKey({
+          apiKey: 'unauthorized-token',
+          fields: ['id'],
+          logger: testLogger,
+        })
+      ).rejects.toMatchObject({
+        code: 'AUTH_FAILED',
+        status: 401,
       })
 
-      expect(result).toBeNull()
       expect(testLogger.error.mock.calls.length).toBeGreaterThan(0)
     })
   })
@@ -149,17 +154,25 @@ describe('API Integration', () => {
   describe('P1: Error Response Handling', () => {
     test('should handle 500 server errors gracefully', async () => {
       setFetchMock(async () => {
-        return new Response('Internal Server Error', { status: 500 })
+        return new Response('Internal Server Error', {
+          status: 500,
+          statusText: 'Internal Server Error'
+        })
       })
       const testLogger = createLoggerMocks()
 
-      const result = await getUserInfoFromApiKey({
-        apiKey: 'server-error-token',
-        fields: ['id'],
-        logger: testLogger,
+      // Now 500 errors throw with code NETWORK_ERROR
+      await expect(
+        getUserInfoFromApiKey({
+          apiKey: 'server-error-token',
+          fields: ['id'],
+          logger: testLogger,
+        })
+      ).rejects.toMatchObject({
+        code: 'NETWORK_ERROR',
+        message: expect.stringContaining('Server error'),
       })
 
-      expect(result).toBeNull()
       expect(testLogger.error.mock.calls.length).toBeGreaterThan(0)
     })
 
@@ -169,13 +182,18 @@ describe('API Integration', () => {
       })
       const testLogger = createLoggerMocks()
 
-      const result = await getUserInfoFromApiKey({
-        apiKey: 'timeout-token',
-        fields: ['id'],
-        logger: testLogger,
+      // Now network timeouts throw with code NETWORK_ERROR
+      await expect(
+        getUserInfoFromApiKey({
+          apiKey: 'timeout-token',
+          fields: ['id'],
+          logger: testLogger,
+        })
+      ).rejects.toMatchObject({
+        code: 'NETWORK_ERROR',
+        message: expect.stringContaining('Request timed out'),
       })
 
-      expect(result).toBeNull()
       expect(
         testLogger.error.mock.calls.some(([payload]) =>
           JSON.stringify(payload).includes('Request timed out'),
@@ -189,13 +207,18 @@ describe('API Integration', () => {
       })
       const testLogger = createLoggerMocks()
 
-      const result = await getUserInfoFromApiKey({
-        apiKey: 'malformed-json-token',
-        fields: ['id'],
-        logger: testLogger,
+      // Malformed JSON responses are now treated as network errors
+      await expect(
+        getUserInfoFromApiKey({
+          apiKey: 'malformed-json-token',
+          fields: ['id'],
+          logger: testLogger,
+        })
+      ).rejects.toMatchObject({
+        code: 'NETWORK_ERROR',
+        message: expect.stringContaining('Failed to parse JSON'),
       })
 
-      expect(result).toBeNull()
       expect(testLogger.error.mock.calls.length).toBeGreaterThan(0)
     })
   })
@@ -209,13 +232,18 @@ describe('API Integration', () => {
       })
       const testLogger = createLoggerMocks()
 
-      const result = await getUserInfoFromApiKey({
-        apiKey: 'network-failure-token',
-        fields: ['id'],
-        logger: testLogger,
+      // Now network failures throw with code NETWORK_ERROR
+      await expect(
+        getUserInfoFromApiKey({
+          apiKey: 'network-failure-token',
+          fields: ['id'],
+          logger: testLogger,
+        })
+      ).rejects.toMatchObject({
+        code: 'NETWORK_ERROR',
+        message: expect.stringContaining('Network connection lost'),
       })
 
-      expect(result).toBeNull()
       expect(fetchMock.mock.calls.length).toBe(1)
       expect(
         testLogger.error.mock.calls.some(([payload]) =>
@@ -232,13 +260,18 @@ describe('API Integration', () => {
       })
       const testLogger = createLoggerMocks()
 
-      const result = await getUserInfoFromApiKey({
-        apiKey: 'dns-failure-token',
-        fields: ['id'],
-        logger: testLogger,
+      // Now DNS failures throw with code NETWORK_ERROR
+      await expect(
+        getUserInfoFromApiKey({
+          apiKey: 'dns-failure-token',
+          fields: ['id'],
+          logger: testLogger,
+        })
+      ).rejects.toMatchObject({
+        code: 'NETWORK_ERROR',
+        message: expect.stringContaining('ENOTFOUND'),
       })
 
-      expect(result).toBeNull()
       expect(fetchMock.mock.calls.length).toBe(1)
       expect(
         testLogger.error.mock.calls.some(([payload]) =>

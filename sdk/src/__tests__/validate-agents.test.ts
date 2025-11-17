@@ -784,15 +784,16 @@ describe('validateAgents', () => {
         json: async () => ({ error: 'Server error occurred' }),
       })
 
-      const result = await validateAgents(agents, {
-        remote: true,
-        websiteUrl: 'https://test.codebuff.com',
+      // Now network errors (5xx) are thrown, not returned
+      await expect(
+        validateAgents(agents, {
+          remote: true,
+          websiteUrl: 'https://test.codebuff.com',
+        })
+      ).rejects.toMatchObject({
+        code: 'NETWORK_ERROR',
+        message: expect.stringContaining('Server error'),
       })
-
-      expect(result.success).toBe(false)
-      expect(result.errorCount).toBe(1)
-      expect(result.validationErrors[0].id).toBe('network_error')
-      expect(result.validationErrors[0].message).toContain('Server error occurred')
     })
 
     it('should handle network failures', async () => {
@@ -806,15 +807,16 @@ describe('validateAgents', () => {
 
       mockFetch.mockRejectedValue(new Error('Network request failed'))
 
-      const result = await validateAgents(agents, {
-        remote: true,
-        websiteUrl: 'https://test.codebuff.com',
+      // Now network errors are thrown with NETWORK_ERROR code
+      await expect(
+        validateAgents(agents, {
+          remote: true,
+          websiteUrl: 'https://test.codebuff.com',
+        })
+      ).rejects.toMatchObject({
+        code: 'NETWORK_ERROR',
+        message: expect.stringContaining('Failed to connect'),
       })
-
-      expect(result.success).toBe(false)
-      expect(result.errorCount).toBe(1)
-      expect(result.validationErrors[0].id).toBe('network_error')
-      expect(result.validationErrors[0].message).toContain('Failed to connect')
     })
 
     it('should handle malformed API responses', async () => {
@@ -835,14 +837,16 @@ describe('validateAgents', () => {
         },
       })
 
-      const result = await validateAgents(agents, {
-        remote: true,
-        websiteUrl: 'https://test.codebuff.com',
+      // 5xx errors are now thrown as network errors
+      await expect(
+        validateAgents(agents, {
+          remote: true,
+          websiteUrl: 'https://test.codebuff.com',
+        })
+      ).rejects.toMatchObject({
+        code: 'NETWORK_ERROR',
+        message: expect.stringContaining('Server error'),
       })
-
-      expect(result.success).toBe(false)
-      expect(result.errorCount).toBe(1)
-      expect(result.validationErrors[0].id).toBe('network_error')
     })
 
     it('should handle API response missing validationErrors field', async () => {
@@ -911,13 +915,16 @@ describe('validateAgents', () => {
 
       mockFetch.mockRejectedValue(new Error('The operation was aborted'))
 
-      const result = await validateAgents(agents, {
-        remote: true,
-        websiteUrl: 'https://test.codebuff.com',
+      // Network timeouts are now thrown as network errors
+      await expect(
+        validateAgents(agents, {
+          remote: true,
+          websiteUrl: 'https://test.codebuff.com',
+        })
+      ).rejects.toMatchObject({
+        code: 'NETWORK_ERROR',
+        message: expect.stringContaining('Failed to connect'),
       })
-
-      expect(result.success).toBe(false)
-      expect(result.validationErrors[0].message).toContain('Failed to connect')
     })
   })
 })
