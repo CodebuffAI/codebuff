@@ -57,7 +57,9 @@ export const StatusBar = ({
     }
 
     if (statusMessage) {
-      return <span fg={theme.primary}>{statusMessage}</span>
+      // Use green color for feedback success messages
+      const isFeedbackSuccess = statusMessage.includes('Feedback sent')
+      return <span fg={isFeedbackSuccess ? theme.success : theme.primary}>{statusMessage}</span>
     }
 
     if (!isConnected) {
