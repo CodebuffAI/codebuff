@@ -89,17 +89,17 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
   const resolvedTextColor = textColor ?? theme.foreground
   const shouldShowLoadingTimer = isAi && isLoading && !isComplete
   const shouldShowCompletionFooter = isAi && isComplete
-  const isFeedbackOpen = Boolean(
-    feedbackUi?.isFeedbackMode && feedbackUi.openMessageId === messageId,
+  const isFeedbackOpen = !!(
+    feedbackUi?.isFeedbackMode && feedbackUi.openMessageId === messageId
   )
-  const hasSubmittedFeedback = Boolean(
-    feedbackUi?.submittedMessageIds?.has(messageId),
+  const hasSubmittedFeedback = !!(
+    feedbackUi?.submittedMessageIds?.has(messageId)
   )
   const selectedFeedbackCategory = feedbackUi?.categorySelections?.get(
     messageId,
   )
-  const canRequestFeedback = Boolean(
-    shouldShowCompletionFooter && feedbackUi && !hasSubmittedFeedback,
+  const canRequestFeedback = !!(
+    shouldShowCompletionFooter && feedbackUi && !hasSubmittedFeedback
   )
 
   const renderLoadingTimer = () => {
@@ -124,54 +124,67 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
     )
   }
 
-  const renderCompletionMeta = () => (
-    <text
-      attributes={TextAttributes.DIM}
-      style={{
-        wrapMode: 'none',
-        fg: theme.secondary,
-        marginTop: 0,
-        marginBottom: 0,
-      }}
-    >
-      {completionTime}
-      {typeof credits === 'number' && credits > 0 &&
-        ` • ${pluralize(credits, 'credit')}`}
-    </text>
-  )
-
-  const renderFeedbackControls = () => {
-    if (!canRequestFeedback || !feedbackUi) {
-      return null
-    }
-    return (
-      <>
-        <text
-          attributes={TextAttributes.DIM}
-          style={{
-            wrapMode: 'none',
-            fg: theme.muted,
-            marginTop: 0,
-            marginBottom: 0,
-          }}
-        >
-          •
-        </text>
-        <FeedbackIconButton
-          onClick={() => feedbackUi.onFeedback(messageId)}
-          onClose={feedbackUi.onClose}
-          isOpen={isFeedbackOpen}
-          messageId={messageId}
-          selectedCategory={selectedFeedbackCategory}
-        />
-      </>
-    )
-  }
-
   const renderCompletionFooter = () => {
     if (!shouldShowCompletionFooter) {
       return null
     }
+
+    const footerItems: { key: string; node: React.ReactNode }[] = []
+    if (completionTime) {
+      footerItems.push({
+        key: 'time',
+        node: (
+          <text
+            attributes={TextAttributes.DIM}
+            style={{
+              wrapMode: 'none',
+              fg: theme.secondary,
+              marginTop: 0,
+              marginBottom: 0,
+            }}
+          >
+            {completionTime}
+          </text>
+        ),
+      })
+    }
+    if (typeof credits === 'number' && credits > 0) {
+      footerItems.push({
+        key: 'credits',
+        node: (
+          <text
+            attributes={TextAttributes.DIM}
+            style={{
+              wrapMode: 'none',
+              fg: theme.secondary,
+              marginTop: 0,
+              marginBottom: 0,
+            }}
+          >
+            {pluralize(credits, 'credit')}
+          </text>
+        ),
+      })
+    }
+    if (feedbackUi && canRequestFeedback) {
+      footerItems.push({
+        key: 'feedback',
+        node: (
+          <FeedbackIconButton
+            onClick={() => feedbackUi.onFeedback(messageId)}
+            onClose={feedbackUi.onClose}
+            isOpen={isFeedbackOpen}
+            messageId={messageId}
+            selectedCategory={selectedFeedbackCategory}
+          />
+        ),
+      })
+    }
+
+    if (footerItems.length === 0) {
+      return null
+    }
+
     return (
       <box
         style={{
@@ -181,8 +194,24 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
           gap: 1,
         }}
       >
-        {renderCompletionMeta()}
-        {renderFeedbackControls()}
+        {footerItems.map((item, idx) => (
+          <React.Fragment key={item.key}>
+            {idx > 0 && (
+              <text
+                attributes={TextAttributes.DIM}
+                style={{
+                  wrapMode: 'none',
+                  fg: theme.muted,
+                  marginTop: 0,
+                  marginBottom: 0,
+                }}
+              >
+                •
+              </text>
+            )}
+            {item.node}
+          </React.Fragment>
+        ))}
       </box>
     )
   }
