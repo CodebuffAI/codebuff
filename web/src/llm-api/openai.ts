@@ -20,8 +20,6 @@ const OUTPUT_TOKEN_COSTS: Record<OpenAIModel, number> = {
   'gpt-5': 10,
 } as const
 
-type StreamState = { responseText: string; reasoningText: string }
-
 function extractRequestMetadata(params: { body: unknown; logger: Logger }) {
   const { body, logger } = params
   const rawClientId = (body as any)?.codebuff_metadata?.client_id
@@ -64,7 +62,7 @@ function computeCostDollars(usage: OpenAIUsage, model: OpenAIModel): number {
   )
 }
 
-export async function handleOpenAIStream({
+export async function handleOpenAINonStream({
   body,
   userId,
   agentId,
@@ -98,12 +96,8 @@ export async function handleOpenAIStream({
   const openaiBody: Record<string, unknown> = {
     ...body,
     model: modelShortName,
-    stream: true,
+    stream: false,
   }
-  // Ensure usage in final chunk
-  const streamOptions = (openaiBody.stream_options as any) ?? {}
-  streamOptions.include_usage = true
-  openaiBody.stream_options = streamOptions
 
   // Transform max_tokens to max_completion_tokens
   openaiBody.max_completion_tokens =
@@ -146,226 +140,76 @@ export async function handleOpenAIStream({
     )
   }
 
-  const reader = response.body?.getReader?.()
-  if (!reader) {
-    throw new Error('Failed to get response reader')
-  }
+  const data = await response.json()
 
-  let heartbeatInterval: NodeJS.Timeout
-  let state: StreamState = { responseText: '', reasoningText: '' }
-  let clientDisconnected = false
+  // Extract usage and content from all choices
+  const usage: OpenAIUsage = data.usage ?? {}
+  const cost = computeCostDollars(usage, modelShortName as OpenAIModel)
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      const decoder = new TextDecoder()
-      let buffer = ''
+  // Inject cost into response
+  data.usage.cost = cost
+  data.usage.cost_details = { upstream_inference_cost: null }
 
-      controller.enqueue(
-        new TextEncoder().encode(`: connected ${new Date().toISOString()}\n`),
-      )
-
-      heartbeatInterval = setInterval(() => {
-        if (!clientDisconnected) {
-          try {
-            controller.enqueue(
-              new TextEncoder().encode(
-                `: heartbeat ${new Date().toISOString()}\n\n`,
-              ),
-            )
-          } catch {}
-        }
-      }, 30000)
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          buffer += decoder.decode(value, { stream: true })
-          let lineEnd = buffer.indexOf('\n')
-
-          while (lineEnd !== -1) {
-            let line = buffer.slice(0, lineEnd + 1)
-            buffer = buffer.slice(lineEnd + 1)
-
-            const handled = await handleOpenAILine({
-              userId,
-              agentId,
-              clientId,
-              clientRequestId,
-              startTime,
-              request: openaiBody,
-              line,
-              modelShortName: modelShortName as OpenAIModel,
-              state,
-              logger,
-              insertMessage: insertMessageBigquery,
-            })
-            state = handled.state
-            line = handled.outgoingLine
-
-            if (!clientDisconnected) {
-              try {
-                controller.enqueue(new TextEncoder().encode(line))
-              } catch (error) {
-                logger.warn(
-                  'Client disconnected during stream, continuing for billing',
-                )
-                clientDisconnected = true
-              }
-            }
-
-            lineEnd = buffer.indexOf('\n')
-          }
-        }
-
-        if (!clientDisconnected) {
-          controller.close()
-        }
-      } catch (error) {
-        if (!clientDisconnected) {
-          controller.error(error)
-        } else {
-          logger.warn(
-            getErrorObject(error),
-            'Error after client disconnect in OpenAI stream',
-          )
-        }
-      } finally {
-        clearInterval(heartbeatInterval)
-      }
-    },
-    cancel() {
-      clearInterval(heartbeatInterval)
-      clientDisconnected = true
-      logger.warn(
-        { clientDisconnected, state },
-        'Client cancelled stream, continuing OpenAI consumption for billing',
-      )
-    },
-  })
-
-  return stream
-}
-
-async function handleOpenAILine({
-  userId,
-  agentId,
-  clientId,
-  clientRequestId,
-  startTime,
-  modelShortName,
-  request,
-  line,
-  state,
-  logger,
-  insertMessage,
-}: {
-  userId: string
-  agentId: string
-  clientId: string | null
-  clientRequestId: string | null
-  startTime: Date
-  modelShortName: OpenAIModel
-  request: unknown
-  line: string
-  state: StreamState
-  logger: Logger
-  insertMessage: InsertMessageBigqueryFn
-}): Promise<{ state: StreamState; outgoingLine: string }> {
-  if (!line.startsWith('data: ')) {
-    return { state, outgoingLine: line }
-  }
-  const raw = line.slice('data: '.length)
-  if (raw === '[DONE]\n') {
-    return { state, outgoingLine: line }
-  }
-
-  let obj: any
-  try {
-    obj = JSON.parse(raw)
-  } catch (error) {
-    logger.warn(
-      `Received non-JSON OpenAI response: ${JSON.stringify(getErrorObject(error), null, 2)}`,
-    )
-    return { state, outgoingLine: line }
-  }
-
-  // Accumulate text
-  try {
-    const choice =
-      Array.isArray(obj.choices) && obj.choices.length
-        ? obj.choices[0]
-        : undefined
-    const delta = choice?.delta
-    if (delta) {
-      if (typeof delta.content === 'string') state.responseText += delta.content
-      // OpenAI may not provide reasoning delta in standard chat completions; keep parity
-      if (typeof delta.reasoning === 'string')
-        state.reasoningText += delta.reasoning
+  // Collect all response content from all choices into an array
+  const responseContents: string[] = []
+  if (data.choices && Array.isArray(data.choices)) {
+    for (const choice of data.choices) {
+      responseContents.push(choice.message?.content ?? '')
     }
-  } catch {}
+  }
+  const responseText = JSON.stringify(responseContents)
+  const reasoningText = ''
 
-  // If usage present, it's the final chunk. Compute cost, log, and consume credits.
-  if (obj && obj.usage) {
-    const usage: OpenAIUsage = obj.usage
-    const cost = computeCostDollars(usage, modelShortName)
-    obj.usage.cost = cost
-    obj.usage.cost_details = { upstream_inference_cost: null }
-
-    // BigQuery insert (do not await)
-    setupBigQuery({ logger }).then(async () => {
-      const success = await insertMessage({
-        row: {
-          id: obj.id,
-          user_id: userId,
-          finished_at: new Date(),
-          created_at: startTime,
-          request,
-          reasoning_text: state.reasoningText,
-          response: state.responseText,
-          output_tokens: usage.completion_tokens ?? 0,
-          reasoning_tokens: usage.completion_tokens_details?.reasoning_tokens,
-          cost: cost,
-          upstream_inference_cost: null,
-          input_tokens: usage.prompt_tokens ?? 0,
-          cache_read_input_tokens: usage.prompt_tokens_details?.cached_tokens,
-        },
-        logger,
-      })
-      if (!success) {
-        logger.error(
-          { request },
-          'Failed to insert message into BigQuery (OpenAI)',
-        )
-      }
-    })
-
-    await consumeCreditsAndAddAgentStep({
-      messageId: obj.id,
-      userId,
-      agentId,
-      clientId,
-      clientRequestId,
-      startTime,
-      model: obj.model,
-      reasoningText: state.reasoningText,
-      response: state.responseText,
-      cost,
-      credits: Math.round(cost * 100 * (1 + PROFIT_MARGIN)),
-      inputTokens: obj.usage.prompt_tokens ?? 0,
-      cacheCreationInputTokens: null,
-      cacheReadInputTokens: obj.usage.prompt_tokens_details?.cached_tokens ?? 0,
-      reasoningTokens:
-        obj.usage.completion_tokens_details?.reasoning_tokens ?? null,
-      outputTokens: obj.usage.completion_tokens ?? 0,
+  // BigQuery insert (do not await)
+  setupBigQuery({ logger }).then(async () => {
+    const success = await insertMessageBigquery({
+      row: {
+        id: data.id,
+        user_id: userId,
+        finished_at: new Date(),
+        created_at: startTime,
+        request: body,
+        reasoning_text: reasoningText,
+        response: responseText,
+        output_tokens: usage.completion_tokens ?? 0,
+        reasoning_tokens: usage.completion_tokens_details?.reasoning_tokens,
+        cost: cost,
+        upstream_inference_cost: null,
+        input_tokens: usage.prompt_tokens ?? 0,
+        cache_read_input_tokens: usage.prompt_tokens_details?.cached_tokens,
+      },
       logger,
     })
+    if (!success) {
+      logger.error(
+        { request: body },
+        'Failed to insert message into BigQuery (OpenAI)',
+      )
+    }
+  })
 
-    // Reconstruct outgoing line with injected cost
-    const newLine = `data: ${JSON.stringify(obj)}\n`
-    return { state, outgoingLine: newLine }
-  }
+  await consumeCreditsAndAddAgentStep({
+    messageId: data.id,
+    userId,
+    agentId,
+    clientId,
+    clientRequestId,
+    startTime,
+    model: data.model,
+    reasoningText,
+    response: responseText,
+    cost,
+    credits: Math.round(cost * 100 * (1 + PROFIT_MARGIN)),
+    inputTokens: usage.prompt_tokens ?? 0,
+    cacheCreationInputTokens: null,
+    cacheReadInputTokens: usage.prompt_tokens_details?.cached_tokens ?? 0,
+    reasoningTokens:
+      usage.completion_tokens_details?.reasoning_tokens ?? null,
+    outputTokens: usage.completion_tokens ?? 0,
+    byok: false,
+    logger,
+  })
 
-  return { state, outgoingLine: line }
+  return data
 }
+
