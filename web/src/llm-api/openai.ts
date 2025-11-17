@@ -10,17 +10,20 @@ import type { UsageData } from './helpers'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-export const OPENAI_SUPPORTED_MODELS = ['gpt-5'] as const
+export const OPENAI_SUPPORTED_MODELS = ['gpt-5', 'gpt-5.1'] as const
 export type OpenAIModel = (typeof OPENAI_SUPPORTED_MODELS)[number]
 
 const INPUT_TOKEN_COSTS: Record<OpenAIModel, number> = {
   'gpt-5': 1.25,
+  'gpt-5.1': 1.25,
 } as const
 const CACHED_INPUT_TOKEN_COSTS: Record<OpenAIModel, number> = {
   'gpt-5': 0.125,
+  'gpt-5.1': 0.125,
 } as const
 const OUTPUT_TOKEN_COSTS: Record<OpenAIModel, number> = {
   'gpt-5': 10,
+  'gpt-5.1': 10,
 } as const
 
 type OpenAIUsage = {
@@ -75,7 +78,10 @@ export async function handleOpenAINonStream({
   insertMessageBigquery: InsertMessageBigqueryFn
 }) {
   const startTime = new Date()
-  const { clientId, clientRequestId } = extractRequestMetadata({ body, logger })
+  const { clientId, clientRequestId, n } = extractRequestMetadata({
+    body,
+    logger,
+  })
 
   const { model } = body
   const modelShortName =
@@ -94,6 +100,7 @@ export async function handleOpenAINonStream({
     ...body,
     model: modelShortName,
     stream: false,
+    ...(n && { n }),
   }
 
   // Transform max_tokens to max_completion_tokens
@@ -189,4 +196,3 @@ export async function handleOpenAINonStream({
 
   return data
 }
-
