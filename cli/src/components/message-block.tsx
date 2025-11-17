@@ -10,7 +10,12 @@ import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
 import { isTextBlock, isToolBlock } from '../types/chat'
 import { logger } from '../utils/logger'
 import { type MarkdownPalette } from '../utils/markdown-renderer'
-import { useFeedbackUi } from '../contexts/feedback-ui-context'
+import {
+  useFeedbackStore,
+  selectIsFeedbackOpenForMessage,
+  selectHasSubmittedFeedback,
+  selectMessageFeedbackCategory,
+} from '../state/feedback-store'
 
 import type {
   ContentBlock,
@@ -85,21 +90,17 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
   })
 
   const theme = useTheme()
-  const feedbackUi = useFeedbackUi()
+  const openFeedbackForMessage = useFeedbackStore((state) => state.openFeedbackForMessage)
+  const closeFeedback = useFeedbackStore((state) => state.closeFeedback)
+  const isFeedbackOpen = useFeedbackStore(selectIsFeedbackOpenForMessage(messageId))
+  const hasSubmittedFeedback = useFeedbackStore(selectHasSubmittedFeedback(messageId))
+  const selectedFeedbackCategory = useFeedbackStore(selectMessageFeedbackCategory(messageId))
+
   const resolvedTextColor = textColor ?? theme.foreground
   const shouldShowLoadingTimer = isAi && isLoading && !isComplete
   const shouldShowCompletionFooter = isAi && isComplete
-  const isFeedbackOpen = !!(
-    feedbackUi?.isFeedbackMode && feedbackUi.openMessageId === messageId
-  )
-  const hasSubmittedFeedback = !!(
-    feedbackUi?.submittedMessageIds?.has(messageId)
-  )
-  const selectedFeedbackCategory = feedbackUi?.categorySelections?.get(
-    messageId,
-  )
   const canRequestFeedback = !!(
-    shouldShowCompletionFooter && feedbackUi && !hasSubmittedFeedback
+    shouldShowCompletionFooter && !hasSubmittedFeedback
   )
 
   const renderLoadingTimer = () => {
@@ -166,13 +167,13 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
         ),
       })
     }
-    if (feedbackUi && canRequestFeedback) {
+    if (canRequestFeedback) {
       footerItems.push({
         key: 'feedback',
         node: (
           <FeedbackIconButton
-            onClick={() => feedbackUi.onFeedback(messageId)}
-            onClose={feedbackUi.onClose}
+            onClick={() => openFeedbackForMessage(messageId)}
+            onClose={closeFeedback}
             isOpen={isFeedbackOpen}
             messageId={messageId}
             selectedCategory={selectedFeedbackCategory}
