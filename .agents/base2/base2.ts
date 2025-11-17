@@ -36,7 +36,7 @@ export function createBase2(
     publisher,
     model: isGpt5 ? 'openai/gpt-5.1' : 'anthropic/claude-sonnet-4.5',
     ...(isGpt5 && {
-      reasoningModel: {
+      reasoningOptions: {
         effort: 'high',
       },
     }),
