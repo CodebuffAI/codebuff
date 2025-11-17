@@ -13,7 +13,7 @@ export const createBestOfNSelector = (options: {
 
   return {
     publisher,
-    model: isSonnet ? 'anthropic/claude-sonnet-4.5' : 'openai/gpt-5',
+    model: isSonnet ? 'anthropic/claude-sonnet-4.5' : 'openai/gpt-5.1',
     ...(isGpt5 && {
       reasoningOptions: {
         effort: 'high',

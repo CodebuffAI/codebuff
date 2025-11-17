@@ -19,13 +19,13 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   },
   {
     id: 'logout',
-    label: 'logout (signout)',
+    label: 'logout',
     description: 'Sign out of your session',
     aliases: ['signout'],
   },
   {
     id: 'exit',
-    label: 'exit (quit)',
+    label: 'exit',
     description: 'Quit the CLI',
     aliases: ['quit', 'q'],
   },
@@ -46,13 +46,13 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   // },
   {
     id: 'usage',
-    label: 'usage (credits)',
+    label: 'usage',
     description: 'View remaining or bonus credits',
     aliases: ['credits'],
   },
   {
     id: 'new',
-    label: 'new (reset, clear)',
+    label: 'new',
     description: 'Start a fresh conversation session',
     aliases: ['reset', 'clear'],
   },

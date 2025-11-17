@@ -14,6 +14,7 @@ import type { CustomToolDefinition } from './custom-tool'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+import type { CodebuffSpawn } from '@codebuff/common/types/spawn'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type {
   AgentOutput,
@@ -38,6 +39,7 @@ export type InitialSessionStateOptions = {
   customToolDefinitions?: CustomToolDefinition[]
   maxAgentSteps?: number
   fs?: CodebuffFileSystem
+  spawn?: CodebuffSpawn
   logger?: Logger
 }
 
@@ -117,6 +119,99 @@ async function computeProjectIndex(
   }
 
   return { fileTree, fileTokenScores, tokenCallers }
+}
+
+/**
+ * Helper to convert ChildProcess to Promise with stdout/stderr
+ */
+function childProcessToPromise(
+  proc: ReturnType<CodebuffSpawn>,
+): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    let stdout = ''
+    let stderr = ''
+
+    proc.stdout?.on('data', (data: Buffer) => {
+      stdout += data.toString()
+    })
+
+    proc.stderr?.on('data', (data: Buffer) => {
+      stderr += data.toString()
+    })
+
+    proc.on('close', (code: number | null) => {
+      if (code === 0) {
+        resolve({ stdout, stderr })
+      } else {
+        reject(new Error(`Command exited with code ${code}`))
+      }
+    })
+
+    proc.on('error', reject)
+  })
+}
+
+/**
+ * Retrieves git changes for the project using the provided spawn function
+ */
+async function getGitChanges(params: {
+  cwd: string
+  spawn: CodebuffSpawn
+  logger: Logger
+}): Promise<{
+  status: string
+  diff: string
+  diffCached: string
+  lastCommitMessages: string
+}> {
+  const { cwd, spawn, logger } = params
+
+  const status = childProcessToPromise(spawn('git', ['status'], { cwd }))
+    .then(({ stdout }) => stdout)
+    .catch((error) => {
+      logger.debug?.({ error }, 'Failed to get git status')
+      return ''
+    })
+
+  const diff = childProcessToPromise(spawn('git', ['diff'], { cwd }))
+    .then(({ stdout }) => stdout)
+    .catch((error) => {
+      logger.debug?.({ error }, 'Failed to get git diff')
+      return ''
+    })
+
+  const diffCached = childProcessToPromise(
+    spawn('git', ['diff', '--cached'], { cwd }),
+  )
+    .then(({ stdout }) => stdout)
+    .catch((error) => {
+      logger.debug?.({ error }, 'Failed to get git diff --cached')
+      return ''
+    })
+
+  const lastCommitMessages = childProcessToPromise(
+    spawn('git', ['shortlog', 'HEAD~10..HEAD'], { cwd }),
+  )
+    .then(({ stdout }) =>
+      stdout
+        .trim()
+        .split('\n')
+        .slice(1)
+        .reverse()
+        .map((line) => line.trim())
+        .join('\n'),
+    )
+    .catch((error) => {
+      logger.debug?.({ error }, 'Failed to get lastCommitMessages')
+      return ''
+    })
+
+  return {
+    status: await status,
+    diff: await diff,
+    diffCached: await diffCached,
+    lastCommitMessages: await lastCommitMessages,
+  }
 }
 
 /**
@@ -231,6 +326,7 @@ export async function initialSessionState(
     projectFiles,
     knowledgeFiles,
     fs,
+    spawn,
     logger,
   } = params
   if (!agentDefinitions) {
@@ -241,6 +337,10 @@ export async function initialSessionState(
   }
   if (!fs) {
     fs = (require('fs') as typeof fsType).promises
+  }
+  if (!spawn) {
+    const { spawn: nodeSpawn } = require('child_process')
+    spawn = nodeSpawn as CodebuffSpawn
   }
   if (!logger) {
     logger = {
@@ -276,6 +376,16 @@ export async function initialSessionState(
     tokenCallers = result.tokenCallers
   }
 
+  // Gather git changes if cwd is available
+  const gitChanges = cwd
+    ? await getGitChanges({ cwd, spawn, logger })
+    : {
+        status: '',
+        diff: '',
+        diffCached: '',
+        lastCommitMessages: '',
+      }
+
   const initialState = getInitialSessionState({
     projectRoot: cwd ?? process.cwd(),
     cwd: cwd ?? process.cwd(),
@@ -286,12 +396,7 @@ export async function initialSessionState(
     userKnowledgeFiles: {},
     agentTemplates: processedAgentTemplates,
     customToolDefinitions: processedCustomToolDefinitions,
-    gitChanges: {
-      status: '',
-      diff: '',
-      diffCached: '',
-      lastCommitMessages: '',
-    },
+    gitChanges,
     changesSinceLastChat: {},
     shellConfigFiles: {},
     systemInfo: {

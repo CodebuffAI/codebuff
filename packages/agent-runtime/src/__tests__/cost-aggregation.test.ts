@@ -17,6 +17,7 @@ import * as agentRegistry from '../templates/agent-registry'
 import * as spawnAgentUtils from '../tools/handlers/tool/spawn-agent-utils'
 import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
@@ -46,18 +47,26 @@ const mockFileContext: ProjectFileContext = {
   },
 }
 
-class MockWebSocket {
-  send(msg: string) {}
-  close() {}
-  on(event: string, listener: (...args: any[]) => void) {}
-  removeListener(event: string, listener: (...args: any[]) => void) {}
-}
-
 describe('Cost Aggregation System', () => {
   let mockAgentTemplate: any
   let mockLocalAgentTemplates: Record<string, any>
+  let params: ParamsExcluding<typeof handleSpawnAgents, 'toolCall' | 'state'>
 
   beforeEach(() => {
+    params = {
+      ...TEST_AGENT_RUNTIME_IMPL,
+      repoId: undefined,
+      repoUrl: undefined,
+      previousToolCallFinished: Promise.resolve(),
+      fileContext: mockFileContext,
+      clientSessionId: 'test-session',
+      userInputId: 'test-input',
+      ancestorRunIds: [],
+      signal: new AbortController().signal,
+      writeToClient: () => {},
+      getLatestState: () => ({ messages: [] }),
+    }
+
     // Setup mock agent template
     mockAgentTemplate = {
       id: 'test-agent',
@@ -178,17 +187,8 @@ describe('Cost Aggregation System', () => {
       }
 
       const result = handleSpawnAgents({
-        ...TEST_AGENT_RUNTIME_IMPL,
-        repoId: undefined,
-        repoUrl: undefined,
-        previousToolCallFinished: Promise.resolve(),
+        ...params,
         toolCall: mockToolCall,
-        fileContext: mockFileContext,
-        clientSessionId: 'test-session',
-        userInputId: 'test-input',
-        ancestorRunIds: [],
-        writeToClient: () => {},
-        getLatestState: () => ({ messages: [] }),
         state: mockValidatedState,
       })
 
@@ -260,17 +260,8 @@ describe('Cost Aggregation System', () => {
       }
 
       const result = handleSpawnAgents({
-        ...TEST_AGENT_RUNTIME_IMPL,
-        repoId: undefined,
-        repoUrl: undefined,
-        previousToolCallFinished: Promise.resolve(),
+        ...params,
         toolCall: mockToolCall,
-        fileContext: mockFileContext,
-        clientSessionId: 'test-session',
-        userInputId: 'test-input',
-        ancestorRunIds: [],
-        writeToClient: () => {},
-        getLatestState: () => ({ messages: [] }),
         state: mockValidatedState,
       })
 
@@ -419,17 +410,8 @@ describe('Cost Aggregation System', () => {
       }
 
       const result = handleSpawnAgents({
-        ...TEST_AGENT_RUNTIME_IMPL,
-        repoId: undefined,
-        repoUrl: undefined,
-        previousToolCallFinished: Promise.resolve(),
+        ...params,
         toolCall: mockToolCall,
-        fileContext: mockFileContext,
-        clientSessionId: 'test-session',
-        userInputId: 'test-input',
-        ancestorRunIds: [],
-        writeToClient: () => {},
-        getLatestState: () => ({ messages: [] }),
         state: mockValidatedState,
       })
 

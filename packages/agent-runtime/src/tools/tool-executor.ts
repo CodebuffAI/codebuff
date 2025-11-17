@@ -129,6 +129,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   fullResponse: string
   repoId: string | undefined
   repoUrl: string | undefined
+  signal: AbortSignal
   onResponseChunk: (chunk: string | PrintModeEvent) => void
   state: Record<string, any>
   userId: string | undefined

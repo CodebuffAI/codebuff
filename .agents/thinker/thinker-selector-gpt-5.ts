@@ -4,7 +4,7 @@ import { publisher } from '../constants'
 const definition: SecretAgentDefinition = {
   id: 'thinker-selector-gpt-5',
   publisher,
-  model: 'openai/gpt-5',
+  model: 'openai/gpt-5.1',
   displayName: 'Thinker Output Selector GPT-5',
   spawnerPrompt: 'Analyzes multiple thinking outputs and selects the best one',
 

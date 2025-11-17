@@ -91,9 +91,6 @@ export const getAgentStreamFromTemplate = (params: {
       trackEvent,
     }
 
-    // Add Gemini-specific options if needed
-    const primaryModel = Array.isArray(model) ? model[0] : model
-
     if (!aiSdkStreamParams.providerOptions) {
       aiSdkStreamParams.providerOptions = {}
     }
@@ -105,6 +102,9 @@ export const getAgentStreamFromTemplate = (params: {
         aiSdkStreamParams.providerOptions[provider] as OpenRouterProviderOptions
       ).reasoning = template.reasoningOptions
     }
+
+    // Pass agent's provider routing options to SDK
+    aiSdkStreamParams.agentProviderOptions = template.providerOptions
 
     return promptAiSdkStream(aiSdkStreamParams)
   }

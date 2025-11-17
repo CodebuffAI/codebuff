@@ -10,7 +10,7 @@ export function createCodeReviewerBestOfN(
 
   return {
     publisher,
-    model: isGpt5 ? 'openai/gpt-5' : 'anthropic/claude-sonnet-4.5',
+    model: isGpt5 ? 'openai/gpt-5.1' : 'anthropic/claude-sonnet-4.5',
     displayName: isGpt5
       ? 'Best-of-N GPT-5 Code Reviewer'
       : 'Best-of-N Fast Code Reviewer',

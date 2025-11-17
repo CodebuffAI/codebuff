@@ -11,16 +11,9 @@ import { useLogo } from '../hooks/use-logo'
 import { useSheenAnimation } from '../hooks/use-sheen-animation'
 import { useTheme } from '../hooks/use-theme'
 import {
-  DEFAULT_TERMINAL_HEIGHT,
-  MODAL_VERTICAL_MARGIN,
-  MAX_MODAL_BASE_HEIGHT,
-  WARNING_BANNER_HEIGHT,
-} from '../login/constants'
-import {
   formatUrl,
   generateFingerprintId,
   calculateResponsiveLayout,
-  calculateModalDimensions,
 } from '../login/utils'
 import { useLoginStore } from '../state/login-store'
 import { copyTextToClipboard } from '../utils/clipboard'
@@ -255,48 +248,24 @@ export const LoginModal = ({
     textColor: theme.foreground,
   })
 
-  // Calculate modal dimensions
-  const { modalHeight } = calculateModalDimensions(
-    terminalHeight,
-    !!hasInvalidCredentials,
-    DEFAULT_TERMINAL_HEIGHT,
-    MODAL_VERTICAL_MARGIN,
-    MAX_MODAL_BASE_HEIGHT,
-    WARNING_BANNER_HEIGHT,
-  )
-
-  // Calculate modal width and center position
-  const modalWidth = Math.floor(terminalWidth * 0.95)
-  const modalLeft = Math.floor((terminalWidth - modalWidth) / 2)
-  const modalTop = Math.floor((terminalHeight - modalHeight) / 2)
-
   // Format URL for display (wrap if needed)
   return (
     <box
-      position="absolute"
-      left={modalLeft}
-      top={modalTop}
-      border
-      borderStyle="double"
-      borderColor={theme.primary}
       style={{
-        width: modalWidth,
-        height: modalHeight,
-        maxHeight: modalHeight,
+        width: '100%',
+        height: '100%',
         backgroundColor: theme.surface,
         padding: 0,
         flexDirection: 'column',
       }}
     >
-      {/* Sticky banner at top - outside scrollbox */}
+      {/* Sticky banner at top */}
       {hasInvalidCredentials && (
         <box
           style={{
             width: '100%',
             padding: 1,
-            backgroundColor: theme.error,
-            borderStyle: 'single',
-            borderColor: theme.error,
+            backgroundColor: theme.surface,
             flexShrink: 0,
           }}
         >
@@ -314,6 +283,7 @@ export const LoginModal = ({
         style={{
           flexDirection: 'column',
           alignItems: 'center',
+          justifyContent: 'center',
           width: '100%',
           height: '100%',
           padding: containerPadding,
@@ -387,10 +357,10 @@ export const LoginModal = ({
             }}
           >
             <text style={{ wrapMode: 'word' }}>
-              <span fg={theme.primary}>
+              <span fg={'#00cc00'}>
                 {isNarrow
                   ? 'Press ENTER to login...'
-                  : 'Press ENTER to open your browser and finish logging in...'}
+                  : 'Press ENTER to open your browser and login...'}
               </span>
             </text>
           </box>

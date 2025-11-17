@@ -156,7 +156,7 @@ Evaluate how well the implementation plan matches the real commit changes. Consi
 const judgeAgent: AgentDefinition = {
   id: 'eval-judge',
   displayName: 'Eval Judge',
-  model: 'openai/gpt-5',
+  model: 'openai/gpt-5.1',
   toolNames: ['set_output'],
   inputSchema: {
     prompt: { type: 'string', description: 'The prompt to judge' },

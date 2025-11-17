@@ -7,10 +7,7 @@ import { disableLiveUserInputCheck } from '../live-user-inputs'
 import { loopAgentSteps } from '../run-agent-step'
 
 import type { AgentTemplate } from '../templates/types'
-import type {
-  AgentRuntimeDeps,
-  AgentRuntimeScopedDeps,
-} from '@codebuff/common/types/contracts/agent-runtime'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
@@ -43,15 +40,16 @@ const mockFileContext: ProjectFileContext = {
 describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
   let mockLocalAgentTemplates: Record<string, AgentTemplate>
   let capturedMessages: Message[] = []
-  let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
+  let loopAgentStepsBaseParams: ParamsExcluding<
+    typeof loopAgentSteps,
+    'agentState' | 'userInputId' | 'prompt' | 'agentType' | 'parentSystemPrompt'
+  >
 
   beforeAll(() => {
     disableLiveUserInputCheck()
   })
 
   beforeEach(() => {
-    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL, sendAction: () => {} }
-
     capturedMessages = []
 
     // Setup mock agent templates
@@ -89,57 +87,45 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
         stepPrompt: '',
       } satisfies AgentTemplate,
     }
+    loopAgentStepsBaseParams = {
+      ...TEST_AGENT_RUNTIME_IMPL,
+      sendAction: () => {},
+      // Mock LLM API to capture messages and end turn immediately
+      promptAiSdkStream: async function* (options) {
+        // Capture the messages sent to the LLM
+        capturedMessages = options.messages
 
-    // Mock LLM API to capture messages and end turn immediately
-    agentRuntimeImpl.promptAiSdkStream = async function* (options) {
-      // Capture the messages sent to the LLM
-      capturedMessages = options.messages
+        // Simulate immediate end turn
+        yield {
+          type: 'text' as const,
+          text: 'Test response',
+        }
 
-      // Simulate immediate end turn
-      yield {
-        type: 'text' as const,
-        text: 'Test response',
-      }
+        if (options.onCostCalculated) {
+          await options.onCostCalculated(1)
+        }
 
-      if (options.onCostCalculated) {
-        await options.onCostCalculated(1)
-      }
-
-      return 'mock-message-id'
-    }
-
-    // Mock file operations
-    agentRuntimeImpl.requestFiles = async ({ filePaths }) => {
-      const results: Record<string, string | null> = {}
-      filePaths.forEach((path) => {
-        results[path] = null
-      })
-      return results
-    }
-
-    agentRuntimeImpl.requestToolCall = async () => ({
-      output: [
-        {
-          type: 'json',
-          value: 'Tool call success',
-        },
-      ],
-    })
-  })
-
-  it('should inherit parent system prompt when inheritParentSystemPrompt is true', async () => {
-    const sessionState = getInitialSessionState(mockFileContext)
-
-    // Run parent agent first to establish system prompt
-    const parentResult = await loopAgentSteps({
-      ...agentRuntimeImpl,
+        return 'mock-message-id'
+      },
+      // Mock file operations
+      requestFiles: async ({ filePaths }) => {
+        const results: Record<string, string | null> = {}
+        filePaths.forEach((path) => {
+          results[path] = null
+        })
+        return results
+      },
+      requestToolCall: async () => ({
+        output: [
+          {
+            type: 'json',
+            value: 'Tool call success',
+          },
+        ],
+      }),
       repoId: undefined,
       repoUrl: undefined,
-      userInputId: 'test-parent',
-      prompt: 'Parent task',
       spawnParams: undefined,
-      agentType: 'parent',
-      agentState: sessionState.mainAgentState,
       fingerprintId: 'test-fingerprint',
       fileContext: mockFileContext,
       localAgentTemplates: mockLocalAgentTemplates,
@@ -147,6 +133,20 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       clientSessionId: 'test-session',
       ancestorRunIds: [],
       onResponseChunk: () => {},
+      signal: new AbortController().signal,
+    }
+  })
+
+  it('should inherit parent system prompt when inheritParentSystemPrompt is true', async () => {
+    const sessionState = getInitialSessionState(mockFileContext)
+
+    // Run parent agent first to establish system prompt
+    const parentResult = await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      userInputId: 'test-parent',
+      prompt: 'Parent task',
+      agentType: 'parent',
+      agentState: sessionState.mainAgentState,
     })
 
     // Capture parent's messages which include the system prompt
@@ -168,21 +168,11 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     }
 
     await loopAgentSteps({
-      ...agentRuntimeImpl,
-      repoId: undefined,
-      repoUrl: undefined,
+      ...loopAgentStepsBaseParams,
       userInputId: 'test-child',
       prompt: 'Child task',
-      spawnParams: undefined,
       agentType: 'child',
       agentState: childAgentState,
-      fingerprintId: 'test-fingerprint',
-      fileContext: mockFileContext,
-      localAgentTemplates: mockLocalAgentTemplates,
-      userId: TEST_USER_ID,
-      clientSessionId: 'test-session',
-      ancestorRunIds: [],
-      onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
     })
 
@@ -218,21 +208,11 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
     // Run parent agent first
     const parentResult = await loopAgentSteps({
-      ...agentRuntimeImpl,
-      repoId: undefined,
-      repoUrl: undefined,
+      ...loopAgentStepsBaseParams,
       userInputId: 'test-parent',
       prompt: 'Parent task',
-      spawnParams: undefined,
       agentType: 'parent',
       agentState: sessionState.mainAgentState,
-      fingerprintId: 'test-fingerprint',
-      fileContext: mockFileContext,
-      localAgentTemplates: mockLocalAgentTemplates,
-      userId: TEST_USER_ID,
-      clientSessionId: 'test-session',
-      ancestorRunIds: [],
-      onResponseChunk: () => {},
     })
 
     const parentMessages = capturedMessages
@@ -248,21 +228,11 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     }
 
     await loopAgentSteps({
-      ...agentRuntimeImpl,
-      repoId: undefined,
-      repoUrl: undefined,
+      ...loopAgentStepsBaseParams,
       userInputId: 'test-child',
       prompt: 'Child task',
-      spawnParams: undefined,
       agentType: 'standalone-child',
       agentState: childAgentState,
-      fingerprintId: 'test-fingerprint',
-      fileContext: mockFileContext,
-      localAgentTemplates: mockLocalAgentTemplates,
-      userId: TEST_USER_ID,
-      clientSessionId: 'test-session',
-      ancestorRunIds: [],
-      onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
     })
 
@@ -299,21 +269,11 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
     // Run parent agent first
     await loopAgentSteps({
-      ...agentRuntimeImpl,
-      repoId: undefined,
-      repoUrl: undefined,
+      ...loopAgentStepsBaseParams,
       userInputId: 'test-parent',
       prompt: 'Parent task',
-      spawnParams: undefined,
       agentType: 'parent',
       agentState: sessionState.mainAgentState,
-      fingerprintId: 'test-fingerprint',
-      fileContext: mockFileContext,
-      localAgentTemplates: mockLocalAgentTemplates,
-      userId: TEST_USER_ID,
-      clientSessionId: 'test-session',
-      ancestorRunIds: [],
-      onResponseChunk: () => {},
     })
 
     const parentMessages = capturedMessages
@@ -332,21 +292,11 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     }
 
     await loopAgentSteps({
-      ...agentRuntimeImpl,
-      repoId: undefined,
-      repoUrl: undefined,
+      ...loopAgentStepsBaseParams,
       userInputId: 'test-child',
       prompt: 'Child task',
-      spawnParams: undefined,
       agentType: 'message-history-child',
       agentState: childAgentState,
-      fingerprintId: 'test-fingerprint',
-      fileContext: mockFileContext,
-      localAgentTemplates: mockLocalAgentTemplates,
-      userId: TEST_USER_ID,
-      clientSessionId: 'test-session',
-      ancestorRunIds: [],
-      onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
     })
 
@@ -409,21 +359,11 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
     // Run parent agent
     const parentResult = await loopAgentSteps({
-      ...agentRuntimeImpl,
-      repoId: undefined,
-      repoUrl: undefined,
+      ...loopAgentStepsBaseParams,
       userInputId: 'test-parent',
       prompt: 'Parent task',
-      spawnParams: undefined,
       agentType: 'parent',
       agentState: sessionState.mainAgentState,
-      fingerprintId: 'test-fingerprint',
-      fileContext: mockFileContext,
-      localAgentTemplates: mockLocalAgentTemplates,
-      userId: TEST_USER_ID,
-      clientSessionId: 'test-session',
-      ancestorRunIds: [],
-      onResponseChunk: () => {},
     })
 
     const parentMessages = capturedMessages
@@ -439,21 +379,11 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     }
 
     await loopAgentSteps({
-      ...agentRuntimeImpl,
-      repoId: undefined,
-      repoUrl: undefined,
+      ...loopAgentStepsBaseParams,
       userInputId: 'test-child',
       prompt: 'Child task',
-      spawnParams: undefined,
       agentType: 'child',
       agentState: childAgentState,
-      fingerprintId: 'test-fingerprint',
-      fileContext: mockFileContext,
-      localAgentTemplates: mockLocalAgentTemplates,
-      userId: TEST_USER_ID,
-      clientSessionId: 'test-session',
-      ancestorRunIds: [],
-      onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
     })
 
@@ -494,12 +424,9 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
     // Run parent agent first with some message history
     const parentResult = await loopAgentSteps({
-      ...agentRuntimeImpl,
-      repoId: undefined,
-      repoUrl: undefined,
+      ...loopAgentStepsBaseParams,
       userInputId: 'test-parent',
       prompt: 'Parent task',
-      spawnParams: undefined,
       agentType: 'parent',
       agentState: {
         ...sessionState.mainAgentState,
@@ -508,13 +435,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
           { role: 'assistant' as const, content: 'Initial answer' },
         ],
       },
-      fingerprintId: 'test-fingerprint',
-      fileContext: mockFileContext,
-      localAgentTemplates: mockLocalAgentTemplates,
-      userId: TEST_USER_ID,
-      clientSessionId: 'test-session',
-      ancestorRunIds: [],
-      onResponseChunk: () => {},
     })
 
     const parentMessages = capturedMessages
@@ -533,21 +453,11 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     }
 
     await loopAgentSteps({
-      ...agentRuntimeImpl,
-      repoId: undefined,
-      repoUrl: undefined,
+      ...loopAgentStepsBaseParams,
       userInputId: 'test-child',
       prompt: 'Child task',
-      spawnParams: undefined,
       agentType: 'full-inherit-child',
       agentState: childAgentState,
-      fingerprintId: 'test-fingerprint',
-      fileContext: mockFileContext,
-      localAgentTemplates: mockLocalAgentTemplates,
-      userId: TEST_USER_ID,
-      clientSessionId: 'test-session',
-      ancestorRunIds: [],
-      onResponseChunk: () => {},
       parentSystemPrompt: parentSystemPrompt,
     })
 

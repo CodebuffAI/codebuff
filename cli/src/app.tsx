@@ -1,18 +1,23 @@
 import os from 'os'
 import path from 'path'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 
 import { Chat } from './chat'
+import { LoginModal } from './components/login-modal'
 import { TerminalLink } from './components/terminal-link'
 import { ToolCallItem } from './components/tools/tool-call-item'
+import { useAuthState } from './hooks/use-auth-state'
 import { useLogo } from './hooks/use-logo'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTheme } from './hooks/use-theme'
+import { useChatStore } from './state/chat-store'
 import { createValidationErrorBlocks } from './utils/create-validation-error-blocks'
 import { openFileAtPath } from './utils/open-file'
 import { pluralize } from '@codebuff/common/util/string'
 
+import type { MultilineInputHandle } from './components/multiline-input'
 import type { FileTreeNode } from '@codebuff/common/util/file'
 
 interface AppProps {
@@ -42,6 +47,28 @@ export const App = ({
   const { textBlock: logoBlock } = useLogo({ availableWidth: contentMaxWidth })
 
   const [isAgentListCollapsed, setIsAgentListCollapsed] = useState(true)
+  
+  const inputRef = useRef<MultilineInputHandle | null>(null)
+  const { setInputFocused, resetChatStore } = useChatStore(
+    useShallow((store) => ({
+      setInputFocused: store.setInputFocused,
+      resetChatStore: store.reset,
+    }))
+  )
+
+  const {
+    isAuthenticated,
+    setIsAuthenticated,
+    setUser,
+    handleLoginSuccess,
+    logoutMutation,
+  } = useAuthState({
+    requireAuth,
+    hasInvalidCredentials,
+    inputRef,
+    setInputFocused,
+    resetChatStore,
+  })
 
   const headerContent = useMemo(() => {
     if (!loadedAgentsData) {
@@ -172,16 +199,28 @@ export const App = ({
     separatorWidth,
   ])
 
+  // Render login modal when not authenticated, otherwise render chat
+  if (requireAuth !== null && isAuthenticated === false) {
+    return (
+      <LoginModal
+        onLoginSuccess={handleLoginSuccess}
+        hasInvalidCredentials={hasInvalidCredentials}
+      />
+    )
+  }
+
   return (
     <Chat
       headerContent={headerContent}
       initialPrompt={initialPrompt}
       agentId={agentId}
-      requireAuth={requireAuth}
-      hasInvalidCredentials={hasInvalidCredentials}
       loadedAgentsData={loadedAgentsData}
       validationErrors={validationErrors}
       fileTree={fileTree}
+      inputRef={inputRef}
+      setIsAuthenticated={setIsAuthenticated}
+      setUser={setUser}
+      logoutMutation={logoutMutation}
     />
   )
 }

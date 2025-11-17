@@ -14,7 +14,7 @@ export const createCodeReviewerImplementor = (options: {
 
   return {
     publisher,
-    model: isSonnet ? 'anthropic/claude-sonnet-4.5' : 'openai/gpt-5',
+    model: isSonnet ? 'anthropic/claude-sonnet-4.5' : 'openai/gpt-5.1',
     displayName: 'Code Review Generator',
     spawnerPrompt:
       'Generates a comprehensive code review with critical feedback',

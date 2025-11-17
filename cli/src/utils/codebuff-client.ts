@@ -8,6 +8,14 @@ import { logger } from './logger'
 
 let clientInstance: CodebuffClient | null = null
 
+/**
+ * Reset the cached CodebuffClient instance.
+ * This should be called after login to ensure the client is re-initialized with new credentials.
+ */
+export function resetCodebuffClient(): void {
+  clientInstance = null
+}
+
 export function getCodebuffClient(): CodebuffClient | null {
   if (!clientInstance) {
     const { token: apiKey, source } = getAuthTokenDetails()

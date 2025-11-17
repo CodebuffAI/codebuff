@@ -1,27 +1,20 @@
-import { TextAttributes } from '@opentui/core'
-import { useKeyboard } from '@opentui/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useKeyboard } from '@opentui/react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { routeUserPrompt } from './commands/router'
 import { AgentModeToggle } from './components/agent-mode-toggle'
-import { Button } from './components/button'
-import { LoginModal } from './components/login-modal'
 import { MessageWithAgents } from './components/message-with-agents'
 import { FeedbackInputMode } from './components/feedback-input-mode'
 import {
   MultilineInput,
   type MultilineInputHandle,
 } from './components/multiline-input'
-import {
-  StatusIndicator,
-  StatusElapsedTime,
-  getStatusIndicatorState,
-} from './components/status-indicator'
+import { getStatusIndicatorState } from './utils/status-indicator-state'
+import { StatusBar } from './components/status-bar'
 import { SuggestionMenu } from './components/suggestion-menu'
 import { SLASH_COMMANDS } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
-import { useAuthState } from './hooks/use-auth-state'
 import { useChatInput } from './hooks/use-chat-input'
 import { useClipboard } from './hooks/use-clipboard'
 import { showClipboardMessage } from './utils/clipboard'
@@ -39,11 +32,12 @@ import { useSuggestionMenuHandlers } from './hooks/use-suggestion-menu-handlers'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTheme } from './hooks/use-theme'
 import { useValidationBanner } from './hooks/use-validation-banner'
+import { useQueueUi } from './hooks/use-queue-ui'
+import { useQueueControls } from './hooks/use-queue-controls'
 import { logger } from './utils/logger'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { useChatStore } from './state/chat-store'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
-import { formatQueuedPreview } from './utils/helpers'
 import { loadLocalAgents } from './utils/local-agent-registry'
 import { buildMessageTree } from './utils/message-tree-utils'
 import { computeInputLayoutMetrics } from './utils/text-layout'
@@ -52,41 +46,41 @@ import { BORDER_CHARS } from './utils/ui-constants'
 
 import type { ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
+import type { User } from './utils/auth'
 import type { FileTreeNode } from '@codebuff/common/util/file'
 import type { ScrollBoxRenderable } from '@opentui/core'
-
-const DEFAULT_AGENT_IDS = {
-  DEFAULT: 'base2',
-  MAX: 'base2-max',
-  PLAN: 'base2-plan',
-} as const
+import type { UseMutationResult } from '@tanstack/react-query'
+import type { Dispatch, SetStateAction } from 'react'
 
 export const Chat = ({
   headerContent,
   initialPrompt,
   agentId,
-  requireAuth,
-  hasInvalidCredentials,
   loadedAgentsData,
   validationErrors,
   fileTree,
+  inputRef,
+  setIsAuthenticated,
+  setUser,
+  logoutMutation,
 }: {
   headerContent: React.ReactNode
   initialPrompt: string | null
   agentId?: string
-  requireAuth: boolean | null
-  hasInvalidCredentials: boolean
   loadedAgentsData: {
     agents: Array<{ id: string; displayName: string }>
     agentsDir: string
   } | null
   validationErrors: Array<{ id: string; message: string }>
   fileTree: FileTreeNode[]
+  inputRef: React.MutableRefObject<MultilineInputHandle | null>
+  setIsAuthenticated: Dispatch<SetStateAction<boolean | null>>
+  setUser: Dispatch<SetStateAction<User | null>>
+  logoutMutation: UseMutationResult<boolean, Error, void, unknown>
 }) => {
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
-  const inputRef = useRef<MultilineInputHandle | null>(null)
 
-  const { separatorWidth, terminalWidth } = useTerminalDimensions()
+  const { separatorWidth, terminalWidth, terminalHeight } = useTerminalDimensions()
 
   const theme = useTheme()
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
@@ -194,29 +188,6 @@ export const Chat = ({
     return ids
   }, [messages])
 
-  const {
-    isAuthenticated,
-    setIsAuthenticated,
-    setUser,
-    handleLoginSuccess,
-    logoutMutation,
-  } = useAuthState({
-    requireAuth,
-    hasInvalidCredentials,
-    inputRef,
-    setInputFocused,
-    resetChatStore,
-  })
-
-  const showAgentDisplayName = !!agentId
-  const agentDisplayName = useMemo(() => {
-    if (!loadedAgentsData) return null
-
-    const currentAgentId = agentId || DEFAULT_AGENT_IDS[agentMode]
-    const agent = loadedAgentsData.agents.find((a) => a.id === currentAgentId)
-    return agent?.displayName || currentAgentId
-  }, [loadedAgentsData, agentId, agentMode])
-
   // Refs for tracking state across renders
   const activeAgentStreamsRef = useRef<number>(0)
   const isChainInProgressRef = useRef<boolean>(isChainInProgress)
@@ -294,13 +265,6 @@ export const Chat = ({
     : scrollboxProps
 
   const localAgents = useMemo(() => loadLocalAgents(), [])
-
-  const { handleCtrlC, nextCtrlCWillExit } = useExitHandler({
-    inputValue,
-    setInputValue,
-  })
-
-  const [scrollIndicatorHovered, setScrollIndicatorHovered] = useState(false)
 
   const {
     slashContext,
@@ -398,6 +362,33 @@ export const Chat = ({
     isChainInProgressRef,
     activeAgentStreamsRef,
   )
+
+  const {
+    queuedCount,
+    shouldShowQueuePreview,
+    queuePreviewTitle,
+    pausedQueueText,
+    inputPlaceholder,
+  } = useQueueUi({
+    queuePaused,
+    queuedMessages,
+    separatorWidth,
+    terminalWidth,
+  })
+
+  const { handleCtrlC: baseHandleCtrlC, nextCtrlCWillExit } = useExitHandler({
+    inputValue,
+    setInputValue,
+  })
+
+  const { handleCtrlC, ensureQueueActiveBeforeSubmit } = useQueueControls({
+    queuePaused,
+    queuedCount,
+    clearQueue,
+    resumeQueue,
+    inputHasText: Boolean(inputValue),
+    baseHandleCtrlC,
+  })
 
   // Derive boolean flags from streamStatus for convenience
   const isWaitingForResponse = streamStatus === 'waiting'
@@ -538,10 +529,10 @@ export const Chat = ({
     // Exit feedback mode first
     setFeedbackMode(false)
     resetFeedbackForm()
-    
+
     // Show success message in status indicator for 5 seconds
     showClipboardMessage('Feedback sent ✔', { durationMs: 5000 })
-    
+
     // Restore input focus
     setInputFocused(true)
   }, [feedbackText, feedbackCategory, feedbackMessageId, messages, agentMode, sessionCreditsUsed])
@@ -559,59 +550,68 @@ export const Chat = ({
     resetFeedbackForm()
   }, [resetFeedbackForm, savedInputValue, savedCursorPosition, setInputValue])
 
-  const handleSubmit = useCallback(
-    async () => {
-      const result = await routeUserPrompt({
-        abortControllerRef,
-        agentMode,
-        inputRef,
-        inputValue,
-        isChainInProgressRef,
-        isStreaming,
-        logoutMutation,
-        streamMessageIdRef,
-        addToQueue,
-        clearMessages,
-        clearQueue,
-        handleCtrlC,
-        saveToHistory,
-        scrollToLatest,
-        sendMessage,
-        setCanProcessQueue,
-        setInputFocused,
-        setInputValue,
-        setIsAuthenticated,
-        setMessages,
-        setUser,
-        stopStreaming,
-      })
-      
-      // Handle /feedback command
-      if (result && 'openFeedbackMode' in result && result.openFeedbackMode) {
-        setSavedInputValue('')
-        setSavedCursorPosition(0)
-        setFeedbackMessageId(null) // General feedback, not tied to a message
-        setFeedbackMode(true)
-        resetFeedbackForm()
-      }
-    },
-    [
+  const handleSubmit = useCallback(async () => {
+    ensureQueueActiveBeforeSubmit()
+
+    const result = await routeUserPrompt({
+      abortControllerRef,
       agentMode,
+      inputRef,
       inputValue,
-      isStreaming,
-      sendMessage,
-      saveToHistory,
-      addToQueue,
-      streamMessageIdRef,
       isChainInProgressRef,
-      scrollToLatest,
-      handleCtrlC,
+      isStreaming,
+      logoutMutation,
+      streamMessageIdRef,
+      addToQueue,
+      clearMessages,
       clearQueue,
-      queuedMessages,
-      pauseQueue,
-      resetFeedbackForm,
-    ],
-  )
+      handleCtrlC,
+      saveToHistory,
+      scrollToLatest,
+      sendMessage,
+      setCanProcessQueue,
+      setInputFocused,
+      setInputValue,
+      setIsAuthenticated,
+      setMessages,
+      setUser,
+      stopStreaming,
+    })
+
+    // Handle /feedback command
+    if (result && 'openFeedbackMode' in result && result.openFeedbackMode) {
+      setSavedInputValue('')
+      setSavedCursorPosition(0)
+      setFeedbackMessageId(null) // General feedback, not tied to a message
+      setFeedbackMode(true)
+      resetFeedbackForm()
+    }
+  }, [
+    abortControllerRef,
+    agentMode,
+    inputRef,
+    inputValue,
+    isChainInProgressRef,
+    isStreaming,
+    logoutMutation,
+    streamMessageIdRef,
+    addToQueue,
+    clearMessages,
+    clearQueue,
+    handleCtrlC,
+    saveToHistory,
+    scrollToLatest,
+    sendMessage,
+    setCanProcessQueue,
+    setInputFocused,
+    setInputValue,
+    setIsAuthenticated,
+    setMessages,
+    setUser,
+    stopStreaming,
+    ensureQueueActiveBeforeSubmit,
+    resetFeedbackForm,
+  ])
 
   const totalMentionMatches = agentMatches.length + fileMatches.length
   const historyNavUpEnabled =
@@ -676,22 +676,6 @@ export const Chat = ({
       </text>
     ) : null
 
-  const shouldShowQueuePreview = queuedMessages.length > 0 && !queuePaused
-  const queuePreviewTitle = useMemo(() => {
-    if (!shouldShowQueuePreview) return undefined
-    const previewWidth = Math.max(30, separatorWidth - 20)
-    return formatQueuedPreview(queuedMessages, previewWidth)
-  }, [queuedMessages, separatorWidth, shouldShowQueuePreview])
-
-  const pausedQueueText = useMemo(() => {
-    if (!queuePaused || queuedMessages.length === 0) return undefined
-    const count = queuedMessages.length
-    return `${count} queued — your next message sends first`
-  }, [queuePaused, queuedMessages])
-
-  const handleClearQueue = useCallback(() => {
-    clearQueue()
-  }, [clearQueue])
   const hasSlashSuggestions =
     slashContext.active && slashSuggestionItems.length > 0
   const hasMentionSuggestions =
@@ -699,7 +683,6 @@ export const Chat = ({
     mentionContext.active &&
     (agentSuggestionItems.length > 0 || fileSuggestionItems.length > 0)
   const hasSuggestionMenu = hasSlashSuggestions || hasMentionSuggestions
-  const showAgentStatusLine = showAgentDisplayName && loadedAgentsData
 
   const inputLayoutMetrics = useMemo(() => {
     const text = inputValue ?? ''
@@ -717,12 +700,11 @@ export const Chat = ({
       layoutContent,
       cursorProbe,
       cols,
-      maxHeight: 5,
+      maxHeight: Math.floor(terminalHeight / 2),
     })
-  }, [inputValue, cursorPosition, inputWidth])
+  }, [inputValue, cursorPosition, inputWidth, terminalHeight])
   const isMultilineInput = inputLayoutMetrics.heightLines > 1
-  const shouldCenterInputVertically =
-    !hasSuggestionMenu && !showAgentStatusLine && !isMultilineInput
+  const shouldCenterInputVertically = !hasSuggestionMenu && !isMultilineInput
   const statusIndicatorState = getStatusIndicatorState({
     statusMessage,
     streamStatus,
@@ -730,26 +712,24 @@ export const Chat = ({
     isConnected,
   })
   const hasStatusIndicatorContent = statusIndicatorState.kind !== 'idle'
+  const inputBoxTitle = useMemo(() => {
+    const segments: string[] = []
+
+    if (queuePreviewTitle) {
+      segments.push(queuePreviewTitle)
+    } else if (pausedQueueText) {
+      segments.push(`⏸ ${pausedQueueText}`)
+    }
+
+    if (segments.length === 0) {
+      return undefined
+    }
+
+    return ` ${segments.join('   ')} `
+  }, [queuePreviewTitle, pausedQueueText])
 
   const shouldShowStatusLine =
     !feedbackMode && (hasStatusIndicatorContent || shouldShowQueuePreview || !isAtBottom)
-
-  const statusIndicatorNode = (
-    <StatusIndicator
-      statusMessage={statusMessage}
-      streamStatus={streamStatus}
-      timerStartTime={timerStartTime}
-      nextCtrlCWillExit={nextCtrlCWillExit}
-      isConnected={isConnected}
-    />
-  )
-
-  const elapsedTimeNode = (
-    <StatusElapsedTime
-      streamStatus={streamStatus}
-      timerStartTime={timerStartTime}
-    />
-  )
 
   // Ctrl+F to open feedback for latest completed AI message
   useKeyboard(
@@ -862,75 +842,20 @@ export const Chat = ({
         }}
       >
         {shouldShowStatusLine && (
-          <box
-            style={{
-              flexDirection: 'column',
-              width: '100%',
-            }}
-          >
-            {/* Main status line: status indicator | scroll indicator | elapsed time */}
-            <box
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                width: '100%',
-              }}
-            >
-              {/* Left section - status indicator */}
-              <box
-                style={{
-                  flexGrow: 1,
-                  flexShrink: 1,
-                  flexBasis: 0,
-                }}
-              >
-                <text style={{ wrapMode: 'none' }}>{statusIndicatorNode}</text>
-              </box>
-
-              {/* Center section - scroll indicator (always centered) */}
-              <box style={{ flexShrink: 0 }}>
-                {!isAtBottom && (
-                  <Button
-                    style={{ paddingLeft: 2, paddingRight: 2 }}
-                    onClick={() => scrollToLatest()}
-                    onMouseOver={() => setScrollIndicatorHovered(true)}
-                    onMouseOut={() => setScrollIndicatorHovered(false)}
-                  >
-                    <text>
-                      <span
-                        fg={theme.info}
-                        attributes={
-                          scrollIndicatorHovered
-                            ? TextAttributes.BOLD
-                            : TextAttributes.DIM
-                        }
-                      >
-                        {scrollIndicatorHovered ? '↓ Scroll to bottom ↓' : '↓'}
-                      </span>
-                    </text>
-                  </Button>
-                )}
-              </box>
-
-              {/* Right section - elapsed time */}
-              <box
-                style={{
-                  flexGrow: 1,
-                  flexShrink: 1,
-                  flexBasis: 0,
-                  flexDirection: 'row',
-                  justifyContent: 'flex-end',
-                }}
-              >
-                <text style={{ wrapMode: 'none' }}>{elapsedTimeNode}</text>
-              </box>
-            </box>
-          </box>
+          <StatusBar
+            clipboardMessage={statusMessage}
+            streamStatus={streamStatus}
+            timerStartTime={timerStartTime}
+            nextCtrlCWillExit={nextCtrlCWillExit}
+            isConnected={isConnected}
+            isAtBottom={isAtBottom}
+            scrollToLatest={scrollToLatest}
+          />
         )}
 
         {/* Wrap the input row in a single OpenTUI border so the toggle stays inside the flex layout.
-            The queue preview is injected via the border title rather than custom text nodes, which
-            keeps the border coupled to the content height while preserving the inline preview look. */}
+            Non-actionable queue context is injected via the border title to keep the content
+            area stable while still surfacing that information. */}
         {feedbackMode ? (
         <FeedbackInputMode
           feedbackText={feedbackText}
@@ -973,7 +898,7 @@ export const Chat = ({
           </box>
         ) : (
         <box
-          title={queuePreviewTitle ? ` ${queuePreviewTitle} ` : undefined}
+          title={inputBoxTitle}
           titleAlignment="center"
           style={{
             width: '100%',
@@ -1011,7 +936,7 @@ export const Chat = ({
                 ? 'center'
                 : 'flex-start',
               minHeight: shouldCenterInputVertically ? 3 : undefined,
-              gap: showAgentStatusLine ? 1 : 0,
+              gap: 0,
             }}
           >
             <box
@@ -1028,13 +953,9 @@ export const Chat = ({
                   value={inputValue}
                   onChange={setInputValue}
                   onSubmit={handleSubmit}
-                  placeholder={
-                    terminalWidth < 65
-                      ? 'Enter a coding task'
-                      : 'Enter a coding task or / for commands'
-                  }
+                  placeholder={inputPlaceholder}
                   focused={inputFocused && !feedbackMode}
-                  maxHeight={5}
+                  maxHeight={Math.floor(terminalHeight / 2)}
                   width={inputWidth}
                   onKeyIntercept={handleSuggestionMenuKey}
                   textAttributes={theme.messageTextAttributes}
@@ -1055,63 +976,12 @@ export const Chat = ({
                 />
               </box>
             </box>
-            {/* Agent status line - right-aligned under toggle */}
-            {showAgentStatusLine && (
-              <box
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'flex-end',
-                  paddingTop: 0,
-                }}
-              >
-                <text>
-                  <span fg={theme.muted}>Agent: {agentDisplayName}</span>
-                </text>
-              </box>
-            )}
           </box>
         </box>
         )}
-
-        {/* Paused queue indicator - fake bottom border continuation */}
-        {pausedQueueText && (
-          <box style={{ width: '100%' }}>
-            <box style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <text style={{ wrapMode: 'none', flexGrow: 1 }}>
-                <span fg={theme.warning}>
-                  {BORDER_CHARS.vertical} ⏸ {pausedQueueText}
-                </span>
-              </text>
-              <Button onClick={handleClearQueue} style={{ paddingRight: 1 }}>
-                <text>
-                  <span fg={theme.error}>✕</span>
-                </text>
-              </Button>
-              <text style={{ wrapMode: 'none' }}>
-                <span fg={theme.warning}>{BORDER_CHARS.vertical}</span>
-              </text>
-            </box>
-            <text style={{ wrapMode: 'none' }}>
-              <span fg={theme.warning}>
-                {BORDER_CHARS.bottomLeft}
-                {BORDER_CHARS.horizontal.repeat(separatorWidth - 2)}
-                {BORDER_CHARS.bottomRight}
-              </span>
-            </text>
-          </box>
-        )}
       </box>
 
-      {/* Login Modal Overlay - show when not authenticated and done checking */}
       {validationBanner}
-
-      {requireAuth !== null && isAuthenticated === false && (
-        <LoginModal
-          onLoginSuccess={handleLoginSuccess}
-          hasInvalidCredentials={hasInvalidCredentials}
-        />
-      )}
-
     </box>
   )
 }

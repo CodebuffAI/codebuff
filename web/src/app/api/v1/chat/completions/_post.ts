@@ -21,6 +21,10 @@ import {
   handleOpenRouterNonStream,
   handleOpenRouterStream,
 } from '@/llm-api/openrouter'
+import {
+  handleOpenAINonStream,
+  OPENAI_SUPPORTED_MODELS,
+} from '@/llm-api/openai'
 import { extractApiKeyFromHeader } from '@/util/auth'
 
 export async function postChatCompletions(params: {
@@ -237,15 +241,36 @@ export async function postChatCompletions(params: {
         })
       } else {
         // Non-streaming request
-        const result = await handleOpenRouterNonStream({
-          body,
-          userId,
-          agentId,
-          openrouterApiKey,
-          fetch,
-          logger,
-          insertMessageBigquery,
-        })
+        const model = (body as any)?.model
+        const shortModelName =
+          typeof model === 'string' ? model.split('/')[1] : undefined
+        const isOpenAIDirectModel =
+          typeof model === 'string' &&
+          model.startsWith('openai/') &&
+          OPENAI_SUPPORTED_MODELS.includes(shortModelName as any)
+        // Only use OpenAI endpoint for OpenAI models with n parameter
+        // All other models (including non-OpenAI with n parameter) should use OpenRouter
+        const shouldUseOpenAIEndpoint =
+          isOpenAIDirectModel && (body as any)?.codebuff_metadata?.n
+
+        const result = await (shouldUseOpenAIEndpoint
+          ? handleOpenAINonStream({
+              body,
+              userId,
+              agentId,
+              fetch,
+              logger,
+              insertMessageBigquery,
+            })
+          : handleOpenRouterNonStream({
+              body,
+              userId,
+              agentId,
+              openrouterApiKey,
+              fetch,
+              logger,
+              insertMessageBigquery,
+            }))
 
         trackEvent({
           event: AnalyticsEvent.CHAT_COMPLETIONS_GENERATION_STARTED,

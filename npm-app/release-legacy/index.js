@@ -93,22 +93,15 @@ function httpGet(url, options = {}) {
 async function getLatestLegacyVersion() {
   try {
     const res = await httpGet(
-      `https://github.com/${CONFIG.githubRepo}/releases.atom`,
+      `https://registry.npmjs.org/${packageName}/legacy`,
     )
 
     if (res.statusCode !== 200) return null
 
     const body = await streamToString(res)
+    const packageData = JSON.parse(body)
 
-    // Parse the Atom XML to extract the latest release tag
-    const tagMatch = body.match(
-      /<id>tag:github\.com,2008:Repository\/\d+\/v(\d+\.\d+\.\d+-legacy.\d+)<\/id>/,
-    )
-    if (tagMatch && tagMatch[1]) {
-      return tagMatch[1]
-    }
-
-    return null
+    return packageData.version || null
   } catch (error) {
     return null
   }

@@ -11,7 +11,7 @@ export const createBestOfNImplementor = (options: {
 
   return {
     publisher,
-    model: isSonnet ? 'anthropic/claude-sonnet-4.5' : 'openai/gpt-5',
+    model: isSonnet ? 'anthropic/claude-sonnet-4.5' : 'openai/gpt-5.1',
     displayName: 'Implementation Generator',
     spawnerPrompt:
       'Generates a complete implementation plan with all code changes',
@@ -19,13 +19,13 @@ export const createBestOfNImplementor = (options: {
     includeMessageHistory: true,
     inheritParentSystemPrompt: true,
 
-    toolNames: [],
+    toolNames: ['str_replace', 'write_file'],
     spawnableAgents: [],
 
     inputSchema: {},
     outputMode: 'last_message',
 
-    instructionsPrompt: `You are one agent within the best-of-n orchestrator. You were spawned to generate an implementation for the user's request.
+    instructionsPrompt: `You are an expert code editor with deep understanding of software engineering principles. You were spawned to generate an implementation for the user's request.
     
 Your task is to write out ALL the code changes needed to complete the user's request in a single comprehensive response.
 
@@ -112,7 +112,7 @@ Write out your complete implementation now, formatting all changes as tool calls
   }
 }
 const definition = {
-  ...createBestOfNImplementor({ model: 'sonnet' }),
-  id: 'best-of-n-implementor',
+  ...createBestOfNImplementor({ model: 'gpt-5' }),
+  id: 'editor-implementor-gpt-5',
 }
 export default definition

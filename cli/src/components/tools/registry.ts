@@ -1,6 +1,7 @@
 import { CodeSearchComponent } from './code-search'
 import { GlobComponent } from './glob'
 import { ListDirectoryComponent } from './list-directory'
+import { ReadDocsComponent } from './read-docs'
 import { ReadFilesComponent } from './read-files'
 import { ReadSubtreeComponent } from './read-subtree'
 import { RunTerminalCommandComponent } from './run-terminal-command'
@@ -27,6 +28,7 @@ const toolComponentRegistry = new Map<ToolName, ToolComponent>([
   [GlobComponent.toolName, GlobComponent],
   [ListDirectoryComponent.toolName, ListDirectoryComponent],
   [RunTerminalCommandComponent.toolName, RunTerminalCommandComponent],
+  [ReadDocsComponent.toolName, ReadDocsComponent],
   [ReadFilesComponent.toolName, ReadFilesComponent],
   [ReadSubtreeComponent.toolName, ReadSubtreeComponent],
   [WriteTodosComponent.toolName, WriteTodosComponent],

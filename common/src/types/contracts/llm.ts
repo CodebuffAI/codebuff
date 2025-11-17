@@ -5,6 +5,7 @@ import type { ParamsExcluding } from '../function-params'
 import type { Logger } from './logger'
 import type { Model } from '../../old-constants'
 import type { Message } from '../messages/codebuff-message'
+import type { OpenRouterProviderRoutingOptions } from '../agent-template'
 import type { generateText, streamText } from 'ai'
 import type z from 'zod/v4'
 
@@ -36,6 +37,7 @@ export type PromptAiSdkStreamFn = (
     maxRetries?: number
     onCostCalculated?: (credits: number) => Promise<void>
     includeCacheControl?: boolean
+    agentProviderOptions?: OpenRouterProviderRoutingOptions
     sendAction: SendActionFn
     logger: Logger
     trackEvent: TrackEventFn
@@ -57,10 +59,12 @@ export type PromptAiSdkFn = (
     agentId?: string
     onCostCalculated?: (credits: number) => Promise<void>
     includeCacheControl?: boolean
+    agentProviderOptions?: OpenRouterProviderRoutingOptions
     maxRetries?: number
     sendAction: SendActionFn
     logger: Logger
     trackEvent: TrackEventFn
+    n?: number
   } & ParamsExcluding<typeof generateText, 'model' | 'messages'> &
     ParamsExcluding<CheckLiveUserInputFn, 'clientSessionId'>,
 ) => Promise<string>
@@ -82,6 +86,7 @@ export type PromptAiSdkStructuredInput<T> = {
   agentId?: string
   onCostCalculated?: (credits: number) => Promise<void>
   includeCacheControl?: boolean
+  agentProviderOptions?: OpenRouterProviderRoutingOptions
   maxRetries?: number
   sendAction: SendActionFn
   logger: Logger

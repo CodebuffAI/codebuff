@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useAuthQuery, useLogoutMutation } from './use-auth-query'
+import { useLoginStore } from '../state/login-store'
 import { getUserCredentials } from '../utils/auth'
-import { logger } from '../utils/logger'
+import { resetCodebuffClient } from '../utils/codebuff-client'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
 import type { User } from '../utils/auth'
@@ -24,6 +25,7 @@ export const useAuthState = ({
 }: UseAuthStateOptions) => {
   const authQuery = useAuthQuery()
   const logoutMutation = useLogoutMutation()
+  const { resetLoginState } = useLoginStore()
 
   const initialAuthState =
     requireAuth === false ? true : requireAuth === true ? false : null
@@ -63,12 +65,15 @@ export const useAuthState = ({
   // Handle successful login
   const handleLoginSuccess = useCallback(
     (loggedInUser: User) => {
+      // Reset the SDK client to pick up new credentials
+      resetCodebuffClient()
       resetChatStore()
+      resetLoginState()
       setInputFocused(true)
       setUser(loggedInUser)
       setIsAuthenticated(true)
     },
-    [resetChatStore, setInputFocused],
+    [resetChatStore, resetLoginState, setInputFocused],
   )
 
   // Auto-focus input after authentication

@@ -3,7 +3,7 @@ import type { AgentDefinition, ToolCall } from '../types/agent-definition'
 const definition: AgentDefinition = {
   id: 'advanced-file-explorer',
   displayName: 'Dora the File Explorer',
-  model: 'openai/gpt-5',
+  model: 'openai/gpt-5.1',
 
   spawnerPrompt:
     'Spawns multiple file picker agents in parallel to comprehensively explore the codebase from different perspectives',

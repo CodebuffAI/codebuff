@@ -73,8 +73,9 @@ export function getCancelledAdditionalMessages(args: {
   params: Record<string, any> | undefined
   content?: Array<TextPart | ImagePart>
   pendingAgentResponse: string
+  systemMessage: string
 }): Message[] {
-  const { prompt, params, content, pendingAgentResponse } = args
+  const { prompt, params, content, pendingAgentResponse, systemMessage } = args
 
   const messages: Message[] = [
     {
@@ -82,10 +83,19 @@ export function getCancelledAdditionalMessages(args: {
       content: buildUserMessageContent(prompt, params, content),
       tags: ['USER_PROMPT'],
     },
-    {role: 'user', content: [
-      {type: 'text', text: `<previous_assistant_message>${pendingAgentResponse}</previous_assistant_message>`},
-      {type: 'text', text: asSystemMessage('Response cancelled by user.')},
-    ]},
+    {
+      role: 'user',
+      content: [
+        {
+          type: 'text',
+          text: `<previous_assistant_message>${pendingAgentResponse}</previous_assistant_message>`,
+        },
+        {
+          type: 'text',
+          text: asSystemMessage(systemMessage),
+        },
+      ],
+    },
   ]
 
   return messages

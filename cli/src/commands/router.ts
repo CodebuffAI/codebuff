@@ -2,6 +2,7 @@ import { runTerminalCommand } from '@codebuff/sdk'
 
 import { handleInitializationFlowLocally } from './init'
 import { handleUsageCommand } from './usage'
+import { useLoginStore } from '../state/login-store'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
@@ -139,15 +140,17 @@ export async function routeUserPrompt(params: {
       ),
     ])
     setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
-    return undefined
+    return
   }
   if (cmd === 'logout' || cmd === 'signout') {
     abortControllerRef.current?.abort()
     stopStreaming()
     setCanProcessQueue(false)
 
+    const { resetLoginState } = useLoginStore.getState()
     logoutMutation.mutate(undefined, {
       onSettled: () => {
+        resetLoginState()
         setMessages((prev) => [...prev, getSystemMessage('Logged out.')])
         setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
         setTimeout(() => {
@@ -156,12 +159,12 @@ export async function routeUserPrompt(params: {
         }, 300)
       },
     })
-    return undefined
+    return
   }
 
   if (cmd === 'exit' || cmd === 'quit') {
     process.kill(process.pid, 'SIGINT')
-    return undefined
+    return
   }
 
   if (cmd === 'clear' || cmd === 'new') {
@@ -173,7 +176,7 @@ export async function routeUserPrompt(params: {
 
     stopStreaming()
     setCanProcessQueue(false)
-    return undefined
+    return
   }
 
   if (cmd === 'init') {
@@ -186,7 +189,7 @@ export async function routeUserPrompt(params: {
     setMessages((prev) => usagePostMessage(prev))
     saveToHistory(trimmed)
     setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
-    return undefined
+    return
   }
 
   saveToHistory(trimmed)
@@ -200,7 +203,7 @@ export async function routeUserPrompt(params: {
     addToQueue(trimmed)
     setInputFocused(true)
     inputRef.current?.focus()
-    return undefined
+    return
   }
 
   if (trimmed.startsWith('/') && cmd !== 'init') {
@@ -209,7 +212,7 @@ export async function routeUserPrompt(params: {
       getUserMessage(trimmed),
       getSystemMessage(`Command not found: ${JSON.stringify(trimmed)}`),
     ])
-    return undefined
+    return
   }
 
   sendMessage({ content: trimmed, agentMode, postUserMessage })
@@ -218,5 +221,5 @@ export async function routeUserPrompt(params: {
     scrollToLatest()
   }, 0)
   
-  return undefined
+  return
 }
