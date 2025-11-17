@@ -69,6 +69,7 @@ export const runAgentStep = async (
     prompt: string | undefined
     spawnParams: Record<string, any> | undefined
     system: string
+    n?: number
 
     trackEvent: TrackEventFn
   } & ParamsExcluding<
@@ -109,6 +110,7 @@ export const runAgentStep = async (
   fullResponse: string
   shouldEndTurn: boolean
   messageId: string | null
+  nResponses?: string[]
 }> => {
   const {
     userId,
@@ -254,14 +256,6 @@ export const runAgentStep = async (
     agentState.directCreditsUsed += credits
   }
 
-  const { getStream } = getAgentStreamFromTemplate({
-    ...params,
-    agentId: agentState.parentId ? agentState.agentId : undefined,
-    template: agentTemplate,
-    onCostCalculated,
-    includeCacheControl: supportsCacheControl(agentTemplate.model),
-  })
-
   const iterationNum = agentState.messageHistory.length
   const systemTokens = countTokensJson(system)
 
@@ -284,8 +278,43 @@ export const runAgentStep = async (
     `Start agent ${agentType} step ${iterationNum} (${userInputId}${prompt ? ` - Prompt: ${prompt.slice(0, 20)}` : ''})`,
   )
 
+  // Handle n parameter for generating multiple responses
+  if (params.n !== undefined) {
+    const responsesString = await params.promptAiSdk({
+      ...params,
+      messages: agentMessages,
+      system,
+      model,
+      onCostCalculated,
+      n: params.n,
+    })
+    const nResponses = JSON.parse(responsesString) as string[]
+    
+    // Update agent state with the message history including the generations
+    agentState = {
+      ...agentState,
+      messageHistory: agentMessages,
+    }
+    
+    return {
+      agentState,
+      fullResponse: responsesString,
+      shouldEndTurn: false,
+      messageId: null,
+      nResponses,
+    }
+  }
+
   let fullResponse = ''
   const toolResults: ToolResultPart[] = []
+
+  const { getStream } = getAgentStreamFromTemplate({
+    ...params,
+    agentId: agentState.parentId ? agentState.agentId : undefined,
+    template: agentTemplate,
+    onCostCalculated,
+    includeCacheControl: supportsCacheControl(agentTemplate.model),
+  })
 
   const stream = getStream(
     messagesWithSystem({ messages: agentMessages, system }),
@@ -427,6 +456,7 @@ export const runAgentStep = async (
     fullResponse,
     shouldEndTurn,
     messageId,
+    nResponses: undefined,
   }
 }
 
@@ -538,7 +568,7 @@ export async function loopAgentSteps(
       output: {
         type: 'error',
         message: 'Run cancelled by user',
-      }
+      },
     }
   }
 
@@ -649,6 +679,7 @@ export async function loopAgentSteps(
   let currentPrompt = prompt
   let currentParams = spawnParams
   let totalSteps = 0
+  let nResponses: string[] | undefined = undefined
 
   try {
     while (true) {
@@ -672,6 +703,8 @@ export async function loopAgentSteps(
 
       // 1. Run programmatic step first if it exists
       let textOverride = null
+      let n: number | undefined = undefined
+
       if (agentTemplate.handleSteps) {
         const programmaticResult = await runProgrammaticStep({
           ...params,
@@ -684,6 +717,7 @@ export async function loopAgentSteps(
           system,
           stepsComplete: shouldEndTurn,
           stepNumber: totalSteps,
+          nResponses,
           onCostCalculated: async (credits: number) => {
             agentState.creditsUsed += credits
             agentState.directCreditsUsed += credits
@@ -693,8 +727,10 @@ export async function loopAgentSteps(
           agentState: programmaticAgentState,
           endTurn,
           stepNumber,
+          generateN,
         } = programmaticResult
         textOverride = programmaticResult.textOverride
+        n = generateN
 
         currentAgentState = programmaticAgentState
         totalSteps = stepNumber
@@ -748,6 +784,7 @@ export async function loopAgentSteps(
         agentState: newAgentState,
         shouldEndTurn: llmShouldEndTurn,
         messageId,
+        nResponses: generatedResponses,
       } = await runAgentStep({
         ...params,
         textOverride: textOverride,
@@ -756,6 +793,7 @@ export async function loopAgentSteps(
         prompt: currentPrompt,
         spawnParams: currentParams,
         system,
+        n,
       })
 
       if (newAgentState.runId) {
@@ -775,6 +813,7 @@ export async function loopAgentSteps(
 
       currentAgentState = newAgentState
       shouldEndTurn = llmShouldEndTurn
+      nResponses = generatedResponses
 
       currentPrompt = undefined
       currentParams = undefined
