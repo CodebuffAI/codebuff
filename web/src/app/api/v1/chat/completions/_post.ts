@@ -215,7 +215,8 @@ export async function postChatCompletions(params: {
           typeof model === 'string' &&
           model.startsWith('openai/') &&
           OPENAI_SUPPORTED_MODELS.includes(shortModelName as any)
-        const stream = await (isOpenAIDirectModel
+        const shouldUseOpenAIEndpoint = isOpenAIDirectModel && (body as any)?.n
+        const stream = await (shouldUseOpenAIEndpoint
           ? handleOpenAIStream({
               body,
               userId,
