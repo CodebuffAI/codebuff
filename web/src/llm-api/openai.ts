@@ -194,5 +194,14 @@ export async function handleOpenAINonStream({
     logger,
   })
 
-  return data
+  return {
+    ...data,
+    choices: [
+      {
+        index: 0,
+        message: { content: responseText, role: 'assistant' },
+        finish_reason: 'stop',
+      },
+    ],
+  }
 }
