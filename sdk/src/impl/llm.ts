@@ -70,6 +70,7 @@ function getProviderOptions(params: {
   clientSessionId: string
   providerOptions?: Record<string, JSONObject>
   agentProviderOptions?: OpenRouterProviderRoutingOptions
+  n?: number
 }): { codebuff: JSONObject } {
   const {
     model,
@@ -77,6 +78,7 @@ function getProviderOptions(params: {
     clientSessionId,
     providerOptions,
     agentProviderOptions,
+    n,
   } = params
 
   let providerConfig: Record<string, any>
@@ -103,6 +105,7 @@ function getProviderOptions(params: {
       codebuff_metadata: {
         run_id: runId,
         client_id: clientSessionId,
+        ...(n && { n }),
       },
       transforms: ['middle-out'],
       provider: providerConfig,

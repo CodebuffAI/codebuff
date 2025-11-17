@@ -6,6 +6,7 @@ import type {
   StepText,
   ToolCall,
 } from '../../types/agent-definition'
+
 export function createBestOfNEditor(
   model: 'sonnet' | 'gpt-5',
 ): Omit<SecretAgentDefinition, 'id'> {
@@ -29,8 +30,8 @@ export function createBestOfNEditor(
       'set_output',
     ],
     spawnableAgents: isGpt5
-      ? ['best-of-n-implementor-gpt-5', 'best-of-n-selector-gpt-5']
-      : ['best-of-n-implementor', 'best-of-n-selector'],
+      ? ['best-of-n-selector-gpt-5']
+      : ['best-of-n-selector'],
 
     inputSchema: {
       params: {
@@ -46,42 +47,82 @@ export function createBestOfNEditor(
     },
     outputMode: 'structured_output',
 
+    instructionsPrompt: `You are one agent within the editor-best-of-n. You were spawned to generate an implementation for the user's request.
+    
+Your task is to write out ALL the code changes needed to complete the user's request in a single comprehensive response.
+
+Important: You can not make any other tool calls besides editing files. You cannot read more files, write todos, or spawn agents.
+
+Write out what changes you would make using str_replace and/or write_file tool calls.
+
+${
+  isGpt5
+    ? ``
+    : `
+You can also use <think> tags interspersed between tool calls to think about the best way to implement the changes. Keep these thoughts very brief. You may not need to use think tags at all.
+
+<example>
+
+<think>
+[ Thoughts about the best way to implement the feature ]
+</think>
+
+<codebuff_tool_call>
+[ First tool call to implement the feature ]
+</codebuff_tool_call>
+
+<codebuff_tool_call>
+[ Second tool call to implement the feature ]
+</codebuff_tool_call>
+
+<think>
+[ Thoughts about a tricky part of the implementation ]
+</think>
+
+<codebuff_tool_call>
+[ Third tool call to implement the feature ]
+</codebuff_tool_call>
+
+</example>`
+}
+
+Your implementation should:
+- Be complete and comprehensive
+- Include all necessary changes to fulfill the user's request
+- Follow the project's conventions and patterns
+- Be as simple and maintainable as possible
+- Reuse existing code wherever possible
+- Be well-structured and organized
+
+More style notes:
+- Try/catch blocks clutter the code -- use them sparingly.
+- Optional arguments are code smell and worse than required arguments.
+- New components often should be added to a new file, not added to an existing file.
+
+Write out your complete implementation now as a series of file editing tool calls.`,
+
     handleSteps: isGpt5 ? handleStepsGpt5 : handleStepsSonnet,
   }
 }
 
 function* handleStepsSonnet({
-  agentState,
   params,
+  logger,
 }: AgentStepContext): ReturnType<
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
-  const implementorAgent = 'best-of-n-implementor'
   const selectorAgent = 'best-of-n-selector'
   const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 5))
 
-  // Remove userInstruction message for this agent.
-  const messages = agentState.messageHistory.concat()
-  messages.pop()
-  yield {
-    toolName: 'set_messages',
-    input: {
-      messages,
-    },
-    includeToolCall: false,
-  } satisfies ToolCall<'set_messages'>
+  // Use GENERATE_N to generate n implementations
+  const { nResponses } = yield {
+    type: 'GENERATE_N',
+    n,
+  }
 
-  const { toolResult: implementorsResult1 } = yield {
-    toolName: 'spawn_agents',
-    input: {
-      agents: Array.from({ length: n }, () => ({
-        agent_type: implementorAgent,
-      })),
-    },
-    includeToolCall: false,
-  } satisfies ToolCall<'spawn_agents'>
+  logger.info({ nResponses }, 'Generated responses')
 
-  const implementorsResult = extractSpawnResults<string>(implementorsResult1)
+  const implementorsResult = nResponses ?? []
 
   // Extract all the plans from the structured outputs
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -195,37 +236,20 @@ function* handleStepsSonnet({
 }
 
 function* handleStepsGpt5({
-  agentState,
   params,
 }: AgentStepContext): ReturnType<
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
-  const implementorAgent = 'best-of-n-implementor-gpt-5'
   const selectorAgent = 'best-of-n-selector-gpt-5'
   const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 5))
 
-  // Remove userInstruction message for this agent.
-  const messages = agentState.messageHistory.concat()
-  messages.pop()
-  yield {
-    toolName: 'set_messages',
-    input: {
-      messages,
-    },
-    includeToolCall: false,
-  } satisfies ToolCall<'set_messages'>
+  // Use GENERATE_N to generate n implementations
+  const { nResponses } = yield {
+    type: 'GENERATE_N',
+    n,
+  }
 
-  const { toolResult: implementorsResult1 } = yield {
-    toolName: 'spawn_agents',
-    input: {
-      agents: Array.from({ length: n }, () => ({
-        agent_type: implementorAgent,
-      })),
-    },
-    includeToolCall: false,
-  } satisfies ToolCall<'spawn_agents'>
-
-  const implementorsResult = extractSpawnResults<string>(implementorsResult1)
+  const implementorsResult = nResponses ?? []
 
   // Extract all the plans from the structured outputs
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
