@@ -386,7 +386,7 @@ describe('doGenerate', () => {
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
-      'user-agent': 'ai-sdk/provider-utils/3.0.17 runtime/bun/1.2.23',
+      'user-agent': 'ai-sdk/provider-utils/3.0.17 runtime/bun/1.3.0',
     })
   })
 })
@@ -619,7 +619,7 @@ describe('doStream', () => {
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
-      'user-agent': 'ai-sdk/provider-utils/3.0.17 runtime/bun/1.2.23',
+      'user-agent': 'ai-sdk/provider-utils/3.0.17 runtime/bun/1.3.0',
     })
   })
 
