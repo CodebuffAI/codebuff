@@ -327,6 +327,8 @@ export async function executeSubagent(
     parentAgentState,
     isOnlyChild,
     ancestorRunIds,
+    prompt,
+    spawnParams,
   } = withDefaults
 
   const startEvent = {
@@ -336,6 +338,8 @@ export async function executeSubagent(
     displayName: agentTemplate.displayName,
     onlyChild: isOnlyChild,
     parentAgentId: parentAgentState.agentId,
+    prompt,
+    params: spawnParams,
   }
   onResponseChunk(startEvent)
 
@@ -352,6 +356,8 @@ export async function executeSubagent(
     displayName: agentTemplate.displayName,
     onlyChild: isOnlyChild,
     parentAgentId: parentAgentState.agentId,
+    prompt,
+    params: spawnParams,
   })
 
   if (result.agentState.runId) {
