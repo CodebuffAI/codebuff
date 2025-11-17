@@ -16,8 +16,6 @@ export type InputValue = {
 export type ChatStoreState = {
   messages: ChatMessage[]
   streamingAgents: Set<string>
-  collapsedAgents: Set<string>
-  autoCollapsedAgents: Set<string>
   focusedAgentId: string | null
   inputValue: string
   cursorPosition: number
@@ -39,12 +37,6 @@ type ChatStoreActions = {
   ) => void
   setStreamingAgents: (
     value: Set<string> | ((prev: Set<string>) => Set<string>),
-  ) => void
-  setCollapsedAgents: (
-    value: Set<string> | ((prev: Set<string>) => Set<string>),
-  ) => void
-  addAutoCollapsedAgent: (
-    value: string
   ) => void
   setFocusedAgentId: (
     value: string | null | ((prev: string | null) => string | null),
@@ -74,8 +66,6 @@ enableMapSet()
 const initialState: ChatStoreState = {
   messages: [],
   streamingAgents: new Set<string>(),
-  collapsedAgents: new Set<string>(),
-  autoCollapsedAgents: new Set<string>(),
   focusedAgentId: null,
   inputValue: '',
   cursorPosition: 0,
@@ -105,16 +95,6 @@ export const useChatStore = create<ChatStore>()(
       set((state) => {
         state.streamingAgents =
           typeof value === 'function' ? value(state.streamingAgents) : value
-      }),
-
-    setCollapsedAgents: (value) =>
-      set((state) => {
-        state.collapsedAgents =
-          typeof value === 'function' ? value(state.collapsedAgents) : value
-      }),
-    addAutoCollapsedAgent: (value) =>
-      set((state) => {
-        state.autoCollapsedAgents.add(value)
       }),
 
     setFocusedAgentId: (value) =>
@@ -201,7 +181,6 @@ export const useChatStore = create<ChatStore>()(
       set((state) => {
         state.messages = initialState.messages.slice()
         state.streamingAgents = new Set(initialState.streamingAgents)
-        state.collapsedAgents = new Set(initialState.collapsedAgents)
         state.focusedAgentId = initialState.focusedAgentId
         state.inputValue = initialState.inputValue
         state.cursorPosition = initialState.cursorPosition

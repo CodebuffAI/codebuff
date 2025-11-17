@@ -11,7 +11,6 @@ interface KeyboardHandlersConfig {
   setFocusedAgentId: (id: string | null) => void
   setInputFocused: (focused: boolean) => void
   inputRef: React.MutableRefObject<InputHandle | null>
-  setCollapsedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   navigateUp: () => void
   navigateDown: () => void
   toggleAgentMode: () => void
@@ -30,7 +29,6 @@ export const useKeyboardHandlers = ({
   setFocusedAgentId,
   setInputFocused,
   inputRef,
-  setCollapsedAgents,
   navigateUp,
   navigateDown,
   toggleAgentMode,
@@ -75,7 +73,14 @@ export const useKeyboardHandlers = ({
           }
         }
       },
-      [isStreaming, isWaitingForResponse, abortControllerRef, onCtrlC, onInterrupt, disabled],
+      [
+        isStreaming,
+        isWaitingForResponse,
+        abortControllerRef,
+        onCtrlC,
+        onInterrupt,
+        disabled,
+      ],
     ),
   )
 
@@ -105,32 +110,9 @@ export const useKeyboardHandlers = ({
         ) {
           key.preventDefault()
         }
-
-        if (isRightArrow) {
-          setCollapsedAgents((prev) => {
-            const next = new Set(prev)
-            next.delete(focusedAgentId)
-            return next
-          })
-        } else if (isLeftArrow) {
-          setCollapsedAgents((prev) => {
-            const next = new Set(prev)
-            next.add(focusedAgentId)
-            return next
-          })
-        } else {
-          setCollapsedAgents((prev) => {
-            const next = new Set(prev)
-            if (next.has(focusedAgentId)) {
-              next.delete(focusedAgentId)
-            } else {
-              next.add(focusedAgentId)
-            }
-            return next
-          })
-        }
+        return
       },
-      [focusedAgentId, setCollapsedAgents, disabled],
+      [focusedAgentId, disabled],
     ),
   )
 
@@ -182,7 +164,13 @@ export const useKeyboardHandlers = ({
           navigateDown()
         }
       },
-      [historyNavUpEnabled, historyNavDownEnabled, navigateUp, navigateDown, disabled],
+      [
+        historyNavUpEnabled,
+        historyNavDownEnabled,
+        navigateUp,
+        navigateDown,
+        disabled,
+      ],
     ),
   )
 
