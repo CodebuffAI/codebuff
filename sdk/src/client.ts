@@ -19,15 +19,22 @@ export class CodebuffClient {
       )
     }
 
+    // Only provide default error handler if handleEvent is not provided
+    // and console errors are not disabled
+    const defaultHandleEvent = !options.disableConsoleErrors
+      ? (event: any) => {
+          if (event.type === 'error') {
+            // Default error handler: log to console.error instead of throwing
+            // This prevents the SDK from crashing when users don't provide a handleEvent
+            console.error(`Codebuff SDK Error: ${event.message}`)
+            console.error('Tip: Provide a handleEvent function to handle errors gracefully.')
+          }
+        }
+      : undefined
+
     this.options = {
       apiKey: foundApiKey,
-      handleEvent: (event) => {
-        if (event.type === 'error') {
-          throw new Error(
-            `Received error: ${event.message}.\n\nProvide a handleEvent function to handle this error.`,
-          )
-        }
-      },
+      handleEvent: options.handleEvent || defaultHandleEvent,
       fingerprintId: `codebuff-sdk-${Math.random().toString(36).substring(2, 15)}`,
       ...options,
     }

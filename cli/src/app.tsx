@@ -31,6 +31,7 @@ interface AppProps {
   } | null
   validationErrors: Array<{ id: string; message: string }>
   fileTree: FileTreeNode[]
+  networkValidationError: { id: string; message: string } | null
 }
 
 export const App = ({
@@ -41,6 +42,7 @@ export const App = ({
   loadedAgentsData,
   validationErrors,
   fileTree,
+  networkValidationError,
 }: AppProps) => {
   const { contentMaxWidth, separatorWidth } = useTerminalDimensions()
   const theme = useTheme()
@@ -60,6 +62,7 @@ export const App = ({
     isAuthenticated,
     setIsAuthenticated,
     setUser,
+    authError,
     handleLoginSuccess,
     logoutMutation,
   } = useAuthState({
@@ -170,7 +173,7 @@ export const App = ({
             dense
           />
         </box>
-        {validationErrors.length > 0 && (
+        {validationErrors.length > 0 && authError?.type !== 'network' && (
           <box style={{ flexDirection: 'column', gap: 0 }}>
             {createValidationErrorBlocks({
               errors: validationErrors,
@@ -197,14 +200,19 @@ export const App = ({
     isAgentListCollapsed,
     validationErrors,
     separatorWidth,
+    authError,
   ])
 
-  // Render login modal when not authenticated, otherwise render chat
-  if (requireAuth !== null && isAuthenticated === false) {
+  // Only show login modal for actual authentication failures, not network errors
+  if (
+    requireAuth !== null &&
+    isAuthenticated === false &&
+    authError?.type !== 'network'
+  ) {
     return (
       <LoginModal
         onLoginSuccess={handleLoginSuccess}
-        hasInvalidCredentials={hasInvalidCredentials}
+        hasInvalidCredentials={hasInvalidCredentials || authError?.type === 'authentication'}
       />
     )
   }
@@ -221,6 +229,8 @@ export const App = ({
       setIsAuthenticated={setIsAuthenticated}
       setUser={setUser}
       logoutMutation={logoutMutation}
+      authError={authError}
+      networkValidationError={networkValidationError}
     />
   )
 }

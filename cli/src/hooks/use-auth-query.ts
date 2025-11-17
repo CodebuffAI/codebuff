@@ -46,18 +46,39 @@ export async function validateApiKey({
 }: ValidateAuthParams): Promise<ValidatedUserInfo> {
   const requestedFields = ['id', 'email'] as const
 
-  const authResult = await getUserInfoFromApiKey({
-    apiKey,
-    fields: requestedFields,
-    logger,
-  })
+  try {
+    const authResult = await getUserInfoFromApiKey({
+      apiKey,
+      fields: requestedFields,
+      logger,
+    })
 
-  if (!authResult) {
-    logger.error('❌ API key validation failed - no auth result returned')
-    throw new Error('Invalid API key')
+    if (!authResult) {
+      logger.error('❌ API key validation failed - no auth result returned')
+      throw new Error('Invalid API key')
+    }
+
+    return authResult
+  } catch (error) {
+    // Check if this is a network error
+    if ((error as any)?.code === 'NETWORK_ERROR') {
+      logger.warn('⚠️ Network error: Unable to reach server')
+      // Re-throw network errors with the specific code
+      throw error
+    }
+
+    // Check if this is an authentication error
+    if ((error as any)?.code === 'AUTH_FAILED') {
+      logger.error('❌ Authentication failed - invalid API key')
+      const authError = new Error('Invalid API key') as any
+      authError.code = 'AUTH_FAILED'
+      throw authError
+    }
+
+    // Unknown error
+    logger.error('❌ API key validation failed with unknown error')
+    throw error
   }
-
-  return authResult
 }
 
 export interface UseAuthQueryDeps {

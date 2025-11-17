@@ -42,6 +42,7 @@ import { BORDER_CHARS } from './utils/ui-constants'
 import type { ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
 import type { User } from './utils/auth'
+import type { AuthError } from './hooks/use-auth-state'
 import type { FileTreeNode } from '@codebuff/common/util/file'
 import type { ScrollBoxRenderable } from '@opentui/core'
 import type { UseMutationResult } from '@tanstack/react-query'
@@ -58,6 +59,8 @@ export const Chat = ({
   setIsAuthenticated,
   setUser,
   logoutMutation,
+  authError,
+  networkValidationError,
 }: {
   headerContent: React.ReactNode
   initialPrompt: string | null
@@ -72,6 +75,8 @@ export const Chat = ({
   setIsAuthenticated: Dispatch<SetStateAction<boolean | null>>
   setUser: Dispatch<SetStateAction<User | null>>
   logoutMutation: UseMutationResult<boolean, Error, void, unknown>
+  authError: AuthError | null
+  networkValidationError: { id: string; message: string } | null
 }) => {
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
 
@@ -605,8 +610,12 @@ export const Chat = ({
   const shouldShowStatusLine =
     hasStatusIndicatorContent || shouldShowQueuePreview || !isAtBottom
 
+  // Don't show validation errors when there's a network error
   const validationBanner = useValidationBanner({
-    liveValidationErrors: validationErrors,
+    liveValidationErrors:
+      authError?.type === 'network' || networkValidationError
+        ? []
+        : validationErrors,
     loadedAgentsData,
     theme,
   })
@@ -790,6 +799,25 @@ export const Chat = ({
       </box>
 
       {validationBanner}
+
+      {(authError?.type === 'network' || networkValidationError) && (
+        <box
+          style={{
+            width: '100%',
+            paddingTop: 1,
+            paddingBottom: 1,
+            paddingLeft: 1,
+            paddingRight: 1,
+            bg: '#333333',
+          }}
+        >
+          <text style={{ fg: '#FFA500', wrapMode: 'word' }}>
+            {networkValidationError
+              ? networkValidationError.message
+              : `⚠️ Network Error: ${authError.message}`}
+          </text>
+        </box>
+      )}
     </box>
   )
 }

@@ -35,6 +35,18 @@ export function getCodebuffClient(): CodebuffClient | null {
         apiKey,
         cwd: gitRoot,
         agentDefinitions,
+        handleEvent: (event) => {
+          // Default error handler for SDK errors
+          // This gets called for errors that aren't caught by the handleEvent in use-send-message
+          if (event.type === 'error') {
+            logger.error(
+              { errorMessage: event.message },
+              'SDK error (default handler)',
+            )
+          }
+        },
+        // Disable console errors since the CLI handles errors through its own logger
+        disableConsoleErrors: true,
       })
     } catch (error) {
       logger.error(error, 'Failed to initialize CodebuffClient')
@@ -129,7 +141,7 @@ export function formatToolOutput(output: unknown): string {
         if (item.type === 'json') {
           // Handle errorMessage in the value object
           if (item.value && typeof item.value === 'object' && 'errorMessage' in item.value) {
-            return String(item.value.errorMessage)
+            return `Error: ${String(item.value.errorMessage)}`
           }
           return toYaml(item.value)
         }

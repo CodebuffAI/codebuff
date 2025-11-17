@@ -92,6 +92,7 @@ export type CodebuffClientOptions = {
   fsSource?: Source<CodebuffFileSystem>
   spawnSource?: Source<CodebuffSpawn>
   logger?: Logger
+  disableConsoleErrors?: boolean
 }
 
 export type RunOptions = {
@@ -418,7 +419,9 @@ export async function run({
     fields: ['id'],
   })
   if (!userInfo) {
-    return getCancelledRunState('Invalid API key or user not found')
+    const errorMessage = 'Invalid API key or user not found'
+    await onError({ message: errorMessage })
+    return getCancelledRunState(errorMessage)
   }
 
   const userId = userInfo.id
@@ -449,7 +452,11 @@ export async function run({
     clientSessionId: promptId,
     userId,
     signal: signal ?? new AbortController().signal,
-  }).catch((error) => resolve(getCancelledRunState(error.message)))
+  }).catch(async (error) => {
+    const errorMessage = error.message || String(error)
+    await onError({ message: errorMessage })
+    resolve(getCancelledRunState(errorMessage))
+  })
 
   return promise
 }

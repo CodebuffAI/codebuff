@@ -158,6 +158,8 @@ async function bootstrapCli(): Promise<void> {
   const loadedAgentsData = getLoadedAgentsData()
 
   let validationErrors: Array<{ id: string; message: string }> = []
+  let networkValidationError: { id: string; message: string } | null = null
+
   if (loadedAgentsData) {
     const agentDefinitions = loadAgentDefinitions()
     const validationResult = await validateAgents(agentDefinitions, {
@@ -165,7 +167,19 @@ async function bootstrapCli(): Promise<void> {
     })
 
     if (!validationResult.success) {
-      validationErrors = validationResult.validationErrors
+      // Separate network errors from other validation errors
+      const networkError = validationResult.validationErrors.find(
+        (error) => error.id === 'network_error'
+      )
+
+      if (networkError) {
+        networkValidationError = networkError
+      }
+
+      // Only keep non-network validation errors
+      validationErrors = validationResult.validationErrors.filter(
+        (error) => error.id !== 'network_error'
+      )
     }
   }
 
@@ -222,6 +236,7 @@ async function bootstrapCli(): Promise<void> {
         loadedAgentsData={loadedAgentsData}
         validationErrors={validationErrors}
         fileTree={fileTree}
+        networkValidationError={networkValidationError}
       />
     )
   }

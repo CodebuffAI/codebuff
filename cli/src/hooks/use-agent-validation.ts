@@ -48,8 +48,20 @@ export const useAgentValidation = (
         setValidationErrors([])
         return { success: true, errors: [] }
       } else {
-        setValidationErrors(validationResult.validationErrors)
-        return { success: false, errors: validationResult.validationErrors }
+        // Filter out network_error - it's handled separately by the auth system
+        const filteredErrors = validationResult.validationErrors.filter(
+          (error) => error.id !== 'network_error'
+        )
+
+        if (filteredErrors.length > 0) {
+          setValidationErrors(filteredErrors)
+          return { success: false, errors: filteredErrors }
+        } else {
+          // If only network errors, don't block sending messages
+          // The network error is already handled by the auth system
+          setValidationErrors([])
+          return { success: true, errors: [] }
+        }
       }
     } catch (error) {
       logger.error({ error }, 'Agent validation failed with exception')

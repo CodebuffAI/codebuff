@@ -60,19 +60,39 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
 
     if (!response.ok) {
       logger.error(
-        { apiKey, fields, response },
+        { apiKey, fields, response, status: response.status },
         'getUserInfoFromApiKey request failed',
       )
+      // Throw specific error for authentication failures to distinguish from network errors
+      if (response.status === 401 || response.status === 403) {
+        const error = new Error('Authentication failed') as any
+        error.code = 'AUTH_FAILED'
+        error.status = response.status
+        throw error
+      }
       return null
     }
 
     userInfoCache[apiKey] = await response.json()
   } catch (error) {
+    const errorObj = getErrorObject(error)
+
+    // Check if this is an authentication error we threw
+    if ((error as any)?.code === 'AUTH_FAILED') {
+      throw error // Re-throw auth errors
+    }
+
+    // This is a network error (connection failed, timeout, etc.)
     logger.error(
-      { error: getErrorObject(error), apiKey, fields },
-      'getUserInfoFromApiKey error',
+      { error: errorObj, apiKey: apiKey.substring(0, 10) + '...', fields },
+      'getUserInfoFromApiKey network error',
     )
-    return null
+
+    // Throw network error with specific code
+    const networkError = new Error('Network error: Unable to reach server') as any
+    networkError.code = 'NETWORK_ERROR'
+    networkError.originalError = errorObj
+    throw networkError
   }
 
   const userInfo = userInfoCache[apiKey]
@@ -161,8 +181,9 @@ export async function fetchAgentFromDatabase(
 
     return agentTemplate
   } catch (error) {
+    const errorObj = getErrorObject(error)
     logger.error(
-      { error: getErrorObject(error), parsedAgentId },
+      { error: errorObj, parsedAgentId },
       'fetchAgentFromDatabase error',
     )
     return null
@@ -203,8 +224,9 @@ export async function startAgentRun(
     }
     return responseBody?.runId ?? null
   } catch (error) {
+    const errorObj = getErrorObject(error)
     logger.error(
-      { error: getErrorObject(error), agentId },
+      { error: errorObj, agentId },
       'startAgentRun error',
     )
     return null
@@ -247,8 +269,9 @@ export async function finishAgentRun(
       return
     }
   } catch (error) {
+    const errorObj = getErrorObject(error)
     logger.error(
-      { error: getErrorObject(error), runId, status },
+      { error: errorObj, runId, status },
       'finishAgentRun error',
     )
   }
@@ -303,9 +326,10 @@ export async function addAgentStep(
     }
     return responseBody.stepId ?? null
   } catch (error) {
+    const errorObj = getErrorObject(error)
     logger.error(
       {
-        error: getErrorObject(error),
+        error: errorObj,
         agentRunId,
         stepNumber,
         credits,

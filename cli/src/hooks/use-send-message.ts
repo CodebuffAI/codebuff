@@ -873,6 +873,44 @@ export const useSendMessage = ({
               `SDK ${JSON.stringify(event.type)} Event received (raw)`,
             )
 
+            // Handle error events from SDK
+            if (event.type === 'error') {
+              logger.error(
+                { errorMessage: event.message },
+                'SDK error event received',
+              )
+
+              // Stop streaming and update UI
+              setStreamStatus('idle')
+              setCanProcessQueue(!isQueuePausedRef?.current)
+              updateChainInProgress(false)
+              timerController.stop('error')
+
+              // Display error message to user
+              applyMessageUpdate((prev) =>
+                prev.map((msg) => {
+                  if (msg.id !== aiMessageId) {
+                    return msg
+                  }
+
+                  const blocks: ContentBlock[] = msg.blocks ? [...msg.blocks] : []
+                  const errorBlock: ContentBlock = {
+                    type: 'text',
+                    content: `\n\n**Error:** ${event.message}`,
+                  }
+
+                  return {
+                    ...msg,
+                    blocks: [...blocks, errorBlock],
+                    isComplete: true,
+                    variant: 'error' as const,
+                  }
+                }),
+              )
+
+              return
+            }
+
             if (event.type === 'text') {
               const text = event.text
 

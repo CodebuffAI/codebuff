@@ -16,6 +16,11 @@ interface UseAuthStateOptions {
   resetChatStore: () => void
 }
 
+export type AuthError = {
+  type: 'network' | 'authentication' | 'unknown'
+  message: string
+}
+
 export const useAuthState = ({
   requireAuth,
   hasInvalidCredentials,
@@ -33,6 +38,7 @@ export const useAuthState = ({
     initialAuthState,
   )
   const [user, setUser] = useState<User | null>(null)
+  const [authError, setAuthError] = useState<AuthError | null>(null)
 
   // Update authentication state when requireAuth changes
   useEffect(() => {
@@ -46,6 +52,7 @@ export const useAuthState = ({
   useEffect(() => {
     if (authQuery.isSuccess && authQuery.data) {
       setIsAuthenticated(true)
+      setAuthError(null)
       if (!user) {
         const userCredentials = getUserCredentials()
         const userData: User = {
@@ -57,10 +64,36 @@ export const useAuthState = ({
         setUser(userData)
       }
     } else if (authQuery.isError) {
-      setIsAuthenticated(false)
-      setUser(null)
+      const error = authQuery.error as any
+
+      // Check if this is a network error
+      if (error?.code === 'NETWORK_ERROR') {
+        // For network errors, don't force login - allow access to the main app
+        setAuthError({
+          type: 'network',
+          message: 'Unable to reach server. Please check your connection.',
+        })
+        // Don't set isAuthenticated to false for network errors
+        // This allows the app to continue working offline
+      } else if (error?.code === 'AUTH_FAILED') {
+        // For authentication errors, require login
+        setAuthError({
+          type: 'authentication',
+          message: 'Invalid API key. Please log in again.',
+        })
+        setIsAuthenticated(false)
+        setUser(null)
+      } else {
+        // Unknown error - treat as authentication failure for safety
+        setAuthError({
+          type: 'unknown',
+          message: error?.message || 'Authentication check failed',
+        })
+        setIsAuthenticated(false)
+        setUser(null)
+      }
     }
-  }, [authQuery.isSuccess, authQuery.isError, authQuery.data, user])
+  }, [authQuery.isSuccess, authQuery.isError, authQuery.data, authQuery.error, user])
 
   // Handle successful login
   const handleLoginSuccess = useCallback(
@@ -100,6 +133,7 @@ export const useAuthState = ({
     setIsAuthenticated,
     user,
     setUser,
+    authError,
     handleLoginSuccess,
     logoutMutation,
   }

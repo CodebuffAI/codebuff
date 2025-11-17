@@ -802,9 +802,10 @@ export async function loopAgentSteps(
       output: getAgentOutput(currentAgentState, agentTemplate),
     }
   } catch (error) {
+    const errorObject = getErrorObject(error)
     logger.error(
       {
-        error: getErrorObject(error),
+        error: errorObject,
         agentType,
         agentId: currentAgentState.agentId,
         runId,
@@ -814,7 +815,6 @@ export async function loopAgentSteps(
       },
       'Agent execution failed',
     )
-    const errorMessage = typeof error === 'string' ? error : `${error}`
 
     const status = checkLiveUserInput(params) ? 'failed' : 'cancelled'
     await finishAgentRun({
@@ -824,15 +824,19 @@ export async function loopAgentSteps(
       totalSteps,
       directCredits: currentAgentState.directCreditsUsed,
       totalCredits: currentAgentState.creditsUsed,
-      errorMessage,
+      errorMessage: errorObject.message,
     })
 
-    const errorObject = getErrorObject(error)
+    // Format error message for better user experience
+    const errorMessage = errorObject.stack
+      ? `${errorObject.name}: ${errorObject.message}\n\nStack trace:\n${errorObject.stack}`
+      : `${errorObject.name}: ${errorObject.message}`
+
     return {
       agentState: currentAgentState,
       output: {
         type: 'error',
-        message: `${errorObject.name}: ${errorObject.message} ${errorObject.stack ? `\n${errorObject.stack}` : ''}`,
+        message: errorMessage,
       },
     }
   }
