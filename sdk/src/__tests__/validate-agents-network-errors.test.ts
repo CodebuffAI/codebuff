@@ -8,7 +8,7 @@ describe('validateAgents network error handling', () => {
 
   beforeEach(() => {
     mockFetch = mock()
-    globalThis.fetch = mockFetch as any
+    globalThis.fetch = mockFetch as unknown as typeof fetch
   })
 
   afterEach(() => {
@@ -18,8 +18,7 @@ describe('validateAgents network error handling', () => {
   const testAgent: AgentDefinition = {
     id: 'test-agent',
     displayName: 'Test Agent',
-    description: 'Test agent for validation',
-    tools: [],
+    model: 'openai/gpt-5-mini',
   }
 
   describe('network errors (thrown)', () => {

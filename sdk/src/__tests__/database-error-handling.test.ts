@@ -3,6 +3,10 @@ import { getUserInfoFromApiKey } from '../impl/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import { isAuthenticationError, isNetworkError } from '../errors'
 
+const setMockFetch = (impl: () => Promise<any>) => {
+  globalThis.fetch = mock(impl) as unknown as typeof fetch
+}
+
 describe('getUserInfoFromApiKey error handling', () => {
   const originalFetch = globalThis.fetch
   let mockLogger: Logger
@@ -22,7 +26,7 @@ describe('getUserInfoFromApiKey error handling', () => {
 
   describe('authentication errors', () => {
     test('throws AUTH_FAILED error for 401 status', async () => {
-      globalThis.fetch = mock(() =>
+      setMockFetch(() =>
         Promise.resolve({
           ok: false,
           status: 401,
@@ -47,7 +51,7 @@ describe('getUserInfoFromApiKey error handling', () => {
     })
 
     test('throws AUTH_FAILED error for 403 status', async () => {
-      globalThis.fetch = mock(() =>
+      setMockFetch(() =>
         Promise.resolve({
           ok: false,
           status: 403,
@@ -72,7 +76,7 @@ describe('getUserInfoFromApiKey error handling', () => {
     })
 
     test('throws NETWORK_ERROR for 500 server errors', async () => {
-      globalThis.fetch = mock(() =>
+      setMockFetch(() =>
         Promise.resolve({
           ok: false,
           status: 500,
@@ -100,9 +104,7 @@ describe('getUserInfoFromApiKey error handling', () => {
 
   describe('network errors', () => {
     test('throws NETWORK_ERROR for fetch failures', async () => {
-      globalThis.fetch = mock(() =>
-        Promise.reject(new Error('Network request failed')),
-      )
+      setMockFetch(() => Promise.reject(new Error('Network request failed')))
 
       try {
         await getUserInfoFromApiKey({
@@ -119,9 +121,7 @@ describe('getUserInfoFromApiKey error handling', () => {
     })
 
     test('throws NETWORK_ERROR for connection timeout', async () => {
-      globalThis.fetch = mock(() =>
-        Promise.reject(new Error('Connection timeout')),
-      )
+      setMockFetch(() => Promise.reject(new Error('Connection timeout')))
 
       try {
         await getUserInfoFromApiKey({
@@ -137,9 +137,7 @@ describe('getUserInfoFromApiKey error handling', () => {
     })
 
     test('logs network errors with masked API key', async () => {
-      globalThis.fetch = mock(() =>
-        Promise.reject(new Error('Network failure')),
-      )
+      setMockFetch(() => Promise.reject(new Error('Network failure')))
 
       try {
         await getUserInfoFromApiKey({
@@ -160,7 +158,7 @@ describe('getUserInfoFromApiKey error handling', () => {
 
   describe('successful requests', () => {
     test('returns user info for valid API key', async () => {
-      globalThis.fetch = mock(() =>
+      setMockFetch(() =>
         Promise.resolve({
           ok: true,
           json: () =>
@@ -195,7 +193,7 @@ describe('getUserInfoFromApiKey error handling', () => {
             }),
         } as Response),
       )
-      globalThis.fetch = mockFetch as any
+      globalThis.fetch = mockFetch as unknown as typeof fetch
 
       const apiKey = 'cache-test-key'
 
@@ -220,7 +218,7 @@ describe('getUserInfoFromApiKey error handling', () => {
 
   describe('error propagation', () => {
     test('re-throws AUTH_FAILED errors without wrapping', async () => {
-      globalThis.fetch = mock(() =>
+      setMockFetch(() =>
         Promise.resolve({
           ok: false,
           status: 401,
@@ -241,9 +239,7 @@ describe('getUserInfoFromApiKey error handling', () => {
     })
 
     test('wraps non-auth errors in NETWORK_ERROR', async () => {
-      globalThis.fetch = mock(() =>
-        Promise.reject(new Error('Random error')),
-      )
+      setMockFetch(() => Promise.reject(new Error('Random error')))
 
       try {
         await getUserInfoFromApiKey({

@@ -32,11 +32,15 @@ export class CodebuffClient {
         }
       : undefined
 
+    const fingerprintId =
+      options.fingerprintId ??
+      `codebuff-sdk-${Math.random().toString(36).substring(2, 15)}`
+
     this.options = {
       apiKey: foundApiKey,
-      handleEvent: options.handleEvent || defaultHandleEvent,
-      fingerprintId: `codebuff-sdk-${Math.random().toString(36).substring(2, 15)}`,
       ...options,
+      fingerprintId,
+      handleEvent: options.handleEvent ?? defaultHandleEvent,
     }
   }
 

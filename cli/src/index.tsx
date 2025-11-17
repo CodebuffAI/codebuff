@@ -25,6 +25,7 @@ const require = createRequire(import.meta.url)
 
 const INTERNAL_OSC_FLAG = '--internal-osc-detect'
 const OSC_DEBUG_ENABLED = process.env.CODEBUFF_OSC_DEBUG === '1'
+const VALIDATION_RETRY_INTERVAL_MS = 5000
 
 function logOscDebug(message: string, data?: Record<string, unknown>) {
   if (!OSC_DEBUG_ENABLED) return
@@ -157,8 +158,8 @@ async function bootstrapCli(): Promise<void> {
 
   const loadedAgentsData = getLoadedAgentsData()
 
-  let validationErrors: Array<{ id: string; message: string }> = []
-  let validationNetworkError: string | null = null
+  let initialValidationErrors: Array<{ id: string; message: string }> = []
+  let initialValidationNetworkError: string | null = null
 
   if (loadedAgentsData) {
     const agentDefinitions = loadAgentDefinitions()
@@ -166,8 +167,8 @@ async function bootstrapCli(): Promise<void> {
       remote: true,
     })
 
-    validationErrors = validationResult.validationErrors
-    validationNetworkError = validationResult.networkError
+    initialValidationErrors = validationResult.validationErrors
+    initialValidationNetworkError = validationResult.networkError
   }
 
   const queryClient = createQueryClient()
@@ -177,6 +178,39 @@ async function bootstrapCli(): Promise<void> {
     const [hasInvalidCredentials, setHasInvalidCredentials] =
       React.useState(false)
     const [fileTree, setFileTree] = React.useState<FileTreeNode[]>([])
+    const [validationErrors, setValidationErrors] = React.useState(
+      initialValidationErrors,
+    )
+    const [validationNetworkError, setValidationNetworkError] =
+      React.useState(initialValidationNetworkError)
+    const isValidationInFlight = React.useRef(false)
+
+    const refreshValidationState = React.useCallback(async () => {
+      if (!loadedAgentsData || isValidationInFlight.current) {
+        return
+      }
+
+      isValidationInFlight.current = true
+      try {
+        const agentDefinitions = loadAgentDefinitions()
+        const validationResult = await validateAgentsWithNetworkHandling(
+          agentDefinitions,
+          { remote: true },
+        )
+
+        setValidationErrors(validationResult.validationErrors)
+        setValidationNetworkError(validationResult.networkError)
+      } catch (error) {
+        logger.warn(
+          {
+            error: error instanceof Error ? error.message : String(error),
+          },
+          'Agent validation retry failed',
+        )
+      } finally {
+        isValidationInFlight.current = false
+      }
+    }, [loadedAgentsData])
 
     React.useEffect(() => {
       const userCredentials = getUserCredentials()
@@ -212,6 +246,18 @@ async function bootstrapCli(): Promise<void> {
 
       loadFileTree()
     }, [])
+
+    React.useEffect(() => {
+      if (!loadedAgentsData || !validationNetworkError) {
+        return
+      }
+
+      const interval = setInterval(() => {
+        void refreshValidationState()
+      }, VALIDATION_RETRY_INTERVAL_MS)
+
+      return () => clearInterval(interval)
+    }, [loadedAgentsData, validationNetworkError, refreshValidationState])
 
     return (
       // Hi!

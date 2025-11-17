@@ -49,6 +49,7 @@ import type { CodebuffSpawn } from '@codebuff/common/types/spawn'
 
 export type CodebuffClientOptions = {
   apiKey?: string
+  fingerprintId?: string
 
   cwd?: string
   projectFiles?: Record<string, string>
