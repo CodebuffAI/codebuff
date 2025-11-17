@@ -843,7 +843,7 @@ export const Chat = ({
       >
         {shouldShowStatusLine && (
           <StatusBar
-            clipboardMessage={statusMessage}
+            statusMessage={statusMessage}
             streamStatus={streamStatus}
             timerStartTime={timerStartTime}
             nextCtrlCWillExit={nextCtrlCWillExit}
