@@ -799,6 +799,7 @@ export const Chat = ({
         stickyStart="bottom"
         scrollX={false}
         scrollbarOptions={{ visible: false }}
+        verticalScrollbarOptions={{ visible: true, trackOptions: { width: 1 } }}
         {...appliedScrollboxProps}
         style={{
           flexGrow: 1,
@@ -806,7 +807,7 @@ export const Chat = ({
             flexGrow: 1,
             padding: 0,
             gap: 0,
-            flexDirection: 'column',
+            flexDirection: 'row',
             shouldFill: true,
             backgroundColor: 'transparent',
           },
@@ -815,6 +816,7 @@ export const Chat = ({
             border: false,
             shouldFill: true,
             backgroundColor: 'transparent',
+            flexDirection: 'column',
           },
           contentOptions: {
             flexDirection: 'column',
