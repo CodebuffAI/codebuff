@@ -56,6 +56,8 @@ import type { FileTreeNode } from '@codebuff/common/util/file'
 import type { ScrollBoxRenderable } from '@opentui/core'
 import type { UseMutationResult } from '@tanstack/react-query'
 import type { Dispatch, SetStateAction } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { authQueryKeys } from './hooks/use-auth-query'
 
 export const Chat = ({
   headerContent,
@@ -96,6 +98,7 @@ export const Chat = ({
 
   const theme = useTheme()
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
+  const queryClient = useQueryClient()
 
   const { validate: validateAgents } = useAgentValidation(validationErrors)
 
@@ -209,6 +212,10 @@ export const Chat = ({
       `[Connection] ${isInitialConnection ? 'Initial connection' : 'Reconnection'} callback triggered`
     )
 
+    // Invalidate auth queries to allow network status to clear after reconnection
+    queryClient.invalidateQueries({ queryKey: authQueryKeys.all })
+    logger.info('[Connection] Invalidated auth queries to refresh network status')
+
     // Process any failed messages and schedule them for retry (batched)
     if (processFailedMessagesRef.current) {
       processFailedMessagesRef.current()
@@ -232,7 +239,7 @@ export const Chat = ({
 
     // Always trigger retry check (for both initial connection and reconnection)
     setConnectionEstablished(prev => prev + 1)
-  }, [])
+  }, [queryClient])
 
   const isConnected = useConnectionStatus(handleReconnection)
   const isConnectedRef = useRef(isConnected)
