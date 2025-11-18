@@ -55,7 +55,33 @@ Write out what changes you would make using str_replace and/or write_file tool c
 
 ${
   isGpt5
-    ? ``
+    ? `<example>
+<codebuff_tool_call>
+{
+  "cb_tool_name": "str_replace",
+  "path": "path/to/file",
+  "replacements": [
+    {
+      "old": "exact old code",
+      "new": "exact new code"
+    },
+    {
+      "old": "exact old code 2",
+      "new": "exact new code 2"
+    },
+  ]
+}
+</codebuff_tool_call>
+
+<codebuff_tool_call>
+{
+  "cb_tool_name": "write_file",
+  "path": "path/to/file",
+  "instructions": "What the change does",
+  "content": "Complete file content or edit snippet"
+}
+</codebuff_tool_call>
+</example>`
     : `
 You can also use <think> tags interspersed between tool calls to think about the best way to implement the changes. Keep these thoughts very brief. You may not need to use think tags at all.
 
