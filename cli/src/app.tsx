@@ -1,6 +1,7 @@
 import os from 'os'
 import path from 'path'
 
+import { pluralize } from '@codebuff/common/util/string'
 import { useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -12,10 +13,10 @@ import { useAuthState } from './hooks/use-auth-state'
 import { useLogo } from './hooks/use-logo'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTheme } from './hooks/use-theme'
+import { getProjectRoot } from './project-files'
 import { useChatStore } from './state/chat-store'
 import { createValidationErrorBlocks } from './utils/create-validation-error-blocks'
 import { openFileAtPath } from './utils/open-file'
-import { pluralize } from '@codebuff/common/util/string'
 
 import type { MultilineInputHandle } from './components/multiline-input'
 import type { FileTreeNode } from '@codebuff/common/util/file'
@@ -51,13 +52,12 @@ export const App = ({
   const { textBlock: logoBlock } = useLogo({ availableWidth: contentMaxWidth })
 
   const [isAgentListCollapsed, setIsAgentListCollapsed] = useState(true)
-  
   const inputRef = useRef<MultilineInputHandle | null>(null)
   const { setInputFocused, resetChatStore } = useChatStore(
     useShallow((store) => ({
       setInputFocused: store.setInputFocused,
       resetChatStore: store.reset,
-    }))
+    })),
   )
 
   const {
@@ -75,29 +75,27 @@ export const App = ({
   })
 
   const headerContent = useMemo(() => {
-    if (!loadedAgentsData) {
-      return null
-    }
-
     const homeDir = os.homedir()
-    const repoRoot = path.dirname(loadedAgentsData.agentsDir)
+    const repoRoot = getProjectRoot()
     const relativePath = path.relative(homeDir, repoRoot)
     const displayPath = relativePath.startsWith('..')
       ? repoRoot
       : `~/${relativePath}`
 
-    const sortedAgents = [...loadedAgentsData.agents].sort((a, b) => {
-      const displayNameComparison = (a.displayName || '')
-        .toLowerCase()
-        .localeCompare((b.displayName || '').toLowerCase())
+    const sortedAgents = loadedAgentsData
+      ? [...loadedAgentsData.agents].sort((a, b) => {
+          const displayNameComparison = (a.displayName || '')
+            .toLowerCase()
+            .localeCompare((b.displayName || '').toLowerCase())
 
-      return (
-        displayNameComparison ||
-        a.id.toLowerCase().localeCompare(b.id.toLowerCase())
-      )
-    })
+          return (
+            displayNameComparison ||
+            a.id.toLowerCase().localeCompare(b.id.toLowerCase())
+          )
+        })
+      : null
 
-    const agentCount = sortedAgents.length
+    const agentCount = sortedAgents?.length
 
     const formatIdentifier = (agent: { id: string; displayName: string }) =>
       agent.displayName && agent.displayName !== agent.id
@@ -119,13 +117,13 @@ export const App = ({
       )
     }
 
-    const agentListContent = (
+    const agentListContent = sortedAgents ? (
       <box style={{ flexDirection: 'column', gap: 0 }}>
         {sortedAgents.map(renderAgentListItem)}
       </box>
-    )
+    ) : null
 
-    const headerText = pluralize(agentCount, 'local agent')
+    const headerText = agentCount ? pluralize(agentCount, 'local agent') : null
 
     return (
       <box
@@ -162,18 +160,20 @@ export const App = ({
             onActivate={() => openFileAtPath(repoRoot)}
           />
         </text>
-        <box style={{ marginBottom: 1 }}>
-          <ToolCallItem
-            name={headerText}
-            content={agentListContent}
-            isCollapsed={isAgentListCollapsed}
-            isStreaming={false}
-            streamingPreview=""
-            finishedPreview=""
-            onToggle={() => setIsAgentListCollapsed(!isAgentListCollapsed)}
-            dense
-          />
-        </box>
+        {headerText ? (
+          <box style={{ marginBottom: 1 }}>
+            <ToolCallItem
+              name={headerText}
+              content={agentListContent}
+              isCollapsed={isAgentListCollapsed}
+              isStreaming={false}
+              streamingPreview=""
+              finishedPreview=""
+              onToggle={() => setIsAgentListCollapsed(!isAgentListCollapsed)}
+              dense
+            />
+          </box>
+        ) : null}
         {validationErrors.length > 0 && (
           <box style={{ flexDirection: 'column', gap: 0 }}>
             {createValidationErrorBlocks({
