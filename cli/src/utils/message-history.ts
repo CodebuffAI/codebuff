@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 
 import { getConfigDir } from './auth'
+import { formatTimestamp } from './helpers'
 import { logger } from './logger'
 
 import type { ChatMessage, ContentBlock } from '../types/chat'
@@ -20,7 +21,7 @@ export function getUserMessage(message: string | ContentBlock[]): ChatMessage {
           content: '',
           blocks: message,
         }),
-    timestamp: new Date().toISOString(),
+    timestamp: formatTimestamp(),
   }
 }
 
@@ -38,7 +39,7 @@ export function getSystemMessage(
           content: '',
           blocks: content,
         }),
-    timestamp: new Date().toISOString(),
+    timestamp: formatTimestamp(),
   }
 }
 
