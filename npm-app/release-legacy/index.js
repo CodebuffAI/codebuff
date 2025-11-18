@@ -92,9 +92,7 @@ function httpGet(url, options = {}) {
 
 async function getLatestLegacyVersion() {
   try {
-    const res = await httpGet(
-      `https://registry.npmjs.org/${packageName}/legacy`,
-    )
+    const res = await httpGet(`https://registry.npmjs.org/codebuff/legacy`)
 
     if (res.statusCode !== 200) return null
 
