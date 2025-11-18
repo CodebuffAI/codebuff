@@ -289,7 +289,7 @@
     },
     "sdk": {
       "name": "@codebuff/sdk",
-      "version": "0.9.0",
+      "version": "0.9.1",
       "dependencies": {
         "@jitl/quickjs-wasmfile-release-sync": "0.31.0",
         "@vscode/tree-sitter-wasm": "0.1.4",
