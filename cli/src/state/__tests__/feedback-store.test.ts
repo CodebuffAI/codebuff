@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from 'bun:test'
+import { enableMapSet } from 'immer'
 import { useFeedbackStore } from '../feedback-store'
+
+enableMapSet()
 
 describe('FeedbackStore', () => {
   beforeEach(() => {
