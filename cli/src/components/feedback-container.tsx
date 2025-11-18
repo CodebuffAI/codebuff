@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useRef } from 'react'
+import { useShallow } from 'zustand/react/shallow'
+
 import { useFeedbackStore } from '../state/feedback-store'
 import { FeedbackInputMode } from './feedback-input-mode'
 import { useChatStore } from '../state/chat-store'
@@ -18,31 +20,44 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
   onExitFeedback,
   width,
 }) => {
-  const feedbackMode = useFeedbackStore((state) => state.feedbackMode)
-  const feedbackText = useFeedbackStore((state) => state.feedbackText)
-  const feedbackCursor = useFeedbackStore((state) => state.feedbackCursor)
-  const feedbackCategory = useFeedbackStore((state) => state.feedbackCategory)
-  const feedbackMessageId = useFeedbackStore(
-    (state) => state.feedbackMessageId,
+  const {
+    feedbackMode,
+    feedbackText,
+    feedbackCursor,
+    feedbackCategory,
+    feedbackMessageId,
+    setFeedbackText,
+    setFeedbackCursor,
+    setFeedbackCategory,
+    closeFeedback,
+    resetFeedbackForm,
+    markMessageFeedbackSubmitted,
+    restoreSavedInput,
+  } = useFeedbackStore(
+    useShallow((state) => ({
+      feedbackMode: state.feedbackMode,
+      feedbackText: state.feedbackText,
+      feedbackCursor: state.feedbackCursor,
+      feedbackCategory: state.feedbackCategory,
+      feedbackMessageId: state.feedbackMessageId,
+      setFeedbackText: state.setFeedbackText,
+      setFeedbackCursor: state.setFeedbackCursor,
+      setFeedbackCategory: state.setFeedbackCategory,
+      closeFeedback: state.closeFeedback,
+      resetFeedbackForm: state.resetFeedbackForm,
+      markMessageFeedbackSubmitted: state.markMessageFeedbackSubmitted,
+      restoreSavedInput: state.restoreSavedInput,
+    })),
   )
-  const setFeedbackText = useFeedbackStore((state) => state.setFeedbackText)
-  const setFeedbackCursor = useFeedbackStore((state) => state.setFeedbackCursor)
-  const setFeedbackCategory = useFeedbackStore(
-    (state) => state.setFeedbackCategory,
-  )
-  const closeFeedback = useFeedbackStore((state) => state.closeFeedback)
-  const resetFeedbackForm = useFeedbackStore(
-    (state) => state.resetFeedbackForm,
-  )
-  const markMessageFeedbackSubmitted = useFeedbackStore(
-    (state) => state.markMessageFeedbackSubmitted,
-  )
-  const restoreSavedInput = useFeedbackStore((state) => state.restoreSavedInput)
 
-  const messages = useChatStore((state) => state.messages)
-  const agentMode = useChatStore((state) => state.agentMode)
-  const sessionCreditsUsed = useChatStore((state) => state.sessionCreditsUsed)
-  const runState = useChatStore((state) => state.runState)
+  const { messages, agentMode, sessionCreditsUsed, runState } = useChatStore(
+    useShallow((state) => ({
+      messages: state.messages,
+      agentMode: state.agentMode,
+      sessionCreditsUsed: state.sessionCreditsUsed,
+      runState: state.runState,
+    })),
+  )
 
   const previousFeedbackModeRef = useRef(feedbackMode)
 
