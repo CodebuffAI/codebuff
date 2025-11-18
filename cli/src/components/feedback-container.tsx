@@ -98,7 +98,7 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
         type: feedbackMessageId ? 'message' : 'general',
       },
       runState,
-    })
+    }, 'User submitted feedback')
 
     if (feedbackMessageId) {
       markMessageFeedbackSubmitted(feedbackMessageId, feedbackCategory)
