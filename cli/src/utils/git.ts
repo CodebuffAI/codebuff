@@ -1,8 +1,10 @@
-import { dirname, join } from 'path'
 import { existsSync } from 'fs'
+import { dirname, join } from 'path'
 
-export function findGitRoot(): string | null {
-  let currentDir = process.cwd()
+export function findGitRoot(params: { cwd?: string }): string | null {
+  const { cwd } = params
+
+  let currentDir = cwd ?? process.cwd()
 
   while (currentDir !== dirname(currentDir)) {
     if (existsSync(join(currentDir, '.git'))) {
