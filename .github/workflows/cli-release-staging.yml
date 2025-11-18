@@ -221,6 +221,28 @@ jobs:
           name: cli-staging-metadata
           path: cli/release-staging/
 
+      - name: Download all binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries/
+
+      - name: Extract binaries into release-staging/bin/
+        shell: bash
+        run: |
+          mkdir -p cli/release-staging/bin
+          
+          # Extract all binaries from tarballs
+          for tarball in binaries/codecane-*/codecane-*.tar.gz; do
+            if [ -f "$tarball" ]; then
+              echo "Extracting $tarball..."
+              tar -xzf "$tarball" -C cli/release-staging/bin/
+            fi
+          done
+          
+          # Verify binaries were extracted
+          echo "Contents of cli/release-staging/bin/:"
+          ls -lh cli/release-staging/bin/
+
       - name: Set up Node.js with npm registry
         uses: actions/setup-node@v4
         with:
