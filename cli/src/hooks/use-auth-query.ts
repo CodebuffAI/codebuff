@@ -58,7 +58,9 @@ export async function validateApiKey({
       throw new Error('Invalid API key')
     }
 
-    return authResult
+    const { id, email } = authResult
+
+    return { id, email }
   } catch (error) {
     // Check if this is a network error
     if ((error as any)?.code === 'NETWORK_ERROR') {
