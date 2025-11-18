@@ -61,44 +61,56 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
 
   const previousFeedbackModeRef = useRef(feedbackMode)
 
+  const buildMessageContext = useCallback(
+    (targetMessageId: string | null) => {
+      const target = targetMessageId
+        ? messages.find((m: ChatMessage) => m.id === targetMessageId)
+        : null
+
+      const targetIndex = target ? messages.indexOf(target) : messages.length - 1
+      const startIndex = Math.max(0, targetIndex - 9)
+      const recentMessages = messages
+        .slice(startIndex, targetIndex + 1)
+        .map((m: ChatMessage) => ({
+          type: m.variant,
+          id: m.id,
+          ...(m.completionTime && { completionTime: m.completionTime }),
+          ...(m.credits && { credits: m.credits }),
+        }))
+
+      return { target, recentMessages }
+    },
+    [messages],
+  )
+
   const handleFeedbackSubmit = useCallback(() => {
     const text = feedbackText.trim()
     if (!text) {
       return
     }
 
-    const target = feedbackMessageId
-      ? messages.find((m: ChatMessage) => m.id === feedbackMessageId)
-      : null
+    const { target, recentMessages } = buildMessageContext(feedbackMessageId)
 
-    const targetIndex = target ? messages.indexOf(target) : messages.length - 1
-    const startIndex = Math.max(0, targetIndex - 9)
-    const recent = messages
-      .slice(startIndex, targetIndex + 1)
-      .map((m: ChatMessage) => ({
-        type: m.variant,
-        id: m.id,
-        ...(m.completionTime && { completionTime: m.completionTime }),
-        ...(m.credits && { credits: m.credits }),
-      }))
-
-    logger.info({
-      eventId: AnalyticsEvent.FEEDBACK_SUBMITTED,
-      source: 'cli',
-      messageId: target?.id || null,
-      variant: target?.variant || null,
-      completionTime: target?.completionTime || null,
-      credits: target?.credits || null,
-      agentMode,
-      sessionCreditsUsed,
-      recentMessages: recent,
-      feedback: {
-        text,
-        category: feedbackCategory,
-        type: feedbackMessageId ? 'message' : 'general',
+    logger.info(
+      {
+        eventId: AnalyticsEvent.FEEDBACK_SUBMITTED,
+        source: 'cli',
+        messageId: target?.id || null,
+        variant: target?.variant || null,
+        completionTime: target?.completionTime || null,
+        credits: target?.credits || null,
+        agentMode,
+        sessionCreditsUsed,
+        recentMessages,
+        feedback: {
+          text,
+          category: feedbackCategory,
+          type: feedbackMessageId ? 'message' : 'general',
+        },
+        runState,
       },
-      runState,
-    }, 'User submitted feedback')
+      'User submitted feedback',
+    )
 
     if (feedbackMessageId) {
       markMessageFeedbackSubmitted(feedbackMessageId, feedbackCategory)
@@ -115,7 +127,7 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
     feedbackText,
     feedbackMessageId,
     feedbackCategory,
-    messages,
+    buildMessageContext,
     agentMode,
     sessionCreditsUsed,
     runState,

@@ -53,17 +53,11 @@ export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({
     hover.scheduleClose()
   }
 
-  // Determine which symbol to show based on selected category
-  const getSymbol = () => {
-    if (selectedCategory === 'good_result') {
-      return '▲▽' // Good selected - filled up, outlined down
-    } else if (selectedCategory === 'bad_result') {
-      return '△▼' // Bad selected - outlined up, filled down
-    }
-    return '△▽' // Default - both outlined
+  const symbolsByCategory: Record<string, string> = {
+    good_result: '▲▽', // Good selected - filled up, outlined down
+    bad_result: '△▼', // Bad selected - outlined up, filled down
   }
-
-  const textCollapsed = `${getSymbol()}`
+  const textCollapsed = symbolsByCategory[selectedCategory || ''] || '△▽'
   const textExpanded = '[how was this?]'
 
   return (

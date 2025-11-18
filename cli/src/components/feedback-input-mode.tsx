@@ -56,15 +56,15 @@ const FEEDBACK_CONTAINER_HORIZONTAL_INSET = 4 // border + padding on each side
 const CATEGORY_BUTTON_EXTRA_WIDTH = 6 // indicator + padding + border
 const CATEGORY_BUTTON_GAP_WIDTH = 1
 
-const getCategoryRowWidth = (labels: readonly string[]): number =>
+const calculateCategoryRowWidth = (labels: readonly string[]): number =>
   labels.reduce((total, label, idx) => {
     const buttonWidth = label.length + CATEGORY_BUTTON_EXTRA_WIDTH
-    const gap = idx === 0 ? 0 : CATEGORY_BUTTON_GAP_WIDTH
-    return total + buttonWidth + gap
+    const gapWidth = idx === 0 ? 0 : CATEGORY_BUTTON_GAP_WIDTH
+    return total + buttonWidth + gapWidth
   }, 0)
 
-const FULL_CATEGORY_ROW_WIDTH = getCategoryRowWidth(
-  CATEGORY_OPTIONS.map((option) => option.label),
+const FULL_CATEGORY_ROW_WIDTH = calculateCategoryRowWidth(
+  CATEGORY_OPTIONS.map((opt) => opt.label),
 )
 
 interface FeedbackTextSectionProps {
@@ -162,12 +162,11 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
   const inputRef = externalInputRef || internalInputRef
   const canSubmit = value.trim().length > 0
   const [closeButtonHovered, setCloseButtonHovered] = useState(false)
-  const availableCategoryWidth = Math.max(
+  const availableWidth = Math.max(
     0,
     width - FEEDBACK_CONTAINER_HORIZONTAL_INSET,
   )
-  const shouldUseShortLabels =
-    FULL_CATEGORY_ROW_WIDTH > availableCategoryWidth
+  const shouldUseShortLabels = FULL_CATEGORY_ROW_WIDTH > availableWidth
 
   // Handle keyboard shortcuts
   useKeyboard(
@@ -175,7 +174,6 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
       (key) => {
         const isCtrlC = key.ctrl && key.name === 'c'
         const isEscape = key.name === 'escape'
-        const isCtrlEnter = false // handled via onKeyIntercept
 
         if (!isCtrlC && !isEscape) return
 
@@ -189,13 +187,8 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
         if (isEscape) {
           onCancel()
         } else if (isCtrlC) {
-          if (value.length === 0) {
-            onCancel()
-          } else {
-            onClear()
-          }
+          value.length === 0 ? onCancel() : onClear()
         }
-        // Ctrl+Enter handled via onKeyIntercept
       },
       [value, onCancel, onClear, onSubmit, canSubmit],
     ),

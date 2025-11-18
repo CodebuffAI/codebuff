@@ -91,7 +91,7 @@ export const useFeedbackStore = create<FeedbackStore>()(
     markMessageFeedbackSubmitted: (messageId, category) =>
       set((state) => {
         state.messagesWithFeedback.add(messageId)
-          state.messageFeedbackCategories.set(messageId, category)
+        state.messageFeedbackCategories.set(messageId, category)
       }),
 
     resetFeedbackForm: () =>
