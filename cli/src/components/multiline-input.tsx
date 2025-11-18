@@ -197,11 +197,6 @@ export const MultilineInput = forwardRef<
     ),
   )
 
-  logger.info(
-    { cursorRow, lineInfo: lineInfoRef.current, cursorPosition },
-    `asdf cursorRow${cursorRow}`,
-  )
-
   // Auto-scroll to cursor when content changes
   useEffect(() => {
     const scrollBox = scrollBoxRef.current
@@ -213,19 +208,7 @@ export const MultilineInput = forwardRef<
       )
 
       scrollBox.verticalScrollBar.scrollPosition = scrollPosition
-      logger.info(
-        {
-          scrollBox,
-          focused,
-          cursorRow,
-          scrollPosition,
-          vsbScrollPosition: scrollBox.verticalScrollBar.scrollPosition,
-          sbHeight: scrollBox.viewport.height,
-        },
-        'asdf 1',
-      )
     }
-    logger.info({ scrollBox, focused }, 'asdf 2')
   }, [scrollBoxRef.current, cursorPosition, focused, cursorRow])
 
   // Measure actual viewport width from the scrollbox to avoid
