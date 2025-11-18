@@ -1,7 +1,7 @@
-import { publisher } from '../constants'
+import { publisher } from '../../constants'
 
-import type { SecretAgentDefinition } from '../types/secret-agent-definition'
-import type { AgentStepContext, ToolCall } from '../types/agent-definition'
+import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
+import type { AgentStepContext, ToolCall } from '../../types/agent-definition'
 
 export function createThinkerBestOfN(
   model: 'sonnet' | 'gpt-5',
@@ -66,17 +66,6 @@ function* handleSteps({
 > {
   const selectorAgent = 'thinker-selector'
   const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 5))
-
-  // Remove userInstruction message for this agent.
-  const messages = agentState.messageHistory.concat()
-  messages.pop()
-  yield {
-    toolName: 'set_messages',
-    input: {
-      messages,
-    },
-    includeToolCall: false,
-  } satisfies ToolCall<'set_messages'>
 
   // Use GENERATE_N to generate n thinking outputs
   const { nResponses = [] } = yield {
