@@ -47,14 +47,12 @@ interface MessageBlockProps {
   markdownOptions: { codeBlockWidth: number; palette: MarkdownPalette }
   availableWidth: number
   markdownPalette: MarkdownPalette
-  collapsedAgents: Set<string>
-  autoCollapsedAgents: Set<string>
   streamingAgents: Set<string>
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
-  setCollapsedAgents: (value: (prev: Set<string>) => Set<string>) => void
-  addAutoCollapsedAgent: (value: string) => void
+  onFeedback?: (messageId: string) => void
+  onCloseFeedback?: () => void
 }
 
 export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
@@ -75,14 +73,12 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
     markdownOptions,
     availableWidth,
     markdownPalette,
-    collapsedAgents,
-    autoCollapsedAgents,
     streamingAgents,
     onToggleCollapsed,
     onBuildFast,
     onBuildMax,
-    setCollapsedAgents,
-    addAutoCollapsedAgent,
+    onFeedback,
+    onCloseFeedback,
   } = props
   useWhyDidYouUpdateById('MessageBlock', messageId, props, {
     logLevel: 'debug',
@@ -90,8 +86,6 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
   })
 
   const theme = useTheme()
-  const openFeedbackForMessage = useFeedbackStore((state) => state.openFeedbackForMessage)
-  const closeFeedback = useFeedbackStore((state) => state.closeFeedback)
   const isFeedbackOpen = useFeedbackStore(selectIsFeedbackOpenForMessage(messageId))
   const hasSubmittedFeedback = useFeedbackStore(selectHasSubmittedFeedback(messageId))
   const selectedFeedbackCategory = useFeedbackStore(selectMessageFeedbackCategory(messageId))
@@ -167,13 +161,13 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
         ),
       })
     }
-    if (canRequestFeedback) {
+    if (canRequestFeedback && onFeedback) {
       footerItems.push({
         key: 'feedback',
         node: (
           <FeedbackIconButton
-            onClick={() => openFeedbackForMessage(messageId)}
-            onClose={closeFeedback}
+            onClick={() => onFeedback(messageId)}
+            onClose={() => onCloseFeedback?.()}
             isOpen={isFeedbackOpen}
             messageId={messageId}
             selectedCategory={selectedFeedbackCategory}
@@ -244,14 +238,10 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
             textColor={resolvedTextColor}
             availableWidth={availableWidth}
             markdownPalette={markdownPalette}
-            collapsedAgents={collapsedAgents}
-            autoCollapsedAgents={autoCollapsedAgents}
             streamingAgents={streamingAgents}
             onToggleCollapsed={onToggleCollapsed}
             onBuildFast={onBuildFast}
             onBuildMax={onBuildMax}
-            setCollapsedAgents={setCollapsedAgents}
-            addAutoCollapsedAgent={addAutoCollapsedAgent}
           />
         </box>
       ) : (
@@ -326,14 +316,10 @@ interface AgentBodyProps {
   parentIsStreaming: boolean
   availableWidth: number
   markdownPalette: MarkdownPalette
-  collapsedAgents: Set<string>
-  autoCollapsedAgents: Set<string>
   streamingAgents: Set<string>
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
-  setCollapsedAgents: (value: (prev: Set<string>) => Set<string>) => void
-  addAutoCollapsedAgent: (value: string) => void
 }
 
 const AgentBody = memo(
@@ -344,14 +330,10 @@ const AgentBody = memo(
     parentIsStreaming,
     availableWidth,
     markdownPalette,
-    collapsedAgents,
-    autoCollapsedAgents,
     streamingAgents,
     onToggleCollapsed,
     onBuildFast,
     onBuildMax,
-    setCollapsedAgents,
-    addAutoCollapsedAgent,
   }: AgentBodyProps): ReactNode[] => {
     const theme = useTheme()
     const nestedBlocks = agentBlock.blocks ?? []
@@ -393,10 +375,6 @@ const AgentBody = memo(
             keyPrefix={keyPrefix}
             startIndex={start}
             indentLevel={indentLevel}
-            collapsedAgents={collapsedAgents}
-            setCollapsedAgents={setCollapsedAgents}
-            autoCollapsedAgents={autoCollapsedAgents}
-            addAutoCollapsedAgent={addAutoCollapsedAgent}
             onToggleCollapsed={onToggleCollapsed}
             availableWidth={availableWidth}
           />,
@@ -483,7 +461,6 @@ const AgentBody = memo(
               indentLevel={indentLevel}
               keyPrefix={`${keyPrefix}-tool-${toolBlock.toolCallId}`}
               availableWidth={availableWidth}
-              collapsedAgents={collapsedAgents}
               streamingAgents={streamingAgents}
               onToggleCollapsed={onToggleCollapsed}
               markdownPalette={markdownPalette}
@@ -530,14 +507,10 @@ const AgentBody = memo(
               keyPrefix={`${keyPrefix}-agent-${nestedIdx}`}
               availableWidth={availableWidth}
               markdownPalette={markdownPalette}
-              collapsedAgents={collapsedAgents}
-              autoCollapsedAgents={autoCollapsedAgents}
               streamingAgents={streamingAgents}
               onToggleCollapsed={onToggleCollapsed}
               onBuildFast={onBuildFast}
               onBuildMax={onBuildMax}
-              setCollapsedAgents={setCollapsedAgents}
-              addAutoCollapsedAgent={addAutoCollapsedAgent}
             />,
           )
           nestedIdx++
@@ -556,14 +529,10 @@ interface AgentBranchWrapperProps {
   keyPrefix: string
   availableWidth: number
   markdownPalette: MarkdownPalette
-  collapsedAgents: Set<string>
-  autoCollapsedAgents: Set<string>
   streamingAgents: Set<string>
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
-  setCollapsedAgents: (value: (prev: Set<string>) => Set<string>) => void
-  addAutoCollapsedAgent: (value: string) => void
 }
 
 const AgentBranchWrapper = memo(
@@ -573,17 +542,13 @@ const AgentBranchWrapper = memo(
     keyPrefix,
     availableWidth,
     markdownPalette,
-    collapsedAgents,
-    autoCollapsedAgents,
     streamingAgents,
     onToggleCollapsed,
     onBuildFast,
     onBuildMax,
-    setCollapsedAgents,
-    addAutoCollapsedAgent,
   }: AgentBranchWrapperProps) => {
     const theme = useTheme()
-    const isCollapsed = collapsedAgents.has(agentBlock.agentId)
+    const isCollapsed = agentBlock.isCollapsed ?? false
     const isStreaming =
       agentBlock.status === 'running' || streamingAgents.has(agentBlock.agentId)
 
@@ -668,14 +633,10 @@ const AgentBranchWrapper = memo(
             parentIsStreaming={isStreaming}
             availableWidth={availableWidth}
             markdownPalette={markdownPalette}
-            collapsedAgents={collapsedAgents}
-            autoCollapsedAgents={autoCollapsedAgents}
             streamingAgents={streamingAgents}
             onToggleCollapsed={onToggleCollapsed}
             onBuildFast={onBuildFast}
             onBuildMax={onBuildMax}
-            setCollapsedAgents={setCollapsedAgents}
-            addAutoCollapsedAgent={addAutoCollapsedAgent}
           />
         </AgentBranchItem>
       </box>
@@ -738,14 +699,10 @@ interface SingleBlockProps {
   textColor: string
   availableWidth: number
   markdownPalette: MarkdownPalette
-  collapsedAgents: Set<string>
-  autoCollapsedAgents: Set<string>
   streamingAgents: Set<string>
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
-  setCollapsedAgents: (value: (prev: Set<string>) => Set<string>) => void
-  addAutoCollapsedAgent: (value: string) => void
 }
 
 const SingleBlock = memo(
@@ -760,14 +717,10 @@ const SingleBlock = memo(
     textColor,
     availableWidth,
     markdownPalette,
-    collapsedAgents,
-    autoCollapsedAgents,
     streamingAgents,
     onToggleCollapsed,
     onBuildFast,
     onBuildMax,
-    setCollapsedAgents,
-    addAutoCollapsedAgent,
   }: SingleBlockProps): ReactNode => {
     const theme = useTheme()
     const codeBlockWidth = Math.max(10, availableWidth - 8)
@@ -860,14 +813,10 @@ const SingleBlock = memo(
             keyPrefix={`${messageId}-agent-${block.agentId}`}
             availableWidth={availableWidth}
             markdownPalette={markdownPalette}
-            collapsedAgents={collapsedAgents}
-            autoCollapsedAgents={autoCollapsedAgents}
             streamingAgents={streamingAgents}
             onToggleCollapsed={onToggleCollapsed}
             onBuildFast={onBuildFast}
             onBuildMax={onBuildMax}
-            setCollapsedAgents={setCollapsedAgents}
-            addAutoCollapsedAgent={addAutoCollapsedAgent}
           />
         )
       }
@@ -878,7 +827,6 @@ const SingleBlock = memo(
             key={`${messageId}-agent-list-${block.id}`}
             agentListBlock={block}
             keyPrefix={`${messageId}-agent-list-${block.id}`}
-            collapsedAgents={collapsedAgents}
             onToggleCollapsed={onToggleCollapsed}
           />
         )
@@ -899,14 +847,10 @@ interface BlocksRendererProps {
   textColor: string
   availableWidth: number
   markdownPalette: MarkdownPalette
-  collapsedAgents: Set<string>
-  autoCollapsedAgents: Set<string>
   streamingAgents: Set<string>
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
-  setCollapsedAgents: (value: (prev: Set<string>) => Set<string>) => void
-  addAutoCollapsedAgent: (value: string) => void
 }
 
 const BlocksRenderer = memo(
@@ -919,14 +863,10 @@ const BlocksRenderer = memo(
     textColor,
     availableWidth,
     markdownPalette,
-    collapsedAgents,
-    autoCollapsedAgents,
     streamingAgents,
     onToggleCollapsed,
     onBuildFast,
     onBuildMax,
-    setCollapsedAgents,
-    addAutoCollapsedAgent,
   }: BlocksRendererProps) => {
     const nodes: React.ReactNode[] = []
     for (let i = 0; i < sourceBlocks.length; ) {
@@ -949,10 +889,6 @@ const BlocksRenderer = memo(
             keyPrefix={messageId}
             startIndex={start}
             indentLevel={0}
-            collapsedAgents={collapsedAgents}
-            setCollapsedAgents={setCollapsedAgents}
-            autoCollapsedAgents={autoCollapsedAgents}
-            addAutoCollapsedAgent={addAutoCollapsedAgent}
             onToggleCollapsed={onToggleCollapsed}
             availableWidth={availableWidth}
           />,
@@ -976,7 +912,6 @@ const BlocksRenderer = memo(
             indentLevel={0}
             keyPrefix={`${messageId}-tool-${toolBlock.toolCallId}`}
             availableWidth={availableWidth}
-            collapsedAgents={collapsedAgents}
             streamingAgents={streamingAgents}
             onToggleCollapsed={onToggleCollapsed}
             markdownPalette={markdownPalette}
@@ -1027,14 +962,10 @@ const BlocksRenderer = memo(
           textColor={textColor}
           availableWidth={availableWidth}
           markdownPalette={markdownPalette}
-          collapsedAgents={collapsedAgents}
-          autoCollapsedAgents={autoCollapsedAgents}
           streamingAgents={streamingAgents}
           onToggleCollapsed={onToggleCollapsed}
           onBuildFast={onBuildFast}
           onBuildMax={onBuildMax}
-          setCollapsedAgents={setCollapsedAgents}
-          addAutoCollapsedAgent={addAutoCollapsedAgent}
         />,
       )
       i++

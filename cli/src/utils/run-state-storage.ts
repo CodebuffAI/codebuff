@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import path from 'path'
 
-import { getCurrentChatDir, getMostRecentChatDir } from '../project-files'
+import { getCurrentChatDir, getMostRecentChatDir, getProjectDataDir } from '../project-files'
 import { logger } from './logger'
 
 import type { RunState } from '@codebuff/sdk'
@@ -13,6 +13,7 @@ const CHAT_MESSAGES_FILENAME = 'chat-messages.json'
 type SavedChatState = {
   runState: RunState
   messages: ChatMessage[]
+  chatId?: string
 }
 
 /**
@@ -91,46 +92,68 @@ export function saveChatState(runState: RunState, messages: ChatMessage[]): void
 }
 
 /**
- * Load both RunState and ChatMessage[] from the most recent chat directory
- * Returns null if no previous chat exists or files can't be parsed
+ * Load both RunState and ChatMessage[] from a specific chat directory or the most recent one.
+ * When chatId is provided, it is used to locate the chat directory; otherwise the most
+ * recently modified chat directory is used.
+ * Returns null if no previous chat exists or files can't be parsed.
  */
-export function loadMostRecentChatState(): SavedChatState | null {
+export function loadMostRecentChatState(chatId?: string): SavedChatState | null {
   try {
-    const mostRecentChatDir = getMostRecentChatDir()
-    if (!mostRecentChatDir) {
+    let chatDir: string | null = null
+
+    if (chatId && chatId.trim().length > 0) {
+      const baseDir = path.join(getProjectDataDir(), 'chats')
+      const candidateDir = path.join(baseDir, chatId.trim())
+      if (fs.existsSync(candidateDir) && fs.statSync(candidateDir).isDirectory()) {
+        chatDir = candidateDir
+      } else {
+        logger.debug(
+          { candidateDir, chatId },
+          'Requested chatId directory not found, falling back to most recent chat directory',
+        )
+      }
+    }
+
+    if (!chatDir) {
+      chatDir = getMostRecentChatDir()
+    }
+
+    if (!chatDir) {
       logger.debug('No previous chat directory found')
       return null
     }
 
-    const runStatePath = path.join(mostRecentChatDir, RUN_STATE_FILENAME)
-    const messagesPath = path.join(mostRecentChatDir, CHAT_MESSAGES_FILENAME)
-    
+    const runStatePath = path.join(chatDir, RUN_STATE_FILENAME)
+    const messagesPath = path.join(chatDir, CHAT_MESSAGES_FILENAME)
+
     if (!fs.existsSync(runStatePath) || !fs.existsSync(messagesPath)) {
       logger.debug(
         { runStatePath, messagesPath },
-        'Missing state files in most recent chat'
+        'Missing state files in chat directory',
       )
       return null
     }
 
     const runStateContent = fs.readFileSync(runStatePath, 'utf8')
     const messagesContent = fs.readFileSync(messagesPath, 'utf8')
-    
+
     const runState = JSON.parse(runStateContent) as RunState
     const messages = JSON.parse(messagesContent) as ChatMessage[]
-    
+
+    const resolvedChatId = path.basename(chatDir)
+
     logger.info(
-      { runStatePath, messagesPath, messageCount: messages.length },
-      'Loaded chat state from most recent chat'
+      { runStatePath, messagesPath, messageCount: messages.length, chatId: resolvedChatId },
+      'Loaded chat state from chat directory',
     )
-    
-    return { runState, messages }
+
+    return { runState, messages, chatId: resolvedChatId }
   } catch (error) {
     logger.error(
       {
         error: error instanceof Error ? error.message : String(error),
       },
-      'Failed to load most recent chat state',
+      'Failed to load chat state',
     )
     return null
   }

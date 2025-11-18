@@ -8,19 +8,13 @@ import type { ContentBlock } from '../../types/chat'
 interface AgentListBranchProps {
   agentListBlock: Extract<ContentBlock, { type: 'agent-list' }>
   keyPrefix: string
-  collapsedAgents: Set<string>
   onToggleCollapsed: (id: string) => void
 }
 
 export const AgentListBranch = memo(
-  ({
-    agentListBlock,
-    keyPrefix,
-    collapsedAgents,
-    onToggleCollapsed,
-  }: AgentListBranchProps) => {
+  ({ agentListBlock, keyPrefix, onToggleCollapsed }: AgentListBranchProps) => {
     const theme = useTheme()
-    const isCollapsed = collapsedAgents.has(agentListBlock.id)
+    const isCollapsed = agentListBlock.isCollapsed ?? true
     const { agents } = agentListBlock
 
     const sortedAgents = [...agents].sort((a, b) => {

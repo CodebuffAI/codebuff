@@ -10,7 +10,6 @@ import {
   hasMarkdown,
   type MarkdownPalette,
 } from '../utils/markdown-renderer'
-import { getDescendantIds, getAncestorIds } from '../utils/message-tree-utils'
 
 import type { ChatMessage } from '../types/chat'
 import type { ChatTheme } from '../types/theme-system'
@@ -21,21 +20,18 @@ interface MessageWithAgentsProps {
   isLastMessage: boolean
   theme: ChatTheme
   markdownPalette: MarkdownPalette
-  collapsedAgents: Set<string>
-  autoCollapsedAgents: Set<string>
   streamingAgents: Set<string>
   messageTree: Map<string, ChatMessage[]>
   messages: ChatMessage[]
   availableWidth: number
-  setCollapsedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
-  addAutoCollapsedAgent: (value: string) => void
-  setUserOpenedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
   isWaitingForResponse: boolean
   timerStartTime: number | null
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
+  onFeedback: (messageId: string) => void
+  onCloseFeedback: () => void
 }
 
 export const MessageWithAgents = memo(
@@ -45,21 +41,18 @@ export const MessageWithAgents = memo(
     isLastMessage,
     theme,
     markdownPalette,
-    collapsedAgents,
-    autoCollapsedAgents,
     streamingAgents,
     messageTree,
     messages,
     availableWidth,
-    setCollapsedAgents,
-    addAutoCollapsedAgent,
-    setUserOpenedAgents,
     setFocusedAgentId,
     isWaitingForResponse,
     timerStartTime,
     onToggleCollapsed,
     onBuildFast,
     onBuildMax,
+    onFeedback,
+    onCloseFeedback,
   }: MessageWithAgentsProps): ReactNode => {
     const SIDE_GUTTER = 1
     const isAgent = message.variant === 'agent'
@@ -71,21 +64,18 @@ export const MessageWithAgents = memo(
           depth={depth}
           theme={theme}
           markdownPalette={markdownPalette}
-          collapsedAgents={collapsedAgents}
-          autoCollapsedAgents={autoCollapsedAgents}
           streamingAgents={streamingAgents}
           messageTree={messageTree}
           messages={messages}
           availableWidth={availableWidth}
-          setCollapsedAgents={setCollapsedAgents}
-          addAutoCollapsedAgent={addAutoCollapsedAgent}
-          setUserOpenedAgents={setUserOpenedAgents}
           setFocusedAgentId={setFocusedAgentId}
           isWaitingForResponse={isWaitingForResponse}
           timerStartTime={timerStartTime}
           onToggleCollapsed={onToggleCollapsed}
           onBuildFast={onBuildFast}
           onBuildMax={onBuildMax}
+          onFeedback={onFeedback}
+          onCloseFeedback={onCloseFeedback}
         />
       )
     }
@@ -201,14 +191,12 @@ export const MessageWithAgents = memo(
                   markdownOptions={markdownOptions}
                   availableWidth={availableWidth}
                   markdownPalette={markdownPalette}
-                  collapsedAgents={collapsedAgents}
-                  autoCollapsedAgents={autoCollapsedAgents}
                   streamingAgents={streamingAgents}
                   onToggleCollapsed={onToggleCollapsed}
                   onBuildFast={onBuildFast}
                   onBuildMax={onBuildMax}
-                  setCollapsedAgents={setCollapsedAgents}
-                  addAutoCollapsedAgent={addAutoCollapsedAgent}
+                  onFeedback={onFeedback}
+                  onCloseFeedback={onCloseFeedback}
                 />
               </box>
             </box>
@@ -244,14 +232,12 @@ export const MessageWithAgents = memo(
                 markdownOptions={markdownOptions}
                 availableWidth={availableWidth}
                 markdownPalette={markdownPalette}
-                collapsedAgents={collapsedAgents}
-                autoCollapsedAgents={autoCollapsedAgents}
                 streamingAgents={streamingAgents}
                 onToggleCollapsed={onToggleCollapsed}
                 onBuildFast={onBuildFast}
                 onBuildMax={onBuildMax}
-                setCollapsedAgents={setCollapsedAgents}
-                addAutoCollapsedAgent={addAutoCollapsedAgent}
+                onFeedback={onFeedback}
+                onCloseFeedback={onCloseFeedback}
               />
             </box>
           )}
@@ -267,21 +253,18 @@ export const MessageWithAgents = memo(
                   isLastMessage={false}
                   theme={theme}
                   markdownPalette={markdownPalette}
-                  collapsedAgents={collapsedAgents}
-                  autoCollapsedAgents={autoCollapsedAgents}
                   streamingAgents={streamingAgents}
                   messageTree={messageTree}
                   messages={messages}
                   availableWidth={availableWidth}
-                  setCollapsedAgents={setCollapsedAgents}
-                  addAutoCollapsedAgent={addAutoCollapsedAgent}
-                  setUserOpenedAgents={setUserOpenedAgents}
                   setFocusedAgentId={setFocusedAgentId}
                   isWaitingForResponse={isWaitingForResponse}
                   timerStartTime={timerStartTime}
                   onToggleCollapsed={onToggleCollapsed}
                   onBuildFast={onBuildFast}
                   onBuildMax={onBuildMax}
+                  onFeedback={onFeedback}
+                  onCloseFeedback={onCloseFeedback}
                 />
               </box>
             ))}
@@ -297,21 +280,18 @@ interface AgentMessageProps {
   depth: number
   theme: ChatTheme
   markdownPalette: MarkdownPalette
-  collapsedAgents: Set<string>
-  autoCollapsedAgents: Set<string>
   streamingAgents: Set<string>
   messageTree: Map<string, ChatMessage[]>
   messages: ChatMessage[]
   availableWidth: number
-  setCollapsedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
-  addAutoCollapsedAgent: (value: string) => void
-  setUserOpenedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
   isWaitingForResponse: boolean
   timerStartTime: number | null
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
+  onFeedback: (messageId: string) => void
+  onCloseFeedback: () => void
 }
 
 const AgentMessage = memo(
@@ -320,24 +300,23 @@ const AgentMessage = memo(
     depth,
     theme,
     markdownPalette,
-    collapsedAgents,
-    autoCollapsedAgents,
     streamingAgents,
     messageTree,
     messages,
     availableWidth,
-    setCollapsedAgents,
-    addAutoCollapsedAgent,
-    setUserOpenedAgents,
     setFocusedAgentId,
     isWaitingForResponse,
     timerStartTime,
     onToggleCollapsed,
     onBuildFast,
     onBuildMax,
+    onFeedback,
+    onCloseFeedback,
   }: AgentMessageProps): ReactNode => {
     const agentInfo = message.agent!
-    const isCollapsed = collapsedAgents.has(message.id)
+
+    // Get or initialize collapse state from message metadata
+    const isCollapsed = message.metadata?.isCollapsed ?? false
     const isStreaming = streamingAgents.has(message.id)
 
     const agentChildren = messageTree.get(message.id) ?? []
@@ -377,32 +356,7 @@ const AgentMessage = memo(
         e.stopPropagation()
       }
 
-      const wasCollapsed = collapsedAgents.has(message.id)
-
-      setCollapsedAgents((prev) => {
-        const next = new Set(prev)
-
-        if (next.has(message.id)) {
-          next.delete(message.id)
-        } else {
-          next.add(message.id)
-          const descendantIds = getDescendantIds(message.id, messageTree)
-          descendantIds.forEach((id) => next.add(id))
-        }
-
-        return next
-      })
-
-      setUserOpenedAgents((prev) => {
-        const next = new Set(prev)
-        if (wasCollapsed) {
-          next.add(message.id)
-        } else {
-          next.delete(message.id)
-        }
-        return next
-      })
-
+      onToggleCollapsed(message.id)
       setFocusedAgentId(message.id)
     }
 
@@ -415,15 +369,7 @@ const AgentMessage = memo(
         return
       }
 
-      const ancestorIds = getAncestorIds(message.id, messages)
-
-      setCollapsedAgents((prev) => {
-        const next = new Set(prev)
-        ancestorIds.forEach((id) => next.delete(id))
-        next.delete(message.id)
-        return next
-      })
-
+      onToggleCollapsed(message.id)
       setFocusedAgentId(message.id)
     }
 
@@ -517,22 +463,19 @@ const AgentMessage = memo(
                   isLastMessage={false}
                   theme={theme}
                   markdownPalette={markdownPalette}
-                  collapsedAgents={collapsedAgents}
-                  autoCollapsedAgents={autoCollapsedAgents}
                   streamingAgents={streamingAgents}
                   messageTree={messageTree}
                   messages={messages}
                   availableWidth={availableWidth}
-                  setCollapsedAgents={setCollapsedAgents}
-                  addAutoCollapsedAgent={addAutoCollapsedAgent}
-                  setUserOpenedAgents={setUserOpenedAgents}
                   setFocusedAgentId={setFocusedAgentId}
                   isWaitingForResponse={isWaitingForResponse}
                   timerStartTime={timerStartTime}
-                  onToggleCollapsed={onToggleCollapsed}
-                  onBuildFast={onBuildFast}
-                  onBuildMax={onBuildMax}
-                />
+                onToggleCollapsed={onToggleCollapsed}
+                onBuildFast={onBuildFast}
+                onBuildMax={onBuildMax}
+                onFeedback={onFeedback}
+                onCloseFeedback={onCloseFeedback}
+              />
               </box>
             ))}
           </box>
