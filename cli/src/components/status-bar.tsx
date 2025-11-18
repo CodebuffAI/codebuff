@@ -2,36 +2,34 @@ import React, { useEffect, useState } from 'react'
 
 import { ShimmerText } from './shimmer-text'
 import { ScrollToBottomButton } from './scroll-to-bottom-button'
-import { Button } from './button'
 import { useTheme } from '../hooks/use-theme'
 import { formatElapsedTime } from '../utils/format-elapsed-time'
 
 import type { StreamStatus } from '../hooks/use-message-queue'
+import type { StatusIndicatorState } from '../utils/status-indicator-state'
 
 const SHIMMER_INTERVAL_MS = 160
 
 interface StatusBarProps {
   clipboardMessage: string | null
   streamStatus: StreamStatus
+  statusIndicatorState: StatusIndicatorState
   timerStartTime: number | null
   nextCtrlCWillExit: boolean
   isConnected: boolean
   isAtBottom: boolean
   scrollToLatest: () => void
-  pendingRetryCount: number
-  retryPendingMessages: () => Promise<void>
 }
 
 export const StatusBar = ({
   clipboardMessage,
   streamStatus,
+  statusIndicatorState,
   timerStartTime,
   nextCtrlCWillExit,
   isConnected,
   isAtBottom,
   scrollToLatest,
-  pendingRetryCount,
-  retryPendingMessages,
 }: StatusBarProps) => {
   const theme = useTheme()
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
@@ -65,43 +63,49 @@ export const StatusBar = ({
   )
 
   const renderStatusIndicator = () => {
-    if (nextCtrlCWillExit) {
-      return (
-        <text fg={theme.secondary} style={{ wrapMode: 'none' }}>
-          Press Ctrl-C again to exit
-        </text>
-      )
-    }
+    switch (statusIndicatorState.kind) {
+      case 'ctrlC':
+        return (
+          <text fg={theme.secondary} style={{ wrapMode: 'none' }}>
+            Press Ctrl-C again to exit
+          </text>
+        )
 
-    if (clipboardMessage) {
-      return (
-        <text fg={theme.primary} style={{ wrapMode: 'none' }}>
-          {clipboardMessage}
-        </text>
-      )
-    }
+      case 'reconnected':
+        return (
+          <text fg={theme.success || theme.primary} style={{ wrapMode: 'none' }}>
+            ✓ Reconnected
+          </text>
+        )
 
-    if (!isConnected) {
-      return renderShimmer({ text: 'connecting...' })
-    }
+      case 'clipboard':
+        return (
+          <text fg={theme.primary} style={{ wrapMode: 'none' }}>
+            {statusIndicatorState.message}
+          </text>
+        )
 
-    if (streamStatus === 'waiting') {
-      return renderShimmer({
-        text: 'thinking...',
-        interval: SHIMMER_INTERVAL_MS,
-        primaryColor: theme.secondary,
-      })
-    }
+      case 'connecting':
+        return renderShimmer({ text: 'connecting...' })
 
-    if (streamStatus === 'streaming') {
-      return renderShimmer({
-        text: 'working...',
-        interval: SHIMMER_INTERVAL_MS,
-        primaryColor: theme.secondary,
-      })
-    }
+      case 'waiting':
+        return renderShimmer({
+          text: 'thinking...',
+          interval: SHIMMER_INTERVAL_MS,
+          primaryColor: theme.secondary,
+        })
 
-    return null
+      case 'streaming':
+        return renderShimmer({
+          text: 'working...',
+          interval: SHIMMER_INTERVAL_MS,
+          primaryColor: theme.secondary,
+        })
+
+      case 'idle':
+      default:
+        return null
+    }
   }
 
   const renderElapsedTime = () => {
@@ -118,44 +122,9 @@ export const StatusBar = ({
 
   const statusIndicatorContent = renderStatusIndicator()
   const elapsedTimeContent = renderElapsedTime()
-  const hasPendingRetries = pendingRetryCount > 0
-  const pendingRetryMessage =
-    pendingRetryCount === 1
-      ? 'Message send interrupted'
-      : `${pendingRetryCount} messages interrupted`
-  const handleRetryClick = () => {
-    void retryPendingMessages()
-  }
-  const pendingRetryContent = hasPendingRetries ? (
-    <box
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 1,
-      }}
-    >
-      <text fg={theme.primary} style={{ wrapMode: 'none' }}>
-        {pendingRetryMessage}
-      </text>
-      <Button
-        style={{
-          borderStyle: 'round',
-          borderColor: theme.primary,
-          paddingLeft: 1,
-          paddingRight: 1,
-        }}
-        onClick={handleRetryClick}
-      >
-        <text fg={theme.primary} style={{ wrapMode: 'none' }}>
-          Retry now
-        </text>
-      </Button>
-    </box>
-  ) : null
 
   // Only show gray background when there's status indicator or timer content
-  const hasContent =
-    hasPendingRetries || statusIndicatorContent || elapsedTimeContent
+  const hasContent = statusIndicatorContent || elapsedTimeContent
 
   return (
     <box
@@ -176,7 +145,7 @@ export const StatusBar = ({
           flexBasis: 0,
         }}
       >
-        {pendingRetryContent ?? statusIndicatorContent}
+        {statusIndicatorContent}
       </box>
 
       <box style={{ flexShrink: 0 }}>

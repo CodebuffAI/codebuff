@@ -34,6 +34,7 @@ import { useQueueControls } from './hooks/use-queue-controls'
 import { useChatStore } from './state/chat-store'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { loadLocalAgents } from './utils/local-agent-registry'
+import { logger } from './utils/logger'
 import { buildMessageTree } from './utils/message-tree-utils'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
@@ -192,11 +193,57 @@ export const Chat = ({
   const sendMessageRef = useRef<SendMessageFn>()
 
   const { clipboardMessage } = useClipboard()
-  const isConnected = useConnectionStatus()
+  const [showReconnectionMessage, setShowReconnectionMessage] = useState(false)
+  const [connectionEstablished, setConnectionEstablished] = useState(0) // Increment to trigger retry check
+  const reconnectionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const retryPendingMessagesRef = useRef<(() => Promise<void>) | null>(null)
+  const processFailedMessagesRef = useRef<(() => void) | null>(null)
+
+  const handleReconnection = useCallback((isInitialConnection: boolean) => {
+    logger.info(
+      { isInitialConnection },
+      `[Connection] ${isInitialConnection ? 'Initial connection' : 'Reconnection'} callback triggered`
+    )
+
+    // Process any failed messages and schedule them for retry (batched)
+    if (processFailedMessagesRef.current) {
+      processFailedMessagesRef.current()
+    }
+
+    // Only show reconnection message if it's not the initial connection
+    if (!isInitialConnection) {
+      setShowReconnectionMessage(true)
+
+      // Clear any existing timeout
+      if (reconnectionTimeoutRef.current) {
+        clearTimeout(reconnectionTimeoutRef.current)
+      }
+
+      // Hide the message after 2 seconds
+      reconnectionTimeoutRef.current = setTimeout(() => {
+        setShowReconnectionMessage(false)
+        reconnectionTimeoutRef.current = null
+      }, 2000)
+    }
+
+    // Always trigger retry check (for both initial connection and reconnection)
+    setConnectionEstablished(prev => prev + 1)
+  }, [])
+
+  const isConnected = useConnectionStatus(handleReconnection)
   const isConnectedRef = useRef(isConnected)
   useEffect(() => {
     isConnectedRef.current = isConnected
   }, [isConnected])
+
+  useEffect(() => {
+    return () => {
+      if (reconnectionTimeoutRef.current) {
+        clearTimeout(reconnectionTimeoutRef.current)
+      }
+    }
+  }, [])
+
   const mainAgentTimer = useElapsedTime()
   const timerStartTime = mainAgentTimer.startTime
 
@@ -397,8 +444,13 @@ export const Chat = ({
   // Timer events are currently tracked but not used for UI updates
   // Future: Could be used for analytics or debugging
 
-  const { sendMessage, clearMessages, pendingRetryCount, retryPendingMessages } =
-    useSendMessage({
+  const {
+    sendMessage,
+    clearMessages,
+    pendingRetryCount,
+    retryPendingMessages,
+    processFailedMessages,
+  } = useSendMessage({
       messages,
       allToggleIds,
       setMessages,
@@ -433,6 +485,27 @@ export const Chat = ({
     })
 
   sendMessageRef.current = sendMessage
+  retryPendingMessagesRef.current = retryPendingMessages
+  processFailedMessagesRef.current = processFailedMessages
+
+  // Trigger retry when connection is established and we have pending messages
+  useEffect(() => {
+    if (connectionEstablished > 0 && pendingRetryCount > 0) {
+      logger.info(
+        { pendingRetryCount, connectionEstablished },
+        `[RETRY-EFFECT] CONDITIONS MET! Will retry ${pendingRetryCount} pending message(s) after 500ms delay...`
+      )
+      // Small delay to ensure the connection is fully established
+      const timer = setTimeout(() => {
+        logger.info('[RETRY-EFFECT] Calling retryPendingMessages()')
+        retryPendingMessagesRef.current?.()
+      }, 500)
+      return () => {
+        clearTimeout(timer)
+      }
+    }
+    return undefined
+  }, [connectionEstablished, pendingRetryCount])
 
   const { inputWidth, handleBuildFast, handleBuildMax } = useChatInput({
     inputValue,
@@ -593,6 +666,7 @@ export const Chat = ({
     streamStatus,
     nextCtrlCWillExit,
     isConnected,
+    showReconnectionMessage,
   })
   const hasStatusIndicatorContent = statusIndicatorState.kind !== 'idle'
   const inputBoxTitle = useMemo(() => {
@@ -705,13 +779,12 @@ export const Chat = ({
           <StatusBar
             clipboardMessage={clipboardMessage}
             streamStatus={streamStatus}
+            statusIndicatorState={statusIndicatorState}
             timerStartTime={timerStartTime}
             nextCtrlCWillExit={nextCtrlCWillExit}
             isConnected={isConnected}
             isAtBottom={isAtBottom}
             scrollToLatest={scrollToLatest}
-            pendingRetryCount={pendingRetryCount}
-            retryPendingMessages={retryPendingMessages}
           />
         )}
 

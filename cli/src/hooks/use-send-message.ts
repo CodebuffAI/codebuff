@@ -32,6 +32,7 @@ const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
 ])
 
 const STREAM_INACTIVITY_TIMEOUT_MS = 15_000
+const STREAM_STALL_TIMEOUT_MS = 4_000
 
 const yieldToEventLoop = () =>
   new Promise<void>((resolve) => {
@@ -254,6 +255,7 @@ export const useSendMessage = ({
   clearMessages: () => void
   pendingRetryCount: number
   retryPendingMessages: () => Promise<void>
+  processFailedMessages: () => void
 } => {
   const previousRunStateRef = useRef<any>(null)
   const spawnAgentsMapRef = useRef<
@@ -272,11 +274,23 @@ export const useSendMessage = ({
     null,
   )
   const streamInactivityTriggeredRef = useRef(false)
+  const streamStallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const streamStallTriggeredRef = useRef(false)
+  const streamHadOutputRef = useRef(false)
+  const autoRetryContextRef = useRef<{
+    userMessageId: string
+    content: string
+    agentMode: AgentMode
+  } | null>(null)
+  const sendMessageSelfRef = useRef<SendMessageFn | null>(null)
   const currentRunContextRef = useRef<{
     userMessageId: string
     content: string
     agentMode: AgentMode
   } | null>(null)
+  const failedDueToConnectionRef = useRef<
+    Map<string, { content: string; agentMode: AgentMode }>
+  >(new Map())
 
   const updateChainInProgress = useCallback(
     (value: boolean) => {
@@ -454,7 +468,23 @@ export const useSendMessage = ({
       const pending = pendingRetriesRef.current
       const alreadyScheduled = pending.has(userMessageId)
       pending.set(userMessageId, { content, agentMode })
+
+      logger.info(
+        {
+          userMessageId,
+          note,
+          alreadyScheduled,
+          pendingCount: pending.size,
+          contentPreview: content.slice(0, 50)
+        },
+        '[SCHEDULE-RETRY] Scheduled message for retry'
+      )
+
       if (!alreadyScheduled) {
+        logger.debug(
+          { pendingRetryCount: pending.size },
+          '[SCHEDULE-RETRY] Updating pendingRetryCount'
+        )
         setPendingRetryCount(pending.size)
       }
       setUserMessageTimestampNote(userMessageId, note)
@@ -480,8 +510,16 @@ export const useSendMessage = ({
     }
   }, [])
 
+  const clearStreamStallTimer = useCallback(() => {
+    if (streamStallTimerRef.current) {
+      clearTimeout(streamStallTimerRef.current)
+      streamStallTimerRef.current = null
+    }
+  }, [])
+
   const handleStreamInactivityTimeout = useCallback(() => {
     clearStreamInactivityTimer()
+    clearStreamStallTimer()
     const context = currentRunContextRef.current
     if (!context) {
       return
@@ -495,7 +533,12 @@ export const useSendMessage = ({
     if (controller && !controller.signal.aborted) {
       controller.abort(new Error('Stream inactivity timeout'))
     }
-  }, [abortControllerRef, clearStreamInactivityTimer, schedulePendingRetry])
+  }, [
+    abortControllerRef,
+    clearStreamStallTimer,
+    clearStreamInactivityTimer,
+    schedulePendingRetry,
+  ])
 
   const refreshStreamInactivityTimer = useCallback(() => {
     clearStreamInactivityTimer()
@@ -508,6 +551,38 @@ export const useSendMessage = ({
     )
   }, [clearStreamInactivityTimer, handleStreamInactivityTimeout])
 
+  const handleStreamStallTimeout = useCallback(() => {
+    if (!currentRunContextRef.current || !streamHadOutputRef.current) {
+      return
+    }
+    clearStreamStallTimer()
+    streamStallTriggeredRef.current = true
+    autoRetryContextRef.current = {
+      userMessageId: currentRunContextRef.current.userMessageId,
+      content: currentRunContextRef.current.content,
+      agentMode: currentRunContextRef.current.agentMode,
+    }
+    schedulePendingRetry({
+      ...currentRunContextRef.current,
+      note: 'Stream stalled…',
+    })
+    const controller = abortControllerRef.current
+    if (controller && !controller.signal.aborted) {
+      controller.abort(new Error('Stream stalled'))
+    }
+  }, [abortControllerRef, clearStreamStallTimer, schedulePendingRetry])
+
+  const refreshStreamStallTimer = useCallback(() => {
+    if (!currentRunContextRef.current || !streamHadOutputRef.current) {
+      return
+    }
+    clearStreamStallTimer()
+    streamStallTimerRef.current = setTimeout(
+      handleStreamStallTimeout,
+      STREAM_STALL_TIMEOUT_MS,
+    )
+  }, [clearStreamStallTimer, handleStreamStallTimeout])
+
   useEffect(() => {
     return () => {
       if (flushTimeoutRef.current) {
@@ -515,15 +590,35 @@ export const useSendMessage = ({
         flushTimeoutRef.current = null
       }
       clearStreamInactivityTimer()
+      clearStreamStallTimer()
       currentRunContextRef.current = null
       flushPendingUpdates()
     }
-  }, [clearStreamInactivityTimer, flushPendingUpdates])
+  }, [clearStreamInactivityTimer, clearStreamStallTimer, flushPendingUpdates])
 
   const sendMessage = useCallback<SendMessageFn>(
     async (params: ParamsOf<SendMessageFn>) => {
       const { content, agentMode, postUserMessage, retryOfMessageId } = params
       let userMessageId = retryOfMessageId ?? ''
+
+      logger.debug(
+        {
+          isRetry: !!retryOfMessageId,
+          retryOfMessageId: retryOfMessageId || 'none',
+          agentMode,
+          contentLength: content.length,
+          isConnected: isConnectedRef.current
+        },
+        '[SEND-MESSAGE] sendMessage called'
+      )
+
+      // Log retry attempts
+      if (retryOfMessageId) {
+        logger.info(
+          { retryOfMessageId, agentMode, contentLength: content.length },
+          '[SEND-MESSAGE] Starting message retry after reconnection'
+        )
+      }
 
       if (agentMode !== 'PLAN') {
         setHasReceivedPlanResponse(false)
@@ -590,7 +685,11 @@ export const useSendMessage = ({
       }
 
       if (retryOfMessageId) {
-        setUserMessageTimestampNote(retryOfMessageId, 'Retried')
+        setUserMessageTimestampNote(retryOfMessageId, 'Retrying...')
+        logger.info(
+          { retryOfMessageId },
+          'Updated user message timestamp to show retry in progress'
+        )
       }
 
       clearPendingRetryForMessage(userMessageId)
@@ -687,6 +786,15 @@ export const useSendMessage = ({
         blocks: [],
         timestamp: formatTimestamp(),
       }
+
+      logger.info(
+        {
+          aiMessageId,
+          isRetry: !!retryOfMessageId,
+          userMessageId
+        },
+        'Creating AI message for response'
+      )
 
       rootStreamBufferRef.current = ''
       rootStreamSeenRef.current = false
@@ -900,17 +1008,34 @@ export const useSendMessage = ({
       }
 
       setStreamStatus('waiting')
-      applyMessageUpdate((prev) => [...prev, aiMessage])
+      applyMessageUpdate((prev) => {
+        logger.info(
+          {
+            prevMessagesCount: prev.length,
+            aiMessageId: aiMessage.id,
+            isRetry: !!retryOfMessageId
+          },
+          'Adding AI message to UI'
+        )
+        return [...prev, aiMessage]
+      })
       setCanProcessQueue(false)
       updateChainInProgress(true)
       let hasReceivedContent = false
       let actualCredits: number | undefined = undefined
 
+      streamHadOutputRef.current = false
+      streamStallTriggeredRef.current = false
+      clearStreamStallTimer()
+
       const abortController = new AbortController()
       abortControllerRef.current = abortController
       abortController.signal.addEventListener('abort', () => {
         clearStreamInactivityTimer()
+        clearStreamStallTimer()
         currentRunContextRef.current = null
+        streamHadOutputRef.current = false
+        streamStallTriggeredRef.current = false
         setStreamStatus('idle')
         setCanProcessQueue(false)
         updateChainInProgress(false)
@@ -943,6 +1068,17 @@ export const useSendMessage = ({
             : agentMode === 'MAX'
               ? 'base2-max'
               : 'base2-plan'
+
+        logger.info(
+          {
+            userMessageId,
+            isRetry: !!retryOfMessageId,
+            agent: selectedAgentDefinition?.id ?? agentId ?? fallbackAgent,
+            contentPreview: content.slice(0, 100)
+          },
+          'Calling client.run() to send message to backend'
+        )
+
         const runState = await client.run({
           logger,
           agent: selectedAgentDefinition ?? agentId ?? fallbackAgent,
@@ -954,6 +1090,10 @@ export const useSendMessage = ({
 
           handleStreamChunk: (event) => {
             refreshStreamInactivityTimer()
+            if (!streamHadOutputRef.current) {
+              streamHadOutputRef.current = true
+            }
+            refreshStreamStallTimer()
             if (
               typeof event === 'string' ||
               (event.type === 'reasoning_chunk' &&
@@ -1051,6 +1191,25 @@ export const useSendMessage = ({
                   }
                 }),
               )
+
+              // Track failed messages for batch retry on reconnection (avoids state update cascade)
+              const errorMsg = event.message || ''
+              const isConnectionError =
+                !isConnectedRef.current ||
+                (typeof errorMsg === 'string' && (
+                  errorMsg.includes('Failed to start agent run') ||
+                  errorMsg.includes('Unable to connect') ||
+                  errorMsg.includes('network') ||
+                  errorMsg.includes('fetch failed')
+                ))
+
+              if (isConnectionError && userMessageId && content && agentMode) {
+                logger.info(
+                  { userMessageId },
+                  '[SDK-ERROR] Tracking message for retry on reconnection'
+                )
+                failedDueToConnectionRef.current.set(userMessageId, { content, agentMode })
+              }
 
               return
             }
@@ -1714,24 +1873,59 @@ export const useSendMessage = ({
 
         previousRunStateRef.current = runState
 
+        // Update timestamp to show retry completed successfully
+        if (retryOfMessageId && runState.output && runState.output.type !== 'error') {
+          setUserMessageTimestampNote(retryOfMessageId, 'Retried')
+          logger.info(
+            { retryOfMessageId },
+            'Retry completed successfully'
+          )
+        }
+
         if (!runState.output || runState.output.type === 'error') {
           clearStreamInactivityTimer()
+          clearStreamStallTimer()
           currentRunContextRef.current = null
+          streamHadOutputRef.current = false
+          streamStallTriggeredRef.current = false
           setCanProcessQueue(false)
+
+          const errorMessage =
+            runState.output?.type === 'error'
+              ? runState.output.message
+              : 'No output from agent run'
+
           logger.warn(
-            {
-              errorMessage:
-                runState.output?.type === 'error'
-                  ? runState.output.message
-                  : 'No output from agent run',
-            },
+            { errorMessage },
             'Agent run failed',
           )
+
+          // Track failed messages for batch retry on reconnection (avoids state update cascade)
+          const isConnectionError =
+            !isConnectedRef.current ||
+            (typeof errorMessage === 'string' && (
+              errorMessage.includes('Unable to connect') ||
+              errorMessage.includes('network') ||
+              errorMessage.includes('fetch failed') ||
+              errorMessage.includes('connection')
+            ))
+
+          if (isConnectionError && userMessageId && content && agentMode) {
+            logger.info(
+              { userMessageId },
+              '[RUNSTATE-ERROR] Tracking message for retry on reconnection'
+            )
+            failedDueToConnectionRef.current.set(userMessageId, { content, agentMode })
+          }
+
           return
         }
 
         clearStreamInactivityTimer()
+        clearStreamStallTimer()
         currentRunContextRef.current = null
+        streamHadOutputRef.current = false
+        streamStallTriggeredRef.current = false
         setStreamStatus('idle')
         if (resumeQueue && !isQueuePausedRef?.current) {
           resumeQueue()
@@ -1769,6 +1963,11 @@ export const useSendMessage = ({
           { error: getErrorObject(error) },
           'SDK client.run() failed',
         )
+        clearStreamInactivityTimer()
+        clearStreamStallTimer()
+        currentRunContextRef.current = null
+        streamHadOutputRef.current = false
+        streamStallTriggeredRef.current = false
         setStreamStatus('idle')
         setCanProcessQueue(false)
         updateChainInProgress(false)
@@ -1807,21 +2006,59 @@ export const useSendMessage = ({
           pendingRetriesRef.current.has(userMessageId)
         const timedOutDueToSdk =
           isNetworkError(error) && Boolean(error.streamTimedOut)
+        const streamStalled = streamStallTriggeredRef.current
         streamInactivityTriggeredRef.current = false
+        streamStallTriggeredRef.current = false
+
+        logger.info(
+          {
+            userMessageId,
+            isConnected: isConnectedRef.current,
+            pendingAlreadyScheduled,
+            timedOutDueToSdk,
+            streamStalled,
+            timedOutDueToCli,
+            error: errorMessage
+          },
+          '[SEND-MESSAGE-ERROR] Error caught in sendMessage'
+        )
 
         if (!pendingAlreadyScheduled) {
           const note = !isConnectedRef.current
             ? 'Waiting for connection…'
-            : timedOutDueToCli || timedOutDueToSdk
-              ? 'Timed out…'
-              : 'Stream interrupted'
+            : streamStalled
+              ? 'Stream stalled…'
+              : timedOutDueToCli || timedOutDueToSdk
+                ? 'Timed out…'
+                : 'Stream interrupted'
+
+          logger.info(
+            { note },
+            `[SEND-MESSAGE-ERROR] Scheduling retry with note: "${note}"`
+          )
           schedulePendingRetry({
             userMessageId,
             content,
             agentMode,
             note,
           })
+        } else {
+          logger.info('[SEND-MESSAGE-ERROR] NOT scheduling retry - already pending')
         }
+      }
+      const autoRetryContext = autoRetryContextRef.current
+      if (
+        autoRetryContext &&
+        autoRetryContext.userMessageId === userMessageId
+      ) {
+        autoRetryContextRef.current = null
+        setTimeout(() => {
+          sendMessageSelfRef.current?.({
+            content: autoRetryContext.content,
+            agentMode: autoRetryContext.agentMode,
+            retryOfMessageId: autoRetryContext.userMessageId,
+          })
+        }, 0)
       }
     },
     [
@@ -1860,22 +2097,90 @@ export const useSendMessage = ({
       refreshStreamInactivityTimer,
       isConnectedRef,
       markAiMessageInterrupted,
+      sendMessageSelfRef,
     ],
   )
 
+  // Process connection failures and schedule them for retry (batched to avoid state cascades)
+  const processFailedMessages = useCallback(() => {
+    const failedMessages = Array.from(failedDueToConnectionRef.current.entries())
+
+    if (failedMessages.length === 0) {
+      return
+    }
+
+    logger.info(
+      { count: failedMessages.length },
+      '[BATCH-RETRY] Processing failed messages from disconnection'
+    )
+
+    // Schedule all failed messages for retry in one batch
+    for (const [messageId, messageInfo] of failedMessages) {
+      // Check if already scheduled
+      if (pendingRetriesRef.current.has(messageId)) {
+        continue
+      }
+
+      logger.info(
+        { messageId },
+        '[BATCH-RETRY] Scheduling failed message for retry'
+      )
+      schedulePendingRetry({
+        userMessageId: messageId,
+        content: messageInfo.content,
+        agentMode: messageInfo.agentMode,
+        note: 'Waiting for connection…',
+      })
+    }
+
+    // Clear the failed messages map
+    failedDueToConnectionRef.current.clear()
+  }, [schedulePendingRetry])
+
   const retryPendingMessages = useCallback(async () => {
+    logger.info('[RETRY-PENDING] retryPendingMessages called')
     const pendingEntries = Array.from(pendingRetriesRef.current.entries())
+
+    logger.info(
+      { count: pendingEntries.length },
+      '[RETRY-PENDING] Retrying pending messages after reconnection'
+    )
+
+    if (pendingEntries.length === 0) {
+      logger.debug('[RETRY-PENDING] No messages to retry - returning')
+      return
+    }
+
+    logger.debug('[RETRY-PENDING] Clearing pending queue and resetting count')
     pendingRetriesRef.current.clear()
     setPendingRetryCount(0)
 
     for (const [messageId, payload] of pendingEntries) {
+      logger.info(
+        { messageId, agentMode: payload.agentMode },
+        '[RETRY-PENDING] Retrying message'
+      )
+      logger.debug('[RETRY-PENDING] Calling sendMessage with retry params...')
       await sendMessage({
         content: payload.content,
         agentMode: payload.agentMode,
         retryOfMessageId: messageId,
       })
+      logger.debug(
+        { messageId },
+        '[RETRY-PENDING] Retry call completed'
+      )
     }
+    logger.info('[RETRY-PENDING] All retries completed')
   }, [sendMessage])
 
-  return { sendMessage, clearMessages, pendingRetryCount, retryPendingMessages }
+  sendMessageSelfRef.current = sendMessage
+
+  return {
+    sendMessage,
+    clearMessages,
+    pendingRetryCount,
+    retryPendingMessages,
+    processFailedMessages,
+  }
 }

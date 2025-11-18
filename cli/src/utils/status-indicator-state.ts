@@ -5,6 +5,7 @@ export type StatusIndicatorState =
   | { kind: 'clipboard'; message: string }
   | { kind: 'ctrlC' }
   | { kind: 'connecting' }
+  | { kind: 'reconnected' }
   | { kind: 'waiting' }
   | { kind: 'streaming' }
 
@@ -13,19 +14,21 @@ export type StatusIndicatorStateArgs = {
   streamStatus: StreamStatus
   nextCtrlCWillExit: boolean
   isConnected: boolean
+  showReconnectionMessage?: boolean
 }
 
 /**
  * Determines the status indicator state based on current context.
- * 
+ *
  * State priority (highest to lowest):
  * 1. nextCtrlCWillExit - User pressed Ctrl+C once, warn about exit
- * 2. clipboardMessage - Temporary feedback for clipboard operations
- * 3. connecting - Not connected to backend
- * 4. waiting - Waiting for AI response to start
- * 5. streaming - AI is actively responding
- * 6. idle - No activity
- * 
+ * 2. reconnected - Temporary message after reconnection
+ * 3. clipboardMessage - Temporary feedback for clipboard operations
+ * 4. connecting - Not connected to backend
+ * 5. waiting - Waiting for AI response to start
+ * 6. streaming - AI is actively responding
+ * 7. idle - No activity
+ *
  * @param args - Context for determining indicator state
  * @returns The appropriate state indicator
  */
@@ -34,9 +37,14 @@ export const getStatusIndicatorState = ({
   streamStatus,
   nextCtrlCWillExit,
   isConnected,
+  showReconnectionMessage,
 }: StatusIndicatorStateArgs): StatusIndicatorState => {
   if (nextCtrlCWillExit) {
     return { kind: 'ctrlC' }
+  }
+
+  if (showReconnectionMessage) {
+    return { kind: 'reconnected' }
   }
 
   if (clipboardMessage) {

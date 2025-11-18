@@ -37,15 +37,20 @@ export function getNextInterval(consecutiveSuccesses: number): number {
  * Hook to monitor connection status to the Codebuff backend.
  * Uses adaptive exponential backoff to reduce polling frequency when connection is stable.
  */
-export const useConnectionStatus = () => {
+export const useConnectionStatus = (
+  onReconnected?: (isInitialConnection: boolean) => void,
+) => {
 
-  const [isConnected, setIsConnected] = useState(true)
+  // Start with null to indicate unknown state
+  const [isConnected, setIsConnected] = useState<boolean | null>(null)
 
   useEffect(() => {
     let isMounted = true
     let timeoutId: NodeJS.Timeout | null = null
     let consecutiveSuccesses = 0
     let currentInterval: number = HEALTH_CHECK_CONFIG.INITIAL_INTERVAL
+    // Start with null to properly detect first connection
+    let previousConnected: boolean | null = null
 
     const scheduleNextCheck = (interval: number) => {
       if (!isMounted) return
@@ -56,6 +61,7 @@ export const useConnectionStatus = () => {
       const client = getCodebuffClient()
       if (!client) {
         if (isMounted) {
+          previousConnected = false
           setIsConnected(false)
           consecutiveSuccesses = 0
           currentInterval = HEALTH_CHECK_CONFIG.INITIAL_INTERVAL
@@ -72,6 +78,33 @@ export const useConnectionStatus = () => {
         const connected = await client.checkConnection()
         if (!isMounted) return
 
+        // Detect reconnection (was disconnected/unknown, now connected)
+        // Also handle first connection (for pending messages from previous session)
+        if (connected && (previousConnected === false || previousConnected === null)) {
+          const isInitialConnection = previousConnected === null
+          logger.info(
+            {
+              previousConnected,
+              connected,
+              isInitialConnection,
+              hasCallback: !!onReconnected
+            },
+            isInitialConnection
+              ? '[CONNECTION-CHECK] Initial connection established - checking for pending messages'
+              : '[CONNECTION-CHECK] Connection restored to backend - triggering reconnection handler'
+          )
+          if (onReconnected) {
+            logger.info(
+              { isInitialConnection },
+              '[CONNECTION-CHECK] Calling onReconnected callback'
+            )
+            onReconnected(isInitialConnection)
+          }
+        } else if (!connected && previousConnected === true) {
+          logger.info('[CONNECTION-CHECK] Connection lost!')
+        }
+
+        previousConnected = connected
         setIsConnected(connected)
 
         if (connected) {
@@ -105,6 +138,7 @@ export const useConnectionStatus = () => {
       } catch (error) {
         logger.debug({ error }, 'Connection check failed')
         if (isMounted) {
+          previousConnected = false
           setIsConnected(false)
           consecutiveSuccesses = 0
           currentInterval = HEALTH_CHECK_CONFIG.INITIAL_INTERVAL
@@ -122,7 +156,8 @@ export const useConnectionStatus = () => {
         clearTimeout(timeoutId)
       }
     }
-  }, [])
+  }, [onReconnected])
 
-  return isConnected
+  // Return false while checking initial connection status
+  return isConnected ?? false
 }
