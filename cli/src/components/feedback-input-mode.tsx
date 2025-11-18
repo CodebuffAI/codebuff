@@ -88,6 +88,8 @@ const FeedbackTextSection: React.FC<FeedbackTextSectionProps> = ({
   inputRef,
   width,
 }) => {
+  const inputWidth = Math.max(1, width - FEEDBACK_CONTAINER_HORIZONTAL_INSET)
+
   return (
     <>
       {/* Top separator */}
@@ -115,7 +117,7 @@ const FeedbackTextSection: React.FC<FeedbackTextSectionProps> = ({
           focused={true}
           maxHeight={5}
           minHeight={3}
-          width={80}
+          width={inputWidth}
           textAttributes={undefined}
           ref={inputRef}
           cursorPosition={cursor}
