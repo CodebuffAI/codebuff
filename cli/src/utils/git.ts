@@ -1,7 +1,7 @@
 import { dirname, join } from 'path'
 import { existsSync } from 'fs'
 
-export function findGitRoot(): string {
+export function findGitRoot(): string | null {
   let currentDir = process.cwd()
 
   while (currentDir !== dirname(currentDir)) {
@@ -11,5 +11,5 @@ export function findGitRoot(): string {
     currentDir = dirname(currentDir)
   }
 
-  return process.cwd()
+  return null
 }

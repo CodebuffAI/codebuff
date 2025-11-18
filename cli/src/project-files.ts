@@ -18,7 +18,7 @@ export function setProjectRoot(dir: string) {
 
 export function getProjectRoot() {
   if (!projectRoot) {
-    projectRoot = findGitRoot()
+    projectRoot = findGitRoot() ?? process.cwd()
   }
   return projectRoot
 }

@@ -1,10 +1,10 @@
+import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { CodebuffClient } from '@codebuff/sdk'
 
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
-import { findGitRoot } from './git'
 import { getAuthTokenDetails } from './auth'
 import { loadAgentDefinitions } from './load-agent-definitions'
 import { logger } from './logger'
+import { getProjectRoot } from '../project-files'
 
 let clientInstance: CodebuffClient | null = null
 
@@ -28,12 +28,12 @@ export function getCodebuffClient(): CodebuffClient | null {
       return null
     }
 
-    const gitRoot = findGitRoot()
+    const projectRoot = getProjectRoot()
     try {
       const agentDefinitions = loadAgentDefinitions()
       clientInstance = new CodebuffClient({
         apiKey,
-        cwd: gitRoot,
+        cwd: projectRoot,
         agentDefinitions,
       })
     } catch (error) {
@@ -128,7 +128,11 @@ export function formatToolOutput(output: unknown): string {
       .map((item) => {
         if (item.type === 'json') {
           // Handle errorMessage in the value object
-          if (item.value && typeof item.value === 'object' && 'errorMessage' in item.value) {
+          if (
+            item.value &&
+            typeof item.value === 'object' &&
+            'errorMessage' in item.value
+          ) {
             return String(item.value.errorMessage)
           }
           return toYaml(item.value)
