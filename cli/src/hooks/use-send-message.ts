@@ -36,7 +36,6 @@ const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
   'spawn_agents',
 ])
 
-const STREAM_INACTIVITY_TIMEOUT_MS = 15_000
 const MAX_RETRIES_PER_MESSAGE = 3
 const RETRY_BACKOFF_BASE_DELAY_MS = 1_000
 const RETRY_BACKOFF_MAX_DELAY_MS = 8_000
@@ -360,10 +359,6 @@ export const useSendMessage = ({
   const retryAttemptsRef = useRef<Record<string, number>>({})
   const retryInFlightRef = useRef(false)
   const retryBackoffDelayRef = useRef(RETRY_BACKOFF_BASE_DELAY_MS)
-  const streamInactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  )
-  const streamInactivityTriggeredRef = useRef(false)
   const streamHadOutputRef = useRef(false)
   const currentRunContextRef = useRef<{
     userMessageId: string
@@ -597,52 +592,16 @@ export const useSendMessage = ({
     }
   }, [])
 
-  const clearStreamInactivityTimer = useCallback(() => {
-    if (streamInactivityTimerRef.current) {
-      clearTimeout(streamInactivityTimerRef.current)
-      streamInactivityTimerRef.current = null
-    }
-  }, [])
-
-  const handleStreamInactivityTimeout = useCallback(() => {
-    clearStreamInactivityTimer()
-    const context = currentRunContextRef.current
-    if (!context) {
-      return
-    }
-    streamInactivityTriggeredRef.current = true
-    schedulePendingRetry({
-      ...context,
-      note: 'Timed out…',
-    })
-    const controller = abortControllerRef.current
-    if (controller && !controller.signal.aborted) {
-      controller.abort(new Error('Stream inactivity timeout'))
-    }
-  }, [abortControllerRef, clearStreamInactivityTimer, schedulePendingRetry])
-
-  const refreshStreamInactivityTimer = useCallback(() => {
-    clearStreamInactivityTimer()
-    if (!currentRunContextRef.current) {
-      return
-    }
-    streamInactivityTimerRef.current = setTimeout(
-      handleStreamInactivityTimeout,
-      STREAM_INACTIVITY_TIMEOUT_MS,
-    )
-  }, [clearStreamInactivityTimer, handleStreamInactivityTimeout])
-
   useEffect(() => {
     return () => {
       if (flushTimeoutRef.current) {
         clearTimeout(flushTimeoutRef.current)
         flushTimeoutRef.current = null
       }
-      clearStreamInactivityTimer()
       currentRunContextRef.current = null
       flushPendingUpdates()
     }
-  }, [clearStreamInactivityTimer, flushPendingUpdates])
+  }, [flushPendingUpdates])
 
   const sendMessage = useCallback<SendMessageFn>(
     async (params: ParamsOf<SendMessageFn>) => {
@@ -1119,21 +1078,30 @@ export const useSendMessage = ({
       updateChainInProgress(true)
       let hasReceivedContent = false
       let actualCredits: number | undefined = undefined
+      let settled = false
 
       streamHadOutputRef.current = false
 
       const abortController = new AbortController()
       abortControllerRef.current = abortController
+
+      // Abort listener for immediate UI cleanup.
+      // Note: With shared controller, both SDK (timeout) and user (Ctrl+C) can abort.
+      // This listener only updates UI state - the error handler manages retries.
       abortController.signal.addEventListener('abort', () => {
-        clearStreamInactivityTimer()
-        currentRunContextRef.current = null
+        if (settled) {
+          return
+        }
+        // Update UI immediately for responsive feedback
         streamHadOutputRef.current = false
         setStreamStatus('idle')
-        setCanProcessQueue(false)
         updateChainInProgress(false)
         timerController.stop('aborted')
 
-        markAiMessageInterrupted(aiMessageId)
+        // Note: We intentionally do NOT:
+        // - Set canProcessQueue = false (would block retries)
+        // - Clear currentRunContextRef (error handler needs it)
+        // - Mark message as interrupted (error handler handles it)
       })
 
       currentRunContextRef.current = {
@@ -1141,8 +1109,6 @@ export const useSendMessage = ({
         content,
         agentMode,
       }
-      streamInactivityTriggeredRef.current = false
-      refreshStreamInactivityTimer()
 
       try {
         // Load local agent definitions from .agents directory
@@ -1166,12 +1132,11 @@ export const useSendMessage = ({
           agent: selectedAgentDefinition ?? agentId ?? fallbackAgent,
           prompt: content,
           previousRun: previousRunStateRef.current ?? undefined,
-          signal: abortController.signal,
+          abortController: abortController,
           agentDefinitions: agentDefinitions,
           maxAgentSteps: 40,
 
           handleStreamChunk: (event) => {
-            refreshStreamInactivityTimer()
             if (!streamHadOutputRef.current) {
               streamHadOutputRef.current = true
             }
@@ -1243,7 +1208,6 @@ export const useSendMessage = ({
                 { errorMessage: event.message },
                 'SDK error event received',
               )
-              clearStreamInactivityTimer()
               currentRunContextRef.current = null
               // Stop streaming and update UI
               setStreamStatus('idle')
@@ -1299,8 +1263,6 @@ export const useSendMessage = ({
               const text = event.text
 
               if (typeof text !== 'string' || !text) return
-
-              refreshStreamInactivityTimer()
 
               // Track if main agent (no agentId) started streaming
               if (!hasReceivedContent && !event.agentId) {
@@ -1946,7 +1908,6 @@ export const useSendMessage = ({
         })
 
         if (!runState.output || runState.output.type === 'error') {
-          clearStreamInactivityTimer()
           currentRunContextRef.current = null
           streamHadOutputRef.current = false
           setCanProcessQueue(false)
@@ -1981,7 +1942,6 @@ export const useSendMessage = ({
           return
         }
 
-        clearStreamInactivityTimer()
         currentRunContextRef.current = null
         streamHadOutputRef.current = false
         setStreamStatus('idle')
@@ -2020,13 +1980,14 @@ export const useSendMessage = ({
             }
           }),
         )
+        settled = true
         delete retryAttemptsRef.current[userMessageId]
       } catch (error) {
+        settled = true
         logger.error(
           { error: getErrorObject(error) },
           'SDK client.run() failed',
         )
-        clearStreamInactivityTimer()
         currentRunContextRef.current = null
         streamHadOutputRef.current = false
         setStreamStatus('idle')
@@ -2036,10 +1997,10 @@ export const useSendMessage = ({
 
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error occurred'
-        const timedOutDueToCli = streamInactivityTriggeredRef.current
-        if (!timedOutDueToCli) {
-          markAiMessageInterrupted(aiMessageId)
-        }
+
+        // Mark message as interrupted when an error occurs
+        markAiMessageInterrupted(aiMessageId)
+
         applyMessageUpdate((prev) =>
           prev.map((msg) => {
             if (msg.id !== aiMessageId) {
@@ -2067,10 +2028,8 @@ export const useSendMessage = ({
           userMessageId in pendingRetriesRef.current
         const timedOutDueToSdk =
           isNetworkError(error) && Boolean(error.streamTimedOut)
-        streamInactivityTriggeredRef.current = false
 
         const shouldRetryError =
-          timedOutDueToCli ||
           timedOutDueToSdk ||
           !isConnectedRef.current ||
           isRetryableError(error)
@@ -2091,7 +2050,7 @@ export const useSendMessage = ({
         if (!pendingAlreadyScheduled) {
           const note = !isConnectedRef.current
             ? 'Waiting for connection…'
-            : timedOutDueToCli || timedOutDueToSdk
+            : timedOutDueToSdk
               ? 'Timed out…'
               : 'Stream interrupted'
 
@@ -2133,8 +2092,6 @@ export const useSendMessage = ({
       resumeQueue,
       clearPendingRetryForMessage,
       schedulePendingRetry,
-      clearStreamInactivityTimer,
-      refreshStreamInactivityTimer,
       isConnectedRef,
       markAiMessageInterrupted,
       markUserMessageFailed,

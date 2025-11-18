@@ -104,7 +104,7 @@ export type RunOptions = {
   params?: Record<string, any>
   previousRun?: RunState
   extraToolResults?: ToolResultPart[]
-  signal?: AbortSignal
+  abortController?: AbortController
 }
 
 type RunReturnType = Awaited<ReturnType<typeof run>>
@@ -135,7 +135,7 @@ export async function run({
   params,
   previousRun,
   extraToolResults,
-  signal: externalSignal,
+  abortController: userAbortController,
 }: RunOptions &
   CodebuffClientOptions & {
     apiKey: string
@@ -183,14 +183,25 @@ export async function run({
     })
   }
 
-  const abortController = new AbortController()
+  /**
+   * Abort Controller Architecture:
+   *
+   * Single controller shared between SDK and caller:
+   * - If caller provides abortController: both SDK and caller can abort it
+   * - If not provided: SDK creates one for its own timeout management
+   *
+   * The controller is used for:
+   * - Stream inactivity timeout (SDK aborts after streamTimeoutMs)
+   * - User cancellation (caller can abort anytime, e.g., Ctrl+C)
+   * - Backend API call cancellation (signal passed to fetch)
+   */
+  const abortController = userAbortController || new AbortController()
   const abortSignal = abortController.signal
   const hasStreamTimeout =
     Number.isFinite(streamTimeoutMs) && streamTimeoutMs > 0
   let inactivityTimer: ReturnType<typeof setTimeout> | null = null
   let streamTimedOut = false
   let settled = false
-  let externalAbortHandler: (() => void) | null = null
 
   const clearStreamTimeout = () => {
     if (inactivityTimer) {
@@ -199,78 +210,9 @@ export async function run({
     }
   }
 
-  const removeExternalAbortHandler = () => {
-    if (externalAbortHandler && externalSignal) {
-      externalSignal.removeEventListener('abort', externalAbortHandler)
-      externalAbortHandler = null
-    }
-  }
-
-  if (externalSignal?.aborted) {
-    clearStreamTimeout()
-    return getCancelledRunState()
-  }
-
-  let settleResolve!: (value: RunReturnType) => void
-  let settleReject!: (reason?: unknown) => void
-  const promise = new Promise<RunReturnType>((resolvePromise, rejectPromise) => {
-    settleResolve = (value) => {
-      if (settled) {
-        return
-      }
-      settled = true
-      clearStreamTimeout()
-      removeExternalAbortHandler()
-      resolvePromise(value)
-    }
-    settleReject = (reason) => {
-      if (settled) {
-        return
-      }
-      settled = true
-      clearStreamTimeout()
-      removeExternalAbortHandler()
-      rejectPromise(reason)
-    }
-  })
-
-  const resetStreamTimeout = () => {
-    if (!hasStreamTimeout || settled) {
-      return
-    }
-    clearStreamTimeout()
-    inactivityTimer = setTimeout(() => {
-      if (settled) {
-        return
-      }
-      streamTimedOut = true
-      abortController.abort(new Error('Stream inactivity timeout'))
-      const timeoutError = new NetworkError(
-        `Stream timed out after ${streamTimeoutMs}ms`,
-        { streamTimedOut: true },
-      )
-      settleReject(timeoutError)
-    }, streamTimeoutMs)
-  }
-
-  if (externalSignal) {
-    externalAbortHandler = () => {
-      if (settled) {
-        return
-      }
-      abortController.abort(externalSignal.reason)
-      settleResolve(getCancelledRunState())
-    }
-    externalSignal.addEventListener('abort', externalAbortHandler)
-  }
-
-  async function onError(error: { message: string }) {
-    if (handleEvent) {
-      await handleEvent({ type: 'error', message: error.message })
-    }
-  }
-
+  // Initialize state needed by getCancelledRunState
   let pendingAgentResponse = ''
+
   /** Calculates the current session state if cancelled.
    *
    * This includes the user'e message and pending assistant message.
@@ -296,6 +238,57 @@ export async function run({
         message,
       },
     }
+  }
+
+  // Early return if already aborted
+  if (abortSignal.aborted) {
+    return getCancelledRunState()
+  }
+
+  async function onError(error: { message: string }) {
+    if (handleEvent) {
+      await handleEvent({ type: 'error', message: error.message })
+    }
+  }
+
+  let settleResolve!: (value: RunReturnType) => void
+  let settleReject!: (reason?: unknown) => void
+  const promise = new Promise<RunReturnType>((resolvePromise, rejectPromise) => {
+    settleResolve = (value) => {
+      if (settled) {
+        return
+      }
+      settled = true
+      clearStreamTimeout()
+      resolvePromise(value)
+    }
+    settleReject = (reason) => {
+      if (settled) {
+        return
+      }
+      settled = true
+      clearStreamTimeout()
+      rejectPromise(reason)
+    }
+  })
+
+  const resetStreamTimeout = () => {
+    if (!hasStreamTimeout || settled) {
+      return
+    }
+    clearStreamTimeout()
+    inactivityTimer = setTimeout(() => {
+      if (settled) {
+        return
+      }
+      streamTimedOut = true
+      abortController.abort(new Error('Stream inactivity timeout'))
+      const timeoutError = new NetworkError(
+        `Stream timed out after ${streamTimeoutMs}ms`,
+        { streamTimedOut: true },
+      )
+      settleReject(timeoutError)
+    }, streamTimeoutMs)
   }
 
   const buffers: Record<string | 0, string> = { 0: '' }
@@ -504,7 +497,6 @@ export async function run({
     const errorMessage = 'Invalid API key or user not found'
     await onError({ message: errorMessage })
     clearStreamTimeout()
-    removeExternalAbortHandler()
     return getCancelledRunState(errorMessage)
   }
 
@@ -532,7 +524,7 @@ export async function run({
       userId,
       signal: abortSignal,
     }).catch(async (error) => {
-      if (streamTimedOut || externalSignal?.aborted) {
+      if (streamTimedOut || abortSignal.aborted) {
         return
       }
       const errorMessage = error.message || String(error)
@@ -541,7 +533,6 @@ export async function run({
     })
   } catch (error) {
     clearStreamTimeout()
-    removeExternalAbortHandler()
     throw error
   }
 
