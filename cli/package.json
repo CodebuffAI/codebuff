@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "bin": {
-    "codebuff-tui": "./dist/index.js"
+    "codebuff-tui": "./bin/codecane"
   },
   "exports": {
     ".": {

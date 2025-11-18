@@ -6,11 +6,9 @@
   "bin": {
     "codecane": "index.js"
   },
-  "scripts": {
-    "preuninstall": "node -e \"const fs = require('fs'); const path = require('path'); const os = require('os'); const binaryPath = path.join(os.homedir(), '.config', 'manicode', process.platform === 'win32' ? 'codecane.exe' : 'codecane'); try { fs.unlinkSync(binaryPath) } catch (e) { /* ignore if file doesn't exist */ }\""
-  },
   "files": [
     "index.js",
+    "bin/",
     "README.md"
   ],
   "os": [
@@ -25,9 +23,7 @@
   "engines": {
     "node": ">=16"
   },
-  "dependencies": {
-    "tar": "^6.2.0"
-  },
+  "dependencies": {},
   "repository": {
     "type": "git",
     "url": "https://github.com/CodebuffAI/codebuff.git"
