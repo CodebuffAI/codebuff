@@ -13,6 +13,7 @@ type CategoryHighlightKey = 'success' | 'error' | 'warning' | 'info'
 type CategoryOption = {
   id: 'good_result' | 'bad_result' | 'app_bug' | 'other'
   label: string
+  shortLabel: string
   highlightKey: CategoryHighlightKey
   placeholder: string
 }
@@ -21,6 +22,7 @@ const CATEGORY_OPTIONS: readonly CategoryOption[] = [
   {
     id: 'good_result',
     label: 'Good result',
+    shortLabel: 'Good',
     highlightKey: 'success',
     placeholder:
       'What did you like? (e.g., "Fast and accurate", "Great explanation")',
@@ -28,6 +30,7 @@ const CATEGORY_OPTIONS: readonly CategoryOption[] = [
   {
     id: 'bad_result',
     label: 'Bad result',
+    shortLabel: 'Bad',
     highlightKey: 'error',
     placeholder:
       'What went wrong? (e.g., "Incorrect changes", "Missed the requirement")',
@@ -35,6 +38,7 @@ const CATEGORY_OPTIONS: readonly CategoryOption[] = [
   {
     id: 'app_bug',
     label: 'App bug',
+    shortLabel: 'Bug',
     highlightKey: 'warning',
     placeholder:
       'Report a problem with Codebuff (crashes, errors, UI issues, etc.)',
@@ -42,10 +46,26 @@ const CATEGORY_OPTIONS: readonly CategoryOption[] = [
   {
     id: 'other',
     label: 'Other',
+    shortLabel: 'Other',
     highlightKey: 'info',
     placeholder: 'Tell us more (what happened, what you expected)...',
   },
 ] as const
+
+const FEEDBACK_CONTAINER_HORIZONTAL_INSET = 4 // border + padding on each side
+const CATEGORY_BUTTON_EXTRA_WIDTH = 6 // indicator + padding + border
+const CATEGORY_BUTTON_GAP_WIDTH = 1
+
+const getCategoryRowWidth = (labels: readonly string[]): number =>
+  labels.reduce((total, label, idx) => {
+    const buttonWidth = label.length + CATEGORY_BUTTON_EXTRA_WIDTH
+    const gap = idx === 0 ? 0 : CATEGORY_BUTTON_GAP_WIDTH
+    return total + buttonWidth + gap
+  }, 0)
+
+const FULL_CATEGORY_ROW_WIDTH = getCategoryRowWidth(
+  CATEGORY_OPTIONS.map((option) => option.label),
+)
 
 interface FeedbackTextSectionProps {
   value: string
@@ -140,6 +160,12 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
   const inputRef = externalInputRef || internalInputRef
   const canSubmit = value.trim().length > 0
   const [closeButtonHovered, setCloseButtonHovered] = useState(false)
+  const availableCategoryWidth = Math.max(
+    0,
+    width - FEEDBACK_CONTAINER_HORIZONTAL_INSET,
+  )
+  const shouldUseShortLabels =
+    FULL_CATEGORY_ROW_WIDTH > availableCategoryWidth
 
   // Handle keyboard shortcuts
   useKeyboard(
@@ -226,6 +252,7 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
         {CATEGORY_OPTIONS.map((option) => {
           const optionHighlight = theme[option.highlightKey]
           const isSelected = feedbackCategory === option.id
+          const label = shouldUseShortLabels ? option.shortLabel : option.label
           return (
             <Button
               key={option.id}
@@ -250,7 +277,7 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
                 </span>
                 <span fg={isSelected ? theme.foreground : theme.secondary}>
                   {' '}
-                  {option.label}
+                  {label}
                 </span>
               </text>
             </Button>
