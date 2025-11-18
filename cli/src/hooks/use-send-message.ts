@@ -37,7 +37,6 @@ const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
 ])
 
 const STREAM_INACTIVITY_TIMEOUT_MS = 15_000
-const STREAM_STALL_TIMEOUT_MS = 4_000
 const MAX_RETRIES_PER_MESSAGE = 3
 const RETRY_BACKOFF_BASE_DELAY_MS = 1_000
 const RETRY_BACKOFF_MAX_DELAY_MS = 8_000
@@ -365,15 +364,7 @@ export const useSendMessage = ({
     null,
   )
   const streamInactivityTriggeredRef = useRef(false)
-  const streamStallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const streamStallTriggeredRef = useRef(false)
   const streamHadOutputRef = useRef(false)
-  const autoRetryContextRef = useRef<{
-    userMessageId: string
-    content: string
-    agentMode: AgentMode
-  } | null>(null)
-  const sendMessageSelfRef = useRef<SendMessageFn | null>(null)
   const currentRunContextRef = useRef<{
     userMessageId: string
     content: string
@@ -613,16 +604,8 @@ export const useSendMessage = ({
     }
   }, [])
 
-  const clearStreamStallTimer = useCallback(() => {
-    if (streamStallTimerRef.current) {
-      clearTimeout(streamStallTimerRef.current)
-      streamStallTimerRef.current = null
-    }
-  }, [])
-
   const handleStreamInactivityTimeout = useCallback(() => {
     clearStreamInactivityTimer()
-    clearStreamStallTimer()
     const context = currentRunContextRef.current
     if (!context) {
       return
@@ -636,12 +619,7 @@ export const useSendMessage = ({
     if (controller && !controller.signal.aborted) {
       controller.abort(new Error('Stream inactivity timeout'))
     }
-  }, [
-    abortControllerRef,
-    clearStreamStallTimer,
-    clearStreamInactivityTimer,
-    schedulePendingRetry,
-  ])
+  }, [abortControllerRef, clearStreamInactivityTimer, schedulePendingRetry])
 
   const refreshStreamInactivityTimer = useCallback(() => {
     clearStreamInactivityTimer()
@@ -654,38 +632,6 @@ export const useSendMessage = ({
     )
   }, [clearStreamInactivityTimer, handleStreamInactivityTimeout])
 
-  const handleStreamStallTimeout = useCallback(() => {
-    if (!currentRunContextRef.current || !streamHadOutputRef.current) {
-      return
-    }
-    clearStreamStallTimer()
-    streamStallTriggeredRef.current = true
-    autoRetryContextRef.current = {
-      userMessageId: currentRunContextRef.current.userMessageId,
-      content: currentRunContextRef.current.content,
-      agentMode: currentRunContextRef.current.agentMode,
-    }
-    schedulePendingRetry({
-      ...currentRunContextRef.current,
-      note: 'Stream stalled…',
-    })
-    const controller = abortControllerRef.current
-    if (controller && !controller.signal.aborted) {
-      controller.abort(new Error('Stream stalled'))
-    }
-  }, [abortControllerRef, clearStreamStallTimer, schedulePendingRetry])
-
-  const refreshStreamStallTimer = useCallback(() => {
-    if (!currentRunContextRef.current || !streamHadOutputRef.current) {
-      return
-    }
-    clearStreamStallTimer()
-    streamStallTimerRef.current = setTimeout(
-      handleStreamStallTimeout,
-      STREAM_STALL_TIMEOUT_MS,
-    )
-  }, [clearStreamStallTimer, handleStreamStallTimeout])
-
   useEffect(() => {
     return () => {
       if (flushTimeoutRef.current) {
@@ -693,11 +639,10 @@ export const useSendMessage = ({
         flushTimeoutRef.current = null
       }
       clearStreamInactivityTimer()
-      clearStreamStallTimer()
       currentRunContextRef.current = null
       flushPendingUpdates()
     }
-  }, [clearStreamInactivityTimer, clearStreamStallTimer, flushPendingUpdates])
+  }, [clearStreamInactivityTimer, flushPendingUpdates])
 
   const sendMessage = useCallback<SendMessageFn>(
     async (params: ParamsOf<SendMessageFn>) => {
@@ -1176,17 +1121,13 @@ export const useSendMessage = ({
       let actualCredits: number | undefined = undefined
 
       streamHadOutputRef.current = false
-      streamStallTriggeredRef.current = false
-      clearStreamStallTimer()
 
       const abortController = new AbortController()
       abortControllerRef.current = abortController
       abortController.signal.addEventListener('abort', () => {
         clearStreamInactivityTimer()
-        clearStreamStallTimer()
         currentRunContextRef.current = null
         streamHadOutputRef.current = false
-        streamStallTriggeredRef.current = false
         setStreamStatus('idle')
         setCanProcessQueue(false)
         updateChainInProgress(false)
@@ -1234,7 +1175,6 @@ export const useSendMessage = ({
             if (!streamHadOutputRef.current) {
               streamHadOutputRef.current = true
             }
-            refreshStreamStallTimer()
             if (
               typeof event === 'string' ||
               (event.type === 'reasoning_chunk' &&
@@ -2007,10 +1947,8 @@ export const useSendMessage = ({
 
         if (!runState.output || runState.output.type === 'error') {
           clearStreamInactivityTimer()
-          clearStreamStallTimer()
           currentRunContextRef.current = null
           streamHadOutputRef.current = false
-          streamStallTriggeredRef.current = false
           setCanProcessQueue(false)
 
           const errorMessage =
@@ -2044,10 +1982,8 @@ export const useSendMessage = ({
         }
 
         clearStreamInactivityTimer()
-        clearStreamStallTimer()
         currentRunContextRef.current = null
         streamHadOutputRef.current = false
-        streamStallTriggeredRef.current = false
         setStreamStatus('idle')
         if (resumeQueue && !isQueuePausedRef?.current) {
           resumeQueue()
@@ -2091,10 +2027,8 @@ export const useSendMessage = ({
           'SDK client.run() failed',
         )
         clearStreamInactivityTimer()
-        clearStreamStallTimer()
         currentRunContextRef.current = null
         streamHadOutputRef.current = false
-        streamStallTriggeredRef.current = false
         setStreamStatus('idle')
         setCanProcessQueue(false)
         updateChainInProgress(false)
@@ -2133,12 +2067,9 @@ export const useSendMessage = ({
           userMessageId in pendingRetriesRef.current
         const timedOutDueToSdk =
           isNetworkError(error) && Boolean(error.streamTimedOut)
-        const streamStalled = streamStallTriggeredRef.current
         streamInactivityTriggeredRef.current = false
-        streamStallTriggeredRef.current = false
 
         const shouldRetryError =
-          streamStalled ||
           timedOutDueToCli ||
           timedOutDueToSdk ||
           !isConnectedRef.current ||
@@ -2154,18 +2085,15 @@ export const useSendMessage = ({
           if (resumeQueue && !isQueuePausedRef?.current) {
             resumeQueue()
           }
-          autoRetryContextRef.current = null
           return
         }
 
         if (!pendingAlreadyScheduled) {
           const note = !isConnectedRef.current
             ? 'Waiting for connection…'
-            : streamStalled
-              ? 'Stream stalled…'
-              : timedOutDueToCli || timedOutDueToSdk
-                ? 'Timed out…'
-                : 'Stream interrupted'
+            : timedOutDueToCli || timedOutDueToSdk
+              ? 'Timed out…'
+              : 'Stream interrupted'
 
           schedulePendingRetry({
             userMessageId,
@@ -2174,20 +2102,6 @@ export const useSendMessage = ({
             note,
           })
         }
-      }
-      const autoRetryContext = autoRetryContextRef.current
-      if (
-        autoRetryContext &&
-        autoRetryContext.userMessageId === userMessageId
-      ) {
-        autoRetryContextRef.current = null
-        setTimeout(() => {
-          sendMessageSelfRef.current?.({
-            content: autoRetryContext.content,
-            agentMode: autoRetryContext.agentMode,
-            retryOfMessageId: autoRetryContext.userMessageId,
-          })
-        }, 0)
       }
     },
     [
@@ -2224,7 +2138,6 @@ export const useSendMessage = ({
       isConnectedRef,
       markAiMessageInterrupted,
       markUserMessageFailed,
-      sendMessageSelfRef,
     ],
   )
 
@@ -2340,7 +2253,6 @@ export const useSendMessage = ({
     setCanProcessQueue,
   ])
 
-  sendMessageSelfRef.current = sendMessage
 
   return {
     sendMessage,
