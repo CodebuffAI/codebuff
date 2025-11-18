@@ -609,12 +609,14 @@ const AgentBranchWrapper = memo(
       onToggleCollapsed(agentBlock.agentId)
     }, [onToggleCollapsed, agentBlock.agentId])
 
-    // Create a status message for editor-best-of-n agent
+    // Create a status message for editor-best-of-n and thinker-best-of-n agents
     const nParameterMessage =
       agentBlock.params?.n !== undefined &&
-      agentBlock.agentType.includes('editor-best-of-n')
+      (agentBlock.agentType.includes('editor-best-of-n')
         ? `Generating ${agentBlock.params.n} implementations...`
-        : undefined
+        : agentBlock.agentType.includes('thinker-best-of-n')
+          ? `Generating ${agentBlock.params.n} deep thoughts...`
+          : undefined)
 
     return (
       <box key={keyPrefix} style={{ flexDirection: 'column', gap: 0 }}>

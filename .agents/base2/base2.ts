@@ -112,6 +112,8 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
   ${buildArray(
     '- Spawn context-gathering agents (file pickers, code-searcher, directory-lister, glob-matcher, and web/docs researchers) before making edits.',
+    isMax &&
+      '- Spawn the thinker-best-of-n-gpt-5 after gathering context to solve complex problems.',
     `- Spawn a ${isMax ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
     '- Spawn commanders sequentially if the second command depends on the the first.',
   ).join('\n  ')}
@@ -247,6 +249,7 @@ function buildImplementationStepPrompt({
       `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
     !isFast &&
       `You must spawn the ${isMax ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement code changes, since it will generate the best code changes.`,
+    isMax && 'Spawn the thinker-best-of-n-gpt-5 to solve complex problems.',
     `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}. Don't repeat yourself -- especially if you already summarized your changes then just end your turn.`,
   ).join('\n')
 }

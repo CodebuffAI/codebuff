@@ -1,7 +1,11 @@
 import { publisher } from '../../constants'
 
 import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
-import type { AgentStepContext, ToolCall } from '../../types/agent-definition'
+import type {
+  AgentStepContext,
+  StepText,
+  ToolCall,
+} from '../../types/agent-definition'
 
 export function createThinkerBestOfN(
   model: 'sonnet' | 'gpt-5',
@@ -18,7 +22,7 @@ export function createThinkerBestOfN(
     includeMessageHistory: true,
     inheritParentSystemPrompt: true,
 
-    toolNames: ['spawn_agents', 'set_messages', 'set_output'],
+    toolNames: ['spawn_agents'],
     spawnableAgents: ['thinker-selector'],
 
     inputSchema: {
@@ -37,19 +41,11 @@ export function createThinkerBestOfN(
         },
       },
     },
-    outputMode: 'structured_output',
+    outputMode: 'last_message',
 
     instructionsPrompt: `You are one agent within the thinker-best-of-n. You were spawned to generate deep thinking about the user's request.
-
-Your task is to think deeply, step by step, about the user request and how best to approach it.
-
-Consider edge cases, potential issues, and alternative approaches. Also, propose reading files or spawning agents to get more context that would be helpful for solving the problem.
-
-Come up with a list of insights that would help someone arrive at the best solution.
-
-Try not to be too prescriptive or confident in one solution. Instead, give clear arguments and reasoning.
-
-You must be extremely concise and to the point.
+    
+Answer the user's query to the best of your ability and be extremely concise and to the point.
 
 **Important**: Do not use any tools! You are only thinking!`,
 
@@ -64,7 +60,6 @@ function* handleSteps({
 }: AgentStepContext): ReturnType<
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
-  const selectorAgent = 'thinker-selector'
   const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 5))
 
   // Use GENERATE_N to generate n thinking outputs
@@ -86,7 +81,7 @@ function* handleSteps({
     input: {
       agents: [
         {
-          agent_type: selectorAgent,
+          agent_type: 'thinker-selector',
           params: { thoughts },
         },
       ],
@@ -100,29 +95,25 @@ function* handleSteps({
 
   if ('errorMessage' in selectorOutput) {
     yield {
-      toolName: 'set_output',
-      input: { error: selectorOutput.errorMessage },
-    } satisfies ToolCall<'set_output'>
+      type: 'STEP_TEXT',
+      text: selectorOutput.errorMessage,
+    } satisfies StepText
     return
   }
   const { thoughtId } = selectorOutput
   const chosenThought = thoughts.find((thought) => thought.id === thoughtId)
   if (!chosenThought) {
     yield {
-      toolName: 'set_output',
-      input: { error: 'Failed to find chosen thinking output.' },
-    } satisfies ToolCall<'set_output'>
+      type: 'STEP_TEXT',
+      text: 'Failed to find chosen thinking output.',
+    } satisfies StepText
     return
   }
 
-  // Set output with the chosen thinking
   yield {
-    toolName: 'set_output',
-    input: {
-      response: chosenThought.content,
-    },
-    includeToolCall: false,
-  } satisfies ToolCall<'set_output'>
+    type: 'STEP_TEXT',
+    text: chosenThought.content,
+  } satisfies StepText
 
   function extractSpawnResults<T>(
     results: any[] | undefined,
