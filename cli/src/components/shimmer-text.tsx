@@ -2,6 +2,7 @@ import { TextAttributes } from '@opentui/core'
 import React, { useEffect, useMemo, useState } from 'react'
 
 import { useTheme } from '../hooks/use-theme'
+import { SHIMMER_INTERVAL_MS } from '../utils/ui-constants'
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value))
@@ -130,7 +131,7 @@ const generatePaletteFromPrimary = (
 
 export const ShimmerText = ({
   text,
-  interval = 180,
+  interval = SHIMMER_INTERVAL_MS,
   colors,
   primaryColor,
 }: {
@@ -145,7 +146,7 @@ export const ShimmerText = ({
   const numChars = chars.length
 
   if (numChars === 0) {
-    return null
+    return <></>
   }
 
   useEffect(() => {

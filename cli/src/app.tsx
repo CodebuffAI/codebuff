@@ -183,7 +183,7 @@ export const App = ({
             dense
           />
         </box>
-        {validationErrors.length > 0 && networkStatus.isOnline && (
+        {validationErrors.length > 0 && networkStatus.validation.isReachable && (
           <box style={{ flexDirection: 'column', gap: 0 }}>
             {createValidationErrorBlocks({
               errors: validationErrors,
@@ -210,14 +210,14 @@ export const App = ({
     isAgentListCollapsed,
     validationErrors,
     separatorWidth,
-    networkStatus.isOnline,
+    networkStatus.validation.isReachable,
   ])
 
   // Only show login modal for actual authentication failures, not network errors
   if (
     requireAuth !== null &&
     isAuthenticated === false &&
-    networkStatus.isOnline // Only require login when we're online
+    networkStatus.auth.isReachable // Only require login when auth is reachable
   ) {
     return (
       <LoginModal

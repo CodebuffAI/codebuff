@@ -42,7 +42,11 @@ import { loadLocalAgents } from './utils/local-agent-registry'
 import { buildMessageTree } from './utils/message-tree-utils'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
-import { BORDER_CHARS } from './utils/ui-constants'
+import {
+  BORDER_CHARS,
+  RECONNECTION_MESSAGE_DURATION_MS,
+  RECONNECTION_RETRY_DELAY_MS,
+} from './utils/ui-constants'
 
 import type { ChatMessage, ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
@@ -219,11 +223,11 @@ export const Chat = ({
         clearTimeout(reconnectionTimeoutRef.current)
       }
 
-      // Hide the message after 2 seconds
+      // Hide the message after the configured duration
       reconnectionTimeoutRef.current = setTimeout(() => {
         setShowReconnectionMessage(false)
         reconnectionTimeoutRef.current = null
-      }, 2000)
+      }, RECONNECTION_MESSAGE_DURATION_MS)
     }
 
     // Always trigger retry check (for both initial connection and reconnection)
@@ -560,6 +564,21 @@ export const Chat = ({
     continueChatId,
   })
 
+  const offlineBannerMessage = useMemo(() => {
+    const baseMessage = `⚠️ Network Error: ${
+      networkStatus.error?.message ?? 'Connection lost'
+    }`
+    const retryMessage =
+      pendingRetryCount > 0
+        ? ` • ${pendingRetryCount} message${
+            pendingRetryCount === 1 ? '' : 's'
+          } will retry when the connection is restored`
+        : ''
+    const guidance =
+      ' • Verify your API key or network connection before retrying.'
+    return `${baseMessage}${retryMessage}${guidance}`
+  }, [networkStatus.error, pendingRetryCount])
+
   sendMessageRef.current = sendMessage
   retryPendingMessagesRef.current = retryPendingMessages
   processFailedMessagesRef.current = processFailedMessages
@@ -569,13 +588,13 @@ export const Chat = ({
     if (connectionEstablished > 0 && pendingRetryCount > 0) {
       logger.info(
         { pendingRetryCount, connectionEstablished },
-        `[RETRY-EFFECT] CONDITIONS MET! Will retry ${pendingRetryCount} pending message(s) after 500ms delay...`
+        `[RETRY-EFFECT] CONDITIONS MET! Will retry ${pendingRetryCount} pending message(s) after ${RECONNECTION_RETRY_DELAY_MS}ms delay...`
       )
       // Small delay to ensure the connection is fully established
       const timer = setTimeout(() => {
         logger.info('[RETRY-EFFECT] Calling retryPendingMessages()')
         retryPendingMessagesRef.current?.()
-      }, 500)
+      }, RECONNECTION_RETRY_DELAY_MS)
       return () => {
         clearTimeout(timer)
       }
@@ -864,7 +883,9 @@ export const Chat = ({
   )
 
   const validationBanner = useValidationBanner({
-    liveValidationErrors: networkStatus.isOnline ? validationErrors : [],
+    liveValidationErrors: networkStatus.validation.isReachable
+      ? validationErrors
+      : [],
     loadedAgentsData,
     theme,
   })
@@ -1063,11 +1084,16 @@ export const Chat = ({
             paddingBottom: 1,
             paddingLeft: 1,
             paddingRight: 1,
-            backgroundColor: '#333333',
+            backgroundColor: theme.surface ?? theme.background ?? '#333333',
           }}
         >
-          <text style={{ fg: '#FFA500', wrapMode: 'word' }}>
-            ⚠️ Network Error: {networkStatus.error.message}
+          <text
+            style={{
+              fg: theme.warning ?? theme.foreground,
+              wrapMode: 'word',
+            }}
+          >
+            {offlineBannerMessage}
           </text>
         </box>
       )}

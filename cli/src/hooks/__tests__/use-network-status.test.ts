@@ -1,8 +1,5 @@
-import { describe, expect, test, beforeEach, afterEach, spyOn } from 'bun:test'
-import { renderHook } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import React from 'react'
-import { useNetworkStatus } from '../use-network-status'
+import { describe, expect, test, spyOn } from 'bun:test'
+import { useNetworkStatus, type NetworkStatus } from '../use-network-status'
 import * as useAuthQueryModule from '../use-auth-query'
 
 /**
@@ -60,7 +57,7 @@ describe('useNetworkStatus', () => {
       mockUseAuthQuery.mockRestore()
     })
 
-    test('detects validation network errors', () => {
+    test('reports validation degradation without marking offline', () => {
       const mockAuthQuery = {
         error: null,
         isError: false,
@@ -75,10 +72,12 @@ describe('useNetworkStatus', () => {
         validationNetworkError: 'Failed to connect to validation API',
       })
 
-      expect(result.isOnline).toBe(false)
+      expect(result.isOnline).toBe(true)
       expect(result.error).not.toBeNull()
       expect(result.error?.source).toBe('validation')
       expect(result.error?.message).toBe('Failed to connect to validation API')
+      expect(result.validation.isReachable).toBe(false)
+      expect(result.auth.isReachable).toBe(true)
 
       // Restore original
       mockUseAuthQuery.mockRestore()
@@ -137,43 +136,30 @@ describe('useNetworkStatus', () => {
   })
 
   describe('type definitions', () => {
-    test('NetworkStatus type is correctly defined', () => {
-      type NetworkStatus =
-        | { isOnline: true; error: null }
-        | { isOnline: false; error: { source: 'auth' | 'validation' | 'unknown'; message: string } }
-
-      const onlineStatus: NetworkStatus = {
+    test('NetworkStatus shape includes auth and validation fields', () => {
+      const status: NetworkStatus = {
         isOnline: true,
         error: null,
+        auth: { isReachable: true, error: null },
+        validation: { isReachable: false, error: 'Validation unavailable' },
       }
 
-      const offlineStatus: NetworkStatus = {
-        isOnline: false,
-        error: {
-          source: 'auth',
-          message: 'Network error',
-        },
-      }
-
-      expect(onlineStatus.isOnline).toBe(true)
-      expect(onlineStatus.error).toBeNull()
-      expect(offlineStatus.isOnline).toBe(false)
-      expect(offlineStatus.error.source).toBe('auth')
+      expect(status.isOnline).toBe(true)
+      expect(status.error).toBeNull()
+      expect(status.auth.isReachable).toBe(true)
+      expect(status.validation.isReachable).toBe(false)
+      expect(status.validation.error).toBe('Validation unavailable')
     })
 
     test('error sources are exhaustive', () => {
-      const sources = ['auth', 'validation', 'unknown']
+      const sources: Array<NetworkStatus['error']> = [
+        { source: 'auth', message: 'Auth down' },
+        { source: 'validation', message: 'Validation down' },
+        { source: 'unknown', message: 'Unknown' },
+      ]
 
-      sources.forEach(source => {
-        const status = {
-          isOnline: false,
-          error: {
-            source: source as 'auth' | 'validation' | 'unknown',
-            message: 'Test error',
-          },
-        }
-
-        expect(['auth', 'validation', 'unknown']).toContain(status.error.source)
+      sources.forEach((error) => {
+        expect(['auth', 'validation', 'unknown']).toContain(error?.source)
       })
     })
   })

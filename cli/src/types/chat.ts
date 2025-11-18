@@ -94,6 +94,8 @@ export type ChatMessage = {
   credits?: number
   completionTime?: string
   isComplete?: boolean
+  isError?: boolean
+  errorMessage?: string
   metadata?: Record<string, any>
 }
 

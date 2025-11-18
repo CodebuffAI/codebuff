@@ -1,10 +1,19 @@
-import { useState, useEffect, useCallback } from 'react'
 import { useAuthQuery } from './use-auth-query'
 import { isNetworkError } from '@codebuff/sdk'
 
-export type NetworkStatus =
-  | { isOnline: true; error: null }
-  | { isOnline: false; error: { source: 'auth' | 'validation' | 'unknown'; message: string } }
+export type NetworkStatusErrorSource = 'auth' | 'validation' | 'unknown'
+
+export interface NetworkStatusDetails {
+  isReachable: boolean
+  error: string | null
+}
+
+export interface NetworkStatus {
+  isOnline: boolean
+  error: { source: NetworkStatusErrorSource; message: string } | null
+  auth: NetworkStatusDetails
+  validation: NetworkStatusDetails
+}
 
 interface UseNetworkStatusOptions {
   validationNetworkError?: string | null
@@ -12,40 +21,48 @@ interface UseNetworkStatusOptions {
 
 /**
  * Unified hook for network status detection.
- * Consolidates network error detection from auth and validation into a single source of truth.
+ * Keeps login/auth logic responsive even if the validation service is degraded.
  */
-export function useNetworkStatus(options: UseNetworkStatusOptions = {}): NetworkStatus {
+export function useNetworkStatus(
+  options: UseNetworkStatusOptions = {},
+): NetworkStatus {
   const { validationNetworkError } = options
   const authQuery = useAuthQuery()
 
-  // Check auth query for network errors
-  const authNetworkError = authQuery.error && isNetworkError(authQuery.error)
-    ? authQuery.error.message || 'Unable to reach server'
-    : null
+  const authNetworkError =
+    authQuery.error && isNetworkError(authQuery.error)
+      ? authQuery.error.message || 'Unable to reach server'
+      : null
 
-  // Determine overall network status
-  if (authNetworkError) {
-    return {
-      isOnline: false,
-      error: {
-        source: 'auth',
-        message: authNetworkError,
-      },
-    }
+  const authStatus: NetworkStatusDetails = {
+    isReachable: authNetworkError == null,
+    error: authNetworkError,
   }
 
-  if (validationNetworkError) {
-    return {
-      isOnline: false,
-      error: {
-        source: 'validation',
-        message: validationNetworkError,
-      },
+  const validationStatus: NetworkStatusDetails = {
+    isReachable: !validationNetworkError,
+    error: validationNetworkError ?? null,
+  }
+
+  let consolidatedError: NetworkStatus['error'] = null
+
+  if (!authStatus.isReachable) {
+    consolidatedError = {
+      source: 'auth',
+      message: authStatus.error ?? 'Unable to reach server',
+    }
+  } else if (!validationStatus.isReachable) {
+    consolidatedError = {
+      source: 'validation',
+      message:
+        validationStatus.error ?? 'Validation service is temporarily unavailable',
     }
   }
 
   return {
-    isOnline: true,
-    error: null,
+    isOnline: authStatus.isReachable,
+    error: consolidatedError,
+    auth: authStatus,
+    validation: validationStatus,
   }
 }
