@@ -35,7 +35,7 @@ jobs:
       - name: Calculate and update production version
         id: bump_version
         run: |
-          cd npm-app/release
+          cd cli/release
 
           # Get current version and bump it
           CURRENT_VERSION=$(bun -e "console.log(require('./package.json').version)")
@@ -58,7 +58,7 @@ jobs:
           git stash
           git pull --rebase origin main
           git stash pop
-          git add npm-app/release/package.json
+          git add cli/release/package.json
           git commit -m "Bump version to ${{ steps.bump_version.outputs.new_version }}"
           git push
 
