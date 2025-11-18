@@ -274,7 +274,7 @@ export const ShimmerText = ({
     if (charColor === currentColor && charAttr === currentAttr) {
       buffer += char
     } else {
-      if (buffer) {
+      if (buffer && currentColor !== undefined && currentAttr !== undefined) {
         parts.push({
           text: buffer,
           color: currentColor,
