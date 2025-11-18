@@ -684,14 +684,6 @@ export const useSendMessage = ({
         return
       }
 
-      if (retryOfMessageId) {
-        setUserMessageTimestampNote(retryOfMessageId, 'Retrying...')
-        logger.info(
-          { retryOfMessageId },
-          'Updated user message timestamp to show retry in progress'
-        )
-      }
-
       clearPendingRetryForMessage(userMessageId)
 
       // Update last message mode
@@ -1873,15 +1865,6 @@ export const useSendMessage = ({
 
         previousRunStateRef.current = runState
 
-        // Update timestamp to show retry completed successfully
-        if (retryOfMessageId && runState.output && runState.output.type !== 'error') {
-          setUserMessageTimestampNote(retryOfMessageId, 'Retried')
-          logger.info(
-            { retryOfMessageId },
-            'Retry completed successfully'
-          )
-        }
-
         if (!runState.output || runState.output.type === 'error') {
           clearStreamInactivityTimer()
           clearStreamStallTimer()
@@ -2154,6 +2137,21 @@ export const useSendMessage = ({
     logger.debug('[RETRY-PENDING] Clearing pending queue and resetting count')
     pendingRetriesRef.current.clear()
     setPendingRetryCount(0)
+
+    // Add a divider message to show retry is happening
+    const dividerMessage: ChatMessage = {
+      id: `retry-divider-${Date.now()}`,
+      variant: 'ai',
+      content: '',
+      blocks: [
+        {
+          type: 'mode-divider',
+          mode: 'Retried',
+        },
+      ],
+      timestamp: formatTimestamp(),
+    }
+    applyMessageUpdate((prev) => [...prev, dividerMessage])
 
     for (const [messageId, payload] of pendingEntries) {
       logger.info(
