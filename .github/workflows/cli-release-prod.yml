@@ -29,14 +29,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
       - uses: ./.github/actions/setup-project
 
       - name: Calculate and update production version
         id: bump_version
         run: |
-          cd cli/release
+          cd npm-app/release
 
           # Get current version and bump it
           CURRENT_VERSION=$(bun -e "console.log(require('./package.json').version)")
@@ -59,7 +58,7 @@ jobs:
           git stash
           git pull --rebase origin main
           git stash pop
-          git add cli/release/package.json
+          git add npm-app/release/package.json
           git commit -m "Bump version to ${{ steps.bump_version.outputs.new_version }}"
           git push
 
