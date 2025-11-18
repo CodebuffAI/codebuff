@@ -630,3 +630,44 @@ Typing `@` scans the local `.agents` directory and surfaces agent `displayName`s
 ## Streaming Markdown Optimization
 
 Streaming markdown renders as plain text until the message or agent finishes. This prevents scroll jitter that occurred when partial formatting changed line heights mid-stream.
+
+## Bun Runtime Stability with React State Updates
+
+**CRITICAL**: Bun can crash with segmentation faults when cascading React state updates occur rapidly, especially during error handling or network disconnections.
+
+### Crash Signature
+
+```
+panic(main thread): Segmentation fault at address 0x10
+oh no: Bun has crashed. This indicates a bug in Bun, not your code.
+```
+
+### Common Triggers
+
+1. **Multiple simultaneous state updates** - When several async operations complete/fail at once
+2. **Error handler state updates** - Calling setState() from error handlers that fire for multiple failures
+3. **Network disconnection cascades** - When server dies while multiple operations are in progress
+4. **Rapid useEffect re-triggers** - Effects that depend on frequently changing values
+
+### General Guidelines
+
+1. **Batch state updates when possible** - Use a single setState() call instead of multiple
+2. **Be cautious in error handlers** - Avoid triggering state updates for every error; collect and batch instead
+3. **Debounce frequent updates** - If state changes rapidly, add debouncing
+4. **Test with multiple simultaneous failures** - Kill the server while operations are pending
+5. **Avoid complex state logic in event handlers** - Keep SDK/network event handlers simple
+6. **Use refs for values that don't need to trigger re-renders** - Reduces unnecessary effect runs
+
+### Example Issue (November 2024)
+
+When implementing automatic retry on reconnection, scheduling retries in both SDK error handlers and runState error handlers caused crashes when the server was killed while messages were queued. Each queued message would fail and call `setPendingRetryCount()`, triggering a cascade of state updates that crashed Bun.
+
+**Solution**: Moved retry scheduling to a single, controlled location (the existing catch block) instead of adding redundant retry points in multiple error handlers.
+
+### Key Takeaway
+
+**Bun's React reconciler is less robust than Node.js when handling rapid state changes.** Code that works fine in Node.js may crash Bun under stress. Always test scenarios involving:
+- Multiple simultaneous async operations
+- Network failures with pending operations
+- Error cascades
+- Rapid state transitions
