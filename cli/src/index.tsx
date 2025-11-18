@@ -9,7 +9,11 @@ import { validateAgents } from '@codebuff/sdk'
 import { render } from '@opentui/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Command } from 'commander'
+import { enableMapSet } from 'immer'
 import React from 'react'
+
+// Enable Map and Set support in Immer globally (once at app initialization)
+enableMapSet()
 
 import { App } from './app'
 import { initializeThemeStore } from './hooks/use-theme'

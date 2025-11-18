@@ -10,6 +10,12 @@ import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
 import { isTextBlock, isToolBlock } from '../types/chat'
 import { logger } from '../utils/logger'
 import { type MarkdownPalette } from '../utils/markdown-renderer'
+import {
+  useFeedbackStore,
+  selectIsFeedbackOpenForMessage,
+  selectHasSubmittedFeedback,
+  selectMessageFeedbackCategory,
+} from '../state/feedback-store'
 
 import type {
   ContentBlock,
@@ -46,11 +52,7 @@ interface MessageBlockProps {
   onBuildFast: () => void
   onBuildMax: () => void
   onFeedback?: (messageId: string) => void
-  feedbackOpenMessageId?: string | null
-  feedbackMode?: boolean
   onCloseFeedback?: () => void
-  messagesWithFeedback?: Set<string>
-  messageFeedbackCategories?: Map<string, string>
 }
 
 export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
@@ -76,11 +78,7 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
     onBuildFast,
     onBuildMax,
     onFeedback,
-    feedbackOpenMessageId,
-    feedbackMode,
     onCloseFeedback,
-    messagesWithFeedback,
-    messageFeedbackCategories,
   } = props
   useWhyDidYouUpdateById('MessageBlock', messageId, props, {
     logLevel: 'debug',
@@ -88,7 +86,147 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
   })
 
   const theme = useTheme()
+  const isFeedbackOpen = useFeedbackStore(selectIsFeedbackOpenForMessage(messageId))
+  const hasSubmittedFeedback = useFeedbackStore(selectHasSubmittedFeedback(messageId))
+  const selectedFeedbackCategory = useFeedbackStore(selectMessageFeedbackCategory(messageId))
+
   const resolvedTextColor = textColor ?? theme.foreground
+  const shouldShowLoadingTimer = isAi && isLoading && !isComplete
+  const shouldShowCompletionFooter = isAi && isComplete
+  const canRequestFeedback =
+    shouldShowCompletionFooter && !hasSubmittedFeedback
+  const isGoodOrBadSelection =
+    selectedFeedbackCategory === 'good_result' ||
+    selectedFeedbackCategory === 'bad_result'
+  const shouldShowSubmittedFeedbackState =
+    shouldShowCompletionFooter && hasSubmittedFeedback && isGoodOrBadSelection
+  const shouldRenderFeedbackButton =
+    Boolean(onFeedback) && (canRequestFeedback || shouldShowSubmittedFeedbackState)
+
+  const handleFeedbackOpen = useCallback(() => {
+    if (!canRequestFeedback || !onFeedback) return
+    onFeedback(messageId)
+  }, [canRequestFeedback, onFeedback, messageId])
+
+  const handleFeedbackClose = useCallback(() => {
+    if (!canRequestFeedback) return
+    onCloseFeedback?.()
+  }, [canRequestFeedback, onCloseFeedback])
+
+  const renderLoadingTimer = () => {
+    if (!shouldShowLoadingTimer) {
+      return null
+    }
+    return (
+      <text
+        attributes={TextAttributes.DIM}
+        style={{
+          wrapMode: 'none',
+          marginTop: 0,
+          marginBottom: 0,
+          alignSelf: 'flex-end',
+        }}
+      >
+        <ElapsedTimer
+          startTime={timerStartTime}
+          attributes={TextAttributes.DIM}
+        />
+      </text>
+    )
+  }
+
+  const renderCompletionFooter = () => {
+    if (!shouldShowCompletionFooter) {
+      return null
+    }
+
+    const footerItems: { key: string; node: React.ReactNode }[] = []
+    if (completionTime) {
+      footerItems.push({
+        key: 'time',
+        node: (
+          <text
+            attributes={TextAttributes.DIM}
+            style={{
+              wrapMode: 'none',
+              fg: theme.secondary,
+              marginTop: 0,
+              marginBottom: 0,
+            }}
+          >
+            {completionTime}
+          </text>
+        ),
+      })
+    }
+    if (typeof credits === 'number' && credits > 0) {
+      footerItems.push({
+        key: 'credits',
+        node: (
+          <text
+            attributes={TextAttributes.DIM}
+            style={{
+              wrapMode: 'none',
+              fg: theme.secondary,
+              marginTop: 0,
+              marginBottom: 0,
+            }}
+          >
+            {pluralize(credits, 'credit')}
+          </text>
+        ),
+      })
+    }
+    if (shouldRenderFeedbackButton) {
+      footerItems.push({
+        key: 'feedback',
+        node: (
+          <FeedbackIconButton
+            onClick={handleFeedbackOpen}
+            onClose={handleFeedbackClose}
+            isOpen={canRequestFeedback ? isFeedbackOpen : false}
+            messageId={messageId}
+            selectedCategory={selectedFeedbackCategory}
+            hasSubmittedFeedback={hasSubmittedFeedback}
+          />
+        ),
+      })
+    }
+
+    if (footerItems.length === 0) {
+      return null
+    }
+
+    return (
+      <box
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          alignSelf: 'flex-end',
+          gap: 1,
+        }}
+      >
+        {footerItems.map((item, idx) => (
+          <React.Fragment key={item.key}>
+            {idx > 0 && (
+              <text
+                attributes={TextAttributes.DIM}
+                style={{
+                  wrapMode: 'none',
+                  fg: theme.muted,
+                  marginTop: 0,
+                  marginBottom: 0,
+                }}
+              >
+                •
+              </text>
+            )}
+            {item.node}
+          </React.Fragment>
+        ))}
+      </box>
+    )
+  }
 
   return (
     <>
@@ -137,71 +275,8 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
       )}
       {isAi && (
         <>
-          {isLoading && !isComplete && (
-            <text
-              attributes={TextAttributes.DIM}
-              style={{
-                wrapMode: 'none',
-                marginTop: 0,
-                marginBottom: 0,
-                alignSelf: 'flex-end',
-              }}
-            >
-              <ElapsedTimer
-                startTime={timerStartTime}
-                attributes={TextAttributes.DIM}
-              />
-            </text>
-          )}
-          {isComplete && (
-            <box
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                alignSelf: 'flex-end',
-                gap: 1,
-              }}
-            >
-              <text
-                attributes={TextAttributes.DIM}
-                style={{
-                  wrapMode: 'none',
-                  fg: theme.secondary,
-                  marginTop: 0,
-                  marginBottom: 0,
-                }}
-              >
-                {completionTime}
-                {typeof credits === 'number' &&
-                  credits > 0 &&
-                  ` • ${pluralize(credits, 'credit')}`}
-              </text>
-              {!messagesWithFeedback?.has(messageId) && (
-                <>
-                  <text
-                    attributes={TextAttributes.DIM}
-                    style={{
-                      wrapMode: 'none',
-                      fg: theme.muted,
-                      marginTop: 0,
-                      marginBottom: 0,
-                    }}
-                  >
-                    •
-                  </text>
-                  <FeedbackIconButton
-                    onClick={() => onFeedback?.(messageId)}
-                    onClose={onCloseFeedback}
-                    isOpen={Boolean(
-                      feedbackMode && feedbackOpenMessageId === messageId,
-                    )}
-                    messageId={messageId}
-                    selectedCategory={messageFeedbackCategories?.get(messageId)}
-                  />
-                </>
-              )}
-            </box>
-          )}
+          {renderLoadingTimer()}
+          {renderCompletionFooter()}
         </>
       )}
     </>

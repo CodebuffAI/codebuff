@@ -27,7 +27,7 @@ import type { SendMessageFn } from '../types/contracts/send-message'
 import type { ParamsOf } from '../types/function-params'
 import type { SetElement } from '../types/utils'
 import type { AgentMode } from '../utils/constants'
-import type { AgentDefinition, ToolName } from '@codebuff/sdk'
+import type { AgentDefinition, RunState, ToolName } from '@codebuff/sdk'
 import type { SetStateAction } from 'react'
 const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
   'spawn_agent_inline',
@@ -214,6 +214,7 @@ interface UseSendMessageOptions {
   lastMessageMode: AgentMode | null
   setLastMessageMode: (mode: AgentMode | null) => void
   addSessionCredits: (credits: number) => void
+  setRunState: (runState: RunState | null) => void
   isQueuePausedRef?: React.MutableRefObject<boolean>
   resumeQueue?: () => void
   continueChat: boolean
@@ -247,6 +248,7 @@ export const useSendMessage = ({
   lastMessageMode,
   setLastMessageMode,
   addSessionCredits,
+  setRunState,
   isQueuePausedRef,
   resumeQueue,
   continueChat,
@@ -255,7 +257,7 @@ export const useSendMessage = ({
   sendMessage: SendMessageFn
   clearMessages: () => void
 } => {
-  const previousRunStateRef = useRef<any>(null)
+  const previousRunStateRef = useRef<RunState | null>(null)
 
   // Load previous chat state on mount if continueChat is true
   useEffect(() => {
@@ -263,6 +265,7 @@ export const useSendMessage = ({
       const loadedState = loadMostRecentChatState(continueChatId ?? undefined)
       if (loadedState) {
         previousRunStateRef.current = loadedState.runState
+        setRunState(loadedState.runState)
         setMessages(loadedState.messages)
 
         // Ensure subsequent saves use this conversation id
@@ -284,7 +287,7 @@ export const useSendMessage = ({
         )
       }
     }
-  }, [continueChat, continueChatId, setMessages])
+  }, [continueChat, continueChatId, setMessages, setRunState])
   const spawnAgentsMapRef = useRef<
     Map<string, { index: number; agentType: string }>
   >(new Map())
@@ -908,7 +911,7 @@ export const useSendMessage = ({
           logger,
           agent: selectedAgentDefinition ?? agentId ?? fallbackAgent,
           prompt: content,
-          previousRun: previousRunStateRef.current,
+          previousRun: previousRunStateRef.current ?? undefined,
           signal: abortController.signal,
           agentDefinitions: agentDefinitions,
           maxAgentSteps: 40,
@@ -1618,6 +1621,7 @@ export const useSendMessage = ({
         })
 
         previousRunStateRef.current = runState
+        setRunState(runState)
 
         // Save both runState and current messages
         applyMessageUpdate((currentMessages) => {

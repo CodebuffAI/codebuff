@@ -4,16 +4,16 @@ import React, { useRef } from 'react'
 import { useHoverToggle } from './agent-mode-toggle'
 import { Button } from './button'
 import { useTheme } from '../hooks/use-theme'
-import { BORDER_CHARS } from '../utils/ui-constants'
 import { logger } from '../utils/logger'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 interface FeedbackIconButtonProps {
-  onClick?: () => void
-  onClose?: () => void
+  onClick: () => void
+  onClose: () => void
   isOpen?: boolean
   messageId?: string
   selectedCategory?: string
+  hasSubmittedFeedback?: boolean
 }
 
 export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({
@@ -22,12 +22,18 @@ export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({
   isOpen,
   messageId,
   selectedCategory,
+  hasSubmittedFeedback = false,
 }) => {
   const theme = useTheme()
   const hover = useHoverToggle()
   const hoveredOnceRef = useRef(false)
+  const handleClick = () => {
+    const action = isOpen ? onClose : onClick
+    action()
+  }
 
   const handleMouseOver = () => {
+    if (hasSubmittedFeedback) return
     hover.clearCloseTimer()
     hover.scheduleOpen()
     if (!hoveredOnceRef.current) {
@@ -42,7 +48,10 @@ export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({
       )
     }
   }
-  const handleMouseOut = () => hover.scheduleClose()
+  const handleMouseOut = () => {
+    if (hasSubmittedFeedback) return
+    hover.scheduleClose()
+  }
 
   // Determine which symbol to show based on selected category
   const getSymbol = () => {
@@ -65,7 +74,7 @@ export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({
         paddingLeft: 0,
         paddingRight: 0,
       }}
-      onClick={() => (isOpen ? onClose?.() : onClick?.())}
+      onClick={handleClick}
       onMouseOver={handleMouseOver}
       onMouseOut={handleMouseOut}
     >

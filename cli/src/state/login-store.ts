@@ -1,4 +1,3 @@
-import { enableMapSet } from 'immer'
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
@@ -42,8 +41,6 @@ type LoginStoreActions = {
 }
 
 type LoginStore = LoginStoreState & LoginStoreActions
-
-enableMapSet()
 
 const initialState: LoginStoreState = {
   loginUrl: null,

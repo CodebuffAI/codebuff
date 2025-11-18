@@ -1,9 +1,10 @@
-import { enableMapSet } from 'immer'
+import { castDraft } from 'immer'
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
 import { clamp } from '../utils/math'
 
+import type { RunState } from '@codebuff/sdk'
 import type { ChatMessage } from '../types/chat'
 import type { AgentMode } from '../utils/constants'
 
@@ -29,6 +30,7 @@ export type ChatStoreState = {
   hasReceivedPlanResponse: boolean
   lastMessageMode: AgentMode | null
   sessionCreditsUsed: number
+  runState: RunState | null
 }
 
 type ChatStoreActions = {
@@ -56,12 +58,11 @@ type ChatStoreActions = {
   setHasReceivedPlanResponse: (value: boolean) => void
   setLastMessageMode: (mode: AgentMode | null) => void
   addSessionCredits: (credits: number) => void
+  setRunState: (runState: RunState | null) => void
   reset: () => void
 }
 
 type ChatStore = ChatStoreState & ChatStoreActions
-
-enableMapSet()
 
 const initialState: ChatStoreState = {
   messages: [],
@@ -79,6 +80,7 @@ const initialState: ChatStoreState = {
   hasReceivedPlanResponse: false,
   lastMessageMode: null,
   sessionCreditsUsed: 0,
+  runState: null,
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -177,6 +179,11 @@ export const useChatStore = create<ChatStore>()(
         state.sessionCreditsUsed += credits
       }),
 
+    setRunState: (runState) =>
+      set((state) => {
+        state.runState = runState ? castDraft(runState) : null
+      }),
+
     reset: () =>
       set((state) => {
         state.messages = initialState.messages.slice()
@@ -194,6 +201,9 @@ export const useChatStore = create<ChatStore>()(
         state.hasReceivedPlanResponse = initialState.hasReceivedPlanResponse
         state.lastMessageMode = initialState.lastMessageMode
         state.sessionCreditsUsed = initialState.sessionCreditsUsed
+        state.runState = initialState.runState
+          ? castDraft(initialState.runState)
+          : null
       }),
   })),
 )

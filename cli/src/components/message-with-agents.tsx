@@ -31,11 +31,7 @@ interface MessageWithAgentsProps {
   onBuildFast: () => void
   onBuildMax: () => void
   onFeedback: (messageId: string) => void
-  feedbackOpenMessageId?: string | null
-  feedbackMode?: boolean
-  onCloseFeedback?: () => void
-  messagesWithFeedback?: Set<string>
-  messageFeedbackCategories?: Map<string, string>
+  onCloseFeedback: () => void
 }
 
 export const MessageWithAgents = memo(
@@ -56,11 +52,7 @@ export const MessageWithAgents = memo(
     onBuildFast,
     onBuildMax,
     onFeedback,
-    feedbackOpenMessageId,
-    feedbackMode,
     onCloseFeedback,
-    messagesWithFeedback,
-    messageFeedbackCategories,
   }: MessageWithAgentsProps): ReactNode => {
     const SIDE_GUTTER = 1
     const isAgent = message.variant === 'agent'
@@ -83,11 +75,7 @@ export const MessageWithAgents = memo(
           onBuildFast={onBuildFast}
           onBuildMax={onBuildMax}
           onFeedback={onFeedback}
-          feedbackOpenMessageId={feedbackOpenMessageId}
-          feedbackMode={feedbackMode}
           onCloseFeedback={onCloseFeedback}
-          messagesWithFeedback={messagesWithFeedback}
-          messageFeedbackCategories={messageFeedbackCategories}
         />
       )
     }
@@ -208,11 +196,7 @@ export const MessageWithAgents = memo(
                   onBuildFast={onBuildFast}
                   onBuildMax={onBuildMax}
                   onFeedback={onFeedback}
-                  feedbackOpenMessageId={feedbackOpenMessageId}
-                  feedbackMode={feedbackMode}
                   onCloseFeedback={onCloseFeedback}
-                  messagesWithFeedback={messagesWithFeedback}
-                  messageFeedbackCategories={messageFeedbackCategories}
                 />
               </box>
             </box>
@@ -253,11 +237,7 @@ export const MessageWithAgents = memo(
                 onBuildFast={onBuildFast}
                 onBuildMax={onBuildMax}
                 onFeedback={onFeedback}
-                feedbackOpenMessageId={feedbackOpenMessageId}
-                feedbackMode={feedbackMode}
                 onCloseFeedback={onCloseFeedback}
-                messagesWithFeedback={messagesWithFeedback}
-                messageFeedbackCategories={messageFeedbackCategories}
               />
             </box>
           )}
@@ -284,11 +264,7 @@ export const MessageWithAgents = memo(
                   onBuildFast={onBuildFast}
                   onBuildMax={onBuildMax}
                   onFeedback={onFeedback}
-                  feedbackOpenMessageId={feedbackOpenMessageId}
-                  feedbackMode={feedbackMode}
                   onCloseFeedback={onCloseFeedback}
-                  messagesWithFeedback={messagesWithFeedback}
-                  messageFeedbackCategories={messageFeedbackCategories}
                 />
               </box>
             ))}
@@ -315,11 +291,7 @@ interface AgentMessageProps {
   onBuildFast: () => void
   onBuildMax: () => void
   onFeedback: (messageId: string) => void
-  feedbackOpenMessageId?: string | null
-  feedbackMode?: boolean
-  onCloseFeedback?: () => void
-  messagesWithFeedback?: Set<string>
-  messageFeedbackCategories?: Map<string, string>
+  onCloseFeedback: () => void
 }
 
 const AgentMessage = memo(
@@ -339,11 +311,7 @@ const AgentMessage = memo(
     onBuildFast,
     onBuildMax,
     onFeedback,
-    feedbackOpenMessageId,
-    feedbackMode,
     onCloseFeedback,
-    messagesWithFeedback,
-    messageFeedbackCategories,
   }: AgentMessageProps): ReactNode => {
     const agentInfo = message.agent!
 
@@ -502,16 +470,12 @@ const AgentMessage = memo(
                   setFocusedAgentId={setFocusedAgentId}
                   isWaitingForResponse={isWaitingForResponse}
                   timerStartTime={timerStartTime}
-                  onToggleCollapsed={onToggleCollapsed}
-                  onBuildFast={onBuildFast}
-                  onBuildMax={onBuildMax}
-                  onFeedback={onFeedback}
-                  feedbackOpenMessageId={feedbackOpenMessageId}
-                  feedbackMode={feedbackMode}
-                  onCloseFeedback={onCloseFeedback}
-                  messagesWithFeedback={messagesWithFeedback}
-                  messageFeedbackCategories={messageFeedbackCategories}
-                />
+                onToggleCollapsed={onToggleCollapsed}
+                onBuildFast={onBuildFast}
+                onBuildMax={onBuildMax}
+                onFeedback={onFeedback}
+                onCloseFeedback={onCloseFeedback}
+              />
               </box>
             ))}
           </box>

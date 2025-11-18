@@ -5,7 +5,8 @@ import { useShallow } from 'zustand/react/shallow'
 import { routeUserPrompt } from './commands/router'
 import { AgentModeToggle } from './components/agent-mode-toggle'
 import { MessageWithAgents } from './components/message-with-agents'
-import { FeedbackInputMode } from './components/feedback-input-mode'
+import { FeedbackContainer } from './components/feedback-container'
+import { useFeedbackStore } from './state/feedback-store'
 import {
   MultilineInput,
   type MultilineInputHandle,
@@ -17,7 +18,6 @@ import { SLASH_COMMANDS } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
 import { useChatInput } from './hooks/use-chat-input'
 import { useClipboard } from './hooks/use-clipboard'
-import { showClipboardMessage } from './utils/clipboard'
 import { useConnectionStatus } from './hooks/use-connection-status'
 import { useElapsedTime } from './hooks/use-elapsed-time'
 import { useExitHandler } from './hooks/use-exit-handler'
@@ -44,7 +44,7 @@ import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
 import { BORDER_CHARS } from './utils/ui-constants'
 
-import type { ContentBlock } from './types/chat'
+import type { ChatMessage, ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
 import type { User } from './utils/auth'
 import type { FileTreeNode } from '@codebuff/common/util/file'
@@ -122,6 +122,7 @@ export const Chat = ({
     addSessionCredits,
     resetChatStore,
     sessionCreditsUsed,
+    setRunState,
   } = useChatStore(
     useShallow((store) => ({
       inputValue: store.inputValue,
@@ -154,6 +155,7 @@ export const Chat = ({
       addSessionCredits: store.addSessionCredits,
       resetChatStore: store.reset,
       sessionCreditsUsed: store.sessionCreditsUsed,
+      setRunState: store.setRunState,
     })),
   )
 
@@ -490,6 +492,7 @@ export const Chat = ({
     lastMessageMode,
     setLastMessageMode,
     addSessionCredits,
+    setRunState,
     isQueuePausedRef,
     resumeQueue,
     continueChat,
@@ -508,132 +511,73 @@ export const Chat = ({
     sendMessageRef,
   })
 
-  // Feedback state and handlers
-  const [feedbackMessageId, setFeedbackMessageId] = useState<string | null>(
-    null,
+  const {
+    feedbackMode,
+    feedbackMessageId,
+    openFeedbackForMessage,
+    closeFeedback,
+    saveCurrentInput,
+    restoreSavedInput,
+  } = useFeedbackStore(
+    useShallow((state) => ({
+      feedbackMode: state.feedbackMode,
+      feedbackMessageId: state.feedbackMessageId,
+      openFeedbackForMessage: state.openFeedbackForMessage,
+      closeFeedback: state.closeFeedback,
+      saveCurrentInput: state.saveCurrentInput,
+      restoreSavedInput: state.restoreSavedInput,
+    })),
   )
-  const [feedbackMode, setFeedbackMode] = useState(false)
-  const [feedbackText, setFeedbackText] = useState('')
-  const [feedbackCursor, setFeedbackCursor] = useState(0)
-  const [feedbackCategory, setFeedbackCategory] = useState<string>('other')
-  const [savedInputValue, setSavedInputValue] = useState('')
-  const [savedCursorPosition, setSavedCursorPosition] = useState(0)
-  const [showFeedbackConfirmation, setShowFeedbackConfirmation] =
-    useState(false)
 
-  const [messagesWithFeedback, setMessagesWithFeedback] = useState<Set<string>>(
-    new Set(),
-  )
-  const [messageFeedbackCategories, setMessageFeedbackCategories] = useState<
-    Map<string, string>
-  >(new Map())
+  const inputValueRef = useRef(inputValue)
+  const cursorPositionRef = useRef(cursorPosition)
+  useEffect(() => {
+    inputValueRef.current = inputValue
+  }, [inputValue])
+  useEffect(() => {
+    cursorPositionRef.current = cursorPosition
+  }, [cursorPosition])
 
-  const resetFeedbackForm = useCallback(() => {
-    setFeedbackText('')
-    setFeedbackCursor(0)
-    setFeedbackCategory('other')
-  }, [])
-
-  const openFeedbackForMessage = useCallback(
-    (id: string) => {
-      // Save current input state
-      setSavedInputValue(inputValue)
-      setSavedCursorPosition(cursorPosition)
-
-      // Enter feedback mode
-      setFeedbackMessageId(id)
-      setFeedbackMode(true)
-      resetFeedbackForm()
+  const handleOpenFeedbackForMessage = useCallback(
+    (id: string | null) => {
+      saveCurrentInput(inputValueRef.current, cursorPositionRef.current)
+      openFeedbackForMessage(id)
     },
-    [inputValue, cursorPosition, resetFeedbackForm],
+    [saveCurrentInput, openFeedbackForMessage],
   )
 
-  const openFeedbackForLatestMessage = useCallback(() => {
+  const handleMessageFeedback = useCallback(
+    (id: string) => {
+      handleOpenFeedbackForMessage(id)
+    },
+    [handleOpenFeedbackForMessage],
+  )
+
+  const handleExitFeedback = useCallback(() => {
+    const { value, cursor } = restoreSavedInput()
+    setInputValue({
+      text: value,
+      cursorPosition: cursor,
+      lastEditDueToNav: false,
+    })
+    setInputFocused(true)
+  }, [restoreSavedInput, setInputValue, setInputFocused])
+
+  const handleCloseFeedback = useCallback(() => {
+    closeFeedback()
+    handleExitFeedback()
+  }, [closeFeedback, handleExitFeedback])
+
+  const handleOpenFeedbackForLatestMessage = useCallback(() => {
     const latest = [...messages]
       .reverse()
       .find((m) => m.variant === 'ai' && m.isComplete)
     if (!latest) {
       return false
     }
-    openFeedbackForMessage(latest.id)
+    handleOpenFeedbackForMessage(latest.id)
     return true
-  }, [messages, openFeedbackForMessage])
-
-  const handleFeedbackSubmit = useCallback(() => {
-    const text = feedbackText.trim()
-    if (text.length === 0) return
-
-    const target = feedbackMessageId
-      ? messages.find((m) => m.id === feedbackMessageId)
-      : null
-    const recent = messages
-      .slice(Math.max(0, messages.length - 5))
-      .map((m) => ({
-        id: m.id,
-        variant: m.variant,
-        timestamp: m.timestamp,
-        hasBlocks: !!m.blocks,
-        contentPreview: (m.content || '').slice(0, 400),
-      }))
-
-    logger.info({
-      eventId: AnalyticsEvent.FEEDBACK_SUBMITTED,
-      source: 'cli',
-      messageId: target?.id || null,
-      variant: target?.variant || null,
-      completionTime: target?.completionTime || null,
-      credits: target?.credits || null,
-      agentMode,
-      sessionCreditsUsed,
-      recentMessages: recent,
-      feedback: {
-        text,
-        category: feedbackCategory,
-        type: feedbackMessageId ? 'message' : 'general',
-      },
-    })
-
-    // Mark this message as having feedback submitted
-    if (feedbackMessageId) {
-      setMessagesWithFeedback((prev) => new Set(prev).add(feedbackMessageId))
-      // Remove the category since feedback is submitted
-      setMessageFeedbackCategories((prev) => {
-        const next = new Map(prev)
-        next.delete(feedbackMessageId)
-        return next
-      })
-    }
-
-    // Exit feedback mode first
-    setFeedbackMode(false)
-    resetFeedbackForm()
-
-    // Show success message in status indicator for 5 seconds
-    showClipboardMessage('Feedback sent ✔', { durationMs: 5000 })
-
-    // Restore input focus
-    setInputFocused(true)
-  }, [
-    feedbackText,
-    feedbackCategory,
-    feedbackMessageId,
-    messages,
-    agentMode,
-    sessionCreditsUsed,
-  ])
-
-  const handleFeedbackCancel = useCallback(() => {
-    // Restore saved input
-    setInputValue((prev) => ({
-      text: savedInputValue,
-      cursorPosition: savedCursorPosition,
-      lastEditDueToNav: false,
-    }))
-
-    // Exit feedback mode
-    setFeedbackMode(false)
-    resetFeedbackForm()
-  }, [resetFeedbackForm, savedInputValue, savedCursorPosition, setInputValue])
+  }, [messages, handleOpenFeedbackForMessage])
 
   const handleSubmit = useCallback(async () => {
     ensureQueueActiveBeforeSubmit()
@@ -663,13 +607,9 @@ export const Chat = ({
       stopStreaming,
     })
 
-    // Handle /feedback command
-    if (result && 'openFeedbackMode' in result && result.openFeedbackMode) {
-      setSavedInputValue('')
-      setSavedCursorPosition(0)
-      setFeedbackMessageId(null) // General feedback, not tied to a message
-      setFeedbackMode(true)
-      resetFeedbackForm()
+    if (result?.openFeedbackMode) {
+      saveCurrentInput('', 0)
+      openFeedbackForMessage(null)
     }
   }, [
     abortControllerRef,
@@ -695,7 +635,8 @@ export const Chat = ({
     setUser,
     stopStreaming,
     ensureQueueActiveBeforeSubmit,
-    resetFeedbackForm,
+    saveCurrentInput,
+    openFeedbackForMessage,
   ])
 
   const totalMentionMatches = agentMatches.length + fileMatches.length
@@ -830,13 +771,12 @@ export const Chat = ({
           ) {
             key.preventDefault()
           }
-          openFeedbackForLatestMessage()
+          handleOpenFeedbackForLatestMessage()
         }
       },
-      [openFeedbackForLatestMessage, feedbackMode],
+      [handleOpenFeedbackForLatestMessage, feedbackMode],
     ),
   )
-
   const validationBanner = useValidationBanner({
     liveValidationErrors: validationErrors,
     loadedAgentsData,
@@ -907,12 +847,8 @@ export const Chat = ({
               onToggleCollapsed={handleCollapseToggle}
               onBuildFast={handleBuildFast}
               onBuildMax={handleBuildMax}
-              onFeedback={openFeedbackForMessage}
-              feedbackOpenMessageId={feedbackMessageId}
-              feedbackMode={feedbackMode}
-              onCloseFeedback={handleFeedbackCancel}
-              messagesWithFeedback={messagesWithFeedback}
-              messageFeedbackCategories={messageFeedbackCategories}
+              onFeedback={handleMessageFeedback}
+              onCloseFeedback={handleCloseFeedback}
             />
           )
         })}
@@ -940,49 +876,11 @@ export const Chat = ({
             Non-actionable queue context is injected via the border title to keep the content
             area stable while still surfacing that information. */}
         {feedbackMode ? (
-          <FeedbackInputMode
-            feedbackText={feedbackText}
-            feedbackCursor={feedbackCursor}
-            category={feedbackCategory}
-            onFeedbackTextChange={(text, cursor) => {
-              setFeedbackText(text)
-              setFeedbackCursor(cursor)
-            }}
-            onCategoryChange={(category) => {
-              setFeedbackCategory(category)
-              // Store category selection for this message so button can show it
-              if (feedbackMessageId) {
-                setMessageFeedbackCategories((prev) =>
-                  new Map(prev).set(feedbackMessageId, category),
-                )
-              }
-            }}
-            onSubmit={handleFeedbackSubmit}
-            onCancel={handleFeedbackCancel}
-            width={terminalWidth - 2}
+          <FeedbackContainer
+            inputRef={inputRef}
+            onExitFeedback={handleExitFeedback}
+            width={separatorWidth}
           />
-        ) : showFeedbackConfirmation ? (
-          <box
-            border
-            style={{
-              width: '100%',
-              borderStyle: 'single',
-              borderColor: theme.success,
-              customBorderChars: BORDER_CHARS,
-              paddingLeft: 1,
-              paddingRight: 1,
-              paddingTop: 1,
-              paddingBottom: 1,
-              flexDirection: 'row',
-              justifyContent: 'center',
-            }}
-          >
-            <text>
-              <span fg={theme.success}>
-                ✓ Feedback sent! Thanks for helping us improve.
-              </span>
-            </text>
-          </box>
         ) : (
           <box
             title={inputBoxTitle}
