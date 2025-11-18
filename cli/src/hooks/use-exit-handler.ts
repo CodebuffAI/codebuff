@@ -1,12 +1,35 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { flushAnalytics } from '../utils/analytics'
+import { getCurrentChatId } from '../project-files'
 
 import type { InputValue } from '../state/chat-store'
 
 interface UseExitHandlerOptions {
   inputValue: string
   setInputValue: (value: InputValue) => void
+}
+
+let exitHandlerRegistered = false
+
+function setupExitMessageHandler() {
+  if (exitHandlerRegistered) return
+  exitHandlerRegistered = true
+
+  process.on('exit', () => {
+    try {
+      const chatId = getCurrentChatId()
+      if (chatId) {
+        // This runs synchronously during the exit phase
+        // OpenTUI has already cleaned up by this point
+        process.stdout.write(
+          `\nTo continue this session later, run:\ncodebuff --continue ${chatId}\n`,
+        )
+      }
+    } catch {
+      // Silent fail - don't block exit
+    }
+  })
 }
 
 export const useExitHandler = ({
@@ -17,6 +40,10 @@ export const useExitHandler = ({
   const exitWarningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   )
+
+  useEffect(() => {
+    setupExitMessageHandler()
+  }, [])
 
   const handleCtrlC = useCallback(() => {
     if (inputValue) {

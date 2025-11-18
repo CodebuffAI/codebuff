@@ -14,7 +14,11 @@ import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 import { getLoadedAgentsData } from '../utils/local-agent-registry'
 import { logger } from '../utils/logger'
 import { getUserMessage } from '../utils/message-history'
-import { loadMostRecentChatState, saveChatState, getAllToggleIdsFromMessages } from '../utils/run-state-storage'
+import {
+  loadMostRecentChatState,
+  saveChatState,
+} from '../utils/run-state-storage'
+import { setCurrentChatId } from '../project-files'
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
 import type { StreamStatus } from './use-message-queue'
@@ -65,7 +69,7 @@ const updateBlocksRecursively = (
     }
     return block
   })
-  
+
   // Return original array reference if nothing changed
   return foundTarget ? result : blocks
 }
@@ -213,6 +217,7 @@ interface UseSendMessageOptions {
   isQueuePausedRef?: React.MutableRefObject<boolean>
   resumeQueue?: () => void
   continueChat: boolean
+  continueChatId?: string
 }
 
 export const useSendMessage = ({
@@ -245,6 +250,7 @@ export const useSendMessage = ({
   isQueuePausedRef,
   resumeQueue,
   continueChat,
+  continueChatId,
 }: UseSendMessageOptions): {
   sendMessage: SendMessageFn
   clearMessages: () => void
@@ -254,20 +260,31 @@ export const useSendMessage = ({
   // Load previous chat state on mount if continueChat is true
   useEffect(() => {
     if (continueChat && !previousRunStateRef.current) {
-      const loadedState = loadMostRecentChatState()
+      const loadedState = loadMostRecentChatState(continueChatId ?? undefined)
       if (loadedState) {
         previousRunStateRef.current = loadedState.runState
         setMessages(loadedState.messages)
-        
+
+        // Ensure subsequent saves use this conversation id
+        if (loadedState.chatId) {
+          setCurrentChatId(loadedState.chatId)
+        }
+
         logger.info(
-          { messageCount: loadedState.messages.length },
-          'Loaded previous chat state for continuation'
+          {
+            messageCount: loadedState.messages.length,
+            chatId: loadedState.chatId,
+          },
+          'Loaded previous chat state for continuation',
         )
       } else {
-        logger.info('No previous chat state found to continue from')
+        logger.info(
+          { chatId: continueChatId ?? null },
+          'No previous chat state found to continue from',
+        )
       }
     }
-  }, [continueChat, setMessages])
+  }, [continueChat, continueChatId, setMessages])
   const spawnAgentsMapRef = useRef<
     Map<string, { index: number; agentType: string }>
   >(new Map())
@@ -275,7 +292,6 @@ export const useSendMessage = ({
   const agentStreamAccumulatorsRef = useRef<Map<string, string>>(new Map())
   const rootStreamSeenRef = useRef(false)
   const planExtractedRef = useRef(false)
-  const autoCollapsedThinkingIdsRef = useRef<Set<string>>(new Set())
 
   const updateChainInProgress = useCallback(
     (value: boolean) => {
@@ -557,11 +573,15 @@ export const useSendMessage = ({
           // Handle blocks within messages
           if (!message.blocks) return message
 
-          const autoCollapseBlocksRecursively = (blocks: ContentBlock[]): ContentBlock[] => {
+          const autoCollapseBlocksRecursively = (
+            blocks: ContentBlock[],
+          ): ContentBlock[] => {
             return blocks.map((block) => {
               // Handle thinking blocks (grouped text blocks)
               if (block.type === 'text' && block.thinkingId) {
-                return block.userOpened ? block : { ...block, isCollapsed: true }
+                return block.userOpened
+                  ? block
+                  : { ...block, isCollapsed: true }
               }
 
               // Handle agent blocks
@@ -582,12 +602,16 @@ export const useSendMessage = ({
 
               // Handle tool blocks
               if (block.type === 'tool') {
-                return block.userOpened ? block : { ...block, isCollapsed: true }
+                return block.userOpened
+                  ? block
+                  : { ...block, isCollapsed: true }
               }
 
               // Handle agent-list blocks
               if (block.type === 'agent-list') {
-                return block.userOpened ? block : { ...block, isCollapsed: true }
+                return block.userOpened
+                  ? block
+                  : { ...block, isCollapsed: true }
               }
 
               return block
@@ -767,7 +791,7 @@ export const useSendMessage = ({
                   type: 'text',
                   content: delta.text,
                   textType: delta.type,
-                  ...(delta.type === 'reasoning' && { 
+                  ...(delta.type === 'reasoning' && {
                     color: 'grey',
                     isCollapsed: true,
                   }),
@@ -1082,7 +1106,10 @@ export const useSendMessage = ({
                                   ...block,
                                   agentId: event.agentId,
                                   ...(event.params && { params: event.params }),
-                                  ...(event.prompt && block.initialPrompt === '' && { initialPrompt: event.prompt }),
+                                  ...(event.prompt &&
+                                    block.initialPrompt === '' && {
+                                      initialPrompt: event.prompt,
+                                    }),
                                 }
                                 // Don't add to result - we're extracting it
                               } else if (
@@ -1591,7 +1618,7 @@ export const useSendMessage = ({
         })
 
         previousRunStateRef.current = runState
-        
+
         // Save both runState and current messages
         applyMessageUpdate((currentMessages) => {
           saveChatState(runState, currentMessages)

@@ -30,6 +30,11 @@ export function getCurrentChatId() {
   return currentChatId
 }
 
+export function setCurrentChatId(chatId: string) {
+  currentChatId = chatId
+  return currentChatId
+}
+
 export function startNewChat() {
   currentChatId = new Date().toISOString().replace(/:/g, '-')
   return currentChatId

@@ -118,6 +118,7 @@ type ParsedArgs = {
   agent?: string
   clearLogs: boolean
   continue: boolean
+  continueId?: string | null
 }
 
 function parseArgs(): ParsedArgs {
@@ -133,8 +134,8 @@ function parseArgs(): ParsedArgs {
     )
     .option('--clear-logs', 'Remove any existing CLI log files before starting')
     .option(
-      '--continue',
-      'Continue from the last conversation, maintaining context',
+      '--continue [conversation-id]',
+      'Continue from a previous conversation (optionally specify a conversation id)',
     )
     .helpOption('-h, --help', 'Show this help message')
     .argument('[prompt...]', 'Initial prompt to send to the agent')
@@ -144,16 +145,22 @@ function parseArgs(): ParsedArgs {
   const options = program.opts()
   const args = program.args
 
+  const continueFlag = options.continue
+
   return {
     initialPrompt: args.length > 0 ? args.join(' ') : null,
     agent: options.agent,
     clearLogs: options.clearLogs || false,
-    continue: options.continue || false,
+    continue: Boolean(continueFlag),
+    continueId:
+      typeof continueFlag === 'string' && continueFlag.trim().length > 0
+        ? continueFlag.trim()
+        : null,
   }
 }
 
 async function bootstrapCli(): Promise<void> {
-  const { initialPrompt, agent, clearLogs, continue: continueChat } = parseArgs()
+  const { initialPrompt, agent, clearLogs, continue: continueChat, continueId } = parseArgs()
 
   initializeThemeStore()
 
@@ -229,6 +236,7 @@ async function bootstrapCli(): Promise<void> {
         validationErrors={validationErrors}
         fileTree={fileTree}
         continueChat={continueChat}
+        continueChatId={continueId ?? undefined}
       />
     )
   }

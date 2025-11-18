@@ -32,6 +32,7 @@ interface AppProps {
   validationErrors: Array<{ id: string; message: string }>
   fileTree: FileTreeNode[]
   continueChat: boolean
+  continueChatId?: string
 }
 
 export const App = ({
@@ -43,6 +44,7 @@ export const App = ({
   validationErrors,
   fileTree,
   continueChat,
+  continueChatId,
 }: AppProps) => {
   const { contentMaxWidth, separatorWidth } = useTerminalDimensions()
   const theme = useTheme()
@@ -224,6 +226,7 @@ export const App = ({
       setUser={setUser}
       logoutMutation={logoutMutation}
       continueChat={continueChat}
+      continueChatId={continueChatId}
     />
   )
 }
