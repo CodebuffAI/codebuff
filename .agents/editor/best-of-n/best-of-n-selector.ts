@@ -5,21 +5,27 @@ import {
 import { publisher } from '../../constants'
 
 export const createBestOfNSelector = (options: {
-  model: 'sonnet' | 'gpt-5'
+  model: 'sonnet' | 'gpt-5' | 'gemini'
 }): Omit<SecretAgentDefinition, 'id'> => {
   const { model } = options
   const isSonnet = model === 'sonnet'
   const isGpt5 = model === 'gpt-5'
-
+  const isGemini = model === 'gemini'
   return {
     publisher,
-    model: isSonnet ? 'anthropic/claude-sonnet-4.5' : 'openai/gpt-5.1',
+    model: isSonnet ? 'anthropic/claude-sonnet-4.5' : isGemini
+        ? 'google/gemini-3-pro-preview'
+        : 'openai/gpt-5.1',
     ...(isGpt5 && {
       reasoningOptions: {
         effort: 'high',
       },
     }),
-    displayName: 'Best-of-N Implementation Selector',
+    displayName: isGpt5
+      ? 'Best-of-N GPT-5 Implementation Selector'
+      : isGemini
+        ? 'Best-of-N Gemini Implementation Selector'
+        : 'Best-of-N Sonnet Implementation Selector',
     spawnerPrompt:
       'Analyzes multiple implementation proposals and selects the best one',
 
