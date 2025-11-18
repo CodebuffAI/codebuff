@@ -8,10 +8,6 @@ interface ThinkingBlockProps {
   keyPrefix: string
   startIndex: number
   indentLevel: number
-  collapsedAgents: Set<string>
-  setCollapsedAgents: (value: (prev: Set<string>) => Set<string>) => void
-  autoCollapsedAgents: Set<string>
-  addAutoCollapsedAgent: (value: string) => void
   onToggleCollapsed: (id: string) => void
   availableWidth: number
 }
@@ -22,10 +18,6 @@ export const ThinkingBlock = memo(
     keyPrefix,
     startIndex,
     indentLevel,
-    collapsedAgents,
-    setCollapsedAgents,
-    autoCollapsedAgents,
-    addAutoCollapsedAgent,
     onToggleCollapsed,
     availableWidth,
   }: ThinkingBlockProps) => {
@@ -35,12 +27,8 @@ export const ThinkingBlock = memo(
       .join('')
       .trim()
 
-    if (!autoCollapsedAgents.has(thinkingId)) {
-      addAutoCollapsedAgent(thinkingId)
-      setCollapsedAgents((prev) => new Set(prev).add(thinkingId))
-    }
-
-    const isCollapsed = collapsedAgents.has(thinkingId)
+    const firstBlock = blocks[0]
+    const isCollapsed = firstBlock?.isCollapsed ?? true
     const marginLeft = Math.max(0, indentLevel * 2)
     const availWidth = Math.max(10, availableWidth - marginLeft - 4)
 

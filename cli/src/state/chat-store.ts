@@ -1,9 +1,10 @@
-import { enableMapSet } from 'immer'
+import { castDraft } from 'immer'
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
 import { clamp } from '../utils/math'
 
+import type { RunState } from '@codebuff/sdk'
 import type { ChatMessage } from '../types/chat'
 import type { AgentMode } from '../utils/constants'
 
@@ -16,8 +17,6 @@ export type InputValue = {
 export type ChatStoreState = {
   messages: ChatMessage[]
   streamingAgents: Set<string>
-  collapsedAgents: Set<string>
-  autoCollapsedAgents: Set<string>
   focusedAgentId: string | null
   inputValue: string
   cursorPosition: number
@@ -31,6 +30,7 @@ export type ChatStoreState = {
   hasReceivedPlanResponse: boolean
   lastMessageMode: AgentMode | null
   sessionCreditsUsed: number
+  runState: RunState | null
 }
 
 type ChatStoreActions = {
@@ -39,12 +39,6 @@ type ChatStoreActions = {
   ) => void
   setStreamingAgents: (
     value: Set<string> | ((prev: Set<string>) => Set<string>),
-  ) => void
-  setCollapsedAgents: (
-    value: Set<string> | ((prev: Set<string>) => Set<string>),
-  ) => void
-  addAutoCollapsedAgent: (
-    value: string
   ) => void
   setFocusedAgentId: (
     value: string | null | ((prev: string | null) => string | null),
@@ -64,18 +58,15 @@ type ChatStoreActions = {
   setHasReceivedPlanResponse: (value: boolean) => void
   setLastMessageMode: (mode: AgentMode | null) => void
   addSessionCredits: (credits: number) => void
+  setRunState: (runState: RunState | null) => void
   reset: () => void
 }
 
 type ChatStore = ChatStoreState & ChatStoreActions
 
-enableMapSet()
-
 const initialState: ChatStoreState = {
   messages: [],
   streamingAgents: new Set<string>(),
-  collapsedAgents: new Set<string>(),
-  autoCollapsedAgents: new Set<string>(),
   focusedAgentId: null,
   inputValue: '',
   cursorPosition: 0,
@@ -89,6 +80,7 @@ const initialState: ChatStoreState = {
   hasReceivedPlanResponse: false,
   lastMessageMode: null,
   sessionCreditsUsed: 0,
+  runState: null,
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -105,16 +97,6 @@ export const useChatStore = create<ChatStore>()(
       set((state) => {
         state.streamingAgents =
           typeof value === 'function' ? value(state.streamingAgents) : value
-      }),
-
-    setCollapsedAgents: (value) =>
-      set((state) => {
-        state.collapsedAgents =
-          typeof value === 'function' ? value(state.collapsedAgents) : value
-      }),
-    addAutoCollapsedAgent: (value) =>
-      set((state) => {
-        state.autoCollapsedAgents.add(value)
       }),
 
     setFocusedAgentId: (value) =>
@@ -197,11 +179,15 @@ export const useChatStore = create<ChatStore>()(
         state.sessionCreditsUsed += credits
       }),
 
+    setRunState: (runState) =>
+      set((state) => {
+        state.runState = runState ? castDraft(runState) : null
+      }),
+
     reset: () =>
       set((state) => {
         state.messages = initialState.messages.slice()
         state.streamingAgents = new Set(initialState.streamingAgents)
-        state.collapsedAgents = new Set(initialState.collapsedAgents)
         state.focusedAgentId = initialState.focusedAgentId
         state.inputValue = initialState.inputValue
         state.cursorPosition = initialState.cursorPosition
@@ -215,6 +201,9 @@ export const useChatStore = create<ChatStore>()(
         state.hasReceivedPlanResponse = initialState.hasReceivedPlanResponse
         state.lastMessageMode = initialState.lastMessageMode
         state.sessionCreditsUsed = initialState.sessionCreditsUsed
+        state.runState = initialState.runState
+          ? castDraft(initialState.runState)
+          : null
       }),
   })),
 )

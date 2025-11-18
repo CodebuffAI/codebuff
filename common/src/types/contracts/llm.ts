@@ -64,6 +64,7 @@ export type PromptAiSdkFn = (
     sendAction: SendActionFn
     logger: Logger
     trackEvent: TrackEventFn
+    n?: number
   } & ParamsExcluding<typeof generateText, 'model' | 'messages'> &
     ParamsExcluding<CheckLiveUserInputFn, 'clientSessionId'>,
 ) => Promise<string>

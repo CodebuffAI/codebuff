@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useKeyboard } from '@opentui/react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { routeUserPrompt } from './commands/router'
 import { AgentModeToggle } from './components/agent-mode-toggle'
 import { MessageWithAgents } from './components/message-with-agents'
+import { FeedbackContainer } from './components/feedback-container'
+import { useFeedbackStore } from './state/feedback-store'
 import {
   MultilineInput,
   type MultilineInputHandle,
@@ -31,16 +34,17 @@ import { useTheme } from './hooks/use-theme'
 import { useValidationBanner } from './hooks/use-validation-banner'
 import { useQueueUi } from './hooks/use-queue-ui'
 import { useQueueControls } from './hooks/use-queue-controls'
+import { logger } from './utils/logger'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { useChatStore } from './state/chat-store'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { loadLocalAgents } from './utils/local-agent-registry'
-import { logger } from './utils/logger'
 import { buildMessageTree } from './utils/message-tree-utils'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
 import { BORDER_CHARS } from './utils/ui-constants'
 
-import type { ContentBlock } from './types/chat'
+import type { ChatMessage, ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
 import type { User } from './utils/auth'
 import type { NetworkStatus } from './hooks/use-network-status'
@@ -61,6 +65,8 @@ export const Chat = ({
   setUser,
   logoutMutation,
   networkStatus,
+  continueChat,
+  continueChatId,
 }: {
   headerContent: React.ReactNode
   initialPrompt: string | null
@@ -76,20 +82,18 @@ export const Chat = ({
   setUser: Dispatch<SetStateAction<User | null>>
   logoutMutation: UseMutationResult<boolean, Error, void, unknown>
   networkStatus: NetworkStatus
+  continueChat: boolean
+  continueChatId?: string
 }) => {
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
 
-  const { separatorWidth, terminalWidth, terminalHeight } = useTerminalDimensions()
+  const { separatorWidth, terminalWidth, terminalHeight } =
+    useTerminalDimensions()
 
   const theme = useTheme()
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
 
   const { validate: validateAgents } = useAgentValidation(validationErrors)
-
-  // Track which agent toggles the user has manually opened.
-  const [userOpenedAgents, setUserOpenedAgents] = useState<Set<string>>(
-    new Set(),
-  )
 
   const {
     inputValue,
@@ -102,10 +106,6 @@ export const Chat = ({
     setSlashSelectedIndex,
     agentSelectedIndex,
     setAgentSelectedIndex,
-    collapsedAgents,
-    setCollapsedAgents,
-    autoCollapsedAgents,
-    addAutoCollapsedAgent,
     streamingAgents,
     setStreamingAgents,
     focusedAgentId,
@@ -124,6 +124,8 @@ export const Chat = ({
     setLastMessageMode,
     addSessionCredits,
     resetChatStore,
+    sessionCreditsUsed,
+    setRunState,
   } = useChatStore(
     useShallow((store) => ({
       inputValue: store.inputValue,
@@ -136,10 +138,6 @@ export const Chat = ({
       setSlashSelectedIndex: store.setSlashSelectedIndex,
       agentSelectedIndex: store.agentSelectedIndex,
       setAgentSelectedIndex: store.setAgentSelectedIndex,
-      collapsedAgents: store.collapsedAgents,
-      setCollapsedAgents: store.setCollapsedAgents,
-      autoCollapsedAgents: store.autoCollapsedAgents,
-      addAutoCollapsedAgent: store.addAutoCollapsedAgent,
       streamingAgents: store.streamingAgents,
       setStreamingAgents: store.setStreamingAgents,
       focusedAgentId: store.focusedAgentId,
@@ -159,6 +157,8 @@ export const Chat = ({
       setLastMessageMode: store.setLastMessageMode,
       addSessionCredits: store.addSessionCredits,
       resetChatStore: store.reset,
+      sessionCreditsUsed: store.sessionCreditsUsed,
+      setRunState: store.setRunState,
     })),
   )
 
@@ -192,7 +192,7 @@ export const Chat = ({
   const abortControllerRef = useRef<AbortController | null>(null)
   const sendMessageRef = useRef<SendMessageFn>()
 
-  const { clipboardMessage } = useClipboard()
+  const { statusMessage } = useClipboard()
   const [showReconnectionMessage, setShowReconnectionMessage] = useState(false)
   const [connectionEstablished, setConnectionEstablished] = useState(0) // Increment to trigger retry check
   const reconnectionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -244,6 +244,7 @@ export const Chat = ({
     }
   }, [])
 
+
   const mainAgentTimer = useElapsedTime()
   const timerStartTime = mainAgentTimer.startTime
 
@@ -260,36 +261,110 @@ export const Chat = ({
 
   const handleCollapseToggle = useCallback(
     (id: string) => {
-      const wasCollapsed = collapsedAgents.has(id)
-
       // Set flag to prevent auto-scroll during user-initiated collapse
       isUserCollapsingRef.current = true
-      setCollapsedAgents((prev) => {
-        const next = new Set(prev)
-        if (next.has(id)) {
-          next.delete(id)
-        } else {
-          next.add(id)
-        }
-        return next
+
+      // Find and toggle the block's isCollapsed property
+      setMessages((prevMessages) => {
+        return prevMessages.map((message) => {
+          // Handle agent variant messages
+          if (message.variant === 'agent' && message.id === id) {
+            const wasCollapsed = message.metadata?.isCollapsed ?? false
+            return {
+              ...message,
+              metadata: {
+                ...message.metadata,
+                isCollapsed: !wasCollapsed,
+                userOpened: wasCollapsed, // Mark as user-opened if expanding
+              },
+            }
+          }
+
+          // Handle blocks within messages
+          if (!message.blocks) return message
+
+          const updateBlocksRecursively = (
+            blocks: ContentBlock[],
+          ): ContentBlock[] => {
+            let foundTarget = false
+            const result = blocks.map((block) => {
+              // Handle thinking blocks (grouped text blocks)
+              if (block.type === 'text' && block.thinkingId === id) {
+                foundTarget = true
+                const wasCollapsed = block.isCollapsed ?? false
+                return {
+                  ...block,
+                  isCollapsed: !wasCollapsed,
+                  userOpened: wasCollapsed, // Mark as user-opened if expanding
+                }
+              }
+
+              // Handle agent blocks
+              if (block.type === 'agent' && block.agentId === id) {
+                foundTarget = true
+                const wasCollapsed = block.isCollapsed ?? false
+                return {
+                  ...block,
+                  isCollapsed: !wasCollapsed,
+                  userOpened: wasCollapsed, // Mark as user-opened if expanding
+                }
+              }
+
+              // Handle tool blocks
+              if (block.type === 'tool' && block.toolCallId === id) {
+                foundTarget = true
+                const wasCollapsed = block.isCollapsed ?? false
+                return {
+                  ...block,
+                  isCollapsed: !wasCollapsed,
+                  userOpened: wasCollapsed, // Mark as user-opened if expanding
+                }
+              }
+
+              // Handle agent-list blocks
+              if (block.type === 'agent-list' && block.id === id) {
+                foundTarget = true
+                const wasCollapsed = block.isCollapsed ?? false
+                return {
+                  ...block,
+                  isCollapsed: !wasCollapsed,
+                  userOpened: wasCollapsed, // Mark as user-opened if expanding
+                }
+              }
+
+              // Recursively update nested blocks
+              if (block.type === 'agent' && block.blocks) {
+                const updatedBlocks = updateBlocksRecursively(block.blocks)
+                // Only create new block if nested blocks actually changed
+                if (updatedBlocks !== block.blocks) {
+                  foundTarget = true
+                  return {
+                    ...block,
+                    blocks: updatedBlocks,
+                  }
+                }
+              }
+
+              return block
+            })
+            
+            // Return original array reference if nothing changed
+            return foundTarget ? result : blocks
+          }
+
+          return {
+            ...message,
+            blocks: updateBlocksRecursively(message.blocks),
+          }
+        })
       })
 
       // Reset flag after state update completes
       setTimeout(() => {
         isUserCollapsingRef.current = false
       }, 0)
-
-      setUserOpenedAgents((prev) => {
-        const next = new Set(prev)
-        if (wasCollapsed) {
-          next.add(id)
-        } else {
-          next.delete(id)
-        }
-        return next
-      })
     },
-    [collapsedAgents, setCollapsedAgents, setUserOpenedAgents],
+    [setMessages],
   )
 
   const isUserCollapsing = useCallback(() => {
@@ -458,8 +533,6 @@ export const Chat = ({
     setInputFocused,
     inputRef,
     setStreamingAgents,
-    setCollapsedAgents,
-    userOpenedAgents,
     activeSubagentsRef,
     isChainInProgressRef,
     setActiveSubagents,
@@ -478,11 +551,14 @@ export const Chat = ({
     setHasReceivedPlanResponse,
     lastMessageMode,
     setLastMessageMode,
-      addSessionCredits,
-      isQueuePausedRef,
-      resumeQueue,
-      isConnectedRef,
-    })
+    addSessionCredits,
+    setRunState,
+    isQueuePausedRef,
+    resumeQueue,
+    isConnectedRef,
+    continueChat,
+    continueChatId,
+  })
 
   sendMessageRef.current = sendMessage
   retryPendingMessagesRef.current = retryPendingMessages
@@ -517,10 +593,78 @@ export const Chat = ({
     sendMessageRef,
   })
 
-  const handleSubmit = useCallback(() => {
+  const {
+    feedbackMode,
+    feedbackMessageId,
+    openFeedbackForMessage,
+    closeFeedback,
+    saveCurrentInput,
+    restoreSavedInput,
+  } = useFeedbackStore(
+    useShallow((state) => ({
+      feedbackMode: state.feedbackMode,
+      feedbackMessageId: state.feedbackMessageId,
+      openFeedbackForMessage: state.openFeedbackForMessage,
+      closeFeedback: state.closeFeedback,
+      saveCurrentInput: state.saveCurrentInput,
+      restoreSavedInput: state.restoreSavedInput,
+    })),
+  )
+
+  const inputValueRef = useRef(inputValue)
+  const cursorPositionRef = useRef(cursorPosition)
+  useEffect(() => {
+    inputValueRef.current = inputValue
+  }, [inputValue])
+  useEffect(() => {
+    cursorPositionRef.current = cursorPosition
+  }, [cursorPosition])
+
+  const handleOpenFeedbackForMessage = useCallback(
+    (id: string | null) => {
+      saveCurrentInput(inputValueRef.current, cursorPositionRef.current)
+      openFeedbackForMessage(id)
+    },
+    [saveCurrentInput, openFeedbackForMessage],
+  )
+
+  const handleMessageFeedback = useCallback(
+    (id: string) => {
+      handleOpenFeedbackForMessage(id)
+    },
+    [handleOpenFeedbackForMessage],
+  )
+
+  const handleExitFeedback = useCallback(() => {
+    const { value, cursor } = restoreSavedInput()
+    setInputValue({
+      text: value,
+      cursorPosition: cursor,
+      lastEditDueToNav: false,
+    })
+    setInputFocused(true)
+  }, [restoreSavedInput, setInputValue, setInputFocused])
+
+  const handleCloseFeedback = useCallback(() => {
+    closeFeedback()
+    handleExitFeedback()
+  }, [closeFeedback, handleExitFeedback])
+
+  const handleOpenFeedbackForLatestMessage = useCallback(() => {
+    const latest = [...messages]
+      .reverse()
+      .find((m) => m.variant === 'ai' && m.isComplete)
+    if (!latest) {
+      return false
+    }
+    handleOpenFeedbackForMessage(latest.id)
+    return true
+  }, [messages, handleOpenFeedbackForMessage])
+
+  const handleSubmit = useCallback(async () => {
     ensureQueueActiveBeforeSubmit()
 
-    return routeUserPrompt({
+    const result = await routeUserPrompt({
       abortControllerRef,
       agentMode,
       inputRef,
@@ -544,6 +688,11 @@ export const Chat = ({
       setUser,
       stopStreaming,
     })
+
+    if (result?.openFeedbackMode) {
+      saveCurrentInput('', 0)
+      openFeedbackForMessage(null)
+    }
   }, [
     abortControllerRef,
     agentMode,
@@ -568,6 +717,8 @@ export const Chat = ({
     setUser,
     stopStreaming,
     ensureQueueActiveBeforeSubmit,
+    saveCurrentInput,
+    openFeedbackForMessage,
   ])
 
   const totalMentionMatches = agentMatches.length + fileMatches.length
@@ -594,7 +745,6 @@ export const Chat = ({
     setFocusedAgentId,
     setInputFocused,
     inputRef,
-    setCollapsedAgents,
     navigateUp,
     navigateDown,
     toggleAgentMode,
@@ -606,6 +756,7 @@ export const Chat = ({
     },
     historyNavUpEnabled,
     historyNavDownEnabled,
+    disabled: feedbackMode,
   })
 
   const { tree: messageTree, topLevelMessages } = useMemo(
@@ -662,7 +813,7 @@ export const Chat = ({
   const isMultilineInput = inputLayoutMetrics.heightLines > 1
   const shouldCenterInputVertically = !hasSuggestionMenu && !isMultilineInput
   const statusIndicatorState = getStatusIndicatorState({
-    clipboardMessage,
+    statusMessage,
     streamStatus,
     nextCtrlCWillExit,
     isConnected,
@@ -686,9 +837,32 @@ export const Chat = ({
   }, [queuePreviewTitle, pausedQueueText])
 
   const shouldShowStatusLine =
-    hasStatusIndicatorContent || shouldShowQueuePreview || !isAtBottom
+    !feedbackMode &&
+    (hasStatusIndicatorContent || shouldShowQueuePreview || !isAtBottom)
 
   // Don't show validation errors when there's a network error
+
+  // Ctrl+F to open feedback for latest completed AI message
+  useKeyboard(
+    useCallback(
+      (key) => {
+        // Don't handle if already in feedback mode
+        if (feedbackMode) return
+
+        if (key?.ctrl && key.name === 'f') {
+          if (
+            'preventDefault' in key &&
+            typeof key.preventDefault === 'function'
+          ) {
+            key.preventDefault()
+          }
+          handleOpenFeedbackForLatestMessage()
+        }
+      },
+      [handleOpenFeedbackForLatestMessage, feedbackMode],
+    ),
+  )
+
   const validationBanner = useValidationBanner({
     liveValidationErrors: networkStatus.isOnline ? validationErrors : [],
     loadedAgentsData,
@@ -749,21 +923,18 @@ export const Chat = ({
               isLastMessage={isLast}
               theme={theme}
               markdownPalette={markdownPalette}
-              collapsedAgents={collapsedAgents}
-              autoCollapsedAgents={autoCollapsedAgents}
               streamingAgents={streamingAgents}
               messageTree={messageTree}
               messages={messages}
               availableWidth={separatorWidth}
-              setCollapsedAgents={setCollapsedAgents}
-              addAutoCollapsedAgent={addAutoCollapsedAgent}
-              setUserOpenedAgents={setUserOpenedAgents}
               setFocusedAgentId={setFocusedAgentId}
               isWaitingForResponse={isWaitingForResponse}
               timerStartTime={timerStartTime}
               onToggleCollapsed={handleCollapseToggle}
               onBuildFast={handleBuildFast}
               onBuildMax={handleBuildMax}
+              onFeedback={handleMessageFeedback}
+              onCloseFeedback={handleCloseFeedback}
             />
           )
         })}
@@ -777,7 +948,7 @@ export const Chat = ({
       >
         {shouldShowStatusLine && (
           <StatusBar
-            clipboardMessage={clipboardMessage}
+            statusMessage={statusMessage}
             streamStatus={streamStatus}
             statusIndicatorState={statusIndicatorState}
             timerStartTime={timerStartTime}
@@ -791,87 +962,95 @@ export const Chat = ({
         {/* Wrap the input row in a single OpenTUI border so the toggle stays inside the flex layout.
             Non-actionable queue context is injected via the border title to keep the content
             area stable while still surfacing that information. */}
-        <box
-          title={inputBoxTitle}
-          titleAlignment="center"
-          style={{
-            width: '100%',
-            borderStyle: 'single',
-            borderColor: theme.foreground,
-            customBorderChars: BORDER_CHARS,
-            paddingLeft: 1,
-            paddingRight: 1,
-            paddingTop: 0,
-            paddingBottom: 0,
-            flexDirection: 'column',
-            gap: hasSuggestionMenu ? 1 : 0,
-          }}
-        >
-          {hasSlashSuggestions ? (
-            <SuggestionMenu
-              items={slashSuggestionItems}
-              selectedIndex={slashSelectedIndex}
-              maxVisible={10}
-              prefix="/"
-            />
-          ) : null}
-          {hasMentionSuggestions ? (
-            <SuggestionMenu
-              items={[...agentSuggestionItems, ...fileSuggestionItems]}
-              selectedIndex={agentSelectedIndex}
-              maxVisible={10}
-              prefix="@"
-            />
-          ) : null}
+        {feedbackMode ? (
+          <FeedbackContainer
+            inputRef={inputRef}
+            onExitFeedback={handleExitFeedback}
+            width={separatorWidth}
+          />
+        ) : (
           <box
+            title={inputBoxTitle}
+            titleAlignment="center"
             style={{
+              width: '100%',
+              borderStyle: 'single',
+              borderColor: theme.foreground,
+              customBorderChars: BORDER_CHARS,
+              paddingLeft: 1,
+              paddingRight: 1,
+              paddingTop: 0,
+              paddingBottom: 0,
               flexDirection: 'column',
-              justifyContent: shouldCenterInputVertically
-                ? 'center'
-                : 'flex-start',
-              minHeight: shouldCenterInputVertically ? 3 : undefined,
-              gap: 0,
+              gap: hasSuggestionMenu ? 1 : 0,
             }}
           >
+            {hasSlashSuggestions ? (
+              <SuggestionMenu
+                items={slashSuggestionItems}
+                selectedIndex={slashSelectedIndex}
+                maxVisible={10}
+                prefix="/"
+              />
+            ) : null}
+            {hasMentionSuggestions ? (
+              <SuggestionMenu
+                items={[...agentSuggestionItems, ...fileSuggestionItems]}
+                selectedIndex={agentSelectedIndex}
+                maxVisible={10}
+                prefix="@"
+              />
+            ) : null}
             <box
               style={{
-                flexDirection: 'row',
-                alignItems: shouldCenterInputVertically
+                flexDirection: 'column',
+                justifyContent: shouldCenterInputVertically
                   ? 'center'
                   : 'flex-start',
-                width: '100%',
+                minHeight: shouldCenterInputVertically ? 3 : undefined,
+                gap: 0,
               }}
             >
-              <box style={{ flexGrow: 1, minWidth: 0 }}>
-                <MultilineInput
-                  value={inputValue}
-                  onChange={setInputValue}
-                  onSubmit={handleSubmit}
-                  placeholder={inputPlaceholder}
-                  focused={inputFocused}
-                  maxHeight={Math.floor(terminalHeight / 2)}
-                  width={inputWidth}
-                  onKeyIntercept={handleSuggestionMenuKey}
-                  textAttributes={theme.messageTextAttributes}
-                  ref={inputRef}
-                  cursorPosition={cursorPosition}
-                />
-              </box>
               <box
                 style={{
-                  flexShrink: 0,
-                  paddingLeft: 2,
+                  flexDirection: 'row',
+                  alignItems: shouldCenterInputVertically
+                    ? 'center'
+                    : 'flex-start',
+                  width: '100%',
                 }}
               >
-                <AgentModeToggle
-                  mode={agentMode}
-                  onToggle={toggleAgentMode}
-                  onSelectMode={setAgentMode}
-                />
+                <box style={{ flexGrow: 1, minWidth: 0 }}>
+                  <MultilineInput
+                    value={inputValue}
+                    onChange={setInputValue}
+                    onSubmit={handleSubmit}
+                    placeholder={inputPlaceholder}
+                    focused={inputFocused && !feedbackMode}
+                    maxHeight={Math.floor(terminalHeight / 2)}
+                    width={inputWidth}
+                    onKeyIntercept={handleSuggestionMenuKey}
+                    textAttributes={theme.messageTextAttributes}
+                    ref={inputRef}
+                    cursorPosition={cursorPosition}
+                  />
+                </box>
+                <box
+                  style={{
+                    flexShrink: 0,
+                    paddingLeft: 2,
+                  }}
+                >
+                  <AgentModeToggle
+                    mode={agentMode}
+                    onToggle={toggleAgentMode}
+                    onSelectMode={setAgentMode}
+                  />
+                </box>
               </box>
             </box>
           </box>
-        </box>
+        )}
       </box>
 
       {validationBanner}

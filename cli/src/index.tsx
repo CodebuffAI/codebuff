@@ -9,7 +9,11 @@ import { validateAgentsWithNetworkHandling } from './utils/validate-agents-wrapp
 import { render } from '@opentui/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Command } from 'commander'
+import { enableMapSet } from 'immer'
 import React from 'react'
+
+// Enable Map and Set support in Immer globally (once at app initialization)
+enableMapSet()
 
 import { App } from './app'
 import { initializeThemeStore } from './hooks/use-theme'
@@ -119,6 +123,8 @@ type ParsedArgs = {
   initialPrompt: string | null
   agent?: string
   clearLogs: boolean
+  continue: boolean
+  continueId?: string | null
 }
 
 function parseArgs(): ParsedArgs {
@@ -133,6 +139,10 @@ function parseArgs(): ParsedArgs {
       'Specify which agent to use (e.g., "base", "ask", "file-picker")',
     )
     .option('--clear-logs', 'Remove any existing CLI log files before starting')
+    .option(
+      '--continue [conversation-id]',
+      'Continue from a previous conversation (optionally specify a conversation id)',
+    )
     .helpOption('-h, --help', 'Show this help message')
     .argument('[prompt...]', 'Initial prompt to send to the agent')
     .allowExcessArguments(true)
@@ -141,15 +151,22 @@ function parseArgs(): ParsedArgs {
   const options = program.opts()
   const args = program.args
 
+  const continueFlag = options.continue
+
   return {
     initialPrompt: args.length > 0 ? args.join(' ') : null,
     agent: options.agent,
     clearLogs: options.clearLogs || false,
+    continue: Boolean(continueFlag),
+    continueId:
+      typeof continueFlag === 'string' && continueFlag.trim().length > 0
+        ? continueFlag.trim()
+        : null,
   }
 }
 
 async function bootstrapCli(): Promise<void> {
-  const { initialPrompt, agent, clearLogs } = parseArgs()
+  const { initialPrompt, agent, clearLogs, continue: continueChat, continueId } = parseArgs()
 
   initializeThemeStore()
 
@@ -234,6 +251,8 @@ async function bootstrapCli(): Promise<void> {
         validationErrors={validationErrors}
         fileTree={fileTree}
         validationNetworkError={validationNetworkError}
+        continueChat={continueChat}
+        continueChatId={continueId ?? undefined}
       />
     )
   }

@@ -91,9 +91,6 @@ export const getAgentStreamFromTemplate = (params: {
       trackEvent,
     }
 
-    // Add Gemini-specific options if needed
-    const primaryModel = Array.isArray(model) ? model[0] : model
-
     if (!aiSdkStreamParams.providerOptions) {
       aiSdkStreamParams.providerOptions = {}
     }

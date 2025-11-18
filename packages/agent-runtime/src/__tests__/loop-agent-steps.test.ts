@@ -663,6 +663,83 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     expect(result.agentState.output).toEqual({ result: 'success' })
   })
 
+  it('should pass generateN from programmatic step to runAgentStep as n parameter', async () => {
+    // Test that when programmatic step returns generateN, it's passed to runAgentStep
+
+    let agentStepN: number | undefined
+
+    const mockGeneratorFunction = function* () {
+      // Yield GENERATE_N to trigger n parameter
+      yield { type: 'GENERATE_N', n: 5 }
+    } as () => StepGenerator
+
+    mockTemplate.handleSteps = mockGeneratorFunction
+
+    const localAgentTemplates = {
+      'test-agent': mockTemplate,
+    }
+
+    // Mock promptAiSdk to capture the n parameter
+    loopAgentStepsBaseParams.promptAiSdk = async (params: any) => {
+      agentStepN = params.n
+      return JSON.stringify([
+        'Response 1',
+        'Response 2',
+        'Response 3',
+        'Response 4',
+        'Response 5',
+      ])
+    }
+
+    await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      agentType: 'test-agent',
+      localAgentTemplates,
+    })
+
+    // Verify generateN was passed to runAgentStep as n
+    expect(agentStepN).toBe(5)
+  })
+
+  it('should pass nResponses from runAgentStep back to programmatic step', async () => {
+    // Test that nResponses returned by runAgentStep are passed to next programmatic step
+
+    let receivedNResponses: string[] | undefined
+
+    const mockGeneratorFunction = function* () {
+      const { nResponses } = yield { type: 'GENERATE_N', n: 3 }
+      receivedNResponses = nResponses
+      const step = yield {
+        toolName: 'read_files',
+        input: { paths: ['test.txt'] },
+      }
+      yield { toolName: 'end_turn', input: {} }
+    } as () => StepGenerator
+
+    mockTemplate.handleSteps = mockGeneratorFunction
+
+    const localAgentTemplates = {
+      'test-agent': mockTemplate,
+    }
+
+    const expectedResponses = [
+      'Implementation A',
+      'Implementation B',
+      'Implementation C',
+    ]
+    loopAgentStepsBaseParams.promptAiSdk = async () => {
+      return JSON.stringify(expectedResponses)
+    }
+
+    await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      agentType: 'test-agent',
+      localAgentTemplates,
+    })
+
+    expect(receivedNResponses).toEqual(expectedResponses)
+  })
+
   it('should allow agents without outputSchema to end normally', async () => {
     // Test that agents without outputSchema can end without setting output
 

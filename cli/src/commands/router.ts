@@ -124,6 +124,14 @@ export async function routeUserPrompt(params: {
 
   const normalized = trimmed.startsWith('/') ? trimmed.slice(1) : trimmed
   const cmd = normalized.split(/\s+/)[0].toLowerCase()
+  
+  if (cmd === 'feedback') {
+    // Return special flag to open feedback mode
+    saveToHistory(trimmed)
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+    return { openFeedbackMode: true }
+  }
+  
   if (cmd === 'login' || cmd === 'signin') {
     setMessages((prev) => [
       ...prev,
@@ -212,4 +220,6 @@ export async function routeUserPrompt(params: {
   setTimeout(() => {
     scrollToLatest()
   }, 0)
+  
+  return
 }

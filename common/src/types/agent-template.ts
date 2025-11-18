@@ -139,14 +139,16 @@ export type AgentTemplate<
 }
 
 export type StepText = { type: 'STEP_TEXT'; text: string }
+export type GenerateN = { type: 'GENERATE_N'; n: number }
 
 export type StepGenerator = Generator<
-  Omit<ToolCall, 'toolCallId'> | 'STEP' | 'STEP_ALL' | StepText, // Generic tool call type
+  Omit<ToolCall, 'toolCallId'> | 'STEP' | 'STEP_ALL' | StepText | GenerateN, // Generic tool call type
   void,
   {
     agentState: PublicAgentState
     toolResult: ToolResultOutput[]
     stepsComplete: boolean
+    nResponses?: string[]
   }
 >
 

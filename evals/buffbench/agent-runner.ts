@@ -56,7 +56,7 @@ export async function runAgentOnCommit({
   let finalCheckOutputs: FinalCheckOutput[] | undefined
 
   try {
-    const timeoutMs = 30 * 60 * 1000 // 30 minutes
+    const timeoutMs = 60 * 60 * 1000 // 60 minutes
     await withTimeout(
       withTestRepo(
         {

@@ -11,7 +11,6 @@ interface KeyboardHandlersConfig {
   setFocusedAgentId: (id: string | null) => void
   setInputFocused: (focused: boolean) => void
   inputRef: React.MutableRefObject<InputHandle | null>
-  setCollapsedAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   navigateUp: () => void
   navigateDown: () => void
   toggleAgentMode: () => void
@@ -19,6 +18,7 @@ interface KeyboardHandlersConfig {
   onInterrupt: () => void
   historyNavUpEnabled: boolean
   historyNavDownEnabled: boolean
+  disabled?: boolean
 }
 
 export const useKeyboardHandlers = ({
@@ -29,7 +29,6 @@ export const useKeyboardHandlers = ({
   setFocusedAgentId,
   setInputFocused,
   inputRef,
-  setCollapsedAgents,
   navigateUp,
   navigateDown,
   toggleAgentMode,
@@ -37,10 +36,13 @@ export const useKeyboardHandlers = ({
   onInterrupt,
   historyNavUpEnabled,
   historyNavDownEnabled,
+  disabled = false,
 }: KeyboardHandlersConfig) => {
   useKeyboard(
     useCallback(
       (key) => {
+        if (disabled) return
+
         const isEscape = key.name === 'escape'
         const isCtrlC = key.ctrl && key.name === 'c'
 
@@ -71,13 +73,21 @@ export const useKeyboardHandlers = ({
           }
         }
       },
-      [isStreaming, isWaitingForResponse, abortControllerRef, onCtrlC, onInterrupt],
+      [
+        isStreaming,
+        isWaitingForResponse,
+        abortControllerRef,
+        onCtrlC,
+        onInterrupt,
+        disabled,
+      ],
     ),
   )
 
   useKeyboard(
     useCallback(
       (key) => {
+        if (disabled) return
         if (!focusedAgentId) return
 
         const isSpace =
@@ -100,38 +110,16 @@ export const useKeyboardHandlers = ({
         ) {
           key.preventDefault()
         }
-
-        if (isRightArrow) {
-          setCollapsedAgents((prev) => {
-            const next = new Set(prev)
-            next.delete(focusedAgentId)
-            return next
-          })
-        } else if (isLeftArrow) {
-          setCollapsedAgents((prev) => {
-            const next = new Set(prev)
-            next.add(focusedAgentId)
-            return next
-          })
-        } else {
-          setCollapsedAgents((prev) => {
-            const next = new Set(prev)
-            if (next.has(focusedAgentId)) {
-              next.delete(focusedAgentId)
-            } else {
-              next.add(focusedAgentId)
-            }
-            return next
-          })
-        }
+        return
       },
-      [focusedAgentId, setCollapsedAgents],
+      [focusedAgentId, disabled],
     ),
   )
 
   useKeyboard(
     useCallback(
       (key) => {
+        if (disabled) return
         if (key.name === 'escape' && focusedAgentId) {
           if (
             'preventDefault' in key &&
@@ -144,7 +132,7 @@ export const useKeyboardHandlers = ({
           inputRef.current?.focus()
         }
       },
-      [focusedAgentId, setFocusedAgentId, setInputFocused, inputRef],
+      [focusedAgentId, setFocusedAgentId, setInputFocused, inputRef, disabled],
     ),
   )
 
@@ -152,6 +140,8 @@ export const useKeyboardHandlers = ({
   useKeyboard(
     useCallback(
       (key) => {
+        if (disabled) return
+
         const isUpArrow =
           key.name === 'up' && !key.ctrl && !key.meta && !key.shift
         const isDownArrow =
@@ -174,13 +164,21 @@ export const useKeyboardHandlers = ({
           navigateDown()
         }
       },
-      [historyNavUpEnabled, historyNavDownEnabled, navigateUp, navigateDown],
+      [
+        historyNavUpEnabled,
+        historyNavDownEnabled,
+        navigateUp,
+        navigateDown,
+        disabled,
+      ],
     ),
   )
 
   useKeyboard(
     useCallback(
       (key) => {
+        if (disabled) return
+
         const isShiftTab =
           key.shift && key.name === 'tab' && !key.ctrl && !key.meta
 
@@ -195,7 +193,7 @@ export const useKeyboardHandlers = ({
 
         toggleAgentMode()
       },
-      [toggleAgentMode],
+      [toggleAgentMode, disabled],
     ),
   )
 }

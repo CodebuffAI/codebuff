@@ -57,6 +57,7 @@ export async function runProgrammaticStep(
     sendAction: SendActionFn
     addAgentStep: AddAgentStepFn
     logger: Logger
+    nResponses?: string[]
   } & ParamsExcluding<
     typeof executeToolCall,
     | 'toolName'
@@ -87,12 +88,14 @@ export async function runProgrammaticStep(
   textOverride: string | null
   endTurn: boolean
   stepNumber: number
+  generateN?: number
 }> {
   const {
     agentState,
     template,
     prompt,
     toolCallParams,
+    nResponses,
     system,
     userId,
     userInputId,
@@ -200,9 +203,10 @@ export async function runProgrammaticStep(
     messages: cloneDeep(agentState.messageHistory),
   }
 
-  let toolResult: ToolResultOutput[] = []
+  let toolResult: ToolResultOutput[] | undefined = undefined
   let endTurn = false
   let textOverride: string | null = null
+  let generateN: number | undefined = undefined
 
   let startTime = new Date()
   let creditsBefore = agentState.directCreditsUsed
@@ -217,8 +221,9 @@ export async function runProgrammaticStep(
 
       const result = generator!.next({
         agentState: getPublicAgentState(state.agentState),
-        toolResult,
+        toolResult: toolResult ?? [],
         stepsComplete,
+        nResponses,
       })
 
       if (result.done) {
@@ -235,6 +240,14 @@ export async function runProgrammaticStep(
 
       if ('type' in result.value && result.value.type === 'STEP_TEXT') {
         textOverride = result.value.text
+        break
+      }
+
+      if ('type' in result.value && result.value.type === 'GENERATE_N') {
+        logger.info({ resultValue: result.value }, 'GENERATE_N yielded')
+        // Handle GENERATE_N: generate n responses using the LLM
+        generateN = result.value.n
+        endTurn = false
         break
       }
 
@@ -353,7 +366,8 @@ export async function runProgrammaticStep(
       state.agentState.messageHistory = state.messages
 
       // Get the latest tool result
-      toolResult = toolResults[toolResults.length - 1]?.output
+      const latestToolResult = toolResults[toolResults.length - 1]
+      toolResult = latestToolResult?.output
 
       if (state.agentState.runId) {
         await addAgentStep({
@@ -379,9 +393,10 @@ export async function runProgrammaticStep(
 
     return {
       agentState: state.agentState,
-      textOverride: textOverride,
+      textOverride,
       endTurn,
       stepNumber,
+      generateN,
     }
   } catch (error) {
     endTurn = true
@@ -431,6 +446,7 @@ export async function runProgrammaticStep(
       textOverride: null,
       endTurn,
       stepNumber,
+      generateN: undefined,
     }
   } finally {
     if (endTurn) {

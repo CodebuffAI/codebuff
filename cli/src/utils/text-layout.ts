@@ -115,23 +115,32 @@ export function computeInputLayoutMetrics({
   cursorProbe,
   cols,
   maxHeight,
+  minHeight = 1,
 }: {
   layoutContent: string
   cursorProbe: string
   cols: number
   maxHeight: number
+  minHeight?: number
 }): { heightLines: number; gutterEnabled: boolean } {
+  const safeMaxHeight = Math.max(1, maxHeight)
+  const effectiveMinHeight = Math.max(
+    1,
+    Math.min(minHeight ?? 1, safeMaxHeight),
+  )
   const totalLines = measureLines(layoutContent, cols)
   const cursorLines = measureLines(cursorProbe, cols)
 
   // Add bottom gutter when cursor is on line 2 of exactly 2 lines
   const gutterEnabled =
-    totalLines === 2 && cursorLines === 2 && totalLines + 1 <= maxHeight
+    totalLines === 2 && cursorLines === 2 && totalLines + 1 <= safeMaxHeight
 
-  const heightLines = Math.max(
-    1,
-    Math.min(totalLines + (gutterEnabled ? 1 : 0), maxHeight),
+  const rawHeight = Math.min(
+    totalLines + (gutterEnabled ? 1 : 0),
+    safeMaxHeight,
   )
+
+  const heightLines = Math.max(effectiveMinHeight, rawHeight)
 
   return {
     heightLines,

@@ -11,7 +11,7 @@ import type { StatusIndicatorState } from '../utils/status-indicator-state'
 const SHIMMER_INTERVAL_MS = 160
 
 interface StatusBarProps {
-  clipboardMessage: string | null
+  statusMessage: string | null
   streamStatus: StreamStatus
   statusIndicatorState: StatusIndicatorState
   timerStartTime: number | null
@@ -22,7 +22,7 @@ interface StatusBarProps {
 }
 
 export const StatusBar = ({
-  clipboardMessage,
+  statusMessage,
   streamStatus,
   statusIndicatorState,
   timerStartTime,
@@ -79,8 +79,10 @@ export const StatusBar = ({
         )
 
       case 'clipboard':
+        // Use green color for feedback success messages
+        const isFeedbackSuccess = statusIndicatorState.message.includes('Feedback sent')
         return (
-          <text fg={theme.primary} style={{ wrapMode: 'none' }}>
+          <text fg={isFeedbackSuccess ? theme.success : theme.primary} style={{ wrapMode: 'none' }}>
             {statusIndicatorState.message}
           </text>
         )

@@ -257,12 +257,13 @@ export interface AgentDefinition {
    * }
    */
   handleSteps?: (context: AgentStepContext) => Generator<
-    ToolCall | 'STEP' | 'STEP_ALL' | StepText,
+    ToolCall | 'STEP' | 'STEP_ALL' | StepText | GenerateN,
     void,
     {
       agentState: AgentState
       toolResult: ToolResultOutput[] | undefined
       stepsComplete: boolean
+      nResponses?: string[]
     }
   >
 }
@@ -294,6 +295,7 @@ export interface AgentStepContext {
 }
 
 export type StepText = { type: 'STEP_TEXT'; text: string }
+export type GenerateN = { type: 'GENERATE_N'; n: number }
 
 /**
  * Tool call object for handleSteps generator

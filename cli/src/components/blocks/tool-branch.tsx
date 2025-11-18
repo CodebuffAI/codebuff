@@ -13,7 +13,6 @@ interface ToolBranchProps {
   indentLevel: number
   keyPrefix: string
   availableWidth: number
-  collapsedAgents: Set<string>
   streamingAgents: Set<string>
   onToggleCollapsed: (id: string) => void
   markdownPalette: MarkdownPalette
@@ -25,7 +24,6 @@ export const ToolBranch = memo(
     indentLevel,
     keyPrefix,
     availableWidth,
-    collapsedAgents,
     streamingAgents,
     onToggleCollapsed,
     markdownPalette,
@@ -43,7 +41,7 @@ export const ToolBranch = memo(
     }
 
     const displayInfo = getToolDisplayInfo(toolBlock.toolName)
-    const isCollapsed = collapsedAgents.has(toolBlock.toolCallId)
+    const isCollapsed = toolBlock.isCollapsed ?? false
     const isStreaming = streamingAgents.has(toolBlock.toolCallId)
 
     const inputContent = `\`\`\`json\n${JSON.stringify(toolBlock.input, null, 2)}\n\`\`\``

@@ -1,11 +1,11 @@
-import { type SecretAgentDefinition } from '../types/secret-agent-definition'
-import { publisher } from '../constants'
+import { type SecretAgentDefinition } from '../../types/secret-agent-definition'
+import { publisher } from '../../constants'
 
 const definition: SecretAgentDefinition = {
-  id: 'thinker-selector-gpt-5',
+  id: 'thinker-selector',
   publisher,
-  model: 'openai/gpt-5.1',
-  displayName: 'Thinker Output Selector GPT-5',
+  model: 'anthropic/claude-sonnet-4.5',
+  displayName: 'Thinker Output Selector',
   spawnerPrompt: 'Analyzes multiple thinking outputs and selects the best one',
 
   includeMessageHistory: true,
@@ -68,6 +68,8 @@ Evaluate each based on (in order of importance):
 Try to select the thinking output that best answers the user's problem.
 
 ## Response Format
+
+Use <think> tags to briefly consider the thinking outputs as needed to pick the best one.
 
 If the best one is obvious or the outputs are very similar, you may not need to think very much (a few words suffice) or you may not need to use think tags at all, just pick the best one and output it. You have a dual goal of picking the best thinking and being fast (using as few words as possible).
 

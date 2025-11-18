@@ -12,6 +12,9 @@ export type TextContentBlock = {
   marginBottom?: number
   status?: 'running' | 'complete'
   textType?: 'reasoning' | 'text'
+  isCollapsed?: boolean
+  thinkingId?: string
+  userOpened?: boolean
 }
 export type HtmlContentBlock = {
   type: 'html'
@@ -28,6 +31,8 @@ export type ToolContentBlock = {
   outputRaw?: unknown
   agentId?: string
   includeToolCall?: boolean
+  isCollapsed?: boolean
+  userOpened?: boolean
 }
 export type AgentContentBlock = {
   type: 'agent'
@@ -38,12 +43,17 @@ export type AgentContentBlock = {
   status: 'running' | 'complete' | 'failed'
   blocks?: ContentBlock[]
   initialPrompt?: string
+  params?: Record<string, any>
+  isCollapsed?: boolean
+  userOpened?: boolean
 }
 export type AgentListContentBlock = {
   type: 'agent-list'
   id: string
   agents: Array<{ id: string; displayName: string }>
   agentsDir: string
+  isCollapsed?: boolean
+  userOpened?: boolean
 }
 export type ModeDividerContentBlock = {
   type: 'mode-divider'
