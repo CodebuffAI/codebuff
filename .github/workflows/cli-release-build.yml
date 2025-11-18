@@ -188,13 +188,13 @@ jobs:
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             BINARY_FILE="${{ inputs.binary-name }}.exe"
           fi
-          tar -czf codecane-${{ matrix.target }}.tar.gz -C cli/bin "$BINARY_FILE"
+          tar -czf ${{ inputs.binary-name }}-${{ matrix.target }}.tar.gz -C cli/bin "$BINARY_FILE"
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: codecane-${{ matrix.target }}
-          path: codecane-${{ matrix.target }}.tar.gz
+          name: ${{ inputs.binary-name }}-${{ matrix.target }}
+          path: ${{ inputs.binary-name }}-${{ matrix.target }}.tar.gz
 
   build-windows-binary:
     runs-on: windows-latest
@@ -323,10 +323,10 @@ jobs:
         shell: bash
         run: |
           BINARY_FILE="${{ inputs.binary-name }}.exe"
-          tar -czf codecane-win32-x64.tar.gz -C cli/bin "$BINARY_FILE"
+          tar -czf ${{ inputs.binary-name }}-win32-x64.tar.gz -C cli/bin "$BINARY_FILE"
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: codecane-win32-x64
-          path: codecane-win32-x64.tar.gz
+          name: ${{ inputs.binary-name }}-win32-x64
+          path: ${{ inputs.binary-name }}-win32-x64.tar.gz
