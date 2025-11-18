@@ -2,7 +2,23 @@ import { TextAttributes } from '@opentui/core'
 import React, { useEffect, useMemo, useState } from 'react'
 
 import { useTheme } from '../hooks/use-theme'
-import { SHIMMER_INTERVAL_MS } from '../utils/ui-constants'
+import {
+  SHIMMER_ATTR_BOLD_THRESHOLD,
+  SHIMMER_ATTR_DIM_THRESHOLD,
+  SHIMMER_INTERVAL_MS,
+  SHIMMER_LIGHTNESS_MAX,
+  SHIMMER_LIGHTNESS_MIN,
+  SHIMMER_LIGHTNESS_RANGE,
+  SHIMMER_PALETTE_DYNAMIC_MAX,
+  SHIMMER_PALETTE_DYNAMIC_MIN,
+  SHIMMER_PALETTE_DYNAMIC_MULTIPLIER,
+  SHIMMER_PALETTE_MAX_SIZE,
+  SHIMMER_PALETTE_MIN_SIZE,
+  SHIMMER_SATURATION_MAX,
+  SHIMMER_SATURATION_MIN,
+  SHIMMER_SATURATION_SCALE_AMPLITUDE,
+  SHIMMER_SATURATION_SCALE_BASE,
+} from '../utils/ui-constants'
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value))
@@ -113,15 +129,27 @@ const generatePaletteFromPrimary = (
 
   const { h, s, l } = rgbToHsl(baseRgb.r, baseRgb.g, baseRgb.b)
   const palette: string[] = []
-  const paletteSize = Math.max(6, Math.min(24, size))
-  const lightnessRange = 0.22
+  const paletteSize = Math.max(
+    SHIMMER_PALETTE_MIN_SIZE,
+    Math.min(SHIMMER_PALETTE_MAX_SIZE, size)
+  )
 
   for (let i = 0; i < paletteSize; i++) {
     const ratio = paletteSize === 1 ? 0.5 : i / (paletteSize - 1)
-    const offset = (0.5 - ratio) * 2 * lightnessRange
-    const adjustedLightness = clamp(l + offset, 0.08, 0.92)
-    const saturationScale = 0.88 + 0.18 * Math.cos(ratio * Math.PI)
-    const adjustedSaturation = clamp(s * saturationScale, 0.05, 1)
+    const offset = (0.5 - ratio) * 2 * SHIMMER_LIGHTNESS_RANGE
+    const adjustedLightness = clamp(
+      l + offset,
+      SHIMMER_LIGHTNESS_MIN,
+      SHIMMER_LIGHTNESS_MAX
+    )
+    const saturationScale =
+      SHIMMER_SATURATION_SCALE_BASE +
+      SHIMMER_SATURATION_SCALE_AMPLITUDE * Math.cos(ratio * Math.PI)
+    const adjustedSaturation = clamp(
+      s * saturationScale,
+      SHIMMER_SATURATION_MIN,
+      SHIMMER_SATURATION_MAX
+    )
     const { r, g, b } = hslToRgb(h, adjustedSaturation, adjustedLightness)
     palette.push(rgbToHex(r, g, b))
   }
@@ -160,22 +188,28 @@ export const ShimmerText = ({
     return () => clearInterval(pulseInterval)
   }, [interval, numChars])
 
+  /**
+   * Generates an array of colors with guaranteed length.
+   * @param length - The exact number of colors to generate
+   * @param palette - The color palette to interpolate from
+   * @returns An array of exactly `length` colors
+   */
   const generateColors = (length: number, palette: string[]): string[] => {
     if (length === 0) return []
     if (palette.length === 0) {
       return Array.from({ length }, () => theme.muted)
     }
     if (palette.length === 1) {
-      return Array.from({ length }, () => palette[0])
+      return Array.from({ length }, () => palette[0]!)
     }
-    const generated: string[] = []
+    const generated: string[] = new Array(length)
     for (let i = 0; i < length; i++) {
       const ratio = length === 1 ? 0 : i / (length - 1)
       const colorIndex = Math.min(
         palette.length - 1,
         Math.floor(ratio * (palette.length - 1)),
       )
-      generated.push(palette[colorIndex])
+      generated[i] = palette[colorIndex]!
     }
     return generated
   }
@@ -184,21 +218,32 @@ export const ShimmerText = ({
     if (colors && colors.length > 0) {
       return colors
     }
-    const paletteSize = Math.max(8, Math.min(20, Math.ceil(numChars * 1.5)))
+    const paletteSize = Math.max(
+      SHIMMER_PALETTE_DYNAMIC_MIN,
+      Math.min(
+        SHIMMER_PALETTE_DYNAMIC_MAX,
+        Math.ceil(numChars * SHIMMER_PALETTE_DYNAMIC_MULTIPLIER)
+      )
+    )
     const seedColor = primaryColor ?? theme.info
     return generatePaletteFromPrimary(seedColor, paletteSize, theme.muted)
   }, [colors, primaryColor, numChars, theme.info, theme.muted])
 
+  /**
+   * Generates an array of text attributes with guaranteed length.
+   * @param length - The exact number of attributes to generate
+   * @returns An array of exactly `length` attributes
+   */
   const generateAttributes = (length: number): number[] => {
-    const attributes: number[] = []
+    const attributes: number[] = new Array(length)
     for (let i = 0; i < length; i++) {
       const ratio = length <= 1 ? 0 : i / (length - 1)
-      if (ratio < 0.23) {
-        attributes.push(TextAttributes.BOLD)
-      } else if (ratio < 0.69) {
-        attributes.push(TextAttributes.NONE)
+      if (ratio < SHIMMER_ATTR_BOLD_THRESHOLD) {
+        attributes[i] = TextAttributes.BOLD
+      } else if (ratio < SHIMMER_ATTR_DIM_THRESHOLD) {
+        attributes[i] = TextAttributes.NONE
       } else {
-        attributes.push(TextAttributes.DIM)
+        attributes[i] = TextAttributes.DIM
       }
     }
     return attributes
@@ -217,8 +262,9 @@ export const ShimmerText = ({
 
   chars.forEach((char, index) => {
     const phase = (pulse - index + numChars) % numChars
-    const charColor = generatedColors[phase] ?? theme.muted
-    const charAttr = attributes[phase] ?? TextAttributes.NONE
+    // Since arrays are guaranteed to have correct length, we can assert non-null
+    const charColor = generatedColors[phase]!
+    const charAttr = attributes[phase]!
 
     if (currentColor === undefined) {
       currentColor = charColor
@@ -231,8 +277,8 @@ export const ShimmerText = ({
       if (buffer) {
         parts.push({
           text: buffer,
-          color: currentColor ?? theme.muted,
-          attr: currentAttr ?? TextAttributes.NONE,
+          color: currentColor,
+          attr: currentAttr,
         })
       }
       buffer = char
@@ -241,11 +287,11 @@ export const ShimmerText = ({
     }
   })
 
-  if (buffer) {
+  if (buffer && currentColor !== undefined && currentAttr !== undefined) {
     parts.push({
       text: buffer,
-      color: currentColor ?? theme.muted,
-      attr: currentAttr ?? TextAttributes.NONE,
+      color: currentColor,
+      attr: currentAttr,
     })
   }
 
