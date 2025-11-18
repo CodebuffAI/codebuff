@@ -1,8 +1,10 @@
+import { castDraft } from 'immer'
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
 import { clamp } from '../utils/math'
 
+import type { RunState } from '@codebuff/sdk'
 import type { ChatMessage } from '../types/chat'
 import type { AgentMode } from '../utils/constants'
 
@@ -30,7 +32,7 @@ export type ChatStoreState = {
   hasReceivedPlanResponse: boolean
   lastMessageMode: AgentMode | null
   sessionCreditsUsed: number
-  runState: any | null // Using any to avoid Immer type issues with complex RunState type
+  runState: RunState | null
 }
 
 type ChatStoreActions = {
@@ -64,7 +66,7 @@ type ChatStoreActions = {
   setHasReceivedPlanResponse: (value: boolean) => void
   setLastMessageMode: (mode: AgentMode | null) => void
   addSessionCredits: (credits: number) => void
-  setRunState: (runState: any | null) => void
+  setRunState: (runState: RunState | null) => void
   reset: () => void
 }
 
@@ -199,7 +201,7 @@ export const useChatStore = create<ChatStore>()(
 
     setRunState: (runState) =>
       set((state) => {
-        state.runState = runState
+        state.runState = runState ? castDraft(runState) : null
       }),
 
     reset: () =>
@@ -221,6 +223,8 @@ export const useChatStore = create<ChatStore>()(
         state.lastMessageMode = initialState.lastMessageMode
         state.sessionCreditsUsed = initialState.sessionCreditsUsed
         state.runState = initialState.runState
+          ? castDraft(initialState.runState)
+          : null
       }),
   })),
 )
