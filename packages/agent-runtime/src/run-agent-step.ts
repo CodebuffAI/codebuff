@@ -288,7 +288,18 @@ export const runAgentStep = async (
       onCostCalculated,
       n: params.n,
     })
-    const nResponses = JSON.parse(responsesString) as string[]
+
+    let nResponses: string[]
+    try {
+      nResponses = JSON.parse(responsesString) as string[]
+      if (!Array.isArray(nResponses)) {
+        // If it parsed but isn't an array, treat as single response
+        nResponses = [responsesString]
+      }
+    } catch (e) {
+      // If parsing fails, treat as single raw response (common for n=1)
+      nResponses = [responsesString]
+    }
     
     // Update agent state with the message history including the generations
     agentState = {
