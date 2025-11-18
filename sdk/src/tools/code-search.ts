@@ -29,21 +29,19 @@ export function codeSearch({
     let isResolved = false
 
     // Guard paths robustly
-    const projectRoot = path.resolve(projectPath) + path.sep
-    let searchCwd = projectRoot
-    if (cwd) {
-      const requestedPath = path.resolve(projectRoot, cwd)
-      if (!requestedPath.startsWith(projectRoot)) {
-        return resolve([
-          {
-            type: 'json',
-            value: {
-              errorMessage: `Invalid cwd: Path '${cwd}' is outside the project directory.`,
-            },
+    const projectRoot = path.resolve(projectPath)
+    const searchCwd = cwd ? path.resolve(projectRoot, cwd) : projectRoot
+    
+    // Ensure the resolved path is within the project directory
+    if (!searchCwd.startsWith(projectRoot + path.sep) && searchCwd !== projectRoot) {
+      return resolve([
+        {
+          type: 'json',
+          value: {
+            errorMessage: `Invalid cwd: Path '${cwd}' is outside the project directory.`,
           },
-        ])
-      }
-      searchCwd = requestedPath
+        },
+      ])
     }
 
     // Parse flags - do NOT deduplicate to preserve flag-argument pairs like '-g *.ts'
