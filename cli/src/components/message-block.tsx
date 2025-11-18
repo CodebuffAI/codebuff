@@ -93,9 +93,25 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
   const resolvedTextColor = textColor ?? theme.foreground
   const shouldShowLoadingTimer = isAi && isLoading && !isComplete
   const shouldShowCompletionFooter = isAi && isComplete
-  const canRequestFeedback = !!(
+  const canRequestFeedback =
     shouldShowCompletionFooter && !hasSubmittedFeedback
-  )
+  const isGoodOrBadSelection =
+    selectedFeedbackCategory === 'good_result' ||
+    selectedFeedbackCategory === 'bad_result'
+  const shouldShowSubmittedFeedbackState =
+    shouldShowCompletionFooter && hasSubmittedFeedback && isGoodOrBadSelection
+  const shouldRenderFeedbackButton =
+    Boolean(onFeedback) && (canRequestFeedback || shouldShowSubmittedFeedbackState)
+
+  const handleFeedbackOpen = useCallback(() => {
+    if (!canRequestFeedback || !onFeedback) return
+    onFeedback(messageId)
+  }, [canRequestFeedback, onFeedback, messageId])
+
+  const handleFeedbackClose = useCallback(() => {
+    if (!canRequestFeedback) return
+    onCloseFeedback?.()
+  }, [canRequestFeedback, onCloseFeedback])
 
   const renderLoadingTimer = () => {
     if (!shouldShowLoadingTimer) {
@@ -161,16 +177,17 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
         ),
       })
     }
-    if (canRequestFeedback && onFeedback) {
+    if (shouldRenderFeedbackButton) {
       footerItems.push({
         key: 'feedback',
         node: (
           <FeedbackIconButton
-            onClick={() => onFeedback(messageId)}
-            onClose={() => onCloseFeedback?.()}
-            isOpen={isFeedbackOpen}
+            onClick={handleFeedbackOpen}
+            onClose={handleFeedbackClose}
+            isOpen={canRequestFeedback ? isFeedbackOpen : false}
             messageId={messageId}
             selectedCategory={selectedFeedbackCategory}
+            hasSubmittedFeedback={hasSubmittedFeedback}
           />
         ),
       })

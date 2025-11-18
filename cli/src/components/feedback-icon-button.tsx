@@ -13,6 +13,7 @@ interface FeedbackIconButtonProps {
   isOpen?: boolean
   messageId?: string
   selectedCategory?: string
+  hasSubmittedFeedback?: boolean
 }
 
 export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({
@@ -21,6 +22,7 @@ export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({
   isOpen,
   messageId,
   selectedCategory,
+  hasSubmittedFeedback = false,
 }) => {
   const theme = useTheme()
   const hover = useHoverToggle()
@@ -31,6 +33,7 @@ export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({
   }
 
   const handleMouseOver = () => {
+    if (hasSubmittedFeedback) return
     hover.clearCloseTimer()
     hover.scheduleOpen()
     if (!hoveredOnceRef.current) {
@@ -45,7 +48,10 @@ export const FeedbackIconButton: React.FC<FeedbackIconButtonProps> = ({
       )
     }
   }
-  const handleMouseOut = () => hover.scheduleClose()
+  const handleMouseOut = () => {
+    if (hasSubmittedFeedback) return
+    hover.scheduleClose()
+  }
 
   // Determine which symbol to show based on selected category
   const getSymbol = () => {
