@@ -129,8 +129,8 @@ function parseArgs(): ParsedArgs {
   const program = new Command()
 
   program
-    .name('codecane')
-    .description('Codecane CLI - AI-powered coding assistant')
+    .name('codebuff')
+    .description('Codebuff CLI - AI-powered coding assistant')
     .version(VERSION, '-v, --version', 'Print the CLI version')
     .option(
       '--agent <agent-id>',
@@ -164,7 +164,13 @@ function parseArgs(): ParsedArgs {
 }
 
 async function bootstrapCli(): Promise<void> {
-  const { initialPrompt, agent, clearLogs, continue: continueChat, continueId } = parseArgs()
+  const {
+    initialPrompt,
+    agent,
+    clearLogs,
+    continue: continueChat,
+    continueId,
+  } = parseArgs()
 
   initializeThemeStore()
 
