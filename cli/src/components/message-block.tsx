@@ -38,7 +38,6 @@ interface MessageBlockProps {
   isAi: boolean
   isLoading: boolean
   timestamp: string
-  timestampNote?: string
   isComplete?: boolean
   completionTime?: string
   credits?: number
@@ -65,7 +64,6 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
     isAi,
     isLoading,
     timestamp,
-    timestampNote,
     isComplete,
     completionTime,
     credits,
@@ -93,9 +91,7 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
   const selectedFeedbackCategory = useFeedbackStore(selectMessageFeedbackCategory(messageId))
 
   const resolvedTextColor = textColor ?? theme.foreground
-  const timestampDisplay = timestampNote
-    ? `[${timestamp} · ${timestampNote}]`
-    : `[${timestamp}]`
+  const timestampDisplay = `[${timestamp}]`
 
   const shouldShowLoadingTimer = isAi && isLoading && !isComplete
   const shouldShowCompletionFooter = isAi && isComplete

@@ -41,7 +41,6 @@ export const useAuthState = ({
   const [user, setUser] = useState<User | null>(null)
   const [authError, setAuthError] = useState<AuthError | null>(null)
 
-  // Update authentication state when requireAuth changes
   useEffect(() => {
     if (requireAuth === null) {
       return
@@ -49,7 +48,6 @@ export const useAuthState = ({
     setIsAuthenticated(!requireAuth)
   }, [requireAuth])
 
-  // Update authentication state based on query results
   useEffect(() => {
     if (authQuery.isSuccess && authQuery.data) {
       setIsAuthenticated(true)
@@ -67,17 +65,12 @@ export const useAuthState = ({
     } else if (authQuery.isError) {
       const error = authQuery.error
 
-      // Check if this is a network error
       if (isNetworkError(error)) {
-        // For network errors, don't force login - allow access to the main app
         setAuthError({
           type: 'network',
           message: 'Unable to reach server. Please check your connection.',
         })
-        // Don't set isAuthenticated to false for network errors
-        // This allows the app to continue working offline
       } else if (isAuthenticationError(error)) {
-        // For authentication errors, require login
         setAuthError({
           type: 'authentication',
           message: 'Invalid API key. Please log in again.',
@@ -85,7 +78,6 @@ export const useAuthState = ({
         setIsAuthenticated(false)
         setUser(null)
       } else {
-        // Unknown error - treat as authentication failure for safety
         setAuthError({
           type: 'unknown',
           message: error?.message || 'Authentication check failed',
@@ -96,10 +88,8 @@ export const useAuthState = ({
     }
   }, [authQuery.isSuccess, authQuery.isError, authQuery.data, authQuery.error, user])
 
-  // Handle successful login
   const handleLoginSuccess = useCallback(
     (loggedInUser: User) => {
-      // Reset the SDK client to pick up new credentials
       resetCodebuffClient()
       resetChatStore()
       resetLoginState()
@@ -110,7 +100,6 @@ export const useAuthState = ({
     [resetChatStore, resetLoginState, setInputFocused],
   )
 
-  // Auto-focus input after authentication
   useEffect(() => {
     if (isAuthenticated !== true) return
 

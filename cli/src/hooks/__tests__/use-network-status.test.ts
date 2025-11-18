@@ -159,7 +159,7 @@ describe('useNetworkStatus', () => {
       ]
 
       sources.forEach((error) => {
-        expect(['auth', 'validation', 'unknown']).toContain(error?.source)
+        expect(['auth', 'validation', 'unknown']).toContain(error!.source)
       })
     })
   })

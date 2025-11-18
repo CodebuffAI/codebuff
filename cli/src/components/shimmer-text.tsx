@@ -190,18 +190,18 @@ export const ShimmerText = ({
   }, [colors, primaryColor, numChars, theme.info, theme.muted])
 
   const generateAttributes = (length: number): number[] => {
-    const attrs: number[] = []
+    const attributes: number[] = []
     for (let i = 0; i < length; i++) {
       const ratio = length <= 1 ? 0 : i / (length - 1)
       if (ratio < 0.23) {
-        attrs.push(TextAttributes.BOLD)
+        attributes.push(TextAttributes.BOLD)
       } else if (ratio < 0.69) {
-        attrs.push(TextAttributes.NONE)
+        attributes.push(TextAttributes.NONE)
       } else {
-        attrs.push(TextAttributes.DIM)
+        attributes.push(TextAttributes.DIM)
       }
     }
-    return attrs
+    return attributes
   }
 
   const generatedColors = useMemo(

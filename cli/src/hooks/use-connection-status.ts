@@ -82,26 +82,9 @@ export const useConnectionStatus = (
         // Also handle first connection (for pending messages from previous session)
         if (connected && (previousConnected === false || previousConnected === null)) {
           const isInitialConnection = previousConnected === null
-          logger.info(
-            {
-              previousConnected,
-              connected,
-              isInitialConnection,
-              hasCallback: !!onReconnected
-            },
-            isInitialConnection
-              ? '[CONNECTION-CHECK] Initial connection established - checking for pending messages'
-              : '[CONNECTION-CHECK] Connection restored to backend - triggering reconnection handler'
-          )
           if (onReconnected) {
-            logger.info(
-              { isInitialConnection },
-              '[CONNECTION-CHECK] Calling onReconnected callback'
-            )
             onReconnected(isInitialConnection)
           }
-        } else if (!connected && previousConnected === true) {
-          logger.info('[CONNECTION-CHECK] Connection lost!')
         }
 
         previousConnected = connected
