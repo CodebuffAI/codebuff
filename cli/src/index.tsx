@@ -15,6 +15,7 @@ import { App } from './app'
 import { initializeApp } from './init/init-app'
 import { getProjectRoot } from './project-files'
 import { getUserCredentials } from './utils/auth'
+import { initAnalytics } from './utils/analytics'
 import { loadAgentDefinitions } from './utils/load-agent-definitions'
 import { getLoadedAgentsData } from './utils/local-agent-registry'
 import { clearLogFile, logger } from './utils/logger'
@@ -120,6 +121,14 @@ async function main(): Promise<void> {
   } = parseArgs()
 
   await initializeApp({ isOscDetectionRun: isOscDetectionRun() })
+  
+  // Initialize analytics
+  try {
+    initAnalytics()
+  } catch (error) {
+    // Analytics initialization is optional - don't fail the app if it errors
+    logger.debug(error, 'Failed to initialize analytics')
+  }
 
   if (clearLogs) {
     clearLogFile()

@@ -4,6 +4,8 @@ import { useAuthQuery, useLogoutMutation } from './use-auth-query'
 import { useLoginStore } from '../state/login-store'
 import { getUserCredentials } from '../utils/auth'
 import { resetCodebuffClient } from '../utils/codebuff-client'
+import { identifyUser } from '../utils/analytics'
+import { loggerContext } from '../utils/logger'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
 import type { User } from '../utils/auth'
@@ -55,10 +57,23 @@ export const useAuthState = ({
           authToken: userCredentials?.authToken || '',
         }
         setUser(userData)
+        
+        // Set logger context for analytics
+        loggerContext.userId = authQuery.data.id
+        loggerContext.userEmail = authQuery.data.email
+        
+        // Identify user with PostHog
+        identifyUser(authQuery.data.id, {
+          email: authQuery.data.email,
+        })
       }
     } else if (authQuery.isError) {
       setIsAuthenticated(false)
       setUser(null)
+      
+      // Clear logger context on auth error
+      delete loggerContext.userId
+      delete loggerContext.userEmail
     }
   }, [authQuery.isSuccess, authQuery.isError, authQuery.data, user])
 
@@ -72,6 +87,17 @@ export const useAuthState = ({
       setInputFocused(true)
       setUser(loggedInUser)
       setIsAuthenticated(true)
+      
+      // Set logger context for analytics
+      if (loggedInUser.id && loggedInUser.email) {
+        loggerContext.userId = loggedInUser.id
+        loggerContext.userEmail = loggedInUser.email
+        
+        // Identify user with PostHog
+        identifyUser(loggedInUser.id, {
+          email: loggedInUser.email,
+        })
+      }
     },
     [resetChatStore, resetLoginState, setInputFocused],
   )

@@ -9,7 +9,7 @@ import {
   type User,
 } from '../utils/auth'
 import { resetCodebuffClient } from '../utils/codebuff-client'
-import { logger as defaultLogger } from '../utils/logger'
+import { logger as defaultLogger, loggerContext } from '../utils/logger'
 
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -164,6 +164,9 @@ export function useLogoutMutation(deps: UseLogoutMutationDeps = {}) {
       resetCodebuffClient()
       // Clear all auth-related cache
       queryClient.removeQueries({ queryKey: authQueryKeys.all })
+      // Clear logger context
+      delete loggerContext.userId
+      delete loggerContext.userEmail
     },
     onError: (error) => {
       logger.error(error, 'Logout failed')
