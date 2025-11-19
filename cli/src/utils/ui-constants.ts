@@ -14,9 +14,8 @@ export const BORDER_CHARS: BorderCharacters = {
   cross: '┼',
 }
 
-// Reconnection timing
-export const RECONNECTION_RETRY_DELAY_MS = 500
-export const RECONNECTION_MESSAGE_DURATION_MS = 2000
+// Reconnection timing constants moved to @codebuff/sdk/retry-config
+// Import RECONNECTION_RETRY_DELAY_MS and RECONNECTION_MESSAGE_DURATION_MS from @codebuff/sdk
 
 // Shimmer animation
 export const SHIMMER_INTERVAL_MS = 160

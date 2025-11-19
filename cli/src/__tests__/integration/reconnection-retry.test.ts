@@ -1,4 +1,9 @@
 import { describe, test, expect, beforeEach, mock } from 'bun:test'
+import {
+  MAX_RETRIES_PER_MESSAGE,
+  RETRY_BACKOFF_BASE_DELAY_MS,
+  RETRY_BACKOFF_MAX_DELAY_MS,
+} from '@codebuff/sdk'
 
 /**
  * Integration tests for reconnection and retry logic
@@ -153,7 +158,6 @@ describe('Reconnection and Retry Logic', () => {
     })
 
     test('should respect max retry attempts', async () => {
-      const MAX_RETRIES = 3
       const retryAttempts: Record<string, number> = {}
       const messageId = 'msg-1'
       let failedMessageMarked = false
@@ -164,7 +168,7 @@ describe('Reconnection and Retry Logic', () => {
 
       const attemptRetry = () => {
         const attempts = retryAttempts[messageId] ?? 0
-        if (attempts >= MAX_RETRIES) {
+        if (attempts >= MAX_RETRIES_PER_MESSAGE) {
           markMessageFailed(messageId, 'Maximum retry attempts reached')
           return false
         }
@@ -218,7 +222,7 @@ describe('Reconnection and Retry Logic', () => {
   })
 
   describe('Timeout Management', () => {
-    test('should cleanup timeout on unmount', () => {
+    test('should cleanup timeout on unmount', async () => {
       let timeoutRef: NodeJS.Timeout | null = null
       let cleanupCalled = false
 
@@ -252,12 +256,11 @@ describe('Reconnection and Retry Logic', () => {
       expect(timeoutRef).toBeNull()
 
       // Wait to ensure timeout doesn't fire
-      setTimeout(() => {
-        expect(timeoutFired).toBe(false)
-      }, 150)
+      await new Promise((resolve) => setTimeout(resolve, 150))
+      expect(timeoutFired).toBe(false)
     })
 
-    test('should replace existing timeout when setting new one', () => {
+    test('should replace existing timeout when setting new one', async () => {
       let timeoutRef: NodeJS.Timeout | null = null
       const callbacks: string[] = []
 
@@ -279,10 +282,9 @@ describe('Reconnection and Retry Logic', () => {
       }, 50)
 
       // Wait for second timeout to fire
-      setTimeout(() => {
-        expect(callbacks).toEqual(['second'])
-        expect(callbacks).not.toContain('first')
-      }, 120)
+      await new Promise((resolve) => setTimeout(resolve, 120))
+      expect(callbacks).toEqual(['second'])
+      expect(callbacks).not.toContain('first')
     })
   })
 
@@ -336,9 +338,6 @@ describe('Reconnection and Retry Logic', () => {
 
   describe('Backoff Strategy', () => {
     test('should implement exponential backoff for retries', () => {
-      const RETRY_BACKOFF_BASE_DELAY_MS = 1000
-      const RETRY_BACKOFF_MAX_DELAY_MS = 30000
-
       let backoffDelay = RETRY_BACKOFF_BASE_DELAY_MS
 
       const calculateNextBackoff = (hasMorePending: boolean) => {
@@ -351,20 +350,18 @@ describe('Reconnection and Retry Logic', () => {
       }
 
       // First retry - no backoff increase (no more pending)
-      expect(calculateNextBackoff(false)).toBe(1000)
+      expect(calculateNextBackoff(false)).toBe(RETRY_BACKOFF_BASE_DELAY_MS)
 
       // Subsequent retries with pending messages
       expect(calculateNextBackoff(true)).toBe(2000)
       expect(calculateNextBackoff(true)).toBe(4000)
-      expect(calculateNextBackoff(true)).toBe(8000)
-      expect(calculateNextBackoff(true)).toBe(16000)
-      expect(calculateNextBackoff(true)).toBe(30000) // Capped at max
+      expect(calculateNextBackoff(true)).toBe(RETRY_BACKOFF_MAX_DELAY_MS) // Capped at max (8000)
 
       // Should stay at max
-      expect(calculateNextBackoff(true)).toBe(30000)
+      expect(calculateNextBackoff(true)).toBe(RETRY_BACKOFF_MAX_DELAY_MS)
 
       // Reset when no more pending
-      expect(calculateNextBackoff(false)).toBe(1000)
+      expect(calculateNextBackoff(false)).toBe(RETRY_BACKOFF_BASE_DELAY_MS)
     })
   })
 })

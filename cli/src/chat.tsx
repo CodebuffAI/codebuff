@@ -50,12 +50,12 @@ import { loadLocalAgents } from './utils/local-agent-registry'
 import { buildMessageTree } from './utils/message-tree-utils'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
+import { BORDER_CHARS } from './utils/ui-constants'
+import { formatRetryBannerMessage } from './utils/error-messages'
 import {
-  BORDER_CHARS,
   RECONNECTION_MESSAGE_DURATION_MS,
   RECONNECTION_RETRY_DELAY_MS,
-} from './utils/ui-constants'
-import { formatRetryBannerMessage } from './utils/error-messages'
+} from '@codebuff/sdk'
 
 import type { ChatMessage, ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'

@@ -46,6 +46,21 @@ export {
 } from './errors'
 export type { ValidationResult, ValidateAgentsOptions } from './validate-agents'
 
+// Retry and connection configuration
+export {
+  MAX_RETRIES_PER_MESSAGE,
+  RETRY_BACKOFF_BASE_DELAY_MS,
+  RETRY_BACKOFF_MAX_DELAY_MS,
+  RECONNECTION_RETRY_DELAY_MS,
+  RECONNECTION_MESSAGE_DURATION_MS,
+  calculateBackoffDelay,
+  DEFAULT_RETRY_CONFIG,
+  type RetryConfig,
+} from './retry-config'
+
+// Re-export promise utilities and constants from common
+export { INITIAL_RETRY_DELAY } from '@codebuff/common/util/promise'
+
 // ErrorOr utilities
 export {
   failure,

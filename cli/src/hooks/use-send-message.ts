@@ -20,6 +20,9 @@ import {
   isNetworkError,
   ErrorCodes,
   RETRYABLE_ERROR_CODES,
+  MAX_RETRIES_PER_MESSAGE,
+  RETRY_BACKOFF_BASE_DELAY_MS,
+  RETRY_BACKOFF_MAX_DELAY_MS,
 } from '@codebuff/sdk'
 import {
   loadMostRecentChatState,
@@ -42,9 +45,9 @@ const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
   'spawn_agents',
 ])
 
-const MAX_RETRIES_PER_MESSAGE = 3
-const RETRY_BACKOFF_BASE_DELAY_MS = 1_000
-const RETRY_BACKOFF_MAX_DELAY_MS = 8_000
+// Message retry configuration - imported from @codebuff/sdk/retry-config
+// MAX_RETRIES_PER_MESSAGE, RETRY_BACKOFF_BASE_DELAY_MS, RETRY_BACKOFF_MAX_DELAY_MS
+
 const MAX_FAILED_MESSAGES_TO_STORE = 50 // Limit memory usage for failed messages
 const FAILED_MESSAGE_TTL_MS = 5 * 60 * 1000 // 5 minutes - prune old failures
 

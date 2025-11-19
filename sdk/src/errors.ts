@@ -1,5 +1,62 @@
 /**
  * Custom error classes for the SDK
+ *
+ * ## Error Handling Philosophy
+ *
+ * This SDK uses a **consistent throwing pattern** for error handling:
+ * - All SDK functions throw typed errors (AuthenticationError, NetworkError, etc.)
+ * - Errors include a `code` property for programmatic error type checking
+ * - Error codes indicate whether the error is retryable
+ * - Optional ErrorOr wrappers available for functional programming style
+ *
+ * ## Error Types
+ *
+ * ### AuthenticationError (code: 'AUTH_FAILED')
+ * - Thrown for 401/403 HTTP responses
+ * - Indicates invalid credentials or expired tokens
+ * - NOT retryable - requires user intervention
+ *
+ * ### NetworkError (code: 'NETWORK_ERROR')
+ * - Thrown for connection failures, timeouts, 5xx errors
+ * - Indicates transient network or server issues
+ * - IS retryable - automatic retry is recommended
+ *
+ * ## Usage Patterns
+ *
+ * ### Pattern 1: Try/Catch with Error Code Checking (Recommended for most cases)
+ * ```typescript
+ * try {
+ *   const user = await getUserInfoFromApiKey({ apiKey, fields: ['id'], logger })
+ * } catch (error) {
+ *   if (isAuthenticationError(error)) {
+ *     // Handle auth failure - show login prompt
+ *   } else if (isNetworkError(error)) {
+ *     // Handle network error - schedule retry
+ *   }
+ * }
+ * ```
+ *
+ * ### Pattern 2: ErrorOr Functional Style (Optional)
+ * ```typescript
+ * const result = await getUserInfoFromApiKeySafe({ apiKey, fields: ['id'], logger })
+ * if (!result.success) {
+ *   // Handle error from result.error
+ * }
+ * // Use result.value
+ * ```
+ *
+ * ## Error Code Checking
+ *
+ * Use the provided type guards for safe error type checking:
+ * - `isAuthenticationError(error)` - Checks for AUTH_FAILED
+ * - `isNetworkError(error)` - Checks for NETWORK_ERROR
+ * - `isErrorWithCode(error)` - Checks if error has a code property
+ *
+ * Check `RETRYABLE_ERROR_CODES` set to determine if an error should trigger retry logic.
+ *
+ * ## Related
+ * - See `retry-config.ts` for retry timing and backoff configuration
+ * - See `ErrorOr` types from `@codebuff/common/util/error` for functional error handling
  */
 
 /**
