@@ -167,17 +167,24 @@ Task: Analyze what went wrong and what should have been done. For each mistake o
       'Lessons extractor timed out after 20 minutes',
     )
 
-    if (result.output.type !== 'structuredOutput' || !result.output.value) {
+    if (!result.success) {
+      console.warn('Lessons extractor failed:', getErrorObject(result.error))
+      return { lessons: [] }
+    }
+
+    const runState = result.value
+
+    if (runState.output.type !== 'structuredOutput' || !runState.output.value) {
       console.warn(
         'Lessons extractor did not return structured output:\n',
-        JSON.stringify(result.output, null, 2),
+        JSON.stringify(runState.output, null, 2),
       )
       return { lessons: [] }
     }
 
     console.log('Agent output:', agentOutput.join('\n'))
 
-    const { lessons } = result.output.value as {
+    const { lessons } = runState.output.value as {
       lessons: Lesson[]
     }
     return { lessons }

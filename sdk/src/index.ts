@@ -37,6 +37,9 @@ export {
   isAuthenticationError,
   isNetworkError,
   isErrorWithCode,
+  ErrorCodes,
+  RETRYABLE_ERROR_CODES,
+  type ErrorCode,
   type ErrorWithCode,
   type ErrorWithStatus,
   type NetworkErrorDetails

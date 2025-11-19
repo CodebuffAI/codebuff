@@ -55,6 +55,7 @@ import {
   RECONNECTION_MESSAGE_DURATION_MS,
   RECONNECTION_RETRY_DELAY_MS,
 } from './utils/ui-constants'
+import { formatRetryBannerMessage } from './utils/error-messages'
 
 import type { ChatMessage, ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
@@ -583,17 +584,10 @@ export const Chat = ({
   })
 
   const offlineBannerMessage = useMemo(() => {
-    const errorMessage = networkStatus.error?.message ?? 'Connection lost'
-    const baseMessage = `⚠️ ${errorMessage}`
-    const retryMessage =
-      pendingRetryCount > 0
-        ? ` • ${pendingRetryCount} message${
-            pendingRetryCount === 1 ? '' : 's'
-          } will retry when the connection is restored`
-        : ''
-    const guidance =
-      ' • Verify your API key or network connection before retrying.'
-    return `${baseMessage}${retryMessage}${guidance}`
+    if (!networkStatus.error) {
+      return 'Connection lost'
+    }
+    return formatRetryBannerMessage(networkStatus.error, pendingRetryCount)
   }, [networkStatus.error, pendingRetryCount])
 
   sendMessageRef.current = sendMessage
@@ -603,7 +597,9 @@ export const Chat = ({
   // Trigger retry when we have pending messages (either connection restored or error occurred)
   useEffect(() => {
     const shouldTriggerRetry =
-      pendingRetryCount > 0 && !retryScheduledRef.current
+      connectionEstablished > 0 &&
+      pendingRetryCount > 0 &&
+      !retryScheduledRef.current
 
     if (shouldTriggerRetry) {
       logger.debug(
@@ -613,18 +609,24 @@ export const Chat = ({
       retryScheduledRef.current = true
 
       // Small delay before retrying (gives connection time to stabilize)
-      const timer = setTimeout(() => {
-        retryPendingMessagesRef.current?.()
+      // Use setReconnectionTimeout for proper cleanup on unmount
+      setReconnectionTimeout(() => {
+        // Check again if there are still pending messages before retrying
+        // This prevents race conditions where pendingRetryCount changed during delay
+        if (retryPendingMessagesRef.current) {
+          logger.debug('[RETRY-EFFECT] Executing scheduled retry')
+          retryPendingMessagesRef.current()
+        }
         retryScheduledRef.current = false
       }, RECONNECTION_RETRY_DELAY_MS)
 
       return () => {
-        clearTimeout(timer)
+        // Cleanup: clear the scheduled retry on unmount or when dependencies change
         retryScheduledRef.current = false
       }
     }
     return undefined
-  }, [connectionEstablished, pendingRetryCount])
+  }, [connectionEstablished, pendingRetryCount, setReconnectionTimeout])
 
   const { inputWidth, handleBuildFast, handleBuildMax } = useChatInput({
     inputValue,

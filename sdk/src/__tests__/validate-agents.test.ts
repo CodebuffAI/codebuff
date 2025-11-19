@@ -1,10 +1,7 @@
 import { describe, expect, it, mock, beforeEach, afterEach } from 'bun:test'
 import { validateAgents } from '../validate-agents'
-import type {
-  AgentDefinition,
-  ValidateAgentsResult,
-  ValidationResult,
-} from '../validate-agents'
+import type { ValidateAgentsResult, ValidationResult } from '../validate-agents'
+import type { AgentDefinition } from '../index'
 import type { ErrorObject } from '@codebuff/common/util/error'
 
 const unwrapSuccess = async (
@@ -12,6 +9,9 @@ const unwrapSuccess = async (
 ): Promise<ValidationResult> => {
   const result = await promise
   expect(result.success).toBe(true)
+  if (!result.success) {
+    throw new Error(result.error.message)
+  }
   return result.value
 }
 
@@ -20,6 +20,9 @@ const unwrapFailure = async (
 ): Promise<ErrorObject> => {
   const result = await promise
   expect(result.success).toBe(false)
+  if (result.success) {
+    throw new Error('Expected validation to fail')
+  }
   return result.error
 }
 

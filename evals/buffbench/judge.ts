@@ -159,16 +159,26 @@ async function runSingleJudge(
       'Judge agent timed out after 20 minutes',
     )
 
-    if (judgeResult.output.type !== 'structuredOutput') {
+    if (!judgeResult.success) {
+      console.warn(
+        `Judge ${judgeIndex + 1} failed:`,
+        JSON.stringify(judgeResult.error, null, 2),
+      )
+      return null
+    }
+
+    const judgeState = judgeResult.value
+
+    if (judgeState.output.type !== 'structuredOutput') {
       console.error(
         `Judge ${judgeIndex + 1} - not structured output`,
-        JSON.stringify(judgeResult.output, null, 2),
+        JSON.stringify(judgeState.output, null, 2),
       )
       console.error('Judge agent output trace:', agentOutput.join(''))
       return null
     }
 
-    return judgeResult.output.value as JudgingResult
+    return judgeState.output.value as JudgingResult
   } catch (error) {
     console.warn(`Judge ${judgeIndex + 1} failed:`, error)
     return null

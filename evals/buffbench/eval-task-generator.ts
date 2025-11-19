@@ -145,14 +145,20 @@ export async function generateEvalTask({
     },
   })
 
+  if (!generatorResult.success) {
+    throw new Error(generatorResult.error.message)
+  }
+
+  const generatorState = generatorResult.value
+
   if (
-    generatorResult.output.type !== 'structuredOutput' ||
-    !generatorResult.output.value
+    generatorState.output.type !== 'structuredOutput' ||
+    !generatorState.output.value
   ) {
     throw new Error('Failed to generate structured task output')
   }
 
-  return generatorResult.output.value as {
+  return generatorState.output.value as {
     id: string
     reasoning: string
     spec: string

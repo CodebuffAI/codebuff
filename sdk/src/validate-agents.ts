@@ -4,7 +4,7 @@ import {
 } from '@codebuff/common/templates/agent-validation'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 import { WEBSITE_URL } from './constants'
-import { NetworkError } from './errors'
+import { NetworkError, isNetworkError } from './errors'
 import { failure, type ErrorOr } from '@codebuff/common/util/error'
 
 export interface ValidationResult {
@@ -159,6 +159,10 @@ export async function validateAgents(
       const data = await response.json()
       validationErrors = data.validationErrors || []
     } catch (error) {
+      if (isNetworkError(error)) {
+        return failure(error)
+      }
+
       const message = error instanceof Error ? error.message : String(error)
 
       // Wrap all network failures in a NetworkError that includes the original error

@@ -67,7 +67,7 @@ export async function runAgentOnCommit({
         },
         async (repoDir) => {
           const maxAgentSteps = 40
-          const result = await client.run({
+          const runResult = await client.run({
             agent: agentId,
             prompt: commit.prompt,
             agentDefinitions: localAgentDefinitions,
@@ -112,6 +112,10 @@ export async function runAgentOnCommit({
               trace.push(event)
             },
           })
+          if (!runResult.success) {
+            throw new Error(runResult.error.message)
+          }
+          const result = runResult.value
           cost = result.sessionState.mainAgentState.creditsUsed / 100
 
           execSync('git add .', { cwd: repoDir, stdio: 'ignore' })

@@ -9,12 +9,18 @@ import {
 } from '../utils/constants'
 import { createValidationErrorBlocks } from '../utils/create-validation-error-blocks'
 import { getErrorObject } from '../utils/error'
+import { formatErrorForDisplay } from '../utils/error-messages'
 import { formatTimestamp } from '../utils/helpers'
 import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 import { getLoadedAgentsData } from '../utils/local-agent-registry'
 import { logger } from '../utils/logger'
 import { getUserMessage } from '../utils/message-history'
-import { isAuthenticationError, isNetworkError } from '@codebuff/sdk'
+import {
+  isAuthenticationError,
+  isNetworkError,
+  ErrorCodes,
+  RETRYABLE_ERROR_CODES,
+} from '@codebuff/sdk'
 import {
   loadMostRecentChatState,
   saveChatState,
@@ -39,13 +45,8 @@ const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
 const MAX_RETRIES_PER_MESSAGE = 3
 const RETRY_BACKOFF_BASE_DELAY_MS = 1_000
 const RETRY_BACKOFF_MAX_DELAY_MS = 8_000
-
-const RETRYABLE_ERROR_CODES = new Set([
-  'NETWORK_ERROR',
-  'TIMEOUT',
-  'CONNECTION_LOST',
-  'ECONNRESET',
-])
+const MAX_FAILED_MESSAGES_TO_STORE = 50 // Limit memory usage for failed messages
+const FAILED_MESSAGE_TTL_MS = 5 * 60 * 1000 // 5 minutes - prune old failures
 
 const yieldToEventLoop = () =>
   new Promise<void>((resolve) => {
@@ -67,6 +68,12 @@ const getErrorMessage = (error: unknown, fallback = 'Request failed') => {
   return fallback
 }
 
+const isSdkErrorCode = (
+  code: unknown,
+): code is (typeof ErrorCodes)[keyof typeof ErrorCodes] =>
+  typeof code === 'string' &&
+  (Object.values(ErrorCodes) as string[]).includes(code)
+
 const isRetryableError = (error: unknown) => {
   if (!error) {
     return false
@@ -78,7 +85,11 @@ const isRetryableError = (error: unknown) => {
     return true
   }
   const maybeError = error as { code?: string; status?: number }
-  if (maybeError.code && RETRYABLE_ERROR_CODES.has(maybeError.code)) {
+  if (
+    maybeError.code &&
+    isSdkErrorCode(maybeError.code) &&
+    RETRYABLE_ERROR_CODES.has(maybeError.code)
+  ) {
     return true
   }
   if (typeof maybeError.status === 'number') {
@@ -366,8 +377,57 @@ export const useSendMessage = ({
     agentMode: AgentMode
   } | null>(null)
   const failedDueToConnectionRef = useRef<
-    Record<string, { content: string; agentMode: AgentMode }>
+    Record<string, { content: string; agentMode: AgentMode; timestamp: number }>
   >({})
+  const cancelledRef = useRef(false) // Track if the hook has been cancelled/unmounted
+
+  // Prune old failed messages to prevent memory leaks
+  const pruneFailedMessages = useCallback(() => {
+    const now = Date.now()
+    const failed = failedDueToConnectionRef.current
+    const entries = Object.entries(failed)
+
+    // Remove entries older than TTL
+    const activeEntries = entries.filter(
+      ([_, info]) => now - info.timestamp < FAILED_MESSAGE_TTL_MS,
+    )
+
+    // If still over limit, keep only the most recent ones
+    if (activeEntries.length > MAX_FAILED_MESSAGES_TO_STORE) {
+      activeEntries.sort((a, b) => b[1].timestamp - a[1].timestamp)
+      activeEntries.splice(MAX_FAILED_MESSAGES_TO_STORE)
+    }
+
+    // Rebuild the map
+    const removedIds = entries
+      .filter(([id]) => !activeEntries.some(([activeId]) => activeId === id))
+      .map(([id]) => id)
+    failedDueToConnectionRef.current = Object.fromEntries(activeEntries)
+
+    // Also clean up retry attempt tracking for removed messages
+    for (const id of removedIds) {
+      delete retryAttemptsRef.current[id]
+    }
+
+    if (removedIds.length > 0) {
+      logger.debug(
+        {
+          pruned: removedIds.length,
+          remaining: activeEntries.length,
+        },
+        'Pruned old failed messages and retry attempts',
+      )
+    }
+  }, [])
+
+  // Periodically prune old failed messages
+  useEffect(() => {
+    const pruneInterval = setInterval(() => {
+      pruneFailedMessages()
+    }, 60_000) // Every minute
+
+    return () => clearInterval(pruneInterval)
+  }, [pruneFailedMessages])
 
   const updateChainInProgress = useCallback(
     (value: boolean) => {
@@ -594,12 +654,25 @@ export const useSendMessage = ({
 
   useEffect(() => {
     return () => {
+      // Mark as cancelled for graceful shutdown
+      cancelledRef.current = true
+
+      // Clean up all pending operations
       if (flushTimeoutRef.current) {
         clearTimeout(flushTimeoutRef.current)
         flushTimeoutRef.current = null
       }
       currentRunContextRef.current = null
+
+      // Clear all retry state
+      retryInFlightRef.current = false
+      pendingRetriesRef.current = {}
+      failedDueToConnectionRef.current = {}
+      retryAttemptsRef.current = {}
+
       flushPendingUpdates()
+
+      logger.debug('useSendMessage: Cleanup completed on unmount')
     }
   }, [flushPendingUpdates])
 
@@ -1127,7 +1200,7 @@ export const useSendMessage = ({
               ? 'base2-max'
               : 'base2-plan'
 
-        const runState = await client.run({
+        const runResult = await client.run({
           logger,
           agent: selectedAgentDefinition ?? agentId ?? fallbackAgent,
           prompt: content,
@@ -1214,7 +1287,11 @@ export const useSendMessage = ({
               updateChainInProgress(false)
               timerController.stop('error')
 
-              // Display error message to user
+              // Display error message to user using consistent formatting
+              const formattedError = formatErrorForDisplay(
+                { code: event.code, message: event.message },
+                'SDK Error',
+              )
               applyMessageUpdate((prev) =>
                 prev.map((msg) => {
                   if (msg.id !== aiMessageId) {
@@ -1226,7 +1303,7 @@ export const useSendMessage = ({
                     : []
                   const errorBlock: ContentBlock = {
                     type: 'text',
-                    content: `\n\n**Error:** ${event.message}`,
+                    content: `\n\n${formattedError}`,
                   }
 
                   return {
@@ -1240,13 +1317,16 @@ export const useSendMessage = ({
 
               // Track failed messages for batch retry on reconnection (avoids state update cascade)
               const isConnectionError =
-                !isConnectedRef.current || event.code === 'NETWORK_ERROR'
+                !isConnectedRef.current || event.code === ErrorCodes.NETWORK_ERROR
 
               if (isConnectionError && userMessageId && content && agentMode) {
                 failedDueToConnectionRef.current[userMessageId] = {
                   content,
                   agentMode,
+                  timestamp: Date.now(),
                 }
+                // Prune old messages to prevent memory leaks
+                pruneFailedMessages()
               }
 
               return
@@ -1890,6 +1970,28 @@ export const useSendMessage = ({
           },
         })
 
+        if (!runResult.success) {
+          const error = new Error(runResult.error.message) as Error & {
+            code?: string
+            status?: number
+            originalError?: unknown
+          }
+          error.name = runResult.error.name
+          error.code = runResult.error.code
+          if (runResult.error.status !== undefined) {
+            error.status = runResult.error.status
+          }
+          if (runResult.error.originalError !== undefined) {
+            error.originalError = runResult.error.originalError
+          }
+          if (runResult.error.stack) {
+            error.stack = runResult.error.stack
+          }
+          throw error
+        }
+
+        const runState = runResult.value
+
         previousRunStateRef.current = runState
         setRunState(runState)
 
@@ -1971,9 +2073,6 @@ export const useSendMessage = ({
         updateChainInProgress(false)
         timerController.stop('error')
 
-        const errorMessage =
-          error instanceof Error ? error.message : 'Unknown error occurred'
-
         const pendingAlreadyScheduled =
           userMessageId in pendingRetriesRef.current
         const timedOutDueToSdk =
@@ -1987,13 +2086,14 @@ export const useSendMessage = ({
         if (!shouldRetryError) {
           markAiMessageInterrupted(aiMessageId)
 
+          // Use consistent error formatting
+          const formattedError = formatErrorForDisplay(error, 'Request Failed')
           applyMessageUpdate((prev) =>
             prev.map((msg) => {
               if (msg.id !== aiMessageId) {
                 return msg
               }
-              const updatedContent =
-                msg.content + `\n\n**Error:** ${errorMessage}`
+              const updatedContent = msg.content + `\n\n${formattedError}`
               return {
                 ...msg,
                 content: updatedContent,
@@ -2010,6 +2110,8 @@ export const useSendMessage = ({
             }),
           )
 
+          const errorMessage =
+            error instanceof Error ? error.message : 'Unknown error occurred'
           logger.error(
             { userMessageId, error: errorMessage },
             'Non-retryable error encountered; not scheduling retry',
@@ -2101,6 +2203,12 @@ export const useSendMessage = ({
   }, [schedulePendingRetry])
 
   const retryPendingMessages = useCallback(async () => {
+    // Don't retry if cancelled/unmounted
+    if (cancelledRef.current) {
+      logger.debug('Retry cancelled due to unmount')
+      return
+    }
+
     if (retryInFlightRef.current) {
       return
     }
@@ -2114,6 +2222,12 @@ export const useSendMessage = ({
       const delayMs = retryBackoffDelayRef.current
       if (delayMs > 0) {
         await waitForDelay(delayMs)
+      }
+
+      // Check again after delay if still not cancelled
+      if (cancelledRef.current) {
+        logger.debug('Retry cancelled during backoff delay')
+        return
       }
 
       const pendingEntries = Object.entries(pendingRetriesRef.current)

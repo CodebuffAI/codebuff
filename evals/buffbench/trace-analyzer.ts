@@ -203,7 +203,18 @@ Focus on the HOW, not the WHAT: We want to understand and improve how agents wor
       'Trace analyzer agent timed out after 20 minutes',
     )
 
-    const { output } = analyzerResult
+    if (!analyzerResult.success) {
+      console.error(
+        'Error running trace analyzer - run failed',
+        JSON.stringify(analyzerResult.error, null, 2),
+      )
+      return {
+        overallAnalysis: 'Error running trace analyzer - run failed',
+        agentFeedback: [],
+      }
+    }
+
+    const { output } = analyzerResult.value
 
     if (output.type !== 'structuredOutput' || output.value === null) {
       console.error(

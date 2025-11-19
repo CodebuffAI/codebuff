@@ -12,9 +12,24 @@ export const ErrorCodes = {
   INTERNAL_ERROR: 'INTERNAL_ERROR',
   INVALID_RESPONSE: 'INVALID_RESPONSE',
   USER_NOT_FOUND: 'USER_NOT_FOUND',
+  TIMEOUT: 'TIMEOUT',
+  CONNECTION_LOST: 'CONNECTION_LOST',
+  ECONNRESET: 'ECONNRESET',
+  ABORTED: 'ABORTED',
+  UNKNOWN_ERROR: 'UNKNOWN_ERROR',
 } as const
 
 export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes]
+
+/**
+ * Set of error codes that should trigger automatic retry
+ */
+export const RETRYABLE_ERROR_CODES = new Set<ErrorCode>([
+  ErrorCodes.NETWORK_ERROR,
+  ErrorCodes.TIMEOUT,
+  ErrorCodes.CONNECTION_LOST,
+  ErrorCodes.ECONNRESET,
+])
 
 /**
  * Sanitizes error messages by removing unhelpful system messages
@@ -80,7 +95,7 @@ export class NetworkError extends Error implements NetworkErrorDetails {
  */
 export function isAuthenticationError(error: unknown): error is AuthenticationError {
   return error instanceof AuthenticationError ||
-    (error instanceof Error && (error as any).code === 'AUTH_FAILED')
+    (error instanceof Error && 'code' in error && error.code === 'AUTH_FAILED')
 }
 
 /**
@@ -88,7 +103,7 @@ export function isAuthenticationError(error: unknown): error is AuthenticationEr
  */
 export function isNetworkError(error: unknown): error is NetworkError {
   return error instanceof NetworkError ||
-    (error instanceof Error && (error as any).code === 'NETWORK_ERROR')
+    (error instanceof Error && 'code' in error && error.code === 'NETWORK_ERROR')
 }
 
 /**

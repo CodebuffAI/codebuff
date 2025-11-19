@@ -52,7 +52,11 @@ export const evalPlannerAgent = async (params: {
   )
   const plannerLatencyMs = Date.now() - plannerStartTime
 
-  const { output } = result
+  if (!result.success) {
+    throw new Error(result.error.message)
+  }
+
+  const { output } = result.value
 
   const outputString = JSON.stringify(
     'value' in output ? output.value : output.message,
@@ -125,10 +129,27 @@ Evaluate how well the implementation plan matches the real commit changes. Consi
       console.log('eval-judge', JSON.stringify(event, null, 2))
     },
   })
-  if (judgeResult.output.type !== 'structuredOutput') {
+  if (!judgeResult.success) {
+    console.log(
+      'Error running judge agent -- run failed',
+      JSON.stringify(judgeResult.error, null, 2),
+    )
+    return {
+      judgingResults: {
+        reasoning: 'Error running judge agent -- run failed',
+        pros: '',
+        cons: '',
+        overallScore: 0,
+      },
+      agentOutput: outputString,
+      plannerLatencyMs,
+    }
+  }
+
+  if (judgeResult.value.output.type !== 'structuredOutput') {
     console.log(
       'Error running judge agent -- not structured output',
-      JSON.stringify(judgeResult.output, null, 2),
+      JSON.stringify(judgeResult.value.output, null, 2),
     )
     // throw new Error('Error running judge agent')
     return {
@@ -142,7 +163,7 @@ Evaluate how well the implementation plan matches the real commit changes. Consi
       plannerLatencyMs,
     }
   }
-  const { output: judgeOutput } = judgeResult
+  const { output: judgeOutput } = judgeResult.value
   const judgingResults = (judgeOutput.value ?? {}) as {
     reasoning: string
     pros: string

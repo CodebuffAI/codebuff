@@ -20,6 +20,17 @@ const writeAgentFile = (
   contents: string,
 ) => writeFileSync(path.join(agentsDir, fileName), contents, 'utf8')
 
+const unwrapValidationResult = async (
+  promise: ReturnType<typeof validateAgents>,
+) => {
+  const result = await promise
+  expect(result.success).toBe(true)
+  if (!result.success) {
+    throw new Error(result.error.message)
+  }
+  return result.value
+}
+
 describe('Local Agent Integration', () => {
   let tempDir: string
   let agentsDir: string
@@ -139,7 +150,9 @@ describe('Local Agent Integration', () => {
     )
 
     const definitions = loadAgentDefinitions()
-    const validation = await validateAgents(definitions, { remote: false })
+    const validation = await unwrapValidationResult(
+      validateAgents(definitions, { remote: false }),
+    )
 
     expect(validation.success).toBe(false)
     expect(
@@ -294,7 +307,9 @@ describe('Local Agent Integration', () => {
     )
 
     const definitions = loadAgentDefinitions()
-    const result = await validateAgents(definitions, { remote: false })
+    const result = await unwrapValidationResult(
+      validateAgents(definitions, { remote: false }),
+    )
 
     expect(result.success).toBe(false)
     expect(

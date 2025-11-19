@@ -258,7 +258,19 @@ Focus on patterns across multiple tasks, not individual task details.`
       'Meta analyzer agent timed out after 30 minutes',
     )
 
-    const { output } = analyzerResult
+    if (!analyzerResult.success) {
+      console.error(
+        'Error running meta analyzer - run failed',
+        JSON.stringify(analyzerResult.error, null, 2),
+      )
+      return {
+        overallComparison: 'Error running meta analyzer - run failed',
+        agentInsights: [],
+        keyFindings: [],
+      }
+    }
+
+    const { output } = analyzerResult.value
 
     if (output.type !== 'structuredOutput' || output.value === null) {
       console.error(
