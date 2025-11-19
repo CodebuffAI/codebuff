@@ -220,6 +220,7 @@ export const App = ({
       continueChat={continueChat}
       continueChatId={continueChatId}
       logout={logout}
+      inputRef={inputRef}
     />
   )
 }

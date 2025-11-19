@@ -57,7 +57,7 @@ import type { SendMessageFn } from './types/contracts/send-message'
 import type { User } from './utils/auth'
 import type { FileTreeNode } from '@codebuff/common/util/file'
 import type { ScrollBoxRenderable } from '@opentui/core'
-import type { Dispatch, SetStateAction } from 'react'
+import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 
 export const Chat = ({
   headerContent,
@@ -69,6 +69,7 @@ export const Chat = ({
   continueChat,
   continueChatId,
   logout,
+  inputRef,
 }: {
   headerContent: React.ReactNode
   initialPrompt: string | null
@@ -82,9 +83,9 @@ export const Chat = ({
   continueChat: boolean
   continueChatId?: string
   logout: () => Promise<void>
+  inputRef: MutableRefObject<MultilineInputHandle | null>
 }) => {
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
-  const inputRef = useRef<MultilineInputHandle | null>(null)
   const [showScrollbar, setShowScrollbar] = useState(false)
   const hasShownScrollbarRef = useRef(false)
   const { setIsAuthenticated, setUser } = useAuthStore()
