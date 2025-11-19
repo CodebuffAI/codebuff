@@ -42,6 +42,7 @@ import { logger } from './utils/logger'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { useChatStore } from './state/chat-store'
 import { useStreamStore } from './state/stream-store'
+import { useUiStore } from './state/ui-store'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { loadLocalAgents } from './utils/local-agent-registry'
 import { buildMessageTree } from './utils/message-tree-utils'
@@ -99,14 +100,10 @@ export const Chat = ({
     cursorPosition,
     lastEditDueToNav,
     setInputValue,
-    inputFocused,
-    setInputFocused,
     slashSelectedIndex,
     setSlashSelectedIndex,
     agentSelectedIndex,
     setAgentSelectedIndex,
-    focusedAgentId,
-    setFocusedAgentId,
     messages,
     setMessages,
     agentMode,
@@ -125,14 +122,10 @@ export const Chat = ({
       cursorPosition: store.cursorPosition,
       lastEditDueToNav: store.lastEditDueToNav,
       setInputValue: store.setInputValue,
-      inputFocused: store.inputFocused,
-      setInputFocused: store.setInputFocused,
       slashSelectedIndex: store.slashSelectedIndex,
       setSlashSelectedIndex: store.setSlashSelectedIndex,
       agentSelectedIndex: store.agentSelectedIndex,
       setAgentSelectedIndex: store.setAgentSelectedIndex,
-      focusedAgentId: store.focusedAgentId,
-      setFocusedAgentId: store.setFocusedAgentId,
       messages: store.messages,
       setMessages: store.setMessages,
       agentMode: store.agentMode,
@@ -157,6 +150,9 @@ export const Chat = ({
     isChainInProgress,
     setIsChainInProgress,
   } = useStreamStore()
+
+  const { focusedAgentId, setFocusedAgentId, inputFocused, setInputFocused } =
+    useUiStore()
 
   // Memoize toggle IDs extraction - only recompute when messages change
   const allToggleIds = useMemo(() => {
