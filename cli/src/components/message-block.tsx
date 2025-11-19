@@ -7,6 +7,8 @@ import { FeedbackIconButton } from './feedback-icon-button'
 import { useTheme } from '../hooks/use-theme'
 import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
 import { type MarkdownPalette } from '../utils/markdown-renderer'
+import { useMessageActions } from '../contexts/message-actions-context'
+import { useChatTheme } from '../contexts/chat-theme-context'
 import {
   useFeedbackStore,
   selectIsFeedbackOpenForMessage,
@@ -32,18 +34,10 @@ interface MessageBlockProps {
   isComplete?: boolean
   completionTime?: string
   credits?: number
-  timerStartTime: number | null
   textColor?: ThemeColor
   timestampColor: string
   markdownOptions: { codeBlockWidth: number; palette: MarkdownPalette }
-  availableWidth: number
-  markdownPalette: MarkdownPalette
   streamingAgents: Set<string>
-  onToggleCollapsed: (id: string) => void
-  onBuildFast: () => void
-  onBuildMax: () => void
-  onFeedback?: (messageId: string) => void
-  onCloseFeedback?: () => void
 }
 
 const trimTrailingNewlines = (value: string): string =>
@@ -64,19 +58,13 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
     isComplete,
     completionTime,
     credits,
-    timerStartTime,
     textColor,
     timestampColor,
     markdownOptions,
-    availableWidth,
-    markdownPalette,
     streamingAgents,
-    onToggleCollapsed,
-    onBuildFast,
-    onBuildMax,
-    onFeedback,
-    onCloseFeedback,
   } = props
+  const { availableWidth, markdownPalette, timerStartTime } = useChatTheme()
+  const { onToggleCollapsed, onBuildFast, onBuildMax, onFeedback, onCloseFeedback } = useMessageActions()
   useWhyDidYouUpdateById('MessageBlock', messageId, props, {
     logLevel: 'debug',
     enabled: false,

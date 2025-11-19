@@ -8,6 +8,8 @@ import { MessageWithAgents } from './components/message-with-agents'
 import { FeedbackContainer } from './components/feedback-container'
 import { ChatScrollArea } from './components/chat-scroll-area'
 import { ChatInputArea } from './components/chat-input-area'
+import { MessageActionsProvider } from './contexts/message-actions-context'
+import { ChatThemeProvider } from './contexts/chat-theme-context'
 import { useFeedbackStore } from './state/feedback-store'
 import { useAuthStore } from './state/auth-store'
 import { toggleCollapsedById, autoCollapseBlocks } from './utils/block-tree'
@@ -724,36 +726,44 @@ export const Chat = ({
   })
 
   return (
-    <box
-      style={{
-        flexDirection: 'column',
-        gap: 0,
-        paddingLeft: 1,
-        paddingRight: 1,
-        flexGrow: 1,
+    <MessageActionsProvider
+      value={{
+        onToggleCollapsed: handleCollapseToggle,
+        onBuildFast: handleBuildFast,
+        onBuildMax: handleBuildMax,
+        onFeedback: handleMessageFeedback,
+        onCloseFeedback: handleCloseFeedback,
       }}
     >
-      <ChatScrollArea
-        scrollRef={scrollRef}
-        appliedScrollboxProps={appliedScrollboxProps}
-        headerContent={headerContent}
-        virtualizationNotice={virtualizationNotice}
-        topLevelMessages={topLevelMessages}
-        markdownPalette={markdownPalette}
-        streamingAgents={streamingAgents}
-        messageTree={messageTree}
-        messages={messages}
-        separatorWidth={separatorWidth}
-        theme={theme}
-        setFocusedAgentId={setFocusedAgentId}
-        isWaitingForResponse={isWaitingForResponse}
-        timerStartTime={timerStartTime}
-        handleCollapseToggle={handleCollapseToggle}
-        handleBuildFast={handleBuildFast}
-        handleBuildMax={handleBuildMax}
-        handleMessageFeedback={handleMessageFeedback}
-        handleCloseFeedback={handleCloseFeedback}
-      />
+      <ChatThemeProvider
+        value={{
+          theme,
+          markdownPalette,
+          availableWidth: separatorWidth,
+          timerStartTime,
+        }}
+      >
+        <box
+          style={{
+            flexDirection: 'column',
+            gap: 0,
+            paddingLeft: 1,
+            paddingRight: 1,
+            flexGrow: 1,
+          }}
+        >
+          <ChatScrollArea
+            scrollRef={scrollRef}
+            appliedScrollboxProps={appliedScrollboxProps}
+            headerContent={headerContent}
+            virtualizationNotice={virtualizationNotice}
+            topLevelMessages={topLevelMessages}
+            streamingAgents={streamingAgents}
+            messageTree={messageTree}
+            messages={messages}
+            setFocusedAgentId={setFocusedAgentId}
+            isWaitingForResponse={isWaitingForResponse}
+          />
 
       <box
         style={{
@@ -814,7 +824,9 @@ export const Chat = ({
         )}
       </box>
 
-      {validationBanner}
-    </box>
+          {validationBanner}
+        </box>
+      </ChatThemeProvider>
+    </MessageActionsProvider>
   )
 }

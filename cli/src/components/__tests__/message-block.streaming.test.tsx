@@ -5,6 +5,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { initializeThemeStore } from '../../hooks/use-theme'
 import { chatThemes, createMarkdownPalette } from '../../utils/theme-system'
 import { MessageBlock } from '../message-block'
+import { MessageActionsProvider } from '../../contexts/message-actions-context'
+import { ChatThemeProvider } from '../../contexts/chat-theme-context'
 
 import type { MarkdownPalette } from '../../utils/markdown-renderer'
 
@@ -34,17 +36,23 @@ const baseProps = {
     codeBlockWidth: 72,
     palette,
   },
-  availableWidth: 80,
-  markdownPalette: basePalette,
-  collapsedAgents: new Set<string>(),
-  autoCollapsedAgents: new Set<string>(),
   streamingAgents: new Set<string>(),
+}
+
+const messageActions = {
   onToggleCollapsed: () => {},
   onBuildFast: () => {},
   onBuildMax: () => {},
-  setCollapsedAgents: () => {},
-  addAutoCollapsedAgent: () => {},
+  onFeedback: () => {},
+  onCloseFeedback: () => {},
 }
+
+const createThemeContext = (timerStartTime: number | null) => ({
+  theme,
+  markdownPalette: basePalette,
+  availableWidth: 80,
+  timerStartTime,
+})
 
 const createTimerStartTime = (elapsedSeconds: number): number | null =>
   elapsedSeconds > 0 ? Date.now() - elapsedSeconds * 1000 : null
@@ -52,11 +60,11 @@ const createTimerStartTime = (elapsedSeconds: number): number | null =>
 describe('MessageBlock streaming indicator', () => {
   test('shows elapsed seconds while streaming', () => {
     const markup = renderToStaticMarkup(
-      <MessageBlock
-        {...baseProps}
-        isLoading={true}
-        timerStartTime={createTimerStartTime(4)}
-      />,
+      <MessageActionsProvider value={messageActions}>
+        <ChatThemeProvider value={createThemeContext(createTimerStartTime(4))}>
+          <MessageBlock {...baseProps} isLoading={true} />
+        </ChatThemeProvider>
+      </MessageActionsProvider>,
     )
 
     expect(markup).toContain('4s')
@@ -64,11 +72,11 @@ describe('MessageBlock streaming indicator', () => {
 
   test('hides elapsed seconds when timer has not advanced', () => {
     const markup = renderToStaticMarkup(
-      <MessageBlock
-        {...baseProps}
-        isLoading={true}
-        timerStartTime={createTimerStartTime(0)}
-      />,
+      <MessageActionsProvider value={messageActions}>
+        <ChatThemeProvider value={createThemeContext(createTimerStartTime(0))}>
+          <MessageBlock {...baseProps} isLoading={true} />
+        </ChatThemeProvider>
+      </MessageActionsProvider>,
     )
 
     expect(markup).not.toContain('0s')

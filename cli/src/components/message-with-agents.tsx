@@ -10,6 +10,8 @@ import {
   hasMarkdown,
   type MarkdownPalette,
 } from '../utils/markdown-renderer'
+import { useMessageActions } from '../contexts/message-actions-context'
+import { useChatTheme } from '../contexts/chat-theme-context'
 
 import type { ChatMessage } from '../types/chat'
 import type { ChatTheme } from '../types/theme-system'
@@ -18,20 +20,11 @@ interface MessageWithAgentsProps {
   message: ChatMessage
   depth: number
   isLastMessage: boolean
-  theme: ChatTheme
-  markdownPalette: MarkdownPalette
   streamingAgents: Set<string>
   messageTree: Map<string, ChatMessage[]>
   messages: ChatMessage[]
-  availableWidth: number
   setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
   isWaitingForResponse: boolean
-  timerStartTime: number | null
-  onToggleCollapsed: (id: string) => void
-  onBuildFast: () => void
-  onBuildMax: () => void
-  onFeedback: (messageId: string) => void
-  onCloseFeedback: () => void
 }
 
 export const MessageWithAgents = memo(
@@ -39,44 +32,27 @@ export const MessageWithAgents = memo(
     message,
     depth,
     isLastMessage,
-    theme,
-    markdownPalette,
     streamingAgents,
     messageTree,
     messages,
-    availableWidth,
     setFocusedAgentId,
     isWaitingForResponse,
-    timerStartTime,
-    onToggleCollapsed,
-    onBuildFast,
-    onBuildMax,
-    onFeedback,
-    onCloseFeedback,
   }: MessageWithAgentsProps): ReactNode => {
+    const { theme, markdownPalette, availableWidth, timerStartTime } = useChatTheme()
+    const { onToggleCollapsed, onBuildFast, onBuildMax, onFeedback, onCloseFeedback } = useMessageActions()
     const SIDE_GUTTER = 1
     const isAgent = message.variant === 'agent'
 
     if (isAgent) {
-      return (
-        <AgentMessage
-          message={message}
-          depth={depth}
-          theme={theme}
-          markdownPalette={markdownPalette}
-          streamingAgents={streamingAgents}
-          messageTree={messageTree}
-          messages={messages}
-          availableWidth={availableWidth}
-          setFocusedAgentId={setFocusedAgentId}
-          isWaitingForResponse={isWaitingForResponse}
-          timerStartTime={timerStartTime}
-          onToggleCollapsed={onToggleCollapsed}
-          onBuildFast={onBuildFast}
-          onBuildMax={onBuildMax}
-          onFeedback={onFeedback}
-          onCloseFeedback={onCloseFeedback}
-        />
+      return (            <AgentMessage
+              message={message}
+              depth={depth}
+              streamingAgents={streamingAgents}
+              messageTree={messageTree}
+              messages={messages}
+              setFocusedAgentId={setFocusedAgentId}
+              isWaitingForResponse={isWaitingForResponse}
+            />
       )
     }
 
@@ -185,18 +161,10 @@ export const MessageWithAgents = memo(
                   isComplete={message.isComplete}
                   completionTime={message.completionTime}
                   credits={message.credits}
-                  timerStartTime={timerStartTime}
                   textColor={textColor}
                   timestampColor={timestampColor}
                   markdownOptions={markdownOptions}
-                  availableWidth={availableWidth}
-                  markdownPalette={markdownPalette}
                   streamingAgents={streamingAgents}
-                  onToggleCollapsed={onToggleCollapsed}
-                  onBuildFast={onBuildFast}
-                  onBuildMax={onBuildMax}
-                  onFeedback={onFeedback}
-                  onCloseFeedback={onCloseFeedback}
                 />
               </box>
             </box>
@@ -226,18 +194,10 @@ export const MessageWithAgents = memo(
                 isComplete={message.isComplete}
                 completionTime={message.completionTime}
                 credits={message.credits}
-                timerStartTime={timerStartTime}
                 textColor={textColor}
                 timestampColor={timestampColor}
                 markdownOptions={markdownOptions}
-                availableWidth={availableWidth}
-                markdownPalette={markdownPalette}
                 streamingAgents={streamingAgents}
-                onToggleCollapsed={onToggleCollapsed}
-                onBuildFast={onBuildFast}
-                onBuildMax={onBuildMax}
-                onFeedback={onFeedback}
-                onCloseFeedback={onCloseFeedback}
               />
             </box>
           )}
@@ -247,25 +207,16 @@ export const MessageWithAgents = memo(
           <box style={{ flexDirection: 'column', width: '100%', gap: 0 }}>
             {agentChildren.map((agent) => (
               <box key={agent.id} style={{ width: '100%' }}>
-                <MessageWithAgents
-                  message={agent}
-                  depth={depth + 1}
-                  isLastMessage={false}
-                  theme={theme}
-                  markdownPalette={markdownPalette}
-                  streamingAgents={streamingAgents}
-                  messageTree={messageTree}
-                  messages={messages}
-                  availableWidth={availableWidth}
-                  setFocusedAgentId={setFocusedAgentId}
-                  isWaitingForResponse={isWaitingForResponse}
-                  timerStartTime={timerStartTime}
-                  onToggleCollapsed={onToggleCollapsed}
-                  onBuildFast={onBuildFast}
-                  onBuildMax={onBuildMax}
-                  onFeedback={onFeedback}
-                  onCloseFeedback={onCloseFeedback}
-                />
+              <MessageWithAgents
+                message={agent}
+                depth={depth + 1}
+                isLastMessage={false}
+                streamingAgents={streamingAgents}
+                messageTree={messageTree}
+                messages={messages}
+                setFocusedAgentId={setFocusedAgentId}
+                isWaitingForResponse={isWaitingForResponse}
+              />
               </box>
             ))}
           </box>
@@ -278,41 +229,25 @@ export const MessageWithAgents = memo(
 interface AgentMessageProps {
   message: ChatMessage
   depth: number
-  theme: ChatTheme
-  markdownPalette: MarkdownPalette
   streamingAgents: Set<string>
   messageTree: Map<string, ChatMessage[]>
   messages: ChatMessage[]
-  availableWidth: number
   setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
   isWaitingForResponse: boolean
-  timerStartTime: number | null
-  onToggleCollapsed: (id: string) => void
-  onBuildFast: () => void
-  onBuildMax: () => void
-  onFeedback: (messageId: string) => void
-  onCloseFeedback: () => void
 }
 
 const AgentMessage = memo(
   ({
     message,
     depth,
-    theme,
-    markdownPalette,
     streamingAgents,
     messageTree,
     messages,
-    availableWidth,
     setFocusedAgentId,
     isWaitingForResponse,
-    timerStartTime,
-    onToggleCollapsed,
-    onBuildFast,
-    onBuildMax,
-    onFeedback,
-    onCloseFeedback,
   }: AgentMessageProps): ReactNode => {
+    const { theme, markdownPalette, availableWidth } = useChatTheme()
+    const { onToggleCollapsed } = useMessageActions()
     const agentInfo = message.agent!
 
     // Get or initialize collapse state from message metadata
@@ -461,21 +396,12 @@ const AgentMessage = memo(
                   message={childAgent}
                   depth={depth + 1}
                   isLastMessage={false}
-                  theme={theme}
-                  markdownPalette={markdownPalette}
                   streamingAgents={streamingAgents}
                   messageTree={messageTree}
                   messages={messages}
-                  availableWidth={availableWidth}
                   setFocusedAgentId={setFocusedAgentId}
                   isWaitingForResponse={isWaitingForResponse}
-                  timerStartTime={timerStartTime}
-                onToggleCollapsed={onToggleCollapsed}
-                onBuildFast={onBuildFast}
-                onBuildMax={onBuildMax}
-                onFeedback={onFeedback}
-                onCloseFeedback={onCloseFeedback}
-              />
+                />
               </box>
             ))}
           </box>
