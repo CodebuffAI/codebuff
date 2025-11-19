@@ -16,7 +16,7 @@ export type QueueStoreActions = {
   pauseQueue: () => void
   resumeQueue: () => void
   setStreamStatus: (status: StreamStatus) => void
-  setCanProcessQueue: (can: boolean) => void
+  setCanProcessQueue: (value: boolean | ((prev: boolean) => boolean)) => void
   startStreaming: () => void
   stopStreaming: () => void
 }
@@ -64,9 +64,10 @@ export const useQueueStore = create<QueueStore>()(
         state.streamStatus = status
       }),
 
-    setCanProcessQueue: (can) =>
+    setCanProcessQueue: (value) =>
       set((state) => {
-        state.canProcessQueue = can
+        state.canProcessQueue =
+          typeof value === 'function' ? value(state.canProcessQueue) : value
       }),
 
     startStreaming: () =>

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
+import { useQueueStore } from '../state/queue-store'
 
 export type StreamStatus = 'idle' | 'waiting' | 'streaming'
 
@@ -7,10 +8,20 @@ export const useMessageQueue = (
   isChainInProgressRef: React.MutableRefObject<boolean>,
   activeAgentStreamsRef: React.MutableRefObject<number>,
 ) => {
-  const [queuedMessages, setQueuedMessages] = useState<string[]>([])
-  const [streamStatus, setStreamStatus] = useState<StreamStatus>('idle')
-  const [canProcessQueue, setCanProcessQueue] = useState<boolean>(true)
-  const [queuePaused, setQueuePaused] = useState<boolean>(false)
+  const {
+    queuedMessages,
+    streamStatus,
+    canProcessQueue,
+    queuePaused,
+    addToQueue: addToQueueStore,
+    clearQueue: clearQueueStore,
+    pauseQueue: pauseQueueStore,
+    resumeQueue: resumeQueueStore,
+    setStreamStatus,
+    setCanProcessQueue,
+    startStreaming: startStreamingStore,
+    stopStreaming: stopStreamingStore,
+  } = useQueueStore()
 
   const queuedMessagesRef = useRef<string[]>([])
   const streamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -18,6 +29,7 @@ export const useMessageQueue = (
   const streamMessageIdRef = useRef<string | null>(null)
   const isQueuePausedRef = useRef<boolean>(false)
 
+  // Sync refs with store state
   useEffect(() => {
     queuedMessagesRef.current = queuedMessages
   }, [queuedMessages])
@@ -60,7 +72,7 @@ export const useMessageQueue = (
       const nextMessage = queuedList[0]
       const remainingMessages = queuedList.slice(1)
       queuedMessagesRef.current = remainingMessages
-      setQueuedMessages(remainingMessages)
+      useQueueStore.setState({ queuedMessages: remainingMessages })
       sendMessage(nextMessage)
     }, 100)
 
@@ -74,38 +86,36 @@ export const useMessageQueue = (
     activeAgentStreamsRef,
   ])
 
-  const addToQueue = useCallback((message: string) => {
-    const newQueue = [...queuedMessagesRef.current, message]
-    queuedMessagesRef.current = newQueue
-    setQueuedMessages(newQueue)
-  }, [])
+  const addToQueue = useCallback(
+    (message: string) => {
+      const newQueue = [...queuedMessagesRef.current, message]
+      queuedMessagesRef.current = newQueue
+      addToQueueStore(message)
+    },
+    [addToQueueStore],
+  )
 
   const pauseQueue = useCallback(() => {
-    setQueuePaused(true)
-    setCanProcessQueue(false)
-  }, [])
+    pauseQueueStore()
+  }, [pauseQueueStore])
 
   const resumeQueue = useCallback(() => {
-    setQueuePaused(false)
-    setCanProcessQueue(true)
-  }, [])
+    resumeQueueStore()
+  }, [resumeQueueStore])
 
   const clearQueue = useCallback(() => {
     const current = queuedMessagesRef.current
     queuedMessagesRef.current = []
-    setQueuedMessages([])
-    return current
-  }, [])
+    return clearQueueStore()
+  }, [clearQueueStore])
 
   const startStreaming = useCallback(() => {
-    setStreamStatus('streaming')
-    setCanProcessQueue(false)
-  }, [])
+    startStreamingStore()
+  }, [startStreamingStore])
 
   const stopStreaming = useCallback(() => {
-    setStreamStatus('idle')
-    setCanProcessQueue(!queuePaused)
-  }, [queuePaused])
+    stopStreamingStore()
+  }, [stopStreamingStore])
 
   return {
     queuedMessages,
