@@ -11,18 +11,25 @@ export function createBase2(
   options?: {
     hasNoValidation?: boolean
     planOnly?: boolean
+    withGemini?: boolean
   },
 ): Omit<SecretAgentDefinition, 'id'> {
-  const { hasNoValidation = mode === 'fast', planOnly = false } = options ?? {}
+  const {
+    hasNoValidation = mode === 'fast',
+    planOnly = false,
+    withGemini = false,
+  } = options ?? {}
   const isDefault = mode === 'default'
   const isFast = mode === 'fast'
   const isMax = mode === 'max'
 
-  const isSonnet = true
+  const isSonnet = !withGemini
 
   return {
     publisher,
-    model: 'anthropic/claude-sonnet-4.5',
+    model: withGemini
+      ? 'google/gemini-3-pro-preview'
+      : 'anthropic/claude-sonnet-4.5',
     displayName: 'Buffy the Orchestrator',
     spawnerPrompt:
       'Advanced base agent that orchestrates planning, editing, and reviewing for complex coding tasks',
@@ -59,10 +66,11 @@ export function createBase2(
       'researcher-web',
       'researcher-docs',
       'commander',
-      isDefault && 'editor-best-of-n',
-      isMax && 'editor-best-of-n-gpt-5',
-      isDefault && 'thinker-best-of-n',
-      isMax && 'thinker-best-of-n-gpt-5',
+      withGemini && 'editor-best-of-n-gemini',
+      !withGemini && isDefault && 'editor-best-of-n',
+      !withGemini && isMax && 'editor-best-of-n-gpt-5',
+      !withGemini && isDefault && 'thinker-best-of-n',
+      !withGemini && isMax && 'thinker-best-of-n-gpt-5',
       'context-pruner',
     ),
 

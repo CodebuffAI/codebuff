@@ -1,10 +1,11 @@
+import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { CodebuffClient } from '@codebuff/sdk'
 
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
-import { findGitRoot } from './git'
 import { getAuthTokenDetails } from './auth'
 import { loadAgentDefinitions } from './load-agent-definitions'
 import { logger } from './logger'
+import { getProjectRoot } from '../project-files'
+import { getRgPath } from '../native/ripgrep'
 
 let clientInstance: CodebuffClient | null = null
 
@@ -16,7 +17,7 @@ export function resetCodebuffClient(): void {
   clientInstance = null
 }
 
-export function getCodebuffClient(): CodebuffClient | null {
+export async function getCodebuffClient(): Promise<CodebuffClient | null> {
   if (!clientInstance) {
     const { token: apiKey, source } = getAuthTokenDetails()
 
@@ -28,12 +29,23 @@ export function getCodebuffClient(): CodebuffClient | null {
       return null
     }
 
-    const gitRoot = findGitRoot()
+    const projectRoot = getProjectRoot()
+
+    // Set up ripgrep path for SDK to use
+    if (process.env.CODEBUFF_IS_BINARY) {
+      try {
+        const rgPath = await getRgPath()
+        process.env.CODEBUFF_RG_PATH = rgPath
+      } catch (error) {
+        logger.error(error, 'Failed to set up ripgrep binary for SDK')
+      }
+    }
+
     try {
       const agentDefinitions = loadAgentDefinitions()
       clientInstance = new CodebuffClient({
         apiKey,
-        cwd: gitRoot,
+        cwd: projectRoot,
         agentDefinitions,
         handleEvent: (event) => {
           // Default error handler for SDK errors
@@ -140,7 +152,11 @@ export function formatToolOutput(output: unknown): string {
       .map((item) => {
         if (item.type === 'json') {
           // Handle errorMessage in the value object
-          if (item.value && typeof item.value === 'object' && 'errorMessage' in item.value) {
+          if (
+            item.value &&
+            typeof item.value === 'object' &&
+            'errorMessage' in item.value
+          ) {
             return `Error: ${String(item.value.errorMessage)}`
           }
           return toYaml(item.value)

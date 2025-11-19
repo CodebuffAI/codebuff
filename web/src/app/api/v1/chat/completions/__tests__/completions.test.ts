@@ -63,12 +63,24 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     mockGetUserUsageData = mock(async ({ userId }: { userId: string }) => {
       if (userId === 'user-no-credits') {
         return {
-          balance: { totalRemaining: 0 },
+          usageThisCycle: 0,
+          balance: {
+            totalRemaining: 0,
+            totalDebt: 0,
+            netBalance: 0,
+            breakdown: {},
+          },
           nextQuotaReset: '2024-12-31',
         }
       }
       return {
-        balance: { totalRemaining: 100 },
+        usageThisCycle: 0,
+        balance: {
+          totalRemaining: 100,
+          totalDebt: 0,
+          netBalance: 100,
+          breakdown: {},
+        },
         nextQuotaReset: '2024-12-31',
       }
     })

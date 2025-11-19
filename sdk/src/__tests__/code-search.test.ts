@@ -730,4 +730,70 @@ describe('codeSearch', () => {
       expect(value.errorMessage).toContain('timed out')
     })
   })
+
+  describe('cwd parameter handling', () => {
+    it('should handle cwd: "." correctly', async () => {
+      const searchPromise = codeSearch({
+        projectPath: '/test/project',
+        pattern: 'test',
+        cwd: '.',
+      })
+
+      const output = createRgJsonMatch('file.ts', 1, 'test content')
+
+      mockProcess.stdout.emit('data', Buffer.from(output))
+      mockProcess.emit('close', 0)
+
+      const result = await searchPromise
+      const value = result[0].value as any
+
+      // Should work correctly and not have an error
+      expect(value.errorMessage).toBeUndefined()
+      expect(value.stdout).toContain('file.ts:')
+      expect(value.stdout).toContain('test content')
+
+      // Verify spawn was called with correct cwd
+      expect(mockSpawn).toHaveBeenCalled()
+      const spawnOptions = mockSpawn.mock.calls[0][2] as any
+      // When cwd is '.', it should resolve to the project root
+      expect(spawnOptions.cwd).toBe('/test/project')
+    })
+
+    it('should handle cwd: "subdir" correctly', async () => {
+      const searchPromise = codeSearch({
+        projectPath: '/test/project',
+        pattern: 'test',
+        cwd: 'subdir',
+      })
+
+      const output = createRgJsonMatch('file.ts', 1, 'test content')
+
+      mockProcess.stdout.emit('data', Buffer.from(output))
+      mockProcess.emit('close', 0)
+
+      const result = await searchPromise
+      const value = result[0].value as any
+
+      expect(value.errorMessage).toBeUndefined()
+      expect(value.stdout).toContain('file.ts:')
+
+      // Verify spawn was called with correct cwd
+      expect(mockSpawn).toHaveBeenCalled()
+      const spawnOptions = mockSpawn.mock.calls[0][2] as any
+      expect(spawnOptions.cwd).toBe('/test/project/subdir')
+    })
+
+    it('should reject cwd outside project directory', async () => {
+      const searchPromise = codeSearch({
+        projectPath: '/test/project',
+        pattern: 'test',
+        cwd: '../outside',
+      })
+
+      const result = await searchPromise
+      const value = result[0].value as any
+
+      expect(value.errorMessage).toContain('outside the project directory')
+    })
+  })
 })

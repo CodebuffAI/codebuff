@@ -65,7 +65,7 @@ function setLogPath(p: string): void {
 }
 
 export function clearLogFile(): void {
-  const projectRoot = getProjectRoot() || process.cwd()
+  const projectRoot = getProjectRoot()
   const defaultLog = path.join(projectRoot, 'debug', 'cli.log')
   const targets = new Set<string>()
 
@@ -98,7 +98,7 @@ function sendAnalyticsAndLog(
     process.env.CODEBUFF_GITHUB_ACTIONS !== 'true' &&
     env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'test'
   ) {
-    const projectRoot = getProjectRoot() || process.cwd()
+    const projectRoot = getProjectRoot()
 
     const logTarget =
       env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'

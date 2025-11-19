@@ -34,7 +34,13 @@ describe('/api/v1/docs-search POST endpoint', () => {
     mockTrackEvent = mock(() => {})
 
     mockGetUserUsageData = mock(async () => ({
-      balance: { totalRemaining: 10 },
+      usageThisCycle: 0,
+      balance: {
+        totalRemaining: 10,
+        totalDebt: 0,
+        netBalance: 10,
+        breakdown: {},
+      },
       nextQuotaReset: 'soon',
     }))
     mockGetUserInfoFromApiKey = mock(async ({ apiKey }) =>
@@ -99,7 +105,13 @@ describe('/api/v1/docs-search POST endpoint', () => {
 
   test('402 when insufficient credits', async () => {
     mockGetUserUsageData = mock(async () => ({
-      balance: { totalRemaining: 0 },
+      usageThisCycle: 0,
+      balance: {
+        totalRemaining: 0,
+        totalDebt: 0,
+        netBalance: 0,
+        breakdown: {},
+      },
       nextQuotaReset: 'soon',
     }))
     const req = new NextRequest('http://localhost:3000/api/v1/docs-search', {

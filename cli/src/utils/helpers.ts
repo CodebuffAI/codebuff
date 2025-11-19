@@ -1,13 +1,15 @@
-const timestampFormatter = (() => {
+let timestampFormatter: Intl.DateTimeFormat | null = null
+export function initTimestampFormatter() {
+  if (timestampFormatter) return
   try {
-    return new Intl.DateTimeFormat(undefined, {
+    timestampFormatter = new Intl.DateTimeFormat(undefined, {
       hour: '2-digit',
       minute: '2-digit',
     })
   } catch {
-    return null
+    timestampFormatter = null
   }
-})()
+}
 
 export function formatTimestamp(date = new Date()): string {
   if (timestampFormatter) {

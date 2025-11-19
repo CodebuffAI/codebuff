@@ -288,7 +288,26 @@ export const runAgentStep = async (
       onCostCalculated,
       n: params.n,
     })
-    const nResponses = JSON.parse(responsesString) as string[]
+
+    let nResponses: string[]
+    try {
+      nResponses = JSON.parse(responsesString) as string[]
+      if (!Array.isArray(nResponses)) {
+        if (params.n > 1) {
+          throw new Error(
+            `Expected JSON array response from LLM when n > 1, got non-array: ${responsesString.slice(0, 50)}`,
+          )
+        }
+        // If it parsed but isn't an array, treat as single response
+        nResponses = [responsesString]
+      }
+    } catch (e) {
+      if (params.n > 1) {
+        throw e
+      }
+      // If parsing fails, treat as single raw response (common for n=1)
+      nResponses = [responsesString]
+    }
     
     // Update agent state with the message history including the generations
     agentState = {

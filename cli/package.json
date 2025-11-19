@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "bin": {
-    "codebuff-tui": "./dist/index.js"
+    "codebuff-tui": "./bin/codecane"
   },
   "exports": {
     ".": {
@@ -17,10 +17,11 @@
   "scripts": {
     "dev": "./scripts/dev.sh",
     "prebuild": "bun run build:sdk",
-    "build": "bun build src/index.tsx --outdir dist --target node --format esm",
+    "build": "bun build src/index.tsx --outdir dist --target bun --format esm",
     "build:sdk": "cd ../sdk && bun run build",
     "build:sdk-types": "cd ../sdk && bun run build:types",
-    "build:binary": "bun ./scripts/build-binary.ts codecane $npm_package_version",
+    "build:binary": "bun ./scripts/build-binary.ts codebuff $npm_package_version",
+    "release": "bun run scripts/release.ts",
     "start": "bun run dist/index.js",
     "test": "bun test",
     "test:tmux-poc": "bun run src/__tests__/tmux-poc.ts",

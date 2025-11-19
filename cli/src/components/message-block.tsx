@@ -386,7 +386,6 @@ const AgentBody = memo(
           nestedIdx++
         }
 
-        logger.info({}, `asdf agentbody ${keyPrefix}-thinking-${start}`)
         nodes.push(
           <ThinkingBlock
             key={`${keyPrefix}-thinking-${start}`}

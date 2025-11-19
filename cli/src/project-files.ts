@@ -1,7 +1,6 @@
 import { mkdirSync, readdirSync, statSync } from 'fs'
 import path from 'path'
 
-import { findGitRoot } from './utils/git'
 import { getConfigDir } from './utils/auth'
 
 let projectRoot: string | undefined
@@ -18,7 +17,7 @@ export function setProjectRoot(dir: string) {
 
 export function getProjectRoot() {
   if (!projectRoot) {
-    projectRoot = findGitRoot()
+    throw new Error('Project root not set')
   }
   return projectRoot
 }
@@ -74,8 +73,9 @@ export function getMostRecentChatDir(): string | null {
           return null
         }
       })
-      .filter((item): item is { name: string; fullPath: string; mtime: Date } => 
-        item !== null && statSync(item.fullPath).isDirectory()
+      .filter(
+        (item): item is { name: string; fullPath: string; mtime: Date } =>
+          item !== null && statSync(item.fullPath).isDirectory(),
       )
 
     if (chatDirs.length === 0) {

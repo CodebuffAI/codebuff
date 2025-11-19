@@ -100,6 +100,8 @@ export const Chat = ({
   continueChatId?: string
 }) => {
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+  const [showScrollbar, setShowScrollbar] = useState(false)
+  const hasShownScrollbarRef = useRef(false)
 
   const { separatorWidth, terminalWidth, terminalHeight } =
     useTerminalDimensions()
@@ -394,6 +396,8 @@ export const Chat = ({
     messages,
     isUserCollapsing,
   )
+
+
 
   const inertialScrollAcceleration = useMemo(
     () => createChatScrollAcceleration(),
@@ -703,6 +707,12 @@ export const Chat = ({
   const handleSubmit = useCallback(async () => {
     ensureQueueActiveBeforeSubmit()
 
+    // Show scrollbar on first message
+    if (!hasShownScrollbarRef.current) {
+      hasShownScrollbarRef.current = true
+      setShowScrollbar(true)
+    }
+
     const result = await routeUserPrompt({
       abortControllerRef,
       agentMode,
@@ -951,6 +961,7 @@ export const Chat = ({
         stickyStart="bottom"
         scrollX={false}
         scrollbarOptions={{ visible: false }}
+        verticalScrollbarOptions={{ visible: showScrollbar, trackOptions: { width: 1 } }}
         {...appliedScrollboxProps}
         style={{
           flexGrow: 1,
@@ -958,7 +969,7 @@ export const Chat = ({
             flexGrow: 1,
             padding: 0,
             gap: 0,
-            flexDirection: 'column',
+            flexDirection: 'row',
             shouldFill: true,
             backgroundColor: 'transparent',
           },
@@ -967,6 +978,7 @@ export const Chat = ({
             border: false,
             shouldFill: true,
             backgroundColor: 'transparent',
+            flexDirection: 'column',
           },
           contentOptions: {
             flexDirection: 'column',

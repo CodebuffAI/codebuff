@@ -2,7 +2,6 @@ import { existsSync, readFileSync, readdirSync, statSync, watch } from 'fs'
 import { homedir } from 'os'
 import { dirname, join } from 'path'
 
-import { detectShell } from './detect-shell'
 import { logger } from './logger'
 import { detectTerminalTheme } from './terminal-color-detection'
 import { withTerminalInputGuard } from './terminal-input-guard'
@@ -1113,9 +1112,11 @@ export const setupFileWatchers = () => {
  * SIGUSR2 signal handler for manual theme refresh
  * Users can send `kill -USR2 <pid>` to force theme recomputation
  */
-process.on('SIGUSR2', () => {
-  recomputeSystemTheme('signal:SIGUSR2')
-})
+export function enableManualThemeRefresh() {
+  process.on('SIGUSR2', () => {
+    recomputeSystemTheme('signal:SIGUSR2')
+  })
+}
 
 /**
  * OSC Terminal Theme Detection

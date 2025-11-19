@@ -3,7 +3,6 @@
 const { spawn } = require('child_process')
 const fs = require('fs')
 const https = require('https')
-const os = require('os')
 const path = require('path')
 const zlib = require('zlib')
 
@@ -12,16 +11,17 @@ const tar = require('tar')
 const packageName = 'codecane'
 
 function createConfig(packageName) {
-  const homeDir = os.homedir()
-  const configDir = path.join(homeDir, '.config', 'manicode')
+  // Store binary in package directory instead of ~/.config/manicode
+  const packageDir = __dirname
+  const binDir = path.join(packageDir, 'bin')
   const binaryName =
     process.platform === 'win32' ? `${packageName}.exe` : packageName
 
   return {
-    homeDir,
-    configDir,
+    packageDir,
+    binDir,
     binaryName,
-    binaryPath: path.join(configDir, binaryName),
+    binaryPath: path.join(binDir, binaryName),
     userAgent: `${packageName}-cli`,
     requestTimeout: 20000,
   }
@@ -116,7 +116,7 @@ function getCurrentVersion() {
   try {
     return new Promise((resolve, reject) => {
       const child = spawn(CONFIG.binaryPath, ['--version'], {
-        cwd: os.homedir(),
+        cwd: CONFIG.packageDir,
         stdio: 'pipe',
       })
 
@@ -244,19 +244,18 @@ async function downloadBinary(version) {
     process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
   }/api/releases/download/${version}/${fileName}`
 
-  fs.mkdirSync(CONFIG.configDir, { recursive: true })
+  // Create bin directory in package directory
+  fs.mkdirSync(CONFIG.binDir, { recursive: true })
 
   if (fs.existsSync(CONFIG.binaryPath)) {
     try {
       fs.unlinkSync(CONFIG.binaryPath)
     } catch (err) {
-      // Fallback: try renaming the locked/undeletable binary
       const backupPath = CONFIG.binaryPath + `.old.${Date.now()}`
 
       try {
         fs.renameSync(CONFIG.binaryPath, backupPath)
       } catch (renameErr) {
-        // If we can't unlink OR rename, we can't safely proceed
         throw new Error(
           `Failed to replace existing binary. ` +
             `unlink error: ${err.code || err.message}, ` +
@@ -299,14 +298,14 @@ async function downloadBinary(version) {
   await new Promise((resolve, reject) => {
     res
       .pipe(zlib.createGunzip())
-      .pipe(tar.x({ cwd: CONFIG.configDir }))
+      .pipe(tar.x({ cwd: CONFIG.binDir }))
       .on('finish', resolve)
       .on('error', reject)
   })
 
   try {
-    const files = fs.readdirSync(CONFIG.configDir)
-    const extractedPath = path.join(CONFIG.configDir, CONFIG.binaryName)
+    const files = fs.readdirSync(CONFIG.binDir)
+    const extractedPath = path.join(CONFIG.binDir, CONFIG.binaryName)
 
     if (fs.existsSync(extractedPath)) {
       if (process.platform !== 'win32') {

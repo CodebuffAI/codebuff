@@ -92,9 +92,7 @@ function httpGet(url, options = {}) {
 
 async function getLatestVersion() {
   try {
-    const res = await httpGet(
-      `https://registry.npmjs.org/${packageName}/latest`,
-    )
+    const res = await httpGet(`https://registry.npmjs.org/codebuff/latest`)
 
     if (res.statusCode !== 200) return null
 
