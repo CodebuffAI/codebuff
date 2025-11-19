@@ -17,7 +17,7 @@
   "scripts": {
     "dev": "./scripts/dev.sh",
     "prebuild": "bun run build:sdk",
-    "build": "bun build src/index.tsx --outdir dist --target node --format esm",
+    "build": "bun build src/index.tsx --outdir dist --target bun --format esm",
     "build:sdk": "cd ../sdk && bun run build",
     "build:sdk-types": "cd ../sdk && bun run build:types",
     "build:binary": "bun ./scripts/build-binary.ts codebuff $npm_package_version",
