@@ -1,6 +1,7 @@
 import { publisher } from '../../constants'
 
 import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
+import type { ToolCall } from '../../types/agent-definition'
 
 export const createBestOfNImplementor = (options: {
   model: 'sonnet' | 'gpt-5' | 'gemini'
@@ -24,11 +25,11 @@ export const createBestOfNImplementor = (options: {
     includeMessageHistory: true,
     inheritParentSystemPrompt: true,
 
-    toolNames: ['str_replace', 'write_file'],
+    toolNames: ['str_replace', 'write_file', 'set_output'],
     spawnableAgents: [],
 
     inputSchema: {},
-    outputMode: 'last_message',
+    outputMode: 'structured_output',
 
     instructionsPrompt: `You are an expert code editor with deep understanding of software engineering principles. You were spawned to generate an implementation for the user's request.
     
@@ -96,6 +97,8 @@ You can also use <think> tags interspersed between tool calls to think about the
 </example>`
 }
 
+After the edit tool calls, you can optionally mention any follow-up steps to take, like deleting a file, or a sepcific way to validate the changes. There's no need to use the set_output tool as your entire response will be included in the output.
+
 Your implementation should:
 - Be complete and comprehensive
 - Include all necessary changes to fulfill the user's request
@@ -112,7 +115,31 @@ More style notes:
 Write out your complete implementation now, formatting all changes as tool calls as shown above.`,
 
     handleSteps: function* () {
-      yield 'STEP'
+      const { agentState: postEditsAgentState } = yield 'STEP'
+      const { messageHistory } = postEditsAgentState
+      const lastAssistantMessageIndex = messageHistory.findLastIndex(
+        (message) => message.role === 'assistant',
+      )
+      const editToolResults = messageHistory
+        .slice(lastAssistantMessageIndex)
+        .filter((message) => message.role === 'tool')
+        .flatMap((message) => message.content.output)
+        .filter((output) => output.type === 'json')
+        .map((output) => output.value)
+
+      // Get the assistant's response (the last assistant message)
+      const assistantResponse = messageHistory
+        .slice(lastAssistantMessageIndex)
+        .find((message) => message.role === 'assistant')
+
+      yield {
+        toolName: 'set_output',
+        input: {
+          response: assistantResponse?.content ?? '',
+          toolResults: editToolResults,
+        },
+        includeToolCall: false,
+      } satisfies ToolCall<'set_output'>
     },
   }
 }
