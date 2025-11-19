@@ -20,7 +20,7 @@
     "build": "bun build src/index.tsx --outdir dist --target node --format esm",
     "build:sdk": "cd ../sdk && bun run build",
     "build:sdk-types": "cd ../sdk && bun run build:types",
-    "build:binary": "bun ./scripts/build-binary.ts codecane $npm_package_version",
+    "build:binary": "bun ./scripts/build-binary.ts codebuff $npm_package_version",
     "release": "bun run scripts/release.ts",
     "start": "bun run dist/index.js",
     "test": "bun test",
