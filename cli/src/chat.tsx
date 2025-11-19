@@ -538,11 +538,32 @@ export const Chat = ({
     setAgentMode,
     separatorWidth,
     initialPrompt,
-    sendMessageRef,
-    isChainInProgressRef,
-    streamMessageIdRef,
-    isStreaming,
-    addToQueue,
+    onSubmitPrompt: (content, mode) => {
+      return routeUserPrompt({
+        abortControllerRef,
+        agentMode: mode,
+        inputRef,
+        inputValue: content,
+        isChainInProgressRef,
+        isStreaming,
+        logoutMutation,
+        streamMessageIdRef,
+        addToQueue,
+        clearMessages,
+        clearQueue,
+        handleCtrlC,
+        saveToHistory,
+        scrollToLatest,
+        sendMessage,
+        setCanProcessQueue,
+        setInputFocused,
+        setInputValue,
+        setIsAuthenticated,
+        setMessages,
+        setUser,
+        stopStreaming,
+      })
+    },
   })
 
   const {

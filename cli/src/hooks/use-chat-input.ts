@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef } from 'react'
 import stringWidth from 'string-width'
 
 import type { InputValue } from '../state/chat-store'
-import type { SendMessageFn } from '../types/contracts/send-message'
 import type { AgentMode } from '../utils/constants'
 
 interface UseChatInputOptions {
@@ -12,11 +11,7 @@ interface UseChatInputOptions {
   setAgentMode: (mode: AgentMode) => void
   separatorWidth: number
   initialPrompt: string | null
-  sendMessageRef: React.MutableRefObject<SendMessageFn | undefined>
-  isChainInProgressRef: React.MutableRefObject<boolean>
-  streamMessageIdRef: React.MutableRefObject<string | null>
-  isStreaming: boolean
-  addToQueue: (message: string) => void
+  onSubmitPrompt: (content: string, mode: AgentMode) => void | Promise<unknown>
 }
 
 const BUILD_IT_TEXT = 'Build it!'
@@ -28,11 +23,7 @@ export const useChatInput = ({
   setAgentMode,
   separatorWidth,
   initialPrompt,
-  sendMessageRef,
-  isChainInProgressRef,
-  streamMessageIdRef,
-  isStreaming,
-  addToQueue,
+  onSubmitPrompt,
 }: UseChatInputOptions) => {
   const hasAutoSubmittedRef = useRef(false)
 
@@ -62,19 +53,10 @@ export const useChatInput = ({
       lastEditDueToNav: true,
     })
     setTimeout(() => {
-      // Check if streaming or chain in progress - if so, add to queue instead of sending
-      if (
-        isStreaming ||
-        streamMessageIdRef.current ||
-        isChainInProgressRef.current
-      ) {
-        addToQueue(BUILD_IT_TEXT)
-      } else if (sendMessageRef.current) {
-        sendMessageRef.current({ content: BUILD_IT_TEXT, agentMode: 'DEFAULT' })
-      }
+      onSubmitPrompt(BUILD_IT_TEXT, 'DEFAULT')
       setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     }, 0)
-  }, [setAgentMode, setInputValue, sendMessageRef, isStreaming, streamMessageIdRef, isChainInProgressRef, addToQueue])
+  }, [setAgentMode, setInputValue, onSubmitPrompt])
 
   const handleBuildMax = useCallback(() => {
     setAgentMode('MAX')
@@ -84,41 +66,23 @@ export const useChatInput = ({
       lastEditDueToNav: true,
     })
     setTimeout(() => {
-      // Check if streaming or chain in progress - if so, add to queue instead of sending
-      if (
-        isStreaming ||
-        streamMessageIdRef.current ||
-        isChainInProgressRef.current
-      ) {
-        addToQueue('Build it!')
-      } else if (sendMessageRef.current) {
-        sendMessageRef.current({ content: 'Build it!', agentMode: 'MAX' })
-      }
+      onSubmitPrompt('Build it!', 'MAX')
       setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     }, 0)
-  }, [setAgentMode, setInputValue, sendMessageRef, isStreaming, streamMessageIdRef, isChainInProgressRef, addToQueue])
+  }, [setAgentMode, setInputValue, onSubmitPrompt])
 
   useEffect(() => {
     if (initialPrompt && !hasAutoSubmittedRef.current) {
       hasAutoSubmittedRef.current = true
 
       const timeout = setTimeout(() => {
-        // Check if streaming or chain in progress - if so, add to queue instead of sending
-        if (
-          isStreaming ||
-          streamMessageIdRef.current ||
-          isChainInProgressRef.current
-        ) {
-          addToQueue(initialPrompt)
-        } else if (sendMessageRef.current) {
-          sendMessageRef.current({ content: initialPrompt, agentMode })
-        }
+        onSubmitPrompt(initialPrompt, agentMode)
       }, 100)
 
       return () => clearTimeout(timeout)
     }
     return undefined
-  }, [initialPrompt, agentMode, sendMessageRef, isStreaming, streamMessageIdRef, isChainInProgressRef, addToQueue])
+  }, [initialPrompt, agentMode, onSubmitPrompt])
 
   return {
     inputWidth,
