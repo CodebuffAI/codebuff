@@ -41,6 +41,7 @@ import { useQueueControls } from './hooks/use-queue-controls'
 import { logger } from './utils/logger'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { useChatStore } from './state/chat-store'
+import { useStreamStore } from './state/stream-store'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { loadLocalAgents } from './utils/local-agent-registry'
 import { buildMessageTree } from './utils/message-tree-utils'
@@ -104,16 +105,10 @@ export const Chat = ({
     setSlashSelectedIndex,
     agentSelectedIndex,
     setAgentSelectedIndex,
-    streamingAgents,
-    setStreamingAgents,
     focusedAgentId,
     setFocusedAgentId,
     messages,
     setMessages,
-    activeSubagents,
-    setActiveSubagents,
-    isChainInProgress,
-    setIsChainInProgress,
     agentMode,
     setAgentMode,
     toggleAgentMode,
@@ -136,16 +131,10 @@ export const Chat = ({
       setSlashSelectedIndex: store.setSlashSelectedIndex,
       agentSelectedIndex: store.agentSelectedIndex,
       setAgentSelectedIndex: store.setAgentSelectedIndex,
-      streamingAgents: store.streamingAgents,
-      setStreamingAgents: store.setStreamingAgents,
       focusedAgentId: store.focusedAgentId,
       setFocusedAgentId: store.setFocusedAgentId,
       messages: store.messages,
       setMessages: store.setMessages,
-      activeSubagents: store.activeSubagents,
-      setActiveSubagents: store.setActiveSubagents,
-      isChainInProgress: store.isChainInProgress,
-      setIsChainInProgress: store.setIsChainInProgress,
       agentMode: store.agentMode,
       setAgentMode: store.setAgentMode,
       toggleAgentMode: store.toggleAgentMode,
@@ -159,6 +148,15 @@ export const Chat = ({
       setRunState: store.setRunState,
     })),
   )
+
+  const {
+    streamingAgents,
+    setStreamingAgents,
+    activeSubagents,
+    setActiveSubagents,
+    isChainInProgress,
+    setIsChainInProgress,
+  } = useStreamStore()
 
   // Memoize toggle IDs extraction - only recompute when messages change
   const allToggleIds = useMemo(() => {
