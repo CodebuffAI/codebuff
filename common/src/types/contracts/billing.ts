@@ -5,8 +5,15 @@ export type GetUserUsageDataFn = (params: {
   userId: string
   logger: Logger
 }) => Promise<{
-  balance: { totalRemaining: number }
+  usageThisCycle: number
+  balance: {
+    totalRemaining: number
+    totalDebt: number
+    netBalance: number
+    breakdown: Record<string, number>
+  }
   nextQuotaReset: string
+  autoTopupTriggered?: boolean
 }>
 
 export type ConsumeCreditsWithFallbackFn = (params: {
@@ -22,3 +29,15 @@ export type CreditFallbackResult = {
   organizationName?: string
   chargedToOrganization: boolean
 }
+
+export type GetOrganizationUsageResponseFn = (params: {
+  organizationId: string
+  userId: string
+  logger: Logger
+}) => Promise<{
+  type: 'usage-response'
+  usage: number
+  remainingBalance: number
+  balanceBreakdown: Record<string, never>
+  next_quota_reset: null
+}>

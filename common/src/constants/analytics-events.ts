@@ -102,6 +102,10 @@ export enum AnalyticsEvent {
   CHAT_COMPLETIONS_STREAM_STARTED = 'api.chat_completions_stream_started',
   CHAT_COMPLETIONS_ERROR = 'api.chat_completions_error',
 
+  // Web - Usage API
+  USAGE_API_REQUEST = 'api.usage_request',
+  USAGE_API_AUTH_ERROR = 'api.usage_auth_error',
+
   // Web - Search API
   WEB_SEARCH_REQUEST = 'api.web_search_request',
   WEB_SEARCH_AUTH_ERROR = 'api.web_search_auth_error',

@@ -1,4 +1,4 @@
-import { BACKEND_URL } from '@codebuff/sdk'
+import { WEBSITE_URL } from '@codebuff/sdk'
 
 import { useChatStore } from '../state/chat-store'
 import { getAuthToken } from '../utils/auth'
@@ -30,7 +30,7 @@ export async function handleUsageCommand(): Promise<{
   }
 
   try {
-    const response = await fetch(`${BACKEND_URL}/api/usage`, {
+    const response = await fetch(`${WEBSITE_URL}/api/v1/usage`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
