@@ -57,39 +57,14 @@ export async function handleUsageCommand(): Promise<{
 
     const data = (await response.json()) as UsageResponse
 
-    // Format the usage message similar to npm-app
-    let usageMessage = `Session usage: ${sessionCreditsUsed.toLocaleString()} credits used`
+    useChatStore.getState().setUsageData({
+      sessionUsage: sessionCreditsUsed,
+      remainingBalance: data.remainingBalance,
+      nextQuotaReset: data.next_quota_reset,
+    })
+    useChatStore.getState().setIsUsageVisible(true)
 
-    if (data.remainingBalance !== null) {
-      const remainingColor =
-        data.remainingBalance <= 0
-          ? 'red'
-          : data.remainingBalance <= 100
-            ? 'yellow'
-            : 'green'
-
-      usageMessage += `\n\nCredits Remaining: ${data.remainingBalance.toLocaleString()}`
-
-      // Add next quota reset info if available
-      if (data.next_quota_reset) {
-        const resetDate = new Date(data.next_quota_reset)
-        const today = new Date()
-        const isToday = resetDate.toDateString() === today.toDateString()
-
-        const dateDisplay = isToday
-          ? resetDate.toLocaleString()
-          : resetDate.toLocaleDateString()
-
-        usageMessage += `\n\nFree credits will renew on ${dateDisplay}.`
-      }
-    } else {
-      usageMessage += '\n\nTotal balance information not available.'
-    }
-
-    const postUserMessage: PostUserMessageFn = (prev) => [
-      ...prev,
-      getSystemMessage(usageMessage),
-    ]
+    const postUserMessage: PostUserMessageFn = (prev) => prev
     return { postUserMessage }
   } catch (error) {
     logger.error(

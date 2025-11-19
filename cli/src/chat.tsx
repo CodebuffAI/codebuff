@@ -11,6 +11,7 @@ import {
   MultilineInput,
   type MultilineInputHandle,
 } from './components/multiline-input'
+import { UsageBanner } from './components/usage-banner'
 import { getStatusIndicatorState } from './utils/status-indicator-state'
 import { StatusBar } from './components/status-bar'
 import { SuggestionMenu } from './components/suggestion-menu'
@@ -932,95 +933,99 @@ export const Chat = ({
         {/* Wrap the input row in a single OpenTUI border so the toggle stays inside the flex layout.
             Non-actionable queue context is injected via the border title to keep the content
             area stable while still surfacing that information. */}
-        {feedbackMode ? (
-          <FeedbackContainer
-            inputRef={inputRef}
-            onExitFeedback={handleExitFeedback}
-            width={separatorWidth}
-          />
-        ) : (
-          <box
-            title={inputBoxTitle}
-            titleAlignment="center"
-            style={{
-              width: '100%',
-              borderStyle: 'single',
-              borderColor: theme.foreground,
-              customBorderChars: BORDER_CHARS,
-              paddingLeft: 1,
-              paddingRight: 1,
-              paddingTop: 0,
-              paddingBottom: 0,
-              flexDirection: 'column',
-              gap: hasSuggestionMenu ? 1 : 0,
-            }}
-          >
-            {hasSlashSuggestions ? (
-              <SuggestionMenu
-                items={slashSuggestionItems}
-                selectedIndex={slashSelectedIndex}
-                maxVisible={10}
-                prefix="/"
-              />
-            ) : null}
-            {hasMentionSuggestions ? (
-              <SuggestionMenu
-                items={[...agentSuggestionItems, ...fileSuggestionItems]}
-                selectedIndex={agentSelectedIndex}
-                maxVisible={10}
-                prefix="@"
-              />
-            ) : null}
-            <box
-              style={{
-                flexDirection: 'column',
-                justifyContent: shouldCenterInputVertically
-                  ? 'center'
-                  : 'flex-start',
-                minHeight: shouldCenterInputVertically ? 3 : undefined,
-                gap: 0,
-              }}
-            >
-              <box
-                style={{
-                  flexDirection: 'row',
-                  alignItems: shouldCenterInputVertically
-                    ? 'center'
-                    : 'flex-start',
-                  width: '100%',
-                }}
-              >
-                <box style={{ flexGrow: 1, minWidth: 0 }}>
-                  <MultilineInput
-                    value={inputValue}
-                    onChange={setInputValue}
-                    onSubmit={handleSubmit}
-                    placeholder={inputPlaceholder}
-                    focused={inputFocused && !feedbackMode}
-                    maxHeight={Math.floor(terminalHeight / 2)}
-                    width={inputWidth}
-                    onKeyIntercept={handleSuggestionMenuKey}
-                    textAttributes={theme.messageTextAttributes}
-                    ref={inputRef}
-                    cursorPosition={cursorPosition}
+                {feedbackMode ? (
+                  <FeedbackContainer
+                    inputRef={inputRef}
+                    onExitFeedback={handleExitFeedback}
+                    width={separatorWidth}
                   />
-                </box>
-                <box
-                  style={{
-                    flexShrink: 0,
-                    paddingLeft: 2,
-                  }}
-                >
-                  <AgentModeToggle
-                    mode={agentMode}
-                    onToggle={toggleAgentMode}
-                    onSelectMode={setAgentMode}
-                  />
-                </box>
-              </box>
-            </box>
-          </box>
-        )}
+                ) : (
+                  <>
+                    <box
+                      title={inputBoxTitle}
+                      titleAlignment="center"
+                      style={{
+                        width: '100%',
+                        borderStyle: 'single',
+                        borderColor: theme.foreground,
+                        customBorderChars: BORDER_CHARS,
+                        paddingLeft: 1,
+                        paddingRight: 1,
+                        paddingTop: 0,
+                        paddingBottom: 0,
+                        flexDirection: 'column',
+                        gap: hasSuggestionMenu ? 1 : 0,
+                      }}
+                    >
+                      {hasSlashSuggestions ? (
+                        <SuggestionMenu
+                          items={slashSuggestionItems}
+                          selectedIndex={slashSelectedIndex}
+                          maxVisible={10}
+                          prefix="/"
+                        />
+                      ) : null}
+                      {hasMentionSuggestions ? (
+                        <SuggestionMenu
+                          items={[...agentSuggestionItems, ...fileSuggestionItems]}
+                          selectedIndex={agentSelectedIndex}
+                          maxVisible={10}
+                          prefix="@"
+                        />
+                      ) : null}
+                      <box
+                        style={{
+                          flexDirection: 'column',
+                          justifyContent: shouldCenterInputVertically
+                            ? 'center'
+                            : 'flex-start',
+                          minHeight: shouldCenterInputVertically ? 3 : undefined,
+                          gap: 0,
+                        }}
+                      >
+                        <box
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: shouldCenterInputVertically
+                              ? 'center'
+                              : 'flex-start',
+                            width: '100%',
+                          }}
+                        >
+                          <box style={{ flexGrow: 1, minWidth: 0 }}>
+                            <MultilineInput
+                              value={inputValue}
+                              onChange={setInputValue}
+                              onSubmit={handleSubmit}
+                              placeholder={inputPlaceholder}
+                              focused={inputFocused && !feedbackMode}
+                              maxHeight={Math.floor(terminalHeight / 2)}
+                              width={inputWidth}
+                              onKeyIntercept={handleSuggestionMenuKey}
+                              textAttributes={theme.messageTextAttributes}
+                              ref={inputRef}
+                              cursorPosition={cursorPosition}
+                            />
+                          </box>
+                          <box
+                            style={{
+                              flexShrink: 0,
+                              paddingLeft: 2,
+                            }}
+                          >
+                            <AgentModeToggle
+                              mode={agentMode}
+                              onToggle={toggleAgentMode}
+                              onSelectMode={setAgentMode}
+                            />
+                          </box>
+                        </box>
+                      </box>
+                    </box>
+                    <UsageBanner />
+                  </>
+                )}
+        
       </box>
 
       {validationBanner}
