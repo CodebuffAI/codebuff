@@ -4,6 +4,7 @@ import { initializeThemeStore } from '../hooks/use-theme'
 import { setProjectRoot } from '../project-files'
 import { runOscDetectionSubprocess } from './osc-subprocess'
 import { findGitRoot } from '../utils/git'
+import { initTimestampFormatter } from '../utils/helpers'
 import { enableManualThemeRefresh } from '../utils/theme-system'
 
 export async function initializeApp(params: {
@@ -21,10 +22,8 @@ export async function initializeApp(params: {
     findGitRoot({ cwd: params.cwd ?? process.cwd() }) ?? process.cwd()
   setProjectRoot(projectRoot)
 
-  // Enable Map and Set support in Immer globally (once at app initialization)
   enableMapSet()
-
   initializeThemeStore()
-
   enableManualThemeRefresh()
+  initTimestampFormatter()
 }
