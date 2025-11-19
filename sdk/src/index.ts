@@ -26,6 +26,7 @@ export { formatState } from '../../common/src/websockets/websocket-client'
 export type { ReadyState } from '../../common/src/websockets/websocket-client'
 
 export { getUserInfoFromApiKey } from './impl/database'
+export { getUserInfoFromApiKeySafe } from './impl/database-safe'
 
 export { validateAgents } from './validate-agents'
 
@@ -41,6 +42,10 @@ export {
   type NetworkErrorDetails
 } from './errors'
 export type { ValidationResult, ValidateAgentsOptions } from './validate-agents'
+
+// ErrorOr utilities
+export { failureWithCode, type SdkErrorObject } from './error-or'
+export type { ErrorOr, Success, Failure } from '@codebuff/common/util/error'
 
 export type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 

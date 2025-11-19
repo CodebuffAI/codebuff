@@ -11,7 +11,7 @@ import { AgentOutputSchema } from '@codebuff/common/types/session-state'
 import { cloneDeep } from 'lodash'
 
 import { getAgentRuntimeImpl } from './impl/agent-runtime'
-import { getUserInfoFromApiKey } from './impl/database'
+import { getUserInfoFromApiKeySafe } from './impl/database-safe'
 import { initialSessionState, applyOverridesToSessionState } from './run-state'
 import { filterXml } from './tool-xml-filter'
 import { changeFile } from './tools/change-file'
@@ -488,11 +488,21 @@ export async function run({
   const promptId = Math.random().toString(36).substring(2, 15)
 
   // Send input
-  const userInfo = await getUserInfoFromApiKey({
+  const userInfoResult = await getUserInfoFromApiKeySafe({
     ...agentRuntimeImpl,
     apiKey,
     fields: ['id'],
   })
+
+  if (!userInfoResult.success) {
+    const err = userInfoResult.error
+    const errorMessage = err.message || 'Failed to resolve user information from API key'
+    await onError({ message: errorMessage })
+    clearStreamTimeout()
+    return getCancelledRunState(errorMessage)
+  }
+
+  const userInfo = userInfoResult.value
   if (!userInfo) {
     const errorMessage = 'Invalid API key or user not found'
     await onError({ message: errorMessage })

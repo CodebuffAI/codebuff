@@ -30,6 +30,22 @@ export interface ValidateAgentsOptions {
   websiteUrl?: string
 }
 
+function buildValidationApiNetworkError(params: {
+  message: string
+  status?: number
+  original?: unknown
+}): NetworkError {
+  // For 5xx errors, use "Server error" prefix to match test expectations
+  // For network failures, use "Failed to connect" prefix
+  const prefix = params.status && params.status >= 500 ? 'Server error' : 'Failed to connect to validation API'
+  const baseMessage = `${prefix}: ${params.message}`
+  const wrapped = new NetworkError(baseMessage, {
+    status: params.status,
+    originalError: params.original,
+  })
+  return wrapped
+}
+
 /**
  * Validates an array of agent definitions.
  *
@@ -63,7 +79,7 @@ export async function validateAgents(
   for (const [index, definition] of definitions.entries()) {
     // Handle null/undefined gracefully
     if (!definition) {
-      agentTemplates[`agent_${index}`] = definition
+      agentTemplates[`agent_${index}`] = definition as AgentDefinition
       continue
     }
     // Use index to ensure duplicates aren't overwritten
@@ -96,14 +112,28 @@ export async function validateAgents(
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
+        let errorData: any = {}
+        try {
+          errorData = await response.json()
+        } catch {
+          // ignore JSON parse errors, we'll fall back to status text
+        }
         const errorMessage =
           (errorData as any).error ||
           `HTTP ${response.status}: ${response.statusText}`
 
-        // For 5xx errors, throw network error
+        // For 5xx errors, throw a NetworkError with original error metadata
         if (response.status >= 500) {
-          throw new NetworkError(`Server error: ${errorMessage}`, { status: response.status })
+          const original = {
+            status: response.status,
+            statusText: response.statusText,
+            body: errorData,
+          }
+          throw buildValidationApiNetworkError({
+            message: errorMessage,
+            status: response.status,
+            original,
+          })
         }
 
         // For client errors (4xx), return as validation errors
@@ -122,11 +152,14 @@ export async function validateAgents(
       const data = await response.json()
       validationErrors = data.validationErrors || []
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error)
+      const message = error instanceof Error ? error.message : String(error)
 
-      // Throw network errors instead of returning them as validation errors
-      throw new NetworkError(`Failed to connect to validation API: ${errorMessage}`, { originalError: error })
+      // Wrap all network failures in a NetworkError that includes the original error
+      const networkError = buildValidationApiNetworkError({
+        message,
+        original: error,
+      })
+      throw networkError
     }
   } else {
     // Local validation: use common package validation logic
