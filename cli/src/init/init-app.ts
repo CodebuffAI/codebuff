@@ -4,6 +4,7 @@ import { initializeThemeStore } from '../hooks/use-theme'
 import { setProjectRoot } from '../project-files'
 import { runOscDetectionSubprocess } from './osc-subprocess'
 import { findGitRoot } from '../utils/git'
+import { enableManualThemeRefresh } from '../utils/theme-system'
 
 export async function initializeApp(params: {
   cwd?: string
@@ -24,4 +25,6 @@ export async function initializeApp(params: {
   enableMapSet()
 
   initializeThemeStore()
+
+  enableManualThemeRefresh()
 }
