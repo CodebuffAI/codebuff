@@ -215,11 +215,25 @@ export async function routeUserPrompt(params: {
     return
   }
 
+  // Prevent submitting new messages while another is processing
+  if (isChainInProgressRef.current) {
+    // Queue the message instead of sending immediately
+    addToQueue(trimmed)
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+    setTimeout(() => {
+      scrollToLatest()
+    }, 0)
+    return
+  }
+
+  // Set flag immediately to block concurrent submissions
+  isChainInProgressRef.current = true
+
   sendMessage({ content: trimmed, agentMode, postUserMessage })
 
   setTimeout(() => {
     scrollToLatest()
   }, 0)
-  
+
   return
 }

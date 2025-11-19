@@ -1173,8 +1173,7 @@ export const useSendMessage = ({
             ) {
               const { agentId, chunk } = event
 
-              const previous =
-                agentStreamAccumulatorsRef.current[agentId] ?? ''
+              const previous = agentStreamAccumulatorsRef.current[agentId] ?? ''
               if (!chunk) {
                 return
               }
@@ -1347,10 +1346,9 @@ export const useSendMessage = ({
                 addActiveSubagent(event.agentId)
 
                 let foundExistingBlock = false
-                for (const [
-                  tempId,
-                  info,
-                ] of Object.entries(spawnAgentsMapRef.current)) {
+                for (const [tempId, info] of Object.entries(
+                  spawnAgentsMapRef.current,
+                )) {
                   const eventType = event.agentType || ''
                   const storedType = info.agentType || ''
                   // Match if exact match, or if eventType ends with storedType (e.g., 'codebuff/file-picker@0.0.2' matches 'file-picker')
@@ -1998,43 +1996,42 @@ export const useSendMessage = ({
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error occurred'
 
-        // Mark message as interrupted when an error occurs
-        markAiMessageInterrupted(aiMessageId)
-
-        applyMessageUpdate((prev) =>
-          prev.map((msg) => {
-            if (msg.id !== aiMessageId) {
-              return msg
-            }
-            const updatedContent =
-              msg.content + `\n\n**Error:** ${errorMessage}`
-            return {
-              ...msg,
-              content: updatedContent,
-            }
-          }),
-        )
-
-        applyMessageUpdate((prev) =>
-          prev.map((msg) => {
-            if (msg.id !== aiMessageId) {
-              return msg
-            }
-            return { ...msg, isComplete: true }
-          }),
-        )
-
         const pendingAlreadyScheduled =
           userMessageId in pendingRetriesRef.current
         const timedOutDueToSdk =
           isNetworkError(error) && Boolean(error.streamTimedOut)
 
         const shouldRetryError =
-          timedOutDueToSdk ||
-          !isConnectedRef.current ||
-          isRetryableError(error)
+          timedOutDueToSdk || !isConnectedRef.current || isRetryableError(error)
 
+        // Only mark as interrupted and show error if NOT retrying
+        // (retryable errors will be retried silently)
         if (!shouldRetryError) {
+          markAiMessageInterrupted(aiMessageId)
+
+          applyMessageUpdate((prev) =>
+            prev.map((msg) => {
+              if (msg.id !== aiMessageId) {
+                return msg
+              }
+              const updatedContent =
+                msg.content + `\n\n**Error:** ${errorMessage}`
+              return {
+                ...msg,
+                content: updatedContent,
+              }
+            }),
+          )
+
+          applyMessageUpdate((prev) =>
+            prev.map((msg) => {
+              if (msg.id !== aiMessageId) {
+                return msg
+              }
+              return { ...msg, isComplete: true }
+            }),
+          )
+
           logger.error(
             { userMessageId, error: errorMessage },
             'Non-retryable error encountered; not scheduling retry',
@@ -2100,9 +2097,7 @@ export const useSendMessage = ({
 
   // Process connection failures and schedule them for retry (batched to avoid state cascades)
   const processFailedMessages = useCallback(() => {
-    const failedMessages = Object.entries(
-      failedDueToConnectionRef.current,
-    )
+    const failedMessages = Object.entries(failedDueToConnectionRef.current)
 
     if (failedMessages.length === 0) {
       return
@@ -2209,7 +2204,6 @@ export const useSendMessage = ({
     sendMessage,
     setCanProcessQueue,
   ])
-
 
   return {
     sendMessage,

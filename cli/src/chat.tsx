@@ -1,4 +1,11 @@
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useKeyboard } from '@opentui/react'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -203,44 +210,52 @@ export const Chat = ({
   const { statusMessage } = useClipboard()
   const [showReconnectionMessage, setShowReconnectionMessage] = useState(false)
   const [connectionEstablished, setConnectionEstablished] = useState(0) // Increment to trigger retry check
-  const { setTimeout: setReconnectionTimeout, clearTimeout: clearReconnectionTimeout } = useSafeTimeout()
+  const {
+    setTimeout: setReconnectionTimeout,
+    clearTimeout: clearReconnectionTimeout,
+  } = useSafeTimeout()
   const retryPendingMessagesRef = useRef<(() => Promise<void>) | null>(null)
   const processFailedMessagesRef = useRef<(() => void) | null>(null)
   const retryScheduledRef = useRef(false)
 
-  const handleReconnection = useCallback((isInitialConnection: boolean) => {
-    logger.debug(
-      { isInitialConnection },
-      `[Connection] ${isInitialConnection ? 'Initial connection' : 'Reconnection'} callback triggered`
-    )
+  const handleReconnection = useCallback(
+    (isInitialConnection: boolean) => {
+      logger.debug(
+        { isInitialConnection },
+        `[Connection] ${isInitialConnection ? 'Initial connection' : 'Reconnection'} callback triggered`,
+      )
 
-    // Invalidate auth queries to allow network status to clear after reconnection
-    queryClient.invalidateQueries({ queryKey: authQueryKeys.all })
-    logger.debug('[Connection] Invalidated auth queries to refresh network status')
+      // Invalidate auth queries to allow network status to clear after reconnection
+      queryClient.invalidateQueries({ queryKey: authQueryKeys.all })
+      logger.debug(
+        '[Connection] Invalidated auth queries to refresh network status',
+      )
 
-    // Process any failed messages and schedule them for retry (batched)
-    if (processFailedMessagesRef.current) {
-      processFailedMessagesRef.current()
-    }
-
-    // Batch state updates using startTransition to prevent Bun crashes from cascading updates
-    startTransition(() => {
-      // Only show reconnection message if it's not the initial connection
-      if (!isInitialConnection) {
-        setShowReconnectionMessage(true)
-
-        // Hide the message after the configured duration using safe timeout
-        setReconnectionTimeout(() => {
-          startTransition(() => {
-            setShowReconnectionMessage(false)
-          })
-        }, RECONNECTION_MESSAGE_DURATION_MS)
+      // Process any failed messages and schedule them for retry (batched)
+      if (processFailedMessagesRef.current) {
+        processFailedMessagesRef.current()
       }
 
-      // Always trigger retry check (for both initial connection and reconnection)
-      setConnectionEstablished(prev => prev + 1)
-    })
-  }, [queryClient, setReconnectionTimeout])
+      // Batch state updates using startTransition to prevent Bun crashes from cascading updates
+      startTransition(() => {
+        // Only show reconnection message if it's not the initial connection
+        if (!isInitialConnection) {
+          setShowReconnectionMessage(true)
+
+          // Hide the message after the configured duration using safe timeout
+          setReconnectionTimeout(() => {
+            startTransition(() => {
+              setShowReconnectionMessage(false)
+            })
+          }, RECONNECTION_MESSAGE_DURATION_MS)
+        }
+
+        // Always trigger retry check (for both initial connection and reconnection)
+        setConnectionEstablished((prev) => prev + 1)
+      })
+    },
+    [queryClient, setReconnectionTimeout],
+  )
 
   const isConnected = useConnectionStatus(handleReconnection)
   const isConnectedRef = useRef(isConnected)
@@ -350,7 +365,7 @@ export const Chat = ({
 
               return block
             })
-            
+
             // Return original array reference if nothing changed
             return foundTarget ? result : blocks
           }
@@ -529,9 +544,9 @@ export const Chat = ({
     retryPendingMessages,
     processFailedMessages,
   } = useSendMessage({
-      messages,
-      allToggleIds,
-      setMessages,
+    messages,
+    allToggleIds,
+    setMessages,
     setFocusedAgentId,
     setInputFocused,
     inputRef,
@@ -582,19 +597,20 @@ export const Chat = ({
   retryPendingMessagesRef.current = retryPendingMessages
   processFailedMessagesRef.current = processFailedMessages
 
-  // Trigger retry when connection is established and we have pending messages
+  // Trigger retry when we have pending messages (either connection restored or error occurred)
   useEffect(() => {
-    // Prevent race condition: only schedule retry if one isn't already scheduled
-    if (connectionEstablished > 0 && pendingRetryCount > 0 && !retryScheduledRef.current) {
+    const shouldTriggerRetry =
+      pendingRetryCount > 0 && !retryScheduledRef.current
+
+    if (shouldTriggerRetry) {
       logger.debug(
         { pendingRetryCount, connectionEstablished },
-        `[RETRY-EFFECT] Scheduling retry for ${pendingRetryCount} pending message(s) after ${RECONNECTION_RETRY_DELAY_MS}ms delay`
+        `[RETRY-EFFECT] Scheduling retry for ${pendingRetryCount} pending message(s) after ${RECONNECTION_RETRY_DELAY_MS}ms delay`,
       )
       retryScheduledRef.current = true
 
-      // Small delay to ensure the connection is fully established
+      // Small delay before retrying (gives connection time to stabilize)
       const timer = setTimeout(() => {
-        logger.debug('[RETRY-EFFECT] Executing scheduled retry')
         retryPendingMessagesRef.current?.()
         retryScheduledRef.current = false
       }, RECONNECTION_RETRY_DELAY_MS)
