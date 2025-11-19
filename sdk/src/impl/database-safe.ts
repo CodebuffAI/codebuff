@@ -1,7 +1,7 @@
 import { getUserInfoFromApiKey } from './database'
 import {
-  failureWithCode,
-  type ExtendedErrorObject,
+  failure,
+  type ErrorObject,
   type ErrorOr,
 } from '@codebuff/common/util/error'
 import type {
@@ -15,7 +15,7 @@ type User = {
   discord_id: string | null
 }
 
-export type GetUserInfoFromApiKeySafeError = ExtendedErrorObject
+export type GetUserInfoFromApiKeySafeError = ErrorObject
 
 export async function getUserInfoFromApiKeySafe<T extends UserColumn>(
   params: GetUserInfoFromApiKeyInput<T>,
@@ -27,6 +27,6 @@ export async function getUserInfoFromApiKeySafe<T extends UserColumn>(
       value: result,
     }
   } catch (error) {
-    return failureWithCode(error)
+    return failure(error)
   }
 }

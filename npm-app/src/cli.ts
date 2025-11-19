@@ -297,6 +297,7 @@ export class CLI {
         printModeLog({
           type: 'error',
           message: errorMessage,
+          code: 'UNHANDLED_REJECTION',
         })
       }
       console.error(`\n${errorMessage}`)
@@ -319,6 +320,7 @@ export class CLI {
         printModeLog({
           type: 'error',
           message: errorMessage,
+          code: 'UNCAUGHT_EXCEPTION',
         })
       }
       console.error(`\n${errorMessage}`)
@@ -778,6 +780,7 @@ export class CLI {
         printModeLog({
           type: 'error',
           message: `Print mode requires authentication. Please run "codebuff login" or set the ${API_KEY_ENV_VAR} environment variable first.`,
+          code: 'AUTH_FAILED',
         })
         process.exit(1)
       }
@@ -1330,6 +1333,7 @@ export class CLI {
       printModeLog({
         type: 'error',
         message: 'Could not connect to server.',
+        code: 'NETWORK_ERROR',
       })
       process.exit(1)
     }

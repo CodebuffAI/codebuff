@@ -45,8 +45,9 @@ export type { ValidationResult, ValidateAgentsOptions } from './validate-agents'
 
 // ErrorOr utilities
 export {
-  failureWithCode,
-  type ExtendedErrorObject,
+  failure,
+  success,
+  type ErrorObject,
   type ErrorOr,
   type Success,
   type Failure,

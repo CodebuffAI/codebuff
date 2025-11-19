@@ -279,6 +279,7 @@ For all commands and options, run 'codebuff' and then type 'help'.
       printModeLog({
         type: 'error',
         message: 'Error: Print mode requires a prompt to be set',
+        code: 'VALIDATION_ERROR',
       })
       process.exit(1)
     }
