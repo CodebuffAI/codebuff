@@ -5,6 +5,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { initializeThemeStore } from '../../hooks/use-theme'
 import { chatThemes, createMarkdownPalette } from '../../utils/theme-system'
 import { MessageBlock } from '../message-block'
+import { MessageActionsProvider } from '../../contexts/message-actions-context'
+import { ChatThemeProvider } from '../../contexts/chat-theme-context'
 
 import type { MarkdownPalette } from '../../utils/markdown-renderer'
 
@@ -31,34 +33,43 @@ const baseProps = {
   isComplete: false,
   completionTime: undefined,
   credits: undefined,
-  timerStartTime: null,
   textColor: theme.foreground,
   timestampColor: theme.muted,
   markdownOptions: {
     codeBlockWidth: 72,
     palette,
   },
-  availableWidth: 80,
-  markdownPalette: basePalette,
-  collapsedAgents: new Set<string>(),
-  autoCollapsedAgents: new Set<string>(),
   streamingAgents: new Set<string>(),
+}
+
+const messageActions = {
   onToggleCollapsed: () => {},
   onBuildFast: () => {},
   onBuildMax: () => {},
-  setCollapsedAgents: () => {},
-  addAutoCollapsedAgent: () => {},
+  onFeedback: () => {},
+  onCloseFeedback: () => {},
+}
+
+const themeContext = {
+  theme,
+  markdownPalette: basePalette,
+  availableWidth: 80,
+  timerStartTime: null,
 }
 
 describe('MessageBlock completion time', () => {
   test('renders completion time and credits when complete', () => {
     const markup = renderToStaticMarkup(
-      <MessageBlock
-        {...baseProps}
-        isComplete={true}
-        completionTime="7s"
-        credits={3}
-      />,
+      <MessageActionsProvider value={messageActions}>
+        <ChatThemeProvider value={themeContext}>
+          <MessageBlock
+            {...baseProps}
+            isComplete={true}
+            completionTime="7s"
+            credits={3}
+          />
+        </ChatThemeProvider>
+      </MessageActionsProvider>,
     )
 
     expect(markup).toContain('7s')
@@ -67,12 +78,16 @@ describe('MessageBlock completion time', () => {
 
   test('omits completion line when not complete', () => {
     const markup = renderToStaticMarkup(
-      <MessageBlock
-        {...baseProps}
-        isComplete={false}
-        completionTime="7s"
-        credits={3}
-      />,
+      <MessageActionsProvider value={messageActions}>
+        <ChatThemeProvider value={themeContext}>
+          <MessageBlock
+            {...baseProps}
+            isComplete={false}
+            completionTime="7s"
+            credits={3}
+          />
+        </ChatThemeProvider>
+      </MessageActionsProvider>,
     )
 
     expect(markup).not.toContain('7s')
@@ -81,22 +96,30 @@ describe('MessageBlock completion time', () => {
 
   test('pluralizes credit label correctly', () => {
     const singularMarkup = renderToStaticMarkup(
-      <MessageBlock
-        {...baseProps}
-        isComplete={true}
-        completionTime="7s"
-        credits={1}
-      />,
+      <MessageActionsProvider value={messageActions}>
+        <ChatThemeProvider value={themeContext}>
+          <MessageBlock
+            {...baseProps}
+            isComplete={true}
+            completionTime="7s"
+            credits={1}
+          />
+        </ChatThemeProvider>
+      </MessageActionsProvider>,
     )
     expect(singularMarkup).toContain('1 credit')
 
     const pluralMarkup = renderToStaticMarkup(
-      <MessageBlock
-        {...baseProps}
-        isComplete={true}
-        completionTime="7s"
-        credits={4}
-      />,
+      <MessageActionsProvider value={messageActions}>
+        <ChatThemeProvider value={themeContext}>
+          <MessageBlock
+            {...baseProps}
+            isComplete={true}
+            completionTime="7s"
+            credits={4}
+          />
+        </ChatThemeProvider>
+      </MessageActionsProvider>,
     )
     expect(pluralMarkup).toContain('4 credits')
   })
