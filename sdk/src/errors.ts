@@ -2,6 +2,14 @@
  * Custom error classes for the SDK
  */
 
+/**
+ * Sanitizes error messages by removing unhelpful system messages
+ */
+function sanitizeErrorMessage(message: string): string {
+  // Remove unhelpful browser/system error message
+  return message.replace(/Is the computer able to access the url\?\s*/g, '').trim()
+}
+
 export interface ErrorWithCode extends Error {
   code: string
 }
@@ -44,7 +52,7 @@ export class NetworkError extends Error implements NetworkErrorDetails {
     message: string,
     options?: { status?: number; originalError?: any; streamTimedOut?: boolean },
   ) {
-    super(message)
+    super(sanitizeErrorMessage(message))
     this.name = 'NetworkError'
     this.status = options?.status
     this.originalError = options?.originalError

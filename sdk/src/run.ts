@@ -118,7 +118,7 @@ export async function run({
   agentDefinitions,
   maxAgentSteps = MAX_AGENT_STEPS_DEFAULT,
   env,
-  streamTimeoutMs = 15_000,
+  streamTimeoutMs = 180_000, // 3 minutes
 
   handleEvent,
   handleStreamChunk,

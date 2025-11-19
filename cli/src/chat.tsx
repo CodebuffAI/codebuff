@@ -579,9 +579,8 @@ export const Chat = ({
   })
 
   const offlineBannerMessage = useMemo(() => {
-    const baseMessage = `⚠️ Network Error: ${
-      networkStatus.error?.message ?? 'Connection lost'
-    }`
+    const errorMessage = networkStatus.error?.message ?? 'Connection lost'
+    const baseMessage = `⚠️ ${errorMessage}`
     const retryMessage =
       pendingRetryCount > 0
         ? ` • ${pendingRetryCount} message${
@@ -921,6 +920,31 @@ export const Chat = ({
         flexGrow: 1,
       }}
     >
+      {!networkStatus.isOnline && (
+        <box
+          style={{
+            flexDirection: 'column',
+            flexShrink: 0,
+            width: '100%',
+            paddingTop: 1,
+            paddingBottom: 1,
+            paddingLeft: 1,
+            paddingRight: 1,
+            backgroundColor: theme.surface ?? theme.background ?? '#333333',
+          }}
+        >
+          <text
+            style={{
+              fg: theme.warning ?? theme.foreground,
+              wrapMode: 'word',
+              width: '100%',
+            }}
+          >
+            {offlineBannerMessage}
+          </text>
+        </box>
+      )}
+
       <scrollbox
         ref={scrollRef}
         stickyScroll
@@ -1096,28 +1120,6 @@ export const Chat = ({
       </box>
 
       {validationBanner}
-
-      {!networkStatus.isOnline && (
-        <box
-          style={{
-            width: '100%',
-            paddingTop: 1,
-            paddingBottom: 1,
-            paddingLeft: 1,
-            paddingRight: 1,
-            backgroundColor: theme.surface ?? theme.background ?? '#333333',
-          }}
-        >
-          <text
-            style={{
-              fg: theme.warning ?? theme.foreground,
-              wrapMode: 'word',
-            }}
-          >
-            {offlineBannerMessage}
-          </text>
-        </box>
-      )}
     </box>
   )
 }

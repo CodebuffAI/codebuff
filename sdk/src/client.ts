@@ -35,7 +35,7 @@ export class CodebuffClient {
     const fingerprintId =
       options.fingerprintId ??
       `codebuff-sdk-${Math.random().toString(36).substring(2, 15)}`
-    const streamTimeoutMs = options.streamTimeoutMs ?? 15_000
+    const streamTimeoutMs = options.streamTimeoutMs ?? 180_000 // 3 minutes
 
     this.options = {
       apiKey: foundApiKey,

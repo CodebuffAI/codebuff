@@ -66,13 +66,13 @@ describe('Abort Controller - Single Controller Architecture', () => {
       expect(client.options.streamTimeoutMs).toBe(30000)
     })
 
-    test('streamTimeoutMs defaults to 15000ms', () => {
+    test('streamTimeoutMs defaults to 180000ms (3 minutes)', () => {
       const client = new CodebuffClient({
         apiKey: 'test-key',
         disableConsoleErrors: true,
       })
 
-      expect(client.options.streamTimeoutMs).toBe(15000)
+      expect(client.options.streamTimeoutMs).toBe(180000)
     })
   })
 
