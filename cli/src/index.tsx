@@ -2,11 +2,12 @@
 
 import { promises as fs } from 'fs'
 import { createRequire } from 'module'
+import { createCliRenderer } from '@opentui/core'
+import { createRoot } from '@opentui/react'
 
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { getProjectFileTree } from '@codebuff/common/project-file-tree'
 import { validateAgents } from '@codebuff/sdk'
-import { render } from '@opentui/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Command } from 'commander'
 import React from 'react'
@@ -121,7 +122,7 @@ async function main(): Promise<void> {
   } = parseArgs()
 
   await initializeApp({ isOscDetectionRun: isOscDetectionRun() })
-  
+
   // Initialize analytics
   try {
     initAnalytics()
@@ -206,14 +207,14 @@ async function main(): Promise<void> {
     )
   }
 
-  render(
+  const renderer = await createCliRenderer({
+    backgroundColor: 'transparent',
+    exitOnCtrlC: false,
+  })
+  createRoot(renderer).render(
     <QueryClientProvider client={queryClient}>
       <AppWithAsyncAuth />
     </QueryClientProvider>,
-    {
-      backgroundColor: 'transparent',
-      exitOnCtrlC: false,
-    },
   )
 }
 
