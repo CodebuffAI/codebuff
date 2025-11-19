@@ -9,14 +9,10 @@ import { validateAgents } from '@codebuff/sdk'
 import { render } from '@opentui/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Command } from 'commander'
-import { enableMapSet } from 'immer'
 import React from 'react'
 
-// Enable Map and Set support in Immer globally (once at app initialization)
-enableMapSet()
-
 import { App } from './app'
-import { initializeThemeStore } from './hooks/use-theme'
+import { initializeApp } from './init/init-app'
 import { getProjectRoot } from './project-files'
 import { getUserCredentials } from './utils/auth'
 import { loadAgentDefinitions } from './utils/load-agent-definitions'
@@ -28,56 +24,9 @@ import type { FileTreeNode } from '@codebuff/common/util/file'
 const require = createRequire(import.meta.url)
 
 const INTERNAL_OSC_FLAG = '--internal-osc-detect'
-const OSC_DEBUG_ENABLED = process.env.CODEBUFF_OSC_DEBUG === '1'
-
-function logOscDebug(message: string, data?: Record<string, unknown>) {
-  if (!OSC_DEBUG_ENABLED) return
-  const payload = data ? ` ${JSON.stringify(data)}` : ''
-  console.error(`[osc:subprocess] ${message}${payload}`)
-}
 
 function isOscDetectionRun(): boolean {
   return process.argv.includes(INTERNAL_OSC_FLAG)
-}
-
-async function runOscDetectionSubprocess(): Promise<void> {
-  // Set env vars to keep subprocess quiet
-  process.env.__INTERNAL_OSC_DETECT = '1'
-  process.env.CODEBUFF_GITHUB_ACTIONS = 'true'
-  if (process.env.CODEBUFF_OSC_DEBUG === undefined) {
-    process.env.CODEBUFF_OSC_DEBUG = '1'
-  }
-  logOscDebug('Starting OSC detection flag run')
-
-  // Avoid importing logger or other modules that produce output
-  const { detectTerminalTheme, terminalSupportsOSC } = await import(
-    './utils/terminal-color-detection'
-  )
-
-  const oscSupported = terminalSupportsOSC()
-  logOscDebug('terminalSupportsOSC result', { oscSupported })
-
-  if (!oscSupported) {
-    logOscDebug('Terminal does not support OSC queries, returning null theme')
-    console.log(JSON.stringify({ theme: null }))
-    await new Promise((resolve) => setImmediate(resolve))
-    process.exit(0)
-  }
-
-  try {
-    const theme = await detectTerminalTheme()
-    logOscDebug('detectTerminalTheme resolved', { theme })
-    console.log(JSON.stringify({ theme }))
-    await new Promise((resolve) => setImmediate(resolve))
-  } catch (error) {
-    logOscDebug('detectTerminalTheme threw', {
-      error: error instanceof Error ? error.message : String(error),
-    })
-    console.log(JSON.stringify({ theme: null }))
-    await new Promise((resolve) => setImmediate(resolve))
-  }
-
-  process.exit(0)
 }
 
 function loadPackageVersion(): string {
@@ -96,8 +45,6 @@ function loadPackageVersion(): string {
 
   return 'dev'
 }
-
-const VERSION = loadPackageVersion()
 
 function createQueryClient(): QueryClient {
   return new QueryClient({
@@ -131,7 +78,7 @@ function parseArgs(): ParsedArgs {
   program
     .name('codebuff')
     .description('Codebuff CLI - AI-powered coding assistant')
-    .version(VERSION, '-v, --version', 'Print the CLI version')
+    .version(loadPackageVersion(), '-v, --version', 'Print the CLI version')
     .option(
       '--agent <agent-id>',
       'Specify which agent to use (e.g., "base", "ask", "file-picker")',
@@ -163,7 +110,7 @@ function parseArgs(): ParsedArgs {
   }
 }
 
-async function bootstrapCli(): Promise<void> {
+async function main(): Promise<void> {
   const {
     initialPrompt,
     agent,
@@ -172,7 +119,7 @@ async function bootstrapCli(): Promise<void> {
     continueId,
   } = parseArgs()
 
-  initializeThemeStore()
+  await initializeApp({ isOscDetectionRun: isOscDetectionRun() })
 
   if (clearLogs) {
     clearLogFile()
@@ -236,7 +183,6 @@ async function bootstrapCli(): Promise<void> {
     }, [])
 
     return (
-      // Hi!
       <App
         initialPrompt={initialPrompt}
         agentId={agent}
@@ -260,15 +206,6 @@ async function bootstrapCli(): Promise<void> {
       exitOnCtrlC: false,
     },
   )
-}
-
-async function main(): Promise<void> {
-  if (isOscDetectionRun()) {
-    await runOscDetectionSubprocess()
-    return
-  }
-
-  await bootstrapCli()
 }
 
 void main()
