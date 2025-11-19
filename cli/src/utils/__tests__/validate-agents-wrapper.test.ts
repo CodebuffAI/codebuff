@@ -17,8 +17,11 @@ describe('validateAgentsWithNetworkHandling', () => {
     test('returns success with no errors', async () => {
       mockValidateAgents.mockResolvedValue({
         success: true,
-        validationErrors: [],
-        errorCount: 0,
+        value: {
+          success: true,
+          validationErrors: [],
+          errorCount: 0,
+        },
       })
 
       const result = await validateAgentsWithNetworkHandling(
@@ -34,8 +37,11 @@ describe('validateAgentsWithNetworkHandling', () => {
     test('passes through agent definitions and options correctly', async () => {
       mockValidateAgents.mockResolvedValue({
         success: true,
-        validationErrors: [],
-        errorCount: 0,
+        value: {
+          success: true,
+          validationErrors: [],
+          errorCount: 0,
+        },
       })
 
       const agents = [
@@ -58,9 +64,12 @@ describe('validateAgentsWithNetworkHandling', () => {
       ]
 
       mockValidateAgents.mockResolvedValue({
-        success: false,
-        validationErrors,
-        errorCount: 2,
+        success: true,
+        value: {
+          success: false,
+          validationErrors,
+          errorCount: 2,
+        },
       })
 
       const result = await validateAgentsWithNetworkHandling([], { remote: true })
@@ -77,9 +86,12 @@ describe('validateAgentsWithNetworkHandling', () => {
       }
 
       mockValidateAgents.mockResolvedValue({
-        success: false,
-        validationErrors: [detailedError],
-        errorCount: 1,
+        success: true,
+        value: {
+          success: false,
+          validationErrors: [detailedError],
+          errorCount: 1,
+        },
       })
 
       const result = await validateAgentsWithNetworkHandling([], { remote: false })
@@ -94,7 +106,10 @@ describe('validateAgentsWithNetworkHandling', () => {
       const networkError = new Error('Failed to connect to validation API') as any
       networkError.code = 'NETWORK_ERROR'
 
-      mockValidateAgents.mockRejectedValue(networkError)
+      mockValidateAgents.mockResolvedValue({
+        success: false,
+        error: networkError,
+      })
 
       const result = await validateAgentsWithNetworkHandling([], { remote: true })
 
@@ -108,7 +123,10 @@ describe('validateAgentsWithNetworkHandling', () => {
       const networkError = new Error() as any
       networkError.code = 'NETWORK_ERROR'
 
-      mockValidateAgents.mockRejectedValue(networkError)
+      mockValidateAgents.mockResolvedValue({
+        success: false,
+        error: networkError,
+      })
 
       const result = await validateAgentsWithNetworkHandling([], { remote: true })
 
@@ -119,7 +137,10 @@ describe('validateAgentsWithNetworkHandling', () => {
       const networkError = new Error('Server timeout') as any
       networkError.code = 'NETWORK_ERROR'
 
-      mockValidateAgents.mockRejectedValue(networkError)
+      mockValidateAgents.mockResolvedValue({
+        success: false,
+        error: networkError,
+      })
 
       const result = await validateAgentsWithNetworkHandling(
         [{ id: 'test' } as any],
@@ -170,8 +191,11 @@ describe('validateAgentsWithNetworkHandling', () => {
     test('uses remote validation when remote: true', async () => {
       mockValidateAgents.mockResolvedValue({
         success: true,
-        validationErrors: [],
-        errorCount: 0,
+        value: {
+          success: true,
+          validationErrors: [],
+          errorCount: 0,
+        },
       })
 
       await validateAgentsWithNetworkHandling([], { remote: true })
@@ -182,8 +206,11 @@ describe('validateAgentsWithNetworkHandling', () => {
     test('uses local validation when remote: false', async () => {
       mockValidateAgents.mockResolvedValue({
         success: true,
-        validationErrors: [],
-        errorCount: 0,
+        value: {
+          success: true,
+          validationErrors: [],
+          errorCount: 0,
+        },
       })
 
       await validateAgentsWithNetworkHandling([], { remote: false })
@@ -194,8 +221,11 @@ describe('validateAgentsWithNetworkHandling', () => {
     test('handles undefined options', async () => {
       mockValidateAgents.mockResolvedValue({
         success: true,
-        validationErrors: [],
-        errorCount: 0,
+        value: {
+          success: true,
+          validationErrors: [],
+          errorCount: 0,
+        },
       })
 
       await validateAgentsWithNetworkHandling([])
@@ -208,8 +238,11 @@ describe('validateAgentsWithNetworkHandling', () => {
     test('always returns the expected structure', async () => {
       mockValidateAgents.mockResolvedValue({
         success: true,
-        validationErrors: [],
-        errorCount: 0,
+        value: {
+          success: true,
+          validationErrors: [],
+          errorCount: 0,
+        },
       })
 
       const result = await validateAgentsWithNetworkHandling([])
@@ -225,7 +258,10 @@ describe('validateAgentsWithNetworkHandling', () => {
       // Test with network error
       const networkError = new Error('Network issue') as any
       networkError.code = 'NETWORK_ERROR'
-      mockValidateAgents.mockRejectedValue(networkError)
+      mockValidateAgents.mockResolvedValue({
+        success: false,
+        error: networkError,
+      })
 
       const networkResult = await validateAgentsWithNetworkHandling([])
       expect(typeof networkResult.networkError).toBe('string')
@@ -233,8 +269,11 @@ describe('validateAgentsWithNetworkHandling', () => {
       // Test without network error
       mockValidateAgents.mockResolvedValue({
         success: true,
-        validationErrors: [],
-        errorCount: 0,
+        value: {
+          success: true,
+          validationErrors: [],
+          errorCount: 0,
+        },
       })
 
       const successResult = await validateAgentsWithNetworkHandling([])

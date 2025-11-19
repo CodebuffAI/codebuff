@@ -343,6 +343,22 @@ async function runInternal({
     }
   })
 
+  const handleAbort = () => {
+    if (settled || streamTimedOut) {
+      return
+    }
+    clearStreamTimeout()
+    const reason = abortSignal.reason
+    const message =
+      typeof reason === 'string'
+        ? reason
+        : reason instanceof Error
+          ? reason.message
+          : undefined
+    settleResolve(getCancelledRunState(message))
+  }
+  abortSignal.addEventListener('abort', handleAbort, { once: true })
+
   const resetStreamTimeout = () => {
     if (!hasStreamTimeout || settled) {
       return

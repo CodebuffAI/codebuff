@@ -1,6 +1,27 @@
 import { describe, expect, it, mock, beforeEach, afterEach } from 'bun:test'
 import { validateAgents } from '../validate-agents'
-import type { AgentDefinition } from '..'
+import type {
+  AgentDefinition,
+  ValidateAgentsResult,
+  ValidationResult,
+} from '../validate-agents'
+import type { ErrorObject } from '@codebuff/common/util/error'
+
+const unwrapSuccess = async (
+  promise: Promise<ValidateAgentsResult>,
+): Promise<ValidationResult> => {
+  const result = await promise
+  expect(result.success).toBe(true)
+  return result.value
+}
+
+const unwrapFailure = async (
+  promise: Promise<ValidateAgentsResult>,
+): Promise<ErrorObject> => {
+  const result = await promise
+  expect(result.success).toBe(false)
+  return result.error
+}
 
 describe('validateAgents', () => {
   describe('local validation (default)', () => {
@@ -14,7 +35,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(true)
         expect(result.validationErrors).toEqual([])
@@ -36,7 +57,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(true)
         expect(result.validationErrors).toEqual([])
@@ -54,7 +75,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(true)
         expect(result.validationErrors).toEqual([])
@@ -84,7 +105,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(true)
         expect(result.validationErrors).toEqual([])
@@ -110,7 +131,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(true)
         expect(result.validationErrors).toEqual([])
@@ -138,7 +159,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(true)
         expect(result.validationErrors).toEqual([])
@@ -157,7 +178,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(true)
         expect(result.validationErrors).toEqual([])
@@ -174,7 +195,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(false)
         expect(result.errorCount).toBeGreaterThan(0)
@@ -189,7 +210,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(false)
         expect(result.errorCount).toBeGreaterThan(0)
@@ -204,7 +225,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(false)
         expect(result.errorCount).toBeGreaterThan(0)
@@ -220,7 +241,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(false)
         expect(result.errorCount).toBeGreaterThan(0)
@@ -235,7 +256,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(false)
         expect(result.errorCount).toBeGreaterThan(0)
@@ -250,7 +271,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(false)
         expect(result.errorCount).toBeGreaterThan(0)
@@ -270,7 +291,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(false)
         expect(result.errorCount).toBeGreaterThan(0)
@@ -293,7 +314,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(false)
         expect(result.errorCount).toBeGreaterThan(0)
@@ -317,7 +338,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(false)
         expect(result.errorCount).toBeGreaterThan(0)
@@ -334,7 +355,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(false)
         expect(result.errorCount).toBeGreaterThan(0)
@@ -351,7 +372,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(false)
         expect(result.errorCount).toBeGreaterThan(0)
@@ -367,7 +388,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(false)
         expect(result.errorCount).toBeGreaterThan(0)
@@ -378,7 +399,7 @@ describe('validateAgents', () => {
       it('should handle empty array', async () => {
         const agents: AgentDefinition[] = []
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(true)
         expect(result.validationErrors).toEqual([])
@@ -388,7 +409,7 @@ describe('validateAgents', () => {
       it('should handle malformed input gracefully', async () => {
         const agents: any[] = [null, undefined, {}]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(false)
         expect(result.errorCount).toBeGreaterThan(0)
@@ -407,7 +428,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(false)
         expect(result.errorCount).toBeGreaterThan(1)
@@ -423,7 +444,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(false)
         expect(result.errorCount).toBe(1)
@@ -442,7 +463,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(false)
         expect(result.errorCount).toBe(1)
@@ -462,7 +483,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(false)
         expect(result.errorCount).toBe(1)
@@ -482,7 +503,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(false)
         expect(result.validationErrors[0].message).toContain('displayName')
@@ -497,7 +518,7 @@ describe('validateAgents', () => {
           model: 'anthropic/claude-sonnet-4',
         }))
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(true)
         expect(result.validationErrors).toEqual([])
@@ -514,7 +535,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(true)
       })
@@ -529,7 +550,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(true)
       })
@@ -543,7 +564,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(false)
         expect(result.validationErrors[0].message).toContain('lowercase letters, numbers, and hyphens')
@@ -581,7 +602,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(true)
       })
@@ -601,7 +622,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         // Should fail validation but not crash
         expect(result.success).toBe(false)
@@ -635,7 +656,7 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(false)
         expect(result.errorCount).toBeGreaterThan(0)
@@ -650,12 +671,13 @@ describe('validateAgents', () => {
           },
         ]
 
-        const result = await validateAgents(agents)
+        const result = await unwrapSuccess(validateAgents(agents))
 
         expect(result.success).toBe(false)
       })
     })
   })
+
 
   describe('remote validation', () => {
     let mockFetch: ReturnType<typeof mock>
@@ -691,10 +713,12 @@ describe('validateAgents', () => {
         }),
       })
 
-      const result = await validateAgents(agents, {
-        remote: true,
-        websiteUrl: 'https://test.codebuff.com',
-      })
+      const result = await unwrapSuccess(
+        validateAgents(agents, {
+          remote: true,
+          websiteUrl: 'https://test.codebuff.com',
+        }),
+      )
 
       expect(mockFetch).toHaveBeenCalledTimes(1)
       expect(mockFetch).toHaveBeenCalledWith(
@@ -726,13 +750,14 @@ describe('validateAgents', () => {
         }),
       })
 
-      const result = await validateAgents(agents, {
-        remote: true,
-        // websiteUrl not provided - should use default from WEBSITE_URL constant
-      })
+      const result = await unwrapSuccess(
+        validateAgents(agents, {
+          remote: true,
+          // websiteUrl not provided - should use default from WEBSITE_URL constant
+        }),
+      )
 
       expect(mockFetch).toHaveBeenCalledTimes(1)
-      // Verify it called with some URL (the default from environment)
       const callUrl = (mockFetch.mock.calls[0] as any)[0] as string
       expect(callUrl).toMatch(/\/api\/agents\/validate$/)
       expect(result.success).toBe(true)
@@ -758,10 +783,12 @@ describe('validateAgents', () => {
         }),
       })
 
-      const result = await validateAgents(agents, {
-        remote: true,
-        websiteUrl: 'https://test.codebuff.com',
-      })
+      const result = await unwrapSuccess(
+        validateAgents(agents, {
+          remote: true,
+          websiteUrl: 'https://test.codebuff.com',
+        }),
+      )
 
       expect(result.success).toBe(false)
       expect(result.errorCount).toBe(1)
@@ -784,16 +811,15 @@ describe('validateAgents', () => {
         json: async () => ({ error: 'Server error occurred' }),
       })
 
-      // Now network errors (5xx) are thrown, not returned
-      await expect(
+      const error = await unwrapFailure(
         validateAgents(agents, {
           remote: true,
           websiteUrl: 'https://test.codebuff.com',
-        })
-      ).rejects.toMatchObject({
-        code: 'NETWORK_ERROR',
-        message: expect.stringContaining('Server error'),
-      })
+        }),
+      )
+
+      expect(error.code).toBe('NETWORK_ERROR')
+      expect(error.message).toContain('Server error')
     })
 
     it('should handle network failures', async () => {
@@ -807,16 +833,15 @@ describe('validateAgents', () => {
 
       mockFetch.mockRejectedValue(new Error('Network request failed'))
 
-      // Now network errors are thrown with NETWORK_ERROR code
-      await expect(
+      const error = await unwrapFailure(
         validateAgents(agents, {
           remote: true,
           websiteUrl: 'https://test.codebuff.com',
-        })
-      ).rejects.toMatchObject({
-        code: 'NETWORK_ERROR',
-        message: expect.stringContaining('Failed to connect'),
-      })
+        }),
+      )
+
+      expect(error.code).toBe('NETWORK_ERROR')
+      expect(error.message).toContain('Failed to connect')
     })
 
     it('should handle malformed API responses', async () => {
@@ -837,16 +862,15 @@ describe('validateAgents', () => {
         },
       })
 
-      // 5xx errors are now thrown as network errors
-      await expect(
+      const error = await unwrapFailure(
         validateAgents(agents, {
           remote: true,
           websiteUrl: 'https://test.codebuff.com',
-        })
-      ).rejects.toMatchObject({
-        code: 'NETWORK_ERROR',
-        message: expect.stringContaining('Server error'),
-      })
+        }),
+      )
+
+      expect(error.code).toBe('NETWORK_ERROR')
+      expect(error.message).toContain('Server error')
     })
 
     it('should handle API response missing validationErrors field', async () => {
@@ -862,16 +886,16 @@ describe('validateAgents', () => {
         ok: true,
         json: async () => ({
           success: false,
-          // validationErrors missing!
         }),
       })
 
-      const result = await validateAgents(agents, {
-        remote: true,
-        websiteUrl: 'https://test.codebuff.com',
-      })
+      const result = await unwrapSuccess(
+        validateAgents(agents, {
+          remote: true,
+          websiteUrl: 'https://test.codebuff.com',
+        }),
+      )
 
-      // Should handle gracefully with empty errors
       expect(result.success).toBe(true)
       expect(result.validationErrors).toEqual([])
     })
@@ -892,14 +916,15 @@ describe('validateAgents', () => {
         }),
       })
 
-      const result = await validateAgents(agents, {
-        remote: true,
-        websiteUrl: 'https://test.codebuff.com',
-      })
+      const result = await unwrapSuccess(
+        validateAgents(agents, {
+          remote: true,
+          websiteUrl: 'https://test.codebuff.com',
+        }),
+      )
 
       expect(result.success).toBe(true)
       expect(mockFetch).toHaveBeenCalledTimes(1)
-      // Verify all agents were sent
       const requestBody = JSON.parse((mockFetch.mock.calls[0] as any)[1].body)
       expect(requestBody.agentDefinitions.length).toBe(100)
     })
@@ -915,16 +940,15 @@ describe('validateAgents', () => {
 
       mockFetch.mockRejectedValue(new Error('The operation was aborted'))
 
-      // Network timeouts are now thrown as network errors
-      await expect(
+      const error = await unwrapFailure(
         validateAgents(agents, {
           remote: true,
           websiteUrl: 'https://test.codebuff.com',
-        })
-      ).rejects.toMatchObject({
-        code: 'NETWORK_ERROR',
-        message: expect.stringContaining('Failed to connect'),
-      })
+        }),
+      )
+
+      expect(error.code).toBe('NETWORK_ERROR')
+      expect(error.message).toContain('Failed to connect')
     })
   })
 })

@@ -17,10 +17,15 @@ export async function validateAgentsWithNetworkHandling(
 ): Promise<ValidationResult> {
   try {
     const result = await validateAgentsSDK(agentDefinitions, options)
+    if (!result.success) {
+      throw result.error
+    }
+
+    const { success: validationSucceeded, validationErrors } = result.value
 
     return {
-      success: result.success,
-      validationErrors: result.validationErrors,
+      success: validationSucceeded,
+      validationErrors,
       networkError: null,
     }
   } catch (error) {

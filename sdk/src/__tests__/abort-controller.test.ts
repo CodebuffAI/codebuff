@@ -99,9 +99,12 @@ describe('Abort Controller - Single Controller Architecture', () => {
 
       // Should return immediately (within 100ms) without trying to connect
       expect(elapsed).toBeLessThan(100)
-      expect(result.output.type).toBe('error')
-      if (result.output.type === 'error') {
-        expect(result.output.message).toContain('cancelled')
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.value.output.type).toBe('error')
+        if (result.value.output.type === 'error') {
+          expect(result.value.output.message).toContain('cancelled')
+        }
       }
     })
   })
