@@ -71,6 +71,7 @@ export function createBase2(
       !withGemini && isMax && 'editor-best-of-n-gpt-5',
       !withGemini && isDefault && 'thinker-best-of-n',
       !withGemini && isMax && 'thinker-best-of-n-gpt-5',
+      (isDefault || isMax) && 'code-reviewer',
       'context-pruner',
     ),
 
@@ -235,6 +236,8 @@ ${buildArray(
     '- Do a single typecheck targeted for your changes at most (if applicable for the project). Or skip this step if the change was small.',
   !isFast &&
     `- IMPORTANT: You must spawn the ${isMax ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious.`,
+  !isFast &&
+    '- Spawn a code-reviewer to review the changes after you have implemented the changes. (Skip this step only if the change is extremely straightforward and obvious.)',
   !hasNoValidation &&
     `- Test your changes${isMax ? '' : ' briefly'} by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.).${isMax ? ' Start by type checking the specific area of the project that you are editing and then test the entire project if necessary.' : ' If you can, only typecheck/test the area of the project that you are editing, rather than the entire project.'} You may have to explore the project to find the appropriate commands. Don't skip this step!`,
   `- Inform the user that you have completed the task in one sentence or a few short bullet points.${isSonnet ? " Don't create any markdown summary files or example documentation files, unless asked by the user." : ''}`,
