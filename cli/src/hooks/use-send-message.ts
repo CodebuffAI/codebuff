@@ -9,6 +9,7 @@ import {
 } from '../utils/constants'
 import { createValidationErrorBlocks } from '../utils/create-validation-error-blocks'
 import { getErrorObject } from '../utils/error'
+import { fetchAndUpdateUsage } from '../utils/fetch-usage'
 import { formatTimestamp } from '../utils/helpers'
 import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 import { getLoadedAgentsData } from '../utils/local-agent-registry'
@@ -18,6 +19,7 @@ import {
   loadMostRecentChatState,
   saveChatState,
 } from '../utils/run-state-storage'
+import { useChatStore } from '../state/chat-store'
 import { setCurrentChatId } from '../project-files'
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
@@ -1640,6 +1642,18 @@ export const useSendMessage = ({
             'Agent run failed',
           )
           return
+        }
+
+        // Refresh usage data if the banner is currently visible
+        const isUsageVisible = useChatStore.getState().isUsageVisible
+        if (isUsageVisible) {
+          // Don't await - let it run in background to avoid blocking UI updates
+          fetchAndUpdateUsage({ showBanner: false }).catch((error) => {
+            logger.error(
+              { error: getErrorObject(error) },
+              'Failed to refresh usage data after run completion',
+            )
+          })
         }
 
         setStreamStatus('idle')
