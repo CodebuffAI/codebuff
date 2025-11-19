@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect } from 'react'
 
 import { useAuthQuery, useLogoutMutation } from './use-auth-query'
 import { useLoginStore } from '../state/login-store'
+import { useAuthStore } from '../state/auth-store'
 import { getUserCredentials } from '../utils/auth'
 import { resetCodebuffClient } from '../utils/codebuff-client'
 import { identifyUser } from '../utils/analytics'
@@ -28,26 +29,29 @@ export const useAuthState = ({
   const authQuery = useAuthQuery()
   const logoutMutation = useLogoutMutation()
   const { resetLoginState } = useLoginStore()
+  const {
+    isAuthenticated,
+    user,
+    setIsAuthenticated,
+    setUser,
+  } = useAuthStore()
 
-  const initialAuthState =
-    requireAuth === false ? true : requireAuth === true ? false : null
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(
-    initialAuthState,
-  )
-  const [user, setUser] = useState<User | null>(null)
-
-  // Update authentication state when requireAuth changes
+  // Initialize auth state from requireAuth when mounting or when it changes
   useEffect(() => {
     if (requireAuth === null) {
       return
     }
+    // If auth is not required, we consider the user authenticated by default
     setIsAuthenticated(!requireAuth)
-  }, [requireAuth])
+  }, [requireAuth, setIsAuthenticated])
 
   // Update authentication state based on query results
   useEffect(() => {
     if (authQuery.isSuccess && authQuery.data) {
-      setIsAuthenticated(true)
+      if (isAuthenticated !== true) {
+        setIsAuthenticated(true)
+      }
+
       if (!user) {
         const userCredentials = getUserCredentials()
         const userData: User = {
@@ -57,52 +61,56 @@ export const useAuthState = ({
           authToken: userCredentials?.authToken || '',
         }
         setUser(userData)
-        
-        // Set logger context for analytics
+
         loggerContext.userId = authQuery.data.id
         loggerContext.userEmail = authQuery.data.email
-        
-        // Identify user with PostHog
+
         identifyUser(authQuery.data.id, {
           email: authQuery.data.email,
         })
       }
     } else if (authQuery.isError) {
-      setIsAuthenticated(false)
-      setUser(null)
-      
-      // Clear logger context on auth error
+      if (isAuthenticated !== false) {
+        setIsAuthenticated(false)
+      }
+      if (user) {
+        setUser(null)
+      }
+
       delete loggerContext.userId
       delete loggerContext.userEmail
     }
-  }, [authQuery.isSuccess, authQuery.isError, authQuery.data, user])
+  }, [
+    authQuery.isSuccess,
+    authQuery.isError,
+    authQuery.data,
+    isAuthenticated,
+    user,
+    setIsAuthenticated,
+    setUser,
+  ])
 
-  // Handle successful login
   const handleLoginSuccess = useCallback(
     (loggedInUser: User) => {
-      // Reset the SDK client to pick up new credentials
       resetCodebuffClient()
       resetChatStore()
       resetLoginState()
       setInputFocused(true)
       setUser(loggedInUser)
       setIsAuthenticated(true)
-      
-      // Set logger context for analytics
+
       if (loggedInUser.id && loggedInUser.email) {
         loggerContext.userId = loggedInUser.id
         loggerContext.userEmail = loggedInUser.email
-        
-        // Identify user with PostHog
+
         identifyUser(loggedInUser.id, {
           email: loggedInUser.email,
         })
       }
     },
-    [resetChatStore, resetLoginState, setInputFocused],
+    [resetChatStore, resetLoginState, setInputFocused, setIsAuthenticated, setUser],
   )
 
-  // Auto-focus input after authentication
   useEffect(() => {
     if (isAuthenticated !== true) return
 
@@ -121,12 +129,20 @@ export const useAuthState = ({
     return () => clearTimeout(timeoutId)
   }, [isAuthenticated, setInputFocused, inputRef])
 
+  const logout = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        logoutMutation.mutate(undefined, {
+          onSettled: () => resolve(),
+        })
+      }),
+    [logoutMutation],
+  )
+
   return {
     isAuthenticated,
-    setIsAuthenticated,
     user,
-    setUser,
     handleLoginSuccess,
-    logoutMutation,
+    logout,
   }
 }

@@ -3,15 +3,14 @@ import { runTerminalCommand } from '@codebuff/sdk'
 import { handleInitializationFlowLocally } from './init'
 import { handleUsageCommand } from './usage'
 import { useLoginStore } from '../state/login-store'
+import { useAuthStore } from '../state/auth-store'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
 import type { InputValue } from '../state/chat-store'
 import type { ChatMessage, ContentBlock } from '../types/chat'
 import type { SendMessageFn } from '../types/contracts/send-message'
-import type { User } from '../utils/auth'
 import type { AgentMode } from '../utils/constants'
-import type { UseMutationResult } from '@tanstack/react-query'
 
 export async function routeUserPrompt(params: {
   abortControllerRef: React.MutableRefObject<AbortController | null>
@@ -20,7 +19,6 @@ export async function routeUserPrompt(params: {
   inputValue: string
   isChainInProgressRef: React.MutableRefObject<boolean>
   isStreaming: boolean
-  logoutMutation: UseMutationResult<boolean, Error, void, unknown>
   streamMessageIdRef: React.MutableRefObject<string | null>
   addToQueue: (message: string) => void
   clearMessages: () => void
@@ -34,12 +32,11 @@ export async function routeUserPrompt(params: {
   setInputValue: (
     value: InputValue | ((prev: InputValue) => InputValue),
   ) => void
-  setIsAuthenticated: (value: React.SetStateAction<boolean | null>) => void
   setMessages: (
     value: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[]),
   ) => void
-  setUser: (value: React.SetStateAction<User | null>) => void
   stopStreaming: () => void
+  logout: () => Promise<void>
 }) {
   const {
     abortControllerRef,
@@ -48,7 +45,6 @@ export async function routeUserPrompt(params: {
     inputValue,
     isChainInProgressRef,
     isStreaming,
-    logoutMutation,
     streamMessageIdRef,
     addToQueue,
     clearMessages,
@@ -60,11 +56,12 @@ export async function routeUserPrompt(params: {
     setCanProcessQueue,
     setInputFocused,
     setInputValue,
-    setIsAuthenticated,
     setMessages,
-    setUser,
     stopStreaming,
+    logout,
   } = params
+
+  const { setIsAuthenticated, setUser } = useAuthStore.getState()
 
   const trimmed = inputValue.trim()
   if (!trimmed) return
@@ -148,17 +145,16 @@ export async function routeUserPrompt(params: {
     setCanProcessQueue(false)
 
     const { resetLoginState } = useLoginStore.getState()
-    logoutMutation.mutate(undefined, {
-      onSettled: () => {
-        resetLoginState()
-        setMessages((prev) => [...prev, getSystemMessage('Logged out.')])
-        setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
-        setTimeout(() => {
-          setUser(null)
-          setIsAuthenticated(false)
-        }, 300)
-      },
-    })
+    await logout()
+
+    resetLoginState()
+    setMessages((prev) => [...prev, getSystemMessage('Logged out.')])
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+    setTimeout(() => {
+      setUser(null)
+      setIsAuthenticated(false)
+    }, 300)
+
     return
   }
 

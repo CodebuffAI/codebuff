@@ -60,13 +60,7 @@ export const App = ({
     })),
   )
 
-  const {
-    isAuthenticated,
-    setIsAuthenticated,
-    setUser,
-    handleLoginSuccess,
-    logoutMutation,
-  } = useAuthState({
+  const { isAuthenticated, handleLoginSuccess, logout } = useAuthState({
     requireAuth,
     hasInvalidCredentials,
     inputRef,
@@ -221,12 +215,9 @@ export const App = ({
       loadedAgentsData={loadedAgentsData}
       validationErrors={validationErrors}
       fileTree={fileTree}
-      inputRef={inputRef}
-      setIsAuthenticated={setIsAuthenticated}
-      setUser={setUser}
-      logoutMutation={logoutMutation}
       continueChat={continueChat}
       continueChatId={continueChatId}
+      logout={logout}
     />
   )
 }

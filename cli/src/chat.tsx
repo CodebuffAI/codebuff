@@ -6,7 +6,11 @@ import { routeUserPrompt } from './commands/router'
 import { AgentModeToggle } from './components/agent-mode-toggle'
 import { MessageWithAgents } from './components/message-with-agents'
 import { FeedbackContainer } from './components/feedback-container'
+import { ChatScrollArea } from './components/chat-scroll-area'
+import { ChatInputArea } from './components/chat-input-area'
 import { useFeedbackStore } from './state/feedback-store'
+import { useAuthStore } from './state/auth-store'
+import { toggleCollapsedById, autoCollapseBlocks } from './utils/block-tree'
 import {
   MultilineInput,
   type MultilineInputHandle,
@@ -49,7 +53,6 @@ import type { SendMessageFn } from './types/contracts/send-message'
 import type { User } from './utils/auth'
 import type { FileTreeNode } from '@codebuff/common/util/file'
 import type { ScrollBoxRenderable } from '@opentui/core'
-import type { UseMutationResult } from '@tanstack/react-query'
 import type { Dispatch, SetStateAction } from 'react'
 
 export const Chat = ({
@@ -59,12 +62,9 @@ export const Chat = ({
   loadedAgentsData,
   validationErrors,
   fileTree,
-  inputRef,
-  setIsAuthenticated,
-  setUser,
-  logoutMutation,
   continueChat,
   continueChatId,
+  logout,
 }: {
   headerContent: React.ReactNode
   initialPrompt: string | null
@@ -75,16 +75,15 @@ export const Chat = ({
   } | null
   validationErrors: Array<{ id: string; message: string }>
   fileTree: FileTreeNode[]
-  inputRef: React.MutableRefObject<MultilineInputHandle | null>
-  setIsAuthenticated: Dispatch<SetStateAction<boolean | null>>
-  setUser: Dispatch<SetStateAction<User | null>>
-  logoutMutation: UseMutationResult<boolean, Error, void, unknown>
   continueChat: boolean
   continueChatId?: string
+  logout: () => Promise<void>
 }) => {
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+  const inputRef = useRef<MultilineInputHandle | null>(null)
   const [showScrollbar, setShowScrollbar] = useState(false)
   const hasShownScrollbarRef = useRef(false)
+  const { setIsAuthenticated, setUser } = useAuthStore()
 
   const { separatorWidth, terminalWidth, terminalHeight } =
     useTerminalDimensions()
@@ -209,10 +208,8 @@ export const Chat = ({
 
   const handleCollapseToggle = useCallback(
     (id: string) => {
-      // Set flag to prevent auto-scroll during user-initiated collapse
       isUserCollapsingRef.current = true
 
-      // Find and toggle the block's isCollapsed property
       setMessages((prevMessages) => {
         return prevMessages.map((message) => {
           // Handle agent variant messages
@@ -223,91 +220,20 @@ export const Chat = ({
               metadata: {
                 ...message.metadata,
                 isCollapsed: !wasCollapsed,
-                userOpened: wasCollapsed, // Mark as user-opened if expanding
+                userOpened: wasCollapsed,
               },
             }
           }
 
-          // Handle blocks within messages
           if (!message.blocks) return message
-
-          const updateBlocksRecursively = (
-            blocks: ContentBlock[],
-          ): ContentBlock[] => {
-            let foundTarget = false
-            const result = blocks.map((block) => {
-              // Handle thinking blocks (grouped text blocks)
-              if (block.type === 'text' && block.thinkingId === id) {
-                foundTarget = true
-                const wasCollapsed = block.isCollapsed ?? false
-                return {
-                  ...block,
-                  isCollapsed: !wasCollapsed,
-                  userOpened: wasCollapsed, // Mark as user-opened if expanding
-                }
-              }
-
-              // Handle agent blocks
-              if (block.type === 'agent' && block.agentId === id) {
-                foundTarget = true
-                const wasCollapsed = block.isCollapsed ?? false
-                return {
-                  ...block,
-                  isCollapsed: !wasCollapsed,
-                  userOpened: wasCollapsed, // Mark as user-opened if expanding
-                }
-              }
-
-              // Handle tool blocks
-              if (block.type === 'tool' && block.toolCallId === id) {
-                foundTarget = true
-                const wasCollapsed = block.isCollapsed ?? false
-                return {
-                  ...block,
-                  isCollapsed: !wasCollapsed,
-                  userOpened: wasCollapsed, // Mark as user-opened if expanding
-                }
-              }
-
-              // Handle agent-list blocks
-              if (block.type === 'agent-list' && block.id === id) {
-                foundTarget = true
-                const wasCollapsed = block.isCollapsed ?? false
-                return {
-                  ...block,
-                  isCollapsed: !wasCollapsed,
-                  userOpened: wasCollapsed, // Mark as user-opened if expanding
-                }
-              }
-
-              // Recursively update nested blocks
-              if (block.type === 'agent' && block.blocks) {
-                const updatedBlocks = updateBlocksRecursively(block.blocks)
-                // Only create new block if nested blocks actually changed
-                if (updatedBlocks !== block.blocks) {
-                  foundTarget = true
-                  return {
-                    ...block,
-                    blocks: updatedBlocks,
-                  }
-                }
-              }
-
-              return block
-            })
-            
-            // Return original array reference if nothing changed
-            return foundTarget ? result : blocks
-          }
 
           return {
             ...message,
-            blocks: updateBlocksRecursively(message.blocks),
+            blocks: toggleCollapsedById(message.blocks, id),
           }
         })
       })
 
-      // Reset flag after state update completes
       setTimeout(() => {
         isUserCollapsingRef.current = false
       }, 0)
@@ -470,37 +396,51 @@ export const Chat = ({
   // Future: Could be used for analytics or debugging
 
   const { sendMessage, clearMessages } = useSendMessage({
-    messages,
-    allToggleIds,
-    setMessages,
-    setFocusedAgentId,
-    setInputFocused,
-    inputRef,
-    setStreamingAgents,
-    activeSubagentsRef,
-    isChainInProgressRef,
-    setActiveSubagents,
-    setIsChainInProgress,
-    setStreamStatus,
-    startStreaming,
-    stopStreaming,
-    setCanProcessQueue,
-    abortControllerRef,
-    agentId,
-    onBeforeMessageSend: validateAgents,
-    mainAgentTimer,
-    scrollToLatest,
-    availableWidth: separatorWidth,
-    onTimerEvent: () => {}, // No-op for now
-    setHasReceivedPlanResponse,
-    lastMessageMode,
-    setLastMessageMode,
-    addSessionCredits,
-    setRunState,
-    isQueuePausedRef,
-    resumeQueue,
-    continueChat,
-    continueChatId,
+    messageState: {
+      messages,
+      allToggleIds,
+      setMessages,
+    },
+    uiState: {
+      setFocusedAgentId,
+      setInputFocused,
+      inputRef,
+    },
+    streamState: {
+      setStreamingAgents,
+      activeSubagentsRef,
+      isChainInProgressRef,
+      setActiveSubagents,
+      setIsChainInProgress,
+      setStreamStatus,
+      startStreaming,
+      stopStreaming,
+      setCanProcessQueue,
+      abortControllerRef,
+      isQueuePausedRef,
+      resumeQueue,
+    },
+    runConfig: {
+      agentId,
+      availableWidth: separatorWidth,
+      scrollToLatest,
+      onBeforeMessageSend: validateAgents,
+    },
+    timers: {
+      mainAgentTimer,
+      onTimerEvent: () => {}, // No-op for now
+    },
+    sessionState: {
+      setHasReceivedPlanResponse,
+      lastMessageMode,
+      setLastMessageMode,
+      addSessionCredits,
+      setRunState,
+    },
+    continuation: {
+      continueChat,
+      continueChatId,
+    },
   })
 
   sendMessageRef.current = sendMessage
@@ -599,7 +539,6 @@ export const Chat = ({
       inputValue,
       isChainInProgressRef,
       isStreaming,
-      logoutMutation,
       streamMessageIdRef,
       addToQueue,
       clearMessages,
@@ -611,10 +550,9 @@ export const Chat = ({
       setCanProcessQueue,
       setInputFocused,
       setInputValue,
-      setIsAuthenticated,
       setMessages,
-      setUser,
       stopStreaming,
+      logout,
     })
 
     if (result?.openFeedbackMode) {
@@ -628,7 +566,6 @@ export const Chat = ({
     inputValue,
     isChainInProgressRef,
     isStreaming,
-    logoutMutation,
     streamMessageIdRef,
     addToQueue,
     clearMessages,
@@ -640,13 +577,12 @@ export const Chat = ({
     setCanProcessQueue,
     setInputFocused,
     setInputValue,
-    setIsAuthenticated,
     setMessages,
-    setUser,
     stopStreaming,
     ensureQueueActiveBeforeSubmit,
     saveCurrentInput,
     openFeedbackForMessage,
+    logout,
   ])
 
   const totalMentionMatches = agentMatches.length + fileMatches.length
@@ -803,68 +739,27 @@ export const Chat = ({
         flexGrow: 1,
       }}
     >
-      <scrollbox
-        ref={scrollRef}
-        stickyScroll
-        stickyStart="bottom"
-        scrollX={false}
-        scrollbarOptions={{ visible: false }}
-        verticalScrollbarOptions={{ visible: showScrollbar, trackOptions: { width: 1 } }}
-        {...appliedScrollboxProps}
-        style={{
-          flexGrow: 1,
-          rootOptions: {
-            flexGrow: 1,
-            padding: 0,
-            gap: 0,
-            flexDirection: 'row',
-            shouldFill: true,
-            backgroundColor: 'transparent',
-          },
-          wrapperOptions: {
-            flexGrow: 1,
-            border: false,
-            shouldFill: true,
-            backgroundColor: 'transparent',
-            flexDirection: 'column',
-          },
-          contentOptions: {
-            flexDirection: 'column',
-            gap: 0,
-            shouldFill: true,
-            justifyContent: 'flex-end',
-            backgroundColor: 'transparent',
-          },
-        }}
-      >
-        {headerContent}
-        {virtualizationNotice}
-        {topLevelMessages.map((message, idx) => {
-          const isLast = idx === topLevelMessages.length - 1
-          return (
-            <MessageWithAgents
-              key={message.id}
-              message={message}
-              depth={0}
-              isLastMessage={isLast}
-              theme={theme}
-              markdownPalette={markdownPalette}
-              streamingAgents={streamingAgents}
-              messageTree={messageTree}
-              messages={messages}
-              availableWidth={separatorWidth}
-              setFocusedAgentId={setFocusedAgentId}
-              isWaitingForResponse={isWaitingForResponse}
-              timerStartTime={timerStartTime}
-              onToggleCollapsed={handleCollapseToggle}
-              onBuildFast={handleBuildFast}
-              onBuildMax={handleBuildMax}
-              onFeedback={handleMessageFeedback}
-              onCloseFeedback={handleCloseFeedback}
-            />
-          )
-        })}
-      </scrollbox>
+      <ChatScrollArea
+        scrollRef={scrollRef}
+        appliedScrollboxProps={appliedScrollboxProps}
+        headerContent={headerContent}
+        virtualizationNotice={virtualizationNotice}
+        topLevelMessages={topLevelMessages}
+        markdownPalette={markdownPalette}
+        streamingAgents={streamingAgents}
+        messageTree={messageTree}
+        messages={messages}
+        separatorWidth={separatorWidth}
+        theme={theme}
+        setFocusedAgentId={setFocusedAgentId}
+        isWaitingForResponse={isWaitingForResponse}
+        timerStartTime={timerStartTime}
+        handleCollapseToggle={handleCollapseToggle}
+        handleBuildFast={handleBuildFast}
+        handleBuildMax={handleBuildMax}
+        handleMessageFeedback={handleMessageFeedback}
+        handleCloseFeedback={handleCloseFeedback}
+      />
 
       <box
         style={{
@@ -894,87 +789,34 @@ export const Chat = ({
             width={separatorWidth}
           />
         ) : (
-          <box
-            title={inputBoxTitle}
-            titleAlignment="center"
-            style={{
-              width: '100%',
-              borderStyle: 'single',
-              borderColor: theme.foreground,
-              customBorderChars: BORDER_CHARS,
-              paddingLeft: 1,
-              paddingRight: 1,
-              paddingTop: 0,
-              paddingBottom: 0,
-              flexDirection: 'column',
-              gap: hasSuggestionMenu ? 1 : 0,
-            }}
-          >
-            {hasSlashSuggestions ? (
-              <SuggestionMenu
-                items={slashSuggestionItems}
-                selectedIndex={slashSelectedIndex}
-                maxVisible={10}
-                prefix="/"
-              />
-            ) : null}
-            {hasMentionSuggestions ? (
-              <SuggestionMenu
-                items={[...agentSuggestionItems, ...fileSuggestionItems]}
-                selectedIndex={agentSelectedIndex}
-                maxVisible={10}
-                prefix="@"
-              />
-            ) : null}
-            <box
-              style={{
-                flexDirection: 'column',
-                justifyContent: shouldCenterInputVertically
-                  ? 'center'
-                  : 'flex-start',
-                minHeight: shouldCenterInputVertically ? 3 : undefined,
-                gap: 0,
-              }}
-            >
-              <box
-                style={{
-                  flexDirection: 'row',
-                  alignItems: shouldCenterInputVertically
-                    ? 'center'
-                    : 'flex-start',
-                  width: '100%',
-                }}
-              >
-                <box style={{ flexGrow: 1, minWidth: 0 }}>
-                  <MultilineInput
-                    value={inputValue}
-                    onChange={setInputValue}
-                    onSubmit={handleSubmit}
-                    placeholder={inputPlaceholder}
-                    focused={inputFocused && !feedbackMode}
-                    maxHeight={Math.floor(terminalHeight / 2)}
-                    width={inputWidth}
-                    onKeyIntercept={handleSuggestionMenuKey}
-                    textAttributes={theme.messageTextAttributes}
-                    ref={inputRef}
-                    cursorPosition={cursorPosition}
-                  />
-                </box>
-                <box
-                  style={{
-                    flexShrink: 0,
-                    paddingLeft: 2,
-                  }}
-                >
-                  <AgentModeToggle
-                    mode={agentMode}
-                    onToggle={toggleAgentMode}
-                    onSelectMode={setAgentMode}
-                  />
-                </box>
-              </box>
-            </box>
-          </box>
+          <ChatInputArea
+            theme={theme}
+            separatorWidth={separatorWidth}
+            terminalHeight={terminalHeight}
+            hasSuggestionMenu={hasSuggestionMenu}
+            hasSlashSuggestions={hasSlashSuggestions}
+            hasMentionSuggestions={hasMentionSuggestions}
+            slashSuggestionItems={slashSuggestionItems}
+            agentSuggestionItems={agentSuggestionItems}
+            fileSuggestionItems={fileSuggestionItems}
+            slashSelectedIndex={slashSelectedIndex}
+            agentSelectedIndex={agentSelectedIndex}
+            inputValue={inputValue}
+            setInputValue={setInputValue}
+            handleSubmit={handleSubmit}
+            inputPlaceholder={inputPlaceholder}
+            inputFocused={inputFocused}
+            feedbackMode={feedbackMode}
+            inputWidth={inputWidth}
+            handleSuggestionMenuKey={handleSuggestionMenuKey}
+            cursorPosition={cursorPosition}
+            agentMode={agentMode}
+            toggleAgentMode={toggleAgentMode}
+            setAgentMode={setAgentMode}
+            shouldCenterInputVertically={shouldCenterInputVertically}
+            inputBoxTitle={inputBoxTitle}
+            inputRef={inputRef}
+          />
         )}
       </box>
 

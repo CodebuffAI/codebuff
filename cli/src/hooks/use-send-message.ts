@@ -19,6 +19,10 @@ import {
   saveChatState,
 } from '../utils/run-state-storage'
 import { setCurrentChatId } from '../project-files'
+import {
+  updateBlocksRecursively as sharedUpdateBlocksRecursively,
+  autoCollapseBlocks,
+} from '../utils/block-tree'
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
 import type { StreamStatus } from './use-message-queue'
@@ -40,38 +44,17 @@ const yieldToEventLoop = () =>
     setTimeout(resolve, 0)
   })
 
-// Helper function to recursively update blocks
+// Helper function to recursively update blocks by agentId
 const updateBlocksRecursively = (
   blocks: ContentBlock[],
   targetAgentId: string,
   updateFn: (block: ContentBlock) => ContentBlock,
 ): ContentBlock[] => {
-  let foundTarget = false
-  const result = blocks.map((block) => {
-    if (block.type === 'agent' && block.agentId === targetAgentId) {
-      foundTarget = true
-      return updateFn(block)
-    }
-    if (block.type === 'agent' && block.blocks) {
-      const updatedBlocks = updateBlocksRecursively(
-        block.blocks,
-        targetAgentId,
-        updateFn,
-      )
-      // Only create new block if nested blocks actually changed
-      if (updatedBlocks !== block.blocks) {
-        foundTarget = true
-        return {
-          ...block,
-          blocks: updatedBlocks,
-        }
-      }
-    }
-    return block
-  })
-
-  // Return original array reference if nothing changed
-  return foundTarget ? result : blocks
+  return sharedUpdateBlocksRecursively(
+    blocks,
+    (block) => block.type === 'agent' && block.agentId === targetAgentId,
+    updateFn,
+  )
 }
 
 const scrubPlanTags = (s: string) =>
@@ -185,78 +168,94 @@ export const createSendMessageTimerController = (
 }
 
 interface UseSendMessageOptions {
-  messages: ChatMessage[]
-  allToggleIds: Set<string>
-  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
-  setFocusedAgentId: (id: string | null) => void
-  setInputFocused: (focused: boolean) => void
-  inputRef: React.MutableRefObject<any>
-  setStreamingAgents: React.Dispatch<React.SetStateAction<Set<string>>>
-  activeSubagentsRef: React.MutableRefObject<Set<string>>
-  isChainInProgressRef: React.MutableRefObject<boolean>
-  setActiveSubagents: React.Dispatch<React.SetStateAction<Set<string>>>
-  setIsChainInProgress: (value: boolean) => void
-  setStreamStatus: (status: StreamStatus) => void
-  startStreaming: () => void
-  stopStreaming: () => void
-  setCanProcessQueue: (can: boolean) => void
-  abortControllerRef: React.MutableRefObject<AbortController | null>
-  agentId?: string
-  onBeforeMessageSend: () => Promise<{
-    success: boolean
-    errors: Array<{ id: string; message: string }>
-  }>
-  mainAgentTimer: ElapsedTimeTracker
-  scrollToLatest: () => void
-  availableWidth?: number
-  onTimerEvent?: (event: SendMessageTimerEvent) => void
-  setHasReceivedPlanResponse: (value: boolean) => void
-  lastMessageMode: AgentMode | null
-  setLastMessageMode: (mode: AgentMode | null) => void
-  addSessionCredits: (credits: number) => void
-  setRunState: (runState: RunState | null) => void
-  isQueuePausedRef?: React.MutableRefObject<boolean>
-  resumeQueue?: () => void
-  continueChat: boolean
-  continueChatId?: string
+  messageState: {
+    messages: ChatMessage[]
+    allToggleIds: Set<string>
+    setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
+  }
+  uiState: {
+    setFocusedAgentId: (id: string | null) => void
+    setInputFocused: (focused: boolean) => void
+    inputRef: React.MutableRefObject<any>
+  }
+  streamState: {
+    setStreamingAgents: React.Dispatch<React.SetStateAction<Set<string>>>
+    activeSubagentsRef: React.MutableRefObject<Set<string>>
+    isChainInProgressRef: React.MutableRefObject<boolean>
+    setActiveSubagents: React.Dispatch<React.SetStateAction<Set<string>>>
+    setIsChainInProgress: (value: boolean) => void
+    setStreamStatus: (status: StreamStatus) => void
+    startStreaming: () => void
+    stopStreaming: () => void
+    setCanProcessQueue: (can: boolean) => void
+    abortControllerRef: React.MutableRefObject<AbortController | null>
+    isQueuePausedRef?: React.MutableRefObject<boolean>
+    resumeQueue?: () => void
+  }
+  runConfig: {
+    agentId?: string
+    availableWidth?: number
+    scrollToLatest: () => void
+    onBeforeMessageSend: () => Promise<{
+      success: boolean
+      errors: Array<{ id: string; message: string }>
+    }>
+  }
+  timers: {
+    mainAgentTimer: ElapsedTimeTracker
+    onTimerEvent?: (event: SendMessageTimerEvent) => void
+  }
+  sessionState: {
+    setHasReceivedPlanResponse: (value: boolean) => void
+    lastMessageMode: AgentMode | null
+    setLastMessageMode: (mode: AgentMode | null) => void
+    addSessionCredits: (credits: number) => void
+    setRunState: (runState: RunState | null) => void
+  }
+  continuation: {
+    continueChat: boolean
+    continueChatId?: string
+  }
 }
 
 export const useSendMessage = ({
-  messages,
-  allToggleIds,
-  setMessages,
-  setFocusedAgentId,
-  setInputFocused,
-  inputRef,
-  setStreamingAgents,
-  activeSubagentsRef,
-  isChainInProgressRef,
-  setActiveSubagents,
-  setIsChainInProgress,
-  setStreamStatus,
-  startStreaming,
-  stopStreaming,
-  setCanProcessQueue,
-  abortControllerRef,
-  agentId,
-  onBeforeMessageSend,
-  mainAgentTimer,
-  scrollToLatest,
-  availableWidth = 80,
-  onTimerEvent = () => {},
-  setHasReceivedPlanResponse,
-  lastMessageMode,
-  setLastMessageMode,
-  addSessionCredits,
-  setRunState,
-  isQueuePausedRef,
-  resumeQueue,
-  continueChat,
-  continueChatId,
+  messageState,
+  uiState,
+  streamState,
+  runConfig,
+  timers,
+  sessionState,
+  continuation,
 }: UseSendMessageOptions): {
   sendMessage: SendMessageFn
   clearMessages: () => void
 } => {
+  const { messages, allToggleIds, setMessages } = messageState
+  const { setFocusedAgentId, setInputFocused, inputRef } = uiState
+  const {
+    setStreamingAgents,
+    activeSubagentsRef,
+    isChainInProgressRef,
+    setActiveSubagents,
+    setIsChainInProgress,
+    setStreamStatus,
+    startStreaming,
+    stopStreaming,
+    setCanProcessQueue,
+    abortControllerRef,
+    isQueuePausedRef,
+    resumeQueue,
+  } = streamState
+  const { agentId, availableWidth = 80, scrollToLatest, onBeforeMessageSend } = runConfig
+  const { mainAgentTimer, onTimerEvent = () => {} } = timers
+  const {
+    setHasReceivedPlanResponse,
+    lastMessageMode,
+    setLastMessageMode,
+    addSessionCredits,
+    setRunState,
+  } = sessionState
+  const { continueChat, continueChatId } = continuation
   const previousRunStateRef = useRef<RunState | null>(null)
 
   // Load previous chat state on mount if continueChat is true
@@ -573,57 +572,11 @@ export const useSendMessage = ({
                 }
           }
 
-          // Handle blocks within messages
           if (!message.blocks) return message
-
-          const autoCollapseBlocksRecursively = (
-            blocks: ContentBlock[],
-          ): ContentBlock[] => {
-            return blocks.map((block) => {
-              // Handle thinking blocks (grouped text blocks)
-              if (block.type === 'text' && block.thinkingId) {
-                return block.userOpened
-                  ? block
-                  : { ...block, isCollapsed: true }
-              }
-
-              // Handle agent blocks
-              if (block.type === 'agent') {
-                const updatedBlock = block.userOpened
-                  ? block
-                  : { ...block, isCollapsed: true }
-
-                // Recursively update nested blocks
-                if (updatedBlock.blocks) {
-                  return {
-                    ...updatedBlock,
-                    blocks: autoCollapseBlocksRecursively(updatedBlock.blocks),
-                  }
-                }
-                return updatedBlock
-              }
-
-              // Handle tool blocks
-              if (block.type === 'tool') {
-                return block.userOpened
-                  ? block
-                  : { ...block, isCollapsed: true }
-              }
-
-              // Handle agent-list blocks
-              if (block.type === 'agent-list') {
-                return block.userOpened
-                  ? block
-                  : { ...block, isCollapsed: true }
-              }
-
-              return block
-            })
-          }
 
           return {
             ...message,
-            blocks: autoCollapseBlocksRecursively(message.blocks),
+            blocks: autoCollapseBlocks(message.blocks),
           }
         })
       })
@@ -1712,9 +1665,7 @@ export const useSendMessage = ({
             return { ...msg, isComplete: true }
           }),
         )
-      }
-    },
-    [
+      }  }, [
       applyMessageUpdate,
       queueMessageUpdate,
       setFocusedAgentId,
