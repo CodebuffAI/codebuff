@@ -3,15 +3,20 @@ import { publisher } from '../../constants'
 import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
 
 export const createBestOfNImplementor = (options: {
-  model: 'sonnet' | 'gpt-5'
+  model: 'sonnet' | 'gpt-5' | 'gemini'
 }): Omit<SecretAgentDefinition, 'id'> => {
   const { model } = options
   const isSonnet = model === 'sonnet'
   const isGpt5 = model === 'gpt-5'
+  const isGemini = model === 'gemini'
 
   return {
     publisher,
-    model: isSonnet ? 'anthropic/claude-sonnet-4.5' : 'openai/gpt-5.1',
+    model: isSonnet
+      ? 'anthropic/claude-sonnet-4.5'
+      : isGemini
+        ? 'google/gemini-3-pro-preview'
+        : 'openai/gpt-5.1',
     displayName: 'Implementation Generator',
     spawnerPrompt:
       'Generates a complete implementation plan with all code changes',
@@ -61,7 +66,7 @@ OR for new files or major rewrites:
 }
 </codebuff_tool_call>
 ${
-  isGpt5
+  isGpt5 || isGemini
     ? ``
     : `
 You can also use <think> tags interspersed between tool calls to think about the best way to implement the changes. Keep these thoughts very brief. You may not need to use think tags at all.

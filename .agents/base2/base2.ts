@@ -12,12 +12,14 @@ export function createBase2(
     hasNoValidation?: boolean
     planOnly?: boolean
     withGemini?: boolean
+    useGeminiEditor?: boolean
   },
 ): Omit<SecretAgentDefinition, 'id'> {
   const {
     hasNoValidation = mode === 'fast',
     planOnly = false,
     withGemini = false,
+    useGeminiEditor = false,
   } = options ?? {}
   const isDefault = mode === 'default'
   const isFast = mode === 'fast'
@@ -67,11 +69,15 @@ export function createBase2(
       'researcher-web',
       'researcher-docs',
       'commander',
-      withGemini && 'editor-best-of-n-gemini',
-      !withGemini && isDefault && 'editor-best-of-n',
-      !withGemini && isMax && 'editor-best-of-n-gpt-5',
-      !withGemini && isDefault && 'thinker-best-of-n',
-      !withGemini && isMax && 'thinker-best-of-n-gpt-5',
+      useGeminiEditor
+        ? 'editor-implementor-gemini'
+        : buildArray(
+            withGemini && 'editor-best-of-n-gemini',
+            !withGemini && isDefault && 'editor-best-of-n',
+            !withGemini && isMax && 'editor-best-of-n-gpt-5',
+            !withGemini && isDefault && 'thinker-best-of-n',
+            !withGemini && isMax && 'thinker-best-of-n-gpt-5',
+          ),
       !withGemini && isDefault && 'code-reviewer',
       !withGemini && isMax && 'code-reviewer-best-of-n-gpt-5',
       'context-pruner',
@@ -125,7 +131,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
     '- Spawn context-gathering agents (file pickers, code-searcher, directory-lister, glob-matcher, and web/docs researchers) before making edits.',
     isMax &&
       '- Spawn the thinker-best-of-n-gpt-5 after gathering context to solve complex problems.',
-    `- Spawn a ${isMax ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
+    `- Spawn a ${useGeminiEditor ? 'editor-implementor-gemini' : isMax ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
     '- Spawn commanders sequentially if the second command depends on the the first.',
     !isFast &&
       `- Spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-best-of-n-gpt-5'} to review the changes after you have implemented the changes.`,
@@ -263,6 +269,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           isDefault,
           isMax,
           hasNoValidation,
+          useGeminiEditor,
         }),
     stepPrompt: planOnly
       ? buildPlanOnlyStepPrompt({})
@@ -271,6 +278,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           isMax,
           hasNoValidation,
           isSonnet,
+          useGeminiEditor,
         }),
 
     handleSteps: function* ({ params }) {
@@ -302,12 +310,14 @@ function buildImplementationInstructionsPrompt({
   isDefault,
   isMax,
   hasNoValidation,
+  useGeminiEditor,
 }: {
   isSonnet: boolean
   isFast: boolean
   isDefault: boolean
   isMax: boolean
   hasNoValidation: boolean
+  useGeminiEditor: boolean
 }) {
   return `Act as a helpful assistant and freely respond to the user's request however would be most helpful to the user. Use your judgement to orchestrate the completion of the user's request using your specialized sub-agents and tools as needed. Take your time and be comprehensive. Don't surprise the user. For example, don't modify files if the user has not asked you to do so at least implicitly.
 
@@ -320,13 +330,13 @@ ${buildArray(
   !isFast &&
     `- Important: Read as many files as could possibly be relevant to the task over several steps to improve your understanding of the user's request and produce the best possible code changes. Find more examples within the codebase similar to the user's request, dependencies that help with understanding how things work, tests, etc. This is frequently 12-20 files, depending on the task.`,
   !isFast &&
-    `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} Skip write_todos for simple tasks like quick edits or answering questions.`,
+    `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
   isFast &&
     '- Implement the changes in one go. Pause after making all the changes to see the tool results of your edits.',
   isFast &&
     '- Do a single typecheck targeted for your changes at most (if applicable for the project). Or skip this step if the change was small.',
   !isFast &&
-    `- IMPORTANT: You must spawn the ${isMax ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious.`,
+    `- IMPORTANT: You must spawn the ${useGeminiEditor ? 'editor-implementor-gemini' : isMax ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious.`,
   !isFast &&
     `- Spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-best-of-n-gpt-5'} to review the changes after you have implemented the changes. (Skip this step only if the change is extremely straightforward and obvious.)`,
   !hasNoValidation &&
@@ -340,17 +350,19 @@ function buildImplementationStepPrompt({
   isMax,
   hasNoValidation,
   isSonnet,
+  useGeminiEditor,
 }: {
   isFast: boolean
   isMax: boolean
   hasNoValidation: boolean
   isSonnet: boolean
+  useGeminiEditor: boolean
 }) {
   return buildArray(
     isMax &&
       `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
     !isFast &&
-      `You must spawn the ${isMax ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement code changes, since it will generate the best code changes.`,
+      `You must spawn the ${useGeminiEditor ? 'editor-implementor-gemini' : isMax ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement code changes, since it will generate the best code changes.`,
     isMax && 'Spawn the thinker-best-of-n-gpt-5 to solve complex problems.',
     `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}. Don't repeat yourself -- especially if you already summarized your changes then just end your turn.`,
   ).join('\n')
