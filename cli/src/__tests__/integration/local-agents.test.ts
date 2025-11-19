@@ -1,28 +1,24 @@
-import {
-  describe,
-  test,
-  expect,
-  beforeEach,
-  afterEach,
-  mock,
-} from 'bun:test'
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'fs'
 import os from 'os'
 import path from 'path'
 
 import { validateAgents } from '@codebuff/sdk'
+import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
 
+import { setProjectRoot, getProjectRoot } from '../../project-files'
+import { loadAgentDefinitions } from '../../utils/load-agent-definitions'
 import {
   findAgentsDirectory,
   __resetLocalAgentRegistryForTests,
 } from '../../utils/local-agent-registry'
-import { loadAgentDefinitions } from '../../utils/load-agent-definitions'
-import { setProjectRoot, getProjectRoot } from '../../project-files'
 
 const MODEL_NAME = 'anthropic/claude-sonnet-4'
 
-const writeAgentFile = (agentsDir: string, fileName: string, contents: string) =>
-  writeFileSync(path.join(agentsDir, fileName), contents, 'utf8')
+const writeAgentFile = (
+  agentsDir: string,
+  fileName: string,
+  contents: string,
+) => writeFileSync(path.join(agentsDir, fileName), contents, 'utf8')
 
 describe('Local Agent Integration', () => {
   let tempDir: string
@@ -33,6 +29,7 @@ describe('Local Agent Integration', () => {
   beforeEach(() => {
     tempDir = mkdtempSync(path.join(os.tmpdir(), 'codebuff-agents-'))
     originalCwd = process.cwd()
+    setProjectRoot(process.cwd())
     originalProjectRoot = getProjectRoot()
 
     process.chdir(tempDir)
