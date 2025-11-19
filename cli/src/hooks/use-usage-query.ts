@@ -1,0 +1,118 @@
+import React from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+
+import { useChatStore } from '../state/chat-store'
+import { getAuthToken } from '../utils/auth'
+import { logger as defaultLogger } from '../utils/logger'
+
+import type { Logger } from '@codebuff/common/types/contracts/logger'
+
+// Query keys for type-safe cache management
+export const usageQueryKeys = {
+  all: ['usage'] as const,
+  current: () => [...usageQueryKeys.all, 'current'] as const,
+}
+
+interface UsageResponse {
+  type: 'usage-response'
+  usage: number
+  remainingBalance: number | null
+  balanceBreakdown?: {
+    free: number
+    paid: number
+  }
+  next_quota_reset: string | null
+}
+
+interface FetchUsageParams {
+  authToken: string
+  logger?: Logger
+}
+
+/**
+ * Fetches usage data from the API
+ */
+export async function fetchUsageData({
+  authToken,
+  logger = defaultLogger,
+}: FetchUsageParams): Promise<UsageResponse> {
+  const appUrl = process.env.NEXT_PUBLIC_CODEBUFF_APP_URL
+  if (!appUrl) {
+    throw new Error('NEXT_PUBLIC_CODEBUFF_APP_URL is not set')
+  }
+
+  const response = await fetch(`${appUrl}/api/v1/usage`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      fingerprintId: 'cli-usage',
+      authToken,
+    }),
+  })
+
+  if (!response.ok) {
+    logger.error(
+      { status: response.status },
+      'Failed to fetch usage data from API',
+    )
+    throw new Error(`Failed to fetch usage: ${response.status}`)
+  }
+
+  const data = (await response.json()) as UsageResponse
+  return data
+}
+
+export interface UseUsageQueryDeps {
+  logger?: Logger
+  enabled?: boolean
+}
+
+/**
+ * Hook to fetch and manage usage data
+ * Automatically updates the chat store when new data arrives
+ */
+export function useUsageQuery(deps: UseUsageQueryDeps = {}) {
+  const { logger = defaultLogger, enabled = true } = deps
+  const setUsageData = useChatStore((state) => state.setUsageData)
+  const sessionCreditsUsed = useChatStore((state) => state.sessionCreditsUsed)
+
+  const authToken = getAuthToken()
+
+  const query = useQuery({
+    queryKey: usageQueryKeys.current(),
+    queryFn: () => fetchUsageData({ authToken: authToken!, logger }),
+    enabled: enabled && !!authToken,
+    staleTime: 30 * 1000, // 30 seconds - usage data changes as user makes requests
+    gcTime: 5 * 60 * 1000, // 5 minutes
+    retry: false, // Don't retry failed usage queries
+    refetchOnMount: false, // Don't auto-refetch on mount
+    refetchOnWindowFocus: false, // CLI doesn't have window focus
+    refetchOnReconnect: false, // Don't auto-refetch on reconnect
+  })
+
+  // Update store when data changes (replaces deprecated onSuccess)
+  React.useEffect(() => {
+    if (query.data) {
+      setUsageData({
+        sessionUsage: sessionCreditsUsed,
+        remainingBalance: query.data.remainingBalance,
+        nextQuotaReset: query.data.next_quota_reset,
+      })
+    }
+  }, [query.data, sessionCreditsUsed, setUsageData])
+
+  return query
+}
+
+/**
+ * Hook to manually trigger a usage data refresh
+ */
+export function useRefreshUsage() {
+  const queryClient = useQueryClient()
+
+  return () => {
+    queryClient.invalidateQueries({ queryKey: usageQueryKeys.current() })
+  }
+}

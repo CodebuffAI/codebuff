@@ -1,6 +1,8 @@
 import { has, isEqual } from 'lodash'
 import { useCallback, useEffect, useRef } from 'react'
 
+import { useQueryClient } from '@tanstack/react-query'
+
 import { getCodebuffClient, formatToolOutput } from '../utils/codebuff-client'
 import {
   MAIN_AGENT_ID,
@@ -9,7 +11,6 @@ import {
 } from '../utils/constants'
 import { createValidationErrorBlocks } from '../utils/create-validation-error-blocks'
 import { getErrorObject } from '../utils/error'
-import { fetchAndUpdateUsage } from '../utils/fetch-usage'
 import { formatTimestamp } from '../utils/helpers'
 import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 import { getLoadedAgentsData } from '../utils/local-agent-registry'
@@ -20,6 +21,7 @@ import {
   saveChatState,
 } from '../utils/run-state-storage'
 import { useChatStore } from '../state/chat-store'
+import { usageQueryKeys } from '../hooks/use-usage-query'
 import { setCurrentChatId } from '../project-files'
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
@@ -259,6 +261,7 @@ export const useSendMessage = ({
   sendMessage: SendMessageFn
   clearMessages: () => void
 } => {
+  const queryClient = useQueryClient()
   const previousRunStateRef = useRef<RunState | null>(null)
 
   // Load previous chat state on mount if continueChat is true
@@ -1644,16 +1647,11 @@ export const useSendMessage = ({
           return
         }
 
-        // Refresh usage data if the banner is currently visible
+        // Trigger usage data refresh if the banner is currently visible
+        // The query will only refetch if it's enabled (banner is visible)
         const isUsageVisible = useChatStore.getState().isUsageVisible
         if (isUsageVisible) {
-          // Don't await - let it run in background to avoid blocking UI updates
-          fetchAndUpdateUsage({ showBanner: false }).catch((error) => {
-            logger.error(
-              { error: getErrorObject(error) },
-              'Failed to refresh usage data after run completion',
-            )
-          })
+          queryClient.invalidateQueries({ queryKey: usageQueryKeys.current() })
         }
 
         setStreamStatus('idle')

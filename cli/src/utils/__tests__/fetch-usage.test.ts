@@ -5,7 +5,7 @@ import { fetchAndUpdateUsage } from '../fetch-usage'
 import type { FetchAndUpdateUsageParams } from '../fetch-usage'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-describe('fetchAndUpdateUsage', () => {
+describe('fetchAndUpdateUsage (deprecated)', () => {
   let setUsageDataMock: ReturnType<typeof mock>
   let setIsUsageVisibleMock: ReturnType<typeof mock>
   let getAuthTokenMock: ReturnType<typeof mock>

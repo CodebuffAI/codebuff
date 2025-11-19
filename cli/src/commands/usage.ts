@@ -1,4 +1,4 @@
-import { fetchAndUpdateUsage } from '../utils/fetch-usage'
+import { useChatStore } from '../state/chat-store'
 import { getAuthToken } from '../utils/auth'
 import { getSystemMessage } from '../utils/message-history'
 
@@ -17,15 +17,9 @@ export async function handleUsageCommand(): Promise<{
     return { postUserMessage }
   }
 
-  const success = await fetchAndUpdateUsage({ showBanner: true })
-
-  if (!success) {
-    const postUserMessage: PostUserMessageFn = (prev) => [
-      ...prev,
-      getSystemMessage('Error checking usage. Please try again later.'),
-    ]
-    return { postUserMessage }
-  }
+  // Show the usage banner - the useUsageQuery hook will automatically fetch
+  // the data when the banner becomes visible
+  useChatStore.getState().setIsUsageVisible(true)
 
   const postUserMessage: PostUserMessageFn = (prev) => prev
   return { postUserMessage }
