@@ -25,12 +25,10 @@ describe('validateAgents network error handling', () => {
     test('throws NETWORK_ERROR for connection failures', async () => {
       mockFetch.mockRejectedValue(new Error('Failed to fetch'))
 
-      await expect(
-        validateAgents([testAgent], { remote: true })
-      ).rejects.toMatchObject({
-        code: 'NETWORK_ERROR',
-        message: expect.stringContaining('Failed to connect to validation API'),
-      })
+      const result = await validateAgents([testAgent], { remote: true })
+      expect(result.success).toBe(false)
+      expect(result.error.code).toBe('NETWORK_ERROR')
+      expect(result.error.message).toContain('Failed to connect to validation API')
     })
 
     test('throws NETWORK_ERROR for 500 server errors', async () => {
@@ -41,16 +39,12 @@ describe('validateAgents network error handling', () => {
         json: () => Promise.resolve({ error: 'Server crashed' }),
       } as Response)
 
-      try {
-        await validateAgents([testAgent], { remote: true })
-        expect(true).toBe(false) // Should not reach
-      } catch (error: any) {
-        expect(error.code).toBe('NETWORK_ERROR')
-        expect(error.message).toContain('Failed to connect')
-        // The original error with status is wrapped
-        expect(error.originalError).toBeDefined()
-        expect(error.originalError.status).toBe(500)
-      }
+      const result = await validateAgents([testAgent], { remote: true })
+      expect(result.success).toBe(false)
+      expect(result.error.code).toBe('NETWORK_ERROR')
+      expect(result.error.message).toContain('Failed to connect')
+      expect(result.error.originalError).toBeDefined()
+      expect((result.error.originalError as any).status).toBe(500)
     })
 
     test('throws NETWORK_ERROR for 502 Bad Gateway', async () => {
@@ -61,15 +55,12 @@ describe('validateAgents network error handling', () => {
         json: () => Promise.resolve({}),
       } as Response)
 
-      try {
-        await validateAgents([testAgent], { remote: true })
-        expect(true).toBe(false) // Should not reach
-      } catch (error: any) {
-        expect(error.code).toBe('NETWORK_ERROR')
-        expect(error.message).toContain('Failed to connect')
-        expect(error.originalError).toBeDefined()
-        expect(error.originalError.status).toBe(502)
-      }
+      const result = await validateAgents([testAgent], { remote: true })
+      expect(result.success).toBe(false)
+      expect(result.error.code).toBe('NETWORK_ERROR')
+      expect(result.error.message).toContain('Failed to connect')
+      expect(result.error.originalError).toBeDefined()
+      expect((result.error.originalError as any).status).toBe(502)
     })
 
     test('throws NETWORK_ERROR for 503 Service Unavailable', async () => {
@@ -80,15 +71,12 @@ describe('validateAgents network error handling', () => {
         json: () => Promise.reject(new Error('Invalid JSON')),
       } as Response)
 
-      try {
-        await validateAgents([testAgent], { remote: true })
-        expect(true).toBe(false) // Should not reach
-      } catch (error: any) {
-        expect(error.code).toBe('NETWORK_ERROR')
-        expect(error.message).toContain('Failed to connect')
-        expect(error.originalError).toBeDefined()
-        expect(error.originalError.status).toBe(503)
-      }
+      const result = await validateAgents([testAgent], { remote: true })
+      expect(result.success).toBe(false)
+      expect(result.error.code).toBe('NETWORK_ERROR')
+      expect(result.error.message).toContain('Failed to connect')
+      expect(result.error.originalError).toBeDefined()
+      expect((result.error.originalError as any).status).toBe(503)
     })
 
     test('throws NETWORK_ERROR for 504 Gateway Timeout', async () => {
@@ -99,54 +87,44 @@ describe('validateAgents network error handling', () => {
         json: () => Promise.resolve({ error: 'Timeout' }),
       } as Response)
 
-      try {
-        await validateAgents([testAgent], { remote: true })
-        expect(true).toBe(false) // Should not reach
-      } catch (error: any) {
-        expect(error.code).toBe('NETWORK_ERROR')
-        expect(error.message).toContain('Failed to connect')
-        expect(error.originalError).toBeDefined()
-        expect(error.originalError.status).toBe(504)
-      }
+      const result = await validateAgents([testAgent], { remote: true })
+      expect(result.success).toBe(false)
+      expect(result.error.code).toBe('NETWORK_ERROR')
+      expect(result.error.message).toContain('Failed to connect')
+      expect(result.error.originalError).toBeDefined()
+      expect((result.error.originalError as any).status).toBe(504)
     })
 
     test('throws NETWORK_ERROR for network timeouts', async () => {
       mockFetch.mockRejectedValue(new Error('Network timeout'))
 
-      await expect(
-        validateAgents([testAgent], { remote: true })
-      ).rejects.toMatchObject({
-        code: 'NETWORK_ERROR',
-        message: expect.stringContaining('Failed to connect'),
-      })
+      const result = await validateAgents([testAgent], { remote: true })
+      expect(result.success).toBe(false)
+      expect(result.error.code).toBe('NETWORK_ERROR')
+      expect(result.error.message).toContain('Failed to connect')
     })
 
     test('throws NETWORK_ERROR for DNS resolution failures', async () => {
       mockFetch.mockRejectedValue(new Error('getaddrinfo ENOTFOUND api.example.com'))
 
-      await expect(
-        validateAgents([testAgent], { remote: true })
-      ).rejects.toMatchObject({
-        code: 'NETWORK_ERROR',
-        message: expect.stringContaining('Failed to connect'),
-        originalError: expect.objectContaining({
-          message: expect.stringContaining('ENOTFOUND'),
-        }),
-      })
+      const result = await validateAgents([testAgent], { remote: true })
+      expect(result.success).toBe(false)
+      expect(result.error.code).toBe('NETWORK_ERROR')
+      expect(result.error.message).toContain('Failed to connect')
+      expect(result.error.originalError).toEqual(
+        expect.objectContaining({ message: expect.stringContaining('ENOTFOUND') }),
+      )
     })
 
     test('includes original error in network errors', async () => {
       const originalError = new Error('Connection refused')
       mockFetch.mockRejectedValue(originalError)
 
-      try {
-        await validateAgents([testAgent], { remote: true })
-        expect(true).toBe(false) // Should not reach here
-      } catch (error: any) {
-        expect(error.code).toBe('NETWORK_ERROR')
-        expect(error.originalError).toBeDefined()
-        expect(error.originalError.message).toBe('Connection refused')
-      }
+      const result = await validateAgents([testAgent], { remote: true })
+      expect(result.success).toBe(false)
+      expect(result.error.code).toBe('NETWORK_ERROR')
+      expect(result.error.originalError).toBeDefined()
+      expect((result.error.originalError as any).message).toBe('Connection refused')
     })
   })
 
@@ -161,10 +139,12 @@ describe('validateAgents network error handling', () => {
 
       const result = await validateAgents([testAgent], { remote: true })
 
-      expect(result.success).toBe(false)
-      expect(result.validationErrors).toHaveLength(1)
-      expect(result.validationErrors[0].id).toBe('validation_api_error')
-      expect(result.validationErrors[0].message).toContain('Invalid agent format')
+      expect(result.success).toBe(true)
+      const value = result.value
+      expect(value.success).toBe(false)
+      expect(value.validationErrors).toHaveLength(1)
+      expect(value.validationErrors[0].id).toBe('validation_api_error')
+      expect(value.validationErrors[0].message).toContain('Invalid agent format')
     })
 
     test('returns validation error for 401 Unauthorized', async () => {
@@ -177,9 +157,11 @@ describe('validateAgents network error handling', () => {
 
       const result = await validateAgents([testAgent], { remote: true })
 
-      expect(result.success).toBe(false)
-      expect(result.validationErrors).toHaveLength(1)
-      expect(result.validationErrors[0].id).toBe('validation_api_error')
+      expect(result.success).toBe(true)
+      const value = result.value
+      expect(value.success).toBe(false)
+      expect(value.validationErrors).toHaveLength(1)
+      expect(value.validationErrors[0].id).toBe('validation_api_error')
     })
 
     test('returns validation error for 403 Forbidden', async () => {
@@ -192,9 +174,11 @@ describe('validateAgents network error handling', () => {
 
       const result = await validateAgents([testAgent], { remote: true })
 
-      expect(result.success).toBe(false)
-      expect(result.validationErrors[0].id).toBe('validation_api_error')
-      expect(result.validationErrors[0].message).toContain('Access denied')
+      expect(result.success).toBe(true)
+      const value = result.value
+      expect(value.success).toBe(false)
+      expect(value.validationErrors[0].id).toBe('validation_api_error')
+      expect(value.validationErrors[0].message).toContain('Access denied')
     })
 
     test('returns validation error for 404 Not Found', async () => {
@@ -207,8 +191,10 @@ describe('validateAgents network error handling', () => {
 
       const result = await validateAgents([testAgent], { remote: true })
 
-      expect(result.success).toBe(false)
-      expect(result.validationErrors[0].message).toContain('404')
+      expect(result.success).toBe(true)
+      const value = result.value
+      expect(value.success).toBe(false)
+      expect(value.validationErrors[0].message).toContain('404')
     })
 
     test('returns validation error for 422 Unprocessable Entity', async () => {
@@ -221,9 +207,11 @@ describe('validateAgents network error handling', () => {
 
       const result = await validateAgents([testAgent], { remote: true })
 
-      expect(result.success).toBe(false)
-      expect(result.validationErrors[0].id).toBe('validation_api_error')
-      expect(result.validationErrors[0].message).toContain('Validation failed')
+      expect(result.success).toBe(true)
+      const value = result.value
+      expect(value.success).toBe(false)
+      expect(value.validationErrors[0].id).toBe('validation_api_error')
+      expect(value.validationErrors[0].message).toContain('Validation failed')
     })
 
     test('handles JSON parse errors in 4xx responses gracefully', async () => {
@@ -236,8 +224,10 @@ describe('validateAgents network error handling', () => {
 
       const result = await validateAgents([testAgent], { remote: true })
 
-      expect(result.success).toBe(false)
-      expect(result.validationErrors[0].message).toContain('400')
+      expect(result.success).toBe(true)
+      const value = result.value
+      expect(value.success).toBe(false)
+      expect(value.validationErrors[0].message).toContain('400')
     })
   })
 
@@ -251,8 +241,10 @@ describe('validateAgents network error handling', () => {
       const result = await validateAgents([testAgent], { remote: true })
 
       expect(result.success).toBe(true)
-      expect(result.validationErrors).toEqual([])
-      expect(result.errorCount).toBe(0)
+      const value = result.value
+      expect(value.success).toBe(true)
+      expect(value.validationErrors).toEqual([])
+      expect(value.errorCount).toBe(0)
     })
 
     test('returns validation errors from successful API response', async () => {
@@ -268,10 +260,12 @@ describe('validateAgents network error handling', () => {
 
       const result = await validateAgents([testAgent], { remote: true })
 
-      expect(result.success).toBe(false)
-      expect(result.validationErrors).toHaveLength(2)
-      expect(result.validationErrors[0].id).toBe('agent1.yaml')
-      expect(result.validationErrors[0].message).toBe('Missing required field')
+      expect(result.success).toBe(true)
+      const value = result.value
+      expect(value.success).toBe(false)
+      expect(value.validationErrors).toHaveLength(2)
+      expect(value.validationErrors[0].id).toBe('agent1.yaml')
+      expect(value.validationErrors[0].message).toBe('Missing required field')
     })
   })
 
@@ -282,8 +276,10 @@ describe('validateAgents network error handling', () => {
 
       expect(mockFetch).not.toHaveBeenCalled()
       // Local validation should work without network
-      expect(result).toHaveProperty('success')
-      expect(result).toHaveProperty('validationErrors')
+      expect(result.success).toBe(true)
+      const value = result.value
+      expect(value).toHaveProperty('success')
+      expect(value).toHaveProperty('validationErrors')
     })
 
     test('local validation is not affected by network issues', async () => {
@@ -293,7 +289,8 @@ describe('validateAgents network error handling', () => {
       const result = await validateAgents([testAgent], { remote: false })
 
       expect(mockFetch).not.toHaveBeenCalled()
-      expect(result).toHaveProperty('success')
+      expect(result.success).toBe(true)
+      expect(result.value).toHaveProperty('success')
     })
   })
 })

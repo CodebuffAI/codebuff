@@ -21,6 +21,7 @@ import { listDirectory } from './tools/list-directory'
 import { getFiles } from './tools/read-files'
 import { runTerminalCommand } from './tools/run-terminal-command'
 import { NetworkError, ErrorCodes } from './errors'
+import { failure, type ErrorOr } from '@codebuff/common/util/error'
 
 import type { CustomToolDefinition } from './custom-tool'
 import type { RunState } from './run-state'
@@ -107,8 +108,78 @@ export type RunOptions = {
   abortController?: AbortController
 }
 
-type RunReturnType = Awaited<ReturnType<typeof run>>
+type RunReturnType = Awaited<ReturnType<typeof runInternal>>
+
+export type RunResult = ErrorOr<RunState>
+
 export async function run({
+  apiKey,
+  fingerprintId,
+
+  cwd,
+  projectFiles,
+  knowledgeFiles,
+  agentDefinitions,
+  maxAgentSteps = MAX_AGENT_STEPS_DEFAULT,
+  env,
+  streamTimeoutMs = 180_000, // 3 minutes
+
+  handleEvent,
+  handleStreamChunk,
+
+  overrideTools,
+  customToolDefinitions,
+
+  fsSource = () => require('fs').promises,
+  spawnSource,
+  logger,
+
+  agent,
+  prompt,
+  params,
+  previousRun,
+  extraToolResults,
+  abortController: userAbortController,
+}: RunOptions &
+  CodebuffClientOptions & {
+    apiKey: string
+    fingerprintId: string
+  }): Promise<RunResult> {
+  try {
+    const result = await runInternal({
+      apiKey,
+      fingerprintId,
+      cwd,
+      projectFiles,
+      knowledgeFiles,
+      agentDefinitions,
+      maxAgentSteps,
+      env,
+      streamTimeoutMs,
+      handleEvent,
+      handleStreamChunk,
+      overrideTools,
+      customToolDefinitions,
+      fsSource,
+      spawnSource,
+      logger,
+      agent,
+      prompt,
+      params,
+      previousRun,
+      extraToolResults,
+      abortController: userAbortController,
+    })
+    return {
+      success: true,
+      value: result,
+    }
+  } catch (error) {
+    return failure(error)
+  }
+}
+
+async function runInternal({
   apiKey,
   fingerprintId,
 

@@ -21,7 +21,7 @@ describe('Prompt Caching', () => {
         apiKey,
       })
       let cost1 = -1
-      const run1 = await client.run({
+      const run1Result = await client.run({
         prompt: `${filler}\n\n${prompt}`,
         agent: 'base',
         handleEvent: (event) => {
@@ -31,11 +31,15 @@ describe('Prompt Caching', () => {
         },
       })
 
+      if (!run1Result.success) {
+        throw new Error(`Run1 failed: ${JSON.stringify(run1Result.error)}`)
+      }
+      const run1 = run1Result.value
       expect(run1.output.type).not.toEqual('error')
       expect(cost1).toBeGreaterThanOrEqual(0)
 
       let cost2 = -1
-      const run2 = await client.run({
+      const run2Result = await client.run({
         prompt,
         agent: 'base',
         previousRun: run1,
@@ -46,6 +50,10 @@ describe('Prompt Caching', () => {
         },
       })
 
+      if (!run2Result.success) {
+        throw new Error(`Run2 failed: ${JSON.stringify(run2Result.error)}`)
+      }
+      const run2 = run2Result.value
       expect(run2.output.type).not.toEqual('error')
       expect(cost2).toBeGreaterThanOrEqual(0)
 

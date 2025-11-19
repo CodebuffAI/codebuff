@@ -1,9 +1,8 @@
-import { BACKEND_URL, WEBSITE_URL } from './constants'
+import { WEBSITE_URL } from './constants'
 import { run } from './run'
 import { API_KEY_ENV_VAR } from '../../common/src/old-constants'
 
-import type { RunOptions, CodebuffClientOptions } from './run'
-import type { RunState } from './run-state'
+import type { RunOptions, CodebuffClientOptions, RunResult } from './run'
 
 export class CodebuffClient {
   public options: CodebuffClientOptions & {
@@ -65,7 +64,7 @@ export class CodebuffClient {
    */
   public async run(
     options: RunOptions & CodebuffClientOptions,
-  ): Promise<RunState> {
+  ): Promise<RunResult> {
     return run({ ...this.options, ...options })
   }
 

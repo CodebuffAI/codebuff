@@ -5,6 +5,7 @@ import {
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 import { WEBSITE_URL } from './constants'
 import { NetworkError } from './errors'
+import { failure, type ErrorOr } from '@codebuff/common/util/error'
 
 export interface ValidationResult {
   success: boolean
@@ -68,10 +69,12 @@ function buildValidationApiNetworkError(params: {
  * })
  * ```
  */
+export type ValidateAgentsResult = ErrorOr<ValidationResult>
+
 export async function validateAgents(
   definitions: AgentDefinition[],
   options?: ValidateAgentsOptions,
-): Promise<ValidationResult> {
+): Promise<ValidateAgentsResult> {
   // Convert array of definitions to Record<string, AgentDefinition> format
   // that the common validation functions expect
   // Use index as key to preserve all entries (including duplicates)
@@ -136,8 +139,8 @@ export async function validateAgents(
           })
         }
 
-        // For client errors (4xx), return as validation errors
-        return {
+        // For client errors (4xx), return as validation errors wrapped in ErrorOr success
+        const validationResult: ValidationResult = {
           success: false,
           validationErrors: [
             {
@@ -146,6 +149,10 @@ export async function validateAgents(
             },
           ],
           errorCount: 1,
+        }
+        return {
+          success: true,
+          value: validationResult,
         }
       }
 
@@ -159,7 +166,7 @@ export async function validateAgents(
         message,
         original: error,
       })
-      throw networkError
+      return failure(networkError)
     }
   } else {
     // Local validation: use common package validation logic
@@ -177,9 +184,14 @@ export async function validateAgents(
     message: error.message,
   }))
 
-  return {
+  const result: ValidationResult = {
     success: transformedErrors.length === 0,
     validationErrors: transformedErrors,
     errorCount: transformedErrors.length,
+  }
+
+  return {
+    success: true,
+    value: result,
   }
 }
