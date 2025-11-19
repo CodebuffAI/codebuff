@@ -9,7 +9,12 @@ export const shouldHideAgent = (agentId: string): boolean => {
 }
 
 // Agent IDs that should be collapsed by default when they start
-export const COLLAPSED_BY_DEFAULT_AGENT_IDS = ['file-picker'] as const
+export const COLLAPSED_BY_DEFAULT_AGENT_IDS = [
+  'file-picker',
+  'code-reviewer-selector',
+  'thinker-selector',
+  'best-of-n-selector',
+] as const
 
 /**
  * Check if an agent should be collapsed by default
