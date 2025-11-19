@@ -16,14 +16,9 @@ export type InputValue = {
 
 export type ChatStoreState = {
   messages: ChatMessage[]
-  streamingAgents: Set<string>
-  focusedAgentId: string | null
   inputValue: string
   cursorPosition: number
   lastEditDueToNav: boolean
-  inputFocused: boolean
-  activeSubagents: Set<string>
-  isChainInProgress: boolean
   slashSelectedIndex: number
   agentSelectedIndex: number
   agentMode: AgentMode
@@ -37,20 +32,9 @@ type ChatStoreActions = {
   setMessages: (
     value: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[]),
   ) => void
-  setStreamingAgents: (
-    value: Set<string> | ((prev: Set<string>) => Set<string>),
-  ) => void
-  setFocusedAgentId: (
-    value: string | null | ((prev: string | null) => string | null),
-  ) => void
   setInputValue: (
     value: InputValue | ((prev: InputValue) => InputValue),
   ) => void
-  setInputFocused: (focused: boolean) => void
-  setActiveSubagents: (
-    value: Set<string> | ((prev: Set<string>) => Set<string>),
-  ) => void
-  setIsChainInProgress: (active: boolean) => void
   setSlashSelectedIndex: (value: number | ((prev: number) => number)) => void
   setAgentSelectedIndex: (value: number | ((prev: number) => number)) => void
   setAgentMode: (mode: AgentMode) => void
@@ -66,14 +50,9 @@ type ChatStore = ChatStoreState & ChatStoreActions
 
 const initialState: ChatStoreState = {
   messages: [],
-  streamingAgents: new Set<string>(),
-  focusedAgentId: null,
   inputValue: '',
   cursorPosition: 0,
   lastEditDueToNav: false,
-  inputFocused: true,
-  activeSubagents: new Set<string>(),
-  isChainInProgress: false,
   slashSelectedIndex: 0,
   agentSelectedIndex: 0,
   agentMode: 'DEFAULT',
@@ -93,18 +72,6 @@ export const useChatStore = create<ChatStore>()(
           typeof value === 'function' ? value(state.messages) : value
       }),
 
-    setStreamingAgents: (value) =>
-      set((state) => {
-        state.streamingAgents =
-          typeof value === 'function' ? value(state.streamingAgents) : value
-      }),
-
-    setFocusedAgentId: (value) =>
-      set((state) => {
-        state.focusedAgentId =
-          typeof value === 'function' ? value(state.focusedAgentId) : value
-      }),
-
     setInputValue: (value) =>
       set((state) => {
         const { text, cursorPosition, lastEditDueToNav } =
@@ -118,22 +85,6 @@ export const useChatStore = create<ChatStore>()(
         state.inputValue = text
         state.cursorPosition = clamp(cursorPosition, 0, text.length)
         state.lastEditDueToNav = lastEditDueToNav
-      }),
-
-    setInputFocused: (focused) =>
-      set((state) => {
-        state.inputFocused = focused
-      }),
-
-    setActiveSubagents: (value) =>
-      set((state) => {
-        state.activeSubagents =
-          typeof value === 'function' ? value(state.activeSubagents) : value
-      }),
-
-    setIsChainInProgress: (active) =>
-      set((state) => {
-        state.isChainInProgress = active
       }),
 
     setSlashSelectedIndex: (value) =>
@@ -187,14 +138,9 @@ export const useChatStore = create<ChatStore>()(
     reset: () =>
       set((state) => {
         state.messages = initialState.messages.slice()
-        state.streamingAgents = new Set(initialState.streamingAgents)
-        state.focusedAgentId = initialState.focusedAgentId
         state.inputValue = initialState.inputValue
         state.cursorPosition = initialState.cursorPosition
         state.lastEditDueToNav = initialState.lastEditDueToNav
-        state.inputFocused = initialState.inputFocused
-        state.activeSubagents = new Set(initialState.activeSubagents)
-        state.isChainInProgress = initialState.isChainInProgress
         state.slashSelectedIndex = initialState.slashSelectedIndex
         state.agentSelectedIndex = initialState.agentSelectedIndex
         state.agentMode = initialState.agentMode

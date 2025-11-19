@@ -12,6 +12,7 @@ import {
 } from '../utils/markdown-renderer'
 import { useMessageActions } from '../contexts/message-actions-context'
 import { useChatTheme } from '../contexts/chat-theme-context'
+import { useUiStore } from '../state/ui-store'
 
 import type { ChatMessage } from '../types/chat'
 import type { ChatTheme } from '../types/theme-system'
@@ -23,7 +24,6 @@ interface MessageWithAgentsProps {
   streamingAgents: Set<string>
   messageTree: Map<string, ChatMessage[]>
   messages: ChatMessage[]
-  setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
   isWaitingForResponse: boolean
 }
 
@@ -35,7 +35,6 @@ export const MessageWithAgents = memo(
     streamingAgents,
     messageTree,
     messages,
-    setFocusedAgentId,
     isWaitingForResponse,
   }: MessageWithAgentsProps): ReactNode => {
     const { theme, markdownPalette, availableWidth, timerStartTime } = useChatTheme()
@@ -44,15 +43,14 @@ export const MessageWithAgents = memo(
     const isAgent = message.variant === 'agent'
 
     if (isAgent) {
-      return (            <AgentMessage
-              message={message}
-              depth={depth}
-              streamingAgents={streamingAgents}
-              messageTree={messageTree}
-              messages={messages}
-              setFocusedAgentId={setFocusedAgentId}
-              isWaitingForResponse={isWaitingForResponse}
+      return (            <AgentMessage            message={message}
+            depth={depth}
+            streamingAgents={streamingAgents}
+            messageTree={messageTree}
+            messages={messages}
+            isWaitingForResponse={isWaitingForResponse}
             />
+
       )
     }
 
@@ -214,7 +212,6 @@ export const MessageWithAgents = memo(
                 streamingAgents={streamingAgents}
                 messageTree={messageTree}
                 messages={messages}
-                setFocusedAgentId={setFocusedAgentId}
                 isWaitingForResponse={isWaitingForResponse}
               />
               </box>
@@ -232,7 +229,6 @@ interface AgentMessageProps {
   streamingAgents: Set<string>
   messageTree: Map<string, ChatMessage[]>
   messages: ChatMessage[]
-  setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
   isWaitingForResponse: boolean
 }
 
@@ -243,11 +239,11 @@ const AgentMessage = memo(
     streamingAgents,
     messageTree,
     messages,
-    setFocusedAgentId,
     isWaitingForResponse,
   }: AgentMessageProps): ReactNode => {
     const { theme, markdownPalette, availableWidth } = useChatTheme()
     const { onToggleCollapsed } = useMessageActions()
+    const { setFocusedAgentId } = useUiStore()
     const agentInfo = message.agent!
 
     // Get or initialize collapse state from message metadata
@@ -399,7 +395,6 @@ const AgentMessage = memo(
                   streamingAgents={streamingAgents}
                   messageTree={messageTree}
                   messages={messages}
-                  setFocusedAgentId={setFocusedAgentId}
                   isWaitingForResponse={isWaitingForResponse}
                 />
               </box>

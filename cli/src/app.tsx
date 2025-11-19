@@ -15,6 +15,7 @@ import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTheme } from './hooks/use-theme'
 import { getProjectRoot } from './project-files'
 import { useChatStore } from './state/chat-store'
+import { useUiStore } from './state/ui-store'
 import { createValidationErrorBlocks } from './utils/create-validation-error-blocks'
 import { openFileAtPath } from './utils/open-file'
 
@@ -53,12 +54,13 @@ export const App = ({
 
   const [isAgentListCollapsed, setIsAgentListCollapsed] = useState(true)
   const inputRef = useRef<MultilineInputHandle | null>(null)
-  const { setInputFocused, resetChatStore } = useChatStore(
+  const { resetChatStore } = useChatStore(
     useShallow((store) => ({
-      setInputFocused: store.setInputFocused,
       resetChatStore: store.reset,
     })),
   )
+
+  const { setInputFocused } = useUiStore()
 
   const { isAuthenticated, handleLoginSuccess, logout } = useAuthState({
     requireAuth,

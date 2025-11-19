@@ -3,7 +3,6 @@ import React from 'react'
 import { MessageWithAgents } from './message-with-agents'
 import type { ChatMessage } from '../types/chat'
 import type { ScrollBoxRenderable } from '@opentui/core'
-import type { Dispatch, SetStateAction } from 'react'
 
 interface ChatScrollAreaProps {
   scrollRef: React.MutableRefObject<ScrollBoxRenderable | null>
@@ -14,7 +13,6 @@ interface ChatScrollAreaProps {
   streamingAgents: Set<string>
   messageTree: Map<string, ChatMessage[]>
   messages: ChatMessage[]
-  setFocusedAgentId: Dispatch<SetStateAction<string | null>>
   isWaitingForResponse: boolean
 }
 
@@ -27,7 +25,6 @@ export const ChatScrollArea = ({
   streamingAgents,
   messageTree,
   messages,
-  setFocusedAgentId,
   isWaitingForResponse,
 }: ChatScrollAreaProps) => {
   return (
@@ -78,7 +75,6 @@ export const ChatScrollArea = ({
             streamingAgents={streamingAgents}
             messageTree={messageTree}
             messages={messages}
-            setFocusedAgentId={setFocusedAgentId}
             isWaitingForResponse={isWaitingForResponse}
           />
         )

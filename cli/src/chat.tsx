@@ -247,8 +247,6 @@ export const Chat = ({
     isUserCollapsing,
   )
 
-
-
   const inertialScrollAcceleration = useMemo(
     () => createChatScrollAcceleration(),
     [],
@@ -761,7 +759,6 @@ export const Chat = ({
             streamingAgents={streamingAgents}
             messageTree={messageTree}
             messages={messages}
-            setFocusedAgentId={setFocusedAgentId}
             isWaitingForResponse={isWaitingForResponse}
           />
 

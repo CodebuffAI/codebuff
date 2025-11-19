@@ -1,5 +1,98 @@
 # CLI Package Knowledge
 
+## State Management Architecture
+
+The CLI uses **Zustand stores** for all state management, with React Context reserved exclusively for passing derived values and callbacks.
+
+### Zustand Stores
+
+All application state lives in specialized Zustand stores located in `cli/src/state/`:
+
+**State Stores:**
+- **auth-store.ts** - Authentication state (`isAuthenticated`, `user`)
+- **chat-store.ts** - Main chat state (`messages`, `inputValue`, `agentMode`, etc.)
+- **queue-store.ts** - Message queue and streaming status
+- **stream-store.ts** - Streaming agents and chain progress state
+- **ui-store.ts** - UI focus state (`focusedAgentId`, `inputFocused`)
+- **feedback-store.ts** - Feedback form state
+- **login-store.ts** - Login flow state
+
+**Key Principles:**
+- Each store manages a single domain of state
+- No duplicate state across stores
+- Components use `useShallow` selector for optimal re-render performance
+- Stores use `immer` middleware for immutable updates
+
+### React Context (Non-State Only)
+
+The CLI uses React Context **only** for passing derived values and callbacks, never for state:
+
+**Context Providers:**
+- **ChatThemeProvider** (`cli/src/contexts/chat-theme-context.tsx`) - Provides derived/computed values:
+  - `theme` (from hook)
+  - `markdownPalette` (memoized from theme)
+  - `availableWidth` (terminal dimension)
+  - `timerStartTime` (timer state)
+
+- **MessageActionsProvider** (`cli/src/contexts/message-actions-context.tsx`) - Provides callback functions:
+  - `onToggleCollapsed`
+  - `onBuildFast`
+  - `onBuildMax`
+  - `onFeedback`
+  - `onCloseFeedback`
+
+**Why This Works:**
+- Contexts don't manage state (no `useState` or state updates)
+- They only pass down **read-only derived values** or **stable callback references**
+- This avoids prop drilling without the performance issues of context-based state
+
+### Architecture Guidelines
+
+**✅ Use Zustand stores for:**
+- Any state that changes over time
+- State that needs to be shared across components
+- State that triggers re-renders
+
+**✅ Use React Context for:**
+- Derived/computed values (theme, dimensions, etc.)
+- Callback functions that don't change
+- Dependency injection of non-state values
+
+**❌ Never use React Context for:**
+- Managing state with `useState`
+- State that updates frequently
+- Anything that requires `setState` calls
+
+### Example: Accessing State
+
+```tsx
+// ✅ CORRECT: Use Zustand store for state
+import { useUiStore } from '../state/ui-store'
+
+const MyComponent = () => {
+  const { focusedAgentId, setFocusedAgentId } = useUiStore()
+  // Use state directly, no prop drilling needed
+}
+
+// ✅ CORRECT: Use context for callbacks/derived values
+import { useMessageActions } from '../contexts/message-actions-context'
+import { useChatTheme } from '../contexts/chat-theme-context'
+
+const MyComponent = () => {
+  const { onToggleCollapsed } = useMessageActions()
+  const { theme, markdownPalette } = useChatTheme()
+  // Use callbacks and derived values
+}
+```
+
+### Migration Notes
+
+Previously (before refactoring), some state was duplicated in `chat-store.ts`. The refactoring removed:
+- `streamingAgents`, `activeSubagents`, `isChainInProgress` (moved to `stream-store.ts`)
+- `focusedAgentId`, `inputFocused` (moved to `ui-store.ts`)
+
+This ensures each piece of state has a single source of truth.
+
 ## Test Naming Conventions
 
 **IMPORTANT**: Follow these naming patterns for automatic dependency detection:
