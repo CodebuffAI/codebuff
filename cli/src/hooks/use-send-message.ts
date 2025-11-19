@@ -2004,20 +2004,6 @@ export const useSendMessage = ({
         const shouldRetryError =
           timedOutDueToSdk || !isConnectedRef.current || isRetryableError(error)
 
-        // Debug: Log what's triggering retry
-        if (shouldRetryError) {
-          logger.warn(
-            {
-              userMessageId,
-              errorMessage,
-              timedOutDueToSdk,
-              isConnected: isConnectedRef.current,
-              isRetryableError: isRetryableError(error),
-            },
-            '[RETRY-DEBUG] Error detected as retryable - will retry',
-          )
-        }
-
         // Only mark as interrupted and show error if NOT retrying
         // (retryable errors will be retried silently)
         if (!shouldRetryError) {
