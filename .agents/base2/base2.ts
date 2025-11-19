@@ -24,6 +24,7 @@ export function createBase2(
   const isMax = mode === 'max'
 
   const isSonnet = !withGemini
+  const isGemini = withGemini
 
   return {
     publisher,
@@ -71,8 +72,8 @@ export function createBase2(
       !withGemini && isMax && 'editor-best-of-n-gpt-5',
       !withGemini && isDefault && 'thinker-best-of-n',
       !withGemini && isMax && 'thinker-best-of-n-gpt-5',
-      isDefault && 'code-reviewer',
-      isMax && 'code-reviewer-best-of-n-gpt-5',
+      !withGemini && isDefault && 'code-reviewer',
+      !withGemini && isMax && 'code-reviewer-best-of-n-gpt-5',
       'context-pruner',
     ),
 
@@ -155,6 +156,93 @@ ${buildArray(
     `- **Don't create a summary markdown file:** The user doesn't want markdown files they didn't ask for. Don't create them.`,
   '- **Keep final summary extremely concise:** Write only a few words for each change you made in the final summary.',
 ).join('\n')}
+${
+  isGemini
+    ? `
+## Note on tool call formatting
+
+Later on, there is a more complete explanation of how to call tools.
+
+Some quick gotchas:
+
+1. **Don't include a trailing comma after the last parameter.**
+<codebuff_tool_call>
+{
+  "cb_tool_name": "tool_name",
+  "parameter_name": "value", <- Don't include a trailing comma after the last parameter.
+}
+</codebuff_tool_call>
+
+2. Don't call multiple tools in a single tool call.
+
+Don't do this:
+
+<codebuff_tool_call>
+{
+  "cb_tool_name": "tool_name_1",
+  "parameter_name_1": "value",
+  "cb_tool_name": "tool_name_2",
+  "parameter_name_2": "value",
+}
+</codebuff_tool_call>
+
+Do this:
+
+<codebuff_tool_call>
+{
+  "cb_tool_name": "tool_name_1",
+  "parameter_name_1": "value",
+}
+</codebuff_tool_call>
+
+<codebuff_tool_call>
+{
+  "cb_tool_name": "tool_name_2",
+  "parameter_name_2": "value",
+}
+</codebuff_tool_call>
+
+3. Every response message should include at least one tool call, except for your last.
+
+Don't do this:
+
+I will read some files.
+
+Do this:
+
+I will read some files:
+
+<codebuff_tool_call>
+[ Read files tool call json ]
+</codebuff_tool_call>
+
+4. Agents are not tools. Call them using the spawn_agents tool.
+
+Don't do this:
+
+<codebuff_tool_call>
+{
+  "cb_tool_name": "agent-name",
+  "prompt": "[your prompt here]",
+}
+</codebuff_tool_call>
+
+Do this:
+
+<codebuff_tool_call>
+{
+  "cb_tool_name": "spawn_agents",
+  "agents": [
+    {
+      "agent_type": "agent-name",
+      "prompt": "[your prompt here]",
+    }
+  ],
+  "cb_easp": true
+}
+</codebuff_tool_call>`
+    : ''
+}
 
 ${PLACEHOLDER.FILE_TREE_PROMPT_SMALL}
 ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}
