@@ -2,7 +2,6 @@ import { mkdirSync, readdirSync, statSync } from 'fs'
 import path from 'path'
 
 import { getConfigDir } from './utils/auth'
-import { findGitRoot } from './utils/git'
 
 let projectRoot: string | undefined
 let currentChatId: string | undefined
@@ -18,7 +17,7 @@ export function setProjectRoot(dir: string) {
 
 export function getProjectRoot() {
   if (!projectRoot) {
-    projectRoot = findGitRoot({ cwd: process.cwd() }) ?? process.cwd()
+    throw new Error('Project root not set')
   }
   return projectRoot
 }
