@@ -1,13 +1,8 @@
-import type { LineInfo } from '@opentui/core'
-
 function cursorUp(params: {
-  lineInfo: LineInfo
+  lineStarts: number[]
   cursorPosition: number
 }): number {
-  const {
-    lineInfo: { lineStarts },
-    cursorPosition,
-  } = params
+  const { lineStarts, cursorPosition } = params
   const lineIndex = lineStarts.findLastIndex((start) => start <= cursorPosition)
 
   if (lineIndex === -1 || lineIndex === 0) {
@@ -19,15 +14,11 @@ function cursorUp(params: {
 }
 
 function cursorDown(params: {
-  lineInfo: LineInfo
+  lineStarts: number[]
   cursorPosition: number
   cursorIsChar: boolean
 }): number {
-  const {
-    lineInfo: { lineStarts },
-    cursorPosition,
-    cursorIsChar,
-  } = params
+  const { lineStarts, cursorPosition, cursorIsChar } = params
   const lineIndex = lineStarts.findLastIndex((start) => start <= cursorPosition)
 
   if (lineIndex === -1 || lineIndex === lineStarts.length - 1) {
@@ -45,7 +36,7 @@ function cursorDown(params: {
 
 export function calculateNewCursorPosition(params: {
   cursorPosition: number
-  lineInfo: LineInfo
+  lineStarts: number[]
   cursorIsChar: boolean
   direction: 'up' | 'down'
 }): number {

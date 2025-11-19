@@ -5,7 +5,6 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
-  useMemo,
   useRef,
   useState,
 } from 'react'
@@ -13,16 +12,15 @@ import {
 import { InputCursor } from './input-cursor'
 import { useOpentuiPaste } from '../hooks/use-opentui-paste'
 import { useTheme } from '../hooks/use-theme'
-import { logger } from '../utils/logger'
 import { clamp } from '../utils/math'
 import { calculateNewCursorPosition } from '../utils/word-wrap-utils'
 
 import type { InputValue } from '../state/chat-store'
 import type {
   KeyEvent,
-  LineInfo,
   PasteEvent,
   ScrollBoxRenderable,
+  TextBufferView,
   TextRenderable,
 } from '@opentui/core'
 
@@ -131,11 +129,6 @@ export const MultilineInput = forwardRef<
   const scrollBoxRef = useRef<ScrollBoxRenderable | null>(null)
   const [measuredCols, setMeasuredCols] = useState<number | null>(null)
   const [lastActivity, setLastActivity] = useState(Date.now())
-  const lineInfoRef = useRef<LineInfo>({
-    lineStarts: [],
-    lineWidths: [],
-    maxLineWidth: 0,
-  })
 
   // Update last activity on value or cursor changes
   useEffect(() => {
@@ -144,19 +137,13 @@ export const MultilineInput = forwardRef<
 
   const textRef = useRef<TextRenderable | null>(null)
 
-  if (textRef.current) {
-    lineInfoRef.current = (textRef.current as any).textBufferView.lineInfo
-  }
+  const lineInfo = textRef.current
+    ? (
+        (textRef.current satisfies TextRenderable as any)
+          .textBufferView as TextBufferView
+      ).lineInfo
+    : null
 
-  const getEffectiveCols = useCallback(() => {
-    // Prefer measured viewport columns; fallback to a conservative
-    // estimate: outer width minus border(2) minus padding(2) = 4.
-    const fallbackCols = Math.max(1, width - 4)
-    const cols = measuredCols ?? fallbackCols
-    // No extra negative fudge; use the true measured width to avoid
-    // early wrap by a few characters.
-    return Math.max(1, cols)
-  }, [measuredCols, width])
   useImperativeHandle(
     forwardedRef,
     () => ({
@@ -190,12 +177,14 @@ export const MultilineInput = forwardRef<
     ),
   )
 
-  const cursorRow = Math.max(
-    0,
-    lineInfoRef.current.lineStarts.findLastIndex(
-      (lineStart) => lineStart <= cursorPosition,
-    ),
-  )
+  const cursorRow = lineInfo
+    ? Math.max(
+        0,
+        lineInfo.lineStarts.findLastIndex(
+          (lineStart) => lineStart <= cursorPosition,
+        ),
+      )
+    : 0
 
   // Auto-scroll to cursor when content changes
   useEffect(() => {
@@ -270,43 +259,32 @@ export const MultilineInput = forwardRef<
     renderCursorPosition += displayValue[i] === '\t' ? TAB_WIDTH : 1
   }
 
-  const { beforeCursor, afterCursor, activeChar, shouldHighlight } =
-    useMemo(() => {
-      if (!showCursor) {
-        return {
-          beforeCursor: '',
-          afterCursor: '',
-          activeChar: ' ',
-          shouldHighlight: false,
-        }
-      }
-
-      const beforeCursor = displayValueForRendering.slice(
-        0,
-        renderCursorPosition,
-      )
-      const afterCursor = displayValueForRendering.slice(renderCursorPosition)
-      const activeChar = afterCursor.charAt(0) || ' '
-      const shouldHighlight =
-        !isPlaceholder &&
-        renderCursorPosition < displayValueForRendering.length &&
-        displayValue[cursorPosition] !== '\n' &&
-        displayValue[cursorPosition] !== '\t'
-
+  const { beforeCursor, afterCursor, activeChar, shouldHighlight } = (() => {
+    if (!showCursor) {
       return {
-        beforeCursor,
-        afterCursor,
-        activeChar,
-        shouldHighlight,
+        beforeCursor: '',
+        afterCursor: '',
+        activeChar: ' ',
+        shouldHighlight: false,
       }
-    }, [
-      showCursor,
-      displayValueForRendering,
-      renderCursorPosition,
-      cursorPosition,
-      isPlaceholder,
-      displayValue,
-    ])
+    }
+
+    const beforeCursor = displayValueForRendering.slice(0, renderCursorPosition)
+    const afterCursor = displayValueForRendering.slice(renderCursorPosition)
+    const activeChar = afterCursor.charAt(0) || ' '
+    const shouldHighlight =
+      !isPlaceholder &&
+      renderCursorPosition < displayValueForRendering.length &&
+      displayValue[cursorPosition] !== '\n' &&
+      displayValue[cursorPosition] !== '\t'
+
+    return {
+      beforeCursor,
+      afterCursor,
+      activeChar,
+      shouldHighlight,
+    }
+  })()
 
   // Handle all keyboard input with advanced shortcuts
   useKeyboard(
@@ -701,7 +679,7 @@ export const MultilineInput = forwardRef<
             text: value,
             cursorPosition: calculateNewCursorPosition({
               cursorPosition,
-              lineInfo: lineInfoRef.current,
+              lineStarts: lineInfo?.lineStarts ?? [],
               cursorIsChar: !shouldHighlight,
               direction: 'up',
             }),
@@ -716,7 +694,7 @@ export const MultilineInput = forwardRef<
             text: value,
             cursorPosition: calculateNewCursorPosition({
               cursorPosition,
-              lineInfo: lineInfoRef.current,
+              lineStarts: lineInfo?.lineStarts ?? [],
               cursorIsChar: !shouldHighlight,
               direction: 'down',
             }),
@@ -758,7 +736,7 @@ export const MultilineInput = forwardRef<
         value,
         cursorPosition,
         shouldHighlight,
-        lineInfoRef.current,
+        lineInfo,
         onChange,
         onSubmit,
         onKeyIntercept,
@@ -768,12 +746,12 @@ export const MultilineInput = forwardRef<
     ),
   )
 
-  const layoutMetrics = useMemo(() => {
+  const layoutMetrics = (() => {
     const safeMaxHeight = Math.max(1, maxHeight)
     const effectiveMinHeight = Math.max(1, Math.min(minHeight, safeMaxHeight))
 
     const totalLines =
-      measuredCols === 0 ? 0 : lineInfoRef.current.lineStarts.length
+      measuredCols === 0 || lineInfo === null ? 0 : lineInfo.lineStarts.length
 
     // Add bottom gutter when cursor is on line 2 of exactly 2 lines
     const gutterEnabled =
@@ -790,7 +768,7 @@ export const MultilineInput = forwardRef<
       heightLines,
       gutterEnabled,
     }
-  }, [maxHeight, minHeight, lineInfoRef.current, cursorRow])
+  })()
 
   const inputColor = isPlaceholder
     ? theme.muted
