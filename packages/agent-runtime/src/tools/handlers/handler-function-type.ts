@@ -30,6 +30,7 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     repoUrl: string | undefined
     repoId: string | undefined
     fileContext: ProjectFileContext
+    apiKey: string
 
     signal: AbortSignal
 

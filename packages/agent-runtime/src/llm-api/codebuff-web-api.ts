@@ -1,6 +1,5 @@
 import { withTimeout } from '@codebuff/common/util/promise'
 import { env } from '@codebuff/common/env'
-
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const FETCH_TIMEOUT_MS = 30_000
@@ -68,7 +67,8 @@ export async function callWebSearchAPI(params: {
     if (data && typeof data.result === 'string') {
       return {
         result: data.result,
-        creditsUsed: typeof data.creditsUsed === 'number' ? data.creditsUsed : undefined,
+        creditsUsed:
+          typeof data.creditsUsed === 'number' ? data.creditsUsed : undefined,
       }
     }
     if (data && typeof data.error === 'string') return { error: data.error }
@@ -154,7 +154,8 @@ export async function callDocsSearchAPI(params: {
     if (data && typeof data.documentation === 'string') {
       return {
         documentation: data.documentation,
-        creditsUsed: typeof data.creditsUsed === 'number' ? data.creditsUsed : undefined,
+        creditsUsed:
+          typeof data.creditsUsed === 'number' ? data.creditsUsed : undefined,
       }
     }
     if (data && typeof data.error === 'string') return { error: data.error }

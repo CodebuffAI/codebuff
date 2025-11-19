@@ -12,6 +12,7 @@ export const handleWebSearch = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'web_search'>
   logger: Logger
+  apiKey: string
 
   agentStepId: string
   clientSessionId: string
@@ -36,6 +37,7 @@ export const handleWebSearch = ((params: {
     repoUrl,
     state,
     fetch,
+    apiKey
   } = params
   const { query, depth } = toolCall.input
   const { userId, fingerprintId, repoId } = state
@@ -63,6 +65,7 @@ export const handleWebSearch = ((params: {
           repoUrl: repoUrl ?? null,
           fetch,
           logger,
+          apiKey
         })
 
         if (webApi.error) {
