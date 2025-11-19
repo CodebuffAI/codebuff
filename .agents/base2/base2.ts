@@ -71,7 +71,8 @@ export function createBase2(
       !withGemini && isMax && 'editor-best-of-n-gpt-5',
       !withGemini && isDefault && 'thinker-best-of-n',
       !withGemini && isMax && 'thinker-best-of-n-gpt-5',
-      (isDefault || isMax) && 'code-reviewer',
+      isDefault && 'code-reviewer',
+      isMax && 'code-reviewer-best-of-n-gpt-5',
       'context-pruner',
     ),
 
@@ -125,6 +126,8 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
       '- Spawn the thinker-best-of-n-gpt-5 after gathering context to solve complex problems.',
     `- Spawn a ${isMax ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
     '- Spawn commanders sequentially if the second command depends on the the first.',
+    !isFast &&
+      `- Spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-best-of-n-gpt-5'} to review the changes after you have implemented the changes.`,
   ).join('\n  ')}
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 
@@ -229,7 +232,7 @@ ${buildArray(
   !isFast &&
     `- Important: Read as many files as could possibly be relevant to the task over several steps to improve your understanding of the user's request and produce the best possible code changes. Find more examples within the codebase similar to the user's request, dependencies that help with understanding how things work, tests, etc. This is frequently 12-20 files, depending on the task.`,
   !isFast &&
-    `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} Skip write_todos for simple tasks like quick edits or answering questions.`,
+    `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} Skip write_todos for simple tasks like quick edits or answering questions.`,
   isFast &&
     '- Implement the changes in one go. Pause after making all the changes to see the tool results of your edits.',
   isFast &&
@@ -237,7 +240,7 @@ ${buildArray(
   !isFast &&
     `- IMPORTANT: You must spawn the ${isMax ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious.`,
   !isFast &&
-    '- Spawn a code-reviewer to review the changes after you have implemented the changes. (Skip this step only if the change is extremely straightforward and obvious.)',
+    `- Spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-best-of-n-gpt-5'} to review the changes after you have implemented the changes. (Skip this step only if the change is extremely straightforward and obvious.)`,
   !hasNoValidation &&
     `- Test your changes${isMax ? '' : ' briefly'} by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.).${isMax ? ' Start by type checking the specific area of the project that you are editing and then test the entire project if necessary.' : ' If you can, only typecheck/test the area of the project that you are editing, rather than the entire project.'} You may have to explore the project to find the appropriate commands. Don't skip this step!`,
   `- Inform the user that you have completed the task in one sentence or a few short bullet points.${isSonnet ? " Don't create any markdown summary files or example documentation files, unless asked by the user." : ''}`,
