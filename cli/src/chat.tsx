@@ -83,8 +83,8 @@ export const Chat = ({
   continueChatId?: string
 }) => {
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
-  const [showScrollbar, setShowScrollbar] = useState(false)
-  const hasShownScrollbarRef = useRef(false)
+  const [hasOverflow, setHasOverflow] = useState(false)
+  const hasOverflowRef = useRef(false)
 
   const { separatorWidth, terminalWidth, terminalHeight } =
     useTerminalDimensions()
@@ -324,6 +324,32 @@ export const Chat = ({
     messages,
     isUserCollapsing,
   )
+
+  // Check if content has overflowed and needs scrolling
+  useEffect(() => {
+    const scrollbox = scrollRef.current
+    if (!scrollbox) return
+
+    const checkOverflow = () => {
+      const contentHeight = scrollbox.scrollHeight
+      const viewportHeight = scrollbox.viewport.height
+      const isOverflowing = contentHeight > viewportHeight
+      
+      // Only update state if overflow status actually changed
+      if (hasOverflowRef.current !== isOverflowing) {
+        hasOverflowRef.current = isOverflowing
+        setHasOverflow(isOverflowing)
+      }
+    }
+
+    // Check initially and whenever scroll state changes
+    checkOverflow()
+    scrollbox.verticalScrollBar.on('change', checkOverflow)
+
+    return () => {
+      scrollbox.verticalScrollBar.off('change', checkOverflow)
+    }
+  }, [])
 
 
 
@@ -586,12 +612,6 @@ export const Chat = ({
   const handleSubmit = useCallback(async () => {
     ensureQueueActiveBeforeSubmit()
 
-    // Show scrollbar on first message
-    if (!hasShownScrollbarRef.current) {
-      hasShownScrollbarRef.current = true
-      setShowScrollbar(true)
-    }
-
     const result = await routeUserPrompt({
       abortControllerRef,
       agentMode,
@@ -809,7 +829,7 @@ export const Chat = ({
         stickyStart="bottom"
         scrollX={false}
         scrollbarOptions={{ visible: false }}
-        verticalScrollbarOptions={{ visible: showScrollbar, trackOptions: { width: 1 } }}
+        verticalScrollbarOptions={{ visible: !isStreaming && hasOverflow, trackOptions: { width: 1 } }}
         {...appliedScrollboxProps}
         style={{
           flexGrow: 1,
