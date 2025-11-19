@@ -44,8 +44,13 @@ export {
 export type { ValidationResult, ValidateAgentsOptions } from './validate-agents'
 
 // ErrorOr utilities
-export { failureWithCode, type SdkErrorObject } from './error-or'
-export type { ErrorOr, Success, Failure } from '@codebuff/common/util/error'
+export {
+  failureWithCode,
+  type ExtendedErrorObject,
+  type ErrorOr,
+  type Success,
+  type Failure,
+} from '@codebuff/common/util/error'
 
 export type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
