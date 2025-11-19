@@ -21,6 +21,94 @@
 
 Use tmux to test CLI behavior in a controlled, scriptable way. This is especially useful for testing UI updates, authentication flows, and time-dependent behavior.
 
+### Local Development End-to-End Testing
+
+**Running the Local CLI Build**
+
+Always test using the local development build to validate your changes:
+
+```bash
+# From the project root, navigate to cli directory
+cd cli
+
+# Run the local development version with a test query
+bun run dev "your test query here"
+```
+
+**Comprehensive E2E Testing in tmux**
+
+For full end-to-end validation that tests UI rendering, agent output, and interactions:
+
+```bash
+# Test basic file listing (read-only, safe)
+tmux new-session -d -s cli-test 'cd cli && bun run dev "list files in src/components"' && \
+  sleep 15 && \
+  tmux capture-pane -t cli-test -p -S -100 | tail -60 && \
+  tmux kill-session -t cli-test
+
+# Test code search functionality
+tmux new-session -d -s cli-search 'cd cli && bun run dev "find uses of useChatTheme"' && \
+  sleep 18 && \
+  tmux capture-pane -t cli-search -p -S -100 | tail -60 && \
+  tmux kill-session -t cli-search
+
+# Test with explanation query
+tmux new-session -d -s cli-explain 'cd cli && bun run dev "explain the ChatThemeProvider"' && \
+  sleep 18 && \
+  tmux capture-pane -t cli-explain -p -S -100 | tail -50 && \
+  tmux kill-session -t cli-explain
+
+# Interactive session for manual testing
+tmux new-session -s cli-interactive 'cd cli && bun run dev'
+# Use Ctrl+B then D to detach
+# Use tmux attach -t cli-interactive to reattach
+# Use tmux kill-session -t cli-interactive when done
+```
+
+**Recommended Test Queries (Non-Destructive)**
+
+```bash
+# Safe queries for validation:
+"list the main components in src/components"
+"what files are in the hooks directory?"
+"explain the purpose of MessageActionsProvider"
+"find all uses of useMessageActions"
+"what is the ChatThemeProvider used for?"
+"show me the keyboard handlers"
+```
+
+**Pre-Deployment Validation Checklist**
+
+After major refactorings or changes, run this full validation:
+
+```bash
+# 1. Typecheck
+cd cli && bun run typecheck
+
+# 2. Run test suite
+bun test
+
+# 3. Build for production
+bun run build
+
+# 4. Verify build artifacts
+ls -lh dist/index.js
+
+# 5. E2E test with multiple query types (see tmux commands above)
+
+# 6. Verify UI elements:
+#    - Borders render correctly
+#    - Status indicators show ("working...", elapsed time)
+#    - Agent output displays properly
+#    - Input prompt appears at bottom
+#    - Mode indicator (DEFAULT/MAX/etc) shows
+
+# 7. Test keyboard interactions:
+#    - Up/Down arrow for history navigation
+#    - Shift+Tab for mode toggle
+#    - Escape to exit/cancel
+```
+
 ### Basic Pattern
 
 ```bash
