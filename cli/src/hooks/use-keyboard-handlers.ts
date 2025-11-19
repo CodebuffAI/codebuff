@@ -1,6 +1,8 @@
 import { useKeyboard } from '@opentui/react'
 import { useCallback } from 'react'
 
+import type { KeyEvent } from '@opentui/core'
+
 type InputHandle = { focus: () => void }
 
 interface KeyboardHandlersConfig {
@@ -21,6 +23,12 @@ interface KeyboardHandlersConfig {
   disabled?: boolean
 }
 
+const preventDefault = (key: KeyEvent) => {
+  if ('preventDefault' in key && typeof key.preventDefault === 'function') {
+    key.preventDefault()
+  }
+}
+
 export const useKeyboardHandlers = ({
   isStreaming,
   isWaitingForResponse,
@@ -38,162 +46,96 @@ export const useKeyboardHandlers = ({
   historyNavDownEnabled,
   disabled = false,
 }: KeyboardHandlersConfig) => {
-  useKeyboard(
-    useCallback(
-      (key) => {
-        if (disabled) return
+  const handleKeyboard = useCallback(
+    (key: KeyEvent) => {
+      if (disabled) return
 
-        const isEscape = key.name === 'escape'
-        const isCtrlC = key.ctrl && key.name === 'c'
+      const isEscape = key.name === 'escape'
+      const isCtrlC = key.ctrl && key.name === 'c'
+      const isUpArrow = key.name === 'up' && !key.ctrl && !key.meta && !key.shift
+      const isDownArrow = key.name === 'down' && !key.ctrl && !key.meta && !key.shift
+      const isShiftTab = key.shift && key.name === 'tab' && !key.ctrl && !key.meta
+      const isSpace = key.name === 'space' && !key.ctrl && !key.meta && !key.shift
+      const isEnter = (key.name === 'return' || key.name === 'enter') && !key.ctrl && !key.meta && !key.shift
+      const isRightArrow = key.name === 'right' && !key.ctrl && !key.meta && !key.shift
+      const isLeftArrow = key.name === 'left' && !key.ctrl && !key.meta && !key.shift
 
-        if ((isEscape || isCtrlC) && (isStreaming || isWaitingForResponse)) {
-          if (
-            'preventDefault' in key &&
-            typeof key.preventDefault === 'function'
-          ) {
-            key.preventDefault()
-          }
-
-          if (abortControllerRef.current) {
-            abortControllerRef.current.abort()
-          }
-          onInterrupt()
-
-          return
+      // Handle escape/ctrl+c during streaming
+      if ((isEscape || isCtrlC) && (isStreaming || isWaitingForResponse)) {
+        preventDefault(key)
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort()
         }
+        onInterrupt()
+        return
+      }
 
-        if (isCtrlC) {
-          const shouldPrevent = onCtrlC()
-          if (
-            shouldPrevent &&
-            'preventDefault' in key &&
-            typeof key.preventDefault === 'function'
-          ) {
-            key.preventDefault()
-          }
-        }
-      },
-      [
-        isStreaming,
-        isWaitingForResponse,
-        abortControllerRef,
-        onCtrlC,
-        onInterrupt,
-        disabled,
-      ],
-    ),
-  )
-
-  useKeyboard(
-    useCallback(
-      (key) => {
-        if (disabled) return
-        if (!focusedAgentId) return
-
-        const isSpace =
-          key.name === 'space' && !key.ctrl && !key.meta && !key.shift
-        const isEnter =
-          (key.name === 'return' || key.name === 'enter') &&
-          !key.ctrl &&
-          !key.meta &&
-          !key.shift
-        const isRightArrow =
-          key.name === 'right' && !key.ctrl && !key.meta && !key.shift
-        const isLeftArrow =
-          key.name === 'left' && !key.ctrl && !key.meta && !key.shift
-
-        if (!isSpace && !isEnter && !isRightArrow && !isLeftArrow) return
-
-        if (
-          'preventDefault' in key &&
-          typeof key.preventDefault === 'function'
-        ) {
-          key.preventDefault()
+      // Handle ctrl+c for exit
+      if (isCtrlC) {
+        const shouldPrevent = onCtrlC()
+        if (shouldPrevent) {
+          preventDefault(key)
         }
         return
-      },
-      [focusedAgentId, disabled],
-    ),
-  )
+      }
 
-  useKeyboard(
-    useCallback(
-      (key) => {
-        if (disabled) return
-        if (key.name === 'escape' && focusedAgentId) {
-          if (
-            'preventDefault' in key &&
-            typeof key.preventDefault === 'function'
-          ) {
-            key.preventDefault()
-          }
-          setFocusedAgentId(null)
-          setInputFocused(true)
-          inputRef.current?.focus()
-        }
-      },
-      [focusedAgentId, setFocusedAgentId, setInputFocused, inputRef, disabled],
-    ),
-  )
+      // Handle escape to unfocus agent
+      if (isEscape && focusedAgentId) {
+        preventDefault(key)
+        setFocusedAgentId(null)
+        setInputFocused(true)
+        inputRef.current?.focus()
+        return
+      }
 
-  // Handle chat history navigation
-  useKeyboard(
-    useCallback(
-      (key) => {
-        if (disabled) return
+      // Prevent default actions when agent is focused
+      if (focusedAgentId && (isSpace || isEnter || isRightArrow || isLeftArrow)) {
+        preventDefault(key)
+        return
+      }
 
-        const isUpArrow =
-          key.name === 'up' && !key.ctrl && !key.meta && !key.shift
-        const isDownArrow =
-          key.name === 'down' && !key.ctrl && !key.meta && !key.shift
-
-        if (!isUpArrow && !isDownArrow) return
-
-        if (
-          'preventDefault' in key &&
-          typeof key.preventDefault === 'function'
-        ) {
-          key.preventDefault()
-        }
-
-        if (isUpArrow) {
-          if (!historyNavUpEnabled) return
+      // Handle history navigation (up/down arrows)
+      if (isUpArrow) {
+        if (historyNavUpEnabled) {
+          preventDefault(key)
           navigateUp()
-        } else {
-          if (!historyNavDownEnabled) return
+        }
+        return
+      }
+
+      if (isDownArrow) {
+        if (historyNavDownEnabled) {
+          preventDefault(key)
           navigateDown()
         }
-      },
-      [
-        historyNavUpEnabled,
-        historyNavDownEnabled,
-        navigateUp,
-        navigateDown,
-        disabled,
-      ],
-    ),
-  )
+        return
+      }
 
-  useKeyboard(
-    useCallback(
-      (key) => {
-        if (disabled) return
-
-        const isShiftTab =
-          key.shift && key.name === 'tab' && !key.ctrl && !key.meta
-
-        if (!isShiftTab) return
-
-        if (
-          'preventDefault' in key &&
-          typeof key.preventDefault === 'function'
-        ) {
-          key.preventDefault()
-        }
-
+      // Handle shift+tab for mode toggle
+      if (isShiftTab) {
+        preventDefault(key)
         toggleAgentMode()
-      },
-      [toggleAgentMode, disabled],
-    ),
+        return
+      }
+    },
+    [
+      disabled,
+      isStreaming,
+      isWaitingForResponse,
+      abortControllerRef,
+      onInterrupt,
+      onCtrlC,
+      focusedAgentId,
+      setFocusedAgentId,
+      setInputFocused,
+      inputRef,
+      historyNavUpEnabled,
+      historyNavDownEnabled,
+      navigateUp,
+      navigateDown,
+      toggleAgentMode,
+    ],
   )
+
+  useKeyboard(handleKeyboard)
 }
