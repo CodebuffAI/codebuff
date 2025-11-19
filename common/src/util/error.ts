@@ -76,22 +76,27 @@ export type ExtendedErrorObject = ErrorObject & {
 export function failureWithCode(error: unknown): Failure<ExtendedErrorObject> {
   if (error instanceof Error) {
     const base = getErrorObject(error)
-    const anyErr = error as any
-
     const enriched: ExtendedErrorObject = {
       ...base,
     }
 
-    if (typeof anyErr.code === 'string') {
-      enriched.code = anyErr.code
+    // Safely extract code, status, and originalError if present
+    const errorWithMetadata = error as Error & {
+      code?: string
+      status?: number
+      originalError?: unknown
     }
 
-    if (typeof anyErr.status === 'number') {
-      enriched.status = anyErr.status
+    if (typeof errorWithMetadata.code === 'string') {
+      enriched.code = errorWithMetadata.code
     }
 
-    if ('originalError' in anyErr) {
-      enriched.originalError = anyErr.originalError
+    if (typeof errorWithMetadata.status === 'number') {
+      enriched.status = errorWithMetadata.status
+    }
+
+    if ('originalError' in errorWithMetadata) {
+      enriched.originalError = errorWithMetadata.originalError
     }
 
     return {

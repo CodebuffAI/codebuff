@@ -206,7 +206,13 @@ export async function processStreamWithTools(
       onResponseChunk(chunk.text)
       fullResponseChunks.push(chunk.text)
     } else if (chunk.type === 'error') {
-      onResponseChunk(chunk)
+      // Ensure error has a code field
+      const code = 'code' in chunk && typeof chunk.code === 'string' ? chunk.code : 'INTERNAL_ERROR'
+      onResponseChunk({
+        type: 'error',
+        message: chunk.message,
+        code,
+      })
     } else {
       chunk satisfies never
     }

@@ -3,6 +3,20 @@
  */
 
 /**
+ * Standard error codes used throughout the SDK
+ */
+export const ErrorCodes = {
+  AUTH_FAILED: 'AUTH_FAILED',
+  NETWORK_ERROR: 'NETWORK_ERROR',
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+  INVALID_RESPONSE: 'INVALID_RESPONSE',
+  USER_NOT_FOUND: 'USER_NOT_FOUND',
+} as const
+
+export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes]
+
+/**
  * Sanitizes error messages by removing unhelpful system messages
  */
 function sanitizeErrorMessage(message: string): string {

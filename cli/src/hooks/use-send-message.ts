@@ -1204,7 +1204,7 @@ export const useSendMessage = ({
             // Handle error events from SDK
             if (event.type === 'error') {
               logger.error(
-                { errorMessage: event.message },
+                { errorMessage: event.message, code: event.code },
                 'SDK error event received',
               )
               currentRunContextRef.current = null
@@ -1239,14 +1239,8 @@ export const useSendMessage = ({
               )
 
               // Track failed messages for batch retry on reconnection (avoids state update cascade)
-              const errorMsg = event.message || ''
               const isConnectionError =
-                !isConnectedRef.current ||
-                (typeof errorMsg === 'string' &&
-                  (errorMsg.includes('Failed to start agent run') ||
-                    errorMsg.includes('Unable to connect') ||
-                    errorMsg.includes('network') ||
-                    errorMsg.includes('fetch failed')))
+                !isConnectedRef.current || event.code === 'NETWORK_ERROR'
 
               if (isConnectionError && userMessageId && content && agentMode) {
                 failedDueToConnectionRef.current[userMessageId] = {
@@ -1917,25 +1911,9 @@ export const useSendMessage = ({
 
           logger.warn({ errorMessage }, 'Agent run failed')
 
-          // Track failed messages for batch retry on reconnection (avoids state update cascade)
-          const isConnectionError =
-            !isConnectedRef.current ||
-            (typeof errorMessage === 'string' &&
-              (errorMessage.includes('Unable to connect') ||
-                errorMessage.includes('network') ||
-                errorMessage.includes('fetch failed') ||
-                errorMessage.includes('connection')))
-
-          if (isConnectionError && userMessageId && content && agentMode) {
-            logger.info(
-              { userMessageId },
-              '[RUNSTATE-ERROR] Tracking message for retry on reconnection',
-            )
-            failedDueToConnectionRef.current[userMessageId] = {
-              content,
-              agentMode,
-            }
-          }
+          // Note: Connection errors should be caught as thrown NetworkError exceptions
+          // in the catch block below, not through runState.output.type === 'error'.
+          // If we get here with an error output, it's likely a non-retryable error.
 
           return
         }

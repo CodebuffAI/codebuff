@@ -12,6 +12,8 @@ export type PrintModeStart = z.infer<typeof printModeStartSchema>
 export const printModeErrorSchema = z.object({
   type: z.literal('error'),
   message: z.string(),
+  // Machine-readable error code for consistent error handling
+  code: z.string(),
 })
 export type PrintModeError = z.infer<typeof printModeErrorSchema>
 

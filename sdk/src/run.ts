@@ -20,7 +20,7 @@ import { glob } from './tools/glob'
 import { listDirectory } from './tools/list-directory'
 import { getFiles } from './tools/read-files'
 import { runTerminalCommand } from './tools/run-terminal-command'
-import { NetworkError } from './errors'
+import { NetworkError, ErrorCodes } from './errors'
 
 import type { CustomToolDefinition } from './custom-tool'
 import type { RunState } from './run-state'
@@ -245,9 +245,9 @@ export async function run({
     return getCancelledRunState()
   }
 
-  async function onError(error: { message: string }) {
+  async function onError(error: { message: string; code: string }) {
     if (handleEvent) {
-      await handleEvent({ type: 'error', message: error.message })
+      await handleEvent({ type: 'error', message: error.message, code: error.code })
     }
   }
 
@@ -435,7 +435,7 @@ export async function run({
     },
     sendAction: ({ action }) => {
       if (action.type === 'action-error') {
-        onError({ message: action.message })
+        onError({ message: action.message, code: ErrorCodes.INTERNAL_ERROR })
         return
       }
       if (action.type === 'response-chunk') {
@@ -497,7 +497,7 @@ export async function run({
   if (!userInfoResult.success) {
     const err = userInfoResult.error
     const errorMessage = err.message || 'Failed to resolve user information from API key'
-    await onError({ message: errorMessage })
+    await onError({ message: errorMessage, code: err.code ?? ErrorCodes.INTERNAL_ERROR })
     clearStreamTimeout()
     return getCancelledRunState(errorMessage)
   }
@@ -505,7 +505,7 @@ export async function run({
   const userInfo = userInfoResult.value
   if (!userInfo) {
     const errorMessage = 'Invalid API key or user not found'
-    await onError({ message: errorMessage })
+    await onError({ message: errorMessage, code: ErrorCodes.USER_NOT_FOUND })
     clearStreamTimeout()
     return getCancelledRunState(errorMessage)
   }
@@ -538,7 +538,7 @@ export async function run({
         return
       }
       const errorMessage = error.message || String(error)
-      await onError({ message: errorMessage })
+      await onError({ message: errorMessage, code: ErrorCodes.NETWORK_ERROR })
       settleResolve(getCancelledRunState(errorMessage))
     })
   } catch (error) {
@@ -698,11 +698,11 @@ async function handlePromptResponse({
 }: {
   action: ServerAction<'prompt-response'> | ServerAction<'prompt-error'>
   resolve: (value: RunReturnType) => any
-  onError: (error: { message: string }) => void
+  onError: (error: { message: string; code: string }) => void
   initialSessionState: SessionState
 }) {
   if (action.type === 'prompt-error') {
-    onError({ message: action.message })
+    onError({ message: action.message, code: ErrorCodes.INTERNAL_ERROR })
     resolve({
       sessionState: initialSessionState,
       output: {
@@ -720,7 +720,7 @@ async function handlePromptResponse({
         JSON.stringify(parsedOutput.error.issues),
         'If this issues persists, please contact support@codebuff.com',
       ].join('\n')
-      onError({ message })
+      onError({ message, code: ErrorCodes.INVALID_RESPONSE })
       resolve({
         sessionState: initialSessionState,
         output: {
@@ -744,6 +744,7 @@ async function handlePromptResponse({
     action satisfies never
     onError({
       message: 'Internal error: prompt response type not handled',
+      code: ErrorCodes.INTERNAL_ERROR,
     })
     resolve({
       sessionState: initialSessionState,

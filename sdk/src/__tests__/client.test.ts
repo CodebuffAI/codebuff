@@ -148,7 +148,7 @@ describe('CodebuffClient', () => {
       // Trigger the default error handler
       const defaultHandler = client.options.handleEvent
       if (defaultHandler) {
-        defaultHandler({ type: 'error', message: 'Test error' })
+        defaultHandler({ type: 'error', message: 'Test error', code: 'TEST_ERROR' })
       }
 
       expect(consoleErrorSpy).toHaveBeenCalledTimes(2) // Error message + tip
@@ -199,7 +199,7 @@ describe('CodebuffClient', () => {
 
       // Trigger the handler
       if (client.options.handleEvent) {
-        client.options.handleEvent({ type: 'error', message: 'Test' })
+        client.options.handleEvent({ type: 'error', message: 'Test', code: 'TEST_ERROR' })
       }
 
       // Custom handler should be called, not console.error
@@ -216,7 +216,7 @@ describe('CodebuffClient', () => {
 
       const defaultHandler = client.options.handleEvent
       if (defaultHandler) {
-        defaultHandler({ type: 'error', message: 'Connection failed' })
+        defaultHandler({ type: 'error', message: 'Connection failed', code: 'NETWORK_ERROR' })
       }
 
       const calls = consoleErrorSpy.mock.calls

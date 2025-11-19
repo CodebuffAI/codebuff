@@ -110,6 +110,7 @@ export async function* processStreamWithTags(params: {
       onResponseChunk({
         type: 'error',
         message: errorMessage,
+        code: 'VALIDATION_ERROR',
       })
       onError('parse_error', errorMessage)
       return
