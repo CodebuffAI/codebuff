@@ -539,6 +539,10 @@ export const Chat = ({
     separatorWidth,
     initialPrompt,
     sendMessageRef,
+    isChainInProgressRef,
+    streamMessageIdRef,
+    isStreaming,
+    addToQueue,
   })
 
   const {
