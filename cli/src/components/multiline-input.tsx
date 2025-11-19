@@ -10,7 +10,6 @@ import {
 } from 'react'
 
 import { InputCursor } from './input-cursor'
-import { useOpentuiPaste } from '../hooks/use-opentui-paste'
 import { useTheme } from '../hooks/use-theme'
 import { clamp } from '../utils/math'
 import { calculateNewCursorPosition } from '../utils/word-wrap-utils'
@@ -157,24 +156,22 @@ export const MultilineInput = forwardRef<
     [],
   )
 
-  useOpentuiPaste(
-    useCallback(
-      (event: PasteEvent) => {
-        if (!focused) return
+  const handlePaste = useCallback(
+    (event: PasteEvent) => {
+      if (!focused) return
 
-        const text = event.text ?? ''
-        if (!text) return
+      const text = event.text ?? ''
+      if (!text) return
 
-        const newValue =
-          value.slice(0, cursorPosition) + text + value.slice(cursorPosition)
-        onChange({
-          text: newValue,
-          cursorPosition: cursorPosition + text.length,
-          lastEditDueToNav: false,
-        })
-      },
-      [focused, value, cursorPosition, onChange],
-    ),
+      const newValue =
+        value.slice(0, cursorPosition) + text + value.slice(cursorPosition)
+      onChange({
+        text: newValue,
+        cursorPosition: cursorPosition + text.length,
+        lastEditDueToNav: false,
+      })
+    },
+    [focused, value, cursorPosition, onChange],
   )
 
   const cursorRow = lineInfo
@@ -785,6 +782,7 @@ export const MultilineInput = forwardRef<
       stickyScroll={true}
       stickyStart="bottom"
       scrollbarOptions={{ visible: false }}
+      onPaste={handlePaste}
       style={{
         flexGrow: 0,
         flexShrink: 0,
