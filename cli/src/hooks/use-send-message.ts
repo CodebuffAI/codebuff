@@ -531,7 +531,7 @@ export const useSendMessage = ({
       setInputFocused(true)
       inputRef.current?.focus()
 
-      const client = getCodebuffClient()
+      const client = await getCodebuffClient()
 
       if (!client) {
         logger.error(

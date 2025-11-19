@@ -53,7 +53,7 @@ export const useConnectionStatus = () => {
     }
 
     const checkConnection = async () => {
-      const client = getCodebuffClient()
+      const client = await getCodebuffClient()
       if (!client) {
         if (isMounted) {
           setIsConnected(false)

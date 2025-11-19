@@ -5,6 +5,7 @@ import { getAuthTokenDetails } from './auth'
 import { loadAgentDefinitions } from './load-agent-definitions'
 import { logger } from './logger'
 import { getProjectRoot } from '../project-files'
+import { getRgPath } from '../native/ripgrep'
 
 let clientInstance: CodebuffClient | null = null
 
@@ -16,7 +17,7 @@ export function resetCodebuffClient(): void {
   clientInstance = null
 }
 
-export function getCodebuffClient(): CodebuffClient | null {
+export async function getCodebuffClient(): Promise<CodebuffClient | null> {
   if (!clientInstance) {
     const { token: apiKey, source } = getAuthTokenDetails()
 
@@ -29,6 +30,17 @@ export function getCodebuffClient(): CodebuffClient | null {
     }
 
     const projectRoot = getProjectRoot()
+
+    // Set up ripgrep path for SDK to use
+    if (process.env.CODEBUFF_IS_BINARY) {
+      try {
+        const rgPath = await getRgPath()
+        process.env.CODEBUFF_RG_PATH = rgPath
+      } catch (error) {
+        logger.error(error, 'Failed to set up ripgrep binary for SDK')
+      }
+    }
+
     try {
       const agentDefinitions = loadAgentDefinitions()
       clientInstance = new CodebuffClient({
