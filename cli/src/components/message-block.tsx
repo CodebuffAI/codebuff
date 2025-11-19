@@ -229,7 +229,7 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
   }
 
   return (
-    <>
+    <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
       {isUser && (
         <text
           attributes={TextAttributes.DIM}
@@ -279,7 +279,7 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
           {renderCompletionFooter()}
         </>
       )}
-    </>
+    </box>
   )
 })
 
