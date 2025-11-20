@@ -66,15 +66,18 @@ interface EditBodyProps {
   name: string
   filePath: string | null
   diffText: string
+  isCreate: boolean
 }
 
-const EditBody = ({ name, filePath, diffText }: EditBodyProps) => {
+const EditBody = ({ name, filePath, diffText, isCreate }: EditBodyProps) => {
   return (
     <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
       <EditHeader name={name} filePath={filePath} />
-      <box style={{ paddingLeft: 2, width: '100%' }}>
-        <DiffViewer diffText={diffText} />
-      </box>
+      {!isCreate && (
+        <box style={{ paddingLeft: 2, width: '100%' }}>
+          <DiffViewer diffText={diffText} />
+        </box>
+      )}
     </box>
   )
 }
@@ -93,10 +96,17 @@ export const StrReplaceComponent = defineToolComponent({
       (typeof (toolBlock.input as any)?.path === 'string'
         ? (toolBlock.input as any).path
         : null)
+    const message = extractValueForKey(outputStr, 'message')
+    const isCreate = message === 'Created new file'
 
     return {
       content: (
-        <EditBody name="Edit" filePath={filePath} diffText={diff ?? ''} />
+        <EditBody
+          name={isCreate ? 'Create' : 'Edit'}
+          filePath={filePath}
+          diffText={diff ?? ''}
+          isCreate={isCreate}
+        />
       ),
     }
   },
