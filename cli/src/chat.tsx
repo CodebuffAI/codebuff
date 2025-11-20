@@ -46,7 +46,7 @@ import type { ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
 import type { User } from './utils/auth'
 import type { FileTreeNode } from '@codebuff/common/util/file'
-import type { ScrollBoxRenderable } from '@opentui/core'
+import type { KeyEvent, ScrollBoxRenderable } from '@opentui/core'
 import type { UseMutationResult } from '@tanstack/react-query'
 import type { Dispatch, SetStateAction } from 'react'
 
@@ -91,9 +91,11 @@ export const Chat = ({
 
   const [showReconnectionMessage, setShowReconnectionMessage] = useState(false)
   const reconnectionTimeout = useTimeout()
+  const [forceFileOnlyMentions, setForceFileOnlyMentions] = useState(false)
 
   const { separatorWidth, terminalWidth, terminalHeight } =
     useTerminalDimensions()
+  const messageAvailableWidth = separatorWidth
 
   const theme = useTheme()
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
@@ -408,12 +410,19 @@ export const Chat = ({
     agentSuggestionItems,
     fileSuggestionItems,
   } = useSuggestionEngine({
+    disableAgentSuggestions: forceFileOnlyMentions,
     inputValue,
     cursorPosition,
     slashCommands: SLASH_COMMANDS,
     localAgents,
     fileTree,
   })
+
+  useEffect(() => {
+    if (!mentionContext.active) {
+      setForceFileOnlyMentions(false)
+    }
+  }, [mentionContext.active])
 
   // Reset suggestion menu indexes when context changes
   useEffect(() => {
@@ -456,19 +465,69 @@ export const Chat = ({
     setAgentSelectedIndex,
   ])
 
-  const { handleSuggestionMenuKey } = useSuggestionMenuHandlers({
-    slashContext,
-    mentionContext,
-    slashMatches,
-    agentMatches,
-    fileMatches,
-    slashSelectedIndex,
-    agentSelectedIndex,
-    inputValue,
-    setInputValue,
-    setSlashSelectedIndex,
-    setAgentSelectedIndex,
-  })
+  const { handleSuggestionMenuKey: handleSuggestionMenuKeyInternal } =
+    useSuggestionMenuHandlers({
+      slashContext,
+      mentionContext,
+      slashMatches,
+      agentMatches,
+      fileMatches,
+      slashSelectedIndex,
+      agentSelectedIndex,
+      inputValue,
+      setInputValue,
+      setSlashSelectedIndex,
+      setAgentSelectedIndex,
+    })
+  const openFileMenuWithTab = useCallback(() => {
+    const safeCursor = Math.max(0, Math.min(cursorPosition, inputValue.length))
+
+    let wordStart = safeCursor
+    while (wordStart > 0 && !/\s/.test(inputValue[wordStart - 1])) {
+      wordStart--
+    }
+
+    const before = inputValue.slice(0, wordStart)
+    const wordAtCursor = inputValue.slice(wordStart, safeCursor)
+    const after = inputValue.slice(safeCursor)
+    const mentionWord = wordAtCursor.startsWith('@')
+      ? wordAtCursor
+      : `@${wordAtCursor}`
+
+    const text = `${before}${mentionWord}${after}`
+    const nextCursor = before.length + mentionWord.length
+
+    setInputValue({
+      text,
+      cursorPosition: nextCursor,
+      lastEditDueToNav: false,
+    })
+    setForceFileOnlyMentions(true)
+  }, [cursorPosition, inputValue, setInputValue])
+
+  const handleSuggestionMenuKey = useCallback(
+    (key: KeyEvent): boolean => {
+      if (handleSuggestionMenuKeyInternal(key)) {
+        return true
+      }
+
+      const isPlainTab =
+        key &&
+        key.name === 'tab' &&
+        !key.shift &&
+        !key.ctrl &&
+        !key.meta &&
+        !key.option
+
+      if (isPlainTab && !mentionContext.active) {
+        openFileMenuWithTab()
+        return true
+      }
+
+      return false
+    },
+    [handleSuggestionMenuKeyInternal, mentionContext.active, openFileMenuWithTab],
+  )
 
   const { saveToHistory, navigateUp, navigateDown } = useInputHistory(
     inputValue,
@@ -557,7 +616,7 @@ export const Chat = ({
     onBeforeMessageSend: validateAgents,
     mainAgentTimer,
     scrollToLatest,
-    availableWidth: separatorWidth,
+    availableWidth: messageAvailableWidth,
     onTimerEvent: () => {}, // No-op for now
     setHasReceivedPlanResponse,
     lastMessageMode,
@@ -949,7 +1008,7 @@ export const Chat = ({
               streamingAgents={streamingAgents}
               messageTree={messageTree}
               messages={messages}
-              availableWidth={separatorWidth}
+              availableWidth={messageAvailableWidth}
               setFocusedAgentId={setFocusedAgentId}
               isWaitingForResponse={isWaitingForResponse}
               timerStartTime={timerStartTime}
