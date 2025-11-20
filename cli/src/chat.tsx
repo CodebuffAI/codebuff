@@ -200,6 +200,8 @@ export const Chat = ({
   const activeSubagentsRef = useRef<Set<string>>(activeSubagents)
   const abortControllerRef = useRef<AbortController | null>(null)
   const sendMessageRef = useRef<SendMessageFn>()
+  const retryPendingMessagesRef = useRef<(() => Promise<void>) | null>(null)
+  const processFailedMessagesRef = useRef<(() => void) | null>(null)
 
   const { statusMessage } = useClipboard()
 
@@ -528,7 +530,13 @@ export const Chat = ({
   // Timer events are currently tracked but not used for UI updates
   // Future: Could be used for analytics or debugging
 
-  const { sendMessage, clearMessages } = useSendMessage({
+  const {
+    sendMessage,
+    clearMessages,
+    pendingRetryCount,
+    retryPendingMessages,
+    processFailedMessages,
+  } = useSendMessage({
     messages,
     allToggleIds,
     setMessages,
@@ -563,6 +571,8 @@ export const Chat = ({
   })
 
   sendMessageRef.current = sendMessage
+  retryPendingMessagesRef.current = retryPendingMessages
+  processFailedMessagesRef.current = processFailedMessages
 
   const { inputWidth, handleBuildFast, handleBuildMax } = useChatInput({
     inputValue,

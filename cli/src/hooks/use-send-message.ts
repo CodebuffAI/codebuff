@@ -1,5 +1,5 @@
 import { has, isEqual } from 'lodash'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useQueryClient } from '@tanstack/react-query'
 
@@ -23,6 +23,7 @@ import {
 import { useChatStore } from '../state/chat-store'
 import { usageQueryKeys } from '../hooks/use-usage-query'
 import { setCurrentChatId } from '../project-files'
+import { RETRY_BACKOFF_BASE_DELAY_MS } from '@codebuff/sdk'
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
 import type { StreamStatus } from './use-message-queue'
@@ -260,9 +261,31 @@ export const useSendMessage = ({
 }: UseSendMessageOptions): {
   sendMessage: SendMessageFn
   clearMessages: () => void
+  pendingRetryCount: number
+  retryPendingMessages: () => Promise<void>
+  processFailedMessages: () => void
 } => {
   const queryClient = useQueryClient()
   const previousRunStateRef = useRef<RunState | null>(null)
+
+  // Retry state management (Part 7 foundation)
+  const MAX_FAILED_MESSAGES_TO_STORE = 50
+  const FAILED_MESSAGE_TTL_MS = 5 * 60 * 1000
+
+  const pendingRetriesRef = useRef<
+    Record<string, { content: string; agentMode: AgentMode }>
+  >({})
+  const [pendingRetryCount, setPendingRetryCount] = useState(0)
+  const retryAttemptsRef = useRef<Record<string, number>>({})
+  const retryInFlightRef = useRef(false)
+  const retryBackoffDelayRef = useRef(RETRY_BACKOFF_BASE_DELAY_MS)
+  const failedDueToConnectionRef = useRef<
+    Record<
+      string,
+      { content: string; agentMode: AgentMode; timestamp: number }
+    >
+  >({})
+  const cancelledRef = useRef(false)
 
   // Load previous chat state on mount if continueChat is true
   useEffect(() => {
@@ -296,6 +319,84 @@ export const useSendMessage = ({
   const spawnAgentsMapRef = useRef<
     Map<string, { index: number; agentType: string }>
   >(new Map())
+
+  const schedulePendingRetry = useCallback(
+    ({
+      userMessageId,
+      content,
+      agentMode,
+      note,
+    }: {
+      userMessageId: string
+      content: string
+      agentMode: AgentMode
+      note?: string
+    }) => {
+      if (!userMessageId) return
+
+      const pending = pendingRetriesRef.current
+      const alreadyScheduled = userMessageId in pending
+      pending[userMessageId] = { content, agentMode }
+
+      logger.info(
+        { userMessageId, note, alreadyScheduled },
+        'Scheduled retry for message',
+      )
+
+      if (!alreadyScheduled) {
+        setPendingRetryCount(Object.keys(pending).length)
+      }
+
+      // When we have pending retries, pause processing new queue items
+      setCanProcessQueue(false)
+    },
+    [setCanProcessQueue],
+  )
+
+  // Part 7 foundation: Will be used in Part 8 to clear retries for specific messages
+  const clearPendingRetryForMessage = useCallback((messageId: string) => {
+    if (!messageId) return
+    const pending = pendingRetriesRef.current
+    if (messageId in pending) {
+      delete pending[messageId]
+      setPendingRetryCount(Object.keys(pending).length)
+    }
+  }, [])
+
+  // Part 7 foundation: Will be wired into interval in Part 9 for memory management
+  const pruneFailedMessages = useCallback(() => {
+    const now = Date.now()
+    const failed = failedDueToConnectionRef.current
+    const entries = Object.entries(failed)
+
+    // Remove entries older than TTL (logic wired in Part 9, but foundation here)
+    const activeEntries = entries.filter(
+      ([, info]) => now - info.timestamp < FAILED_MESSAGE_TTL_MS,
+    )
+
+    if (activeEntries.length > MAX_FAILED_MESSAGES_TO_STORE) {
+      activeEntries.sort((a, b) => b[1].timestamp - a[1].timestamp)
+      activeEntries.splice(MAX_FAILED_MESSAGES_TO_STORE)
+    }
+
+    const activeIds = new Set(activeEntries.map(([id]) => id))
+    const removedIds = entries
+      .filter(([id]) => !activeIds.has(id))
+      .map(([id]) => id)
+
+    failedDueToConnectionRef.current = Object.fromEntries(activeEntries)
+
+    for (const id of removedIds) {
+      delete retryAttemptsRef.current[id]
+    }
+
+    if (removedIds.length > 0) {
+      logger.debug(
+        { pruned: removedIds.length },
+        'Pruned failed messages (foundation)',
+      )
+    }
+  }, [])
   const rootStreamBufferRef = useRef('')
   const agentStreamAccumulatorsRef = useRef<Map<string, string>>(new Map())
   const rootStreamSeenRef = useRef(false)
@@ -419,6 +520,22 @@ export const useSendMessage = ({
       flushPendingUpdates()
     }
   }, [flushPendingUpdates])
+
+  const retryPendingMessages = useCallback(async () => {
+    // Full implementation comes in Part 8; keep as a safe no-op for now
+    if (cancelledRef.current || retryInFlightRef.current) return
+  }, [])
+
+  const processFailedMessages = useCallback(() => {
+    // Full wiring comes in Part 8. For Part 7 we only expose the API surface.
+    const failedMessages = Object.entries(failedDueToConnectionRef.current)
+    if (failedMessages.length === 0) return
+
+    logger.info(
+      { count: failedMessages.length },
+      'processFailedMessages called (foundation)',
+    )
+  }, [])
 
   const sendMessage = useCallback<SendMessageFn>(
     async (params: ParamsOf<SendMessageFn>) => {
@@ -1756,5 +1873,11 @@ export const useSendMessage = ({
     ],
   )
 
-  return { sendMessage, clearMessages }
+  return {
+    sendMessage,
+    clearMessages,
+    pendingRetryCount,
+    retryPendingMessages,
+    processFailedMessages,
+  }
 }
