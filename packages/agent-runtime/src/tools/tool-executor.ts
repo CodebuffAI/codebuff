@@ -299,10 +299,7 @@ export function executeToolCall<T extends ToolName>(
     toolResults.push(toolResult)
 
     if (!excludeToolFromMessageHistory) {
-      state.messages.push({
-        role: 'tool' as const,
-        content: toolResult,
-      })
+      state.messages.push(toolResult)
     }
 
     // After tool completes, resolve any pending creditsUsed promise

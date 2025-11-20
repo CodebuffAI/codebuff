@@ -210,14 +210,14 @@ describe('convertCbToModelMessages', () => {
       })
 
       expect(result).toEqual([
-        {
+        expect.objectContaining({
           role: 'user',
           content: [
             expect.objectContaining({
               type: 'text',
             }),
           ],
-        },
+        }),
       ])
       expect((result as any)[0].content[0].text).toContain('<tool_result>')
     })
@@ -243,14 +243,14 @@ describe('convertCbToModelMessages', () => {
       })
 
       expect(result).toEqual([
-        {
+        expect.objectContaining({
           role: 'user',
           content: [
             expect.objectContaining({
               type: 'file',
             }),
           ],
-        },
+        }),
       ])
     })
 
@@ -260,7 +260,10 @@ describe('convertCbToModelMessages', () => {
           role: 'tool',
           toolName: 'test_tool',
           toolCallId: 'call_123',
-          content: [toolJsonContent({ result1: 'success' })],
+          content: [
+            toolJsonContent({ result1: 'success' }),
+            toolJsonContent({ result2: 'also success' }),
+          ],
         },
       ]
 
@@ -269,6 +272,7 @@ describe('convertCbToModelMessages', () => {
         includeCacheControl: false,
       })
 
+      console.dir({ result }, { depth: null })
       // Multiple tool outputs are aggregated into one user message
       expect(result).toEqual([
         expect.objectContaining({

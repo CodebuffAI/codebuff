@@ -307,22 +307,22 @@ describe('context-pruner edge cases', () => {
     content,
   })
 
-  const createTerminalToolMessage = (command: string, output: string): any => ({
+  const createTerminalToolMessage = (
+    command: string,
+    output: string,
+  ): ToolMessage => ({
     role: 'tool',
-    content: {
-      type: 'tool-result',
-      toolCallId: 'test-id',
-      toolName: 'run_terminal_command',
-      output: [
-        {
-          type: 'json',
-          value: {
-            command,
-            stdout: output,
-          },
+    toolCallId: 'test-id',
+    toolName: 'run_terminal_command',
+    content: [
+      {
+        type: 'json',
+        value: {
+          command,
+          stdout: output,
         },
-      ],
-    },
+      },
+    ],
   })
 
   const runHandleSteps = (messages: Message[]) => {
@@ -441,21 +441,21 @@ describe('context-pruner edge cases', () => {
     // Create content large enough to exceed 200k token limit to trigger pruning
     const largeContent = 'x'.repeat(150000)
 
-    const createToolMessage = (toolName: string, size: number): any => ({
+    const createToolMessage = (
+      toolName: string,
+      size: number,
+    ): ToolMessage => ({
       role: 'tool',
-      content: {
-        type: 'tool-result',
-        toolCallId: 'test-id',
-        toolName,
-        output: [
-          {
-            type: 'json',
-            value: {
-              data: 'a'.repeat(size),
-            },
+      toolCallId: 'test-id',
+      toolName,
+      content: [
+        {
+          type: 'json',
+          value: {
+            data: 'a'.repeat(size),
           },
-        ],
-      },
+        },
+      ],
     })
 
     const messages = [

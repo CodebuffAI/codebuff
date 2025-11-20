@@ -330,10 +330,7 @@ describe('runProgrammaticStep', () => {
           }
           options.toolResults.push(toolResult)
 
-          options.state.messages.push({
-            role: 'tool',
-            content: toolResult,
-          })
+          options.state.messages.push(toolResult)
         }
         // Return a value to satisfy the call
         return {}
