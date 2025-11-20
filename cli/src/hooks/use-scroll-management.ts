@@ -148,36 +148,6 @@ export const useChatScrollbox = (
     }
   }, [cancelAnimation])
 
-  const previousHeightRef = useRef<number>(0)
-  // Monitor scrollbox height and trigger re-render when it changes significantly
-  useEffect(() => {
-    const scrollbox = scrollRef.current
-    if (!scrollbox) return
-
-    const heightThreshold = 10 // Re-render if height changes by more than this
-
-    const checkHeightChange = () => {
-      const currentHeight = scrollbox.scrollHeight
-      const previousHeight = previousHeightRef.current
-      const heightDiff = Math.abs(currentHeight - previousHeight)
-
-      if (heightDiff > heightThreshold) {
-        logger.info(
-          { currentHeight, previousHeight, heightDiff },
-          `Re-rendering ScrollBox due to height change of ${heightDiff}`,
-        )
-        previousHeightRef.current = currentHeight
-        scrollbox.requestRender()
-      } else {
-        previousHeightRef.current = currentHeight
-      }
-    }
-
-    const timeoutId = setTimeout(checkHeightChange, 0)
-
-    return () => clearTimeout(timeoutId)
-  })
-
   return {
     scrollToLatest,
     scrollboxProps: {},
