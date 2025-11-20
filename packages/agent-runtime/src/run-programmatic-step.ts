@@ -1,4 +1,3 @@
-import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { assistantMessage } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
@@ -271,25 +270,18 @@ export async function runProgrammaticStep(
       const excludeToolFromMessageHistory = toolCall?.includeToolCall === false
       // Add assistant message with the tool call before executing it
       if (!excludeToolFromMessageHistory) {
-        const toolCallString = getToolCallString(
-          toolCall.toolName,
-          toolCall.input,
-        )
-        onResponseChunk(toolCallString)
+        onResponseChunk({
+          type: 'tool_call',
+          toolCallId: toolCall.toolCallId,
+          toolName: toolCall.toolName,
+          input: toolCall.input,
+        })
         state.messages.push(
           assistantMessage({
             ...toolCall,
             type: 'tool-call',
           }),
         )
-        // Optional call handles both top-level and nested agents
-        state.sendSubagentChunk?.({
-          userInputId,
-          agentId: state.agentState.agentId,
-          agentType: state.agentState.agentType!,
-          chunk: toolCallString,
-          forwardToPrompt: !state.agentState.parentId,
-        })
       }
 
       // Execute the tool synchronously and get the result immediately

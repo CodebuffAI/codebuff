@@ -1,12 +1,12 @@
-import { getAgentTemplate } from './agent-registry'
 import { buildArray } from '@codebuff/common/util/array'
 import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
+
+import { getAgentTemplate } from './agent-registry'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { AgentTemplateType } from '@codebuff/common/types/session-state'
-import { getToolCallString } from '@codebuff/common/tools/utils'
 
 export async function buildSpawnableAgentsDescription(
   params: {
@@ -75,14 +75,19 @@ Notes:
 
 Example:
 
-${getToolCallString('spawn_agents', {
-  agents: [
-    {
-      agent_type: 'example-agent',
-      prompt: 'Do an example task for me',
-    },
-  ],
-})}
+${JSON.stringify(
+  {
+    agents: [
+      {
+        agent_type: 'example-agent',
+        prompt: 'Do an example task for me',
+      },
+    ],
+  },
+  null,
+  2,
+)}
+
 
 Spawn only the below agents:
 

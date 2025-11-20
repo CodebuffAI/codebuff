@@ -1,11 +1,11 @@
 import type { ToolResultOutput } from '../types/messages/content-part'
 import type z from 'zod/v4'
 
-export const toolNameParam = 'cb_tool_name'
-export const endsAgentStepParam = 'cb_easp'
-export const toolXmlName = 'codebuff_tool_call'
-export const startToolTag = `<${toolXmlName}>\n`
-export const endToolTag = `\n</${toolXmlName}>`
+// export const toolNameParam = 'cb_tool_name'
+// export const endsAgentStepParam = 'cb_easp'
+// export const toolXmlName = 'codebuff_tool_call'
+// export const startToolTag = `<${toolXmlName}>\n`
+// export const endToolTag = `\n</${toolXmlName}>`
 
 export const TOOLS_WHICH_WONT_FORCE_NEXT_STEP = [
   'think_deeply',

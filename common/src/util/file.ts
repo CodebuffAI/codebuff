@@ -44,7 +44,6 @@ export const customToolDefinitionsSchema = z
     z.string(),
     z.object({
       inputJsonSchema: z.any(),
-      endsAgentStep: z.boolean().optional().default(false),
       description: z.string().optional(),
       exampleInputs: z.record(z.string(), z.any()).array().optional(),
     }),

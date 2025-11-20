@@ -1,10 +1,4 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import {
-  endsAgentStepParam,
-  endToolTag,
-  startToolTag,
-  toolNameParam,
-} from '@codebuff/common/tools/constants'
 
 import type { Model } from '@codebuff/common/old-constants'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
@@ -14,13 +8,6 @@ import type {
   PrintModeError,
   PrintModeText,
 } from '@codebuff/common/types/print-mode'
-
-const toolExtractionPattern = new RegExp(
-  `${startToolTag}(.*?)${endToolTag}`,
-  'gs',
-)
-
-const completionSuffix = `${JSON.stringify(endsAgentStepParam)}: true\n}${endToolTag}`
 
 export async function* processStreamWithTags(params: {
   stream: AsyncGenerator<StreamChunk, string | null>
@@ -60,83 +47,6 @@ export async function* processStreamWithTags(params: {
   let buffer = ''
   let autocompleted = false
 
-  function extractToolCalls(): string[] {
-    const matches: string[] = []
-    let lastIndex = 0
-    for (const match of buffer.matchAll(toolExtractionPattern)) {
-      if (match.index > lastIndex) {
-        onResponseChunk({
-          type: 'text',
-          text: buffer.slice(lastIndex, match.index),
-        })
-      }
-      lastIndex = match.index + match[0].length
-      matches.push(match[1])
-    }
-
-    buffer = buffer.slice(lastIndex)
-    return matches
-  }
-
-  function processToolCallContents(contents: string): void {
-    let input: any
-    try {
-      input = JSON.parse(contents)
-    } catch (error: any) {
-      trackEvent({
-        event: AnalyticsEvent.MALFORMED_TOOL_CALL_JSON,
-        userId: loggerOptions?.userId ?? '',
-        properties: {
-          contents: JSON.stringify(contents),
-          model: loggerOptions?.model,
-          agent: loggerOptions?.agentName,
-          error: {
-            name: error.name,
-            message: error.message,
-            stack: error.stack,
-          },
-          autocompleted,
-        },
-        logger,
-      })
-      const shortenedContents =
-        contents.length < 200
-          ? contents
-          : contents.slice(0, 100) + '...' + contents.slice(-100)
-      const errorMessage = `Invalid JSON: ${JSON.stringify(shortenedContents)}\nError: ${error.message}`
-      onResponseChunk({
-        type: 'error',
-        message: errorMessage,
-      })
-      onError('parse_error', errorMessage)
-      return
-    }
-
-    const toolName = input[toolNameParam] as keyof typeof processors
-    if (typeof toolName !== 'string') {
-      trackEvent({
-        event: AnalyticsEvent.UNKNOWN_TOOL_CALL,
-        userId: loggerOptions?.userId ?? '',
-        properties: {
-          contents,
-          toolName,
-          model: loggerOptions?.model,
-          agent: loggerOptions?.agentName,
-          autocompleted,
-        },
-        logger,
-      })
-      onError(
-        'parse_error',
-        `Unknown tool ${JSON.stringify(toolName)} for tool call: ${contents}`,
-      )
-      return
-    }
-
-    delete input[toolNameParam]
-    processToolCallObject({ toolName, input, contents })
-  }
-
   function processToolCallObject(params: {
     toolName: string
     input: any
@@ -164,18 +74,14 @@ export async function* processStreamWithTags(params: {
     processor.onTagEnd(toolName, input)
   }
 
-  function extractToolsFromBufferAndProcess(forceFlush = false) {
-    const matches = extractToolCalls()
-    matches.forEach(processToolCallContents)
-    if (forceFlush) {
-      if (buffer) {
-        onResponseChunk({
-          type: 'text',
-          text: buffer,
-        })
-      }
-      buffer = ''
+  function flush() {
+    if (buffer) {
+      onResponseChunk({
+        type: 'text',
+        text: buffer,
+      })
     }
+    buffer = ''
   }
 
   function* processChunk(
@@ -185,23 +91,13 @@ export async function* processStreamWithTags(params: {
       buffer += chunk.text
     }
     if (chunk && chunk.type === 'tool-call') {
-      extractToolsFromBufferAndProcess(true)
+      flush()
       processToolCallObject(chunk)
-    } else {
-      extractToolsFromBufferAndProcess()
     }
 
     if (chunk === undefined) {
       streamCompleted = true
-      if (buffer.includes(startToolTag)) {
-        buffer += completionSuffix
-        chunk = {
-          type: 'text',
-          text: completionSuffix,
-        }
-        autocompleted = true
-      }
-      extractToolsFromBufferAndProcess(true)
+      flush()
     }
 
     if (chunk) {

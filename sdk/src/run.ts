@@ -13,7 +13,6 @@ import { cloneDeep } from 'lodash'
 import { getAgentRuntimeImpl } from './impl/agent-runtime'
 import { getUserInfoFromApiKey } from './impl/database'
 import { initialSessionState, applyOverridesToSessionState } from './run-state'
-import { filterXml } from './tool-xml-filter'
 import { changeFile } from './tools/change-file'
 import { codeSearch } from './tools/code-search'
 import { glob } from './tools/glob'
@@ -38,14 +37,12 @@ import type {
 } from '@codebuff/common/tools/list'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
-import type {
-  ToolResultOutput,
-} from '@codebuff/common/types/messages/content-part'
+import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { SessionState } from '@codebuff/common/types/session-state'
 import type { Source } from '@codebuff/common/types/source'
 import type { CodebuffSpawn } from '@codebuff/common/types/spawn'
-import { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
 
 export type CodebuffClientOptions = {
   apiKey?: string
@@ -249,23 +246,7 @@ export async function run({
       return
     }
 
-    if (handleStreamChunk) {
-      const stream = filterXml({
-        chunk,
-        buffer: buffers[0],
-      })
-      while (true) {
-        const { value, done } = stream.next()
-        if (done) {
-          buffers[0] = value.buffer
-          break
-        }
-
-        if (value.chunk) {
-          await handleStreamChunk(value.chunk)
-        }
-      }
-    }
+    handleStreamChunk?.(chunk)
   }
   const onSubagentResponseChunk = async (
     action: ServerAction<'subagent-response-chunk'>,
@@ -275,25 +256,12 @@ export async function run({
     }
     const { agentId, agentType, chunk } = action
 
-    if (handleStreamChunk) {
-      const stream = filterXml({
-        chunk,
-        buffer: buffers[agentId] ?? '',
-      })
-      while (true) {
-        const { value, done } = stream.next()
-        if (done) {
-          buffers[agentId] = value.buffer
-          break
-        }
-        await handleStreamChunk({
-          type: 'subagent_chunk',
-          agentId,
-          agentType,
-          chunk: value.chunk,
-        })
-      }
-    }
+    handleStreamChunk?.({
+      type: 'subagent_chunk',
+      agentId,
+      agentType,
+      chunk,
+    })
   }
 
   const agentRuntimeImpl = getAgentRuntimeImpl({
