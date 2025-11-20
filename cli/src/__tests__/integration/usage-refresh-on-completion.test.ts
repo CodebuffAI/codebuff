@@ -52,7 +52,7 @@ describe('Usage Refresh on SDK Completion', () => {
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       ),
-    )
+    ) as unknown as typeof fetch
   })
 
   afterEach(() => {

@@ -48,7 +48,7 @@ describe('fetchUsageData', () => {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         }),
-    )
+    ) as unknown as typeof fetch
 
     const result = await fetchUsageData({ authToken: 'test-token' })
 
@@ -56,7 +56,7 @@ describe('fetchUsageData', () => {
   })
 
   test('should throw error on failed request', async () => {
-    globalThis.fetch = mock(async () => new Response('Error', { status: 500 }))
+    globalThis.fetch = mock(async () => new Response('Error', { status: 500 })) as unknown as typeof fetch
 
     await expect(fetchUsageData({ authToken: 'test-token' })).rejects.toThrow(
       'Failed to fetch usage: 500',
@@ -120,7 +120,7 @@ describe('useUsageQuery', () => {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         }),
-    )
+    ) as unknown as typeof fetch
 
     const { result } = renderHook(() => useUsageQuery(), {
       wrapper: createWrapper(),
@@ -135,7 +135,7 @@ describe('useUsageQuery', () => {
     getAuthTokenSpy = spyOn(authModule, 'getAuthToken').mockReturnValue(
       'test-token',
     )
-    const fetchMock = mock(async () => new Response('{}'))
+    const fetchMock = mock(async () => new Response('{}')) as unknown as typeof fetch
     globalThis.fetch = fetchMock
 
     const { result } = renderHook(() => useUsageQuery({ enabled: false }), {
@@ -152,7 +152,7 @@ describe('useUsageQuery', () => {
     getAuthTokenSpy = spyOn(authModule, 'getAuthToken').mockReturnValue(
       undefined,
     )
-    const fetchMock = mock(async () => new Response('{}'))
+    const fetchMock = mock(async () => new Response('{}')) as unknown as typeof fetch
     globalThis.fetch = fetchMock
 
     renderHook(() => useUsageQuery(), {
