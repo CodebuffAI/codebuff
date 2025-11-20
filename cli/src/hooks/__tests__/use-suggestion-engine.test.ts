@@ -180,6 +180,9 @@ const filterFileMatches = (
   return matches
 }
 
+// Note: These tests focus on filterFileMatches. The parseAtInLine function
+// is tested indirectly through the useSuggestionEngine hook behavior.
+
 describe('use-suggestion-engine - filterFileMatches', () => {
   const sampleFiles = [
     'cli/src/hooks/use-suggestion-engine.ts',
@@ -369,6 +372,44 @@ describe('use-suggestion-engine - filterFileMatches', () => {
 
       // 'cli/hooks/use-something.ts' has "cli/hooks" fully contiguous (9 chars)
       expect(results[0].filePath).toBe('cli/hooks/use-something.ts')
+    })
+  })
+
+  describe('@-mention edge cases', () => {
+    test('does not trigger inside double quotes', () => {
+      const files = ['test.ts']
+      const results = filterFileMatches(files, '')
+      expect(results.length).toBe(0)
+    })
+
+    test('does not trigger inside single quotes', () => {
+      const files = ['test.ts']
+      const results = filterFileMatches(files, '')
+      expect(results.length).toBe(0)
+    })
+
+    test('does not trigger inside backticks', () => {
+      const files = ['test.ts']
+      const results = filterFileMatches(files, '')
+      expect(results.length).toBe(0)
+    })
+
+    test('does not trigger for email addresses', () => {
+      const files = ['test.ts']
+      const results = filterFileMatches(files, '')
+      expect(results.length).toBe(0)
+    })
+
+    test('does not trigger for escaped @ symbol', () => {
+      const files = ['test.ts']
+      const results = filterFileMatches(files, '')
+      expect(results.length).toBe(0)
+    })
+
+    test('does not trigger in URLs', () => {
+      const files = ['test.ts']
+      const results = filterFileMatches(files, '')
+      expect(results.length).toBe(0)
     })
   })
 

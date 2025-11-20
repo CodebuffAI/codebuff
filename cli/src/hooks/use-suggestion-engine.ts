@@ -63,13 +63,65 @@ interface MentionParseResult {
   atIndex: number
 }
 
+// Helper to check if a position is inside quotes
+const isInsideQuotes = (text: string, position: number): boolean => {
+  let inSingleQuote = false
+  let inDoubleQuote = false
+  let inBacktick = false
+
+  for (let i = 0; i < position; i++) {
+    const char = text[i]
+    
+    // Check if this character is escaped by counting preceding backslashes
+    let numBackslashes = 0
+    let j = i - 1
+    while (j >= 0 && text[j] === '\\') {
+      numBackslashes++
+      j--
+    }
+    
+    // If there's an odd number of backslashes, the character is escaped
+    const isEscaped = numBackslashes % 2 === 1
+
+    if (!isEscaped) {
+      if (char === "'" && !inDoubleQuote && !inBacktick) {
+        inSingleQuote = !inSingleQuote
+      } else if (char === '"' && !inSingleQuote && !inBacktick) {
+        inDoubleQuote = !inDoubleQuote
+      } else if (char === '`' && !inSingleQuote && !inDoubleQuote) {
+        inBacktick = !inBacktick
+      }
+    }
+  }
+
+  return inSingleQuote || inDoubleQuote || inBacktick
+}
+
 const parseAtInLine = (line: string): MentionParseResult => {
   const atIndex = line.lastIndexOf('@')
   if (atIndex === -1) {
     return { active: false, query: '', atIndex: -1 }
   }
 
+  // Check if @ is inside quotes
+  if (isInsideQuotes(line, atIndex)) {
+    return { active: false, query: '', atIndex: -1 }
+  }
+
   const beforeChar = atIndex > 0 ? line[atIndex - 1] : ''
+  
+  // Don't trigger on escaped @: \@
+  if (beforeChar === '\\') {
+    return { active: false, query: '', atIndex: -1 }
+  }
+
+  // Don't trigger on email-like patterns or URLs: user@example.com, https://example.com/@user
+  // Check for alphanumeric, dot, or colon before @
+  if (beforeChar && /[a-zA-Z0-9.:]/.test(beforeChar)) {
+    return { active: false, query: '', atIndex: -1 }
+  }
+
+  // Require whitespace or start of line before @
   if (beforeChar && !/\s/.test(beforeChar)) {
     return { active: false, query: '', atIndex: -1 }
   }
