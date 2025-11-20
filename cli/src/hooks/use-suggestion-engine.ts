@@ -495,19 +495,23 @@ export const useSuggestionEngine = ({
   }, [agentMatches])
 
   const fileSuggestionItems = useMemo<SuggestionItem[]>(() => {
-    return fileMatches.map((file) => ({
-      id: file.filePath,
-      label: file.filePath.split('/').pop() || file.filePath,
-      labelHighlightIndices: file.pathHighlightIndices
-        ? file.pathHighlightIndices.map((idx) => {
-            const fileName = file.filePath.split('/').pop() || file.filePath
-            const fileNameStart = file.filePath.lastIndexOf(fileName)
-            return idx >= fileNameStart ? idx - fileNameStart : -1
-          }).filter((idx) => idx >= 0)
-        : null,
-      description: file.filePath,
-      descriptionHighlightIndices: file.pathHighlightIndices,
-    }))
+    return fileMatches.map((file) => {
+      const fileName = file.filePath.split('/').pop() || file.filePath
+      const isRootLevel = !file.filePath.includes('/')
+      
+      return {
+        id: file.filePath,
+        label: fileName,
+        labelHighlightIndices: file.pathHighlightIndices
+          ? file.pathHighlightIndices.map((idx) => {
+              const fileNameStart = file.filePath.lastIndexOf(fileName)
+              return idx >= fileNameStart ? idx - fileNameStart : -1
+            }).filter((idx) => idx >= 0)
+          : null,
+        description: isRootLevel ? '.' : file.filePath,
+        descriptionHighlightIndices: isRootLevel ? null : file.pathHighlightIndices,
+      }
+    })
   }, [fileMatches])
 
   return {
