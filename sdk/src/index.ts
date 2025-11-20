@@ -30,6 +30,28 @@ export { getUserInfoFromApiKey } from './impl/database'
 export { validateAgents } from './validate-agents'
 export type { ValidationResult, ValidateAgentsOptions } from './validate-agents'
 
+// Error types and utilities
+export {
+  ErrorCodes,
+  RETRYABLE_ERROR_CODES,
+  AuthenticationError,
+  NetworkError,
+  isAuthenticationError,
+  isNetworkError,
+  isErrorWithCode,
+  sanitizeErrorMessage,
+} from './errors'
+export type { ErrorCode } from './errors'
+
+// Retry configuration constants
+export {
+  MAX_RETRIES_PER_MESSAGE,
+  RETRY_BACKOFF_BASE_DELAY_MS,
+  RETRY_BACKOFF_MAX_DELAY_MS,
+  RECONNECTION_MESSAGE_DURATION_MS,
+  RECONNECTION_RETRY_DELAY_MS,
+} from './retry-config'
+
 export type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
 export { runTerminalCommand } from './tools/run-terminal-command'
