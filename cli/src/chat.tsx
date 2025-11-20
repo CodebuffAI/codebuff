@@ -851,7 +851,7 @@ export const Chat = ({
         scrollX={false}
         scrollbarOptions={{ visible: false }}
         verticalScrollbarOptions={{
-          visible: !isStreaming && hasOverflow,
+          visible: !isStreaming && !isWaitingForResponse && hasOverflow,
           trackOptions: { width: 1 },
         }}
         {...appliedScrollboxProps}
