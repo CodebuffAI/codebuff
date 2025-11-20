@@ -13,6 +13,7 @@ import { useChatInput } from './hooks/use-chat-input'
 import { useClipboard } from './hooks/use-clipboard'
 import { useConnectionStatus } from './hooks/use-connection-status'
 import { useElapsedTime } from './hooks/use-elapsed-time'
+import { useTimeout } from './hooks/use-timeout'
 import { useExitHandler } from './hooks/use-exit-handler'
 import { useInputHistory } from './hooks/use-input-history'
 import { useKeyboardHandlers } from './hooks/use-keyboard-handlers'
@@ -33,6 +34,10 @@ import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { loadLocalAgents } from './utils/local-agent-registry'
 import { buildMessageTree } from './utils/message-tree-utils'
 import { getStatusIndicatorState, type AuthStatus } from './utils/status-indicator-state'
+import { authQueryKeys } from './hooks/use-auth-query'
+import { RECONNECTION_MESSAGE_DURATION_MS } from '@codebuff/sdk'
+import { useQueryClient } from '@tanstack/react-query'
+import { startTransition, useTransition } from 'react'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
 
@@ -80,6 +85,12 @@ export const Chat = ({
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const [hasOverflow, setHasOverflow] = useState(false)
   const hasOverflowRef = useRef(false)
+
+  const queryClient = useQueryClient()
+  const [, startUiTransition] = useTransition()
+
+  const [showReconnectionMessage, setShowReconnectionMessage] = useState(false)
+  const reconnectionTimeout = useTimeout()
 
   const { separatorWidth, terminalWidth, terminalHeight } =
     useTerminalDimensions()
@@ -191,7 +202,31 @@ export const Chat = ({
   const sendMessageRef = useRef<SendMessageFn>()
 
   const { statusMessage } = useClipboard()
-  const isConnected = useConnectionStatus()
+
+  const handleReconnection = useCallback(
+    (isInitialConnection: boolean) => {
+      // Invalidate auth queries so we refetch with current credentials
+      queryClient.invalidateQueries({ queryKey: authQueryKeys.all })
+
+      startUiTransition(() => {
+        if (!isInitialConnection) {
+          setShowReconnectionMessage(true)
+          reconnectionTimeout.setTimeout(
+            'reconnection-message',
+            () => {
+              startUiTransition(() => {
+                setShowReconnectionMessage(false)
+              })
+            },
+            RECONNECTION_MESSAGE_DURATION_MS,
+          )
+        }
+      })
+    },
+    [queryClient, reconnectionTimeout, startUiTransition],
+  )
+
+  const isConnected = useConnectionStatus(handleReconnection)
   const mainAgentTimer = useElapsedTime()
   const timerStartTime = mainAgentTimer.startTime
 
@@ -789,6 +824,7 @@ export const Chat = ({
     nextCtrlCWillExit,
     isConnected,
     authStatus,
+    showReconnectionMessage,
   })
   const hasStatusIndicatorContent = statusIndicatorState.kind !== 'idle'
   const inputBoxTitle = useMemo(() => {
@@ -933,6 +969,7 @@ export const Chat = ({
             authStatus={authStatus}
             isAtBottom={isAtBottom}
             scrollToLatest={scrollToLatest}
+            statusIndicatorState={statusIndicatorState}
           />
         )}
 

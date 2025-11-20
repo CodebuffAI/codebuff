@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { getCodebuffClient } from '../utils/codebuff-client'
 import { logger } from '../utils/logger'
@@ -36,10 +36,17 @@ export function getNextInterval(consecutiveSuccesses: number): number {
 /**
  * Hook to monitor connection status to the Codebuff backend.
  * Uses adaptive exponential backoff to reduce polling frequency when connection is stable.
+ *
+ * When the connection transitions from disconnected to connected, the optional
+ * onReconnect callback is invoked with a boolean indicating whether this was
+ * the initial connection (true) or a subsequent reconnection (false).
  */
-export const useConnectionStatus = () => {
-
+export const useConnectionStatus = (
+  onReconnect?: (isInitialConnection: boolean) => void,
+) => {
   const [isConnected, setIsConnected] = useState(true)
+  // null = never connected, false = was disconnected, true = was connected
+  const previousConnectedRef = useRef<boolean | null>(null)
 
   useEffect(() => {
     let isMounted = true
@@ -57,6 +64,7 @@ export const useConnectionStatus = () => {
       if (!client) {
         if (isMounted) {
           setIsConnected(false)
+          previousConnectedRef.current = false
           consecutiveSuccesses = 0
           currentInterval = HEALTH_CHECK_CONFIG.INITIAL_INTERVAL
           logger.debug(
@@ -72,9 +80,23 @@ export const useConnectionStatus = () => {
         const connected = await client.checkConnection()
         if (!isMounted) return
 
+        const prevConnected = previousConnectedRef.current
         setIsConnected(connected)
+        previousConnectedRef.current = connected
 
         if (connected) {
+          // Determine if this is the initial connection (null) or a reconnection (false)
+          const isInitialConnection = prevConnected === null
+          const shouldFireReconnectCallback =
+            typeof onReconnect === 'function' && prevConnected !== true
+
+          if (shouldFireReconnectCallback) {
+            logger.info(
+              { isInitialConnection },
+              'Reconnection detected, firing onReconnect callback',
+            )
+            onReconnect(isInitialConnection)
+          }
           consecutiveSuccesses++
           const newInterval = getNextInterval(consecutiveSuccesses)
 
@@ -94,6 +116,7 @@ export const useConnectionStatus = () => {
           scheduleNextCheck(currentInterval)
         } else {
           // Reset to fast polling on connection failure
+          previousConnectedRef.current = false
           consecutiveSuccesses = 0
           currentInterval = HEALTH_CHECK_CONFIG.INITIAL_INTERVAL
           logger.debug(
@@ -106,6 +129,7 @@ export const useConnectionStatus = () => {
         logger.debug({ error }, 'Connection check failed')
         if (isMounted) {
           setIsConnected(false)
+          previousConnectedRef.current = false
           consecutiveSuccesses = 0
           currentInterval = HEALTH_CHECK_CONFIG.INITIAL_INTERVAL
           scheduleNextCheck(currentInterval)
