@@ -880,6 +880,12 @@ export async function loopAgentSteps(
       errorMessage,
     })
 
+    // Re-throw NetworkError so retry logic can handle it
+    // For other error types, wrap in error output for graceful handling
+    if (error && typeof error === 'object' && 'code' in error && 'name' in error && error.name === 'NetworkError') {
+      throw error
+    }
+
     const errorObject = getErrorObject(error)
     return {
       agentState: currentAgentState,

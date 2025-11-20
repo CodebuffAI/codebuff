@@ -12,8 +12,9 @@ import { cloneDeep } from 'lodash'
 
 import { getAgentRuntimeImpl } from './impl/agent-runtime'
 import { getUserInfoFromApiKey } from './impl/database'
-import { RETRYABLE_ERROR_CODES, isNetworkError } from './errors'
+import { RETRYABLE_ERROR_CODES, isNetworkError, ErrorCodes, NetworkError } from './errors'
 import type { ErrorCode } from './errors'
+import { getErrorObject } from '@codebuff/common/util/error'
 import { initialSessionState, applyOverridesToSessionState } from './run-state'
 import {
   MAX_RETRIES_PER_MESSAGE,
@@ -428,8 +429,10 @@ export async function runOnce({
   }
 
   let resolve: (value: RunReturnType) => any = () => {}
-  const promise = new Promise<RunReturnType>((res) => {
+  let reject: (error: any) => any = () => {}
+  const promise = new Promise<RunReturnType>((res, rej) => {
     resolve = res
+    reject = rej
   })
 
   async function onError(error: { message: string }) {
@@ -700,8 +703,21 @@ export async function runOnce({
     signal: signal ?? new AbortController().signal,
   }).catch((error) => {
     // Let retryable errors propagate so the retry wrapper can handle them
-    if (isRetryableError(error)) {
-      throw error
+    const isRetryable = isRetryableError(error)
+    logger?.warn(
+      {
+        isNetworkError: isNetworkError(error),
+        errorCode: isNetworkError(error) ? error.code : undefined,
+        isRetryable,
+        error: getErrorObject(error),
+      },
+      'callMainPrompt caught error, checking if retryable',
+    )
+
+    if (isRetryable) {
+      // Reject the promise so the retry wrapper can catch it
+      reject(error)
+      return
     }
 
     // For non-retryable errors, resolve with cancelled state
@@ -857,13 +873,24 @@ async function handleToolCall({
  * Extracts an error code from a prompt error message.
  * Returns the appropriate ErrorCode if the error is retryable, null otherwise.
  */
-const getRetryableErrorCode = (errorMessage: string): ErrorCode | null => {
+export const getRetryableErrorCode = (errorMessage: string): ErrorCode | null => {
   const lowerMessage = errorMessage.toLowerCase()
 
   // AI SDK's built-in retry error (e.g., "Failed after 4 attempts. Last error: Service Unavailable")
-  // Don't retry at SDK level since AI SDK already retried. Just log it for accountability.
+  // The AI SDK already retried 4 times, but we still want our SDK wrapper to retry 3 more times
   if (lowerMessage.includes('failed after') && lowerMessage.includes('attempts')) {
-    return null
+    // Extract the underlying error type from the message
+    if (lowerMessage.includes('service unavailable')) {
+      return ErrorCodes.SERVICE_UNAVAILABLE
+    }
+    if (lowerMessage.includes('timeout')) {
+      return ErrorCodes.TIMEOUT
+    }
+    if (lowerMessage.includes('connection refused')) {
+      return ErrorCodes.CONNECTION_REFUSED
+    }
+    // Default to SERVER_ERROR for other AI SDK retry failures
+    return ErrorCodes.SERVER_ERROR
   }
 
   if (errorMessage.includes('503') || lowerMessage.includes('service unavailable')) {

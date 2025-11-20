@@ -2,7 +2,7 @@ export type * from '../../common/src/types/json'
 export type * from '../../common/src/types/messages/codebuff-message'
 export type * from '../../common/src/types/messages/data-content'
 export type * from '../../common/src/types/print-mode'
-export { run } from './run'
+export { run, getRetryableErrorCode } from './run'
 export type { RunOptions, RetryOptions } from './run'
 // Agent type exports
 export type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
