@@ -5,6 +5,7 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import z from 'zod/v4'
 
 import { WEBSITE_URL } from '../constants'
+import { AuthenticationError, ErrorCodes, NetworkError } from '../errors'
 
 import type {
   AddAgentStepFn,
@@ -20,7 +21,7 @@ import type { ParamsOf } from '@codebuff/common/types/function-params'
 
 const userInfoCache: Record<
   string,
-  Awaited<GetUserInfoFromApiKeyOutput<UserColumn>>
+  Awaited<GetUserInfoFromApiKeyOutput<UserColumn>> | null
 > = {}
 
 const agentsResponseSchema = z.object({
@@ -36,7 +37,7 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
   if (apiKey in userInfoCache) {
     const userInfo = userInfoCache[apiKey]
     if (userInfo === null) {
-      return userInfo
+      throw new AuthenticationError('Authentication failed', 401)
     }
     return Object.fromEntries(
       fields.map((field) => [field, userInfo[field]]),
@@ -50,34 +51,66 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
   })
   const url = new URL(`/api/v1/me?${urlParams}`, WEBSITE_URL)
 
+  let response: Response
   try {
-    const response = await fetch(url, {
+    response = await fetch(url, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${apiKey}`,
       },
     })
+  } catch (error) {
+    logger.error(
+      { error: getErrorObject(error), apiKey, fields },
+      'getUserInfoFromApiKey network error',
+    )
+    // Network-level failure: DNS, connection refused, timeout, etc.
+    throw new NetworkError('Network request failed', ErrorCodes.NETWORK_ERROR, undefined, error)
+  }
 
-    if (!response.ok) {
-      logger.error(
-        { apiKey, fields, response },
-        'getUserInfoFromApiKey request failed',
-      )
-      return null
-    }
+  if (response.status === 401 || response.status === 403) {
+    logger.error(
+      { apiKey, fields, status: response.status },
+      'getUserInfoFromApiKey authentication failed',
+    )
+    // Don't cache auth failures - allow retry with potentially updated credentials
+    delete userInfoCache[apiKey]
+    throw new AuthenticationError('Authentication failed', response.status)
+  }
 
+  if (response.status >= 500 && response.status <= 599) {
+    logger.error(
+      { apiKey, fields, status: response.status },
+      'getUserInfoFromApiKey server error',
+    )
+    throw new NetworkError(
+      'Server error',
+      response.status === 503 ? ErrorCodes.SERVICE_UNAVAILABLE : ErrorCodes.SERVER_ERROR,
+      response.status,
+    )
+  }
+
+  if (!response.ok) {
+    logger.error(
+      { apiKey, fields, status: response.status },
+      'getUserInfoFromApiKey request failed',
+    )
+    throw new NetworkError('Request failed', ErrorCodes.UNKNOWN_ERROR, response.status)
+  }
+
+  try {
     userInfoCache[apiKey] = await response.json()
   } catch (error) {
     logger.error(
       { error: getErrorObject(error), apiKey, fields },
-      'getUserInfoFromApiKey error',
+      'getUserInfoFromApiKey JSON parse error',
     )
-    return null
+    throw new NetworkError('Failed to parse response', ErrorCodes.UNKNOWN_ERROR, response.status, error)
   }
 
   const userInfo = userInfoCache[apiKey]
   if (userInfo === null) {
-    return userInfo
+    throw new AuthenticationError('Authentication failed', 401)
   }
   return Object.fromEntries(
     fields.map((field) => [field, userInfo[field]]),

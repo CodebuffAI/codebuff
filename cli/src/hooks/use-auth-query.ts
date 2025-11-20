@@ -1,5 +1,13 @@
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
-import { getUserInfoFromApiKey as defaultGetUserInfoFromApiKey } from '@codebuff/sdk'
+import {
+  AuthenticationError,
+  ErrorCodes,
+  getUserInfoFromApiKey as defaultGetUserInfoFromApiKey,
+  NetworkError,
+  RETRYABLE_ERROR_CODES,
+  MAX_RETRIES_PER_MESSAGE,
+  RETRY_BACKOFF_BASE_DELAY_MS,
+} from '@codebuff/sdk'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 import {
@@ -46,18 +54,52 @@ export async function validateApiKey({
 }: ValidateAuthParams): Promise<ValidatedUserInfo> {
   const requestedFields = ['id', 'email'] as const
 
-  const authResult = await getUserInfoFromApiKey({
-    apiKey,
-    fields: requestedFields,
-    logger,
-  })
+  try {
+    const authResult = await getUserInfoFromApiKey({
+      apiKey,
+      fields: requestedFields,
+      logger,
+    })
 
-  if (!authResult) {
-    logger.error('❌ API key validation failed - no auth result returned')
-    throw new Error('Invalid API key')
+    if (!authResult) {
+      logger.error('❌ API key validation failed - invalid credentials')
+      throw new AuthenticationError('Invalid API key', 401)
+    }
+
+    return authResult
+  } catch (error) {
+    if (error instanceof AuthenticationError) {
+      logger.error('❌ API key validation failed - authentication error')
+      // Rethrow the original error to preserve error type for higher layers
+      throw error
+    }
+
+    if (error instanceof NetworkError) {
+      logger.error(
+        {
+          error: error.message,
+          code: error.code,
+        },
+        '❌ API key validation failed - network error',
+      )
+      // Rethrow the original error to preserve error type for higher layers
+      throw error
+    }
+
+    // Unknown error - wrap in NetworkError for consistency
+    logger.error(
+      {
+        error: error instanceof Error ? error.message : String(error),
+      },
+      '❌ API key validation failed - unknown error',
+    )
+    throw new NetworkError(
+      'Authentication failed',
+      ErrorCodes.UNKNOWN_ERROR,
+      undefined,
+      error,
+    )
   }
-
-  return authResult
 }
 
 export interface UseAuthQueryDeps {
@@ -89,7 +131,27 @@ export function useAuthQuery(deps: UseAuthQueryDeps = {}) {
     enabled: !!apiKey,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
-    retry: false, // Don't retry auth failures
+    // Retry only for retryable network errors (5xx, timeouts, etc.)
+    // Don't retry authentication errors (invalid credentials)
+    retry: (failureCount, error) => {
+      // Don't retry authentication errors - user needs to update credentials
+      if (error instanceof AuthenticationError) {
+        return false
+      }
+      // Retry network errors if they're retryable and we haven't exceeded max retries
+      if (error instanceof NetworkError && RETRYABLE_ERROR_CODES.has(error.code)) {
+        return failureCount < MAX_RETRIES_PER_MESSAGE
+      }
+      // Don't retry other errors
+      return false
+    },
+    retryDelay: (attemptIndex) => {
+      // Exponential backoff: 1s, 2s, 4s
+      return Math.min(
+        RETRY_BACKOFF_BASE_DELAY_MS * Math.pow(2, attemptIndex),
+        8000, // Cap at 8 seconds
+      )
+    },
   })
 }
 

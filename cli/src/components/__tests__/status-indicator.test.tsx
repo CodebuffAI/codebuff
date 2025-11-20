@@ -1,6 +1,9 @@
 import { describe, test, expect } from 'bun:test'
 
-import { getStatusIndicatorState } from '../../utils/status-indicator-state'
+import {
+  getStatusIndicatorState,
+  type AuthStatus,
+} from '../../utils/status-indicator-state'
 import type { StatusIndicatorStateArgs } from '../../utils/status-indicator-state'
 
 describe('StatusIndicator state logic', () => {
@@ -41,10 +44,40 @@ describe('StatusIndicator state logic', () => {
       }
     })
 
+    test('returns retrying state when auth is retrying even if connected and reachable', () => {
+      const state = getStatusIndicatorState({
+        ...baseArgs,
+        isConnected: true,
+        authStatus: 'retrying',
+        streamStatus: 'streaming',
+      })
+      expect(state.kind).toBe('retrying')
+    })
+
     test('returns connecting state when not connected (third priority)', () => {
       const state = getStatusIndicatorState({
         ...baseArgs,
         isConnected: false,
+        streamStatus: 'streaming',
+      })
+      expect(state.kind).toBe('connecting')
+    })
+
+    test('returns connecting state when auth service is unreachable', () => {
+      const state = getStatusIndicatorState({
+        ...baseArgs,
+        isConnected: true,
+        authStatus: 'unreachable',
+        streamStatus: 'streaming',
+      })
+      expect(state.kind).toBe('connecting')
+    })
+
+    test('returns connecting state when both WebSocket and auth service are unreachable', () => {
+      const state = getStatusIndicatorState({
+        ...baseArgs,
+        isConnected: false,
+        authStatus: 'unreachable',
         streamStatus: 'streaming',
       })
       expect(state.kind).toBe('connecting')
@@ -95,10 +128,30 @@ describe('StatusIndicator state logic', () => {
         expect(state.kind).toBe('clipboard')
       })
 
+      test('retrying beats waiting', () => {
+        const state = getStatusIndicatorState({
+          ...baseArgs,
+          isConnected: true,
+          authStatus: 'retrying',
+          streamStatus: 'waiting',
+        })
+        expect(state.kind).toBe('retrying')
+      })
+
       test('connecting beats waiting', () => {
         const state = getStatusIndicatorState({
           ...baseArgs,
           isConnected: false,
+          streamStatus: 'waiting',
+        })
+        expect(state.kind).toBe('connecting')
+      })
+
+      test('auth unreachable beats waiting', () => {
+        const state = getStatusIndicatorState({
+          ...baseArgs,
+          isConnected: true,
+          authStatus: 'unreachable',
           streamStatus: 'waiting',
         })
         expect(state.kind).toBe('connecting')

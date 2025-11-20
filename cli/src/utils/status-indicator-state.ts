@@ -5,14 +5,18 @@ export type StatusIndicatorState =
   | { kind: 'clipboard'; message: string }
   | { kind: 'ctrlC' }
   | { kind: 'connecting' }
+  | { kind: 'retrying' }
   | { kind: 'waiting' }
   | { kind: 'streaming' }
+
+export type AuthStatus = 'ok' | 'retrying' | 'unreachable'
 
 export type StatusIndicatorStateArgs = {
   statusMessage?: string | null
   streamStatus: StreamStatus
   nextCtrlCWillExit: boolean
   isConnected: boolean
+  authStatus?: AuthStatus
 }
 
 /**
@@ -34,6 +38,7 @@ export const getStatusIndicatorState = ({
   streamStatus,
   nextCtrlCWillExit,
   isConnected,
+  authStatus = 'ok',
 }: StatusIndicatorStateArgs): StatusIndicatorState => {
   if (nextCtrlCWillExit) {
     return { kind: 'ctrlC' }
@@ -43,7 +48,14 @@ export const getStatusIndicatorState = ({
     return { kind: 'clipboard', message: statusMessage }
   }
 
-  if (!isConnected) {
+  // If we're online but the auth request hit a retryable error and is auto-retrying,
+  // surface that explicitly to the user.
+  if (authStatus === 'retrying') {
+    return { kind: 'retrying' }
+  }
+
+  // Show connecting if service is disconnected OR auth service is unreachable
+  if (!isConnected || authStatus === 'unreachable') {
     return { kind: 'connecting' }
   }
 

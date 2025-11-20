@@ -32,7 +32,7 @@ import { useFeedbackStore } from './state/feedback-store'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { loadLocalAgents } from './utils/local-agent-registry'
 import { buildMessageTree } from './utils/message-tree-utils'
-import { getStatusIndicatorState } from './utils/status-indicator-state'
+import { getStatusIndicatorState, type AuthStatus } from './utils/status-indicator-state'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
 
@@ -58,6 +58,7 @@ export const Chat = ({
   logoutMutation,
   continueChat,
   continueChatId,
+  authStatus,
 }: {
   headerContent: React.ReactNode
   initialPrompt: string | null
@@ -74,6 +75,7 @@ export const Chat = ({
   logoutMutation: UseMutationResult<boolean, Error, void, unknown>
   continueChat: boolean
   continueChatId?: string
+  authStatus: AuthStatus
 }) => {
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const [hasOverflow, setHasOverflow] = useState(false)
@@ -786,6 +788,7 @@ export const Chat = ({
     streamStatus,
     nextCtrlCWillExit,
     isConnected,
+    authStatus,
   })
   const hasStatusIndicatorContent = statusIndicatorState.kind !== 'idle'
   const inputBoxTitle = useMemo(() => {
@@ -927,6 +930,7 @@ export const Chat = ({
             timerStartTime={timerStartTime}
             nextCtrlCWillExit={nextCtrlCWillExit}
             isConnected={isConnected}
+            authStatus={authStatus}
             isAtBottom={isAtBottom}
             scrollToLatest={scrollToLatest}
           />

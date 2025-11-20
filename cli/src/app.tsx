@@ -9,10 +9,14 @@ import { Chat } from './chat'
 import { LoginModal } from './components/login-modal'
 import { TerminalLink } from './components/terminal-link'
 import { ToolCallItem } from './components/tools/tool-call-item'
+import { useAgentValidation } from './hooks/use-agent-validation'
+import { useAuthQuery } from './hooks/use-auth-query'
 import { useAuthState } from './hooks/use-auth-state'
 import { useLogo } from './hooks/use-logo'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTheme } from './hooks/use-theme'
+import { NetworkError, RETRYABLE_ERROR_CODES } from '@codebuff/sdk'
+import type { AuthStatus } from './utils/status-indicator-state'
 import { getProjectRoot } from './project-files'
 import { useChatStore } from './state/chat-store'
 import { createValidationErrorBlocks } from './utils/create-validation-error-blocks'
@@ -60,6 +64,9 @@ export const App = ({
     })),
   )
 
+  // Get auth query for network status tracking
+  const authQuery = useAuthQuery()
+
   const {
     isAuthenticated,
     setIsAuthenticated,
@@ -73,6 +80,9 @@ export const App = ({
     setInputFocused,
     resetChatStore,
   })
+
+  // Agent validation
+  const { validate: validateAgents } = useAgentValidation(validationErrors)
 
   const headerContent = useMemo(() => {
     const homeDir = os.homedir()
@@ -203,8 +213,32 @@ export const App = ({
     separatorWidth,
   ])
 
-  // Render login modal when not authenticated, otherwise render chat
-  if (requireAuth !== null && isAuthenticated === false) {
+  // Derive auth reachability + retrying state inline from authQuery error
+  const authError = authQuery.error
+  const networkError =
+    authError && authError instanceof NetworkError ? authError : null
+  const isRetryableNetworkError = Boolean(
+    networkError && RETRYABLE_ERROR_CODES.has(networkError.code),
+  )
+
+  let authStatus: AuthStatus = 'ok'
+  if (authQuery.isError) {
+    if (!networkError) {
+      authStatus = 'ok'
+    } else if (isRetryableNetworkError) {
+      authStatus = 'retrying'
+    } else {
+      authStatus = 'unreachable'
+    }
+  }
+
+  // Render login modal when not authenticated AND auth service is reachable
+  // Don't show login modal during network outages OR while retrying
+  if (
+    requireAuth !== null &&
+    isAuthenticated === false &&
+    authStatus === 'ok'
+  ) {
     return (
       <LoginModal
         onLoginSuccess={handleLoginSuccess}
@@ -227,6 +261,7 @@ export const App = ({
       logoutMutation={logoutMutation}
       continueChat={continueChat}
       continueChatId={continueChatId}
+      authStatus={authStatus}
     />
   )
 }

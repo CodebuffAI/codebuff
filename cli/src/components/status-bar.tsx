@@ -6,6 +6,7 @@ import { useTheme } from '../hooks/use-theme'
 import { formatElapsedTime } from '../utils/format-elapsed-time'
 
 import type { StreamStatus } from '../hooks/use-message-queue'
+import type { AuthStatus } from '../utils/status-indicator-state'
 
 const SHIMMER_INTERVAL_MS = 160
 
@@ -15,6 +16,7 @@ interface StatusBarProps {
   timerStartTime: number | null
   nextCtrlCWillExit: boolean
   isConnected: boolean
+  authStatus: AuthStatus
   isAtBottom: boolean
   scrollToLatest: () => void
 }
@@ -25,6 +27,7 @@ export const StatusBar = ({
   timerStartTime,
   nextCtrlCWillExit,
   isConnected,
+  authStatus,
   isAtBottom,
   scrollToLatest,
 }: StatusBarProps) => {
@@ -59,10 +62,25 @@ export const StatusBar = ({
     if (statusMessage) {
       // Use green color for feedback success messages
       const isFeedbackSuccess = statusMessage.includes('Feedback sent')
-      return <span fg={isFeedbackSuccess ? theme.success : theme.primary}>{statusMessage}</span>
+      return (
+        <span fg={isFeedbackSuccess ? theme.success : theme.primary}>
+          {statusMessage}
+        </span>
+      )
     }
 
-    if (!isConnected) {
+    // Retryable server-side or transient network error: communicate that we're retrying
+    if (authStatus === 'retrying') {
+      return (
+        <ShimmerText
+          text="error, retrying..."
+          primaryColor={theme.warning}
+        />
+      )
+    }
+
+    // Show connecting if service is disconnected OR auth service is unreachable
+    if (!isConnected || authStatus === 'unreachable') {
       return <ShimmerText text="connecting..." />
     }
 
@@ -99,10 +117,10 @@ export const StatusBar = ({
 
   const statusIndicatorContent = renderStatusIndicator()
   const elapsedTimeContent = renderElapsedTime()
-  
+
   // Only show gray background when there's status indicator or timer content
   const hasContent = statusIndicatorContent || elapsedTimeContent
-  
+
   return (
     <box
       style={{
