@@ -15,11 +15,20 @@ export const UsageBanner = () => {
   const { terminalWidth } = useTerminalDimensions()
   const theme = useTheme()
   const isUsageVisible = useChatStore((state) => state.isUsageVisible)
-  const usageData = useChatStore((state) => state.usageData)
+  const sessionCreditsUsed = useChatStore((state) => state.sessionCreditsUsed)
   const setIsUsageVisible = useChatStore((state) => state.setIsUsageVisible)
 
   // Fetch usage data when banner is visible
-  useUsageQuery({ enabled: isUsageVisible })
+  const { data: apiData } = useUsageQuery({ enabled: isUsageVisible })
+
+  // Transform API data to usage data format
+  const usageData = apiData
+    ? {
+        sessionUsage: sessionCreditsUsed,
+        remainingBalance: apiData.remainingBalance,
+        nextQuotaReset: apiData.next_quota_reset,
+      }
+    : null
 
   // Auto-hide banner after 60 seconds
   useEffect(() => {

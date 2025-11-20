@@ -6,7 +6,6 @@ import type { FetchAndUpdateUsageParams } from '../fetch-usage'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 describe('fetchAndUpdateUsage (deprecated)', () => {
-  let setUsageDataMock: ReturnType<typeof mock>
   let setIsUsageVisibleMock: ReturnType<typeof mock>
   let getAuthTokenMock: ReturnType<typeof mock>
   let loggerMock: Logger
@@ -25,7 +24,6 @@ describe('fetchAndUpdateUsage (deprecated)', () => {
     getAuthToken: getAuthTokenMock,
     getChatStore: () => ({
       sessionCreditsUsed: 150,
-      setUsageData: setUsageDataMock,
       setIsUsageVisible: setIsUsageVisibleMock,
     }),
     logger: loggerMock,
@@ -34,7 +32,6 @@ describe('fetchAndUpdateUsage (deprecated)', () => {
   })
 
   beforeEach(() => {
-    setUsageDataMock = mock(() => {})
     setIsUsageVisibleMock = mock(() => {})
     getAuthTokenMock = mock(() => 'test-auth-token')
     loggerMock = {
@@ -58,12 +55,7 @@ describe('fetchAndUpdateUsage (deprecated)', () => {
       const result = await fetchAndUpdateUsage(createDefaultParams())
 
       expect(result).toBe(true)
-      expect(setUsageDataMock).toHaveBeenCalledTimes(1)
-      expect(setUsageDataMock.mock.calls[0][0]).toEqual({
-        sessionUsage: 150,
-        remainingBalance: 500,
-        nextQuotaReset: '2024-02-01T00:00:00.000Z',
-      })
+      // Note: setUsageData no longer called - data managed by TanStack Query
       expect(setIsUsageVisibleMock).not.toHaveBeenCalled()
     })
 
@@ -73,7 +65,7 @@ describe('fetchAndUpdateUsage (deprecated)', () => {
       )
 
       expect(result).toBe(true)
-      expect(setUsageDataMock).toHaveBeenCalledTimes(1)
+      // Note: setUsageData no longer called - data managed by TanStack Query
       expect(setIsUsageVisibleMock).toHaveBeenCalledTimes(1)
       expect(setIsUsageVisibleMock.mock.calls[0][0]).toBe(true)
     })
@@ -91,11 +83,7 @@ describe('fetchAndUpdateUsage (deprecated)', () => {
       const result = await fetchAndUpdateUsage(createDefaultParams())
 
       expect(result).toBe(true)
-      expect(setUsageDataMock.mock.calls[0][0]).toEqual({
-        sessionUsage: 150,
-        remainingBalance: null,
-        nextQuotaReset: null,
-      })
+      // Note: setUsageData no longer called - data managed by TanStack Query
     })
 
     test('should send correct request to API', async () => {
@@ -123,7 +111,6 @@ describe('fetchAndUpdateUsage (deprecated)', () => {
       const result = await fetchAndUpdateUsage(createDefaultParams())
 
       expect(result).toBe(false)
-      expect(setUsageDataMock).not.toHaveBeenCalled()
       expect(setIsUsageVisibleMock).not.toHaveBeenCalled()
       expect(loggerMock.debug).toHaveBeenCalled()
     })
@@ -146,7 +133,6 @@ describe('fetchAndUpdateUsage (deprecated)', () => {
       const result = await fetchAndUpdateUsage(createDefaultParams())
 
       expect(result).toBe(false)
-      expect(setUsageDataMock).not.toHaveBeenCalled()
       expect(loggerMock.error).toHaveBeenCalled()
     })
 
@@ -158,7 +144,6 @@ describe('fetchAndUpdateUsage (deprecated)', () => {
       const result = await fetchAndUpdateUsage(createDefaultParams())
 
       expect(result).toBe(false)
-      expect(setUsageDataMock).not.toHaveBeenCalled()
     })
 
     test('should return false on network errors', async () => {
@@ -169,7 +154,6 @@ describe('fetchAndUpdateUsage (deprecated)', () => {
       const result = await fetchAndUpdateUsage(createDefaultParams())
 
       expect(result).toBe(false)
-      expect(setUsageDataMock).not.toHaveBeenCalled()
       expect(loggerMock.error).toHaveBeenCalled()
     })
 
@@ -184,7 +168,6 @@ describe('fetchAndUpdateUsage (deprecated)', () => {
       const result = await fetchAndUpdateUsage(createDefaultParams())
 
       expect(result).toBe(false)
-      expect(setUsageDataMock).not.toHaveBeenCalled()
     })
 
     test('should handle fetch timeout gracefully', async () => {
@@ -207,14 +190,13 @@ describe('fetchAndUpdateUsage (deprecated)', () => {
         createDefaultParams({
           getChatStore: () => ({
             sessionCreditsUsed: 250,
-            setUsageData: setUsageDataMock,
             setIsUsageVisible: setIsUsageVisibleMock,
           }),
         }),
       )
 
       expect(result).toBe(true)
-      expect(setUsageDataMock.mock.calls[0][0].sessionUsage).toBe(250)
+      // Note: setUsageData no longer called - data managed by TanStack Query
     })
 
     test('should handle zero session credits', async () => {
@@ -222,14 +204,13 @@ describe('fetchAndUpdateUsage (deprecated)', () => {
         createDefaultParams({
           getChatStore: () => ({
             sessionCreditsUsed: 0,
-            setUsageData: setUsageDataMock,
             setIsUsageVisible: setIsUsageVisibleMock,
           }),
         }),
       )
 
       expect(result).toBe(true)
-      expect(setUsageDataMock.mock.calls[0][0].sessionUsage).toBe(0)
+      // Note: setUsageData no longer called - data managed by TanStack Query
     })
   })
 
@@ -257,7 +238,7 @@ describe('fetchAndUpdateUsage (deprecated)', () => {
       const result = await fetchAndUpdateUsage(createDefaultParams())
 
       expect(result).toBe(true)
-      expect(setUsageDataMock).toHaveBeenCalled()
+      // Note: setUsageData no longer called - data managed by TanStack Query
     })
 
     test('should handle concurrent calls correctly', async () => {
@@ -280,7 +261,7 @@ describe('fetchAndUpdateUsage (deprecated)', () => {
       ])
 
       expect(results).toEqual([true, true, true])
-      expect(setUsageDataMock).toHaveBeenCalledTimes(3)
+      // Note: setUsageData no longer called - data managed by TanStack Query
       expect(setIsUsageVisibleMock).toHaveBeenCalledTimes(1)
     })
   })

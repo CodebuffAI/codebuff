@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
+import { describe, test, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test'
 import { QueryClient } from '@tanstack/react-query'
 
 import { useChatStore } from '../../state/chat-store'
@@ -20,11 +20,10 @@ import * as authModule from '../../utils/auth'
  */
 describe('Usage Refresh on SDK Completion', () => {
   const originalFetch = globalThis.fetch
-  const originalGetAuthToken = authModule.getAuthToken
   const originalEnv = process.env.NEXT_PUBLIC_CODEBUFF_APP_URL
 
   let queryClient: QueryClient
-  let getAuthTokenMock: ReturnType<typeof mock>
+  let getAuthTokenSpy: ReturnType<typeof spyOn>
 
   beforeEach(() => {
     process.env.NEXT_PUBLIC_CODEBUFF_APP_URL = 'https://test.codebuff.local'
@@ -40,8 +39,7 @@ describe('Usage Refresh on SDK Completion', () => {
     })
 
     // Mock auth token
-    getAuthTokenMock = mock(() => 'test-token')
-    authModule.getAuthToken = getAuthTokenMock as any
+    getAuthTokenSpy = spyOn(authModule, 'getAuthToken').mockReturnValue('test-token')
 
     // Mock successful API response
     globalThis.fetch = mock(async () =>
@@ -59,7 +57,7 @@ describe('Usage Refresh on SDK Completion', () => {
 
   afterEach(() => {
     globalThis.fetch = originalFetch
-    authModule.getAuthToken = originalGetAuthToken
+    getAuthTokenSpy.mockRestore()
     process.env.NEXT_PUBLIC_CODEBUFF_APP_URL = originalEnv
     mock.restore()
   })
@@ -160,7 +158,7 @@ describe('Usage Refresh on SDK Completion', () => {
 
   describe('unauthenticated scenarios', () => {
     test('should not fetch when no auth token', () => {
-      getAuthTokenMock.mockReturnValue(undefined)
+      getAuthTokenSpy.mockReturnValue(undefined)
       useChatStore.getState().setIsUsageVisible(true)
 
       const fetchMock = mock(globalThis.fetch)

@@ -1,7 +1,5 @@
-import React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { useChatStore } from '../state/chat-store'
 import { getAuthToken } from '../utils/auth'
 import { logger as defaultLogger } from '../utils/logger'
 
@@ -70,17 +68,14 @@ export interface UseUsageQueryDeps {
 }
 
 /**
- * Hook to fetch and manage usage data
- * Automatically updates the chat store when new data arrives
+ * Hook to fetch usage data from the API
+ * Returns TanStack Query result directly - no store synchronization needed
  */
 export function useUsageQuery(deps: UseUsageQueryDeps = {}) {
   const { logger = defaultLogger, enabled = true } = deps
-  const setUsageData = useChatStore((state) => state.setUsageData)
-  const sessionCreditsUsed = useChatStore((state) => state.sessionCreditsUsed)
-
   const authToken = getAuthToken()
 
-  const query = useQuery({
+  return useQuery({
     queryKey: usageQueryKeys.current(),
     queryFn: () => fetchUsageData({ authToken: authToken!, logger }),
     enabled: enabled && !!authToken,
@@ -91,19 +86,6 @@ export function useUsageQuery(deps: UseUsageQueryDeps = {}) {
     refetchOnWindowFocus: false, // CLI doesn't have window focus
     refetchOnReconnect: false, // Don't auto-refetch on reconnect
   })
-
-  // Update store when data changes (replaces deprecated onSuccess)
-  React.useEffect(() => {
-    if (query.data) {
-      setUsageData({
-        sessionUsage: sessionCreditsUsed,
-        remainingBalance: query.data.remainingBalance,
-        nextQuotaReset: query.data.next_quota_reset,
-      })
-    }
-  }, [query.data, sessionCreditsUsed, setUsageData])
-
-  return query
 }
 
 /**

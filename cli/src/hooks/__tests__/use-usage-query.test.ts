@@ -1,13 +1,23 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
-import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { renderHook, waitFor } from '@testing-library/react'
+import {
+  describe,
+  test,
+  expect,
+  beforeEach,
+  afterEach,
+  mock,
+  spyOn,
+} from 'bun:test'
 import React from 'react'
 
-import { fetchUsageData, useUsageQuery, useRefreshUsage } from '../use-usage-query'
 import { useChatStore } from '../../state/chat-store'
 import * as authModule from '../../utils/auth'
-
-import type { UsageData } from '../../state/chat-store'
+import {
+  fetchUsageData,
+  useUsageQuery,
+  useRefreshUsage,
+} from '../use-usage-query'
 
 describe('fetchUsageData', () => {
   const originalFetch = globalThis.fetch
@@ -25,18 +35,19 @@ describe('fetchUsageData', () => {
 
   test('should fetch usage data successfully', async () => {
     const mockResponse = {
-      type: 'usage-response',
+      type: 'usage-response' as const,
       usage: 100,
       remainingBalance: 500,
       balanceBreakdown: { free: 300, paid: 200 },
       next_quota_reset: '2024-02-01T00:00:00.000Z',
     }
 
-    globalThis.fetch = mock(async () =>
-      new Response(JSON.stringify(mockResponse), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
+    globalThis.fetch = mock(
+      async () =>
+        new Response(JSON.stringify(mockResponse), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
     )
 
     const result = await fetchUsageData({ authToken: 'test-token' })
@@ -63,7 +74,7 @@ describe('fetchUsageData', () => {
 
 describe('useUsageQuery', () => {
   let queryClient: QueryClient
-  const originalGetAuthToken = authModule.getAuthToken
+  let getAuthTokenSpy: ReturnType<typeof spyOn>
   const originalEnv = process.env.NEXT_PUBLIC_CODEBUFF_APP_URL
 
   function createWrapper() {
@@ -86,13 +97,15 @@ describe('useUsageQuery', () => {
   })
 
   afterEach(() => {
-    authModule.getAuthToken = originalGetAuthToken
+    getAuthTokenSpy?.mockRestore()
     process.env.NEXT_PUBLIC_CODEBUFF_APP_URL = originalEnv
     mock.restore()
   })
 
-  test('should fetch and update store when enabled', async () => {
-    authModule.getAuthToken = mock(() => 'test-token')
+  test('should fetch data when enabled', async () => {
+    getAuthTokenSpy = spyOn(authModule, 'getAuthToken').mockReturnValue(
+      'test-token',
+    )
 
     const mockResponse = {
       type: 'usage-response' as const,
@@ -101,11 +114,12 @@ describe('useUsageQuery', () => {
       next_quota_reset: '2024-02-01T00:00:00.000Z',
     }
 
-    globalThis.fetch = mock(async () =>
-      new Response(JSON.stringify(mockResponse), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
+    globalThis.fetch = mock(
+      async () =>
+        new Response(JSON.stringify(mockResponse), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
     )
 
     const { result } = renderHook(() => useUsageQuery(), {
@@ -118,7 +132,9 @@ describe('useUsageQuery', () => {
   })
 
   test('should not fetch when disabled', async () => {
-    authModule.getAuthToken = mock(() => 'test-token')
+    getAuthTokenSpy = spyOn(authModule, 'getAuthToken').mockReturnValue(
+      'test-token',
+    )
     const fetchMock = mock(async () => new Response('{}'))
     globalThis.fetch = fetchMock
 
@@ -133,7 +149,9 @@ describe('useUsageQuery', () => {
   })
 
   test('should not fetch when no auth token', async () => {
-    authModule.getAuthToken = mock(() => undefined)
+    getAuthTokenSpy = spyOn(authModule, 'getAuthToken').mockReturnValue(
+      undefined,
+    )
     const fetchMock = mock(async () => new Response('{}'))
     globalThis.fetch = fetchMock
 

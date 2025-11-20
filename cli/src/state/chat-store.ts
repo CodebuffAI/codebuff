@@ -31,7 +31,6 @@ export type ChatStoreState = {
   lastMessageMode: AgentMode | null
   sessionCreditsUsed: number
   runState: RunState | null
-  usageData: UsageData | null
   isUsageVisible: boolean
 }
 
@@ -61,18 +60,11 @@ type ChatStoreActions = {
   setLastMessageMode: (mode: AgentMode | null) => void
   addSessionCredits: (credits: number) => void
   setRunState: (runState: RunState | null) => void
-  setUsageData: (data: UsageData | null) => void
   setIsUsageVisible: (visible: boolean) => void
   reset: () => void
 }
 
 type ChatStore = ChatStoreState & ChatStoreActions
-
-export interface UsageData {
-  sessionUsage: number
-  remainingBalance: number | null
-  nextQuotaReset: string | null
-}
 
 const initialState: ChatStoreState = {
   messages: [],
@@ -91,7 +83,6 @@ const initialState: ChatStoreState = {
   lastMessageMode: null,
   sessionCreditsUsed: 0,
   runState: null,
-  usageData: null,
   isUsageVisible: false,
 }
 
@@ -196,11 +187,6 @@ export const useChatStore = create<ChatStore>()(
         state.runState = runState ? castDraft(runState) : null
       }),
 
-    setUsageData: (data) =>
-      set((state) => {
-        state.usageData = data
-      }),
-
     setIsUsageVisible: (visible) =>
       set((state) => {
         state.isUsageVisible = visible
@@ -226,7 +212,6 @@ export const useChatStore = create<ChatStore>()(
         state.runState = initialState.runState
           ? castDraft(initialState.runState)
           : null
-        state.usageData = initialState.usageData
         state.isUsageVisible = initialState.isUsageVisible
       }),
   })),

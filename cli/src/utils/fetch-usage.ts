@@ -19,7 +19,6 @@ export interface FetchAndUpdateUsageParams {
   getAuthToken?: () => string | undefined
   getChatStore?: () => {
     sessionCreditsUsed: number
-    setUsageData: (data: any) => void
     setIsUsageVisible: (visible: boolean) => void
   }
   logger?: Logger
@@ -74,12 +73,9 @@ export async function fetchAndUpdateUsage(
 
     const data = (await response.json()) as UsageResponse
 
-    chatStore.setUsageData({
-      sessionUsage: sessionCreditsUsed,
-      remainingBalance: data.remainingBalance,
-      nextQuotaReset: data.next_quota_reset,
-    })
-
+    // Note: This function is deprecated. Use useUsageQuery hook instead.
+    // We no longer update the store here since usage data is managed by TanStack Query.
+    
     if (showBanner) {
       chatStore.setIsUsageVisible(true)
     }
