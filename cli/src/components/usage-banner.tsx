@@ -7,6 +7,10 @@ import { useUsageQuery } from '../hooks/use-usage-query'
 import { useChatStore } from '../state/chat-store'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
+// Credit level thresholds for banner color
+const HIGH_CREDITS_THRESHOLD = 1000
+const MEDIUM_CREDITS_THRESHOLD = 100
+
 export const UsageBanner = () => {
   const { terminalWidth } = useTerminalDimensions()
   const theme = useTheme()
@@ -64,6 +68,25 @@ export const UsageBanner = () => {
     return result
   }, [usageData])
 
+  const bannerColor = useMemo(() => {
+    // Default color
+    if (!usageData || usageData.remainingBalance === null) {
+      return theme.warning
+    }
+
+    const balance = usageData.remainingBalance
+
+    if (balance >= HIGH_CREDITS_THRESHOLD) {
+      return theme.success
+    }
+
+    if (balance >= MEDIUM_CREDITS_THRESHOLD) {
+      return theme.warning
+    }
+
+    return theme.error
+  }, [usageData, theme])
+
   if (!isUsageVisible || !usageData) return null
 
   return (
@@ -72,7 +95,7 @@ export const UsageBanner = () => {
       style={{
         width: '100%',
         borderStyle: 'single',
-        borderColor: theme.warning,
+        borderColor: bannerColor,
         flexDirection: 'row',
         justifyContent: 'space-between',
         paddingLeft: 1,
@@ -85,7 +108,7 @@ export const UsageBanner = () => {
     >
       <text
         style={{
-          fg: theme.warning,
+          fg: bannerColor,
           wrapMode: 'word',
           flexShrink: 1,
           marginRight: 3,
