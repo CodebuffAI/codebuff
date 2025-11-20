@@ -72,6 +72,7 @@ type ParsedArgs = {
   clearLogs: boolean
   continue: boolean
   continueId?: string | null
+  cwd?: string
 }
 
 function parseArgs(): ParsedArgs {
@@ -89,6 +90,10 @@ function parseArgs(): ParsedArgs {
     .option(
       '--continue [conversation-id]',
       'Continue from a previous conversation (optionally specify a conversation id)',
+    )
+    .option(
+      '--cwd <directory>',
+      'Set the working directory (default: current directory)',
     )
     .helpOption('-h, --help', 'Show this help message')
     .argument('[prompt...]', 'Initial prompt to send to the agent')
@@ -109,6 +114,7 @@ function parseArgs(): ParsedArgs {
       typeof continueFlag === 'string' && continueFlag.trim().length > 0
         ? continueFlag.trim()
         : null,
+    cwd: options.cwd,
   }
 }
 
@@ -119,9 +125,10 @@ async function main(): Promise<void> {
     clearLogs,
     continue: continueChat,
     continueId,
+    cwd,
   } = parseArgs()
 
-  await initializeApp({ isOscDetectionRun: isOscDetectionRun() })
+  await initializeApp({ cwd, isOscDetectionRun: isOscDetectionRun() })
 
   // Initialize analytics
   try {
