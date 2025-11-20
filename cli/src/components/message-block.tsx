@@ -1,6 +1,6 @@
 import { TextAttributes } from '@opentui/core'
 import { pluralize } from '@codebuff/common/util/string'
-import React, { memo, useCallback, type ReactNode } from 'react'
+import React, { memo, useCallback, useMemo, type ReactNode } from 'react'
 
 import { AgentBranchItem } from './agent-branch-item'
 import { ElapsedTimer } from './elapsed-timer'
@@ -8,7 +8,6 @@ import { FeedbackIconButton } from './feedback-icon-button'
 import { useTheme } from '../hooks/use-theme'
 import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
 import { isTextBlock, isToolBlock } from '../types/chat'
-import { logger } from '../utils/logger'
 import { type MarkdownPalette } from '../utils/markdown-renderer'
 import {
   useFeedbackStore,
@@ -86,22 +85,37 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
   })
 
   const theme = useTheme()
-  const isFeedbackOpen = useFeedbackStore(selectIsFeedbackOpenForMessage(messageId))
-  const hasSubmittedFeedback = useFeedbackStore(selectHasSubmittedFeedback(messageId))
-  const selectedFeedbackCategory = useFeedbackStore(selectMessageFeedbackCategory(messageId))
+  
+  // Memoize selectors to prevent new function references on every render
+  const selectIsFeedbackOpenMemo = useMemo(
+    () => selectIsFeedbackOpenForMessage(messageId),
+    [messageId],
+  )
+  const selectHasSubmittedFeedbackMemo = useMemo(
+    () => selectHasSubmittedFeedback(messageId),
+    [messageId],
+  )
+  const selectMessageFeedbackCategoryMemo = useMemo(
+    () => selectMessageFeedbackCategory(messageId),
+    [messageId],
+  )
+  
+  const isFeedbackOpen = useFeedbackStore(selectIsFeedbackOpenMemo)
+  const hasSubmittedFeedback = useFeedbackStore(selectHasSubmittedFeedbackMemo)
+  const selectedFeedbackCategory = useFeedbackStore(selectMessageFeedbackCategoryMemo)
 
   const resolvedTextColor = textColor ?? theme.foreground
   const shouldShowLoadingTimer = isAi && isLoading && !isComplete
   const shouldShowCompletionFooter = isAi && isComplete
-  const canRequestFeedback =
-    shouldShowCompletionFooter && !hasSubmittedFeedback
+  const canRequestFeedback = shouldShowCompletionFooter && !hasSubmittedFeedback
   const isGoodOrBadSelection =
     selectedFeedbackCategory === 'good_result' ||
     selectedFeedbackCategory === 'bad_result'
   const shouldShowSubmittedFeedbackState =
     shouldShowCompletionFooter && hasSubmittedFeedback && isGoodOrBadSelection
   const shouldRenderFeedbackButton =
-    Boolean(onFeedback) && (canRequestFeedback || shouldShowSubmittedFeedbackState)
+    Boolean(onFeedback) &&
+    (canRequestFeedback || shouldShowSubmittedFeedbackState)
 
   const handleFeedbackOpen = useCallback(() => {
     if (!canRequestFeedback || !onFeedback) return

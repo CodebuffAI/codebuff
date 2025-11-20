@@ -32,11 +32,14 @@ import { useFeedbackStore } from './state/feedback-store'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { loadLocalAgents } from './utils/local-agent-registry'
 import { buildMessageTree } from './utils/message-tree-utils'
-import { getStatusIndicatorState, type AuthStatus } from './utils/status-indicator-state'
+import {
+  getStatusIndicatorState,
+  type AuthStatus,
+} from './utils/status-indicator-state'
 import { authQueryKeys } from './hooks/use-auth-query'
 import { RECONNECTION_MESSAGE_DURATION_MS } from '@codebuff/sdk'
 import { useQueryClient } from '@tanstack/react-query'
-import { startTransition, useTransition } from 'react'
+import { useTransition } from 'react'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
 
@@ -48,6 +51,8 @@ import type { FileTreeNode } from '@codebuff/common/util/file'
 import type { ScrollBoxRenderable } from '@opentui/core'
 import type { UseMutationResult } from '@tanstack/react-query'
 import type { Dispatch, SetStateAction } from 'react'
+import { useEvent } from './hooks/use-event'
+import { AgentMode } from './utils/constants'
 
 export const Chat = ({
   headerContent,
@@ -573,6 +578,33 @@ export const Chat = ({
   retryPendingMessagesRef.current = retryPendingMessages
   processFailedMessagesRef.current = processFailedMessages
 
+  const onSubmitPrompt = useEvent((content: string, mode: AgentMode) => {
+    return routeUserPrompt({
+      abortControllerRef,
+      agentMode: mode,
+      inputRef,
+      inputValue: content,
+      isChainInProgressRef,
+      isStreaming,
+      logoutMutation,
+      streamMessageIdRef,
+      addToQueue,
+      clearMessages,
+      clearQueue,
+      handleCtrlC,
+      saveToHistory,
+      scrollToLatest,
+      sendMessage,
+      setCanProcessQueue,
+      setInputFocused,
+      setInputValue,
+      setIsAuthenticated,
+      setMessages,
+      setUser,
+      stopStreaming,
+    })
+  })
+
   const { inputWidth, handleBuildFast, handleBuildMax } = useChatInput({
     inputValue,
     setInputValue,
@@ -580,32 +612,7 @@ export const Chat = ({
     setAgentMode,
     separatorWidth,
     initialPrompt,
-    onSubmitPrompt: (content, mode) => {
-      return routeUserPrompt({
-        abortControllerRef,
-        agentMode: mode,
-        inputRef,
-        inputValue: content,
-        isChainInProgressRef,
-        isStreaming,
-        logoutMutation,
-        streamMessageIdRef,
-        addToQueue,
-        clearMessages,
-        clearQueue,
-        handleCtrlC,
-        saveToHistory,
-        scrollToLatest,
-        sendMessage,
-        setCanProcessQueue,
-        setInputFocused,
-        setInputValue,
-        setIsAuthenticated,
-        setMessages,
-        setUser,
-        stopStreaming,
-      })
-    },
+    onSubmitPrompt,
   })
 
   const {
@@ -778,7 +785,6 @@ export const Chat = ({
     () => buildMessageTree(messages),
     [messages],
   )
-
 
   const hasSlashSuggestions =
     slashContext.active && slashSuggestionItems.length > 0
