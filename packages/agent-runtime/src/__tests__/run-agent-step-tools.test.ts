@@ -4,6 +4,7 @@ import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
+import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import db from '@codebuff/internal/db'
 import {
   afterAll,
@@ -356,17 +357,15 @@ describe('runAgentStep - set_output tool', () => {
     // Add the user prompt and instructions that would normally be added by loopAgentSteps
     agentState.messageHistory = [
       ...agentState.messageHistory,
-      {
-        role: 'user',
+      userMessage({
         content: asUserMessage('Test the handleSteps functionality'),
         keepDuringTruncation: true,
-      },
-      {
-        role: 'user',
+      }),
+      userMessage({
         content: 'Test instructions prompt',
         timeToLive: 'userPrompt' as const,
         keepDuringTruncation: true,
-      },
+      }),
     ]
 
     const initialMessageCount = agentState.messageHistory.length
@@ -393,8 +392,8 @@ describe('runAgentStep - set_output tool', () => {
       finalMessages.some(
         (m) =>
           m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.includes('Test the handleSteps functionality'),
+          m.content[0].type === 'text' &&
+          m.content[0].text.includes('Test the handleSteps functionality'),
       ),
     ).toBe(true)
 
@@ -403,7 +402,8 @@ describe('runAgentStep - set_output tool', () => {
       newMessages.some(
         (m) =>
           m.role === 'assistant' &&
-          m.content === 'Continuing with the analysis...',
+          m.content[0].type === 'text' &&
+          m.content[0].text === 'Continuing with the analysis...',
       ),
     ).toBe(true)
   })
@@ -502,24 +502,22 @@ describe('runAgentStep - set_output tool', () => {
 
     // Add some initial messages including assistant messages to delete
     agentState.messageHistory = [
-      { role: 'user', content: 'Hello' },
-      { role: 'assistant', content: 'Hi there!' },
-      { role: 'user', content: 'How are you?' },
-      { role: 'assistant', content: 'I am doing well, thank you!' },
-      { role: 'user', content: 'Can you help me?' },
-      { role: 'assistant', content: 'Of course, I would be happy to help!' },
+      userMessage('Hello'),
+      assistantMessage('Hi there!'),
+      userMessage('How are you?'),
+      assistantMessage('I am doing well, thank you!'),
+      userMessage('Can you help me?'),
+      assistantMessage('Of course, I would be happy to help!'),
       // Add the user prompt and instructions that would normally be added by loopAgentSteps
-      {
-        role: 'user',
+      userMessage({
         content: 'Spawn an inline agent to clean up messages',
         keepDuringTruncation: true,
-      },
-      {
-        role: 'user',
+      }),
+      userMessage({
         content: 'Parent instructions prompt',
         timeToLive: 'userPrompt' as const,
         keepDuringTruncation: true,
-      },
+      }),
     ]
 
     const result = await runAgentStep({
@@ -549,23 +547,36 @@ describe('runAgentStep - set_output tool', () => {
       finalMessages.some(
         (m) =>
           m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.includes('Spawn an inline agent to clean up messages'),
+          m.content[0].type === 'text' &&
+          m.content[0].text.includes(
+            'Spawn an inline agent to clean up messages',
+          ),
       ),
     ).toBe(true)
 
     // The final messages should still contain the core conversation structure
     expect(
-      finalMessages.some((m) => m.role === 'user' && m.content === 'Hello'),
-    ).toBe(true)
-    expect(
       finalMessages.some(
-        (m) => m.role === 'user' && m.content === 'How are you?',
+        (m) =>
+          m.role === 'user' &&
+          m.content[0].type === 'text' &&
+          m.content[0].text === 'Hello',
       ),
     ).toBe(true)
     expect(
       finalMessages.some(
-        (m) => m.role === 'user' && m.content === 'Can you help me?',
+        (m) =>
+          m.role === 'user' &&
+          m.content[0].type === 'text' &&
+          m.content[0].text === 'How are you?',
+      ),
+    ).toBe(true)
+    expect(
+      finalMessages.some(
+        (m) =>
+          m.role === 'user' &&
+          m.content[0].type === 'text' &&
+          m.content[0].text === 'Can you help me?',
       ),
     ).toBe(true)
   })

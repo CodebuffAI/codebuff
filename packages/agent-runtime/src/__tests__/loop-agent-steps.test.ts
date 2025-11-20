@@ -7,6 +7,7 @@ import {
 } from '@codebuff/common/testing/mock-modules'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
+import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import db from '@codebuff/internal/db'
 import {
   afterAll,
@@ -121,8 +122,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       ...sessionState.mainAgentState,
       agentId: 'test-agent-id',
       messageHistory: [
-        { role: 'user', content: 'Initial message' },
-        { role: 'assistant', content: 'Initial response' },
+        userMessage('Initial message'),
+        assistantMessage('Initial response'),
       ],
       output: undefined,
       stepsRemaining: 10, // Ensure we don't hit the limit
@@ -606,8 +607,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     const systemMessages = result.agentState.messageHistory.filter(
       (msg) =>
         msg.role === 'user' &&
-        typeof msg.content === 'string' &&
-        msg.content.includes('set_output'),
+        msg.content[0].type === 'text' &&
+        msg.content[0].text.includes('set_output'),
     )
     expect(systemMessages.length).toBeGreaterThan(0)
   })

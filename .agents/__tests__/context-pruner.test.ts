@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach } from 'bun:test'
 
 import contextPruner from '../context-pruner'
 
-import type { Message } from '../types/util-types'
+import type { Message, ToolMessage } from '../types/util-types'
 
 describe('context-pruner handleSteps', () => {
   let mockAgentState: any
@@ -25,43 +25,37 @@ describe('context-pruner handleSteps', () => {
     command: string,
     output: string,
     exitCode?: number,
-  ): any => ({
+  ): ToolMessage => ({
     role: 'tool',
-    content: {
-      type: 'tool-result',
-      toolCallId: 'test-id',
-      toolName: 'run_terminal_command',
-      output: [
-        {
-          type: 'json',
-          value: {
-            command,
-            stdout: output,
-            ...(exitCode !== undefined && { exitCode }),
-          },
+    toolCallId: 'test-id',
+    toolName: 'run_terminal_command',
+    content: [
+      {
+        type: 'json',
+        value: {
+          command,
+          stdout: output,
+          ...(exitCode !== undefined && { exitCode }),
         },
-      ],
-    },
+      },
+    ],
   })
 
   const createLargeToolMessage = (
     toolName: string,
     largeData: string,
-  ): any => ({
+  ): ToolMessage => ({
     role: 'tool',
-    content: {
-      type: 'tool-result',
-      toolCallId: 'test-id',
-      toolName,
-      output: [
-        {
-          type: 'json',
-          value: {
-            data: largeData,
-          },
+    toolCallId: 'test-id',
+    toolName,
+    content: [
+      {
+        type: 'json',
+        value: {
+          data: largeData,
         },
-      ],
-    },
+      },
+    ],
   })
 
   const runHandleSteps = (messages: Message[]) => {

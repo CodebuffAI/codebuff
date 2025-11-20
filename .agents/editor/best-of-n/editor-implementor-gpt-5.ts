@@ -123,7 +123,7 @@ Write out your complete implementation now, formatting all changes as tool calls
       const editToolResults = messageHistory
         .slice(lastAssistantMessageIndex)
         .filter((message) => message.role === 'tool')
-        .flatMap((message) => message.content.output)
+        .flatMap((message) => message.content)
         .filter((output) => output.type === 'json')
         .map((output) => output.value)
 

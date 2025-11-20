@@ -9,8 +9,8 @@ import {
   flattenTree,
   getProjectFileTree,
 } from '@codebuff/common/project-file-tree'
-import { truncateStringWithMessage } from '@codebuff/common/util/string'
 import { formatCodeSearchOutput } from '@codebuff/common/util/format-code-search'
+import { truncateStringWithMessage } from '@codebuff/common/util/string'
 import micromatch from 'micromatch'
 import { cyan, green, red, yellow } from 'picocolors'
 
@@ -32,7 +32,7 @@ import type {
   ClientToolName,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
-import type { ToolResultPart } from '@codebuff/common/types/messages/content-part'
+import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { ToolCall } from '@codebuff/common/types/session-state'
 
 export type ToolHandler<T extends ClientToolName> = (
@@ -51,10 +51,8 @@ export const handleUpdateFile = async <
   const lines = fileChange.content.split('\n')
 
   await waitForPreviousCheckpoint()
-  const { created, modified, ignored, invalid, patchFailed } = await applyChanges(
-    projectPath,
-    [fileChange],
-  )
+  const { created, modified, ignored, invalid, patchFailed } =
+    await applyChanges(projectPath, [fileChange])
   DiffManager.addChange(fileChange)
 
   let result: CodebuffToolOutput<T>[] = []
@@ -316,8 +314,12 @@ export const handleCodeSearch: ToolHandler<'code_search'> = async (
             type: 'json',
             value: {
               errorMessage: `Code search timed out after ${timeoutSeconds} seconds. The search may be too broad or the pattern too complex. Try narrowing your search with more specific flags or a more specific pattern.`,
-              stdout: stdout ? truncateStringWithMessage({ str: stdout, maxLength: 1000 }) : '',
-              stderr: stderr ? truncateStringWithMessage({ str: stderr, maxLength: 1000 }) : '',
+              stdout: stdout
+                ? truncateStringWithMessage({ str: stdout, maxLength: 1000 })
+                : '',
+              stderr: stderr
+                ? truncateStringWithMessage({ str: stderr, maxLength: 1000 })
+                : '',
             },
           },
         ])
@@ -540,7 +542,10 @@ const handleGlob: ToolHandler<'glob'> = async (parameters, _id) => {
 
   try {
     // Get all files in the project
-    const fileTree = await getProjectFileTree({ projectRoot: projectPath, fs: fs.promises })
+    const fileTree = await getProjectFileTree({
+      projectRoot: projectPath,
+      fs: fs.promises,
+    })
     const flattenedNodes = flattenTree(fileTree)
     let allFilePaths = flattenedNodes
       .filter((node) => node.type === 'file')
@@ -556,20 +561,22 @@ const handleGlob: ToolHandler<'glob'> = async (parameters, _id) => {
           filePath.startsWith(cwdPrefix) ||
           filePath === cwd.replace(/\/$/, ''),
       )
-      
+
       // Make paths relative to cwd for matching
       pathsToMatch = filteredPaths.map((filePath) => {
         if (filePath === cwd) {
           return '.'
         }
         // Remove the cwd prefix to get path relative to cwd
-        return filePath.startsWith(cwdPrefix) ? filePath.slice(cwdPrefix.length) : filePath
+        return filePath.startsWith(cwdPrefix)
+          ? filePath.slice(cwdPrefix.length)
+          : filePath
       })
     }
 
     // Use micromatch to filter files by the glob pattern
     const matchedRelativePaths = micromatch(pathsToMatch, pattern)
-    
+
     // Convert matched paths back to project-relative paths
     let matchingFiles: string[]
     if (cwd) {
@@ -714,7 +721,7 @@ export const toolHandlers: {
 
 export const handleToolCall = async (
   toolCall: ToolCall,
-): Promise<ToolResultPart> => {
+): Promise<ToolMessage> => {
   const { toolName, input, toolCallId } = toolCall
   const handler = toolHandlers[toolName as ClientToolName]
   if (!handler) {
@@ -725,9 +732,9 @@ export const handleToolCall = async (
 
   const contentArray = Array.isArray(content) ? content : [content]
   return {
-    type: 'tool-result',
+    role: 'tool',
     toolName,
     toolCallId,
-    output: contentArray,
-  } satisfies ToolResultPart
+    content: contentArray,
+  } satisfies ToolMessage
 }

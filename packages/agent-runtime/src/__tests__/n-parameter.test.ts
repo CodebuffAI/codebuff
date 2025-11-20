@@ -27,6 +27,7 @@ import type {
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { AgentState } from '@codebuff/common/types/session-state'
+import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 
 const logger: Logger = {
   debug: () => {},
@@ -90,8 +91,8 @@ describe('n parameter and GENERATE_N functionality', () => {
       runId:
         'test-run-id' as `${string}-${string}-${string}-${string}-${string}`,
       messageHistory: [
-        { role: 'user', content: 'Initial message' },
-        { role: 'assistant', content: 'Initial response' },
+        userMessage('Initial message'),
+        assistantMessage('Initial response')
       ],
       output: undefined,
       directCreditsUsed: 0,

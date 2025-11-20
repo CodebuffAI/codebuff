@@ -1,3 +1,5 @@
+import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
+
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
   CodebuffToolCall,
@@ -21,7 +23,11 @@ export const handleAddMessage = (({
     result: (async () => {
       await previousToolCallFinished
 
-      getLatestState().messages.push(toolCall.input)
+      getLatestState().messages.push(
+        toolCall.input.role === 'user'
+          ? userMessage(toolCall.input.content)
+          : assistantMessage(toolCall.input.content),
+      )
       return []
     })(),
     state: {},

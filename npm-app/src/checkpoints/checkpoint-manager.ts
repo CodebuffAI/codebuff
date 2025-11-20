@@ -18,7 +18,7 @@ import {
 import { gitCommandIsAvailable } from '../utils/git'
 import { logger } from '../utils/logger'
 
-import type { ToolResultPart } from '@codebuff/common/types/messages/content-part'
+import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { SessionState } from '@codebuff/common/types/session-state'
 
 export class CheckpointsDisabledError extends Error {
@@ -186,7 +186,7 @@ export class CheckpointManager {
    */
   async addCheckpoint(
     sessionState: SessionState,
-    lastToolResults: ToolResultPart[],
+    lastToolResults: ToolMessage[],
     userInput: string,
     saveWithNoChanges: boolean = false,
   ): Promise<{ checkpoint: Checkpoint; created: boolean }> {

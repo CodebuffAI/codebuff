@@ -1,26 +1,31 @@
-import {
-  getGitChangesPrompt,
-  getProjectFileTreePrompt,
-  getSystemInfoPrompt,
-} from '../system-prompt/prompts'
-import { getAgentTemplate } from './agent-registry'
-import { PLACEHOLDER, placeholderValues } from './types'
-import { parseUserMessage } from '../util/messages'
 import { CodebuffConfigSchema } from '@codebuff/common/json-config/constants'
 import { escapeString } from '@codebuff/common/util/string'
 import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
 import { z } from 'zod/v4'
 
+import { getAgentTemplate } from './agent-registry'
 import { buildSpawnableAgentsDescription } from './prompts'
+import { PLACEHOLDER, placeholderValues } from './types'
+import {
+  getGitChangesPrompt,
+  getProjectFileTreePrompt,
+  getSystemInfoPrompt,
+} from '../system-prompt/prompts'
 import {
   fullToolList,
   getShortToolInstructions,
   getToolsInstructions,
 } from '../tools/prompts'
+import { parseUserMessage } from '../util/messages'
 
 import type { AgentTemplate, PlaceholderValue } from './types'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
+import type {
+  Message,
+  UserMessage,
+} from '@codebuff/common/types/messages/codebuff-message'
+import type { TextPart } from '@codebuff/common/types/messages/content-part'
 import type {
   AgentState,
   AgentTemplateType,
@@ -58,14 +63,14 @@ export async function formatPrompt(
   let { prompt } = params
 
   const { messageHistory } = agentState
-  const lastUserMessage = messageHistory.findLast(
-    ({ role, content }) =>
-      role === 'user' &&
-      typeof content === 'string' &&
-      parseUserMessage(content),
-  )
+  function isUserMessage(message: Message): message is UserMessage & {
+    content: [TextPart, ...any[]]
+  } {
+    return message.role === 'user' && message.content[0].type === 'text'
+  }
+  const lastUserMessage = messageHistory.findLast(isUserMessage)
   const lastUserInput = lastUserMessage
-    ? parseUserMessage(lastUserMessage.content as string)
+    ? parseUserMessage(lastUserMessage.content[0].text)
     : undefined
 
   const agentTemplate = agentState.agentType

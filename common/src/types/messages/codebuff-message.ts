@@ -6,7 +6,7 @@ import {
   reasoningPartSchema,
   textPartSchema,
   toolCallPartSchema,
-  toolResultPartSchema,
+  toolResultOutputSchema,
 } from './content-part'
 import { providerMetadataSchema } from './provider-metadata'
 
@@ -26,11 +26,12 @@ const auxiliaryDataSchema = z.object({
   /** @deprecated Use tags instead. */
   keepLastTags: z.string().array().optional(),
 })
+export type AuxiliaryMessageData = z.infer<typeof auxiliaryDataSchema>
 
 export const systemMessageSchema = z
   .object({
     role: z.literal('system'),
-    content: z.string(),
+    content: textPartSchema.array(),
   })
   .and(auxiliaryDataSchema)
 export type SystemMessage = z.infer<typeof systemMessageSchema>
@@ -38,16 +39,13 @@ export type SystemMessage = z.infer<typeof systemMessageSchema>
 export const userMessageSchema = z
   .object({
     role: z.literal('user'),
-    content: z.union([
-      z.string(),
-      z
-        .discriminatedUnion('type', [
-          textPartSchema,
-          imagePartSchema,
-          filePartSchema,
-        ])
-        .array(),
-    ]),
+    content: z
+      .discriminatedUnion('type', [
+        textPartSchema,
+        imagePartSchema,
+        filePartSchema,
+      ])
+      .array(),
   })
   .and(auxiliaryDataSchema)
 export type UserMessage = z.infer<typeof userMessageSchema>
@@ -55,16 +53,13 @@ export type UserMessage = z.infer<typeof userMessageSchema>
 export const assistantMessageSchema = z
   .object({
     role: z.literal('assistant'),
-    content: z.union([
-      z.string(),
-      z
-        .discriminatedUnion('type', [
-          textPartSchema,
-          reasoningPartSchema,
-          toolCallPartSchema,
-        ])
-        .array(),
-    ]),
+    content: z
+      .discriminatedUnion('type', [
+        textPartSchema,
+        reasoningPartSchema,
+        toolCallPartSchema,
+      ])
+      .array(),
   })
   .and(auxiliaryDataSchema)
 export type AssistantMessage = z.infer<typeof assistantMessageSchema>
@@ -72,7 +67,9 @@ export type AssistantMessage = z.infer<typeof assistantMessageSchema>
 export const toolMessageSchema = z
   .object({
     role: z.literal('tool'),
-    content: toolResultPartSchema,
+    toolCallId: z.string(),
+    toolName: z.string(),
+    content: toolResultOutputSchema.array(),
   })
   .and(auxiliaryDataSchema)
 export type ToolMessage = z.infer<typeof toolMessageSchema>

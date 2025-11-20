@@ -5,6 +5,7 @@ import path from 'path'
 import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
 import { promptAiSdk } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { models } from '@codebuff/common/old-constants'
+import { userMessage } from '@codebuff/common/util/messages'
 import { mapLimit } from 'async'
 
 import { extractRepoNameFromUrl, setupTestRepo } from './setup-test-repo'
@@ -163,7 +164,7 @@ File Changes:\n${fileContext}`
   try {
     disableLiveUserInputCheck()
     const response = await promptAiSdk({
-      messages: [{ role: 'user', content: prompt }],
+      messages: [userMessage(prompt)],
       model: models.openrouter_claude_sonnet_4,
       clientSessionId,
       fingerprintId,

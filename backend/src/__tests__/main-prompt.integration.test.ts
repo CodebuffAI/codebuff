@@ -1,4 +1,3 @@
-import * as checkTerminalCommandModule from '@codebuff/agent-runtime/check-terminal-command'
 import { mainPrompt } from '@codebuff/agent-runtime/main-prompt'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 
@@ -7,14 +6,10 @@ import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-run
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  mock,
-  spyOn,
-} from 'bun:test'
+  assistantMessage,
+  toolJsonContent,
+} from '@codebuff/common/util/messages'
+import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 
 import { BACKEND_AGENT_RUNTIME_IMPL } from '../impl/agent-runtime'
 
@@ -330,9 +325,6 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
       'src/util/messages.ts': initialContent,
     })
     agentRuntimeImpl.requestOptionalFile = async () => initialContent
-    spyOn(checkTerminalCommandModule, 'checkTerminalCommand').mockResolvedValue(
-      null,
-    )
 
     // Mock LLM calls
     agentRuntimeImpl.promptAiSdk = async function () {
@@ -341,28 +333,21 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
 
     const sessionState = getInitialSessionState(mockFileContext)
     sessionState.mainAgentState.messageHistory.push(
-      {
-        role: 'assistant',
-        content: getToolCallString('read_files', {
+      assistantMessage(
+        getToolCallString('read_files', {
           paths: ['src/util/messages.ts'],
         }),
-      },
+      ),
       {
         role: 'tool',
-        content: {
-          type: 'tool-result',
-          toolName: 'read_files',
-          toolCallId: 'test-id',
-          output: [
-            {
-              type: 'json',
-              value: {
-                path: 'src/util/messages.ts',
-                content: initialContent,
-              },
-            },
-          ],
-        },
+        toolName: 'read_files',
+        toolCallId: 'test-id',
+        content: [
+          toolJsonContent({
+            path: 'src/util/messages.ts',
+            content: initialContent,
+          }),
+        ],
       },
     )
 
@@ -413,10 +398,6 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
         'src/util/messages.ts': initialContent,
       })
       agentRuntimeImpl.requestOptionalFile = async () => initialContent
-      spyOn(
-        checkTerminalCommandModule,
-        'checkTerminalCommand',
-      ).mockResolvedValue(null)
 
       // Mock LLM calls
       agentRuntimeImpl.promptAiSdk = async function () {
@@ -425,28 +406,21 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
 
       const sessionState = getInitialSessionState(mockFileContext)
       sessionState.mainAgentState.messageHistory.push(
-        {
-          role: 'assistant',
-          content: getToolCallString('read_files', {
+        assistantMessage(
+          getToolCallString('read_files', {
             paths: ['packages/backend/src/index.ts'],
           }),
-        },
+        ),
         {
           role: 'tool',
-          content: {
-            type: 'tool-result',
-            toolName: 'read_files',
-            toolCallId: 'test-id',
-            output: [
-              {
-                type: 'json',
-                value: {
-                  path: 'packages/backend/src/index.ts',
-                  content: initialContent,
-                },
-              },
-            ],
-          },
+          toolName: 'read_files',
+          toolCallId: 'test-id',
+          content: [
+            toolJsonContent({
+              path: 'packages/backend/src/index.ts',
+              content: initialContent,
+            }),
+          ],
         },
       )
 

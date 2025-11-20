@@ -23,6 +23,7 @@ import type {
   ParamsExcluding,
   ParamsOf,
 } from '@codebuff/common/types/function-params'
+import { assistantMessage } from '@codebuff/common/util/messages'
 
 describe('Spawn Agents Permissions', () => {
   let mockSendSubagentChunk: any
@@ -95,7 +96,7 @@ describe('Spawn Agents Permissions', () => {
         agentState: {
           ...options.agentState,
           messageHistory: [
-            { role: 'assistant', content: 'Mock agent response' },
+            assistantMessage('Mock agent response'),
           ],
         },
         output: { type: 'lastMessage', value: 'Mock agent response' },

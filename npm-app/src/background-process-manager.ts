@@ -11,6 +11,7 @@ import path from 'path'
 import process from 'process'
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { toolJsonContent } from '@codebuff/common/util/messages'
 import { truncateStringWithMessage } from '@codebuff/common/util/string'
 import { gray, red } from 'picocolors'
 import { z } from 'zod/v4'
@@ -19,7 +20,7 @@ import { CONFIG_DIR } from './credentials'
 import { logger } from './utils/logger'
 
 import type { JSONObject } from '@codebuff/common/types/json'
-import type { ToolResultPart } from '@codebuff/common/types/messages/content-part'
+import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type {
   ChildProcessByStdio,
   ChildProcessWithoutNullStreams,
@@ -150,7 +151,7 @@ export function getBackgroundProcessUpdate(info: BackgroundProcessInfo) {
 /**
  * Gets updates from all background processes and updates tracking info
  */
-export function getBackgroundProcessUpdates(): ToolResultPart[] {
+export function getBackgroundProcessUpdates(): ToolMessage[] {
   const updates = Array.from(backgroundProcesses.values())
     .map((bgProcess) => {
       return [
@@ -177,11 +178,11 @@ export function getBackgroundProcessUpdates(): ToolResultPart[] {
 
   return updates.map(([update, toolCallId]) => {
     return {
-      type: 'tool-result',
+      role: 'tool',
       toolCallId,
       toolName: 'background_process_update',
-      output: [{ type: 'json', value: update }],
-    } satisfies ToolResultPart
+      content: [toolJsonContent(update)],
+    } satisfies ToolMessage
   })
 }
 

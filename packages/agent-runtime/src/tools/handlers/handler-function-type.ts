@@ -3,8 +3,8 @@ import type {
   ClientToolCall,
   ClientToolName,
   CodebuffToolCall,
+  CodebuffToolMessage,
   CodebuffToolOutput,
-  CodebuffToolResult,
 } from '@codebuff/common/tools/list'
 import type {
   AgentRuntimeDeps,
@@ -53,6 +53,6 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     AgentRuntimeDeps &
     AgentRuntimeScopedDeps,
 ) => {
-  result: Promise<CodebuffToolResult<T>['output']>
+  result: Promise<CodebuffToolMessage<T>['content']>
   state?: Record<string, any>
 }

@@ -18,7 +18,6 @@ import {
   spyOn,
 } from 'bun:test'
 
-import * as checkTerminalCommandModule from '../check-terminal-command'
 import { disableLiveUserInputCheck } from '../live-user-inputs'
 import * as liveUserInputs from '../live-user-inputs'
 import { mainPrompt } from '../main-prompt'
@@ -154,11 +153,6 @@ describe('mainPrompt', () => {
       }),
     )
 
-    spyOn(
-      checkTerminalCommandModule,
-      'checkTerminalCommand',
-    ).mockImplementation(async () => null)
-
     // Mock live user inputs
     spyOn(liveUserInputs, 'checkLiveUserInput').mockImplementation(() => true)
   })
@@ -202,12 +196,6 @@ describe('mainPrompt', () => {
   }
 
   it('should handle direct terminal command', async () => {
-    // Override the mock to return a terminal command
-    spyOn(
-      checkTerminalCommandModule,
-      'checkTerminalCommand',
-    ).mockImplementation(async () => 'ls -la')
-
     const sessionState = getInitialSessionState(mockFileContext)
     const action = {
       type: 'prompt' as const,

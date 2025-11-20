@@ -57,12 +57,3 @@ export const toolResultOutputSchema = z.discriminatedUnion('type', [
   }),
 ])
 export type ToolResultOutput = z.infer<typeof toolResultOutputSchema>
-
-export const toolResultPartSchema = z.object({
-  type: z.literal('tool-result'),
-  toolCallId: z.string(),
-  toolName: z.string(),
-  output: toolResultOutputSchema.array(),
-  providerOptions: providerMetadataSchema.optional(),
-})
-export type ToolResultPart = z.infer<typeof toolResultPartSchema>

@@ -1,12 +1,13 @@
+import { buildArray } from '@codebuff/common/util/array'
+
 import { publisher } from '../../constants'
 
-import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
 import type {
   AgentStepContext,
   StepText,
   ToolCall,
 } from '../../types/agent-definition'
-import { buildArray } from '@codebuff/common/util/array'
+import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
 
 export function createBestOfNEditor(
   model: 'sonnet' | 'gpt-5' | 'gemini',
@@ -217,7 +218,7 @@ function* handleStepsSonnet({
   const editToolResults = messageHistory
     .slice(lastAssistantMessageIndex)
     .filter((message) => message.role === 'tool')
-    .flatMap((message) => message.content.output)
+    .flatMap((message) => message.content)
     .filter((output) => output.type === 'json')
     .map((output) => output.value)
 
@@ -341,7 +342,7 @@ function* handleStepsGemini({
   const editToolResults = messageHistory
     .slice(lastAssistantMessageIndex)
     .filter((message) => message.role === 'tool')
-    .flatMap((message) => message.content.output)
+    .flatMap((message) => message.content)
     .filter((output) => output.type === 'json')
     .map((output) => output.value)
 

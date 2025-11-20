@@ -1,6 +1,7 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
+import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import { beforeEach, describe, expect, it, beforeAll } from 'bun:test'
 
 import { disableLiveUserInputCheck } from '../live-user-inputs'
@@ -9,6 +10,7 @@ import { loopAgentSteps } from '../run-agent-step'
 import type { AgentTemplate } from '../templates/types'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { TextPart } from '@codebuff/common/types/messages/content-part'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 const mockFileContext: ProjectFileContext = {
@@ -153,7 +155,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     const parentMessages = capturedMessages
     expect(parentMessages.length).toBeGreaterThan(0)
     expect(parentMessages[0].role).toBe('system')
-    const parentSystemPrompt = parentMessages[0].content as string
+    const parentSystemPrompt = (parentMessages[0].content[0] as TextPart).text
     expect(parentSystemPrompt).toContain(
       'Parent agent system prompt for testing',
     )
@@ -180,7 +182,10 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     const childMessages = capturedMessages
     expect(childMessages.length).toBeGreaterThan(0)
     expect(childMessages[0].role).toBe('system')
-    expect(childMessages[0].content).toBe(parentSystemPrompt)
+    expect(
+      childMessages[0].content[0].type === 'text' &&
+        childMessages[0].content[0].text,
+    ).toBe(parentSystemPrompt)
   })
 
   it('should generate own system prompt when inheritParentSystemPrompt is false', async () => {
@@ -216,7 +221,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     })
 
     const parentMessages = capturedMessages
-    const parentSystemPrompt = parentMessages[0].content as string
+    const parentSystemPrompt = (parentMessages[0].content[0] as TextPart).text
 
     // Run child agent with inheritParentSystemPrompt=false
     capturedMessages = []
@@ -240,8 +245,9 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
     // Verify child uses its own system prompt (not parent's)
     expect(childMessages[0].role).toBe('system')
-    expect(childMessages[0].content).not.toBe(parentSystemPrompt)
-    expect(childMessages[0].content).toContain('Standalone child system prompt')
+    const text = (childMessages[0].content[0] as TextPart).text
+    expect(text).not.toBe(parentSystemPrompt)
+    expect(text).toContain('Standalone child system prompt')
   })
 
   it('should work independently: includeMessageHistory without inheritParentSystemPrompt', async () => {
@@ -277,7 +283,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     })
 
     const parentMessages = capturedMessages
-    const parentSystemPrompt = parentMessages[0].content as string
+    const parentSystemPrompt = (parentMessages[0].content[0] as TextPart).text
 
     // Run child agent
     capturedMessages = []
@@ -286,8 +292,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       agentId: 'child-agent',
       agentType: 'message-history-child' as const,
       messageHistory: [
-        { role: 'user' as const, content: 'Previous message' },
-        { role: 'assistant' as const, content: 'Previous response' },
+        userMessage('Previous message'),
+        assistantMessage('Previous response'),
       ],
     }
 
@@ -304,15 +310,17 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
     // Verify child uses its own system prompt (not parent's)
     expect(childMessages[0].role).toBe('system')
-    expect(childMessages[0].content).not.toBe(parentSystemPrompt)
-    expect(childMessages[0].content).toContain(
-      'Child with message history system prompt',
-    )
+    const text = (childMessages[0].content[0] as TextPart).text
+    expect(text).not.toBe(parentSystemPrompt)
+    expect(text).toContain('Child with message history system prompt')
 
     // Verify message history was included
     expect(childMessages.length).toBeGreaterThan(2)
     const hasMessageHistory = childMessages.some(
-      (msg) => msg.role === 'user' && msg.content === 'Previous message',
+      (msg) =>
+        msg.role === 'user' &&
+        msg.content[0].type === 'text' &&
+        msg.content[0].text === 'Previous message',
     )
     expect(hasMessageHistory).toBe(true)
   })
@@ -367,7 +375,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     })
 
     const parentMessages = capturedMessages
-    const parentSystemPrompt = parentMessages[0].content as string
+    const parentSystemPrompt = (parentMessages[0].content[0] as TextPart).text
 
     // Run child agent with inheritParentSystemPrompt=true
     capturedMessages = []
@@ -431,14 +439,14 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       agentState: {
         ...sessionState.mainAgentState,
         messageHistory: [
-          { role: 'user' as const, content: 'Initial question' },
-          { role: 'assistant' as const, content: 'Initial answer' },
+          userMessage('Initial question'),
+          assistantMessage('Initial answer'),
         ],
       },
     })
 
     const parentMessages = capturedMessages
-    const parentSystemPrompt = parentMessages[0].content as string
+    const parentSystemPrompt = (parentMessages[0].content[0] as TextPart).text
 
     // Run child agent
     capturedMessages = []
@@ -447,8 +455,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       agentId: 'child-agent',
       agentType: 'full-inherit-child' as const,
       messageHistory: [
-        { role: 'user' as const, content: 'Initial question' },
-        { role: 'assistant' as const, content: 'Initial answer' },
+        userMessage('Initial question'),
+        assistantMessage('Initial answer'),
       ],
     }
 
@@ -465,12 +473,17 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
 
     // Verify child inherits parent's system prompt
     expect(childMessages[0].role).toBe('system')
-    expect(childMessages[0].content).toBe(parentSystemPrompt)
+    expect((childMessages[0].content[0] as TextPart).text).toBe(
+      parentSystemPrompt,
+    )
 
     // Verify message history was included
     expect(childMessages.length).toBeGreaterThan(2)
     const hasMessageHistory = childMessages.some(
-      (msg) => msg.role === 'user' && msg.content === 'Initial question',
+      (msg) =>
+        msg.role === 'user' &&
+        msg.content[0].type === 'text' &&
+        msg.content[0].text === 'Initial question',
     )
     expect(hasMessageHistory).toBe(true)
   })

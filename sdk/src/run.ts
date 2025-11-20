@@ -40,12 +40,12 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 import type {
   ToolResultOutput,
-  ToolResultPart,
 } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { SessionState } from '@codebuff/common/types/session-state'
 import type { Source } from '@codebuff/common/types/source'
 import type { CodebuffSpawn } from '@codebuff/common/types/spawn'
+import { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
 
 export type CodebuffClientOptions = {
   apiKey?: string
@@ -99,7 +99,7 @@ export type RunOptions = {
   prompt: string
   params?: Record<string, any>
   previousRun?: RunState
-  extraToolResults?: ToolResultPart[]
+  extraToolResults?: ToolMessage[]
   signal?: AbortSignal
 }
 

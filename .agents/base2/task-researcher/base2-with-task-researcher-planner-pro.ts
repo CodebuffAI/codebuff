@@ -154,8 +154,8 @@ You may not need to spawn the task-researcher/planner-pro if the user's request 
         // If found, reset messages to only include the task researcher's result and read the relevant files!
         const spawnAgentsToolResults = agentState.messageHistory
           .filter((message) => message.role === 'tool')
-          .filter((message) => message.content.toolName === 'spawn_agents')
-          .map((message) => message.content.output)
+          .filter((message) => message.toolName === 'spawn_agents')
+          .map((message) => message.content)
           .flat()
           .filter((result) => result.type === 'json')
           .map((result) => result.value)[0] as {

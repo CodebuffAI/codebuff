@@ -115,10 +115,12 @@ describe('processFileBlockModule', () => {
         '}\r\n'
 
       agentRuntimeImpl.promptAiSdk = async ({ messages }) => {
-        if (typeof messages[0].content !== 'string') {
-          throw new Error('Expected string prompt')
+        if (messages[0].content[0].type !== 'text') {
+          throw new Error('Expected text prompt')
         }
-        const m = messages[0].content.match(/<update>([\s\S]*)<\/update>/)
+        const m = messages[0].content[0].text.match(
+          /<update>([\s\S]*)<\/update>/,
+        )
         if (!m) {
           return 'Test response'
         }
@@ -187,10 +189,12 @@ describe('processFileBlockModule', () => {
       const newContent = 'const x = 1;\r\nconst z = 3;\r\n'
 
       agentRuntimeImpl.promptAiSdk = async ({ messages }) => {
-        if (typeof messages[0].content !== 'string') {
-          throw new Error('Expected string prompt')
+        if (messages[0].content[0].type !== 'text') {
+          throw new Error('Expected text prompt')
         }
-        const m = messages[0].content.match(/<update>([\s\S]*)<\/update>/)
+        const m = messages[0].content[0].text.match(
+          /<update>([\s\S]*)<\/update>/,
+        )
         if (!m) {
           return 'Test response'
         }

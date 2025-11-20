@@ -1,18 +1,17 @@
-import { promptFlashWithFallbacks } from './llm-api/gemini-with-fallbacks'
-import { promptRelaceAI } from './llm-api/relace-api'
 import { models, openaiModels } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { parseMarkdownCodeBlock } from '@codebuff/common/util/file'
+import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import { generateCompactId, hasLazyEdit } from '@codebuff/common/util/string'
+
+import { promptFlashWithFallbacks } from './llm-api/gemini-with-fallbacks'
+import { promptRelaceAI } from './llm-api/relace-api'
 
 import type { CodebuffToolMessage } from '@codebuff/common/tools/list'
 import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type {
-  Message,
-  ToolMessage,
-} from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 export async function fastRewrite(
   params: {
@@ -97,10 +96,7 @@ Please output just the complete updated file content with the edit applied and n
 
   const response = await promptAiSdk({
     ...params,
-    messages: [
-      { role: 'user', content: prompt },
-      { role: 'assistant', content: '```\n' },
-    ],
+    messages: [userMessage(prompt), assistantMessage('```\n')],
     model: openaiModels.o3mini,
   })
 
@@ -134,23 +130,18 @@ export const shouldAddFilePlaceholders = async (
     .filter(
       (
         m,
-      ): m is ToolMessage & {
-        content: { toolName: 'create_plan' | 'str_replace' | 'write_file' }
-      } => {
+      ): m is CodebuffToolMessage<
+        'create_plan' | 'str_replace' | 'write_file'
+      > => {
         return (
           m.role === 'tool' &&
-          (m.content.toolName === 'create_plan' ||
-            m.content.toolName === 'str_replace' ||
-            m.content.toolName === 'write_file')
+          (m.toolName === 'create_plan' ||
+            m.toolName === 'str_replace' ||
+            m.toolName === 'write_file')
         )
       },
     )
-    .some((m) => {
-      const message = m as CodebuffToolMessage<
-        'create_plan' | 'str_replace' | 'write_file'
-      >
-      return message.content.output[0].value.file === filePath
-    })
+    .some((m) => m.content[0].value.file === filePath)
   if (!fileWasPreviouslyEdited) {
     // If Claude hasn't edited this file before, it's almost certainly not a local-only change.
     // Usually, it's only when Claude is editing a function for a second or third time that
@@ -182,14 +173,8 @@ Do not write anything else.
 
   const messages = buildArray(
     ...messageHistory,
-    fullResponse && {
-      role: 'assistant' as const,
-      content: fullResponse,
-    },
-    {
-      role: 'user' as const,
-      content: prompt,
-    },
+    fullResponse && assistantMessage(fullResponse),
+    userMessage(prompt),
   )
   const response = await promptFlashWithFallbacks({
     ...params,

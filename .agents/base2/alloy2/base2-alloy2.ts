@@ -1,6 +1,7 @@
 import { createBase2 } from '../base2'
+
+import type { ToolCall } from '../../types/agent-definition'
 import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
-import { ToolCall } from '../../types/agent-definition'
 
 const base2 = createBase2('default')
 const definition: SecretAgentDefinition = {
@@ -49,10 +50,9 @@ Two hypothetical next steps have been generated from planner agents (base2-plan-
       const spawnResultIndex = agentState.messageHistory.findLastIndex(
         (m) =>
           m.role === 'tool' &&
-          m.content.toolName === 'spawn_agents' &&
-          m.content.output[0].type === 'json' &&
-          (m.content.output[0].value as any[])[0]?.agentType ===
-            'base2-plan-step',
+          m.toolName === 'spawn_agents' &&
+          m.content[0].type === 'json' &&
+          (m.content[0].value as any[])[0]?.agentType === 'base2-plan-step',
       )
 
       const updatedMessageHistory = agentState.messageHistory.concat()

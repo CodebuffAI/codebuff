@@ -60,7 +60,7 @@ const definition: AgentDefinition = {
       // Handle tool messages with new object format
       if (
         message.role === 'tool' &&
-        message.content.toolName === 'run_terminal_command'
+        message.toolName === 'run_terminal_command'
       ) {
         const toolMessage =
           message as CodebuffToolMessage<'run_terminal_command'>
@@ -73,19 +73,15 @@ const definition: AgentDefinition = {
           const simplifiedMessage: CodebuffToolMessage<'run_terminal_command'> =
             {
               ...toolMessage,
-              content: {
-                ...toolMessage.content,
-                output: [
-                  {
-                    type: 'json',
-                    value: {
-                      command:
-                        toolMessage.content.output[0]?.value?.command || '',
-                      stdoutOmittedForLength: true,
-                    },
+              content: [
+                {
+                  type: 'json',
+                  value: {
+                    command: toolMessage.content[0]?.value?.command || '',
+                    stdoutOmittedForLength: true,
                   },
-                ],
-              },
+                },
+              ],
             }
           afterTerminalPass.unshift(simplifiedMessage)
         }
@@ -110,24 +106,21 @@ const definition: AgentDefinition = {
     // PASS 2: Remove large tool results (any tool result output > 1000 chars when stringified)
     const afterToolResultsPass = afterTerminalPass.map((message) => {
       if (message.role === 'tool') {
-        const outputSize = JSON.stringify(message.content.output).length
+        const outputSize = JSON.stringify(message.content).length
 
         if (outputSize > 1000) {
           // Replace with simplified output
           const simplifiedMessage: ToolMessage = {
             ...message,
-            content: {
-              ...message.content,
-              output: [
-                {
-                  type: 'json',
-                  value: {
-                    message: '[LARGE_TOOL_RESULT_OMITTED]',
-                    originalSize: outputSize,
-                  },
+            content: [
+              {
+                type: 'json',
+                value: {
+                  message: '[LARGE_TOOL_RESULT_OMITTED]',
+                  originalSize: outputSize,
                 },
-              ],
-            },
+              },
+            ],
           }
           return simplifiedMessage
         }

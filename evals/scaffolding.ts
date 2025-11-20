@@ -35,10 +35,8 @@ import type {
 } from '@anthropic-ai/claude-code'
 import type { ClientToolCall } from '@codebuff/common/tools/list'
 import type { AgentRuntimeScopedDeps } from '@codebuff/common/types/contracts/agent-runtime'
-import type {
-  ToolResultOutput,
-  ToolResultPart,
-} from '@codebuff/common/types/messages/content-part'
+import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
@@ -62,7 +60,7 @@ export type ToolUseBlock = Extract<
 export type AgentStep = {
   response: string
   toolCalls: (ClientToolCall | ToolUseBlock)[]
-  toolResults: (ToolResultPart | ToolResultBlockParam)[]
+  toolResults: (ToolMessage | ToolResultBlockParam)[]
 }
 
 function readMockFile(projectRoot: string, filePath: string): string | null {
@@ -75,7 +73,7 @@ function readMockFile(projectRoot: string, filePath: string): string | null {
 }
 
 let toolCalls: ClientToolCall[] = []
-let toolResults: ToolResultPart[] = []
+let toolResults: ToolMessage[] = []
 export async function createFileReadingMock(projectRoot: string) {
   await mockModule('@codebuff/backend/websockets/websocket-action', () => ({
     requestFiles: ((params: { ws: WebSocket; filePaths: string[] }) => {
@@ -102,15 +100,15 @@ export async function createFileReadingMock(projectRoot: string) {
       try {
         const toolResult = await handleToolCall(toolCall as any)
         toolResults.push({
-          type: 'tool-result',
+          role: 'tool',
           toolName: toolCall.toolName,
           toolCallId: toolCall.toolCallId,
-          output: toolResult.output,
+          content: toolResult.content,
         })
 
         // Send successful response back to backend
         return {
-          output: toolResult.output,
+          output: toolResult.content,
         }
       } catch (error) {
         // Send error response back to backend
@@ -123,10 +121,10 @@ export async function createFileReadingMock(projectRoot: string) {
           },
         ] satisfies ToolResultOutput[]
         toolResults.push({
-          type: 'tool-result',
+          role: 'tool',
           toolName: toolCall.toolName,
           toolCallId: toolCall.toolCallId,
-          output,
+          content: output,
         })
         return { output }
       }
@@ -243,7 +241,7 @@ export async function runAgentStepScaffolding(
 }
 
 export async function runToolCalls(toolCalls: ClientToolCall[]) {
-  const toolResults: ToolResultPart[] = []
+  const toolResults: ToolMessage[] = []
   for (const toolCall of toolCalls) {
     const toolResult = await handleToolCall(toolCall)
     toolResults.push(toolResult)

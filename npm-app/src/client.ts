@@ -38,6 +38,7 @@ import {
 } from '@codebuff/common/util/agent-name-resolver'
 import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
+import { userMessage } from '@codebuff/common/util/messages'
 import { generateCompactId, pluralize } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
 import { APIRealtimeClient } from '@codebuff/common/websockets/websocket-client'
@@ -105,7 +106,10 @@ import type {
 } from '@codebuff/common/actions'
 import type { ApiKeyType } from '@codebuff/common/api-keys/constants'
 import type { CostMode } from '@codebuff/common/old-constants'
-import type { ToolResultPart } from '@codebuff/common/types/messages/content-part'
+import type {
+  Message,
+  ToolMessage,
+} from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { SessionState } from '@codebuff/common/types/session-state'
 import type { User } from '@codebuff/common/util/credentials'
@@ -227,7 +231,7 @@ export class Client {
   public user: User | undefined
   public lastWarnedPct: number = 0
   public storedApiKeyTypes: ApiKeyType[] = []
-  public lastToolResults: ToolResultPart[] = []
+  public lastToolResults: ToolMessage[] = []
   public model: string | undefined
   public oneTimeFlags: Record<(typeof ONE_TIME_LABELS)[number], boolean> =
     Object.fromEntries(ONE_TIME_LABELS.map((tag) => [tag, false])) as Record<
@@ -842,7 +846,7 @@ export class Client {
         // Execute the tool call using existing tool handlers
 
         Spinner.get().stop()
-        let toolResult: ToolResultPart
+        let toolResult: ToolMessage
         if (mcpConfig) {
           const mcpClientId = await getMCPClient(mcpConfig)
           const mcpResult = await callMCPTool(mcpClientId, {
@@ -850,10 +854,10 @@ export class Client {
             arguments: input,
           })
           toolResult = {
-            type: 'tool-result',
+            role: 'tool',
             toolCallId: requestId,
             toolName,
-            output: mcpResult,
+            content: mcpResult,
           }
         } else {
           const toolCall = {
@@ -871,7 +875,7 @@ export class Client {
         sendActionAndHandleError(this.webSocket, {
           type: 'tool-call-response',
           requestId,
-          output: toolResult.output,
+          output: toolResult.content,
         })
       } catch (error) {
         logger.error(
@@ -1108,11 +1112,9 @@ export class Client {
 
     setMessagesSync([
       ...this.sessionState.mainAgentState.messageHistory,
-      {
-        role: 'user',
-        content:
-          content.length === 1 && content[0].type === 'text' ? prompt : content,
-      },
+      userMessage(
+        content.length === 1 && content[0].type === 'text' ? prompt : content,
+      ),
     ])
 
     const codebuffConfig = loadCodebuffConfig()
@@ -1186,10 +1188,10 @@ export class Client {
       ...(this.lastToolResults || []),
       ...getBackgroundProcessUpdates(),
       scrapedContent && {
-        type: 'tool-result',
+        role: 'tool',
         toolName: 'web-scraper',
         toolCallId: generateCompactId('web-scraper-'),
-        output: [
+        content: [
           {
             type: 'json',
             value: { scrapedContent },
@@ -1366,13 +1368,12 @@ export class Client {
 
       xmlStreamParser.destroy()
 
-      const additionalMessages = prompt
+      const additionalMessages: Message[] = prompt
         ? [
-            { role: 'user' as const, content: prompt },
-            {
-              role: 'user' as const,
-              content: `<system><assistant_message>${rawChunkBuffer.join('')}${closeXml('assistant_message')}[RESPONSE_CANCELED_BY_USER]${closeXml('system')}`,
-            },
+            userMessage(prompt),
+            userMessage(
+              `<system><assistant_message>${rawChunkBuffer.join('')}${closeXml('assistant_message')}[RESPONSE_CANCELED_BY_USER]${closeXml('system')}`,
+            ),
           ]
         : []
 
@@ -1472,7 +1473,7 @@ export class Client {
         Spinner.get().stop()
 
         this.sessionState = action.sessionState
-        const toolResults: ToolResultPart[] = []
+        const toolResults: ToolMessage[] = []
 
         stepsCount++
         console.log('\n')

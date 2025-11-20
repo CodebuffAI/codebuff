@@ -6,6 +6,7 @@ import {
   type FinetunedVertexModel,
 } from '@codebuff/common/old-constants'
 import { getAllFilePaths } from '@codebuff/common/project-file-tree'
+import { systemMessage, userMessage } from '@codebuff/common/util/messages'
 import { range, shuffle, uniq } from 'lodash'
 
 import { promptFlashWithFallbacks } from '../llm-api/gemini-with-fallbacks'
@@ -192,21 +193,12 @@ async function getRelevantFiles(
   } = params
   const bufferTokens = 100_000
   const messagesWithPrompt = getMessagesSubset({
-    messages: [
-      ...messages,
-      {
-        role: 'user' as const,
-        content: userPrompt,
-      },
-    ],
+    messages: [...messages, userMessage(userPrompt)],
     otherTokens: bufferTokens,
     logger,
   })
   const start = performance.now()
-  let codebuffMessages = messagesWithSystem({
-    messages: messagesWithPrompt,
-    system,
-  })
+  let codebuffMessages = [systemMessage(system), ...messagesWithPrompt]
 
   // Converts assistant messages to user messages for finetuned model
   codebuffMessages = codebuffMessages
@@ -266,13 +258,7 @@ async function getRelevantFilesForTraining(
   } = params
   const bufferTokens = 100_000
   const messagesWithPrompt = getMessagesSubset({
-    messages: [
-      ...messages,
-      {
-        role: 'user' as const,
-        content: userPrompt,
-      },
-    ],
+    messages: [...messages, userMessage(userPrompt)],
     otherTokens: bufferTokens,
     logger,
   })

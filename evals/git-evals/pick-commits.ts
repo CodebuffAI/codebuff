@@ -7,6 +7,7 @@ import path from 'path'
 import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { models } from '@codebuff/common/old-constants'
+import { userMessage } from '@codebuff/common/util/messages'
 import { mapLimit } from 'async'
 import { z } from 'zod/v4'
 
@@ -372,7 +373,7 @@ async function screenCommitsWithGpt5(
     try {
       disableLiveUserInputCheck()
       const response = await promptAiSdkStructured({
-        messages: [{ role: 'user', content: prompt }],
+        messages: [userMessage(prompt)],
         schema: CommitSelectionSchema,
         model: models.openrouter_gpt5,
         clientSessionId,

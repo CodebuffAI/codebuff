@@ -1,6 +1,6 @@
-import { countTokens } from './util/token-counter'
 import { models } from '@codebuff/common/old-constants'
 import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
+import { userMessage } from '@codebuff/common/util/messages'
 import { hasLazyEdit } from '@codebuff/common/util/string'
 import { createPatch } from 'diff'
 
@@ -9,6 +9,7 @@ import {
   parseAndGetDiffBlocksSingleFile,
   retryDiffBlocksPrompt,
 } from './generate-diffs-prompt'
+import { countTokens } from './util/token-counter'
 
 import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -276,7 +277,7 @@ Please output just the SEARCH/REPLACE blocks like this:
 
   const response = await promptAiSdk({
     ...params,
-    messages: [{ role: 'user', content: prompt }],
+    messages: [userMessage(prompt)],
     model: models.o4mini,
   })
 

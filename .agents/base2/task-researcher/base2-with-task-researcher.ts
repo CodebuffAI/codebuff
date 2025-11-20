@@ -92,8 +92,8 @@ You may not need to spawn the task-researcher2 if the user's request is trivial 
         const spawnAgentsToolResults = agentState.messageHistory
           .filter((message) => message.role === 'tool')
           .slice(-1)
-          .filter((message) => message.content.toolName === 'spawn_agents')
-          .map((message) => message.content.output)
+          .filter((message) => message.toolName === 'spawn_agents')
+          .map((message) => message.content)
           .flat()
           .filter((result) => result.type === 'json')
           .map((result) => result.value)[0] as {

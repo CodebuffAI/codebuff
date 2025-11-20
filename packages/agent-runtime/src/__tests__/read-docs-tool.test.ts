@@ -138,7 +138,7 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
     )
 
     const toolMsgs = newAgentState.messageHistory.filter(
-      (m) => m.role === 'tool' && m.content.toolName === 'read_docs',
+      (m) => m.role === 'tool' && m.toolName === 'read_docs',
     )
     expect(toolMsgs.length).toBeGreaterThan(0)
     expect(JSON.stringify(toolMsgs[toolMsgs.length - 1].content)).toContain(
@@ -221,7 +221,7 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
-      (m) => m.role === 'tool' && m.content.toolName === 'read_docs',
+      (m) => m.role === 'tool' && m.toolName === 'read_docs',
     )
     expect(toolMsgs.length).toBeGreaterThan(0)
     const last = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)
@@ -260,7 +260,7 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
-      (m) => m.role === 'tool' && m.content.toolName === 'read_docs',
+      (m) => m.role === 'tool' && m.toolName === 'read_docs',
     )
     expect(toolMsgs.length).toBeGreaterThan(0)
     const last = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)
@@ -298,7 +298,7 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
-      (m) => m.role === 'tool' && m.content.toolName === 'read_docs',
+      (m) => m.role === 'tool' && m.toolName === 'read_docs',
     )
     expect(toolMsgs.length).toBeGreaterThan(0)
     const last = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)
@@ -338,7 +338,7 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
-      (m) => m.role === 'tool' && m.content.toolName === 'read_docs',
+      (m) => m.role === 'tool' && m.toolName === 'read_docs',
     )
     expect(toolMsgs.length).toBeGreaterThan(0)
     const last = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)

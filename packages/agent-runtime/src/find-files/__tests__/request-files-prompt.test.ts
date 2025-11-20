@@ -1,5 +1,6 @@
 import { finetunedVertexModels } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import { userMessage } from '@codebuff/common/util/messages'
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
 
 import { requestRelevantFiles } from '../request-files-prompt'
@@ -14,7 +15,7 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
 describe('requestRelevantFiles', () => {
-  const mockMessages: Message[] = [{ role: 'user', content: 'test prompt' }]
+  const mockMessages: Message[] = [userMessage('test prompt')]
   const mockSystem = 'test system'
   const mockFileContext: ProjectFileContext = {
     projectRoot: '/test/project',

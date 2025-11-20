@@ -152,8 +152,8 @@ Important: you *must* make at least one tool call in every response message unle
         const spawnAgentsToolResults = agentState.messageHistory
           .slice(-3)
           .filter((message) => message.role === 'tool')
-          .filter((message) => message.content.toolName === 'spawn_agents')
-          .map((message) => message.content.output)
+          .filter((message) => message.toolName === 'spawn_agents')
+          .map((message) => message.content)
           .flat()
           .filter((result) => result.type === 'json')
           .map((result) => result.value)[0] as {

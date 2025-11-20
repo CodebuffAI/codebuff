@@ -2,6 +2,11 @@ import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
+  assistantMessage,
+  systemMessage,
+  userMessage,
+} from '@codebuff/common/util/messages'
+import {
   describe,
   expect,
   it,
@@ -52,7 +57,7 @@ describe('Spawn Agents Message History', () => {
           ...options.agentState,
           messageHistory: [
             ...options.agentState.messageHistory,
-            { role: 'assistant', content: 'Mock agent response' },
+            assistantMessage('Mock agent response'),
           ],
         },
         output: { type: 'lastMessage', value: 'Mock agent response' },
@@ -128,13 +133,10 @@ describe('Spawn Agents Message History', () => {
 
     // Create mock messages including system message
     const mockMessages: Message[] = [
-      {
-        role: 'system',
-        content: 'This is the parent system prompt that should be excluded',
-      },
-      { role: 'user', content: 'Hello' },
-      { role: 'assistant', content: 'Hi there!' },
-      { role: 'user', content: 'How are you?' },
+      systemMessage('This is the parent system prompt that should be excluded'),
+      userMessage('Hello'),
+      assistantMessage('Hi there!'),
+      userMessage('How are you?'),
     ]
 
     const { result } = handleSpawnAgents({
@@ -194,9 +196,9 @@ describe('Spawn Agents Message History', () => {
     const toolCall = createSpawnToolCall('child-agent')
 
     const mockMessages: Message[] = [
-      { role: 'system', content: 'System prompt' },
-      { role: 'user', content: 'Hello' },
-      { role: 'assistant', content: 'Hi there!' },
+      systemMessage('System prompt'),
+      userMessage('Hello'),
+      assistantMessage('Hi there!'),
     ]
 
     const { result } = handleSpawnAgents({
@@ -252,8 +254,8 @@ describe('Spawn Agents Message History', () => {
     const toolCall = createSpawnToolCall('child-agent')
 
     const mockMessages: Message[] = [
-      { role: 'system', content: 'System prompt 1' },
-      { role: 'system', content: 'System prompt 2' },
+      systemMessage('System prompt 1'),
+      systemMessage('System prompt 2'),
     ]
 
     const { result } = handleSpawnAgents({

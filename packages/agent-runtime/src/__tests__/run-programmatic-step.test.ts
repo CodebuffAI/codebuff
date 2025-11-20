@@ -3,6 +3,11 @@ import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
+  assistantMessage,
+  toolJsonContent,
+  userMessage,
+} from '@codebuff/common/util/messages'
+import {
   afterEach,
   beforeEach,
   describe,
@@ -28,10 +33,8 @@ import type {
 import type { SendActionFn } from '@codebuff/common/types/contracts/client'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
-import type {
-  ToolResultOutput,
-  ToolResultPart,
-} from '@codebuff/common/types/messages/content-part'
+import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { AgentState } from '@codebuff/common/types/session-state'
 
 const logger: Logger = {
@@ -104,8 +107,8 @@ describe('runProgrammaticStep', () => {
       runId:
         'test-run-id' as `${string}-${string}-${string}-${string}-${string}`,
       messageHistory: [
-        { role: 'user', content: 'Initial message' },
-        { role: 'assistant', content: 'Initial response' },
+        userMessage('Initial message'),
+        assistantMessage('Initial response'),
       ],
       output: undefined,
       directCreditsUsed: 0,
@@ -271,9 +274,9 @@ describe('runProgrammaticStep', () => {
       // Verify final message history doesn't contain add_message tool call
       const addMessageToolCallInHistory = result.agentState.messageHistory.find(
         (msg) =>
-          typeof msg.content === 'string' &&
-          msg.content.includes('add_message') &&
-          msg.content.includes('Hello world'),
+          msg.content[0].type === 'text' &&
+          msg.content[0].text.includes('add_message') &&
+          msg.content[0].text.includes('Hello world'),
       )
       expect(addMessageToolCallInHistory).toBeUndefined()
 
@@ -312,20 +315,17 @@ describe('runProgrammaticStep', () => {
       // Mock executeToolCall to simulate find_files tool result
       executeToolCallSpy.mockImplementation(async (options: any) => {
         if (options.toolName === 'find_files') {
-          const toolResult: ToolResultPart = {
-            type: 'tool-result',
+          const toolResult: ToolMessage = {
+            role: 'tool',
             toolName: 'find_files',
             toolCallId: 'find-files-call-id',
-            output: [
-              {
-                type: 'json',
-                value: {
-                  files: [
-                    { path: 'src/auth.ts', relevance: 0.9 },
-                    { path: 'src/login.ts', relevance: 0.8 },
-                  ],
-                },
-              },
+            content: [
+              toolJsonContent({
+                files: [
+                  { path: 'src/auth.ts', relevance: 0.9 },
+                  { path: 'src/login.ts', relevance: 0.8 },
+                ],
+              }),
             ],
           }
           options.toolResults.push(toolResult)
@@ -354,7 +354,7 @@ describe('runProgrammaticStep', () => {
       const toolMessages = result.agentState.messageHistory.filter(
         (msg) =>
           msg.role === 'tool' &&
-          JSON.stringify(msg.content.output).includes('src/auth.ts'),
+          JSON.stringify(msg.content).includes('src/auth.ts'),
       )
       expect(toolMessages).toHaveLength(1)
       expect(JSON.stringify(toolMessages[0].content)).toContain('src/auth.ts')
@@ -536,11 +536,11 @@ describe('runProgrammaticStep', () => {
             result = `${toolName} executed successfully`
         }
 
-        const toolResult: ToolResultPart = {
-          type: 'tool-result',
+        const toolResult: ToolMessage = {
+          role: 'tool',
           toolName,
           toolCallId: `${toolName}-call-id`,
-          output: [
+          content: [
             {
               type: 'json',
               value: result,
@@ -647,7 +647,7 @@ describe('runProgrammaticStep', () => {
     })
 
     it('should pass tool results back to generator', async () => {
-      const toolResults: ToolResultPart[] = []
+      const toolResults: ToolMessage[] = []
       let receivedToolResult: ToolResultOutput[] | undefined
 
       const mockGenerator = (function* () {
@@ -665,16 +665,16 @@ describe('runProgrammaticStep', () => {
       executeToolCallSpy.mockImplementation(async (options: any) => {
         if (options.toolName === 'read_files') {
           options.toolResults.push({
-            type: 'tool-result',
+            role: 'tool',
             toolName: 'read_files',
             toolCallId: 'test-id',
-            output: [
+            content: [
               {
                 type: 'json',
                 value: 'file content',
               },
             ],
-          } satisfies ToolResultPart)
+          } satisfies ToolMessage)
         }
       })
 
@@ -776,11 +776,9 @@ describe('runProgrammaticStep', () => {
 
       expect(result.agentState.messageHistory).toEqual([
         ...mockAgentState.messageHistory,
-        {
-          role: 'assistant',
-          content:
-            '<codebuff_tool_call>\n{\n  "cb_tool_name": "end_turn",\n  "cb_easp": true\n}\n</codebuff_tool_call>',
-        },
+        assistantMessage(
+          '<codebuff_tool_call>\n{\n  "cb_tool_name": "end_turn",\n  "cb_easp": true\n}\n</codebuff_tool_call>',
+        ),
       ])
     })
   })

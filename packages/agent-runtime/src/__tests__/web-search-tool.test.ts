@@ -172,7 +172,7 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
-      (m) => m.role === 'tool' && m.content.toolName === 'web_search',
+      (m) => m.role === 'tool' && m.toolName === 'web_search',
     )
     expect(toolMsgs.length).toBeGreaterThan(0)
     expect(JSON.stringify(toolMsgs[toolMsgs.length - 1].content)).toContain(
@@ -243,7 +243,7 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
-      (m) => m.role === 'tool' && m.content.toolName === 'web_search',
+      (m) => m.role === 'tool' && m.toolName === 'web_search',
     )
     expect(toolMsgs.length).toBeGreaterThan(0)
     const last = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)
@@ -280,7 +280,7 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
-      (m) => m.role === 'tool' && m.content.toolName === 'web_search',
+      (m) => m.role === 'tool' && m.toolName === 'web_search',
     )
     expect(toolMsgs.length).toBeGreaterThan(0)
     const last = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)
@@ -317,7 +317,7 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
-      (m) => m.role === 'tool' && m.content.toolName === 'web_search',
+      (m) => m.role === 'tool' && m.toolName === 'web_search',
     )
     expect(toolMsgs.length).toBeGreaterThan(0)
     const last = JSON.stringify(toolMsgs[toolMsgs.length - 1].content)
@@ -355,7 +355,7 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
     })
 
     const toolMsgs = newAgentState.messageHistory.filter(
-      (m) => m.role === 'tool' && m.content.toolName === 'web_search',
+      (m) => m.role === 'tool' && m.toolName === 'web_search',
     )
     expect(toolMsgs.length).toBeGreaterThan(0)
     expect(JSON.stringify(toolMsgs[toolMsgs.length - 1].content)).toContain(

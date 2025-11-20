@@ -153,14 +153,13 @@ describe('malformed tool call error handling', () => {
     // Find the error tool result
     const errorToolResult = toolMessages.find(
       (m) =>
-        m.content.type === 'tool-result' &&
-        m.content.output?.[0]?.type === 'json' &&
-        (m.content.output[0] as any)?.value?.errorMessage,
+        m.content?.[0]?.type === 'json' &&
+        (m.content[0] as any)?.value?.errorMessage,
     )
 
     expect(errorToolResult).toBeDefined()
     expect(
-      (errorToolResult?.content.output?.[0] as any)?.value?.errorMessage,
+      (errorToolResult?.content?.[0] as any)?.value?.errorMessage,
     ).toContain('Invalid JSON')
   })
 
@@ -188,9 +187,8 @@ describe('malformed tool call error handling', () => {
 
     const errorMessages = toolMessages.filter(
       (m) =>
-        m.content.type === 'tool-result' &&
-        m.content.output?.[0]?.type === 'json' &&
-        (m.content.output[0] as any)?.value?.errorMessage,
+        m.content?.[0]?.type === 'json' &&
+        (m.content[0] as any)?.value?.errorMessage,
     )
 
     expect(errorMessages.length).toBe(2)
@@ -214,9 +212,8 @@ describe('malformed tool call error handling', () => {
 
     const errorToolResult = result.toolResults.find(
       (tr) =>
-        tr.type === 'tool-result' &&
-        tr.output?.[0]?.type === 'json' &&
-        (tr.output[0] as any)?.value?.errorMessage,
+        tr.content?.[0]?.type === 'json' &&
+        (tr.content[0] as any)?.value?.errorMessage,
     )
 
     expect(errorToolResult).toBeDefined()
@@ -247,16 +244,15 @@ describe('malformed tool call error handling', () => {
 
     const errorMessage = toolMessages.find(
       (m) =>
-        m.content.type === 'tool-result' &&
-        m.content.toolName === 'unknown_tool' &&
-        m.content.output?.[0]?.type === 'json' &&
-        (m.content.output[0] as any)?.value?.errorMessage,
+        m.toolName === 'unknown_tool' &&
+        m.content?.[0]?.type === 'json' &&
+        (m.content[0] as any)?.value?.errorMessage,
     )
 
     expect(errorMessage).toBeDefined()
-    expect(
-      (errorMessage?.content.output?.[0] as any)?.value?.errorMessage,
-    ).toContain('Tool unknown_tool not found')
+    expect((errorMessage?.content?.[0] as any)?.value?.errorMessage).toContain(
+      'Tool unknown_tool not found',
+    )
   })
 
   test('should not affect valid tool calls in message history', async () => {
@@ -287,16 +283,14 @@ describe('malformed tool call error handling', () => {
     // Should have both valid and error tool results
     const validResults = toolMessages.filter(
       (m) =>
-        m.content.type === 'tool-result' &&
-        m.content.toolName === 'read_files' &&
-        !(m.content.output?.[0] as any)?.value?.errorMessage,
+        m.toolName === 'read_files' &&
+        !(m.content?.[0] as any)?.value?.errorMessage,
     )
 
     const errorResults = toolMessages.filter(
       (m) =>
-        m.content.type === 'tool-result' &&
-        m.content.output?.[0]?.type === 'json' &&
-        (m.content.output[0] as any)?.value?.errorMessage,
+        m.content?.[0]?.type === 'json' &&
+        (m.content[0] as any)?.value?.errorMessage,
     )
 
     expect(validResults.length).toBeGreaterThan(0)
@@ -322,9 +316,8 @@ describe('malformed tool call error handling', () => {
 
     expect(toolMessages.length).toBe(2)
     toolMessages.forEach((msg) => {
-      expect(msg.content.type).toBe('tool-result')
-      expect(msg.content.output?.[0]?.type).toBe('json')
-      expect((msg.content.output?.[0] as any)?.value?.errorMessage).toContain(
+      expect(msg.content?.[0]?.type).toBe('json')
+      expect((msg.content?.[0] as any)?.value?.errorMessage).toContain(
         'Invalid JSON',
       )
     })

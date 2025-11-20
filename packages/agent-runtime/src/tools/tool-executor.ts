@@ -1,4 +1,5 @@
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
+import { toolJsonContent } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { type ToolCallPart } from 'ai'
 import { cloneDeep } from 'lodash'
@@ -23,11 +24,8 @@ import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
-import type {
-  ToolResultOutput,
-  ToolResultPart,
-} from '@codebuff/common/types/messages/content-part'
+import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   customToolDefinitionsSchema,
@@ -117,8 +115,8 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   toolName: T
   input: Record<string, unknown>
   toolCalls: (CodebuffToolCall | CustomToolCall)[]
-  toolResults: ToolResultPart[]
-  toolResultsToAddAfterStream: ToolResultPart[]
+  toolResults: ToolMessage[]
+  toolResultsToAddAfterStream: ToolMessage[]
   previousToolCallFinished: Promise<void>
   agentTemplate: AgentTemplate
   fileContext: ProjectFileContext
@@ -180,17 +178,14 @@ export function executeToolCall<T extends ToolName>(
     autoInsertEndStepParam,
   })
   if ('error' in toolCall) {
-    const toolResult: ToolResultPart = {
-      type: 'tool-result',
+    const toolResult: ToolMessage = {
+      role: 'tool',
       toolName,
       toolCallId: toolCall.toolCallId,
-      output: [
-        {
-          type: 'json',
-          value: {
-            errorMessage: toolCall.error,
-          },
-        },
+      content: [
+        toolJsonContent({
+          errorMessage: toolCall.error,
+        }),
       ],
     }
     toolResults.push(cloneDeep(toolResult))
@@ -220,17 +215,14 @@ export function executeToolCall<T extends ToolName>(
     !agentTemplate.toolNames.includes(toolCall.toolName) &&
     !fromHandleSteps
   ) {
-    const toolResult: ToolResultPart = {
-      type: 'tool-result',
+    const toolResult: ToolMessage = {
+      role: 'tool',
       toolName,
       toolCallId: toolCall.toolCallId,
-      output: [
-        {
-          type: 'json',
-          value: {
-            errorMessage: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
-          },
-        },
+      content: [
+        toolJsonContent({
+          errorMessage: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
+        }),
       ],
     }
     toolResults.push(cloneDeep(toolResult))
@@ -283,11 +275,11 @@ export function executeToolCall<T extends ToolName>(
   }
 
   return toolResultPromise.then(async (result) => {
-    const toolResult: ToolResultPart = {
-      type: 'tool-result',
+    const toolResult: ToolMessage = {
+      role: 'tool',
       toolName,
       toolCallId: toolCall.toolCallId,
-      output: result,
+      content: result,
     }
     logger.debug(
       { input, toolResult },
@@ -301,7 +293,7 @@ export function executeToolCall<T extends ToolName>(
       type: 'tool_result',
       toolCallId: toolResult.toolCallId,
       toolName: toolResult.toolName,
-      output: toolResult.output,
+      output: toolResult.content,
     })
 
     toolResults.push(toolResult)
@@ -440,17 +432,14 @@ export async function executeCustomToolCall(
     autoInsertEndStepParam,
   })
   if ('error' in toolCall) {
-    const toolResult: ToolResultPart = {
-      type: 'tool-result',
+    const toolResult: ToolMessage = {
+      role: 'tool',
       toolName,
       toolCallId: toolCall.toolCallId,
-      output: [
-        {
-          type: 'json',
-          value: {
-            errorMessage: toolCall.error,
-          },
-        },
+      content: [
+        toolJsonContent({
+          errorMessage: toolCall.error,
+        }),
       ],
     }
     toolResults.push(cloneDeep(toolResult))
@@ -484,17 +473,14 @@ export async function executeCustomToolCall(
       toolCall.toolName.split('/')[0] in agentTemplate.mcpServers
     )
   ) {
-    const toolResult: ToolResultPart = {
-      type: 'tool-result',
+    const toolResult: ToolMessage = {
+      role: 'tool',
       toolName,
       toolCallId: toolCall.toolCallId,
-      output: [
-        {
-          type: 'json',
-          value: {
-            errorMessage: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
-          },
-        },
+      content: [
+        toolJsonContent({
+          errorMessage: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
+        }),
       ],
     }
     toolResults.push(cloneDeep(toolResult))
@@ -526,11 +512,11 @@ export async function executeCustomToolCall(
         return
       }
       const toolResult = {
-        type: 'tool-result',
+        role: 'tool',
         toolName,
         toolCallId: toolCall.toolCallId,
-        output: result,
-      } satisfies ToolResultPart
+        content: result,
+      } satisfies ToolMessage
       logger.debug(
         { input, toolResult },
         `${toolName} custom tool call & result (${toolResult.toolCallId})`,
@@ -543,16 +529,13 @@ export async function executeCustomToolCall(
         type: 'tool_result',
         toolName: toolResult.toolName,
         toolCallId: toolResult.toolCallId,
-        output: toolResult.output,
+        output: toolResult.content,
       })
 
       toolResults.push(toolResult)
 
       if (!excludeToolFromMessageHistory) {
-        state.messages.push({
-          role: 'tool' as const,
-          content: toolResult,
-        } satisfies Message)
+        state.messages.push(toolResult)
       }
       return
     })

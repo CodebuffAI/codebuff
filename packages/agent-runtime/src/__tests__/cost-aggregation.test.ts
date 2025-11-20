@@ -3,6 +3,7 @@ import {
   getInitialAgentState,
   getInitialSessionState,
 } from '@codebuff/common/types/session-state'
+import { assistantMessage } from '@codebuff/common/util/messages'
 import {
   spyOn,
   beforeEach,
@@ -376,9 +377,7 @@ describe('Cost Aggregation System', () => {
             ...getInitialAgentState(),
             agentId: 'sub-agent-1',
             agentType: 'test-agent',
-            messageHistory: [
-              { role: 'assistant', content: 'Sub-agent 1 response' },
-            ],
+            messageHistory: [assistantMessage('Sub-agent 1 response')],
             stepsRemaining: 10,
             creditsUsed: subAgent1Cost,
           } as AgentState,
@@ -389,9 +388,7 @@ describe('Cost Aggregation System', () => {
             ...getInitialAgentState(),
             agentId: 'sub-agent-2',
             agentType: 'test-agent',
-            messageHistory: [
-              { role: 'assistant', content: 'Sub-agent 2 response' },
-            ],
+            messageHistory: [assistantMessage('Sub-agent 2 response')],
             stepsRemaining: 10,
             creditsUsed: subAgent2Cost,
           } as AgentState,

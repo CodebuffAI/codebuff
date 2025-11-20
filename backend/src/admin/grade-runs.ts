@@ -1,4 +1,5 @@
 import { models, TEST_USER_ID } from '@codebuff/common/old-constants'
+import { systemMessage, userMessage } from '@codebuff/common/util/messages'
 import { closeXml } from '@codebuff/common/util/xml'
 
 import type { Relabel, GetRelevantFilesTrace } from '@codebuff/bigquery'
@@ -146,16 +147,12 @@ export async function gradeRun(
   const response = await promptAiSdk({
     ...params,
     messages: [
-      { role: 'system', content: PROMPT },
-      {
-        role: 'user',
-        content: `<request_context>${stringified}${closeXml('request_context')}`,
-      },
-      {
-        role: 'user',
-        content: `<model_outputs>${modelOutputs}${closeXml('model_outputs')}`,
-      },
-      { role: 'user', content: PROMPT },
+      systemMessage(PROMPT),
+      userMessage(
+        `<request_context>${stringified}${closeXml('request_context')}`,
+      ),
+      userMessage(`<model_outputs>${modelOutputs}${closeXml('model_outputs')}`),
+      userMessage(PROMPT),
     ],
     model: models.openrouter_claude_sonnet_4,
     clientSessionId: 'relabel-trace-api',

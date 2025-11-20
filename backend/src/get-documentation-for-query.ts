@@ -1,9 +1,9 @@
+import { fetchContext7LibraryDocumentation } from '@codebuff/agent-runtime/llm-api/context7-api'
 import { models } from '@codebuff/common/old-constants'
+import { userMessage } from '@codebuff/common/util/messages'
 import { closeXml } from '@codebuff/common/util/xml'
 import { uniq } from 'lodash'
 import { z } from 'zod/v4'
-
-import { fetchContext7LibraryDocumentation } from '@codebuff/agent-runtime/llm-api/context7-api'
 
 import type { PromptAiSdkStructuredFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -184,7 +184,7 @@ ${closeXml('user_query')}
   try {
     const response = await promptAiSdkStructured({
       ...params,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [userMessage(prompt)],
       model: models.openrouter_gemini2_5_flash,
       temperature: 0,
       schema: z.object({
@@ -244,7 +244,7 @@ ${closeXml('documentation_chunks')}
   try {
     const response = await promptAiSdkStructured({
       ...params,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [userMessage(prompt)],
       model: models.openrouter_gemini2_5_flash,
       temperature: 0,
       schema: z.object({

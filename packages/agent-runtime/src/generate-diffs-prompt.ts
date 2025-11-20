@@ -3,6 +3,7 @@ import {
   createMarkdownFileBlock,
   createSearchReplaceBlock,
 } from '@codebuff/common/util/file'
+import { userMessage } from '@codebuff/common/util/messages'
 
 import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -172,7 +173,7 @@ Provide a new set of SEARCH/REPLACE changes to make the intended edit from the o
 
   const response = await promptAiSdk({
     ...params,
-    messages: [{ role: 'user', content: newPrompt }],
+    messages: [userMessage(newPrompt)],
     model: models.openrouter_claude_sonnet_4,
   })
   const {

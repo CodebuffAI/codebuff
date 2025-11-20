@@ -4,6 +4,7 @@ import { supportsCacheControl } from '@codebuff/common/old-constants'
 import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
+import { systemMessage, userMessage } from '@codebuff/common/util/messages'
 import { cloneDeep } from 'lodash'
 
 import { checkLiveUserInput } from './live-user-inputs'
@@ -16,10 +17,9 @@ import { getAgentPrompt } from './templates/strings'
 import { processStreamWithTools } from './tools/stream-parser'
 import { getAgentOutput } from './util/agent-output'
 import {
-  asSystemInstruction,
-  asSystemMessage,
+  withSystemInstructionTags,
+  withSystemTags as withSystemTags,
   buildUserMessageContent,
-  messagesWithSystem,
   expireMessages,
 } from './util/messages'
 import { countTokensJson } from './util/token-counter'
@@ -38,9 +38,8 @@ import type {
   ParamsExcluding,
   ParamsOf,
 } from '@codebuff/common/types/function-params'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { Message, ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type {
-  ToolResultPart,
   TextPart,
   ImagePart,
 } from '@codebuff/common/types/messages/content-part'
@@ -175,12 +174,11 @@ export const runAgentStep = async (
       ...agentState,
       messageHistory: [
         ...expireMessages(messageHistory, 'userPrompt'),
-        {
-          role: 'user',
-          content: asSystemMessage(
+        userMessage(
+          withSystemTags(
             `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The number of responses can be changed in codebuff.json.`,
           ),
-        },
+        ),
       ],
     }
   }
@@ -223,15 +221,15 @@ export const runAgentStep = async (
   const agentMessagesUntruncated = buildArray<Message>(
     ...expireMessages(messageHistory, 'agentStep'),
 
-    stepPrompt && {
-      role: 'user' as const,
-      content: stepPrompt,
-      tags: ['STEP_PROMPT'],
+    stepPrompt &&
+      userMessage({
+        content: stepPrompt,
+        tags: ['STEP_PROMPT'],
 
-      // James: Deprecate the below, only use tags, which are not prescriptive.
-      timeToLive: 'agentStep' as const,
-      keepDuringTruncation: true,
-    },
+        // James: Deprecate the below, only use tags, which are not prescriptive.
+        timeToLive: 'agentStep' as const,
+        keepDuringTruncation: true,
+      }),
   )
 
   agentState.messageHistory = agentMessagesUntruncated
@@ -308,13 +306,13 @@ export const runAgentStep = async (
       // If parsing fails, treat as single raw response (common for n=1)
       nResponses = [responsesString]
     }
-    
+
     // Update agent state with the message history including the generations
     agentState = {
       ...agentState,
       messageHistory: agentMessages,
     }
-    
+
     return {
       agentState,
       fullResponse: responsesString,
@@ -325,7 +323,7 @@ export const runAgentStep = async (
   }
 
   let fullResponse = ''
-  const toolResults: ToolResultPart[] = []
+  const toolResults: ToolMessage[] = []
 
   const { getStream } = getAgentStreamFromTemplate({
     ...params,
@@ -335,9 +333,7 @@ export const runAgentStep = async (
     includeCacheControl: supportsCacheControl(agentTemplate.model),
   })
 
-  const stream = getStream(
-    messagesWithSystem({ messages: agentMessages, system }),
-  )
+  const stream = getStream([systemMessage(system), ...agentMessages])
 
   const {
     toolCalls,
@@ -393,12 +389,11 @@ export const runAgentStep = async (
     (prompt.toLowerCase() === '/compact' || prompt.toLowerCase() === 'compact')
   if (wasCompacted) {
     finalMessageHistoryWithToolResults = [
-      {
-        role: 'user',
-        content: asSystemMessage(
+      userMessage(
+        withSystemTags(
           `The following is a summary of the conversation between you and the user. The conversation continues after this summary:\n\n${fullResponse}`,
         ),
-      },
+      ),
     ]
     logger.debug({ summary: fullResponse }, 'Compacted messages')
   }
@@ -669,24 +664,25 @@ export async function loopAgentSteps(
         keepDuringTruncation: true,
       },
       prompt &&
-        prompt in additionalSystemPrompts && {
-          role: 'user' as const,
-          content: asSystemInstruction(
+        prompt in additionalSystemPrompts &&
+        userMessage(
+          withSystemInstructionTags(
             additionalSystemPrompts[
               prompt as keyof typeof additionalSystemPrompts
             ],
           ),
-        },
+        ),
+      ,
     ],
 
-    instructionsPrompt && {
-      role: 'user' as const,
-      content: instructionsPrompt,
-      tags: ['INSTRUCTIONS_PROMPT'],
+    instructionsPrompt &&
+      userMessage({
+        content: instructionsPrompt,
+        tags: ['INSTRUCTIONS_PROMPT'],
 
-      // James: Deprecate the below, only use tags, which are not prescriptive.
-      keepLastTags: ['INSTRUCTIONS_PROMPT'],
-    },
+        // James: Deprecate the below, only use tags, which are not prescriptive.
+        keepLastTags: ['INSTRUCTIONS_PROMPT'],
+      }),
   )
 
   let currentAgentState: AgentState = {
@@ -775,17 +771,16 @@ export async function loopAgentSteps(
         )
 
         // Add system message instructing to use set_output
-        const outputSchemaMessage = asSystemMessage(
+        const outputSchemaMessage = withSystemTags(
           `You must use the "set_output" tool to provide a result that matches the output schema before ending your turn. The output schema is required for this agent.`,
         )
 
         currentAgentState.messageHistory = [
           ...currentAgentState.messageHistory,
-          {
-            role: 'user',
+          userMessage({
             content: outputSchemaMessage,
             keepDuringTruncation: true,
-          },
+          }),
         ]
 
         // Reset shouldEndTurn to continue the loop

@@ -3,9 +3,9 @@ import { z } from 'zod/v4'
 import { costModes } from './old-constants'
 import { GrantTypeValues } from './types/grant'
 import { mcpConfigSchema } from './types/mcp'
+import { toolMessageSchema } from './types/messages/codebuff-message'
 import {
   toolResultOutputSchema,
-  toolResultPartSchema,
   textPartSchema,
   imagePartSchema,
 } from './types/messages/content-part'
@@ -37,7 +37,7 @@ export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
     authToken: z.string().optional(),
     costMode: z.enum(costModes).optional().default('normal'),
     sessionState: SessionStateSchema,
-    toolResults: z.array(toolResultPartSchema),
+    toolResults: z.array(toolMessageSchema),
     model: z.string().optional(),
     repoUrl: z.string().optional(),
     agentId: z.string().optional(),
@@ -125,7 +125,7 @@ export const PromptResponseSchema = z.object({
   promptId: z.string(),
   sessionState: SessionStateSchema,
   toolCalls: z.array(toolCallSchema).optional(),
-  toolResults: z.array(toolResultPartSchema).optional(),
+  toolResults: z.array(toolMessageSchema).optional(),
   output: AgentOutputSchema.optional(),
 })
 export type PromptResponse = z.infer<typeof PromptResponseSchema>

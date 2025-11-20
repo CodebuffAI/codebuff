@@ -1,15 +1,12 @@
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
-import { generateCompactId } from '@codebuff/common/util/string'
 import { uniq } from 'lodash'
 
-import { checkTerminalCommand } from './check-terminal-command'
 import { checkLiveUserInput } from './live-user-inputs'
 import { loopAgentSteps } from './run-agent-step'
 import {
   assembleLocalAgentTemplates,
   getAgentTemplate,
 } from './templates/agent-registry'
-import { expireMessages } from './util/messages'
 
 import type { AgentTemplate } from './templates/types'
 import type { ClientAction } from '@codebuff/common/actions'
@@ -49,10 +46,6 @@ export async function mainPrompt(
     | 'fileContext'
     | 'ancestorRunIds'
   > &
-    ParamsExcluding<
-      typeof checkTerminalCommand,
-      'prompt' | 'fingerprintId' | 'userInputId'
-    > &
     ParamsExcluding<typeof getAgentTemplate, 'agentId'>,
 ): Promise<{
   sessionState: SessionState
@@ -160,69 +153,6 @@ export async function mainPrompt(
   mainAgentTemplate.spawnableAgents = updatedSubagents
   localAgentTemplates[agentType] = mainAgentTemplate
 
-  // TODO (fat sdk): remove this once we switch to sdk-only
-  if (
-    prompt &&
-    mainAgentTemplate.toolNames.includes('run_terminal_command') &&
-    !fingerprintId.startsWith('codebuff-sdk-')
-  ) {
-    // Check if this is a direct terminal command
-    const startTime = Date.now()
-    const terminalCommand = await checkTerminalCommand({
-      ...params,
-      prompt,
-      fingerprintId,
-      userInputId: promptId,
-    })
-    const duration = Date.now() - startTime
-
-    if (terminalCommand) {
-      logger.debug(
-        {
-          duration,
-          prompt,
-        },
-        `Detected terminal command in ${duration}ms, executing directly: ${prompt}`,
-      )
-
-      const { output } = await requestToolCall({
-        userInputId: promptId,
-        toolName: 'run_terminal_command',
-        input: {
-          command: terminalCommand,
-          mode: 'user',
-          process_type: 'SYNC',
-          timeout_seconds: -1,
-        },
-      })
-
-      mainAgentState.messageHistory.push({
-        role: 'tool',
-        content: {
-          type: 'tool-result',
-          toolName: 'run_terminal_command',
-          toolCallId: generateCompactId(),
-          output: output,
-        },
-      })
-
-      const newSessionState = {
-        ...sessionState,
-        messageHistory: expireMessages(
-          mainAgentState.messageHistory,
-          'userPrompt',
-        ),
-      }
-
-      return {
-        sessionState: newSessionState,
-        output: {
-          type: 'lastMessage',
-          value: output,
-        },
-      }
-    }
-  }
   const { agentState, output } = await loopAgentSteps({
     ...params,
     userInputId: promptId,

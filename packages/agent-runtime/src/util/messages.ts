@@ -2,6 +2,7 @@ import { AssertionError } from 'assert'
 
 import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
+import { systemMessage, userMessage } from '@codebuff/common/util/messages'
 import { closeXml } from '@codebuff/common/util/xml'
 import { cloneDeep, isEqual } from 'lodash'
 
@@ -14,10 +15,7 @@ import type {
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type {
-  Message,
-  ToolMessage,
-} from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type {
   TextPart,
   ImagePart,
@@ -28,16 +26,7 @@ export function messagesWithSystem(params: {
   system: System
 }): Message[] {
   const { messages, system } = params
-  return [
-    {
-      role: 'system',
-      content:
-        typeof system === 'string'
-          ? system
-          : system.map((part) => part.text).join('\n\n'),
-    },
-    ...messages,
-  ]
+  return [systemMessage(system), ...messages]
 }
 
 export function asUserMessage(str: string): string {
@@ -51,11 +40,16 @@ export function buildUserMessageContent(
   prompt: string | undefined,
   params: Record<string, any> | undefined,
   content?: Array<TextPart | ImagePart>,
-): string | Array<TextPart | ImagePart> {
+): Array<TextPart | ImagePart> {
   // If we have content, return it as-is (client should have already combined prompt + content)
   if (content && content.length > 0) {
     if (content.length === 1 && content[0].type === 'text') {
-      return asUserMessage(content[0].text)
+      return [
+        {
+          type: 'text',
+          text: asUserMessage(content[0].text),
+        },
+      ]
     }
     return content
   }
@@ -65,7 +59,12 @@ export function buildUserMessageContent(
     prompt,
     params && JSON.stringify(params, null, 2),
   ])
-  return asUserMessage(textParts.join('\n\n'))
+  return [
+    {
+      type: 'text',
+      text: asUserMessage(textParts.join('\n\n')),
+    },
+  ]
 }
 
 export function getCancelledAdditionalMessages(args: {
@@ -83,19 +82,9 @@ export function getCancelledAdditionalMessages(args: {
       content: buildUserMessageContent(prompt, params, content),
       tags: ['USER_PROMPT'],
     },
-    {
-      role: 'user',
-      content: [
-        {
-          type: 'text',
-          text: `<previous_assistant_message>${pendingAgentResponse}</previous_assistant_message>`,
-        },
-        {
-          type: 'text',
-          text: asSystemMessage(systemMessage),
-        },
-      ],
-    },
+    userMessage(
+      `<previous_assistant_message>${pendingAgentResponse}</previous_assistant_message>\n\n${withSystemTags(systemMessage)}`,
+    ),
   ]
 
   return messages
@@ -106,23 +95,12 @@ export function parseUserMessage(str: string): string | undefined {
   return match ? match[1] : undefined
 }
 
-export function asSystemInstruction(str: string): string {
+export function withSystemInstructionTags(str: string): string {
   return `<system_instructions>${str}${closeXml('system_instructions')}`
 }
 
-export function asSystemMessage(str: string): string {
+export function withSystemTags(str: string): string {
   return `<system>${str}${closeXml('system')}`
-}
-
-export function isSystemInstruction(str: string): boolean {
-  return (
-    str.startsWith('<system_instructions>') &&
-    str.endsWith(closeXml('system_instructions'))
-  )
-}
-
-export function isSystemMessage(str: string): boolean {
-  return str.startsWith('<system>') && str.endsWith(closeXml('system'))
 }
 
 export function castAssistantMessage(message: Message): Message | null {
@@ -130,10 +108,9 @@ export function castAssistantMessage(message: Message): Message | null {
     return message
   }
   if (typeof message.content === 'string') {
-    return {
-      content: `<previous_assistant_message>${message.content}${closeXml('previous_assistant_message')}`,
-      role: 'user' as const,
-    }
+    return userMessage(
+      `<previous_assistant_message>${message.content}${closeXml('previous_assistant_message')}`,
+    )
   }
   const content = buildArray(
     message.content.map((m) => {
@@ -181,10 +158,9 @@ function simplifyTerminalHelper(params: {
 
 // Factor to reduce token count target by, to leave room for new messages
 const shortenedMessageTokenFactor = 0.5
-const replacementMessage = {
-  role: 'user',
-  content: asSystemMessage('Previous message(s) omitted due to length'),
-} satisfies Message
+const replacementMessage = userMessage(
+  withSystemTags('Previous message(s) omitted due to length'),
+)
 
 /**
  * Trims messages from the beginning to fit within token limits while preserving
@@ -225,7 +201,7 @@ export function trimMessagesToFitTokenLimit(params: {
     if (m.role === 'system' || m.role === 'user' || m.role === 'assistant') {
       shortenedMessages.push(m)
     } else if (m.role === 'tool') {
-      if (m.content.toolName !== 'run_terminal_command') {
+      if (m.toolName !== 'run_terminal_command') {
         shortenedMessages.push(m)
         continue
       }
@@ -235,11 +211,11 @@ export function trimMessagesToFitTokenLimit(params: {
       ) as CodebuffToolMessage<'run_terminal_command'>
 
       const result = simplifyTerminalHelper({
-        toolResult: terminalResultMessage.content.output,
+        toolResult: terminalResultMessage.content,
         numKept,
         logger,
       })
-      terminalResultMessage.content.output = result.result
+      terminalResultMessage.content = result.result
       numKept = result.numKept
 
       shortenedMessages.push(terminalResultMessage)
@@ -341,24 +317,20 @@ export function getEditedFiles(params: {
       .filter(
         (
           m,
-        ): m is ToolMessage & {
-          content: { toolName: 'create_plan' | 'str_replace' | 'write_file' }
-        } => {
+        ): m is CodebuffToolMessage<
+          'create_plan' | 'str_replace' | 'write_file'
+        > => {
           return (
             m.role === 'tool' &&
-            (m.content.toolName === 'create_plan' ||
-              m.content.toolName === 'str_replace' ||
-              m.content.toolName === 'write_file')
+            (m.toolName === 'create_plan' ||
+              m.toolName === 'str_replace' ||
+              m.toolName === 'write_file')
           )
         },
       )
       .map((m) => {
         try {
-          const fileInfo = (
-            m as CodebuffToolMessage<
-              'create_plan' | 'str_replace' | 'write_file'
-            >
-          ).content.output[0].value
+          const fileInfo = m.content[0].value
           if ('errorMessage' in fileInfo) {
             return null
           }
@@ -386,12 +358,12 @@ export function getPreviouslyReadFiles(params: {
   const files: ReturnType<typeof getPreviouslyReadFiles> = []
   for (const message of messages) {
     if (message.role !== 'tool') continue
-    if (message.content.toolName === 'read_files') {
+    if (message.toolName === 'read_files') {
       try {
         files.push(
           ...(
             message as CodebuffToolMessage<'read_files'>
-          ).content.output[0].value.filter(
+          ).content[0].value.filter(
             (
               file,
             ): file is typeof file & { contentOmittedForLength: undefined } =>
@@ -406,10 +378,10 @@ export function getPreviouslyReadFiles(params: {
       }
     }
 
-    if (message.content.toolName === 'find_files') {
+    if (message.toolName === 'find_files') {
       try {
-        const v = (message as CodebuffToolMessage<'find_files'>).content
-          .output[0].value
+        const v = (message as CodebuffToolMessage<'find_files'>).content[0]
+          .value
         if ('message' in v) {
           continue
         }

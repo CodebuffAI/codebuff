@@ -1,6 +1,7 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
+import { assistantMessage } from '@codebuff/common/util/messages'
 import {
   afterAll,
   beforeAll,
@@ -105,9 +106,7 @@ describe('Subagent Streaming', () => {
       return {
         agentState: {
           ...options.agentState,
-          messageHistory: [
-            { role: 'assistant', content: 'Test response from subagent' },
-          ],
+          messageHistory: [assistantMessage('Test response from subagent')],
         },
         output: { type: 'lastMessage', value: 'Test response from subagent' },
       }

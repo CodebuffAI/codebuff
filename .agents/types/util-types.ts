@@ -85,14 +85,6 @@ export type ToolResultOutput =
       mediaType: string
     }
 
-export type ToolResultPart = {
-  type: 'tool-result'
-  toolCallId: string
-  toolName: string
-  output: ToolResultOutput[]
-  providerOptions?: ProviderMetadata
-}
-
 // ===== Message Types =====
 type AuxiliaryData = {
   providerOptions?: ProviderMetadata
@@ -118,7 +110,10 @@ export type AssistantMessage = {
 
 export type ToolMessage = {
   role: 'tool'
-  content: ToolResultPart
+  toolCallId: string
+  toolName: string
+  content: ToolResultOutput[]
+  providerOptions?: ProviderMetadata
 } & AuxiliaryData
 
 export type Message =

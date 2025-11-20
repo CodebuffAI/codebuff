@@ -1,4 +1,5 @@
 import { countTokens } from '@codebuff/agent-runtime/util/token-counter'
+import { userMessage } from '@codebuff/common/util/messages'
 import { env } from '@codebuff/internal/env'
 
 import { saveMessage } from '../llm-apis/message-cost-tracker'
@@ -88,12 +89,7 @@ export async function rerank(
     saveMessage({
       ...params,
       model: 'relace-ranker',
-      request: [
-        {
-          role: 'user',
-          content: fakeRequestContent,
-        },
-      ],
+      request: [userMessage(fakeRequestContent)],
       response: JSON.stringify(rankings),
       inputTokens: countTokens(fakeRequestContent),
       outputTokens: countTokens(JSON.stringify(rankings)),

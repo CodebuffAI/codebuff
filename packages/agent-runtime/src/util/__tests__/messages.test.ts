@@ -1,4 +1,10 @@
 import {
+  assistantMessage,
+  systemMessage,
+  toolJsonContent,
+  userMessage,
+} from '@codebuff/common/util/messages'
+import {
   afterEach,
   beforeEach,
   describe,
@@ -16,25 +22,19 @@ import {
 import * as tokenCounter from '../token-counter'
 
 import type { CodebuffToolMessage } from '@codebuff/common/tools/list'
-import type {
-  Message,
-  UserMessage,
-} from '@codebuff/common/types/messages/codebuff-message'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 describe('messagesWithSystem', () => {
   it('prepends system message to array', () => {
-    const messages = [
-      { role: 'user', content: 'hello' },
-      { role: 'assistant', content: 'hi' },
-    ] as Message[]
+    const messages = [userMessage('hello'), assistantMessage('hi')] as Message[]
     const system = 'Be helpful'
 
     const result = messagesWithSystem({ messages, system })
 
     expect(result).toEqual([
-      { role: 'system', content: 'Be helpful' },
-      { role: 'user', content: 'hello' },
-      { role: 'assistant', content: 'hi' },
+      systemMessage('Be helpful'),
+      userMessage('hello'),
+      assistantMessage('hi'),
     ])
   })
 })
@@ -62,157 +62,79 @@ describe('trimMessagesToFitTokenLimit', () => {
 
   const testMessages: Message[] = [
     // Regular message without tool calls - should never be shortened, but won't fit in the final array
-    {
-      role: 'assistant',
-      content:
-        'This is a long assistant message that would normally be shortened but since it has no tool calls it should be preserved completely intact no matter what',
-    },
+    assistantMessage(
+      'This is a long assistant message that would normally be shortened but since it has no tool calls it should be preserved completely intact no matter what',
+    ),
     // Regular message without tool calls - should never be shortened
-    {
-      role: 'user',
-      content:
-        'This is a long message that would normally be shortened but since it has no tool calls it should be preserved completely intact no matter what',
-    },
+    userMessage(
+      'This is a long message that would normally be shortened but since it has no tool calls it should be preserved completely intact no matter what',
+    ),
     {
       // Terminal output 0 (oldest) - should be simplified
+
       role: 'tool',
-      content: {
-        type: 'tool-result',
-        toolName: 'run_terminal_command',
-        toolCallId: 'test-id-0',
-        output: [
-          {
-            type: 'json',
-            value: `Terminal output 0${'.'.repeat(2000)}`,
-          },
-        ],
-      },
+      toolName: 'run_terminal_command',
+      toolCallId: 'test-id-0',
+      content: [toolJsonContent(`Terminal output 0${'.'.repeat(2000)}`)],
     },
     {
       // Terminal output 1 - should be preserved (shorter than '[Output omitted]')
       role: 'tool',
-      content: {
-        type: 'tool-result',
-        toolName: 'run_terminal_command',
-        toolCallId: 'test-id-1',
-        output: [
-          {
-            type: 'json',
-            value: `Short output 1`,
-          },
-        ],
-      },
+      toolName: 'run_terminal_command',
+      toolCallId: 'test-id-1',
+      content: [toolJsonContent(`Short output 1`)],
     },
     {
       // Terminal output 2 - should be simplified
       role: 'tool',
-      content: {
-        type: 'tool-result',
-        toolName: 'run_terminal_command',
-        toolCallId: 'test-id-2',
-        output: [
-          {
-            type: 'json',
-            value: `Terminal output 2${'.'.repeat(2000)}`,
-          },
-        ],
-      },
+      toolName: 'run_terminal_command',
+      toolCallId: 'test-id-2',
+      content: [toolJsonContent(`Terminal output 2${'.'.repeat(2000)}`)],
     },
     {
       // Terminal output 3 - should be preserved (5th most recent)
       role: 'tool',
-      content: {
-        type: 'tool-result',
-        toolName: 'run_terminal_command',
-        toolCallId: 'test-id-3',
-        output: [
-          {
-            type: 'json',
-            value: `Terminal output 3`,
-          },
-        ],
-      },
+      toolName: 'run_terminal_command',
+      toolCallId: 'test-id-3',
+      content: [toolJsonContent(`Terminal output 3`)],
     },
     {
       role: 'tool',
-      content: {
-        type: 'tool-result',
-        toolName: 'run_terminal_command',
-        toolCallId: 'test-id-4',
-        output: [
-          {
-            type: 'json',
-            value: `Terminal output 4`,
-          },
-        ],
-      },
+      toolName: 'run_terminal_command',
+      toolCallId: 'test-id-4',
+      content: [toolJsonContent(`Terminal output 4`)],
     },
-    {
-      role: 'user',
-      content: [
-        // Regular message - should never be shortened
-        {
-          type: 'image',
-          image: 'xyz',
-          mediaType: 'image/jpeg',
-        },
-      ],
-    } satisfies UserMessage,
+    // Regular message - should never be shortened
+    userMessage({
+      type: 'image',
+      image: 'xyz',
+      mediaType: 'image/jpeg',
+    }),
     {
       // Terminal output 5 - should be preserved (3rd most recent)
       role: 'tool',
-      content: {
-        type: 'tool-result',
-        toolName: 'run_terminal_command',
-        toolCallId: 'test-id-5',
-        output: [
-          {
-            type: 'json',
-            value: `Terminal output 5`,
-          },
-        ],
-      },
+      toolName: 'run_terminal_command',
+      toolCallId: 'test-id-5',
+      content: [toolJsonContent(`Terminal output 5`)],
     },
     {
       // Terminal output 6 - should be preserved (2nd most recent)
       role: 'tool',
-      content: {
-        type: 'tool-result',
-        toolName: 'run_terminal_command',
-        toolCallId: 'test-id-6',
-        output: [
-          {
-            type: 'json',
-            value: `Terminal output 6`,
-          },
-        ],
-      },
+      toolName: 'run_terminal_command',
+      toolCallId: 'test-id-6',
+      content: [toolJsonContent(`Terminal output 6`)],
     },
     {
       // Terminal output 7 - should be preserved (most recent)
       role: 'tool',
-      content: {
-        type: 'tool-result',
-        toolName: 'run_terminal_command',
-        toolCallId: 'test-id-7',
-        output: [
-          {
-            type: 'json',
-            value: `Terminal output 7`,
-          },
-        ],
-      },
+      toolName: 'run_terminal_command',
+      toolCallId: 'test-id-7',
+      content: [toolJsonContent(`Terminal output 7`)],
     },
     // Regular message - should never be shortened
-    {
-      role: 'assistant',
-      content: [
-        {
-          type: 'text',
-          text: 'Another long message that should never be shortened because it has no tool calls in it at all',
-        },
-      ],
-    },
+    assistantMessage(
+      'Another long message that should never be shortened because it has no tool calls in it at all',
+    ),
   ]
 
   it('handles all features working together correctly', () => {
@@ -231,8 +153,10 @@ describe('trimMessagesToFitTokenLimit', () => {
     // Should contain a replacement message for omitted content
     const hasReplacementMessage = result.some(
       (msg) =>
-        typeof msg.content === 'string' &&
-        msg.content.includes('Previous message(s) omitted due to length'),
+        msg.content[0].type === 'text' &&
+        msg.content[0].text.includes(
+          'Previous message(s) omitted due to length',
+        ),
     )
     expect(hasReplacementMessage).toBe(true)
 
@@ -257,8 +181,10 @@ describe('trimMessagesToFitTokenLimit', () => {
     // Should contain a replacement message for omitted content
     const hasReplacementMessage = result.some(
       (msg) =>
-        typeof msg.content === 'string' &&
-        msg.content.includes('Previous message(s) omitted due to length'),
+        msg.content[0].type === 'text' &&
+        msg.content[0].text.includes(
+          'Previous message(s) omitted due to length',
+        ),
     )
     expect(hasReplacementMessage).toBe(true)
 
@@ -305,19 +231,23 @@ describe('trimMessagesToFitTokenLimit', () => {
   describe('keepDuringTruncation functionality', () => {
     it('preserves messages marked with keepDuringTruncation=true', () => {
       const messages: Message[] = [
-        { role: 'user', content: 'A'.repeat(500) }, // Large message to force truncation
-        { role: 'user', content: 'B'.repeat(500) }, // Large message to force truncation
-        {
-          role: 'user',
+        userMessage(
+          'A'.repeat(500), // Large message to force truncation
+        ),
+        userMessage(
+          'B'.repeat(500), // Large message to force truncation
+        ),
+        userMessage({
           content: 'Message 3 - keep me!',
           keepDuringTruncation: true,
-        },
-        { role: 'assistant', content: 'C'.repeat(500) }, // Large message to force truncation
-        {
-          role: 'user',
+        }),
+        assistantMessage(
+          'C'.repeat(500), // Large message to force truncation
+        ),
+        userMessage({
           content: 'Message 5 - keep me too!',
           keepDuringTruncation: true,
-        },
+        }),
       ]
 
       const result = trimMessagesToFitTokenLimit({
@@ -330,30 +260,31 @@ describe('trimMessagesToFitTokenLimit', () => {
       // Should contain the kept messages
       const keptMessages = result.filter(
         (msg) =>
-          typeof msg.content === 'string' &&
-          (msg.content.includes('keep me!') ||
-            msg.content.includes('keep me too!')),
+          msg.content[0].type === 'text' &&
+          (msg.content[0].text.includes('keep me!') ||
+            msg.content[0].text.includes('keep me too!')),
       )
       expect(keptMessages).toHaveLength(2)
 
       // Should have replacement message for omitted content
       const hasReplacementMessage = result.some(
         (msg) =>
-          typeof msg.content === 'string' &&
-          msg.content.includes('Previous message(s) omitted due to length'),
+          msg.content[0].type === 'text' &&
+          msg.content[0].text.includes(
+            'Previous message(s) omitted due to length',
+          ),
       )
       expect(hasReplacementMessage).toBe(true)
     })
 
     it('does not add replacement message when no messages are removed', () => {
       const messages = [
-        { role: 'user', content: 'Short message 1' },
-        {
-          role: 'user',
+        userMessage('Short message 1'),
+        userMessage({
           content: 'Short message 2',
           keepDuringTruncation: true,
-        },
-      ] as Message[]
+        }),
+      ]
 
       const result = trimMessagesToFitTokenLimit({
         messages,
@@ -364,16 +295,20 @@ describe('trimMessagesToFitTokenLimit', () => {
 
       // Should be unchanged when under token limit
       expect(result).toHaveLength(2)
-      expect(result[0].content).toBe('Short message 1')
-      expect(result[1].content).toBe('Short message 2')
+      expect(
+        result[0].content[0].type === 'text' && result[0].content[0].text,
+      ).toBe('Short message 1')
+      expect(
+        result[1].content[0].type === 'text' && result[1].content[0].text,
+      ).toBe('Short message 2')
     })
 
     it('handles consecutive replacement messages correctly', () => {
       const messages: Message[] = [
-        { role: 'user', content: 'A'.repeat(1000) }, // Large message to be removed
-        { role: 'user', content: 'B'.repeat(1000) }, // Large message to be removed
-        { role: 'user', content: 'C'.repeat(1000) }, // Large message to be removed
-        { role: 'user', content: 'Keep this', keepDuringTruncation: true },
+        userMessage('A'.repeat(1000)), // Large message to be removed
+        userMessage('B'.repeat(1000)), // Large message to be removed
+        userMessage('C'.repeat(1000)), // Large message to be removed
+        userMessage({ content: 'Keep this', keepDuringTruncation: true }),
       ]
 
       const result = trimMessagesToFitTokenLimit({
@@ -386,29 +321,31 @@ describe('trimMessagesToFitTokenLimit', () => {
       // Should only have one replacement message for consecutive removals
       const replacementMessages = result.filter(
         (msg) =>
-          typeof msg.content === 'string' &&
-          msg.content.includes('Previous message(s) omitted due to length'),
+          msg.content[0].type === 'text' &&
+          msg.content[0].text.includes(
+            'Previous message(s) omitted due to length',
+          ),
       )
       expect(replacementMessages).toHaveLength(1)
 
       // Should keep the marked message
       const keptMessage = result.find(
         (msg) =>
-          typeof msg.content === 'string' && msg.content.includes('Keep this'),
+          msg.content[0].type === 'text' &&
+          msg.content[0].text.includes('Keep this'),
       )
       expect(keptMessage).toBeDefined()
     })
 
     it('calculates token removal correctly with keepDuringTruncation', () => {
       const messages: Message[] = [
-        { role: 'user', content: 'A'.repeat(500) }, // Will be removed
-        { role: 'user', content: 'B'.repeat(500) }, // Will be removed
-        {
-          role: 'user',
+        userMessage('A'.repeat(500)), // Will be removed
+        userMessage('B'.repeat(500)), // Will be removed
+        userMessage({
           content: 'Keep this short message',
           keepDuringTruncation: true,
-        },
-        { role: 'user', content: 'C'.repeat(100) }, // Might be kept
+        }),
+        userMessage('C'.repeat(100)), // Might be kept
       ]
 
       const result = trimMessagesToFitTokenLimit({
@@ -421,8 +358,8 @@ describe('trimMessagesToFitTokenLimit', () => {
       // Should preserve the keepDuringTruncation message
       const keptMessage = result.find(
         (msg) =>
-          typeof msg.content === 'string' &&
-          msg.content.includes('Keep this short message'),
+          msg.content[0].type === 'text' &&
+          msg.content[0].text.includes('Keep this short message'),
       )
       expect(keptMessage).toBeDefined()
 
@@ -433,11 +370,11 @@ describe('trimMessagesToFitTokenLimit', () => {
 
     it('handles mixed keepDuringTruncation and regular messages', () => {
       const messages: Message[] = [
-        { role: 'user', content: 'A'.repeat(800) }, // Large message to force truncation
-        { role: 'user', content: 'Keep 1', keepDuringTruncation: true },
-        { role: 'user', content: 'B'.repeat(800) }, // Large message to force truncation
-        { role: 'user', content: 'Keep 2', keepDuringTruncation: true },
-        { role: 'user', content: 'C'.repeat(800) }, // Large message to force truncation
+        userMessage('A'.repeat(800)), // Large message to force truncation
+        userMessage({ content: 'Keep 1', keepDuringTruncation: true }),
+        userMessage('B'.repeat(800)), // Large message to force truncation
+        userMessage({ content: 'Keep 2', keepDuringTruncation: true }),
+        userMessage('C'.repeat(800)), // Large message to force truncation
       ]
 
       const result = trimMessagesToFitTokenLimit({
@@ -450,16 +387,19 @@ describe('trimMessagesToFitTokenLimit', () => {
       // Should keep both marked messages
       const keptMessages = result.filter(
         (msg) =>
-          typeof msg.content === 'string' &&
-          (msg.content.includes('Keep 1') || msg.content.includes('Keep 2')),
+          msg.content[0].type === 'text' &&
+          (msg.content[0].text.includes('Keep 1') ||
+            msg.content[0].text.includes('Keep 2')),
       )
       expect(keptMessages).toHaveLength(2)
 
       // Should have replacement messages for removed content
       const replacementMessages = result.filter(
         (msg) =>
-          typeof msg.content === 'string' &&
-          msg.content.includes('Previous message(s) omitted due to length'),
+          msg.content[0].type === 'text' &&
+          msg.content[0].text.includes(
+            'Previous message(s) omitted due to length',
+          ),
       )
       expect(replacementMessages.length).toBeGreaterThan(0)
     })
@@ -474,18 +414,18 @@ describe('getPreviouslyReadFiles', () => {
 
   it('returns empty array when no tool messages with relevant tool names', () => {
     const messages: Message[] = [
-      { role: 'user', content: 'hello' },
-      { role: 'assistant', content: 'hi' },
+      userMessage('hello'),
+      userMessage('hi'),
       {
         role: 'tool',
-        content: {
-          type: 'tool-result',
-          toolName: 'write_file',
-          toolCallId: 'test-id',
-          output: [
-            { type: 'json', value: { file: 'test.ts', errorMessage: 'error' } },
-          ],
-        },
+        toolName: 'write_file',
+        toolCallId: 'test-id',
+        content: [
+          toolJsonContent({
+            file: 'test.ts',
+            errorMessage: 'error',
+          }),
+        ],
       } satisfies CodebuffToolMessage<'write_file'>,
     ]
 
@@ -497,27 +437,21 @@ describe('getPreviouslyReadFiles', () => {
     const messages: Message[] = [
       {
         role: 'tool',
-        content: {
-          type: 'tool-result',
-          toolName: 'read_files',
-          toolCallId: 'test-id',
-          output: [
+        toolName: 'read_files',
+        toolCallId: 'test-id',
+        content: [
+          toolJsonContent([
             {
-              type: 'json',
-              value: [
-                {
-                  path: 'src/test.ts',
-                  content: 'export function test() {}',
-                  referencedBy: { 'main.ts': ['line 10'] },
-                },
-                {
-                  path: 'src/utils.ts',
-                  content: 'export const utils = {}',
-                },
-              ],
+              path: 'src/test.ts',
+              content: 'export function test() {}',
+              referencedBy: { 'main.ts': ['line 10'] },
             },
-          ],
-        },
+            {
+              path: 'src/utils.ts',
+              content: 'export const utils = {}',
+            },
+          ] as const),
+        ],
       } satisfies CodebuffToolMessage<'read_files'>,
     ]
 
@@ -539,22 +473,16 @@ describe('getPreviouslyReadFiles', () => {
     const messages: Message[] = [
       {
         role: 'tool',
-        content: {
-          type: 'tool-result',
-          toolName: 'find_files',
-          toolCallId: 'test-id',
-          output: [
+        toolName: 'find_files',
+        toolCallId: 'test-id',
+        content: [
+          toolJsonContent([
             {
-              type: 'json',
-              value: [
-                {
-                  path: 'components/Button.tsx',
-                  content: 'export const Button = () => {}',
-                },
-              ],
+              path: 'components/Button.tsx',
+              content: 'export const Button = () => {}',
             },
-          ],
-        },
+          ] as const),
+        ],
       } satisfies CodebuffToolMessage<'find_files'>,
     ]
 
@@ -571,46 +499,31 @@ describe('getPreviouslyReadFiles', () => {
     const messages: Message[] = [
       {
         role: 'tool',
-        content: {
-          type: 'tool-result',
-          toolName: 'read_files',
-          toolCallId: 'test-id-1',
-          output: [
+        toolName: 'read_files',
+        toolCallId: 'test-id-1',
+        content: [
+          toolJsonContent([
             {
-              type: 'json',
-              value: [
-                {
-                  path: 'file1.ts',
-                  content: 'content 1',
-                },
-              ],
+              path: 'file1.ts',
+              content: 'content 1',
             },
-          ],
-        },
+          ]),
+        ],
       } satisfies CodebuffToolMessage<'read_files'>,
       {
         role: 'tool',
-        content: {
-          type: 'tool-result',
-          toolName: 'find_files',
-          toolCallId: 'test-id-2',
-          output: [
+        toolName: 'find_files',
+        toolCallId: 'test-id-2',
+        content: [
+          toolJsonContent([
             {
-              type: 'json',
-              value: [
-                {
-                  path: 'file2.ts',
-                  content: 'content 2',
-                },
-              ],
+              path: 'file2.ts',
+              content: 'content 2',
             },
-          ],
-        },
+          ]),
+        ],
       } satisfies CodebuffToolMessage<'find_files'>,
-      {
-        role: 'user',
-        content: 'Some user message',
-      },
+      userMessage('Some user message'),
     ]
 
     const result = getPreviouslyReadFiles({ messages, logger })
@@ -624,30 +537,24 @@ describe('getPreviouslyReadFiles', () => {
     const messages: Message[] = [
       {
         role: 'tool',
-        content: {
-          type: 'tool-result',
-          toolName: 'read_files',
-          toolCallId: 'test-id',
-          output: [
+        toolName: 'read_files',
+        toolCallId: 'test-id',
+        content: [
+          toolJsonContent([
             {
-              type: 'json',
-              value: [
-                {
-                  path: 'small-file.ts',
-                  content: 'small content',
-                },
-                {
-                  path: 'large-file.ts',
-                  contentOmittedForLength: true,
-                },
-                {
-                  path: 'another-small-file.ts',
-                  content: 'another small content',
-                },
-              ],
+              path: 'small-file.ts',
+              content: 'small content',
             },
-          ],
-        },
+            {
+              path: 'large-file.ts',
+              contentOmittedForLength: true,
+            },
+            {
+              path: 'another-small-file.ts',
+              content: 'another small content',
+            },
+          ] as const),
+        ],
       } satisfies CodebuffToolMessage<'read_files'>,
     ]
 
@@ -664,13 +571,10 @@ describe('getPreviouslyReadFiles', () => {
     const messages: Message[] = [
       {
         role: 'tool',
-        content: {
-          type: 'tool-result',
-          toolName: 'read_files',
-          toolCallId: 'test-id',
-          output: null, // Invalid output
-        } as any,
-      },
+        toolName: 'read_files',
+        toolCallId: 'test-id',
+        content: null, // Invalid output
+      } as any,
     ]
 
     const result = getPreviouslyReadFiles({ messages, logger })
@@ -684,19 +588,13 @@ describe('getPreviouslyReadFiles', () => {
     const messages: Message[] = [
       {
         role: 'tool',
-        content: {
-          type: 'tool-result',
-          toolName: 'find_files',
-          toolCallId: 'test-id',
-          output: [
-            {
-              type: 'json',
-              value: {
-                message: 'No files found matching the criteria',
-              },
-            },
-          ],
-        },
+        toolName: 'find_files',
+        toolCallId: 'test-id',
+        content: [
+          toolJsonContent({
+            message: 'No files found matching the criteria',
+          }),
+        ],
       } satisfies CodebuffToolMessage<'find_files'>,
     ]
 
@@ -706,27 +604,21 @@ describe('getPreviouslyReadFiles', () => {
 
   it('ignores non-tool messages', () => {
     const messages: Message[] = [
-      { role: 'user', content: 'hello' },
-      { role: 'assistant', content: 'hi there' },
-      { role: 'system', content: 'system message' },
+      userMessage('hello'),
+      assistantMessage('hi there'),
+      systemMessage('system message'),
       {
         role: 'tool',
-        content: {
-          type: 'tool-result',
-          toolName: 'read_files',
-          toolCallId: 'test-id',
-          output: [
+        toolName: 'read_files',
+        toolCallId: 'test-id',
+        content: [
+          toolJsonContent([
             {
-              type: 'json',
-              value: [
-                {
-                  path: 'test.ts',
-                  content: 'test content',
-                },
-              ],
+              path: 'test.ts',
+              content: 'test content',
             },
-          ],
-        },
+          ]),
+        ],
       } satisfies CodebuffToolMessage<'read_files'>,
     ]
 
@@ -738,17 +630,9 @@ describe('getPreviouslyReadFiles', () => {
     const messages: Message[] = [
       {
         role: 'tool',
-        content: {
-          type: 'tool-result',
-          toolName: 'read_files',
-          toolCallId: 'test-id',
-          output: [
-            {
-              type: 'json',
-              value: [], // Empty array
-            },
-          ],
-        },
+        toolName: 'read_files',
+        toolCallId: 'test-id',
+        content: [toolJsonContent([])],
       } satisfies CodebuffToolMessage<'read_files'>,
     ]
 

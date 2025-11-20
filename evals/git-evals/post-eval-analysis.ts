@@ -2,6 +2,7 @@ import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inp
 import { countTokens } from '@codebuff/agent-runtime/util/token-counter'
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { models } from '@codebuff/common/old-constants'
+import { userMessage } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { z } from 'zod/v4'
 
@@ -182,7 +183,7 @@ export async function analyzeEvalResults(
 
   disableLiveUserInputCheck()
   return promptAiSdkStructured({
-    messages: [{ role: 'user', content: finalPrompt }],
+    messages: [userMessage(finalPrompt)],
     schema: PostEvalAnalysisSchema,
     model: models.openrouter_gemini2_5_pro_preview,
     clientSessionId: generateCompactId(),

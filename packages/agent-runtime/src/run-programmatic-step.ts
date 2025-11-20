@@ -1,5 +1,6 @@
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getErrorObject } from '@codebuff/common/util/error'
+import { assistantMessage } from '@codebuff/common/util/messages'
 import { cloneDeep } from 'lodash'
 
 import { executeToolCall } from './tools/tool-executor'
@@ -17,10 +18,8 @@ import type {
 import type { AddAgentStepFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type {
-  ToolResultOutput,
-  ToolResultPart,
-} from '@codebuff/common/types/messages/content-part'
+import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
 
@@ -173,7 +172,7 @@ export async function runProgrammaticStep(
 
   // Initialize state for tool execution
   const toolCalls: CodebuffToolCall[] = []
-  const toolResults: ToolResultPart[] = []
+  const toolResults: ToolMessage[] = []
   const state = {
     fingerprintId,
     userId,
@@ -276,10 +275,7 @@ export async function runProgrammaticStep(
           toolCall.input,
         )
         onResponseChunk(toolCallString)
-        state.messages.push({
-          role: 'assistant' as const,
-          content: toolCallString,
-        })
+        state.messages.push(assistantMessage(toolCallString))
         // Optional call handles both top-level and nested agents
         state.sendSubagentChunk?.({
           userInputId,
@@ -367,7 +363,7 @@ export async function runProgrammaticStep(
 
       // Get the latest tool result
       const latestToolResult = toolResults[toolResults.length - 1]
-      toolResult = latestToolResult?.output
+      toolResult = latestToolResult?.content
 
       if (state.agentState.runId) {
         await addAgentStep({
@@ -413,10 +409,7 @@ export async function runProgrammaticStep(
 
     state.agentState.messageHistory = [
       ...state.messages,
-      {
-        role: 'assistant' as const,
-        content: errorMessage,
-      },
+      assistantMessage(errorMessage),
     ]
     state.agentState.output = {
       ...state.agentState.output,

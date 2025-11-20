@@ -35,10 +35,7 @@ import type {
   ToolName,
 } from './constants'
 import type { ToolMessage } from '../types/messages/codebuff-message'
-import type {
-  ToolCallPart,
-  ToolResultPart,
-} from '../types/messages/content-part'
+import type { ToolCallPart } from '../types/messages/content-part'
 
 export const $toolParams = {
   add_message: addMessageParams,
@@ -93,18 +90,10 @@ export type CodebuffToolOutput<
       ? z.infer<(typeof additionalToolResultSchemas)[K]['outputs']>
       : never
 }[T]
-export type CodebuffToolResult<
-  T extends ToolName | ResultOnlyToolName = ToolName,
-> = {
-  [K in ToolName | ResultOnlyToolName]: {
-    toolName: K
-    output: CodebuffToolOutput<K>
-  } & Omit<ToolResultPart, 'type'>
-}[T]
 
 export type CodebuffToolMessage<
   T extends ToolName | ResultOnlyToolName = ToolName,
-> = ToolMessage & { content: CodebuffToolResult<T> }
+> = ToolMessage & { content: CodebuffToolOutput<T> }
 
 // Tool call to send to client
 export type ClientToolName = (typeof clientToolNames)[number]

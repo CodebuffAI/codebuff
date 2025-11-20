@@ -1,5 +1,5 @@
-import { type ToolCall } from '../types/agent-definition'
 import { createBase2 } from './base2'
+import { type ToolCall } from '../types/agent-definition'
 import { type SecretAgentDefinition } from '../types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
@@ -27,8 +27,8 @@ const definition: SecretAgentDefinition = {
       const readFilesToolResults = agentState.messageHistory
         .filter((message) => message.role === 'tool')
         .slice(-1)
-        .filter((message) => message.content.toolName === 'read_files')
-        .map((message) => message.content.output)
+        .filter((message) => message.toolName === 'read_files')
+        .map((message) => message.content)
         .flat()
         .filter((result) => result.type === 'json')
         .map((result) => result.value)[0] as {
@@ -40,8 +40,8 @@ const definition: SecretAgentDefinition = {
         const spawnAgentsToolResults = agentState.messageHistory
           .filter((message) => message.role === 'tool')
           .slice(-2)
-          .filter((message) => message.content.toolName === 'spawn_agents')
-          .map((message) => message.content.output)
+          .filter((message) => message.toolName === 'spawn_agents')
+          .map((message) => message.content)
           .flat()
           .filter((result) => result.type === 'json')
           .map((result) => result.value)[0] as {

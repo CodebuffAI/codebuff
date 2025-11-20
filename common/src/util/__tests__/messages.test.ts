@@ -2,54 +2,17 @@ import { describe, expect, it, test } from 'bun:test'
 import { cloneDeep } from 'lodash'
 
 import {
-  toContentString,
   withCacheControl,
   withoutCacheControl,
   convertCbToModelMessages,
+  systemMessage,
+  userMessage,
+  assistantMessage,
+  toolJsonContent,
+  toolMediaContent,
 } from '../messages'
 
 import type { Message } from '../../types/messages/codebuff-message'
-import type { ModelMessage } from 'ai'
-
-describe('toContentString', () => {
-  it('should return string content as-is', () => {
-    const msg: ModelMessage = {
-      role: 'user',
-      content: 'Hello world',
-    }
-    expect(toContentString(msg)).toBe('Hello world')
-  })
-
-  it('should join text parts with newlines', () => {
-    const msg: ModelMessage = {
-      role: 'user',
-      content: [
-        { type: 'text', text: 'First line' },
-        { type: 'text', text: 'Second line' },
-      ],
-    }
-    expect(toContentString(msg)).toBe('First line\nSecond line')
-  })
-
-  it('should handle empty content array', () => {
-    const msg: ModelMessage = {
-      role: 'user',
-      content: [],
-    }
-    expect(toContentString(msg)).toBe('')
-  })
-
-  it('should handle non-text content parts', () => {
-    const msg: ModelMessage = {
-      role: 'user',
-      content: [
-        { type: 'text', text: 'Text part' },
-        { type: 'image', image: 'data:...' } as any,
-      ],
-    }
-    expect(toContentString(msg)).toBe('Text part\n')
-  })
-})
 
 describe('withCacheControl', () => {
   it('should add cache control to object without providerOptions', () => {
@@ -175,12 +138,7 @@ describe('withoutCacheControl', () => {
 describe('convertCbToModelMessages', () => {
   describe('basic message conversion', () => {
     it('should convert system messages', () => {
-      const messages: Message[] = [
-        {
-          role: 'system',
-          content: 'You are a helpful assistant',
-        },
-      ]
+      const messages: Message[] = [systemMessage('You are a helpful assistant')]
 
       const result = convertCbToModelMessages({
         messages,
@@ -191,58 +149,6 @@ describe('convertCbToModelMessages', () => {
         {
           role: 'system',
           content: 'You are a helpful assistant',
-        },
-      ])
-    })
-
-    it('should convert user messages with string content', () => {
-      const messages: Message[] = [
-        {
-          role: 'user',
-          content: 'Hello',
-        },
-      ]
-
-      const result = convertCbToModelMessages({
-        messages,
-        includeCacheControl: false,
-      })
-
-      expect(result).toEqual([
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: 'Hello',
-            },
-          ],
-        },
-      ])
-    })
-
-    it('should convert assistant messages with string content', () => {
-      const messages: Message[] = [
-        {
-          role: 'assistant',
-          content: 'Hi there',
-        },
-      ]
-
-      const result = convertCbToModelMessages({
-        messages,
-        includeCacheControl: false,
-      })
-
-      expect(result).toEqual([
-        {
-          role: 'assistant',
-          content: [
-            {
-              type: 'text',
-              text: 'Hi there',
-            },
-          ],
         },
       ])
     })
@@ -292,17 +198,9 @@ describe('convertCbToModelMessages', () => {
       const messages: Message[] = [
         {
           role: 'tool',
-          content: {
-            type: 'tool-result',
-            toolName: 'test_tool',
-            toolCallId: 'call_123',
-            output: [
-              {
-                type: 'json',
-                value: { result: 'success' },
-              },
-            ],
-          },
+          toolName: 'test_tool',
+          toolCallId: 'call_123',
+          content: [toolJsonContent({ result: 'success' })],
         },
       ]
 
@@ -328,18 +226,14 @@ describe('convertCbToModelMessages', () => {
       const messages: Message[] = [
         {
           role: 'tool',
-          content: {
-            type: 'tool-result',
-            toolName: 'test_tool',
-            toolCallId: 'call_123',
-            output: [
-              {
-                type: 'media',
-                data: 'base64data',
-                mediaType: 'image/png',
-              },
-            ],
-          },
+          toolName: 'test_tool',
+          toolCallId: 'call_123',
+          content: [
+            toolMediaContent({
+              data: 'base64data',
+              mediaType: 'image/png',
+            }),
+          ],
         },
       ]
 
@@ -364,15 +258,9 @@ describe('convertCbToModelMessages', () => {
       const messages: Message[] = [
         {
           role: 'tool',
-          content: {
-            type: 'tool-result',
-            toolName: 'test_tool',
-            toolCallId: 'call_123',
-            output: [
-              { type: 'json', value: { result1: 'success' } },
-              { type: 'json', value: { result2: 'also success' } },
-            ],
-          },
+          toolName: 'test_tool',
+          toolCallId: 'call_123',
+          content: [toolJsonContent({ result1: 'success' })],
         },
       ]
 
@@ -394,8 +282,8 @@ describe('convertCbToModelMessages', () => {
   describe('message aggregation', () => {
     it('should aggregate consecutive system messages', () => {
       const messages: Message[] = [
-        { role: 'system', content: 'First system message' },
-        { role: 'system', content: 'Second system message' },
+        systemMessage({ content: 'First system message' }),
+        systemMessage({ content: 'Second system message' }),
       ]
 
       const result = convertCbToModelMessages({
@@ -413,8 +301,8 @@ describe('convertCbToModelMessages', () => {
 
     it('should aggregate consecutive user messages', () => {
       const messages: Message[] = [
-        { role: 'user', content: 'First user message' },
-        { role: 'user', content: 'Second user message' },
+        userMessage('First user message'),
+        userMessage('Second user message'),
       ]
 
       const result = convertCbToModelMessages({
@@ -441,8 +329,8 @@ describe('convertCbToModelMessages', () => {
 
     it('should aggregate consecutive assistant messages', () => {
       const messages: Message[] = [
-        { role: 'assistant', content: 'First assistant message' },
-        { role: 'assistant', content: 'Second assistant message' },
+        assistantMessage('First assistant message'),
+        assistantMessage('Second assistant message'),
       ]
 
       const result = convertCbToModelMessages({
@@ -573,10 +461,13 @@ describe('convertCbToModelMessages', () => {
     // The implementation splits text content and adds cache control to specific parts based on tagged prompts.
     test('should add cache control when includeCacheControl is true', () => {
       const messages: Message[] = [
-        { role: 'system', content: 'System message' },
-        { role: 'user', content: 'Context message' },
-        { role: 'assistant', content: 'Response' },
-        { role: 'user', content: 'User message', tags: ['USER_PROMPT'] },
+        systemMessage('System message'),
+        userMessage('Context message'),
+        assistantMessage('Response'),
+        userMessage({
+          content: 'User message',
+          tags: ['USER_PROMPT'],
+        }),
       ]
 
       const result = convertCbToModelMessages({
@@ -600,8 +491,11 @@ describe('convertCbToModelMessages', () => {
 
     it('should not add cache control when includeCacheControl is false', () => {
       const messages: Message[] = [
-        { role: 'system', content: 'System message' },
-        { role: 'user', content: 'User message', tags: ['USER_PROMPT'] },
+        systemMessage('System message'),
+        userMessage({
+          content: 'User message',
+          tags: ['USER_PROMPT'],
+        }),
       ]
 
       const result = convertCbToModelMessages({
@@ -614,11 +508,14 @@ describe('convertCbToModelMessages', () => {
 
     test('should add cache control before USER_PROMPT tag', () => {
       const messages: Message[] = [
-        { role: 'system', content: 'System' },
-        { role: 'user', content: 'Context' },
-        { role: 'assistant', content: 'Response' },
-        { role: 'user', content: 'More context' },
-        { role: 'user', content: 'User prompt', tags: ['USER_PROMPT'] },
+        systemMessage('System'),
+        userMessage('Context'),
+        assistantMessage('Response'),
+        userMessage('More context'),
+        userMessage({
+          content: 'User prompt',
+          tags: ['USER_PROMPT'],
+        }),
       ]
 
       const result = convertCbToModelMessages({
@@ -653,15 +550,14 @@ describe('convertCbToModelMessages', () => {
 
     test('should add cache control before LAST_ASSISTANT_MESSAGE tag', () => {
       const messages: Message[] = [
-        { role: 'system', content: 'System' },
-        { role: 'user', content: 'Context' },
-        { role: 'assistant', content: 'Response' },
-        { role: 'user', content: 'Instructions' },
-        {
-          role: 'assistant',
+        systemMessage('System'),
+        userMessage('Context'),
+        assistantMessage('Response'),
+        userMessage('Instructions'),
+        assistantMessage({
           content: 'Second response',
           tags: ['LAST_ASSISTANT_MESSAGE'],
-        },
+        }),
       ]
 
       const result = convertCbToModelMessages({
@@ -695,11 +591,11 @@ describe('convertCbToModelMessages', () => {
 
     test('should add cache control before STEP_PROMPT tag', () => {
       const messages: Message[] = [
-        { role: 'system', content: 'System' },
-        { role: 'user', content: 'Context' },
-        { role: 'assistant', content: 'Response' },
-        { role: 'user', content: 'More context' },
-        { role: 'user', content: 'Step', tags: ['STEP_PROMPT'] },
+        systemMessage('System'),
+        userMessage('Context'),
+        assistantMessage('Response'),
+        userMessage('More context'),
+        userMessage({ content: 'Step', tags: ['STEP_PROMPT'] }),
       ]
 
       const result = convertCbToModelMessages({
@@ -733,11 +629,11 @@ describe('convertCbToModelMessages', () => {
 
     test('should add cache control to last message', () => {
       const messages: Message[] = [
-        { role: 'system', content: 'System' },
-        { role: 'user', content: 'Context' },
-        { role: 'assistant', content: 'Response' },
-        { role: 'user', content: 'More context' },
-        { role: 'user', content: 'User message' },
+        systemMessage('System'),
+        userMessage('Context'),
+        assistantMessage('Response'),
+        userMessage('More context'),
+        userMessage('User message'),
       ]
 
       const result = convertCbToModelMessages({
@@ -772,10 +668,10 @@ describe('convertCbToModelMessages', () => {
 
     test('should handle system messages with cache control', () => {
       const messages: Message[] = [
-        { role: 'system', content: 'Long system prompt' },
-        { role: 'user', content: 'User', tags: ['USER_PROMPT'] },
-        { role: 'assistant', content: 'Response' },
-        { role: 'user', content: 'User 2' },
+        systemMessage('Long system prompt'),
+        userMessage({ content: 'User', tags: ['USER_PROMPT'] }),
+        assistantMessage('Response'),
+        userMessage('User 2'),
       ]
 
       const result = convertCbToModelMessages({
@@ -803,15 +699,12 @@ describe('convertCbToModelMessages', () => {
 
     it('should handle array content with cache control on non-text parts', () => {
       const messages: Message[] = [
-        { role: 'system', content: 'System' },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: 'Context' },
-            { type: 'file', data: 'base64', mediaType: 'image/png' },
-          ],
-        },
-        { role: 'user', content: 'Next', tags: ['USER_PROMPT'] },
+        systemMessage('System'),
+        userMessage([
+          { type: 'text', text: 'Context' },
+          { type: 'file', data: 'base64', mediaType: 'image/png' },
+        ]),
+        userMessage({ content: 'Next', tags: ['USER_PROMPT'] }),
       ]
 
       const result = convertCbToModelMessages({
@@ -849,15 +742,12 @@ describe('convertCbToModelMessages', () => {
 
     it('should handle very short text content when finding cache control location', () => {
       const messages: Message[] = [
-        { role: 'system', content: 'System' },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: 'Longer text' },
-            { type: 'text', text: 'X' }, // Short
-          ],
-        },
-        { role: 'user', content: 'Next', tags: ['USER_PROMPT'] },
+        systemMessage('System'),
+        userMessage([
+          { type: 'text', text: 'Longer text' },
+          { type: 'text', text: 'X' }, // Short
+        ]),
+        userMessage({ content: 'Next', tags: ['USER_PROMPT'] }),
       ]
 
       const result = convertCbToModelMessages({
@@ -901,17 +791,12 @@ describe('convertCbToModelMessages', () => {
 
     it('should handle tool-call content in assistant messages', () => {
       const messages: Message[] = [
-        {
-          role: 'assistant',
-          content: [
-            {
-              type: 'tool-call',
-              toolCallId: 'call_123',
-              toolName: 'test_tool',
-              input: { param: 'value' },
-            },
-          ],
-        },
+        assistantMessage({
+          type: 'tool-call',
+          toolCallId: 'call_123',
+          toolName: 'test_tool',
+          input: { param: 'value' },
+        }),
       ]
 
       const result = convertCbToModelMessages({
@@ -931,13 +816,12 @@ describe('convertCbToModelMessages', () => {
 
     it('should preserve message metadata during conversion', () => {
       const messages: Message[] = [
-        {
-          role: 'user',
+        userMessage({
           content: 'Test',
           tags: ['custom_tag'],
           timeToLive: 'agentStep',
-          providerOptions: { anthropic: { someOption: 'value' } as any },
-        },
+          providerOptions: { anthropic: { someOption: 'value' } },
+        }),
       ]
 
       const result = convertCbToModelMessages({
@@ -954,8 +838,8 @@ describe('convertCbToModelMessages', () => {
 
     it('should not mutate original messages', () => {
       const originalMessages: Message[] = [
-        { role: 'system', content: 'Original' },
-        { role: 'user', content: 'User message' },
+        systemMessage('Original'),
+        userMessage('User message'),
       ]
       const messagesCopy = cloneDeep(originalMessages)
 

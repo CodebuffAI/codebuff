@@ -5,6 +5,7 @@ import path from 'path'
 import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
 import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
 import { getErrorObject } from '@codebuff/common/util/error'
+import { userMessage } from '@codebuff/common/util/messages'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
@@ -128,9 +129,8 @@ export async function runSingleEval(
             }
           : await promptAiSdkStructured({
               messages: [
-                {
-                  role: 'user',
-                  content: `You are an expert software engineer tasked with implementing a specification using CodeBuff, an AI coding assistant. Your goal is to prompt CodeBuff to implement the spec correctly. You are in a conversation with this coding agent.
+                userMessage(
+                  `You are an expert software engineer tasked with implementing a specification using CodeBuff, an AI coding assistant. Your goal is to prompt CodeBuff to implement the spec correctly. You are in a conversation with this coding agent.
 
 Current spec to implement:
 <spec>${evalCommit.spec}</spec>
@@ -149,7 +149,7 @@ You must decide whether to:
 
 If deciding to continue, include a clear, focused prompt for Codebuff in next_prompt. Note that Codebuff does not have access to the spec, so you must describe the changes you want Codebuff to make in a way that is clear and concise.
 Explain your reasoning in detail. Do not ask Codebuff to git commit changes.`,
-                },
+                ),
               ],
               schema: AgentDecisionSchema,
               model: 'x-ai/grok-4-fast',

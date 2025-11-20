@@ -128,14 +128,14 @@ Implement the requested changes, using your judgment as needed, but referring to
         .filter((message) => message.role === 'tool')
         .filter(
           (message) =>
-            message.content.toolName === 'write_file' ||
-            message.content.toolName === 'str_replace',
+            message.toolName === 'write_file' ||
+            message.toolName === 'str_replace',
         )
 
       // Extract and return new edit tool results
       return (
         newToolMessages
-          .flatMap((message) => message.content.output)
+          .flatMap((message) => message.content)
           .filter((output) => output.type === 'json')
           .map((output) => output.value)
           // Only successful edits!

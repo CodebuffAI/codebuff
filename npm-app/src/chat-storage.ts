@@ -48,7 +48,10 @@ export function setMessagesSync(messages: Message[]) {
 
     if (msg.role === 'user') {
       if (typeof msg.content === 'string') {
-        return { ...msg, content: cleanContent(msg.content) }
+        return {
+          ...msg,
+          content: [{ type: 'text', text: cleanContent(msg.content) }],
+        }
       }
 
       return {
@@ -61,7 +64,10 @@ export function setMessagesSync(messages: Message[]) {
       }
     }
     if (typeof msg.content === 'string') {
-      return { ...msg, content: cleanContent(msg.content) }
+      return {
+        ...msg,
+        content: [{ type: 'text', text: cleanContent(msg.content) }],
+      }
     }
 
     return {
