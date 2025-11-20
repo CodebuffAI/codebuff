@@ -17,6 +17,7 @@ export const UsageBanner = () => {
   const isUsageVisible = useChatStore((state) => state.isUsageVisible)
   const sessionCreditsUsed = useChatStore((state) => state.sessionCreditsUsed)
   const setIsUsageVisible = useChatStore((state) => state.setIsUsageVisible)
+  const [isCloseHovered, setIsCloseHovered] = React.useState(false)
 
   // Fetch usage data when banner is visible
   const { data: apiData } = useUsageQuery({ enabled: isUsageVisible })
@@ -37,6 +38,9 @@ export const UsageBanner = () => {
         setIsUsageVisible(false)
       }, 60000)
       return () => clearTimeout(timer)
+    } else {
+      // Reset hover state when banner closes
+      setIsCloseHovered(false)
     }
     return undefined
   }, [isUsageVisible, setIsUsageVisible])
@@ -125,8 +129,12 @@ export const UsageBanner = () => {
       >
         {text}
       </text>
-      <Button onClick={() => setIsUsageVisible(false)}>
-        <text style={{ fg: theme.error }}>x</text>
+      <Button
+        onClick={() => setIsUsageVisible(false)}
+        onMouseOver={() => setIsCloseHovered(true)}
+        onMouseOut={() => setIsCloseHovered(false)}
+      >
+        <text style={{ fg: isCloseHovered ? theme.error : theme.muted }}>x</text>
       </Button>
     </box>
   )
