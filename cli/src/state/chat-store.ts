@@ -4,9 +4,9 @@ import { immer } from 'zustand/middleware/immer'
 
 import { clamp } from '../utils/math'
 
-import type { RunState } from '@codebuff/sdk'
 import type { ChatMessage } from '../types/chat'
 import type { AgentMode } from '../utils/constants'
+import type { RunState } from '@codebuff/sdk'
 
 export type InputValue = {
   text: string
@@ -32,6 +32,7 @@ export type ChatStoreState = {
   sessionCreditsUsed: number
   runState: RunState | null
   isUsageVisible: boolean
+  isAnnouncementVisible: boolean
 }
 
 type ChatStoreActions = {
@@ -61,6 +62,7 @@ type ChatStoreActions = {
   addSessionCredits: (credits: number) => void
   setRunState: (runState: RunState | null) => void
   setIsUsageVisible: (visible: boolean) => void
+  setIsAnnouncementVisible: (visible: boolean) => void
   reset: () => void
 }
 
@@ -84,6 +86,7 @@ const initialState: ChatStoreState = {
   sessionCreditsUsed: 0,
   runState: null,
   isUsageVisible: false,
+  isAnnouncementVisible: true,
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -192,6 +195,11 @@ export const useChatStore = create<ChatStore>()(
         state.isUsageVisible = visible
       }),
 
+    setIsAnnouncementVisible: (visible) =>
+      set((state) => {
+        state.isAnnouncementVisible = visible
+      }),
+
     reset: () =>
       set((state) => {
         state.messages = initialState.messages.slice()
@@ -213,6 +221,7 @@ export const useChatStore = create<ChatStore>()(
           ? castDraft(initialState.runState)
           : null
         state.isUsageVisible = initialState.isUsageVisible
+        state.isAnnouncementVisible = initialState.isAnnouncementVisible
       }),
   })),
 )

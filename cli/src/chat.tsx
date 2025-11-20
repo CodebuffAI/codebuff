@@ -1,13 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useKeyboard } from '@opentui/react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { routeUserPrompt } from './commands/router'
-import { MessageWithAgents } from './components/message-with-agents'
-import { useFeedbackStore } from './state/feedback-store'
-import type { MultilineInputHandle } from './components/multiline-input'
+import { AnnouncementBanner } from './components/announcement-banner'
 import { ChatInputBar } from './components/chat-input-bar'
-import { getStatusIndicatorState } from './utils/status-indicator-state'
+import { MessageWithAgents } from './components/message-with-agents'
 import { StatusBar } from './components/status-bar'
 import { SLASH_COMMANDS } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
@@ -20,6 +18,8 @@ import { useInputHistory } from './hooks/use-input-history'
 import { useKeyboardHandlers } from './hooks/use-keyboard-handlers'
 import { useMessageQueue } from './hooks/use-message-queue'
 import { useMessageVirtualization } from './hooks/use-message-virtualization'
+import { useQueueControls } from './hooks/use-queue-controls'
+import { useQueueUi } from './hooks/use-queue-ui'
 import { useChatScrollbox } from './hooks/use-scroll-management'
 import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
@@ -27,19 +27,17 @@ import { useSuggestionMenuHandlers } from './hooks/use-suggestion-menu-handlers'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTheme } from './hooks/use-theme'
 import { useValidationBanner } from './hooks/use-validation-banner'
-import { useQueueUi } from './hooks/use-queue-ui'
-import { useQueueControls } from './hooks/use-queue-controls'
-import { logger } from './utils/logger'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { useChatStore } from './state/chat-store'
+import { useFeedbackStore } from './state/feedback-store'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { loadLocalAgents } from './utils/local-agent-registry'
 import { buildMessageTree } from './utils/message-tree-utils'
+import { getStatusIndicatorState } from './utils/status-indicator-state'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
-import { BORDER_CHARS } from './utils/ui-constants'
 
-import type { ChatMessage, ContentBlock } from './types/chat'
+import type { MultilineInputHandle } from './components/multiline-input'
+import type { ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
 import type { User } from './utils/auth'
 import type { FileTreeNode } from '@codebuff/common/util/file'
@@ -120,6 +118,8 @@ export const Chat = ({
     resetChatStore,
     sessionCreditsUsed,
     setRunState,
+    isAnnouncementVisible,
+    setIsAnnouncementVisible,
   } = useChatStore(
     useShallow((store) => ({
       inputValue: store.inputValue,
@@ -153,6 +153,8 @@ export const Chat = ({
       resetChatStore: store.reset,
       sessionCreditsUsed: store.sessionCreditsUsed,
       setRunState: store.setRunState,
+      isAnnouncementVisible: store.isAnnouncementVisible,
+      setIsAnnouncementVisible: store.setIsAnnouncementVisible,
     })),
   )
 
@@ -290,7 +292,7 @@ export const Chat = ({
 
               return block
             })
-            
+
             // Return original array reference if nothing changed
             return foundTarget ? result : blocks
           }
@@ -329,7 +331,7 @@ export const Chat = ({
       const contentHeight = scrollbox.scrollHeight
       const viewportHeight = scrollbox.viewport.height
       const isOverflowing = contentHeight > viewportHeight
-      
+
       // Only update state if overflow status actually changed
       if (hasOverflowRef.current !== isOverflowing) {
         hasOverflowRef.current = isOverflowing
@@ -345,8 +347,6 @@ export const Chat = ({
       scrollbox.verticalScrollBar.off('change', checkOverflow)
     }
   }, [])
-
-
 
   const inertialScrollAcceleration = useMemo(
     () => createChatScrollAcceleration(),
@@ -850,7 +850,10 @@ export const Chat = ({
         stickyStart="bottom"
         scrollX={false}
         scrollbarOptions={{ visible: false }}
-        verticalScrollbarOptions={{ visible: !isStreaming && hasOverflow, trackOptions: { width: 1 } }}
+        verticalScrollbarOptions={{
+          visible: !isStreaming && hasOverflow,
+          trackOptions: { width: 1 },
+        }}
         {...appliedScrollboxProps}
         style={{
           flexGrow: 1,
@@ -878,6 +881,10 @@ export const Chat = ({
           },
         }}
       >
+        {isAnnouncementVisible && (
+          <AnnouncementBanner onClose={() => setIsAnnouncementVisible(false)} />
+        )}
+
         {headerContent}
         {virtualizationNotice}
         {topLevelMessages.map((message, idx) => {
@@ -954,7 +961,6 @@ export const Chat = ({
           handleExitFeedback={handleExitFeedback}
           handleSubmit={handleSubmit}
         />
-        
       </box>
 
       {validationBanner}
