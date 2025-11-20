@@ -75,11 +75,9 @@ export const useChatInput = ({
     if (initialPrompt && !hasAutoSubmittedRef.current) {
       hasAutoSubmittedRef.current = true
 
-      const timeout = setTimeout(() => {
+      setTimeout(() => {
         onSubmitPrompt(initialPrompt, agentMode)
       }, 100)
-
-      return () => clearTimeout(timeout)
     }
     return undefined
   }, [initialPrompt, agentMode, onSubmitPrompt])
