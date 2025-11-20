@@ -18,7 +18,6 @@ import { useExitHandler } from './hooks/use-exit-handler'
 import { useInputHistory } from './hooks/use-input-history'
 import { useKeyboardHandlers } from './hooks/use-keyboard-handlers'
 import { useMessageQueue } from './hooks/use-message-queue'
-import { useMessageVirtualization } from './hooks/use-message-virtualization'
 import { useQueueControls } from './hooks/use-queue-controls'
 import { useQueueUi } from './hooks/use-queue-ui'
 import { useChatScrollbox } from './hooks/use-scroll-management'
@@ -780,24 +779,6 @@ export const Chat = ({
     [messages],
   )
 
-  const { shouldVirtualize, virtualTopLevelMessages, hiddenTopLevelCount } =
-    useMessageVirtualization({
-      topLevelMessages,
-      isAtBottom,
-    })
-
-  const virtualizationNotice =
-    shouldVirtualize && hiddenTopLevelCount > 0 ? (
-      <text
-        key="virtualization-notice"
-        style={{ width: '100%', wrapMode: 'none' }}
-      >
-        <span fg={theme.secondary}>
-          Showing latest {virtualTopLevelMessages.length} of{' '}
-          {topLevelMessages.length} messages. Scroll up to load more.
-        </span>
-      </text>
-    ) : null
 
   const hasSlashSuggestions =
     slashContext.active && slashSuggestionItems.length > 0
@@ -935,7 +916,6 @@ export const Chat = ({
         )}
 
         {headerContent}
-        {virtualizationNotice}
         {topLevelMessages.map((message, idx) => {
           const isLast = idx === topLevelMessages.length - 1
           return (
