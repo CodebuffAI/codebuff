@@ -13,7 +13,6 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   PrintModeError,
   PrintModeText,
-  PrintModeToolCall,
 } from '@codebuff/common/types/print-mode'
 
 const toolExtractionPattern = new RegExp(
@@ -37,9 +36,7 @@ export async function* processStreamWithTags(params: {
     onTagEnd: (tagName: string, params: Record<string, any>) => void
   }
   onError: (tagName: string, errorMessage: string) => void
-  onResponseChunk: (
-    chunk: PrintModeText | PrintModeToolCall | PrintModeError,
-  ) => void
+  onResponseChunk: (chunk: PrintModeText | PrintModeError) => void
   logger: Logger
   loggerOptions?: {
     userId?: string
@@ -82,9 +79,9 @@ export async function* processStreamWithTags(params: {
   }
 
   function processToolCallContents(contents: string): void {
-    let parsedParams: any
+    let input: any
     try {
-      parsedParams = JSON.parse(contents)
+      input = JSON.parse(contents)
     } catch (error: any) {
       trackEvent({
         event: AnalyticsEvent.MALFORMED_TOOL_CALL_JSON,
@@ -115,12 +112,8 @@ export async function* processStreamWithTags(params: {
       return
     }
 
-    const toolName = parsedParams[toolNameParam] as keyof typeof processors
-    const processor =
-      typeof toolName === 'string'
-        ? processors[toolName] ?? defaultProcessor(toolName)
-        : undefined
-    if (!processor) {
+    const toolName = input[toolNameParam] as keyof typeof processors
+    if (typeof toolName !== 'string') {
       trackEvent({
         event: AnalyticsEvent.UNKNOWN_TOOL_CALL,
         userId: loggerOptions?.userId ?? '',
@@ -140,33 +133,47 @@ export async function* processStreamWithTags(params: {
       return
     }
 
+    delete input[toolNameParam]
+    processToolCallObject({ toolName, input, contents })
+  }
+
+  function processToolCallObject(params: {
+    toolName: string
+    input: any
+    contents?: string
+  }): void {
+    const { toolName, input, contents } = params
+
+    const processor = processors[toolName] ?? defaultProcessor(toolName)
+
     trackEvent({
       event: AnalyticsEvent.TOOL_USE,
       userId: loggerOptions?.userId ?? '',
       properties: {
         toolName,
         contents,
-        parsedParams,
+        parsedParams: input,
         autocompleted,
         model: loggerOptions?.model,
         agent: loggerOptions?.agentName,
       },
       logger,
     })
-    delete parsedParams[toolNameParam]
 
     processor.onTagStart(toolName, {})
-    processor.onTagEnd(toolName, parsedParams)
+    processor.onTagEnd(toolName, input)
   }
 
   function extractToolsFromBufferAndProcess(forceFlush = false) {
     const matches = extractToolCalls()
     matches.forEach(processToolCallContents)
     if (forceFlush) {
-      onResponseChunk({
-        type: 'text',
-        text: buffer,
-      })
+      if (buffer) {
+        onResponseChunk({
+          type: 'text',
+          text: buffer,
+        })
+      }
       buffer = ''
     }
   }
@@ -177,7 +184,12 @@ export async function* processStreamWithTags(params: {
     if (chunk !== undefined && chunk.type === 'text') {
       buffer += chunk.text
     }
-    extractToolsFromBufferAndProcess()
+    if (chunk && chunk.type === 'tool-call') {
+      extractToolsFromBufferAndProcess(true)
+      processToolCallObject(chunk)
+    } else {
+      extractToolsFromBufferAndProcess()
+    }
 
     if (chunk === undefined) {
       streamCompleted = true

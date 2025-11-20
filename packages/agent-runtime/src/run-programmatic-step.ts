@@ -1,6 +1,7 @@
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { assistantMessage } from '@codebuff/common/util/messages'
+import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 
 import { executeToolCall } from './tools/tool-executor'
@@ -254,7 +255,7 @@ export async function runProgrammaticStep(
       const toolCallWithoutId = result.value
       const toolCall = {
         ...toolCallWithoutId,
-        toolCallId: crypto.randomUUID(),
+        toolCallId: generateCompactId(),
       } as CodebuffToolCall & {
         includeToolCall?: boolean
       }
@@ -275,7 +276,12 @@ export async function runProgrammaticStep(
           toolCall.input,
         )
         onResponseChunk(toolCallString)
-        state.messages.push(assistantMessage(toolCallString))
+        state.messages.push(
+          assistantMessage({
+            ...toolCall,
+            type: 'tool-call',
+          }),
+        )
         // Optional call handles both top-level and nested agents
         state.sendSubagentChunk?.({
           userInputId,
@@ -292,6 +298,7 @@ export async function runProgrammaticStep(
         ...params,
         toolName: toolCall.toolName,
         input: toolCall.input,
+        toolCallId: toolCall.toolCallId,
         toolCalls,
         toolResults,
         toolResultsToAddAfterStream: [],

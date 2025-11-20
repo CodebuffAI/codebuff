@@ -1,11 +1,11 @@
 import type { TrackEventFn } from './analytics'
 import type { SendActionFn } from './client'
 import type { CheckLiveUserInputFn } from './live-user-input'
+import type { OpenRouterProviderRoutingOptions } from '../agent-template'
 import type { ParamsExcluding } from '../function-params'
 import type { Logger } from './logger'
 import type { Model } from '../../old-constants'
 import type { Message } from '../messages/codebuff-message'
-import type { OpenRouterProviderRoutingOptions } from '../agent-template'
 import type { generateText, streamText } from 'ai'
 import type z from 'zod/v4'
 
@@ -18,6 +18,12 @@ export type StreamChunk =
   | {
       type: 'reasoning'
       text: string
+    }
+  | {
+      type: 'tool-call'
+      toolCallId: string
+      toolName: string
+      input: unknown
     }
   | { type: 'error'; message: string }
 

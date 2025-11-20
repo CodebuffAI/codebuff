@@ -14,6 +14,7 @@ import { runProgrammaticStep } from './run-programmatic-step'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { getAgentTemplate } from './templates/agent-registry'
 import { getAgentPrompt } from './templates/strings'
+import { getToolSet } from './tools/prompts'
 import { processStreamWithTools } from './tools/stream-parser'
 import { getAgentOutput } from './util/agent-output'
 import {
@@ -38,7 +39,10 @@ import type {
   ParamsExcluding,
   ParamsOf,
 } from '@codebuff/common/types/function-params'
-import type { Message, ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type {
+  Message,
+  ToolMessage,
+} from '@codebuff/common/types/messages/codebuff-message'
 import type {
   TextPart,
   ImagePart,
@@ -83,10 +87,6 @@ export const runAgentStep = async (
     | 'fullResponse'
     | 'onCostCalculated'
   > &
-    ParamsExcluding<
-      typeof getAgentStreamFromTemplate,
-      'agentId' | 'template' | 'onCostCalculated' | 'includeCacheControl'
-    > &
     ParamsExcluding<typeof getAgentTemplate, 'agentId'> &
     ParamsExcluding<
       typeof getAgentPrompt,
@@ -102,7 +102,11 @@ export const runAgentStep = async (
     > &
     ParamsExcluding<
       typeof getAgentStreamFromTemplate,
-      'agentId' | 'template' | 'onCostCalculated' | 'includeCacheControl'
+      | 'agentId'
+      | 'includeCacheControl'
+      | 'messages'
+      | 'onCostCalculated'
+      | 'template'
     >,
 ): Promise<{
   agentState: AgentState
@@ -325,15 +329,14 @@ export const runAgentStep = async (
   let fullResponse = ''
   const toolResults: ToolMessage[] = []
 
-  const { getStream } = getAgentStreamFromTemplate({
+  const stream = getAgentStreamFromTemplate({
     ...params,
     agentId: agentState.parentId ? agentState.agentId : undefined,
     template: agentTemplate,
     onCostCalculated,
     includeCacheControl: supportsCacheControl(agentTemplate.model),
+    messages: [systemMessage(system), ...agentMessages],
   })
-
-  const stream = getStream([systemMessage(system), ...agentMessages])
 
   const {
     toolCalls,
@@ -528,11 +531,13 @@ export async function loopAgentSteps(
     ParamsExcluding<
       typeof runAgentStep,
       | 'agentState'
+      | 'n'
       | 'prompt'
+      | 'runId'
       | 'spawnParams'
       | 'system'
-      | 'runId'
       | 'textOverride'
+      | 'tools'
     > &
     ParamsExcluding<
       AddAgentStepFn,
@@ -596,27 +601,38 @@ export async function loopAgentSteps(
   }
   agentState.runId = runId
 
+  let cachedAdditionalToolDefinitions:
+    | ProjectFileContext['customToolDefinitions']
+    | null = null
+  async function additionalToolDefinitions(): Promise<
+    ProjectFileContext['customToolDefinitions']
+  > {
+    if (cachedAdditionalToolDefinitions) {
+      return cachedAdditionalToolDefinitions
+    }
+    const additionalToolDefinitions = cloneDeep(
+      Object.fromEntries(
+        Object.entries(fileContext.customToolDefinitions).filter(([toolName]) =>
+          agentTemplate!.toolNames.includes(toolName),
+        ),
+      ),
+    )
+    cachedAdditionalToolDefinitions = await getMCPToolData({
+      ...params,
+      toolNames: agentTemplate!.toolNames,
+      mcpServers: agentTemplate!.mcpServers,
+      writeTo: additionalToolDefinitions,
+    })
+    return cachedAdditionalToolDefinitions
+  }
+
   // Initialize message history with user prompt and instructions on first iteration
   const instructionsPrompt = await getAgentPrompt({
     ...params,
     agentTemplate,
     promptType: { type: 'instructionsPrompt' },
     agentTemplates: localAgentTemplates,
-    additionalToolDefinitions: () => {
-      const additionalToolDefinitions = cloneDeep(
-        Object.fromEntries(
-          Object.entries(fileContext.customToolDefinitions).filter(
-            ([toolName]) => agentTemplate.toolNames.includes(toolName),
-          ),
-        ),
-      )
-      return getMCPToolData({
-        ...params,
-        toolNames: agentTemplate.toolNames,
-        mcpServers: agentTemplate.mcpServers,
-        writeTo: additionalToolDefinitions,
-      })
-    },
+    additionalToolDefinitions,
   })
 
   // Build the initial message history with user prompt and instructions
@@ -629,22 +645,13 @@ export async function loopAgentSteps(
           agentTemplate,
           promptType: { type: 'systemPrompt' },
           agentTemplates: localAgentTemplates,
-          additionalToolDefinitions: () => {
-            const additionalToolDefinitions = cloneDeep(
-              Object.fromEntries(
-                Object.entries(fileContext.customToolDefinitions).filter(
-                  ([toolName]) => agentTemplate.toolNames.includes(toolName),
-                ),
-              ),
-            )
-            return getMCPToolData({
-              ...params,
-              toolNames: agentTemplate.toolNames,
-              mcpServers: agentTemplate.mcpServers,
-              writeTo: additionalToolDefinitions,
-            })
-          },
+          additionalToolDefinitions,
         })) ?? ''
+
+  const tools = await getToolSet({
+    toolNames: agentTemplate.toolNames,
+    additionalToolDefinitions,
+  })
 
   const hasUserMessage = Boolean(
     prompt || (spawnParams && Object.keys(spawnParams).length > 0),
@@ -801,13 +808,14 @@ export async function loopAgentSteps(
         nResponses: generatedResponses,
       } = await runAgentStep({
         ...params,
-        textOverride: textOverride,
-        runId,
         agentState: currentAgentState,
+        n,
         prompt: currentPrompt,
+        runId,
         spawnParams: currentParams,
         system,
-        n,
+        textOverride,
+        tools,
       })
 
       if (newAgentState.runId) {

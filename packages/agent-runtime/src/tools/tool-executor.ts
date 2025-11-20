@@ -116,6 +116,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   input: Record<string, unknown>
   toolCalls: (CodebuffToolCall | CustomToolCall)[]
   toolResults: ToolMessage[]
+  toolCallId?: string
   toolResultsToAddAfterStream: ToolMessage[]
   previousToolCallFinished: Promise<void>
   agentTemplate: AgentTemplate
@@ -169,10 +170,23 @@ export function executeToolCall<T extends ToolName>(
     fromHandleSteps = false,
     onCostCalculated,
   } = params
+
+  const toolCallId = params.toolCallId ?? generateCompactId()
+  onResponseChunk({
+    type: 'tool_call',
+    toolCallId: toolCallId ?? generateCompactId(),
+    toolName,
+    input,
+    // Only include agentId for subagents (agents with a parent)
+    ...(state.agentState?.parentId && { agentId: state.agentState.agentId }),
+    // Include includeToolCall flag if explicitly set to false
+    ...(excludeToolFromMessageHistory && { includeToolCall: false }),
+  })
+
   const toolCall: CodebuffToolCall<T> | ToolCallError = parseRawToolCall<T>({
     rawToolCall: {
       toolName,
-      toolCallId: generateCompactId(),
+      toolCallId,
       input,
     },
     autoInsertEndStepParam,
@@ -196,17 +210,6 @@ export function executeToolCall<T extends ToolName>(
     )
     return previousToolCallFinished
   }
-
-  onResponseChunk({
-    type: 'tool_call',
-    toolCallId: toolCall.toolCallId,
-    toolName,
-    input: toolCall.input,
-    // Only include agentId for subagents (agents with a parent)
-    ...(state.agentState?.parentId && { agentId: state.agentState.agentId }),
-    // Include includeToolCall flag if explicitly set to false
-    ...(excludeToolFromMessageHistory && { includeToolCall: false }),
-  })
 
   toolCalls.push(toolCall)
 
@@ -401,6 +404,7 @@ export async function executeCustomToolCall(
     input,
     toolCalls,
     toolResults,
+    toolCallId,
     toolResultsToAddAfterStream,
     previousToolCallFinished,
     agentTemplate,
@@ -423,7 +427,7 @@ export async function executeCustomToolCall(
     }),
     rawToolCall: {
       toolName,
-      toolCallId: generateCompactId(),
+      toolCallId: toolCallId ?? generateCompactId(),
       input,
     },
     autoInsertEndStepParam,

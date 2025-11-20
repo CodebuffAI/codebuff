@@ -12,6 +12,7 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { OpenRouterProviderOptions } from '@codebuff/internal/openrouter-ai-sdk'
+import type { ToolSet } from 'ai'
 
 export const getAgentStreamFromTemplate = (params: {
   apiKey: string
@@ -32,7 +33,9 @@ export const getAgentStreamFromTemplate = (params: {
   liveUserInputRecord: UserInputRecord
   sessionConnections: SessionRecord
   trackEvent: TrackEventFn
-}): { getStream: (messages: Message[]) => ReturnType<PromptAiSdkStreamFn> } => {
+  messages: Message[]
+  tools: ToolSet | undefined
+}): ReturnType<PromptAiSdkStreamFn> => {
   const {
     apiKey,
     runId,
@@ -51,15 +54,16 @@ export const getAgentStreamFromTemplate = (params: {
     liveUserInputRecord,
     sessionConnections,
     trackEvent,
+    messages,
+    tools,
   } = params
 
   if (textOverride !== null) {
-    return {
-      getStream: async function* stream(): ReturnType<PromptAiSdkStreamFn> {
-        yield { type: 'text', text: textOverride!, agentId }
-        return crypto.randomUUID()
-      },
+    async function* stream(): ReturnType<PromptAiSdkStreamFn> {
+      yield { type: 'text', text: textOverride!, agentId }
+      return crypto.randomUUID()
     }
+    return stream()
   }
 
   if (!template) {
@@ -68,46 +72,43 @@ export const getAgentStreamFromTemplate = (params: {
 
   const { model } = template
 
-  const getStream = (messages: Message[]): ReturnType<PromptAiSdkStreamFn> => {
-    const aiSdkStreamParams: ParamsOf<PromptAiSdkStreamFn> = {
-      apiKey,
-      runId,
-      messages,
-      model,
-      stopSequences: [globalStopSequence],
-      clientSessionId,
-      fingerprintId,
-      userInputId,
-      userId,
-      maxOutputTokens: 32_000,
-      onCostCalculated,
-      includeCacheControl,
-      agentId,
-      maxRetries: 3,
-      sendAction,
-      liveUserInputRecord,
-      sessionConnections,
-      logger,
-      trackEvent,
-    }
-
-    if (!aiSdkStreamParams.providerOptions) {
-      aiSdkStreamParams.providerOptions = {}
-    }
-    for (const provider of ['openrouter', 'codebuff'] as const) {
-      if (!aiSdkStreamParams.providerOptions[provider]) {
-        aiSdkStreamParams.providerOptions[provider] = {}
-      }
-      ;(
-        aiSdkStreamParams.providerOptions[provider] as OpenRouterProviderOptions
-      ).reasoning = template.reasoningOptions
-    }
-
-    // Pass agent's provider routing options to SDK
-    aiSdkStreamParams.agentProviderOptions = template.providerOptions
-
-    return promptAiSdkStream(aiSdkStreamParams)
+  const aiSdkStreamParams: ParamsOf<PromptAiSdkStreamFn> = {
+    apiKey,
+    runId,
+    messages,
+    model,
+    stopSequences: [globalStopSequence],
+    clientSessionId,
+    fingerprintId,
+    userInputId,
+    userId,
+    maxOutputTokens: 32_000,
+    onCostCalculated,
+    includeCacheControl,
+    agentId,
+    maxRetries: 3,
+    sendAction,
+    liveUserInputRecord,
+    sessionConnections,
+    logger,
+    trackEvent,
+    tools,
   }
 
-  return { getStream }
+  if (!aiSdkStreamParams.providerOptions) {
+    aiSdkStreamParams.providerOptions = {}
+  }
+  for (const provider of ['openrouter', 'codebuff'] as const) {
+    if (!aiSdkStreamParams.providerOptions[provider]) {
+      aiSdkStreamParams.providerOptions[provider] = {}
+    }
+    ;(
+      aiSdkStreamParams.providerOptions[provider] as OpenRouterProviderOptions
+    ).reasoning = template.reasoningOptions
+  }
+
+  // Pass agent's provider routing options to SDK
+  aiSdkStreamParams.agentProviderOptions = template.providerOptions
+
+  return promptAiSdkStream(aiSdkStreamParams)
 }

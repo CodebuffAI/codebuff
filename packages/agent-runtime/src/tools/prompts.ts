@@ -1,13 +1,18 @@
-import { endsAgentStepParam, toolNames } from '@codebuff/common/tools/constants'
+import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
 import { pluralize } from '@codebuff/common/util/string'
+import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
 
 import { codebuffToolDefs } from './definitions/list'
 
 import type { ToolName } from '@codebuff/common/tools/constants'
-import type { customToolDefinitionsSchema } from '@codebuff/common/util/file'
+import type {
+  customToolDefinitionsSchema,
+  ProjectFileContext,
+} from '@codebuff/common/util/file'
+import type { ToolSet } from 'ai'
 import type { JSONSchema } from 'zod/v4/core'
 
 function paramsSection(params: {
@@ -286,4 +291,26 @@ Important: You only have access to the tools below. Do not use any other tools -
 
 ${toolDescriptions.join('\n\n')}
 `.trim()
+}
+
+export async function getToolSet(params: {
+  toolNames: string[]
+  additionalToolDefinitions: () => Promise<
+    ProjectFileContext['customToolDefinitions']
+  >
+}): Promise<ToolSet> {
+  const { toolNames, additionalToolDefinitions } = params
+
+  const toolSet: ToolSet = {}
+  for (const toolName of toolNames) {
+    if (toolName in codebuffToolDefs) {
+      toolSet[toolName] = codebuffToolDefs[toolName as ToolName]
+    }
+  }
+  const toolDefinitions = await additionalToolDefinitions()
+  for (const [toolName, toolDef] of Object.entries(toolDefinitions)) {
+    toolSet[toolName] = cloneDeep(toolDef)
+  }
+
+  return toolSet
 }
