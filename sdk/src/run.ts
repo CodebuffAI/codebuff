@@ -12,7 +12,14 @@ import { cloneDeep } from 'lodash'
 
 import { getAgentRuntimeImpl } from './impl/agent-runtime'
 import { getUserInfoFromApiKey } from './impl/database'
+import { RETRYABLE_ERROR_CODES, isNetworkError } from './errors'
+import type { ErrorCode } from './errors'
 import { initialSessionState, applyOverridesToSessionState } from './run-state'
+import {
+  MAX_RETRIES_PER_MESSAGE,
+  RETRY_BACKOFF_BASE_DELAY_MS,
+  RETRY_BACKOFF_MAX_DELAY_MS,
+} from './retry-config'
 import { filterXml } from './tool-xml-filter'
 import { changeFile } from './tools/change-file'
 import { codeSearch } from './tools/code-search'
@@ -94,6 +101,45 @@ export type CodebuffClientOptions = {
   logger?: Logger
 }
 
+export type RetryOptions = {
+  /**
+   * Maximum number of retry attempts after the initial failure.
+   * A value of 0 disables retries.
+   */
+  maxRetries?: number
+  /**
+   * Base delay in milliseconds for exponential backoff.
+   */
+  backoffBaseMs?: number
+  /**
+   * Maximum delay in milliseconds for exponential backoff.
+   */
+  backoffMaxMs?: number
+  /**
+   * Error codes that should trigger retry.
+   * Defaults to RETRYABLE_ERROR_CODES.
+   */
+  retryableErrorCodes?: Set<ErrorCode>
+  /**
+   * Optional callback invoked before each retry attempt.
+   */
+  onRetry?: (params: {
+    attempt: number
+    error: unknown
+    delayMs: number
+    errorCode?: ErrorCode
+  }) => void | Promise<void>
+  /**
+   * Optional callback invoked when all SDK retries are exhausted.
+   * This allows the caller to be notified before the error is thrown.
+   */
+  onRetryExhausted?: (params: {
+    totalAttempts: number
+    error: unknown
+    errorCode?: ErrorCode
+  }) => void | Promise<void>
+}
+
 export type RunOptions = {
   agent: string | AgentDefinition
   prompt: string
@@ -101,10 +147,217 @@ export type RunOptions = {
   previousRun?: RunState
   extraToolResults?: ToolMessage[]
   signal?: AbortSignal
+  abortController?: AbortController
+  retry?: boolean | RetryOptions
 }
 
-type RunReturnType = Awaited<ReturnType<typeof run>>
-export async function run({
+type NormalizedRetryOptions = {
+  maxRetries: number
+  backoffBaseMs: number
+  backoffMaxMs: number
+  retryableErrorCodes: Set<ErrorCode>
+  onRetry?: (params: {
+    attempt: number
+    error: unknown
+    delayMs: number
+    errorCode?: ErrorCode
+  }) => void | Promise<void>
+  onRetryExhausted?: (params: {
+    totalAttempts: number
+    error: unknown
+    errorCode?: ErrorCode
+  }) => void | Promise<void>
+}
+
+const defaultRetryOptions: NormalizedRetryOptions = {
+  maxRetries: MAX_RETRIES_PER_MESSAGE,
+  backoffBaseMs: RETRY_BACKOFF_BASE_DELAY_MS,
+  backoffMaxMs: RETRY_BACKOFF_MAX_DELAY_MS,
+  retryableErrorCodes: RETRYABLE_ERROR_CODES,
+}
+
+const createAbortError = (signal?: AbortSignal) => {
+  if (signal?.reason instanceof Error) {
+    return signal.reason
+  }
+  const error = new Error('Aborted')
+  error.name = 'AbortError'
+  return error
+}
+
+/**
+ * Checks if an error should trigger a retry attempt.
+ */
+const isRetryableError = (error: unknown): boolean => {
+  return isNetworkError(error) && RETRYABLE_ERROR_CODES.has(error.code)
+}
+
+const normalizeRetryOptions = (
+  retry: RunOptions['retry'],
+): NormalizedRetryOptions => {
+  if (!retry) {
+    return { ...defaultRetryOptions, maxRetries: 0 }
+  }
+  if (retry === true) {
+    return { ...defaultRetryOptions }
+  }
+  return {
+    maxRetries: retry.maxRetries ?? defaultRetryOptions.maxRetries,
+    backoffBaseMs: retry.backoffBaseMs ?? defaultRetryOptions.backoffBaseMs,
+    backoffMaxMs: retry.backoffMaxMs ?? defaultRetryOptions.backoffMaxMs,
+    retryableErrorCodes:
+      retry.retryableErrorCodes ?? defaultRetryOptions.retryableErrorCodes,
+    onRetry: retry.onRetry,
+    onRetryExhausted: retry.onRetryExhausted,
+  }
+}
+
+const shouldRetry = (
+  error: unknown,
+  retryableErrorCodes: Set<ErrorCode>,
+): boolean => {
+  return isNetworkError(error) && retryableErrorCodes.has(error.code)
+}
+
+const waitWithAbort = (delayMs: number, signal?: AbortSignal) => {
+  if (delayMs <= 0) return Promise.resolve()
+
+  return new Promise<void>((resolve, reject) => {
+    let timeoutId: ReturnType<typeof setTimeout>
+
+    const onAbort = () => {
+      clearTimeout(timeoutId)
+      signal?.removeEventListener('abort', onAbort)
+      reject(createAbortError(signal))
+    }
+
+    timeoutId = setTimeout(() => {
+      if (signal) {
+        signal.removeEventListener('abort', onAbort)
+      }
+      resolve()
+    }, delayMs)
+
+    if (!signal) {
+      return
+    }
+
+    if (signal.aborted) {
+      onAbort()
+      return
+    }
+
+    signal.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
+type RunExecutionOptions = RunOptions &
+  CodebuffClientOptions & {
+    apiKey: string
+    fingerprintId: string
+  }
+type RunOnceOptions = Omit<RunExecutionOptions, 'retry' | 'abortController'>
+type RunReturnType = RunState
+
+export async function run(
+  options: RunExecutionOptions,
+): Promise<RunState> {
+  const { retry, abortController, ...rest } = options
+  const retryOptions = normalizeRetryOptions(retry)
+
+  // Prefer provided signal; otherwise reuse a shared controller across retries.
+  const sharedController =
+    abortController ?? (rest.signal ? undefined : new AbortController())
+  const signal = rest.signal ?? sharedController?.signal
+
+  let attemptIndex = 0
+  while (true) {
+    if (signal?.aborted) {
+      throw createAbortError(signal)
+    }
+
+    try {
+      const result = await runOnce({
+        ...rest,
+        signal,
+      })
+
+      // Log successful completion after retries
+      if (attemptIndex > 0 && rest.logger) {
+        rest.logger.info(
+          { attemptIndex, totalAttempts: attemptIndex + 1 },
+          'SDK run succeeded after retries',
+        )
+      }
+
+      return result
+    } catch (error) {
+      if (signal?.aborted) {
+        throw createAbortError(signal)
+      }
+
+      const canRetry =
+        attemptIndex < retryOptions.maxRetries &&
+        shouldRetry(error, retryOptions.retryableErrorCodes)
+
+      const errorCode = isNetworkError(error) ? error.code : undefined
+
+      if (!canRetry) {
+        // Notify caller that SDK exhausted all retries
+        if (attemptIndex > 0) {
+          if (rest.logger) {
+            rest.logger.warn(
+              {
+                attemptIndex,
+                totalAttempts: attemptIndex + 1,
+                errorCode,
+              },
+              'SDK exhausted all retries',
+            )
+          }
+
+          await retryOptions.onRetryExhausted?.({
+            totalAttempts: attemptIndex + 1,
+            error,
+            errorCode,
+          })
+        }
+        throw error
+      }
+
+      const delayMs = Math.min(
+        retryOptions.backoffBaseMs * Math.pow(2, attemptIndex),
+        retryOptions.backoffMaxMs,
+      )
+
+      // Log retry attempt with full context
+      if (rest.logger) {
+        rest.logger.warn(
+          {
+            attempt: attemptIndex + 1,
+            maxRetries: retryOptions.maxRetries,
+            delayMs,
+            errorCode,
+            errorMessage: error instanceof Error ? error.message : String(error),
+          },
+          'SDK retrying after error',
+        )
+      }
+
+      await retryOptions.onRetry?.({
+        attempt: attemptIndex + 1,
+        error,
+        delayMs,
+        errorCode,
+      })
+
+      await waitWithAbort(delayMs, signal)
+      attemptIndex++
+    }
+  }
+}
+
+export async function runOnce({
   apiKey,
   fingerprintId,
 
@@ -131,11 +384,7 @@ export async function run({
   previousRun,
   extraToolResults,
   signal,
-}: RunOptions &
-  CodebuffClientOptions & {
-    apiKey: string
-    fingerprintId: string
-  }): Promise<RunState> {
+}: RunOnceOptions): Promise<RunState> {
   const fs = await (typeof fsSource === 'function' ? fsSource() : fsSource)
   const spawn: CodebuffSpawn = (
     spawnSource ? await spawnSource : require('child_process').spawn
@@ -449,7 +698,16 @@ export async function run({
     clientSessionId: promptId,
     userId,
     signal: signal ?? new AbortController().signal,
-  }).catch((error) => resolve(getCancelledRunState(error.message)))
+  }).catch((error) => {
+    // Let retryable errors propagate so the retry wrapper can handle them
+    if (isRetryableError(error)) {
+      throw error
+    }
+
+    // For non-retryable errors, resolve with cancelled state
+    const errorMessage = error instanceof Error ? error.message : String(error ?? '')
+    resolve(getCancelledRunState(errorMessage))
+  })
 
   return promise
 }
@@ -595,6 +853,41 @@ async function handleToolCall({
   }
 }
 
+/**
+ * Extracts an error code from a prompt error message.
+ * Returns the appropriate ErrorCode if the error is retryable, null otherwise.
+ */
+const getRetryableErrorCode = (errorMessage: string): ErrorCode | null => {
+  const lowerMessage = errorMessage.toLowerCase()
+
+  // AI SDK's built-in retry error (e.g., "Failed after 4 attempts. Last error: Service Unavailable")
+  // Don't retry at SDK level since AI SDK already retried. Just log it for accountability.
+  if (lowerMessage.includes('failed after') && lowerMessage.includes('attempts')) {
+    return null
+  }
+
+  if (errorMessage.includes('503') || lowerMessage.includes('service unavailable')) {
+    return ErrorCodes.SERVICE_UNAVAILABLE
+  }
+  if (lowerMessage.includes('timeout')) {
+    return ErrorCodes.TIMEOUT
+  }
+  if (lowerMessage.includes('econnrefused') || lowerMessage.includes('connection refused')) {
+    return ErrorCodes.CONNECTION_REFUSED
+  }
+  if (lowerMessage.includes('dns') || lowerMessage.includes('enotfound')) {
+    return ErrorCodes.DNS_FAILURE
+  }
+  if (lowerMessage.includes('server error') || lowerMessage.includes('500') || lowerMessage.includes('502') || lowerMessage.includes('504')) {
+    return ErrorCodes.SERVER_ERROR
+  }
+  if (lowerMessage.includes('network error') || lowerMessage.includes('fetch failed')) {
+    return ErrorCodes.NETWORK_ERROR
+  }
+
+  return null
+}
+
 async function handlePromptResponse({
   action,
   resolve,
@@ -608,6 +901,14 @@ async function handlePromptResponse({
 }) {
   if (action.type === 'prompt-error') {
     onError({ message: action.message })
+
+    // If this is a retryable error, throw NetworkError so retry wrapper can handle it
+    const retryableCode = getRetryableErrorCode(action.message)
+    if (retryableCode) {
+      throw new NetworkError(action.message, retryableCode)
+    }
+
+    // For non-retryable errors, resolve with error state
     resolve({
       sessionState: initialSessionState,
       output: {

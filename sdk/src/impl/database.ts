@@ -68,14 +68,16 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
     throw new NetworkError('Network request failed', ErrorCodes.NETWORK_ERROR, undefined, error)
   }
 
-  if (response.status === 401 || response.status === 403) {
+  if (response.status === 401 || response.status === 403 || response.status === 404) {
     logger.error(
       { apiKey, fields, status: response.status },
       'getUserInfoFromApiKey authentication failed',
     )
     // Don't cache auth failures - allow retry with potentially updated credentials
     delete userInfoCache[apiKey]
-    throw new AuthenticationError('Authentication failed', response.status)
+    // If the server returns 404 for invalid credentials, surface as 401 to callers
+    const normalizedStatus = response.status === 404 ? 401 : response.status
+    throw new AuthenticationError('Authentication failed', normalizedStatus)
   }
 
   if (response.status >= 500 && response.status <= 599) {
