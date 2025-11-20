@@ -370,6 +370,7 @@ export const Chat = ({
     fileSuggestionItems,
   } = useSuggestionEngine({
     inputValue,
+    cursorPosition,
     slashCommands: SLASH_COMMANDS,
     localAgents,
     fileTree,

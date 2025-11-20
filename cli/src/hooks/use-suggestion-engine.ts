@@ -34,27 +34,35 @@ const parseSlashContext = (input: string): TriggerContext => {
   return { active: true, query: commandSegment, startIndex }
 }
 
-const parseMentionContext = (input: string): TriggerContext => {
+const parseMentionContext = (input: string, cursorPosition: number): TriggerContext => {
   if (!input) {
     return { active: false, query: '', startIndex: -1 }
   }
 
   const lastNewline = input.lastIndexOf('\n')
   const lineStart = lastNewline === -1 ? 0 : lastNewline + 1
-  const line = input.slice(lineStart)
+  
+  // Only look at text up to cursor position to find the relevant @
+  const textUpToCursor = input.slice(0, cursorPosition)
+  const lineUpToCursor = textUpToCursor.slice(lineStart)
 
-  const atIndex = line.lastIndexOf('@')
+  const atIndex = lineUpToCursor.lastIndexOf('@')
   if (atIndex === -1) {
     return { active: false, query: '', startIndex: -1 }
   }
 
-  const beforeChar = atIndex > 0 ? line[atIndex - 1] : ''
+  const beforeChar = atIndex > 0 ? lineUpToCursor[atIndex - 1] : ''
   if (beforeChar && !/\s/.test(beforeChar)) {
     return { active: false, query: '', startIndex: -1 }
   }
 
-  const query = line.slice(atIndex + 1)
-  if (query.includes(' ') || query.includes('\t')) {
+  // Extract query from @ until the next whitespace or cursor position
+  const afterAt = lineUpToCursor.slice(atIndex + 1)
+  const firstSpaceIndex = afterAt.search(/\s/)
+  const query = firstSpaceIndex === -1 ? afterAt : afterAt.slice(0, firstSpaceIndex)
+
+  // If we found a space in the query, the mention is complete - don't show menu
+  if (firstSpaceIndex !== -1) {
     return { active: false, query: '', startIndex: -1 }
   }
 
@@ -372,6 +380,7 @@ export interface SuggestionEngineResult {
 
 interface SuggestionEngineOptions {
   inputValue: string
+  cursorPosition: number
   slashCommands: SlashCommand[]
   localAgents: LocalAgentInfo[]
   fileTree: FileTreeNode[]
@@ -379,6 +388,7 @@ interface SuggestionEngineOptions {
 
 export const useSuggestionEngine = ({
   inputValue,
+  cursorPosition,
   slashCommands,
   localAgents,
   fileTree,
@@ -412,8 +422,8 @@ export const useSuggestionEngine = ({
   )
 
   const mentionContext = useMemo(
-    () => parseMentionContext(deferredInput),
-    [deferredInput],
+    () => parseMentionContext(deferredInput, cursorPosition),
+    [deferredInput, cursorPosition],
   )
 
   const slashMatches = useMemo<MatchedSlashCommand[]>(() => {
