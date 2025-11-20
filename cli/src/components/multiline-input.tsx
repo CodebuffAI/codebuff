@@ -12,6 +12,7 @@ import {
 import { InputCursor } from './input-cursor'
 import { useTheme } from '../hooks/use-theme'
 import { clamp } from '../utils/math'
+import { logger } from '../utils/logger'
 import { calculateNewCursorPosition } from '../utils/word-wrap-utils'
 
 import type { InputValue } from '../state/chat-store'
@@ -378,42 +379,41 @@ export const MultilineInput = forwardRef<
         const wordStart = findPreviousWordBoundary(value, cursorPosition)
         const wordEnd = findNextWordBoundary(value, cursorPosition)
 
-        // DELETION SHORTCUTS (check these first, before basic delete/backspace)
-
-        // Ctrl+U: Delete to line start (also triggered by Cmd+Delete on macOS)
+        // Ctrl+U: Delete from cursor to beginning of current VISUAL line (accounting for word-wrap)
+        // If at line start, act like backspace (delete to join with previous line)
         if (key.ctrl && lowerKeyName === 'u' && !key.meta && !key.option) {
           preventKeyDefault(key)
 
-          const originalValue = value
-          let newValue = originalValue
-          let nextCursor = cursorPosition
+          // Use lineInfo.lineStarts which includes both newlines AND word-wrap positions
+          const visualLineStart = lineInfo?.lineStarts?.[cursorRow] ?? lineStart
 
-          if (cursorPosition > lineStart) {
-            newValue = value.slice(0, lineStart) + value.slice(cursorPosition)
-            nextCursor = lineStart
-          } else if (
-            cursorPosition === lineStart &&
-            cursorPosition > 0 &&
-            value[cursorPosition - 1] === '\n'
-          ) {
-            newValue =
-              value.slice(0, cursorPosition - 1) + value.slice(cursorPosition)
-            nextCursor = cursorPosition - 1
-          } else if (cursorPosition > 0) {
-            newValue =
-              value.slice(0, cursorPosition - 1) + value.slice(cursorPosition)
-            nextCursor = cursorPosition - 1
-          }
-
-          if (newValue === originalValue) {
-            return
-          }
-
-          onChange({
-            text: newValue,
-            cursorPosition: nextCursor,
-            lastEditDueToNav: false,
+          logger.debug('Ctrl+U:', {
+            cursorPosition,
+            cursorRow,
+            visualLineStart,
+            oldLineStart: lineStart,
+            lineStarts: lineInfo?.lineStarts,
           })
+
+          if (cursorPosition > visualLineStart) {
+            // Delete from visual line start to cursor
+            const newValue =
+              value.slice(0, visualLineStart) + value.slice(cursorPosition)
+            onChange({
+              text: newValue,
+              cursorPosition: visualLineStart,
+              lastEditDueToNav: false,
+            })
+          } else if (cursorPosition > 0) {
+            // At line start: delete one character backward (backspace behavior)
+            const newValue =
+              value.slice(0, cursorPosition - 1) + value.slice(cursorPosition)
+            onChange({
+              text: newValue,
+              cursorPosition: cursorPosition - 1,
+              lastEditDueToNav: false,
+            })
+          }
           return
         }
 
