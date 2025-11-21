@@ -63,7 +63,9 @@ describe('run retry wrapper', () => {
 
     // Should return error output after exhausting retries
     expect(result.output.type).toBe('error')
-    expect(result.output.message).toContain('timeout')
+    if (result.output.type === 'error') {
+      expect(result.output.message).toContain('timeout')
+    }
     // Initial attempt + one retry
     expect(runSpy).toHaveBeenCalledTimes(2)
   })
@@ -140,7 +142,9 @@ describe('run retry wrapper', () => {
     })
 
     expect(result.output.type).toBe('error')
-    expect(result.output.message).toContain('Aborted')
+    if (result.output.type === 'error') {
+      expect(result.output.message).toContain('Aborted')
+    }
     expect(runSpy).toHaveBeenCalledTimes(0)
   })
 

@@ -93,7 +93,7 @@ Analyze the conversation and decide your next action.`
     },
   })
 
-  if (!result) {
+  if (!result || !result.sessionState) {
     return {
       decision: 'halt',
       reasoning: `No valid response from prompting agent. Error:\n${lastErrorMessage}`,

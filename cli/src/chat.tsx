@@ -1,5 +1,14 @@
+import { RECONNECTION_MESSAGE_DURATION_MS } from '@codebuff/sdk'
 import { useKeyboard } from '@opentui/react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { routeUserPrompt } from './commands/router'
@@ -9,11 +18,12 @@ import { MessageWithAgents } from './components/message-with-agents'
 import { StatusBar } from './components/status-bar'
 import { SLASH_COMMANDS } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
+import { authQueryKeys } from './hooks/use-auth-query'
 import { useChatInput } from './hooks/use-chat-input'
 import { useClipboard } from './hooks/use-clipboard'
 import { useConnectionStatus } from './hooks/use-connection-status'
 import { useElapsedTime } from './hooks/use-elapsed-time'
-import { useTimeout } from './hooks/use-timeout'
+import { useEvent } from './hooks/use-event'
 import { useExitHandler } from './hooks/use-exit-handler'
 import { useInputHistory } from './hooks/use-input-history'
 import { useKeyboardHandlers } from './hooks/use-keyboard-handlers'
@@ -26,6 +36,7 @@ import { useSuggestionEngine } from './hooks/use-suggestion-engine'
 import { useSuggestionMenuHandlers } from './hooks/use-suggestion-menu-handlers'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTheme } from './hooks/use-theme'
+import { useTimeout } from './hooks/use-timeout'
 import { useValidationBanner } from './hooks/use-validation-banner'
 import { useChatStore } from './state/chat-store'
 import { useFeedbackStore } from './state/feedback-store'
@@ -36,10 +47,6 @@ import {
   getStatusIndicatorState,
   type AuthStatus,
 } from './utils/status-indicator-state'
-import { authQueryKeys } from './hooks/use-auth-query'
-import { RECONNECTION_MESSAGE_DURATION_MS } from '@codebuff/sdk'
-import { useQueryClient } from '@tanstack/react-query'
-import { useTransition } from 'react'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
 
@@ -47,12 +54,11 @@ import type { MultilineInputHandle } from './components/multiline-input'
 import type { ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
 import type { User } from './utils/auth'
+import type { AgentMode } from './utils/constants'
 import type { FileTreeNode } from '@codebuff/common/util/file'
 import type { ScrollBoxRenderable } from '@opentui/core'
 import type { UseMutationResult } from '@tanstack/react-query'
 import type { Dispatch, SetStateAction } from 'react'
-import { useEvent } from './hooks/use-event'
-import { AgentMode } from './utils/constants'
 
 export const Chat = ({
   headerContent,
@@ -133,16 +139,16 @@ export const Chat = ({
     setLastMessageMode,
     addSessionCredits,
     resetChatStore,
-  sessionCreditsUsed,
-  setRunState,
-  isAnnouncementVisible,
-  setIsAnnouncementVisible,
-  isRetrying,
-} = useChatStore(
-  useShallow((store) => ({
-    inputValue: store.inputValue,
-    cursorPosition: store.cursorPosition,
-    lastEditDueToNav: store.lastEditDueToNav,
+    sessionCreditsUsed,
+    setRunState,
+    isAnnouncementVisible,
+    setIsAnnouncementVisible,
+    isRetrying,
+  } = useChatStore(
+    useShallow((store) => ({
+      inputValue: store.inputValue,
+      cursorPosition: store.cursorPosition,
+      lastEditDueToNav: store.lastEditDueToNav,
       setInputValue: store.setInputValue,
       inputFocused: store.inputFocused,
       setInputFocused: store.setInputFocused,
@@ -169,13 +175,13 @@ export const Chat = ({
       setLastMessageMode: store.setLastMessageMode,
       addSessionCredits: store.addSessionCredits,
       resetChatStore: store.reset,
-    sessionCreditsUsed: store.sessionCreditsUsed,
-    setRunState: store.setRunState,
-    isAnnouncementVisible: store.isAnnouncementVisible,
-    setIsAnnouncementVisible: store.setIsAnnouncementVisible,
-    isRetrying: store.isRetrying,
-  })),
-)
+      sessionCreditsUsed: store.sessionCreditsUsed,
+      setRunState: store.setRunState,
+      isAnnouncementVisible: store.isAnnouncementVisible,
+      setIsAnnouncementVisible: store.setIsAnnouncementVisible,
+      isRetrying: store.isRetrying,
+    })),
+  )
 
   // Memoize toggle IDs extraction - only recompute when messages change
   const allToggleIds = useMemo(() => {
@@ -534,10 +540,7 @@ export const Chat = ({
   // Timer events are currently tracked but not used for UI updates
   // Future: Could be used for analytics or debugging
 
-  const {
-    sendMessage,
-    clearMessages,
-  } = useSendMessage({
+  const { sendMessage, clearMessages } = useSendMessage({
     messages,
     allToggleIds,
     setMessages,

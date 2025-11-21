@@ -39,7 +39,7 @@ export class CodebuffRunner implements Runner {
 
     const client = new CodebuffClient({
       apiKey,
-      cwd: this.runState.sessionState.fileContext.cwd,
+      cwd: this.runState.sessionState?.fileContext.cwd ?? process.cwd(),
     })
 
     const agentsPath = path.join(__dirname, '../../../.agents')
@@ -103,7 +103,7 @@ export class CodebuffRunner implements Runner {
 
     return {
       steps,
-      totalCostUsd: this.runState.sessionState.mainAgentState.creditsUsed / 100,
+      totalCostUsd: (this.runState.sessionState?.mainAgentState.creditsUsed ?? 0) / 100,
     }
   }
 }

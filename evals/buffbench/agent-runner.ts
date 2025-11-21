@@ -112,7 +112,7 @@ export async function runAgentOnCommit({
               trace.push(event)
             },
           })
-          cost = result.sessionState.mainAgentState.creditsUsed / 100
+          cost = (result.sessionState?.mainAgentState.creditsUsed ?? 0) / 100
 
           execSync('git add .', { cwd: repoDir, stdio: 'ignore' })
           diff = execSync(`git diff ${commit.parentSha}`, {
