@@ -78,7 +78,7 @@ export const StatusBar = ({
         case 'retrying':
           return (
             <ShimmerText
-              text="error, retrying..."
+              text="retrying..."
               primaryColor={theme.warning}
             />
           )
@@ -126,7 +126,7 @@ export const StatusBar = ({
     if (authStatus === 'retrying') {
       return (
         <ShimmerText
-          text="error, retrying..."
+          text="retrying..."
           primaryColor={theme.warning}
         />
       )

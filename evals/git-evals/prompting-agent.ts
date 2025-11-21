@@ -1,5 +1,5 @@
 import type { AgentDecisionSchema } from './types'
-import type { CodebuffClient } from '../../sdk/src'
+import type { CodebuffClient } from '@codebuff/sdk'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 import type { z } from 'zod/v4'
 
@@ -93,7 +93,7 @@ Analyze the conversation and decide your next action.`
     },
   })
 
-  if (!result) {
+  if (!result || !result.sessionState) {
     return {
       decision: 'halt',
       reasoning: `No valid response from prompting agent. Error:\n${lastErrorMessage}`,

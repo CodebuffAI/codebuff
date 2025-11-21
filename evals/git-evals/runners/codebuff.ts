@@ -5,10 +5,9 @@ import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { loadLocalAgents } from '@codebuff/npm-app/agents/load-agents'
 import { getUserCredentials } from '@codebuff/npm-app/credentials'
 
-import { CodebuffClient } from '../../../sdk/src/index'
+import { CodebuffClient, type RunState } from '@codebuff/sdk'
 
 import type { Runner } from './runner'
-import type { RunState } from '../../../sdk/src/index'
 import type { AgentStep } from '../../scaffolding'
 
 const getLocalAuthToken = () => {
@@ -40,7 +39,7 @@ export class CodebuffRunner implements Runner {
 
     const client = new CodebuffClient({
       apiKey,
-      cwd: this.runState.sessionState.fileContext.cwd,
+      cwd: this.runState.sessionState?.fileContext.cwd ?? process.cwd(),
     })
 
     const agentsPath = path.join(__dirname, '../../../.agents')
@@ -104,7 +103,7 @@ export class CodebuffRunner implements Runner {
 
     return {
       steps,
-      totalCostUsd: this.runState.sessionState.mainAgentState.creditsUsed / 100,
+      totalCostUsd: (this.runState.sessionState?.mainAgentState.creditsUsed ?? 0) / 100,
     }
   }
 }

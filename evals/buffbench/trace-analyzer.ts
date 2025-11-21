@@ -1,7 +1,6 @@
 import type { AgentStep } from './agent-runner'
 import type { JudgingResult } from './judge'
-import type { AgentDefinition } from '../../sdk/src'
-import type { CodebuffClient } from '../../sdk/src/client'
+import type { AgentDefinition, CodebuffClient } from '@codebuff/sdk'
 import { withTimeout } from '@codebuff/common/util/promise'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { truncateTrace } from './trace-utils'

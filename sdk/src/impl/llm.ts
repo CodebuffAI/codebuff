@@ -21,8 +21,11 @@ import {
 import { streamText, APICallError, generateText, generateObject } from 'ai'
 
 import { WEBSITE_URL } from '../constants'
+import { NetworkError, ErrorCodes } from '../errors'
 
+import type { ErrorCode } from '../errors'
 import type { LanguageModelV2 } from '@ai-sdk/provider'
+import type { OpenRouterProviderRoutingOptions } from '@codebuff/common/types/agent-template'
 import type {
   PromptAiSdkFn,
   PromptAiSdkStreamFn,
@@ -31,7 +34,6 @@ import type {
 } from '@codebuff/common/types/contracts/llm'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { JSONObject } from '@codebuff/common/types/json'
-import type { OpenRouterProviderRoutingOptions } from '@codebuff/common/types/agent-template'
 import type { OpenRouterProviderOptions } from '@openrouter/ai-sdk-provider'
 import type z from 'zod/v4'
 
@@ -252,12 +254,50 @@ export async function* promptAiSdkStream(
             ? chunk.error
             : JSON.stringify(chunk.error)
       const errorMessage = `Error from AI SDK (model ${params.model}): ${buildArray([mainErrorMessage, errorBody]).join('\n')}`
-      yield {
-        type: 'error',
-        message: errorMessage,
+
+      // Determine error code from the error
+      let errorCode: ErrorCode = ErrorCodes.UNKNOWN_ERROR
+      let statusCode: number | undefined
+
+      if (APICallError.isInstance(chunk.error)) {
+        statusCode = chunk.error.statusCode
+        if (statusCode) {
+          if (statusCode === 503) {
+            errorCode = ErrorCodes.SERVICE_UNAVAILABLE
+          } else if (statusCode >= 500) {
+            errorCode = ErrorCodes.SERVER_ERROR
+          } else if (statusCode === 408 || statusCode === 429) {
+            errorCode = ErrorCodes.TIMEOUT
+          }
+        }
+      } else if (chunk.error instanceof Error) {
+        // Check error message for error type indicators (case-insensitive)
+        const msg = chunk.error.message.toLowerCase()
+        if (msg.includes('service unavailable') || msg.includes('503')) {
+          errorCode = ErrorCodes.SERVICE_UNAVAILABLE
+        } else if (
+          msg.includes('econnrefused') ||
+          msg.includes('connection refused')
+        ) {
+          errorCode = ErrorCodes.CONNECTION_REFUSED
+        } else if (msg.includes('enotfound') || msg.includes('dns')) {
+          errorCode = ErrorCodes.DNS_FAILURE
+        } else if (msg.includes('timeout')) {
+          errorCode = ErrorCodes.TIMEOUT
+        } else if (
+          msg.includes('server error') ||
+          msg.includes('500') ||
+          msg.includes('502') ||
+          msg.includes('504')
+        ) {
+          errorCode = ErrorCodes.SERVER_ERROR
+        } else if (msg.includes('network') || msg.includes('fetch failed')) {
+          errorCode = ErrorCodes.NETWORK_ERROR
+        }
       }
 
-      return null
+      // Throw NetworkError so retry logic can handle it
+      throw new NetworkError(errorMessage, errorCode, statusCode, chunk.error)
     }
     if (chunk.type === 'reasoning-delta') {
       for (const provider of ['openrouter', 'codebuff'] as const) {

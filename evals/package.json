@@ -11,7 +11,6 @@
     }
   },
   "scripts": {
-    "pretypecheck": "cd ../sdk && bun run build:types",
     "typecheck": "tsc --noEmit -p .",
     "test": "bun test",
     "test:manifold": "bun test manifold.test.ts",
@@ -38,6 +37,7 @@
     "@codebuff/common": "workspace:*",
     "@codebuff/internal": "workspace:*",
     "@codebuff/npm-app": "workspace:*",
+    "@codebuff/sdk": "workspace:*",
     "@oclif/core": "^4.4.0",
     "@oclif/parser": "^3.8.17",
     "async": "^3.2.6",

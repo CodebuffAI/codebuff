@@ -7,7 +7,7 @@ import { mapLimit } from 'async'
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { getUserCredentials } from '@codebuff/npm-app/credentials'
 
-import { CodebuffClient } from '../../sdk/src/client'
+import { CodebuffClient } from '@codebuff/sdk'
 import { extractRepoNameFromUrl } from '../git-evals/setup-test-repo'
 import { withTestRepoAndParent } from '../subagents/test-repo-utils'
 import { generateEvalTask } from './eval-task-generator'

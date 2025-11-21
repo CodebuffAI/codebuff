@@ -9,8 +9,7 @@ import { truncateTrace } from './trace-utils'
 import type { AgentStep } from './agent-runner'
 import type { JudgingResult } from './judge'
 import type { FileDiff } from './types'
-import type { AgentDefinition } from '../../sdk/src'
-import type { CodebuffClient } from '../../sdk/src/client'
+import type { AgentDefinition, CodebuffClient } from '@codebuff/sdk'
 
 export interface Lesson {
   whatWentWrong: string

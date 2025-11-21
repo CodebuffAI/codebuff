@@ -167,24 +167,27 @@ describe('Spawn Agents Message History', () => {
       (msg: any) => msg.role === 'system',
     )
     expect(systemMessages).toHaveLength(1)
-    expect(systemMessages[0].content).toBe(
-      'This is the parent system prompt that should be excluded',
-    )
+    expect(systemMessages[0].content).toEqual([
+      {
+        type: 'text',
+        text: 'This is the parent system prompt that should be excluded',
+      },
+    ])
 
     // Verify user and assistant messages are included
     expect(
       capturedSubAgentState.messageHistory.find(
-        (msg: any) => msg.content === 'Hello',
+        (msg: any) => msg.content[0]?.text === 'Hello',
       ),
     ).toBeTruthy()
     expect(
       capturedSubAgentState.messageHistory.find(
-        (msg: any) => msg.content === 'Hi there!',
+        (msg: any) => msg.content[0]?.text === 'Hi there!',
       ),
     ).toBeTruthy()
     expect(
       capturedSubAgentState.messageHistory.find(
-        (msg: any) => msg.content === 'How are you?',
+        (msg: any) => msg.content[0]?.text === 'How are you?',
       ),
     ).toBeTruthy()
   })

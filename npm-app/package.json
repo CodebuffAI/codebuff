@@ -19,8 +19,6 @@
     "codebuff": "dist/index.js"
   },
   "scripts": {
-    "pretypecheck": "cd ../sdk && bun run build:types",
-    "pretest": "cd ../sdk && bun run build",
     "typecheck": "tsc --noEmit -p .",
     "build": "bun run scripts/build-binary.js codebuff $(node -p \"require('./release/package.json').version\")",
     "release": "bun run scripts/release.js",

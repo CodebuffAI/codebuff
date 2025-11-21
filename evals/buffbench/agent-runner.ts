@@ -7,7 +7,7 @@ import { exec } from 'child_process'
 const execAsync = promisify(exec)
 
 import { withTimeout } from '@codebuff/common/util/promise'
-import { CodebuffClient } from '../../sdk/src/client'
+import { CodebuffClient } from '@codebuff/sdk'
 import { withTestRepo } from '../subagents/test-repo-utils'
 
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
@@ -112,7 +112,7 @@ export async function runAgentOnCommit({
               trace.push(event)
             },
           })
-          cost = result.sessionState.mainAgentState.creditsUsed / 100
+          cost = (result.sessionState?.mainAgentState.creditsUsed ?? 0) / 100
 
           execSync('git add .', { cwd: repoDir, stdio: 'ignore' })
           diff = execSync(`git diff ${commit.parentSha}`, {

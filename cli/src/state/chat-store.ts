@@ -34,6 +34,7 @@ export type ChatStoreState = {
   isUsageVisible: boolean
   isAnnouncementVisible: boolean
   isBashMode: boolean
+  isRetrying: boolean
 }
 
 type ChatStoreActions = {
@@ -65,6 +66,7 @@ type ChatStoreActions = {
   setIsUsageVisible: (visible: boolean) => void
   setIsAnnouncementVisible: (visible: boolean) => void
   setBashMode: (isBashMode: boolean) => void
+  setIsRetrying: (retrying: boolean) => void
   reset: () => void
 }
 
@@ -90,6 +92,7 @@ const initialState: ChatStoreState = {
   isUsageVisible: false,
   isAnnouncementVisible: true,
   isBashMode: false,
+  isRetrying: false,
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -208,6 +211,11 @@ export const useChatStore = create<ChatStore>()(
         state.isBashMode = isBashMode
       }),
 
+    setIsRetrying: (retrying) =>
+      set((state) => {
+        state.isRetrying = retrying
+      }),
+
     reset: () =>
       set((state) => {
         state.messages = initialState.messages.slice()
@@ -231,6 +239,7 @@ export const useChatStore = create<ChatStore>()(
         state.isUsageVisible = initialState.isUsageVisible
         state.isAnnouncementVisible = initialState.isAnnouncementVisible
         state.isBashMode = initialState.isBashMode
+        state.isRetrying = initialState.isRetrying
       }),
   })),
 )

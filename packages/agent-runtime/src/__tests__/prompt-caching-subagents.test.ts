@@ -400,7 +400,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     // Verify both agents use the same system prompt
     expect(parentMessages[0].role).toBe('system')
     expect(childMessages[0].role).toBe('system')
-    expect(childMessages[0].content).toBe(parentMessages[0].content)
+    expect(childMessages[0].content).toEqual(parentMessages[0].content)
 
     // This matching system prompt enables prompt caching:
     // Both agents will have the same system message at the start,

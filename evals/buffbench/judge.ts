@@ -1,8 +1,7 @@
 import { z } from 'zod/v4'
 
 import type { FileDiff } from './types'
-import type { AgentDefinition } from '../../sdk/src'
-import type { CodebuffClient } from '../../sdk/src/client'
+import type { AgentDefinition, CodebuffClient } from '@codebuff/sdk'
 import { withTimeout } from '@codebuff/common/util/promise'
 
 export const JudgingResultSchema = z.object({
@@ -28,10 +27,8 @@ export const JudgingResultSchema = z.object({
 
 export type JudgingResult = z.infer<typeof JudgingResultSchema>
 
-const judgeAgent: AgentDefinition = {
-  id: 'judge',
+const judgeAgentBase: Omit<AgentDefinition, 'id' | 'model'> = {
   displayName: 'Judge',
-  model: 'openai/gpt-5',
   toolNames: ['set_output'],
   inputSchema: {
     prompt: { type: 'string', description: 'The evaluation prompt' },
@@ -118,6 +115,24 @@ The ground truth shows ONE valid implementation, but it's not the only correct a
 Provide detailed analysis, strengths, weaknesses, and numerical scores.`,
 }
 
+const judgeAgents: AgentDefinition[] = [
+  {
+    id: 'judge-gpt',
+    model: 'openai/gpt-5.1',
+    ...judgeAgentBase,
+  },
+  {
+    id: 'judge-gemini',
+    model: 'google/gemini-3-pro-preview',
+    ...judgeAgentBase,
+  },
+  {
+    id: 'judge-claude',
+    model: 'anthropic/claude-sonnet-4.5',
+    ...judgeAgentBase,
+  },
+]
+
 interface JudgeCommitResultInput {
   client: CodebuffClient
   prompt: string
@@ -135,13 +150,14 @@ async function runSingleJudge(
 ): Promise<JudgingResult | null> {
   const { client } = input
 
+  const judgeAgent = judgeAgents[judgeIndex]
   const agentOutput: string[] = []
   try {
     const judgeResult = await withTimeout(
       client.run({
-        agent: 'judge',
+        agent: judgeAgent.id,
         prompt: judgePrompt,
-        agentDefinitions: [judgeAgent],
+        agentDefinitions: judgeAgents,
         handleEvent: (event) => {
           if (event.type === 'text') {
             agentOutput.push(event.text)

@@ -140,20 +140,20 @@ describe('context-pruner handleSteps', () => {
     const firstTerminalMessage = resultMessages.find(
       (m: any) =>
         m.role === 'tool' &&
-        m.content?.toolName === 'run_terminal_command' &&
-        m.content?.output?.[0]?.value?.command === 'command-1',
+        m.toolName === 'run_terminal_command' &&
+        m.content?.[0]?.value?.command === 'command-1',
     )
     expect(
-      firstTerminalMessage?.content?.output?.[0]?.value?.stdoutOmittedForLength,
+      firstTerminalMessage?.content?.[0]?.value?.stdoutOmittedForLength,
     ).toBe(true)
 
     // Check that recent terminal commands are preserved (but may be processed by large tool result pass)
     const recentTerminalMessage = resultMessages.find(
       (m: any) =>
         m.role === 'tool' &&
-        m.content?.toolName === 'run_terminal_command' &&
-        (m.content?.output?.[0]?.value?.command === 'command-7' ||
-          m.content?.output?.[0]?.value?.message ===
+        m.toolName === 'run_terminal_command' &&
+        (m.content?.[0]?.value?.command === 'command-7' ||
+          m.content?.[0]?.value?.message ===
             '[LARGE_TOOL_RESULT_OMITTED]'),
     )
     expect(recentTerminalMessage).toBeDefined()
@@ -181,17 +181,17 @@ describe('context-pruner handleSteps', () => {
 
     // Large tool result should be simplified
     const largeResultMessage = resultMessages.find(
-      (m: any) => m.role === 'tool' && m.content?.toolName === 'read_files',
+      (m: any) => m.role === 'tool' && m.toolName === 'read_files',
     )
-    expect(largeResultMessage?.content?.output?.[0]?.value?.message).toBe(
+    expect(largeResultMessage?.content?.[0]?.value?.message).toBe(
       '[LARGE_TOOL_RESULT_OMITTED]',
     )
 
     // Small tool result should be preserved
     const smallResultMessage = resultMessages.find(
-      (m: any) => m.role === 'tool' && m.content?.toolName === 'code_search',
+      (m: any) => m.role === 'tool' && m.toolName === 'code_search',
     )
-    expect(smallResultMessage?.content?.output?.[0]?.value?.data).toBe(
+    expect(smallResultMessage?.content?.[0]?.value?.data).toBe(
       'Small result',
     )
   })
@@ -367,7 +367,7 @@ describe('context-pruner edge cases', () => {
     // Valid terminal command should be processed correctly
     const validCommand = resultMessages.find(
       (m: any) =>
-        m.role === 'tool' && m.content?.toolName === 'run_terminal_command',
+        m.role === 'tool' && m.toolName === 'run_terminal_command',
     )
     expect(validCommand).toBeDefined()
   })
@@ -481,7 +481,7 @@ describe('context-pruner edge cases', () => {
     const hasLargeToolResultReplacement = resultMessages.some(
       (m: any) =>
         m.role === 'tool' &&
-        m.content?.output?.[0]?.value?.message ===
+        m.content?.[0]?.value?.message ===
           '[LARGE_TOOL_RESULT_OMITTED]',
     )
     expect(hasLargeToolResultReplacement).toBe(true)

@@ -14,7 +14,6 @@ import type {
 
 type ToolName = 'read_subtree'
 
-
 export const handleReadSubtree = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<ToolName>
@@ -31,9 +30,44 @@ export const handleReadSubtree = ((params: {
   const allFiles = new Set(getAllFilePaths(fileContext.fileTree))
 
   const buildDirectoryResult = (dirNodes: FileTreeNode[], outPath: string) => {
+    const subTree = deepClone(dirNodes)
+
+    // Remap token scores so keys match the paths built by printFileTreeWithTokens.
+    // When printFileTreeWithTokens walks a subtree starting from dirNodes,
+    // it builds paths starting from the node names, not from an empty root.
+    // So for a node with name 'backend' inside 'packages', the paths will be
+    // 'backend/file.ts', not 'packages/backend/file.ts'.
+    const remappedTokenScores: Record<string, Record<string, number>> = {}
+    const prefix =
+      outPath === '.' || outPath === '/' || outPath === ''
+        ? ''
+        : outPath.replace(/\\/g, '/')
+
+    for (const [filePath, tokens] of Object.entries(
+      fileContext.fileTokenScores,
+    )) {
+      const normalized = filePath.replace(/\\/g, '/')
+      if (!prefix || normalized.startsWith(prefix + '/')) {
+        // Strip the parent path prefix and keep the dirBaseName + remainder
+        const fullPrefix = prefix
+          ? prefix.split('/').slice(0, -1).join('/')
+          : ''
+        const afterParent = fullPrefix
+          ? normalized.startsWith(fullPrefix + '/')
+            ? normalized.slice(fullPrefix.length + 1)
+            : null
+          : normalized
+
+        if (afterParent && !afterParent.startsWith('../')) {
+          remappedTokenScores[afterParent] = tokens
+        }
+      }
+    }
+
     const subctx: ProjectFileContext = {
       ...fileContext,
-      fileTree: deepClone(dirNodes),
+      fileTree: subTree,
+      fileTokenScores: remappedTokenScores,
     }
     const { printedTree, tokenCount, truncationLevel } =
       truncateFileTreeBasedOnTokenBudget({

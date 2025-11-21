@@ -27,7 +27,7 @@ import type {
 import type * as fsType from 'fs'
 
 export type RunState = {
-  sessionState: SessionState
+  sessionState?: SessionState
   output: AgentOutput
 }
 
@@ -459,7 +459,9 @@ export function withAdditionalMessage({
 }): RunState {
   const newRunState = cloneDeep(runState)
 
-  newRunState.sessionState.mainAgentState.messageHistory.push(message)
+  if (newRunState.sessionState) {
+    newRunState.sessionState.mainAgentState.messageHistory.push(message)
+  }
 
   return newRunState
 }
@@ -474,7 +476,9 @@ export function withMessageHistory({
   // Deep copy
   const newRunState = JSON.parse(JSON.stringify(runState)) as typeof runState
 
-  newRunState.sessionState.mainAgentState.messageHistory = messages
+  if (newRunState.sessionState) {
+    newRunState.sessionState.mainAgentState.messageHistory = messages
+  }
 
   return newRunState
 }

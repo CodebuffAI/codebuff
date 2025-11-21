@@ -140,6 +140,64 @@ describe('handleReadSubtree', () => {
     expect(String(errEntry.errorMessage)).toContain('Path not found or ignored')
   })
 
+  it('includes variables when reading a subdirectory with proper path mapping', async () => {
+    const fileContext = buildMockFileContext()
+    const logger = createLogger()
+
+    // Test with a deeper nested structure to expose potential path issues
+    fileContext.fileTree = [
+      {
+        name: 'packages',
+        type: 'directory',
+        filePath: 'packages',
+        children: [
+          {
+            name: 'backend',
+            type: 'directory',
+            filePath: 'packages/backend',
+            children: [
+              {
+                name: 'index.ts',
+                type: 'file',
+                filePath: 'packages/backend/index.ts',
+                lastReadTime: 0,
+              },
+            ],
+          },
+        ],
+      },
+    ]
+    fileContext.fileTokenScores = {
+      'packages/backend/index.ts': { myFunction: 5.0, myClass: 3.0 },
+    }
+
+    const toolCall: CodebuffToolCall<'read_subtree'> = {
+      toolName: 'read_subtree',
+      toolCallId: 'tc-subdir',
+      input: { paths: ['packages/backend'], maxTokens: 50000 },
+    }
+
+    const { result } = handleReadSubtree({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall,
+      fileContext,
+      logger,
+    })
+
+    const output = await result
+    expect(output[0].type).toBe('json')
+    const value = output[0].value as any[]
+    const dirEntry = value.find(
+      (v) => v.type === 'directory' && v.path === 'packages/backend',
+    )
+    expect(dirEntry).toBeTruthy()
+    expect(typeof dirEntry.printedTree).toBe('string')
+
+    // The printedTree should include the variable names from fileTokenScores
+    expect(dirEntry.printedTree).toContain('myFunction')
+    expect(dirEntry.printedTree).toContain('myClass')
+  })
+
   it('honors maxTokens by reducing token count under a tiny budget', async () => {
     const fileContext = buildMockFileContext()
     const logger = createLogger()
