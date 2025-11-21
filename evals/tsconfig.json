@@ -3,7 +3,11 @@
   "compilerOptions": {
     "types": ["bun", "node"],
     "baseUrl": ".",
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "paths": {
+      "@codebuff/sdk": ["../sdk/src/index.ts"],
+      "@codebuff/sdk/*": ["../sdk/src/*"]
+    }
   },
   "include": ["**/*.ts"],
   "exclude": ["node_modules", "test-repos", "../npm-app"]

@@ -5,10 +5,9 @@ import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { loadLocalAgents } from '@codebuff/npm-app/agents/load-agents'
 import { getUserCredentials } from '@codebuff/npm-app/credentials'
 
-import { CodebuffClient } from '../../../sdk/src/index'
+import { CodebuffClient, type RunState } from '@codebuff/sdk'
 
 import type { Runner } from './runner'
-import type { RunState } from '../../../sdk/src/index'
 import type { AgentStep } from '../../scaffolding'
 
 const getLocalAuthToken = () => {

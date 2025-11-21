@@ -7,7 +7,7 @@ import { exec } from 'child_process'
 const execAsync = promisify(exec)
 
 import { withTimeout } from '@codebuff/common/util/promise'
-import { CodebuffClient } from '../../sdk/src/client'
+import { CodebuffClient } from '@codebuff/sdk'
 import { withTestRepo } from '../subagents/test-repo-utils'
 
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'

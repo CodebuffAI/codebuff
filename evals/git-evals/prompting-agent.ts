@@ -1,5 +1,5 @@
 import type { AgentDecisionSchema } from './types'
-import type { CodebuffClient } from '../../sdk/src'
+import type { CodebuffClient } from '@codebuff/sdk'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 import type { z } from 'zod/v4'
 

@@ -1,8 +1,7 @@
 import { z } from 'zod/v4'
 
 import type { FileDiff } from './types'
-import type { AgentDefinition } from '../../sdk/src'
-import type { CodebuffClient } from '../../sdk/src/client'
+import type { AgentDefinition, CodebuffClient } from '@codebuff/sdk'
 import { withTimeout } from '@codebuff/common/util/promise'
 
 export const JudgingResultSchema = z.object({
