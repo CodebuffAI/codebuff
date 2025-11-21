@@ -24,7 +24,13 @@ export function createBestOfNEditor(
     includeMessageHistory: true,
     inheritParentSystemPrompt: true,
 
-    toolNames: ['spawn_agents', 'set_messages', 'set_output'],
+    toolNames: [
+      'spawn_agents',
+      'str_replace',
+      'write_file',
+      'set_messages',
+      'set_output',
+    ],
     spawnableAgents: buildArray(
       'best-of-n-selector-gemini',
       'editor-implementor',
