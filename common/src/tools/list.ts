@@ -63,7 +63,7 @@ export const $toolParams = {
   [K in ToolName]: $ToolParams<K>
 }
 
-// Tool call from LLM
+// Tool call from LLM after parsing
 export type CodebuffToolCall<T extends ToolName = ToolName> = {
   [K in ToolName]: {
     toolName: K
@@ -82,7 +82,6 @@ export type CodebuffToolMessage<T extends ToolName = ToolName> = ToolMessage & {
 }
 
 // Tool call to send to client
-export type ClientToolName = (typeof clientToolNames)[number]
 export const clientToolCallSchema = z.discriminatedUnion('toolName', [
   z.object({
     toolName: z.literal('browser_logs'),
@@ -126,9 +125,12 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
 export const clientToolNames = clientToolCallSchema.def.options.map(
   (opt) => opt.shape.toolName.value,
 ) satisfies ToolName[]
+export type ClientToolName = (typeof clientToolNames)[number]
 
-export type ClientToolCall<T extends ClientToolName = ClientToolName> = z.infer<
-  typeof clientToolCallSchema
-> & { toolName: T } & Omit<ToolCallPart, 'type'>
+export type ClientToolCall<T extends ClientToolName = ClientToolName> = Extract<
+  z.infer<typeof clientToolCallSchema>,
+  { toolName: T }
+> &
+  Pick<ToolCallPart, 'toolCallId' | 'toolName' | 'input' | 'providerOptions'>
 
 export type PublishedClientToolName = ClientToolName & PublishedToolName
