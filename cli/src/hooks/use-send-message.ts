@@ -1419,8 +1419,12 @@ export const useSendMessage = ({
                         ? [...msg.blocks]
                         : []
 
-                      const newAgentBlocks: ContentBlock[] = agents.map(
-                        (agent: any, index: number) => ({
+                      const newAgentBlocks: ContentBlock[] = agents
+                        .filter(
+                          (agent: any) =>
+                            !shouldHideAgent(agent.agent_type || ''),
+                        )
+                        .map((agent: any, index: number) => ({
                           type: 'agent',
                           agentId: `${toolCallId}-${index}`,
                           agentName: agent.agent_type || 'Agent',
@@ -1434,8 +1438,7 @@ export const useSendMessage = ({
                           ) && {
                             isCollapsed: true,
                           }),
-                        }),
-                      )
+                        }))
 
                       return {
                         ...msg,

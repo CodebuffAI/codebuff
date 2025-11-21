@@ -21,3 +21,5 @@ export function getSubsequenceIndices(
 
   return null
 }
+
+export const BULLET_CHAR = '• '

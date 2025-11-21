@@ -2,6 +2,7 @@ import { TextAttributes } from '@opentui/core'
 import { pluralize } from '@codebuff/common/util/string'
 import React, { memo, useCallback, useMemo, type ReactNode } from 'react'
 
+import { shouldRenderAsSimpleText } from '../utils/constants'
 import { AgentBranchItem } from './agent-branch-item'
 import { ElapsedTimer } from './elapsed-timer'
 import { FeedbackIconButton } from './feedback-icon-button'
@@ -28,6 +29,7 @@ import { ContentWithMarkdown } from './blocks/content-with-markdown'
 import { ToolBranch } from './blocks/tool-branch'
 import { PlanBox } from './renderers/plan-box'
 import { AgentListBranch } from './blocks/agent-list-branch'
+import { BULLET_CHAR } from '../utils/strings'
 
 interface MessageBlockProps {
   messageId: string
@@ -85,7 +87,7 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
   })
 
   const theme = useTheme()
-  
+
   // Memoize selectors to prevent new function references on every render
   const selectIsFeedbackOpenMemo = useMemo(
     () => selectIsFeedbackOpenForMessage(messageId),
@@ -99,10 +101,12 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
     () => selectMessageFeedbackCategory(messageId),
     [messageId],
   )
-  
+
   const isFeedbackOpen = useFeedbackStore(selectIsFeedbackOpenMemo)
   const hasSubmittedFeedback = useFeedbackStore(selectHasSubmittedFeedbackMemo)
-  const selectedFeedbackCategory = useFeedbackStore(selectMessageFeedbackCategoryMemo)
+  const selectedFeedbackCategory = useFeedbackStore(
+    selectMessageFeedbackCategoryMemo,
+  )
 
   const resolvedTextColor = textColor ?? theme.foreground
   const shouldShowLoadingTimer = isAi && isLoading && !isComplete
@@ -578,6 +582,28 @@ const AgentBranchWrapper = memo(
     onBuildMax,
   }: AgentBranchWrapperProps) => {
     const theme = useTheme()
+
+    if (shouldRenderAsSimpleText(agentBlock.agentType)) {
+      return (
+        <box
+          key={keyPrefix}
+          style={{
+            flexDirection: 'column',
+          }}
+        >
+          <text
+            style={{
+              wrapMode: 'word',
+              fg: theme.muted,
+            }}
+            attributes={TextAttributes.ITALIC}
+          >
+            {BULLET_CHAR} Selecting the best implementation...
+          </text>
+        </box>
+      )
+    }
+
     const isCollapsed = agentBlock.isCollapsed ?? false
     const isStreaming =
       agentBlock.status === 'running' || streamingAgents.has(agentBlock.agentId)
@@ -626,11 +652,11 @@ const AgentBranchWrapper = memo(
     const nParameterMessage =
       agentBlock.params?.n !== undefined &&
       (agentBlock.agentType.includes('editor-best-of-n')
-        ? `Generating ${agentBlock.params.n} implementations...`
+        ? `${BULLET_CHAR} Generating ${agentBlock.params.n} implementations...`
         : agentBlock.agentType.includes('thinker-best-of-n')
-          ? `Generating ${agentBlock.params.n} deep thoughts...`
+          ? `${BULLET_CHAR} Generating ${agentBlock.params.n} deep thoughts...`
           : agentBlock.agentType.includes('code-reviewer-best-of-n')
-            ? `Generating ${agentBlock.params.n} code reviews...`
+            ? `${BULLET_CHAR} Generating ${agentBlock.params.n} code reviews...`
             : undefined)
 
     return (
