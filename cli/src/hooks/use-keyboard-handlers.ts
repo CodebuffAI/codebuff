@@ -19,6 +19,8 @@ interface KeyboardHandlersConfig {
   historyNavUpEnabled: boolean
   historyNavDownEnabled: boolean
   disabled?: boolean
+  inputValue: string
+  setInputValue: (value: { text: string; cursorPosition: number; lastEditDueToNav: boolean }) => void
 }
 
 export const useKeyboardHandlers = ({
@@ -37,6 +39,8 @@ export const useKeyboardHandlers = ({
   historyNavUpEnabled,
   historyNavDownEnabled,
   disabled = false,
+  inputValue,
+  setInputValue,
 }: KeyboardHandlersConfig) => {
   useKeyboard(
     useCallback(
@@ -45,6 +49,18 @@ export const useKeyboardHandlers = ({
 
         const isEscape = key.name === 'escape'
         const isCtrlC = key.ctrl && key.name === 'c'
+
+        // Handle escape with input: clear input first
+        if (isEscape && !isStreaming && !isWaitingForResponse && inputValue.trim()) {
+          if (
+            'preventDefault' in key &&
+            typeof key.preventDefault === 'function'
+          ) {
+            key.preventDefault()
+          }
+          setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+          return
+        }
 
         if ((isEscape || isCtrlC) && (isStreaming || isWaitingForResponse)) {
           if (
@@ -80,6 +96,8 @@ export const useKeyboardHandlers = ({
         onCtrlC,
         onInterrupt,
         disabled,
+        inputValue,
+        setInputValue,
       ],
     ),
   )

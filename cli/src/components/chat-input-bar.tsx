@@ -6,6 +6,7 @@ import { SuggestionMenu, type SuggestionItem } from './suggestion-menu'
 import { UsageBanner } from './usage-banner'
 import { BORDER_CHARS } from '../utils/ui-constants'
 import { useTheme } from '../hooks/use-theme'
+import { useChatStore } from '../state/chat-store'
 import type { AgentMode } from '../utils/constants'
 import type { InputValue } from '../state/chat-store'
 
@@ -15,17 +16,19 @@ interface ChatInputBarProps {
   // Input state
   inputValue: string
   cursorPosition: number
-  setInputValue: (value: InputValue | ((prev: InputValue) => InputValue)) => void
+  setInputValue: (
+    value: InputValue | ((prev: InputValue) => InputValue),
+  ) => void
   inputFocused: boolean
   inputRef: React.MutableRefObject<MultilineInputHandle | null>
   inputPlaceholder: string
   inputWidth: number
-  
+
   // Agent mode
   agentMode: AgentMode
   toggleAgentMode: () => void
   setAgentMode: (mode: AgentMode) => void
-  
+
   // Suggestion menus
   hasSlashSuggestions: boolean
   hasMentionSuggestions: boolean
@@ -36,19 +39,17 @@ interface ChatInputBarProps {
   slashSelectedIndex: number
   agentSelectedIndex: number
   handleSuggestionMenuKey: (key: any) => boolean
-  
+
   // Layout
   theme: Theme
   terminalHeight: number
   separatorWidth: number
   shouldCenterInputVertically: boolean
   inputBoxTitle: string | undefined
-  
+
   // Feedback mode
   feedbackMode: boolean
-  handleExitFeedback: () => void
-  
-  // Handlers
+  handleExitFeedback: () => void  // Handlers
   handleSubmit: () => Promise<void>
 }
 
@@ -81,6 +82,8 @@ export const ChatInputBar = ({
   handleExitFeedback,
   handleSubmit,
 }: ChatInputBarProps) => {
+  const isBashMode = useChatStore((state) => state.isBashMode)
+  const setBashMode = useChatStore((state) => state.setBashMode)
   if (feedbackMode) {
     return (
       <FeedbackContainer
@@ -91,6 +94,33 @@ export const ChatInputBar = ({
     )
   }
 
+  // Handle input changes with bash mode logic
+  const handleInputChange = (value: InputValue) => {
+    // Detect entering bash mode: user typed '!' at the start when not already in bash mode
+    const userTypedBang = !isBashMode && value.text.startsWith('!')
+
+    if (userTypedBang) {
+      // Enter bash mode: remove the '!' prefix and preserve the rest of the text
+      const textAfterBang = value.text.slice(1)
+      setBashMode(true)
+      setInputValue({
+        text: textAfterBang,
+        cursorPosition: Math.max(0, value.cursorPosition - 1),
+        lastEditDueToNav: value.lastEditDueToNav,
+      })
+      return
+    }
+
+    // Normal input handling
+    setInputValue(value)
+  }
+
+  // Adjust input width for bash mode (subtract 2 for '!' column)
+  const adjustedInputWidth = isBashMode ? inputWidth - 2 : inputWidth
+  const effectivePlaceholder = isBashMode
+    ? 'Enter bash command...'
+    : inputPlaceholder
+
   return (
     <>
       <box
@@ -99,7 +129,7 @@ export const ChatInputBar = ({
         style={{
           width: '100%',
           borderStyle: 'single',
-          borderColor: theme.foreground,
+          borderColor: isBashMode ? theme.error : theme.foreground,
           customBorderChars: BORDER_CHARS,
           paddingLeft: 1,
           paddingRight: 1,
@@ -138,39 +168,49 @@ export const ChatInputBar = ({
           <box
             style={{
               flexDirection: 'row',
-              alignItems: shouldCenterInputVertically
-                ? 'center'
-                : 'flex-start',
+              alignItems: shouldCenterInputVertically ? 'center' : 'flex-start',
               width: '100%',
             }}
           >
+            {isBashMode && (
+              <box
+                style={{
+                  flexShrink: 0,
+                  paddingRight: 1,
+                }}
+              >
+                <text style={{ fg: theme.error }}>!</text>
+              </box>
+            )}
             <box style={{ flexGrow: 1, minWidth: 0 }}>
               <MultilineInput
                 value={inputValue}
-                onChange={setInputValue}
+                onChange={handleInputChange}
                 onSubmit={handleSubmit}
-                placeholder={inputPlaceholder}
+                placeholder={effectivePlaceholder}
                 focused={inputFocused && !feedbackMode}
                 maxHeight={Math.floor(terminalHeight / 2)}
-                width={inputWidth}
+                width={adjustedInputWidth}
                 onKeyIntercept={handleSuggestionMenuKey}
                 textAttributes={theme.messageTextAttributes}
                 ref={inputRef}
                 cursorPosition={cursorPosition}
               />
             </box>
-            <box
-              style={{
-                flexShrink: 0,
-                paddingLeft: 2,
-              }}
-            >
-              <AgentModeToggle
-                mode={agentMode}
-                onToggle={toggleAgentMode}
-                onSelectMode={setAgentMode}
-              />
-            </box>
+            {!isBashMode && (
+              <box
+                style={{
+                  flexShrink: 0,
+                  paddingLeft: 2,
+                }}
+              >
+                <AgentModeToggle
+                  mode={agentMode}
+                  onToggle={toggleAgentMode}
+                  onSelectMode={setAgentMode}
+                />
+              </box>
+            )}
           </box>
         </box>
       </box>

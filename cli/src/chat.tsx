@@ -56,7 +56,7 @@ import type { SendMessageFn } from './types/contracts/send-message'
 import type { User } from './utils/auth'
 import type { AgentMode } from './utils/constants'
 import type { FileTreeNode } from '@codebuff/common/util/file'
-import type { ScrollBoxRenderable } from '@opentui/core'
+import type { KeyEvent, ScrollBoxRenderable } from '@opentui/core'
 import type { UseMutationResult } from '@tanstack/react-query'
 import type { Dispatch, SetStateAction } from 'react'
 
@@ -101,9 +101,11 @@ export const Chat = ({
 
   const [showReconnectionMessage, setShowReconnectionMessage] = useState(false)
   const reconnectionTimeout = useTimeout()
+  const [forceFileOnlyMentions, setForceFileOnlyMentions] = useState(false)
 
   const { separatorWidth, terminalWidth, terminalHeight } =
     useTerminalDimensions()
+  const messageAvailableWidth = separatorWidth
 
   const theme = useTheme()
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
@@ -407,6 +409,7 @@ export const Chat = ({
     : scrollboxProps
 
   const localAgents = useMemo(() => loadLocalAgents(), [])
+  const isBashMode = useChatStore((state) => state.isBashMode)
 
   const {
     slashContext,
@@ -418,12 +421,19 @@ export const Chat = ({
     agentSuggestionItems,
     fileSuggestionItems,
   } = useSuggestionEngine({
-    inputValue,
+    disableAgentSuggestions: forceFileOnlyMentions || isBashMode,
+    inputValue: isBashMode ? '' : inputValue,
     cursorPosition,
     slashCommands: SLASH_COMMANDS,
     localAgents,
     fileTree,
   })
+
+  useEffect(() => {
+    if (!mentionContext.active) {
+      setForceFileOnlyMentions(false)
+    }
+  }, [mentionContext.active])
 
   // Reset suggestion menu indexes when context changes
   useEffect(() => {
@@ -466,19 +476,86 @@ export const Chat = ({
     setAgentSelectedIndex,
   ])
 
-  const { handleSuggestionMenuKey } = useSuggestionMenuHandlers({
-    slashContext,
-    mentionContext,
-    slashMatches,
-    agentMatches,
-    fileMatches,
-    slashSelectedIndex,
-    agentSelectedIndex,
-    inputValue,
-    setInputValue,
-    setSlashSelectedIndex,
-    setAgentSelectedIndex,
-  })
+  const { handleSuggestionMenuKey: handleSuggestionMenuKeyInternal } =
+    useSuggestionMenuHandlers({
+      slashContext,
+      mentionContext,
+      slashMatches,
+      agentMatches,
+      fileMatches,
+      slashSelectedIndex,
+      agentSelectedIndex,
+      inputValue,
+      setInputValue,
+      setSlashSelectedIndex,
+      setAgentSelectedIndex,
+    })
+  const openFileMenuWithTab = useCallback(() => {
+    const safeCursor = Math.max(0, Math.min(cursorPosition, inputValue.length))
+
+    let wordStart = safeCursor
+    while (wordStart > 0 && !/\s/.test(inputValue[wordStart - 1])) {
+      wordStart--
+    }
+
+    const before = inputValue.slice(0, wordStart)
+    const wordAtCursor = inputValue.slice(wordStart, safeCursor)
+    const after = inputValue.slice(safeCursor)
+    const mentionWord = wordAtCursor.startsWith('@')
+      ? wordAtCursor
+      : `@${wordAtCursor}`
+
+    const text = `${before}${mentionWord}${after}`
+    const nextCursor = before.length + mentionWord.length
+
+    setInputValue({
+      text,
+      cursorPosition: nextCursor,
+      lastEditDueToNav: false,
+    })
+    setForceFileOnlyMentions(true)
+  }, [cursorPosition, inputValue, setInputValue])
+
+  const handleSuggestionMenuKey = useCallback(
+    (key: KeyEvent): boolean => {
+      // In bash mode at cursor position 0, backspace should exit bash mode
+      const isBashMode = useChatStore.getState().isBashMode
+      if (isBashMode && cursorPosition === 0 && key.name === 'backspace') {
+        useChatStore.getState().setBashMode(false)
+        return true
+      }
+
+      if (handleSuggestionMenuKeyInternal(key)) {
+        return true
+      }
+
+      const isPlainTab =
+        key &&
+        key.name === 'tab' &&
+        !key.shift &&
+        !key.ctrl &&
+        !key.meta &&
+        !key.option
+
+      if (isPlainTab && !mentionContext.active) {
+        // Only open file menu if there's a word at cursor to complete
+        const safeCursor = Math.max(0, Math.min(cursorPosition, inputValue.length))
+        let wordStart = safeCursor
+        while (wordStart > 0 && !/\s/.test(inputValue[wordStart - 1])) {
+          wordStart--
+        }
+        const hasWordAtCursor = wordStart < safeCursor
+        
+        if (hasWordAtCursor) {
+          openFileMenuWithTab()
+          return true
+        }
+      }
+
+      return false
+    },
+    [handleSuggestionMenuKeyInternal, mentionContext.active, openFileMenuWithTab, inputValue],
+  )
 
   const { saveToHistory, navigateUp, navigateDown } = useInputHistory(
     inputValue,
@@ -561,7 +638,7 @@ export const Chat = ({
     onBeforeMessageSend: validateAgents,
     mainAgentTimer,
     scrollToLatest,
-    availableWidth: separatorWidth,
+    availableWidth: messageAvailableWidth,
     onTimerEvent: () => {}, // No-op for now
     setHasReceivedPlanResponse,
     lastMessageMode,
@@ -704,10 +781,10 @@ export const Chat = ({
       setInputFocused,
       setInputValue,
       setIsAuthenticated,
-      setMessages,
-      setUser,
-      stopStreaming,
-    })
+    setMessages,
+    setUser,
+    stopStreaming,
+  })
 
     if (result?.openFeedbackMode) {
       saveCurrentInput('', 0)
@@ -777,6 +854,8 @@ export const Chat = ({
     historyNavUpEnabled,
     historyNavDownEnabled,
     disabled: feedbackMode,
+    inputValue,
+    setInputValue,
   })
 
   const { tree: messageTree, topLevelMessages } = useMemo(
@@ -793,6 +872,7 @@ export const Chat = ({
   const hasSuggestionMenu = hasSlashSuggestions || hasMentionSuggestions
 
   const inputLayoutMetrics = useMemo(() => {
+    // In bash mode, layout is based on the actual input (no ! prefix needed)
     const text = inputValue ?? ''
     const layoutContent = text.length > 0 ? text : ' '
     const safeCursor = Math.max(
@@ -874,8 +954,6 @@ export const Chat = ({
       style={{
         flexDirection: 'column',
         gap: 0,
-        paddingLeft: 1,
-        paddingRight: 1,
         flexGrow: 1,
       }}
     >
@@ -913,6 +991,8 @@ export const Chat = ({
             shouldFill: true,
             justifyContent: 'flex-end',
             backgroundColor: 'transparent',
+            paddingLeft: 1,
+            paddingRight: 2,
           },
         }}
       >
@@ -934,7 +1014,7 @@ export const Chat = ({
               streamingAgents={streamingAgents}
               messageTree={messageTree}
               messages={messages}
-              availableWidth={separatorWidth}
+              availableWidth={messageAvailableWidth}
               setFocusedAgentId={setFocusedAgentId}
               isWaitingForResponse={isWaitingForResponse}
               timerStartTime={timerStartTime}

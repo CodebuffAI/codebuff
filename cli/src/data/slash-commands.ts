@@ -61,4 +61,10 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     label: 'feedback',
     description: 'Share general feedback about Codebuff',
   },
+  {
+    id: 'bash',
+    label: 'bash',
+    description: 'Enter bash mode ("!" at beginning enters bash mode)',
+    aliases: ['!'],
+  },
 ]

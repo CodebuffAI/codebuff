@@ -3,6 +3,7 @@ import { runTerminalCommand } from '@codebuff/sdk'
 import { handleInitializationFlowLocally } from './init'
 import { handleUsageCommand } from './usage'
 import { useLoginStore } from '../state/login-store'
+import { useChatStore } from '../state/chat-store'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
@@ -41,6 +42,8 @@ export async function routeUserPrompt(params: {
   setUser: (value: React.SetStateAction<User | null>) => void
   stopStreaming: () => void
 }) {
+  const isBashMode = useChatStore.getState().isBashMode
+  const setBashMode = useChatStore.getState().setBashMode
   const {
     abortControllerRef,
     agentMode,
@@ -72,24 +75,26 @@ export async function routeUserPrompt(params: {
   let postUserMessage: Parameters<SendMessageFn>[0]['postUserMessage'] =
     undefined
 
-  if (trimmed.startsWith('!')) {
+  // Handle bash mode commands
+  if (isBashMode) {
+    const commandWithBang = '!' + trimmed
     const toolCallId = crypto.randomUUID()
     const resultBlock: ContentBlock = {
       type: 'tool',
       toolName: 'run_terminal_command',
       toolCallId,
-      input: { command: trimmed.slice(1).trim() },
+      input: { command: trimmed },
       output: '',
     }
 
     setMessages((prev) => [
       ...prev,
-      getUserMessage(trimmed),
+      getUserMessage(commandWithBang),
       getSystemMessage([resultBlock]),
     ])
 
     runTerminalCommand({
-      command: trimmed.slice(1).trim(),
+      command: trimmed,
       process_type: 'SYNC',
       cwd: process.cwd(),
       timeout_seconds: -1,
@@ -116,8 +121,9 @@ export async function routeUserPrompt(params: {
       })
     })
 
-    saveToHistory(trimmed)
+    saveToHistory(commandWithBang)
     setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+    setBashMode(false)
 
     return
   }
@@ -130,6 +136,13 @@ export async function routeUserPrompt(params: {
     saveToHistory(trimmed)
     setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     return { openFeedbackMode: true }
+  }
+
+  if (cmd === 'bash' || cmd === '!') {
+    setBashMode(true)
+    saveToHistory(trimmed)
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+    return
   }
 
   if (cmd === 'login' || cmd === 'signin') {

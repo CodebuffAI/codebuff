@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import stringWidth from 'string-width'
 
+import { useChatStore } from '../state/chat-store'
 import type { InputValue } from '../state/chat-store'
 import type { AgentMode } from '../utils/constants'
 
@@ -26,17 +27,13 @@ export const useChatInput = ({
   onSubmitPrompt,
 }: UseChatInputOptions) => {
   const hasAutoSubmittedRef = useRef(false)
+  const isBashMode = useChatStore((state) => state.isBashMode)
 
   // Estimate the collapsed toggle width as rendered by AgentModeToggle.
-  // Collapsed content is "< LABEL" with 1 column of padding on each side and
-  // a vertical border on each edge. Include the inter-element gap (the right
-  // container has paddingLeft: 2).
-  const MODE_LABELS = { DEFAULT: 'DEFAULT', MAX: 'MAX', PLAN: 'PLAN' } as const
-  const collapsedLabelWidth = stringWidth(`< ${MODE_LABELS[agentMode]}`)
-  const horizontalPadding = 2 // one column padding on each side
-  const collapsedBoxWidth = collapsedLabelWidth + horizontalPadding + 2 // include │ │
-  const gapWidth = 2 // paddingLeft on the toggle container
-  const estimatedToggleWidth = collapsedBoxWidth + gapWidth
+  // In bash mode, we don't show the toggle, so no width needed.
+  const estimatedToggleWidth = isBashMode
+    ? 0
+    : stringWidth(`< ${agentMode}`) + 6 // 2 padding + 2 borders + 2 gap
 
   // The content box that wraps the input row has paddingLeft/paddingRight = 1
   // (see cli/src/chat.tsx). Subtract those columns so our MultilineInput width

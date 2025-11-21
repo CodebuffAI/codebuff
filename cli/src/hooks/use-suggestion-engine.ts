@@ -1,6 +1,14 @@
-import { useDeferredValue, useEffect, useMemo, useRef } from 'react'
+import { promises as fs } from 'fs'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+
+import {
+  getAllFilePaths,
+  getProjectFileTree,
+} from '@codebuff/common/project-file-tree'
 
 import { range } from '../utils/arrays'
+import { getProjectRoot } from '../project-files'
+import { logger } from '../utils/logger'
 
 import type { SuggestionItem } from '../components/suggestion-menu'
 import type { SlashCommand } from '../data/slash-commands'
@@ -14,14 +22,29 @@ export interface TriggerContext {
   startIndex: number
 }
 
+interface LineInfo {
+  lineStart: number
+  line: string
+}
+
+const getCurrentLineInfo = (
+  input: string,
+  cursorPosition?: number,
+): LineInfo => {
+  const upto = cursorPosition ?? input.length
+  const textUpTo = input.slice(0, upto)
+  const lastNewline = textUpTo.lastIndexOf('\n')
+  const lineStart = lastNewline === -1 ? 0 : lastNewline + 1
+  const line = textUpTo.slice(lineStart)
+  return { lineStart, line }
+}
+
 const parseSlashContext = (input: string): TriggerContext => {
   if (!input) {
     return { active: false, query: '', startIndex: -1 }
   }
 
-  const lastNewline = input.lastIndexOf('\n')
-  const lineStart = lastNewline === -1 ? 0 : lastNewline + 1
-  const line = input.slice(lineStart)
+  const { lineStart, line } = getCurrentLineInfo(input)
 
   const match = line.match(/^(\s*)\/([^\s]*)$/)
   if (!match) {
@@ -34,35 +57,98 @@ const parseSlashContext = (input: string): TriggerContext => {
   return { active: true, query: commandSegment, startIndex }
 }
 
-const parseMentionContext = (input: string, cursorPosition: number): TriggerContext => {
+interface MentionParseResult {
+  active: boolean
+  query: string
+  atIndex: number
+}
+
+// Helper to check if a position is inside quotes
+const isInsideQuotes = (text: string, position: number): boolean => {
+  let inSingleQuote = false
+  let inDoubleQuote = false
+  let inBacktick = false
+
+  for (let i = 0; i < position; i++) {
+    const char = text[i]
+    
+    // Check if this character is escaped by counting preceding backslashes
+    let numBackslashes = 0
+    let j = i - 1
+    while (j >= 0 && text[j] === '\\') {
+      numBackslashes++
+      j--
+    }
+    
+    // If there's an odd number of backslashes, the character is escaped
+    const isEscaped = numBackslashes % 2 === 1
+
+    if (!isEscaped) {
+      if (char === "'" && !inDoubleQuote && !inBacktick) {
+        inSingleQuote = !inSingleQuote
+      } else if (char === '"' && !inSingleQuote && !inBacktick) {
+        inDoubleQuote = !inDoubleQuote
+      } else if (char === '`' && !inSingleQuote && !inDoubleQuote) {
+        inBacktick = !inBacktick
+      }
+    }
+  }
+
+  return inSingleQuote || inDoubleQuote || inBacktick
+}
+
+const parseAtInLine = (line: string): MentionParseResult => {
+  const atIndex = line.lastIndexOf('@')
+  if (atIndex === -1) {
+    return { active: false, query: '', atIndex: -1 }
+  }
+
+  // Check if @ is inside quotes
+  if (isInsideQuotes(line, atIndex)) {
+    return { active: false, query: '', atIndex: -1 }
+  }
+
+  const beforeChar = atIndex > 0 ? line[atIndex - 1] : ''
+  
+  // Don't trigger on escaped @: \@
+  if (beforeChar === '\\') {
+    return { active: false, query: '', atIndex: -1 }
+  }
+
+  // Don't trigger on email-like patterns or URLs: user@example.com, https://example.com/@user
+  // Check for alphanumeric, dot, or colon before @
+  if (beforeChar && /[a-zA-Z0-9.:]/.test(beforeChar)) {
+    return { active: false, query: '', atIndex: -1 }
+  }
+
+  // Require whitespace or start of line before @
+  if (beforeChar && !/\s/.test(beforeChar)) {
+    return { active: false, query: '', atIndex: -1 }
+  }
+
+  const afterAt = line.slice(atIndex + 1)
+  const firstSpaceIndex = afterAt.search(/\s/)
+  const query = firstSpaceIndex === -1 ? afterAt : afterAt.slice(0, firstSpaceIndex)
+
+  if (firstSpaceIndex !== -1) {
+    return { active: false, query: '', atIndex: -1 }
+  }
+
+  return { active: true, query, atIndex }
+}
+
+const parseMentionContext = (
+  input: string,
+  cursorPosition: number,
+): TriggerContext => {
   if (!input) {
     return { active: false, query: '', startIndex: -1 }
   }
 
-  const lastNewline = input.lastIndexOf('\n')
-  const lineStart = lastNewline === -1 ? 0 : lastNewline + 1
-  
-  // Only look at text up to cursor position to find the relevant @
-  const textUpToCursor = input.slice(0, cursorPosition)
-  const lineUpToCursor = textUpToCursor.slice(lineStart)
+  const { lineStart, line } = getCurrentLineInfo(input, cursorPosition)
+  const { active, query, atIndex } = parseAtInLine(line)
 
-  const atIndex = lineUpToCursor.lastIndexOf('@')
-  if (atIndex === -1) {
-    return { active: false, query: '', startIndex: -1 }
-  }
-
-  const beforeChar = atIndex > 0 ? lineUpToCursor[atIndex - 1] : ''
-  if (beforeChar && !/\s/.test(beforeChar)) {
-    return { active: false, query: '', startIndex: -1 }
-  }
-
-  // Extract query from @ until the next whitespace or cursor position
-  const afterAt = lineUpToCursor.slice(atIndex + 1)
-  const firstSpaceIndex = afterAt.search(/\s/)
-  const query = firstSpaceIndex === -1 ? afterAt : afterAt.slice(0, firstSpaceIndex)
-
-  // If we found a space in the query, the mention is complete - don't show menu
-  if (firstSpaceIndex !== -1) {
+  if (!active) {
     return { active: false, query: '', startIndex: -1 }
   }
 
@@ -90,13 +176,11 @@ const filterSlashCommands = (
   const normalized = query.toLowerCase()
   const matches: MatchedSlashCommand[] = []
   const seen = new Set<string>()
+  const pushUnique = createPushUnique<MatchedSlashCommand, string>(
+    (command) => command.id,
+    seen,
+  )
   let shouldKeepSearching = true
-  const pushUnique = (command: MatchedSlashCommand) => {
-    if (!seen.has(command.id)) {
-      matches.push(command)
-      seen.add(command.id)
-    }
-  }
 
   // Prefix of ID
   for (const command of commands) {
@@ -118,8 +202,8 @@ const filterSlashCommands = (
       const indices =
         firstIndex === -1
           ? null
-          : [...range(firstIndex, firstIndex + normalized.length)]
-      pushUnique({
+          : createHighlightIndices(firstIndex, firstIndex + normalized.length)
+      pushUnique(matches, {
         ...command,
         ...(indices && { labelHighlightIndices: indices }),
       })
@@ -143,8 +227,8 @@ const filterSlashCommands = (
       const indices =
         firstIndex === -1
           ? null
-          : [...range(firstIndex, firstIndex + normalized.length)]
-      pushUnique({
+          : createHighlightIndices(firstIndex, firstIndex + normalized.length)
+      pushUnique(matches, {
         ...command,
         ...(indices && {
           labelHighlightIndices: indices,
@@ -163,8 +247,8 @@ const filterSlashCommands = (
       const indices =
         firstIndex === -1
           ? null
-          : [...range(firstIndex, firstIndex + normalized.length)]
-      pushUnique({
+          : createHighlightIndices(firstIndex, firstIndex + normalized.length)
+      pushUnique(matches, {
         ...command,
         ...(indices && {
           descriptionHighlightIndices: indices,
@@ -188,100 +272,181 @@ export type MatchedFileInfo = Prettify<{
   pathHighlightIndices?: number[] | null
 }>
 
+const flattenFileTree = (nodes: FileTreeNode[]): string[] =>
+  getAllFilePaths(nodes)
+
+const getFileName = (filePath: string): string => {
+  const lastSlash = filePath.lastIndexOf('/')
+  return lastSlash === -1 ? filePath : filePath.slice(lastSlash + 1)
+}
+
+const createHighlightIndices = (start: number, end: number): number[] => [
+  ...range(start, end),
+]
+
+const createPushUnique = <T, K>(
+  getKey: (item: T) => K,
+  seen: Set<K>,
+) => {
+  return (target: T[], item: T) => {
+    const key = getKey(item)
+    if (!seen.has(key)) {
+      target.push(item)
+      seen.add(key)
+    }
+  }
+}
+
 const filterFileMatches = (
-  files: FileTreeNode[],
+  filePaths: string[],
   query: string,
 ): MatchedFileInfo[] => {
   if (!query) {
     return []
   }
 
-  // Flatten the file tree to get all file paths
-  const flattenFiles = (nodes: FileTreeNode[]): string[] => {
-    const result: string[] = []
-    for (const node of nodes) {
-      if (node.type === 'file') {
-        result.push(node.filePath)
-      } else if (node.type === 'directory' && node.children) {
-        result.push(...flattenFiles(node.children))
-      }
-    }
-    return result
-  }
-
-  const allFilePaths = flattenFiles(files)
   const normalized = query.toLowerCase()
   const matches: MatchedFileInfo[] = []
   const seen = new Set<string>()
-  let shouldKeepSearching = true
 
-  const pushUnique = (target: MatchedFileInfo[], file: MatchedFileInfo) => {
-    if (!seen.has(file.filePath)) {
-      target.push(file)
-      seen.add(file.filePath)
+  const pushUnique = createPushUnique<MatchedFileInfo, string>(
+    (file) => file.filePath,
+    seen,
+  )
+
+  // Check if query contains slashes for path-segment matching
+  const querySegments = normalized.split('/')
+  const hasSlashes = querySegments.length > 1
+
+  // Helper to calculate the longest contiguous match length in the file path
+  const calculateContiguousMatchLength = (filePath: string): number => {
+    const pathLower = filePath.toLowerCase()
+    let maxContiguousLength = 0
+
+    // Try to find the longest contiguous substring that matches the query pattern
+    for (let i = 0; i < pathLower.length; i++) {
+      let matchLength = 0
+      let queryIdx = 0
+      let pathIdx = i
+
+      // Try to match as many characters as possible from this position
+      while (pathIdx < pathLower.length && queryIdx < normalized.length) {
+        if (pathLower[pathIdx] === normalized[queryIdx]) {
+          matchLength++
+          queryIdx++
+          pathIdx++
+        } else {
+          break
+        }
+      }
+
+      maxContiguousLength = Math.max(maxContiguousLength, matchLength)
     }
+
+    return maxContiguousLength
   }
 
-  // Prefix of file path
-  for (const filePath of allFilePaths) {
-    const path = filePath.toLowerCase()
-    const fileName = filePath.split('/').pop() || ''
-    const fileNameLower = fileName.toLowerCase()
+  // Helper to match path segments
+  const matchPathSegments = (filePath: string): number[] | null => {
+    const pathLower = filePath.toLowerCase()
+    const highlightIndices: number[] = []
+    let searchStart = 0
 
-    if (fileNameLower.startsWith(normalized)) {
-      if (normalized === fileNameLower) {
-        shouldKeepSearching = false
+    for (const segment of querySegments) {
+      if (!segment) continue
+      
+      const segmentIndex = pathLower.indexOf(segment, searchStart)
+      if (segmentIndex === -1) {
+        return null
       }
-      pushUnique(matches, {
-        filePath,
-        pathHighlightIndices: [
-          ...range(
+
+      // Add highlight indices for this segment
+      for (let i = 0; i < segment.length; i++) {
+        highlightIndices.push(segmentIndex + i)
+      }
+
+      searchStart = segmentIndex + segment.length
+    }
+
+    return highlightIndices
+  }
+
+  if (hasSlashes) {
+    // Slash-separated path matching
+    for (const filePath of filePaths) {
+      const highlightIndices = matchPathSegments(filePath)
+      if (highlightIndices) {
+        pushUnique(matches, {
+          filePath,
+          pathHighlightIndices: highlightIndices,
+        })
+      }
+    }
+
+    // Sort by contiguous match length (longest first)
+    matches.sort((a, b) => {
+      const aLength = calculateContiguousMatchLength(a.filePath)
+      const bLength = calculateContiguousMatchLength(b.filePath)
+      return bLength - aLength
+    })
+  } else {
+    // Original logic for non-slash queries
+    
+    // Prefix of file name
+    for (const filePath of filePaths) {
+      const fileName = getFileName(filePath)
+      const fileNameLower = fileName.toLowerCase()
+
+      if (fileNameLower.startsWith(normalized)) {
+        pushUnique(matches, {
+          filePath,
+          pathHighlightIndices: createHighlightIndices(
             filePath.lastIndexOf(fileName),
             filePath.lastIndexOf(fileName) + normalized.length,
           ),
-        ],
-      })
-      continue
+        })
+        continue
+      }
+
+      const path = filePath.toLowerCase()
+      if (path.startsWith(normalized)) {
+        pushUnique(matches, {
+          filePath,
+          pathHighlightIndices: createHighlightIndices(0, normalized.length),
+        })
+      }
     }
 
-    if (path.startsWith(normalized)) {
-      pushUnique(matches, {
-        filePath,
-        pathHighlightIndices: [...range(normalized.length)],
-      })
-    }
-  }
+    // Substring of file name or path
+    for (const filePath of filePaths) {
+      if (seen.has(filePath)) continue
+      const path = filePath.toLowerCase()
+      const fileName = getFileName(filePath)
+      const fileNameLower = fileName.toLowerCase()
 
-  // Substring of file name or path
-  for (const filePath of allFilePaths) {
-    if (seen.has(filePath)) continue
-    const path = filePath.toLowerCase()
-    const fileName = filePath.split('/').pop() || ''
-    const fileNameLower = fileName.toLowerCase()
-
-    const fileNameIndex = fileNameLower.indexOf(normalized)
-    if (fileNameIndex !== -1) {
-      const actualFileNameStart = filePath.lastIndexOf(fileName)
-      pushUnique(matches, {
-        filePath,
-        pathHighlightIndices: [
-          ...range(
+      const fileNameIndex = fileNameLower.indexOf(normalized)
+      if (fileNameIndex !== -1) {
+        const actualFileNameStart = filePath.lastIndexOf(fileName)
+        pushUnique(matches, {
+          filePath,
+          pathHighlightIndices: createHighlightIndices(
             actualFileNameStart + fileNameIndex,
             actualFileNameStart + fileNameIndex + normalized.length,
           ),
-        ],
-      })
-      continue
-    }
+        })
+        continue
+      }
 
-    const pathIndex = path.indexOf(normalized)
-    if (pathIndex !== -1) {
-      pushUnique(matches, {
-        filePath,
-        pathHighlightIndices: [
-          ...range(pathIndex, pathIndex + normalized.length),
-        ],
-      })
+      const pathIndex = path.indexOf(normalized)
+      if (pathIndex !== -1) {
+        pushUnique(matches, {
+          filePath,
+          pathHighlightIndices: createHighlightIndices(
+            pathIndex,
+            pathIndex + normalized.length,
+          ),
+        })
+      }
     }
   }
 
@@ -299,14 +464,11 @@ const filterAgentMatches = (
   const normalized = query.toLowerCase()
   const matches: MatchedAgentInfo[] = []
   const seen = new Set<string>()
+  const pushUnique = createPushUnique<MatchedAgentInfo, string>(
+    (agent) => agent.id,
+    seen,
+  )
   let shouldKeepSearching = true
-
-  const pushUnique = (target: MatchedAgentInfo[], agent: MatchedAgentInfo) => {
-    if (!seen.has(agent.id)) {
-      target.push(agent)
-      seen.add(agent.id)
-    }
-  }
 
   // Prefix of ID or name
   for (const agent of agents) {
@@ -318,7 +480,7 @@ const filterAgentMatches = (
       }
       pushUnique(matches, {
         ...agent,
-        idHighlightIndices: [...range(normalized.length)],
+        idHighlightIndices: createHighlightIndices(0, normalized.length),
       })
       continue
     }
@@ -330,7 +492,7 @@ const filterAgentMatches = (
       }
       pushUnique(matches, {
         ...agent,
-        nameHighlightIndices: [...range(normalized.length)],
+        nameHighlightIndices: createHighlightIndices(0, normalized.length),
       })
     }
   }
@@ -343,9 +505,10 @@ const filterAgentMatches = (
     if (idFirstIndex !== -1) {
       pushUnique(matches, {
         ...agent,
-        idHighlightIndices: [
-          ...range(idFirstIndex, idFirstIndex + normalized.length),
-        ],
+        idHighlightIndices: createHighlightIndices(
+          idFirstIndex,
+          idFirstIndex + normalized.length,
+        ),
       })
       continue
     }
@@ -356,9 +519,10 @@ const filterAgentMatches = (
     if (nameFirstIndex !== -1) {
       pushUnique(matches, {
         ...agent,
-        nameHighlightIndices: [
-          ...range(nameFirstIndex, nameFirstIndex + normalized.length),
-        ],
+        nameHighlightIndices: createHighlightIndices(
+          nameFirstIndex,
+          nameFirstIndex + normalized.length,
+        ),
       })
       continue
     }
@@ -384,6 +548,7 @@ interface SuggestionEngineOptions {
   slashCommands: SlashCommand[]
   localAgents: LocalAgentInfo[]
   fileTree: FileTreeNode[]
+  disableAgentSuggestions?: boolean
 }
 
 export const useSuggestionEngine = ({
@@ -392,6 +557,7 @@ export const useSuggestionEngine = ({
   slashCommands,
   localAgents,
   fileTree,
+  disableAgentSuggestions = false,
 }: SuggestionEngineOptions): SuggestionEngineResult => {
   const deferredInput = useDeferredValue(inputValue)
   const slashCacheRef = useRef<Map<string, MatchedSlashCommand[]>>(
@@ -402,6 +568,10 @@ export const useSuggestionEngine = ({
   )
   const fileCacheRef = useRef<Map<string, MatchedFileInfo[]>>(
     new Map<string, MatchedFileInfo[]>(),
+  )
+  const fileRefreshIdRef = useRef(0)
+  const [filePaths, setFilePaths] = useState<string[]>(() =>
+    flattenFileTree(fileTree),
   )
 
   useEffect(() => {
@@ -414,6 +584,10 @@ export const useSuggestionEngine = ({
 
   useEffect(() => {
     fileCacheRef.current.clear()
+  }, [filePaths])
+
+  useEffect(() => {
+    setFilePaths(flattenFileTree(fileTree))
   }, [fileTree])
 
   const slashContext = useMemo(
@@ -425,6 +599,39 @@ export const useSuggestionEngine = ({
     () => parseMentionContext(deferredInput, cursorPosition),
     [deferredInput, cursorPosition],
   )
+
+  useEffect(() => {
+    if (!mentionContext.active) {
+      return
+    }
+
+    const requestId = ++fileRefreshIdRef.current
+    let cancelled = false
+
+    const refreshFilePaths = async () => {
+      try {
+        const projectRoot = getProjectRoot()
+        const freshTree = await getProjectFileTree({
+          projectRoot,
+          fs,
+        })
+
+        if (cancelled || fileRefreshIdRef.current !== requestId) {
+          return
+        }
+
+        setFilePaths(flattenFileTree(freshTree))
+      } catch (error) {
+        logger.debug({ error }, 'Failed to refresh file suggestions from disk')
+      }
+    }
+
+    void refreshFilePaths()
+
+    return () => {
+      cancelled = true
+    }
+  }, [mentionContext.active])
 
   const slashMatches = useMemo<MatchedSlashCommand[]>(() => {
     if (!slashContext.active) {
@@ -443,7 +650,7 @@ export const useSuggestionEngine = ({
   }, [slashContext, slashCommands])
 
   const agentMatches = useMemo<MatchedAgentInfo[]>(() => {
-    if (!mentionContext.active) {
+    if (!mentionContext.active || disableAgentSuggestions) {
       return []
     }
 
@@ -456,7 +663,7 @@ export const useSuggestionEngine = ({
     const computed = filterAgentMatches(localAgents, mentionContext.query)
     agentCacheRef.current.set(key, computed)
     return computed
-  }, [mentionContext, localAgents])
+  }, [mentionContext, localAgents, disableAgentSuggestions])
 
   const fileMatches = useMemo<MatchedFileInfo[]>(() => {
     if (!mentionContext.active) {
@@ -469,10 +676,10 @@ export const useSuggestionEngine = ({
       return cached
     }
 
-    const computed = filterFileMatches(fileTree, mentionContext.query)
+    const computed = filterFileMatches(filePaths, mentionContext.query)
     fileCacheRef.current.set(key, computed)
     return computed
-  }, [mentionContext, fileTree])
+  }, [mentionContext, filePaths])
 
   const slashSuggestionItems = useMemo<SuggestionItem[]>(() => {
     return slashMatches.map((command) => ({
@@ -496,7 +703,7 @@ export const useSuggestionEngine = ({
 
   const fileSuggestionItems = useMemo<SuggestionItem[]>(() => {
     return fileMatches.map((file) => {
-      const fileName = file.filePath.split('/').pop() || file.filePath
+      const fileName = getFileName(file.filePath)
       const isRootLevel = !file.filePath.includes('/')
       
       return {
