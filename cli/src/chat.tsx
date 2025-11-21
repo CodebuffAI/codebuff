@@ -133,15 +133,16 @@ export const Chat = ({
     setLastMessageMode,
     addSessionCredits,
     resetChatStore,
-    sessionCreditsUsed,
-    setRunState,
-    isAnnouncementVisible,
-    setIsAnnouncementVisible,
-  } = useChatStore(
-    useShallow((store) => ({
-      inputValue: store.inputValue,
-      cursorPosition: store.cursorPosition,
-      lastEditDueToNav: store.lastEditDueToNav,
+  sessionCreditsUsed,
+  setRunState,
+  isAnnouncementVisible,
+  setIsAnnouncementVisible,
+  isRetrying,
+} = useChatStore(
+  useShallow((store) => ({
+    inputValue: store.inputValue,
+    cursorPosition: store.cursorPosition,
+    lastEditDueToNav: store.lastEditDueToNav,
       setInputValue: store.setInputValue,
       inputFocused: store.inputFocused,
       setInputFocused: store.setInputFocused,
@@ -168,12 +169,13 @@ export const Chat = ({
       setLastMessageMode: store.setLastMessageMode,
       addSessionCredits: store.addSessionCredits,
       resetChatStore: store.reset,
-      sessionCreditsUsed: store.sessionCreditsUsed,
-      setRunState: store.setRunState,
-      isAnnouncementVisible: store.isAnnouncementVisible,
-      setIsAnnouncementVisible: store.setIsAnnouncementVisible,
-    })),
-  )
+    sessionCreditsUsed: store.sessionCreditsUsed,
+    setRunState: store.setRunState,
+    isAnnouncementVisible: store.isAnnouncementVisible,
+    setIsAnnouncementVisible: store.setIsAnnouncementVisible,
+    isRetrying: store.isRetrying,
+  })),
+)
 
   // Memoize toggle IDs extraction - only recompute when messages change
   const allToggleIds = useMemo(() => {
@@ -204,8 +206,6 @@ export const Chat = ({
   const activeSubagentsRef = useRef<Set<string>>(activeSubagents)
   const abortControllerRef = useRef<AbortController | null>(null)
   const sendMessageRef = useRef<SendMessageFn>()
-  const retryPendingMessagesRef = useRef<(() => Promise<void>) | null>(null)
-  const processFailedMessagesRef = useRef<(() => void) | null>(null)
 
   const { statusMessage } = useClipboard()
 
@@ -537,9 +537,6 @@ export const Chat = ({
   const {
     sendMessage,
     clearMessages,
-    pendingRetryCount,
-    retryPendingMessages,
-    processFailedMessages,
   } = useSendMessage({
     messages,
     allToggleIds,
@@ -575,8 +572,6 @@ export const Chat = ({
   })
 
   sendMessageRef.current = sendMessage
-  retryPendingMessagesRef.current = retryPendingMessages
-  processFailedMessagesRef.current = processFailedMessages
 
   const onSubmitPrompt = useEvent((content: string, mode: AgentMode) => {
     return routeUserPrompt({
@@ -822,6 +817,7 @@ export const Chat = ({
     isConnected,
     authStatus,
     showReconnectionMessage,
+    isRetrying,
   })
   const hasStatusIndicatorContent = statusIndicatorState.kind !== 'idle'
   const inputBoxTitle = useMemo(() => {

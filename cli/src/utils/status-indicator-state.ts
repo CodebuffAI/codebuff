@@ -18,6 +18,7 @@ export type StatusIndicatorStateArgs = {
   nextCtrlCWillExit: boolean
   isConnected: boolean
   authStatus?: AuthStatus
+  isRetrying?: boolean
   /**
    * Whether to show a transient "Reconnected" status message.
    * This should only be true for a short period after a reconnection event.
@@ -45,6 +46,7 @@ export const getStatusIndicatorState = ({
   nextCtrlCWillExit,
   isConnected,
   authStatus = 'ok',
+  isRetrying = false,
   showReconnectionMessage = false,
 }: StatusIndicatorStateArgs): StatusIndicatorState => {
   if (nextCtrlCWillExit) {
@@ -63,6 +65,9 @@ export const getStatusIndicatorState = ({
   // If we're online but the auth request hit a retryable error and is auto-retrying,
   // surface that explicitly to the user.
   if (authStatus === 'retrying') {
+    return { kind: 'retrying' }
+  }
+  if (isRetrying) {
     return { kind: 'retrying' }
   }
 

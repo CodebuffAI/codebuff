@@ -54,6 +54,15 @@ describe('StatusIndicator state logic', () => {
       expect(state.kind).toBe('retrying')
     })
 
+    test('returns retrying state when message send is retrying', () => {
+      const state = getStatusIndicatorState({
+        ...baseArgs,
+        isRetrying: true,
+        streamStatus: 'waiting',
+      })
+      expect(state.kind).toBe('retrying')
+    })
+
     test('returns connecting state when not connected (third priority)', () => {
       const state = getStatusIndicatorState({
         ...baseArgs,

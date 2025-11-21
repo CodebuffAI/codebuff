@@ -151,6 +151,23 @@ describe('API Integration', () => {
       // 401s are now logged as auth failures
       expect(testLogger.error.mock.calls.length).toBeGreaterThan(0)
     })
+
+    test('should treat 404 from /api/v1/me as invalid credentials (AuthenticationError)', async () => {
+      setFetchMock(async () => {
+        return new Response(null, { status: 404 })
+      })
+      const testLogger = createLoggerMocks()
+
+      await expect(
+        getUserInfoFromApiKey({
+          apiKey: 'not-found-token',
+          fields: ['id'],
+          logger: testLogger,
+        }),
+      ).rejects.toBeInstanceOf(AuthenticationError)
+
+      expect(testLogger.error.mock.calls.length).toBeGreaterThan(0)
+    })
   })
 
   describe('P1: Error Response Handling', () => {

@@ -33,6 +33,7 @@ export type ChatStoreState = {
   runState: RunState | null
   isUsageVisible: boolean
   isAnnouncementVisible: boolean
+  isRetrying: boolean
 }
 
 type ChatStoreActions = {
@@ -63,6 +64,7 @@ type ChatStoreActions = {
   setRunState: (runState: RunState | null) => void
   setIsUsageVisible: (visible: boolean) => void
   setIsAnnouncementVisible: (visible: boolean) => void
+  setIsRetrying: (retrying: boolean) => void
   reset: () => void
 }
 
@@ -87,6 +89,7 @@ const initialState: ChatStoreState = {
   runState: null,
   isUsageVisible: false,
   isAnnouncementVisible: true,
+  isRetrying: false,
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -200,6 +203,11 @@ export const useChatStore = create<ChatStore>()(
         state.isAnnouncementVisible = visible
       }),
 
+    setIsRetrying: (retrying) =>
+      set((state) => {
+        state.isRetrying = retrying
+      }),
+
     reset: () =>
       set((state) => {
         state.messages = initialState.messages.slice()
@@ -222,6 +230,7 @@ export const useChatStore = create<ChatStore>()(
           : null
         state.isUsageVisible = initialState.isUsageVisible
         state.isAnnouncementVisible = initialState.isAnnouncementVisible
+        state.isRetrying = initialState.isRetrying
       }),
   })),
 )
