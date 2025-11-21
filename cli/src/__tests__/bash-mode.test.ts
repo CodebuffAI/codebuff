@@ -9,7 +9,7 @@ import { describe, test, expect, beforeEach, mock } from 'bun:test'
  * Key behaviors:
  * 1. Typing '!' enters bash mode and clears input to ''
  * 2. In bash mode, input is stored WITHOUT '!' prefix
- * 3. Backspace on empty input exits bash mode
+ * 3. Backspace at cursor position 0 exits bash mode (even with input)
  * 4. Submission prepends '!' to the command
  */
 
@@ -90,47 +90,61 @@ describe('bash-mode', () => {
   })
   
   describe('exiting bash mode', () => {
-    test('backspace on empty input exits bash mode', () => {
+    test('backspace at cursor position 0 exits bash mode', () => {
       const setBashMode = mock(() => {})
       
-      // Simulate backspace key press in bash mode with empty input
+      // Simulate backspace key press in bash mode at cursor position 0
       const isBashMode = true
-      const inputValue = ''
+      const cursorPosition = 0
       const key = { name: 'backspace' }
       
       // This simulates the handleSuggestionMenuKey logic
-      if (isBashMode && inputValue === '' && key.name === 'backspace') {
+      if (isBashMode && cursorPosition === 0 && key.name === 'backspace') {
         setBashMode()
       }
       
       expect(setBashMode).toHaveBeenCalled()
     })
     
-    test('backspace on non-empty input does NOT exit bash mode', () => {
+    test('backspace at cursor position 0 with non-empty input DOES exit bash mode', () => {
       const setBashMode = mock(() => {})
       
       const isBashMode = true
       const inputValue: string = 'ls'
-      const emptyString = ''
+      const cursorPosition = 0
       const key = { name: 'backspace' }
-      const isInputEmpty = inputValue === emptyString
       
-      if (isBashMode && isInputEmpty && key.name === 'backspace') {
+      if (isBashMode && cursorPosition === 0 && key.name === 'backspace') {
         setBashMode()
       }
       
-      // Should not exit because input is not empty
-      expect(setBashMode).not.toHaveBeenCalled()
+      // Should exit even though input is not empty, because cursor is at position 0
+      expect(setBashMode).toHaveBeenCalled()
     })
     
-    test('other keys on empty input do NOT exit bash mode', () => {
+    test('backspace at cursor position > 0 does NOT exit bash mode', () => {
       const setBashMode = mock(() => {})
       
       const isBashMode = true
-      const inputValue = ''
+      const cursorPosition: number = 2
+      const key = { name: 'backspace' }
+      
+      if (isBashMode && cursorPosition === 0 && key.name === 'backspace') {
+        setBashMode()
+      }
+      
+      // Should not exit because cursor is not at position 0
+      expect(setBashMode).not.toHaveBeenCalled()
+    })
+    
+    test('other keys at cursor position 0 do NOT exit bash mode', () => {
+      const setBashMode = mock(() => {})
+      
+      const isBashMode = true
+      const cursorPosition = 0
       const key = { name: 'a' } // Regular key press
       
-      if (isBashMode && inputValue === '' && key.name === 'backspace') {
+      if (isBashMode && cursorPosition === 0 && key.name === 'backspace') {
         setBashMode()
       }
       
@@ -142,10 +156,10 @@ describe('bash-mode', () => {
       const setBashMode = mock(() => {})
       
       const isBashMode = false
-      const inputValue = ''
+      const cursorPosition = 0
       const key = { name: 'backspace' }
       
-      if (isBashMode && inputValue === '' && key.name === 'backspace') {
+      if (isBashMode && cursorPosition === 0 && key.name === 'backspace') {
         setBashMode()
       }
       

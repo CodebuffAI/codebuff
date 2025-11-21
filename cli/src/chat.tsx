@@ -508,9 +508,9 @@ export const Chat = ({
 
   const handleSuggestionMenuKey = useCallback(
     (key: KeyEvent): boolean => {
-      // In bash mode with empty input, backspace should exit bash mode
+      // In bash mode at cursor position 0, backspace should exit bash mode
       const isBashMode = useChatStore.getState().isBashMode
-      if (isBashMode && inputValue === '' && key.name === 'backspace') {
+      if (isBashMode && cursorPosition === 0 && key.name === 'backspace') {
         useChatStore.getState().setBashMode(false)
         return true
       }
