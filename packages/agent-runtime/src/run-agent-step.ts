@@ -406,19 +406,6 @@ export const runAgentStep = async (
       (result) => !TOOLS_WHICH_WONT_FORCE_NEXT_STEP.includes(result.toolName),
     ).length === 0
 
-  // Exception: if the only tool call is write_todos and all todos are completed, then end turn.
-  let hasOnlyFinishedTodos = false
-  if (
-    toolCalls.every((call) => call.toolName === 'write_todos') &&
-    toolCalls.some((call) =>
-      (call.input.todos as { task: string; completed: boolean }[]).every(
-        (todo) => todo.completed,
-      ),
-    )
-  ) {
-    hasOnlyFinishedTodos = true
-  }
-
   const hasTaskCompleted = toolCalls.some(
     (call) =>
       call.toolName === 'task_completed' || call.toolName === 'end_turn',
@@ -435,8 +422,8 @@ export const runAgentStep = async (
     // - end_turn is called (backward compatibility)
     shouldEndTurn = hasTaskCompleted
   } else {
-    // For other models, also end turn when there are no tool calls or only a call to finished todos
-    shouldEndTurn = hasTaskCompleted || hasNoToolResults || hasOnlyFinishedTodos
+    // For other models, also end turn when there are no tool calls
+    shouldEndTurn = hasTaskCompleted || hasNoToolResults
   }
 
   agentState = {
