@@ -28,12 +28,7 @@ import { webSearchParams } from './params/tool/web-search'
 import { writeFileParams } from './params/tool/write-file'
 import { writeTodosParams } from './params/tool/write-todos'
 
-import type {
-  $ToolParams,
-  $ToolResults,
-  PublishedToolName,
-  ToolName,
-} from './constants'
+import type { $ToolParams, PublishedToolName, ToolName } from './constants'
 import type { ToolMessage } from '../types/messages/codebuff-message'
 import type { ToolCallPart } from '../types/messages/content-part'
 
@@ -68,11 +63,6 @@ export const $toolParams = {
   [K in ToolName]: $ToolParams<K>
 }
 
-export const additionalToolResultSchemas = {
-  // None for now!
-} satisfies Record<string, $ToolResults>
-type ResultOnlyToolName = keyof typeof additionalToolResultSchemas
-
 // Tool call from LLM
 export type CodebuffToolCall<T extends ToolName = ToolName> = {
   [K in ToolName]: {
@@ -81,19 +71,15 @@ export type CodebuffToolCall<T extends ToolName = ToolName> = {
   } & Omit<ToolCallPart, 'type'>
 }[T]
 
-export type CodebuffToolOutput<
-  T extends ToolName | ResultOnlyToolName = ToolName,
-> = {
-  [K in ToolName | ResultOnlyToolName]: K extends ToolName
+export type CodebuffToolOutput<T extends ToolName = ToolName> = {
+  [K in ToolName]: K extends ToolName
     ? z.infer<(typeof $toolParams)[K]['outputs']>
-    : K extends ResultOnlyToolName
-      ? z.infer<(typeof additionalToolResultSchemas)[K]['outputs']>
-      : never
+    : never
 }[T]
 
-export type CodebuffToolMessage<
-  T extends ToolName | ResultOnlyToolName = ToolName,
-> = ToolMessage & { content: CodebuffToolOutput<T> }
+export type CodebuffToolMessage<T extends ToolName = ToolName> = ToolMessage & {
+  content: CodebuffToolOutput<T>
+}
 
 // Tool call to send to client
 export type ClientToolName = (typeof clientToolNames)[number]
