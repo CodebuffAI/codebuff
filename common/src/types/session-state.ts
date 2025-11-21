@@ -1,7 +1,6 @@
 import { z } from 'zod/v4'
 
 import { MAX_AGENT_STEPS_DEFAULT } from '../constants/agents'
-import { ProjectFileContextSchema } from '../util/file'
 import { messageSchema } from './messages/codebuff-message'
 
 import type { Message } from './messages/codebuff-message'
@@ -124,11 +123,10 @@ export type AgentTemplateType =
   | z.infer<typeof agentTemplateTypeSchema>
   | (string & {})
 
-export const SessionStateSchema = z.object({
-  fileContext: ProjectFileContextSchema,
-  mainAgentState: AgentStateSchema,
-})
-export type SessionState = z.infer<typeof SessionStateSchema>
+export type SessionState = {
+  fileContext: ProjectFileContext
+  mainAgentState: AgentState
+}
 
 export function getInitialAgentState(): AgentState {
   return {
