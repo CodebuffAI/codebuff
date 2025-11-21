@@ -138,6 +138,13 @@ export async function routeUserPrompt(params: {
     return { openFeedbackMode: true }
   }
 
+  if (cmd === 'bash' || cmd === '!') {
+    setBashMode(true)
+    saveToHistory(trimmed)
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+    return
+  }
+
   if (cmd === 'login' || cmd === 'signin') {
     setMessages((prev) => [
       ...prev,

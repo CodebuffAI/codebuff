@@ -850,6 +850,8 @@ export const Chat = ({
     historyNavUpEnabled,
     historyNavDownEnabled,
     disabled: feedbackMode,
+    inputValue,
+    setInputValue,
   })
 
   const { tree: messageTree, topLevelMessages } = useMemo(
