@@ -94,6 +94,7 @@ export type ChatMessage = {
   completionTime?: string
   isComplete?: boolean
   metadata?: Record<string, any>
+  validationErrors?: Array<{ id: string; message: string }>
 }
 
 // Type guard functions for safe type narrowing

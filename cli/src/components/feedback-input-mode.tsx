@@ -142,6 +142,7 @@ interface FeedbackInputModeProps {
   onClear: () => void
   inputRef?: React.MutableRefObject<any>
   width: number
+  footerMessage?: string | null
 }
 
 export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
@@ -156,6 +157,7 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
   onClear,
   inputRef: externalInputRef,
   width,
+  footerMessage,
 }) => {
   const theme = useTheme()
   const internalInputRef = useRef<MultilineInputHandle | null>(null)
@@ -215,21 +217,23 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
+          marginTop: 1,
         }}
       >
-        <text style={{ wrapMode: 'none' }}>
+        <text style={{ wrapMode: 'none', marginLeft: 1, marginRight: 1 }}>
           <span fg={theme.secondary}>
-            Share feedback — thanks for helping us improve!
+            Share your feedback — thanks for helping us improve!
           </span>
         </text>
         <box
+          style={{ paddingRight: 1 }}
           onMouseDown={onCancel}
           onMouseOver={() => setCloseButtonHovered(true)}
           onMouseOut={() => setCloseButtonHovered(false)}
         >
           <text style={{ wrapMode: 'none' }} selectable={false}>
-            <span fg={closeButtonHovered ? theme.foreground : theme.muted}>
-              X
+            <span fg={closeButtonHovered ? theme.foreground : theme.secondary}>
+              [x]
             </span>
           </text>
         </box>
@@ -308,7 +312,9 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
         }}
       >
         <text style={{ wrapMode: 'none' }}>
-          <span fg={theme.muted}>Session details are auto-attached</span>
+          <span fg={theme.muted}>
+            {footerMessage || 'Session details are auto-attached'}
+          </span>
         </text>
         <Button
           onClick={() => {

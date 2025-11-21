@@ -11,10 +11,19 @@ interface FeedbackState {
   savedCursorPosition: number
   messagesWithFeedback: Set<string>
   messageFeedbackCategories: Map<string, string>
+  feedbackFooterMessage: string | null
+  errors: Array<{ id: string; message: string }> | null
 }
 
 interface FeedbackActions {
-  openFeedbackForMessage: (messageId: string | null) => void
+  openFeedbackForMessage: (
+    messageId: string | null,
+    options?: {
+      category?: string
+      footerMessage?: string
+      errors?: Array<{ id: string; message: string }>
+    },
+  ) => void
   closeFeedback: () => void
   setFeedbackText: (text: string) => void
   setFeedbackCursor: (cursor: number) => void
@@ -38,19 +47,23 @@ const initialState: FeedbackState = {
   savedCursorPosition: 0,
   messagesWithFeedback: new Set(),
   messageFeedbackCategories: new Map(),
+  feedbackFooterMessage: null,
+  errors: null,
 }
 
 export const useFeedbackStore = create<FeedbackStore>()(
   immer((set, get) => ({
     ...initialState,
 
-    openFeedbackForMessage: (messageId) =>
+    openFeedbackForMessage: (messageId, options) =>
       set((state) => {
         state.feedbackMessageId = messageId
         state.feedbackMode = true
         state.feedbackText = ''
         state.feedbackCursor = 0
-        state.feedbackCategory = 'other'
+        state.feedbackCategory = options?.category || 'other'
+        state.feedbackFooterMessage = options?.footerMessage || null
+        state.errors = options?.errors || null
       }),
 
     closeFeedback: () =>
@@ -100,6 +113,8 @@ export const useFeedbackStore = create<FeedbackStore>()(
         state.feedbackCursor = 0
         state.feedbackCategory = 'other'
         state.feedbackMessageId = null
+        state.feedbackFooterMessage = null
+        state.errors = null
       }),
 
     reset: () =>

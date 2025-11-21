@@ -20,7 +20,6 @@ import { NetworkError, RETRYABLE_ERROR_CODES } from '@codebuff/sdk'
 import type { AuthStatus } from './utils/status-indicator-state'
 import { getProjectRoot } from './project-files'
 import { useChatStore } from './state/chat-store'
-import { createValidationErrorBlocks } from './utils/create-validation-error-blocks'
 import { openFileAtPath } from './utils/open-file'
 
 import type { MultilineInputHandle } from './components/multiline-input'
@@ -198,24 +197,6 @@ export const App = ({
             />
           </box>
         ) : null}
-        {validationErrors.length > 0 && (
-          <box style={{ flexDirection: 'column', gap: 0 }}>
-            {createValidationErrorBlocks({
-              errors: validationErrors,
-              loadedAgentsData,
-              availableWidth: separatorWidth,
-            }).map((block, idx) => {
-              if (block.type === 'html') {
-                return (
-                  <box key={`validation-error-${idx}`}>
-                    {block.render({ textColor: theme.foreground, theme })}
-                  </box>
-                )
-              }
-              return null
-            })}
-          </box>
-        )}
       </box>
     )
   }, [
@@ -223,8 +204,6 @@ export const App = ({
     logoBlock,
     theme,
     isAgentListCollapsed,
-    validationErrors,
-    separatorWidth,
   ])
 
   // Derive auth reachability + retrying state inline from authQuery error

@@ -21,6 +21,7 @@ import { initAnalytics } from './utils/analytics'
 import { loadAgentDefinitions } from './utils/load-agent-definitions'
 import { getLoadedAgentsData } from './utils/local-agent-registry'
 import { clearLogFile, logger } from './utils/logger'
+import { filterNetworkErrors } from './utils/validation-error-helpers'
 
 import type { FileTreeNode } from '@codebuff/common/util/file'
 
@@ -161,7 +162,7 @@ async function main(): Promise<void> {
     })
 
     if (!validationResult.success) {
-      validationErrors = validationResult.validationErrors
+      validationErrors = filterNetworkErrors(validationResult.validationErrors)
     }
   }
 

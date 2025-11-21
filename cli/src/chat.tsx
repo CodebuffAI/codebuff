@@ -37,7 +37,7 @@ import { useSuggestionMenuHandlers } from './hooks/use-suggestion-menu-handlers'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTheme } from './hooks/use-theme'
 import { useTimeout } from './hooks/use-timeout'
-import { useValidationBanner } from './hooks/use-validation-banner'
+
 import { useChatStore } from './state/chat-store'
 import { useFeedbackStore } from './state/feedback-store'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
@@ -651,6 +651,7 @@ export const Chat = ({
     resumeQueue,
     continueChat,
     continueChatId,
+    onOpenFeedback: () => handleOpenFeedbackForMessage(null),
   })
 
   sendMessageRef.current = sendMessage
@@ -720,16 +721,30 @@ export const Chat = ({
   }, [cursorPosition])
 
   const handleOpenFeedbackForMessage = useCallback(
-    (id: string | null) => {
+    (
+      id: string | null,
+      options?: {
+        category?: string
+        footerMessage?: string
+        errors?: Array<{ id: string; message: string }>
+      },
+    ) => {
       saveCurrentInput(inputValueRef.current, cursorPositionRef.current)
-      openFeedbackForMessage(id)
+      openFeedbackForMessage(id, options)
     },
     [saveCurrentInput, openFeedbackForMessage],
   )
 
   const handleMessageFeedback = useCallback(
-    (id: string) => {
-      handleOpenFeedbackForMessage(id)
+    (
+      id: string,
+      options?: {
+        category?: string
+        footerMessage?: string
+        errors?: Array<{ id: string; message: string }>
+      },
+    ) => {
+      handleOpenFeedbackForMessage(id, options)
     },
     [handleOpenFeedbackForMessage],
   )
@@ -945,11 +960,6 @@ export const Chat = ({
       [handleOpenFeedbackForLatestMessage, feedbackMode],
     ),
   )
-  const validationBanner = useValidationBanner({
-    liveValidationErrors: validationErrors,
-    loadedAgentsData,
-    theme,
-  })
 
   return (
     <box
@@ -1036,6 +1046,7 @@ export const Chat = ({
           backgroundColor: 'transparent',
         }}
       >
+
         {shouldShowStatusLine && (
           <StatusBar
             statusMessage={statusMessage}
@@ -1081,8 +1092,6 @@ export const Chat = ({
           handleSubmit={handleSubmit}
         />
       </box>
-
-      {validationBanner}
     </box>
   )
 }

@@ -30,7 +30,14 @@ interface MessageWithAgentsProps {
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
-  onFeedback: (messageId: string) => void
+  onFeedback: (
+    messageId: string,
+    options?: {
+      category?: string
+      footerMessage?: string
+      errors?: Array<{ id: string; message: string }>
+    },
+  ) => void
   onCloseFeedback: () => void
 }
 
@@ -56,6 +63,22 @@ export const MessageWithAgents = memo(
   }: MessageWithAgentsProps): ReactNode => {
     const SIDE_GUTTER = 1
     const isAgent = message.variant === 'agent'
+
+    const contentBoxStyle = useMemo(
+      () => ({
+        backgroundColor: theme.background,
+        padding: 0,
+        paddingLeft: SIDE_GUTTER,
+        paddingRight: SIDE_GUTTER,
+        paddingTop: 0,
+        paddingBottom: 0,
+        gap: 0,
+        width: '100%' as const,
+        flexGrow: 1,
+        justifyContent: 'center' as const,
+      }),
+      [theme.background],
+    )
 
     if (isAgent) {
       return (
@@ -133,7 +156,7 @@ export const MessageWithAgents = memo(
           width: '100%',
           flexDirection: 'column',
           gap: 0,
-          marginBottom: isLastMessage ? 0 : 1,
+          paddingBottom: isLastMessage ? 0 : 1,
         }}
       >
         <box
@@ -160,20 +183,7 @@ export const MessageWithAgents = memo(
                   marginBottom: 0,
                 }}
               />
-              <box
-                style={{
-                  backgroundColor: theme.background,
-                  padding: 0,
-                  paddingLeft: SIDE_GUTTER,
-                  paddingRight: SIDE_GUTTER,
-                  paddingTop: 0,
-                  paddingBottom: 0,
-                  gap: 0,
-                  width: '100%',
-                  flexGrow: 1,
-                  justifyContent: 'center',
-                }}
-              >
+              <box style={contentBoxStyle}>
                 <MessageBlock
                   messageId={message.id}
                   blocks={message.blocks}
@@ -197,24 +207,17 @@ export const MessageWithAgents = memo(
                   onBuildMax={onBuildMax}
                   onFeedback={onFeedback}
                   onCloseFeedback={onCloseFeedback}
+                  validationErrors={message.validationErrors}
+                  onOpenFeedback={
+                    onFeedback
+                      ? (options) => onFeedback(message.id, options)
+                      : undefined
+                  }
                 />
               </box>
             </box>
           ) : (
-            <box
-              style={{
-                backgroundColor: theme.background,
-                padding: 0,
-                paddingLeft: SIDE_GUTTER,
-                paddingRight: SIDE_GUTTER,
-                paddingTop: 0,
-                paddingBottom: 0,
-                gap: 0,
-                width: '100%',
-                flexGrow: 1,
-                justifyContent: 'center',
-              }}
-            >
+            <box style={contentBoxStyle}>
               <MessageBlock
                 messageId={message.id}
                 blocks={message.blocks}
@@ -290,7 +293,14 @@ interface AgentMessageProps {
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
-  onFeedback: (messageId: string) => void
+  onFeedback: (
+    messageId: string,
+    options?: {
+      category?: string
+      footerMessage?: string
+      errors?: Array<{ id: string; message: string }>
+    },
+  ) => void
   onCloseFeedback: () => void
 }
 
@@ -417,7 +427,7 @@ const AgentMessage = memo(
               </text>
             </Button>
             <Button
-              style={{ flexShrink: 1, marginBottom: isCollapsed ? 1 : 0 }}
+              style={{ flexShrink: 1, paddingBottom: isCollapsed ? 1 : 0 }}
               onClick={handleContentClick}
             >
               {isStreaming && isCollapsed && streamingPreview && (

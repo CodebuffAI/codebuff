@@ -1,10 +1,12 @@
 import { pluralize } from '@codebuff/common/util/string'
 import { TextAttributes } from '@opentui/core'
-import React, { memo, useCallback, useMemo, type ReactNode } from 'react'
+import React, { memo, useCallback, useMemo, useState, type ReactNode } from 'react'
 
 import { AgentBranchItem } from './agent-branch-item'
+import { Button } from './button'
 import { ElapsedTimer } from './elapsed-timer'
 import { FeedbackIconButton } from './feedback-icon-button'
+import { ValidationErrorPopover } from './validation-error-popover'
 import { useTheme } from '../hooks/use-theme'
 import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
 import {
@@ -58,37 +60,79 @@ interface MessageBlockProps {
   onBuildMax: () => void
   onFeedback?: (messageId: string) => void
   onCloseFeedback?: () => void
+  validationErrors?: Array<{ id: string; message: string }>
+  onOpenFeedback?: (options?: {
+    category?: string
+    footerMessage?: string
+    errors?: Array<{ id: string; message: string }>
+  }) => void
 }
 
-export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
-  const {
+import { BORDER_CHARS } from '../utils/ui-constants'
+
+export const MessageBlock: React.FC<MessageBlockProps> = ({
+  messageId,
+  blocks,
+  content,
+  isUser,
+  isAi,
+  isLoading,
+  timestamp,
+  isComplete,
+  completionTime,
+  credits,
+  timerStartTime,
+  textColor,
+  timestampColor,
+  markdownOptions,
+  availableWidth,
+  markdownPalette,
+  streamingAgents,
+  onToggleCollapsed,
+  onBuildFast,
+  onBuildMax,
+  onFeedback,
+  onCloseFeedback,
+  validationErrors,
+  onOpenFeedback,
+}) => {
+  const [showValidationPopover, setShowValidationPopover] = useState(false)
+  const [isErrorButtonHovered, setIsErrorButtonHovered] = useState(false)
+  
+  useWhyDidYouUpdateById(
+    'MessageBlock',
     messageId,
-    blocks,
-    content,
-    isUser,
-    isAi,
-    isLoading,
-    timestamp,
-    isComplete,
-    completionTime,
-    credits,
-    timerStartTime,
-    textColor,
-    timestampColor,
-    markdownOptions,
-    availableWidth,
-    markdownPalette,
-    streamingAgents,
-    onToggleCollapsed,
-    onBuildFast,
-    onBuildMax,
-    onFeedback,
-    onCloseFeedback,
-  } = props
-  useWhyDidYouUpdateById('MessageBlock', messageId, props, {
-    logLevel: 'debug',
-    enabled: false,
-  })
+    {
+      messageId,
+      blocks,
+      content,
+      isUser,
+      isAi,
+      isLoading,
+      timestamp,
+      isComplete,
+      completionTime,
+      credits,
+      timerStartTime,
+      textColor,
+      timestampColor,
+      markdownOptions,
+      availableWidth,
+      markdownPalette,
+      streamingAgents,
+      onToggleCollapsed,
+      onBuildFast,
+      onBuildMax,
+      onFeedback,
+      onCloseFeedback,
+      validationErrors,
+      onOpenFeedback,
+    },
+    {
+      logLevel: 'debug',
+      enabled: false,
+    },
+  )
 
   const theme = useTheme()
 
@@ -251,23 +295,57 @@ export const MessageBlock = memo((props: MessageBlockProps): ReactNode => {
   }
 
   return (
-    <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
+    <box
+      style={{
+        flexDirection: 'column',
+        width: '100%',
+      }}
+    >
+      {/* User message timestamp with error indicator button */}
       {isUser && (
-        <text
-          attributes={TextAttributes.DIM}
-          style={{
-            wrapMode: 'none',
-            fg: timestampColor,
-            marginTop: 0,
-            marginBottom: 0,
-            alignSelf: 'flex-start',
-          }}
-        >
-          {`[${timestamp}]`}
-        </text>
+        <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
+          <text
+            attributes={TextAttributes.DIM}
+            style={{
+              wrapMode: 'none',
+              fg: timestampColor,
+            }}
+          >
+            {`[${timestamp}]`}
+          </text>
+          
+          {validationErrors && validationErrors.length > 0 && (
+            <Button
+              onClick={() => setShowValidationPopover(!showValidationPopover)}
+              onMouseOver={() => setIsErrorButtonHovered(true)}
+              onMouseOut={() => setIsErrorButtonHovered(false)}
+            >
+              <text
+                style={{
+                  fg: 'red',
+                  wrapMode: 'none',
+                }}
+              >
+                [!]
+              </text>
+            </Button>
+          )}
+        </box>
       )}
+      
+      {/* Show validation popover below timestamp when expanded */}
+      {isUser && validationErrors && validationErrors.length > 0 && showValidationPopover && (
+        <box style={{ paddingTop: 1, paddingBottom: 1 }}>
+          <ValidationErrorPopover
+            errors={validationErrors}
+            onOpenFeedback={onOpenFeedback}
+            onClose={() => setShowValidationPopover(false)}
+          />
+        </box>
+      )}
+      
       {blocks ? (
-        <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
+        <box style={{ flexDirection: 'column', gap: 0, width: '100%', paddingTop: 0 }}>
           <BlocksRenderer
             sourceBlocks={blocks}
             messageId={messageId}

@@ -26,6 +26,8 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
     feedbackCursor,
     feedbackCategory,
     feedbackMessageId,
+    feedbackFooterMessage,
+    errors,
     setFeedbackText,
     setFeedbackCursor,
     setFeedbackCategory,
@@ -40,6 +42,8 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
       feedbackCursor: state.feedbackCursor,
       feedbackCategory: state.feedbackCategory,
       feedbackMessageId: state.feedbackMessageId,
+      feedbackFooterMessage: state.feedbackFooterMessage,
+      errors: state.errors,
       setFeedbackText: state.setFeedbackText,
       setFeedbackCursor: state.setFeedbackCursor,
       setFeedbackCategory: state.setFeedbackCategory,
@@ -106,6 +110,7 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
           text,
           category: feedbackCategory,
           type: feedbackMessageId ? 'message' : 'general',
+          errors,
         },
         runState,
       },
@@ -127,6 +132,7 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
     feedbackText,
     feedbackMessageId,
     feedbackCategory,
+    errors,
     buildMessageContext,
     agentMode,
     sessionCreditsUsed,
@@ -176,6 +182,7 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
       onCategoryChange={setFeedbackCategory}
       inputRef={inputRef}
       width={width}
+      footerMessage={feedbackFooterMessage}
     />
   )
 }

@@ -12,13 +12,14 @@ import { setCurrentChatId } from '../project-files'
 import { useChatStore } from '../state/chat-store'
 import { getCodebuffClient, formatToolOutput } from '../utils/codebuff-client'
 import { shouldHideAgent, shouldCollapseByDefault } from '../utils/constants'
-import { createValidationErrorBlocks } from '../utils/create-validation-error-blocks'
+
 import { getErrorObject } from '../utils/error'
 import { formatTimestamp } from '../utils/helpers'
 import { loadAgentDefinitions } from '../utils/load-agent-definitions'
-import { getLoadedAgentsData } from '../utils/local-agent-registry'
+
 import { logger } from '../utils/logger'
 import { getUserMessage } from '../utils/message-history'
+import { NETWORK_ERROR_ID } from '../utils/validation-error-helpers'
 import {
   loadMostRecentChatState,
   saveChatState,
@@ -223,6 +224,7 @@ interface UseSendMessageOptions {
   resumeQueue?: () => void
   continueChat: boolean
   continueChatId?: string
+  onOpenFeedback?: () => void
 }
 
 export const useSendMessage = ({
@@ -257,6 +259,7 @@ export const useSendMessage = ({
   resumeQueue,
   continueChat,
   continueChatId,
+  onOpenFeedback,
 }: UseSendMessageOptions): {
   sendMessage: SendMessageFn
   clearMessages: () => void
@@ -452,6 +455,10 @@ export const useSendMessage = ({
       const shouldInsertDivider =
         lastMessageMode === null || lastMessageMode !== agentMode
 
+      // Create user message and capture its ID for later updates
+      const userMessage = getUserMessage(content)
+      const userMessageId = userMessage.id
+
       applyMessageUpdate((prev) => {
         let newMessages = [...prev]
 
@@ -473,7 +480,7 @@ export const useSendMessage = ({
         }
 
         // Add user message to UI first
-        newMessages.push(getUserMessage(content))
+        newMessages.push(userMessage)
 
         if (postUserMessage) {
           newMessages = postUserMessage(newMessages)
@@ -497,28 +504,29 @@ export const useSendMessage = ({
         const validationResult = await onBeforeMessageSend()
 
         if (!validationResult.success) {
-          logger.warn('Message send blocked due to agent validation errors')
+          // If validation failed with no specific errors, create a network error
+          const errorsToAttach =
+            validationResult.errors.length === 0
+              ? [
+                  {
+                    id: NETWORK_ERROR_ID,
+                    message:
+                      'Agent validation failed. This may be due to a network issue or temporary server problem. Please try again.',
+                  },
+                ]
+              : validationResult.errors
 
-          // Create validation error blocks with clickable file paths
-          const loadedAgentsData = getLoadedAgentsData()
-          const errorBlocks = createValidationErrorBlocks({
-            errors: validationResult.errors,
-            loadedAgentsData,
-            availableWidth,
-          })
-
-          const errorMessage: ChatMessage = {
-            id: `error-${Date.now()}`,
-            variant: 'error',
-            content: '',
-            blocks: errorBlocks,
-            timestamp: formatTimestamp(),
-          }
-
-          applyMessageUpdate((prev) => [...prev, errorMessage])
-          await yieldToEventLoop()
-          setTimeout(() => scrollToLatest(), 0)
-
+          // Attach validation errors to the user message using explicit ID
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === userMessageId
+                ? {
+                    ...msg,
+                    validationErrors: errorsToAttach,
+                  }
+                : msg,
+            ),
+          )
           return
         }
       } catch (error) {
