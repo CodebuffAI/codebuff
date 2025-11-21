@@ -404,7 +404,7 @@ function buildImplementationStepPrompt({
     !isFast &&
       `You must spawn the ${useGeminiEditor ? 'editor-implementor-gemini' : isMax ? 'editor-best-of-n-gpt-5' : 'editor-best-of-n'} agent to implement code changes, since it will generate the best code changes.`,
     isMax && 'Spawn the thinker-best-of-n-gpt-5 to solve complex problems.',
-    `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}. Don't repeat yourself -- especially if you already summarized your changes then just end your turn.`,
+    `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}.`,
   ).join('\n')
 }
 
