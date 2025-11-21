@@ -1,21 +1,24 @@
 import { z } from 'zod/v4'
 
-import { costModes } from './old-constants'
 import { GrantTypeValues } from './types/grant'
 import { mcpConfigSchema } from './types/mcp'
 import { toolMessageSchema } from './types/messages/codebuff-message'
-import {
-  toolResultOutputSchema,
-  textPartSchema,
-  imagePartSchema,
-} from './types/messages/content-part'
 import { printModeEventSchema } from './types/print-mode'
 import {
   AgentOutputSchema,
   SessionStateSchema,
   toolCallSchema,
 } from './types/session-state'
-import { ProjectFileContextSchema } from './util/file'
+
+import type { CostMode } from './old-constants'
+import type { ToolMessage } from './types/messages/codebuff-message'
+import type {
+  TextPart,
+  ImagePart,
+  ToolResultOutput,
+} from './types/messages/content-part'
+import type { SessionState } from './types/session-state'
+import type { ProjectFileContext } from './util/file'
 
 export const FileChangeSchema = z.object({
   type: z.enum(['patch', 'file']),
@@ -26,63 +29,75 @@ export type FileChange = z.infer<typeof FileChangeSchema>
 export const CHANGES = z.array(FileChangeSchema)
 export type FileChanges = z.infer<typeof CHANGES>
 
-export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
-  z.object({
-    type: z.literal('prompt'),
-    promptId: z.string(),
-    prompt: z.string().or(z.undefined()),
-    content: z.array(z.union([textPartSchema, imagePartSchema])).optional(),
-    promptParams: z.record(z.string(), z.any()).optional(), // Additional json params.
-    fingerprintId: z.string(),
-    authToken: z.string().optional(),
-    costMode: z.enum(costModes).optional().default('normal'),
-    sessionState: SessionStateSchema,
-    toolResults: z.array(toolMessageSchema),
-    model: z.string().optional(),
-    repoUrl: z.string().optional(),
-    agentId: z.string().optional(),
-  }),
-  z.object({
-    type: z.literal('read-files-response'),
-    files: z.record(z.string(), z.union([z.string(), z.null()])),
-    requestId: z.string().optional(),
-  }),
-  z.object({
-    type: z.literal('init'),
-    fingerprintId: z.string(),
-    authToken: z.string().optional(),
-    fileContext: ProjectFileContextSchema,
-    repoUrl: z.string().optional(),
-  }),
-  z.object({
-    type: z.literal('tool-call-response'),
-    requestId: z.string(),
-    output: toolResultOutputSchema.array(),
-  }),
-  z.object({
-    type: z.literal('cancel-user-input'),
-    authToken: z.string(),
-    promptId: z.string(),
-  }),
-  z.object({
-    type: z.literal('mcp-tool-data'),
-    requestId: z.string(),
-    tools: z
-      .object({
-        name: z.string(),
-        description: z.string().optional(),
-        inputSchema: z.looseObject({
-          type: z.literal('object'),
-        }),
-      })
-      .array(),
-  }),
-])
+type ClientActionPrompt = {
+  type: 'prompt'
+  promptId: string
+  prompt: string | undefined
+  content?: (TextPart | ImagePart)[]
+  promptParams?: Record<string, any> // Additional json params.
+  fingerprintId: string
+  authToken?: string
+  costMode?: CostMode
+  sessionState: SessionState
+  toolResults: ToolMessage[]
+  model?: string
+  repoUrl?: string
+  agentId?: string
+}
 
-type ClientActionAny = z.infer<typeof CLIENT_ACTION_SCHEMA>
+type ClientActionReadFilesResponse = {
+  type: 'read-files-response'
+  files: Record<string, string | null>
+  requestId?: string
+}
+
+type ClientActionInit = {
+  type: 'init'
+  fingerprintId: string
+  authToken?: string
+  fileContext: ProjectFileContext
+  repoUrl?: string
+}
+
+type ClientActionToolCallResponse = {
+  type: 'tool-call-response'
+  requestId: string
+  output: ToolResultOutput[]
+}
+
+type ClientActionCancelUserInput = {
+  type: 'cancel-user-input'
+  authToken: string
+  promptId: string
+}
+
+type ClientActionMcpToolData = {
+  type: 'mcp-tool-data'
+  requestId: string
+  tools: {
+    name: string
+    description?: string
+    inputSchema: { type: 'object'; [k: string]: unknown }
+  }[]
+}
+
+type ClientActionAny =
+  | ClientActionPrompt
+  | ClientActionReadFilesResponse
+  | ClientActionInit
+  | ClientActionToolCallResponse
+  | ClientActionCancelUserInput
+  | ClientActionMcpToolData
 export type ClientAction<
   T extends ClientActionAny['type'] = ClientActionAny['type'],
-> = Extract<ClientActionAny, { type: T }>
+> = {
+  [K in T]: Extract<
+    ClientActionAny,
+    {
+      type: K
+    }
+  >
+}[T]
 
 export const UsageReponseSchema = z.object({
   type: z.literal('usage-response'),
