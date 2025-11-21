@@ -119,6 +119,7 @@ export const Chat = ({
     setInputValue,
     inputFocused,
     setInputFocused,
+    isFocusSupported,
     slashSelectedIndex,
     setSlashSelectedIndex,
     agentSelectedIndex,
@@ -154,6 +155,7 @@ export const Chat = ({
       setInputValue: store.setInputValue,
       inputFocused: store.inputFocused,
       setInputFocused: store.setInputFocused,
+      isFocusSupported: store.isFocusSupported,
       slashSelectedIndex: store.slashSelectedIndex,
       setSlashSelectedIndex: store.setSlashSelectedIndex,
       agentSelectedIndex: store.agentSelectedIndex,
@@ -1053,6 +1055,7 @@ export const Chat = ({
           cursorPosition={cursorPosition}
           setInputValue={setInputValue}
           inputFocused={inputFocused}
+          shouldBlinkCursor={isFocusSupported}
           inputRef={inputRef}
           inputPlaceholder={inputPlaceholder}
           inputWidth={inputWidth}

@@ -22,6 +22,7 @@ export type ChatStoreState = {
   cursorPosition: number
   lastEditDueToNav: boolean
   inputFocused: boolean
+  isFocusSupported: boolean
   activeSubagents: Set<string>
   isChainInProgress: boolean
   slashSelectedIndex: number
@@ -51,6 +52,7 @@ type ChatStoreActions = {
     value: InputValue | ((prev: InputValue) => InputValue),
   ) => void
   setInputFocused: (focused: boolean) => void
+  setIsFocusSupported: (supported: boolean) => void
   setActiveSubagents: (
     value: Set<string> | ((prev: Set<string>) => Set<string>),
   ) => void
@@ -79,7 +81,8 @@ const initialState: ChatStoreState = {
   inputValue: '',
   cursorPosition: 0,
   lastEditDueToNav: false,
-  inputFocused: true,
+  inputFocused: true, // Cursor visible by default
+  isFocusSupported: false, // Don't blink until terminal support is detected
   activeSubagents: new Set<string>(),
   isChainInProgress: false,
   slashSelectedIndex: 0,
@@ -135,6 +138,11 @@ export const useChatStore = create<ChatStore>()(
     setInputFocused: (focused) =>
       set((state) => {
         state.inputFocused = focused
+      }),
+
+    setIsFocusSupported: (supported) =>
+      set((state) => {
+        state.isFocusSupported = supported
       }),
 
     setActiveSubagents: (value) =>
@@ -225,6 +233,7 @@ export const useChatStore = create<ChatStore>()(
         state.cursorPosition = initialState.cursorPosition
         state.lastEditDueToNav = initialState.lastEditDueToNav
         state.inputFocused = initialState.inputFocused
+        state.isFocusSupported = initialState.isFocusSupported
         state.activeSubagents = new Set(initialState.activeSubagents)
         state.isChainInProgress = initialState.isChainInProgress
         state.slashSelectedIndex = initialState.slashSelectedIndex

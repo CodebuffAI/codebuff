@@ -2,7 +2,7 @@ import os from 'os'
 import path from 'path'
 
 import { pluralize } from '@codebuff/common/util/string'
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { Chat } from './chat'
@@ -14,6 +14,7 @@ import { useAuthQuery } from './hooks/use-auth-query'
 import { useAuthState } from './hooks/use-auth-state'
 import { useLogo } from './hooks/use-logo'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
+import { useTerminalFocus } from './hooks/use-terminal-focus'
 import { useTheme } from './hooks/use-theme'
 import { NetworkError, RETRYABLE_ERROR_CODES } from '@codebuff/sdk'
 import type { AuthStatus } from './utils/status-indicator-state'
@@ -51,18 +52,31 @@ export const App = ({
   continueChat,
   continueChatId,
 }: AppProps) => {
-  const { contentMaxWidth, separatorWidth } = useTerminalDimensions()
+  const { contentMaxWidth } = useTerminalDimensions()
   const theme = useTheme()
   const { textBlock: logoBlock } = useLogo({ availableWidth: contentMaxWidth })
 
   const [isAgentListCollapsed, setIsAgentListCollapsed] = useState(true)
   const inputRef = useRef<MultilineInputHandle | null>(null)
-  const { setInputFocused, resetChatStore } = useChatStore(
+  const { setInputFocused, setIsFocusSupported, resetChatStore } = useChatStore(
     useShallow((store) => ({
       setInputFocused: store.setInputFocused,
+      setIsFocusSupported: store.setIsFocusSupported,
       resetChatStore: store.reset,
     })),
   )
+
+  // Wrap in useCallback to prevent re-subscribing on every render
+  const handleSupportDetected = useCallback(() => {
+    setIsFocusSupported(true)
+  }, [setIsFocusSupported])
+
+  // Enable terminal focus detection to stop cursor blinking when window loses focus
+  // Cursor starts visible but not blinking; blinking enabled once terminal support confirmed
+  useTerminalFocus({
+    onFocusChange: setInputFocused,
+    onSupportDetected: handleSupportDetected,
+  })
 
   // Get auth query for network status tracking
   const authQuery = useAuthQuery()

@@ -95,6 +95,7 @@ interface MultilineInputProps {
   onKeyIntercept?: (key: KeyEvent) => boolean
   placeholder?: string
   focused?: boolean
+  shouldBlinkCursor?: boolean
   maxHeight?: number
   minHeight?: number
   width: number
@@ -116,6 +117,7 @@ export const MultilineInput = forwardRef<
     onSubmit,
     placeholder = '',
     focused = true,
+    shouldBlinkCursor = true,
     maxHeight = 5,
     minHeight = 1,
     width,
@@ -822,6 +824,7 @@ export const MultilineInput = forwardRef<
               <InputCursor
                 visible={true}
                 focused={focused}
+                shouldBlink={shouldBlinkCursor}
                 color={theme.info}
                 key={lastActivity}
               />

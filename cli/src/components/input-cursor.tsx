@@ -5,6 +5,7 @@ import { useTheme } from '../hooks/use-theme'
 interface InputCursorProps {
   visible: boolean
   focused: boolean
+  shouldBlink?: boolean
   char?: string
   color?: string
   dimColor?: string
@@ -16,6 +17,7 @@ interface InputCursorProps {
 export const InputCursor: React.FC<InputCursorProps> = ({
   visible,
   focused,
+  shouldBlink = true,
   char = '▍',
   color,
   dimColor,
@@ -39,7 +41,8 @@ export const InputCursor: React.FC<InputCursorProps> = ({
     // Reset cursor to visible
     setIsInvisible(false)
 
-    if (!focused || !visible) return
+    // Only blink if shouldBlink is enabled, focused, and visible
+    if (!shouldBlink || !focused || !visible) return
 
     // Set up idle detection
     const idleTimer = setTimeout(() => {
@@ -56,7 +59,7 @@ export const InputCursor: React.FC<InputCursorProps> = ({
         blinkIntervalRef.current = null
       }
     }
-  }, [visible, focused, blinkDelay, blinkInterval])
+  }, [visible, focused, shouldBlink, blinkDelay, blinkInterval])
 
   if (!visible || !focused) {
     return null
