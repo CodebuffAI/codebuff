@@ -119,8 +119,8 @@ const generatePaletteFromPrimary = (
     const ratio = paletteSize === 1 ? 0.5 : i / (paletteSize - 1)
     const offset = (0.5 - ratio) * 2 * lightnessRange
     const adjustedLightness = clamp(l + offset, 0.08, 0.92)
-    const saturationScale = 0.88 + 0.18 * Math.cos(ratio * Math.PI)
-    const adjustedSaturation = clamp(s * saturationScale, 0.05, 1)
+    // Keep full saturation for vibrant colors, only vary lightness
+    const adjustedSaturation = s
     const { r, g, b } = hslToRgb(h, adjustedSaturation, adjustedLightness)
     palette.push(rgbToHex(r, g, b))
   }
