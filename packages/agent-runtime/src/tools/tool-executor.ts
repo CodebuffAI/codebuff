@@ -1,14 +1,13 @@
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
+import { toolParams } from '@codebuff/common/tools/list'
 import { toolJsonContent } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { type ToolCallPart } from 'ai'
 import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
 import { checkLiveUserInput } from '../live-user-inputs'
 import { getMCPToolData } from '../mcp'
-import { codebuffToolDefs } from './definitions/list'
 import { codebuffToolHandlers } from './handlers/list'
 
 import type { AgentTemplate } from '../templates/types'
@@ -31,6 +30,7 @@ import type {
   customToolDefinitionsSchema,
   ProjectFileContext,
 } from '@codebuff/common/util/file'
+import type { ToolCallPart } from 'ai'
 
 export type CustomToolCall = {
   toolName: string
@@ -54,7 +54,7 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
   const { rawToolCall, autoInsertEndStepParam = false } = params
   const toolName = rawToolCall.toolName
 
-  if (!(toolName in codebuffToolDefs)) {
+  if (!(toolName in toolParams)) {
     return {
       toolName,
       toolCallId: rawToolCall.toolCallId,
@@ -72,19 +72,16 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
   // Add the required codebuff_end_step parameter with the correct value for this tool if requested
   if (autoInsertEndStepParam) {
     processedParameters[endsAgentStepParam] =
-      codebuffToolDefs[validName].endsAgentStep
+      toolParams[validName].endsAgentStep
   }
 
-  const paramsSchema = codebuffToolDefs[validName].endsAgentStep
+  const paramsSchema = toolParams[validName].endsAgentStep
     ? (
-        codebuffToolDefs[validName]
-          .inputSchema satisfies z.ZodObject as z.ZodObject
+        toolParams[validName].inputSchema satisfies z.ZodObject as z.ZodObject
       ).extend({
-        [endsAgentStepParam]: z.literal(
-          codebuffToolDefs[validName].endsAgentStep,
-        ),
+        [endsAgentStepParam]: z.literal(toolParams[validName].endsAgentStep),
       })
-    : codebuffToolDefs[validName].inputSchema
+    : toolParams[validName].inputSchema
   const result = paramsSchema.safeParse(processedParameters)
 
   if (!result.success) {

@@ -32,7 +32,7 @@ import type { $ToolParams, PublishedToolName, ToolName } from './constants'
 import type { ToolMessage } from '../types/messages/codebuff-message'
 import type { ToolCallPart } from '../types/messages/content-part'
 
-export const $toolParams = {
+export const toolParams = {
   add_message: addMessageParams,
   add_subgoal: addSubgoalParams,
   browser_logs: browserLogsParams,
@@ -67,13 +67,13 @@ export const $toolParams = {
 export type CodebuffToolCall<T extends ToolName = ToolName> = {
   [K in ToolName]: {
     toolName: K
-    input: z.infer<(typeof $toolParams)[K]['inputSchema']>
+    input: z.infer<(typeof toolParams)[K]['inputSchema']>
   } & Omit<ToolCallPart, 'type'>
 }[T]
 
 export type CodebuffToolOutput<T extends ToolName = ToolName> = {
   [K in ToolName]: K extends ToolName
-    ? z.infer<(typeof $toolParams)[K]['outputSchema']>
+    ? z.infer<(typeof toolParams)[K]['outputSchema']>
     : never
 }[T]
 
@@ -85,11 +85,11 @@ export type CodebuffToolMessage<T extends ToolName = ToolName> = ToolMessage & {
 export const clientToolCallSchema = z.discriminatedUnion('toolName', [
   z.object({
     toolName: z.literal('browser_logs'),
-    input: $toolParams.browser_logs.inputSchema,
+    input: toolParams.browser_logs.inputSchema,
   }),
   z.object({
     toolName: z.literal('code_search'),
-    input: $toolParams.code_search.inputSchema,
+    input: toolParams.code_search.inputSchema,
   }),
   z.object({
     toolName: z.literal('create_plan'),
@@ -97,19 +97,19 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
   }),
   z.object({
     toolName: z.literal('glob'),
-    input: $toolParams.glob.inputSchema,
+    input: toolParams.glob.inputSchema,
   }),
   z.object({
     toolName: z.literal('list_directory'),
-    input: $toolParams.list_directory.inputSchema,
+    input: toolParams.list_directory.inputSchema,
   }),
   z.object({
     toolName: z.literal('run_file_change_hooks'),
-    input: $toolParams.run_file_change_hooks.inputSchema,
+    input: toolParams.run_file_change_hooks.inputSchema,
   }),
   z.object({
     toolName: z.literal('run_terminal_command'),
-    input: $toolParams.run_terminal_command.inputSchema.and(
+    input: toolParams.run_terminal_command.inputSchema.and(
       z.object({ mode: z.enum(['assistant', 'user']) }),
     ),
   }),

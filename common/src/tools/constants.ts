@@ -75,8 +75,12 @@ export const publishedTools = [
 export type ToolName = (typeof toolNames)[number]
 export type PublishedToolName = (typeof publishedTools)[number]
 
+/** Only used for validating tool definitions */
 export type $ToolParams<T extends ToolName = ToolName> = Required<
-  Pick<Tool<any, ToolResultOutput[]>, 'inputSchema' | 'outputSchema'>
+  Pick<
+    Tool<any, ToolResultOutput[]>,
+    'description' | 'inputSchema' | 'outputSchema'
+  >
 > & {
   toolName: T
   endsAgentStep: boolean
