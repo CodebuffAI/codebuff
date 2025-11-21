@@ -8,11 +8,12 @@
     "cb": "index.js"
   },
   "scripts": {
-    "postinstall": "node -e \"const fs = require('fs'); const path = require('path'); const os = require('os'); const binaryPath = path.join(os.homedir(), '.config', 'manicode', process.platform === 'win32' ? 'codebuff.exe' : 'codebuff'); try { fs.unlinkSync(binaryPath) } catch (e) { /* ignore if file doesn't exist */ }\"",
+    "postinstall": "node postinstall.js",
     "preuninstall": "node -e \"const fs = require('fs'); const path = require('path'); const os = require('os'); const binaryPath = path.join(os.homedir(), '.config', 'manicode', process.platform === 'win32' ? 'codebuff.exe' : 'codebuff'); try { fs.unlinkSync(binaryPath) } catch (e) { /* ignore if file doesn't exist */ }\""
   },
   "files": [
     "index.js",
+    "postinstall.js",
     "README.md"
   ],
   "os": [
