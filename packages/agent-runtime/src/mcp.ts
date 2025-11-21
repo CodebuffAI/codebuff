@@ -42,7 +42,6 @@ export async function getMCPToolData(
         for (const { name, description, inputSchema } of mcpData) {
           writeTo[mcpName + '/' + name] = {
             inputJsonSchema: inputSchema,
-            endsAgentStep: true,
             description,
           }
         }

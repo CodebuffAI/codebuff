@@ -14,7 +14,7 @@ Only use this tool to hand control back to the user.
 - Effect: Signals the UI to wait for the user's reply; any pending tool results will be ignored.
 
 *INCORRECT USAGE*:
-${getToolCallString('some_tool_that_produces_results', { query: 'some example search term' }, false)}
+${getToolCallString('some_tool_that_produces_results', { query: 'some example search term' })}
 
 ${getToolCallString(toolName, {})}
 

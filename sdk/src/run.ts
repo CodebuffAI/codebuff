@@ -223,7 +223,11 @@ export async function run({
       return
     }
     const { chunk } = action
-    addToPendingAssistantMessage: if (typeof chunk === 'string') {
+    if (typeof chunk !== 'string' && chunk.type === 'tool_call') {
+      logger?.info({ stack: new Error().stack, chunk }, `asdf onResponseChunk`)
+    }
+
+    if (typeof chunk === 'string') {
       pendingAgentResponse += chunk
     } else if (
       chunk.type === 'reasoning_delta' &&

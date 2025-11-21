@@ -270,12 +270,6 @@ export async function runProgrammaticStep(
       const excludeToolFromMessageHistory = toolCall?.includeToolCall === false
       // Add assistant message with the tool call before executing it
       if (!excludeToolFromMessageHistory) {
-        onResponseChunk({
-          type: 'tool_call',
-          toolCallId: toolCall.toolCallId,
-          toolName: toolCall.toolName,
-          input: toolCall.input,
-        })
         state.messages.push(
           assistantMessage({
             ...toolCall,
