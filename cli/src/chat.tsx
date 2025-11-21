@@ -947,8 +947,6 @@ export const Chat = ({
       style={{
         flexDirection: 'column',
         gap: 0,
-        paddingLeft: 1,
-        paddingRight: 1,
         flexGrow: 1,
       }}
     >
@@ -986,6 +984,8 @@ export const Chat = ({
             shouldFill: true,
             justifyContent: 'flex-end',
             backgroundColor: 'transparent',
+            paddingLeft: 1,
+            paddingRight: 2,
           },
         }}
       >
