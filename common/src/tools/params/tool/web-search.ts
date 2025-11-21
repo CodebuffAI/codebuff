@@ -7,7 +7,7 @@ const endsAgentStep = true
 export const webSearchParams = {
   toolName,
   endsAgentStep,
-  parameters: z
+  inputSchema: z
     .object({
       query: z
         .string()
@@ -22,7 +22,7 @@ export const webSearchParams = {
         ),
     })
     .describe(`Search the web for current information using Linkup API.`),
-  outputs: z.tuple([
+  outputSchema: z.tuple([
     z.object({
       type: z.literal('json'),
       value: z.union([

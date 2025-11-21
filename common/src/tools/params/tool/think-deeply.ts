@@ -7,7 +7,7 @@ const endsAgentStep = false
 export const thinkDeeplyParams = {
   toolName,
   endsAgentStep,
-  parameters: z
+  inputSchema: z
     .object({
       thought: z
         .string()
@@ -19,5 +19,5 @@ export const thinkDeeplyParams = {
     .describe(
       `Deeply consider complex tasks by brainstorming approaches and tradeoffs step-by-step.`,
     ),
-  outputs: z.tuple([]),
+  outputSchema: z.tuple([]),
 } satisfies $ToolParams

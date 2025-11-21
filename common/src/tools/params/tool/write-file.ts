@@ -9,7 +9,7 @@ const endsAgentStep = false
 export const writeFileParams = {
   toolName,
   endsAgentStep,
-  parameters: z
+  inputSchema: z
     .object({
       path: z
         .string()
@@ -21,7 +21,7 @@ export const writeFileParams = {
       content: z.string().describe(`Edit snippet to apply to the file.`),
     })
     .describe(`Create or edit a file with the given content.`),
-  outputs: z.tuple([
+  outputSchema: z.tuple([
     z.object({
       type: z.literal('json'),
       value: updateFileResultSchema,

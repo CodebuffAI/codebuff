@@ -7,7 +7,7 @@ const endsAgentStep = false
 export const addSubgoalParams = {
   toolName,
   endsAgentStep,
-  parameters: z
+  inputSchema: z
     .object({
       id: z
         .string()
@@ -33,7 +33,7 @@ export const addSubgoalParams = {
     .describe(
       `Add a new subgoal for tracking progress. To be used for complex requests that can't be solved in a single step, as you may forget what happened!`,
     ),
-  outputs: z.tuple([
+  outputSchema: z.tuple([
     z.object({
       type: z.literal('json'),
       value: z.object({

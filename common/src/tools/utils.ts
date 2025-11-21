@@ -12,7 +12,7 @@ import type z from 'zod/v4'
 export function getToolCallString<T extends ToolName | (string & {})>(
   toolName: T,
   params: T extends ToolName
-    ? z.input<(typeof $toolParams)[T]['parameters']>
+    ? z.input<(typeof $toolParams)[T]['inputSchema']>
     : Record<string, any>,
   ...endsAgentStep: T extends ToolName ? [] : [boolean]
 ): string {

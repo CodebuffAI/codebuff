@@ -7,7 +7,7 @@ const endsAgentStep = false
 export const writeTodosParams = {
   toolName,
   endsAgentStep,
-  parameters: z
+  inputSchema: z
     .object({
       todos: z
         .array(
@@ -23,7 +23,7 @@ export const writeTodosParams = {
     .describe(
       'Write a todo list to track tasks for multi-step implementations. Use this frequently to maintain an updated step-by-step plan.',
     ),
-  outputs: z.tuple([
+  outputSchema: z.tuple([
     z.object({
       type: z.literal('json'),
       value: z.object({

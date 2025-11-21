@@ -9,7 +9,7 @@ const endsAgentStep = true
 export const findFilesParams = {
   toolName,
   endsAgentStep,
-  parameters: z
+  inputSchema: z
     .object({
       prompt: z
         .string()
@@ -21,7 +21,7 @@ export const findFilesParams = {
     .describe(
       `Find several files related to a brief natural language description of the files or the name of a function or class you are looking for.`,
     ),
-  outputs: z.tuple([
+  outputSchema: z.tuple([
     z.object({
       type: z.literal('json'),
       value: z.union([

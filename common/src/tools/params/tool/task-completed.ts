@@ -7,7 +7,7 @@ const endsAgentStep = true
 export const taskCompletedParams = {
   toolName,
   endsAgentStep,
-  parameters: z.object({}).describe(
+  inputSchema: z.object({}).describe(
     `Signal that the task is complete. Use this tool when:
 - The user's request is completely fulfilled
 - You need clarification from the user before continuing
@@ -15,5 +15,5 @@ export const taskCompletedParams = {
 
 This tool explicitly marks the end of your work on the current task.`,
   ),
-  outputs: z.tuple([]),
+  outputSchema: z.tuple([]),
 } satisfies $ToolParams

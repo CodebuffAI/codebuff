@@ -7,10 +7,10 @@ const endsAgentStep = true
 export const setMessagesParams = {
   toolName,
   endsAgentStep,
-  parameters: z
+  inputSchema: z
     .object({
       messages: z.any(),
     })
     .describe(`Set the conversation history to the provided messages.`),
-  outputs: z.tuple([]),
+  outputSchema: z.tuple([]),
 } satisfies $ToolParams

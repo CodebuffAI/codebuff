@@ -67,13 +67,13 @@ export const $toolParams = {
 export type CodebuffToolCall<T extends ToolName = ToolName> = {
   [K in ToolName]: {
     toolName: K
-    input: z.infer<(typeof $toolParams)[K]['parameters']>
+    input: z.infer<(typeof $toolParams)[K]['inputSchema']>
   } & Omit<ToolCallPart, 'type'>
 }[T]
 
 export type CodebuffToolOutput<T extends ToolName = ToolName> = {
   [K in ToolName]: K extends ToolName
-    ? z.infer<(typeof $toolParams)[K]['outputs']>
+    ? z.infer<(typeof $toolParams)[K]['outputSchema']>
     : never
 }[T]
 
@@ -86,11 +86,11 @@ export type ClientToolName = (typeof clientToolNames)[number]
 export const clientToolCallSchema = z.discriminatedUnion('toolName', [
   z.object({
     toolName: z.literal('browser_logs'),
-    input: $toolParams.browser_logs.parameters,
+    input: $toolParams.browser_logs.inputSchema,
   }),
   z.object({
     toolName: z.literal('code_search'),
-    input: $toolParams.code_search.parameters,
+    input: $toolParams.code_search.inputSchema,
   }),
   z.object({
     toolName: z.literal('create_plan'),
@@ -98,19 +98,19 @@ export const clientToolCallSchema = z.discriminatedUnion('toolName', [
   }),
   z.object({
     toolName: z.literal('glob'),
-    input: $toolParams.glob.parameters,
+    input: $toolParams.glob.inputSchema,
   }),
   z.object({
     toolName: z.literal('list_directory'),
-    input: $toolParams.list_directory.parameters,
+    input: $toolParams.list_directory.inputSchema,
   }),
   z.object({
     toolName: z.literal('run_file_change_hooks'),
-    input: $toolParams.run_file_change_hooks.parameters,
+    input: $toolParams.run_file_change_hooks.inputSchema,
   }),
   z.object({
     toolName: z.literal('run_terminal_command'),
-    input: $toolParams.run_terminal_command.parameters.and(
+    input: $toolParams.run_terminal_command.inputSchema.and(
       z.object({ mode: z.enum(['assistant', 'user']) }),
     ),
   }),

@@ -7,12 +7,12 @@ const endsAgentStep = false
 export const setOutputParams = {
   toolName,
   endsAgentStep,
-  parameters: z
+  inputSchema: z
     .looseObject({})
     .describe(
       'JSON object to set as the agent output. This completely replaces any previous output. If the agent was spawned, this value will be passed back to its parent. If the agent has an outputSchema defined, the output will be validated against it.',
     ),
-  outputs: z.tuple([
+  outputSchema: z.tuple([
     z.object({
       type: z.literal('json'),
       value: z.object({

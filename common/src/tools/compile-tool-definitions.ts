@@ -14,7 +14,7 @@ export function compileToolDefinitions(): string {
 
   const toolInterfaces = toolEntries
     .map(([toolName, toolDef]) => {
-      const parameterSchema = toolDef.parameters
+      const parameterSchema = toolDef.inputSchema
 
       // Convert Zod schema to TypeScript interface using JSON schema
       let typeDefinition: string

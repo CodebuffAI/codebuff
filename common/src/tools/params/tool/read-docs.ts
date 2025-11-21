@@ -7,7 +7,7 @@ const endsAgentStep = true
 export const readDocsParams = {
   toolName,
   endsAgentStep,
-  parameters: z
+  inputSchema: z
     .object({
       libraryTitle: z
         .string()
@@ -31,7 +31,7 @@ export const readDocsParams = {
     .describe(
       `Fetch up-to-date documentation for libraries and frameworks using Context7 API.`,
     ),
-  outputs: z.tuple([
+  outputSchema: z.tuple([
     z.object({
       type: z.literal('json'),
       value: z.object({

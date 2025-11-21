@@ -7,7 +7,7 @@ const endsAgentStep = true
 export const readSubtreeParams = {
   toolName,
   endsAgentStep,
-  parameters: z
+  inputSchema: z
     .object({
       paths: z
         .array(z.string().min(1))
@@ -27,7 +27,7 @@ export const readSubtreeParams = {
     .describe(
       `Read one or more directory subtrees (as a blob including subdirectories, file names, and parsed variables within each source file) or return parsed variable names for files. If no paths are provided, returns the entire project tree.`,
     ),
-  outputs: z.tuple([
+  outputSchema: z.tuple([
     z.object({
       type: z.literal('json'),
       value: z.array(

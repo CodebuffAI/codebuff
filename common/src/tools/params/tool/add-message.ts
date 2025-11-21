@@ -7,7 +7,7 @@ const endsAgentStep = true
 export const addMessageParams = {
   toolName,
   endsAgentStep,
-  parameters: z
+  inputSchema: z
     .object({
       role: z.enum(['user', 'assistant']),
       content: z.string(),
@@ -15,5 +15,5 @@ export const addMessageParams = {
     .describe(
       `Add a new message to the conversation history. To be used for complex requests that can't be solved in a single step, as you may forget what happened!`,
     ),
-  outputs: z.tuple([]),
+  outputSchema: z.tuple([]),
 } satisfies $ToolParams

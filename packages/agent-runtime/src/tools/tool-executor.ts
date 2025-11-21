@@ -78,13 +78,13 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
   const paramsSchema = codebuffToolDefs[validName].endsAgentStep
     ? (
         codebuffToolDefs[validName]
-          .parameters satisfies z.ZodObject as z.ZodObject
+          .inputSchema satisfies z.ZodObject as z.ZodObject
       ).extend({
         [endsAgentStepParam]: z.literal(
           codebuffToolDefs[validName].endsAgentStep,
         ),
       })
-    : codebuffToolDefs[validName].parameters
+    : codebuffToolDefs[validName].inputSchema
   const result = paramsSchema.safeParse(processedParameters)
 
   if (!result.success) {

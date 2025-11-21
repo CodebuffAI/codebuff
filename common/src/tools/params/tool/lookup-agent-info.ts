@@ -8,14 +8,14 @@ const endsAgentStep = false
 export const lookupAgentInfoParams = {
   toolName,
   endsAgentStep,
-  parameters: z
+  inputSchema: z
     .object({
       agentId: z
         .string()
         .describe('Agent ID (short local or full published format)'),
     })
     .describe('Retrieve information about an agent by ID'),
-  outputs: z.tuple([
+  outputSchema: z.tuple([
     z.object({
       type: z.literal('json'),
       value: jsonValueSchema,

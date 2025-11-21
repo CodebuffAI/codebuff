@@ -9,14 +9,14 @@ const endsAgentStep = true
 export const runFileChangeHooksParams = {
   toolName,
   endsAgentStep,
-  parameters: z.object({
+  inputSchema: z.object({
     files: z
       .array(z.string())
       .describe(
         `List of file paths that were changed and should trigger file change hooks`,
       ),
   }),
-  outputs: z.tuple([
+  outputSchema: z.tuple([
     z.object({
       type: z.literal('json'),
       value: z

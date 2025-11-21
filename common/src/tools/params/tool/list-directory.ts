@@ -7,7 +7,7 @@ const endsAgentStep = true
 export const listDirectoryParams = {
   toolName,
   endsAgentStep,
-  parameters: z
+  inputSchema: z
     .object({
       path: z
         .string()
@@ -16,7 +16,7 @@ export const listDirectoryParams = {
     .describe(
       'List files and directories in the specified path. Returns separate arrays of file names and directory names.',
     ),
-  outputs: z.tuple([
+  outputSchema: z.tuple([
     z.object({
       type: z.literal('json'),
       value: z.union([

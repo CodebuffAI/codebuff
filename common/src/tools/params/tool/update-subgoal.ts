@@ -7,7 +7,7 @@ const endsAgentStep = false
 export const updateSubgoalParams = {
   toolName,
   endsAgentStep,
-  parameters: z
+  inputSchema: z
     .object({
       id: z
         .string()
@@ -28,7 +28,7 @@ export const updateSubgoalParams = {
     .describe(
       `Update a subgoal in the context given the id, and optionally the status or plan, or a new log to append. Feel free to update any combination of the status, plan, or log in one invocation.`,
     ),
-  outputs: z.tuple([
+  outputSchema: z.tuple([
     z.object({
       type: z.literal('json'),
       value: z.object({

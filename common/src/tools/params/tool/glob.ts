@@ -7,7 +7,7 @@ const endsAgentStep = false
 export const globParams = {
   toolName,
   endsAgentStep,
-  parameters: z
+  inputSchema: z
     .object({
       pattern: z
         .string()
@@ -25,7 +25,7 @@ export const globParams = {
     .describe(
       `Search for files matching a glob pattern. Returns matching file paths sorted by modification time.`,
     ),
-  outputs: z.tuple([
+  outputSchema: z.tuple([
     z.object({
       type: z.literal('json'),
       value: z.union([

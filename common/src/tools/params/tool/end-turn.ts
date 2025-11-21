@@ -7,10 +7,10 @@ const endsAgentStep = true
 export const endTurnParams = {
   toolName,
   endsAgentStep,
-  parameters: z
+  inputSchema: z
     .object({})
     .describe(
       `End your turn, regardless of any new tool results that might be coming. This will allow the user to type another prompt.`,
     ),
-  outputs: z.tuple([]),
+  outputSchema: z.tuple([]),
 } satisfies $ToolParams

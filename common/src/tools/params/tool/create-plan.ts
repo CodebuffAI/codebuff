@@ -9,7 +9,7 @@ const endsAgentStep = false
 export const createPlanParams = {
   toolName,
   endsAgentStep,
-  parameters: z
+  inputSchema: z
     .object({
       path: z
         .string()
@@ -23,7 +23,7 @@ export const createPlanParams = {
         .describe(`A detailed plan to solve the user's request.`),
     })
     .describe(`Generate a detailed markdown plan for complex tasks.`),
-  outputs: z.tuple([
+  outputSchema: z.tuple([
     z.object({
       type: z.literal('json'),
       value: updateFileResultSchema,

@@ -35,7 +35,7 @@ const endsAgentStep = true
 export const runTerminalCommandParams = {
   toolName,
   endsAgentStep,
-  parameters: z
+  inputSchema: z
     .object({
       // Can be empty to use it for a timeout.
       command: z
@@ -65,7 +65,7 @@ export const runTerminalCommandParams = {
     .describe(
       `Execute a CLI command from the **project root** (different from the user's cwd).`,
     ),
-  outputs: z.tuple([
+  outputSchema: z.tuple([
     z.object({
       type: z.literal('json'),
       value: terminalCommandOutputSchema,

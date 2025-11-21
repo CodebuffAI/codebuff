@@ -19,7 +19,7 @@ const endsAgentStep = true
 export const readFilesParams = {
   toolName,
   endsAgentStep,
-  parameters: z
+  inputSchema: z
     .object({
       paths: z
         .array(
@@ -35,7 +35,7 @@ export const readFilesParams = {
     .describe(
       `Read the multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request.`,
     ),
-  outputs: z.tuple([
+  outputSchema: z.tuple([
     z.object({
       type: z.literal('json'),
       value: fileContentsSchema.array(),

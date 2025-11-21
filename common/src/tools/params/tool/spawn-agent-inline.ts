@@ -7,7 +7,7 @@ const endsAgentStep = true
 export const spawnAgentInlineParams = {
   toolName,
   endsAgentStep,
-  parameters: z
+  inputSchema: z
     .object({
       agent_type: z.string().describe('Agent to spawn'),
       prompt: z.string().optional().describe('Prompt to send to the agent'),
@@ -19,5 +19,5 @@ export const spawnAgentInlineParams = {
     .describe(
       `Spawn a single agent that runs within the current message history.`,
     ),
-  outputs: z.tuple([]),
+  outputSchema: z.tuple([]),
 } satisfies $ToolParams

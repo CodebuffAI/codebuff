@@ -20,7 +20,7 @@ const endsAgentStep = false
 export const strReplaceParams = {
   toolName,
   endsAgentStep,
-  parameters: z
+  inputSchema: z
     .object({
       path: z
         .string()
@@ -55,7 +55,7 @@ export const strReplaceParams = {
         .describe('Array of replacements to make.'),
     })
     .describe(`Replace strings in a file with new strings.`),
-  outputs: z.tuple([
+  outputSchema: z.tuple([
     z.object({
       type: z.literal('json'),
       value: updateFileResultSchema,

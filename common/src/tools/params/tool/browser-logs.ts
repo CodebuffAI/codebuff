@@ -9,7 +9,7 @@ const endsAgentStep = true
 export const browserLogsParams = {
   toolName,
   endsAgentStep,
-  parameters: z.object({
+  inputSchema: z.object({
     type: z
       .string()
       .min(1, 'Type cannot be empty')
@@ -23,7 +23,7 @@ export const browserLogsParams = {
       .optional()
       .describe("When to consider navigation successful. Defaults to 'load'."),
   }),
-  outputs: z.tuple([
+  outputSchema: z.tuple([
     z.object({
       type: z.literal('json'),
       value: BrowserResponseSchema,

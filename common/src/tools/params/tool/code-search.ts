@@ -7,7 +7,7 @@ const endsAgentStep = true
 export const codeSearchParams = {
   toolName,
   endsAgentStep,
-  parameters: z
+  inputSchema: z
     .object({
       pattern: z
         .string()
@@ -38,7 +38,7 @@ export const codeSearchParams = {
     .describe(
       `Search for string patterns in the project's files. This tool uses ripgrep (rg), a fast line-oriented search tool. Use this tool only when read_files is not sufficient to find the files you need.`,
     ),
-  outputs: z.tuple([
+  outputSchema: z.tuple([
     z.object({
       type: z.literal('json'),
       value: z.union([

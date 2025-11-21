@@ -1,4 +1,4 @@
-import { endsAgentStepParam, toolNames } from '@codebuff/common/tools/constants'
+import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
 import { pluralize } from '@codebuff/common/util/string'
@@ -100,7 +100,7 @@ export const toolDescriptions = Object.fromEntries(
     name,
     buildToolDescription({
       toolName: name,
-      schema: { type: 'zod', value: config.parameters },
+      schema: { type: 'zod', value: config.inputSchema },
       description: config.description,
       endsAgentStep: config.endsAgentStep,
     }),
@@ -254,7 +254,7 @@ export const getShortToolInstructions = (
       const tool = codebuffToolDefs[name]
       return buildShortToolDescription({
         toolName: name,
-        schema: { type: 'zod', value: tool.parameters },
+        schema: { type: 'zod', value: tool.inputSchema },
         endsAgentStep: tool.endsAgentStep,
       })
     }),
