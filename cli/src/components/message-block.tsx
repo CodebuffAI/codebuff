@@ -378,24 +378,6 @@ const AgentBody = memo(
     const nestedBlocks = agentBlock.blocks ?? []
     const nodes: React.ReactNode[] = []
 
-    // Pre-calculate numbering for all implementor siblings
-    const implementorIndexMap = new Map<string, number>()
-    nestedBlocks
-      .filter(
-        (block): block is AgentContentBlock =>
-          block.type === 'agent' && isImplementorAgent(block.agentType),
-      )
-      .forEach((block) => {
-        const index = getImplementorIndex(
-          block.agentId,
-          block.agentType,
-          nestedBlocks,
-        )
-        if (index !== undefined) {
-          implementorIndexMap.set(block.agentId, index)
-        }
-      })
-
     const getAgentMarkdownOptions = useCallback(
       (indent: number) => {
         const indentationOffset = indent * 2
@@ -555,7 +537,6 @@ const AgentBody = memo(
 
         case 'agent': {
           const agentBlock = nestedBlock as AgentContentBlock
-          const numbering = implementorIndexMap.get(agentBlock.agentId)
           nodes.push(
             <AgentBranchWrapper
               key={`${keyPrefix}-agent-${nestedIdx}`}
@@ -568,7 +549,7 @@ const AgentBody = memo(
               onToggleCollapsed={onToggleCollapsed}
               onBuildFast={onBuildFast}
               onBuildMax={onBuildMax}
-              implementorIndex={numbering}
+              siblingBlocks={nestedBlocks}
             />,
           )
           nestedIdx++
@@ -591,7 +572,7 @@ interface AgentBranchWrapperProps {
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
-  implementorIndex?: number
+  siblingBlocks?: ContentBlock[]
 }
 
 const AgentBranchWrapper = memo(
@@ -605,7 +586,7 @@ const AgentBranchWrapper = memo(
     onToggleCollapsed,
     onBuildFast,
     onBuildMax,
-    implementorIndex,
+    siblingBlocks,
   }: AgentBranchWrapperProps) => {
     const theme = useTheme()
 
@@ -621,6 +602,38 @@ const AgentBranchWrapper = memo(
           ? theme.foreground
           : theme.muted
 
+      let statusText = 'Selecting best'
+
+      // If complete, try to show which implementation was selected
+      if (isComplete && siblingBlocks) {
+        const blocks = agentBlock.blocks ?? []
+        const lastBlock = blocks[blocks.length - 1] as
+          | { input: { implementationId: string } }
+          | undefined
+        const implementationId = lastBlock?.input?.implementationId
+        if (implementationId) {
+          // Convert letter to index: 'A' -> 0, 'B' -> 1, etc.
+          const letterIndex = implementationId.charCodeAt(0) - 65
+          const implementors = siblingBlocks.filter(
+            (b) => b.type === 'agent' && isImplementorAgent(b.agentType),
+          ) as AgentContentBlock[]
+
+          const selectedAgent = implementors[letterIndex]
+          if (selectedAgent) {
+            const index = getImplementorIndex(
+              selectedAgent.agentId,
+              selectedAgent.agentType,
+              siblingBlocks,
+            )
+            const name = getImplementorDisplayName(
+              selectedAgent.agentType,
+              index,
+            )
+            statusText = `Selected ${name}`
+          }
+        }
+      }
+
       return (
         <box
           key={keyPrefix}
@@ -635,7 +648,7 @@ const AgentBranchWrapper = memo(
             <span fg={statusColor}>{statusIndicator}</span>
             <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
               {' '}
-              Selecting best
+              {statusText}
             </span>
           </text>
         </box>
@@ -649,6 +662,13 @@ const AgentBranchWrapper = memo(
         streamingAgents.has(agentBlock.agentId)
       const isComplete = agentBlock.status === 'complete'
       const isFailed = agentBlock.status === 'failed'
+      const implementorIndex = siblingBlocks
+        ? getImplementorIndex(
+            agentBlock.agentId,
+            agentBlock.agentType,
+            siblingBlocks,
+          )
+        : undefined
       const displayName = getImplementorDisplayName(
         agentBlock.agentType,
         implementorIndex,
@@ -824,7 +844,6 @@ interface SingleBlockProps {
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
-  implementorIndex?: number
 }
 
 const SingleBlock = memo(
@@ -843,7 +862,6 @@ const SingleBlock = memo(
     onToggleCollapsed,
     onBuildFast,
     onBuildMax,
-    implementorIndex,
   }: SingleBlockProps): ReactNode => {
     const theme = useTheme()
     const codeBlockWidth = Math.max(10, availableWidth - 8)
@@ -940,7 +958,7 @@ const SingleBlock = memo(
             onToggleCollapsed={onToggleCollapsed}
             onBuildFast={onBuildFast}
             onBuildMax={onBuildMax}
-            implementorIndex={implementorIndex}
+            siblingBlocks={blocks}
           />
         )
       }
@@ -994,23 +1012,6 @@ const BlocksRenderer = memo(
   }: BlocksRendererProps) => {
     const nodes: React.ReactNode[] = []
 
-    // Pre-calculate numbering for all implementor siblings at the top level
-    const topLevelImplementorIndexMap = new Map<string, number>()
-    sourceBlocks
-      .filter(
-        (block): block is AgentContentBlock =>
-          block.type === 'agent' && isImplementorAgent(block.agentType),
-      )
-      .forEach((block) => {
-        const index = getImplementorIndex(
-          block.agentId,
-          block.agentType,
-          sourceBlocks,
-        )
-        if (index !== undefined) {
-          topLevelImplementorIndexMap.set(block.agentId, index)
-        }
-      })
     for (let i = 0; i < sourceBlocks.length; ) {
       const block = sourceBlocks[i]
       // Handle reasoning text blocks
@@ -1091,10 +1092,6 @@ const BlocksRenderer = memo(
         continue
       }
 
-      const numbering =
-        block.type === 'agent'
-          ? topLevelImplementorIndexMap.get(block.agentId)
-          : undefined
       nodes.push(
         <SingleBlock
           key={`${messageId}-block-${i}`}
@@ -1112,7 +1109,6 @@ const BlocksRenderer = memo(
           onToggleCollapsed={onToggleCollapsed}
           onBuildFast={onBuildFast}
           onBuildMax={onBuildMax}
-          implementorIndex={numbering}
         />,
       )
       i++
