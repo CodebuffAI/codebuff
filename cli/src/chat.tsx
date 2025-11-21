@@ -399,6 +399,7 @@ export const Chat = ({
     : scrollboxProps
 
   const localAgents = useMemo(() => loadLocalAgents(), [])
+  const isBashMode = useChatStore((state) => state.isBashMode)
 
   const {
     slashContext,
@@ -410,8 +411,8 @@ export const Chat = ({
     agentSuggestionItems,
     fileSuggestionItems,
   } = useSuggestionEngine({
-    disableAgentSuggestions: forceFileOnlyMentions,
-    inputValue,
+    disableAgentSuggestions: forceFileOnlyMentions || isBashMode,
+    inputValue: isBashMode ? '' : inputValue,
     cursorPosition,
     slashCommands: SLASH_COMMANDS,
     localAgents,
@@ -507,6 +508,13 @@ export const Chat = ({
 
   const handleSuggestionMenuKey = useCallback(
     (key: KeyEvent): boolean => {
+      // In bash mode with empty input, backspace should exit bash mode
+      const isBashMode = useChatStore.getState().isBashMode
+      if (isBashMode && inputValue === '' && key.name === 'backspace') {
+        useChatStore.getState().setBashMode(false)
+        return true
+      }
+
       if (handleSuggestionMenuKeyInternal(key)) {
         return true
       }
@@ -526,7 +534,7 @@ export const Chat = ({
 
       return false
     },
-    [handleSuggestionMenuKeyInternal, mentionContext.active, openFileMenuWithTab],
+    [handleSuggestionMenuKeyInternal, mentionContext.active, openFileMenuWithTab, inputValue],
   )
 
   const { saveToHistory, navigateUp, navigateDown } = useInputHistory(
@@ -759,10 +767,10 @@ export const Chat = ({
       setInputFocused,
       setInputValue,
       setIsAuthenticated,
-      setMessages,
-      setUser,
-      stopStreaming,
-    })
+    setMessages,
+    setUser,
+    stopStreaming,
+  })
 
     if (result?.openFeedbackMode) {
       saveCurrentInput('', 0)
@@ -867,6 +875,7 @@ export const Chat = ({
   const hasSuggestionMenu = hasSlashSuggestions || hasMentionSuggestions
 
   const inputLayoutMetrics = useMemo(() => {
+    // In bash mode, layout is based on the actual input (no ! prefix needed)
     const text = inputValue ?? ''
     const layoutContent = text.length > 0 ? text : ' '
     const safeCursor = Math.max(
