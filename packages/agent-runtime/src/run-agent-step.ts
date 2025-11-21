@@ -867,6 +867,12 @@ export async function loopAgentSteps(
       },
       'Agent execution failed',
     )
+
+    // Re-throw NetworkError to allow SDK retry wrapper to handle it
+    if (error instanceof Error && error.name === 'NetworkError') {
+      throw error
+    }
+
     const errorMessage = typeof error === 'string' ? error : `${error}`
 
     const status = checkLiveUserInput(params) ? 'failed' : 'cancelled'
@@ -879,12 +885,6 @@ export async function loopAgentSteps(
       totalCredits: currentAgentState.creditsUsed,
       errorMessage,
     })
-
-    // Re-throw NetworkError so retry logic can handle it
-    // For other error types, wrap in error output for graceful handling
-    if (error && typeof error === 'object' && 'code' in error && 'name' in error && error.name === 'NetworkError') {
-      throw error
-    }
 
     const errorObject = getErrorObject(error)
     return {

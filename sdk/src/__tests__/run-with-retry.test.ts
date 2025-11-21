@@ -19,7 +19,7 @@ describe('run retry wrapper', () => {
   })
 
   it('returns immediately on success without retrying', async () => {
-    const expectedState = { output: { type: 'success' } } as RunState
+    const expectedState = { sessionState: {} as any, output: { type: 'lastMessage', value: 'hi' } } as RunState
     const runSpy = spyOn(runModule, 'runOnce').mockResolvedValueOnce(expectedState)
 
     const result = await run(baseOptions)
@@ -29,7 +29,7 @@ describe('run retry wrapper', () => {
   })
 
   it('retries once on retryable network error and then succeeds', async () => {
-    const expectedState = { output: { type: 'success' } } as RunState
+    const expectedState = { sessionState: {} as any, output: { type: 'lastMessage', value: 'hi' } } as RunState
     const runSpy = spyOn(runModule, 'runOnce')
       .mockRejectedValueOnce(
         new NetworkError('temporary', ErrorCodes.NETWORK_ERROR),
@@ -91,7 +91,7 @@ describe('run retry wrapper', () => {
   })
 
   it('retries when provided custom retryableErrorCodes set', async () => {
-    const expectedState = { output: { type: 'success' } } as RunState
+    const expectedState = { sessionState: {} as any, output: { type: 'lastMessage', value: 'hi' } } as RunState
     const runSpy = spyOn(runModule, 'runOnce')
       .mockRejectedValueOnce(
         new NetworkError('temporary', ErrorCodes.SERVER_ERROR),

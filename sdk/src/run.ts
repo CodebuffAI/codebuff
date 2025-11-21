@@ -274,7 +274,15 @@ export async function run(
   let attemptIndex = 0
   while (true) {
     if (signal?.aborted) {
-      throw createAbortError(signal)
+      // Return error output for abort instead of throwing
+      const abortError = createAbortError(signal)
+      return {
+        sessionState: rest.previousRun?.sessionState,
+        output: {
+          type: 'error',
+          message: abortError.message,
+        },
+      }
     }
 
     try {
@@ -282,6 +290,66 @@ export async function run(
         ...rest,
         signal,
       })
+
+      // Check if result contains a retryable error in the output
+      if (result.output.type === 'error') {
+        const retryableCode = getRetryableErrorCode(result.output.message)
+        const canRetry =
+          retryableCode &&
+          attemptIndex < retryOptions.maxRetries &&
+          retryOptions.retryableErrorCodes.has(retryableCode)
+
+        if (canRetry) {
+          // Treat this as a retryable error - continue retry loop
+          const delayMs = Math.min(
+            retryOptions.backoffBaseMs * Math.pow(2, attemptIndex),
+            retryOptions.backoffMaxMs,
+          )
+
+          // Log retry attempt with full context
+          if (rest.logger) {
+            rest.logger.warn(
+              {
+                attempt: attemptIndex + 1,
+                maxRetries: retryOptions.maxRetries,
+                delayMs,
+                errorCode: retryableCode,
+                errorMessage: result.output.message,
+              },
+              'SDK retrying after error',
+            )
+          }
+
+          await retryOptions.onRetry?.({
+            attempt: attemptIndex + 1,
+            error: new Error(result.output.message),
+            delayMs,
+            errorCode: retryableCode,
+          })
+
+          await waitWithAbort(delayMs, signal)
+          attemptIndex++
+          continue
+        } else if (attemptIndex > 0) {
+          // Non-retryable error or exhausted retries
+          if (rest.logger) {
+            rest.logger.warn(
+              {
+                attemptIndex,
+                totalAttempts: attemptIndex + 1,
+                errorCode: retryableCode,
+              },
+              'SDK exhausted all retries',
+            )
+          }
+
+          await retryOptions.onRetryExhausted?.({
+            totalAttempts: attemptIndex + 1,
+            error: new Error(result.output.message),
+            errorCode: retryableCode ?? undefined,
+          })
+        }
+      }
 
       // Log successful completion after retries
       if (attemptIndex > 0 && rest.logger) {
@@ -293,63 +361,86 @@ export async function run(
 
       return result
     } catch (error) {
+      // Handle unexpected exceptions by converting to error output
       if (signal?.aborted) {
-        throw createAbortError(signal)
+        const abortError = createAbortError(signal)
+        return {
+          sessionState: rest.previousRun?.sessionState,
+          output: {
+            type: 'error',
+            message: abortError.message,
+          },
+        }
       }
+
+      // Unexpected exception - convert to error output and check if retryable
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      const errorCode = isNetworkError(error) ? error.code : undefined
+      const retryableCode = errorCode ?? getRetryableErrorCode(errorMessage)
 
       const canRetry =
+        retryableCode &&
         attemptIndex < retryOptions.maxRetries &&
-        shouldRetry(error, retryOptions.retryableErrorCodes)
+        retryOptions.retryableErrorCodes.has(retryableCode)
 
-      const errorCode = isNetworkError(error) ? error.code : undefined
-
-      if (!canRetry) {
-        // Notify caller that SDK exhausted all retries
-        if (attemptIndex > 0) {
-          if (rest.logger) {
-            rest.logger.warn(
-              {
-                attemptIndex,
-                totalAttempts: attemptIndex + 1,
-                errorCode,
-              },
-              'SDK exhausted all retries',
-            )
-          }
-
-          await retryOptions.onRetryExhausted?.({
-            totalAttempts: attemptIndex + 1,
-            error,
-            errorCode,
-          })
-        }
-        throw error
+      if (rest.logger) {
+        rest.logger.error(
+          {
+            attemptIndex,
+            errorCode: retryableCode,
+            canRetry,
+            error: errorMessage,
+          },
+          'Unexpected exception in SDK run',
+        )
       }
 
+      if (!canRetry) {
+        // Can't retry - convert to error output and return
+        if (attemptIndex > 0 && rest.logger) {
+          rest.logger.warn(
+            {
+              attemptIndex,
+              totalAttempts: attemptIndex + 1,
+            },
+            'SDK exhausted all retries after unexpected exception',
+          )
+        }
+
+        // Return error output instead of throwing
+        return {
+          sessionState: rest.previousRun?.sessionState,
+          output: {
+            type: 'error',
+            message: errorMessage,
+          },
+        }
+      }
+
+      // Exception is retryable - trigger retry
       const delayMs = Math.min(
         retryOptions.backoffBaseMs * Math.pow(2, attemptIndex),
         retryOptions.backoffMaxMs,
       )
 
-      // Log retry attempt with full context
       if (rest.logger) {
         rest.logger.warn(
           {
             attempt: attemptIndex + 1,
             maxRetries: retryOptions.maxRetries,
             delayMs,
-            errorCode,
-            errorMessage: error instanceof Error ? error.message : String(error),
+            errorCode: retryableCode,
+            errorMessage,
           },
-          'SDK retrying after error',
+          'SDK retrying after unexpected exception',
         )
       }
 
       await retryOptions.onRetry?.({
         attempt: attemptIndex + 1,
-        error,
+        error: error instanceof Error ? error : new Error(errorMessage),
         delayMs,
-        errorCode,
+        errorCode: retryableCode,
       })
 
       await waitWithAbort(delayMs, signal)
