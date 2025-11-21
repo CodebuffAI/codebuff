@@ -1,8 +1,4 @@
-import { z } from 'zod/v4'
-
-import { SERVER_ACTION_SCHEMA } from '../actions'
-
-import type { ClientAction } from '../actions'
+import type { ClientAction, ServerAction } from '../actions'
 
 type ClientMessageIdentify = {
   type: 'identify'
@@ -29,38 +25,41 @@ type ClientMessageAction = {
   data: ClientAction
 }
 
-export type ClientMessageType =
-  | 'identify'
-  | 'subscribe'
-  | 'unsubscribe'
-  | 'ping'
-  | 'action'
+type ClientMessageAny =
+  | ClientMessageIdentify
+  | ClientMessageSubscribe
+  | ClientMessageUnsubscribe
+  | ClientMessagePing
+  | ClientMessageAction
+export type ClientMessageType = ClientMessageAny['type']
 export type ClientMessage<T extends ClientMessageType = ClientMessageType> = {
-  identify: ClientMessageIdentify
-  subscribe: ClientMessageSubscribe
-  unsubscribe: ClientMessageUnsubscribe
-  ping: ClientMessagePing
-  action: ClientMessageAction
+  [K in ClientMessageType]: Extract<
+    ClientMessageAny,
+    {
+      type: K
+    }
+  >
 }[T]
 
-export const SERVER_MESSAGE_SCHEMAS = {
-  ack: z.object({
-    type: z.literal('ack'),
-    txid: z.number().optional(),
-    success: z.boolean(),
-    error: z.string().optional(),
-  }),
-  action: z.object({
-    type: z.literal('action'),
-    data: SERVER_ACTION_SCHEMA,
-  }),
+type ServerMessageAck = {
+  type: 'ack'
+  txid?: number
+  success: boolean
+  error?: string
 }
 
-export const SERVER_MESSAGE_SCHEMA = z.union([
-  SERVER_MESSAGE_SCHEMAS.ack,
-  SERVER_MESSAGE_SCHEMAS.action,
-])
+type ServerMessageAction = {
+  type: 'action'
+  data: ServerAction
+}
 
-export type ServerMessageType = keyof typeof SERVER_MESSAGE_SCHEMAS
-export type ServerMessage<T extends ServerMessageType = ServerMessageType> =
-  z.infer<(typeof SERVER_MESSAGE_SCHEMAS)[T]>
+type ServerMessageAny = ServerMessageAck | ServerMessageAction
+export type ServerMessageType = ServerMessageAny['type']
+export type ServerMessage<T extends ServerMessageType = ServerMessageType> = {
+  [K in ServerMessageType]: Extract<
+    ServerMessageAny,
+    {
+      type: K
+    }
+  >
+}[T]

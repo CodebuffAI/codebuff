@@ -88,10 +88,9 @@ type ClientActionAny =
   | ClientActionToolCallResponse
   | ClientActionCancelUserInput
   | ClientActionMcpToolData
-export type ClientAction<
-  T extends ClientActionAny['type'] = ClientActionAny['type'],
-> = {
-  [K in T]: Extract<
+type ClientActionType = ClientActionAny['type']
+export type ClientAction<T extends ClientActionType = ClientActionType> = {
+  [K in ClientActionType]: Extract<
     ClientActionAny,
     {
       type: K
