@@ -10,38 +10,26 @@ import type {
 import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
 
 export function createBestOfNEditor(
-  model: 'sonnet' | 'gpt-5' | 'gemini',
+  model: 'default' | 'max',
 ): Omit<SecretAgentDefinition, 'id'> {
-  const isGpt5 = model === 'gpt-5'
-  const isGemini = model === 'gemini'
+  const isDefault = model === 'default'
+  const isMax = model === 'max'
   return {
     publisher,
-    model: isGpt5
-      ? 'openai/gpt-5.1'
-      : isGemini
-        ? 'google/gemini-3-pro-preview'
-        : 'anthropic/claude-sonnet-4.5',
-    displayName: isGpt5
-      ? 'Best-of-N GPT-5 Editor'
-      : isGemini
-        ? 'Best-of-N Gemini Editor'
-        : 'Best-of-N Sonnet Editor',
+    model: 'anthropic/claude-sonnet-4.5',
+    displayName: isDefault ? 'Best-of-N Editor' : 'Best-of-N Max Editor',
     spawnerPrompt:
       'Edits code by orchestrating multiple implementor agents to generate implementation proposals, selects the best one, and applies the changes. Do not specify an input prompt for this agent; it inherits the context of the entire conversation with the user. Make sure to read any files intended to be edited before spawning this agent as it cannot read files on its own.',
 
     includeMessageHistory: true,
     inheritParentSystemPrompt: true,
 
-    toolNames: [
-      'spawn_agents',
-      'str_replace',
-      'write_file',
-      'set_messages',
-      'set_output',
-    ],
+    toolNames: ['spawn_agents', 'set_messages', 'set_output'],
     spawnableAgents: buildArray(
-      !isGemini && 'best-of-n-selector',
-      isGemini && 'best-of-n-selector-gemini',
+      'best-of-n-selector-gemini',
+      'editor-implementor',
+      'editor-implementor-gemini',
+      isMax && 'editor-implementor-gpt-5',
     ),
 
     inputSchema: {
@@ -58,109 +46,62 @@ export function createBestOfNEditor(
     },
     outputMode: 'structured_output',
 
-    instructionsPrompt: `You are one agent within the editor-best-of-n. You were spawned to generate an implementation for the user's request.
-    
-Your task is to write out ALL the code changes needed to complete the user's request in a single comprehensive response.
-
-Important: You can not make any other tool calls besides editing files. You cannot read more files, write todos, or spawn agents.
-
-Write out what changes you would make using str_replace and/or write_file tool calls.
-
-${
-  isGpt5
-    ? `<example>
-<codebuff_tool_call>
-{
-  "cb_tool_name": "str_replace",
-  "path": "path/to/file",
-  "replacements": [
-    {
-      "old": "exact old code",
-      "new": "exact new code"
-    },
-    {
-      "old": "exact old code 2",
-      "new": "exact new code 2"
-    },
-  ]
-}
-</codebuff_tool_call>
-
-<codebuff_tool_call>
-{
-  "cb_tool_name": "write_file",
-  "path": "path/to/file",
-  "instructions": "What the change does",
-  "content": "Complete file content or edit snippet"
-}
-</codebuff_tool_call>
-</example>`
-    : `
-You can also use <think> tags interspersed between tool calls to think about the best way to implement the changes. Keep these thoughts very brief. You may not need to use think tags at all.
-
-<example>
-
-<think>
-[ Thoughts about the best way to implement the feature ]
-</think>
-
-<codebuff_tool_call>
-[ First tool call to implement the feature ]
-</codebuff_tool_call>
-
-<codebuff_tool_call>
-[ Second tool call to implement the feature ]
-</codebuff_tool_call>
-
-<think>
-[ Thoughts about a tricky part of the implementation ]
-</think>
-
-<codebuff_tool_call>
-[ Third tool call to implement the feature ]
-</codebuff_tool_call>
-
-</example>`
-}
-
-Your implementation should:
-- Be complete and comprehensive
-- Include all necessary changes to fulfill the user's request
-- Follow the project's conventions and patterns
-- Be as simple and maintainable as possible
-- Reuse existing code wherever possible
-- Be well-structured and organized
-
-More style notes:
-- Try/catch blocks clutter the code -- use them sparingly.
-- Optional arguments are code smell and worse than required arguments.
-- New components often should be added to a new file, not added to an existing file.
-
-Write out your complete implementation now as a series of file editing tool calls.`,
-
-    handleSteps: isGemini ? handleStepsGemini : handleStepsSonnet,
+    handleSteps: isDefault ? handleStepsDefault : handleStepsMax,
   }
 }
-function* handleStepsSonnet({
+function* handleStepsDefault({
   params,
+  logger,
 }: AgentStepContext): ReturnType<
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
-  const selectorAgent = 'best-of-n-selector'
+  const selectorAgent = 'best-of-n-selector-gemini'
   const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 5))
 
-  // Use GENERATE_N to generate n implementations
-  const { nResponses = [] } = yield {
-    type: 'GENERATE_N',
-    n,
+  // Spawn implementor agents: 1 gemini + rest sonnet (if n >= 2)
+  const implementorAgents = []
+  if (n >= 2) {
+    // Add 1 gemini implementor
+    implementorAgents.push({
+      agent_type: 'editor-implementor-gemini',
+    })
+    // Add (n-1) sonnet implementors
+    for (let i = 1; i < n; i++) {
+      implementorAgents.push({
+        agent_type: 'editor-implementor',
+      })
+    }
+  } else {
+    // If n === 1, just spawn 1 sonnet implementor
+    implementorAgents.push({
+      agent_type: 'editor-implementor',
+    })
   }
+
+  // Spawn all implementor agents
+  const { toolResult: implementorResults } = yield {
+    toolName: 'spawn_agents',
+    input: {
+      agents: implementorAgents,
+    },
+    includeToolCall: false,
+  } satisfies ToolCall<'spawn_agents'>
+
+  // Extract spawn results
+  const spawnedImplementations =
+    extractSpawnResults<{ text: string }[]>(implementorResults)
+
+  logger.info({ spawnedImplementations }, 'spawnedImplementations')
 
   // Extract all the plans from the structured outputs
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-  // Parse implementations from tool results
-  const implementations = nResponses.map((content, index) => ({
+  // Parse implementations from spawn results
+  const implementations = spawnedImplementations.map((result, index) => ({
     id: letters[index],
-    content,
+    content:
+      'errorMessage' in result
+        ? `Error: ${result.errorMessage}`
+        : result[0].text,
   }))
 
   // Spawn selector with implementations as params
@@ -265,7 +206,7 @@ function* handleStepsSonnet({
     return matches.join('\n')
   }
 }
-function* handleStepsGemini({
+function* handleStepsMax({
   params,
 }: AgentStepContext): ReturnType<
   NonNullable<SecretAgentDefinition['handleSteps']>
@@ -273,18 +214,53 @@ function* handleStepsGemini({
   const selectorAgent = 'best-of-n-selector-gemini'
   const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 5))
 
-  // Use GENERATE_N to generate n implementations
-  const { nResponses = [] } = yield {
-    type: 'GENERATE_N',
-    n,
+  // Spawn implementor agents: 1 gemini + rest sonnet (if n >= 2)
+  const implementorAgents = []
+  if (n >= 1) {
+    implementorAgents.push({
+      agent_type: 'editor-implementor',
+    })
   }
+  if (n >= 2) {
+    // Add 1 gemini implementor
+    implementorAgents.push({
+      agent_type: 'editor-implementor-gemini',
+    })
+  }
+  if (n >= 3) {
+    implementorAgents.push({
+      agent_type: 'editor-implementor-gpt-5',
+    })
+  }
+  // Add remaining sonnet implementors
+  for (let i = 3; i < n; i++) {
+    implementorAgents.push({
+      agent_type: 'editor-implementor',
+    })
+  }
+
+  // Spawn all implementor agents
+  const { toolResult: implementorResults } = yield {
+    toolName: 'spawn_agents',
+    input: {
+      agents: implementorAgents,
+    },
+    includeToolCall: false,
+  } satisfies ToolCall<'spawn_agents'>
+
+  // Extract spawn results
+  const spawnedImplementations =
+    extractSpawnResults<{ text: string }[]>(implementorResults)
 
   // Extract all the plans from the structured outputs
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-  // Parse implementations from tool results
-  const implementations = nResponses.map((content, index) => ({
+  // Parse implementations from spawn results
+  const implementations = spawnedImplementations.map((result, index) => ({
     id: letters[index],
-    content,
+    content:
+      'errorMessage' in result
+        ? `Error: ${result.errorMessage}`
+        : result[0].text,
   }))
 
   // Spawn selector with implementations as params
@@ -391,7 +367,7 @@ function* handleStepsGemini({
 }
 
 const definition = {
-  ...createBestOfNEditor('sonnet'),
+  ...createBestOfNEditor('default'),
   id: 'editor-best-of-n',
 }
 export default definition
