@@ -1,7 +1,7 @@
 import { createBestOfNEditor } from './editor-best-of-n'
 
 const definition = {
-  ...createBestOfNEditor('gpt-5'),
-  id: 'editor-best-of-n-gpt-5',
+  ...createBestOfNEditor('max'),
+  id: 'editor-best-of-n-max',
 }
 export default definition

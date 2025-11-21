@@ -1,4 +1,4 @@
-import { createBestOfNImplementor } from './editor-implementor-gpt-5'
+import { createBestOfNImplementor } from './editor-implementor'
 
 const definition = {
   ...createBestOfNImplementor({ model: 'gemini' }),

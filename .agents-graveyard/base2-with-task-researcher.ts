@@ -1,7 +1,7 @@
 import { buildArray } from '@codebuff/common/util/array'
 
-import { publisher } from '../../constants'
-import { type SecretAgentDefinition } from '../../types/secret-agent-definition'
+import { publisher } from '../.agents/constants'
+import { type SecretAgentDefinition } from '../.agents/types/secret-agent-definition'
 
 import type { ToolCall } from 'types/agent-definition'
 import type { UserMessage } from 'types/util-types'

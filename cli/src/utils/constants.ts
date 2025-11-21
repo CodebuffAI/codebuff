@@ -25,6 +25,53 @@ export const shouldCollapseByDefault = (agentType: string): boolean => {
   )
 }
 
+// Agent IDs that should render as simple text instead of full agent boxes
+export const SIMPLE_TEXT_AGENT_IDS = [
+  'best-of-n-selector',
+  'best-of-n-selector-gemini',
+] as const
+
+/**
+ * Check if an agent should render as simple text instead of a full agent box
+ */
+export const shouldRenderAsSimpleText = (agentType: string): boolean => {
+  return SIMPLE_TEXT_AGENT_IDS.some((simpleTextId) =>
+    agentType.includes(simpleTextId),
+  )
+}
+
+// Agent IDs that should render as simple tool calls (custom UI)
+export const IMPLEMENTOR_AGENT_IDS = [
+  'editor-implementor',
+  'editor-implementor-gemini',
+  'editor-implementor-gpt-5',
+] as const
+
+/**
+ * Check if an agent is an implementor that should render as a simple tool call
+ */
+export const isImplementorAgent = (agentType: string): boolean => {
+  return IMPLEMENTOR_AGENT_IDS.some((implementorId) =>
+    agentType.includes(implementorId),
+  )
+}
+
+/**
+ * Get the display name for an implementor agent
+ */
+export const getImplementorDisplayName = (agentType: string): string => {
+  if (agentType.includes('editor-implementor-gemini')) {
+    return 'Gemini'
+  }
+  if (agentType.includes('editor-implementor-gpt-5')) {
+    return 'GPT-5'
+  }
+  if (agentType.includes('editor-implementor')) {
+    return 'Sonnet'
+  }
+  return 'Implementor'
+}
+
 /**
  * The parent agent ID for all root-level agents
  */
