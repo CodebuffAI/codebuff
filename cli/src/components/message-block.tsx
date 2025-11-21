@@ -1,25 +1,31 @@
-import { TextAttributes } from '@opentui/core'
 import { pluralize } from '@codebuff/common/util/string'
+import { TextAttributes } from '@opentui/core'
 import React, { memo, useCallback, useMemo, type ReactNode } from 'react'
 
-import {
-  shouldRenderAsSimpleText,
-  isImplementorAgent,
-  getImplementorDisplayName,
-} from '../utils/constants'
 import { AgentBranchItem } from './agent-branch-item'
 import { ElapsedTimer } from './elapsed-timer'
 import { FeedbackIconButton } from './feedback-icon-button'
 import { useTheme } from '../hooks/use-theme'
 import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
-import { isTextBlock, isToolBlock } from '../types/chat'
-import { type MarkdownPalette } from '../utils/markdown-renderer'
 import {
   useFeedbackStore,
   selectIsFeedbackOpenForMessage,
   selectHasSubmittedFeedback,
   selectMessageFeedbackCategory,
 } from '../state/feedback-store'
+import { isTextBlock, isToolBlock } from '../types/chat'
+import { shouldRenderAsSimpleText } from '../utils/constants'
+import {
+  isImplementorAgent,
+  getImplementorDisplayName,
+  getImplementorIndex,
+} from '../utils/implementor-helpers'
+import { type MarkdownPalette } from '../utils/markdown-renderer'
+import { AgentListBranch } from './blocks/agent-list-branch'
+import { ContentWithMarkdown } from './blocks/content-with-markdown'
+import { ThinkingBlock } from './blocks/thinking-block'
+import { ToolBranch } from './blocks/tool-branch'
+import { PlanBox } from './renderers/plan-box'
 
 import type {
   ContentBlock,
@@ -28,12 +34,6 @@ import type {
   AgentContentBlock,
 } from '../types/chat'
 import type { ThemeColor } from '../types/theme-system'
-import { ThinkingBlock } from './blocks/thinking-block'
-import { ContentWithMarkdown } from './blocks/content-with-markdown'
-import { ToolBranch } from './blocks/tool-branch'
-import { PlanBox } from './renderers/plan-box'
-import { AgentListBranch } from './blocks/agent-list-branch'
-import { BULLET_CHAR } from '../utils/strings'
 
 interface MessageBlockProps {
   messageId: string
@@ -378,6 +378,24 @@ const AgentBody = memo(
     const nestedBlocks = agentBlock.blocks ?? []
     const nodes: React.ReactNode[] = []
 
+    // Pre-calculate numbering for all implementor siblings
+    const implementorIndexMap = new Map<string, number>()
+    nestedBlocks
+      .filter(
+        (block): block is AgentContentBlock =>
+          block.type === 'agent' && isImplementorAgent(block.agentType),
+      )
+      .forEach((block) => {
+        const index = getImplementorIndex(
+          block.agentId,
+          block.agentType,
+          nestedBlocks,
+        )
+        if (index !== undefined) {
+          implementorIndexMap.set(block.agentId, index)
+        }
+      })
+
     const getAgentMarkdownOptions = useCallback(
       (indent: number) => {
         const indentationOffset = indent * 2
@@ -537,6 +555,7 @@ const AgentBody = memo(
 
         case 'agent': {
           const agentBlock = nestedBlock as AgentContentBlock
+          const numbering = implementorIndexMap.get(agentBlock.agentId)
           nodes.push(
             <AgentBranchWrapper
               key={`${keyPrefix}-agent-${nestedIdx}`}
@@ -549,6 +568,7 @@ const AgentBody = memo(
               onToggleCollapsed={onToggleCollapsed}
               onBuildFast={onBuildFast}
               onBuildMax={onBuildMax}
+              implementorIndex={numbering}
             />,
           )
           nestedIdx++
@@ -571,6 +591,7 @@ interface AgentBranchWrapperProps {
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
+  implementorIndex?: number
 }
 
 const AgentBranchWrapper = memo(
@@ -584,6 +605,7 @@ const AgentBranchWrapper = memo(
     onToggleCollapsed,
     onBuildFast,
     onBuildMax,
+    implementorIndex,
   }: AgentBranchWrapperProps) => {
     const theme = useTheme()
 
@@ -627,7 +649,10 @@ const AgentBranchWrapper = memo(
         streamingAgents.has(agentBlock.agentId)
       const isComplete = agentBlock.status === 'complete'
       const isFailed = agentBlock.status === 'failed'
-      const displayName = getImplementorDisplayName(agentBlock.agentType)
+      const displayName = getImplementorDisplayName(
+        agentBlock.agentType,
+        implementorIndex,
+      )
       const statusIndicator = isStreaming
         ? '●'
         : isFailed
@@ -799,6 +824,7 @@ interface SingleBlockProps {
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
+  implementorIndex?: number
 }
 
 const SingleBlock = memo(
@@ -817,6 +843,7 @@ const SingleBlock = memo(
     onToggleCollapsed,
     onBuildFast,
     onBuildMax,
+    implementorIndex,
   }: SingleBlockProps): ReactNode => {
     const theme = useTheme()
     const codeBlockWidth = Math.max(10, availableWidth - 8)
@@ -913,6 +940,7 @@ const SingleBlock = memo(
             onToggleCollapsed={onToggleCollapsed}
             onBuildFast={onBuildFast}
             onBuildMax={onBuildMax}
+            implementorIndex={implementorIndex}
           />
         )
       }
@@ -965,6 +993,24 @@ const BlocksRenderer = memo(
     onBuildMax,
   }: BlocksRendererProps) => {
     const nodes: React.ReactNode[] = []
+
+    // Pre-calculate numbering for all implementor siblings at the top level
+    const topLevelImplementorIndexMap = new Map<string, number>()
+    sourceBlocks
+      .filter(
+        (block): block is AgentContentBlock =>
+          block.type === 'agent' && isImplementorAgent(block.agentType),
+      )
+      .forEach((block) => {
+        const index = getImplementorIndex(
+          block.agentId,
+          block.agentType,
+          sourceBlocks,
+        )
+        if (index !== undefined) {
+          topLevelImplementorIndexMap.set(block.agentId, index)
+        }
+      })
     for (let i = 0; i < sourceBlocks.length; ) {
       const block = sourceBlocks[i]
       // Handle reasoning text blocks
@@ -1045,6 +1091,10 @@ const BlocksRenderer = memo(
         continue
       }
 
+      const numbering =
+        block.type === 'agent'
+          ? topLevelImplementorIndexMap.get(block.agentId)
+          : undefined
       nodes.push(
         <SingleBlock
           key={`${messageId}-block-${i}`}
@@ -1062,6 +1112,7 @@ const BlocksRenderer = memo(
           onToggleCollapsed={onToggleCollapsed}
           onBuildFast={onBuildFast}
           onBuildMax={onBuildMax}
+          implementorIndex={numbering}
         />,
       )
       i++

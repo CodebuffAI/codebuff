@@ -40,37 +40,6 @@ export const shouldRenderAsSimpleText = (agentType: string): boolean => {
   )
 }
 
-// Agent IDs that should render as simple tool calls (custom UI)
-export const IMPLEMENTOR_AGENT_IDS = [
-  'editor-implementor',
-  'editor-implementor-gemini',
-  'editor-implementor-gpt-5',
-] as const
-
-/**
- * Check if an agent is an implementor that should render as a simple tool call
- */
-export const isImplementorAgent = (agentType: string): boolean => {
-  return IMPLEMENTOR_AGENT_IDS.some((implementorId) =>
-    agentType.includes(implementorId),
-  )
-}
-
-/**
- * Get the display name for an implementor agent
- */
-export const getImplementorDisplayName = (agentType: string): string => {
-  if (agentType.includes('editor-implementor-gemini')) {
-    return 'Gemini'
-  }
-  if (agentType.includes('editor-implementor-gpt-5')) {
-    return 'GPT-5'
-  }
-  if (agentType.includes('editor-implementor')) {
-    return 'Sonnet'
-  }
-  return 'Implementor'
-}
 
 /**
  * The parent agent ID for all root-level agents
