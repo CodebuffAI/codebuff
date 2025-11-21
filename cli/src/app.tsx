@@ -52,7 +52,7 @@ export const App = ({
   continueChat,
   continueChatId,
 }: AppProps) => {
-  const { contentMaxWidth } = useTerminalDimensions()
+  const { contentMaxWidth, separatorWidth } = useTerminalDimensions()
   const theme = useTheme()
   const { textBlock: logoBlock } = useLogo({ availableWidth: contentMaxWidth })
 
