@@ -2,7 +2,11 @@ import { TextAttributes } from '@opentui/core'
 import { pluralize } from '@codebuff/common/util/string'
 import React, { memo, useCallback, useMemo, type ReactNode } from 'react'
 
-import { shouldRenderAsSimpleText } from '../utils/constants'
+import {
+  shouldRenderAsSimpleText,
+  isImplementorAgent,
+  getImplementorDisplayName,
+} from '../utils/constants'
 import { AgentBranchItem } from './agent-branch-item'
 import { ElapsedTimer } from './elapsed-timer'
 import { FeedbackIconButton } from './feedback-icon-button'
@@ -584,21 +588,76 @@ const AgentBranchWrapper = memo(
     const theme = useTheme()
 
     if (shouldRenderAsSimpleText(agentBlock.agentType)) {
+      const isStreaming =
+        agentBlock.status === 'running' ||
+        streamingAgents.has(agentBlock.agentId)
+      const isComplete = agentBlock.status === 'complete'
+      const statusIndicator = isStreaming ? '●' : isComplete ? '✓' : '○'
+      const statusColor = isStreaming
+        ? theme.primary
+        : isComplete
+          ? theme.foreground
+          : theme.muted
+
       return (
         <box
           key={keyPrefix}
           style={{
-            flexDirection: 'column',
+            flexDirection: 'row',
+            alignItems: 'center',
+            width: '100%',
+            marginTop: 1,
           }}
         >
-          <text
-            style={{
-              wrapMode: 'word',
-              fg: theme.muted,
-            }}
-            attributes={TextAttributes.ITALIC}
-          >
-            {BULLET_CHAR} Selecting the best implementation...
+          <text style={{ wrapMode: 'word' }}>
+            <span fg={statusColor}>{statusIndicator}</span>
+            <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
+              {' '}
+              Selecting best
+            </span>
+          </text>
+        </box>
+      )
+    }
+
+    // Render implementor agents as simple tool calls
+    if (isImplementorAgent(agentBlock.agentType)) {
+      const isStreaming =
+        agentBlock.status === 'running' ||
+        streamingAgents.has(agentBlock.agentId)
+      const isComplete = agentBlock.status === 'complete'
+      const isFailed = agentBlock.status === 'failed'
+      const displayName = getImplementorDisplayName(agentBlock.agentType)
+      const statusIndicator = isStreaming
+        ? '●'
+        : isFailed
+          ? '✗'
+          : isComplete
+            ? '✓'
+            : '○'
+      const statusColor = isStreaming
+        ? theme.primary
+        : isFailed
+          ? 'red'
+          : isComplete
+            ? theme.foreground
+            : theme.muted
+
+      return (
+        <box
+          key={keyPrefix}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            width: '100%',
+          }}
+        >
+          <text style={{ wrapMode: 'word' }}>
+            <span fg={statusColor}>{statusIndicator}</span>
+            <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
+              {' '}
+              {displayName}
+            </span>
           </text>
         </box>
       )
@@ -648,17 +707,6 @@ const AgentBranchWrapper = memo(
       onToggleCollapsed(agentBlock.agentId)
     }, [onToggleCollapsed, agentBlock.agentId])
 
-    // Create a status message for editor-best-of-n, thinker-best-of-n, and code-reviewer-best-of-n agents
-    const nParameterMessage =
-      agentBlock.params?.n !== undefined &&
-      (agentBlock.agentType.includes('editor-best-of-n')
-        ? `${BULLET_CHAR} Generating ${agentBlock.params.n} implementations...`
-        : agentBlock.agentType.includes('thinker-best-of-n')
-          ? `${BULLET_CHAR} Generating ${agentBlock.params.n} deep thoughts...`
-          : agentBlock.agentType.includes('code-reviewer-best-of-n')
-            ? `${BULLET_CHAR} Generating ${agentBlock.params.n} code reviews...`
-            : undefined)
-
     return (
       <box key={keyPrefix} style={{ flexDirection: 'column', gap: 0 }}>
         <AgentBranchItem
@@ -674,18 +722,6 @@ const AgentBranchWrapper = memo(
           statusIndicator={statusIndicator}
           onToggle={onToggle}
         >
-          {nParameterMessage && (
-            <text
-              style={{
-                wrapMode: 'word',
-                fg: theme.muted,
-                marginBottom: 1,
-              }}
-              attributes={TextAttributes.ITALIC}
-            >
-              {nParameterMessage}
-            </text>
-          )}
           <AgentBody
             agentBlock={agentBlock}
             indentLevel={indentLevel + 1}
