@@ -1,7 +1,6 @@
 import { z } from 'zod/v4'
 
 import { MAX_AGENT_STEPS_DEFAULT } from '../constants/agents'
-import { messageSchema } from './messages/codebuff-message'
 
 import type { Message } from './messages/codebuff-message'
 import type { ProjectFileContext } from '../util/file'
@@ -23,7 +22,7 @@ export const subgoalSchema = z.object({
 })
 export type Subgoal = z.infer<typeof subgoalSchema>
 
-export const AgentStateSchema: z.ZodType<{
+export type AgentState = {
   /**
    * @deprecated agentId is replaced by runId
    */
@@ -40,30 +39,7 @@ export const AgentStateSchema: z.ZodType<{
   directCreditsUsed: number
   output?: Record<string, any>
   parentId?: string
-}> = z.lazy(() =>
-  z.object({
-    agentId: z.string(),
-    agentType: z.string().nullable(),
-    agentContext: z.record(z.string(), subgoalSchema),
-    ancestorRunIds: z
-      .string()
-      .array()
-      .default(() => []),
-    runId: z.string().optional(),
-    subagents: AgentStateSchema.array(),
-    childRunIds: z
-      .string()
-      .array()
-      .default(() => []),
-    messageHistory: messageSchema.array(),
-    stepsRemaining: z.number(),
-    creditsUsed: z.number().default(0),
-    directCreditsUsed: z.number().default(0),
-    output: z.record(z.string(), z.any()).optional(),
-    parentId: z.string().optional(),
-  }),
-)
-export type AgentState = z.infer<typeof AgentStateSchema>
+}
 
 export const AgentOutputSchema = z.discriminatedUnion('type', [
   z.object({
