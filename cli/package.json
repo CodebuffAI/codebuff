@@ -15,17 +15,13 @@
     }
   },
   "scripts": {
-    "dev": "./scripts/dev.sh",
-    "prebuild": "bun run build:sdk",
-    "build": "bun build src/index.tsx --outdir dist --target bun --format esm",
+    "dev": "bun run src/index.tsx",
     "build:sdk": "cd ../sdk && bun run build",
-    "build:sdk-types": "cd ../sdk && bun run build:types",
     "build:binary": "bun ./scripts/build-binary.ts codebuff $npm_package_version",
     "release": "bun run scripts/release.ts",
     "start": "bun run dist/index.js",
     "test": "bun test",
     "test:tmux-poc": "bun run src/__tests__/tmux-poc.ts",
-    "pretypecheck": "bun run build:sdk-types",
     "typecheck": "tsc --noEmit -p ."
   },
   "sideEffects": false,

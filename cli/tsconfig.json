@@ -7,12 +7,14 @@
     "jsx": "react-jsx",
     "jsxImportSource": "@opentui/react",
     "outDir": "./dist",
-    "rootDir": "./src",
     "declaration": true,
     "declarationMap": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "preserveSymlinks": false
+    "preserveSymlinks": false,
+    "paths": {
+      "@codebuff/sdk": ["../sdk/src/index.ts"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
