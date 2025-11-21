@@ -11,16 +11,23 @@ import {
 } from '../../types/secret-agent-definition'
 
 export function createCodeReviewerBestOfN(
-  model: 'sonnet' | 'gpt-5',
+  model: 'sonnet' | 'gpt-5' | 'gemini',
 ): Omit<SecretAgentDefinition, 'id'> {
   const isGpt5 = model === 'gpt-5'
+  const isGemini = model === 'gemini'
 
   return {
     publisher,
-    model: isGpt5 ? 'openai/gpt-5.1' : 'anthropic/claude-sonnet-4.5',
+    model: isGpt5
+      ? 'openai/gpt-5.1'
+      : isGemini
+        ? 'google/gemini-3-pro-preview'
+        : 'anthropic/claude-sonnet-4.5',
     displayName: isGpt5
       ? 'Best-of-N GPT-5 Code Reviewer'
-      : 'Best-of-N Fast Code Reviewer',
+      : isGemini
+        ? 'Best-of-N Gemini Code Reviewer'
+        : 'Best-of-N Fast Code Reviewer',
     spawnerPrompt:
       'Reviews code by orchestrating multiple reviewer agents to generate review proposals, selects the best one, and provides the final review. Do not specify an input prompt for this agent; it reads the context from the message history.',
 
@@ -28,7 +35,9 @@ export function createCodeReviewerBestOfN(
     inheritParentSystemPrompt: true,
 
     toolNames: ['spawn_agents'],
-    spawnableAgents: ['code-reviewer-selector'],
+    spawnableAgents: [
+      isGemini ? 'code-reviewer-selector-gemini' : 'code-reviewer-selector',
+    ],
 
     inputSchema: {
       params: {
@@ -101,7 +110,7 @@ More feedback...
 
 Be extremely concise and focus on the most important issues that need to be addressed.`,
 
-    handleSteps: isGpt5 ? handleStepsGpt5 : handleStepsSonnet,
+    handleSteps: isGpt5 ? handleStepsGpt5 : isGemini ? handleStepsGemini : handleStepsSonnet,
   }
 }
 
@@ -112,6 +121,90 @@ function* handleStepsSonnet({
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
   const selectorAgent = 'code-reviewer-selector'
+  const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 5))
+
+  // Use GENERATE_N to generate n review outputs
+  const { nResponses = [] } = yield {
+    type: 'GENERATE_N',
+    n,
+  }
+
+  // Extract all the reviews
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  const reviews = nResponses.map((content, index) => ({
+    id: letters[index],
+    content,
+  }))
+
+  // Spawn selector with reviews as params
+  const { toolResult: selectorResult } = yield {
+    toolName: 'spawn_agents',
+    input: {
+      agents: [
+        {
+          agent_type: selectorAgent,
+          params: { reviews },
+        },
+      ],
+    },
+    includeToolCall: false,
+  } satisfies ToolCall<'spawn_agents'>
+
+  const selectorOutput = extractSpawnResults<{
+    reviewId: string
+  }>(selectorResult)[0]
+
+  function extractSpawnResults<T>(
+    results: any[] | undefined,
+  ): (T | { errorMessage: string })[] {
+    if (!results) return []
+    const spawnedResults = results
+      .filter((result) => result.type === 'json')
+      .map((result) => result.value)
+      .flat() as {
+      agentType: string
+      value: { value?: T; errorMessage?: string }
+    }[]
+    return spawnedResults.map(
+      (result) =>
+        result.value.value ??
+        ({
+          errorMessage:
+            result.value.errorMessage ?? 'Error extracting spawn results',
+        } as { errorMessage: string }),
+    )
+  }
+
+  if ('errorMessage' in selectorOutput) {
+    yield {
+      type: 'STEP_TEXT',
+      text: selectorOutput.errorMessage,
+    } satisfies StepText
+    return
+  }
+  const { reviewId } = selectorOutput
+  const chosenReview = reviews.find((review) => review.id === reviewId)
+  if (!chosenReview) {
+    yield {
+      type: 'STEP_TEXT',
+      text: 'Failed to find chosen review.',
+    } satisfies StepText
+    return
+  }
+
+  yield {
+    type: 'STEP_TEXT',
+    text: chosenReview.content,
+  } satisfies StepText
+}
+
+function* handleStepsGemini({
+  agentState,
+  params,
+}: AgentStepContext): ReturnType<
+  NonNullable<SecretAgentDefinition['handleSteps']>
+> {
+  const selectorAgent = 'code-reviewer-selector-gemini'
   const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 5))
 
   // Use GENERATE_N to generate n review outputs

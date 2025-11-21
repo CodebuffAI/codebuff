@@ -5,18 +5,23 @@ import {
 } from '../../types/secret-agent-definition'
 
 export const createCodeReviewerSelector = (options: {
-  model: 'sonnet' | 'gpt-5'
+  model: 'sonnet' | 'gpt-5' | 'gemini'
 }): Omit<SecretAgentDefinition, 'id'> => {
   const { model } = options
   const isSonnet = model === 'sonnet'
   const isGpt5 = model === 'gpt-5'
+  const isGemini = model === 'gemini'
 
   return {
     publisher,
-    model: isSonnet ? 'anthropic/claude-sonnet-4.5' : 'openai/gpt-5.1',
-    ...(isGpt5 && {
+    model: isSonnet
+      ? 'anthropic/claude-sonnet-4.5'
+      : isGpt5
+        ? 'openai/gpt-5.1'
+        : 'google/gemini-3-pro-preview',
+    ...((isGpt5 || isGemini) && {
       reasoningOptions: {
-        effort: 'high',
+        effort: 'medium',
       },
     }),
     displayName: 'Best-of-N Code Review Selector',
