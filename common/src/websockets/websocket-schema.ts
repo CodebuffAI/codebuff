@@ -1,45 +1,47 @@
 import { z } from 'zod/v4'
 
-import { CLIENT_ACTION_SCHEMA, SERVER_ACTION_SCHEMA } from '../actions'
+import { SERVER_ACTION_SCHEMA } from '../actions'
 
-export const CLIENT_MESSAGE_SCHEMAS = {
-  identify: z.object({
-    type: z.literal('identify'),
-    txid: z.number(),
-    clientSessionId: z.string(),
-  }),
-  subscribe: z.object({
-    type: z.literal('subscribe'),
-    txid: z.number(),
-    topics: z.array(z.string()),
-  }),
-  unsubscribe: z.object({
-    type: z.literal('unsubscribe'),
-    txid: z.number(),
-    topics: z.array(z.string()),
-  }),
-  ping: z.object({
-    type: z.literal('ping'),
-    txid: z.number(),
-  }),
-  action: z.object({
-    type: z.literal('action'),
-    txid: z.number(),
-    data: CLIENT_ACTION_SCHEMA,
-  }),
-} as const
+import type { ClientAction } from '../actions'
 
-export const CLIENT_MESSAGE_SCHEMA = z.union([
-  CLIENT_MESSAGE_SCHEMAS.identify,
-  CLIENT_MESSAGE_SCHEMAS.subscribe,
-  CLIENT_MESSAGE_SCHEMAS.unsubscribe,
-  CLIENT_MESSAGE_SCHEMAS.ping,
-  CLIENT_MESSAGE_SCHEMAS.action,
-])
+type ClientMessageIdentify = {
+  type: 'identify'
+  txid: number
+  clientSessionId: string
+}
+type ClientMessageSubscribe = {
+  type: 'subscribe'
+  txid: number
+  topics: string[]
+}
+type ClientMessageUnsubscribe = {
+  type: 'unsubscribe'
+  txid: number
+  topics: string[]
+}
+type ClientMessagePing = {
+  type: 'ping'
+  txid: number
+}
+type ClientMessageAction = {
+  type: 'action'
+  txid: number
+  data: ClientAction
+}
 
-export type ClientMessageType = keyof typeof CLIENT_MESSAGE_SCHEMAS
-export type ClientMessage<T extends ClientMessageType = ClientMessageType> =
-  z.infer<(typeof CLIENT_MESSAGE_SCHEMAS)[T]>
+export type ClientMessageType =
+  | 'identify'
+  | 'subscribe'
+  | 'unsubscribe'
+  | 'ping'
+  | 'action'
+export type ClientMessage<T extends ClientMessageType = ClientMessageType> = {
+  identify: ClientMessageIdentify
+  subscribe: ClientMessageSubscribe
+  unsubscribe: ClientMessageUnsubscribe
+  ping: ClientMessagePing
+  action: ClientMessageAction
+}[T]
 
 export const SERVER_MESSAGE_SCHEMAS = {
   ack: z.object({

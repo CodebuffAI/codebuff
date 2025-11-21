@@ -1,5 +1,4 @@
 import { setSessionConnected } from '@codebuff/agent-runtime/live-user-inputs'
-import { CLIENT_MESSAGE_SCHEMA } from '@codebuff/common/websockets/websocket-schema'
 import { isError } from 'lodash'
 import { WebSocketServer } from 'ws'
 
@@ -50,7 +49,7 @@ async function processMessage(params: {
   }
 
   try {
-    const msg = CLIENT_MESSAGE_SCHEMA.parse(messageObj)
+    const msg = messageObj
     const { type, txid } = msg
     switch (type) {
       case 'subscribe': {
