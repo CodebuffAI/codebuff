@@ -528,8 +528,18 @@ export const Chat = ({
         !key.option
 
       if (isPlainTab && !mentionContext.active) {
-        openFileMenuWithTab()
-        return true
+        // Only open file menu if there's a word at cursor to complete
+        const safeCursor = Math.max(0, Math.min(cursorPosition, inputValue.length))
+        let wordStart = safeCursor
+        while (wordStart > 0 && !/\s/.test(inputValue[wordStart - 1])) {
+          wordStart--
+        }
+        const hasWordAtCursor = wordStart < safeCursor
+        
+        if (hasWordAtCursor) {
+          openFileMenuWithTab()
+          return true
+        }
       }
 
       return false
