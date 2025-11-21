@@ -1,4 +1,4 @@
-import { ToolCall } from 'types/agent-definition'
+import { StepText, ToolCall } from 'types/agent-definition'
 import { publisher } from '../constants'
 
 import {
@@ -50,7 +50,7 @@ In your report, please give a very concise analysis that includes the full paths
 Do not use any further tools or spawn any further agents.
   `.trim(),
 
-  handleSteps: function* ({ prompt, params }) {
+  handleSteps: function* ({ prompt, params, logger }) {
     const { toolResult: fileListerResults } = yield {
       toolName: 'spawn_agents',
       input: {
@@ -64,21 +64,46 @@ Do not use any further tools or spawn any further agents.
       },
     } satisfies ToolCall
 
-    const fileListerResult = fileListerResults?.[0]
-    const filesStr =
-      fileListerResult && fileListerResult.type === 'json'
-        ? ((fileListerResult.value as any)?.[0]?.value?.value as string)
-        : ''
-    const files = filesStr.split('\n').filter(Boolean)
+    const filesResult =
+      extractSpawnResults<{ text: string }[]>(fileListerResults)[0]
+    if (!Array.isArray(filesResult)) {
+      yield {
+        type: 'STEP_TEXT',
+        text: filesResult.errorMessage,
+      } satisfies StepText
+      return
+    }
+
+    const paths = filesResult[0].text.split('\n').filter(Boolean)
 
     yield {
       toolName: 'read_files',
       input: {
-        paths: files,
+        paths,
       },
     }
 
     yield 'STEP'
+
+    function extractSpawnResults<T>(
+      results: any[] | undefined,
+    ): (T | { errorMessage: string })[] {
+      if (!results) return []
+      const spawnedResults = results
+        .filter((result) => result.type === 'json')
+        .map((result) => result.value)
+        .flat() as {
+        agentType: string
+        value: { value?: T; errorMessage?: string }
+      }[]
+      return spawnedResults.map(
+        (result) =>
+          result.value.value ?? {
+            errorMessage:
+              result.value.errorMessage ?? 'Error extracting spawn results',
+          },
+      )
+    }
   },
 }
 
