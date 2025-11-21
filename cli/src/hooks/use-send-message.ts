@@ -1116,11 +1116,24 @@ export const useSendMessage = ({
                   ] of spawnAgentsMapRef.current.entries()) {
                     const eventType = event.agentType || ''
                     const storedType = info.agentType || ''
-                    // Match if exact match, or if eventType ends with storedType (e.g., 'codebuff/file-picker@0.0.2' matches 'file-picker')
-                    const isMatch =
-                      eventType === storedType ||
-                      (eventType.includes('/') &&
-                        eventType.split('/')[1]?.split('@')[0] === storedType)
+                    
+                    // Extract base names without version or scope
+                    // e.g., 'codebuff/file-picker@0.0.2' -> 'file-picker'
+                    //       'file-picker' -> 'file-picker'
+                    const getBaseName = (type: string) => {
+                      if (type.includes('/')) {
+                        // Handle scoped names like 'codebuff/file-picker@0.0.2'
+                        return type.split('/')[1]?.split('@')[0] || type
+                      }
+                      // Handle simple names, possibly with version
+                      return type.split('@')[0]
+                    }
+                    
+                    const eventBaseName = getBaseName(eventType)
+                    const storedBaseName = getBaseName(storedType)
+                    
+                    // Match if base names are the same
+                    const isMatch = eventBaseName === storedBaseName
                     if (isMatch) {
                       logger.info(
                         {
