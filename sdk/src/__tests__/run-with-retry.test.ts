@@ -28,75 +28,91 @@ describe('run retry wrapper', () => {
     expect(runSpy).toHaveBeenCalledTimes(1)
   })
 
-  it('retries once on retryable network error and then succeeds', async () => {
-    const expectedState = { sessionState: {} as any, output: { type: 'lastMessage', value: 'hi' } } as RunState
+  it('retries once on retryable error output and then succeeds', async () => {
+    const errorState = {
+      sessionState: {} as any,
+      output: { type: 'error', message: 'NetworkError: Service unavailable' }
+    } as RunState
+    const successState = { sessionState: {} as any, output: { type: 'lastMessage', value: 'hi' } } as RunState
+
     const runSpy = spyOn(runModule, 'runOnce')
-      .mockRejectedValueOnce(
-        new NetworkError('temporary', ErrorCodes.NETWORK_ERROR),
-      )
-      .mockResolvedValueOnce(expectedState)
+      .mockResolvedValueOnce(errorState)
+      .mockResolvedValueOnce(successState)
 
     const result = await run({
       ...baseOptions,
       retry: { backoffBaseMs: 1, backoffMaxMs: 2 },
     })
 
-    expect(result).toBe(expectedState)
+    expect(result).toBe(successState)
     expect(runSpy).toHaveBeenCalledTimes(2)
   })
 
-  it('stops after max retries are exhausted', async () => {
-    const runSpy = spyOn(runModule, 'runOnce').mockRejectedValue(
-      new NetworkError('offline', ErrorCodes.NETWORK_ERROR),
-    )
+  it('stops after max retries are exhausted and returns error output', async () => {
+    const errorState = {
+      sessionState: {} as any,
+      output: { type: 'error', message: 'NetworkError: Connection timeout' }
+    } as RunState
 
-    await expect(
-      run({
-        ...baseOptions,
-        retry: { maxRetries: 1, backoffBaseMs: 1, backoffMaxMs: 1 },
-      }),
-    ).rejects.toBeInstanceOf(NetworkError)
+    const runSpy = spyOn(runModule, 'runOnce').mockResolvedValue(errorState)
 
+    const result = await run({
+      ...baseOptions,
+      retry: { maxRetries: 1, backoffBaseMs: 1, backoffMaxMs: 1 },
+    })
+
+    // Should return error output after exhausting retries
+    expect(result.output.type).toBe('error')
+    expect(result.output.message).toContain('timeout')
     // Initial attempt + one retry
     expect(runSpy).toHaveBeenCalledTimes(2)
   })
 
-  it('does not retry non-network errors', async () => {
-    const error = new Error('boom')
-    const runSpy = spyOn(runModule, 'runOnce').mockRejectedValue(error)
+  it('does not retry non-retryable error outputs', async () => {
+    const errorState = {
+      sessionState: {} as any,
+      output: { type: 'error', message: 'Invalid input' }
+    } as RunState
 
-    await expect(
-      run({
-        ...baseOptions,
-        retry: { maxRetries: 3, backoffBaseMs: 1, backoffMaxMs: 1 },
-      }),
-    ).rejects.toBe(error)
+    const runSpy = spyOn(runModule, 'runOnce').mockResolvedValue(errorState)
 
+    const result = await run({
+      ...baseOptions,
+      retry: { maxRetries: 3, backoffBaseMs: 1, backoffMaxMs: 1 },
+    })
+
+    // Should return immediately without retrying
+    expect(result.output.type).toBe('error')
     expect(runSpy).toHaveBeenCalledTimes(1)
   })
 
-  it('skips retry when retry is false even for retryable errors', async () => {
-    const runSpy = spyOn(runModule, 'runOnce').mockRejectedValue(
-      new NetworkError('offline', ErrorCodes.NETWORK_ERROR),
-    )
+  it('skips retry when retry is false even for retryable error outputs', async () => {
+    const errorState = {
+      sessionState: {} as any,
+      output: { type: 'error', message: 'NetworkError: Connection failed' }
+    } as RunState
 
-    await expect(
-      run({
-        ...baseOptions,
-        retry: false,
-      }),
-    ).rejects.toBeInstanceOf(NetworkError)
+    const runSpy = spyOn(runModule, 'runOnce').mockResolvedValue(errorState)
 
+    const result = await run({
+      ...baseOptions,
+      retry: false,
+    })
+
+    expect(result.output.type).toBe('error')
     expect(runSpy).toHaveBeenCalledTimes(1)
   })
 
   it('retries when provided custom retryableErrorCodes set', async () => {
-    const expectedState = { sessionState: {} as any, output: { type: 'lastMessage', value: 'hi' } } as RunState
+    const errorState = {
+      sessionState: {} as any,
+      output: { type: 'error', message: 'Server error (500)' }
+    } as RunState
+    const successState = { sessionState: {} as any, output: { type: 'lastMessage', value: 'hi' } } as RunState
+
     const runSpy = spyOn(runModule, 'runOnce')
-      .mockRejectedValueOnce(
-        new NetworkError('temporary', ErrorCodes.SERVER_ERROR),
-      )
-      .mockResolvedValueOnce(expectedState)
+      .mockResolvedValueOnce(errorState)
+      .mockResolvedValueOnce(successState)
 
     const result = await run({
       ...baseOptions,
@@ -107,25 +123,160 @@ describe('run retry wrapper', () => {
       },
     })
 
-    expect(result).toBe(expectedState)
+    expect(result).toBe(successState)
     expect(runSpy).toHaveBeenCalledTimes(2)
   })
 
-  it('honors abort controller during backoff', async () => {
-    const runSpy = spyOn(runModule, 'runOnce').mockRejectedValue(
-      new NetworkError('offline', ErrorCodes.NETWORK_ERROR),
-    )
+  it('returns error output on abort before first attempt', async () => {
     const controller = new AbortController()
+    controller.abort('cancelled')
 
-    const promise = run({
+    const runSpy = spyOn(runModule, 'runOnce')
+
+    const result = await run({
       ...baseOptions,
-      retry: { backoffBaseMs: 20, backoffMaxMs: 20 },
+      retry: { backoffBaseMs: 1, backoffMaxMs: 2 },
       abortController: controller,
     })
 
-    controller.abort('cancelled')
+    expect(result.output.type).toBe('error')
+    expect(result.output.message).toContain('Aborted')
+    expect(runSpy).toHaveBeenCalledTimes(0)
+  })
 
-    await expect(promise).rejects.toHaveProperty('name', 'AbortError')
-    expect(runSpy).toHaveBeenCalledTimes(1)
+  it('calls onRetry callback with correct parameters on error output', async () => {
+    const errorState = {
+      sessionState: {} as any,
+      output: { type: 'error', message: 'Service unavailable (503)' }
+    } as RunState
+    const successState = { sessionState: {} as any, output: { type: 'lastMessage', value: 'done' } } as RunState
+
+    const runSpy = spyOn(runModule, 'runOnce')
+      .mockResolvedValueOnce(errorState)
+      .mockResolvedValueOnce(successState)
+
+    const onRetryCalls: any[] = []
+    const onRetry = async (params: any) => {
+      onRetryCalls.push(params)
+    }
+
+    await run({
+      ...baseOptions,
+      retry: { backoffBaseMs: 1, backoffMaxMs: 2, onRetry },
+    })
+
+    expect(onRetryCalls).toHaveLength(1)
+    expect(onRetryCalls[0].attempt).toBe(1)
+    expect(onRetryCalls[0].delayMs).toBe(1)
+    expect(onRetryCalls[0].errorCode).toBe('SERVICE_UNAVAILABLE')
+  })
+
+  it('calls onRetryExhausted after all retries fail', async () => {
+    const errorState = {
+      sessionState: {} as any,
+      output: { type: 'error', message: 'NetworkError: timeout' }
+    } as RunState
+
+    spyOn(runModule, 'runOnce').mockResolvedValue(errorState)
+
+    const onRetryExhaustedCalls: any[] = []
+    const onRetryExhausted = async (params: any) => {
+      onRetryExhaustedCalls.push(params)
+    }
+
+    await run({
+      ...baseOptions,
+      retry: { maxRetries: 2, backoffBaseMs: 1, onRetryExhausted },
+    })
+
+    expect(onRetryExhaustedCalls).toHaveLength(1)
+    expect(onRetryExhaustedCalls[0].totalAttempts).toBe(3) // Initial + 2 retries
+    expect(onRetryExhaustedCalls[0].errorCode).toBe('TIMEOUT')
+  })
+
+  it('returns error output without sessionState on first attempt failure', async () => {
+    const errorState = {
+      output: { type: 'error', message: 'Not retryable' }
+    } as RunState
+
+    spyOn(runModule, 'runOnce').mockResolvedValue(errorState)
+
+    const result = await run({
+      ...baseOptions,
+      retry: { maxRetries: 3, backoffBaseMs: 1 },
+    })
+
+    expect(result.output.type).toBe('error')
+    expect(result.sessionState).toBeUndefined()
+  })
+
+  it('preserves sessionState from previousRun on retry', async () => {
+    const previousSession = { fileContext: { cwd: '/test' } } as any
+    const errorState = {
+      sessionState: { fileContext: { cwd: '/new' } } as any,
+      output: { type: 'error', message: 'Service unavailable' }
+    } as RunState
+    const successState = {
+      sessionState: { fileContext: { cwd: '/final' } } as any,
+      output: { type: 'lastMessage', value: 'ok' }
+    } as RunState
+
+    const runSpy = spyOn(runModule, 'runOnce')
+      .mockResolvedValueOnce(errorState)
+      .mockResolvedValueOnce(successState)
+
+    const result = await run({
+      ...baseOptions,
+      previousRun: { sessionState: previousSession, output: { type: 'lastMessage', value: 'prev' } },
+      retry: { backoffBaseMs: 1, backoffMaxMs: 2 },
+    })
+
+    expect(result).toBe(successState)
+    expect(result.sessionState?.fileContext.cwd).toBe('/final')
+  })
+
+  it('handles 503 Service Unavailable errors as retryable', async () => {
+    const errorState = {
+      sessionState: {} as any,
+      output: { type: 'error', message: 'Error from AI SDK: 503 Service Unavailable' }
+    } as RunState
+    const successState = { sessionState: {} as any, output: { type: 'lastMessage', value: 'ok' } } as RunState
+
+    const runSpy = spyOn(runModule, 'runOnce')
+      .mockResolvedValueOnce(errorState)
+      .mockResolvedValueOnce(successState)
+
+    const result = await run({
+      ...baseOptions,
+      retry: { backoffBaseMs: 1, maxRetries: 1 },
+    })
+
+    expect(result).toBe(successState)
+    expect(runSpy).toHaveBeenCalledTimes(2)
+  })
+
+  it('applies exponential backoff correctly', async () => {
+    const errorState = {
+      sessionState: {} as any,
+      output: { type: 'error', message: 'NetworkError: Connection refused' }
+    } as RunState
+    const successState = { sessionState: {} as any, output: { type: 'lastMessage', value: 'ok' } } as RunState
+
+    spyOn(runModule, 'runOnce')
+      .mockResolvedValueOnce(errorState)
+      .mockResolvedValueOnce(errorState)
+      .mockResolvedValueOnce(successState)
+
+    const delays: number[] = []
+    const onRetry = async ({ delayMs }: any) => {
+      delays.push(delayMs)
+    }
+
+    await run({
+      ...baseOptions,
+      retry: { maxRetries: 3, backoffBaseMs: 100, backoffMaxMs: 1000, onRetry },
+    })
+
+    expect(delays).toEqual([100, 200]) // First two retries (third succeeds, no retry callback)
   })
 })
