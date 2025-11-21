@@ -384,7 +384,7 @@ function buildImplementationStepPrompt({
     !isFast &&
       `You must spawn the ${isMax ? 'editor-best-of-n-max' : 'editor-best-of-n'} agent to implement code changes, since it will generate the best code changes.`,
     isMax && 'Spawn the thinker-best-of-n-gpt-5 to solve complex problems.',
-    `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}.`,
+    `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}. Don't repeat yourself, especially if you have already concluded and summarized the changes in a previous step -- just end your turn.`,
   ).join('\n')
 }
 
