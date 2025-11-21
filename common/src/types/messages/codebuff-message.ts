@@ -1,83 +1,51 @@
-import z from 'zod/v4'
-
-import {
-  filePartSchema,
-  imagePartSchema,
-  reasoningPartSchema,
-  textPartSchema,
-  toolCallPartSchema,
-  toolResultOutputSchema,
+import type {
+  FilePart,
+  ImagePart,
+  ReasoningPart,
+  TextPart,
+  ToolCallPart,
+  ToolResultOutput,
 } from './content-part'
-import { providerMetadataSchema } from './provider-metadata'
+import type { ProviderMetadata } from './provider-metadata'
 
-const auxiliaryDataSchema = z.object({
-  providerOptions: providerMetadataSchema.optional(),
-
-  tags: z.string().array().optional(),
+export type AuxiliaryMessageData = {
+  providerOptions?: ProviderMetadata
+  tags?: string[]
 
   // James: All the below is overly prescriptive for the framework.
   // Instead, let's tag what the message is, and let the user decide time to live, keep during truncation, etc.
   /** @deprecated Use tags instead. */
-  timeToLive: z
-    .union([z.literal('agentStep'), z.literal('userPrompt')])
-    .optional(),
+  timeToLive?: 'agentStep' | 'userPrompt'
   /** @deprecated Use tags instead. */
-  keepDuringTruncation: z.boolean().optional(),
+  keepDuringTruncation?: boolean
   /** @deprecated Use tags instead. */
-  keepLastTags: z.string().array().optional(),
-})
-export type AuxiliaryMessageData = z.infer<typeof auxiliaryDataSchema>
+  keepLastTags?: string[]
+}
 
-export const systemMessageSchema = z
-  .object({
-    role: z.literal('system'),
-    content: textPartSchema.array(),
-  })
-  .and(auxiliaryDataSchema)
-export type SystemMessage = z.infer<typeof systemMessageSchema>
+export type SystemMessage = {
+  role: 'system'
+  content: TextPart[]
+} & AuxiliaryMessageData
 
-export const userMessageSchema = z
-  .object({
-    role: z.literal('user'),
-    content: z
-      .discriminatedUnion('type', [
-        textPartSchema,
-        imagePartSchema,
-        filePartSchema,
-      ])
-      .array(),
-  })
-  .and(auxiliaryDataSchema)
-export type UserMessage = z.infer<typeof userMessageSchema>
+export type UserMessage = {
+  role: 'user'
+  content: (TextPart | ImagePart | FilePart)[]
+} & AuxiliaryMessageData
 
-export const assistantMessageSchema = z
-  .object({
-    role: z.literal('assistant'),
-    content: z
-      .discriminatedUnion('type', [
-        textPartSchema,
-        reasoningPartSchema,
-        toolCallPartSchema,
-      ])
-      .array(),
-  })
-  .and(auxiliaryDataSchema)
-export type AssistantMessage = z.infer<typeof assistantMessageSchema>
+export type AssistantMessage = {
+  role: 'assistant'
+  content: (TextPart | ReasoningPart | ToolCallPart)[]
+} & AuxiliaryMessageData
 
-export const toolMessageSchema = z
-  .object({
-    role: z.literal('tool'),
-    toolCallId: z.string(),
-    toolName: z.string(),
-    content: toolResultOutputSchema.array(),
-  })
-  .and(auxiliaryDataSchema)
-export type ToolMessage = z.infer<typeof toolMessageSchema>
+export type ToolMessage = {
+  role: 'tool'
+  toolCallId: string
+  toolName: string
+  content: ToolResultOutput[]
+} & AuxiliaryMessageData
 
-export const messageSchema = z.union([
-  systemMessageSchema,
-  userMessageSchema,
-  assistantMessageSchema,
-  toolMessageSchema,
-])
-export type Message = z.infer<typeof messageSchema>
+export type Message =
+  | SystemMessage
+  | UserMessage
+  | AssistantMessage
+  | ToolMessage
