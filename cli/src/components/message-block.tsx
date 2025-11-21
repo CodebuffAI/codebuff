@@ -603,12 +603,13 @@ const AgentBranchWrapper = memo(
           : theme.muted
 
       let statusText = 'Selecting best'
+      let reason: string | undefined
 
       // If complete, try to show which implementation was selected
       if (isComplete && siblingBlocks) {
         const blocks = agentBlock.blocks ?? []
         const lastBlock = blocks[blocks.length - 1] as
-          | { input: { implementationId: string } }
+          | { input: { implementationId: string; reason: string } }
           | undefined
         const implementationId = lastBlock?.input?.implementationId
         if (implementationId) {
@@ -630,6 +631,7 @@ const AgentBranchWrapper = memo(
               index,
             )
             statusText = `Selected ${name}`
+            reason = lastBlock?.input?.reason
           }
         }
       }
@@ -638,8 +640,8 @@ const AgentBranchWrapper = memo(
         <box
           key={keyPrefix}
           style={{
-            flexDirection: 'row',
-            alignItems: 'center',
+            flexDirection: 'column',
+            gap: 0,
             width: '100%',
             marginTop: 1,
           }}
@@ -651,6 +653,17 @@ const AgentBranchWrapper = memo(
               {statusText}
             </span>
           </text>
+          {reason && (
+            <text
+              style={{
+                wrapMode: 'word',
+                fg: theme.foreground,
+                marginLeft: 2,
+              }}
+            >
+              {reason}
+            </text>
+          )}
         </box>
       )
     }

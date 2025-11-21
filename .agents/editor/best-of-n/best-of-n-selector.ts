@@ -13,7 +13,9 @@ export const createBestOfNSelector = (options: {
   const isGemini = model === 'gemini'
   return {
     publisher,
-    model: isSonnet ? 'anthropic/claude-sonnet-4.5' : isGemini
+    model: isSonnet
+      ? 'anthropic/claude-sonnet-4.5'
+      : isGemini
         ? 'google/gemini-3-pro-preview'
         : 'openai/gpt-5.1',
     ...(isGpt5 && {
@@ -62,8 +64,13 @@ export const createBestOfNSelector = (options: {
           type: 'string',
           description: 'The id of the chosen implementation',
         },
+        reason: {
+          type: 'string',
+          description:
+            'An extremely short (1 sentence) description of why this implementation was chosen',
+        },
       },
-      required: ['implementationId'],
+      required: ['implementationId', 'reason'],
     },
 
     instructionsPrompt: `As part of the best-of-n workflow of agents, you are the implementation selector agent.
