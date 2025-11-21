@@ -32,6 +32,7 @@ export function createBestOfNEditor(
       'set_output',
     ],
     spawnableAgents: buildArray(
+      'best-of-n-selector',
       'best-of-n-selector-gemini',
       'editor-implementor',
       'editor-implementor-gemini',
@@ -44,8 +45,7 @@ export function createBestOfNEditor(
         properties: {
           n: {
             type: 'number',
-            description:
-              'Number of parallel implementor agents to spawn. Defaults to 5. Use fewer for simple tasks and max of 10 for complex tasks.',
+            description: `Number of parallel implementor agents to spawn. Defaults to ${isDefault ? 3 : 5}. Use fewer for simple tasks and max of 10 for complex tasks.`,
           },
         },
       },
@@ -61,8 +61,12 @@ function* handleStepsDefault({
 }: AgentStepContext): ReturnType<
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
-  const selectorAgent = 'best-of-n-selector-gemini'
-  const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 5))
+  const DEFAULT_N = 3
+  const selectorAgent = 'best-of-n-selector'
+  const n = Math.min(
+    10,
+    Math.max(1, (params?.n as number | undefined) ?? DEFAULT_N),
+  )
 
   // Spawn implementor agents: 1 gemini + rest sonnet (if n >= 2)
   const implementorAgents = []
@@ -217,8 +221,12 @@ function* handleStepsMax({
 }: AgentStepContext): ReturnType<
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
+  const MAX_N = 5
   const selectorAgent = 'best-of-n-selector-gemini'
-  const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 5))
+  const n = Math.min(
+    10,
+    Math.max(1, (params?.n as number | undefined) ?? MAX_N),
+  )
 
   // Spawn implementor agents: 1 gemini + rest sonnet (if n >= 2)
   const implementorAgents = []
