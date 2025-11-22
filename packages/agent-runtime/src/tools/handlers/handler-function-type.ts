@@ -25,7 +25,6 @@ type PresentOrAbsent<K extends PropertyKey, V> =
   | { [P in K]: never }
 export type State = {
   creditsUsed?: number | Promise<number>
-  repoId: string | undefined
   agentTemplate: AgentTemplate
   localAgentTemplates: Record<string, AgentTemplate>
   sendSubagentChunk: SendSubagentChunkFn

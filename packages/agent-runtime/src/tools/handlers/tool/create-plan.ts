@@ -20,6 +20,7 @@ export const handleCreatePlan = ((params: {
   clientSessionId: string
   fingerprintId: string
   logger: Logger
+  repoId: string | undefined
   userId: string | undefined
   userInputId: string
   requestClientToolCall: (
@@ -29,9 +30,7 @@ export const handleCreatePlan = ((params: {
   writeToClient: (chunk: string) => void
 
   getLatestState: () => FileProcessingState
-  state: {
-    repoId: string | undefined
-  } & FileProcessingState
+  state: FileProcessingState
 }): {
   result: Promise<CodebuffToolOutput<'create_plan'>>
   state: FileProcessingState
@@ -42,6 +41,7 @@ export const handleCreatePlan = ((params: {
     fingerprintId,
     logger,
     previousToolCallFinished,
+    repoId,
     state,
     toolCall,
     userId,
@@ -52,7 +52,6 @@ export const handleCreatePlan = ((params: {
     writeToClient,
   } = params
   const { path, plan } = toolCall.input
-  const { repoId } = state
   const fileProcessingState = getFileProcessingValues(state)
 
   logger.debug(

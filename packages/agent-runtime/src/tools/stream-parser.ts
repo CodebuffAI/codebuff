@@ -73,11 +73,9 @@ export async function processStreamWithTools(
     >,
 ) {
   const {
-    fingerprintId,
     userId,
     ancestorRunIds,
     runId,
-    repoId,
     agentTemplate,
     localAgentTemplates,
     fileContext,
@@ -106,7 +104,6 @@ export async function processStreamWithTools(
   const state: State = {
     fullResponse,
     prompt,
-    repoId,
     agentTemplate,
     localAgentTemplates,
     sendSubagentChunk,

@@ -35,20 +35,20 @@ export const handleFindFiles = ((
     clientSessionId: string
     fileContext: ProjectFileContext
     fingerprintId: string
+    repoId: string | undefined
     userId: string | undefined
     userInputId: string
 
     state: {
-      repoId: string | undefined
       messages: Message[]
     }
   } & ParamsExcluding<
     typeof requestRelevantFiles,
-    'messages' | 'system' | 'assistantPrompt' | 'fingerprintId' | 'repoId'
+    'messages' | 'system' | 'assistantPrompt'
   > &
     ParamsExcluding<
       typeof uploadExpandedFileContextForTraining,
-      'messages' | 'system' | 'assistantPrompt' | 'fingerprintId' | 'repoId'
+      'messages' | 'system' | 'assistantPrompt'
     > &
     ParamsExcluding<typeof getFileReadingUpdates, 'requestedFiles'>,
 ): { result: Promise<CodebuffToolOutput<'find_files'>>; state: {} } => {
@@ -66,7 +66,7 @@ export const handleFindFiles = ((
     userInputId,
   } = params
   const { prompt } = toolCall.input
-  const { repoId, messages } = state
+  const { messages } = state
 
   if (!messages) {
     throw new Error('Internal error for find_files: Missing messages in state')
@@ -94,8 +94,6 @@ export const handleFindFiles = ((
       messages,
       system,
       assistantPrompt: prompt,
-      fingerprintId,
-      repoId,
     })
 
     if (requestedFiles && requestedFiles.length > 0) {
@@ -110,8 +108,6 @@ export const handleFindFiles = ((
           messages,
           system,
           assistantPrompt: prompt,
-          fingerprintId,
-          repoId,
         }).catch((error) => {
           logger.error(
             { error },

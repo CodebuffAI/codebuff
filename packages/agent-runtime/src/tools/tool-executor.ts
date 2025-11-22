@@ -281,8 +281,6 @@ export function executeToolCall<T extends ToolName>(
         state.logger = pair.value
       } else if (pair.key === 'messages') {
         state.messages = pair.value
-      } else if (pair.key === 'repoId') {
-        state.repoId = pair.value
       } else if (pair.key === 'sendSubagentChunk') {
         state.sendSubagentChunk = pair.value
       } else if (pair.key === 'system') {

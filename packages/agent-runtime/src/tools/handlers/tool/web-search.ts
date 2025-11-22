@@ -5,7 +5,6 @@ import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
-import type { ConsumeCreditsWithFallbackFn } from '@codebuff/common/types/contracts/billing'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 export const handleWebSearch = ((params: {
@@ -17,15 +16,12 @@ export const handleWebSearch = ((params: {
   agentStepId: string
   clientSessionId: string
   fingerprintId: string
+  repoId: string | undefined
   repoUrl: string | undefined
   userInputId: string
   userId: string | undefined
 
   fetch: typeof globalThis.fetch
-
-  state: {
-    repoId: string | undefined
-  }
 }): { result: Promise<CodebuffToolOutput<'web_search'>>; state: {} } => {
   const {
     previousToolCallFinished,
@@ -36,16 +32,14 @@ export const handleWebSearch = ((params: {
     clientSessionId,
     fingerprintId,
     logger,
+    repoId,
     repoUrl,
     userId,
     userInputId,
-    
-    fetch,
 
-    state,
+    fetch,
   } = params
   const { query, depth } = toolCall.input
-  const {   repoId } = state
 
   const searchStartTime = Date.now()
   const searchContext = {
