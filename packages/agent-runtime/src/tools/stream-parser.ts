@@ -104,7 +104,6 @@ export async function processStreamWithTools(
   const state: State = {
     fullResponse,
     prompt,
-    agentTemplate,
     localAgentTemplates,
     sendSubagentChunk,
     agentState,

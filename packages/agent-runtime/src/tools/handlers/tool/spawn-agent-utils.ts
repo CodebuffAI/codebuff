@@ -27,7 +27,6 @@ export interface SpawnAgentParams {
 }
 
 export interface BaseSpawnState {
-  agentTemplate: AgentTemplate
   localAgentTemplates: Record<string, AgentTemplate>
   messages: Message[]
   agentState: AgentState
@@ -49,18 +48,12 @@ export function validateSpawnState(
   toolName: string,
 ): Required<BaseSpawnState> {
   const {
-    agentTemplate: parentAgentTemplate,
     localAgentTemplates,
     messages,
     agentState,
     system,
   } = state
 
-  if (!parentAgentTemplate) {
-    throw new Error(
-      `Internal error for ${toolName}: Missing agentTemplate in state`,
-    )
-  }
   if (!messages) {
     throw new Error(`Internal error for ${toolName}: Missing messages in state`)
   }
@@ -79,7 +72,6 @@ export function validateSpawnState(
   }
 
   return {
-    agentTemplate: parentAgentTemplate,
     localAgentTemplates,
     messages,
     agentState,

@@ -36,7 +36,7 @@ describe('Subagent Streaming', () => {
   >
   let handleSpawnAgentsBaseParams: ParamsExcluding<
     typeof handleSpawnAgents,
-    'toolCall' | 'state'
+    'toolCall' | 'state' | 'agentTemplate'
   >
   let baseState: Omit<
     ParamsOf<typeof handleSpawnAgents>['state'],
@@ -160,10 +160,10 @@ describe('Subagent Streaming', () => {
 
     const { result } = handleSpawnAgents({
       ...handleSpawnAgentsBaseParams,
+      agentTemplate: parentTemplate,
       toolCall,
       state: {
         ...baseState,
-        agentTemplate: parentTemplate,
         localAgentTemplates: {
           [mockAgentTemplate.id]: mockAgentTemplate,
         },
@@ -214,10 +214,10 @@ describe('Subagent Streaming', () => {
 
     const { result } = handleSpawnAgents({
       ...handleSpawnAgentsBaseParams,
+      agentTemplate: parentTemplate,
       toolCall,
       state: {
         ...baseState,
-        agentTemplate: parentTemplate,
         localAgentTemplates: {
           [mockAgentTemplate.id]: mockAgentTemplate,
         },

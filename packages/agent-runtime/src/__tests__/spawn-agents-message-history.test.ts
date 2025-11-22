@@ -35,7 +35,7 @@ describe('Spawn Agents Message History', () => {
 
   let handleSpawnAgentsBaseParams: ParamsExcluding<
     typeof handleSpawnAgents,
-    'toolCall' | 'state' | 'getLatestState'
+    'toolCall' | 'state' | 'getLatestState' | 'agentTemplate'
   >
   let baseState: Omit<
     ParamsOf<typeof handleSpawnAgents>['state'],
@@ -141,11 +141,11 @@ describe('Spawn Agents Message History', () => {
 
     const { result } = handleSpawnAgents({
       ...handleSpawnAgentsBaseParams,
+      agentTemplate: parentAgent,
       toolCall,
       getLatestState: () => ({ messages: mockMessages }),
       state: {
         ...baseState,
-        agentTemplate: parentAgent,
         localAgentTemplates: { 'child-agent': childAgent },
         messages: mockMessages,
         agentState: sessionState.mainAgentState,
@@ -206,11 +206,11 @@ describe('Spawn Agents Message History', () => {
 
     const { result } = handleSpawnAgents({
       ...handleSpawnAgentsBaseParams,
+      agentTemplate: parentAgent,
       toolCall,
       getLatestState: () => ({ messages: mockMessages }),
       state: {
         ...baseState,
-        agentTemplate: parentAgent,
         localAgentTemplates: { 'child-agent': childAgent },
         messages: mockMessages,
         agentState: sessionState.mainAgentState,
@@ -233,11 +233,11 @@ describe('Spawn Agents Message History', () => {
 
     const { result } = handleSpawnAgents({
       ...handleSpawnAgentsBaseParams,
+      agentTemplate: parentAgent,
       toolCall,
       getLatestState: () => ({ messages: mockMessages }),
       state: {
         ...baseState,
-        agentTemplate: parentAgent,
         localAgentTemplates: { 'child-agent': childAgent },
         messages: mockMessages,
         agentState: sessionState.mainAgentState,
@@ -263,11 +263,11 @@ describe('Spawn Agents Message History', () => {
 
     const { result } = handleSpawnAgents({
       ...handleSpawnAgentsBaseParams,
+      agentTemplate: parentAgent,
       toolCall,
       getLatestState: () => ({ messages: mockMessages }),
       state: {
         ...baseState,
-        agentTemplate: parentAgent,
         localAgentTemplates: { 'child-agent': childAgent },
         messages: mockMessages,
         agentState: sessionState.mainAgentState,

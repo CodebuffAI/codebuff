@@ -273,8 +273,6 @@ export function executeToolCall<T extends ToolName>(
         state.agentContext = pair.value
       } else if (pair.key === 'agentState') {
         state.agentState = pair.value
-      } else if (pair.key === 'agentTemplate') {
-        state.agentTemplate = pair.value
       } else if (pair.key === 'localAgentTemplates') {
         state.localAgentTemplates = pair.value
       } else if (pair.key === 'logger') {
