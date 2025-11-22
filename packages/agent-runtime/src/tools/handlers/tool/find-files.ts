@@ -37,10 +37,10 @@ export const handleFindFiles = ((
     userInputId: string
 
     state: {
-      fingerprintId?: string
-      userId?: string
-      repoId?: string
-      messages?: Message[]
+      fingerprintId: string
+      userId: string | undefined
+      repoId: string | undefined
+      messages: Message[]
     }
   } & ParamsExcluding<
     typeof requestRelevantFiles,

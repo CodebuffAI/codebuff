@@ -1,11 +1,27 @@
 import { getAgentTemplate } from '../../../templates/agent-registry'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebuffToolCall } from '@codebuff/common/tools/list'
+import type {
+  AgentTemplate,
+  Logger,
+} from '@codebuff/common/types/agent-template'
+import type { FetchAgentFromDatabaseFn } from '@codebuff/common/types/contracts/database'
+import type { AgentState } from '@codebuff/common/types/session-state'
 
 type ToolName = 'set_output'
-export const handleSetOutput: CodebuffToolHandlerFunction<ToolName> = (
-  params,
-) => {
+export const handleSetOutput = ((params: {
+  previousToolCallFinished: Promise<void>
+  toolCall: CodebuffToolCall<ToolName>
+  state: {
+    agentState: AgentState
+    localAgentTemplates: Record<string, AgentTemplate>
+  }
+  fetchAgentFromDatabase: FetchAgentFromDatabaseFn
+  databaseAgentCache: Map<string, AgentTemplate | null>
+  logger: Logger
+  apiKey: string
+}) => {
   const { previousToolCallFinished, toolCall, state, logger } = params
   const output = toolCall.input
   const { agentState, localAgentTemplates } = state
@@ -70,4 +86,4 @@ export const handleSetOutput: CodebuffToolHandlerFunction<ToolName> = (
     })(),
     state: { agentState: agentState },
   }
-}
+}) satisfies CodebuffToolHandlerFunction<ToolName>

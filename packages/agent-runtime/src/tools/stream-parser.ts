@@ -11,6 +11,7 @@ import { processStreamWithTags } from '../tool-stream-parser'
 import { executeCustomToolCall, executeToolCall } from './tool-executor'
 import { expireMessages } from '../util/messages'
 
+import type { State } from './handlers/handler-function-type'
 import type { CustomToolCall, ExecuteToolCallParams } from './tool-executor'
 import type { AgentTemplate } from '../templates/types'
 import type { ToolName } from '@codebuff/common/tools/constants'
@@ -35,6 +36,7 @@ export type ToolCallError = {
 
 export async function processStreamWithTools(
   params: {
+    agentStepId: string
     agentContext: Record<string, Subgoal>
     agentState: AgentState
     agentTemplate: AgentTemplate
@@ -72,6 +74,9 @@ export async function processStreamWithTools(
     >,
 ) {
   const {
+    agentStepId,
+    clientSessionId,
+    userInputId,
     fingerprintId,
     userId,
     ancestorRunIds,
@@ -100,7 +105,10 @@ export async function processStreamWithTools(
     Promise.withResolvers<void>()
   let previousToolCallFinished = streamDonePromise
 
-  const state = {
+  const state: State = {
+    clientSessionId,
+    userInputId,
+    agentStepId,
     fingerprintId,
     userId,
     repoId,

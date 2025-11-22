@@ -20,9 +20,9 @@ export const handleWebSearch = ((params: {
   repoUrl: string | undefined
 
   state: {
-    userId?: string
-    fingerprintId?: string
-    repoId?: string
+    userId: string | undefined
+    fingerprintId: string
+    repoId: string | undefined
   }
   fetch: typeof globalThis.fetch
   consumeCreditsWithFallback: ConsumeCreditsWithFallbackFn
@@ -37,7 +37,7 @@ export const handleWebSearch = ((params: {
     repoUrl,
     state,
     fetch,
-    apiKey
+    apiKey,
   } = params
   const { query, depth } = toolCall.input
   const { userId, fingerprintId, repoId } = state
@@ -65,7 +65,7 @@ export const handleWebSearch = ((params: {
           repoUrl: repoUrl ?? null,
           fetch,
           logger,
-          apiKey
+          apiKey,
         })
 
         if (webApi.error) {

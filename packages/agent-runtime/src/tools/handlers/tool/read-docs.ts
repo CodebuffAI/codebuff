@@ -1,6 +1,6 @@
-import { fetchContext7LibraryDocumentation } from '../../../llm-api/context7-api'
 import { callDocsSearchAPI } from '../../../llm-api/codebuff-web-api'
 
+import type { fetchContext7LibraryDocumentation } from '../../../llm-api/context7-api'
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
   CodebuffToolCall,
@@ -20,9 +20,9 @@ export const handleReadDocs = ((
     userInputId: string
 
     state: {
-      userId?: string
-      fingerprintId?: string
-      repoId?: string
+      fingerprintId: string
+      userId: string | undefined
+      repoId: string | undefined
     }
   } & ParamsExcluding<
     typeof fetchContext7LibraryDocumentation,
@@ -43,7 +43,7 @@ export const handleReadDocs = ((
     fetch,
   } = params
   const { libraryTitle, topic, max_tokens } = toolCall.input
-  const { userId, fingerprintId, repoId } = state
+  const { userId, repoId, fingerprintId } = state
 
   const docsStartTime = Date.now()
   const docsContext = {

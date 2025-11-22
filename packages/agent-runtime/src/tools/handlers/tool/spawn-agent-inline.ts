@@ -32,13 +32,13 @@ export const handleSpawnAgentInline = ((
 
     getLatestState: () => { messages: Message[] }
     state: {
-      fingerprintId?: string
-      userId?: string
-      agentTemplate?: AgentTemplate
-      localAgentTemplates?: Record<string, AgentTemplate>
-      messages?: Message[]
-      agentState?: AgentState
-      system?: string
+      fingerprintId: string
+      userId: string | undefined
+      agentTemplate: AgentTemplate
+      localAgentTemplates: Record<string, AgentTemplate>
+      messages: Message[]
+      agentState: AgentState
+      system: string
     }
     logger: Logger
   } & ParamsExcluding<

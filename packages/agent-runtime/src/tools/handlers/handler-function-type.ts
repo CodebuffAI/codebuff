@@ -23,59 +23,61 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 type PresentOrAbsent<K extends PropertyKey, V> =
   | { [P in K]: V }
   | { [P in K]: never }
+export type State = {
+  agentStepId: string
+  clientSessionId: string
+  userInputId: string
+  creditsUsed?: number | Promise<number>
+  fingerprintId: string
+  userId: string | undefined
+  repoId: string | undefined
+  agentTemplate: AgentTemplate
+  localAgentTemplates: Record<string, AgentTemplate>
+  sendSubagentChunk: SendSubagentChunkFn
+  agentState: AgentState
+  prompt: string | undefined
+  fullResponse: string | undefined
+  agentContext: Record<
+    string,
+    {
+      logs: string[]
+      objective?: string | undefined
+      status?:
+        | 'NOT_STARTED'
+        | 'IN_PROGRESS'
+        | 'COMPLETE'
+        | 'ABORTED'
+        | undefined
+      plan?: string | undefined
+    }
+  >
+  messages: Message[]
+  system: string
+  logger: Logger
+} & FileProcessingState
 
 export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
   params: {
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<T>
 
-    runId: string
     agentStepId: string
-    clientSessionId: string
-    userInputId: string
-    repoUrl: string | undefined
-    repoId: string | undefined
-    fileContext: ProjectFileContext
-    apiKey: string
-
-    signal: AbortSignal
-
     ancestorRunIds: string[]
-
+    apiKey: string
+    clientSessionId: string
+    fileContext: ProjectFileContext
     fullResponse: string
+    repoId: string | undefined
+    repoUrl: string | undefined
+    runId: string
+    signal: AbortSignal
+    state: State
+    userInputId: string
+
     fetch: typeof globalThis.fetch
-
-    writeToClient: (chunk: string | PrintModeEvent) => void
+    getLatestState: () => State
     trackEvent: TrackEventFn
-
-    getLatestState: () => any
-    state: {
-      creditsUsed?: number | Promise<number>
-      fingerprintId: string
-      userId: string | undefined
-      repoId: string | undefined
-      agentTemplate: AgentTemplate
-      localAgentTemplates: Record<string, AgentTemplate>
-      sendSubagentChunk: SendSubagentChunkFn
-      agentState: AgentState
-      agentContext: Record<
-        string,
-        {
-          logs: string[]
-          objective?: string | undefined
-          status?:
-            | 'NOT_STARTED'
-            | 'IN_PROGRESS'
-            | 'COMPLETE'
-            | 'ABORTED'
-            | undefined
-          plan?: string | undefined
-        }
-      >
-      messages: Message[]
-      system: string
-      logger: Logger
-    } & FileProcessingState
+    writeToClient: (chunk: string | PrintModeEvent) => void
   } & PresentOrAbsent<
     'requestClientToolCall',
     (
@@ -89,7 +91,6 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
   state?: Partial<
     {
       creditsUsed?: number | Promise<number>
-      fingerprintId: string
       userId: string | undefined
       repoId: string | undefined
       agentTemplate: AgentTemplate

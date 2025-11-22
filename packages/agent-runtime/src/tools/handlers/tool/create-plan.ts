@@ -3,10 +3,7 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { getFileProcessingValues, postStreamProcessing } from './write-file'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type {
-  FileProcessingState,
-  OptionalFileProcessingState,
-} from './write-file'
+import type { FileProcessingState } from './write-file'
 import type {
   ClientToolCall,
   CodebuffToolCall,
@@ -27,13 +24,13 @@ export const handleCreatePlan = ((params: {
 
   getLatestState: () => FileProcessingState
   state: {
-    agentStepId?: string
-    clientSessionId?: string
-    fingerprintId?: string
-    userId?: string
-    userInputId?: string
-    repoId?: string
-  } & OptionalFileProcessingState
+    agentStepId: string
+    clientSessionId: string
+    fingerprintId: string
+    userId: string | undefined
+    userInputId: string
+    repoId: string | undefined
+  } & FileProcessingState
 }): {
   result: Promise<CodebuffToolOutput<'create_plan'>>
   state: FileProcessingState

@@ -20,10 +20,10 @@ export const handleReadFiles = ((
     fileContext: ProjectFileContext
 
     state: {
-      userId?: string
-      fingerprintId?: string
-      repoId?: string
-      messages?: Message[]
+      userId: string | undefined
+      fingerprintId: string
+      repoId: string | undefined
+      messages: Message[]
     }
   } & ParamsExcluding<typeof getFileReadingUpdates, 'requestedFiles'>,
 ): {

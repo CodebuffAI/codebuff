@@ -39,12 +39,8 @@ export type FileProcessingState = {
   firstFileProcessed: boolean
 }
 
-export type OptionalFileProcessingState = {
-  [K in keyof FileProcessingState]?: FileProcessingState[K]
-}
-
 export function getFileProcessingValues(
-  state: OptionalFileProcessingState,
+  state: FileProcessingState,
 ): FileProcessingState {
   const fileProcessingValues: FileProcessingState = {
     promisesByPath: {},
@@ -77,12 +73,12 @@ export function handleWriteFile(
 
     getLatestState: () => FileProcessingState
     state: {
-      fingerprintId?: string
-      userId?: string
-      fullResponse?: string
-      prompt?: string
-      messages?: Message[]
-    } & OptionalFileProcessingState
+      fingerprintId: string
+      userId: string | undefined
+      fullResponse: string | undefined
+      prompt: string | undefined
+      messages: Message[]
+    } & FileProcessingState
     requestOptionalFile: RequestOptionalFileFn
     logger: Logger
   } & ParamsExcluding<
