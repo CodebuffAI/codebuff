@@ -396,7 +396,7 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
       )}
     </box>
   )
-})
+}
 
 const trimTrailingNewlines = (value: string): string =>
   value.replace(/[\r\n]+$/g, '')
