@@ -178,7 +178,7 @@ export async function runProgrammaticStep(
     userId,
     agentTemplate: template,
     localAgentTemplates,
-    system,
+    system: system ?? '',
     sendSubagentChunk: (data: {
       userInputId: string
       agentId: string
@@ -200,6 +200,13 @@ export async function runProgrammaticStep(
     }),
     agentContext: cloneDeep(agentState.agentContext),
     messages: cloneDeep(agentState.messageHistory),
+    promisesByPath: {},
+    allPromises: [],
+    fileChangeErrors: [],
+    fileChanges: [],
+    firstFileProcessed: false,
+    repoId: undefined,
+    logger,
   }
 
   let toolResult: ToolResultOutput[] | undefined = undefined

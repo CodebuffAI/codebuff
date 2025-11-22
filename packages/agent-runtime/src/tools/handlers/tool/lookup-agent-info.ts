@@ -1,12 +1,11 @@
-import { getAgentTemplate } from '../../../templates/agent-registry'
 import { removeUndefinedProps } from '@codebuff/common/util/object'
 import z from 'zod/v4'
 
+import { getAgentTemplate } from '../../../templates/agent-registry'
+
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 
-export const handleLookupAgentInfo: CodebuffToolHandlerFunction<
-  'lookup_agent_info'
-> = (params) => {
+export const handleLookupAgentInfo = ((params) => {
   const { agentId } = params.toolCall.input
 
   return {
@@ -70,7 +69,7 @@ export const handleLookupAgentInfo: CodebuffToolHandlerFunction<
       ]
     })(),
   }
-}
+}) satisfies CodebuffToolHandlerFunction<'lookup_agent_info'>
 
 const toJSONSchema = (schema: z.ZodSchema) => {
   const jsonSchema = z.toJSONSchema(schema, { io: 'input' }) as {

@@ -38,7 +38,10 @@ import type {
   ParamsExcluding,
   ParamsOf,
 } from '@codebuff/common/types/function-params'
-import type { Message, ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type {
+  Message,
+  ToolMessage,
+} from '@codebuff/common/types/messages/codebuff-message'
 import type {
   TextPart,
   ImagePart,
@@ -336,22 +339,22 @@ export const runAgentStep = async (
   const stream = getStream([systemMessage(system), ...agentMessages])
 
   const {
-    toolCalls,
-    toolResults: newToolResults,
-    state,
     fullResponse: fullResponseAfterStream,
     fullResponseChunks,
     messageId,
+    state,
+    toolCalls,
+    toolResults: newToolResults,
   } = await processStreamWithTools({
     ...params,
-    stream,
-    agentStepId,
-    agentState,
-    repoId,
-    messages: agentMessages,
-    agentTemplate,
     agentContext,
+    agentState,
+    agentStepId,
+    agentTemplate,
     fullResponse,
+    messages: agentMessages,
+    repoId,
+    stream,
     onCostCalculated,
   })
   toolResults.push(...newToolResults)

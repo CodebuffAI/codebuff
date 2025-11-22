@@ -26,7 +26,7 @@ export function handleStrReplace(
     logger: Logger
 
     getLatestState: () => FileProcessingState
-    state: OptionalFileProcessingState
+    state: FileProcessingState
     requestOptionalFile: RequestOptionalFileFn
   } & ParamsExcluding<RequestOptionalFileFn, 'filePath'>,
 ): {

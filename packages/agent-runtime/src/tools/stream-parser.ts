@@ -35,35 +35,36 @@ export type ToolCallError = {
 
 export async function processStreamWithTools(
   params: {
-    clientSessionId: string
-    fingerprintId: string
-    userId: string | undefined
-    repoId: string | undefined
-    ancestorRunIds: string[]
-    runId: string
-    agentTemplate: AgentTemplate
-    localAgentTemplates: Record<string, AgentTemplate>
-    fileContext: ProjectFileContext
-    messages: Message[]
-    system: string
-    agentState: AgentState
     agentContext: Record<string, Subgoal>
-    signal: AbortSignal
-    onResponseChunk: (chunk: string | PrintModeEvent) => void
+    agentState: AgentState
+    agentTemplate: AgentTemplate
+    ancestorRunIds: string[]
+    clientSessionId: string
+    fileContext: ProjectFileContext
+    fingerprintId: string
     fullResponse: string
-    sendSubagentChunk: SendSubagentChunkFn
+    localAgentTemplates: Record<string, AgentTemplate>
     logger: Logger
+    messages: Message[]
+    repoId: string | undefined
+    runId: string
+    signal: AbortSignal
+    system: string
+    userId: string | undefined
+
     onCostCalculated: (credits: number) => Promise<void>
+    onResponseChunk: (chunk: string | PrintModeEvent) => void
+    sendSubagentChunk: SendSubagentChunkFn
   } & Omit<
     ExecuteToolCallParams<any>,
-    | 'toolName'
+    | 'fullResponse'
     | 'input'
+    | 'previousToolCallFinished'
+    | 'state'
     | 'toolCalls'
+    | 'toolName'
     | 'toolResults'
     | 'toolResultsToAddAfterStream'
-    | 'previousToolCallFinished'
-    | 'fullResponse'
-    | 'state'
   > &
     ParamsExcluding<
       typeof processStreamWithTags,
@@ -99,7 +100,7 @@ export async function processStreamWithTools(
     Promise.withResolvers<void>()
   let previousToolCallFinished = streamDonePromise
 
-  const state: Record<string, any> = {
+  const state = {
     fingerprintId,
     userId,
     repoId,
@@ -111,6 +112,11 @@ export async function processStreamWithTools(
     messages,
     system,
     logger,
+    promisesByPath: {},
+    allPromises: [],
+    fileChangeErrors: [],
+    fileChanges: [],
+    firstFileProcessed: false,
   }
 
   function toolCallback<T extends ToolName>(toolName: T) {
@@ -125,13 +131,15 @@ export async function processStreamWithTools(
           ...params,
           toolName,
           input,
+
+          fromHandleSteps: false,
+          fullResponse: fullResponseChunks.join(''),
+          previousToolCallFinished,
+          state,
           toolCalls,
           toolResults,
           toolResultsToAddAfterStream,
-          previousToolCallFinished,
-          fullResponse: fullResponseChunks.join(''),
-          state,
-          fromHandleSteps: false,
+
           onCostCalculated,
         })
       },
@@ -149,12 +157,13 @@ export async function processStreamWithTools(
           ...params,
           toolName,
           input,
+
+          fullResponse: fullResponseChunks.join(''),
+          previousToolCallFinished,
+          state,
           toolCalls,
           toolResults,
           toolResultsToAddAfterStream,
-          previousToolCallFinished,
-          fullResponse: fullResponseChunks.join(''),
-          state,
         })
       },
     }
@@ -229,11 +238,11 @@ export async function processStreamWithTools(
     await previousToolCallFinished
   }
   return {
-    toolCalls,
-    toolResults,
-    state,
     fullResponse: fullResponseChunks.join(''),
     fullResponseChunks,
     messageId,
+    state,
+    toolCalls,
+    toolResults,
   }
 }

@@ -1,6 +1,7 @@
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { toolParams } from '@codebuff/common/tools/list'
 import { jsonToolResult } from '@codebuff/common/util/messages'
+import { removeUndefinedProps } from '@codebuff/common/util/object'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
@@ -12,6 +13,7 @@ import { codebuffToolHandlers } from './handlers/list'
 
 import type { AgentTemplate } from '../templates/types'
 import type { CodebuffToolHandlerFunction } from './handlers/handler-function-type'
+import type { Logger } from '../../../../.agents/types/util-types'
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type {
   ClientToolCall,
@@ -23,14 +25,20 @@ import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
-import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
+import type { SendSubagentChunkFn } from '@codebuff/common/types/contracts/client'
+import type {
+  Message,
+  ToolMessage,
+} from '@codebuff/common/types/messages/codebuff-message'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+import type { AgentState } from '@codebuff/common/types/session-state'
 import type {
   customToolDefinitionsSchema,
   ProjectFileContext,
 } from '@codebuff/common/util/file'
 import type { ToolCallPart } from 'ai'
+import { FileProcessingState } from './handlers/tool/write-file'
 
 export type CustomToolCall = {
   toolName: string
@@ -111,29 +119,57 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
 export type ExecuteToolCallParams<T extends string = ToolName> = {
   toolName: T
   input: Record<string, unknown>
+  autoInsertEndStepParam?: boolean
+  excludeToolFromMessageHistory?: boolean
+
+  agentStepId: string
+  ancestorRunIds: string[]
+  agentTemplate: AgentTemplate
+  clientSessionId: string
+  fileContext: ProjectFileContext
+  fromHandleSteps?: boolean
+  fullResponse: string
+  previousToolCallFinished: Promise<void>
+  repoId: string | undefined
+  repoUrl: string | undefined
+  runId: string
+  signal: AbortSignal
+  state: {
+    creditsUsed?: number | Promise<number>
+    fingerprintId: string
+    userId: string | undefined
+    repoId: string | undefined
+    agentTemplate: AgentTemplate
+    localAgentTemplates: Record<string, AgentTemplate>
+    sendSubagentChunk: SendSubagentChunkFn
+    agentState: AgentState
+    agentContext: Record<
+      string,
+      {
+        logs: string[]
+        objective?: string | undefined
+        status?:
+          | 'NOT_STARTED'
+          | 'IN_PROGRESS'
+          | 'COMPLETE'
+          | 'ABORTED'
+          | undefined
+        plan?: string | undefined
+      }
+    >
+    messages: Message[]
+    system: string
+    logger: Logger
+  } & FileProcessingState
   toolCalls: (CodebuffToolCall | CustomToolCall)[]
   toolResults: ToolMessage[]
   toolResultsToAddAfterStream: ToolMessage[]
-  previousToolCallFinished: Promise<void>
-  agentTemplate: AgentTemplate
-  fileContext: ProjectFileContext
-  runId: string
-  agentStepId: string
-  clientSessionId: string
-  userInputId: string
-  fullResponse: string
-  repoId: string | undefined
-  repoUrl: string | undefined
-  signal: AbortSignal
-  onResponseChunk: (chunk: string | PrintModeEvent) => void
-  state: Record<string, any>
   userId: string | undefined
-  autoInsertEndStepParam?: boolean
-  excludeToolFromMessageHistory?: boolean
+  userInputId: string
+
   fetch: typeof globalThis.fetch
-  fromHandleSteps?: boolean
   onCostCalculated: (credits: number) => Promise<void>
-  ancestorRunIds: string[]
+  onResponseChunk: (chunk: string | PrintModeEvent) => void
 } & AgentRuntimeDeps &
   AgentRuntimeScopedDeps
 
@@ -143,28 +179,22 @@ export function executeToolCall<T extends ToolName>(
   const {
     toolName,
     input,
+    autoInsertEndStepParam = false,
+    excludeToolFromMessageHistory = false,
+    fromHandleSteps = false,
+
+    agentTemplate,
+    logger,
+    previousToolCallFinished,
+    state,
     toolCalls,
     toolResults,
     toolResultsToAddAfterStream,
-    previousToolCallFinished,
-    agentTemplate,
-    fileContext,
-    agentStepId,
-    clientSessionId,
     userInputId,
-    fullResponse,
-    onResponseChunk,
-    state,
-    repoId,
-    repoUrl,
-    userId,
-    autoInsertEndStepParam = false,
-    excludeToolFromMessageHistory = false,
-    requestToolCall,
-    requestMcpToolData,
-    logger,
-    fromHandleSteps = false,
+
     onCostCalculated,
+    onResponseChunk,
+    requestToolCall,
   } = params
   const toolCall: CodebuffToolCall<T> | ToolCallError = parseRawToolCall<T>({
     rawToolCall: {
@@ -250,20 +280,47 @@ export function executeToolCall<T extends ToolName>(
     state,
   })
 
-  for (const [key, value] of Object.entries(stateUpdate ?? {})) {
-    if (key === 'agentState' && typeof value === 'object' && value !== null) {
-      // Replace the agentState reference to ensure all updates are captured
-      state.agentState = value
-    } else if (key === 'creditsUsed') {
-      // Handle both synchronous and asynchronous creditsUsed values
-      if (value instanceof Promise) {
-        // Store the promise to be awaited later
-        state.creditsUsed = value
-      } else if (typeof value === 'number') {
-        onCostCalculated(value)
+  for (const [pairk, pairv] of Object.entries(
+    removeUndefinedProps(stateUpdate ?? {}),
+  )) {
+    const pair = { key: pairk, value: pairv } as {
+      [K in keyof Required<typeof state>]: {
+        key: K
+        value: Required<typeof state>[K]
       }
-    } else {
-      state[key] = value
+    }[keyof Required<typeof state>]
+    if (pair.key === 'creditsUsed') {
+      // Handle both synchronous and asynchronous creditsUsed values
+      if (pair.value instanceof Promise) {
+        // Store the promise to be awaited later
+        state.creditsUsed = pair.value
+      } else if (typeof pair.value === 'number') {
+        onCostCalculated(pair.value)
+      }
+    } else if (pair.value !== undefined) {
+      if (pair.key === 'agentContext') {
+        state.agentContext = pair.value
+      } else if (pair.key === 'agentState') {
+        state.agentState = pair.value
+      } else if (pair.key === 'agentTemplate') {
+        state.agentTemplate = pair.value
+      } else if (pair.key === 'fingerprintId') {
+        state.fingerprintId = pair.value
+      } else if (pair.key === 'localAgentTemplates') {
+        state.localAgentTemplates = pair.value
+      } else if (pair.key === 'logger') {
+        state.logger = pair.value
+      } else if (pair.key === 'messages') {
+        state.messages = pair.value
+      } else if (pair.key === 'repoId') {
+        state.repoId = pair.value
+      } else if (pair.key === 'sendSubagentChunk') {
+        state.sendSubagentChunk = pair.value
+      } else if (pair.key === 'system') {
+        state.system = pair.value
+      } else if (pair.key === 'userId') {
+        state.system = pair.value
+      }
     }
   }
 
