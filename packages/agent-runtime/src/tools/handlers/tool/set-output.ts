@@ -14,25 +14,15 @@ export const handleSetOutput = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<ToolName>
 
+  agentState: AgentState
   apiKey: string
   databaseAgentCache: Map<string, AgentTemplate | null>
   localAgentTemplates: Record<string, AgentTemplate>
   logger: Logger
   fetchAgentFromDatabase: FetchAgentFromDatabaseFn
-
-  state: {
-    agentState: AgentState
-  }
 }) => {
-  const { previousToolCallFinished, toolCall, state, logger } = params
+  const { previousToolCallFinished, toolCall, agentState, logger } = params
   const output = toolCall.input
-  const { agentState } = state
-
-  if (!agentState) {
-    throw new Error(
-      'Internal error for set_output: Missing agentState in state',
-    )
-  }
 
   const triggerSetOutput = async () => {
     // Validate output against outputSchema if defined
@@ -79,6 +69,6 @@ export const handleSetOutput = ((params: {
         },
       ]
     })(),
-    state: { agentState: agentState },
+    state: { },
   }
 }) satisfies CodebuffToolHandlerFunction<ToolName>

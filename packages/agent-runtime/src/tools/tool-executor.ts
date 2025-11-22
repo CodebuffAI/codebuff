@@ -35,6 +35,7 @@ import type {
   ProjectFileContext,
 } from '@codebuff/common/util/file'
 import type { ToolCallPart } from 'ai'
+import { AgentState } from '@codebuff/common/types/session-state'
 
 export type CustomToolCall = {
   toolName: string
@@ -118,6 +119,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   autoInsertEndStepParam?: boolean
   excludeToolFromMessageHistory?: boolean
 
+  agentState: AgentState
   agentStepId: string
   ancestorRunIds: string[]
   agentTemplate: AgentTemplate
@@ -155,6 +157,7 @@ export function executeToolCall<T extends ToolName>(
     excludeToolFromMessageHistory = false,
     fromHandleSteps = false,
 
+    agentState,
     agentTemplate,
     logger,
     previousToolCallFinished,
@@ -200,7 +203,7 @@ export function executeToolCall<T extends ToolName>(
     toolName,
     input: toolCall.input,
     // Only include agentId for subagents (agents with a parent)
-    ...(state.agentState?.parentId && { agentId: state.agentState.agentId }),
+    ...(agentState.parentId && { agentId: agentState.agentId }),
     // Include includeToolCall flag if explicitly set to false
     ...(excludeToolFromMessageHistory && { includeToolCall: false }),
   })
@@ -272,8 +275,6 @@ export function executeToolCall<T extends ToolName>(
     } else if (pair.value !== undefined) {
       if (pair.key === 'agentContext') {
         state.agentContext = pair.value
-      } else if (pair.key === 'agentState') {
-        state.agentState = pair.value
       } else if (pair.key === 'logger') {
         state.logger = pair.value
       } else if (pair.key === 'messages') {
@@ -318,7 +319,7 @@ export function executeToolCall<T extends ToolName>(
       if (typeof credits === 'number') {
         onCostCalculated(credits)
         logger.debug(
-          { credits, totalCredits: state.agentState.creditsUsed },
+          { credits, totalCredits: agentState.creditsUsed },
           `Added ${credits} credits from ${toolName} to agent state`,
         )
       }
@@ -409,20 +410,23 @@ export async function executeCustomToolCall(
   const {
     toolName,
     input,
+    autoInsertEndStepParam = false,
+    excludeToolFromMessageHistory = false,
+    fromHandleSteps = false,
+
+    agentState,
+    agentTemplate,
+    fileContext,
+    logger,
+    onResponseChunk,
+    previousToolCallFinished,
+    requestToolCall,
     toolCalls,
     toolResults,
     toolResultsToAddAfterStream,
-    previousToolCallFinished,
-    agentTemplate,
-    fileContext,
     userInputId,
-    onResponseChunk,
+    
     state,
-    autoInsertEndStepParam = false,
-    excludeToolFromMessageHistory = false,
-    requestToolCall,
-    logger,
-    fromHandleSteps = false,
   } = params
   const toolCall: CustomToolCall | ToolCallError = parseRawCustomToolCall({
     customToolDefs: await getMCPToolData({
@@ -462,7 +466,7 @@ export async function executeCustomToolCall(
     toolName,
     input: toolCall.input,
     // Only include agentId for subagents (agents with a parent)
-    ...(state.agentState?.parentId && { agentId: state.agentState.agentId }),
+    ...(agentState?.parentId && { agentId: agentState.agentId }),
     // Include includeToolCall flag if explicitly set to false
     ...(excludeToolFromMessageHistory && { includeToolCall: false }),
   })

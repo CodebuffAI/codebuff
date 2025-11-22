@@ -51,7 +51,10 @@ const mockFileContext: ProjectFileContext = {
 describe('Cost Aggregation System', () => {
   let mockAgentTemplate: any
   let mockLocalAgentTemplates: Record<string, any>
-  let params: ParamsExcluding<typeof handleSpawnAgents, 'toolCall' | 'state'>
+  let params: ParamsExcluding<
+    typeof handleSpawnAgents,
+    'agentState' | 'toolCall' | 'state'
+  >
 
   beforeEach(() => {
     // Setup mock agent template
@@ -152,7 +155,6 @@ describe('Cost Aggregation System', () => {
         userId: 'test-user',
         localAgentTemplates: mockLocalAgentTemplates,
         messages: [],
-        agentState: parentAgentState,
         sendSubagentChunk: () => {},
         system: 'Test system prompt',
       }
@@ -193,6 +195,7 @@ describe('Cost Aggregation System', () => {
 
       const result = handleSpawnAgents({
         ...params,
+        agentState: parentAgentState,
         toolCall: mockToolCall,
         state: mockValidatedState,
       })
@@ -219,7 +222,6 @@ describe('Cost Aggregation System', () => {
         agentTemplate: mockAgentTemplate,
         localAgentTemplates: mockLocalAgentTemplates,
         messages: [],
-        agentState: parentAgentState,
         sendSubagentChunk: () => {},
         system: 'Test system prompt',
       }
@@ -266,6 +268,7 @@ describe('Cost Aggregation System', () => {
 
       const result = handleSpawnAgents({
         ...params,
+        agentState: parentAgentState,
         toolCall: mockToolCall,
         state: mockValidatedState,
       })
@@ -370,7 +373,6 @@ describe('Cost Aggregation System', () => {
         agentTemplate: mockAgentTemplate,
         localAgentTemplates: mockLocalAgentTemplates,
         messages: [],
-        agentState: mainAgentState,
         sendSubagentChunk: () => {},
         system: 'Test system prompt',
       }
@@ -412,6 +414,7 @@ describe('Cost Aggregation System', () => {
 
       const result = handleSpawnAgents({
         ...params,
+        agentState: mainAgentState,
         toolCall: mockToolCall,
         state: mockValidatedState,
       })

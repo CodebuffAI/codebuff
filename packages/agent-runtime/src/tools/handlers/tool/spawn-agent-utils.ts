@@ -28,7 +28,6 @@ export interface SpawnAgentParams {
 
 export interface BaseSpawnState {
   messages: Message[]
-  agentState: AgentState
   system: string
 }
 
@@ -46,15 +45,10 @@ export function validateSpawnState(
   state: BaseSpawnState,
   toolName: string,
 ): Required<BaseSpawnState> {
-  const { messages, agentState, system } = state
+  const { messages, system } = state
 
   if (!messages) {
     throw new Error(`Internal error for ${toolName}: Missing messages in state`)
-  }
-  if (!agentState) {
-    throw new Error(
-      `Internal error for ${toolName}: Missing agentState in state`,
-    )
   }
   if (!system) {
     throw new Error(`Internal error for ${toolName}: Missing system in state`)
@@ -62,7 +56,6 @@ export function validateSpawnState(
 
   return {
     messages,
-    agentState,
     system,
   }
 }

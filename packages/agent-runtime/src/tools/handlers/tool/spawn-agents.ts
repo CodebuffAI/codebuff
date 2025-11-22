@@ -34,6 +34,7 @@ export const handleSpawnAgents = ((
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<ToolName>
 
+    agentState: AgentState
     agentTemplate: AgentTemplate
     fingerprintId: string
     localAgentTemplates: Record<string, AgentTemplate>
@@ -45,7 +46,6 @@ export const handleSpawnAgents = ((
     getLatestState: () => { messages: Message[] }
     state: {
       messages: Message[]
-      agentState: AgentState
       system: string
     }
     logger: Logger
@@ -71,6 +71,7 @@ export const handleSpawnAgents = ((
     previousToolCallFinished,
     toolCall,
 
+    agentState: parentAgentState,
     agentTemplate: parentAgentTemplate,
     fingerprintId,
     userInputId,
@@ -84,8 +85,6 @@ export const handleSpawnAgents = ((
   const validatedState = validateSpawnState(state, 'spawn_agents')
   const { logger } = params
   const { system: parentSystemPrompt } = state
-
-  const { agentState: parentAgentState } = validatedState
 
   const triggerSpawnAgents = async () => {
     const results = await Promise.allSettled(
@@ -240,7 +239,7 @@ export const handleSpawnAgents = ((
         subAgentCredits = result.reason.agentState.creditsUsed || 0
         logger.debug(
           {
-            parentAgentId: validatedState.agentState.agentId,
+            parentAgentId: parentAgentState.agentId,
             subAgentType: agentInfo.agent_type,
             subAgentCredits,
           },
@@ -249,7 +248,7 @@ export const handleSpawnAgents = ((
       }
 
       if (subAgentCredits > 0) {
-        validatedState.agentState.creditsUsed += subAgentCredits
+        parentAgentState.creditsUsed += subAgentCredits
         // Note (James): Try not to include frequent logs with narrow debugging value.
         // logger.debug(
         //   {

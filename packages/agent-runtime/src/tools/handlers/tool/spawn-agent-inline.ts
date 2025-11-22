@@ -26,6 +26,7 @@ export const handleSpawnAgentInline = ((
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<ToolName>
 
+    agentState: AgentState
     agentTemplate: AgentTemplate
     clientSessionId: string
     fileContext: ProjectFileContext
@@ -39,7 +40,6 @@ export const handleSpawnAgentInline = ((
     getLatestState: () => { messages: Message[] }
     state: {
       messages: Message[]
-      agentState: AgentState
       system: string
     }
   } & ParamsExcluding<
@@ -60,6 +60,7 @@ export const handleSpawnAgentInline = ((
     previousToolCallFinished,
     toolCall,
 
+    agentState: parentAgentState,
     agentTemplate: parentAgentTemplate,
     fingerprintId,
     userInputId,
@@ -73,10 +74,7 @@ export const handleSpawnAgentInline = ((
     prompt,
     params: spawnParams,
   } = toolCall.input
-  const { agentState: parentAgentState, system } = validateSpawnState(
-    state,
-    'spawn_agent_inline',
-  )
+  const { system } = validateSpawnState(state, 'spawn_agent_inline')
 
   const triggerSpawnAgentInline = async () => {
     const { agentTemplate, agentType } = await validateAndGetAgentTemplate({

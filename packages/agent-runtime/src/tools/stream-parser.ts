@@ -23,7 +23,7 @@ import type {
   ToolMessage,
 } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
-import type { AgentState, Subgoal } from '@codebuff/common/types/session-state'
+import type { Subgoal } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { ToolCallPart } from 'ai'
 
@@ -36,7 +36,6 @@ export type ToolCallError = {
 export async function processStreamWithTools(
   params: {
     agentContext: Record<string, Subgoal>
-    agentState: AgentState
     agentTemplate: AgentTemplate
     ancestorRunIds: string[]
     fileContext: ProjectFileContext
@@ -70,20 +69,19 @@ export async function processStreamWithTools(
     >,
 ) {
   const {
-    userId,
-    ancestorRunIds,
-    runId,
-    agentTemplate,
-    fileContext,
     agentContext,
-    system,
-    agentState,
-    signal,
+    agentTemplate,
+    ancestorRunIds,
+    fileContext,
     fullResponse,
-    prompt,
-    onResponseChunk,
     logger,
     onCostCalculated,
+    onResponseChunk,
+    prompt,
+    runId,
+    signal,
+    system,
+    userId,
   } = params
   const fullResponseChunks: string[] = [params.fullResponse]
 
@@ -99,7 +97,6 @@ export async function processStreamWithTools(
   const state: State = {
     fullResponse,
     prompt,
-    agentState,
     agentContext,
     messages,
     system,

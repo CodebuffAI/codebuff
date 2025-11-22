@@ -25,7 +25,6 @@ type PresentOrAbsent<K extends PropertyKey, V> =
   | { [P in K]: never }
 export type State = {
   creditsUsed?: number | Promise<number>
-  agentState: AgentState
   prompt: string | undefined
   fullResponse: string | undefined
   agentContext: Record<
@@ -52,27 +51,27 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<T>
 
+    agentState: AgentState
     agentStepId: string
     agentTemplate: AgentTemplate
     ancestorRunIds: string[]
     apiKey: string
     clientSessionId: string
+    fetch: typeof globalThis.fetch
     fileContext: ProjectFileContext
     fingerprintId: string
     fullResponse: string
+    getLatestState: () => State
     localAgentTemplates: Record<string, AgentTemplate>
     repoId: string | undefined
     repoUrl: string | undefined
     runId: string
+    sendSubagentChunk: SendSubagentChunkFn
     signal: AbortSignal
     state: State
+    trackEvent: TrackEventFn
     userId: string | undefined
     userInputId: string
-
-    fetch: typeof globalThis.fetch
-    getLatestState: () => State
-    sendSubagentChunk: SendSubagentChunkFn
-    trackEvent: TrackEventFn
     writeToClient: (chunk: string | PrintModeEvent) => void
   } & PresentOrAbsent<
     'requestClientToolCall',
