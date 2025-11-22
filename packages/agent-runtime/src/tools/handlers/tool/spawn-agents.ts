@@ -39,11 +39,11 @@ export const handleSpawnAgents = ((
     localAgentTemplates: Record<string, AgentTemplate>
     userId: string | undefined
     userInputId: string
+    sendSubagentChunk: SendSubagentChunk
     writeToClient: (chunk: string | PrintModeEvent) => void
 
     getLatestState: () => { messages: Message[] }
     state: {
-      sendSubagentChunk: SendSubagentChunk
       messages: Message[]
       agentState: AgentState
       system: string
@@ -51,7 +51,7 @@ export const handleSpawnAgents = ((
     logger: Logger
   } & ParamsExcluding<
     typeof validateAndGetAgentTemplate,
-    'agentTypeStr' | 'parentAgentTemplate' 
+    'agentTypeStr' | 'parentAgentTemplate'
   > &
     ParamsExcluding<
       typeof executeSubagent,
@@ -73,8 +73,8 @@ export const handleSpawnAgents = ((
 
     agentTemplate: parentAgentTemplate,
     fingerprintId,
-    localAgentTemplates,
     userInputId,
+    sendSubagentChunk,
     writeToClient,
 
     getLatestState,
@@ -83,17 +83,9 @@ export const handleSpawnAgents = ((
   const { agents } = toolCall.input
   const validatedState = validateSpawnState(state, 'spawn_agents')
   const { logger } = params
-  const { sendSubagentChunk, system: parentSystemPrompt } = state
+  const { system: parentSystemPrompt } = state
 
-  if (!sendSubagentChunk) {
-    throw new Error(
-      'Internal error for spawn_agents: Missing sendSubagentChunk in state',
-    )
-  }
-
-  const {
-    agentState: parentAgentState,
-  } = validatedState
+  const { agentState: parentAgentState } = validatedState
 
   const triggerSpawnAgents = async () => {
     const results = await Promise.allSettled(

@@ -68,19 +68,18 @@ describe('Spawn Agents Permissions', () => {
       clientSessionId: 'test-session',
       fileContext: mockFileContext,
       fingerprintId: 'test-fingerprint',
+      getLatestState: () => ({ messages: [] }),
       previousToolCallFinished: Promise.resolve(),
       repoId: undefined,
       repoUrl: undefined,
+      sendSubagentChunk: mockSendSubagentChunk,
       signal: new AbortController().signal,
       userId: TEST_USER_ID,
       userInputId: 'test-input',
       writeToClient: () => {},
-
-      getLatestState: () => ({ messages: [] }),
     }
 
     baseState = {
-      sendSubagentChunk: mockSendSubagentChunk,
       messages: [],
       system: 'Test system prompt',
     }

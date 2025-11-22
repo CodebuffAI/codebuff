@@ -16,7 +16,6 @@ import type { CustomToolCall, ExecuteToolCallParams } from './tool-executor'
 import type { AgentTemplate } from '../templates/types'
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
-import type { SendSubagentChunkFn } from '@codebuff/common/types/contracts/client'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type {
@@ -54,7 +53,6 @@ export async function processStreamWithTools(
 
     onCostCalculated: (credits: number) => Promise<void>
     onResponseChunk: (chunk: string | PrintModeEvent) => void
-    sendSubagentChunk: SendSubagentChunkFn
   } & Omit<
     ExecuteToolCallParams<any>,
     | 'fullResponse'
@@ -84,7 +82,6 @@ export async function processStreamWithTools(
     fullResponse,
     prompt,
     onResponseChunk,
-    sendSubagentChunk,
     logger,
     onCostCalculated,
   } = params
@@ -102,7 +99,6 @@ export async function processStreamWithTools(
   const state: State = {
     fullResponse,
     prompt,
-    sendSubagentChunk,
     agentState,
     agentContext,
     messages,

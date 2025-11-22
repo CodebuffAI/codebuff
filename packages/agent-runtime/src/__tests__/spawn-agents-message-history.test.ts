@@ -77,6 +77,7 @@ describe('Spawn Agents Message History', () => {
       repoId: undefined,
       repoUrl: undefined,
       previousToolCallFinished: Promise.resolve(),
+      sendSubagentChunk: mockSendSubagentChunk,
       signal: new AbortController().signal,
       userId: TEST_USER_ID,
       userInputId: 'test-input',
@@ -84,7 +85,6 @@ describe('Spawn Agents Message History', () => {
     }
 
     baseState = {
-      sendSubagentChunk: mockSendSubagentChunk,
       system: 'Test system prompt',
     }
   })

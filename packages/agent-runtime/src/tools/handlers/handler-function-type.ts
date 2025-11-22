@@ -25,7 +25,6 @@ type PresentOrAbsent<K extends PropertyKey, V> =
   | { [P in K]: never }
 export type State = {
   creditsUsed?: number | Promise<number>
-  sendSubagentChunk: SendSubagentChunkFn
   agentState: AgentState
   prompt: string | undefined
   fullResponse: string | undefined
@@ -72,6 +71,7 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
 
     fetch: typeof globalThis.fetch
     getLatestState: () => State
+    sendSubagentChunk: SendSubagentChunkFn
     trackEvent: TrackEventFn
     writeToClient: (chunk: string | PrintModeEvent) => void
   } & PresentOrAbsent<
