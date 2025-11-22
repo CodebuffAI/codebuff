@@ -83,7 +83,7 @@ export async function processStreamWithTools(
     system,
     userId,
   } = params
-  const fullResponseChunks: string[] = [params.fullResponse]
+  const fullResponseChunks: string[] = [fullResponse]
 
   const messages = [...params.messages]
 
@@ -95,7 +95,6 @@ export async function processStreamWithTools(
   let previousToolCallFinished = streamDonePromise
 
   const state: State = {
-    fullResponse,
     prompt,
     agentContext,
     messages,

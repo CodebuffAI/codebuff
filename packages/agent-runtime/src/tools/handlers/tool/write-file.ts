@@ -77,7 +77,6 @@ export function handleWriteFile(
 
     getLatestState: () => FileProcessingState
     state: {
-      fullResponse: string | undefined
       prompt: string | undefined
       messages: Message[]
     } & FileProcessingState
@@ -89,7 +88,6 @@ export function handleWriteFile(
     | 'initialContentPromise'
     | 'newContent'
     | 'messages'
-    | 'fullResponse'
     | 'lastUserPrompt'
   > &
     ParamsExcluding<RequestOptionalFileFn, 'filePath'>,
@@ -114,7 +112,7 @@ export function handleWriteFile(
     state,
   } = params
   const { path, instructions, content } = toolCall.input
-  const { fullResponse, prompt } = state
+  const { prompt } = state
 
   const fileProcessingState = getFileProcessingValues(state)
   const fileProcessingPromisesByPath = fileProcessingState.promisesByPath
@@ -152,7 +150,6 @@ export function handleWriteFile(
     initialContentPromise: latestContentPromise,
     newContent: fileContentWithoutStartNewline,
     messages: agentMessagesUntruncated,
-    fullResponse: fullResponse ?? '',
     lastUserPrompt: prompt,
     clientSessionId,
     fingerprintId,

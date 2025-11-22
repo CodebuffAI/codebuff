@@ -26,7 +26,6 @@ type PresentOrAbsent<K extends PropertyKey, V> =
 export type State = {
   creditsUsed?: number | Promise<number>
   prompt: string | undefined
-  fullResponse: string | undefined
   agentContext: Record<
     string,
     {
