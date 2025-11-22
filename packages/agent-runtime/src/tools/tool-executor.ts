@@ -135,6 +135,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   runId: string
   signal: AbortSignal
   state: State
+  system: string
   toolCalls: (CodebuffToolCall | CustomToolCall)[]
   toolResults: ToolMessage[]
   toolResultsToAddAfterStream: ToolMessage[]
@@ -279,8 +280,6 @@ export function executeToolCall<T extends ToolName>(
         state.logger = pair.value
       } else if (pair.key === 'messages') {
         state.messages = pair.value
-      } else if (pair.key === 'system') {
-        state.system = pair.value
       }
     }
   }

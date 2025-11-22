@@ -73,7 +73,7 @@ describe('QuickJS Sandbox Generator', () => {
       ancestorRunIds: [],
       repoId: undefined,
       repoUrl: undefined,
-      system: undefined,
+      system: 'Test system prompt',
       agentState: mockAgentState,
       template: mockTemplate,
       prompt: 'Test prompt',

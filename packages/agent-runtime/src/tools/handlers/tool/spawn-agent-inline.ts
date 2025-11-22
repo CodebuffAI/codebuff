@@ -1,5 +1,4 @@
 import {
-  validateSpawnState,
   validateAndGetAgentTemplate,
   validateAgentInput,
   logAgentSpawn,
@@ -33,6 +32,7 @@ export const handleSpawnAgentInline = ((
     fingerprintId: string
     localAgentTemplates: Record<string, AgentTemplate>
     logger: Logger
+    system: string
     userId: string | undefined
     userInputId: string
     writeToClient: (chunk: string | PrintModeEvent) => void
@@ -40,7 +40,6 @@ export const handleSpawnAgentInline = ((
     getLatestState: () => { messages: Message[] }
     state: {
       messages: Message[]
-      system: string
     }
   } & ParamsExcluding<
     typeof executeSubagent,
@@ -63,6 +62,7 @@ export const handleSpawnAgentInline = ((
     agentState: parentAgentState,
     agentTemplate: parentAgentTemplate,
     fingerprintId,
+    system,
     userInputId,
     writeToClient,
 
@@ -74,7 +74,6 @@ export const handleSpawnAgentInline = ((
     prompt,
     params: spawnParams,
   } = toolCall.input
-  const { system } = validateSpawnState(state, 'spawn_agent_inline')
 
   const triggerSpawnAgentInline = async () => {
     const { agentTemplate, agentType } = await validateAndGetAgentTemplate({

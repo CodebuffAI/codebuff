@@ -46,7 +46,6 @@ export async function processStreamWithTools(
     repoId: string | undefined
     runId: string
     signal: AbortSignal
-    system: string
     prompt: string | undefined
     userId: string | undefined
 
@@ -80,7 +79,6 @@ export async function processStreamWithTools(
     prompt,
     runId,
     signal,
-    system,
     userId,
   } = params
   const fullResponseChunks: string[] = [fullResponse]
@@ -98,7 +96,6 @@ export async function processStreamWithTools(
     prompt,
     agentContext,
     messages,
-    system,
     logger,
     promisesByPath: {},
     allPromises: [],

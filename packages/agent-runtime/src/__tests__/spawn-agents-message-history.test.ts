@@ -80,13 +80,10 @@ describe('Spawn Agents Message History', () => {
       previousToolCallFinished: Promise.resolve(),
       sendSubagentChunk: mockSendSubagentChunk,
       signal: new AbortController().signal,
+      system: 'Test system prompt',
       userId: TEST_USER_ID,
       userInputId: 'test-input',
       writeToClient: () => {},
-    }
-
-    baseState = {
-      system: 'Test system prompt',
     }
   })
 
@@ -152,7 +149,6 @@ describe('Spawn Agents Message History', () => {
       toolCall,
       getLatestState: () => ({ messages: mockMessages }),
       state: {
-        ...baseState,
         messages: mockMessages,
       },
     })
@@ -217,7 +213,6 @@ describe('Spawn Agents Message History', () => {
       toolCall,
       getLatestState: () => ({ messages: mockMessages }),
       state: {
-        ...baseState,
         messages: mockMessages,
       },
     })
@@ -244,7 +239,6 @@ describe('Spawn Agents Message History', () => {
       toolCall,
       getLatestState: () => ({ messages: mockMessages }),
       state: {
-        ...baseState,
         messages: mockMessages,
       },
     })
@@ -274,7 +268,6 @@ describe('Spawn Agents Message History', () => {
       toolCall,
       getLatestState: () => ({ messages: mockMessages }),
       state: {
-        ...baseState,
         messages: mockMessages,
       },
     })

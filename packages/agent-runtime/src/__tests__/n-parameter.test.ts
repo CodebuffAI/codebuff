@@ -2,6 +2,7 @@ import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
+import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import {
   afterEach,
   beforeEach,
@@ -20,14 +21,15 @@ import {
 import { mockFileContext } from './test-utils'
 
 import type { AgentTemplate, StepGenerator } from '../templates/types'
+import type { executeToolCall } from '../tools/tool-executor'
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
+import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { AgentState } from '@codebuff/common/types/session-state'
-import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 
 const logger: Logger = {
   debug: () => {},
@@ -92,7 +94,7 @@ describe('n parameter and GENERATE_N functionality', () => {
         'test-run-id' as `${string}-${string}-${string}-${string}-${string}`,
       messageHistory: [
         userMessage('Initial message'),
-        assistantMessage('Initial response')
+        assistantMessage('Initial response'),
       ],
       output: undefined,
       directCreditsUsed: 0,
@@ -309,7 +311,7 @@ describe('n parameter and GENERATE_N functionality', () => {
           onCostCalculated: async () => {},
           fileContext: mockFileContext,
           localAgentTemplates: {},
-          system: undefined,
+          system: 'Test system prompt',
           stepsComplete: false,
           stepNumber: 1,
           logger,
@@ -348,7 +350,7 @@ describe('n parameter and GENERATE_N functionality', () => {
         onCostCalculated: async () => {},
         fileContext: mockFileContext,
         localAgentTemplates: {},
-        system: undefined,
+        system: 'Test system prompt',
         stepsComplete: false,
         stepNumber: 1,
         logger,
@@ -384,11 +386,15 @@ describe('n parameter and GENERATE_N functionality', () => {
       const executeToolCallSpy = spyOn(
         await import('../tools/tool-executor'),
         'executeToolCall',
-      ).mockImplementation(async (options: any) => {
-        if (options.toolName === 'set_output') {
-          options.state.agentState.output = options.input
-        }
-      })
+      ).mockImplementation(
+        async (
+          options: ParamsOf<typeof executeToolCall>,
+        ): ReturnType<typeof executeToolCall> => {
+          if (options.toolName === 'set_output') {
+            options.agentState.output = options.input
+          }
+        },
+      )
 
       const mockParams: ParamsOf<typeof runProgrammaticStep> = {
         ...agentRuntimeImpl,
@@ -408,7 +414,7 @@ describe('n parameter and GENERATE_N functionality', () => {
         onCostCalculated: async () => {},
         fileContext: mockFileContext,
         localAgentTemplates: {},
-        system: undefined,
+        system: 'Test system prompt',
         stepsComplete: false,
         stepNumber: 1,
         logger,
@@ -490,7 +496,7 @@ describe('n parameter and GENERATE_N functionality', () => {
         onCostCalculated: async () => {},
         fileContext: mockFileContext,
         localAgentTemplates: {},
-        system: undefined,
+        system: 'Test system prompt',
         stepsComplete: false,
         stepNumber: 1,
         logger,
@@ -557,11 +563,15 @@ describe('n parameter and GENERATE_N functionality', () => {
       const executeToolCallSpy = spyOn(
         await import('../tools/tool-executor'),
         'executeToolCall',
-      ).mockImplementation(async (options: any) => {
-        if (options.toolName === 'set_output') {
-          options.state.agentState.output = options.input
-        }
-      })
+      ).mockImplementation(
+        async (
+          options: ParamsOf<typeof executeToolCall>,
+        ): ReturnType<typeof executeToolCall> => {
+          if (options.toolName === 'set_output') {
+            options.agentState.output = options.input
+          }
+        },
+      )
 
       const mockParams: ParamsOf<typeof runProgrammaticStep> = {
         ...agentRuntimeImpl,
@@ -581,7 +591,7 @@ describe('n parameter and GENERATE_N functionality', () => {
         onCostCalculated: async () => {},
         fileContext: mockFileContext,
         localAgentTemplates: {},
-        system: undefined,
+        system: 'Test system prompt',
         stepsComplete: false,
         stepNumber: 1,
         logger,
@@ -645,7 +655,7 @@ describe('n parameter and GENERATE_N functionality', () => {
         onCostCalculated: async () => {},
         fileContext: mockFileContext,
         localAgentTemplates: {},
-        system: undefined,
+        system: 'Test system prompt',
         stepsComplete: false,
         stepNumber: 1,
         logger,
@@ -683,7 +693,7 @@ describe('n parameter and GENERATE_N functionality', () => {
         onCostCalculated: async () => {},
         fileContext: mockFileContext,
         localAgentTemplates: {},
-        system: undefined,
+        system: 'Test system prompt',
         stepsComplete: false,
         stepNumber: 1,
         logger,
@@ -729,7 +739,7 @@ describe('n parameter and GENERATE_N functionality', () => {
         onCostCalculated: async () => {},
         fileContext: mockFileContext,
         localAgentTemplates: {},
-        system: undefined,
+        system: 'Test system prompt',
         stepsComplete: false,
         stepNumber: 1,
         logger,
@@ -772,7 +782,7 @@ describe('n parameter and GENERATE_N functionality', () => {
         onCostCalculated: async () => {},
         fileContext: mockFileContext,
         localAgentTemplates: {},
-        system: undefined,
+        system: 'Test system prompt',
         stepsComplete: false,
         stepNumber: 1,
         logger,
@@ -834,7 +844,7 @@ describe('n parameter and GENERATE_N functionality', () => {
         onCostCalculated: async () => {},
         fileContext: mockFileContext,
         localAgentTemplates: {},
-        system: undefined,
+        system: 'Test system prompt',
         stepsComplete: false,
         stepNumber: 1,
         logger,
@@ -881,7 +891,7 @@ describe('n parameter and GENERATE_N functionality', () => {
         onCostCalculated: async () => {},
         fileContext: mockFileContext,
         localAgentTemplates: {},
-        system: undefined,
+        system: 'Test system prompt',
         stepsComplete: false,
         stepNumber: 1,
         logger,
@@ -896,9 +906,7 @@ describe('n parameter and GENERATE_N functionality', () => {
 
   describe('runAgentStep n parameter edge cases', () => {
     it('should handle promptAiSdk returning malformed JSON', async () => {
-      spyOn(agentRuntimeImpl, 'promptAiSdk').mockResolvedValue(
-        'Not valid JSON',
-      )
+      spyOn(agentRuntimeImpl, 'promptAiSdk').mockResolvedValue('Not valid JSON')
 
       await expect(
         runAgentStep({
@@ -937,11 +945,13 @@ describe('n parameter and GENERATE_N functionality', () => {
       const promptAiSdkSpy = spyOn(
         agentRuntimeImpl,
         'promptAiSdk',
-      ).mockImplementation(async (params: any) => {
-        // Call onCostCalculated to simulate cost tracking
-        await params.onCostCalculated(100)
-        return JSON.stringify(['R1', 'R2', 'R3'])
-      })
+      ).mockImplementation(
+        async (params: ParamsOf<PromptAiSdkFn>): ReturnType<PromptAiSdkFn> => {
+          // Call onCostCalculated to simulate cost tracking
+          await params.onCostCalculated?.(100)
+          return JSON.stringify(['R1', 'R2', 'R3'])
+        },
+      )
 
       const result = await runAgentStep({
         ...agentRuntimeImpl,
@@ -968,7 +978,7 @@ describe('n parameter and GENERATE_N functionality', () => {
 
       // Verify onCostCalculated was called in promptAiSdk
       expect(promptAiSdkSpy).toHaveBeenCalled()
-      
+
       // Verify credits were updated from 0 to 100
       expect(result.agentState.creditsUsed).toBe(100)
       expect(result.agentState.directCreditsUsed).toBe(100)
@@ -1007,7 +1017,7 @@ describe('n parameter and GENERATE_N functionality', () => {
       expect(result.agentState.messageHistory.length).toBeGreaterThanOrEqual(
         mockAgentState.messageHistory.length,
       )
-      
+
       // Verify the messages are preserved
       expect(result.agentState.messageHistory).toBeDefined()
     })

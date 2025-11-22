@@ -17,7 +17,7 @@ import type { SendSubagentChunkFn } from '@codebuff/common/types/contracts/clien
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
-import type { AgentState } from '@codebuff/common/types/session-state'
+import type { AgentState, Subgoal } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 type PresentOrAbsent<K extends PropertyKey, V> =
@@ -26,22 +26,8 @@ type PresentOrAbsent<K extends PropertyKey, V> =
 export type State = {
   creditsUsed?: number | Promise<number>
   prompt: string | undefined
-  agentContext: Record<
-    string,
-    {
-      logs: string[]
-      objective?: string | undefined
-      status?:
-        | 'NOT_STARTED'
-        | 'IN_PROGRESS'
-        | 'COMPLETE'
-        | 'ABORTED'
-        | undefined
-      plan?: string | undefined
-    }
-  >
+  agentContext: Record<string, Subgoal>
   messages: Message[]
-  system: string
   logger: Logger
 } & FileProcessingState
 
@@ -68,6 +54,7 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     sendSubagentChunk: SendSubagentChunkFn
     signal: AbortSignal
     state: State
+    system: string
     trackEvent: TrackEventFn
     userId: string | undefined
     userInputId: string

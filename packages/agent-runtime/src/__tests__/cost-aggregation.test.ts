@@ -89,6 +89,7 @@ describe('Cost Aggregation System', () => {
       repoId: undefined,
       repoUrl: undefined,
       signal: new AbortController().signal,
+      system: 'Test system prompt',
       userId: 'test-user',
       userInputId: 'test-input',
       writeToClient: () => {},
@@ -374,7 +375,6 @@ describe('Cost Aggregation System', () => {
         localAgentTemplates: mockLocalAgentTemplates,
         messages: [],
         sendSubagentChunk: () => {},
-        system: 'Test system prompt',
       }
 
       const mockExecuteAgent = spyOn(spawnAgentUtils, 'executeSubagent')

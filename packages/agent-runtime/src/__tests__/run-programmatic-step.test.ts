@@ -16,6 +16,7 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
+import { cloneDeep } from 'lodash'
 
 import {
   clearAgentGeneratorCache,
@@ -25,6 +26,7 @@ import { mockFileContext } from './test-utils'
 import * as toolExecutor from '../tools/tool-executor'
 
 import type { AgentTemplate, StepGenerator } from '../templates/types'
+import type { executeToolCall } from '../tools/tool-executor'
 import type { PublicAgentState } from '@codebuff/common/types/agent-template'
 import type {
   AgentRuntimeDeps,
@@ -134,7 +136,7 @@ describe('runProgrammaticStep', () => {
       onCostCalculated: async () => {},
       fileContext: mockFileContext,
       localAgentTemplates: {},
-      system: undefined,
+      system: 'Test system prompt',
       stepsComplete: false,
       stepNumber: 1,
 
@@ -313,26 +315,28 @@ describe('runProgrammaticStep', () => {
       mockTemplate.toolNames = ['find_files', 'end_turn']
 
       // Mock executeToolCall to simulate find_files tool result
-      executeToolCallSpy.mockImplementation(async (options: any) => {
-        if (options.toolName === 'find_files') {
-          const toolResult: ToolMessage = {
-            role: 'tool',
-            toolName: 'find_files',
-            toolCallId: 'find-files-call-id',
-            content: jsonToolResult({
-              files: [
-                { path: 'src/auth.ts', relevance: 0.9 },
-                { path: 'src/login.ts', relevance: 0.8 },
-              ],
-            }),
-          }
-          options.toolResults.push(toolResult)
+      executeToolCallSpy.mockImplementation(
+        async (
+          options: ParamsOf<typeof executeToolCall>,
+        ): ReturnType<typeof executeToolCall> => {
+          if (options.toolName === 'find_files') {
+            const toolResult: ToolMessage = {
+              role: 'tool',
+              toolName: 'find_files',
+              toolCallId: 'find-files-call-id',
+              content: jsonToolResult({
+                files: [
+                  { path: 'src/auth.ts', relevance: 0.9 },
+                  { path: 'src/login.ts', relevance: 0.8 },
+                ],
+              }),
+            }
+            options.toolResults.push(toolResult)
 
-          options.state.messages.push(toolResult)
-        }
-        // Return a value to satisfy the call
-        return {}
-      })
+            options.state.messages.push(toolResult)
+          }
+        },
+      )
 
       const result = await runProgrammaticStep(mockParams)
 
@@ -481,74 +485,75 @@ describe('runProgrammaticStep', () => {
       ]
 
       // Mock executeToolCall to simulate realistic tool results and state updates
-      executeToolCallSpy.mockImplementation(async (options: any) => {
-        const { toolName, input, toolResults, state } = options
+      executeToolCallSpy.mockImplementation(
+        async (
+          options: ParamsOf<typeof executeToolCall>,
+        ): ReturnType<typeof executeToolCall> => {
+          const { toolName, input, toolResults, state, agentState } = options
 
-        let result: string
-        switch (toolName) {
-          case 'read_files':
-            result = JSON.stringify({
-              'src/auth.ts':
-                'export function authenticate(user) { return true; }',
-              'src/config.ts': 'export const authConfig = { enabled: true };',
-            })
-            break
-          case 'code_search':
-            result =
-              'src/auth.ts:1:export function authenticate(user) {\nsrc/config.ts:1:authConfig'
-            break
-          case 'create_plan':
-            result = 'Plan created successfully at analysis-plan.md'
-            break
-          case 'add_subgoal':
-            result = 'Subgoal "auth-analysis" added successfully'
-            // Update agent state to include subgoal in agentContext
-            state.agentState.agentContext['auth-analysis'] = {
-              objective: 'Analyze authentication patterns',
-              status: 'IN_PROGRESS',
-              plan: 'Review auth files and create recommendations',
-              logs: [],
-            }
-            break
-          case 'write_file':
-            result = 'File written successfully: auth-analysis.md'
-            break
-          case 'update_subgoal':
-            result = 'Subgoal "auth-analysis" updated successfully'
-            // Update subgoal status in agent state
-            if (state.agentState.agentContext['auth-analysis']) {
-              state.agentState.agentContext['auth-analysis'].status = 'COMPLETE'
-              state.agentState.agentContext['auth-analysis'].logs.push(
-                'Analysis completed successfully',
-              )
-            }
-            break
-          case 'set_output':
-            result = 'Output set successfully'
-            state.agentState.output = input
-            break
-          default:
-            result = `${toolName} executed successfully`
-        }
+          let result: string
+          switch (toolName) {
+            case 'read_files':
+              result = JSON.stringify({
+                'src/auth.ts':
+                  'export function authenticate(user) { return true; }',
+                'src/config.ts': 'export const authConfig = { enabled: true };',
+              })
+              break
+            case 'code_search':
+              result =
+                'src/auth.ts:1:export function authenticate(user) {\nsrc/config.ts:1:authConfig'
+              break
+            case 'create_plan':
+              result = 'Plan created successfully at analysis-plan.md'
+              break
+            case 'add_subgoal':
+              result = 'Subgoal "auth-analysis" added successfully'
+              // Update agent state to include subgoal in agentContext
+              agentState.agentContext['auth-analysis'] = {
+                objective: 'Analyze authentication patterns',
+                status: 'IN_PROGRESS',
+                plan: 'Review auth files and create recommendations',
+                logs: [],
+              }
+              break
+            case 'write_file':
+              result = 'File written successfully: auth-analysis.md'
+              break
+            case 'update_subgoal':
+              result = 'Subgoal "auth-analysis" updated successfully'
+              // Update subgoal status in agent state
+              if (agentState.agentContext['auth-analysis']) {
+                agentState.agentContext['auth-analysis'].status = 'COMPLETE'
+                agentState.agentContext['auth-analysis'].logs.push(
+                  'Analysis completed successfully',
+                )
+              }
+              break
+            case 'set_output':
+              result = 'Output set successfully'
+              agentState.output = input
+              break
+            default:
+              result = `${toolName} executed successfully`
+          }
 
-        const toolResult: ToolMessage = {
-          role: 'tool',
-          toolName,
-          toolCallId: `${toolName}-call-id`,
-          content: [
-            {
-              type: 'json',
-              value: result,
-            },
-          ],
-        }
-        toolResults.push(toolResult)
+          const toolResult: ToolMessage = {
+            role: 'tool',
+            toolName,
+            toolCallId: `${toolName}-call-id`,
+            content: [
+              {
+                type: 'json',
+                value: result,
+              },
+            ],
+          }
+          toolResults.push(toolResult)
 
-        state.messages.push({
-          role: 'user',
-          content: toolResult,
-        })
-      })
+          state.messages.push(toolResult)
+        },
+      )
 
       // First call - should execute all tools and transition to STEP_ALL
       const result1 = await runProgrammaticStep(mockParams)
@@ -657,21 +662,25 @@ describe('runProgrammaticStep', () => {
       mockTemplate.handleSteps = () => mockGenerator
 
       // Mock executeToolCall to add tool results
-      executeToolCallSpy.mockImplementation(async (options: any) => {
-        if (options.toolName === 'read_files') {
-          options.toolResults.push({
-            role: 'tool',
-            toolName: 'read_files',
-            toolCallId: 'test-id',
-            content: [
-              {
-                type: 'json',
-                value: 'file content',
-              },
-            ],
-          } satisfies ToolMessage)
-        }
-      })
+      executeToolCallSpy.mockImplementation(
+        async (
+          options: ParamsOf<typeof executeToolCall>,
+        ): ReturnType<typeof executeToolCall> => {
+          if (options.toolName === 'read_files') {
+            options.toolResults.push({
+              role: 'tool',
+              toolName: 'read_files',
+              toolCallId: 'test-id',
+              content: [
+                {
+                  type: 'json',
+                  value: 'file content',
+                },
+              ],
+            } satisfies ToolMessage)
+          }
+        },
+      )
 
       await runProgrammaticStep(mockParams)
 
@@ -749,11 +758,15 @@ describe('runProgrammaticStep', () => {
       mockTemplate.toolNames.push('set_output')
 
       // Mock executeToolCall to update state
-      executeToolCallSpy.mockImplementation(async (options: any) => {
-        if (options.toolName === 'set_output') {
-          options.state.agentState.output = { status: 'complete' }
-        }
-      })
+      executeToolCallSpy.mockImplementation(
+        async (
+          options: ParamsOf<typeof executeToolCall>,
+        ): ReturnType<typeof executeToolCall> => {
+          if (options.toolName === 'set_output') {
+            options.agentState.output = { status: 'complete' }
+          }
+        },
+      )
 
       const result = await runProgrammaticStep(mockParams)
 
@@ -764,13 +777,14 @@ describe('runProgrammaticStep', () => {
       const mockGenerator = (function* () {
         yield { toolName: 'end_turn', input: {} }
       })() as StepGenerator
+      const previousMessageHistory = cloneDeep(mockAgentState.messageHistory)
 
       mockTemplate.handleSteps = () => mockGenerator
 
       const result = await runProgrammaticStep(mockParams)
 
       expect(result.agentState.messageHistory).toEqual([
-        ...mockAgentState.messageHistory,
+        ...previousMessageHistory,
         assistantMessage(
           '<codebuff_tool_call>\n{\n  "cb_tool_name": "end_turn",\n  "cb_easp": true\n}\n</codebuff_tool_call>',
         ),
@@ -1073,11 +1087,15 @@ describe('runProgrammaticStep', () => {
       mockTemplate.toolNames = ['read_files', 'set_output', 'end_turn']
 
       // Mock executeToolCall to update state for set_output
-      executeToolCallSpy.mockImplementation(async (options: any) => {
-        if (options.toolName === 'set_output') {
-          options.state.agentState.output = options.input
-        }
-      })
+      executeToolCallSpy.mockImplementation(
+        async (
+          options: ParamsOf<typeof executeToolCall>,
+        ): ReturnType<typeof executeToolCall> => {
+          if (options.toolName === 'set_output') {
+            options.agentState.output = options.input
+          }
+        },
+      )
 
       const result = await runProgrammaticStep({
         ...mockParams,
@@ -1135,11 +1153,15 @@ describe('runProgrammaticStep', () => {
       expect(generatorCallCount).toBe(1) // Should not create new generator
 
       // Third call with stepsComplete=true should clear STEP_ALL and continue with existing generator
-      executeToolCallSpy.mockImplementation(async (options: any) => {
-        if (options.toolName === 'set_output') {
-          options.state.agentState.output = options.input
-        }
-      })
+      executeToolCallSpy.mockImplementation(
+        async (
+          options: ParamsOf<typeof executeToolCall>,
+        ): ReturnType<typeof executeToolCall> => {
+          if (options.toolName === 'set_output') {
+            options.agentState.output = options.input
+          }
+        },
+      )
 
       const result3 = await runProgrammaticStep({
         ...mockParams,
@@ -1199,11 +1221,15 @@ describe('runProgrammaticStep', () => {
         'end_turn',
       ]
 
-      executeToolCallSpy.mockImplementation(async (options: any) => {
-        if (options.toolName === 'set_output') {
-          options.state.agentState.output = options.input
-        }
-      })
+      executeToolCallSpy.mockImplementation(
+        async (
+          options: ParamsOf<typeof executeToolCall>,
+        ): ReturnType<typeof executeToolCall> => {
+          if (options.toolName === 'set_output') {
+            options.agentState.output = options.input
+          }
+        },
+      )
 
       // First call with stepsComplete=true (post-processing mode)
       const result = await runProgrammaticStep({
@@ -1374,16 +1400,20 @@ describe('runProgrammaticStep', () => {
         'end_turn',
       ]
 
-      executeToolCallSpy.mockImplementation(async (options: any) => {
-        if (options.toolName === 'set_output') {
-          options.state.agentState.output = options.input
-        } else if (options.toolName === 'add_subgoal') {
-          options.state.agentState.agentContext[options.input.id] = {
-            ...options.input,
-            logs: [],
+      executeToolCallSpy.mockImplementation(
+        async (
+          options: ParamsOf<typeof executeToolCall>,
+        ): ReturnType<typeof executeToolCall> => {
+          if (options.toolName === 'set_output') {
+            options.agentState.output = options.input
+          } else if (options.toolName === 'add_subgoal') {
+            options.agentState.agentContext[options.input.id as any] = {
+              ...options.input,
+              logs: [],
+            }
           }
-        }
-      })
+        },
+      )
 
       // Call with stepsComplete=true to trigger post-processing
       const result = await runProgrammaticStep({

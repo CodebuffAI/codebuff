@@ -38,6 +38,7 @@ export const handleSpawnAgents = ((
     agentTemplate: AgentTemplate
     fingerprintId: string
     localAgentTemplates: Record<string, AgentTemplate>
+    system: string
     userId: string | undefined
     userInputId: string
     sendSubagentChunk: SendSubagentChunk
@@ -46,7 +47,6 @@ export const handleSpawnAgents = ((
     getLatestState: () => { messages: Message[] }
     state: {
       messages: Message[]
-      system: string
     }
     logger: Logger
   } & ParamsExcluding<
@@ -74,6 +74,7 @@ export const handleSpawnAgents = ((
     agentState: parentAgentState,
     agentTemplate: parentAgentTemplate,
     fingerprintId,
+    system: parentSystemPrompt,
     userInputId,
     sendSubagentChunk,
     writeToClient,
@@ -84,7 +85,6 @@ export const handleSpawnAgents = ((
   const { agents } = toolCall.input
   const validatedState = validateSpawnState(state, 'spawn_agents')
   const { logger } = params
-  const { system: parentSystemPrompt } = state
 
   const triggerSpawnAgents = async () => {
     const results = await Promise.allSettled(
