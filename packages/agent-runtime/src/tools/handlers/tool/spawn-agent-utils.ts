@@ -27,7 +27,6 @@ export interface SpawnAgentParams {
 }
 
 export interface BaseSpawnState {
-  userId: string | undefined
   agentTemplate: AgentTemplate
   localAgentTemplates: Record<string, AgentTemplate>
   messages: Message[]
@@ -48,13 +47,12 @@ export interface SpawnContext {
 export function validateSpawnState(
   state: BaseSpawnState,
   toolName: string,
-): Omit<Required<BaseSpawnState>, 'userId'> & { userId: string | undefined } {
+): Required<BaseSpawnState> {
   const {
     agentTemplate: parentAgentTemplate,
     localAgentTemplates,
     messages,
     agentState,
-    userId,
     system,
   } = state
 
@@ -81,7 +79,6 @@ export function validateSpawnState(
   }
 
   return {
-    userId,
     agentTemplate: parentAgentTemplate,
     localAgentTemplates,
     messages,

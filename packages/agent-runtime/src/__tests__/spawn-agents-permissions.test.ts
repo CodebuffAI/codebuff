@@ -72,6 +72,7 @@ describe('Spawn Agents Permissions', () => {
       repoId: undefined,
       repoUrl: undefined,
       signal: new AbortController().signal,
+      userId: TEST_USER_ID,
       userInputId: 'test-input',
       writeToClient: () => {},
 
@@ -79,7 +80,6 @@ describe('Spawn Agents Permissions', () => {
     }
 
     baseState = {
-      userId: TEST_USER_ID,
       sendSubagentChunk: mockSendSubagentChunk,
       messages: [],
       system: 'Test system prompt',

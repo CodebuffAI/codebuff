@@ -35,12 +35,12 @@ export const handleSpawnAgents = ((
     toolCall: CodebuffToolCall<ToolName>
 
     fingerprintId: string
+    userId: string | undefined
     userInputId: string
     writeToClient: (chunk: string | PrintModeEvent) => void
 
     getLatestState: () => { messages: Message[] }
     state: {
-      userId: string | undefined
       agentTemplate: AgentTemplate
       localAgentTemplates: Record<string, AgentTemplate>
       sendSubagentChunk: SendSubagentChunk
@@ -63,7 +63,6 @@ export const handleSpawnAgents = ((
       | 'agentState'
       | 'fingerprintId'
       | 'localAgentTemplates'
-      | 'userId'
       | 'isOnlyChild'
       | 'parentSystemPrompt'
       | 'onResponseChunk'
@@ -92,7 +91,6 @@ export const handleSpawnAgents = ((
   }
 
   const {
-    userId,
     agentTemplate: parentAgentTemplate,
     localAgentTemplates,
     agentState: parentAgentState,
@@ -140,7 +138,6 @@ export const handleSpawnAgents = ((
             agentState: subAgentState,
             fingerprintId,
             localAgentTemplates,
-            userId,
             isOnlyChild: agents.length === 1,
             parentSystemPrompt,
             onResponseChunk: (chunk: string | PrintModeEvent) => {

@@ -64,6 +64,7 @@ describe('Cost Aggregation System', () => {
       repoId: undefined,
       repoUrl: undefined,
       signal: new AbortController().signal,
+      userId: 'test-user',
       userInputId: 'test-input',
       writeToClient: () => {},
 

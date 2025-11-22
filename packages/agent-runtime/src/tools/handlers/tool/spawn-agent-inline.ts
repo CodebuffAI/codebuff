@@ -30,12 +30,12 @@ export const handleSpawnAgentInline = ((
     fileContext: ProjectFileContext
     fingerprintId: string
     logger: Logger
+    userId: string | undefined
     userInputId: string
     writeToClient: (chunk: string | PrintModeEvent) => void
 
     getLatestState: () => { messages: Message[] }
     state: {
-      userId: string | undefined
       agentTemplate: AgentTemplate
       localAgentTemplates: Record<string, AgentTemplate>
       messages: Message[]
@@ -51,7 +51,6 @@ export const handleSpawnAgentInline = ((
     | 'parentAgentState'
     | 'agentState'
     | 'localAgentTemplates'
-    | 'userId'
     | 'parentSystemPrompt'
     | 'onResponseChunk'
     | 'clearUserPromptMessagesAfterResponse'
@@ -75,7 +74,6 @@ export const handleSpawnAgentInline = ((
     params: spawnParams,
   } = toolCall.input
   const {
-    userId,
     agentTemplate: parentAgentTemplate,
     localAgentTemplates,
     agentState: parentAgentState,
@@ -121,7 +119,6 @@ export const handleSpawnAgentInline = ((
       parentAgentState,
       agentState: childAgentState,
       localAgentTemplates,
-      userId,
       fingerprintId,
       parentSystemPrompt: system,
       onResponseChunk: (chunk) => {

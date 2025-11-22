@@ -287,8 +287,6 @@ export function executeToolCall<T extends ToolName>(
         state.sendSubagentChunk = pair.value
       } else if (pair.key === 'system') {
         state.system = pair.value
-      } else if (pair.key === 'userId') {
-        state.system = pair.value
       }
     }
   }

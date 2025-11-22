@@ -75,13 +75,13 @@ describe('Subagent Streaming', () => {
       repoId: undefined,
       repoUrl: undefined,
       signal: new AbortController().signal,
+      userId: TEST_USER_ID,
       userInputId: 'test-input',
       writeToClient: mockWriteToClient,
       getLatestState: () => ({ messages: [] }),
     }
 
     baseState = {
-      userId: TEST_USER_ID,
       sendSubagentChunk: mockSendSubagentChunk,
       messages: [],
       system: 'Test system prompt',

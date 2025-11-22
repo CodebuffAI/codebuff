@@ -66,6 +66,7 @@ export function handleWriteFile(
     clientSessionId: string
     fingerprintId: string
     logger: Logger
+    userId: string | undefined
     userInputId: string
 
     requestClientToolCall: (
@@ -76,7 +77,6 @@ export function handleWriteFile(
 
     getLatestState: () => FileProcessingState
     state: {
-      userId: string | undefined
       fullResponse: string | undefined
       prompt: string | undefined
       messages: Message[]
@@ -86,7 +86,6 @@ export function handleWriteFile(
     | 'path'
     | 'instructions'
     | 'fingerprintId'
-    | 'userId'
     | 'initialContentPromise'
     | 'newContent'
     | 'messages'
@@ -115,7 +114,7 @@ export function handleWriteFile(
     state,
   } = params
   const { path, instructions, content } = toolCall.input
-  const { userId, fullResponse, prompt } = state
+  const { fullResponse, prompt } = state
 
   const fileProcessingState = getFileProcessingValues(state)
   const fileProcessingPromisesByPath = fileProcessingState.promisesByPath
@@ -158,7 +157,6 @@ export function handleWriteFile(
     clientSessionId,
     fingerprintId,
     userInputId,
-    userId,
     logger,
   })
     .catch((error) => {

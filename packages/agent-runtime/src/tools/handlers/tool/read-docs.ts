@@ -18,10 +18,10 @@ export const handleReadDocs = ((
     clientSessionId: string
     fingerprintId: string
     logger: Logger
+    userId: string | undefined
     userInputId: string
 
     state: {
-      userId: string | undefined
       repoId: string | undefined
     }
   } & ParamsExcluding<
@@ -41,12 +41,13 @@ export const handleReadDocs = ((
     fingerprintId,
     logger,
     state,
+    userId,
     userInputId,
 
     fetch,
   } = params
   const { libraryTitle, topic, max_tokens } = toolCall.input
-  const { userId, repoId } = state
+  const {  repoId } = state
 
   const docsStartTime = Date.now()
   const docsContext = {

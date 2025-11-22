@@ -74,12 +74,12 @@ describe('Spawn Agents Message History', () => {
       repoUrl: undefined,
       previousToolCallFinished: Promise.resolve(),
       signal: new AbortController().signal,
+      userId: TEST_USER_ID,
       userInputId: 'test-input',
       writeToClient: () => {},
     }
 
     baseState = {
-      userId: TEST_USER_ID,
       sendSubagentChunk: mockSendSubagentChunk,
       system: 'Test system prompt',
     }

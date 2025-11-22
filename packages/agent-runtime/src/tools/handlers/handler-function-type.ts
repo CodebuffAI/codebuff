@@ -25,7 +25,6 @@ type PresentOrAbsent<K extends PropertyKey, V> =
   | { [P in K]: never }
 export type State = {
   creditsUsed?: number | Promise<number>
-  userId: string | undefined
   repoId: string | undefined
   agentTemplate: AgentTemplate
   localAgentTemplates: Record<string, AgentTemplate>
@@ -69,6 +68,7 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     runId: string
     signal: AbortSignal
     state: State
+    userId: string | undefined
     userInputId: string
 
     fetch: typeof globalThis.fetch
@@ -85,32 +85,5 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     AgentRuntimeScopedDeps,
 ) => {
   result: Promise<CodebuffToolMessage<T>['content']>
-  state?: Partial<
-    {
-      creditsUsed?: number | Promise<number>
-      userId: string | undefined
-      repoId: string | undefined
-      agentTemplate: AgentTemplate
-      localAgentTemplates: Record<string, AgentTemplate>
-      sendSubagentChunk: SendSubagentChunkFn
-      agentState: AgentState
-      agentContext: Record<
-        string,
-        {
-          logs: string[]
-          objective?: string | undefined
-          status?:
-            | 'NOT_STARTED'
-            | 'IN_PROGRESS'
-            | 'COMPLETE'
-            | 'ABORTED'
-            | undefined
-          plan?: string | undefined
-        }
-      >
-      messages: Message[]
-      system: string
-      logger: Logger
-    } & FileProcessingState
-  >
+  state?: Partial<State>
 }

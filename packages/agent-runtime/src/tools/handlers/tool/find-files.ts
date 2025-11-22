@@ -31,50 +31,42 @@ export const handleFindFiles = ((
     toolCall: CodebuffToolCall<'find_files'>
     logger: Logger
 
-    fileContext: ProjectFileContext
-    fingerprintId: string
     agentStepId: string
     clientSessionId: string
+    fileContext: ProjectFileContext
+    fingerprintId: string
+    userId: string | undefined
     userInputId: string
 
     state: {
-      userId: string | undefined
       repoId: string | undefined
       messages: Message[]
     }
   } & ParamsExcluding<
     typeof requestRelevantFiles,
-    | 'messages'
-    | 'system'
-    | 'assistantPrompt'
-    | 'fingerprintId'
-    | 'userId'
-    | 'repoId'
+    'messages' | 'system' | 'assistantPrompt' | 'fingerprintId' | 'repoId'
   > &
     ParamsExcluding<
       typeof uploadExpandedFileContextForTraining,
-      | 'messages'
-      | 'system'
-      | 'assistantPrompt'
-      | 'fingerprintId'
-      | 'userId'
-      | 'repoId'
+      'messages' | 'system' | 'assistantPrompt' | 'fingerprintId' | 'repoId'
     > &
     ParamsExcluding<typeof getFileReadingUpdates, 'requestedFiles'>,
 ): { result: Promise<CodebuffToolOutput<'find_files'>>; state: {} } => {
   const {
     previousToolCallFinished,
     toolCall,
-    logger,
-    fileContext,
-    fingerprintId,
+
     agentStepId,
     clientSessionId,
-    userInputId,
+    fileContext,
+    fingerprintId,
+    logger,
     state,
+    userId,
+    userInputId,
   } = params
   const { prompt } = toolCall.input
-  const { userId, repoId, messages } = state
+  const { repoId, messages } = state
 
   if (!messages) {
     throw new Error('Internal error for find_files: Missing messages in state')
@@ -103,7 +95,6 @@ export const handleFindFiles = ((
       system,
       assistantPrompt: prompt,
       fingerprintId,
-      userId,
       repoId,
     })
 
@@ -120,7 +111,6 @@ export const handleFindFiles = ((
           system,
           assistantPrompt: prompt,
           fingerprintId,
-          userId,
           repoId,
         }).catch((error) => {
           logger.error(
@@ -172,24 +162,10 @@ export const handleFindFiles = ((
 
 async function uploadExpandedFileContextForTraining(
   params: {
-    agentStepId: string
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    userId: string | undefined
     requestFiles: RequestFilesFn
-    logger: Logger
   } & ParamsOf<typeof requestRelevantFilesForTraining>,
 ) {
-  const {
-    agentStepId,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    requestFiles,
-    logger,
-  } = params
+  const { requestFiles } = params
   const files = await requestRelevantFilesForTraining(params)
 
   const loadedFiles = await requestFiles({ filePaths: files })

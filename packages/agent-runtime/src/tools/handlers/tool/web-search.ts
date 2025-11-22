@@ -19,12 +19,11 @@ export const handleWebSearch = ((params: {
   fingerprintId: string
   repoUrl: string | undefined
   userInputId: string
+  userId: string | undefined
 
   fetch: typeof globalThis.fetch
-  consumeCreditsWithFallback: ConsumeCreditsWithFallbackFn
 
   state: {
-    userId: string | undefined
     repoId: string | undefined
   }
 }): { result: Promise<CodebuffToolOutput<'web_search'>>; state: {} } => {
@@ -35,15 +34,18 @@ export const handleWebSearch = ((params: {
     agentStepId,
     apiKey,
     clientSessionId,
+    fingerprintId,
     logger,
     repoUrl,
-    state,
+    userId,
     userInputId,
+    
     fetch,
-    fingerprintId,
+
+    state,
   } = params
   const { query, depth } = toolCall.input
-  const { userId,  repoId } = state
+  const {   repoId } = state
 
   const searchStartTime = Date.now()
   const searchContext = {
