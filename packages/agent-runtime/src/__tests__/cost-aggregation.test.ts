@@ -56,15 +56,17 @@ describe('Cost Aggregation System', () => {
   beforeEach(() => {
     params = {
       ...TEST_AGENT_RUNTIME_IMPL,
+      ancestorRunIds: [],
+      clientSessionId: 'test-session',
+      fileContext: mockFileContext,
+      fingerprintId: 'test-fingerprint',
+      previousToolCallFinished: Promise.resolve(),
       repoId: undefined,
       repoUrl: undefined,
-      previousToolCallFinished: Promise.resolve(),
-      fileContext: mockFileContext,
-      clientSessionId: 'test-session',
-      userInputId: 'test-input',
-      ancestorRunIds: [],
       signal: new AbortController().signal,
+      userInputId: 'test-input',
       writeToClient: () => {},
+
       getLatestState: () => ({ messages: [] }),
     }
 

@@ -34,12 +34,12 @@ export const handleSpawnAgents = ((
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<ToolName>
 
+    fingerprintId: string
     userInputId: string
     writeToClient: (chunk: string | PrintModeEvent) => void
 
     getLatestState: () => { messages: Message[] }
     state: {
-      fingerprintId: string
       userId: string | undefined
       agentTemplate: AgentTemplate
       localAgentTemplates: Record<string, AgentTemplate>
@@ -73,10 +73,12 @@ export const handleSpawnAgents = ((
     previousToolCallFinished,
     toolCall,
 
+    fingerprintId,
     userInputId,
+    writeToClient,
+
     getLatestState,
     state,
-    writeToClient,
   } = params
   const { agents } = toolCall.input
   const validatedState = validateSpawnState(state, 'spawn_agents')
@@ -90,7 +92,6 @@ export const handleSpawnAgents = ((
   }
 
   const {
-    fingerprintId,
     userId,
     agentTemplate: parentAgentTemplate,
     localAgentTemplates,

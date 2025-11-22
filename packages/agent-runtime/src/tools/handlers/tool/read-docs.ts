@@ -13,14 +13,14 @@ export const handleReadDocs = ((
   params: {
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<'read_docs'>
-    logger: Logger
 
     agentStepId: string
     clientSessionId: string
+    fingerprintId: string
+    logger: Logger
     userInputId: string
 
     state: {
-      fingerprintId: string
       userId: string | undefined
       repoId: string | undefined
     }
@@ -35,15 +35,18 @@ export const handleReadDocs = ((
   const {
     previousToolCallFinished,
     toolCall,
-    logger,
+
     agentStepId,
     clientSessionId,
-    userInputId,
+    fingerprintId,
+    logger,
     state,
+    userInputId,
+
     fetch,
   } = params
   const { libraryTitle, topic, max_tokens } = toolCall.input
-  const { userId, repoId, fingerprintId } = state
+  const { userId, repoId } = state
 
   const docsStartTime = Date.now()
   const docsContext = {

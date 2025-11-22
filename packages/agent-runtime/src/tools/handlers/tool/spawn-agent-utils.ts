@@ -27,7 +27,6 @@ export interface SpawnAgentParams {
 }
 
 export interface BaseSpawnState {
-  fingerprintId: string
   userId: string | undefined
   agentTemplate: AgentTemplate
   localAgentTemplates: Record<string, AgentTemplate>
@@ -51,7 +50,6 @@ export function validateSpawnState(
   toolName: string,
 ): Omit<Required<BaseSpawnState>, 'userId'> & { userId: string | undefined } {
   const {
-    fingerprintId,
     agentTemplate: parentAgentTemplate,
     localAgentTemplates,
     messages,
@@ -60,11 +58,6 @@ export function validateSpawnState(
     system,
   } = state
 
-  if (!fingerprintId) {
-    throw new Error(
-      `Internal error for ${toolName}: Missing fingerprintId in state`,
-    )
-  }
   if (!parentAgentTemplate) {
     throw new Error(
       `Internal error for ${toolName}: Missing agentTemplate in state`,
@@ -88,7 +81,6 @@ export function validateSpawnState(
   }
 
   return {
-    fingerprintId,
     userId,
     agentTemplate: parentAgentTemplate,
     localAgentTemplates,

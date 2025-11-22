@@ -64,20 +64,21 @@ describe('Spawn Agents Permissions', () => {
   beforeEach(() => {
     handleSpawnAgentsBaseParams = {
       ...TEST_AGENT_RUNTIME_IMPL,
+      ancestorRunIds: [],
+      clientSessionId: 'test-session',
+      fileContext: mockFileContext,
+      fingerprintId: 'test-fingerprint',
+      previousToolCallFinished: Promise.resolve(),
       repoId: undefined,
       repoUrl: undefined,
-      previousToolCallFinished: Promise.resolve(),
-      fileContext: mockFileContext,
-      clientSessionId: 'test-session',
-      userInputId: 'test-input',
-      ancestorRunIds: [],
-      writeToClient: () => {},
-      getLatestState: () => ({ messages: [] }),
       signal: new AbortController().signal,
+      userInputId: 'test-input',
+      writeToClient: () => {},
+
+      getLatestState: () => ({ messages: [] }),
     }
 
     baseState = {
-      fingerprintId: 'test-fingerprint',
       userId: TEST_USER_ID,
       sendSubagentChunk: mockSendSubagentChunk,
       messages: [],

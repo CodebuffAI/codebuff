@@ -123,6 +123,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   agentTemplate: AgentTemplate
   clientSessionId: string
   fileContext: ProjectFileContext
+  fingerprintId: string
   fromHandleSteps?: boolean
   fullResponse: string
   previousToolCallFinished: Promise<void>

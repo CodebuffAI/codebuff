@@ -32,12 +32,12 @@ export const handleFindFiles = ((
     logger: Logger
 
     fileContext: ProjectFileContext
+    fingerprintId: string
     agentStepId: string
     clientSessionId: string
     userInputId: string
 
     state: {
-      fingerprintId: string
       userId: string | undefined
       repoId: string | undefined
       messages: Message[]
@@ -67,21 +67,17 @@ export const handleFindFiles = ((
     toolCall,
     logger,
     fileContext,
+    fingerprintId,
     agentStepId,
     clientSessionId,
     userInputId,
     state,
   } = params
   const { prompt } = toolCall.input
-  const { fingerprintId, userId, repoId, messages } = state
+  const { userId, repoId, messages } = state
 
   if (!messages) {
     throw new Error('Internal error for find_files: Missing messages in state')
-  }
-  if (!fingerprintId) {
-    throw new Error(
-      'Internal error for find_files: Missing fingerprintId in state',
-    )
   }
 
   const fileRequestMessagesTokens = countTokensJson(messages)

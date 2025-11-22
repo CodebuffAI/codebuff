@@ -18,6 +18,7 @@ export const handleCreatePlan = ((params: {
 
   agentStepId: string
   clientSessionId: string
+  fingerprintId: string
   logger: Logger
   userInputId: string
   requestClientToolCall: (
@@ -28,7 +29,6 @@ export const handleCreatePlan = ((params: {
   
   getLatestState: () => FileProcessingState
   state: {
-    fingerprintId: string
     userId: string | undefined
     repoId: string | undefined
   } & FileProcessingState
@@ -39,6 +39,7 @@ export const handleCreatePlan = ((params: {
   const {
     agentStepId,
     clientSessionId,
+    fingerprintId,
     logger,
     previousToolCallFinished,
     state,
@@ -51,7 +52,6 @@ export const handleCreatePlan = ((params: {
   } = params
   const { path, plan } = toolCall.input
   const {
-    fingerprintId,
     userId,
     repoId,
   } = state

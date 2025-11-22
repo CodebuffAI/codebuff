@@ -106,7 +106,6 @@ export async function processStreamWithTools(
   const state: State = {
     fullResponse,
     prompt,
-    fingerprintId,
     userId,
     repoId,
     agentTemplate,

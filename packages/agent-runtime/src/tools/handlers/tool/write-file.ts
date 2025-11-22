@@ -64,23 +64,23 @@ export function handleWriteFile(
     toolCall: CodebuffToolCall<'write_file'>
 
     clientSessionId: string
+    fingerprintId: string
+    logger: Logger
     userInputId: string
 
     requestClientToolCall: (
       toolCall: ClientToolCall<'write_file'>,
     ) => Promise<CodebuffToolOutput<'write_file'>>
+    requestOptionalFile: RequestOptionalFileFn
     writeToClient: (chunk: string) => void
 
     getLatestState: () => FileProcessingState
     state: {
-      fingerprintId: string
       userId: string | undefined
       fullResponse: string | undefined
       prompt: string | undefined
       messages: Message[]
     } & FileProcessingState
-    requestOptionalFile: RequestOptionalFileFn
-    logger: Logger
   } & ParamsExcluding<
     typeof processFileBlock,
     | 'path'
@@ -103,23 +103,19 @@ export function handleWriteFile(
     toolCall,
 
     clientSessionId,
+    fingerprintId,
+    logger,
     userInputId,
 
     requestClientToolCall,
+    requestOptionalFile,
     writeToClient,
 
     getLatestState,
     state,
-    requestOptionalFile,
-    logger,
   } = params
   const { path, instructions, content } = toolCall.input
-  const { fingerprintId, userId, fullResponse, prompt } = state
-  if (!fingerprintId) {
-    throw new Error(
-      'Internal error for write_file: Missing fingerprintId in state',
-    )
-  }
+  const { userId, fullResponse, prompt } = state
 
   const fileProcessingState = getFileProcessingValues(state)
   const fileProcessingPromisesByPath = fileProcessingState.promisesByPath

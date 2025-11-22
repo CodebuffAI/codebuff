@@ -66,19 +66,19 @@ describe('Spawn Agents Message History', () => {
 
     handleSpawnAgentsBaseParams = {
       ...TEST_AGENT_RUNTIME_IMPL,
+      ancestorRunIds: [],
+      clientSessionId: 'test-session',
+      fingerprintId: 'test-fingerprint',
+      fileContext: mockFileContext,
       repoId: undefined,
       repoUrl: undefined,
       previousToolCallFinished: Promise.resolve(),
-      fileContext: mockFileContext,
-      clientSessionId: 'test-session',
-      userInputId: 'test-input',
-      ancestorRunIds: [],
-      writeToClient: () => {},
       signal: new AbortController().signal,
+      userInputId: 'test-input',
+      writeToClient: () => {},
     }
 
     baseState = {
-      fingerprintId: 'test-fingerprint',
       userId: TEST_USER_ID,
       sendSubagentChunk: mockSendSubagentChunk,
       system: 'Test system prompt',

@@ -25,14 +25,16 @@ export const handleSpawnAgentInline = ((
   params: {
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<ToolName>
-    fileContext: ProjectFileContext
+
     clientSessionId: string
+    fileContext: ProjectFileContext
+    fingerprintId: string
+    logger: Logger
     userInputId: string
     writeToClient: (chunk: string | PrintModeEvent) => void
 
     getLatestState: () => { messages: Message[] }
     state: {
-      fingerprintId: string
       userId: string | undefined
       agentTemplate: AgentTemplate
       localAgentTemplates: Record<string, AgentTemplate>
@@ -40,7 +42,6 @@ export const handleSpawnAgentInline = ((
       agentState: AgentState
       system: string
     }
-    logger: Logger
   } & ParamsExcluding<
     typeof executeSubagent,
     | 'userInputId'
@@ -60,10 +61,13 @@ export const handleSpawnAgentInline = ((
   const {
     previousToolCallFinished,
     toolCall,
+
+    fingerprintId,
     userInputId,
+    writeToClient,
+
     getLatestState,
     state,
-    writeToClient,
   } = params
   const {
     agent_type: agentTypeStr,
@@ -71,7 +75,6 @@ export const handleSpawnAgentInline = ((
     params: spawnParams,
   } = toolCall.input
   const {
-    fingerprintId,
     userId,
     agentTemplate: parentAgentTemplate,
     localAgentTemplates,
