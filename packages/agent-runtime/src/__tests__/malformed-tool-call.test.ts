@@ -81,6 +81,7 @@ describe('malformed tool call error handling', () => {
       onResponseChunk: mock(() => {}),
       onCostCalculated: mock(async () => {}),
       fullResponse: '',
+      prompt: '',
       signal: new AbortController().signal,
     }
 

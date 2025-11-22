@@ -23,8 +23,8 @@ export const handleCreatePlan = ((params: {
   trackEvent: TrackEventFn
 
   getLatestState: () => FileProcessingState
+  agentStepId: string
   state: {
-    agentStepId: string
     clientSessionId: string
     fingerprintId: string
     userId: string | undefined
@@ -44,10 +44,10 @@ export const handleCreatePlan = ((params: {
     getLatestState,
     trackEvent,
     state,
+    agentStepId,
   } = params
   const { path, plan } = toolCall.input
   const {
-    agentStepId,
     clientSessionId,
     fingerprintId,
     userId,

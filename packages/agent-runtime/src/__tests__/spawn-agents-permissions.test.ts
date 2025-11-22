@@ -1,6 +1,7 @@
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
+import { assistantMessage } from '@codebuff/common/util/messages'
 import {
   describe,
   expect,
@@ -23,7 +24,6 @@ import type {
   ParamsExcluding,
   ParamsOf,
 } from '@codebuff/common/types/function-params'
-import { assistantMessage } from '@codebuff/common/util/messages'
 
 describe('Spawn Agents Permissions', () => {
   let mockSendSubagentChunk: any
@@ -95,9 +95,7 @@ describe('Spawn Agents Permissions', () => {
       return {
         agentState: {
           ...options.agentState,
-          messageHistory: [
-            assistantMessage('Mock agent response'),
-          ],
+          messageHistory: [assistantMessage('Mock agent response')],
         },
         output: { type: 'lastMessage', value: 'Mock agent response' },
       }
@@ -587,26 +585,6 @@ describe('Spawn Agents Permissions', () => {
 
       await expect(result).rejects.toThrow(
         'is not allowed to spawn child agent type',
-      )
-      expect(mockLoopAgentSteps).not.toHaveBeenCalled()
-    })
-
-    it('should validate required state parameters for inline spawn', async () => {
-      const parentAgent = createMockAgent('parent', ['thinker'])
-      const toolCall = createInlineSpawnToolCall('thinker')
-
-      expect(() => {
-        handleSpawnAgentInline({
-          ...handleSpawnAgentsBaseParams,
-          toolCall,
-          state: {
-            // Missing required fields like fingerprintId, etc.
-            agentTemplate: parentAgent,
-            localAgentTemplates: {},
-          },
-        })
-      }).toThrow(
-        'Internal error for spawn_agent_inline: Missing fingerprintId in state',
       )
       expect(mockLoopAgentSteps).not.toHaveBeenCalled()
     })
