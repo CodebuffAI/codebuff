@@ -73,7 +73,6 @@ export async function processStreamWithTools(
     >,
 ) {
   const {
-    userInputId,
     fingerprintId,
     userId,
     ancestorRunIds,
@@ -107,7 +106,6 @@ export async function processStreamWithTools(
   const state: State = {
     fullResponse,
     prompt,
-    userInputId,
     fingerprintId,
     userId,
     repoId,
