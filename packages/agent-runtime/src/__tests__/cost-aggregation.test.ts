@@ -70,6 +70,10 @@ describe('Cost Aggregation System', () => {
       inputSchema: {},
     }
 
+    mockLocalAgentTemplates = {
+      'test-agent': mockAgentTemplate,
+    }
+
     params = {
       ...TEST_AGENT_RUNTIME_IMPL,
       agentTemplate: mockAgentTemplate,
@@ -77,6 +81,7 @@ describe('Cost Aggregation System', () => {
       clientSessionId: 'test-session',
       fileContext: mockFileContext,
       fingerprintId: 'test-fingerprint',
+      localAgentTemplates: mockLocalAgentTemplates,
       previousToolCallFinished: Promise.resolve(),
       repoId: undefined,
       repoUrl: undefined,
@@ -86,10 +91,6 @@ describe('Cost Aggregation System', () => {
       writeToClient: () => {},
 
       getLatestState: () => ({ messages: [] }),
-    }
-
-    mockLocalAgentTemplates = {
-      'test-agent': mockAgentTemplate,
     }
 
     // Mock getAgentTemplate to return our mock template

@@ -126,6 +126,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   fingerprintId: string
   fromHandleSteps?: boolean
   fullResponse: string
+  localAgentTemplates: Record<string, AgentTemplate>
   previousToolCallFinished: Promise<void>
   repoId: string | undefined
   repoUrl: string | undefined
@@ -273,8 +274,6 @@ export function executeToolCall<T extends ToolName>(
         state.agentContext = pair.value
       } else if (pair.key === 'agentState') {
         state.agentState = pair.value
-      } else if (pair.key === 'localAgentTemplates') {
-        state.localAgentTemplates = pair.value
       } else if (pair.key === 'logger') {
         state.logger = pair.value
       } else if (pair.key === 'messages') {

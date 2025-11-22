@@ -30,6 +30,7 @@ export const handleSpawnAgentInline = ((
     clientSessionId: string
     fileContext: ProjectFileContext
     fingerprintId: string
+    localAgentTemplates: Record<string, AgentTemplate>
     logger: Logger
     userId: string | undefined
     userInputId: string
@@ -37,7 +38,6 @@ export const handleSpawnAgentInline = ((
 
     getLatestState: () => { messages: Message[] }
     state: {
-      localAgentTemplates: Record<string, AgentTemplate>
       messages: Message[]
       agentState: AgentState
       system: string
@@ -50,7 +50,6 @@ export const handleSpawnAgentInline = ((
     | 'agentTemplate'
     | 'parentAgentState'
     | 'agentState'
-    | 'localAgentTemplates'
     | 'parentSystemPrompt'
     | 'onResponseChunk'
     | 'clearUserPromptMessagesAfterResponse'
@@ -60,7 +59,7 @@ export const handleSpawnAgentInline = ((
   const {
     previousToolCallFinished,
     toolCall,
-    
+
     agentTemplate: parentAgentTemplate,
     fingerprintId,
     userInputId,
@@ -74,18 +73,16 @@ export const handleSpawnAgentInline = ((
     prompt,
     params: spawnParams,
   } = toolCall.input
-  const {
-    localAgentTemplates,
-    agentState: parentAgentState,
-    system,
-  } = validateSpawnState(state, 'spawn_agent_inline')
+  const { agentState: parentAgentState, system } = validateSpawnState(
+    state,
+    'spawn_agent_inline',
+  )
 
   const triggerSpawnAgentInline = async () => {
     const { agentTemplate, agentType } = await validateAndGetAgentTemplate({
       ...params,
       agentTypeStr,
       parentAgentTemplate,
-      localAgentTemplates,
     })
 
     validateAgentInput(agentTemplate, agentType, prompt, spawnParams)
@@ -118,7 +115,6 @@ export const handleSpawnAgentInline = ((
       agentTemplate,
       parentAgentState,
       agentState: childAgentState,
-      localAgentTemplates,
       fingerprintId,
       parentSystemPrompt: system,
       onResponseChunk: (chunk) => {

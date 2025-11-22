@@ -4,16 +4,33 @@ import z from 'zod/v4'
 import { getAgentTemplate } from '../../../templates/agent-registry'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebuffToolCall } from '@codebuff/common/tools/list'
+import type {
+  AgentTemplate,
+  Logger,
+} from '@codebuff/common/types/agent-template'
+import type { FetchAgentFromDatabaseFn } from '@codebuff/common/types/contracts/database'
 
-export const handleLookupAgentInfo = ((params) => {
-  const { agentId } = params.toolCall.input
+export const handleLookupAgentInfo = ((params: {
+  toolCall: CodebuffToolCall<'lookup_agent_info'>
+  previousToolCallFinished: Promise<void>
+
+  apiKey: string
+  databaseAgentCache: Map<string, AgentTemplate | null>
+  localAgentTemplates: Record<string, AgentTemplate>
+  logger: Logger
+  fetchAgentFromDatabase: FetchAgentFromDatabaseFn
+}) => {
+  const { toolCall, previousToolCallFinished } = params
+  const { agentId } = toolCall.input
 
   return {
     result: (async () => {
+      await previousToolCallFinished
+
       const agentTemplate = await getAgentTemplate({
         ...params,
         agentId,
-        localAgentTemplates: params.state.localAgentTemplates || {},
       })
 
       if (!agentTemplate) {

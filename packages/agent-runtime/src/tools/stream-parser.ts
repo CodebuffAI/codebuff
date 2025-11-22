@@ -43,7 +43,6 @@ export async function processStreamWithTools(
     fileContext: ProjectFileContext
     fingerprintId: string
     fullResponse: string
-    localAgentTemplates: Record<string, AgentTemplate>
     logger: Logger
     messages: Message[]
     repoId: string | undefined
@@ -77,7 +76,6 @@ export async function processStreamWithTools(
     ancestorRunIds,
     runId,
     agentTemplate,
-    localAgentTemplates,
     fileContext,
     agentContext,
     system,
@@ -104,7 +102,6 @@ export async function processStreamWithTools(
   const state: State = {
     fullResponse,
     prompt,
-    localAgentTemplates,
     sendSubagentChunk,
     agentState,
     agentContext,

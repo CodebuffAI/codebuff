@@ -13,28 +13,24 @@ type ToolName = 'set_output'
 export const handleSetOutput = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<ToolName>
+
+  apiKey: string
+  databaseAgentCache: Map<string, AgentTemplate | null>
+  localAgentTemplates: Record<string, AgentTemplate>
+  logger: Logger
+  fetchAgentFromDatabase: FetchAgentFromDatabaseFn
+
   state: {
     agentState: AgentState
-    localAgentTemplates: Record<string, AgentTemplate>
   }
-  fetchAgentFromDatabase: FetchAgentFromDatabaseFn
-  databaseAgentCache: Map<string, AgentTemplate | null>
-  logger: Logger
-  apiKey: string
 }) => {
   const { previousToolCallFinished, toolCall, state, logger } = params
   const output = toolCall.input
-  const { agentState, localAgentTemplates } = state
+  const { agentState } = state
 
   if (!agentState) {
     throw new Error(
       'Internal error for set_output: Missing agentState in state',
-    )
-  }
-
-  if (!localAgentTemplates) {
-    throw new Error(
-      'Internal error for set_output: Missing localAgentTemplates in state',
     )
   }
 
@@ -45,7 +41,6 @@ export const handleSetOutput = ((params: {
       agentTemplate = await getAgentTemplate({
         ...params,
         agentId: agentState.agentType,
-        localAgentTemplates,
       })
     }
     if (agentTemplate?.outputSchema) {
