@@ -4,6 +4,7 @@ import React, { memo, useCallback, useMemo, useState, type ReactNode } from 'rea
 
 import { AgentBranchItem } from './agent-branch-item'
 import { Button } from './button'
+import { CopyIconButton } from './copy-icon-button'
 import { ElapsedTimer } from './elapsed-timer'
 import { FeedbackIconButton } from './feedback-icon-button'
 import { ValidationErrorPopover } from './validation-error-popover'
@@ -206,7 +207,21 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
       return null
     }
 
+    // Extract full text content from blocks or use content prop
+    const fullTextContent = blocks && blocks.length > 0 
+      ? extractTextFromBlocks(blocks) || content
+      : content
+
     const footerItems: { key: string; node: React.ReactNode }[] = []
+    
+    // Add copy button first if there's content to copy
+    if (fullTextContent && fullTextContent.trim().length > 0) {
+      footerItems.push({
+        key: 'copy',
+        node: <CopyIconButton textToCopy={fullTextContent} />,
+      })
+    }
+    
     if (completionTime) {
       footerItems.push({
         key: 'time',
@@ -388,6 +403,23 @@ const trimTrailingNewlines = (value: string): string =>
 
 const sanitizePreview = (value: string): string =>
   value.replace(/[#*_`~\[\]()]/g, '').trim()
+
+// Extract all text content from blocks recursively
+const extractTextFromBlocks = (blocks?: ContentBlock[]): string => {
+  if (!blocks || blocks.length === 0) return ''
+  
+  const textParts: string[] = []
+  
+  for (const block of blocks) {
+    if (block.type === 'text') {
+      textParts.push(block.content)
+    } else if (block.type === 'agent' && block.blocks) {
+      textParts.push(extractTextFromBlocks(block.blocks))
+    }
+  }
+  
+  return textParts.join('\n').trim()
+}
 
 const isReasoningTextBlock = (
   b: ContentBlock | null | undefined,

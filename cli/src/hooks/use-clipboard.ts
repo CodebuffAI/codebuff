@@ -21,7 +21,6 @@ export const useClipboard = () => {
   const pendingCopyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   )
-  const copyDelayRef = useRef<number>(2000)
   const pendingSelectionRef = useRef<string | null>(null)
   const lastCopiedRef = useRef<string | null>(null)
 
@@ -72,7 +71,7 @@ export const useClipboard = () => {
         }).catch(() => {
           // Errors are logged within copyTextToClipboard
         })
-      }, copyDelayRef.current)
+      }, 250)
     }
 
     if (renderer?.on) {
