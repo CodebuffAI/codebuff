@@ -1,6 +1,6 @@
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { toolParams } from '@codebuff/common/tools/list'
-import { toolJsonContent } from '@codebuff/common/util/messages'
+import { jsonToolResult } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
@@ -179,11 +179,9 @@ export function executeToolCall<T extends ToolName>(
       role: 'tool',
       toolName,
       toolCallId: toolCall.toolCallId,
-      content: [
-        toolJsonContent({
-          errorMessage: toolCall.error,
-        }),
-      ],
+      content: jsonToolResult({
+        errorMessage: toolCall.error,
+      }),
     }
     toolResults.push(cloneDeep(toolResult))
     toolResultsToAddAfterStream.push(cloneDeep(toolResult))
@@ -216,11 +214,9 @@ export function executeToolCall<T extends ToolName>(
       role: 'tool',
       toolName,
       toolCallId: toolCall.toolCallId,
-      content: [
-        toolJsonContent({
-          errorMessage: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
-        }),
-      ],
+      content: jsonToolResult({
+        errorMessage: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
+      }),
     }
     toolResults.push(cloneDeep(toolResult))
     toolResultsToAddAfterStream.push(cloneDeep(toolResult))
@@ -430,11 +426,9 @@ export async function executeCustomToolCall(
       role: 'tool',
       toolName,
       toolCallId: toolCall.toolCallId,
-      content: [
-        toolJsonContent({
-          errorMessage: toolCall.error,
-        }),
-      ],
+      content: jsonToolResult({
+        errorMessage: toolCall.error,
+      }),
     }
     toolResults.push(cloneDeep(toolResult))
     toolResultsToAddAfterStream.push(cloneDeep(toolResult))
@@ -471,11 +465,9 @@ export async function executeCustomToolCall(
       role: 'tool',
       toolName,
       toolCallId: toolCall.toolCallId,
-      content: [
-        toolJsonContent({
-          errorMessage: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
-        }),
-      ],
+      content: jsonToolResult({
+        errorMessage: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
+      }),
     }
     toolResults.push(cloneDeep(toolResult))
     toolResultsToAddAfterStream.push(cloneDeep(toolResult))

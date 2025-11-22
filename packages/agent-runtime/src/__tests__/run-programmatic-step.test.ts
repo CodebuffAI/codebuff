@@ -4,7 +4,7 @@ import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-run
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   assistantMessage,
-  toolJsonContent,
+  jsonToolResult,
   userMessage,
 } from '@codebuff/common/util/messages'
 import {
@@ -319,14 +319,12 @@ describe('runProgrammaticStep', () => {
             role: 'tool',
             toolName: 'find_files',
             toolCallId: 'find-files-call-id',
-            content: [
-              toolJsonContent({
-                files: [
-                  { path: 'src/auth.ts', relevance: 0.9 },
-                  { path: 'src/login.ts', relevance: 0.8 },
-                ],
-              }),
-            ],
+            content: jsonToolResult({
+              files: [
+                { path: 'src/auth.ts', relevance: 0.9 },
+                { path: 'src/login.ts', relevance: 0.8 },
+              ],
+            }),
           }
           options.toolResults.push(toolResult)
 

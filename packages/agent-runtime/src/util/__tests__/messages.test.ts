@@ -1,7 +1,7 @@
 import {
   assistantMessage,
+  jsonToolResult,
   systemMessage,
-  toolJsonContent,
   userMessage,
 } from '@codebuff/common/util/messages'
 import {
@@ -75,34 +75,34 @@ describe('trimMessagesToFitTokenLimit', () => {
       role: 'tool',
       toolName: 'run_terminal_command',
       toolCallId: 'test-id-0',
-      content: [toolJsonContent(`Terminal output 0${'.'.repeat(2000)}`)],
+      content: jsonToolResult(`Terminal output 0${'.'.repeat(2000)}`),
     },
     {
       // Terminal output 1 - should be preserved (shorter than '[Output omitted]')
       role: 'tool',
       toolName: 'run_terminal_command',
       toolCallId: 'test-id-1',
-      content: [toolJsonContent(`Short output 1`)],
+      content: jsonToolResult(`Short output 1`),
     },
     {
       // Terminal output 2 - should be simplified
       role: 'tool',
       toolName: 'run_terminal_command',
       toolCallId: 'test-id-2',
-      content: [toolJsonContent(`Terminal output 2${'.'.repeat(2000)}`)],
+      content: jsonToolResult(`Terminal output 2${'.'.repeat(2000)}`),
     },
     {
       // Terminal output 3 - should be preserved (5th most recent)
       role: 'tool',
       toolName: 'run_terminal_command',
       toolCallId: 'test-id-3',
-      content: [toolJsonContent(`Terminal output 3`)],
+      content: jsonToolResult(`Terminal output 3`),
     },
     {
       role: 'tool',
       toolName: 'run_terminal_command',
       toolCallId: 'test-id-4',
-      content: [toolJsonContent(`Terminal output 4`)],
+      content: jsonToolResult(`Terminal output 4`),
     },
     // Regular message - should never be shortened
     userMessage({
@@ -115,21 +115,21 @@ describe('trimMessagesToFitTokenLimit', () => {
       role: 'tool',
       toolName: 'run_terminal_command',
       toolCallId: 'test-id-5',
-      content: [toolJsonContent(`Terminal output 5`)],
+      content: jsonToolResult(`Terminal output 5`),
     },
     {
       // Terminal output 6 - should be preserved (2nd most recent)
       role: 'tool',
       toolName: 'run_terminal_command',
       toolCallId: 'test-id-6',
-      content: [toolJsonContent(`Terminal output 6`)],
+      content: jsonToolResult(`Terminal output 6`),
     },
     {
       // Terminal output 7 - should be preserved (most recent)
       role: 'tool',
       toolName: 'run_terminal_command',
       toolCallId: 'test-id-7',
-      content: [toolJsonContent(`Terminal output 7`)],
+      content: jsonToolResult(`Terminal output 7`),
     },
     // Regular message - should never be shortened
     assistantMessage(
@@ -420,12 +420,10 @@ describe('getPreviouslyReadFiles', () => {
         role: 'tool',
         toolName: 'write_file',
         toolCallId: 'test-id',
-        content: [
-          toolJsonContent({
-            file: 'test.ts',
-            errorMessage: 'error',
-          }),
-        ],
+        content: jsonToolResult({
+          file: 'test.ts',
+          errorMessage: 'error',
+        }),
       } satisfies CodebuffToolMessage<'write_file'>,
     ]
 
@@ -439,19 +437,17 @@ describe('getPreviouslyReadFiles', () => {
         role: 'tool',
         toolName: 'read_files',
         toolCallId: 'test-id',
-        content: [
-          toolJsonContent([
-            {
-              path: 'src/test.ts',
-              content: 'export function test() {}',
-              referencedBy: { 'main.ts': ['line 10'] },
-            },
-            {
-              path: 'src/utils.ts',
-              content: 'export const utils = {}',
-            },
-          ] as const),
-        ],
+        content: jsonToolResult([
+          {
+            path: 'src/test.ts',
+            content: 'export function test() {}',
+            referencedBy: { 'main.ts': ['line 10'] },
+          },
+          {
+            path: 'src/utils.ts',
+            content: 'export const utils = {}',
+          },
+        ] as const),
       } satisfies CodebuffToolMessage<'read_files'>,
     ]
 
@@ -475,14 +471,12 @@ describe('getPreviouslyReadFiles', () => {
         role: 'tool',
         toolName: 'find_files',
         toolCallId: 'test-id',
-        content: [
-          toolJsonContent([
-            {
-              path: 'components/Button.tsx',
-              content: 'export const Button = () => {}',
-            },
-          ] as const),
-        ],
+        content: jsonToolResult([
+          {
+            path: 'components/Button.tsx',
+            content: 'export const Button = () => {}',
+          },
+        ] as const),
       } satisfies CodebuffToolMessage<'find_files'>,
     ]
 
@@ -501,27 +495,23 @@ describe('getPreviouslyReadFiles', () => {
         role: 'tool',
         toolName: 'read_files',
         toolCallId: 'test-id-1',
-        content: [
-          toolJsonContent([
-            {
-              path: 'file1.ts',
-              content: 'content 1',
-            },
-          ]),
-        ],
+        content: jsonToolResult([
+          {
+            path: 'file1.ts',
+            content: 'content 1',
+          },
+        ]),
       } satisfies CodebuffToolMessage<'read_files'>,
       {
         role: 'tool',
         toolName: 'find_files',
         toolCallId: 'test-id-2',
-        content: [
-          toolJsonContent([
-            {
-              path: 'file2.ts',
-              content: 'content 2',
-            },
-          ]),
-        ],
+        content: jsonToolResult([
+          {
+            path: 'file2.ts',
+            content: 'content 2',
+          },
+        ]),
       } satisfies CodebuffToolMessage<'find_files'>,
       userMessage('Some user message'),
     ]
@@ -539,22 +529,20 @@ describe('getPreviouslyReadFiles', () => {
         role: 'tool',
         toolName: 'read_files',
         toolCallId: 'test-id',
-        content: [
-          toolJsonContent([
-            {
-              path: 'small-file.ts',
-              content: 'small content',
-            },
-            {
-              path: 'large-file.ts',
-              contentOmittedForLength: true,
-            },
-            {
-              path: 'another-small-file.ts',
-              content: 'another small content',
-            },
-          ] as const),
-        ],
+        content: jsonToolResult([
+          {
+            path: 'small-file.ts',
+            content: 'small content',
+          },
+          {
+            path: 'large-file.ts',
+            contentOmittedForLength: true,
+          },
+          {
+            path: 'another-small-file.ts',
+            content: 'another small content',
+          },
+        ] as const),
       } satisfies CodebuffToolMessage<'read_files'>,
     ]
 
@@ -590,11 +578,9 @@ describe('getPreviouslyReadFiles', () => {
         role: 'tool',
         toolName: 'find_files',
         toolCallId: 'test-id',
-        content: [
-          toolJsonContent({
-            message: 'No files found matching the criteria',
-          }),
-        ],
+        content: jsonToolResult({
+          message: 'No files found matching the criteria',
+        }),
       } satisfies CodebuffToolMessage<'find_files'>,
     ]
 
@@ -611,14 +597,12 @@ describe('getPreviouslyReadFiles', () => {
         role: 'tool',
         toolName: 'read_files',
         toolCallId: 'test-id',
-        content: [
-          toolJsonContent([
-            {
-              path: 'test.ts',
-              content: 'test content',
-            },
-          ]),
-        ],
+        content: jsonToolResult([
+          {
+            path: 'test.ts',
+            content: 'test content',
+          },
+        ]),
       } satisfies CodebuffToolMessage<'read_files'>,
     ]
 
@@ -632,7 +616,7 @@ describe('getPreviouslyReadFiles', () => {
         role: 'tool',
         toolName: 'read_files',
         toolCallId: 'test-id',
-        content: [toolJsonContent([])],
+        content: jsonToolResult([]),
       } satisfies CodebuffToolMessage<'read_files'>,
     ]
 

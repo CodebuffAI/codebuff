@@ -1,7 +1,7 @@
 import { toolNames } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
 import {
-  toolJsonContent,
+  jsonToolResult,
   assistantMessage,
 } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
@@ -175,11 +175,9 @@ export async function processStreamWithTools(
         role: 'tool',
         toolName,
         toolCallId: generateCompactId(),
-        content: [
-          toolJsonContent({
-            errorMessage: error,
-          }),
-        ],
+        content: jsonToolResult({
+          errorMessage: error,
+        }),
       }
       toolResults.push(cloneDeep(toolResult))
       toolResultsToAddAfterStream.push(cloneDeep(toolResult))

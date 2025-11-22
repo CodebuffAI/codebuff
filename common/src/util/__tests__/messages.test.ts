@@ -8,8 +8,8 @@ import {
   systemMessage,
   userMessage,
   assistantMessage,
-  toolJsonContent,
-  toolMediaContent,
+  jsonToolResult,
+  mediaToolResult,
 } from '../messages'
 
 import type { Message } from '../../types/messages/codebuff-message'
@@ -200,7 +200,7 @@ describe('convertCbToModelMessages', () => {
           role: 'tool',
           toolName: 'test_tool',
           toolCallId: 'call_123',
-          content: [toolJsonContent({ result: 'success' })],
+          content: jsonToolResult({ result: 'success' }),
         },
       ]
 
@@ -228,12 +228,10 @@ describe('convertCbToModelMessages', () => {
           role: 'tool',
           toolName: 'test_tool',
           toolCallId: 'call_123',
-          content: [
-            toolMediaContent({
-              data: 'base64data',
-              mediaType: 'image/png',
-            }),
-          ],
+          content: mediaToolResult({
+            data: 'base64data',
+            mediaType: 'image/png',
+          }),
         },
       ]
 
@@ -261,8 +259,8 @@ describe('convertCbToModelMessages', () => {
           toolName: 'test_tool',
           toolCallId: 'call_123',
           content: [
-            toolJsonContent({ result1: 'success' }),
-            toolJsonContent({ result2: 'also success' }),
+            { type: 'json', value: { result1: 'success' } },
+            { type: 'json', value: { result2: 'also success' } },
           ],
         },
       ]
