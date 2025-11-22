@@ -26,7 +26,7 @@ export function $getToolCallString<Input>(params: {
   const { toolName, input, endsAgentStep } = params
   const obj: Record<string, any> = {
     [toolNameParam]: toolName,
-    ...params,
+    ...input,
   }
   if (endsAgentStep) {
     obj[endsAgentStepParam] = endsAgentStep satisfies true
