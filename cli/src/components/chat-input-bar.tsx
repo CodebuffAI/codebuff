@@ -20,7 +20,6 @@ interface ChatInputBarProps {
     value: InputValue | ((prev: InputValue) => InputValue),
   ) => void
   inputFocused: boolean
-  shouldBlinkCursor: boolean
   inputRef: React.MutableRefObject<MultilineInputHandle | null>
   inputPlaceholder: string
   inputWidth: number
@@ -59,7 +58,6 @@ export const ChatInputBar = ({
   cursorPosition,
   setInputValue,
   inputFocused,
-  shouldBlinkCursor,
   inputRef,
   inputPlaceholder,
   inputWidth,
@@ -191,7 +189,6 @@ export const ChatInputBar = ({
                 onSubmit={handleSubmit}
                 placeholder={effectivePlaceholder}
                 focused={inputFocused && !feedbackMode}
-                shouldBlinkCursor={shouldBlinkCursor}
                 maxHeight={Math.floor(terminalHeight / 2)}
                 width={adjustedInputWidth}
                 onKeyIntercept={handleSuggestionMenuKey}

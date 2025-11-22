@@ -6,6 +6,7 @@ import { Button } from './button'
 import { MultilineInput, type MultilineInputHandle } from './multiline-input'
 import { Separator } from './separator'
 import { useTheme } from '../hooks/use-theme'
+import { useChatStore } from '../state/chat-store'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 type CategoryHighlightKey = 'success' | 'error' | 'warning' | 'info'
@@ -88,6 +89,7 @@ const FeedbackTextSection: React.FC<FeedbackTextSectionProps> = ({
   inputRef,
   width,
 }) => {
+  const inputFocused = useChatStore((state) => state.inputFocused)
   const inputWidth = Math.max(1, width - FEEDBACK_CONTAINER_HORIZONTAL_INSET)
 
   return (
@@ -114,7 +116,7 @@ const FeedbackTextSection: React.FC<FeedbackTextSectionProps> = ({
             return true
           }}
           placeholder={placeholder}
-          focused={true}
+          focused={inputFocused}
           maxHeight={5}
           minHeight={3}
           width={inputWidth}

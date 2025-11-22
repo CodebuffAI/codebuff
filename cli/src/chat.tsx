@@ -22,6 +22,7 @@ import { authQueryKeys } from './hooks/use-auth-query'
 import { useChatInput } from './hooks/use-chat-input'
 import { useClipboard } from './hooks/use-clipboard'
 import { useConnectionStatus } from './hooks/use-connection-status'
+
 import { useElapsedTime } from './hooks/use-elapsed-time'
 import { useEvent } from './hooks/use-event'
 import { useExitHandler } from './hooks/use-exit-handler'
@@ -119,7 +120,6 @@ export const Chat = ({
     setInputValue,
     inputFocused,
     setInputFocused,
-    isFocusSupported,
     slashSelectedIndex,
     setSlashSelectedIndex,
     agentSelectedIndex,
@@ -155,7 +155,6 @@ export const Chat = ({
       setInputValue: store.setInputValue,
       inputFocused: store.inputFocused,
       setInputFocused: store.setInputFocused,
-      isFocusSupported: store.isFocusSupported,
       slashSelectedIndex: store.slashSelectedIndex,
       setSlashSelectedIndex: store.setSlashSelectedIndex,
       agentSelectedIndex: store.agentSelectedIndex,
@@ -1066,7 +1065,6 @@ export const Chat = ({
           cursorPosition={cursorPosition}
           setInputValue={setInputValue}
           inputFocused={inputFocused}
-          shouldBlinkCursor={isFocusSupported}
           inputRef={inputRef}
           inputPlaceholder={inputPlaceholder}
           inputWidth={inputWidth}
