@@ -36,12 +36,10 @@ export type ToolCallError = {
 
 export async function processStreamWithTools(
   params: {
-    agentStepId: string
     agentContext: Record<string, Subgoal>
     agentState: AgentState
     agentTemplate: AgentTemplate
     ancestorRunIds: string[]
-    clientSessionId: string
     fileContext: ProjectFileContext
     fingerprintId: string
     fullResponse: string
@@ -75,8 +73,6 @@ export async function processStreamWithTools(
     >,
 ) {
   const {
-    agentStepId,
-    clientSessionId,
     userInputId,
     fingerprintId,
     userId,
@@ -110,7 +106,6 @@ export async function processStreamWithTools(
 
   const state: State = {
     fullResponse,
-    clientSessionId,
     prompt,
     userInputId,
     fingerprintId,

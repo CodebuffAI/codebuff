@@ -15,17 +15,18 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 export const handleCreatePlan = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'create_plan'>
+
+  agentStepId: string
+  clientSessionId: string
+  logger: Logger
   requestClientToolCall: (
     toolCall: ClientToolCall<'create_plan'>,
   ) => Promise<CodebuffToolOutput<'create_plan'>>
-  writeToClient: (chunk: string) => void
-  logger: Logger
   trackEvent: TrackEventFn
-
+  writeToClient: (chunk: string) => void
+  
   getLatestState: () => FileProcessingState
-  agentStepId: string
   state: {
-    clientSessionId: string
     fingerprintId: string
     userId: string | undefined
     userInputId: string
@@ -36,19 +37,19 @@ export const handleCreatePlan = ((params: {
   state: FileProcessingState
 } => {
   const {
-    previousToolCallFinished,
-    toolCall,
-    requestClientToolCall,
-    writeToClient,
-    logger,
-    getLatestState,
-    trackEvent,
-    state,
     agentStepId,
+    clientSessionId,
+    logger,
+    previousToolCallFinished,
+    state,
+    toolCall,
+    getLatestState,
+    requestClientToolCall,
+    trackEvent,
+    writeToClient,
   } = params
   const { path, plan } = toolCall.input
   const {
-    clientSessionId,
     fingerprintId,
     userId,
     userInputId,

@@ -24,7 +24,6 @@ type PresentOrAbsent<K extends PropertyKey, V> =
   | { [P in K]: V }
   | { [P in K]: never }
 export type State = {
-  clientSessionId: string
   userInputId: string
   creditsUsed?: number | Promise<number>
   fingerprintId: string
