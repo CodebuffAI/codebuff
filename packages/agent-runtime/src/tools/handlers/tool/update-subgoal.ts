@@ -9,7 +9,7 @@ type ToolName = 'update_subgoal'
 export const handleUpdateSubgoal = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<ToolName>
-  state: { agentContext?: Record<string, Subgoal> }
+  state: { agentContext: Record<string, Subgoal> }
 }): {
   result: Promise<CodebuffToolOutput<ToolName>>
   state: { agentContext: Record<string, Subgoal> }

@@ -16,14 +16,12 @@ export const handleReadFiles = ((
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<ToolName>
 
-    userInputId: string
     fileContext: ProjectFileContext
+    fingerprintId: string
+    userInputId: string
 
     state: {
-      userId?: string
-      fingerprintId?: string
-      repoId?: string
-      messages?: Message[]
+      messages: Message[]
     }
   } & ParamsExcluding<typeof getFileReadingUpdates, 'requestedFiles'>,
 ): {
@@ -33,11 +31,14 @@ export const handleReadFiles = ((
   const {
     previousToolCallFinished,
     toolCall,
-    userInputId,
+
     fileContext,
+    fingerprintId,
+    userInputId,
+
     state,
   } = params
-  const { fingerprintId, userId, repoId, messages } = state
+  const { messages } = state
   const { paths } = toolCall.input
   if (!messages) {
     throw new Error('Internal error for read_files: Missing messages in state')

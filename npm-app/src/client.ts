@@ -8,11 +8,6 @@ import {
 import os from 'os'
 import path from 'path'
 
-import {
-  InitResponseSchema,
-  MessageCostResponseSchema,
-  UsageReponseSchema,
-} from '@codebuff/common/actions'
 import { READABLE_NAME } from '@codebuff/common/api-keys/constants'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { codebuffConfigFile as CONFIG_FILE_NAME } from '@codebuff/common/json-config/constants'
@@ -907,9 +902,7 @@ export class Client {
     })
 
     this.webSocket.subscribe('message-cost-response', (action) => {
-      const parsedAction = MessageCostResponseSchema.safeParse(action)
-      if (!parsedAction.success) return
-      const response = parsedAction.data
+      const response = action
 
       // Store credits used for this prompt
       if (!this.creditsByPromptId[response.promptId]) {
@@ -924,27 +917,11 @@ export class Client {
     })
 
     this.webSocket.subscribe('usage-response', (action) => {
-      const parsedAction = UsageReponseSchema.safeParse(action)
-      if (!parsedAction.success) {
-        console.error(
-          red('Received invalid usage data from server:'),
-          parsedAction.error.issues,
-        )
-        logger.error(
-          {
-            errorMessage: 'Received invalid usage data from server',
-            errors: parsedAction.error.issues,
-          },
-          'Invalid usage data from server',
-        )
-        return
-      }
-
-      this.setUsage(parsedAction.data)
+      this.setUsage(action)
 
       // Store auto-topup amount if present, to be displayed when returning control to user
-      if (parsedAction.data.autoTopupAdded) {
-        this.pendingTopUpMessageAmount += parsedAction.data.autoTopupAdded
+      if (action.autoTopupAdded) {
+        this.pendingTopUpMessageAmount += action.autoTopupAdded
       }
 
       // Only show warning if the response is complete
@@ -1614,7 +1591,7 @@ Go to https://www.codebuff.com/config for more information.`) +
       const data = await response.json()
 
       // Use zod schema to validate response
-      const parsedResponse = UsageReponseSchema.parse(data)
+      const parsedResponse: UsageResponse = data
 
       if ((data as any).type === 'action-error') {
         console.error(red((data as any).message))
@@ -1730,29 +1707,24 @@ Go to https://www.codebuff.com/config for more information.`) +
       throw new Error('Failed to initialize project file context')
     }
 
-    this.webSocket.subscribe('init-response', (a) => {
-      const parsedAction = InitResponseSchema.safeParse(a)
-      if (!parsedAction.success) {
-        return
-      }
-
+    this.webSocket.subscribe('init-response', (action) => {
       // Store agent names for tool renderer (merge backend and local agents)
-      if (parsedAction.data.agentNames) {
+      if (action.agentNames) {
         const localAgentNames = getLoadedAgentNames()
         this.agentNames = {
-          ...parsedAction.data.agentNames,
+          ...action.agentNames,
           ...localAgentNames,
         }
       }
 
       // Log the message if it's defined
-      if (parsedAction.data.message) {
-        console.log(`\n${parsedAction.data.message}`)
+      if (action.message) {
+        console.log(`\n${action.message}`)
         this.freshPrompt()
       }
 
       // Set initial usage data from the init response
-      this.setUsage(parsedAction.data)
+      this.setUsage(action)
     })
 
     const initAction: ClientAction<'init'> = {

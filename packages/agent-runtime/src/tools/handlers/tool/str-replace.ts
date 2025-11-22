@@ -2,10 +2,7 @@ import { getFileProcessingValues, postStreamProcessing } from './write-file'
 import { processStrReplace } from '../../../process-str-replace'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type {
-  FileProcessingState,
-  OptionalFileProcessingState,
-} from './write-file'
+import type { FileProcessingState } from './write-file'
 import type {
   ClientToolCall,
   CodebuffToolCall,
@@ -26,7 +23,7 @@ export function handleStrReplace(
     logger: Logger
 
     getLatestState: () => FileProcessingState
-    state: OptionalFileProcessingState
+    state: FileProcessingState
     requestOptionalFile: RequestOptionalFileFn
   } & ParamsExcluding<RequestOptionalFileFn, 'filePath'>,
 ): {

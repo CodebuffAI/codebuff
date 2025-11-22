@@ -31,57 +31,45 @@ export const handleFindFiles = ((
     toolCall: CodebuffToolCall<'find_files'>
     logger: Logger
 
-    fileContext: ProjectFileContext
     agentStepId: string
     clientSessionId: string
+    fileContext: ProjectFileContext
+    fingerprintId: string
+    repoId: string | undefined
+    userId: string | undefined
     userInputId: string
 
     state: {
-      fingerprintId?: string
-      userId?: string
-      repoId?: string
-      messages?: Message[]
+      messages: Message[]
     }
   } & ParamsExcluding<
     typeof requestRelevantFiles,
-    | 'messages'
-    | 'system'
-    | 'assistantPrompt'
-    | 'fingerprintId'
-    | 'userId'
-    | 'repoId'
+    'messages' | 'system' | 'assistantPrompt'
   > &
     ParamsExcluding<
       typeof uploadExpandedFileContextForTraining,
-      | 'messages'
-      | 'system'
-      | 'assistantPrompt'
-      | 'fingerprintId'
-      | 'userId'
-      | 'repoId'
+      'messages' | 'system' | 'assistantPrompt'
     > &
     ParamsExcluding<typeof getFileReadingUpdates, 'requestedFiles'>,
 ): { result: Promise<CodebuffToolOutput<'find_files'>>; state: {} } => {
   const {
     previousToolCallFinished,
     toolCall,
-    logger,
-    fileContext,
+
     agentStepId,
     clientSessionId,
-    userInputId,
+    fileContext,
+    fingerprintId,
+    logger,
     state,
+    userId,
+    userInputId,
   } = params
   const { prompt } = toolCall.input
-  const { fingerprintId, userId, repoId, messages } = state
+  const { messages } = state
 
   if (!messages) {
     throw new Error('Internal error for find_files: Missing messages in state')
-  }
-  if (!fingerprintId) {
-    throw new Error(
-      'Internal error for find_files: Missing fingerprintId in state',
-    )
   }
 
   const fileRequestMessagesTokens = countTokensJson(messages)
@@ -106,9 +94,6 @@ export const handleFindFiles = ((
       messages,
       system,
       assistantPrompt: prompt,
-      fingerprintId,
-      userId,
-      repoId,
     })
 
     if (requestedFiles && requestedFiles.length > 0) {
@@ -123,9 +108,6 @@ export const handleFindFiles = ((
           messages,
           system,
           assistantPrompt: prompt,
-          fingerprintId,
-          userId,
-          repoId,
         }).catch((error) => {
           logger.error(
             { error },
@@ -176,24 +158,10 @@ export const handleFindFiles = ((
 
 async function uploadExpandedFileContextForTraining(
   params: {
-    agentStepId: string
-    clientSessionId: string
-    fingerprintId: string
-    userInputId: string
-    userId: string | undefined
     requestFiles: RequestFilesFn
-    logger: Logger
   } & ParamsOf<typeof requestRelevantFilesForTraining>,
 ) {
-  const {
-    agentStepId,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
-    requestFiles,
-    logger,
-  } = params
+  const { requestFiles } = params
   const files = await requestRelevantFilesForTraining(params)
 
   const loadedFiles = await requestFiles({ filePaths: files })

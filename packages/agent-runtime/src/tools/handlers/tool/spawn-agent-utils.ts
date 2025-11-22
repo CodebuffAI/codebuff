@@ -27,13 +27,9 @@ export interface SpawnAgentParams {
 }
 
 export interface BaseSpawnState {
-  fingerprintId?: string
-  userId?: string
-  agentTemplate?: AgentTemplate
-  localAgentTemplates?: Record<string, AgentTemplate>
-  messages?: Message[]
-  agentState?: AgentState
-  system?: string
+  messages: Message[]
+  agentState: AgentState
+  system: string
 }
 
 export interface SpawnContext {
@@ -49,27 +45,9 @@ export interface SpawnContext {
 export function validateSpawnState(
   state: BaseSpawnState,
   toolName: string,
-): Omit<Required<BaseSpawnState>, 'userId'> & { userId: string | undefined } {
-  const {
-    fingerprintId,
-    agentTemplate: parentAgentTemplate,
-    localAgentTemplates,
-    messages,
-    agentState,
-    userId,
-    system,
-  } = state
+): Required<BaseSpawnState> {
+  const { messages, agentState, system } = state
 
-  if (!fingerprintId) {
-    throw new Error(
-      `Internal error for ${toolName}: Missing fingerprintId in state`,
-    )
-  }
-  if (!parentAgentTemplate) {
-    throw new Error(
-      `Internal error for ${toolName}: Missing agentTemplate in state`,
-    )
-  }
   if (!messages) {
     throw new Error(`Internal error for ${toolName}: Missing messages in state`)
   }
@@ -78,20 +56,11 @@ export function validateSpawnState(
       `Internal error for ${toolName}: Missing agentState in state`,
     )
   }
-  if (!localAgentTemplates) {
-    throw new Error(
-      `Internal error for ${toolName}: Missing localAgentTemplates in state`,
-    )
-  }
   if (!system) {
     throw new Error(`Internal error for ${toolName}: Missing system in state`)
   }
 
   return {
-    fingerprintId,
-    userId,
-    agentTemplate: parentAgentTemplate,
-    localAgentTemplates,
     messages,
     agentState,
     system,
@@ -170,8 +139,7 @@ export async function validateAndGetAgentTemplate(
     logger: Logger
   } & ParamsExcluding<typeof getAgentTemplate, 'agentId'>,
 ): Promise<{ agentTemplate: AgentTemplate; agentType: string }> {
-  const { agentTypeStr, parentAgentTemplate, localAgentTemplates, logger } =
-    params
+  const { agentTypeStr, parentAgentTemplate } = params
   const agentTemplate = await getAgentTemplate({
     ...params,
     agentId: agentTypeStr,

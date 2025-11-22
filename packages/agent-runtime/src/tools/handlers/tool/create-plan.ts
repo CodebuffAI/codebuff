@@ -3,10 +3,7 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { getFileProcessingValues, postStreamProcessing } from './write-file'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type {
-  FileProcessingState,
-  OptionalFileProcessingState,
-} from './write-file'
+import type { FileProcessingState } from './write-file'
 import type {
   ClientToolCall,
   CodebuffToolCall,
@@ -18,45 +15,43 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 export const handleCreatePlan = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'create_plan'>
+
+  agentStepId: string
+  clientSessionId: string
+  fingerprintId: string
+  logger: Logger
+  repoId: string | undefined
+  userId: string | undefined
+  userInputId: string
   requestClientToolCall: (
     toolCall: ClientToolCall<'create_plan'>,
   ) => Promise<CodebuffToolOutput<'create_plan'>>
-  writeToClient: (chunk: string) => void
-  logger: Logger
   trackEvent: TrackEventFn
+  writeToClient: (chunk: string) => void
 
   getLatestState: () => FileProcessingState
-  state: {
-    agentStepId?: string
-    clientSessionId?: string
-    fingerprintId?: string
-    userId?: string
-    userInputId?: string
-    repoId?: string
-  } & OptionalFileProcessingState
+  state: FileProcessingState
 }): {
   result: Promise<CodebuffToolOutput<'create_plan'>>
   state: FileProcessingState
 } => {
   const {
-    previousToolCallFinished,
-    toolCall,
-    requestClientToolCall,
-    writeToClient,
-    logger,
-    getLatestState,
-    trackEvent,
-    state,
-  } = params
-  const { path, plan } = toolCall.input
-  const {
     agentStepId,
     clientSessionId,
     fingerprintId,
+    logger,
+    previousToolCallFinished,
+    repoId,
+    state,
+    toolCall,
     userId,
     userInputId,
-    repoId,
-  } = state
+    getLatestState,
+    requestClientToolCall,
+    trackEvent,
+    writeToClient,
+  } = params
+  const { path, plan } = toolCall.input
   const fileProcessingState = getFileProcessingValues(state)
 
   logger.debug(

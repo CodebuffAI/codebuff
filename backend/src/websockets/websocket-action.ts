@@ -2,12 +2,13 @@ import {
   cancelUserInput,
   startUserInput,
 } from '@codebuff/agent-runtime/live-user-inputs'
+import { callMainPrompt } from '@codebuff/agent-runtime/main-prompt'
 import { calculateUsageAndBalance } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { getErrorObject } from '@codebuff/common/util/error'
 import db from '@codebuff/internal/db/index'
 import * as schema from '@codebuff/internal/db/schema'
-import { getErrorObject } from '@codebuff/common/util/error'
 import { eq } from 'drizzle-orm'
 
 import { protec } from './middleware'
@@ -22,7 +23,6 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { ClientMessage } from '@codebuff/common/websockets/websocket-schema'
 import type { WebSocket } from 'ws'
-import { callMainPrompt } from '@codebuff/agent-runtime/main-prompt'
 
 /**
  * Generates a usage response object for the client
@@ -330,9 +330,12 @@ export const onWebsocketAction = async (params: {
 }
 
 // Register action handlers
-subscribeToAction('prompt', protec.run({ baseAction: onPrompt }))
-subscribeToAction('init', protec.run({ baseAction: onInit, silent: true }))
+subscribeToAction('prompt', protec.run<'prompt'>({ baseAction: onPrompt }))
+subscribeToAction(
+  'init',
+  protec.run<'init'>({ baseAction: onInit, silent: true }),
+)
 subscribeToAction(
   'cancel-user-input',
-  protec.run({ baseAction: onCancelUserInput }),
+  protec.run<'cancel-user-input'>({ baseAction: onCancelUserInput }),
 )

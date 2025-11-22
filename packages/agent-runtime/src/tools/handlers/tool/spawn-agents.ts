@@ -34,24 +34,24 @@ export const handleSpawnAgents = ((
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<ToolName>
 
+    agentTemplate: AgentTemplate
+    fingerprintId: string
+    localAgentTemplates: Record<string, AgentTemplate>
+    userId: string | undefined
     userInputId: string
     writeToClient: (chunk: string | PrintModeEvent) => void
 
     getLatestState: () => { messages: Message[] }
     state: {
-      fingerprintId?: string
-      userId?: string
-      agentTemplate?: AgentTemplate
-      localAgentTemplates?: Record<string, AgentTemplate>
-      sendSubagentChunk?: SendSubagentChunk
-      messages?: Message[]
-      agentState?: AgentState
-      system?: string
+      sendSubagentChunk: SendSubagentChunk
+      messages: Message[]
+      agentState: AgentState
+      system: string
     }
     logger: Logger
   } & ParamsExcluding<
     typeof validateAndGetAgentTemplate,
-    'agentTypeStr' | 'parentAgentTemplate' | 'localAgentTemplates'
+    'agentTypeStr' | 'parentAgentTemplate' 
   > &
     ParamsExcluding<
       typeof executeSubagent,
@@ -62,8 +62,6 @@ export const handleSpawnAgents = ((
       | 'parentAgentState'
       | 'agentState'
       | 'fingerprintId'
-      | 'localAgentTemplates'
-      | 'userId'
       | 'isOnlyChild'
       | 'parentSystemPrompt'
       | 'onResponseChunk'
@@ -73,10 +71,14 @@ export const handleSpawnAgents = ((
     previousToolCallFinished,
     toolCall,
 
+    agentTemplate: parentAgentTemplate,
+    fingerprintId,
+    localAgentTemplates,
     userInputId,
+    writeToClient,
+
     getLatestState,
     state,
-    writeToClient,
   } = params
   const { agents } = toolCall.input
   const validatedState = validateSpawnState(state, 'spawn_agents')
@@ -90,10 +92,6 @@ export const handleSpawnAgents = ((
   }
 
   const {
-    fingerprintId,
-    userId,
-    agentTemplate: parentAgentTemplate,
-    localAgentTemplates,
     agentState: parentAgentState,
   } = validatedState
 
@@ -106,7 +104,6 @@ export const handleSpawnAgents = ((
               ...params,
               agentTypeStr,
               parentAgentTemplate,
-              localAgentTemplates,
             })
 
           validateAgentInput(agentTemplate, agentType, prompt, spawnParams)
@@ -138,8 +135,6 @@ export const handleSpawnAgents = ((
             parentAgentState,
             agentState: subAgentState,
             fingerprintId,
-            localAgentTemplates,
-            userId,
             isOnlyChild: agents.length === 1,
             parentSystemPrompt,
             onResponseChunk: (chunk: string | PrintModeEvent) => {

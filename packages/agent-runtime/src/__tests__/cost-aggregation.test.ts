@@ -54,20 +54,6 @@ describe('Cost Aggregation System', () => {
   let params: ParamsExcluding<typeof handleSpawnAgents, 'toolCall' | 'state'>
 
   beforeEach(() => {
-    params = {
-      ...TEST_AGENT_RUNTIME_IMPL,
-      repoId: undefined,
-      repoUrl: undefined,
-      previousToolCallFinished: Promise.resolve(),
-      fileContext: mockFileContext,
-      clientSessionId: 'test-session',
-      userInputId: 'test-input',
-      ancestorRunIds: [],
-      signal: new AbortController().signal,
-      writeToClient: () => {},
-      getLatestState: () => ({ messages: [] }),
-    }
-
     // Setup mock agent template
     mockAgentTemplate = {
       id: 'test-agent',
@@ -86,6 +72,25 @@ describe('Cost Aggregation System', () => {
 
     mockLocalAgentTemplates = {
       'test-agent': mockAgentTemplate,
+    }
+
+    params = {
+      ...TEST_AGENT_RUNTIME_IMPL,
+      agentTemplate: mockAgentTemplate,
+      ancestorRunIds: [],
+      clientSessionId: 'test-session',
+      fileContext: mockFileContext,
+      fingerprintId: 'test-fingerprint',
+      localAgentTemplates: mockLocalAgentTemplates,
+      previousToolCallFinished: Promise.resolve(),
+      repoId: undefined,
+      repoUrl: undefined,
+      signal: new AbortController().signal,
+      userId: 'test-user',
+      userInputId: 'test-input',
+      writeToClient: () => {},
+
+      getLatestState: () => ({ messages: [] }),
     }
 
     // Mock getAgentTemplate to return our mock template
@@ -145,7 +150,6 @@ describe('Cost Aggregation System', () => {
       const mockValidatedState = {
         fingerprintId: 'test-fingerprint',
         userId: 'test-user',
-        agentTemplate: mockAgentTemplate,
         localAgentTemplates: mockLocalAgentTemplates,
         messages: [],
         agentState: parentAgentState,

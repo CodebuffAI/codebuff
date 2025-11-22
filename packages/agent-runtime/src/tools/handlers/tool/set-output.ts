@@ -1,24 +1,36 @@
 import { getAgentTemplate } from '../../../templates/agent-registry'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import type { CodebuffToolCall } from '@codebuff/common/tools/list'
+import type {
+  AgentTemplate,
+  Logger,
+} from '@codebuff/common/types/agent-template'
+import type { FetchAgentFromDatabaseFn } from '@codebuff/common/types/contracts/database'
+import type { AgentState } from '@codebuff/common/types/session-state'
 
 type ToolName = 'set_output'
-export const handleSetOutput: CodebuffToolHandlerFunction<ToolName> = (
-  params,
-) => {
+export const handleSetOutput = ((params: {
+  previousToolCallFinished: Promise<void>
+  toolCall: CodebuffToolCall<ToolName>
+
+  apiKey: string
+  databaseAgentCache: Map<string, AgentTemplate | null>
+  localAgentTemplates: Record<string, AgentTemplate>
+  logger: Logger
+  fetchAgentFromDatabase: FetchAgentFromDatabaseFn
+
+  state: {
+    agentState: AgentState
+  }
+}) => {
   const { previousToolCallFinished, toolCall, state, logger } = params
   const output = toolCall.input
-  const { agentState, localAgentTemplates } = state
+  const { agentState } = state
 
   if (!agentState) {
     throw new Error(
       'Internal error for set_output: Missing agentState in state',
-    )
-  }
-
-  if (!localAgentTemplates) {
-    throw new Error(
-      'Internal error for set_output: Missing localAgentTemplates in state',
     )
   }
 
@@ -29,7 +41,6 @@ export const handleSetOutput: CodebuffToolHandlerFunction<ToolName> = (
       agentTemplate = await getAgentTemplate({
         ...params,
         agentId: agentState.agentType,
-        localAgentTemplates,
       })
     }
     if (agentTemplate?.outputSchema) {
@@ -70,4 +81,4 @@ export const handleSetOutput: CodebuffToolHandlerFunction<ToolName> = (
     })(),
     state: { agentState: agentState },
   }
-}
+}) satisfies CodebuffToolHandlerFunction<ToolName>

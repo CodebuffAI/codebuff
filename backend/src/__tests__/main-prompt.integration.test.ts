@@ -7,7 +7,7 @@ import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   assistantMessage,
-  toolJsonContent,
+  jsonToolResult,
 } from '@codebuff/common/util/messages'
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 
@@ -342,12 +342,10 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
         role: 'tool',
         toolName: 'read_files',
         toolCallId: 'test-id',
-        content: [
-          toolJsonContent({
-            path: 'src/util/messages.ts',
-            content: initialContent,
-          }),
-        ],
+        content: jsonToolResult({
+          path: 'src/util/messages.ts',
+          content: initialContent,
+        }),
       },
     )
 
@@ -415,12 +413,10 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
           role: 'tool',
           toolName: 'read_files',
           toolCallId: 'test-id',
-          content: [
-            toolJsonContent({
-              path: 'packages/backend/src/index.ts',
-              content: initialContent,
-            }),
-          ],
+          content: jsonToolResult({
+            path: 'packages/backend/src/index.ts',
+            content: initialContent,
+          }),
         },
       )
 

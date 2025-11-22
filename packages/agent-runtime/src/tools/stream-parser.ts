@@ -1,7 +1,7 @@
 import { toolNames } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
 import {
-  toolJsonContent,
+  jsonToolResult,
   assistantMessage,
 } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
@@ -11,6 +11,7 @@ import { processStreamWithTags } from '../tool-stream-parser'
 import { executeCustomToolCall, executeToolCall } from './tool-executor'
 import { expireMessages } from '../util/messages'
 
+import type { State } from './handlers/handler-function-type'
 import type { CustomToolCall, ExecuteToolCallParams } from './tool-executor'
 import type { AgentTemplate } from '../templates/types'
 import type { ToolName } from '@codebuff/common/tools/constants'
@@ -35,35 +36,35 @@ export type ToolCallError = {
 
 export async function processStreamWithTools(
   params: {
-    clientSessionId: string
-    fingerprintId: string
-    userId: string | undefined
-    repoId: string | undefined
-    ancestorRunIds: string[]
-    runId: string
-    agentTemplate: AgentTemplate
-    localAgentTemplates: Record<string, AgentTemplate>
-    fileContext: ProjectFileContext
-    messages: Message[]
-    system: string
-    agentState: AgentState
     agentContext: Record<string, Subgoal>
-    signal: AbortSignal
-    onResponseChunk: (chunk: string | PrintModeEvent) => void
+    agentState: AgentState
+    agentTemplate: AgentTemplate
+    ancestorRunIds: string[]
+    fileContext: ProjectFileContext
+    fingerprintId: string
     fullResponse: string
-    sendSubagentChunk: SendSubagentChunkFn
     logger: Logger
+    messages: Message[]
+    repoId: string | undefined
+    runId: string
+    signal: AbortSignal
+    system: string
+    prompt: string | undefined
+    userId: string | undefined
+
     onCostCalculated: (credits: number) => Promise<void>
+    onResponseChunk: (chunk: string | PrintModeEvent) => void
+    sendSubagentChunk: SendSubagentChunkFn
   } & Omit<
     ExecuteToolCallParams<any>,
-    | 'toolName'
+    | 'fullResponse'
     | 'input'
+    | 'previousToolCallFinished'
+    | 'state'
     | 'toolCalls'
+    | 'toolName'
     | 'toolResults'
     | 'toolResultsToAddAfterStream'
-    | 'previousToolCallFinished'
-    | 'fullResponse'
-    | 'state'
   > &
     ParamsExcluding<
       typeof processStreamWithTags,
@@ -71,18 +72,17 @@ export async function processStreamWithTools(
     >,
 ) {
   const {
-    fingerprintId,
     userId,
     ancestorRunIds,
     runId,
-    repoId,
     agentTemplate,
-    localAgentTemplates,
     fileContext,
     agentContext,
     system,
     agentState,
     signal,
+    fullResponse,
+    prompt,
     onResponseChunk,
     sendSubagentChunk,
     logger,
@@ -99,18 +99,20 @@ export async function processStreamWithTools(
     Promise.withResolvers<void>()
   let previousToolCallFinished = streamDonePromise
 
-  const state: Record<string, any> = {
-    fingerprintId,
-    userId,
-    repoId,
-    agentTemplate,
-    localAgentTemplates,
+  const state: State = {
+    fullResponse,
+    prompt,
     sendSubagentChunk,
     agentState,
     agentContext,
     messages,
     system,
     logger,
+    promisesByPath: {},
+    allPromises: [],
+    fileChangeErrors: [],
+    fileChanges: [],
+    firstFileProcessed: false,
   }
 
   function toolCallback<T extends ToolName>(toolName: T) {
@@ -125,13 +127,15 @@ export async function processStreamWithTools(
           ...params,
           toolName,
           input,
+
+          fromHandleSteps: false,
+          fullResponse: fullResponseChunks.join(''),
+          previousToolCallFinished,
+          state,
           toolCalls,
           toolResults,
           toolResultsToAddAfterStream,
-          previousToolCallFinished,
-          fullResponse: fullResponseChunks.join(''),
-          state,
-          fromHandleSteps: false,
+
           onCostCalculated,
         })
       },
@@ -149,12 +153,13 @@ export async function processStreamWithTools(
           ...params,
           toolName,
           input,
+
+          fullResponse: fullResponseChunks.join(''),
+          previousToolCallFinished,
+          state,
           toolCalls,
           toolResults,
           toolResultsToAddAfterStream,
-          previousToolCallFinished,
-          fullResponse: fullResponseChunks.join(''),
-          state,
         })
       },
     }
@@ -175,11 +180,9 @@ export async function processStreamWithTools(
         role: 'tool',
         toolName,
         toolCallId: generateCompactId(),
-        content: [
-          toolJsonContent({
-            errorMessage: error,
-          }),
-        ],
+        content: jsonToolResult({
+          errorMessage: error,
+        }),
       }
       toolResults.push(cloneDeep(toolResult))
       toolResultsToAddAfterStream.push(cloneDeep(toolResult))
@@ -231,11 +234,11 @@ export async function processStreamWithTools(
     await previousToolCallFinished
   }
   return {
-    toolCalls,
-    toolResults,
-    state,
     fullResponse: fullResponseChunks.join(''),
     fullResponseChunks,
     messageId,
+    state,
+    toolCalls,
+    toolResults,
   }
 }

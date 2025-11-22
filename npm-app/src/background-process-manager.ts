@@ -11,7 +11,7 @@ import path from 'path'
 import process from 'process'
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { toolJsonContent } from '@codebuff/common/util/messages'
+import { jsonToolResult } from '@codebuff/common/util/messages'
 import { truncateStringWithMessage } from '@codebuff/common/util/string'
 import { gray, red } from 'picocolors'
 import { z } from 'zod/v4'
@@ -181,7 +181,7 @@ export function getBackgroundProcessUpdates(): ToolMessage[] {
       role: 'tool',
       toolCallId,
       toolName: 'background_process_update',
-      content: [toolJsonContent(update)],
+      content: jsonToolResult(update),
     } satisfies ToolMessage
   })
 }

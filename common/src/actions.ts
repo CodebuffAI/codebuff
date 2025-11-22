@@ -1,21 +1,17 @@
 import { z } from 'zod/v4'
 
-import { costModes } from './old-constants'
-import { GrantTypeValues } from './types/grant'
-import { mcpConfigSchema } from './types/mcp'
-import { toolMessageSchema } from './types/messages/codebuff-message'
-import {
-  toolResultOutputSchema,
-  textPartSchema,
-  imagePartSchema,
+import type { CostMode } from './old-constants'
+import type { GrantType } from './types/grant'
+import type { MCPConfig } from './types/mcp'
+import type { ToolMessage } from './types/messages/codebuff-message'
+import type {
+  TextPart,
+  ImagePart,
+  ToolResultOutput,
 } from './types/messages/content-part'
-import { printModeEventSchema } from './types/print-mode'
-import {
-  AgentOutputSchema,
-  SessionStateSchema,
-  toolCallSchema,
-} from './types/session-state'
-import { ProjectFileContextSchema } from './util/file'
+import type { PrintModeEvent } from './types/print-mode'
+import type { AgentOutput, SessionState, ToolCall } from './types/session-state'
+import type { ProjectFileContext } from './util/file'
 
 export const FileChangeSchema = z.object({
   type: z.enum(['patch', 'file']),
@@ -26,178 +22,194 @@ export type FileChange = z.infer<typeof FileChangeSchema>
 export const CHANGES = z.array(FileChangeSchema)
 export type FileChanges = z.infer<typeof CHANGES>
 
-export const CLIENT_ACTION_SCHEMA = z.discriminatedUnion('type', [
-  z.object({
-    type: z.literal('prompt'),
-    promptId: z.string(),
-    prompt: z.string().or(z.undefined()),
-    content: z.array(z.union([textPartSchema, imagePartSchema])).optional(),
-    promptParams: z.record(z.string(), z.any()).optional(), // Additional json params.
-    fingerprintId: z.string(),
-    authToken: z.string().optional(),
-    costMode: z.enum(costModes).optional().default('normal'),
-    sessionState: SessionStateSchema,
-    toolResults: z.array(toolMessageSchema),
-    model: z.string().optional(),
-    repoUrl: z.string().optional(),
-    agentId: z.string().optional(),
-  }),
-  z.object({
-    type: z.literal('read-files-response'),
-    files: z.record(z.string(), z.union([z.string(), z.null()])),
-    requestId: z.string().optional(),
-  }),
-  z.object({
-    type: z.literal('init'),
-    fingerprintId: z.string(),
-    authToken: z.string().optional(),
-    fileContext: ProjectFileContextSchema,
-    repoUrl: z.string().optional(),
-  }),
-  z.object({
-    type: z.literal('tool-call-response'),
-    requestId: z.string(),
-    output: toolResultOutputSchema.array(),
-  }),
-  z.object({
-    type: z.literal('cancel-user-input'),
-    authToken: z.string(),
-    promptId: z.string(),
-  }),
-  z.object({
-    type: z.literal('mcp-tool-data'),
-    requestId: z.string(),
-    tools: z
-      .object({
-        name: z.string(),
-        description: z.string().optional(),
-        inputSchema: z.looseObject({
-          type: z.literal('object'),
-        }),
-      })
-      .array(),
-  }),
-])
+type ClientActionPrompt = {
+  type: 'prompt'
+  promptId: string
+  prompt: string | undefined
+  content?: (TextPart | ImagePart)[]
+  promptParams?: Record<string, any> // Additional json params.
+  fingerprintId: string
+  authToken?: string
+  costMode?: CostMode
+  sessionState: SessionState
+  toolResults: ToolMessage[]
+  model?: string
+  repoUrl?: string
+  agentId?: string
+}
 
-type ClientActionAny = z.infer<typeof CLIENT_ACTION_SCHEMA>
-export type ClientAction<
-  T extends ClientActionAny['type'] = ClientActionAny['type'],
-> = Extract<ClientActionAny, { type: T }>
+type ClientActionReadFilesResponse = {
+  type: 'read-files-response'
+  files: Record<string, string | null>
+  requestId?: string
+}
 
-export const UsageReponseSchema = z.object({
-  type: z.literal('usage-response'),
-  usage: z.number(),
-  remainingBalance: z.number(),
-  balanceBreakdown: z
-    .record(
-      z.enum([GrantTypeValues[0], ...GrantTypeValues.slice(1)]),
-      z.number(),
-    )
-    .optional(),
-  next_quota_reset: z.coerce.date().nullable(),
-  autoTopupAdded: z.number().optional(),
-})
-export type UsageResponse = z.infer<typeof UsageReponseSchema>
+type ClientActionInit = {
+  type: 'init'
+  fingerprintId: string
+  authToken?: string
+  fileContext: ProjectFileContext
+  repoUrl?: string
+}
 
-export const InitResponseSchema = z
-  .object({
-    type: z.literal('init-response'),
-    message: z.string().optional(),
-    agentNames: z.record(z.string(), z.string()).optional(),
-  })
-  .merge(
-    UsageReponseSchema.omit({
-      type: true,
-    }),
-  )
-export type InitResponse = z.infer<typeof InitResponseSchema>
+type ClientActionToolCallResponse = {
+  type: 'tool-call-response'
+  requestId: string
+  output: ToolResultOutput[]
+}
 
-export const MessageCostResponseSchema = z.object({
-  type: z.literal('message-cost-response'),
-  promptId: z.string(),
-  credits: z.number(),
-  agentId: z.string().optional(),
-})
-export type MessageCostResponse = z.infer<typeof MessageCostResponseSchema>
+type ClientActionCancelUserInput = {
+  type: 'cancel-user-input'
+  authToken: string
+  promptId: string
+}
 
-export const PromptResponseSchema = z.object({
-  type: z.literal('prompt-response'),
-  promptId: z.string(),
-  sessionState: SessionStateSchema,
-  toolCalls: z.array(toolCallSchema).optional(),
-  toolResults: z.array(toolMessageSchema).optional(),
-  output: AgentOutputSchema.optional(),
-})
-export type PromptResponse = z.infer<typeof PromptResponseSchema>
+type ClientActionMcpToolData = {
+  type: 'mcp-tool-data'
+  requestId: string
+  tools: {
+    name: string
+    description?: string
+    inputSchema: { type: 'object'; [k: string]: unknown }
+  }[]
+}
 
-export const SERVER_ACTION_SCHEMA = z.discriminatedUnion('type', [
-  z.object({
-    type: z.literal('response-chunk'),
-    userInputId: z.string(),
-    chunk: z.union([z.string(), printModeEventSchema]),
-  }),
-  z.object({
-    type: z.literal('subagent-response-chunk'),
-    userInputId: z.string(),
-    agentId: z.string(),
-    agentType: z.string(),
-    chunk: z.string(),
-    prompt: z.string().optional(),
-    forwardToPrompt: z.boolean().optional(),
-  }),
-  z.object({
-    type: z.literal('handlesteps-log-chunk'),
-    userInputId: z.string(),
-    agentId: z.string(),
-    level: z.enum(['debug', 'info', 'warn', 'error']),
-    data: z.any(),
-    message: z.string().optional(),
-  }),
-  PromptResponseSchema,
-  z.object({
-    type: z.literal('read-files'),
-    filePaths: z.array(z.string()),
-    requestId: z.string(),
-  }),
-  z.object({
-    type: z.literal('tool-call-request'),
-    userInputId: z.string(),
-    requestId: z.string(),
-    toolName: z.string(),
-    input: z.record(z.string(), z.any()),
-    timeout: z.number().optional(),
-    mcpConfig: mcpConfigSchema.optional(),
-  }),
-  InitResponseSchema,
-  UsageReponseSchema,
-  MessageCostResponseSchema,
+type ClientActionAny =
+  | ClientActionPrompt
+  | ClientActionReadFilesResponse
+  | ClientActionInit
+  | ClientActionToolCallResponse
+  | ClientActionCancelUserInput
+  | ClientActionMcpToolData
+type ClientActionType = ClientActionAny['type']
+export type ClientAction<T extends ClientActionType = ClientActionType> = {
+  [K in ClientActionType]: Extract<
+    ClientActionAny,
+    {
+      type: K
+    }
+  >
+}[T]
 
-  z.object({
-    type: z.literal('action-error'),
-    message: z.string(),
-    error: z.string().optional(),
-    remainingBalance: z.number().optional(),
-  }),
-  z.object({
-    type: z.literal('prompt-error'),
-    userInputId: z.string(),
-    message: z.string(),
-    error: z.string().optional(),
-    remainingBalance: z.number().optional(),
-  }),
-  z.object({
-    // The server is imminently going to shutdown, and the client should reconnect
-    type: z.literal('request-reconnect'),
-  }),
-  z.object({
-    type: z.literal('request-mcp-tool-data'),
-    requestId: z.string(),
-    mcpConfig: mcpConfigSchema,
-    toolNames: z.string().array().optional(),
-  }),
-])
+type ServerActionResponseChunk = {
+  type: 'response-chunk'
+  userInputId: string
+  chunk: string | PrintModeEvent
+}
 
-type ServerActionAny = z.infer<typeof SERVER_ACTION_SCHEMA>
-export type ServerAction<
-  T extends ServerActionAny['type'] = ServerActionAny['type'],
-> = Extract<ServerActionAny, { type: T }>
+type ServerActionSubagentResponseChunk = {
+  type: 'subagent-response-chunk'
+  userInputId: string
+  agentId: string
+  agentType: string
+  chunk: string
+  prompt?: string
+  forwardToPrompt?: boolean
+}
+
+type ServerActionHandleStepsLogChunk = {
+  type: 'handlesteps-log-chunk'
+  userInputId: string
+  agentId: string
+  level: 'debug' | 'info' | 'warn' | 'error'
+  data: any
+  message?: string
+}
+
+export type PromptResponse = {
+  type: 'prompt-response'
+  promptId: string
+  sessionState: SessionState
+  toolCalls?: ToolCall[]
+  toolResults?: ToolMessage[]
+  output?: AgentOutput
+}
+
+type ServerActionReadFiles = {
+  type: 'read-files'
+  filePaths: string[]
+  requestId: string
+}
+
+type ServerActionToolCallRequest = {
+  type: 'tool-call-request'
+  userInputId: string
+  requestId: string
+  toolName: string
+  input: Record<string, any>
+  timeout?: number
+  mcpConfig?: MCPConfig
+}
+
+export type InitResponse = {
+  type: 'init-response'
+  message?: string
+  agentNames?: Record<string, string>
+} & Omit<UsageResponse, 'type'>
+
+export type UsageResponse = {
+  type: 'usage-response'
+  usage: number
+  remainingBalance: number
+  balanceBreakdown?: Record<GrantType, number>
+  next_quota_reset: Date | null
+  autoTopupAdded?: number
+}
+
+export type MessageCostResponse = {
+  type: 'message-cost-response'
+  promptId: string
+  credits: number
+  agentId?: string
+}
+
+type ServerActionActionError = {
+  type: 'action-error'
+  message: string
+  error?: string
+  remainingBalance?: number
+}
+
+type ServerActionPromptError = {
+  type: 'prompt-error'
+  userInputId: string
+  message: string
+  error?: string
+  remainingBalance?: number
+}
+
+type ServerActionRequestReconnect = {
+  // The server is imminently going to shutdown, and the client should reconnect
+  type: 'request-reconnect'
+}
+
+type ServerActionRequestMcpToolData = {
+  type: 'request-mcp-tool-data'
+  requestId: string
+  mcpConfig: MCPConfig
+  toolNames?: string[]
+}
+
+type ServerActionAny =
+  | ServerActionResponseChunk
+  | ServerActionSubagentResponseChunk
+  | ServerActionHandleStepsLogChunk
+  | PromptResponse
+  | ServerActionReadFiles
+  | ServerActionToolCallRequest
+  | InitResponse
+  | UsageResponse
+  | MessageCostResponse
+  | ServerActionActionError
+  | ServerActionPromptError
+  | ServerActionRequestReconnect
+  | ServerActionRequestMcpToolData
+type ServerActionType = ServerActionAny['type']
+export type ServerAction<T extends ServerActionType = ServerActionType> = {
+  [K in ServerActionType]: Extract<
+    ServerActionAny,
+    {
+      type: K
+    }
+  >
+}[T]

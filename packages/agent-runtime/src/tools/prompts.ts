@@ -1,10 +1,9 @@
-import { endsAgentStepParam, toolNames } from '@codebuff/common/tools/constants'
+import { endsAgentStepParam } from '@codebuff/common/tools/constants'
+import { toolParams } from '@codebuff/common/tools/list'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
 import { pluralize } from '@codebuff/common/util/string'
 import z from 'zod/v4'
-
-import { codebuffToolDefs } from './definitions/list'
 
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type { customToolDefinitionsSchema } from '@codebuff/common/util/file'
@@ -96,16 +95,16 @@ export function buildToolDescription(params: {
 }
 
 export const toolDescriptions = Object.fromEntries(
-  Object.entries(codebuffToolDefs).map(([name, config]) => [
+  Object.entries(toolParams).map(([name, config]) => [
     name,
     buildToolDescription({
       toolName: name,
-      schema: { type: 'zod', value: config.parameters },
+      schema: { type: 'zod', value: config.inputSchema },
       description: config.description,
       endsAgentStep: config.endsAgentStep,
     }),
   ]),
-) as Record<keyof typeof codebuffToolDefs, string>
+) as Record<keyof typeof toolParams, string>
 
 function buildShortToolDescription(params: {
   toolName: string
@@ -248,13 +247,13 @@ export const getShortToolInstructions = (
   const toolDescriptions = [
     ...(
       toolNames.filter(
-        (name) => (name as keyof typeof codebuffToolDefs) in codebuffToolDefs,
-      ) as (keyof typeof codebuffToolDefs)[]
+        (name) => (name as keyof typeof toolParams) in toolParams,
+      ) as (keyof typeof toolParams)[]
     ).map((name) => {
-      const tool = codebuffToolDefs[name]
+      const tool = toolParams[name]
       return buildShortToolDescription({
         toolName: name,
-        schema: { type: 'zod', value: tool.parameters },
+        schema: { type: 'zod', value: tool.inputSchema },
         endsAgentStep: tool.endsAgentStep,
       })
     }),

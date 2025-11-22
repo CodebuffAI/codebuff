@@ -36,7 +36,7 @@ describe('Subagent Streaming', () => {
   >
   let handleSpawnAgentsBaseParams: ParamsExcluding<
     typeof handleSpawnAgents,
-    'toolCall' | 'state'
+    'toolCall' | 'state' | 'agentTemplate' | 'localAgentTemplates'
   >
   let baseState: Omit<
     ParamsOf<typeof handleSpawnAgents>['state'],
@@ -67,21 +67,21 @@ describe('Subagent Streaming', () => {
 
     handleSpawnAgentsBaseParams = {
       ...TEST_AGENT_RUNTIME_IMPL,
+      ancestorRunIds: [],
+      clientSessionId: 'test-session',
+      fileContext: mockFileContext,
+      fingerprintId: 'test-fingerprint',
+      previousToolCallFinished: Promise.resolve(),
       repoId: undefined,
       repoUrl: undefined,
-      previousToolCallFinished: Promise.resolve(),
-      fileContext: mockFileContext,
-      clientSessionId: 'test-session',
+      signal: new AbortController().signal,
+      userId: TEST_USER_ID,
       userInputId: 'test-input',
       writeToClient: mockWriteToClient,
-      ancestorRunIds: [],
       getLatestState: () => ({ messages: [] }),
-      signal: new AbortController().signal,
     }
 
     baseState = {
-      fingerprintId: 'test-fingerprint',
-      userId: TEST_USER_ID,
       sendSubagentChunk: mockSendSubagentChunk,
       messages: [],
       system: 'Test system prompt',
@@ -160,13 +160,13 @@ describe('Subagent Streaming', () => {
 
     const { result } = handleSpawnAgents({
       ...handleSpawnAgentsBaseParams,
+      agentTemplate: parentTemplate,
+      localAgentTemplates: {
+        [mockAgentTemplate.id]: mockAgentTemplate,
+      },
       toolCall,
       state: {
         ...baseState,
-        agentTemplate: parentTemplate,
-        localAgentTemplates: {
-          [mockAgentTemplate.id]: mockAgentTemplate,
-        },
         agentState,
       },
     })
@@ -214,13 +214,13 @@ describe('Subagent Streaming', () => {
 
     const { result } = handleSpawnAgents({
       ...handleSpawnAgentsBaseParams,
+      agentTemplate: parentTemplate,
+      localAgentTemplates: {
+        [mockAgentTemplate.id]: mockAgentTemplate,
+      },
       toolCall,
       state: {
         ...baseState,
-        agentTemplate: parentTemplate,
-        localAgentTemplates: {
-          [mockAgentTemplate.id]: mockAgentTemplate,
-        },
         agentState,
       },
     })

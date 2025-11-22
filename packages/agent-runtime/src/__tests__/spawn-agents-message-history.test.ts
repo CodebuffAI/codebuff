@@ -35,7 +35,11 @@ describe('Spawn Agents Message History', () => {
 
   let handleSpawnAgentsBaseParams: ParamsExcluding<
     typeof handleSpawnAgents,
-    'toolCall' | 'state' | 'getLatestState'
+    | 'agentTemplate'
+    | 'getLatestState'
+    | 'localAgentTemplates'
+    | 'state'
+    | 'toolCall'
   >
   let baseState: Omit<
     ParamsOf<typeof handleSpawnAgents>['state'],
@@ -66,20 +70,20 @@ describe('Spawn Agents Message History', () => {
 
     handleSpawnAgentsBaseParams = {
       ...TEST_AGENT_RUNTIME_IMPL,
+      ancestorRunIds: [],
+      clientSessionId: 'test-session',
+      fingerprintId: 'test-fingerprint',
+      fileContext: mockFileContext,
       repoId: undefined,
       repoUrl: undefined,
       previousToolCallFinished: Promise.resolve(),
-      fileContext: mockFileContext,
-      clientSessionId: 'test-session',
-      userInputId: 'test-input',
-      ancestorRunIds: [],
-      writeToClient: () => {},
       signal: new AbortController().signal,
+      userId: TEST_USER_ID,
+      userInputId: 'test-input',
+      writeToClient: () => {},
     }
 
     baseState = {
-      fingerprintId: 'test-fingerprint',
-      userId: TEST_USER_ID,
       sendSubagentChunk: mockSendSubagentChunk,
       system: 'Test system prompt',
     }
@@ -141,12 +145,12 @@ describe('Spawn Agents Message History', () => {
 
     const { result } = handleSpawnAgents({
       ...handleSpawnAgentsBaseParams,
+      agentTemplate: parentAgent,
+      localAgentTemplates: { 'child-agent': childAgent },
       toolCall,
       getLatestState: () => ({ messages: mockMessages }),
       state: {
         ...baseState,
-        agentTemplate: parentAgent,
-        localAgentTemplates: { 'child-agent': childAgent },
         messages: mockMessages,
         agentState: sessionState.mainAgentState,
       },
@@ -206,12 +210,12 @@ describe('Spawn Agents Message History', () => {
 
     const { result } = handleSpawnAgents({
       ...handleSpawnAgentsBaseParams,
+      agentTemplate: parentAgent,
+      localAgentTemplates: { 'child-agent': childAgent },
       toolCall,
       getLatestState: () => ({ messages: mockMessages }),
       state: {
         ...baseState,
-        agentTemplate: parentAgent,
-        localAgentTemplates: { 'child-agent': childAgent },
         messages: mockMessages,
         agentState: sessionState.mainAgentState,
       },
@@ -233,12 +237,12 @@ describe('Spawn Agents Message History', () => {
 
     const { result } = handleSpawnAgents({
       ...handleSpawnAgentsBaseParams,
+      agentTemplate: parentAgent,
+      localAgentTemplates: { 'child-agent': childAgent },
       toolCall,
       getLatestState: () => ({ messages: mockMessages }),
       state: {
         ...baseState,
-        agentTemplate: parentAgent,
-        localAgentTemplates: { 'child-agent': childAgent },
         messages: mockMessages,
         agentState: sessionState.mainAgentState,
       },
@@ -263,12 +267,12 @@ describe('Spawn Agents Message History', () => {
 
     const { result } = handleSpawnAgents({
       ...handleSpawnAgentsBaseParams,
+      agentTemplate: parentAgent,
+      localAgentTemplates: { 'child-agent': childAgent },
       toolCall,
       getLatestState: () => ({ messages: mockMessages }),
       state: {
         ...baseState,
-        agentTemplate: parentAgent,
-        localAgentTemplates: { 'child-agent': childAgent },
         messages: mockMessages,
         agentState: sessionState.mainAgentState,
       },

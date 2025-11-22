@@ -1,5 +1,5 @@
 import type { ToolResultOutput } from '../types/messages/content-part'
-import type z from 'zod/v4'
+import type { Tool } from 'ai'
 
 export const toolNameParam = 'cb_tool_name'
 export const endsAgentStepParam = 'cb_easp'
@@ -75,14 +75,13 @@ export const publishedTools = [
 export type ToolName = (typeof toolNames)[number]
 export type PublishedToolName = (typeof publishedTools)[number]
 
-export type $ToolParams<T extends ToolName = ToolName> = {
+/** Only used for validating tool definitions */
+export type $ToolParams<T extends ToolName = ToolName> = Required<
+  Pick<
+    Tool<any, ToolResultOutput[]>,
+    'description' | 'inputSchema' | 'outputSchema'
+  >
+> & {
   toolName: T
   endsAgentStep: boolean
-  parameters: z.ZodType
-  outputs: z.ZodType<ToolResultOutput[]>
-}
-
-export type $ToolResults = {
-  toolName: string
-  outputs: $ToolParams['outputs']
 }

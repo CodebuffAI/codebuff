@@ -48,6 +48,7 @@ export async function runProgrammaticStep(
     repoUrl: string | undefined
     userInputId: string
     fingerprintId: string
+    clientSessionId: string
     onResponseChunk: (chunk: string | PrintModeEvent) => void
     localAgentTemplates: Record<string, AgentTemplate>
     stepsComplete: boolean
@@ -92,6 +93,7 @@ export async function runProgrammaticStep(
   const {
     agentState,
     template,
+    clientSessionId,
     prompt,
     toolCallParams,
     nResponses,
@@ -178,7 +180,7 @@ export async function runProgrammaticStep(
     userId,
     agentTemplate: template,
     localAgentTemplates,
-    system,
+    system: system ?? '',
     sendSubagentChunk: (data: {
       userInputId: string
       agentId: string
@@ -200,6 +202,17 @@ export async function runProgrammaticStep(
     }),
     agentContext: cloneDeep(agentState.agentContext),
     messages: cloneDeep(agentState.messageHistory),
+    promisesByPath: {},
+    allPromises: [],
+    fileChangeErrors: [],
+    fileChanges: [],
+    firstFileProcessed: false,
+    repoId: undefined,
+    logger,
+    prompt,
+    fullResponse: '',
+    clientSessionId,
+    userInputId,
   }
 
   let toolResult: ToolResultOutput[] | undefined = undefined

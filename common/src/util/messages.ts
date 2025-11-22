@@ -424,30 +424,31 @@ export function assistantMessage(
   }
 }
 
-export function toolJsonContent<T extends JSONValue>(
+export function jsonToolResult<T extends JSONValue>(
   value: T,
-): ToolResultOutput & {
-  type: 'json'
-  value: T
-} {
-  return {
-    type: 'json',
-    value,
-  }
+): [
+  Extract<ToolResultOutput, { type: 'json' }> & {
+    value: T
+  },
+] {
+  return [
+    {
+      type: 'json',
+      value,
+    },
+  ]
 }
 
-export function toolMediaContent(params: {
+export function mediaToolResult(params: {
   data: string
   mediaType: string
-}): ToolResultOutput & {
-  type: 'media'
-  data: string
-  mediaType: string
-} {
+}): [Extract<ToolResultOutput, { type: 'media' }>] {
   const { data, mediaType } = params
-  return {
-    type: 'media',
-    data,
-    mediaType,
-  }
+  return [
+    {
+      type: 'media',
+      data,
+      mediaType,
+    },
+  ]
 }
