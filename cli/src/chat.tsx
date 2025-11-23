@@ -540,13 +540,16 @@ export const Chat = ({
 
       if (isPlainTab && !mentionContext.active) {
         // Only open file menu if there's a word at cursor to complete
-        const safeCursor = Math.max(0, Math.min(cursorPosition, inputValue.length))
+        const safeCursor = Math.max(
+          0,
+          Math.min(cursorPosition, inputValue.length),
+        )
         let wordStart = safeCursor
         while (wordStart > 0 && !/\s/.test(inputValue[wordStart - 1])) {
           wordStart--
         }
         const hasWordAtCursor = wordStart < safeCursor
-        
+
         if (hasWordAtCursor) {
           openFileMenuWithTab()
           return true
@@ -555,7 +558,12 @@ export const Chat = ({
 
       return false
     },
-    [handleSuggestionMenuKeyInternal, mentionContext.active, openFileMenuWithTab, inputValue],
+    [
+      handleSuggestionMenuKeyInternal,
+      mentionContext.active,
+      openFileMenuWithTab,
+      inputValue,
+    ],
   )
 
   const { saveToHistory, navigateUp, navigateDown } = useInputHistory(
@@ -797,10 +805,10 @@ export const Chat = ({
       setInputFocused,
       setInputValue,
       setIsAuthenticated,
-    setMessages,
-    setUser,
-    stopStreaming,
-  })
+      setMessages,
+      setUser,
+      stopStreaming,
+    })
 
     if (result?.openFeedbackMode) {
       saveCurrentInput('', 0)
@@ -899,7 +907,7 @@ export const Chat = ({
       safeCursor >= layoutContent.length
         ? layoutContent
         : layoutContent.slice(0, safeCursor)
-    const cols = Math.max(1, inputWidth - 4)
+    const cols = Math.max(1, inputWidth)
     return computeInputLayoutMetrics({
       layoutContent,
       cursorProbe,
@@ -1045,7 +1053,6 @@ export const Chat = ({
           backgroundColor: 'transparent',
         }}
       >
-
         {shouldShowStatusLine && (
           <StatusBar
             statusMessage={statusMessage}
