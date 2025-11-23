@@ -36,6 +36,7 @@ import type {
 } from '@codebuff/common/util/file'
 import type { ToolCallPart } from 'ai'
 import { AgentState } from '@codebuff/common/types/session-state'
+import { Logger } from '@codebuff/common/types/contracts/logger'
 
 export type CustomToolCall = {
   toolName: string
@@ -129,6 +130,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   fromHandleSteps?: boolean
   fullResponse: string
   localAgentTemplates: Record<string, AgentTemplate>
+  logger: Logger
   previousToolCallFinished: Promise<void>
   prompt: string | undefined
   repoId: string | undefined
@@ -277,8 +279,6 @@ export function executeToolCall<T extends ToolName>(
     } else if (pair.value !== undefined) {
       if (pair.key === 'agentContext') {
         state.agentContext = pair.value
-      } else if (pair.key === 'logger') {
-        state.logger = pair.value
       } else if (pair.key === 'messages') {
         state.messages = pair.value
       }

@@ -52,6 +52,7 @@ export async function processStreamWithTools(
     onResponseChunk: (chunk: string | PrintModeEvent) => void
   } & Omit<
     ExecuteToolCallParams<any>,
+    | 'fromHandleSteps'
     | 'fullResponse'
     | 'input'
     | 'previousToolCallFinished'
@@ -72,7 +73,6 @@ export async function processStreamWithTools(
     ancestorRunIds,
     fileContext,
     fullResponse,
-    logger,
     onCostCalculated,
     onResponseChunk,
     runId,
@@ -93,7 +93,6 @@ export async function processStreamWithTools(
   const state: State = {
     agentContext,
     messages,
-    logger,
     promisesByPath: {},
     allPromises: [],
     fileChangeErrors: [],
@@ -113,8 +112,8 @@ export async function processStreamWithTools(
           ...params,
           toolName,
           input,
-
           fromHandleSteps: false,
+
           fullResponse: fullResponseChunks.join(''),
           previousToolCallFinished,
           state,

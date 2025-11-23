@@ -27,14 +27,13 @@ export type State = {
   creditsUsed?: number | Promise<number>
   agentContext: Record<string, Subgoal>
   messages: Message[]
-  logger: Logger
 } & FileProcessingState
 
 export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
   params: {
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<T>
-
+    
     agentState: AgentState
     agentStepId: string
     agentTemplate: AgentTemplate
@@ -47,7 +46,8 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     fullResponse: string
     getLatestState: () => State
     localAgentTemplates: Record<string, AgentTemplate>
-  prompt: string | undefined
+    logger: Logger
+    prompt: string | undefined
     repoId: string | undefined
     repoUrl: string | undefined
     runId: string
