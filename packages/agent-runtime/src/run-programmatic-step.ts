@@ -5,7 +5,7 @@ import { cloneDeep } from 'lodash'
 
 import { executeToolCall } from './tools/tool-executor'
 
-import type { State } from './tools/handlers/handler-function-type'
+import type { FileProcessingState } from './tools/handlers/tool/write-file'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type {
   AgentTemplate,
@@ -70,10 +70,10 @@ export async function runProgrammaticStep(
     | 'agentTemplate'
     | 'fullResponse'
     | 'previousToolCallFinished'
+    | 'fileProcessingState'
     | 'toolCalls'
     | 'toolResults'
     | 'toolResultsToAddAfterStream'
-    | 'state'
   > &
     ParamsExcluding<
       AddAgentStepFn,
@@ -177,7 +177,7 @@ export async function runProgrammaticStep(
   // Initialize state for tool execution
   const toolCalls: CodebuffToolCall[] = []
   const toolResults: ToolMessage[] = []
-  const state: State = {
+  const fileProcessingState: FileProcessingState = {
     promisesByPath: {},
     allPromises: [],
     fileChangeErrors: [],
@@ -300,6 +300,7 @@ export async function runProgrammaticStep(
         agentContext,
         agentStepId,
         agentTemplate: template,
+        fileProcessingState,
         fullResponse: '',
         previousToolCallFinished: Promise.resolve(),
         toolCalls,
@@ -358,8 +359,6 @@ export async function runProgrammaticStep(
           // For other events or top-level spawns, send as-is
           onResponseChunk(chunk)
         },
-
-        state,
       })
 
       // Get the latest tool result

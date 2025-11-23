@@ -24,7 +24,7 @@ type PresentOrAbsent<K extends PropertyKey, V> =
   | { [P in K]: never }
 export type State = {
   creditsUsed?: number | Promise<number>
-} & FileProcessingState
+}
 
 export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
   params: {
@@ -40,9 +40,9 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     clientSessionId: string
     fetch: typeof globalThis.fetch
     fileContext: ProjectFileContext
+    fileProcessingState: FileProcessingState
     fingerprintId: string
     fullResponse: string
-    getLatestState: () => State
     localAgentTemplates: Record<string, AgentTemplate>
     logger: Logger
     prompt: string | undefined
@@ -51,7 +51,6 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     runId: string
     sendSubagentChunk: SendSubagentChunkFn
     signal: AbortSignal
-    state: State
     system: string
     trackEvent: TrackEventFn
     userId: string | undefined

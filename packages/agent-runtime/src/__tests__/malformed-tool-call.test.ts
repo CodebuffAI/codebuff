@@ -268,7 +268,7 @@ describe('malformed tool call error handling', () => {
 
     const stream = createMockStream(chunks)
 
-    const result = await processStreamWithTools({
+    await processStreamWithTools({
       ...defaultParams,
       requestFiles: async ({ filePaths }) => {
         return Object.fromEntries(

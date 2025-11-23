@@ -1,6 +1,4 @@
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-
-import { getFileProcessingValues, postStreamProcessing } from './write-file'
+import { postStreamProcessing } from './write-file'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type { FileProcessingState } from './write-file'
@@ -9,50 +7,32 @@ import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
-import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 export const handleCreatePlan = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'create_plan'>
 
-  agentStepId: string
-  clientSessionId: string
-  fingerprintId: string
+  fileProcessingState: FileProcessingState
   logger: Logger
-  repoId: string | undefined
-  userId: string | undefined
-  userInputId: string
+
   requestClientToolCall: (
     toolCall: ClientToolCall<'create_plan'>,
   ) => Promise<CodebuffToolOutput<'create_plan'>>
-  trackEvent: TrackEventFn
   writeToClient: (chunk: string) => void
-
-  getLatestState: () => FileProcessingState
-  state: FileProcessingState
 }): {
   result: Promise<CodebuffToolOutput<'create_plan'>>
-  state: FileProcessingState
+  state: {}
 } => {
   const {
-    agentStepId,
-    clientSessionId,
-    fingerprintId,
+    fileProcessingState,
     logger,
     previousToolCallFinished,
-    repoId,
-    state,
     toolCall,
-    userId,
-    userInputId,
-    getLatestState,
     requestClientToolCall,
-    trackEvent,
     writeToClient,
   } = params
   const { path, plan } = toolCall.input
-  const fileProcessingState = getFileProcessingValues(state)
 
   logger.debug(
     {
@@ -62,24 +42,6 @@ export const handleCreatePlan = ((params: {
     'Create plan',
   )
   // Add the plan file to the processing queue
-  if (!fileProcessingState.promisesByPath[path]) {
-    fileProcessingState.promisesByPath[path] = []
-    if (path.endsWith('knowledge.md')) {
-      trackEvent({
-        event: AnalyticsEvent.KNOWLEDGE_FILE_UPDATED,
-        userId: userId ?? '',
-        properties: {
-          agentStepId,
-          clientSessionId,
-          fingerprintId,
-          userInputId,
-          userId,
-          repoName: repoId,
-        },
-        logger,
-      })
-    }
-  }
   const change = {
     tool: 'create_plan' as const,
     path,
@@ -95,11 +57,11 @@ export const handleCreatePlan = ((params: {
       await previousToolCallFinished
       return await postStreamProcessing<'create_plan'>(
         change,
-        getLatestState(),
+        fileProcessingState,
         writeToClient,
         requestClientToolCall,
       )
     })(),
-    state: fileProcessingState,
+    state: {},
   }
 }) satisfies CodebuffToolHandlerFunction<'create_plan'>

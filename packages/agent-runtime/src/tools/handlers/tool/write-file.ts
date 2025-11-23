@@ -66,6 +66,7 @@ export function handleWriteFile(
 
     agentState: AgentState
     clientSessionId: string
+    fileProcessingState: FileProcessingState
     fingerprintId: string
     logger: Logger
     prompt: string | undefined
@@ -77,9 +78,6 @@ export function handleWriteFile(
     ) => Promise<CodebuffToolOutput<'write_file'>>
     requestOptionalFile: RequestOptionalFileFn
     writeToClient: (chunk: string) => void
-
-    getLatestState: () => FileProcessingState
-    state: FileProcessingState
   } & ParamsExcluding<
     typeof processFileBlock,
     | 'path'
@@ -93,7 +91,7 @@ export function handleWriteFile(
     ParamsExcluding<RequestOptionalFileFn, 'filePath'>,
 ): {
   result: Promise<CodebuffToolOutput<'write_file'>>
-  state: FileProcessingState
+  state: {}
 } {
   const {
     previousToolCallFinished,
@@ -101,6 +99,7 @@ export function handleWriteFile(
 
     agentState,
     clientSessionId,
+    fileProcessingState,
     fingerprintId,
     logger,
     prompt,
@@ -109,15 +108,12 @@ export function handleWriteFile(
     requestClientToolCall,
     requestOptionalFile,
     writeToClient,
-
-    getLatestState,
-    state,
+    
   } = params
   const { path, instructions, content } = toolCall.input
 
-  const fileProcessingState = getFileProcessingValues(state)
   const fileProcessingPromisesByPath = fileProcessingState.promisesByPath
-  const fileProcessingPromises = fileProcessingState.allPromises ?? []
+  const fileProcessingPromises = fileProcessingState.allPromises
 
   // Initialize state for this file path if needed
   if (!fileProcessingPromisesByPath[path]) {
@@ -173,12 +169,12 @@ export function handleWriteFile(
       await previousToolCallFinished
       return await postStreamProcessing<'write_file'>(
         await newPromise,
-        getLatestState(),
+        fileProcessingState,
         writeToClient,
         requestClientToolCall,
       )
     })(),
-    state: fileProcessingState,
+    state: {},
   }
 }
 handleWriteFile satisfies CodebuffToolHandlerFunction<'write_file'>

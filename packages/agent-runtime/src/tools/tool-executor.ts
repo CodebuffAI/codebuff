@@ -16,6 +16,7 @@ import type {
   State,
   CodebuffToolHandlerFunction,
 } from './handlers/handler-function-type'
+import type { FileProcessingState } from './handlers/tool/write-file'
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type {
   ClientToolCall,
@@ -127,6 +128,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   agentTemplate: AgentTemplate
   clientSessionId: string
   fileContext: ProjectFileContext
+  fileProcessingState: FileProcessingState
   fingerprintId: string
   fromHandleSteps?: boolean
   fullResponse: string
@@ -138,7 +140,6 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   repoUrl: string | undefined
   runId: string
   signal: AbortSignal
-  state: State
   system: string
   toolCalls: (CodebuffToolCall | CustomToolCall)[]
   toolResults: ToolMessage[]
@@ -166,7 +167,6 @@ export function executeToolCall<T extends ToolName>(
     agentTemplate,
     logger,
     previousToolCallFinished,
-    state,
     toolCalls,
     toolResults,
     toolResultsToAddAfterStream,
@@ -176,6 +176,7 @@ export function executeToolCall<T extends ToolName>(
     onResponseChunk,
     requestToolCall,
   } = params
+  const state: State = {}
   const toolCall: CodebuffToolCall<T> | ToolCallError = parseRawToolCall<T>({
     rawToolCall: {
       toolName,
@@ -256,8 +257,6 @@ export function executeToolCall<T extends ToolName>(
       return clientToolResult.output as CodebuffToolOutput<T>
     }) as any,
     toolCall,
-    getLatestState: () => state,
-    state,
   })
 
   for (const [pairk, pairv] of Object.entries(

@@ -11,9 +11,9 @@ import { processStreamWithTags } from '../tool-stream-parser'
 import { executeCustomToolCall, executeToolCall } from './tool-executor'
 import { expireMessages } from '../util/messages'
 
-import type { State } from './handlers/handler-function-type'
 import type { CustomToolCall, ExecuteToolCallParams } from './tool-executor'
 import type { AgentTemplate } from '../templates/types'
+import type { FileProcessingState } from './handlers/tool/write-file'
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -52,6 +52,7 @@ export async function processStreamWithTools(
     onResponseChunk: (chunk: string | PrintModeEvent) => void
   } & Omit<
     ExecuteToolCallParams<any>,
+    | 'fileProcessingState'
     | 'fromHandleSteps'
     | 'fullResponse'
     | 'input'
@@ -88,7 +89,7 @@ export async function processStreamWithTools(
     Promise.withResolvers<void>()
   let previousToolCallFinished = streamDonePromise
 
-  const state: State = {
+  const fileProcessingState: FileProcessingState = {
     promisesByPath: {},
     allPromises: [],
     fileChangeErrors: [],
@@ -110,9 +111,9 @@ export async function processStreamWithTools(
           input,
           fromHandleSteps: false,
 
+          fileProcessingState,
           fullResponse: fullResponseChunks.join(''),
           previousToolCallFinished,
-          state,
           toolCalls,
           toolResults,
           toolResultsToAddAfterStream,
@@ -135,9 +136,9 @@ export async function processStreamWithTools(
           toolName,
           input,
 
+          fileProcessingState,
           fullResponse: fullResponseChunks.join(''),
           previousToolCallFinished,
-          state,
           toolCalls,
           toolResults,
           toolResultsToAddAfterStream,
@@ -218,7 +219,6 @@ export async function processStreamWithTools(
     fullResponse: fullResponseChunks.join(''),
     fullResponseChunks,
     messageId,
-    state,
     toolCalls,
     toolResults,
   }
