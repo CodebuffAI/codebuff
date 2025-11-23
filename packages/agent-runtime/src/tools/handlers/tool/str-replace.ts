@@ -12,7 +12,7 @@ import type { RequestOptionalFileFn } from '@codebuff/common/types/contracts/cli
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 
-export function handleStrReplace(
+export const handleStrReplace = (async (
   params: {
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<'str_replace'>
@@ -27,10 +27,7 @@ export function handleStrReplace(
 
     requestOptionalFile: RequestOptionalFileFn
   } & ParamsExcluding<RequestOptionalFileFn, 'filePath'>,
-): {
-  result: Promise<CodebuffToolOutput<'str_replace'>>
-  state: {}
-} {
+): Promise<{ output: CodebuffToolOutput<'str_replace'> }> => {
   const {
     previousToolCallFinished,
     toolCall,
@@ -81,28 +78,20 @@ export function handleStrReplace(
   fileProcessingState.promisesByPath[path].push(newPromise)
   fileProcessingState.allPromises.push(newPromise)
 
-  return {
-    result: (async () => {
-      await previousToolCallFinished
+  await previousToolCallFinished
 
-      const strReplaceResult = await newPromise
-      const clientToolResult = await postStreamProcessing<'str_replace'>(
-        strReplaceResult,
-        fileProcessingState,
-        writeToClient,
-        requestClientToolCall,
-      )
+  const strReplaceResult = await newPromise
+  const clientToolResult = await postStreamProcessing<'str_replace'>(
+    strReplaceResult,
+    fileProcessingState,
+    writeToClient,
+    requestClientToolCall,
+  )
 
-      const value = clientToolResult[0].value
-      if ('messages' in strReplaceResult && 'message' in value) {
-        value.message = [...strReplaceResult.messages, value.message].join(
-          '\n\n',
-        )
-      }
-
-      return clientToolResult
-    })(),
-    state: {},
+  const value = clientToolResult[0].value
+  if ('messages' in strReplaceResult && 'message' in value) {
+    value.message = [...strReplaceResult.messages, value.message].join('\n\n')
   }
-}
-handleStrReplace satisfies CodebuffToolHandlerFunction<'str_replace'>
+
+  return { output: clientToolResult }
+}) satisfies CodebuffToolHandlerFunction<'str_replace'>

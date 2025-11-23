@@ -1,15 +1,15 @@
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-export const handleThinkDeeply = ((params: {
+export const handleThinkDeeply = (async (params: {
   previousToolCallFinished: Promise<any>
   toolCall: CodebuffToolCall<'think_deeply'>
   logger: Logger
-}): { result: Promise<CodebuffToolOutput<'think_deeply'>>; state: {} } => {
+}): Promise<{ output: CodebuffToolOutput<'think_deeply'> }> => {
   const { previousToolCallFinished, toolCall, logger } = params
   const { thought } = toolCall.input
 
@@ -20,8 +20,6 @@ export const handleThinkDeeply = ((params: {
     'Thought deeply',
   )
 
-  return {
-    result: previousToolCallFinished.then(() => []),
-    state: {},
-  }
+  await previousToolCallFinished
+  return { output: [] }
 }) satisfies CodebuffToolHandlerFunction<'think_deeply'>

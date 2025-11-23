@@ -4,17 +4,12 @@ import type {
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
 
-export const handleEndTurn = (({
-  previousToolCallFinished,
-}: {
+export const handleEndTurn = (async (params: {
   previousToolCallFinished: Promise<any>
   toolCall: CodebuffToolCall<'end_turn'>
-}): { result: Promise<CodebuffToolOutput<'end_turn'>>; state: {} } => {
-  return {
-    result: (async () => {
-      await previousToolCallFinished
-      return []
-    })(),
-    state: {},
-  }
+}): Promise<{ output: CodebuffToolOutput<'end_turn'> }> => {
+  const { previousToolCallFinished } = params
+
+  await previousToolCallFinished
+  return { output: [] }
 }) satisfies CodebuffToolHandlerFunction<'end_turn'>

@@ -6,23 +6,17 @@ import type {
 } from '@codebuff/common/tools/list'
 
 type ToolName = 'glob'
-export const handleGlob = ((params: {
+export const handleGlob = (async (params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<ToolName>
   requestClientToolCall: (
     toolCall: ClientToolCall<ToolName>,
   ) => Promise<CodebuffToolOutput<ToolName>>
-}): {
-  result: Promise<CodebuffToolOutput<ToolName>>
-  state: {}
-} => {
+}): Promise<{
+  output: CodebuffToolOutput<ToolName>
+}> => {
   const { previousToolCallFinished, toolCall, requestClientToolCall } = params
 
-  return {
-    result: (async () => {
-      await previousToolCallFinished
-      return await requestClientToolCall(toolCall)
-    })(),
-    state: {},
-  }
+  await previousToolCallFinished
+  return { output: await requestClientToolCall(toolCall) }
 }) satisfies CodebuffToolHandlerFunction<ToolName>

@@ -146,7 +146,7 @@ describe('Subagent Streaming', () => {
       },
     }
 
-    const { result } = handleSpawnAgents({
+    await handleSpawnAgents({
       ...handleSpawnAgentsBaseParams,
       agentState,
       agentTemplate: parentTemplate,
@@ -155,8 +155,6 @@ describe('Subagent Streaming', () => {
       },
       toolCall,
     })
-
-    await result
 
     // Verify that subagent streaming messages were sent
     expect(mockWriteToClient).toHaveBeenCalledTimes(2)
@@ -197,7 +195,7 @@ describe('Subagent Streaming', () => {
       },
     }
 
-    const { result } = handleSpawnAgents({
+    await handleSpawnAgents({
       ...handleSpawnAgentsBaseParams,
       agentState,
       agentTemplate: parentTemplate,
@@ -206,7 +204,6 @@ describe('Subagent Streaming', () => {
       },
       toolCall,
     })
-    await result
 
     // Verify the streaming messages have consistent agentId and correct agentType
     expect(mockSendSubagentChunk.mock.calls.length).toBeGreaterThanOrEqual(2)

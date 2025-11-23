@@ -6,7 +6,7 @@ import type {
 } from '@codebuff/common/tools/list'
 
 type ToolName = 'run_terminal_command'
-export const handleRunTerminalCommand = (({
+export const handleRunTerminalCommand = (async ({
   previousToolCallFinished,
   toolCall,
   requestClientToolCall,
@@ -16,7 +16,7 @@ export const handleRunTerminalCommand = (({
   requestClientToolCall: (
     toolCall: ClientToolCall<ToolName>,
   ) => Promise<CodebuffToolOutput<ToolName>>
-}): { result: Promise<CodebuffToolOutput<ToolName>>; state: {} } => {
+}): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
   const clientToolCall: ClientToolCall<ToolName> = {
     toolName: 'run_terminal_command',
     toolCallId: toolCall.toolCallId,
@@ -28,11 +28,6 @@ export const handleRunTerminalCommand = (({
       cwd: toolCall.input.cwd,
     },
   }
-  return {
-    result: (async () => {
-      await previousToolCallFinished
-      return await requestClientToolCall(clientToolCall)
-    })(),
-    state: {},
-  }
+  await previousToolCallFinished
+  return { output: await requestClientToolCall(clientToolCall) }
 }) satisfies CodebuffToolHandlerFunction<ToolName>

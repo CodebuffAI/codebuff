@@ -12,17 +12,14 @@ import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 type ToolName = 'read_files'
-export const handleReadFiles = ((
+export const handleReadFiles = (async (
   params: {
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<ToolName>
 
     fileContext: ProjectFileContext
   } & ParamsExcluding<typeof getFileReadingUpdates, 'requestedFiles'>,
-): {
-  result: Promise<CodebuffToolOutput<ToolName>>
-  state: {}
-} => {
+): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
   const {
     previousToolCallFinished,
     toolCall,
@@ -31,20 +28,16 @@ export const handleReadFiles = ((
   } = params
   const { paths } = toolCall.input
 
-  const readFilesResultsPromise = (async () => {
-    const addedFiles = await getFileReadingUpdates({
-      ...params,
-      requestedFiles: paths,
-    })
+  await previousToolCallFinished
 
-    return renderReadFilesResult(addedFiles, fileContext.tokenCallers ?? {})
-  })()
+  const addedFiles = await getFileReadingUpdates({
+    ...params,
+    requestedFiles: paths,
+  })
 
   return {
-    result: (async () => {
-      await previousToolCallFinished
-      return jsonToolResult(await readFilesResultsPromise)
-    })(),
-    state: {},
+    output: jsonToolResult(
+      renderReadFilesResult(addedFiles, fileContext.tokenCallers ?? {}),
+    ),
   }
 }) satisfies CodebuffToolHandlerFunction<ToolName>

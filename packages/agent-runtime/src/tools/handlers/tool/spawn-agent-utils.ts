@@ -11,27 +11,12 @@ import type {
   ParamsExcluding,
   OptionalFields,
 } from '@codebuff/common/types/function-params'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
   AgentTemplateType,
   Subgoal,
 } from '@codebuff/common/types/session-state'
-import type { ProjectFileContext } from '@codebuff/common/util/file'
-
-export interface SpawnAgentParams {
-  agent_type: string
-  prompt?: string
-  params?: any
-}
-
-export interface SpawnContext {
-  fileContext: ProjectFileContext
-  clientSessionId: string
-  userInputId: string
-  getLatestState: () => { messages: Message[] }
-}
 
 /**
  * Checks if a parent agent is allowed to spawn a child agent

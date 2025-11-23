@@ -11,8 +11,7 @@ import type {
 import type { RequestOptionalFileFn } from '@codebuff/common/types/contracts/client'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
-import { AgentState } from '@codebuff/common/types/session-state'
+import type { AgentState } from '@codebuff/common/types/session-state'
 
 type FileProcessingTools = 'write_file' | 'str_replace' | 'create_plan'
 export type FileProcessing<
@@ -59,7 +58,7 @@ export function getFileProcessingValues(
   return fileProcessingValues
 }
 
-export function handleWriteFile(
+export const handleWriteFile = (async (
   params: {
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<'write_file'>
@@ -89,10 +88,7 @@ export function handleWriteFile(
     | 'lastUserPrompt'
   > &
     ParamsExcluding<RequestOptionalFileFn, 'filePath'>,
-): {
-  result: Promise<CodebuffToolOutput<'write_file'>>
-  state: {}
-} {
+): Promise<{ output: CodebuffToolOutput<'write_file'> }> => {
   const {
     previousToolCallFinished,
     toolCall,
@@ -108,7 +104,6 @@ export function handleWriteFile(
     requestClientToolCall,
     requestOptionalFile,
     writeToClient,
-    
   } = params
   const { path, instructions, content } = toolCall.input
 
@@ -164,20 +159,17 @@ export function handleWriteFile(
   fileProcessingPromisesByPath[path].push(newPromise)
   fileProcessingPromises.push(newPromise)
 
+  await previousToolCallFinished
+
   return {
-    result: (async () => {
-      await previousToolCallFinished
-      return await postStreamProcessing<'write_file'>(
-        await newPromise,
-        fileProcessingState,
-        writeToClient,
-        requestClientToolCall,
-      )
-    })(),
-    state: {},
+    output: await postStreamProcessing<'write_file'>(
+      await newPromise,
+      fileProcessingState,
+      writeToClient,
+      requestClientToolCall,
+    ),
   }
-}
-handleWriteFile satisfies CodebuffToolHandlerFunction<'write_file'>
+}) satisfies CodebuffToolHandlerFunction<'write_file'>
 
 export async function postStreamProcessing<T extends FileProcessingTools>(
   toolCall: FileProcessing<T>,

@@ -5,20 +5,17 @@ import type {
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
 
-export const handleCodeSearch = ((params: {
+export const handleCodeSearch = (async (params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'code_search'>
   requestClientToolCall: (
     toolCall: ClientToolCall<'code_search'>,
   ) => Promise<CodebuffToolOutput<'code_search'>>
-}): { result: Promise<CodebuffToolOutput<'code_search'>>; state: {} } => {
+}): Promise<{
+  output: CodebuffToolOutput<'code_search'>
+}> => {
   const { previousToolCallFinished, toolCall, requestClientToolCall } = params
 
-  return {
-    result: (async () => {
-      await previousToolCallFinished
-      return await requestClientToolCall(toolCall)
-    })(),
-    state: {},
-  }
+  await previousToolCallFinished
+  return { output: await requestClientToolCall(toolCall) }
 }) satisfies CodebuffToolHandlerFunction<'code_search'>

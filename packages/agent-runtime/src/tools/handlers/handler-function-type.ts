@@ -22,9 +22,6 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 type PresentOrAbsent<K extends PropertyKey, V> =
   | { [P in K]: V }
   | { [P in K]: never }
-export type State = {
-  creditsUsed?: number | Promise<number>
-}
 
 export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
   params: {
@@ -64,7 +61,7 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
   > &
     AgentRuntimeDeps &
     AgentRuntimeScopedDeps,
-) => {
-  result: Promise<CodebuffToolMessage<T>['content']>
-  state?: Partial<State>
-}
+) => Promise<{
+  output: CodebuffToolMessage<T>['content']
+  creditsUsed?: number
+}>

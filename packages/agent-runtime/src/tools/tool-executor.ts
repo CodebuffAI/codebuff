@@ -1,7 +1,6 @@
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { toolParams } from '@codebuff/common/tools/list'
 import { jsonToolResult } from '@codebuff/common/util/messages'
-import { removeUndefinedProps } from '@codebuff/common/util/object'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
@@ -12,10 +11,7 @@ import { getMCPToolData } from '../mcp'
 import { codebuffToolHandlers } from './handlers/list'
 
 import type { AgentTemplate } from '../templates/types'
-import type {
-  State,
-  CodebuffToolHandlerFunction,
-} from './handlers/handler-function-type'
+import type { CodebuffToolHandlerFunction } from './handlers/handler-function-type'
 import type { FileProcessingState } from './handlers/tool/write-file'
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type {
@@ -176,7 +172,6 @@ export function executeToolCall<T extends ToolName>(
     onResponseChunk,
     requestToolCall,
   } = params
-  const state: State = {}
   const toolCall: CodebuffToolCall<T> | ToolCallError = parseRawToolCall<T>({
     rawToolCall: {
       toolName,
@@ -238,7 +233,7 @@ export function executeToolCall<T extends ToolName>(
   const handler = codebuffToolHandlers[
     toolName
   ] as unknown as CodebuffToolHandlerFunction<T>
-  const { result: toolResultPromise, state: stateUpdate } = handler({
+  const toolResultPromise = handler({
     ...params,
     previousToolCallFinished,
     writeToClient: onResponseChunk,
@@ -259,40 +254,17 @@ export function executeToolCall<T extends ToolName>(
     toolCall,
   })
 
-  for (const [pairk, pairv] of Object.entries(
-    removeUndefinedProps(stateUpdate ?? {}),
-  )) {
-    const pair = { key: pairk, value: pairv } as {
-      [K in keyof Required<typeof state>]: {
-        key: K
-        value: Required<typeof state>[K]
-      }
-    }[keyof Required<typeof state>]
-    if (pair.key === 'creditsUsed') {
-      // Handle both synchronous and asynchronous creditsUsed values
-      if (pair.value instanceof Promise) {
-        // Store the promise to be awaited later
-        state.creditsUsed = pair.value
-      } else if (typeof pair.value === 'number') {
-        onCostCalculated(pair.value)
-      }
-    }
-  }
-
-  return toolResultPromise.then(async (result) => {
+  return toolResultPromise.then(async ({ output, creditsUsed }) => {
     const toolResult: ToolMessage = {
       role: 'tool',
       toolName,
       toolCallId: toolCall.toolCallId,
-      content: result,
+      content: output,
     }
     logger.debug(
       { input, toolResult },
       `${toolName} tool call & result (${toolResult.toolCallId})`,
     )
-    if (result === undefined) {
-      return
-    }
 
     onResponseChunk({
       type: 'tool_result',
@@ -308,16 +280,12 @@ export function executeToolCall<T extends ToolName>(
     }
 
     // After tool completes, resolve any pending creditsUsed promise
-    if (state.creditsUsed instanceof Promise) {
-      const credits = await state.creditsUsed
-      if (typeof credits === 'number') {
-        onCostCalculated(credits)
-        logger.debug(
-          { credits, totalCredits: agentState.creditsUsed },
-          `Added ${credits} credits from ${toolName} to agent state`,
-        )
-      }
-      delete state.creditsUsed
+    if (creditsUsed) {
+      onCostCalculated(creditsUsed)
+      logger.debug(
+        { credits: creditsUsed, totalCredits: agentState.creditsUsed },
+        `Added ${creditsUsed} credits from ${toolName} to agent state`,
+      )
     }
   })
 }

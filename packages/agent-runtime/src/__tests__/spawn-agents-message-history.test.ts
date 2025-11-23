@@ -128,15 +128,13 @@ describe('Spawn Agents Message History', () => {
       userMessage('How are you?'),
     ]
 
-    const { result } = handleSpawnAgents({
+    await handleSpawnAgents({
       ...handleSpawnAgentsBaseParams,
       agentState: sessionState.mainAgentState,
       agentTemplate: parentAgent,
       localAgentTemplates: { 'child-agent': childAgent },
       toolCall,
     })
-
-    await result
 
     // Verify that the spawned agent was called
     expect(mockLoopAgentSteps).toHaveBeenCalledTimes(1)
@@ -188,15 +186,13 @@ describe('Spawn Agents Message History', () => {
       assistantMessage('Hi there!'),
     ]
 
-    const { result } = handleSpawnAgents({
+    await handleSpawnAgents({
       ...handleSpawnAgentsBaseParams,
       agentState: sessionState.mainAgentState,
       agentTemplate: parentAgent,
       localAgentTemplates: { 'child-agent': childAgent },
       toolCall,
     })
-
-    await result
 
     // Verify that the subagent's message history is empty when includeMessageHistory is false
     expect(capturedSubAgentState.messageHistory).toHaveLength(0)
@@ -210,15 +206,13 @@ describe('Spawn Agents Message History', () => {
 
     sessionState.mainAgentState.messageHistory = [] // Empty message history
 
-    const { result } = handleSpawnAgents({
+    await handleSpawnAgents({
       ...handleSpawnAgentsBaseParams,
       agentState: sessionState.mainAgentState,
       agentTemplate: parentAgent,
       localAgentTemplates: { 'child-agent': childAgent },
       toolCall,
     })
-
-    await result
 
     // Verify that the subagent's message history is empty when there are no messages to pass
     expect(capturedSubAgentState.messageHistory).toHaveLength(0)
@@ -235,15 +229,13 @@ describe('Spawn Agents Message History', () => {
       systemMessage('System prompt 2'),
     ]
 
-    const { result } = handleSpawnAgents({
+    await handleSpawnAgents({
       ...handleSpawnAgentsBaseParams,
       agentState: sessionState.mainAgentState,
       agentTemplate: parentAgent,
       localAgentTemplates: { 'child-agent': childAgent },
       toolCall,
     })
-
-    await result
 
     // Verify that system messages without timeToLive are included
     // expireMessages only filters messages with timeToLive='userPrompt'

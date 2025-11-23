@@ -183,13 +183,11 @@ describe('Cost Aggregation System', () => {
         },
       }
 
-      const result = handleSpawnAgents({
+      await handleSpawnAgents({
         ...params,
         agentState: parentAgentState,
         toolCall: mockToolCall,
       })
-
-      await result.result
 
       // Parent should have aggregated costs: original 50 + subagent 75 + subagent 100 = 225
       expect(parentAgentState.creditsUsed).toBe(225)
@@ -255,13 +253,11 @@ describe('Cost Aggregation System', () => {
         },
       }
 
-      const result = handleSpawnAgents({
+      await handleSpawnAgents({
         ...params,
         agentState: parentAgentState,
         toolCall: mockToolCall,
       })
-
-      await result.result
 
       // Parent should aggregate costs: original 10 + successful subagent 50 + failed subagent 25 = 85
       expect(parentAgentState.creditsUsed).toBe(85)
@@ -399,13 +395,11 @@ describe('Cost Aggregation System', () => {
         },
       }
 
-      const result = handleSpawnAgents({
+      await handleSpawnAgents({
         ...params,
         agentState: mainAgentState,
         toolCall: mockToolCall,
       })
-
-      await result.result
 
       // Verify exact cost accounting
       expect(mainAgentState.creditsUsed).toBe(expectedTotal)

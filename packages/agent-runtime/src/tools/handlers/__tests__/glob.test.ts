@@ -2,7 +2,10 @@ import { describe, it, expect, mock } from 'bun:test'
 
 import { handleGlob } from '../tool/glob'
 
-import type { CodebuffToolCall, CodebuffToolOutput } from '@codebuff/common/tools/list'
+import type {
+  CodebuffToolCall,
+  CodebuffToolOutput,
+} from '@codebuff/common/tools/list'
 
 describe('handleGlob', () => {
   it('delegates to requestClientToolCall and returns matching files', async () => {
@@ -11,7 +14,11 @@ describe('handleGlob', () => {
         {
           type: 'json',
           value: {
-            files: ['src/index.ts', 'src/utils.ts', 'src/components/Button.tsx'],
+            files: [
+              'src/index.ts',
+              'src/utils.ts',
+              'src/components/Button.tsx',
+            ],
             count: 3,
             message: 'Found 3 file(s) matching pattern "**/*.ts"',
           },
@@ -27,13 +34,12 @@ describe('handleGlob', () => {
       },
     }
 
-    const { result } = handleGlob({
+    const { output } = await handleGlob({
       previousToolCallFinished: Promise.resolve(),
       toolCall,
       requestClientToolCall: mockRequestClientToolCall,
     })
 
-    const output = await result
     expect(mockRequestClientToolCall).toHaveBeenCalledWith(toolCall)
     expect(Array.isArray(output)).toBe(true)
     expect(output[0].type).toBe('json')
@@ -71,13 +77,12 @@ describe('handleGlob', () => {
       },
     }
 
-    const { result } = handleGlob({
+    const { output } = await handleGlob({
       previousToolCallFinished: Promise.resolve(),
       toolCall,
       requestClientToolCall: mockRequestClientToolCall,
     })
 
-    const output = await result
     expect(mockRequestClientToolCall).toHaveBeenCalledWith(toolCall)
     expect(output[0].type).toBe('json')
     const value = output[0].value as any
@@ -117,13 +122,12 @@ describe('handleGlob', () => {
       },
     }
 
-    const { result } = handleGlob({
+    const { output } = await handleGlob({
       previousToolCallFinished: Promise.resolve(),
       toolCall,
       requestClientToolCall: mockRequestClientToolCall,
     })
 
-    const output = await result
     expect(mockRequestClientToolCall).toHaveBeenCalledWith(toolCall)
     const value = output[0].value as any
     expect(value.count).toBe(5)
@@ -152,13 +156,12 @@ describe('handleGlob', () => {
       },
     }
 
-    const { result } = handleGlob({
+    const { output } = await handleGlob({
       previousToolCallFinished: Promise.resolve(),
       toolCall,
       requestClientToolCall: mockRequestClientToolCall,
     })
 
-    const output = await result
     expect(mockRequestClientToolCall).toHaveBeenCalledWith(toolCall)
     const value = output[0].value as any
     expect(value.files).toEqual([])
@@ -192,13 +195,12 @@ describe('handleGlob', () => {
       },
     }
 
-    const { result } = handleGlob({
+    const { output } = await handleGlob({
       previousToolCallFinished: Promise.resolve(),
       toolCall,
       requestClientToolCall: mockRequestClientToolCall,
     })
 
-    const output = await result
     expect(mockRequestClientToolCall).toHaveBeenCalledWith(toolCall)
     const value = output[0].value as any
     expect(value.count).toBe(4)
@@ -225,13 +227,12 @@ describe('handleGlob', () => {
       },
     }
 
-    const { result } = handleGlob({
+    const { output } = await handleGlob({
       previousToolCallFinished: Promise.resolve(),
       toolCall,
       requestClientToolCall: mockRequestClientToolCall,
     })
 
-    const output = await result
     expect(mockRequestClientToolCall).toHaveBeenCalledWith(toolCall)
     const value = output[0].value as any
     expect(value.errorMessage).toBeDefined()
@@ -271,13 +272,12 @@ describe('handleGlob', () => {
       },
     }
 
-    const { result } = handleGlob({
+    const { output } = await handleGlob({
       previousToolCallFinished,
       toolCall,
       requestClientToolCall: mockRequestClientToolCall,
     })
 
-    await result
     expect(previousFinished).toBe(true)
     expect(mockRequestClientToolCall).toHaveBeenCalled()
   })
@@ -310,47 +310,17 @@ describe('handleGlob', () => {
       },
     }
 
-    const { result } = handleGlob({
+    const { output } = await handleGlob({
       previousToolCallFinished: Promise.resolve(),
       toolCall,
       requestClientToolCall: mockRequestClientToolCall,
     })
 
-    const output = await result
     expect(mockRequestClientToolCall).toHaveBeenCalledWith(toolCall)
     const value = output[0].value as any
     expect(value.files.length).toBe(3)
-    expect(value.files.every((f: string) => f.includes('components'))).toBe(true)
-  })
-
-  it('returns empty state object', async () => {
-    const mockRequestClientToolCall = mock(
-      async (): Promise<CodebuffToolOutput<'glob'>> => [
-        {
-          type: 'json',
-          value: {
-            files: [],
-            count: 0,
-            message: 'Found 0 file(s) matching pattern "*.md"',
-          },
-        },
-      ],
+    expect(value.files.every((f: string) => f.includes('components'))).toBe(
+      true,
     )
-
-    const toolCall: CodebuffToolCall<'glob'> = {
-      toolName: 'glob',
-      toolCallId: 'tc-9',
-      input: {
-        pattern: '*.md',
-      },
-    }
-
-    const { state } = handleGlob({
-      previousToolCallFinished: Promise.resolve(),
-      toolCall,
-      requestClientToolCall: mockRequestClientToolCall,
-    })
-
-    expect(state).toEqual({})
   })
 })

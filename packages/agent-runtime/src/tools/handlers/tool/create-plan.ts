@@ -9,7 +9,7 @@ import type {
 } from '@codebuff/common/tools/list'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-export const handleCreatePlan = ((params: {
+export const handleCreatePlan = (async (params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'create_plan'>
 
@@ -20,10 +20,9 @@ export const handleCreatePlan = ((params: {
     toolCall: ClientToolCall<'create_plan'>,
   ) => Promise<CodebuffToolOutput<'create_plan'>>
   writeToClient: (chunk: string) => void
-}): {
-  result: Promise<CodebuffToolOutput<'create_plan'>>
-  state: {}
-} => {
+}): Promise<{
+  output: CodebuffToolOutput<'create_plan'>
+}> => {
   const {
     fileProcessingState,
     logger,
@@ -52,16 +51,13 @@ export const handleCreatePlan = ((params: {
   fileProcessingState.promisesByPath[path].push(Promise.resolve(change))
   fileProcessingState.allPromises.push(Promise.resolve(change))
 
+  await previousToolCallFinished
   return {
-    result: (async () => {
-      await previousToolCallFinished
-      return await postStreamProcessing<'create_plan'>(
-        change,
-        fileProcessingState,
-        writeToClient,
-        requestClientToolCall,
-      )
-    })(),
-    state: {},
+    output: await postStreamProcessing<'create_plan'>(
+      change,
+      fileProcessingState,
+      writeToClient,
+      requestClientToolCall,
+    ),
   }
 }) satisfies CodebuffToolHandlerFunction<'create_plan'>

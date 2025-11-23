@@ -1,7 +1,7 @@
+import { getStubProjectFileContext } from '@codebuff/common/util/file'
 import { describe, it, expect } from 'bun:test'
 
 import { handleReadSubtree } from '../tool/read-subtree'
-import { getStubProjectFileContext } from '@codebuff/common/util/file'
 
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -63,18 +63,19 @@ describe('handleReadSubtree', () => {
       input: { paths: ['src'], maxTokens: 50000 },
     }
 
-    const { result } = handleReadSubtree({
+    const { output } = await handleReadSubtree({
       previousToolCallFinished: Promise.resolve(),
       toolCall,
       fileContext,
       logger,
     })
 
-    const output = await result
     expect(Array.isArray(output)).toBe(true)
     expect(output[0].type).toBe('json')
     const value = output[0].value as any[]
-    const dirEntry = value.find((v) => v.type === 'directory' && v.path === 'src')
+    const dirEntry = value.find(
+      (v) => v.type === 'directory' && v.path === 'src',
+    )
     expect(dirEntry).toBeTruthy()
     expect(typeof dirEntry.printedTree).toBe('string')
     expect(dirEntry.printedTree).toContain('src/')
@@ -95,14 +96,13 @@ describe('handleReadSubtree', () => {
       input: { paths: ['src/index.ts'], maxTokens: 50000 },
     }
 
-    const { result } = handleReadSubtree({
+    const { output } = await handleReadSubtree({
       previousToolCallFinished: Promise.resolve(),
       toolCall,
       fileContext,
       logger,
     })
 
-    const output = await result
     expect(output[0].type).toBe('json')
     const value = output[0].value as any[]
     const fileEntry = value.find(
@@ -125,17 +125,18 @@ describe('handleReadSubtree', () => {
       input: { paths: ['does-not-exist'], maxTokens: 50000 },
     }
 
-    const { result } = handleReadSubtree({
+    const { output } = await handleReadSubtree({
       previousToolCallFinished: Promise.resolve(),
       toolCall,
       fileContext,
       logger,
     })
 
-    const output = await result
     expect(output[0].type).toBe('json')
     const value = output[0].value as any[]
-    const errEntry = value.find((v) => v.path === 'does-not-exist' && v.errorMessage)
+    const errEntry = value.find(
+      (v) => v.path === 'does-not-exist' && v.errorMessage,
+    )
     expect(errEntry).toBeTruthy()
     expect(String(errEntry.errorMessage)).toContain('Path not found or ignored')
   })
@@ -177,14 +178,13 @@ describe('handleReadSubtree', () => {
       input: { paths: ['packages/backend'], maxTokens: 50000 },
     }
 
-    const { result } = handleReadSubtree({
+    const { output } = await handleReadSubtree({
       previousToolCallFinished: Promise.resolve(),
       toolCall,
       fileContext,
       logger,
     })
 
-    const output = await result
     expect(output[0].type).toBe('json')
     const value = output[0].value as any[]
     const dirEntry = value.find(
@@ -208,16 +208,17 @@ describe('handleReadSubtree', () => {
       toolCallId: 'tc-4a',
       input: { paths: ['src'], maxTokens: 50000 },
     }
-    const { result: largeResultPromise } = handleReadSubtree({
+    const { output: largeOutput } = await handleReadSubtree({
       previousToolCallFinished: Promise.resolve(),
       toolCall: largeToolCall,
       fileContext,
       logger,
     })
-    const largeOutput = await largeResultPromise
     expect(largeOutput[0].type).toBe('json')
     const largeValue = largeOutput[0].value as any[]
-    const largeDirEntry = largeValue.find((v) => v.type === 'directory' && v.path === 'src')
+    const largeDirEntry = largeValue.find(
+      (v) => v.type === 'directory' && v.path === 'src',
+    )
     expect(largeDirEntry).toBeTruthy()
 
     // Tiny budget
@@ -227,16 +228,17 @@ describe('handleReadSubtree', () => {
       toolCallId: 'tc-4b',
       input: { paths: ['src'], maxTokens: tinyBudget },
     }
-    const { result: smallResultPromise } = handleReadSubtree({
+    const { output: smallOutput } = await handleReadSubtree({
       previousToolCallFinished: Promise.resolve(),
       toolCall: smallToolCall,
       fileContext,
       logger,
     })
-    const smallOutput = await smallResultPromise
     expect(smallOutput[0].type).toBe('json')
     const smallValue = smallOutput[0].value as any[]
-    const smallDirEntry = smallValue.find((v) => v.type === 'directory' && v.path === 'src')
+    const smallDirEntry = smallValue.find(
+      (v) => v.type === 'directory' && v.path === 'src',
+    )
     expect(smallDirEntry).toBeTruthy()
 
     // Must honor the tiny budget
@@ -244,6 +246,8 @@ describe('handleReadSubtree', () => {
     expect(smallDirEntry.tokenCount).toBeLessThanOrEqual(tinyBudget)
 
     // Typically, token count under tiny budget should be <= baseline
-    expect(smallDirEntry.tokenCount).toBeLessThanOrEqual(largeDirEntry.tokenCount)
+    expect(smallDirEntry.tokenCount).toBeLessThanOrEqual(
+      largeDirEntry.tokenCount,
+    )
   })
 })

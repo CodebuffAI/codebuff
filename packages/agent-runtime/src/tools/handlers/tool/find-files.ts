@@ -27,7 +27,7 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 // TODO: We might want to be able to turn this on on a per-repo basis.
 const COLLECT_FULL_FILE_CONTEXT = false
 
-export const handleFindFiles = ((
+export const handleFindFiles = (async (
   params: {
     previousToolCallFinished: Promise<any>
     toolCall: CodebuffToolCall<'find_files'>
@@ -50,7 +50,7 @@ export const handleFindFiles = ((
       'messages' | 'system' | 'assistantPrompt'
     > &
     ParamsExcluding<typeof getFileReadingUpdates, 'requestedFiles'>,
-): { result: Promise<CodebuffToolOutput<'find_files'>>; state: {} } => {
+): Promise<{ output: CodebuffToolOutput<'find_files'> }> => {
   const {
     previousToolCallFinished,
     toolCall,
@@ -80,57 +80,53 @@ export const handleFindFiles = ((
     },
   })
 
-  const triggerFindFiles: () => Promise<
-    CodebuffToolOutput<'find_files'>
-  > = async () => {
-    const requestedFiles = await requestRelevantFiles({
+  await previousToolCallFinished
+
+  const requestedFiles = await requestRelevantFiles({
+    ...params,
+    messages: agentState.messageHistory,
+    system,
+    assistantPrompt: prompt,
+  })
+
+  if (requestedFiles && requestedFiles.length > 0) {
+    const addedFiles = await getFileReadingUpdates({
       ...params,
-      messages: agentState.messageHistory,
-      system,
-      assistantPrompt: prompt,
+      requestedFiles,
     })
 
-    if (requestedFiles && requestedFiles.length > 0) {
-      const addedFiles = await getFileReadingUpdates({
+    if (COLLECT_FULL_FILE_CONTEXT && addedFiles.length > 0) {
+      uploadExpandedFileContextForTraining({
         ...params,
-        requestedFiles,
-      })
-
-      if (COLLECT_FULL_FILE_CONTEXT && addedFiles.length > 0) {
-        uploadExpandedFileContextForTraining({
-          ...params,
-          messages: agentState.messageHistory,
-          system,
-          assistantPrompt: prompt,
-        }).catch((error) => {
-          logger.error(
-            { error },
-            'Error uploading expanded file context for training',
-          )
-        })
-      }
-
-      if (addedFiles.length > 0) {
-        return jsonToolResult(
-          renderReadFilesResult(addedFiles, fileContext.tokenCallers ?? {}),
+        messages: agentState.messageHistory,
+        system,
+        assistantPrompt: prompt,
+      }).catch((error) => {
+        logger.error(
+          { error },
+          'Error uploading expanded file context for training',
         )
-      }
-      return jsonToolResult({
-        message: `No new relevant files found for prompt: ${prompt}`,
-      })
-    } else {
-      return jsonToolResult({
-        message: `No relevant files found for prompt: ${prompt}`,
       })
     }
-  }
 
-  return {
-    result: (async () => {
-      await previousToolCallFinished
-      return await triggerFindFiles()
-    })(),
-    state: {},
+    if (addedFiles.length > 0) {
+      return {
+        output: jsonToolResult(
+          renderReadFilesResult(addedFiles, fileContext.tokenCallers ?? {}),
+        ),
+      }
+    }
+    return {
+      output: jsonToolResult({
+        message: `No new relevant files found for prompt: ${prompt}`,
+      }),
+    }
+  } else {
+    return {
+      output: jsonToolResult({
+        message: `No relevant files found for prompt: ${prompt}`,
+      }),
+    }
   }
 }) satisfies CodebuffToolHandlerFunction<'find_files'>
 

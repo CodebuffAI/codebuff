@@ -19,7 +19,7 @@ import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 type ToolName = 'spawn_agent_inline'
-export const handleSpawnAgentInline = ((
+export const handleSpawnAgentInline = (async (
   params: {
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<ToolName>
@@ -48,7 +48,7 @@ export const handleSpawnAgentInline = ((
     | 'clearUserPromptMessagesAfterResponse'
     | 'fingerprintId'
   >,
-): { result: Promise<CodebuffToolOutput<ToolName>>; state: {} } => {
+): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
   const {
     previousToolCallFinished,
     toolCall,
@@ -66,65 +66,56 @@ export const handleSpawnAgentInline = ((
     params: spawnParams,
   } = toolCall.input
 
-  const triggerSpawnAgentInline = async () => {
-    const { agentTemplate, agentType } = await validateAndGetAgentTemplate({
-      ...params,
-      agentTypeStr,
-      parentAgentTemplate,
-    })
+  await previousToolCallFinished
 
-    validateAgentInput(agentTemplate, agentType, prompt, spawnParams)
+  const { agentTemplate, agentType } = await validateAndGetAgentTemplate({
+    ...params,
+    agentTypeStr,
+    parentAgentTemplate,
+  })
 
-    // Create child agent state that shares message history with parent
-    const childAgentState: AgentState = createAgentState(
-      agentType,
-      agentTemplate,
-      parentAgentState,
-      parentAgentState.agentContext,
-    )
+  validateAgentInput(agentTemplate, agentType, prompt, spawnParams)
 
-    logAgentSpawn({
-      ...params,
-      agentTemplate,
-      agentType,
-      agentId: childAgentState.agentId,
-      parentId: childAgentState.parentId,
-      prompt,
-      spawnParams,
-      inline: true,
-    })
+  // Create child agent state that shares message history with parent
+  const childAgentState: AgentState = createAgentState(
+    agentType,
+    agentTemplate,
+    parentAgentState,
+    parentAgentState.agentContext,
+  )
 
-    const result = await executeSubagent({
-      ...params,
-      userInputId: `${userInputId}-inline-${agentType}${childAgentState.agentId}`,
-      prompt: prompt || '',
-      spawnParams,
-      agentTemplate,
-      parentAgentState,
-      agentState: childAgentState,
-      fingerprintId,
-      parentSystemPrompt: system,
-      onResponseChunk: (chunk) => {
-        // Inherits parent's onResponseChunk, except for context-pruner (TODO: add an option for it to be silent?)
-        if (agentType !== 'context-pruner') {
-          writeToClient(chunk)
-        }
-      },
-      clearUserPromptMessagesAfterResponse: false,
-    })
+  logAgentSpawn({
+    ...params,
+    agentTemplate,
+    agentType,
+    agentId: childAgentState.agentId,
+    parentId: childAgentState.parentId,
+    prompt,
+    spawnParams,
+    inline: true,
+  })
 
-    // Update parent agent state to reflect shared message history
-    parentAgentState.messageHistory = result.agentState.messageHistory
+  const result = await executeSubagent({
+    ...params,
+    userInputId: `${userInputId}-inline-${agentType}${childAgentState.agentId}`,
+    prompt: prompt || '',
+    spawnParams,
+    agentTemplate,
+    parentAgentState,
+    agentState: childAgentState,
+    fingerprintId,
+    parentSystemPrompt: system,
+    onResponseChunk: (chunk) => {
+      // Inherits parent's onResponseChunk, except for context-pruner (TODO: add an option for it to be silent?)
+      if (agentType !== 'context-pruner') {
+        writeToClient(chunk)
+      }
+    },
+    clearUserPromptMessagesAfterResponse: false,
+  })
 
-    return undefined
-  }
+  // Update parent agent state to reflect shared message history
+  parentAgentState.messageHistory = result.agentState.messageHistory
 
-  return {
-    result: (async () => {
-      await previousToolCallFinished
-      await triggerSpawnAgentInline()
-      return []
-    })(),
-    state: {},
-  }
+  return { output: [] }
 }) satisfies CodebuffToolHandlerFunction<ToolName>

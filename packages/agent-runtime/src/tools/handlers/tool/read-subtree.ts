@@ -1,5 +1,7 @@
-import { truncateFileTreeBasedOnTokenBudget } from '../../../system-prompt/truncate-file-tree'
 import { getAllFilePaths } from '@codebuff/common/project-file-tree'
+import { jsonToolResult } from '@codebuff/common/util/messages'
+
+import { truncateFileTreeBasedOnTokenBudget } from '../../../system-prompt/truncate-file-tree'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
@@ -13,16 +15,14 @@ import type {
 } from '@codebuff/common/util/file'
 
 type ToolName = 'read_subtree'
-
-export const handleReadSubtree = ((params: {
+export const handleReadSubtree = (async (params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<ToolName>
   fileContext: ProjectFileContext
   logger: Logger
-}): {
-  result: Promise<CodebuffToolOutput<ToolName>>
-  state: {}
-} => {
+}): Promise<{
+  output: CodebuffToolOutput<ToolName>
+}> => {
   const { previousToolCallFinished, toolCall, fileContext, logger } = params
   const { paths, maxTokens } = toolCall.input
   const tokenBudget = maxTokens
@@ -96,61 +96,47 @@ export const handleReadSubtree = ((params: {
     }
   }
 
-  return {
-    result: (async () => {
-      await previousToolCallFinished
+  await previousToolCallFinished
 
-      // Build outputs inline so the return type is a tuple matching CodebuffToolOutput
-      const requested = paths && paths.length > 0 ? paths : ['.']
-      const outputs: Array<
-        | {
-            path: string
-            type: 'directory'
-            printedTree: string
-            tokenCount: number
-            truncationLevel:
-              | 'none'
-              | 'unimportant-files'
-              | 'tokens'
-              | 'depth-based'
-          }
-        | { path: string; type: 'file'; variables: string[] }
-        | { path: string; errorMessage: string }
-      > = []
-
-      for (const p of requested) {
-        if (p === '.' || p === '/' || p === '') {
-          outputs.push(buildDirectoryResult(fileContext.fileTree, p))
-          continue
-        }
-        if (allFiles.has(p)) {
-          outputs.push(buildFileResult(p))
-          continue
-        }
-        const node = findNodeByFilePath(fileContext.fileTree, p)
-        if (node && node.type === 'directory') {
-          outputs.push(buildDirectoryResult([node], p))
-          continue
-        }
-        if (node && node.type === 'file') {
-          outputs.push(buildFileResult(p))
-          continue
-        }
-        outputs.push({
-          path: p,
-          errorMessage: `Path not found or ignored: ${p}`,
-        })
+  // Build outputs inline so the return type is a tuple matching CodebuffToolOutput
+  const requested = paths && paths.length > 0 ? paths : ['.']
+  const outputs: Array<
+    | {
+        path: string
+        type: 'directory'
+        printedTree: string
+        tokenCount: number
+        truncationLevel: 'none' | 'unimportant-files' | 'tokens' | 'depth-based'
       }
+    | { path: string; type: 'file'; variables: string[] }
+    | { path: string; errorMessage: string }
+  > = []
 
-      return [
-        {
-          type: 'json' as const,
-          value: outputs,
-        },
-      ] as CodebuffToolOutput<ToolName>
-    })(),
-    state: {},
+  for (const p of requested) {
+    if (p === '.' || p === '/' || p === '') {
+      outputs.push(buildDirectoryResult(fileContext.fileTree, p))
+      continue
+    }
+    if (allFiles.has(p)) {
+      outputs.push(buildFileResult(p))
+      continue
+    }
+    const node = findNodeByFilePath(fileContext.fileTree, p)
+    if (node && node.type === 'directory') {
+      outputs.push(buildDirectoryResult([node], p))
+      continue
+    }
+    if (node && node.type === 'file') {
+      outputs.push(buildFileResult(p))
+      continue
+    }
+    outputs.push({
+      path: p,
+      errorMessage: `Path not found or ignored: ${p}`,
+    })
   }
+
+  return { output: jsonToolResult(outputs) }
 }) satisfies CodebuffToolHandlerFunction<ToolName>
 
 function deepClone<T>(obj: T): T {
