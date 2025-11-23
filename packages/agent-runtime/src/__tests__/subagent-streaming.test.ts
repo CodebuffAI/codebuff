@@ -21,10 +21,7 @@ import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 import type { AgentTemplate } from '../templates/types'
 import type { SendSubagentChunk } from '../tools/handlers/tool/spawn-agents'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
-import type {
-  ParamsExcluding,
-  ParamsOf,
-} from '@codebuff/common/types/function-params'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { Mock } from 'bun:test'
 
 describe('Subagent Streaming', () => {
@@ -36,15 +33,7 @@ describe('Subagent Streaming', () => {
   >
   let handleSpawnAgentsBaseParams: ParamsExcluding<
     typeof handleSpawnAgents,
-    | 'agentState'
-    | 'agentTemplate'
-    | 'localAgentTemplates'
-    | 'state'
-    | 'toolCall'
-  >
-  let baseState: Omit<
-    ParamsOf<typeof handleSpawnAgents>['state'],
-    'agentTemplate' | 'localAgentTemplates' | 'agentState'
+    'agentState' | 'agentTemplate' | 'localAgentTemplates' | 'toolCall'
   >
 
   beforeEach(() => {
@@ -75,7 +64,6 @@ describe('Subagent Streaming', () => {
       clientSessionId: 'test-session',
       fileContext: mockFileContext,
       fingerprintId: 'test-fingerprint',
-      getLatestState: () => ({ messages: [] }),
       previousToolCallFinished: Promise.resolve(),
       repoId: undefined,
       repoUrl: undefined,
@@ -85,10 +73,6 @@ describe('Subagent Streaming', () => {
       userId: TEST_USER_ID,
       userInputId: 'test-input',
       writeToClient: mockWriteToClient,
-    }
-
-    baseState = {
-      messages: [],
     }
   })
 
@@ -170,9 +154,6 @@ describe('Subagent Streaming', () => {
         [mockAgentTemplate.id]: mockAgentTemplate,
       },
       toolCall,
-      state: {
-        ...baseState,
-      },
     })
 
     await result
@@ -224,9 +205,6 @@ describe('Subagent Streaming', () => {
         [mockAgentTemplate.id]: mockAgentTemplate,
       },
       toolCall,
-      state: {
-        ...baseState,
-      },
     })
     await result
 

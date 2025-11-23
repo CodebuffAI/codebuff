@@ -12,6 +12,7 @@ import type { RequestOptionalFileFn } from '@codebuff/common/types/contracts/cli
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import { AgentState } from '@codebuff/common/types/session-state'
 
 type FileProcessingTools = 'write_file' | 'str_replace' | 'create_plan'
 export type FileProcessing<
@@ -63,6 +64,7 @@ export function handleWriteFile(
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<'write_file'>
 
+    agentState: AgentState
     clientSessionId: string
     fingerprintId: string
     logger: Logger
@@ -77,9 +79,7 @@ export function handleWriteFile(
     writeToClient: (chunk: string) => void
 
     getLatestState: () => FileProcessingState
-    state: {
-      messages: Message[]
-    } & FileProcessingState
+    state: FileProcessingState
   } & ParamsExcluding<
     typeof processFileBlock,
     | 'path'
@@ -99,6 +99,7 @@ export function handleWriteFile(
     previousToolCallFinished,
     toolCall,
 
+    agentState,
     clientSessionId,
     fingerprintId,
     logger,
@@ -117,10 +118,6 @@ export function handleWriteFile(
   const fileProcessingState = getFileProcessingValues(state)
   const fileProcessingPromisesByPath = fileProcessingState.promisesByPath
   const fileProcessingPromises = fileProcessingState.allPromises ?? []
-  const agentMessagesUntruncated = state.messages
-  if (!agentMessagesUntruncated) {
-    throw new Error('Internal error for write_file: Missing messages in state')
-  }
 
   // Initialize state for this file path if needed
   if (!fileProcessingPromisesByPath[path]) {
@@ -149,7 +146,7 @@ export function handleWriteFile(
     instructions,
     initialContentPromise: latestContentPromise,
     newContent: fileContentWithoutStartNewline,
-    messages: agentMessagesUntruncated,
+    messages: agentState.messageHistory,
     lastUserPrompt: prompt,
     clientSessionId,
     fingerprintId,

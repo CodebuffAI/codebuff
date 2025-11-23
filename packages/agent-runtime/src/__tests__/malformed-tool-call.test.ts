@@ -139,15 +139,16 @@ describe('malformed tool call error handling', () => {
 
     const stream = createMockStream(chunks)
 
-    const result = await processStreamWithTools({
+    await processStreamWithTools({
       ...defaultParams,
       stream,
     })
 
     // Should have tool result errors in the final message history
-    const toolMessages: ToolMessage[] = result.state.messages.filter(
-      (m: Message) => m.role === 'tool',
-    )
+    const toolMessages: ToolMessage[] =
+      defaultParams.agentState.messageHistory.filter(
+        (m: Message) => m.role === 'tool',
+      )
 
     expect(toolMessages.length).toBeGreaterThan(0)
 
@@ -176,13 +177,13 @@ describe('malformed tool call error handling', () => {
 
     const stream = createMockStream(chunks)
 
-    const result = await processStreamWithTools({
+    await processStreamWithTools({
       ...defaultParams,
       stream,
     })
 
     // Should have multiple error tool results
-    const toolMessages = result.state.messages.filter(
+    const toolMessages = defaultParams.agentState.messageHistory.filter(
       (m: Message) => m.role === 'tool',
     ) as ToolMessage[]
 
@@ -219,7 +220,7 @@ describe('malformed tool call error handling', () => {
 
     expect(errorToolResult).toBeDefined()
 
-    const toolMessages = result.state.messages.filter(
+    const toolMessages = defaultParams.agentState.messageHistory.filter(
       (m: Message) => m.role === 'tool',
     ) as ToolMessage[]
 
@@ -234,12 +235,12 @@ describe('malformed tool call error handling', () => {
 
     const stream = createMockStream(chunks)
 
-    const result = await processStreamWithTools({
+    await processStreamWithTools({
       ...defaultParams,
       stream,
     })
 
-    const toolMessages = result.state.messages.filter(
+    const toolMessages = defaultParams.agentState.messageHistory.filter(
       (m: Message) => m.role === 'tool',
     ) as ToolMessage[]
 
@@ -277,7 +278,7 @@ describe('malformed tool call error handling', () => {
       stream,
     })
 
-    const toolMessages = result.state.messages.filter(
+    const toolMessages = defaultParams.agentState.messageHistory.filter(
       (m: Message) => m.role === 'tool',
     ) as ToolMessage[]
 
@@ -306,12 +307,12 @@ describe('malformed tool call error handling', () => {
 
     const stream = createMockStream(chunks)
 
-    const result = await processStreamWithTools({
+    await processStreamWithTools({
       ...defaultParams,
       stream,
     })
 
-    const toolMessages = result.state.messages.filter(
+    const toolMessages = defaultParams.agentState.messageHistory.filter(
       (m: Message) => m.role === 'tool',
     ) as ToolMessage[]
 

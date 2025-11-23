@@ -20,25 +20,14 @@ import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type {
-  ParamsExcluding,
-  ParamsOf,
-} from '@codebuff/common/types/function-params'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 
 describe('Spawn Agents Permissions', () => {
   let mockSendSubagentChunk: any
   let mockLoopAgentSteps: any
   let handleSpawnAgentsBaseParams: ParamsExcluding<
     typeof handleSpawnAgents,
-    | 'agentState'
-    | 'agentTemplate'
-    | 'localAgentTemplates'
-    | 'state'
-    | 'toolCall'
-  >
-  let baseState: Omit<
-    ParamsOf<typeof handleSpawnAgents>['state'],
-    'agentTemplate' | 'localAgentTemplates' | 'agentState'
+    'agentState' | 'agentTemplate' | 'localAgentTemplates' | 'toolCall'
   >
 
   const createMockAgent = (
@@ -72,7 +61,6 @@ describe('Spawn Agents Permissions', () => {
       clientSessionId: 'test-session',
       fileContext: mockFileContext,
       fingerprintId: 'test-fingerprint',
-      getLatestState: () => ({ messages: [] }),
       previousToolCallFinished: Promise.resolve(),
       repoId: undefined,
       repoUrl: undefined,
@@ -82,10 +70,6 @@ describe('Spawn Agents Permissions', () => {
       userId: TEST_USER_ID,
       userInputId: 'test-input',
       writeToClient: () => {},
-    }
-
-    baseState = {
-      messages: [],
     }
 
     // Mock sendSubagentChunk
@@ -275,9 +259,6 @@ describe('Spawn Agents Permissions', () => {
         agentTemplate: parentAgent,
         localAgentTemplates: { thinker: childAgent },
         toolCall,
-        state: {
-          ...baseState,
-        },
       })
 
       const output = await result
@@ -297,9 +278,6 @@ describe('Spawn Agents Permissions', () => {
         agentTemplate: parentAgent,
         localAgentTemplates: { reviewer: childAgent },
         toolCall,
-        state: {
-          ...baseState,
-        },
       })
 
       const output = await result
@@ -321,9 +299,6 @@ describe('Spawn Agents Permissions', () => {
         agentTemplate: parentAgent,
         localAgentTemplates: {}, // Empty - agent not found
         toolCall,
-        state: {
-          ...baseState,
-        },
       })
 
       const output = await result
@@ -347,9 +322,6 @@ describe('Spawn Agents Permissions', () => {
         agentTemplate: parentAgent,
         localAgentTemplates: { 'codebuff/thinker@1.0.0': childAgent },
         toolCall,
-        state: {
-          ...baseState,
-        },
       })
 
       const output = await result
@@ -372,9 +344,6 @@ describe('Spawn Agents Permissions', () => {
           'codebuff/thinker@1.0.0': childAgent, // Register with both keys
         },
         toolCall,
-        state: {
-          ...baseState,
-        },
       })
 
       const output = await result
@@ -394,9 +363,6 @@ describe('Spawn Agents Permissions', () => {
         agentTemplate: parentAgent,
         localAgentTemplates: { 'codebuff/thinker@2.0.0': childAgent },
         toolCall,
-        state: {
-          ...baseState,
-        },
       })
 
       const output = await result
@@ -433,9 +399,6 @@ describe('Spawn Agents Permissions', () => {
           reviewer: reviewerAgent,
         },
         toolCall,
-        state: {
-          ...baseState,
-        },
       })
 
       const output = await result
@@ -473,9 +436,6 @@ describe('Spawn Agents Permissions', () => {
         agentTemplate: parentAgent,
         localAgentTemplates: { thinker: childAgent },
         toolCall,
-        state: {
-          ...baseState,
-        },
       })
 
       await result // Should not throw
@@ -494,9 +454,6 @@ describe('Spawn Agents Permissions', () => {
         agentTemplate: parentAgent,
         localAgentTemplates: { reviewer: childAgent },
         toolCall,
-        state: {
-          ...baseState,
-        },
       })
 
       await expect(result).rejects.toThrow(
@@ -516,9 +473,6 @@ describe('Spawn Agents Permissions', () => {
         agentTemplate: parentAgent,
         localAgentTemplates: {}, // Empty - agent not found
         toolCall,
-        state: {
-          ...baseState,
-        },
       })
 
       await expect(result).rejects.toThrow('Agent type nonexistent not found')
@@ -537,9 +491,6 @@ describe('Spawn Agents Permissions', () => {
         agentTemplate: parentAgent,
         localAgentTemplates: { 'codebuff/thinker@1.0.0': childAgent },
         toolCall,
-        state: {
-          ...baseState,
-        },
       })
 
       await result // Should not throw
@@ -561,9 +512,6 @@ describe('Spawn Agents Permissions', () => {
           'codebuff/thinker@1.0.0': childAgent, // Register with both keys
         },
         toolCall,
-        state: {
-          ...baseState,
-        },
       })
 
       await result // Should not throw
@@ -582,9 +530,6 @@ describe('Spawn Agents Permissions', () => {
         agentTemplate: parentAgent,
         localAgentTemplates: { 'codebuff/thinker@2.0.0': childAgent },
         toolCall,
-        state: {
-          ...baseState,
-        },
       })
 
       await expect(result).rejects.toThrow(

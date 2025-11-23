@@ -22,11 +22,7 @@ import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type {
-  ParamsExcluding,
-  ParamsOf,
-} from '@codebuff/common/types/function-params'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 
 describe('Spawn Agents Message History', () => {
   let mockSendSubagentChunk: any
@@ -35,16 +31,7 @@ describe('Spawn Agents Message History', () => {
 
   let handleSpawnAgentsBaseParams: ParamsExcluding<
     typeof handleSpawnAgents,
-    | 'agentState'
-    | 'agentTemplate'
-    | 'getLatestState'
-    | 'localAgentTemplates'
-    | 'state'
-    | 'toolCall'
-  >
-  let baseState: Omit<
-    ParamsOf<typeof handleSpawnAgents>['state'],
-    'agentTemplate' | 'localAgentTemplates' | 'agentState' | 'messages'
+    'agentState' | 'agentTemplate' | 'localAgentTemplates' | 'toolCall'
   >
 
   beforeEach(() => {
@@ -134,7 +121,7 @@ describe('Spawn Agents Message History', () => {
     const toolCall = createSpawnToolCall('child-agent')
 
     // Create mock messages including system message
-    const mockMessages: Message[] = [
+    sessionState.mainAgentState.messageHistory = [
       systemMessage('This is the parent system prompt that should be excluded'),
       userMessage('Hello'),
       assistantMessage('Hi there!'),
@@ -147,10 +134,6 @@ describe('Spawn Agents Message History', () => {
       agentTemplate: parentAgent,
       localAgentTemplates: { 'child-agent': childAgent },
       toolCall,
-      getLatestState: () => ({ messages: mockMessages }),
-      state: {
-        messages: mockMessages,
-      },
     })
 
     await result
@@ -199,7 +182,7 @@ describe('Spawn Agents Message History', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const toolCall = createSpawnToolCall('child-agent')
 
-    const mockMessages: Message[] = [
+    sessionState.mainAgentState.messageHistory = [
       systemMessage('System prompt'),
       userMessage('Hello'),
       assistantMessage('Hi there!'),
@@ -211,10 +194,6 @@ describe('Spawn Agents Message History', () => {
       agentTemplate: parentAgent,
       localAgentTemplates: { 'child-agent': childAgent },
       toolCall,
-      getLatestState: () => ({ messages: mockMessages }),
-      state: {
-        messages: mockMessages,
-      },
     })
 
     await result
@@ -229,7 +208,7 @@ describe('Spawn Agents Message History', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const toolCall = createSpawnToolCall('child-agent')
 
-    const mockMessages: Message[] = [] // Empty message history
+    sessionState.mainAgentState.messageHistory = [] // Empty message history
 
     const { result } = handleSpawnAgents({
       ...handleSpawnAgentsBaseParams,
@@ -237,10 +216,6 @@ describe('Spawn Agents Message History', () => {
       agentTemplate: parentAgent,
       localAgentTemplates: { 'child-agent': childAgent },
       toolCall,
-      getLatestState: () => ({ messages: mockMessages }),
-      state: {
-        messages: mockMessages,
-      },
     })
 
     await result
@@ -255,7 +230,7 @@ describe('Spawn Agents Message History', () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const toolCall = createSpawnToolCall('child-agent')
 
-    const mockMessages: Message[] = [
+    sessionState.mainAgentState.messageHistory = [
       systemMessage('System prompt 1'),
       systemMessage('System prompt 2'),
     ]
@@ -266,10 +241,6 @@ describe('Spawn Agents Message History', () => {
       agentTemplate: parentAgent,
       localAgentTemplates: { 'child-agent': childAgent },
       toolCall,
-      getLatestState: () => ({ messages: mockMessages }),
-      state: {
-        messages: mockMessages,
-      },
     })
 
     await result

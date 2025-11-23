@@ -68,6 +68,7 @@ export async function processStreamWithTools(
     >,
 ) {
   const {
+    agentState,
     agentTemplate,
     ancestorRunIds,
     fileContext,
@@ -80,8 +81,6 @@ export async function processStreamWithTools(
   } = params
   const fullResponseChunks: string[] = [fullResponse]
 
-  const messages = [...params.messages]
-
   const toolResults: ToolMessage[] = []
   const toolResultsToAddAfterStream: ToolMessage[] = []
   const toolCalls: (CodebuffToolCall | CustomToolCall)[] = []
@@ -90,7 +89,6 @@ export async function processStreamWithTools(
   let previousToolCallFinished = streamDonePromise
 
   const state: State = {
-    messages,
     promisesByPath: {},
     allPromises: [],
     fileChangeErrors: [],
@@ -205,8 +203,8 @@ export async function processStreamWithTools(
     }
   }
 
-  state.messages = buildArray<Message>([
-    ...expireMessages(state.messages, 'agentStep'),
+  agentState.messageHistory = buildArray<Message>([
+    ...expireMessages(agentState.messageHistory, 'agentStep'),
     fullResponseChunks.length > 0 &&
       assistantMessage(fullResponseChunks.join('')),
     ...toolResultsToAddAfterStream,

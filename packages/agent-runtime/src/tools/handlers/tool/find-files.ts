@@ -1,3 +1,5 @@
+import { jsonToolResult } from '@codebuff/common/util/messages'
+
 import {
   requestRelevantFiles,
   requestRelevantFilesForTraining,
@@ -18,7 +20,7 @@ import type {
   ParamsExcluding,
   ParamsOf,
 } from '@codebuff/common/types/function-params'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 // Turn this on to collect full file context, using Claude-4-Opus to pick which files to send up
@@ -31,6 +33,7 @@ export const handleFindFiles = ((
     toolCall: CodebuffToolCall<'find_files'>
     logger: Logger
 
+    agentState: AgentState
     agentStepId: string
     clientSessionId: string
     fileContext: ProjectFileContext
@@ -38,10 +41,6 @@ export const handleFindFiles = ((
     repoId: string | undefined
     userId: string | undefined
     userInputId: string
-
-    state: {
-      messages: Message[]
-    }
   } & ParamsExcluding<
     typeof requestRelevantFiles,
     'messages' | 'system' | 'assistantPrompt'
@@ -56,23 +55,18 @@ export const handleFindFiles = ((
     previousToolCallFinished,
     toolCall,
 
+    agentState,
     agentStepId,
     clientSessionId,
     fileContext,
     fingerprintId,
     logger,
-    state,
     userId,
     userInputId,
   } = params
   const { prompt } = toolCall.input
-  const { messages } = state
 
-  if (!messages) {
-    throw new Error('Internal error for find_files: Missing messages in state')
-  }
-
-  const fileRequestMessagesTokens = countTokensJson(messages)
+  const fileRequestMessagesTokens = countTokensJson(agentState.messageHistory)
   const system = getSearchSystemPrompt({
     fileContext,
     messagesTokens: fileRequestMessagesTokens,
@@ -91,7 +85,7 @@ export const handleFindFiles = ((
   > = async () => {
     const requestedFiles = await requestRelevantFiles({
       ...params,
-      messages,
+      messages: agentState.messageHistory,
       system,
       assistantPrompt: prompt,
     })
@@ -105,7 +99,7 @@ export const handleFindFiles = ((
       if (COLLECT_FULL_FILE_CONTEXT && addedFiles.length > 0) {
         uploadExpandedFileContextForTraining({
           ...params,
-          messages,
+          messages: agentState.messageHistory,
           system,
           assistantPrompt: prompt,
         }).catch((error) => {
@@ -117,33 +111,17 @@ export const handleFindFiles = ((
       }
 
       if (addedFiles.length > 0) {
-        return [
-          {
-            type: 'json',
-            value: renderReadFilesResult(
-              addedFiles,
-              fileContext.tokenCallers ?? {},
-            ),
-          },
-        ]
+        return jsonToolResult(
+          renderReadFilesResult(addedFiles, fileContext.tokenCallers ?? {}),
+        )
       }
-      return [
-        {
-          type: 'json',
-          value: {
-            message: `No new relevant files found for prompt: ${prompt}`,
-          },
-        },
-      ]
+      return jsonToolResult({
+        message: `No new relevant files found for prompt: ${prompt}`,
+      })
     } else {
-      return [
-        {
-          type: 'json',
-          value: {
-            message: `No relevant files found for prompt: ${prompt}`,
-          },
-        },
-      ]
+      return jsonToolResult({
+        message: `No relevant files found for prompt: ${prompt}`,
+      })
     }
   }
 

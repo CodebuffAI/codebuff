@@ -26,33 +26,11 @@ export interface SpawnAgentParams {
   params?: any
 }
 
-export interface BaseSpawnState {
-  messages: Message[]
-}
-
 export interface SpawnContext {
   fileContext: ProjectFileContext
   clientSessionId: string
   userInputId: string
   getLatestState: () => { messages: Message[] }
-}
-
-/**
- * Validates that all required state is present for spawning agents
- */
-export function validateSpawnState(
-  state: BaseSpawnState,
-  toolName: string,
-): Required<BaseSpawnState> {
-  const { messages} = state
-
-  if (!messages) {
-    throw new Error(`Internal error for ${toolName}: Missing messages in state`)
-  }
-
-  return {
-    messages,
-  }
 }
 
 /**
@@ -194,13 +172,12 @@ export function createAgentState(
   agentType: string,
   agentTemplate: AgentTemplate,
   parentAgentState: AgentState,
-  parentMessageHistory: Message[],
   agentContext: Record<string, Subgoal>,
 ): AgentState {
   const agentId = generateCompactId()
 
   const messageHistory = agentTemplate.includeMessageHistory
-    ? parentMessageHistory
+    ? parentAgentState.messageHistory
     : []
 
   return {

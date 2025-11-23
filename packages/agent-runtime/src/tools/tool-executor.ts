@@ -277,10 +277,6 @@ export function executeToolCall<T extends ToolName>(
       } else if (typeof pair.value === 'number') {
         onCostCalculated(pair.value)
       }
-    } else if (pair.value !== undefined) {
-      if (pair.key === 'messages') {
-        state.messages = pair.value
-      }
     }
   }
 
@@ -309,7 +305,7 @@ export function executeToolCall<T extends ToolName>(
     toolResults.push(toolResult)
 
     if (!excludeToolFromMessageHistory) {
-      state.messages.push(toolResult)
+      agentState.messageHistory.push(toolResult)
     }
 
     // After tool completes, resolve any pending creditsUsed promise
@@ -424,8 +420,6 @@ export async function executeCustomToolCall(
     toolResults,
     toolResultsToAddAfterStream,
     userInputId,
-
-    state,
   } = params
   const toolCall: CustomToolCall | ToolCallError = parseRawCustomToolCall({
     customToolDefs: await getMCPToolData({
@@ -541,7 +535,7 @@ export async function executeCustomToolCall(
       toolResults.push(toolResult)
 
       if (!excludeToolFromMessageHistory) {
-        state.messages.push(toolResult)
+        agentState.messageHistory.push(toolResult)
       }
       return
     })

@@ -14,7 +14,6 @@ import type {
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
@@ -36,11 +35,6 @@ export const handleSpawnAgentInline = ((
     userId: string | undefined
     userInputId: string
     writeToClient: (chunk: string | PrintModeEvent) => void
-
-    getLatestState: () => { messages: Message[] }
-    state: {
-      messages: Message[]
-    }
   } & ParamsExcluding<
     typeof executeSubagent,
     | 'userInputId'
@@ -65,9 +59,6 @@ export const handleSpawnAgentInline = ((
     system,
     userInputId,
     writeToClient,
-
-    getLatestState,
-    state,
   } = params
   const {
     agent_type: agentTypeStr,
@@ -89,7 +80,6 @@ export const handleSpawnAgentInline = ((
       agentType,
       agentTemplate,
       parentAgentState,
-      getLatestState().messages,
       parentAgentState.agentContext,
     )
 
@@ -123,16 +113,8 @@ export const handleSpawnAgentInline = ((
       clearUserPromptMessagesAfterResponse: false,
     })
 
-    // Update parent's message history with child's final state
-    // Since we share the same message array reference, this should already be updated
-    let finalMessages = result.agentState?.messageHistory || state.messages
-
-    state.messages = finalMessages
-
     // Update parent agent state to reflect shared message history
-    if (parentAgentState && result.agentState) {
-      parentAgentState.messageHistory = finalMessages
-    }
+    parentAgentState.messageHistory = result.agentState.messageHistory
 
     return undefined
   }

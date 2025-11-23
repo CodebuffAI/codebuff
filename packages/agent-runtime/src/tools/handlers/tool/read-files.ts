@@ -1,3 +1,5 @@
+import { jsonToolResult } from '@codebuff/common/util/messages'
+
 import { getFileReadingUpdates } from '../../../get-file-reading-updates'
 import { renderReadFilesResult } from '../../../util/render-read-files-result'
 
@@ -7,7 +9,6 @@ import type {
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 type ToolName = 'read_files'
@@ -17,12 +18,6 @@ export const handleReadFiles = ((
     toolCall: CodebuffToolCall<ToolName>
 
     fileContext: ProjectFileContext
-    fingerprintId: string
-    userInputId: string
-
-    state: {
-      messages: Message[]
-    }
   } & ParamsExcluding<typeof getFileReadingUpdates, 'requestedFiles'>,
 ): {
   result: Promise<CodebuffToolOutput<ToolName>>
@@ -33,26 +28,8 @@ export const handleReadFiles = ((
     toolCall,
 
     fileContext,
-    fingerprintId,
-    userInputId,
-
-    state,
   } = params
-  const { messages } = state
   const { paths } = toolCall.input
-  if (!messages) {
-    throw new Error('Internal error for read_files: Missing messages in state')
-  }
-  if (!fingerprintId) {
-    throw new Error(
-      'Internal error for read_files: Missing fingerprintId in state',
-    )
-  }
-  if (!userInputId) {
-    throw new Error(
-      'Internal error for read_files: Missing userInputId in state',
-    )
-  }
 
   const readFilesResultsPromise = (async () => {
     const addedFiles = await getFileReadingUpdates({
@@ -66,12 +43,7 @@ export const handleReadFiles = ((
   return {
     result: (async () => {
       await previousToolCallFinished
-      return [
-        {
-          type: 'json',
-          value: await readFilesResultsPromise,
-        },
-      ]
+      return jsonToolResult(await readFilesResultsPromise)
     })(),
     state: {},
   }

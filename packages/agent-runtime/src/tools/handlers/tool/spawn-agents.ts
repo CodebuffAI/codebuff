@@ -1,5 +1,4 @@
 import {
-  validateSpawnState,
   validateAndGetAgentTemplate,
   validateAgentInput,
   createAgentState,
@@ -15,7 +14,6 @@ import type {
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
 
@@ -38,17 +36,12 @@ export const handleSpawnAgents = ((
     agentTemplate: AgentTemplate
     fingerprintId: string
     localAgentTemplates: Record<string, AgentTemplate>
+    logger: Logger
     system: string
     userId: string | undefined
     userInputId: string
     sendSubagentChunk: SendSubagentChunk
     writeToClient: (chunk: string | PrintModeEvent) => void
-
-    getLatestState: () => { messages: Message[] }
-    state: {
-      messages: Message[]
-    }
-    logger: Logger
   } & ParamsExcluding<
     typeof validateAndGetAgentTemplate,
     'agentTypeStr' | 'parentAgentTemplate'
@@ -78,12 +71,8 @@ export const handleSpawnAgents = ((
     userInputId,
     sendSubagentChunk,
     writeToClient,
-
-    getLatestState,
-    state,
   } = params
   const { agents } = toolCall.input
-  const validatedState = validateSpawnState(state, 'spawn_agents')
   const { logger } = params
 
   const triggerSpawnAgents = async () => {
@@ -103,7 +92,6 @@ export const handleSpawnAgents = ((
             agentType,
             agentTemplate,
             parentAgentState,
-            getLatestState().messages,
             {},
           )
 

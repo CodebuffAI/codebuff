@@ -178,7 +178,6 @@ export async function runProgrammaticStep(
   const toolCalls: CodebuffToolCall[] = []
   const toolResults: ToolMessage[] = []
   const state: State = {
-    messages: cloneDeep(agentState.messageHistory),
     promisesByPath: {},
     allPromises: [],
     fileChangeErrors: [],
@@ -277,7 +276,7 @@ export async function runProgrammaticStep(
           toolCall.input,
         )
         onResponseChunk(toolCallString)
-        state.messages.push(assistantMessage(toolCallString))
+        agentState.messageHistory.push(assistantMessage(toolCallString))
         // Optional call handles both top-level and nested agents
         sendSubagentChunk({
           userInputId,
@@ -363,10 +362,6 @@ export async function runProgrammaticStep(
         state,
       })
 
-      // TODO: Remove messages from state and always use agentState.messageHistory.
-      // Sync state.messages back to agentState.messageHistory
-      agentState.messageHistory = state.messages
-
       // Get the latest tool result
       const latestToolResult = toolResults[toolResults.length - 1]
       toolResult = latestToolResult?.content
@@ -413,10 +408,7 @@ export async function runProgrammaticStep(
 
     onResponseChunk(errorMessage)
 
-    agentState.messageHistory = [
-      ...state.messages,
-      assistantMessage(errorMessage),
-    ]
+    agentState.messageHistory.push(assistantMessage(errorMessage))
     agentState.output = {
       ...agentState.output,
       error: errorMessage,

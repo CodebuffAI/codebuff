@@ -333,7 +333,7 @@ describe('runProgrammaticStep', () => {
             }
             options.toolResults.push(toolResult)
 
-            options.state.messages.push(toolResult)
+            options.agentState.messageHistory.push(toolResult)
           }
         },
       )
@@ -489,7 +489,7 @@ describe('runProgrammaticStep', () => {
         async (
           options: ParamsOf<typeof executeToolCall>,
         ): ReturnType<typeof executeToolCall> => {
-          const { toolName, input, toolResults, state, agentState } = options
+          const { toolName, input, toolResults, agentState } = options
 
           let result: string
           switch (toolName) {
@@ -551,7 +551,7 @@ describe('runProgrammaticStep', () => {
           }
           toolResults.push(toolResult)
 
-          state.messages.push(toolResult)
+          agentState.messageHistory.push(toolResult)
         },
       )
 
@@ -608,12 +608,11 @@ describe('runProgrammaticStep', () => {
         true,
       )
 
-      // Verify that executeToolCall was called with state.messages (not agentState.messageHistory)
-      // The real implementation adds tool results to state.messages
+      // Verify that executeToolCall was called with agentState.messageHistory
       expect(executeToolCallSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          state: expect.objectContaining({
-            messages: expect.any(Array),
+          agentState: expect.objectContaining({
+            messageHistory: expect.any(Array),
           }),
         }),
       )

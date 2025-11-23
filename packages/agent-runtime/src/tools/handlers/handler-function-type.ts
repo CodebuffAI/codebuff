@@ -15,7 +15,6 @@ import type {
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { SendSubagentChunkFn } from '@codebuff/common/types/contracts/client'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState, Subgoal } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
@@ -25,7 +24,6 @@ type PresentOrAbsent<K extends PropertyKey, V> =
   | { [P in K]: never }
 export type State = {
   creditsUsed?: number | Promise<number>
-  messages: Message[]
 } & FileProcessingState
 
 export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (

@@ -53,7 +53,7 @@ describe('Cost Aggregation System', () => {
   let mockLocalAgentTemplates: Record<string, any>
   let params: ParamsExcluding<
     typeof handleSpawnAgents,
-    'agentState' | 'toolCall' | 'state'
+    'agentState' | 'toolCall'
   >
 
   beforeEach(() => {
@@ -93,8 +93,6 @@ describe('Cost Aggregation System', () => {
       userId: 'test-user',
       userInputId: 'test-input',
       writeToClient: () => {},
-
-      getLatestState: () => ({ messages: [] }),
     }
 
     // Mock getAgentTemplate to return our mock template
@@ -151,15 +149,6 @@ describe('Cost Aggregation System', () => {
         directCreditsUsed: 50,
       }
 
-      const mockValidatedState = {
-        fingerprintId: 'test-fingerprint',
-        userId: 'test-user',
-        localAgentTemplates: mockLocalAgentTemplates,
-        messages: [],
-        sendSubagentChunk: () => {},
-        system: 'Test system prompt',
-      }
-
       // Mock executeAgent to return results with different credit costs
       const mockExecuteAgent = spyOn(spawnAgentUtils, 'executeSubagent')
         .mockResolvedValueOnce({
@@ -198,7 +187,6 @@ describe('Cost Aggregation System', () => {
         ...params,
         agentState: parentAgentState,
         toolCall: mockToolCall,
-        state: mockValidatedState,
       })
 
       await result.result
@@ -271,7 +259,6 @@ describe('Cost Aggregation System', () => {
         ...params,
         agentState: parentAgentState,
         toolCall: mockToolCall,
-        state: mockValidatedState,
       })
 
       await result.result
@@ -416,7 +403,6 @@ describe('Cost Aggregation System', () => {
         ...params,
         agentState: mainAgentState,
         toolCall: mockToolCall,
-        state: mockValidatedState,
       })
 
       await result.result
