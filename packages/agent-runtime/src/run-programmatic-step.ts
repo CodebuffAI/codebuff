@@ -185,7 +185,6 @@ export async function runProgrammaticStep(
     fileChanges: [],
     firstFileProcessed: false,
     logger,
-    prompt,
   }
   const sendSubagentChunk = (data: {
     userInputId: string

@@ -46,7 +46,6 @@ export async function processStreamWithTools(
     repoId: string | undefined
     runId: string
     signal: AbortSignal
-    prompt: string | undefined
     userId: string | undefined
 
     onCostCalculated: (credits: number) => Promise<void>
@@ -76,7 +75,6 @@ export async function processStreamWithTools(
     logger,
     onCostCalculated,
     onResponseChunk,
-    prompt,
     runId,
     signal,
     userId,
@@ -93,7 +91,6 @@ export async function processStreamWithTools(
   let previousToolCallFinished = streamDonePromise
 
   const state: State = {
-    prompt,
     agentContext,
     messages,
     logger,

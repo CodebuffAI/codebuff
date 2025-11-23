@@ -130,6 +130,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   fullResponse: string
   localAgentTemplates: Record<string, AgentTemplate>
   previousToolCallFinished: Promise<void>
+  prompt: string | undefined
   repoId: string | undefined
   repoUrl: string | undefined
   runId: string
