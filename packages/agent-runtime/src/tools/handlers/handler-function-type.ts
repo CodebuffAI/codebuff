@@ -25,7 +25,6 @@ type PresentOrAbsent<K extends PropertyKey, V> =
   | { [P in K]: never }
 export type State = {
   creditsUsed?: number | Promise<number>
-  agentContext: Record<string, Subgoal>
   messages: Message[]
 } & FileProcessingState
 
@@ -33,7 +32,8 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
   params: {
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<T>
-    
+
+    agentContext: Record<string, Subgoal>
     agentState: AgentState
     agentStepId: string
     agentTemplate: AgentTemplate

@@ -10,13 +10,13 @@ import type { Subgoal } from '@codebuff/common/types/session-state'
 export const handleAddSubgoal = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<'add_subgoal'>
-  state: { agentContext: Record<string, Subgoal> }
+
+  agentContext: Record<string, Subgoal>
 }): {
   result: Promise<CodebuffToolOutput<'add_subgoal'>>
-  state: { agentContext: Record<string, Subgoal> }
+  state: {}
 } => {
-  const { previousToolCallFinished, toolCall, state } = params
-  const agentContext = state.agentContext ?? {}
+  const { previousToolCallFinished, toolCall, agentContext } = params
 
   agentContext[toolCall.input.id] = {
     objective: toolCall.input.objective,
@@ -37,6 +37,6 @@ export const handleAddSubgoal = ((params: {
         },
       ]
     })(),
-    state: { agentContext },
+    state: {},
   }
 }) satisfies CodebuffToolHandlerFunction<'add_subgoal'>

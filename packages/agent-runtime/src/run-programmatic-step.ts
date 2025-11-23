@@ -63,16 +63,17 @@ export async function runProgrammaticStep(
     typeof executeToolCall,
     | 'toolName'
     | 'input'
-    | 'toolCalls'
-    | 'toolResults'
-    | 'toolResultsToAddAfterStream'
-    | 'previousToolCallFinished'
+    | 'autoInsertEndStepParam'
+    | 'excludeToolFromMessageHistory'
+    | 'agentContext'
     | 'agentStepId'
     | 'agentTemplate'
     | 'fullResponse'
-    | 'autoInsertEndStepParam'
+    | 'previousToolCallFinished'
+    | 'toolCalls'
+    | 'toolResults'
+    | 'toolResultsToAddAfterStream'
     | 'state'
-    | 'excludeToolFromMessageHistory'
   > &
     ParamsExcluding<
       AddAgentStepFn,
@@ -177,7 +178,6 @@ export async function runProgrammaticStep(
   const toolCalls: CodebuffToolCall[] = []
   const toolResults: ToolMessage[] = []
   const state: State = {
-    agentContext: cloneDeep(agentState.agentContext),
     messages: cloneDeep(agentState.messageHistory),
     promisesByPath: {},
     allPromises: [],
@@ -185,6 +185,7 @@ export async function runProgrammaticStep(
     fileChanges: [],
     firstFileProcessed: false,
   }
+  const agentContext = cloneDeep(agentState.agentContext)
   const sendSubagentChunk = (data: {
     userInputId: string
     agentId: string
@@ -297,6 +298,7 @@ export async function runProgrammaticStep(
         excludeToolFromMessageHistory,
         fromHandleSteps: true,
 
+        agentContext,
         agentStepId,
         agentTemplate: template,
         fullResponse: '',

@@ -9,13 +9,12 @@ type ToolName = 'update_subgoal'
 export const handleUpdateSubgoal = ((params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<ToolName>
-  state: { agentContext: Record<string, Subgoal> }
+  agentContext: Record<string, Subgoal>
 }): {
   result: Promise<CodebuffToolOutput<ToolName>>
-  state: { agentContext: Record<string, Subgoal> }
+  state: {}
 } => {
-  const { previousToolCallFinished, toolCall, state } = params
-  const agentContext = state.agentContext ?? {}
+  const { previousToolCallFinished, toolCall, agentContext } = params
 
   let messages: string[] = []
   if (!agentContext[toolCall.input.id]) {
@@ -51,6 +50,6 @@ export const handleUpdateSubgoal = ((params: {
         },
       ]
     })(),
-    state: { agentContext },
+    state: {},
   }
 }) satisfies CodebuffToolHandlerFunction<ToolName>

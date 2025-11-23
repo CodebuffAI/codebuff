@@ -68,7 +68,6 @@ export async function processStreamWithTools(
     >,
 ) {
   const {
-    agentContext,
     agentTemplate,
     ancestorRunIds,
     fileContext,
@@ -91,7 +90,6 @@ export async function processStreamWithTools(
   let previousToolCallFinished = streamDonePromise
 
   const state: State = {
-    agentContext,
     messages,
     promisesByPath: {},
     allPromises: [],

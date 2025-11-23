@@ -27,16 +27,16 @@ import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+import type { AgentState, Subgoal } from '@codebuff/common/types/session-state'
 import type {
   customToolDefinitionsSchema,
   ProjectFileContext,
 } from '@codebuff/common/util/file'
 import type { ToolCallPart } from 'ai'
-import { AgentState } from '@codebuff/common/types/session-state'
-import { Logger } from '@codebuff/common/types/contracts/logger'
 
 export type CustomToolCall = {
   toolName: string
@@ -120,6 +120,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   autoInsertEndStepParam?: boolean
   excludeToolFromMessageHistory?: boolean
 
+  agentContext: Record<string, Subgoal>
   agentState: AgentState
   agentStepId: string
   ancestorRunIds: string[]
@@ -277,9 +278,7 @@ export function executeToolCall<T extends ToolName>(
         onCostCalculated(pair.value)
       }
     } else if (pair.value !== undefined) {
-      if (pair.key === 'agentContext') {
-        state.agentContext = pair.value
-      } else if (pair.key === 'messages') {
+      if (pair.key === 'messages') {
         state.messages = pair.value
       }
     }
@@ -425,7 +424,7 @@ export async function executeCustomToolCall(
     toolResults,
     toolResultsToAddAfterStream,
     userInputId,
-    
+
     state,
   } = params
   const toolCall: CustomToolCall | ToolCallError = parseRawCustomToolCall({

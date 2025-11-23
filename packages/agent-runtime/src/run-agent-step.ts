@@ -377,8 +377,6 @@ export const runAgentStep = async (
 
   insertTrace({ trace: agentResponseTrace, logger })
 
-  const newAgentContext = state.agentContext as AgentState['agentContext']
-
   let finalMessageHistoryWithToolResults: Message[] = expireMessages(
     state.messages,
     'agentStep',
@@ -431,7 +429,7 @@ export const runAgentStep = async (
     ...agentState,
     messageHistory: finalMessageHistoryWithToolResults,
     stepsRemaining: agentState.stepsRemaining - 1,
-    agentContext: newAgentContext,
+    agentContext,
   }
 
   logger.debug(
@@ -446,7 +444,7 @@ export const runAgentStep = async (
       finalMessageHistoryWithToolResults: agentState.messageHistory,
       toolCalls,
       toolResults,
-      agentContext: newAgentContext,
+      agentContext,
       fullResponseChunks,
       stepCreditsUsed,
     },
