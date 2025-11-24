@@ -75,6 +75,7 @@ export type AskUserContentBlock = {
   answers?: Array<{
     questionIndex: number
     selectedOption?: string
+    selectedOptions?: string[]
     otherText?: string
   }>
   skipped?: boolean

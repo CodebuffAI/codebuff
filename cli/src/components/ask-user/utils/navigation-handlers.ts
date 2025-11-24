@@ -190,10 +190,10 @@ export function getNextFocusOnNavigation(
 
 /**
  * Check if we should auto-advance after selection
- * Returns false for multi-select questions (Phase 2 feature)
+ * Returns false for multi-select questions (user must manually advance or submit)
  */
 export function shouldAutoAdvance(question: AskUserQuestion): boolean {
-  // In Phase 1, always auto-advance (single-select only)
-  // In Phase 2, check: !question.multiSelect
-  return true
+  // Don't auto-advance for multi-select (checkboxes)
+  // User needs to select multiple options, so they advance manually
+  return !question.multiSelect
 }

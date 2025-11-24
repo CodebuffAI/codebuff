@@ -19,11 +19,11 @@ import { isQuestionAnswered, areAllQuestionsAnswered, isFocusOnSkip, isFocusOnOp
 
 export interface MultipleChoiceFormProps {
   questions: AskUserQuestion[]
-  selectedAnswers: number[]
+  selectedAnswers: (number | number[])[]
   otherTexts: string[]
   onSelectAnswer: (questionIndex: number, optionIndex: number) => void
   onOtherTextChange: (questionIndex: number, text: string) => void
-  onSubmit: (finalAnswers?: number[], finalOtherTexts?: string[]) => void
+  onSubmit: (finalAnswers?: (number | number[])[], finalOtherTexts?: string[]) => void
   onSkip: () => void
   width: number
 }
@@ -152,7 +152,10 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
         {/* Options */}
         <box style={{ flexDirection: 'column', paddingLeft: 1, gap: 0 }}>
           {currentQuestion.options.map((opt, optIdx) => {
-            const isSelected = selectedAnswers[currentQuestionIndex] === optIdx
+            const currentAnswer = selectedAnswers[currentQuestionIndex]
+            const isSelected = Array.isArray(currentAnswer)
+              ? currentAnswer.includes(optIdx) // Multi-select: check if array includes this option
+              : currentAnswer === optIdx // Single-select: direct equality check
             const isFocused =
               isFocusOnOption(focus) &&
               focus.questionIndex === currentQuestionIndex &&
@@ -165,6 +168,7 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
                 optionIndex={optIdx}
                 isSelected={isSelected}
                 isFocused={isFocused}
+                isMultiSelect={currentQuestion.multiSelect}
                 onSelect={() => handleOptionSelect(currentQuestionIndex, optIdx)}
                 onMouseOver={() => focusActions.selectOption(currentQuestionIndex, optIdx)}
               />

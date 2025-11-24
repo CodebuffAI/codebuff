@@ -287,11 +287,14 @@ export const MultipleChoiceForm = ({
         <box style={{ flexDirection: 'column', paddingLeft: 1, gap: 0 }}>
           {currentQuestion.options.map((opt, optIdx) => {
             const isSelected = selectedAnswers[currentQuestionIndex] === optIdx
-            const isFocused = 
-              focusTarget.type === 'option' && 
-              focusTarget.questionIndex === currentQuestionIndex && 
+            const isFocused =
+              focusTarget.type === 'option' &&
+              focusTarget.questionIndex === currentQuestionIndex &&
               focusTarget.optionIndex === optIdx
-            
+
+            // Extract label (handles both string and object formats)
+            const label = typeof opt === 'string' ? opt : opt.label
+
             return (
               <Button
                 key={optIdx}
@@ -328,17 +331,17 @@ export const MultipleChoiceForm = ({
                   paddingBottom: 0,
                 }}
               >
-                <text style={{ 
+                <text style={{
                   fg: isSelected ? theme.primary : isFocused ? theme.foreground : theme.muted,
                   attributes: isFocused ? TextAttributes.BOLD : undefined,
                 }}>
                   {isSelected ? '●' : '○'}
                 </text>
-                <text style={{ 
+                <text style={{
                   fg: isSelected ? theme.primary : isFocused ? theme.foreground : theme.muted,
                   attributes: isFocused ? TextAttributes.BOLD : undefined,
                 }}>
-                  {opt}
+                  {label}
                 </text>
               </Button>
             )

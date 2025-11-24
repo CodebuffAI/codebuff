@@ -122,7 +122,7 @@ export const ChatInputBar = ({
     setInputValue(value)
   }
 
-  const handleFormSubmit = (finalAnswers?: number[], finalOtherTexts?: string[]) => {
+  const handleFormSubmit = (finalAnswers?: (number | number[])[], finalOtherTexts?: string[]) => {
     console.log('[ChatInputBar] handleFormSubmit called', { askUserState, finalAnswers, finalOtherTexts })
     if (!askUserState) return
 
@@ -138,11 +138,27 @@ export const ChatInputBar = ({
           questionIndex: idx,
           otherText,
         }
-      } else {
-        // User selected an option
+      }
+
+      const answer = answersToUse[idx]
+
+      // Helper to get option label (handles both string and object formats)
+      const getOptionLabel = (optionIndex: number) => {
+        const opt = q.options[optionIndex]
+        return typeof opt === 'string' ? opt : opt.label
+      }
+
+      if (Array.isArray(answer)) {
+        // Multi-select: map array of indices to array of option labels
         return {
           questionIndex: idx,
-          selectedOption: q.options[answersToUse[idx]],
+          selectedOptions: answer.map(getOptionLabel),
+        }
+      } else {
+        // Single-select: map index to option label
+        return {
+          questionIndex: idx,
+          selectedOption: getOptionLabel(answer),
         }
       }
     })

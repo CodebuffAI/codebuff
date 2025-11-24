@@ -37,10 +37,25 @@ export const AskUserBranch = ({ block, availableWidth }: AskUserBranchProps) => 
           </text>
           {block.questions.map((q, idx) => {
             const answer = block.answers?.find((a) => a.questionIndex === idx)
-            const displayAnswer = answer?.otherText
-              ? `"${answer.otherText}"`
-              : answer?.selectedOption || 'No answer'
-            const isCustomAnswer = !!answer?.otherText
+
+            // Determine display answer based on answer type
+            let displayAnswer: string
+            let isCustomAnswer = false
+
+            if (answer?.otherText) {
+              // Custom text input
+              displayAnswer = `"${answer.otherText}"`
+              isCustomAnswer = true
+            } else if (answer?.selectedOptions) {
+              // Multi-select: join options with commas
+              displayAnswer = answer.selectedOptions.join(', ')
+            } else if (answer?.selectedOption) {
+              // Single-select
+              displayAnswer = answer.selectedOption
+            } else {
+              displayAnswer = 'No answer'
+            }
+
             return (
               <box key={idx} style={{ flexDirection: 'column', gap: 0 }}>
                 <text style={{ fg: theme.foreground }}>

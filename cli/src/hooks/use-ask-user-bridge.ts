@@ -13,7 +13,8 @@ export function useAskUserBridge() {
         setAskUserState({
           toolCallId: request.toolCallId,
           questions: request.questions,
-          selectedAnswers: new Array(request.questions.length).fill(-1),
+          // Initialize based on question type: multi-select → [], single-select → -1
+          selectedAnswers: request.questions.map((q) => (q.multiSelect ? [] : -1)),
           otherTexts: new Array(request.questions.length).fill(''),
         })
       } else {
@@ -23,7 +24,14 @@ export function useAskUserBridge() {
     return unsubscribe
   }, [setAskUserState])
 
-  const submitAnswers = (answers: Array<{ questionIndex: number; selectedOption?: string; otherText?: string }>) => {
+  const submitAnswers = (
+    answers: Array<{
+      questionIndex: number
+      selectedOption?: string
+      selectedOptions?: string[]
+      otherText?: string
+    }>
+  ) => {
     logger.info({ answers }, '[useAskUserBridge] submitAnswers called')
     AskUserBridge.submit({ answers })
   }

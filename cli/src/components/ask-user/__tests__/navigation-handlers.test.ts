@@ -19,7 +19,7 @@ import {
   createTextInputFocus,
   createSkipFocus,
 } from '../types'
-import type { NavigationContext } from '../types'
+import type { NavigationContext, FocusTarget } from '../types'
 
 describe('calculateNextQuestionIndex', () => {
   describe('navigating forward (next)', () => {
@@ -195,13 +195,16 @@ describe('getNextFocusTab', () => {
   })
 
   it('completes full cycle: option -> text -> skip -> option', () => {
-    let focus = createOptionFocus(0, 0)
-    focus = getNextFocusTab(focus, context) // -> text input
-    expect(focus.type).toBe('textInput')
-    focus = getNextFocusTab(focus, context) // -> skip
-    expect(focus.type).toBe('skip')
-    focus = getNextFocusTab(focus, context) // -> option
-    expect(focus).toEqual(createOptionFocus(0, 0))
+    let focus: FocusTarget = createOptionFocus(0, 0)
+
+    const textFocus = getNextFocusTab(focus, context) // -> text input
+    expect(textFocus.type).toBe('textInput')
+
+    const skipFocus = getNextFocusTab(textFocus, context) // -> skip
+    expect(skipFocus.type).toBe('skip')
+
+    const optionFocus = getNextFocusTab(skipFocus, context) // -> option
+    expect(optionFocus).toEqual(createOptionFocus(0, 0))
   })
 })
 
@@ -248,14 +251,23 @@ describe('getNextFocusOnNavigation', () => {
 })
 
 describe('shouldAutoAdvance', () => {
-  it('returns true for single-select questions (Phase 1)', () => {
+  it('returns true for single-select questions', () => {
     const question = { question: 'Test?', options: ['A', 'B'] }
     expect(shouldAutoAdvance(question)).toBe(true)
   })
 
-  // Phase 2: Will test multi-select returns false
-  // it('returns false for multi-select questions', () => {
-  //   const question = { question: 'Test?', options: ['A', 'B'], multiSelect: true }
-  //   expect(shouldAutoAdvance(question)).toBe(false)
-  // })
+  it('returns true for single-select questions with multiSelect explicitly false', () => {
+    const question = { question: 'Test?', options: ['A', 'B'], multiSelect: false }
+    expect(shouldAutoAdvance(question)).toBe(true)
+  })
+
+  it('returns false for multi-select questions', () => {
+    const question = { question: 'Test?', options: ['A', 'B'], multiSelect: true }
+    expect(shouldAutoAdvance(question)).toBe(false)
+  })
+
+  it('returns false for multi-select questions with many options', () => {
+    const question = { question: 'Select features:', options: ['Option 1', 'Option 2', 'Option 3', 'Option 4'], multiSelect: true }
+    expect(shouldAutoAdvance(question)).toBe(false)
+  })
 })

@@ -17,13 +17,28 @@ export type InputValue = {
 
 export type AskUserQuestion = {
   question: string
-  options: string[]
+  header?: string
+  options:
+    | string[]
+    | Array<{
+        label: string
+        description?: string
+      }>
+  multiSelect?: boolean
+  validation?: {
+    maxLength?: number
+    minLength?: number
+    pattern?: string
+    patternError?: string
+  }
 }
+
+export type AnswerState = number | number[]
 
 export type AskUserState = {
   toolCallId: string
   questions: AskUserQuestion[]
-  selectedAnswers: number[] // Index of selected option for each question, -1 = not answered
+  selectedAnswers: AnswerState[] // Single-select: number (-1 = not answered), Multi-select: number[]
   otherTexts: string[] // Custom text input for each question (empty string if not used)
 } | null
 
@@ -251,19 +266,40 @@ export const useChatStore = create<ChatStore>()(
 
     updateAskUserAnswer: (questionIndex, optionIndex) =>
       set((state) => {
-        if (state.askUserState) {
+        if (!state.askUserState) return
+
+        const question = state.askUserState.questions[questionIndex]
+        const currentAnswer = state.askUserState.selectedAnswers[questionIndex]
+
+        if (question?.multiSelect) {
+          // Multi-select: toggle option in array
+          const selected = Array.isArray(currentAnswer) ? currentAnswer : []
+          const newSelected = selected.includes(optionIndex)
+            ? selected.filter((i) => i !== optionIndex) // Remove if already selected
+            : [...selected, optionIndex] // Add if not selected
+
+          state.askUserState.selectedAnswers[questionIndex] = newSelected
+        } else {
+          // Single-select: set option index
           state.askUserState.selectedAnswers[questionIndex] = optionIndex
-          // Clear other text when an option is selected (mutually exclusive)
-          state.askUserState.otherTexts[questionIndex] = ''
         }
+
+        // Clear other text when any option is selected (mutually exclusive)
+        state.askUserState.otherTexts[questionIndex] = ''
       }),
 
     updateAskUserOtherText: (questionIndex, text) =>
       set((state) => {
-        if (state.askUserState) {
-          state.askUserState.otherTexts[questionIndex] = text
-          // Clear selected option when text is entered (mutually exclusive)
-          if (text) {
+        if (!state.askUserState) return
+
+        state.askUserState.otherTexts[questionIndex] = text
+
+        // Clear selected option(s) when text is entered (mutually exclusive)
+        if (text) {
+          const question = state.askUserState.questions[questionIndex]
+          if (question?.multiSelect) {
+            state.askUserState.selectedAnswers[questionIndex] = []
+          } else {
             state.askUserState.selectedAnswers[questionIndex] = -1
           }
         }
