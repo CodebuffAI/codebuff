@@ -7,7 +7,12 @@ import type {
   GetUserInfoFromApiKeyOutput,
 } from '@codebuff/common/types/contracts/database'
 
-export const VALID_USER_INFO_FIELDS = ['id', 'email', 'discord_id'] as const
+export const VALID_USER_INFO_FIELDS = [
+  'id',
+  'email',
+  'discord_id',
+  'referral_code',
+] as const
 
 export async function getUserInfoFromApiKey<
   T extends (typeof VALID_USER_INFO_FIELDS)[number],

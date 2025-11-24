@@ -27,6 +27,7 @@ export const TEST_AGENT_RUNTIME_IMPL = Object.freeze<
     id: 'test-user-id',
     email: 'test-email',
     discord_id: 'test-discord-id',
+    referral_code: 'ref-test-code',
   }),
   fetchAgentFromDatabase: async () => null,
   startAgentRun: async () => 'test-agent-run-id',
