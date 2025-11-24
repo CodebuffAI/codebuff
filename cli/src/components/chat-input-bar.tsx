@@ -1,12 +1,14 @@
 import React from 'react'
 import { AgentModeToggle } from './agent-mode-toggle'
 import { FeedbackContainer } from './feedback-container'
+import { MultipleChoiceForm } from './multiple-choice-form'
 import { MultilineInput, type MultilineInputHandle } from './multiline-input'
 import { SuggestionMenu, type SuggestionItem } from './suggestion-menu'
 import { UsageBanner } from './usage-banner'
 import { BORDER_CHARS } from '../utils/ui-constants'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
+import { useAskUserBridge } from '../hooks/use-ask-user-bridge'
 import type { AgentMode } from '../utils/constants'
 import type { InputValue } from '../state/chat-store'
 
@@ -84,6 +86,11 @@ export const ChatInputBar = ({
 }: ChatInputBarProps) => {
   const isBashMode = useChatStore((state) => state.isBashMode)
   const setBashMode = useChatStore((state) => state.setBashMode)
+  const askUserState = useChatStore((state) => state.askUserState)
+  const updateAskUserAnswer = useChatStore((state) => state.updateAskUserAnswer)
+  const updateAskUserOtherText = useChatStore((state) => state.updateAskUserOtherText)
+  const { submitAnswers, skip } = useAskUserBridge()
+
   if (feedbackMode) {
     return (
       <FeedbackContainer
@@ -115,11 +122,65 @@ export const ChatInputBar = ({
     setInputValue(value)
   }
 
+  const handleFormSubmit = (finalAnswers?: number[], finalOtherTexts?: string[]) => {
+    console.log('[ChatInputBar] handleFormSubmit called', { askUserState, finalAnswers, finalOtherTexts })
+    if (!askUserState) return
+
+    // Use final values if provided (for immediate submission), otherwise use current state
+    const answersToUse = finalAnswers || askUserState.selectedAnswers
+    const otherTextsToUse = finalOtherTexts || askUserState.otherTexts
+
+    const answers = askUserState.questions.map((q, idx) => {
+      const otherText = otherTextsToUse[idx]?.trim()
+      if (otherText) {
+        // User provided custom text
+        return {
+          questionIndex: idx,
+          otherText,
+        }
+      } else {
+        // User selected an option
+        return {
+          questionIndex: idx,
+          selectedOption: q.options[answersToUse[idx]],
+        }
+      }
+    })
+    console.log('[ChatInputBar] Submitting answers', { answers })
+    submitAnswers(answers)
+  }
+
   // Adjust input width for bash mode (subtract 2 for '!' column)
   const adjustedInputWidth = isBashMode ? inputWidth - 2 : inputWidth
   const effectivePlaceholder = isBashMode
     ? 'Enter bash command...'
     : inputPlaceholder
+
+  if (askUserState) {
+    return (
+      <box
+        title=" Action Required "
+        titleAlignment="center"
+        style={{
+          width: '100%',
+          borderStyle: 'single',
+          borderColor: theme.primary,
+          customBorderChars: BORDER_CHARS,
+        }}
+      >
+        <MultipleChoiceForm
+          questions={askUserState.questions}
+          selectedAnswers={askUserState.selectedAnswers}
+          otherTexts={askUserState.otherTexts}
+          onSelectAnswer={updateAskUserAnswer}
+          onOtherTextChange={updateAskUserOtherText}
+          onSubmit={handleFormSubmit}
+          onSkip={skip}
+          width={inputWidth}
+        />
+      </box>
+    )
+  }
 
   return (
     <>

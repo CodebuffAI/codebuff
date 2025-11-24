@@ -52,6 +52,7 @@ export function createBase2(
       !isFast && 'write_todos',
       'str_replace',
       'write_file',
+      'ask_user',
     ),
     spawnableAgents: buildArray(
       'file-picker',

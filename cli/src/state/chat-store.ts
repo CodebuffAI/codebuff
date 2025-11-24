@@ -15,6 +15,18 @@ export type InputValue = {
   lastEditDueToNav: boolean
 }
 
+export type AskUserQuestion = {
+  question: string
+  options: string[]
+}
+
+export type AskUserState = {
+  toolCallId: string
+  questions: AskUserQuestion[]
+  selectedAnswers: number[] // Index of selected option for each question, -1 = not answered
+  otherTexts: string[] // Custom text input for each question (empty string if not used)
+} | null
+
 export type ChatStoreState = {
   messages: ChatMessage[]
   streamingAgents: Set<string>
@@ -37,6 +49,7 @@ export type ChatStoreState = {
   isAnnouncementVisible: boolean
   isBashMode: boolean
   isRetrying: boolean
+  askUserState: AskUserState
 }
 
 type ChatStoreActions = {
@@ -70,6 +83,9 @@ type ChatStoreActions = {
   setIsAnnouncementVisible: (visible: boolean) => void
   setBashMode: (isBashMode: boolean) => void
   setIsRetrying: (retrying: boolean) => void
+  setAskUserState: (state: AskUserState) => void
+  updateAskUserAnswer: (questionIndex: number, optionIndex: number) => void
+  updateAskUserOtherText: (questionIndex: number, text: string) => void
   reset: () => void
 }
 
@@ -97,6 +113,7 @@ const initialState: ChatStoreState = {
   isAnnouncementVisible: true,
   isBashMode: false,
   isRetrying: false,
+  askUserState: null,
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -227,6 +244,31 @@ export const useChatStore = create<ChatStore>()(
         state.isRetrying = retrying
       }),
 
+    setAskUserState: (askUserState) =>
+      set((state) => {
+        state.askUserState = askUserState
+      }),
+
+    updateAskUserAnswer: (questionIndex, optionIndex) =>
+      set((state) => {
+        if (state.askUserState) {
+          state.askUserState.selectedAnswers[questionIndex] = optionIndex
+          // Clear other text when an option is selected (mutually exclusive)
+          state.askUserState.otherTexts[questionIndex] = ''
+        }
+      }),
+
+    updateAskUserOtherText: (questionIndex, text) =>
+      set((state) => {
+        if (state.askUserState) {
+          state.askUserState.otherTexts[questionIndex] = text
+          // Clear selected option when text is entered (mutually exclusive)
+          if (text) {
+            state.askUserState.selectedAnswers[questionIndex] = -1
+          }
+        }
+      }),
+
     reset: () =>
       set((state) => {
         state.messages = initialState.messages.slice()
@@ -252,6 +294,7 @@ export const useChatStore = create<ChatStore>()(
         state.isAnnouncementVisible = initialState.isAnnouncementVisible
         state.isBashMode = initialState.isBashMode
         state.isRetrying = initialState.isRetrying
+        state.askUserState = initialState.askUserState
       }),
   })),
 )

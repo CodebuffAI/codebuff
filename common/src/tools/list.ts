@@ -3,6 +3,7 @@ import z from 'zod/v4'
 import { FileChangeSchema } from '../actions'
 import { addMessageParams } from './params/tool/add-message'
 import { addSubgoalParams } from './params/tool/add-subgoal'
+import { askUserParams } from './params/tool/ask-user'
 import { browserLogsParams } from './params/tool/browser-logs'
 import { codeSearchParams } from './params/tool/code-search'
 import { createPlanParams } from './params/tool/create-plan'
@@ -35,6 +36,7 @@ import type { ToolCallPart } from '../types/messages/content-part'
 export const toolParams = {
   add_message: addMessageParams,
   add_subgoal: addSubgoalParams,
+  ask_user: askUserParams,
   browser_logs: browserLogsParams,
   code_search: codeSearchParams,
   create_plan: createPlanParams,
@@ -83,6 +85,10 @@ export type CodebuffToolMessage<T extends ToolName = ToolName> = ToolMessage & {
 
 // Tool call to send to client
 export const clientToolCallSchema = z.discriminatedUnion('toolName', [
+  z.object({
+    toolName: z.literal('ask_user'),
+    input: toolParams.ask_user.inputSchema,
+  }),
   z.object({
     toolName: z.literal('browser_logs'),
     input: toolParams.browser_logs.inputSchema,

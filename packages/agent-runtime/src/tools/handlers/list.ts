@@ -37,9 +37,21 @@ import type { ToolName } from '@codebuff/common/tools/constants'
  *   - Any additional arguments for the tool
  * - Returns a promise that will be awaited
  */
+// Handler for ask_user - delegates to client
+const handleAskUser: CodebuffToolHandlerFunction<'ask_user'> = async ({
+  toolCall,
+  requestClientToolCall,
+}) => {
+  const result = await requestClientToolCall(toolCall as any)
+  return {
+    output: result,
+  }
+}
+
 export const codebuffToolHandlers = {
   add_message: handleAddMessage,
   add_subgoal: handleAddSubgoal,
+  ask_user: handleAskUser,
   browser_logs: handleBrowserLogs,
   code_search: handleCodeSearch,
   create_plan: handleCreatePlan,

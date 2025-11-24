@@ -21,6 +21,7 @@ export const TOOLS_WHICH_WONT_FORCE_NEXT_STEP = [
 export const toolNames = [
   'add_subgoal',
   'add_message',
+  'ask_user',
   'browser_logs',
   'code_search',
   'create_plan',
@@ -49,6 +50,7 @@ export const toolNames = [
 
 export const publishedTools = [
   'add_message',
+  'ask_user',
   'code_search',
   'end_turn',
   'find_files',

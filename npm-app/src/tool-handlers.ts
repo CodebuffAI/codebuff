@@ -25,6 +25,7 @@ import { runTerminalCommand } from './terminal/run-command'
 import { applyChanges } from './utils/changes'
 import { logger } from './utils/logger'
 import { Spinner } from './utils/spinner'
+import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
 
 import type { BrowserResponse } from '@codebuff/common/browser-actions'
 import type {
@@ -705,9 +706,31 @@ const handleBrowserLogs: ToolHandler<'browser_logs'> = async (params, _id) => {
   ] satisfies CodebuffToolOutput<'browser_logs'>
 }
 
+const handleAskUser: ToolHandler<'ask_user'> = async (
+  parameters,
+  id,
+): Promise<CodebuffToolOutput<'ask_user'>> => {
+  console.log('[handleAskUser] Called with', { id, questions: parameters.questions })
+  const response = (await AskUserBridge.request(
+    id,
+    parameters.questions,
+  )) as {
+    answers?: Array<{ questionIndex: number; selectedOption: string }>
+    skipped?: boolean
+  }
+  console.log('[handleAskUser] Got response', { response })
+  return [
+    {
+      type: 'json',
+      value: response,
+    },
+  ]
+}
+
 export const toolHandlers: {
   [T in ClientToolName]: ToolHandler<T>
 } = {
+  ask_user: handleAskUser,
   write_file: handleUpdateFile,
   str_replace: handleUpdateFile,
   create_plan: handleUpdateFile,

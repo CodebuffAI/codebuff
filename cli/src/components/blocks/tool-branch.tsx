@@ -36,6 +36,9 @@ export const ToolBranch = memo(
     if (toolBlock.toolName === 'end_turn') {
       return null
     }
+    if (toolBlock.toolName === 'ask_user') {
+      return null
+    }
     if ('includeToolCall' in toolBlock && toolBlock.includeToolCall === false) {
       return null
     }

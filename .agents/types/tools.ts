@@ -3,6 +3,7 @@
  */
 export type ToolName =
   | 'add_message'
+  | 'ask_user'
   | 'code_search'
   | 'end_turn'
   | 'find_files'
@@ -29,6 +30,7 @@ export type ToolName =
  */
 export interface ToolParamsMap {
   add_message: AddMessageParams
+  ask_user: AskUserParams
   code_search: CodeSearchParams
   end_turn: EndTurnParams
   find_files: FindFilesParams
@@ -57,6 +59,19 @@ export interface ToolParamsMap {
 export interface AddMessageParams {
   role: 'user' | 'assistant'
   content: string
+}
+
+/**
+ * Ask the user multiple choice questions and pause execution until they respond.
+ */
+export interface AskUserParams {
+  /** List of multiple choice questions to ask the user */
+  questions: {
+    /** The question to ask the user */
+    question: string
+    /** Array of answer options for the question (minimum 2) */
+    options: string[]
+  }[]
 }
 
 /**
@@ -248,10 +263,10 @@ export interface WriteFileParams {
 }
 
 /**
- * Write a todo list to track tasks. Use this frequently to maintain a step-by-step plan.
+ * Write a todo list to track tasks for multi-step implementations. Use this frequently to maintain an updated step-by-step plan.
  */
 export interface WriteTodosParams {
-  /** List of todos with their completion status. Try to order the todos the same way you will complete them. Do not mark todos as completed if you have not completed them yet! */
+  /** List of todos with their completion status. Add ALL of the applicable tasks to the list, so you don't forget to do anything. Try to order the todos the same way you will complete them. Do not mark todos as completed if you have not completed them yet! */
   todos: {
     /** Description of the task */
     task: string

@@ -112,6 +112,9 @@ export const defaultToolCallRenderer: ToolCallRenderer = {
 }
 
 export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
+  ask_user: {
+    // Don't render anything - handled by UI
+  },
   end_turn: {
     // Don't render anything
   },
