@@ -2,6 +2,7 @@ import type { AgentContentBlock, ContentBlock } from '../types/chat'
 
 export const IMPLEMENTOR_AGENT_IDS = [
   'editor-implementor',
+  'editor-implementor-opus',
   'editor-implementor-gemini',
   'editor-implementor-gpt-5',
 ] as const
@@ -23,7 +24,9 @@ export const getImplementorDisplayName = (
   index?: number,
 ): string => {
   let baseName = 'Implementor'
-  if (agentType.includes('editor-implementor-gemini')) {
+  if (agentType.includes('editor-implementor-opus')) {
+    baseName = 'Opus'
+  } else if (agentType.includes('editor-implementor-gemini')) {
     baseName = 'Gemini'
   } else if (agentType.includes('editor-implementor-gpt-5')) {
     baseName = 'GPT-5'

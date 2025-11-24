@@ -8,14 +8,23 @@ import type {
 } from '../../types/agent-definition'
 
 export function createThinkerBestOfN(
-  model: 'sonnet' | 'gpt-5',
+  model: 'sonnet' | 'gpt-5' | 'opus',
 ): Omit<SecretAgentDefinition, 'id'> {
   const isGpt5 = model === 'gpt-5'
+  const isOpus = model === 'opus'
 
   return {
     publisher,
-    model: isGpt5 ? 'openai/gpt-5.1' : 'anthropic/claude-sonnet-4.5',
-    displayName: isGpt5 ? 'Best-of-N GPT-5 Thinker' : 'Best-of-N Thinker',
+    model: isGpt5
+      ? 'openai/gpt-5.1'
+      : isOpus
+        ? 'anthropic/claude-opus-4.5'
+        : 'anthropic/claude-sonnet-4.5',
+    displayName: isGpt5
+      ? 'Best-of-N GPT-5 Thinker'
+      : isOpus
+        ? 'Best-of-N Opus Thinker'
+        : 'Best-of-N Thinker',
     spawnerPrompt:
       'Generates deep thinking by orchestrating multiple thinker agents, selects the best thinking output. Use this to help solve a hard problem. You must first gather all the relevant context *BEFORE* spawning this agent, as it can only think.',
 

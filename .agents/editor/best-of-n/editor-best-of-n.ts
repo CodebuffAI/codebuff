@@ -33,8 +33,10 @@ export function createBestOfNEditor(
     ],
     spawnableAgents: buildArray(
       'best-of-n-selector',
+      'best-of-n-selector-opus',
       'best-of-n-selector-gemini',
       'editor-implementor',
+      'editor-implementor-opus',
       'editor-implementor-gemini',
       isMax && 'editor-implementor-gpt-5',
     ),
@@ -222,21 +224,20 @@ function* handleStepsMax({
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
   const MAX_N = 6
-  const selectorAgent = 'best-of-n-selector-gemini'
+  const selectorAgent = 'best-of-n-selector-opus'
   const n = Math.min(
     10,
     Math.max(1, (params?.n as number | undefined) ?? MAX_N),
   )
 
-  // Spawn implementor agents: 1 gemini + rest sonnet (if n >= 2)
+  // Spawn implementor agents: 1 opus, 1 gemini, 1 gpt-5, then rest opus
   const implementorAgents = []
   if (n >= 1) {
     implementorAgents.push({
-      agent_type: 'editor-implementor',
+      agent_type: 'editor-implementor-opus',
     })
   }
   if (n >= 2) {
-    // Add 1 gemini implementor
     implementorAgents.push({
       agent_type: 'editor-implementor-gemini',
     })
@@ -246,10 +247,10 @@ function* handleStepsMax({
       agent_type: 'editor-implementor-gpt-5',
     })
   }
-  // Add remaining sonnet implementors
+  // Add remaining opus implementors
   for (let i = 3; i < n; i++) {
     implementorAgents.push({
-      agent_type: 'editor-implementor',
+      agent_type: 'editor-implementor-opus',
     })
   }
 
