@@ -136,6 +136,16 @@ export const MultilineInput = forwardRef<
   const [measuredCols, setMeasuredCols] = useState<number | null>(null)
   const [lastActivity, setLastActivity] = useState(Date.now())
 
+  // Refs to track latest values for paste handler (prevents stale closure issues)
+  const valueRef = useRef(value)
+  const cursorPositionRef = useRef(cursorPosition)
+
+  // Keep refs in sync with props
+  useEffect(() => {
+    valueRef.current = value
+    cursorPositionRef.current = cursorPosition
+  }, [value, cursorPosition])
+
   // Update last activity on value or cursor changes
   useEffect(() => {
     setLastActivity(Date.now())
@@ -170,15 +180,26 @@ export const MultilineInput = forwardRef<
       const text = event.text ?? ''
       if (!text) return
 
+      // Use refs to get the latest values, avoiding stale closure issues
+      // when multiple paste events fire rapidly before React re-renders
+      const currentValue = valueRef.current
+      const currentCursor = cursorPositionRef.current
+
       const newValue =
-        value.slice(0, cursorPosition) + text + value.slice(cursorPosition)
+        currentValue.slice(0, currentCursor) + text + currentValue.slice(currentCursor)
+      const newCursor = currentCursor + text.length
+
+      // Update refs immediately so subsequent rapid events see the new state
+      valueRef.current = newValue
+      cursorPositionRef.current = newCursor
+
       onChange({
         text: newValue,
-        cursorPosition: cursorPosition + text.length,
+        cursorPosition: newCursor,
         lastEditDueToNav: false,
       })
     },
-    [focused, value, cursorPosition, onChange],
+    [focused, onChange],
   )
 
   const cursorRow = lineInfo
