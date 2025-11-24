@@ -1,12 +1,12 @@
 import { describe, test, expect } from 'bun:test'
 
+import { findCommand, COMMAND_REGISTRY } from '../command-registry'
 import {
   normalizeInput,
   parseCommand,
   isSlashCommand,
   isReferralCode,
 } from '../router-utils'
-import { findCommand, COMMAND_REGISTRY } from '../command-registry'
 
 describe('router-utils', () => {
   describe('normalizeInput', () => {

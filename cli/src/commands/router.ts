@@ -11,6 +11,7 @@ import {
   isSlashCommand,
   isReferralCode,
   extractReferralCode,
+  normalizeReferralCode,
 } from './router-utils'
 import { useChatStore } from '../state/chat-store'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
@@ -97,11 +98,13 @@ export async function routeUserPrompt(
 
   // Handle referral mode input
   if (inputMode === 'referral') {
-    // Validate and normalize the referral code
-    // Valid codes are alphanumeric with optional dashes, 3-50 chars
+    // Validate the referral code (3-50 alphanumeric chars with optional dashes)
     const codePattern = /^[a-zA-Z0-9-]{3,50}$/
-    const codeWithoutPrefix = trimmed.startsWith('ref-') ? trimmed.slice(4) : trimmed
-    
+    // Strip prefix if present for validation (case-insensitive)
+    const codeWithoutPrefix = trimmed.toLowerCase().startsWith('ref-')
+      ? trimmed.slice(4)
+      : trimmed
+
     if (!codePattern.test(codeWithoutPrefix)) {
       setMessages((prev) => [
         ...prev,
@@ -113,8 +116,8 @@ export async function routeUserPrompt(
       setInputMode('default')
       return
     }
-    
-    const referralCode = trimmed.startsWith('ref-') ? trimmed : `ref-${trimmed}`
+
+    const referralCode = normalizeReferralCode(trimmed)
     try {
       const { postUserMessage: referralPostMessage } =
         await handleReferralCode(referralCode)

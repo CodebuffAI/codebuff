@@ -70,3 +70,23 @@ export function isReferralCode(input: string): boolean {
 export function extractReferralCode(input: string): string {
   return normalizeInput(input.trim())
 }
+
+const REFERRAL_PREFIX = 'ref-'
+
+/**
+ * Normalize a referral code by ensuring it has the lowercase 'ref-' prefix.
+ * Handles case-insensitive prefix detection (REF-, Ref-, etc.) and preserves
+ * the original casing of the code portion.
+ *
+ * @example
+ * normalizeReferralCode('abc123')      // => 'ref-abc123'
+ * normalizeReferralCode('ref-abc123')  // => 'ref-abc123'
+ * normalizeReferralCode('REF-ABC123')  // => 'ref-ABC123'
+ * normalizeReferralCode('Ref-XYZ')     // => 'ref-XYZ'
+ */
+export function normalizeReferralCode(code: string): string {
+  const trimmed = code.trim()
+  const hasPrefix = trimmed.toLowerCase().startsWith(REFERRAL_PREFIX)
+  const codeWithoutPrefix = hasPrefix ? trimmed.slice(REFERRAL_PREFIX.length) : trimmed
+  return `${REFERRAL_PREFIX}${codeWithoutPrefix}`
+}

@@ -1,13 +1,14 @@
 import { handleInitializationFlowLocally } from './init'
 import { handleReferralCode } from './referral'
+import { normalizeReferralCode } from './router-utils'
 import { handleUsageCommand } from './usage'
 import { useChatStore } from '../state/chat-store'
 import { useLoginStore } from '../state/login-store'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 
-import type { ChatMessage } from '../types/chat'
 import type { MultilineInputHandle } from '../components/multiline-input'
 import type { InputValue } from '../state/chat-store'
+import type { ChatMessage } from '../types/chat'
 import type { SendMessageFn } from '../types/contracts/send-message'
 import type { User } from '../utils/auth'
 import type { AgentMode } from '../utils/constants'
@@ -81,10 +82,10 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     aliases: ['redeem'],
     handler: async (params, args) => {
       const trimmedArgs = args.trim()
-      
+
       // If user provided a code directly, redeem it immediately
       if (trimmedArgs) {
-        const code = trimmedArgs.startsWith('ref-') ? trimmedArgs : `ref-${trimmedArgs}`
+        const code = normalizeReferralCode(trimmedArgs)
         try {
           const { postUserMessage } = await handleReferralCode(code)
           params.setMessages((prev) => [
@@ -93,7 +94,8 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
             ...postUserMessage([]),
           ])
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+          const errorMessage =
+            error instanceof Error ? error.message : 'Unknown error'
           params.setMessages((prev) => [
             ...prev,
             getUserMessage(params.inputValue.trim()),
@@ -104,7 +106,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
         clearInput(params)
         return
       }
-      
+
       // Otherwise enter referral mode
       useChatStore.getState().setInputMode('referral')
       params.saveToHistory(params.inputValue.trim())
@@ -136,7 +138,10 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       params.logoutMutation.mutate(undefined, {
         onSettled: () => {
           resetLoginState()
-          params.setMessages((prev) => [...prev, getSystemMessage('Logged out.')])
+          params.setMessages((prev) => [
+            ...prev,
+            getSystemMessage('Logged out.'),
+          ])
           clearInput(params)
           setTimeout(() => {
             params.setUser(null)
@@ -171,7 +176,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     handler: async (params, args) => {
       const { postUserMessage } = handleInitializationFlowLocally()
       const trimmed = params.inputValue.trim()
-      
+
       params.saveToHistory(trimmed)
       clearInput(params)
 
@@ -187,7 +192,11 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
         return
       }
 
-      params.sendMessage({ content: trimmed, agentMode: params.agentMode, postUserMessage })
+      params.sendMessage({
+        content: trimmed,
+        agentMode: params.agentMode,
+        postUserMessage,
+      })
       setTimeout(() => {
         params.scrollToLatest()
       }, 0)

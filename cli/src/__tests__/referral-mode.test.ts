@@ -218,14 +218,49 @@ describe('referral-mode', () => {
       expect(referralCode).toBe('ref-abc123')
     })
 
-    test('code with REF- (uppercase) does NOT get recognized', () => {
+    test('code with REF- (uppercase) gets normalized to lowercase prefix', () => {
       const userInput = 'REF-abc123'
-      const referralCode = userInput.startsWith('ref-')
-        ? userInput
+      const userInputLower = userInput.toLowerCase()
+      // Normalize: case-insensitive prefix check, strip and re-add lowercase prefix
+      const referralCode = userInputLower.startsWith('ref-')
+        ? `ref-${userInput.slice(4)}`
         : `ref-${userInput}`
 
-      // Should add another ref- prefix because startsWith is case-sensitive
-      expect(referralCode).toBe('ref-REF-abc123')
+      // Should strip REF- and re-add ref- to preserve the code portion
+      expect(referralCode).toBe('ref-abc123')
+    })
+
+    test('code with Ref- (mixed case) gets normalized to lowercase prefix', () => {
+      const userInput = 'Ref-XYZ789'
+      const userInputLower = userInput.toLowerCase()
+      const referralCode = userInputLower.startsWith('ref-')
+        ? `ref-${userInput.slice(4)}`
+        : `ref-${userInput}`
+
+      expect(referralCode).toBe('ref-XYZ789')
+    })
+
+    test('code with rEf- (random case) gets normalized to lowercase prefix', () => {
+      const userInput = 'rEf-Code123'
+      const userInputLower = userInput.toLowerCase()
+      const referralCode = userInputLower.startsWith('ref-')
+        ? `ref-${userInput.slice(4)}`
+        : `ref-${userInput}`
+
+      expect(referralCode).toBe('ref-Code123')
+    })
+
+    test('preserves code portion casing when normalizing prefix', () => {
+      // User typed "REF-ABC123" - should become "ref-ABC123", not "ref-abc123"
+      const userInput = 'REF-ABC123'
+      const userInputLower = userInput.toLowerCase()
+      const referralCode = userInputLower.startsWith('ref-')
+        ? `ref-${userInput.slice(4)}`
+        : `ref-${userInput}`
+
+      expect(referralCode).toBe('ref-ABC123')
+      // Code portion should preserve original casing
+      expect(referralCode.slice(4)).toBe('ABC123')
     })
   })
 

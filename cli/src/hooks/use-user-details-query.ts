@@ -59,7 +59,7 @@ export async function fetchUserDetails<T extends UserField>({
       { status: response.status, fields },
       'Failed to fetch user details from /api/v1/me',
     )
-    return null
+    throw new Error(`Failed to fetch user details (HTTP ${response.status})`)
   }
 
   const data = (await response.json()) as UserDetails<T>
