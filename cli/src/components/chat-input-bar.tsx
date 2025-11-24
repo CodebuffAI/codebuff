@@ -123,7 +123,6 @@ export const ChatInputBar = ({
   }
 
   const handleFormSubmit = (finalAnswers?: (number | number[])[], finalOtherTexts?: string[]) => {
-    console.log('[ChatInputBar] handleFormSubmit called', { askUserState, finalAnswers, finalOtherTexts })
     if (!askUserState) return
 
     // Use final values if provided (for immediate submission), otherwise use current state
@@ -162,7 +161,6 @@ export const ChatInputBar = ({
         }
       }
     })
-    console.log('[ChatInputBar] Submitting answers', { answers })
     submitAnswers(answers)
   }
 

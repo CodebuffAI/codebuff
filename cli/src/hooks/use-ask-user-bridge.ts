@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
 import { useChatStore } from '../state/chat-store'
-import { logger } from '../utils/logger'
 
 export function useAskUserBridge() {
   const setAskUserState = useChatStore((state) => state.setAskUserState)
@@ -9,7 +8,6 @@ export function useAskUserBridge() {
 
   useEffect(() => {
     const unsubscribe = AskUserBridge.subscribe((request) => {
-      logger.info({ request }, 'AskUserBridge subscription received request')
       if (request) {
         setAskUserState({
           toolCallId: request.toolCallId,
@@ -33,14 +31,12 @@ export function useAskUserBridge() {
       otherText?: string
     }>
   ) => {
-    logger.info({ answers }, '[useAskUserBridge] submitAnswers called')
     // Clear input value so previous prompt doesn't appear after form closes
     setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     AskUserBridge.submit({ answers })
   }
 
   const skip = () => {
-    logger.info('[useAskUserBridge] skip called')
     // Clear input value so previous prompt doesn't appear after form closes
     setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     AskUserBridge.submit({ skipped: true })

@@ -710,7 +710,6 @@ const handleAskUser: ToolHandler<'ask_user'> = async (
   parameters,
   id,
 ): Promise<CodebuffToolOutput<'ask_user'>> => {
-  console.log('[handleAskUser] Called with', { id, questions: parameters.questions })
   const response = (await AskUserBridge.request(
     id,
     parameters.questions,
@@ -718,7 +717,6 @@ const handleAskUser: ToolHandler<'ask_user'> = async (
     answers?: Array<{ questionIndex: number; selectedOption: string }>
     skipped?: boolean
   }
-  console.log('[handleAskUser] Got response', { response })
   return [
     {
       type: 'json',

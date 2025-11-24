@@ -13,16 +13,13 @@ const listeners: Listener[] = []
 
 export const AskUserBridge = {
   request: (toolCallId: string, questions: AskUserQuestion[]) => {
-    console.log('[AskUserBridge] Creating request', { toolCallId, questions })
     return new Promise((resolve) => {
       pendingRequest = { toolCallId, questions, resolve }
-      console.log('[AskUserBridge] Notifying listeners', { listenerCount: listeners.length })
       notifyListeners()
     })
   },
 
   submit: (response: any) => {
-    console.log('[AskUserBridge] Submitting response', { response, hasPendingRequest: !!pendingRequest })
     if (pendingRequest) {
       pendingRequest.resolve(response)
       pendingRequest = null
