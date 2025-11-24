@@ -74,7 +74,7 @@ function findNextWordBoundary(text: string, cursor: number): number {
   return pos
 }
 
-const CURSOR_CHAR = '▍'
+export const CURSOR_CHAR = '▍'
 const CONTROL_CHAR_REGEX = /[\u0000-\u0008\u000b-\u000c\u000e-\u001f\u007f]/
 const TAB_WIDTH = 4
 

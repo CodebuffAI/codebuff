@@ -207,18 +207,14 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
       return null
     }
 
-    // Extract full text content from blocks or use content prop
-    const fullTextContent = blocks && blocks.length > 0 
-      ? extractTextFromBlocks(blocks) || content
-      : content
-
     const footerItems: { key: string; node: React.ReactNode }[] = []
     
     // Add copy button first if there's content to copy
-    if (fullTextContent && fullTextContent.trim().length > 0) {
+    const hasContent = (blocks && blocks.length > 0) || (content && content.trim().length > 0)
+    if (hasContent) {
       footerItems.push({
         key: 'copy',
-        node: <CopyIconButton textToCopy={fullTextContent} />,
+        node: <CopyIconButton blocks={blocks} content={content} />,
       })
     }
     
@@ -405,21 +401,7 @@ const sanitizePreview = (value: string): string =>
   value.replace(/[#*_`~\[\]()]/g, '').trim()
 
 // Extract all text content from blocks recursively
-const extractTextFromBlocks = (blocks?: ContentBlock[]): string => {
-  if (!blocks || blocks.length === 0) return ''
-  
-  const textParts: string[] = []
-  
-  for (const block of blocks) {
-    if (block.type === 'text') {
-      textParts.push(block.content)
-    } else if (block.type === 'agent' && block.blocks) {
-      textParts.push(extractTextFromBlocks(block.blocks))
-    }
-  }
-  
-  return textParts.join('\n').trim()
-}
+
 
 const isReasoningTextBlock = (
   b: ContentBlock | null | undefined,

@@ -5,6 +5,7 @@ import {
   copyTextToClipboard,
   subscribeClipboardMessages,
 } from '../utils/clipboard'
+import { CURSOR_CHAR } from '../components/multiline-input'
 
 function formatDefaultClipboardMessage(text: string): string | null {
   const preview = text.replace(/\s+/g, ' ').trim()
@@ -37,7 +38,10 @@ export const useClipboard = () => {
           ? selectionObj
           : null
 
-      if (!rawText || rawText.trim().length === 0) {
+      // Filter out cursor character from selected text
+      const cleanedText = rawText?.replace(new RegExp(CURSOR_CHAR, 'g'), '') ?? null
+
+      if (!cleanedText || cleanedText.trim().length === 0) {
         pendingSelectionRef.current = null
         if (pendingCopyTimeoutRef.current) {
           clearTimeout(pendingCopyTimeoutRef.current)
@@ -46,11 +50,11 @@ export const useClipboard = () => {
         return
       }
 
-      if (rawText === pendingSelectionRef.current) {
+      if (cleanedText === pendingSelectionRef.current) {
         return
       }
 
-      pendingSelectionRef.current = rawText
+      pendingSelectionRef.current = cleanedText
 
       if (pendingCopyTimeoutRef.current) {
         clearTimeout(pendingCopyTimeoutRef.current)
