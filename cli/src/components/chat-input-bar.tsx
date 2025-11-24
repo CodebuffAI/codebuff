@@ -1,7 +1,7 @@
 import React from 'react'
 import { AgentModeToggle } from './agent-mode-toggle'
 import { FeedbackContainer } from './feedback-container'
-import { MultipleChoiceForm } from './multiple-choice-form'
+import { MultipleChoiceForm } from './ask-user'
 import { MultilineInput, type MultilineInputHandle } from './multiline-input'
 import { SuggestionMenu, type SuggestionItem } from './suggestion-menu'
 import { UsageBanner } from './usage-banner'
