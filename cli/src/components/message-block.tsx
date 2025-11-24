@@ -4,18 +4,10 @@ import React, { memo, useCallback, useMemo, useState, type ReactNode } from 'rea
 
 import { AgentBranchItem } from './agent-branch-item'
 import { Button } from './button'
-import { CopyIconButton } from './copy-icon-button'
-import { ElapsedTimer } from './elapsed-timer'
-import { FeedbackIconButton } from './feedback-icon-button'
+import { MessageFooter } from './message-footer'
 import { ValidationErrorPopover } from './validation-error-popover'
 import { useTheme } from '../hooks/use-theme'
 import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
-import {
-  useFeedbackStore,
-  selectIsFeedbackOpenForMessage,
-  selectHasSubmittedFeedback,
-  selectMessageFeedbackCategory,
-} from '../state/feedback-store'
 import { isTextBlock, isToolBlock } from '../types/chat'
 import { shouldRenderAsSimpleText } from '../utils/constants'
 import {
@@ -98,7 +90,6 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
   onOpenFeedback,
 }) => {
   const [showValidationPopover, setShowValidationPopover] = useState(false)
-  const [isErrorButtonHovered, setIsErrorButtonHovered] = useState(false)
   
   useWhyDidYouUpdateById(
     'MessageBlock',
@@ -136,174 +127,7 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
   )
 
   const theme = useTheme()
-
-  // Memoize selectors to prevent new function references on every render
-  const selectIsFeedbackOpenMemo = useMemo(
-    () => selectIsFeedbackOpenForMessage(messageId),
-    [messageId],
-  )
-  const selectHasSubmittedFeedbackMemo = useMemo(
-    () => selectHasSubmittedFeedback(messageId),
-    [messageId],
-  )
-  const selectMessageFeedbackCategoryMemo = useMemo(
-    () => selectMessageFeedbackCategory(messageId),
-    [messageId],
-  )
-
-  const isFeedbackOpen = useFeedbackStore(selectIsFeedbackOpenMemo)
-  const hasSubmittedFeedback = useFeedbackStore(selectHasSubmittedFeedbackMemo)
-  const selectedFeedbackCategory = useFeedbackStore(
-    selectMessageFeedbackCategoryMemo,
-  )
-
   const resolvedTextColor = textColor ?? theme.foreground
-  const shouldShowLoadingTimer = isAi && isLoading && !isComplete
-  const shouldShowCompletionFooter = isAi && isComplete
-  const canRequestFeedback = shouldShowCompletionFooter && !hasSubmittedFeedback
-  const isGoodOrBadSelection =
-    selectedFeedbackCategory === 'good_result' ||
-    selectedFeedbackCategory === 'bad_result'
-  const shouldShowSubmittedFeedbackState =
-    shouldShowCompletionFooter && hasSubmittedFeedback && isGoodOrBadSelection
-  const shouldRenderFeedbackButton =
-    Boolean(onFeedback) &&
-    (canRequestFeedback || shouldShowSubmittedFeedbackState)
-
-  const handleFeedbackOpen = useCallback(() => {
-    if (!canRequestFeedback || !onFeedback) return
-    onFeedback(messageId)
-  }, [canRequestFeedback, onFeedback, messageId])
-
-  const handleFeedbackClose = useCallback(() => {
-    if (!canRequestFeedback) return
-    onCloseFeedback?.()
-  }, [canRequestFeedback, onCloseFeedback])
-
-  const renderLoadingTimer = () => {
-    if (!shouldShowLoadingTimer) {
-      return null
-    }
-    return (
-      <text
-        attributes={TextAttributes.DIM}
-        style={{
-          wrapMode: 'none',
-          marginTop: 0,
-          marginBottom: 0,
-          alignSelf: 'flex-end',
-        }}
-      >
-        <ElapsedTimer
-          startTime={timerStartTime}
-          attributes={TextAttributes.DIM}
-        />
-      </text>
-    )
-  }
-
-  const renderCompletionFooter = () => {
-    if (!shouldShowCompletionFooter) {
-      return null
-    }
-
-    const footerItems: { key: string; node: React.ReactNode }[] = []
-    
-    // Add copy button first if there's content to copy
-    const hasContent = (blocks && blocks.length > 0) || (content && content.trim().length > 0)
-    if (hasContent) {
-      footerItems.push({
-        key: 'copy',
-        node: <CopyIconButton blocks={blocks} content={content} />,
-      })
-    }
-    
-    if (completionTime) {
-      footerItems.push({
-        key: 'time',
-        node: (
-          <text
-            attributes={TextAttributes.DIM}
-            style={{
-              wrapMode: 'none',
-              fg: theme.secondary,
-              marginTop: 0,
-              marginBottom: 0,
-            }}
-          >
-            {completionTime}
-          </text>
-        ),
-      })
-    }
-    if (typeof credits === 'number' && credits > 0) {
-      footerItems.push({
-        key: 'credits',
-        node: (
-          <text
-            attributes={TextAttributes.DIM}
-            style={{
-              wrapMode: 'none',
-              fg: theme.secondary,
-              marginTop: 0,
-              marginBottom: 0,
-            }}
-          >
-            {pluralize(credits, 'credit')}
-          </text>
-        ),
-      })
-    }
-    if (shouldRenderFeedbackButton) {
-      footerItems.push({
-        key: 'feedback',
-        node: (
-          <FeedbackIconButton
-            onClick={handleFeedbackOpen}
-            onClose={handleFeedbackClose}
-            isOpen={canRequestFeedback ? isFeedbackOpen : false}
-            messageId={messageId}
-            selectedCategory={selectedFeedbackCategory}
-            hasSubmittedFeedback={hasSubmittedFeedback}
-          />
-        ),
-      })
-    }
-
-    if (footerItems.length === 0) {
-      return null
-    }
-
-    return (
-      <box
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          alignSelf: 'flex-end',
-          gap: 1,
-        }}
-      >
-        {footerItems.map((item, idx) => (
-          <React.Fragment key={item.key}>
-            {idx > 0 && (
-              <text
-                attributes={TextAttributes.DIM}
-                style={{
-                  wrapMode: 'none',
-                  fg: theme.muted,
-                  marginTop: 0,
-                  marginBottom: 0,
-                }}
-              >
-                •
-              </text>
-            )}
-            {item.node}
-          </React.Fragment>
-        ))}
-      </box>
-    )
-  }
 
   return (
     <box
@@ -328,8 +152,6 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
           {validationErrors && validationErrors.length > 0 && (
             <Button
               onClick={() => setShowValidationPopover(!showValidationPopover)}
-              onMouseOver={() => setIsErrorButtonHovered(true)}
-              onMouseOut={() => setIsErrorButtonHovered(false)}
             >
               <text
                 style={{
@@ -385,10 +207,18 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
         />
       )}
       {isAi && (
-        <>
-          {renderLoadingTimer()}
-          {renderCompletionFooter()}
-        </>
+        <MessageFooter
+          messageId={messageId}
+          blocks={blocks}
+          content={content}
+          isLoading={isLoading}
+          isComplete={isComplete}
+          completionTime={completionTime}
+          credits={credits}
+          timerStartTime={timerStartTime}
+          onFeedback={onFeedback}
+          onCloseFeedback={onCloseFeedback}
+        />
       )}
     </box>
   )

@@ -1,0 +1,209 @@
+import { pluralize } from '@codebuff/common/util/string'
+import { TextAttributes } from '@opentui/core'
+import React, { useCallback, useMemo } from 'react'
+
+import { CopyIconButton } from './copy-icon-button'
+import { ElapsedTimer } from './elapsed-timer'
+import { FeedbackIconButton } from './feedback-icon-button'
+import { useTheme } from '../hooks/use-theme'
+import {
+  useFeedbackStore,
+  selectIsFeedbackOpenForMessage,
+  selectHasSubmittedFeedback,
+  selectMessageFeedbackCategory,
+} from '../state/feedback-store'
+
+import type { ContentBlock } from '../types/chat'
+
+interface MessageFooterProps {
+  messageId: string
+  blocks?: ContentBlock[]
+  content: string
+  isLoading: boolean
+  isComplete?: boolean
+  completionTime?: string
+  credits?: number
+  timerStartTime: number | null
+  onFeedback?: (messageId: string) => void
+  onCloseFeedback?: () => void
+}
+
+export const MessageFooter: React.FC<MessageFooterProps> = ({
+  messageId,
+  blocks,
+  content,
+  isLoading,
+  isComplete,
+  completionTime,
+  credits,
+  timerStartTime,
+  onFeedback,
+  onCloseFeedback,
+}) => {
+  const theme = useTheme()
+
+  // Memoize selectors to prevent new function references on every render
+  const selectIsFeedbackOpenMemo = useMemo(
+    () => selectIsFeedbackOpenForMessage(messageId),
+    [messageId],
+  )
+  const selectHasSubmittedFeedbackMemo = useMemo(
+    () => selectHasSubmittedFeedback(messageId),
+    [messageId],
+  )
+  const selectMessageFeedbackCategoryMemo = useMemo(
+    () => selectMessageFeedbackCategory(messageId),
+    [messageId],
+  )
+
+  const isFeedbackOpen = useFeedbackStore(selectIsFeedbackOpenMemo)
+  const hasSubmittedFeedback = useFeedbackStore(selectHasSubmittedFeedbackMemo)
+  const selectedFeedbackCategory = useFeedbackStore(
+    selectMessageFeedbackCategoryMemo,
+  )
+
+  const shouldShowLoadingTimer = isLoading && !isComplete
+  const shouldShowCompletionFooter = isComplete
+  const canRequestFeedback = shouldShowCompletionFooter && !hasSubmittedFeedback
+  const isGoodOrBadSelection =
+    selectedFeedbackCategory === 'good_result' ||
+    selectedFeedbackCategory === 'bad_result'
+  const shouldShowSubmittedFeedbackState =
+    shouldShowCompletionFooter && hasSubmittedFeedback && isGoodOrBadSelection
+  const shouldRenderFeedbackButton =
+    Boolean(onFeedback) &&
+    (canRequestFeedback || shouldShowSubmittedFeedbackState)
+
+  const handleFeedbackOpen = useCallback(() => {
+    if (!canRequestFeedback || !onFeedback) return
+    onFeedback(messageId)
+  }, [canRequestFeedback, onFeedback, messageId])
+
+  const handleFeedbackClose = useCallback(() => {
+    if (!canRequestFeedback) return
+    onCloseFeedback?.()
+  }, [canRequestFeedback, onCloseFeedback])
+
+  // Loading timer
+  if (shouldShowLoadingTimer) {
+    return (
+      <text
+        attributes={TextAttributes.DIM}
+        style={{
+          wrapMode: 'none',
+          marginTop: 0,
+          marginBottom: 0,
+          alignSelf: 'flex-end',
+        }}
+      >
+        <ElapsedTimer
+          startTime={timerStartTime}
+          attributes={TextAttributes.DIM}
+        />
+      </text>
+    )
+  }
+
+  // Completion footer
+  if (!shouldShowCompletionFooter) {
+    return null
+  }
+
+  const footerItems: { key: string; node: React.ReactNode }[] = []
+
+  // Add copy button first if there's content to copy
+  const hasContent =
+    (blocks && blocks.length > 0) || (content && content.trim().length > 0)
+  if (hasContent) {
+    footerItems.push({
+      key: 'copy',
+      node: <CopyIconButton blocks={blocks} content={content} />,
+    })
+  }
+
+  if (completionTime) {
+    footerItems.push({
+      key: 'time',
+      node: (
+        <text
+          attributes={TextAttributes.DIM}
+          style={{
+            wrapMode: 'none',
+            fg: theme.secondary,
+            marginTop: 0,
+            marginBottom: 0,
+          }}
+        >
+          {completionTime}
+        </text>
+      ),
+    })
+  }
+  if (typeof credits === 'number' && credits > 0) {
+    footerItems.push({
+      key: 'credits',
+      node: (
+        <text
+          attributes={TextAttributes.DIM}
+          style={{
+            wrapMode: 'none',
+            fg: theme.secondary,
+            marginTop: 0,
+            marginBottom: 0,
+          }}
+        >
+          {pluralize(credits, 'credit')}
+        </text>
+      ),
+    })
+  }
+  if (shouldRenderFeedbackButton) {
+    footerItems.push({
+      key: 'feedback',
+      node: (
+        <FeedbackIconButton
+          onClick={handleFeedbackOpen}
+          onClose={handleFeedbackClose}
+          isOpen={canRequestFeedback ? isFeedbackOpen : false}
+          messageId={messageId}
+          selectedCategory={selectedFeedbackCategory}
+          hasSubmittedFeedback={hasSubmittedFeedback}
+        />
+      ),
+    })
+  }
+
+  if (footerItems.length === 0) {
+    return null
+  }
+
+  return (
+    <box
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'flex-end',
+        gap: 1,
+      }}
+    >
+      {footerItems.map((item, idx) => (
+        <React.Fragment key={item.key}>
+          {idx > 0 && (
+            <text
+              attributes={TextAttributes.DIM}
+              style={{
+                wrapMode: 'none',
+                fg: theme.muted,
+                marginTop: 0,
+                marginBottom: 0,
+              }}
+            >
+              •
+            </text>
+          )}
+          {item.node}
+        </React.Fragment>
+      ))}
+    </box>
+  )
+}
