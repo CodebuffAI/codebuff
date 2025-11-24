@@ -49,7 +49,7 @@ interface ChatInputBarProps {
 
   // Feedback mode
   feedbackMode: boolean
-  handleExitFeedback: () => void // Handlers
+  handleExitFeedback: () => void  // Handlers
   handleSubmit: () => Promise<void>
 }
 
@@ -197,8 +197,7 @@ export const ChatInputBar = ({
                 cursorPosition={cursorPosition}
               />
             </box>
-            {/* Mode switcher temporarily disabled */}
-            {/* {!isBashMode && (
+            {!isBashMode && (
               <box
                 style={{
                   flexShrink: 0,
@@ -211,7 +210,7 @@ export const ChatInputBar = ({
                   onSelectMode={setAgentMode}
                 />
               </box>
-            )} */}
+            )}
           </box>
         </box>
       </box>

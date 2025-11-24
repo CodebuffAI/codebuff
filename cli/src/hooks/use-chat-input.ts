@@ -29,12 +29,11 @@ export const useChatInput = ({
   const hasAutoSubmittedRef = useRef(false)
   const isBashMode = useChatStore((state) => state.isBashMode)
 
-  // // Estimate the collapsed toggle width as rendered by AgentModeToggle.
-  // // In bash mode, we don't show the toggle, so no width needed.
-  // const estimatedToggleWidth = isBashMode
-  //   ? 0
-  //   : stringWidth(`< ${agentMode}`) + 6 // 2 padding + 2 borders + 2 gap
-  const estimatedToggleWidth = 0
+  // Estimate the collapsed toggle width as rendered by AgentModeToggle.
+  // In bash mode, we don't show the toggle, so no width needed.
+  const estimatedToggleWidth = isBashMode
+    ? 0
+    : stringWidth(`< ${agentMode}`) + 6 // 2 padding + 2 borders + 2 gap
 
   // The content box that wraps the input row has paddingLeft/paddingRight = 1
   // (see cli/src/chat.tsx). Subtract those columns so our MultilineInput width
