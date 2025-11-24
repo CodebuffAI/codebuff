@@ -136,8 +136,10 @@ export function useKeyboardNavigation(params: KeyboardNavigationParams) {
           !key.meta &&
           !key.shift
         ) {
-          // Don't handle space in text input (allow typing spaces)
+          // Handle space in text input: add space character and return
           if (isFocusOnTextInput(focus) && key.name === 'space') {
+            const currentText = otherTexts[currentQuestionIndex] || ''
+            onOtherTextChange(currentQuestionIndex, currentText + ' ')
             return
           }
 
