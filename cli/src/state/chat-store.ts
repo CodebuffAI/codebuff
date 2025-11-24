@@ -3,6 +3,7 @@ import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
 import { clamp } from '../utils/math'
+import { loadModePreference, saveModePreference } from '../utils/settings'
 
 import type { ChatMessage } from '../types/chat'
 import type { AgentMode } from '../utils/constants'
@@ -87,7 +88,7 @@ const initialState: ChatStoreState = {
   isChainInProgress: false,
   slashSelectedIndex: 0,
   agentSelectedIndex: 0,
-  agentMode: 'DEFAULT',
+  agentMode: loadModePreference(),
   hasReceivedPlanResponse: false,
   lastMessageMode: null,
   sessionCreditsUsed: 0,
@@ -171,6 +172,7 @@ export const useChatStore = create<ChatStore>()(
     setAgentMode: (mode) =>
       set((state) => {
         state.agentMode = mode
+        saveModePreference(mode)
       }),
 
     toggleAgentMode: () =>
@@ -182,6 +184,7 @@ export const useChatStore = create<ChatStore>()(
         } else {
           state.agentMode = 'DEFAULT'
         }
+        saveModePreference(state.agentMode)
       }),
 
     setHasReceivedPlanResponse: (value) =>
