@@ -1,0 +1,59 @@
+// Input mode types and configurations
+// To add a new mode:
+// 1. Add it to the InputMode type
+// 2. Add its configuration to INPUT_MODE_CONFIGS
+
+export type InputMode = 'default' | 'bash' | 'referral'
+
+// Theme color keys that are valid color values (must match ChatTheme keys)
+export type ThemeColorKey = 'foreground' | 'background' | 'error' | 'warning' | 'success' | 'info' | 'muted'
+
+export type InputModeConfig = {
+  /** Prefix icon shown before input (e.g., "!" for bash) */
+  icon: string | null
+  /** Theme color key for icon and border */
+  color: ThemeColorKey
+  /** Input placeholder text */
+  placeholder: string
+  /** Width adjustment for the prefix (icon width + padding) */
+  widthAdjustment: number
+  /** Whether to show the agent mode toggle */
+  showAgentModeToggle: boolean
+  /** Whether to disable slash command suggestions */
+  disableSlashSuggestions: boolean
+}
+
+export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
+  default: {
+    icon: null,
+    color: 'foreground',
+    placeholder: 'Type a message...',
+    widthAdjustment: 0,
+    showAgentModeToggle: true,
+    disableSlashSuggestions: false,
+  },
+  bash: {
+    icon: '!',
+    color: 'error',
+    placeholder: 'enter bash command...',
+    widthAdjustment: 2, // 1 char + 1 padding
+    showAgentModeToggle: false,
+    disableSlashSuggestions: true,
+  },
+  referral: {
+    icon: '◎',
+    color: 'warning',
+    placeholder: 'enter referral code (e.g. ref-abc123)...',
+    widthAdjustment: 2, // 1 char + 1 padding
+    showAgentModeToggle: false,
+    disableSlashSuggestions: true,
+  },
+}
+
+export function getInputModeConfig(mode: InputMode): InputModeConfig {
+  return INPUT_MODE_CONFIGS[mode]
+}
+
+export function isSpecialMode(mode: InputMode): boolean {
+  return mode !== 'default'
+}

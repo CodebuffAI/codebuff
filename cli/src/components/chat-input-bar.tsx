@@ -1,14 +1,18 @@
 import React from 'react'
+
 import { AgentModeToggle } from './agent-mode-toggle'
 import { FeedbackContainer } from './feedback-container'
 import { MultilineInput, type MultilineInputHandle } from './multiline-input'
+import { ReferralBanner } from './referral-banner'
 import { SuggestionMenu, type SuggestionItem } from './suggestion-menu'
 import { UsageBanner } from './usage-banner'
-import { BORDER_CHARS } from '../utils/ui-constants'
-import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
-import type { AgentMode } from '../utils/constants'
+import { getInputModeConfig } from '../utils/input-modes'
+import { BORDER_CHARS } from '../utils/ui-constants'
+
+import type { useTheme } from '../hooks/use-theme'
 import type { InputValue } from '../state/chat-store'
+import type { AgentMode } from '../utils/constants'
 
 type Theme = ReturnType<typeof useTheme>
 
@@ -49,7 +53,7 @@ interface ChatInputBarProps {
 
   // Feedback mode
   feedbackMode: boolean
-  handleExitFeedback: () => void  // Handlers
+  handleExitFeedback: () => void // Handlers
   handleSubmit: () => Promise<void>
 }
 
@@ -82,8 +86,9 @@ export const ChatInputBar = ({
   handleExitFeedback,
   handleSubmit,
 }: ChatInputBarProps) => {
-  const isBashMode = useChatStore((state) => state.isBashMode)
-  const setBashMode = useChatStore((state) => state.setBashMode)
+  const inputMode = useChatStore((state) => state.inputMode)
+  const setInputMode = useChatStore((state) => state.setInputMode)
+  const modeConfig = getInputModeConfig(inputMode)
   if (feedbackMode) {
     return (
       <FeedbackContainer
@@ -94,15 +99,13 @@ export const ChatInputBar = ({
     )
   }
 
-  // Handle input changes with bash mode logic
+  // Handle input changes with special mode entry detection
   const handleInputChange = (value: InputValue) => {
-    // Detect entering bash mode: user typed '!' at the start when not already in bash mode
-    const userTypedBang = !isBashMode && value.text.startsWith('!')
-
-    if (userTypedBang) {
+    // Detect entering bash mode: user typed '!' at the start when in default mode
+    if (inputMode === 'default' && value.text.startsWith('!')) {
       // Enter bash mode: remove the '!' prefix and preserve the rest of the text
       const textAfterBang = value.text.slice(1)
-      setBashMode(true)
+      setInputMode('bash')
       setInputValue({
         text: textAfterBang,
         cursorPosition: Math.max(0, value.cursorPosition - 1),
@@ -115,11 +118,11 @@ export const ChatInputBar = ({
     setInputValue(value)
   }
 
-  // Adjust input width for bash mode (subtract 2 for '!' column)
-  const adjustedInputWidth = isBashMode ? inputWidth - 2 : inputWidth
-  const effectivePlaceholder = isBashMode
-    ? 'Enter bash command...'
-    : inputPlaceholder
+  // Adjust input width based on mode configuration
+  const adjustedInputWidth = inputWidth - modeConfig.widthAdjustment
+  const effectivePlaceholder =
+    inputMode === 'default' ? inputPlaceholder : modeConfig.placeholder
+  const borderColor = theme[modeConfig.color]
 
   return (
     <>
@@ -129,7 +132,7 @@ export const ChatInputBar = ({
         style={{
           width: '100%',
           borderStyle: 'single',
-          borderColor: isBashMode ? theme.error : theme.foreground,
+          borderColor,
           customBorderChars: BORDER_CHARS,
           paddingLeft: 1,
           paddingRight: 1,
@@ -172,14 +175,16 @@ export const ChatInputBar = ({
               width: '100%',
             }}
           >
-            {isBashMode && (
+            {modeConfig.icon && (
               <box
                 style={{
                   flexShrink: 0,
                   paddingRight: 1,
                 }}
               >
-                <text style={{ fg: theme.error }}>!</text>
+                <text style={{ fg: theme[modeConfig.color] }}>
+                  {modeConfig.icon}
+                </text>
               </box>
             )}
             <box style={{ flexGrow: 1, minWidth: 0 }}>
@@ -197,7 +202,7 @@ export const ChatInputBar = ({
                 cursorPosition={cursorPosition}
               />
             </box>
-            {!isBashMode && (
+            {modeConfig.showAgentModeToggle && (
               <box
                 style={{
                   flexShrink: 0,
@@ -215,6 +220,7 @@ export const ChatInputBar = ({
         </box>
       </box>
       <UsageBanner />
+      <ReferralBanner />
     </>
   )
 }
