@@ -16,7 +16,7 @@ export const ReferralBanner = () => {
   const [isCloseHovered, setIsCloseHovered] = React.useState(false)
 
   // Fetch referral link when in referral mode
-  const { data: userDetails, isLoading } = useUserDetailsQuery({
+  const { data: userDetails, isLoading, isError } = useUserDetailsQuery({
     fields: ['referral_link'] as const,
     enabled: isReferralMode,
   })
@@ -26,12 +26,16 @@ export const ReferralBanner = () => {
   const text = useMemo(() => {
     if (isLoading) return 'Loading your referral link...'
 
+    if (isError) {
+      return 'Failed to load your referral link. Please try again later.'
+    }
+
     if (!referralLink) {
       return 'Your referral link is not available yet'
     }
 
     return `Share this link with friends:\n${referralLink}`
-  }, [referralLink, isLoading])
+  }, [referralLink, isLoading, isError])
 
   if (!isReferralMode) return null
 

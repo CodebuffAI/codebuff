@@ -27,7 +27,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
   default: {
     icon: null,
     color: 'foreground',
-    placeholder: 'Type a message...',
+    placeholder: 'type a message...',
     widthAdjustment: 0,
     showAgentModeToggle: true,
     disableSlashSuggestions: false,
@@ -52,8 +52,4 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
 
 export function getInputModeConfig(mode: InputMode): InputModeConfig {
   return INPUT_MODE_CONFIGS[mode]
-}
-
-export function isSpecialMode(mode: InputMode): boolean {
-  return mode !== 'default'
 }

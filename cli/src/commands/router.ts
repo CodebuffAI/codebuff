@@ -97,15 +97,40 @@ export async function routeUserPrompt(
 
   // Handle referral mode input
   if (inputMode === 'referral') {
-    // Normalize the referral code - add ref- prefix if not present
+    // Validate and normalize the referral code
+    // Valid codes are alphanumeric with optional dashes, 3-50 chars
+    const codePattern = /^[a-zA-Z0-9-]{3,50}$/
+    const codeWithoutPrefix = trimmed.startsWith('ref-') ? trimmed.slice(4) : trimmed
+    
+    if (!codePattern.test(codeWithoutPrefix)) {
+      setMessages((prev) => [
+        ...prev,
+        getUserMessage(trimmed),
+        getSystemMessage('Invalid referral code format. Codes should be 3-50 alphanumeric characters.'),
+      ])
+      saveToHistory(trimmed)
+      setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+      setInputMode('default')
+      return
+    }
+    
     const referralCode = trimmed.startsWith('ref-') ? trimmed : `ref-${trimmed}`
-    const { postUserMessage: referralPostMessage } =
-      await handleReferralCode(referralCode)
-    setMessages((prev) => [
-      ...prev,
-      getUserMessage(trimmed),
-      ...referralPostMessage([]),
-    ])
+    try {
+      const { postUserMessage: referralPostMessage } =
+        await handleReferralCode(referralCode)
+      setMessages((prev) => [
+        ...prev,
+        getUserMessage(trimmed),
+        ...referralPostMessage([]),
+      ])
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      setMessages((prev) => [
+        ...prev,
+        getUserMessage(trimmed),
+        getSystemMessage(`Error redeeming referral code: ${errorMessage}`),
+      ])
+    }
     saveToHistory(trimmed)
     setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     setInputMode('default')

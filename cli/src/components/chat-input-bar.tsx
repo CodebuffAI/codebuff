@@ -101,14 +101,13 @@ export const ChatInputBar = ({
 
   // Handle input changes with special mode entry detection
   const handleInputChange = (value: InputValue) => {
-    // Detect entering bash mode: user typed '!' at the start when in default mode
-    if (inputMode === 'default' && value.text.startsWith('!')) {
-      // Enter bash mode: remove the '!' prefix and preserve the rest of the text
-      const textAfterBang = value.text.slice(1)
+    // Detect entering bash mode: user typed exactly '!' when in default mode
+    if (inputMode === 'default' && value.text === '!') {
+      // Enter bash mode and clear input
       setInputMode('bash')
       setInputValue({
-        text: textAfterBang,
-        cursorPosition: Math.max(0, value.cursorPosition - 1),
+        text: '',
+        cursorPosition: 0,
         lastEditDueToNav: value.lastEditDueToNav,
       })
       return

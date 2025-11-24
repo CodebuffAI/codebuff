@@ -85,12 +85,21 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       // If user provided a code directly, redeem it immediately
       if (trimmedArgs) {
         const code = trimmedArgs.startsWith('ref-') ? trimmedArgs : `ref-${trimmedArgs}`
-        const { postUserMessage } = await handleReferralCode(code)
-        params.setMessages((prev) => [
-          ...prev,
-          getUserMessage(params.inputValue.trim()),
-          ...postUserMessage([]),
-        ])
+        try {
+          const { postUserMessage } = await handleReferralCode(code)
+          params.setMessages((prev) => [
+            ...prev,
+            getUserMessage(params.inputValue.trim()),
+            ...postUserMessage([]),
+          ])
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+          params.setMessages((prev) => [
+            ...prev,
+            getUserMessage(params.inputValue.trim()),
+            getSystemMessage(`Error redeeming referral code: ${errorMessage}`),
+          ])
+        }
         params.saveToHistory(params.inputValue.trim())
         clearInput(params)
         return
