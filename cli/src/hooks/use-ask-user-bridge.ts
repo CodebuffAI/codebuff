@@ -5,6 +5,7 @@ import { logger } from '../utils/logger'
 
 export function useAskUserBridge() {
   const setAskUserState = useChatStore((state) => state.setAskUserState)
+  const setInputValue = useChatStore((state) => state.setInputValue)
 
   useEffect(() => {
     const unsubscribe = AskUserBridge.subscribe((request) => {
@@ -33,11 +34,15 @@ export function useAskUserBridge() {
     }>
   ) => {
     logger.info({ answers }, '[useAskUserBridge] submitAnswers called')
+    // Clear input value so previous prompt doesn't appear after form closes
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     AskUserBridge.submit({ answers })
   }
 
   const skip = () => {
     logger.info('[useAskUserBridge] skip called')
+    // Clear input value so previous prompt doesn't appear after form closes
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     AskUserBridge.submit({ skipped: true })
   }
 
