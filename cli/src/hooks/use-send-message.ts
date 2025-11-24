@@ -14,6 +14,7 @@ import { getCodebuffClient, formatToolOutput } from '../utils/codebuff-client'
 import { shouldHideAgent, shouldCollapseByDefault } from '../utils/constants'
 
 import { getErrorObject } from '../utils/error'
+import { formatElapsedTime } from '../utils/format-elapsed-time'
 import { formatTimestamp } from '../utils/helpers'
 import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 
@@ -1758,7 +1759,7 @@ export const useSendMessage = ({
         const elapsedMs = timerResult?.elapsedMs ?? 0
         const elapsedSeconds = Math.floor(elapsedMs / 1000)
         const completionTime =
-          elapsedSeconds > 0 ? `${elapsedSeconds}s` : undefined
+          elapsedSeconds > 0 ? formatElapsedTime(elapsedSeconds) : undefined
 
         applyMessageUpdate((prev) =>
           prev.map((msg) => {
