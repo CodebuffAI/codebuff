@@ -1,9 +1,8 @@
 import z from 'zod/v4'
 
 import { BrowserResponseSchema } from '../../../browser-actions'
+import { validateToolParams } from '../../constants'
 import { $getToolCallString, jsonToolResultSchema } from '../utils'
-
-import type { $ToolParams } from '../../constants'
 
 const toolName = 'browser_logs'
 const endsAgentStep = true
@@ -76,10 +75,10 @@ ${$getToolCallString({
 })}
     `.trim()
 
-export const browserLogsParams = {
+export const browserLogsParams = validateToolParams({
   toolName,
   endsAgentStep,
   description,
   inputSchema,
   outputSchema: jsonToolResultSchema(BrowserResponseSchema),
-} satisfies $ToolParams
+})

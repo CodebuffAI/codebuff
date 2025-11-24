@@ -182,7 +182,7 @@ export function getBackgroundProcessUpdates(): ToolMessage[] {
       toolCallId,
       toolName: 'background_process_update',
       content: jsonToolResult(update),
-    } satisfies ToolMessage
+    } as unknown as ToolMessage
   })
 }
 

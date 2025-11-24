@@ -1,8 +1,7 @@
 import z from 'zod/v4'
 
+import { validateToolParams } from '../../constants'
 import { $getToolCallString } from '../utils'
-
-import type { $ToolParams } from '../../constants'
 
 const toolName = 'write_todos'
 const endsAgentStep = false
@@ -48,7 +47,7 @@ ${$getToolCallString({
 })}
 `.trim()
 
-export const writeTodosParams = {
+export const writeTodosParams = validateToolParams({
   toolName,
   endsAgentStep,
   description,
@@ -61,4 +60,4 @@ export const writeTodosParams = {
       }),
     }),
   ]),
-} satisfies $ToolParams
+})

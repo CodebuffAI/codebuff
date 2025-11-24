@@ -1,8 +1,7 @@
 import z from 'zod/v4'
 
+import { validateToolParams } from '../../constants'
 import { $getToolCallString, jsonToolResultSchema } from '../utils'
-
-import type { $ToolParams } from '../../constants'
 
 export const fileContentsSchema = z.union([
   z.object({
@@ -47,10 +46,11 @@ ${$getToolCallString({
   endsAgentStep,
 })}
 `.trim()
-export const readFilesParams = {
+
+export const readFilesParams = validateToolParams({
   toolName,
   endsAgentStep,
   description,
   inputSchema,
   outputSchema: jsonToolResultSchema(fileContentsSchema.array()),
-} satisfies $ToolParams
+})

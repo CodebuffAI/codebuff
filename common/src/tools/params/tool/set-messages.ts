@@ -1,8 +1,7 @@
 import z from 'zod/v4'
 
+import { validateToolParams } from '../../constants'
 import { $getToolCallString, emptyToolResultSchema } from '../utils'
-
-import type { $ToolParams } from '../../constants'
 
 const toolName = 'set_messages'
 const endsAgentStep = true
@@ -32,10 +31,10 @@ ${$getToolCallString({
 })}
 `.trim()
 
-export const setMessagesParams = {
+export const setMessagesParams = validateToolParams({
   toolName,
   endsAgentStep,
   description,
   inputSchema,
   outputSchema: emptyToolResultSchema(),
-} satisfies $ToolParams
+})

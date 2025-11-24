@@ -198,7 +198,7 @@ describe('convertCbToModelMessages', () => {
       const messages: Message[] = [
         {
           role: 'tool',
-          toolName: 'test_tool',
+          toolName: 'test_tool' as any,
           toolCallId: 'call_123',
           content: jsonToolResult({ result: 'success' }),
         },
@@ -223,7 +223,7 @@ describe('convertCbToModelMessages', () => {
     })
 
     it('should convert tool messages with media output', () => {
-      const messages: Message[] = [
+      const messages: Message<any>[] = [
         {
           role: 'tool',
           toolName: 'test_tool',
@@ -236,7 +236,7 @@ describe('convertCbToModelMessages', () => {
       ]
 
       const result = convertCbToModelMessages({
-        messages,
+        messages: messages as Message[],
         includeCacheControl: false,
       })
 
@@ -253,7 +253,7 @@ describe('convertCbToModelMessages', () => {
     })
 
     it('should handle multiple tool outputs', () => {
-      const messages: Message[] = [
+      const messages: Message<any>[] = [
         {
           role: 'tool',
           toolName: 'test_tool',
@@ -266,7 +266,7 @@ describe('convertCbToModelMessages', () => {
       ]
 
       const result = convertCbToModelMessages({
-        messages,
+        messages: messages as Message[],
         includeCacheControl: false,
       })
 
@@ -796,7 +796,7 @@ describe('convertCbToModelMessages', () => {
         assistantMessage({
           type: 'tool-call',
           toolCallId: 'call_123',
-          toolName: 'test_tool',
+          toolName: 'test_tool' as any,
           input: { param: 'value' },
         }),
       ]

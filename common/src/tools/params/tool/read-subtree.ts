@@ -1,8 +1,7 @@
 import z from 'zod/v4'
 
+import { validateToolParams } from '../../constants'
 import { $getToolCallString, jsonToolResultSchema } from '../utils'
-
-import type { $ToolParams } from '../../constants'
 
 const toolName = 'read_subtree'
 const endsAgentStep = true
@@ -44,7 +43,7 @@ Purpose: Read a directory subtree and return a blob containing subdirectories, f
 - In normal use, don't set maxTokens beyond 10,000.
 `.trim()
 
-export const readSubtreeParams = {
+export const readSubtreeParams = validateToolParams({
   toolName,
   endsAgentStep,
   description,
@@ -76,4 +75,4 @@ export const readSubtreeParams = {
       ]),
     ),
   ),
-} satisfies $ToolParams
+})

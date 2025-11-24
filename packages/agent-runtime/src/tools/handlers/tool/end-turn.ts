@@ -1,15 +1,19 @@
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import { validateToolHandler } from '../handler-function-type'
+
 import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
 
-export const handleEndTurn = (async (params: {
-  previousToolCallFinished: Promise<any>
-  toolCall: CodebuffToolCall<'end_turn'>
-}): Promise<{ output: CodebuffToolOutput<'end_turn'> }> => {
-  const { previousToolCallFinished } = params
+type ToolName = 'end_turn'
+export const handleEndTurn = validateToolHandler<ToolName>(
+  async (params: {
+    previousToolCallFinished: Promise<any>
+    toolCall: CodebuffToolCall<ToolName>
+  }): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
+    const { previousToolCallFinished } = params
 
-  await previousToolCallFinished
-  return { output: [] }
-}) satisfies CodebuffToolHandlerFunction<'end_turn'>
+    await previousToolCallFinished
+    return { output: [] }
+  },
+)

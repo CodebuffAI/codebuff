@@ -1,9 +1,8 @@
 import z from 'zod/v4'
 
 import { updateFileResultSchema } from './str-replace'
+import { validateToolParams } from '../../constants'
 import { $getToolCallString, jsonToolResultSchema } from '../utils'
-
-import type { $ToolParams } from '../../constants'
 
 const toolName = 'write_file'
 const endsAgentStep = false
@@ -77,10 +76,10 @@ function foo() {
 })}
 `.trim()
 
-export const writeFileParams = {
+export const writeFileParams = validateToolParams({
   toolName,
   endsAgentStep,
   description,
   inputSchema,
   outputSchema: jsonToolResultSchema(updateFileResultSchema),
-} satisfies $ToolParams
+})

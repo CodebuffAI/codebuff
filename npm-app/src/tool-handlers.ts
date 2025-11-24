@@ -519,18 +519,24 @@ const handleFileChangeHooks: ToolHandler<
   )
 
   // Add a summary if some hooks failed
-  if (someHooksFailed) {
-    toolResults[0].value.push({
-      errorMessage:
-        'Some file change hooks failed. Please review the output above.',
-    })
-  }
+  addSummary: {
+    if (!Array.isArray(toolResults[0].value)) {
+      break addSummary
+    }
 
-  if (toolResults[0].value.length === 0) {
-    toolResults[0].value.push({
-      errorMessage:
-        'No file change hooks were triggered for the specified files.',
-    })
+    if (someHooksFailed) {
+      toolResults[0].value.push({
+        errorMessage:
+          'Some file change hooks failed. Please review the output above.',
+      })
+    }
+
+    if (toolResults[0].value.length === 0) {
+      toolResults[0].value.push({
+        errorMessage:
+          'No file change hooks were triggered for the specified files.',
+      })
+    }
   }
 
   return toolResults
@@ -728,13 +734,13 @@ export const handleToolCall = async (
     throw new Error(`No handler found for tool: ${toolName}`)
   }
 
-  const content = await handler(input as any, toolCallId)
+  const content = await (handler as any)(input as any, toolCallId)
 
   const contentArray = Array.isArray(content) ? content : [content]
   return {
     role: 'tool',
-    toolName,
+    toolName: toolName as any,
     toolCallId,
-    content: contentArray,
+    content: contentArray as any,
   } satisfies ToolMessage
 }

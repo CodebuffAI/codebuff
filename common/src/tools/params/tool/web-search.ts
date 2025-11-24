@@ -1,8 +1,7 @@
 import z from 'zod/v4'
 
+import { validateToolParams } from '../../constants'
 import { $getToolCallString, jsonToolResultSchema } from '../utils'
-
-import type { $ToolParams } from '../../constants'
 
 const toolName = 'web_search'
 const endsAgentStep = true
@@ -55,7 +54,7 @@ ${$getToolCallString({
 })}
 `.trim()
 
-export const webSearchParams = {
+export const webSearchParams = validateToolParams({
   toolName,
   endsAgentStep,
   description,
@@ -70,4 +69,4 @@ export const webSearchParams = {
       }),
     ]),
   ),
-} satisfies $ToolParams
+})

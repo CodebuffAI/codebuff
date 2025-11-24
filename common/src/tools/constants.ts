@@ -1,3 +1,7 @@
+import z from 'zod/v4'
+
+import { jsonToolErrorSchema } from './params/utils'
+
 import type { ToolResultOutput } from '../types/messages/content-part'
 import type { Tool } from 'ai'
 
@@ -84,4 +88,27 @@ export type $ToolParams<T extends ToolName = ToolName> = Required<
 > & {
   toolName: T
   endsAgentStep: boolean
+  outputSchema: z.ZodType<ToolResultOutput[]>
+}
+
+export function validateToolParams<T extends $ToolParams>(
+  params: T,
+): Omit<T, 'outputSchema'> & {
+  outputSchema: z.ZodUnion<
+    [T['outputSchema'], ReturnType<typeof jsonToolErrorSchema>]
+  >
+  __validated: true
+} {
+  return {
+    ...params,
+    outputSchema: z.union([params.outputSchema, jsonToolErrorSchema()]),
+    __validated: true,
+  }
+}
+export type $ValidatedToolParams<T extends ToolName = ToolName> = Omit<
+  $ToolParams<T>,
+  'outputSchema'
+> & {
+  outputSchema: z.ZodTypeAny
+  __validated: true
 }

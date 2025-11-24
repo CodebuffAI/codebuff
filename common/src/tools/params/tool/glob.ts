@@ -1,8 +1,7 @@
 import z from 'zod/v4'
 
+import { validateToolParams } from '../../constants'
 import { $getToolCallString, jsonToolResultSchema } from '../utils'
-
-import type { $ToolParams } from '../../constants'
 
 const toolName = 'glob'
 const endsAgentStep = false
@@ -52,7 +51,7 @@ Glob patterns support:
 This tool is fast and works well for discovering files by name patterns.
 `.trim()
 
-export const globParams = {
+export const globParams = validateToolParams({
   toolName,
   description,
   endsAgentStep,
@@ -71,4 +70,4 @@ export const globParams = {
       }),
     ]),
   ),
-} satisfies $ToolParams
+})

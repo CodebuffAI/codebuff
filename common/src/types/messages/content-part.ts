@@ -4,6 +4,9 @@ import { providerMetadataSchema } from './provider-metadata'
 import { jsonValueSchema } from '../json'
 import { dataContentSchema } from './data-content'
 
+import type { CodebuffToolParams } from '../../tools/list'
+import type { ToolSet } from 'ai'
+
 export const textPartSchema = z.object({
   type: z.literal('text'),
   text: z.string(),
@@ -43,7 +46,18 @@ export const toolCallPartSchema = z.object({
   providerOptions: providerMetadataSchema.optional(),
   providerExecuted: z.boolean().optional(),
 })
-export type ToolCallPart = z.infer<typeof toolCallPartSchema>
+type ToolSetInputSchema = Record<
+  string,
+  Required<Pick<ToolSet[string], 'inputSchema'>>
+>
+export type ToolCallPart<
+  TOOLS extends ToolSetInputSchema = CodebuffToolParams,
+> = {
+  [K in keyof TOOLS]: z.infer<typeof toolCallPartSchema> & {
+    toolName: K
+    input: z.input<TOOLS[K]['inputSchema']>
+  }
+}[keyof TOOLS]
 
 export const toolResultOutputSchema = z.discriminatedUnion('type', [
   z.object({

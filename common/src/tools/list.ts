@@ -28,7 +28,11 @@ import { webSearchParams } from './params/tool/web-search'
 import { writeFileParams } from './params/tool/write-file'
 import { writeTodosParams } from './params/tool/write-todos'
 
-import type { $ToolParams, PublishedToolName, ToolName } from './constants'
+import type {
+  $ValidatedToolParams,
+  PublishedToolName,
+  ToolName,
+} from './constants'
 import type { ToolMessage } from '../types/messages/codebuff-message'
 import type { ToolCallPart } from '../types/messages/content-part'
 
@@ -60,8 +64,9 @@ export const toolParams = {
   write_file: writeFileParams,
   write_todos: writeTodosParams,
 } satisfies {
-  [K in ToolName]: $ToolParams<K>
+  [K in ToolName]: $ValidatedToolParams<K>
 }
+export type CodebuffToolParams = typeof toolParams
 
 // Tool call from LLM after parsing
 export type CodebuffToolCall<T extends ToolName = ToolName> = {

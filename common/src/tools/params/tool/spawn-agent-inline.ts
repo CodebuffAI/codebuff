@@ -1,8 +1,7 @@
 import z from 'zod/v4'
 
+import { validateToolParams } from '../../constants'
 import { $getToolCallString, emptyToolResultSchema } from '../utils'
-
-import type { $ToolParams } from '../../constants'
 
 const toolName = 'spawn_agent_inline'
 const endsAgentStep = true
@@ -43,10 +42,10 @@ ${$getToolCallString({
 })}
 `.trim()
 
-export const spawnAgentInlineParams = {
+export const spawnAgentInlineParams = validateToolParams({
   toolName,
   endsAgentStep,
   description,
   inputSchema,
   outputSchema: emptyToolResultSchema(),
-} satisfies $ToolParams
+})

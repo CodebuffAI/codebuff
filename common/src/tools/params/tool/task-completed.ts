@@ -1,8 +1,7 @@
 import z from 'zod/v4'
 
+import { validateToolParams } from '../../constants'
 import { $getToolCallString, emptyToolResultSchema } from '../utils'
-
-import type { $ToolParams } from '../../constants'
 
 const toolName = 'task_completed'
 const endsAgentStep = true
@@ -49,10 +48,10 @@ I can't get the tests to pass after several different attempts. I need help from
 ${$getToolCallString({ toolName, inputSchema, input: {}, endsAgentStep })}
 `.trim()
 
-export const taskCompletedParams = {
+export const taskCompletedParams = validateToolParams({
   toolName,
   endsAgentStep,
   description,
   inputSchema,
   outputSchema: emptyToolResultSchema(),
-} satisfies $ToolParams
+})

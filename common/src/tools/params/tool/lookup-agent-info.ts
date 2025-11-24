@@ -1,9 +1,8 @@
 import z from 'zod/v4'
 
 import { jsonValueSchema } from '../../../types/json'
+import { validateToolParams } from '../../constants'
 import { $getToolCallString, jsonToolResultSchema } from '../utils'
-
-import type { $ToolParams } from '../../constants'
 
 const toolName = 'lookup_agent_info'
 const endsAgentStep = false
@@ -28,10 +27,10 @@ ${$getToolCallString({
 })}
 `.trim()
 
-export const lookupAgentInfoParams = {
+export const lookupAgentInfoParams = validateToolParams({
   toolName,
   endsAgentStep,
   description,
   inputSchema,
   outputSchema: jsonToolResultSchema(jsonValueSchema),
-} satisfies $ToolParams
+})

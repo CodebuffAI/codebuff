@@ -1,3 +1,4 @@
+import { isErrorToolResult } from '@codebuff/common/tools/params/utils'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
@@ -7,6 +8,10 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 export function simplifyReadFileResults(
   messageContent: CodebuffToolOutput<'read_files'>,
 ): CodebuffToolOutput<'read_files'> {
+  if (isErrorToolResult(messageContent)) {
+    return messageContent
+  }
+
   return [
     {
       type: 'json',

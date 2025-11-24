@@ -35,8 +35,8 @@ export function $getToolCallString<Input>(params: {
 }
 
 /** Generates the zod schema for a single JSON tool result. */
-export function jsonToolResultSchema<T extends JSONValue>(
-  valueSchema: z.ZodType<T>,
+export function jsonToolResultSchema<T extends JSONValue, U>(
+  valueSchema: z.ZodType<T, U>,
 ) {
   return z.tuple([
     z.object({
@@ -46,7 +46,18 @@ export function jsonToolResultSchema<T extends JSONValue>(
   ])
 }
 
+export function jsonToolErrorSchema() {
+  return jsonToolResultSchema(z.object({ errorMessage: z.string() }))
+}
+
 /** Generates the zod schema for an empty tool result. */
 export function emptyToolResultSchema() {
   return z.tuple([])
+}
+
+export function isErrorToolResult(
+  result: ToolResultOutput[],
+): result is z.input<ReturnType<typeof jsonToolErrorSchema>> {
+  const parsed = jsonToolErrorSchema().safeParse(result)
+  return parsed.success
 }

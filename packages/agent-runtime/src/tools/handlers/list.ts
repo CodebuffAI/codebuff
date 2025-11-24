@@ -25,7 +25,7 @@ import { handleWebSearch } from './tool/web-search'
 import { handleWriteFile } from './tool/write-file'
 import { handleWriteTodos } from './tool/write-todos'
 
-import type { CodebuffToolHandlerFunction } from './handler-function-type'
+import type { $ToolHandlerFunction } from './handler-function-type'
 import type { ToolName } from '@codebuff/common/tools/constants'
 
 /**
@@ -65,5 +65,5 @@ export const codebuffToolHandlers = {
   write_file: handleWriteFile,
   write_todos: handleWriteTodos,
 } satisfies {
-  [K in ToolName]: CodebuffToolHandlerFunction<K>
+  [K in ToolName]: $ToolHandlerFunction<K>
 }

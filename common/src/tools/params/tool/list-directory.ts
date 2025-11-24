@@ -1,8 +1,7 @@
 import z from 'zod/v4'
 
+import { validateToolParams } from '../../constants'
 import { $getToolCallString, jsonToolResultSchema } from '../utils'
-
-import type { $ToolParams } from '../../constants'
 
 const toolName = 'list_directory'
 const endsAgentStep = true
@@ -38,7 +37,7 @@ ${$getToolCallString({
 })}
     `.trim()
 
-export const listDirectoryParams = {
+export const listDirectoryParams = validateToolParams({
   toolName,
   endsAgentStep,
   description,
@@ -55,4 +54,4 @@ export const listDirectoryParams = {
       }),
     ]),
   ),
-} satisfies $ToolParams
+})

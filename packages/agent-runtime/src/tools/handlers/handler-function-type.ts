@@ -23,7 +23,7 @@ type PresentOrAbsent<K extends PropertyKey, V> =
   | { [P in K]: V }
   | { [P in K]: never }
 
-export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
+export type $ToolHandlerFunction<T extends ToolName = ToolName> = (
   params: {
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<T>
@@ -65,3 +65,25 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
   output: CodebuffToolMessage<T>['content']
   creditsUsed?: number
 }>
+
+export function validateToolHandler<T extends ToolName>(
+  handler: $ToolHandlerFunction<T>,
+) {
+  const handlerWithToolName = async (...input: Parameters<typeof handler>) => {
+    const result = await handler(...input)
+    return { toolName: input[0].toolCall.toolName, ...result }
+  }
+
+  handlerWithToolName.__validated = true as const
+  return handlerWithToolName satisfies ValidatedToolHandler<T>
+}
+export type ValidatedToolHandler<T extends ToolName = ToolName> = {
+  (
+    ...input: Parameters<$ToolHandlerFunction<T>>
+  ): Promise<
+    {
+      [K in T]: { toolName: T } & Awaited<ReturnType<$ToolHandlerFunction<T>>>
+    }[T]
+  >
+  __validated: true
+}

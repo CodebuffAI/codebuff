@@ -1,8 +1,8 @@
 import { partition } from 'lodash'
 
 import { processFileBlock } from '../../../process-file-block'
+import { validateToolHandler } from '../handler-function-type'
 
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
   ClientToolCall,
   CodebuffToolCall,
@@ -58,118 +58,121 @@ export function getFileProcessingValues(
   return fileProcessingValues
 }
 
-export const handleWriteFile = (async (
-  params: {
-    previousToolCallFinished: Promise<void>
-    toolCall: CodebuffToolCall<'write_file'>
+type ToolName = 'write_file'
+export const handleWriteFile = validateToolHandler<ToolName>(
+  async (
+    params: {
+      previousToolCallFinished: Promise<void>
+      toolCall: CodebuffToolCall<ToolName>
 
-    agentState: AgentState
-    clientSessionId: string
-    fileProcessingState: FileProcessingState
-    fingerprintId: string
-    logger: Logger
-    prompt: string | undefined
-    userId: string | undefined
-    userInputId: string
+      agentState: AgentState
+      clientSessionId: string
+      fileProcessingState: FileProcessingState
+      fingerprintId: string
+      logger: Logger
+      prompt: string | undefined
+      userId: string | undefined
+      userInputId: string
 
-    requestClientToolCall: (
-      toolCall: ClientToolCall<'write_file'>,
-    ) => Promise<CodebuffToolOutput<'write_file'>>
-    requestOptionalFile: RequestOptionalFileFn
-    writeToClient: (chunk: string) => void
-  } & ParamsExcluding<
-    typeof processFileBlock,
-    | 'path'
-    | 'instructions'
-    | 'fingerprintId'
-    | 'initialContentPromise'
-    | 'newContent'
-    | 'messages'
-    | 'lastUserPrompt'
-  > &
-    ParamsExcluding<RequestOptionalFileFn, 'filePath'>,
-): Promise<{ output: CodebuffToolOutput<'write_file'> }> => {
-  const {
-    previousToolCallFinished,
-    toolCall,
+      requestClientToolCall: (
+        toolCall: ClientToolCall<ToolName>,
+      ) => Promise<CodebuffToolOutput<ToolName>>
+      requestOptionalFile: RequestOptionalFileFn
+      writeToClient: (chunk: string) => void
+    } & ParamsExcluding<
+      typeof processFileBlock,
+      | 'path'
+      | 'instructions'
+      | 'fingerprintId'
+      | 'initialContentPromise'
+      | 'newContent'
+      | 'messages'
+      | 'lastUserPrompt'
+    > &
+      ParamsExcluding<RequestOptionalFileFn, 'filePath'>,
+  ): Promise<{ output: CodebuffToolOutput<'write_file'> }> => {
+    const {
+      previousToolCallFinished,
+      toolCall,
 
-    agentState,
-    clientSessionId,
-    fileProcessingState,
-    fingerprintId,
-    logger,
-    prompt,
-    userInputId,
-
-    requestClientToolCall,
-    requestOptionalFile,
-    writeToClient,
-  } = params
-  const { path, instructions, content } = toolCall.input
-
-  const fileProcessingPromisesByPath = fileProcessingState.promisesByPath
-  const fileProcessingPromises = fileProcessingState.allPromises
-
-  // Initialize state for this file path if needed
-  if (!fileProcessingPromisesByPath[path]) {
-    fileProcessingPromisesByPath[path] = []
-  }
-  const previousPromises = fileProcessingPromisesByPath[path]
-  const previousEdit = previousPromises[previousPromises.length - 1]
-
-  const latestContentPromise = previousEdit
-    ? previousEdit.then((maybeResult) =>
-        maybeResult && 'content' in maybeResult
-          ? maybeResult.content
-          : requestOptionalFile({ ...params, filePath: path }),
-      )
-    : requestOptionalFile({ ...params, filePath: path })
-
-  const fileContentWithoutStartNewline = content.startsWith('\n')
-    ? content.slice(1)
-    : content
-
-  logger.debug({ path, content }, `write_file ${path}`)
-
-  const newPromise = processFileBlock({
-    ...params,
-    path,
-    instructions,
-    initialContentPromise: latestContentPromise,
-    newContent: fileContentWithoutStartNewline,
-    messages: agentState.messageHistory,
-    lastUserPrompt: prompt,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    logger,
-  })
-    .catch((error) => {
-      logger.error(error, 'Error processing write_file block')
-      return {
-        tool: 'write_file' as const,
-        path,
-        error: `Error: Failed to process the write_file block. ${typeof error === 'string' ? error : error.msg}`,
-      }
-    })
-    .then(async (fileProcessingResult) => ({
-      ...fileProcessingResult,
-      toolCallId: toolCall.toolCallId,
-    }))
-  fileProcessingPromisesByPath[path].push(newPromise)
-  fileProcessingPromises.push(newPromise)
-
-  await previousToolCallFinished
-
-  return {
-    output: await postStreamProcessing<'write_file'>(
-      await newPromise,
+      agentState,
+      clientSessionId,
       fileProcessingState,
-      writeToClient,
+      fingerprintId,
+      logger,
+      prompt,
+      userInputId,
+
       requestClientToolCall,
-    ),
-  }
-}) satisfies CodebuffToolHandlerFunction<'write_file'>
+      requestOptionalFile,
+      writeToClient,
+    } = params
+    const { path, instructions, content } = toolCall.input
+
+    const fileProcessingPromisesByPath = fileProcessingState.promisesByPath
+    const fileProcessingPromises = fileProcessingState.allPromises
+
+    // Initialize state for this file path if needed
+    if (!fileProcessingPromisesByPath[path]) {
+      fileProcessingPromisesByPath[path] = []
+    }
+    const previousPromises = fileProcessingPromisesByPath[path]
+    const previousEdit = previousPromises[previousPromises.length - 1]
+
+    const latestContentPromise = previousEdit
+      ? previousEdit.then((maybeResult) =>
+          maybeResult && 'content' in maybeResult
+            ? maybeResult.content
+            : requestOptionalFile({ ...params, filePath: path }),
+        )
+      : requestOptionalFile({ ...params, filePath: path })
+
+    const fileContentWithoutStartNewline = content.startsWith('\n')
+      ? content.slice(1)
+      : content
+
+    logger.debug({ path, content }, `write_file ${path}`)
+
+    const newPromise = processFileBlock({
+      ...params,
+      path,
+      instructions,
+      initialContentPromise: latestContentPromise,
+      newContent: fileContentWithoutStartNewline,
+      messages: agentState.messageHistory,
+      lastUserPrompt: prompt,
+      clientSessionId,
+      fingerprintId,
+      userInputId,
+      logger,
+    })
+      .catch((error) => {
+        logger.error(error, 'Error processing write_file block')
+        return {
+          tool: 'write_file' as const,
+          path,
+          error: `Error: Failed to process the write_file block. ${typeof error === 'string' ? error : error.msg}`,
+        }
+      })
+      .then(async (fileProcessingResult) => ({
+        ...fileProcessingResult,
+        toolCallId: toolCall.toolCallId,
+      }))
+    fileProcessingPromisesByPath[path].push(newPromise)
+    fileProcessingPromises.push(newPromise)
+
+    await previousToolCallFinished
+
+    return {
+      output: await postStreamProcessing<'write_file'>(
+        await newPromise,
+        fileProcessingState,
+        writeToClient,
+        requestClientToolCall,
+      ),
+    }
+  },
+)
 
 export async function postStreamProcessing<T extends FileProcessingTools>(
   toolCall: FileProcessing<T>,

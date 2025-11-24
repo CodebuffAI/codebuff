@@ -1,8 +1,7 @@
 import z from 'zod/v4'
 
+import { validateToolParams } from '../../constants'
 import { $getToolCallString, jsonToolResultSchema } from '../utils'
-
-import type { $ToolParams } from '../../constants'
 
 export const terminalCommandOutputSchema = z.union([
   z.object({
@@ -178,10 +177,10 @@ Co-Authored-By: Codebuff <noreply@codebuff.com>"`,
 })}
     `.trim()
 
-export const runTerminalCommandParams = {
+export const runTerminalCommandParams = validateToolParams({
   toolName,
   endsAgentStep,
   description,
   inputSchema,
   outputSchema: jsonToolResultSchema(terminalCommandOutputSchema),
-} satisfies $ToolParams
+})

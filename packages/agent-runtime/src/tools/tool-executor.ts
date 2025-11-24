@@ -1,6 +1,9 @@
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { toolParams } from '@codebuff/common/tools/list'
-import { jsonToolResult } from '@codebuff/common/util/messages'
+import {
+  jsonToolResult,
+  toolErrorMessage,
+} from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
@@ -10,8 +13,8 @@ import { checkLiveUserInput } from '../live-user-inputs'
 import { getMCPToolData } from '../mcp'
 import { codebuffToolHandlers } from './handlers/list'
 
+import type { ValidatedToolHandler } from './handlers/handler-function-type'
 import type { AgentTemplate } from '../templates/types'
-import type { CodebuffToolHandlerFunction } from './handlers/handler-function-type'
 import type { FileProcessingState } from './handlers/tool/write-file'
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type {
@@ -181,14 +184,31 @@ export function executeToolCall<T extends ToolName>(
     autoInsertEndStepParam,
   })
   if ('error' in toolCall) {
-    const toolResult: ToolMessage = {
-      role: 'tool',
-      toolName,
-      toolCallId: toolCall.toolCallId,
-      content: jsonToolResult({
-        errorMessage: toolCall.error,
-      }),
-    }
+    const toolResult: ToolMessage =
+      toolName === 'add_subgoal'
+        ? {
+            role: 'tool',
+            toolName,
+            toolCallId: toolCall.toolCallId,
+            content: jsonToolResult({
+              errorMessage: toolCall.error,
+            }),
+          }
+        : toolName === 'write_todos'
+          ? {
+              role: 'tool',
+              toolName,
+              toolCallId: toolCall.toolCallId,
+              content: jsonToolResult({ errorMessage: toolCall.error }),
+            }
+          : {
+              role: 'tool',
+              toolName,
+              toolCallId: toolCall.toolCallId,
+              content: jsonToolResult({
+                errorMessage: toolCall.error,
+              }),
+            }
     toolResults.push(cloneDeep(toolResult))
     toolResultsToAddAfterStream.push(cloneDeep(toolResult))
     logger.debug(
@@ -216,14 +236,11 @@ export function executeToolCall<T extends ToolName>(
     !agentTemplate.toolNames.includes(toolCall.toolName) &&
     !fromHandleSteps
   ) {
-    const toolResult: ToolMessage = {
-      role: 'tool',
+    const toolResult: ToolMessage = toolErrorMessage({
       toolName,
       toolCallId: toolCall.toolCallId,
-      content: jsonToolResult({
-        errorMessage: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
-      }),
-    }
+      errorMessage: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
+    })
     toolResults.push(cloneDeep(toolResult))
     toolResultsToAddAfterStream.push(cloneDeep(toolResult))
     return previousToolCallFinished
@@ -232,7 +249,7 @@ export function executeToolCall<T extends ToolName>(
   // Cast to any to avoid type errors
   const handler = codebuffToolHandlers[
     toolName
-  ] as unknown as CodebuffToolHandlerFunction<T>
+  ] as unknown as ValidatedToolHandler<T>
   const toolResultPromise = handler({
     ...params,
     previousToolCallFinished,
@@ -254,13 +271,14 @@ export function executeToolCall<T extends ToolName>(
     toolCall,
   })
 
-  return toolResultPromise.then(async ({ output, creditsUsed }) => {
+  return toolResultPromise.then(async (result) => {
     const toolResult: ToolMessage = {
       role: 'tool',
-      toolName,
+      toolName: result.toolName,
       toolCallId: toolCall.toolCallId,
-      content: output,
-    }
+      content: result.output,
+    } as ToolMessage
+
     logger.debug(
       { input, toolResult },
       `${toolName} tool call & result (${toolResult.toolCallId})`,
@@ -280,11 +298,11 @@ export function executeToolCall<T extends ToolName>(
     }
 
     // After tool completes, resolve any pending creditsUsed promise
-    if (creditsUsed) {
-      onCostCalculated(creditsUsed)
+    if (result.creditsUsed) {
+      onCostCalculated(result.creditsUsed)
       logger.debug(
-        { credits: creditsUsed, totalCredits: agentState.creditsUsed },
-        `Added ${creditsUsed} credits from ${toolName} to agent state`,
+        { credits: result.creditsUsed, totalCredits: agentState.creditsUsed },
+        `Added ${result.creditsUsed} credits from ${toolName} to agent state`,
       )
     }
   })
@@ -403,14 +421,11 @@ export async function executeCustomToolCall(
     autoInsertEndStepParam,
   })
   if ('error' in toolCall) {
-    const toolResult: ToolMessage = {
-      role: 'tool',
+    const toolResult: ToolMessage = toolErrorMessage<any>({
       toolName,
       toolCallId: toolCall.toolCallId,
-      content: jsonToolResult({
-        errorMessage: toolCall.error,
-      }),
-    }
+      errorMessage: toolCall.error,
+    })
     toolResults.push(cloneDeep(toolResult))
     toolResultsToAddAfterStream.push(cloneDeep(toolResult))
     logger.debug(
@@ -442,14 +457,11 @@ export async function executeCustomToolCall(
       toolCall.toolName.split('/')[0] in agentTemplate.mcpServers
     )
   ) {
-    const toolResult: ToolMessage = {
-      role: 'tool',
+    const toolResult: ToolMessage = toolErrorMessage<any>({
       toolName,
       toolCallId: toolCall.toolCallId,
-      content: jsonToolResult({
-        errorMessage: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
-      }),
-    }
+      errorMessage: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
+    })
     toolResults.push(cloneDeep(toolResult))
     toolResultsToAddAfterStream.push(cloneDeep(toolResult))
     return previousToolCallFinished
@@ -483,7 +495,7 @@ export async function executeCustomToolCall(
         toolName,
         toolCallId: toolCall.toolCallId,
         content: result,
-      } satisfies ToolMessage
+      } satisfies ToolMessage<any>
       logger.debug(
         { input, toolResult },
         `${toolName} custom tool call & result (${toolResult.toolCallId})`,

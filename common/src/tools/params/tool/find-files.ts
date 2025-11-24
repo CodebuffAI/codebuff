@@ -1,9 +1,8 @@
 import z from 'zod/v4'
 
 import { fileContentsSchema } from './read-files'
+import { validateToolParams } from '../../constants'
 import { $getToolCallString, jsonToolResultSchema } from '../utils'
-
-import type { $ToolParams } from '../../constants'
 
 const toolName = 'find_files'
 const endsAgentStep = true
@@ -44,17 +43,10 @@ Don't use this tool if:
 This tool is not guaranteed to find the correct file. In general, prefer using read_files instead of find_files.
 `.trim()
 
-export const findFilesParams = {
+export const findFilesParams = validateToolParams({
   toolName,
   endsAgentStep,
   description,
   inputSchema,
-  outputSchema: jsonToolResultSchema(
-    z.union([
-      fileContentsSchema.array(),
-      z.object({
-        message: z.string(),
-      }),
-    ]),
-  ),
-} satisfies $ToolParams
+  outputSchema: jsonToolResultSchema(z.union([fileContentsSchema.array()])),
+})

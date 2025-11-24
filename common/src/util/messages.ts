@@ -1,5 +1,6 @@
 import { cloneDeep, has, isEqual } from 'lodash'
 
+import { type ToolName } from '../tools/constants'
 import { getToolCallString } from '../tools/utils'
 
 import type { JSONValue } from '../types/json'
@@ -109,7 +110,6 @@ function assistantToCodebuffMessage(
           text: getToolCallString(
             message.content.toolName,
             message.content.input,
-            false,
           ),
         },
       ],
@@ -451,4 +451,19 @@ export function mediaToolResult(params: {
       mediaType,
     },
   ]
+}
+
+export function toolErrorMessage<T extends ToolName>(params: {
+  toolName: T
+  toolCallId: string
+  errorMessage: string
+}): ToolMessage {
+  const { toolName, toolCallId, errorMessage } = params
+
+  return {
+    role: 'tool',
+    toolName,
+    toolCallId,
+    content: jsonToolResult({ errorMessage }),
+  } as any
 }

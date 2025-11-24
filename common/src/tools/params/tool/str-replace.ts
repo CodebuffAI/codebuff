@@ -1,8 +1,7 @@
 import z from 'zod/v4'
 
+import { validateToolParams } from '../../constants'
 import { $getToolCallString, jsonToolResultSchema } from '../utils'
-
-import type { $ToolParams } from '../../constants'
 
 export const updateFileResultSchema = z.union([
   z.object({
@@ -83,10 +82,10 @@ ${$getToolCallString({
 })}
     `.trim()
 
-export const strReplaceParams = {
+export const strReplaceParams = validateToolParams({
   toolName,
   endsAgentStep,
   description,
   inputSchema,
   outputSchema: jsonToolResultSchema(updateFileResultSchema),
-} satisfies $ToolParams
+})

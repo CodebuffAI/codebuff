@@ -8,8 +8,8 @@ import { getFileReadingUpdates } from '../../../get-file-reading-updates'
 import { getSearchSystemPrompt } from '../../../system-prompt/search-system-prompt'
 import { renderReadFilesResult } from '../../../util/render-read-files-result'
 import { countTokens, countTokensJson } from '../../../util/token-counter'
+import { validateToolHandler } from '../handler-function-type'
 
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {
   CodebuffToolCall,
   CodebuffToolOutput,
@@ -27,108 +27,111 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 // TODO: We might want to be able to turn this on on a per-repo basis.
 const COLLECT_FULL_FILE_CONTEXT = false
 
-export const handleFindFiles = (async (
-  params: {
-    previousToolCallFinished: Promise<any>
-    toolCall: CodebuffToolCall<'find_files'>
-    logger: Logger
+type ToolName = 'find_files'
+export const handleFindFiles = validateToolHandler<ToolName>(
+  async (
+    params: {
+      previousToolCallFinished: Promise<any>
+      toolCall: CodebuffToolCall<ToolName>
+      logger: Logger
 
-    agentState: AgentState
-    agentStepId: string
-    clientSessionId: string
-    fileContext: ProjectFileContext
-    fingerprintId: string
-    repoId: string | undefined
-    userId: string | undefined
-    userInputId: string
-  } & ParamsExcluding<
-    typeof requestRelevantFiles,
-    'messages' | 'system' | 'assistantPrompt'
-  > &
-    ParamsExcluding<
-      typeof uploadExpandedFileContextForTraining,
+      agentState: AgentState
+      agentStepId: string
+      clientSessionId: string
+      fileContext: ProjectFileContext
+      fingerprintId: string
+      repoId: string | undefined
+      userId: string | undefined
+      userInputId: string
+    } & ParamsExcluding<
+      typeof requestRelevantFiles,
       'messages' | 'system' | 'assistantPrompt'
     > &
-    ParamsExcluding<typeof getFileReadingUpdates, 'requestedFiles'>,
-): Promise<{ output: CodebuffToolOutput<'find_files'> }> => {
-  const {
-    previousToolCallFinished,
-    toolCall,
+      ParamsExcluding<
+        typeof uploadExpandedFileContextForTraining,
+        'messages' | 'system' | 'assistantPrompt'
+      > &
+      ParamsExcluding<typeof getFileReadingUpdates, 'requestedFiles'>,
+  ): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
+    const {
+      previousToolCallFinished,
+      toolCall,
 
-    agentState,
-    agentStepId,
-    clientSessionId,
-    fileContext,
-    fingerprintId,
-    logger,
-    userId,
-    userInputId,
-  } = params
-  const { prompt } = toolCall.input
-
-  const fileRequestMessagesTokens = countTokensJson(agentState.messageHistory)
-  const system = getSearchSystemPrompt({
-    fileContext,
-    messagesTokens: fileRequestMessagesTokens,
-    logger,
-    options: {
+      agentState,
       agentStepId,
       clientSessionId,
+      fileContext,
       fingerprintId,
-      userInputId,
+      logger,
       userId,
-    },
-  })
+      userInputId,
+    } = params
+    const { prompt } = toolCall.input
 
-  await previousToolCallFinished
-
-  const requestedFiles = await requestRelevantFiles({
-    ...params,
-    messages: agentState.messageHistory,
-    system,
-    assistantPrompt: prompt,
-  })
-
-  if (requestedFiles && requestedFiles.length > 0) {
-    const addedFiles = await getFileReadingUpdates({
-      ...params,
-      requestedFiles,
+    const fileRequestMessagesTokens = countTokensJson(agentState.messageHistory)
+    const system = getSearchSystemPrompt({
+      fileContext,
+      messagesTokens: fileRequestMessagesTokens,
+      logger,
+      options: {
+        agentStepId,
+        clientSessionId,
+        fingerprintId,
+        userInputId,
+        userId,
+      },
     })
 
-    if (COLLECT_FULL_FILE_CONTEXT && addedFiles.length > 0) {
-      uploadExpandedFileContextForTraining({
-        ...params,
-        messages: agentState.messageHistory,
-        system,
-        assistantPrompt: prompt,
-      }).catch((error) => {
-        logger.error(
-          { error },
-          'Error uploading expanded file context for training',
-        )
-      })
-    }
+    await previousToolCallFinished
 
-    if (addedFiles.length > 0) {
+    const requestedFiles = await requestRelevantFiles({
+      ...params,
+      messages: agentState.messageHistory,
+      system,
+      assistantPrompt: prompt,
+    })
+
+    if (requestedFiles && requestedFiles.length > 0) {
+      const addedFiles = await getFileReadingUpdates({
+        ...params,
+        requestedFiles,
+      })
+
+      if (COLLECT_FULL_FILE_CONTEXT && addedFiles.length > 0) {
+        uploadExpandedFileContextForTraining({
+          ...params,
+          messages: agentState.messageHistory,
+          system,
+          assistantPrompt: prompt,
+        }).catch((error) => {
+          logger.error(
+            { error },
+            'Error uploading expanded file context for training',
+          )
+        })
+      }
+
+      if (addedFiles.length > 0) {
+        return {
+          output: jsonToolResult(
+            renderReadFilesResult(addedFiles, fileContext.tokenCallers ?? {}),
+          ),
+        }
+      }
       return {
-        output: jsonToolResult(
-          renderReadFilesResult(addedFiles, fileContext.tokenCallers ?? {}),
-        ),
+        output: jsonToolResult({
+          errorMessage: `No new relevant files found for prompt: ${prompt}`,
+        }),
+      }
+    } else {
+      return {
+        output: jsonToolResult({
+          errorMessage: `No relevant files found for prompt: ${prompt}`,
+        }),
       }
     }
-    return {
-      output: jsonToolResult({
-        message: `No new relevant files found for prompt: ${prompt}`,
-      }),
-    }
-  } else {
-    return {
-      output: jsonToolResult({
-        message: `No relevant files found for prompt: ${prompt}`,
-      }),
-    }
-  }
-}) satisfies CodebuffToolHandlerFunction<'find_files'>
+  },
+)
 
 async function uploadExpandedFileContextForTraining(
   params: {

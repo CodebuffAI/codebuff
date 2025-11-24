@@ -1,5 +1,6 @@
 import { AssertionError } from 'assert'
 
+import { isErrorToolResult } from '@codebuff/common/tools/params/utils'
 import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { systemMessage, userMessage } from '@codebuff/common/util/messages'
@@ -329,12 +330,11 @@ export function getEditedFiles(params: {
         },
       )
       .map((m) => {
+        if (isErrorToolResult(m.content)) {
+          return null
+        }
         try {
-          const fileInfo = m.content[0].value
-          if ('errorMessage' in fileInfo) {
-            return null
-          }
-          return fileInfo.file
+          return m.content[0].value.file
         } catch (error) {
           logger.error(
             { error: getErrorObject(error), m },
@@ -359,11 +359,12 @@ export function getPreviouslyReadFiles(params: {
   for (const message of messages) {
     if (message.role !== 'tool') continue
     if (message.toolName === 'read_files') {
+      if (isErrorToolResult(message.content)) {
+        continue
+      }
       try {
         files.push(
-          ...(
-            message as CodebuffToolMessage<'read_files'>
-          ).content[0].value.filter(
+          ...message.content[0].value.filter(
             (
               file,
             ): file is typeof file & { contentOmittedForLength: undefined } =>
@@ -379,14 +380,12 @@ export function getPreviouslyReadFiles(params: {
     }
 
     if (message.toolName === 'find_files') {
+      if (isErrorToolResult(message.content)) {
+        continue
+      }
       try {
-        const v = (message as CodebuffToolMessage<'find_files'>).content[0]
-          .value
-        if ('message' in v) {
-          continue
-        }
         files.push(
-          ...v.filter(
+          ...message.content[0].value.filter(
             (
               file,
             ): file is typeof file & { contentOmittedForLength: undefined } =>

@@ -1,9 +1,8 @@
 import z from 'zod/v4'
 
 import { terminalCommandOutputSchema } from './run-terminal-command'
+import { validateToolParams } from '../../constants'
 import { $getToolCallString, jsonToolResultSchema } from '../utils'
-
-import type { $ToolParams } from '../../constants'
 
 const toolName = 'run_file_change_hooks'
 const endsAgentStep = true
@@ -35,7 +34,7 @@ ${$getToolCallString({
 })}
 `.trim()
 
-export const runFileChangeHooksParams = {
+export const runFileChangeHooksParams = validateToolParams({
   toolName,
   endsAgentStep,
   description,
@@ -54,4 +53,4 @@ export const runFileChangeHooksParams = {
       ])
       .array(),
   ),
-} satisfies $ToolParams
+})

@@ -7,6 +7,9 @@ import type {
   ToolResultOutput,
 } from './content-part'
 import type { ProviderMetadata } from './provider-metadata'
+import type { CodebuffToolParams } from '../../tools/list'
+import type { ToolSet } from 'ai'
+import type z from 'zod/v4'
 
 export type AuxiliaryMessageData = {
   providerOptions?: ProviderMetadata
@@ -32,20 +35,36 @@ export type UserMessage = {
   content: (TextPart | ImagePart | FilePart)[]
 } & AuxiliaryMessageData
 
-export type AssistantMessage = {
+type ToolSetInputSchema = Record<
+  string,
+  Required<Pick<ToolSet[string], 'inputSchema'>>
+>
+export type AssistantMessage<
+  TOOLS extends ToolSetInputSchema = CodebuffToolParams,
+> = {
   role: 'assistant'
-  content: (TextPart | ReasoningPart | ToolCallPart)[]
+  content: (TextPart | ReasoningPart | ToolCallPart<TOOLS>)[]
 } & AuxiliaryMessageData
 
-export type ToolMessage = {
+type ToolSetOutputSchema = Record<
+  string,
+  Required<Pick<ToolSet[string], 'outputSchema'>>
+>
+export type ToolMessage<
+  TOOLS extends ToolSetOutputSchema = CodebuffToolParams,
+> = {
   role: 'tool'
   toolCallId: string
   toolName: string
   content: ToolResultOutput[]
-} & AuxiliaryMessageData
+} & AuxiliaryMessageData &
+  {
+    [K in keyof TOOLS]: {
+      toolName: K
+      content: z.infer<TOOLS[K]['outputSchema']>
+    }
+  }[keyof TOOLS]
 
-export type Message =
-  | SystemMessage
-  | UserMessage
-  | AssistantMessage
-  | ToolMessage
+export type Message<
+  TOOLS extends ToolSetInputSchema & ToolSetOutputSchema = CodebuffToolParams,
+> = SystemMessage | UserMessage | AssistantMessage<TOOLS> | ToolMessage<TOOLS>

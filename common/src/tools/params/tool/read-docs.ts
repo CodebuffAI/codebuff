@@ -1,8 +1,7 @@
 import z from 'zod/v4'
 
+import { validateToolParams } from '../../constants'
 import { $getToolCallString, jsonToolResultSchema } from '../utils'
-
-import type { $ToolParams } from '../../constants'
 
 const toolName = 'read_docs'
 const endsAgentStep = true
@@ -72,7 +71,7 @@ ${$getToolCallString({
 })}
 `.trim()
 
-export const readDocsParams = {
+export const readDocsParams = validateToolParams({
   toolName,
   endsAgentStep,
   description,
@@ -82,4 +81,4 @@ export const readDocsParams = {
       documentation: z.string(),
     }),
   ),
-} satisfies $ToolParams
+})

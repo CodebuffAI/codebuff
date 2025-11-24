@@ -1,8 +1,7 @@
 import z from 'zod/v4'
 
+import { validateToolParams } from '../../constants'
 import { $getToolCallString, jsonToolResultSchema } from '../utils'
-
-import type { $ToolParams } from '../../constants'
 
 const toolName = 'add_subgoal'
 const endsAgentStep = false
@@ -44,7 +43,7 @@ ${$getToolCallString({
 })}
 `.trim()
 
-export const addSubgoalParams = {
+export const addSubgoalParams = validateToolParams({
   toolName,
   endsAgentStep,
   description,
@@ -54,4 +53,4 @@ export const addSubgoalParams = {
       message: z.string(),
     }),
   ),
-} satisfies $ToolParams
+})

@@ -1,9 +1,8 @@
 import z from 'zod/v4'
 
 import { jsonObjectSchema } from '../../../types/json'
+import { validateToolParams } from '../../constants'
 import { $getToolCallString, jsonToolResultSchema } from '../utils'
-
-import type { $ToolParams } from '../../constants'
 
 export const spawnAgentsOutputSchema = z
   .object({
@@ -52,10 +51,10 @@ ${$getToolCallString({
 })}
 `.trim()
 
-export const spawnAgentsParams = {
+export const spawnAgentsParams = validateToolParams({
   toolName,
   endsAgentStep,
   description,
   inputSchema,
   outputSchema: jsonToolResultSchema(spawnAgentsOutputSchema),
-} satisfies $ToolParams
+})

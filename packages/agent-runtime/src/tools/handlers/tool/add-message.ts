@@ -1,34 +1,38 @@
 import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 
-import type { CodebuffToolHandlerFunction } from '../handler-function-type'
+import { validateToolHandler } from '../handler-function-type'
+
 import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
 import type { AgentState } from '@codebuff/common/types/session-state'
 
-export const handleAddMessage = (async (params: {
-  previousToolCallFinished: Promise<void>
-  toolCall: CodebuffToolCall<'add_message'>
+type ToolName = 'add_message'
+export const handleAddMessage = validateToolHandler<ToolName>(
+  async (params: {
+    previousToolCallFinished: Promise<void>
+    toolCall: CodebuffToolCall<ToolName>
 
-  agentState: AgentState
-}): Promise<{
-  output: CodebuffToolOutput<'add_message'>
-}> => {
-  const {
-    previousToolCallFinished,
-    toolCall,
+    agentState: AgentState
+  }): Promise<{
+    output: CodebuffToolOutput<ToolName>
+  }> => {
+    const {
+      previousToolCallFinished,
+      toolCall,
 
-    agentState,
-  } = params
+      agentState,
+    } = params
 
-  await previousToolCallFinished
+    await previousToolCallFinished
 
-  agentState.messageHistory.push(
-    toolCall.input.role === 'user'
-      ? userMessage(toolCall.input.content)
-      : assistantMessage(toolCall.input.content),
-  )
+    agentState.messageHistory.push(
+      toolCall.input.role === 'user'
+        ? userMessage(toolCall.input.content)
+        : assistantMessage(toolCall.input.content),
+    )
 
-  return { output: [] }
-}) satisfies CodebuffToolHandlerFunction<'add_message'>
+    return { output: [] }
+  },
+)
