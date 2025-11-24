@@ -127,6 +127,24 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
         answeredStates={answeredStates}
         allAnswered={allAnswered}
         onSkip={onSkip}
+        onNavigate={(newIndex) => {
+          setCurrentQuestionIndex(newIndex)
+          focusActions.resetToQuestion(newIndex)
+        }}
+        onPrev={() => {
+          if (!isFirstQuestion) {
+            const newIndex = currentQuestionIndex - 1
+            setCurrentQuestionIndex(newIndex)
+            focusActions.resetToQuestion(newIndex)
+          }
+        }}
+        onNext={() => {
+          if (!isLastQuestion) {
+            const newIndex = currentQuestionIndex + 1
+            setCurrentQuestionIndex(newIndex)
+            focusActions.resetToQuestion(newIndex)
+          }
+        }}
         skipButtonFocused={isSkipFocused}
         skipButtonHovered={isSkipHovered}
         onSkipMouseOver={() => {

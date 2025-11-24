@@ -3,7 +3,10 @@
  */
 
 import React from 'react'
+import { TextAttributes } from '@opentui/core'
 import { useTheme } from '../../../hooks/use-theme'
+import { Button } from '../../button'
+import { BORDER_CHARS } from '../../../utils/ui-constants'
 import { ProgressIndicator } from './progress-indicator'
 import { SkipButton } from './skip-button'
 
@@ -13,6 +16,9 @@ export interface QuestionHeaderProps {
   answeredStates: boolean[]
   allAnswered: boolean
   onSkip?: () => void
+  onNavigate?: (index: number) => void
+  onPrev?: () => void
+  onNext?: () => void
   skipButtonFocused?: boolean
   skipButtonHovered?: boolean
   onSkipMouseOver?: () => void
@@ -26,6 +32,9 @@ export const QuestionHeader: React.FC<QuestionHeaderProps> = ({
   answeredStates,
   allAnswered,
   onSkip,
+  onNavigate,
+  onPrev,
+  onNext,
   skipButtonFocused = false,
   skipButtonHovered = false,
   onSkipMouseOver,
@@ -33,6 +42,8 @@ export const QuestionHeader: React.FC<QuestionHeaderProps> = ({
   hasRoomForInlineButtons,
 }) => {
   const theme = useTheme()
+  const isFirstQuestion = currentIndex === 0
+  const isLastQuestion = currentIndex === totalQuestions - 1
 
   return (
     <box
@@ -49,29 +60,72 @@ export const QuestionHeader: React.FC<QuestionHeaderProps> = ({
           <text style={{ fg: theme.secondary }}>
             Question {currentIndex + 1} of {totalQuestions}
           </text>
-          {totalQuestions > 1 && (
-            <text style={{ fg: theme.muted }}> (← → to navigate)</text>
-          )}
         </box>
         {totalQuestions > 1 && (
           <ProgressIndicator
             currentIndex={currentIndex}
             answeredStates={answeredStates}
             allAnswered={allAnswered}
+            onNavigate={onNavigate}
           />
         )}
       </box>
 
-      {/* Right side: Skip button (if room) */}
-      {hasRoomForInlineButtons && onSkip && (
-        <box style={{ flexDirection: 'row', gap: 2 }}>
-          <SkipButton
-            onClick={onSkip}
-            isFocused={skipButtonFocused}
-            isHovered={skipButtonHovered}
-            onMouseOver={onSkipMouseOver}
-            onMouseOut={onSkipMouseOut}
-          />
+      {/* Right side: Navigation and Skip buttons (if room) */}
+      {hasRoomForInlineButtons && (
+        <box style={{ flexDirection: 'row', gap: 1 }}>
+          {/* Navigation buttons (only show for multi-question forms) */}
+          {totalQuestions > 1 && (
+            <>
+              <Button
+                onClick={onPrev}
+                style={{
+                  borderStyle: 'single',
+                  borderColor: isFirstQuestion ? theme.muted : theme.secondary,
+                  customBorderChars: BORDER_CHARS,
+                  paddingLeft: 1,
+                  paddingRight: 1,
+                }}
+              >
+                <text
+                  style={{
+                    fg: isFirstQuestion ? theme.muted : theme.foreground,
+                    attributes: isFirstQuestion ? undefined : TextAttributes.BOLD,
+                  }}
+                >
+                  ←
+                </text>
+              </Button>
+              <Button
+                onClick={onNext}
+                style={{
+                  borderStyle: 'single',
+                  borderColor: isLastQuestion ? theme.muted : theme.secondary,
+                  customBorderChars: BORDER_CHARS,
+                  paddingLeft: 1,
+                  paddingRight: 1,
+                }}
+              >
+                <text
+                  style={{
+                    fg: isLastQuestion ? theme.muted : theme.foreground,
+                    attributes: isLastQuestion ? undefined : TextAttributes.BOLD,
+                  }}
+                >
+                  →
+                </text>
+              </Button>
+            </>
+          )}
+          {onSkip && (
+            <SkipButton
+              onClick={onSkip}
+              isFocused={skipButtonFocused}
+              isHovered={skipButtonHovered}
+              onMouseOver={onSkipMouseOver}
+              onMouseOut={onSkipMouseOut}
+            />
+          )}
         </box>
       )}
     </box>
