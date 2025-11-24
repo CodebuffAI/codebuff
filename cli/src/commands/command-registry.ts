@@ -1,8 +1,9 @@
 import { handleInitializationFlowLocally } from './init'
+import { handleReferralCode } from './referral'
 import { handleUsageCommand } from './usage'
 import { useChatStore } from '../state/chat-store'
 import { useLoginStore } from '../state/login-store'
-import { getSystemMessage } from '../utils/message-history'
+import { getSystemMessage, getUserMessage } from '../utils/message-history'
 
 import type { ChatMessage } from '../types/chat'
 import type { MultilineInputHandle } from '../components/multiline-input'
@@ -70,7 +71,33 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     name: 'bash',
     aliases: ['!'],
     handler: (params) => {
-      useChatStore.getState().setBashMode(true)
+      useChatStore.getState().setInputMode('bash')
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  },
+  {
+    name: 'referral',
+    aliases: ['redeem'],
+    handler: async (params, args) => {
+      const trimmedArgs = args.trim()
+      
+      // If user provided a code directly, redeem it immediately
+      if (trimmedArgs) {
+        const code = trimmedArgs.startsWith('ref-') ? trimmedArgs : `ref-${trimmedArgs}`
+        const { postUserMessage } = await handleReferralCode(code)
+        params.setMessages((prev) => [
+          ...prev,
+          getUserMessage(params.inputValue.trim()),
+          ...postUserMessage([]),
+        ])
+        params.saveToHistory(params.inputValue.trim())
+        clearInput(params)
+        return
+      }
+      
+      // Otherwise enter referral mode
+      useChatStore.getState().setInputMode('referral')
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
     },

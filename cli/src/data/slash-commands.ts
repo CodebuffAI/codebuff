@@ -67,4 +67,10 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     description: 'Enter bash mode ("!" at beginning enters bash mode)',
     aliases: ['!'],
   },
+  {
+    id: 'referral',
+    label: 'referral',
+    description: 'Redeem a referral code for bonus credits',
+    aliases: ['redeem'],
+  },
 ]

@@ -36,14 +36,14 @@ export async function routeUserPrompt(
     setMessages,
   } = params
 
-  const isBashMode = useChatStore.getState().isBashMode
-  const setBashMode = useChatStore.getState().setBashMode
+  const inputMode = useChatStore.getState().inputMode
+  const setInputMode = useChatStore.getState().setInputMode
 
   const trimmed = inputValue.trim()
   if (!trimmed) return
 
   // Handle bash mode commands
-  if (isBashMode) {
+  if (inputMode === 'bash') {
     const commandWithBang = '!' + trimmed
     const toolCallId = crypto.randomUUID()
     const resultBlock: ContentBlock = {
@@ -90,7 +90,25 @@ export async function routeUserPrompt(
 
     saveToHistory(commandWithBang)
     setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
-    setBashMode(false)
+    setInputMode('default')
+
+    return
+  }
+
+  // Handle referral mode input
+  if (inputMode === 'referral') {
+    // Normalize the referral code - add ref- prefix if not present
+    const referralCode = trimmed.startsWith('ref-') ? trimmed : `ref-${trimmed}`
+    const { postUserMessage: referralPostMessage } =
+      await handleReferralCode(referralCode)
+    setMessages((prev) => [
+      ...prev,
+      getUserMessage(trimmed),
+      ...referralPostMessage([]),
+    ])
+    saveToHistory(trimmed)
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+    setInputMode('default')
 
     return
   }
