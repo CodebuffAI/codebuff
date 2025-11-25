@@ -32,7 +32,7 @@ describe('referral-mode', () => {
 
     test('typing "/redeem" also enters referral mode', () => {
       const setInputMode = mock((_mode: InputMode) => {})
-      const command = '/redeem'
+      const command = '/redeem' as string
 
       if (command === '/referral' || command === '/redeem') {
         setInputMode('referral')
@@ -65,7 +65,7 @@ describe('referral-mode', () => {
     test('backspace at cursor position 0 exits referral mode', () => {
       const setInputMode = mock((_mode: InputMode) => {})
 
-      const inputMode: InputMode = 'referral'
+      const inputMode = 'referral' as InputMode
       const cursorPosition = 0
       const key = { name: 'backspace' }
 
@@ -84,7 +84,7 @@ describe('referral-mode', () => {
     test('backspace at cursor position 0 with non-empty input DOES exit referral mode', () => {
       const setInputMode = mock((_mode: InputMode) => {})
 
-      const inputMode: InputMode = 'referral'
+      const inputMode = 'referral' as InputMode
       const cursorPosition = 0
       const key = { name: 'backspace' }
 
@@ -103,8 +103,8 @@ describe('referral-mode', () => {
     test('backspace at cursor position > 0 does NOT exit referral mode', () => {
       const setInputMode = mock((_mode: InputMode) => {})
 
-      const inputMode: InputMode = 'referral'
-      const cursorPosition = 5
+      const inputMode = 'referral' as InputMode
+      const cursorPosition = 5 as number
       const key = { name: 'backspace' }
 
       if (
@@ -122,7 +122,7 @@ describe('referral-mode', () => {
     test('other keys at cursor position 0 do NOT exit referral mode', () => {
       const setInputMode = mock((_mode: InputMode) => {})
 
-      const inputMode: InputMode = 'referral'
+      const inputMode = 'referral' as InputMode
       const cursorPosition = 0
       const key = { name: 'a' }
 
@@ -354,7 +354,7 @@ describe('referral-mode', () => {
 
     test('input width is adjusted in referral mode for icon column', () => {
       const baseInputWidth = 100
-      const inputMode: InputMode = 'referral'
+      const inputMode = 'referral' as InputMode
 
       // Width should be reduced by 2 to account for '◎' icon and spacing
       const widthAdjustment = inputMode === 'referral' ? 2 : 0
@@ -365,7 +365,7 @@ describe('referral-mode', () => {
 
     test('input width is NOT adjusted when not in referral mode', () => {
       const baseInputWidth = 100
-      const inputMode: InputMode = 'default'
+      const inputMode = 'default' as InputMode
 
       const widthAdjustment = inputMode === 'referral' ? 2 : 0
       const adjustedInputWidth = baseInputWidth - widthAdjustment
@@ -376,7 +376,7 @@ describe('referral-mode', () => {
     test('placeholder changes in referral mode', () => {
       const normalPlaceholder = 'type a message...'
       const referralPlaceholder = 'enter referral code (e.g. ref-abc123)...'
-      const inputMode: InputMode = 'referral'
+      const inputMode = 'referral' as InputMode
 
       const effectivePlaceholder =
         inputMode === 'referral' ? referralPlaceholder : normalPlaceholder
@@ -387,7 +387,7 @@ describe('referral-mode', () => {
     test('placeholder is normal when not in referral mode', () => {
       const normalPlaceholder = 'type a message...'
       const referralPlaceholder = 'enter referral code (e.g. ref-abc123)...'
-      const inputMode: InputMode = 'default'
+      const inputMode = 'default' as InputMode
 
       const effectivePlaceholder =
         inputMode === 'referral' ? referralPlaceholder : normalPlaceholder
@@ -396,35 +396,35 @@ describe('referral-mode', () => {
     })
 
     test('icon is displayed in referral mode', () => {
-      const inputMode: InputMode = 'referral'
+      const inputMode = 'referral' as InputMode
       const icon = inputMode === 'referral' ? '◎' : null
 
       expect(icon).toBe('◎')
     })
 
     test('no icon is displayed in default mode', () => {
-      const inputMode: InputMode = 'default'
+      const inputMode = 'default' as InputMode
       const icon = inputMode === 'referral' ? '◎' : null
 
       expect(icon).toBe(null)
     })
 
     test('border color changes to warning in referral mode', () => {
-      const inputMode: InputMode = 'referral'
+      const inputMode = 'referral' as InputMode
       const color = inputMode === 'referral' ? 'warning' : 'foreground'
 
       expect(color).toBe('warning')
     })
 
     test('agent mode toggle is hidden in referral mode', () => {
-      const inputMode: InputMode = 'referral'
+      const inputMode = 'referral' as InputMode
       const showAgentModeToggle = inputMode === 'default'
 
       expect(showAgentModeToggle).toBe(false)
     })
 
     test('agent mode toggle is shown in default mode', () => {
-      const inputMode: InputMode = 'default'
+      const inputMode = 'default' as InputMode
       const showAgentModeToggle = inputMode === 'default'
 
       expect(showAgentModeToggle).toBe(true)
@@ -472,7 +472,7 @@ describe('referral-mode', () => {
     })
 
     test('slash suggestions are disabled in referral mode', () => {
-      const inputMode: InputMode = 'referral'
+      const inputMode = 'referral' as InputMode
       const disableSlashSuggestions = inputMode !== 'default'
 
       expect(disableSlashSuggestions).toBe(true)
@@ -482,7 +482,7 @@ describe('referral-mode', () => {
   describe('integration with command router', () => {
     test('referral mode input is routed to handleReferralCode', () => {
       const handleReferralCode = mock(async (_code: string) => {})
-      const inputMode: InputMode = 'referral'
+      const inputMode = 'referral' as InputMode
       const trimmedInput = 'abc123'
 
       if (inputMode === 'referral') {
@@ -497,7 +497,7 @@ describe('referral-mode', () => {
 
     test('normal mode input is NOT routed to referral handler', () => {
       const handleReferralCode = mock(async (_code: string) => {})
-      const inputMode: InputMode = 'default'
+      const inputMode = 'default' as InputMode
       const trimmedInput = 'abc123'
 
       if (inputMode === 'referral') {

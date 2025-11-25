@@ -225,7 +225,6 @@ interface UseSendMessageOptions {
   resumeQueue?: () => void
   continueChat: boolean
   continueChatId?: string
-  onOpenFeedback?: () => void
 }
 
 export const useSendMessage = ({
@@ -260,7 +259,6 @@ export const useSendMessage = ({
   resumeQueue,
   continueChat,
   continueChatId,
-  onOpenFeedback,
 }: UseSendMessageOptions): {
   sendMessage: SendMessageFn
   clearMessages: () => void
@@ -1737,12 +1735,10 @@ export const useSendMessage = ({
           return
         }
 
-        // Trigger usage data refresh if the banner is currently visible
-        // The query will only refetch if it's enabled (banner is visible)
-        const isUsageVisible = useChatStore.getState().isUsageVisible
-        if (isUsageVisible) {
-          queryClient.invalidateQueries({ queryKey: usageQueryKeys.current() })
-        }
+        // Always refresh usage data after response completes
+        // This ensures the UsageBanner's credit warning logic has fresh data
+        // Use invalidateQueries to trigger refetch for any active observers
+        queryClient.invalidateQueries({ queryKey: usageQueryKeys.current() })
 
         setStreamStatus('idle')
         if (resumeQueue) {

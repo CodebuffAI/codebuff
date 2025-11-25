@@ -26,10 +26,14 @@ export type UserDetails<T extends UserField> = {
     : string
 }
 
+// Minimal fetch function type for dependency injection
+type FetchFn = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
+
 interface FetchUserDetailsParams<T extends UserField> {
   authToken: string
   fields: readonly T[]
   logger?: Logger
+  fetch?: FetchFn
 }
 
 /**
@@ -39,6 +43,7 @@ export async function fetchUserDetails<T extends UserField>({
   authToken,
   fields,
   logger = defaultLogger,
+  fetch: fetchFn = globalThis.fetch,
 }: FetchUserDetailsParams<T>): Promise<UserDetails<T> | null> {
   const appUrl = process.env.NEXT_PUBLIC_CODEBUFF_APP_URL
   if (!appUrl) {
@@ -46,7 +51,7 @@ export async function fetchUserDetails<T extends UserField>({
   }
 
   const fieldsParam = fields.join(',')
-  const response = await fetch(`${appUrl}/api/v1/me?fields=${fieldsParam}`, {
+  const response = await fetchFn(`${appUrl}/api/v1/me?fields=${fieldsParam}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',

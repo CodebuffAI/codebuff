@@ -10,13 +10,9 @@ describe('fetchUserDetails', () => {
     warn: mock(() => {}),
     info: mock(() => {}),
     debug: mock(() => {}),
-    trace: mock(() => {}),
-    fatal: mock(() => {}),
-    child: mock(() => mockLogger),
   }
 
   const originalEnv = process.env.NEXT_PUBLIC_CODEBUFF_APP_URL
-  const originalFetch = globalThis.fetch
 
   beforeEach(() => {
     process.env.NEXT_PUBLIC_CODEBUFF_APP_URL = 'https://test.codebuff.com'
@@ -24,12 +20,11 @@ describe('fetchUserDetails', () => {
 
   afterEach(() => {
     process.env.NEXT_PUBLIC_CODEBUFF_APP_URL = originalEnv
-    globalThis.fetch = originalFetch
   })
 
   describe('API failure handling', () => {
     test('throws error on 401 Unauthorized response', async () => {
-      globalThis.fetch = mock(() =>
+      const mockFetch = mock(() =>
         Promise.resolve({
           ok: false,
           status: 401,
@@ -41,12 +36,13 @@ describe('fetchUserDetails', () => {
           authToken: 'invalid-token',
           fields: ['referral_link'] as const,
           logger: mockLogger,
+          fetch: mockFetch,
         }),
       ).rejects.toThrow('Failed to fetch user details (HTTP 401)')
     })
 
     test('throws error on 500 Internal Server Error response', async () => {
-      globalThis.fetch = mock(() =>
+      const mockFetch = mock(() =>
         Promise.resolve({
           ok: false,
           status: 500,
@@ -58,12 +54,13 @@ describe('fetchUserDetails', () => {
           authToken: 'valid-token',
           fields: ['referral_link'] as const,
           logger: mockLogger,
+          fetch: mockFetch,
         }),
       ).rejects.toThrow('Failed to fetch user details (HTTP 500)')
     })
 
     test('throws error on 403 Forbidden response', async () => {
-      globalThis.fetch = mock(() =>
+      const mockFetch = mock(() =>
         Promise.resolve({
           ok: false,
           status: 403,
@@ -75,12 +72,13 @@ describe('fetchUserDetails', () => {
           authToken: 'valid-token',
           fields: ['referral_link'] as const,
           logger: mockLogger,
+          fetch: mockFetch,
         }),
       ).rejects.toThrow('Failed to fetch user details (HTTP 403)')
     })
 
     test('throws error on 404 Not Found response', async () => {
-      globalThis.fetch = mock(() =>
+      const mockFetch = mock(() =>
         Promise.resolve({
           ok: false,
           status: 404,
@@ -92,6 +90,7 @@ describe('fetchUserDetails', () => {
           authToken: 'valid-token',
           fields: ['id', 'email'] as const,
           logger: mockLogger,
+          fetch: mockFetch,
         }),
       ).rejects.toThrow('Failed to fetch user details (HTTP 404)')
     })
@@ -103,7 +102,7 @@ describe('fetchUserDetails', () => {
         error: errorSpy,
       }
 
-      globalThis.fetch = mock(() =>
+      const mockFetch = mock(() =>
         Promise.resolve({
           ok: false,
           status: 500,
@@ -115,6 +114,7 @@ describe('fetchUserDetails', () => {
           authToken: 'valid-token',
           fields: ['referral_link'] as const,
           logger: testLogger,
+          fetch: mockFetch,
         }),
       ).rejects.toThrow()
 
@@ -128,7 +128,7 @@ describe('fetchUserDetails', () => {
         referral_link: 'https://codebuff.com/r/abc123',
       }
 
-      globalThis.fetch = mock(() =>
+      const mockFetch = mock(() =>
         Promise.resolve({
           ok: true,
           status: 200,
@@ -140,6 +140,7 @@ describe('fetchUserDetails', () => {
         authToken: 'valid-token',
         fields: ['referral_link'] as const,
         logger: mockLogger,
+        fetch: mockFetch,
       })
 
       expect(result).toEqual(mockUserDetails)
@@ -150,7 +151,7 @@ describe('fetchUserDetails', () => {
         referral_link: null,
       }
 
-      globalThis.fetch = mock(() =>
+      const mockFetch = mock(() =>
         Promise.resolve({
           ok: true,
           status: 200,
@@ -162,6 +163,7 @@ describe('fetchUserDetails', () => {
         authToken: 'valid-token',
         fields: ['referral_link'] as const,
         logger: mockLogger,
+        fetch: mockFetch,
       })
 
       expect(result?.referral_link).toBe(null)
