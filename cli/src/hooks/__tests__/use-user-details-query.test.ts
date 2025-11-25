@@ -36,7 +36,7 @@ describe('fetchUserDetails', () => {
       await expect(
         fetchUserDetails({
           authToken: 'invalid-token',
-          fields: ['referral_link'] as const,
+          fields: ['email'] as const,
           logger: mockLogger,
           apiClient,
         }),
@@ -55,7 +55,7 @@ describe('fetchUserDetails', () => {
       await expect(
         fetchUserDetails({
           authToken: 'valid-token',
-          fields: ['referral_link'] as const,
+          fields: ['email'] as const,
           logger: mockLogger,
           apiClient,
         }),
@@ -74,7 +74,7 @@ describe('fetchUserDetails', () => {
       await expect(
         fetchUserDetails({
           authToken: 'valid-token',
-          fields: ['referral_link'] as const,
+          fields: ['email'] as const,
           logger: mockLogger,
           apiClient,
         }),
@@ -118,7 +118,7 @@ describe('fetchUserDetails', () => {
       await expect(
         fetchUserDetails({
           authToken: 'valid-token',
-          fields: ['referral_link'] as const,
+          fields: ['email'] as const,
           logger: testLogger,
           apiClient,
         }),
@@ -131,7 +131,7 @@ describe('fetchUserDetails', () => {
   describe('successful responses', () => {
     test('returns user details on successful response', async () => {
       const mockUserDetails = {
-        referral_link: 'https://codebuff.com/r/abc123',
+        email: 'test@example.com',
       }
 
       const meMock = mock(() =>
@@ -145,7 +145,7 @@ describe('fetchUserDetails', () => {
 
       const result = await fetchUserDetails({
         authToken: 'valid-token',
-        fields: ['referral_link'] as const,
+        fields: ['email'] as const,
         logger: mockLogger,
         apiClient,
       })
@@ -153,9 +153,9 @@ describe('fetchUserDetails', () => {
       expect(result).toEqual(mockUserDetails)
     })
 
-    test('returns null referral_link when not set', async () => {
+    test('returns null referral_code when not set', async () => {
       const mockUserDetails = {
-        referral_link: null,
+        referral_code: null,
       }
 
       const meMock = mock(() =>
@@ -169,12 +169,12 @@ describe('fetchUserDetails', () => {
 
       const result = await fetchUserDetails({
         authToken: 'valid-token',
-        fields: ['referral_link'] as const,
+        fields: ['referral_code'] as const,
         logger: mockLogger,
         apiClient,
       })
 
-      expect(result?.referral_link).toBe(null)
+      expect(result?.referral_code).toBe(null)
     })
   })
 
@@ -187,7 +187,7 @@ describe('fetchUserDetails', () => {
       await expect(
         fetchUserDetails({
           authToken: 'valid-token',
-          fields: ['referral_link'] as const,
+          fields: ['email'] as const,
           logger: mockLogger,
         }),
       ).rejects.toThrow()

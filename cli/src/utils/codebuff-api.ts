@@ -20,17 +20,10 @@ export type ApiResponse<T> =
 // ============================================================================
 
 /** User fields that can be fetched from /api/v1/me */
-export type UserField =
-  | 'id'
-  | 'email'
-  | 'discord_id'
-  | 'referral_code'
-  | 'referral_link'
+export type UserField = 'id' | 'email' | 'discord_id' | 'referral_code'
 
 export type UserDetails<T extends UserField = UserField> = {
-  [K in T]: K extends 'discord_id' | 'referral_code' | 'referral_link'
-    ? string | null
-    : string
+  [K in T]: K extends 'discord_id' | 'referral_code' ? string | null : string
 }
 
 export interface UsageRequest {

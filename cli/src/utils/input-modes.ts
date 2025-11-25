@@ -6,7 +6,14 @@
 export type InputMode = 'default' | 'bash' | 'referral' | 'usage'
 
 // Theme color keys that are valid color values (must match ChatTheme keys)
-export type ThemeColorKey = 'foreground' | 'background' | 'error' | 'warning' | 'success' | 'info' | 'muted'
+export type ThemeColorKey =
+  | 'foreground'
+  | 'background'
+  | 'error'
+  | 'warning'
+  | 'success'
+  | 'info'
+  | 'muted'
 
 export type InputModeConfig = {
   /** Prefix icon shown before input (e.g., "!" for bash) */
@@ -43,7 +50,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
   referral: {
     icon: '◎',
     color: 'warning',
-    placeholder: 'enter referral code (e.g. ref-abc123)...',
+    placeholder: 'have a code? enter it here',
     widthAdjustment: 2, // 1 char + 1 padding
     showAgentModeToggle: false,
     disableSlashSuggestions: true,
