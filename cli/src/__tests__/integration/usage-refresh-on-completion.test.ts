@@ -9,13 +9,13 @@ import * as authModule from '../../utils/auth'
  * Integration test for usage refresh on SDK run completion
  *
  * This test verifies the complete lifecycle:
- * 1. User opens usage banner (isUsageVisible = true)
+ * 1. User opens usage banner (inputMode = 'usage')
  * 2. SDK run completes successfully
  * 3. Query is invalidated to trigger refresh
  * 4. Banner shows updated credit balance (when query refetches)
  *
  * Also tests:
- * - No invalidation when banner is closed (isUsageVisible = false)
+ * - No invalidation when banner is closed (inputMode = 'default')
  * - Multiple sequential runs with banner open
  */
 describe('Usage Refresh on SDK Completion', () => {
@@ -65,16 +65,16 @@ describe('Usage Refresh on SDK Completion', () => {
   describe('banner visible scenarios', () => {
     test('should invalidate query when banner is visible and run completes', () => {
       // Setup: Open usage banner
-      useChatStore.getState().setIsUsageVisible(true)
-      expect(useChatStore.getState().isUsageVisible).toBe(true)
+      useChatStore.getState().setInputMode('usage')
+      expect(useChatStore.getState().inputMode).toBe('usage')
 
       // Spy on invalidateQueries
       const invalidateSpy = mock(queryClient.invalidateQueries.bind(queryClient))
       queryClient.invalidateQueries = invalidateSpy as any
 
       // Simulate SDK run completion triggering invalidation
-      const isUsageVisible = useChatStore.getState().isUsageVisible
-      if (isUsageVisible) {
+      const isUsageMode = useChatStore.getState().inputMode === 'usage'
+      if (isUsageMode) {
         queryClient.invalidateQueries({ queryKey: usageQueryKeys.current() })
       }
 
@@ -86,14 +86,14 @@ describe('Usage Refresh on SDK Completion', () => {
     })
 
     test('should invalidate multiple times for sequential runs', () => {
-      useChatStore.getState().setIsUsageVisible(true)
+      useChatStore.getState().setInputMode('usage')
 
       const invalidateSpy = mock(queryClient.invalidateQueries.bind(queryClient))
       queryClient.invalidateQueries = invalidateSpy as any
 
       // Simulate three sequential SDK runs
       for (let i = 0; i < 3; i++) {
-        if (useChatStore.getState().isUsageVisible) {
+        if (useChatStore.getState().inputMode === 'usage') {
           queryClient.invalidateQueries({ queryKey: usageQueryKeys.current() })
         }
       }
@@ -104,16 +104,16 @@ describe('Usage Refresh on SDK Completion', () => {
 
   describe('banner not visible scenarios', () => {
     test('should NOT invalidate when banner is not visible', () => {
-      // Setup: Banner is closed
-      useChatStore.getState().setIsUsageVisible(false)
-      expect(useChatStore.getState().isUsageVisible).toBe(false)
+      // Setup: Banner is closed (default mode)
+      useChatStore.getState().setInputMode('default')
+      expect(useChatStore.getState().inputMode).toBe('default')
 
       const invalidateSpy = mock(queryClient.invalidateQueries.bind(queryClient))
       queryClient.invalidateQueries = invalidateSpy as any
 
       // Simulate SDK run completion check
-      const isUsageVisible = useChatStore.getState().isUsageVisible
-      if (isUsageVisible) {
+      const isUsageMode = useChatStore.getState().inputMode === 'usage'
+      if (isUsageMode) {
         queryClient.invalidateQueries({ queryKey: usageQueryKeys.current() })
       }
 
@@ -123,17 +123,17 @@ describe('Usage Refresh on SDK Completion', () => {
 
     test('should not invalidate if banner was closed before run completed', () => {
       // Setup: Start with banner open
-      useChatStore.getState().setIsUsageVisible(true)
+      useChatStore.getState().setInputMode('usage')
 
       // User closes banner before run completes
-      useChatStore.getState().setIsUsageVisible(false)
+      useChatStore.getState().setInputMode('default')
 
       const invalidateSpy = mock(queryClient.invalidateQueries.bind(queryClient))
       queryClient.invalidateQueries = invalidateSpy as any
 
       // Simulate run completion
-      const isUsageVisible = useChatStore.getState().isUsageVisible
-      if (isUsageVisible) {
+      const isUsageMode = useChatStore.getState().inputMode === 'usage'
+      if (isUsageMode) {
         queryClient.invalidateQueries({ queryKey: usageQueryKeys.current() })
       }
 
@@ -144,7 +144,7 @@ describe('Usage Refresh on SDK Completion', () => {
   describe('query behavior', () => {
     test('should not fetch when enabled is false', () => {
       // Even if banner is visible in store, query won't run if enabled=false
-      useChatStore.getState().setIsUsageVisible(true)
+      useChatStore.getState().setInputMode('usage')
 
       const fetchMock = mock(globalThis.fetch)
       globalThis.fetch = fetchMock as any
@@ -159,7 +159,7 @@ describe('Usage Refresh on SDK Completion', () => {
   describe('unauthenticated scenarios', () => {
     test('should not fetch when no auth token', () => {
       getAuthTokenSpy.mockReturnValue(undefined)
-      useChatStore.getState().setIsUsageVisible(true)
+      useChatStore.getState().setInputMode('usage')
 
       const fetchMock = mock(globalThis.fetch)
       globalThis.fetch = fetchMock as any

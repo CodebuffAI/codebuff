@@ -9,14 +9,27 @@ import { SuggestionMenu, type SuggestionItem } from './suggestion-menu'
 import { UsageBanner } from './usage-banner'
 import { useChatStore } from '../state/chat-store'
 import { useAskUserBridge } from '../hooks/use-ask-user-bridge'
+
 import { getInputModeConfig } from '../utils/input-modes'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { useTheme } from '../hooks/use-theme'
 import type { InputValue } from '../state/chat-store'
 import type { AgentMode } from '../utils/constants'
+import type { InputMode } from '../utils/input-modes'
 
 type Theme = ReturnType<typeof useTheme>
+
+const InputModeBanner = ({ inputMode }: { inputMode: InputMode }) => {
+  switch (inputMode) {
+    case 'usage':
+      return <UsageBanner />
+    case 'referral':
+      return <ReferralBanner />
+    default:
+      return null
+  }
+}
 
 interface ChatInputBarProps {
   // Input state
@@ -90,10 +103,13 @@ export const ChatInputBar = ({
 }: ChatInputBarProps) => {
   const inputMode = useChatStore((state) => state.inputMode)
   const setInputMode = useChatStore((state) => state.setInputMode)
+
   const modeConfig = getInputModeConfig(inputMode)
   const askUserState = useChatStore((state) => state.askUserState)
   const updateAskUserAnswer = useChatStore((state) => state.updateAskUserAnswer)
-  const updateAskUserOtherText = useChatStore((state) => state.updateAskUserOtherText)
+  const updateAskUserOtherText = useChatStore(
+    (state) => state.updateAskUserOtherText,
+  )
   const { submitAnswers } = useAskUserBridge()
 
   if (feedbackMode) {
@@ -124,7 +140,10 @@ export const ChatInputBar = ({
     setInputValue(value)
   }
 
-  const handleFormSubmit = (finalAnswers?: (number | number[])[], finalOtherTexts?: string[]) => {
+  const handleFormSubmit = (
+    finalAnswers?: (number | number[])[],
+    finalOtherTexts?: string[],
+  ) => {
     if (!askUserState) return
 
     // Use final values if provided (for immediate submission), otherwise use current state
@@ -154,9 +173,14 @@ export const ChatInputBar = ({
         // Empty array means skipped
         return {
           questionIndex: idx,
-          selectedOptions: answer.length > 0 ? answer.map(getOptionLabel) : undefined,
+          selectedOptions:
+            answer.length > 0 ? answer.map(getOptionLabel) : undefined,
         }
-      } else if (typeof answer === 'number' && answer >= 0 && answer < q.options.length) {
+      } else if (
+        typeof answer === 'number' &&
+        answer >= 0 &&
+        answer < q.options.length
+      ) {
         // Single-select with valid answer
         return {
           questionIndex: idx,
@@ -199,11 +223,17 @@ export const ChatInputBar = ({
           onSelectAnswer={updateAskUserAnswer}
           onOtherTextChange={updateAskUserOtherText}
           onSubmit={handleFormSubmit}
-          onQuestionChange={(currentIndex, totalQuestions, isOnConfirmScreen) => {
+          onQuestionChange={(
+            currentIndex,
+            totalQuestions,
+            isOnConfirmScreen,
+          ) => {
             if (isOnConfirmScreen) {
               setAskUserTitle(' Ready to submit ')
             } else {
-              setAskUserTitle(` Question ${currentIndex + 1} of ${totalQuestions} `)
+              setAskUserTitle(
+                ` Question ${currentIndex + 1} of ${totalQuestions} `,
+              )
             }
           }}
           width={inputWidth}
@@ -307,8 +337,7 @@ export const ChatInputBar = ({
           </box>
         </box>
       </box>
-      <UsageBanner />
-      <ReferralBanner />
+      <InputModeBanner inputMode={inputMode} />
     </>
   )
 }

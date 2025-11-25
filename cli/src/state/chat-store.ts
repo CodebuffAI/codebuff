@@ -5,10 +5,9 @@ import { immer } from 'zustand/middleware/immer'
 import { clamp } from '../utils/math'
 import { loadModePreference, saveModePreference } from '../utils/settings'
 
-import type { InputMode } from '../utils/input-modes'
-
 import type { ChatMessage } from '../types/chat'
 import type { AgentMode } from '../utils/constants'
+import type { InputMode } from '../utils/input-modes'
 import type { RunState } from '@codebuff/sdk'
 
 export type InputValue = {
@@ -62,7 +61,6 @@ export type ChatStoreState = {
   lastMessageMode: AgentMode | null
   sessionCreditsUsed: number
   runState: RunState | null
-  isUsageVisible: boolean
   isAnnouncementVisible: boolean
   inputMode: InputMode
   isRetrying: boolean
@@ -96,7 +94,6 @@ type ChatStoreActions = {
   setLastMessageMode: (mode: AgentMode | null) => void
   addSessionCredits: (credits: number) => void
   setRunState: (runState: RunState | null) => void
-  setIsUsageVisible: (visible: boolean) => void
   setIsAnnouncementVisible: (visible: boolean) => void
   setInputMode: (mode: InputMode) => void
   setIsRetrying: (retrying: boolean) => void
@@ -126,7 +123,6 @@ const initialState: ChatStoreState = {
   lastMessageMode: null,
   sessionCreditsUsed: 0,
   runState: null,
-  isUsageVisible: false,
   isAnnouncementVisible: true,
   inputMode: 'default' as InputMode,
   isRetrying: false,
@@ -241,11 +237,6 @@ export const useChatStore = create<ChatStore>()(
         state.runState = runState ? castDraft(runState) : null
       }),
 
-    setIsUsageVisible: (visible) =>
-      set((state) => {
-        state.isUsageVisible = visible
-      }),
-
     setIsAnnouncementVisible: (visible) =>
       set((state) => {
         state.isAnnouncementVisible = visible
@@ -328,7 +319,6 @@ export const useChatStore = create<ChatStore>()(
         state.runState = initialState.runState
           ? castDraft(initialState.runState)
           : null
-        state.isUsageVisible = initialState.isUsageVisible
         state.isAnnouncementVisible = initialState.isAnnouncementVisible
         state.inputMode = initialState.inputMode
         state.isRetrying = initialState.isRetrying

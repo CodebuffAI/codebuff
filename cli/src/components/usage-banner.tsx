@@ -1,141 +1,126 @@
-import React, { useEffect, useMemo } from 'react'
+import { UserState, getUserState } from '@codebuff/common/old-constants'
+import { useQuery } from '@tanstack/react-query'
+import React, { useEffect, useRef, useState } from 'react'
 
-import { Button } from './button'
-import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
+import { BannerWrapper } from './banner-wrapper'
 import { useTheme } from '../hooks/use-theme'
-import { useUsageQuery } from '../hooks/use-usage-query'
+import { usageQueryKeys, useUsageQuery } from '../hooks/use-usage-query'
 import { useChatStore } from '../state/chat-store'
-import { BORDER_CHARS } from '../utils/ui-constants'
+import { getAuthToken } from '../utils/auth'
 
-// Credit level thresholds for banner color
 const HIGH_CREDITS_THRESHOLD = 1000
 const MEDIUM_CREDITS_THRESHOLD = 100
 
+const MANUAL_SHOW_TIMEOUT = 60 * 1000 // 1 minute
+const AUTO_SHOW_TIMEOUT = 5 * 60 * 1000 // 5 minutes
+
 export const UsageBanner = () => {
-  const { terminalWidth } = useTerminalDimensions()
   const theme = useTheme()
-  const isUsageVisible = useChatStore((state) => state.isUsageVisible)
   const sessionCreditsUsed = useChatStore((state) => state.sessionCreditsUsed)
-  const setIsUsageVisible = useChatStore((state) => state.setIsUsageVisible)
-  const [isCloseHovered, setIsCloseHovered] = React.useState(false)
+  const isChainInProgress = useChatStore((state) => state.isChainInProgress)
+  const setInputMode = useChatStore((state) => state.setInputMode)
 
-  // Fetch usage data when banner is visible
-  const { data: apiData } = useUsageQuery({ enabled: isUsageVisible })
+  const [isAutoShown, setIsAutoShown] = useState(false)
+  const lastWarnedStateRef = useRef<UserState | null>(null)
 
-  // Transform API data to usage data format
-  const usageData = apiData
-    ? {
-        sessionUsage: sessionCreditsUsed,
-        remainingBalance: apiData.remainingBalance,
-        nextQuotaReset: apiData.next_quota_reset,
-      }
-    : null
+  const { data: apiData } = useUsageQuery({ enabled: true })
 
-  // Auto-hide banner after 60 seconds
+  const { data: cachedUsageData } = useQuery<{
+    type: 'usage-response'
+    usage: number
+    remainingBalance: number | null
+    balanceBreakdown?: { free: number; paid: number }
+    next_quota_reset: string | null
+  }>({
+    queryKey: usageQueryKeys.current(),
+    enabled: false,
+  })
+
+  // Credit warning monitoring logic
   useEffect(() => {
-    if (isUsageVisible) {
-      const timer = setTimeout(() => {
-        setIsUsageVisible(false)
-      }, 60000)
-      return () => clearTimeout(timer)
-    } else {
-      // Reset hover state when banner closes
-      setIsCloseHovered(false)
-    }
-    return undefined
-  }, [isUsageVisible, setIsUsageVisible])
+    if (isChainInProgress) return
+    const authToken = getAuthToken()
+    if (!authToken) return
+    if (!cachedUsageData || cachedUsageData.remainingBalance === null) return
 
-  // Memoize the banner text computation
-  const text = useMemo(() => {
-    if (!usageData) return ''
+    const credits = cachedUsageData.remainingBalance
+    const userState = getUserState(true, credits)
 
-    let result = `Session usage: ${usageData.sessionUsage.toLocaleString()}`
-
-    if (usageData.remainingBalance !== null) {
-      result += `. Credits remaining: ${usageData.remainingBalance.toLocaleString()}`
+    if (userState === UserState.GOOD_STANDING) {
+      lastWarnedStateRef.current = null
+      return
     }
 
-    if (usageData.nextQuotaReset) {
-      const resetDate = new Date(usageData.nextQuotaReset)
-      const today = new Date()
-      const isToday = resetDate.toDateString() === today.toDateString()
-
-      // Format date without slashes to prevent mid-date line breaks
-      const dateDisplay = isToday
-        ? resetDate.toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-          })
-        : resetDate.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-          })
-
-      result += `. Free credits renew ${dateDisplay}`
+    if (
+      lastWarnedStateRef.current !== userState &&
+      (userState === UserState.ATTENTION_NEEDED ||
+        userState === UserState.CRITICAL ||
+        userState === UserState.DEPLETED)
+    ) {
+      lastWarnedStateRef.current = userState
+      setIsAutoShown(true)
     }
+  }, [isChainInProgress, cachedUsageData])
 
-    return result
-  }, [usageData])
+  // Auto-hide effect
+  useEffect(() => {
+    const timeout = isAutoShown ? AUTO_SHOW_TIMEOUT : MANUAL_SHOW_TIMEOUT
+    const timer = setTimeout(() => {
+      setInputMode('default')
+      setIsAutoShown(false)
+    }, timeout)
+    return () => clearTimeout(timer)
+  }, [isAutoShown, setInputMode])
 
-  const bannerColor = useMemo(() => {
-    // Default color
-    if (!usageData || usageData.remainingBalance === null) {
-      return theme.warning
-    }
+  const activeData = apiData || cachedUsageData
+  if (!activeData) return null
 
-    const balance = usageData.remainingBalance
+  const balance = activeData.remainingBalance
+  let color = theme.warning
 
-    if (balance >= HIGH_CREDITS_THRESHOLD) {
-      return theme.success
-    }
+  if (balance === null) {
+    color = theme.warning
+  } else if (balance >= HIGH_CREDITS_THRESHOLD) {
+    color = theme.success
+  } else if (balance >= MEDIUM_CREDITS_THRESHOLD) {
+    color = theme.warning
+  } else {
+    color = theme.error
+  }
 
-    if (balance >= MEDIUM_CREDITS_THRESHOLD) {
-      return theme.warning
-    }
+  let text = `Session usage: ${sessionCreditsUsed.toLocaleString()}`
 
-    return theme.error
-  }, [usageData, theme])
+  if (activeData.remainingBalance !== null) {
+    text += `. Credits remaining: ${activeData.remainingBalance.toLocaleString()}`
+  }
 
-  if (!isUsageVisible || !usageData) return null
+  if (activeData.next_quota_reset) {
+    const resetDate = new Date(activeData.next_quota_reset)
+    const today = new Date()
+    const isToday = resetDate.toDateString() === today.toDateString()
+
+    const dateDisplay = isToday
+      ? resetDate.toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        })
+      : resetDate.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        })
+
+    text += `. Free credits renew ${dateDisplay}`
+  }
 
   return (
-    <box
-      key={terminalWidth}
-      style={{
-        width: '100%',
-        borderStyle: 'single',
-        borderColor: bannerColor,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        paddingLeft: 1,
-        paddingRight: 1,
-        marginTop: 0,
-        marginBottom: 0,
-      }}
-      border={['bottom', 'left', 'right']}
-      customBorderChars={BORDER_CHARS}
-    >
-      <text
-        style={{
-          fg: bannerColor,
-          wrapMode: 'word',
-          flexShrink: 1,
-          marginRight: 3,
-        }}
-      >
-        {text}
-      </text>
-      <Button
-        onClick={() => setIsUsageVisible(false)}
-        onMouseOver={() => setIsCloseHovered(true)}
-        onMouseOut={() => setIsCloseHovered(false)}
-      >
-        <text style={{ fg: isCloseHovered ? theme.error : theme.muted }}>x</text>
-      </Button>
-    </box>
+    <BannerWrapper
+      color={color}
+      text={text}
+      onClose={() => setInputMode('default')}
+    />
   )
 }

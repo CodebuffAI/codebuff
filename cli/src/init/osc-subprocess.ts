@@ -1,3 +1,8 @@
+import {
+  detectTerminalTheme,
+  terminalSupportsOSC,
+} from '../utils/terminal-color-detection'
+
 const OSC_DEBUG_ENABLED = process.env.CODEBUFF_OSC_DEBUG === '1'
 
 function logOscDebug(message: string, data?: Record<string, unknown>) {
@@ -14,11 +19,6 @@ export async function runOscDetectionSubprocess(): Promise<void> {
     process.env.CODEBUFF_OSC_DEBUG = '1'
   }
   logOscDebug('Starting OSC detection flag run')
-
-  // Avoid importing logger or other modules that produce output
-  const { detectTerminalTheme, terminalSupportsOSC } = await import(
-    '../utils/terminal-color-detection'
-  )
 
   const oscSupported = terminalSupportsOSC()
   logOscDebug('terminalSupportsOSC result', { oscSupported })

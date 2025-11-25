@@ -1,6 +1,8 @@
 import { useKeyboard } from '@opentui/react'
 import { useCallback } from 'react'
 
+import { useChatStore } from '../state/chat-store'
+
 type InputHandle = { focus: () => void }
 
 interface KeyboardHandlersConfig {
@@ -60,6 +62,21 @@ export const useKeyboardHandlers = ({
           }
           setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
           return
+        }
+
+        // Handle escape with empty input: exit current mode if not default
+        if (isEscape && !isStreaming && !isWaitingForResponse && !inputValue.trim()) {
+          const { inputMode, setInputMode } = useChatStore.getState()
+          if (inputMode !== 'default') {
+            if (
+              'preventDefault' in key &&
+              typeof key.preventDefault === 'function'
+            ) {
+              key.preventDefault()
+            }
+            setInputMode('default')
+            return
+          }
         }
 
         if ((isEscape || isCtrlC) && (isStreaming || isWaitingForResponse)) {
