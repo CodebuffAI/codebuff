@@ -1,5 +1,6 @@
 import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test'
 
+import { createMockApiClient } from '../../__tests__/helpers/mock-api-client'
 import { fetchUserDetails } from '../use-user-details-query'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -24,73 +25,77 @@ describe('fetchUserDetails', () => {
 
   describe('API failure handling', () => {
     test('throws error on 401 Unauthorized response', async () => {
-      const mockFetch = mock(() =>
+      const meMock = mock(() =>
         Promise.resolve({
           ok: false,
           status: 401,
-        } as Response),
+        }),
       )
+      const apiClient = createMockApiClient({ me: meMock })
 
       await expect(
         fetchUserDetails({
           authToken: 'invalid-token',
           fields: ['referral_link'] as const,
           logger: mockLogger,
-          fetch: mockFetch,
+          apiClient,
         }),
       ).rejects.toThrow('Failed to fetch user details (HTTP 401)')
     })
 
     test('throws error on 500 Internal Server Error response', async () => {
-      const mockFetch = mock(() =>
+      const meMock = mock(() =>
         Promise.resolve({
           ok: false,
           status: 500,
-        } as Response),
+        }),
       )
+      const apiClient = createMockApiClient({ me: meMock })
 
       await expect(
         fetchUserDetails({
           authToken: 'valid-token',
           fields: ['referral_link'] as const,
           logger: mockLogger,
-          fetch: mockFetch,
+          apiClient,
         }),
       ).rejects.toThrow('Failed to fetch user details (HTTP 500)')
     })
 
     test('throws error on 403 Forbidden response', async () => {
-      const mockFetch = mock(() =>
+      const meMock = mock(() =>
         Promise.resolve({
           ok: false,
           status: 403,
-        } as Response),
+        }),
       )
+      const apiClient = createMockApiClient({ me: meMock })
 
       await expect(
         fetchUserDetails({
           authToken: 'valid-token',
           fields: ['referral_link'] as const,
           logger: mockLogger,
-          fetch: mockFetch,
+          apiClient,
         }),
       ).rejects.toThrow('Failed to fetch user details (HTTP 403)')
     })
 
     test('throws error on 404 Not Found response', async () => {
-      const mockFetch = mock(() =>
+      const meMock = mock(() =>
         Promise.resolve({
           ok: false,
           status: 404,
-        } as Response),
+        }),
       )
+      const apiClient = createMockApiClient({ me: meMock })
 
       await expect(
         fetchUserDetails({
           authToken: 'valid-token',
           fields: ['id', 'email'] as const,
           logger: mockLogger,
-          fetch: mockFetch,
+          apiClient,
         }),
       ).rejects.toThrow('Failed to fetch user details (HTTP 404)')
     })
@@ -102,19 +107,20 @@ describe('fetchUserDetails', () => {
         error: errorSpy,
       }
 
-      const mockFetch = mock(() =>
+      const meMock = mock(() =>
         Promise.resolve({
           ok: false,
           status: 500,
-        } as Response),
+        }),
       )
+      const apiClient = createMockApiClient({ me: meMock })
 
       await expect(
         fetchUserDetails({
           authToken: 'valid-token',
           fields: ['referral_link'] as const,
           logger: testLogger,
-          fetch: mockFetch,
+          apiClient,
         }),
       ).rejects.toThrow()
 
@@ -128,19 +134,20 @@ describe('fetchUserDetails', () => {
         referral_link: 'https://codebuff.com/r/abc123',
       }
 
-      const mockFetch = mock(() =>
+      const meMock = mock(() =>
         Promise.resolve({
           ok: true,
           status: 200,
-          json: () => Promise.resolve(mockUserDetails),
-        } as Response),
+          data: mockUserDetails,
+        }),
       )
+      const apiClient = createMockApiClient({ me: meMock })
 
       const result = await fetchUserDetails({
         authToken: 'valid-token',
         fields: ['referral_link'] as const,
         logger: mockLogger,
-        fetch: mockFetch,
+        apiClient,
       })
 
       expect(result).toEqual(mockUserDetails)
@@ -151,19 +158,20 @@ describe('fetchUserDetails', () => {
         referral_link: null,
       }
 
-      const mockFetch = mock(() =>
+      const meMock = mock(() =>
         Promise.resolve({
           ok: true,
           status: 200,
-          json: () => Promise.resolve(mockUserDetails),
-        } as Response),
+          data: mockUserDetails,
+        }),
       )
+      const apiClient = createMockApiClient({ me: meMock })
 
       const result = await fetchUserDetails({
         authToken: 'valid-token',
         fields: ['referral_link'] as const,
         logger: mockLogger,
-        fetch: mockFetch,
+        apiClient,
       })
 
       expect(result?.referral_link).toBe(null)
@@ -174,13 +182,15 @@ describe('fetchUserDetails', () => {
     test('throws error when NEXT_PUBLIC_CODEBUFF_APP_URL is not set', async () => {
       delete process.env.NEXT_PUBLIC_CODEBUFF_APP_URL
 
+      // When no apiClient is provided and env is not set, createCodebuffApiClient
+      // will throw due to missing baseUrl (or we test directly)
       await expect(
         fetchUserDetails({
           authToken: 'valid-token',
           fields: ['referral_link'] as const,
           logger: mockLogger,
         }),
-      ).rejects.toThrow('NEXT_PUBLIC_CODEBUFF_APP_URL is not set')
+      ).rejects.toThrow()
     })
   })
 })

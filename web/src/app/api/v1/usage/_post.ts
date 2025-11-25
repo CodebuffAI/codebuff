@@ -3,6 +3,8 @@ import { INVALID_AUTH_TOKEN_MESSAGE } from '@codebuff/common/old-constants'
 import { NextResponse } from 'next/server'
 import { z } from 'zod/v4'
 
+import { extractApiKeyFromHeader } from '@/util/auth'
+
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type {
   GetUserInfoFromApiKeyFn,
@@ -14,6 +16,8 @@ import type { GetOrganizationUsageResponseFn, GetUserUsageDataFn } from '@codebu
 
 const usageRequestSchema = z.object({
   fingerprintId: z.string(),
+  // DEPRECATED: authToken in body is for backwards compatibility with older CLI versions.
+  // New clients should use the Authorization header instead.
   authToken: z.string().optional(),
   orgId: z.string().optional(),
 })
@@ -54,7 +58,10 @@ export async function postUsage(params: {
       )
     }
 
-    const { fingerprintId, authToken, orgId } = parseResult.data
+    const { fingerprintId, authToken: bodyAuthToken, orgId } = parseResult.data
+
+    // Prefer Authorization header, fall back to body authToken for backwards compatibility
+    const authToken = extractApiKeyFromHeader(req) ?? bodyAuthToken
 
     if (!authToken) {
       return NextResponse.json(

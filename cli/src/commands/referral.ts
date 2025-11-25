@@ -2,6 +2,7 @@ import { env } from '@codebuff/common/env'
 import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/old-constants'
 
 import { getAuthToken } from '../utils/auth'
+import { getApiClient, setApiClientAuthToken } from '../utils/codebuff-api'
 import { logger } from '../utils/logger'
 import { getSystemMessage } from '../utils/message-history'
 
@@ -22,39 +23,14 @@ export async function handleReferralCode(referralCode: string): Promise<{
     return { postUserMessage }
   }
 
+  setApiClientAuthToken(authToken)
+  const apiClient = getApiClient()
+
   try {
-    const response = await fetch(
-      `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/api/referrals`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Cookie: `next-auth.session-token=${authToken};`,
-        },
-        body: JSON.stringify({
-          referralCode,
-          authToken,
-        }),
-      },
-    )
+    const response = await apiClient.referral({ referralCode })
 
-    const respJson = (await response.json()) as {
-      credits_redeemed?: number
-      error?: string
-    }
-
-    if (response.ok) {
-      const creditsRedeemed = respJson.credits_redeemed ?? CREDITS_REFERRAL_BONUS
-      const postUserMessage: PostUserMessageFn = (prev) => [
-        ...prev,
-        getSystemMessage(
-          `🎉 Noice, you've earned an extra ${creditsRedeemed} credits!\n\n` +
-            `(pssst: you can also refer new users and earn ${CREDITS_REFERRAL_BONUS} credits for each referral at: ${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/referrals)`,
-        ),
-      ]
-      return { postUserMessage }
-    } else {
-      const errorMessage = respJson.error || 'Failed to redeem referral code'
+    if (!response.ok) {
+      const errorMessage = response.error ?? 'Failed to redeem referral code'
       logger.error(
         {
           referralCode,
@@ -68,6 +44,17 @@ export async function handleReferralCode(referralCode: string): Promise<{
       ]
       return { postUserMessage }
     }
+
+    const creditsRedeemed =
+      response.data?.credits_redeemed ?? CREDITS_REFERRAL_BONUS
+    const postUserMessage: PostUserMessageFn = (prev) => [
+      ...prev,
+      getSystemMessage(
+        `🎉 Noice, you've earned an extra ${creditsRedeemed} credits!\n\n` +
+          `(pssst: you can also refer new users and earn ${CREDITS_REFERRAL_BONUS} credits for each referral at: ${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/referrals)`,
+      ),
+    ]
+    return { postUserMessage }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     logger.error(

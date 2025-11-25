@@ -1,14 +1,17 @@
+import { createCodebuffApiClient } from '../utils/codebuff-api'
+
+import type {
+  CodebuffApiClient,
+  LoginCodeResponse,
+} from '../utils/codebuff-api'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-export interface LoginUrlResponse {
-  loginUrl: string
-  fingerprintHash: string
-  expiresAt: string
-}
+// Re-export for backwards compatibility
+export type LoginUrlResponse = LoginCodeResponse
 
 export interface GenerateLoginUrlDeps {
-  fetch: typeof fetch
   logger: Logger
+  apiClient?: CodebuffApiClient
 }
 
 export interface GenerateLoginUrlOptions {
@@ -20,39 +23,44 @@ export async function generateLoginUrl(
   deps: GenerateLoginUrlDeps,
   options: GenerateLoginUrlOptions,
 ): Promise<LoginUrlResponse> {
-  const { fetch, logger } = deps
+  const { logger, apiClient: providedApiClient } = deps
   const { baseUrl, fingerprintId } = options
 
-  const url = `${baseUrl}/api/auth/cli/code`
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ fingerprintId }),
-  })
+  const apiClient =
+    providedApiClient ??
+    createCodebuffApiClient({
+      baseUrl,
+    })
+
+  const response = await apiClient.loginCode({ fingerprintId })
 
   if (!response.ok) {
     logger.error(
       {
         status: response.status,
-        statusText: response.statusText,
+        error: response.error,
       },
       '❌ Failed to request login URL',
     )
     throw new Error('Failed to get login URL')
   }
 
-  const data = (await response.json()) as LoginUrlResponse
+  if (!response.data) {
+    logger.error(
+      { status: response.status },
+      '❌ Empty response from login URL',
+    )
+    throw new Error('Failed to get login URL')
+  }
 
-  return data
+  return response.data
 }
 
 interface PollLoginStatusDeps {
-  fetch: typeof fetch
   sleep: (ms: number) => Promise<void>
   logger: Logger
   now?: () => number
+  apiClient?: CodebuffApiClient
 }
 
 interface PollLoginStatusOptions {
@@ -74,7 +82,7 @@ export async function pollLoginStatus(
   deps: PollLoginStatusDeps,
   options: PollLoginStatusOptions,
 ): Promise<PollLoginStatusResult> {
-  const { fetch, sleep, logger } = deps
+  const { sleep, logger, apiClient: providedApiClient } = deps
   const {
     baseUrl,
     fingerprintId,
@@ -89,6 +97,12 @@ export async function pollLoginStatus(
   const startTime = now()
   let attempts = 0
 
+  const apiClient =
+    providedApiClient ??
+    createCodebuffApiClient({
+      baseUrl,
+    })
+
   while (true) {
     if (shouldContinue && !shouldContinue()) {
       logger.warn('🛑 Polling aborted by caller')
@@ -102,14 +116,37 @@ export async function pollLoginStatus(
 
     attempts += 1
 
-    const url = new URL('/api/auth/cli/status', baseUrl)
-    url.searchParams.set('fingerprintId', fingerprintId)
-    url.searchParams.set('fingerprintHash', fingerprintHash)
-    url.searchParams.set('expiresAt', expiresAt)
-
-    let response: Response
     try {
-      response = await fetch(url.toString())
+      const response = await apiClient.loginStatus({
+        fingerprintId,
+        fingerprintHash,
+        expiresAt,
+      })
+
+      if (!response.ok) {
+        if (response.status !== 401) {
+          logger.warn(
+            {
+              attempts,
+              status: response.status,
+              error: response.error,
+            },
+            '⚠️ Unexpected status while polling',
+          )
+        }
+        await sleep(intervalMs)
+        continue
+      }
+
+      if (response.data?.user && typeof response.data.user === 'object') {
+        return {
+          status: 'success',
+          user: response.data.user as Record<string, unknown>,
+          attempts,
+        }
+      }
+
+      await sleep(intervalMs)
     } catch (error) {
       logger.error(
         {
@@ -121,43 +158,5 @@ export async function pollLoginStatus(
       await sleep(intervalMs)
       continue
     }
-
-    if (!response.ok) {
-      if (response.status !== 401) {
-        logger.warn(
-          {
-            attempts,
-            status: response.status,
-            statusText: response.statusText,
-          },
-          '⚠️ Unexpected status while polling',
-        )
-      }
-      await sleep(intervalMs)
-      continue
-    }
-
-    let data: unknown
-    try {
-      data = await response.json()
-    } catch (error) {
-      logger.error(
-        {
-          attempts,
-          error: error instanceof Error ? error.message : String(error),
-        },
-        '💥 Failed to parse polling response JSON',
-      )
-      await sleep(intervalMs)
-      continue
-    }
-
-    const rawUser = (data as { user?: unknown } | null)?.user
-    if (rawUser && typeof rawUser === 'object') {
-      const user = rawUser as Record<string, unknown>
-      return { status: 'success', user, attempts }
-    }
-
-    await sleep(intervalMs)
   }
 }

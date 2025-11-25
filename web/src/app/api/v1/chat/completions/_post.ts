@@ -4,6 +4,16 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { env } from '@codebuff/internal/env'
 import { NextResponse } from 'next/server'
 
+import {
+  handleOpenAINonStream,
+  OPENAI_SUPPORTED_MODELS,
+} from '@/llm-api/openai'
+import {
+  handleOpenRouterNonStream,
+  handleOpenRouterStream,
+} from '@/llm-api/openrouter'
+import { extractApiKeyFromHeader } from '@/util/auth'
+
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
 import type { GetUserUsageDataFn } from '@codebuff/common/types/contracts/billing'
@@ -16,16 +26,6 @@ import type {
   LoggerWithContextFn,
 } from '@codebuff/common/types/contracts/logger'
 import type { NextRequest } from 'next/server'
-
-import {
-  handleOpenRouterNonStream,
-  handleOpenRouterStream,
-} from '@/llm-api/openrouter'
-import {
-  handleOpenAINonStream,
-  OPENAI_SUPPORTED_MODELS,
-} from '@/llm-api/openai'
-import { extractApiKeyFromHeader } from '@/util/auth'
 
 export async function postChatCompletions(params: {
   req: NextRequest

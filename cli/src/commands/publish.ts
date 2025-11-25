@@ -1,8 +1,8 @@
+import { WEBSITE_URL } from '@codebuff/sdk'
 import { cyan, green, red, yellow } from 'picocolors'
 
-import { WEBSITE_URL } from '@codebuff/sdk'
-
 import { getUserCredentials } from '../utils/auth'
+import { getApiClient, setApiClientAuthToken } from '../utils/codebuff-api'
 import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 import { getLoadedAgentsData } from '../utils/local-agent-registry'
 
@@ -18,40 +18,39 @@ async function publishAgentTemplates(
   data: Record<string, any>[],
   authToken: string,
 ): Promise<PublishAgentsResponse & { statusCode?: number }> {
-  try {
-    const response = await fetch(`${WEBSITE_URL}/api/agents/publish`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        data,
-        authToken,
-      }),
-    })
+  setApiClientAuthToken(authToken)
+  const apiClient = getApiClient()
 
-    let result: PublishAgentsResponse
-    try {
-      result = (await response.json()) as PublishAgentsResponse
-    } catch (jsonError) {
+  try {
+    const response = await apiClient.publish(data)
+
+    if (!response.ok) {
+      // Try to use the full error data if available (includes details, hint, etc.)
+      const errorData = response.errorData as
+        | Partial<PublishAgentsErrorResponse>
+        | undefined
       return {
         success: false,
-        error: `Failed to parse server response: ${response.status} ${response.statusText}`,
+        error: errorData?.error ?? response.error ?? 'Unknown error',
+        details: errorData?.details,
+        hint: errorData?.hint,
+        availablePublishers: errorData?.availablePublishers,
+        validationErrors: errorData?.validationErrors,
         statusCode: response.status,
       }
     }
 
-    if (!response.ok) {
-      const errorResult = result as PublishAgentsErrorResponse
+    // Guard against empty/undefined response data
+    if (!response.data) {
       return {
-        ...errorResult,
-        success: false, // Ensure success is false
+        success: false,
+        error: 'Failed to parse server response - empty response body',
         statusCode: response.status,
       }
     }
 
     return {
-      ...result,
+      ...response.data,
       statusCode: response.status,
     }
   } catch (err: any) {

@@ -4,11 +4,16 @@ import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod/v4'
 
+import { extractApiKeyFromHeader } from '@/util/auth'
 import { logger } from '@/util/logger'
 
-export async function POST(req: Request) {
+import type { NextRequest } from 'next/server'
+
+export async function POST(req: NextRequest) {
   const reqSchema = z.object({
-    authToken: z.string(),
+    // DEPRECATED: authToken in body is for backwards compatibility with older CLI versions.
+    // New clients should use the Authorization header instead.
+    authToken: z.string().optional(),
     userId: z.string(),
     fingerprintId: z.string(),
     fingerprintHash: z.string(),
@@ -18,7 +23,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const { authToken, userId, fingerprintId } = result.data
+  const { authToken: bodyAuthToken, userId, fingerprintId } = result.data
+
+  // Prefer Authorization header, fall back to body authToken for backwards compatibility
+  const authToken = extractApiKeyFromHeader(req) ?? bodyAuthToken
+
+  if (!authToken) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   try {
     // First delete the session
