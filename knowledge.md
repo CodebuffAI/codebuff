@@ -77,6 +77,14 @@ base-lite "fix this bug"             # Works right away!
 
 ## Git Workflow Best Practices
 
+### Never Force Push to Main
+
+**Never use `git push --force` or `git push --force-with-lease` on the main branch.** This can overwrite other developers' work and cause CI/deployment issues.
+
+- If you need to amend a commit that's already on main, create a new commit instead
+- Force pushing is only acceptable on feature branches where you're the only contributor
+- If a push is rejected, use `git pull --rebase` to integrate remote changes first
+
 ### Interactive Git Commands
 
 **Always use tmux when running interactive git commands** (e.g., `git rebase --continue`, `git add -p`, `git commit --amend`).
