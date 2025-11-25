@@ -69,8 +69,28 @@ export interface AskUserParams {
   questions: {
     /** The question to ask the user */
     question: string
-    /** Array of answer options for the question (minimum 2) */
-    options: string[]
+    /** Short label (max 12 chars) displayed as a chip/tag */
+    header?: string
+    /** Array of answer options with label and optional description (minimum 2) */
+    options: {
+      /** The display text for this option */
+      label: string
+      /** Explanation shown when option is focused */
+      description?: string
+    }[]
+    /** If true, allows selecting multiple options (checkbox). If false, single selection only (radio). */
+    multiSelect?: boolean
+    /** Validation rules for "Other" text input */
+    validation?: {
+      /** Maximum length for "Other" text input */
+      maxLength?: number
+      /** Minimum length for "Other" text input */
+      minLength?: number
+      /** Regex pattern for "Other" text input */
+      pattern?: string
+      /** Custom error message when pattern fails */
+      patternError?: string
+    }
   }[]
 }
 

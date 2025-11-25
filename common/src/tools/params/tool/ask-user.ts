@@ -12,19 +12,16 @@ export const questionSchema = z.object({
     .optional()
     .describe('Short label (max 12 chars) displayed as a chip/tag. Example: "Auth method"'),
   options: z
-    .union([
-      z.string().array(), // Backwards compat: simple string array
-      z
-        .object({
-          label: z.string().describe('The display text for this option'),
-          description: z.string().optional().describe('Explanation shown when option is focused'),
-        })
-        .array(),
-    ])
+    .object({
+      label: z.string().describe('The display text for this option'),
+      description: z.string().optional().describe('Explanation shown when option is focused'),
+    })
+    .array()
     .refine((opts) => opts.length >= 2, {
       message: 'Each question must have at least 2 options',
     })
-    .describe('Array of answer options. Can be strings or objects with label/description.'),
+    .describe('Array of answer options with label and optional description.'),
+
   multiSelect: z
     .boolean()
     .default(false)
@@ -118,7 +115,12 @@ ${$getToolCallString({
       {
         question: 'Which features should we implement?',
         header: 'Features',
-        options: ['Rate limiting', 'Caching', 'Logging', 'Monitoring'],
+        options: [
+          { label: 'Rate limiting' },
+          { label: 'Caching' },
+          { label: 'Logging' },
+          { label: 'Monitoring' },
+        ],
         multiSelect: true,
       },
     ],

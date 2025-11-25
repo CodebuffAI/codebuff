@@ -70,7 +70,18 @@ export type AskUserContentBlock = {
   toolCallId: string
   questions: Array<{
     question: string
-    options: string[]
+    header?: string
+    options: Array<{
+      label: string
+      description?: string
+    }>
+    multiSelect?: boolean
+    validation?: {
+      maxLength?: number
+      minLength?: number
+      pattern?: string
+      patternError?: string
+    }
   }>
   answers?: Array<{
     questionIndex: number

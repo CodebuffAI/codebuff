@@ -1,5 +1,6 @@
 import { handleAddMessage } from './tool/add-message'
 import { handleAddSubgoal } from './tool/add-subgoal'
+import { handleAskUser } from './tool/ask-user'
 import { handleBrowserLogs } from './tool/browser-logs'
 import { handleCodeSearch } from './tool/code-search'
 import { handleCreatePlan } from './tool/create-plan'
@@ -37,17 +38,6 @@ import type { ToolName } from '@codebuff/common/tools/constants'
  *   - Any additional arguments for the tool
  * - Returns a promise that will be awaited
  */
-// Handler for ask_user - delegates to client
-const handleAskUser: CodebuffToolHandlerFunction<'ask_user'> = async ({
-  toolCall,
-  requestClientToolCall,
-}) => {
-  const result = await requestClientToolCall(toolCall as any)
-  return {
-    output: result,
-  }
-}
-
 export const codebuffToolHandlers = {
   add_message: handleAddMessage,
   add_subgoal: handleAddSubgoal,
