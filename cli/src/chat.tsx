@@ -522,7 +522,11 @@ export const Chat = ({
       // In bash mode at cursor position 0, backspace should exit bash mode
       const inputMode = useChatStore.getState().inputMode
       // Exit special modes on backspace at position 0
-      if (inputMode !== 'default' && cursorPosition === 0 && key.name === 'backspace') {
+      if (
+        inputMode !== 'default' &&
+        cursorPosition === 0 &&
+        key.name === 'backspace'
+      ) {
         useChatStore.getState().setInputMode('default')
         return true
       }
@@ -659,7 +663,6 @@ export const Chat = ({
     resumeQueue,
     continueChat,
     continueChatId,
-    onOpenFeedback: () => handleOpenFeedbackForMessage(null),
   })
 
   sendMessageRef.current = sendMessage
@@ -943,27 +946,6 @@ export const Chat = ({
   const shouldShowStatusLine =
     !feedbackMode &&
     (hasStatusIndicatorContent || shouldShowQueuePreview || !isAtBottom)
-
-  // Ctrl+F to open feedback for latest completed AI message
-  useKeyboard(
-    useCallback(
-      (key) => {
-        // Don't handle if already in feedback mode
-        if (feedbackMode) return
-
-        if (key?.ctrl && key.name === 'f') {
-          if (
-            'preventDefault' in key &&
-            typeof key.preventDefault === 'function'
-          ) {
-            key.preventDefault()
-          }
-          handleOpenFeedbackForLatestMessage()
-        }
-      },
-      [handleOpenFeedbackForLatestMessage, feedbackMode],
-    ),
-  )
 
   return (
     <box
