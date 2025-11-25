@@ -178,10 +178,12 @@ export const ChatInputBar = ({
     inputMode === 'default' ? inputPlaceholder : modeConfig.placeholder
   const borderColor = theme[modeConfig.color]
 
+  const [askUserTitle, setAskUserTitle] = React.useState(' Action Required ')
+
   if (askUserState) {
     return (
       <box
-        title=" Action Required "
+        title={askUserTitle}
         titleAlignment="center"
         style={{
           width: '100%',
@@ -197,6 +199,13 @@ export const ChatInputBar = ({
           onSelectAnswer={updateAskUserAnswer}
           onOtherTextChange={updateAskUserOtherText}
           onSubmit={handleFormSubmit}
+          onQuestionChange={(currentIndex, totalQuestions, isOnConfirmScreen) => {
+            if (isOnConfirmScreen) {
+              setAskUserTitle(' Ready to submit ')
+            } else {
+              setAskUserTitle(` Question ${currentIndex + 1} of ${totalQuestions} `)
+            }
+          }}
           width={inputWidth}
         />
       </box>

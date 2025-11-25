@@ -24,6 +24,7 @@ export interface MultipleChoiceFormProps {
   onSelectAnswer: (questionIndex: number, optionIndex: number) => void
   onOtherTextChange: (questionIndex: number, text: string) => void
   onSubmit: (finalAnswers?: (number | number[])[], finalOtherTexts?: string[]) => void
+  onQuestionChange?: (currentIndex: number, totalQuestions: number, isOnConfirmScreen: boolean) => void
   width: number
 }
 
@@ -34,11 +35,17 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
   onSelectAnswer,
   onOtherTextChange,
   onSubmit,
+  onQuestionChange,
   width,
 }) => {
   const theme = useTheme()
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [isOnConfirmScreen, setIsOnConfirmScreen] = useState(false)
+
+  // Notify parent when question changes
+  React.useEffect(() => {
+    onQuestionChange?.(currentQuestionIndex, questions.length, isOnConfirmScreen)
+  }, [currentQuestionIndex, questions.length, isOnConfirmScreen, onQuestionChange])
 
   // Computed values
   const currentQuestion = questions[currentQuestionIndex]

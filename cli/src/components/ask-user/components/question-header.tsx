@@ -38,68 +38,61 @@ export const QuestionHeader: React.FC<QuestionHeaderProps> = ({
     <box
       style={{
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        gap: 1,
         alignItems: 'center',
         marginBottom: 1,
       }}
     >
-      {/* Left side: Question counter and progress */}
-      <box style={{ flexDirection: 'column', gap: 0 }}>
-        <box style={{ flexDirection: 'row', gap: 0 }}>
-          <text style={{ fg: theme.secondary }}>
-            {isOnConfirmScreen ? 'Ready to submit' : `Question ${currentIndex + 1} of ${totalQuestions}`}
-          </text>
-        </box>
-        <ProgressIndicator
-          currentIndex={currentIndex}
-          answeredStates={answeredStates}
-          isOnConfirmScreen={isOnConfirmScreen}
-          onNavigate={onNavigate}
-          onNavigateToConfirm={onNavigateToConfirm}
-        />
-      </box>
-
-      {/* Right side: Navigation buttons */}
-      <box style={{ flexDirection: 'row', gap: 1 }}>
-        <Button
-          onClick={onPrev}
+      {/* Left arrow */}
+      <Button
+        onClick={onPrev}
+        style={{
+          borderStyle: 'single',
+          borderColor: isFirstQuestion ? theme.muted : theme.secondary,
+          customBorderChars: BORDER_CHARS,
+          paddingLeft: 1,
+          paddingRight: 1,
+        }}
+      >
+        <text
           style={{
-            borderStyle: 'single',
-            borderColor: isFirstQuestion ? theme.muted : theme.secondary,
-            customBorderChars: BORDER_CHARS,
-            paddingLeft: 1,
-            paddingRight: 1,
+            fg: isFirstQuestion ? theme.muted : theme.foreground,
+            attributes: isFirstQuestion ? undefined : TextAttributes.BOLD,
           }}
         >
-          <text
-            style={{
-              fg: isFirstQuestion ? theme.muted : theme.foreground,
-              attributes: isFirstQuestion ? undefined : TextAttributes.BOLD,
-            }}
-          >
-            ←
-          </text>
-        </Button>
-        <Button
-          onClick={onNext}
+          ←
+        </text>
+      </Button>
+      
+      {/* Progress breadcrumbs */}
+      <ProgressIndicator
+        currentIndex={currentIndex}
+        answeredStates={answeredStates}
+        isOnConfirmScreen={isOnConfirmScreen}
+        onNavigate={onNavigate}
+        onNavigateToConfirm={onNavigateToConfirm}
+      />
+      
+      {/* Right arrow */}
+      <Button
+        onClick={onNext}
+        style={{
+          borderStyle: 'single',
+          borderColor: isLastQuestion ? theme.muted : theme.secondary,
+          customBorderChars: BORDER_CHARS,
+          paddingLeft: 1,
+          paddingRight: 1,
+        }}
+      >
+        <text
           style={{
-            borderStyle: 'single',
-            borderColor: isLastQuestion ? theme.muted : theme.secondary,
-            customBorderChars: BORDER_CHARS,
-            paddingLeft: 1,
-            paddingRight: 1,
+            fg: isLastQuestion ? theme.muted : theme.foreground,
+            attributes: isLastQuestion ? undefined : TextAttributes.BOLD,
           }}
         >
-          <text
-            style={{
-              fg: isLastQuestion ? theme.muted : theme.foreground,
-              attributes: isLastQuestion ? undefined : TextAttributes.BOLD,
-            }}
-          >
-            →
-          </text>
-        </Button>
-      </box>
+          →
+        </text>
+      </Button>
     </box>
   )
 }
