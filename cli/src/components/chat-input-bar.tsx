@@ -111,6 +111,7 @@ export const ChatInputBar = ({
     (state) => state.updateAskUserOtherText,
   )
   const { submitAnswers } = useAskUserBridge()
+  const [askUserTitle, setAskUserTitle] = React.useState(' Action Required ')
 
   if (feedbackMode) {
     return (
@@ -201,8 +202,6 @@ export const ChatInputBar = ({
   const effectivePlaceholder =
     inputMode === 'default' ? inputPlaceholder : modeConfig.placeholder
   const borderColor = theme[modeConfig.color]
-
-  const [askUserTitle, setAskUserTitle] = React.useState(' Action Required ')
 
   if (askUserState) {
     return (
