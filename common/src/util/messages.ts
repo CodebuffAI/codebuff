@@ -1,7 +1,5 @@
 import { cloneDeep, has, isEqual } from 'lodash'
 
-import { getToolCallString } from '../tools/utils'
-
 import type { JSONValue } from '../types/json'
 import type {
   AssistantMessage,
@@ -100,21 +98,21 @@ function assistantToCodebuffMessage(
     content: Exclude<AssistantMessage['content'], string>[number]
   },
 ): AssistantMessage {
-  if (message.content.type === 'tool-call') {
-    return cloneDeep({
-      ...message,
-      content: [
-        {
-          type: 'text',
-          text: getToolCallString(
-            message.content.toolName,
-            message.content.input,
-            false,
-          ),
-        },
-      ],
-    })
-  }
+  // if (message.content.type === 'tool-call') {
+  //   return cloneDeep({
+  //     ...message,
+  //     content: [
+  //       {
+  //         type: 'text',
+  //         text: getToolCallString(
+  //           message.content.toolName,
+  //           message.content.input,
+  //           false,
+  //         ),
+  //       },
+  //     ],
+  //   })
+  // }
   return cloneDeep({ ...message, content: [message.content] })
 }
 
@@ -123,20 +121,10 @@ function convertToolResultMessage(
 ): ModelMessageWithAuxiliaryData[] {
   return message.content.map((c) => {
     if (c.type === 'json') {
-      const toolResult = {
-        toolName: message.toolName,
-        toolCallId: message.toolCallId,
-        output: c.value,
-      }
-      return cloneDeep<UserMessage>({
+      return cloneDeep<ToolModelMessage>({
         ...message,
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: `<tool_result>\n${JSON.stringify(toolResult, null, 2)}\n</tool_result>`,
-          },
-        ],
+        role: 'tool',
+        content: [{ ...message, output: c, type: 'tool-result' }],
       })
     }
     if (c.type === 'media') {
@@ -147,8 +135,8 @@ function convertToolResultMessage(
       })
     }
     c satisfies never
-    const oAny = c as any
-    throw new Error(`Invalid tool output type: ${oAny.type}`)
+    const cAny = c as any
+    throw new Error(`Invalid tool output type: ${cAny.type}`)
   })
 }
 
