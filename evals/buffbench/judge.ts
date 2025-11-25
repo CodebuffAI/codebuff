@@ -115,23 +115,23 @@ The ground truth shows ONE valid implementation, but it's not the only correct a
 Provide detailed analysis, strengths, weaknesses, and numerical scores.`,
 }
 
-const judgeAgents: AgentDefinition[] = [
-  {
+const judgeAgents: Record<string, AgentDefinition> = {
+  'judge-gpt': {
     id: 'judge-gpt',
     model: 'openai/gpt-5.1',
     ...judgeAgentBase,
   },
-  {
+  'judge-gemini': {
     id: 'judge-gemini',
     model: 'google/gemini-3-pro-preview',
     ...judgeAgentBase,
   },
-  {
+  'judge-sonnet': {
     id: 'judge-claude',
     model: 'anthropic/claude-sonnet-4.5',
     ...judgeAgentBase,
   },
-]
+}
 
 interface JudgeCommitResultInput {
   client: CodebuffClient
@@ -146,28 +146,25 @@ interface JudgeCommitResultInput {
 async function runSingleJudge(
   input: JudgeCommitResultInput,
   judgePrompt: string,
-  judgeIndex: number,
+  judgeAgentId: string,
 ): Promise<JudgingResult | null> {
   const { client } = input
 
-  const judgeAgent = judgeAgents[judgeIndex]
+  const judgeAgent = judgeAgents[judgeAgentId]
   const agentOutput: string[] = []
   try {
     const judgeResult = await withTimeout(
       client.run({
         agent: judgeAgent.id,
         prompt: judgePrompt,
-        agentDefinitions: judgeAgents,
+        agentDefinitions: Object.values(judgeAgents),
         handleEvent: (event) => {
           if (event.type === 'text') {
             agentOutput.push(event.text)
           } else if (event.type === 'tool_call') {
             agentOutput.push(JSON.stringify(event, null, 2))
           } else if (event.type === 'error') {
-            console.warn(
-              `[Judge ${judgeIndex + 1}] Error event:`,
-              event.message,
-            )
+            console.warn(`[Judge ${judgeAgentId}] Error event:`, event.message)
           }
         },
       }),
@@ -177,7 +174,7 @@ async function runSingleJudge(
 
     if (judgeResult.output.type !== 'structuredOutput') {
       console.error(
-        `Judge ${judgeIndex + 1} - not structured output`,
+        `Judge ${judgeAgentId} - not structured output`,
         JSON.stringify(judgeResult.output, null, 2),
       )
       console.error('Judge agent output trace:', agentOutput.join(''))
@@ -186,7 +183,7 @@ async function runSingleJudge(
 
     return judgeResult.output.value as JudgingResult
   } catch (error) {
-    console.warn(`Judge ${judgeIndex + 1} failed:`, error)
+    console.warn(`Judge ${judgeAgentId} failed:`, error)
     return null
   }
 }
@@ -231,10 +228,11 @@ ${agentDiff || '(No changes made)'}
 ${error ? `\n## Error Encountered\n${error}` : ''}
 ${finalCheckOutputs ? `\n## Final Check Command Outputs\n${finalCheckOutputs}` : ''}`
 
-  // Run 3 judges in parallel
-  const judgePromises = Array.from({ length: 3 }, (_, index) =>
-    runSingleJudge(input, judgePrompt, index),
-  )
+  // Run 2 judges in parallel
+  const judgePromises = [
+    runSingleJudge(input, judgePrompt, 'judge-gpt'),
+    runSingleJudge(input, judgePrompt, 'judge-gemini'),
+  ]
 
   const judgeResults = await Promise.all(judgePromises)
   const validResults = judgeResults.filter(
