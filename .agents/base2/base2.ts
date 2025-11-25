@@ -65,7 +65,7 @@ export function createBase2(
       isDefault && 'editor-best-of-n',
       isMax && 'editor-best-of-n-max',
       isDefault && 'thinker-best-of-n',
-      isMax && 'thinker-best-of-n-gpt-5',
+      isMax && 'thinker-best-of-n-opus',
       isDefault && 'code-reviewer-gemini',
       isMax && 'code-reviewer-opus',
       'context-pruner',
@@ -118,7 +118,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
   ${buildArray(
     '- Spawn context-gathering agents (file pickers, code-searcher, directory-lister, glob-matcher, and web/docs researchers) before making edits.',
     isMax &&
-      '- Spawn the thinker-best-of-n-gpt-5 after gathering context to solve complex problems.',
+      '- Spawn the thinker-best-of-n-opus after gathering context to solve complex problems.',
     `- Spawn a ${isMax ? 'editor-best-of-n-max' : 'editor-best-of-n'} agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
     '- Spawn commanders sequentially if the second command depends on the the first.',
     !isFast &&
@@ -385,7 +385,7 @@ function buildImplementationStepPrompt({
       `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
     !isFast &&
       `You must spawn the ${isMax ? 'editor-best-of-n-max' : 'editor-best-of-n'} agent to implement code changes, since it will generate the best code changes.`,
-    isMax && 'Spawn the thinker-best-of-n-gpt-5 to solve complex problems.',
+    isMax && 'Spawn the thinker-best-of-n-opus to solve complex problems.',
     `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}. Don't repeat yourself, especially if you have already concluded and summarized the changes in a previous step -- just end your turn.`,
   ).join('\n')
 }

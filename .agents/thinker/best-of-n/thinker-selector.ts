@@ -1,12 +1,20 @@
 import { type SecretAgentDefinition } from '../../types/secret-agent-definition'
 import { publisher } from '../../constants'
 
-const definition: SecretAgentDefinition = {
-  id: 'thinker-selector',
-  publisher,
-  model: 'anthropic/claude-sonnet-4.5',
-  displayName: 'Thinker Output Selector',
-  spawnerPrompt: 'Analyzes multiple thinking outputs and selects the best one',
+export function createThinkerSelector(
+  model: 'sonnet' | 'opus',
+): Omit<SecretAgentDefinition, 'id'> {
+  const isOpus = model === 'opus'
+
+  return {
+    publisher,
+    model: isOpus
+      ? 'anthropic/claude-opus-4.5'
+      : 'anthropic/claude-sonnet-4.5',
+    displayName: isOpus
+      ? 'Opus Thinker Output Selector'
+      : 'Thinker Output Selector',
+    spawnerPrompt: 'Analyzes multiple thinking outputs and selects the best one',
 
   includeMessageHistory: true,
   inheritParentSystemPrompt: true,
@@ -45,7 +53,7 @@ const definition: SecretAgentDefinition = {
     required: ['thoughtId'],
   },
 
-  instructionsPrompt: `As part of the best-of-n workflow for thinking agents, you are the thinking selector agent.
+    instructionsPrompt: `As part of the best-of-n workflow for thinking agents, you are the thinking selector agent.
   
 ## Task Instructions
 
@@ -74,6 +82,12 @@ Use <think> tags to briefly consider the thinking outputs as needed to pick the 
 If the best one is obvious or the outputs are very similar, you may not need to think very much (a few words suffice) or you may not need to use think tags at all, just pick the best one and output it. You have a dual goal of picking the best thinking and being fast (using as few words as possible).
 
 Then, do not write any other explanations AT ALL. You should directly output a single tool call to set_output with the selected thoughtId.`,
+  }
+}
+
+const definition: SecretAgentDefinition = {
+  ...createThinkerSelector('sonnet'),
+  id: 'thinker-selector',
 }
 
 export default definition
