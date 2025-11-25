@@ -19,7 +19,7 @@ export async function handleUsageCommand(): Promise<{
 
   // Show the usage banner - the useUsageQuery hook will automatically fetch
   // the data when the banner becomes visible
-  useChatStore.getState().setIsUsageVisible(true)
+  useChatStore.getState().setInputMode('usage')
 
   const postUserMessage: PostUserMessageFn = (prev) => prev
   return { postUserMessage }

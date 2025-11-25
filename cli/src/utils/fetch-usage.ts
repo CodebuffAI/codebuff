@@ -19,7 +19,7 @@ export interface FetchAndUpdateUsageParams {
   getAuthToken?: () => string | undefined
   getChatStore?: () => {
     sessionCreditsUsed: number
-    setIsUsageVisible: (visible: boolean) => void
+    setInputMode: (mode: 'usage' | 'default') => void
   }
   logger?: Logger
   fetch?: typeof globalThis.fetch
@@ -77,7 +77,7 @@ export async function fetchAndUpdateUsage(
     // We no longer update the store here since usage data is managed by TanStack Query.
     
     if (showBanner) {
-      chatStore.setIsUsageVisible(true)
+      chatStore.setInputMode('usage')
     }
 
     return true
