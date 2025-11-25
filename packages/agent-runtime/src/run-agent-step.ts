@@ -90,7 +90,11 @@ export const runAgentStep = async (
   > &
     ParamsExcluding<
       typeof getAgentStreamFromTemplate,
-      'agentId' | 'template' | 'onCostCalculated' | 'includeCacheControl'
+      | 'agentId'
+      | 'includeCacheControl'
+      | 'messages'
+      | 'onCostCalculated'
+      | 'template'
     > &
     ParamsExcluding<typeof getAgentTemplate, 'agentId'> &
     ParamsExcluding<
@@ -327,18 +331,14 @@ export const runAgentStep = async (
   let fullResponse = ''
   const toolResults: ToolMessage[] = []
 
-  const { getStream } = getAgentStreamFromTemplate({
+  const stream = getAgentStreamFromTemplate({
     ...params,
     agentId: agentState.parentId ? agentState.agentId : undefined,
+    includeCacheControl: supportsCacheControl(agentTemplate.model),
+    messages: [systemMessage(system), ...agentState.messageHistory],
     template: agentTemplate,
     onCostCalculated,
-    includeCacheControl: supportsCacheControl(agentTemplate.model),
   })
-
-  const stream = getStream([
-    systemMessage(system),
-    ...agentState.messageHistory,
-  ])
 
   const {
     fullResponse: fullResponseAfterStream,
