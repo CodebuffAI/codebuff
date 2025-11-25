@@ -57,11 +57,7 @@ describe('runProgrammaticStep', () => {
     agentRuntimeImpl = {
       ...TEST_AGENT_RUNTIME_IMPL,
       addAgentStep: async () => 'test-agent-step-id',
-      getUserInfoFromApiKey: async () => ({
-        id: 'test-user-id',
-        email: 'test-email',
-        discord_id: 'test-discord-id',
-      }),
+
       sendAction: () => {},
     }
 
