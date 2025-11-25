@@ -31,6 +31,7 @@ describe('Prompt Caching', () => {
         },
       })
 
+      console.dir(run1.output, { depth: null })
       expect(run1.output.type).not.toEqual('error')
       expect(cost1).toBeGreaterThanOrEqual(0)
 
@@ -46,6 +47,7 @@ describe('Prompt Caching', () => {
         },
       })
 
+      console.dir(run2.output, { depth: null })
       expect(run2.output.type).not.toEqual('error')
       expect(cost2).toBeGreaterThanOrEqual(0)
 
