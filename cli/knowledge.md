@@ -1,5 +1,24 @@
 # CLI Package Knowledge
 
+## Import Guidelines
+
+**Never use dynamic `await import()` calls.** Always use static imports at the top of the file.
+
+```typescript
+// ❌ WRONG: Dynamic import
+const { someFunction } = await import('./some-module')
+
+// ✅ CORRECT: Static import at top of file
+import { someFunction } from './some-module'
+```
+
+Dynamic imports make code harder to analyze, break tree-shaking, and can hide circular dependency issues. If you need conditional loading, reconsider the architecture instead.
+
+**Exceptions** (where dynamic imports are acceptable):
+- **WASM modules**: Heavy WASM binaries that need lazy loading (e.g., QuickJS)
+- **Client-side only libraries in Next.js**: Libraries like Stripe that must only load in the browser
+- **Test utilities**: Mock module helpers that intentionally use dynamic imports
+
 ## Test Naming Conventions
 
 **IMPORTANT**: Follow these naming patterns for automatic dependency detection:
