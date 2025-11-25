@@ -1,5 +1,4 @@
 import { Button } from './button'
-import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
@@ -8,12 +7,10 @@ interface AnnouncementBannerProps {
 }
 
 export const AnnouncementBanner = ({ onClose }: AnnouncementBannerProps) => {
-  const { terminalWidth } = useTerminalDimensions()
   const theme = useTheme()
 
   return (
     <box
-      key={terminalWidth}
       style={{
         width: '100%',
         borderStyle: 'single',

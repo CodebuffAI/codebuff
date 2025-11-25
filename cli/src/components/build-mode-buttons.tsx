@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { ChatTheme } from '../types/theme-system'
 import { BORDER_CHARS } from '../utils/ui-constants'
-import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
+import { useTerminalLayout } from '../hooks/use-terminal-layout'
 import { Button } from './button'
 
 export const BuildModeButtons = ({
@@ -16,8 +16,8 @@ export const BuildModeButtons = ({
   const [hoveredButton, setHoveredButton] = useState<'fast' | 'max' | null>(
     null,
   )
-  const { terminalWidth } = useTerminalDimensions()
-  const isNarrow = terminalWidth < 55
+  const { width } = useTerminalLayout()
+  const isNarrow = width.is('xs')
 
   return (
     <box

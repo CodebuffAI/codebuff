@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 
 import { Button } from './button'
-import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
+import { useTerminalLayout } from '../hooks/use-terminal-layout'
 import { useTheme } from '../hooks/use-theme'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
@@ -12,18 +12,16 @@ export interface BannerWrapperProps {
 }
 
 export const BannerWrapper = ({ color, text, onClose }: BannerWrapperProps) => {
-  const { terminalWidth } = useTerminalDimensions()
+  const { width, terminalWidth } = useTerminalLayout()
   const theme = useTheme()
   const [isCloseHovered, setIsCloseHovered] = useState(false)
-
-  const isWideTerminal = terminalWidth > 80
 
   return (
     <box
       key={terminalWidth}
       style={{
-        marginLeft: isWideTerminal ? 1 : 0,
-        marginRight: isWideTerminal ? 1 : 0,
+        marginLeft: width.is('sm') ? 0 : 1,
+        marginRight: width.is('sm') ? 0 : 1,
         borderStyle: 'single',
         borderColor: color,
         flexDirection: 'row',
