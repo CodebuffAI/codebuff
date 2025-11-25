@@ -7,12 +7,24 @@ import { ReferralBanner } from './referral-banner'
 import { SuggestionMenu, type SuggestionItem } from './suggestion-menu'
 import { UsageBanner } from './usage-banner'
 import { useChatStore } from '../state/chat-store'
+
+const InputModeBanner = ({ inputMode }: { inputMode: InputMode }) => {
+  switch (inputMode) {
+    case 'usage':
+      return <UsageBanner />
+    case 'referral':
+      return <ReferralBanner />
+    default:
+      return null
+  }
+}
 import { getInputModeConfig } from '../utils/input-modes'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { useTheme } from '../hooks/use-theme'
 import type { InputValue } from '../state/chat-store'
 import type { AgentMode } from '../utils/constants'
+import type { InputMode } from '../utils/input-modes'
 
 type Theme = ReturnType<typeof useTheme>
 
@@ -88,6 +100,7 @@ export const ChatInputBar = ({
 }: ChatInputBarProps) => {
   const inputMode = useChatStore((state) => state.inputMode)
   const setInputMode = useChatStore((state) => state.setInputMode)
+
   const modeConfig = getInputModeConfig(inputMode)
   if (feedbackMode) {
     return (
@@ -218,8 +231,7 @@ export const ChatInputBar = ({
           </box>
         </box>
       </box>
-      <UsageBanner />
-      <ReferralBanner />
+      <InputModeBanner inputMode={inputMode} />
     </>
   )
 }
