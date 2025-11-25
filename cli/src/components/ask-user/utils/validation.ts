@@ -23,15 +23,14 @@ export interface QuestionValidation {
 
 /**
  * Validate "Other" text input against rules
- * Phase 1: Basic length check only
- * Phase 3: Full validation with regex, custom errors
+ * Supports max/min length, regex patterns, and custom error messages
  */
 export function validateOtherText(
   text: string,
   validation?: QuestionValidation,
   maxLength: number = 500
 ): ValidationResult {
-  // Phase 1: Simple max length check
+  // Default max length check
   if (text.length > maxLength) {
     return {
       isValid: false,
@@ -39,11 +38,7 @@ export function validateOtherText(
     }
   }
 
-  // Phase 3 will add:
-  // - minLength check
-  // - pattern (regex) validation
-  // - custom error messages
-
+  // Validation rules (if provided)
   if (validation) {
     if (validation.maxLength && text.length > validation.maxLength) {
       return {

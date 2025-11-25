@@ -3,7 +3,7 @@
  * Integrates with @opentui/react useKeyboard and focus manager
  */
 
-import { useCallback } from 'react'
+import { useCallback, useRef, useEffect } from 'react'
 import { useKeyboard } from '@opentui/react'
 import type { FocusTarget, AskUserQuestion } from '../types'
 import { isFocusOnOption, isFocusOnTextInput, isFocusOnConfirmSubmit } from '../types'
@@ -63,9 +63,36 @@ export function useKeyboardNavigation(params: KeyboardNavigationParams) {
     onGoBackFromConfirm,
   } = params
 
+  // Use refs for frequently changing values to avoid recreating the keyboard callback
+  const paramsRef = useRef(params)
+  useEffect(() => {
+    paramsRef.current = params
+  })
+
   useKeyboard(
     useCallback(
       (key) => {
+        // Get current values from ref to avoid stale closures
+        const {
+          focus,
+          dispatchFocus,
+          currentQuestionIndex,
+          totalQuestions,
+          isFirstQuestion,
+          isLastQuestion,
+          isOnConfirmScreen,
+          otherTexts,
+          onSelectAnswer,
+          onOtherTextChange,
+          onChangeQuestion,
+          onSubmit,
+          onAutoAdvance,
+          onTextInputAdvance,
+          onForceSubmit,
+          onGoToConfirm,
+          onGoBackFromConfirm,
+        } = paramsRef.current
+
         // Helper to prevent default behavior
         const preventDefault = () => {
           if ('preventDefault' in key && typeof key.preventDefault === 'function') {
@@ -236,27 +263,7 @@ export function useKeyboardNavigation(params: KeyboardNavigationParams) {
           }
         }
       },
-      [
-        focus,
-        dispatchFocus,
-        currentQuestionIndex,
-        totalQuestions,
-        currentQuestion,
-        isFirstQuestion,
-        isLastQuestion,
-        isOnConfirmScreen,
-        allAnswered,
-        otherTexts,
-        onSelectAnswer,
-        onOtherTextChange,
-        onChangeQuestion,
-        onSubmit,
-        onAutoAdvance,
-        onTextInputAdvance,
-        onForceSubmit,
-        onGoToConfirm,
-        onGoBackFromConfirm,
-      ]
+      [] // Empty deps - callback is stable, values accessed via ref
     )
   )
 }
