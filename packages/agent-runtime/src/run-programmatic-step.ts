@@ -6,6 +6,7 @@ import { cloneDeep } from 'lodash'
 import { executeToolCall } from './tools/tool-executor'
 
 import type { FileProcessingState } from './tools/handlers/tool/write-file'
+import type { ExecuteToolCallParams } from './tools/tool-executor'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
 import type {
   AgentTemplate,
@@ -59,8 +60,8 @@ export async function runProgrammaticStep(
     addAgentStep: AddAgentStepFn
     logger: Logger
     nResponses?: string[]
-  } & ParamsExcluding<
-    typeof executeToolCall,
+  } & Omit<
+    ExecuteToolCallParams,
     | 'toolName'
     | 'input'
     | 'autoInsertEndStepParam'
@@ -71,6 +72,7 @@ export async function runProgrammaticStep(
     | 'fullResponse'
     | 'previousToolCallFinished'
     | 'fileProcessingState'
+    | 'toolCallId'
     | 'toolCalls'
     | 'toolResults'
     | 'toolResultsToAddAfterStream'
@@ -253,9 +255,10 @@ export async function runProgrammaticStep(
 
       // Process tool calls yielded by the generator
       const toolCallWithoutId = result.value
+      const toolCallId = crypto.randomUUID()
       const toolCall = {
         ...toolCallWithoutId,
-        toolCallId: crypto.randomUUID(),
+        toolCallId,
       } as CodebuffToolCall & {
         includeToolCall?: boolean
       }
@@ -303,6 +306,7 @@ export async function runProgrammaticStep(
         fileProcessingState,
         fullResponse: '',
         previousToolCallFinished: Promise.resolve(),
+        toolCallId,
         toolCalls,
         toolResults,
         toolResultsToAddAfterStream: [],
