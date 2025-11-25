@@ -7,12 +7,11 @@ import { describe, it, expect } from 'bun:test'
 import {
   isFocusOnOption,
   isFocusOnTextInput,
-  isFocusOnSkip,
   isMultiSelectAnswer,
   isSingleSelectAnswer,
   createOptionFocus,
   createTextInputFocus,
-  createSkipFocus,
+  createConfirmSubmitFocus,
   isQuestionAnswered,
   areAllQuestionsAnswered,
 } from '../types'
@@ -29,8 +28,8 @@ describe('Type Guards', () => {
       expect(isFocusOnOption(focus)).toBe(false)
     })
 
-    it('returns false for skip focus', () => {
-      const focus = createSkipFocus()
+    it('returns false for confirm submit focus', () => {
+      const focus = createConfirmSubmitFocus()
       expect(isFocusOnOption(focus)).toBe(false)
     })
   })
@@ -46,26 +45,9 @@ describe('Type Guards', () => {
       expect(isFocusOnTextInput(focus)).toBe(false)
     })
 
-    it('returns false for skip focus', () => {
-      const focus = createSkipFocus()
+    it('returns false for confirm submit focus', () => {
+      const focus = createConfirmSubmitFocus()
       expect(isFocusOnTextInput(focus)).toBe(false)
-    })
-  })
-
-  describe('isFocusOnSkip', () => {
-    it('returns true for skip focus', () => {
-      const focus = createSkipFocus()
-      expect(isFocusOnSkip(focus)).toBe(true)
-    })
-
-    it('returns false for option focus', () => {
-      const focus = createOptionFocus(0, 1)
-      expect(isFocusOnSkip(focus)).toBe(false)
-    })
-
-    it('returns false for text input focus', () => {
-      const focus = createTextInputFocus(0)
-      expect(isFocusOnSkip(focus)).toBe(false)
     })
   })
 
@@ -134,10 +116,10 @@ describe('Factory Functions', () => {
     })
   })
 
-  describe('createSkipFocus', () => {
-    it('creates correct skip focus object', () => {
-      const focus = createSkipFocus()
-      expect(focus).toEqual({ type: 'skip' })
+  describe('createConfirmSubmitFocus', () => {
+    it('creates correct confirm submit focus object', () => {
+      const focus = createConfirmSubmitFocus()
+      expect(focus).toEqual({ type: 'confirmSubmit' })
     })
   })
 })

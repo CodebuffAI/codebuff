@@ -12,10 +12,8 @@ import type {
 import {
   createOptionFocus,
   createTextInputFocus,
-  createSkipFocus,
   isFocusOnOption,
   isFocusOnTextInput,
-  isFocusOnSkip,
 } from '../types'
 
 /**
@@ -71,11 +69,6 @@ export function getNextFocusUp(
   current: FocusTarget,
   context: NavigationContext
 ): FocusTarget {
-  if (isFocusOnSkip(current)) {
-    // From skip → text input
-    return createTextInputFocus(context.currentQuestionIndex)
-  }
-
   if (isFocusOnTextInput(current)) {
     // From text input → last option
     const lastOptionIndex = context.currentQuestion.options.length - 1
@@ -105,14 +98,9 @@ export function getNextFocusDown(
   current: FocusTarget,
   context: NavigationContext
 ): FocusTarget {
-  if (isFocusOnSkip(current)) {
-    // From skip → first option
-    return createOptionFocus(context.currentQuestionIndex, 0)
-  }
-
   if (isFocusOnTextInput(current)) {
-    // From text input → skip
-    return createSkipFocus()
+    // From text input → first option (cycle)
+    return createOptionFocus(context.currentQuestionIndex, 0)
   }
 
   if (isFocusOnOption(current)) {
@@ -143,12 +131,7 @@ export function getNextFocusTab(
   }
 
   if (isFocusOnTextInput(current)) {
-    // From text input → skip
-    return createSkipFocus()
-  }
-
-  if (isFocusOnSkip(current)) {
-    // From skip → first option (cycle back)
+    // From text input → first option (cycle back)
     return createOptionFocus(context.currentQuestionIndex, 0)
   }
 

@@ -17,7 +17,6 @@ import {
 import {
   createOptionFocus,
   createTextInputFocus,
-  createSkipFocus,
 } from '../types'
 import type { NavigationContext, FocusTarget } from '../types'
 
@@ -94,13 +93,6 @@ describe('getNextFocusUp', () => {
     wrapOptions: false,
   }
 
-  it('moves from skip to text input', () => {
-    const current = createSkipFocus()
-    const next = getNextFocusUp(current, context)
-    expect(next.type).toBe('textInput')
-    expect(next).toEqual(createTextInputFocus(0))
-  })
-
   it('moves from text input to last option', () => {
     const current = createTextInputFocus(0)
     const next = getNextFocusUp(current, context)
@@ -138,17 +130,11 @@ describe('getNextFocusDown', () => {
     wrapOptions: false,
   }
 
-  it('moves from skip to first option', () => {
-    const current = createSkipFocus()
+  it('moves from text input to first option (cycle)', () => {
+    const current = createTextInputFocus(0)
     const next = getNextFocusDown(current, context)
     expect(next.type).toBe('option')
     expect(next).toEqual(createOptionFocus(0, 0))
-  })
-
-  it('moves from text input to skip', () => {
-    const current = createTextInputFocus(0)
-    const next = getNextFocusDown(current, context)
-    expect(next.type).toBe('skip')
   })
 
   it('moves from option to next option', () => {
@@ -181,29 +167,20 @@ describe('getNextFocusTab', () => {
     expect(next.type).toBe('textInput')
   })
 
-  it('cycles from text input to skip', () => {
+  it('cycles from text input to first option', () => {
     const current = createTextInputFocus(0)
-    const next = getNextFocusTab(current, context)
-    expect(next.type).toBe('skip')
-  })
-
-  it('cycles from skip back to first option', () => {
-    const current = createSkipFocus()
     const next = getNextFocusTab(current, context)
     expect(next.type).toBe('option')
     expect(next).toEqual(createOptionFocus(0, 0))
   })
 
-  it('completes full cycle: option -> text -> skip -> option', () => {
+  it('completes full cycle: option -> text -> option', () => {
     let focus: FocusTarget = createOptionFocus(0, 0)
 
     const textFocus = getNextFocusTab(focus, context) // -> text input
     expect(textFocus.type).toBe('textInput')
 
-    const skipFocus = getNextFocusTab(textFocus, context) // -> skip
-    expect(skipFocus.type).toBe('skip')
-
-    const optionFocus = getNextFocusTab(skipFocus, context) // -> option
+    const optionFocus = getNextFocusTab(textFocus, context) // -> option
     expect(optionFocus).toEqual(createOptionFocus(0, 0))
   })
 })

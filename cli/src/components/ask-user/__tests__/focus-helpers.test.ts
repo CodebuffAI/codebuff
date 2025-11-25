@@ -14,13 +14,13 @@ import {
 import {
   createOptionFocus,
   createTextInputFocus,
-  createSkipFocus,
+  createConfirmSubmitFocus,
 } from '../types'
 
 describe('isFocusEqual', () => {
-  it('returns true for identical skip focus', () => {
-    const a = createSkipFocus()
-    const b = createSkipFocus()
+  it('returns true for identical confirm submit focus', () => {
+    const a = createConfirmSubmitFocus()
+    const b = createConfirmSubmitFocus()
     expect(isFocusEqual(a, b)).toBe(true)
   })
 
@@ -57,11 +57,11 @@ describe('isFocusEqual', () => {
   it('returns false for different focus types', () => {
     const option = createOptionFocus(0, 0)
     const textInput = createTextInputFocus(0)
-    const skip = createSkipFocus()
+    const confirmSubmit = createConfirmSubmitFocus()
 
     expect(isFocusEqual(option, textInput)).toBe(false)
-    expect(isFocusEqual(option, skip)).toBe(false)
-    expect(isFocusEqual(textInput, skip)).toBe(false)
+    expect(isFocusEqual(option, confirmSubmit)).toBe(false)
+    expect(isFocusEqual(textInput, confirmSubmit)).toBe(false)
   })
 })
 
@@ -86,8 +86,8 @@ describe('isFocusOnQuestion', () => {
     expect(isFocusOnQuestion(focus, 2)).toBe(false)
   })
 
-  it('returns false for skip focus (not on any question)', () => {
-    const focus = createSkipFocus()
+  it('returns false for confirm submit focus (not on any question)', () => {
+    const focus = createConfirmSubmitFocus()
     expect(isFocusOnQuestion(focus, 0)).toBe(false)
     expect(isFocusOnQuestion(focus, 5)).toBe(false)
   })
@@ -114,8 +114,8 @@ describe('isFocusOnSpecificOption', () => {
     expect(isFocusOnSpecificOption(focus, 1, 0)).toBe(false)
   })
 
-  it('returns false for skip focus', () => {
-    const focus = createSkipFocus()
+  it('returns false for confirm submit focus', () => {
+    const focus = createConfirmSubmitFocus()
     expect(isFocusOnSpecificOption(focus, 0, 0)).toBe(false)
   })
 })
@@ -136,16 +136,16 @@ describe('isFocusOnSpecificTextInput', () => {
     expect(isFocusOnSpecificTextInput(focus, 3)).toBe(false)
   })
 
-  it('returns false for skip focus', () => {
-    const focus = createSkipFocus()
+  it('returns false for confirm submit focus', () => {
+    const focus = createConfirmSubmitFocus()
     expect(isFocusOnSpecificTextInput(focus, 0)).toBe(false)
   })
 })
 
 describe('focusToString', () => {
-  it('formats skip focus', () => {
-    const focus = createSkipFocus()
-    expect(focusToString(focus)).toBe('skip')
+  it('formats confirm submit focus', () => {
+    const focus = createConfirmSubmitFocus()
+    expect(focusToString(focus)).toBe('confirmSubmit')
   })
 
   it('formats text input focus', () => {

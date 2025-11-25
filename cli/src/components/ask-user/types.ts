@@ -13,7 +13,7 @@ export type { AskUserQuestion }
 export type FocusTarget =
   | { type: 'option'; questionIndex: number; optionIndex: number }
   | { type: 'textInput'; questionIndex: number }
-  | { type: 'skip' }
+
   | { type: 'confirmSubmit' }
 
 
@@ -23,8 +23,7 @@ export type OptionFocus = Extract<FocusTarget, { type: 'option' }>
 /** Type alias for text input focus */
 export type TextInputFocus = Extract<FocusTarget, { type: 'textInput' }>
 
-/** Type alias for skip button focus */
-export type SkipFocus = Extract<FocusTarget, { type: 'skip' }>
+
 
 /** Type alias for confirm submit button focus */
 export type ConfirmSubmitFocus = Extract<FocusTarget, { type: 'confirmSubmit' }>
@@ -76,12 +75,7 @@ export const isFocusOnTextInput = (target: FocusTarget): target is TextInputFocu
   return target.type === 'textInput'
 }
 
-/**
- * Type guard: check if focus is on skip button
- */
-export const isFocusOnSkip = (target: FocusTarget): target is SkipFocus => {
-  return target.type === 'skip'
-}
+
 
 /**
  * Type guard: check if focus is on confirm submit button
@@ -134,12 +128,7 @@ export const createTextInputFocus = (questionIndex: number): TextInputFocus => (
   questionIndex,
 })
 
-/**
- * Create focus target for skip button
- */
-export const createSkipFocus = (): SkipFocus => ({
-  type: 'skip',
-})
+
 
 /**
  * Create focus target for confirm submit button

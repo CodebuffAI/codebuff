@@ -11,7 +11,7 @@ import { isFocusOnOption, isFocusOnTextInput } from '../types'
 export function isFocusEqual(a: FocusTarget, b: FocusTarget): boolean {
   if (a.type !== b.type) return false
 
-  if (a.type === 'skip' && b.type === 'skip') return true
+  if (a.type === 'confirmSubmit' && b.type === 'confirmSubmit') return true
 
   if (a.type === 'textInput' && b.type === 'textInput') {
     return a.questionIndex === b.questionIndex
@@ -66,10 +66,10 @@ export function isFocusOnSpecificTextInput(
  * Get a string representation of focus (useful for debugging)
  */
 export function focusToString(focus: FocusTarget): string {
-  if (focus.type === 'skip') return 'skip'
   if (focus.type === 'textInput') return `textInput:Q${focus.questionIndex}`
   if (focus.type === 'option') {
     return `option:Q${focus.questionIndex}:O${focus.optionIndex}`
   }
+  if (focus.type === 'confirmSubmit') return 'confirmSubmit'
   return 'unknown'
 }

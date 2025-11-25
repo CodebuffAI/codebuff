@@ -20,7 +20,7 @@ export type FocusAction =
   | { type: 'TAB_NEXT' }
   | { type: 'SELECT_OPTION'; questionIndex: number; optionIndex: number }
   | { type: 'SELECT_TEXT_INPUT'; questionIndex: number }
-  | { type: 'SELECT_SKIP' }
+
   | { type: 'SELECT_CONFIRM_SUBMIT' }
   | { type: 'RESET_TO_QUESTION'; questionIndex: number }
   | { type: 'RESET_TO_CONFIRM' }
@@ -77,8 +77,7 @@ function focusReducer(
         questionIndex: action.questionIndex,
       }
 
-    case 'SELECT_SKIP':
-      return { type: 'skip' }
+
 
     case 'SELECT_CONFIRM_SUBMIT':
       return { type: 'confirmSubmit' }
@@ -170,9 +169,6 @@ export function useFocusActions(dispatch: (action: FocusAction) => void) {
     [dispatch],
   )
 
-  const selectSkip = useCallback(() => {
-    dispatch({ type: 'SELECT_SKIP' })
-  }, [dispatch])
 
   const resetToQuestion = useCallback(
     (questionIndex: number) => {
@@ -195,7 +191,7 @@ export function useFocusActions(dispatch: (action: FocusAction) => void) {
     tabNext,
     selectOption,
     selectTextInput,
-    selectSkip,
+
     selectConfirmSubmit,
     resetToQuestion,
     resetToConfirm,
