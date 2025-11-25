@@ -34,10 +34,10 @@ export function createBestOfNEditor(
     spawnableAgents: buildArray(
       'best-of-n-selector',
       'best-of-n-selector-opus',
-      'best-of-n-selector-gemini',
+      isDefault && 'best-of-n-selector-gemini',
       'editor-implementor',
       'editor-implementor-opus',
-      'editor-implementor-gemini',
+      isDefault && 'editor-implementor-gemini',
       isMax && 'editor-implementor-gpt-5',
     ),
 
@@ -47,7 +47,7 @@ export function createBestOfNEditor(
         properties: {
           n: {
             type: 'number',
-            description: `Number of parallel implementor agents to spawn. Defaults to ${isDefault ? 4 : 6}. Use fewer for simple tasks and max of 10 for complex tasks.`,
+            description: `Number of parallel implementor agents to spawn. Defaults to ${isDefault ? 4 : 5}. Use fewer for simple tasks and max of 10 for complex tasks.`,
           },
         },
       },
@@ -230,29 +230,24 @@ function* handleStepsMax({
     Math.max(1, (params?.n as number | undefined) ?? MAX_N),
   )
 
-  // Spawn implementor agents: 1 opus, 1 gemini, 1 gpt-5, then rest opus
-  const implementorAgents = []
-  if (n >= 1) {
-    implementorAgents.push({
-      agent_type: 'editor-implementor-opus',
-    })
-  }
-  if (n >= 2) {
-    implementorAgents.push({
-      agent_type: 'editor-implementor-gemini',
-    })
-  }
-  if (n >= 3) {
-    implementorAgents.push({
-      agent_type: 'editor-implementor-gpt-5',
-    })
-  }
-  // Add remaining opus implementors
-  for (let i = 3; i < n; i++) {
-    implementorAgents.push({
-      agent_type: 'editor-implementor-opus',
-    })
-  }
+  // Model selection pattern for max mode, using opus and gpt-5
+  const MAX_MODEL_PATTERN = [
+    'editor-implementor-opus',
+    'editor-implementor-opus',
+    'editor-implementor-gpt-5',
+    'editor-implementor-opus',
+    'editor-implementor-gpt-5',
+    'editor-implementor-opus',
+    'editor-implementor-gpt-5',
+    'editor-implementor-opus',
+    'editor-implementor-gpt-5',
+    'editor-implementor-opus',
+  ] as const
+
+  // Spawn implementor agents using the model pattern
+  const implementorAgents = MAX_MODEL_PATTERN.slice(0, n).map((agent_type) => ({
+    agent_type,
+  }))
 
   // Spawn all implementor agents
   const { toolResult: implementorResults } = yield {
