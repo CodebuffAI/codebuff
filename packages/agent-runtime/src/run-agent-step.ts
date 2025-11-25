@@ -110,10 +110,6 @@ export const runAgentStep = async (
       'toolNames' | 'mcpServers' | 'writeTo'
     > &
     ParamsExcluding<
-      typeof getAgentStreamFromTemplate,
-      'agentId' | 'template' | 'onCostCalculated' | 'includeCacheControl'
-    > &
-    ParamsExcluding<
       PromptAiSdkFn,
       'messages' | 'model' | 'onCostCalculated' | 'n'
     >,
