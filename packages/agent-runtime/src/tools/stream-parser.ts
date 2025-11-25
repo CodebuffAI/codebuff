@@ -58,6 +58,7 @@ export async function processStreamWithTools(
     | 'input'
     | 'previousToolCallFinished'
     | 'state'
+    | 'toolCallId'
     | 'toolCalls'
     | 'toolName'
     | 'toolResults'
@@ -106,6 +107,7 @@ export async function processStreamWithTools(
         if (signal.aborted) {
           return
         }
+        const toolCallId = generateCompactId()
         // delegated to reusable helper
         previousToolCallFinished = executeToolCall({
           ...params,
@@ -116,6 +118,7 @@ export async function processStreamWithTools(
           fileProcessingState,
           fullResponse: fullResponseChunks.join(''),
           previousToolCallFinished,
+          toolCallId,
           toolCalls,
           toolResults,
           toolResultsToAddAfterStream,
@@ -140,6 +143,7 @@ export async function processStreamWithTools(
         if (signal.aborted) {
           return
         }
+        const toolCallId = generateCompactId()
         // delegated to reusable helper
         previousToolCallFinished = executeCustomToolCall({
           ...params,
@@ -149,6 +153,7 @@ export async function processStreamWithTools(
           fileProcessingState,
           fullResponse: fullResponseChunks.join(''),
           previousToolCallFinished,
+          toolCallId,
           toolCalls,
           toolResults,
           toolResultsToAddAfterStream,
