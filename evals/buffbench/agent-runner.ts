@@ -9,11 +9,16 @@ const execAsync = promisify(exec)
 import { withTimeout } from '@codebuff/common/util/promise'
 import { CodebuffClient } from '@codebuff/sdk'
 import { withTestRepo } from '../subagents/test-repo-utils'
+import { ClaudeRunner } from './runners/claude'
+import { CodexRunner } from './runners/codex'
 
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { EvalCommitV2, FinalCheckOutput } from './types'
+import type { Runner } from './runners/runner'
 
 export type AgentStep = PrintModeEvent
+
+export type ExternalAgentType = 'claude' | 'codex'
 
 const DEBUG_ERROR = true
 
@@ -27,6 +32,7 @@ export async function runAgentOnCommit({
   localAgentDefinitions,
   printEvents,
   finalCheckCommands,
+  externalAgentType,
 }: {
   client: CodebuffClient
   agentId: string
@@ -37,6 +43,7 @@ export async function runAgentOnCommit({
   localAgentDefinitions: any[]
   printEvents: boolean
   finalCheckCommands?: string[]
+  externalAgentType?: ExternalAgentType
 }): Promise<{
   diff: string
   contextFiles: Record<string, string>
@@ -66,59 +73,77 @@ export async function runAgentOnCommit({
           env,
         },
         async (repoDir) => {
-          const maxAgentSteps = 40
-          const result = await client.run({
-            agent: agentId,
-            prompt: commit.prompt,
-            agentDefinitions: localAgentDefinitions,
-            cwd: repoDir,
-            env,
-            maxAgentSteps,
-            handleEvent: (event) => {
-              if (
-                (event.type === 'tool_call' || event.type === 'tool_result') &&
-                event.toolName === 'set_messages'
-              ) {
-                return
-              }
-              if (event.type === 'error') {
-                console.error(
-                  `[${commit.id}:${agentId}] Error event:`,
-                  event.message,
-                )
-                if (DEBUG_ERROR && !event.message.startsWith('Invalid JSON')) {
-                  // Save errors in a file, but not tool calls with invalid json.
-                  fs.writeFileSync(
-                    path.join(
-                      __dirname,
-                      `${commit.id}-${agentId}-error-${Math.random().toString(36).substring(2, 6)}.json`,
-                    ),
-                    JSON.stringify(
-                      {
-                        error: event.message,
-                        trace: trace,
-                      },
-                      null,
-                      2,
-                    ),
+          // Use external CLI runner if specified
+          if (externalAgentType) {
+            const runner: Runner =
+              externalAgentType === 'claude'
+                ? new ClaudeRunner(repoDir)
+                : new CodexRunner(repoDir)
+
+            console.log(
+              `[${commit.id}] Running external agent: ${externalAgentType}`,
+            )
+
+            const result = await runner.run(commit.prompt)
+            trace.push(...result.steps)
+            cost = result.totalCostUsd
+            diff = result.diff
+          } else {
+            // Use Codebuff client
+            const maxAgentSteps = 40
+            const result = await client.run({
+              agent: agentId,
+              prompt: commit.prompt,
+              agentDefinitions: localAgentDefinitions,
+              cwd: repoDir,
+              env,
+              maxAgentSteps,
+              handleEvent: (event) => {
+                if (
+                  (event.type === 'tool_call' || event.type === 'tool_result') &&
+                  event.toolName === 'set_messages'
+                ) {
+                  return
+                }
+                if (event.type === 'error') {
+                  console.error(
+                    `[${commit.id}:${agentId}] Error event:`,
+                    event.message,
+                  )
+                  if (DEBUG_ERROR && !event.message.startsWith('Invalid JSON')) {
+                    // Save errors in a file, but not tool calls with invalid json.
+                    fs.writeFileSync(
+                      path.join(
+                        __dirname,
+                        `${commit.id}-${agentId}-error-${Math.random().toString(36).substring(2, 6)}.json`,
+                      ),
+                      JSON.stringify(
+                        {
+                          error: event.message,
+                          trace: trace,
+                        },
+                        null,
+                        2,
+                      ),
+                    )
+                  }
+                } else if (printEvents) {
+                  console.log(
+                    `[${commit.id}:${agentId}]`,
+                    JSON.stringify(event, null, 2),
                   )
                 }
-              } else if (printEvents) {
-                console.log(
-                  `[${commit.id}:${agentId}]`,
-                  JSON.stringify(event, null, 2),
-                )
-              }
-              trace.push(event)
-            },
-          })
-          cost = (result.sessionState?.mainAgentState.creditsUsed ?? 0) / 100
+                trace.push(event)
+              },
+            })
+            cost = (result.sessionState?.mainAgentState.creditsUsed ?? 0) / 100
 
-          execSync('git add .', { cwd: repoDir, stdio: 'ignore' })
-          diff = execSync(`git diff ${commit.parentSha}`, {
-            cwd: repoDir,
-            encoding: 'utf-8',
-          })
+            execSync('git add .', { cwd: repoDir, stdio: 'ignore' })
+            diff = execSync(`git diff ${commit.parentSha}`, {
+              cwd: repoDir,
+              encoding: 'utf-8',
+            })
+          }
 
           const contextFilePaths = new Set<string>([
             ...commit.supplementalFiles,

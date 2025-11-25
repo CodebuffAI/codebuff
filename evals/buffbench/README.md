@@ -133,6 +133,55 @@ The AI judge evaluates three dimensions:
 - **Binary Installation**: Install required tools (e.g., linters, test runners) in isolated environments
 - **Custom Environment**: Set environment variables for evaluation runs
 
+### External CLI Agents
+
+BuffBench supports running external CLI coding agents for comparison:
+
+- **Claude Code**: Use `external:claude` - requires `claude` CLI installed
+- **Codex**: Use `external:codex` - requires `codex` CLI installed
+
+Example comparing Codebuff vs Claude Code:
+
+```typescript
+await runBuffBench({
+  evalDataPath: 'evals/buffbench/eval-codebuff.json',
+  agents: ['base2', 'external:claude'],
+  taskConcurrency: 3,
+})
+```
+
+### Prerequisites for External Agents
+
+**Claude Code CLI:**
+```bash
+npm install -g @anthropic-ai/claude-code
+# Set ANTHROPIC_API_KEY or CLAUDE_CODE_KEY environment variable
+```
+
+**Codex CLI:**
+```bash
+npm install -g @openai/codex
+# Set OPENAI_API_KEY environment variable
+```
+
+## Testing External Runners
+
+Use the test script to verify external runners are working:
+
+```bash
+# Test Claude Code runner
+bun run evals/buffbench/test-external-runners.ts claude
+
+# Test Codex runner
+bun run evals/buffbench/test-external-runners.ts codex
+
+# Test both runners on same task
+bun run evals/buffbench/test-external-runners.ts both
+
+# Compare Codebuff vs Claude
+bun run evals/buffbench/test-external-runners.ts compare
+```
+
 ## Directory Structure
 
 ```
