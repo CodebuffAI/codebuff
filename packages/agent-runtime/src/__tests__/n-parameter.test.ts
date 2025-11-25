@@ -28,7 +28,10 @@ import type {
 } from '@codebuff/common/types/contracts/agent-runtime'
 import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { ParamsOf } from '@codebuff/common/types/function-params'
+import type {
+  ParamsExcluding,
+  ParamsOf,
+} from '@codebuff/common/types/function-params'
 import type { AgentState } from '@codebuff/common/types/session-state'
 
 const logger: Logger = {
@@ -42,6 +45,7 @@ describe('n parameter and GENERATE_N functionality', () => {
   let mockTemplate: AgentTemplate
   let mockAgentState: AgentState
   let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
+  let runAgentStepBaseParams: ParamsExcluding<typeof runAgentStep, 'n'>
 
   beforeEach(() => {
     agentRuntimeImpl = {
@@ -96,6 +100,29 @@ describe('n parameter and GENERATE_N functionality', () => {
       directCreditsUsed: 0,
       childRunIds: [],
     }
+
+    runAgentStepBaseParams = {
+      ...agentRuntimeImpl,
+      additionalToolDefinitions: () => Promise.resolve({}),
+      textOverride: null,
+      runId: 'test-run-id',
+      ancestorRunIds: [],
+      repoId: undefined,
+      repoUrl: undefined,
+      userId: TEST_USER_ID,
+      userInputId: 'test-input',
+      clientSessionId: 'test-session',
+      fingerprintId: 'test-fingerprint',
+      fileContext: mockFileContext,
+      onResponseChunk: () => {},
+      agentType: 'test-agent',
+      localAgentTemplates: { 'test-agent': mockTemplate },
+      agentState: mockAgentState,
+      prompt: 'Test prompt',
+      spawnParams: undefined,
+      system: 'Test system',
+      signal: new AbortController().signal,
+    }
   })
 
   afterEach(() => {
@@ -105,38 +132,19 @@ describe('n parameter and GENERATE_N functionality', () => {
 
   describe('runAgentStep with n parameter', () => {
     it('should call promptAiSdk with n parameter when n is provided', async () => {
-      const promptAiSdkSpy = spyOn(
-        agentRuntimeImpl,
-        'promptAiSdk',
-      ).mockResolvedValue(
-        JSON.stringify(['Response 1', 'Response 2', 'Response 3']),
+      runAgentStepBaseParams.promptAiSdk = mock(() =>
+        Promise.resolve(
+          JSON.stringify(['Response 1', 'Response 2', 'Response 3']),
+        ),
       )
 
       const result = await runAgentStep({
-        ...agentRuntimeImpl,
-        textOverride: null,
-        runId: 'test-run-id',
-        ancestorRunIds: [],
-        repoId: undefined,
-        repoUrl: undefined,
-        userId: TEST_USER_ID,
-        userInputId: 'test-input',
-        clientSessionId: 'test-session',
-        fingerprintId: 'test-fingerprint',
-        fileContext: mockFileContext,
-        onResponseChunk: () => {},
-        agentType: 'test-agent',
-        localAgentTemplates: { 'test-agent': mockTemplate },
-        agentState: mockAgentState,
-        prompt: 'Test prompt',
-        spawnParams: undefined,
-        system: 'Test system',
+        ...runAgentStepBaseParams,
         n: 3,
-        signal: new AbortController().signal,
       })
 
       // Verify promptAiSdk was called with n: 3
-      expect(promptAiSdkSpy).toHaveBeenCalledWith(
+      expect(runAgentStepBaseParams.promptAiSdk).toHaveBeenCalledWith(
         expect.objectContaining({
           n: 3,
         }),
@@ -153,43 +161,22 @@ describe('n parameter and GENERATE_N functionality', () => {
     })
 
     it('should return early without calling promptAiSdkStream when n is provided', async () => {
-      const promptAiSdkStreamSpy = spyOn(
-        agentRuntimeImpl,
-        'promptAiSdkStream',
-      ).mockImplementation(async function* () {
+      runAgentStepBaseParams.promptAiSdkStream = mock(async function* () {
         yield { type: 'text' as const, text: 'Should not be called' }
         return 'mock-message-id'
       })
 
-      spyOn(agentRuntimeImpl, 'promptAiSdk').mockResolvedValue(
+      runAgentStepBaseParams.promptAiSdk = mock(async () =>
         JSON.stringify(['Response 1', 'Response 2']),
       )
 
       await runAgentStep({
-        ...agentRuntimeImpl,
-        textOverride: null,
-        runId: 'test-run-id',
-        ancestorRunIds: [],
-        repoId: undefined,
-        repoUrl: undefined,
-        userId: TEST_USER_ID,
-        userInputId: 'test-input',
-        clientSessionId: 'test-session',
-        fingerprintId: 'test-fingerprint',
-        fileContext: mockFileContext,
-        onResponseChunk: () => {},
-        agentType: 'test-agent',
-        localAgentTemplates: { 'test-agent': mockTemplate },
-        agentState: mockAgentState,
-        prompt: 'Test prompt',
-        spawnParams: undefined,
-        system: 'Test system',
+        ...runAgentStepBaseParams,
         n: 2,
-        signal: new AbortController().signal,
       })
 
       // Verify stream was NOT called
-      expect(promptAiSdkStreamSpy).not.toHaveBeenCalled()
+      expect(runAgentStepBaseParams.promptAiSdkStream).not.toHaveBeenCalled()
     })
 
     it('should parse JSON response from promptAiSdk correctly', async () => {
@@ -201,31 +188,13 @@ describe('n parameter and GENERATE_N functionality', () => {
         'Fifth implementation',
       ]
 
-      spyOn(agentRuntimeImpl, 'promptAiSdk').mockResolvedValue(
+      runAgentStepBaseParams.promptAiSdk = mock(async () =>
         JSON.stringify(responses),
       )
 
       const result = await runAgentStep({
-        ...agentRuntimeImpl,
-        textOverride: null,
-        runId: 'test-run-id',
-        ancestorRunIds: [],
-        repoId: undefined,
-        repoUrl: undefined,
-        userId: TEST_USER_ID,
-        userInputId: 'test-input',
-        clientSessionId: 'test-session',
-        fingerprintId: 'test-fingerprint',
-        fileContext: mockFileContext,
-        onResponseChunk: () => {},
-        agentType: 'test-agent',
-        localAgentTemplates: { 'test-agent': mockTemplate },
-        agentState: mockAgentState,
-        prompt: 'Generate 5 responses',
-        spawnParams: undefined,
-        system: 'Test system',
+        ...runAgentStepBaseParams,
         n: 5,
-        signal: new AbortController().signal,
       })
 
       expect(result.nResponses).toEqual(responses)
@@ -233,46 +202,24 @@ describe('n parameter and GENERATE_N functionality', () => {
     })
 
     it('should use normal flow when n is undefined', async () => {
-      const promptAiSdkSpy = spyOn(
-        agentRuntimeImpl,
-        'promptAiSdk',
-      ).mockResolvedValue('Should not be called')
+      runAgentStepBaseParams.promptAiSdk = mock(
+        async () => 'Should not be called',
+      )
 
-      const promptAiSdkStreamSpy = spyOn(
-        agentRuntimeImpl,
-        'promptAiSdkStream',
-      ).mockImplementation(async function* () {
+      runAgentStepBaseParams.promptAiSdkStream = mock(async function* () {
         yield { type: 'text' as const, text: 'Normal response' }
         return 'mock-message-id'
       })
 
       const result = await runAgentStep({
-        ...agentRuntimeImpl,
-        textOverride: null,
-        runId: 'test-run-id',
-        ancestorRunIds: [],
-        repoId: undefined,
-        repoUrl: undefined,
-        userId: TEST_USER_ID,
-        userInputId: 'test-input',
-        clientSessionId: 'test-session',
-        fingerprintId: 'test-fingerprint',
-        fileContext: mockFileContext,
-        onResponseChunk: () => {},
-        agentType: 'test-agent',
-        localAgentTemplates: { 'test-agent': mockTemplate },
-        agentState: mockAgentState,
-        prompt: 'Test prompt',
-        spawnParams: undefined,
-        system: 'Test system',
+        ...runAgentStepBaseParams,
         n: undefined,
-        signal: new AbortController().signal,
       })
 
       // Verify promptAiSdk was NOT called
-      expect(promptAiSdkSpy).not.toHaveBeenCalled()
+      expect(runAgentStepBaseParams.promptAiSdk).not.toHaveBeenCalled()
       // Verify stream was called
-      expect(promptAiSdkStreamSpy).toHaveBeenCalled()
+      expect(runAgentStepBaseParams.promptAiSdkStream).toHaveBeenCalled()
       // nResponses should be undefined in normal flow
       expect(result.nResponses).toBeUndefined()
     })
@@ -902,30 +849,14 @@ describe('n parameter and GENERATE_N functionality', () => {
 
   describe('runAgentStep n parameter edge cases', () => {
     it('should handle promptAiSdk returning malformed JSON', async () => {
-      spyOn(agentRuntimeImpl, 'promptAiSdk').mockResolvedValue('Not valid JSON')
+      runAgentStepBaseParams.promptAiSdk = mock(() =>
+        Promise.resolve('Not valid JSON'),
+      )
 
       await expect(
         runAgentStep({
-          ...agentRuntimeImpl,
-          textOverride: null,
-          runId: 'test-run-id',
-          ancestorRunIds: [],
-          repoId: undefined,
-          repoUrl: undefined,
-          userId: TEST_USER_ID,
-          userInputId: 'test-input',
-          clientSessionId: 'test-session',
-          fingerprintId: 'test-fingerprint',
-          fileContext: mockFileContext,
-          onResponseChunk: () => {},
-          agentType: 'test-agent',
-          localAgentTemplates: { 'test-agent': mockTemplate },
-          agentState: mockAgentState,
-          prompt: 'Test',
-          spawnParams: undefined,
-          system: 'Test',
+          ...runAgentStepBaseParams,
           n: 3,
-          signal: new AbortController().signal,
         }),
       ).rejects.toThrow()
     })
@@ -938,10 +869,7 @@ describe('n parameter and GENERATE_N functionality', () => {
         directCreditsUsed: 0,
       }
 
-      const promptAiSdkSpy = spyOn(
-        agentRuntimeImpl,
-        'promptAiSdk',
-      ).mockImplementation(
+      runAgentStepBaseParams.promptAiSdk = mock(
         async (params: ParamsOf<PromptAiSdkFn>): ReturnType<PromptAiSdkFn> => {
           // Call onCostCalculated to simulate cost tracking
           await params.onCostCalculated?.(100)
@@ -950,30 +878,13 @@ describe('n parameter and GENERATE_N functionality', () => {
       )
 
       const result = await runAgentStep({
-        ...agentRuntimeImpl,
-        textOverride: null,
-        runId: 'test-run-id',
-        ancestorRunIds: [],
-        repoId: undefined,
-        repoUrl: undefined,
-        userId: TEST_USER_ID,
-        userInputId: 'test-input',
-        clientSessionId: 'test-session',
-        fingerprintId: 'test-fingerprint',
-        fileContext: mockFileContext,
-        onResponseChunk: () => {},
-        agentType: 'test-agent',
-        localAgentTemplates: { 'test-agent': mockTemplate },
+        ...runAgentStepBaseParams,
         agentState: freshAgentState,
-        prompt: 'Test',
-        spawnParams: undefined,
-        system: 'Test',
         n: 3,
-        signal: new AbortController().signal,
       })
 
       // Verify onCostCalculated was called in promptAiSdk
-      expect(promptAiSdkSpy).toHaveBeenCalled()
+      expect(runAgentStepBaseParams.promptAiSdk).toHaveBeenCalled()
 
       // Verify credits were updated from 0 to 100
       expect(result.agentState.creditsUsed).toBe(100)
@@ -981,31 +892,13 @@ describe('n parameter and GENERATE_N functionality', () => {
     })
 
     it('should preserve messageHistory when using n parameter', async () => {
-      spyOn(agentRuntimeImpl, 'promptAiSdk').mockResolvedValue(
-        JSON.stringify(['R1', 'R2']),
+      runAgentStepBaseParams.promptAiSdk = mock(() =>
+        Promise.resolve(JSON.stringify(['R1', 'R2'])),
       )
 
       const result = await runAgentStep({
-        ...agentRuntimeImpl,
-        textOverride: null,
-        runId: 'test-run-id',
-        ancestorRunIds: [],
-        repoId: undefined,
-        repoUrl: undefined,
-        userId: TEST_USER_ID,
-        userInputId: 'test-input',
-        clientSessionId: 'test-session',
-        fingerprintId: 'test-fingerprint',
-        fileContext: mockFileContext,
-        onResponseChunk: () => {},
-        agentType: 'test-agent',
-        localAgentTemplates: { 'test-agent': mockTemplate },
-        agentState: mockAgentState,
-        prompt: 'Test',
-        spawnParams: undefined,
-        system: 'Test',
+        ...runAgentStepBaseParams,
         n: 2,
-        signal: new AbortController().signal,
       })
 
       // Message history should include the user prompt that was added

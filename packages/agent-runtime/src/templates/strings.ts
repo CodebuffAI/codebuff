@@ -30,7 +30,10 @@ import type {
   AgentState,
   AgentTemplateType,
 } from '@codebuff/common/types/session-state'
-import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type {
+  CustomToolDefinitions,
+  ProjectFileContext,
+} from '@codebuff/common/util/file'
 
 export async function formatPrompt(
   params: {
@@ -159,9 +162,7 @@ export async function getAgentPrompt<T extends StringField>(
     fileContext: ProjectFileContext
     agentState: AgentState
     agentTemplates: Record<string, AgentTemplate>
-    additionalToolDefinitions: () => Promise<
-      ProjectFileContext['customToolDefinitions']
-    >
+    additionalToolDefinitions: () => Promise<CustomToolDefinitions>
     logger: Logger
   } & ParamsExcluding<
     typeof formatPrompt,

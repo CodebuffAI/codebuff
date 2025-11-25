@@ -53,7 +53,36 @@ import type {
   AgentState,
   AgentOutput,
 } from '@codebuff/common/types/session-state'
-import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type {
+  CustomToolDefinitions,
+  ProjectFileContext,
+} from '@codebuff/common/util/file'
+
+async function additionalToolDefinitions(
+  params: {
+    agentTemplate: AgentTemplate
+    fileContext: ProjectFileContext
+  } & ParamsExcluding<
+    typeof getMCPToolData,
+    'toolNames' | 'mcpServers' | 'writeTo'
+  >,
+): Promise<CustomToolDefinitions> {
+  const { agentTemplate, fileContext } = params
+
+  const defs = cloneDeep(
+    Object.fromEntries(
+      Object.entries(fileContext.customToolDefinitions).filter(([toolName]) =>
+        agentTemplate!.toolNames.includes(toolName),
+      ),
+    ),
+  )
+  return getMCPToolData({
+    ...params,
+    toolNames: agentTemplate!.toolNames,
+    mcpServers: agentTemplate!.mcpServers,
+    writeTo: defs,
+  })
+}
 
 export const runAgentStep = async (
   params: {
@@ -99,11 +128,7 @@ export const runAgentStep = async (
     ParamsExcluding<typeof getAgentTemplate, 'agentId'> &
     ParamsExcluding<
       typeof getAgentPrompt,
-      | 'agentTemplate'
-      | 'promptType'
-      | 'agentState'
-      | 'agentTemplates'
-      | 'additionalToolDefinitions'
+      'agentTemplate' | 'promptType' | 'agentState' | 'agentTemplates'
     > &
     ParamsExcluding<
       typeof getMCPToolData,
@@ -212,21 +237,6 @@ export const runAgentStep = async (
     agentState,
     agentTemplates: localAgentTemplates,
     logger,
-    additionalToolDefinitions: () => {
-      const additionalToolDefinitions = cloneDeep(
-        Object.fromEntries(
-          Object.entries(fileContext.customToolDefinitions).filter(
-            ([toolName]) => agentTemplate.toolNames.includes(toolName),
-          ),
-        ),
-      )
-      return getMCPToolData({
-        ...params,
-        toolNames: agentTemplate.toolNames,
-        mcpServers: agentTemplate.mcpServers,
-        writeTo: additionalToolDefinitions,
-      })
-    },
   })
 
   const agentMessagesUntruncated = buildArray<Message>(
@@ -477,18 +487,19 @@ export async function loopAgentSteps(
     finishAgentRun: FinishAgentRunFn
     addAgentStep: AddAgentStepFn
     logger: Logger
-  } & ParamsExcluding<
-    typeof runProgrammaticStep,
-    | 'runId'
-    | 'agentState'
-    | 'template'
-    | 'prompt'
-    | 'toolCallParams'
-    | 'stepsComplete'
-    | 'stepNumber'
-    | 'system'
-    | 'onCostCalculated'
-  > &
+  } & ParamsExcluding<typeof additionalToolDefinitions, 'agentTemplate'> &
+    ParamsExcluding<
+      typeof runProgrammaticStep,
+      | 'runId'
+      | 'agentState'
+      | 'template'
+      | 'prompt'
+      | 'toolCallParams'
+      | 'stepsComplete'
+      | 'stepNumber'
+      | 'system'
+      | 'onCostCalculated'
+    > &
     ParamsExcluding<typeof getAgentTemplate, 'agentId'> &
     ParamsExcluding<
       typeof getAgentPrompt,
@@ -509,11 +520,12 @@ export async function loopAgentSteps(
     > &
     ParamsExcluding<
       typeof runAgentStep,
+      | 'additionalToolDefinitions'
       | 'agentState'
       | 'prompt'
+      | 'runId'
       | 'spawnParams'
       | 'system'
-      | 'runId'
       | 'textOverride'
     > &
     ParamsExcluding<
@@ -578,26 +590,21 @@ export async function loopAgentSteps(
   }
   agentState.runId = runId
 
+  let cachedAdditionalToolDefinitions: CustomToolDefinitions | undefined
   // Initialize message history with user prompt and instructions on first iteration
   const instructionsPrompt = await getAgentPrompt({
     ...params,
     agentTemplate,
     promptType: { type: 'instructionsPrompt' },
     agentTemplates: localAgentTemplates,
-    additionalToolDefinitions: () => {
-      const additionalToolDefinitions = cloneDeep(
-        Object.fromEntries(
-          Object.entries(fileContext.customToolDefinitions).filter(
-            ([toolName]) => agentTemplate.toolNames.includes(toolName),
-          ),
-        ),
-      )
-      return getMCPToolData({
-        ...params,
-        toolNames: agentTemplate.toolNames,
-        mcpServers: agentTemplate.mcpServers,
-        writeTo: additionalToolDefinitions,
-      })
+    additionalToolDefinitions: async () => {
+      if (!cachedAdditionalToolDefinitions) {
+        cachedAdditionalToolDefinitions = await additionalToolDefinitions({
+          ...params,
+          agentTemplate,
+        })
+      }
+      return cachedAdditionalToolDefinitions
     },
   })
 
@@ -611,20 +618,16 @@ export async function loopAgentSteps(
           agentTemplate,
           promptType: { type: 'systemPrompt' },
           agentTemplates: localAgentTemplates,
-          additionalToolDefinitions: () => {
-            const additionalToolDefinitions = cloneDeep(
-              Object.fromEntries(
-                Object.entries(fileContext.customToolDefinitions).filter(
-                  ([toolName]) => agentTemplate.toolNames.includes(toolName),
-                ),
-              ),
-            )
-            return getMCPToolData({
-              ...params,
-              toolNames: agentTemplate.toolNames,
-              mcpServers: agentTemplate.mcpServers,
-              writeTo: additionalToolDefinitions,
-            })
+          additionalToolDefinitions: async () => {
+            if (!cachedAdditionalToolDefinitions) {
+              cachedAdditionalToolDefinitions = await additionalToolDefinitions(
+                {
+                  ...params,
+                  agentTemplate,
+                },
+              )
+            }
+            return cachedAdditionalToolDefinitions
           },
         })) ?? ''
 
@@ -783,6 +786,15 @@ export async function loopAgentSteps(
         nResponses: generatedResponses,
       } = await runAgentStep({
         ...params,
+        additionalToolDefinitions: async () => {
+          if (!cachedAdditionalToolDefinitions) {
+            cachedAdditionalToolDefinitions = await additionalToolDefinitions({
+              ...params,
+              agentTemplate,
+            })
+          }
+          return cachedAdditionalToolDefinitions
+        },
         textOverride: textOverride,
         runId,
         agentState: currentAgentState,

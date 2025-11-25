@@ -115,20 +115,23 @@ describe('runAgentStep - set_output tool', () => {
 
     runAgentStepBaseParams = {
       ...agentRuntimeImpl,
-      textOverride: null,
-      runId: 'test-run-id',
+
       ancestorRunIds: [],
+      clientSessionId: 'test-session',
+      fileContext: mockFileContext,
+      fingerprintId: 'test-fingerprint',
       repoId: undefined,
       repoUrl: undefined,
-      userId: TEST_USER_ID,
-      userInputId: 'test-input',
-      clientSessionId: 'test-session',
-      fingerprintId: 'test-fingerprint',
-      fileContext: mockFileContext,
-      onResponseChunk: () => {},
+      runId: 'test-run-id',
+      signal: new AbortController().signal,
       spawnParams: undefined,
       system: 'Test system prompt',
-      signal: new AbortController().signal,
+      textOverride: null,
+      userId: TEST_USER_ID,
+      userInputId: 'test-input',
+
+      additionalToolDefinitions: () => Promise.resolve({}),
+      onResponseChunk: () => {},
     }
   })
 
