@@ -13,7 +13,6 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   PrintModeError,
   PrintModeText,
-  PrintModeToolCall,
 } from '@codebuff/common/types/print-mode'
 
 const toolExtractionPattern = new RegExp(
@@ -37,9 +36,7 @@ export async function* processStreamWithTags(params: {
     onTagEnd: (tagName: string, params: Record<string, any>) => void
   }
   onError: (tagName: string, errorMessage: string) => void
-  onResponseChunk: (
-    chunk: PrintModeText | PrintModeToolCall | PrintModeError,
-  ) => void
+  onResponseChunk: (chunk: PrintModeText | PrintModeError) => void
   logger: Logger
   loggerOptions?: {
     userId?: string
