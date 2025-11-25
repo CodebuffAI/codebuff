@@ -25,8 +25,6 @@ import { runTerminalCommand } from './terminal/run-command'
 import { applyChanges } from './utils/changes'
 import { logger } from './utils/logger'
 import { Spinner } from './utils/spinner'
-import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
-
 import type { BrowserResponse } from '@codebuff/common/browser-actions'
 import type {
   ClientToolCall,
@@ -706,23 +704,8 @@ const handleBrowserLogs: ToolHandler<'browser_logs'> = async (params, _id) => {
   ] satisfies CodebuffToolOutput<'browser_logs'>
 }
 
-const handleAskUser: ToolHandler<'ask_user'> = async (
-  parameters,
-  id,
-): Promise<CodebuffToolOutput<'ask_user'>> => {
-  const response = (await AskUserBridge.request(
-    id,
-    parameters.questions,
-  )) as {
-    answers?: Array<{ questionIndex: number; selectedOption: string }>
-    skipped?: boolean
-  }
-  return [
-    {
-      type: 'json',
-      value: response,
-    },
-  ]
+const handleAskUser: ToolHandler<'ask_user'> = async () => {
+  throw new Error('ask_user tool is not supported in npm-app (deprecated)')
 }
 
 export const toolHandlers: {
