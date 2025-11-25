@@ -251,8 +251,6 @@ export async function processStream(
     ...toolResultsToAddAfterStream,
   ])
 
-  logger.info({ messages: agentState.messageHistory }, 'asdf messages')
-
   if (!signal.aborted) {
     resolveStreamDonePromise()
     await previousToolCallFinished
