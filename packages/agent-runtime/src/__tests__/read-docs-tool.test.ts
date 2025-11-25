@@ -89,6 +89,7 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
       agentType: 'researcher',
       spawnParams: undefined,
       signal: new AbortController().signal,
+      tools: {},
     }
   })
 

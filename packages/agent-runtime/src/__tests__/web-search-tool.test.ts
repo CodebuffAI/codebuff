@@ -61,11 +61,13 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
     runAgentStepBaseParams = {
       ...agentRuntimeImpl,
 
+      additionalToolDefinitions: () => Promise.resolve({}),
       agentType: 'researcher',
       ancestorRunIds: [],
       clientSessionId: 'test-session',
       fileContext: mockFileContext,
       fingerprintId: 'test-fingerprint',
+      onResponseChunk: () => {},
       repoId: undefined,
       repoUrl: undefined,
       runId: 'test-run-id',
@@ -73,11 +75,9 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
       spawnParams: undefined,
       system: 'Test system prompt',
       textOverride: null,
+      tools: {},
       userId: TEST_USER_ID,
       userInputId: 'test-input',
-
-      additionalToolDefinitions: () => Promise.resolve({}),
-      onResponseChunk: () => {},
     }
 
     // Mock analytics and tracing

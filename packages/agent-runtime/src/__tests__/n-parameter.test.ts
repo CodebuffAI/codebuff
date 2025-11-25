@@ -122,6 +122,7 @@ describe('n parameter and GENERATE_N functionality', () => {
       spawnParams: undefined,
       system: 'Test system',
       signal: new AbortController().signal,
+      tools: {}
     }
   })
 
