@@ -25,7 +25,6 @@ import { runTerminalCommand } from './terminal/run-command'
 import { applyChanges } from './utils/changes'
 import { logger } from './utils/logger'
 import { Spinner } from './utils/spinner'
-
 import type { BrowserResponse } from '@codebuff/common/browser-actions'
 import type {
   ClientToolCall,
@@ -705,9 +704,14 @@ const handleBrowserLogs: ToolHandler<'browser_logs'> = async (params, _id) => {
   ] satisfies CodebuffToolOutput<'browser_logs'>
 }
 
+const handleAskUser: ToolHandler<'ask_user'> = async () => {
+  throw new Error('ask_user tool is not supported in npm-app (deprecated)')
+}
+
 export const toolHandlers: {
   [T in ClientToolName]: ToolHandler<T>
 } = {
+  ask_user: handleAskUser,
   write_file: handleUpdateFile,
   str_replace: handleUpdateFile,
   create_plan: handleUpdateFile,

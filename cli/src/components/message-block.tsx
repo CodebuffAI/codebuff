@@ -20,6 +20,7 @@ import { AgentListBranch } from './blocks/agent-list-branch'
 import { ContentWithMarkdown } from './blocks/content-with-markdown'
 import { ThinkingBlock } from './blocks/thinking-block'
 import { ToolBranch } from './blocks/tool-branch'
+import { AskUserBranch } from './blocks/ask-user-branch'
 import { PlanBox } from './renderers/plan-box'
 
 import type {
@@ -28,6 +29,7 @@ import type {
   HtmlContentBlock,
   AgentContentBlock,
 } from '../types/chat'
+import { isAskUserBlock } from '../types/chat'
 import type { ThemeColor } from '../types/theme-system'
 
 interface MessageBlockProps {
@@ -264,6 +266,7 @@ const isRenderableTimelineBlock = (
     case 'agent-list':
     case 'plan':
     case 'mode-divider':
+    case 'ask-user':
       return true
     default:
       return false
@@ -878,6 +881,16 @@ const SingleBlock = memo(
       case 'tool': {
         // Handled in BlocksRenderer grouping logic
         return null
+      }
+
+      case 'ask-user': {
+        return (
+          <AskUserBranch
+            key={`${messageId}-ask-user-${idx}`}
+            block={block}
+            availableWidth={availableWidth}
+          />
+        )
       }
 
       case 'agent': {

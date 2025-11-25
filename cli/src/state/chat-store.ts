@@ -16,6 +16,33 @@ export type InputValue = {
   lastEditDueToNav: boolean
 }
 
+export type AskUserQuestion = {
+  question: string
+  header?: string
+  options:
+    | string[]
+    | Array<{
+        label: string
+        description?: string
+      }>
+  multiSelect?: boolean
+  validation?: {
+    maxLength?: number
+    minLength?: number
+    pattern?: string
+    patternError?: string
+  }
+}
+
+export type AnswerState = number | number[]
+
+export type AskUserState = {
+  toolCallId: string
+  questions: AskUserQuestion[]
+  selectedAnswers: AnswerState[] // Single-select: number (-1 = not answered), Multi-select: number[]
+  otherTexts: string[] // Custom text input for each question (empty string if not used)
+} | null
+
 export type ChatStoreState = {
   messages: ChatMessage[]
   streamingAgents: Set<string>
@@ -37,6 +64,7 @@ export type ChatStoreState = {
   isAnnouncementVisible: boolean
   inputMode: InputMode
   isRetrying: boolean
+  askUserState: AskUserState
 }
 
 type ChatStoreActions = {
@@ -69,6 +97,9 @@ type ChatStoreActions = {
   setIsAnnouncementVisible: (visible: boolean) => void
   setInputMode: (mode: InputMode) => void
   setIsRetrying: (retrying: boolean) => void
+  setAskUserState: (state: AskUserState) => void
+  updateAskUserAnswer: (questionIndex: number, optionIndex: number) => void
+  updateAskUserOtherText: (questionIndex: number, text: string) => void
   reset: () => void
 }
 
@@ -95,6 +126,7 @@ const initialState: ChatStoreState = {
   isAnnouncementVisible: true,
   inputMode: 'default' as InputMode,
   isRetrying: false,
+  askUserState: null,
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -220,6 +252,52 @@ export const useChatStore = create<ChatStore>()(
         state.isRetrying = retrying
       }),
 
+    setAskUserState: (askUserState) =>
+      set((state) => {
+        state.askUserState = askUserState
+      }),
+
+    updateAskUserAnswer: (questionIndex, optionIndex) =>
+      set((state) => {
+        if (!state.askUserState) return
+
+        const question = state.askUserState.questions[questionIndex]
+        const currentAnswer = state.askUserState.selectedAnswers[questionIndex]
+
+        if (question?.multiSelect) {
+          // Multi-select: toggle option in array
+          const selected = Array.isArray(currentAnswer) ? currentAnswer : []
+          const newSelected = selected.includes(optionIndex)
+            ? selected.filter((i) => i !== optionIndex) // Remove if already selected
+            : [...selected, optionIndex] // Add if not selected
+
+          state.askUserState.selectedAnswers[questionIndex] = newSelected
+        } else {
+          // Single-select: set option index
+          state.askUserState.selectedAnswers[questionIndex] = optionIndex
+        }
+
+        // Clear other text when any option is selected (mutually exclusive)
+        state.askUserState.otherTexts[questionIndex] = ''
+      }),
+
+    updateAskUserOtherText: (questionIndex, text) =>
+      set((state) => {
+        if (!state.askUserState) return
+
+        state.askUserState.otherTexts[questionIndex] = text
+
+        // Clear selected option(s) when text is entered (mutually exclusive)
+        if (text) {
+          const question = state.askUserState.questions[questionIndex]
+          if (question?.multiSelect) {
+            state.askUserState.selectedAnswers[questionIndex] = []
+          } else {
+            state.askUserState.selectedAnswers[questionIndex] = -1
+          }
+        }
+      }),
+
     reset: () =>
       set((state) => {
         state.messages = initialState.messages.slice()
@@ -244,6 +322,7 @@ export const useChatStore = create<ChatStore>()(
         state.isAnnouncementVisible = initialState.isAnnouncementVisible
         state.inputMode = initialState.inputMode
         state.isRetrying = initialState.isRetrying
+        state.askUserState = initialState.askUserState
       }),
   })),
 )

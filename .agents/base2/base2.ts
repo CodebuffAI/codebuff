@@ -52,6 +52,7 @@ export function createBase2(
       !isFast && 'write_todos',
       'str_replace',
       'write_file',
+      'ask_user',
     ),
     spawnableAgents: buildArray(
       'file-picker',
@@ -392,7 +393,7 @@ function buildImplementationStepPrompt({
 function buildPlanOnlyInstructionsPrompt({}: {}) {
   return `Orchestrate the completion of the user's request using your specialized sub-agents.
 
- You are in plan mode, so you should default to creating a spec/plan based on the user's request. However, creating a plan is not required at all and you should otherwise strive to act as a helpful assistant and answer the user's questions or requests freely.
+ You are in plan mode, so you should default to asking the user a few clarifying questions and then creating a spec/plan based on the user's request. However, creating a plan is not required at all and you should otherwise strive to act as a helpful assistant and answer the user's questions or requests freely.
     
 ## Example response
 
@@ -400,7 +401,15 @@ The user asks you to implement a new feature. You respond in multiple steps:
 
 ${buildArray(
   EXPLORE_PROMPT,
-  `- After exploring the codebase, translate the user request into a clear and concise spec. If the user is just asking a question, you can answer it instead of writing a spec.
+  `- After exploring the codebase, your goal is to translate the user request into a clear and concise spec. If the user is just asking a question, you can answer it instead of writing a spec.
+
+## Asking questions
+
+To clarify the user's intent, or get them to weigh in on key decisions, you should use the ask_user tool.
+
+It's good to use this tool before generating a spec, so you can make the best possible spec for the user's request.
+
+If you don't have any important questions to ask, you can skip this step.
 
 ## Creating a spec
 
@@ -420,28 +429,7 @@ It should not include:
 - A summary of the spec.
 
 This is more like an extremely short PRD which describes the end result of what the user wants. Think of it like fleshing out the user's prompt to make it more precise, although it should be as short as possible.
-
-## Follow-up questions
-
-After closing the <PLAN> tags, the last optional section is Follow-up questions, which has a numbered list of questions and alternate choices demarcated by letters to clarify and improve upon the spec. These questions are optional for to complete for the user.
-
-For example, here is a nice short follow-up question, where the options are helpfully written out for the user, with the answers a) and b) indented with two spaces for readability:
-
-<example>
-## Optional follow-up questions:
-
-1. Do you want to:
-  a) (CURRENT) Keep Express and integrate Bun WebSockets
-  b) Migrate the entire HTTP server to Bun.serve()
-</example>
-
-Try to have as few questions as possible (even none), and focus on the most important decisions or assumptions that it would be helpful to clarify with the user.
-
-You should also let them know what the plan currently does by default by labeling that option with "(CURRENT)", and let them know that they can choose a different option if they want to.
-
-The questions section should be last and there should be no summary or further elaboration. Just end your turn.
-
-On subsequent turns with the user, you should rewrite the spec to reflect the user's choices.`,
+`,
 ).join('\n')}`
 }
 

@@ -1,4 +1,6 @@
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
+import type { ClientToolCall } from '@codebuff/common/tools/list'
+import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
 import { CodebuffClient } from '@codebuff/sdk'
 
 import { getAuthTokenDetails } from './auth'
@@ -47,6 +49,23 @@ export async function getCodebuffClient(): Promise<CodebuffClient | null> {
         apiKey,
         cwd: projectRoot,
         agentDefinitions,
+        overrideTools: {
+          ask_user: async (input: ClientToolCall<'ask_user'>['input']) => {
+            const response = (await AskUserBridge.request(
+              'cli-override',
+              input.questions,
+            )) as {
+              answers?: Array<{ questionIndex: number; selectedOption: string }>
+              skipped?: boolean
+            }
+            return [
+              {
+                type: 'json',
+                value: response,
+              },
+            ]
+          },
+        },
       })
     } catch (error) {
       logger.error(error, 'Failed to initialize CodebuffClient')

@@ -28,7 +28,7 @@ import {
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
 import type { StreamStatus } from './use-message-queue'
-import type { ChatMessage, ContentBlock, ToolContentBlock } from '../types/chat'
+import type { ChatMessage, ContentBlock, ToolContentBlock, AskUserContentBlock } from '../types/chat'
 import type { SendMessageFn } from '../types/contracts/send-message'
 import type { ParamsOf } from '../types/function-params'
 import type { SetElement } from '../types/utils'
@@ -1557,8 +1557,54 @@ export const useSendMessage = ({
                 }
 
                 setStreamingAgents((prev) => new Set(prev).add(toolCallId))
-              } else if (event.type === 'tool_result' && event.toolCallId) {
+              } else              if (event.type === 'tool_result' && event.toolCallId) {
                 const { toolCallId } = event
+
+                // Handle ask_user result transformation
+                applyMessageUpdate((prev) => 
+                  prev.map((msg) => {
+                    if (msg.id !== aiMessageId || !msg.blocks) return msg
+
+                    // Recursively check for tool blocks to transform
+                    const transformAskUser = (blocks: ContentBlock[]): ContentBlock[] => {
+                      return blocks.map((block) => {
+                        if (block.type === 'tool' && block.toolCallId === toolCallId && block.toolName === 'ask_user') {
+                          const resultValue = (event.output?.[0] as any)?.value
+                          const skipped = resultValue?.skipped
+                          const answers = resultValue?.answers
+                          const questions = block.input.questions
+
+                          if (!answers && !skipped) {
+                            // If no result data, keep as tool block (fallback)
+                            return block
+                          }
+
+                          return {
+                            type: 'ask-user',
+                            toolCallId,
+                            questions,
+                            answers,
+                            skipped,
+                          } as AskUserContentBlock
+                        }
+                        
+                        if (block.type === 'agent' && block.blocks) {
+                          const updatedBlocks = transformAskUser(block.blocks)
+                          if (updatedBlocks !== block.blocks) {
+                            return { ...block, blocks: updatedBlocks }
+                          }
+                        }
+                        return block
+                      })
+                    }
+
+                    const newBlocks = transformAskUser(msg.blocks)
+                    if (newBlocks !== msg.blocks) {
+                       return { ...msg, blocks: newBlocks }
+                    }
+                    return msg
+                  })
+                )
 
                 // Check if this is a spawn_agents result
                 // The structure is: output[0].value = [{ agentName, agentType, value }]

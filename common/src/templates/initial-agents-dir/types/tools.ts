@@ -3,6 +3,7 @@
  */
 export type ToolName =
   | 'add_message'
+  | 'ask_user'
   | 'code_search'
   | 'end_turn'
   | 'find_files'
@@ -29,6 +30,7 @@ export type ToolName =
  */
 export interface ToolParamsMap {
   add_message: AddMessageParams
+  ask_user: AskUserParams
   code_search: CodeSearchParams
   end_turn: EndTurnParams
   find_files: FindFilesParams
@@ -57,6 +59,39 @@ export interface ToolParamsMap {
 export interface AddMessageParams {
   role: 'user' | 'assistant'
   content: string
+}
+
+/**
+ * Ask the user multiple choice questions and pause execution until they respond.
+ */
+export interface AskUserParams {
+  /** List of multiple choice questions to ask the user */
+  questions: {
+    /** The question to ask the user */
+    question: string
+    /** Short label (max 12 chars) displayed as a chip/tag */
+    header?: string
+    /** Array of answer options with label and optional description (minimum 2) */
+    options: {
+      /** The display text for this option */
+      label: string
+      /** Explanation shown when option is focused */
+      description?: string
+    }[]
+    /** If true, allows selecting multiple options (checkbox). If false, single selection only (radio). */
+    multiSelect?: boolean
+    /** Validation rules for "Other" text input */
+    validation?: {
+      /** Maximum length for "Other" text input */
+      maxLength?: number
+      /** Minimum length for "Other" text input */
+      minLength?: number
+      /** Regex pattern for "Other" text input */
+      pattern?: string
+      /** Custom error message when pattern fails */
+      patternError?: string
+    }
+  }[]
 }
 
 /**
@@ -248,10 +283,10 @@ export interface WriteFileParams {
 }
 
 /**
- * Write a todo list to track tasks. Use this frequently to maintain a step-by-step plan.
+ * Write a todo list to track tasks for multi-step implementations. Use this frequently to maintain an updated step-by-step plan.
  */
 export interface WriteTodosParams {
-  /** List of todos with their completion status. Try to order the todos the same way you will complete them. Do not mark todos as completed if you have not completed them yet! */
+  /** List of todos with their completion status. Add ALL of the applicable tasks to the list, so you don't forget to do anything. Try to order the todos the same way you will complete them. Do not mark todos as completed if you have not completed them yet! */
   todos: {
     /** Description of the task */
     task: string

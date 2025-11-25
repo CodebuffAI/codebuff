@@ -65,6 +65,33 @@ export type PlanContentBlock = {
   content: string
 }
 
+export type AskUserContentBlock = {
+  type: 'ask-user'
+  toolCallId: string
+  questions: Array<{
+    question: string
+    header?: string
+    options: Array<{
+      label: string
+      description?: string
+    }>
+    multiSelect?: boolean
+    validation?: {
+      maxLength?: number
+      minLength?: number
+      pattern?: string
+      patternError?: string
+    }
+  }>
+  answers?: Array<{
+    questionIndex: number
+    selectedOption?: string
+    selectedOptions?: string[]
+    otherText?: string
+  }>
+  skipped?: boolean
+}
+
 export type ContentBlock =
   | AgentContentBlock
   | AgentListContentBlock
@@ -73,6 +100,7 @@ export type ContentBlock =
   | TextContentBlock
   | ToolContentBlock
   | PlanContentBlock
+  | AskUserContentBlock
 
 export type AgentMessage = {
   agentName: string
@@ -124,4 +152,8 @@ export function isPlanBlock(block: ContentBlock): block is PlanContentBlock {
 
 export function isModeDividerBlock(block: ContentBlock): block is ModeDividerContentBlock {
   return block.type === 'mode-divider'
+}
+
+export function isAskUserBlock(block: ContentBlock): block is AskUserContentBlock {
+  return block.type === 'ask-user'
 }

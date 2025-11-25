@@ -19,6 +19,7 @@ import { StatusBar } from './components/status-bar'
 import { SLASH_COMMANDS } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
 import { authQueryKeys } from './hooks/use-auth-query'
+import { useAskUserBridge } from './hooks/use-ask-user-bridge'
 import { useChatInput } from './hooks/use-chat-input'
 import { useClipboard } from './hooks/use-clipboard'
 import { useConnectionStatus } from './hooks/use-connection-status'
@@ -113,6 +114,9 @@ export const Chat = ({
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
 
   const { validate: validateAgents } = useAgentValidation(validationErrors)
+
+  // Subscribe to ask_user bridge to trigger form display
+  useAskUserBridge()
 
   const {
     inputValue,

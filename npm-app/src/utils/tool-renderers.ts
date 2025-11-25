@@ -112,6 +112,9 @@ export const defaultToolCallRenderer: ToolCallRenderer = {
 }
 
 export const toolRenderers: Record<ToolName, ToolCallRenderer> = {
+  ask_user: {
+    // Not supported in npm-app (deprecated)
+  },
   end_turn: {
     // Don't render anything
   },
