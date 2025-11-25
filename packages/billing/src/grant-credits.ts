@@ -397,25 +397,27 @@ export async function triggerMonthlyResetAndGrant(params: {
       .set({ next_quota_reset: newResetDate })
       .where(eq(schema.user.id, userId))
 
-    // Always grant free credits
-    await processAndGrantCredit({
+    // Always grant free credits - use grantCreditOperation with tx to keep everything in the same transaction
+    await grantCreditOperation({
       ...params,
       amount: freeGrantAmount,
       type: 'free',
       description: 'Monthly free credits',
       expiresAt: newResetDate, // Free credits expire at next reset
       operationId: freeOperationId,
+      tx,
     })
 
     // Only grant referral credits if there are any
     if (referralBonus > 0) {
-      await processAndGrantCredit({
+      await grantCreditOperation({
         ...params,
         amount: referralBonus,
         type: 'referral',
         description: 'Monthly referral bonus',
         expiresAt: newResetDate, // Referral credits expire at next reset
         operationId: referralOperationId,
+        tx,
       })
     }
 
