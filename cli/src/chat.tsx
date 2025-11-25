@@ -40,6 +40,7 @@ import { useTheme } from './hooks/use-theme'
 import { useTimeout } from './hooks/use-timeout'
 
 import { useChatStore } from './state/chat-store'
+import { getInputModeConfig } from './utils/input-modes'
 import { useFeedbackStore } from './state/feedback-store'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { loadLocalAgents } from './utils/local-agent-registry'
@@ -885,10 +886,11 @@ export const Chat = ({
     [messages],
   )
 
+  const modeConfig = getInputModeConfig(inputMode)
   const hasSlashSuggestions =
     slashContext.active &&
     slashSuggestionItems.length > 0 &&
-    inputMode === 'default'
+    !modeConfig.disableSlashSuggestions
   const hasMentionSuggestions =
     !slashContext.active &&
     mentionContext.active &&
