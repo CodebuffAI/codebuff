@@ -470,37 +470,35 @@ export const runAgentStep = async (
 
 export async function loopAgentSteps(
   params: {
-    userInputId: string
-    agentType: AgentTemplateType
-    agentState: AgentState
-    prompt: string | undefined
-    content?: Array<TextPart | ImagePart>
-    spawnParams: Record<string, any> | undefined
-    fileContext: ProjectFileContext
-    localAgentTemplates: Record<string, AgentTemplate>
-    clearUserPromptMessagesAfterResponse?: boolean
-    parentSystemPrompt?: string
-    signal: AbortSignal
-
-    userId: string | undefined
-    clientSessionId: string
-
-    startAgentRun: StartAgentRunFn
-    finishAgentRun: FinishAgentRunFn
     addAgentStep: AddAgentStepFn
+    agentState: AgentState
+    agentType: AgentTemplateType
+    clearUserPromptMessagesAfterResponse?: boolean
+    clientSessionId: string
+    content?: Array<TextPart | ImagePart>
+    fileContext: ProjectFileContext
+    finishAgentRun: FinishAgentRunFn
+    localAgentTemplates: Record<string, AgentTemplate>
     logger: Logger
+    parentSystemPrompt?: string
+    prompt: string | undefined
+    signal: AbortSignal
+    spawnParams: Record<string, any> | undefined
+    startAgentRun: StartAgentRunFn
+    userId: string | undefined
+    userInputId: string
   } & ParamsExcluding<typeof additionalToolDefinitions, 'agentTemplate'> &
     ParamsExcluding<
       typeof runProgrammaticStep,
-      | 'runId'
       | 'agentState'
-      | 'template'
-      | 'prompt'
-      | 'toolCallParams'
-      | 'stepsComplete'
-      | 'stepNumber'
-      | 'system'
       | 'onCostCalculated'
+      | 'prompt'
+      | 'runId'
+      | 'stepNumber'
+      | 'stepsComplete'
+      | 'system'
+      | 'template'
+      | 'toolCallParams'
     > &
     ParamsExcluding<typeof getAgentTemplate, 'agentId'> &
     ParamsExcluding<
@@ -546,23 +544,23 @@ export async function loopAgentSteps(
   output: AgentOutput
 }> {
   const {
-    userInputId,
-    agentType,
-    agentState,
-    prompt,
-    content,
-    spawnParams,
-    fileContext,
-    localAgentTemplates,
-    userId,
-    clientSessionId,
-    clearUserPromptMessagesAfterResponse = true,
-    parentSystemPrompt,
-    signal,
-    startAgentRun,
-    finishAgentRun,
     addAgentStep,
+    agentState,
+    agentType,
+    clearUserPromptMessagesAfterResponse = true,
+    clientSessionId,
+    content,
+    fileContext,
+    finishAgentRun,
+    localAgentTemplates,
     logger,
+    parentSystemPrompt,
+    prompt,
+    signal,
+    spawnParams,
+    startAgentRun,
+    userId,
+    userInputId,
   } = params
 
   const agentTemplate = await getAgentTemplate({
@@ -724,20 +722,21 @@ export async function loopAgentSteps(
       if (agentTemplate.handleSteps) {
         const programmaticResult = await runProgrammaticStep({
           ...params,
-          runId,
+
           agentState: currentAgentState,
-          template: agentTemplate,
           localAgentTemplates,
-          prompt: currentPrompt,
-          toolCallParams: currentParams,
-          system,
-          stepsComplete: shouldEndTurn,
-          stepNumber: totalSteps,
           nResponses,
           onCostCalculated: async (credits: number) => {
             agentState.creditsUsed += credits
             agentState.directCreditsUsed += credits
           },
+          prompt: currentPrompt,
+          runId,
+          stepNumber: totalSteps,
+          stepsComplete: shouldEndTurn,
+          system,
+          template: agentTemplate,
+          toolCallParams: currentParams,
         })
         const {
           agentState: programmaticAgentState,

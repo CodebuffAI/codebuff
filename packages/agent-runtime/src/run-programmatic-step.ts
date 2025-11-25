@@ -1,4 +1,3 @@
-import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { assistantMessage } from '@codebuff/common/util/messages'
 import { cloneDeep } from 'lodash'
@@ -21,7 +20,10 @@ import type { AddAgentStepFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
-import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
+import type {
+  ToolCallPart,
+  ToolResultOutput,
+} from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
 
@@ -40,26 +42,26 @@ export function clearAgentGeneratorCache(params: { logger: Logger }) {
 // Function to handle programmatic agents
 export async function runProgrammaticStep(
   params: {
-    agentState: AgentState
-    template: AgentTemplate
-    prompt: string | undefined
-    toolCallParams: Record<string, any> | undefined
-    system: string | undefined
-    userId: string | undefined
-    repoId: string | undefined
-    repoUrl: string | undefined
-    userInputId: string
-    fingerprintId: string
-    clientSessionId: string
-    onResponseChunk: (chunk: string | PrintModeEvent) => void
-    localAgentTemplates: Record<string, AgentTemplate>
-    stepsComplete: boolean
-    stepNumber: number
-    handleStepsLogChunk: HandleStepsLogChunkFn
-    sendAction: SendActionFn
     addAgentStep: AddAgentStepFn
+    agentState: AgentState
+    clientSessionId: string
+    fingerprintId: string
+    handleStepsLogChunk: HandleStepsLogChunkFn
+    localAgentTemplates: Record<string, AgentTemplate>
     logger: Logger
     nResponses?: string[]
+    onResponseChunk: (chunk: string | PrintModeEvent) => void
+    prompt: string | undefined
+    repoId: string | undefined
+    repoUrl: string | undefined
+    stepNumber: number
+    stepsComplete: boolean
+    template: AgentTemplate
+    toolCallParams: Record<string, any> | undefined
+    sendAction: SendActionFn
+    system: string | undefined
+    userId: string | undefined
+    userInputId: string
   } & Omit<
     ExecuteToolCallParams,
     | 'toolName'
@@ -274,20 +276,27 @@ export async function runProgrammaticStep(
       const excludeToolFromMessageHistory = toolCall?.includeToolCall === false
       // Add assistant message with the tool call before executing it
       if (!excludeToolFromMessageHistory) {
-        const toolCallString = getToolCallString(
-          toolCall.toolName,
-          toolCall.input,
-        )
-        onResponseChunk(toolCallString)
-        agentState.messageHistory.push(assistantMessage(toolCallString))
+        const toolCallPart: ToolCallPart = {
+          type: 'tool-call',
+          toolCallId,
+          toolName: toolCall.toolName,
+          input: toolCall.input,
+        }
+        // onResponseChunk({
+        //   ...toolCallPart,
+        //   type: 'tool_call',
+        //   agentId: agentState.agentId,
+        //   parentAgentId: agentState.parentId,
+        // })
+        agentState.messageHistory.push(assistantMessage(toolCallPart))
         // Optional call handles both top-level and nested agents
-        sendSubagentChunk({
-          userInputId,
-          agentId: agentState.agentId,
-          agentType: agentState.agentType!,
-          chunk: toolCallString,
-          forwardToPrompt: !agentState.parentId,
-        })
+        // sendSubagentChunk({
+        //   userInputId,
+        //   agentId: agentState.agentId,
+        //   agentType: agentState.agentType!,
+        //   chunk: toolCallString,
+        //   forwardToPrompt: !agentState.parentId,
+        // })
       }
 
       // Execute the tool synchronously and get the result immediately
