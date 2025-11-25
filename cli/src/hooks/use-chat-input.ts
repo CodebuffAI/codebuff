@@ -27,11 +27,11 @@ export const useChatInput = ({
   onSubmitPrompt,
 }: UseChatInputOptions) => {
   const hasAutoSubmittedRef = useRef(false)
-  const isBashMode = useChatStore((state) => state.isBashMode)
+  const inputMode = useChatStore((state) => state.inputMode)
 
   // Estimate the collapsed toggle width as rendered by AgentModeToggle.
   // In bash mode, we don't show the toggle, so no width needed.
-  const estimatedToggleWidth = isBashMode
+  const estimatedToggleWidth = inputMode !== 'default'
     ? 0
     : stringWidth(`< ${agentMode}`) + 6 // 2 padding + 2 borders + 2 gap
 

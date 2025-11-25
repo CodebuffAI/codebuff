@@ -414,7 +414,7 @@ export const Chat = ({
     : scrollboxProps
 
   const localAgents = useMemo(() => loadLocalAgents(), [])
-  const isBashMode = useChatStore((state) => state.isBashMode)
+  const inputMode = useChatStore((state) => state.inputMode)
 
   const {
     slashContext,
@@ -426,8 +426,8 @@ export const Chat = ({
     agentSuggestionItems,
     fileSuggestionItems,
   } = useSuggestionEngine({
-    disableAgentSuggestions: forceFileOnlyMentions || isBashMode,
-    inputValue: isBashMode ? '' : inputValue,
+    disableAgentSuggestions: forceFileOnlyMentions || inputMode !== 'default',
+    inputValue: inputMode === 'bash' ? '' : inputValue,
     cursorPosition,
     slashCommands: SLASH_COMMANDS,
     localAgents,
@@ -524,9 +524,14 @@ export const Chat = ({
   const handleSuggestionMenuKey = useCallback(
     (key: KeyEvent): boolean => {
       // In bash mode at cursor position 0, backspace should exit bash mode
-      const isBashMode = useChatStore.getState().isBashMode
-      if (isBashMode && cursorPosition === 0 && key.name === 'backspace') {
-        useChatStore.getState().setBashMode(false)
+      const inputMode = useChatStore.getState().inputMode
+      // Exit special modes on backspace at position 0
+      if (
+        inputMode !== 'default' &&
+        cursorPosition === 0 &&
+        key.name === 'backspace'
+      ) {
+        useChatStore.getState().setInputMode('default')
         return true
       }
 
@@ -662,7 +667,6 @@ export const Chat = ({
     resumeQueue,
     continueChat,
     continueChatId,
-    onOpenFeedback: () => handleOpenFeedbackForMessage(null),
   })
 
   sendMessageRef.current = sendMessage
@@ -679,8 +683,6 @@ export const Chat = ({
       streamMessageIdRef,
       addToQueue,
       clearMessages,
-      clearQueue,
-      handleCtrlC,
       saveToHistory,
       scrollToLatest,
       sendMessage,
@@ -800,8 +802,6 @@ export const Chat = ({
       streamMessageIdRef,
       addToQueue,
       clearMessages,
-      clearQueue,
-      handleCtrlC,
       saveToHistory,
       scrollToLatest,
       sendMessage,
@@ -829,8 +829,6 @@ export const Chat = ({
     streamMessageIdRef,
     addToQueue,
     clearMessages,
-    clearQueue,
-    handleCtrlC,
     saveToHistory,
     scrollToLatest,
     sendMessage,
@@ -892,7 +890,9 @@ export const Chat = ({
   )
 
   const hasSlashSuggestions =
-    slashContext.active && slashSuggestionItems.length > 0
+    slashContext.active &&
+    slashSuggestionItems.length > 0 &&
+    inputMode === 'default'
   const hasMentionSuggestions =
     !slashContext.active &&
     mentionContext.active &&
@@ -950,27 +950,6 @@ export const Chat = ({
   const shouldShowStatusLine =
     !feedbackMode &&
     (hasStatusIndicatorContent || shouldShowQueuePreview || !isAtBottom)
-
-  // Ctrl+F to open feedback for latest completed AI message
-  useKeyboard(
-    useCallback(
-      (key) => {
-        // Don't handle if already in feedback mode
-        if (feedbackMode) return
-
-        if (key?.ctrl && key.name === 'f') {
-          if (
-            'preventDefault' in key &&
-            typeof key.preventDefault === 'function'
-          ) {
-            key.preventDefault()
-          }
-          handleOpenFeedbackForLatestMessage()
-        }
-      },
-      [handleOpenFeedbackForLatestMessage, feedbackMode],
-    ),
-  )
 
   return (
     <box

@@ -22,7 +22,7 @@ describe('formatElapsedTime', () => {
 
   describe('minutes format (60s - 3599s)', () => {
     test('formats exactly 1 minute', () => {
-      expect(formatElapsedTime(60)).toBe('1m 0s')
+      expect(formatElapsedTime(60)).toBe('1m')
     })
 
     test('formats minutes with remaining seconds (floors down)', () => {
@@ -32,9 +32,9 @@ describe('formatElapsedTime', () => {
     })
 
     test('formats double digit minutes', () => {
-      expect(formatElapsedTime(600)).toBe('10m 0s')
-      expect(formatElapsedTime(1800)).toBe('30m 0s')
-      expect(formatElapsedTime(3540)).toBe('59m 0s')
+      expect(formatElapsedTime(600)).toBe('10m')
+      expect(formatElapsedTime(1800)).toBe('30m')
+      expect(formatElapsedTime(3540)).toBe('59m')
     })
 
     test('formats just under 1 hour', () => {
@@ -44,20 +44,20 @@ describe('formatElapsedTime', () => {
 
   describe('hours format (>= 3600s)', () => {
     test('formats exactly 1 hour', () => {
-      expect(formatElapsedTime(3600)).toBe('1h 0m')
+      expect(formatElapsedTime(3600)).toBe('1h')
     })
 
     test('formats hours with remaining time (floors down)', () => {
       expect(formatElapsedTime(3661)).toBe('1h 1m')
       expect(formatElapsedTime(5400)).toBe('1h 30m')
       expect(formatElapsedTime(7199)).toBe('1h 59m')
-      expect(formatElapsedTime(7200)).toBe('2h 0m')
+      expect(formatElapsedTime(7200)).toBe('2h')
     })
 
     test('formats multiple hours', () => {
-      expect(formatElapsedTime(10800)).toBe('3h 0m')
-      expect(formatElapsedTime(36000)).toBe('10h 0m')
-      expect(formatElapsedTime(86400)).toBe('24h 0m')
+      expect(formatElapsedTime(10800)).toBe('3h')
+      expect(formatElapsedTime(36000)).toBe('10h')
+      expect(formatElapsedTime(86400)).toBe('24h')
     })
   })
 
@@ -75,14 +75,14 @@ describe('formatElapsedTime', () => {
 
     test('handles boundary between seconds and minutes', () => {
       expect(formatElapsedTime(59)).toBe('59s')
-      expect(formatElapsedTime(60)).toBe('1m 0s')
+      expect(formatElapsedTime(60)).toBe('1m')
       expect(formatElapsedTime(61)).toBe('1m 1s')
     })
 
     test('handles boundary between minutes and hours', () => {
       expect(formatElapsedTime(3599)).toBe('59m 59s')
-      expect(formatElapsedTime(3600)).toBe('1h 0m')
-      expect(formatElapsedTime(3601)).toBe('1h 0m')
+      expect(formatElapsedTime(3600)).toBe('1h')
+      expect(formatElapsedTime(3601)).toBe('1h') // 1 second rounds down to 0 minutes, shows as 1h
     })
   })
 
@@ -91,13 +91,13 @@ describe('formatElapsedTime', () => {
       expect(formatElapsedTime(3)).toBe('3s') // Quick response
       expect(formatElapsedTime(15)).toBe('15s') // Average response
       expect(formatElapsedTime(45)).toBe('45s') // Longer response
-      expect(formatElapsedTime(120)).toBe('2m 0s') // Very long response
+      expect(formatElapsedTime(120)).toBe('2m') // Very long response
     })
 
     test('formats extended task durations', () => {
-      expect(formatElapsedTime(180)).toBe('3m 0s') // 3 minute task
-      expect(formatElapsedTime(900)).toBe('15m 0s') // 15 minute task
-      expect(formatElapsedTime(3600)).toBe('1h 0m') // 1 hour task
+      expect(formatElapsedTime(180)).toBe('3m') // 3 minute task
+      expect(formatElapsedTime(900)).toBe('15m') // 15 minute task
+      expect(formatElapsedTime(3600)).toBe('1h') // 1 hour task
     })
   })
 })

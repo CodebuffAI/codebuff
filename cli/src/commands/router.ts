@@ -1,82 +1,50 @@
 import { runTerminalCommand } from '@codebuff/sdk'
 
-import { handleInitializationFlowLocally } from './init'
-import { handleUsageCommand } from './usage'
-import { useLoginStore } from '../state/login-store'
+import {
+  findCommand,
+  type RouterParams,
+  type CommandResult,
+} from './command-registry'
+import { handleReferralCode } from './referral'
+import {
+  parseCommand,
+  isSlashCommand,
+  isReferralCode,
+  extractReferralCode,
+  normalizeReferralCode,
+} from './router-utils'
 import { useChatStore } from '../state/chat-store'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 
-import type { MultilineInputHandle } from '../components/multiline-input'
-import type { InputValue } from '../state/chat-store'
-import type { ChatMessage, ContentBlock } from '../types/chat'
-import type { SendMessageFn } from '../types/contracts/send-message'
-import type { User } from '../utils/auth'
-import type { AgentMode } from '../utils/constants'
-import type { UseMutationResult } from '@tanstack/react-query'
+import type { ContentBlock } from '../types/chat'
 
-export async function routeUserPrompt(params: {
-  abortControllerRef: React.MutableRefObject<AbortController | null>
-  agentMode: AgentMode
-  inputRef: React.MutableRefObject<MultilineInputHandle | null>
-  inputValue: string
-  isChainInProgressRef: React.MutableRefObject<boolean>
-  isStreaming: boolean
-  logoutMutation: UseMutationResult<boolean, Error, void, unknown>
-  streamMessageIdRef: React.MutableRefObject<string | null>
-  addToQueue: (message: string) => void
-  clearMessages: () => void
-  clearQueue: () => string[]
-  handleCtrlC: () => true
-  saveToHistory: (message: string) => void
-  scrollToLatest: () => void
-  sendMessage: SendMessageFn
-  setCanProcessQueue: (value: React.SetStateAction<boolean>) => void
-  setInputFocused: (focused: boolean) => void
-  setInputValue: (
-    value: InputValue | ((prev: InputValue) => InputValue),
-  ) => void
-  setIsAuthenticated: (value: React.SetStateAction<boolean | null>) => void
-  setMessages: (
-    value: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[]),
-  ) => void
-  setUser: (value: React.SetStateAction<User | null>) => void
-  stopStreaming: () => void
-}) {
-  const isBashMode = useChatStore.getState().isBashMode
-  const setBashMode = useChatStore.getState().setBashMode
+export async function routeUserPrompt(
+  params: RouterParams,
+): Promise<CommandResult> {
   const {
-    abortControllerRef,
     agentMode,
     inputRef,
     inputValue,
     isChainInProgressRef,
     isStreaming,
-    logoutMutation,
     streamMessageIdRef,
     addToQueue,
-    clearMessages,
-    clearQueue,
-    handleCtrlC,
     saveToHistory,
     scrollToLatest,
     sendMessage,
-    setCanProcessQueue,
     setInputFocused,
     setInputValue,
-    setIsAuthenticated,
     setMessages,
-    setUser,
-    stopStreaming,
   } = params
+
+  const inputMode = useChatStore.getState().inputMode
+  const setInputMode = useChatStore.getState().setInputMode
 
   const trimmed = inputValue.trim()
   if (!trimmed) return
 
-  let postUserMessage: Parameters<SendMessageFn>[0]['postUserMessage'] =
-    undefined
-
   // Handle bash mode commands
-  if (isBashMode) {
+  if (inputMode === 'bash') {
     const commandWithBang = '!' + trimmed
     const toolCallId = crypto.randomUUID()
     const resultBlock: ContentBlock = {
@@ -123,88 +91,85 @@ export async function routeUserPrompt(params: {
 
     saveToHistory(commandWithBang)
     setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
-    setBashMode(false)
+    setInputMode('default')
 
     return
   }
 
-  const normalized = trimmed.startsWith('/') ? trimmed.slice(1) : ''
-  const cmd = normalized.split(/\s+/)[0].toLowerCase()
+  // Handle referral mode input
+  if (inputMode === 'referral') {
+    // Validate the referral code (3-50 alphanumeric chars with optional dashes)
+    const codePattern = /^[a-zA-Z0-9-]{3,50}$/
+    // Strip prefix if present for validation (case-insensitive)
+    const codeWithoutPrefix = trimmed.toLowerCase().startsWith('ref-')
+      ? trimmed.slice(4)
+      : trimmed
 
-  if (cmd === 'feedback') {
-    // Return special flag to open feedback mode
+    if (!codePattern.test(codeWithoutPrefix)) {
+      setMessages((prev) => [
+        ...prev,
+        getUserMessage(trimmed),
+        getSystemMessage('Invalid referral code format. Codes should be 3-50 alphanumeric characters.'),
+      ])
+      saveToHistory(trimmed)
+      setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+      setInputMode('default')
+      return
+    }
+
+    const referralCode = normalizeReferralCode(trimmed)
+    try {
+      const { postUserMessage: referralPostMessage } =
+        await handleReferralCode(referralCode)
+      setMessages((prev) => [
+        ...prev,
+        getUserMessage(trimmed),
+        ...referralPostMessage([]),
+      ])
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      setMessages((prev) => [
+        ...prev,
+        getUserMessage(trimmed),
+        getSystemMessage(`Error redeeming referral code: ${errorMessage}`),
+      ])
+    }
     saveToHistory(trimmed)
     setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
-    return { openFeedbackMode: true }
-  }
+    setInputMode('default')
 
-  if (cmd === 'bash' || cmd === '!') {
-    setBashMode(true)
-    saveToHistory(trimmed)
-    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     return
   }
 
-  if (cmd === 'login' || cmd === 'signin') {
+  // Handle referral codes (ref-XXXX format)
+  // Works with or without leading slash: "ref-123" or "/ref-123"
+  if (isReferralCode(trimmed)) {
+    const referralCode = extractReferralCode(trimmed)
+    const { postUserMessage: referralPostMessage } =
+      await handleReferralCode(referralCode)
     setMessages((prev) => [
       ...prev,
-      getSystemMessage(
-        "You're already in the app. Use /logout to switch accounts.",
-      ),
+      getUserMessage(trimmed),
+      ...referralPostMessage([]),
     ])
-    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
-    return
-  }
-  if (cmd === 'logout' || cmd === 'signout') {
-    abortControllerRef.current?.abort()
-    stopStreaming()
-    setCanProcessQueue(false)
-
-    const { resetLoginState } = useLoginStore.getState()
-    logoutMutation.mutate(undefined, {
-      onSettled: () => {
-        resetLoginState()
-        setMessages((prev) => [...prev, getSystemMessage('Logged out.')])
-        setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
-        setTimeout(() => {
-          setUser(null)
-          setIsAuthenticated(false)
-        }, 300)
-      },
-    })
-    return
-  }
-
-  if (cmd === 'exit' || cmd === 'quit') {
-    process.kill(process.pid, 'SIGINT')
-    return
-  }
-
-  if (cmd === 'clear' || cmd === 'new') {
-    setMessages(() => [])
-    clearMessages()
-
-    saveToHistory(trimmed)
-    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
-
-    stopStreaming()
-    setCanProcessQueue(false)
-    return
-  }
-
-  if (cmd === 'init') {
-    ;({ postUserMessage } = handleInitializationFlowLocally())
-    // do not return, continue and send to agent runtime
-  }
-
-  if (cmd === 'usage' || cmd === 'credits') {
-    const { postUserMessage: usagePostMessage } = await handleUsageCommand()
-    setMessages((prev) => usagePostMessage(prev))
     saveToHistory(trimmed)
     setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     return
   }
 
+  // Only process slash commands if input starts with '/'
+  if (isSlashCommand(trimmed)) {
+    const cmd = parseCommand(trimmed)
+    const args = trimmed.slice(1 + cmd.length).trim()
+
+    // Look up command in registry
+    const commandDef = findCommand(cmd)
+    if (commandDef) {
+      return await commandDef.handler(params, args)
+    }
+  }
+
+  // Regular message or unknown slash command - send to agent
   saveToHistory(trimmed)
   setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
 
@@ -219,7 +184,8 @@ export async function routeUserPrompt(params: {
     return
   }
 
-  if (trimmed.startsWith('/') && cmd !== 'init') {
+  // Unknown slash command - show error
+  if (isSlashCommand(trimmed)) {
     setMessages((prev) => [
       ...prev,
       getUserMessage(trimmed),
@@ -228,7 +194,7 @@ export async function routeUserPrompt(params: {
     return
   }
 
-  sendMessage({ content: trimmed, agentMode, postUserMessage })
+  sendMessage({ content: trimmed, agentMode })
 
   setTimeout(() => {
     scrollToLatest()

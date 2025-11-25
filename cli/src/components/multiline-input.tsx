@@ -136,6 +136,39 @@ export const MultilineInput = forwardRef<
   const [measuredCols, setMeasuredCols] = useState<number | null>(null)
   const [lastActivity, setLastActivity] = useState(Date.now())
 
+  // Refs to track latest values for paste handler (prevents stale closure issues)
+  const valueRef = useRef(value)
+  const cursorPositionRef = useRef(cursorPosition)
+  const stickyColumnRef = useRef<number | null>(null)
+
+  // Helper to get or set the sticky column for vertical navigation
+  const getOrSetStickyColumn = useCallback(
+    (lineStarts: number[], cursorIsChar: boolean): number => {
+      if (stickyColumnRef.current != null) {
+        return stickyColumnRef.current
+      }
+      const lineIndex = lineStarts.findLastIndex(
+        (lineStart) => lineStart <= cursorPositionRef.current,
+      )
+      // Account for cursorIsChar offset like cursorDown does
+      const column =
+        lineIndex === -1
+          ? 0
+          : cursorPositionRef.current -
+            lineStarts[lineIndex] +
+            (cursorIsChar ? -1 : 0)
+      stickyColumnRef.current = Math.max(0, column)
+      return stickyColumnRef.current
+    },
+    [],
+  )
+
+  // Keep refs in sync with props
+  useEffect(() => {
+    valueRef.current = value
+    cursorPositionRef.current = cursorPosition
+  }, [value, cursorPosition])
+
   // Update last activity on value or cursor changes
   useEffect(() => {
     setLastActivity(Date.now())
@@ -170,15 +203,26 @@ export const MultilineInput = forwardRef<
       const text = event.text ?? ''
       if (!text) return
 
+      // Use refs to get the latest values, avoiding stale closure issues
+      // when multiple paste events fire rapidly before React re-renders
+      const currentValue = valueRef.current
+      const currentCursor = cursorPositionRef.current
+
       const newValue =
-        value.slice(0, cursorPosition) + text + value.slice(cursorPosition)
+        currentValue.slice(0, currentCursor) + text + currentValue.slice(currentCursor)
+      const newCursor = currentCursor + text.length
+
+      // Update refs immediately so subsequent rapid events see the new state
+      valueRef.current = newValue
+      cursorPositionRef.current = newCursor
+
       onChange({
         text: newValue,
-        cursorPosition: cursorPosition + text.length,
+        cursorPosition: newCursor,
         lastEditDueToNav: false,
       })
     },
-    [focused, value, cursorPosition, onChange],
+    [focused, onChange],
   )
 
   const cursorRow = lineInfo
@@ -301,6 +345,11 @@ export const MultilineInput = forwardRef<
           if (handled) {
             return
           }
+        }
+
+        const isVerticalNavKey = key.name === 'up' || key.name === 'down'
+        if (!isVerticalNavKey) {
+          stickyColumnRef.current = null
         }
 
         const lowerKeyName = (key.name ?? '').toLowerCase()
@@ -678,13 +727,18 @@ export const MultilineInput = forwardRef<
         // Up arrow (no modifiers)
         if (key.name === 'up' && !key.ctrl && !key.meta && !key.option) {
           preventKeyDefault(key)
+
+          const lineStarts = lineInfo?.lineStarts ?? []
+          const desiredIndex = getOrSetStickyColumn(lineStarts, !shouldHighlight)
+
           onChange({
             text: value,
             cursorPosition: calculateNewCursorPosition({
               cursorPosition,
-              lineStarts: lineInfo?.lineStarts ?? [],
+              lineStarts,
               cursorIsChar: !shouldHighlight,
               direction: 'up',
+              desiredIndex,
             }),
             lastEditDueToNav: false,
           })
@@ -693,13 +747,17 @@ export const MultilineInput = forwardRef<
 
         // Down arrow (no modifiers)
         if (key.name === 'down' && !key.ctrl && !key.meta && !key.option) {
+          const lineStarts = lineInfo?.lineStarts ?? []
+          const desiredIndex = getOrSetStickyColumn(lineStarts, !shouldHighlight)
+
           onChange({
             text: value,
             cursorPosition: calculateNewCursorPosition({
               cursorPosition,
-              lineStarts: lineInfo?.lineStarts ?? [],
+              lineStarts,
               cursorIsChar: !shouldHighlight,
               direction: 'down',
+              desiredIndex,
             }),
             lastEditDueToNav: false,
           })

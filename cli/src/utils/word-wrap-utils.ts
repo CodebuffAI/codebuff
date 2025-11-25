@@ -1,36 +1,36 @@
 function cursorUp(params: {
   lineStarts: number[]
   cursorPosition: number
+  desiredIndex: number
 }): number {
-  const { lineStarts, cursorPosition } = params
+  const { lineStarts, cursorPosition, desiredIndex } = params
   const lineIndex = lineStarts.findLastIndex((start) => start <= cursorPosition)
 
   if (lineIndex === -1 || lineIndex === 0) {
     return 0
   }
 
-  const index = cursorPosition - lineStarts[lineIndex]
-  return Math.min(lineStarts[lineIndex] - 1, lineStarts[lineIndex - 1] + index)
+  const prevLineStart = lineStarts[lineIndex - 1]
+  const prevLineEndExclusive = lineStarts[lineIndex] - 1
+
+  return Math.min(prevLineEndExclusive, prevLineStart + desiredIndex)
 }
 
 function cursorDown(params: {
   lineStarts: number[]
   cursorPosition: number
-  cursorIsChar: boolean
+  desiredIndex: number
 }): number {
-  const { lineStarts, cursorPosition, cursorIsChar } = params
+  const { lineStarts, cursorPosition, desiredIndex } = params
   const lineIndex = lineStarts.findLastIndex((start) => start <= cursorPosition)
 
   if (lineIndex === -1 || lineIndex === lineStarts.length - 1) {
     return Infinity
   }
 
-  // Need to account for cursor character itself
-  const index = cursorPosition - lineStarts[lineIndex] + (cursorIsChar ? -1 : 0)
-
   return Math.min(
     (lineStarts[lineIndex + 2] ?? Infinity) - 1,
-    lineStarts[lineIndex + 1] + index,
+    lineStarts[lineIndex + 1] + desiredIndex,
   )
 }
 
@@ -39,6 +39,7 @@ export function calculateNewCursorPosition(params: {
   lineStarts: number[]
   cursorIsChar: boolean
   direction: 'up' | 'down'
+  desiredIndex: number
 }): number {
   const { direction } = params
   if (direction === 'up') {
