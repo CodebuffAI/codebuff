@@ -223,7 +223,7 @@ function* handleStepsMax({
 }: AgentStepContext): ReturnType<
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
-  const MAX_N = 6
+  const MAX_N = 5
   const selectorAgent = 'best-of-n-selector-opus'
   const n = Math.min(
     10,
