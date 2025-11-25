@@ -15,7 +15,8 @@ import { QuestionHeader } from './components/question-header'
 import { QuestionOption } from './components/question-option'
 import { OtherTextInput } from './components/other-text-input'
 import { SkipButton } from './components/skip-button'
-import { isQuestionAnswered, areAllQuestionsAnswered, isFocusOnSkip, isFocusOnOption, isFocusOnTextInput } from './types'
+import { isQuestionAnswered, areAllQuestionsAnswered, isFocusOnSkip, isFocusOnOption, isFocusOnTextInput, isFocusOnConfirmSubmit, isFocusOnConfirmBack } from './types'
+import { ConfirmScreen, type AnswerSummary } from './components/confirm-screen'
 
 export interface MultipleChoiceFormProps {
   questions: AskUserQuestion[]
@@ -40,6 +41,7 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
 }) => {
   const theme = useTheme()
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
+  const [isOnConfirmScreen, setIsOnConfirmScreen] = useState(false)
   const [isSkipHovered, setIsSkipHovered] = useState(false)
 
   // Computed values
@@ -72,8 +74,9 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
     selectedAnswers: selectedAnswers as (number | number[])[],
     otherTexts,
     onSubmit: (answers, texts) => {
-      // Cast back to number[] for Phase 1 callback
-      onSubmit(answers as number[], texts)
+      // Instead of auto-submitting, go to confirm screen
+      setIsOnConfirmScreen(true)
+      focusActions.resetToConfirm()
     },
     onAdvanceQuestion: useCallback(() => {
       setCurrentQuestionIndex((idx) => idx + 1)
@@ -99,11 +102,14 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
     currentQuestion,
     isFirstQuestion,
     isLastQuestion,
+    isOnConfirmScreen,
+    allAnswered,
     selectedAnswers: selectedAnswers as (number | number[])[],
     otherTexts,
     onSelectAnswer,
     onOtherTextChange,
     onChangeQuestion: (newIndex) => {
+      setIsOnConfirmScreen(false)
       setCurrentQuestionIndex(newIndex)
     },
     onSubmit: (answers, texts) => {
@@ -113,10 +119,52 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
     onAutoAdvance: handleSelection,
     onTextInputAdvance: handleTextInputAdvance,
     onForceSubmit: forceSubmit,
+    onGoToConfirm: () => {
+      setIsOnConfirmScreen(true)
+      focusActions.resetToConfirm()
+    },
+    onGoBackFromConfirm: () => {
+      setIsOnConfirmScreen(false)
+      focusActions.resetToQuestion(questions.length - 1)
+    },
   })
 
   // Check if skip button is focused
   const isSkipFocused = isFocusOnSkip(focus)
+  const isConfirmSubmitFocused = isFocusOnConfirmSubmit(focus)
+  const isConfirmBackFocused = isFocusOnConfirmBack(focus)
+
+  // Build answer summary for confirm screen
+  const answerSummary: AnswerSummary[] = useMemo(() => {
+    return questions.map((q, i) => {
+      const answer = selectedAnswers[i]
+      const otherText = otherTexts[i]?.trim()
+      
+      let answerText: string
+      if (otherText) {
+        answerText = otherText
+      } else if (Array.isArray(answer)) {
+        // Multi-select
+        const selectedLabels = answer.map(idx => {
+          const opt = q.options[idx]
+          return typeof opt === 'string' ? opt : opt.label
+        })
+        answerText = selectedLabels.join(', ') || '(none)'
+      } else if (answer >= 0 && answer < q.options.length) {
+        // Single-select
+        const opt = q.options[answer]
+        answerText = typeof opt === 'string' ? opt : opt.label
+      } else {
+        answerText = '(none)'
+      }
+      
+      return {
+        question: q.question,
+        header: q.header,
+        answer: answerText,
+      }
+    })
+  }, [questions, selectedAnswers, otherTexts])
 
   return (
     <box style={{ flexDirection: 'column', padding: 1 }}>
@@ -126,20 +174,36 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
         totalQuestions={questions.length}
         answeredStates={answeredStates}
         allAnswered={allAnswered}
+        isOnConfirmScreen={isOnConfirmScreen}
         onSkip={onSkip}
         onNavigate={(newIndex) => {
+          setIsOnConfirmScreen(false)
           setCurrentQuestionIndex(newIndex)
           focusActions.resetToQuestion(newIndex)
         }}
+        onNavigateToConfirm={() => {
+          setIsOnConfirmScreen(true)
+          focusActions.resetToConfirm()
+        }}
         onPrev={() => {
-          if (!isFirstQuestion) {
+          if (isOnConfirmScreen) {
+            setIsOnConfirmScreen(false)
+            focusActions.resetToQuestion(questions.length - 1)
+          } else if (!isFirstQuestion) {
             const newIndex = currentQuestionIndex - 1
             setCurrentQuestionIndex(newIndex)
             focusActions.resetToQuestion(newIndex)
           }
         }}
         onNext={() => {
-          if (!isLastQuestion) {
+          if (isOnConfirmScreen) {
+            // Already at the end
+            return
+          }
+          if (isLastQuestion && allAnswered) {
+            setIsOnConfirmScreen(true)
+            focusActions.resetToConfirm()
+          } else if (!isLastQuestion) {
             const newIndex = currentQuestionIndex + 1
             setCurrentQuestionIndex(newIndex)
             focusActions.resetToQuestion(newIndex)
@@ -155,60 +219,77 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
         hasRoomForInlineButtons={hasRoomForInlineButtons}
       />
 
-      {/* Question content */}
-      <box style={{ flexDirection: 'column', gap: 1, marginTop: 1 }}>
-        <text
-          style={{
-            fg: theme.foreground,
-            attributes: TextAttributes.BOLD,
-            marginBottom: 1,
-          }}
-        >
-          {currentQuestion.question}
-        </text>
-
-        {/* Options */}
-        <box style={{ flexDirection: 'column', paddingLeft: 1, gap: 0 }}>
-          {currentQuestion.options.map((opt, optIdx) => {
-            const currentAnswer = selectedAnswers[currentQuestionIndex]
-            const isSelected = Array.isArray(currentAnswer)
-              ? currentAnswer.includes(optIdx) // Multi-select: check if array includes this option
-              : currentAnswer === optIdx // Single-select: direct equality check
-            const isFocused =
-              isFocusOnOption(focus) &&
-              focus.questionIndex === currentQuestionIndex &&
-              focus.optionIndex === optIdx
-
-            return (
-              <QuestionOption
-                key={optIdx}
-                option={opt}
-                optionIndex={optIdx}
-                isSelected={isSelected}
-                isFocused={isFocused}
-                isMultiSelect={currentQuestion.multiSelect}
-                onSelect={() => handleOptionSelect(currentQuestionIndex, optIdx)}
-                onMouseOver={() => focusActions.selectOption(currentQuestionIndex, optIdx)}
-              />
-            )
-          })}
-
-          {/* "Other" text input */}
-          <OtherTextInput
-            text={otherTexts[currentQuestionIndex] || ''}
-            isFocused={
-              isFocusOnTextInput(focus) && focus.questionIndex === currentQuestionIndex
-            }
-            hasText={!!otherTexts[currentQuestionIndex]?.trim()}
-            isSelected={false}
-            onClick={() => focusActions.selectTextInput(currentQuestionIndex)}
-            onMouseOver={() => focusActions.selectTextInput(currentQuestionIndex)}
+      {/* Question content or Confirm screen */}
+      {isOnConfirmScreen ? (
+        <box style={{ flexDirection: 'column', gap: 1, marginTop: 1 }}>
+          <ConfirmScreen
+            onSubmit={() => onSubmit(selectedAnswers as number[], otherTexts)}
+            onBack={() => {
+              setIsOnConfirmScreen(false)
+              focusActions.resetToQuestion(questions.length - 1)
+            }}
+            submitFocused={isConfirmSubmitFocused}
+            backFocused={isConfirmBackFocused}
+            onSubmitMouseOver={() => focusActions.selectConfirmSubmit()}
+            onBackMouseOver={() => focusActions.selectConfirmBack()}
+            answers={answerSummary}
           />
         </box>
-      </box>
+      ) : (
+        <box style={{ flexDirection: 'column', gap: 1, marginTop: 1 }}>
+          <text
+            style={{
+              fg: theme.foreground,
+              attributes: TextAttributes.BOLD,
+              marginBottom: 1,
+            }}
+          >
+            {currentQuestion.question}
+          </text>
 
-      {/* Skip button (if no room for inline) */}
-      {!hasRoomForInlineButtons && (
+          {/* Options */}
+          <box style={{ flexDirection: 'column', paddingLeft: 1, gap: 0 }}>
+            {currentQuestion.options.map((opt, optIdx) => {
+              const currentAnswer = selectedAnswers[currentQuestionIndex]
+              const isSelected = Array.isArray(currentAnswer)
+                ? currentAnswer.includes(optIdx) // Multi-select: check if array includes this option
+                : currentAnswer === optIdx // Single-select: direct equality check
+              const isFocused =
+                isFocusOnOption(focus) &&
+                focus.questionIndex === currentQuestionIndex &&
+                focus.optionIndex === optIdx
+
+              return (
+                <QuestionOption
+                  key={optIdx}
+                  option={opt}
+                  optionIndex={optIdx}
+                  isSelected={isSelected}
+                  isFocused={isFocused}
+                  isMultiSelect={currentQuestion.multiSelect}
+                  onSelect={() => handleOptionSelect(currentQuestionIndex, optIdx)}
+                  onMouseOver={() => focusActions.selectOption(currentQuestionIndex, optIdx)}
+                />
+              )
+            })}
+
+            {/* "Other" text input */}
+            <OtherTextInput
+              text={otherTexts[currentQuestionIndex] || ''}
+              isFocused={
+                isFocusOnTextInput(focus) && focus.questionIndex === currentQuestionIndex
+              }
+              hasText={!!otherTexts[currentQuestionIndex]?.trim()}
+              isSelected={false}
+              onClick={() => focusActions.selectTextInput(currentQuestionIndex)}
+              onMouseOver={() => focusActions.selectTextInput(currentQuestionIndex)}
+            />
+          </box>
+        </box>
+      )}
+
+      {/* Skip button (if no room for inline and not on confirm screen) */}
+      {!hasRoomForInlineButtons && !isOnConfirmScreen && (
         <box
           style={{
             flexDirection: 'row',

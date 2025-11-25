@@ -6,7 +6,7 @@
 import { useCallback } from 'react'
 import { useKeyboard } from '@opentui/react'
 import type { FocusTarget, AskUserQuestion } from '../types'
-import { isFocusOnOption, isFocusOnTextInput, isFocusOnSkip } from '../types'
+import { isFocusOnOption, isFocusOnTextInput, isFocusOnSkip, isFocusOnConfirmSubmit, isFocusOnConfirmBack, isFocusOnConfirmScreen } from '../types'
 import type { FocusAction } from './use-focus-manager'
 import { calculateNextQuestionIndex } from '../utils/navigation-handlers'
 import { ASK_USER_CONFIG } from '../constants'
@@ -22,6 +22,8 @@ export interface KeyboardNavigationParams {
   currentQuestion: AskUserQuestion
   isFirstQuestion: boolean
   isLastQuestion: boolean
+  isOnConfirmScreen: boolean
+  allAnswered: boolean
   selectedAnswers: (number | number[])[]
   otherTexts: string[]
   onSelectAnswer: (questionIndex: number, optionIndex: number) => void
@@ -32,6 +34,8 @@ export interface KeyboardNavigationParams {
   onAutoAdvance: (newAnswer: number) => void
   onTextInputAdvance: () => void
   onForceSubmit: () => void
+  onGoToConfirm: () => void
+  onGoBackFromConfirm: () => void
 }
 
 /**
@@ -46,14 +50,19 @@ export function useKeyboardNavigation(params: KeyboardNavigationParams) {
     currentQuestion,
     isFirstQuestion,
     isLastQuestion,
+    isOnConfirmScreen,
+    allAnswered,
     otherTexts,
     onSelectAnswer,
     onOtherTextChange,
     onChangeQuestion,
+    onSubmit,
     onSkip,
     onAutoAdvance,
     onTextInputAdvance,
     onForceSubmit,
+    onGoToConfirm,
+    onGoBackFromConfirm,
   } = params
 
   useKeyboard(
@@ -71,6 +80,21 @@ export function useKeyboardNavigation(params: KeyboardNavigationParams) {
         // ====================
 
         if (key.name === 'left' && !key.ctrl && !key.meta && !key.shift) {
+          // When in text input, don't navigate questions - let arrow keys work as cursor
+          if (isFocusOnTextInput(focus)) {
+            return // Don't prevent default, let cursor navigation work
+          }
+          // On confirm screen, switch focus between submit and back
+          if (isOnConfirmScreen) {
+            preventDefault()
+            if (isFocusOnConfirmSubmit(focus)) {
+              dispatchFocus({ type: 'SELECT_CONFIRM_BACK' })
+            } else {
+              // Go back to last question
+              onGoBackFromConfirm()
+            }
+            return
+          }
           preventDefault()
           if (!isFirstQuestion) {
             const prevIndex = calculateNextQuestionIndex(
@@ -86,7 +110,24 @@ export function useKeyboardNavigation(params: KeyboardNavigationParams) {
         }
 
         if (key.name === 'right' && !key.ctrl && !key.meta && !key.shift) {
+          // When in text input, don't navigate questions - let arrow keys work as cursor
+          if (isFocusOnTextInput(focus)) {
+            return // Don't prevent default, let cursor navigation work
+          }
+          // On confirm screen, switch focus between back and submit
+          if (isOnConfirmScreen) {
+            preventDefault()
+            if (isFocusOnConfirmBack(focus)) {
+              dispatchFocus({ type: 'SELECT_CONFIRM_SUBMIT' })
+            }
+            return
+          }
           preventDefault()
+          // If on last question and all answered, go to confirm screen
+          if (isLastQuestion && allAnswered) {
+            onGoToConfirm()
+            return
+          }
           if (!isLastQuestion) {
             const nextIndex = calculateNextQuestionIndex(
               currentQuestionIndex,
@@ -106,12 +147,30 @@ export function useKeyboardNavigation(params: KeyboardNavigationParams) {
 
         if (key.name === 'up' && !key.ctrl && !key.meta && !key.shift) {
           preventDefault()
+          // On confirm screen, up/down toggle between submit and back
+          if (isOnConfirmScreen) {
+            if (isFocusOnConfirmSubmit(focus)) {
+              dispatchFocus({ type: 'SELECT_CONFIRM_BACK' })
+            } else {
+              dispatchFocus({ type: 'SELECT_CONFIRM_SUBMIT' })
+            }
+            return
+          }
           dispatchFocus({ type: 'NAVIGATE_UP' })
           return
         }
 
         if (key.name === 'down' && !key.ctrl && !key.meta && !key.shift) {
           preventDefault()
+          // On confirm screen, up/down toggle between submit and back
+          if (isOnConfirmScreen) {
+            if (isFocusOnConfirmSubmit(focus)) {
+              dispatchFocus({ type: 'SELECT_CONFIRM_BACK' })
+            } else {
+              dispatchFocus({ type: 'SELECT_CONFIRM_SUBMIT' })
+            }
+            return
+          }
           dispatchFocus({ type: 'NAVIGATE_DOWN' })
           return
         }
@@ -122,6 +181,15 @@ export function useKeyboardNavigation(params: KeyboardNavigationParams) {
 
         if (key.name === 'tab' && !key.ctrl && !key.meta && !key.shift) {
           preventDefault()
+          // On confirm screen, tab toggles between submit and back
+          if (isOnConfirmScreen) {
+            if (isFocusOnConfirmSubmit(focus)) {
+              dispatchFocus({ type: 'SELECT_CONFIRM_BACK' })
+            } else {
+              dispatchFocus({ type: 'SELECT_CONFIRM_SUBMIT' })
+            }
+            return
+          }
           dispatchFocus({ type: 'TAB_NEXT' })
           return
         }
@@ -156,6 +224,12 @@ export function useKeyboardNavigation(params: KeyboardNavigationParams) {
           } else if (isFocusOnSkip(focus)) {
             // Skip
             onSkip()
+          } else if (isFocusOnConfirmSubmit(focus)) {
+            // Submit from confirm screen
+            onSubmit()
+          } else if (isFocusOnConfirmBack(focus)) {
+            // Go back from confirm screen
+            onGoBackFromConfirm()
           }
           return
         }
@@ -202,14 +276,19 @@ export function useKeyboardNavigation(params: KeyboardNavigationParams) {
         currentQuestion,
         isFirstQuestion,
         isLastQuestion,
+        isOnConfirmScreen,
+        allAnswered,
         otherTexts,
         onSelectAnswer,
         onOtherTextChange,
         onChangeQuestion,
+        onSubmit,
         onSkip,
         onAutoAdvance,
         onTextInputAdvance,
         onForceSubmit,
+        onGoToConfirm,
+        onGoBackFromConfirm,
       ]
     )
   )

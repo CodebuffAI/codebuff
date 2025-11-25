@@ -58,7 +58,11 @@ export function useAutoAdvance(config: AutoAdvanceConfig) {
       // Use provided otherTexts or fall back to config
       const finalOtherTexts = updatedOtherTexts || config.otherTexts
 
-      if (!config.isLastQuestion) {
+      // Check if all questions are now answered
+      if (areAllQuestionsAnswered(updatedAnswers, finalOtherTexts)) {
+        // All answered: go to confirm screen (onSubmit here triggers confirm screen navigation)
+        config.onSubmit(updatedAnswers, finalOtherTexts)
+      } else if (!config.isLastQuestion) {
         // Auto-advance to next question after delay
         const delay = config.delayMs ?? ASK_USER_CONFIG.AUTO_ADVANCE_DELAY_MS
 
@@ -66,11 +70,6 @@ export function useAutoAdvance(config: AutoAdvanceConfig) {
           config.onAdvanceQuestion()
           timeoutRef.current = null
         }, delay)
-      } else {
-        // On last question: submit if all answered
-        if (areAllQuestionsAnswered(updatedAnswers, finalOtherTexts)) {
-          config.onSubmit(updatedAnswers, finalOtherTexts)
-        }
       }
     },
     [

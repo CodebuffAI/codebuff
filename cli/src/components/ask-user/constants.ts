@@ -33,7 +33,7 @@ export const LAYOUT_BREAKPOINTS = {
   COMPACT: 40,
 
   /** Comfortable layout: current behavior */
-  COMFORTABLE: 55,
+  COMFORTABLE: 40,
 
   /** Spacious layout: extra padding, inline descriptions */
   SPACIOUS: 80,

@@ -39,7 +39,7 @@ export const OtherTextInput: React.FC<OtherTextInputProps> = ({
         flexDirection: 'row',
         gap: 1,
         backgroundColor: isFocused ? theme.surface : undefined,
-        marginTop: 1,
+        marginTop: 0,
         paddingTop: 0,
         paddingBottom: 0,
       }}

@@ -14,6 +14,8 @@ export type FocusTarget =
   | { type: 'option'; questionIndex: number; optionIndex: number }
   | { type: 'textInput'; questionIndex: number }
   | { type: 'skip' }
+  | { type: 'confirmSubmit' }
+  | { type: 'confirmBack' }
 
 /** Type alias for option focus */
 export type OptionFocus = Extract<FocusTarget, { type: 'option' }>
@@ -23,6 +25,12 @@ export type TextInputFocus = Extract<FocusTarget, { type: 'textInput' }>
 
 /** Type alias for skip button focus */
 export type SkipFocus = Extract<FocusTarget, { type: 'skip' }>
+
+/** Type alias for confirm submit button focus */
+export type ConfirmSubmitFocus = Extract<FocusTarget, { type: 'confirmSubmit' }>
+
+/** Type alias for confirm back button focus */
+export type ConfirmBackFocus = Extract<FocusTarget, { type: 'confirmBack' }>
 
 /**
  * Answer state can be:
@@ -78,6 +86,27 @@ export const isFocusOnSkip = (target: FocusTarget): target is SkipFocus => {
 }
 
 /**
+ * Type guard: check if focus is on confirm submit button
+ */
+export const isFocusOnConfirmSubmit = (target: FocusTarget): target is ConfirmSubmitFocus => {
+  return target.type === 'confirmSubmit'
+}
+
+/**
+ * Type guard: check if focus is on confirm back button
+ */
+export const isFocusOnConfirmBack = (target: FocusTarget): target is ConfirmBackFocus => {
+  return target.type === 'confirmBack'
+}
+
+/**
+ * Type guard: check if focus is on confirm screen (either button)
+ */
+export const isFocusOnConfirmScreen = (target: FocusTarget): boolean => {
+  return target.type === 'confirmSubmit' || target.type === 'confirmBack'
+}
+
+/**
  * Type guard: check if answer is multi-select
  */
 export const isMultiSelectAnswer = (answer: AnswerState): answer is number[] => {
@@ -117,6 +146,20 @@ export const createTextInputFocus = (questionIndex: number): TextInputFocus => (
  */
 export const createSkipFocus = (): SkipFocus => ({
   type: 'skip',
+})
+
+/**
+ * Create focus target for confirm submit button
+ */
+export const createConfirmSubmitFocus = (): ConfirmSubmitFocus => ({
+  type: 'confirmSubmit',
+})
+
+/**
+ * Create focus target for confirm back button
+ */
+export const createConfirmBackFocus = (): ConfirmBackFocus => ({
+  type: 'confirmBack',
 })
 
 // ====================

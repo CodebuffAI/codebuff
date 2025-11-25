@@ -47,7 +47,7 @@ export const SkipButton: React.FC<SkipButtonProps> = ({
           attributes: isHighlighted ? TextAttributes.BOLD : undefined,
         }}
       >
-        Skip
+        Skip All
       </text>
     </Button>
   )

@@ -21,7 +21,10 @@ export type FocusAction =
   | { type: 'SELECT_OPTION'; questionIndex: number; optionIndex: number }
   | { type: 'SELECT_TEXT_INPUT'; questionIndex: number }
   | { type: 'SELECT_SKIP' }
+  | { type: 'SELECT_CONFIRM_SUBMIT' }
+  | { type: 'SELECT_CONFIRM_BACK' }
   | { type: 'RESET_TO_QUESTION'; questionIndex: number }
+  | { type: 'RESET_TO_CONFIRM' }
 
 /**
  * Context needed for focus reducer
@@ -77,6 +80,15 @@ function focusReducer(
 
     case 'SELECT_SKIP':
       return { type: 'skip' }
+
+    case 'SELECT_CONFIRM_SUBMIT':
+      return { type: 'confirmSubmit' }
+
+    case 'SELECT_CONFIRM_BACK':
+      return { type: 'confirmBack' }
+
+    case 'RESET_TO_CONFIRM':
+      return { type: 'confirmSubmit' }
 
     case 'RESET_TO_QUESTION':
       // Reset focus to first option of specified question
@@ -172,6 +184,18 @@ export function useFocusActions(dispatch: (action: FocusAction) => void) {
     [dispatch]
   )
 
+  const selectConfirmSubmit = useCallback(() => {
+    dispatch({ type: 'SELECT_CONFIRM_SUBMIT' })
+  }, [dispatch])
+
+  const selectConfirmBack = useCallback(() => {
+    dispatch({ type: 'SELECT_CONFIRM_BACK' })
+  }, [dispatch])
+
+  const resetToConfirm = useCallback(() => {
+    dispatch({ type: 'RESET_TO_CONFIRM' })
+  }, [dispatch])
+
   return {
     navigateUp,
     navigateDown,
@@ -179,6 +203,9 @@ export function useFocusActions(dispatch: (action: FocusAction) => void) {
     selectOption,
     selectTextInput,
     selectSkip,
+    selectConfirmSubmit,
+    selectConfirmBack,
     resetToQuestion,
+    resetToConfirm,
   }
 }

@@ -15,8 +15,10 @@ export interface QuestionHeaderProps {
   totalQuestions: number
   answeredStates: boolean[]
   allAnswered: boolean
+  isOnConfirmScreen?: boolean
   onSkip?: () => void
   onNavigate?: (index: number) => void
+  onNavigateToConfirm?: () => void
   onPrev?: () => void
   onNext?: () => void
   skipButtonFocused?: boolean
@@ -31,8 +33,10 @@ export const QuestionHeader: React.FC<QuestionHeaderProps> = ({
   totalQuestions,
   answeredStates,
   allAnswered,
+  isOnConfirmScreen = false,
   onSkip,
   onNavigate,
+  onNavigateToConfirm,
   onPrev,
   onNext,
   skipButtonFocused = false,
@@ -42,8 +46,8 @@ export const QuestionHeader: React.FC<QuestionHeaderProps> = ({
   hasRoomForInlineButtons,
 }) => {
   const theme = useTheme()
-  const isFirstQuestion = currentIndex === 0
-  const isLastQuestion = currentIndex === totalQuestions - 1
+  const isFirstQuestion = currentIndex === 0 && !isOnConfirmScreen
+  const isLastQuestion = isOnConfirmScreen || (currentIndex === totalQuestions - 1 && !allAnswered)
 
   return (
     <box
@@ -58,7 +62,7 @@ export const QuestionHeader: React.FC<QuestionHeaderProps> = ({
       <box style={{ flexDirection: 'column', gap: 0 }}>
         <box style={{ flexDirection: 'row', gap: 0 }}>
           <text style={{ fg: theme.secondary }}>
-            Question {currentIndex + 1} of {totalQuestions}
+            {isOnConfirmScreen ? 'Ready to submit' : `Question ${currentIndex + 1} of ${totalQuestions}`}
           </text>
         </box>
         {totalQuestions > 1 && (
@@ -66,7 +70,9 @@ export const QuestionHeader: React.FC<QuestionHeaderProps> = ({
             currentIndex={currentIndex}
             answeredStates={answeredStates}
             allAnswered={allAnswered}
+            isOnConfirmScreen={isOnConfirmScreen}
             onNavigate={onNavigate}
+            onNavigateToConfirm={onNavigateToConfirm}
           />
         )}
       </box>

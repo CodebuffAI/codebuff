@@ -13,14 +13,18 @@ export interface ProgressIndicatorProps {
   currentIndex: number
   answeredStates: boolean[]
   allAnswered: boolean
+  isOnConfirmScreen: boolean
   onNavigate?: (index: number) => void
+  onNavigateToConfirm?: () => void
 }
 
 export const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({
   currentIndex,
   answeredStates,
   allAnswered,
+  isOnConfirmScreen,
   onNavigate,
+  onNavigateToConfirm,
 }) => {
   const theme = useTheme()
 
@@ -45,9 +49,15 @@ export const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({
           </Button>
         )
       })}
-      {allAnswered && (
-        <text style={{ fg: theme.primary, marginLeft: 1 }}>Complete! ✓</text>
-      )}
+      {/* Confirm dot - always shown, clickable when all answered */}
+      <Button
+        onClick={() => { if (allAnswered) onNavigateToConfirm?.() }}
+        style={{ padding: 0 }}
+      >
+        <text style={{ fg: isOnConfirmScreen ? theme.primary : allAnswered ? theme.foreground : theme.muted }}>
+          {isOnConfirmScreen ? SYMBOLS.COMPLETED : allAnswered ? SYMBOLS.CURRENT : SYMBOLS.UNSELECTED}
+        </text>
+      </Button>
     </box>
   )
 }
