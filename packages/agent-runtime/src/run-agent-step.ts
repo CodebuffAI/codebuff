@@ -14,6 +14,7 @@ import { runProgrammaticStep } from './run-programmatic-step'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { getAgentTemplate } from './templates/agent-registry'
 import { getAgentPrompt } from './templates/strings'
+import { getToolSet } from './tools/prompts'
 import { processStreamWithTools } from './tools/stream-parser'
 import { getAgentOutput } from './util/agent-output'
 import {
@@ -527,6 +528,7 @@ export async function loopAgentSteps(
       | 'spawnParams'
       | 'system'
       | 'textOverride'
+      | 'tools'
     > &
     ParamsExcluding<
       AddAgentStepFn,
@@ -630,6 +632,19 @@ export async function loopAgentSteps(
             return cachedAdditionalToolDefinitions
           },
         })) ?? ''
+
+  const tools = await getToolSet({
+    toolNames: agentTemplate.toolNames,
+    additionalToolDefinitions: async () => {
+      if (!cachedAdditionalToolDefinitions) {
+        cachedAdditionalToolDefinitions = await additionalToolDefinitions({
+          ...params,
+          agentTemplate,
+        })
+      }
+      return cachedAdditionalToolDefinitions
+    },
+  })
 
   const hasUserMessage = Boolean(
     prompt || (spawnParams && Object.keys(spawnParams).length > 0),
@@ -786,6 +801,16 @@ export async function loopAgentSteps(
         nResponses: generatedResponses,
       } = await runAgentStep({
         ...params,
+
+        agentState: currentAgentState,
+        n,
+        prompt: currentPrompt,
+        runId,
+        spawnParams: currentParams,
+        system,
+        textOverride: textOverride,
+        tools,
+
         additionalToolDefinitions: async () => {
           if (!cachedAdditionalToolDefinitions) {
             cachedAdditionalToolDefinitions = await additionalToolDefinitions({
@@ -795,13 +820,6 @@ export async function loopAgentSteps(
           }
           return cachedAdditionalToolDefinitions
         },
-        textOverride: textOverride,
-        runId,
-        agentState: currentAgentState,
-        prompt: currentPrompt,
-        spawnParams: currentParams,
-        system,
-        n,
       })
 
       if (newAgentState.runId) {
