@@ -268,3 +268,26 @@ Important: You only have access to the tools below. Do not use any other tools -
 ${toolDescriptions.join('\n\n')}
 `.trim()
 }
+
+export async function getToolSet(params: {
+  toolNames: string[]
+  additionalToolDefinitions: () => Promise<CustomToolDefinitions>
+}): Promise<ToolSet> {
+  const { toolNames, additionalToolDefinitions } = params
+
+  const toolSet: ToolSet = {}
+  for (const toolName of toolNames) {
+    if (toolName in toolParams) {
+      toolSet[toolName] = toolParams[toolName as ToolName]
+    }
+  }
+
+  const toolDefinitions = await additionalToolDefinitions()
+  for (const [toolName, toolDefinition] of Object.entries(toolDefinitions)) {
+    toolSet[toolName] = cloneDeep(toolDefinition) satisfies {
+      inputSchema: { _zod: { input: any } }
+    } as Omit<typeof toolDefinition, 'inputSchema'> & { inputSchema: z.ZodType }
+  }
+
+  return toolSet
+}
