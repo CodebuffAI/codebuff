@@ -4,7 +4,6 @@ import { jsonToolResult } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
-import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
 import { checkLiveUserInput } from '../live-user-inputs'
 import { getMCPToolData } from '../mcp'
@@ -30,7 +29,7 @@ import type { ToolResultOutput } from '@codebuff/common/types/messages/content-p
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState, Subgoal } from '@codebuff/common/types/session-state'
 import type {
-  customToolDefinitionsSchema,
+  CustomToolDefinitions,
   ProjectFileContext,
 } from '@codebuff/common/util/file'
 import type { ToolCallPart } from 'ai'
@@ -293,7 +292,7 @@ export function executeToolCall<T extends ToolName>(
 }
 
 export function parseRawCustomToolCall(params: {
-  customToolDefs: z.infer<typeof customToolDefinitionsSchema>
+  customToolDefs: CustomToolDefinitions
   rawToolCall: {
     toolName: string
     toolCallId: string
@@ -304,7 +303,10 @@ export function parseRawCustomToolCall(params: {
   const { customToolDefs, rawToolCall, autoInsertEndStepParam = false } = params
   const toolName = rawToolCall.toolName
 
-  if (!(toolName in customToolDefs) && !toolName.includes('/')) {
+  if (
+    !(customToolDefs && toolName in customToolDefs) &&
+    !toolName.includes('/')
+  ) {
     return {
       toolName,
       toolCallId: rawToolCall.toolCallId,
@@ -321,30 +323,13 @@ export function parseRawCustomToolCall(params: {
   // Add the required codebuff_end_step parameter with the correct value for this tool if requested
   if (autoInsertEndStepParam) {
     processedParameters[endsAgentStepParam] =
-      customToolDefs[toolName].endsAgentStep
+      customToolDefs?.[toolName]?.endsAgentStep
   }
 
-  const jsonSchema = cloneDeep(customToolDefs[toolName].inputJsonSchema)
-  if (customToolDefs[toolName].endsAgentStep) {
-    if (!jsonSchema.properties) {
-      jsonSchema.properties = {}
-    }
-    jsonSchema.properties[endsAgentStepParam] = {
-      const: true,
-      type: 'boolean',
-      description: 'Easp flag must be set to true',
-    }
-    if (!jsonSchema.required) {
-      jsonSchema.required = []
-    }
-    jsonSchema.required.push(endsAgentStepParam)
-  }
-  const paramsSchema = convertJsonSchemaToZod(jsonSchema)
-  const result = paramsSchema.safeParse(
-    processedParameters,
-  ) as z.ZodSafeParseResult<any>
+  const paramsSchema = customToolDefs?.[toolName]?.inputSchema
+  const result = paramsSchema?.safeParse(processedParameters)
 
-  if (!result.success) {
+  if (result && !result.success) {
     return {
       toolName: toolName,
       toolCallId: rawToolCall.toolCallId,

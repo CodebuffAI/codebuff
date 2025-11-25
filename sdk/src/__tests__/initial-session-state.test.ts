@@ -252,13 +252,7 @@ describe('Initial Session State', () => {
     const customToolDefinitions = [
       {
         toolName: 'custom_tool',
-        zodSchema: inputSchema,
-        inputJsonSchema: {
-          type: 'object' as const,
-          properties: {
-            input: { type: 'string' as const },
-          },
-        },
+        inputSchema,
         description: 'A custom tool',
         endsAgentStep: false,
         exampleInputs: [],
@@ -276,10 +270,11 @@ describe('Initial Session State', () => {
 
     expect(sessionState.fileContext.customToolDefinitions).toBeDefined()
     expect(
-      sessionState.fileContext.customToolDefinitions['custom_tool'],
+      sessionState.fileContext.customToolDefinitions?.['custom_tool'],
     ).toBeDefined()
     expect(
-      sessionState.fileContext.customToolDefinitions['custom_tool'].description,
+      sessionState.fileContext.customToolDefinitions?.['custom_tool']
+        ?.description,
     ).toBe('A custom tool')
   })
 

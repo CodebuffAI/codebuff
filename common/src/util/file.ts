@@ -5,6 +5,7 @@ import { z } from 'zod/v4'
 
 import { CodebuffConfigSchema } from '../json-config/constants'
 
+import type { CodebuffConfig } from '../json-config/constants'
 import type { CodebuffFileSystem } from '../types/filesystem'
 
 export const FileTreeNodeSchema: z.ZodType<FileTreeNode> = z.object({
@@ -43,14 +44,16 @@ export const customToolDefinitionsSchema = z
   .record(
     z.string(),
     z.object({
-      inputJsonSchema: z.any(),
+      inputSchema: z.custom<z.ZodType>(),
       endsAgentStep: z.boolean().optional().default(false),
       description: z.string().optional(),
       exampleInputs: z.record(z.string(), z.any()).array().optional(),
     }),
   )
   .default(() => ({}))
-export type CustomToolDefinitions = z.input<typeof customToolDefinitionsSchema>
+export type CustomToolDefinitions = NonNullable<
+  z.input<typeof customToolDefinitionsSchema>
+>
 
 export const ProjectFileContextSchema = z.object({
   projectRoot: z.string(),
@@ -83,7 +86,34 @@ export const ProjectFileContextSchema = z.object({
   }),
 })
 
-export type ProjectFileContext = z.infer<typeof ProjectFileContextSchema>
+export type ProjectFileContext = {
+  projectRoot: string
+  cwd: string
+  fileTree: FileTreeNode[]
+  fileTokenScores: Record<string, Record<string, number>>
+  tokenCallers?: Record<string, Record<string, string[]>>
+  knowledgeFiles: Record<string, string>
+  userKnowledgeFiles?: Record<string, string>
+  agentTemplates: Record<string, any>
+  customToolDefinitions: CustomToolDefinitions
+  codebuffConfig?: CodebuffConfig
+  gitChanges: {
+    status: string
+    diff: string
+    diffCached: string
+    lastCommitMessages: string
+  }
+  changesSinceLastChat: Record<string, string>
+  shellConfigFiles: Record<string, string>
+  systemInfo: {
+    platform: string
+    shell: string
+    nodeVersion: string
+    arch: string
+    homedir: string
+    cpus: number
+  }
+}
 
 export const fileRegex =
   /<write_file>\s*<path>([^<]+)<\/path>\s*<content>([\s\S]*?)<\/content>\s*<\/write_file>/g

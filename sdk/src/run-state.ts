@@ -78,7 +78,7 @@ function processCustomToolDefinitions(
     customToolDefinitions.map((toolDefinition) => [
       toolDefinition.toolName,
       {
-        inputJsonSchema: toolDefinition.inputJsonSchema,
+        inputSchema: toolDefinition.inputSchema,
         description: toolDefinition.description,
         endsAgentStep: toolDefinition.endsAgentStep,
         exampleInputs: toolDefinition.exampleInputs,

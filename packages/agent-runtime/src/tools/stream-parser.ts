@@ -175,7 +175,7 @@ export async function processStreamWithTools(
     ...params,
     processors: Object.fromEntries([
       ...toolNames.map((toolName) => [toolName, toolCallback(toolName)]),
-      ...Object.keys(fileContext.customToolDefinitions).map((toolName) => [
+      ...Object.keys(fileContext.customToolDefinitions ?? {}).map((toolName) => [
         toolName,
         customToolCallback(toolName),
       ]),

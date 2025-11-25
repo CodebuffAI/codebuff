@@ -1,8 +1,6 @@
-import { z } from 'zod/v4'
-
 import type { ToolName } from '../../common/src/tools/constants'
 import type { ToolResultOutput } from '../../common/src/types/messages/content-part'
-import type { JSONSchema } from 'zod/v4/core'
+import type { z } from 'zod/v4'
 
 export type CustomToolDefinition<
   N extends string = string,
@@ -10,8 +8,7 @@ export type CustomToolDefinition<
   Input extends any = any,
 > = {
   toolName: N
-  zodSchema: z.ZodType<Args, Input>
-  inputJsonSchema: JSONSchema.BaseSchema
+  inputSchema: z.ZodType<Args, Input>
   description: string
   endsAgentStep: boolean
   exampleInputs: Input[]
@@ -54,8 +51,7 @@ export function getCustomToolDefinition<
 }): CustomToolDefinition<TN, Args, Input> {
   return {
     toolName,
-    zodSchema: inputSchema,
-    inputJsonSchema: z.toJSONSchema(inputSchema, { io: 'input' }),
+    inputSchema,
     description,
     endsAgentStep,
     exampleInputs,

@@ -1,7 +1,12 @@
+import { convertJsonSchemaToZod } from 'zod-from-json-schema'
+
 import type { AgentTemplate } from './templates/types'
 import type { RequestMcpToolDataFn } from '@codebuff/common/types/contracts/client'
 import type { OptionalFields } from '@codebuff/common/types/function-params'
-import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type {
+  CustomToolDefinitions,
+  ProjectFileContext,
+} from '@codebuff/common/util/file'
 
 export async function getMCPToolData(
   params: OptionalFields<
@@ -13,7 +18,7 @@ export async function getMCPToolData(
     },
     'writeTo'
   >,
-): Promise<ProjectFileContext['customToolDefinitions']> {
+): Promise<CustomToolDefinitions> {
   const withDefaults = { writeTo: {}, ...params }
   const { toolNames, mcpServers, writeTo, requestMcpToolData } = withDefaults
 
@@ -41,7 +46,7 @@ export async function getMCPToolData(
 
         for (const { name, description, inputSchema } of mcpData) {
           writeTo[mcpName + '/' + name] = {
-            inputJsonSchema: inputSchema,
+            inputSchema: convertJsonSchemaToZod(inputSchema as any) as any,
             endsAgentStep: true,
             description,
           }
