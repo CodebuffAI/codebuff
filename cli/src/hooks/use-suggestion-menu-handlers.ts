@@ -30,6 +30,8 @@ interface UseSuggestionMenuHandlersOptions {
   setInputValue: (value: InputValue) => void
   setSlashSelectedIndex: (value: number | ((prev: number) => number)) => void
   setAgentSelectedIndex: (value: number | ((prev: number) => number)) => void
+  /** When true, slash menu keyboard handling is disabled (menu not shown) */
+  disableSlashMenu?: boolean
 }
 
 const hasModifier = (key: KeyEvent) =>
@@ -47,6 +49,7 @@ export const useSuggestionMenuHandlers = ({
   setInputValue,
   setSlashSelectedIndex,
   setAgentSelectedIndex,
+  disableSlashMenu = false,
 }: UseSuggestionMenuHandlersOptions) => {
   const selectSlashItem = useCallback(
     (index: number) => {
@@ -121,7 +124,8 @@ export const useSuggestionMenuHandlers = ({
 
   const handleSlashMenuKey = useCallback(
     (key: KeyEvent): boolean => {
-      if (!slashContext.active || slashMatches.length === 0) return false
+      // Only handle keys when the slash menu is visible
+      if (disableSlashMenu || !slashContext.active || slashMatches.length === 0) return false
 
       const selectCurrent = () =>
         selectSlashItem(slashSelectedIndex) || selectSlashItem(0)
@@ -162,6 +166,7 @@ export const useSuggestionMenuHandlers = ({
       return false
     },
     [
+      disableSlashMenu,
       slashContext,
       slashMatches,
       slashSelectedIndex,

@@ -495,6 +495,7 @@ export const Chat = ({
       setInputValue,
       setSlashSelectedIndex,
       setAgentSelectedIndex,
+      disableSlashMenu: getInputModeConfig(inputMode).disableSlashSuggestions,
     })
   const openFileMenuWithTab = useCallback(() => {
     const safeCursor = Math.max(0, Math.min(cursorPosition, inputValue.length))
