@@ -7,7 +7,7 @@ import {
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 
-import { processStreamWithTags } from '../tool-stream-parser'
+import { processStreamWithTools } from '../tool-stream-parser'
 import { executeCustomToolCall, executeToolCall } from './tool-executor'
 import { expireMessages } from '../util/messages'
 
@@ -33,7 +33,7 @@ export type ToolCallError = {
   error: string
 } & Omit<ToolCallPart, 'type'>
 
-export async function processStreamWithTools(
+export async function processStream(
   params: {
     agentContext: Record<string, Subgoal>
     agentTemplate: AgentTemplate
@@ -65,7 +65,7 @@ export async function processStreamWithTools(
     | 'toolResultsToAddAfterStream'
   > &
     ParamsExcluding<
-      typeof processStreamWithTags,
+      typeof processStreamWithTools,
       'processors' | 'defaultProcessor' | 'onError' | 'loggerOptions'
     >,
 ) {
@@ -171,14 +171,13 @@ export async function processStreamWithTools(
     }
   }
 
-  const streamWithTags = processStreamWithTags({
+  const streamWithTags = processStreamWithTools({
     ...params,
     processors: Object.fromEntries([
       ...toolNames.map((toolName) => [toolName, toolCallback(toolName)]),
-      ...Object.keys(fileContext.customToolDefinitions ?? {}).map((toolName) => [
-        toolName,
-        customToolCallback(toolName),
-      ]),
+      ...Object.keys(fileContext.customToolDefinitions ?? {}).map(
+        (toolName) => [toolName, customToolCallback(toolName)],
+      ),
     ]),
     defaultProcessor: customToolCallback,
     onError: (toolName, error) => {
@@ -238,8 +237,11 @@ export async function processStreamWithTools(
       fullResponseChunks.push(chunk.text)
     } else if (chunk.type === 'error') {
       onResponseChunk(chunk)
+    } else if (chunk.type === 'tool-call') {
+      // Do nothing, the onResponseChunk for tool is handled in the processor
     } else {
       chunk satisfies never
+      throw new Error(`Unhandled chunk type: ${(chunk as any).type}`)
     }
   }
 

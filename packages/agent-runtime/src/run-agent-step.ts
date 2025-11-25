@@ -15,7 +15,7 @@ import { additionalSystemPrompts } from './system-prompt/prompts'
 import { getAgentTemplate } from './templates/agent-registry'
 import { getAgentPrompt } from './templates/strings'
 import { getToolSet } from './tools/prompts'
-import { processStreamWithTools } from './tools/stream-parser'
+import { processStream } from './tools/stream-parser'
 import { getAgentOutput } from './util/agent-output'
 import {
   withSystemInstructionTags,
@@ -107,7 +107,7 @@ export const runAgentStep = async (
     trackEvent: TrackEventFn
     promptAiSdk: PromptAiSdkFn
   } & ParamsExcluding<
-    typeof processStreamWithTools,
+    typeof processStream,
     | 'agentContext'
     | 'agentState'
     | 'agentStepId'
@@ -338,6 +338,7 @@ export const runAgentStep = async (
   let fullResponse = ''
   const toolResults: ToolMessage[] = []
 
+  // Raw stream from AI SDK
   const stream = getAgentStreamFromTemplate({
     ...params,
     agentId: agentState.parentId ? agentState.agentId : undefined,
@@ -353,7 +354,7 @@ export const runAgentStep = async (
     messageId,
     toolCalls,
     toolResults: newToolResults,
-  } = await processStreamWithTools({
+  } = await processStream({
     ...params,
     agentContext,
     agentState,
