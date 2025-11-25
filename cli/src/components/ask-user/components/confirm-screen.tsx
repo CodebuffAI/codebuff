@@ -17,21 +17,15 @@ export interface AnswerSummary {
 
 export interface ConfirmScreenProps {
   onSubmit: () => void
-  onBack: () => void
   submitFocused: boolean
-  backFocused: boolean
   onSubmitMouseOver: () => void
-  onBackMouseOver: () => void
   answers: AnswerSummary[]
 }
 
 export const ConfirmScreen: React.FC<ConfirmScreenProps> = ({
   onSubmit,
-  onBack,
   submitFocused,
-  backFocused,
   onSubmitMouseOver,
-  onBackMouseOver,
   answers,
 }) => {
   const theme = useTheme()
@@ -58,28 +52,6 @@ export const ConfirmScreen: React.FC<ConfirmScreenProps> = ({
       </box>
 
       <box style={{ flexDirection: 'row', gap: 2, marginTop: 1 }}>
-        <Button
-          onClick={onBack}
-          onMouseOver={onBackMouseOver}
-          style={{
-            borderStyle: 'single',
-            borderColor: backFocused ? theme.secondary : theme.muted,
-            customBorderChars: BORDER_CHARS,
-            paddingLeft: 2,
-            paddingRight: 2,
-            backgroundColor: backFocused ? theme.surface : undefined,
-          }}
-        >
-          <text
-            style={{
-              fg: backFocused ? theme.foreground : theme.muted,
-              attributes: backFocused ? TextAttributes.BOLD : undefined,
-            }}
-          >
-            ← Back
-          </text>
-        </Button>
-
         <Button
           onClick={onSubmit}
           onMouseOver={onSubmitMouseOver}

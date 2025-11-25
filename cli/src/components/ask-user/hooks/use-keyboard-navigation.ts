@@ -6,7 +6,7 @@
 import { useCallback } from 'react'
 import { useKeyboard } from '@opentui/react'
 import type { FocusTarget, AskUserQuestion } from '../types'
-import { isFocusOnOption, isFocusOnTextInput, isFocusOnSkip, isFocusOnConfirmSubmit, isFocusOnConfirmBack, isFocusOnConfirmScreen } from '../types'
+import { isFocusOnOption, isFocusOnTextInput, isFocusOnConfirmSubmit } from '../types'
 import type { FocusAction } from './use-focus-manager'
 import { calculateNextQuestionIndex } from '../utils/navigation-handlers'
 import { ASK_USER_CONFIG } from '../constants'
@@ -30,7 +30,6 @@ export interface KeyboardNavigationParams {
   onOtherTextChange: (questionIndex: number, text: string) => void
   onChangeQuestion: (newIndex: number) => void
   onSubmit: (answers?: (number | number[])[], otherTexts?: string[]) => void
-  onSkip: () => void
   onAutoAdvance: (newAnswer: number) => void
   onTextInputAdvance: () => void
   onForceSubmit: () => void
@@ -57,7 +56,6 @@ export function useKeyboardNavigation(params: KeyboardNavigationParams) {
     onOtherTextChange,
     onChangeQuestion,
     onSubmit,
-    onSkip,
     onAutoAdvance,
     onTextInputAdvance,
     onForceSubmit,
@@ -84,15 +82,10 @@ export function useKeyboardNavigation(params: KeyboardNavigationParams) {
           if (isFocusOnTextInput(focus)) {
             return // Don't prevent default, let cursor navigation work
           }
-          // On confirm screen, switch focus between submit and back
+          // On confirm screen, go back to last question
           if (isOnConfirmScreen) {
             preventDefault()
-            if (isFocusOnConfirmSubmit(focus)) {
-              dispatchFocus({ type: 'SELECT_CONFIRM_BACK' })
-            } else {
-              // Go back to last question
-              onGoBackFromConfirm()
-            }
+            onGoBackFromConfirm()
             return
           }
           preventDefault()
@@ -114,17 +107,13 @@ export function useKeyboardNavigation(params: KeyboardNavigationParams) {
           if (isFocusOnTextInput(focus)) {
             return // Don't prevent default, let cursor navigation work
           }
-          // On confirm screen, switch focus between back and submit
+          // On confirm screen, right does nothing (already at the end)
           if (isOnConfirmScreen) {
-            preventDefault()
-            if (isFocusOnConfirmBack(focus)) {
-              dispatchFocus({ type: 'SELECT_CONFIRM_SUBMIT' })
-            }
             return
           }
           preventDefault()
-          // If on last question and all answered, go to confirm screen
-          if (isLastQuestion && allAnswered) {
+          // If on last question, go to confirm screen
+          if (isLastQuestion) {
             onGoToConfirm()
             return
           }
@@ -147,13 +136,8 @@ export function useKeyboardNavigation(params: KeyboardNavigationParams) {
 
         if (key.name === 'up' && !key.ctrl && !key.meta && !key.shift) {
           preventDefault()
-          // On confirm screen, up/down toggle between submit and back
+          // On confirm screen, up/down does nothing (only submit button)
           if (isOnConfirmScreen) {
-            if (isFocusOnConfirmSubmit(focus)) {
-              dispatchFocus({ type: 'SELECT_CONFIRM_BACK' })
-            } else {
-              dispatchFocus({ type: 'SELECT_CONFIRM_SUBMIT' })
-            }
             return
           }
           dispatchFocus({ type: 'NAVIGATE_UP' })
@@ -162,13 +146,8 @@ export function useKeyboardNavigation(params: KeyboardNavigationParams) {
 
         if (key.name === 'down' && !key.ctrl && !key.meta && !key.shift) {
           preventDefault()
-          // On confirm screen, up/down toggle between submit and back
+          // On confirm screen, up/down does nothing (only submit button)
           if (isOnConfirmScreen) {
-            if (isFocusOnConfirmSubmit(focus)) {
-              dispatchFocus({ type: 'SELECT_CONFIRM_BACK' })
-            } else {
-              dispatchFocus({ type: 'SELECT_CONFIRM_SUBMIT' })
-            }
             return
           }
           dispatchFocus({ type: 'NAVIGATE_DOWN' })
@@ -181,13 +160,8 @@ export function useKeyboardNavigation(params: KeyboardNavigationParams) {
 
         if (key.name === 'tab' && !key.ctrl && !key.meta && !key.shift) {
           preventDefault()
-          // On confirm screen, tab toggles between submit and back
+          // On confirm screen, tab does nothing (only submit button)
           if (isOnConfirmScreen) {
-            if (isFocusOnConfirmSubmit(focus)) {
-              dispatchFocus({ type: 'SELECT_CONFIRM_BACK' })
-            } else {
-              dispatchFocus({ type: 'SELECT_CONFIRM_SUBMIT' })
-            }
             return
           }
           dispatchFocus({ type: 'TAB_NEXT' })
@@ -221,15 +195,9 @@ export function useKeyboardNavigation(params: KeyboardNavigationParams) {
           } else if (isFocusOnTextInput(focus)) {
             // Advance if text input has content
             onTextInputAdvance()
-          } else if (isFocusOnSkip(focus)) {
-            // Skip
-            onSkip()
           } else if (isFocusOnConfirmSubmit(focus)) {
             // Submit from confirm screen
             onSubmit()
-          } else if (isFocusOnConfirmBack(focus)) {
-            // Go back from confirm screen
-            onGoBackFromConfirm()
           }
           return
         }
@@ -283,7 +251,6 @@ export function useKeyboardNavigation(params: KeyboardNavigationParams) {
         onOtherTextChange,
         onChangeQuestion,
         onSubmit,
-        onSkip,
         onAutoAdvance,
         onTextInputAdvance,
         onForceSubmit,

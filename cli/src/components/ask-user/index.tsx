@@ -10,12 +10,11 @@ import type { AskUserQuestion } from '../../state/chat-store'
 import { useFocusManager, useFocusActions } from './hooks/use-focus-manager'
 import { useAutoAdvance } from './hooks/use-auto-advance'
 import { useKeyboardNavigation } from './hooks/use-keyboard-navigation'
-import { useHasRoomForInlineButtons } from './hooks/use-layout-mode'
+
 import { QuestionHeader } from './components/question-header'
 import { QuestionOption } from './components/question-option'
 import { OtherTextInput } from './components/other-text-input'
-import { SkipButton } from './components/skip-button'
-import { isQuestionAnswered, areAllQuestionsAnswered, isFocusOnSkip, isFocusOnOption, isFocusOnTextInput, isFocusOnConfirmSubmit, isFocusOnConfirmBack } from './types'
+import { isQuestionAnswered, areAllQuestionsAnswered, isFocusOnOption, isFocusOnTextInput, isFocusOnConfirmSubmit } from './types'
 import { ConfirmScreen, type AnswerSummary } from './components/confirm-screen'
 
 export interface MultipleChoiceFormProps {
@@ -25,7 +24,6 @@ export interface MultipleChoiceFormProps {
   onSelectAnswer: (questionIndex: number, optionIndex: number) => void
   onOtherTextChange: (questionIndex: number, text: string) => void
   onSubmit: (finalAnswers?: (number | number[])[], finalOtherTexts?: string[]) => void
-  onSkip: () => void
   width: number
 }
 
@@ -36,13 +34,11 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
   onSelectAnswer,
   onOtherTextChange,
   onSubmit,
-  onSkip,
   width,
 }) => {
   const theme = useTheme()
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [isOnConfirmScreen, setIsOnConfirmScreen] = useState(false)
-  const [isSkipHovered, setIsSkipHovered] = useState(false)
 
   // Computed values
   const currentQuestion = questions[currentQuestionIndex]
@@ -59,7 +55,6 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
     [selectedAnswers, otherTexts]
   )
 
-  const hasRoomForInlineButtons = useHasRoomForInlineButtons(width)
 
   // Focus management
   const { focus, dispatch: dispatchFocus } = useFocusManager(questions, currentQuestionIndex)
@@ -115,7 +110,6 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
     onSubmit: (answers, texts) => {
       onSubmit(answers as number[], texts)
     },
-    onSkip,
     onAutoAdvance: handleSelection,
     onTextInputAdvance: handleTextInputAdvance,
     onForceSubmit: forceSubmit,
@@ -129,10 +123,7 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
     },
   })
 
-  // Check if skip button is focused
-  const isSkipFocused = isFocusOnSkip(focus)
   const isConfirmSubmitFocused = isFocusOnConfirmSubmit(focus)
-  const isConfirmBackFocused = isFocusOnConfirmBack(focus)
 
   // Build answer summary for confirm screen
   const answerSummary: AnswerSummary[] = useMemo(() => {
@@ -143,19 +134,20 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
       let answerText: string
       if (otherText) {
         answerText = otherText
-      } else if (Array.isArray(answer)) {
-        // Multi-select
+      } else if (Array.isArray(answer) && answer.length > 0) {
+        // Multi-select with selections
         const selectedLabels = answer.map(idx => {
           const opt = q.options[idx]
+          if (!opt) return '(invalid)'
           return typeof opt === 'string' ? opt : opt.label
         })
-        answerText = selectedLabels.join(', ') || '(none)'
-      } else if (answer >= 0 && answer < q.options.length) {
-        // Single-select
+        answerText = selectedLabels.join(', ')
+      } else if (typeof answer === 'number' && answer >= 0 && answer < q.options.length) {
+        // Single-select with valid selection
         const opt = q.options[answer]
         answerText = typeof opt === 'string' ? opt : opt.label
       } else {
-        answerText = '(none)'
+        answerText = '(skipped)'
       }
       
       return {
@@ -173,9 +165,7 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
         currentIndex={currentQuestionIndex}
         totalQuestions={questions.length}
         answeredStates={answeredStates}
-        allAnswered={allAnswered}
         isOnConfirmScreen={isOnConfirmScreen}
-        onSkip={onSkip}
         onNavigate={(newIndex) => {
           setIsOnConfirmScreen(false)
           setCurrentQuestionIndex(newIndex)
@@ -200,23 +190,16 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
             // Already at the end
             return
           }
-          if (isLastQuestion && allAnswered) {
+          if (isLastQuestion) {
+            // Go to confirm screen regardless of whether all answered
             setIsOnConfirmScreen(true)
             focusActions.resetToConfirm()
-          } else if (!isLastQuestion) {
+          } else {
             const newIndex = currentQuestionIndex + 1
             setCurrentQuestionIndex(newIndex)
             focusActions.resetToQuestion(newIndex)
           }
         }}
-        skipButtonFocused={isSkipFocused}
-        skipButtonHovered={isSkipHovered}
-        onSkipMouseOver={() => {
-          setIsSkipHovered(true)
-          focusActions.selectSkip()
-        }}
-        onSkipMouseOut={() => setIsSkipHovered(false)}
-        hasRoomForInlineButtons={hasRoomForInlineButtons}
       />
 
       {/* Question content or Confirm screen */}
@@ -224,14 +207,8 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
         <box style={{ flexDirection: 'column', gap: 1, marginTop: 1 }}>
           <ConfirmScreen
             onSubmit={() => onSubmit(selectedAnswers as number[], otherTexts)}
-            onBack={() => {
-              setIsOnConfirmScreen(false)
-              focusActions.resetToQuestion(questions.length - 1)
-            }}
             submitFocused={isConfirmSubmitFocused}
-            backFocused={isConfirmBackFocused}
             onSubmitMouseOver={() => focusActions.selectConfirmSubmit()}
-            onBackMouseOver={() => focusActions.selectConfirmBack()}
             answers={answerSummary}
           />
         </box>
@@ -288,28 +265,6 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
         </box>
       )}
 
-      {/* Skip button (if no room for inline and not on confirm screen) */}
-      {!hasRoomForInlineButtons && !isOnConfirmScreen && (
-        <box
-          style={{
-            flexDirection: 'row',
-            gap: 2,
-            marginTop: 2,
-            justifyContent: 'center',
-          }}
-        >
-          <SkipButton
-            onClick={onSkip}
-            isFocused={isSkipFocused}
-            isHovered={isSkipHovered}
-            onMouseOver={() => {
-              setIsSkipHovered(true)
-              focusActions.selectSkip()
-            }}
-            onMouseOut={() => setIsSkipHovered(false)}
-          />
-        </box>
-      )}
     </box>
   )
 }

@@ -22,7 +22,6 @@ export type FocusAction =
   | { type: 'SELECT_TEXT_INPUT'; questionIndex: number }
   | { type: 'SELECT_SKIP' }
   | { type: 'SELECT_CONFIRM_SUBMIT' }
-  | { type: 'SELECT_CONFIRM_BACK' }
   | { type: 'RESET_TO_QUESTION'; questionIndex: number }
   | { type: 'RESET_TO_CONFIRM' }
 
@@ -42,7 +41,7 @@ interface FocusReducerContext {
 function focusReducer(
   state: FocusTarget,
   action: FocusAction,
-  context: FocusReducerContext
+  context: FocusReducerContext,
 ): FocusTarget {
   const currentQuestion = context.questions[context.currentQuestionIndex]
 
@@ -84,9 +83,6 @@ function focusReducer(
     case 'SELECT_CONFIRM_SUBMIT':
       return { type: 'confirmSubmit' }
 
-    case 'SELECT_CONFIRM_BACK':
-      return { type: 'confirmBack' }
-
     case 'RESET_TO_CONFIRM':
       return { type: 'confirmSubmit' }
 
@@ -110,7 +106,7 @@ function focusReducer(
  */
 export function useFocusManager(
   questions: AskUserQuestion[],
-  currentQuestionIndex: number
+  currentQuestionIndex: number,
 ) {
   // Initial focus: first option of first question
   const initialFocus: FocusTarget = createOptionFocus(0, 0)
@@ -125,8 +121,9 @@ export function useFocusManager(
 
   // Wrap reducer with context
   const [focus, baseDispatch] = useReducer(
-    (state: FocusTarget, action: FocusAction) => focusReducer(state, action, context),
-    initialFocus
+    (state: FocusTarget, action: FocusAction) =>
+      focusReducer(state, action, context),
+    initialFocus,
   )
 
   // Memoize dispatch function
@@ -134,7 +131,7 @@ export function useFocusManager(
     (action: FocusAction) => {
       baseDispatch(action)
     },
-    [baseDispatch]
+    [baseDispatch],
   )
 
   return {
@@ -163,14 +160,14 @@ export function useFocusActions(dispatch: (action: FocusAction) => void) {
     (questionIndex: number, optionIndex: number) => {
       dispatch({ type: 'SELECT_OPTION', questionIndex, optionIndex })
     },
-    [dispatch]
+    [dispatch],
   )
 
   const selectTextInput = useCallback(
     (questionIndex: number) => {
       dispatch({ type: 'SELECT_TEXT_INPUT', questionIndex })
     },
-    [dispatch]
+    [dispatch],
   )
 
   const selectSkip = useCallback(() => {
@@ -181,15 +178,11 @@ export function useFocusActions(dispatch: (action: FocusAction) => void) {
     (questionIndex: number) => {
       dispatch({ type: 'RESET_TO_QUESTION', questionIndex })
     },
-    [dispatch]
+    [dispatch],
   )
 
   const selectConfirmSubmit = useCallback(() => {
     dispatch({ type: 'SELECT_CONFIRM_SUBMIT' })
-  }, [dispatch])
-
-  const selectConfirmBack = useCallback(() => {
-    dispatch({ type: 'SELECT_CONFIRM_BACK' })
   }, [dispatch])
 
   const resetToConfirm = useCallback(() => {
@@ -204,7 +197,6 @@ export function useFocusActions(dispatch: (action: FocusAction) => void) {
     selectTextInput,
     selectSkip,
     selectConfirmSubmit,
-    selectConfirmBack,
     resetToQuestion,
     resetToConfirm,
   }

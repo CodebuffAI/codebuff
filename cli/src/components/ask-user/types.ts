@@ -15,7 +15,7 @@ export type FocusTarget =
   | { type: 'textInput'; questionIndex: number }
   | { type: 'skip' }
   | { type: 'confirmSubmit' }
-  | { type: 'confirmBack' }
+
 
 /** Type alias for option focus */
 export type OptionFocus = Extract<FocusTarget, { type: 'option' }>
@@ -29,8 +29,6 @@ export type SkipFocus = Extract<FocusTarget, { type: 'skip' }>
 /** Type alias for confirm submit button focus */
 export type ConfirmSubmitFocus = Extract<FocusTarget, { type: 'confirmSubmit' }>
 
-/** Type alias for confirm back button focus */
-export type ConfirmBackFocus = Extract<FocusTarget, { type: 'confirmBack' }>
 
 /**
  * Answer state can be:
@@ -92,18 +90,13 @@ export const isFocusOnConfirmSubmit = (target: FocusTarget): target is ConfirmSu
   return target.type === 'confirmSubmit'
 }
 
-/**
- * Type guard: check if focus is on confirm back button
- */
-export const isFocusOnConfirmBack = (target: FocusTarget): target is ConfirmBackFocus => {
-  return target.type === 'confirmBack'
-}
+
 
 /**
  * Type guard: check if focus is on confirm screen (either button)
  */
 export const isFocusOnConfirmScreen = (target: FocusTarget): boolean => {
-  return target.type === 'confirmSubmit' || target.type === 'confirmBack'
+  return target.type === 'confirmSubmit'
 }
 
 /**
@@ -155,12 +148,7 @@ export const createConfirmSubmitFocus = (): ConfirmSubmitFocus => ({
   type: 'confirmSubmit',
 })
 
-/**
- * Create focus target for confirm back button
- */
-export const createConfirmBackFocus = (): ConfirmBackFocus => ({
-  type: 'confirmBack',
-})
+
 
 // ====================
 // Helper Functions

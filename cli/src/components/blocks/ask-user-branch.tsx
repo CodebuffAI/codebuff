@@ -17,7 +17,7 @@ export const AskUserBranch = ({ block, availableWidth }: AskUserBranchProps) => 
       style={{
         flexDirection: 'column',
         gap: 0,
-        width: availableWidth,
+        width: Math.max(10, availableWidth - 2),
         borderStyle: 'single',
         borderColor: theme.secondary,
         customBorderChars: BORDER_CHARS,

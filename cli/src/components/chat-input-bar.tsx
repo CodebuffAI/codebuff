@@ -89,7 +89,7 @@ export const ChatInputBar = ({
   const askUserState = useChatStore((state) => state.askUserState)
   const updateAskUserAnswer = useChatStore((state) => state.updateAskUserAnswer)
   const updateAskUserOtherText = useChatStore((state) => state.updateAskUserOtherText)
-  const { submitAnswers, skip } = useAskUserBridge()
+  const { submitAnswers } = useAskUserBridge()
 
   if (feedbackMode) {
     return (
@@ -149,15 +149,21 @@ export const ChatInputBar = ({
 
       if (Array.isArray(answer)) {
         // Multi-select: map array of indices to array of option labels
+        // Empty array means skipped
         return {
           questionIndex: idx,
-          selectedOptions: answer.map(getOptionLabel),
+          selectedOptions: answer.length > 0 ? answer.map(getOptionLabel) : undefined,
         }
-      } else {
-        // Single-select: map index to option label
+      } else if (typeof answer === 'number' && answer >= 0 && answer < q.options.length) {
+        // Single-select with valid answer
         return {
           questionIndex: idx,
           selectedOption: getOptionLabel(answer),
+        }
+      } else {
+        // Skipped (answer is -1 or invalid)
+        return {
+          questionIndex: idx,
         }
       }
     })
@@ -189,7 +195,6 @@ export const ChatInputBar = ({
           onSelectAnswer={updateAskUserAnswer}
           onOtherTextChange={updateAskUserOtherText}
           onSubmit={handleFormSubmit}
-          onSkip={skip}
           width={inputWidth}
         />
       </box>
