@@ -328,8 +328,10 @@ function* handleStepsMax({
   } satisfies ToolCall<'spawn_agents'>
 
   const selectorOutput = extractSpawnResults<{
-    implementationId: string
-    reasoning: string
+    value: {
+      implementationId: string
+      reasoning: string
+    }
   }>(selectorResult)[0]
 
   if ('errorMessage' in selectorOutput) {
@@ -339,7 +341,7 @@ function* handleStepsMax({
     } satisfies ToolCall<'set_output'>
     return
   }
-  const { implementationId } = selectorOutput
+  const { implementationId } = selectorOutput.value
   const chosenImplementation = implementations.find(
     (implementation) => implementation.id === implementationId,
   )
