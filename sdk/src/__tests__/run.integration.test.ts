@@ -1,4 +1,3 @@
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { describe, expect, it } from 'bun:test'
 
 import { CodebuffClient } from '../client'
@@ -12,7 +11,7 @@ describe('Prompt Caching', () => {
         'Ignore this text. This is just to make the prompt longer. '.repeat(500)
       const prompt = 'respond with "hi"'
 
-      const apiKey = process.env[API_KEY_ENV_VAR]
+      const apiKey = '12345'
       if (!apiKey) {
         throw new Error('API key not found')
       }

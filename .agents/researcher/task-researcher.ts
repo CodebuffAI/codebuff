@@ -97,10 +97,8 @@ Important: the report should only include the analysis, key facts, and relevant 
       const userMessages = messageHistory.filter(
         (message) =>
           message.role === 'user' &&
-          (typeof message.content === 'string'
-            ? message.content.includes('<user_message>')
-            : message.content[0].type === 'text' &&
-              message.content[0].text.includes('<user_message>')),
+          message.content[0].type === 'text' &&
+          message.content[0].text.includes('<user_message>'),
       )
       const lastUserMessage = userMessages[userMessages.length - 2]
       let userPrompt = prompt
