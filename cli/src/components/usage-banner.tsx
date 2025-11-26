@@ -1,32 +1,41 @@
-import type { UserState } from '@codebuff/common/old-constants'
-import { useQuery } from '@tanstack/react-query'
-import React, { useEffect, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import React, { useEffect } from 'react'
 
 import { BannerWrapper } from './banner-wrapper'
 import { useTheme } from '../hooks/use-theme'
 import { usageQueryKeys, useUsageQuery } from '../hooks/use-usage-query'
 import { useChatStore } from '../state/chat-store'
-import { getAuthToken } from '../utils/auth'
 import {
   getBannerColorLevel,
   generateUsageBannerText,
   generateLoadingBannerText,
-  shouldAutoShowBanner,
 } from '../utils/usage-banner-state'
 
 const MANUAL_SHOW_TIMEOUT = 60 * 1000 // 1 minute
-const AUTO_SHOW_TIMEOUT = 5 * 60 * 1000 // 5 minutes
+const USAGE_POLL_INTERVAL = 30 * 1000 // 30 seconds
 
-export const UsageBanner = () => {
+export const UsageBanner = ({ showTime }: { showTime: number }) => {
   const theme = useTheme()
+  const queryClient = useQueryClient()
   const sessionCreditsUsed = useChatStore((state) => state.sessionCreditsUsed)
-  const isChainInProgress = useChatStore((state) => state.isChainInProgress)
   const setInputMode = useChatStore((state) => state.setInputMode)
 
-  const [isAutoShown, setIsAutoShown] = useState(false)
-  const lastWarnedStateRef = useRef<UserState | null>(null)
+  const {
+    data: apiData,
+    isLoading,
+    isFetching,
+  } = useUsageQuery({
+    enabled: true,
+  })
 
-  const { data: apiData, isLoading, isFetching } = useUsageQuery({ enabled: true })
+  // Manual polling using setInterval - TanStack Query's refetchInterval doesn't work
+  // reliably in terminal environments even with focusManager configuration
+  useEffect(() => {
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: usageQueryKeys.current() })
+    }, USAGE_POLL_INTERVAL)
+    return () => clearInterval(interval)
+  }, [queryClient])
 
   const { data: cachedUsageData } = useQuery<{
     type: 'usage-response'
@@ -39,34 +48,13 @@ export const UsageBanner = () => {
     enabled: false,
   })
 
-  // Credit warning monitoring logic
+  // Auto-hide after timeout
   useEffect(() => {
-    const authToken = getAuthToken()
-    const decision = shouldAutoShowBanner(
-      isChainInProgress,
-      !!authToken,
-      cachedUsageData?.remainingBalance ?? null,
-      lastWarnedStateRef.current,
-    )
-
-    if (decision.newWarningState !== lastWarnedStateRef.current) {
-      lastWarnedStateRef.current = decision.newWarningState
-    }
-
-    if (decision.shouldShow) {
-      setIsAutoShown(true)
-    }
-  }, [isChainInProgress, cachedUsageData])
-
-  // Auto-hide effect
-  useEffect(() => {
-    const timeout = isAutoShown ? AUTO_SHOW_TIMEOUT : MANUAL_SHOW_TIMEOUT
     const timer = setTimeout(() => {
       setInputMode('default')
-      setIsAutoShown(false)
-    }, timeout)
+    }, MANUAL_SHOW_TIMEOUT)
     return () => clearTimeout(timer)
-  }, [isAutoShown, setInputMode])
+  }, [showTime, setInputMode])
 
   const activeData = apiData || cachedUsageData
   const isLoadingData = isLoading || isFetching

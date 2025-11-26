@@ -65,6 +65,8 @@ export async function fetchUsageData({
 export interface UseUsageQueryDeps {
   logger?: Logger
   enabled?: boolean
+  refetchInterval?: number | false
+  refetchIntervalInBackground?: boolean
 }
 
 /**
@@ -72,19 +74,26 @@ export interface UseUsageQueryDeps {
  * Returns TanStack Query result directly - no store synchronization needed
  */
 export function useUsageQuery(deps: UseUsageQueryDeps = {}) {
-  const { logger = defaultLogger, enabled = true } = deps
+  const { 
+    logger = defaultLogger, 
+    enabled = true, 
+    refetchInterval = false,
+    refetchIntervalInBackground = false,
+  } = deps
   const authToken = getAuthToken()
 
   return useQuery({
     queryKey: usageQueryKeys.current(),
     queryFn: () => fetchUsageData({ authToken: authToken!, logger }),
     enabled: enabled && !!authToken,
-    staleTime: 30 * 1000, // 30 seconds - usage data changes as user makes requests
+    staleTime: 0, // Always consider data stale for immediate refetching
     gcTime: 5 * 60 * 1000, // 5 minutes
     retry: false, // Don't retry failed usage queries
-    refetchOnMount: false, // Don't auto-refetch on mount
+    refetchOnMount: 'always', // Always refetch on mount to get fresh data when banner opens
     refetchOnWindowFocus: false, // CLI doesn't have window focus
     refetchOnReconnect: false, // Don't auto-refetch on reconnect
+    refetchInterval, // Poll at specified interval (when banner is visible)
+    refetchIntervalInBackground, // Required for terminal environments without browser visibility API
   })
 }
 

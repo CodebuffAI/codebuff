@@ -1,29 +1,49 @@
-import { UserState, getUserState } from '@codebuff/common/old-constants'
-
 export const HIGH_CREDITS_THRESHOLD = 1000
-export const MEDIUM_CREDITS_THRESHOLD = 100
+export const MEDIUM_CREDITS_THRESHOLD = 500
+export const LOW_CREDITS_THRESHOLD = 100
 
 export type BannerColorLevel = 'success' | 'warning' | 'error'
+
+export type CreditTier = 'high' | 'medium' | 'low' | 'out'
+
+export type ThresholdInfo = {
+  tier: CreditTier
+  colorLevel: BannerColorLevel
+  threshold: number
+}
+
+/**
+ * Gets comprehensive threshold information for a given credit balance.
+ * This is the single source of truth for credit tier classification.
+ */
+export function getThresholdInfo(balance: number | null): ThresholdInfo {
+  if (balance === null) {
+    return { tier: 'medium', colorLevel: 'warning', threshold: MEDIUM_CREDITS_THRESHOLD }
+  }
+  if (balance >= HIGH_CREDITS_THRESHOLD) {
+    return { tier: 'high', colorLevel: 'success', threshold: HIGH_CREDITS_THRESHOLD }
+  }
+  if (balance >= MEDIUM_CREDITS_THRESHOLD) {
+    return { tier: 'medium', colorLevel: 'warning', threshold: MEDIUM_CREDITS_THRESHOLD }
+  }
+  if (balance >= LOW_CREDITS_THRESHOLD) {
+    return { tier: 'low', colorLevel: 'warning', threshold: LOW_CREDITS_THRESHOLD }
+  }
+  return { tier: 'out', colorLevel: 'error', threshold: 0 }
+}
 
 /**
  * Determines the appropriate color level for the usage banner based on credit balance.
  *
  * Color mapping:
  * - success (green): >= 1000 credits
- * - warning (yellow): 100-999 credits OR balance is null/unknown
+ * - warning (yellow): 100-999 credits OR balance is null/unknown  
  * - error (red): < 100 credits
+ *
+ * @deprecated Use getThresholdInfo(balance).colorLevel instead
  */
 export function getBannerColorLevel(balance: number | null): BannerColorLevel {
-  if (balance === null) {
-    return 'warning'
-  }
-  if (balance >= HIGH_CREDITS_THRESHOLD) {
-    return 'success'
-  }
-  if (balance >= MEDIUM_CREDITS_THRESHOLD) {
-    return 'warning'
-  }
-  return 'error'
+  return getThresholdInfo(balance).colorLevel
 }
 
 export interface UsageBannerTextOptions {
@@ -77,58 +97,70 @@ export function generateUsageBannerText(options: UsageBannerTextOptions): string
   return text
 }
 
+/**
+ * Gets the threshold tier for a given balance.
+ * Returns null if balance is above all thresholds.
+ */
+function getThresholdTier(balance: number): number | null {
+  if (balance < LOW_CREDITS_THRESHOLD) return LOW_CREDITS_THRESHOLD
+  if (balance < MEDIUM_CREDITS_THRESHOLD) return MEDIUM_CREDITS_THRESHOLD
+  if (balance < HIGH_CREDITS_THRESHOLD) return HIGH_CREDITS_THRESHOLD
+  return null
+}
+
 export interface AutoShowDecision {
   shouldShow: boolean
-  newWarningState: UserState | null
+  newWarningThreshold: number | null
 }
 
 /**
- * Determines whether the usage banner should auto-show based on credit state changes.
+ * Determines whether the usage banner should auto-show based on credit threshold crossings.
  *
  * The banner auto-shows when:
  * - User is not in a chain (isChainInProgress = false)
  * - User is authenticated (hasAuthToken = true)
  * - User has credit data available (remainingBalance !== null)
- * - User enters a new low-credit state that hasn't been warned about yet
+ * - User crosses a new threshold (1000, 500, or 100) that hasn't been warned about yet
  */
 export function shouldAutoShowBanner(
   isChainInProgress: boolean,
   hasAuthToken: boolean,
   remainingBalance: number | null,
-  lastWarnedState: UserState | null,
+  lastWarnedThreshold: number | null,
 ): AutoShowDecision {
   // Don't show during active chains
   if (isChainInProgress) {
-    return { shouldShow: false, newWarningState: lastWarnedState }
+    return { shouldShow: false, newWarningThreshold: lastWarnedThreshold }
   }
 
   // Don't show for unauthenticated users
   if (!hasAuthToken) {
-    return { shouldShow: false, newWarningState: lastWarnedState }
+    return { shouldShow: false, newWarningThreshold: lastWarnedThreshold }
   }
 
   // Don't show if we don't have balance data
   if (remainingBalance === null) {
-    return { shouldShow: false, newWarningState: lastWarnedState }
+    return { shouldShow: false, newWarningThreshold: lastWarnedThreshold }
   }
 
-  const userState = getUserState(true, remainingBalance)
+  const currentThreshold = getThresholdTier(remainingBalance)
 
-  // Clear warning state if user is in good standing
-  if (userState === UserState.GOOD_STANDING) {
-    return { shouldShow: false, newWarningState: null }
+  // Clear warning state if user is back above all thresholds
+  if (currentThreshold === null) {
+    return { shouldShow: false, newWarningThreshold: null }
   }
 
-  // Show banner for new warning states
-  const isWarningState =
-    userState === UserState.ATTENTION_NEEDED ||
-    userState === UserState.CRITICAL ||
-    userState === UserState.DEPLETED
+  // Show banner if we've crossed a new threshold we haven't warned about
+  // A "new" threshold means either:
+  // 1. We haven't warned about any threshold yet (lastWarnedThreshold === null)
+  // 2. The current threshold is lower than what we last warned about
+  const isNewThreshold =
+    lastWarnedThreshold === null || currentThreshold < lastWarnedThreshold
 
-  if (isWarningState && lastWarnedState !== userState) {
-    return { shouldShow: true, newWarningState: userState }
+  if (isNewThreshold) {
+    return { shouldShow: true, newWarningThreshold: currentThreshold }
   }
 
-  // Already warned about this state
-  return { shouldShow: false, newWarningState: lastWarnedState }
+  // Already warned about this threshold
+  return { shouldShow: false, newWarningThreshold: lastWarnedThreshold }
 }

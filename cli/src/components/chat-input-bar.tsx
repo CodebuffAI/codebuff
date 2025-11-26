@@ -20,10 +20,16 @@ import type { InputMode } from '../utils/input-modes'
 
 type Theme = ReturnType<typeof useTheme>
 
-const InputModeBanner = ({ inputMode }: { inputMode: InputMode }) => {
+const InputModeBanner = ({
+  inputMode,
+  usageBannerShowTime,
+}: {
+  inputMode: InputMode
+  usageBannerShowTime: number
+}) => {
   switch (inputMode) {
     case 'usage':
-      return <UsageBanner />
+      return <UsageBanner showTime={usageBannerShowTime} />
     case 'referral':
       return <ReferralBanner />
     default:
@@ -103,6 +109,16 @@ export const ChatInputBar = ({
 }: ChatInputBarProps) => {
   const inputMode = useChatStore((state) => state.inputMode)
   const setInputMode = useChatStore((state) => state.setInputMode)
+
+  const [usageBannerShowTime, setUsageBannerShowTime] = React.useState(
+    () => Date.now(),
+  )
+
+  React.useEffect(() => {
+    if (inputMode === 'usage') {
+      setUsageBannerShowTime(Date.now())
+    }
+  }, [inputMode])
 
   const modeConfig = getInputModeConfig(inputMode)
   const askUserState = useChatStore((state) => state.askUserState)
@@ -336,7 +352,10 @@ export const ChatInputBar = ({
           </box>
         </box>
       </box>
-      <InputModeBanner inputMode={inputMode} />
+      <InputModeBanner
+        inputMode={inputMode}
+        usageBannerShowTime={usageBannerShowTime}
+      />
     </>
   )
 }

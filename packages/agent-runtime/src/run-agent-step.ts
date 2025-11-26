@@ -862,12 +862,13 @@ export async function loopAgentSteps(
       'Agent execution failed',
     )
 
-    // Re-throw NetworkError to allow SDK retry wrapper to handle it
-    if (error instanceof Error && error.name === 'NetworkError') {
+    // Re-throw NetworkError and PaymentRequiredError to allow SDK retry wrapper to handle it
+    if (error instanceof Error && (error.name === 'NetworkError' || error.name === 'PaymentRequiredError')) {
       throw error
     }
 
-    const errorMessage = typeof error === 'string' ? error : `${error}`
+    // Extract clean error message (just the message, not name:message format)
+    const errorMessage = error instanceof Error ? error.message : String(error)
 
     const status = checkLiveUserInput(params) ? 'failed' : 'cancelled'
     await finishAgentRun({
@@ -880,12 +881,11 @@ export async function loopAgentSteps(
       errorMessage,
     })
 
-    const errorObject = getErrorObject(error)
     return {
       agentState: currentAgentState,
       output: {
         type: 'error',
-        message: `${errorObject.name}: ${errorObject.message} ${errorObject.stack ? `\n${errorObject.stack}` : ''}`,
+        message: errorMessage,
       },
     }
   }

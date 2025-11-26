@@ -1,6 +1,7 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import { getErrorObject } from '@codebuff/common/util/error'
+import { pluralize } from '@codebuff/common/util/string'
 import { env } from '@codebuff/internal/env'
 import { NextResponse } from 'next/server'
 
@@ -26,6 +27,42 @@ import type {
   LoggerWithContextFn,
 } from '@codebuff/common/types/contracts/logger'
 import type { NextRequest } from 'next/server'
+
+export const formatQuotaResetCountdown = (
+  nextQuotaReset: string | null | undefined,
+): string => {
+  if (!nextQuotaReset) {
+    return 'soon'
+  }
+
+  const resetDate = new Date(nextQuotaReset)
+  if (Number.isNaN(resetDate.getTime())) {
+    return 'soon'
+  }
+
+  const now = Date.now()
+  const diffMs = resetDate.getTime() - now
+  if (diffMs <= 0) {
+    return 'soon'
+  }
+
+  const minuteMs = 60 * 1000
+  const hourMs = 60 * minuteMs
+  const dayMs = 24 * hourMs
+
+  const days = Math.floor(diffMs / dayMs)
+  if (days > 0) {
+    return `in ${pluralize(days, 'day')}`
+  }
+
+  const hours = Math.floor(diffMs / hourMs)
+  if (hours > 0) {
+    return `in ${pluralize(hours, 'hour')}`
+  }
+
+  const minutes = Math.max(1, Math.floor(diffMs / minuteMs))
+  return `in ${pluralize(minutes, 'minute')}`
+}
 
 export async function postChatCompletions(params: {
   req: NextRequest
@@ -138,9 +175,10 @@ export async function postChatCompletions(params: {
         },
         logger,
       })
+      const resetCountdown = formatQuotaResetCountdown(nextQuotaReset)
       return NextResponse.json(
         {
-          message: `Insufficient credits. Please add credits at ${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage or wait for your next cycle to begin (${nextQuotaReset}).`,
+          message: `Out of credits. Please add credits at ${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage. Your free credits reset ${resetCountdown}.`,
         },
         { status: 402 },
       )

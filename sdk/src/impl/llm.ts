@@ -21,7 +21,7 @@ import {
 import { streamText, APICallError, generateText, generateObject } from 'ai'
 
 import { WEBSITE_URL } from '../constants'
-import { NetworkError, ErrorCodes } from '../errors'
+import { NetworkError, PaymentRequiredError, ErrorCodes } from '../errors'
 
 import type { ErrorCode } from '../errors'
 import type { LanguageModelV2 } from '@ai-sdk/provider'
@@ -262,7 +262,19 @@ export async function* promptAiSdkStream(
       if (APICallError.isInstance(chunk.error)) {
         statusCode = chunk.error.statusCode
         if (statusCode) {
-          if (statusCode === 503) {
+          if (statusCode === 402) {
+            // Payment required - extract message from JSON response body
+            let paymentErrorMessage = mainErrorMessage
+            if (errorBody) {
+              try {
+                const parsed = JSON.parse(errorBody)
+                paymentErrorMessage = parsed.message || errorBody
+              } catch {
+                paymentErrorMessage = errorBody
+              }
+            }
+            throw new PaymentRequiredError(paymentErrorMessage)
+          } else if (statusCode === 503) {
             errorCode = ErrorCodes.SERVICE_UNAVAILABLE
           } else if (statusCode >= 500) {
             errorCode = ErrorCodes.SERVER_ERROR

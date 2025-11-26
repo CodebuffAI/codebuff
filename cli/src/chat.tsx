@@ -39,6 +39,7 @@ import { useSuggestionMenuHandlers } from './hooks/use-suggestion-menu-handlers'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTheme } from './hooks/use-theme'
 import { useTimeout } from './hooks/use-timeout'
+import { useUsageMonitor } from './hooks/use-usage-monitor'
 
 import { useChatStore } from './state/chat-store'
 import { getInputModeConfig } from './utils/input-modes'
@@ -117,6 +118,9 @@ export const Chat = ({
 
   // Subscribe to ask_user bridge to trigger form display
   useAskUserBridge()
+
+  // Monitor usage data and auto-show banner when thresholds are crossed
+  useUsageMonitor()
 
   const {
     inputValue,

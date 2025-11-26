@@ -12,7 +12,7 @@ import { cloneDeep } from 'lodash'
 
 import { getAgentRuntimeImpl } from './impl/agent-runtime'
 import { getUserInfoFromApiKey } from './impl/database'
-import { RETRYABLE_ERROR_CODES, isNetworkError, ErrorCodes, NetworkError } from './errors'
+import { RETRYABLE_ERROR_CODES, isNetworkError, isPaymentRequiredError, ErrorCodes, NetworkError, sanitizeErrorMessage } from './errors'
 import type { ErrorCode } from './errors'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { initialSessionState, applyOverridesToSessionState } from './run-state'
@@ -374,8 +374,13 @@ export async function run(
       }
 
       // Unexpected exception - convert to error output and check if retryable
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      const errorCode = isNetworkError(error) ? error.code : undefined
+      // Use sanitizeErrorMessage to get clean user-facing message without stack traces
+      const errorMessage = sanitizeErrorMessage(error)
+      const errorCode = isNetworkError(error)
+        ? error.code
+        : isPaymentRequiredError(error)
+          ? error.code
+          : undefined
       const retryableCode = errorCode ?? getRetryableErrorCode(errorMessage)
 
       const canRetry =
@@ -413,6 +418,7 @@ export async function run(
           output: {
             type: 'error',
             message: errorMessage,
+            ...(errorCode && { errorCode }),
           },
         }
       }
@@ -793,20 +799,22 @@ export async function runOnce({
     userId,
     signal: signal ?? new AbortController().signal,
   }).catch((error) => {
-    // Let retryable errors propagate so the retry wrapper can handle them
+    // Let retryable errors and PaymentRequiredError propagate so the retry wrapper can handle them
     const isRetryable = isRetryableError(error)
+    const isPaymentRequired = isPaymentRequiredError(error)
     logger?.warn(
       {
         isNetworkError: isNetworkError(error),
-        errorCode: isNetworkError(error) ? error.code : undefined,
+        isPaymentRequired,
+        errorCode: isNetworkError(error) ? error.code : isPaymentRequired ? error.code : undefined,
         isRetryable,
         error: getErrorObject(error),
       },
       'callMainPrompt caught error, checking if retryable',
     )
 
-    if (isRetryable) {
-      // Reject the promise so the retry wrapper can catch it
+    if (isRetryable || isPaymentRequired) {
+      // Reject the promise so the retry wrapper can catch it and include the error code
       reject(error)
       return
     }
