@@ -300,6 +300,8 @@ export async function runProgrammaticStep(
         //   agentId: agentState.agentId,
         //   parentAgentId: agentState.parentId,
         // })
+        // NOTE(James): agentState.messageHistory is readonly for some reason (?!). Recreating the array is a workaround. We should figure out why it's frozen.
+        agentState.messageHistory = [...agentState.messageHistory]
         agentState.messageHistory.push(assistantMessage(toolCallPart))
         // Optional call handles both top-level and nested agents
         // sendSubagentChunk({
