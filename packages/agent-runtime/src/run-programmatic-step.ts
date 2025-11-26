@@ -7,6 +7,8 @@ import { executeToolCall } from './tools/tool-executor'
 import type { FileProcessingState } from './tools/handlers/tool/write-file'
 import type { ExecuteToolCallParams } from './tools/tool-executor'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
+import { HandleStepsYieldValueSchema } from '@codebuff/common/types/agent-template'
+
 import type {
   AgentTemplate,
   StepGenerator,
@@ -234,6 +236,16 @@ export async function runProgrammaticStep(
         endTurn = true
         break
       }
+
+      // Validate the yield value from handleSteps
+      const parseResult = HandleStepsYieldValueSchema.safeParse(result.value)
+      if (!parseResult.success) {
+        throw new Error(
+          `Invalid yield value from handleSteps in agent ${template.id}: ${parseResult.error.message}. ` +
+            `Received: ${JSON.stringify(result.value)}`,
+        )
+      }
+
       if (result.value === 'STEP') {
         break
       }
