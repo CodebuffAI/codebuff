@@ -39,11 +39,11 @@ export function createBestOfNEditor(
     spawnableAgents: buildArray(
       'best-of-n-selector',
       'best-of-n-selector-opus',
-      isDefault && 'best-of-n-selector-gemini',
+      'best-of-n-selector-gemini',
       'editor-implementor',
       'editor-implementor-opus',
-      isDefault && 'editor-implementor-gemini',
-      isMax && 'editor-implementor-gpt-5',
+      'editor-implementor-gemini',
+      'editor-implementor-gpt-5',
     ),
 
     inputSchema: {
@@ -230,6 +230,7 @@ function* handleStepsDefault({
 }
 function* handleStepsMax({
   params,
+  logger,
 }: AgentStepContext): ReturnType<
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
@@ -269,8 +270,9 @@ function* handleStepsMax({
   } satisfies ToolCall<'spawn_agents'>
 
   // Extract spawn results
-  const spawnedImplementations =
-    extractSpawnResults<{ text: string }[]>(implementorResults)
+  const spawnedImplementations = extractSpawnResults(
+    implementorResults,
+  ) as any[]
 
   // Extract all the plans from the structured outputs
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -280,8 +282,13 @@ function* handleStepsMax({
     content:
       'errorMessage' in result
         ? `Error: ${result.errorMessage}`
-        : result[0].text,
+        : extractLastMessageText(result),
   }))
+
+  logger.info(
+    { spawnedImplementations, implementations },
+    'spawnedImplementations',
+  )
 
   // Spawn selector with implementations as params
   const { toolResult: selectorResult } = yield {
@@ -321,15 +328,9 @@ function* handleStepsMax({
     return
   }
 
-  // Apply the chosen implementation using STEP_TEXT (only tool calls, no commentary)
-  const toolCallsOnly = extractToolCallsOnly(
-    typeof chosenImplementation.content === 'string'
-      ? chosenImplementation.content
-      : '',
-  )
   const { agentState: postEditsAgentState } = yield {
     type: 'STEP_TEXT',
-    text: toolCallsOnly,
+    text: chosenImplementation.content,
   } as StepText
   const { messageHistory } = postEditsAgentState
   const lastAssistantMessageIndex = messageHistory.findLastIndex(
@@ -352,37 +353,60 @@ function* handleStepsMax({
     includeToolCall: false,
   } satisfies ToolCall<'set_output'>
 
-  function extractSpawnResults<T>(
-    results: any[] | undefined,
-  ): (T | { errorMessage: string })[] {
-    if (!results) return []
-    const spawnedResults = results
-      .filter((result) => result.type === 'json')
-      .map((result) => result.value)
-      .flat() as {
-      agentType: string
-      value: { value?: T; errorMessage?: string }
-    }[]
-    return spawnedResults.map(
-      (result) =>
-        result.value.value ?? {
-          errorMessage:
-            result.value.errorMessage ?? 'Error extracting spawn results',
-        },
-    )
+  /**
+   * Extracts the array of subagent results from spawn_agents tool output.
+   *
+   * The spawn_agents tool result structure is:
+   * [{ type: 'json', value: [{ agentName, agentType, value: AgentOutput }] }]
+   *
+   * Returns an array of agent outputs, one per spawned agent.
+   */
+  function extractSpawnResults<T>(results: any[] | undefined): T[] {
+    if (!results || results.length === 0) return []
+
+    // Find the json result containing spawn results
+    const jsonResult = results.find((r) => r.type === 'json')
+    if (!jsonResult?.value) return []
+
+    // Get the spawned agent results array
+    const spawnedResults = Array.isArray(jsonResult.value)
+      ? jsonResult.value
+      : [jsonResult.value]
+
+    // Extract the value (AgentOutput) from each result
+    return spawnedResults.map((result: any) => result?.value).filter(Boolean)
   }
 
-  // Extract only tool calls from text, removing any commentary
-  function extractToolCallsOnly(text: string): string {
-    const toolExtractionPattern =
-      /<codebuff_tool_call>\n(.*?)\n<\/codebuff_tool_call>/gs
-    const matches: string[] = []
+  /**
+   * Extracts the text content from a 'lastMessage' AgentOutput.
+   *
+   * For agents with outputMode: 'last_message', the output structure is:
+   * { type: 'lastMessage', value: [{ role: 'assistant', content: [{ type: 'text', text: '...' }] }] }
+   *
+   * Returns the text from the last assistant message, or null if not found.
+   */
+  function extractLastMessageText(agentOutput: any): string | null {
+    if (!agentOutput) return null
 
-    for (const match of text.matchAll(toolExtractionPattern)) {
-      matches.push(match[0]) // Include the full tool call with tags
+    // Handle 'lastMessage' output mode - the value contains an array of messages
+    if (
+      agentOutput.type === 'lastMessage' &&
+      Array.isArray(agentOutput.value)
+    ) {
+      // Find the last assistant message with text content
+      for (let i = agentOutput.value.length - 1; i >= 0; i--) {
+        const message = agentOutput.value[i]
+        if (message.role === 'assistant' && Array.isArray(message.content)) {
+          // Find text content in the message
+          for (const part of message.content) {
+            if (part.type === 'text' && typeof part.text === 'string') {
+              return part.text
+            }
+          }
+        }
+      }
     }
-
-    return matches.join('\n')
+    return null
   }
 }
 
