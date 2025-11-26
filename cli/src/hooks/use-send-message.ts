@@ -1722,7 +1722,7 @@ export const useSendMessage = ({
                       } else {
                         output = formatToolOutput(event.output)
                       }
-                      return { ...block, output }
+                      return { ...block, output, outputRaw: event.output }
                     } else if (block.type === 'agent' && block.blocks) {
                       const updatedBlocks = updateToolBlock(block.blocks)
                       // Avoid creating new block if nested blocks didn't change

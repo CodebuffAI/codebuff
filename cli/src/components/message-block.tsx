@@ -4,6 +4,7 @@ import React, { memo, useCallback, useMemo, useState, type ReactNode } from 'rea
 
 import { AgentBranchItem } from './agent-branch-item'
 import { Button } from './button'
+import { ImplementorGroup } from './implementor-row'
 import { MessageFooter } from './message-footer'
 import { ValidationErrorPopover } from './validation-error-popover'
 import { useTheme } from '../hooks/use-theme'
@@ -462,6 +463,36 @@ const AgentBody = memo(
 
         case 'agent': {
           const agentBlock = nestedBlock as AgentContentBlock
+
+          // Group consecutive implementor agents together
+          if (isImplementorAgent(agentBlock.agentType)) {
+            const start = nestedIdx
+            const implementorGroup: AgentContentBlock[] = []
+            while (nestedIdx < nestedBlocks.length) {
+              const block = nestedBlocks[nestedIdx]
+              if (
+                block.type !== 'agent' ||
+                !isImplementorAgent(block.agentType)
+              ) {
+                break
+              }
+              implementorGroup.push(block)
+              nestedIdx++
+            }
+
+            nodes.push(
+              <ImplementorGroup
+                key={`${keyPrefix}-implementor-group-${start}`}
+                implementors={implementorGroup}
+                siblingBlocks={nestedBlocks}
+                onToggleCollapsed={onToggleCollapsed}
+                availableWidth={availableWidth}
+              />,
+            )
+            break
+          }
+
+          // Regular agent rendering
           nodes.push(
             <AgentBranchWrapper
               key={`${keyPrefix}-agent-${nestedIdx}`}
@@ -593,58 +624,8 @@ const AgentBranchWrapper = memo(
       )
     }
 
-    // Render implementor agents as simple tool calls
-    if (isImplementorAgent(agentBlock.agentType)) {
-      const isStreaming =
-        agentBlock.status === 'running' ||
-        streamingAgents.has(agentBlock.agentId)
-      const isComplete = agentBlock.status === 'complete'
-      const isFailed = agentBlock.status === 'failed'
-      const implementorIndex = siblingBlocks
-        ? getImplementorIndex(
-            agentBlock.agentId,
-            agentBlock.agentType,
-            siblingBlocks,
-          )
-        : undefined
-      const displayName = getImplementorDisplayName(
-        agentBlock.agentType,
-        implementorIndex,
-      )
-      const statusIndicator = isStreaming
-        ? '●'
-        : isFailed
-          ? '✗'
-          : isComplete
-            ? '✓'
-            : '○'
-      const statusColor = isStreaming
-        ? theme.primary
-        : isFailed
-          ? 'red'
-          : isComplete
-            ? theme.foreground
-            : theme.muted
-
-      return (
-        <box
-          key={keyPrefix}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            width: '100%',
-          }}
-        >
-          <text style={{ wrapMode: 'word' }}>
-            <span fg={statusColor}>{statusIndicator}</span>
-            <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
-              {' '}
-              {displayName}
-            </span>
-          </text>
-        </box>
-      )
-    }
+    // Note: Implementor agents are now grouped and rendered via ImplementorGroup
+    // in the parent AgentBody loop, so they won't reach this point.
 
     const isCollapsed = agentBlock.isCollapsed ?? false
     const isStreaming =
