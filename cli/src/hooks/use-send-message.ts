@@ -1027,10 +1027,13 @@ export const useSendMessage = ({
 
         let runState: RunState
         try {
+          // Use a default prompt when only images are attached
+          const effectivePrompt = content || (messageContent ? 'See attached image(s)' : '')
+          
           runState = await client.run({
             logger,
             agent: selectedAgentDefinition ?? agentId ?? fallbackAgent,
-            prompt: content,
+            prompt: effectivePrompt,
             content: messageContent,
             previousRun: previousRunStateRef.current ?? undefined,
             abortController,
