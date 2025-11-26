@@ -62,7 +62,7 @@ export function createBase2(
       'researcher-web',
       'researcher-docs',
       'commander',
-      isMax && 'editor-best-of-n-max',
+      isMax && 'editor-best-of-n-opus',
       isMax && 'thinker-best-of-n-opus',
       'code-reviewer-opus',
       'context-pruner',
