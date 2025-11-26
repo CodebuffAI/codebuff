@@ -44,9 +44,11 @@ export async function routeUserPrompt(
 
   const inputMode = useChatStore.getState().inputMode
   const setInputMode = useChatStore.getState().setInputMode
+  const pendingImages = useChatStore.getState().pendingImages
 
   const trimmed = inputValue.trim()
-  if (!trimmed) return
+  // Allow empty messages if there are pending images attached
+  if (!trimmed && pendingImages.length === 0) return
 
   // Handle bash mode commands
   if (inputMode === 'bash') {
