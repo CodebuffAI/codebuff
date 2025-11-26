@@ -502,6 +502,33 @@ export const useSendMessage = ({
         filename: img.filename || 'image',
       }))
 
+      // Build message content array for SDK
+      let messageContent: MessageContent[] | undefined
+      if (validImageParts.length > 0) {
+        messageContent = [
+          { type: 'text' as const, text: content },
+          ...validImageParts.map((img) => ({
+            type: 'image' as const,
+            image: img.image,
+            mediaType: img.mediaType,
+          })),
+        ]
+
+        logger.info(
+          {
+            imageCount: validImageParts.length,
+            totalSize: validImageParts.reduce(
+              (sum, part) => sum + (part.size || 0),
+              0,
+            ),
+          },
+          `📎 ${validImageParts.length} image(s) attached`,
+        )
+
+        // Clear pending images after successful processing
+        useChatStore.getState().clearPendingImages()
+      }
+
       // Create user message and capture its ID for later updates
       const userMessage = getUserMessage(content, attachments)
       const userMessageId = userMessage.id
@@ -985,85 +1012,7 @@ export const useSendMessage = ({
               ? 'base2-max'
               : 'base2-plan'
 
-        // Auto-detect and process image paths in the content
-        const imagePaths = extractImagePaths(content)
-        const imagePartsPromises = imagePaths.map(async (imagePath) => {
-          const cwd = getProjectRoot()
-          const result = await processImageFile(imagePath, cwd)
-          if (result.success && result.imagePart) {
-            return {
-              type: 'image' as const,
-              image: result.imagePart.image,
-              mediaType: result.imagePart.mediaType,
-              filename: result.imagePart.filename,
-              size: result.imagePart.size,
-            }
-          }
-          // Log failed image processing
-          if (!result.success) {
-            logger.warn(
-              { imagePath, error: result.error },
-              'Failed to process image',
-            )
-          }
-          return null
-        })
-
-        const imagePartsResults = await Promise.all(imagePartsPromises)
-        const validImageParts = imagePartsResults.filter(
-          (part): part is NonNullable<typeof part> => part !== null,
-        )
-
-        // Also include pending images from /image command
-        const pendingImages = useChatStore.getState().pendingImages
-        for (const pendingImage of pendingImages) {
-          const result = await processImageFile(pendingImage.path, getProjectRoot())
-          if (result.success && result.imagePart) {
-            validImageParts.push({
-              type: 'image' as const,
-              image: result.imagePart.image,
-              mediaType: result.imagePart.mediaType,
-              filename: result.imagePart.filename,
-              size: result.imagePart.size,
-            })
-          } else {
-            logger.warn(
-              { path: pendingImage.path, error: result.error },
-              'Failed to process pending image',
-            )
-          }
-        }
-
-        // Build message content array
-        let messageContent: MessageContent[] | undefined
-        if (validImageParts.length > 0) {
-          messageContent = [
-            { type: 'text' as const, text: content },
-            ...validImageParts.map((img) => ({
-              type: 'image' as const,
-              image: img.image,
-              mediaType: img.mediaType,
-            })),
-          ]
-
-          // Calculate total size for logging
-          const totalSize = validImageParts.reduce(
-            (sum, part) => sum + (part.size || 0),
-            0,
-          )
-
-          logger.info(
-            {
-              imageCount: validImageParts.length,
-              totalSize,
-              totalSizeKB: (totalSize / 1024).toFixed(1),
-            },
-            `📎 ${validImageParts.length} image(s) attached`,
-          )
-
-          // Clear pending images after successful attachment
-          useChatStore.getState().clearPendingImages()
-        }
+        // Note: Image processing is done earlier in sendMessage, messageContent is already built
 
         let runState: RunState
         try {

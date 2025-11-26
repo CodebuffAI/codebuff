@@ -213,6 +213,7 @@ export const MessageWithAgents = memo(
                       ? (options) => onFeedback(message.id, options)
                       : undefined
                   }
+                  attachments={message.attachments}
                 />
               </box>
             </box>
