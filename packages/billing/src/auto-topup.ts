@@ -106,15 +106,21 @@ export async function validateAutoTopupStatus(params: {
   } catch (error) {
     logger.error({ error }, 'Failed to validate auto top-up status')
 
-    const blockedReason =
-      error instanceof AutoTopupValidationError
-        ? error.message
-        : 'Unable to verify payment method status.'
+    // Only disable auto-topup for permanent validation errors (missing customer, no payment method, expired card)
+    // Don't disable for transient errors (Stripe API issues, network errors) to avoid false disables
+    if (error instanceof AutoTopupValidationError) {
+      await disableAutoTopup({ ...params, reason: error.message })
+      return {
+        blockedReason: error.message,
+        validPaymentMethod: null,
+      }
+    }
 
-    await disableAutoTopup({ ...params, reason: blockedReason })
-
+    // For non-validation errors (e.g. Stripe API issues), return blocked but don't disable the setting
+    // The user's auto-topup will be retried on the next trigger
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return {
-      blockedReason,
+      blockedReason: `Unable to verify payment method status: ${errorMessage}`,
       validPaymentMethod: null,
     }
   }
@@ -295,13 +301,20 @@ export async function checkAndTriggerAutoTopup(params: {
       })
       return amountToTopUp // Return the amount that was successfully added
     } catch (error) {
-      const message =
-        error instanceof AutoTopupPaymentError
-          ? error.message
-          : 'Payment failed. Please check your payment method and re-enable auto top-up.'
+      // Only disable auto-topup for permanent payment errors (card declined, requires action)
+      // Don't disable for transient errors (Stripe API issues, network errors)
+      if (error instanceof AutoTopupPaymentError) {
+        const message = error.message
+        await disableAutoTopup({ ...params, reason: message })
+        throw new Error(message)
+      }
 
-      await disableAutoTopup({ ...params, reason: message })
-      throw new Error(message)
+      // For transient errors, log but don't disable - will retry on next trigger
+      logger.warn(
+        { userId, error },
+        'Auto top-up payment failed due to transient error, will retry on next trigger',
+      )
+      throw error
     }
   } catch (error) {
     logger.error(
