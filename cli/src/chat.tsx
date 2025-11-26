@@ -1,5 +1,4 @@
 import { RECONNECTION_MESSAGE_DURATION_MS } from '@codebuff/sdk'
-import { useKeyboard } from '@opentui/react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   useCallback,
@@ -28,14 +27,14 @@ import { useElapsedTime } from './hooks/use-elapsed-time'
 import { useEvent } from './hooks/use-event'
 import { useExitHandler } from './hooks/use-exit-handler'
 import { useInputHistory } from './hooks/use-input-history'
-import { useKeyboardHandlers } from './hooks/use-keyboard-handlers'
+import { useChatKeyboard, type ChatKeyboardHandlers } from './hooks/use-chat-keyboard'
+import { type ChatKeyboardState, createDefaultChatKeyboardState } from './utils/keyboard-actions'
 import { useMessageQueue } from './hooks/use-message-queue'
 import { useQueueControls } from './hooks/use-queue-controls'
 import { useQueueUi } from './hooks/use-queue-ui'
 import { useChatScrollbox } from './hooks/use-scroll-management'
 import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
-import { useSuggestionMenuHandlers } from './hooks/use-suggestion-menu-handlers'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTheme } from './hooks/use-theme'
 import { useTimeout } from './hooks/use-timeout'
@@ -60,7 +59,7 @@ import type { SendMessageFn } from './types/contracts/send-message'
 import type { User } from './utils/auth'
 import type { AgentMode } from './utils/constants'
 import type { FileTreeNode } from '@codebuff/common/util/file'
-import type { KeyEvent, ScrollBoxRenderable } from '@opentui/core'
+import type { ScrollBoxRenderable } from '@opentui/core'
 import type { UseMutationResult } from '@tanstack/react-query'
 import type { Dispatch, SetStateAction } from 'react'
 
@@ -420,6 +419,8 @@ export const Chat = ({
 
   const localAgents = useMemo(() => loadLocalAgents(), [])
   const inputMode = useChatStore((state) => state.inputMode)
+  const setInputMode = useChatStore((state) => state.setInputMode)
+  const askUserState = useChatStore((state) => state.askUserState)
 
   const {
     slashContext,
@@ -486,21 +487,6 @@ export const Chat = ({
     setAgentSelectedIndex,
   ])
 
-  const { handleSuggestionMenuKey: handleSuggestionMenuKeyInternal } =
-    useSuggestionMenuHandlers({
-      slashContext,
-      mentionContext,
-      slashMatches,
-      agentMatches,
-      fileMatches,
-      slashSelectedIndex,
-      agentSelectedIndex,
-      inputValue,
-      setInputValue,
-      setSlashSelectedIndex,
-      setAgentSelectedIndex,
-      disableSlashMenu: getInputModeConfig(inputMode).disableSlashSuggestions,
-    })
   const openFileMenuWithTab = useCallback(() => {
     const safeCursor = Math.max(0, Math.min(cursorPosition, inputValue.length))
 
@@ -526,60 +512,6 @@ export const Chat = ({
     })
     setForceFileOnlyMentions(true)
   }, [cursorPosition, inputValue, setInputValue])
-
-  const handleSuggestionMenuKey = useCallback(
-    (key: KeyEvent): boolean => {
-      // In bash mode at cursor position 0, backspace should exit bash mode
-      const inputMode = useChatStore.getState().inputMode
-      // Exit special modes on backspace at position 0
-      if (
-        inputMode !== 'default' &&
-        cursorPosition === 0 &&
-        key.name === 'backspace'
-      ) {
-        useChatStore.getState().setInputMode('default')
-        return true
-      }
-
-      if (handleSuggestionMenuKeyInternal(key)) {
-        return true
-      }
-
-      const isPlainTab =
-        key &&
-        key.name === 'tab' &&
-        !key.shift &&
-        !key.ctrl &&
-        !key.meta &&
-        !key.option
-
-      if (isPlainTab && !mentionContext.active) {
-        // Only open file menu if there's a word at cursor to complete
-        const safeCursor = Math.max(
-          0,
-          Math.min(cursorPosition, inputValue.length),
-        )
-        let wordStart = safeCursor
-        while (wordStart > 0 && !/\s/.test(inputValue[wordStart - 1])) {
-          wordStart--
-        }
-        const hasWordAtCursor = wordStart < safeCursor
-
-        if (hasWordAtCursor) {
-          openFileMenuWithTab()
-          return true
-        }
-      }
-
-      return false
-    },
-    [
-      handleSuggestionMenuKeyInternal,
-      mentionContext.active,
-      openFileMenuWithTab,
-      inputValue,
-    ],
-  )
 
   const { saveToHistory, navigateUp, navigateDown } = useInputHistory(
     inputValue,
@@ -719,6 +651,7 @@ export const Chat = ({
     closeFeedback,
     saveCurrentInput,
     restoreSavedInput,
+    setFeedbackText,
   } = useFeedbackStore(
     useShallow((state) => ({
       feedbackMode: state.feedbackMode,
@@ -727,6 +660,7 @@ export const Chat = ({
       closeFeedback: state.closeFeedback,
       saveCurrentInput: state.saveCurrentInput,
       restoreSavedInput: state.restoreSavedInput,
+      setFeedbackText: state.setFeedbackText,
     })),
   )
 
@@ -866,28 +800,182 @@ export const Chat = ({
           agentSelectedIndex === totalMentionMatches - 1) ||
         (!slashContext.active && !mentionContext.active)))
 
-  useKeyboardHandlers({
+  // Build keyboard state from store values
+  const chatKeyboardState: ChatKeyboardState = useMemo(() => ({
+    ...createDefaultChatKeyboardState(),
+    inputMode,
+    inputValue,
+    cursorPosition,
     isStreaming,
     isWaitingForResponse,
-    abortControllerRef,
+    feedbackMode,
     focusedAgentId,
-    setFocusedAgentId,
-    setInputFocused,
-    inputRef,
-    navigateUp,
-    navigateDown,
-    toggleAgentMode,
-    onCtrlC: handleCtrlC,
-    onInterrupt: () => {
+    slashMenuActive: slashContext.active,
+    mentionMenuActive: mentionContext.active,
+    slashSelectedIndex,
+    agentSelectedIndex,
+    slashMatchesLength: slashMatches.length,
+    totalMentionMatches: agentMatches.length + fileMatches.length,
+    disableSlashSuggestions: getInputModeConfig(inputMode).disableSlashSuggestions,
+    historyNavUpEnabled,
+    historyNavDownEnabled,
+    nextCtrlCWillExit,
+    queuePaused,
+    queuedCount,
+  }), [
+    inputMode,
+    inputValue,
+    cursorPosition,
+    isStreaming,
+    isWaitingForResponse,
+    feedbackMode,
+    focusedAgentId,
+    slashContext.active,
+    mentionContext.active,
+    slashSelectedIndex,
+    agentSelectedIndex,
+    slashMatches.length,
+    agentMatches.length,
+    fileMatches.length,
+    historyNavUpEnabled,
+    historyNavDownEnabled,
+    nextCtrlCWillExit,
+    queuePaused,
+    queuedCount,
+  ])
+
+  // Keyboard handlers
+  const chatKeyboardHandlers: ChatKeyboardHandlers = useMemo(() => ({
+    onExitInputMode: () => setInputMode('default'),
+    onExitFeedbackMode: handleCloseFeedback,
+    onClearFeedbackInput: () => {
+      setFeedbackText('')
+      useFeedbackStore.getState().setFeedbackCursor(0)
+      useFeedbackStore.getState().setFeedbackCategory('other')
+    },
+    onClearInput: () => setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false }),
+    onBackspaceExitMode: () => setInputMode('default'),
+    onInterruptStream: () => {
+      abortControllerRef.current?.abort()
       if (queuedMessages.length > 0) {
         pauseQueue()
       }
     },
-    historyNavUpEnabled,
-    historyNavDownEnabled,
-    disabled: feedbackMode,
-    inputValue,
+    onSlashMenuDown: () => setSlashSelectedIndex((prev) => prev + 1),
+    onSlashMenuUp: () => setSlashSelectedIndex((prev) => prev - 1),
+    onSlashMenuTab: () => setSlashSelectedIndex((prev) => (prev + 1) % slashMatches.length),
+    onSlashMenuShiftTab: () => setSlashSelectedIndex((prev) => (slashMatches.length + prev - 1) % slashMatches.length),
+    onSlashMenuSelect: () => {
+      const selected = slashMatches[slashSelectedIndex] || slashMatches[0]
+      if (!selected || slashContext.startIndex < 0) return
+      const before = inputValue.slice(0, slashContext.startIndex)
+      const after = inputValue.slice(slashContext.startIndex + 1 + slashContext.query.length)
+      const replacement = `/${selected.id} `
+      setInputValue({
+        text: before + replacement + after,
+        cursorPosition: before.length + replacement.length,
+        lastEditDueToNav: false,
+      })
+      setSlashSelectedIndex(0)
+    },
+    onMentionMenuDown: () => setAgentSelectedIndex((prev) => prev + 1),
+    onMentionMenuUp: () => setAgentSelectedIndex((prev) => prev - 1),
+    onMentionMenuTab: () => {
+      const totalMatches = agentMatches.length + fileMatches.length
+      setAgentSelectedIndex((prev) => (prev + 1) % totalMatches)
+    },
+    onMentionMenuShiftTab: () => {
+      const totalMatches = agentMatches.length + fileMatches.length
+      setAgentSelectedIndex((prev) => (totalMatches + prev - 1) % totalMatches)
+    },
+    onMentionMenuSelect: () => {
+      if (mentionContext.startIndex < 0) return
+
+      const trySelectAtIndex = (index: number): boolean => {
+        let replacement: string
+        if (index < agentMatches.length) {
+          const selected = agentMatches[index]
+          if (!selected) return false
+          replacement = `@${selected.displayName} `
+        } else {
+          const fileIndex = index - agentMatches.length
+          const selectedFile = fileMatches[fileIndex]
+          if (!selectedFile) return false
+          replacement = `@${selectedFile.filePath} `
+        }
+        const before = inputValue.slice(0, mentionContext.startIndex)
+        const after = inputValue.slice(mentionContext.startIndex + 1 + mentionContext.query.length)
+        setInputValue({
+          text: before + replacement + after,
+          cursorPosition: before.length + replacement.length,
+          lastEditDueToNav: false,
+        })
+        setAgentSelectedIndex(0)
+        return true
+      }
+
+      // Try current selection, fall back to first item
+      trySelectAtIndex(agentSelectedIndex) || trySelectAtIndex(0)
+    },
+    onOpenFileMenuWithTab: () => {
+      const safeCursor = Math.max(0, Math.min(cursorPosition, inputValue.length))
+      let wordStart = safeCursor
+      while (wordStart > 0 && !/\s/.test(inputValue[wordStart - 1]!)) {
+        wordStart--
+      }
+      if (wordStart < safeCursor) {
+        openFileMenuWithTab()
+        return true
+      }
+      return false
+    },
+    onHistoryUp: navigateUp,
+    onHistoryDown: navigateDown,
+    onToggleAgentMode: toggleAgentMode,
+    onUnfocusAgent: () => {
+      setFocusedAgentId(null)
+      setInputFocused(true)
+      inputRef.current?.focus()
+    },
+    onClearQueue: clearQueue,
+    onExitAppWarning: () => handleCtrlC(),
+    onExitApp: () => handleCtrlC(),
+  }), [
+    setInputMode,
+    handleCloseFeedback,
+    setFeedbackText,
     setInputValue,
+    abortControllerRef,
+    queuedMessages.length,
+    pauseQueue,
+    setSlashSelectedIndex,
+    slashMatches,
+    slashSelectedIndex,
+    slashContext,
+    inputValue,
+    setAgentSelectedIndex,
+    agentMatches,
+    fileMatches,
+    agentSelectedIndex,
+    mentionContext,
+    cursorPosition,
+    openFileMenuWithTab,
+    saveCurrentInput,
+    navigateUp,
+    navigateDown,
+    toggleAgentMode,
+    setFocusedAgentId,
+    setInputFocused,
+    inputRef,
+    handleCtrlC,
+    clearQueue,
+  ])
+
+  // Use the chat keyboard hook
+  useChatKeyboard({
+    state: chatKeyboardState,
+    handlers: chatKeyboardHandlers,
+    disabled: askUserState !== null,
   })
 
   const { tree: messageTree, topLevelMessages } = useMemo(
@@ -1065,6 +1153,7 @@ export const Chat = ({
           inputRef={inputRef}
           inputPlaceholder={inputPlaceholder}
           inputWidth={inputWidth}
+          lastEditDueToNav={lastEditDueToNav}
           agentMode={agentMode}
           toggleAgentMode={toggleAgentMode}
           setAgentMode={setAgentMode}
@@ -1076,7 +1165,6 @@ export const Chat = ({
           fileSuggestionItems={fileSuggestionItems}
           slashSelectedIndex={slashSelectedIndex}
           agentSelectedIndex={agentSelectedIndex}
-          handleSuggestionMenuKey={handleSuggestionMenuKey}
           theme={theme}
           terminalHeight={terminalHeight}
           separatorWidth={separatorWidth}

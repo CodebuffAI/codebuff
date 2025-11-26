@@ -48,6 +48,7 @@ interface ChatInputBarProps {
   inputRef: React.MutableRefObject<MultilineInputHandle | null>
   inputPlaceholder: string
   inputWidth: number
+  lastEditDueToNav: boolean
 
   // Agent mode
   agentMode: AgentMode
@@ -63,7 +64,6 @@ interface ChatInputBarProps {
   fileSuggestionItems: SuggestionItem[]
   slashSelectedIndex: number
   agentSelectedIndex: number
-  handleSuggestionMenuKey: (key: any) => boolean
 
   // Layout
   theme: Theme
@@ -86,6 +86,7 @@ export const ChatInputBar = ({
   inputRef,
   inputPlaceholder,
   inputWidth,
+  lastEditDueToNav,
   agentMode,
   toggleAgentMode,
   setAgentMode,
@@ -97,7 +98,6 @@ export const ChatInputBar = ({
   fileSuggestionItems,
   slashSelectedIndex,
   agentSelectedIndex,
-  handleSuggestionMenuKey,
   theme,
   terminalHeight,
   separatorWidth,
@@ -325,11 +325,41 @@ export const ChatInputBar = ({
                 value={inputValue}
                 onChange={handleInputChange}
                 onSubmit={handleSubmit}
+                onKeyIntercept={(key) => {
+                  // Intercept navigation keys when suggestion menu is active
+                  // The useChatKeyboard hook will handle menu selection/navigation
+                  const hasSuggestions = hasSlashSuggestions || hasMentionSuggestions
+                  if (!hasSuggestions) return false
+
+                  const isPlainEnter =
+                    (key.name === 'return' || key.name === 'enter') &&
+                    !key.shift &&
+                    !key.ctrl &&
+                    !key.meta &&
+                    !key.option
+                  const isTab =
+                    key.name === 'tab' && !key.ctrl && !key.meta && !key.option
+                  const isUpDown =
+                    (key.name === 'up' || key.name === 'down') &&
+                    !key.ctrl &&
+                    !key.meta &&
+                    !key.option
+
+                  // Don't intercept Up/Down when user is navigating history
+                  // (lastEditDueToNav is true), let them continue paging through
+                  if (isUpDown && lastEditDueToNav) {
+                    return false
+                  }
+
+                  if (isPlainEnter || isTab || isUpDown) {
+                    return true // Prevent default, let useChatKeyboard handle it
+                  }
+                  return false
+                }}
                 placeholder={effectivePlaceholder}
                 focused={inputFocused && !feedbackMode}
                 maxHeight={Math.floor(terminalHeight / 2)}
                 width={adjustedInputWidth}
-                onKeyIntercept={handleSuggestionMenuKey}
                 textAttributes={theme.messageTextAttributes}
                 ref={inputRef}
                 cursorPosition={cursorPosition}
