@@ -20,6 +20,7 @@ interface UsageResponse {
     paid: number
   }
   next_quota_reset: string | null
+  autoTopupEnabled?: boolean
 }
 
 interface FetchUsageParams {

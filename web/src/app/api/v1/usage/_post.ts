@@ -135,6 +135,7 @@ export async function postUsage(params: {
       remainingBalance: usageData.balance.totalRemaining,
       balanceBreakdown: usageData.balance.breakdown,
       next_quota_reset: usageData.nextQuotaReset,
+      autoTopupEnabled: usageData.autoTopupEnabled,
     }
 
     return NextResponse.json(usageResponse)

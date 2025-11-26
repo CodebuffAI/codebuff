@@ -29,12 +29,14 @@ export function useUsageMonitor() {
 
     const authToken = getAuthToken()
     const remainingBalance = usageData?.remainingBalance ?? null
+    const autoTopupEnabled = usageData?.autoTopupEnabled ?? false
 
     const decision = shouldAutoShowBanner(
       isChainInProgress,
       !!authToken,
       remainingBalance,
       lastWarnedThresholdRef.current,
+      autoTopupEnabled,
     )
 
     // Update the last warned threshold

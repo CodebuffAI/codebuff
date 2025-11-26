@@ -193,6 +193,89 @@ describe('usage-banner-state', () => {
       })
     })
 
+    describe('auto top-up enabled behavior', () => {
+      test('does not auto-show for auto-top-up users above 0 credits', () => {
+        // Even at low credits, auto-top-up users shouldn't see warnings
+        const result = shouldAutoShowBanner(false, true, 50, null, true)
+        expect(result.shouldShow).toBe(false)
+        expect(result.newWarningThreshold).toBe(null)
+      })
+
+      test('does not auto-show for auto-top-up users at any positive threshold', () => {
+        // At 500 credits - would normally warn
+        let result = shouldAutoShowBanner(false, true, 499, null, true)
+        expect(result.shouldShow).toBe(false)
+
+        // At 100 credits - would normally warn
+        result = shouldAutoShowBanner(false, true, 99, null, true)
+        expect(result.shouldShow).toBe(false)
+
+        // Even at 1 credit
+        result = shouldAutoShowBanner(false, true, 1, null, true)
+        expect(result.shouldShow).toBe(false)
+      })
+
+      test('DOES auto-show for auto-top-up users when truly out (0 credits)', () => {
+        const result = shouldAutoShowBanner(false, true, 0, null, true)
+        expect(result.shouldShow).toBe(true)
+        expect(result.newWarningThreshold).toBe(100)
+      })
+
+      test('DOES auto-show for auto-top-up users when in debt (negative credits)', () => {
+        const result = shouldAutoShowBanner(false, true, -50, null, true)
+        expect(result.shouldShow).toBe(true)
+        expect(result.newWarningThreshold).toBe(100)
+      })
+
+      test('non-auto-top-up users still get warnings as normal', () => {
+        // Without auto-top-up, should warn at low credits
+        const result = shouldAutoShowBanner(false, true, 50, null, false)
+        expect(result.shouldShow).toBe(true)
+        expect(result.newWarningThreshold).toBe(100)
+      })
+
+      test('defaults autoTopUpEnabled to false when omitted', () => {
+        // When autoTopUpEnabled parameter is omitted, should behave like false
+        const result = shouldAutoShowBanner(false, true, 50, null)
+        expect(result.shouldShow).toBe(true)
+        expect(result.newWarningThreshold).toBe(100)
+      })
+    })
+
+    describe('combined scenarios', () => {
+      test('chain in progress takes precedence over auto-top-up status', () => {
+        // Even with auto-top-up disabled and low credits, chain in progress blocks showing
+        const result = shouldAutoShowBanner(true, true, 50, null, false)
+        expect(result.shouldShow).toBe(false)
+      })
+
+      test('unauthenticated takes precedence over auto-top-up status', () => {
+        // Even with auto-top-up disabled and low credits, no auth token blocks showing
+        const result = shouldAutoShowBanner(false, false, 50, null, false)
+        expect(result.shouldShow).toBe(false)
+      })
+
+      test('null balance takes precedence over auto-top-up status', () => {
+        // Even with auto-top-up disabled, null balance blocks showing
+        const result = shouldAutoShowBanner(false, true, null, null, false)
+        expect(result.shouldShow).toBe(false)
+      })
+
+      test('auto-top-up user with previous warning threshold and now at 0 credits', () => {
+        // Auto-top-up user who was previously warned at 500, now at 0 - should show
+        const result = shouldAutoShowBanner(false, true, 0, 500, true)
+        expect(result.shouldShow).toBe(true)
+        expect(result.newWarningThreshold).toBe(100)
+      })
+
+      test('auto-top-up user with healthy balance clears warning state', () => {
+        // Auto-top-up user who now has healthy balance should have cleared state
+        const result = shouldAutoShowBanner(false, true, 1500, 100, true)
+        expect(result.shouldShow).toBe(false)
+        expect(result.newWarningThreshold).toBe(null)
+      })
+    })
+
     describe('state reset behavior', () => {
       test('clears warning state when credits return to healthy', () => {
         const result = shouldAutoShowBanner(

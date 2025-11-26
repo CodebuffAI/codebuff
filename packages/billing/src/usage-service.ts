@@ -18,6 +18,7 @@ export interface UserUsageData {
   balance: CreditBalance
   nextQuotaReset: string
   autoTopupTriggered?: boolean
+  autoTopupEnabled?: boolean
 }
 
 export interface OrganizationUsageData {
@@ -52,7 +53,9 @@ export async function getUserUsageData(params: {
     const now = new Date()
 
     // Check if we need to reset quota and grant new credits
-    const effectiveQuotaResetDate = await triggerMonthlyResetAndGrant(params)
+    // This also returns autoTopupEnabled to avoid a separate query
+    const { quotaResetDate, autoTopupEnabled } =
+      await triggerMonthlyResetAndGrant(params)
 
     // Check if we need to trigger auto top-up
     let autoTopupTriggered = false
@@ -71,7 +74,7 @@ export async function getUserUsageData(params: {
     // Pass isPersonalContext: true to exclude organization credits from personal usage
     const { usageThisCycle, balance } = await calculateUsageAndBalance({
       ...params,
-      quotaResetDate: effectiveQuotaResetDate,
+      quotaResetDate,
       now,
       isPersonalContext: true, // isPersonalContext: true to exclude organization credits
     })
@@ -79,8 +82,9 @@ export async function getUserUsageData(params: {
     return {
       usageThisCycle,
       balance,
-      nextQuotaReset: effectiveQuotaResetDate.toISOString(),
+      nextQuotaReset: quotaResetDate.toISOString(),
       autoTopupTriggered,
+      autoTopupEnabled,
     }
   } catch (error) {
     logger.error({ userId, error }, 'Error fetching user usage data')

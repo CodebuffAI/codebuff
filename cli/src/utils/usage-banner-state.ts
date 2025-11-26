@@ -121,12 +121,14 @@ export interface AutoShowDecision {
  * - User is authenticated (hasAuthToken = true)
  * - User has credit data available (remainingBalance !== null)
  * - User crosses a new threshold (1000, 500, or 100) that hasn't been warned about yet
+ * - User does NOT have auto top-up enabled (unless truly out of credits <= 0)
  */
 export function shouldAutoShowBanner(
   isChainInProgress: boolean,
   hasAuthToken: boolean,
   remainingBalance: number | null,
   lastWarnedThreshold: number | null,
+  autoTopupEnabled: boolean = false,
 ): AutoShowDecision {
   // Don't show during active chains
   if (isChainInProgress) {
@@ -141,6 +143,12 @@ export function shouldAutoShowBanner(
   // Don't show if we don't have balance data
   if (remainingBalance === null) {
     return { shouldShow: false, newWarningThreshold: lastWarnedThreshold }
+  }
+
+  // For users with auto top-up enabled, only show if truly out of credits (<= 0)
+  // Auto top-up users want to "set and forget" - don't bother them with threshold warnings
+  if (autoTopupEnabled && remainingBalance > 0) {
+    return { shouldShow: false, newWarningThreshold: null }
   }
 
   const currentThreshold = getThresholdTier(remainingBalance)
