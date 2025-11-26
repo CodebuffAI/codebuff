@@ -118,7 +118,6 @@ export async function* promptAiSdkStream(
           chunk: { ...chunk, error: undefined },
           error: getErrorObject(chunk.error),
           model: params.model,
-          errorStr: JSON.stringify(chunk.error),
         },
         'Error from AI SDK',
       )

@@ -870,7 +870,6 @@ export async function loopAgentSteps(
     logger.error(
       {
         error: getErrorObject(error),
-        errorStr: JSON.stringify(error),
         agentType,
         agentId: currentAgentState.agentId,
         runId,
@@ -882,10 +881,7 @@ export async function loopAgentSteps(
     )
 
     // Re-throw NetworkError and PaymentRequiredError to allow SDK retry wrapper to handle it
-    if (
-      error instanceof Error &&
-      (error.name === 'NetworkError' || error.name === 'PaymentRequiredError')
-    ) {
+    if (error instanceof Error && (error.name === 'NetworkError' || error.name === 'PaymentRequiredError')) {
       throw error
     }
 
