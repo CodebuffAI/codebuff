@@ -26,6 +26,11 @@ export const createBestOfNSelector = (options: {
         effort: 'high',
       },
     }),
+    ...(isOpus && {
+      reasoningOptions: {
+        max_tokens: 4000,
+      },
+    }),
     displayName: isGpt5
       ? 'Best-of-N GPT-5 Implementation Selector'
       : isGemini

@@ -29,7 +29,6 @@ export function useFetchLoginUrl({
     mutationFn: async (fingerprintId: string) => {
       return generateLoginUrl(
         {
-          fetch,
           logger,
         },
         {

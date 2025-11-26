@@ -51,6 +51,7 @@ export async function genUsageResponse(params: {
       where: eq(schema.user.id, userId),
       columns: {
         next_quota_reset: true,
+        auto_topup_enabled: true,
       },
     })
 
@@ -73,6 +74,7 @@ export async function genUsageResponse(params: {
         remainingBalance: balanceDetails.totalRemaining,
         balanceBreakdown: balanceDetails.breakdown,
         next_quota_reset: user.next_quota_reset,
+        autoTopupEnabled: user.auto_topup_enabled ?? false,
       } satisfies UsageResponse
     } catch (error) {
       logger.error(

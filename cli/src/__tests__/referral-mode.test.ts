@@ -1,5 +1,7 @@
 import { describe, test, expect, mock } from 'bun:test'
 
+import { getInputModeConfig } from '../utils/input-modes'
+
 import type { InputMode } from '../utils/input-modes'
 
 /**
@@ -353,81 +355,58 @@ describe('referral-mode', () => {
     })
 
     test('input width is adjusted in referral mode for icon column', () => {
-      const baseInputWidth = 100
-      const inputMode = 'referral' as InputMode
+      const referralConfig = getInputModeConfig('referral')
 
-      // Width should be reduced by 2 to account for '◎' icon and spacing
-      const widthAdjustment = inputMode === 'referral' ? 2 : 0
-      const adjustedInputWidth = baseInputWidth - widthAdjustment
-
-      expect(adjustedInputWidth).toBe(98)
+      expect(referralConfig.widthAdjustment).toBeGreaterThan(0)
     })
 
     test('input width is NOT adjusted when not in referral mode', () => {
-      const baseInputWidth = 100
-      const inputMode = 'default' as InputMode
+      const defaultConfig = getInputModeConfig('default')
 
-      const widthAdjustment = inputMode === 'referral' ? 2 : 0
-      const adjustedInputWidth = baseInputWidth - widthAdjustment
-
-      expect(adjustedInputWidth).toBe(100)
+      expect(defaultConfig.widthAdjustment).toBe(0)
     })
 
     test('placeholder changes in referral mode', () => {
-      const normalPlaceholder = 'type a message...'
-      const referralPlaceholder = 'enter referral code (e.g. ref-abc123)...'
-      const inputMode = 'referral' as InputMode
+      const defaultConfig = getInputModeConfig('default')
+      const referralConfig = getInputModeConfig('referral')
 
-      const effectivePlaceholder =
-        inputMode === 'referral' ? referralPlaceholder : normalPlaceholder
-
-      expect(effectivePlaceholder).toBe('enter referral code (e.g. ref-abc123)...')
+      expect(referralConfig.placeholder).not.toBe(defaultConfig.placeholder)
     })
 
-    test('placeholder is normal when not in referral mode', () => {
-      const normalPlaceholder = 'type a message...'
-      const referralPlaceholder = 'enter referral code (e.g. ref-abc123)...'
-      const inputMode = 'default' as InputMode
+    test('referral mode has a placeholder', () => {
+      const referralConfig = getInputModeConfig('referral')
 
-      const effectivePlaceholder =
-        inputMode === 'referral' ? referralPlaceholder : normalPlaceholder
-
-      expect(effectivePlaceholder).toBe('type a message...')
+      expect(referralConfig.placeholder.length).toBeGreaterThan(0)
     })
 
     test('icon is displayed in referral mode', () => {
-      const inputMode = 'referral' as InputMode
-      const icon = inputMode === 'referral' ? '◎' : null
+      const referralConfig = getInputModeConfig('referral')
 
-      expect(icon).toBe('◎')
+      expect(referralConfig.icon).not.toBeNull()
     })
 
     test('no icon is displayed in default mode', () => {
-      const inputMode = 'default' as InputMode
-      const icon = inputMode === 'referral' ? '◎' : null
+      const defaultConfig = getInputModeConfig('default')
 
-      expect(icon).toBe(null)
+      expect(defaultConfig.icon).toBeNull()
     })
 
     test('border color changes to warning in referral mode', () => {
-      const inputMode = 'referral' as InputMode
-      const color = inputMode === 'referral' ? 'warning' : 'foreground'
+      const referralConfig = getInputModeConfig('referral')
 
-      expect(color).toBe('warning')
+      expect(referralConfig.color).toBe('warning')
     })
 
     test('agent mode toggle is hidden in referral mode', () => {
-      const inputMode = 'referral' as InputMode
-      const showAgentModeToggle = inputMode === 'default'
+      const referralConfig = getInputModeConfig('referral')
 
-      expect(showAgentModeToggle).toBe(false)
+      expect(referralConfig.showAgentModeToggle).toBe(false)
     })
 
     test('agent mode toggle is shown in default mode', () => {
-      const inputMode = 'default' as InputMode
-      const showAgentModeToggle = inputMode === 'default'
+      const defaultConfig = getInputModeConfig('default')
 
-      expect(showAgentModeToggle).toBe(true)
+      expect(defaultConfig.showAgentModeToggle).toBe(true)
     })
   })
 
@@ -472,10 +451,9 @@ describe('referral-mode', () => {
     })
 
     test('slash suggestions are disabled in referral mode', () => {
-      const inputMode = 'referral' as InputMode
-      const disableSlashSuggestions = inputMode !== 'default'
+      const referralConfig = getInputModeConfig('referral')
 
-      expect(disableSlashSuggestions).toBe(true)
+      expect(referralConfig.disableSlashSuggestions).toBe(true)
     })
   })
 

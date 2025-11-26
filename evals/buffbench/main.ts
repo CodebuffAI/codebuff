@@ -5,7 +5,7 @@ import { runBuffBench } from './run-buffbench'
 async function main() {
   await runBuffBench({
     evalDataPath: path.join(__dirname, 'eval-codebuff.json'),
-    agents: ['base2-with-editor-implementor-gpt-5', 'base2'],
+    agents: ['base2', 'base2-max'],
     taskConcurrency: 3,
   })
 

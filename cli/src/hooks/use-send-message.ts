@@ -2,6 +2,8 @@ import {
   MAX_RETRIES_PER_MESSAGE,
   RETRY_BACKOFF_BASE_DELAY_MS,
   RETRY_BACKOFF_MAX_DELAY_MS,
+  isPaymentRequiredError,
+  ErrorCodes,
 } from '@codebuff/sdk'
 import { useQueryClient } from '@tanstack/react-query'
 import { has, isEqual } from 'lodash'
@@ -315,6 +317,7 @@ export const useSendMessage = ({
   const agentStreamAccumulatorsRef = useRef<Map<string, string>>(new Map())
   const rootStreamSeenRef = useRef(false)
   const planExtractedRef = useRef(false)
+  const wasAbortedByUserRef = useRef(false)
 
   const updateChainInProgress = useCallback(
     (value: boolean) => {
@@ -658,6 +661,7 @@ export const useSendMessage = ({
       rootStreamSeenRef.current = false
       planExtractedRef.current = false
       agentStreamAccumulatorsRef.current = new Map<string, string>()
+      wasAbortedByUserRef.current = false
       timerController.start(aiMessageId)
 
       const updateAgentContent = (
@@ -878,6 +882,7 @@ export const useSendMessage = ({
       const abortController = new AbortController()
       abortControllerRef.current = abortController
       abortController.signal.addEventListener('abort', () => {
+        wasAbortedByUserRef.current = true
         setStreamStatus('idle')
         setCanProcessQueue(!isQueuePausedRef?.current)
         updateChainInProgress(false)
@@ -1781,15 +1786,60 @@ export const useSendMessage = ({
         })
 
         if (!runState.output || runState.output.type === 'error') {
-          logger.warn(
-            {
-              errorMessage:
-                runState.output?.type === 'error'
-                  ? runState.output.message
-                  : 'No output from agent run',
-            },
-            'Agent run failed',
-          )
+          const errorOutput = runState.output?.type === 'error' ? runState.output : null
+          const errorMessage = errorOutput?.message ?? 'No output from agent run'
+
+          // Check if this was a user-initiated cancellation - if so, don't show error since
+          // the abort handler already shows [response interrupted]
+          if (wasAbortedByUserRef.current) {
+            logger.info({ errorMessage }, 'Run cancelled by user, not showing error')
+            return
+          }
+
+          logger.warn({ errorMessage, errorCode: errorOutput?.errorCode }, 'Agent run failed')
+
+          // Check if this is an out-of-credits error using the error code
+          const isOutOfCredits = errorOutput?.errorCode === ErrorCodes.PAYMENT_REQUIRED
+
+          if (isOutOfCredits) {
+            const appUrl = process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
+            const paymentErrorMessage =
+              errorOutput?.message ??
+              `Out of credits. Please add credits at ${appUrl}/usage`
+            applyMessageUpdate((prev) =>
+              prev.map((msg) => {
+                if (msg.id !== aiMessageId) return msg
+                return {
+                  ...msg,
+                  content: paymentErrorMessage,
+                  blocks: undefined, // Clear blocks so content renders
+                  isComplete: true,
+                }
+              }),
+            )
+            // Show the usage banner so user can see their balance and renewal date
+            useChatStore.getState().setInputMode('usage')
+            // Refresh usage data to show current state
+            queryClient.invalidateQueries({ queryKey: usageQueryKeys.current() })
+          } else {
+            // Generic error - display the error message directly from SDK
+            applyMessageUpdate((prev) =>
+              prev.map((msg) => {
+                if (msg.id !== aiMessageId) return msg
+                return {
+                  ...msg,
+                  content: `**Error:** ${errorMessage}`,
+                  blocks: undefined, // Clear blocks so content renders
+                  isComplete: true,
+                }
+              }),
+            )
+          }
+
+          setStreamStatus('idle')
+          setCanProcessQueue(true)
+          updateChainInProgress(false)
+          timerController.stop('error')
           return
         }
 
@@ -1847,6 +1897,35 @@ export const useSendMessage = ({
 
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error occurred'
+
+        // Handle payment required (out of credits) specially
+        if (isPaymentRequiredError(error)) {
+          const appUrl = process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
+          const paymentErrorMessage =
+            error instanceof Error && error.message
+              ? error.message
+              : `Out of credits. Please add credits at ${appUrl}/usage`
+
+          applyMessageUpdate((prev) =>
+            prev.map((msg) => {
+              if (msg.id !== aiMessageId) {
+                return msg
+              }
+              return {
+                ...msg,
+                content: paymentErrorMessage,
+                blocks: undefined, // Clear blocks so content renders
+                isComplete: true,
+              }
+            }),
+          )
+          // Show the usage banner so user can see their balance and renewal date
+          useChatStore.getState().setInputMode('usage')
+          // Refresh usage data to show current state
+          queryClient.invalidateQueries({ queryKey: usageQueryKeys.current() })
+          return
+        }
+
         applyMessageUpdate((prev) =>
           prev.map((msg) => {
             if (msg.id !== aiMessageId) {

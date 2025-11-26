@@ -8,6 +8,10 @@ import { z } from 'zod/v4'
 import { redeemReferralCode } from './helpers'
 import { authOptions } from '../auth/[...nextauth]/auth-options'
 
+import { extractApiKeyFromHeader } from '@/util/auth'
+
+import type { NextRequest } from 'next/server'
+
 type Referral = Pick<typeof schema.user.$inferSelect, 'id' | 'name' | 'email'> &
   Pick<typeof schema.referral.$inferSelect, 'credits'>
 const ReferralSchema = z.object({
@@ -112,7 +116,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     // First try to get the session (web flow)
     const session = await getServerSession(authOptions)
@@ -135,11 +139,14 @@ export async function POST(request: Request) {
   }
 
   // Fall back to auth token (CLI flow)
+  // Prefer Authorization header, fall back to body authToken for backwards compatibility
   const reqJson = await request.json()
   const parsedJson = z
     .object({
       referralCode: z.string(),
-      authToken: z.string(),
+      // DEPRECATED: authToken in body is for backwards compatibility with older CLI versions.
+      // New clients should use the Authorization header instead.
+      authToken: z.string().optional(),
     })
     .safeParse(reqJson)
 
@@ -147,7 +154,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const { referralCode, authToken } = parsedJson.data
+  const { referralCode, authToken: bodyAuthToken } = parsedJson.data
+
+  // Prefer Authorization header, fall back to body authToken for backwards compatibility
+  const authToken = extractApiKeyFromHeader(request) ?? bodyAuthToken
+
+  if (!authToken) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const user = await db.query.session.findFirst({
     where: eq(schema.session.sessionToken, authToken),
     columns: {

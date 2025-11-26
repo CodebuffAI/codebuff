@@ -1,6 +1,5 @@
 import { TextAttributes } from '@opentui/core'
-import { useKeyboard } from '@opentui/react'
-import React, { useCallback, useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 
 import { Button } from './button'
 import { MultilineInput, type MultilineInputHandle } from './multiline-input'
@@ -172,31 +171,7 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
   )
   const shouldUseShortLabels = FULL_CATEGORY_ROW_WIDTH > availableWidth
 
-  // Handle keyboard shortcuts
-  useKeyboard(
-    useCallback(
-      (key) => {
-        const isCtrlC = key.ctrl && key.name === 'c'
-        const isEscape = key.name === 'escape'
-
-        if (!isCtrlC && !isEscape) return
-
-        if (
-          'preventDefault' in key &&
-          typeof key.preventDefault === 'function'
-        ) {
-          key.preventDefault()
-        }
-
-        if (isEscape) {
-          onCancel()
-        } else if (isCtrlC) {
-          value.length === 0 ? onCancel() : onClear()
-        }
-      },
-      [value, onCancel, onClear, onSubmit, canSubmit],
-    ),
-  )
+  // Keyboard shortcuts are handled by useChatKeyboard in chat.tsx
 
   return (
     <box

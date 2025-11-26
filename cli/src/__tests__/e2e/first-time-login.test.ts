@@ -5,7 +5,9 @@ import {
   pollLoginStatus,
   type LoginUrlResponse,
 } from '../../login/login-flow'
+import { createMockApiClient } from '../helpers/mock-api-client'
 
+import type { ApiResponse } from '../../utils/codebuff-api'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 type MockLogger = {
@@ -28,59 +30,70 @@ describe('First-Time Login Flow (helpers)', () => {
       expiresAt: '2025-12-31T23:59:59Z',
     }
 
-    const fetchMock = mock(async (input: RequestInfo, init?: RequestInit) => {
-      expect(typeof input).toBe('string')
-      expect(String(input)).toBe('https://cli.test/api/auth/cli/code')
-      expect(init?.method).toBe('POST')
-      expect(init?.headers).toEqual({ 'Content-Type': 'application/json' })
-      expect(init?.body).toBe(JSON.stringify({ fingerprintId: 'finger-001' }))
-      return new Response(JSON.stringify(responsePayload), { status: 200 })
+    const loginCodeMock = mock(async (req: { fingerprintId: string }) => {
+      expect(req.fingerprintId).toBe('finger-001')
+      return {
+        ok: true,
+        status: 200,
+        data: responsePayload,
+      } as ApiResponse<LoginUrlResponse>
     })
 
+    const apiClient = createMockApiClient({ loginCode: loginCodeMock })
+
     const result = await generateLoginUrl(
-      { fetch: fetchMock as any, logger },
+      { logger, apiClient },
       { baseUrl: 'https://cli.test', fingerprintId: 'finger-001' },
     )
 
     expect(result).toEqual(responsePayload)
-    expect(fetchMock.mock.calls.length).toBe(1)
+    expect(loginCodeMock.mock.calls.length).toBe(1)
   })
 
   test('pollLoginStatus resolves with user after handling transient 401 responses', async () => {
     const logger = createLogger()
-    const responses: Array<Response> = [
-      new Response(null, { status: 401 }),
-      new Response(null, { status: 401 }),
-      new Response(
-        JSON.stringify({
+    const apiResponses: Array<ApiResponse<{ user?: unknown }>> = [
+      { ok: false, status: 401 },
+      { ok: false, status: 401 },
+      {
+        ok: true,
+        status: 200,
+        data: {
           user: {
             id: 'new-user-123',
             name: 'New User',
             email: 'new@codebuff.dev',
             authToken: 'token-123',
           },
-        }),
-        { status: 200 },
-      ),
+        },
+      },
     ]
     let callCount = 0
 
-    const fetchMock = mock(async (input: RequestInfo) => {
-      const url = new URL(String(input))
-      expect(url.searchParams.get('fingerprintId')).toBe('finger-abc')
-      expect(url.searchParams.get('fingerprintHash')).toBe('hash-xyz')
-      expect(url.searchParams.get('expiresAt')).toBe('2030-01-02T03:04:05Z')
+    const loginStatusMock = mock(
+      async (req: {
+        fingerprintId: string
+        fingerprintHash: string
+        expiresAt: string
+      }) => {
+        expect(req.fingerprintId).toBe('finger-abc')
+        expect(req.fingerprintHash).toBe('hash-xyz')
+        expect(req.expiresAt).toBe('2030-01-02T03:04:05Z')
 
-      const response = responses[callCount] ?? responses[responses.length - 1]
-      callCount += 1
-      return response
-    })
+        const response =
+          apiResponses[callCount] ?? apiResponses[apiResponses.length - 1]
+        callCount += 1
+        return response
+      },
+    )
+
+    const apiClient = createMockApiClient({ loginStatus: loginStatusMock })
 
     const result = await pollLoginStatus(
       {
-        fetch: fetchMock as any,
         sleep: async () => {},
         logger,
+        apiClient,
       },
       {
         baseUrl: 'https://cli.test',
@@ -97,7 +110,7 @@ describe('First-Time Login Flow (helpers)', () => {
     expect(result.attempts).toBe(3)
     const user = result.user as { id?: unknown }
     expect(user?.id).toBe('new-user-123')
-    expect(fetchMock.mock.calls.length).toBe(3)
+    expect(loginStatusMock.mock.calls.length).toBe(3)
   })
 
   test('pollLoginStatus times out when user never appears', async () => {
@@ -106,9 +119,11 @@ describe('First-Time Login Flow (helpers)', () => {
     const intervalMs = 5000
     const timeoutMs = 20000
 
-    const fetchMock = mock(async () => {
-      return new Response(null, { status: 401 })
+    const loginStatusMock = mock(async () => {
+      return { ok: false, status: 401 } as ApiResponse<{ user?: unknown }>
     })
+
+    const apiClient = createMockApiClient({ loginStatus: loginStatusMock })
 
     const sleep = async () => {
       nowTime += intervalMs
@@ -116,10 +131,10 @@ describe('First-Time Login Flow (helpers)', () => {
 
     const result = await pollLoginStatus(
       {
-        fetch: fetchMock as any,
         sleep,
         logger,
         now: () => nowTime,
+        apiClient,
       },
       {
         baseUrl: 'https://cli.test',
@@ -132,26 +147,26 @@ describe('First-Time Login Flow (helpers)', () => {
     )
 
     expect(result.status).toBe('timeout')
-    expect(fetchMock.mock.calls.length).toBeGreaterThan(0)
+    expect(loginStatusMock.mock.calls.length).toBeGreaterThan(0)
   })
 
   test('pollLoginStatus stops when caller aborts', async () => {
     const logger = createLogger()
-    let attempts = 0
-    const fetchMock = mock(async () => {
-      attempts += 1
-      return new Response(null, { status: 401 })
+    const loginStatusMock = mock(async () => {
+      return { ok: false, status: 401 } as ApiResponse<{ user?: unknown }>
     })
+
+    const apiClient = createMockApiClient({ loginStatus: loginStatusMock })
 
     let shouldContinue = true
 
     const resultPromise = pollLoginStatus(
       {
-        fetch: fetchMock as any,
         sleep: async () => {
           shouldContinue = false
         },
         logger,
+        apiClient,
       },
       {
         baseUrl: 'https://cli.test',
@@ -164,6 +179,6 @@ describe('First-Time Login Flow (helpers)', () => {
 
     const result = await resultPromise
     expect(result.status).toBe('aborted')
-    expect(fetchMock.mock.calls.length).toBeGreaterThan(0)
+    expect(loginStatusMock.mock.calls.length).toBeGreaterThan(0)
   })
 })

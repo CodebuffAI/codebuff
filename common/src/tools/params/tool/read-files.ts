@@ -32,11 +32,9 @@ const inputSchema = z
       .describe('List of file paths to read.'),
   })
   .describe(
-    `Read the multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request.`,
+    `Read multiple files from disk and return their contents. Use this tool to read as many files as would be helpful to answer the user's request.`,
   )
 const description = `
-Note: DO NOT call this tool for files you've already read! There's no need to read them again — any changes to the files will be surfaced to you as a file update tool result.
-
 Example:
 ${$getNativeToolCallExampleString({
   toolName,

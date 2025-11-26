@@ -2,7 +2,7 @@ import { env } from '@codebuff/internal/env'
 import { afterEach, beforeEach, describe, expect, mock, it } from 'bun:test'
 import { NextRequest } from 'next/server'
 
-import { postChatCompletions } from '../_post'
+import { formatQuotaResetCountdown, postChatCompletions } from '../_post'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
@@ -47,8 +47,13 @@ describe('/api/v1/chat/completions POST endpoint', () => {
   let mockGetAgentRunFromId: GetAgentRunFromIdFn
   let mockFetch: typeof globalThis.fetch
   let mockInsertMessageBigquery: InsertMessageBigqueryFn
+  let nextQuotaReset: string
 
   beforeEach(() => {
+    nextQuotaReset = new Date(
+      Date.now() + 3 * 24 * 60 * 60 * 1000 + 5 * 60 * 1000,
+    ).toISOString()
+
     mockLogger = {
       error: mock(() => {}),
       warn: mock(() => {}),
@@ -70,7 +75,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
             netBalance: 0,
             breakdown: {},
           },
-          nextQuotaReset: '2024-12-31',
+          nextQuotaReset,
         }
       }
       return {
@@ -81,7 +86,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           netBalance: 100,
           breakdown: {},
         },
-        nextQuotaReset: '2024-12-31',
+        nextQuotaReset,
       }
     })
 
@@ -371,10 +376,9 @@ describe('/api/v1/chat/completions POST endpoint', () => {
 
       expect(response.status).toBe(402)
       const body = await response.json()
-      expect(body.message).toContain('Insufficient credits')
-      expect(body.message).toContain(
-        `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage`,
-      )
+      const expectedResetCountdown = formatQuotaResetCountdown(nextQuotaReset)
+      expect(body.message).toContain(expectedResetCountdown)
+      expect(body.message).not.toContain(nextQuotaReset)
     })
   })
 

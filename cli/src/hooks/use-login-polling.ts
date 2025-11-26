@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 
-import { pollLoginStatus } from '../login/login-flow'
 import { WEBSITE_URL } from '../login/constants'
+import { pollLoginStatus } from '../login/login-flow'
 import { logger } from '../utils/logger'
 
 import type { User } from '../utils/auth'
@@ -62,7 +62,6 @@ export function useLoginPolling({
 
     pollLoginStatus(
       {
-        fetch,
         sleep,
         logger,
       },

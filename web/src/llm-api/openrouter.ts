@@ -45,7 +45,10 @@ function extractUsageAndCost(usage: any): UsageData {
   }
 }
 
-function extractRequestMetadataWithN(params: { body: unknown; logger: Logger }) {
+function extractRequestMetadataWithN(params: {
+  body: unknown
+  logger: Logger
+}) {
   const { body, logger } = params
   const { clientId, clientRequestId } = extractRequestMetadata({ body, logger })
   const n = (body as any)?.codebuff_metadata?.n
@@ -180,7 +183,9 @@ export async function handleOpenRouterNonStream({
   })
 
   if (!response.ok) {
-    throw new Error(`OpenRouter API error: ${response.statusText}`)
+    throw new Error(
+      `OpenRouter API error (${response.statusText}): ${await response.text()}`,
+    )
   }
 
   const data = await response.json()
@@ -256,7 +261,9 @@ export async function handleOpenRouterStream({
   })
 
   if (!response.ok) {
-    throw new Error(`OpenRouter API error: ${response.statusText}`)
+    throw new Error(
+      `OpenRouter API error (${response.statusText}): ${await response.text()}`,
+    )
   }
 
   const reader = response.body?.getReader()

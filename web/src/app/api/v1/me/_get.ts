@@ -113,7 +113,7 @@ export async function getMe(params: {
   if (!userInfo) {
     return NextResponse.json(
       { error: 'Invalid API key or user not found' },
-      { status: 404 },
+      { status: 401 },
     )
   }
 
