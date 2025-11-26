@@ -474,9 +474,23 @@ export const useSendMessage = ({
       ]
       const uniqueImagePaths = [...new Set(allImagePaths)]
 
-      // Process all images
+      // Build attachments from pending images first (for UI display)
+      // These show in the user message regardless of processing success
+      const attachments = pendingImages.map((img) => ({
+        path: img.path,
+        filename: img.filename,
+      }))
+
+      // Clear pending images immediately after capturing them
+      // This ensures the banner hides when sending, regardless of processing outcome
+      if (pendingImages.length > 0) {
+        useChatStore.getState().clearPendingImages()
+      }
+
+      // Process all images for SDK
+      const projectRoot = getProjectRoot()
       const imagePartsPromises = uniqueImagePaths.map((imagePath) =>
-        processImageFile(imagePath, getProjectRoot()).then((result) => {
+        processImageFile(imagePath, projectRoot).then((result) => {
           if (result.success && result.imagePart) {
             return {
               type: 'image' as const,
@@ -487,6 +501,12 @@ export const useSendMessage = ({
               path: imagePath,
             }
           }
+          if (!result.success) {
+            logger.warn(
+              { imagePath, error: result.error },
+              'Failed to process image for SDK',
+            )
+          }
           return null
         }),
       )
@@ -495,12 +515,6 @@ export const useSendMessage = ({
       const validImageParts = imagePartsResults.filter(
         (part): part is NonNullable<typeof part> => part !== null,
       )
-
-      // Build attachments array for display in user message
-      const attachments = validImageParts.map((img) => ({
-        path: img.path,
-        filename: img.filename || 'image',
-      }))
 
       // Build message content array for SDK
       let messageContent: MessageContent[] | undefined
@@ -522,11 +536,8 @@ export const useSendMessage = ({
               0,
             ),
           },
-          `📎 ${validImageParts.length} image(s) attached`,
+          `📎 ${validImageParts.length} image(s) attached to SDK message`,
         )
-
-        // Clear pending images after successful processing
-        useChatStore.getState().clearPendingImages()
       }
 
       // Create user message and capture its ID for later updates
