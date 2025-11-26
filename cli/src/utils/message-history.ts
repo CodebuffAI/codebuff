@@ -5,11 +5,14 @@ import { getConfigDir } from './auth'
 import { formatTimestamp } from './helpers'
 import { logger } from './logger'
 
-import type { ChatMessage, ContentBlock } from '../types/chat'
+import type { ChatMessage, ContentBlock, ImageAttachment } from '../types/chat'
 
 const MAX_HISTORY_SIZE = 1000
 
-export function getUserMessage(message: string | ContentBlock[]): ChatMessage {
+export function getUserMessage(
+  message: string | ContentBlock[],
+  attachments?: ImageAttachment[],
+): ChatMessage {
   return {
     id: `user-${Date.now()}`,
     variant: 'user',
@@ -22,6 +25,7 @@ export function getUserMessage(message: string | ContentBlock[]): ChatMessage {
           blocks: message,
         }),
     timestamp: formatTimestamp(),
+    ...(attachments && attachments.length > 0 ? { attachments } : {}),
   }
 }
 

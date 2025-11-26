@@ -92,10 +92,25 @@ export type AskUserContentBlock = {
   skipped?: boolean
 }
 
+export type ImageContentBlock = {
+  type: 'image'
+  image: string // base64 encoded
+  mediaType: string
+  filename?: string
+  size?: number
+}
+
+export type ImageAttachment = {
+  path: string
+  filename: string
+}
+
 export type ContentBlock =
   | AgentContentBlock
   | AgentListContentBlock
+  | AskUserContentBlock
   | HtmlContentBlock
+  | ImageContentBlock
   | ModeDividerContentBlock
   | TextContentBlock
   | ToolContentBlock
@@ -123,6 +138,7 @@ export type ChatMessage = {
   isComplete?: boolean
   metadata?: Record<string, any>
   validationErrors?: Array<{ id: string; message: string }>
+  attachments?: ImageAttachment[]
 }
 
 // Type guard functions for safe type narrowing
@@ -156,4 +172,8 @@ export function isModeDividerBlock(block: ContentBlock): block is ModeDividerCon
 
 export function isAskUserBlock(block: ContentBlock): block is AskUserContentBlock {
   return block.type === 'ask-user'
+}
+
+export function isImageBlock(block: ContentBlock): block is ImageContentBlock {
+  return block.type === 'image'
 }

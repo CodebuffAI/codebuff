@@ -8,6 +8,7 @@ import { MessageFooter } from './message-footer'
 import { ValidationErrorPopover } from './validation-error-popover'
 import { useTheme } from '../hooks/use-theme'
 import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
+import { ImageCard } from './image-card'
 import { isTextBlock, isToolBlock } from '../types/chat'
 import { shouldRenderAsSimpleText } from '../utils/constants'
 import {
@@ -28,6 +29,7 @@ import type {
   TextContentBlock,
   HtmlContentBlock,
   AgentContentBlock,
+  ImageAttachment,
 } from '../types/chat'
 import { isAskUserBlock } from '../types/chat'
 import type { ThemeColor } from '../types/theme-system'
@@ -61,6 +63,48 @@ interface MessageBlockProps {
     footerMessage?: string
     errors?: Array<{ id: string; message: string }>
   }) => void
+  attachments?: ImageAttachment[]
+}
+
+const MessageAttachments = ({
+  attachments,
+}: {
+  attachments: ImageAttachment[]
+}) => {
+  const theme = useTheme()
+
+  if (attachments.length === 0) {
+    return null
+  }
+
+  return (
+    <box
+      style={{
+        flexDirection: 'column',
+        gap: 0,
+        marginTop: 1,
+      }}
+    >
+      <text style={{ fg: theme.muted }}>
+        📎 {attachments.length} image{attachments.length > 1 ? 's' : ''} attached
+      </text>
+      <box
+        style={{
+          flexDirection: 'row',
+          gap: 1,
+          flexWrap: 'wrap',
+        }}
+      >
+        {attachments.map((attachment, index) => (
+          <ImageCard
+            key={`${attachment.path}-${index}`}
+            image={attachment}
+            showRemoveButton={false}
+          />
+        ))}
+      </box>
+    </box>
+  )
 }
 
 import { BORDER_CHARS } from '../utils/ui-constants'
@@ -90,6 +134,7 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
   onCloseFeedback,
   validationErrors,
   onOpenFeedback,
+  attachments,
 }) => {
   const [showValidationPopover, setShowValidationPopover] = useState(false)
   
@@ -208,6 +253,11 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
           palette={markdownOptions.palette}
         />
       )}
+      {/* Show image attachments for user messages */}
+      {isUser && attachments && attachments.length > 0 && (
+        <MessageAttachments attachments={attachments} />
+      )}
+
       {isAi && (
         <MessageFooter
           messageId={messageId}

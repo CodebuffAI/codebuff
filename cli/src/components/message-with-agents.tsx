@@ -241,6 +241,7 @@ export const MessageWithAgents = memo(
                 onBuildMax={onBuildMax}
                 onFeedback={onFeedback}
                 onCloseFeedback={onCloseFeedback}
+                attachments={message.attachments}
               />
             </box>
           )}

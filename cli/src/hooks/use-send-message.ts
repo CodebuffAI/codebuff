@@ -22,6 +22,10 @@ import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 
 import { logger } from '../utils/logger'
 import { getUserMessage } from '../utils/message-history'
+import {
+  extractImagePaths,
+  processImageFile,
+} from '../utils/image-handler'
 import { NETWORK_ERROR_ID } from '../utils/validation-error-helpers'
 import {
   loadMostRecentChatState,
@@ -457,8 +461,80 @@ export const useSendMessage = ({
       const shouldInsertDivider =
         lastMessageMode === null || lastMessageMode !== agentMode
 
+      // --- Process images before sending ---
+      // Get pending images from store
+      const pendingImages = useChatStore.getState().pendingImages
+
+      // Also extract image paths from the input text
+      const detectedImagePaths = extractImagePaths(content)
+
+      // Combine pending images with detected paths (avoid duplicates)
+      const allImagePaths = [
+        ...pendingImages.map((img) => img.path),
+        ...detectedImagePaths,
+      ]
+      const uniqueImagePaths = [...new Set(allImagePaths)]
+
+      // Process all images
+      const imagePartsPromises = uniqueImagePaths.map((imagePath) =>
+        processImageFile(imagePath).then((result) => {
+          if (result.success && result.imagePart) {
+            return {
+              type: 'image' as const,
+              image: result.imagePart.image,
+              mediaType: result.imagePart.mediaType,
+              filename: result.imagePart.filename,
+              size: result.imagePart.size,
+              path: imagePath,
+            }
+          }
+          return null
+        }),
+      )
+
+      const imagePartsResults = await Promise.all(imagePartsPromises)
+      const validImageParts = imagePartsResults.filter(
+        (part): part is NonNullable<typeof part> => part !== null,
+      )
+
+      // Build message content array for SDK
+      let messageContent:
+        | Array<{ type: 'text'; text: string } | { type: 'image'; image: string; mediaType: string }>
+        | undefined
+      if (validImageParts.length > 0) {
+        // Build content array with text and images
+        messageContent = [
+          { type: 'text', text: content },
+          ...validImageParts.map((img) => ({
+            type: 'image' as const,
+            image: img.image,
+            mediaType: img.mediaType,
+          })),
+        ]
+
+        logger.info(
+          {
+            imageCount: validImageParts.length,
+            totalSize: validImageParts.reduce(
+              (sum, part) => sum + (part.size || 0),
+              0,
+            ),
+          },
+          `📎 ${validImageParts.length} image(s) attached`,
+        )
+
+        // Clear pending images after successful processing
+        useChatStore.getState().clearPendingImages()
+      }
+
+      // Build attachments array for display in user message
+      const attachments = validImageParts.map((img) => ({
+        path: img.path,
+        filename: img.filename || 'image',
+      }))
+
       // Create user message and capture its ID for later updates
-      const userMessage = getUserMessage(content)
+      const userMessage = getUserMessage(content, attachments)
       const userMessageId = userMessage.id
 
       applyMessageUpdate((prev) => {
@@ -941,6 +1017,7 @@ export const useSendMessage = ({
             logger,
             agent: selectedAgentDefinition ?? agentId ?? fallbackAgent,
             prompt: content,
+            content: messageContent,
             previousRun: previousRunStateRef.current ?? undefined,
             abortController,
             retry: {
