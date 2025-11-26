@@ -39,11 +39,11 @@ export function createBestOfNEditor(
     spawnableAgents: buildArray(
       'best-of-n-selector',
       'best-of-n-selector-opus',
-      isDefault && 'best-of-n-selector-gemini',
+      'best-of-n-selector-gemini',
       'editor-implementor',
       'editor-implementor-opus',
-      isDefault && 'editor-implementor-gemini',
-      isMax && 'editor-implementor-gpt-5',
+      'editor-implementor-gemini',
+      'editor-implementor-gpt-5',
     ),
 
     inputSchema: {
