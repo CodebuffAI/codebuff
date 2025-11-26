@@ -7,18 +7,24 @@ import {
 } from '../types/secret-agent-definition'
 
 export function createBase2(
-  mode: 'fast' | 'default' | 'max',
+  mode: 'fast' | 'default' | 'max' | 'opus',
   options?: {
     hasNoValidation?: boolean
     planOnly?: boolean
+    chillOnReadingFiles?: boolean
   },
 ): Omit<SecretAgentDefinition, 'id'> {
-  const { hasNoValidation = mode === 'fast', planOnly = false } = options ?? {}
+  const {
+    hasNoValidation = mode === 'fast',
+    planOnly = false,
+    chillOnReadingFiles = false,
+  } = options ?? {}
   const isDefault = mode === 'default'
   const isFast = mode === 'fast'
-  const isMax = mode === 'max'
+  const isMax = mode === 'max' || mode === 'opus'
 
   const isOpus = isMax
+  const isOpusOnly = mode === 'opus'
   const isSonnet = isDefault || isFast
   const isGemini = false
 
@@ -63,9 +69,9 @@ export function createBase2(
       'researcher-docs',
       'commander',
       isDefault && 'editor-best-of-n',
-      isMax && 'editor-best-of-n-max',
+      mode === 'max' && 'editor-best-of-n-max',
       isDefault && 'thinker-best-of-n',
-      isMax && 'thinker-best-of-n-opus',
+      isMax && !isOpusOnly && 'thinker-best-of-n-opus',
       isDefault && 'code-reviewer-gemini',
       isMax && 'code-reviewer-opus',
       'context-pruner',
@@ -119,7 +125,8 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
     '- Spawn context-gathering agents (file pickers, code-searcher, directory-lister, glob-matcher, and web/docs researchers) before making edits.',
     isMax &&
       '- Spawn the thinker-best-of-n-opus after gathering context to solve complex problems.',
-    `- Spawn a ${isMax ? 'editor-best-of-n-max' : 'editor-best-of-n'} agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
+    !isOpusOnly &&
+      `- Spawn a ${isMax ? 'editor-best-of-n-max' : 'editor-best-of-n'} agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
     '- Spawn commanders sequentially if the second command depends on the the first.',
     !isFast &&
       `- Spawn a ${isDefault ? 'code-reviewer-gemini' : 'code-reviewer-opus'} to review the changes after you have implemented the changes.`,
@@ -249,17 +256,17 @@ Do this:
 <response>
 [ You spawn 3 file-pickers, a code-searcher, and a docs researcher in parallel to find relevant files and do research online ]
 
-[ You read 12 of the relevant files using the read_files tool in two separate tool calls ]
+[ You read ${chillOnReadingFiles ? 'a few' : '12'} of the relevant files using the read_files tool in two separate tool calls ]
 
 [ You spawn one more code-searcher and file-picker ]
 
-[ You read 8 other relevant files using the read_files tool ]
+[ You read ${chillOnReadingFiles ? 'a few' : '8'} other relevant files using the read_files tool ]
 
-[ You spawn an editor to implement the changes ]
+${isOpusOnly ? '[ You implement the changes directly using the str_replace or write_file tools ]' : '[ You spawn an editor to implement the changes ]'}
 
 [ You spawn a code-reviewer, a commander to typecheck the changes, and another commander to run tests, all in parallel ]
 
-[ You spawn the editor to fix the issues found by the code-reviewer and type/test errors ]
+${isOpusOnly ? '[ You fix the issues found by the code-reviewer and type/test errors ]' : '[ You spawn the editor to fix the issues found by the code-reviewer and type/test errors ]'}
 
 [ All tests & typechecks pass -- you write a very short final summary of the changes you made ]
  </reponse>
@@ -296,7 +303,9 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           isFast,
           isDefault,
           isMax,
+          isOpusOnly,
           hasNoValidation,
+          chillOnReadingFiles,
         }),
     stepPrompt: planOnly
       ? buildPlanOnlyStepPrompt({})
@@ -305,6 +314,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           isMax,
           hasNoValidation,
           isSonnet,
+          isOpusOnly,
         }),
 
     handleSteps: function* ({ params }) {
@@ -330,18 +340,24 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 
 const EXPLORE_PROMPT = `- Iteratively spawn file pickers, code-searchers, directory-listers, glob-matchers, commanders, and web/docs researchers to gather context as needed. The file-picker agent in particular is very useful to find relevant files -- try spawning multiple in parallel (say, 2-5) to explore different parts of the codebase. Use read_subtree if you need to grok a particular part of the codebase. Read all the relevant files using the read_files tool. Read as many files as possible so that you have comprehensive context on the user's request.`
 
+const EXPLORE_PROMPT_CHILL_ON_READING_FILES = `- Iteratively spawn file pickers, code-searchers, directory-listers, glob-matchers, commanders, and web/docs researchers to gather context as needed. The file-picker agent in particular is very useful to find relevant files -- try spawning multiple in parallel (say, 2-5) to explore different parts of the codebase. Use read_subtree if you need to grok a particular part of the codebase. Read all the relevant files to understand the user's request.`
+
 function buildImplementationInstructionsPrompt({
   isSonnet,
   isFast,
   isDefault,
   isMax,
+  isOpusOnly,
   hasNoValidation,
+  chillOnReadingFiles,
 }: {
   isSonnet: boolean
   isFast: boolean
   isDefault: boolean
   isMax: boolean
+  isOpusOnly: boolean
   hasNoValidation: boolean
+  chillOnReadingFiles: boolean
 }) {
   return `Act as a helpful assistant and freely respond to the user's request however would be most helpful to the user. Use your judgement to orchestrate the completion of the user's request using your specialized sub-agents and tools as needed. Take your time and be comprehensive. Don't surprise the user. For example, don't modify files if the user has not asked you to do so at least implicitly.
 
@@ -350,16 +366,20 @@ function buildImplementationInstructionsPrompt({
 The user asks you to implement a new feature. You respond in multiple steps:
 
 ${buildArray(
-  EXPLORE_PROMPT,
+  chillOnReadingFiles ? EXPLORE_PROMPT_CHILL_ON_READING_FILES : EXPLORE_PROMPT,
   !isFast &&
+    !chillOnReadingFiles &&
     `- Important: Read as many files as could possibly be relevant to the task over several steps to improve your understanding of the user's request and produce the best possible code changes. Find more examples within the codebase similar to the user's request, dependencies that help with understanding how things work, tests, etc. This is frequently 12-20 files, depending on the task.`,
   !isFast &&
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
+  isOpusOnly &&
+    '- Implement the changes using the str_replace or write_file tools.',
   isFast &&
     '- Implement the changes in one go. Pause after making all the changes to see the tool results of your edits.',
   isFast &&
     '- Do a single typecheck targeted for your changes at most (if applicable for the project). Or skip this step if the change was small.',
   !isFast &&
+    !isOpusOnly &&
     `- IMPORTANT: You must spawn the ${isMax ? 'editor-best-of-n-max' : 'editor-best-of-n'} agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious.`,
   !isFast &&
     `- Spawn a ${isDefault ? 'code-reviewer-gemini' : 'code-reviewer-opus'} to review the changes after you have implemented the changes. (Skip this step only if the change is extremely straightforward and obvious.)`,
@@ -374,16 +394,19 @@ function buildImplementationStepPrompt({
   isMax,
   hasNoValidation,
   isSonnet,
+  isOpusOnly,
 }: {
   isFast: boolean
   isMax: boolean
   hasNoValidation: boolean
   isSonnet: boolean
+  isOpusOnly: boolean
 }) {
   return buildArray(
     isMax &&
       `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
     !isFast &&
+      !isOpusOnly &&
       `You must spawn the ${isMax ? 'editor-best-of-n-max' : 'editor-best-of-n'} agent to implement code changes, since it will generate the best code changes.`,
     isMax && 'Spawn the thinker-best-of-n-opus to solve complex problems.',
     `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}. Don't repeat yourself, especially if you have already concluded and summarized the changes in a previous step -- just end your turn.`,
