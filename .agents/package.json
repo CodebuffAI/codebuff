@@ -6,8 +6,5 @@
   "scripts": {
     "typecheck": "bun x tsc --noEmit -p tsconfig.json",
     "test": "bun test"
-  },
-  "dependencies": {
-    "@codebuff/sdk": "workspace:*"
   }
 }
