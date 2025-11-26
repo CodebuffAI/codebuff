@@ -150,6 +150,79 @@ export function countEdits(blocks: ContentBlock[] | undefined): number {
 }
 
 /**
+ * Get list of unique file paths edited by the agent
+ */
+export function getEditedFiles(blocks: ContentBlock[] | undefined): string[] {
+  if (!blocks || blocks.length === 0) return []
+
+  const files = new Set<string>()
+
+  for (const block of blocks) {
+    if (
+      block.type === 'tool' &&
+      EDIT_TOOL_NAMES.includes(block.toolName as (typeof EDIT_TOOL_NAMES)[number])
+    ) {
+      const filePath = extractFilePath(block)
+      if (filePath) {
+        files.add(filePath)
+      }
+    }
+  }
+
+  return Array.from(files)
+}
+
+export interface FileSnippet {
+  path: string
+  snippet?: string
+  isCreate: boolean
+}
+
+/**
+ * Get list of files with content snippets
+ */
+export function getEditedFileSnippets(blocks: ContentBlock[] | undefined): FileSnippet[] {
+  if (!blocks || blocks.length === 0) return []
+
+  const visited = new Set<string>()
+  const results: FileSnippet[] = []
+
+  for (const block of blocks) {
+    if (
+      block.type === 'tool' &&
+      EDIT_TOOL_NAMES.includes(block.toolName as (typeof EDIT_TOOL_NAMES)[number])
+    ) {
+      const filePath = extractFilePath(block)
+      if (filePath && !visited.has(filePath)) {
+        visited.add(filePath)
+        
+        const diff = extractDiff(block)
+        let snippet: string | undefined
+        if (diff) {
+          // Extract first non-header line as preview
+          const lines = diff.split('\n')
+          const interestingLine = lines.find(l => 
+            (l.startsWith('+') || l.startsWith('-')) && 
+            !l.startsWith('+++') && !l.startsWith('---')
+          )
+          if (interestingLine) {
+            snippet = interestingLine.trim().slice(0, 50)
+          }
+        }
+
+        results.push({
+          path: filePath,
+          isCreate: isCreateFile(block),
+          snippet
+        })
+      }
+    }
+  }
+
+  return results
+}
+
+/**
  * Extract file path from tool block
  */
 export function extractFilePath(toolBlock: ToolContentBlock): string | null {
