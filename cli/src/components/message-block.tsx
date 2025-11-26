@@ -76,8 +76,6 @@ const MessageAttachments = ({
 }: {
   attachments: ImageAttachment[]
 }) => {
-  const theme = useTheme()
-
   if (attachments.length === 0) {
     return null
   }
@@ -85,29 +83,19 @@ const MessageAttachments = ({
   return (
     <box
       style={{
-        flexDirection: 'column',
-        gap: 0,
+        flexDirection: 'row',
+        gap: 1,
+        flexWrap: 'wrap',
         marginTop: 1,
       }}
     >
-      <text style={{ fg: theme.muted }}>
-        📎 {attachments.length} image{attachments.length > 1 ? 's' : ''} attached
-      </text>
-      <box
-        style={{
-          flexDirection: 'row',
-          gap: 1,
-          flexWrap: 'wrap',
-        }}
-      >
-        {attachments.map((attachment, index) => (
-          <ImageCard
-            key={`${attachment.path}-${index}`}
-            image={attachment}
-            showRemoveButton={false}
-          />
-        ))}
-      </box>
+      {attachments.map((attachment, index) => (
+        <ImageCard
+          key={`${attachment.path}-${index}`}
+          image={attachment}
+          showRemoveButton={false}
+        />
+      ))}
     </box>
   )
 }
