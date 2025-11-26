@@ -21,11 +21,9 @@ import { formatTimestamp } from '../utils/helpers'
 import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 
 import { logger } from '../utils/logger'
+import { extractImagePaths, processImageFile } from '../utils/image-handler'
 import { getUserMessage } from '../utils/message-history'
-import {
-  extractImagePaths,
-  processImageFile,
-} from '../utils/image-handler'
+import { getProjectRoot } from '../project-files'
 import { NETWORK_ERROR_ID } from '../utils/validation-error-helpers'
 import {
   loadMostRecentChatState,
@@ -39,7 +37,7 @@ import type { SendMessageFn } from '../types/contracts/send-message'
 import type { ParamsOf } from '../types/function-params'
 import type { SetElement } from '../types/utils'
 import type { AgentMode } from '../utils/constants'
-import type { AgentDefinition, RunState, ToolName } from '@codebuff/sdk'
+import type { AgentDefinition, RunState, ToolName, MessageContent } from '@codebuff/sdk'
 import type { SetStateAction } from 'react'
 const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
   'spawn_agent_inline',
@@ -1010,6 +1008,63 @@ export const useSendMessage = ({
             : agentMode === 'MAX'
               ? 'base2-max'
               : 'base2-plan'
+
+        // Auto-detect and process image paths in the content
+        const imagePaths = extractImagePaths(content)
+        const imagePartsPromises = imagePaths.map(async (imagePath) => {
+          const cwd = getProjectRoot()
+          const result = await processImageFile(imagePath, cwd)
+          if (result.success && result.imagePart) {
+            return {
+              type: 'image' as const,
+              image: result.imagePart.image,
+              mediaType: result.imagePart.mediaType,
+              filename: result.imagePart.filename,
+              size: result.imagePart.size,
+            }
+          }
+          // Log failed image processing
+          if (!result.success) {
+            logger.warn(
+              { imagePath, error: result.error },
+              'Failed to process image',
+            )
+          }
+          return null
+        })
+
+        const imagePartsResults = await Promise.all(imagePartsPromises)
+        const validImageParts = imagePartsResults.filter(
+          (part): part is NonNullable<typeof part> => part !== null,
+        )
+
+        // Build message content array
+        let messageContent: MessageContent[] | undefined
+        if (validImageParts.length > 0) {
+          messageContent = [
+            { type: 'text' as const, text: content },
+            ...validImageParts.map((img) => ({
+              type: 'image' as const,
+              image: img.image,
+              mediaType: img.mediaType,
+            })),
+          ]
+
+          // Calculate total size for logging
+          const totalSize = validImageParts.reduce(
+            (sum, part) => sum + (part.size || 0),
+            0,
+          )
+
+          logger.info(
+            {
+              imageCount: validImageParts.length,
+              totalSize,
+              totalSizeKB: (totalSize / 1024).toFixed(1),
+            },
+            `📎 ${validImageParts.length} image(s) attached`,
+          )
+        }
 
         let runState: RunState
         try {

@@ -3,7 +3,7 @@ export type * from '../../common/src/types/messages/codebuff-message'
 export type * from '../../common/src/types/messages/data-content'
 export type * from '../../common/src/types/print-mode'
 export { run, getRetryableErrorCode } from './run'
-export type { RunOptions, RetryOptions } from './run'
+export type { RunOptions, RetryOptions, MessageContent, TextContent, ImageContent } from './run'
 // Agent type exports
 export type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
 export type { ToolName } from '../../common/src/tools/constants'

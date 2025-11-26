@@ -65,6 +65,18 @@ export type PlanContentBlock = {
   content: string
 }
 
+export type ImageContentBlock = {
+  type: 'image'
+  image: string // base64 encoded image data
+  mediaType: string
+  filename?: string
+  size?: number
+  width?: number
+  height?: number
+  isCollapsed?: boolean
+  userOpened?: boolean
+}
+
 export type AskUserContentBlock = {
   type: 'ask-user'
   toolCallId: string

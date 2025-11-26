@@ -141,9 +141,24 @@ export type RetryOptions = {
   }) => void | Promise<void>
 }
 
+export type ImageContent = {
+  type: 'image'
+  image: string // base64 encoded
+  mediaType: string
+}
+
+export type TextContent = {
+  type: 'text'
+  text: string
+}
+
+export type MessageContent = TextContent | ImageContent
+
 export type RunOptions = {
   agent: string | AgentDefinition
   prompt: string
+  /** Content array for multimodal messages (text + images) */
+  content?: MessageContent[]
   params?: Record<string, any>
   previousRun?: RunState
   extraToolResults?: ToolMessage[]
@@ -258,6 +273,27 @@ type RunExecutionOptions = RunOptions &
     fingerprintId: string
   }
 type RunOnceOptions = Omit<RunExecutionOptions, 'retry' | 'abortController'>
+
+/**
+ * Build content array from prompt and optional content
+ */
+function buildMessageContent(
+  prompt: string,
+  content?: MessageContent[],
+): Array<{ type: 'text'; text: string } | { type: 'image'; image: string; mediaType: string }> {
+  // If content array is provided, use it (it should already include the text)
+  if (content && content.length > 0) {
+    return content.map((item) => {
+      if (item.type === 'text') {
+        return { type: 'text' as const, text: item.text }
+      }
+      return { type: 'image' as const, image: item.image, mediaType: item.mediaType }
+    })
+  }
+  
+  // Otherwise just return text content from prompt
+  return [{ type: 'text' as const, text: prompt }]
+}
 type RunReturnType = RunState
 
 export async function run(
@@ -478,6 +514,7 @@ export async function runOnce({
 
   agent,
   prompt,
+  content,
   params,
   previousRun,
   extraToolResults,
@@ -779,6 +816,10 @@ export async function runOnce({
     return getCancelledRunState()
   }
 
+  // Build content for multimodal messages
+  const messageContent = buildMessageContent(prompt, content)
+  const hasImages = messageContent.some((c) => c.type === 'image')
+
   callMainPrompt({
     ...agentRuntimeImpl,
     promptId,
@@ -786,6 +827,8 @@ export async function runOnce({
       type: 'prompt',
       promptId,
       prompt,
+      // Include content array if it has images, otherwise omit
+      ...(hasImages && { content: messageContent }),
       promptParams: params,
       fingerprintId: fingerprintId,
       costMode: 'normal',

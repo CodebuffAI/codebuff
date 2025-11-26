@@ -22,6 +22,7 @@ import { ContentWithMarkdown } from './blocks/content-with-markdown'
 import { ThinkingBlock } from './blocks/thinking-block'
 import { ToolBranch } from './blocks/tool-branch'
 import { AskUserBranch } from './blocks/ask-user-branch'
+import { ImageBlock } from './blocks/image-block'
 import { PlanBox } from './renderers/plan-box'
 
 import type {
@@ -30,8 +31,9 @@ import type {
   HtmlContentBlock,
   AgentContentBlock,
   ImageAttachment,
+  ImageContentBlock,
 } from '../types/chat'
-import { isAskUserBlock } from '../types/chat'
+import { isAskUserBlock, isImageBlock } from '../types/chat'
 import type { ThemeColor } from '../types/theme-system'
 
 interface MessageBlockProps {
@@ -317,6 +319,7 @@ const isRenderableTimelineBlock = (
     case 'plan':
     case 'mode-divider':
     case 'ask-user':
+    case 'image':
       return true
     default:
       return false
@@ -943,6 +946,16 @@ const SingleBlock = memo(
         )
       }
 
+      case 'image': {
+        return (
+          <ImageBlock
+            key={`${messageId}-image-${idx}`}
+            block={block as ImageContentBlock}
+            availableWidth={availableWidth}
+          />
+        )
+      }
+
       case 'agent': {
         return (
           <AgentBranchWrapper
@@ -1036,6 +1049,19 @@ const BlocksRenderer = memo(
         )
         continue
       }
+      // Handle image blocks
+      if (isImageBlock(block)) {
+        nodes.push(
+          <ImageBlock
+            key={`${messageId}-image-${i}`}
+            block={block}
+            availableWidth={availableWidth}
+          />,
+        )
+        i++
+        continue
+      }
+
       if (block.type === 'tool') {
         const start = i
         const group: Extract<ContentBlock, { type: 'tool' }>[] = []
