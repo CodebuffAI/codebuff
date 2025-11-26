@@ -87,6 +87,7 @@ export async function* processStreamWithTools(params: {
     chunk: StreamChunk | undefined,
   ): Generator<StreamChunk> {
     if (chunk === undefined) {
+      flush()
       streamCompleted = true
       return
     }
