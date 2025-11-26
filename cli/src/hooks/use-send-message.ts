@@ -312,6 +312,7 @@ export const useSendMessage = ({
   const agentStreamAccumulatorsRef = useRef<Map<string, string>>(new Map())
   const rootStreamSeenRef = useRef(false)
   const planExtractedRef = useRef(false)
+  const wasAbortedByUserRef = useRef(false)
 
   const updateChainInProgress = useCallback(
     (value: boolean) => {
@@ -655,6 +656,7 @@ export const useSendMessage = ({
       rootStreamSeenRef.current = false
       planExtractedRef.current = false
       agentStreamAccumulatorsRef.current = new Map<string, string>()
+      wasAbortedByUserRef.current = false
       timerController.start(aiMessageId)
 
       const updateAgentContent = (
@@ -875,6 +877,7 @@ export const useSendMessage = ({
       const abortController = new AbortController()
       abortControllerRef.current = abortController
       abortController.signal.addEventListener('abort', () => {
+        wasAbortedByUserRef.current = true
         setStreamStatus('idle')
         setCanProcessQueue(!isQueuePausedRef?.current)
         updateChainInProgress(false)
@@ -1773,6 +1776,13 @@ export const useSendMessage = ({
         if (!runState.output || runState.output.type === 'error') {
           const errorOutput = runState.output?.type === 'error' ? runState.output : null
           const errorMessage = errorOutput?.message ?? 'No output from agent run'
+
+          // Check if this was a user-initiated cancellation - if so, don't show error since
+          // the abort handler already shows [response interrupted]
+          if (wasAbortedByUserRef.current) {
+            logger.info({ errorMessage }, 'Run cancelled by user, not showing error')
+            return
+          }
 
           logger.warn({ errorMessage, errorCode: errorOutput?.errorCode }, 'Agent run failed')
 
