@@ -1,3 +1,4 @@
+import { handleImageCommand } from './image'
 import { handleInitializationFlowLocally } from './init'
 import { handleReferralCode } from './referral'
 import { normalizeReferralCode } from './router-utils'
@@ -208,6 +209,27 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     handler: async (params) => {
       const { postUserMessage } = await handleUsageCommand()
       params.setMessages((prev) => postUserMessage(prev))
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  },
+  {
+    name: 'image',
+    aliases: ['img', 'attach'],
+    handler: (params, args) => {
+      const trimmedArgs = args.trim()
+
+      // If user provided a path directly, process it immediately
+      if (trimmedArgs) {
+        const result = handleImageCommand(trimmedArgs)
+        params.setMessages((prev) => result.postUserMessage(prev))
+        params.saveToHistory(params.inputValue.trim())
+        clearInput(params)
+        return
+      }
+
+      // Otherwise enter image mode
+      useChatStore.getState().setInputMode('image')
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
     },

@@ -136,6 +136,12 @@ export type AgentMessage = {
   subAgentCount?: number
 }
 
+export type ImageAttachment = {
+  filename: string
+  path: string  // Full path for opening the file
+  size?: number
+}
+
 export type ChatMessage = {
   id: string
   variant: ChatVariant

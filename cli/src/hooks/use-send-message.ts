@@ -24,6 +24,7 @@ import { logger } from '../utils/logger'
 import { extractImagePaths, processImageFile } from '../utils/image-handler'
 import { getUserMessage } from '../utils/message-history'
 import { getProjectRoot } from '../project-files'
+import path from 'path'
 import { NETWORK_ERROR_ID } from '../utils/validation-error-helpers'
 import {
   loadMostRecentChatState,
@@ -475,7 +476,7 @@ export const useSendMessage = ({
 
       // Process all images
       const imagePartsPromises = uniqueImagePaths.map((imagePath) =>
-        processImageFile(imagePath).then((result) => {
+        processImageFile(imagePath, getProjectRoot()).then((result) => {
           if (result.success && result.imagePart) {
             return {
               type: 'image' as const,
@@ -495,36 +496,6 @@ export const useSendMessage = ({
         (part): part is NonNullable<typeof part> => part !== null,
       )
 
-      // Build message content array for SDK
-      let messageContent:
-        | Array<{ type: 'text'; text: string } | { type: 'image'; image: string; mediaType: string }>
-        | undefined
-      if (validImageParts.length > 0) {
-        // Build content array with text and images
-        messageContent = [
-          { type: 'text', text: content },
-          ...validImageParts.map((img) => ({
-            type: 'image' as const,
-            image: img.image,
-            mediaType: img.mediaType,
-          })),
-        ]
-
-        logger.info(
-          {
-            imageCount: validImageParts.length,
-            totalSize: validImageParts.reduce(
-              (sum, part) => sum + (part.size || 0),
-              0,
-            ),
-          },
-          `📎 ${validImageParts.length} image(s) attached`,
-        )
-
-        // Clear pending images after successful processing
-        useChatStore.getState().clearPendingImages()
-      }
-
       // Build attachments array for display in user message
       const attachments = validImageParts.map((img) => ({
         path: img.path,
@@ -534,6 +505,11 @@ export const useSendMessage = ({
       // Create user message and capture its ID for later updates
       const userMessage = getUserMessage(content, attachments)
       const userMessageId = userMessage.id
+      
+      // Add attachments to user message
+      if (attachments.length > 0) {
+        userMessage.attachments = attachments
+      }
 
       applyMessageUpdate((prev) => {
         let newMessages = [...prev]
@@ -1038,6 +1014,26 @@ export const useSendMessage = ({
           (part): part is NonNullable<typeof part> => part !== null,
         )
 
+        // Also include pending images from /image command
+        const pendingImages = useChatStore.getState().pendingImages
+        for (const pendingImage of pendingImages) {
+          const result = await processImageFile(pendingImage.path, getProjectRoot())
+          if (result.success && result.imagePart) {
+            validImageParts.push({
+              type: 'image' as const,
+              image: result.imagePart.image,
+              mediaType: result.imagePart.mediaType,
+              filename: result.imagePart.filename,
+              size: result.imagePart.size,
+            })
+          } else {
+            logger.warn(
+              { path: pendingImage.path, error: result.error },
+              'Failed to process pending image',
+            )
+          }
+        }
+
         // Build message content array
         let messageContent: MessageContent[] | undefined
         if (validImageParts.length > 0) {
@@ -1064,6 +1060,9 @@ export const useSendMessage = ({
             },
             `📎 ${validImageParts.length} image(s) attached`,
           )
+
+          // Clear pending images after successful attachment
+          useChatStore.getState().clearPendingImages()
         }
 
         let runState: RunState

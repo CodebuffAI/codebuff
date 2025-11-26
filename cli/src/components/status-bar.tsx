@@ -8,6 +8,7 @@ import { formatElapsedTime } from '../utils/format-elapsed-time'
 import type { StreamStatus } from '../hooks/use-message-queue'
 import type { AuthStatus, StatusIndicatorState } from '../utils/status-indicator-state'
 
+
 const SHIMMER_INTERVAL_MS = 160
 
 interface StatusBarProps {
@@ -170,7 +171,7 @@ export const StatusBar = ({
   const statusIndicatorContent = renderStatusIndicator()
   const elapsedTimeContent = renderElapsedTime()
 
-  // Only show gray background when there's status indicator or timer content
+  // Only show gray background when there's status indicator or timer
   const hasContent = statusIndicatorContent || elapsedTimeContent
 
   return (

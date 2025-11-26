@@ -17,7 +17,7 @@ export interface ImageUploadResult {
 }
 
 // Supported image formats
-const SUPPORTED_IMAGE_EXTENSIONS = new Set([
+export const SUPPORTED_IMAGE_EXTENSIONS = new Set([
   '.jpg',
   '.jpeg',
   '.png',

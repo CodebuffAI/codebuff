@@ -73,4 +73,10 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     description: 'Redeem a referral code for bonus credits',
     aliases: ['redeem'],
   },
+  {
+    id: 'image',
+    label: 'image',
+    description: 'Attach an image file to your message',
+    aliases: ['img', 'attach'],
+  },
 ]

@@ -12,6 +12,8 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { routeUserPrompt } from './commands/router'
 import { AnnouncementBanner } from './components/announcement-banner'
+import { hasClipboardImage, readClipboardImage } from './utils/clipboard-image'
+import { showClipboardMessage } from './utils/clipboard'
 import { ChatInputBar } from './components/chat-input-bar'
 import { MessageWithAgents } from './components/message-with-agents'
 import { StatusBar } from './components/status-bar'
@@ -421,6 +423,7 @@ export const Chat = ({
   const inputMode = useChatStore((state) => state.inputMode)
   const setInputMode = useChatStore((state) => state.setInputMode)
   const askUserState = useChatStore((state) => state.askUserState)
+  const pendingImages = useChatStore((state) => state.pendingImages)
 
   const {
     slashContext,
@@ -940,6 +943,26 @@ export const Chat = ({
     onClearQueue: clearQueue,
     onExitAppWarning: () => handleCtrlC(),
     onExitApp: () => handleCtrlC(),
+    onPasteImage: () => {
+      // Check if clipboard has an image
+      if (!hasClipboardImage()) {
+        // No image in clipboard, let normal paste happen
+        return
+      }
+      
+      // Read image from clipboard
+      const result = readClipboardImage()
+      if (!result.success || !result.imagePath || !result.filename) {
+        showClipboardMessage(result.error || 'Failed to paste image', { durationMs: 3000 })
+        return
+      }
+      
+      // Add to pending images
+      useChatStore.getState().addPendingImage({
+        path: result.imagePath,
+        filename: result.filename,
+      })
+    },
   }), [
     setInputMode,
     handleCloseFeedback,

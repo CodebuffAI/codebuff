@@ -4,6 +4,7 @@ import { AgentModeToggle } from './agent-mode-toggle'
 import { FeedbackContainer } from './feedback-container'
 import { MultipleChoiceForm } from './ask-user'
 import { MultilineInput, type MultilineInputHandle } from './multiline-input'
+import { PendingImagesBanner } from './pending-images-banner'
 import { ReferralBanner } from './referral-banner'
 import { SuggestionMenu, type SuggestionItem } from './suggestion-menu'
 import { UsageBanner } from './usage-banner'
@@ -23,10 +24,17 @@ type Theme = ReturnType<typeof useTheme>
 const InputModeBanner = ({
   inputMode,
   usageBannerShowTime,
+  hasPendingImages,
 }: {
   inputMode: InputMode
   usageBannerShowTime: number
+  hasPendingImages: boolean
 }) => {
+  // Show pending images banner if there are images (regardless of mode)
+  if (hasPendingImages) {
+    return <PendingImagesBanner />
+  }
+
   switch (inputMode) {
     case 'usage':
       return <UsageBanner showTime={usageBannerShowTime} />
@@ -385,6 +393,7 @@ export const ChatInputBar = ({
       <InputModeBanner
         inputMode={inputMode}
         usageBannerShowTime={usageBannerShowTime}
+        hasPendingImages={useChatStore.getState().pendingImages.length > 0}
       />
     </>
   )

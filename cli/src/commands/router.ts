@@ -1,5 +1,8 @@
 import { runTerminalCommand } from '@codebuff/sdk'
 
+import { existsSync } from 'fs'
+import path from 'path'
+
 import {
   findCommand,
   type RouterParams,
@@ -13,7 +16,9 @@ import {
   extractReferralCode,
   normalizeReferralCode,
 } from './router-utils'
+import { getProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
+import { isImageFile, resolveFilePath } from '../utils/image-handler'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 
 import type { ContentBlock } from '../types/chat'
@@ -93,6 +98,57 @@ export async function routeUserPrompt(
     setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     setInputMode('default')
 
+    return
+  }
+
+  // Handle image mode input
+  if (inputMode === 'image') {
+    const imagePath = trimmed
+    const projectRoot = getProjectRoot()
+    const resolvedPath = resolveFilePath(imagePath, projectRoot)
+
+    // Validate the image path
+    if (!existsSync(resolvedPath)) {
+      setMessages((prev) => [
+        ...prev,
+        getUserMessage(trimmed),
+        getSystemMessage(`❌ Image file not found: ${imagePath}`),
+      ])
+      saveToHistory(trimmed)
+      setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+      setInputMode('default')
+      return
+    }
+
+    if (!isImageFile(resolvedPath)) {
+      const ext = path.extname(imagePath).toLowerCase()
+      setMessages((prev) => [
+        ...prev,
+        getUserMessage(trimmed),
+        getSystemMessage(
+          `❌ Unsupported image format: ${ext}\nSupported: .jpg, .jpeg, .png, .webp, .gif, .bmp, .tiff`,
+        ),
+      ])
+      saveToHistory(trimmed)
+      setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+      setInputMode('default')
+      return
+    }
+
+    // Add to pending images
+    const filename = path.basename(resolvedPath)
+    useChatStore.getState().addPendingImage({
+      path: imagePath,
+      filename,
+    })
+
+    setMessages((prev) => [
+      ...prev,
+      getSystemMessage(`📎 Image attached: ${filename}`),
+    ])
+    saveToHistory(trimmed)
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+    setInputMode('default')
     return
   }
 

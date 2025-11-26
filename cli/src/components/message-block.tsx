@@ -1,10 +1,13 @@
 import { pluralize } from '@codebuff/common/util/string'
 import { TextAttributes } from '@opentui/core'
 import React, { memo, useCallback, useMemo, useState, type ReactNode } from 'react'
+import { spawn } from 'child_process'
+import path from 'path'
 
 import { AgentBranchItem } from './agent-branch-item'
 import { Button } from './button'
 import { MessageFooter } from './message-footer'
+import { TerminalLink } from './terminal-link'
 import { ValidationErrorPopover } from './validation-error-popover'
 import { useTheme } from '../hooks/use-theme'
 import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
@@ -110,6 +113,27 @@ const MessageAttachments = ({
 }
 
 import { BORDER_CHARS } from '../utils/ui-constants'
+
+// Helper to open a file with the system default application
+const openFile = (filePath: string) => {
+  const platform = process.platform
+  let command: string
+  let args: string[]
+
+  if (platform === 'darwin') {
+    command = 'open'
+    args = [filePath]
+  } else if (platform === 'win32') {
+    command = 'cmd'
+    args = ['/c', 'start', '', filePath]
+  } else {
+    // Linux and others
+    command = 'xdg-open'
+    args = [filePath]
+  }
+
+  spawn(command, args, { detached: true, stdio: 'ignore' }).unref()
+}
 
 export const MessageBlock: React.FC<MessageBlockProps> = ({
   messageId,
