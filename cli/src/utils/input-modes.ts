@@ -34,7 +34,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
   default: {
     icon: null,
     color: 'foreground',
-    placeholder: 'type a message...',
+    placeholder: 'enter a coding task or / for commands',
     widthAdjustment: 0,
     showAgentModeToggle: true,
     disableSlashSuggestions: false,
@@ -58,7 +58,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
   usage: {
     icon: null,
     color: 'foreground',
-    placeholder: 'type a message...',
+    placeholder: 'enter a coding task or / for commands',
     widthAdjustment: 0,
     showAgentModeToggle: true,
     disableSlashSuggestions: false,
