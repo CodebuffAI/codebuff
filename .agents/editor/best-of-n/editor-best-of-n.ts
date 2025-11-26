@@ -243,14 +243,14 @@ function* handleStepsMax({
   // Model selection pattern for max mode, using opus and gpt-5
   const MAX_MODEL_PATTERN = [
     'editor-implementor-opus',
-    'editor-implementor-opus',
+    'editor-implementor-gemini',
     'editor-implementor-gpt-5',
     'editor-implementor-opus',
-    'editor-implementor-gpt-5',
     'editor-implementor-opus',
     'editor-implementor-gpt-5',
+    'editor-implementor-gemini',
     'editor-implementor-opus',
-    'editor-implementor-gpt-5',
+    'editor-implementor-opus',
     'editor-implementor-opus',
   ] as const
 
