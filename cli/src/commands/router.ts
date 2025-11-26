@@ -142,10 +142,7 @@ export async function routeUserPrompt(
       filename,
     })
 
-    setMessages((prev) => [
-      ...prev,
-      getSystemMessage(`📎 Image attached: ${filename}`),
-    ])
+    // Note: No system message added here - the PendingImagesBanner shows attached images
     saveToHistory(trimmed)
     setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     setInputMode('default')

@@ -65,18 +65,6 @@ export type PlanContentBlock = {
   content: string
 }
 
-export type ImageContentBlock = {
-  type: 'image'
-  image: string // base64 encoded image data
-  mediaType: string
-  filename?: string
-  size?: number
-  width?: number
-  height?: number
-  isCollapsed?: boolean
-  userOpened?: boolean
-}
-
 export type AskUserContentBlock = {
   type: 'ask-user'
   toolCallId: string
@@ -110,11 +98,16 @@ export type ImageContentBlock = {
   mediaType: string
   filename?: string
   size?: number
+  width?: number
+  height?: number
+  isCollapsed?: boolean
+  userOpened?: boolean
 }
 
 export type ImageAttachment = {
-  path: string
   filename: string
+  path: string
+  size?: number
 }
 
 export type ContentBlock =
@@ -134,12 +127,6 @@ export type AgentMessage = {
   agentType: string
   responseCount: number
   subAgentCount?: number
-}
-
-export type ImageAttachment = {
-  filename: string
-  path: string  // Full path for opening the file
-  size?: number
 }
 
 export type ChatMessage = {

@@ -11,6 +11,7 @@ import type { ContentBlock } from '../types/chat'
 interface CopyIconButtonProps {
   blocks?: ContentBlock[]
   content?: string
+  textToCopy?: string
 }
 
 const BULLET_CHAR = '•'
@@ -63,18 +64,20 @@ const extractTextFromBlocks = (blocks?: ContentBlock[]): string => {
 export const CopyIconButton: React.FC<CopyIconButtonProps> = ({
   blocks,
   content,
+  textToCopy: textToCopyProp,
 }) => {
   const theme = useTheme()
   const hover = useHoverToggle()
   const { setTimeout } = useTimeout()
   const [isCopied, setIsCopied] = useState(false)
 
-  // Compute text to copy from blocks or content
+  // Compute text to copy from blocks or content (or use provided textToCopy)
   const textToCopy = useMemo(() => {
+    if (textToCopyProp) return textToCopyProp
     return blocks && blocks.length > 0
       ? extractTextFromBlocks(blocks) || content || ''
       : content || ''
-  }, [blocks, content])
+  }, [blocks, content, textToCopyProp])
 
   const handleClick = async () => {
     try {
