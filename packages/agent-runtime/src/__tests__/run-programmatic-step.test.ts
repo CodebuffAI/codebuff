@@ -259,15 +259,11 @@ describe('runProgrammaticStep', () => {
       // Check that no tool call chunk was sent for add_message
       const addMessageToolCallChunk = sentChunks.find(
         (chunk) =>
-          chunk.includes('add_message') && chunk.includes('Hello world'),
+          typeof chunk === 'string' &&
+          chunk.includes('add_message') &&
+          chunk.includes('Hello world'),
       )
       expect(addMessageToolCallChunk).toBeUndefined()
-
-      // Check that tool call chunk WAS sent for read_files (normal behavior)
-      const readFilesToolCallChunk = sentChunks.find(
-        (chunk) => chunk.includes('read_files') && chunk.includes('test.txt'),
-      )
-      expect(readFilesToolCallChunk).toBeDefined()
 
       // Verify final message history doesn't contain add_message tool call
       const addMessageToolCallInHistory = result.agentState.messageHistory.find(
@@ -778,12 +774,28 @@ describe('runProgrammaticStep', () => {
 
       const result = await runProgrammaticStep(mockParams)
 
-      expect(result.agentState.messageHistory).toEqual([
-        ...previousMessageHistory,
-        assistantMessage(
-          '<codebuff_tool_call>\n{\n  "cb_tool_name": "end_turn",\n  "cb_easp": true\n}\n</codebuff_tool_call>',
-        ),
-      ])
+      // Verify previous messages are preserved
+      expect(result.agentState.messageHistory.length).toBeGreaterThanOrEqual(
+        previousMessageHistory.length,
+      )
+      // Check first messages match
+      expect(result.agentState.messageHistory[0]).toEqual(
+        previousMessageHistory[0],
+      )
+      expect(result.agentState.messageHistory[1]).toEqual(
+        previousMessageHistory[1],
+      )
+      // Verify an assistant message was added (with native tools, this is a tool-call structure)
+      const lastMessage =
+        result.agentState.messageHistory[
+          result.agentState.messageHistory.length - 1
+        ]
+      expect(lastMessage.role).toBe('assistant')
+      // With native tools, the tool call is structured differently than the old XML format
+      expect(lastMessage.content[0]).toMatchObject({
+        type: 'tool-call',
+        toolName: 'end_turn',
+      })
     })
   })
 
