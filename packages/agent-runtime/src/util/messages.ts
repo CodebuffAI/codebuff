@@ -34,20 +34,26 @@ export function asUserMessage(str: string): string {
 }
 
 /**
- * Combines prompt, params, and content into a unified message content structure
+ * Combines prompt, params, and content into a unified message content structure.
+ * For single text parts, wraps the text in <user_message> tags; multipart content
+ * is returned as-is (assumes caller already wrapped the appropriate part).
  */
 export function buildUserMessageContent(
   prompt: string | undefined,
   params: Record<string, any> | undefined,
   content?: Array<TextPart | ImagePart>,
 ): Array<TextPart | ImagePart> {
-  // If we have content, return it as-is (client should have already combined prompt + content)
   if (content && content.length > 0) {
     if (content.length === 1 && content[0].type === 'text') {
+      const [textPart] = content
+      const alreadyWrapped = parseUserMessage(textPart.text) !== undefined
+      if (alreadyWrapped) {
+        return content
+      }
       return [
         {
-          type: 'text',
-          text: asUserMessage(content[0].text),
+          ...textPart,
+          text: asUserMessage(textPart.text),
         },
       ]
     }

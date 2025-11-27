@@ -937,11 +937,18 @@ export const useSendMessage = ({
 
         let runState: RunState
         try {
+          // Get any pending tool results from user-executed bash commands
+          const pendingToolResults = useChatStore.getState().pendingToolResults
+          if (pendingToolResults.length > 0) {
+            useChatStore.getState().clearPendingToolResults()
+          }
+
           runState = await client.run({
             logger,
             agent: selectedAgentDefinition ?? agentId ?? fallbackAgent,
             prompt: content,
             previousRun: previousRunStateRef.current ?? undefined,
+            extraToolResults: pendingToolResults.length > 0 ? (pendingToolResults as unknown as import('@codebuff/common/types/messages/codebuff-message').ToolMessage[]) : undefined,
             abortController,
             retry: {
               maxRetries: MAX_RETRIES_PER_MESSAGE,

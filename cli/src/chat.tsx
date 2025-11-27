@@ -10,10 +10,11 @@ import {
 } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { routeUserPrompt } from './commands/router'
+import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
 import { AnnouncementBanner } from './components/announcement-banner'
 import { ChatInputBar } from './components/chat-input-bar'
 import { MessageWithAgents } from './components/message-with-agents'
+import { PendingBashMessage } from './components/pending-bash-message'
 import { StatusBar } from './components/status-bar'
 import { SLASH_COMMANDS } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
@@ -192,6 +193,15 @@ export const Chat = ({
       setIsAnnouncementVisible: store.setIsAnnouncementVisible,
       isRetrying: store.isRetrying,
     })),
+  )
+  const pendingBashMessages = useChatStore(
+    (state) => state.pendingBashMessages,
+  )
+  const clearPendingBashMessages = useChatStore(
+    (state) => state.clearPendingBashMessages,
+  )
+  const removePendingBashMessage = useChatStore(
+    (state) => state.removePendingBashMessage,
   )
 
   // Memoize toggle IDs extraction - only recompute when messages change
@@ -516,6 +526,7 @@ export const Chat = ({
   const { saveToHistory, navigateUp, navigateDown } = useInputHistory(
     inputValue,
     setInputValue,
+    { inputMode, setInputMode },
   )
 
   const {
@@ -533,8 +544,31 @@ export const Chat = ({
     clearQueue,
     isQueuePausedRef,
   } = useMessageQueue(
-    (content: string) =>
-      sendMessageRef.current?.({ content, agentMode }) ?? Promise.resolve(),
+    (content: string) => {
+      // Route queued messages through the router to handle bash commands, slash commands, etc.
+      return routeUserPrompt({
+        abortControllerRef,
+        agentMode,
+        inputRef,
+        inputValue: content,
+        isChainInProgressRef,
+        isStreaming,
+        logoutMutation,
+        streamMessageIdRef,
+        addToQueue,
+        clearMessages,
+        saveToHistory: () => {}, // Already saved when queued
+        scrollToLatest,
+        sendMessage,
+        setCanProcessQueue,
+        setInputFocused,
+        setInputValue: () => {}, // Input already cleared when queued
+        setIsAuthenticated,
+        setMessages,
+        setUser,
+        stopStreaming,
+      })
+    },
     isChainInProgressRef,
     activeAgentStreamsRef,
   )
@@ -569,6 +603,39 @@ export const Chat = ({
   // Derive boolean flags from streamStatus for convenience
   const isWaitingForResponse = streamStatus === 'waiting'
   const isStreaming = streamStatus !== 'idle'
+
+  // When streaming completes, flush any pending bash commands into history
+  useEffect(() => {
+    if (
+      !isStreaming &&
+      !streamMessageIdRef.current &&
+      !isChainInProgressRef.current &&
+      pendingBashMessages.length > 0
+    ) {
+      // Flush only messages that have finished running
+      for (const msg of pendingBashMessages) {
+        if (!msg.isRunning) {
+          addBashMessageToHistory(
+            {
+              command: msg.command,
+              stdout: msg.stdout ?? msg.output,
+              stderr: msg.stderr ?? null,
+              exitCode: msg.exitCode,
+              cwd: msg.cwd || process.cwd(),
+              displayOutput: msg.output,
+              setMessages,
+            })
+          removePendingBashMessage(msg.id)
+        }
+      }
+    }
+  }, [
+    isStreaming,
+    pendingBashMessages,
+    setMessages,
+    removePendingBashMessage,
+    scrollToLatest,
+  ])
 
   // Timer events are currently tracked but not used for UI updates
   // Future: Could be used for analytics or debugging
@@ -822,6 +889,7 @@ export const Chat = ({
     nextCtrlCWillExit,
     queuePaused,
     queuedCount,
+
   }), [
     inputMode,
     inputValue,
@@ -842,6 +910,7 @@ export const Chat = ({
     nextCtrlCWillExit,
     queuePaused,
     queuedCount,
+
   ])
 
   // Keyboard handlers
@@ -940,6 +1009,10 @@ export const Chat = ({
     onClearQueue: clearQueue,
     onExitAppWarning: () => handleCtrlC(),
     onExitApp: () => handleCtrlC(),
+    onBashHistoryUp: navigateUp,
+    onBashHistoryDown: navigateDown,
+    onDismissBashOverlay: () => {},
+    onCancelBashCommand: () => {},
   }), [
     setInputMode,
     handleCloseFeedback,
@@ -969,6 +1042,9 @@ export const Chat = ({
     inputRef,
     handleCtrlC,
     clearQueue,
+    navigateUp,
+    navigateDown,
+
   ])
 
   // Use the chat keyboard hook
@@ -1123,6 +1199,14 @@ export const Chat = ({
             />
           )
         })}
+        {/* Pending bash messages as ghost messages */}
+        {pendingBashMessages.map((msg) => (
+          <PendingBashMessage
+            key={`pending-bash-${msg.id}`}
+            message={msg}
+            width={separatorWidth - 4}
+          />
+        ))}
       </scrollbox>
 
       <box

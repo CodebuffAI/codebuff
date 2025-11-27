@@ -1,7 +1,10 @@
 import path from 'path'
 
 import { callMainPrompt } from '@codebuff/agent-runtime/main-prompt'
-import { getCancelledAdditionalMessages } from '@codebuff/agent-runtime/util/messages'
+import {
+  asUserMessage,
+  getCancelledAdditionalMessages,
+} from '@codebuff/agent-runtime/util/messages'
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
 import { getMCPClient, listMCPTools } from '@codebuff/common/mcp/client'
 import { toOptionalFile } from '@codebuff/common/old-constants'
@@ -47,6 +50,8 @@ import type {
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 import type {
+  ImagePart,
+  TextPart,
   ToolResultOutput,
 } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
@@ -54,6 +59,28 @@ import type { SessionState } from '@codebuff/common/types/session-state'
 import type { Source } from '@codebuff/common/types/source'
 import type { CodebuffSpawn } from '@codebuff/common/types/spawn'
 import { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
+
+const wrapContentForUserMessage = (
+  content?: (TextPart | ImagePart)[],
+): (TextPart | ImagePart)[] | undefined => {
+  if (!content || content.length === 0) {
+    return content
+  }
+  let hasWrappedText = false
+  return content.map((part) => {
+    if (part.type === 'text' && !hasWrappedText) {
+      hasWrappedText = true
+      const alreadyWrapped = part.text.includes('<user_message>')
+      return alreadyWrapped
+        ? part
+        : {
+            ...part,
+            text: asUserMessage(part.text),
+          }
+    }
+    return part
+  })
+}
 
 export type CodebuffClientOptions = {
   apiKey?: string
@@ -145,6 +172,7 @@ export type RunOptions = {
   agent: string | AgentDefinition
   prompt: string
   params?: Record<string, any>
+  content?: (TextPart | ImagePart)[]
   previousRun?: RunState
   extraToolResults?: ToolMessage[]
   signal?: AbortSignal
@@ -479,6 +507,7 @@ export async function runOnce({
   agent,
   prompt,
   params,
+  content,
   previousRun,
   extraToolResults,
   signal,
@@ -487,6 +516,7 @@ export async function runOnce({
   const spawn: CodebuffSpawn = (
     spawnSource ? await spawnSource : require('child_process').spawn
   ) as CodebuffSpawn
+  const preparedContent = wrapContentForUserMessage(content)
 
   // Init session state
   let agentId
@@ -549,6 +579,7 @@ export async function runOnce({
       ...getCancelledAdditionalMessages({
         prompt,
         params,
+        content: preparedContent,
         pendingAgentResponse,
         systemMessage: message,
       }),
@@ -787,6 +818,7 @@ export async function runOnce({
       promptId,
       prompt,
       promptParams: params,
+      content: preparedContent,
       fingerprintId: fingerprintId,
       costMode: 'normal',
       sessionState,

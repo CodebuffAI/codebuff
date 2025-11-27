@@ -632,7 +632,9 @@ export async function loopAgentSteps(
         })) ?? ''
 
   const hasUserMessage = Boolean(
-    prompt || (spawnParams && Object.keys(spawnParams).length > 0),
+    prompt ||
+      (spawnParams && Object.keys(spawnParams).length > 0) ||
+      (content && content.length > 0),
   )
 
   const initialMessages = buildArray<Message>(

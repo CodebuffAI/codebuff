@@ -61,6 +61,7 @@ interface MessageBlockProps {
     footerMessage?: string
     errors?: Array<{ id: string; message: string }>
   }) => void
+  metadata?: Record<string, any>
 }
 
 import { BORDER_CHARS } from '../utils/ui-constants'
@@ -90,8 +91,21 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
   onCloseFeedback,
   validationErrors,
   onOpenFeedback,
+  metadata,
 }) => {
   const [showValidationPopover, setShowValidationPopover] = useState(false)
+  
+  // Format cwd for display, replacing home directory with ~
+  const formatCwd = (cwd: string | undefined): string => {
+    if (!cwd) return ''
+    const homeDir = process.env.HOME || process.env.USERPROFILE || ''
+    if (homeDir && cwd.startsWith(homeDir)) {
+      return '~' + cwd.slice(homeDir.length)
+    }
+    return cwd
+  }
+  
+  const bashCwd = metadata?.bashCwd ? formatCwd(metadata.bashCwd) : undefined
   
   useWhyDidYouUpdateById(
     'MessageBlock',
@@ -121,6 +135,7 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
       onCloseFeedback,
       validationErrors,
       onOpenFeedback,
+      metadata,
     },
     {
       logLevel: 'debug',
@@ -138,8 +153,8 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
         width: '100%',
       }}
     >
-      {/* User message timestamp with error indicator button */}
-      {isUser && (
+      {/* User message timestamp with error indicator button (non-bash commands) */}
+      {isUser && !bashCwd && (
         <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
           <text
             attributes={TextAttributes.DIM}
@@ -168,8 +183,41 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
         </box>
       )}
       
+      {/* Bash command metadata header (timestamp + cwd) - now for user messages with bashCwd */}
+      {bashCwd && (
+        <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
+          <text
+            attributes={TextAttributes.DIM}
+            style={{
+              wrapMode: 'none',
+              fg: timestampColor,
+            }}
+          >
+            {`[${timestamp}]`}
+          </text>
+          <text
+            attributes={TextAttributes.DIM}
+            style={{
+              wrapMode: 'none',
+              fg: theme.muted,
+            }}
+          >
+            •
+          </text>
+          <text
+            attributes={TextAttributes.DIM}
+            style={{
+              wrapMode: 'word',
+              fg: theme.muted,
+            }}
+          >
+            {bashCwd}
+          </text>
+        </box>
+      )}
+      
       {/* Show validation popover below timestamp when expanded */}
-      {isUser && validationErrors && validationErrors.length > 0 && showValidationPopover && (
+      {isUser && !bashCwd && validationErrors && validationErrors.length > 0 && showValidationPopover && (
         <box style={{ paddingTop: 1, paddingBottom: 1 }}>
           <ValidationErrorPopover
             errors={validationErrors}
