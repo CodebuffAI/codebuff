@@ -1544,16 +1544,20 @@ describe('runProgrammaticStep', () => {
       expect(result.agentState.output?.error).toBeUndefined()
     })
 
-    it('should accept valid STEP_TEXT object', async () => {
+    it('should accept valid STEP_TEXT object and continue to next step', async () => {
+      // STEP_TEXT continues to the next step of handleSteps (unlike STEP which breaks)
+      // So we need additional yields after STEP_TEXT to test the continuation
       const mockGenerator = (function* () {
         yield { type: 'STEP_TEXT', text: 'Custom response text' }
+        yield { toolName: 'end_turn', input: {} }
       })() as StepGenerator
 
       mockTemplate.handleSteps = () => mockGenerator
 
       const result = await runProgrammaticStep(mockParams)
 
-      expect(result.endTurn).toBe(false)
+      // Should end turn because the generator continues after STEP_TEXT and reaches end_turn
+      expect(result.endTurn).toBe(true)
       expect(result.agentState.output?.error).toBeUndefined()
     })
 
