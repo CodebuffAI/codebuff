@@ -64,3 +64,15 @@ export function jsonToolResultSchema<T extends JSONValue>(
 export function emptyToolResultSchema() {
   return z.tuple([])
 }
+
+/** Generates the zod schema for a simple text tool result. */
+export function textToolResultSchema() {
+  return z.tuple([
+    z.object({
+      type: z.literal('json'),
+      value: z.object({
+        message: z.string(),
+      }),
+    }) satisfies z.ZodType<ToolResultOutput>,
+  ])
+}

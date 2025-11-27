@@ -2,7 +2,7 @@ import z from 'zod/v4'
 
 import {
   $getNativeToolCallExampleString,
-  emptyToolResultSchema,
+  textToolResultSchema,
 } from '../utils'
 
 import type { $ToolParams } from '../../constants'
@@ -53,5 +53,5 @@ export const endTurnParams = {
   endsAgentStep,
   description,
   inputSchema,
-  outputSchema: emptyToolResultSchema(),
+  outputSchema: textToolResultSchema(),
 } satisfies $ToolParams

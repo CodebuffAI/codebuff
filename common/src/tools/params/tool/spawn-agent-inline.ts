@@ -2,7 +2,7 @@ import z from 'zod/v4'
 
 import {
   $getNativeToolCallExampleString,
-  emptyToolResultSchema,
+  textToolResultSchema,
 } from '../utils'
 
 import type { $ToolParams } from '../../constants'
@@ -51,5 +51,5 @@ export const spawnAgentInlineParams = {
   endsAgentStep,
   description,
   inputSchema,
-  outputSchema: emptyToolResultSchema(),
+  outputSchema: textToolResultSchema(),
 } satisfies $ToolParams
