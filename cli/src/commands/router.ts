@@ -137,10 +137,10 @@ export async function routeUserPrompt(
       return
     }
 
-    // Add to pending images
+    // Add to pending images - use resolvedPath so processing doesn't fail
     const filename = path.basename(resolvedPath)
     useChatStore.getState().addPendingImage({
-      path: imagePath,
+      path: resolvedPath,
       filename,
     })
 
