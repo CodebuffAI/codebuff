@@ -88,6 +88,38 @@ tmux new-session -d -s test-session 'cd /path/to/codebuff && bun --cwd=cli run d
 - Paste functionality still works through the terminal's native paste mechanism, but we can no longer intercept paste events separately from typing.
 - If custom paste handling is needed in the future, it must be reimplemented using `useKeyboard` hook or by checking the official OpenTUI for updates.
 
+## OpenTUI Flex Layouts
+
+### Multi-Column / Masonry Layouts
+
+For columns that share space equally within a container, use the **flex trio pattern**:
+
+```tsx
+<box style={{ flexDirection: 'row', width: '100%' }}>
+  {columns.map((col, idx) => (
+    <box
+      key={idx}
+      style={{
+        flexDirection: 'column',
+        flexGrow: 1,      // Take equal share of space
+        flexShrink: 1,    // Allow shrinking
+        flexBasis: 0,     // Start from 0 and grow (not from content size)
+        minWidth: 0,      // Critical! Allows shrinking below content width
+      }}
+    >
+      {/* Column content */}
+    </box>
+  ))}
+</box>
+```
+
+**Why not explicit width?** Using `width: someNumber` for columns causes OpenTUI to overflow beyond container boundaries. The flex trio pattern respects the parent container's width constraints.
+
+**Key points:**
+- `minWidth: 0` is essential - without it, content won't shrink below its natural width
+- Use `width: '100%'` (string) for parent containers, not numeric values
+- `alignItems: 'flex-start'` prevents children from stretching to fill row height
+
 ## OpenTUI Text Rendering Constraints
 
 **CRITICAL**: OpenTUI has strict requirements for text rendering that must be followed:
