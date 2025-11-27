@@ -491,28 +491,32 @@ export const useSendMessage = ({
 
       // Process all images for SDK
       const projectRoot = getProjectRoot()
-      const validImageParts = uniqueImagePaths
-        .map((imagePath) => {
-          const result = processImageFile(imagePath, projectRoot)
-          if (result.success && result.imagePart) {
-            return {
-              type: 'image' as const,
-              image: result.imagePart.image,
-              mediaType: result.imagePart.mediaType,
-              filename: result.imagePart.filename,
-              size: result.imagePart.size,
-              path: imagePath,
-            }
-          }
-          if (!result.success) {
-            logger.warn(
-              { imagePath, error: result.error },
-              'Failed to process image for SDK',
-            )
-          }
-          return null
-        })
-        .filter((part): part is NonNullable<typeof part> => part !== null)
+      const validImageParts = uniqueImagePaths.reduce<Array<{
+        type: 'image'
+        image: string
+        mediaType: string
+        filename: string | undefined
+        size: number | undefined
+        path: string
+      }>>((acc, imagePath) => {
+        const result = processImageFile(imagePath, projectRoot)
+        if (result.success && result.imagePart) {
+          acc.push({
+            type: 'image',
+            image: result.imagePart.image,
+            mediaType: result.imagePart.mediaType,
+            filename: result.imagePart.filename,
+            size: result.imagePart.size,
+            path: imagePath,
+          })
+        } else if (!result.success) {
+          logger.warn(
+            { imagePath, error: result.error },
+            'Failed to process image for SDK',
+          )
+        }
+        return acc
+      }, [])
 
       // Build message content array for SDK
       let messageContent: MessageContent[] | undefined

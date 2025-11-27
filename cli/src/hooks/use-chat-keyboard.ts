@@ -7,7 +7,6 @@ import {
   type ChatKeyboardState,
   type ChatKeyboardAction,
 } from '../utils/keyboard-actions'
-import { logger } from '../utils/logger'
 
 /**
  * Handlers for chat keyboard actions.
@@ -191,21 +190,7 @@ export function useChatKeyboard({
       (key: KeyEvent) => {
         if (disabled) return
 
-        // Debug logging for all keyboard events
-        logger.debug(
-          {
-            name: key.name,
-            ctrl: key.ctrl,
-            meta: key.meta,
-            shift: key.shift,
-            option: key.option,
-            sequence: key.sequence,
-          },
-          'Keyboard event',
-        )
-
         const action = resolveChatKeyboardAction(key, state)
-        logger.debug({ action: action.type }, 'Resolved keyboard action')
         const handled = dispatchAction(action, handlers)
 
         // Prevent default for handled actions

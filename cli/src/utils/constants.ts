@@ -48,29 +48,3 @@ export const MAIN_AGENT_ID = 'main-agent'
 
 const agentModes = ['DEFAULT', 'MAX', 'PLAN'] as const
 export type AgentMode = (typeof agentModes)[number]
-
-// Implementor agent types that generate code proposals
-const IMPLEMENTOR_AGENT_TYPES = [
-  'implementor-gemini',
-  'implementor-opus',
-  'implementor-max',
-  'implementor-fast',
-] as const
-
-/**
- * Check if an agent type is an implementor agent
- */
-export const isImplementorAgent = (agentType: string): boolean => {
-  return IMPLEMENTOR_AGENT_TYPES.some((impl) => agentType.includes(impl))
-}
-
-/**
- * Get a display name for implementor agents
- */
-export const getImplementorDisplayName = (agentType: string): string => {
-  if (agentType.includes('implementor-gemini')) return 'Gemini'
-  if (agentType.includes('implementor-opus')) return 'Opus'
-  if (agentType.includes('implementor-max')) return 'Max'
-  if (agentType.includes('implementor-fast')) return 'Fast'
-  return 'Implementor'
-}
