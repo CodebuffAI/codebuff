@@ -110,8 +110,8 @@ export const ChatInputBar = ({
   const inputMode = useChatStore((state) => state.inputMode)
   const setInputMode = useChatStore((state) => state.setInputMode)
 
-  const [usageBannerShowTime, setUsageBannerShowTime] = React.useState(
-    () => Date.now(),
+  const [usageBannerShowTime, setUsageBannerShowTime] = React.useState(() =>
+    Date.now(),
   )
 
   React.useEffect(() => {
@@ -122,6 +122,7 @@ export const ChatInputBar = ({
 
   const modeConfig = getInputModeConfig(inputMode)
   const askUserState = useChatStore((state) => state.askUserState)
+  const hasAnyPreview = hasSuggestionMenu
   const updateAskUserAnswer = useChatStore((state) => state.updateAskUserAnswer)
   const updateAskUserOtherText = useChatStore(
     (state) => state.updateAskUserOtherText,
@@ -277,7 +278,7 @@ export const ChatInputBar = ({
           paddingTop: 0,
           paddingBottom: 0,
           flexDirection: 'column',
-          gap: hasSuggestionMenu ? 1 : 0,
+          gap: hasAnyPreview ? 1 : 0,
         }}
       >
         {hasSlashSuggestions ? (
@@ -333,7 +334,8 @@ export const ChatInputBar = ({
                 onKeyIntercept={(key) => {
                   // Intercept navigation keys when suggestion menu is active
                   // The useChatKeyboard hook will handle menu selection/navigation
-                  const hasSuggestions = hasSlashSuggestions || hasMentionSuggestions
+                  const hasSuggestions =
+                    hasSlashSuggestions || hasMentionSuggestions
                   if (!hasSuggestions) return false
 
                   const isPlainEnter =

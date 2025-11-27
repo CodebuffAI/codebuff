@@ -19,162 +19,219 @@ import { getSystemMessage, getUserMessage } from '../utils/message-history'
 import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { ContentBlock } from '../types/chat'
+import type { PendingBashMessage } from '../state/chat-store'
 
 /**
- * Execute a bash command and add it directly to chat history.
- * Shows immediate placeholder while running, then updates with output.
+ * Create a tool result output structure for terminal command results.
+ */
+function createToolResultOutput(params: {
+  command: string
+  cwd: string
+  stdout: string | null
+  stderr: string | null
+  exitCode: number
+  errorMessage?: string
+}): ToolResultOutput[] {
+  const { command, cwd, stdout, stderr, exitCode, errorMessage } = params
+  if (errorMessage) {
+    return [
+      {
+        type: 'json' as const,
+        value: { command, startingCwd: cwd, errorMessage },
+      },
+    ]
+  }
+  return [
+    {
+      type: 'json' as const,
+      value: {
+        command,
+        startingCwd: cwd,
+        stdout: stdout || null,
+        stderr: stderr || null,
+        exitCode,
+      },
+    },
+  ]
+}
+
+/**
+ * Execute a bash command.
+ * When ghost=false: adds directly to chat history with placeholder output that updates.
+ * When ghost=true: adds to pending messages that appear as ghost while running.
  */
 function executeBashCommand(
   command: string,
-  setMessages: RouterParams['setMessages'],
+  options:
+    | { ghost: false; setMessages: RouterParams['setMessages'] }
+    | {
+        ghost: true
+        addPendingBashMessage: (msg: PendingBashMessage) => void
+        updatePendingBashMessage: (
+          id: string,
+          updates: Partial<PendingBashMessage>,
+        ) => void
+      },
 ) {
-  const toolCallId = crypto.randomUUID()
-  const resultBlock: ContentBlock = {
-    type: 'tool',
-    toolName: 'run_terminal_command',
-    toolCallId,
-    input: { command },
-    output: '...',
-  }
-
+  const id = crypto.randomUUID()
   const commandCwd = process.cwd()
 
-  // Add the command result to chat as a user message so the AI sees it as context
-  setMessages((prev) => [
-    ...prev,
-    {
-      ...getUserMessage([resultBlock]),
-      metadata: { bashCwd: commandCwd },
-    },
-  ])
+  if (options.ghost) {
+    // Ghost mode: add to pending messages
+    options.addPendingBashMessage({
+      id,
+      command,
+      stdout: '',
+      stderr: '',
+      exitCode: 0,
+      isRunning: true,
+      startTime: Date.now(),
+      cwd: commandCwd,
+    })
+  } else {
+    // Direct mode: add to chat history with placeholder
+    const resultBlock: ContentBlock = {
+      type: 'tool',
+      toolName: 'run_terminal_command',
+      toolCallId: id,
+      input: { command },
+      output: '...',
+    }
+    options.setMessages((prev) => [
+      ...prev,
+      {
+        ...getUserMessage([resultBlock]),
+        metadata: { bashCwd: commandCwd },
+      },
+    ])
+  }
 
-  // Execute the command and update the output when complete
   runTerminalCommand({
     command,
     process_type: 'SYNC',
     cwd: commandCwd,
     timeout_seconds: -1,
     env: process.env,
-  }).then(([{ value }]) => {
-    const stdout = 'stdout' in value ? (value.stdout || '') : ''
-    const stderr = 'stderr' in value ? (value.stderr || '') : ''
-    const exitCode = 'exitCode' in value ? value.exitCode : 0
-
-    // Create tool result output for display
-    const toolResultOutput = [{
-      type: 'json' as const,
-      value: {
-        command,
-        startingCwd: commandCwd,
-        stdout: stdout || null,
-        stderr: stderr || null,
-        exitCode: exitCode ?? 0,
-      }
-    }]
-
-    // Store output in JSON format for display
-    const outputJson = JSON.stringify(toolResultOutput)
-
-    setMessages((prev) => {
-      return prev.map((msg) => {
-        if (!msg.blocks) {
-          return msg
-        }
-        return {
-          ...msg,
-          blocks: msg.blocks.map((block) =>
-            'toolCallId' in block && block.toolCallId === toolCallId
-              ? {
-                  ...block,
-                  output: outputJson,
-                }
-              : block,
-          ),
-        }
-      })
-    })
-
-    // Add to pending tool results so AI can see this in the next run
-    const toolMessage: ToolMessage = {
-      role: 'tool',
-      toolCallId,
-      toolName: 'run_terminal_command',
-      content: toolResultOutput,
-    }
-    useChatStore.getState().addPendingToolResult(toolMessage)
-  }).catch((error) => {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    
-    // Create error tool result output
-    const errorToolResultOutput = [{
-      type: 'json' as const,
-      value: {
-        command,
-        startingCwd: commandCwd,
-        errorMessage,
-      }
-    }]
-
-    // Store error output in JSON format for display
-    const errorOutputJson = JSON.stringify(errorToolResultOutput)
-
-    setMessages((prev) => {
-      return prev.map((msg) => {
-        if (!msg.blocks) {
-          return msg
-        }
-        return {
-          ...msg,
-          blocks: msg.blocks.map((block) =>
-            'toolCallId' in block && block.toolCallId === toolCallId
-              ? {
-                  ...block,
-                  output: errorOutputJson,
-                }
-              : block,
-          ),
-        }
-      })
-    })
-
-    // Add error result to pending tool results so AI can see this in the next run
-    const errorToolMessage: ToolMessage = {
-      role: 'tool',
-      toolCallId,
-      toolName: 'run_terminal_command',
-      content: errorToolResultOutput,
-    }
-    useChatStore.getState().addPendingToolResult(errorToolMessage)
   })
+    .then(([{ value }]) => {
+      const stdout = 'stdout' in value ? value.stdout || '' : ''
+      const stderr = 'stderr' in value ? value.stderr || '' : ''
+      const exitCode = 'exitCode' in value ? value.exitCode ?? 0 : 0
+      const rawOutput = stdout + stderr
+      const output = rawOutput || '(no output)'
+
+      if (options.ghost) {
+        options.updatePendingBashMessage(id, {
+          stdout,
+          stderr,
+          exitCode,
+          isRunning: false,
+        })
+      } else {
+        const toolResultOutput = createToolResultOutput({
+          command,
+          cwd: commandCwd,
+          stdout: stdout || null,
+          stderr: stderr || null,
+          exitCode,
+        })
+        const outputJson = JSON.stringify(toolResultOutput)
+
+        options.setMessages((prev) =>
+          prev.map((msg) => {
+            if (!msg.blocks) return msg
+            return {
+              ...msg,
+              blocks: msg.blocks.map((block) =>
+                'toolCallId' in block && block.toolCallId === id
+                  ? { ...block, output: outputJson }
+                  : block,
+              ),
+            }
+          }),
+        )
+
+        // Add to pending tool results so AI can see this in the next run
+        const toolMessage: ToolMessage = {
+          role: 'tool',
+          toolCallId: id,
+          toolName: 'run_terminal_command',
+          content: toolResultOutput,
+        }
+        useChatStore.getState().addPendingToolResult(toolMessage)
+      }
+    })
+    .catch((error) => {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
+      const output = `Error: ${errorMessage}`
+
+      if (options.ghost) {
+        options.updatePendingBashMessage(id, {
+          stdout: '',
+          stderr: errorMessage,
+          exitCode: 1,
+          isRunning: false,
+        })
+      } else {
+        const errorToolResultOutput = createToolResultOutput({
+          command,
+          cwd: commandCwd,
+          stdout: null,
+          stderr: null,
+          exitCode: 1,
+          errorMessage,
+        })
+        const errorOutputJson = JSON.stringify(errorToolResultOutput)
+
+        options.setMessages((prev) =>
+          prev.map((msg) => {
+            if (!msg.blocks) return msg
+            return {
+              ...msg,
+              blocks: msg.blocks.map((block) =>
+                'toolCallId' in block && block.toolCallId === id
+                  ? { ...block, output: errorOutputJson }
+                  : block,
+              ),
+            }
+          }),
+        )
+
+        const errorToolMessage: ToolMessage = {
+          role: 'tool',
+          toolCallId: id,
+          toolName: 'run_terminal_command',
+          content: errorToolResultOutput,
+        }
+        useChatStore.getState().addPendingToolResult(errorToolMessage)
+      }
+    })
 }
 
 /**
- * Add a bash command result to the chat message history.
+ * Add a completed bash command result to the chat message history.
  * Also adds to pendingToolResults so the AI can see it in the next run.
  */
 export function addBashMessageToHistory(params: {
   command: string
   stdout: string
-  stderr: string | null | undefined
+  stderr: string | null
   exitCode: number
   cwd: string
-  displayOutput?: string
   setMessages: RouterParams['setMessages']
 }) {
-  const { command, stdout, stderr, exitCode, cwd, displayOutput, setMessages } =
-    params
-  const outputText =
-    displayOutput ?? (stdout || stderr ? `${stdout}${stderr ?? ''}` : '')
+  const { command, stdout, stderr, exitCode, cwd, setMessages } = params
+  const outputText = stdout || stderr || '(no output)'
   const toolCallId = crypto.randomUUID()
   const resultBlock: ContentBlock = {
     type: 'tool',
     toolName: 'run_terminal_command',
     toolCallId,
     input: { command },
-    output: outputText || '(no output)',
+    output: outputText,
   }
 
-  // Add as a user message so the AI sees it as context
   setMessages((prev) => [
     ...prev,
     {
@@ -183,17 +240,13 @@ export function addBashMessageToHistory(params: {
     },
   ])
 
-  // Also add to pending tool results so AI can see this in the next run
-  const toolResultOutput: ToolResultOutput[] = [{
-    type: 'json' as const,
-    value: {
-      command,
-      startingCwd: cwd,
-      stdout: stdout || null,
-      stderr: stderr ?? null,
-      exitCode: exitCode ?? 0,
-    }
-  }]
+  const toolResultOutput = createToolResultOutput({
+    command,
+    cwd,
+    stdout: stdout || null,
+    stderr: stderr ?? null,
+    exitCode,
+  })
   const toolMessage: ToolMessage = {
     role: 'tool',
     toolCallId,
@@ -201,64 +254,6 @@ export function addBashMessageToHistory(params: {
     content: toolResultOutput,
   }
   useChatStore.getState().addPendingToolResult(toolMessage)
-}
-
-/**
- * Execute a bash command as a ghost message in chat.
- * Shows as a pending message while running, then commits to history when streaming ends.
- */
-function executeBashCommandAsGhost(
-  command: string,
-  addPendingBashMessage: (message: import('../state/chat-store').PendingBashMessage) => void,
-  updatePendingBashMessage: (id: string, updates: Partial<import('../state/chat-store').PendingBashMessage>) => void,
-) {
-  const id = crypto.randomUUID()
-
-  // Add pending message immediately with placeholder
-  addPendingBashMessage({
-    id,
-    command,
-    output: '',
-    exitCode: -1, // Indicates running
-    isRunning: true,
-    startTime: Date.now(),
-    cwd: process.cwd(),
-  })
-
-  runTerminalCommand({
-    command,
-    process_type: 'SYNC',
-    cwd: process.cwd(),
-    timeout_seconds: -1,
-    env: process.env,
-  })
-    .then(([{ value }]) => {
-      const stdout = 'stdout' in value ? value.stdout || '' : ''
-      const stderr = 'stderr' in value ? value.stderr || '' : ''
-      const rawOutput = stdout + stderr
-      const output = rawOutput || '(no output)'
-      const exitCode = 'exitCode' in value ? value.exitCode ?? 0 : 0
-
-      updatePendingBashMessage(id, {
-        output,
-        exitCode,
-        stdout,
-        stderr,
-        isRunning: false,
-      })
-    })
-    .catch((error) => {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      const output = `Error: ${errorMessage}`
-
-      updatePendingBashMessage(id, {
-        output,
-        stdout: '',
-        stderr: errorMessage,
-        exitCode: 1,
-        isRunning: false,
-      })
-    })
 }
 
 export async function routeUserPrompt(
@@ -285,9 +280,7 @@ export async function routeUserPrompt(
 
   const trimmed = inputValue.trim()
   const isBusy =
-    isStreaming ||
-    streamMessageIdRef.current ||
-    isChainInProgressRef.current
+    isStreaming || streamMessageIdRef.current || isChainInProgressRef.current
   if (!trimmed) return
 
   // Handle bash mode commands
@@ -300,10 +293,15 @@ export async function routeUserPrompt(
     inputRef.current?.focus()
 
     if (isBusy) {
-      const { addPendingBashMessage, updatePendingBashMessage } = useChatStore.getState()
-      executeBashCommandAsGhost(trimmed, addPendingBashMessage, updatePendingBashMessage)
+      const { addPendingBashMessage, updatePendingBashMessage } =
+        useChatStore.getState()
+      executeBashCommand(trimmed, {
+        ghost: true,
+        addPendingBashMessage,
+        updatePendingBashMessage,
+      })
     } else {
-      executeBashCommand(trimmed, setMessages)
+      executeBashCommand(trimmed, { ghost: false, setMessages })
     }
     return
   }
@@ -313,10 +311,15 @@ export async function routeUserPrompt(
     const command = trimmed.slice(1)
 
     if (isBusy) {
-      const { addPendingBashMessage, updatePendingBashMessage } = useChatStore.getState()
-      executeBashCommandAsGhost(command, addPendingBashMessage, updatePendingBashMessage)
+      const { addPendingBashMessage, updatePendingBashMessage } =
+        useChatStore.getState()
+      executeBashCommand(command, {
+        ghost: true,
+        addPendingBashMessage,
+        updatePendingBashMessage,
+      })
     } else {
-      executeBashCommand(command, setMessages)
+      executeBashCommand(command, { ghost: false, setMessages })
     }
     return
   }
@@ -334,7 +337,9 @@ export async function routeUserPrompt(
       setMessages((prev) => [
         ...prev,
         getUserMessage(trimmed),
-        getSystemMessage('Invalid referral code format. Codes should be 3-50 alphanumeric characters.'),
+        getSystemMessage(
+          'Invalid referral code format. Codes should be 3-50 alphanumeric characters.',
+        ),
       ])
       saveToHistory(trimmed)
       setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
@@ -352,7 +357,8 @@ export async function routeUserPrompt(
         ...referralPostMessage([]),
       ])
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error'
       setMessages((prev) => [
         ...prev,
         getUserMessage(trimmed),

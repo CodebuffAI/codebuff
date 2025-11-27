@@ -109,6 +109,17 @@ export type AgentMessage = {
   subAgentCount?: number
 }
 
+export type ChatMessageMetadata = {
+  /** Working directory where a bash command was executed */
+  bashCwd?: string
+  /** Whether this message/agent is collapsed in the UI */
+  isCollapsed?: boolean
+  /** Whether the user manually opened this collapsed item */
+  userOpened?: boolean
+  /** RunState stored after completion */
+  runState?: unknown
+}
+
 export type ChatMessage = {
   id: string
   variant: ChatVariant
@@ -121,7 +132,7 @@ export type ChatMessage = {
   credits?: number
   completionTime?: string
   isComplete?: boolean
-  metadata?: Record<string, any>
+  metadata?: ChatMessageMetadata
   validationErrors?: Array<{ id: string; message: string }>
 }
 
@@ -142,7 +153,9 @@ export function isHtmlBlock(block: ContentBlock): block is HtmlContentBlock {
   return block.type === 'html'
 }
 
-export function isAgentListBlock(block: ContentBlock): block is AgentListContentBlock {
+export function isAgentListBlock(
+  block: ContentBlock,
+): block is AgentListContentBlock {
   return block.type === 'agent-list'
 }
 
@@ -150,10 +163,14 @@ export function isPlanBlock(block: ContentBlock): block is PlanContentBlock {
   return block.type === 'plan'
 }
 
-export function isModeDividerBlock(block: ContentBlock): block is ModeDividerContentBlock {
+export function isModeDividerBlock(
+  block: ContentBlock,
+): block is ModeDividerContentBlock {
   return block.type === 'mode-divider'
 }
 
-export function isAskUserBlock(block: ContentBlock): block is AskUserContentBlock {
+export function isAskUserBlock(
+  block: ContentBlock,
+): block is AskUserContentBlock {
   return block.type === 'ask-user'
 }

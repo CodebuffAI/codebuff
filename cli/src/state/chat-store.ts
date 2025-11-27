@@ -46,22 +46,26 @@ export type AskUserState = {
 export type PendingBashMessage = {
   id: string
   command: string
-  output: string
+  stdout: string
+  stderr: string
   exitCode: number
-  stdout?: string
-  stderr?: string | null
-  isRunning?: boolean
+  /** Whether the command is still running */
+  isRunning: boolean
   startTime?: number
   cwd?: string
 }
 
 // Pending tool result stores tool results from user-executed commands to send to AI
-// Using a simplified type to avoid complex type instantiation issues
+// Note: Using inline type instead of importing ToolMessage to avoid deep type instantiation errors
 export type PendingToolResult = {
   role: 'tool'
   toolCallId: string
   toolName: string
-  content: Array<{ type: string; value?: unknown }>
+  content: Array<
+    | { type: 'text'; text: string }
+    | { type: 'json'; value: unknown }
+    | { type: 'media'; data: string; mediaType: string }
+  >
 }
 
 export type ChatStoreState = {
@@ -124,7 +128,10 @@ type ChatStoreActions = {
   updateAskUserAnswer: (questionIndex: number, optionIndex: number) => void
   updateAskUserOtherText: (questionIndex: number, text: string) => void
   addPendingBashMessage: (message: PendingBashMessage) => void
-  updatePendingBashMessage: (id: string, updates: Partial<PendingBashMessage>) => void
+  updatePendingBashMessage: (
+    id: string,
+    updates: Partial<PendingBashMessage>,
+  ) => void
   removePendingBashMessage: (id: string) => void
   clearPendingBashMessages: () => void
   addPendingToolResult: (result: PendingToolResult) => void
