@@ -21,6 +21,7 @@ export const getAgentStreamFromTemplate = (params: {
   fingerprintId: string
   includeCacheControl?: boolean
   liveUserInputRecord: UserInputRecord
+  localAgentTemplates: Record<string, AgentTemplate>
   logger: Logger
   messages: Message[]
   runId: string
@@ -42,6 +43,7 @@ export const getAgentStreamFromTemplate = (params: {
     fingerprintId,
     includeCacheControl,
     liveUserInputRecord,
+    localAgentTemplates,
     logger,
     messages,
     runId,
@@ -71,12 +73,14 @@ export const getAgentStreamFromTemplate = (params: {
     includeCacheControl,
     logger,
     liveUserInputRecord,
+    localAgentTemplates,
     maxOutputTokens: 32_000,
     maxRetries: 3,
     messages,
     model,
     runId,
     sessionConnections,
+    spawnableAgents: template.spawnableAgents,
     stopSequences: [globalStopSequence],
     tools,
     userId,

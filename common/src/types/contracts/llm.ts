@@ -6,6 +6,7 @@ import type { ParamsExcluding } from '../function-params'
 import type { Logger } from './logger'
 import type { Model } from '../../old-constants'
 import type { Message } from '../messages/codebuff-message'
+import type { AgentTemplate } from '../agent-template'
 import type { generateText, streamText, ToolCallPart } from 'ai'
 import type z from 'zod/v4'
 
@@ -42,6 +43,10 @@ export type PromptAiSdkStreamFn = (
     onCostCalculated?: (credits: number) => Promise<void>
     includeCacheControl?: boolean
     agentProviderOptions?: OpenRouterProviderRoutingOptions
+    /** List of agents that can be spawned - used to transform agent tool calls */
+    spawnableAgents?: string[]
+    /** Map of locally available agent templates - used to transform agent tool calls */
+    localAgentTemplates?: Record<string, AgentTemplate>
     sendAction: SendActionFn
     logger: Logger
     trackEvent: TrackEventFn

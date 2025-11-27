@@ -18,7 +18,13 @@ import {
   OpenAICompatibleChatLanguageModel,
   VERSION,
 } from '@codebuff/internal/openai-compatible/index'
-import { streamText, APICallError, generateText, generateObject } from 'ai'
+import {
+  streamText,
+  APICallError,
+  generateText,
+  generateObject,
+  NoSuchToolError,
+} from 'ai'
 
 import { WEBSITE_URL } from '../constants'
 import { NetworkError, PaymentRequiredError, ErrorCodes } from '../errors'
@@ -217,6 +223,115 @@ export async function* promptAiSdkStream(
       ...params,
       agentProviderOptions: params.agentProviderOptions,
     }),
+    // Transform agent tool calls (e.g. 'file-picker') into spawn_agents calls
+    experimental_repairToolCall: async ({ toolCall, tools, error }) => {
+      // Only handle NoSuchToolError - when model tries to call a non-existent tool
+      if (!NoSuchToolError.isInstance(error)) {
+        return null
+      }
+
+      const { spawnableAgents = [], localAgentTemplates = {} } = params
+
+      // Check if spawn_agents tool is available
+      if (!('spawn_agents' in tools)) {
+        return null
+      }
+
+      // Check if the tool name matches a spawnable agent or local agent template
+      const toolName = toolCall.toolName
+      const isSpawnableAgent = spawnableAgents.some((agentId) => {
+        // Match by exact name or by the agent part of publisher/agent@version format
+        const withoutVersion = agentId.split('@')[0]
+        const parts = withoutVersion.split('/')
+        const agentName = parts[parts.length - 1]
+        return agentName === toolName || agentId === toolName
+      })
+      const isLocalAgent = toolName in localAgentTemplates
+
+      if (!isSpawnableAgent && !isLocalAgent) {
+        return null
+      }
+
+      // Parse the input - it comes as a JSON string from the AI SDK
+      // We also need to recursively parse any nested JSON strings
+      const deepParseJson = (value: unknown): unknown => {
+        if (typeof value === 'string') {
+          try {
+            const parsed = JSON.parse(value)
+            // Recursively parse the result in case it contains more JSON strings
+            return deepParseJson(parsed)
+          } catch {
+            // Not valid JSON, return as-is
+            return value
+          }
+        }
+        if (Array.isArray(value)) {
+          return value.map(deepParseJson)
+        }
+        if (value !== null && typeof value === 'object') {
+          const result: Record<string, unknown> = {}
+          for (const [k, v] of Object.entries(value)) {
+            result[k] = deepParseJson(v)
+          }
+          return result
+        }
+        return value
+      }
+
+      let input: Record<string, unknown> = {}
+      try {
+        const rawInput =
+          typeof toolCall.input === 'string'
+            ? JSON.parse(toolCall.input)
+            : (toolCall.input as Record<string, unknown>)
+        // Deep parse to handle any nested JSON strings
+        input = deepParseJson(rawInput) as Record<string, unknown>
+      } catch {
+        // If parsing fails, use empty object
+      }
+
+      // Extract prompt from input if it exists and is a string
+      const prompt =
+        typeof input.prompt === 'string' ? input.prompt : undefined
+
+      // All other input parameters become the params object
+      // These should NOT be stringified - they should remain as objects
+      const agentParams: Record<string, unknown> = {}
+      for (const [key, value] of Object.entries(input)) {
+        if (key === 'prompt' && typeof value === 'string') {
+          continue
+        }
+        agentParams[key] = value
+      }
+
+      // Transform into spawn_agents call
+      // The input must be a JSON string for the AI SDK, but the nested objects
+      // should remain as proper objects (not stringified)
+      const spawnAgentsInput = {
+        agents: [
+          {
+            agent_type: toolName,
+            ...(prompt !== undefined && { prompt }),
+            ...(Object.keys(agentParams).length > 0 && { params: agentParams }),
+          },
+        ],
+      }
+
+      logger.info(
+        {
+          originalToolName: toolName,
+          transformedInput: spawnAgentsInput,
+        },
+        'Transformed agent tool call to spawn_agents',
+      )
+
+      // Return the repaired tool call - input must be a JSON string
+      return {
+        ...toolCall,
+        toolName: 'spawn_agents',
+        input: JSON.stringify(spawnAgentsInput),
+      }
+    },
   })
 
   let content = ''
