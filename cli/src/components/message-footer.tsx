@@ -13,7 +13,7 @@ import {
   selectMessageFeedbackCategory,
 } from '../state/feedback-store'
 
-import type { ContentBlock } from '../types/chat'
+import type { ContentBlock, TextContentBlock } from '../types/chat'
 
 interface MessageFooterProps {
   messageId: string
@@ -116,7 +116,7 @@ export const MessageFooter: React.FC<MessageFooterProps> = ({
   const textToCopy = [
     content,
     ...(blocks || [])
-      .filter((b): b is import('../types/chat').TextContentBlock => b.type === 'text')
+      .filter((b): b is TextContentBlock => b.type === 'text')
       .map((b) => b.content),
   ]
     .filter(Boolean)
