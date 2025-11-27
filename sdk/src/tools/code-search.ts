@@ -6,6 +6,17 @@ import { getBundledRgPath } from '../native/ripgrep'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
+// Hidden directories to include in code search by default.
+// These are searched in addition to '.' to ensure important config/workflow files are discoverable.
+const INCLUDED_HIDDEN_DIRS = [
+  '.agents', // Codebuff agent definitions
+  '.claude', // Claude settings
+  '.github', // GitHub Actions, workflows, issue templates
+  '.gitlab', // GitLab CI configuration
+  '.circleci', // CircleCI configuration
+  '.husky', // Git hooks
+]
+
 export function codeSearch({
   projectPath,
   pattern,
@@ -31,9 +42,12 @@ export function codeSearch({
     // Guard paths robustly
     const projectRoot = path.resolve(projectPath)
     const searchCwd = cwd ? path.resolve(projectRoot, cwd) : projectRoot
-    
+
     // Ensure the resolved path is within the project directory
-    if (!searchCwd.startsWith(projectRoot + path.sep) && searchCwd !== projectRoot) {
+    if (
+      !searchCwd.startsWith(projectRoot + path.sep) &&
+      searchCwd !== projectRoot
+    ) {
       return resolve([
         {
           type: 'json',
@@ -53,7 +67,17 @@ export function codeSearch({
     // -n shows line numbers
     // --json outputs in JSON format, which streams in and allows us to cut off the output if it grows too long
     // "--"" prevents pattern from being misparsed as a flag (e.g., pattern starting with '-')
-    const args = ['--no-config', '-n', '--json', ...flagsArray, '--', pattern, '.']
+    // Search paths: '.' plus blessed hidden directories (ripgrep ignores non-existent paths)
+    const searchPaths = ['.', ...INCLUDED_HIDDEN_DIRS]
+    const args = [
+      '--no-config',
+      '-n',
+      '--json',
+      ...flagsArray,
+      '--',
+      pattern,
+      ...searchPaths,
+    ]
 
     const rgPath = getBundledRgPath(import.meta.url)
     const childProcess = spawn(rgPath, args, {
@@ -126,7 +150,8 @@ export function codeSearch({
     // Parse ripgrep JSON for early stopping
     childProcess.stdout.on('data', (chunk: Buffer | string) => {
       if (isResolved) return
-      const chunkStr = typeof chunk === 'string' ? chunk : chunk.toString('utf8')
+      const chunkStr =
+        typeof chunk === 'string' ? chunk : chunk.toString('utf8')
       jsonRemainder += chunkStr
 
       // Split by lines; last line might be partial
@@ -181,7 +206,10 @@ export function codeSearch({
               matchesGlobal++
 
               // Check global limit or output size limit
-              if (matchesGlobal >= globalMaxResults || estimatedOutputLen >= maxOutputStringLength) {
+              if (
+                matchesGlobal >= globalMaxResults ||
+                estimatedOutputLen >= maxOutputStringLength
+              ) {
                 killedForLimit = true
                 hardKill()
 
@@ -199,9 +227,10 @@ export function codeSearch({
                       '\n\n[Output truncated]'
                     : formattedOutput
 
-                const limitReason = matchesGlobal >= globalMaxResults
-                  ? `[Global limit of ${globalMaxResults} results reached.]`
-                  : '[Output size limit reached.]'
+                const limitReason =
+                  matchesGlobal >= globalMaxResults
+                    ? `[Global limit of ${globalMaxResults} results reached.]`
+                    : '[Output size limit reached.]'
 
                 return settle({
                   stdout: finalOutput + '\n\n' + limitReason,
@@ -216,7 +245,8 @@ export function codeSearch({
 
     childProcess.stderr.on('data', (chunk: Buffer | string) => {
       if (isResolved) return
-      const chunkStr = typeof chunk === 'string' ? chunk : chunk.toString('utf8')
+      const chunkStr =
+        typeof chunk === 'string' ? chunk : chunk.toString('utf8')
       // Keep stderr bounded during streaming
       const limit = Math.floor(maxOutputStringLength / 5)
       if (stderrBuf.length < limit) {
@@ -232,13 +262,16 @@ export function codeSearch({
       try {
         if (jsonRemainder) {
           // Ensure we have a trailing newline for split to work correctly
-          const maybeMany = jsonRemainder.endsWith('\n') ? jsonRemainder : jsonRemainder + '\n'
+          const maybeMany = jsonRemainder.endsWith('\n')
+            ? jsonRemainder
+            : jsonRemainder + '\n'
           for (const ln of maybeMany.split('\n')) {
             if (!ln) continue
             try {
               const evt = JSON.parse(ln)
               if (evt?.type === 'match' || evt?.type === 'context') {
-                const filePath = evt.data.path?.text ?? evt.data.path?.bytes ?? ''
+                const filePath =
+                  evt.data.path?.text ?? evt.data.path?.bytes ?? ''
                 const lineNumber = evt.data.line_number ?? 0
                 const rawText = evt.data.lines?.text ?? ''
                 const lineText = rawText.replace(/\r?\n$/, '')
@@ -253,7 +286,10 @@ export function codeSearch({
                 const isMatch = evt.type === 'match'
 
                 // Check if we should include this line
-                const shouldInclude = !isMatch || (fileMatchCount < maxResults && matchesGlobal < globalMaxResults)
+                const shouldInclude =
+                  !isMatch ||
+                  (fileMatchCount < maxResults &&
+                    matchesGlobal < globalMaxResults)
 
                 if (shouldInclude) {
                   fileLines.push(formattedLine)
