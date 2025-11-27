@@ -34,24 +34,29 @@ export function asUserMessage(str: string): string {
 }
 
 /**
- * Combines prompt, params, and content into a unified message content structure
+ * Combines prompt, params, and content into a unified message content structure.
+ * Always wraps the first text part in <user_message> tags for consistent XML framing.
  */
 export function buildUserMessageContent(
   prompt: string | undefined,
   params: Record<string, any> | undefined,
   content?: Array<TextPart | ImagePart>,
 ): Array<TextPart | ImagePart> {
-  // If we have content, return it as-is (client should have already combined prompt + content)
+  // If we have content array (e.g., text + images)
   if (content && content.length > 0) {
-    if (content.length === 1 && content[0].type === 'text') {
-      return [
-        {
-          type: 'text',
-          text: asUserMessage(content[0].text),
-        },
-      ]
-    }
-    return content
+    // Find the first text part and wrap it in <user_message> tags
+    let hasWrappedText = false
+    const wrappedContent = content.map((part) => {
+      if (part.type === 'text' && !hasWrappedText) {
+        hasWrappedText = true
+        return {
+          type: 'text' as const,
+          text: asUserMessage(part.text),
+        }
+      }
+      return part
+    })
+    return wrappedContent
   }
 
   // Only prompt/params, combine and return as simple text
