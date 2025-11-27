@@ -2,6 +2,7 @@ import { existsSync } from 'fs'
 import path from 'path'
 
 import { getProjectRoot } from '../project-files'
+import { useChatStore } from '../state/chat-store'
 import { getSystemMessage } from '../utils/message-history'
 import {
   SUPPORTED_IMAGE_EXTENSIONS,
@@ -87,11 +88,14 @@ export function handleImageCommand(args: string): {
     return { postUserMessage }
   }
 
-  // Transform the command into a prompt with the image path
-  // The image-handler will auto-detect paths like ./image.png or @image.png
-  const transformedPrompt = message
-    ? `${message} ${imagePath}`
-    : `Please analyze this image: ${imagePath}`
+  // Add image to pending images for the banner
+  useChatStore.getState().addPendingImage({
+    path: resolvedPath,
+    filename: path.basename(resolvedPath),
+  })
+
+  // Use the optional message as the prompt, or empty to just attach the image
+  const transformedPrompt = message || ''
 
   const postUserMessage: PostUserMessageFn = (prev) => prev
 
