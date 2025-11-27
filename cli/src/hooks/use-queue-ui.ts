@@ -3,10 +3,11 @@ import { useMemo } from 'react'
 import { pluralize } from '@codebuff/common/util/string'
 
 import { formatQueuedPreview } from '../utils/helpers'
+import type { QueuedMessage } from './use-message-queue'
 
 interface UseQueueUiParams {
   queuePaused: boolean
-  queuedMessages: string[]
+  queuedMessages: QueuedMessage[]
   separatorWidth: number
   terminalWidth: number
 }

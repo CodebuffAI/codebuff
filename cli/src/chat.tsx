@@ -31,7 +31,7 @@ import { useExitHandler } from './hooks/use-exit-handler'
 import { useInputHistory } from './hooks/use-input-history'
 import { useChatKeyboard, type ChatKeyboardHandlers } from './hooks/use-chat-keyboard'
 import { type ChatKeyboardState, createDefaultChatKeyboardState } from './utils/keyboard-actions'
-import { useMessageQueue } from './hooks/use-message-queue'
+import { useMessageQueue, type QueuedMessage } from './hooks/use-message-queue'
 import { useQueueControls } from './hooks/use-queue-controls'
 import { useQueueUi } from './hooks/use-queue-ui'
 import { useChatScrollbox } from './hooks/use-scroll-management'
@@ -536,8 +536,12 @@ export const Chat = ({
     clearQueue,
     isQueuePausedRef,
   } = useMessageQueue(
-    (content: string) =>
-      sendMessageRef.current?.({ content, agentMode }) ?? Promise.resolve(),
+    (message: QueuedMessage) =>
+      sendMessageRef.current?.({
+        content: message.content,
+        agentMode,
+        images: message.images,
+      }) ?? Promise.resolve(),
     isChainInProgressRef,
     activeAgentStreamsRef,
   )

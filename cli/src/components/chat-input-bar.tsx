@@ -24,17 +24,10 @@ type Theme = ReturnType<typeof useTheme>
 const InputModeBanner = ({
   inputMode,
   usageBannerShowTime,
-  hasPendingImages,
 }: {
   inputMode: InputMode
   usageBannerShowTime: number
-  hasPendingImages: boolean
 }) => {
-  // Show pending images banner if there are images (regardless of mode)
-  if (hasPendingImages) {
-    return <PendingImagesBanner />
-  }
-
   switch (inputMode) {
     case 'usage':
       return <UsageBanner showTime={usageBannerShowTime} />
@@ -117,6 +110,7 @@ export const ChatInputBar = ({
 }: ChatInputBarProps) => {
   const inputMode = useChatStore((state) => state.inputMode)
   const setInputMode = useChatStore((state) => state.setInputMode)
+  const hasPendingImages = useChatStore((state) => state.pendingImages.length > 0)
 
   const [usageBannerShowTime, setUsageBannerShowTime] = React.useState(
     () => Date.now(),
@@ -390,11 +384,14 @@ export const ChatInputBar = ({
           </box>
         </box>
       </box>
-      <InputModeBanner
-        inputMode={inputMode}
-        usageBannerShowTime={usageBannerShowTime}
-        hasPendingImages={useChatStore.getState().pendingImages.length > 0}
-      />
+      {hasPendingImages ? (
+        <PendingImagesBanner />
+      ) : (
+        <InputModeBanner
+          inputMode={inputMode}
+          usageBannerShowTime={usageBannerShowTime}
+        />
+      )}
     </>
   )
 }

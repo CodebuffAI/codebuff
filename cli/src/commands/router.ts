@@ -237,7 +237,15 @@ export async function routeUserPrompt(
     streamMessageIdRef.current ||
     isChainInProgressRef.current
   ) {
-    addToQueue(trimmed)
+    const pendingImages = useChatStore.getState().pendingImages
+    // Pass a copy of pending images to the queue
+    addToQueue(trimmed, [...pendingImages])
+    
+    // Clear pending images immediately so banner logic works correctly
+    if (pendingImages.length > 0) {
+      useChatStore.getState().clearPendingImages()
+    }
+
     setInputFocused(true)
     inputRef.current?.focus()
     return

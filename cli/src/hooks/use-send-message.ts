@@ -438,7 +438,7 @@ export const useSendMessage = ({
 
   const sendMessage = useCallback<SendMessageFn>(
     async (params: ParamsOf<SendMessageFn>) => {
-      const { content, agentMode, postUserMessage } = params
+      const { content, agentMode, postUserMessage, images: attachedImages } = params
 
       if (agentMode !== 'PLAN') {
         setHasReceivedPlanResponse(false)
@@ -461,8 +461,9 @@ export const useSendMessage = ({
         lastMessageMode === null || lastMessageMode !== agentMode
 
       // --- Process images before sending ---
-      // Get pending images from store
-      const pendingImages = useChatStore.getState().pendingImages
+      // Get pending images from store OR use explicitly attached images (e.g. from queue)
+      // If attachedImages is provided, we use those to prevent picking up new pending images
+      const pendingImages = attachedImages ?? useChatStore.getState().pendingImages
 
       // Also extract image paths from the input text
       const detectedImagePaths = extractImagePaths(content)
@@ -482,8 +483,9 @@ export const useSendMessage = ({
       }))
 
       // Clear pending images immediately after capturing them
-      // This ensures the banner hides when sending, regardless of processing outcome
-      if (pendingImages.length > 0) {
+      // Only clear if we pulled from the store (attachedImages was undefined)
+      // If attachedImages was provided (e.g. from queue), the store was likely cleared when queued
+      if (!attachedImages && pendingImages.length > 0) {
         useChatStore.getState().clearPendingImages()
       }
 
