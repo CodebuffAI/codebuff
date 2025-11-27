@@ -59,7 +59,7 @@ export type ChatKeyboardHandlers = {
   onExitApp: () => void
 
   // Clipboard handlers
-  onPasteImage: () => void
+  onPasteImage: () => boolean // Returns true if an image was pasted
 }
 
 /**
@@ -158,8 +158,7 @@ function dispatchAction(
       handlers.onExitApp()
       return true
     case 'paste-image':
-      handlers.onPasteImage()
-      return true
+      return handlers.onPasteImage()
     case 'none':
       return false
   }

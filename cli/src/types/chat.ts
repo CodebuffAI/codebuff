@@ -120,7 +120,6 @@ export type ContentBlock =
   | TextContentBlock
   | ToolContentBlock
   | PlanContentBlock
-  | AskUserContentBlock
 
 export type AgentMessage = {
   agentName: string

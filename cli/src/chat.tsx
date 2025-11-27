@@ -951,14 +951,14 @@ export const Chat = ({
       // Check if clipboard has an image
       if (!hasClipboardImage()) {
         // No image in clipboard, let normal paste happen
-        return
+        return false
       }
       
       // Read image from clipboard
       const result = readClipboardImage()
       if (!result.success || !result.imagePath || !result.filename) {
         showClipboardMessage(result.error || 'Failed to paste image', { durationMs: 3000 })
-        return
+        return true // We handled it (with an error), don't let default paste happen
       }
       
       // Add to pending images
@@ -966,6 +966,7 @@ export const Chat = ({
         path: result.imagePath,
         filename: result.filename,
       })
+      return true // Image was pasted successfully
     },
   }), [
     setInputMode,
