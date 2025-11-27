@@ -5,6 +5,8 @@
 
 import { Jimp } from 'jimp'
 
+import { logger } from './logger'
+
 export interface ThumbnailPixel {
   r: number
   g: number
@@ -31,16 +33,16 @@ export async function extractThumbnailColors(
 ): Promise<ThumbnailData | null> {
   try {
     const image = await Jimp.read(imagePath)
-    
+
     // Resize to target dimensions (height * 2 because we use half-blocks)
     const resizedHeight = targetHeight * 2
     image.resize({ w: targetWidth, h: resizedHeight })
-    
+
     const width = image.width
     const height = image.height
-    
+
     const pixels: ThumbnailPixel[][] = []
-    
+
     for (let y = 0; y < height; y++) {
       const row: ThumbnailPixel[] = []
       for (let x = 0; x < width; x++) {
@@ -53,9 +55,16 @@ export async function extractThumbnailColors(
       }
       pixels.push(row)
     }
-    
+
     return { width, height, pixels }
-  } catch {
+  } catch (error) {
+    logger.warn(
+      {
+        imagePath,
+        error: error instanceof Error ? error.message : String(error),
+      },
+      'Failed to extract thumbnail colors from image',
+    )
     return null
   }
 }

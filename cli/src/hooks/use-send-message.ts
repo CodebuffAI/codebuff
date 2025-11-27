@@ -491,8 +491,9 @@ export const useSendMessage = ({
 
       // Process all images for SDK
       const projectRoot = getProjectRoot()
-      const imagePartsPromises = uniqueImagePaths.map((imagePath) =>
-        processImageFile(imagePath, projectRoot).then((result) => {
+      const validImageParts = uniqueImagePaths
+        .map((imagePath) => {
+          const result = processImageFile(imagePath, projectRoot)
           if (result.success && result.imagePart) {
             return {
               type: 'image' as const,
@@ -510,13 +511,8 @@ export const useSendMessage = ({
             )
           }
           return null
-        }),
-      )
-
-      const imagePartsResults = await Promise.all(imagePartsPromises)
-      const validImageParts = imagePartsResults.filter(
-        (part): part is NonNullable<typeof part> => part !== null,
-      )
+        })
+        .filter((part): part is NonNullable<typeof part> => part !== null)
 
       // Build message content array for SDK
       let messageContent: MessageContent[] | undefined

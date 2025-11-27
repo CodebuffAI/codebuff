@@ -6,6 +6,8 @@
 
 import terminalImage from 'terminal-image'
 
+import { logger } from './logger'
+
 export type TerminalImageProtocol = 'iterm2' | 'kitty' | 'sixel' | 'none'
 
 let cachedProtocol: TerminalImageProtocol | null = null
@@ -58,7 +60,7 @@ export function supportsInlineImages(): boolean {
  * @param base64Data - Base64 encoded image data
  * @param options - Display options
  */
-export function generateITerm2ImageSequence(
+function generateITerm2ImageSequence(
   base64Data: string,
   options: {
     width?: number | string // cells or 'auto'
@@ -114,7 +116,7 @@ export function generateITerm2ImageSequence(
  * @param base64Data - Base64 encoded image data
  * @param options - Display options
  */
-export function generateKittyImageSequence(
+function generateKittyImageSequence(
   base64Data: string,
   options: {
     width?: number // cells
@@ -248,7 +250,11 @@ export async function renderAnsiBlockImage(
       preserveAspectRatio: true,
     })
     return result
-  } catch {
+  } catch (error) {
+    logger.debug(
+      { error: error instanceof Error ? error.message : String(error) },
+      'Failed to render ANSI block image from buffer',
+    )
     return ''
   }
 }
@@ -275,7 +281,11 @@ export async function renderAnsiBlockImageFromFile(
       preserveAspectRatio: true,
     })
     return result
-  } catch {
+  } catch (error) {
+    logger.debug(
+      { filePath, error: error instanceof Error ? error.message : String(error) },
+      'Failed to render ANSI block image from file',
+    )
     return ''
   }
 }

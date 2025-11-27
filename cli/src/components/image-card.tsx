@@ -10,7 +10,13 @@ import {
   renderInlineImage,
 } from '../utils/terminal-images'
 
+// Image card display constants
 const MAX_FILENAME_LENGTH = 18
+const IMAGE_CARD_WIDTH = 22
+const THUMBNAIL_WIDTH = 18
+const THUMBNAIL_HEIGHT = 3
+const INLINE_IMAGE_WIDTH = 4
+const INLINE_IMAGE_HEIGHT = 3
 
 const BORDER_CHARS = {
   horizontal: '─',
@@ -75,8 +81,8 @@ export const ImageCard = ({
         const imageData = fs.readFileSync(image.path)
         const base64Data = imageData.toString('base64')
         const sequence = renderInlineImage(base64Data, {
-          width: 4,
-          height: 3,
+          width: INLINE_IMAGE_WIDTH,
+          height: INLINE_IMAGE_HEIGHT,
           filename: image.filename,
         })
         if (!cancelled) {
@@ -105,7 +111,7 @@ export const ImageCard = ({
         flexDirection: 'column',
         borderStyle: 'single',
         borderColor: theme.info,
-        width: 22,
+        width: IMAGE_CARD_WIDTH,
         padding: 0,
       }}
       customBorderChars={BORDER_CHARS}
@@ -131,8 +137,8 @@ export const ImageCard = ({
           ) : (
             <ImageThumbnail
               imagePath={image.path}
-              width={18}
-              height={3}
+              width={THUMBNAIL_WIDTH}
+              height={THUMBNAIL_HEIGHT}
               fallback={<text style={{ fg: theme.info }}>🖼️</text>}
             />
           )}

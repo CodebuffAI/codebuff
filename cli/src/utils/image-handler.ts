@@ -30,59 +30,27 @@ export const SUPPORTED_IMAGE_EXTENSIONS = new Set([
 
 // Size limits - balanced to prevent message truncation while allowing reasonable images
 const MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB - allow larger files for compression
-const MAX_TOTAL_SIZE = 5 * 1024 * 1024 // 5MB total
 const MAX_BASE64_SIZE = 150 * 1024 // 150KB max for base64 (backend limit ~760KB, so safe margin)
 
+/**
+ * Normalizes a user-provided file path by handling escape sequences.
+ * Handles:
+ * - Shell-escaped special characters: "my\ file.png" -> "my file.png"
+ * - Unicode escapes: "\u{202f}" or "\u202f" -> actual unicode char (from terminal copy/paste)
+ */
 function normalizeUserProvidedPath(filePath: string): string {
   let normalized = filePath
 
-  normalized = normalized.replace(
-    /\\u\{([0-9a-fA-F]+)\}/g,
-    (match, codePoint) => {
-      const value = Number.parseInt(codePoint, 16)
-      if (Number.isNaN(value)) {
-        return match
-      }
-      try {
-        return String.fromCodePoint(value)
-      } catch {
-        return match
-      }
-    },
-  )
-
-  normalized = normalized.replace(
-    /\\u([0-9a-fA-F]{4})/g,
-    (match, codePoint) => {
-      const value = Number.parseInt(codePoint, 16)
-      if (Number.isNaN(value)) {
-        return match
-      }
-      try {
-        return String.fromCodePoint(value)
-      } catch {
-        return match
-      }
-    },
-  )
-
-  normalized = normalized.replace(
-    /\\x([0-9a-fA-F]{2})/g,
-    (match, codePoint) => {
-      const value = Number.parseInt(codePoint, 16)
-      if (Number.isNaN(value)) {
-        return match
-      }
-      return String.fromCharCode(value)
-    },
-  )
-
-  normalized = normalized.replace(/\\([ \t"'(){}\[\]])/g, (match, char) => {
-    if (char === '\\') {
-      return '\\'
-    }
-    return char
+  // Handle unicode escape sequences (e.g., from terminal copy/paste)
+  // Format: \u{XXXX} or \uXXXX
+  normalized = normalized.replace(/\\u\{([0-9a-fA-F]+)\}|\\u([0-9a-fA-F]{4})/g, (_, bracedCode, shortCode) => {
+    const code = bracedCode || shortCode
+    const value = Number.parseInt(code, 16)
+    return Number.isNaN(value) ? _ : String.fromCodePoint(value)
   })
+
+  // Handle shell-escaped special characters (e.g., spaces in paths)
+  normalized = normalized.replace(/\\([ \t"'(){}\[\]])/g, '$1')
 
   return normalized
 }
@@ -138,10 +106,10 @@ export function resolveFilePath(filePath: string, cwd: string): string {
 /**
  * Processes an image file and converts it to base64 for upload
  */
-export async function processImageFile(
+export function processImageFile(
   filePath: string,
   cwd: string,
-): Promise<ImageUploadResult> {
+): ImageUploadResult {
   try {
     const resolvedPath = resolveFilePath(filePath, cwd)
 
@@ -255,27 +223,6 @@ export async function processImageFile(
       error: `Error processing image: ${error instanceof Error ? error.message : String(error)}`,
     }
   }
-}
-
-/**
- * Validates total size of multiple images
- */
-export function validateTotalImageSize(imageParts: Array<{ size?: number }>): {
-  valid: boolean
-  error?: string
-} {
-  const totalSize = imageParts.reduce((sum, part) => sum + (part.size || 0), 0)
-
-  if (totalSize > MAX_TOTAL_SIZE) {
-    const totalMB = (totalSize / (1024 * 1024)).toFixed(1)
-    const maxMB = (MAX_TOTAL_SIZE / (1024 * 1024)).toFixed(1)
-    return {
-      valid: false,
-      error: `Total image size too large: ${totalMB}MB (max ${maxMB}MB)`,
-    }
-  }
-
-  return { valid: true }
 }
 
 /**

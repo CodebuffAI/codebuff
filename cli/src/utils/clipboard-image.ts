@@ -3,8 +3,6 @@ import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import path from 'path'
 import os from 'os'
 
-import { logger } from './logger'
-
 export interface ClipboardImageResult {
   success: boolean
   imagePath?: string
@@ -54,8 +52,7 @@ function hasImageMacOS(): boolean {
            output.includes('public.png') ||
            output.includes('public.tiff') ||
            output.includes('public.jpeg')
-  } catch (error) {
-    logger.debug({ error }, 'Failed to check macOS clipboard')
+  } catch {
     return false
   }
 }
@@ -155,8 +152,7 @@ function hasImageLinux(): boolean {
     return output.includes('image/png') || 
            output.includes('image/jpeg') || 
            output.includes('image/tiff')
-  } catch (error) {
-    logger.debug({ error }, 'Failed to check Linux clipboard')
+  } catch {
     return false
   }
 }
@@ -220,8 +216,7 @@ function hasImageWindows(): boolean {
     })
     
     return result.stdout?.trim() === 'true'
-  } catch (error) {
-    logger.debug({ error }, 'Failed to check Windows clipboard')
+  } catch {
     return false
   }
 }
@@ -291,8 +286,6 @@ export function hasClipboardImage(): boolean {
  */
 export function readClipboardImage(): ClipboardImageResult {
   const platform = process.platform
-  
-  logger.debug({ platform }, 'Reading clipboard image')
   
   switch (platform) {
     case 'darwin':
