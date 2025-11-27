@@ -187,11 +187,16 @@ export const ChatInputBar = ({
 
       if (Array.isArray(answer)) {
         // Multi-select: map array of indices to array of option labels
-        // Empty array means skipped
-        return {
-          questionIndex: idx,
-          selectedOptions:
-            answer.length > 0 ? answer.map(getOptionLabel) : undefined,
+        // Empty array means skipped - omit selectedOptions entirely to avoid undefined in JSON
+        if (answer.length > 0) {
+          return {
+            questionIndex: idx,
+            selectedOptions: answer.map(getOptionLabel),
+          }
+        } else {
+          return {
+            questionIndex: idx,
+          }
         }
       } else if (
         typeof answer === 'number' &&
