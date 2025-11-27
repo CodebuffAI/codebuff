@@ -22,6 +22,7 @@ import { isImageFile, resolveFilePath } from '../utils/image-handler'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 
 import type { ContentBlock } from '../types/chat'
+import { logger } from '../utils/logger'
 
 export async function routeUserPrompt(
   params: RouterParams,
@@ -164,7 +165,9 @@ export async function routeUserPrompt(
       setMessages((prev) => [
         ...prev,
         getUserMessage(trimmed),
-        getSystemMessage('Invalid referral code format. Codes should be 3-50 alphanumeric characters.'),
+        getSystemMessage(
+          'Invalid referral code format. Codes should be 3-50 alphanumeric characters.',
+        ),
       ])
       saveToHistory(trimmed)
       setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
@@ -182,7 +185,8 @@ export async function routeUserPrompt(
         ...referralPostMessage([]),
       ])
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error'
       setMessages((prev) => [
         ...prev,
         getUserMessage(trimmed),

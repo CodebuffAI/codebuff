@@ -535,6 +535,7 @@ export const useSendMessage = ({
               (sum, part) => sum + (part.size || 0),
               0,
             ),
+            messageContentLength: messageContent?.length,
           },
           `📎 ${validImageParts.length} image(s) attached to SDK message`,
         )
