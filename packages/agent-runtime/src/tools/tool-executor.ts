@@ -31,7 +31,7 @@ import type {
   CustomToolDefinitions,
   ProjectFileContext,
 } from '@codebuff/common/util/file'
-import type { ToolCallPart } from 'ai'
+import type { ToolCallPart, ToolSet } from 'ai'
 
 export type CustomToolCall = {
   toolName: string
@@ -139,6 +139,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   runId: string
   signal: AbortSignal
   system: string
+  tools?: ToolSet
   toolCallId: string | undefined
   toolCalls: (CodebuffToolCall | CustomToolCall)[]
   toolResults: ToolMessage[]

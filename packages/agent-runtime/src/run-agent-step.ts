@@ -58,6 +58,7 @@ import type {
   CustomToolDefinitions,
   ProjectFileContext,
 } from '@codebuff/common/util/file'
+import type { ToolSet } from 'ai'
 
 async function additionalToolDefinitions(
   params: {
@@ -481,6 +482,7 @@ export async function loopAgentSteps(
     localAgentTemplates: Record<string, AgentTemplate>
     logger: Logger
     parentSystemPrompt?: string
+    parentTools?: ToolSet
     prompt: string | undefined
     signal: AbortSignal
     spawnParams: Record<string, any> | undefined
@@ -554,6 +556,7 @@ export async function loopAgentSteps(
     localAgentTemplates,
     logger,
     parentSystemPrompt,
+    parentTools,
     prompt,
     signal,
     spawnParams,
@@ -631,18 +634,29 @@ export async function loopAgentSteps(
           },
         })) ?? ''
 
-  const tools = await getToolSet({
-    toolNames: agentTemplate.toolNames,
-    additionalToolDefinitions: async () => {
-      if (!cachedAdditionalToolDefinitions) {
-        cachedAdditionalToolDefinitions = await additionalToolDefinitions({
-          ...params,
-          agentTemplate,
-        })
-      }
-      return cachedAdditionalToolDefinitions
-    },
-  })
+  // Use parent's tools for prompt caching when inheritParentSystemPrompt is true
+  const useParentTools =
+    agentTemplate.inheritParentSystemPrompt && parentTools !== undefined
+
+  const tools = useParentTools
+    ? parentTools
+    : await getToolSet({
+        toolNames: agentTemplate.toolNames,
+        additionalToolDefinitions: async () => {
+          if (!cachedAdditionalToolDefinitions) {
+            cachedAdditionalToolDefinitions = await additionalToolDefinitions({
+              ...params,
+              agentTemplate,
+            })
+          }
+          return cachedAdditionalToolDefinitions
+        },
+      })
+
+  // Build a message explaining the subagent's tool access when using parent's tools
+  const subagentToolsMessage = useParentTools
+    ? `You are a subagent that only has access to the following tools: ${agentTemplate.toolNames.join(', ')}. Do not attempt to use any other tools.`
+    : undefined
 
   const hasUserMessage = Boolean(
     prompt || (spawnParams && Object.keys(spawnParams).length > 0),
@@ -650,6 +664,14 @@ export async function loopAgentSteps(
 
   const initialMessages = buildArray<Message>(
     ...agentState.messageHistory,
+
+    // Add subagent tools message before user prompt when using parent's tools for caching
+    subagentToolsMessage &&
+      userMessage({
+        content: withSystemTags(subagentToolsMessage),
+        tags: ['SUBAGENT_TOOLS'],
+        keepDuringTruncation: true,
+      }),
 
     hasUserMessage && [
       {
@@ -877,7 +899,10 @@ export async function loopAgentSteps(
     )
 
     // Re-throw NetworkError and PaymentRequiredError to allow SDK retry wrapper to handle it
-    if (error instanceof Error && (error.name === 'NetworkError' || error.name === 'PaymentRequiredError')) {
+    if (
+      error instanceof Error &&
+      (error.name === 'NetworkError' || error.name === 'PaymentRequiredError')
+    ) {
       throw error
     }
 

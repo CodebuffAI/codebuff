@@ -12,6 +12,7 @@ import type {
   ParamsExcluding,
   OptionalFields,
 } from '@codebuff/common/types/function-params'
+import type { ToolSet } from 'ai'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
@@ -231,6 +232,7 @@ export async function executeSubagent(
     {
       agentTemplate: AgentTemplate
       parentAgentState: AgentState
+      parentTools?: ToolSet
       onResponseChunk: (chunk: string | PrintModeEvent) => void
       isOnlyChild?: boolean
       ancestorRunIds: string[]

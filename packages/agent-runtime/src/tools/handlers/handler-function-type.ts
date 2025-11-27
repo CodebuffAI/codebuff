@@ -18,6 +18,7 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState, Subgoal } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { ToolSet } from 'ai'
 
 type PresentOrAbsent<K extends PropertyKey, V> =
   | { [P in K]: V }
@@ -49,6 +50,7 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     sendSubagentChunk: SendSubagentChunkFn
     signal: AbortSignal
     system: string
+    tools?: ToolSet
     trackEvent: TrackEventFn
     userId: string | undefined
     userInputId: string

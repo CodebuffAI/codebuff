@@ -70,6 +70,7 @@ describe('Subagent Streaming', () => {
       sendSubagentChunk: mockSendSubagentChunk,
       signal: new AbortController().signal,
       system: 'Test system prompt',
+      tools: {},
       userId: TEST_USER_ID,
       userInputId: 'test-input',
       writeToClient: mockWriteToClient,

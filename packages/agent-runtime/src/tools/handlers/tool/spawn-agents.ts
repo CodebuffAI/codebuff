@@ -18,6 +18,7 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
+import type { ToolSet } from 'ai'
 
 export type SendSubagentChunk = (data: {
   userInputId: string
@@ -40,6 +41,7 @@ export const handleSpawnAgents = (async (
     localAgentTemplates: Record<string, AgentTemplate>
     logger: Logger
     system: string
+    tools?: ToolSet
     userId: string | undefined
     userInputId: string
     sendSubagentChunk: SendSubagentChunk
@@ -59,6 +61,7 @@ export const handleSpawnAgents = (async (
       | 'fingerprintId'
       | 'isOnlyChild'
       | 'parentSystemPrompt'
+      | 'parentTools'
       | 'onResponseChunk'
     >,
 ): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
@@ -70,6 +73,7 @@ export const handleSpawnAgents = (async (
     agentTemplate: parentAgentTemplate,
     fingerprintId,
     system: parentSystemPrompt,
+    tools: parentTools = {},
     userInputId,
     sendSubagentChunk,
     writeToClient,
@@ -118,6 +122,9 @@ export const handleSpawnAgents = (async (
           fingerprintId,
           isOnlyChild: agents.length === 1,
           parentSystemPrompt,
+          parentTools: agentTemplate.inheritParentSystemPrompt
+            ? parentTools
+            : undefined,
           onResponseChunk: (chunk: string | PrintModeEvent) => {
             if (typeof chunk === 'string') {
               sendSubagentChunk({

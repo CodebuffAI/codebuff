@@ -90,6 +90,7 @@ describe('Cost Aggregation System', () => {
       repoUrl: undefined,
       signal: new AbortController().signal,
       system: 'Test system prompt',
+      tools: {},
       userId: 'test-user',
       userInputId: 'test-input',
       writeToClient: () => {},
