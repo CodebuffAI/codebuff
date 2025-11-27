@@ -256,20 +256,19 @@ function* handleStepsMax({
     'editor-implementor-opus',
   ] as const
 
-  // Only keep messages up to just before the last spawn agent tool call.
+  // Only keep messages up to just before the last user role message (skips input prompt, instrucitons prompt).
   const { messageHistory: initialMessageHistory } = agentState
-  const lastSpawnAgentMessageIndex = initialMessageHistory.findLastIndex(
-    (message) =>
-      message.role === 'assistant' &&
-      Array.isArray(message.content) &&
-      message.content.length > 0 &&
-      message.content[0].type === 'tool-call' &&
-      message.content[0].toolName === 'spawn_agents',
-  )
-  const updatedMessageHistory = initialMessageHistory.slice(
-    0,
-    lastSpawnAgentMessageIndex,
-  )
+  let userMessageIndex = initialMessageHistory.length
+
+  while (userMessageIndex > 0) {
+    const message = initialMessageHistory[userMessageIndex - 1]
+    if (message.role === 'user') {
+      userMessageIndex--
+    } else {
+      break
+    }
+  }
+  const updatedMessageHistory = initialMessageHistory.slice(0, userMessageIndex)
   yield {
     toolName: 'set_messages',
     input: {

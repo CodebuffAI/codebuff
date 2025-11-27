@@ -4,6 +4,7 @@ import { generateCompactId } from '@codebuff/common/util/string'
 
 import { loopAgentSteps } from '../../../run-agent-step'
 import { getAgentTemplate } from '../../../templates/agent-registry'
+import { filterUnfinishedToolCalls } from '../../../util/messages'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -161,8 +162,11 @@ export function createAgentState(
 ): AgentState {
   const agentId = generateCompactId()
 
+  // When including message history, filter out any tool calls that don't have
+  // corresponding tool responses. This prevents the spawned agent from seeing
+  // unfinished tool calls which throw errors in the Anthropic API.
   const messageHistory = agentTemplate.includeMessageHistory
-    ? parentAgentState.messageHistory
+    ? filterUnfinishedToolCalls(parentAgentState.messageHistory)
     : []
 
   return {
