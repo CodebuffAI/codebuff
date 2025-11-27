@@ -274,7 +274,7 @@ export async function runProgrammaticStep(
             onResponseChunk,
           })
         }
-        break
+        continue
       }
 
       if ('type' in result.value && result.value.type === 'GENERATE_N') {
