@@ -1,6 +1,5 @@
 import { cloneDeep, has, isEqual } from 'lodash'
 
-import type { JSONValue } from '../types/json'
 import type {
   AssistantMessage,
   AuxiliaryMessageData,
@@ -9,7 +8,6 @@ import type {
   ToolMessage,
   UserMessage,
 } from '../types/messages/codebuff-message'
-import type { ToolResultOutput } from '../types/messages/content-part'
 import type { ProviderMetadata } from '../types/messages/provider-metadata'
 import type {
   AssistantModelMessage,
@@ -119,25 +117,31 @@ function assistantToCodebuffMessage(
 function convertToolResultMessage(
   message: ToolMessage,
 ): ModelMessageWithAuxiliaryData[] {
-  return message.content.map((c) => {
-    if (c.type === 'json') {
-      return cloneDeep<ToolModelMessage>({
-        ...message,
-        role: 'tool',
-        content: [{ ...message, output: c, type: 'tool-result' }],
-      })
-    }
-    if (c.type === 'media') {
-      return cloneDeep<UserMessage>({
+  const messages: ModelMessageWithAuxiliaryData[] = [
+    cloneDeep<ToolModelMessage>({
+      ...message,
+      role: 'tool',
+      content: [
+        {
+          ...message,
+          output: { type: 'json', value: message.content.value },
+          type: 'tool-result',
+        },
+      ],
+    }),
+  ]
+
+  for (const c of message.content.media ?? []) {
+    messages.push(
+      cloneDeep<UserMessage>({
         ...message,
         role: 'user',
         content: [{ type: 'file', data: c.data, mediaType: c.mediaType }],
-      })
-    }
-    c satisfies never
-    const cAny = c as any
-    throw new Error(`Invalid tool output type: ${cAny.type}`)
-  })
+      }),
+    )
+  }
+
+  return messages
 }
 
 function convertToolMessage(message: Message): ModelMessageWithAuxiliaryData[] {
@@ -410,33 +414,4 @@ export function assistantMessage(
     role: 'assistant',
     content: assistantContent(params),
   }
-}
-
-export function jsonToolResult<T extends JSONValue>(
-  value: T,
-): [
-  Extract<ToolResultOutput, { type: 'json' }> & {
-    value: T
-  },
-] {
-  return [
-    {
-      type: 'json',
-      value,
-    },
-  ]
-}
-
-export function mediaToolResult(params: {
-  data: string
-  mediaType: string
-}): [Extract<ToolResultOutput, { type: 'media' }>] {
-  const { data, mediaType } = params
-  return [
-    {
-      type: 'media',
-      data,
-      mediaType,
-    },
-  ]
 }
