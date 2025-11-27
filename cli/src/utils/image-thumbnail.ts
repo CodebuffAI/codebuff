@@ -3,7 +3,7 @@
  * Uses Jimp to decode images and sample colors for display
  */
 
-import { Jimp } from 'jimp'
+import { Jimp, ResizeStrategy } from 'jimp'
 
 import { logger } from './logger'
 
@@ -35,8 +35,9 @@ export async function extractThumbnailColors(
     const image = await Jimp.read(imagePath)
 
     // Resize to target dimensions (height * 2 because we use half-blocks)
+    // Use bilinear interpolation for smoother downscaling (sharper than nearest-neighbor)
     const resizedHeight = targetHeight * 2
-    image.resize({ w: targetWidth, h: resizedHeight })
+    image.resize({ w: targetWidth, h: resizedHeight, mode: ResizeStrategy.BILINEAR })
 
     const width = image.width
     const height = image.height

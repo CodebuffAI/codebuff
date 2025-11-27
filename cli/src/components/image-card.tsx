@@ -11,12 +11,13 @@ import {
 } from '../utils/terminal-images'
 
 // Image card display constants
-const MAX_FILENAME_LENGTH = 18
-const IMAGE_CARD_WIDTH = 22
-const THUMBNAIL_WIDTH = 18
+const MAX_FILENAME_LENGTH = 16
+const IMAGE_CARD_WIDTH = 18
+const THUMBNAIL_WIDTH = 14
 const THUMBNAIL_HEIGHT = 3
 const INLINE_IMAGE_WIDTH = 4
 const INLINE_IMAGE_HEIGHT = 3
+const CLOSE_BUTTON_WIDTH = 1
 
 const BORDER_CHARS = {
   horizontal: '─',
@@ -67,7 +68,9 @@ export const ImageCard = ({
 }: ImageCardProps) => {
   const theme = useTheme()
   const [isCloseHovered, setIsCloseHovered] = useState(false)
-  const [thumbnailSequence, setThumbnailSequence] = useState<string | null>(null)
+  const [thumbnailSequence, setThumbnailSequence] = useState<string | null>(
+    null,
+  )
   const canShowInlineImages = supportsInlineImages()
 
   // Load thumbnail if terminal supports inline images (iTerm2/Kitty)
@@ -106,28 +109,22 @@ export const ImageCard = ({
   const truncatedName = truncateFilename(image.filename)
 
   return (
-    <box
-      style={{
-        flexDirection: 'column',
-        borderStyle: 'single',
-        borderColor: theme.info,
-        width: IMAGE_CARD_WIDTH,
-        padding: 0,
-      }}
-      customBorderChars={BORDER_CHARS}
-    >
-      {/* Thumbnail or icon area with overlaid close button */}
+    <box style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+      {/* Main card with border */}
       <box
         style={{
-          height: 3,
-          flexDirection: 'row',
-          backgroundColor: theme.surface,
+          flexDirection: 'column',
+          borderStyle: 'single',
+          borderColor: theme.info,
+          width: IMAGE_CARD_WIDTH,
+          padding: 0,
         }}
+        customBorderChars={BORDER_CHARS}
       >
-        {/* Thumbnail/icon centered */}
+        {/* Thumbnail or icon area */}
         <box
           style={{
-            flexGrow: 1,
+            height: 3,
             justifyContent: 'center',
             alignItems: 'center',
           }}
@@ -143,35 +140,40 @@ export const ImageCard = ({
             />
           )}
         </box>
-        {/* Close button in top-right corner */}
-        {showRemoveButton && onRemove && (
-          <Button
-            onClick={onRemove}
-            onMouseOver={() => setIsCloseHovered(true)}
-            onMouseOut={() => setIsCloseHovered(false)}
-            style={{ paddingLeft: 0, paddingRight: 1 }}
-          >
-            <text style={{ fg: isCloseHovered ? theme.error : theme.muted }}>×</text>
-          </Button>
-        )}
-      </box>
 
-      {/* Filename only - full width */}
-      <box
-        style={{
-          paddingLeft: 1,
-          paddingRight: 1,
-        }}
-      >
-        <text
+        {/* Filename - full width */}
+        <box
           style={{
-            fg: theme.foreground,
-            wrapMode: 'none',
+            paddingLeft: 1,
+            paddingRight: 1,
           }}
         >
-          {truncatedName}
-        </text>
+          <text
+            style={{
+              fg: theme.foreground,
+              wrapMode: 'none',
+            }}
+          >
+            {truncatedName}
+          </text>
+        </box>
       </box>
+
+      {/* Close button outside the card */}
+      {showRemoveButton && onRemove ? (
+        <Button
+          onClick={onRemove}
+          onMouseOver={() => setIsCloseHovered(true)}
+          onMouseOut={() => setIsCloseHovered(false)}
+          style={{ paddingLeft: 0, paddingRight: 0 }}
+        >
+          <text style={{ fg: isCloseHovered ? theme.error : theme.muted }}>
+            ×
+          </text>
+        </Button>
+      ) : (
+        <box style={{ width: CLOSE_BUTTON_WIDTH }} />
+      )}
     </box>
   )
 }
