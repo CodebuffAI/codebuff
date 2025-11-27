@@ -8,7 +8,9 @@ import {
   buildActivityTimeline,
   getImplementorDisplayName,
   getImplementorIndex,
+  getFileStatsFromBlocks,
   type TimelineItem,
+  type FileStats,
 } from '../utils/implementor-helpers'
 import { computeSmartColumns } from '../utils/layout-helpers'
 import { Button } from './button'
@@ -37,9 +39,9 @@ export const ImplementorGroup = memo(
     // Determine max columns based on terminal width
     const maxColumns = useMemo(() => {
       if (width.is('xs')) return 1
-      if (width.is('sm')) return 2
-      if (width.is('md')) return 3
-      return 4 // lg
+      if (width.is('sm')) return 1
+      if (width.is('md')) return 2
+      return 3 // lg
     }, [width])
 
     // Smart column selection based on item count
@@ -140,10 +142,8 @@ interface ImplementorCardProps {
 
 /**
  * Individual proposal card with dashed border
+ * Click file rows to view their diffs
  */
-// Show one item at a time for cleaner pagination
-const ITEMS_PER_PAGE = 1
-
 const ImplementorCard = memo(
   ({
     agentBlock,
@@ -151,7 +151,7 @@ const ImplementorCard = memo(
     cardWidth,
   }: ImplementorCardProps) => {
     const theme = useTheme()
-    const [currentPage, setCurrentPage] = useState(0)
+    const [selectedFile, setSelectedFile] = useState<string | null>(null)
 
     const isStreaming = agentBlock.status === 'running'
     const isComplete = agentBlock.status === 'complete'
@@ -161,9 +161,29 @@ const ImplementorCard = memo(
       agentBlock.agentType,
       implementorIndex,
     )
-    // Always build the timeline (no expand/collapse state)
-    const timeline = buildActivityTimeline(agentBlock.blocks)
-    const totalPages = Math.ceil(timeline.length / ITEMS_PER_PAGE)
+
+    // Get file stats for compact view
+    const fileStats = useMemo(
+      () => getFileStatsFromBlocks(agentBlock.blocks),
+      [agentBlock.blocks]
+    )
+
+    // Build timeline to extract diffs
+    const timeline = useMemo(
+      () => buildActivityTimeline(agentBlock.blocks),
+      [agentBlock.blocks]
+    )
+
+    // Build map of file path -> diff for inline display
+    const fileDiffs = useMemo(() => {
+      const diffs = new Map<string, string>()
+      for (const item of timeline) {
+        if (item.type === 'edit' && item.diff) {
+          diffs.set(item.content, item.diff)
+        }
+      }
+      return diffs
+    }, [timeline])
 
     // Status indicator and color - matching subagent design
     const statusIndicator = isStreaming ? '●' : isFailed ? '✗' : isComplete ? '✓' : '○'
@@ -179,7 +199,7 @@ const ImplementorCard = memo(
       : isFailed
         ? 'red'
         : isComplete
-          ? 'green'
+          ? theme.foreground
           : theme.muted
     // Format: "● running" when streaming, "completed ✓" when done (checkmark at end)
     const statusText = statusIndicator === '✓'
@@ -206,13 +226,10 @@ const ImplementorCard = memo(
     // Use cardWidth for internal truncation calculations (approximate internal space)
     const innerWidth = Math.max(10, cardWidth - 4)
 
-    const goToPrev = useCallback(() => {
-      setCurrentPage(prev => Math.max(0, prev - 1))
+    // Toggle file selection - clicking same file deselects it
+    const handleFileSelect = useCallback((filePath: string) => {
+      setSelectedFile(prev => prev === filePath ? null : filePath)
     }, [])
-
-    const goToNext = useCallback(() => {
-      setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))
-    }, [totalPages])
 
     return (
       <box
@@ -231,61 +248,40 @@ const ImplementorCard = memo(
           paddingBottom: 0,
         }}
       >
-        {/* Header: Model name + Status on first row, draft proposal on second */}
-        <box style={{ flexDirection: 'column', width: '100%' }}>
-          {/* First row: Name + Status */}
-          <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
-            <text
-              fg={theme.foreground}
-              attributes={TextAttributes.BOLD}
-              style={{ wrapMode: 'none' }}
-            >
-              {displayName}
-            </text>
-            <text fg={statusColor} attributes={TextAttributes.DIM} style={{ wrapMode: 'none' }}>
-              {statusText}
-            </text>
-          </box>
-          {/* Second row: draft proposal + pagination */}
-          <box style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-            <text fg={theme.muted} attributes={TextAttributes.DIM} style={{ wrapMode: 'none' }}>
-              draft proposal
-            </text>
-            {/* Pagination controls */}
-            {totalPages > 1 && (
-              <box style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
-                <Button
-                  onClick={goToPrev}
-                  disabled={currentPage === 0}
-                  style={{ paddingLeft: 0, paddingRight: 1 }}
-                >
-                  <text fg={currentPage === 0 ? theme.muted : theme.primary}>◀</text>
-                </Button>
-                <text fg={theme.muted} attributes={TextAttributes.DIM}>
-                  {currentPage + 1}/{totalPages}
-                </text>
-                <Button
-                  onClick={goToNext}
-                  disabled={currentPage >= totalPages - 1}
-                  style={{ paddingLeft: 1, paddingRight: 0 }}
-                >
-                  <text fg={currentPage >= totalPages - 1 ? theme.muted : theme.primary}>▶</text>
-                </Button>
-              </box>
-            )}
-          </box>
+        {/* Header: Model name + Status */}
+        <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1, width: '100%' }}>
+          <text
+            fg={theme.foreground}
+            attributes={TextAttributes.BOLD}
+            style={{ wrapMode: 'none' }}
+          >
+            {displayName}
+          </text>
+          <text fg={statusColor} attributes={TextAttributes.DIM} style={{ wrapMode: 'none' }}>
+            {statusText}
+          </text>
         </box>
 
-        {/* Timeline content - always shown */}
-        {timeline.length > 0 ? (
-          <TimelineContent
-            timeline={timeline}
-            currentPage={currentPage}
-            itemsPerPage={ITEMS_PER_PAGE}
-            innerWidth={innerWidth}
+        {/* File stats - click file name to view diff inline */}
+        {fileStats.length > 0 && (
+          <CompactFileStats
+            fileStats={fileStats}
+            availableWidth={innerWidth}
+            selectedFile={selectedFile}
+            onSelectFile={handleFileSelect}
+            fileDiffs={fileDiffs}
           />
-        ) : (
-          /* Status text for empty/in-progress */
+        )}
+
+        {/* No file edits yet */}
+        {fileStats.length === 0 && timeline.length > 0 && (
+          <text fg={theme.muted} attributes={TextAttributes.ITALIC} style={{ marginTop: 1 }}>
+            No file changes yet
+          </text>
+        )}
+
+        {/* No content at all */}
+        {fileStats.length === 0 && timeline.length === 0 && (
           <text fg={theme.muted} attributes={TextAttributes.ITALIC} style={{ marginTop: 1 }}>
             {isStreaming ? 'generating...' : 'waiting...'}
           </text>
@@ -295,75 +291,194 @@ const ImplementorCard = memo(
   },
 )
 
-interface TimelineContentProps {
-  timeline: TimelineItem[]
-  currentPage: number
-  itemsPerPage: number
-  innerWidth: number
-}
+// ============================================================================
+// COMPACT FILE STATS VIEW
+// ============================================================================
 
-const TimelineContent = memo(
-  ({ timeline, currentPage, itemsPerPage, innerWidth }: TimelineContentProps) => {
-    const startIdx = currentPage * itemsPerPage
-    const endIdx = Math.min(startIdx + itemsPerPage, timeline.length)
-    const currentItems = timeline.slice(startIdx, endIdx)
-
-    return (
-      <box style={{ flexDirection: 'column', width: '100%' }}>
-        {/* Current page item */}
-        {currentItems.map((item, idx) => (
-          <TimelineItemView
-            key={`timeline-${startIdx + idx}`}
-            item={item}
-            availableWidth={innerWidth}
-          />
-        ))}
-      </box>
-    )
-  }
-)
-
-interface TimelineItemViewProps {
-  item: TimelineItem
+interface CompactFileStatsProps {
+  fileStats: FileStats[]
   availableWidth: number
+  selectedFile: string | null
+  onSelectFile: (filePath: string) => void
+  /** Map of file path to diff content */
+  fileDiffs: Map<string, string>
 }
 
-const TimelineItemView = memo(({ item, availableWidth }: TimelineItemViewProps) => {
+/**
+ * Compact view showing file changes with center-aligned addition/deletion bars
+ * Click a file name to view its diff inline below that row
+ *
+ * Layout:
+ * M handler.ts    ██████████ +30  -5 ░░░   2 hunks
+ * A utils.ts          ████ +15            1 hunk
+ *   [diff content shown here when selected]
+ * M config.ts           ██  +2  -1 ░      1 hunk
+ */
+const CompactFileStats = memo(({
+  fileStats,
+  availableWidth,
+  selectedFile,
+  onSelectFile,
+  fileDiffs,
+}: CompactFileStatsProps) => {
   const theme = useTheme()
 
-  if (item.type === 'commentary') {
+  if (fileStats.length === 0) {
     return (
-      <box style={{ marginTop: 1, marginBottom: 1, width: '100%' }}>
-        <text
-          fg={theme.foreground}
-          attributes={TextAttributes.ITALIC}
-          style={{ wrapMode: 'word' }}
-        >
-          "{item.content}"
-        </text>
-      </box>
+      <text fg={theme.muted} attributes={TextAttributes.ITALIC}>
+        No file changes yet
+      </text>
     )
   }
 
-  // Edit item - show file path and diff
-  const editIcon = item.isCreate ? '+ ' : '✎ '
+  // Calculate max values for proportional bar sizing
+  const maxAdded = Math.max(...fileStats.map(f => f.stats.linesAdded), 1)
+  const maxRemoved = Math.max(...fileStats.map(f => f.stats.linesRemoved), 1)
+  const maxLines = Math.max(maxAdded, maxRemoved)
+
+  // Fixed bar width - keeps layout simple and predictable
+  const maxBarWidth = 5
+
+  // Calculate max string widths for alignment (so all bars meet at center axis)
+  const maxAddedStrWidth = Math.max(
+    ...fileStats.map(f => f.stats.linesAdded > 0 ? `+${f.stats.linesAdded}`.length : 0),
+    0
+  )
+  const maxRemovedStrWidth = Math.max(
+    ...fileStats.map(f => f.stats.linesRemoved > 0 ? `-${f.stats.linesRemoved}`.length : 0),
+    0
+  )
+
   return (
-    <box style={{ flexDirection: 'column', gap: 0, marginTop: 1, width: '100%' }}>
-      <text style={{ wrapMode: 'none' }}>
-        <span fg={theme.foreground}>{editIcon}</span>
-        <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
-          {truncateFilePath(item.content, availableWidth)}
-        </span>
-      </text>
-      {item.diff && !item.isCreate && (
-        <box
+    <box style={{ flexDirection: 'column', marginTop: 1 }}>
+      {fileStats.map((file, idx) => (
+        <CompactFileRow
+          key={`${file.path}-${idx}`}
+          file={file}
+          maxBarWidth={maxBarWidth}
+          maxLines={maxLines}
+          maxAddedStrWidth={maxAddedStrWidth}
+          maxRemovedStrWidth={maxRemovedStrWidth}
+          isSelected={selectedFile === file.path}
+          onSelect={() => onSelectFile(file.path)}
+          diff={fileDiffs.get(file.path)}
+        />
+      ))}
+    </box>
+  )
+})
+
+interface CompactFileRowProps {
+  file: FileStats
+  maxBarWidth: number
+  maxLines: number
+  maxAddedStrWidth: number
+  maxRemovedStrWidth: number
+  isSelected: boolean
+  onSelect: () => void
+  diff?: string
+}
+
+/**
+ * Single file row with center-aligned bars
+ * Layout: M  filename  ████+4  -2░░   2 hunks
+ * Bar visualization is fixed, file path flexes/truncates to fit
+ * Bars meet at a center axis with proper padding for alignment across all rows
+ * File name is underlined on hover, clickable to show diff inline below
+ */
+const CompactFileRow = memo(({
+  file,
+  maxBarWidth,
+  maxLines,
+  maxAddedStrWidth,
+  maxRemovedStrWidth,
+  isSelected,
+  onSelect,
+  diff,
+}: CompactFileRowProps) => {
+  const theme = useTheme()
+  const [isHovered, setIsHovered] = useState(false)
+  const { linesAdded, linesRemoved } = file.stats
+
+  // Calculate bar widths proportional to line counts
+  const addedBarWidth = linesAdded > 0
+    ? Math.max(1, Math.round((linesAdded / maxLines) * maxBarWidth))
+    : 0
+  const removedBarWidth = linesRemoved > 0
+    ? Math.max(1, Math.round((linesRemoved / maxLines) * maxBarWidth))
+    : 0
+
+  // Build bar strings - use spaces since we're using background colors
+  const addedBarSpaces = ' '.repeat(addedBarWidth)
+  const removedBarSpaces = ' '.repeat(removedBarWidth)
+
+  // Format numbers
+  const addedStr = linesAdded > 0 ? `+${linesAdded}` : ''
+  const removedStr = linesRemoved > 0 ? `-${linesRemoved}` : ''
+
+  // Calculate padding for center alignment
+  // Left padding: space for missing bar width + missing number width
+  const leftPadding = ' '.repeat(
+    (maxBarWidth - addedBarWidth) + (maxAddedStrWidth - addedStr.length)
+  )
+  // Right padding: space for missing number width + missing bar width
+  const rightPadding = ' '.repeat(
+    (maxRemovedStrWidth - removedStr.length) + (maxBarWidth - removedBarWidth)
+  )
+
+  return (
+    <box style={{ flexDirection: 'column' }}>
+      {/* File row */}
+      <box style={{ flexDirection: 'row', alignItems: 'center' }}>
+        {/* Change type: fixed */}
+        <text fg={theme.muted} style={{ flexShrink: 0 }}>{file.changeType}</text>
+        <text style={{ flexShrink: 0 }}>  </text>
+
+        {/* File path: clickable with underline on hover, flexes to push bars right */}
+        <Button
+          onClick={onSelect}
+          onMouseOver={() => setIsHovered(true)}
+          onMouseOut={() => setIsHovered(false)}
           style={{
-            marginTop: 0,
-            marginLeft: 0,
-            width: '100%',
+            paddingLeft: 0,
+            paddingRight: 0,
+            flexGrow: 1,
+            flexShrink: 1,
+            flexBasis: 0,
+            minWidth: 0,
           }}
         >
-          <DiffViewer diffText={item.diff} />
+          <text
+            fg={theme.foreground}
+            attributes={isHovered || isSelected ? TextAttributes.UNDERLINE : undefined}
+            style={{
+              wrapMode: 'none',
+            }}
+          >
+            {getRelativePath(file.path)}
+          </text>
+        </Button>
+        <text style={{ flexShrink: 0 }}>  </text>
+
+        {/* Hunk count */}
+        <text fg={theme.muted} style={{ flexShrink: 0, wrapMode: 'none' }}>
+          {file.stats.hunks} {file.stats.hunks === 1 ? 'hunk' : 'hunks'}
+        </text>
+        <text style={{ flexShrink: 0 }}>  </text>
+
+        {/* Bar visualization: fixed width with center alignment */}
+        <text style={{ flexShrink: 0, wrapMode: 'none' }}>
+          <span>{leftPadding}</span>
+          <span fg={theme.inputFocusedFg} bg={theme.success}>{addedBarSpaces}{addedStr} </span>
+          <span fg={theme.inputFocusedFg} bg={theme.error}> {removedStr}{removedBarSpaces}</span>
+          <span>{rightPadding}</span>
+        </text>
+      </box>
+
+      {/* Inline diff viewer when selected */}
+      {isSelected && diff && (
+        <box style={{ marginTop: 1, marginBottom: 1, marginLeft: 3, width: '100%' }}>
+          <DiffViewer diffText={diff} />
         </box>
       )}
     </box>
@@ -371,29 +486,28 @@ const TimelineItemView = memo(({ item, availableWidth }: TimelineItemViewProps) 
 })
 
 /**
- * Truncate file path to fit within width, keeping the filename visible
+ * Get relative path from git root (strips absolute path prefix)
+ * e.g., "/Users/foo/project/src/utils/helper.ts" -> "src/utils/helper.ts"
  */
-function truncateFilePath(path: string, maxWidth: number): string {
-  if (path.length <= maxWidth) return path
-  
-  const parts = path.split('/')
-  const filename = parts[parts.length - 1]
-  
-  // If just the filename is too long, truncate it
-  if (filename.length >= maxWidth - 3) {
-    return '...' + filename.slice(-(maxWidth - 3))
-  }
-  
-  // Otherwise, show .../parent/filename
-  const remaining = maxWidth - filename.length - 4 // for "..." and "/"
-  if (remaining > 0 && parts.length > 1) {
-    const parent = parts[parts.length - 2]
-    if (parent.length <= remaining) {
-      return '.../' + parent + '/' + filename
+function getRelativePath(path: string): string {
+  // If it's already a relative path, return as-is
+  if (!path.startsWith('/')) return path
+
+  // Try to find common project root indicators and return path from there
+  const projectRootPatterns = [
+    '/src/', '/lib/', '/app/', '/packages/', '/cli/', '/server/', '/client/',
+    '/components/', '/utils/', '/hooks/', '/types/', '/services/', '/api/'
+  ]
+
+  for (const pattern of projectRootPatterns) {
+    const idx = path.indexOf(pattern)
+    if (idx !== -1) {
+      return path.slice(idx + 1) // +1 to skip leading /
     }
   }
-  
-  return '.../' + filename
+
+  // Fallback: just return the path without leading slash
+  return path.startsWith('/') ? path.slice(1) : path
 }
 
 // Keep the old exports for backward compatibility during transition
