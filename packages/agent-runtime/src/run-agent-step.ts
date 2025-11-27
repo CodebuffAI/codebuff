@@ -526,7 +526,6 @@ export async function loopAgentSteps(
       | 'runId'
       | 'spawnParams'
       | 'system'
-      | 'textOverride'
       | 'tools'
     > &
     ParamsExcluding<
@@ -716,7 +715,6 @@ export async function loopAgentSteps(
       const startTime = new Date()
 
       // 1. Run programmatic step first if it exists
-      let textOverride = null
       let n: number | undefined = undefined
 
       if (agentTemplate.handleSteps) {
@@ -744,7 +742,6 @@ export async function loopAgentSteps(
           stepNumber,
           generateN,
         } = programmaticResult
-        textOverride = programmaticResult.textOverride
         n = generateN
 
         currentAgentState = programmaticAgentState
@@ -808,7 +805,6 @@ export async function loopAgentSteps(
         runId,
         spawnParams: currentParams,
         system,
-        textOverride: textOverride,
         tools,
 
         additionalToolDefinitions: async () => {

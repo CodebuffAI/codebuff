@@ -104,7 +104,6 @@ describe('n parameter and GENERATE_N functionality', () => {
     runAgentStepBaseParams = {
       ...agentRuntimeImpl,
       additionalToolDefinitions: () => Promise.resolve({}),
-      textOverride: null,
       runId: 'test-run-id',
       ancestorRunIds: [],
       repoId: undefined,

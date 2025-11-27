@@ -231,7 +231,6 @@ export async function runAgentStepScaffolding(
     signal: new AbortController().signal,
     spawnParams: undefined,
     system: 'Test system prompt',
-    textOverride: null,
     tools: {},
     userId: TEST_USER_ID,
     userInputId: generateCompactId(),

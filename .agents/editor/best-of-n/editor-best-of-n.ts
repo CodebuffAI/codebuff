@@ -314,7 +314,7 @@ function* handleStepsMax({
   )
 
   // Spawn selector with implementations as params
-  const { toolResult: selectorResult } = yield {
+  const { toolResult: selectorResult, agentState: selectorAgentState } = yield {
     toolName: 'spawn_agents',
     input: {
       agents: [
@@ -353,27 +353,19 @@ function* handleStepsMax({
     return
   }
 
+  const numMessagesBeforeStepText = selectorAgentState.messageHistory.length
+
   const { agentState: postEditsAgentState } = yield {
     type: 'STEP_TEXT',
     text: chosenImplementation.content,
   } as StepText
   const { messageHistory } = postEditsAgentState
-  const lastAssistantMessageIndex = messageHistory.findLastIndex(
-    (message) => message.role === 'assistant',
-  )
-  const editToolResults = messageHistory
-    .slice(lastAssistantMessageIndex)
-    .filter((message) => message.role === 'tool')
-    .flatMap((message) => message.content)
-    .filter((output) => output.type === 'json')
-    .map((output) => output.value)
 
-  // Set output with the chosen implementation and reasoning
+  // Set output with the messages from running the step text of the chosen implementation
   yield {
     toolName: 'set_output',
     input: {
-      response: chosenImplementation.content,
-      toolResults: editToolResults,
+      messages: messageHistory.slice(numMessagesBeforeStepText),
     },
     includeToolCall: false,
   } satisfies ToolCall<'set_output'>

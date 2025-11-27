@@ -1542,7 +1542,6 @@ describe('runProgrammaticStep', () => {
       const result = await runProgrammaticStep(mockParams)
 
       expect(result.endTurn).toBe(false)
-      expect(result.textOverride).toBe('Custom response text')
       expect(result.agentState.output?.error).toBeUndefined()
     })
 

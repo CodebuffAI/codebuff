@@ -74,7 +74,6 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
       signal: new AbortController().signal,
       spawnParams: undefined,
       system: 'Test system prompt',
-      textOverride: null,
       tools: {},
       userId: TEST_USER_ID,
       userInputId: 'test-input',

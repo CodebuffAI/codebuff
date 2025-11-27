@@ -26,7 +26,6 @@ export const getAgentStreamFromTemplate = (params: {
   runId: string
   sessionConnections: SessionRecord
   template: AgentTemplate
-  textOverride: string | null
   tools: ToolSet
   userId: string | undefined
   userInputId: string
@@ -48,7 +47,6 @@ export const getAgentStreamFromTemplate = (params: {
     runId,
     sessionConnections,
     template,
-    textOverride,
     tools,
     userId,
     userInputId,
@@ -58,14 +56,6 @@ export const getAgentStreamFromTemplate = (params: {
     promptAiSdkStream,
     trackEvent,
   } = params
-
-  if (textOverride !== null) {
-    async function* stream(): ReturnType<PromptAiSdkStreamFn> {
-      yield { type: 'text', text: textOverride!, agentId }
-      return crypto.randomUUID()
-    }
-    return stream()
-  }
 
   if (!template) {
     throw new Error('Agent template is null/undefined')
