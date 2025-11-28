@@ -594,12 +594,17 @@ export async function loopAgentSteps(
   agentState.runId = runId
 
   let cachedAdditionalToolDefinitions: CustomToolDefinitions | undefined
+  // Use parent's tools for prompt caching when inheritParentSystemPrompt is true
+  const useParentTools =
+    agentTemplate.inheritParentSystemPrompt && parentTools !== undefined
+
   // Initialize message history with user prompt and instructions on first iteration
   const instructionsPrompt = await getAgentPrompt({
     ...params,
     agentTemplate,
     promptType: { type: 'instructionsPrompt' },
     agentTemplates: localAgentTemplates,
+    useParentTools,
     additionalToolDefinitions: async () => {
       if (!cachedAdditionalToolDefinitions) {
         cachedAdditionalToolDefinitions = await additionalToolDefinitions({
@@ -634,10 +639,6 @@ export async function loopAgentSteps(
           },
         })) ?? ''
 
-  // Use parent's tools for prompt caching when inheritParentSystemPrompt is true
-  const useParentTools =
-    agentTemplate.inheritParentSystemPrompt && parentTools !== undefined
-
   const tools = useParentTools
     ? parentTools
     : await getToolSet({
@@ -653,25 +654,12 @@ export async function loopAgentSteps(
         },
       })
 
-  // Build a message explaining the subagent's tool access when using parent's tools
-  const subagentToolsMessage = useParentTools
-    ? `You are a subagent that only has access to the following tools: ${agentTemplate.toolNames.join(', ')}. Do not attempt to use any other tools.`
-    : undefined
-
   const hasUserMessage = Boolean(
     prompt || (spawnParams && Object.keys(spawnParams).length > 0),
   )
 
   const initialMessages = buildArray<Message>(
     ...agentState.messageHistory,
-
-    // Add subagent tools message before user prompt when using parent's tools for caching
-    subagentToolsMessage &&
-      userMessage({
-        content: withSystemTags(subagentToolsMessage),
-        tags: ['SUBAGENT_TOOLS'],
-        keepDuringTruncation: true,
-      }),
 
     hasUserMessage && [
       {

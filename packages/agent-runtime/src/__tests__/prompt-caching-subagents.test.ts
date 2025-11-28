@@ -472,8 +472,8 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       parentSystemPrompt,
     )
 
-    // Verify there's a message about subagent tools
-    const subagentToolsMessage = childMessages.find(
+    // Verify there's an instructions prompt message that includes subagent tools info
+    const instructionsMessage = childMessages.find(
       (msg) =>
         msg.role === 'user' &&
         msg.content[0].type === 'text' &&
@@ -481,7 +481,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
         msg.content[0].text.includes('read_files') &&
         msg.content[0].text.includes('code_search'),
     )
-    expect(subagentToolsMessage).toBeTruthy()
+    expect(instructionsMessage).toBeTruthy()
   })
 
   it('should support both inheritParentSystemPrompt and includeMessageHistory together', async () => {

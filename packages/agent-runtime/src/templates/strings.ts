@@ -158,6 +158,7 @@ export async function getAgentPrompt<T extends StringField>(
     agentTemplates: Record<string, AgentTemplate>
     additionalToolDefinitions: () => Promise<CustomToolDefinitions>
     logger: Logger
+    useParentTools?: boolean
   } & ParamsExcluding<
     typeof formatPrompt,
     'prompt' | 'tools' | 'spawnableAgents'
@@ -173,6 +174,7 @@ export async function getAgentPrompt<T extends StringField>(
     agentState,
     agentTemplates,
     additionalToolDefinitions,
+    useParentTools,
   } = params
 
   let promptValue = agentTemplate[promptType.type]
@@ -198,6 +200,12 @@ export async function getAgentPrompt<T extends StringField>(
 
   // Add tool instructions, spawnable agents, and output schema prompts to instructionsPrompt
   if (promptType.type === 'instructionsPrompt' && agentState.agentType) {
+    // Add subagent tools message when using parent's tools for prompt caching
+    if (useParentTools) {
+      addendum +=
+        `\n\nYou are a subagent that only has access to the following tools: ${agentTemplate.toolNames.join(', ')}. Do not attempt to use any other tools.`
+    }
+
     addendum +=
       '\n\n' +
       (await buildSpawnableAgentsDescription({
