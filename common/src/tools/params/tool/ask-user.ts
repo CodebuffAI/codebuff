@@ -8,9 +8,10 @@ export const questionSchema = z.object({
   question: z.string().describe('The question to ask the user'),
   header: z
     .string()
-    .max(12)
+    .max(18)
     .optional()
     .describe(
+      // Tell the llm 12 chars so that if it goes over slightly, it will still be under the max.
       'Short label (max 12 chars) displayed as a chip/tag. Example: "Auth method"',
     ),
   options: z
