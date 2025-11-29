@@ -23,40 +23,66 @@ export function getAgentShortName(agentType: AgentTemplateType): string {
  * Builds a flat input schema for an agent tool by combining prompt and params.
  * E.g., { prompt?: string, ...paramsFields }
  */
-export function buildAgentFlatInputSchema(agentTemplate: AgentTemplate): z.ZodType {
+export function buildAgentFlatInputSchema(
+  agentTemplate: AgentTemplate,
+): z.ZodType {
   const { inputSchema } = agentTemplate
-  
+
   // Start with an empty object schema
   let schemaFields: Record<string, z.ZodType> = {}
-  
+
   // Add prompt field if defined
   if (inputSchema?.prompt) {
     schemaFields.prompt = inputSchema.prompt.optional()
   }
-  
+
   // Merge params fields directly into the schema (flat structure)
   if (inputSchema?.params) {
-    // Get the shape of the params schema if it's an object
-    const paramsJsonSchema = z.toJSONSchema(inputSchema.params, { io: 'input' })
-    if (paramsJsonSchema.properties) {
-      for (const [key, propSchema] of Object.entries(paramsJsonSchema.properties)) {
+    // Try to get the shape from the params schema directly if it's a ZodObject
+    // This preserves the full nested structure instead of converting to z.any()
+    const paramsShape = getZodObjectShape(inputSchema.params)
+
+    if (paramsShape) {
+      // We have the original Zod shape, use it directly
+      for (const [key, fieldSchema] of Object.entries(paramsShape)) {
         // Skip if we already have a prompt field
         if (key === 'prompt') continue
-        
-        // Create a zod schema from the JSON schema property
-        const isRequired = (paramsJsonSchema.required as string[] | undefined)?.includes(key)
-        // Use z.any() with description since we can't perfectly reconstruct the original zod type
-        const fieldSchema = z.any().describe(
-          (propSchema as any).description || `Parameter: ${key}`
-        )
-        schemaFields[key] = isRequired ? fieldSchema : fieldSchema.optional()
+        schemaFields[key] = fieldSchema as z.ZodType
       }
     }
   }
-  
-  return z.object(schemaFields).describe(
-    agentTemplate.spawnerPrompt || `Spawn the ${agentTemplate.displayName} agent`
-  )
+
+  return z
+    .object(schemaFields)
+    .describe(
+      agentTemplate.spawnerPrompt ||
+        `Spawn the ${agentTemplate.displayName} agent`,
+    )
+}
+
+/**
+ * Extracts the shape from a Zod schema if it's a ZodObject.
+ * Handles wrapped types like ZodOptional, ZodNullable, ZodDefault, etc.
+ */
+function getZodObjectShape(
+  schema: z.ZodType,
+): Record<string, z.ZodType> | null {
+  // ZodObject has a public .shape property in Zod v4
+  if (
+    'shape' in schema &&
+    typeof schema.shape === 'object' &&
+    schema.shape !== null
+  ) {
+    return schema.shape as Record<string, z.ZodType>
+  }
+
+  // Handle wrapped types (optional, nullable, default, etc.) via internal def
+  const def = (schema as any)?._zod?.def
+  if (def?.inner) {
+    return getZodObjectShape(def.inner)
+  }
+
+  return null
 }
 
 /**
@@ -74,28 +100,30 @@ export async function buildAgentToolSet(
   >,
 ): Promise<ToolSet> {
   const { spawnableAgents, agentTemplates } = params
-  
+
   const toolSet: ToolSet = {}
-  
+
   for (const agentType of spawnableAgents) {
     const agentTemplate = await getAgentTemplate({
       ...params,
       agentId: agentType,
       localAgentTemplates: agentTemplates,
     })
-    
+
     if (!agentTemplate) continue
-    
+
     const shortName = getAgentShortName(agentType)
     const inputSchema = buildAgentFlatInputSchema(agentTemplate)
-    
+
     // Use the same structure as other tools in toolParams
     toolSet[shortName] = {
-      description: agentTemplate.spawnerPrompt || `Spawn the ${agentTemplate.displayName} agent`,
+      description:
+        agentTemplate.spawnerPrompt ||
+        `Spawn the ${agentTemplate.displayName} agent`,
       inputSchema,
     }
   }
-  
+
   return toolSet
 }
 
@@ -112,7 +140,7 @@ function buildSingleAgentDescription(
 prompt: {"description": "A coding task to complete", "type": "string"}
 params: None`
   }
-  
+
   const { inputSchema } = agentTemplate
   const inputSchemaStr = inputSchema
     ? [
@@ -164,7 +192,9 @@ export async function buildFullSpawnableAgentsSpec(
   )
 
   const agentsDescription = subAgentTypesAndTemplates
-    .map(([agentType, agentTemplate]) => buildSingleAgentDescription(agentType, agentTemplate))
+    .map(([agentType, agentTemplate]) =>
+      buildSingleAgentDescription(agentType, agentTemplate),
+    )
     .filter(Boolean)
     .join('\n\n')
 
