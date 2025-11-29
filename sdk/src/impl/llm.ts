@@ -24,6 +24,7 @@ import {
   generateText,
   generateObject,
   NoSuchToolError,
+  InvalidToolInputError,
 } from 'ai'
 
 import { WEBSITE_URL } from '../constants'
@@ -223,122 +224,108 @@ export async function* promptAiSdkStream(
       ...params,
       agentProviderOptions: params.agentProviderOptions,
     }),
-    // Transform agent tool calls (e.g. 'file-picker') into spawn_agents calls
+    // Handle tool call errors gracefully by passing them through to our validation layer
+    // instead of throwing (which would halt the agent). The only special case is when
+    // the tool name matches a spawnable agent - transform those to spawn_agents calls.
     experimental_repairToolCall: async ({ toolCall, tools, error }) => {
-      // Only handle NoSuchToolError - when model tries to call a non-existent tool
-      if (!NoSuchToolError.isInstance(error)) {
-        return null
-      }
-
       const { spawnableAgents = [], localAgentTemplates = {} } = params
-
-      // Check if spawn_agents tool is available
-      if (!('spawn_agents' in tools)) {
-        return null
-      }
-
-      // Check if the tool name matches a spawnable agent or local agent template
       const toolName = toolCall.toolName
-      const isSpawnableAgent = spawnableAgents.some((agentId) => {
-        // Match by exact name or by the agent part of publisher/agent@version format
-        const withoutVersion = agentId.split('@')[0]
-        const parts = withoutVersion.split('/')
-        const agentName = parts[parts.length - 1]
-        return agentName === toolName || agentId === toolName
-      })
-      const isLocalAgent = toolName in localAgentTemplates
 
-      if (!isSpawnableAgent && !isLocalAgent) {
-        return null
-      }
+      // Check if this is a NoSuchToolError for a spawnable agent
+      // If so, transform to spawn_agents call
+      if (NoSuchToolError.isInstance(error) && 'spawn_agents' in tools) {
+        const isSpawnableAgent = spawnableAgents.some((agentId) => {
+          const withoutVersion = agentId.split('@')[0]
+          const parts = withoutVersion.split('/')
+          const agentName = parts[parts.length - 1]
+          return agentName === toolName || agentId === toolName
+        })
+        const isLocalAgent = toolName in localAgentTemplates
 
-      // Parse the input - it comes as a JSON string from the AI SDK
-      // We also need to recursively parse any nested JSON strings
-      const deepParseJson = (value: unknown): unknown => {
-        if (typeof value === 'string') {
-          try {
-            const parsed = JSON.parse(value)
-            // Recursively parse the result in case it contains more JSON strings
-            return deepParseJson(parsed)
-          } catch {
-            // Not valid JSON, return as-is
+        if (isSpawnableAgent || isLocalAgent) {
+          // Transform agent tool call to spawn_agents
+          const deepParseJson = (value: unknown): unknown => {
+            if (typeof value === 'string') {
+              try {
+                return deepParseJson(JSON.parse(value))
+              } catch {
+                return value
+              }
+            }
+            if (Array.isArray(value)) return value.map(deepParseJson)
+            if (value !== null && typeof value === 'object') {
+              return Object.fromEntries(
+                Object.entries(value).map(([k, v]) => [k, deepParseJson(v)]),
+              )
+            }
             return value
           }
-        }
-        if (Array.isArray(value)) {
-          return value.map(deepParseJson)
-        }
-        if (value !== null && typeof value === 'object') {
-          const result: Record<string, unknown> = {}
-          for (const [k, v] of Object.entries(value)) {
-            result[k] = deepParseJson(v)
+
+          let input: Record<string, unknown> = {}
+          try {
+            const rawInput =
+              typeof toolCall.input === 'string'
+                ? JSON.parse(toolCall.input)
+                : (toolCall.input as Record<string, unknown>)
+            input = deepParseJson(rawInput) as Record<string, unknown>
+          } catch {
+            // If parsing fails, use empty object
           }
-          return result
+
+          const prompt =
+            typeof input.prompt === 'string' ? input.prompt : undefined
+          const agentParams = Object.fromEntries(
+            Object.entries(input).filter(
+              ([key, value]) =>
+                !(key === 'prompt' && typeof value === 'string'),
+            ),
+          )
+
+          const spawnAgentsInput = {
+            agents: [
+              {
+                agent_type: toolName,
+                ...(prompt !== undefined && { prompt }),
+                ...(Object.keys(agentParams).length > 0 && {
+                  params: agentParams,
+                }),
+              },
+            ],
+          }
+
+          logger.info(
+            { originalToolName: toolName, transformedInput: spawnAgentsInput },
+            'Transformed agent tool call to spawn_agents',
+          )
+
+          return {
+            ...toolCall,
+            toolName: 'spawn_agents',
+            input: JSON.stringify(spawnAgentsInput),
+          }
         }
-        return value
       }
 
-      let input: Record<string, unknown> = {}
-      try {
-        const rawInput =
-          typeof toolCall.input === 'string'
-            ? JSON.parse(toolCall.input)
-            : (toolCall.input as Record<string, unknown>)
-        // Deep parse to handle any nested JSON strings
-        input = deepParseJson(rawInput) as Record<string, unknown>
-      } catch {
-        // If parsing fails, use empty object
-      }
-
-      // Extract prompt from input if it exists and is a string
-      const prompt =
-        typeof input.prompt === 'string' ? input.prompt : undefined
-
-      // All other input parameters become the params object
-      // These should NOT be stringified - they should remain as objects
-      const agentParams: Record<string, unknown> = {}
-      for (const [key, value] of Object.entries(input)) {
-        if (key === 'prompt' && typeof value === 'string') {
-          continue
-        }
-        agentParams[key] = value
-      }
-
-      // Transform into spawn_agents call
-      // The input must be a JSON string for the AI SDK, but the nested objects
-      // should remain as proper objects (not stringified)
-      const spawnAgentsInput = {
-        agents: [
-          {
-            agent_type: toolName,
-            ...(prompt !== undefined && { prompt }),
-            ...(Object.keys(agentParams).length > 0 && { params: agentParams }),
-          },
-        ],
-      }
-
+      // For all other cases (invalid args, unknown tools, etc.), pass through
+      // the original tool call. Our tool-executor.ts will validate it and return
+      // a friendly error message as a tool result instead of crashing.
       logger.info(
         {
-          originalToolName: toolName,
-          transformedInput: spawnAgentsInput,
+          toolName,
+          errorType: error.name,
+          error: error.message,
         },
-        'Transformed agent tool call to spawn_agents',
+        'Tool error - passing through for graceful error handling',
       )
-
-      // Return the repaired tool call - input must be a JSON string
-      return {
-        ...toolCall,
-        toolName: 'spawn_agents',
-        input: JSON.stringify(spawnAgentsInput),
-      }
+      return toolCall
     },
   })
 
   let content = ''
   const stopSequenceHandler = new StopSequenceHandler(params.stopSequences)
 
-  for await (const chunk of response.fullStream) {
-    if (chunk.type !== 'text-delta') {
+  for await (const chunkValue of response.fullStream) {
+    if (chunkValue.type !== 'text-delta') {
       const flushed = stopSequenceHandler.flush()
       if (flushed) {
         content += flushed
@@ -349,33 +336,33 @@ export async function* promptAiSdkStream(
         }
       }
     }
-    if (chunk.type === 'error') {
+    if (chunkValue.type === 'error') {
       logger.error(
         {
-          chunk: { ...chunk, error: undefined },
-          error: getErrorObject(chunk.error),
+          chunk: { ...chunkValue, error: undefined },
+          error: getErrorObject(chunkValue.error),
           model: params.model,
         },
         'Error from AI SDK',
       )
 
-      const errorBody = APICallError.isInstance(chunk.error)
-        ? chunk.error.responseBody
+      const errorBody = APICallError.isInstance(chunkValue.error)
+        ? chunkValue.error.responseBody
         : undefined
       const mainErrorMessage =
-        chunk.error instanceof Error
-          ? chunk.error.message
-          : typeof chunk.error === 'string'
-            ? chunk.error
-            : JSON.stringify(chunk.error)
+        chunkValue.error instanceof Error
+          ? chunkValue.error.message
+          : typeof chunkValue.error === 'string'
+            ? chunkValue.error
+            : JSON.stringify(chunkValue.error)
       const errorMessage = `Error from AI SDK (model ${params.model}): ${buildArray([mainErrorMessage, errorBody]).join('\n')}`
 
       // Determine error code from the error
       let errorCode: ErrorCode = ErrorCodes.UNKNOWN_ERROR
       let statusCode: number | undefined
 
-      if (APICallError.isInstance(chunk.error)) {
-        statusCode = chunk.error.statusCode
+      if (APICallError.isInstance(chunkValue.error)) {
+        statusCode = chunkValue.error.statusCode
         if (statusCode) {
           if (statusCode === 402) {
             // Payment required - extract message from JSON response body
@@ -397,9 +384,9 @@ export async function* promptAiSdkStream(
             errorCode = ErrorCodes.TIMEOUT
           }
         }
-      } else if (chunk.error instanceof Error) {
+      } else if (chunkValue.error instanceof Error) {
         // Check error message for error type indicators (case-insensitive)
-        const msg = chunk.error.message.toLowerCase()
+        const msg = chunkValue.error.message.toLowerCase()
         if (msg.includes('service unavailable') || msg.includes('503')) {
           errorCode = ErrorCodes.SERVICE_UNAVAILABLE
         } else if (
@@ -424,9 +411,14 @@ export async function* promptAiSdkStream(
       }
 
       // Throw NetworkError so retry logic can handle it
-      throw new NetworkError(errorMessage, errorCode, statusCode, chunk.error)
+      throw new NetworkError(
+        errorMessage,
+        errorCode,
+        statusCode,
+        chunkValue.error,
+      )
     }
-    if (chunk.type === 'reasoning-delta') {
+    if (chunkValue.type === 'reasoning-delta') {
       for (const provider of ['openrouter', 'codebuff'] as const) {
         if (
           (
@@ -440,23 +432,23 @@ export async function* promptAiSdkStream(
       }
       yield {
         type: 'reasoning',
-        text: chunk.text,
+        text: chunkValue.text,
       }
     }
-    if (chunk.type === 'text-delta') {
+    if (chunkValue.type === 'text-delta') {
       if (!params.stopSequences) {
-        content += chunk.text
-        if (chunk.text) {
+        content += chunkValue.text
+        if (chunkValue.text) {
           yield {
             type: 'text',
-            text: chunk.text,
+            text: chunkValue.text,
             ...(agentChunkMetadata ?? {}),
           }
         }
         continue
       }
 
-      const stopSequenceResult = stopSequenceHandler.process(chunk.text)
+      const stopSequenceResult = stopSequenceHandler.process(chunkValue.text)
       if (stopSequenceResult.text) {
         content += stopSequenceResult.text
         yield {
@@ -466,8 +458,8 @@ export async function* promptAiSdkStream(
         }
       }
     }
-    if (chunk.type === 'tool-call') {
-      yield chunk
+    if (chunkValue.type === 'tool-call') {
+      yield chunkValue
     }
   }
   const flushed = stopSequenceHandler.flush()
