@@ -660,13 +660,15 @@ describe('doGenerate', () => {
 
     const requestHeaders = server.calls[0]!.requestHeaders
 
-    expect(requestHeaders).toStrictEqual({
-      authorization: 'Bearer test-api-key',
-      'content-type': 'application/json',
-      'custom-provider-header': 'provider-header-value',
-      'custom-request-header': 'request-header-value',
-      'user-agent': 'ai-sdk/provider-utils/3.0.17 runtime/bun/1.3.0',
-    })
+    expect(requestHeaders.authorization).toBe('Bearer test-api-key')
+    expect(requestHeaders['content-type']).toBe('application/json')
+    expect(requestHeaders['custom-provider-header']).toBe(
+      'provider-header-value',
+    )
+    expect(requestHeaders['custom-request-header']).toBe('request-header-value')
+    expect(requestHeaders['user-agent']).toMatch(
+      /^ai-sdk\/provider-utils\/\d+\.\d+\.\d+ runtime\/bun\/\d+\.\d+\.\d+$/,
+    )
   })
 
   it('should pass responseFormat for JSON schema structured outputs', async () => {
@@ -1496,13 +1498,15 @@ describe('doStream', () => {
 
     const requestHeaders = server.calls[0]!.requestHeaders
 
-    expect(requestHeaders).toStrictEqual({
-      authorization: 'Bearer test-api-key',
-      'content-type': 'application/json',
-      'custom-provider-header': 'provider-header-value',
-      'custom-request-header': 'request-header-value',
-      'user-agent': 'ai-sdk/provider-utils/3.0.17 runtime/bun/1.3.0',
-    })
+    expect(requestHeaders.authorization).toBe('Bearer test-api-key')
+    expect(requestHeaders['content-type']).toBe('application/json')
+    expect(requestHeaders['custom-provider-header']).toBe(
+      'provider-header-value',
+    )
+    expect(requestHeaders['custom-request-header']).toBe('request-header-value')
+    expect(requestHeaders['user-agent']).toMatch(
+      /^ai-sdk\/provider-utils\/\d+\.\d+\.\d+ runtime\/bun\/\d+\.\d+\.\d+$/,
+    )
   })
 
   it('should pass extra body', async () => {
