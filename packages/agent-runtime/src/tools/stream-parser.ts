@@ -8,7 +8,7 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 
 import { processStreamWithTools } from '../tool-stream-parser'
-import { executeCustomToolCall, executeToolCall } from './tool-executor'
+import { executeCustomToolCall, executeToolCall, tryTransformAgentToolCall } from './tool-executor'
 import { expireMessages } from '../util/messages'
 
 import type { CustomToolCall, ExecuteToolCallParams } from './tool-executor'
@@ -144,29 +144,65 @@ export async function processStream(
           return
         }
         const toolCallId = generateCompactId()
-        // delegated to reusable helper
-        previousToolCallFinished = executeCustomToolCall({
-          ...params,
+        
+        // Check if this is an agent tool call - if so, transform to spawn_agents
+        const transformed = tryTransformAgentToolCall({
           toolName,
           input,
-
-          fileProcessingState,
-          fullResponse: fullResponseChunks.join(''),
-          previousToolCallFinished,
-          toolCallId,
-          toolCalls,
-          toolResults,
-          toolResultsToAddAfterStream,
-
-          onResponseChunk: (chunk) => {
-            if (typeof chunk !== 'string' && chunk.type === 'tool_call') {
-              assistantMessages.push(
-                assistantMessage({ ...chunk, type: 'tool-call' }),
-              )
-            }
-            return onResponseChunk(chunk)
-          },
+          spawnableAgents: agentTemplate.spawnableAgents,
         })
+        
+        if (transformed) {
+          // Use executeToolCall for spawn_agents (a native tool)
+          previousToolCallFinished = executeToolCall({
+            ...params,
+            toolName: transformed.toolName,
+            input: transformed.input,
+            fromHandleSteps: false,
+
+            fileProcessingState,
+            fullResponse: fullResponseChunks.join(''),
+            previousToolCallFinished,
+            toolCallId,
+            toolCalls,
+            toolResults,
+            toolResultsToAddAfterStream,
+
+            onCostCalculated,
+            onResponseChunk: (chunk) => {
+              if (typeof chunk !== 'string' && chunk.type === 'tool_call') {
+                assistantMessages.push(
+                  assistantMessage({ ...chunk, type: 'tool-call' }),
+                )
+              }
+              return onResponseChunk(chunk)
+            },
+          })
+        } else {
+          // delegated to reusable helper for custom tools
+          previousToolCallFinished = executeCustomToolCall({
+            ...params,
+            toolName,
+            input,
+
+            fileProcessingState,
+            fullResponse: fullResponseChunks.join(''),
+            previousToolCallFinished,
+            toolCallId,
+            toolCalls,
+            toolResults,
+            toolResultsToAddAfterStream,
+
+            onResponseChunk: (chunk) => {
+              if (typeof chunk !== 'string' && chunk.type === 'tool_call') {
+                assistantMessages.push(
+                  assistantMessage({ ...chunk, type: 'tool-call' }),
+                )
+              }
+              return onResponseChunk(chunk)
+            },
+          })
+        }
       },
     }
   }

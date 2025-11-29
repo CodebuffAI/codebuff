@@ -6,7 +6,10 @@ import { cloneDeep } from 'lodash'
 
 import { checkLiveUserInput } from '../live-user-inputs'
 import { getMCPToolData } from '../mcp'
+import { getAgentShortName } from '../templates/prompts'
 import { codebuffToolHandlers } from './handlers/list'
+
+import type { AgentTemplateType } from '@codebuff/common/types/session-state'
 
 import type { AgentTemplate } from '../templates/types'
 import type { CodebuffToolHandlerFunction } from './handlers/handler-function-type'
@@ -497,4 +500,44 @@ export async function executeCustomToolCall(
       }
       return
     })
+}
+
+/**
+ * Checks if a tool name matches a spawnable agent and returns the transformed
+ * spawn_agents input if so. Returns null if not an agent tool call.
+ */
+export function tryTransformAgentToolCall(params: {
+  toolName: string
+  input: Record<string, unknown>
+  spawnableAgents: AgentTemplateType[]
+}): { toolName: 'spawn_agents'; input: Record<string, unknown> } | null {
+  const { toolName, input, spawnableAgents } = params
+
+  const agentShortNames = spawnableAgents.map(getAgentShortName)
+  if (!agentShortNames.includes(toolName)) {
+    return null
+  }
+
+  // Find the full agent type for this short name
+  const fullAgentType = spawnableAgents.find(
+    (agentType) => getAgentShortName(agentType) === toolName,
+  )
+
+  // Convert to spawn_agents call
+  const spawnAgentsInput = {
+    agents: [
+      {
+        agent_type: fullAgentType || toolName,
+        ...(typeof input.prompt === 'string' && { prompt: input.prompt }),
+        // Put all other fields into params
+        ...(Object.keys(input).filter((k) => k !== 'prompt').length > 0 && {
+          params: Object.fromEntries(
+            Object.entries(input).filter(([k]) => k !== 'prompt'),
+          ),
+        }),
+      },
+    ],
+  }
+
+  return { toolName: 'spawn_agents', input: spawnAgentsInput }
 }

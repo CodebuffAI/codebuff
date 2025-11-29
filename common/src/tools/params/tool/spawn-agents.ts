@@ -31,9 +31,13 @@ const inputSchema = z
     `Spawn multiple agents and send a prompt and/or parameters to each of them. These agents will run in parallel. Note that that means they will run independently. If you need to run agents sequentially, use spawn_agents with one agent at a time instead.`,
   )
 const description = `
-Use this tool to spawn agents to help you complete the user request. Each agent has specific requirements for prompt and params based on their inputSchema.
+Use this tool to spawn agents to help you complete the user request. Each agent has specific requirements for prompt and params based on their tools schema.
 
 The prompt field is a simple string, while params is a JSON object that gets validated against the agent's schema.
+
+Each agent available is already defined as another tool, or, dynamically defined later in the conversation.
+
+You can call agents either as direct tool calls (e.g., \`example-agent\`) or use \`spawn_agents\`. Both formats work, but **prefer using spawn_agents** because it allows you to spawn multiple agents in parallel for better performance. When using direct tool calls, the schema is flat (prompt is a field alongside other params), whereas spawn_agents uses nested \`prompt\` and \`params\` fields.
 
 Example:
 ${$getNativeToolCallExampleString({

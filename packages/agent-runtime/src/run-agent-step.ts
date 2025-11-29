@@ -13,6 +13,7 @@ import { getAgentStreamFromTemplate } from './prompt-agent-stream'
 import { runProgrammaticStep } from './run-programmatic-step'
 import { additionalSystemPrompts } from './system-prompt/prompts'
 import { getAgentTemplate } from './templates/agent-registry'
+import { buildAgentToolSet } from './templates/prompts'
 import { getAgentPrompt } from './templates/strings'
 import { getToolSet } from './tools/prompts'
 import { processStream } from './tools/stream-parser'
@@ -639,6 +640,15 @@ export async function loopAgentSteps(
           },
         })) ?? ''
 
+  // Build agent tools (agents as direct tool calls) for non-inherited tools
+  const agentTools = useParentTools
+    ? {}
+    : await buildAgentToolSet({
+        ...params,
+        spawnableAgents: agentTemplate.spawnableAgents,
+        agentTemplates: localAgentTemplates,
+      })
+
   const tools = useParentTools
     ? parentTools
     : await getToolSet({
@@ -652,6 +662,7 @@ export async function loopAgentSteps(
           }
           return cachedAdditionalToolDefinitions
         },
+        agentTools,
       })
 
   const hasUserMessage = Boolean(
