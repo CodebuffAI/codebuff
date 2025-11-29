@@ -294,6 +294,7 @@ export const runAgentStep = async (
       agentContext,
       systemTokens,
       agentTemplate,
+      tools: params.tools,
     },
     `Start agent ${agentType} step ${iterationNum} (${userInputId}${prompt ? ` - Prompt: ${prompt.slice(0, 20)}` : ''})`,
   )

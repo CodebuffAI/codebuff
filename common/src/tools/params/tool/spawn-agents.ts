@@ -46,7 +46,7 @@ ${$getNativeToolCallExampleString({
   input: {
     agents: [
       {
-        agent_type: 'planner',
+        agent_type: 'example-agent',
         prompt: 'Create a plan for implementing user authentication',
         params: { filePaths: ['src/auth.ts', 'src/user.ts'] },
       },
