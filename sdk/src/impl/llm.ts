@@ -20,17 +20,13 @@ import {
 } from '@codebuff/internal/openai-compatible/index'
 import {
   streamText,
-  APICallError,
   generateText,
   generateObject,
   NoSuchToolError,
-  InvalidToolInputError,
+  APICallError,
 } from 'ai'
 
 import { WEBSITE_URL } from '../constants'
-import { NetworkError, PaymentRequiredError, ErrorCodes } from '../errors'
-
-import type { ErrorCode } from '../errors'
 import type { LanguageModelV2 } from '@ai-sdk/provider'
 import type { OpenRouterProviderRoutingOptions } from '@codebuff/common/types/agent-template'
 import type {
@@ -236,15 +232,21 @@ export async function* promptAiSdkStream(
       if (NoSuchToolError.isInstance(error) && 'spawn_agents' in tools) {
         // Also check for underscore variant (e.g., "file_picker" -> "file-picker")
         const toolNameWithHyphens = toolName.replace(/_/g, '-')
-        
+
         const matchingAgentId = spawnableAgents.find((agentId) => {
           const withoutVersion = agentId.split('@')[0]
           const parts = withoutVersion.split('/')
           const agentName = parts[parts.length - 1]
-          return agentName === toolName || agentName === toolNameWithHyphens || agentId === toolName
+          return (
+            agentName === toolName ||
+            agentName === toolNameWithHyphens ||
+            agentId === toolName
+          )
         })
         const isSpawnableAgent = matchingAgentId !== undefined
-        const isLocalAgent = toolName in localAgentTemplates || toolNameWithHyphens in localAgentTemplates
+        const isLocalAgent =
+          toolName in localAgentTemplates ||
+          toolNameWithHyphens in localAgentTemplates
 
         if (isSpawnableAgent || isLocalAgent) {
           // Transform agent tool call to spawn_agents
@@ -286,9 +288,12 @@ export async function* promptAiSdkStream(
           )
 
           // Use the matching agent ID or corrected name with hyphens
-          const correctedAgentType = matchingAgentId 
-            ?? (toolNameWithHyphens in localAgentTemplates ? toolNameWithHyphens : toolName)
-          
+          const correctedAgentType =
+            matchingAgentId ??
+            (toolNameWithHyphens in localAgentTemplates
+              ? toolNameWithHyphens
+              : toolName)
+
           const spawnAgentsInput = {
             agents: [
               {
@@ -345,15 +350,9 @@ export async function* promptAiSdkStream(
       }
     }
     if (chunkValue.type === 'error') {
-      logger.error(
-        {
-          chunk: { ...chunkValue, error: undefined },
-          error: getErrorObject(chunkValue.error),
-          model: params.model,
-        },
-        'Error from AI SDK',
-      )
-
+      // Error chunks from fullStream are non-network errors (tool failures, model issues, etc.)
+      // Network errors are thrown, not yielded as chunks.
+      // Pass all error chunks back to the agent so it can see what went wrong and retry.
       const errorBody = APICallError.isInstance(chunkValue.error)
         ? chunkValue.error.responseBody
         : undefined
@@ -365,66 +364,20 @@ export async function* promptAiSdkStream(
             : JSON.stringify(chunkValue.error)
       const errorMessage = `Error from AI SDK (model ${params.model}): ${buildArray([mainErrorMessage, errorBody]).join('\n')}`
 
-      // Determine error code from the error
-      let errorCode: ErrorCode = ErrorCodes.UNKNOWN_ERROR
-      let statusCode: number | undefined
-
-      if (APICallError.isInstance(chunkValue.error)) {
-        statusCode = chunkValue.error.statusCode
-        if (statusCode) {
-          if (statusCode === 402) {
-            // Payment required - extract message from JSON response body
-            let paymentErrorMessage = mainErrorMessage
-            if (errorBody) {
-              try {
-                const parsed = JSON.parse(errorBody)
-                paymentErrorMessage = parsed.message || errorBody
-              } catch {
-                paymentErrorMessage = errorBody
-              }
-            }
-            throw new PaymentRequiredError(paymentErrorMessage)
-          } else if (statusCode === 503) {
-            errorCode = ErrorCodes.SERVICE_UNAVAILABLE
-          } else if (statusCode >= 500) {
-            errorCode = ErrorCodes.SERVER_ERROR
-          } else if (statusCode === 408 || statusCode === 429) {
-            errorCode = ErrorCodes.TIMEOUT
-          }
-        }
-      } else if (chunkValue.error instanceof Error) {
-        // Check error message for error type indicators (case-insensitive)
-        const msg = chunkValue.error.message.toLowerCase()
-        if (msg.includes('service unavailable') || msg.includes('503')) {
-          errorCode = ErrorCodes.SERVICE_UNAVAILABLE
-        } else if (
-          msg.includes('econnrefused') ||
-          msg.includes('connection refused')
-        ) {
-          errorCode = ErrorCodes.CONNECTION_REFUSED
-        } else if (msg.includes('enotfound') || msg.includes('dns')) {
-          errorCode = ErrorCodes.DNS_FAILURE
-        } else if (msg.includes('timeout')) {
-          errorCode = ErrorCodes.TIMEOUT
-        } else if (
-          msg.includes('server error') ||
-          msg.includes('500') ||
-          msg.includes('502') ||
-          msg.includes('504')
-        ) {
-          errorCode = ErrorCodes.SERVER_ERROR
-        } else if (msg.includes('network') || msg.includes('fetch failed')) {
-          errorCode = ErrorCodes.NETWORK_ERROR
-        }
-      }
-
-      // Throw NetworkError so retry logic can handle it
-      throw new NetworkError(
-        errorMessage,
-        errorCode,
-        statusCode,
-        chunkValue.error,
+      logger.warn(
+        {
+          chunk: { ...chunkValue, error: undefined },
+          error: getErrorObject(chunkValue.error),
+          model: params.model,
+        },
+        'Error chunk from AI SDK stream - yielding to agent for retry',
       )
+
+      yield {
+        type: 'error',
+        message: errorMessage,
+      }
+      continue
     }
     if (chunkValue.type === 'reasoning-delta') {
       for (const provider of ['openrouter', 'codebuff'] as const) {
