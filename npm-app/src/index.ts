@@ -107,7 +107,6 @@ async function codebuff({
 }
 
 if (require.main === module) {
-  console.log('npm-app index loaded')
   const program = new Command()
 
   program.name('codebuff').version(npmAppVersion || '0.0.0')
