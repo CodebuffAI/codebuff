@@ -28,11 +28,10 @@ export const handleSetOutput = (async (params: {
 }): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
   const { previousToolCallFinished, toolCall, agentState, logger } = params
   const output = toolCall.input
-  let { data } = output ?? {}
+  const { data } = output ?? {}
 
   await previousToolCallFinished
 
-  // Validate output against outputSchema if defined
   let agentTemplate = null
   if (agentState.agentType) {
     agentTemplate = await getAgentTemplate({
@@ -40,14 +39,18 @@ export const handleSetOutput = (async (params: {
       agentId: agentState.agentType,
     })
   }
+
+  let finalOutput: unknown
   if (agentTemplate?.outputSchema) {
+    // When outputSchema is defined, validate against it
     try {
       agentTemplate.outputSchema.parse(output)
-      data = output
+      finalOutput = output
     } catch (error) {
       try {
         // Fallback to the 'data' field if the whole output object is not valid
         agentTemplate.outputSchema.parse(data)
+        finalOutput = data
       } catch (error2) {
         const errorMessage = `Output validation error: Output failed to match the output schema and was ignored. You might want to try again! Issues: ${error}`
         logger.error(
@@ -62,10 +65,16 @@ export const handleSetOutput = (async (params: {
         return { output: jsonToolResult({ message: errorMessage }) }
       }
     }
+  } else {
+    // When no outputSchema, use the data field if it is the only field
+    // otherwise use the entire output object
+    const keys = Object.keys(output)
+    const hasOnlyDataField = keys.length === 1 && keys[0] === 'data'
+    finalOutput = hasOnlyDataField ? data : output
   }
 
   // Set the output (completely replaces previous output)
-  agentState.output = data
+  agentState.output = finalOutput as Record<string, unknown>
 
   return { output: jsonToolResult({ message: 'Output set' }) }
 }) satisfies CodebuffToolHandlerFunction<ToolName>

@@ -11,7 +11,7 @@ const inputSchema = z
     data: z.record(z.string(), z.any()).optional(),
   })
   .describe(
-    'JSON object to set as the agent output. This completely replaces any previous output. If the agent was spawned, this value will be passed back to its parent. If the agent has an outputSchema defined, the output will be validated against it.',
+    'JSON object to set as the agent output. The shape of the parameters are specified dynamically further down in the conversation. This completely replaces any previous output. If the agent was spawned, this value will be passed back to its parent. If the agent has an outputSchema defined, the output will be validated against it.',
   )
 const description = `
 Subagents must use this tool as it is the only way to report any findings. Nothing else you write will be visible to the user/parent agent.
