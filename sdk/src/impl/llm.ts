@@ -26,6 +26,7 @@ import {
   APICallError,
   ToolCallRepairError,
   InvalidToolInputError,
+  TypeValidationError,
 } from 'ai'
 
 import { WEBSITE_URL } from '../constants'
@@ -370,7 +371,8 @@ export async function* promptAiSdkStream(
       if (
         NoSuchToolError.isInstance(chunkValue.error) ||
         InvalidToolInputError.isInstance(chunkValue.error) ||
-        ToolCallRepairError.isInstance(chunkValue.error)
+        ToolCallRepairError.isInstance(chunkValue.error) ||
+        TypeValidationError.isInstance(chunkValue.error)
       ) {
         logger.warn(
           {
