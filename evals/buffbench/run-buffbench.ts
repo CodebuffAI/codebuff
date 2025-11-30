@@ -37,6 +37,7 @@ async function runTask(options: {
   extractLessons: boolean
   printEvents: boolean
   finalCheckCommands?: string[]
+  disableAnalysis?: boolean
 }) {
   const {
     client,
@@ -53,6 +54,7 @@ async function runTask(options: {
     extractLessons,
     printEvents,
     finalCheckCommands,
+    disableAnalysis,
   } = options
 
   console.log(
@@ -161,12 +163,14 @@ async function runTask(options: {
   const agentResults = await Promise.all(agentPromises)
 
   // After all agents complete for this commit, run trace analysis
-  const traceAnalysis = await analyzeAgentTraces({
-    client,
-    traces: commitTraces,
-    codingAgentPrompt: commit.prompt,
-    analyzerContext,
-  })
+  const traceAnalysis = disableAnalysis
+    ? undefined
+    : await analyzeAgentTraces({
+        client,
+        traces: commitTraces,
+        codingAgentPrompt: commit.prompt,
+        analyzerContext,
+      })
 
   const analysisData = {
     commitSha: commit.sha,
@@ -268,6 +272,7 @@ export async function runBuffBench(options: {
   client?: CodebuffClient
   taskIds?: string[]
   extractLessons?: boolean
+  disableAnalysis?: boolean
 }) {
   const {
     evalDataPath,
@@ -275,6 +280,7 @@ export async function runBuffBench(options: {
     taskConcurrency = 1,
     taskIds,
     extractLessons = false,
+    disableAnalysis = false,
   } = options
 
   const evalData: EvalDataV2 = JSON.parse(
@@ -384,6 +390,7 @@ export async function runBuffBench(options: {
         extractLessons,
         printEvents: agents.length === 1 && taskConcurrency === 1,
         finalCheckCommands: evalData.finalCheckCommands,
+        disableAnalysis,
       }),
     ),
   )
@@ -448,36 +455,40 @@ export async function runBuffBench(options: {
 
   const logFiles = fs.readdirSync(logsDir)
 
-  const metaAnalysis = await analyzeAllTasks({
-    client,
-    logsDir,
-    agents,
-    analyzerContext,
-  })
+  const metaAnalysis = disableAnalysis
+    ? undefined
+    : await analyzeAllTasks({
+        client,
+        logsDir,
+        agents,
+        analyzerContext,
+      })
 
-  // Print meta-analysis results
-  console.log('\n=== Meta-Analysis Results ===')
-  console.log('\nOverall Comparison:')
-  console.log(metaAnalysis.overallComparison)
+  if (metaAnalysis) {
+    // Print meta-analysis results
+    console.log('\n=== Meta-Analysis Results ===')
+    console.log('\nOverall Comparison:')
+    console.log(metaAnalysis.overallComparison)
 
-  if (metaAnalysis.agentInsights.length > 0) {
-    console.log('\nAgent-Specific Insights:')
-    for (const insight of metaAnalysis.agentInsights) {
-      console.log(`\n[${insight.agentId}]`)
-      if (insight.consistentStrengths.length > 0) {
-        console.log('  Strengths:', insight.consistentStrengths.join(', '))
-      }
-      if (insight.consistentWeaknesses.length > 0) {
-        console.log('  Weaknesses:', insight.consistentWeaknesses.join(', '))
+    if (metaAnalysis.agentInsights.length > 0) {
+      console.log('\nAgent-Specific Insights:')
+      for (const insight of metaAnalysis.agentInsights) {
+        console.log(`\n[${insight.agentId}]`)
+        if (insight.consistentStrengths.length > 0) {
+          console.log('  Strengths:', insight.consistentStrengths.join(', '))
+        }
+        if (insight.consistentWeaknesses.length > 0) {
+          console.log('  Weaknesses:', insight.consistentWeaknesses.join(', '))
+        }
       }
     }
-  }
 
-  if (metaAnalysis.keyFindings.length > 0) {
-    console.log('\nKey Findings:')
-    metaAnalysis.keyFindings.forEach((finding, i) => {
-      console.log(`  ${i + 1}. ${finding}`)
-    })
+    if (metaAnalysis.keyFindings.length > 0) {
+      console.log('\nKey Findings:')
+      metaAnalysis.keyFindings.forEach((finding, i) => {
+        console.log(`  ${i + 1}. ${finding}`)
+      })
+    }
   }
 
   const finalResults = {
