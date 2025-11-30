@@ -1,22 +1,26 @@
 import z from 'zod/v4'
 
-import { $getToolCallString } from '../utils'
+import { $getNativeToolCallExampleString } from '../utils'
 
 import type { $ToolParams } from '../../constants'
 
 const toolName = 'set_output'
 const endsAgentStep = false
 const inputSchema = z
-  .looseObject({})
+  .looseObject({
+    data: z.record(z.string(), z.any()).optional(),
+  })
   .describe(
-    'JSON object to set as the agent output. This completely replaces any previous output. If the agent was spawned, this value will be passed back to its parent. If the agent has an outputSchema defined, the output will be validated against it.',
+    'JSON object to set as the agent output. The shape of the parameters are specified dynamically further down in the conversation. This completely replaces any previous output. If the agent was spawned, this value will be passed back to its parent. If the agent has an outputSchema defined, the output will be validated against it.',
   )
 const description = `
-You must use this tool as it is the only way to report any findings to the user. Nothing else you write will be shown to the user.
+Subagents must use this tool as it is the only way to report any findings. Nothing else you write will be visible to the user/parent agent.
 
-Please set the output with all the information and analysis you want to pass on to the user. If you just want to send a simple message, use an object with the key "message" and value of the message you want to send.
+Note that the output schema is provided dynamically in a user prompt further down in the conversation. Be sure to follow what the latest output schema is when using this tool.
+
+Please set the output with all the information and analysis you want to pass on. If you just want to send a simple message, use an object with the key "message" and value of the message you want to send.
 Example:
-${$getToolCallString({
+${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
   input: {

@@ -1,6 +1,9 @@
 import z from 'zod/v4'
 
-import { $getToolCallString, emptyToolResultSchema } from '../utils'
+import {
+  $getNativeToolCallExampleString,
+  textToolResultSchema,
+} from '../utils'
 
 import type { $ToolParams } from '../../constants'
 
@@ -31,7 +34,7 @@ This is useful for:
 - Managing message history (e.g., summarization)
 The agent will run until it calls end_turn, then control returns to you. There is no tool result for this tool.
 Example:
-${$getToolCallString({
+${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
   input: {
@@ -48,5 +51,5 @@ export const spawnAgentInlineParams = {
   endsAgentStep,
   description,
   inputSchema,
-  outputSchema: emptyToolResultSchema(),
+  outputSchema: textToolResultSchema(),
 } satisfies $ToolParams

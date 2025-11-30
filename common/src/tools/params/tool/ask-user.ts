@@ -1,6 +1,6 @@
 import z from 'zod/v4'
 
-import { $getToolCallString, jsonToolResultSchema } from '../utils'
+import { $getNativeToolCallExampleString, jsonToolResultSchema } from '../utils'
 
 import type { $ToolParams } from '../../constants'
 
@@ -8,13 +8,19 @@ export const questionSchema = z.object({
   question: z.string().describe('The question to ask the user'),
   header: z
     .string()
-    .max(12)
+    .max(18)
     .optional()
-    .describe('Short label (max 12 chars) displayed as a chip/tag. Example: "Auth method"'),
+    .describe(
+      // Tell the llm 12 chars so that if it goes over slightly, it will still be under the max.
+      'Short label (max 12 chars) displayed as a chip/tag. Example: "Auth method"',
+    ),
   options: z
     .object({
       label: z.string().describe('The display text for this option'),
-      description: z.string().optional().describe('Explanation shown when option is focused'),
+      description: z
+        .string()
+        .optional()
+        .describe('Explanation shown when option is focused'),
     })
     .array()
     .refine((opts) => opts.length >= 2, {
@@ -30,10 +36,22 @@ export const questionSchema = z.object({
     ),
   validation: z
     .object({
-      maxLength: z.number().optional().describe('Maximum length for "Other" text input'),
-      minLength: z.number().optional().describe('Minimum length for "Other" text input'),
-      pattern: z.string().optional().describe('Regex pattern for "Other" text input'),
-      patternError: z.string().optional().describe('Custom error message when pattern fails'),
+      maxLength: z
+        .number()
+        .optional()
+        .describe('Maximum length for "Other" text input'),
+      minLength: z
+        .number()
+        .optional()
+        .describe('Minimum length for "Other" text input'),
+      pattern: z
+        .string()
+        .optional()
+        .describe('Regex pattern for "Other" text input'),
+      patternError: z
+        .string()
+        .optional()
+        .describe('Custom error message when pattern fails'),
     })
     .optional()
     .describe('Validation rules for "Other" text input'),
@@ -67,14 +85,20 @@ const outputSchema = z.object({
           .array(z.string())
           .optional()
           .describe('Array of selected option texts (multi-select mode)'),
-        otherText: z.string().optional().describe('Custom text input (if user typed their own answer)'),
+        otherText: z
+          .string()
+          .optional()
+          .describe('Custom text input (if user typed their own answer)'),
       }),
     )
     .optional()
     .describe(
       'Array of user answers, one per question. Each answer has either selectedOption (single), selectedOptions (multi), or otherText.',
     ),
-  skipped: z.boolean().optional().describe('True if user skipped the questions'),
+  skipped: z
+    .boolean()
+    .optional()
+    .describe('True if user skipped the questions'),
 })
 
 const description = `
@@ -87,7 +111,7 @@ The user can either:
 - Skip the questions to provide different instructions instead
 
 Single-select example:
-${$getToolCallString({
+${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
   input: {
@@ -96,9 +120,18 @@ ${$getToolCallString({
         question: 'Which authentication method should we use?',
         header: 'Auth method',
         options: [
-          { label: 'JWT tokens', description: 'Stateless tokens stored in localStorage' },
-          { label: 'Session cookies', description: 'Server-side sessions with httpOnly cookies' },
-          { label: 'OAuth2', description: 'Third-party authentication (Google, GitHub, etc.)' },
+          {
+            label: 'JWT tokens',
+            description: 'Stateless tokens stored in localStorage',
+          },
+          {
+            label: 'Session cookies',
+            description: 'Server-side sessions with httpOnly cookies',
+          },
+          {
+            label: 'OAuth2',
+            description: 'Third-party authentication (Google, GitHub, etc.)',
+          },
         ],
       },
     ],
@@ -107,7 +140,7 @@ ${$getToolCallString({
 })}
 
 Multi-select example:
-${$getToolCallString({
+${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
   input: {

@@ -932,7 +932,7 @@ async function handleToolCall({
     if (override) {
       result = await override(input as any)
     } else if (toolName === 'end_turn') {
-      result = []
+      result = [{ type: 'json', value: { message: 'Turn ended.' } }]
     } else if (toolName === 'write_file' || toolName === 'str_replace') {
       result = await changeFile({
         parameters: input,

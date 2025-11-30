@@ -2,7 +2,6 @@ import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   afterEach,
@@ -16,7 +15,7 @@ import {
 } from 'bun:test'
 
 import { disableLiveUserInputCheck } from '../live-user-inputs'
-import { mockFileContext } from './test-utils'
+import { createToolCallChunk, mockFileContext } from './test-utils'
 import researcherAgent from '../../../../.agents/researcher/researcher'
 import * as webApi from '../llm-api/codebuff-web-api'
 import { runAgentStep } from '../run-agent-step'
@@ -34,13 +33,12 @@ let runAgentStepBaseParams: ParamsExcluding<
   'fileContext' | 'localAgentTemplates' | 'agentState' | 'prompt'
 >
 
-function mockAgentStream(content: string | string[]) {
+import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
+
+function mockAgentStream(chunks: StreamChunk[]) {
   const mockPromptAiSdkStream = async function* ({}) {
-    if (typeof content === 'string') {
-      content = [content]
-    }
-    for (const chunk of content) {
-      yield { type: 'text' as const, text: chunk }
+    for (const chunk of chunks) {
+      yield chunk
     }
     return 'mock-message-id'
   }
@@ -75,7 +73,6 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
     runAgentStepBaseParams = {
       ...agentRuntimeImpl,
       additionalToolDefinitions: () => Promise.resolve({}),
-      textOverride: null,
       runId: 'test-run-id',
       ancestorRunIds: [],
       repoId: undefined,
@@ -89,6 +86,7 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
       agentType: 'researcher',
       spawnParams: undefined,
       signal: new AbortController().signal,
+      tools: {},
     }
   })
 
@@ -108,13 +106,13 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
       documentation: mockDocumentation,
     })
 
-    const mockResponse =
-      getToolCallString('read_docs', {
+    mockAgentStream([
+      createToolCallChunk('read_docs', {
         libraryTitle: 'React',
         topic: 'hooks',
-      }) + getToolCallString('end_turn', {})
-
-    mockAgentStream(mockResponse)
+      }),
+      createToolCallChunk('end_turn', {}),
+    ])
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -154,14 +152,14 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
       documentation: mockDocumentation,
     })
 
-    const mockResponse =
-      getToolCallString('read_docs', {
+    mockAgentStream([
+      createToolCallChunk('read_docs', {
         libraryTitle: 'React',
         topic: 'hooks',
         max_tokens: 5000,
-      }) + getToolCallString('end_turn', {})
-
-    mockAgentStream(mockResponse)
+      }),
+      createToolCallChunk('end_turn', {}),
+    ])
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -194,13 +192,13 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
     const msg = 'No documentation found for "NonExistentLibrary"'
     spyOn(webApi, 'callDocsSearchAPI').mockResolvedValue({ error: msg })
 
-    const mockResponse =
-      getToolCallString('read_docs', {
+    mockAgentStream([
+      createToolCallChunk('read_docs', {
         libraryTitle: 'NonExistentLibrary',
         topic: 'blah',
-      }) + getToolCallString('end_turn', {})
-
-    mockAgentStream(mockResponse)
+      }),
+      createToolCallChunk('end_turn', {}),
+    ])
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -214,7 +212,6 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
 
     const { agentState: newAgentState } = await runAgentStep({
       ...runAgentStepBaseParams,
-      textOverride: null,
       fileContext: mockFileContextWithAgents,
       localAgentTemplates: agentTemplates,
       agentState,
@@ -234,13 +231,13 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
       error: 'Network timeout',
     })
 
-    const mockResponse =
-      getToolCallString('read_docs', {
+    mockAgentStream([
+      createToolCallChunk('read_docs', {
         libraryTitle: 'React',
         topic: 'hooks',
-      }) + getToolCallString('end_turn', {})
-
-    mockAgentStream(mockResponse)
+      }),
+      createToolCallChunk('end_turn', {}),
+    ])
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -272,13 +269,13 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
   test('should include topic in error message when specified', async () => {
     spyOn(webApi, 'callDocsSearchAPI').mockResolvedValue({ error: 'No docs' })
 
-    const mockResponse =
-      getToolCallString('read_docs', {
+    mockAgentStream([
+      createToolCallChunk('read_docs', {
         libraryTitle: 'React',
         topic: 'server-components',
-      }) + getToolCallString('end_turn', {})
-
-    mockAgentStream(mockResponse)
+      }),
+      createToolCallChunk('end_turn', {}),
+    ])
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -312,13 +309,13 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
       throw 'String error'
     })
 
-    const mockResponse =
-      getToolCallString('read_docs', {
+    mockAgentStream([
+      createToolCallChunk('read_docs', {
         libraryTitle: 'React',
         topic: 'hooks',
-      }) + getToolCallString('end_turn', {})
-
-    mockAgentStream(mockResponse)
+      }),
+      createToolCallChunk('end_turn', {}),
+    ])
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -355,13 +352,13 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
       creditsUsed: mockCreditsUsed,
     })
 
-    const mockResponse =
-      getToolCallString('read_docs', {
+    mockAgentStream([
+      createToolCallChunk('read_docs', {
         libraryTitle: 'React',
         topic: 'hooks',
-      }) + getToolCallString('end_turn', {})
-
-    mockAgentStream(mockResponse)
+      }),
+      createToolCallChunk('end_turn', {}),
+    ])
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {

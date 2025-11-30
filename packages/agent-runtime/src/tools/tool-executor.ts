@@ -3,11 +3,13 @@ import { toolParams } from '@codebuff/common/tools/list'
 import { jsonToolResult } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
-import z from 'zod/v4'
 
 import { checkLiveUserInput } from '../live-user-inputs'
 import { getMCPToolData } from '../mcp'
+import { getAgentShortName } from '../templates/prompts'
 import { codebuffToolHandlers } from './handlers/list'
+
+import type { AgentTemplateType } from '@codebuff/common/types/session-state'
 
 import type { AgentTemplate } from '../templates/types'
 import type { CodebuffToolHandlerFunction } from './handlers/handler-function-type'
@@ -32,7 +34,7 @@ import type {
   CustomToolDefinitions,
   ProjectFileContext,
 } from '@codebuff/common/util/file'
-import type { ToolCallPart } from 'ai'
+import type { ToolCallPart, ToolSet } from 'ai'
 
 export type CustomToolCall = {
   toolName: string
@@ -66,24 +68,28 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
   }
   const validName = toolName as T
 
-  const processedParameters: Record<string, any> = {}
-  for (const [param, val] of Object.entries(rawToolCall.input ?? {})) {
-    processedParameters[param] = val
-  }
+  // const processedParameters: Record<string, any> = {}
+  // for (const [param, val] of Object.entries(rawToolCall.input ?? {})) {
+  //   processedParameters[param] = val
+  // }
 
   // Add the required codebuff_end_step parameter with the correct value for this tool if requested
-  if (autoInsertEndStepParam) {
-    processedParameters[endsAgentStepParam] =
-      toolParams[validName].endsAgentStep
-  }
+  // if (autoInsertEndStepParam) {
+  //   processedParameters[endsAgentStepParam] =
+  //     toolParams[validName].endsAgentStep
+  // }
 
-  const paramsSchema = toolParams[validName].endsAgentStep
-    ? (
-        toolParams[validName].inputSchema satisfies z.ZodObject as z.ZodObject
-      ).extend({
-        [endsAgentStepParam]: z.literal(toolParams[validName].endsAgentStep),
-      })
-    : toolParams[validName].inputSchema
+  // const paramsSchema = toolParams[validName].endsAgentStep
+  //   ? (
+  //       toolParams[validName].inputSchema satisfies z.ZodObject as z.ZodObject
+  //     ).extend({
+  //       [endsAgentStepParam]: z.literal(toolParams[validName].endsAgentStep),
+  //     })
+  //   : toolParams[validName].inputSchema
+
+  const processedParameters = rawToolCall.input
+  const paramsSchema = toolParams[validName].inputSchema
+
   const result = paramsSchema.safeParse(processedParameters)
 
   if (!result.success) {
@@ -136,6 +142,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   runId: string
   signal: AbortSignal
   system: string
+  tools?: ToolSet
   toolCallId: string | undefined
   toolCalls: (CodebuffToolCall | CustomToolCall)[]
   toolResults: ToolMessage[]
@@ -178,10 +185,9 @@ export function executeToolCall<T extends ToolName>(
     toolCallId,
     toolName,
     input,
-    // Only include agentId for subagents (agents with a parent)
-    ...(agentState.parentId && { agentId: agentState.agentId }),
-    // Include includeToolCall flag if explicitly set to false
-    ...(excludeToolFromMessageHistory && { includeToolCall: false }),
+    agentId: agentState.agentId,
+    parentAgentId: agentState.parentId,
+    includeToolCall: !excludeToolFromMessageHistory,
   })
 
   const toolCall: CodebuffToolCall<T> | ToolCallError = parseRawToolCall<T>({
@@ -494,4 +500,44 @@ export async function executeCustomToolCall(
       }
       return
     })
+}
+
+/**
+ * Checks if a tool name matches a spawnable agent and returns the transformed
+ * spawn_agents input if so. Returns null if not an agent tool call.
+ */
+export function tryTransformAgentToolCall(params: {
+  toolName: string
+  input: Record<string, unknown>
+  spawnableAgents: AgentTemplateType[]
+}): { toolName: 'spawn_agents'; input: Record<string, unknown> } | null {
+  const { toolName, input, spawnableAgents } = params
+
+  const agentShortNames = spawnableAgents.map(getAgentShortName)
+  if (!agentShortNames.includes(toolName)) {
+    return null
+  }
+
+  // Find the full agent type for this short name
+  const fullAgentType = spawnableAgents.find(
+    (agentType) => getAgentShortName(agentType) === toolName,
+  )
+
+  // Convert to spawn_agents call
+  const spawnAgentsInput = {
+    agents: [
+      {
+        agent_type: fullAgentType || toolName,
+        ...(typeof input.prompt === 'string' && { prompt: input.prompt }),
+        // Put all other fields into params
+        ...(Object.keys(input).filter((k) => k !== 'prompt').length > 0 && {
+          params: Object.fromEntries(
+            Object.entries(input).filter(([k]) => k !== 'prompt'),
+          ),
+        }),
+      },
+    ],
+  }
+
+  return { toolName: 'spawn_agents', input: spawnAgentsInput }
 }

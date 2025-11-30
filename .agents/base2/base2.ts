@@ -53,6 +53,7 @@ export function createBase2(
       'str_replace',
       'write_file',
       'ask_user',
+      'set_output',
     ),
     spawnableAgents: buildArray(
       'file-picker',

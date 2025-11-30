@@ -244,23 +244,24 @@ export const DynamicAgentTemplateSchema = DynamicAgentDefinitionSchema.extend({
       path: ['toolNames'],
     },
   )
-  .refine(
-    (data) => {
-      // If 'set_output' tool is included, outputMode must be 'structured_output'
-      if (
-        data.toolNames.includes('set_output') &&
-        data.outputMode !== 'structured_output'
-      ) {
-        return false
-      }
-      return true
-    },
-    {
-      message:
-        "'set_output' tool requires outputMode to be 'structured_output'. Change outputMode to 'structured_output' or remove 'set_output' from toolNames.",
-      path: ['outputMode'],
-    },
-  )
+  // Note(James): Disabled so that a parent agent can have set_output tool and 'last_message' outputMode while its subagents use 'structured_output'. (The set_output tool must be included in parent to preserver prompt caching.)
+  // .refine(
+  //   (data) => {
+  //     // If 'set_output' tool is included, outputMode must be 'structured_output'
+  //     if (
+  //       data.toolNames.includes('set_output') &&
+  //       data.outputMode !== 'structured_output'
+  //     ) {
+  //       return false
+  //     }
+  //     return true
+  //   },
+  //   {
+  //     message:
+  //       "'set_output' tool requires outputMode to be 'structured_output'. Change outputMode to 'structured_output' or remove 'set_output' from toolNames.",
+  //     path: ['outputMode'],
+  //   },
+  // )
   .refine(
     (data) => {
       // If spawnableAgents array is non-empty, 'spawn_agents' tool must be included

@@ -17,6 +17,7 @@ import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
+import type { ToolSet } from 'ai'
 
 type ToolName = 'spawn_agent_inline'
 export const handleSpawnAgentInline = (async (
@@ -32,6 +33,7 @@ export const handleSpawnAgentInline = (async (
     localAgentTemplates: Record<string, AgentTemplate>
     logger: Logger
     system: string
+    tools?: ToolSet
     userId: string | undefined
     userInputId: string
     writeToClient: (chunk: string | PrintModeEvent) => void
@@ -44,6 +46,7 @@ export const handleSpawnAgentInline = (async (
     | 'parentAgentState'
     | 'agentState'
     | 'parentSystemPrompt'
+    | 'parentTools'
     | 'onResponseChunk'
     | 'clearUserPromptMessagesAfterResponse'
     | 'fingerprintId'
@@ -57,6 +60,7 @@ export const handleSpawnAgentInline = (async (
     agentTemplate: parentAgentTemplate,
     fingerprintId,
     system,
+    tools: parentTools = {},
     userInputId,
     writeToClient,
   } = params
@@ -105,6 +109,9 @@ export const handleSpawnAgentInline = (async (
     agentState: childAgentState,
     fingerprintId,
     parentSystemPrompt: system,
+    parentTools: agentTemplate.inheritParentSystemPrompt
+      ? parentTools
+      : undefined,
     onResponseChunk: (chunk) => {
       // Inherits parent's onResponseChunk, except for context-pruner (TODO: add an option for it to be silent?)
       if (agentType !== 'context-pruner') {
@@ -117,5 +124,5 @@ export const handleSpawnAgentInline = (async (
   // Update parent agent state to reflect shared message history
   parentAgentState.messageHistory = result.agentState.messageHistory
 
-  return { output: [] }
+  return { output: [{ type: 'json', value: { message: 'Agent spawned.' } }] }
 }) satisfies CodebuffToolHandlerFunction<ToolName>

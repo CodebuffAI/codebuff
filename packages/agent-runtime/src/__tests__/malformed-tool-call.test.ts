@@ -2,7 +2,6 @@ import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import * as stringUtils from '@codebuff/common/util/string'
 import {
@@ -15,8 +14,10 @@ import {
   test,
 } from 'bun:test'
 
-import { mockFileContext } from './test-utils'
-import { processStreamWithTools } from '../tools/stream-parser'
+import { createToolCallChunk, mockFileContext } from './test-utils'
+import { processStream } from '../tools/stream-parser'
+
+import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
 
 import type { AgentTemplate } from '../templates/types'
 import type {
@@ -34,7 +35,7 @@ let agentRuntimeImpl: AgentRuntimeDeps = { ...TEST_AGENT_RUNTIME_IMPL }
 describe('malformed tool call error handling', () => {
   let testAgent: AgentTemplate
   let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
-  let defaultParams: ParamsOf<typeof processStreamWithTools>
+  let defaultParams: ParamsOf<typeof processStream>
 
   beforeEach(() => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
@@ -119,27 +120,31 @@ describe('malformed tool call error handling', () => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
   })
 
-  function createMockStream(chunks: string[]) {
+  function createMockStream(chunks: StreamChunk[]) {
     async function* generator() {
       for (const chunk of chunks) {
-        yield { type: 'text' as const, text: chunk }
+        yield chunk
       }
       return 'mock-message-id'
     }
     return generator()
   }
 
+  function textChunk(text: string): StreamChunk {
+    return { type: 'text' as const, text }
+  }
+
   test('should add tool result errors to message history after stream completes', async () => {
-    const chunks = [
-      // Malformed JSON tool call
-      '<codebuff_tool_call>\n{\n  "cb_tool_name": "read_files",\n  "paths": ["test.ts"\n}\n</codebuff_tool_call>',
-      // Valid end turn
-      getToolCallString('end_turn', {}),
+    // With native tools, malformed tool calls are handled at the API level.
+    // This test now verifies that an unknown tool is properly handled.
+    const chunks: StreamChunk[] = [
+      createToolCallChunk('unknown_tool_xyz', { paths: ['test.ts'] }),
+      createToolCallChunk('end_turn', {}),
     ]
 
     const stream = createMockStream(chunks)
 
-    await processStreamWithTools({
+    await processStream({
       ...defaultParams,
       stream,
     })
@@ -152,7 +157,7 @@ describe('malformed tool call error handling', () => {
 
     expect(toolMessages.length).toBeGreaterThan(0)
 
-    // Find the error tool result
+    // Find the error tool result for the unknown tool
     const errorToolResult = toolMessages.find(
       (m) =>
         m.content?.[0]?.type === 'json' &&
@@ -162,22 +167,20 @@ describe('malformed tool call error handling', () => {
     expect(errorToolResult).toBeDefined()
     expect(
       (errorToolResult?.content?.[0] as any)?.value?.errorMessage,
-    ).toContain('Invalid JSON')
+    ).toContain('not found')
   })
 
-  test('should handle multiple malformed tool calls', async () => {
-    const chunks = [
-      // First malformed call
-      '<codebuff_tool_call>\n{\n  "cb_tool_name": "read_files",\n  invalid\n}\n</codebuff_tool_call>',
-      'Some text between calls',
-      // Second malformed call
-      '<codebuff_tool_call>\n{\n  missing_quotes: value\n}\n</codebuff_tool_call>',
-      getToolCallString('end_turn', {}),
+  test('should handle multiple unknown tool calls', async () => {
+    const chunks: StreamChunk[] = [
+      createToolCallChunk('unknown_tool_1', { param: 'value1' }),
+      textChunk('Some text between calls'),
+      createToolCallChunk('unknown_tool_2', { param: 'value2' }),
+      createToolCallChunk('end_turn', {}),
     ]
 
     const stream = createMockStream(chunks)
 
-    await processStreamWithTools({
+    await processStream({
       ...defaultParams,
       stream,
     })
@@ -197,14 +200,14 @@ describe('malformed tool call error handling', () => {
   })
 
   test('should preserve original toolResults array alongside message history', async () => {
-    const chunks = [
-      '<codebuff_tool_call>\n{\n  "cb_tool_name": "read_files",\n  malformed\n}\n</codebuff_tool_call>',
-      getToolCallString('end_turn', {}),
+    const chunks: StreamChunk[] = [
+      createToolCallChunk('unknown_tool_xyz', { param: 'value' }),
+      createToolCallChunk('end_turn', {}),
     ]
 
     const stream = createMockStream(chunks)
 
-    const result = await processStreamWithTools({
+    const result = await processStream({
       ...defaultParams,
       stream,
     })
@@ -228,14 +231,14 @@ describe('malformed tool call error handling', () => {
   })
 
   test('should handle unknown tool names and add error to message history', async () => {
-    const chunks = [
-      '<codebuff_tool_call>\n{\n  "cb_tool_name": "unknown_tool",\n  "param": "value"\n}\n</codebuff_tool_call>',
-      getToolCallString('end_turn', {}),
+    const chunks: StreamChunk[] = [
+      createToolCallChunk('unknown_tool', { param: 'value' }),
+      createToolCallChunk('end_turn', {}),
     ]
 
     const stream = createMockStream(chunks)
 
-    await processStreamWithTools({
+    await processStream({
       ...defaultParams,
       stream,
     })
@@ -258,17 +261,17 @@ describe('malformed tool call error handling', () => {
   })
 
   test('should not affect valid tool calls in message history', async () => {
-    const chunks = [
+    const chunks: StreamChunk[] = [
       // Valid tool call
-      getToolCallString('read_files', { paths: ['test.ts'] }),
-      // Malformed tool call
-      '<codebuff_tool_call>\n{\n  "cb_tool_name": "read_files",\n  invalid\n}\n</codebuff_tool_call>',
-      getToolCallString('end_turn', {}),
+      createToolCallChunk('read_files', { paths: ['test.ts'] }),
+      // Unknown tool call
+      createToolCallChunk('unknown_tool_xyz', { param: 'value' }),
+      createToolCallChunk('end_turn', {}),
     ]
 
     const stream = createMockStream(chunks)
 
-    await processStreamWithTools({
+    await processStream({
       ...defaultParams,
       requestFiles: async ({ filePaths }) => {
         return Object.fromEntries(
@@ -299,15 +302,15 @@ describe('malformed tool call error handling', () => {
     expect(errorResults.length).toBeGreaterThan(0)
   })
 
-  test('should handle stream with only malformed calls', async () => {
-    const chunks = [
-      '<codebuff_tool_call>\n{\n  invalid1\n}\n</codebuff_tool_call>',
-      '<codebuff_tool_call>\n{\n  invalid2\n}\n</codebuff_tool_call>',
+  test('should handle stream with only unknown tool calls', async () => {
+    const chunks: StreamChunk[] = [
+      createToolCallChunk('unknown_tool_1', { param: 'value1' }),
+      createToolCallChunk('unknown_tool_2', { param: 'value2' }),
     ]
 
     const stream = createMockStream(chunks)
 
-    await processStreamWithTools({
+    await processStream({
       ...defaultParams,
       stream,
     })
@@ -320,7 +323,7 @@ describe('malformed tool call error handling', () => {
     toolMessages.forEach((msg) => {
       expect(msg.content?.[0]?.type).toBe('json')
       expect((msg.content?.[0] as any)?.value?.errorMessage).toContain(
-        'Invalid JSON',
+        'not found',
       )
     })
   })

@@ -4,6 +4,7 @@ import { generateCompactId } from '@codebuff/common/util/string'
 
 import { loopAgentSteps } from '../../../run-agent-step'
 import { getAgentTemplate } from '../../../templates/agent-registry'
+import { filterUnfinishedToolCalls } from '../../../util/messages'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -11,6 +12,7 @@ import type {
   ParamsExcluding,
   OptionalFields,
 } from '@codebuff/common/types/function-params'
+import type { ToolSet } from 'ai'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
@@ -161,8 +163,11 @@ export function createAgentState(
 ): AgentState {
   const agentId = generateCompactId()
 
+  // When including message history, filter out any tool calls that don't have
+  // corresponding tool responses. This prevents the spawned agent from seeing
+  // unfinished tool calls which throw errors in the Anthropic API.
   const messageHistory = agentTemplate.includeMessageHistory
-    ? parentAgentState.messageHistory
+    ? filterUnfinishedToolCalls(parentAgentState.messageHistory)
     : []
 
   return {
@@ -227,6 +232,7 @@ export async function executeSubagent(
     {
       agentTemplate: AgentTemplate
       parentAgentState: AgentState
+      parentTools?: ToolSet
       onResponseChunk: (chunk: string | PrintModeEvent) => void
       isOnlyChild?: boolean
       ancestorRunIds: string[]

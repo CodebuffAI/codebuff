@@ -34,6 +34,20 @@ export function $getToolCallString<Input>(params: {
   return [startToolTag, JSON.stringify(obj, null, 2), endToolTag].join('')
 }
 
+export function $getNativeToolCallExampleString<Input>(params: {
+  toolName: string
+  inputSchema: z.ZodType<any, Input> | null
+  input: Input
+  endsAgentStep?: boolean // unused
+}): string {
+  const { toolName, input } = params
+  return [
+    `<${toolName}_params_example>\n`,
+    JSON.stringify(input, null, 2),
+    `\n</${toolName}_params_example>`,
+  ].join('')
+}
+
 /** Generates the zod schema for a single JSON tool result. */
 export function jsonToolResultSchema<T extends JSONValue>(
   valueSchema: z.ZodType<T>,
@@ -49,4 +63,16 @@ export function jsonToolResultSchema<T extends JSONValue>(
 /** Generates the zod schema for an empty tool result. */
 export function emptyToolResultSchema() {
   return z.tuple([])
+}
+
+/** Generates the zod schema for a simple text tool result. */
+export function textToolResultSchema() {
+  return z.tuple([
+    z.object({
+      type: z.literal('json'),
+      value: z.object({
+        message: z.string(),
+      }),
+    }) satisfies z.ZodType<ToolResultOutput>,
+  ])
 }

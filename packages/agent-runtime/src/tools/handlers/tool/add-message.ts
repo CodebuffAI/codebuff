@@ -30,5 +30,5 @@ export const handleAddMessage = (async (params: {
       : assistantMessage(toolCall.input.content),
   )
 
-  return { output: [] }
+  return { output: [{ type: 'json', value: { message: 'Message added.' } }] }
 }) satisfies CodebuffToolHandlerFunction<'add_message'>

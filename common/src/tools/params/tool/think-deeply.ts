@@ -1,6 +1,9 @@
 import z from 'zod/v4'
 
-import { $getToolCallString, emptyToolResultSchema } from '../utils'
+import {
+  $getNativeToolCallExampleString,
+  textToolResultSchema,
+} from '../utils'
 
 import type { $ToolParams } from '../../constants'
 
@@ -29,7 +32,7 @@ Avoid for simple changes (e.g., single functions, minor edits).
 This tool does not generate a tool result.
 
 Example:
-${$getToolCallString({
+${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
   input: {
@@ -49,5 +52,5 @@ export const thinkDeeplyParams = {
   endsAgentStep,
   description,
   inputSchema,
-  outputSchema: emptyToolResultSchema(),
+  outputSchema: textToolResultSchema(),
 } satisfies $ToolParams
