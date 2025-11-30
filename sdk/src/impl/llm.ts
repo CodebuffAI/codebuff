@@ -234,13 +234,17 @@ export async function* promptAiSdkStream(
       // Check if this is a NoSuchToolError for a spawnable agent
       // If so, transform to spawn_agents call
       if (NoSuchToolError.isInstance(error) && 'spawn_agents' in tools) {
-        const isSpawnableAgent = spawnableAgents.some((agentId) => {
+        // Also check for underscore variant (e.g., "file_picker" -> "file-picker")
+        const toolNameWithHyphens = toolName.replace(/_/g, '-')
+        
+        const matchingAgentId = spawnableAgents.find((agentId) => {
           const withoutVersion = agentId.split('@')[0]
           const parts = withoutVersion.split('/')
           const agentName = parts[parts.length - 1]
-          return agentName === toolName || agentId === toolName
+          return agentName === toolName || agentName === toolNameWithHyphens || agentId === toolName
         })
-        const isLocalAgent = toolName in localAgentTemplates
+        const isSpawnableAgent = matchingAgentId !== undefined
+        const isLocalAgent = toolName in localAgentTemplates || toolNameWithHyphens in localAgentTemplates
 
         if (isSpawnableAgent || isLocalAgent) {
           // Transform agent tool call to spawn_agents
@@ -281,10 +285,14 @@ export async function* promptAiSdkStream(
             ),
           )
 
+          // Use the matching agent ID or corrected name with hyphens
+          const correctedAgentType = matchingAgentId 
+            ?? (toolNameWithHyphens in localAgentTemplates ? toolNameWithHyphens : toolName)
+          
           const spawnAgentsInput = {
             agents: [
               {
-                agent_type: toolName,
+                agent_type: correctedAgentType,
                 ...(prompt !== undefined && { prompt }),
                 ...(Object.keys(agentParams).length > 0 && {
                   params: agentParams,
