@@ -24,6 +24,8 @@ import {
   generateObject,
   NoSuchToolError,
   APICallError,
+  ToolCallRepairError,
+  InvalidToolInputError,
 } from 'ai'
 
 import { WEBSITE_URL } from '../constants'
@@ -320,8 +322,7 @@ export async function* promptAiSdkStream(
       }
 
       // For all other cases (invalid args, unknown tools, etc.), pass through
-      // the original tool call. Our tool-executor.ts will validate it and return
-      // a friendly error message as a tool result instead of crashing.
+      // the original tool call.
       logger.info(
         {
           toolName,
@@ -352,7 +353,7 @@ export async function* promptAiSdkStream(
     if (chunkValue.type === 'error') {
       // Error chunks from fullStream are non-network errors (tool failures, model issues, etc.)
       // Network errors are thrown, not yielded as chunks.
-      // Pass all error chunks back to the agent so it can see what went wrong and retry.
+
       const errorBody = APICallError.isInstance(chunkValue.error)
         ? chunkValue.error.responseBody
         : undefined
@@ -362,22 +363,41 @@ export async function* promptAiSdkStream(
           : typeof chunkValue.error === 'string'
             ? chunkValue.error
             : JSON.stringify(chunkValue.error)
-      const errorMessage = `Error from AI SDK (model ${params.model}): ${buildArray([mainErrorMessage, errorBody]).join('\n')}`
+      const errorMessage = buildArray([mainErrorMessage, errorBody]).join('\n')
 
-      logger.warn(
+      // Pass these errors back to the agent so it can see what went wrong and retry.
+      // Note: If you find any other error types that should be passed through to the agent, add them here!
+      if (
+        NoSuchToolError.isInstance(chunkValue.error) ||
+        InvalidToolInputError.isInstance(chunkValue.error) ||
+        ToolCallRepairError.isInstance(chunkValue.error)
+      ) {
+        logger.warn(
+          {
+            chunk: { ...chunkValue, error: undefined },
+            error: getErrorObject(chunkValue.error),
+            model: params.model,
+          },
+          'Tool call error in AI SDK stream - passing through to agent to retry',
+        )
+        yield {
+          type: 'error',
+          message: errorMessage,
+        }
+        continue
+      }
+
+      logger.error(
         {
           chunk: { ...chunkValue, error: undefined },
           error: getErrorObject(chunkValue.error),
           model: params.model,
         },
-        'Error chunk from AI SDK stream - yielding to agent for retry',
+        'Error in AI SDK stream',
       )
 
-      yield {
-        type: 'error',
-        message: errorMessage,
-      }
-      continue
+      // For all other errors, throw them -- they are fatal.
+      throw chunkValue.error
     }
     if (chunkValue.type === 'reasoning-delta') {
       for (const provider of ['openrouter', 'codebuff'] as const) {

@@ -3,13 +3,14 @@ import { buildArray } from '@codebuff/common/util/array'
 import {
   jsonToolResult,
   assistantMessage,
+  userMessage,
 } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 
 import { processStreamWithTools } from '../tool-stream-parser'
 import { executeCustomToolCall, executeToolCall, tryTransformAgentToolCall } from './tool-executor'
-import { expireMessages } from '../util/messages'
+import { expireMessages, withSystemTags } from '../util/messages'
 
 import type { CustomToolCall, ExecuteToolCallParams } from './tool-executor'
 import type { AgentTemplate } from '../templates/types'
@@ -251,6 +252,7 @@ export async function processStream(
   })
 
   let messageId: string | null = null
+  let hadToolCallError = false
   while (true) {
     if (signal.aborted) {
       break
@@ -273,6 +275,16 @@ export async function processStream(
       fullResponseChunks.push(chunk.text)
     } else if (chunk.type === 'error') {
       onResponseChunk(chunk)
+      
+      hadToolCallError = true
+      // Add error message to assistant messages so the agent can see what went wrong and retry
+      assistantMessages.push(
+        userMessage(
+          withSystemTags(
+            `Error during tool call: ${chunk.message}. Please check the tool name and arguments and try again.`,
+          ),
+        ),
+      )
     } else if (chunk.type === 'tool-call') {
       // Do nothing, the onResponseChunk for tool is handled in the processor
     } else {
@@ -294,6 +306,7 @@ export async function processStream(
   return {
     fullResponse: fullResponseChunks.join(''),
     fullResponseChunks,
+    hadToolCallError,
     messageId,
     toolCalls,
     toolResults,

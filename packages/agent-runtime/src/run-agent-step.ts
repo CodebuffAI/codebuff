@@ -354,6 +354,7 @@ export const runAgentStep = async (
   const {
     fullResponse: fullResponseAfterStream,
     fullResponseChunks,
+    hadToolCallError,
     messageId,
     toolCalls,
     toolResults: newToolResults,
@@ -415,7 +416,8 @@ export const runAgentStep = async (
     ).length === 0 &&
     toolResults.filter(
       (result) => !TOOLS_WHICH_WONT_FORCE_NEXT_STEP.includes(result.toolName),
-    ).length === 0
+    ).length === 0 &&
+    !hadToolCallError // Tool call errors should also force another step so the agent can retry
 
   const hasTaskCompleted = toolCalls.some(
     (call) =>
