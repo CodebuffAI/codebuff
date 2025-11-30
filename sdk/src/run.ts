@@ -1,7 +1,10 @@
 import path from 'path'
 
 import { callMainPrompt } from '@codebuff/agent-runtime/main-prompt'
-import { getCancelledAdditionalMessages } from '@codebuff/agent-runtime/util/messages'
+import {
+  buildUserMessageContent,
+  getCancelledAdditionalMessages,
+} from '@codebuff/agent-runtime/util/messages'
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
 import { getMCPClient, listMCPTools } from '@codebuff/common/mcp/client'
 import { toOptionalFile } from '@codebuff/common/old-constants'
@@ -12,7 +15,14 @@ import { cloneDeep } from 'lodash'
 
 import { getAgentRuntimeImpl } from './impl/agent-runtime'
 import { getUserInfoFromApiKey } from './impl/database'
-import { RETRYABLE_ERROR_CODES, isNetworkError, isPaymentRequiredError, ErrorCodes, NetworkError, sanitizeErrorMessage } from './errors'
+import {
+  RETRYABLE_ERROR_CODES,
+  isNetworkError,
+  isPaymentRequiredError,
+  ErrorCodes,
+  NetworkError,
+  sanitizeErrorMessage,
+} from './errors'
 import type { ErrorCode } from './errors'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { initialSessionState, applyOverridesToSessionState } from './run-state'
@@ -47,6 +57,8 @@ import type {
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 import type {
+  ImagePart,
+  TextPart,
   ToolResultOutput,
 } from '@codebuff/common/types/messages/content-part'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
@@ -54,6 +66,20 @@ import type { SessionState } from '@codebuff/common/types/session-state'
 import type { Source } from '@codebuff/common/types/source'
 import type { CodebuffSpawn } from '@codebuff/common/types/spawn'
 import { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
+
+/**
+ * Wraps content for user messages, ensuring text is wrapped in <user_message> tags.
+ * Uses buildUserMessageContent from agent-runtime for consistency.
+ */
+const wrapContentForUserMessage = (
+  content?: (TextPart | ImagePart)[],
+): (TextPart | ImagePart)[] | undefined => {
+  if (!content || content.length === 0) {
+    return content
+  }
+  // Delegate to the shared utility which handles wrapping correctly
+  return buildUserMessageContent(undefined, undefined, content)
+}
 
 export type CodebuffClientOptions = {
   apiKey?: string
@@ -145,6 +171,7 @@ export type RunOptions = {
   agent: string | AgentDefinition
   prompt: string
   params?: Record<string, any>
+  content?: (TextPart | ImagePart)[]
   previousRun?: RunState
   extraToolResults?: ToolMessage[]
   signal?: AbortSignal
@@ -260,9 +287,7 @@ type RunExecutionOptions = RunOptions &
 type RunOnceOptions = Omit<RunExecutionOptions, 'retry' | 'abortController'>
 type RunReturnType = RunState
 
-export async function run(
-  options: RunExecutionOptions,
-): Promise<RunState> {
+export async function run(options: RunExecutionOptions): Promise<RunState> {
   const { retry, abortController, ...rest } = options
   const retryOptions = normalizeRetryOptions(retry)
 
@@ -479,6 +504,7 @@ export async function runOnce({
   agent,
   prompt,
   params,
+  content,
   previousRun,
   extraToolResults,
   signal,
@@ -487,6 +513,7 @@ export async function runOnce({
   const spawn: CodebuffSpawn = (
     spawnSource ? await spawnSource : require('child_process').spawn
   ) as CodebuffSpawn
+  const preparedContent = wrapContentForUserMessage(content)
 
   // Init session state
   let agentId
@@ -549,6 +576,7 @@ export async function runOnce({
       ...getCancelledAdditionalMessages({
         prompt,
         params,
+        content: preparedContent,
         pendingAgentResponse,
         systemMessage: message,
       }),
@@ -787,6 +815,7 @@ export async function runOnce({
       promptId,
       prompt,
       promptParams: params,
+      content: preparedContent,
       fingerprintId: fingerprintId,
       costMode: 'normal',
       sessionState,
@@ -806,7 +835,11 @@ export async function runOnce({
       {
         isNetworkError: isNetworkError(error),
         isPaymentRequired,
-        errorCode: isNetworkError(error) ? error.code : isPaymentRequired ? error.code : undefined,
+        errorCode: isNetworkError(error)
+          ? error.code
+          : isPaymentRequired
+            ? error.code
+            : undefined,
         isRetryable,
         error: getErrorObject(error),
       },
@@ -820,7 +853,8 @@ export async function runOnce({
     }
 
     // For non-retryable errors, resolve with cancelled state
-    const errorMessage = error instanceof Error ? error.message : String(error ?? '')
+    const errorMessage =
+      error instanceof Error ? error.message : String(error ?? '')
     resolve(getCancelledRunState(errorMessage))
   })
 
@@ -972,12 +1006,17 @@ async function handleToolCall({
  * Extracts an error code from a prompt error message.
  * Returns the appropriate ErrorCode if the error is retryable, null otherwise.
  */
-export const getRetryableErrorCode = (errorMessage: string): ErrorCode | null => {
+export const getRetryableErrorCode = (
+  errorMessage: string,
+): ErrorCode | null => {
   const lowerMessage = errorMessage.toLowerCase()
 
   // AI SDK's built-in retry error (e.g., "Failed after 4 attempts. Last error: Service Unavailable")
   // The AI SDK already retried 4 times, but we still want our SDK wrapper to retry 3 more times
-  if (lowerMessage.includes('failed after') && lowerMessage.includes('attempts')) {
+  if (
+    lowerMessage.includes('failed after') &&
+    lowerMessage.includes('attempts')
+  ) {
     // Extract the underlying error type from the message
     if (lowerMessage.includes('service unavailable')) {
       return ErrorCodes.SERVICE_UNAVAILABLE
@@ -992,22 +1031,36 @@ export const getRetryableErrorCode = (errorMessage: string): ErrorCode | null =>
     return ErrorCodes.SERVER_ERROR
   }
 
-  if (errorMessage.includes('503') || lowerMessage.includes('service unavailable')) {
+  if (
+    errorMessage.includes('503') ||
+    lowerMessage.includes('service unavailable')
+  ) {
     return ErrorCodes.SERVICE_UNAVAILABLE
   }
   if (lowerMessage.includes('timeout')) {
     return ErrorCodes.TIMEOUT
   }
-  if (lowerMessage.includes('econnrefused') || lowerMessage.includes('connection refused')) {
+  if (
+    lowerMessage.includes('econnrefused') ||
+    lowerMessage.includes('connection refused')
+  ) {
     return ErrorCodes.CONNECTION_REFUSED
   }
   if (lowerMessage.includes('dns') || lowerMessage.includes('enotfound')) {
     return ErrorCodes.DNS_FAILURE
   }
-  if (lowerMessage.includes('server error') || lowerMessage.includes('500') || lowerMessage.includes('502') || lowerMessage.includes('504')) {
+  if (
+    lowerMessage.includes('server error') ||
+    lowerMessage.includes('500') ||
+    lowerMessage.includes('502') ||
+    lowerMessage.includes('504')
+  ) {
     return ErrorCodes.SERVER_ERROR
   }
-  if (lowerMessage.includes('network error') || lowerMessage.includes('fetch failed')) {
+  if (
+    lowerMessage.includes('network error') ||
+    lowerMessage.includes('fetch failed')
+  ) {
     return ErrorCodes.NETWORK_ERROR
   }
 

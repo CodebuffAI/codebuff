@@ -87,6 +87,10 @@ export type ChatKeyboardAction =
   | { type: 'exit-app-warning' }
   | { type: 'exit-app' }
 
+  // Bash history navigation
+  | { type: 'bash-history-up' }
+  | { type: 'bash-history-down' }
+
   // No action needed
   | { type: 'none' }
 
@@ -107,8 +111,12 @@ export function resolveChatKeyboardAction(
   const isUp = key.name === 'up' && !hasModifier(key)
   const isDown = key.name === 'down' && !hasModifier(key)
   const isTab = key.name === 'tab' && !hasModifier(key)
-  const isShiftTab = key.name === 'tab' && key.shift && !key.ctrl && !key.meta && !key.option
-  const isEnter = (key.name === 'return' || key.name === 'enter') && !key.shift && !hasModifier(key)
+  const isShiftTab =
+    key.name === 'tab' && key.shift && !key.ctrl && !key.meta && !key.option
+  const isEnter =
+    (key.name === 'return' || key.name === 'enter') &&
+    !key.shift &&
+    !hasModifier(key)
 
   // Priority 1: Feedback mode handlers
   if (state.feedbackMode) {
@@ -122,7 +130,7 @@ export function resolveChatKeyboardAction(
     }
   }
 
-  // Priority 2: Non-default input mode escape (THE BUG FIX)
+  // Priority 2: Non-default input mode escape
   // Escape should exit the current mode BEFORE interrupting streams
   if (isEscape && state.inputMode !== 'default') {
     return { type: 'exit-input-mode' }
@@ -134,18 +142,30 @@ export function resolveChatKeyboardAction(
   }
 
   // Priority 4: Interrupt streaming
-  if ((isEscape || isCtrlC) && (state.isStreaming || state.isWaitingForResponse)) {
+  if (
+    (isEscape || isCtrlC) &&
+    (state.isStreaming || state.isWaitingForResponse)
+  ) {
     return { type: 'interrupt-stream' }
   }
 
   // Priority 5: Backspace at position 0 exits non-default mode
-  if (isBackspace && state.cursorPosition === 0 && state.inputMode !== 'default' && state.inputValue.length === 0) {
+  if (
+    isBackspace &&
+    state.cursorPosition === 0 &&
+    state.inputMode !== 'default' &&
+    state.inputValue.length === 0
+  ) {
     return { type: 'backspace-exit-mode' }
   }
 
   // Priority 6: Slash menu navigation (when active and not disabled)
   // Skip menu navigation for Up/Down if history navigation is enabled (user is paging through history)
-  if (state.slashMenuActive && state.slashMatchesLength > 0 && !state.disableSlashSuggestions) {
+  if (
+    state.slashMenuActive &&
+    state.slashMatchesLength > 0 &&
+    !state.disableSlashSuggestions
+  ) {
     if (isDown) {
       // If user is navigating history (historyNavDownEnabled), skip menu navigation entirely
       if (state.historyNavDownEnabled) {
@@ -217,7 +237,13 @@ export function resolveChatKeyboardAction(
 
   // Priority 8: Tab to open file menu (when not in a menu, not shift-tab, and suggestions enabled)
   // This is handled by the hook since it needs to check word at cursor
-  if (isTab && !key.shift && !state.mentionMenuActive && !state.slashMenuActive && !state.disableSlashSuggestions) {
+  if (
+    isTab &&
+    !key.shift &&
+    !state.mentionMenuActive &&
+    !state.slashMenuActive &&
+    !state.disableSlashSuggestions
+  ) {
     return { type: 'open-file-menu-with-tab' }
   }
 
@@ -226,7 +252,17 @@ export function resolveChatKeyboardAction(
     return { type: 'clear-queue' }
   }
 
-  // Priority 10: History navigation (when at edges and enabled)
+  // Priority 10: Bash history navigation (when in bash mode)
+  if (state.inputMode === 'bash') {
+    if (isUp && state.historyNavUpEnabled) {
+      return { type: 'bash-history-up' }
+    }
+    if (isDown && state.historyNavDownEnabled) {
+      return { type: 'bash-history-down' }
+    }
+  }
+
+  // Priority 10.5: Regular history navigation (when at edges and enabled)
   if (isUp && state.historyNavUpEnabled) {
     return { type: 'history-up' }
   }

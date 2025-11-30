@@ -56,6 +56,10 @@ export type ChatKeyboardHandlers = {
   // Exit handlers
   onExitAppWarning: () => void
   onExitApp: () => void
+
+  // Bash history handlers
+  onBashHistoryUp: () => void
+  onBashHistoryDown: () => void
 }
 
 /**
@@ -152,6 +156,12 @@ function dispatchAction(
       return true
     case 'exit-app':
       handlers.onExitApp()
+      return true
+    case 'bash-history-up':
+      handlers.onBashHistoryUp()
+      return true
+    case 'bash-history-down':
+      handlers.onBashHistoryDown()
       return true
     case 'none':
       return false

@@ -3,6 +3,18 @@ import { describe, test, expect, beforeEach } from 'bun:test'
 import contextPruner from '../context-pruner'
 
 import type { Message, ToolMessage } from '../types/util-types'
+const createMessage = (
+  role: 'user' | 'assistant',
+  content: string,
+): Message => ({
+  role,
+  content: [
+    {
+      type: 'text',
+      text: content,
+    },
+  ],
+})
 
 describe('context-pruner handleSteps', () => {
   let mockAgentState: any
@@ -11,14 +23,6 @@ describe('context-pruner handleSteps', () => {
     mockAgentState = {
       messageHistory: [] as Message[],
     }
-  })
-
-  const createMessage = (
-    role: 'user' | 'assistant',
-    content: string,
-  ): Message => ({
-    role,
-    content,
   })
 
   const createTerminalToolMessage = (
@@ -153,8 +157,7 @@ describe('context-pruner handleSteps', () => {
         m.role === 'tool' &&
         m.toolName === 'run_terminal_command' &&
         (m.content?.[0]?.value?.command === 'command-7' ||
-          m.content?.[0]?.value?.message ===
-            '[LARGE_TOOL_RESULT_OMITTED]'),
+          m.content?.[0]?.value?.message === '[LARGE_TOOL_RESULT_OMITTED]'),
     )
     expect(recentTerminalMessage).toBeDefined()
   })
@@ -191,9 +194,7 @@ describe('context-pruner handleSteps', () => {
     const smallResultMessage = resultMessages.find(
       (m: any) => m.role === 'tool' && m.toolName === 'code_search',
     )
-    expect(smallResultMessage?.content?.[0]?.value?.data).toBe(
-      'Small result',
-    )
+    expect(smallResultMessage?.content?.[0]?.value?.data).toBe('Small result')
   })
 
   test('performs message-level pruning when other passes are insufficient', () => {
@@ -299,14 +300,6 @@ describe('context-pruner edge cases', () => {
     }
   })
 
-  const createMessage = (
-    role: 'user' | 'assistant',
-    content: string,
-  ): Message => ({
-    role,
-    content,
-  })
-
   const createTerminalToolMessage = (
     command: string,
     output: string,
@@ -366,8 +359,7 @@ describe('context-pruner edge cases', () => {
 
     // Valid terminal command should be processed correctly
     const validCommand = resultMessages.find(
-      (m: any) =>
-        m.role === 'tool' && m.toolName === 'run_terminal_command',
+      (m: any) => m.role === 'tool' && m.toolName === 'run_terminal_command',
     )
     expect(validCommand).toBeDefined()
   })
@@ -481,8 +473,7 @@ describe('context-pruner edge cases', () => {
     const hasLargeToolResultReplacement = resultMessages.some(
       (m: any) =>
         m.role === 'tool' &&
-        m.content?.[0]?.value?.message ===
-          '[LARGE_TOOL_RESULT_OMITTED]',
+        m.content?.[0]?.value?.message === '[LARGE_TOOL_RESULT_OMITTED]',
     )
     expect(hasLargeToolResultReplacement).toBe(true)
   })
