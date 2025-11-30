@@ -49,6 +49,11 @@ export function buildUserMessageContent(
     const wrappedContent = content.map((part) => {
       if (part.type === 'text' && !hasWrappedText) {
         hasWrappedText = true
+        // Check if already wrapped
+        const alreadyWrapped = parseUserMessage(part.text) !== undefined
+        if (alreadyWrapped) {
+          return part
+        }
         return {
           type: 'text' as const,
           text: asUserMessage(part.text),

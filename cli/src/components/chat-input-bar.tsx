@@ -112,8 +112,8 @@ export const ChatInputBar = ({
   const setInputMode = useChatStore((state) => state.setInputMode)
   const hasPendingImages = useChatStore((state) => state.pendingImages.length > 0)
 
-  const [usageBannerShowTime, setUsageBannerShowTime] = React.useState(
-    () => Date.now(),
+  const [usageBannerShowTime, setUsageBannerShowTime] = React.useState(() =>
+    Date.now(),
   )
 
   React.useEffect(() => {
@@ -124,6 +124,7 @@ export const ChatInputBar = ({
 
   const modeConfig = getInputModeConfig(inputMode)
   const askUserState = useChatStore((state) => state.askUserState)
+  const hasAnyPreview = hasSuggestionMenu
   const updateAskUserAnswer = useChatStore((state) => state.updateAskUserAnswer)
   const updateAskUserOtherText = useChatStore(
     (state) => state.updateAskUserOtherText,
@@ -189,11 +190,16 @@ export const ChatInputBar = ({
 
       if (Array.isArray(answer)) {
         // Multi-select: map array of indices to array of option labels
-        // Empty array means skipped
-        return {
-          questionIndex: idx,
-          selectedOptions:
-            answer.length > 0 ? answer.map(getOptionLabel) : undefined,
+        // Empty array means skipped - omit selectedOptions entirely to avoid undefined in JSON
+        if (answer.length > 0) {
+          return {
+            questionIndex: idx,
+            selectedOptions: answer.map(getOptionLabel),
+          }
+        } else {
+          return {
+            questionIndex: idx,
+          }
         }
       } else if (
         typeof answer === 'number' &&
@@ -274,7 +280,7 @@ export const ChatInputBar = ({
           paddingTop: 0,
           paddingBottom: 0,
           flexDirection: 'column',
-          gap: hasSuggestionMenu ? 1 : 0,
+          gap: hasAnyPreview ? 1 : 0,
         }}
       >
         {hasSlashSuggestions ? (
@@ -330,7 +336,8 @@ export const ChatInputBar = ({
                 onKeyIntercept={(key) => {
                   // Intercept navigation keys when suggestion menu is active
                   // The useChatKeyboard hook will handle menu selection/navigation
-                  const hasSuggestions = hasSlashSuggestions || hasMentionSuggestions
+                  const hasSuggestions =
+                    hasSlashSuggestions || hasMentionSuggestions
                   if (!hasSuggestions) return false
 
                   const isPlainEnter =

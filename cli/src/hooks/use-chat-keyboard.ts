@@ -57,6 +57,10 @@ export type ChatKeyboardHandlers = {
   onExitAppWarning: () => void
   onExitApp: () => void
 
+  // Bash history handlers
+  onBashHistoryUp: () => void
+  onBashHistoryDown: () => void
+
   // Clipboard handlers
   onPasteImage: () => boolean // Returns true if an image was pasted
 }
@@ -155,6 +159,12 @@ function dispatchAction(
       return true
     case 'exit-app':
       handlers.onExitApp()
+      return true
+    case 'bash-history-up':
+      handlers.onBashHistoryUp()
+      return true
+    case 'bash-history-down':
+      handlers.onBashHistoryDown()
       return true
     case 'paste-image':
       return handlers.onPasteImage()

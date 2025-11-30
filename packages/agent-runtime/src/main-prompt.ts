@@ -200,6 +200,12 @@ export async function callMainPrompt(
   action.sessionState.mainAgentState.creditsUsed = 0
   action.sessionState.mainAgentState.directCreditsUsed = 0
 
+  // Add any extra tool results (e.g. from user-executed terminal commands) to message history
+  // This allows the AI to see context from commands run between prompts
+  if (action.toolResults && action.toolResults.length > 0) {
+    action.sessionState.mainAgentState.messageHistory.push(...action.toolResults)
+  }
+
   // Assemble local agent templates from fileContext
   const { agentTemplates: localAgentTemplates, validationErrors } =
     assembleLocalAgentTemplates({ fileContext, logger })

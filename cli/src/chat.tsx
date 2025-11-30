@@ -10,12 +10,13 @@ import {
 } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { routeUserPrompt } from './commands/router'
+import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
 import { AnnouncementBanner } from './components/announcement-banner'
 import { hasClipboardImage, readClipboardImage } from './utils/clipboard-image'
 import { showClipboardMessage } from './utils/clipboard'
 import { ChatInputBar } from './components/chat-input-bar'
 import { MessageWithAgents } from './components/message-with-agents'
+import { PendingBashMessage } from './components/pending-bash-message'
 import { StatusBar } from './components/status-bar'
 import { SLASH_COMMANDS } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
@@ -29,8 +30,14 @@ import { useElapsedTime } from './hooks/use-elapsed-time'
 import { useEvent } from './hooks/use-event'
 import { useExitHandler } from './hooks/use-exit-handler'
 import { useInputHistory } from './hooks/use-input-history'
-import { useChatKeyboard, type ChatKeyboardHandlers } from './hooks/use-chat-keyboard'
-import { type ChatKeyboardState, createDefaultChatKeyboardState } from './utils/keyboard-actions'
+import {
+  useChatKeyboard,
+  type ChatKeyboardHandlers,
+} from './hooks/use-chat-keyboard'
+import {
+  type ChatKeyboardState,
+  createDefaultChatKeyboardState,
+} from './utils/keyboard-actions'
 import { useMessageQueue, type QueuedMessage } from './hooks/use-message-queue'
 import { useQueueControls } from './hooks/use-queue-controls'
 import { useQueueUi } from './hooks/use-queue-ui'
@@ -195,6 +202,7 @@ export const Chat = ({
       isRetrying: store.isRetrying,
     })),
   )
+  const pendingBashMessages = useChatStore((state) => state.pendingBashMessages)
 
   // Memoize toggle IDs extraction - only recompute when messages change
   const allToggleIds = useMemo(() => {
@@ -519,6 +527,7 @@ export const Chat = ({
   const { saveToHistory, navigateUp, navigateDown } = useInputHistory(
     inputValue,
     setInputValue,
+    { inputMode, setInputMode },
   )
 
   const {
@@ -576,6 +585,41 @@ export const Chat = ({
   // Derive boolean flags from streamStatus for convenience
   const isWaitingForResponse = streamStatus === 'waiting'
   const isStreaming = streamStatus !== 'idle'
+
+  // When streaming completes, flush any pending bash commands into history
+  useEffect(() => {
+    if (
+      !isStreaming &&
+      !streamMessageIdRef.current &&
+      !isChainInProgressRef.current &&
+      pendingBashMessages.length > 0
+    ) {
+      // Collect completed messages to flush
+      const completedMessages = pendingBashMessages.filter(
+        (msg) => !msg.isRunning,
+      )
+      if (completedMessages.length === 0) return
+
+      // Batch: add all to history, then clear all completed
+      for (const msg of completedMessages) {
+        addBashMessageToHistory({
+          command: msg.command,
+          stdout: msg.stdout,
+          stderr: msg.stderr ?? null,
+          exitCode: msg.exitCode,
+          cwd: msg.cwd || process.cwd(),
+          setMessages,
+        })
+      }
+      // Batch remove all completed messages at once
+      const completedIds = new Set(completedMessages.map((m) => m.id))
+      useChatStore.setState((state) => ({
+        pendingBashMessages: state.pendingBashMessages.filter(
+          (m) => !completedIds.has(m.id),
+        ),
+      }))
+    }
+  }, [isStreaming, pendingBashMessages, setMessages])
 
   // Timer events are currently tracked but not used for UI updates
   // Future: Could be used for analytics or debugging
@@ -808,196 +852,220 @@ export const Chat = ({
         (!slashContext.active && !mentionContext.active)))
 
   // Build keyboard state from store values
-  const chatKeyboardState: ChatKeyboardState = useMemo(() => ({
-    ...createDefaultChatKeyboardState(),
-    inputMode,
-    inputValue,
-    cursorPosition,
-    isStreaming,
-    isWaitingForResponse,
-    feedbackMode,
-    focusedAgentId,
-    slashMenuActive: slashContext.active,
-    mentionMenuActive: mentionContext.active,
-    slashSelectedIndex,
-    agentSelectedIndex,
-    slashMatchesLength: slashMatches.length,
-    totalMentionMatches: agentMatches.length + fileMatches.length,
-    disableSlashSuggestions: getInputModeConfig(inputMode).disableSlashSuggestions,
-    historyNavUpEnabled,
-    historyNavDownEnabled,
-    nextCtrlCWillExit,
-    queuePaused,
-    queuedCount,
-  }), [
-    inputMode,
-    inputValue,
-    cursorPosition,
-    isStreaming,
-    isWaitingForResponse,
-    feedbackMode,
-    focusedAgentId,
-    slashContext.active,
-    mentionContext.active,
-    slashSelectedIndex,
-    agentSelectedIndex,
-    slashMatches.length,
-    agentMatches.length,
-    fileMatches.length,
-    historyNavUpEnabled,
-    historyNavDownEnabled,
-    nextCtrlCWillExit,
-    queuePaused,
-    queuedCount,
-  ])
+  const chatKeyboardState: ChatKeyboardState = useMemo(
+    () => ({
+      ...createDefaultChatKeyboardState(),
+      inputMode,
+      inputValue,
+      cursorPosition,
+      isStreaming,
+      isWaitingForResponse,
+      feedbackMode,
+      focusedAgentId,
+      slashMenuActive: slashContext.active,
+      mentionMenuActive: mentionContext.active,
+      slashSelectedIndex,
+      agentSelectedIndex,
+      slashMatchesLength: slashMatches.length,
+      totalMentionMatches: agentMatches.length + fileMatches.length,
+      disableSlashSuggestions:
+        getInputModeConfig(inputMode).disableSlashSuggestions,
+      historyNavUpEnabled,
+      historyNavDownEnabled,
+      nextCtrlCWillExit,
+      queuePaused,
+      queuedCount,
+    }),
+    [
+      inputMode,
+      inputValue,
+      cursorPosition,
+      isStreaming,
+      isWaitingForResponse,
+      feedbackMode,
+      focusedAgentId,
+      slashContext.active,
+      mentionContext.active,
+      slashSelectedIndex,
+      agentSelectedIndex,
+      slashMatches.length,
+      agentMatches.length,
+      fileMatches.length,
+      historyNavUpEnabled,
+      historyNavDownEnabled,
+      nextCtrlCWillExit,
+      queuePaused,
+      queuedCount,
+    ],
+  )
 
   // Keyboard handlers
-  const chatKeyboardHandlers: ChatKeyboardHandlers = useMemo(() => ({
-    onExitInputMode: () => setInputMode('default'),
-    onExitFeedbackMode: handleCloseFeedback,
-    onClearFeedbackInput: () => {
-      setFeedbackText('')
-      useFeedbackStore.getState().setFeedbackCursor(0)
-      useFeedbackStore.getState().setFeedbackCategory('other')
-    },
-    onClearInput: () => setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false }),
-    onBackspaceExitMode: () => setInputMode('default'),
-    onInterruptStream: () => {
-      abortControllerRef.current?.abort()
-      if (queuedMessages.length > 0) {
-        pauseQueue()
-      }
-    },
-    onSlashMenuDown: () => setSlashSelectedIndex((prev) => prev + 1),
-    onSlashMenuUp: () => setSlashSelectedIndex((prev) => prev - 1),
-    onSlashMenuTab: () => setSlashSelectedIndex((prev) => (prev + 1) % slashMatches.length),
-    onSlashMenuShiftTab: () => setSlashSelectedIndex((prev) => (slashMatches.length + prev - 1) % slashMatches.length),
-    onSlashMenuSelect: () => {
-      const selected = slashMatches[slashSelectedIndex] || slashMatches[0]
-      if (!selected || slashContext.startIndex < 0) return
-      const before = inputValue.slice(0, slashContext.startIndex)
-      const after = inputValue.slice(slashContext.startIndex + 1 + slashContext.query.length)
-      const replacement = `/${selected.id} `
-      setInputValue({
-        text: before + replacement + after,
-        cursorPosition: before.length + replacement.length,
-        lastEditDueToNav: false,
-      })
-      setSlashSelectedIndex(0)
-    },
-    onMentionMenuDown: () => setAgentSelectedIndex((prev) => prev + 1),
-    onMentionMenuUp: () => setAgentSelectedIndex((prev) => prev - 1),
-    onMentionMenuTab: () => {
-      const totalMatches = agentMatches.length + fileMatches.length
-      setAgentSelectedIndex((prev) => (prev + 1) % totalMatches)
-    },
-    onMentionMenuShiftTab: () => {
-      const totalMatches = agentMatches.length + fileMatches.length
-      setAgentSelectedIndex((prev) => (totalMatches + prev - 1) % totalMatches)
-    },
-    onMentionMenuSelect: () => {
-      if (mentionContext.startIndex < 0) return
-
-      const trySelectAtIndex = (index: number): boolean => {
-        let replacement: string
-        if (index < agentMatches.length) {
-          const selected = agentMatches[index]
-          if (!selected) return false
-          replacement = `@${selected.displayName} `
-        } else {
-          const fileIndex = index - agentMatches.length
-          const selectedFile = fileMatches[fileIndex]
-          if (!selectedFile) return false
-          replacement = `@${selectedFile.filePath} `
+  const chatKeyboardHandlers: ChatKeyboardHandlers = useMemo(
+    () => ({
+      onExitInputMode: () => setInputMode('default'),
+      onExitFeedbackMode: handleCloseFeedback,
+      onClearFeedbackInput: () => {
+        setFeedbackText('')
+        useFeedbackStore.getState().setFeedbackCursor(0)
+        useFeedbackStore.getState().setFeedbackCategory('other')
+      },
+      onClearInput: () =>
+        setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false }),
+      onBackspaceExitMode: () => setInputMode('default'),
+      onInterruptStream: () => {
+        abortControllerRef.current?.abort()
+        if (queuedMessages.length > 0) {
+          pauseQueue()
         }
-        const before = inputValue.slice(0, mentionContext.startIndex)
-        const after = inputValue.slice(mentionContext.startIndex + 1 + mentionContext.query.length)
+      },
+      onSlashMenuDown: () => setSlashSelectedIndex((prev) => prev + 1),
+      onSlashMenuUp: () => setSlashSelectedIndex((prev) => prev - 1),
+      onSlashMenuTab: () =>
+        setSlashSelectedIndex((prev) => (prev + 1) % slashMatches.length),
+      onSlashMenuShiftTab: () =>
+        setSlashSelectedIndex(
+          (prev) => (slashMatches.length + prev - 1) % slashMatches.length,
+        ),
+      onSlashMenuSelect: () => {
+        const selected = slashMatches[slashSelectedIndex] || slashMatches[0]
+        if (!selected || slashContext.startIndex < 0) return
+        const before = inputValue.slice(0, slashContext.startIndex)
+        const after = inputValue.slice(
+          slashContext.startIndex + 1 + slashContext.query.length,
+        )
+        const replacement = `/${selected.id} `
         setInputValue({
           text: before + replacement + after,
           cursorPosition: before.length + replacement.length,
           lastEditDueToNav: false,
         })
-        setAgentSelectedIndex(0)
-        return true
-      }
+        setSlashSelectedIndex(0)
+      },
+      onMentionMenuDown: () => setAgentSelectedIndex((prev) => prev + 1),
+      onMentionMenuUp: () => setAgentSelectedIndex((prev) => prev - 1),
+      onMentionMenuTab: () => {
+        const totalMatches = agentMatches.length + fileMatches.length
+        setAgentSelectedIndex((prev) => (prev + 1) % totalMatches)
+      },
+      onMentionMenuShiftTab: () => {
+        const totalMatches = agentMatches.length + fileMatches.length
+        setAgentSelectedIndex(
+          (prev) => (totalMatches + prev - 1) % totalMatches,
+        )
+      },
+      onMentionMenuSelect: () => {
+        if (mentionContext.startIndex < 0) return
 
-      // Try current selection, fall back to first item
-      trySelectAtIndex(agentSelectedIndex) || trySelectAtIndex(0)
-    },
-    onOpenFileMenuWithTab: () => {
-      const safeCursor = Math.max(0, Math.min(cursorPosition, inputValue.length))
-      let wordStart = safeCursor
-      while (wordStart > 0 && !/\s/.test(inputValue[wordStart - 1]!)) {
-        wordStart--
-      }
-      if (wordStart < safeCursor) {
-        openFileMenuWithTab()
-        return true
-      }
-      return false
-    },
-    onHistoryUp: navigateUp,
-    onHistoryDown: navigateDown,
-    onToggleAgentMode: toggleAgentMode,
-    onUnfocusAgent: () => {
-      setFocusedAgentId(null)
-      setInputFocused(true)
-      inputRef.current?.focus()
-    },
-    onClearQueue: clearQueue,
-    onExitAppWarning: () => handleCtrlC(),
-    onExitApp: () => handleCtrlC(),
-    onPasteImage: () => {
-      // Check if clipboard has an image
-      if (!hasClipboardImage()) {
-        // No image in clipboard, let normal paste happen
+        const trySelectAtIndex = (index: number): boolean => {
+          let replacement: string
+          if (index < agentMatches.length) {
+            const selected = agentMatches[index]
+            if (!selected) return false
+            replacement = `@${selected.displayName} `
+          } else {
+            const fileIndex = index - agentMatches.length
+            const selectedFile = fileMatches[fileIndex]
+            if (!selectedFile) return false
+            replacement = `@${selectedFile.filePath} `
+          }
+          const before = inputValue.slice(0, mentionContext.startIndex)
+          const after = inputValue.slice(
+            mentionContext.startIndex + 1 + mentionContext.query.length,
+          )
+          setInputValue({
+            text: before + replacement + after,
+            cursorPosition: before.length + replacement.length,
+            lastEditDueToNav: false,
+          })
+          setAgentSelectedIndex(0)
+          return true
+        }
+
+        // Try current selection, fall back to first item
+        trySelectAtIndex(agentSelectedIndex) || trySelectAtIndex(0)
+      },
+      onOpenFileMenuWithTab: () => {
+        const safeCursor = Math.max(
+          0,
+          Math.min(cursorPosition, inputValue.length),
+        )
+        let wordStart = safeCursor
+        while (wordStart > 0 && !/\s/.test(inputValue[wordStart - 1]!)) {
+          wordStart--
+        }
+        if (wordStart < safeCursor) {
+          openFileMenuWithTab()
+          return true
+        }
         return false
-      }
-      
-      // Read image from clipboard
-      const result = readClipboardImage()
-      if (!result.success || !result.imagePath || !result.filename) {
-        showClipboardMessage(result.error || 'Failed to paste image', { durationMs: 3000 })
-        return true // We handled it (with an error), don't let default paste happen
-      }
-      
-      // Add to pending images
-      useChatStore.getState().addPendingImage({
-        path: result.imagePath,
-        filename: result.filename,
-      })
-      return true // Image was pasted successfully
-    },
-  }), [
-    setInputMode,
-    handleCloseFeedback,
-    setFeedbackText,
-    setInputValue,
-    abortControllerRef,
-    queuedMessages.length,
-    pauseQueue,
-    setSlashSelectedIndex,
-    slashMatches,
-    slashSelectedIndex,
-    slashContext,
-    inputValue,
-    setAgentSelectedIndex,
-    agentMatches,
-    fileMatches,
-    agentSelectedIndex,
-    mentionContext,
-    cursorPosition,
-    openFileMenuWithTab,
-    saveCurrentInput,
-    navigateUp,
-    navigateDown,
-    toggleAgentMode,
-    setFocusedAgentId,
-    setInputFocused,
-    inputRef,
-    handleCtrlC,
-    clearQueue,
-  ])
+      },
+      onHistoryUp: navigateUp,
+      onHistoryDown: navigateDown,
+      onToggleAgentMode: toggleAgentMode,
+      onUnfocusAgent: () => {
+        setFocusedAgentId(null)
+        setInputFocused(true)
+        inputRef.current?.focus()
+      },
+      onClearQueue: clearQueue,
+      onExitAppWarning: () => handleCtrlC(),
+      onExitApp: () => handleCtrlC(),
+      onBashHistoryUp: navigateUp,
+      onBashHistoryDown: navigateDown,
+      onPasteImage: () => {
+        // Check if clipboard has an image
+        if (!hasClipboardImage()) {
+          // No image in clipboard, let normal paste happen
+          return false
+        }
+
+        // Read image from clipboard
+        const result = readClipboardImage()
+        if (!result.success || !result.imagePath || !result.filename) {
+          showClipboardMessage(result.error || 'Failed to paste image', {
+            durationMs: 3000,
+          })
+          return true // We handled it (with an error), don't let default paste happen
+        }
+
+        // Add to pending images
+        useChatStore.getState().addPendingImage({
+          path: result.imagePath,
+          filename: result.filename,
+        })
+        return true // Image was pasted successfully
+      },
+    }),
+    [
+      setInputMode,
+      handleCloseFeedback,
+      setFeedbackText,
+      setInputValue,
+      abortControllerRef,
+      queuedMessages.length,
+      pauseQueue,
+      setSlashSelectedIndex,
+      slashMatches,
+      slashSelectedIndex,
+      slashContext,
+      inputValue,
+      setAgentSelectedIndex,
+      agentMatches,
+      fileMatches,
+      agentSelectedIndex,
+      mentionContext,
+      cursorPosition,
+      openFileMenuWithTab,
+      navigateUp,
+      navigateDown,
+      toggleAgentMode,
+      setFocusedAgentId,
+      setInputFocused,
+      inputRef,
+      handleCtrlC,
+      clearQueue,
+    ],
+  )
 
   // Use the chat keyboard hook
   useChatKeyboard({
@@ -1151,6 +1219,14 @@ export const Chat = ({
             />
           )
         })}
+        {/* Pending bash messages as ghost messages */}
+        {pendingBashMessages.map((msg) => (
+          <PendingBashMessage
+            key={`pending-bash-${msg.id}`}
+            message={msg}
+            width={separatorWidth - 4}
+          />
+        ))}
       </scrollbox>
 
       <box
