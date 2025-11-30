@@ -28,6 +28,7 @@ export const handleSetOutput = (async (params: {
 }): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
   const { previousToolCallFinished, toolCall, agentState, logger } = params
   const output = toolCall.input
+  let { data } = output ?? {}
 
   await previousToolCallFinished
 
@@ -42,23 +43,29 @@ export const handleSetOutput = (async (params: {
   if (agentTemplate?.outputSchema) {
     try {
       agentTemplate.outputSchema.parse(output)
+      data = output
     } catch (error) {
-      const errorMessage = `Output validation error: Output failed to match the output schema and was ignored. You might want to try again! Issues: ${error}`
-      logger.error(
-        {
-          output,
-          agentType: agentState.agentType,
-          agentId: agentState.agentId,
-          error,
-        },
-        'set_output validation error',
-      )
-      return { output: jsonToolResult({ message: errorMessage }) }
+      try {
+        // Fallback to the 'data' field if the whole output object is not valid
+        agentTemplate.outputSchema.parse(data)
+      } catch (error2) {
+        const errorMessage = `Output validation error: Output failed to match the output schema and was ignored. You might want to try again! Issues: ${error}`
+        logger.error(
+          {
+            output,
+            agentType: agentState.agentType,
+            agentId: agentState.agentId,
+            error,
+          },
+          'set_output validation error',
+        )
+        return { output: jsonToolResult({ message: errorMessage }) }
+      }
     }
   }
 
   // Set the output (completely replaces previous output)
-  agentState.output = output
+  agentState.output = data
 
   return { output: jsonToolResult({ message: 'Output set' }) }
 }) satisfies CodebuffToolHandlerFunction<ToolName>
