@@ -62,11 +62,7 @@ export const ImageThumbnail = memo(({
     }
   }, [imagePath, width, height])
 
-  if (isLoading) {
-    return <>{fallback}</>
-  }
-
-  if (error || !thumbnailData) {
+  if (isLoading || error || !thumbnailData) {
     return <>{fallback}</>
   }
 
