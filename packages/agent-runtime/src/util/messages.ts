@@ -36,6 +36,7 @@ export function asUserMessage(str: string): string {
 /**
  * Combines prompt, params, and content into a unified message content structure.
  * Always wraps the first text part in <user_message> tags for consistent XML framing.
+ * If you need a specific text part wrapped, put it first or pre-wrap it yourself before calling.
  */
 export function buildUserMessageContent(
   prompt: string | undefined,

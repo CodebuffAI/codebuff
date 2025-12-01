@@ -66,7 +66,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
   image: {
     icon: '📎',
     color: 'info',
-    placeholder: 'enter image path (e.g. ./screenshot.png)',
+    placeholder: 'enter image path or Ctrl+V to paste',
     widthAdjustment: 3, // emoji width + padding
     showAgentModeToggle: false,
     disableSlashSuggestions: true,
