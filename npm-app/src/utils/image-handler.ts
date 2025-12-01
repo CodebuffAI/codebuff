@@ -30,14 +30,15 @@ const SUPPORTED_IMAGE_EXTENSIONS = new Set([
   '.tif',
 ])
 
-// Size limits - balanced to prevent message truncation while allowing reasonable images
-const MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB - allow larger files for compression
+// Size limits - research shows Claude/GPT-4V support up to 20MB, but we use practical limits
+// for good performance and token efficiency
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB - allow larger files since we can compress
 const MAX_TOTAL_SIZE = 5 * 1024 * 1024 // 5MB total
-const MAX_BASE64_SIZE = 150 * 1024 // 150KB max for base64 (backend limit ~760KB, so safe margin)
+const MAX_BASE64_SIZE = 1 * 1024 * 1024 // 1MB max for base64 after compression
 
 // Compression settings for iterative compression
-const COMPRESSION_QUALITIES = [80, 60, 40, 20] // JPEG quality levels to try
-const DIMENSION_LIMITS = [800, 600, 400, 300] // Max dimensions to try
+const COMPRESSION_QUALITIES = [85, 70, 50, 30] // JPEG quality levels to try
+const DIMENSION_LIMITS = [1500, 1200, 800, 600] // Max dimensions to try (1500px recommended by Anthropic)
 
 function normalizeUserProvidedPath(filePath: string): string {
   let normalized = filePath

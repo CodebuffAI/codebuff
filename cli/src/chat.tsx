@@ -13,6 +13,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
 import { AnnouncementBanner } from './components/announcement-banner'
 import { hasClipboardImage, readClipboardImage } from './utils/clipboard-image'
+import { getImageProcessingNote } from './utils/image-handler'
 import { showClipboardMessage } from './utils/clipboard'
 import { ChatInputBar } from './components/chat-input-bar'
 import { MessageWithAgents } from './components/message-with-agents'
@@ -1028,11 +1029,17 @@ export const Chat = ({
           return true // We handled it (with an error), don't let default paste happen
         }
 
-        // Add to pending images
-        useChatStore.getState().addPendingImage({
-          path: result.imagePath,
-          filename: result.filename,
-        })
+        const imagePath = result.imagePath
+        if (!imagePath) return true
+        
+        // Process and add image (handles compression and caching)
+        void (async () => {
+          const { addPendingImageFromFile } = await import('./utils/add-pending-image')
+          const { getProjectRoot } = await import('./project-files')
+          const cwd = getProjectRoot() ?? process.cwd()
+          await addPendingImageFromFile(imagePath, cwd)
+        })()
+
         return true // Image was pasted successfully
       },
     }),

@@ -2,6 +2,8 @@ import { readFileSync, statSync } from 'fs'
 import { homedir } from 'os'
 import path from 'path'
 
+import { Jimp } from 'jimp'
+
 import { logger } from './logger'
 
 export interface ImageUploadResult {
@@ -14,6 +16,28 @@ export interface ImageUploadResult {
     size?: number
   }
   error?: string
+  wasCompressed?: boolean
+}
+
+/**
+ * Validates total size of multiple images
+ */
+export function validateTotalImageSize(imageParts: Array<{ size?: number }>): {
+  valid: boolean
+  error?: string
+} {
+  const totalSize = imageParts.reduce((sum, part) => sum + (part.size || 0), 0)
+
+  if (totalSize > MAX_TOTAL_SIZE) {
+    const totalMB = (totalSize / (1024 * 1024)).toFixed(1)
+    const maxMB = (MAX_TOTAL_SIZE / (1024 * 1024)).toFixed(1)
+    return {
+      valid: false,
+      error: `Total image size too large: ${totalMB}MB (max ${maxMB}MB)`,
+    }
+  }
+
+  return { valid: true }
 }
 
 // Supported image formats
@@ -28,9 +52,15 @@ export const SUPPORTED_IMAGE_EXTENSIONS = new Set([
   '.tif',
 ])
 
-// Size limits - balanced to prevent message truncation while allowing reasonable images
-const MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB - allow larger files for compression
-const MAX_BASE64_SIZE = 150 * 1024 // 150KB max for base64 (backend limit ~760KB, so safe margin)
+// Size limits - research shows Claude/GPT-4V support up to 20MB, but we use practical limits
+// for good performance and token efficiency
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB - allow larger files since we can compress
+const MAX_BASE64_SIZE = 1 * 1024 * 1024 // 1MB max for base64 after compression
+const MAX_TOTAL_SIZE = 5 * 1024 * 1024 // 5MB total for multiple images
+
+// Compression settings for iterative compression
+const COMPRESSION_QUALITIES = [85, 70, 50, 30] // JPEG quality levels to try
+const DIMENSION_LIMITS = [1500, 1200, 800, 600] // Max dimensions to try (1500px recommended by Anthropic)
 
 /**
  * Normalizes a user-provided file path by handling escape sequences.
@@ -105,11 +135,12 @@ export function resolveFilePath(filePath: string, cwd: string): string {
 
 /**
  * Processes an image file and converts it to base64 for upload
+ * Includes automatic downsampling for large images
  */
-export function processImageFile(
+export async function processImageFile(
   filePath: string,
   cwd: string,
-): ImageUploadResult {
+): Promise<ImageUploadResult> {
   try {
     const resolvedPath = resolveFilePath(filePath, cwd)
 
@@ -184,25 +215,141 @@ export function processImageFile(
       }
     }
 
-    // Convert to base64
-    const base64Data = fileBuffer.toString('base64')
-    const base64Size = base64Data.length
+    // Convert to base64 and check if compression is needed
+    let processedBuffer = fileBuffer
+    let finalMediaType = mediaType
+    let wasCompressed = false
+    let base64Data = fileBuffer.toString('base64')
+    let base64Size = base64Data.length
 
-    // Check if base64 is too large
+    // If base64 is too large, try to compress the image
     if (base64Size > MAX_BASE64_SIZE) {
-      const sizeKB = (base64Size / 1024).toFixed(1)
-      const maxKB = (MAX_BASE64_SIZE / 1024).toFixed(1)
-      return {
-        success: false,
-        error: `Image base64 too large: ${sizeKB}KB (max ${maxKB}KB). Please use a smaller image file.`,
+      try {
+        const image = await Jimp.read(fileBuffer)
+        const originalWidth = image.bitmap.width
+        const originalHeight = image.bitmap.height
+
+        let bestBase64Size = base64Size
+        let compressionAttempts: Array<{
+          dimensions: string
+          quality: number
+          size: number
+          base64Size: number
+        }> = []
+
+        // Try different combinations of dimensions and quality
+        for (const maxDimension of DIMENSION_LIMITS) {
+          for (const quality of COMPRESSION_QUALITIES) {
+            try {
+              // Create a fresh copy for this attempt
+              const testImage = await Jimp.read(fileBuffer)
+
+              // Resize if needed
+              if (originalWidth > maxDimension || originalHeight > maxDimension) {
+                if (originalWidth > originalHeight) {
+                  testImage.resize({ w: maxDimension })
+                } else {
+                  testImage.resize({ h: maxDimension })
+                }
+              }
+
+              // Compress with current quality
+              const testBuffer = await testImage.getBuffer('image/jpeg', { quality })
+              const testBase64 = testBuffer.toString('base64')
+              const testBase64Size = testBase64.length
+
+              compressionAttempts.push({
+                dimensions: `${testImage.bitmap.width}x${testImage.bitmap.height}`,
+                quality,
+                size: testBuffer.length,
+                base64Size: testBase64Size,
+              })
+
+              // If this attempt fits, use it and stop
+              if (testBase64Size <= MAX_BASE64_SIZE) {
+                processedBuffer = testBuffer
+                base64Data = testBase64
+                base64Size = testBase64Size
+                finalMediaType = 'image/jpeg'
+                wasCompressed = true
+
+                logger.debug(
+                  {
+                    originalSize: fileBuffer.length,
+                    finalSize: testBuffer.length,
+                    originalBase64Size: fileBuffer.toString('base64').length,
+                    finalBase64Size: testBase64Size,
+                    compressionRatio:
+                      (((fileBuffer.length - testBuffer.length) / fileBuffer.length) * 100).toFixed(1) + '%',
+                    finalDimensions: `${testImage.bitmap.width}x${testImage.bitmap.height}`,
+                    quality,
+                    attempts: compressionAttempts.length,
+                  },
+                  'Image handler: Successful compression found',
+                )
+
+                break
+              }
+
+              // Keep track of the best attempt so far
+              if (testBase64Size < bestBase64Size) {
+                bestBase64Size = testBase64Size
+              }
+            } catch (attemptError) {
+              logger.error(
+                {
+                  maxDimension,
+                  quality,
+                  error: attemptError instanceof Error ? attemptError.message : String(attemptError),
+                },
+                'Image handler: Compression attempt failed',
+              )
+            }
+          }
+
+          // If we found a solution, break out of dimension loop too
+          if (base64Size <= MAX_BASE64_SIZE) {
+            break
+          }
+        }
+
+        // If no attempt succeeded, provide detailed error with best attempt
+        if (base64Size > MAX_BASE64_SIZE) {
+          const bestSizeKB = (bestBase64Size / 1024).toFixed(1)
+          const maxKB = (MAX_BASE64_SIZE / 1024).toFixed(1)
+          const originalKB = (fileBuffer.toString('base64').length / 1024).toFixed(1)
+
+          return {
+            success: false,
+            error: `Image too large even after ${compressionAttempts.length} compression attempts. Original: ${originalKB}KB, best compressed: ${bestSizeKB}KB (max ${maxKB}KB). Try using a much smaller image or cropping it.`,
+          }
+        }
+      } catch (compressionError) {
+        logger.error(
+          {
+            error: compressionError instanceof Error ? compressionError.message : String(compressionError),
+          },
+          'Image handler: Compression failed, checking if original fits',
+        )
+
+        // If compression fails, fall back to original and check size
+        if (base64Size > MAX_BASE64_SIZE) {
+          const sizeKB = (base64Size / 1024).toFixed(1)
+          const maxKB = (MAX_BASE64_SIZE / 1024).toFixed(1)
+          return {
+            success: false,
+            error: `Image base64 too large: ${sizeKB}KB (max ${maxKB}KB) and compression failed. Please use a smaller image file.`,
+          }
+        }
       }
     }
 
     logger.debug(
       {
         resolvedPath,
-        finalSize: fileBuffer.length,
+        finalSize: processedBuffer.length,
         base64Length: base64Size,
+        wasCompressed,
       },
       'Image handler: Final base64 conversion complete',
     )
@@ -212,16 +359,40 @@ export function processImageFile(
       imagePart: {
         type: 'image' as const,
         image: base64Data,
-        mediaType,
+        mediaType: finalMediaType,
         filename: path.basename(resolvedPath),
-        size: fileBuffer.length,
+        size: processedBuffer.length,
       },
+      wasCompressed,
     }
   } catch (error) {
     return {
       success: false,
       error: `Error processing image: ${error instanceof Error ? error.message : String(error)}`,
     }
+  }
+}
+
+/**
+ * Process an image eagerly and return a note about compression.
+ * Used when adding images to pending to show compression info in the UI.
+ */
+export async function getImageProcessingNote(
+  imagePath: string,
+): Promise<string | undefined> {
+  try {
+    const result = await processImageFile(imagePath, process.cwd())
+    if (!result.success) {
+      // Return a short error note
+      return result.error ? `(error)` : undefined
+    }
+    if (result.wasCompressed && result.imagePart?.size) {
+      const sizeKB = Math.round(result.imagePart.size / 1024)
+      return `(compressed to ${sizeKB}KB)`
+    }
+    return undefined
+  } catch {
+    return undefined
   }
 }
 

@@ -18,7 +18,7 @@ import {
 } from './router-utils'
 import { getProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
-import { isImageFile, resolveFilePath } from '../utils/image-handler'
+import { isImageFile, resolveFilePath, getImageProcessingNote } from '../utils/image-handler'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 
 import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
@@ -353,25 +353,22 @@ export async function routeUserPrompt(
 
     if (!isImageFile(resolvedPath)) {
       const ext = path.extname(imagePath).toLowerCase()
-      setMessages((prev) => [
-        ...prev,
-        getUserMessage(trimmed),
-        getSystemMessage(
-          `❌ Unsupported image format: ${ext}\nSupported: .jpg, .jpeg, .png, .webp, .gif, .bmp, .tiff`,
-        ),
-      ])
+      const filename = path.basename(resolvedPath)
+      // Add to pending images with unsupported format error
+      useChatStore.getState().addPendingImage({
+        path: resolvedPath,
+        filename,
+        note: `unsupported format ${ext}`,
+      })
       saveToHistory(trimmed)
       setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
       setInputMode('default')
       return
     }
 
-    // Add to pending images - use resolvedPath so processing doesn't fail
-    const filename = path.basename(resolvedPath)
-    useChatStore.getState().addPendingImage({
-      path: resolvedPath,
-      filename,
-    })
+    // Process and add image (handles compression and caching)
+    const { addPendingImageFromFile } = await import('../utils/add-pending-image')
+    await addPendingImageFromFile(resolvedPath, getProjectRoot())
 
     // Note: No system message added here - the PendingImagesBanner shows attached images
     saveToHistory(trimmed)

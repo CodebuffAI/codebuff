@@ -53,6 +53,7 @@ const truncateFilename = (filename: string): string => {
 export interface ImageCardImage {
   path: string
   filename: string
+  note?: string  // Status: "processing…" | "compressed" | error message
 }
 
 interface ImageCardProps {
@@ -129,7 +130,9 @@ export const ImageCard = ({
             alignItems: 'center',
           }}
         >
-          {thumbnailSequence ? (
+          {image.note === 'processing…' ? (
+            <text style={{ fg: theme.muted }}>⏳</text>
+          ) : thumbnailSequence ? (
             <text>{thumbnailSequence}</text>
           ) : (
             <ImageThumbnail
@@ -146,6 +149,7 @@ export const ImageCard = ({
           style={{
             paddingLeft: 1,
             paddingRight: 1,
+            flexDirection: 'column',
           }}
         >
           <text
@@ -156,6 +160,16 @@ export const ImageCard = ({
           >
             {truncatedName}
           </text>
+          {image.note && (
+            <text
+              style={{
+                fg: theme.muted,
+                wrapMode: 'none',
+              }}
+            >
+              {image.note}
+            </text>
+          )}
         </box>
       </box>
 

@@ -7,6 +7,7 @@ import { getSystemMessage } from '../utils/message-history'
 import {
   SUPPORTED_IMAGE_EXTENSIONS,
   isImageFile,
+  getImageProcessingNote,
 } from '../utils/image-handler'
 
 import type { PostUserMessageFn } from '../types/contracts/send-message'
@@ -16,10 +17,10 @@ import type { PostUserMessageFn } from '../types/contracts/send-message'
  * Usage: /image <path> [message]
  * Example: /image ./screenshot.png please analyze this
  */
-export function handleImageCommand(args: string): {
+export async function handleImageCommand(args: string): Promise<{
   postUserMessage: PostUserMessageFn
   transformedPrompt?: string
-} {
+}> {
   const trimmedArgs = args.trim()
 
   if (!trimmedArgs) {
@@ -78,21 +79,20 @@ export function handleImageCommand(args: string): {
   // Check if it's a supported image format
   if (!isImageFile(imagePath)) {
     const ext = path.extname(imagePath).toLowerCase()
-    const postUserMessage: PostUserMessageFn = (prev) => [
-      ...prev,
-      getSystemMessage(
-        `❌ Unsupported image format: ${ext}\n` +
-          `Supported formats: ${Array.from(SUPPORTED_IMAGE_EXTENSIONS).join(', ')}`,
-      ),
-    ]
+    const filename = path.basename(resolvedPath)
+    // Add to pending images with unsupported format error
+    useChatStore.getState().addPendingImage({
+      path: resolvedPath,
+      filename,
+      note: `unsupported format ${ext}`,
+    })
+    const postUserMessage: PostUserMessageFn = (prev) => prev
     return { postUserMessage }
   }
 
-  // Add image to pending images for the banner
-  useChatStore.getState().addPendingImage({
-    path: resolvedPath,
-    filename: path.basename(resolvedPath),
-  })
+  // Process and add image (handles compression and caching)
+  const { addPendingImageFromFile } = await import('../utils/add-pending-image')
+  await addPendingImageFromFile(resolvedPath, getProjectRoot())
 
   // Use the optional message as the prompt, or empty to just attach the image
   const transformedPrompt = message || ''

@@ -43,7 +43,12 @@ import type { SendMessageFn } from '../types/contracts/send-message'
 import type { ParamsOf } from '../types/function-params'
 import type { SetElement } from '../types/utils'
 import type { AgentMode } from '../utils/constants'
-import type { AgentDefinition, RunState, ToolName, MessageContent } from '@codebuff/sdk'
+import type {
+  AgentDefinition,
+  RunState,
+  ToolName,
+  MessageContent,
+} from '@codebuff/sdk'
 import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { SetStateAction } from 'react'
 const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
@@ -444,7 +449,12 @@ export const useSendMessage = ({
 
   const sendMessage = useCallback<SendMessageFn>(
     async (params: ParamsOf<SendMessageFn>) => {
-      const { content, agentMode, postUserMessage, images: attachedImages } = params
+      const {
+        content,
+        agentMode,
+        postUserMessage,
+        images: attachedImages,
+      } = params
 
       if (agentMode !== 'PLAN') {
         setHasReceivedPlanResponse(false)
@@ -502,7 +512,8 @@ export const useSendMessage = ({
       // --- Process images before sending ---
       // Get pending images from store OR use explicitly attached images (e.g. from queue)
       // If attachedImages is provided, we use those to prevent picking up new pending images
-      const pendingImages = attachedImages ?? useChatStore.getState().pendingImages
+      const pendingImages =
+        attachedImages ?? useChatStore.getState().pendingImages
 
       // Also extract image paths from the input text
       const detectedImagePaths = extractImagePaths(content)
@@ -530,17 +541,20 @@ export const useSendMessage = ({
 
       // Process all images for SDK
       const projectRoot = getProjectRoot()
-      const validImageParts = uniqueImagePaths.reduce<Array<{
+      const validImageParts: Array<{
         type: 'image'
         image: string
         mediaType: string
         filename: string | undefined
         size: number | undefined
         path: string
-      }>>((acc, imagePath) => {
-        const result = processImageFile(imagePath, projectRoot)
+      }> = []
+      const imageWarnings: string[] = []
+
+      for (const imagePath of uniqueImagePaths) {
+        const result = await processImageFile(imagePath, projectRoot)
         if (result.success && result.imagePart) {
-          acc.push({
+          validImageParts.push({
             type: 'image',
             image: result.imagePart.image,
             mediaType: result.imagePart.mediaType,
@@ -548,14 +562,21 @@ export const useSendMessage = ({
             size: result.imagePart.size,
             path: imagePath,
           })
+          if (result.wasCompressed) {
+            imageWarnings.push(
+              `📦 ${result.imagePart.filename || imagePath}: compressed`,
+            )
+          }
         } else if (!result.success) {
           logger.warn(
             { imagePath, error: result.error },
             'Failed to process image for SDK',
           )
+          // Add user-visible warning for rejected images
+          const filename = path.basename(imagePath)
+          imageWarnings.push(`⚠️ ${filename}: ${result.error}`)
         }
-        return acc
-      }, [])
+      }
 
       // Build message content array for SDK
       let messageContent: MessageContent[] | undefined
@@ -585,7 +606,7 @@ export const useSendMessage = ({
       // Create user message and capture its ID for later updates
       const userMessage = getUserMessage(content, attachments)
       const userMessageId = userMessage.id
-      
+
       // Add attachments to user message
       if (attachments.length > 0) {
         userMessage.attachments = attachments
@@ -1070,7 +1091,8 @@ export const useSendMessage = ({
         let runState: RunState
         try {
           // Use a default prompt when only images are attached
-          const effectivePrompt = content || (messageContent ? 'See attached image(s)' : '')
+          const effectivePrompt =
+            content || (messageContent ? 'See attached image(s)' : '')
 
           // Get any pending tool results from user-executed bash commands
           const pendingToolResults = useChatStore.getState().pendingToolResults

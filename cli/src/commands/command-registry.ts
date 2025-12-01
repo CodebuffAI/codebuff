@@ -220,12 +220,12 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   {
     name: 'image',
     aliases: ['img', 'attach'],
-    handler: (params, args) => {
+    handler: async (params, args) => {
       const trimmedArgs = args.trim()
 
       // If user provided a path directly, process it immediately
       if (trimmedArgs) {
-        const result = handleImageCommand(trimmedArgs)
+        const result = await handleImageCommand(trimmedArgs)
         params.setMessages((prev) => result.postUserMessage(prev))
         params.saveToHistory(params.inputValue.trim())
         clearInput(params)
