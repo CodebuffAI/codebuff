@@ -26,11 +26,6 @@ export const createBestOfNSelector = (options: {
         effort: 'high',
       },
     }),
-    ...(isOpus && {
-      reasoningOptions: {
-        max_tokens: 4000,
-      },
-    }),
     displayName: isGpt5
       ? 'Best-of-N GPT-5 Implementation Selector'
       : isGemini
@@ -114,12 +109,10 @@ Try to select an implementation that fulfills all the requirements in the user's
 ## Response Format
 
 ${
-  isSonnet
-    ? `Use <think> tags to briefly consider the implementations as needed to pick the best implementation.
+  isSonnet || isOpus
+    ? `Use <think> tags to write out your thoughts about the implementations as needed to pick the best implementation. IMPORTANT: You should think really really hard to make sure you pick the absolute best implementation! As soon as you know for sure which implementation is the best, you should output your choice.
 
-If the best one is obvious or the implementations are very similar, you may not need to think very much (a few words suffice) or you may not need to use think tags at all, just pick the best one and output it. You have a dual goal of picking the best implementation and being fast (using as few words as possible).
-
-Then, do not write any other explanations AT ALL. You should directly output a single tool call to set_output with the selected implementationId.`
+Then, do not write any other explanations AT ALL. You should directly output a single tool call to set_output with the selected implementationId and short reason.`
     : `Output a single tool call to set_output with the selected implementationId. Do not write anything else.`
 }`,
   }

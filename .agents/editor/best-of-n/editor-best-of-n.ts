@@ -52,7 +52,7 @@ export function createBestOfNEditor(
         properties: {
           n: {
             type: 'number',
-            description: `Number of parallel implementor agents to spawn. Defaults to ${isDefault ? 4 : 5}. Use fewer for simple tasks and max of 10 for complex tasks.`,
+            description: `Number of parallel implementor agents to spawn. Defaults to ${isMax ? 4 : 3}. Use fewer for simple tasks and max of 10 for complex tasks.`,
           },
         },
       },
@@ -73,7 +73,7 @@ function* handleStepsDefault({
 }: AgentStepContext): ReturnType<
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
-  const DEFAULT_N = 4
+  const DEFAULT_N = 3
   const selectorAgent = 'best-of-n-selector'
   const n = Math.min(
     10,
@@ -235,7 +235,7 @@ function* handleStepsMax({
 }: AgentStepContext): ReturnType<
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
-  const MAX_N = 5
+  const MAX_N = 4
   const selectorAgent = 'best-of-n-selector-opus'
   const n = Math.min(
     10,
@@ -296,6 +296,10 @@ function* handleStepsMax({
     implementorResults,
   ) as any[]
 
+  logger.info(
+    { implementorResults, spawnedImplementations },
+    'spawnedImplementations',
+  )
   // Extract all the plans from the structured outputs
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
   // Parse implementations from spawn results
@@ -304,13 +308,8 @@ function* handleStepsMax({
     content:
       'errorMessage' in result
         ? `Error: ${result.errorMessage}`
-        : extractLastMessageText(result),
+        : extractLastMessageText(result) ?? '',
   }))
-
-  logger.info(
-    { spawnedImplementations, implementations },
-    'spawnedImplementations',
-  )
 
   // Spawn selector with implementations as params
   const { toolResult: selectorResult, agentState: selectorAgentState } = yield {
@@ -432,14 +431,14 @@ function* handleStepsOpus({
 }: AgentStepContext): ReturnType<
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
-  const DEFAULT_N = 5
+  const DEFAULT_N = 3
   const selectorAgent = 'best-of-n-selector-opus'
   const n = Math.min(
     10,
     Math.max(1, (params?.n as number | undefined) ?? DEFAULT_N),
   )
 
-  // Spawn implementor agents: 1 gemini + rest sonnet (if n >= 2)
+  // Spawn implementor agents
   const implementorAgents = []
   for (let i = 0; i < n; i++) {
     implementorAgents.push({
@@ -458,8 +457,6 @@ function* handleStepsOpus({
   // Extract spawn results
   const spawnedImplementations =
     extractSpawnResults<{ text: string }[]>(implementorResults)
-
-  logger.info({ spawnedImplementations }, 'spawnedImplementations')
 
   // Extract all the plans from the structured outputs
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'

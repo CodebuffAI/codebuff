@@ -304,7 +304,7 @@ ${buildArray(
   useEditor &&
     '- IMPORTANT: You must spawn the editor agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all non-trivial changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
   isMax &&
-    `- IMPORTANT: You must spawn the editor-best-of-n-max agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious.`,
+    `- IMPORTANT: You must spawn the editor-best-of-n-max agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.`,
   (isDefault || isFast) &&
     '- Implement the changes using the str_replace or write_file tools.',
   isFast &&
