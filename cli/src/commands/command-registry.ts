@@ -223,8 +223,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
 
       // If user provided a path directly, process it immediately
       if (trimmedArgs) {
-        const result = await handleImageCommand(trimmedArgs)
-        params.setMessages((prev) => result.postUserMessage(prev))
+        await handleImageCommand(trimmedArgs)
         params.saveToHistory(params.inputValue.trim())
         clearInput(params)
         return
