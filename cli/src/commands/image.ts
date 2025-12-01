@@ -1,6 +1,6 @@
 import { getProjectRoot } from '../project-files'
-import { getSystemMessage } from '../utils/message-history'
 import { validateAndAddImage } from '../utils/add-pending-image'
+import { getSystemMessage } from '../utils/message-history'
 
 import type { PostUserMessageFn } from '../types/contracts/send-message'
 
@@ -30,14 +30,8 @@ export async function handleImageCommand(args: string): Promise<{
   const projectRoot = getProjectRoot()
 
   // Validate and add the image (handles path resolution, format check, and processing)
-  const result = await validateAndAddImage(imagePath, projectRoot)
-  if (!result.success) {
-    const postUserMessage: PostUserMessageFn = (prev) => [
-      ...prev,
-      getSystemMessage(`❌ ${result.error}`),
-    ]
-    return { postUserMessage }
-  }
+  // Errors are shown in the pending images banner with auto-remove
+  await validateAndAddImage(imagePath, projectRoot)
 
   // Use the optional message as the prompt, or empty to just attach the image
   const transformedPrompt = message || ''

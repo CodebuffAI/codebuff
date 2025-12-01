@@ -1,3 +1,5 @@
+import { pluralize } from '@codebuff/common/util/string'
+
 import { ImageCard } from './image-card'
 import { useTerminalLayout } from '../hooks/use-terminal-layout'
 import { useTheme } from '../hooks/use-theme'
@@ -10,8 +12,39 @@ export const PendingImagesBanner = () => {
   const pendingImages = useChatStore((state) => state.pendingImages)
   const removePendingImage = useChatStore((state) => state.removePendingImage)
 
+  // Separate error messages from actual images
+  const errorImages = pendingImages.filter((img) => img.isError)
+  const validImages = pendingImages.filter((img) => !img.isError)
+
   if (pendingImages.length === 0) {
     return null
+  }
+
+  // If we only have errors (no valid images), show just the error messages
+  if (validImages.length === 0 && errorImages.length > 0) {
+    return (
+      <box
+        style={{
+          flexDirection: 'column',
+          marginLeft: width.is('sm') ? 0 : 1,
+          marginRight: width.is('sm') ? 0 : 1,
+          borderStyle: 'single',
+          borderColor: theme.error,
+          paddingLeft: 1,
+          paddingRight: 1,
+          paddingTop: 0,
+          paddingBottom: 0,
+        }}
+        border={['bottom', 'left', 'right']}
+        customBorderChars={BORDER_CHARS}
+      >
+        {errorImages.map((image, index) => (
+          <text key={`${image.path}-${index}`} style={{ fg: theme.error }}>
+            {image.note} ({image.filename})
+          </text>
+        ))}
+      </box>
+    )
   }
 
   return (
@@ -30,13 +63,19 @@ export const PendingImagesBanner = () => {
       border={['bottom', 'left', 'right']}
       customBorderChars={BORDER_CHARS}
     >
+      {/* Error messages shown above the header */}
+      {errorImages.map((image, index) => (
+        <text key={`error-${image.path}-${index}`} style={{ fg: theme.error }}>
+          {image.note} ({image.filename})
+        </text>
+      ))}
+
       {/* Header */}
       <text style={{ fg: theme.info }}>
-        📎 {pendingImages.length} image{pendingImages.length > 1 ? 's' : ''}{' '}
-        attached
+        📎 {pluralize(validImages.length, 'image')} attached
       </text>
 
-      {/* Image cards in a horizontal row */}
+      {/* Image cards in a horizontal row - only valid images */}
       <box
         style={{
           flexDirection: 'row',
@@ -44,7 +83,7 @@ export const PendingImagesBanner = () => {
           flexWrap: 'wrap',
         }}
       >
-        {pendingImages.map((image, index) => (
+        {validImages.map((image, index) => (
           <ImageCard
             key={`${image.path}-${index}`}
             image={image}

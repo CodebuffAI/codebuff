@@ -78,9 +78,12 @@ export async function addPendingImageFromBase64(
   useChatStore.getState().addPendingImage(pendingImage)
 }
 
+const AUTO_REMOVE_ERROR_DELAY_MS = 3000
+
 /**
  * Add a pending image with an error note (e.g., unsupported format, not found).
  * Used when we want to show the image in the banner with an error state.
+ * Error images are automatically removed after a short delay.
  */
 export function addPendingImageWithError(
   imagePath: string,
@@ -91,7 +94,13 @@ export function addPendingImageWithError(
     path: imagePath,
     filename,
     note,
+    isError: true,
   })
+  
+  // Auto-remove error images after a delay
+  setTimeout(() => {
+    useChatStore.getState().removePendingImage(imagePath)
+  }, AUTO_REMOVE_ERROR_DELAY_MS)
 }
 
 /**
@@ -107,13 +116,14 @@ export async function validateAndAddImage(
   
   // Check if file exists
   if (!existsSync(resolvedPath)) {
-    return { success: false, error: `Image file not found: ${imagePath}` }
+    addPendingImageWithError(imagePath, '❌ file not found')
+    return { success: true }
   }
   
   // Check if it's a supported format
   if (!isImageFile(resolvedPath)) {
     const ext = path.extname(imagePath).toLowerCase()
-    addPendingImageWithError(resolvedPath, `unsupported format ${ext}`)
+    addPendingImageWithError(resolvedPath, `❌ unsupported format ${ext}`)
     return { success: true }
   }
   
