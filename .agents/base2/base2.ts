@@ -7,7 +7,7 @@ import {
 } from '../types/secret-agent-definition'
 
 export function createBase2(
-  mode: 'fast' | 'default' | 'max',
+  mode: 'default' | 'lite' | 'max' | 'fast',
   options?: {
     hasNoValidation?: boolean
     planOnly?: boolean
@@ -17,6 +17,7 @@ export function createBase2(
   const isDefault = mode === 'default'
   const isFast = mode === 'fast'
   const isMax = mode === 'max'
+  const isLite = mode === 'lite'
 
   const isOpus = true
   const isSonnet = false
@@ -24,7 +25,7 @@ export function createBase2(
 
   return {
     publisher,
-    model: 'anthropic/claude-opus-4.5',
+    model: isLite ? 'x-ai/grok-4.1-fast' : 'anthropic/claude-opus-4.5',
     displayName: 'Buffy the Orchestrator',
     spawnerPrompt:
       'Advanced base agent that orchestrates planning, editing, and reviewing for complex coding tasks',
@@ -49,7 +50,7 @@ export function createBase2(
       'spawn_agents',
       'read_files',
       'read_subtree',
-      !isFast && 'write_todos',
+      !isFast && !isLite && 'write_todos',
       'str_replace',
       'write_file',
       'ask_user',
@@ -62,10 +63,11 @@ export function createBase2(
       'glob-matcher',
       'researcher-web',
       'researcher-docs',
-      'commander',
+      isLite ? 'commander-lite' : 'commander',
+      isLite && 'editor-gpt-5',
       isMax && 'editor-best-of-n-max',
       isMax && 'thinker-best-of-n-opus',
-      'code-reviewer-opus',
+      !isLite && 'code-reviewer-opus',
       'context-pruner',
     ),
 
@@ -115,12 +117,15 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
   ${buildArray(
     '- Spawn context-gathering agents (file pickers, code-searcher, directory-lister, glob-matcher, and web/docs researchers) before making edits.',
+    isLite &&
+      '- Spawn the editor-gpt-5 agent to implement the changes after you have gathered all the context you need.',
     isMax &&
       '- Spawn the thinker-best-of-n-opus after gathering context to solve complex problems.',
     isMax &&
       `- Spawn the editor-best-of-n-max agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
     '- Spawn commanders sequentially if the second command depends on the the first.',
     !isFast &&
+      !isLite &&
       '- Spawn a code-reviewer-opus to review the changes after you have implemented the changes.',
   ).join('\n  ')}
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
@@ -149,10 +154,7 @@ ${buildArray(
     `- **Don't create a summary markdown file:** The user doesn't want markdown files they didn't ask for. Don't create them.`,
   '- **Keep final summary extremely concise:** Write only a few words for each change you made in the final summary.',
 ).join('\n')}
-${
-  isFast
-    ? ''
-    : `
+
 # Response examples
 
 <example>
@@ -168,11 +170,25 @@ ${
 
 [ You read a few other relevant files using the read_files tool ]
 
-[ You implement the changes using the str_replace or write_file tools ]
+${
+  isDefault || isFast
+    ? '[ You implement the changes using the str_replace or write_file tools ]'
+    : isLite
+      ? '[ You implement the changes using the editor-gpt-5 agent ]'
+      : '[ You implement the changes using the editor-best-of-n-max agent ]'
+}
 
-[ You spawn a code-reviewer, a commander to typecheck the changes, and another commander to run tests, all in parallel ]
+${
+  isDefault || isMax
+    ? '[ You spawn a code-reviewer, a commander to typecheck the changes, and another commander to run tests, all in parallel ]'
+    : '[ You spawn a commander to typecheck the changes and another commander to run tests, all in parallel ]'
+}
 
-[ You fix the issues found by the code-reviewer and type/test errors ]
+${
+  isDefault || isMax
+    ? '[ You fix the issues found by the code-reviewer and type/test errors ]'
+    : '[ You fix the issues found by the type/test errors and spawn more commanders to confirm ]'
+}
 
 [ All tests & typechecks pass -- you write a very short final summary of the changes you made ]
  </reponse>
@@ -188,8 +204,6 @@ ${
 </response>
 
 </example>
-`
-}
 
 ${PLACEHOLDER.FILE_TREE_PROMPT_SMALL}
 ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}
@@ -209,6 +223,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           isFast,
           isDefault,
           isMax,
+          isLite,
           hasNoValidation,
         }),
     stepPrompt: planOnly
@@ -248,12 +263,14 @@ function buildImplementationInstructionsPrompt({
   isFast,
   isDefault,
   isMax,
+  isLite,
   hasNoValidation,
 }: {
   isSonnet: boolean
   isFast: boolean
   isDefault: boolean
   isMax: boolean
+  isLite: boolean
   hasNoValidation: boolean
 }) {
   return `Act as a helpful assistant and freely respond to the user's request however would be most helpful to the user. Use your judgement to orchestrate the completion of the user's request using your specialized sub-agents and tools as needed. Take your time and be comprehensive. Don't surprise the user. For example, don't modify files if the user has not asked you to do so at least implicitly.
@@ -266,17 +283,19 @@ ${buildArray(
   EXPLORE_PROMPT,
   isMax &&
     `- Important: Read as many files as could possibly be relevant to the task over several steps to improve your understanding of the user's request and produce the best possible code changes. Find more examples within the codebase similar to the user's request, dependencies that help with understanding how things work, tests, etc. This is frequently 12-20 files, depending on the task.`,
-  !isFast &&
+  (isDefault || isMax) &&
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
+  isLite &&
+    '- IMPORTANT: You must spawn the editor-gpt-5 agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all changes.',
   isMax &&
     `- IMPORTANT: You must spawn the editor-best-of-n-max agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious.`,
-  !isMax &&
+  (isDefault || isFast) &&
     '- Implement the changes using the str_replace or write_file tools.',
   isFast &&
     '- Implement the changes in one go. Pause after making all the changes to see the tool results of your edits.',
   isFast &&
     '- Do a single typecheck targeted for your changes at most (if applicable for the project). Or skip this step if the change was small.',
-  !isFast &&
+  (isDefault || isMax) &&
     '- Spawn a code-reviewer-opus to review the changes after you have implemented the changes. (Skip this step only if the change is extremely straightforward and obvious.)',
   !hasNoValidation &&
     `- Test your changes by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). Try to run all appropriate commands in parallel. ${isMax ? ' Typecheck and test the specific area of the project that you are editing *AND* then typecheck and test the entire project if necessary.' : ' If you can, only test the area of the project that you are editing, rather than the entire project.'} You may have to explore the project to find the appropriate commands. Don't skip this step!`,
