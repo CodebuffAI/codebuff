@@ -325,8 +325,12 @@ export async function postChatCompletions(params: {
         return NextResponse.json(result)
       }
     } catch (error) {
+      let openrouterError: OpenRouterError | undefined
+      if (error instanceof OpenRouterError) {
+        openrouterError = error
+      }
       logger.error(
-        { error: getErrorObject(error), body },
+        { error: getErrorObject(error), body, openrouterError: openrouterError?.toJSON() },
         'Error with OpenRouter request',
       )
       trackEvent({
