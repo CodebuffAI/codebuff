@@ -133,7 +133,7 @@ export function validateAgentInput(
 
   // Validate prompt requirement
   if (inputSchema.prompt) {
-    const result = inputSchema.prompt.safeParse(prompt)
+    const result = inputSchema.prompt.safeParse(prompt ?? '')
     if (!result.success) {
       throw new Error(
         `Invalid prompt for agent ${agentType}: ${JSON.stringify(result.error.issues, null, 2)}`,
