@@ -9,7 +9,7 @@ export const createCodeEditor = (options: {
     options.model === 'gpt-5' ? 'openai/gpt-5.1' : 'anthropic/claude-opus-4.5',
   displayName: 'Code Editor',
   spawnerPrompt:
-    'Expert code editor. Do not specify an input prompt for this agent; it inherits the context of the entire conversation with the user. Make sure to read any files intended to be edited before spawning this agent as it cannot read files on its own.',
+    "Expert code editor that implements code changes based on the user's request. Do not specify an input prompt for this agent; it inherits the context of the entire conversation with the user. Make sure to read any files intended to be edited before spawning this agent as it cannot read files on its own.",
   outputMode: 'structured_output',
   toolNames: ['write_file', 'str_replace', 'set_output'],
 
@@ -52,7 +52,35 @@ OR for new files or major rewrites:
 }
 </codebuff_tool_call>
 
-After the edit tool calls, you can optionally mention any follow-up steps to take, like deleting a file, or a sepcific way to validate the changes. There's no need to use the set_output tool as your entire response will be included in the output.
+IMPORTANT: Before you start writing your implementation, you should use <think> tags to think about the best way to implement the changes. You should think really really hard to make sure you implement the changes in the best way possible. Take as much time as you to think through all the cases to produce the best changes.
+
+You can also use <think> tags interspersed between tool calls to think about the best way to implement the changes.
+
+<example>
+
+<think>
+[ Long think about the best way to implement the changes ]
+</think>
+
+<codebuff_tool_call>
+[ First tool call to implement the feature ]
+</codebuff_tool_call>
+
+<codebuff_tool_call>
+[ Second tool call to implement the feature ]
+</codebuff_tool_call>
+
+<think>
+[ Thoughts about a tricky part of the implementation ]
+</think>
+
+<codebuff_tool_call>
+[ Third tool call to implement the feature ]
+</codebuff_tool_call>
+
+</example>
+
+After the edit tool calls, you can optionally mention any follow-up steps to take, like deleting a file, or a sepcific way to validate the changes. You should not summarize your changes, just stop when you're done. There's no need to use the set_output tool as your entire response will be included in the output.
 
 Your implementation should:
 - Be complete and comprehensive
@@ -110,5 +138,8 @@ Write out your complete implementation now, formatting all changes as tool calls
   },
 })
 
-const editor = createCodeEditor({ model: 'opus' })
-export default editor
+const definition = {
+  ...createCodeEditor({ model: 'opus' }),
+  id: 'editor',
+}
+export default definition
