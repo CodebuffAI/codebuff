@@ -7,7 +7,7 @@ import { formatElapsedTime } from '../utils/format-elapsed-time'
 interface ElapsedTimerProps {
   startTime: number | null
   suffix?: string
-  attributes?: number
+  attributes?: TextAttributes
 }
 
 /**
@@ -20,14 +20,9 @@ export const ElapsedTimer = ({
   attributes,
 }: ElapsedTimerProps) => {
   const theme = useTheme()
-  
-  // Calculate elapsed seconds synchronously for SSR/initial render
-  const calculateElapsed = () => {
-    if (!startTime) return 0
-    return Math.floor((Date.now() - startTime) / 1000)
-  }
-  
-  const [elapsedSeconds, setElapsedSeconds] = useState<number>(calculateElapsed)
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(() =>
+    startTime ? Math.floor((Date.now() - startTime) / 1000) : 0,
+  )
 
   useEffect(() => {
     if (!startTime) {

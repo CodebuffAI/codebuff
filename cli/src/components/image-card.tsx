@@ -108,7 +108,7 @@ export const ImageCard = ({
         {/* Thumbnail or icon area */}
         <box
           style={{
-            height: 3,
+            height: THUMBNAIL_HEIGHT,
             justifyContent: 'center',
             alignItems: 'center',
           }}

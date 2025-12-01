@@ -98,9 +98,9 @@ const MessageAttachments = ({
         marginTop: 1,
       }}
     >
-      {attachments.map((attachment, index) => (
+      {attachments.map((attachment) => (
         <ImageCard
-          key={`${attachment.path}-${index}`}
+          key={attachment.path}
           image={attachment}
           showRemoveButton={false}
         />
