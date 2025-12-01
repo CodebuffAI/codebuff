@@ -76,7 +76,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'image',
     label: 'image',
-    description: 'Attach an image file to your message',
+    description: 'Attach an image file (or Ctrl+V to paste from clipboard)',
     aliases: ['img', 'attach'],
   },
 ]
