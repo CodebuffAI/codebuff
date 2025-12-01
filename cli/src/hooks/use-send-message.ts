@@ -21,6 +21,10 @@ import { formatTimestamp } from '../utils/helpers'
 import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 
 import { logger } from '../utils/logger'
+import {
+  buildBashHistoryMessages,
+  createRunTerminalToolResult,
+} from '../utils/bash-messages'
 import { getUserMessage } from '../utils/message-history'
 import { NETWORK_ERROR_ID } from '../utils/validation-error-helpers'
 import {
@@ -447,34 +451,36 @@ export const useSendMessage = ({
         setHasReceivedPlanResponse(false)
       }
 
-      // Include any pending bash messages in context before sending
-      // This ensures the LLM can reference terminal commands run during streaming
+      // Include any pending bash messages in the UI before sending
+      // (we no longer send these commands to the LLM context)
       const { pendingBashMessages, clearPendingBashMessages } =
         useChatStore.getState()
       if (pendingBashMessages.length > 0) {
         // Convert pending bash messages to chat messages and add to history
         applyMessageUpdate((prev) => {
-          const bashMessages: ChatMessage[] = pendingBashMessages.flatMap(
-            (bash) => [
-              getUserMessage(`!${bash.command}`),
-              {
-                id: `bash-result-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-                variant: 'ai' as const,
-                content: '',
-                blocks: [
-                  {
-                    type: 'tool' as const,
-                    toolCallId: crypto.randomUUID(),
-                    toolName: 'run_terminal_command' as const,
-                    input: { command: bash.command },
-                    output: bash.stdout || bash.stderr || '',
-                  },
-                ],
-                timestamp: formatTimestamp(),
-                isComplete: true,
-              },
-            ],
-          )
+          const bashMessages: ChatMessage[] = []
+
+          for (const bash of pendingBashMessages) {
+            const toolCallId = crypto.randomUUID()
+            const cwd = bash.cwd || process.cwd()
+            const toolResultOutput = createRunTerminalToolResult({
+              command: bash.command,
+              cwd,
+              stdout: bash.stdout || null,
+              stderr: bash.stderr || null,
+              exitCode: bash.exitCode,
+            })
+            const outputJson = JSON.stringify(toolResultOutput)
+            const { assistantMessage } = buildBashHistoryMessages({
+              command: bash.command,
+              cwd,
+              toolCallId,
+              output: outputJson,
+              isComplete: true,
+            })
+
+            bashMessages.push(assistantMessage)
+          }
           return [...prev, ...bashMessages]
         })
         clearPendingBashMessages()

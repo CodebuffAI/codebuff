@@ -15,45 +15,12 @@ import {
 } from './router-utils'
 import { useChatStore } from '../state/chat-store'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
+import {
+  buildBashHistoryMessages,
+  createRunTerminalToolResult,
+} from '../utils/bash-messages'
 
-import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
-import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
-import type { ContentBlock } from '../types/chat'
 import type { PendingBashMessage } from '../state/chat-store'
-
-/**
- * Create a tool result output structure for terminal command results.
- */
-function createToolResultOutput(params: {
-  command: string
-  cwd: string
-  stdout: string | null
-  stderr: string | null
-  exitCode: number
-  errorMessage?: string
-}): ToolResultOutput[] {
-  const { command, cwd, stdout, stderr, exitCode, errorMessage } = params
-  if (errorMessage) {
-    return [
-      {
-        type: 'json' as const,
-        value: { command, startingCwd: cwd, errorMessage },
-      },
-    ]
-  }
-  return [
-    {
-      type: 'json' as const,
-      value: {
-        command,
-        startingCwd: cwd,
-        stdout: stdout || null,
-        stderr: stderr || null,
-        exitCode,
-      },
-    },
-  ]
-}
 
 /**
  * Execute a bash command.
@@ -89,21 +56,14 @@ function executeBashCommand(
       cwd: commandCwd,
     })
   } else {
-    // Direct mode: add to chat history with placeholder
-    const resultBlock: ContentBlock = {
-      type: 'tool',
-      toolName: 'run_terminal_command',
+    // Direct mode: add to chat history with placeholder output (user + assistant)
+    const { assistantMessage } = buildBashHistoryMessages({
+      command,
+      cwd: commandCwd,
       toolCallId: id,
-      input: { command },
       output: '...',
-    }
-    options.setMessages((prev) => [
-      ...prev,
-      {
-        ...getUserMessage([resultBlock]),
-        metadata: { bashCwd: commandCwd },
-      },
-    ])
+    })
+    options.setMessages((prev) => [...prev, assistantMessage])
   }
 
   runTerminalCommand({
@@ -117,8 +77,6 @@ function executeBashCommand(
       const stdout = 'stdout' in value ? value.stdout || '' : ''
       const stderr = 'stderr' in value ? value.stderr || '' : ''
       const exitCode = 'exitCode' in value ? value.exitCode ?? 0 : 0
-      const rawOutput = stdout + stderr
-      const output = rawOutput || '(no output)'
 
       if (options.ghost) {
         options.updatePendingBashMessage(id, {
@@ -128,7 +86,7 @@ function executeBashCommand(
           isRunning: false,
         })
       } else {
-        const toolResultOutput = createToolResultOutput({
+        const toolResultOutput = createRunTerminalToolResult({
           command,
           cwd: commandCwd,
           stdout: stdout || null,
@@ -140,25 +98,17 @@ function executeBashCommand(
         options.setMessages((prev) =>
           prev.map((msg) => {
             if (!msg.blocks) return msg
-            return {
-              ...msg,
-              blocks: msg.blocks.map((block) =>
-                'toolCallId' in block && block.toolCallId === id
-                  ? { ...block, output: outputJson }
-                  : block,
-              ),
-            }
+            let didUpdate = false
+            const blocks = msg.blocks.map((block) => {
+              if ('toolCallId' in block && block.toolCallId === id) {
+                didUpdate = true
+                return { ...block, output: outputJson }
+              }
+              return block
+            })
+            return didUpdate ? { ...msg, blocks, isComplete: true } : msg
           }),
         )
-
-        // Add to pending tool results so AI can see this in the next run
-        const toolMessage: ToolMessage = {
-          role: 'tool',
-          toolCallId: id,
-          toolName: 'run_terminal_command',
-          content: toolResultOutput,
-        }
-        useChatStore.getState().addPendingToolResult(toolMessage)
       }
     })
     .catch((error) => {
@@ -174,7 +124,7 @@ function executeBashCommand(
           isRunning: false,
         })
       } else {
-        const errorToolResultOutput = createToolResultOutput({
+        const errorToolResultOutput = createRunTerminalToolResult({
           command,
           cwd: commandCwd,
           stdout: null,
@@ -187,31 +137,24 @@ function executeBashCommand(
         options.setMessages((prev) =>
           prev.map((msg) => {
             if (!msg.blocks) return msg
-            return {
-              ...msg,
-              blocks: msg.blocks.map((block) =>
-                'toolCallId' in block && block.toolCallId === id
-                  ? { ...block, output: errorOutputJson }
-                  : block,
-              ),
-            }
+            let didUpdate = false
+            const blocks = msg.blocks.map((block) => {
+              if ('toolCallId' in block && block.toolCallId === id) {
+                didUpdate = true
+                return { ...block, output: errorOutputJson }
+              }
+              return block
+            })
+            return didUpdate ? { ...msg, blocks, isComplete: true } : msg
           }),
         )
-
-        const errorToolMessage: ToolMessage = {
-          role: 'tool',
-          toolCallId: id,
-          toolName: 'run_terminal_command',
-          content: errorToolResultOutput,
-        }
-        useChatStore.getState().addPendingToolResult(errorToolMessage)
       }
     })
 }
 
 /**
  * Add a completed bash command result to the chat message history.
- * Also adds to pendingToolResults so the AI can see it in the next run.
+ * Note: This is UI-only; we no longer send these commands to the AI context.
  */
 export function addBashMessageToHistory(params: {
   command: string
@@ -222,38 +165,24 @@ export function addBashMessageToHistory(params: {
   setMessages: RouterParams['setMessages']
 }) {
   const { command, stdout, stderr, exitCode, cwd, setMessages } = params
-  const outputText = stdout || stderr || '(no output)'
-  const toolCallId = crypto.randomUUID()
-  const resultBlock: ContentBlock = {
-    type: 'tool',
-    toolName: 'run_terminal_command',
-    toolCallId,
-    input: { command },
-    output: outputText,
-  }
-
-  setMessages((prev) => [
-    ...prev,
-    {
-      ...getUserMessage([resultBlock]),
-      metadata: { bashCwd: cwd },
-    },
-  ])
-
-  const toolResultOutput = createToolResultOutput({
+  const toolResultOutput = createRunTerminalToolResult({
     command,
     cwd,
     stdout: stdout || null,
     stderr: stderr ?? null,
     exitCode,
   })
-  const toolMessage: ToolMessage = {
-    role: 'tool',
+  const toolCallId = crypto.randomUUID()
+  const outputJson = JSON.stringify(toolResultOutput)
+  const { assistantMessage } = buildBashHistoryMessages({
+    command,
+    cwd,
     toolCallId,
-    toolName: 'run_terminal_command',
-    content: toolResultOutput,
-  }
-  useChatStore.getState().addPendingToolResult(toolMessage)
+    output: outputJson,
+    isComplete: true,
+  })
+
+  setMessages((prev) => [...prev, assistantMessage])
 }
 
 export async function routeUserPrompt(
