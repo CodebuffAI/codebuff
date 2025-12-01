@@ -67,6 +67,7 @@ describe('Spawn Agents Permissions', () => {
       sendSubagentChunk: mockSendSubagentChunk,
       signal: new AbortController().signal,
       system: 'Test system prompt',
+      tools: {},
       userId: TEST_USER_ID,
       userInputId: 'test-input',
       writeToClient: () => {},
@@ -85,7 +86,7 @@ describe('Spawn Agents Permissions', () => {
           ...options.agentState,
           messageHistory: [assistantMessage('Mock agent response')],
         },
-        output: { type: 'lastMessage', value: 'Mock agent response' },
+        output: { type: 'lastMessage', value: [assistantMessage('Mock agent response')] },
       }
     })
   })

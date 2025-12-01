@@ -1,10 +1,10 @@
-import { publisher } from '../constants'
+import { publisher } from '../.agents/constants'
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
-} from '../types/secret-agent-definition'
+} from '../.agents/types/secret-agent-definition'
 
-import type { Message } from 'types/util-types'
+import type { Message } from '../.agents/types/util-types'
 
 const editor: SecretAgentDefinition = {
   id: 'editor-lite',

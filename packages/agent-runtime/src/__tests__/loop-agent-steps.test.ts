@@ -5,7 +5,6 @@ import {
   clearMockedModules,
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
-import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import db from '@codebuff/internal/db'
@@ -25,7 +24,7 @@ import { z } from 'zod/v4'
 import { disableLiveUserInputCheck } from '../live-user-inputs'
 import { loopAgentSteps } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
-import { mockFileContext } from './test-utils'
+import { createToolCallChunk, mockFileContext } from './test-utils'
 
 import type { AgentTemplate } from '../templates/types'
 import type { StepGenerator } from '@codebuff/common/types/agent-template'
@@ -81,10 +80,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
 
     agentRuntimeImpl.promptAiSdkStream = async function* ({}) {
       llmCallCount++
-      yield {
-        type: 'text' as const,
-        text: `LLM response\n\n${getToolCallString('end_turn', {})}`,
-      }
+      yield { type: 'text' as const, text: 'LLM response\n\n' }
+      yield createToolCallChunk('end_turn', {})
       return 'mock-message-id'
     }
 
@@ -508,10 +505,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       llmStepCount++
 
       // LLM always tries to end turn
-      yield {
-        type: 'text' as const,
-        text: `LLM response\n\n${getToolCallString('end_turn', {})}`,
-      }
+      yield { type: 'text' as const, text: 'LLM response\n\n' }
+      yield createToolCallChunk('end_turn', {})
       return `mock-message-id-${promptCallCount}`
     }
 
@@ -558,10 +553,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       llmCallNumber++
       if (llmCallNumber === 1) {
         // First call: agent tries to end turn without setting output
-        yield {
-          type: 'text' as const,
-          text: `First response without output\n\n${getToolCallString('end_turn', {})}`,
-        }
+        yield { type: 'text' as const, text: 'First response without output\n\n' }
+        yield createToolCallChunk('end_turn', {})
       } else if (llmCallNumber === 2) {
         // Second call: agent sets output after being reminded
         // Manually set the output to simulate the set_output tool execution
@@ -571,16 +564,14 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
             status: 'success',
           }
         }
-        yield {
-          type: 'text' as const,
-          text: `Setting output now\n\n${getToolCallString('set_output', { result: 'test result', status: 'success' })}\n\n${getToolCallString('end_turn', {})}`,
-        }
+        yield { type: 'text' as const, text: 'Setting output now\n\n' }
+        yield createToolCallChunk('set_output', { result: 'test result', status: 'success' })
+        yield { type: 'text' as const, text: '\n\n' }
+        yield createToolCallChunk('end_turn', {})
       } else {
         // Safety: if called more than twice, just end
-        yield {
-          type: 'text' as const,
-          text: `Ending\n\n${getToolCallString('end_turn', {})}`,
-        }
+        yield { type: 'text' as const, text: 'Ending\n\n' }
+        yield createToolCallChunk('end_turn', {})
       }
       return 'mock-message-id'
     }
@@ -641,10 +632,10 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       if (capturedAgentState) {
         capturedAgentState.output = { result: 'success' }
       }
-      yield {
-        type: 'text' as const,
-        text: `Setting output\n\n${getToolCallString('set_output', { result: 'success' })}\n\n${getToolCallString('end_turn', {})}`,
-      }
+      yield { type: 'text' as const, text: 'Setting output\n\n' }
+      yield createToolCallChunk('set_output', { result: 'success' })
+      yield { type: 'text' as const, text: '\n\n' }
+      yield createToolCallChunk('end_turn', {})
       return 'mock-message-id'
     }
 
@@ -757,10 +748,8 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     let llmCallNumber = 0
     loopAgentStepsBaseParams.promptAiSdkStream = async function* ({}) {
       llmCallNumber++
-      yield {
-        type: 'text' as const,
-        text: `Response without output\n\n${getToolCallString('end_turn', {})}`,
-      }
+      yield { type: 'text' as const, text: 'Response without output\n\n' }
+      yield createToolCallChunk('end_turn', {})
       return 'mock-message-id'
     }
 
@@ -802,19 +791,17 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       llmCallNumber++
       if (llmCallNumber === 1) {
         // First call: agent does some work but doesn't end turn
-        yield {
-          type: 'text' as const,
-          text: `Doing work\n\n${getToolCallString('read_files', { paths: ['test.txt'] })}`,
-        }
+        yield { type: 'text' as const, text: 'Doing work\n\n' }
+        yield createToolCallChunk('read_files', { paths: ['test.txt'] })
       } else {
         // Second call: agent sets output and ends
         if (capturedAgentState) {
           capturedAgentState.output = { result: 'done' }
         }
-        yield {
-          type: 'text' as const,
-          text: `Finishing\n\n${getToolCallString('set_output', { result: 'done' })}\n\n${getToolCallString('end_turn', {})}`,
-        }
+        yield { type: 'text' as const, text: 'Finishing\n\n' }
+        yield createToolCallChunk('set_output', { result: 'done' })
+        yield { type: 'text' as const, text: '\n\n' }
+        yield createToolCallChunk('end_turn', {})
       }
       return 'mock-message-id'
     }

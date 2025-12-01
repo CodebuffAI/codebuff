@@ -70,6 +70,7 @@ describe('Subagent Streaming', () => {
       sendSubagentChunk: mockSendSubagentChunk,
       signal: new AbortController().signal,
       system: 'Test system prompt',
+      tools: {},
       userId: TEST_USER_ID,
       userInputId: 'test-input',
       writeToClient: mockWriteToClient,
@@ -96,7 +97,7 @@ describe('Subagent Streaming', () => {
           ...options.agentState,
           messageHistory: [assistantMessage('Test response from subagent')],
         },
-        output: { type: 'lastMessage', value: 'Test response from subagent' },
+        output: { type: 'lastMessage', value: [assistantMessage('Test response from subagent')] },
       }
     })
 

@@ -18,7 +18,7 @@ export type OpenRouterProviderOptions = {
         max_tokens: number
       }
     | {
-        effort: 'high' | 'medium' | 'low'
+        effort: 'high' | 'medium' | 'low' | 'minimal' | 'none'
       }
   )
 

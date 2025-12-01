@@ -4,18 +4,13 @@ import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
 import { z } from 'zod/v4'
 
 import { getAgentTemplate } from './agent-registry'
-import { buildSpawnableAgentsDescription } from './prompts'
+import { buildFullSpawnableAgentsSpec } from './prompts'
 import { PLACEHOLDER, placeholderValues } from './types'
 import {
   getGitChangesPrompt,
   getProjectFileTreePrompt,
   getSystemInfoPrompt,
 } from '../system-prompt/prompts'
-import {
-  fullToolList,
-  getShortToolInstructions,
-  getToolsInstructions,
-} from '../tools/prompts'
 import { parseUserMessage } from '../util/messages'
 
 import type { AgentTemplate, PlaceholderValue } from './types'
@@ -113,9 +108,6 @@ export async function formatPrompt(
     [PLACEHOLDER.REMAINING_STEPS]: () => `${agentState.stepsRemaining!}`,
     [PLACEHOLDER.PROJECT_ROOT]: () => fileContext.projectRoot,
     [PLACEHOLDER.SYSTEM_INFO_PROMPT]: () => getSystemInfoPrompt(fileContext),
-    [PLACEHOLDER.TOOLS_PROMPT]: async () =>
-      getToolsInstructions(tools, (await additionalToolDefinitions()) ?? {}),
-    [PLACEHOLDER.AGENTS_PROMPT]: () => buildSpawnableAgentsDescription(params),
     [PLACEHOLDER.USER_CWD]: () => fileContext.cwd,
     [PLACEHOLDER.USER_INPUT_PROMPT]: () => escapeString(lastUserInput ?? ''),
     [PLACEHOLDER.INITIAL_AGENT_PROMPT]: () =>
@@ -150,11 +142,6 @@ export async function formatPrompt(
 }
 type StringField = 'systemPrompt' | 'instructionsPrompt' | 'stepPrompt'
 
-const additionalPlaceholders = {
-  systemPrompt: [PLACEHOLDER.TOOLS_PROMPT, PLACEHOLDER.AGENTS_PROMPT],
-  instructionsPrompt: [],
-  stepPrompt: [],
-} satisfies Record<StringField, string[]>
 export async function getAgentPrompt<T extends StringField>(
   params: {
     agentTemplate: AgentTemplate
@@ -164,12 +151,13 @@ export async function getAgentPrompt<T extends StringField>(
     agentTemplates: Record<string, AgentTemplate>
     additionalToolDefinitions: () => Promise<CustomToolDefinitions>
     logger: Logger
+    useParentTools?: boolean
   } & ParamsExcluding<
     typeof formatPrompt,
     'prompt' | 'tools' | 'spawnableAgents'
   > &
     ParamsExcluding<
-      typeof buildSpawnableAgentsDescription,
+      typeof buildFullSpawnableAgentsSpec,
       'spawnableAgents' | 'agentTemplates'
     >,
 ): Promise<string | undefined> {
@@ -179,14 +167,10 @@ export async function getAgentPrompt<T extends StringField>(
     agentState,
     agentTemplates,
     additionalToolDefinitions,
+    useParentTools,
   } = params
 
   let promptValue = agentTemplate[promptType.type]
-  for (const placeholder of additionalPlaceholders[promptType.type]) {
-    if (!promptValue.includes(placeholder)) {
-      promptValue += `\n\n${placeholder}`
-    }
-  }
 
   let prompt = await formatPrompt({
     ...params,
@@ -204,21 +188,26 @@ export async function getAgentPrompt<T extends StringField>(
 
   // Add tool instructions, spawnable agents, and output schema prompts to instructionsPrompt
   if (promptType.type === 'instructionsPrompt' && agentState.agentType) {
-    const toolsInstructions = agentTemplate.inheritParentSystemPrompt
-      ? fullToolList(agentTemplate.toolNames, await additionalToolDefinitions())
-      : getShortToolInstructions(
-          agentTemplate.toolNames,
-          await additionalToolDefinitions(),
-        )
-    addendum +=
-      '\n\n' +
-      toolsInstructions +
-      '\n\n' +
-      (await buildSpawnableAgentsDescription({
-        ...params,
-        spawnableAgents: agentTemplate.spawnableAgents,
-        agentTemplates,
-      }))
+    // Add subagent tools message when using parent's tools for prompt caching
+    if (useParentTools) {
+      addendum += `\n\nYou are a subagent that only has access to the following tools: ${agentTemplate.toolNames.join(', ')}. Do not attempt to use any other tools.`
+
+      // For subagents with inheritSystemPrompt, include full spawnable agents spec
+      // since the parent's system prompt may not have these agents listed
+      if (agentTemplate.spawnableAgents.length > 0) {
+        addendum +=
+          '\n\n' +
+          (await buildFullSpawnableAgentsSpec({
+            ...params,
+            spawnableAgents: agentTemplate.spawnableAgents,
+            agentTemplates,
+          }))
+      }
+    } else if (agentTemplate.spawnableAgents.length > 0) {
+      // For non-inherited tools, agents are already defined as tools with full schemas,
+      // so we just list the available agent IDs here
+      addendum += `\n\nYou can spawn the following agents: ${agentTemplate.spawnableAgents.join(', ')}.`
+    }
 
     // Add output schema information if defined
     if (agentTemplate.outputSchema) {

@@ -21,5 +21,5 @@ export const handleThinkDeeply = (async (params: {
   )
 
   await previousToolCallFinished
-  return { output: [] }
+  return { output: [{ type: 'json', value: { message: 'Thought logged.' } }] }
 }) satisfies CodebuffToolHandlerFunction<'think_deeply'>

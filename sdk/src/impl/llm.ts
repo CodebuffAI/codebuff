@@ -18,12 +18,18 @@ import {
   OpenAICompatibleChatLanguageModel,
   VERSION,
 } from '@codebuff/internal/openai-compatible/index'
-import { streamText, APICallError, generateText, generateObject } from 'ai'
+import {
+  streamText,
+  generateText,
+  generateObject,
+  NoSuchToolError,
+  APICallError,
+  ToolCallRepairError,
+  InvalidToolInputError,
+  TypeValidationError,
+} from 'ai'
 
 import { WEBSITE_URL } from '../constants'
-import { NetworkError, PaymentRequiredError, ErrorCodes } from '../errors'
-
-import type { ErrorCode } from '../errors'
 import type { LanguageModelV2 } from '@ai-sdk/provider'
 import type { OpenRouterProviderRoutingOptions } from '@codebuff/common/types/agent-template'
 import type {
@@ -217,13 +223,124 @@ export async function* promptAiSdkStream(
       ...params,
       agentProviderOptions: params.agentProviderOptions,
     }),
+    // Handle tool call errors gracefully by passing them through to our validation layer
+    // instead of throwing (which would halt the agent). The only special case is when
+    // the tool name matches a spawnable agent - transform those to spawn_agents calls.
+    experimental_repairToolCall: async ({ toolCall, tools, error }) => {
+      const { spawnableAgents = [], localAgentTemplates = {} } = params
+      const toolName = toolCall.toolName
+
+      // Check if this is a NoSuchToolError for a spawnable agent
+      // If so, transform to spawn_agents call
+      if (NoSuchToolError.isInstance(error) && 'spawn_agents' in tools) {
+        // Also check for underscore variant (e.g., "file_picker" -> "file-picker")
+        const toolNameWithHyphens = toolName.replace(/_/g, '-')
+
+        const matchingAgentId = spawnableAgents.find((agentId) => {
+          const withoutVersion = agentId.split('@')[0]
+          const parts = withoutVersion.split('/')
+          const agentName = parts[parts.length - 1]
+          return (
+            agentName === toolName ||
+            agentName === toolNameWithHyphens ||
+            agentId === toolName
+          )
+        })
+        const isSpawnableAgent = matchingAgentId !== undefined
+        const isLocalAgent =
+          toolName in localAgentTemplates ||
+          toolNameWithHyphens in localAgentTemplates
+
+        if (isSpawnableAgent || isLocalAgent) {
+          // Transform agent tool call to spawn_agents
+          const deepParseJson = (value: unknown): unknown => {
+            if (typeof value === 'string') {
+              try {
+                return deepParseJson(JSON.parse(value))
+              } catch {
+                return value
+              }
+            }
+            if (Array.isArray(value)) return value.map(deepParseJson)
+            if (value !== null && typeof value === 'object') {
+              return Object.fromEntries(
+                Object.entries(value).map(([k, v]) => [k, deepParseJson(v)]),
+              )
+            }
+            return value
+          }
+
+          let input: Record<string, unknown> = {}
+          try {
+            const rawInput =
+              typeof toolCall.input === 'string'
+                ? JSON.parse(toolCall.input)
+                : (toolCall.input as Record<string, unknown>)
+            input = deepParseJson(rawInput) as Record<string, unknown>
+          } catch {
+            // If parsing fails, use empty object
+          }
+
+          const prompt =
+            typeof input.prompt === 'string' ? input.prompt : undefined
+          const agentParams = Object.fromEntries(
+            Object.entries(input).filter(
+              ([key, value]) =>
+                !(key === 'prompt' && typeof value === 'string'),
+            ),
+          )
+
+          // Use the matching agent ID or corrected name with hyphens
+          const correctedAgentType =
+            matchingAgentId ??
+            (toolNameWithHyphens in localAgentTemplates
+              ? toolNameWithHyphens
+              : toolName)
+
+          const spawnAgentsInput = {
+            agents: [
+              {
+                agent_type: correctedAgentType,
+                ...(prompt !== undefined && { prompt }),
+                ...(Object.keys(agentParams).length > 0 && {
+                  params: agentParams,
+                }),
+              },
+            ],
+          }
+
+          logger.info(
+            { originalToolName: toolName, transformedInput: spawnAgentsInput },
+            'Transformed agent tool call to spawn_agents',
+          )
+
+          return {
+            ...toolCall,
+            toolName: 'spawn_agents',
+            input: JSON.stringify(spawnAgentsInput),
+          }
+        }
+      }
+
+      // For all other cases (invalid args, unknown tools, etc.), pass through
+      // the original tool call.
+      logger.info(
+        {
+          toolName,
+          errorType: error.name,
+          error: error.message,
+        },
+        'Tool error - passing through for graceful error handling',
+      )
+      return toolCall
+    },
   })
 
   let content = ''
   const stopSequenceHandler = new StopSequenceHandler(params.stopSequences)
 
-  for await (const chunk of response.fullStream) {
-    if (chunk.type !== 'text-delta') {
+  for await (const chunkValue of response.fullStream) {
+    if (chunkValue.type !== 'text-delta') {
       const flushed = stopSequenceHandler.flush()
       if (flushed) {
         content += flushed
@@ -234,84 +351,57 @@ export async function* promptAiSdkStream(
         }
       }
     }
-    if (chunk.type === 'error') {
-      logger.error(
-        {
-          chunk: { ...chunk, error: undefined },
-          error: getErrorObject(chunk.error),
-          model: params.model,
-        },
-        'Error from AI SDK',
-      )
+    if (chunkValue.type === 'error') {
+      // Error chunks from fullStream are non-network errors (tool failures, model issues, etc.)
+      // Network errors are thrown, not yielded as chunks.
 
-      const errorBody = APICallError.isInstance(chunk.error)
-        ? chunk.error.responseBody
+      const errorBody = APICallError.isInstance(chunkValue.error)
+        ? chunkValue.error.responseBody
         : undefined
       const mainErrorMessage =
-        chunk.error instanceof Error
-          ? chunk.error.message
-          : typeof chunk.error === 'string'
-            ? chunk.error
-            : JSON.stringify(chunk.error)
-      const errorMessage = `Error from AI SDK (model ${params.model}): ${buildArray([mainErrorMessage, errorBody]).join('\n')}`
+        chunkValue.error instanceof Error
+          ? chunkValue.error.message
+          : typeof chunkValue.error === 'string'
+            ? chunkValue.error
+            : JSON.stringify(chunkValue.error)
+      const errorMessage = buildArray([mainErrorMessage, errorBody]).join('\n')
 
-      // Determine error code from the error
-      let errorCode: ErrorCode = ErrorCodes.UNKNOWN_ERROR
-      let statusCode: number | undefined
-
-      if (APICallError.isInstance(chunk.error)) {
-        statusCode = chunk.error.statusCode
-        if (statusCode) {
-          if (statusCode === 402) {
-            // Payment required - extract message from JSON response body
-            let paymentErrorMessage = mainErrorMessage
-            if (errorBody) {
-              try {
-                const parsed = JSON.parse(errorBody)
-                paymentErrorMessage = parsed.message || errorBody
-              } catch {
-                paymentErrorMessage = errorBody
-              }
-            }
-            throw new PaymentRequiredError(paymentErrorMessage)
-          } else if (statusCode === 503) {
-            errorCode = ErrorCodes.SERVICE_UNAVAILABLE
-          } else if (statusCode >= 500) {
-            errorCode = ErrorCodes.SERVER_ERROR
-          } else if (statusCode === 408 || statusCode === 429) {
-            errorCode = ErrorCodes.TIMEOUT
-          }
+      // Pass these errors back to the agent so it can see what went wrong and retry.
+      // Note: If you find any other error types that should be passed through to the agent, add them here!
+      if (
+        NoSuchToolError.isInstance(chunkValue.error) ||
+        InvalidToolInputError.isInstance(chunkValue.error) ||
+        ToolCallRepairError.isInstance(chunkValue.error) ||
+        TypeValidationError.isInstance(chunkValue.error)
+      ) {
+        logger.warn(
+          {
+            chunk: { ...chunkValue, error: undefined },
+            error: getErrorObject(chunkValue.error),
+            model: params.model,
+          },
+          'Tool call error in AI SDK stream - passing through to agent to retry',
+        )
+        yield {
+          type: 'error',
+          message: errorMessage,
         }
-      } else if (chunk.error instanceof Error) {
-        // Check error message for error type indicators (case-insensitive)
-        const msg = chunk.error.message.toLowerCase()
-        if (msg.includes('service unavailable') || msg.includes('503')) {
-          errorCode = ErrorCodes.SERVICE_UNAVAILABLE
-        } else if (
-          msg.includes('econnrefused') ||
-          msg.includes('connection refused')
-        ) {
-          errorCode = ErrorCodes.CONNECTION_REFUSED
-        } else if (msg.includes('enotfound') || msg.includes('dns')) {
-          errorCode = ErrorCodes.DNS_FAILURE
-        } else if (msg.includes('timeout')) {
-          errorCode = ErrorCodes.TIMEOUT
-        } else if (
-          msg.includes('server error') ||
-          msg.includes('500') ||
-          msg.includes('502') ||
-          msg.includes('504')
-        ) {
-          errorCode = ErrorCodes.SERVER_ERROR
-        } else if (msg.includes('network') || msg.includes('fetch failed')) {
-          errorCode = ErrorCodes.NETWORK_ERROR
-        }
+        continue
       }
 
-      // Throw NetworkError so retry logic can handle it
-      throw new NetworkError(errorMessage, errorCode, statusCode, chunk.error)
+      logger.error(
+        {
+          chunk: { ...chunkValue, error: undefined },
+          error: getErrorObject(chunkValue.error),
+          model: params.model,
+        },
+        'Error in AI SDK stream',
+      )
+
+      // For all other errors, throw them -- they are fatal.
+      throw chunkValue.error
     }
-    if (chunk.type === 'reasoning-delta') {
+    if (chunkValue.type === 'reasoning-delta') {
       for (const provider of ['openrouter', 'codebuff'] as const) {
         if (
           (
@@ -325,23 +415,23 @@ export async function* promptAiSdkStream(
       }
       yield {
         type: 'reasoning',
-        text: chunk.text,
+        text: chunkValue.text,
       }
     }
-    if (chunk.type === 'text-delta') {
+    if (chunkValue.type === 'text-delta') {
       if (!params.stopSequences) {
-        content += chunk.text
-        if (chunk.text) {
+        content += chunkValue.text
+        if (chunkValue.text) {
           yield {
             type: 'text',
-            text: chunk.text,
+            text: chunkValue.text,
             ...(agentChunkMetadata ?? {}),
           }
         }
         continue
       }
 
-      const stopSequenceResult = stopSequenceHandler.process(chunk.text)
+      const stopSequenceResult = stopSequenceHandler.process(chunkValue.text)
       if (stopSequenceResult.text) {
         content += stopSequenceResult.text
         yield {
@@ -350,6 +440,9 @@ export async function* promptAiSdkStream(
           ...(agentChunkMetadata ?? {}),
         }
       }
+    }
+    if (chunkValue.type === 'tool-call') {
+      yield chunkValue
     }
   }
   const flushed = stopSequenceHandler.flush()

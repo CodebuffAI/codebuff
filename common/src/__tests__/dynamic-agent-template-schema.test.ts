@@ -282,45 +282,29 @@ describe('DynamicAgentDefinitionSchema', () => {
       expect(result.success).toBe(true)
     })
 
-    it('should reject template with set_output tool but non-structured_output outputMode', () => {
+    // Note: The validation that rejected set_output without structured_output mode was
+    // intentionally disabled to allow parent agents to have set_output tool with 'last_message'
+    // outputMode while their subagents use 'structured_output' (preserves prompt caching).
+    it('should allow template with set_output tool and non-structured_output outputMode', () => {
       const template = {
         ...validBaseTemplate,
         outputMode: 'last_message' as const,
-        toolNames: ['end_turn', 'set_output'], // set_output without structured_output mode
+        toolNames: ['end_turn', 'set_output'], // set_output is now allowed with any outputMode
       }
 
       const result = DynamicAgentTemplateSchema.safeParse(template)
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        const setOutputError = result.error.issues.find((issue) =>
-          issue.message.includes(
-            "'set_output' tool requires outputMode to be 'structured_output'",
-          ),
-        )
-        expect(setOutputError).toBeDefined()
-        expect(setOutputError?.message).toContain(
-          "'set_output' tool requires outputMode to be 'structured_output'",
-        )
-      }
+      expect(result.success).toBe(true)
     })
 
-    it('should reject template with set_output tool and all_messages outputMode', () => {
+    it('should allow template with set_output tool and all_messages outputMode', () => {
       const template = {
         ...validBaseTemplate,
         outputMode: 'all_messages' as const,
-        toolNames: ['end_turn', 'set_output'], // set_output without structured_output mode
+        toolNames: ['end_turn', 'set_output'], // set_output is now allowed with any outputMode
       }
 
       const result = DynamicAgentTemplateSchema.safeParse(template)
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        const setOutputError = result.error.issues.find((issue) =>
-          issue.message.includes(
-            "'set_output' tool requires outputMode to be 'structured_output'",
-          ),
-        )
-        expect(setOutputError).toBeDefined()
-      }
+      expect(result.success).toBe(true)
     })
 
     it('should reject template with non-empty spawnableAgents but missing spawn_agents tool', () => {

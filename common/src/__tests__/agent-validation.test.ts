@@ -779,7 +779,10 @@ describe('Agent Validation', () => {
       }
     })
 
-    test('should reject set_output tool without json output mode', () => {
+    // Note: The validation that rejected set_output without structured_output mode was
+    // intentionally disabled to allow parent agents to have set_output tool with 'last_message'
+    // outputMode while their subagents use 'structured_output' (preserves prompt caching).
+    test('should allow set_output tool without structured_output mode', () => {
       const {
         DynamicAgentTemplateSchema,
       } = require('../types/dynamic-agent-template')
@@ -791,7 +794,7 @@ describe('Agent Validation', () => {
         spawnerPrompt: 'Testing',
         model: 'claude-3-5-sonnet-20241022',
         outputMode: 'last_message' as const, // Not structured_output
-        toolNames: ['end_turn', 'set_output'], // Has set_output
+        toolNames: ['end_turn', 'set_output'], // Has set_output - now allowed
         spawnableAgents: [],
         systemPrompt: 'Test',
         instructionsPrompt: 'Test',
@@ -799,13 +802,7 @@ describe('Agent Validation', () => {
       }
 
       const result = DynamicAgentTemplateSchema.safeParse(agentConfig)
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        const errorMessage = result.error.issues[0]?.message || ''
-        expect(errorMessage).toContain(
-          "'set_output' tool requires outputMode to be 'structured_output'",
-        )
-      }
+      expect(result.success).toBe(true)
     })
 
     test('should validate that handleSteps is a generator function', async () => {

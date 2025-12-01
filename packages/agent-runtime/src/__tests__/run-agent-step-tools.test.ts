@@ -2,7 +2,6 @@ import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import db from '@codebuff/internal/db'
@@ -22,6 +21,7 @@ import { disableLiveUserInputCheck } from '../live-user-inputs'
 import { runAgentStep } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
 import { asUserMessage } from '../util/messages'
+import { createToolCallChunk } from './test-utils'
 
 import type { AgentTemplate } from '../templates/types'
 import type {
@@ -116,22 +116,21 @@ describe('runAgentStep - set_output tool', () => {
     runAgentStepBaseParams = {
       ...agentRuntimeImpl,
 
+      additionalToolDefinitions: () => Promise.resolve({}),
       ancestorRunIds: [],
       clientSessionId: 'test-session',
       fileContext: mockFileContext,
       fingerprintId: 'test-fingerprint',
+      onResponseChunk: () => {},
       repoId: undefined,
       repoUrl: undefined,
       runId: 'test-run-id',
       signal: new AbortController().signal,
       spawnParams: undefined,
       system: 'Test system prompt',
-      textOverride: null,
+      tools: {},
       userId: TEST_USER_ID,
       userInputId: 'test-input',
-
-      additionalToolDefinitions: () => Promise.resolve({}),
-      onResponseChunk: () => {},
     }
   })
 
@@ -170,15 +169,10 @@ describe('runAgentStep - set_output tool', () => {
   }
 
   it('should set output with simple key-value pair', async () => {
-    const mockResponse =
-      getToolCallString('set_output', {
-        message: 'Hi',
-      }) +
-      '\n\n' +
-      getToolCallString('end_turn', {})
-
     runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
-      yield { type: 'text' as const, text: mockResponse }
+      yield createToolCallChunk('set_output', { message: 'Hi' })
+      yield { type: 'text' as const, text: '\n\n' }
+      yield createToolCallChunk('end_turn', {})
       return 'mock-message-id'
     }
 
@@ -203,15 +197,13 @@ describe('runAgentStep - set_output tool', () => {
   })
 
   it('should set output with complex data', async () => {
-    const mockResponse =
-      getToolCallString('set_output', {
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
+      yield createToolCallChunk('set_output', {
         message: 'Analysis complete',
         status: 'success',
         findings: ['Bug in auth.ts', 'Missing validation'],
-      }) + getToolCallString('end_turn', {})
-
-    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
-      yield { type: 'text' as const, text: mockResponse }
+      })
+      yield createToolCallChunk('end_turn', {})
       return 'mock-message-id'
     }
 
@@ -238,14 +230,12 @@ describe('runAgentStep - set_output tool', () => {
   })
 
   it('should replace existing output data', async () => {
-    const mockResponse =
-      getToolCallString('set_output', {
+    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
+      yield createToolCallChunk('set_output', {
         newField: 'new value',
         existingField: 'updated value',
-      }) + getToolCallString('end_turn', {})
-
-    runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
-      yield { type: 'text' as const, text: mockResponse }
+      })
+      yield createToolCallChunk('end_turn', {})
       return 'mock-message-id'
     }
 
@@ -275,11 +265,9 @@ describe('runAgentStep - set_output tool', () => {
   })
 
   it('should handle empty output parameter', async () => {
-    const mockResponse =
-      getToolCallString('set_output', {}) + getToolCallString('end_turn', {})
-
     runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
-      yield { type: 'text' as const, text: mockResponse }
+      yield createToolCallChunk('set_output', {})
+      yield createToolCallChunk('end_turn', {})
       return 'mock-message-id'
     }
 
@@ -490,13 +478,10 @@ describe('runAgentStep - set_output tool', () => {
 
     // Mock the LLM stream to spawn the inline agent
     runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
-      yield {
-        type: 'text' as const,
-        text: getToolCallString('spawn_agent_inline', {
-          agent_type: 'message-deleter-agent',
-          prompt: 'Delete the last two assistant messages',
-        }),
-      }
+      yield createToolCallChunk('spawn_agent_inline', {
+        agent_type: 'message-deleter-agent',
+        prompt: 'Delete the last two assistant messages',
+      })
       return 'mock-message-id'
     }
 

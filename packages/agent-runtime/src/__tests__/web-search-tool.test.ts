@@ -2,7 +2,6 @@ import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import { getToolCallString } from '@codebuff/common/tools/utils'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { success } from '@codebuff/common/util/error'
 import {
@@ -17,7 +16,7 @@ import {
 } from 'bun:test'
 
 import { disableLiveUserInputCheck } from '../live-user-inputs'
-import { mockFileContext } from './test-utils'
+import { createToolCallChunk, mockFileContext } from './test-utils'
 import researcherAgent from '../../../../.agents/researcher/researcher'
 import * as webApi from '../llm-api/codebuff-web-api'
 import { runAgentStep } from '../run-agent-step'
@@ -34,13 +33,12 @@ let runAgentStepBaseParams: ParamsExcluding<
   typeof runAgentStep,
   'localAgentTemplates' | 'agentState' | 'prompt'
 >
-function mockAgentStream(content: string | string[]) {
+import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
+
+function mockAgentStream(chunks: StreamChunk[]) {
   runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
-    if (typeof content === 'string') {
-      content = [content]
-    }
-    for (const chunk of content) {
-      yield { type: 'text' as const, text: chunk }
+    for (const chunk of chunks) {
+      yield chunk
     }
     return 'mock-message-id'
   }
@@ -61,23 +59,22 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
     runAgentStepBaseParams = {
       ...agentRuntimeImpl,
 
+      additionalToolDefinitions: () => Promise.resolve({}),
       agentType: 'researcher',
       ancestorRunIds: [],
       clientSessionId: 'test-session',
       fileContext: mockFileContext,
       fingerprintId: 'test-fingerprint',
+      onResponseChunk: () => {},
       repoId: undefined,
       repoUrl: undefined,
       runId: 'test-run-id',
       signal: new AbortController().signal,
       spawnParams: undefined,
       system: 'Test system prompt',
-      textOverride: null,
+      tools: {},
       userId: TEST_USER_ID,
       userInputId: 'test-input',
-
-      additionalToolDefinitions: () => Promise.resolve({}),
-      onResponseChunk: () => {},
     }
 
     // Mock analytics and tracing
@@ -116,11 +113,10 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
       result: mockSearchResult,
     })
 
-    const mockResponse =
-      getToolCallString('web_search', { query: 'test query' }) +
-      getToolCallString('end_turn', {})
-
-    mockAgentStream(mockResponse)
+    mockAgentStream([
+      createToolCallChunk('web_search', { query: 'test query' }),
+      createToolCallChunk('end_turn', {}),
+    ])
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -151,11 +147,10 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
       result: mockSearchResult,
     })
 
-    const mockResponse =
-      getToolCallString('web_search', { query: 'Next.js 15 new features' }) +
-      getToolCallString('end_turn', {})
-
-    mockAgentStream(mockResponse)
+    mockAgentStream([
+      createToolCallChunk('web_search', { query: 'Next.js 15 new features' }),
+      createToolCallChunk('end_turn', {}),
+    ])
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -188,13 +183,13 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
       result: 'Deep result',
     })
 
-    const mockResponse =
-      getToolCallString('web_search', {
+    mockAgentStream([
+      createToolCallChunk('web_search', {
         query: 'RSC tutorial',
         depth: 'deep',
-      }) + getToolCallString('end_turn', {})
-
-    mockAgentStream(mockResponse)
+      }),
+      createToolCallChunk('end_turn', {}),
+    ])
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -222,11 +217,10 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
     const msg = 'No search results found for "very obscure"'
     spyOn(webApi, 'callWebSearchAPI').mockResolvedValue({ error: msg })
 
-    const mockResponse =
-      getToolCallString('web_search', { query: 'very obscure' }) +
-      getToolCallString('end_turn', {})
-
-    mockAgentStream(mockResponse)
+    mockAgentStream([
+      createToolCallChunk('web_search', { query: 'very obscure' }),
+      createToolCallChunk('end_turn', {}),
+    ])
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -259,11 +253,10 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
       error: 'Linkup API timeout',
     })
 
-    const mockResponse =
-      getToolCallString('web_search', { query: 'test query' }) +
-      getToolCallString('end_turn', {})
-
-    mockAgentStream(mockResponse)
+    mockAgentStream([
+      createToolCallChunk('web_search', { query: 'test query' }),
+      createToolCallChunk('end_turn', {}),
+    ])
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -296,11 +289,10 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
       throw 'String error'
     })
 
-    const mockResponse =
-      getToolCallString('web_search', { query: 'test query' }) +
-      getToolCallString('end_turn', {})
-
-    mockAgentStream(mockResponse)
+    mockAgentStream([
+      createToolCallChunk('web_search', { query: 'test query' }),
+      createToolCallChunk('end_turn', {}),
+    ])
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -334,11 +326,10 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
       result: mockSearchResult,
     })
 
-    const mockResponse =
-      getToolCallString('web_search', { query: 'test formatting' }) +
-      getToolCallString('end_turn', {})
-
-    mockAgentStream(mockResponse)
+    mockAgentStream([
+      createToolCallChunk('web_search', { query: 'test formatting' }),
+      createToolCallChunk('end_turn', {}),
+    ])
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {
@@ -374,11 +365,10 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
       creditsUsed: mockCreditsUsed,
     })
 
-    const mockResponse =
-      getToolCallString('web_search', { query: 'test query' }) +
-      getToolCallString('end_turn', {})
-
-    mockAgentStream(mockResponse)
+    mockAgentStream([
+      createToolCallChunk('web_search', { query: 'test query' }),
+      createToolCallChunk('end_turn', {}),
+    ])
 
     const sessionState = getInitialSessionState(mockFileContextWithAgents)
     const agentState = {

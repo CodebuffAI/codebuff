@@ -52,7 +52,7 @@ describe('Spawn Agents Message History', () => {
             assistantMessage('Mock agent response'),
           ],
         },
-        output: { type: 'lastMessage', value: 'Mock agent response' },
+        output: { type: 'lastMessage', value: [assistantMessage('Mock agent response')] },
       }
     })
 
@@ -68,6 +68,7 @@ describe('Spawn Agents Message History', () => {
       sendSubagentChunk: mockSendSubagentChunk,
       signal: new AbortController().signal,
       system: 'Test system prompt',
+      tools: {},
       userId: TEST_USER_ID,
       userInputId: 'test-input',
       writeToClient: () => {},

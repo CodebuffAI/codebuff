@@ -1589,6 +1589,7 @@ export const useSendMessage = ({
                   input,
                   agentId,
                   includeToolCall,
+                  parentAgentId,
                 } = event
 
                 if (toolName === 'spawn_agents' && input?.agents) {
@@ -1660,7 +1661,7 @@ export const useSendMessage = ({
                 }
 
                 // If this tool call belongs to a subagent, add it to that agent's blocks
-                if (agentId) {
+                if (parentAgentId && agentId) {
                   applyMessageUpdate((prev) =>
                     prev.map((msg) => {
                       if (msg.id !== aiMessageId || !msg.blocks) {
