@@ -14,6 +14,8 @@ export interface ImageUploadResult {
     mediaType: string
     filename?: string
     size?: number
+    width?: number
+    height?: number
   }
   error?: string
   wasCompressed?: boolean
@@ -221,6 +223,19 @@ export async function processImageFile(
     let wasCompressed = false
     let base64Data = fileBuffer.toString('base64')
     let base64Size = base64Data.length
+    
+    // Track final dimensions (will be updated if compressed)
+    let finalWidth: number | undefined
+    let finalHeight: number | undefined
+    
+    // Read image dimensions upfront using Jimp
+    try {
+      const imageForDimensions = await Jimp.read(fileBuffer)
+      finalWidth = imageForDimensions.bitmap.width
+      finalHeight = imageForDimensions.bitmap.height
+    } catch {
+      // If we can't read dimensions, continue without them
+    }
 
     // If base64 is too large, try to compress the image
     if (base64Size > MAX_BASE64_SIZE) {
@@ -272,6 +287,10 @@ export async function processImageFile(
                 base64Size = testBase64Size
                 finalMediaType = 'image/jpeg'
                 wasCompressed = true
+                
+                // Update dimensions to match compressed image
+                finalWidth = testImage.bitmap.width
+                finalHeight = testImage.bitmap.height
 
                 logger.debug(
                   {
@@ -362,6 +381,8 @@ export async function processImageFile(
         mediaType: finalMediaType,
         filename: path.basename(resolvedPath),
         size: processedBuffer.length,
+        width: finalWidth,
+        height: finalHeight,
       },
       wasCompressed,
     }

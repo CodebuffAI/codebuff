@@ -7,6 +7,7 @@ import {
   supportsInlineImages,
   getImageSupportDescription,
 } from '../../utils/terminal-images'
+import { calculateDisplaySize } from '../../utils/image-display'
 
 import type { ImageContentBlock } from '../../types/chat'
 
@@ -18,7 +19,13 @@ interface ImageBlockProps {
 export const ImageBlock = memo(({ block, availableWidth }: ImageBlockProps) => {
   const theme = useTheme()
 
-  const { image, mediaType, filename, size } = block
+  const { image, mediaType, filename, size, width, height } = block
+
+  // Calculate display dimensions based on actual image dimensions
+  const displaySize = useMemo(() => 
+    calculateDisplaySize({ width, height, availableWidth }),
+    [width, height, availableWidth]
+  )
 
   // Try to render inline if supported
   const inlineSequence = useMemo(() => {
@@ -26,18 +33,12 @@ export const ImageBlock = memo(({ block, availableWidth }: ImageBlockProps) => {
       return null
     }
 
-    // Calculate reasonable display dimensions based on available width
-    // Terminal cells are roughly 2:1 aspect ratio (height:width)
-    const maxCells = Math.min(availableWidth - 4, 80)
-    const displayWidth = Math.min(maxCells, 40)
-    const displayHeight = Math.floor(displayWidth / 2) // Maintain rough aspect ratio
-
     return renderInlineImage(image, {
-      width: displayWidth,
-      height: displayHeight,
+      width: displaySize.width,
+      height: displaySize.height,
       filename,
     })
-  }, [image, filename, availableWidth])
+  }, [image, filename, displaySize])
 
   // Format file size
   const formattedSize = useMemo(() => {

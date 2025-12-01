@@ -47,6 +47,8 @@ export type PendingImage = {
   path: string
   filename: string
   size?: number
+  width?: number
+  height?: number
   note?: string // Status: "processing…" | "compressed" | error message
   isError?: boolean // True if this is an error entry (e.g., file not found)
   processedImage?: {

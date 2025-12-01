@@ -35,6 +35,8 @@ export async function addPendingImageFromFile(
       return {
         ...img,
         size: result.imagePart.size,
+        width: result.imagePart.width,
+        height: result.imagePart.height,
         note: result.wasCompressed ? 'compressed' : undefined,
         processedImage: {
           base64: result.imagePart.image,
