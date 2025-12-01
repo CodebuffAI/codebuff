@@ -1,10 +1,7 @@
 /**
  * Terminal image rendering utilities
  * Supports iTerm2 inline images protocol and Kitty graphics protocol
- * Falls back to ANSI block characters for unsupported terminals
  */
-
-import terminalImage from 'terminal-image'
 
 import { logger } from './logger'
 
@@ -224,68 +221,5 @@ export function getImageSupportDescription(): string {
       return 'Sixel graphics'
     case 'none':
       return 'No inline image support'
-  }
-}
-
-/**
- * Render an image using ANSI block characters (Unicode half-blocks)
- * This works in any terminal that supports 24-bit color
- * @param imageBuffer - Buffer containing image data
- * @param options - Display options
- * @returns Promise resolving to the ANSI escape sequence string
- */
-export async function renderAnsiBlockImage(
-  imageBuffer: Buffer,
-  options: {
-    width?: number
-    height?: number
-  } = {},
-): Promise<string> {
-  const { width = 20, height = 10 } = options
-
-  try {
-    const result = await terminalImage.buffer(imageBuffer, {
-      width,
-      height,
-      preserveAspectRatio: true,
-    })
-    return result
-  } catch (error) {
-    logger.debug(
-      { error: error instanceof Error ? error.message : String(error) },
-      'Failed to render ANSI block image from buffer',
-    )
-    return ''
-  }
-}
-
-/**
- * Render an image from a file path using ANSI block characters
- * @param filePath - Path to the image file
- * @param options - Display options
- * @returns Promise resolving to the ANSI escape sequence string
- */
-export async function renderAnsiBlockImageFromFile(
-  filePath: string,
-  options: {
-    width?: number
-    height?: number
-  } = {},
-): Promise<string> {
-  const { width = 20, height = 10 } = options
-
-  try {
-    const result = await terminalImage.file(filePath, {
-      width,
-      height,
-      preserveAspectRatio: true,
-    })
-    return result
-  } catch (error) {
-    logger.debug(
-      { filePath, error: error instanceof Error ? error.message : String(error) },
-      'Failed to render ANSI block image from file',
-    )
-    return ''
   }
 }
