@@ -33,25 +33,14 @@ export const ImageThumbnail = memo(({
   fallback,
 }: ImageThumbnailProps) => {
   const [thumbnailData, setThumbnailData] = useState<ThumbnailData | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState(false)
 
   useEffect(() => {
     let cancelled = false
 
     const loadThumbnail = async () => {
-      setIsLoading(true)
-      setError(false)
-      
       const data = await extractThumbnailColors(imagePath, width, height)
-      
       if (!cancelled) {
-        if (data) {
-          setThumbnailData(data)
-        } else {
-          setError(true)
-        }
-        setIsLoading(false)
+        setThumbnailData(data)
       }
     }
 
@@ -62,7 +51,7 @@ export const ImageThumbnail = memo(({
     }
   }, [imagePath, width, height])
 
-  if (isLoading || error || !thumbnailData) {
+  if (!thumbnailData) {
     return <>{fallback}</>
   }
 
