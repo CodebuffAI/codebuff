@@ -402,7 +402,7 @@ protec.use(async ({ action, clientSessionId, ws, userInfo, logger }) => {
     },
   })
 
-  // Check and trigger monthly reset if needed
+  // Check and trigger monthly reset if needed (ignore the returned quotaResetDate since we use user.next_quota_reset)
   await triggerMonthlyResetAndGrant({ userId, logger })
 
   // Check if we need to trigger auto top-up and get the amount added (if any)

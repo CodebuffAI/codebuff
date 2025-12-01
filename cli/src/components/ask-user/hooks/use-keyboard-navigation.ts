@@ -205,10 +205,9 @@ export function useKeyboardNavigation(params: KeyboardNavigationParams) {
           !key.meta &&
           !key.shift
         ) {
-          // Handle space in text input: add space character and return
-          if (isFocusOnTextInput(focus) && key.name === 'space') {
-            const currentText = otherTexts[currentQuestionIndex] || ''
-            onOtherTextChange(currentQuestionIndex, currentText + ' ')
+          // When focused on the free-text input, let the MultilineInput component
+          // handle character input and submission behavior.
+          if (isFocusOnTextInput(focus)) {
             return
           }
 
@@ -219,9 +218,6 @@ export function useKeyboardNavigation(params: KeyboardNavigationParams) {
             onSelectAnswer(focus.questionIndex, focus.optionIndex)
             // Let auto-advance hook handle the rest
             onAutoAdvance(focus.optionIndex)
-          } else if (isFocusOnTextInput(focus)) {
-            // Advance if text input has content
-            onTextInputAdvance()
           } else if (isFocusOnConfirmSubmit(focus)) {
             // Submit from confirm screen
             onSubmit()
@@ -247,20 +243,10 @@ export function useKeyboardNavigation(params: KeyboardNavigationParams) {
         // Text Input Handling
         // ====================
 
+        // When focused on the free-text input, let the shared MultilineInput
+        // component handle all text editing (characters, backspace, etc.).
         if (isFocusOnTextInput(focus)) {
-          // Backspace
-          if (key.name === 'backspace') {
-            const currentText = otherTexts[currentQuestionIndex] || ''
-            onOtherTextChange(currentQuestionIndex, currentText.slice(0, -1))
-            return
-          }
-
-          // Character input
-          if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
-            const currentText = otherTexts[currentQuestionIndex] || ''
-            onOtherTextChange(currentQuestionIndex, currentText + key.sequence)
-            return
-          }
+          return
         }
       },
       [] // Empty deps - callback is stable, values accessed via ref

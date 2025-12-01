@@ -105,7 +105,7 @@ describe('/api/v1/me route', () => {
       expect(body).toEqual({ id: 'user-123' })
     })
 
-    test('returns 404 when API key is invalid', async () => {
+    test('returns 401 when API key is invalid', async () => {
       const req = new NextRequest('http://localhost:3000/api/v1/me', {
         headers: { Authorization: 'Bearer invalid-key' },
       })
@@ -114,7 +114,7 @@ describe('/api/v1/me route', () => {
         ...agentRuntimeImpl,
         req,
       })
-      expect(response.status).toBe(404)
+      expect(response.status).toBe(401)
       const body = await response.json()
       expect(body).toEqual({ error: 'Invalid API key or user not found' })
     })

@@ -48,7 +48,7 @@ export const AgentOutputSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('lastMessage'),
-    value: z.any(),
+    value: z.array(z.any()), // Array of assistant and tool messages from the last turn, including tool results
   }),
   z.object({
     type: z.literal('allMessages'),
@@ -57,6 +57,7 @@ export const AgentOutputSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('error'),
     message: z.string(),
+    errorCode: z.string().optional(),
   }),
 ])
 export type AgentOutput = z.infer<typeof AgentOutputSchema>

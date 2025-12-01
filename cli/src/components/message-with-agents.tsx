@@ -147,6 +147,7 @@ export const MessageWithAgents = memo(
 
     const agentChildren = messageTree.get(message.id) ?? []
     const hasAgentChildren = agentChildren.length > 0
+    // Show vertical line for user messages (including bash commands which are now user messages)
     const showVerticalLine = isUser
 
     return (
@@ -213,6 +214,7 @@ export const MessageWithAgents = memo(
                       ? (options) => onFeedback(message.id, options)
                       : undefined
                   }
+                  metadata={message.metadata}
                 />
               </box>
             </box>
@@ -241,6 +243,7 @@ export const MessageWithAgents = memo(
                 onBuildMax={onBuildMax}
                 onFeedback={onFeedback}
                 onCloseFeedback={onCloseFeedback}
+                metadata={message.metadata}
               />
             </box>
           )}

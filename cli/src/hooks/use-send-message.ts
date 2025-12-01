@@ -2,6 +2,8 @@ import {
   MAX_RETRIES_PER_MESSAGE,
   RETRY_BACKOFF_BASE_DELAY_MS,
   RETRY_BACKOFF_MAX_DELAY_MS,
+  isPaymentRequiredError,
+  ErrorCodes,
 } from '@codebuff/sdk'
 import { useQueryClient } from '@tanstack/react-query'
 import { has, isEqual } from 'lodash'
@@ -28,12 +30,18 @@ import {
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
 import type { StreamStatus } from './use-message-queue'
-import type { ChatMessage, ContentBlock, ToolContentBlock, AskUserContentBlock } from '../types/chat'
+import type {
+  ChatMessage,
+  ContentBlock,
+  ToolContentBlock,
+  AskUserContentBlock,
+} from '../types/chat'
 import type { SendMessageFn } from '../types/contracts/send-message'
 import type { ParamsOf } from '../types/function-params'
 import type { SetElement } from '../types/utils'
 import type { AgentMode } from '../utils/constants'
 import type { AgentDefinition, RunState, ToolName } from '@codebuff/sdk'
+import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { SetStateAction } from 'react'
 const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
   'spawn_agent_inline',
@@ -310,6 +318,7 @@ export const useSendMessage = ({
   const agentStreamAccumulatorsRef = useRef<Map<string, string>>(new Map())
   const rootStreamSeenRef = useRef(false)
   const planExtractedRef = useRef(false)
+  const wasAbortedByUserRef = useRef(false)
 
   const updateChainInProgress = useCallback(
     (value: boolean) => {
@@ -436,6 +445,39 @@ export const useSendMessage = ({
 
       if (agentMode !== 'PLAN') {
         setHasReceivedPlanResponse(false)
+      }
+
+      // Include any pending bash messages in context before sending
+      // This ensures the LLM can reference terminal commands run during streaming
+      const { pendingBashMessages, clearPendingBashMessages } =
+        useChatStore.getState()
+      if (pendingBashMessages.length > 0) {
+        // Convert pending bash messages to chat messages and add to history
+        applyMessageUpdate((prev) => {
+          const bashMessages: ChatMessage[] = pendingBashMessages.flatMap(
+            (bash) => [
+              getUserMessage(`!${bash.command}`),
+              {
+                id: `bash-result-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+                variant: 'ai' as const,
+                content: '',
+                blocks: [
+                  {
+                    type: 'tool' as const,
+                    toolCallId: crypto.randomUUID(),
+                    toolName: 'run_terminal_command' as const,
+                    input: { command: bash.command },
+                    output: bash.stdout || bash.stderr || '',
+                  },
+                ],
+                timestamp: formatTimestamp(),
+                isComplete: true,
+              },
+            ],
+          )
+          return [...prev, ...bashMessages]
+        })
+        clearPendingBashMessages()
       }
 
       const timerController = createSendMessageTimerController({
@@ -653,6 +695,7 @@ export const useSendMessage = ({
       rootStreamSeenRef.current = false
       planExtractedRef.current = false
       agentStreamAccumulatorsRef.current = new Map<string, string>()
+      wasAbortedByUserRef.current = false
       timerController.start(aiMessageId)
 
       const updateAgentContent = (
@@ -873,6 +916,7 @@ export const useSendMessage = ({
       const abortController = new AbortController()
       abortControllerRef.current = abortController
       abortController.signal.addEventListener('abort', () => {
+        wasAbortedByUserRef.current = true
         setStreamStatus('idle')
         setCanProcessQueue(!isQueuePausedRef?.current)
         updateChainInProgress(false)
@@ -932,11 +976,21 @@ export const useSendMessage = ({
 
         let runState: RunState
         try {
+          // Get any pending tool results from user-executed bash commands
+          const pendingToolResults = useChatStore.getState().pendingToolResults
+          if (pendingToolResults.length > 0) {
+            useChatStore.getState().clearPendingToolResults()
+          }
+
           runState = await client.run({
             logger,
             agent: selectedAgentDefinition ?? agentId ?? fallbackAgent,
             prompt: content,
             previousRun: previousRunStateRef.current ?? undefined,
+            extraToolResults:
+              pendingToolResults.length > 0
+                ? (pendingToolResults as unknown as ToolMessage[])
+                : undefined,
             abortController,
             retry: {
               maxRetries: MAX_RETRIES_PER_MESSAGE,
@@ -1123,7 +1177,7 @@ export const useSendMessage = ({
                   ] of spawnAgentsMapRef.current.entries()) {
                     const eventType = event.agentType || ''
                     const storedType = info.agentType || ''
-                    
+
                     // Extract base names without version or scope
                     // e.g., 'codebuff/file-picker@0.0.2' -> 'file-picker'
                     //       'file-picker' -> 'file-picker'
@@ -1135,10 +1189,10 @@ export const useSendMessage = ({
                       // Handle simple names, possibly with version
                       return type.split('@')[0]
                     }
-                    
+
                     const eventBaseName = getBaseName(eventType)
                     const storedBaseName = getBaseName(storedType)
-                    
+
                     // Match if base names are the same
                     const isMatch = eventBaseName === storedBaseName
                     if (isMatch) {
@@ -1416,6 +1470,7 @@ export const useSendMessage = ({
                   input,
                   agentId,
                   includeToolCall,
+                  parentAgentId,
                 } = event
 
                 if (toolName === 'spawn_agents' && input?.agents) {
@@ -1487,7 +1542,7 @@ export const useSendMessage = ({
                 }
 
                 // If this tool call belongs to a subagent, add it to that agent's blocks
-                if (agentId) {
+                if (parentAgentId && agentId) {
                   applyMessageUpdate((prev) =>
                     prev.map((msg) => {
                       if (msg.id !== aiMessageId || !msg.blocks) {
@@ -1557,18 +1612,24 @@ export const useSendMessage = ({
                 }
 
                 setStreamingAgents((prev) => new Set(prev).add(toolCallId))
-              } else              if (event.type === 'tool_result' && event.toolCallId) {
+              } else if (event.type === 'tool_result' && event.toolCallId) {
                 const { toolCallId } = event
 
                 // Handle ask_user result transformation
-                applyMessageUpdate((prev) => 
+                applyMessageUpdate((prev) =>
                   prev.map((msg) => {
                     if (msg.id !== aiMessageId || !msg.blocks) return msg
 
                     // Recursively check for tool blocks to transform
-                    const transformAskUser = (blocks: ContentBlock[]): ContentBlock[] => {
+                    const transformAskUser = (
+                      blocks: ContentBlock[],
+                    ): ContentBlock[] => {
                       return blocks.map((block) => {
-                        if (block.type === 'tool' && block.toolCallId === toolCallId && block.toolName === 'ask_user') {
+                        if (
+                          block.type === 'tool' &&
+                          block.toolCallId === toolCallId &&
+                          block.toolName === 'ask_user'
+                        ) {
                           const resultValue = (event.output?.[0] as any)?.value
                           const skipped = resultValue?.skipped
                           const answers = resultValue?.answers
@@ -1587,7 +1648,7 @@ export const useSendMessage = ({
                             skipped,
                           } as AskUserContentBlock
                         }
-                        
+
                         if (block.type === 'agent' && block.blocks) {
                           const updatedBlocks = transformAskUser(block.blocks)
                           if (updatedBlocks !== block.blocks) {
@@ -1600,10 +1661,10 @@ export const useSendMessage = ({
 
                     const newBlocks = transformAskUser(msg.blocks)
                     if (newBlocks !== msg.blocks) {
-                       return { ...msg, blocks: newBlocks }
+                      return { ...msg, blocks: newBlocks }
                     }
                     return msg
-                  })
+                  }),
                 )
 
                 // Check if this is a spawn_agents result
@@ -1769,15 +1830,72 @@ export const useSendMessage = ({
         })
 
         if (!runState.output || runState.output.type === 'error') {
+          const errorOutput =
+            runState.output?.type === 'error' ? runState.output : null
+          const errorMessage =
+            errorOutput?.message ?? 'No output from agent run'
+
+          // Check if this was a user-initiated cancellation - if so, don't show error since
+          // the abort handler already shows [response interrupted]
+          if (wasAbortedByUserRef.current) {
+            logger.info(
+              { errorMessage },
+              'Run cancelled by user, not showing error',
+            )
+            return
+          }
+
           logger.warn(
-            {
-              errorMessage:
-                runState.output?.type === 'error'
-                  ? runState.output.message
-                  : 'No output from agent run',
-            },
+            { errorMessage, errorCode: errorOutput?.errorCode },
             'Agent run failed',
           )
+
+          // Check if this is an out-of-credits error using the error code
+          const isOutOfCredits =
+            errorOutput?.errorCode === ErrorCodes.PAYMENT_REQUIRED
+
+          if (isOutOfCredits) {
+            const appUrl =
+              process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
+            const paymentErrorMessage =
+              errorOutput?.message ??
+              `Out of credits. Please add credits at ${appUrl}/usage`
+            applyMessageUpdate((prev) =>
+              prev.map((msg) => {
+                if (msg.id !== aiMessageId) return msg
+                return {
+                  ...msg,
+                  content: paymentErrorMessage,
+                  blocks: undefined, // Clear blocks so content renders
+                  isComplete: true,
+                }
+              }),
+            )
+            // Show the usage banner so user can see their balance and renewal date
+            useChatStore.getState().setInputMode('usage')
+            // Refresh usage data to show current state
+            queryClient.invalidateQueries({
+              queryKey: usageQueryKeys.current(),
+            })
+          } else {
+            // Generic error - display the error message directly from SDK
+            applyMessageUpdate((prev) =>
+              prev.map((msg) => {
+                if (msg.id !== aiMessageId) return msg
+                return {
+                  ...msg,
+                  content: `**Error:** ${errorMessage}`,
+                  blocks: undefined, // Clear blocks so content renders
+                  isComplete: true,
+                }
+              }),
+            )
+          }
+
+          setStreamStatus('idle')
+          setCanProcessQueue(true)
+          updateChainInProgress(false)
+          timerController.stop('error')
           return
         }
 
@@ -1835,6 +1953,36 @@ export const useSendMessage = ({
 
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error occurred'
+
+        // Handle payment required (out of credits) specially
+        if (isPaymentRequiredError(error)) {
+          const appUrl =
+            process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
+          const paymentErrorMessage =
+            error instanceof Error && error.message
+              ? error.message
+              : `Out of credits. Please add credits at ${appUrl}/usage`
+
+          applyMessageUpdate((prev) =>
+            prev.map((msg) => {
+              if (msg.id !== aiMessageId) {
+                return msg
+              }
+              return {
+                ...msg,
+                content: paymentErrorMessage,
+                blocks: undefined, // Clear blocks so content renders
+                isComplete: true,
+              }
+            }),
+          )
+          // Show the usage banner so user can see their balance and renewal date
+          useChatStore.getState().setInputMode('usage')
+          // Refresh usage data to show current state
+          queryClient.invalidateQueries({ queryKey: usageQueryKeys.current() })
+          return
+        }
+
         applyMessageUpdate((prev) =>
           prev.map((msg) => {
             if (msg.id !== aiMessageId) {

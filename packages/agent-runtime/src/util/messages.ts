@@ -34,20 +34,26 @@ export function asUserMessage(str: string): string {
 }
 
 /**
- * Combines prompt, params, and content into a unified message content structure
+ * Combines prompt, params, and content into a unified message content structure.
+ * For single text parts, wraps the text in <user_message> tags; multipart content
+ * is returned as-is (assumes caller already wrapped the appropriate part).
  */
 export function buildUserMessageContent(
   prompt: string | undefined,
   params: Record<string, any> | undefined,
   content?: Array<TextPart | ImagePart>,
 ): Array<TextPart | ImagePart> {
-  // If we have content, return it as-is (client should have already combined prompt + content)
   if (content && content.length > 0) {
     if (content.length === 1 && content[0].type === 'text') {
+      const [textPart] = content
+      const alreadyWrapped = parseUserMessage(textPart.text) !== undefined
+      if (alreadyWrapped) {
+        return content
+      }
       return [
         {
-          type: 'text',
-          text: asUserMessage(content[0].text),
+          ...textPart,
+          text: asUserMessage(textPart.text),
         },
       ]
     }
@@ -305,6 +311,53 @@ export function expireMessages(
 
     return true
   })
+}
+
+/**
+ * Removes tool calls from the message history that don't have corresponding tool responses.
+ * This is important when passing message history to spawned agents, as unfinished tool calls
+ * will cause issues with the LLM expecting tool responses.
+ *
+ * The function:
+ * 1. Collects all toolCallIds from tool response messages
+ * 2. Filters assistant messages to remove tool-call content parts without responses
+ * 3. Removes assistant messages that become empty after filtering
+ */
+export function filterUnfinishedToolCalls(messages: Message[]): Message[] {
+  // Collect all toolCallIds that have corresponding tool responses
+  const respondedToolCallIds = new Set<string>()
+  for (const message of messages) {
+    if (message.role === 'tool') {
+      respondedToolCallIds.add(message.toolCallId)
+    }
+  }
+
+  // Filter messages, removing unfinished tool calls from assistant messages
+  const filteredMessages: Message[] = []
+  for (const message of messages) {
+    if (message.role !== 'assistant') {
+      filteredMessages.push(message)
+      continue
+    }
+
+    // Filter out tool-call content parts that don't have responses
+    const filteredContent = message.content.filter((part) => {
+      if (part.type !== 'tool-call') {
+        return true
+      }
+      return respondedToolCallIds.has(part.toolCallId)
+    })
+
+    // Only include the assistant message if it has content after filtering
+    if (filteredContent.length > 0) {
+      filteredMessages.push({
+        ...message,
+        content: filteredContent,
+      })
+    }
+  }
+
+  return filteredMessages
 }
 
 export function getEditedFiles(params: {

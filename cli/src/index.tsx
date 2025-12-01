@@ -8,7 +8,7 @@ import { createRoot } from '@opentui/react'
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { getProjectFileTree } from '@codebuff/common/project-file-tree'
 import { validateAgents } from '@codebuff/sdk'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query'
 import { Command } from 'commander'
 import React from 'react'
 
@@ -49,6 +49,15 @@ function loadPackageVersion(): string {
 
   return 'dev'
 }
+
+// Configure TanStack Query's focusManager for terminal environments
+// This is required because there's no browser visibility API in terminal apps
+// Without this, refetchInterval won't work because TanStack Query thinks the app is "unfocused"
+focusManager.setEventListener(() => {
+  // No-op: no event listeners in CLI environment (no window focus/visibility events)
+  return () => {}
+})
+focusManager.setFocused(true)
 
 function createQueryClient(): QueryClient {
   return new QueryClient({

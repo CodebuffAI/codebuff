@@ -154,6 +154,7 @@ export type UsageResponse = {
   balanceBreakdown?: Record<GrantType, number>
   next_quota_reset: Date | null
   autoTopupAdded?: number
+  autoTopupEnabled?: boolean
 }
 
 export type MessageCostResponse = {

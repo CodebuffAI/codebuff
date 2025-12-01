@@ -145,7 +145,12 @@ const definition: AgentDefinition = {
     const shortenedMessageTokenFactor = 0.5
     const replacementMessage: Message = {
       role: 'user',
-      content: '<system>Previous message(s) omitted due to length</system>',
+      content: [
+        {
+          type: 'text',
+          text: '<system>Previous message(s) omitted due to length</system>',
+        },
+      ],
     }
 
     const keepLastTags: Record<string, number> = {}

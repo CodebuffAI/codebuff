@@ -54,6 +54,11 @@ const parseSlashContext = (input: string): TriggerContext => {
   const [, leadingWhitespace, commandSegment] = match
   const startIndex = lineStart + leadingWhitespace.length
 
+  // Slash commands only activate on the first line (startIndex must be 0)
+  if (startIndex !== 0) {
+    return { active: false, query: '', startIndex: -1 }
+  }
+
   return { active: true, query: commandSegment, startIndex }
 }
 

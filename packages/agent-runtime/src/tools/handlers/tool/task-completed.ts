@@ -11,5 +11,5 @@ export const handleTaskCompleted = (async ({
   toolCall: CodebuffToolCall<'task_completed'>
 }): Promise<{ output: CodebuffToolOutput<'task_completed'> }> => {
   await previousToolCallFinished
-  return { output: [] }
+  return { output: [{ type: 'json', value: { message: 'Task completed.' } }] }
 }) satisfies CodebuffToolHandlerFunction<'task_completed'>

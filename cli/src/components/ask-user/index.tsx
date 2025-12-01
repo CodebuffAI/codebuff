@@ -41,6 +41,9 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
   const theme = useTheme()
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [isOnConfirmScreen, setIsOnConfirmScreen] = useState(false)
+  const [otherCursorPositions, setOtherCursorPositions] = useState<number[]>(
+    () => questions.map(() => 0),
+  )
 
   // Notify parent when question changes
   React.useEffect(() => {
@@ -265,8 +268,22 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
               }
               hasText={!!otherTexts[currentQuestionIndex]?.trim()}
               isSelected={false}
+              width={width}
+              cursorPosition={
+                otherCursorPositions[currentQuestionIndex] ??
+                (otherTexts[currentQuestionIndex] || '').length
+              }
               onClick={() => focusActions.selectTextInput(currentQuestionIndex)}
               onMouseOver={() => focusActions.selectTextInput(currentQuestionIndex)}
+              onChange={({ text, cursorPosition }) => {
+                onOtherTextChange(currentQuestionIndex, text)
+                setOtherCursorPositions((prev) => {
+                  const next = [...prev]
+                  next[currentQuestionIndex] = cursorPosition
+                  return next
+                })
+              }}
+              onSubmit={handleTextInputAdvance}
             />
           </box>
         </box>

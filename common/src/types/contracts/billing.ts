@@ -14,6 +14,7 @@ export type GetUserUsageDataFn = (params: {
   }
   nextQuotaReset: string
   autoTopupTriggered?: boolean
+  autoTopupEnabled?: boolean
 }>
 
 export type ConsumeCreditsWithFallbackFn = (params: {

@@ -11,5 +11,5 @@ export const handleEndTurn = (async (params: {
   const { previousToolCallFinished } = params
 
   await previousToolCallFinished
-  return { output: [] }
+  return { output: [{ type: 'json', value: { message: 'Turn ended.' } }] }
 }) satisfies CodebuffToolHandlerFunction<'end_turn'>

@@ -1,9 +1,11 @@
 import { describe, test, expect, mock } from 'bun:test'
 
 import { generateLoginUrl, pollLoginStatus } from '../../login/login-flow'
+import { createMockApiClient } from '../helpers/mock-api-client'
 
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { LoginUrlResponse } from '../../login/login-flow'
+import type { ApiResponse } from '../../utils/codebuff-api'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 type MockLogger = {
   [K in keyof Logger]: ReturnType<typeof mock> & Logger[K]
@@ -29,32 +31,40 @@ const createClock = () => {
 describe('Login Polling (Working)', () => {
   test('P0: Polling Lifecycle - should stop polling and return user when login succeeds', async () => {
     const logger = createLogger()
-    const responses = [
-      new Response(null, { status: 401 }),
-      new Response(
-        JSON.stringify({
-          user: { id: 'u1', name: 'Test User', email: 'user@test.dev' },
-        }),
-        { status: 200 },
-      ),
+    const apiResponses: Array<ApiResponse<{ user?: unknown }>> = [
+      { ok: false, status: 401 },
+      {
+        ok: true,
+        status: 200,
+        data: { user: { id: 'u1', name: 'Test User', email: 'user@test.dev' } },
+      },
     ]
-    const fetchMock = mock(async (input: RequestInfo) => {
-      const callIndex = fetchMock.mock.calls.length - 1
-      const url = new URL(String(input))
-      expect(url.searchParams.get('fingerprintId')).toBe('finger-1')
-      expect(url.searchParams.get('fingerprintHash')).toBe('hash-1')
-      expect(url.searchParams.get('expiresAt')).toBe('2030-01-01T00:00:00Z')
-      return responses[Math.min(callIndex, responses.length - 1)]
-    })
+    let callIndex = 0
+    const loginStatusMock = mock(
+      async (req: {
+        fingerprintId: string
+        fingerprintHash: string
+        expiresAt: string
+      }) => {
+        expect(req.fingerprintId).toBe('finger-1')
+        expect(req.fingerprintHash).toBe('hash-1')
+        expect(req.expiresAt).toBe('2030-01-01T00:00:00Z')
+        const response =
+          apiResponses[Math.min(callIndex, apiResponses.length - 1)]
+        callIndex += 1
+        return response
+      },
+    )
 
+    const apiClient = createMockApiClient({ loginStatus: loginStatusMock })
     const clock = createClock()
 
     const result = await pollLoginStatus(
       {
-        fetch: fetchMock as any,
         sleep: clock.sleep,
         logger,
         now: clock.now,
+        apiClient,
       },
       {
         baseUrl: 'https://cli.test',
@@ -71,24 +81,23 @@ describe('Login Polling (Working)', () => {
       throw new Error(`Expected polling success but received ${result.status}`)
     }
     expect(result.attempts).toBe(2)
-    expect(fetchMock.mock.calls.length).toBe(2)
+    expect(loginStatusMock.mock.calls.length).toBe(2)
   })
 
   test('P0: Polling Lifecycle - should keep polling on 401 responses', async () => {
     const logger = createLogger()
-    let attempt = 0
-    const fetchMock = mock(async () => {
-      attempt += 1
-      return new Response(null, { status: 401 })
+    const loginStatusMock = mock(async () => {
+      return { ok: false, status: 401 } as ApiResponse<{ user?: unknown }>
     })
 
+    const apiClient = createMockApiClient({ loginStatus: loginStatusMock })
     const clock = createClock()
     const result = await pollLoginStatus(
       {
-        fetch: fetchMock as any,
         sleep: clock.sleep,
         logger,
         now: clock.now,
+        apiClient,
       },
       {
         baseUrl: 'https://cli.test',
@@ -101,31 +110,38 @@ describe('Login Polling (Working)', () => {
     )
 
     expect(result.status).toBe('timeout')
-    expect(fetchMock.mock.calls.length).toBeGreaterThan(1)
+    expect(loginStatusMock.mock.calls.length).toBeGreaterThan(1)
   })
 
-  test('P0: Polling Lifecycle - should call fetch with full query metadata', async () => {
+  test('P0: Polling Lifecycle - should call loginStatus with full metadata', async () => {
     const logger = createLogger()
-    const fetchMock = mock(async (input: RequestInfo) => {
-      const url = new URL(String(input))
-      expect(url.searchParams.get('fingerprintId')).toBe('finger-meta')
-      expect(url.searchParams.get('fingerprintHash')).toBe('hash-meta')
-      expect(url.searchParams.get('expiresAt')).toBe('2030-01-01T00:00:00Z')
-      return new Response(
-        JSON.stringify({
-          user: { id: 'u-meta', name: 'Meta User', email: 'meta@test.dev' },
-        }),
-        { status: 200 },
-      )
-    })
+    const loginStatusMock = mock(
+      async (req: {
+        fingerprintId: string
+        fingerprintHash: string
+        expiresAt: string
+      }) => {
+        expect(req.fingerprintId).toBe('finger-meta')
+        expect(req.fingerprintHash).toBe('hash-meta')
+        expect(req.expiresAt).toBe('2030-01-01T00:00:00Z')
+        return {
+          ok: true,
+          status: 200,
+          data: {
+            user: { id: 'u-meta', name: 'Meta User', email: 'meta@test.dev' },
+          },
+        } as ApiResponse<{ user?: unknown }>
+      },
+    )
 
+    const apiClient = createMockApiClient({ loginStatus: loginStatusMock })
     const clock = createClock()
     const result = await pollLoginStatus(
       {
-        fetch: fetchMock as any,
         sleep: clock.sleep,
         logger,
         now: clock.now,
+        apiClient,
       },
       {
         baseUrl: 'https://cli.test',
@@ -141,22 +157,25 @@ describe('Login Polling (Working)', () => {
     if (result.status !== 'success') {
       throw new Error(`Expected polling success but received ${result.status}`)
     }
-    expect(fetchMock.mock.calls.length).toBe(1)
+    expect(loginStatusMock.mock.calls.length).toBe(1)
   })
 
   test('P1: Error Handling - should log warnings on non-401 responses but continue polling', async () => {
     const logger = createLogger()
-    const fetchMock = mock(async (_input: RequestInfo) => {
-      return new Response(null, { status: 500, statusText: 'Server Error' })
+    const loginStatusMock = mock(async () => {
+      return { ok: false, status: 500, error: 'Server Error' } as ApiResponse<{
+        user?: unknown
+      }>
     })
 
+    const apiClient = createMockApiClient({ loginStatus: loginStatusMock })
     const clock = createClock()
     const result = await pollLoginStatus(
       {
-        fetch: fetchMock as any,
         sleep: clock.sleep,
         logger,
         now: clock.now,
+        apiClient,
       },
       {
         baseUrl: 'https://cli.test',
@@ -175,29 +194,31 @@ describe('Login Polling (Working)', () => {
   test('P1: Error Handling - should swallow network errors and keep polling', async () => {
     const logger = createLogger()
     let attempt = 0
-    const fetchMock = mock(async () => {
+    const loginStatusMock = mock(async () => {
       attempt += 1
       if (attempt === 1) {
-        return new Response(null, { status: 401 })
+        return { ok: false, status: 401 } as ApiResponse<{ user?: unknown }>
       }
       if (attempt === 2) {
         throw new Error('network failed')
       }
-      return new Response(
-        JSON.stringify({
+      return {
+        ok: true,
+        status: 200,
+        data: {
           user: { id: 'user', name: 'Network User', email: 'net@test.dev' },
-        }),
-        { status: 200 },
-      )
+        },
+      } as ApiResponse<{ user?: unknown }>
     })
 
+    const apiClient = createMockApiClient({ loginStatus: loginStatusMock })
     const clock = createClock()
     const result = await pollLoginStatus(
       {
-        fetch: fetchMock as any,
         sleep: clock.sleep,
         logger,
         now: clock.now,
+        apiClient,
       },
       {
         baseUrl: 'https://cli.test',
@@ -213,7 +234,7 @@ describe('Login Polling (Working)', () => {
     if (result.status !== 'success') {
       throw new Error(`Expected polling success but received ${result.status}`)
     }
-    expect(fetchMock.mock.calls.length).toBeGreaterThan(1)
+    expect(loginStatusMock.mock.calls.length).toBeGreaterThan(1)
     const errorCalls = logger.error.mock.calls as Array<
       Parameters<Logger['error']>
     >
@@ -226,36 +247,47 @@ describe('Login Polling (Working)', () => {
     expect(sawNetworkFailure).toBe(true)
   })
 
-  test('P0: fetchLoginUrl wrapper - should hit backend and return payload', async () => {
+  test('P0: generateLoginUrl wrapper - should hit backend and return payload', async () => {
     const logger = createLogger()
     const payload: LoginUrlResponse = {
       loginUrl: 'https://cli.test/login?code=code-123',
       fingerprintHash: 'hash-123',
       expiresAt: '2025-12-31T23:59:59Z',
     }
-    const fetchMock = mock(async (input: RequestInfo, init?: RequestInit) => {
-      expect(String(input)).toBe('https://cli.test/api/auth/cli/code')
-      expect(init?.method).toBe('POST')
-      expect(init?.headers).toEqual({ 'Content-Type': 'application/json' })
-      expect(init?.body).toBe(JSON.stringify({ fingerprintId: 'finger-login' }))
-      return new Response(JSON.stringify(payload), { status: 200 })
+    const loginCodeMock = mock(async (req: { fingerprintId: string }) => {
+      expect(req.fingerprintId).toBe('finger-login')
+      return {
+        ok: true,
+        status: 200,
+        data: payload,
+      } as ApiResponse<LoginUrlResponse>
     })
 
+    const apiClient = createMockApiClient({ loginCode: loginCodeMock })
+
     const result = await generateLoginUrl(
-      { fetch: fetchMock as any, logger },
+      { logger, apiClient },
       { baseUrl: 'https://cli.test', fingerprintId: 'finger-login' },
     )
 
     expect(result).toEqual(payload)
   })
 
-  test('P0: fetchLoginUrl wrapper - should throw when backend returns error', async () => {
+  test('P0: generateLoginUrl wrapper - should throw when backend returns error', async () => {
     const logger = createLogger()
-    const fetchMock = mock(async () => new Response(null, { status: 500 }))
+    const loginCodeMock = mock(async () => {
+      return {
+        ok: false,
+        status: 500,
+        error: 'Server Error',
+      } as ApiResponse<LoginUrlResponse>
+    })
+
+    const apiClient = createMockApiClient({ loginCode: loginCodeMock })
 
     await expect(
       generateLoginUrl(
-        { fetch: fetchMock as any, logger },
+        { logger, apiClient },
         { baseUrl: 'https://cli.test', fingerprintId: 'finger-login' },
       ),
     ).rejects.toThrow('Failed to get login URL')

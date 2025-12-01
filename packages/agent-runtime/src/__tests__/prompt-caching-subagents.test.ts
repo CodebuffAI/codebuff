@@ -407,6 +407,83 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     // allowing the LLM provider to cache and reuse the system prompt
   })
 
+  it('should pass parent tools and add subagent tools message when inheritParentSystemPrompt is true', async () => {
+    const sessionState = getInitialSessionState(mockFileContext)
+
+    // Create a child that inherits system prompt and has specific tools
+    const childWithTools: AgentTemplate = {
+      id: 'child-with-tools',
+      displayName: 'Child With Tools',
+      outputMode: 'last_message',
+      inputSchema: {},
+      spawnerPrompt: '',
+      model: 'anthropic/claude-sonnet-4',
+      includeMessageHistory: false,
+      inheritParentSystemPrompt: true,
+      mcpServers: {},
+      toolNames: ['read_files', 'code_search'],
+      spawnableAgents: [],
+      systemPrompt: '',
+      instructionsPrompt: '',
+      stepPrompt: '',
+    }
+
+    mockLocalAgentTemplates['child-with-tools'] = childWithTools
+
+    // Run parent agent first
+    await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      userInputId: 'test-parent',
+      prompt: 'Parent task',
+      agentType: 'parent',
+      agentState: sessionState.mainAgentState,
+    })
+
+    const parentMessages = capturedMessages
+    const parentSystemPrompt = (parentMessages[0].content[0] as TextPart).text
+
+    // Mock parent tools
+    const parentTools = { read_files: {}, write_file: {}, code_search: {} }
+
+    // Run child agent with inheritParentSystemPrompt=true and parentTools
+    capturedMessages = []
+    const childAgentState = {
+      ...sessionState.mainAgentState,
+      agentId: 'child-agent',
+      agentType: 'child-with-tools' as const,
+      messageHistory: [],
+    }
+
+    await loopAgentSteps({
+      ...loopAgentStepsBaseParams,
+      userInputId: 'test-child',
+      prompt: 'Child task',
+      agentType: 'child-with-tools',
+      agentState: childAgentState,
+      parentSystemPrompt: parentSystemPrompt,
+      parentTools: parentTools as any,
+    })
+
+    const childMessages = capturedMessages
+
+    // Verify child uses parent's system prompt
+    expect(childMessages[0].role).toBe('system')
+    expect((childMessages[0].content[0] as TextPart).text).toBe(
+      parentSystemPrompt,
+    )
+
+    // Verify there's an instructions prompt message that includes subagent tools info
+    const instructionsMessage = childMessages.find(
+      (msg) =>
+        msg.role === 'user' &&
+        msg.content[0].type === 'text' &&
+        msg.content[0].text.includes('subagent') &&
+        msg.content[0].text.includes('read_files') &&
+        msg.content[0].text.includes('code_search'),
+    )
+    expect(instructionsMessage).toBeTruthy()
+  })
+
   it('should support both inheritParentSystemPrompt and includeMessageHistory together', async () => {
     const sessionState = getInitialSessionState(mockFileContext)
 

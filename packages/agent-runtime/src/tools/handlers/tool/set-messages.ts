@@ -15,5 +15,5 @@ export const handleSetMessages = (async (params: {
 
   await previousToolCallFinished
   agentState.messageHistory = toolCall.input.messages
-  return { output: [] }
+  return { output: [{ type: 'json', value: { message: 'Messages set.' } }] }
 }) satisfies CodebuffToolHandlerFunction<'set_messages'>

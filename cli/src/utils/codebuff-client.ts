@@ -12,6 +12,29 @@ import { getRgPath } from '../native/ripgrep'
 let clientInstance: CodebuffClient | null = null
 
 /**
+ * Recursively removes undefined values from an object to ensure clean JSON serialization.
+ * This prevents issues with APIs that don't accept explicit undefined values.
+ */
+function removeUndefinedValues<T>(obj: T): T {
+  if (obj === null || obj === undefined) {
+    return obj
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(removeUndefinedValues) as T
+  }
+  if (typeof obj === 'object') {
+    const result: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        result[key] = removeUndefinedValues(value)
+      }
+    }
+    return result as T
+  }
+  return obj
+}
+
+/**
  * Reset the cached CodebuffClient instance.
  * This should be called after login to ensure the client is re-initialized with new credentials.
  */
@@ -61,7 +84,7 @@ export async function getCodebuffClient(): Promise<CodebuffClient | null> {
             return [
               {
                 type: 'json',
-                value: response,
+                value: removeUndefinedValues(response),
               },
             ]
           },

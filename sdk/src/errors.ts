@@ -33,6 +33,9 @@ export const ErrorCodes = {
   INVALID_API_KEY: 'INVALID_API_KEY',
   FORBIDDEN: 'FORBIDDEN',
 
+  // Payment errors (402)
+  PAYMENT_REQUIRED: 'PAYMENT_REQUIRED',
+
   // Network errors (timeouts, DNS failures, connection refused)
   NETWORK_ERROR: 'NETWORK_ERROR',
   TIMEOUT: 'TIMEOUT',
@@ -94,6 +97,24 @@ export class AuthenticationError extends Error {
 }
 
 /**
+ * Payment required error class
+ * Thrown when API returns 402 status code (insufficient credits)
+ */
+export class PaymentRequiredError extends Error {
+  public readonly code = ErrorCodes.PAYMENT_REQUIRED
+  public readonly status = 402
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'PaymentRequiredError'
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, PaymentRequiredError)
+    }
+  }
+}
+
+/**
  * Network error class
  * Thrown for network failures, timeouts, and server errors (5xx)
  */
@@ -121,6 +142,13 @@ export class NetworkError extends Error {
  */
 export function isAuthenticationError(error: unknown): error is AuthenticationError {
   return error instanceof AuthenticationError
+}
+
+/**
+ * Type guard to check if an error is a PaymentRequiredError
+ */
+export function isPaymentRequiredError(error: unknown): error is PaymentRequiredError {
+  return error instanceof PaymentRequiredError
 }
 
 /**
@@ -154,6 +182,10 @@ export function sanitizeErrorMessage(error: unknown): string {
       return 'Access forbidden. You do not have permission to access this resource.'
     }
     return 'Invalid API key. Please check your credentials.'
+  }
+
+  if (isPaymentRequiredError(error)) {
+    return error.message
   }
 
   if (isNetworkError(error)) {

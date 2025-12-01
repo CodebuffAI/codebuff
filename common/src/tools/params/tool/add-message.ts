@@ -1,6 +1,9 @@
 import z from 'zod/v4'
 
-import { $getToolCallString, emptyToolResultSchema } from '../utils'
+import {
+  $getNativeToolCallExampleString,
+  textToolResultSchema,
+} from '../utils'
 
 import type { $ToolParams } from '../../constants'
 
@@ -16,7 +19,7 @@ const inputSchema = z
   )
 const description = `
 Example:
-${$getToolCallString({
+${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
   input: {
@@ -32,5 +35,5 @@ export const addMessageParams = {
   endsAgentStep,
   description,
   inputSchema,
-  outputSchema: emptyToolResultSchema(),
+  outputSchema: textToolResultSchema(),
 } satisfies $ToolParams

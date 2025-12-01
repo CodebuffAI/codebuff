@@ -86,35 +86,39 @@ export type ToolResultOutput =
     }
 
 // ===== Message Types =====
-type AuxiliaryData = {
+export type AuxiliaryMessageData = {
   providerOptions?: ProviderMetadata
+  tags?: string[]
+
+  /** @deprecated Use tags instead. */
   timeToLive?: 'agentStep' | 'userPrompt'
+  /** @deprecated Use tags instead. */
   keepDuringTruncation?: boolean
+  /** @deprecated Use tags instead. */
   keepLastTags?: string[]
 }
 
 export type SystemMessage = {
   role: 'system'
-  content: string
-} & AuxiliaryData
+  content: TextPart[]
+} & AuxiliaryMessageData
 
 export type UserMessage = {
   role: 'user'
-  content: string | (TextPart | ImagePart | FilePart)[]
-} & AuxiliaryData
+  content: (TextPart | ImagePart | FilePart)[]
+} & AuxiliaryMessageData
 
 export type AssistantMessage = {
   role: 'assistant'
-  content: string | (TextPart | ReasoningPart | ToolCallPart)[]
-} & AuxiliaryData
+  content: (TextPart | ReasoningPart | ToolCallPart)[]
+} & AuxiliaryMessageData
 
 export type ToolMessage = {
   role: 'tool'
   toolCallId: string
   toolName: string
   content: ToolResultOutput[]
-  providerOptions?: ProviderMetadata
-} & AuxiliaryData
+} & AuxiliaryMessageData
 
 export type Message =
   | SystemMessage

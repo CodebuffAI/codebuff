@@ -2,7 +2,6 @@ import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import { getToolCallString } from '@codebuff/common/tools/utils'
 import {
   AgentTemplateTypes,
   getInitialSessionState,
@@ -33,9 +32,15 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 let mainPromptBaseParams: ParamsExcluding<typeof mainPrompt, 'action'>
 
-const mockAgentStream = (streamOutput: string) => {
+import { createToolCallChunk } from './test-utils'
+
+import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
+
+const mockAgentStream = (chunks: StreamChunk[]) => {
   mainPromptBaseParams.promptAiSdkStream = async function* ({}) {
-    yield { type: 'text' as const, text: streamOutput }
+    for (const chunk of chunks) {
+      yield chunk
+    }
     return 'mock-message-id'
   }
 }
@@ -117,7 +122,7 @@ describe('mainPrompt', () => {
     )
 
     // Mock LLM APIs
-    mockAgentStream('Test response')
+    mockAgentStream([{ type: 'text', text: 'Test response' }])
 
     // Mock websocket actions
     mainPromptBaseParams.requestFiles = async ({ filePaths }) => {
@@ -196,15 +201,15 @@ describe('mainPrompt', () => {
   }
 
   it('should handle write_file tool call', async () => {
-    // Mock LLM to return a write_file tool call using getToolCallString
-    const mockResponse =
-      getToolCallString('write_file', {
+    // Mock LLM to return a write_file tool call using native tool call chunks
+    mockAgentStream([
+      createToolCallChunk('write_file', {
         path: 'new-file.txt',
         instructions: 'Added Hello World',
         content: 'Hello, world!',
-      }) + getToolCallString('end_turn', {})
-
-    mockAgentStream(mockResponse)
+      }),
+      createToolCallChunk('end_turn', {}),
+    ])
 
     // Get reference to the spy so we can check if it was called
     const requestToolCallSpy = mainPromptBaseParams.requestToolCall
@@ -355,7 +360,7 @@ describe('mainPrompt', () => {
 
   it('should return no tool calls when LLM response is empty', async () => {
     // Mock the LLM stream to return nothing
-    mockAgentStream('')
+    mockAgentStream([])
 
     const sessionState = getInitialSessionState(mockFileContext)
     const action = {
@@ -380,16 +385,15 @@ describe('mainPrompt', () => {
   it('should unescape ampersands in run_terminal_command tool calls', async () => {
     const sessionState = getInitialSessionState(mockFileContext)
     const userPromptText = 'Run the backend tests'
-    const escapedCommand = 'cd backend && bun test'
     const expectedCommand = 'cd backend && bun test'
 
-    const mockResponse =
-      getToolCallString('run_terminal_command', {
-        command: escapedCommand,
+    mockAgentStream([
+      createToolCallChunk('run_terminal_command', {
+        command: expectedCommand,
         process_type: 'SYNC',
-      }) + getToolCallString('end_turn', {})
-
-    mockAgentStream(mockResponse)
+      }),
+      createToolCallChunk('end_turn', {}),
+    ])
 
     // Get reference to the spy so we can check if it was called
     const requestToolCallSpy = mainPromptBaseParams.requestToolCall

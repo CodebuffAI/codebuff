@@ -22,6 +22,7 @@ import type { Version } from '@codebuff/internal'
 import type { NextRequest } from 'next/server'
 
 import { getUserInfoFromApiKey } from '@/db/user'
+import { extractApiKeyFromHeader } from '@/util/auth'
 import { logger } from '@/util/logger'
 
 async function getPublishedAgentIds(publisherId: string) {
@@ -57,8 +58,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { data, authToken } = parseResult.data
+    // DEPRECATED: authToken in body is for backwards compatibility with older CLI versions.
+    // New clients should use the Authorization header instead.
+    const { data, authToken: bodyAuthToken } = parseResult.data
     const agentDefinitions = data
+
+    // Prefer Authorization header, fall back to body authToken for backwards compatibility
+    const authToken = extractApiKeyFromHeader(request) ?? bodyAuthToken
 
     // First use validateAgents to convert to DynamicAgentTemplate types
     const agentMap = agentDefinitions.reduce(

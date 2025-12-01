@@ -7,7 +7,7 @@ import {
 } from '../types/secret-agent-definition'
 
 export function createBase2(
-  mode: 'fast' | 'default' | 'max',
+  mode: 'default' | 'lite' | 'max' | 'fast',
   options?: {
     hasNoValidation?: boolean
     planOnly?: boolean
@@ -17,14 +17,15 @@ export function createBase2(
   const isDefault = mode === 'default'
   const isFast = mode === 'fast'
   const isMax = mode === 'max'
+  const isLite = mode === 'lite'
 
-  const isOpus = isMax
-  const isSonnet = isDefault || isFast
+  const isOpus = true
+  const isSonnet = false
   const isGemini = false
 
   return {
     publisher,
-    model: isOpus ? 'anthropic/claude-opus-4.5' : 'anthropic/claude-sonnet-4.5',
+    model: isLite ? 'x-ai/grok-4.1-fast' : 'anthropic/claude-opus-4.5',
     displayName: 'Buffy the Orchestrator',
     spawnerPrompt:
       'Advanced base agent that orchestrates planning, editing, and reviewing for complex coding tasks',
@@ -49,10 +50,11 @@ export function createBase2(
       'spawn_agents',
       'read_files',
       'read_subtree',
-      !isFast && 'write_todos',
+      !isFast && !isLite && 'write_todos',
       'str_replace',
       'write_file',
       'ask_user',
+      'set_output',
     ),
     spawnableAgents: buildArray(
       'file-picker',
@@ -61,13 +63,11 @@ export function createBase2(
       'glob-matcher',
       'researcher-web',
       'researcher-docs',
-      'commander',
-      isDefault && 'editor-best-of-n',
+      isLite ? 'commander-lite' : 'commander',
+      isLite && 'editor-gpt-5',
       isMax && 'editor-best-of-n-max',
-      isDefault && 'thinker-best-of-n',
       isMax && 'thinker-best-of-n-opus',
-      isDefault && 'code-reviewer-gemini',
-      isMax && 'code-reviewer-opus',
+      !isLite && 'code-reviewer-opus',
       'context-pruner',
     ),
 
@@ -117,12 +117,16 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
   ${buildArray(
     '- Spawn context-gathering agents (file pickers, code-searcher, directory-lister, glob-matcher, and web/docs researchers) before making edits.',
+    isLite &&
+      '- Spawn the editor-gpt-5 agent to implement the changes after you have gathered all the context you need.',
     isMax &&
       '- Spawn the thinker-best-of-n-opus after gathering context to solve complex problems.',
-    `- Spawn a ${isMax ? 'editor-best-of-n-max' : 'editor-best-of-n'} agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
+    isMax &&
+      `- Spawn the editor-best-of-n-max agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
     '- Spawn commanders sequentially if the second command depends on the the first.',
     !isFast &&
-      `- Spawn a ${isDefault ? 'code-reviewer-gemini' : 'code-reviewer-opus'} to review the changes after you have implemented the changes.`,
+      !isLite &&
+      '- Spawn a code-reviewer-opus to review the changes after you have implemented the changes.',
   ).join('\n  ')}
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 
@@ -150,96 +154,7 @@ ${buildArray(
     `- **Don't create a summary markdown file:** The user doesn't want markdown files they didn't ask for. Don't create them.`,
   '- **Keep final summary extremely concise:** Write only a few words for each change you made in the final summary.',
 ).join('\n')}
-${
-  isGemini
-    ? `
-## Note on tool call formatting
 
-Later on, there is a more complete explanation of how to call tools.
-
-Some quick gotchas:
-
-1. **Don't include a trailing comma after the last parameter.**
-<codebuff_tool_call>
-{
-  "cb_tool_name": "tool_name",
-  "parameter_name": "value", <- Don't include a trailing comma after the last parameter.
-}
-</codebuff_tool_call>
-
-2. Don't call multiple tools in a single tool call.
-
-Don't do this:
-
-<codebuff_tool_call>
-{
-  "cb_tool_name": "tool_name_1",
-  "parameter_name_1": "value",
-  "cb_tool_name": "tool_name_2",
-  "parameter_name_2": "value",
-}
-</codebuff_tool_call>
-
-Do this:
-
-<codebuff_tool_call>
-{
-  "cb_tool_name": "tool_name_1",
-  "parameter_name_1": "value",
-}
-</codebuff_tool_call>
-
-<codebuff_tool_call>
-{
-  "cb_tool_name": "tool_name_2",
-  "parameter_name_2": "value",
-}
-</codebuff_tool_call>
-
-3. Every response message should include at least one tool call, except for your last.
-
-Don't do this:
-
-I will read some files.
-
-Do this:
-
-I will read some files:
-
-<codebuff_tool_call>
-[ Read files tool call json ]
-</codebuff_tool_call>
-
-4. Agents are not tools. Call them using the spawn_agents tool.
-
-Don't do this:
-
-<codebuff_tool_call>
-{
-  "cb_tool_name": "agent-name",
-  "prompt": "[your prompt here]",
-}
-</codebuff_tool_call>
-
-Do this:
-
-<codebuff_tool_call>
-{
-  "cb_tool_name": "spawn_agents",
-  "agents": [
-    {
-      "agent_type": "agent-name",
-      "prompt": "[your prompt here]",
-    }
-  ],
-  "cb_easp": true
-}
-</codebuff_tool_call>`
-    : ''
-}${
-      isFast
-        ? ''
-        : `
 # Response examples
 
 <example>
@@ -249,17 +164,31 @@ Do this:
 <response>
 [ You spawn 3 file-pickers, a code-searcher, and a docs researcher in parallel to find relevant files and do research online ]
 
-[ You read 12 of the relevant files using the read_files tool in two separate tool calls ]
+[ You read a few of the relevant files using the read_files tool in two separate tool calls ]
 
 [ You spawn one more code-searcher and file-picker ]
 
-[ You read 8 other relevant files using the read_files tool ]
+[ You read a few other relevant files using the read_files tool ]
 
-[ You spawn an editor to implement the changes ]
+${
+  isDefault || isFast
+    ? '[ You implement the changes using the str_replace or write_file tools ]'
+    : isLite
+      ? '[ You implement the changes using the editor-gpt-5 agent ]'
+      : '[ You implement the changes using the editor-best-of-n-max agent ]'
+}
 
-[ You spawn a code-reviewer, a commander to typecheck the changes, and another commander to run tests, all in parallel ]
+${
+  isDefault || isMax
+    ? '[ You spawn a code-reviewer, a commander to typecheck the changes, and another commander to run tests, all in parallel ]'
+    : '[ You spawn a commander to typecheck the changes and another commander to run tests, all in parallel ]'
+}
 
-[ You spawn the editor to fix the issues found by the code-reviewer and type/test errors ]
+${
+  isDefault || isMax
+    ? '[ You fix the issues found by the code-reviewer and type/test errors ]'
+    : '[ You fix the issues found by the type/test errors and spawn more commanders to confirm ]'
+}
 
 [ All tests & typechecks pass -- you write a very short final summary of the changes you made ]
  </reponse>
@@ -275,8 +204,6 @@ Do this:
 </response>
 
 </example>
-`
-    }
 
 ${PLACEHOLDER.FILE_TREE_PROMPT_SMALL}
 ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}
@@ -296,6 +223,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           isFast,
           isDefault,
           isMax,
+          isLite,
           hasNoValidation,
         }),
     stepPrompt: planOnly
@@ -328,19 +256,21 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
   }
 }
 
-const EXPLORE_PROMPT = `- Iteratively spawn file pickers, code-searchers, directory-listers, glob-matchers, commanders, and web/docs researchers to gather context as needed. The file-picker agent in particular is very useful to find relevant files -- try spawning multiple in parallel (say, 2-5) to explore different parts of the codebase. Use read_subtree if you need to grok a particular part of the codebase. Read all the relevant files using the read_files tool. Read as many files as possible so that you have comprehensive context on the user's request.`
+const EXPLORE_PROMPT = `- Iteratively spawn file pickers, code-searchers, directory-listers, glob-matchers, commanders, and web/docs researchers to gather context as needed. The file-picker agent in particular is very useful to find relevant files -- try spawning multiple in parallel (say, 2-5) to explore different parts of the codebase. Use read_subtree if you need to grok a particular part of the codebase. Read all the relevant files using the read_files tool.`
 
 function buildImplementationInstructionsPrompt({
   isSonnet,
   isFast,
   isDefault,
   isMax,
+  isLite,
   hasNoValidation,
 }: {
   isSonnet: boolean
   isFast: boolean
   isDefault: boolean
   isMax: boolean
+  isLite: boolean
   hasNoValidation: boolean
 }) {
   return `Act as a helpful assistant and freely respond to the user's request however would be most helpful to the user. Use your judgement to orchestrate the completion of the user's request using your specialized sub-agents and tools as needed. Take your time and be comprehensive. Don't surprise the user. For example, don't modify files if the user has not asked you to do so at least implicitly.
@@ -351,18 +281,22 @@ The user asks you to implement a new feature. You respond in multiple steps:
 
 ${buildArray(
   EXPLORE_PROMPT,
-  !isFast &&
+  isMax &&
     `- Important: Read as many files as could possibly be relevant to the task over several steps to improve your understanding of the user's request and produce the best possible code changes. Find more examples within the codebase similar to the user's request, dependencies that help with understanding how things work, tests, etc. This is frequently 12-20 files, depending on the task.`,
-  !isFast &&
+  (isDefault || isMax) &&
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
+  isLite &&
+    '- IMPORTANT: You must spawn the editor-gpt-5 agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all changes.',
+  isMax &&
+    `- IMPORTANT: You must spawn the editor-best-of-n-max agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious.`,
+  (isDefault || isFast) &&
+    '- Implement the changes using the str_replace or write_file tools.',
   isFast &&
     '- Implement the changes in one go. Pause after making all the changes to see the tool results of your edits.',
   isFast &&
     '- Do a single typecheck targeted for your changes at most (if applicable for the project). Or skip this step if the change was small.',
-  !isFast &&
-    `- IMPORTANT: You must spawn the ${isMax ? 'editor-best-of-n-max' : 'editor-best-of-n'} agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious.`,
-  !isFast &&
-    `- Spawn a ${isDefault ? 'code-reviewer-gemini' : 'code-reviewer-opus'} to review the changes after you have implemented the changes. (Skip this step only if the change is extremely straightforward and obvious.)`,
+  (isDefault || isMax) &&
+    '- Spawn a code-reviewer-opus to review the changes after you have implemented the changes. (Skip this step only if the change is extremely straightforward and obvious.)',
   !hasNoValidation &&
     `- Test your changes by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). Try to run all appropriate commands in parallel. ${isMax ? ' Typecheck and test the specific area of the project that you are editing *AND* then typecheck and test the entire project if necessary.' : ' If you can, only test the area of the project that you are editing, rather than the entire project.'} You may have to explore the project to find the appropriate commands. Don't skip this step!`,
   `- Inform the user that you have completed the task in one sentence or a few short bullet points.${isSonnet ? " Don't create any markdown summary files or example documentation files, unless asked by the user." : ''}`,
@@ -383,8 +317,8 @@ function buildImplementationStepPrompt({
   return buildArray(
     isMax &&
       `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
-    !isFast &&
-      `You must spawn the ${isMax ? 'editor-best-of-n-max' : 'editor-best-of-n'} agent to implement code changes, since it will generate the best code changes.`,
+    isMax &&
+      `You must spawn the 'editor-best-of-n-max' agent to implement code changes, since it will generate the best code changes.`,
     isMax && 'Spawn the thinker-best-of-n-opus to solve complex problems.',
     `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}. Don't repeat yourself, especially if you have already concluded and summarized the changes in a previous step -- just end your turn.`,
   ).join('\n')
@@ -435,7 +369,7 @@ This is more like an extremely short PRD which describes the end result of what 
 
 function buildPlanOnlyStepPrompt({}: {}) {
   return buildArray(
-    `Your are in plan mode. Do not make any file changes. Do not call write_file or str_replace. Do not spawn the editor-best-of-n agent. Do not use the write_todos tool.`,
+    `You are in plan mode. Do not make any file changes. Do not call write_file or str_replace. Do not use the write_todos tool.`,
   ).join('\n')
 }
 

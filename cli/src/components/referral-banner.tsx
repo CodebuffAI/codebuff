@@ -2,29 +2,19 @@ import React from 'react'
 
 import { BannerWrapper } from './banner-wrapper'
 import { useTheme } from '../hooks/use-theme'
-import { useUserDetailsQuery } from '../hooks/use-user-details-query'
 import { useChatStore } from '../state/chat-store'
+import { WEBSITE_URL } from '@codebuff/sdk'
 
 export const ReferralBanner = () => {
   const theme = useTheme()
   const setInputMode = useChatStore((state) => state.setInputMode)
 
-  const { data: userDetails, isLoading, isError } = useUserDetailsQuery({
-    fields: ['referral_link'] as const,
-    enabled: true,
-  })
-
-  const referralLink = userDetails?.referral_link ?? null
-  let text = ''
-  if (isLoading) text = 'Loading your referral link...'
-  else if (isError) text = 'Failed to load your referral link. Please try again later.'
-  else if (!referralLink) text = 'Your referral link is not available yet'
-  else text = `Share this link with friends:\n${referralLink}`
+  const referralUrl = `${WEBSITE_URL}/referrals`
 
   return (
     <BannerWrapper
       color={theme.warning}
-      text={text}
+      text={`Refer your friends: ${referralUrl}`}
       onClose={() => setInputMode('default')}
     />
   )

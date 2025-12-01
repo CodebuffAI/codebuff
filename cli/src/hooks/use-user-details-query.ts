@@ -1,17 +1,18 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { getAuthToken } from '../utils/auth'
+import { getApiClient, setApiClientAuthToken } from '../utils/codebuff-api'
 import { logger as defaultLogger } from '../utils/logger'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type {
+  CodebuffApiClient,
+  UserField,
+  UserDetails,
+} from '../utils/codebuff-api'
 
-// Valid fields that can be fetched from /api/v1/me
-export type UserField =
-  | 'id'
-  | 'email'
-  | 'discord_id'
-  | 'referral_code'
-  | 'referral_link'
+// Re-export types for backwards compatibility
+export type { UserField, UserDetails }
 
 // Query keys for type-safe cache management
 export const userDetailsQueryKeys = {
@@ -20,20 +21,11 @@ export const userDetailsQueryKeys = {
     [...userDetailsQueryKeys.all, ...fields] as const,
 }
 
-export type UserDetails<T extends UserField> = {
-  [K in T]: K extends 'discord_id' | 'referral_code' | 'referral_link'
-    ? string | null
-    : string
-}
-
-// Minimal fetch function type for dependency injection
-type FetchFn = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
-
 interface FetchUserDetailsParams<T extends UserField> {
   authToken: string
   fields: readonly T[]
   logger?: Logger
-  fetch?: FetchFn
+  apiClient?: CodebuffApiClient
 }
 
 /**
@@ -43,21 +35,16 @@ export async function fetchUserDetails<T extends UserField>({
   authToken,
   fields,
   logger = defaultLogger,
-  fetch: fetchFn = globalThis.fetch,
+  apiClient: providedApiClient,
 }: FetchUserDetailsParams<T>): Promise<UserDetails<T> | null> {
-  const appUrl = process.env.NEXT_PUBLIC_CODEBUFF_APP_URL
-  if (!appUrl) {
-    throw new Error('NEXT_PUBLIC_CODEBUFF_APP_URL is not set')
-  }
+  const apiClient =
+    providedApiClient ??
+    (() => {
+      setApiClientAuthToken(authToken)
+      return getApiClient()
+    })()
 
-  const fieldsParam = fields.join(',')
-  const response = await fetchFn(`${appUrl}/api/v1/me?fields=${fieldsParam}`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${authToken}`,
-    },
-  })
+  const response = await apiClient.me(fields)
 
   if (!response.ok) {
     logger.error(
@@ -67,8 +54,7 @@ export async function fetchUserDetails<T extends UserField>({
     throw new Error(`Failed to fetch user details (HTTP ${response.status})`)
   }
 
-  const data = (await response.json()) as UserDetails<T>
-  return data
+  return response.data ?? null
 }
 
 export interface UseUserDetailsQueryDeps<T extends UserField> {
@@ -89,7 +75,12 @@ export function useUserDetailsQuery<T extends UserField>({
 
   return useQuery({
     queryKey: userDetailsQueryKeys.fields(fields),
-    queryFn: () => fetchUserDetails({ authToken: authToken!, fields, logger }),
+    queryFn: async () => {
+      if (!authToken) {
+        throw new Error('No auth token available')
+      }
+      return fetchUserDetails({ authToken, fields, logger })
+    },
     enabled: enabled && !!authToken,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes

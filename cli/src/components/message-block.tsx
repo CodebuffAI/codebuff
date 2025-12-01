@@ -1,12 +1,19 @@
 import { pluralize } from '@codebuff/common/util/string'
 import { TextAttributes } from '@opentui/core'
-import React, { memo, useCallback, useMemo, useState, type ReactNode } from 'react'
+import React, {
+  memo,
+  useCallback,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 
 import { AgentBranchItem } from './agent-branch-item'
 import { Button } from './button'
 import { MessageFooter } from './message-footer'
 import { ValidationErrorPopover } from './validation-error-popover'
 import { useTheme } from '../hooks/use-theme'
+import { formatCwd } from '../utils/path-helpers'
 import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
 import { isTextBlock, isToolBlock } from '../types/chat'
 import { shouldRenderAsSimpleText } from '../utils/constants'
@@ -28,6 +35,7 @@ import type {
   TextContentBlock,
   HtmlContentBlock,
   AgentContentBlock,
+  ChatMessageMetadata,
 } from '../types/chat'
 import { isAskUserBlock } from '../types/chat'
 import type { ThemeColor } from '../types/theme-system'
@@ -61,6 +69,7 @@ interface MessageBlockProps {
     footerMessage?: string
     errors?: Array<{ id: string; message: string }>
   }) => void
+  metadata?: ChatMessageMetadata
 }
 
 import { BORDER_CHARS } from '../utils/ui-constants'
@@ -90,9 +99,12 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
   onCloseFeedback,
   validationErrors,
   onOpenFeedback,
+  metadata,
 }) => {
   const [showValidationPopover, setShowValidationPopover] = useState(false)
-  
+
+  const bashCwd = metadata?.bashCwd ? formatCwd(metadata.bashCwd) : undefined
+
   useWhyDidYouUpdateById(
     'MessageBlock',
     messageId,
@@ -121,6 +133,7 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
       onCloseFeedback,
       validationErrors,
       onOpenFeedback,
+      metadata,
     },
     {
       logLevel: 'debug',
@@ -138,8 +151,8 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
         width: '100%',
       }}
     >
-      {/* User message timestamp with error indicator button */}
-      {isUser && (
+      {/* User message timestamp with error indicator button (non-bash commands) */}
+      {isUser && !bashCwd && (
         <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
           <text
             attributes={TextAttributes.DIM}
@@ -150,7 +163,7 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
           >
             {`[${timestamp}]`}
           </text>
-          
+
           {validationErrors && validationErrors.length > 0 && (
             <Button
               onClick={() => setShowValidationPopover(!showValidationPopover)}
@@ -167,20 +180,64 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
           )}
         </box>
       )}
-      
-      {/* Show validation popover below timestamp when expanded */}
-      {isUser && validationErrors && validationErrors.length > 0 && showValidationPopover && (
-        <box style={{ paddingTop: 1, paddingBottom: 1 }}>
-          <ValidationErrorPopover
-            errors={validationErrors}
-            onOpenFeedback={onOpenFeedback}
-            onClose={() => setShowValidationPopover(false)}
-          />
+
+      {/* Bash command metadata header (timestamp + cwd) - now for user messages with bashCwd */}
+      {bashCwd && (
+        <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
+          <text
+            attributes={TextAttributes.DIM}
+            style={{
+              wrapMode: 'none',
+              fg: timestampColor,
+            }}
+          >
+            {`[${timestamp}]`}
+          </text>
+          <text
+            attributes={TextAttributes.DIM}
+            style={{
+              wrapMode: 'none',
+              fg: theme.muted,
+            }}
+          >
+            •
+          </text>
+          <text
+            attributes={TextAttributes.DIM}
+            style={{
+              wrapMode: 'word',
+              fg: theme.muted,
+            }}
+          >
+            {bashCwd}
+          </text>
         </box>
       )}
-      
+
+      {/* Show validation popover below timestamp when expanded */}
+      {isUser &&
+        !bashCwd &&
+        validationErrors &&
+        validationErrors.length > 0 &&
+        showValidationPopover && (
+          <box style={{ paddingTop: 1, paddingBottom: 1 }}>
+            <ValidationErrorPopover
+              errors={validationErrors}
+              onOpenFeedback={onOpenFeedback}
+              onClose={() => setShowValidationPopover(false)}
+            />
+          </box>
+        )}
+
       {blocks ? (
-        <box style={{ flexDirection: 'column', gap: 0, width: '100%', paddingTop: 0 }}>
+        <box
+          style={{
+            flexDirection: 'column',
+            gap: 0,
+            width: '100%',
+            paddingTop: 0,
+          }}
+        >
           <BlocksRenderer
             sourceBlocks={blocks}
             messageId={messageId}
@@ -233,7 +290,6 @@ const sanitizePreview = (value: string): string =>
   value.replace(/[#*_`~\[\]()]/g, '').trim()
 
 // Extract all text content from blocks recursively
-
 
 const isReasoningTextBlock = (
   b: ContentBlock | null | undefined,

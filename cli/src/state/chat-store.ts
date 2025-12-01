@@ -43,6 +43,31 @@ export type AskUserState = {
   otherTexts: string[] // Custom text input for each question (empty string if not used)
 } | null
 
+export type PendingBashMessage = {
+  id: string
+  command: string
+  stdout: string
+  stderr: string
+  exitCode: number
+  /** Whether the command is still running */
+  isRunning: boolean
+  startTime?: number
+  cwd?: string
+}
+
+// Pending tool result stores tool results from user-executed commands to send to AI
+// Note: Using inline type instead of importing ToolMessage to avoid deep type instantiation errors
+export type PendingToolResult = {
+  role: 'tool'
+  toolCallId: string
+  toolName: string
+  content: Array<
+    | { type: 'text'; text: string }
+    | { type: 'json'; value: unknown }
+    | { type: 'media'; data: string; mediaType: string }
+  >
+}
+
 export type ChatStoreState = {
   messages: ChatMessage[]
   streamingAgents: Set<string>
@@ -65,6 +90,8 @@ export type ChatStoreState = {
   inputMode: InputMode
   isRetrying: boolean
   askUserState: AskUserState
+  pendingBashMessages: PendingBashMessage[]
+  pendingToolResults: PendingToolResult[]
 }
 
 type ChatStoreActions = {
@@ -100,6 +127,15 @@ type ChatStoreActions = {
   setAskUserState: (state: AskUserState) => void
   updateAskUserAnswer: (questionIndex: number, optionIndex: number) => void
   updateAskUserOtherText: (questionIndex: number, text: string) => void
+  addPendingBashMessage: (message: PendingBashMessage) => void
+  updatePendingBashMessage: (
+    id: string,
+    updates: Partial<PendingBashMessage>,
+  ) => void
+  removePendingBashMessage: (id: string) => void
+  clearPendingBashMessages: () => void
+  addPendingToolResult: (result: PendingToolResult) => void
+  clearPendingToolResults: () => void
   reset: () => void
 }
 
@@ -127,6 +163,8 @@ const initialState: ChatStoreState = {
   inputMode: 'default' as InputMode,
   isRetrying: false,
   askUserState: null,
+  pendingBashMessages: [],
+  pendingToolResults: [],
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -298,6 +336,41 @@ export const useChatStore = create<ChatStore>()(
         }
       }),
 
+    addPendingBashMessage: (message) =>
+      set((state) => {
+        state.pendingBashMessages.push(message)
+      }),
+
+    updatePendingBashMessage: (id, updates) =>
+      set((state) => {
+        const msg = state.pendingBashMessages.find((m) => m.id === id)
+        if (msg) {
+          Object.assign(msg, updates)
+        }
+      }),
+
+    removePendingBashMessage: (id) =>
+      set((state) => {
+        state.pendingBashMessages = state.pendingBashMessages.filter(
+          (m) => m.id !== id,
+        )
+      }),
+
+    clearPendingBashMessages: () =>
+      set((state) => {
+        state.pendingBashMessages = []
+      }),
+
+    addPendingToolResult: (result) =>
+      set((state) => {
+        ;(state.pendingToolResults as PendingToolResult[]).push(result)
+      }),
+
+    clearPendingToolResults: () =>
+      set((state) => {
+        state.pendingToolResults = []
+      }),
+
     reset: () =>
       set((state) => {
         state.messages = initialState.messages.slice()
@@ -323,6 +396,8 @@ export const useChatStore = create<ChatStore>()(
         state.inputMode = initialState.inputMode
         state.isRetrying = initialState.isRetrying
         state.askUserState = initialState.askUserState
+        state.pendingBashMessages = []
+        state.pendingToolResults = []
       }),
   })),
 )
