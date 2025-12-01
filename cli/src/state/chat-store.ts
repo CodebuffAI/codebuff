@@ -141,7 +141,6 @@ type ChatStoreActions = {
   updateAskUserOtherText: (questionIndex: number, text: string) => void
   addPendingImage: (image: PendingImage) => void
   removePendingImage: (path: string) => void
-  updatePendingImageNote: (path: string, note: string) => void
   clearPendingImages: () => void
   addPendingBashMessage: (message: PendingBashMessage) => void
   updatePendingBashMessage: (
@@ -323,14 +322,6 @@ export const useChatStore = create<ChatStore>()(
     removePendingImage: (path) =>
       set((state) => {
         state.pendingImages = state.pendingImages.filter((i) => i.path !== path)
-      }),
-
-    updatePendingImageNote: (path, note) =>
-      set((state) => {
-        const image = state.pendingImages.find((i) => i.path === path)
-        if (image) {
-          image.note = note
-        }
       }),
 
     clearPendingImages: () =>

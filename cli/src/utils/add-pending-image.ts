@@ -1,6 +1,7 @@
 import { useChatStore, type PendingImage } from '../state/chat-store'
-import { processImageFile } from './image-handler'
+import { processImageFile, resolveFilePath, isImageFile } from './image-handler'
 import path from 'node:path'
+import { existsSync } from 'node:fs'
 
 /**
  * Process an image file and add it to the pending images state.
@@ -31,9 +32,6 @@ export async function addPendingImageFromFile(
     if (img.path !== imagePath) return img
 
     if (result.success && result.imagePart) {
-      const sizeKB = result.imagePart.size
-        ? Math.round(result.imagePart.size / 1024)
-        : undefined
       return {
         ...img,
         size: result.imagePart.size,
@@ -78,4 +76,60 @@ export async function addPendingImageFromBase64(
   }
   
   useChatStore.getState().addPendingImage(pendingImage)
+}
+
+/**
+ * Add a pending image with an error note (e.g., unsupported format, not found).
+ * Used when we want to show the image in the banner with an error state.
+ */
+export function addPendingImageWithError(
+  imagePath: string,
+  note: string,
+): void {
+  const filename = path.basename(imagePath)
+  useChatStore.getState().addPendingImage({
+    path: imagePath,
+    filename,
+    note,
+  })
+}
+
+/**
+ * Validate and add an image from a file path.
+ * Returns { success: true } if the image was added (for processing or with an error),
+ * or { success: false, error } if the file doesn't exist.
+ */
+export async function validateAndAddImage(
+  imagePath: string,
+  cwd: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const resolvedPath = resolveFilePath(imagePath, cwd)
+  
+  // Check if file exists
+  if (!existsSync(resolvedPath)) {
+    return { success: false, error: `Image file not found: ${imagePath}` }
+  }
+  
+  // Check if it's a supported format
+  if (!isImageFile(resolvedPath)) {
+    const ext = path.extname(imagePath).toLowerCase()
+    addPendingImageWithError(resolvedPath, `unsupported format ${ext}`)
+    return { success: true }
+  }
+  
+  // Process and add the image
+  await addPendingImageFromFile(resolvedPath, cwd)
+  return { success: true }
+}
+
+/**
+ * Capture and clear pending images so they can be passed to the queue without
+ * duplicating state handling logic in multiple callers.
+ */
+export function capturePendingImages(): PendingImage[] {
+  const pendingImages = [...useChatStore.getState().pendingImages]
+  if (pendingImages.length > 0) {
+    useChatStore.getState().clearPendingImages()
+  }
+  return pendingImages
 }

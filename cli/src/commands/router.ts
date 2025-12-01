@@ -1,8 +1,5 @@
 import { runTerminalCommand } from '@codebuff/sdk'
 
-import { existsSync } from 'fs'
-import path from 'path'
-
 import {
   findCommand,
   type RouterParams,
@@ -18,14 +15,13 @@ import {
 } from './router-utils'
 import { getProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
-import { isImageFile, resolveFilePath, getImageProcessingNote } from '../utils/image-handler'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
+import { capturePendingImages, validateAndAddImage } from '../utils/add-pending-image'
 
 import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { ContentBlock } from '../types/chat'
 import type { PendingBashMessage } from '../state/chat-store'
-import { logger } from '../utils/logger'
 
 /**
  * Create a tool result output structure for terminal command results.
@@ -336,39 +332,16 @@ export async function routeUserPrompt(
   if (inputMode === 'image') {
     const imagePath = trimmed
     const projectRoot = getProjectRoot()
-    const resolvedPath = resolveFilePath(imagePath, projectRoot)
 
-    // Validate the image path
-    if (!existsSync(resolvedPath)) {
+    // Validate and add the image (handles path resolution, format check, and processing)
+    const result = await validateAndAddImage(imagePath, projectRoot)
+    if (!result.success) {
       setMessages((prev) => [
         ...prev,
         getUserMessage(trimmed),
-        getSystemMessage(`❌ Image file not found: ${imagePath}`),
+        getSystemMessage(`❌ ${result.error}`),
       ])
-      saveToHistory(trimmed)
-      setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
-      setInputMode('default')
-      return
     }
-
-    if (!isImageFile(resolvedPath)) {
-      const ext = path.extname(imagePath).toLowerCase()
-      const filename = path.basename(resolvedPath)
-      // Add to pending images with unsupported format error
-      useChatStore.getState().addPendingImage({
-        path: resolvedPath,
-        filename,
-        note: `unsupported format ${ext}`,
-      })
-      saveToHistory(trimmed)
-      setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
-      setInputMode('default')
-      return
-    }
-
-    // Process and add image (handles compression and caching)
-    const { addPendingImageFromFile } = await import('../utils/add-pending-image')
-    await addPendingImageFromFile(resolvedPath, getProjectRoot())
 
     // Note: No system message added here - the PendingImagesBanner shows attached images
     saveToHistory(trimmed)
@@ -462,14 +435,9 @@ export async function routeUserPrompt(
     streamMessageIdRef.current ||
     isChainInProgressRef.current
   ) {
-    const pendingImages = useChatStore.getState().pendingImages
+    const pendingImages = capturePendingImages()
     // Pass a copy of pending images to the queue
-    addToQueue(trimmed, [...pendingImages])
-    
-    // Clear pending images immediately so banner logic works correctly
-    if (pendingImages.length > 0) {
-      useChatStore.getState().clearPendingImages()
-    }
+    addToQueue(trimmed, pendingImages)
 
     setInputFocused(true)
     inputRef.current?.focus()

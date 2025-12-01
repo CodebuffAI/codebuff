@@ -9,6 +9,7 @@ import {
   supportsInlineImages,
   renderInlineImage,
 } from '../utils/terminal-images'
+import { IMAGE_CARD_BORDER_CHARS } from '../utils/ui-constants'
 
 // Image card display constants
 const MAX_FILENAME_LENGTH = 16
@@ -18,24 +19,6 @@ const THUMBNAIL_HEIGHT = 3
 const INLINE_IMAGE_WIDTH = 4
 const INLINE_IMAGE_HEIGHT = 3
 const CLOSE_BUTTON_WIDTH = 1
-
-const BORDER_CHARS = {
-  horizontal: '─',
-  vertical: '│',
-  top: '─',
-  bottom: '─',
-  left: '│',
-  right: '│',
-  topLeft: '┌',
-  topRight: '┐',
-  bottomLeft: '└',
-  bottomRight: '┘',
-  topT: '┬',
-  bottomT: '┴',
-  leftT: '├',
-  rightT: '┤',
-  cross: '┼',
-}
 
 const truncateFilename = (filename: string): string => {
   if (filename.length <= MAX_FILENAME_LENGTH) {
@@ -120,7 +103,7 @@ export const ImageCard = ({
           width: IMAGE_CARD_WIDTH,
           padding: 0,
         }}
-        customBorderChars={BORDER_CHARS}
+        customBorderChars={IMAGE_CARD_BORDER_CHARS}
       >
         {/* Thumbnail or icon area */}
         <box

@@ -374,29 +374,6 @@ export async function processImageFile(
 }
 
 /**
- * Process an image eagerly and return a note about compression.
- * Used when adding images to pending to show compression info in the UI.
- */
-export async function getImageProcessingNote(
-  imagePath: string,
-): Promise<string | undefined> {
-  try {
-    const result = await processImageFile(imagePath, process.cwd())
-    if (!result.success) {
-      // Return a short error note
-      return result.error ? `(error)` : undefined
-    }
-    if (result.wasCompressed && result.imagePart?.size) {
-      const sizeKB = Math.round(result.imagePart.size / 1024)
-      return `(compressed to ${sizeKB}KB)`
-    }
-    return undefined
-  } catch {
-    return undefined
-  }
-}
-
-/**
  * Extracts image file paths from user input using @path syntax and auto-detection
  */
 export function extractImagePaths(input: string): string[] {

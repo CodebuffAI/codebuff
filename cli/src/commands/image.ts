@@ -1,14 +1,7 @@
-import { existsSync } from 'fs'
-import path from 'path'
-
 import { getProjectRoot } from '../project-files'
-import { useChatStore } from '../state/chat-store'
 import { getSystemMessage } from '../utils/message-history'
-import {
-  SUPPORTED_IMAGE_EXTENSIONS,
-  isImageFile,
-  getImageProcessingNote,
-} from '../utils/image-handler'
+import { SUPPORTED_IMAGE_EXTENSIONS } from '../utils/image-handler'
+import { validateAndAddImage } from '../utils/add-pending-image'
 
 import type { PostUserMessageFn } from '../types/contracts/send-message'
 
@@ -56,43 +49,15 @@ export async function handleImageCommand(args: string): Promise<{
   const [, imagePath, message] = parts
   const projectRoot = getProjectRoot()
 
-  // Resolve the path relative to project root
-  let resolvedPath = imagePath
-  if (!path.isAbsolute(imagePath) && !imagePath.startsWith('~')) {
-    resolvedPath = path.resolve(projectRoot, imagePath)
-  } else if (imagePath.startsWith('~')) {
-    resolvedPath = path.resolve(
-      process.env.HOME || process.env.USERPROFILE || '',
-      imagePath.slice(1),
-    )
-  }
-
-  // Check if file exists
-  if (!existsSync(resolvedPath)) {
+  // Validate and add the image (handles path resolution, format check, and processing)
+  const result = await validateAndAddImage(imagePath, projectRoot)
+  if (!result.success) {
     const postUserMessage: PostUserMessageFn = (prev) => [
       ...prev,
-      getSystemMessage(`❌ Image file not found: ${imagePath}`),
+      getSystemMessage(`❌ ${result.error}`),
     ]
     return { postUserMessage }
   }
-
-  // Check if it's a supported image format
-  if (!isImageFile(imagePath)) {
-    const ext = path.extname(imagePath).toLowerCase()
-    const filename = path.basename(resolvedPath)
-    // Add to pending images with unsupported format error
-    useChatStore.getState().addPendingImage({
-      path: resolvedPath,
-      filename,
-      note: `unsupported format ${ext}`,
-    })
-    const postUserMessage: PostUserMessageFn = (prev) => prev
-    return { postUserMessage }
-  }
-
-  // Process and add image (handles compression and caching)
-  const { addPendingImageFromFile } = await import('../utils/add-pending-image')
-  await addPendingImageFromFile(resolvedPath, getProjectRoot())
 
   // Use the optional message as the prompt, or empty to just attach the image
   const transformedPrompt = message || ''

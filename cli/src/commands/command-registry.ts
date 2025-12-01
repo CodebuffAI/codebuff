@@ -6,6 +6,7 @@ import { handleUsageCommand } from './usage'
 import { useChatStore } from '../state/chat-store'
 import { useLoginStore } from '../state/login-store'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
+import { capturePendingImages } from '../utils/add-pending-image'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
 import type { InputValue, PendingImage } from '../state/chat-store'
@@ -187,11 +188,8 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
         params.streamMessageIdRef.current ||
         params.isChainInProgressRef.current
       ) {
-        const pendingImages = useChatStore.getState().pendingImages
-        params.addToQueue(trimmed, [...pendingImages])
-        if (pendingImages.length > 0) {
-          useChatStore.getState().clearPendingImages()
-        }
+        const pendingImages = capturePendingImages()
+        params.addToQueue(trimmed, pendingImages)
         params.setInputFocused(true)
         params.inputRef.current?.focus()
         return
