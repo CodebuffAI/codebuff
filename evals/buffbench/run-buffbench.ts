@@ -8,7 +8,7 @@ import { getUserCredentials } from '@codebuff/npm-app/credentials'
 import { loadLocalAgents } from '@codebuff/npm-app/agents/load-agents'
 import pLimit from 'p-limit'
 
-import { runAgentOnCommit } from './agent-runner'
+import { runAgentOnCommit, type ExternalAgentType } from './agent-runner'
 import { formatTaskResults } from './format-output'
 import { judgeCommitResult } from './judge'
 import { analyzeAgentTraces, type AgentTraceData } from './trace-analyzer'
@@ -17,6 +17,22 @@ import { CodebuffClient } from '@codebuff/sdk'
 import { logger } from '../logger'
 import type { AgentEvalResults, EvalDataV2 } from './types'
 import { analyzeAllTasks } from './meta-analyzer'
+
+function parseAgentId(agent: string): {
+  agentId: string
+  externalAgentType?: ExternalAgentType
+} {
+  if (agent.startsWith('external:')) {
+    const externalType = agent.slice('external:'.length) as ExternalAgentType
+    if (externalType !== 'claude' && externalType !== 'codex') {
+      throw new Error(
+        `Unknown external agent type: ${externalType}. Supported: claude, codex`,
+      )
+    }
+    return { agentId: agent, externalAgentType: externalType }
+  }
+  return { agentId: agent }
+}
 
 async function runTask(options: {
   client: CodebuffClient
@@ -64,7 +80,9 @@ async function runTask(options: {
   // Store trace data for this commit to analyze later
   const commitTraces: AgentTraceData[] = []
 
-  const agentPromises = agents.map(async (agentId) => {
+  const agentPromises = agents.map(async (agent) => {
+    const { agentId, externalAgentType } = parseAgentId(agent)
+
     const agentResult = await runAgentOnCommit({
       client,
       agentId,
@@ -75,6 +93,7 @@ async function runTask(options: {
       localAgentDefinitions,
       printEvents,
       finalCheckCommands,
+      externalAgentType,
     })
 
     const judgeResult = await judgeCommitResult({
