@@ -29,10 +29,6 @@ import {
   getProjectFileTree,
 } from '../common/src/project-file-tree'
 
-import type {
-  SDKAssistantMessage,
-  SDKUserMessage,
-} from '@anthropic-ai/claude-code'
 import type { ClientToolCall } from '@codebuff/common/tools/list'
 import type { AgentRuntimeScopedDeps } from '@codebuff/common/types/contracts/agent-runtime'
 import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
@@ -47,21 +43,6 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { WebSocket } from 'ws'
 
 const DEBUG_MODE = true
-
-export type ToolResultBlockParam = Extract<
-  SDKUserMessage['message']['content'][number],
-  { type: 'tool_result' }
->
-export type ToolUseBlock = Extract<
-  SDKAssistantMessage['message']['content'][number],
-  { type: 'tool_use' }
->
-
-export type AgentStep = {
-  response: string
-  toolCalls: (ClientToolCall | ToolUseBlock)[]
-  toolResults: (ToolMessage | ToolResultBlockParam)[]
-}
 
 function readMockFile(projectRoot: string, filePath: string): string | null {
   const fullPath = path.join(projectRoot, filePath)
@@ -272,7 +253,7 @@ export async function loopMainPrompt({
   const sessionId = 'test-session-id-' + generateCompactId()
   let currentAgentState = sessionState.mainAgentState
   let iterations = 1
-  const steps: AgentStep[] = []
+  const steps: any[] = []
 
   for (; iterations < maxIterations; iterations++) {
     console.log('\nIteration', iterations)
