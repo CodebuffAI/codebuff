@@ -13,12 +13,19 @@ import {
   extractReferralCode,
   normalizeReferralCode,
 } from './router-utils'
+import { getProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
+import {
+  capturePendingImages,
+  hasProcessingImages,
+  validateAndAddImage,
+} from '../utils/add-pending-image'
 import {
   buildBashHistoryMessages,
   createRunTerminalToolResult,
 } from '../utils/bash-messages'
+import { showClipboardMessage } from '../utils/clipboard'
 
 import type { PendingBashMessage } from '../state/chat-store'
 
@@ -127,7 +134,6 @@ function executeBashCommand(
     .catch((error) => {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
-      const output = `Error: ${errorMessage}`
 
       if (options.ghost) {
         options.updatePendingBashMessage(id, {
@@ -232,11 +238,13 @@ export async function routeUserPrompt(
 
   const inputMode = useChatStore.getState().inputMode
   const setInputMode = useChatStore.getState().setInputMode
+  const pendingImages = useChatStore.getState().pendingImages
 
   const trimmed = inputValue.trim()
   const isBusy =
     isStreaming || streamMessageIdRef.current || isChainInProgressRef.current
-  if (!trimmed) return
+  // Allow empty messages if there are pending images attached
+  if (!trimmed && pendingImages.length === 0) return
 
   // Handle bash mode commands
   if (inputMode === 'bash') {
@@ -276,6 +284,28 @@ export async function routeUserPrompt(
     } else {
       executeBashCommand(command, { ghost: false, setMessages })
     }
+    return
+  }
+
+  // Handle image mode input
+  if (inputMode === 'image') {
+    const imagePath = trimmed
+    const projectRoot = getProjectRoot()
+
+    // Validate and add the image (handles path resolution, format check, and processing)
+    const result = await validateAndAddImage(imagePath, projectRoot)
+    if (!result.success) {
+      setMessages((prev) => [
+        ...prev,
+        getUserMessage(trimmed),
+        getSystemMessage(`❌ ${result.error}`),
+      ])
+    }
+
+    // Note: No system message added here - the PendingImagesBanner shows attached images
+    saveToHistory(trimmed)
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+    setInputMode('default')
     return
   }
 
@@ -356,6 +386,15 @@ export async function routeUserPrompt(
   }
 
   // Regular message or unknown slash command - send to agent
+
+  // Block sending if images are still processing
+  if (hasProcessingImages()) {
+    showClipboardMessage('processing images...', {
+      durationMs: 2000,
+    })
+    return
+  }
+
   saveToHistory(trimmed)
   setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
 
@@ -364,7 +403,10 @@ export async function routeUserPrompt(
     streamMessageIdRef.current ||
     isChainInProgressRef.current
   ) {
-    addToQueue(trimmed)
+    const pendingImagesForQueue = capturePendingImages()
+    // Pass a copy of pending images to the queue
+    addToQueue(trimmed, pendingImagesForQueue)
+
     setInputFocused(true)
     inputRef.current?.focus()
     return

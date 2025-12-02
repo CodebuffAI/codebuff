@@ -214,6 +214,7 @@ export const MessageWithAgents = memo(
                       ? (options) => onFeedback(message.id, options)
                       : undefined
                   }
+                  attachments={message.attachments}
                   metadata={message.metadata}
                 />
               </box>
@@ -243,6 +244,7 @@ export const MessageWithAgents = memo(
                 onBuildMax={onBuildMax}
                 onFeedback={onFeedback}
                 onCloseFeedback={onCloseFeedback}
+                attachments={message.attachments}
                 metadata={message.metadata}
               />
             </box>

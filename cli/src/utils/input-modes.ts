@@ -3,7 +3,7 @@
 // 1. Add it to the InputMode type
 // 2. Add its configuration to INPUT_MODE_CONFIGS
 
-export type InputMode = 'default' | 'bash' | 'referral' | 'usage'
+export type InputMode = 'default' | 'bash' | 'referral' | 'usage' | 'image'
 
 // Theme color keys that are valid color values (must match ChatTheme keys)
 export type ThemeColorKey =
@@ -62,6 +62,14 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     widthAdjustment: 0,
     showAgentModeToggle: true,
     disableSlashSuggestions: false,
+  },
+  image: {
+    icon: '📎',
+    color: 'info',
+    placeholder: 'enter image path or Ctrl+V to paste',
+    widthAdjustment: 3, // emoji width + padding
+    showAgentModeToggle: false,
+    disableSlashSuggestions: true,
   },
 }
 

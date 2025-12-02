@@ -28,3 +28,18 @@ export const DASHED_BORDER_CHARS: BorderCharacters = {
   rightT: '┤',
   cross: '┼',
 }
+
+/** Square corner border for image cards (separate from the rounded default) */
+export const IMAGE_CARD_BORDER_CHARS: BorderCharacters = {
+  horizontal: '─',
+  vertical: '│',
+  topLeft: '┌',
+  topRight: '┐',
+  bottomLeft: '└',
+  bottomRight: '┘',
+  topT: '┬',
+  bottomT: '┴',
+  leftT: '├',
+  rightT: '┤',
+  cross: '┼',
+}

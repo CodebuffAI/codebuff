@@ -2,11 +2,10 @@ import React from 'react'
 
 import { AgentModeToggle } from './agent-mode-toggle'
 import { FeedbackContainer } from './feedback-container'
+import { InputModeBanner } from './input-mode-banner'
 import { MultipleChoiceForm } from './ask-user'
 import { MultilineInput, type MultilineInputHandle } from './multiline-input'
-import { ReferralBanner } from './referral-banner'
 import { SuggestionMenu, type SuggestionItem } from './suggestion-menu'
-import { UsageBanner } from './usage-banner'
 import { useChatStore } from '../state/chat-store'
 import { useAskUserBridge } from '../hooks/use-ask-user-bridge'
 
@@ -19,23 +18,6 @@ import type { AgentMode } from '../utils/constants'
 import type { InputMode } from '../utils/input-modes'
 
 type Theme = ReturnType<typeof useTheme>
-
-const InputModeBanner = ({
-  inputMode,
-  usageBannerShowTime,
-}: {
-  inputMode: InputMode
-  usageBannerShowTime: number
-}) => {
-  switch (inputMode) {
-    case 'usage':
-      return <UsageBanner showTime={usageBannerShowTime} />
-    case 'referral':
-      return <ReferralBanner />
-    default:
-      return null
-  }
-}
 
 interface ChatInputBarProps {
   // Input state
@@ -109,16 +91,6 @@ export const ChatInputBar = ({
 }: ChatInputBarProps) => {
   const inputMode = useChatStore((state) => state.inputMode)
   const setInputMode = useChatStore((state) => state.setInputMode)
-
-  const [usageBannerShowTime, setUsageBannerShowTime] = React.useState(() =>
-    Date.now(),
-  )
-
-  React.useEffect(() => {
-    if (inputMode === 'usage') {
-      setUsageBannerShowTime(Date.now())
-    }
-  }, [inputMode])
 
   const modeConfig = getInputModeConfig(inputMode)
   const askUserState = useChatStore((state) => state.askUserState)
@@ -389,10 +361,7 @@ export const ChatInputBar = ({
           </box>
         </box>
       </box>
-      <InputModeBanner
-        inputMode={inputMode}
-        usageBannerShowTime={usageBannerShowTime}
-      />
+      <InputModeBanner />
     </>
   )
 }

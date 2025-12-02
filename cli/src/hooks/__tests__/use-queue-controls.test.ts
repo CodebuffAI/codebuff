@@ -1,12 +1,13 @@
 import { describe, test, expect, mock } from 'bun:test'
 
 import { createQueueCtrlCHandler } from '../use-queue-controls'
+import type { QueuedMessage } from '../use-message-queue'
 
 describe('createQueueCtrlCHandler', () => {
   const setupHandler = (
     overrides: Partial<Parameters<typeof createQueueCtrlCHandler>[0]> = {},
   ) => {
-    const clearQueue = mock(() => [] as string[])
+    const clearQueue = mock(() => [] as QueuedMessage[])
     const resumeQueue = mock(() => {})
     const baseHandleCtrlC = mock(() => true as const)
 

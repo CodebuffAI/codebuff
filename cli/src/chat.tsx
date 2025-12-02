@@ -11,7 +11,11 @@ import {
 import { useShallow } from 'zustand/react/shallow'
 
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
+import { addClipboardPlaceholder, addPendingImageFromFile } from './utils/add-pending-image'
+import { getProjectRoot } from './project-files'
 import { AnnouncementBanner } from './components/announcement-banner'
+import { hasClipboardImage, readClipboardImage, readClipboardText } from './utils/clipboard-image'
+import { showClipboardMessage } from './utils/clipboard'
 import { ChatInputBar } from './components/chat-input-bar'
 import { MessageWithAgents } from './components/message-with-agents'
 import { PendingBashMessage } from './components/pending-bash-message'
@@ -36,7 +40,7 @@ import {
   type ChatKeyboardState,
   createDefaultChatKeyboardState,
 } from './utils/keyboard-actions'
-import { useMessageQueue } from './hooks/use-message-queue'
+import { useMessageQueue, type QueuedMessage } from './hooks/use-message-queue'
 import { useQueueControls } from './hooks/use-queue-controls'
 import { useQueueUi } from './hooks/use-queue-ui'
 import { useChatScrollbox } from './hooks/use-scroll-management'
@@ -429,6 +433,7 @@ export const Chat = ({
   const inputMode = useChatStore((state) => state.inputMode)
   const setInputMode = useChatStore((state) => state.setInputMode)
   const askUserState = useChatStore((state) => state.askUserState)
+  const pendingImages = useChatStore((state) => state.pendingImages)
 
   const {
     slashContext,
@@ -542,31 +547,12 @@ export const Chat = ({
     clearQueue,
     isQueuePausedRef,
   } = useMessageQueue(
-    (content: string) => {
-      // Route queued messages through the router to handle bash commands, slash commands, etc.
-      return routeUserPrompt({
-        abortControllerRef,
+    (message: QueuedMessage) =>
+      sendMessageRef.current?.({
+        content: message.content,
         agentMode,
-        inputRef,
-        inputValue: content,
-        isChainInProgressRef,
-        isStreaming,
-        logoutMutation,
-        streamMessageIdRef,
-        addToQueue,
-        clearMessages,
-        saveToHistory: () => {}, // Already saved when queued
-        scrollToLatest,
-        sendMessage,
-        setCanProcessQueue,
-        setInputFocused,
-        setInputValue: () => {}, // Input already cleared when queued
-        setIsAuthenticated,
-        setMessages,
-        setUser,
-        stopStreaming,
-      })
-    },
+        images: message.images,
+      }) ?? Promise.resolve(),
     isChainInProgressRef,
     activeAgentStreamsRef,
   )
@@ -1032,8 +1018,42 @@ export const Chat = ({
       onExitApp: () => handleCtrlC(),
       onBashHistoryUp: navigateUp,
       onBashHistoryDown: navigateDown,
-      onDismissBashOverlay: () => {},
-      onCancelBashCommand: () => {},
+      onPasteImage: () => {
+        const placeholderPath = addClipboardPlaceholder()
+
+        setTimeout(() => {
+          if (!hasClipboardImage()) {
+            useChatStore.getState().removePendingImage(placeholderPath)
+            const text = readClipboardText()
+            if (text) {
+              setInputValue((prev) => {
+                const before = prev.text.slice(0, prev.cursorPosition)
+                const after = prev.text.slice(prev.cursorPosition)
+                return {
+                  text: before + text + after,
+                  cursorPosition: before.length + text.length,
+                  lastEditDueToNav: false,
+                }
+              })
+            }
+            return
+          }
+
+          const result = readClipboardImage()
+          if (!result.success || !result.imagePath) {
+            useChatStore.getState().removePendingImage(placeholderPath)
+            showClipboardMessage(result.error || 'Failed to paste image', {
+              durationMs: 3000,
+            })
+            return
+          }
+
+          const cwd = getProjectRoot() ?? process.cwd()
+          void addPendingImageFromFile(result.imagePath, cwd, placeholderPath)
+        }, 0)
+
+        return true
+      },
     }),
     [
       setInputMode,

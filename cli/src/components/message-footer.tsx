@@ -13,7 +13,7 @@ import {
   selectMessageFeedbackCategory,
 } from '../state/feedback-store'
 
-import type { ContentBlock } from '../types/chat'
+import type { ContentBlock, TextContentBlock } from '../types/chat'
 
 interface MessageFooterProps {
   messageId: string
@@ -112,12 +112,21 @@ export const MessageFooter: React.FC<MessageFooterProps> = ({
   const footerItems: { key: string; node: React.ReactNode }[] = []
 
   // Add copy button first if there's content to copy
-  const hasContent =
-    (blocks && blocks.length > 0) || (content && content.trim().length > 0)
-  if (hasContent) {
+  // Build text from content and text blocks
+  const textToCopy = [
+    content,
+    ...(blocks || [])
+      .filter((b): b is TextContentBlock => b.type === 'text')
+      .map((b) => b.content),
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+    .trim()
+
+  if (textToCopy.length > 0) {
     footerItems.push({
       key: 'copy',
-      node: <CopyIconButton blocks={blocks} content={content} />,
+      node: <CopyIconButton textToCopy={textToCopy} />,
     })
   }
 

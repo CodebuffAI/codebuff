@@ -60,6 +60,9 @@ export type ChatKeyboardHandlers = {
   // Bash history handlers
   onBashHistoryUp: () => void
   onBashHistoryDown: () => void
+
+  // Clipboard handlers
+  onPasteImage: () => boolean // Returns true if an image was pasted
 }
 
 /**
@@ -163,6 +166,8 @@ function dispatchAction(
     case 'bash-history-down':
       handlers.onBashHistoryDown()
       return true
+    case 'paste-image':
+      return handlers.onPasteImage()
     case 'none':
       return false
   }

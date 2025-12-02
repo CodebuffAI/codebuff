@@ -21,12 +21,15 @@ import { formatTimestamp } from '../utils/helpers'
 import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 
 import { logger } from '../utils/logger'
+import { extractImagePaths, processImageFile } from '../utils/image-handler'
 import {
   buildBashHistoryMessages,
   createRunTerminalToolResult,
   formatBashContextForPrompt,
 } from '../utils/bash-messages'
 import { getUserMessage } from '../utils/message-history'
+import { getProjectRoot } from '../project-files'
+import path from 'path'
 import { NETWORK_ERROR_ID } from '../utils/validation-error-helpers'
 import {
   loadMostRecentChatState,
@@ -45,7 +48,12 @@ import type { SendMessageFn } from '../types/contracts/send-message'
 import type { ParamsOf } from '../types/function-params'
 import type { SetElement } from '../types/utils'
 import type { AgentMode } from '../utils/constants'
-import type { AgentDefinition, RunState, ToolName } from '@codebuff/sdk'
+import type {
+  AgentDefinition,
+  RunState,
+  ToolName,
+  MessageContent,
+} from '@codebuff/sdk'
 import type { SetStateAction } from 'react'
 const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
   'spawn_agent_inline',
@@ -445,7 +453,12 @@ export const useSendMessage = ({
 
   const sendMessage = useCallback<SendMessageFn>(
     async (params: ParamsOf<SendMessageFn>) => {
-      const { content, agentMode, postUserMessage } = params
+      const {
+        content,
+        agentMode,
+        postUserMessage,
+        images: attachedImages,
+      } = params
 
       if (agentMode !== 'PLAN') {
         setHasReceivedPlanResponse(false)
@@ -455,10 +468,10 @@ export const useSendMessage = ({
       // and prepare context for the LLM
       const { pendingBashMessages, clearPendingBashMessages } =
         useChatStore.getState()
-      
+
       // Format bash context to add to message history for the LLM
       const bashContext = formatBashContextForPrompt(pendingBashMessages)
-      
+
       if (pendingBashMessages.length > 0) {
         // Convert pending bash messages to chat messages and add to history (UI only)
         // Skip messages that were already added to history (non-ghost mode)
@@ -512,9 +525,106 @@ export const useSendMessage = ({
       const shouldInsertDivider =
         lastMessageMode === null || lastMessageMode !== agentMode
 
+      // --- Process images before sending ---
+      // Get pending images from store OR use explicitly attached images (e.g. from queue)
+      // If attachedImages is provided, we use those to prevent picking up new pending images
+      const pendingImages =
+        attachedImages ?? useChatStore.getState().pendingImages
+
+      // Also extract image paths from the input text
+      const detectedImagePaths = extractImagePaths(content)
+
+      // Combine pending images with detected paths (avoid duplicates)
+      const allImagePaths = [
+        ...pendingImages.map((img) => img.path),
+        ...detectedImagePaths,
+      ]
+      const uniqueImagePaths = [...new Set(allImagePaths)]
+
+      // Build attachments from pending images first (for UI display)
+      // These show in the user message regardless of processing success
+      const attachments = pendingImages.map((img) => ({
+        path: img.path,
+        filename: img.filename,
+      }))
+
+      // Clear pending images immediately after capturing them
+      // Only clear if we pulled from the store (attachedImages was undefined)
+      // If attachedImages was provided (e.g. from queue), the store was likely cleared when queued
+      if (!attachedImages && pendingImages.length > 0) {
+        useChatStore.getState().clearPendingImages()
+      }
+
+      // Process all images for SDK
+      const projectRoot = getProjectRoot()
+      const validImageParts: Array<{
+        type: 'image'
+        image: string
+        mediaType: string
+        filename: string | undefined
+        size: number | undefined
+        path: string
+      }> = []
+      const imageWarnings: string[] = []
+
+      for (const imagePath of uniqueImagePaths) {
+        const result = await processImageFile(imagePath, projectRoot)
+        if (result.success && result.imagePart) {
+          validImageParts.push({
+            type: 'image',
+            image: result.imagePart.image,
+            mediaType: result.imagePart.mediaType,
+            filename: result.imagePart.filename,
+            size: result.imagePart.size,
+            path: imagePath,
+          })
+          if (result.wasCompressed) {
+            imageWarnings.push(
+              `📦 ${result.imagePart.filename || imagePath}: compressed`,
+            )
+          }
+        } else if (!result.success) {
+          logger.warn(
+            { imagePath, error: result.error },
+            'Failed to process image for SDK',
+          )
+          // Add user-visible warning for rejected images
+          const filename = path.basename(imagePath)
+          imageWarnings.push(`⚠️ ${filename}: ${result.error}`)
+        }
+      }
+
+      // Build message content array for SDK (images only - text comes from prompt parameter
+      // which includes bash context and fallback text for image-only messages)
+      let messageContent: MessageContent[] | undefined
+      if (validImageParts.length > 0) {
+        messageContent = validImageParts.map((img) => ({
+          type: 'image' as const,
+          image: img.image,
+          mediaType: img.mediaType,
+        }))
+
+        logger.info(
+          {
+            imageCount: validImageParts.length,
+            totalSize: validImageParts.reduce(
+              (sum, part) => sum + (part.size || 0),
+              0,
+            ),
+            messageContentLength: messageContent?.length,
+          },
+          `📎 ${validImageParts.length} image(s) attached to SDK message`,
+        )
+      }
+
       // Create user message and capture its ID for later updates
-      const userMessage = getUserMessage(content)
+      const userMessage = getUserMessage(content, attachments)
       const userMessageId = userMessage.id
+
+      // Add attachments to user message
+      if (attachments.length > 0) {
+        userMessage.attachments = attachments
+      }
 
       applyMessageUpdate((prev) => {
         let newMessages = [...prev]
@@ -990,16 +1100,28 @@ export const useSendMessage = ({
               ? 'base2-max'
               : 'base2-plan'
 
+        // Note: Image processing is done earlier in sendMessage, messageContent is already built
+
         let runState: RunState
         try {
           // If there's bash context, always prepend it to the user's prompt
           // This ensures consistent behavior whether or not there's a previous run
-          const promptToSend = bashContext ? bashContext + content : content
+          const promptWithBashContext = bashContext
+            ? bashContext + content
+            : content
+          const hasNonWhitespacePromptWithContext =
+            (promptWithBashContext ?? '').trim().length > 0
+
+          // Use a default prompt when only images are attached (no text content)
+          const effectivePrompt =
+            (hasNonWhitespacePromptWithContext ? promptWithBashContext : '') ||
+            (messageContent ? 'See attached image(s)' : '')
 
           runState = await client.run({
             logger,
             agent: selectedAgentDefinition ?? agentId ?? fallbackAgent,
-            prompt: promptToSend,
+            prompt: effectivePrompt,
+            content: messageContent,
             previousRun: previousRunStateRef.current ?? undefined,
             abortController,
             retry: {

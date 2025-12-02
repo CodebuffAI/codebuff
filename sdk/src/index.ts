@@ -4,7 +4,7 @@ export type * from '../../common/src/types/messages/data-content'
 export type * from '../../common/src/types/print-mode'
 export type { TextPart, ImagePart } from '../../common/src/types/messages/content-part'
 export { run, getRetryableErrorCode } from './run'
-export type { RunOptions, RetryOptions } from './run'
+export type { RunOptions, RetryOptions, MessageContent, TextContent, ImageContent } from './run'
 export { buildUserMessageContent } from '@codebuff/agent-runtime/util/messages'
 // Agent type exports
 export type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'

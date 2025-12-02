@@ -1,9 +1,11 @@
 import { useCallback } from 'react'
 
+import type { QueuedMessage } from './use-message-queue'
+
 interface UseQueueControlsParams {
   queuePaused: boolean
   queuedCount: number
-  clearQueue: () => string[]
+  clearQueue: () => QueuedMessage[]
   resumeQueue: () => void
   inputHasText: boolean
   baseHandleCtrlC: () => true

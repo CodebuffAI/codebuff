@@ -7,14 +7,18 @@ import React, {
   useState,
   type ReactNode,
 } from 'react'
+import { spawn } from 'child_process'
+import path from 'path'
 
 import { AgentBranchItem } from './agent-branch-item'
 import { Button } from './button'
 import { MessageFooter } from './message-footer'
+import { TerminalLink } from './terminal-link'
 import { ValidationErrorPopover } from './validation-error-popover'
 import { useTheme } from '../hooks/use-theme'
 import { formatCwd } from '../utils/path-helpers'
 import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
+import { ImageCard } from './image-card'
 import { isTextBlock, isToolBlock } from '../types/chat'
 import { shouldRenderAsSimpleText } from '../utils/constants'
 import {
@@ -28,6 +32,7 @@ import { ContentWithMarkdown } from './blocks/content-with-markdown'
 import { ThinkingBlock } from './blocks/thinking-block'
 import { ToolBranch } from './blocks/tool-branch'
 import { AskUserBranch } from './blocks/ask-user-branch'
+import { ImageBlock } from './blocks/image-block'
 import { PlanBox } from './renderers/plan-box'
 
 import type {
@@ -35,9 +40,11 @@ import type {
   TextContentBlock,
   HtmlContentBlock,
   AgentContentBlock,
+  ImageAttachment,
+  ImageContentBlock,
   ChatMessageMetadata,
 } from '../types/chat'
-import { isAskUserBlock } from '../types/chat'
+import { isAskUserBlock, isImageBlock } from '../types/chat'
 import type { ThemeColor } from '../types/theme-system'
 
 interface MessageBlockProps {
@@ -69,10 +76,61 @@ interface MessageBlockProps {
     footerMessage?: string
     errors?: Array<{ id: string; message: string }>
   }) => void
+  attachments?: ImageAttachment[]
   metadata?: ChatMessageMetadata
 }
 
+const MessageAttachments = ({
+  attachments,
+}: {
+  attachments: ImageAttachment[]
+}) => {
+  if (attachments.length === 0) {
+    return null
+  }
+
+  return (
+    <box
+      style={{
+        flexDirection: 'row',
+        gap: 1,
+        flexWrap: 'wrap',
+        marginTop: 1,
+      }}
+    >
+      {attachments.map((attachment) => (
+        <ImageCard
+          key={attachment.path}
+          image={attachment}
+          showRemoveButton={false}
+        />
+      ))}
+    </box>
+  )
+}
+
 import { BORDER_CHARS } from '../utils/ui-constants'
+
+// Helper to open a file with the system default application
+const openFile = (filePath: string) => {
+  const platform = process.platform
+  let command: string
+  let args: string[]
+
+  if (platform === 'darwin') {
+    command = 'open'
+    args = [filePath]
+  } else if (platform === 'win32') {
+    command = 'cmd'
+    args = ['/c', 'start', '', filePath]
+  } else {
+    // Linux and others
+    command = 'xdg-open'
+    args = [filePath]
+  }
+
+  spawn(command, args, { detached: true, stdio: 'ignore' }).unref()
+}
 
 export const MessageBlock: React.FC<MessageBlockProps> = ({
   messageId,
@@ -99,6 +157,7 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
   onCloseFeedback,
   validationErrors,
   onOpenFeedback,
+  attachments,
   metadata,
 }) => {
   const [showValidationPopover, setShowValidationPopover] = useState(false)
@@ -265,6 +324,11 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
           palette={markdownOptions.palette}
         />
       )}
+      {/* Show image attachments for user messages */}
+      {isUser && attachments && attachments.length > 0 && (
+        <MessageAttachments attachments={attachments} />
+      )}
+
       {isAi && (
         <MessageFooter
           messageId={messageId}
@@ -323,6 +387,7 @@ const isRenderableTimelineBlock = (
     case 'plan':
     case 'mode-divider':
     case 'ask-user':
+    case 'image':
       return true
     default:
       return false
@@ -949,6 +1014,16 @@ const SingleBlock = memo(
         )
       }
 
+      case 'image': {
+        return (
+          <ImageBlock
+            key={`${messageId}-image-${idx}`}
+            block={block as ImageContentBlock}
+            availableWidth={availableWidth}
+          />
+        )
+      }
+
       case 'agent': {
         return (
           <AgentBranchWrapper
@@ -1042,6 +1117,19 @@ const BlocksRenderer = memo(
         )
         continue
       }
+      // Handle image blocks
+      if (isImageBlock(block)) {
+        nodes.push(
+          <ImageBlock
+            key={`${messageId}-image-${i}`}
+            block={block}
+            availableWidth={availableWidth}
+          />,
+        )
+        i++
+        continue
+      }
+
       if (block.type === 'tool') {
         const start = i
         const group: Extract<ContentBlock, { type: 'tool' }>[] = []

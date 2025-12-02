@@ -1,3 +1,4 @@
+import { handleImageCommand } from './image'
 import { handleInitializationFlowLocally } from './init'
 import { handleReferralCode } from './referral'
 import { normalizeReferralCode } from './router-utils'
@@ -5,9 +6,10 @@ import { handleUsageCommand } from './usage'
 import { useChatStore } from '../state/chat-store'
 import { useLoginStore } from '../state/login-store'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
+import { capturePendingImages } from '../utils/add-pending-image'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
-import type { InputValue } from '../state/chat-store'
+import type { InputValue, PendingImage } from '../state/chat-store'
 import type { ChatMessage } from '../types/chat'
 import type { SendMessageFn } from '../types/contracts/send-message'
 import type { User } from '../utils/auth'
@@ -23,7 +25,7 @@ export type RouterParams = {
   isStreaming: boolean
   logoutMutation: UseMutationResult<boolean, Error, void, unknown>
   streamMessageIdRef: React.MutableRefObject<string | null>
-  addToQueue: (message: string) => void
+  addToQueue: (message: string, images?: PendingImage[]) => void
   clearMessages: () => void
   saveToHistory: (message: string) => void
   scrollToLatest: () => void
@@ -186,7 +188,8 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
         params.streamMessageIdRef.current ||
         params.isChainInProgressRef.current
       ) {
-        params.addToQueue(trimmed)
+        const pendingImages = capturePendingImages()
+        params.addToQueue(trimmed, pendingImages)
         params.setInputFocused(true)
         params.inputRef.current?.focus()
         return
@@ -208,6 +211,26 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     handler: async (params) => {
       const { postUserMessage } = await handleUsageCommand()
       params.setMessages((prev) => postUserMessage(prev))
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  },
+  {
+    name: 'image',
+    aliases: ['img', 'attach'],
+    handler: async (params, args) => {
+      const trimmedArgs = args.trim()
+
+      // If user provided a path directly, process it immediately
+      if (trimmedArgs) {
+        await handleImageCommand(trimmedArgs)
+        params.saveToHistory(params.inputValue.trim())
+        clearInput(params)
+        return
+      }
+
+      // Otherwise enter image mode
+      useChatStore.getState().setInputMode('image')
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
     },

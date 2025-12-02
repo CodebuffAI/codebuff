@@ -91,6 +91,9 @@ export type ChatKeyboardAction =
   | { type: 'bash-history-up' }
   | { type: 'bash-history-down' }
 
+  // Paste actions
+  | { type: 'paste-image' }
+
   // No action needed
   | { type: 'none' }
 
@@ -107,6 +110,7 @@ export function resolveChatKeyboardAction(
 ): ChatKeyboardAction {
   const isEscape = key.name === 'escape'
   const isCtrlC = key.ctrl && key.name === 'c'
+  const isCtrlV = key.ctrl && key.name === 'v'
   const isBackspace = key.name === 'backspace'
   const isUp = key.name === 'up' && !hasModifier(key)
   const isDown = key.name === 'down' && !hasModifier(key)
@@ -280,7 +284,12 @@ export function resolveChatKeyboardAction(
     return { type: 'unfocus-agent' }
   }
 
-  // Priority 13: Exit app (ctrl-c double-tap)
+  // Priority 13: Paste image (ctrl-v)
+  if (isCtrlV) {
+    return { type: 'paste-image' }
+  }
+
+  // Priority 14: Exit app (ctrl-c double-tap)
   if (isCtrlC) {
     if (state.nextCtrlCWillExit) {
       return { type: 'exit-app' }

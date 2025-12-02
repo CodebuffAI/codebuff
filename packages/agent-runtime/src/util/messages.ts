@@ -35,34 +35,54 @@ export function asUserMessage(str: string): string {
 
 /**
  * Combines prompt, params, and content into a unified message content structure.
- * For single text parts, wraps the text in <user_message> tags; multipart content
- * is returned as-is (assumes caller already wrapped the appropriate part).
+ * Always wraps the first text part in <user_message> tags for consistent XML framing.
+ * If you need a specific text part wrapped, put it first or pre-wrap it yourself before calling.
  */
 export function buildUserMessageContent(
   prompt: string | undefined,
   params: Record<string, any> | undefined,
   content?: Array<TextPart | ImagePart>,
 ): Array<TextPart | ImagePart> {
+  const promptHasNonWhitespaceText = (prompt ?? '').trim().length > 0
+
+  // If we have content array (e.g., text + images)
   if (content && content.length > 0) {
-    if (content.length === 1 && content[0].type === 'text') {
-      const [textPart] = content
-      const alreadyWrapped = parseUserMessage(textPart.text) !== undefined
-      if (alreadyWrapped) {
-        return content
-      }
+    // Check if content has a non-empty text part
+    const firstTextPart = content.find((p): p is TextPart => p.type === 'text')
+    const hasNonEmptyText = firstTextPart && firstTextPart.text.trim()
+
+    // If content has no meaningful text but prompt is provided, prepend prompt
+    if (!hasNonEmptyText && promptHasNonWhitespaceText) {
+      const nonTextContent = content.filter((p) => p.type !== 'text')
       return [
-        {
-          ...textPart,
-          text: asUserMessage(textPart.text),
-        },
+        { type: 'text' as const, text: asUserMessage(prompt!) },
+        ...nonTextContent,
       ]
     }
-    return content
+
+    // Find the first text part and wrap it in <user_message> tags
+    let hasWrappedText = false
+    const wrappedContent = content.map((part) => {
+      if (part.type === 'text' && !hasWrappedText) {
+        hasWrappedText = true
+        // Check if already wrapped
+        const alreadyWrapped = parseUserMessage(part.text) !== undefined
+        if (alreadyWrapped) {
+          return part
+        }
+        return {
+          type: 'text' as const,
+          text: asUserMessage(part.text),
+        }
+      }
+      return part
+    })
+    return wrappedContent
   }
 
   // Only prompt/params, combine and return as simple text
   const textParts = buildArray([
-    prompt,
+    promptHasNonWhitespaceText ? prompt : undefined,
     params && JSON.stringify(params, null, 2),
   ])
   return [

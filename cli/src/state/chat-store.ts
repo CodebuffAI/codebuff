@@ -43,6 +43,22 @@ export type AskUserState = {
   otherTexts: string[] // Custom text input for each question (empty string if not used)
 } | null
 
+export type PendingImageStatus = 'processing' | 'ready' | 'error'
+
+export type PendingImage = {
+  path: string
+  filename: string
+  status: PendingImageStatus
+  size?: number
+  width?: number
+  height?: number
+  note?: string // Display note: "compressed" | error message
+  processedImage?: {
+    base64: string
+    mediaType: string
+  }
+}
+
 export type PendingBashMessage = {
   id: string
   command: string
@@ -79,6 +95,7 @@ export type ChatStoreState = {
   inputMode: InputMode
   isRetrying: boolean
   askUserState: AskUserState
+  pendingImages: PendingImage[]
   pendingBashMessages: PendingBashMessage[]
 }
 
@@ -115,6 +132,9 @@ type ChatStoreActions = {
   setAskUserState: (state: AskUserState) => void
   updateAskUserAnswer: (questionIndex: number, optionIndex: number) => void
   updateAskUserOtherText: (questionIndex: number, text: string) => void
+  addPendingImage: (image: PendingImage) => void
+  removePendingImage: (path: string) => void
+  clearPendingImages: () => void
   addPendingBashMessage: (message: PendingBashMessage) => void
   updatePendingBashMessage: (
     id: string,
@@ -149,6 +169,7 @@ const initialState: ChatStoreState = {
   inputMode: 'default' as InputMode,
   isRetrying: false,
   askUserState: null,
+  pendingImages: [],
   pendingBashMessages: [],
 }
 
@@ -280,6 +301,24 @@ export const useChatStore = create<ChatStore>()(
         state.askUserState = askUserState
       }),
 
+    addPendingImage: (image) =>
+      set((state) => {
+        // Don't add duplicates
+        if (!state.pendingImages.some((i) => i.path === image.path)) {
+          state.pendingImages.push(image)
+        }
+      }),
+
+    removePendingImage: (path) =>
+      set((state) => {
+        state.pendingImages = state.pendingImages.filter((i) => i.path !== path)
+      }),
+
+    clearPendingImages: () =>
+      set((state) => {
+        state.pendingImages = []
+      }),
+
     updateAskUserAnswer: (questionIndex, optionIndex) =>
       set((state) => {
         if (!state.askUserState) return
@@ -371,6 +410,7 @@ export const useChatStore = create<ChatStore>()(
         state.inputMode = initialState.inputMode
         state.isRetrying = initialState.isRetrying
         state.askUserState = initialState.askUserState
+        state.pendingImages = []
         state.pendingBashMessages = []
       }),
   })),

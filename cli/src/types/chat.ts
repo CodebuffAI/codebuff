@@ -92,15 +92,34 @@ export type AskUserContentBlock = {
   skipped?: boolean
 }
 
+export type ImageContentBlock = {
+  type: 'image'
+  image: string // base64 encoded
+  mediaType: string
+  filename?: string
+  size?: number
+  width?: number
+  height?: number
+  isCollapsed?: boolean
+  userOpened?: boolean
+}
+
+export type ImageAttachment = {
+  filename: string
+  path: string
+  size?: number
+}
+
 export type ContentBlock =
   | AgentContentBlock
   | AgentListContentBlock
+  | AskUserContentBlock
   | HtmlContentBlock
+  | ImageContentBlock
   | ModeDividerContentBlock
   | TextContentBlock
   | ToolContentBlock
   | PlanContentBlock
-  | AskUserContentBlock
 
 export type AgentMessage = {
   agentName: string
@@ -134,6 +153,7 @@ export type ChatMessage = {
   isComplete?: boolean
   metadata?: ChatMessageMetadata
   validationErrors?: Array<{ id: string; message: string }>
+  attachments?: ImageAttachment[]
 }
 
 // Type guard functions for safe type narrowing
@@ -173,4 +193,8 @@ export function isAskUserBlock(
   block: ContentBlock,
 ): block is AskUserContentBlock {
   return block.type === 'ask-user'
+}
+
+export function isImageBlock(block: ContentBlock): block is ImageContentBlock {
+  return block.type === 'image'
 }

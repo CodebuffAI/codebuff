@@ -22,12 +22,12 @@ export function formatTimestamp(date = new Date()): string {
 }
 
 export function formatQueuedPreview(
-  messages: string[],
+  messages: Array<{ content: string }>,
   maxChars: number = 60,
 ): string {
   if (messages.length === 0) return ''
 
-  const latestMessage = messages[messages.length - 1]
+  const latestMessage = messages[messages.length - 1].content
   const singleLine = latestMessage.replace(/\s+/g, ' ').trim()
   if (!singleLine) return ''
 
