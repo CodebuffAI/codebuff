@@ -1015,15 +1015,40 @@ export const Chat = ({
       onBashHistoryUp: navigateUp,
       onBashHistoryDown: navigateDown,
       onPasteImage: () => {
-        // Show placeholder immediately so user sees the banner right away
+        // Show placeholder immediately for instant feedback
         const placeholderPath = addClipboardPlaceholder()
 
-        // Check and process clipboard image in background
+        // Check and process clipboard in background
         setTimeout(() => {
-          // Check if clipboard actually has an image
           if (!hasClipboardImage()) {
-            // No image - quietly remove placeholder (brief flash is acceptable)
+            // No image - remove placeholder and simulate text paste
             useChatStore.getState().removePendingImage(placeholderPath)
+
+            // Read text from clipboard and insert it
+            try {
+              const { spawnSync } = require('child_process')
+              const textResult = spawnSync(
+                process.platform === 'darwin' ? 'pbpaste' :
+                process.platform === 'win32' ? 'powershell' : 'xclip',
+                process.platform === 'win32' ? ['-Command', 'Get-Clipboard'] :
+                process.platform === 'linux' ? ['-selection', 'clipboard', '-o'] : [],
+                { encoding: 'utf-8', timeout: 1000 }
+              )
+              if (textResult.status === 0 && textResult.stdout) {
+                const text = textResult.stdout
+                setInputValue((prev) => {
+                  const before = prev.text.slice(0, prev.cursorPosition)
+                  const after = prev.text.slice(prev.cursorPosition)
+                  return {
+                    text: before + text + after,
+                    cursorPosition: before.length + text.length,
+                    lastEditDueToNav: false,
+                  }
+                })
+              }
+            } catch {
+              // Ignore errors - text paste just won't work
+            }
             return
           }
 
@@ -1040,7 +1065,7 @@ export const Chat = ({
           void addPendingImageFromFile(result.imagePath, cwd, placeholderPath)
         }, 0)
 
-        return true
+        return true // Always consume - we handle text paste ourselves if needed
       },
     }),
     [

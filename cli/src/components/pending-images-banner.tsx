@@ -88,6 +88,7 @@ export const PendingImagesBanner = () => {
         {readyCount > 0 && `${pluralize(readyCount, 'image')} attached`}
         {readyCount > 0 && processingCount > 0 && ', '}
         {processingCount > 0 && `${pluralize(processingCount, 'image')} processing`}
+        {processingCount > 0 && ' (wait to send)'}
       </text>
 
       {/* Image cards in a horizontal row - only valid images */}

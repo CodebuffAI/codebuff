@@ -16,7 +16,7 @@ import {
 import { getProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
-import { capturePendingImages, validateAndAddImage } from '../utils/add-pending-image'
+import { capturePendingImages, hasProcessingImages, validateAndAddImage } from '../utils/add-pending-image'
 import {
   buildBashHistoryMessages,
   createRunTerminalToolResult,
@@ -355,6 +355,13 @@ export async function routeUserPrompt(
   }
 
   // Regular message or unknown slash command - send to agent
+  
+  // Block sending if images are still processing
+  if (hasProcessingImages()) {
+    // Don't send - images are still processing
+    return
+  }
+
   saveToHistory(trimmed)
   setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
 

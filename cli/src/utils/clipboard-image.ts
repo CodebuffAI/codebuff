@@ -31,14 +31,14 @@ function generateImageFilename(): string {
 
 /**
  * Check if clipboard contains an image (macOS)
+ * Uses 'clipboard info' which is the fastest way to check clipboard types
  */
 function hasImageMacOS(): boolean {
   try {
-    // Use osascript to check clipboard type
     const result = spawnSync('osascript', [
       '-e',
       'clipboard info',
-    ], { encoding: 'utf-8', timeout: 5000 })
+    ], { encoding: 'utf-8', timeout: 1000 })
     
     if (result.status !== 0) {
       return false

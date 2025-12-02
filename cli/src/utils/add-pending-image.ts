@@ -169,6 +169,15 @@ export async function validateAndAddImage(
 }
 
 /**
+ * Check if any pending images are still processing.
+ */
+export function hasProcessingImages(): boolean {
+  return useChatStore.getState().pendingImages.some(
+    (img) => img.status === 'processing',
+  )
+}
+
+/**
  * Capture and clear pending images so they can be passed to the queue without
  * duplicating state handling logic in multiple callers.
  */
