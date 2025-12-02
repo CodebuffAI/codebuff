@@ -1,4 +1,6 @@
-import type { AgentStep } from '../agent-runner'
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+
+export type AgentStep = PrintModeEvent
 
 export type RunnerResult = {
   steps: AgentStep[]
@@ -6,6 +8,6 @@ export type RunnerResult = {
   diff: string
 }
 
-export type Runner = {
+export interface Runner {
   run: (prompt: string) => Promise<RunnerResult>
 }

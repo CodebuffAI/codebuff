@@ -1,7 +1,6 @@
 import { execSync, spawn } from 'child_process'
 
-import type { Runner, RunnerResult } from './runner'
-import type { AgentStep } from '../agent-runner'
+import type { Runner, RunnerResult, AgentStep } from './runner'
 
 export class CodexRunner implements Runner {
   private cwd: string
