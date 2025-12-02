@@ -37,7 +37,8 @@ export class ClaudeRunner implements Runner {
           ANTHROPIC_API_KEY:
             process.env.CLAUDE_CODE_KEY || process.env.ANTHROPIC_API_KEY,
         },
-        stdio: ['pipe', 'pipe', 'pipe'],
+        // Use 'ignore' for stdin to prevent the CLI from waiting for input
+        stdio: ['ignore', 'pipe', 'pipe'],
       })
 
       let stdout = ''
