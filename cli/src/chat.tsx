@@ -11,35 +11,26 @@ import {
 import { useShallow } from 'zustand/react/shallow'
 
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
-import { addClipboardPlaceholder, addPendingImageFromFile } from './utils/add-pending-image'
-import { getProjectRoot } from './project-files'
 import { AnnouncementBanner } from './components/announcement-banner'
-import { readClipboardImage } from './utils/clipboard-image'
-import { showClipboardMessage } from './utils/clipboard'
 import { ChatInputBar } from './components/chat-input-bar'
 import { MessageWithAgents } from './components/message-with-agents'
 import { PendingBashMessage } from './components/pending-bash-message'
 import { StatusBar } from './components/status-bar'
 import { SLASH_COMMANDS } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
-import { authQueryKeys } from './hooks/use-auth-query'
 import { useAskUserBridge } from './hooks/use-ask-user-bridge'
+import { authQueryKeys } from './hooks/use-auth-query'
 import { useChatInput } from './hooks/use-chat-input'
-import { useClipboard } from './hooks/use-clipboard'
-import { useConnectionStatus } from './hooks/use-connection-status'
-
-import { useElapsedTime } from './hooks/use-elapsed-time'
-import { useEvent } from './hooks/use-event'
-import { useExitHandler } from './hooks/use-exit-handler'
-import { useInputHistory } from './hooks/use-input-history'
 import {
   useChatKeyboard,
   type ChatKeyboardHandlers,
 } from './hooks/use-chat-keyboard'
-import {
-  type ChatKeyboardState,
-  createDefaultChatKeyboardState,
-} from './utils/keyboard-actions'
+import { useClipboard } from './hooks/use-clipboard'
+import { useConnectionStatus } from './hooks/use-connection-status'
+import { useElapsedTime } from './hooks/use-elapsed-time'
+import { useEvent } from './hooks/use-event'
+import { useExitHandler } from './hooks/use-exit-handler'
+import { useInputHistory } from './hooks/use-input-history'
 import { useMessageQueue, type QueuedMessage } from './hooks/use-message-queue'
 import { useQueueControls } from './hooks/use-queue-controls'
 import { useQueueUi } from './hooks/use-queue-ui'
@@ -50,11 +41,18 @@ import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTheme } from './hooks/use-theme'
 import { useTimeout } from './hooks/use-timeout'
 import { useUsageMonitor } from './hooks/use-usage-monitor'
-
+import { getProjectRoot } from './project-files'
 import { useChatStore } from './state/chat-store'
-import { getInputModeConfig } from './utils/input-modes'
 import { useFeedbackStore } from './state/feedback-store'
+import { addClipboardPlaceholder, addPendingImageFromFile } from './utils/add-pending-image'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
+import { showClipboardMessage } from './utils/clipboard'
+import { readClipboardImage } from './utils/clipboard-image'
+import { getInputModeConfig } from './utils/input-modes'
+import {
+  type ChatKeyboardState,
+  createDefaultChatKeyboardState,
+} from './utils/keyboard-actions'
 import { loadLocalAgents } from './utils/local-agent-registry'
 import { buildMessageTree } from './utils/message-tree-utils'
 import {
@@ -78,7 +76,6 @@ export const Chat = ({
   headerContent,
   initialPrompt,
   agentId,
-  loadedAgentsData,
   validationErrors,
   fileTree,
   inputRef,
@@ -92,10 +89,6 @@ export const Chat = ({
   headerContent: React.ReactNode
   initialPrompt: string | null
   agentId?: string
-  loadedAgentsData: {
-    agents: Array<{ id: string; displayName: string }>
-    agentsDir: string
-  } | null
   validationErrors: Array<{ id: string; message: string }>
   fileTree: FileTreeNode[]
   inputRef: React.MutableRefObject<MultilineInputHandle | null>
@@ -160,8 +153,6 @@ export const Chat = ({
     lastMessageMode,
     setLastMessageMode,
     addSessionCredits,
-    resetChatStore,
-    sessionCreditsUsed,
     setRunState,
     isAnnouncementVisible,
     setIsAnnouncementVisible,
@@ -196,8 +187,6 @@ export const Chat = ({
       lastMessageMode: store.lastMessageMode,
       setLastMessageMode: store.setLastMessageMode,
       addSessionCredits: store.addSessionCredits,
-      resetChatStore: store.reset,
-      sessionCreditsUsed: store.sessionCreditsUsed,
       setRunState: store.setRunState,
       isAnnouncementVisible: store.isAnnouncementVisible,
       setIsAnnouncementVisible: store.setIsAnnouncementVisible,
@@ -205,29 +194,6 @@ export const Chat = ({
     })),
   )
   const pendingBashMessages = useChatStore((state) => state.pendingBashMessages)
-
-  // Memoize toggle IDs extraction - only recompute when messages change
-  const allToggleIds = useMemo(() => {
-    const ids = new Set<string>()
-
-    const extractFromBlocks = (blocks: ContentBlock[] | undefined) => {
-      if (!blocks) return
-      for (const block of blocks) {
-        if (block.type === 'agent') {
-          ids.add(block.agentId)
-          extractFromBlocks(block.blocks)
-        } else if (block.type === 'tool') {
-          ids.add(block.toolCallId)
-        }
-      }
-    }
-
-    for (const message of messages) {
-      extractFromBlocks(message.blocks)
-    }
-
-    return ids
-  }, [messages])
 
   // Refs for tracking state across renders
   const activeAgentStreamsRef = useRef<number>(0)
@@ -433,7 +399,7 @@ export const Chat = ({
   const inputMode = useChatStore((state) => state.inputMode)
   const setInputMode = useChatStore((state) => state.setInputMode)
   const askUserState = useChatStore((state) => state.askUserState)
-  const pendingImages = useChatStore((state) => state.pendingImages)
+
 
   const {
     slashContext,
@@ -538,7 +504,6 @@ export const Chat = ({
     queuePaused,
     streamMessageIdRef,
     addToQueue,
-    startStreaming,
     stopStreaming,
     setStreamStatus,
     setCanProcessQueue,
@@ -631,8 +596,6 @@ export const Chat = ({
   // Future: Could be used for analytics or debugging
 
   const { sendMessage, clearMessages } = useSendMessage({
-    messages,
-    allToggleIds,
     setMessages,
     setFocusedAgentId,
     setInputFocused,
@@ -643,15 +606,12 @@ export const Chat = ({
     setActiveSubagents,
     setIsChainInProgress,
     setStreamStatus,
-    startStreaming,
-    stopStreaming,
     setCanProcessQueue,
     abortControllerRef,
     agentId,
     onBeforeMessageSend: validateAgents,
     mainAgentTimer,
     scrollToLatest,
-    availableWidth: messageAvailableWidth,
     onTimerEvent: () => {}, // No-op for now
     setHasReceivedPlanResponse,
     lastMessageMode,
@@ -703,7 +663,6 @@ export const Chat = ({
 
   const {
     feedbackMode,
-    feedbackMessageId,
     openFeedbackForMessage,
     closeFeedback,
     saveCurrentInput,
@@ -712,7 +671,6 @@ export const Chat = ({
   } = useFeedbackStore(
     useShallow((state) => ({
       feedbackMode: state.feedbackMode,
-      feedbackMessageId: state.feedbackMessageId,
       openFeedbackForMessage: state.openFeedbackForMessage,
       closeFeedback: state.closeFeedback,
       saveCurrentInput: state.saveCurrentInput,
@@ -774,16 +732,7 @@ export const Chat = ({
     handleExitFeedback()
   }, [closeFeedback, handleExitFeedback])
 
-  const handleOpenFeedbackForLatestMessage = useCallback(() => {
-    const latest = [...messages]
-      .reverse()
-      .find((m) => m.variant === 'ai' && m.isComplete)
-    if (!latest) {
-      return false
-    }
-    handleOpenFeedbackForMessage(latest.id)
-    return true
-  }, [messages, handleOpenFeedbackForMessage])
+
 
   const handleSubmit = useCallback(async () => {
     ensureQueueActiveBeforeSubmit()

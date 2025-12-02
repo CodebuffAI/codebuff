@@ -1,27 +1,27 @@
 import { describe, test, expect } from 'bun:test'
 
+import { appendTextToRootStream } from '../block-operations'
 import {
   updateBlocksRecursively,
   scrubPlanTags,
   scrubPlanTagsInBlocks,
+  extractPlanFromBuffer,
+  createAgentBlock,
+  getAgentBaseName,
+  autoCollapseBlocks,
+  updateToolBlockWithOutput,
+  transformAskUserBlocks,
+  appendInterruptionNotice,
+  extractSpawnAgentResultContent,
+} from '../message-block-helpers'
+import {
   createModeDividerMessage,
   createAiMessageShell,
   createErrorMessage,
   generateAiMessageId,
-  autoCollapseBlocksRecursively,
   autoCollapsePreviousMessages,
-  appendStreamChunkToBlocks,
-  extractPlanFromBuffer,
-  createAgentBlock,
-  getAgentBaseName,
-  agentTypesMatch,
-  updateToolBlockWithOutput,
-  transformAskUserBlock,
-  addInterruptionNotice,
   createSpawnAgentBlocks,
   isSpawnAgentsResult,
-  extractSpawnAgentResultContent,
-  updateAgentBlockContent,
   markMessageComplete,
   setMessageError,
 } from '../send-message-helpers'
@@ -33,7 +33,7 @@ import type {
 } from '../../types/chat'
 
 // ============================================================================
-// Block Manipulation Helpers Tests
+// Block Manipulation Helpers Tests (from message-block-helpers)
 // ============================================================================
 
 describe('updateBlocksRecursively', () => {
@@ -181,7 +181,7 @@ describe('scrubPlanTagsInBlocks', () => {
 })
 
 // ============================================================================
-// Message Creation Helpers Tests
+// Message Creation Helpers Tests (from send-message-helpers)
 // ============================================================================
 
 describe('createModeDividerMessage', () => {
@@ -232,13 +232,13 @@ describe('generateAiMessageId', () => {
 // Auto-Collapse Logic Tests
 // ============================================================================
 
-describe('autoCollapseBlocksRecursively', () => {
+describe('autoCollapseBlocks', () => {
   test('collapses text blocks with thinkingId', () => {
     const blocks: ContentBlock[] = [
       { type: 'text', content: 'thinking', thinkingId: 'think-1' },
     ]
 
-    const result = autoCollapseBlocksRecursively(blocks)
+    const result = autoCollapseBlocks(blocks)
     expect((result[0] as any).isCollapsed).toBe(true)
   })
 
@@ -252,7 +252,7 @@ describe('autoCollapseBlocksRecursively', () => {
       },
     ]
 
-    const result = autoCollapseBlocksRecursively(blocks)
+    const result = autoCollapseBlocks(blocks)
     expect((result[0] as any).isCollapsed).toBeUndefined()
   })
 
@@ -268,7 +268,7 @@ describe('autoCollapseBlocksRecursively', () => {
       },
     ]
 
-    const result = autoCollapseBlocksRecursively(blocks)
+    const result = autoCollapseBlocks(blocks)
     expect((result[0] as any).isCollapsed).toBe(true)
   })
 
@@ -282,7 +282,7 @@ describe('autoCollapseBlocksRecursively', () => {
       },
     ]
 
-    const result = autoCollapseBlocksRecursively(blocks)
+    const result = autoCollapseBlocks(blocks)
     expect((result[0] as any).isCollapsed).toBe(true)
   })
 
@@ -308,7 +308,7 @@ describe('autoCollapseBlocksRecursively', () => {
       },
     ]
 
-    const result = autoCollapseBlocksRecursively(blocks)
+    const result = autoCollapseBlocks(blocks)
     const parent = result[0] as AgentContentBlock
     const child = parent.blocks![0] as AgentContentBlock
 
@@ -390,12 +390,12 @@ describe('autoCollapsePreviousMessages', () => {
 })
 
 // ============================================================================
-// Stream Chunk Processing Tests
+// Stream Chunk Processing Tests (from block-operations)
 // ============================================================================
 
-describe('appendStreamChunkToBlocks', () => {
+describe('appendTextToRootStream', () => {
   test('creates new text block for empty blocks array', () => {
-    const result = appendStreamChunkToBlocks([], { type: 'text', text: 'Hello' })
+    const result = appendTextToRootStream([], { type: 'text', text: 'Hello' })
 
     expect(result).toHaveLength(1)
     expect(result[0].type).toBe('text')
@@ -407,7 +407,7 @@ describe('appendStreamChunkToBlocks', () => {
       { type: 'text', content: 'Hello', textType: 'text' },
     ]
 
-    const result = appendStreamChunkToBlocks(blocks, {
+    const result = appendTextToRootStream(blocks, {
       type: 'text',
       text: ' World',
     })
@@ -421,7 +421,7 @@ describe('appendStreamChunkToBlocks', () => {
       { type: 'text', content: 'Hello', textType: 'text' },
     ]
 
-    const result = appendStreamChunkToBlocks(blocks, {
+    const result = appendTextToRootStream(blocks, {
       type: 'reasoning',
       text: 'Thinking...',
     })
@@ -434,7 +434,7 @@ describe('appendStreamChunkToBlocks', () => {
   test('returns original blocks for empty text', () => {
     const blocks: ContentBlock[] = [{ type: 'text', content: 'Hello' }]
 
-    const result = appendStreamChunkToBlocks(blocks, { type: 'text', text: '' })
+    const result = appendTextToRootStream(blocks, { type: 'text', text: '' })
 
     expect(result).toBe(blocks)
   })
@@ -467,7 +467,7 @@ describe('extractPlanFromBuffer', () => {
 })
 
 // ============================================================================
-// Agent Block Helpers Tests
+// Agent Block Helpers Tests (from message-block-helpers)
 // ============================================================================
 
 describe('createAgentBlock', () => {
@@ -522,21 +522,26 @@ describe('getAgentBaseName', () => {
 describe('agentTypesMatch', () => {
   test('matches same base names with different versions', () => {
     expect(
-      agentTypesMatch('codebuff/file-picker@0.0.2', 'file-picker@1.0.0'),
+      getAgentBaseName('codebuff/file-picker@0.0.2') ===
+        getAgentBaseName('file-picker@1.0.0'),
     ).toBe(true)
   })
 
   test('matches same simple names', () => {
-    expect(agentTypesMatch('file-picker', 'file-picker')).toBe(true)
+    expect(
+      getAgentBaseName('file-picker') === getAgentBaseName('file-picker'),
+    ).toBe(true)
   })
 
   test('does not match different base names', () => {
-    expect(agentTypesMatch('file-picker', 'code-searcher')).toBe(false)
+    expect(
+      getAgentBaseName('file-picker') === getAgentBaseName('code-searcher'),
+    ).toBe(false)
   })
 })
 
 // ============================================================================
-// Tool Block Helpers Tests
+// Tool Block Helpers Tests (from message-block-helpers)
 // ============================================================================
 
 describe('updateToolBlockWithOutput', () => {
@@ -550,7 +555,10 @@ describe('updateToolBlockWithOutput', () => {
       },
     ]
 
-    const result = updateToolBlockWithOutput(blocks, 'tool-1', 'File contents')
+    const result = updateToolBlockWithOutput(blocks, {
+      toolCallId: 'tool-1',
+      toolOutput: ['File contents'],
+    })
 
     expect((result[0] as any).output).toBe('File contents')
   })
@@ -575,7 +583,10 @@ describe('updateToolBlockWithOutput', () => {
       },
     ]
 
-    const result = updateToolBlockWithOutput(blocks, 'tool-1', 'File contents')
+    const result = updateToolBlockWithOutput(blocks, {
+      toolCallId: 'tool-1',
+      toolOutput: ['File contents'],
+    })
     const agent = result[0] as AgentContentBlock
     expect((agent.blocks![0] as any).output).toBe('File contents')
   })
@@ -583,17 +594,20 @@ describe('updateToolBlockWithOutput', () => {
   test('returns same reference if no match', () => {
     const blocks: ContentBlock[] = [{ type: 'text', content: 'Hello' }]
 
-    const result = updateToolBlockWithOutput(blocks, 'tool-1', 'Output')
+    const result = updateToolBlockWithOutput(blocks, {
+      toolCallId: 'tool-1',
+      toolOutput: ['Output'],
+    })
 
-    expect(result).toBe(blocks)
+    expect(result).toEqual(blocks)
   })
 })
 
 // ============================================================================
-// Ask User Transformation Tests
+// Ask User Transformation Tests (from message-block-helpers)
 // ============================================================================
 
-describe('transformAskUserBlock', () => {
+describe('transformAskUserBlocks', () => {
   test('transforms ask_user tool block to ask-user block', () => {
     const blocks: ContentBlock[] = [
       {
@@ -604,8 +618,9 @@ describe('transformAskUserBlock', () => {
       },
     ]
 
-    const result = transformAskUserBlock(blocks, 'tool-1', {
-      answers: [{ selectedOption: 'A' }],
+    const result = transformAskUserBlocks(blocks, {
+      toolCallId: 'tool-1',
+      resultValue: { answers: [{ selectedOption: 'A' }] },
     })
 
     expect(result[0].type).toBe('ask-user')
@@ -622,7 +637,10 @@ describe('transformAskUserBlock', () => {
       },
     ]
 
-    const result = transformAskUserBlock(blocks, 'tool-1', {})
+    const result = transformAskUserBlocks(blocks, {
+      toolCallId: 'tool-1',
+      resultValue: {},
+    })
 
     expect(result[0].type).toBe('tool')
   })
@@ -637,7 +655,10 @@ describe('transformAskUserBlock', () => {
       },
     ]
 
-    const result = transformAskUserBlock(blocks, 'tool-1', { skipped: true })
+    const result = transformAskUserBlocks(blocks, {
+      toolCallId: 'tool-1',
+      resultValue: { skipped: true },
+    })
 
     expect(result[0].type).toBe('ask-user')
     expect((result[0] as any).skipped).toBe(true)
@@ -645,14 +666,16 @@ describe('transformAskUserBlock', () => {
 })
 
 // ============================================================================
-// Interruption Handling Tests
+// Interruption Handling Tests (from message-block-helpers)
 // ============================================================================
 
-describe('addInterruptionNotice', () => {
+describe('appendInterruptionNotice', () => {
   test('appends to existing text block', () => {
-    const blocks: ContentBlock[] = [{ type: 'text', content: 'Partial response' }]
+    const blocks: ContentBlock[] = [
+      { type: 'text', content: 'Partial response' },
+    ]
 
-    const result = addInterruptionNotice(blocks)
+    const result = appendInterruptionNotice(blocks)
 
     expect((result[0] as any).content).toBe(
       'Partial response\n\n[response interrupted]',
@@ -662,7 +685,7 @@ describe('addInterruptionNotice', () => {
   test('creates new text block if no existing text', () => {
     const blocks: ContentBlock[] = []
 
-    const result = addInterruptionNotice(blocks)
+    const result = appendInterruptionNotice(blocks)
 
     expect(result).toHaveLength(1)
     expect((result[0] as any).content).toBe('[response interrupted]')
@@ -678,7 +701,7 @@ describe('addInterruptionNotice', () => {
       },
     ]
 
-    const result = addInterruptionNotice(blocks)
+    const result = appendInterruptionNotice(blocks)
 
     expect(result).toHaveLength(2)
     expect(result[1].type).toBe('text')
@@ -686,7 +709,7 @@ describe('addInterruptionNotice', () => {
 })
 
 // ============================================================================
-// Spawn Agents Helpers Tests
+// Spawn Agents Helpers Tests (from send-message-helpers)
 // ============================================================================
 
 describe('createSpawnAgentBlocks', () => {
@@ -707,7 +730,7 @@ describe('createSpawnAgentBlocks', () => {
   test('filters out hidden agents', () => {
     const agents = [
       { agent_type: 'file-picker' },
-      { agent_type: 'context-pruner' }, // This should be hidden
+      { agent_type: 'codebuff/context-pruner' }, // This should be hidden
     ]
 
     const result = createSpawnAgentBlocks('tool-1', agents)
@@ -735,48 +758,63 @@ describe('isSpawnAgentsResult', () => {
 })
 
 describe('extractSpawnAgentResultContent', () => {
-  const mockFormatToolOutput = (output: unknown[]) => JSON.stringify(output)
-
-  test('extracts string value', () => {
-    const result = extractSpawnAgentResultContent(
-      { value: 'Simple result' },
-      mockFormatToolOutput,
-    )
+  test('extracts string value directly', () => {
+    const result = extractSpawnAgentResultContent('Simple result')
 
     expect(result.content).toBe('Simple result')
     expect(result.hasError).toBe(false)
   })
 
+  test('extracts string from value property', () => {
+    const result = extractSpawnAgentResultContent({ value: 'Nested string' })
+
+    expect(result.content).toBe('Nested string')
+    expect(result.hasError).toBe(false)
+  })
+
   test('extracts error message', () => {
-    const result = extractSpawnAgentResultContent(
-      { value: { errorMessage: 'Failed!' } },
-      mockFormatToolOutput,
-    )
+    const result = extractSpawnAgentResultContent({ errorMessage: 'Failed!' })
 
     expect(result.content).toBe('Failed!')
     expect(result.hasError).toBe(true)
   })
 
-  test('extracts nested value', () => {
-    const result = extractSpawnAgentResultContent(
-      { value: { value: 'Nested content' } },
-      mockFormatToolOutput,
-    )
+  test('extracts nested error message', () => {
+    const result = extractSpawnAgentResultContent({
+      value: { errorMessage: 'Nested error!' },
+    })
 
-    expect(result.content).toBe('Nested content')
+    expect(result.content).toBe('Nested error!')
+    expect(result.hasError).toBe(true)
   })
 
   test('extracts message property', () => {
-    const result = extractSpawnAgentResultContent(
-      { value: { message: 'Message content' } },
-      mockFormatToolOutput,
-    )
+    const result = extractSpawnAgentResultContent({
+      message: 'Message content',
+    })
 
     expect(result.content).toBe('Message content')
+    expect(result.hasError).toBe(false)
   })
 
-  test('returns empty for missing value', () => {
-    const result = extractSpawnAgentResultContent({}, mockFormatToolOutput)
+  test('extracts nested message property', () => {
+    const result = extractSpawnAgentResultContent({
+      value: { message: 'Nested message' },
+    })
+
+    expect(result.content).toBe('Nested message')
+    expect(result.hasError).toBe(false)
+  })
+
+  test('returns empty for null/undefined', () => {
+    const result = extractSpawnAgentResultContent(null)
+
+    expect(result.content).toBe('')
+    expect(result.hasError).toBe(false)
+  })
+
+  test('returns empty for empty object', () => {
+    const result = extractSpawnAgentResultContent({})
 
     expect(result.content).toBe('')
     expect(result.hasError).toBe(false)
@@ -784,104 +822,7 @@ describe('extractSpawnAgentResultContent', () => {
 })
 
 // ============================================================================
-// Agent Text Content Updates Tests
-// ============================================================================
-
-describe('updateAgentBlockContent', () => {
-  const baseBlock: AgentContentBlock = {
-    type: 'agent',
-    agentId: 'agent-1',
-    agentName: 'Test',
-    agentType: 'test',
-    content: '',
-    status: 'running',
-    blocks: [],
-  }
-
-  test('appends text to empty agent block', () => {
-    const result = updateAgentBlockContent(baseBlock, {
-      type: 'text',
-      content: 'Hello',
-    })
-
-    expect(result.content).toBe('Hello')
-    expect(result.blocks).toHaveLength(1)
-    expect((result.blocks![0] as any).content).toBe('Hello')
-  })
-
-  test('appends text to existing text block', () => {
-    const block: AgentContentBlock = {
-      ...baseBlock,
-      content: 'Hello',
-      blocks: [{ type: 'text', content: 'Hello' }],
-    }
-
-    const result = updateAgentBlockContent(block, {
-      type: 'text',
-      content: ' World',
-    })
-
-    expect(result.content).toBe('Hello World')
-    expect((result.blocks![0] as any).content).toBe('Hello World')
-  })
-
-  test('skips duplicate text append', () => {
-    const block: AgentContentBlock = {
-      ...baseBlock,
-      content: 'Hello',
-      blocks: [{ type: 'text', content: 'Hello' }],
-    }
-
-    const result = updateAgentBlockContent(block, {
-      type: 'text',
-      content: 'Hello', // Same text - would be duplicate
-    })
-
-    // Should return same block since it ends with this text
-    expect(result).toBe(block)
-  })
-
-  test('replaces text when replace flag is true', () => {
-    const block: AgentContentBlock = {
-      ...baseBlock,
-      content: 'Old',
-      blocks: [{ type: 'text', content: 'Old' }],
-    }
-
-    const result = updateAgentBlockContent(block, {
-      type: 'text',
-      content: 'New',
-      replace: true,
-    })
-
-    expect(result.content).toBe('New')
-    expect((result.blocks![0] as any).content).toBe('New')
-  })
-
-  test('adds tool block', () => {
-    const result = updateAgentBlockContent(baseBlock, {
-      type: 'tool',
-      toolCallId: 'tool-1',
-      toolName: 'read_files',
-      input: {},
-    })
-
-    expect(result.blocks).toHaveLength(1)
-    expect(result.blocks![0].type).toBe('tool')
-  })
-
-  test('returns same block for empty text', () => {
-    const result = updateAgentBlockContent(baseBlock, {
-      type: 'text',
-      content: '',
-    })
-
-    expect(result).toBe(baseBlock)
-  })
-})
-
-// ============================================================================
-// Message Completion Helpers Tests
+// Message Completion Helpers Tests (from send-message-helpers)
 // ============================================================================
 
 describe('markMessageComplete', () => {

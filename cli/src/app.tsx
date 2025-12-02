@@ -2,6 +2,7 @@ import os from 'os'
 import path from 'path'
 
 import { pluralize } from '@codebuff/common/util/string'
+import { NetworkError, RETRYABLE_ERROR_CODES } from '@codebuff/sdk'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -16,13 +17,12 @@ import { useLogo } from './hooks/use-logo'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTerminalFocus } from './hooks/use-terminal-focus'
 import { useTheme } from './hooks/use-theme'
-import { NetworkError, RETRYABLE_ERROR_CODES } from '@codebuff/sdk'
-import type { AuthStatus } from './utils/status-indicator-state'
 import { getProjectRoot } from './project-files'
 import { useChatStore } from './state/chat-store'
 import { openFileAtPath } from './utils/open-file'
 
 import type { MultilineInputHandle } from './components/multiline-input'
+import type { AuthStatus } from './utils/status-indicator-state'
 import type { FileTreeNode } from '@codebuff/common/util/file'
 
 interface AppProps {
@@ -51,7 +51,7 @@ export const App = ({
   continueChat,
   continueChatId,
 }: AppProps) => {
-  const { contentMaxWidth, separatorWidth } = useTerminalDimensions()
+  const { contentMaxWidth } = useTerminalDimensions()
   const theme = useTheme()
   const { textBlock: logoBlock } = useLogo({ availableWidth: contentMaxWidth })
 
@@ -95,7 +95,7 @@ export const App = ({
   })
 
   // Agent validation
-  const { validate: validateAgents } = useAgentValidation(validationErrors)
+  useAgentValidation(validationErrors)
 
   const headerContent = useMemo(() => {
     const homeDir = os.homedir()
@@ -245,7 +245,6 @@ export const App = ({
       headerContent={headerContent}
       initialPrompt={initialPrompt}
       agentId={agentId}
-      loadedAgentsData={loadedAgentsData}
       validationErrors={validationErrors}
       fileTree={fileTree}
       inputRef={inputRef}
