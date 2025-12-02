@@ -165,7 +165,7 @@ const initialState: ChatStoreState = {
   lastMessageMode: null,
   sessionCreditsUsed: 0,
   runState: null,
-  isAnnouncementVisible: true,
+  isAnnouncementVisible: false,
   inputMode: 'default' as InputMode,
   isRetrying: false,
   askUserState: null,
