@@ -14,7 +14,7 @@ import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
 import { addClipboardPlaceholder, addPendingImageFromFile } from './utils/add-pending-image'
 import { getProjectRoot } from './project-files'
 import { AnnouncementBanner } from './components/announcement-banner'
-import { hasClipboardImage, readClipboardImage } from './utils/clipboard-image'
+import { hasClipboardImage, readClipboardImage, readClipboardText } from './utils/clipboard-image'
 import { showClipboardMessage } from './utils/clipboard'
 import { ChatInputBar } from './components/chat-input-bar'
 import { MessageWithAgents } from './components/message-with-agents'
@@ -1015,39 +1015,22 @@ export const Chat = ({
       onBashHistoryUp: navigateUp,
       onBashHistoryDown: navigateDown,
       onPasteImage: () => {
-        // Show placeholder immediately for instant feedback
         const placeholderPath = addClipboardPlaceholder()
 
-        // Check and process clipboard in background
         setTimeout(() => {
           if (!hasClipboardImage()) {
-            // No image - remove placeholder and simulate text paste
             useChatStore.getState().removePendingImage(placeholderPath)
-
-            // Read text from clipboard and insert it
-            try {
-              const { spawnSync } = require('child_process')
-              const textResult = spawnSync(
-                process.platform === 'darwin' ? 'pbpaste' :
-                process.platform === 'win32' ? 'powershell' : 'xclip',
-                process.platform === 'win32' ? ['-Command', 'Get-Clipboard'] :
-                process.platform === 'linux' ? ['-selection', 'clipboard', '-o'] : [],
-                { encoding: 'utf-8', timeout: 1000 }
-              )
-              if (textResult.status === 0 && textResult.stdout) {
-                const text = textResult.stdout
-                setInputValue((prev) => {
-                  const before = prev.text.slice(0, prev.cursorPosition)
-                  const after = prev.text.slice(prev.cursorPosition)
-                  return {
-                    text: before + text + after,
-                    cursorPosition: before.length + text.length,
-                    lastEditDueToNav: false,
-                  }
-                })
-              }
-            } catch {
-              // Ignore errors - text paste just won't work
+            const text = readClipboardText()
+            if (text) {
+              setInputValue((prev) => {
+                const before = prev.text.slice(0, prev.cursorPosition)
+                const after = prev.text.slice(prev.cursorPosition)
+                return {
+                  text: before + text + after,
+                  cursorPosition: before.length + text.length,
+                  lastEditDueToNav: false,
+                }
+              })
             }
             return
           }
@@ -1065,7 +1048,7 @@ export const Chat = ({
           void addPendingImageFromFile(result.imagePath, cwd, placeholderPath)
         }, 0)
 
-        return true // Always consume - we handle text paste ourselves if needed
+        return true
       },
     }),
     [

@@ -16,11 +16,16 @@ import {
 import { getProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
-import { capturePendingImages, hasProcessingImages, validateAndAddImage } from '../utils/add-pending-image'
+import {
+  capturePendingImages,
+  hasProcessingImages,
+  validateAndAddImage,
+} from '../utils/add-pending-image'
 import {
   buildBashHistoryMessages,
   createRunTerminalToolResult,
 } from '../utils/bash-messages'
+import { showClipboardMessage } from '../utils/clipboard'
 
 import type { PendingBashMessage } from '../state/chat-store'
 
@@ -355,10 +360,12 @@ export async function routeUserPrompt(
   }
 
   // Regular message or unknown slash command - send to agent
-  
+
   // Block sending if images are still processing
   if (hasProcessingImages()) {
-    // Don't send - images are still processing
+    showClipboardMessage('processing images...', {
+      durationMs: 2000,
+    })
     return
   }
 

@@ -301,3 +301,35 @@ export function readClipboardImage(): ClipboardImageResult {
       }
   }
 }
+
+/**
+ * Read text from clipboard. Returns null if reading fails.
+ */
+export function readClipboardText(): string | null {
+  try {
+    const platform = process.platform
+    let result: ReturnType<typeof spawnSync>
+    
+    switch (platform) {
+      case 'darwin':
+        result = spawnSync('pbpaste', [], { encoding: 'utf-8', timeout: 1000 })
+        break
+      case 'win32':
+        result = spawnSync('powershell', ['-Command', 'Get-Clipboard'], { encoding: 'utf-8', timeout: 1000 })
+        break
+      case 'linux':
+        result = spawnSync('xclip', ['-selection', 'clipboard', '-o'], { encoding: 'utf-8', timeout: 1000 })
+        break
+      default:
+        return null
+    }
+    
+    if (result.status === 0 && result.stdout) {
+      const output = typeof result.stdout === 'string' ? result.stdout : result.stdout.toString('utf-8')
+      return output.replace(/\n+$/, '')
+    }
+    return null
+  } catch {
+    return null
+  }
+}
