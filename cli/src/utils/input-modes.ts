@@ -41,7 +41,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
   },
   bash: {
     icon: '!',
-    color: 'error',
+    color: 'success',
     placeholder: 'enter bash command...',
     widthAdjustment: 2, // 1 char + 1 padding
     showAgentModeToggle: false,

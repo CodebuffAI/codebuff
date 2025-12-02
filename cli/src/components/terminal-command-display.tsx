@@ -41,17 +41,21 @@ export const TerminalCommandDisplay = ({
   const defaultMaxLines = expandable ? 5 : 10
   const maxLines = maxVisibleLines ?? defaultMaxLines
 
+  // Command header - shared between output and no-output cases
+  const commandHeader = (
+    <text style={{ wrapMode: 'word' }}>
+      <span fg={theme.success}>$ </span>
+      <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
+        {command}
+      </span>
+    </text>
+  )
+
   // No output case
   if (!output) {
     return (
       <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
-        {/* $ command */}
-        <text style={{ wrapMode: 'word' }}>
-          <span fg={theme.error}>$ </span>
-          <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
-            {command}
-          </span>
-        </text>
+        {commandHeader}
         {/* Running indicator */}
         {isRunning && <text fg={theme.muted}>...</text>}
       </box>
@@ -98,13 +102,7 @@ export const TerminalCommandDisplay = ({
 
   return (
     <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
-      {/* $ command */}
-      <text style={{ wrapMode: 'word' }}>
-        <span fg={theme.error}>$ </span>
-        <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
-          {command}
-        </span>
-      </text>
+      {commandHeader}
       {/* Output */}
       <box style={{ flexDirection: 'column', gap: 0, width: '100%' }}>
         {hasMoreLines && !expandable && (
