@@ -38,9 +38,6 @@ export class ClaudeRunner implements Runner {
         env: {
           ...process.env,
           ...this.env,
-          // Ensure ANTHROPIC_API_KEY is set from CLAUDE_CODE_KEY if available
-          ANTHROPIC_API_KEY:
-            process.env.CLAUDE_CODE_KEY || process.env.ANTHROPIC_API_KEY,
         },
         // Use 'ignore' for stdin to prevent the CLI from waiting for input
         stdio: ['ignore', 'pipe', 'pipe'],

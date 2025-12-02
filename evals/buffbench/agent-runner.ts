@@ -70,11 +70,16 @@ export async function runAgentOnCommit({
         },
         async (repoDir) => {
           // Select the appropriate runner
+          const updatedEnv = { ...env }
           let runner: Runner
           if (externalAgentType === 'claude') {
-            runner = new ClaudeRunner(repoDir, env)
+            if (process.env.ANTHROPIC_API_KEY)
+              updatedEnv['ANTHROPIC_API_KEY'] = process.env.ANTHROPIC_API_KEY
+            runner = new ClaudeRunner(repoDir, updatedEnv)
           } else if (externalAgentType === 'codex') {
-            runner = new CodexRunner(repoDir, env)
+            if (process.env.OPENAI_API_KEY)
+              updatedEnv['OPENAI_API_KEY'] = process.env.OPENAI_API_KEY
+            runner = new CodexRunner(repoDir, updatedEnv)
           } else {
             runner = new CodebuffRunner({
               cwd: repoDir,
