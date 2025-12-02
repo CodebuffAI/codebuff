@@ -69,19 +69,8 @@ export type PendingBashMessage = {
   isRunning: boolean
   startTime?: number
   cwd?: string
-}
-
-// Pending tool result stores tool results from user-executed commands to send to AI
-// Note: Using inline type instead of importing ToolMessage to avoid deep type instantiation errors
-export type PendingToolResult = {
-  role: 'tool'
-  toolCallId: string
-  toolName: string
-  content: Array<
-    | { type: 'text'; text: string }
-    | { type: 'json'; value: unknown }
-    | { type: 'media'; data: string; mediaType: string }
-  >
+  /** Whether the message was already added to UI chat history (non-ghost mode) */
+  addedToHistory?: boolean
 }
 
 export type ChatStoreState = {
@@ -108,7 +97,6 @@ export type ChatStoreState = {
   askUserState: AskUserState
   pendingImages: PendingImage[]
   pendingBashMessages: PendingBashMessage[]
-  pendingToolResults: PendingToolResult[]
 }
 
 type ChatStoreActions = {
@@ -154,8 +142,6 @@ type ChatStoreActions = {
   ) => void
   removePendingBashMessage: (id: string) => void
   clearPendingBashMessages: () => void
-  addPendingToolResult: (result: PendingToolResult) => void
-  clearPendingToolResults: () => void
   reset: () => void
 }
 
@@ -185,7 +171,6 @@ const initialState: ChatStoreState = {
   askUserState: null,
   pendingImages: [],
   pendingBashMessages: [],
-  pendingToolResults: [],
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -400,16 +385,6 @@ export const useChatStore = create<ChatStore>()(
         state.pendingBashMessages = []
       }),
 
-    addPendingToolResult: (result) =>
-      set((state) => {
-        ;(state.pendingToolResults as PendingToolResult[]).push(result)
-      }),
-
-    clearPendingToolResults: () =>
-      set((state) => {
-        state.pendingToolResults = []
-      }),
-
     reset: () =>
       set((state) => {
         state.messages = initialState.messages.slice()
@@ -437,7 +412,6 @@ export const useChatStore = create<ChatStore>()(
         state.askUserState = initialState.askUserState
         state.pendingImages = []
         state.pendingBashMessages = []
-        state.pendingToolResults = []
       }),
   })),
 )

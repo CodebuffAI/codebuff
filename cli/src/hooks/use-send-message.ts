@@ -25,6 +25,7 @@ import { extractImagePaths, processImageFile } from '../utils/image-handler'
 import {
   buildBashHistoryMessages,
   createRunTerminalToolResult,
+  formatBashContextForPrompt,
 } from '../utils/bash-messages'
 import { getUserMessage } from '../utils/message-history'
 import { getProjectRoot } from '../project-files'
@@ -53,7 +54,6 @@ import type {
   ToolName,
   MessageContent,
 } from '@codebuff/sdk'
-import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type { SetStateAction } from 'react'
 const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
   'spawn_agent_inline',
@@ -465,37 +465,47 @@ export const useSendMessage = ({
       }
 
       // Include any pending bash messages in the UI before sending
-      // (we no longer send these commands to the LLM context)
+      // and prepare context for the LLM
       const { pendingBashMessages, clearPendingBashMessages } =
         useChatStore.getState()
+      
+      // Format bash context to add to message history for the LLM
+      const bashContext = formatBashContextForPrompt(pendingBashMessages)
+      
       if (pendingBashMessages.length > 0) {
-        // Convert pending bash messages to chat messages and add to history
-        applyMessageUpdate((prev) => {
-          const bashMessages: ChatMessage[] = []
+        // Convert pending bash messages to chat messages and add to history (UI only)
+        // Skip messages that were already added to history (non-ghost mode)
+        const bashMessagesToAdd = pendingBashMessages.filter(
+          (bash) => !bash.addedToHistory,
+        )
+        if (bashMessagesToAdd.length > 0) {
+          applyMessageUpdate((prev) => {
+            const bashMessages: ChatMessage[] = []
 
-          for (const bash of pendingBashMessages) {
-            const toolCallId = crypto.randomUUID()
-            const cwd = bash.cwd || process.cwd()
-            const toolResultOutput = createRunTerminalToolResult({
-              command: bash.command,
-              cwd,
-              stdout: bash.stdout || null,
-              stderr: bash.stderr || null,
-              exitCode: bash.exitCode,
-            })
-            const outputJson = JSON.stringify(toolResultOutput)
-            const { assistantMessage } = buildBashHistoryMessages({
-              command: bash.command,
-              cwd,
-              toolCallId,
-              output: outputJson,
-              isComplete: true,
-            })
+            for (const bash of bashMessagesToAdd) {
+              const toolCallId = crypto.randomUUID()
+              const cwd = bash.cwd || process.cwd()
+              const toolResultOutput = createRunTerminalToolResult({
+                command: bash.command,
+                cwd,
+                stdout: bash.stdout || null,
+                stderr: bash.stderr || null,
+                exitCode: bash.exitCode,
+              })
+              const outputJson = JSON.stringify(toolResultOutput)
+              const { assistantMessage } = buildBashHistoryMessages({
+                command: bash.command,
+                cwd,
+                toolCallId,
+                output: outputJson,
+                isComplete: true,
+              })
 
-            bashMessages.push(assistantMessage)
-          }
-          return [...prev, ...bashMessages]
-        })
+              bashMessages.push(assistantMessage)
+            }
+            return [...prev, ...bashMessages]
+          })
+        }
         clearPendingBashMessages()
       }
 
@@ -1096,15 +1106,16 @@ export const useSendMessage = ({
 
         let runState: RunState
         try {
-          // Use a default prompt when only images are attached
-          const effectivePrompt =
-            content || (messageContent ? 'See attached image(s)' : '')
+          // If there's bash context, always prepend it to the user's prompt
+          // This ensures consistent behavior whether or not there's a previous run
+          const promptWithBashContext = bashContext
+            ? bashContext + content
+            : content
 
-          // Get any pending tool results from user-executed bash commands
-          const pendingToolResults = useChatStore.getState().pendingToolResults
-          if (pendingToolResults.length > 0) {
-            useChatStore.getState().clearPendingToolResults()
-          }
+          // Use a default prompt when only images are attached (no text content)
+          const effectivePrompt =
+            promptWithBashContext ||
+            (messageContent ? 'See attached image(s)' : '')
 
           runState = await client.run({
             logger,
@@ -1112,10 +1123,6 @@ export const useSendMessage = ({
             prompt: effectivePrompt,
             content: messageContent,
             previousRun: previousRunStateRef.current ?? undefined,
-            extraToolResults:
-              pendingToolResults.length > 0
-                ? (pendingToolResults as unknown as ToolMessage[])
-                : undefined,
             abortController,
             retry: {
               maxRetries: MAX_RETRIES_PER_MESSAGE,
