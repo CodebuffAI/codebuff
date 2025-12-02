@@ -29,6 +29,27 @@ export const IMAGE_EXTENSIONS_PATTERN = Array.from(SUPPORTED_IMAGE_EXTENSIONS)
   .map((ext) => ext.slice(1)) // Remove leading dot
   .join('|')
 
+/**
+ * Extension to MIME type mapping for supported image formats
+ */
+export const IMAGE_EXTENSION_TO_MIME: Record<string, string> = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+  '.bmp': 'image/bmp',
+  '.tiff': 'image/tiff',
+  '.tif': 'image/tiff',
+}
+
+/**
+ * Get MIME type for an image extension
+ */
+export function getImageMimeType(ext: string): string | null {
+  return IMAGE_EXTENSION_TO_MIME[ext.toLowerCase()] ?? null
+}
+
 // Size limits for image uploads
 // Research shows Claude/GPT-4V support up to 20MB, but we use practical limits
 // for good performance and token efficiency

@@ -8,6 +8,7 @@ import {
   MAX_IMAGE_BASE64_SIZE,
   MAX_TOTAL_IMAGE_SIZE,
   IMAGE_EXTENSIONS_PATTERN,
+  getImageMimeType,
 } from '@codebuff/common/constants/images'
 import { Jimp } from 'jimp'
 
@@ -39,18 +40,6 @@ interface CompressionResult {
   width?: number
   height?: number
   error?: string
-}
-
-// Extension to MIME type mapping
-const EXTENSION_TO_MIME: Record<string, string> = {
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.png': 'image/png',
-  '.webp': 'image/webp',
-  '.gif': 'image/gif',
-  '.bmp': 'image/bmp',
-  '.tiff': 'image/tiff',
-  '.tif': 'image/tiff',
 }
 
 // Compression settings for iterative compression
@@ -95,14 +84,6 @@ function normalizeUserProvidedPath(filePath: string): string {
   normalized = normalized.replace(/\\([ \t"'(){}\[\]])/g, '$1')
 
   return normalized
-}
-
-/**
- * Gets MIME type from file extension
- */
-function getMimeTypeFromExtension(filePath: string): string | null {
-  const ext = path.extname(filePath).toLowerCase()
-  return EXTENSION_TO_MIME[ext] ?? null
 }
 
 /**
@@ -238,7 +219,7 @@ export async function processImageFile(
   }
 
   // Get MIME type
-  const mediaType = getMimeTypeFromExtension(resolvedPath)
+  const mediaType = getImageMimeType(path.extname(resolvedPath))
   if (!mediaType) {
     return { success: false, error: `Could not determine image type for: ${filePath}` }
   }
