@@ -77,8 +77,8 @@ export async function runAgentOnCommit({
           if (externalAgentType) {
             const runner: Runner =
               externalAgentType === 'claude'
-                ? new ClaudeRunner(repoDir)
-                : new CodexRunner(repoDir)
+                ? new ClaudeRunner(repoDir, env)
+                : new CodexRunner(repoDir, env)
 
             console.log(
               `[${commit.id}] Running external agent: ${externalAgentType}`,

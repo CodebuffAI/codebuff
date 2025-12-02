@@ -5,9 +5,11 @@ import type { AgentStep } from '../agent-runner'
 
 export class CodexRunner implements Runner {
   private cwd: string
+  private env: Record<string, string>
 
-  constructor(cwd: string) {
+  constructor(cwd: string, env: Record<string, string> = {}) {
     this.cwd = cwd
+    this.env = env
   }
 
   async run(prompt: string): Promise<RunnerResult> {
@@ -25,8 +27,12 @@ export class CodexRunner implements Runner {
 
       const child = spawn('codex', args, {
         cwd: this.cwd,
-        env: process.env,
-        stdio: ['pipe', 'pipe', 'pipe'],
+        env: {
+          ...process.env,
+          ...this.env,
+        },
+        // Use 'ignore' for stdin to prevent the CLI from waiting for input
+        stdio: ['ignore', 'pipe', 'pipe'],
       })
 
       let stdout = ''
@@ -47,7 +53,10 @@ export class CodexRunner implements Runner {
                 type: 'text',
                 text: event.content || event.message || '',
               })
-            } else if (event.type === 'function_call' || event.type === 'tool') {
+            } else if (
+              event.type === 'function_call' ||
+              event.type === 'tool'
+            ) {
               steps.push({
                 type: 'tool_call',
                 toolName: event.name || event.function?.name || 'unknown',
@@ -111,9 +120,7 @@ export class CodexRunner implements Runner {
 
         if (code !== 0) {
           reject(
-            new Error(
-              `Codex CLI exited with code ${code}. stderr: ${stderr}`,
-            ),
+            new Error(`Codex CLI exited with code ${code}. stderr: ${stderr}`),
           )
           return
         }

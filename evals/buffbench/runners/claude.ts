@@ -9,9 +9,11 @@ import type {
 
 export class ClaudeRunner implements Runner {
   private cwd: string
+  private env: Record<string, string>
 
-  constructor(cwd: string) {
+  constructor(cwd: string, env: Record<string, string> = {}) {
     this.cwd = cwd
+    this.env = env
   }
 
   async run(prompt: string): Promise<RunnerResult> {
@@ -34,6 +36,7 @@ export class ClaudeRunner implements Runner {
         cwd: this.cwd,
         env: {
           ...process.env,
+          ...this.env,
           // Ensure ANTHROPIC_API_KEY is set from CLAUDE_CODE_KEY if available
           ANTHROPIC_API_KEY:
             process.env.CLAUDE_CODE_KEY || process.env.ANTHROPIC_API_KEY,
@@ -156,9 +159,7 @@ export class ClaudeRunner implements Runner {
 
         if (code !== 0) {
           reject(
-            new Error(
-              `Claude CLI exited with code ${code}. stderr: ${stderr}`,
-            ),
+            new Error(`Claude CLI exited with code ${code}. stderr: ${stderr}`),
           )
           return
         }
