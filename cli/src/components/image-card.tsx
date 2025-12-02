@@ -24,13 +24,11 @@ const truncateFilename = (filename: string): string => {
   if (filename.length <= MAX_FILENAME_LENGTH) {
     return filename
   }
-  const ext = filename.split('.').pop() || ''
-  const nameWithoutExt = filename.slice(0, filename.length - ext.length - 1)
-  const truncatedName = nameWithoutExt.slice(
-    0,
-    MAX_FILENAME_LENGTH - ext.length - 4,
-  )
-  return `${truncatedName}…${ext ? '.' + ext : ''}`
+  const lastDot = filename.lastIndexOf('.')
+  const ext = lastDot !== -1 ? filename.slice(lastDot) : ''
+  const baseName = lastDot !== -1 ? filename.slice(0, lastDot) : filename
+  const maxBaseLength = MAX_FILENAME_LENGTH - ext.length - 1 // -1 for ellipsis
+  return baseName.slice(0, maxBaseLength) + '…' + ext
 }
 
 export interface ImageCardImage {
