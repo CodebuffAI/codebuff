@@ -3,24 +3,28 @@ import { publisher } from '../constants'
 
 export const createCodeEditor = (options: {
   model: 'gpt-5' | 'opus'
-}): Omit<AgentDefinition, 'id'> => ({
-  publisher,
-  model:
-    options.model === 'gpt-5' ? 'openai/gpt-5.1' : 'anthropic/claude-opus-4.5',
-  displayName: 'Code Editor',
-  spawnerPrompt:
-    "Expert code editor that implements code changes based on the user's request. Do not specify an input prompt for this agent; it inherits the context of the entire conversation with the user. Make sure to read any files intended to be edited before spawning this agent as it cannot read files on its own.",
-  outputMode: 'structured_output',
-  toolNames: ['write_file', 'str_replace', 'set_output'],
+}): Omit<AgentDefinition, 'id'> => {
+  const { model } = options
+  return {
+    publisher,
+    model:
+      options.model === 'gpt-5'
+        ? 'openai/gpt-5.1'
+        : 'anthropic/claude-opus-4.5',
+    displayName: 'Code Editor',
+    spawnerPrompt:
+      "Expert code editor that implements code changes based on the user's request. Do not specify an input prompt for this agent; it inherits the context of the entire conversation with the user. Make sure to read any files intended to be edited before spawning this agent as it cannot read files on its own.",
+    outputMode: 'structured_output',
+    toolNames: ['write_file', 'str_replace', 'set_output'],
 
-  includeMessageHistory: true,
-  inheritParentSystemPrompt: true,
+    includeMessageHistory: true,
+    inheritParentSystemPrompt: true,
 
-  instructionsPrompt: `You are an expert code editor with deep understanding of software engineering principles. You were spawned to generate an implementation for the user's request.
+    instructionsPrompt: `You are an expert code editor with deep understanding of software engineering principles. You were spawned to generate an implementation for the user's request.
     
 Your task is to write out ALL the code changes needed to complete the user's request in a single comprehensive response.
 
-Important: You can not make any other tool calls besides editing files. You cannot read more files, write todos, spawn agents, or set output. Do not call any of these tools!
+Important: You can not make any other tool calls besides editing files. You cannot read more files, write todos, spawn agents, or set output. set_output in particular should not be used. Do not call any of these tools!
 
 Write out what changes you would make using the tool call format below. Use this exact format for each file change:
 
@@ -52,7 +56,10 @@ OR for new files or major rewrites:
 }
 </codebuff_tool_call>
 
-IMPORTANT: Before you start writing your implementation, you should use <think> tags to think about the best way to implement the changes. You should think really really hard to make sure you implement the changes in the best way possible. Take as much time as you to think through all the cases to produce the best changes.
+${
+  model === 'gpt-5'
+    ? ''
+    : `IMPORTANT: Before you start writing your implementation, you should use <think> tags to think about the best way to implement the changes. You should think really really hard to make sure you implement the changes in the best way possible. Take as much time as you to think through all the cases to produce the best changes.
 
 You can also use <think> tags interspersed between tool calls to think about the best way to implement the changes.
 
@@ -78,9 +85,8 @@ You can also use <think> tags interspersed between tool calls to think about the
 [ Third tool call to implement the feature ]
 </codebuff_tool_call>
 
-</example>
-
-After the edit tool calls, you can optionally mention any follow-up steps to take, like deleting a file, or a sepcific way to validate the changes. You should not summarize your changes, just stop when you're done. There's no need to use the set_output tool as your entire response will be included in the output.
+</example>`
+}
 
 Your implementation should:
 - Be complete and comprehensive
@@ -97,46 +103,64 @@ More style notes:
 
 Write out your complete implementation now, formatting all changes as tool calls as shown above.`,
 
-  handleSteps: function* ({ agentState: initialAgentState }) {
-    const initialMessageHistoryLength = initialAgentState.messageHistory.length
-    const { agentState } = yield 'STEP'
-    const { messageHistory } = agentState
+    handleSteps: function* ({ agentState: initialAgentState }) {
+      const initialMessageHistoryLength =
+        initialAgentState.messageHistory.length
+      const { agentState } = yield 'STEP'
+      const { messageHistory } = agentState
 
-    const newMessages = messageHistory.slice(initialMessageHistoryLength)
-    const assistantText = newMessages
-      .filter((message) => message.role === 'assistant')
-      .flatMap((message) => message.content)
-      .filter((content) => content.type === 'text')
-      .map((content) => content.text)
-      .join('\n')
+      const newMessages = messageHistory.slice(initialMessageHistoryLength)
+      const assistantText = newMessages
+        .filter((message) => message.role === 'assistant')
+        .flatMap((message) => message.content)
+        .filter((content) => content.type === 'text')
+        .map((content) => content.text)
+        .join('\n')
 
-    const { agentState: postAssistantTextAgentState } = yield {
-      type: 'STEP_TEXT',
-      text: assistantText,
-    } as StepText
+      // Extract tool calls from the assistant text
+      const toolCallsText = extractToolCallsOnly(assistantText)
 
-    const postAssistantTextMessageHistory =
-      postAssistantTextAgentState.messageHistory.slice(
-        initialMessageHistoryLength,
-      )
-    const toolResults = postAssistantTextMessageHistory
-      .filter((message) => message.role === 'tool')
-      .flatMap((message) => message.content)
-      .filter((content) => content.type === 'json')
-      .map((content) => content.value)
+      const { agentState: postAssistantTextAgentState } = yield {
+        type: 'STEP_TEXT',
+        text: toolCallsText,
+      } as StepText
 
-    yield {
-      toolName: 'set_output',
-      input: {
-        output: {
-          message: assistantText,
-          toolResults,
+      const postAssistantTextMessageHistory =
+        postAssistantTextAgentState.messageHistory.slice(
+          initialMessageHistoryLength,
+        )
+      const toolResults = postAssistantTextMessageHistory
+        .filter((message) => message.role === 'tool')
+        .flatMap((message) => message.content)
+        .filter((content) => content.type === 'json')
+        .map((content) => content.value)
+
+      yield {
+        toolName: 'set_output',
+        input: {
+          output: {
+            message: toolCallsText,
+            toolResults,
+          },
         },
-      },
-      includeToolCall: false,
-    }
-  },
-})
+        includeToolCall: false,
+      }
+
+      // Extract only tool calls from text, removing any commentary
+      function extractToolCallsOnly(text: string): string {
+        const toolExtractionPattern =
+          /<codebuff_tool_call>[\s\S]*?<\/codebuff_tool_call>/g
+        const matches: string[] = []
+
+        for (const match of text.matchAll(toolExtractionPattern)) {
+          matches.push(match[0])
+        }
+
+        return matches.join('\n')
+      }
+    },
+  } satisfies Omit<AgentDefinition, 'id'>
+}
 
 const definition = {
   ...createCodeEditor({ model: 'opus' }),
