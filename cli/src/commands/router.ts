@@ -109,6 +109,19 @@ function executeBashCommand(
             return didUpdate ? { ...msg, blocks, isComplete: true } : msg
           }),
         )
+
+        // Also add to pending bash messages so the next user message includes this context for the LLM
+        // Mark as already added to history to avoid duplicate UI entries
+        useChatStore.getState().addPendingBashMessage({
+          id,
+          command,
+          stdout,
+          stderr,
+          exitCode,
+          isRunning: false,
+          cwd: commandCwd,
+          addedToHistory: true,
+        })
       }
     })
     .catch((error) => {
@@ -148,6 +161,19 @@ function executeBashCommand(
             return didUpdate ? { ...msg, blocks, isComplete: true } : msg
           }),
         )
+
+        // Also add to pending bash messages so the next user message includes this context for the LLM
+        // Mark as already added to history to avoid duplicate UI entries
+        useChatStore.getState().addPendingBashMessage({
+          id,
+          command,
+          stdout: '',
+          stderr: errorMessage,
+          exitCode: 1,
+          isRunning: false,
+          cwd: commandCwd,
+          addedToHistory: true,
+        })
       }
     })
 }

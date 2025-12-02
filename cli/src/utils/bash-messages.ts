@@ -2,6 +2,7 @@ import { formatTimestamp } from './helpers'
 
 import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { ChatMessage, ContentBlock } from '../types/chat'
+import type { PendingBashMessage } from '../state/chat-store'
 
 export function createRunTerminalToolResult(params: {
   command: string
@@ -66,4 +67,42 @@ export function buildBashHistoryMessages(params: {
   }
 
   return { assistantMessage, toolCallId }
+}
+
+/**
+ * Format pending bash messages as context to prepend to the user's prompt.
+ * This provides the LLM with information about commands the user ran manually.
+ * Only includes completed (non-running) commands.
+ */
+export function formatBashContextForPrompt(
+  pendingBashMessages: PendingBashMessage[],
+): string {
+  // Only include completed commands
+  const completedCommands = pendingBashMessages.filter((msg) => !msg.isRunning)
+  
+  if (completedCommands.length === 0) {
+    return ''
+  }
+
+  const commandsContext = completedCommands
+    .map((bash) => {
+      const cwd = bash.cwd || process.cwd()
+      let result = `Command: ${bash.command}\nDirectory: ${cwd}\nExit code: ${bash.exitCode}`
+      if (bash.stdout) {
+        result += `\nStdout:\n${bash.stdout}`
+      }
+      if (bash.stderr) {
+        result += `\nStderr:\n${bash.stderr}`
+      }
+      return result
+    })
+    .join('\n\n---\n\n')
+
+  return `<user_terminal_commands>
+The user ran the following terminal command(s) before this message:
+
+${commandsContext}
+</user_terminal_commands>
+
+`
 }
