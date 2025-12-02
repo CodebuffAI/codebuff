@@ -2,6 +2,12 @@ import { readFileSync, statSync } from 'fs'
 import { homedir } from 'os'
 import path from 'path'
 
+import {
+  SUPPORTED_IMAGE_EXTENSIONS,
+  MAX_IMAGE_FILE_SIZE,
+  MAX_IMAGE_BASE64_SIZE,
+  MAX_TOTAL_IMAGE_SIZE,
+} from '@codebuff/common/constants/images'
 import { Jimp } from 'jimp'
 
 import { logger } from './logger'
@@ -42,23 +48,18 @@ export function validateTotalImageSize(imageParts: Array<{ size?: number }>): {
   return { valid: true }
 }
 
-// Supported image formats
-export const SUPPORTED_IMAGE_EXTENSIONS = new Set([
-  '.jpg',
-  '.jpeg',
-  '.png',
-  '.webp',
-  '.gif',
-  '.bmp',
-  '.tiff',
-  '.tif',
-])
+// Re-export for backwards compatibility
+export {
+  SUPPORTED_IMAGE_EXTENSIONS,
+  MAX_IMAGE_FILE_SIZE,
+  MAX_IMAGE_BASE64_SIZE,
+  MAX_TOTAL_IMAGE_SIZE,
+} from '@codebuff/common/constants/images'
 
-// Size limits - research shows Claude/GPT-4V support up to 20MB, but we use practical limits
-// for good performance and token efficiency
-const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB - allow larger files since we can compress
-const MAX_BASE64_SIZE = 1 * 1024 * 1024 // 1MB max for base64 after compression
-const MAX_TOTAL_SIZE = 5 * 1024 * 1024 // 5MB total for multiple images
+// Local aliases for cleaner code
+const MAX_FILE_SIZE = MAX_IMAGE_FILE_SIZE
+const MAX_BASE64_SIZE = MAX_IMAGE_BASE64_SIZE
+const MAX_TOTAL_SIZE = MAX_TOTAL_IMAGE_SIZE
 
 // Compression settings for iterative compression
 const COMPRESSION_QUALITIES = [85, 70, 50, 30] // JPEG quality levels to try

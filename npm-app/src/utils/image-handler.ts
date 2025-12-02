@@ -2,6 +2,7 @@ import { readFileSync, statSync } from 'fs'
 import { homedir } from 'os'
 import path from 'path'
 
+import { SUPPORTED_IMAGE_EXTENSIONS } from '@codebuff/common/constants/images'
 import { Jimp } from 'jimp'
 
 import { logger } from './logger'
@@ -17,18 +18,6 @@ export interface ImageUploadResult {
   }
   error?: string
 }
-
-// Supported image formats
-const SUPPORTED_IMAGE_EXTENSIONS = new Set([
-  '.jpg',
-  '.jpeg',
-  '.png',
-  '.webp',
-  '.gif',
-  '.bmp',
-  '.tiff',
-  '.tif',
-])
 
 // Size limits - balanced to prevent message truncation while allowing reasonable images
 const MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB - allow larger files for compression
