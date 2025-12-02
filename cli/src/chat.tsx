@@ -11,6 +11,8 @@ import {
 import { useShallow } from 'zustand/react/shallow'
 
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
+import { addPendingImageFromFile } from './utils/add-pending-image'
+import { getProjectRoot } from './project-files'
 import { AnnouncementBanner } from './components/announcement-banner'
 import { hasClipboardImage, readClipboardImage } from './utils/clipboard-image'
 import { showClipboardMessage } from './utils/clipboard'
@@ -1013,33 +1015,21 @@ export const Chat = ({
       onBashHistoryUp: navigateUp,
       onBashHistoryDown: navigateDown,
       onPasteImage: () => {
-        // Check if clipboard has an image
         if (!hasClipboardImage()) {
-          // No image in clipboard, let normal paste happen
           return false
         }
 
-        // Read image from clipboard
         const result = readClipboardImage()
         if (!result.success || !result.imagePath || !result.filename) {
           showClipboardMessage(result.error || 'Failed to paste image', {
             durationMs: 3000,
           })
-          return true // We handled it (with an error), don't let default paste happen
+          return true
         }
 
-        const imagePath = result.imagePath
-        if (!imagePath) return true
-        
-        // Process and add image (handles compression and caching)
-        void (async () => {
-          const { addPendingImageFromFile } = await import('./utils/add-pending-image')
-          const { getProjectRoot } = await import('./project-files')
-          const cwd = getProjectRoot() ?? process.cwd()
-          await addPendingImageFromFile(imagePath, cwd)
-        })()
-
-        return true // Image was pasted successfully
+        const cwd = getProjectRoot() ?? process.cwd()
+        void addPendingImageFromFile(result.imagePath, cwd)
+        return true
       },
     }),
     [
