@@ -43,14 +43,16 @@ export type AskUserState = {
   otherTexts: string[] // Custom text input for each question (empty string if not used)
 } | null
 
+export type PendingImageStatus = 'processing' | 'ready' | 'error'
+
 export type PendingImage = {
   path: string
   filename: string
+  status: PendingImageStatus
   size?: number
   width?: number
   height?: number
-  note?: string // Status: "processing…" | "compressed" | error message
-  isError?: boolean // True if this is an error entry (e.g., file not found)
+  note?: string // Display note: "compressed" | error message
   processedImage?: {
     base64: string
     mediaType: string

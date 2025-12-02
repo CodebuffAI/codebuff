@@ -12,9 +12,21 @@ export const PendingImagesBanner = () => {
   const pendingImages = useChatStore((state) => state.pendingImages)
   const removePendingImage = useChatStore((state) => state.removePendingImage)
 
-  // Separate error messages from actual images
-  const errorImages = pendingImages.filter((img) => img.isError)
-  const validImages = pendingImages.filter((img) => !img.isError)
+  // Separate error messages from actual images, and count processing
+  const errorImages: typeof pendingImages = []
+  const validImages: typeof pendingImages = []
+  let processingCount = 0
+  for (const img of pendingImages) {
+    if (img.status === 'error') {
+      errorImages.push(img)
+    } else {
+      validImages.push(img)
+      if (img.status === 'processing') {
+        processingCount++
+      }
+    }
+  }
+  const readyCount = validImages.length - processingCount
 
   if (pendingImages.length === 0) {
     return null
@@ -72,7 +84,10 @@ export const PendingImagesBanner = () => {
 
       {/* Header */}
       <text style={{ fg: theme.info }}>
-        📎 {pluralize(validImages.length, 'image')} attached
+        📎{' '}
+        {readyCount > 0 && `${pluralize(readyCount, 'image')} attached`}
+        {readyCount > 0 && processingCount > 0 && ', '}
+        {processingCount > 0 && `${pluralize(processingCount, 'image')} processing`}
       </text>
 
       {/* Image cards in a horizontal row - only valid images */}

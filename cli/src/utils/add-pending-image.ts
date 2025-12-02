@@ -7,20 +7,34 @@ import { existsSync } from 'node:fs'
  * Process an image file and add it to the pending images state.
  * This handles compression/resizing and caches the result so we don't
  * need to reprocess at send time.
+ * 
+ * @param replacePlaceholder - If provided, replaces an existing placeholder entry instead of adding new
  */
 export async function addPendingImageFromFile(
   imagePath: string,
   cwd: string,
+  replacePlaceholder?: string,
 ): Promise<void> {
   const filename = path.basename(imagePath)
   
-  // Add to pending state immediately with processing note so user sees loading state
-  const pendingImage: PendingImage = {
-    path: imagePath,
-    filename,
-    note: 'processing…',
+  if (replacePlaceholder) {
+    // Replace existing placeholder with actual image info (still processing)
+    useChatStore.setState((state) => ({
+      pendingImages: state.pendingImages.map((img) =>
+        img.path === replacePlaceholder
+          ? { ...img, path: imagePath, filename }
+          : img
+      ),
+    }))
+  } else {
+    // Add to pending state immediately with processing status so user sees loading state
+    const pendingImage: PendingImage = {
+      path: imagePath,
+      filename,
+      status: 'processing',
+    }
+    useChatStore.getState().addPendingImage(pendingImage)
   }
-  useChatStore.getState().addPendingImage(pendingImage)
 
   // Process the image in background
   const result = await processImageFile(imagePath, cwd)
@@ -33,6 +47,7 @@ export async function addPendingImageFromFile(
       if (result.success && result.imagePart) {
         return {
           ...img,
+          status: 'ready' as const,
           size: result.imagePart.size,
           width: result.imagePart.width,
           height: result.imagePart.height,
@@ -46,6 +61,7 @@ export async function addPendingImageFromFile(
 
       return {
         ...img,
+        status: 'error' as const,
         note: result.error || 'failed',
       }
     }),
@@ -68,6 +84,7 @@ export async function addPendingImageFromBase64(
   const pendingImage: PendingImage = {
     path: tempPath || `clipboard:${filename}`,
     filename,
+    status: 'ready',
     size,
     processedImage: {
       base64: base64Data,
@@ -79,6 +96,23 @@ export async function addPendingImageFromBase64(
 }
 
 const AUTO_REMOVE_ERROR_DELAY_MS = 3000
+
+// Counter for generating unique placeholder IDs
+let clipboardPlaceholderCounter = 0
+
+/**
+ * Add a placeholder for a clipboard image immediately and return its path.
+ * Use with addPendingImageFromFile's replacePlaceholder parameter.
+ */
+export function addClipboardPlaceholder(): string {
+  const placeholderPath = `clipboard:pending-${++clipboardPlaceholderCounter}`
+  useChatStore.getState().addPendingImage({
+    path: placeholderPath,
+    filename: 'clipboard image',
+    status: 'processing',
+  })
+  return placeholderPath
+}
 
 /**
  * Add a pending image with an error note (e.g., unsupported format, not found).
@@ -93,8 +127,8 @@ export function addPendingImageWithError(
   useChatStore.getState().addPendingImage({
     path: imagePath,
     filename,
+    status: 'error',
     note,
-    isError: true,
   })
   
   // Auto-remove error images after a delay

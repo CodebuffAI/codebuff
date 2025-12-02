@@ -11,7 +11,7 @@ import {
 import { useShallow } from 'zustand/react/shallow'
 
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
-import { addPendingImageFromFile } from './utils/add-pending-image'
+import { addClipboardPlaceholder, addPendingImageFromFile } from './utils/add-pending-image'
 import { getProjectRoot } from './project-files'
 import { AnnouncementBanner } from './components/announcement-banner'
 import { hasClipboardImage, readClipboardImage } from './utils/clipboard-image'
@@ -1015,20 +1015,31 @@ export const Chat = ({
       onBashHistoryUp: navigateUp,
       onBashHistoryDown: navigateDown,
       onPasteImage: () => {
-        if (!hasClipboardImage()) {
-          return false
-        }
+        // Show placeholder immediately so user sees the banner right away
+        const placeholderPath = addClipboardPlaceholder()
 
-        const result = readClipboardImage()
-        if (!result.success || !result.imagePath || !result.filename) {
-          showClipboardMessage(result.error || 'Failed to paste image', {
-            durationMs: 3000,
-          })
-          return true
-        }
+        // Check and process clipboard image in background
+        setTimeout(() => {
+          // Check if clipboard actually has an image
+          if (!hasClipboardImage()) {
+            // No image - quietly remove placeholder (brief flash is acceptable)
+            useChatStore.getState().removePendingImage(placeholderPath)
+            return
+          }
 
-        const cwd = getProjectRoot() ?? process.cwd()
-        void addPendingImageFromFile(result.imagePath, cwd)
+          const result = readClipboardImage()
+          if (!result.success || !result.imagePath) {
+            useChatStore.getState().removePendingImage(placeholderPath)
+            showClipboardMessage(result.error || 'Failed to paste image', {
+              durationMs: 3000,
+            })
+            return
+          }
+
+          const cwd = getProjectRoot() ?? process.cwd()
+          void addPendingImageFromFile(result.imagePath, cwd, placeholderPath)
+        }, 0)
+
         return true
       },
     }),
