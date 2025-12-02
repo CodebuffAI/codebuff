@@ -310,26 +310,3 @@ export async function setupTestRepo(
     throw error
   }
 }
-
-// CLI handling
-if (require.main === module) {
-  const args = process.argv.slice(2)
-  if (args.length < 3) {
-    console.error(
-      'Usage: bun run setup-test-repo <repo-url> <repo-name> <commit-sha>',
-    )
-    process.exit(1)
-  }
-
-  const [repoUrl, repoName, commitSha] = args
-
-  setupTestRepo(repoUrl, repoName, commitSha)
-    .then((repoDir) => {
-      console.log(`Repository cloned successfully at ${repoDir}`)
-      process.exit(0)
-    })
-    .catch((err) => {
-      console.error(`Error setting up repository:`, err)
-      process.exit(1)
-    })
-}
