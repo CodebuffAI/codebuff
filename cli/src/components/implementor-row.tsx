@@ -9,7 +9,6 @@ import {
   getImplementorDisplayName,
   getImplementorIndex,
   getFileStatsFromBlocks,
-  type TimelineItem,
   type FileStats,
 } from '../utils/implementor-helpers'
 import { computeSmartColumns } from '../utils/layout-helpers'

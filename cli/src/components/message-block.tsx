@@ -1,4 +1,3 @@
-import { pluralize } from '@codebuff/common/util/string'
 import { TextAttributes } from '@opentui/core'
 import React, { memo, useCallback, useMemo, useState, type ReactNode } from 'react'
 
@@ -63,8 +62,6 @@ interface MessageBlockProps {
     errors?: Array<{ id: string; message: string }>
   }) => void
 }
-
-import { BORDER_CHARS } from '../utils/ui-constants'
 
 export const MessageBlock: React.FC<MessageBlockProps> = ({
   messageId,

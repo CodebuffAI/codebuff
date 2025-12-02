@@ -1,8 +1,15 @@
 import { describe, test, expect, beforeEach } from 'bun:test'
 
 import contextPruner from '../context-pruner'
+import {
+  createMessage,
+  createTerminalToolMessage,
+  createLargeToolMessage,
+  createToolMessage,
+  createMockLogger,
+} from './test-utils'
 
-import type { Message, ToolMessage } from '../types/util-types'
+import type { Message } from '../types/util-types'
 
 describe('context-pruner handleSteps', () => {
   let mockAgentState: any
@@ -13,62 +20,11 @@ describe('context-pruner handleSteps', () => {
     }
   })
 
-  const createMessage = (
-    role: 'user' | 'assistant',
-    content: string,
-  ): Message => ({
-    role,
-    content,
-  })
-
-  const createTerminalToolMessage = (
-    command: string,
-    output: string,
-    exitCode?: number,
-  ): ToolMessage => ({
-    role: 'tool',
-    toolCallId: 'test-id',
-    toolName: 'run_terminal_command',
-    content: [
-      {
-        type: 'json',
-        value: {
-          command,
-          stdout: output,
-          ...(exitCode !== undefined && { exitCode }),
-        },
-      },
-    ],
-  })
-
-  const createLargeToolMessage = (
-    toolName: string,
-    largeData: string,
-  ): ToolMessage => ({
-    role: 'tool',
-    toolCallId: 'test-id',
-    toolName,
-    content: [
-      {
-        type: 'json',
-        value: {
-          data: largeData,
-        },
-      },
-    ],
-  })
-
   const runHandleSteps = (messages: Message[]) => {
     mockAgentState.messageHistory = messages
-    const mockLogger = {
-      debug: () => {},
-      info: () => {},
-      warn: () => {},
-      error: () => {},
-    }
     const generator = contextPruner.handleSteps!({
       agentState: mockAgentState,
-      logger: mockLogger,
+      logger: createMockLogger(),
     })
     const results: any[] = []
     let result = generator.next()
@@ -299,43 +255,11 @@ describe('context-pruner edge cases', () => {
     }
   })
 
-  const createMessage = (
-    role: 'user' | 'assistant',
-    content: string,
-  ): Message => ({
-    role,
-    content,
-  })
-
-  const createTerminalToolMessage = (
-    command: string,
-    output: string,
-  ): ToolMessage => ({
-    role: 'tool',
-    toolCallId: 'test-id',
-    toolName: 'run_terminal_command',
-    content: [
-      {
-        type: 'json',
-        value: {
-          command,
-          stdout: output,
-        },
-      },
-    ],
-  })
-
   const runHandleSteps = (messages: Message[]) => {
     mockAgentState.messageHistory = messages
-    const mockLogger = {
-      debug: () => {},
-      info: () => {},
-      warn: () => {},
-      error: () => {},
-    }
     const generator = contextPruner.handleSteps!({
       agentState: mockAgentState,
-      logger: mockLogger,
+      logger: createMockLogger(),
     })
     const results: ReturnType<typeof generator.next>['value'][] = []
     let result = generator.next()
@@ -441,23 +365,6 @@ describe('context-pruner edge cases', () => {
     // Create content large enough to exceed 200k token limit to trigger pruning
     const largeContent = 'x'.repeat(150000)
 
-    const createToolMessage = (
-      toolName: string,
-      size: number,
-    ): ToolMessage => ({
-      role: 'tool',
-      toolCallId: 'test-id',
-      toolName,
-      content: [
-        {
-          type: 'json',
-          value: {
-            data: 'a'.repeat(size),
-          },
-        },
-      ],
-    })
-
     const messages = [
       createMessage('user', largeContent),
       createMessage('assistant', largeContent),
@@ -508,7 +415,7 @@ describe('context-pruner edge cases', () => {
       },
     ]
 
-    testCases.forEach(({ content, shouldRemove }, index) => {
+    testCases.forEach(({ content, shouldRemove }) => {
       const messages = [
         createMessage('user', 'Hello'),
         createMessage('assistant', content),

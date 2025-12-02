@@ -1,7 +1,6 @@
 import type {
   AgentContentBlock,
   ContentBlock,
-  TextContentBlock,
   ToolContentBlock,
 } from '../types/chat'
 
@@ -110,116 +109,6 @@ export function extractValueForKey(output: string, key: string): string | null {
     }
   }
   return null
-}
-
-/**
- * Get the latest commentary (text block content) from agent blocks
- * Returns a single-line string with newlines replaced by spaces
- */
-export function getLatestCommentary(
-  blocks: ContentBlock[] | undefined,
-): string | undefined {
-  if (!blocks || blocks.length === 0) return undefined
-
-  // Find the last text block that isn't reasoning
-  for (let i = blocks.length - 1; i >= 0; i--) {
-    const block = blocks[i]
-    if (block.type === 'text' && block.textType !== 'reasoning') {
-      // Replace newlines with spaces and collapse multiple spaces
-      const content = block.content
-        .replace(/\n+/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-      if (content) return content
-    }
-  }
-  return undefined
-}
-
-/**
- * Count edit operations (str_replace, write_file tools)
- */
-export function countEdits(blocks: ContentBlock[] | undefined): number {
-  if (!blocks || blocks.length === 0) return 0
-
-  return blocks.filter(
-    (block) =>
-      block.type === 'tool' &&
-      EDIT_TOOL_NAMES.includes(block.toolName as (typeof EDIT_TOOL_NAMES)[number]),
-  ).length
-}
-
-/**
- * Get list of unique file paths edited by the agent
- */
-export function getEditedFiles(blocks: ContentBlock[] | undefined): string[] {
-  if (!blocks || blocks.length === 0) return []
-
-  const files = new Set<string>()
-
-  for (const block of blocks) {
-    if (
-      block.type === 'tool' &&
-      EDIT_TOOL_NAMES.includes(block.toolName as (typeof EDIT_TOOL_NAMES)[number])
-    ) {
-      const filePath = extractFilePath(block)
-      if (filePath) {
-        files.add(filePath)
-      }
-    }
-  }
-
-  return Array.from(files)
-}
-
-export interface FileSnippet {
-  path: string
-  snippet?: string
-  isCreate: boolean
-}
-
-/**
- * Get list of files with content snippets
- */
-export function getEditedFileSnippets(blocks: ContentBlock[] | undefined): FileSnippet[] {
-  if (!blocks || blocks.length === 0) return []
-
-  const visited = new Set<string>()
-  const results: FileSnippet[] = []
-
-  for (const block of blocks) {
-    if (
-      block.type === 'tool' &&
-      EDIT_TOOL_NAMES.includes(block.toolName as (typeof EDIT_TOOL_NAMES)[number])
-    ) {
-      const filePath = extractFilePath(block)
-      if (filePath && !visited.has(filePath)) {
-        visited.add(filePath)
-        
-        const diff = extractDiff(block)
-        let snippet: string | undefined
-        if (diff) {
-          // Extract first non-header line as preview
-          const lines = diff.split('\n')
-          const interestingLine = lines.find(l => 
-            (l.startsWith('+') || l.startsWith('-')) && 
-            !l.startsWith('+++') && !l.startsWith('---')
-          )
-          if (interestingLine) {
-            snippet = interestingLine.trim().slice(0, 50)
-          }
-        }
-
-        results.push({
-          path: filePath,
-          isCreate: isCreateFile(block),
-          snippet
-        })
-      }
-    }
-  }
-
-  return results
 }
 
 /**
@@ -446,20 +335,6 @@ export function getFileStatsFromBlocks(blocks: ContentBlock[] | undefined): File
   }
 
   return Array.from(fileMap.values())
-}
-
-/**
- * Get total stats across all files
- */
-export function getTotalStats(fileStats: FileStats[]): DiffStats {
-  return fileStats.reduce(
-    (acc, file) => ({
-      linesAdded: acc.linesAdded + file.stats.linesAdded,
-      linesRemoved: acc.linesRemoved + file.stats.linesRemoved,
-      hunks: acc.hunks + file.stats.hunks,
-    }),
-    { linesAdded: 0, linesRemoved: 0, hunks: 0 }
-  )
 }
 
 /**
