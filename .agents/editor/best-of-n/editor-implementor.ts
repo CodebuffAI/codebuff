@@ -72,12 +72,14 @@ ${
   isGpt5 || isGemini
     ? ``
     : `
-You can also use <think> tags interspersed between tool calls to think about the best way to implement the changes. Keep these thoughts very brief. You may not need to use think tags at all.
+IMPORTANT: Before you start writing your implementation, you should use <think> tags to think about the best way to implement the changes. You should think really really hard to make sure you implement the changes in the best way possible. Take as much time as you to think through all the cases to produce the best changes.
+
+You can also use <think> tags interspersed between tool calls to think about the best way to implement the changes.
 
 <example>
 
 <think>
-[ Thoughts about the best way to implement the feature ]
+[ Long think about the best way to implement the changes ]
 </think>
 
 <codebuff_tool_call>
@@ -99,7 +101,7 @@ You can also use <think> tags interspersed between tool calls to think about the
 </example>`
 }
 
-After the edit tool calls, you can optionally mention any follow-up steps to take, like deleting a file, or a sepcific way to validate the changes. There's no need to use the set_output tool as your entire response will be included in the output.
+After the edit tool calls, you can optionally mention any follow-up steps to take, like deleting a file, or a specific way to validate the changes. There's no need to use the set_output tool as your entire response will be included in the output.
 
 Your implementation should:
 - Be complete and comprehensive

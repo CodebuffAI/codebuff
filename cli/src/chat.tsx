@@ -602,7 +602,8 @@ export const Chat = ({
   const isWaitingForResponse = streamStatus === 'waiting'
   const isStreaming = streamStatus !== 'idle'
 
-  // When streaming completes, flush any pending bash commands into history
+  // When streaming completes, flush any pending bash commands into history (ghost mode only)
+  // Non-ghost mode commands are already in history and will be cleared when user sends next message
   useEffect(() => {
     if (
       !isStreaming &&
@@ -610,14 +611,13 @@ export const Chat = ({
       !isChainInProgressRef.current &&
       pendingBashMessages.length > 0
     ) {
-      // Collect completed messages to flush
-      const completedMessages = pendingBashMessages.filter(
-        (msg) => !msg.isRunning,
+      // Only flush ghost mode commands (those not already added to history) to UI
+      const ghostModeMessages = pendingBashMessages.filter(
+        (msg) => !msg.isRunning && !msg.addedToHistory,
       )
-      if (completedMessages.length === 0) return
-
-      // Batch: add all to history, then clear all completed
-      for (const msg of completedMessages) {
+      
+      // Add ghost mode messages to UI history
+      for (const msg of ghostModeMessages) {
         addBashMessageToHistory({
           command: msg.command,
           stdout: msg.stdout,
@@ -627,13 +627,17 @@ export const Chat = ({
           setMessages,
         })
       }
-      // Batch remove all completed messages at once
-      const completedIds = new Set(completedMessages.map((m) => m.id))
-      useChatStore.setState((state) => ({
-        pendingBashMessages: state.pendingBashMessages.filter(
-          (m) => !completedIds.has(m.id),
-        ),
-      }))
+      
+      // Mark ghost mode messages as added to history (so they don't show as ghost UI)
+      // but keep them in pendingBashMessages so they get sent to LLM with next user message
+      if (ghostModeMessages.length > 0) {
+        const ghostIds = new Set(ghostModeMessages.map((m) => m.id))
+        useChatStore.setState((state) => ({
+          pendingBashMessages: state.pendingBashMessages.map((m) =>
+            ghostIds.has(m.id) ? { ...m, addedToHistory: true } : m,
+          ),
+        }))
+      }
     }
   }, [isStreaming, pendingBashMessages, setMessages])
 
@@ -1214,14 +1218,16 @@ export const Chat = ({
             />
           )
         })}
-        {/* Pending bash messages as ghost messages */}
-        {pendingBashMessages.map((msg) => (
-          <PendingBashMessage
-            key={`pending-bash-${msg.id}`}
-            message={msg}
-            width={separatorWidth - 4}
-          />
-        ))}
+        {/* Pending bash messages as ghost messages (only show those not already in history) */}
+        {pendingBashMessages
+          .filter((msg) => !msg.addedToHistory)
+          .map((msg) => (
+            <PendingBashMessage
+              key={`pending-bash-${msg.id}`}
+              message={msg}
+              width={separatorWidth - 4}
+            />
+          ))}
       </scrollbox>
 
       <box
