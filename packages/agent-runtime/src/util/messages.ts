@@ -43,8 +43,23 @@ export function buildUserMessageContent(
   params: Record<string, any> | undefined,
   content?: Array<TextPart | ImagePart>,
 ): Array<TextPart | ImagePart> {
+  const promptHasNonWhitespaceText = (prompt ?? '').trim().length > 0
+
   // If we have content array (e.g., text + images)
   if (content && content.length > 0) {
+    // Check if content has a non-empty text part
+    const firstTextPart = content.find((p): p is TextPart => p.type === 'text')
+    const hasNonEmptyText = firstTextPart && firstTextPart.text.trim()
+
+    // If content has no meaningful text but prompt is provided, prepend prompt
+    if (!hasNonEmptyText && promptHasNonWhitespaceText) {
+      const nonTextContent = content.filter((p) => p.type !== 'text')
+      return [
+        { type: 'text' as const, text: asUserMessage(prompt!) },
+        ...nonTextContent,
+      ]
+    }
+
     // Find the first text part and wrap it in <user_message> tags
     let hasWrappedText = false
     const wrappedContent = content.map((part) => {
@@ -67,7 +82,7 @@ export function buildUserMessageContent(
 
   // Only prompt/params, combine and return as simple text
   const textParts = buildArray([
-    prompt,
+    promptHasNonWhitespaceText ? prompt : undefined,
     params && JSON.stringify(params, null, 2),
   ])
   return [

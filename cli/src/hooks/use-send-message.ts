@@ -468,10 +468,10 @@ export const useSendMessage = ({
       // and prepare context for the LLM
       const { pendingBashMessages, clearPendingBashMessages } =
         useChatStore.getState()
-      
+
       // Format bash context to add to message history for the LLM
       const bashContext = formatBashContextForPrompt(pendingBashMessages)
-      
+
       if (pendingBashMessages.length > 0) {
         // Convert pending bash messages to chat messages and add to history (UI only)
         // Skip messages that were already added to history (non-ghost mode)
@@ -594,17 +594,15 @@ export const useSendMessage = ({
         }
       }
 
-      // Build message content array for SDK
+      // Build message content array for SDK (images only - text comes from prompt parameter
+      // which includes bash context and fallback text for image-only messages)
       let messageContent: MessageContent[] | undefined
       if (validImageParts.length > 0) {
-        messageContent = [
-          { type: 'text' as const, text: content },
-          ...validImageParts.map((img) => ({
-            type: 'image' as const,
-            image: img.image,
-            mediaType: img.mediaType,
-          })),
-        ]
+        messageContent = validImageParts.map((img) => ({
+          type: 'image' as const,
+          image: img.image,
+          mediaType: img.mediaType,
+        }))
 
         logger.info(
           {
@@ -1111,10 +1109,12 @@ export const useSendMessage = ({
           const promptWithBashContext = bashContext
             ? bashContext + content
             : content
+          const hasNonWhitespacePromptWithContext =
+            (promptWithBashContext ?? '').trim().length > 0
 
           // Use a default prompt when only images are attached (no text content)
           const effectivePrompt =
-            promptWithBashContext ||
+            (hasNonWhitespacePromptWithContext ? promptWithBashContext : '') ||
             (messageContent ? 'See attached image(s)' : '')
 
           runState = await client.run({

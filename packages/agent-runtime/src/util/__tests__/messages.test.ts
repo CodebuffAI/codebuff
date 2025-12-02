@@ -19,6 +19,7 @@ import {
   messagesWithSystem,
   getPreviouslyReadFiles,
   filterUnfinishedToolCalls,
+  buildUserMessageContent,
 } from '../../util/messages'
 import * as tokenCounter from '../token-counter'
 
@@ -37,6 +38,91 @@ describe('messagesWithSystem', () => {
       userMessage('hello'),
       assistantMessage('hi'),
     ])
+  })
+})
+
+describe('buildUserMessageContent', () => {
+  it('wraps prompt in user_message tags when no content provided', () => {
+    const result = buildUserMessageContent('Hello world', undefined, undefined)
+
+    expect(result).toHaveLength(1)
+    expect(result[0].type).toBe('text')
+    expect((result[0] as any).text).toContain('<user_message>')
+    expect((result[0] as any).text).toContain('Hello world')
+  })
+
+  it('wraps text content in user_message tags', () => {
+    const result = buildUserMessageContent(undefined, undefined, [
+      { type: 'text', text: 'Hello from content' },
+    ])
+
+    expect(result).toHaveLength(1)
+    expect(result[0].type).toBe('text')
+    expect((result[0] as any).text).toContain('<user_message>')
+    expect((result[0] as any).text).toContain('Hello from content')
+  })
+
+  it('uses prompt when content has empty text part', () => {
+    const result = buildUserMessageContent('See attached image(s)', undefined, [
+      { type: 'text', text: '' },
+      { type: 'image', image: 'base64data', mediaType: 'image/png' },
+    ])
+
+    expect(result).toHaveLength(2)
+    expect(result[0].type).toBe('text')
+    expect((result[0] as any).text).toContain('See attached image(s)')
+    expect(result[1].type).toBe('image')
+  })
+
+  it('uses prompt when content has whitespace-only text part', () => {
+    const result = buildUserMessageContent('See attached image(s)', undefined, [
+      { type: 'text', text: '   ' },
+      { type: 'image', image: 'base64data', mediaType: 'image/png' },
+    ])
+
+    expect(result).toHaveLength(2)
+    expect(result[0].type).toBe('text')
+    expect((result[0] as any).text).toContain('See attached image(s)')
+    expect(result[1].type).toBe('image')
+  })
+
+  it('uses prompt when content has only images (no text part)', () => {
+    const result = buildUserMessageContent('See attached image(s)', undefined, [
+      { type: 'image', image: 'base64data', mediaType: 'image/png' },
+    ])
+
+    expect(result).toHaveLength(2)
+    expect(result[0].type).toBe('text')
+    expect((result[0] as any).text).toContain('See attached image(s)')
+    expect(result[1].type).toBe('image')
+  })
+
+  it('uses content text when it has meaningful content (ignores prompt)', () => {
+    const result = buildUserMessageContent(
+      'This prompt should be ignored',
+      undefined,
+      [
+        { type: 'text', text: 'User provided text' },
+        { type: 'image', image: 'base64data', mediaType: 'image/png' },
+      ],
+    )
+
+    expect(result).toHaveLength(2)
+    expect(result[0].type).toBe('text')
+    expect((result[0] as any).text).toContain('User provided text')
+    expect((result[0] as any).text).not.toContain(
+      'This prompt should be ignored',
+    )
+    expect(result[1].type).toBe('image')
+  })
+
+  it('ignores whitespace-only prompt when content has no text', () => {
+    const result = buildUserMessageContent('   ', undefined, [
+      { type: 'image', image: 'base64data', mediaType: 'image/png' },
+    ])
+
+    expect(result).toHaveLength(1)
+    expect(result[0].type).toBe('image')
   })
 })
 
