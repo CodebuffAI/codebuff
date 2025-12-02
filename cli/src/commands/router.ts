@@ -27,32 +27,28 @@ import {
 } from '../utils/bash-messages'
 import { showClipboardMessage } from '../utils/clipboard'
 
-import type { PendingBashMessage } from '../state/chat-store'
+
 
 /**
- * Execute a bash command.
- * When ghost=false: adds directly to chat history with placeholder output that updates.
- * When ghost=true: adds to pending messages that appear as ghost while running.
+ * Run a bash command with automatic ghost/direct mode selection.
+ * Uses ghost mode when streaming or chain in progress, otherwise adds directly to chat history.
  */
-function executeBashCommand(
-  command: string,
-  options:
-    | { ghost: false; setMessages: RouterParams['setMessages'] }
-    | {
-        ghost: true
-        addPendingBashMessage: (msg: PendingBashMessage) => void
-        updatePendingBashMessage: (
-          id: string,
-          updates: Partial<PendingBashMessage>,
-        ) => void
-      },
-) {
+export function runBashCommand(command: string) {
+  const {
+    streamingAgents,
+    isChainInProgress,
+    setMessages,
+    addPendingBashMessage,
+    updatePendingBashMessage,
+  } = useChatStore.getState()
+
+  const ghost = streamingAgents.size > 0 || isChainInProgress
   const id = crypto.randomUUID()
   const commandCwd = process.cwd()
 
-  if (options.ghost) {
+  if (ghost) {
     // Ghost mode: add to pending messages
-    options.addPendingBashMessage({
+    addPendingBashMessage({
       id,
       command,
       stdout: '',
@@ -70,7 +66,7 @@ function executeBashCommand(
       toolCallId: id,
       output: '...',
     })
-    options.setMessages((prev) => [...prev, assistantMessage])
+    setMessages((prev) => [...prev, assistantMessage])
   }
 
   runTerminalCommand({
@@ -85,8 +81,8 @@ function executeBashCommand(
       const stderr = 'stderr' in value ? value.stderr || '' : ''
       const exitCode = 'exitCode' in value ? value.exitCode ?? 0 : 0
 
-      if (options.ghost) {
-        options.updatePendingBashMessage(id, {
+      if (ghost) {
+        updatePendingBashMessage(id, {
           stdout,
           stderr,
           exitCode,
@@ -102,7 +98,7 @@ function executeBashCommand(
         })
         const outputJson = JSON.stringify(toolResultOutput)
 
-        options.setMessages((prev) =>
+        setMessages((prev) =>
           prev.map((msg) => {
             if (!msg.blocks) return msg
             let didUpdate = false
@@ -119,7 +115,7 @@ function executeBashCommand(
 
         // Also add to pending bash messages so the next user message includes this context for the LLM
         // Mark as already added to history to avoid duplicate UI entries
-        useChatStore.getState().addPendingBashMessage({
+        addPendingBashMessage({
           id,
           command,
           stdout,
@@ -135,8 +131,8 @@ function executeBashCommand(
       const errorMessage =
         error instanceof Error ? error.message : String(error)
 
-      if (options.ghost) {
-        options.updatePendingBashMessage(id, {
+      if (ghost) {
+        updatePendingBashMessage(id, {
           stdout: '',
           stderr: errorMessage,
           exitCode: 1,
@@ -153,7 +149,7 @@ function executeBashCommand(
         })
         const errorOutputJson = JSON.stringify(errorToolResultOutput)
 
-        options.setMessages((prev) =>
+        setMessages((prev) =>
           prev.map((msg) => {
             if (!msg.blocks) return msg
             let didUpdate = false
@@ -170,7 +166,7 @@ function executeBashCommand(
 
         // Also add to pending bash messages so the next user message includes this context for the LLM
         // Mark as already added to history to avoid duplicate UI entries
-        useChatStore.getState().addPendingBashMessage({
+        addPendingBashMessage({
           id,
           command,
           stdout: '',
@@ -255,35 +251,14 @@ export async function routeUserPrompt(
     setInputFocused(true)
     inputRef.current?.focus()
 
-    if (isBusy) {
-      const { addPendingBashMessage, updatePendingBashMessage } =
-        useChatStore.getState()
-      executeBashCommand(trimmed, {
-        ghost: true,
-        addPendingBashMessage,
-        updatePendingBashMessage,
-      })
-    } else {
-      executeBashCommand(trimmed, { ghost: false, setMessages })
-    }
+    runBashCommand(trimmed)
     return
   }
 
   // Handle bash commands from queue (starts with '!')
   if (trimmed.startsWith('!') && trimmed.length > 1) {
     const command = trimmed.slice(1)
-
-    if (isBusy) {
-      const { addPendingBashMessage, updatePendingBashMessage } =
-        useChatStore.getState()
-      executeBashCommand(command, {
-        ghost: true,
-        addPendingBashMessage,
-        updatePendingBashMessage,
-      })
-    } else {
-      executeBashCommand(command, { ghost: false, setMessages })
-    }
+    runBashCommand(command)
     return
   }
 

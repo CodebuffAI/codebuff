@@ -6,13 +6,16 @@ import type { InputMode } from '../utils/input-modes'
  * Tests for bash mode functionality in the CLI.
  *
  * Bash mode is entered when user types '!' and allows running terminal commands.
- * The '!' is displayed in a red column but not stored in the input value.
+ * The '!' is displayed in a green column but not stored in the input value.
  *
  * Key behaviors:
  * 1. Typing '!' enters bash mode and clears input to ''
  * 2. In bash mode, input is stored WITHOUT '!' prefix
  * 3. Backspace at cursor position 0 exits bash mode (even with input)
  * 4. Submission prepends '!' to the command
+ *
+ * Note: Tests for runBashCommand and /bash slash command are in
+ * cli/src/commands/__tests__/bash-command.test.ts
  */
 
 describe('bash-mode', () => {

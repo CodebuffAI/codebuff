@@ -1,6 +1,7 @@
 import { handleImageCommand } from './image'
 import { handleInitializationFlowLocally } from './init'
 import { handleReferralCode } from './referral'
+import { runBashCommand } from './router'
 import { normalizeReferralCode } from './router-utils'
 import { handleUsageCommand } from './usage'
 import { useChatStore } from '../state/chat-store'
@@ -73,7 +74,19 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   {
     name: 'bash',
     aliases: ['!'],
-    handler: (params) => {
+    handler: (params, args) => {
+      const trimmedArgs = args.trim()
+
+      // If user provided a command directly, execute it immediately
+      if (trimmedArgs) {
+        const commandWithBang = '!' + trimmedArgs
+        params.saveToHistory(commandWithBang)
+        clearInput(params)
+        runBashCommand(trimmedArgs)
+        return
+      }
+
+      // Otherwise enter bash mode
       useChatStore.getState().setInputMode('bash')
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
