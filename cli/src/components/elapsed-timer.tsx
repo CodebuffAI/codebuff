@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { TextAttributes } from '@opentui/core'
 
 import { useTheme } from '../hooks/use-theme'
 import { formatElapsedTime } from '../utils/format-elapsed-time'
@@ -7,7 +6,7 @@ import { formatElapsedTime } from '../utils/format-elapsed-time'
 interface ElapsedTimerProps {
   startTime: number | null
   suffix?: string
-  attributes?: TextAttributes
+  attributes?: number
 }
 
 /**
