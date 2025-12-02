@@ -28,7 +28,7 @@ export class ClaudeRunner implements Runner {
         '--verbose',
         '--dangerously-skip-permissions',
         '--model',
-        'opus',
+        'claude-opus-4-5-20251101',
       ]
 
       console.log(`[ClaudeRunner] Running: claude ${args.join(' ')}`)
