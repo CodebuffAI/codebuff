@@ -164,24 +164,6 @@ npm install -g @openai/codex
 # Set OPENAI_API_KEY environment variable
 ```
 
-## Testing External Runners
-
-Use the test script to verify external runners are working:
-
-```bash
-# Test Claude Code runner
-bun run evals/buffbench/test-external-runners.ts claude
-
-# Test Codex runner
-bun run evals/buffbench/test-external-runners.ts codex
-
-# Test both runners on same task
-bun run evals/buffbench/test-external-runners.ts both
-
-# Compare Codebuff vs Claude
-bun run evals/buffbench/test-external-runners.ts compare
-```
-
 ## Directory Structure
 
 ```
