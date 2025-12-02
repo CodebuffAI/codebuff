@@ -20,7 +20,7 @@ export class CodexRunner implements Runner {
       // Use exec subcommand with --full-auto for automatic execution
       // --full-auto enables -a on-failure and --sandbox workspace-write
       // Use --json for structured output that we can parse
-      const args = ['exec', '--full-auto', '--json', prompt]
+      const args = ['exec', '--full-auto', '--json', '-m', 'gpt-5.1-codex-max', prompt]
 
       console.log(`[CodexRunner] Running: codex ${args.join(' ')}`)
 

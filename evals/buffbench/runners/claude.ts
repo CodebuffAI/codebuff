@@ -27,6 +27,8 @@ export class ClaudeRunner implements Runner {
         'stream-json',
         '--verbose',
         '--dangerously-skip-permissions',
+        '--model',
+        'opus',
       ]
 
       console.log(`[ClaudeRunner] Running: claude ${args.join(' ')}`)
