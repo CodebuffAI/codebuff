@@ -26,32 +26,30 @@ export async function addPendingImageFromFile(
   const result = await processImageFile(imagePath, cwd)
 
   // Update the pending image with processed data
-  const store = useChatStore.getState()
-  const pendingImages = store.pendingImages
-  const updatedImages = pendingImages.map((img) => {
-    if (img.path !== imagePath) return img
+  useChatStore.setState((state) => ({
+    pendingImages: state.pendingImages.map((img) => {
+      if (img.path !== imagePath) return img
 
-    if (result.success && result.imagePart) {
-      return {
-        ...img,
-        size: result.imagePart.size,
-        width: result.imagePart.width,
-        height: result.imagePart.height,
-        note: result.wasCompressed ? 'compressed' : undefined,
-        processedImage: {
-          base64: result.imagePart.image,
-          mediaType: result.imagePart.mediaType,
-        },
+      if (result.success && result.imagePart) {
+        return {
+          ...img,
+          size: result.imagePart.size,
+          width: result.imagePart.width,
+          height: result.imagePart.height,
+          note: result.wasCompressed ? 'compressed' : undefined,
+          processedImage: {
+            base64: result.imagePart.image,
+            mediaType: result.imagePart.mediaType,
+          },
+        }
       }
-    } else {
+
       return {
         ...img,
         note: result.error || 'failed',
       }
-    }
-  })
-
-  useChatStore.setState({ pendingImages: updatedImages })
+    }),
+  }))
 }
 
 /**
@@ -107,8 +105,8 @@ export function addPendingImageWithError(
 
 /**
  * Validate and add an image from a file path.
- * Returns { success: true } if the image was added (for processing or with an error),
- * or { success: false, error } if the file doesn't exist.
+ * Returns { success: true } if the image was added for processing,
+ * or { success: false, error } if the file doesn't exist or isn't supported.
  */
 export async function validateAndAddImage(
   imagePath: string,
@@ -118,15 +116,17 @@ export async function validateAndAddImage(
   
   // Check if file exists
   if (!existsSync(resolvedPath)) {
-    addPendingImageWithError(imagePath, '❌ file not found')
-    return { success: true }
+    const error = 'file not found'
+    addPendingImageWithError(imagePath, `❌ ${error}`)
+    return { success: false, error }
   }
   
   // Check if it's a supported format
   if (!isImageFile(resolvedPath)) {
     const ext = path.extname(imagePath).toLowerCase()
-    addPendingImageWithError(resolvedPath, `❌ unsupported format ${ext}`)
-    return { success: true }
+    const error = ext ? `unsupported format ${ext}` : 'unsupported format'
+    addPendingImageWithError(resolvedPath, `❌ ${error}`)
+    return { success: false, error }
   }
   
   // Process and add the image
