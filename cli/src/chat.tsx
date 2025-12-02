@@ -14,7 +14,7 @@ import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
 import { addClipboardPlaceholder, addPendingImageFromFile } from './utils/add-pending-image'
 import { getProjectRoot } from './project-files'
 import { AnnouncementBanner } from './components/announcement-banner'
-import { hasClipboardImage, readClipboardImage, readClipboardText } from './utils/clipboard-image'
+import { readClipboardImage } from './utils/clipboard-image'
 import { showClipboardMessage } from './utils/clipboard'
 import { ChatInputBar } from './components/chat-input-bar'
 import { MessageWithAgents } from './components/message-with-agents'
@@ -1021,24 +1021,8 @@ export const Chat = ({
       onPasteImage: () => {
         const placeholderPath = addClipboardPlaceholder()
 
+        // Process the image in the background
         setTimeout(() => {
-          if (!hasClipboardImage()) {
-            useChatStore.getState().removePendingImage(placeholderPath)
-            const text = readClipboardText()
-            if (text) {
-              setInputValue((prev) => {
-                const before = prev.text.slice(0, prev.cursorPosition)
-                const after = prev.text.slice(prev.cursorPosition)
-                return {
-                  text: before + text + after,
-                  cursorPosition: before.length + text.length,
-                  lastEditDueToNav: false,
-                }
-              })
-            }
-            return
-          }
-
           const result = readClipboardImage()
           if (!result.success || !result.imagePath) {
             useChatStore.getState().removePendingImage(placeholderPath)
@@ -1051,8 +1035,17 @@ export const Chat = ({
           const cwd = getProjectRoot() ?? process.cwd()
           void addPendingImageFromFile(result.imagePath, cwd, placeholderPath)
         }, 0)
-
-        return true
+      },
+      onPasteText: (text: string) => {
+        setInputValue((prev) => {
+          const before = prev.text.slice(0, prev.cursorPosition)
+          const after = prev.text.slice(prev.cursorPosition)
+          return {
+            text: before + text + after,
+            cursorPosition: before.length + text.length,
+            lastEditDueToNav: false,
+          }
+        })
       },
     }),
     [

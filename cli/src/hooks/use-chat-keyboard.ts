@@ -7,6 +7,7 @@ import {
   type ChatKeyboardState,
   type ChatKeyboardAction,
 } from '../utils/keyboard-actions'
+import { hasClipboardImage, readClipboardText } from '../utils/clipboard-image'
 
 /**
  * Handlers for chat keyboard actions.
@@ -62,7 +63,8 @@ export type ChatKeyboardHandlers = {
   onBashHistoryDown: () => void
 
   // Clipboard handlers
-  onPasteImage: () => boolean // Returns true if an image was pasted
+  onPasteImage: () => void
+  onPasteText: (text: string) => void
 }
 
 /**
@@ -166,8 +168,21 @@ function dispatchAction(
     case 'bash-history-down':
       handlers.onBashHistoryDown()
       return true
-    case 'paste-image':
-      return handlers.onPasteImage()
+    case 'paste': {
+      // Check for image FIRST - many apps put both text and image on clipboard
+      // when copying an image (e.g., Chrome, Slack, Finder), so we prioritize image
+      if (hasClipboardImage()) {
+        handlers.onPasteImage()
+        return true
+      }
+      // No image - try text
+      const text = readClipboardText()
+      if (text) {
+        handlers.onPasteText(text)
+        return true
+      }
+      return true
+    }
     case 'none':
       return false
   }

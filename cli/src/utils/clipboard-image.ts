@@ -263,7 +263,7 @@ function readImageWindows(): ClipboardImageResult {
 }
 
 /**
- * Check if clipboard contains an image
+ * Check if clipboard contains an image (cross-platform)
  */
 export function hasClipboardImage(): boolean {
   const platform = process.platform
@@ -333,3 +333,4 @@ export function readClipboardText(): string | null {
     return null
   }
 }
+

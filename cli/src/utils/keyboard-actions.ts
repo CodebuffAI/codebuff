@@ -91,8 +91,8 @@ export type ChatKeyboardAction =
   | { type: 'bash-history-up' }
   | { type: 'bash-history-down' }
 
-  // Paste actions
-  | { type: 'paste-image' }
+  // Paste action (dispatcher checks clipboard content to route to image or text handler)
+  | { type: 'paste' }
 
   // No action needed
   | { type: 'none' }
@@ -284,9 +284,9 @@ export function resolveChatKeyboardAction(
     return { type: 'unfocus-agent' }
   }
 
-  // Priority 13: Paste image (ctrl-v)
+  // Priority 13: Paste (ctrl-v)
   if (isCtrlV) {
-    return { type: 'paste-image' }
+    return { type: 'paste' }
   }
 
   // Priority 14: Exit app (ctrl-c double-tap)
