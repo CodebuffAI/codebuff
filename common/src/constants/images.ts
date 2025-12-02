@@ -21,6 +21,14 @@ export function isSupportedImageExtension(ext: string): boolean {
   return SUPPORTED_IMAGE_EXTENSIONS.has(ext.toLowerCase())
 }
 
+/**
+ * Image extensions as a regex alternation pattern (without dots)
+ * e.g., "jpg|jpeg|png|webp|gif|bmp|tiff|tif"
+ */
+export const IMAGE_EXTENSIONS_PATTERN = Array.from(SUPPORTED_IMAGE_EXTENSIONS)
+  .map((ext) => ext.slice(1)) // Remove leading dot
+  .join('|')
+
 // Size limits for image uploads
 // Research shows Claude/GPT-4V support up to 20MB, but we use practical limits
 // for good performance and token efficiency

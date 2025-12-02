@@ -7,6 +7,7 @@ import {
   MAX_IMAGE_FILE_SIZE,
   MAX_IMAGE_BASE64_SIZE,
   MAX_TOTAL_IMAGE_SIZE,
+  IMAGE_EXTENSIONS_PATTERN,
 } from '@codebuff/common/constants/images'
 import { Jimp } from 'jimp'
 
@@ -308,7 +309,6 @@ export async function processImageFile(
  */
 export function extractImagePaths(input: string): string[] {
   const paths: string[] = []
-  const imageExts = 'jpg|jpeg|png|webp|gif|bmp|tiff|tif'
 
   // Skip paths inside code blocks
   const cleanInput = input.replace(/```[\s\S]*?```|`[^`]*`/g, ' ')
@@ -327,10 +327,10 @@ export function extractImagePaths(input: string): string[] {
 
   // Path patterns to detect
   const patterns = [
-    `(?:^|\\s)((?:[~/]|[A-Za-z]:\\\\)[^\\s"']*\\.(?:${imageExts}))(?=\\s|$|[.,!?;)\\]}>])`, // Absolute paths
-    `(?:^|\\s)(\\.\\.?[\\/\\\\][^\\s"']*\\.(?:${imageExts}))(?=\\s|$|[.,!?;)\\]}>])`, // ./path, ../path
-    `(?:^|\\s)((?![^\\s]*:\\/\\/|@)[^\\s"':]*[\\/\\\\][^\\s"']*\\.(?:${imageExts}))(?=\\s|$|[.,!?;)\\]}>])`, // relative/path
-    `["']([^"']*[\\/\\\\][^"']*\\.(?:${imageExts}))["']`, // Quoted paths
+    `(?:^|\\s)((?:[~/]|[A-Za-z]:\\\\)[^\\s"']*\\.(?:${IMAGE_EXTENSIONS_PATTERN}))(?=\\s|$|[.,!?;)\\]}>])`, // Absolute paths
+    `(?:^|\\s)(\\.\\.?[\\/\\\\][^\\s"']*\\.(?:${IMAGE_EXTENSIONS_PATTERN}))(?=\\s|$|[.,!?;)\\]}>])`, // ./path, ../path
+    `(?:^|\\s)((?![^\\s]*:\\/\\/|@)[^\\s"':]*[\\/\\\\][^\\s"']*\\.(?:${IMAGE_EXTENSIONS_PATTERN}))(?=\\s|$|[.,!?;)\\]}>])`, // relative/path
+    `["']([^"']*[\\/\\\\][^"']*\\.(?:${IMAGE_EXTENSIONS_PATTERN}))["']`, // Quoted paths
   ]
 
   for (const pattern of patterns) {
