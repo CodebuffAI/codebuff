@@ -87,7 +87,7 @@ export type ModeState = {
   setHasReceivedPlanResponse: (value: boolean) => void
 }
 
-export type EventHandlerContext = {
+export type EventHandlerState = {
   streaming: StreamingState
   message: MessageState
   subagents: SubagentState
@@ -110,36 +110,36 @@ const isHiddenToolName = (
 ): toolName is ToolName | 'spawn_agent_inline' =>
   hiddenToolNames.has(toolName as ToolName | 'spawn_agent_inline')
 
-const ensureStreaming = (ctx: EventHandlerContext) => {
-  if (!ctx.message.hasReceivedContentRef.current) {
-    ctx.message.hasReceivedContentRef.current = true
-    ctx.streaming.setStreamStatus('streaming')
-    ctx.setIsRetrying(false)
+const ensureStreaming = (state: EventHandlerState) => {
+  if (!state.message.hasReceivedContentRef.current) {
+    state.message.hasReceivedContentRef.current = true
+    state.streaming.setStreamStatus('streaming')
+    state.setIsRetrying(false)
   }
 }
 
-const appendRootChunk = (ctx: EventHandlerContext, delta: TextDelta) => {
+const appendRootChunk = (state: EventHandlerState, delta: TextDelta) => {
   if (!delta.text) {
     return
   }
 
-  ctx.message.updater.updateAiMessageBlocks((blocks) =>
+  state.message.updater.updateAiMessageBlocks((blocks) =>
     appendTextToRootStream(blocks, delta),
   )
 
   if (
-    ctx.mode.agentMode === 'PLAN' &&
+    state.mode.agentMode === 'PLAN' &&
     delta.type === 'text' &&
-    !ctx.streaming.streamRefs.state.planExtracted &&
-    ctx.streaming.streamRefs.state.rootStreamBuffer.includes('</PLAN>')
+    !state.streaming.streamRefs.state.planExtracted &&
+    state.streaming.streamRefs.state.rootStreamBuffer.includes('</PLAN>')
   ) {
     const rawPlan = extractPlanFromBuffer(
-      ctx.streaming.streamRefs.state.rootStreamBuffer,
+      state.streaming.streamRefs.state.rootStreamBuffer,
     )
     if (rawPlan !== null) {
-      ctx.streaming.streamRefs.setters.setPlanExtracted(true)
-      ctx.mode.setHasReceivedPlanResponse(true)
-      ctx.message.updater.updateAiMessageBlocks((blocks) =>
+      state.streaming.streamRefs.setters.setPlanExtracted(true)
+      state.mode.setHasReceivedPlanResponse(true)
+      state.message.updater.updateAiMessageBlocks((blocks) =>
         insertPlanBlock(blocks, rawPlan),
       )
     }
@@ -147,10 +147,10 @@ const appendRootChunk = (ctx: EventHandlerContext, delta: TextDelta) => {
 }
 
 const updateStreamingAgents = (
-  ctx: EventHandlerContext,
+  state: EventHandlerState,
   op: { add?: string; remove?: string },
 ) => {
-  ctx.streaming.setStreamingAgents((prev) => {
+  state.streaming.setStreamingAgents((prev) => {
     const next = new Set(prev)
     if (op.remove) {
       next.delete(op.remove)
@@ -162,57 +162,57 @@ const updateStreamingAgents = (
   })
 }
 
-const handleTextEvent = (ctx: EventHandlerContext, event: PrintModeText) => {
+const handleTextEvent = (state: EventHandlerState, event: PrintModeText) => {
   if (!event.text) {
     return
   }
 
-  ensureStreaming(ctx)
+  ensureStreaming(state)
 
   const destination = destinationFromTextEvent(event)
   const text = event.text
 
   if (destination.type === 'agent') {
     const previous =
-      ctx.streaming.streamRefs.state.agentStreamAccumulators.get(
+      state.streaming.streamRefs.state.agentStreamAccumulators.get(
         destination.agentId,
       ) ?? ''
-    ctx.streaming.streamRefs.setters.setAgentAccumulator(
+    state.streaming.streamRefs.setters.setAgentAccumulator(
       destination.agentId,
       previous + text,
     )
-    ctx.message.updater.updateAiMessageBlocks((blocks) =>
+    state.message.updater.updateAiMessageBlocks((blocks) =>
       processTextChunk(blocks, destination, text),
     )
     return
   }
 
-  if (ctx.streaming.streamRefs.state.rootStreamSeen) {
+  if (state.streaming.streamRefs.state.rootStreamSeen) {
     return
   }
 
-  ctx.streaming.streamRefs.setters.appendRootStreamBuffer(text)
-  ctx.streaming.streamRefs.setters.setRootStreamSeen(true)
-  appendRootChunk(ctx, { type: destination.textType, text })
+  state.streaming.streamRefs.setters.appendRootStreamBuffer(text)
+  state.streaming.streamRefs.setters.setRootStreamSeen(true)
+  appendRootChunk(state, { type: destination.textType, text })
 }
 
 const handleSubagentStart = (
-  ctx: EventHandlerContext,
+  state: EventHandlerState,
   event: PrintModeSubagentStart,
 ) => {
   if (shouldHideAgent(event.agentType)) {
     return
   }
 
-  ctx.subagents.addActiveSubagent(event.agentId)
+  state.subagents.addActiveSubagent(event.agentId)
 
   const spawnAgentMatch = findMatchingSpawnAgent(
-    ctx.streaming.streamRefs.state.spawnAgentsMap,
+    state.streaming.streamRefs.state.spawnAgentsMap,
     event.agentType || '',
   )
 
   if (spawnAgentMatch) {
-    ctx.logger.info(
+    state.logger.info(
       {
         tempId: spawnAgentMatch.tempId,
         realAgentId: event.agentId,
@@ -222,7 +222,7 @@ const handleSubagentStart = (
       'Matching spawn_agents block found',
     )
 
-    ctx.message.updater.updateAiMessageBlocks((blocks) =>
+    state.message.updater.updateAiMessageBlocks((blocks) =>
       resolveSpawnAgentToReal({
         blocks,
         match: spawnAgentMatch,
@@ -233,17 +233,17 @@ const handleSubagentStart = (
       }),
     )
 
-    updateStreamingAgents(ctx, {
+    updateStreamingAgents(state, {
       remove: spawnAgentMatch.tempId,
       add: event.agentId,
     })
-    ctx.streaming.streamRefs.setters.removeSpawnAgentInfo(
+    state.streaming.streamRefs.setters.removeSpawnAgentInfo(
       spawnAgentMatch.tempId,
     )
     return
   }
 
-  ctx.logger.info(
+  state.logger.info(
     {
       agentId: event.agentId,
       agentType: event.agentType,
@@ -259,7 +259,7 @@ const handleSubagentStart = (
     params: event.params,
   })
 
-  ctx.message.updater.updateAiMessageBlocks((blocks) => {
+  state.message.updater.updateAiMessageBlocks((blocks) => {
     if (event.parentAgentId) {
       const { blocks: nestedBlocks, parentFound } = nestBlockUnderParent(
         blocks,
@@ -273,42 +273,42 @@ const handleSubagentStart = (
     return [...blocks, newAgentBlock]
   })
 
-  updateStreamingAgents(ctx, { add: event.agentId })
+  updateStreamingAgents(state, { add: event.agentId })
 }
 
 const handleSubagentFinish = (
-  ctx: EventHandlerContext,
+  state: EventHandlerState,
   event: PrintModeSubagentFinish,
 ) => {
   if (shouldHideAgent(event.agentType)) {
     return
   }
 
-  ctx.streaming.streamRefs.setters.removeAgentAccumulator(event.agentId)
-  ctx.subagents.removeActiveSubagent(event.agentId)
+  state.streaming.streamRefs.setters.removeAgentAccumulator(event.agentId)
+  state.subagents.removeActiveSubagent(event.agentId)
 
-  ctx.message.updater.updateAiMessageBlocks((blocks) =>
+  state.message.updater.updateAiMessageBlocks((blocks) =>
     markAgentComplete(blocks, event.agentId),
   )
 
-  updateStreamingAgents(ctx, { remove: event.agentId })
+  updateStreamingAgents(state, { remove: event.agentId })
 }
 
 const handleSpawnAgentsToolCall = (
-  ctx: EventHandlerContext,
+  state: EventHandlerState,
   event: PrintModeToolCall,
 ) => {
   const agents = Array.isArray(event.input?.agents) ? event.input?.agents : []
 
   agents.forEach((agent: any, index: number) => {
     const tempAgentId = `${event.toolCallId}-${index}`
-    ctx.streaming.streamRefs.setters.setSpawnAgentInfo(tempAgentId, {
+    state.streaming.streamRefs.setters.setSpawnAgentInfo(tempAgentId, {
       index,
       agentType: agent.agent_type || 'unknown',
     })
   })
 
-  ctx.message.updater.updateAiMessageBlocks((blocks) => {
+  state.message.updater.updateAiMessageBlocks((blocks) => {
     const newAgentBlocks: ContentBlock[] = agents
       .filter((agent: any) => !shouldHideAgent(agent.agent_type || ''))
       .map((agent: any, index: number) =>
@@ -323,12 +323,12 @@ const handleSpawnAgentsToolCall = (
   })
 
   agents.forEach((_: any, index: number) => {
-    updateStreamingAgents(ctx, { add: `${event.toolCallId}-${index}` })
+    updateStreamingAgents(state, { add: `${event.toolCallId}-${index}` })
   })
 }
 
 const handleRegularToolCall = (
-  ctx: EventHandlerContext,
+  state: EventHandlerState,
   event: PrintModeToolCall,
 ) => {
   const newToolBlock: ToolContentBlock = {
@@ -343,21 +343,21 @@ const handleRegularToolCall = (
   }
 
   if (event.parentAgentId && event.agentId) {
-    ctx.message.updater.updateAiMessageBlocks((blocks) =>
+    state.message.updater.updateAiMessageBlocks((blocks) =>
       appendToolToAgentBlock(blocks, event.agentId as string, newToolBlock),
     )
     return
   }
 
-  ctx.message.updater.updateAiMessageBlocks((blocks) => [
+  state.message.updater.updateAiMessageBlocks((blocks) => [
     ...blocks,
     newToolBlock,
   ])
 }
 
-const handleToolCall = (ctx: EventHandlerContext, event: PrintModeToolCall) => {
+const handleToolCall = (state: EventHandlerState, event: PrintModeToolCall) => {
   if (event.toolName === 'spawn_agents' && event.input?.agents) {
-    handleSpawnAgentsToolCall(ctx, event)
+    handleSpawnAgentsToolCall(state, event)
     return
   }
 
@@ -365,17 +365,17 @@ const handleToolCall = (ctx: EventHandlerContext, event: PrintModeToolCall) => {
     return
   }
 
-  handleRegularToolCall(ctx, event)
-  updateStreamingAgents(ctx, { add: event.toolCallId })
+  handleRegularToolCall(state, event)
+  updateStreamingAgents(state, { add: event.toolCallId })
 }
 
 const handleSpawnAgentsResult = (
-  ctx: EventHandlerContext,
+  state: EventHandlerState,
   toolCallId: string,
   results: any[],
 ) => {
   // Replace placeholder spawn agent blocks with their final text/status output.
-  ctx.message.updater.updateAiMessageBlocks((blocks) =>
+  state.message.updater.updateAiMessageBlocks((blocks) =>
     blocks.map((block) => {
       if (
         block.type === 'agent' &&
@@ -409,16 +409,16 @@ const handleSpawnAgentsResult = (
 
   results.forEach((_, index: number) => {
     const agentId = `${toolCallId}-${index}`
-    updateStreamingAgents(ctx, { remove: agentId })
+    updateStreamingAgents(state, { remove: agentId })
   })
 }
 
 const handleToolResult = (
-  ctx: EventHandlerContext,
+  state: EventHandlerState,
   event: PrintModeToolResult,
 ) => {
   const askUserResult = (event.output?.[0] as any)?.value
-  ctx.message.updater.updateAiMessageBlocks((blocks) =>
+  state.message.updater.updateAiMessageBlocks((blocks) =>
     transformAskUserBlocks(blocks, {
       toolCallId: event.toolCallId,
       resultValue: askUserResult,
@@ -433,28 +433,28 @@ const handleToolResult = (
     firstOutputValue.some((v: any) => v?.agentName || v?.agentType)
 
   if (isSpawnAgentsResult && Array.isArray(firstOutputValue)) {
-    handleSpawnAgentsResult(ctx, event.toolCallId, firstOutputValue)
+    handleSpawnAgentsResult(state, event.toolCallId, firstOutputValue)
     return
   }
 
-  ctx.message.updater.updateAiMessageBlocks((blocks) =>
+  state.message.updater.updateAiMessageBlocks((blocks) =>
     updateToolBlockWithOutput(blocks, {
       toolCallId: event.toolCallId,
       toolOutput: event.output,
     }),
   )
 
-  updateStreamingAgents(ctx, { remove: event.toolCallId })
+  updateStreamingAgents(state, { remove: event.toolCallId })
 }
 
-const handleFinish = (ctx: EventHandlerContext, event: PrintModeFinish) => {
-  if (typeof event.totalCost === 'number' && ctx.onTotalCost) {
-    ctx.onTotalCost(event.totalCost)
+const handleFinish = (state: EventHandlerState, event: PrintModeFinish) => {
+  if (typeof event.totalCost === 'number' && state.onTotalCost) {
+    state.onTotalCost(event.totalCost)
   }
 }
 
 export const createStreamChunkHandler =
-  (ctx: EventHandlerContext) => (event: StreamChunkEvent) => {
+  (state: EventHandlerState) => (event: StreamChunkEvent) => {
     const destination = destinationFromChunkEvent(event)
     let text: string | undefined
     if (typeof event === 'string') {
@@ -464,7 +464,7 @@ export const createStreamChunkHandler =
     }
 
     if (!destination) {
-      ctx.logger.warn({ event }, 'Unhandled stream chunk event')
+      state.logger.warn({ event }, 'Unhandled stream chunk event')
       return
     }
 
@@ -472,40 +472,40 @@ export const createStreamChunkHandler =
       return
     }
 
-    ensureStreaming(ctx)
+    ensureStreaming(state)
 
     if (destination.type === 'root') {
       if (destination.textType === 'text') {
-        ctx.streaming.streamRefs.setters.appendRootStreamBuffer(text)
+        state.streaming.streamRefs.setters.appendRootStreamBuffer(text)
       }
-      ctx.streaming.streamRefs.setters.setRootStreamSeen(true)
-      appendRootChunk(ctx, { type: destination.textType, text })
+      state.streaming.streamRefs.setters.setRootStreamSeen(true)
+      appendRootChunk(state, { type: destination.textType, text })
       return
     }
 
     const previous =
-      ctx.streaming.streamRefs.state.agentStreamAccumulators.get(
+      state.streaming.streamRefs.state.agentStreamAccumulators.get(
         destination.agentId,
       ) ?? ''
 
-    ctx.streaming.streamRefs.setters.setAgentAccumulator(
+    state.streaming.streamRefs.setters.setAgentAccumulator(
       destination.agentId,
       previous + text,
     )
 
-    ctx.message.updater.updateAiMessageBlocks((blocks) =>
+    state.message.updater.updateAiMessageBlocks((blocks) =>
       processTextChunk(blocks, destination, text),
     )
   }
 
 export const createEventHandler =
-  (ctx: EventHandlerContext) => (event: SDKEvent) => {
+  (state: EventHandlerState) => (event: SDKEvent) => {
     return match(event)
-      .with({ type: 'text' }, (e) => handleTextEvent(ctx, e))
-      .with({ type: 'subagent_start' }, (e) => handleSubagentStart(ctx, e))
-      .with({ type: 'subagent_finish' }, (e) => handleSubagentFinish(ctx, e))
-      .with({ type: 'tool_call' }, (e) => handleToolCall(ctx, e))
-      .with({ type: 'tool_result' }, (e) => handleToolResult(ctx, e))
-      .with({ type: 'finish' }, (e) => handleFinish(ctx, e))
+      .with({ type: 'text' }, (e) => handleTextEvent(state, e))
+      .with({ type: 'subagent_start' }, (e) => handleSubagentStart(state, e))
+      .with({ type: 'subagent_finish' }, (e) => handleSubagentFinish(state, e))
+      .with({ type: 'tool_call' }, (e) => handleToolCall(state, e))
+      .with({ type: 'tool_result' }, (e) => handleToolResult(state, e))
+      .with({ type: 'finish' }, (e) => handleFinish(state, e))
       .otherwise(() => undefined)
   }

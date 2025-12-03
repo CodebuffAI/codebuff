@@ -4,6 +4,9 @@ import { getInputModeConfig } from '../utils/input-modes'
 
 import type { InputMode } from '../utils/input-modes'
 
+// Helper type for mock functions
+type MockSetInputMode = (mode: InputMode) => void
+
 /**
  * Tests for referral mode functionality in the CLI.
  *
@@ -21,7 +24,7 @@ import type { InputMode } from '../utils/input-modes'
 describe('referral-mode', () => {
   describe('entering referral mode', () => {
     test('typing "/referral" enters referral mode', () => {
-      const setInputMode = mock(() => {})
+      const setInputMode = mock<MockSetInputMode>((_mode) => {})
       const command = '/referral'
 
       // Simulate command processing
@@ -33,7 +36,7 @@ describe('referral-mode', () => {
     })
 
     test('typing "/redeem" also enters referral mode', () => {
-      const setInputMode = mock(() => {})
+      const setInputMode = mock<MockSetInputMode>((_mode) => {})
       const command = '/redeem' as string
 
       if (command === '/referral' || command === '/redeem') {
@@ -44,8 +47,8 @@ describe('referral-mode', () => {
     })
 
     test('/referral with a code argument redeems immediately without entering mode', () => {
-      const setInputMode = mock(() => {})
-      const handleReferralCode = mock(async () => {})
+      const setInputMode = mock<MockSetInputMode>((_mode) => {})
+      const handleReferralCode = mock(async (_code: string) => {})
       const command = '/referral abc123'
 
       // Simulate handler logic
@@ -65,7 +68,7 @@ describe('referral-mode', () => {
 
   describe('exiting referral mode', () => {
     test('backspace at cursor position 0 exits referral mode', () => {
-      const setInputMode = mock(() => {})
+      const setInputMode = mock<MockSetInputMode>((_mode) => {})
 
       const inputMode = 'referral' as InputMode
       const cursorPosition = 0
@@ -84,7 +87,7 @@ describe('referral-mode', () => {
     })
 
     test('backspace at cursor position 0 with non-empty input DOES exit referral mode', () => {
-      const setInputMode = mock(() => {})
+      const setInputMode = mock<MockSetInputMode>((_mode) => {})
 
       const inputMode = 'referral' as InputMode
       const cursorPosition = 0
@@ -103,7 +106,7 @@ describe('referral-mode', () => {
     })
 
     test('backspace at cursor position > 0 does NOT exit referral mode', () => {
-      const setInputMode = mock(() => {})
+      const setInputMode = mock<MockSetInputMode>((_mode) => {})
 
       const inputMode = 'referral' as InputMode
       const cursorPosition = 5 as number
@@ -122,7 +125,7 @@ describe('referral-mode', () => {
     })
 
     test('other keys at cursor position 0 do NOT exit referral mode', () => {
-      const setInputMode = mock(() => {})
+      const setInputMode = mock<MockSetInputMode>((_mode) => {})
 
       const inputMode = 'referral' as InputMode
       const cursorPosition = 0
@@ -316,7 +319,7 @@ describe('referral-mode', () => {
     })
 
     test('submission exits referral mode after processing', () => {
-      const setInputMode = mock(() => {})
+      const setInputMode = mock<MockSetInputMode>((_mode) => {})
 
       // After submission, referral mode should be exited
       setInputMode('default')
@@ -325,8 +328,8 @@ describe('referral-mode', () => {
     })
 
     test('invalid code shows error and exits referral mode', () => {
-      const setInputMode = mock(() => {})
-      const showError = mock(() => {})
+      const setInputMode = mock<MockSetInputMode>((_mode) => {})
+      const showError = mock((_msg: string) => {})
       const trimmedInput = 'ab' // Too short
       const pattern = /^[a-zA-Z0-9-]{3,50}$/
 
@@ -459,7 +462,7 @@ describe('referral-mode', () => {
 
   describe('integration with command router', () => {
     test('referral mode input is routed to handleReferralCode', () => {
-      const handleReferralCode = mock(async () => {})
+      const handleReferralCode = mock(async (_code: string) => {})
       const inputMode = 'referral' as InputMode
       const trimmedInput = 'abc123'
 
@@ -474,7 +477,7 @@ describe('referral-mode', () => {
     })
 
     test('normal mode input is NOT routed to referral handler', () => {
-      const handleReferralCode = mock(async () => {})
+      const handleReferralCode = mock(async (_code: string) => {})
       const inputMode = 'default' as InputMode
       const trimmedInput = 'abc123'
 
@@ -502,8 +505,8 @@ describe('referral-mode', () => {
 
   describe('error handling', () => {
     test('network error during redemption shows error message', async () => {
-      const showError = mock(() => {})
-      const handleReferralCode = mock(async () => {
+      const showError = mock((_msg: string) => {})
+      const handleReferralCode = mock(async (_code: string) => {
         throw new Error('Network error')
       })
 
@@ -521,8 +524,8 @@ describe('referral-mode', () => {
     })
 
     test('validation error prevents redemption attempt', () => {
-      const handleReferralCode = mock(async () => {})
-      const showError = mock(() => {})
+      const handleReferralCode = mock(async (_code: string) => {})
+      const showError = mock((_msg: string) => {})
       const trimmedInput = '!@#' // Invalid characters
       const pattern = /^[a-zA-Z0-9-]{3,50}$/
 

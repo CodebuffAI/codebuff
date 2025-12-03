@@ -1,6 +1,7 @@
 import { describe, test, expect, mock } from 'bun:test'
 
 import type { InputMode } from '../utils/input-modes'
+import type { InputValue } from '../state/chat-store'
 
 /**
  * Tests for bash mode functionality in the CLI.
@@ -21,8 +22,8 @@ import type { InputMode } from '../utils/input-modes'
 describe('bash-mode', () => {
   describe('entering bash mode', () => {
     test('typing exactly "!" enters bash mode and clears input', () => {
-      const setInputMode = mock(() => {})
-      const setInputValue = mock(() => {})
+      const setInputMode = mock((_mode: InputMode) => {})
+      const setInputValue = mock((_value: Partial<InputValue>) => {})
 
       // Simulate user typing '!'
       const inputValue = {
@@ -50,8 +51,8 @@ describe('bash-mode', () => {
     })
 
     test('typing "!ls" does NOT enter bash mode (not exactly "!")', () => {
-      const setInputMode = mock(() => {})
-      const setInputValue = mock(() => {})
+      const setInputMode = mock((_mode: InputMode) => {})
+      const setInputValue = mock((_value: Partial<InputValue>) => {})
 
       // Simulate user typing '!ls'
       const inputValue = {
@@ -78,8 +79,8 @@ describe('bash-mode', () => {
     })
 
     test('typing "!" when already in bash mode does nothing special', () => {
-      const setInputMode = mock(() => {})
-      const setInputValue = mock(() => {})
+      const setInputMode = mock((_mode: InputMode) => {})
+      const setInputValue = mock((_value: Partial<InputValue>) => {})
 
       const inputValue = {
         text: '!',
@@ -108,7 +109,7 @@ describe('bash-mode', () => {
 
   describe('exiting bash mode', () => {
     test('backspace at cursor position 0 exits bash mode', () => {
-      const setInputMode = mock(() => {})
+      const setInputMode = mock((_mode: InputMode) => {})
 
       // Simulate backspace key press in bash mode at cursor position 0
       const inputMode: InputMode = 'bash'
@@ -128,7 +129,7 @@ describe('bash-mode', () => {
     })
 
     test('backspace at cursor position 0 with non-empty input DOES exit bash mode', () => {
-      const setInputMode = mock(() => {})
+      const setInputMode = mock((_mode: InputMode) => {})
 
       const inputMode: InputMode = 'bash'
       const cursorPosition = 0
@@ -147,7 +148,7 @@ describe('bash-mode', () => {
     })
 
     test('backspace at cursor position > 0 does NOT exit bash mode', () => {
-      const setInputMode = mock(() => {})
+      const setInputMode = mock((_mode: InputMode) => {})
 
       const inputMode: InputMode = 'bash'
       const cursorPosition: number = 2
@@ -166,7 +167,7 @@ describe('bash-mode', () => {
     })
 
     test('other keys at cursor position 0 do NOT exit bash mode', () => {
-      const setInputMode = mock(() => {})
+      const setInputMode = mock((_mode: InputMode) => {})
 
       const inputMode: InputMode = 'bash'
       const cursorPosition = 0
@@ -185,7 +186,7 @@ describe('bash-mode', () => {
     })
 
     test('backspace when NOT in bash mode does nothing to bash mode', () => {
-      const setInputMode = mock(() => {})
+      const setInputMode = mock((_mode: InputMode) => {})
 
       const inputMode = 'default' as InputMode
       const cursorPosition = 0
@@ -247,7 +248,7 @@ describe('bash-mode', () => {
     })
 
     test('submission saves command WITH "!" to history', () => {
-      const saveToHistory = mock(() => {})
+      const saveToHistory = mock((_command: string) => {})
       const trimmedInput = 'git status'
       const commandWithBang = '!' + trimmedInput
 
@@ -258,7 +259,7 @@ describe('bash-mode', () => {
     })
 
     test('submission exits bash mode after running command', () => {
-      const setInputMode = mock(() => {})
+      const setInputMode = mock((_mode: InputMode) => {})
 
       // After submission, bash mode should be exited
       setInputMode('default')
@@ -267,7 +268,7 @@ describe('bash-mode', () => {
     })
 
     test('terminal command receives value WITHOUT "!" prefix', () => {
-      const runTerminalCommand = mock(() =>
+      const runTerminalCommand = mock((_params: Record<string, unknown>) =>
         Promise.resolve([{ value: { stdout: 'output' } }]),
       )
       const trimmedInput = 'echo hello'

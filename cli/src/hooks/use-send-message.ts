@@ -1,8 +1,3 @@
-import {
-  MAX_RETRIES_PER_MESSAGE,
-  RETRY_BACKOFF_BASE_DELAY_MS,
-  RETRY_BACKOFF_MAX_DELAY_MS,
-} from '@codebuff/sdk'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef } from 'react'
 import { match } from 'ts-pattern'
@@ -11,16 +6,14 @@ import { setCurrentChatId } from '../project-files'
 import { createStreamController } from './stream-state'
 import { useChatStore } from '../state/chat-store'
 import { getCodebuffClient } from '../utils/codebuff-client'
+import { createEventHandlerState } from '../utils/create-event-handler-state'
+import { createRunConfig } from '../utils/create-run-config'
 import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 import { logger } from '../utils/logger'
 import {
   loadMostRecentChatState,
   saveChatState,
 } from '../utils/run-state-storage'
-import {
-  createEventHandler,
-  createStreamChunkHandler,
-} from '../utils/sdk-event-handlers'
 import {
   autoCollapsePreviousMessages,
   createAiMessageShell,
@@ -52,15 +45,9 @@ const yieldToEventLoop = () =>
   })
 
 interface UseSendMessageOptions {
-  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
-  setFocusedAgentId: (id: string | null) => void
-  setInputFocused: (focused: boolean) => void
   inputRef: React.MutableRefObject<any>
-  setStreamingAgents: React.Dispatch<React.SetStateAction<Set<string>>>
   activeSubagentsRef: React.MutableRefObject<Set<string>>
   isChainInProgressRef: React.MutableRefObject<boolean>
-  setActiveSubagents: React.Dispatch<React.SetStateAction<Set<string>>>
-  setIsChainInProgress: (value: boolean) => void
   setStreamStatus: (status: StreamStatus) => void
   setCanProcessQueue: (can: boolean) => void
   abortControllerRef: React.MutableRefObject<AbortController | null>
@@ -72,11 +59,6 @@ interface UseSendMessageOptions {
   mainAgentTimer: ElapsedTimeTracker
   scrollToLatest: () => void
   onTimerEvent?: (event: SendMessageTimerEvent) => void
-  setHasReceivedPlanResponse: (value: boolean) => void
-  lastMessageMode: AgentMode | null
-  setLastMessageMode: (mode: AgentMode | null) => void
-  addSessionCredits: (credits: number) => void
-  setRunState: (runState: RunState | null) => void
   isQueuePausedRef?: React.MutableRefObject<boolean>
   resumeQueue?: () => void
   continueChat: boolean
@@ -121,15 +103,9 @@ const buildPromptWithContext = (
 }
 
 export const useSendMessage = ({
-  setMessages,
-  setFocusedAgentId,
-  setInputFocused,
   inputRef,
-  setStreamingAgents,
   activeSubagentsRef,
   isChainInProgressRef,
-  setActiveSubagents,
-  setIsChainInProgress,
   setStreamStatus,
   setCanProcessQueue,
   abortControllerRef,
@@ -138,11 +114,6 @@ export const useSendMessage = ({
   mainAgentTimer,
   scrollToLatest,
   onTimerEvent = () => {},
-  setHasReceivedPlanResponse,
-  lastMessageMode,
-  setLastMessageMode,
-  addSessionCredits,
-  setRunState,
   isQueuePausedRef,
   resumeQueue,
   continueChat,
@@ -152,9 +123,30 @@ export const useSendMessage = ({
   clearMessages: () => void
 } => {
   const queryClient = useQueryClient()
-  const setIsRetrying = useChatStore.getState().setIsRetrying
+  // Pull setters directly from store - these are stable references that don't need
+  // to trigger re-renders, so using getState() outside of callbacks is intentional.
+  const {
+    setMessages,
+    setFocusedAgentId,
+    setInputFocused,
+    setStreamingAgents,
+    setActiveSubagents,
+    setIsChainInProgress,
+    setHasReceivedPlanResponse,
+    setLastMessageMode,
+    addSessionCredits,
+    setRunState,
+    setIsRetrying,
+  } = useChatStore.getState()
   const previousRunStateRef = useRef<RunState | null>(null)
-  const streamRefs = createStreamController()
+  // Memoize stream controller to maintain referential stability across renders
+  const streamRefsRef = useRef<ReturnType<
+    typeof createStreamController
+  > | null>(null)
+  if (!streamRefsRef.current) {
+    streamRefsRef.current = createStreamController()
+  }
+  const streamRefs = streamRefsRef.current
 
   useEffect(() => {
     if (continueChat && !previousRunStateRef.current) {
@@ -191,19 +183,18 @@ export const useSendMessage = ({
   )
 
   const addActiveSubagent = useCallback(
-    (agentId: string) => {
-      updateActiveSubagents((next) => next.add(agentId))
+    (subagentId: string) => {
+      updateActiveSubagents((next) => next.add(subagentId))
     },
     [updateActiveSubagents],
   )
 
   const removeActiveSubagent = useCallback(
-    (agentId: string) => {
-      updateActiveSubagents((next) => next.delete(agentId))
+    (subagentId: string) => {
+      updateActiveSubagents((next) => next.delete(subagentId))
     },
     [updateActiveSubagents],
   )
-
 
   function clearMessages() {
     previousRunStateRef.current = null
@@ -216,6 +207,8 @@ export const useSendMessage = ({
       postUserMessage?: (prev: ChatMessage[]) => ChatMessage[]
       attachedImages?: PendingImage[]
     }) => {
+      // Access lastMessageMode fresh each call to get current value
+      const { lastMessageMode } = useChatStore.getState()
       return prepareUserMessageHelper({
         ...params,
         deps: {
@@ -227,11 +220,12 @@ export const useSendMessage = ({
         },
       })
     },
+    // Note: lastMessageMode is accessed via getState() inside the callback,
+    // so it always gets the fresh value - no need to include in deps
     [
       setMessages,
-      lastMessageMode,
-      scrollToLatest,
       setLastMessageMode,
+      scrollToLatest,
       setHasReceivedPlanResponse,
     ],
   )
@@ -360,64 +354,39 @@ export const useSendMessage = ({
           messageContent,
         )
 
-        const eventContext = {
-          streaming: {
-            streamRefs,
-            setStreamingAgents,
-            setStreamStatus,
-          },
-          message: {
-            aiMessageId,
-            updater,
-            hasReceivedContentRef,
-          },
-          subagents: {
-            addActiveSubagent,
-            removeActiveSubagent,
-          },
-          mode: {
-            agentMode,
-            setHasReceivedPlanResponse,
-          },
+        const eventHandlerState = createEventHandlerState({
+          streamRefs,
+          setStreamingAgents,
+          setStreamStatus,
+          aiMessageId,
+          updater,
+          hasReceivedContentRef,
+          addActiveSubagent,
+          removeActiveSubagent,
+          agentMode,
+          setHasReceivedPlanResponse,
           logger,
           setIsRetrying,
           onTotalCost: (cost: number) => {
             actualCredits = cost
             addSessionCredits(cost)
           },
-        }
+        })
 
-        const runState = await client.run({
+        const runConfig = createRunConfig({
           logger,
           agent: resolvedAgent,
           prompt: effectivePrompt,
           content: messageContent,
-          previousRun: previousRunStateRef.current ?? undefined,
+          previousRunState: previousRunStateRef.current,
           abortController,
-          retry: {
-            maxRetries: MAX_RETRIES_PER_MESSAGE,
-            backoffBaseMs: RETRY_BACKOFF_BASE_DELAY_MS,
-            backoffMaxMs: RETRY_BACKOFF_MAX_DELAY_MS,
-            onRetry: async ({ attempt, delayMs, errorCode }) => {
-              logger.warn(
-                { sdkAttempt: attempt, delayMs, errorCode },
-                'SDK retrying after error',
-              )
-              setIsRetrying(true)
-              setStreamStatus('waiting')
-            },
-            onRetryExhausted: async ({ totalAttempts, errorCode }) => {
-              logger.warn(
-                { totalAttempts, errorCode },
-                'SDK exhausted all retries',
-              )
-            },
-          },
           agentDefinitions,
-          maxAgentSteps: 40,
-          handleStreamChunk: createStreamChunkHandler(eventContext),
-          handleEvent: createEventHandler(eventContext),
+          eventHandlerState,
+          setIsRetrying,
+          setStreamStatus,
         })
+
+        const runState = await client.run(runConfig)
 
         // Finalize: persist state and mark complete
         previousRunStateRef.current = runState
@@ -464,8 +433,8 @@ export const useSendMessage = ({
       inputRef,
       isQueuePausedRef,
       mainAgentTimer,
-      onTimerEvent,
       onBeforeMessageSend,
+      onTimerEvent,
       prepareUserMessage,
       queryClient,
       removeActiveSubagent,
@@ -479,9 +448,9 @@ export const useSendMessage = ({
       setMessages,
       setRunState,
       setStreamStatus,
+      setStreamingAgents,
       streamRefs,
       updateChainInProgress,
-      setStreamingAgents,
     ],
   )
 

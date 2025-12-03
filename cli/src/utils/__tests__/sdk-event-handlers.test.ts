@@ -10,10 +10,10 @@ import {
 import type { StreamStatus } from '../../hooks/use-message-queue'
 import type { ChatMessage } from '../../types/chat'
 import type { AgentMode } from '../constants'
-import type { EventHandlerContext } from '../sdk-event-handlers'
+import type { EventHandlerState } from '../sdk-event-handlers'
 
 const createStreamRefs = (): {
-  controller: EventHandlerContext['streaming']['streamRefs']
+  controller: EventHandlerState['streaming']['streamRefs']
   state: {
     rootStreamBuffer: string
     agentStreamAccumulators: Map<string, string>
@@ -84,17 +84,17 @@ const createTestContext = (agentMode: AgentMode = 'DEFAULT') => {
   let hasPlanResponse = false
   const streamRefs = createStreamRefs()
 
-  const updater = createMessageUpdater('ai-1', (fn) => {
+  const updater = createMessageUpdater('ai-1', (fn: (msgs: ChatMessage[]) => ChatMessage[]) => {
     messages = fn(messages)
   })
 
-  const ctx: EventHandlerContext = {
+  const ctx: EventHandlerState = {
     streaming: {
       streamRefs: streamRefs.controller,
-      setStreamingAgents: (fn) => {
+      setStreamingAgents: (fn: (prev: Set<string>) => Set<string>) => {
         streamingAgents = fn(streamingAgents)
       },
-      setStreamStatus: (status) => {
+      setStreamStatus: (status: StreamStatus) => {
         streamStatus = status
       },
     },
@@ -109,7 +109,7 @@ const createTestContext = (agentMode: AgentMode = 'DEFAULT') => {
     },
     mode: {
       agentMode,
-      setHasReceivedPlanResponse: (value) => {
+      setHasReceivedPlanResponse: (value: boolean) => {
         hasPlanResponse = value
       },
     },
