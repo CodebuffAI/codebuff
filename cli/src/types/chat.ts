@@ -15,6 +15,8 @@ export type TextContentBlock = {
   isCollapsed?: boolean
   thinkingId?: string
   userOpened?: boolean
+  /** True if this is a reasoning block from a <think> tag that hasn't been closed yet */
+  thinkingOpen?: boolean
 }
 export type HtmlContentBlock = {
   type: 'html'
