@@ -3,8 +3,6 @@ import { homedir } from 'os'
 import { dirname, join } from 'path'
 
 import { logger } from './logger'
-import { detectTerminalTheme } from './terminal-color-detection'
-import { withTerminalInputGuard } from './terminal-input-guard'
 
 import type { MarkdownPalette } from './markdown-renderer'
 import type {
@@ -985,6 +983,9 @@ let pendingRecomputeTimer: NodeJS.Timeout | null = null
 let themeResolver: (() => ThemeName) | null = null
 
 export const getOscDetectedTheme = (): ThemeName | null => oscDetectedTheme
+export const setOscDetectedTheme = (theme: ThemeName | null): void => {
+  oscDetectedTheme = theme
+}
 export const setThemeResolver = (resolver: () => ThemeName) => {
   themeResolver = resolver
 }
@@ -1115,64 +1116,11 @@ export function enableManualThemeRefresh() {
 
 /**
  * OSC Terminal Theme Detection
- * Query terminal colors once at startup using OSC 10/11
+ * 
+ * OSC detection is now run synchronously at app startup in index.tsx,
+ * BEFORE OpenTUI is initialized. This avoids stdin conflicts since
+ * OpenTUI hasn't attached its listeners yet.
+ * 
+ * The detected theme is stored via setOscDetectedTheme() and retrieved
+ * via getOscDetectedTheme() when building the theme.
  */
-
-const OSC_DETECTION_TIMEOUT_MS = 3000 // Global timeout for OSC detection
-
-/**
- * Initialize OSC theme detection with a one-time check
- * Runs in a separate process to avoid blocking and hiding I/O from user
- */
-export function initializeOSCDetection(): void {
-  const ideTheme = detectIDETheme()
-  if (ideTheme) {
-    return
-  }
-  void detectOSCInBackground()
-}
-
-/**
- * Run OSC detection with terminal input guard and global timeout
- * This prevents blocking the main thread and hides terminal I/O from the user
- */
-async function detectOSCInBackground(): Promise<void> {
-  // Skip on Windows where OSC queries can hang PowerShell
-  if (process.platform === 'win32') {
-    return
-  }
-
-  // Create a timeout promise that will resolve to undefined
-  let timeoutId: NodeJS.Timeout | null = null
-  const timeoutPromise = new Promise<void>((resolve) => {
-    timeoutId = setTimeout(() => {
-      resolve()
-    }, OSC_DETECTION_TIMEOUT_MS)
-  })
-
-  // Create the actual detection promise
-  const detectionPromise = (async () => {
-    try {
-      await withTerminalInputGuard(async () => {
-        const theme = await detectTerminalTheme()
-        if (theme) {
-          oscDetectedTheme = theme
-          recomputeSystemTheme()
-        }
-      })
-    } catch (error) {
-      logger.warn(
-        { error: error instanceof Error ? error.message : String(error) },
-        'OSC detection failed',
-      )
-    }
-  })()
-
-  // Race between detection and timeout
-  await Promise.race([detectionPromise, timeoutPromise])
-
-  // Clean up timeout
-  if (timeoutId) {
-    clearTimeout(timeoutId)
-  }
-}

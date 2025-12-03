@@ -22,17 +22,13 @@ import { getUserCredentials } from './utils/auth'
 import { loadAgentDefinitions } from './utils/load-agent-definitions'
 import { getLoadedAgentsData } from './utils/local-agent-registry'
 import { clearLogFile, logger } from './utils/logger'
+import { detectTerminalTheme } from './utils/terminal-color-detection'
+import { setOscDetectedTheme } from './utils/theme-system'
 import { filterNetworkErrors } from './utils/validation-error-helpers'
 
 import type { FileTreeNode } from '@codebuff/common/util/file'
 
 const require = createRequire(import.meta.url)
-
-const INTERNAL_OSC_FLAG = '--internal-osc-detect'
-
-function isOscDetectionRun(): boolean {
-  return process.argv.includes(INTERNAL_OSC_FLAG)
-}
 
 function loadPackageVersion(): string {
   if (process.env.CODEBUFF_CLI_VERSION) {
@@ -131,6 +127,20 @@ function parseArgs(): ParsedArgs {
 }
 
 async function main(): Promise<void> {
+  // Run OSC theme detection BEFORE anything else.
+  // This MUST happen before OpenTUI starts because OSC responses come through stdin,
+  // and OpenTUI also listens to stdin. Running detection here ensures stdin is clean.
+  if (process.stdin.isTTY && process.platform !== 'win32') {
+    try {
+      const oscTheme = await detectTerminalTheme()
+      if (oscTheme) {
+        setOscDetectedTheme(oscTheme)
+      }
+    } catch {
+      // Silently ignore OSC detection failures
+    }
+  }
+
   const {
     initialPrompt,
     agent,
@@ -140,7 +150,7 @@ async function main(): Promise<void> {
     cwd,
   } = parseArgs()
 
-  await initializeApp({ cwd, isOscDetectionRun: isOscDetectionRun() })
+  await initializeApp({ cwd })
 
   // Handle publish command before rendering the app
   if (process.argv.includes('publish')) {

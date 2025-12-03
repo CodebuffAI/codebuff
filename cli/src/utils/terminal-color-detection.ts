@@ -88,9 +88,15 @@ function buildOscQuery(oscCode: number): string {
 }
 
 /**
- * Query the terminal for OSC color information
- * Writes query to /dev/tty and reads response from stdin using event-based reading
- * Terminal responses come back through the PTY, which appears on stdin
+ * Query the terminal for OSC color information.
+ * 
+ * IMPORTANT: This function reads from stdin because OSC responses come through
+ * the PTY which appears on stdin. This means it MUST be run BEFORE any other
+ * stdin listeners (like OpenTUI) are attached. The subprocess approach via
+ * --internal-osc-detect flag ensures this.
+ * 
+ * @param ttyPath - Path to TTY for writing the query
+ * @param query - The OSC query string to send
  * @returns The raw response string or null if query failed
  */
 async function sendOscQuery(
@@ -98,13 +104,17 @@ async function sendOscQuery(
   query: string,
 ): Promise<string | null> {
   return new Promise((resolve) => {
+    // Guard: Must have TTY for both reading and writing
+    if (!process.stdin.isTTY) {
+      resolve(null)
+      return
+    }
+
     let ttyWriteFd: number | null = null
     let timeoutId: NodeJS.Timeout | null = null
     let resolved = false
-    let wasRawMode = false
-    let wasFlowing = false
-    let didResume = false
     let response = ''
+    let wasRawMode = false
     let dataHandler: ((data: Buffer) => void) | null = null
 
     const cleanup = () => {
@@ -115,12 +125,14 @@ async function sendOscQuery(
         clearTimeout(timeoutId)
         timeoutId = null
       }
+
       // Remove data handler from stdin
       if (dataHandler) {
         process.stdin.removeListener('data', dataHandler)
         dataHandler = null
       }
-      // Restore raw mode state if we changed it
+
+      // Restore raw mode state
       if (process.stdin.isTTY && process.stdin.setRawMode) {
         try {
           process.stdin.setRawMode(wasRawMode)
@@ -128,14 +140,15 @@ async function sendOscQuery(
           // Ignore errors restoring raw mode
         }
       }
-      // Only pause stdin if we were the ones who resumed it
-      if (didResume && !wasFlowing) {
-        try {
-          process.stdin.pause()
-        } catch {
-          // Ignore pause errors
-        }
+
+      // Pause stdin so the subprocess can exit cleanly
+      try {
+        process.stdin.pause()
+      } catch {
+        // Ignore pause errors
       }
+
+      // Close TTY write fd
       if (ttyWriteFd !== null) {
         try {
           closeSync(ttyWriteFd)
@@ -153,37 +166,33 @@ async function sendOscQuery(
     }
 
     try {
-      // Check if stdin is a TTY - required for reading responses
-      if (!process.stdin.isTTY) {
-        resolveWith(null)
-        return
-      }
-
       // Open TTY for writing the query
-      const O_WRONLY = constants.O_WRONLY
       try {
-        ttyWriteFd = openSync(ttyPath, O_WRONLY)
+        ttyWriteFd = openSync(ttyPath, constants.O_WRONLY)
       } catch {
         resolveWith(null)
         return
       }
 
-      // Save current raw mode state and enable raw mode to capture escape sequences
-      try {
-        wasRawMode = process.stdin.isRaw ?? false
-        if (!wasRawMode && process.stdin.setRawMode) {
+      // Save current raw mode state and enable raw mode to capture escape sequences.
+      // Without raw mode, the terminal buffers input line-by-line and OSC responses
+      // (which don't end with newlines) would never be delivered.
+      wasRawMode = process.stdin.isRaw ?? false
+      if (process.stdin.setRawMode) {
+        try {
           process.stdin.setRawMode(true)
+        } catch {
+          // Continue anyway - some terminals might work without raw mode
         }
-      } catch {
-        // Continue anyway - some terminals might work without raw mode
       }
 
-      // Set overall timeout
+      // Set up timeout
       timeoutId = setTimeout(() => {
         resolveWith(response.length > 0 ? response : null)
       }, OSC_QUERY_TIMEOUT_MS)
 
-      // Set up event-based reading from stdin
+      // Set up event-based reading from stdin.
+      // OSC responses come through the PTY which appears on stdin.
       dataHandler = (data: Buffer) => {
         if (resolved) return
 
@@ -200,18 +209,13 @@ async function sendOscQuery(
 
         // A complete response has RGB data AND a terminator (BEL or ST)
         // Some terminals might send RGB without proper terminator, so we accept that too
-        if (hasRGB && (hasBEL || hasST || response.length > 20)) {
+        if (hasRGB && (hasBEL || hasST || response.length > 30)) {
           resolveWith(response)
         }
       }
 
-      // Track if stdin was already flowing before we resume
-      // readableFlowing is true if flowing, false if paused, null if not yet consumed
-      wasFlowing = process.stdin.readableFlowing === true
-
       process.stdin.on('data', dataHandler)
       process.stdin.resume()
-      didResume = true
 
       // Write the OSC query to TTY
       try {

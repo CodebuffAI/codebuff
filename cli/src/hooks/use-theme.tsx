@@ -14,7 +14,6 @@ import {
   detectPlatformTheme,
   detectTerminalOverrides,
   getOscDetectedTheme,
-  initializeOSCDetection,
   initializeThemeWatcher,
   setThemeResolver,
   setLastDetectedTheme,
@@ -125,16 +124,13 @@ export function initializeThemeStore() {
     },
   }))
 
-  // IMPORTANT: Set up the theme watcher BEFORE starting OSC detection
-  // OSC detection is async and calls recomputeSystemTheme() when done,
-  // which needs the themeStoreUpdater to be set
+  // Set up the theme watcher for reactive updates when system theme changes
   initializeThemeWatcher((name: ThemeName) => {
     useThemeStore.getState().setThemeName(name)
   })
 
-  // Start OSC detection AFTER the theme watcher is set up
-  // This ensures recomputeSystemTheme() can update the store when OSC completes
-  initializeOSCDetection()
+  // Note: OSC detection is done earlier in index.tsx before OpenTUI starts,
+  // so the result is already available via getOscDetectedTheme()
 }
 
 export const useTheme = (): ChatTheme => {
