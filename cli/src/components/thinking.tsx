@@ -33,7 +33,7 @@ export const Thinking = memo(
       width,
       PREVIEW_LINE_COUNT,
     )
-    // Pad to exactly PREVIEW_LINE_COUNT lines for consistent height while streaming
+    // Pad to exactly PREVIEW_LINE_COUNT lines for consistent height while streaming.
     const previewLines = [...lines]
     while (previewLines.length < PREVIEW_LINE_COUNT) {
       previewLines.push('')
@@ -88,17 +88,15 @@ export const Thinking = memo(
                   gap: 0,
                 }}
               >
-                {hasMore && (
-                  <text
-                    style={{
-                      wrapMode: 'none',
-                      fg: theme.muted,
-                    }}
-                    attributes={TextAttributes.ITALIC}
-                  >
-                    ...
-                  </text>
-                )}
+                <text
+                  style={{
+                    wrapMode: 'none',
+                    fg: theme.muted,
+                  }}
+                  attributes={TextAttributes.ITALIC}
+                >
+                  {hasMore ? '...' : ' '}
+                </text>
                 <text
                   style={{
                     wrapMode: 'word',

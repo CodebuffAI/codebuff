@@ -38,6 +38,7 @@ import { useChatScrollbox } from './hooks/use-scroll-management'
 import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
+import { useTerminalLayout } from './hooks/use-terminal-layout'
 import { useTheme } from './hooks/use-theme'
 import { useTimeout } from './hooks/use-timeout'
 import { useUsageMonitor } from './hooks/use-usage-monitor'
@@ -112,6 +113,8 @@ export const Chat = ({
 
   const { separatorWidth, terminalWidth, terminalHeight } =
     useTerminalDimensions()
+  const { height: heightLayout } = useTerminalLayout()
+  const isCompactHeight = heightLayout.is('xs')
   const messageAvailableWidth = separatorWidth
 
   const theme = useTheme()
@@ -636,6 +639,7 @@ export const Chat = ({
     separatorWidth,
     initialPrompt,
     onSubmitPrompt,
+    isCompactHeight,
   })
 
   const {
@@ -1213,6 +1217,7 @@ export const Chat = ({
           separatorWidth={separatorWidth}
           shouldCenterInputVertically={shouldCenterInputVertically}
           inputBoxTitle={inputBoxTitle}
+          isCompactHeight={isCompactHeight}
           feedbackMode={feedbackMode}
           handleExitFeedback={handleExitFeedback}
           handleSubmit={handleSubmit}
