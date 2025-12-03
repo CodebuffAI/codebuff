@@ -19,7 +19,6 @@ import { calculateNewCursorPosition } from '../utils/word-wrap-utils'
 import type { InputValue } from '../state/chat-store'
 import type {
   KeyEvent,
-  PasteEvent,
   ScrollBoxRenderable,
   TextBufferView,
   TextRenderable,
@@ -94,6 +93,7 @@ interface MultilineInputProps {
   onChange: (value: InputValue) => void
   onSubmit: () => void
   onKeyIntercept?: (key: KeyEvent) => boolean
+  onPaste: (fallbackText?: string) => void
   placeholder?: string
   focused?: boolean
   shouldBlinkCursor?: boolean
@@ -115,6 +115,7 @@ export const MultilineInput = forwardRef<
     value,
     onChange,
     onSubmit,
+    onPaste,
     placeholder = '',
     focused = true,
     shouldBlinkCursor,
@@ -134,9 +135,6 @@ export const MultilineInput = forwardRef<
   const [measuredCols, setMeasuredCols] = useState<number | null>(null)
   const [lastActivity, setLastActivity] = useState(Date.now())
 
-  // Refs to track latest values for paste handler (prevents stale closure issues)
-  const valueRef = useRef(value)
-  const cursorPositionRef = useRef(cursorPosition)
   const stickyColumnRef = useRef<number | null>(null)
 
   // Helper to get or set the sticky column for vertical navigation
@@ -146,26 +144,18 @@ export const MultilineInput = forwardRef<
         return stickyColumnRef.current
       }
       const lineIndex = lineStarts.findLastIndex(
-        (lineStart) => lineStart <= cursorPositionRef.current,
+        (lineStart) => lineStart <= cursorPosition,
       )
       // Account for cursorIsChar offset like cursorDown does
       const column =
         lineIndex === -1
           ? 0
-          : cursorPositionRef.current -
-            lineStarts[lineIndex] +
-            (cursorIsChar ? -1 : 0)
+          : cursorPosition - lineStarts[lineIndex] + (cursorIsChar ? -1 : 0)
       stickyColumnRef.current = Math.max(0, column)
       return stickyColumnRef.current
     },
     [],
   )
-
-  // Keep refs in sync with props
-  useEffect(() => {
-    valueRef.current = value
-    cursorPositionRef.current = cursorPosition
-  }, [value, cursorPosition])
 
   // Update last activity on value or cursor changes
   useEffect(() => {
@@ -192,35 +182,6 @@ export const MultilineInput = forwardRef<
       },
     }),
     [],
-  )
-
-  const handlePaste = useCallback(
-    (event: PasteEvent) => {
-      if (!focused) return
-
-      const text = event.text ?? ''
-      if (!text) return
-
-      // Use refs to get the latest values, avoiding stale closure issues
-      // when multiple paste events fire rapidly before React re-renders
-      const currentValue = valueRef.current
-      const currentCursor = cursorPositionRef.current
-
-      const newValue =
-        currentValue.slice(0, currentCursor) + text + currentValue.slice(currentCursor)
-      const newCursor = currentCursor + text.length
-
-      // Update refs immediately so subsequent rapid events see the new state
-      valueRef.current = newValue
-      cursorPositionRef.current = newCursor
-
-      onChange({
-        text: newValue,
-        cursorPosition: newCursor,
-        lastEditDueToNav: false,
-      })
-    },
-    [focused, onChange],
   )
 
   const cursorRow = lineInfo
@@ -727,7 +688,10 @@ export const MultilineInput = forwardRef<
           preventKeyDefault(key)
 
           const lineStarts = lineInfo?.lineStarts ?? []
-          const desiredIndex = getOrSetStickyColumn(lineStarts, !shouldHighlight)
+          const desiredIndex = getOrSetStickyColumn(
+            lineStarts,
+            !shouldHighlight,
+          )
 
           onChange({
             text: value,
@@ -746,7 +710,10 @@ export const MultilineInput = forwardRef<
         // Down arrow (no modifiers)
         if (key.name === 'down' && !key.ctrl && !key.meta && !key.option) {
           const lineStarts = lineInfo?.lineStarts ?? []
-          const desiredIndex = getOrSetStickyColumn(lineStarts, !shouldHighlight)
+          const desiredIndex = getOrSetStickyColumn(
+            lineStarts,
+            !shouldHighlight,
+          )
 
           onChange({
             text: value,
@@ -844,7 +811,7 @@ export const MultilineInput = forwardRef<
       stickyScroll={true}
       stickyStart="bottom"
       scrollbarOptions={{ visible: false }}
-      onPaste={handlePaste}
+      onPaste={(event) => onPaste(event.text)}
       style={{
         flexGrow: 0,
         flexShrink: 0,

@@ -49,6 +49,7 @@ import { addClipboardPlaceholder, addPendingImageFromFile } from './utils/add-pe
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { showClipboardMessage } from './utils/clipboard'
 import { readClipboardImage } from './utils/clipboard-image'
+import { createPasteHandler } from './utils/strings'
 import { getInputModeConfig } from './utils/input-modes'
 import {
   type ChatKeyboardState,
@@ -716,7 +717,16 @@ export const Chat = ({
     handleExitFeedback()
   }, [closeFeedback, handleExitFeedback])
 
-
+  // Ensure bracketed paste events target the active chat input
+  useEffect(() => {
+    if (feedbackMode) {
+      inputRef.current?.focus()
+      return
+    }
+    if (!askUserState) {
+      inputRef.current?.focus()
+    }
+  }, [feedbackMode, askUserState, inputRef])
 
   const handleSubmit = useCallback(async () => {
     ensureQueueActiveBeforeSubmit()
@@ -1225,6 +1235,12 @@ export const Chat = ({
           feedbackMode={feedbackMode}
           handleExitFeedback={handleExitFeedback}
           handleSubmit={handleSubmit}
+          onPaste={createPasteHandler({
+            text: inputValue,
+            cursorPosition,
+            onChange: setInputValue,
+            onPasteImage: chatKeyboardHandlers.onPasteImage,
+          })}
         />
       </box>
     </box>

@@ -1,5 +1,5 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import React, { useCallback, useEffect, useRef } from 'react'
+import React, { useCallback, useEffect } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { FeedbackInputMode } from './feedback-input-mode'
@@ -61,8 +61,6 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
       runState: state.runState,
     })),
   )
-
-  const previousFeedbackModeRef = useRef(feedbackMode)
 
   const buildMessageContext = useCallback(
     (targetMessageId: string | null) => {
@@ -154,11 +152,8 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
   }, [closeFeedback, onExitFeedback])
 
   useEffect(() => {
-    if (feedbackMode !== previousFeedbackModeRef.current) {
-      previousFeedbackModeRef.current = feedbackMode
-      if (inputRef.current) {
-        inputRef.current.focus()
-      }
+    if (feedbackMode && inputRef.current) {
+      inputRef.current.focus()
     }
   }, [feedbackMode, inputRef])
 

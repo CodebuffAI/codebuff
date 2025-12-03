@@ -57,8 +57,11 @@ interface ChatInputBarProps {
 
   // Feedback mode
   feedbackMode: boolean
-  handleExitFeedback: () => void // Handlers
+  handleExitFeedback: () => void
+
+  // Handlers
   handleSubmit: () => Promise<void>
+  onPaste: (fallbackText?: string) => void
 }
 
 export const ChatInputBar = ({
@@ -91,6 +94,7 @@ export const ChatInputBar = ({
   feedbackMode,
   handleExitFeedback,
   handleSubmit,
+  onPaste,
 }: ChatInputBarProps) => {
   const inputMode = useChatStore((state) => state.inputMode)
   const setInputMode = useChatStore((state) => state.setInputMode)
@@ -324,6 +328,7 @@ export const ChatInputBar = ({
             value={inputValue}
             onChange={handleInputChange}
             onSubmit={handleSubmit}
+            onPaste={onPaste}
             onKeyIntercept={handleKeyIntercept}
             placeholder={effectivePlaceholder}
             focused={inputFocused && !feedbackMode}
@@ -406,6 +411,7 @@ export const ChatInputBar = ({
                 value={inputValue}
                 onChange={handleInputChange}
                 onSubmit={handleSubmit}
+                onPaste={onPaste}
                 onKeyIntercept={handleKeyIntercept}
                 placeholder={effectivePlaceholder}
                 focused={inputFocused && !feedbackMode}

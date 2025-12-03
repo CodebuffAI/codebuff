@@ -9,6 +9,7 @@ import { useTheme } from '../../../hooks/use-theme'
 import { Button } from '../../button'
 import { MultilineInput } from '../../multiline-input'
 import { SYMBOLS } from '../constants'
+import { createTextPasteHandler } from '../../../utils/strings'
 
 import type { InputValue } from '../../../state/chat-store'
 
@@ -100,6 +101,7 @@ export const OtherTextInput: React.FC<OtherTextInputProps> = ({
           onChange={onChange}
           onSubmit={onSubmit}
           onKeyIntercept={handleKeyIntercept}
+          onPaste={createTextPasteHandler(text, cursorPosition, onChange)}
           placeholder={placeholder}
           focused={isFocused}
           maxHeight={3}

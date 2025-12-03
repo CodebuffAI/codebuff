@@ -7,6 +7,7 @@ import { Separator } from './separator'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
 import { BORDER_CHARS } from '../utils/ui-constants'
+import { createTextPasteHandler } from '../utils/strings'
 
 type CategoryHighlightKey = 'success' | 'error' | 'warning' | 'info'
 
@@ -114,6 +115,10 @@ const FeedbackTextSection: React.FC<FeedbackTextSectionProps> = ({
             onCursorChange(cursor + 1)
             return true
           }}
+          onPaste={createTextPasteHandler(value, cursor, ({ text, cursorPosition }) => {
+            onChange(text)
+            onCursorChange(cursorPosition)
+          })}
           placeholder={placeholder}
           focused={inputFocused}
           maxHeight={5}
