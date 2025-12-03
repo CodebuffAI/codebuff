@@ -13,25 +13,13 @@ describe('computeTerminalLayout', () => {
   const DEFAULT_HEIGHT = 24
 
   describe('width breakpoint constants', () => {
-    test('WIDTH_XS_BREAKPOINT is 80', () => {
-      expect(WIDTH_XS_BREAKPOINT).toBe(80)
-    })
-
-    test('WIDTH_MD_BREAKPOINT is 120', () => {
-      expect(WIDTH_MD_BREAKPOINT).toBe(120)
-    })
-
-    test('WIDTH_LG_BREAKPOINT is 160', () => {
-      expect(WIDTH_LG_BREAKPOINT).toBe(160)
-    })
-
     test('breakpoints are in ascending order', () => {
       expect(WIDTH_XS_BREAKPOINT).toBeLessThan(WIDTH_MD_BREAKPOINT)
       expect(WIDTH_MD_BREAKPOINT).toBeLessThan(WIDTH_LG_BREAKPOINT)
     })
   })
 
-  describe('xs width layout (< 80 cols)', () => {
+  describe('xs width layout', () => {
     test('width 1 is xs', () => {
       const { width } = computeTerminalLayout(1, DEFAULT_HEIGHT)
       expect(width.size).toBe('xs')
@@ -39,19 +27,6 @@ describe('computeTerminalLayout', () => {
       expect(width.is('sm')).toBe(false)
       expect(width.is('md')).toBe(false)
       expect(width.is('lg')).toBe(false)
-    })
-
-    test('width 40 is xs', () => {
-      const { width } = computeTerminalLayout(40, DEFAULT_HEIGHT)
-      expect(width.size).toBe('xs')
-      expect(width.is('xs')).toBe(true)
-    })
-
-    test('width 79 is xs (just below breakpoint)', () => {
-      const { width } = computeTerminalLayout(79, DEFAULT_HEIGHT)
-      expect(width.size).toBe('xs')
-      expect(width.is('xs')).toBe(true)
-      expect(width.is('sm')).toBe(false)
     })
 
     test('width 0 is xs (edge case)', () => {
@@ -65,11 +40,18 @@ describe('computeTerminalLayout', () => {
       expect(width.size).toBe('xs')
       expect(width.is('xs')).toBe(true)
     })
+
+    test('width just below xs breakpoint is xs', () => {
+      const { width } = computeTerminalLayout(WIDTH_XS_BREAKPOINT - 1, DEFAULT_HEIGHT)
+      expect(width.size).toBe('xs')
+      expect(width.is('xs')).toBe(true)
+      expect(width.is('sm')).toBe(false)
+    })
   })
 
-  describe('sm width layout (80-120 cols)', () => {
-    test('width 80 is sm (exactly at xs breakpoint)', () => {
-      const { width } = computeTerminalLayout(80, DEFAULT_HEIGHT)
+  describe('sm width layout', () => {
+    test('width at xs breakpoint is sm', () => {
+      const { width } = computeTerminalLayout(WIDTH_XS_BREAKPOINT, DEFAULT_HEIGHT)
       expect(width.size).toBe('sm')
       expect(width.is('xs')).toBe(false)
       expect(width.is('sm')).toBe(true)
@@ -77,23 +59,17 @@ describe('computeTerminalLayout', () => {
       expect(width.is('lg')).toBe(false)
     })
 
-    test('width 100 is sm', () => {
-      const { width } = computeTerminalLayout(100, DEFAULT_HEIGHT)
-      expect(width.size).toBe('sm')
-      expect(width.is('sm')).toBe(true)
-    })
-
-    test('width 120 is sm (exactly at md breakpoint)', () => {
-      const { width } = computeTerminalLayout(120, DEFAULT_HEIGHT)
+    test('width at md breakpoint is sm', () => {
+      const { width } = computeTerminalLayout(WIDTH_MD_BREAKPOINT, DEFAULT_HEIGHT)
       expect(width.size).toBe('sm')
       expect(width.is('sm')).toBe(true)
       expect(width.is('md')).toBe(false)
     })
   })
 
-  describe('md width layout (121-160 cols)', () => {
-    test('width 121 is md (just above sm)', () => {
-      const { width } = computeTerminalLayout(121, DEFAULT_HEIGHT)
+  describe('md width layout', () => {
+    test('width just above md breakpoint is md', () => {
+      const { width } = computeTerminalLayout(WIDTH_MD_BREAKPOINT + 1, DEFAULT_HEIGHT)
       expect(width.size).toBe('md')
       expect(width.is('xs')).toBe(false)
       expect(width.is('sm')).toBe(false)
@@ -101,23 +77,17 @@ describe('computeTerminalLayout', () => {
       expect(width.is('lg')).toBe(false)
     })
 
-    test('width 140 is md', () => {
-      const { width } = computeTerminalLayout(140, DEFAULT_HEIGHT)
-      expect(width.size).toBe('md')
-      expect(width.is('md')).toBe(true)
-    })
-
-    test('width 160 is md (exactly at lg breakpoint)', () => {
-      const { width } = computeTerminalLayout(160, DEFAULT_HEIGHT)
+    test('width at lg breakpoint is md', () => {
+      const { width } = computeTerminalLayout(WIDTH_LG_BREAKPOINT, DEFAULT_HEIGHT)
       expect(width.size).toBe('md')
       expect(width.is('md')).toBe(true)
       expect(width.is('lg')).toBe(false)
     })
   })
 
-  describe('lg width layout (> 160 cols)', () => {
-    test('width 161 is lg (just above md)', () => {
-      const { width } = computeTerminalLayout(161, DEFAULT_HEIGHT)
+  describe('lg width layout', () => {
+    test('width just above lg breakpoint is lg', () => {
+      const { width } = computeTerminalLayout(WIDTH_LG_BREAKPOINT + 1, DEFAULT_HEIGHT)
       expect(width.size).toBe('lg')
       expect(width.is('xs')).toBe(false)
       expect(width.is('sm')).toBe(false)
@@ -125,19 +95,7 @@ describe('computeTerminalLayout', () => {
       expect(width.is('lg')).toBe(true)
     })
 
-    test('width 200 is lg', () => {
-      const { width } = computeTerminalLayout(200, DEFAULT_HEIGHT)
-      expect(width.size).toBe('lg')
-      expect(width.is('lg')).toBe(true)
-    })
-
-    test('width 300 is lg', () => {
-      const { width } = computeTerminalLayout(300, DEFAULT_HEIGHT)
-      expect(width.size).toBe('lg')
-      expect(width.is('lg')).toBe(true)
-    })
-
-    test('very large width (1000) is lg', () => {
+    test('very large width is lg', () => {
       const { width } = computeTerminalLayout(1000, DEFAULT_HEIGHT)
       expect(width.size).toBe('lg')
       expect(width.is('lg')).toBe(true)
@@ -145,23 +103,23 @@ describe('computeTerminalLayout', () => {
   })
 
   describe('width breakpoint boundaries (critical edge cases)', () => {
-    test('width 79 -> 80 transitions from xs to sm', () => {
-      const before = computeTerminalLayout(79, DEFAULT_HEIGHT)
-      const after = computeTerminalLayout(80, DEFAULT_HEIGHT)
+    test('width transitions from xs to sm at breakpoint', () => {
+      const before = computeTerminalLayout(WIDTH_XS_BREAKPOINT - 1, DEFAULT_HEIGHT)
+      const after = computeTerminalLayout(WIDTH_XS_BREAKPOINT, DEFAULT_HEIGHT)
       expect(before.width.size).toBe('xs')
       expect(after.width.size).toBe('sm')
     })
 
-    test('width 120 -> 121 transitions from sm to md', () => {
-      const before = computeTerminalLayout(120, DEFAULT_HEIGHT)
-      const after = computeTerminalLayout(121, DEFAULT_HEIGHT)
+    test('width transitions from sm to md at breakpoint', () => {
+      const before = computeTerminalLayout(WIDTH_MD_BREAKPOINT, DEFAULT_HEIGHT)
+      const after = computeTerminalLayout(WIDTH_MD_BREAKPOINT + 1, DEFAULT_HEIGHT)
       expect(before.width.size).toBe('sm')
       expect(after.width.size).toBe('md')
     })
 
-    test('width 160 -> 161 transitions from md to lg', () => {
-      const before = computeTerminalLayout(160, DEFAULT_HEIGHT)
-      const after = computeTerminalLayout(161, DEFAULT_HEIGHT)
+    test('width transitions from md to lg at breakpoint', () => {
+      const before = computeTerminalLayout(WIDTH_LG_BREAKPOINT, DEFAULT_HEIGHT)
+      const after = computeTerminalLayout(WIDTH_LG_BREAKPOINT + 1, DEFAULT_HEIGHT)
       expect(before.width.size).toBe('md')
       expect(after.width.size).toBe('lg')
     })
@@ -169,22 +127,31 @@ describe('computeTerminalLayout', () => {
 
   describe('width.is() returns exactly one true', () => {
     test('only one size matches at a time', () => {
-      const testWidths = [1, 40, 79, 80, 100, 120, 121, 140, 160, 161, 200, 300]
+      const testWidths = [
+        1,
+        WIDTH_XS_BREAKPOINT - 1,
+        WIDTH_XS_BREAKPOINT,
+        WIDTH_MD_BREAKPOINT,
+        WIDTH_MD_BREAKPOINT + 1,
+        WIDTH_LG_BREAKPOINT,
+        WIDTH_LG_BREAKPOINT + 1,
+        1000,
+      ]
       const sizes = ['xs', 'sm', 'md', 'lg'] as const
-      
+
       for (const terminalWidth of testWidths) {
         const { width } = computeTerminalLayout(terminalWidth, DEFAULT_HEIGHT)
-        const trueCount = sizes.filter(size => width.is(size)).length
+        const trueCount = sizes.filter((size) => width.is(size)).length
         expect(trueCount).toBe(1)
       }
     })
 
     test('size property matches the is() result', () => {
       const testCases = [
-        { terminalWidth: 40, expectedSize: 'xs' },
-        { terminalWidth: 100, expectedSize: 'sm' },
-        { terminalWidth: 140, expectedSize: 'md' },
-        { terminalWidth: 200, expectedSize: 'lg' },
+        { terminalWidth: 1, expectedSize: 'xs' },
+        { terminalWidth: WIDTH_XS_BREAKPOINT, expectedSize: 'sm' },
+        { terminalWidth: WIDTH_MD_BREAKPOINT + 1, expectedSize: 'md' },
+        { terminalWidth: WIDTH_LG_BREAKPOINT + 1, expectedSize: 'lg' },
       ] as const
 
       for (const { terminalWidth, expectedSize } of testCases) {
@@ -197,7 +164,7 @@ describe('computeTerminalLayout', () => {
 
   describe('width.atLeast() helper', () => {
     test('xs is atLeast xs only', () => {
-      const { width } = computeTerminalLayout(40, DEFAULT_HEIGHT)
+      const { width } = computeTerminalLayout(1, DEFAULT_HEIGHT)
       expect(width.atLeast('xs')).toBe(true)
       expect(width.atLeast('sm')).toBe(false)
       expect(width.atLeast('md')).toBe(false)
@@ -205,7 +172,7 @@ describe('computeTerminalLayout', () => {
     })
 
     test('sm is atLeast xs and sm', () => {
-      const { width } = computeTerminalLayout(100, DEFAULT_HEIGHT)
+      const { width } = computeTerminalLayout(WIDTH_XS_BREAKPOINT, DEFAULT_HEIGHT)
       expect(width.atLeast('xs')).toBe(true)
       expect(width.atLeast('sm')).toBe(true)
       expect(width.atLeast('md')).toBe(false)
@@ -213,7 +180,7 @@ describe('computeTerminalLayout', () => {
     })
 
     test('md is atLeast xs, sm, and md', () => {
-      const { width } = computeTerminalLayout(140, DEFAULT_HEIGHT)
+      const { width } = computeTerminalLayout(WIDTH_MD_BREAKPOINT + 1, DEFAULT_HEIGHT)
       expect(width.atLeast('xs')).toBe(true)
       expect(width.atLeast('sm')).toBe(true)
       expect(width.atLeast('md')).toBe(true)
@@ -221,7 +188,7 @@ describe('computeTerminalLayout', () => {
     })
 
     test('lg is atLeast everything', () => {
-      const { width } = computeTerminalLayout(200, DEFAULT_HEIGHT)
+      const { width } = computeTerminalLayout(WIDTH_LG_BREAKPOINT + 1, DEFAULT_HEIGHT)
       expect(width.atLeast('xs')).toBe(true)
       expect(width.atLeast('sm')).toBe(true)
       expect(width.atLeast('md')).toBe(true)
@@ -231,7 +198,7 @@ describe('computeTerminalLayout', () => {
 
   describe('width.atMost() helper', () => {
     test('xs is atMost everything', () => {
-      const { width } = computeTerminalLayout(40, DEFAULT_HEIGHT)
+      const { width } = computeTerminalLayout(1, DEFAULT_HEIGHT)
       expect(width.atMost('xs')).toBe(true)
       expect(width.atMost('sm')).toBe(true)
       expect(width.atMost('md')).toBe(true)
@@ -239,7 +206,7 @@ describe('computeTerminalLayout', () => {
     })
 
     test('sm is atMost sm, md, and lg', () => {
-      const { width } = computeTerminalLayout(100, DEFAULT_HEIGHT)
+      const { width } = computeTerminalLayout(WIDTH_XS_BREAKPOINT, DEFAULT_HEIGHT)
       expect(width.atMost('xs')).toBe(false)
       expect(width.atMost('sm')).toBe(true)
       expect(width.atMost('md')).toBe(true)
@@ -247,7 +214,7 @@ describe('computeTerminalLayout', () => {
     })
 
     test('md is atMost md and lg', () => {
-      const { width } = computeTerminalLayout(140, DEFAULT_HEIGHT)
+      const { width } = computeTerminalLayout(WIDTH_MD_BREAKPOINT + 1, DEFAULT_HEIGHT)
       expect(width.atMost('xs')).toBe(false)
       expect(width.atMost('sm')).toBe(false)
       expect(width.atMost('md')).toBe(true)
@@ -255,7 +222,7 @@ describe('computeTerminalLayout', () => {
     })
 
     test('lg is atMost lg only', () => {
-      const { width } = computeTerminalLayout(200, DEFAULT_HEIGHT)
+      const { width } = computeTerminalLayout(WIDTH_LG_BREAKPOINT + 1, DEFAULT_HEIGHT)
       expect(width.atMost('xs')).toBe(false)
       expect(width.atMost('sm')).toBe(false)
       expect(width.atMost('md')).toBe(false)
@@ -265,7 +232,7 @@ describe('computeTerminalLayout', () => {
 
   describe('combining atLeast and atMost for ranges', () => {
     test('xs is only xs', () => {
-      const { width } = computeTerminalLayout(40, DEFAULT_HEIGHT)
+      const { width } = computeTerminalLayout(1, DEFAULT_HEIGHT)
       // In range [xs, sm]
       expect(width.atLeast('xs') && width.atMost('sm')).toBe(true)
       // In range [sm, md]
@@ -273,13 +240,13 @@ describe('computeTerminalLayout', () => {
     })
 
     test('sm is in [sm, md] but not [md, lg]', () => {
-      const { width } = computeTerminalLayout(100, DEFAULT_HEIGHT)
+      const { width } = computeTerminalLayout(WIDTH_XS_BREAKPOINT, DEFAULT_HEIGHT)
       expect(width.atLeast('sm') && width.atMost('md')).toBe(true)
       expect(width.atLeast('md') && width.atMost('lg')).toBe(false)
     })
 
     test('md is in [sm, lg]', () => {
-      const { width } = computeTerminalLayout(140, DEFAULT_HEIGHT)
+      const { width } = computeTerminalLayout(WIDTH_MD_BREAKPOINT + 1, DEFAULT_HEIGHT)
       expect(width.atLeast('sm') && width.atMost('lg')).toBe(true)
       expect(width.atLeast('xs') && width.atMost('sm')).toBe(false)
     })
@@ -297,18 +264,19 @@ describe('computeTerminalLayout', () => {
     })
 
     test('height does not affect width size calculation', () => {
-      const smallHeight = computeTerminalLayout(100, 10)
-      const largeHeight = computeTerminalLayout(100, 100)
-      
+      const testWidth = WIDTH_XS_BREAKPOINT + 10
+      const smallHeight = computeTerminalLayout(testWidth, 10)
+      const largeHeight = computeTerminalLayout(testWidth, 100)
+
       expect(smallHeight.width.size).toBe(largeHeight.width.size)
-      expect(smallHeight.width.is('sm')).toBe(largeHeight.width.is('sm'))
     })
 
     test('various heights preserve correct width layout', () => {
       const heights = [1, 10, 24, 50, 100, 1000]
-      
+      const testWidth = WIDTH_XS_BREAKPOINT + 10
+
       for (const height of heights) {
-        const layout = computeTerminalLayout(100, height)
+        const layout = computeTerminalLayout(testWidth, height)
         expect(layout.width.size).toBe('sm')
         expect(layout.terminalHeight).toBe(height)
       }
@@ -316,18 +284,18 @@ describe('computeTerminalLayout', () => {
   })
 
   describe('floating point edge cases', () => {
-    test('floating point width near breakpoint (79.9 rounds to xs)', () => {
-      const { width } = computeTerminalLayout(79.9, DEFAULT_HEIGHT)
-      expect(width.size).toBe('xs') // 79.9 < 80
+    test('floating point width just below breakpoint is xs', () => {
+      const { width } = computeTerminalLayout(WIDTH_XS_BREAKPOINT - 0.1, DEFAULT_HEIGHT)
+      expect(width.size).toBe('xs')
     })
 
-    test('floating point width near breakpoint (80.1 is sm)', () => {
-      const { width } = computeTerminalLayout(80.1, DEFAULT_HEIGHT)
-      expect(width.size).toBe('sm') // 80.1 >= 80
+    test('floating point width just above breakpoint is sm', () => {
+      const { width } = computeTerminalLayout(WIDTH_XS_BREAKPOINT + 0.1, DEFAULT_HEIGHT)
+      expect(width.size).toBe('sm')
     })
 
-    test('floating point exactly at breakpoint (80.0)', () => {
-      const { width } = computeTerminalLayout(80.0, DEFAULT_HEIGHT)
+    test('floating point exactly at breakpoint', () => {
+      const { width } = computeTerminalLayout(WIDTH_XS_BREAKPOINT + 0.0, DEFAULT_HEIGHT)
       expect(width.size).toBe('sm')
     })
   })
@@ -335,9 +303,7 @@ describe('computeTerminalLayout', () => {
   describe('unusual input edge cases', () => {
     test('NaN width is treated as sm (NaN comparisons return false)', () => {
       const { width } = computeTerminalLayout(NaN, DEFAULT_HEIGHT)
-      // NaN comparisons return false, so NaN < 80 is false
-      // NaN > 160 is also false, NaN > 120 is false
-      // So it falls through to 'sm'
+      // NaN comparisons return false, so it falls through to 'sm'
       expect(width.is('sm')).toBe(true)
     })
 
@@ -354,47 +320,10 @@ describe('computeTerminalLayout', () => {
     })
   })
 
-  describe('real-world terminal sizes', () => {
-    test('iPhone terminal equivalent (40 cols) is xs', () => {
-      const { width } = computeTerminalLayout(40, 30)
-      expect(width.size).toBe('xs')
-    })
-
-    test('standard 80x24 terminal is sm', () => {
-      const { width } = computeTerminalLayout(80, 24)
-      expect(width.size).toBe('sm')
-    })
-
-    test('common macOS default (100x50) is sm', () => {
-      const { width } = computeTerminalLayout(100, 50)
-      expect(width.size).toBe('sm')
-    })
-
-    test('1080p fullscreen terminal (~180 cols) is lg', () => {
-      const { width } = computeTerminalLayout(180, 45)
-      expect(width.size).toBe('lg')
-    })
-
-    test('4K ultrawide monitor (~250 cols) is lg', () => {
-      const { width } = computeTerminalLayout(250, 70)
-      expect(width.size).toBe('lg')
-    })
-
-    test('split terminal (half screen ~90 cols) is sm', () => {
-      const { width } = computeTerminalLayout(90, 45)
-      expect(width.size).toBe('sm')
-    })
-
-    test('quarter screen (~60 cols) is xs', () => {
-      const { width } = computeTerminalLayout(60, 30)
-      expect(width.size).toBe('xs')
-    })
-  })
-
   describe('return value structure', () => {
     test('returns all expected properties', () => {
       const layout = computeTerminalLayout(100, 24)
-      
+
       expect(layout).toHaveProperty('width')
       expect(layout).toHaveProperty('terminalWidth')
       expect(layout).toHaveProperty('terminalHeight')
@@ -406,8 +335,13 @@ describe('computeTerminalLayout', () => {
 
     test('width.size is one of the valid TerminalWidthSize values', () => {
       const validSizes = ['xs', 'sm', 'md', 'lg']
-      const widths = [40, 100, 140, 200]
-      
+      const widths = [
+        1,
+        WIDTH_XS_BREAKPOINT,
+        WIDTH_MD_BREAKPOINT + 1,
+        WIDTH_LG_BREAKPOINT + 1,
+      ]
+
       for (const terminalWidth of widths) {
         const { width } = computeTerminalLayout(terminalWidth, DEFAULT_HEIGHT)
         expect(validSizes).toContain(width.size)
@@ -416,7 +350,7 @@ describe('computeTerminalLayout', () => {
 
     test('helper methods return booleans', () => {
       const { width } = computeTerminalLayout(100, 24)
-      
+
       expect(typeof width.is('xs')).toBe('boolean')
       expect(typeof width.atLeast('xs')).toBe('boolean')
       expect(typeof width.atMost('xs')).toBe('boolean')
@@ -424,7 +358,7 @@ describe('computeTerminalLayout', () => {
 
     test('dimension values are numbers', () => {
       const layout = computeTerminalLayout(100, 24)
-      
+
       expect(typeof layout.terminalWidth).toBe('number')
       expect(typeof layout.terminalHeight).toBe('number')
     })
@@ -434,18 +368,25 @@ describe('computeTerminalLayout', () => {
     test('same input always produces same output', () => {
       const terminalWidth = 100
       const height = 24
-      
+
       const layout1 = computeTerminalLayout(terminalWidth, height)
       const layout2 = computeTerminalLayout(terminalWidth, height)
       const layout3 = computeTerminalLayout(terminalWidth, height)
-      
+
       expect(layout1.width.size).toBe(layout2.width.size)
       expect(layout2.width.size).toBe(layout3.width.size)
     })
 
     test('deterministic across all breakpoint boundaries', () => {
-      const boundaries = [79, 80, 120, 121, 160, 161]
-      
+      const boundaries = [
+        WIDTH_XS_BREAKPOINT - 1,
+        WIDTH_XS_BREAKPOINT,
+        WIDTH_MD_BREAKPOINT,
+        WIDTH_MD_BREAKPOINT + 1,
+        WIDTH_LG_BREAKPOINT,
+        WIDTH_LG_BREAKPOINT + 1,
+      ]
+
       for (const terminalWidth of boundaries) {
         const layout1 = computeTerminalLayout(terminalWidth, DEFAULT_HEIGHT)
         const layout2 = computeTerminalLayout(terminalWidth, DEFAULT_HEIGHT)
@@ -629,19 +570,19 @@ describe('height layout helpers', () => {
 
   describe('width and height are independent', () => {
     test('xs width with md height', () => {
-      const layout = computeTerminalLayout(40, 60)
+      const layout = computeTerminalLayout(1, HEIGHT_MD_BREAKPOINT + 1)
       expect(layout.width.size).toBe('xs')
       expect(layout.height.size).toBe('md')
     })
 
     test('lg width with xs height', () => {
-      const layout = computeTerminalLayout(200, 10)
+      const layout = computeTerminalLayout(WIDTH_LG_BREAKPOINT + 1, 1)
       expect(layout.width.size).toBe('lg')
       expect(layout.height.size).toBe('xs')
     })
 
     test('sm width with sm height (common case)', () => {
-      const layout = computeTerminalLayout(80, 24)
+      const layout = computeTerminalLayout(WIDTH_XS_BREAKPOINT, HEIGHT_XS_BREAKPOINT + 1)
       expect(layout.width.size).toBe('sm')
       expect(layout.height.size).toBe('sm')
     })

@@ -20,9 +20,9 @@ export type TerminalWidthSize = 'xs' | 'sm' | 'md' | 'lg'
 export type TerminalHeightSize = 'xs' | 'sm' | 'md'
 
 // Width breakpoints
-export const WIDTH_XS_BREAKPOINT = 80
-export const WIDTH_MD_BREAKPOINT = 120
-export const WIDTH_LG_BREAKPOINT = 160
+export const WIDTH_XS_BREAKPOINT = 50
+export const WIDTH_MD_BREAKPOINT = 100
+export const WIDTH_LG_BREAKPOINT = 150
 
 // Height breakpoints
 export const HEIGHT_XS_BREAKPOINT = 20
@@ -80,7 +80,7 @@ export interface TerminalLayout {
  */
 const createWidthHelper = (size: TerminalWidthSize): WidthLayoutHelper => {
   const sizeIndex = WIDTH_SIZE_ORDER.indexOf(size)
-  
+
   return {
     size,
     is: (targetSize: TerminalWidthSize) => size === targetSize,
@@ -100,7 +100,7 @@ const createWidthHelper = (size: TerminalWidthSize): WidthLayoutHelper => {
  */
 const createHeightHelper = (size: TerminalHeightSize): HeightLayoutHelper => {
   const sizeIndex = HEIGHT_SIZE_ORDER.indexOf(size)
-  
+
   return {
     size,
     is: (targetSize: TerminalHeightSize) => size === targetSize,
@@ -153,7 +153,7 @@ export const computeTerminalLayout = (
 ): TerminalLayout => {
   const widthSize = getWidthSize(terminalWidth)
   const heightSize = getHeightSize(terminalHeight)
-  
+
   return {
     width: createWidthHelper(widthSize),
     height: createHeightHelper(heightSize),
@@ -165,14 +165,14 @@ export const computeTerminalLayout = (
 /**
  * Hook providing semantic terminal layout information.
  * Use this instead of raw dimension checks for responsive terminal UI.
- * 
+ *
  * @example
  * const { width, height } = useTerminalLayout()
- * 
+ *
  * // Check exact size
  * if (width.is('xs')) { ... }  // extra small (< 80 cols)
  * if (height.is('xs')) { ... } // extra small (< 20 rows)
- * 
+ *
  * // Check ranges
  * if (width.atLeast('sm')) { ... }  // sm, md, or lg
  * if (height.atMost('sm')) { ... }  // xs or sm
