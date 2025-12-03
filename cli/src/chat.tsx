@@ -410,6 +410,7 @@ export const Chat = ({
     slashCommands: SLASH_COMMANDS,
     localAgents,
     fileTree,
+    currentAgentMode: agentMode,
   })
 
   useEffect(() => {

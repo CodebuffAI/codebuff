@@ -14,6 +14,7 @@ import { logger } from '../utils/logger'
 import type { SuggestionItem } from '../components/suggestion-menu'
 import type { SlashCommand } from '../data/slash-commands'
 import type { Prettify } from '../types/utils'
+import type { AgentMode } from '../utils/constants'
 import type { LocalAgentInfo } from '../utils/local-agent-registry'
 import type { FileTreeNode } from '@codebuff/common/util/file'
 
@@ -542,6 +543,7 @@ interface SuggestionEngineOptions {
   localAgents: LocalAgentInfo[]
   fileTree: FileTreeNode[]
   disableAgentSuggestions?: boolean
+  currentAgentMode?: AgentMode
 }
 
 export const useSuggestionEngine = ({
@@ -551,6 +553,7 @@ export const useSuggestionEngine = ({
   localAgents,
   fileTree,
   disableAgentSuggestions = false,
+  currentAgentMode,
 }: SuggestionEngineOptions): SuggestionEngineResult => {
   const deferredInput = useDeferredValue(inputValue)
   const slashCacheRef = useRef<Map<string, MatchedSlashCommand[]>>(
@@ -675,14 +678,23 @@ export const useSuggestionEngine = ({
   }, [mentionContext, filePaths])
 
   const slashSuggestionItems = useMemo<SuggestionItem[]>(() => {
-    return slashMatches.map((command) => ({
-      id: command.id,
-      label: command.label,
-      labelHighlightIndices: command.labelHighlightIndices,
-      description: command.description,
-      descriptionHighlightIndices: command.descriptionHighlightIndices,
-    }))
-  }, [slashMatches])
+    return slashMatches.map((command) => {
+      // Check if this is a mode command and if it's the current mode
+      const modeMatch = command.id.match(/^mode:(default|max|plan)$/i)
+      const isCurrentMode =
+        modeMatch && currentAgentMode?.toLowerCase() === modeMatch[1]
+
+      return {
+        id: command.id,
+        label: command.label,
+        labelHighlightIndices: command.labelHighlightIndices,
+        description: isCurrentMode
+          ? `${command.description} (current)`
+          : command.description,
+        descriptionHighlightIndices: command.descriptionHighlightIndices,
+      }
+    })
+  }, [slashMatches, currentAgentMode])
 
   const agentSuggestionItems = useMemo<SuggestionItem[]>(() => {
     return agentMatches.map((agent) => ({
