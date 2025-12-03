@@ -9,10 +9,37 @@
  * OSC 11: Query background color
  */
 
-import { spawnSync } from 'child_process'
-import { openSync, closeSync, writeSync, createReadStream } from 'fs'
+import { openSync, closeSync, writeSync, readSync, constants } from 'fs'
 
-import type { Readable } from 'stream'
+// Timeout constants
+const OSC_QUERY_TIMEOUT_MS = 500 // Timeout for individual OSC query
+const GLOBAL_OSC_TIMEOUT_MS = 2000 // Global timeout for entire detection process
+
+/**
+ * Wrap a promise with a timeout
+ * @param promise - The promise to wrap
+ * @param timeoutMs - Timeout in milliseconds
+ * @param timeoutValue - Value to return on timeout
+ */
+export function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  timeoutValue: T,
+): Promise<T> {
+  let timeoutId: NodeJS.Timeout | null = null
+
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => {
+      resolve(timeoutValue)
+    }, timeoutMs)
+  })
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
+  })
+}
 
 /**
  * Check if the current terminal supports OSC color queries
@@ -53,177 +80,143 @@ export function terminalSupportsOSC(): boolean {
 }
 
 /**
- * Build OSC query with proper wrapping for terminal multiplexers
+ * Build OSC query string
  * @param oscCode - The OSC code (10 for foreground, 11 for background)
  */
-function tmuxPassthroughState(): 'on' | 'off' | 'unknown' {
-  if (!process.env.TMUX) {
-    return 'off'
-  }
-
-  try {
-    const result = spawnSync('tmux', ['show', '-gv', 'allow-passthrough'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
-
-    if (result.status === 0) {
-      const value = (result.stdout ?? '').trim().toLowerCase()
-      if (value === 'on' || value === 'all') return 'on'
-      if (value === 'off') return 'off'
-    }
-  } catch {
-    // Ignore tmux lookup errors
-  }
-
-  return 'unknown'
-}
-
-function buildOscQueries(oscCode: number): string[] {
-  const base = `\x1b]${oscCode};?\x07`
-
-  // tmux requires double-escaping when passthrough is allowed
-  if (process.env.TMUX) {
-    const queries = [base]
-    const passthrough = `\x1bPtmux;${base.replace(/\x1b/g, '\x1b\x1b')}\x1b\\`
-    const passthroughState = tmuxPassthroughState()
-
-    if (passthroughState === 'on') {
-      queries.unshift(passthrough)
-    } else if (passthroughState === 'unknown') {
-      queries.unshift(passthrough)
-    } else {
-      queries.push(passthrough)
-    }
-
-    return queries
-  }
-
-  // screen/byobu wrapping
-  if (process.env.STY) {
-    return [`\x1bP${base}\x1b\\`, base]
-  }
-
-  return [base]
+function buildOscQuery(oscCode: number): string {
+  return `\x1b]${oscCode};?\x07`
 }
 
 /**
  * Query the terminal for OSC color information via /dev/tty
+ * Uses synchronous reads with polling to avoid blocking forever
  * @param oscCode - The OSC code (10 for foreground, 11 for background)
  * @returns The raw response string or null if query failed
  */
-const OSC_QUERY_TIMEOUT_MS = 1000
-
 async function sendOscQuery(
   ttyPath: string,
   query: string,
 ): Promise<string | null> {
   return new Promise((resolve) => {
-    let ttyReadFd: number | null = null
-    let ttyWriteFd: number | null = null
-    let timeout: NodeJS.Timeout | null = null
-    let readStream: Readable | null = null
+    let ttyFd: number | null = null
+    let timeoutId: NodeJS.Timeout | null = null
+    let pollIntervalId: NodeJS.Timeout | null = null
+    let resolved = false
 
     const cleanup = () => {
-      if (timeout) {
-        clearTimeout(timeout)
-        timeout = null
+      if (resolved) return
+      resolved = true
+
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+        timeoutId = null
       }
-      if (readStream) {
-        readStream.removeAllListeners()
-        readStream.destroy()
-        readStream = null
+      if (pollIntervalId) {
+        clearInterval(pollIntervalId)
+        pollIntervalId = null
       }
-      if (ttyWriteFd !== null) {
+      if (ttyFd !== null) {
         try {
-          closeSync(ttyWriteFd)
+          closeSync(ttyFd)
         } catch {
           // Ignore close errors
         }
-        ttyWriteFd = null
+        ttyFd = null
       }
-      // ttyReadFd is managed by the stream, so we don't close it separately
+    }
+
+    const resolveWith = (value: string | null) => {
+      if (resolved) return
+      cleanup()
+      resolve(value)
     }
 
     try {
-      // Open TTY for reading and writing
+      // Open TTY with O_RDWR and O_NONBLOCK for non-blocking reads
+      // O_NONBLOCK = 0x0004 on macOS, 0x0800 on Linux
+      const O_NONBLOCK =
+        process.platform === 'darwin' ? 0x0004 : constants.O_NONBLOCK || 0x0800
+      const O_RDWR = constants.O_RDWR
+
       try {
-        ttyReadFd = openSync(ttyPath, 'r')
-        ttyWriteFd = openSync(ttyPath, 'w')
+        ttyFd = openSync(ttyPath, O_RDWR | O_NONBLOCK)
       } catch {
-        // Not in a TTY environment
-        resolve(null)
+        resolveWith(null)
         return
       }
 
-      // Set timeout for terminal response
-      timeout = setTimeout(() => {
-        cleanup()
-        resolve(null)
+      // Set overall timeout
+      timeoutId = setTimeout(() => {
+        resolveWith(null)
       }, OSC_QUERY_TIMEOUT_MS)
 
-      // Create read stream to capture response
-      readStream = createReadStream(ttyPath, {
-        fd: ttyReadFd,
-        encoding: 'utf8',
-        autoClose: true,
-      })
+      // Write the OSC query
+      try {
+        writeSync(ttyFd, query)
+      } catch {
+        resolveWith(null)
+        return
+      }
 
+      // Poll for response using non-blocking reads
       let response = ''
+      const buffer = Buffer.alloc(256)
+      let pollCount = 0
+      const maxPolls = OSC_QUERY_TIMEOUT_MS / 10 // Poll every 10ms
 
-      readStream.on('data', (chunk: Buffer | string) => {
-        response += chunk.toString()
+      pollIntervalId = setInterval(() => {
+        pollCount++
 
-        // Check for complete response
-        const hasBEL = response.includes('\x07')
-        const hasST = response.includes('\x1b\\')
-        const hasRGB =
-          /rgb:[0-9a-fA-F]{2,4}\/[0-9a-fA-F]{2,4}\/[0-9a-fA-F]{2,4}/.test(
-            response,
-          )
-
-        if (hasBEL || hasST || hasRGB) {
-          cleanup()
-          resolve(response)
+        if (ttyFd === null || pollCount > maxPolls) {
+          resolveWith(response.length > 0 ? response : null)
+          return
         }
-      })
 
-      readStream.on('error', () => {
-        cleanup()
-        resolve(null)
-      })
+        try {
+          const bytesRead = readSync(ttyFd, buffer, 0, buffer.length, null)
+          if (bytesRead > 0) {
+            const chunk = buffer.toString('utf8', 0, bytesRead)
+            response += chunk
 
-      readStream.on('close', () => {
-        // If stream closes before we get a complete response
-        if (timeout) {
-          cleanup()
-          resolve(null)
+            // Check for complete response
+            const hasBEL = response.includes('\x07')
+            const hasST = response.includes('\x1b\\')
+            const hasRGB =
+              /rgb:[0-9a-fA-F]{2,4}\/[0-9a-fA-F]{2,4}\/[0-9a-fA-F]{2,4}/.test(
+                response,
+              )
+
+            // A complete response has RGB data AND a terminator (BEL or ST)
+            // Some terminals might send RGB without proper terminator, so we accept that too
+            if (hasRGB && (hasBEL || hasST || response.length > 20)) {
+              resolveWith(response)
+              return
+            }
+          }
+        } catch (error: unknown) {
+          // EAGAIN/EWOULDBLOCK means no data available yet - this is expected
+          const code = (error as NodeJS.ErrnoException)?.code
+          if (code !== 'EAGAIN' && code !== 'EWOULDBLOCK') {
+            // On actual error, stop polling
+            resolveWith(response.length > 0 ? response : null)
+          }
         }
-      })
-
-      // Send OSC query
-      writeSync(ttyWriteFd, query)
+      }, 10)
     } catch {
-      cleanup()
-      resolve(null)
+      resolveWith(null)
     }
   })
 }
 
+/**
+ * Query terminal for OSC color
+ */
 export async function queryTerminalOSC(
   oscCode: number,
 ): Promise<string | null> {
   const ttyPath = process.platform === 'win32' ? 'CON' : '/dev/tty'
-  const queries = Array.from(new Set(buildOscQueries(oscCode)))
-
-  for (const query of queries) {
-    const response = await sendOscQuery(ttyPath, query)
-    if (response) {
-      return response
-    }
-  }
-
-  return null
+  const query = buildOscQuery(oscCode)
+  return sendOscQuery(ttyPath, query)
 }
 
 /**
@@ -381,42 +374,69 @@ export function themeFromFgColor(
 }
 
 /**
- * Detect terminal theme by querying OSC 10/11
- * @returns 'dark', 'light', or null if detection failed
+ * Core detection logic without any timeout wrapping
+ * This is the actual detection implementation
  */
-export async function detectTerminalTheme(): Promise<'dark' | 'light' | null> {
+async function detectTerminalThemeCore(): Promise<'dark' | 'light' | null> {
   // Check if terminal supports OSC
   if (!terminalSupportsOSC()) {
     return null
   }
 
+  // Try background color first (OSC 11) - more reliable
+  const bgResponse = await queryTerminalOSC(11)
+  if (bgResponse) {
+    const bgRgb = parseOSCResponse(bgResponse)
+    if (bgRgb) {
+      return themeFromBgColor(bgRgb)
+    }
+  }
+
+  // Fallback to foreground color (OSC 10)
+  const fgResponse = await queryTerminalOSC(10)
+  if (fgResponse) {
+    const fgRgb = parseOSCResponse(fgResponse)
+    if (fgRgb) {
+      return themeFromFgColor(fgRgb)
+    }
+  }
+
+  // Fallback to COLORFGBG environment variable if available
+  const envBgRgb = detectBgColorFromEnv()
+  if (envBgRgb) {
+    return themeFromBgColor(envBgRgb)
+  }
+
+  return null
+}
+
+/**
+ * Detect terminal theme by querying OSC 10/11
+ * Wrapped with a global timeout to prevent hanging
+ * @returns 'dark', 'light', or null if detection failed
+ */
+export async function detectTerminalTheme(): Promise<'dark' | 'light' | null> {
   try {
-    // Try background color first (OSC 11) - more reliable
-    const bgResponse = await queryTerminalOSC(11)
-    if (bgResponse) {
-      const bgRgb = parseOSCResponse(bgResponse)
-      if (bgRgb) {
-        return themeFromBgColor(bgRgb)
-      }
-    }
-
-    // Fallback to foreground color (OSC 10)
-    const fgResponse = await queryTerminalOSC(10)
-    if (fgResponse) {
-      const fgRgb = parseOSCResponse(fgResponse)
-      if (fgRgb) {
-        return themeFromFgColor(fgRgb)
-      }
-    }
-
-    // Fallback to COLORFGBG environment variable if available (common in tmux)
-    const envBgRgb = detectBgColorFromEnv()
-    if (envBgRgb) {
-      return themeFromBgColor(envBgRgb)
-    }
-
-    return null // Detection failed
+    return await withTimeout(
+      detectTerminalThemeCore(),
+      GLOBAL_OSC_TIMEOUT_MS,
+      null,
+    )
   } catch {
     return null
   }
+}
+
+/**
+ * Get the global OSC timeout value (for testing/debugging)
+ */
+export function getGlobalOscTimeout(): number {
+  return GLOBAL_OSC_TIMEOUT_MS
+}
+
+/**
+ * Get the per-query OSC timeout value (for testing/debugging)
+ */
+export function getQueryOscTimeout(): number {
+  return OSC_QUERY_TIMEOUT_MS
 }

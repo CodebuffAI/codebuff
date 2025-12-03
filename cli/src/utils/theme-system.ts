@@ -1123,6 +1123,8 @@ export function enableManualThemeRefresh() {
  * Query terminal colors once at startup using OSC 10/11
  */
 
+const OSC_DETECTION_TIMEOUT_MS = 3000 // Global timeout for OSC detection
+
 /**
  * Initialize OSC theme detection with a one-time check
  * Runs in a separate process to avoid blocking and hiding I/O from user
@@ -1136,27 +1138,46 @@ export function initializeOSCDetection(): void {
 }
 
 /**
- * Run OSC detection in a detached background process
+ * Run OSC detection with terminal input guard and global timeout
  * This prevents blocking the main thread and hides terminal I/O from the user
  */
-async function detectOSCInBackground() {
+async function detectOSCInBackground(): Promise<void> {
   // Skip on Windows where OSC queries can hang PowerShell
   if (process.platform === 'win32') {
     return
   }
 
-  await withTerminalInputGuard(async () => {
+  // Create a timeout promise that will resolve to undefined
+  let timeoutId: NodeJS.Timeout | null = null
+  const timeoutPromise = new Promise<void>((resolve) => {
+    timeoutId = setTimeout(() => {
+      resolve()
+    }, OSC_DETECTION_TIMEOUT_MS)
+  })
+
+  // Create the actual detection promise
+  const detectionPromise = (async () => {
     try {
-      const theme = await detectTerminalTheme()
-      if (theme) {
-        oscDetectedTheme = theme
-        recomputeSystemTheme('osc-inline')
-      }
+      await withTerminalInputGuard(async () => {
+        const theme = await detectTerminalTheme()
+        if (theme) {
+          oscDetectedTheme = theme
+          recomputeSystemTheme('osc-inline')
+        }
+      })
     } catch (error) {
       logger.warn(
         { error: error instanceof Error ? error.message : String(error) },
         'OSC detection failed',
       )
     }
-  })
+  })()
+
+  // Race between detection and timeout
+  await Promise.race([detectionPromise, timeoutPromise])
+
+  // Clean up timeout
+  if (timeoutId) {
+    clearTimeout(timeoutId)
+  }
 }
