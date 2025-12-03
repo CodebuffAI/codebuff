@@ -92,12 +92,12 @@ describe.skipIf(!tmuxAvailable || !sdkBuilt)(
             `bun run ${CLI_PATH} --help; sleep 2`,
           ])
 
-          // Wait for output
-          await sleep(400)
+          // Wait for output - give CLI time to start and render help
+          await sleep(800)
 
           let cleanOutput = ''
-          for (let i = 0; i < 5; i += 1) {
-            await sleep(200)
+          for (let i = 0; i < 10; i += 1) {
+            await sleep(300)
             const output = await tmux(['capture-pane', '-t', sessionName, '-p'])
             cleanOutput = stripAnsi(output)
             if (cleanOutput.includes('--agent')) {
