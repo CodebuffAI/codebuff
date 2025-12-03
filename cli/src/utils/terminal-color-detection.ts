@@ -9,7 +9,7 @@
  * OSC 11: Query background color
  */
 
-import { openSync, closeSync, writeSync, readSync, constants } from 'fs'
+import { openSync, closeSync, writeSync, constants } from 'fs'
 
 // Timeout constants
 const OSC_QUERY_TIMEOUT_MS = 500 // Timeout for individual OSC query
@@ -88,9 +88,9 @@ function buildOscQuery(oscCode: number): string {
 }
 
 /**
- * Query the terminal for OSC color information via /dev/tty
- * Uses synchronous reads with polling to avoid blocking forever
- * @param oscCode - The OSC code (10 for foreground, 11 for background)
+ * Query the terminal for OSC color information
+ * Writes query to /dev/tty and reads response from stdin using event-based reading
+ * Terminal responses come back through the PTY, which appears on stdin
  * @returns The raw response string or null if query failed
  */
 async function sendOscQuery(
@@ -98,10 +98,14 @@ async function sendOscQuery(
   query: string,
 ): Promise<string | null> {
   return new Promise((resolve) => {
-    let ttyFd: number | null = null
+    let ttyWriteFd: number | null = null
     let timeoutId: NodeJS.Timeout | null = null
-    let pollIntervalId: NodeJS.Timeout | null = null
     let resolved = false
+    let wasRawMode = false
+    let wasFlowing = false
+    let didResume = false
+    let response = ''
+    let dataHandler: ((data: Buffer) => void) | null = null
 
     const cleanup = () => {
       if (resolved) return
@@ -111,17 +115,34 @@ async function sendOscQuery(
         clearTimeout(timeoutId)
         timeoutId = null
       }
-      if (pollIntervalId) {
-        clearInterval(pollIntervalId)
-        pollIntervalId = null
+      // Remove data handler from stdin
+      if (dataHandler) {
+        process.stdin.removeListener('data', dataHandler)
+        dataHandler = null
       }
-      if (ttyFd !== null) {
+      // Restore raw mode state if we changed it
+      if (process.stdin.isTTY && process.stdin.setRawMode) {
         try {
-          closeSync(ttyFd)
+          process.stdin.setRawMode(wasRawMode)
+        } catch {
+          // Ignore errors restoring raw mode
+        }
+      }
+      // Only pause stdin if we were the ones who resumed it
+      if (didResume && !wasFlowing) {
+        try {
+          process.stdin.pause()
+        } catch {
+          // Ignore pause errors
+        }
+      }
+      if (ttyWriteFd !== null) {
+        try {
+          closeSync(ttyWriteFd)
         } catch {
           // Ignore close errors
         }
-        ttyFd = null
+        ttyWriteFd = null
       }
     }
 
@@ -132,76 +153,73 @@ async function sendOscQuery(
     }
 
     try {
-      // Open TTY with O_RDWR and O_NONBLOCK for non-blocking reads
-      // O_NONBLOCK = 0x0004 on macOS, 0x0800 on Linux
-      const O_NONBLOCK =
-        process.platform === 'darwin' ? 0x0004 : constants.O_NONBLOCK || 0x0800
-      const O_RDWR = constants.O_RDWR
+      // Check if stdin is a TTY - required for reading responses
+      if (!process.stdin.isTTY) {
+        resolveWith(null)
+        return
+      }
 
+      // Open TTY for writing the query
+      const O_WRONLY = constants.O_WRONLY
       try {
-        ttyFd = openSync(ttyPath, O_RDWR | O_NONBLOCK)
+        ttyWriteFd = openSync(ttyPath, O_WRONLY)
       } catch {
         resolveWith(null)
         return
+      }
+
+      // Save current raw mode state and enable raw mode to capture escape sequences
+      try {
+        wasRawMode = process.stdin.isRaw ?? false
+        if (!wasRawMode && process.stdin.setRawMode) {
+          process.stdin.setRawMode(true)
+        }
+      } catch {
+        // Continue anyway - some terminals might work without raw mode
       }
 
       // Set overall timeout
       timeoutId = setTimeout(() => {
-        resolveWith(null)
+        resolveWith(response.length > 0 ? response : null)
       }, OSC_QUERY_TIMEOUT_MS)
 
-      // Write the OSC query
+      // Set up event-based reading from stdin
+      dataHandler = (data: Buffer) => {
+        if (resolved) return
+
+        const chunk = data.toString('utf8')
+        response += chunk
+
+        // Check for complete response
+        const hasBEL = response.includes('\x07')
+        const hasST = response.includes('\x1b\\')
+        const hasRGB =
+          /rgb:[0-9a-fA-F]{2,4}\/[0-9a-fA-F]{2,4}\/[0-9a-fA-F]{2,4}/.test(
+            response,
+          )
+
+        // A complete response has RGB data AND a terminator (BEL or ST)
+        // Some terminals might send RGB without proper terminator, so we accept that too
+        if (hasRGB && (hasBEL || hasST || response.length > 20)) {
+          resolveWith(response)
+        }
+      }
+
+      // Track if stdin was already flowing before we resume
+      // readableFlowing is true if flowing, false if paused, null if not yet consumed
+      wasFlowing = process.stdin.readableFlowing === true
+
+      process.stdin.on('data', dataHandler)
+      process.stdin.resume()
+      didResume = true
+
+      // Write the OSC query to TTY
       try {
-        writeSync(ttyFd, query)
+        writeSync(ttyWriteFd, query)
       } catch {
         resolveWith(null)
         return
       }
-
-      // Poll for response using non-blocking reads
-      let response = ''
-      const buffer = Buffer.alloc(256)
-      let pollCount = 0
-      const maxPolls = OSC_QUERY_TIMEOUT_MS / 10 // Poll every 10ms
-
-      pollIntervalId = setInterval(() => {
-        pollCount++
-
-        if (ttyFd === null || pollCount > maxPolls) {
-          resolveWith(response.length > 0 ? response : null)
-          return
-        }
-
-        try {
-          const bytesRead = readSync(ttyFd, buffer, 0, buffer.length, null)
-          if (bytesRead > 0) {
-            const chunk = buffer.toString('utf8', 0, bytesRead)
-            response += chunk
-
-            // Check for complete response
-            const hasBEL = response.includes('\x07')
-            const hasST = response.includes('\x1b\\')
-            const hasRGB =
-              /rgb:[0-9a-fA-F]{2,4}\/[0-9a-fA-F]{2,4}\/[0-9a-fA-F]{2,4}/.test(
-                response,
-              )
-
-            // A complete response has RGB data AND a terminator (BEL or ST)
-            // Some terminals might send RGB without proper terminator, so we accept that too
-            if (hasRGB && (hasBEL || hasST || response.length > 20)) {
-              resolveWith(response)
-              return
-            }
-          }
-        } catch (error: unknown) {
-          // EAGAIN/EWOULDBLOCK means no data available yet - this is expected
-          const code = (error as NodeJS.ErrnoException)?.code
-          if (code !== 'EAGAIN' && code !== 'EWOULDBLOCK') {
-            // On actual error, stop polling
-            resolveWith(response.length > 0 ? response : null)
-          }
-        }
-      }, 10)
     } catch {
       resolveWith(null)
     }

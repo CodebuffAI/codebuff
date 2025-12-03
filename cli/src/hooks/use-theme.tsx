@@ -93,7 +93,6 @@ export function initializeThemeStore() {
 
   setThemeResolver(detectSystemTheme)
   setupFileWatchers()
-  initializeOSCDetection()
 
   const initialThemeName = detectSystemTheme()
   setLastDetectedTheme(initialThemeName)
@@ -104,10 +103,17 @@ export function initializeThemeStore() {
     themeConfig.plugins,
   )
 
-  useThemeStore = create<ThemeStore>((set) => ({
+  useThemeStore = create<ThemeStore>((set, get) => ({
     theme: initialTheme,
 
     setThemeName: (name: ThemeName) => {
+      const currentTheme = get().theme
+      
+      // Skip if theme name hasn't changed
+      if (currentTheme.name === name) {
+        return
+      }
+
       const baseTheme = cloneChatTheme(chatThemes[name])
       const theme = buildTheme(
         baseTheme,
@@ -119,9 +125,16 @@ export function initializeThemeStore() {
     },
   }))
 
+  // IMPORTANT: Set up the theme watcher BEFORE starting OSC detection
+  // OSC detection is async and calls recomputeSystemTheme() when done,
+  // which needs the themeStoreUpdater to be set
   initializeThemeWatcher((name: ThemeName) => {
     useThemeStore.getState().setThemeName(name)
   })
+
+  // Start OSC detection AFTER the theme watcher is set up
+  // This ensures recomputeSystemTheme() can update the store when OSC completes
+  initializeOSCDetection()
 }
 
 export const useTheme = (): ChatTheme => {
