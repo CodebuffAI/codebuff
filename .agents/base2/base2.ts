@@ -11,14 +11,9 @@ export function createBase2(
   options?: {
     hasNoValidation?: boolean
     planOnly?: boolean
-    useEditor?: boolean
   },
 ): Omit<SecretAgentDefinition, 'id'> {
-  const {
-    hasNoValidation = mode === 'fast',
-    planOnly = false,
-    useEditor = false,
-  } = options ?? {}
+  const { hasNoValidation = mode === 'fast', planOnly = false } = options ?? {}
   const isDefault = mode === 'default'
   const isFast = mode === 'fast'
   const isMax = mode === 'max'
@@ -70,7 +65,7 @@ export function createBase2(
       'researcher-docs',
       isLite ? 'commander-lite' : 'commander',
       isLite && 'editor-gpt-5',
-      useEditor && 'editor',
+      isDefault && 'editor',
       isMax && 'editor-best-of-n-max',
       isMax && 'thinker-best-of-n-opus',
       !isLite && 'code-reviewer-opus',
@@ -125,7 +120,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
     '- Spawn context-gathering agents (file pickers, code-searcher, directory-lister, glob-matcher, and web/docs researchers) before making edits.',
     isLite &&
       '- Spawn the editor-gpt-5 agent to implement the changes after you have gathered all the context you need.',
-    useEditor &&
+    isDefault &&
       '- Spawn the editor agent to implement the changes after you have gathered all the context you need.',
     isMax &&
       '- Spawn the thinker-best-of-n-opus after gathering context to solve complex problems.',
@@ -179,9 +174,9 @@ ${buildArray(
 [ You read a few other relevant files using the read_files tool ]
 
 ${
-  useEditor
+  isDefault
     ? `[ You implement the changes using the editor agent ]`
-    : isDefault || isFast
+    : isFast
       ? '[ You implement the changes using the str_replace or write_file tools ]'
       : isLite
         ? '[ You implement the changes using the editor-gpt-5 agent ]'
@@ -235,16 +230,15 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           isMax,
           isLite,
           hasNoValidation,
-          useEditor,
         }),
     stepPrompt: planOnly
       ? buildPlanOnlyStepPrompt({})
       : buildImplementationStepPrompt({
+          isDefault,
           isFast,
           isMax,
           hasNoValidation,
           isSonnet,
-          useEditor,
         }),
 
     handleSteps: function* ({ params }) {
@@ -277,7 +271,6 @@ function buildImplementationInstructionsPrompt({
   isMax,
   isLite,
   hasNoValidation,
-  useEditor,
 }: {
   isSonnet: boolean
   isFast: boolean
@@ -285,7 +278,6 @@ function buildImplementationInstructionsPrompt({
   isMax: boolean
   isLite: boolean
   hasNoValidation: boolean
-  useEditor: boolean
 }) {
   return `Act as a helpful assistant and freely respond to the user's request however would be most helpful to the user. Use your judgement to orchestrate the completion of the user's request using your specialized sub-agents and tools as needed. Take your time and be comprehensive. Don't surprise the user. For example, don't modify files if the user has not asked you to do so at least implicitly.
 
@@ -301,14 +293,12 @@ ${buildArray(
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
   isLite &&
     '- IMPORTANT: You must spawn the editor-gpt-5 agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all changes.',
-  useEditor &&
+  isDefault &&
     '- IMPORTANT: You must spawn the editor agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all non-trivial changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
   isMax &&
     `- IMPORTANT: You must spawn the editor-best-of-n-max agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.`,
-  (isDefault || isFast) &&
-    '- Implement the changes using the str_replace or write_file tools.',
   isFast &&
-    '- Implement the changes in one go. Pause after making all the changes to see the tool results of your edits.',
+    '- Implement the changes using the str_replace or write_file tools. Implement all the changes in one go.',
   isFast &&
     '- Do a single typecheck targeted for your changes at most (if applicable for the project). Or skip this step if the change was small.',
   (isDefault || isMax) &&
@@ -320,27 +310,27 @@ ${buildArray(
 }
 
 function buildImplementationStepPrompt({
+  isDefault,
   isFast,
   isMax,
   hasNoValidation,
   isSonnet,
-  useEditor,
 }: {
+  isDefault: boolean
   isFast: boolean
   isMax: boolean
   hasNoValidation: boolean
   isSonnet: boolean
-  useEditor: boolean
 }) {
   return buildArray(
     isMax &&
       `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
-    useEditor &&
-      `You must spawn the 'editor' agent to implement code changes, since it will do the best job of implementing the changes.`,
     isMax &&
       `You must spawn the 'editor-best-of-n-max' agent to implement code changes, since it will generate the best code changes.`,
     isMax && 'Spawn the thinker-best-of-n-opus to solve complex problems.',
-    `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}. Don't repeat yourself, especially if you have already concluded and summarized the changes in a previous step -- just end your turn.`,
+    (isDefault || isMax) &&
+      'Spawn code-reviewer-opus to review the changes after you have implemented the changes and in parallel with typechecking or testing.',
+    `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''} Don't repeat yourself, especially if you have already concluded and summarized the changes in a previous step -- just end your turn.`,
   ).join('\n')
 }
 

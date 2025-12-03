@@ -59,7 +59,7 @@ OR for new files or major rewrites:
 ${
   model === 'gpt-5'
     ? ''
-    : `IMPORTANT: Before you start writing your implementation, you should use <think> tags to think about the best way to implement the changes. You should think really really hard to make sure you implement the changes in the best way possible. Take as much time as you to think through all the cases to produce the best changes.
+    : `Before you start writing your implementation, you should use <think> tags to think about the best way to implement the changes.
 
 You can also use <think> tags interspersed between tool calls to think about the best way to implement the changes.
 
