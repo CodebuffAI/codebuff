@@ -25,7 +25,7 @@ export class CodexRunner implements Runner {
         '--full-auto',
         '--json',
         '-m',
-        'gpt-5.1-codex-max:xhigh',
+        'gpt-5.1-codex',
         prompt,
       ]
 
@@ -36,6 +36,7 @@ export class CodexRunner implements Runner {
         env: {
           ...process.env,
           ...this.env,
+          CODEX_API_KEY: process.env.OPENAI_API_KEY || this.env.OPENAI_API_KEY,
         },
         // Use 'ignore' for stdin to prevent the CLI from waiting for input
         stdio: ['ignore', 'pipe', 'pipe'],
