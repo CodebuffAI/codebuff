@@ -44,7 +44,6 @@ import type { SendMessageFn } from '../types/contracts/send-message'
 import type { AgentMode } from '../utils/constants'
 import type { SendMessageTimerEvent } from '../utils/send-message-timer'
 import type { AgentDefinition, MessageContent, RunState } from '@codebuff/sdk'
-import type { SetStateAction } from 'react'
 
 // Main chat send hook: orchestrates prep, streaming, and completion.
 const yieldToEventLoop = () =>
@@ -205,61 +204,6 @@ export const useSendMessage = ({
     [updateActiveSubagents],
   )
 
-  const pendingMessageUpdatesRef = useRef<
-    ((messages: ChatMessage[]) => ChatMessage[])[]
-  >([])
-  const flushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const flushPendingUpdates = useCallback(() => {
-    if (flushTimeoutRef.current) {
-      clearTimeout(flushTimeoutRef.current)
-      flushTimeoutRef.current = null
-    }
-    if (pendingMessageUpdatesRef.current.length === 0) {
-      return
-    }
-    const queuedUpdates = pendingMessageUpdatesRef.current.slice()
-    pendingMessageUpdatesRef.current = []
-
-    setMessages((prev) => {
-      let next = prev
-      for (const updater of queuedUpdates) {
-        next = updater(next)
-      }
-      return next
-    })
-  }, [setMessages])
-
-  const queueMessageUpdate = useCallback(
-    (updater: (messages: ChatMessage[]) => ChatMessage[]) => {
-      pendingMessageUpdatesRef.current.push(updater)
-      if (!flushTimeoutRef.current) {
-        flushTimeoutRef.current = setTimeout(() => {
-          flushTimeoutRef.current = null
-          flushPendingUpdates()
-        }, 48)
-      }
-    },
-    [flushPendingUpdates],
-  )
-
-  const applyMessageUpdate = useCallback(
-    (update: SetStateAction<ChatMessage[]>) => {
-      flushPendingUpdates()
-      setMessages(update)
-    },
-    [flushPendingUpdates, setMessages],
-  )
-
-  useEffect(() => {
-    return () => {
-      if (flushTimeoutRef.current) {
-        clearTimeout(flushTimeoutRef.current)
-        flushTimeoutRef.current = null
-      }
-      flushPendingUpdates()
-    }
-  }, [flushPendingUpdates])
 
   function clearMessages() {
     previousRunStateRef.current = null
@@ -275,7 +219,7 @@ export const useSendMessage = ({
       return prepareUserMessageHelper({
         ...params,
         deps: {
-          applyMessageUpdate,
+          setMessages,
           lastMessageMode,
           setLastMessageMode,
           scrollToLatest,
@@ -284,7 +228,7 @@ export const useSendMessage = ({
       })
     },
     [
-      applyMessageUpdate,
+      setMessages,
       lastMessageMode,
       scrollToLatest,
       setLastMessageMode,
@@ -298,6 +242,7 @@ export const useSendMessage = ({
         setHasReceivedPlanResponse(false)
       }
 
+      // Initialize timer for elapsed time tracking
       const timerController = createSendMessageTimerController({
         mainAgentTimer,
         onTimerEvent,
@@ -305,6 +250,7 @@ export const useSendMessage = ({
       })
       setIsRetrying(false)
 
+      // Prepare user message (bash context, images, mode divider)
       const { userMessageId, messageContent, bashContextForPrompt } =
         await prepareUserMessage({
           content,
@@ -313,6 +259,7 @@ export const useSendMessage = ({
           attachedImages,
         })
 
+      // Validate before sending (e.g., agent config checks)
       try {
         const validationResult = await onBeforeMessageSend()
 
@@ -347,7 +294,7 @@ export const useSendMessage = ({
           'Validation before message send failed with exception',
         )
 
-        applyMessageUpdate((prev) => [
+        setMessages((prev) => [
           ...prev,
           createErrorChatMessage(
             '⚠️ Agent validation failed unexpectedly. Please try again.',
@@ -359,10 +306,12 @@ export const useSendMessage = ({
         return
       }
 
+      // Reset UI focus state
       setFocusedAgentId(null)
       setInputFocused(true)
       inputRef.current?.focus()
 
+      // Get SDK client
       const client = await getCodebuffClient()
 
       if (!client) {
@@ -373,19 +322,17 @@ export const useSendMessage = ({
         return
       }
 
+      // Create AI message shell and setup streaming context
       const aiMessageId = generateAiMessageId()
       const aiMessage = createAiMessageShell(aiMessageId)
 
-      applyMessageUpdate((prev) =>
-        autoCollapsePreviousMessages(prev, aiMessageId),
-      )
+      setMessages((prev) => autoCollapsePreviousMessages(prev, aiMessageId))
 
       const { updater, hasReceivedContentRef, abortController } =
         setupStreamingContext({
           aiMessageId,
           timerController,
-          queueMessageUpdate,
-          flushPendingUpdates,
+          setMessages,
           streamRefs,
           abortControllerRef,
           setStreamStatus,
@@ -395,11 +342,12 @@ export const useSendMessage = ({
           setIsRetrying,
         })
       setStreamStatus('waiting')
-      applyMessageUpdate((prev) => [...prev, aiMessage])
+      setMessages((prev) => [...prev, aiMessage])
       setCanProcessQueue(false)
       updateChainInProgress(true)
       let actualCredits: number | undefined
 
+      // Execute SDK run with streaming handlers
       try {
         const agentDefinitions = loadAgentDefinitions()
         const resolvedAgent = resolveAgent(agentMode, agentId, agentDefinitions)
@@ -471,11 +419,12 @@ export const useSendMessage = ({
           handleEvent: createEventHandler(eventContext),
         })
 
+        // Finalize: persist state and mark complete
         previousRunStateRef.current = runState
         setRunState(runState)
         setIsRetrying(false)
 
-        applyMessageUpdate((currentMessages) => {
+        setMessages((currentMessages) => {
           saveChatState(runState, currentMessages)
           return currentMessages
         })
@@ -512,15 +461,12 @@ export const useSendMessage = ({
       addActiveSubagent,
       addSessionCredits,
       agentId,
-      applyMessageUpdate,
-      flushPendingUpdates,
       inputRef,
       isQueuePausedRef,
       mainAgentTimer,
       onTimerEvent,
       onBeforeMessageSend,
       prepareUserMessage,
-      queueMessageUpdate,
       queryClient,
       removeActiveSubagent,
       resumeQueue,
