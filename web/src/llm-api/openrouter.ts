@@ -572,6 +572,25 @@ export class OpenRouterError extends Error {
 }
 
 /**
+ * Builds an enhanced error message that includes provider metadata when available.
+ */
+function buildEnhancedErrorMessage(
+  baseMessage: string,
+  metadata?: { raw?: string; provider_name?: string },
+): string {
+  if (!metadata?.raw) {
+    return baseMessage
+  }
+  const providerLabel = metadata.provider_name ?? 'Provider details'
+  const maxRawLength = 1000
+  const truncatedRaw =
+    metadata.raw.length > maxRawLength
+      ? metadata.raw.slice(0, maxRawLength) + '...'
+      : metadata.raw
+  return `${baseMessage} [${providerLabel}: ${truncatedRaw}]`
+}
+
+/**
  * Parses an error response from OpenRouter and returns an OpenRouterError.
  */
 async function parseOpenRouterError(
@@ -583,14 +602,21 @@ async function parseOpenRouterError(
     const parsed = JSON.parse(errorText)
     const validated = OpenRouterErrorResponseSchema.safeParse(parsed)
     if (validated.success) {
+      // metadata is not in the schema but OpenRouter includes it for provider errors
+      const metadata = (parsed as any).error?.metadata as
+        | { raw?: string; provider_name?: string }
+        | undefined
+      const enhancedMessage = buildEnhancedErrorMessage(
+        validated.data.error.message,
+        metadata,
+      )
       errorBody = {
         error: {
-          message: validated.data.error.message,
+          message: enhancedMessage,
           code: validated.data.error.code ?? null,
           type: validated.data.error.type,
           param: validated.data.error.param,
-          // metadata is not in the schema but OpenRouter includes it for provider errors
-          metadata: (parsed as any).error?.metadata,
+          metadata,
         },
       }
     } else {
