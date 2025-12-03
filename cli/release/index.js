@@ -22,6 +22,7 @@ function createConfig(packageName) {
     configDir,
     binaryName,
     binaryPath: path.join(configDir, binaryName),
+    metadataPath: path.join(configDir, 'codebuff-metadata.json'),
     userAgent: `${packageName}-cli`,
     requestTimeout: 20000,
   }
@@ -111,51 +112,18 @@ function streamToString(stream) {
 }
 
 function getCurrentVersion() {
-  if (!fs.existsSync(CONFIG.binaryPath)) return null
-
   try {
-    return new Promise((resolve) => {
-      const child = spawn(CONFIG.binaryPath, ['--version'], {
-        cwd: os.homedir(),
-        stdio: 'pipe',
-      })
-
-      let output = ''
-
-      child.stdout.on('data', (data) => {
-        output += data.toString()
-      })
-
-      child.stderr.on('data', () => {
-        // Ignore stderr output
-      })
-
-      const timeout = setTimeout(() => {
-        child.kill('SIGTERM')
-        setTimeout(() => {
-          if (!child.killed) {
-            child.kill('SIGKILL')
-          }
-        }, 4000)
-        resolve('error')
-      }, 4000)
-
-      child.on('exit', (code) => {
-        clearTimeout(timeout)
-        if (code === 0) {
-          resolve(output.trim())
-        } else {
-          resolve('error')
-        }
-      })
-
-      child.on('error', () => {
-        clearTimeout(timeout)
-        resolve('error')
-      })
-    })
+    if (!fs.existsSync(CONFIG.metadataPath)) {
+      return null
+    }
+    const metadata = JSON.parse(fs.readFileSync(CONFIG.metadataPath, 'utf8'))
+    // Also verify the binary still exists
+    if (!fs.existsSync(CONFIG.binaryPath)) {
+      return null
+    }
+    return metadata.version || null
   } catch (error) {
-    return 'error'
+    return null
   }
 }
 
@@ -317,6 +285,11 @@ async function downloadBinary(version) {
       if (process.platform !== 'win32') {
         fs.chmodSync(extractedPath, 0o755)
       }
+      // Save version metadata for fast version checking
+      fs.writeFileSync(
+        CONFIG.metadataPath,
+        JSON.stringify({ version }, null, 2),
+      )
     } else {
       throw new Error(
         `Binary not found after extraction. Expected: ${extractedPath}, Available files: ${files.join(', ')}`,
@@ -333,8 +306,8 @@ async function downloadBinary(version) {
 }
 
 async function ensureBinaryExists() {
-  const currentVersion = await getCurrentVersion()
-  if (currentVersion !== null && currentVersion !== 'error') {
+  const currentVersion = getCurrentVersion()
+  if (currentVersion !== null) {
     return
   }
 
@@ -357,14 +330,14 @@ async function ensureBinaryExists() {
 
 async function checkForUpdates(runningProcess, exitListener) {
   try {
-    const currentVersion = await getCurrentVersion()
-    if (!currentVersion) return
+    const currentVersion = getCurrentVersion()
 
     const latestVersion = await getLatestVersion()
     if (!latestVersion) return
 
     if (
-      currentVersion === 'error' ||
+      // Download new version if current version is unknown or outdated.
+      currentVersion === null ||
       compareVersions(currentVersion, latestVersion) < 0
     ) {
       term.clearLine()
