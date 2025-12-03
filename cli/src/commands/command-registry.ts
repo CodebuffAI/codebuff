@@ -248,6 +248,48 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       clearInput(params)
     },
   },
+  {
+    name: 'mode:default',
+    aliases: [],
+    handler: (params) => {
+      useChatStore.getState().setAgentMode('DEFAULT')
+      params.setMessages((prev) => [
+        ...prev,
+        getUserMessage(params.inputValue.trim()),
+        getSystemMessage('Switched to DEFAULT mode.'),
+      ])
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  },
+  {
+    name: 'mode:max',
+    aliases: [],
+    handler: (params) => {
+      useChatStore.getState().setAgentMode('MAX')
+      params.setMessages((prev) => [
+        ...prev,
+        getUserMessage(params.inputValue.trim()),
+        getSystemMessage('Switched to MAX mode.'),
+      ])
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  },
+  {
+    name: 'mode:plan',
+    aliases: [],
+    handler: (params) => {
+      useChatStore.getState().setAgentMode('PLAN')
+      params.setMessages((prev) => [
+        ...prev,
+        getUserMessage(params.inputValue.trim()),
+        getSystemMessage('Switched to PLAN mode.'),
+      ])
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  },
 ]
 
 export function findCommand(cmd: string): CommandDefinition | undefined {

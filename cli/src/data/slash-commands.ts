@@ -79,4 +79,19 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     description: 'Attach an image file (or Ctrl+V to paste from clipboard)',
     aliases: ['img', 'attach'],
   },
+  {
+    id: 'mode:default',
+    label: 'mode:default',
+    description: 'Switch to DEFAULT mode',
+  },
+  {
+    id: 'mode:max',
+    label: 'mode:max',
+    description: 'Switch to MAX mode',
+  },
+  {
+    id: 'mode:plan',
+    label: 'mode:plan',
+    description: 'Switch to PLAN mode',
+  },
 ]
