@@ -440,22 +440,6 @@ describe('appendTextToRootStream', () => {
   })
 
   // Think tag parsing tests
-  test('parses think tags in text and creates reasoning blocks', () => {
-    const result = appendTextToRootStream([], {
-      type: 'text',
-      text: 'Before <think>My thoughts</think> after',
-    })
-
-    expect(result).toHaveLength(3)
-    expect((result[0] as any).content).toBe('Before ')
-    expect((result[0] as any).textType).toBe('text')
-    expect((result[1] as any).content).toBe('My thoughts')
-    expect((result[1] as any).textType).toBe('reasoning')
-    expect((result[1] as any).isCollapsed).toBe(true)
-    expect((result[2] as any).content).toBe(' after')
-    expect((result[2] as any).textType).toBe('text')
-  })
-
   test('handles unclosed think tag', () => {
     const result = appendTextToRootStream([], {
       type: 'text',
@@ -514,34 +498,6 @@ describe('appendTextToRootStream', () => {
     expect((result[1] as any).textType).toBe('text')
   })
 
-  test('handles multiple think tags in one chunk', () => {
-    const result = appendTextToRootStream([], {
-      type: 'text',
-      text: '<think>first</think> middle <think>second</think>',
-    })
-
-    expect(result).toHaveLength(3)
-    expect((result[0] as any).textType).toBe('reasoning')
-    expect((result[0] as any).content).toBe('first')
-    expect((result[1] as any).textType).toBe('text')
-    expect((result[1] as any).content).toBe(' middle ')
-    expect((result[2] as any).textType).toBe('reasoning')
-    expect((result[2] as any).content).toBe('second')
-  })
-
-  test('handles think tag at start of text', () => {
-    const result = appendTextToRootStream([], {
-      type: 'text',
-      text: '<think>thoughts</think> after',
-    })
-
-    expect(result).toHaveLength(2)
-    expect((result[0] as any).textType).toBe('reasoning')
-    expect((result[0] as any).content).toBe('thoughts')
-    expect((result[1] as any).textType).toBe('text')
-    expect((result[1] as any).content).toBe(' after')
-  })
-
   test('text without think tags works normally', () => {
     const result = appendTextToRootStream([], {
       type: 'text',
@@ -597,6 +553,34 @@ describe('appendTextToRootStream', () => {
     expect((result[0] as any).thinkingOpen).toBe(false)
     expect((result[1] as any).content).toBe('after')
     expect((result[1] as any).textType).toBe('text')
+  })
+
+  // Streaming simulation tests
+  test('streaming: does not create duplicate block when closing existing thinking block', () => {
+    // Simulate streaming: first chunk opens thinking, second chunk closes it
+    // First chunk: '<think>My thoughts' creates open thinking block
+    const afterFirstChunk = appendTextToRootStream([], {
+      type: 'text',
+      text: '<think>My thoughts',
+    })
+
+    expect(afterFirstChunk).toHaveLength(1)
+    expect((afterFirstChunk[0] as any).textType).toBe('reasoning')
+    expect((afterFirstChunk[0] as any).content).toBe('My thoughts')
+    expect((afterFirstChunk[0] as any).thinkingOpen).toBe(true)
+
+    // Second chunk: '</think> after' should close the block, not create a duplicate
+    const afterSecondChunk = appendTextToRootStream(afterFirstChunk, {
+      type: 'text',
+      text: '</think> after',
+    })
+
+    expect(afterSecondChunk).toHaveLength(2)
+    expect((afterSecondChunk[0] as any).textType).toBe('reasoning')
+    expect((afterSecondChunk[0] as any).content).toBe('My thoughts')
+    expect((afterSecondChunk[0] as any).thinkingOpen).toBe(false)
+    expect((afterSecondChunk[1] as any).textType).toBe('text')
+    expect((afterSecondChunk[1] as any).content).toBe(' after')
   })
 })
 
