@@ -6,18 +6,17 @@ import {
   ErrorCodes,
 } from '@codebuff/sdk'
 import { useQueryClient } from '@tanstack/react-query'
-import { has, isEqual } from 'lodash'
+import { has } from 'lodash'
 import { useCallback, useEffect, useRef } from 'react'
 
 import { usageQueryKeys } from '../hooks/use-usage-query'
 import { setCurrentChatId } from '../project-files'
 import { useChatStore } from '../state/chat-store'
 import { getCodebuffClient, formatToolOutput } from '../utils/codebuff-client'
-import { shouldHideAgent, shouldCollapseByDefault } from '../utils/constants'
+import { shouldHideAgent } from '../utils/constants'
 
 import { getErrorObject } from '../utils/error'
 import { formatElapsedTime } from '../utils/format-elapsed-time'
-import { formatTimestamp } from '../utils/helpers'
 import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 
 import { logger } from '../utils/logger'
@@ -35,18 +34,35 @@ import {
   loadMostRecentChatState,
   saveChatState,
 } from '../utils/run-state-storage'
+import {
+  updateBlocksRecursively,
+  scrubPlanTagsInBlocks,
+  autoCollapsePreviousMessages,
+  createAgentBlock,
+  getAgentBaseName,
+  createSpawnAgentBlocks,
+  isHiddenToolName,
+  addInterruptionNotice,
+  appendStreamChunkToBlocks,
+  extractPlanFromBuffer,
+  updateAgentBlockContent,
+  transformAskUserBlock,
+  updateToolBlockWithOutput,
+  isSpawnAgentsResult,
+  extractSpawnAgentResultContent,
+  markMessageComplete,
+  setMessageError,
+  createModeDividerMessage,
+  createAiMessageShell,
+  generateAiMessageId,
+  createErrorMessage,
+} from '../utils/send-message-helpers'
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
 import type { StreamStatus } from './use-message-queue'
-import type {
-  ChatMessage,
-  ContentBlock,
-  ToolContentBlock,
-  AskUserContentBlock,
-} from '../types/chat'
+import type { ChatMessage, ContentBlock, ToolContentBlock } from '../types/chat'
 import type { SendMessageFn } from '../types/contracts/send-message'
 import type { ParamsOf } from '../types/function-params'
-import type { SetElement } from '../types/utils'
 import type { AgentMode } from '../utils/constants'
 import type {
   AgentDefinition,
@@ -55,68 +71,11 @@ import type {
   MessageContent,
 } from '@codebuff/sdk'
 import type { SetStateAction } from 'react'
-const hiddenToolNames = new Set<ToolName | 'spawn_agent_inline'>([
-  'spawn_agent_inline',
-  'end_turn',
-  'spawn_agents',
-])
 
 const yieldToEventLoop = () =>
   new Promise<void>((resolve) => {
     setTimeout(resolve, 0)
   })
-
-// Helper function to recursively update blocks
-const updateBlocksRecursively = (
-  blocks: ContentBlock[],
-  targetAgentId: string,
-  updateFn: (block: ContentBlock) => ContentBlock,
-): ContentBlock[] => {
-  let foundTarget = false
-  const result = blocks.map((block) => {
-    if (block.type === 'agent' && block.agentId === targetAgentId) {
-      foundTarget = true
-      return updateFn(block)
-    }
-    if (block.type === 'agent' && block.blocks) {
-      const updatedBlocks = updateBlocksRecursively(
-        block.blocks,
-        targetAgentId,
-        updateFn,
-      )
-      // Only create new block if nested blocks actually changed
-      if (updatedBlocks !== block.blocks) {
-        foundTarget = true
-        return {
-          ...block,
-          blocks: updatedBlocks,
-        }
-      }
-    }
-    return block
-  })
-
-  // Return original array reference if nothing changed
-  return foundTarget ? result : blocks
-}
-
-const scrubPlanTags = (s: string) =>
-  s.replace(/<PLAN>[\s\S]*?<\/cb_plan>/g, '').replace(/<PLAN>[\s\S]*$/g, '')
-
-const scrubPlanTagsInBlocks = (blocks: ContentBlock[]): ContentBlock[] => {
-  return blocks
-    .map((b) => {
-      if (b.type === 'text') {
-        const newContent = scrubPlanTags(b.content)
-        return {
-          ...b,
-          content: newContent,
-        }
-      }
-      return b
-    })
-    .filter((b) => b.type !== 'text' || b.content.trim() !== '')
-}
 
 export type SendMessageTimerEvent =
   | {
@@ -516,10 +475,6 @@ export const useSendMessage = ({
       })
       setIsRetrying(false)
 
-      // Use memoized toggle IDs from the store selector
-      // This is computed efficiently in the Zustand store
-      const previousToggleIds = allToggleIds
-
       // Check if mode changed and insert divider if needed
       // Also show divider on first message (when lastMessageMode is null)
       const shouldInsertDivider =
@@ -631,19 +586,7 @@ export const useSendMessage = ({
 
         // Insert mode divider if mode changed
         if (shouldInsertDivider) {
-          const dividerMessage: ChatMessage = {
-            id: `divider-${Date.now()}`,
-            variant: 'ai',
-            content: '',
-            blocks: [
-              {
-                type: 'mode-divider',
-                mode: agentMode,
-              },
-            ],
-            timestamp: formatTimestamp(),
-          }
-          newMessages.push(dividerMessage)
+          newMessages.push(createModeDividerMessage(agentMode))
         }
 
         // Add user message to UI first
@@ -702,14 +645,12 @@ export const useSendMessage = ({
           'Validation before message send failed with exception',
         )
 
-        const errorMessage: ChatMessage = {
-          id: `error-${Date.now()}`,
-          variant: 'error',
-          content: '⚠️ Agent validation failed unexpectedly. Please try again.',
-          timestamp: formatTimestamp(),
-        }
-
-        applyMessageUpdate((prev) => [...prev, errorMessage])
+        applyMessageUpdate((prev) => [
+          ...prev,
+          createErrorMessage(
+            '⚠️ Agent validation failed unexpectedly. Please try again.',
+          ),
+        ])
         await yieldToEventLoop()
         setTimeout(() => scrollToLatest(), 0)
 
@@ -730,92 +671,14 @@ export const useSendMessage = ({
         return
       }
 
-      const aiMessageId = `ai-${Date.now()}-${Math.random().toString(16).slice(2)}`
-      const aiMessage: ChatMessage = {
-        id: aiMessageId,
-        variant: 'ai',
-        content: '',
-        blocks: [],
-        timestamp: formatTimestamp(),
-      }
+      const aiMessageId = generateAiMessageId()
+      const aiMessage = createAiMessageShell(aiMessageId)
 
       // Auto-collapse previous message toggles to minimize clutter.
       // Respects user intent by keeping toggles open that the user manually expanded.
-      applyMessageUpdate((prev) => {
-        return prev.map((message) => {
-          // Don't collapse the message we just added
-          if (message.id === aiMessageId) {
-            return message
-          }
-
-          // Handle agent variant messages
-          if (message.variant === 'agent') {
-            const userOpened = message.metadata?.userOpened ?? false
-            return userOpened
-              ? message
-              : {
-                  ...message,
-                  metadata: {
-                    ...message.metadata,
-                    isCollapsed: true,
-                  },
-                }
-          }
-
-          // Handle blocks within messages
-          if (!message.blocks) return message
-
-          const autoCollapseBlocksRecursively = (
-            blocks: ContentBlock[],
-          ): ContentBlock[] => {
-            return blocks.map((block) => {
-              // Handle thinking blocks (grouped text blocks)
-              if (block.type === 'text' && block.thinkingId) {
-                return block.userOpened
-                  ? block
-                  : { ...block, isCollapsed: true }
-              }
-
-              // Handle agent blocks
-              if (block.type === 'agent') {
-                const updatedBlock = block.userOpened
-                  ? block
-                  : { ...block, isCollapsed: true }
-
-                // Recursively update nested blocks
-                if (updatedBlock.blocks) {
-                  return {
-                    ...updatedBlock,
-                    blocks: autoCollapseBlocksRecursively(updatedBlock.blocks),
-                  }
-                }
-                return updatedBlock
-              }
-
-              // Handle tool blocks
-              if (block.type === 'tool') {
-                return block.userOpened
-                  ? block
-                  : { ...block, isCollapsed: true }
-              }
-
-              // Handle agent-list blocks
-              if (block.type === 'agent-list') {
-                return block.userOpened
-                  ? block
-                  : { ...block, isCollapsed: true }
-              }
-
-              return block
-            })
-          }
-
-          return {
-            ...message,
-            blocks: autoCollapseBlocksRecursively(message.blocks),
-          }
-        })
-      })
+      applyMessageUpdate((prev) =>
+        autoCollapsePreviousMessages(prev, aiMessageId),
+      )
 
       rootStreamBufferRef.current = ''
       rootStreamSeenRef.current = false
@@ -825,115 +688,20 @@ export const useSendMessage = ({
       timerController.start(aiMessageId)
 
       const updateAgentContent = (
-        agentId: string,
+        targetAgentId: string,
         update:
           | { type: 'text'; content: string; replace?: boolean }
           | Extract<ContentBlock, { type: 'tool' }>,
       ) => {
-        const preview =
-          update.type === 'text'
-            ? update.content.slice(0, 120)
-            : JSON.stringify({ toolName: update.toolName }).slice(0, 120)
         queueMessageUpdate((prev) =>
           prev.map((msg) => {
             if (msg.id === aiMessageId && msg.blocks) {
-              // Use recursive update to handle nested agents
               const newBlocks = updateBlocksRecursively(
                 msg.blocks,
-                agentId,
+                targetAgentId,
                 (block) => {
-                  if (block.type !== 'agent') {
-                    return block
-                  }
-                  const agentBlocks: ContentBlock[] = block.blocks
-                    ? [...block.blocks]
-                    : []
-                  if (update.type === 'text') {
-                    const text = update.content ?? ''
-                    const replace = update.replace ?? false
-
-                    if (replace) {
-                      const updatedBlocks = [...agentBlocks]
-                      let replaced = false
-
-                      for (let i = updatedBlocks.length - 1; i >= 0; i--) {
-                        const entry = updatedBlocks[i]
-                        if (entry.type === 'text') {
-                          replaced = true
-                          if (
-                            entry.content === text &&
-                            block.content === text
-                          ) {
-                            logger.info(
-                              {
-                                agentId,
-                                preview,
-                              },
-                              'Agent block text replacement skipped',
-                            )
-                            return block
-                          }
-                          updatedBlocks[i] = { ...entry, content: text }
-                          break
-                        }
-                      }
-
-                      if (!replaced) {
-                        updatedBlocks.push({ type: 'text', content: text })
-                      }
-
-                      return {
-                        ...block,
-                        content: text,
-                        blocks: updatedBlocks,
-                      }
-                    }
-
-                    if (!text) {
-                      return block
-                    }
-
-                    const lastBlock = agentBlocks[agentBlocks.length - 1]
-                    if (lastBlock && lastBlock.type === 'text') {
-                      if (lastBlock.content.endsWith(text)) {
-                        logger.info(
-                          { agentId, preview },
-                          'Skipping duplicate agent text append',
-                        )
-                        return block
-                      }
-                      const updatedLastBlock: ContentBlock = {
-                        ...lastBlock,
-                        content: lastBlock.content + text,
-                      }
-                      const updatedContent = (block.content ?? '') + text
-                      return {
-                        ...block,
-                        content: updatedContent,
-                        blocks: [...agentBlocks.slice(0, -1), updatedLastBlock],
-                      }
-                    } else {
-                      const updatedContent = (block.content ?? '') + text
-                      return {
-                        ...block,
-                        content: updatedContent,
-                        blocks: [
-                          ...agentBlocks,
-                          { type: 'text', content: text },
-                        ],
-                      }
-                    }
-                  } else if (update.type === 'tool') {
-                    logger.info(
-                      {
-                        agentId,
-                        toolName: update.toolName,
-                      },
-                      'Agent block tool appended',
-                    )
-                    return { ...block, blocks: [...agentBlocks, update] }
-                  }
-                  return block
+                  if (block.type !== 'agent') return block
+                  return updateAgentBlockContent(block, update)
                 },
               )
               return { ...msg, blocks: newBlocks }
@@ -948,49 +716,13 @@ export const useSendMessage = ({
           | { type: 'text'; text: string }
           | { type: 'reasoning'; text: string },
       ) => {
-        if (!delta.text) {
-          return
-        }
+        if (!delta.text) return
 
         queueMessageUpdate((prev) =>
           prev.map((msg) => {
-            if (msg.id !== aiMessageId) {
-              return msg
-            }
-
-            const blocks: ContentBlock[] = msg.blocks ? [...msg.blocks] : []
-            const lastBlock = blocks[blocks.length - 1]
-
-            if (
-              lastBlock &&
-              lastBlock.type === 'text' &&
-              delta.type === lastBlock.textType
-            ) {
-              const updatedBlock: ContentBlock = {
-                ...lastBlock,
-                content: lastBlock.content + delta.text,
-              }
-              return {
-                ...msg,
-                blocks: [...blocks.slice(0, -1), updatedBlock],
-              }
-            }
-
-            return {
-              ...msg,
-              blocks: [
-                ...blocks,
-                {
-                  type: 'text',
-                  content: delta.text,
-                  textType: delta.type,
-                  ...(delta.type === 'reasoning' && {
-                    color: 'grey',
-                    isCollapsed: true,
-                  }),
-                },
-              ],
-            }
+            if (msg.id !== aiMessageId) return msg
+            const blocks = msg.blocks ? [...msg.blocks] : []
+            return { ...msg, blocks: appendStreamChunkToBlocks(blocks, delta) }
           }),
         )
 
@@ -998,16 +730,10 @@ export const useSendMessage = ({
         if (
           agentMode === 'PLAN' &&
           delta.type === 'text' &&
-          !planExtractedRef.current &&
-          rootStreamBufferRef.current.includes('</PLAN>')
+          !planExtractedRef.current
         ) {
-          const buffer = rootStreamBufferRef.current
-          const openIdx = buffer.indexOf('<PLAN>')
-          const closeIdx = buffer.indexOf('</PLAN>')
-          if (openIdx !== -1 && closeIdx !== -1 && closeIdx > openIdx) {
-            const rawPlan = buffer
-              .slice(openIdx + '<PLAN>'.length, closeIdx)
-              .trim()
+          const rawPlan = extractPlanFromBuffer(rootStreamBufferRef.current)
+          if (rawPlan) {
             planExtractedRef.current = true
             setHasReceivedPlanResponse(true)
 
@@ -1015,16 +741,12 @@ export const useSendMessage = ({
               prev.map((msg) => {
                 if (msg.id !== aiMessageId) return msg
                 const cleanedBlocks = scrubPlanTagsInBlocks(msg.blocks || [])
-                const newBlocks = [
-                  ...cleanedBlocks,
-                  {
-                    type: 'plan' as const,
-                    content: rawPlan,
-                  },
-                ]
                 return {
                   ...msg,
-                  blocks: newBlocks,
+                  blocks: [
+                    ...cleanedBlocks,
+                    { type: 'plan' as const, content: rawPlan },
+                  ],
                 }
               }),
             )
@@ -1056,27 +778,9 @@ export const useSendMessage = ({
             }
 
             const blocks: ContentBlock[] = msg.blocks ? [...msg.blocks] : []
-            const lastBlock = blocks[blocks.length - 1]
-
-            if (lastBlock && lastBlock.type === 'text') {
-              const interruptedBlock: ContentBlock = {
-                type: 'text',
-                content: `${lastBlock.content}\n\n[response interrupted]`,
-              }
-              return {
-                ...msg,
-                blocks: [...blocks.slice(0, -1), interruptedBlock],
-                isComplete: true,
-              }
-            }
-
-            const interruptionNotice: ContentBlock = {
-              type: 'text',
-              content: '[response interrupted]',
-            }
             return {
               ...msg,
-              blocks: [...blocks, interruptionNotice],
+              blocks: addInterruptionNotice(blocks),
               isComplete: true,
             }
           }),
@@ -1311,19 +1015,8 @@ export const useSendMessage = ({
                     const storedType = info.agentType || ''
 
                     // Extract base names without version or scope
-                    // e.g., 'codebuff/file-picker@0.0.2' -> 'file-picker'
-                    //       'file-picker' -> 'file-picker'
-                    const getBaseName = (type: string) => {
-                      if (type.includes('/')) {
-                        // Handle scoped names like 'codebuff/file-picker@0.0.2'
-                        return type.split('/')[1]?.split('@')[0] || type
-                      }
-                      // Handle simple names, possibly with version
-                      return type.split('@')[0]
-                    }
-
-                    const eventBaseName = getBaseName(eventType)
-                    const storedBaseName = getBaseName(storedType)
+                    const eventBaseName = getAgentBaseName(eventType)
+                    const storedBaseName = getAgentBaseName(storedType)
 
                     // Match if base names are the same
                     const isMatch = eventBaseName === storedBaseName
@@ -1482,22 +1175,12 @@ export const useSendMessage = ({
                         const blocks: ContentBlock[] = msg.blocks
                           ? [...msg.blocks]
                           : []
-                        const newAgentBlock: ContentBlock = {
-                          type: 'agent',
+                        const newAgentBlock: ContentBlock = createAgentBlock({
                           agentId: event.agentId,
-                          agentName: event.agentType || 'Agent',
                           agentType: event.agentType || 'unknown',
-                          content: '',
-                          status: 'running' as const,
-                          blocks: [] as ContentBlock[],
-                          initialPrompt: event.prompt || '',
-                          ...(event.params && { params: event.params }),
-                          ...(shouldCollapseByDefault(
-                            event.agentType || '',
-                          ) && {
-                            isCollapsed: true,
-                          }),
-                        }
+                          prompt: event.prompt,
+                          params: event.params,
+                        })
 
                         // If parentAgentId exists, nest inside parent agent
                         if (event.parentAgentId) {
@@ -1626,26 +1309,10 @@ export const useSendMessage = ({
                         ? [...msg.blocks]
                         : []
 
-                      const newAgentBlocks: ContentBlock[] = agents
-                        .filter(
-                          (agent: any) =>
-                            !shouldHideAgent(agent.agent_type || ''),
-                        )
-                        .map((agent: any, index: number) => ({
-                          type: 'agent',
-                          agentId: `${toolCallId}-${index}`,
-                          agentName: agent.agent_type || 'Agent',
-                          agentType: agent.agent_type || 'unknown',
-                          content: '',
-                          status: 'running' as const,
-                          blocks: [] as ContentBlock[],
-                          initialPrompt: agent.prompt || '',
-                          ...(shouldCollapseByDefault(
-                            agent.agent_type || '',
-                          ) && {
-                            isCollapsed: true,
-                          }),
-                        }))
+                      const newAgentBlocks = createSpawnAgentBlocks(
+                        toolCallId,
+                        agents,
+                      )
 
                       return {
                         ...msg,
@@ -1662,13 +1329,6 @@ export const useSendMessage = ({
                   return
                 }
 
-                function isHiddenToolName(
-                  toolName: string,
-                ): toolName is SetElement<typeof hiddenToolNames> {
-                  return hiddenToolNames.has(
-                    toolName as SetElement<typeof hiddenToolNames>,
-                  )
-                }
                 if (isHiddenToolName(toolName)) {
                   return
                 }
@@ -1748,69 +1408,32 @@ export const useSendMessage = ({
                 const { toolCallId } = event
 
                 // Handle ask_user result transformation
-                applyMessageUpdate((prev) =>
-                  prev.map((msg) => {
-                    if (msg.id !== aiMessageId || !msg.blocks) return msg
-
-                    // Recursively check for tool blocks to transform
-                    const transformAskUser = (
-                      blocks: ContentBlock[],
-                    ): ContentBlock[] => {
-                      return blocks.map((block) => {
-                        if (
-                          block.type === 'tool' &&
-                          block.toolCallId === toolCallId &&
-                          block.toolName === 'ask_user'
-                        ) {
-                          const resultValue = (event.output?.[0] as any)?.value
-                          const skipped = resultValue?.skipped
-                          const answers = resultValue?.answers
-                          const questions = block.input.questions
-
-                          if (!answers && !skipped) {
-                            // If no result data, keep as tool block (fallback)
-                            return block
-                          }
-
-                          return {
-                            type: 'ask-user',
-                            toolCallId,
-                            questions,
-                            answers,
-                            skipped,
-                          } as AskUserContentBlock
-                        }
-
-                        if (block.type === 'agent' && block.blocks) {
-                          const updatedBlocks = transformAskUser(block.blocks)
-                          if (updatedBlocks !== block.blocks) {
-                            return { ...block, blocks: updatedBlocks }
-                          }
-                        }
-                        return block
-                      })
-                    }
-
-                    const newBlocks = transformAskUser(msg.blocks)
-                    if (newBlocks !== msg.blocks) {
-                      return { ...msg, blocks: newBlocks }
-                    }
-                    return msg
-                  }),
-                )
+                const resultValue = (event.output?.[0] as any)?.value
+                if (resultValue) {
+                  applyMessageUpdate((prev) =>
+                    prev.map((msg) => {
+                      if (msg.id !== aiMessageId || !msg.blocks) return msg
+                      const newBlocks = transformAskUserBlock(
+                        msg.blocks,
+                        toolCallId,
+                        resultValue,
+                      )
+                      return newBlocks !== msg.blocks
+                        ? { ...msg, blocks: newBlocks }
+                        : msg
+                    }),
+                  )
+                }
 
                 // Check if this is a spawn_agents result
-                // The structure is: output[0].value = [{ agentName, agentType, value }]
                 const firstOutputValue = has(event.output?.[0], 'value')
                   ? event.output?.[0]?.value
                   : undefined
-                const isSpawnAgentsResult =
-                  Array.isArray(firstOutputValue) &&
-                  firstOutputValue.some(
-                    (v: any) => v?.agentName || v?.agentType,
-                  )
 
-                if (isSpawnAgentsResult && Array.isArray(firstOutputValue)) {
+                if (isSpawnAgentsResult(firstOutputValue)) {
+                  const outputArray = firstOutputValue as Array<{
+                    value?: unknown
+                  }>
                   applyMessageUpdate((prev) =>
                     prev.map((msg) => {
                       if (msg.id === aiMessageId && msg.blocks) {
@@ -1823,57 +1446,21 @@ export const useSendMessage = ({
                               block.agentId.split('-').pop() || '0',
                               10,
                             )
-                            const result = firstOutputValue[agentIndex]
-
-                            if (has(result, 'value') && result.value) {
-                              let content: string
-                              if (typeof result.value === 'string') {
-                                content = result.value
-                              } else if (
-                                has(result.value, 'errorMessage') &&
-                                result.value.errorMessage
-                              ) {
-                                // Handle error messages from failed agent spawns
-                                content = String(result.value.errorMessage)
-                              } else if (
-                                has(result.value, 'value') &&
-                                result.value.value &&
-                                typeof result.value.value === 'string'
-                              ) {
-                                // Handle nested value structure like { type: "lastMessage", value: "..." }
-                                content = result.value.value
-                              } else if (
-                                has(result.value, 'message') &&
-                                result.value.message
-                              ) {
-                                content = result.value.message
-                              } else {
-                                content = formatToolOutput([result])
-                              }
-
-                              logger.info(
-                                {
-                                  agentId: block.agentId,
-                                  contentLength: content.length,
-                                  contentPreview: content.substring(0, 100),
-                                },
-                                'setMessages: spawn_agents result processed',
-                              )
-
-                              const resultTextBlock: ContentBlock = {
-                                type: 'text',
-                                content,
-                              }
-                              // Determine status based on whether there's an error
-                              const hasError =
-                                has(result.value, 'errorMessage') &&
-                                result.value.errorMessage
-                              return {
-                                ...block,
-                                blocks: [resultTextBlock],
-                                status: hasError
-                                  ? ('failed' as const)
-                                  : ('complete' as const),
+                            const result = outputArray[agentIndex]
+                            if (result) {
+                              const { content, hasError } =
+                                extractSpawnAgentResultContent(
+                                  result,
+                                  formatToolOutput,
+                                )
+                              if (content) {
+                                return {
+                                  ...block,
+                                  blocks: [{ type: 'text' as const, content }],
+                                  status: hasError
+                                    ? ('failed' as const)
+                                    : ('complete' as const),
+                                }
                               }
                             }
                           }
@@ -1885,7 +1472,7 @@ export const useSendMessage = ({
                     }),
                   )
 
-                  firstOutputValue.forEach((_: any, index: number) => {
+                  outputArray.forEach((_: unknown, index: number) => {
                     const agentId = `${toolCallId}-${index}`
                     setStreamingAgents((prev) => {
                       const next = new Set(prev)
@@ -1896,42 +1483,29 @@ export const useSendMessage = ({
                   return
                 }
 
-                const updateToolBlock = (
-                  blocks: ContentBlock[],
-                ): ContentBlock[] => {
-                  return blocks.map((block) => {
-                    if (
-                      block.type === 'tool' &&
-                      block.toolCallId === toolCallId
-                    ) {
-                      let output: string
-                      if (block.toolName === 'run_terminal_command') {
-                        const parsed = (event.output?.[0] as any)?.value
-                        if (parsed?.stdout || parsed?.stderr) {
-                          output = (parsed.stdout || '') + (parsed.stderr || '')
-                        } else {
-                          output = formatToolOutput(event.output)
-                        }
-                      } else {
-                        output = formatToolOutput(event.output)
-                      }
-                      return { ...block, output }
-                    } else if (block.type === 'agent' && block.blocks) {
-                      const updatedBlocks = updateToolBlock(block.blocks)
-                      // Avoid creating new block if nested blocks didn't change
-                      if (isEqual(block.blocks, updatedBlocks)) {
-                        return block
-                      }
-                      return { ...block, blocks: updatedBlocks }
-                    }
-                    return block
-                  })
+                // Format tool output
+                let output: string
+                const parsed = (event.output?.[0] as any)?.value
+                if (
+                  parsed?.stdout !== undefined ||
+                  parsed?.stderr !== undefined
+                ) {
+                  output = (parsed.stdout || '') + (parsed.stderr || '')
+                } else {
+                  output = formatToolOutput(event.output)
                 }
 
                 applyMessageUpdate((prev) =>
                   prev.map((msg) => {
                     if (msg.id === aiMessageId && msg.blocks) {
-                      return { ...msg, blocks: updateToolBlock(msg.blocks) }
+                      const newBlocks = updateToolBlockWithOutput(
+                        msg.blocks,
+                        toolCallId,
+                        output,
+                      )
+                      return newBlocks !== msg.blocks
+                        ? { ...msg, blocks: newBlocks }
+                        : msg
                     }
                     return msg
                   }),
@@ -1995,12 +1569,7 @@ export const useSendMessage = ({
             applyMessageUpdate((prev) =>
               prev.map((msg) => {
                 if (msg.id !== aiMessageId) return msg
-                return {
-                  ...msg,
-                  content: paymentErrorMessage,
-                  blocks: undefined, // Clear blocks so content renders
-                  isComplete: true,
-                }
+                return setMessageError(msg, paymentErrorMessage)
               }),
             )
             // Show the usage banner so user can see their balance and renewal date
@@ -2014,12 +1583,7 @@ export const useSendMessage = ({
             applyMessageUpdate((prev) =>
               prev.map((msg) => {
                 if (msg.id !== aiMessageId) return msg
-                return {
-                  ...msg,
-                  content: `**Error:** ${errorMessage}`,
-                  blocks: undefined, // Clear blocks so content renders
-                  isComplete: true,
-                }
+                return setMessageError(msg, `**Error:** ${errorMessage}`)
               }),
             )
           }
@@ -2055,21 +1619,12 @@ export const useSendMessage = ({
 
         applyMessageUpdate((prev) =>
           prev.map((msg) => {
-            if (msg.id !== aiMessageId) {
-              return msg
-            }
-            return {
-              ...msg,
-              isComplete: true,
-              ...(completionTime && { completionTime }),
-              ...(actualCredits !== undefined && {
-                credits: actualCredits,
-              }),
-              metadata: {
-                ...(msg.metadata ?? {}),
-                runState,
-              },
-            }
+            if (msg.id !== aiMessageId) return msg
+            return markMessageComplete(msg, {
+              completionTime,
+              credits: actualCredits,
+              runState,
+            })
           }),
         )
       } catch (error) {
@@ -2097,15 +1652,8 @@ export const useSendMessage = ({
 
           applyMessageUpdate((prev) =>
             prev.map((msg) => {
-              if (msg.id !== aiMessageId) {
-                return msg
-              }
-              return {
-                ...msg,
-                content: paymentErrorMessage,
-                blocks: undefined, // Clear blocks so content renders
-                isComplete: true,
-              }
+              if (msg.id !== aiMessageId) return msg
+              return setMessageError(msg, paymentErrorMessage)
             }),
           )
           // Show the usage banner so user can see their balance and renewal date
@@ -2117,24 +1665,12 @@ export const useSendMessage = ({
 
         applyMessageUpdate((prev) =>
           prev.map((msg) => {
-            if (msg.id !== aiMessageId) {
-              return msg
-            }
-            const updatedContent =
-              msg.content + `\n\n**Error:** ${errorMessage}`
+            if (msg.id !== aiMessageId) return msg
             return {
               ...msg,
-              content: updatedContent,
+              content: msg.content + `\n\n**Error:** ${errorMessage}`,
+              isComplete: true,
             }
-          }),
-        )
-
-        applyMessageUpdate((prev) =>
-          prev.map((msg) => {
-            if (msg.id !== aiMessageId) {
-              return msg
-            }
-            return { ...msg, isComplete: true }
           }),
         )
       }
