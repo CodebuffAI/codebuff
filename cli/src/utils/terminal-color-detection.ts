@@ -92,8 +92,8 @@ function buildOscQuery(oscCode: number): string {
  * 
  * IMPORTANT: This function reads from stdin because OSC responses come through
  * the PTY which appears on stdin. This means it MUST be run BEFORE any other
- * stdin listeners (like OpenTUI) are attached. The subprocess approach via
- * --internal-osc-detect flag ensures this.
+ * stdin listeners (like OpenTUI) are attached. OSC detection runs at the very
+ * start of main() in index.tsx, before OpenTUI is initialized.
  * 
  * @param ttyPath - Path to TTY for writing the query
  * @param query - The OSC query string to send
@@ -141,7 +141,7 @@ async function sendOscQuery(
         }
       }
 
-      // Pause stdin so the subprocess can exit cleanly
+      // Pause stdin so we leave it non-flowing before other listeners attach
       try {
         process.stdin.pause()
       } catch {

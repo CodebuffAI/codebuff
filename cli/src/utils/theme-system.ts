@@ -2,8 +2,6 @@ import { existsSync, readFileSync, readdirSync, statSync, watch } from 'fs'
 import { homedir } from 'os'
 import { dirname, join } from 'path'
 
-import { logger } from './logger'
-
 import type { MarkdownPalette } from './markdown-renderer'
 import type {
   ChatTheme,
