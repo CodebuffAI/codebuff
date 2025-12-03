@@ -105,6 +105,45 @@ export const ChatInputBar = ({
   const { submitAnswers } = useAskUserBridge()
   const [askUserTitle, setAskUserTitle] = React.useState(' Action Required ')
 
+  // Shared key intercept handler for suggestion menu navigation
+  const handleKeyIntercept = useEvent(
+    (key: {
+      name?: string
+      shift?: boolean
+      ctrl?: boolean
+      meta?: boolean
+      option?: boolean
+    }) => {
+      // Intercept navigation keys when suggestion menu is active
+      // The useChatKeyboard hook will handle menu selection/navigation
+      const hasSuggestions = hasSlashSuggestions || hasMentionSuggestions
+      if (!hasSuggestions) return false
+
+      const isPlainEnter =
+        (key.name === 'return' || key.name === 'enter') &&
+        !key.shift &&
+        !key.ctrl &&
+        !key.meta &&
+        !key.option
+      const isTab = key.name === 'tab' && !key.ctrl && !key.meta && !key.option
+      const isUpDown =
+        (key.name === 'up' || key.name === 'down') &&
+        !key.ctrl &&
+        !key.meta &&
+        !key.option
+
+      // Don't intercept Up/Down when user is navigating history
+      if (isUpDown && lastEditDueToNav) {
+        return false
+      }
+
+      if (isPlainEnter || isTab || isUpDown) {
+        return true
+      }
+      return false
+    },
+  )
+
   if (feedbackMode) {
     return (
       <FeedbackContainer
@@ -199,45 +238,6 @@ export const ChatInputBar = ({
   const effectivePlaceholder =
     inputMode === 'default' ? inputPlaceholder : modeConfig.placeholder
   const borderColor = theme[modeConfig.color]
-
-  // Shared key intercept handler for suggestion menu navigation
-  const handleKeyIntercept = useEvent(
-    (key: {
-      name?: string
-      shift?: boolean
-      ctrl?: boolean
-      meta?: boolean
-      option?: boolean
-    }) => {
-      // Intercept navigation keys when suggestion menu is active
-      // The useChatKeyboard hook will handle menu selection/navigation
-      const hasSuggestions = hasSlashSuggestions || hasMentionSuggestions
-      if (!hasSuggestions) return false
-
-      const isPlainEnter =
-        (key.name === 'return' || key.name === 'enter') &&
-        !key.shift &&
-        !key.ctrl &&
-        !key.meta &&
-        !key.option
-      const isTab = key.name === 'tab' && !key.ctrl && !key.meta && !key.option
-      const isUpDown =
-        (key.name === 'up' || key.name === 'down') &&
-        !key.ctrl &&
-        !key.meta &&
-        !key.option
-
-      // Don't intercept Up/Down when user is navigating history
-      if (isUpDown && lastEditDueToNav) {
-        return false
-      }
-
-      if (isPlainEnter || isTab || isUpDown) {
-        return true
-      }
-      return false
-    },
-  )
 
   if (askUserState) {
     return (
