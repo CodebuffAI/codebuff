@@ -113,8 +113,9 @@ export const Chat = ({
 
   const { separatorWidth, terminalWidth, terminalHeight } =
     useTerminalDimensions()
-  const { height: heightLayout } = useTerminalLayout()
+  const { height: heightLayout, width: widthLayout } = useTerminalLayout()
   const isCompactHeight = heightLayout.is('xs')
+  const isNarrowWidth = widthLayout.is('xs')
   const messageAvailableWidth = separatorWidth
 
   const theme = useTheme()
@@ -640,6 +641,7 @@ export const Chat = ({
     initialPrompt,
     onSubmitPrompt,
     isCompactHeight,
+    isNarrowWidth,
   })
 
   const {
@@ -1218,6 +1220,7 @@ export const Chat = ({
           shouldCenterInputVertically={shouldCenterInputVertically}
           inputBoxTitle={inputBoxTitle}
           isCompactHeight={isCompactHeight}
+          isNarrowWidth={isNarrowWidth}
           feedbackMode={feedbackMode}
           handleExitFeedback={handleExitFeedback}
           handleSubmit={handleSubmit}

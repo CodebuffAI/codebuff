@@ -53,6 +53,7 @@ interface ChatInputBarProps {
   shouldCenterInputVertically: boolean
   inputBoxTitle: string | undefined
   isCompactHeight: boolean
+  isNarrowWidth: boolean
 
   // Feedback mode
   feedbackMode: boolean
@@ -86,6 +87,7 @@ export const ChatInputBar = ({
   shouldCenterInputVertically,
   inputBoxTitle,
   isCompactHeight,
+  isNarrowWidth,
   feedbackMode,
   handleExitFeedback,
   handleSubmit,
@@ -413,7 +415,7 @@ export const ChatInputBar = ({
                 cursorPosition={cursorPosition}
               />
             </box>
-            {modeConfig.showAgentModeToggle && (
+            {modeConfig.showAgentModeToggle && !isNarrowWidth && (
               <box
                 style={{
                   flexShrink: 0,
