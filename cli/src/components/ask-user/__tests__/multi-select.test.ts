@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect } from 'bun:test'
+
 import {
   isMultiSelectAnswer,
   isSingleSelectAnswer,
@@ -11,6 +12,7 @@ import {
   areAllQuestionsAnswered,
 } from '../types'
 import { shouldAutoAdvance } from '../utils/navigation-handlers'
+
 import type { AskUserQuestion } from '../../../state/chat-store'
 
 describe('Multi-Select Type Guards', () => {

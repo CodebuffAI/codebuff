@@ -3,19 +3,21 @@
  * Refactored from 399 lines to ~150 lines with clear separation of concerns
  */
 
-import React, { useState, useMemo, useCallback } from 'react'
 import { TextAttributes } from '@opentui/core'
-import { useTheme } from '../../hooks/use-theme'
-import type { AskUserQuestion } from '../../state/chat-store'
-import { useFocusManager, useFocusActions } from './hooks/use-focus-manager'
-import { useAutoAdvance } from './hooks/use-auto-advance'
-import { useKeyboardNavigation } from './hooks/use-keyboard-navigation'
+import React, { useState, useMemo, useCallback } from 'react'
 
+import { ConfirmScreen, type AnswerSummary } from './components/confirm-screen'
+import { OtherTextInput } from './components/other-text-input'
 import { QuestionHeader } from './components/question-header'
 import { QuestionOption } from './components/question-option'
-import { OtherTextInput } from './components/other-text-input'
+import { useAutoAdvance } from './hooks/use-auto-advance'
+import { useFocusManager, useFocusActions } from './hooks/use-focus-manager'
+import { useKeyboardNavigation } from './hooks/use-keyboard-navigation'
 import { isQuestionAnswered, areAllQuestionsAnswered, isFocusOnOption, isFocusOnTextInput, isFocusOnConfirmSubmit } from './types'
-import { ConfirmScreen, type AnswerSummary } from './components/confirm-screen'
+import { useTheme } from '../../hooks/use-theme'
+
+import type { AskUserQuestion } from '../../state/chat-store'
+
 
 export interface MultipleChoiceFormProps {
   questions: AskUserQuestion[]
@@ -78,7 +80,7 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
     currentQuestion,
     selectedAnswers: selectedAnswers as (number | number[])[],
     otherTexts,
-    onSubmit: (answers, texts) => {
+    onSubmit: () => {
       // Instead of auto-submitting, go to confirm screen
       setIsOnConfirmScreen(true)
       focusActions.resetToConfirm()

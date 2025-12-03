@@ -1,10 +1,10 @@
 import { TextAttributes } from '@opentui/core'
 import React, { memo, type ReactNode } from 'react'
 
-import { useTheme } from '../hooks/use-theme'
-import { BORDER_CHARS } from '../utils/ui-constants'
-import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
 import { Button } from './button'
+import { useTheme } from '../hooks/use-theme'
+import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
+import { BORDER_CHARS } from '../utils/ui-constants'
 
 interface AgentBranchItemProps {
   name: string

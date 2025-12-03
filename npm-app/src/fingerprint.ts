@@ -54,6 +54,7 @@ const getFingerprintInfo = async () => {
   } as Record<string, any>
 }
 export async function calculateFingerprint() {
+  console.log('[fingerprint] Calculating hardware fingerprint...')
   const fingerprintInfo = await getFingerprintInfo()
   const fingerprintString = JSON.stringify(fingerprintInfo)
   const fingerprintHash = createHash('sha256')

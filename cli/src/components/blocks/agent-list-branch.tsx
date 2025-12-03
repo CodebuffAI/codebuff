@@ -1,8 +1,9 @@
+import { pluralize } from '@codebuff/common/util/string'
 import { memo, useCallback } from 'react'
 
-import { pluralize } from '@codebuff/common/util/string'
-import { ToolCallItem } from '../tools/tool-call-item'
 import { useTheme } from '../../hooks/use-theme'
+import { ToolCallItem } from '../tools/tool-call-item'
+
 import type { ContentBlock } from '../../types/chat'
 
 interface AgentListBranchProps {

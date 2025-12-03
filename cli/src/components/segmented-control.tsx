@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
 import stringWidth from 'string-width'
 
-import { useTheme } from '../hooks/use-theme'
 import { Button } from './button'
+import { useTheme } from '../hooks/use-theme'
 
 import type { ChatTheme } from '../types/theme-system'
 

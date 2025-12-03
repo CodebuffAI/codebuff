@@ -1,7 +1,7 @@
-import type { ToolName } from '@codebuff/sdk'
-import type { ReactNode } from 'react'
 import type { ContentBlock } from '../../types/chat'
 import type { ChatTheme } from '../../types/theme-system'
+import type { ToolName } from '@codebuff/sdk'
+import type { ReactNode } from 'react'
 
 export type ToolBlock = Extract<ContentBlock, { type: 'tool' }>
 

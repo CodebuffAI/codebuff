@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react'
 import fs from 'fs'
+
+import React, { useEffect, useState } from 'react'
 
 import { Button } from './button'
 import { ImageThumbnail } from './image-thumbnail'
-
 import { useTheme } from '../hooks/use-theme'
 import {
   supportsInlineImages,

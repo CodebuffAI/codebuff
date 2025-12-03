@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { flushAnalytics } from '../utils/analytics'
 import { getCurrentChatId } from '../project-files'
+import { flushAnalytics } from '../utils/analytics'
 
 import type { InputValue } from '../state/chat-store'
 

@@ -1,4 +1,4 @@
-import { describe, expect, test, mock } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
 
 import { createMessageUpdater } from '../message-updater'
 
@@ -23,13 +23,9 @@ const baseMessages: ChatMessage[] = [
 describe('createMessageUpdater', () => {
   test('updates only the targeted AI message', () => {
     let state = [...baseMessages]
-    const updater = createMessageUpdater(
-      'ai-1',
-      (fn) => {
-        state = fn(state)
-      },
-      () => {},
-    )
+    const updater = createMessageUpdater('ai-1', (fn) => {
+      state = fn(state)
+    })
 
     updater.updateAiMessage((msg) => ({ ...msg, content: 'updated' }))
 
@@ -39,15 +35,10 @@ describe('createMessageUpdater', () => {
 
   test('adds blocks and marks complete with metadata merge', () => {
     let state = [...baseMessages]
-    const flush = mock(() => {})
 
-    const updater = createMessageUpdater(
-      'ai-1',
-      (fn) => {
-        state = fn(state)
-      },
-      flush,
-    )
+    const updater = createMessageUpdater('ai-1', (fn) => {
+      state = fn(state)
+    })
 
     const block: ContentBlock = { type: 'text', content: 'hello' }
     updater.addBlock(block)
@@ -56,26 +47,19 @@ describe('createMessageUpdater', () => {
     expect(state[0].blocks?.[0]).toEqual(block)
     expect(state[0].isComplete).toBe(true)
     expect((state[0].metadata as any).runState).toEqual({ id: 'run-1' })
-    expect(flush).toHaveBeenCalledTimes(1)
   })
 
   test('setError clears blocks and marks complete', () => {
     let state = [...baseMessages]
-    const flush = mock(() => {})
 
-    const updater = createMessageUpdater(
-      'ai-1',
-      (fn) => {
-        state = fn(state)
-      },
-      flush,
-    )
+    const updater = createMessageUpdater('ai-1', (fn) => {
+      state = fn(state)
+    })
 
     updater.setError('boom')
 
     expect(state[0].content).toBe('boom')
     expect(state[0].isComplete).toBe(true)
     expect(state[0].blocks).toBeUndefined()
-    expect(flush).toHaveBeenCalled()
   })
 })

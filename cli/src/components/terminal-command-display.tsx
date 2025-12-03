@@ -1,10 +1,10 @@
 import { TextAttributes } from '@opentui/core'
 import { useState } from 'react'
 
+import { Button } from './button'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
 import { getLastNVisualLines } from '../utils/text-layout'
-import { Button } from './button'
 
 interface TerminalCommandDisplayProps {
   command: string
@@ -30,7 +30,6 @@ export const TerminalCommandDisplay = ({
   expandable = true,
   maxVisibleLines,
   isRunning = false,
-  cwd,
 }: TerminalCommandDisplayProps) => {
   const theme = useTheme()
   const { contentMaxWidth } = useTerminalDimensions()

@@ -1,3 +1,7 @@
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
+
 import {
   describe,
   test,
@@ -7,16 +11,16 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
-import fs from 'fs'
-import os from 'os'
-import path from 'path'
 
 import {
   saveUserCredentials,
   getUserCredentials,
   logoutUser,
-  type User,
 } from '../../utils/auth'
+
+import type * as AuthModule from '../../utils/auth'
+
+type User = AuthModule.User
 
 const ORIGINAL_USER: User = {
   id: 'user-001',
@@ -49,8 +53,7 @@ describe('Logout and Re-login helpers', () => {
   })
 
   const mockConfigPaths = () => {
-    const authModule =
-      require('../../utils/auth') as typeof import('../../utils/auth')
+    const authModule = require('../../utils/auth') as typeof AuthModule
     spyOn(authModule, 'getConfigDir').mockReturnValue(tempConfigDir)
     spyOn(authModule, 'getCredentialsPath').mockReturnValue(
       path.join(tempConfigDir, 'credentials.json'),

@@ -1,8 +1,8 @@
 import { describe, test, expect, mock, beforeEach } from 'bun:test'
 
-import { findCommand } from '../command-registry'
 import { useChatStore } from '../../state/chat-store'
 import { INPUT_MODE_CONFIGS, getInputModeConfig } from '../../utils/input-modes'
+import { findCommand } from '../command-registry'
 
 import type { RouterParams } from '../command-registry'
 

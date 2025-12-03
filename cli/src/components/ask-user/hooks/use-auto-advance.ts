@@ -4,10 +4,12 @@
  */
 
 import { useCallback, useRef } from 'react'
-import type { AnswerState, AskUserQuestion } from '../types'
+
+import { ASK_USER_CONFIG } from '../constants'
 import { areAllQuestionsAnswered } from '../types'
 import { shouldAutoAdvance } from '../utils/navigation-handlers'
-import { ASK_USER_CONFIG } from '../constants'
+
+import type { AnswerState, AskUserQuestion } from '../types'
 
 /**
  * Configuration for auto-advance behavior

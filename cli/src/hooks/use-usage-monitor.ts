@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
 
-import { getAuthToken } from '../utils/auth'
-import { useChatStore } from '../state/chat-store'
 import { useUsageQuery } from './use-usage-query'
+import { useChatStore } from '../state/chat-store'
+import { getAuthToken } from '../utils/auth'
 import { shouldAutoShowBanner } from '../utils/usage-banner-state'
 
 /**

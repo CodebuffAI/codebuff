@@ -3,8 +3,10 @@
  */
 
 import { useMemo } from 'react'
-import type { LayoutMode } from '../types'
+
 import { LAYOUT_BREAKPOINTS } from '../constants'
+
+import type { LayoutMode } from '../types'
 
 /**
  * Determine layout mode based on terminal width

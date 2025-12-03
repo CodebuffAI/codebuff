@@ -5,6 +5,7 @@
  */
 
 import React from 'react'
+
 import { useTheme } from '../../../hooks/use-theme'
 import { Button } from '../../button'
 import { SYMBOLS } from '../constants'

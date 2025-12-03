@@ -1,6 +1,6 @@
 import type { ChatTheme } from './theme-system'
-import type { ReactNode } from 'react'
 import type { ToolName } from '@codebuff/sdk'
+import type { ReactNode } from 'react'
 
 export type ChatVariant = 'ai' | 'user' | 'agent' | 'error'
 

@@ -88,7 +88,6 @@ export const App = ({
     logoutMutation,
   } = useAuthState({
     requireAuth,
-    hasInvalidCredentials,
     inputRef,
     setInputFocused,
     resetChatStore,

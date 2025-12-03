@@ -189,7 +189,7 @@ export function useLoginMutation(deps: UseLoginMutationDeps = {}) {
       const mergedUser = { ...user, ...authResult }
       return mergedUser
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       // Invalidate auth queries to trigger refetch with new credentials
       queryClient.invalidateQueries({ queryKey: authQueryKeys.all })
     },

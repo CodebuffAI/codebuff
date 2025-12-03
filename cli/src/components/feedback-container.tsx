@@ -1,12 +1,13 @@
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import React, { useCallback, useEffect, useRef } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { useFeedbackStore } from '../state/feedback-store'
 import { FeedbackInputMode } from './feedback-input-mode'
 import { useChatStore } from '../state/chat-store'
-import { logger } from '../utils/logger'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { useFeedbackStore } from '../state/feedback-store'
 import { showClipboardMessage } from '../utils/clipboard'
+import { logger } from '../utils/logger'
+
 import type { ChatMessage } from '../types/chat'
 
 interface FeedbackContainerProps {
@@ -34,7 +35,6 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
     closeFeedback,
     resetFeedbackForm,
     markMessageFeedbackSubmitted,
-    restoreSavedInput,
   } = useFeedbackStore(
     useShallow((state) => ({
       feedbackMode: state.feedbackMode,
@@ -50,7 +50,6 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
       closeFeedback: state.closeFeedback,
       resetFeedbackForm: state.resetFeedbackForm,
       markMessageFeedbackSubmitted: state.markMessageFeedbackSubmitted,
-      restoreSavedInput: state.restoreSavedInput,
     })),
   )
 
@@ -154,12 +153,6 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
     }
   }, [closeFeedback, onExitFeedback])
 
-  const handleFeedbackClear = useCallback(() => {
-    setFeedbackText('')
-    setFeedbackCursor(0)
-    setFeedbackCategory('other')
-  }, [setFeedbackText, setFeedbackCursor, setFeedbackCategory])
-
   useEffect(() => {
     if (feedbackMode !== previousFeedbackModeRef.current) {
       previousFeedbackModeRef.current = feedbackMode
@@ -181,7 +174,6 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
       onCursorChange={setFeedbackCursor}
       onSubmit={handleFeedbackSubmit}
       onCancel={handleFeedbackCancel}
-      onClear={handleFeedbackClear}
       feedbackCategory={feedbackCategory}
       onCategoryChange={setFeedbackCategory}
       inputRef={inputRef}

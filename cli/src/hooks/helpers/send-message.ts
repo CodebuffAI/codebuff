@@ -34,7 +34,7 @@ const yieldToEventLoop = () =>
   })
 
 export type PrepareUserMessageDeps = {
-  applyMessageUpdate: (update: SetStateAction<ChatMessage[]>) => void
+  setMessages: (update: SetStateAction<ChatMessage[]>) => void
   lastMessageMode: AgentMode | null
   setLastMessageMode: (mode: AgentMode | null) => void
   scrollToLatest: () => void
@@ -54,7 +54,7 @@ export const prepareUserMessage = async (params: {
 }> => {
   const { content, agentMode, postUserMessage, attachedImages, deps } = params
   const {
-    applyMessageUpdate,
+    setMessages,
     lastMessageMode,
     setLastMessageMode,
     scrollToLatest,
@@ -66,7 +66,7 @@ export const prepareUserMessage = async (params: {
     processBashContext(pendingBashMessages)
 
   if (bashMessages.length > 0) {
-    applyMessageUpdate((prev) => [...prev, ...bashMessages])
+    setMessages((prev) => [...prev, ...bashMessages])
   }
   clearPendingBashMessages()
 
@@ -90,7 +90,7 @@ export const prepareUserMessage = async (params: {
     userMessage.attachments = attachments
   }
 
-  applyMessageUpdate((prev) => {
+  setMessages((prev) => {
     let next = [...prev]
     if (shouldInsertDivider) {
       next.push(createModeDividerMessage(agentMode))
@@ -119,10 +119,7 @@ export const prepareUserMessage = async (params: {
 export const setupStreamingContext = (params: {
   aiMessageId: string
   timerController: SendMessageTimerController
-  queueMessageUpdate: (
-    updater: (messages: ChatMessage[]) => ChatMessage[],
-  ) => void
-  flushPendingUpdates: () => void
+  setMessages: (updater: (messages: ChatMessage[]) => ChatMessage[]) => void
   streamRefs: StreamController
   abortControllerRef: MutableRefObject<AbortController | null>
   setStreamStatus: (status: StreamStatus) => void
@@ -134,8 +131,7 @@ export const setupStreamingContext = (params: {
   const {
     aiMessageId,
     timerController,
-    queueMessageUpdate,
-    flushPendingUpdates,
+    setMessages,
     streamRefs,
     abortControllerRef,
     setStreamStatus,
@@ -147,11 +143,7 @@ export const setupStreamingContext = (params: {
 
   streamRefs.reset()
   timerController.start(aiMessageId)
-  const updater = createMessageUpdater(
-    aiMessageId,
-    queueMessageUpdate,
-    flushPendingUpdates,
-  )
+  const updater = createMessageUpdater(aiMessageId, setMessages)
   const hasReceivedContentRef = { current: false }
   const abortController = new AbortController()
   abortControllerRef.current = abortController

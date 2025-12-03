@@ -1,10 +1,10 @@
 import { describe, test, expect } from 'bun:test'
 
 import {
-  getStatusIndicatorState,
-  type AuthStatus,
-} from '../../utils/status-indicator-state'
-import type { StatusIndicatorStateArgs } from '../../utils/status-indicator-state'
+  getStatusIndicatorState } from '../../utils/status-indicator-state'
+
+import type {
+ StatusIndicatorStateArgs } from '../../utils/status-indicator-state';
 
 describe('StatusIndicator state logic', () => {
   describe('getStatusIndicatorState', () => {

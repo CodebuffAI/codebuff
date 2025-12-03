@@ -1,7 +1,8 @@
-import { useChatStore, type PendingImage } from '../state/chat-store'
-import { processImageFile, resolveFilePath, isImageFile } from './image-handler'
-import path from 'node:path'
 import { existsSync } from 'node:fs'
+import path from 'node:path'
+
+import { processImageFile, resolveFilePath, isImageFile } from './image-handler'
+import { useChatStore, type PendingImage } from '../state/chat-store'
 
 /**
  * Process an image file and add it to the pending images state.

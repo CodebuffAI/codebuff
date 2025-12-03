@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react'
+
 import { LOGO, LOGO_SMALL } from '../login/constants'
 import { parseLogoLines } from '../login/utils'
 

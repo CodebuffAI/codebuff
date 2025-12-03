@@ -1,11 +1,11 @@
 import { useRenderer } from '@opentui/react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
+import { CURSOR_CHAR } from '../components/multiline-input'
 import {
   copyTextToClipboard,
   subscribeClipboardMessages,
 } from '../utils/clipboard'
-import { CURSOR_CHAR } from '../components/multiline-input'
 
 function formatDefaultClipboardMessage(text: string): string | null {
   const preview = text.replace(/\s+/g, ' ').trim()

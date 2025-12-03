@@ -3,17 +3,18 @@
  * All functions are testable without React
  */
 
-import type {
-  FocusTarget,
-  NavigationContext,
-  NavigationDirection,
-  AskUserQuestion,
-} from '../types'
 import {
   createOptionFocus,
   createTextInputFocus,
   isFocusOnOption,
   isFocusOnTextInput,
+} from '../types'
+
+import type {
+  FocusTarget,
+  NavigationContext,
+  NavigationDirection,
+  AskUserQuestion,
 } from '../types'
 
 /**

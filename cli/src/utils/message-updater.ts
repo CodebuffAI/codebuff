@@ -18,7 +18,6 @@ export type MessageUpdater = {
 export const createMessageUpdater = (
   aiMessageId: string,
   setMessages: SetMessagesFn,
-  flushFn: () => void,
 ): MessageUpdater => {
   const updateAiMessage = (updater: (msg: ChatMessage) => ChatMessage) => {
     setMessages((prev) =>
@@ -43,7 +42,6 @@ export const createMessageUpdater = (
   }
 
   const markComplete = (metadata?: Partial<ChatMessage>) => {
-    flushFn()
     updateAiMessage((msg) => {
       const { metadata: messageMetadata, ...rest } = metadata ?? {}
       const nextMessage: ChatMessage = {
@@ -64,7 +62,6 @@ export const createMessageUpdater = (
   }
 
   const setError = (message: string) => {
-    flushFn()
     updateAiMessage((msg) => {
       const nextMessage: ChatMessage = {
         ...msg,

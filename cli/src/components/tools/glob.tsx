@@ -11,13 +11,12 @@ import type { ToolRenderConfig } from './types'
 export const GlobComponent = defineToolComponent({
   toolName: 'glob',
 
-  render(toolBlock, theme, options): ToolRenderConfig {
+  render(toolBlock): ToolRenderConfig {
     const input = toolBlock.input as any
     const pattern = input?.pattern ?? ''
     const cwd = input?.cwd ?? ''
 
-    // Parse output to get file count
-    let fileCount = 0
+    // Parse output to check for errors
     let hasError = false
 
     if (toolBlock.output) {
@@ -31,8 +30,6 @@ export const GlobComponent = defineToolComponent({
           const value = output.value as any
           if (value.errorMessage) {
             hasError = true
-          } else if (typeof value.count === 'number') {
-            fileCount = value.count
           }
         }
       }

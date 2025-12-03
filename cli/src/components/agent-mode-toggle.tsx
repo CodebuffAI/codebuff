@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react'
 
+import { Button } from './button'
 import { SegmentedControl } from './segmented-control'
 import { useTheme } from '../hooks/use-theme'
 import { BORDER_CHARS } from '../utils/ui-constants'
-import { Button } from './button'
 
 import type { Segment } from './segmented-control'
 import type { AgentMode } from '../utils/constants'

@@ -2,12 +2,13 @@
  * Question header component showing progress and navigation hints
  */
 
-import React from 'react'
 import { TextAttributes } from '@opentui/core'
-import { useTheme } from '../../../hooks/use-theme'
-import { Button } from '../../button'
-import { BORDER_CHARS } from '../../../utils/ui-constants'
+import React from 'react'
+
 import { ProgressIndicator } from './progress-indicator'
+import { useTheme } from '../../../hooks/use-theme'
+import { BORDER_CHARS } from '../../../utils/ui-constants'
+import { Button } from '../../button'
 
 export interface QuestionHeaderProps {
   currentIndex: number
@@ -22,7 +23,6 @@ export interface QuestionHeaderProps {
 
 export const QuestionHeader: React.FC<QuestionHeaderProps> = ({
   currentIndex,
-  totalQuestions,
   answeredStates,
   isOnConfirmScreen = false,
   onNavigate,

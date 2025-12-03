@@ -2,12 +2,14 @@
  * "Other" text input component for custom answers
  */
 
-import React from 'react'
 import { TextAttributes, type KeyEvent } from '@opentui/core'
+import React from 'react'
+
+import { useTheme } from '../../../hooks/use-theme'
 import { Button } from '../../button'
 import { MultilineInput } from '../../multiline-input'
-import { useTheme } from '../../../hooks/use-theme'
 import { SYMBOLS } from '../constants'
+
 import type { InputValue } from '../../../state/chat-store'
 
 // Width taken by symbol + "Other:" label + padding
@@ -103,7 +105,6 @@ export const OtherTextInput: React.FC<OtherTextInputProps> = ({
           maxHeight={3}
           minHeight={1}
           width={inputWidth}
-          textAttributes={undefined}
           cursorPosition={cursorPosition}
         />
       </box>

@@ -1,5 +1,5 @@
-import type { KeyEvent } from '@opentui/core'
 import type { InputMode } from './input-modes'
+import type { KeyEvent } from '@opentui/core'
 
 /**
  * State needed to determine keyboard actions in chat input contexts.

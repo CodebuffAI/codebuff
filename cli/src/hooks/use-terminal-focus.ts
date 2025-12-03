@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
-import type { ReadStream } from 'tty'
+
 import { logger } from '../utils/logger'
+
+import type { ReadStream } from 'tty'
 
 /**
  * XTerm focus reporting escape sequences

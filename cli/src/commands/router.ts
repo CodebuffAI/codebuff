@@ -15,7 +15,6 @@ import {
 } from './router-utils'
 import { getProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
-import { getSystemMessage, getUserMessage } from '../utils/message-history'
 import {
   capturePendingImages,
   hasProcessingImages,
@@ -26,6 +25,7 @@ import {
   createRunTerminalToolResult,
 } from '../utils/bash-messages'
 import { showClipboardMessage } from '../utils/clipboard'
+import { getSystemMessage, getUserMessage } from '../utils/message-history'
 
 
 
@@ -237,8 +237,6 @@ export async function routeUserPrompt(
   const pendingImages = useChatStore.getState().pendingImages
 
   const trimmed = inputValue.trim()
-  const isBusy =
-    isStreaming || streamMessageIdRef.current || isChainInProgressRef.current
   // Allow empty messages if there are pending images attached
   if (!trimmed && pendingImages.length === 0) return
 

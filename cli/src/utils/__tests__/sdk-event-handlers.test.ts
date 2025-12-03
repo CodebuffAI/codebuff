@@ -84,13 +84,9 @@ const createTestContext = (agentMode: AgentMode = 'DEFAULT') => {
   let hasPlanResponse = false
   const streamRefs = createStreamRefs()
 
-  const updater = createMessageUpdater(
-    'ai-1',
-    (fn) => {
-      messages = fn(messages)
-    },
-    () => {},
-  )
+  const updater = createMessageUpdater('ai-1', (fn) => {
+    messages = fn(messages)
+  })
 
   const ctx: EventHandlerContext = {
     streaming: {

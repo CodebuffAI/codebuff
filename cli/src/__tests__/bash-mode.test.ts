@@ -21,8 +21,8 @@ import type { InputMode } from '../utils/input-modes'
 describe('bash-mode', () => {
   describe('entering bash mode', () => {
     test('typing exactly "!" enters bash mode and clears input', () => {
-      const setInputMode = mock((_mode: InputMode) => {})
-      const setInputValue = mock((_value: any) => {})
+      const setInputMode = mock(() => {})
+      const setInputValue = mock(() => {})
 
       // Simulate user typing '!'
       const inputValue = {
@@ -50,8 +50,8 @@ describe('bash-mode', () => {
     })
 
     test('typing "!ls" does NOT enter bash mode (not exactly "!")', () => {
-      const setInputMode = mock((_mode: InputMode) => {})
-      const setInputValue = mock((_value: any) => {})
+      const setInputMode = mock(() => {})
+      const setInputValue = mock(() => {})
 
       // Simulate user typing '!ls'
       const inputValue = {
@@ -78,15 +78,15 @@ describe('bash-mode', () => {
     })
 
     test('typing "!" when already in bash mode does nothing special', () => {
-      const setInputMode = mock((_mode: InputMode) => {})
-      const setInputValue = mock((_value: any) => {})
+      const setInputMode = mock(() => {})
+      const setInputValue = mock(() => {})
 
       const inputValue = {
         text: '!',
         cursorPosition: 1,
         lastEditDueToNav: false,
       }
-      let inputMode = 'bash' as InputMode
+      const inputMode = 'bash' as InputMode
 
       const userTypedBang = inputMode === ('default' as InputMode) && inputValue.text === '!'
 
@@ -108,7 +108,7 @@ describe('bash-mode', () => {
 
   describe('exiting bash mode', () => {
     test('backspace at cursor position 0 exits bash mode', () => {
-      const setInputMode = mock((_mode: InputMode) => {})
+      const setInputMode = mock(() => {})
 
       // Simulate backspace key press in bash mode at cursor position 0
       const inputMode: InputMode = 'bash'
@@ -128,7 +128,7 @@ describe('bash-mode', () => {
     })
 
     test('backspace at cursor position 0 with non-empty input DOES exit bash mode', () => {
-      const setInputMode = mock((_mode: InputMode) => {})
+      const setInputMode = mock(() => {})
 
       const inputMode: InputMode = 'bash'
       const cursorPosition = 0
@@ -147,7 +147,7 @@ describe('bash-mode', () => {
     })
 
     test('backspace at cursor position > 0 does NOT exit bash mode', () => {
-      const setInputMode = mock((_mode: InputMode) => {})
+      const setInputMode = mock(() => {})
 
       const inputMode: InputMode = 'bash'
       const cursorPosition: number = 2
@@ -166,7 +166,7 @@ describe('bash-mode', () => {
     })
 
     test('other keys at cursor position 0 do NOT exit bash mode', () => {
-      const setInputMode = mock((_mode: InputMode) => {})
+      const setInputMode = mock(() => {})
 
       const inputMode: InputMode = 'bash'
       const cursorPosition = 0
@@ -185,9 +185,9 @@ describe('bash-mode', () => {
     })
 
     test('backspace when NOT in bash mode does nothing to bash mode', () => {
-      const setInputMode = mock((_mode: InputMode) => {})
+      const setInputMode = mock(() => {})
 
-      let inputMode = 'default' as InputMode
+      const inputMode = 'default' as InputMode
       const cursorPosition = 0
       const key = { name: 'backspace' }
 
@@ -217,12 +217,10 @@ describe('bash-mode', () => {
     })
 
     test('normal mode input can contain "!" anywhere', () => {
-      const inputMode: InputMode = 'default'
       const inputValue = 'fix this bug!'
 
       // In normal mode, '!' is just a regular character
       expect(inputValue).toContain('!')
-      expect(inputMode).toBe('default')
     })
   })
 
@@ -249,8 +247,7 @@ describe('bash-mode', () => {
     })
 
     test('submission saves command WITH "!" to history', () => {
-      const saveToHistory = mock((_cmd: string) => {})
-      const inputMode: InputMode = 'bash'
+      const saveToHistory = mock(() => {})
       const trimmedInput = 'git status'
       const commandWithBang = '!' + trimmedInput
 
@@ -261,7 +258,7 @@ describe('bash-mode', () => {
     })
 
     test('submission exits bash mode after running command', () => {
-      const setInputMode = mock((_mode: InputMode) => {})
+      const setInputMode = mock(() => {})
 
       // After submission, bash mode should be exited
       setInputMode('default')
@@ -270,7 +267,7 @@ describe('bash-mode', () => {
     })
 
     test('terminal command receives value WITHOUT "!" prefix', () => {
-      const runTerminalCommand = mock((_params: any) =>
+      const runTerminalCommand = mock(() =>
         Promise.resolve([{ value: { stdout: 'output' } }]),
       )
       const trimmedInput = 'echo hello'
@@ -293,8 +290,8 @@ describe('bash-mode', () => {
   describe('bash mode UI state', () => {
     test('input mode is stored separately from input value', () => {
       // The inputMode is independent of the input text
-      const state1 = { inputMode: 'bash' as InputMode, inputValue: 'ls' }
-      const state2 = { inputMode: 'default' as InputMode, inputValue: 'hello' }
+      const state1: { inputMode: InputMode; inputValue: string } = { inputMode: 'bash', inputValue: 'ls' }
+      const state2: { inputMode: InputMode; inputValue: string } = { inputMode: 'default', inputValue: 'hello' }
 
       expect(state1.inputMode).toBe('bash')
       expect(state1.inputValue).not.toContain('!')
@@ -305,21 +302,21 @@ describe('bash-mode', () => {
 
     test('input width is adjusted in bash mode for "!" column', () => {
       const baseInputWidth = 100
-      const inputMode: InputMode = 'bash'
+      const inputModeValue: InputMode = 'bash'
 
       // Width should be reduced by 2 to account for '!' and spacing
       const adjustedInputWidth =
-        inputMode === 'bash' ? baseInputWidth - 2 : baseInputWidth
+        inputModeValue === 'bash' ? baseInputWidth - 2 : baseInputWidth
 
       expect(adjustedInputWidth).toBe(98)
     })
 
     test('input width is NOT adjusted when not in bash mode', () => {
       const baseInputWidth = 100
-      let inputMode = 'default' as InputMode
+      const inputModeValue = 'default' as InputMode
 
       const adjustedInputWidth =
-        inputMode === ('bash' as InputMode) ? baseInputWidth - 2 : baseInputWidth
+        inputModeValue === ('bash' as InputMode) ? baseInputWidth - 2 : baseInputWidth
 
       expect(adjustedInputWidth).toBe(100)
     })
@@ -338,7 +335,7 @@ describe('bash-mode', () => {
     test('placeholder is normal when not in bash mode', () => {
       const normalPlaceholder = 'Ask Buffy anything...'
       const bashPlaceholder = 'enter bash command...'
-      let inputMode = 'default' as InputMode
+      const inputMode = 'default' as InputMode
 
       const effectivePlaceholder =
         inputMode === ('bash' as InputMode) ? bashPlaceholder : normalPlaceholder
@@ -408,7 +405,7 @@ describe('bash-mode', () => {
     })
 
     test('normal commands starting with "!" are NOT bash commands', () => {
-      let inputMode = 'default' as InputMode
+      const inputMode = 'default' as InputMode
       const inputValue = '!ls' // User typed this in normal mode
 
       // This should be treated as a normal prompt, not a bash command
@@ -418,7 +415,7 @@ describe('bash-mode', () => {
     })
 
     test('bash mode takes precedence over slash commands', () => {
-      let inputMode = 'bash' as InputMode
+      const inputMode = 'bash' as InputMode
       const trimmedInput = '/help' // Looks like a slash command
 
       // But in bash mode, it's just a bash command

@@ -4,18 +4,13 @@ import React, { useState } from 'react'
 import { Button } from './button'
 import { TerminalLink } from './terminal-link'
 import { useTheme } from '../hooks/use-theme'
-import { getProjectRoot } from '../project-files'
-import { openFileAtPath } from '../utils/open-file'
-import type { LocalAgentInfo } from '../utils/local-agent-registry'
 import { getLoadedAgentsData } from '../utils/local-agent-registry'
+import { openFileAtPath } from '../utils/open-file'
 import { formatValidationError } from '../utils/validation-error-formatting'
 import { NETWORK_ERROR_ID } from '../utils/validation-error-helpers'
-// Normalize a file path to be relative to project root
-const normalizeRelativePath = (filePath: string): string => {
-  const projectRoot = getProjectRoot()
-  if (!projectRoot) return filePath
-  return filePath.replace(projectRoot, '').replace(/^\//, '')
-}
+
+import type { LocalAgentInfo } from '../utils/local-agent-registry'
+
 
 interface ValidationErrorPopoverProps {
   errors: Array<{ id: string; message: string }>
@@ -107,10 +102,6 @@ export const ValidationErrorPopover: React.FC<ValidationErrorPopoverProps> = ({
             }
 
             if (agentInfo?.filePath) {
-              const relativePathFromRoot = normalizeRelativePath(
-                agentInfo.filePath,
-              ).replace(/\\/g, '/')
-
               return (
                 <box
                   key={error.id}

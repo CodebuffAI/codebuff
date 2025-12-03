@@ -1,3 +1,4 @@
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { TextAttributes } from '@opentui/core'
 import React, { useRef } from 'react'
 
@@ -5,7 +6,6 @@ import { useHoverToggle } from './agent-mode-toggle'
 import { Button } from './button'
 import { useTheme } from '../hooks/use-theme'
 import { logger } from '../utils/logger'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 interface FeedbackIconButtonProps {
   onClick: () => void

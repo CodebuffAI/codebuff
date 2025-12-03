@@ -1,4 +1,5 @@
 import { defineToolComponent } from './types'
+
 import type { ToolRenderConfig } from './types'
 
 /**
@@ -8,7 +9,7 @@ import type { ToolRenderConfig } from './types'
 export const TaskCompleteComponent = defineToolComponent({
   toolName: 'task_completed',
 
-  render(toolBlock, theme, options): ToolRenderConfig {
+  render(): ToolRenderConfig {
     return {
       content: null,
     }

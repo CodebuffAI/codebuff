@@ -4,11 +4,13 @@
  */
 
 import { describe, it, expect } from 'bun:test'
+
 import {
   validateOtherText,
   isTextEmpty,
   sanitizeTextInput,
 } from '../utils/validation'
+
 import type { QuestionValidation } from '../utils/validation'
 
 describe('validateOtherText', () => {

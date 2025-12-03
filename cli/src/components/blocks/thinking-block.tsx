@@ -1,6 +1,7 @@
 import { memo, useCallback } from 'react'
 
 import { Thinking } from '../thinking'
+
 import type { ContentBlock } from '../../types/chat'
 
 interface ThinkingBlockProps {

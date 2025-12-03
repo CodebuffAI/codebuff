@@ -1,6 +1,6 @@
+import { validateAgents } from '@codebuff/sdk'
 import { useCallback, useState } from 'react'
 
-import { validateAgents } from '@codebuff/sdk'
 
 import { loadAgentDefinitions } from '../utils/load-agent-definitions'
 import { logger } from '../utils/logger'

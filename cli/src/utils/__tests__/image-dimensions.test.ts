@@ -3,9 +3,9 @@ import path from 'path'
 
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 
-import { processImageFile } from '../image-handler'
-import { calculateDisplaySize } from '../image-display'
 import { setProjectRoot } from '../../project-files'
+import { calculateDisplaySize } from '../image-display'
+import { processImageFile } from '../image-handler'
 
 const TEST_DIR = path.join(__dirname, 'temp-test-images')
 

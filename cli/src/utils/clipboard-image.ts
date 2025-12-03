@@ -1,7 +1,7 @@
 import { spawnSync } from 'child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'fs'
-import path from 'path'
 import os from 'os'
+import path from 'path'
 
 export interface ClipboardImageResult {
   success: boolean

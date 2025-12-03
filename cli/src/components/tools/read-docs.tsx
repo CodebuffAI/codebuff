@@ -49,7 +49,7 @@ const ReadDocsSimpleToolCallItem = ({
 export const ReadDocsComponent = defineToolComponent({
   toolName: 'read_docs',
 
-  render(toolBlock, theme, options): ToolRenderConfig {
+  render(toolBlock): ToolRenderConfig {
     const input = toolBlock.input as any
 
     // Extract library and topic from input

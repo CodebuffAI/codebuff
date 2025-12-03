@@ -1,13 +1,14 @@
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
-import type { ClientToolCall } from '@codebuff/common/tools/list'
 import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
 import { CodebuffClient } from '@codebuff/sdk'
 
 import { getAuthTokenDetails } from './auth'
 import { loadAgentDefinitions } from './load-agent-definitions'
 import { logger } from './logger'
-import { getProjectRoot } from '../project-files'
 import { getRgPath } from '../native/ripgrep'
+import { getProjectRoot } from '../project-files'
+
+import type { ClientToolCall } from '@codebuff/common/tools/list'
 
 let clientInstance: CodebuffClient | null = null
 
@@ -44,7 +45,7 @@ export function resetCodebuffClient(): void {
 
 export async function getCodebuffClient(): Promise<CodebuffClient | null> {
   if (!clientInstance) {
-    const { token: apiKey, source } = getAuthTokenDetails()
+    const { token: apiKey } = getAuthTokenDetails()
 
     if (!apiKey) {
       logger.warn(

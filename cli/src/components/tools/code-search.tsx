@@ -13,37 +13,25 @@ import type { ToolRenderConfig } from './types'
 export const CodeSearchComponent = defineToolComponent({
   toolName: 'code_search',
 
-  render(toolBlock, theme, options): ToolRenderConfig {
+  render(toolBlock): ToolRenderConfig {
     const input = toolBlock.input as any
     const pattern = input?.pattern ?? ''
-    const flags = input?.flags ?? ''
     const cwd = input?.cwd ?? ''
 
     // Count results from output
     let totalResults = 0
-    let fileCount = 0
 
     if (toolBlock.output && typeof toolBlock.output === 'string') {
       const lines = toolBlock.output.split('\n')
-      const files = new Set<string>()
 
       for (const line of lines) {
         const trimmed = line.trim()
 
-        // File paths end with a colon and typically start with ./ or /
-        if (
-          trimmed.endsWith(':') &&
-          (trimmed.startsWith('./') || trimmed.startsWith('/'))
-        ) {
-          files.add(trimmed.slice(0, -1)) // Remove trailing colon
-        }
         // Result lines start with a number followed by a colon
-        else if (/^\d+:/.test(trimmed)) {
+        if (/^\d+:/.test(trimmed)) {
           totalResults++
         }
       }
-
-      fileCount = files.size
     }
 
     // Build single-line summary

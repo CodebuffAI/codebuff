@@ -1,12 +1,12 @@
-import React, { useCallback, useEffect, useMemo } from 'react'
+import React, { useCallback, useEffect } from 'react'
 
-import { getSheenColor } from '../login/utils'
 import {
   SHADOW_CHARS,
   SHEEN_WIDTH,
   SHEEN_STEP,
   SHEEN_INTERVAL_MS,
 } from '../login/constants'
+import { getSheenColor } from '../login/utils'
 
 interface UseSheenAnimationParams {
   logoColor: string
@@ -56,7 +56,7 @@ export function useSheenAnimation({
 
   // Apply sheen effect to a character based on its position
   const applySheenToChar = useCallback(
-    (char: string, charIndex: number, _lineIndex: number) => {
+    (char: string, charIndex: number) => {
       if (char === ' ' || char === '\n') {
         return <span key={charIndex}>{char}</span>
       }

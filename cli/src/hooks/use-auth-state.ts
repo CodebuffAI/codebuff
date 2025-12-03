@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { useAuthQuery, useLogoutMutation } from './use-auth-query'
 import { useLoginStore } from '../state/login-store'
+import { identifyUser } from '../utils/analytics'
 import { getUserCredentials } from '../utils/auth'
 import { resetCodebuffClient } from '../utils/codebuff-client'
-import { identifyUser } from '../utils/analytics'
 import { loggerContext } from '../utils/logger'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
@@ -12,7 +12,6 @@ import type { User } from '../utils/auth'
 
 interface UseAuthStateOptions {
   requireAuth: boolean | null
-  hasInvalidCredentials: boolean
   inputRef: React.MutableRefObject<MultilineInputHandle | null>
   setInputFocused: (focused: boolean) => void
   resetChatStore: () => void
@@ -20,7 +19,6 @@ interface UseAuthStateOptions {
 
 export const useAuthState = ({
   requireAuth,
-  hasInvalidCredentials,
   inputRef,
   setInputFocused,
   resetChatStore,

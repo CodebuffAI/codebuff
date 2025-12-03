@@ -1,7 +1,6 @@
 import { WEBSITE_URL } from '@codebuff/sdk'
 
 import type {
-  PublishAgentsErrorResponse,
   PublishAgentsResponse,
 } from '@codebuff/common/types/api/agents/publish'
 

@@ -114,21 +114,20 @@ function getCurrentVersion() {
   if (!fs.existsSync(CONFIG.binaryPath)) return null
 
   try {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const child = spawn(CONFIG.binaryPath, ['--version'], {
         cwd: CONFIG.packageDir,
         stdio: 'pipe',
       })
 
       let output = ''
-      let errorOutput = ''
 
       child.stdout.on('data', (data) => {
         output += data.toString()
       })
 
-      child.stderr.on('data', (data) => {
-        errorOutput += data.toString()
+      child.stderr.on('data', () => {
+        // Ignore stderr output
       })
 
       const timeout = setTimeout(() => {

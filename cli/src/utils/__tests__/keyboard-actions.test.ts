@@ -1,11 +1,13 @@
 import { describe, test, expect } from 'bun:test'
-import type { KeyEvent } from '@opentui/core'
 
 import {
   resolveChatKeyboardAction,
   createDefaultChatKeyboardState,
   type ChatKeyboardState,
 } from '../keyboard-actions'
+
+import type { KeyEvent } from '@opentui/core'
+
 
 const createKey = (overrides: Partial<KeyEvent> = {}): KeyEvent => ({
   name: '',

@@ -48,7 +48,6 @@ const TEST_USER: User = {
 
 describe('Credentials Storage Integration', () => {
   let tempConfigDir: string
-  let originalEnv: string | undefined
 
   beforeEach(() => {
     // Create temporary config directory for tests

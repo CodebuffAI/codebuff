@@ -2,8 +2,9 @@
  * Helper utilities for focus management
  */
 
-import type { FocusTarget } from '../types'
 import { isFocusOnOption, isFocusOnTextInput } from '../types'
+
+import type { FocusTarget } from '../types'
 
 /**
  * Check if two focus targets are equal

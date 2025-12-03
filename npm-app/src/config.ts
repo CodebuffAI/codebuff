@@ -1,3 +1,5 @@
+console.log('[config] Loading configuration...')
+
 export const isProduction = process.env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod'
 
 export const websocketUrl =

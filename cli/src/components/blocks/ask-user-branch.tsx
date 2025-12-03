@@ -1,7 +1,9 @@
-import React from 'react'
 import { TextAttributes } from '@opentui/core'
+import React from 'react'
+
 import { useTheme } from '../../hooks/use-theme'
 import { BORDER_CHARS } from '../../utils/ui-constants'
+
 import type { AskUserContentBlock } from '../../types/chat'
 
 interface AskUserBranchProps {

@@ -1,4 +1,4 @@
-import { BorderCharacters } from '@opentui/core'
+import type { BorderCharacters } from '@opentui/core'
 
 export const BORDER_CHARS: BorderCharacters = {
   topLeft: '╭',

@@ -3,7 +3,6 @@
  * Supports iTerm2 inline images protocol and Kitty graphics protocol
  */
 
-import { logger } from './logger'
 
 export type TerminalImageProtocol = 'iterm2' | 'kitty' | 'sixel' | 'none'
 

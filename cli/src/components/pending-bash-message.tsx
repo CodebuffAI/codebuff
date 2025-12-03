@@ -1,19 +1,17 @@
 import { TextAttributes } from '@opentui/core'
 
+import { TerminalCommandDisplay } from './terminal-command-display'
 import { useTheme } from '../hooks/use-theme'
 import { DASHED_BORDER_CHARS } from '../utils/ui-constants'
-import { TerminalCommandDisplay } from './terminal-command-display'
 
 import type { PendingBashMessage as PendingBashMessageType } from '../state/chat-store'
 
 interface PendingBashMessageProps {
   message: PendingBashMessageType
-  width: number
 }
 
 export const PendingBashMessage = ({
   message,
-  width,
 }: PendingBashMessageProps) => {
   const theme = useTheme()
 

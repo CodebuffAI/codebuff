@@ -69,7 +69,7 @@ const WriteTodosItem = ({ todos }: WriteTodosItemProps) => {
 export const WriteTodosComponent = defineToolComponent({
   toolName: 'write_todos',
 
-  render(toolBlock, theme, options): ToolRenderConfig {
+  render(toolBlock): ToolRenderConfig {
     const { input } = toolBlock
 
     // Extract todos from input

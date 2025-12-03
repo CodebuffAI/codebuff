@@ -12,7 +12,9 @@
  */
 
 import { spawn } from 'child_process'
+
 import stripAnsi from 'strip-ansi'
+
 import { isTmuxAvailable, sleep } from './test-utils'
 
 // Utility to run tmux commands
@@ -38,11 +40,6 @@ function tmux(args: string[]): Promise<string> {
       }
     })
   })
-}
-
-// Send keys to tmux session
-async function sendKeys(sessionName: string, keys: string) {
-  await tmux(['send-keys', '-t', sessionName, keys])
 }
 
 // Capture pane content

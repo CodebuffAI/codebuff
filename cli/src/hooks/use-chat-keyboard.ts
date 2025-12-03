@@ -1,13 +1,15 @@
-import { useCallback } from 'react'
 import { useKeyboard } from '@opentui/react'
-import type { KeyEvent } from '@opentui/core'
+import { useCallback } from 'react'
 
+import { hasClipboardImage, readClipboardText } from '../utils/clipboard-image'
 import {
   resolveChatKeyboardAction,
   type ChatKeyboardState,
   type ChatKeyboardAction,
 } from '../utils/keyboard-actions'
-import { hasClipboardImage, readClipboardText } from '../utils/clipboard-image'
+
+import type { KeyEvent } from '@opentui/core'
+
 
 /**
  * Handlers for chat keyboard actions.

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { ScrollBoxRenderable } from '@opentui/core'
-import { logger } from '../utils/logger'
 
 // Scroll detection threshold - how close to bottom to consider "at bottom"
 const SCROLL_NEAR_BOTTOM_THRESHOLD = 1

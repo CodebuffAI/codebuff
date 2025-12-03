@@ -1,6 +1,7 @@
 import { describe, test, expect, mock } from 'bun:test'
 
 import { createQueueCtrlCHandler } from '../use-queue-controls'
+
 import type { QueuedMessage } from '../use-message-queue'
 
 describe('createQueueCtrlCHandler', () => {

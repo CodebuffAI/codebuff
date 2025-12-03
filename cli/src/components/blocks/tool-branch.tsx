@@ -1,12 +1,13 @@
 import { memo, useCallback } from 'react'
 
-import { renderToolComponent } from '../tools/registry'
-import { ToolCallItem } from '../tools/tool-call-item'
+import { ContentWithMarkdown } from './content-with-markdown'
 import { useTheme } from '../../hooks/use-theme'
 import { getToolDisplayInfo } from '../../utils/codebuff-client'
-import type { MarkdownPalette } from '../../utils/markdown-renderer'
-import { ContentWithMarkdown } from './content-with-markdown'
+import { renderToolComponent } from '../tools/registry'
+import { ToolCallItem } from '../tools/tool-call-item'
+
 import type { ContentBlock } from '../../types/chat'
+import type { MarkdownPalette } from '../../utils/markdown-renderer'
 
 interface ToolBranchProps {
   toolBlock: Extract<ContentBlock, { type: 'tool' }>

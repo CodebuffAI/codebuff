@@ -2,9 +2,9 @@ import { TextAttributes } from '@opentui/core'
 import { memo, useMemo, type ReactNode } from 'react'
 import React from 'react'
 
+import { Button } from './button'
 import { MessageBlock } from './message-block'
 import { ModeDivider } from './mode-divider'
-import { Button } from './button'
 import {
   renderMarkdown,
   hasMarkdown,

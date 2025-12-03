@@ -119,7 +119,7 @@ const FeedbackTextSection: React.FC<FeedbackTextSectionProps> = ({
           maxHeight={5}
           minHeight={3}
           width={inputWidth}
-          textAttributes={undefined}
+
           ref={inputRef}
           cursorPosition={cursor}
         />
@@ -140,7 +140,6 @@ interface FeedbackInputModeProps {
   onCategoryChange: (category: string) => void
   onSubmit: () => void
   onCancel: () => void
-  onClear: () => void
   inputRef?: React.MutableRefObject<any>
   width: number
   footerMessage?: string | null
@@ -155,7 +154,6 @@ export const FeedbackInputMode: React.FC<FeedbackInputModeProps> = ({
   onCategoryChange,
   onSubmit,
   onCancel,
-  onClear,
   inputRef: externalInputRef,
   width,
   footerMessage,

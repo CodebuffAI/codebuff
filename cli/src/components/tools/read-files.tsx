@@ -47,7 +47,7 @@ const ReadFilesSimpleToolCallItem = ({
 export const ReadFilesComponent = defineToolComponent({
   toolName: 'read_files',
 
-  render(toolBlock, theme, options): ToolRenderConfig {
+  render(toolBlock): ToolRenderConfig {
     const input = toolBlock.input as any
 
     // Extract file paths from input

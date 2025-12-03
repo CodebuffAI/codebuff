@@ -13,7 +13,7 @@ import type { ToolRenderConfig } from './types'
 export const ListDirectoryComponent = defineToolComponent({
   toolName: 'list_directory',
 
-  render(toolBlock, theme, options): ToolRenderConfig {
+  render(toolBlock): ToolRenderConfig {
     const input = toolBlock.input as any
 
     // Extract directories from input

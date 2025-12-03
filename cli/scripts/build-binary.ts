@@ -11,9 +11,9 @@ import {
   rmSync,
   writeFileSync,
 } from 'fs'
+import { tmpdir } from 'os'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
-import { tmpdir } from 'os'
 
 type TargetInfo = {
   bunTarget: string

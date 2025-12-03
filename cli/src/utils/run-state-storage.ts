@@ -4,8 +4,8 @@ import path from 'path'
 import { getCurrentChatDir, getMostRecentChatDir, getProjectDataDir } from '../project-files'
 import { logger } from './logger'
 
-import type { RunState } from '@codebuff/sdk'
 import type { ChatMessage, ContentBlock } from '../types/chat'
+import type { RunState } from '@codebuff/sdk'
 
 const RUN_STATE_FILENAME = 'run-state.json'
 const CHAT_MESSAGES_FILENAME = 'chat-messages.json'

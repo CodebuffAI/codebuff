@@ -1,6 +1,5 @@
 import { TextAttributes } from '@opentui/core'
 import React, { useEffect, useRef, useState } from 'react'
-import { useTheme } from '../hooks/use-theme'
 
 interface InputCursorProps {
   visible: boolean
@@ -8,7 +7,6 @@ interface InputCursorProps {
   shouldBlink?: boolean
   char?: string
   color?: string
-  dimColor?: string
   blinkDelay?: number
   blinkInterval?: number
   bold?: boolean
@@ -20,12 +18,10 @@ export const InputCursor: React.FC<InputCursorProps> = ({
   shouldBlink = true,
   char = '▍',
   color,
-  dimColor,
   blinkDelay = 500,
   blinkInterval = 500,  // Faster blinking
   bold = true,
 }) => {
-  const theme = useTheme()
   // false = normal/visible, true = invisible
   const [isInvisible, setIsInvisible] = useState(false)
   const blinkIntervalRef = useRef<NodeJS.Timeout | null>(null)

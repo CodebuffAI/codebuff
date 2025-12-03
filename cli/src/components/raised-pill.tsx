@@ -1,5 +1,6 @@
 import React from 'react'
 import stringWidth from 'string-width'
+
 import { Button } from './button'
 
 type PillSegment = {

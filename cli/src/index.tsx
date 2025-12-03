@@ -2,22 +2,23 @@
 
 import { promises as fs } from 'fs'
 import { createRequire } from 'module'
-import { createCliRenderer } from '@opentui/core'
-import { createRoot } from '@opentui/react'
+
 
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { getProjectFileTree } from '@codebuff/common/project-file-tree'
 import { validateAgents } from '@codebuff/sdk'
+import { createCliRenderer } from '@opentui/core'
+import { createRoot } from '@opentui/react'
 import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query'
 import { Command } from 'commander'
 import React from 'react'
 
-import { handlePublish } from './commands/publish'
 import { App } from './app'
+import { handlePublish } from './commands/publish'
 import { initializeApp } from './init/init-app'
 import { getProjectRoot } from './project-files'
-import { getUserCredentials } from './utils/auth'
 import { initAnalytics } from './utils/analytics'
+import { getUserCredentials } from './utils/auth'
 import { loadAgentDefinitions } from './utils/load-agent-definitions'
 import { getLoadedAgentsData } from './utils/local-agent-registry'
 import { clearLogFile, logger } from './utils/logger'

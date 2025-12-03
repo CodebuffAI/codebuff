@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+
 import type { PendingImage } from '../state/chat-store'
 
 export type StreamStatus = 'idle' | 'waiting' | 'streaming'

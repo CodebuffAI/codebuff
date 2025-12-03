@@ -1,13 +1,14 @@
 import { promises as fs } from 'fs'
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
   getAllFilePaths,
   getProjectFileTree,
 } from '@codebuff/common/project-file-tree'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 
-import { range } from '../utils/arrays'
+
 import { getProjectRoot } from '../project-files'
+import { range } from '../utils/arrays'
 import { logger } from '../utils/logger'
 
 import type { SuggestionItem } from '../components/suggestion-menu'
@@ -185,8 +186,6 @@ const filterSlashCommands = (
     (command) => command.id,
     seen,
   )
-  let shouldKeepSearching = true
-
   // Prefix of ID
   for (const command of commands) {
     if (seen.has(command.id)) continue
@@ -199,9 +198,6 @@ const filterSlashCommands = (
       id.startsWith(normalized) ||
       aliasList.some((alias) => alias.startsWith(normalized))
     ) {
-      if (normalized === id || aliasList.includes(normalized)) {
-        shouldKeepSearching = false
-      }
       const label = command.label.toLowerCase()
       const firstIndex = label.indexOf(normalized)
       const indices =
@@ -473,16 +469,11 @@ const filterAgentMatches = (
     (agent) => agent.id,
     seen,
   )
-  let shouldKeepSearching = true
-
   // Prefix of ID or name
   for (const agent of agents) {
     const id = agent.id.toLowerCase()
 
     if (id.startsWith(normalized)) {
-      if (normalized === id) {
-        shouldKeepSearching = false
-      }
       pushUnique(matches, {
         ...agent,
         idHighlightIndices: createHighlightIndices(0, normalized.length),
@@ -492,9 +483,6 @@ const filterAgentMatches = (
 
     const name = agent.displayName.toLowerCase()
     if (name.startsWith(normalized)) {
-      if (normalized === name) {
-        shouldKeepSearching = false
-      }
       pushUnique(matches, {
         ...agent,
         nameHighlightIndices: createHighlightIndices(0, normalized.length),

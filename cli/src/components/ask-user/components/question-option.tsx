@@ -4,10 +4,11 @@
  * Phase 2: Multi-select (checkbox) support
  */
 
-import React, { memo } from 'react'
 import { TextAttributes } from '@opentui/core'
-import { Button } from '../../button'
+import React, { memo } from 'react'
+
 import { useTheme } from '../../../hooks/use-theme'
+import { Button } from '../../button'
 import { SYMBOLS } from '../constants'
 
 export interface QuestionOptionProps {
@@ -23,7 +24,6 @@ export interface QuestionOptionProps {
 export const QuestionOption: React.FC<QuestionOptionProps> = memo(
   ({
     option,
-    optionIndex,
     isSelected,
     isFocused,
     isMultiSelect = false, // Phase 1: always false

@@ -316,6 +316,7 @@ const getRandomColors = () => {
 }
 
 export function displayMenu() {
+  console.log('[menu] Displaying main menu...')
   const terminalWidth = process.stdout.columns || 80
   const dividerLine = '─'.repeat(terminalWidth)
 

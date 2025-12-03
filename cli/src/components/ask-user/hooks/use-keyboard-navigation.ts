@@ -3,13 +3,16 @@
  * Integrates with @opentui/react useKeyboard and focus manager
  */
 
-import { useCallback, useRef, useEffect } from 'react'
 import { useKeyboard } from '@opentui/react'
-import type { FocusTarget, AskUserQuestion } from '../types'
-import { isFocusOnOption, isFocusOnTextInput, isFocusOnConfirmSubmit } from '../types'
-import type { FocusAction } from './use-focus-manager'
-import { calculateNextQuestionIndex } from '../utils/navigation-handlers'
+import { useCallback, useRef, useEffect } from 'react'
+
 import { ASK_USER_CONFIG } from '../constants'
+import { isFocusOnOption, isFocusOnTextInput, isFocusOnConfirmSubmit } from '../types'
+import { calculateNextQuestionIndex } from '../utils/navigation-handlers'
+
+import type { FocusTarget, AskUserQuestion } from '../types'
+import type { FocusAction } from './use-focus-manager'
+
 
 /**
  * Parameters for keyboard navigation hook
@@ -41,28 +44,6 @@ export interface KeyboardNavigationParams {
  * Hook for keyboard navigation
  */
 export function useKeyboardNavigation(params: KeyboardNavigationParams) {
-  const {
-    focus,
-    dispatchFocus,
-    currentQuestionIndex,
-    totalQuestions,
-    currentQuestion,
-    isFirstQuestion,
-    isLastQuestion,
-    isOnConfirmScreen,
-    allAnswered,
-    otherTexts,
-    onSelectAnswer,
-    onOtherTextChange,
-    onChangeQuestion,
-    onSubmit,
-    onAutoAdvance,
-    onTextInputAdvance,
-    onForceSubmit,
-    onGoToConfirm,
-    onGoBackFromConfirm,
-  } = params
-
   // Use refs for frequently changing values to avoid recreating the keyboard callback
   const paramsRef = useRef(params)
   useEffect(() => {
@@ -81,13 +62,10 @@ export function useKeyboardNavigation(params: KeyboardNavigationParams) {
           isFirstQuestion,
           isLastQuestion,
           isOnConfirmScreen,
-          otherTexts,
           onSelectAnswer,
-          onOtherTextChange,
           onChangeQuestion,
           onSubmit,
           onAutoAdvance,
-          onTextInputAdvance,
           onForceSubmit,
           onGoToConfirm,
           onGoBackFromConfirm,

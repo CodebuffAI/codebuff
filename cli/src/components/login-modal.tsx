@@ -1,6 +1,6 @@
 import { useRenderer } from '@opentui/react'
 import open from 'open'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 import { TerminalLink } from './terminal-link'
 import { useLoginMutation } from '../hooks/use-auth-query'

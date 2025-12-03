@@ -85,7 +85,7 @@ const EditBody = ({ name, filePath, diffText, isCreate }: EditBodyProps) => {
 export const StrReplaceComponent = defineToolComponent({
   toolName: 'str_replace',
 
-  render(toolBlock, _theme, options): ToolRenderConfig {
+  render(toolBlock): ToolRenderConfig {
     const outputStr =
       typeof toolBlock.output === 'string' ? toolBlock.output : ''
     const diff =

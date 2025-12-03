@@ -1,9 +1,9 @@
 import { TextAttributes } from '@opentui/core'
 import React, { memo, type ReactNode } from 'react'
 
-import { useTheme } from '../hooks/use-theme'
 import { Button } from './button'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
+import { useTheme } from '../hooks/use-theme'
 import { getLastNVisualLines } from '../utils/text-layout'
 
 const PREVIEW_LINE_COUNT = 3

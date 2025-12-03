@@ -1,5 +1,5 @@
-import type { AgentMode } from '../../utils/constants'
 import type { PendingImage } from '../../state/chat-store'
+import type { AgentMode } from '../../utils/constants'
 import type { ChatMessage } from '../chat'
 
 export type PostUserMessageFn = (prev: ChatMessage[]) => ChatMessage[]

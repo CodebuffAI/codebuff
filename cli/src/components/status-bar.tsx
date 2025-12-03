@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 
-import { ShimmerText } from './shimmer-text'
 import { ScrollToBottomButton } from './scroll-to-bottom-button'
+import { ShimmerText } from './shimmer-text'
 import { useTheme } from '../hooks/use-theme'
 import { formatElapsedTime } from '../utils/format-elapsed-time'
 

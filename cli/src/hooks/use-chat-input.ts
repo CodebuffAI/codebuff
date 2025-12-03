@@ -2,11 +2,11 @@ import { useCallback, useEffect, useRef } from 'react'
 import stringWidth from 'string-width'
 
 import { useChatStore } from '../state/chat-store'
+
 import type { InputValue } from '../state/chat-store'
 import type { AgentMode } from '../utils/constants'
 
 interface UseChatInputOptions {
-  inputValue: string
   setInputValue: (value: InputValue) => void
   agentMode: AgentMode
   setAgentMode: (mode: AgentMode) => void
@@ -18,7 +18,6 @@ interface UseChatInputOptions {
 const BUILD_IT_TEXT = 'Build it!'
 
 export const useChatInput = ({
-  inputValue,
   setInputValue,
   agentMode,
   setAgentMode,

@@ -133,19 +133,6 @@ const createRenderState = (
   }
 }
 
-const flattenChildren = (lists: ReactNode[][]): ReactNode[] => {
-  const flattened: ReactNode[] = []
-  for (const list of lists) {
-    for (const item of list) {
-      if (item === null || item === undefined || item === false) {
-        continue
-      }
-      flattened.push(item)
-    }
-  }
-  return flattened
-}
-
 // Unified trim helper with predicate
 const trimTrailingNodes = (
   nodes: ReactNode[],

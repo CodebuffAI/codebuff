@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import type { ChatTheme } from '../types/theme-system'
-import { BORDER_CHARS } from '../utils/ui-constants'
-import { useTerminalLayout } from '../hooks/use-terminal-layout'
+
 import { Button } from './button'
+import { useTerminalLayout } from '../hooks/use-terminal-layout'
+import { BORDER_CHARS } from '../utils/ui-constants'
+
+import type { ChatTheme } from '../types/theme-system'
 
 export const BuildModeButtons = ({
   theme,

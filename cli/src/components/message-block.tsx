@@ -1,25 +1,20 @@
-import { pluralize } from '@codebuff/common/util/string'
+
 import { TextAttributes } from '@opentui/core'
 import React, {
   memo,
   useCallback,
-  useMemo,
   useState,
   type ReactNode,
 } from 'react'
-import { spawn } from 'child_process'
-import path from 'path'
 
 import { AgentBranchItem } from './agent-branch-item'
 import { Button } from './button'
+import { ImageCard } from './image-card'
 import { MessageFooter } from './message-footer'
-import { TerminalLink } from './terminal-link'
 import { ValidationErrorPopover } from './validation-error-popover'
 import { useTheme } from '../hooks/use-theme'
-import { formatCwd } from '../utils/path-helpers'
 import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
-import { ImageCard } from './image-card'
-import { isTextBlock, isToolBlock } from '../types/chat'
+import { isTextBlock, isToolBlock , isImageBlock } from '../types/chat'
 import { shouldRenderAsSimpleText } from '../utils/constants'
 import {
   isImplementorAgent,
@@ -27,12 +22,13 @@ import {
   getImplementorIndex,
 } from '../utils/implementor-helpers'
 import { type MarkdownPalette } from '../utils/markdown-renderer'
+import { formatCwd } from '../utils/path-helpers'
 import { AgentListBranch } from './blocks/agent-list-branch'
+import { AskUserBranch } from './blocks/ask-user-branch'
 import { ContentWithMarkdown } from './blocks/content-with-markdown'
+import { ImageBlock } from './blocks/image-block'
 import { ThinkingBlock } from './blocks/thinking-block'
 import { ToolBranch } from './blocks/tool-branch'
-import { AskUserBranch } from './blocks/ask-user-branch'
-import { ImageBlock } from './blocks/image-block'
 import { PlanBox } from './renderers/plan-box'
 
 import type {
@@ -44,7 +40,6 @@ import type {
   ImageContentBlock,
   ChatMessageMetadata,
 } from '../types/chat'
-import { isAskUserBlock, isImageBlock } from '../types/chat'
 import type { ThemeColor } from '../types/theme-system'
 
 interface MessageBlockProps {
@@ -109,28 +104,8 @@ const MessageAttachments = ({
   )
 }
 
-import { BORDER_CHARS } from '../utils/ui-constants'
 
-// Helper to open a file with the system default application
-const openFile = (filePath: string) => {
-  const platform = process.platform
-  let command: string
-  let args: string[]
 
-  if (platform === 'darwin') {
-    command = 'open'
-    args = [filePath]
-  } else if (platform === 'win32') {
-    command = 'cmd'
-    args = ['/c', 'start', '', filePath]
-  } else {
-    // Linux and others
-    command = 'xdg-open'
-    args = [filePath]
-  }
-
-  spawn(command, args, { detached: true, stdio: 'ignore' }).unref()
-}
 
 export const MessageBlock: React.FC<MessageBlockProps> = ({
   messageId,

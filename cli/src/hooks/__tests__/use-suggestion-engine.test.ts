@@ -1,6 +1,5 @@
 import { describe, test, expect } from 'bun:test'
 
-import type { FileTreeNode } from '@codebuff/common/util/file'
 
 // Import the filterFileMatches function indirectly by testing the hook behavior
 // For unit testing, we'll extract and test the logic directly

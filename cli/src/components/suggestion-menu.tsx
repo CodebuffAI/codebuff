@@ -1,8 +1,8 @@
 import React from 'react'
 
 import { HighlightedSubsequenceText } from './highlighted-text'
-import { useTheme } from '../hooks/use-theme'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
+import { useTheme } from '../hooks/use-theme'
 
 export interface SuggestionItem {
   id: string

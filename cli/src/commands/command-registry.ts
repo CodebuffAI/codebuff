@@ -6,8 +6,8 @@ import { normalizeReferralCode } from './router-utils'
 import { handleUsageCommand } from './usage'
 import { useChatStore } from '../state/chat-store'
 import { useLoginStore } from '../state/login-store'
-import { getSystemMessage, getUserMessage } from '../utils/message-history'
 import { capturePendingImages } from '../utils/add-pending-image'
+import { getSystemMessage, getUserMessage } from '../utils/message-history'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
 import type { InputValue, PendingImage } from '../state/chat-store'
@@ -188,7 +188,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   {
     name: 'init',
     aliases: [],
-    handler: async (params, args) => {
+    handler: async (params) => {
       const { postUserMessage } = handleInitializationFlowLocally()
       const trimmed = params.inputValue.trim()
 

@@ -11,7 +11,7 @@ import type { ToolRenderConfig } from './types'
 export const RunTerminalCommandComponent = defineToolComponent({
   toolName: 'run_terminal_command',
 
-  render(toolBlock, theme): ToolRenderConfig {
+  render(toolBlock): ToolRenderConfig {
     // Extract command from input
     const command =
       toolBlock.input && typeof (toolBlock.input as any).command === 'string'

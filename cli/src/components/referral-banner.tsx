@@ -1,9 +1,9 @@
+import { WEBSITE_URL } from '@codebuff/sdk'
 import React from 'react'
 
 import { BannerWrapper } from './banner-wrapper'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
-import { WEBSITE_URL } from '@codebuff/sdk'
 
 export const ReferralBanner = () => {
   const theme = useTheme()

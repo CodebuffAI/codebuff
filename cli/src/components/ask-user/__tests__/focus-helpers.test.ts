@@ -4,6 +4,12 @@
  */
 
 import { describe, it, expect } from 'bun:test'
+
+import {
+  createOptionFocus,
+  createTextInputFocus,
+  createConfirmSubmitFocus,
+} from '../types'
 import {
   isFocusEqual,
   isFocusOnQuestion,
@@ -11,11 +17,6 @@ import {
   isFocusOnSpecificTextInput,
   focusToString,
 } from '../utils/focus-helpers'
-import {
-  createOptionFocus,
-  createTextInputFocus,
-  createConfirmSubmitFocus,
-} from '../types'
 
 describe('isFocusEqual', () => {
   it('returns true for identical confirm submit focus', () => {

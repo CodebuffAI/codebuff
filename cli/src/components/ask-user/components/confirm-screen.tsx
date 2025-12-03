@@ -3,11 +3,12 @@
  * Shown as the final "question" after all questions are answered
  */
 
-import React from 'react'
 import { TextAttributes } from '@opentui/core'
+import React from 'react'
+
 import { useTheme } from '../../../hooks/use-theme'
-import { Button } from '../../button'
 import { BORDER_CHARS } from '../../../utils/ui-constants'
+import { Button } from '../../button'
 
 export interface AnswerSummary {
   question: string

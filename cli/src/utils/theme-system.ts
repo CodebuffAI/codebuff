@@ -594,7 +594,7 @@ const mergeTheme = (
   }
 }
 
-const parseThemeOverrides = (
+export const parseThemeOverrides = (
   raw: string,
 ): Partial<Record<ThemeName, ChatThemeOverrides>> => {
   try {
@@ -716,9 +716,6 @@ function detectWindowsPowerShellTheme(): ThemeName | null {
 }
 
 export const detectTerminalOverrides = (): ThemeName | null => {
-  const termProgram = (process.env.TERM_PROGRAM ?? '').toLowerCase()
-  const term = (process.env.TERM ?? '').toLowerCase()
-
   return null
 }
 
@@ -979,7 +976,6 @@ export const resolveThemeColor = (
 // Debounce timing for file watcher events
 const FILE_WATCHER_DEBOUNCE_MS = 250
 
-let lastDetectedTheme: ThemeName | null = null
 let themeStoreUpdater: ((name: ThemeName) => void) | null = null
 // OSC detections happen asynchronously and at most once.
 // We cache the resolved value so synchronous theme code can read it later
@@ -1004,9 +1000,8 @@ export const initializeThemeWatcher = (setter: (name: ThemeName) => void) => {
 
 /**
  * Recompute system theme and update store if it changed
- * @param source - Source of the recomputation (for debugging)
  */
-const recomputeSystemTheme = (source: string) => {
+const recomputeSystemTheme = () => {
   // Only recompute if theme is auto-detected (not explicitly set)
   const envPreference = process.env.OPEN_TUI_THEME ?? process.env.OPENTUI_THEME
   if (envPreference && envPreference.toLowerCase() !== 'opposite') {
@@ -1021,7 +1016,6 @@ const recomputeSystemTheme = (source: string) => {
   const newTheme = themeResolver()
 
   // Always call the updater and let it decide if an update is needed
-  lastDetectedTheme = newTheme
   if (themeStoreUpdater) {
     themeStoreUpdater(newTheme)
   }
@@ -1031,19 +1025,22 @@ const recomputeSystemTheme = (source: string) => {
  * Debounced version of recomputeSystemTheme for file watcher events
  * Prevents excessive recomputations when files change rapidly
  */
-const debouncedRecomputeSystemTheme = (source: string) => {
+const debouncedRecomputeSystemTheme = () => {
   if (pendingRecomputeTimer) {
     clearTimeout(pendingRecomputeTimer)
   }
   pendingRecomputeTimer = setTimeout(() => {
     pendingRecomputeTimer = null
-    recomputeSystemTheme(source)
+    recomputeSystemTheme()
   }, FILE_WATCHER_DEBOUNCE_MS)
 }
 
-lastDetectedTheme = null as unknown as ThemeName
+let lastDetectedTheme: ThemeName | null = null
 export function setLastDetectedTheme(theme: ThemeName) {
   lastDetectedTheme = theme
+}
+export function getLastDetectedTheme(): ThemeName | null {
+  return lastDetectedTheme
 }
 
 /**
@@ -1091,9 +1088,7 @@ export const setupFileWatchers = () => {
           (eventType, filename) => {
             // Only respond to changes affecting our target files
             if (filename && watchTargets.some((t) => t.endsWith(filename))) {
-              debouncedRecomputeSystemTheme(
-                `watch:${join(parentDir, filename)}:${eventType}`,
-              )
+              debouncedRecomputeSystemTheme()
             }
           },
         )
@@ -1114,7 +1109,7 @@ export const setupFileWatchers = () => {
  */
 export function enableManualThemeRefresh() {
   process.on('SIGUSR2', () => {
-    recomputeSystemTheme('signal:SIGUSR2')
+    recomputeSystemTheme()
   })
 }
 
@@ -1162,7 +1157,7 @@ async function detectOSCInBackground(): Promise<void> {
         const theme = await detectTerminalTheme()
         if (theme) {
           oscDetectedTheme = theme
-          recomputeSystemTheme('osc-inline')
+          recomputeSystemTheme()
         }
       })
     } catch (error) {

@@ -6,6 +6,7 @@ import { Button } from './button'
 import { useTheme } from '../hooks/use-theme'
 import { useTimeout } from '../hooks/use-timeout'
 import { copyTextToClipboard } from '../utils/clipboard'
+
 import type { ContentBlock } from '../types/chat'
 
 interface CopyIconButtonProps {

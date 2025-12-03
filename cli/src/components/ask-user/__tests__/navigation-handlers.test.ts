@@ -4,6 +4,11 @@
  */
 
 import { describe, it, expect } from 'bun:test'
+
+import {
+  createOptionFocus,
+  createTextInputFocus,
+} from '../types'
 import {
   calculateNextQuestionIndex,
   calculateNextOptionIndex,
@@ -14,10 +19,7 @@ import {
   getNextFocusOnNavigation,
   shouldAutoAdvance,
 } from '../utils/navigation-handlers'
-import {
-  createOptionFocus,
-  createTextInputFocus,
-} from '../types'
+
 import type { NavigationContext, FocusTarget } from '../types'
 
 describe('calculateNextQuestionIndex', () => {

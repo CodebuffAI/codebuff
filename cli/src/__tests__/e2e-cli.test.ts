@@ -1,7 +1,10 @@
-import { describe, test, expect } from 'bun:test'
 import { spawn } from 'child_process'
-import stripAnsi from 'strip-ansi'
 import path from 'path'
+
+import { describe, test, expect } from 'bun:test'
+import stripAnsi from 'strip-ansi'
+
+
 import { isSDKBuilt, ensureCliTestEnv } from './test-utils'
 
 const CLI_PATH = path.join(__dirname, '../index.tsx')

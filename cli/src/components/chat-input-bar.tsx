@@ -1,21 +1,19 @@
 import React from 'react'
 
 import { AgentModeToggle } from './agent-mode-toggle'
+import { MultipleChoiceForm } from './ask-user'
 import { FeedbackContainer } from './feedback-container'
 import { InputModeBanner } from './input-mode-banner'
-import { MultipleChoiceForm } from './ask-user'
 import { MultilineInput, type MultilineInputHandle } from './multiline-input'
 import { SuggestionMenu, type SuggestionItem } from './suggestion-menu'
-import { useChatStore } from '../state/chat-store'
 import { useAskUserBridge } from '../hooks/use-ask-user-bridge'
-
+import { useChatStore } from '../state/chat-store'
 import { getInputModeConfig } from '../utils/input-modes'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { useTheme } from '../hooks/use-theme'
 import type { InputValue } from '../state/chat-store'
 import type { AgentMode } from '../utils/constants'
-import type { InputMode } from '../utils/input-modes'
 
 type Theme = ReturnType<typeof useTheme>
 
@@ -339,7 +337,7 @@ export const ChatInputBar = ({
                 focused={inputFocused && !feedbackMode}
                 maxHeight={Math.floor(terminalHeight / 2)}
                 width={adjustedInputWidth}
-                textAttributes={theme.messageTextAttributes}
+
                 ref={inputRef}
                 cursorPosition={cursorPosition}
               />

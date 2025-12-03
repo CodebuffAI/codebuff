@@ -12,8 +12,8 @@ import {
 import { InputCursor } from './input-cursor'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
-import { clamp } from '../utils/math'
 import { logger } from '../utils/logger'
+import { clamp } from '../utils/math'
 import { calculateNewCursorPosition } from '../utils/word-wrap-utils'
 
 import type { InputValue } from '../state/chat-store'
@@ -100,7 +100,6 @@ interface MultilineInputProps {
   maxHeight?: number
   minHeight?: number
   width: number
-  textAttributes?: number
   cursorPosition: number
 }
 
@@ -122,7 +121,6 @@ export const MultilineInput = forwardRef<
     maxHeight = 5,
     minHeight = 1,
     width,
-    textAttributes,
     onKeyIntercept,
     cursorPosition,
   }: MultilineInputProps,

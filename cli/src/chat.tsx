@@ -652,7 +652,6 @@ export const Chat = ({
   })
 
   const { inputWidth, handleBuildFast, handleBuildMax } = useChatInput({
-    inputValue,
     setInputValue,
     agentMode,
     setAgentMode,
@@ -1187,7 +1186,6 @@ export const Chat = ({
             <PendingBashMessage
               key={`pending-bash-${msg.id}`}
               message={msg}
-              width={separatorWidth - 4}
             />
           ))}
       </scrollbox>

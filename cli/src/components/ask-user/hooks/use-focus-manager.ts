@@ -4,10 +4,12 @@
  */
 
 import { useReducer, useCallback } from 'react'
-import type { FocusTarget, AskUserQuestion, NavigationContext } from '../types'
+
+import { ASK_USER_CONFIG } from '../constants'
 import { createOptionFocus } from '../types'
 import { getNextFocusOnNavigation } from '../utils/navigation-handlers'
-import { ASK_USER_CONFIG } from '../constants'
+
+import type { FocusTarget, AskUserQuestion, NavigationContext } from '../types'
 
 /**
  * Actions that can be dispatched to change focus

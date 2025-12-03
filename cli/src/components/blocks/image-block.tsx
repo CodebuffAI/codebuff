@@ -2,12 +2,12 @@ import { TextAttributes } from '@opentui/core'
 import { memo, useMemo } from 'react'
 
 import { useTheme } from '../../hooks/use-theme'
+import { calculateDisplaySize } from '../../utils/image-display'
 import {
   renderInlineImage,
   supportsInlineImages,
   getImageSupportDescription,
 } from '../../utils/terminal-images'
-import { calculateDisplaySize } from '../../utils/image-display'
 
 import type { ImageContentBlock } from '../../types/chat'
 

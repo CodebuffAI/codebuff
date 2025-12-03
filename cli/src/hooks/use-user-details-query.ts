@@ -4,12 +4,12 @@ import { getAuthToken } from '../utils/auth'
 import { getApiClient, setApiClientAuthToken } from '../utils/codebuff-api'
 import { logger as defaultLogger } from '../utils/logger'
 
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   CodebuffApiClient,
   UserField,
   UserDetails,
 } from '../utils/codebuff-api'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 // Re-export types for backwards compatibility
 export type { UserField, UserDetails }

@@ -11,7 +11,7 @@ import type { ToolRenderConfig } from './types'
 export const ReadSubtreeComponent = defineToolComponent({
   toolName: 'read_subtree',
 
-  render(toolBlock, theme, options): ToolRenderConfig {
+  render(toolBlock): ToolRenderConfig {
     const input = toolBlock.input as any
     const paths: string[] = Array.isArray(input?.paths)
       ? input.paths.filter((p: any) => typeof p === 'string' && p.trim().length)
