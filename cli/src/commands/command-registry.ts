@@ -14,6 +14,8 @@ import type { InputValue, PendingImage } from '../state/chat-store'
 import type { ChatMessage } from '../types/chat'
 import type { SendMessageFn } from '../types/contracts/send-message'
 import type { User } from '../utils/auth'
+import { AGENT_MODES } from '../utils/constants'
+
 import type { AgentMode } from '../utils/constants'
 import type { UseMutationResult } from '@tanstack/react-query'
 
@@ -248,48 +250,21 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       clearInput(params)
     },
   },
-  {
-    name: 'mode:default',
-    aliases: [],
-    handler: (params) => {
-      useChatStore.getState().setAgentMode('DEFAULT')
+  // Mode commands generated from AGENT_MODES
+  ...AGENT_MODES.map((mode) => ({
+    name: `mode:${mode.toLowerCase()}`,
+    aliases: [] as string[],
+    handler: (params: RouterParams) => {
+      useChatStore.getState().setAgentMode(mode)
       params.setMessages((prev) => [
         ...prev,
         getUserMessage(params.inputValue.trim()),
-        getSystemMessage('Switched to DEFAULT mode.'),
+        getSystemMessage(`Switched to ${mode} mode.`),
       ])
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
     },
-  },
-  {
-    name: 'mode:max',
-    aliases: [],
-    handler: (params) => {
-      useChatStore.getState().setAgentMode('MAX')
-      params.setMessages((prev) => [
-        ...prev,
-        getUserMessage(params.inputValue.trim()),
-        getSystemMessage('Switched to MAX mode.'),
-      ])
-      params.saveToHistory(params.inputValue.trim())
-      clearInput(params)
-    },
-  },
-  {
-    name: 'mode:plan',
-    aliases: [],
-    handler: (params) => {
-      useChatStore.getState().setAgentMode('PLAN')
-      params.setMessages((prev) => [
-        ...prev,
-        getUserMessage(params.inputValue.trim()),
-        getSystemMessage('Switched to PLAN mode.'),
-      ])
-      params.saveToHistory(params.inputValue.trim())
-      clearInput(params)
-    },
-  },
+  })),
 ]
 
 export function findCommand(cmd: string): CommandDefinition | undefined {
