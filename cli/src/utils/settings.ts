@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 
 import { getConfigDir } from './auth'
+import { AGENT_MODES } from './constants'
 import { logger } from './logger'
 
 import type { AgentMode } from './constants'
@@ -13,8 +14,6 @@ export interface Settings {
   mode?: AgentMode
   // Add new settings here over time
 }
-
-const VALID_MODES: AgentMode[] = ['DEFAULT', 'LITE', 'MAX', 'PLAN']
 
 /**
  * Get the settings file path
@@ -63,7 +62,7 @@ const validateSettings = (parsed: unknown): Settings => {
   // Validate mode
   if (
     typeof obj.mode === 'string' &&
-    VALID_MODES.includes(obj.mode as AgentMode)
+    AGENT_MODES.includes(obj.mode as AgentMode)
   ) {
     settings.mode = obj.mode as AgentMode
   }

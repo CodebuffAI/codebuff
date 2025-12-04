@@ -46,5 +46,16 @@ export const shouldRenderAsSimpleText = (agentType: string): boolean => {
  */
 export const MAIN_AGENT_ID = 'main-agent'
 
-const agentModes = ['DEFAULT', 'LITE', 'MAX', 'PLAN'] as const
-export type AgentMode = (typeof agentModes)[number]
+/**
+ * Mapping from agent mode to agent ID.
+ * Single source of truth for all agent modes (order = cycling order).
+ */
+export const AGENT_MODE_TO_ID = {
+  DEFAULT: 'base2',
+  LITE: 'base2-lite',
+  MAX: 'base2-max',
+  PLAN: 'base2-plan',
+} as const
+
+export type AgentMode = keyof typeof AGENT_MODE_TO_ID
+export const AGENT_MODES = Object.keys(AGENT_MODE_TO_ID) as AgentMode[]

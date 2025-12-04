@@ -1,11 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef } from 'react'
-import { match } from 'ts-pattern'
 
 import { setCurrentChatId } from '../project-files'
 import { createStreamController } from './stream-state'
 import { useChatStore } from '../state/chat-store'
 import { getCodebuffClient } from '../utils/codebuff-client'
+import { AGENT_MODE_TO_ID } from '../utils/constants'
 import { createEventHandlerState } from '../utils/create-event-handler-state'
 import { createRunConfig } from '../utils/create-run-config'
 import { loadAgentDefinitions } from '../utils/load-agent-definitions'
@@ -76,14 +76,7 @@ const resolveAgent = (
       ? agentDefinitions.find((definition) => definition.id === agentId)
       : undefined
 
-  const fallbackAgent = match(agentMode)
-    .with('MAX', () => 'base2-max')
-    .with('DEFAULT', () => 'base2')
-    .with('LITE', () => 'base2-lite')
-    .with('PLAN', () => 'base2-plan')
-    .exhaustive()
-
-  return selectedAgentDefinition ?? agentId ?? fallbackAgent
+  return selectedAgentDefinition ?? agentId ?? AGENT_MODE_TO_ID[agentMode]
 }
 
 // Respect bash context, but avoid sending empty prompts when only images are attached.

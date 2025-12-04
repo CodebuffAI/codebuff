@@ -3,19 +3,11 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Button } from './button'
 import { SegmentedControl } from './segmented-control'
 import { useTheme } from '../hooks/use-theme'
+import { AGENT_MODES } from '../utils/constants'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { Segment } from './segmented-control'
 import type { AgentMode } from '../utils/constants'
-
-const MODE_LABELS: Record<AgentMode, string> = {
-  DEFAULT: 'DEFAULT',
-  LITE: 'LITE',
-  MAX: 'MAX',
-  PLAN: 'PLAN',
-}
-
-const ALL_MODES = Object.keys(MODE_LABELS) as AgentMode[]
 
 export const OPEN_DELAY_MS = 0 // Delay before expanding on hover
 export const CLOSE_DELAY_MS = 250 // Delay before collapsing when mouse leaves
@@ -108,16 +100,16 @@ export function useHoverToggle() {
 export function buildExpandedSegments(currentMode: AgentMode): Segment[] {
   return [
     // All mode options (disabled for current mode)
-    ...ALL_MODES.map((m) => ({
+    ...AGENT_MODES.map((m) => ({
       id: m,
-      label: MODE_LABELS[m],
+      label: m,
       isBold: false,
       disabled: m === currentMode,
     })),
     // Active mode indicator with reversed arrow
     {
       id: `active-${currentMode}`,
-      label: `> ${MODE_LABELS[currentMode]}`,
+      label: `> ${currentMode}`,
       isSelected: true,
       defaultHighlighted: true,
     },
@@ -220,11 +212,7 @@ export const AgentModeToggle = ({
           wrapMode="none"
           fg={isCollapsedHovered ? theme.foreground : theme.muted}
         >
-          {isCollapsedHovered ? (
-            <b>{`< ${MODE_LABELS[mode]}`}</b>
-          ) : (
-            `< ${MODE_LABELS[mode]}`
-          )}
+          {isCollapsedHovered ? <b>{`< ${mode}`}</b> : `< ${mode}`}
         </text>
       </Button>
     )

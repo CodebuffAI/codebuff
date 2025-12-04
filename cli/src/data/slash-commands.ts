@@ -1,9 +1,18 @@
+import { AGENT_MODES } from '../utils/constants'
+
 export interface SlashCommand {
   id: string
   label: string
   description: string
   aliases?: string[]
 }
+
+// Generate mode commands from the AGENT_MODES constant
+const MODE_COMMANDS: SlashCommand[] = AGENT_MODES.map((mode) => ({
+  id: `mode:${mode.toLowerCase()}`,
+  label: `mode:${mode.toLowerCase()}`,
+  description: `Switch to ${mode} mode`,
+}))
 
 export const SLASH_COMMANDS: SlashCommand[] = [
   // {
@@ -79,24 +88,5 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     description: 'Attach an image file (or Ctrl+V to paste from clipboard)',
     aliases: ['img', 'attach'],
   },
-  {
-    id: 'mode:default',
-    label: 'mode:default',
-    description: 'Switch to DEFAULT mode',
-  },
-  {
-    id: 'mode:lite',
-    label: 'mode:lite',
-    description: 'Switch to LITE mode',
-  },
-  {
-    id: 'mode:max',
-    label: 'mode:max',
-    description: 'Switch to MAX mode',
-  },
-  {
-    id: 'mode:plan',
-    label: 'mode:plan',
-    description: 'Switch to PLAN mode',
-  },
+  ...MODE_COMMANDS,
 ]

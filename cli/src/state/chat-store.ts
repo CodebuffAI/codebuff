@@ -2,6 +2,7 @@ import { castDraft } from 'immer'
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
+import { AGENT_MODES } from '../utils/constants'
 import { clamp } from '../utils/math'
 import { loadModePreference, saveModePreference } from '../utils/settings'
 
@@ -251,15 +252,9 @@ export const useChatStore = create<ChatStore>()(
 
     toggleAgentMode: () =>
       set((state) => {
-        if (state.agentMode === 'DEFAULT') {
-          state.agentMode = 'LITE'
-        } else if (state.agentMode === 'LITE') {
-          state.agentMode = 'MAX'
-        } else if (state.agentMode === 'MAX') {
-          state.agentMode = 'PLAN'
-        } else {
-          state.agentMode = 'DEFAULT'
-        }
+        const currentIndex = AGENT_MODES.indexOf(state.agentMode)
+        const nextIndex = (currentIndex + 1) % AGENT_MODES.length
+        state.agentMode = AGENT_MODES[nextIndex]
         saveModePreference(state.agentMode)
       }),
 
