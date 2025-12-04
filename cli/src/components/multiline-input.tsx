@@ -168,9 +168,8 @@ export const MultilineInput = forwardRef<
   const stickyColumnRef = useRef<number | null>(null)
 
   // Helper to get or set the sticky column for vertical navigation.
-  // Note: Empty dependency array is intentional - we don't want to recreate this
-  // on every cursor move since it reads cursorPosition from closure only when
-  // stickyColumnRef.current is null.
+  // When stickyColumnRef.current is set, we return it (preserving column across
+  // multiple up/down presses). When null, we calculate from current cursor position.
   const getOrSetStickyColumn = useCallback(
     (lineStarts: number[], cursorIsChar: boolean): number => {
       if (stickyColumnRef.current != null) {
@@ -186,7 +185,7 @@ export const MultilineInput = forwardRef<
       stickyColumnRef.current = Math.max(0, column)
       return stickyColumnRef.current
     },
-    [],
+    [cursorPosition],
   )
 
   // Update last activity on value or cursor changes
@@ -640,7 +639,7 @@ export const MultilineInput = forwardRef<
         preventKeyDefault(key)
         if (handleSelectionDeletion()) return true
         const newValue = value.slice(0, cursorPosition) + value.slice(lineEnd)
-        onChange({ text: newValue, cursorPosition, lastEditDueToNav: true })
+        onChange({ text: newValue, cursorPosition, lastEditDueToNav: false })
         return true
       }
 
@@ -718,10 +717,28 @@ export const MultilineInput = forwardRef<
     (key: KeyEvent): boolean => {
       const lowerKeyName = (key.name ?? '').toLowerCase()
       const isAltLikeModifier = isAltModifier(key)
-      const lineStart = findLineStart(value, cursorPosition)
-      const lineEnd = findLineEnd(value, cursorPosition)
+      const logicalLineStart = findLineStart(value, cursorPosition)
+      const logicalLineEnd = findLineEnd(value, cursorPosition)
       const wordStart = findPreviousWordBoundary(value, cursorPosition)
       const wordEnd = findNextWordBoundary(value, cursorPosition)
+
+      // Read lineInfo inside the callback to get current value (not stale from closure)
+      const currentLineInfo = textRef.current
+        ? ((textRef.current as any).textBufferView as TextBufferView)?.lineInfo
+        : null
+
+      // Calculate visual line boundaries from lineInfo (accounts for word wrap)
+      // Fall back to logical line boundaries if visual info is unavailable
+      const lineStarts = currentLineInfo?.lineStarts ?? []
+      const visualLineIndex = lineStarts.findLastIndex(
+        (start) => start <= cursorPosition,
+      )
+      const visualLineStart = visualLineIndex >= 0
+        ? lineStarts[visualLineIndex]
+        : logicalLineStart
+      const visualLineEnd = lineStarts[visualLineIndex + 1] !== undefined
+        ? lineStarts[visualLineIndex + 1] - 1
+        : logicalLineEnd
 
       // Alt+Left/B: Word left
       if (
@@ -760,7 +777,7 @@ export const MultilineInput = forwardRef<
         preventKeyDefault(key)
         onChange({
           text: value,
-          cursorPosition: lineStart,
+          cursorPosition: visualLineStart,
           lastEditDueToNav: false,
         })
         return true
@@ -775,7 +792,7 @@ export const MultilineInput = forwardRef<
         preventKeyDefault(key)
         onChange({
           text: value,
-          cursorPosition: lineEnd,
+          cursorPosition: visualLineEnd,
           lastEditDueToNav: false,
         })
         return true
@@ -844,7 +861,6 @@ export const MultilineInput = forwardRef<
       // Up arrow (no modifiers)
       if (key.name === 'up' && !key.ctrl && !key.meta && !key.option) {
         preventKeyDefault(key)
-        const lineStarts = lineInfo?.lineStarts ?? []
         const desiredIndex = getOrSetStickyColumn(lineStarts, !shouldHighlight)
         onChange({
           text: value,
@@ -863,7 +879,6 @@ export const MultilineInput = forwardRef<
       // Down arrow (no modifiers)
       if (key.name === 'down' && !key.ctrl && !key.meta && !key.option) {
         preventKeyDefault(key)
-        const lineStarts = lineInfo?.lineStarts ?? []
         const desiredIndex = getOrSetStickyColumn(lineStarts, !shouldHighlight)
         onChange({
           text: value,
@@ -881,7 +896,7 @@ export const MultilineInput = forwardRef<
 
       return false
     },
-    [value, cursorPosition, onChange, moveCursor, lineInfo, shouldHighlight, getOrSetStickyColumn],
+    [value, cursorPosition, onChange, moveCursor, shouldHighlight, getOrSetStickyColumn],
   )
 
   // Handle character input (regular chars and tab)
