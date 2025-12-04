@@ -85,6 +85,11 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     description: 'Switch to DEFAULT mode',
   },
   {
+    id: 'mode:lite',
+    label: 'mode:lite',
+    description: 'Switch to LITE mode',
+  },
+  {
     id: 'mode:max',
     label: 'mode:max',
     description: 'Switch to MAX mode',

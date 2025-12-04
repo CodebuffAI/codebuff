@@ -292,7 +292,7 @@ ${buildArray(
   (isDefault || isMax) &&
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
   isLite &&
-    '- IMPORTANT: You must spawn the editor-gpt-5 agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all changes.',
+    '- IMPORTANT: You must spawn the editor-gpt-5 agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
   isDefault &&
     '- IMPORTANT: You must spawn the editor agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all non-trivial changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
   isMax &&

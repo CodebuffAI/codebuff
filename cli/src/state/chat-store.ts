@@ -252,6 +252,8 @@ export const useChatStore = create<ChatStore>()(
     toggleAgentMode: () =>
       set((state) => {
         if (state.agentMode === 'DEFAULT') {
+          state.agentMode = 'LITE'
+        } else if (state.agentMode === 'LITE') {
           state.agentMode = 'MAX'
         } else if (state.agentMode === 'MAX') {
           state.agentMode = 'PLAN'

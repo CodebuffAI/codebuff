@@ -10,6 +10,7 @@ import type { AgentMode } from '../utils/constants'
 
 const MODE_LABELS: Record<AgentMode, string> = {
   DEFAULT: 'DEFAULT',
+  LITE: 'LITE',
   MAX: 'MAX',
   PLAN: 'PLAN',
 }

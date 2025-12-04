@@ -79,6 +79,7 @@ const resolveAgent = (
   const fallbackAgent = match(agentMode)
     .with('MAX', () => 'base2-max')
     .with('DEFAULT', () => 'base2')
+    .with('LITE', () => 'base2-lite')
     .with('PLAN', () => 'base2-plan')
     .exhaustive()
 

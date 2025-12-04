@@ -46,5 +46,5 @@ export const shouldRenderAsSimpleText = (agentType: string): boolean => {
  */
 export const MAIN_AGENT_ID = 'main-agent'
 
-const agentModes = ['DEFAULT', 'MAX', 'PLAN'] as const
+const agentModes = ['DEFAULT', 'LITE', 'MAX', 'PLAN'] as const
 export type AgentMode = (typeof agentModes)[number]

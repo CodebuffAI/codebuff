@@ -14,7 +14,7 @@ export interface Settings {
   // Add new settings here over time
 }
 
-const VALID_MODES: AgentMode[] = ['DEFAULT', 'MAX', 'PLAN']
+const VALID_MODES: AgentMode[] = ['DEFAULT', 'LITE', 'MAX', 'PLAN']
 
 /**
  * Get the settings file path
