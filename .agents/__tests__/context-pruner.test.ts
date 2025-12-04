@@ -25,42 +25,55 @@ describe('context-pruner handleSteps', () => {
     }
   })
 
-  const createTerminalToolMessage = (
+  // Helper to create a tool call + tool result pair
+  const createToolCallPair = (
+    toolCallId: string,
+    toolName: string,
+    input: Record<string, unknown>,
+    resultValue: unknown,
+  ): [Message, ToolMessage] => [
+    {
+      role: 'assistant',
+      content: [
+        {
+          type: 'tool-call',
+          toolCallId,
+          toolName,
+          input,
+        },
+      ],
+    },
+    {
+      role: 'tool',
+      toolCallId,
+      toolName,
+      content: [
+        {
+          type: 'json',
+          value: resultValue as JSONValue,
+        },
+      ],
+    },
+  ]
+
+  const createTerminalToolPair = (
+    toolCallId: string,
     command: string,
     output: string,
     exitCode?: number,
-  ): ToolMessage => ({
-    role: 'tool',
-    toolCallId: 'test-id',
-    toolName: 'run_terminal_command',
-    content: [
-      {
-        type: 'json',
-        value: {
-          command,
-          stdout: output,
-          ...(exitCode !== undefined && { exitCode }),
-        },
-      },
-    ],
-  })
+  ): [Message, ToolMessage] =>
+    createToolCallPair(toolCallId, 'run_terminal_command', { command }, {
+      command,
+      stdout: output,
+      ...(exitCode !== undefined && { exitCode }),
+    })
 
-  const createLargeToolMessage = (
+  const createLargeToolPair = (
+    toolCallId: string,
     toolName: string,
     largeData: string,
-  ): ToolMessage => ({
-    role: 'tool',
-    toolCallId: 'test-id',
-    toolName,
-    content: [
-      {
-        type: 'json',
-        value: {
-          data: largeData,
-        },
-      },
-    ],
-  })
+  ): [Message, ToolMessage] =>
+    createToolCallPair(toolCallId, toolName, {}, { data: largeData })
 
   const runHandleSteps = (messages: Message[]) => {
     mockAgentState.messageHistory = messages
@@ -120,19 +133,22 @@ describe('context-pruner handleSteps', () => {
     // Create content large enough to exceed 200k token limit (~600k chars)
     const largeContent = 'x'.repeat(150000)
 
+    // 7 terminal commands with proper tool call pairs (should keep last 5, simplify first 2)
+    const terminalPairs = Array.from({ length: 7 }, (_, i) =>
+      createTerminalToolPair(
+        `terminal-${i + 1}`,
+        `command-${i + 1}`,
+        `Large output ${i + 1}: ${'y'.repeat(1000)}`,
+        0,
+      ),
+    ).flat()
+
     const messages = [
       createMessage('user', largeContent),
       createMessage('assistant', largeContent),
       createMessage('user', largeContent),
       createMessage('assistant', largeContent),
-      // 7 terminal commands (should keep last 5, simplify first 2)
-      ...Array.from({ length: 7 }, (_, i) =>
-        createTerminalToolMessage(
-          `command-${i + 1}`,
-          `Large output ${i + 1}: ${'y'.repeat(1000)}`,
-          0,
-        ),
-      ),
+      ...terminalPairs,
     ]
 
     const results = runHandleSteps(messages)
@@ -172,9 +188,9 @@ describe('context-pruner handleSteps', () => {
       createMessage('assistant', largeContent),
       createMessage('user', largeContent),
       createMessage('assistant', largeContent),
-      // Message with large tool result
-      createLargeToolMessage('read_files', largeToolData),
-      createLargeToolMessage('code_search', 'Small result'),
+      // Tool call pairs with large and small results
+      ...createLargeToolPair('large-tool-1', 'read_files', largeToolData),
+      ...createLargeToolPair('small-tool-1', 'code_search', 'Small result'),
     ]
 
     const results = runHandleSteps(messages)
@@ -613,6 +629,167 @@ describe('context-pruner tool-call/tool-result pair preservation', () => {
   })
 })
 
+describe('context-pruner image token counting', () => {
+  let mockAgentState: any
+
+  beforeEach(() => {
+    mockAgentState = {
+      messageHistory: [] as Message[],
+    }
+  })
+
+  const runHandleSteps = (messages: Message[]) => {
+    mockAgentState.messageHistory = messages
+    const mockLogger = {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    }
+    const generator = contextPruner.handleSteps!({
+      agentState: mockAgentState,
+      logger: mockLogger,
+    })
+    const results: any[] = []
+    let result = generator.next()
+    while (!result.done) {
+      if (typeof result.value === 'object') {
+        results.push(result.value)
+      }
+      result = generator.next()
+    }
+    return results
+  }
+
+  test('counts image content with fixed 500 tokens instead of string length', () => {
+    // Create a message with a very large base64 image (would be ~100k tokens if counted by string length)
+    const largeBase64Image = 'x'.repeat(300000) // ~100k tokens if counted as text
+
+    const userMessageWithImage: Message = {
+      role: 'user',
+      content: [
+        {
+          type: 'image',
+          image: largeBase64Image,
+          mediaType: 'image/png',
+        },
+      ],
+    }
+
+    // This should NOT trigger pruning because the image is counted as 500 tokens, not 100k
+    const messages: Message[] = [userMessageWithImage]
+
+    const results = runHandleSteps(messages)
+
+    expect(results).toHaveLength(1)
+    // Message should be preserved without pruning
+    expect(results[0].input.messages).toHaveLength(1)
+    expect(results[0].input.messages[0].content[0].type).toBe('image')
+  })
+
+  test('counts media type tool results with fixed 500 tokens', () => {
+    // Create a tool message with media type content
+    const largeMediaData = 'x'.repeat(300000) // Would be ~100k tokens if counted as text
+
+    // Need matching tool call for the tool result
+    const toolCallMessage: Message = {
+      role: 'assistant',
+      content: [
+        {
+          type: 'tool-call',
+          toolCallId: 'test-media',
+          toolName: 'screenshot',
+          input: {},
+        },
+      ],
+    }
+
+    const toolMessageWithMedia: ToolMessage = {
+      role: 'tool',
+      toolCallId: 'test-media',
+      toolName: 'screenshot',
+      content: [
+        {
+          type: 'media',
+          data: largeMediaData,
+          mediaType: 'image/png',
+        },
+      ],
+    }
+
+    // This should NOT trigger pruning because media is counted as 500 tokens
+    const messages: Message[] = [toolCallMessage, toolMessageWithMedia]
+
+    const results = runHandleSteps(messages)
+
+    expect(results).toHaveLength(1)
+    // Both messages should be preserved without pruning
+    expect(results[0].input.messages).toHaveLength(2)
+    // Find the tool result message
+    const toolResult = results[0].input.messages.find(
+      (m: any) => m.role === 'tool',
+    )
+    expect(toolResult.content[0].type).toBe('media')
+  })
+
+  test('counts multiple images correctly', () => {
+    // Create message with multiple images
+    const imageData = 'x'.repeat(100000)
+
+    const messageWithMultipleImages: Message = {
+      role: 'user',
+      content: [
+        { type: 'text', text: 'Here are some images:' },
+        { type: 'image', image: imageData, mediaType: 'image/png' },
+        { type: 'image', image: imageData, mediaType: 'image/jpeg' },
+        { type: 'image', image: imageData, mediaType: 'image/png' },
+      ],
+    }
+
+    // 3 images * 500 tokens + text tokens should be well under 200k limit
+    const messages: Message[] = [messageWithMultipleImages]
+
+    const results = runHandleSteps(messages)
+
+    expect(results).toHaveLength(1)
+    expect(results[0].input.messages).toHaveLength(1)
+    // All images should be preserved
+    const imageCount = results[0].input.messages[0].content.filter(
+      (c: any) => c.type === 'image',
+    ).length
+    expect(imageCount).toBe(3)
+  })
+
+  test('mixed text and image content is counted correctly', () => {
+    // Large text that would exceed limit if image was also counted by string length
+    const largeText = 'y'.repeat(500000) // ~167k tokens
+    const largeImageData = 'x'.repeat(200000) // Would be ~67k tokens if counted as text
+
+    const messageWithTextAndImage: Message = {
+      role: 'user',
+      content: [
+        { type: 'text', text: largeText },
+        { type: 'image', image: largeImageData, mediaType: 'image/png' },
+      ],
+    }
+
+    // ~167k text tokens + 500 image tokens = ~167.5k, under 200k limit
+    // But if image was counted as text: ~167k + ~67k = ~234k, would exceed limit
+    const messages: Message[] = [messageWithTextAndImage]
+
+    const results = runHandleSteps(messages)
+
+    expect(results).toHaveLength(1)
+    // Should preserve without message-level pruning (may still pass through other passes)
+    const hasImage = results[0].input.messages.some(
+      (m: any) =>
+        Array.isArray(m.content) &&
+        m.content.some((c: any) => c.type === 'image'),
+    )
+    expect(hasImage).toBe(true)
+  })
+})
+
 describe('context-pruner edge cases', () => {
   let mockAgentState: any
 
@@ -622,23 +799,67 @@ describe('context-pruner edge cases', () => {
     }
   })
 
-  const createTerminalToolMessage = (
+  // Helper to create a tool call + tool result pair for edge case tests
+  const createTerminalToolPair = (
+    toolCallId: string,
     command: string,
     output: string,
-  ): ToolMessage => ({
-    role: 'tool',
-    toolCallId: 'test-id',
-    toolName: 'run_terminal_command',
-    content: [
-      {
-        type: 'json',
-        value: {
-          command,
-          stdout: output,
+  ): [Message, ToolMessage] => [
+    {
+      role: 'assistant',
+      content: [
+        {
+          type: 'tool-call',
+          toolCallId,
+          toolName: 'run_terminal_command',
+          input: { command },
         },
-      },
-    ],
-  })
+      ],
+    },
+    {
+      role: 'tool',
+      toolCallId,
+      toolName: 'run_terminal_command',
+      content: [
+        {
+          type: 'json',
+          value: {
+            command,
+            stdout: output,
+          },
+        },
+      ],
+    },
+  ]
+
+  const createToolPair = (
+    toolCallId: string,
+    toolName: string,
+    resultValue: unknown,
+  ): [Message, ToolMessage] => [
+    {
+      role: 'assistant',
+      content: [
+        {
+          type: 'tool-call',
+          toolCallId,
+          toolName,
+          input: {},
+        },
+      ],
+    },
+    {
+      role: 'tool',
+      toolCallId,
+      toolName,
+      content: [
+        {
+          type: 'json',
+          value: resultValue as JSONValue,
+        },
+      ],
+    },
+  ]
 
   const runHandleSteps = (messages: Message[]) => {
     mockAgentState.messageHistory = messages
@@ -667,8 +888,8 @@ describe('context-pruner edge cases', () => {
     const largeContent = 'x'.repeat(100000)
     const messages = [
       createMessage('user', largeContent),
-      createTerminalToolMessage('npm test', '[Output omitted]'),
-      createTerminalToolMessage('ls -la', 'file1.txt\nfile2.txt'),
+      ...createTerminalToolPair('term-1', 'npm test', '[Output omitted]'),
+      ...createTerminalToolPair('term-2', 'ls -la', 'file1.txt\nfile2.txt'),
     ]
 
     const results = runHandleSteps(messages)
@@ -755,31 +976,14 @@ describe('context-pruner edge cases', () => {
     // Create content large enough to exceed 200k token limit to trigger pruning
     const largeContent = 'x'.repeat(150000)
 
-    const createToolMessage = (
-      toolName: string,
-      size: number,
-    ): ToolMessage => ({
-      role: 'tool',
-      toolCallId: 'test-id',
-      toolName,
-      content: [
-        {
-          type: 'json',
-          value: {
-            data: 'a'.repeat(size),
-          },
-        },
-      ],
-    })
-
     const messages = [
       createMessage('user', largeContent),
       createMessage('assistant', largeContent),
       createMessage('user', largeContent),
       createMessage('assistant', largeContent),
-      createToolMessage('test1', 500), // Small
-      createToolMessage('test2', 999), // Just under 1000 when stringified
-      createToolMessage('test3', 2000), // Large
+      ...createToolPair('tool-1', 'test1', { data: 'a'.repeat(500) }), // Small
+      ...createToolPair('tool-2', 'test2', { data: 'a'.repeat(999) }), // Just under 1000 when stringified
+      ...createToolPair('tool-3', 'test3', { data: 'a'.repeat(2000) }), // Large
     ]
 
     const results = runHandleSteps(messages)

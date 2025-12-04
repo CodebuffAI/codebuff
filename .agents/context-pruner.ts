@@ -26,21 +26,139 @@ const definition: AgentDefinition = {
 
   includeMessageHistory: true,
 
-  handleSteps: function* ({ agentState, params }) {
+  handleSteps: function* ({ agentState, params, logger }) {
     const messages = agentState.messageHistory
+
+    // Anthropic image token formula: 85 + (num_tiles × 170), where tiles are ~512×512px
+    // Our compression limits images to max 1500px on longest side (typically 800-1200px)
+    // Worst case 1500×1500 = 9 tiles = 1615 tokens, typical 1000×750 = 4 tiles = 765 tokens
+    // Using 1000 as reasonable upper estimate for compressed images
+    const TOKENS_PER_IMAGE = 1000
 
     const countTokensJson = (obj: any): number => {
       // Very rough approximation
       return Math.ceil(JSON.stringify(obj).length / 3)
     }
 
+    // Count tokens for a message, handling media content specially
+    const countMessageTokens = (message: Message): number => {
+      // For tool messages, check if content contains media type
+      if (message.role === 'tool' && Array.isArray(message.content)) {
+        let tokens = 0
+        for (const part of message.content) {
+          if (part.type === 'media') {
+            // Use fixed token count for images since we compress them
+            tokens += TOKENS_PER_IMAGE
+          } else {
+            tokens += countTokensJson(part)
+          }
+        }
+        // Add overhead for message metadata
+        tokens += countTokensJson({
+          role: message.role,
+          toolCallId: message.toolCallId,
+          toolName: message.toolName,
+        })
+        return tokens
+      }
+
+      // For user/assistant messages, check content array for images
+      if (
+        (message.role === 'user' || message.role === 'assistant') &&
+        Array.isArray(message.content)
+      ) {
+        let tokens = 0
+        for (const part of message.content) {
+          if (part.type === 'image') {
+            // Use fixed token count for images
+            tokens += TOKENS_PER_IMAGE
+          } else {
+            tokens += countTokensJson(part)
+          }
+        }
+        // Add overhead for message metadata
+        tokens += countTokensJson({ role: message.role })
+        return tokens
+      }
+
+      // Fallback to JSON-based counting
+      return countTokensJson(message)
+    }
+
+    // Count tokens for an array of messages
+    const countMessagesTokens = (msgs: Message[]): number => {
+      return msgs.reduce((sum, msg) => sum + countMessageTokens(msg), 0)
+    }
+
     const maxMessageTokens: number = params?.maxContextLength ?? 200_000
     const numTerminalCommandsToKeep = 5
 
-    let currentMessages = [...messages]
+    // Helper to extract tool call IDs from messages
+    const extractToolCallIds = (msgs: Message[]): Set<string> => {
+      const ids = new Set<string>()
+      for (const message of msgs) {
+        if (message.role === 'assistant' && Array.isArray(message.content)) {
+          for (const part of message.content) {
+            if (part.type === 'tool-call' && part.toolCallId) {
+              ids.add(part.toolCallId)
+            }
+          }
+        }
+      }
+      return ids
+    }
+
+    // Helper to extract tool result IDs from messages
+    const extractToolResultIds = (msgs: Message[]): Set<string> => {
+      const ids = new Set<string>()
+      for (const message of msgs) {
+        if (message.role === 'tool' && message.toolCallId) {
+          ids.add(message.toolCallId)
+        }
+      }
+      return ids
+    }
+
+    // Helper to remove orphaned tool calls and results
+    const removeOrphanedToolMessages = (msgs: Message[]): Message[] => {
+      const toolCallIds = extractToolCallIds(msgs)
+      const toolResultIds = extractToolResultIds(msgs)
+
+      return msgs
+        .filter((message) => {
+          // Remove tool results without matching tool calls
+          if (message.role === 'tool' && message.toolCallId) {
+            return toolCallIds.has(message.toolCallId)
+          }
+          return true
+        })
+        .map((message) => {
+          // Remove orphaned tool calls from assistant messages
+          if (message.role === 'assistant' && Array.isArray(message.content)) {
+            const filteredContent = message.content.filter((part: any) => {
+              if (part.type === 'tool-call' && part.toolCallId) {
+                return toolResultIds.has(part.toolCallId)
+              }
+              return true
+            })
+            // If all content was tool calls and all were removed, skip the message
+            if (filteredContent.length === 0) {
+              return null
+            }
+            if (filteredContent.length !== message.content.length) {
+              return { ...message, content: filteredContent }
+            }
+          }
+          return message
+        })
+        .filter((m): m is Message => m !== null)
+    }
+
+    // PASS 0: Validate and fix tool-call/tool-result pairs
+    let currentMessages = removeOrphanedToolMessages([...messages])
 
     // Initial check - if already under limit, return
-    const initialTokens = countTokensJson(currentMessages)
+    const initialTokens = countMessagesTokens(currentMessages)
     if (initialTokens < maxMessageTokens) {
       yield {
         toolName: 'set_messages',
@@ -92,7 +210,7 @@ const definition: AgentDefinition = {
     }
 
     // Check if terminal pass was enough
-    const tokensAfterTerminal = countTokensJson(afterTerminalPass)
+    const tokensAfterTerminal = countMessagesTokens(afterTerminalPass)
     if (tokensAfterTerminal < maxMessageTokens) {
       yield {
         toolName: 'set_messages',
@@ -131,7 +249,7 @@ const definition: AgentDefinition = {
     })
 
     // Check if tool results pass was enough
-    const tokensAfterToolResults = countTokensJson(afterToolResultsPass)
+    const tokensAfterToolResults = countMessagesTokens(afterToolResultsPass)
     if (tokensAfterToolResults < maxMessageTokens) {
       yield {
         toolName: 'set_messages',
@@ -193,7 +311,7 @@ const definition: AgentDefinition = {
       }
     }
 
-    const requiredTokens = countTokensJson(
+    const requiredTokens = countMessagesTokens(
       afterToolResultsPass.filter((m: any) => m.keepDuringTruncation),
     )
     let removedTokens = 0
@@ -217,10 +335,10 @@ const definition: AgentDefinition = {
         continue
       }
       indicesToRemove.add(i)
-      removedTokens += countTokensJson(message)
+      removedTokens += countMessageTokens(message)
       // Account for placeholder token cost when starting a new removal sequence
       if (!lastWasRemoval) {
-        removedTokens -= countTokensJson(replacementMessage)
+        removedTokens -= countMessageTokens(replacementMessage)
       }
       lastWasRemoval = true
     }
@@ -243,11 +361,14 @@ const definition: AgentDefinition = {
       m === placeholder ? replacementMessage : m,
     )
 
+    // FINAL VALIDATION: Ensure all tool calls and results are properly paired
+    const validatedMessages = removeOrphanedToolMessages(finalMessages)
+
     // Apply the final pruned message history
     yield {
       toolName: 'set_messages',
       input: {
-        messages: finalMessages,
+        messages: validatedMessages,
       },
       includeToolCall: false,
     } satisfies ToolCall<'set_messages'>
