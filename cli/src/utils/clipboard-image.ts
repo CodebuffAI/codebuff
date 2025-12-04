@@ -218,7 +218,7 @@ function hasImageWindows(): boolean {
       Add-Type -AssemblyName System.Windows.Forms
       if ([System.Windows.Forms.Clipboard]::ContainsImage()) { Write-Output "true" } else { Write-Output "false" }
     `
-    const result = spawnSync('powershell', ['-Command', script], {
+    const result = spawnSync('powershell', ['-STA', '-Command', script], {
       encoding: 'utf-8',
       timeout: 5000,
     })
@@ -249,7 +249,7 @@ function readImageWindows(): ClipboardImageResult {
       }
     `
     
-    const result = spawnSync('powershell', ['-Command', script], {
+    const result = spawnSync('powershell', ['-STA', '-Command', script], {
       encoding: 'utf-8',
       timeout: 10000,
     })
@@ -351,6 +351,165 @@ export function getImageFilePathFromText(text: string, cwd: string): string | nu
   } catch {
     return null
   }
+}
+
+/**
+ * Read file URL/path from clipboard when a file has been copied (e.g., from Finder).
+ * Returns the POSIX path if a file URL is found, null otherwise.
+ * 
+ * When you copy a file in Finder (Cmd+C), the clipboard contains a file reference,
+ * not plain text. pbpaste won't return the path, but we can use AppleScript to
+ * extract it.
+ */
+function readClipboardFilePathMacOS(): string | null {
+  try {
+    // First check if clipboard contains a file URL
+    const infoResult = spawnSync('osascript', [
+      '-e',
+      'clipboard info',
+    ], { encoding: 'utf-8', timeout: 1000 })
+    
+    if (infoResult.status !== 0) return null
+    
+    const info = infoResult.stdout || ''
+    // Check for file URL type in clipboard (furl = file URL)
+    if (!info.includes('«class furl»') && !info.includes('public.file-url')) {
+      return null
+    }
+    
+    // Extract the file path using AppleScript
+    const script = `
+      try
+        set theFile to the clipboard as «class furl»
+        return POSIX path of theFile
+      on error
+        return ""
+      end try
+    `
+    
+    const result = spawnSync('osascript', ['-e', script], {
+      encoding: 'utf-8',
+      timeout: 1000,
+    })
+    
+    if (result.status === 0 && result.stdout) {
+      const filePath = result.stdout.trim()
+      if (filePath && existsSync(filePath)) {
+        return filePath
+      }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Read file path from clipboard when a file has been copied (Windows).
+ * Returns the file path if found, null otherwise.
+ */
+function readClipboardFilePathWindows(): string | null {
+  try {
+    const script = `
+      Add-Type -AssemblyName System.Windows.Forms
+      $files = [System.Windows.Forms.Clipboard]::GetFileDropList()
+      if ($files.Count -gt 0) {
+        Write-Output $files[0]
+      }
+    `
+    const result = spawnSync('powershell', ['-STA', '-Command', script], {
+      encoding: 'utf-8',
+      timeout: 1000,
+    })
+    
+    if (result.status === 0 && result.stdout) {
+      const filePath = result.stdout.trim()
+      if (filePath && existsSync(filePath)) {
+        return filePath
+      }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Read file path from clipboard when a file has been copied (Linux).
+ * Returns the file path if found, null otherwise.
+ */
+function readClipboardFilePathLinux(): string | null {
+  try {
+    // Try to get file URI from clipboard
+    let result = spawnSync('xclip', [
+      '-selection', 'clipboard',
+      '-t', 'text/uri-list',
+      '-o',
+    ], { encoding: 'utf-8', timeout: 1000 })
+    
+    if (result.status !== 0) {
+      // Try wl-paste for Wayland
+      result = spawnSync('wl-paste', ['--type', 'text/uri-list'], {
+        encoding: 'utf-8',
+        timeout: 1000,
+      })
+    }
+    
+    if (result.status === 0 && result.stdout) {
+      const output = result.stdout.trim()
+      // Parse file:// URLs
+      const lines = output.split('\n')
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (trimmed.startsWith('file://')) {
+          const filePath = decodeURIComponent(trimmed.slice(7))
+          if (existsSync(filePath)) {
+            return filePath
+          }
+        }
+      }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Read file path from clipboard when a file has been copied.
+ * This handles the case where a user copies a file in their file manager.
+ * Returns the file path if found, null otherwise.
+ * 
+ * Note: This returns ANY file path, not just images. Callers should check
+ * if the file is an image using isImageFile() if needed.
+ */
+export function readClipboardFilePath(): string | null {
+  const platform = process.platform
+  
+  switch (platform) {
+    case 'darwin':
+      return readClipboardFilePathMacOS()
+    case 'win32':
+      return readClipboardFilePathWindows()
+    case 'linux':
+      return readClipboardFilePathLinux()
+    default:
+      return null
+  }
+}
+
+/**
+ * Read image file path from clipboard when an image file has been copied.
+ * This is a convenience wrapper that combines readClipboardFilePath() with
+ * an image file check.
+ * Returns the file path if it's an image file, null otherwise.
+ */
+export function readClipboardImageFilePath(): string | null {
+  const filePath = readClipboardFilePath()
+  if (filePath && isImageFile(filePath)) {
+    return filePath
+  }
+  return null
 }
 
 /**

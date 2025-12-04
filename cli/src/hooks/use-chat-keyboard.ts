@@ -1,7 +1,7 @@
 import { useKeyboard } from '@opentui/react'
 import { useCallback } from 'react'
 
-import { hasClipboardImage, readClipboardText, getImageFilePathFromText } from '../utils/clipboard-image'
+import { hasClipboardImage, readClipboardText, readClipboardImageFilePath, getImageFilePathFromText } from '../utils/clipboard-image'
 import { getProjectRoot } from '../project-files'
 import {
   resolveChatKeyboardAction,
@@ -173,10 +173,19 @@ function dispatchAction(
       handlers.onBashHistoryDown()
       return true
     case 'paste': {
-      // First, read clipboard text to check if it's a file path
+      const cwd = getProjectRoot() ?? process.cwd()
+      
+      // First, check if clipboard contains a copied image file (e.g., from Finder)
+      // This is different from text - it's when you Cmd+C a file in Finder
+      const copiedImagePath = readClipboardImageFilePath()
+      if (copiedImagePath) {
+        handlers.onPasteImagePath(copiedImagePath)
+        return true
+      }
+      
+      // Next, read clipboard text to check if it's a file path
       // This handles the case where a file is dragged/dropped - we want to use
       // the file path, not any stale image data that might be in the clipboard
-      const cwd = getProjectRoot() ?? process.cwd()
       const text = readClipboardText()
       if (text) {
         // Check if the text is a path to an image file

@@ -591,9 +591,13 @@ export const useSuggestionEngine = ({
     [deferredInput],
   )
 
+  // Note: mentionContext uses inputValue directly (not deferredInput) because
+  // the cursor position must match the text being parsed. Using deferredInput
+  // with current cursorPosition causes desync during heavy renders, making the
+  // @ menu fail to appear intermittently (especially after long conversations).
   const mentionContext = useMemo(
-    () => parseMentionContext(deferredInput, cursorPosition),
-    [deferredInput, cursorPosition],
+    () => parseMentionContext(inputValue, cursorPosition),
+    [inputValue, cursorPosition],
   )
 
   useEffect(() => {
