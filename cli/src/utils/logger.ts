@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, unlinkSync } from 'fs'
+import { appendFileSync, existsSync, mkdirSync, unlinkSync } from 'fs'
 import path, { dirname } from 'path'
 import { format as stringFormat } from 'util'
 
@@ -49,7 +49,7 @@ function setLogPath(p: string): void {
   const fileStream = pino.destination({
     dest: p, // absolute or relative file path
     mkdir: true, // create parent dirs if they don’t exist
-    sync: false, // set true if you *must* block on every write
+    sync: true, // set true if you *must* block on every write
   })
 
   pinoLogger = pino(
@@ -66,7 +66,7 @@ function setLogPath(p: string): void {
 
 export function clearLogFile(): void {
   const projectRoot = getProjectRoot()
-  const defaultLog = path.join(projectRoot, 'debug', 'cli.log')
+  const defaultLog = path.join(projectRoot, 'debug', 'cli.jsonl')
   const targets = new Set<string>()
 
   if (logPath) {
@@ -102,7 +102,7 @@ function sendAnalyticsAndLog(
 
     const logTarget =
       env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
-        ? path.join(projectRoot, 'debug', 'cli.log')
+        ? path.join(projectRoot, 'debug', 'cli.jsonl')
         : path.join(getCurrentChatDir(), 'log.jsonl')
 
     setLogPath(logTarget)
@@ -143,7 +143,22 @@ function sendAnalyticsAndLog(
     trackEvent(analyticsEventId, toTrack)
   }
 
-  if (pinoLogger !== undefined) {
+  // In dev mode, use appendFileSync for real-time logging (Bun has issues with pino sync)
+  // In prod mode, use pino for better performance
+  if (env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev' && logPath) {
+    const logEntry = JSON.stringify({
+      level: level.toUpperCase(),
+      timestamp: new Date().toISOString(),
+      ...loggerContext,
+      ...(includeData ? { data: normalizedData } : {}),
+      msg: stringFormat(normalizedMsg ?? '', ...args),
+    })
+    try {
+      appendFileSync(logPath, logEntry + '\n')
+    } catch {
+      // Ignore write errors
+    }
+  } else if (pinoLogger !== undefined) {
     const base = { ...loggerContext }
     const obj = includeData ? { ...base, data: normalizedData } : base
     pinoLogger[level](obj, normalizedMsg as any, ...args)

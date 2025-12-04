@@ -1,4 +1,4 @@
-import fs from 'fs'
+import fs, { appendFileSync } from 'fs'
 import path from 'path'
 import { format } from 'util'
 
@@ -19,40 +19,32 @@ function getDebugDir(): string | null {
   if (debugDir !== undefined) {
     return debugDir
   }
-  debugDir = __dirname
-  while (true) {
-    if (fs.existsSync(path.join(debugDir, '.git'))) {
-      break
+  // Walk up from cwd to find the git root (where .git exists)
+  let dir = process.cwd()
+  while (dir !== path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, '.git'))) {
+      debugDir = path.join(dir, 'debug')
+      return debugDir
     }
-    const parent = path.dirname(debugDir)
-    if (parent === debugDir) {
-      debugDir = null
-      console.error('Failed to find git root directory for logger')
-      break
-    }
-    debugDir = parent
+    dir = path.dirname(dir)
   }
-
-  if (debugDir) {
-    debugDir = path.join(debugDir, 'debug')
-  }
-
+  debugDir = null
+  console.error('Failed to find git root directory for logger')
   return debugDir
 }
 
-setLocalDebugDir: if (
+// Initialize debug directory in dev environment
+if (
   env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev' &&
   process.env.CODEBUFF_GITHUB_ACTIONS !== 'true'
 ) {
-  const debugDir = getDebugDir()
-  if (!debugDir) {
-    break setLocalDebugDir
-  }
-
-  try {
-    fs.mkdirSync(debugDir, { recursive: true })
-  } catch (err) {
-    console.error('Failed to create debug directory:', err)
+  const dir = getDebugDir()
+  if (dir) {
+    try {
+      fs.mkdirSync(dir, { recursive: true })
+    } catch {
+      // Ignore errors when creating debug directory
+    }
   }
 }
 
@@ -67,12 +59,10 @@ const pinoLogger = pino(
     timestamp: () => `,"timestamp":"${new Date(Date.now()).toISOString()}"`,
   },
   debugDir
-    ? pino.transport({
-        target: 'pino/file',
-        options: {
-          destination: path.join(debugDir, 'web.log'),
-        },
-        level: 'debug',
+    ? pino.destination({
+        dest: path.join(debugDir, 'web.jsonl'),
+        mkdir: true,
+        sync: true, // sync writes for real-time logging
       })
     : undefined,
 )
@@ -108,18 +98,43 @@ function splitAndLog(
   })
 }
 
-export const logger: Record<LogLevel, pino.LogFn> =
-  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
-    ? pinoLogger
-    : (Object.fromEntries(
-        loggingLevels.map((level) => {
-          return [
-            level,
-            (data: any, msg?: string, ...args: any[]) =>
-              splitAndLog(level, data, msg, ...args),
-          ]
-        }),
-      ) as Record<LogLevel, pino.LogFn>)
+// In dev mode, use appendFileSync for real-time file logging (Bun has issues with pino sync)
+// Also output to console via pinoLogger so logs remain visible in the terminal
+function logWithSync(level: LogLevel, data: any, msg?: string, ...args: any[]): void {
+  const formattedMsg = format(msg ?? '', ...args)
+  
+  if (env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev') {
+    // Write to file for real-time logging
+    if (debugDir) {
+      const logEntry = JSON.stringify({
+        level: level.toUpperCase(),
+        timestamp: new Date().toISOString(),
+        ...(data && typeof data === 'object' ? data : { data }),
+        msg: formattedMsg,
+      })
+      try {
+        appendFileSync(path.join(debugDir, 'web.jsonl'), logEntry + '\n')
+      } catch {
+        // Ignore write errors
+      }
+    }
+    // Also output to console for interactive debugging
+    pinoLogger[level](data, msg, ...args)
+  } else {
+    // In prod, use pino with splitAndLog for large payloads
+    splitAndLog(level, data, msg, ...args)
+  }
+}
+
+export const logger: Record<LogLevel, pino.LogFn> = Object.fromEntries(
+  loggingLevels.map((level) => {
+    return [
+      level,
+      (data: any, msg?: string, ...args: any[]) =>
+        logWithSync(level, data, msg, ...args),
+    ]
+  }),
+) as Record<LogLevel, pino.LogFn>
 
 export function loggerWithContext(
   context: ParamsOf<LoggerWithContextFn>,
