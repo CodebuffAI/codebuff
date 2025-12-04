@@ -18,6 +18,7 @@
   ],
   "scripts": {
     "dev": "bash scripts/dev.sh",
+    "start-cli": "bun --cwd cli dev",
     "start-db": "bun --cwd packages/internal db:start",
     "start-web": "bun start-db && bun --cwd web dev",
     "start-studio": "bun --cwd packages/internal db:studio",
