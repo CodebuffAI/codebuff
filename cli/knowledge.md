@@ -75,6 +75,17 @@ tmux new-session -d -s test-session 'cd /path/to/codebuff && bun --cwd=cli run d
 - Add `2>/dev/null` to `tmux kill-session` to suppress errors if session doesn't exist
 - Adjust sleep timings based on what you're testing (auth checks, network requests, etc.)
 
+### Sending Input to the CLI via tmux
+
+**See [`tmux.knowledge.md`](./tmux.knowledge.md) for comprehensive tmux documentation.**
+
+**Key point:** Standard `tmux send-keys` does NOT work - you must use bracketed paste mode:
+
+```bash
+# ❌ Broken: tmux send-keys -t session "hello"
+# ✅ Works:  tmux send-keys -t session $'\e[200~hello\e[201~'
+```
+
 ## Migration from Custom OpenTUI Fork
 
 **October 2024**: Migrated from custom `CodebuffAI/opentui#codebuff/custom` fork to official `@opentui/react@^0.1.27` and `@opentui/core@^0.1.27` packages. Updated to `^0.1.28` in February 2025.

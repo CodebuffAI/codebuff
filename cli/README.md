@@ -46,7 +46,14 @@ Then run the proof-of-concept:
 bun run test:tmux-poc
 ```
 
-See [src/__tests__/README.md](src/__tests__/README.md) for comprehensive testing documentation.
+**Note:** When sending input to the CLI via tmux, you must use bracketed paste mode. Standard `send-keys` drops characters.
+
+```bash
+# ❌ Broken: tmux send-keys -t session "hello"
+# ✅ Works:  tmux send-keys -t session $'\e[200~hello\e[201~'
+```
+
+See [tmux.knowledge.md](tmux.knowledge.md) for comprehensive tmux documentation and [src/__tests__/README.md](src/__tests__/README.md) for testing documentation.
 
 ## Build
 

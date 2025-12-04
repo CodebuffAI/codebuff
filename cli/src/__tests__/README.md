@@ -162,67 +162,24 @@ if (isSDKBuilt()) {
 await sleep(1000)
 ```
 
-## tmux Testing Approach
+## tmux Testing
 
-### Why tmux?
+**See [`../../tmux.knowledge.md`](../../tmux.knowledge.md) for comprehensive tmux documentation**, including:
+- Why standard `send-keys` doesn't work (must use bracketed paste mode)
+- Helper functions for Bash and TypeScript
+- Complete example scripts
+- Debugging and troubleshooting tips
 
-- ✅ Full terminal emulation with PTY support
-- ✅ No native compilation needed (Bun 1.3+ compatible)
-- ✅ Send keystrokes, capture output
-- ✅ Can attach to sessions for debugging
-- ✅ Cross-platform (macOS, Linux, WSL)
-
-### Basic tmux Workflow
-
+**Quick reference:**
 ```typescript
-// 1. Create tmux session
-await tmux(['new-session', '-d', '-s', sessionName, 'your-command'])
+// ❌ Broken: 
+await tmux(['send-keys', '-t', session, 'hello'])
 
-// 2. Send commands
-await tmux(['send-keys', '-t', sessionName, 'input text', 'Enter'])
-
-// 3. Wait for output
-await sleep(1000)
-
-// 4. Capture output
-const output = await tmux(['capture-pane', '-t', sessionName, '-p'])
-
-// 5. Clean up
-await tmux(['kill-session', '-t', sessionName])
-```
-
-### tmux Helper Function
-
-```typescript
-function tmux(args: string[]): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn('tmux', args, { stdio: 'pipe' })
-    let stdout = ''
-    
-    proc.stdout?.on('data', (data) => {
-      stdout += data.toString()
-    })
-    
-    proc.on('close', (code) => {
-      code === 0 ? resolve(stdout) : reject(new Error('tmux failed'))
-    })
-  })
-}
+// ✅ Works:  
+await tmux(['send-keys', '-t', session, '-l', '\x1b[200~hello\x1b[201~'])
 ```
 
 ## Debugging Tests
-
-### Attach to tmux Session
-
-For debugging, keep session alive and attach:
-
-```typescript
-// Don't kill session immediately
-await tmux(['new-session', '-d', '-s', 'debug-session', 'cli-command'])
-
-// In another terminal
-// tmux attach -t debug-session
-```
 
 ### View Test Output
 

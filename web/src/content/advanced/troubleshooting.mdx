@@ -114,6 +114,44 @@ It means you have a directory named `.codebuff-SOMEHASH` in your node_modules di
 rm -rf /some/path/to/node_modules/.codebuff-SOMEHASH
 ```
 
+### Automating Codebuff with tmux
+
+If you're trying to automate Codebuff using tmux (e.g., for scripting or testing), standard `tmux send-keys` won't work correctly. Characters will be dropped or garbled.
+
+**The Problem:**
+```bash
+# ❌ Doesn't work - characters get dropped
+tmux send-keys -t codebuff "hello world"
+tmux send-keys -t codebuff Enter
+# Result: Only "d" appears in the input!
+```
+
+**The Solution:**
+
+Use bracketed paste mode by wrapping your input in escape sequences:
+
+```bash
+# ✅ Works correctly
+tmux send-keys -t codebuff $'\e[200~hello world\e[201~'
+tmux send-keys -t codebuff Enter
+# Result: "hello world" appears correctly!
+```
+
+This tells the terminal that the input is a paste operation, which Codebuff handles atomically.
+
+**Helper script:**
+```bash
+send_to_codebuff() {
+  local session="$1"
+  local text="$2"
+  tmux send-keys -t "$session" $'\e[200~'"$text"$'\e[201~'
+}
+
+# Usage:
+send_to_codebuff my-session "fix the bug in main.ts"
+tmux send-keys -t my-session Enter
+```
+
 ### Need More Help?
 
 If you're still experiencing issues:
