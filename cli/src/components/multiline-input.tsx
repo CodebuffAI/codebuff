@@ -128,8 +128,6 @@ interface MultilineInputProps {
   shouldBlinkCursor?: boolean
   maxHeight?: number
   minHeight?: number
-  /** @deprecated This prop is no longer used but kept for backwards compatibility */
-  width?: number
   cursorPosition: number
 }
 
@@ -151,7 +149,6 @@ export const MultilineInput = forwardRef<
     shouldBlinkCursor,
     maxHeight = 5,
     minHeight = 1,
-    // width is deprecated and no longer used
     onKeyIntercept,
     cursorPosition,
   }: MultilineInputProps,

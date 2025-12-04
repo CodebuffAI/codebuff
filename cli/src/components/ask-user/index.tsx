@@ -27,7 +27,6 @@ export interface MultipleChoiceFormProps {
   onOtherTextChange: (questionIndex: number, text: string) => void
   onSubmit: (finalAnswers?: (number | number[])[], finalOtherTexts?: string[]) => void
   onQuestionChange?: (currentIndex: number, totalQuestions: number, isOnConfirmScreen: boolean) => void
-  width: number
 }
 
 export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
@@ -38,7 +37,6 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
   onOtherTextChange,
   onSubmit,
   onQuestionChange,
-  width,
 }) => {
   const theme = useTheme()
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
@@ -270,7 +268,6 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
               }
               hasText={!!otherTexts[currentQuestionIndex]?.trim()}
               isSelected={false}
-              width={width}
               cursorPosition={
                 otherCursorPositions[currentQuestionIndex] ??
                 (otherTexts[currentQuestionIndex] || '').length

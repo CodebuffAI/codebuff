@@ -90,7 +90,6 @@ const FeedbackTextSection: React.FC<FeedbackTextSectionProps> = ({
   width,
 }) => {
   const inputFocused = useChatStore((state) => state.inputFocused)
-  const inputWidth = Math.max(1, width - FEEDBACK_CONTAINER_HORIZONTAL_INSET)
 
   return (
     <>
@@ -123,8 +122,6 @@ const FeedbackTextSection: React.FC<FeedbackTextSectionProps> = ({
           focused={inputFocused}
           maxHeight={5}
           minHeight={3}
-          width={inputWidth}
-
           ref={inputRef}
           cursorPosition={cursor}
         />

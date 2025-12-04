@@ -1216,7 +1216,6 @@ export const Chat = ({
           inputFocused={inputFocused}
           inputRef={inputRef}
           inputPlaceholder={inputPlaceholder}
-          inputWidth={inputWidth}
           lastEditDueToNav={lastEditDueToNav}
           agentMode={agentMode}
           toggleAgentMode={toggleAgentMode}

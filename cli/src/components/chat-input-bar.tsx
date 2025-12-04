@@ -28,7 +28,6 @@ interface ChatInputBarProps {
   inputFocused: boolean
   inputRef: React.MutableRefObject<MultilineInputHandle | null>
   inputPlaceholder: string
-  inputWidth: number
   lastEditDueToNav: boolean
 
   // Agent mode
@@ -71,7 +70,6 @@ export const ChatInputBar = ({
   inputFocused,
   inputRef,
   inputPlaceholder,
-  inputWidth,
   lastEditDueToNav,
   agentMode,
   toggleAgentMode,
@@ -237,8 +235,6 @@ export const ChatInputBar = ({
     submitAnswers(answers)
   }
 
-  // Adjust input width based on mode configuration
-  const adjustedInputWidth = inputWidth - modeConfig.widthAdjustment
   const effectivePlaceholder =
     inputMode === 'default' ? inputPlaceholder : modeConfig.placeholder
   const borderColor = theme[modeConfig.color]
@@ -275,7 +271,6 @@ export const ChatInputBar = ({
               )
             }
           }}
-          width={inputWidth}
         />
       </box>
     )
@@ -333,7 +328,6 @@ export const ChatInputBar = ({
             placeholder={effectivePlaceholder}
             focused={inputFocused && !feedbackMode}
             maxHeight={compactMaxHeight}
-            width={adjustedInputWidth}
             ref={inputRef}
             cursorPosition={cursorPosition}
           />
@@ -416,7 +410,6 @@ export const ChatInputBar = ({
                 placeholder={effectivePlaceholder}
                 focused={inputFocused && !feedbackMode}
                 maxHeight={Math.floor(terminalHeight / 2)}
-                width={adjustedInputWidth}
                 ref={inputRef}
                 cursorPosition={cursorPosition}
               />

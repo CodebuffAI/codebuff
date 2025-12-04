@@ -13,15 +13,11 @@ import { createTextPasteHandler } from '../../../utils/strings'
 
 import type { InputValue } from '../../../state/chat-store'
 
-// Width taken by symbol + "Other:" label + padding
-const LABEL_WIDTH = 10
-
 export interface OtherTextInputProps {
   text: string
   isFocused: boolean
   hasText: boolean
   isSelected: boolean
-  width: number
   cursorPosition: number
   onClick: () => void
   onMouseOver: () => void
@@ -34,7 +30,6 @@ export const OtherTextInput: React.FC<OtherTextInputProps> = ({
   isFocused,
   hasText,
   isSelected,
-  width,
   cursorPosition,
   onClick,
   onMouseOver,
@@ -44,9 +39,6 @@ export const OtherTextInput: React.FC<OtherTextInputProps> = ({
   const theme = useTheme()
 
   const placeholder = 'Type your own answer...'
-
-  // Calculate available width for the input (full width minus label and padding)
-  const inputWidth = Math.max(10, width - LABEL_WIDTH)
 
   // Intercept navigation keys that should be handled by the ask-user form
   const handleKeyIntercept = (key: KeyEvent): boolean => {
@@ -106,7 +98,6 @@ export const OtherTextInput: React.FC<OtherTextInputProps> = ({
           focused={isFocused}
           maxHeight={3}
           minHeight={1}
-          width={inputWidth}
           cursorPosition={cursorPosition}
         />
       </box>
