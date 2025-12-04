@@ -11,8 +11,8 @@ describe('AgentModeToggle - buildExpandedSegments', () => {
   for (const mode of modes) {
     test(`returns segments with active indicator for ${mode}`, () => {
       const segs = buildExpandedSegments(mode)
-      // 3 mode options + 1 active indicator
-      expect(segs.length).toBe(4)
+      // 4 mode options (DEFAULT, LITE, MAX, PLAN) + 1 active indicator
+      expect(segs.length).toBe(5)
 
       // Current mode is disabled among the choices
       const current = segs.find((s) => s.id === mode)
