@@ -3,6 +3,8 @@ import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import os from 'os'
 import path from 'path'
 
+import { isImageFile, resolveFilePath } from './image-handler'
+
 export interface ClipboardImageResult {
   success: boolean
   imagePath?: string
@@ -31,7 +33,12 @@ function generateImageFilename(): string {
 
 /**
  * Check if clipboard contains an image (macOS)
- * Uses 'clipboard info' which is the fastest way to check clipboard types
+ * Uses 'clipboard info' which is the fastest way to check clipboard types.
+ * 
+ * Note: We do NOT filter out clipboards that contain file URLs here, because
+ * copying images from Finder/Preview/Safari often includes both a file URL
+ * AND the actual image data. The caller handles priority (file paths are
+ * checked first via clipboard text, then we fall back to image data).
  */
 function hasImageMacOS(): boolean {
   try {
@@ -45,6 +52,7 @@ function hasImageMacOS(): boolean {
     }
     
     const output = result.stdout || ''
+    
     // Check for image types in clipboard info
     return output.includes('«class PNGf»') || 
            output.includes('TIFF') || 
@@ -299,6 +307,49 @@ export function readClipboardImage(): ClipboardImageResult {
         success: false,
         error: `Unsupported platform: ${platform}`,
       }
+  }
+}
+
+/**
+ * Check if text looks like a single file path pointing to an existing image.
+ * Used to detect drag-drop of image files into the terminal.
+ * Returns the resolved absolute path if valid, null otherwise.
+ */
+export function getImageFilePathFromText(text: string, cwd: string): string | null {
+  // Must be single line (no internal newlines, including Windows \r\n)
+  if (text.includes('\n') || text.includes('\r')) return null
+  
+  // Must not be empty or have only whitespace
+  let trimmed = text.trim()
+  if (!trimmed) return null
+  
+  // Handle file:// URLs that some systems use for dragged files
+  if (trimmed.startsWith('file://')) {
+    trimmed = decodeURIComponent(trimmed.slice(7))
+  }
+  
+  // Skip if it looks like a URL (but not file:// which we already handled)
+  if (trimmed.includes('://')) return null
+  
+  // Remove surrounding quotes that some terminals add
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    trimmed = trimmed.slice(1, -1)
+  }
+  
+  try {
+    // Try to resolve the path
+    const resolvedPath = resolveFilePath(trimmed, cwd)
+    
+    // Check if file exists
+    if (!existsSync(resolvedPath)) return null
+    
+    // Check if it's a supported image format
+    if (!isImageFile(resolvedPath)) return null
+    
+    return resolvedPath
+  } catch {
+    return null
   }
 }
 

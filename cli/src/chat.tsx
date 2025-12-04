@@ -45,7 +45,7 @@ import { useUsageMonitor } from './hooks/use-usage-monitor'
 import { getProjectRoot } from './project-files'
 import { useChatStore } from './state/chat-store'
 import { useFeedbackStore } from './state/feedback-store'
-import { addClipboardPlaceholder, addPendingImageFromFile } from './utils/add-pending-image'
+import { addClipboardPlaceholder, addPendingImageFromFile, validateAndAddImage } from './utils/add-pending-image'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { showClipboardMessage } from './utils/clipboard'
 import { readClipboardImage } from './utils/clipboard-image'
@@ -979,6 +979,10 @@ export const Chat = ({
           void addPendingImageFromFile(result.imagePath, cwd, placeholderPath)
         }, 0)
       },
+      onPasteImagePath: (imagePath: string) => {
+        const cwd = getProjectRoot() ?? process.cwd()
+        void validateAndAddImage(imagePath, cwd)
+      },
       onPasteText: (text: string) => {
         setInputValue((prev) => {
           const before = prev.text.slice(0, prev.cursorPosition)
@@ -1240,6 +1244,8 @@ export const Chat = ({
             cursorPosition,
             onChange: setInputValue,
             onPasteImage: chatKeyboardHandlers.onPasteImage,
+            onPasteImagePath: chatKeyboardHandlers.onPasteImagePath,
+            cwd: getProjectRoot() ?? process.cwd(),
           })}
         />
       </box>
