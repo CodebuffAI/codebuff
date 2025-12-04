@@ -51,6 +51,7 @@ const definition: AgentDefinition = {
     }
 
     // PASS 1: Remove terminal command results (oldest first, preserve recent 5)
+    // Only prune the tool result content, keeping the tool-call/tool-result pairs intact
     let numKeptTerminalCommands = 0
     const afterTerminalPass: Message[] = []
 
@@ -69,7 +70,7 @@ const definition: AgentDefinition = {
           numKeptTerminalCommands++
           afterTerminalPass.unshift(message)
         } else {
-          // Simplify terminal command result by replacing output
+          // Simplify terminal command result by replacing output content only
           const simplifiedMessage: CodebuffToolMessage<'run_terminal_command'> =
             {
               ...toolMessage,
@@ -104,12 +105,13 @@ const definition: AgentDefinition = {
     }
 
     // PASS 2: Remove large tool results (any tool result output > 1000 chars when stringified)
+    // Only prune the tool result content, keeping the tool-call/tool-result pairs intact
     const afterToolResultsPass = afterTerminalPass.map((message) => {
       if (message.role === 'tool') {
         const outputSize = JSON.stringify(message.content).length
 
         if (outputSize > 1000) {
-          // Replace with simplified output
+          // Replace tool result content with simplified output
           const simplifiedMessage: ToolMessage = {
             ...message,
             content: [
@@ -141,7 +143,8 @@ const definition: AgentDefinition = {
       return
     }
 
-    // PASS 3: Message-level pruning (like trimMessagesToFitTokenLimit)
+    // PASS 3: Message-level pruning
+    // Must keep tool-call and tool-result pairs together for Anthropic API compliance
     const shortenedMessageTokenFactor = 0.5
     const replacementMessage: Message = {
       role: 'user',
@@ -164,6 +167,32 @@ const definition: AgentDefinition = {
     }
     const keepLastIndices = Object.values(keepLastTags)
 
+    // Build a map of toolCallId -> indices that must be kept together
+    const toolCallPairs: Map<string, number[]> = new Map()
+    for (const [i, message] of afterToolResultsPass.entries()) {
+      if (message.role === 'assistant' && Array.isArray(message.content)) {
+        for (const part of message.content) {
+          if (part.type === 'tool-call' && part.toolCallId) {
+            const existing = toolCallPairs.get(part.toolCallId) || []
+            existing.push(i)
+            toolCallPairs.set(part.toolCallId, existing)
+          }
+        }
+      } else if (message.role === 'tool' && message.toolCallId) {
+        const existing = toolCallPairs.get(message.toolCallId) || []
+        existing.push(i)
+        toolCallPairs.set(message.toolCallId, existing)
+      }
+    }
+
+    // Get all indices that are part of tool call pairs
+    const pairedIndices = new Set<number>()
+    for (const indices of toolCallPairs.values()) {
+      for (const idx of indices) {
+        pairedIndices.add(idx)
+      }
+    }
+
     const requiredTokens = countTokensJson(
       afterToolResultsPass.filter((m: any) => m.keepDuringTruncation),
     )
@@ -173,24 +202,40 @@ const definition: AgentDefinition = {
 
     const placeholder = 'deleted'
     const filteredMessages: any[] = []
+    const indicesToRemove = new Set<number>()
 
+    // First pass: identify which messages to remove (excluding tool call pairs)
+    let lastWasRemoval = false
     for (const [i, message] of afterToolResultsPass.entries()) {
       if (
         removedTokens >= tokensToRemove ||
         message.keepDuringTruncation ||
-        keepLastIndices.includes(i)
+        keepLastIndices.includes(i) ||
+        pairedIndices.has(i) // Never remove tool-call/tool-result pairs
       ) {
-        filteredMessages.push(message)
+        lastWasRemoval = false
         continue
       }
-
+      indicesToRemove.add(i)
       removedTokens += countTokensJson(message)
-      if (
-        filteredMessages.length === 0 ||
-        filteredMessages[filteredMessages.length - 1] !== placeholder
-      ) {
-        filteredMessages.push(placeholder)
+      // Account for placeholder token cost when starting a new removal sequence
+      if (!lastWasRemoval) {
         removedTokens -= countTokensJson(replacementMessage)
+      }
+      lastWasRemoval = true
+    }
+
+    // Second pass: build filtered messages with placeholders
+    for (const [i, message] of afterToolResultsPass.entries()) {
+      if (indicesToRemove.has(i)) {
+        if (
+          filteredMessages.length === 0 ||
+          filteredMessages[filteredMessages.length - 1] !== placeholder
+        ) {
+          filteredMessages.push(placeholder)
+        }
+      } else {
+        filteredMessages.push(message)
       }
     }
 

@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach } from 'bun:test'
 
 import contextPruner from '../context-pruner'
 
-import type { Message, ToolMessage } from '../types/util-types'
+import type { JSONValue, Message, ToolMessage } from '../types/util-types'
 const createMessage = (
   role: 'user' | 'assistant',
   content: string,
@@ -216,11 +216,15 @@ describe('context-pruner handleSteps', () => {
     // Should have fewer messages due to pruning
     expect(resultMessages.length).toBeLessThan(messages.length)
 
-    // Should contain replacement messages
+    // Should contain replacement messages (content is an array of parts)
     const hasReplacementMessage = resultMessages.some(
       (m: any) =>
-        typeof m.content === 'string' &&
-        m.content.includes('Previous message(s) omitted due to length'),
+        Array.isArray(m.content) &&
+        m.content.some(
+          (part: any) =>
+            part.type === 'text' &&
+            part.text.includes('Previous message(s) omitted due to length'),
+        ),
     )
     expect(hasReplacementMessage).toBe(true)
   })
@@ -242,11 +246,14 @@ describe('context-pruner handleSteps', () => {
     expect(results).toHaveLength(1)
     const resultMessages = results[0].input.messages
 
-    // Important message should be preserved
+    // Important message should be preserved (content is an array of parts)
     const importantMessage = resultMessages.find(
       (m: any) =>
-        typeof m.content === 'string' &&
-        m.content.includes('Important message'),
+        Array.isArray(m.content) &&
+        m.content.some(
+          (part: any) =>
+            part.type === 'text' && part.text.includes('Important message'),
+        ),
     )
     expect(importantMessage).toBeDefined()
   })
@@ -288,6 +295,321 @@ describe('context-pruner handleSteps', () => {
     // Very long message should potentially trigger some processing
     results = runHandleSteps([longMessage])
     expect(results).toHaveLength(1)
+  })
+})
+
+describe('context-pruner tool-call/tool-result pair preservation', () => {
+  let mockAgentState: any
+
+  beforeEach(() => {
+    mockAgentState = {
+      messageHistory: [] as Message[],
+    }
+  })
+
+  const createToolCallMessage = (
+    toolCallId: string,
+    toolName: string,
+    input: Record<string, unknown>,
+  ): Message => ({
+    role: 'assistant',
+    content: [
+      {
+        type: 'tool-call',
+        toolCallId,
+        toolName,
+        input,
+      },
+    ],
+  })
+
+  const createToolResultMessage = (
+    toolCallId: string,
+    toolName: string,
+    value: unknown,
+  ): ToolMessage => ({
+    role: 'tool',
+    toolCallId,
+    toolName,
+    content: [
+      {
+        type: 'json',
+        value: value as JSONValue,
+      },
+    ],
+  })
+
+  const runHandleSteps = (messages: Message[]) => {
+    mockAgentState.messageHistory = messages
+    const mockLogger = {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    }
+    const generator = contextPruner.handleSteps!({
+      agentState: mockAgentState,
+      logger: mockLogger,
+    })
+    const results: any[] = []
+    let result = generator.next()
+    while (!result.done) {
+      if (typeof result.value === 'object') {
+        results.push(result.value)
+      }
+      result = generator.next()
+    }
+    return results
+  }
+
+  test('preserves tool-call and tool-result pairs together during message pruning', () => {
+    const largeContent = 'x'.repeat(50000)
+
+    // Create messages with tool-call/tool-result pairs interspersed with regular messages
+    const messages: Message[] = [
+      createMessage('user', `First: ${largeContent}`),
+      createMessage('assistant', `Response 1: ${largeContent}`),
+      createMessage('user', `Second: ${largeContent}`),
+      // Tool call pair that should be kept together
+      createToolCallMessage('call-1', 'read_files', { paths: ['test.ts'] }),
+      createToolResultMessage('call-1', 'read_files', { content: 'small' }),
+      createMessage('user', `Third: ${largeContent}`),
+      createMessage('assistant', `Response 2: ${largeContent}`),
+      createMessage('user', `Fourth: ${largeContent}`),
+    ]
+
+    const results = runHandleSteps(messages)
+
+    expect(results).toHaveLength(1)
+    const resultMessages = results[0].input.messages
+
+    // Find the tool call and result
+    const toolCall = resultMessages.find(
+      (m: any) =>
+        m.role === 'assistant' &&
+        Array.isArray(m.content) &&
+        m.content.some(
+          (c: any) => c.type === 'tool-call' && c.toolCallId === 'call-1',
+        ),
+    )
+    const toolResult = resultMessages.find(
+      (m: any) => m.role === 'tool' && m.toolCallId === 'call-1',
+    )
+
+    // Both should be present (kept together) or both absent
+    if (toolCall) {
+      expect(toolResult).toBeDefined()
+    }
+    if (toolResult) {
+      expect(toolCall).toBeDefined()
+    }
+  })
+
+  test('never removes tool-call message while keeping its tool-result', () => {
+    const largeContent = 'x'.repeat(60000)
+
+    const messages: Message[] = [
+      createMessage('user', `Start: ${largeContent}`),
+      createMessage('assistant', `Middle: ${largeContent}`),
+      createToolCallMessage('call-abc', 'code_search', { pattern: 'test' }),
+      createToolResultMessage('call-abc', 'code_search', { results: [] }),
+      createMessage('user', `End: ${largeContent}`),
+      createMessage('assistant', `Final: ${largeContent}`),
+    ]
+
+    const results = runHandleSteps(messages)
+    const resultMessages = results[0].input.messages
+
+    // Check for orphaned tool results (tool result without matching tool call)
+    const toolResults = resultMessages.filter((m: any) => m.role === 'tool')
+    for (const toolResult of toolResults) {
+      const matchingCall = resultMessages.find(
+        (m: any) =>
+          m.role === 'assistant' &&
+          Array.isArray(m.content) &&
+          m.content.some(
+            (c: any) =>
+              c.type === 'tool-call' && c.toolCallId === toolResult.toolCallId,
+          ),
+      )
+      expect(matchingCall).toBeDefined()
+    }
+  })
+
+  test('never removes tool-result message while keeping its tool-call', () => {
+    const largeContent = 'x'.repeat(60000)
+
+    const messages: Message[] = [
+      createMessage('user', `A: ${largeContent}`),
+      createToolCallMessage('call-xyz', 'find_files', { pattern: '*.ts' }),
+      createToolResultMessage('call-xyz', 'find_files', { files: ['a.ts'] }),
+      createMessage('assistant', `B: ${largeContent}`),
+      createMessage('user', `C: ${largeContent}`),
+    ]
+
+    const results = runHandleSteps(messages)
+    const resultMessages = results[0].input.messages
+
+    // Check for orphaned tool calls (tool call without matching tool result)
+    const toolCalls = resultMessages.filter(
+      (m: any) =>
+        m.role === 'assistant' &&
+        Array.isArray(m.content) &&
+        m.content.some((c: any) => c.type === 'tool-call'),
+    )
+
+    for (const toolCallMsg of toolCalls) {
+      for (const part of toolCallMsg.content) {
+        if (part.type === 'tool-call') {
+          const matchingResult = resultMessages.find(
+            (m: any) => m.role === 'tool' && m.toolCallId === part.toolCallId,
+          )
+          expect(matchingResult).toBeDefined()
+        }
+      }
+    }
+  })
+
+  test('preserves multiple tool-call/tool-result pairs in same context', () => {
+    const largeContent = 'x'.repeat(40000)
+
+    const messages: Message[] = [
+      createMessage('user', `Request: ${largeContent}`),
+      // First tool call pair
+      createToolCallMessage('call-1', 'read_files', { paths: ['a.ts'] }),
+      createToolResultMessage('call-1', 'read_files', { content: 'file a' }),
+      // Second tool call pair
+      createToolCallMessage('call-2', 'read_files', { paths: ['b.ts'] }),
+      createToolResultMessage('call-2', 'read_files', { content: 'file b' }),
+      // Third tool call pair
+      createToolCallMessage('call-3', 'code_search', { pattern: 'foo' }),
+      createToolResultMessage('call-3', 'code_search', { matches: [] }),
+      createMessage('assistant', `Response: ${largeContent}`),
+      createMessage('user', `Follow up: ${largeContent}`),
+    ]
+
+    const results = runHandleSteps(messages)
+    const resultMessages = results[0].input.messages
+
+    // Verify each tool call has its corresponding result
+    const toolCallIds = ['call-1', 'call-2', 'call-3']
+    for (const callId of toolCallIds) {
+      const hasToolCall = resultMessages.some(
+        (m: any) =>
+          m.role === 'assistant' &&
+          Array.isArray(m.content) &&
+          m.content.some(
+            (c: any) => c.type === 'tool-call' && c.toolCallId === callId,
+          ),
+      )
+      const hasToolResult = resultMessages.some(
+        (m: any) => m.role === 'tool' && m.toolCallId === callId,
+      )
+
+      // Either both exist or neither exists
+      expect(hasToolCall).toBe(hasToolResult)
+    }
+  })
+
+  test('abridges tool result content while preserving the pair structure', () => {
+    const largeContent = 'x'.repeat(150000)
+    const largeToolResult = 'y'.repeat(2000) // > 1000 chars, triggers abridging
+
+    const messages: Message[] = [
+      createMessage('user', largeContent),
+      createMessage('assistant', largeContent),
+      createMessage('user', largeContent),
+      createMessage('assistant', largeContent),
+      createToolCallMessage('call-large', 'read_files', { paths: ['big.ts'] }),
+      createToolResultMessage('call-large', 'read_files', {
+        content: largeToolResult,
+      }),
+    ]
+
+    const results = runHandleSteps(messages)
+    const resultMessages = results[0].input.messages
+
+    // Tool call should be unchanged
+    const toolCall = resultMessages.find(
+      (m: any) =>
+        m.role === 'assistant' &&
+        Array.isArray(m.content) &&
+        m.content.some((c: any) => c.toolCallId === 'call-large'),
+    )
+    expect(toolCall).toBeDefined()
+    expect(toolCall.content[0].input).toEqual({ paths: ['big.ts'] })
+
+    // Tool result should be abridged but still present with same toolCallId
+    const toolResult = resultMessages.find(
+      (m: any) => m.role === 'tool' && m.toolCallId === 'call-large',
+    )
+    expect(toolResult).toBeDefined()
+    expect(toolResult.content[0].value.message).toBe(
+      '[LARGE_TOOL_RESULT_OMITTED]',
+    )
+  })
+
+  test('handles assistant message with multiple tool calls', () => {
+    const largeContent = 'x'.repeat(50000)
+
+    // Assistant message with multiple tool calls in one message
+    const multiToolCallMessage: Message = {
+      role: 'assistant',
+      content: [
+        {
+          type: 'tool-call',
+          toolCallId: 'multi-1',
+          toolName: 'read_files',
+          input: { paths: ['file1.ts'] },
+        },
+        {
+          type: 'tool-call',
+          toolCallId: 'multi-2',
+          toolName: 'read_files',
+          input: { paths: ['file2.ts'] },
+        },
+      ],
+    }
+
+    const messages: Message[] = [
+      createMessage('user', `Request: ${largeContent}`),
+      multiToolCallMessage,
+      createToolResultMessage('multi-1', 'read_files', { content: 'file1' }),
+      createToolResultMessage('multi-2', 'read_files', { content: 'file2' }),
+      createMessage('user', `More: ${largeContent}`),
+      createMessage('assistant', `Done: ${largeContent}`),
+    ]
+
+    const results = runHandleSteps(messages)
+    const resultMessages = results[0].input.messages
+
+    // Both tool results should have their corresponding tool calls
+    const result1 = resultMessages.find(
+      (m: any) => m.role === 'tool' && m.toolCallId === 'multi-1',
+    )
+    const result2 = resultMessages.find(
+      (m: any) => m.role === 'tool' && m.toolCallId === 'multi-2',
+    )
+
+    if (result1) {
+      const hasCall1 = resultMessages.some(
+        (m: any) =>
+          m.role === 'assistant' &&
+          Array.isArray(m.content) &&
+          m.content.some((c: any) => c.toolCallId === 'multi-1'),
+      )
+      expect(hasCall1).toBe(true)
+    }
+
+    if (result2) {
+      const hasCall2 = resultMessages.some(
+        (m: any) =>
+          m.role === 'assistant' &&
+          Array.isArray(m.content) &&
+          m.content.some((c: any) => c.toolCallId === 'multi-2'),
+      )
+      expect(hasCall2).toBe(true)
+    }
   })
 })
 
