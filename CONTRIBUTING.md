@@ -76,19 +76,22 @@ Before you begin, you'll need to install a few tools:
    infisical secrets set CODEBUFF_GITHUB_SECRET=<your-github-app-secret-here>
    ```
 
-8. **Start development services** (requires 3 terminals):
+8. **Start development services**:
 
+   **Option A: All-in-one (recommended)**
    ```bash
-   # Terminal 1 - Backend server (start first)
-   bun run start-server
-   # Expected: 🚀 Server is running on port 4242
+   bun run dev
+   # Starts the web server, builds the SDK, and launches the CLI automatically
+   ```
 
-   # Terminal 2 - Web server (start second)
+   **Option B: Separate terminals (for more control)**
+   ```bash
+   # Terminal 1 - Web server (start first)
    bun run start-web
    # Expected: Ready on http://localhost:3000
 
-   # Terminal 3 - CLI client (start last)
-   bun run start-bin
+   # Terminal 2 - CLI client (requires web server to be running first)
+   bun run start-cli
    # Expected: Welcome to Codebuff! + agent list
    ```
 
@@ -121,13 +124,13 @@ In order to run the CLI from other directories, you need to first publish the ag
 - Run:
 
   ```bash
-  bun run start-bin publish base
+  bun run start-cli publish base
   ```
 
 - It will give you an error along the lines of `Invalid agent ID: [some agent ID]`, e.g. `Invalid agent ID: context-pruner`. You need to publish that agent at the same time, e.g.:
 
   ```bash
-  bun run start-bin publish base context-pruner
+  bun run start-cli publish base context-pruner
   ```
 
 - Repeat this until there are no more errors.
@@ -135,13 +138,13 @@ In order to run the CLI from other directories, you need to first publish the ag
   - As of the time of writing, the command required is:
 
   ```bash
-  bun start-bin publish base context-pruner file-explorer file-picker researcher thinker reviewer
+  bun start-cli publish base context-pruner file-explorer file-picker researcher thinker reviewer
   ```
 
 - Now, you can start the CLI in any directory by running:
 
   ```bash
-  bun run start-bin --cwd [some/other/directory]
+  bun run start-cli --cwd [some/other/directory]
   ```
 
 ## Understanding the Codebase

@@ -34,9 +34,7 @@ infisical secrets set DATABASE_URL=postgresql://manicode_user_local:secretpasswo
 
 ### 5. Done! Run Codebuff
 ```bash
-bun run start-server  # Backend (port 4242)
-bun run start-web     # Web (port 3000)  
-bun run start-bin     # CLI
+bun run dev  # Starts everything automatically
 ```
 
 ## Common Issues & Quick Fixes
