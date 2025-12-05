@@ -24,36 +24,16 @@ Run the test suite:
 bun test
 ```
 
-### Interactive E2E Testing
+### E2E Testing
 
-For testing interactive CLI features, install tmux:
-
-```bash
-# macOS
-brew install tmux
-
-# Ubuntu/Debian
-sudo apt-get install tmux
-
-# Windows (via WSL)
-wsl --install
-sudo apt-get install tmux
-```
-
-Then run the proof-of-concept:
+E2E tests use a terminal emulator to test interactive CLI features. Build the SDK first:
 
 ```bash
-bun run test:tmux-poc
+cd ../sdk && bun run build
+cd ../cli && bun test e2e/
 ```
 
-**Note:** When sending input to the CLI via tmux, you must use bracketed paste mode. Standard `send-keys` drops characters.
-
-```bash
-# ❌ Broken: tmux send-keys -t session "hello"
-# ✅ Works:  tmux send-keys -t session $'\e[200~hello\e[201~'
-```
-
-See [tmux.knowledge.md](tmux.knowledge.md) for comprehensive tmux documentation and [src/__tests__/README.md](src/__tests__/README.md) for testing documentation.
+See [src/**tests**/README.md](src/__tests__/README.md) for testing documentation.
 
 ## Build
 

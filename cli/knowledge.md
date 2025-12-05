@@ -15,6 +15,7 @@ import { someFunction } from './some-module'
 Dynamic imports make code harder to analyze, break tree-shaking, and can hide circular dependency issues. If you need conditional loading, reconsider the architecture instead.
 
 **Exceptions** (where dynamic imports are acceptable):
+
 - **WASM modules**: Heavy WASM binaries that need lazy loading (e.g., QuickJS)
 - **Client-side only libraries in Next.js**: Libraries like Stripe that must only load in the browser
 - **Test utilities**: Mock module helpers that intentionally use dynamic imports
@@ -24,10 +25,10 @@ Dynamic imports make code harder to analyze, break tree-shaking, and can hide ci
 **IMPORTANT**: Follow these naming patterns for automatic dependency detection:
 
 - **Unit tests:** `*.test.ts` (e.g., `cli-args.test.ts`)
-- **E2E tests:** `e2e-*.test.ts` (e.g., `e2e-cli.test.ts`)
-- **Integration tests:** `integration-*.test.ts` (e.g., `integration-tmux.test.ts`)
+- **E2E tests:** `e2e/*.test.ts` (e.g., `e2e/full-stack.test.ts`)
+- **Integration tests:** `integration/*.test.ts` (e.g., `integration/api-integration.test.ts`)
 
-**Why?** The `.bin/bun` wrapper detects files matching `*integration*.test.ts` or `*e2e*.test.ts` patterns and automatically checks for tmux availability. If tmux is missing, it shows installation instructions but lets tests continue (they skip gracefully).
+**Why?** The `.bin/bun` wrapper detects files matching `*integration*.test.ts` or `*e2e*.test.ts` patterns and automatically checks for dependencies. Tests skip gracefully if prerequisites aren't met.
 
 **Benefits:**
 
@@ -407,6 +408,7 @@ The cleanest solution is to use a direct ternary with separate `<text>` elements
 ```
 
 The issue occurs because:
+
 1. ShimmerText constantly updates its internal state (pulse animation)
 2. Each update re-renders with different `<span>` structures
 3. OpenTUI's reconciler struggles to match up the changing children inside the `<box>`
@@ -428,10 +430,11 @@ if (elapsedSeconds > 0) {
 }
 
 // Parent wraps in <text>
-<text style={{ wrapMode: 'none' }}>{statusIndicatorNode}</text>
+;<text style={{ wrapMode: 'none' }}>{statusIndicatorNode}</text>
 ```
 
 **Key principles:**
+
 - Avoid wrapping dynamically updating components (like ShimmerText) in `<box>` elements
 - Use Fragments to group inline elements that will be wrapped in `<text>` by the parent
 - Include spacing as part of the text content (e.g., `"{elapsedSeconds}s "` with trailing space)
@@ -591,31 +594,32 @@ Agent and tool toggles in the TUI render inside `<text>` components. Expanded co
 Example:
 Tool markdown output (via `renderMarkdown`) now gets wrapped in a `<text>` element before reaching `BranchItem`. Without this wrapper, the renderer emits `<span>` nodes that hit `<box>` and cause `Component of type "span" must be created inside of a text node`. Wrapping the markdown and then composing it with any extra metadata keeps OpenTUI happy.
 
-  ```tsx
-  const displayContent = renderContentWithMarkdown(fullContent, false, options)
+```tsx
+const displayContent = renderContentWithMarkdown(fullContent, false, options)
 
-  const renderableDisplayContent =
-    displayContent
-      ? (
-          <text
-            fg={resolveThemeColor(theme.agentText)}
-            style={{ wrapMode: 'word' }}
-            attributes={theme.messageTextAttributes || undefined}
-          >
-            {displayContent}
-          </text>
-        )
-      : null
+const renderableDisplayContent = displayContent ? (
+  <text
+    fg={resolveThemeColor(theme.agentText)}
+    style={{ wrapMode: 'word' }}
+    attributes={theme.messageTextAttributes || undefined}
+  >
+    {displayContent}
+  </text>
+) : null
 
-  const combinedContent = toolRenderConfig.content ? (
-    <box style={{ flexDirection: 'column', gap: renderableDisplayContent ? 1 : 0 }}>
-      <box style={{ flexDirection: 'column', gap: 0 }}>
-        {toolRenderConfig.content}
-      </box>
-      {renderableDisplayContent}
+const combinedContent = toolRenderConfig.content ? (
+  <box
+    style={{ flexDirection: 'column', gap: renderableDisplayContent ? 1 : 0 }}
+  >
+    <box style={{ flexDirection: 'column', gap: 0 }}>
+      {toolRenderConfig.content}
     </box>
-  ) : renderableDisplayContent
-  ```
+    {renderableDisplayContent}
+  </box>
+) : (
+  renderableDisplayContent
+)
+```
 
 ### TextNodeRenderable Constraint
 
@@ -633,8 +637,6 @@ Error: TextNodeRenderable only accepts strings, TextNodeRenderable instances, or
 This prevents invalid children from reaching `TextNodeRenderable` while preserving formatted markdown.
 
 **Related**: `cli/src/hooks/use-message-renderer.tsx` ensures toggle headers render within a single `<text>` block for StyledText compatibility.
-
-
 
 ## Command Menus
 

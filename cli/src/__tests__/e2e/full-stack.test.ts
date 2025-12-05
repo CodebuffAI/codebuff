@@ -9,7 +9,7 @@
  * - SDK must be built: cd sdk && bun run build
  * - psql must be available (for seeding)
  *
- * Run with: bun test e2e/e2e-tuistory.test.ts
+ * Run with: bun test e2e/full-stack.test.ts
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test'
@@ -40,7 +40,9 @@ const dockerAvailable = isDockerAvailable()
 const shouldSkip = !sdkBuilt || !dockerAvailable
 
 if (!sdkBuilt) {
-  console.log('⚠️  E2E tests skipped: SDK not built. Run: cd sdk && bun run build')
+  console.log(
+    '⚠️  E2E tests skipped: SDK not built. Run: cd sdk && bun run build',
+  )
 }
 
 if (!dockerAvailable) {
@@ -341,7 +343,9 @@ describe.skipIf(shouldSkip)('E2E: Additional Slash Commands', () => {
   let ctx: E2ETestContext
 
   beforeAll(async () => {
-    console.log('\n🚀 Starting E2E test context for Additional Slash Commands...')
+    console.log(
+      '\n🚀 Starting E2E test context for Additional Slash Commands...',
+    )
     ctx = await createE2ETestContext('additional-slash-commands')
     console.log('✅ E2E test context ready\n')
   })
@@ -527,7 +531,9 @@ describe.skipIf(shouldSkip)('E2E: CLI Flags', () => {
   test(
     '--help flag shows usage information',
     async () => {
-      const session = await ctx.createSession(E2E_TEST_USERS.default, ['--help'])
+      const session = await ctx.createSession(E2E_TEST_USERS.default, [
+        '--help',
+      ])
 
       await sleep(3000)
 
@@ -547,7 +553,9 @@ describe.skipIf(shouldSkip)('E2E: CLI Flags', () => {
   test(
     '--version flag shows version number',
     async () => {
-      const session = await ctx.createSession(E2E_TEST_USERS.default, ['--version'])
+      const session = await ctx.createSession(E2E_TEST_USERS.default, [
+        '--version',
+      ])
 
       await sleep(3000)
 
@@ -565,7 +573,10 @@ describe.skipIf(shouldSkip)('E2E: CLI Flags', () => {
   test(
     '--agent flag starts CLI with specified agent',
     async () => {
-      const session = await ctx.createSession(E2E_TEST_USERS.default, ['--agent', 'ask'])
+      const session = await ctx.createSession(E2E_TEST_USERS.default, [
+        '--agent',
+        'ask',
+      ])
 
       await sleep(5000)
 
@@ -585,7 +596,9 @@ describe.skipIf(shouldSkip)('E2E: CLI Flags', () => {
   test(
     'invalid flag shows error message',
     async () => {
-      const session = await ctx.createSession(E2E_TEST_USERS.default, ['--invalid-flag-xyz'])
+      const session = await ctx.createSession(E2E_TEST_USERS.default, [
+        '--invalid-flag-xyz',
+      ])
 
       await sleep(3000)
 
@@ -708,9 +721,7 @@ describe.skipIf(shouldSkip)('E2E: Keyboard Interactions', () => {
       // Text should be modified ("hel" instead of "hello")
       text = await session.cli.text()
       const hasModifiedText =
-        text.includes('hel') ||
-        !text.includes('hello') ||
-        text.length > 0
+        text.includes('hel') || !text.includes('hello') || text.length > 0
       expect(hasModifiedText).toBe(true)
     },
     TIMEOUT_MS,
@@ -849,9 +860,7 @@ describe.skipIf(shouldSkip)('E2E: Error Scenarios', () => {
       const text = await session.cli.text()
       // CLI should handle long input without crashing
       // May truncate or wrap, but should contain some of the message
-      const hasLongInput =
-        text.includes('a') ||
-        text.length > 0
+      const hasLongInput = text.includes('a') || text.length > 0
       expect(hasLongInput).toBe(true)
     },
     TIMEOUT_MS,

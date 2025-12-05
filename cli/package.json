@@ -22,7 +22,6 @@
     "start": "bun run dist/index.js",
     "test": "bun test",
     "test:e2e": "bun test src/__tests__/e2e/*.test.ts --timeout 180000",
-    "test:tmux-poc": "bun run src/__tests__/tmux-poc.ts",
     "typecheck": "tsc --noEmit -p ."
   },
   "sideEffects": false,

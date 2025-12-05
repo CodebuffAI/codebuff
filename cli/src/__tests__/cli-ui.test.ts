@@ -3,7 +3,12 @@ import path from 'path'
 import { describe, test, expect, beforeAll } from 'bun:test'
 import { launchTerminal } from 'tuistory'
 
-import { isSDKBuilt, ensureCliTestEnv, getDefaultCliEnv, sleep } from './test-utils'
+import {
+  isSDKBuilt,
+  ensureCliTestEnv,
+  getDefaultCliEnv,
+  sleep,
+} from './test-utils'
 
 const CLI_PATH = path.join(__dirname, '../index.tsx')
 const TIMEOUT_MS = 25000
@@ -17,7 +22,7 @@ beforeAll(() => {
 })
 
 /**
- * Helper to launch the CLI with tuistory
+ * Helper to launch the CLI with terminal emulator
  */
 async function launchCLI(options: {
   args?: string[]
@@ -48,7 +53,7 @@ async function launchCLIWithoutAuth(options: {
   const envWithoutAuth = { ...process.env, ...cliEnv }
   delete envWithoutAuth.CODEBUFF_API_KEY
   delete envWithoutAuth.CODEBUFF_TOKEN
-  
+
   return launchTerminal({
     command: 'bun',
     args: ['run', CLI_PATH, ...args],
@@ -58,7 +63,7 @@ async function launchCLIWithoutAuth(options: {
   })
 }
 
-describe.skipIf(!sdkBuilt)('CLI E2E Tests with tuistory', () => {
+describe.skipIf(!sdkBuilt)('CLI UI Tests', () => {
   describe('CLI flags', () => {
     test(
       'shows help with --help flag',
@@ -100,7 +105,11 @@ describe.skipIf(!sdkBuilt)('CLI E2E Tests with tuistory', () => {
     test(
       'shows version with --version flag',
       async () => {
-        const session = await launchCLI({ args: ['--version'], cols: 80, rows: 10 })
+        const session = await launchCLI({
+          args: ['--version'],
+          cols: 80,
+          rows: 10,
+        })
 
         try {
           await session.waitForText(/\d+\.\d+\.\d+|dev/, { timeout: 10000 })
@@ -441,7 +450,7 @@ describe.skipIf(!sdkBuilt)('CLI E2E Tests with tuistory', () => {
 // Show message when SDK tests are skipped
 if (!sdkBuilt) {
   describe('SDK Build Required', () => {
-    test.skip('Build SDK for tuistory E2E tests: cd sdk && bun run build', () => {
+    test.skip('Build SDK for CLI UI tests: cd sdk && bun run build', () => {
       // This test is skipped to show the build instruction
     })
   })

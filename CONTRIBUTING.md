@@ -79,12 +79,14 @@ Before you begin, you'll need to install a few tools:
 8. **Start development services**:
 
    **Option A: All-in-one (recommended)**
+
    ```bash
    bun run dev
    # Starts the web server, builds the SDK, and launches the CLI automatically
    ```
 
    **Option B: Separate terminals (for more control)**
+
    ```bash
    # Terminal 1 - Web server (start first)
    bun run start-web
@@ -223,14 +225,7 @@ wsl --install
 sudo apt-get install tmux
 ```
 
-Run the proof-of-concept to validate your setup:
-
-```bash
-cd cli
-bun run test:tmux-poc
-```
-
-See [cli/src/__tests__/README.md](cli/src/__tests__/README.md) for comprehensive interactive testing documentation.
+See [cli/src/**tests**/README.md](cli/src/__tests__/README.md) for comprehensive testing documentation.
 
 ### Commit Messages
 

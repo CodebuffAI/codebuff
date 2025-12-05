@@ -1,5 +1,7 @@
 # CLI Testing
 
+> **See also:** [Root TESTING.md](../../../TESTING.md) for an overview of testing across the entire monorepo.
+
 Comprehensive testing suite for the Codebuff CLI using tmux for interactive terminal emulation.
 
 ## Test Naming Convention
@@ -7,8 +9,8 @@ Comprehensive testing suite for the Codebuff CLI using tmux for interactive term
 **IMPORTANT:** Follow these patterns for automatic tmux detection:
 
 - **Unit tests:** `*.test.ts` (e.g., `cli-args.test.ts`)
-- **E2E tests:** `e2e-*.test.ts` (e.g., `e2e-cli.test.ts`)
-- **Integration tests:** `integration-*.test.ts` (e.g., `integration-tmux.test.ts`)
+- **E2E tests:** `e2e/*.test.ts` (e.g., `e2e/full-stack.test.ts`)
+- **Integration tests:** `integration/*.test.ts` (e.g., `integration/api-integration.test.ts`)
 
 Files matching `*integration*.test.ts` or `*e2e*.test.ts` trigger automatic tmux availability checking in `.bin/bun`.
 
@@ -61,20 +63,14 @@ bun test
 # Unit tests
 bun test cli-args.test.ts
 
-# E2E tests (requires SDK)
-bun test e2e-cli.test.ts
+# E2E tests (requires SDK + Docker)
+bun test e2e/full-stack.test.ts
 
-# Integration tests (requires tmux)
-bun test integration-tmux.test.ts
+# Integration tests
+bun test integration/
 ```
 
-### Manual tmux POC
-
-```bash
-bun run test:tmux-poc
-```
-
-## Automatic tmux Detection
+## Automatic Dependency Detection
 
 The `.bin/bun` wrapper automatically checks for tmux when running integration/E2E tests:
 
@@ -84,6 +80,7 @@ The `.bin/bun` wrapper automatically checks for tmux when running integration/E2
 - **Skips** tests gracefully if tmux unavailable
 
 **Benefits:**
+
 - ✅ Project-wide (works in any package)
 - ✅ No hardcoded paths
 - ✅ Clear test categorization
@@ -165,17 +162,19 @@ await sleep(1000)
 ## tmux Testing
 
 **See [`../../tmux.knowledge.md`](../../tmux.knowledge.md) for comprehensive tmux documentation**, including:
+
 - Why standard `send-keys` doesn't work (must use bracketed paste mode)
 - Helper functions for Bash and TypeScript
 - Complete example scripts
 - Debugging and troubleshooting tips
 
 **Quick reference:**
+
 ```typescript
-// ❌ Broken: 
+// ❌ Broken:
 await tmux(['send-keys', '-t', session, 'hello'])
 
-// ✅ Works:  
+// ✅ Works:
 await tmux(['send-keys', '-t', session, '-l', '\x1b[200~hello\x1b[201~'])
 ```
 
