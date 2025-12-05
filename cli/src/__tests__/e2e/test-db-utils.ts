@@ -91,19 +91,32 @@ export async function createE2EDatabase(describeId: string): Promise<E2EDatabase
 
 /**
  * Wait for database to be ready to accept connections
+ * Uses pg_isready if available on the host, otherwise falls back to a simple psql connection check.
+ * Note: We don't use `docker run --network host` because it doesn't work on Docker Desktop for macOS/Windows.
  */
 async function waitForDatabase(port: number, timeoutMs: number = 30000): Promise<void> {
   const startTime = Date.now()
 
   while (Date.now() - startTime < timeoutMs) {
     try {
+      // Try pg_isready first (if installed on host)
       execSync(
-        `docker run --rm --network host postgres:16 pg_isready -h localhost -p ${port} -U manicode_e2e_user -d manicode_db_e2e`,
+        `pg_isready -h localhost -p ${port} -U manicode_e2e_user -d manicode_db_e2e`,
         { stdio: 'pipe' }
       )
       return
     } catch {
-      await sleep(500)
+      // Fall back to psql connection check
+      try {
+        execSync(
+          `PGPASSWORD=e2e_secret_password psql -h localhost -p ${port} -U manicode_e2e_user -d manicode_db_e2e -c 'SELECT 1'`,
+          { stdio: 'pipe' }
+        )
+        return
+      } catch {
+        // Database not ready yet
+        await sleep(500)
+      }
     }
   }
 
