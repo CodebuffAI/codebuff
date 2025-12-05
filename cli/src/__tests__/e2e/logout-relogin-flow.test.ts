@@ -17,6 +17,7 @@ import {
   getUserCredentials,
   logoutUser,
 } from '../../utils/auth'
+import { setProjectRoot } from '../../project-files'
 
 import type * as AuthModule from '../../utils/auth'
 
@@ -43,6 +44,8 @@ describe('Logout and Re-login helpers', () => {
 
   beforeEach(() => {
     tempConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manicode-logout-'))
+    // Set project root to avoid "Project root not set" error in logger
+    setProjectRoot(tempConfigDir)
   })
 
   afterEach(() => {

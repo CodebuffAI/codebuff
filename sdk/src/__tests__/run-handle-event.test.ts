@@ -16,17 +16,20 @@ describe('CodebuffClient handleEvent / handleStreamChunk', () => {
 
     spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
       id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      referral_code: null,
     })
     spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
-    spyOn(databaseModule, 'startAgentRun').mockResolvedValue({ runId: 'run-1' })
-    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue()
-    spyOn(databaseModule, 'addAgentStep').mockResolvedValue()
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
 
     spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
       async (
         params: Parameters<typeof mainPromptModule.callMainPrompt>[0],
       ) => {
-        const { sendAction, action: promptAction } = params
+        const { sendAction, action: promptAction, promptId } = params
         const sessionState = getInitialSessionState(
           getStubProjectFileContext(),
         )
@@ -34,6 +37,7 @@ describe('CodebuffClient handleEvent / handleStreamChunk', () => {
         await sendAction({
           action: {
             type: 'response-chunk',
+            userInputId: promptId,
             chunk: {
               type: 'subagent_start',
               agentId: 'sub-1',
@@ -50,7 +54,7 @@ describe('CodebuffClient handleEvent / handleStreamChunk', () => {
         await sendAction({
           action: {
             type: 'subagent-response-chunk',
-            userInputId: 'input-1',
+            userInputId: promptId,
             agentId: 'sub-1',
             agentType: 'commander',
             chunk: 'hello from subagent',
@@ -60,6 +64,7 @@ describe('CodebuffClient handleEvent / handleStreamChunk', () => {
         await sendAction({
           action: {
             type: 'response-chunk',
+            userInputId: promptId,
             chunk: {
               type: 'subagent_finish',
               agentId: 'sub-1',
@@ -76,6 +81,7 @@ describe('CodebuffClient handleEvent / handleStreamChunk', () => {
         await sendAction({
           action: {
             type: 'prompt-response',
+            promptId,
             sessionState,
             output: {
               type: 'lastMessage',
@@ -83,6 +89,14 @@ describe('CodebuffClient handleEvent / handleStreamChunk', () => {
             },
           },
         })
+
+        return {
+          sessionState,
+          output: {
+            type: 'lastMessage' as const,
+            value: [],
+          },
+        }
       },
     )
 
