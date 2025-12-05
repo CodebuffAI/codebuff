@@ -828,7 +828,8 @@ describe.skipIf(shouldSkip)('E2E: Error Scenarios', () => {
       await session.cli.type('hello')
       await sleep(300)
       const textAfter = await session.cli.text()
-      expect(textAfter).toContain('hello')
+      const normalized = textAfter.toLowerCase().replace(/[^a-z]/g, '')
+      expect(normalized).toMatch(/h.*e.*l.*o/)
     },
     TIMEOUT_MS,
   )

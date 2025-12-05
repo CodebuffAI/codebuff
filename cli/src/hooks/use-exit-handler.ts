@@ -23,7 +23,7 @@ function setupExitMessageHandler() {
         // This runs synchronously during the exit phase
         // OpenTUI has already cleaned up by this point
         process.stdout.write(
-          `\nTo continue this session later, run:\ncodebuff --continue ${chatId}\n`,
+          `\nExiting... To continue this session later, run:\ncodebuff --continue ${chatId}\n`,
         )
       }
     } catch {

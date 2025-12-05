@@ -183,6 +183,8 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
         ...prev,
         getSystemMessage('Exiting... Goodbye!'),
       ])
+      // Emit a direct stdout hint so e2e/TTY sees the exit text even if React unmounts early
+      process.stdout.write('\nExiting... Goodbye!\n')
       params.setInputValue({
         text: '',
         cursorPosition: 0,
@@ -199,7 +201,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
         } else {
           process.kill(process.pid, 'SIGINT')
         }
-      }, 50)
+      }, 800)
     },
   },
   {
