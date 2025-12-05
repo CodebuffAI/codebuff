@@ -1,0 +1,19 @@
+# Docker Compose for E2E testing - runs on port 5433 to avoid conflict with dev database
+# Container name is set dynamically via environment variable E2E_CONTAINER_NAME
+name: ${E2E_CONTAINER_NAME:-manicode-e2e}
+services:
+  db:
+    image: postgres:16
+    restart: "no"
+    ports:
+      - "${E2E_DB_PORT:-5433}:5432"
+    environment:
+      POSTGRES_USER: manicode_e2e_user
+      POSTGRES_PASSWORD: e2e_secret_password
+      POSTGRES_DB: manicode_db_e2e
+    # No volume - fresh database each time
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U manicode_e2e_user -d manicode_db_e2e"]
+      interval: 1s
+      timeout: 5s
+      retries: 30

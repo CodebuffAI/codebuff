@@ -41,7 +41,8 @@
     "db:generate": "drizzle-kit generate --config=./src/db/drizzle.config.ts",
     "db:migrate": "drizzle-kit push --config=./src/db/drizzle.config.ts",
     "db:start": "docker compose -f ./src/db/docker-compose.yml up --wait && bun run db:generate && (timeout 1 || sleep 1) && bun run db:migrate",
-    "db:studio": "drizzle-kit studio --config=./src/db/drizzle.config.ts"
+    "db:studio": "drizzle-kit studio --config=./src/db/drizzle.config.ts",
+    "db:e2e:cleanup": "docker ps -aq --filter 'name=manicode-e2e-' | xargs -r docker rm -f"
   },
   "sideEffects": false,
   "engines": {
