@@ -159,7 +159,8 @@ jobs:
             elif [ "${{ matrix.package }}" = "web" ]; then
               bun run test --runInBand
             else
-              find src -name '*.test.ts' ! -name '*.integration.test.ts' | sort | xargs -I {} bun test {}
+              # Exclude integration tests and e2e tests (e2e tests require Docker)
+              find src -name '*.test.ts' ! -name '*.integration.test.ts' ! -path '*e2e*' | sort | xargs -I {} bun test {}
             fi
 
       # - name: Open interactive debug shell
