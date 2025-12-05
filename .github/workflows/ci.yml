@@ -155,7 +155,12 @@ jobs:
           command: |
             cd ${{ matrix.package }}
             if [ "${{ matrix.package }}" = ".agents" ]; then
-              find __tests__ -name '*.test.ts' ! -name '*.integration.test.ts' 2>/dev/null | sort | xargs -I {} bun test {} || echo "No regular tests found in .agents"
+              TEST_FILES=$(find __tests__ -name '*.test.ts' ! -name '*.integration.test.ts' 2>/dev/null | sort)
+              if [ -n "$TEST_FILES" ]; then
+                echo "$TEST_FILES" | xargs -I {} bun test {}
+              else
+                echo "No regular tests found in .agents"
+              fi
             elif [ "${{ matrix.package }}" = "web" ]; then
               bun run test --runInBand
             else
@@ -245,7 +250,12 @@ jobs:
           command: |
             cd ${{ matrix.package }}
             if [ "${{ matrix.package }}" = ".agents" ]; then
-              find __tests__ -name '*.integration.test.ts' 2>/dev/null | sort | xargs -I {} bun test --timeout=60000 {} || echo "No integration tests found in .agents"
+              TEST_FILES=$(find __tests__ -name '*.integration.test.ts' 2>/dev/null | sort)
+              if [ -n "$TEST_FILES" ]; then
+                echo "$TEST_FILES" | xargs -I {} bun test --timeout=60000 {}
+              else
+                echo "No integration tests found in .agents"
+              fi
             else
               find src -name '*.integration.test.ts' | sort | xargs -I {} bun test --timeout=60000 {}
             fi
