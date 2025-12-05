@@ -515,7 +515,7 @@ export class MarkdownStreamRenderer {
           const content = line.slice(leadingWs.length)
           const avail = Math.max(1, wrapWidth - leadingWs.length)
           const wrapped = wrapAnsi(content, avail, { hard: true }).split('\n')
-          wrapped.forEach((seg) => {
+          wrapped.forEach((seg: string) => {
             const visibleLen =
               leadingWs.length + seg.replace(/\x1b\[[^m]*m/g, '').length
             const padding = Math.max(0, wrapWidth - visibleLen)

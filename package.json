@@ -57,6 +57,7 @@
     "ignore": "^6.0.2",
     "lodash": "4.17.21",
     "prettier": "3.3.2",
+    "@types/wrap-ansi": "^3.0.0",
     "ts-node": "^10.9.2",
     "ts-pattern": "^5.5.0",
     "tsc-alias": "1.7.0",
