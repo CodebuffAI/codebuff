@@ -22,6 +22,9 @@ import type * as AuthModule from '../../utils/auth'
 
 type User = AuthModule.User
 
+// Disable file logging in this isolated helper test to avoid filesystem race conditions
+process.env.CODEBUFF_DISABLE_FILE_LOGS = 'true'
+
 const ORIGINAL_USER: User = {
   id: 'user-001',
   name: 'CLI Tester',

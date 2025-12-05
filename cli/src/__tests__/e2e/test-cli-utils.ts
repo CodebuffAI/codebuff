@@ -36,7 +36,16 @@ export function createTestCredentials(credentialsDir: string, user: E2ETestUser)
     fs.mkdirSync(credentialsDir, { recursive: true })
   }
 
-  const credentialsPath = path.join(credentialsDir, 'credentials.json')
+  // Write credentials to the same location the CLI reads from:
+  // $HOME/.config/manicode-<env>/credentials.json
+  const configDir = path.join(
+    credentialsDir,
+    '.config',
+    `manicode-${process.env.NEXT_PUBLIC_CB_ENVIRONMENT || 'test'}`,
+  )
+  fs.mkdirSync(configDir, { recursive: true })
+
+  const credentialsPath = path.join(configDir, 'credentials.json')
   const credentials = {
     default: {
       id: user.id,
@@ -47,6 +56,10 @@ export function createTestCredentials(credentialsDir: string, user: E2ETestUser)
   }
 
   fs.writeFileSync(credentialsPath, JSON.stringify(credentials, null, 2))
+
+  // Also drop a convenience copy at the root for debugging
+  const legacyPath = path.join(credentialsDir, 'credentials.json')
+  fs.writeFileSync(legacyPath, JSON.stringify(credentials, null, 2))
   return credentialsPath
 }
 
@@ -90,18 +103,19 @@ export async function launchAuthenticatedCLI(options: {
 
   // Build e2e-specific environment
   const e2eEnv: Record<string, string> = {
-    ...process.env as Record<string, string>,
+    ...(process.env as Record<string, string>),
     ...baseEnv,
     // Point to e2e server
     NEXT_PUBLIC_CODEBUFF_BACKEND_URL: server.backendUrl,
     NEXT_PUBLIC_CODEBUFF_APP_URL: server.url,
     // Use test environment
     NEXT_PUBLIC_CB_ENVIRONMENT: 'test',
-    // Override config directory to use our test credentials
-    HOME: path.dirname(credentialsDir),
-    XDG_CONFIG_HOME: credentialsDir,
+    // Override config directory to use our test credentials (isolated per session)
+    HOME: credentialsDir,
+    XDG_CONFIG_HOME: path.join(credentialsDir, '.config'),
     // Provide auth token via environment (fallback)
     CODEBUFF_API_KEY: user.authToken,
+    CODEBUFF_DISABLE_FILE_LOGS: 'true',
     // Disable analytics
     NEXT_PUBLIC_POSTHOG_API_KEY: '',
   }
@@ -115,6 +129,18 @@ export async function launchAuthenticatedCLI(options: {
     env: e2eEnv,
     cwd: process.cwd(),
   })
+  const originalPress = cli.press.bind(cli)
+  cli.type = async (text: string) => {
+    for (const char of text) {
+      // Send each keypress with a small delay to avoid dropped keystrokes in the TUI
+      if (char === ' ') {
+        await originalPress('space')
+      } else {
+        await originalPress(char as any)
+      }
+      await sleep(15)
+    }
+  }
 
   return {
     cli,

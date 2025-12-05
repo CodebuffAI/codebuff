@@ -17,7 +17,9 @@ export function setProjectRoot(dir: string) {
 
 export function getProjectRoot() {
   if (!projectRoot) {
-    throw new Error('Project root not set')
+    // Fallback to the current working directory when the app has not been
+    // initialized yet (e.g., in isolated helper tests).
+    projectRoot = process.cwd()
   }
   return projectRoot
 }

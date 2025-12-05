@@ -198,9 +198,6 @@ export function resolveChatKeyboardAction(
         ? { type: 'slash-menu-tab' }
         : { type: 'slash-menu-select' }
     }
-    if (isEnter) {
-      return { type: 'slash-menu-select' }
-    }
   }
 
   // Priority 7: Mention menu navigation (when active)

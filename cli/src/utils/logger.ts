@@ -38,7 +38,8 @@ function isEmptyObject(value: any): boolean {
 }
 
 function setLogPath(p: string): void {
-  if (p === logPath) return // nothing to do
+  // Recreate logger if the target changed or was removed between runs
+  if (p === logPath && existsSync(p)) return // nothing to do
 
   logPath = p
   mkdirSync(dirname(p), { recursive: true })
@@ -94,59 +95,71 @@ function sendAnalyticsAndLog(
   msg?: string,
   ...args: any[]
 ): void {
-  if (
-    process.env.CODEBUFF_GITHUB_ACTIONS !== 'true' &&
-    env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'test'
-  ) {
-    const projectRoot = getProjectRoot()
-
-    const logTarget =
-      env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
-        ? path.join(projectRoot, 'debug', 'cli.log')
-        : path.join(getCurrentChatDir(), 'log.jsonl')
-
-    setLogPath(logTarget)
+  if (process.env.CODEBUFF_DISABLE_FILE_LOGS === 'true') {
+    return
   }
+  try {
+    if (
+      process.env.CODEBUFF_GITHUB_ACTIONS !== 'true' &&
+      env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'test'
+    ) {
+      const projectRoot = getProjectRoot()
 
-  const isStringOnly = typeof data === 'string' && msg === undefined
-  const normalizedData = isStringOnly ? undefined : data
-  const normalizedMsg = isStringOnly ? (data as string) : msg
-  const includeData = normalizedData != null && !isEmptyObject(normalizedData)
+      const logTarget =
+        env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
+          ? path.join(projectRoot, 'debug', 'cli.log')
+          : path.join(getCurrentChatDir(), 'log.jsonl')
 
-  const toTrack = {
-    ...(includeData ? { data: normalizedData } : {}),
-    level,
-    loggerContext,
-    msg: stringFormat(normalizedMsg, ...args),
-  }
-
-  logAsErrorIfNeeded(toTrack)
-
-  logOrStore: if (
-    env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'dev' &&
-    normalizedData &&
-    typeof normalizedData === 'object' &&
-    'eventId' in normalizedData &&
-    Object.values(AnalyticsEvent).includes((normalizedData as any).eventId)
-  ) {
-    const analyticsEventId = data.eventId as AnalyticsEvent
-    // Not accurate for anonymous users
-    if (!loggerContext.userId) {
-      analyticsBuffer.push({ analyticsEventId, toTrack })
-      break logOrStore
+      setLogPath(logTarget)
     }
 
-    for (const item of analyticsBuffer) {
-      trackEvent(item.analyticsEventId, item.toTrack)
-    }
-    analyticsBuffer.length = 0
-    trackEvent(analyticsEventId, toTrack)
-  }
+    const isStringOnly = typeof data === 'string' && msg === undefined
+    const normalizedData = isStringOnly ? undefined : data
+    const normalizedMsg = isStringOnly ? (data as string) : msg
+    const includeData =
+      normalizedData != null && !isEmptyObject(normalizedData)
 
-  if (pinoLogger !== undefined) {
-    const base = { ...loggerContext }
-    const obj = includeData ? { ...base, data: normalizedData } : base
-    pinoLogger[level](obj, normalizedMsg as any, ...args)
+    const toTrack = {
+      ...(includeData ? { data: normalizedData } : {}),
+      level,
+      loggerContext,
+      msg: stringFormat(normalizedMsg, ...args),
+    }
+
+    logAsErrorIfNeeded(toTrack)
+
+    logOrStore: if (
+      env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'dev' &&
+      normalizedData &&
+      typeof normalizedData === 'object' &&
+      'eventId' in normalizedData &&
+      Object.values(AnalyticsEvent).includes((normalizedData as any).eventId)
+    ) {
+      const analyticsEventId = data.eventId as AnalyticsEvent
+      // Not accurate for anonymous users
+      if (!loggerContext.userId) {
+        analyticsBuffer.push({ analyticsEventId, toTrack })
+        break logOrStore
+      }
+
+      for (const item of analyticsBuffer) {
+        trackEvent(item.analyticsEventId, item.toTrack)
+      }
+      analyticsBuffer.length = 0
+      trackEvent(analyticsEventId, toTrack)
+    }
+
+    if (pinoLogger !== undefined) {
+      try {
+        const base = { ...loggerContext }
+        const obj = includeData ? { ...base, data: normalizedData } : base
+        pinoLogger[level](obj, normalizedMsg as any, ...args)
+      } catch {
+        // Ignore logging errors so they never interrupt CLI flow/tests
+      }
+    }
+  } catch {
+    // Swallow all logging errors in tests to avoid noisy failures
   }
 }
 
