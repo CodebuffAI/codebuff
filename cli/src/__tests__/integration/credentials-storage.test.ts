@@ -18,6 +18,7 @@ import {
 
 import * as authModule from '../../utils/auth'
 import { saveUserCredentials, getUserCredentials } from '../../utils/auth'
+import { setProjectRoot } from '../../project-files'
 
 import type { User } from '../../utils/auth'
 
@@ -52,6 +53,9 @@ describe('Credentials Storage Integration', () => {
   beforeEach(() => {
     // Create temporary config directory for tests
     tempConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'manicode-test-'))
+
+    // Set project root to avoid "Project root not set" error in logger
+    setProjectRoot(tempConfigDir)
 
     // Mock getConfigDir to use temp directory
     spyOn(authModule, 'getConfigDir').mockReturnValue(tempConfigDir)
