@@ -7,22 +7,6 @@ import fileListerDefinition from '../file-explorer/file-lister'
 
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
-function getApiKeyOrSkip(): string | null {
-  const apiKey = process.env[API_KEY_ENV_VAR]
-  const isPlaceholder = !apiKey || ['test-codebuff', 'dummy-token'].includes(apiKey)
-
-  if (!process.env.CI && isPlaceholder) {
-    console.warn('Skipping file-explorer integration test: CODEBUFF_API_KEY missing or placeholder')
-    return null
-  }
-
-  if (!apiKey) {
-    throw new Error('API key not found')
-  }
-
-  return apiKey
-}
-
 /**
  * Integration tests for agents that use the read_subtree tool.
  * These tests verify that the SDK properly initializes the session state
@@ -38,8 +22,10 @@ describe('File Lister Agent Integration - read_subtree tool', () => {
   it(
     'should find relevant files using read_subtree tool',
     async () => {
-      const apiKey = getApiKeyOrSkip()
-      if (!apiKey) return
+      const apiKey = process.env[API_KEY_ENV_VAR]
+      if (!apiKey) {
+        throw new Error('API key not found')
+      }
 
       // Create mock project files that the file-lister should be able to find
       const projectFiles: Record<string, string> = {
@@ -156,8 +142,10 @@ export interface User {
   it(
     'should use the file tree from session state',
     async () => {
-      const apiKey = getApiKeyOrSkip()
-      if (!apiKey) return
+      const apiKey = process.env[API_KEY_ENV_VAR]
+      if (!apiKey) {
+        throw new Error('API key not found')
+      }
 
       // Create a different set of project files with a specific structure
       const projectFiles: Record<string, string> = {
@@ -208,8 +196,10 @@ export interface User {
   it(
     'should respect directories parameter',
     async () => {
-      const apiKey = getApiKeyOrSkip()
-      if (!apiKey) return
+      const apiKey = process.env[API_KEY_ENV_VAR]
+      if (!apiKey) {
+        throw new Error('API key not found')
+      }
 
       // Create project with multiple top-level directories
       const projectFiles: Record<string, string> = {

@@ -3,22 +3,6 @@ import { describe, expect, it } from 'bun:test'
 
 import { CodebuffClient } from '../client'
 
-function getApiKeyOrSkip(): string | null {
-  const apiKey = process.env[API_KEY_ENV_VAR]
-  const isPlaceholder = !apiKey || ['test-codebuff', 'dummy-token'].includes(apiKey)
-
-  if (!process.env.CI && isPlaceholder) {
-    console.warn('Skipping SDK prompt caching integration: CODEBUFF_API_KEY missing or placeholder')
-    return null
-  }
-
-  if (!apiKey) {
-    throw new Error('API key not found')
-  }
-
-  return apiKey
-}
-
 describe('Prompt Caching', () => {
   it(
     'should be cheaper on second request',
@@ -28,8 +12,10 @@ describe('Prompt Caching', () => {
         'Ignore this text. This is just to make the prompt longer. '.repeat(500)
       const prompt = 'respond with "hi"'
 
-      const apiKey = getApiKeyOrSkip()
-      if (!apiKey) return
+      const apiKey = process.env[API_KEY_ENV_VAR]
+      if (!apiKey) {
+        throw new Error('API key not found')
+      }
 
       const client = new CodebuffClient({
         apiKey,

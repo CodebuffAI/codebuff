@@ -5,22 +5,6 @@ import { CodebuffClient } from '@codebuff/sdk'
 
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
-function getApiKeyOrSkip(): string | null {
-  const apiKey = process.env[API_KEY_ENV_VAR]
-  const isPlaceholder = !apiKey || ['test-codebuff', 'dummy-token'].includes(apiKey)
-
-  if (!process.env.CI && isPlaceholder) {
-    console.warn('Skipping editor-best-of-n integration test: CODEBUFF_API_KEY missing or placeholder')
-    return null
-  }
-
-  if (!apiKey) {
-    throw new Error('API key not found')
-  }
-
-  return apiKey
-}
-
 /**
  * Integration tests for the editor-best-of-n-max agent.
  * These tests verify that the best-of-n editor workflow works correctly:
@@ -33,8 +17,10 @@ describe('Editor Best-of-N Max Agent Integration', () => {
   it.skip(
     'should generate and select the best implementation for a simple edit',
     async () => {
-      const apiKey = getApiKeyOrSkip()
-      if (!apiKey) return
+      const apiKey = process.env[API_KEY_ENV_VAR]
+      if (!apiKey) {
+        throw new Error('API key not found')
+      }
 
       // Create mock project files with a simple TypeScript file to edit
       const projectFiles: Record<string, string> = {
