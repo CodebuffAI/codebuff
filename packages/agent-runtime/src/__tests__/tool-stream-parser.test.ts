@@ -51,11 +51,6 @@ describe('processStreamWithTags', () => {
     }
 
     const result: string[] = []
-    const responseChunks: any[] = []
-
-    function onResponseChunk(chunk: any) {
-      responseChunks.push(chunk)
-    }
 
     function defaultProcessor(toolName: string) {
       return {
@@ -70,7 +65,6 @@ describe('processStreamWithTags', () => {
       processors,
       defaultProcessor,
       onError,
-      onResponseChunk,
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -117,11 +111,6 @@ describe('processStreamWithTags', () => {
     }
 
     const result: string[] = []
-    const responseChunks: any[] = []
-
-    function onResponseChunk(chunk: any) {
-      responseChunks.push(chunk)
-    }
 
     function defaultProcessor(toolName: string) {
       return {
@@ -136,7 +125,6 @@ describe('processStreamWithTags', () => {
       processors,
       defaultProcessor,
       onError,
-      onResponseChunk,
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -193,11 +181,6 @@ describe('processStreamWithTags', () => {
     }
 
     const result: string[] = []
-    const responseChunks: any[] = []
-
-    function onResponseChunk(chunk: any) {
-      responseChunks.push(chunk)
-    }
 
     function defaultProcessor(toolName: string) {
       return {
@@ -212,7 +195,6 @@ describe('processStreamWithTags', () => {
       processors,
       defaultProcessor,
       onError,
-      onResponseChunk,
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -267,12 +249,6 @@ describe('processStreamWithTags', () => {
       events.push({ name, error, type: 'error' })
     }
 
-    const responseChunks: any[] = []
-
-    function onResponseChunk(chunk: any) {
-      responseChunks.push(chunk)
-    }
-
     function defaultProcessor(toolName: string) {
       // For unknown tools, still return a processor but track the error
       events.push({
@@ -292,7 +268,6 @@ describe('processStreamWithTags', () => {
       processors,
       defaultProcessor,
       onError,
-      onResponseChunk,
     })) {
       // consume stream
     }
@@ -341,11 +316,6 @@ describe('processStreamWithTags', () => {
     }
 
     const result: string[] = []
-    const responseChunks: any[] = []
-
-    function onResponseChunk(chunk: any) {
-      responseChunks.push(chunk)
-    }
 
     function defaultProcessor(toolName: string) {
       return {
@@ -360,7 +330,6 @@ describe('processStreamWithTags', () => {
       processors,
       defaultProcessor,
       onError,
-      onResponseChunk,
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -413,11 +382,6 @@ describe('processStreamWithTags', () => {
     }
 
     const result: string[] = []
-    const responseChunks: any[] = []
-
-    function onResponseChunk(chunk: any) {
-      responseChunks.push(chunk)
-    }
 
     function defaultProcessor(toolName: string) {
       return {
@@ -432,7 +396,6 @@ describe('processStreamWithTags', () => {
       processors,
       defaultProcessor,
       onError,
-      onResponseChunk,
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -466,11 +429,6 @@ describe('processStreamWithTags', () => {
     }
 
     const result: string[] = []
-    const responseChunks: any[] = []
-
-    function onResponseChunk(chunk: any) {
-      responseChunks.push(chunk)
-    }
 
     function defaultProcessor(toolName: string) {
       return {
@@ -485,7 +443,6 @@ describe('processStreamWithTags', () => {
       processors,
       defaultProcessor,
       onError,
-      onResponseChunk,
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -512,11 +469,6 @@ describe('processStreamWithTags', () => {
     }
 
     const result: string[] = []
-    const responseChunks: any[] = []
-
-    function onResponseChunk(chunk: any) {
-      responseChunks.push(chunk)
-    }
 
     function defaultProcessor(toolName: string) {
       return {
@@ -531,7 +483,6 @@ describe('processStreamWithTags', () => {
       processors,
       defaultProcessor,
       onError,
-      onResponseChunk,
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)

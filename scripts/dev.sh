@@ -1,112 +1,100 @@
 #!/bin/bash
+# Development Environment Startup Script
+
+set -e
 
 # =============================================================================
-# Development Environment Startup Script
+# Configuration
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-export PATH="$PROJECT_ROOT/.bin:$PATH"
+LOG_DIR="$PROJECT_ROOT/debug/console"
+BUN="$PROJECT_ROOT/.bin/bun"
 
-LOG_DIR="$PROJECT_ROOT/debug/proc"
+export PATH="$PROJECT_ROOT/.bin:$PATH"
 mkdir -p "$LOG_DIR"
 
 # =============================================================================
 # UI Helpers
 # =============================================================================
 
-SPINNER_FRAMES=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+SPINNER=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
 
-# Print a success line
-ok() {
-    printf "  \033[32m✓\033[0m %-10s %s\033[K\n" "$1" "$2"
-}
+ok()   { printf "  \033[32m✓\033[0m %-10s %s\033[K\n" "$1" "$2"; }
+fail() { printf "  \033[31m✗\033[0m %-10s %s\033[K\n" "$1" "$2"; }
 
-# Wait for a pattern in a log file, with spinner animation
-wait_for_log() {
-    local name="$1"
-    local pattern="$2"
-    local timeout="${3:-60}"
-    local frame=0
-    local elapsed=0
-    
-    printf "\033[?25l"  # Hide cursor
-    printf "  %s %-10s starting...\n" "${SPINNER_FRAMES[0]}" "$name"
-    
-    while ! grep -q "$pattern" "$LOG_DIR/$name.log" 2>/dev/null; do
-        printf "\033[1A"  # Move up one line
-        printf "  %s %-10s starting...\033[K\n" "${SPINNER_FRAMES[$frame]}" "$name"
-        
-        frame=$(( (frame + 1) % ${#SPINNER_FRAMES[@]} ))
-        sleep 0.1
-        elapsed=$(( elapsed + 1 ))
-        
-        if (( elapsed > timeout * 10 )); then
-            printf "\033[?25h"  # Show cursor
-            echo "Timeout waiting for $name" >&2
+# Wait for a condition with spinner animation
+# Usage: wait_for <name> <check_command> [timeout_seconds]
+wait_for() {
+    local name="$1" check="$2" timeout="${3:-60}"
+    local frame=0 elapsed=0
+
+    printf "\033[?25l"  # hide cursor
+    while ! eval "$check" >/dev/null 2>&1; do
+        printf "\r  %s %-10s starting..." "${SPINNER[$frame]}" "$name"
+        frame=$(( (frame + 1) % ${#SPINNER[@]} ))
+        sleep 0.5
+        elapsed=$((elapsed + 1))
+        if ((elapsed > timeout * 2)); then
+            printf "\033[?25h\n"
+            fail "$name" "timeout"
             return 1
         fi
     done
-    
-    printf "\033[1A"  # Move up one line
+    printf "\r"
     ok "$name" "ready!"
-    printf "\033[?25h"  # Show cursor
+    printf "\033[?25h"  # show cursor
 }
 
 # =============================================================================
 # Cleanup
 # =============================================================================
 
-kill_proc() {
-    local name="$1"
-    local pattern="$2"
-    if pkill -f "$pattern" 2>/dev/null; then
-        echo "[$(date '+%H:%M:%S')] Killed $name" >> "$LOG_DIR/$name.log"
-        return 0
-    fi
-    return 1
-}
-
 cleanup() {
-    printf "\033[?25h"  # Restore cursor
+    printf "\033[?25h"  # restore cursor
     echo ""
     echo "Shutting down..."
     echo ""
-    
-    kill_proc "web" 'bun.*--cwd web dev' || kill_proc "web" 'next-server'
-    ok "web" "stopped"
-    
-    kill_proc "studio" 'drizzle-kit studio' && ok "studio" "stopped"
-    kill_proc "sdk" 'bun.*--cwd sdk' && ok "sdk" "stopped"
-    
+    tmux kill-session -t codebuff-web 2>/dev/null && ok "web" "stopped"
+    pkill -f 'drizzle-kit studio' 2>/dev/null && ok "studio" "stopped"
+    pkill -f 'bun.*--cwd sdk' 2>/dev/null && ok "sdk" "stopped"
     echo ""
 }
 trap cleanup EXIT INT TERM
 
 # =============================================================================
-# Start Processes
+# Start Services
 # =============================================================================
 
 echo "Starting development environment..."
 echo ""
 
-# 1. Database (blocking)
-printf "  %s %-10s starting...\r" "${SPINNER_FRAMES[0]}" "db"
+# 1. Database (blocking - must complete before other services)
+printf "  %s %-10s starting...\r" "${SPINNER[0]}" "db"
 bun --cwd packages/internal db:start > "$LOG_DIR/db.log" 2>&1
 ok "db" "ready!"
 
-# 2. Background processes (fire and forget)
-bun --cwd sdk run build > "$LOG_DIR/sdk.log" 2>&1 &
-ok "sdk" "(background)"
-
+# 2. Background services (non-blocking)
+bun run --cwd sdk build > "$LOG_DIR/sdk.log" 2>&1 &
 bun --cwd packages/internal db:studio > "$LOG_DIR/studio.log" 2>&1 &
 ok "studio" "(background)"
 
-# 3. Web server (wait for ready)
-bun --cwd web dev > "$LOG_DIR/web.log" 2>&1 &
-wait_for_log "web" "Ready in" 60
+# 3. Web server (wait for health check)
+tmux kill-session -t codebuff-web 2>/dev/null || true
+pkill -f 'next-server' 2>/dev/null || true
 
-# 4. CLI
+# Use unbuffer for real-time log output (creates pseudo-TTY to prevent buffering)
+# Strip ANSI escape codes with sed -l for line-buffered output
+if command -v unbuffer &>/dev/null; then
+    tmux new-session -d -s codebuff-web "cd $PROJECT_ROOT && unbuffer $BUN --cwd web dev 2>&1 | sed -l 's/\x1b\[[0-9;]*m//g' | tee $LOG_DIR/web.log"
+else
+    tmux new-session -d -s codebuff-web "cd $PROJECT_ROOT && $BUN --cwd web dev 2>&1 | sed -l 's/\x1b\[[0-9;]*m//g' | tee $LOG_DIR/web.log"
+fi
+
+wait_for "web" "curl -sf ${NEXT_PUBLIC_APP_URL}/api/healthz"
+
+# 4. CLI (foreground - user interaction)
 echo ""
 echo "Starting CLI..."
 bun --cwd cli dev "$@"

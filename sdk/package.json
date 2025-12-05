@@ -39,7 +39,8 @@
     "fetch-ripgrep": "bun scripts/fetch-ripgrep.ts",
     "prepack": "bun run build",
     "typecheck": "tsc --noEmit -p .",
-    "test": "bun test"
+    "test": "bun test",
+    "dev": "bun run build"
   },
   "engines": {
     "node": ">=18.0.0"

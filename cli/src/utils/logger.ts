@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, unlinkSync } from 'fs'
+import { appendFileSync, existsSync, mkdirSync, unlinkSync } from 'fs'
 import path, { dirname } from 'path'
 import { format as stringFormat } from 'util'
 
@@ -39,7 +39,7 @@ function isEmptyObject(value: any): boolean {
 
 function setLogPath(p: string): void {
   // Recreate logger if the target changed or was removed between runs
-  if (p === logPath && existsSync(p)) return // nothing to do
+  if (p === logPath && existsSync(p)) return
 
   logPath = p
   mkdirSync(dirname(p), { recursive: true })
@@ -50,7 +50,7 @@ function setLogPath(p: string): void {
   const fileStream = pino.destination({
     dest: p, // absolute or relative file path
     mkdir: true, // create parent dirs if they don’t exist
-    sync: false, // set true if you *must* block on every write
+    sync: true, // block on every write for reliability in CLI/dev
   })
 
   pinoLogger = pino(
@@ -67,7 +67,7 @@ function setLogPath(p: string): void {
 
 export function clearLogFile(): void {
   const projectRoot = getProjectRoot()
-  const defaultLog = path.join(projectRoot, 'debug', 'cli.log')
+  const defaultLog = path.join(projectRoot, 'debug', 'cli.jsonl')
   const targets = new Set<string>()
 
   if (logPath) {
@@ -98,6 +98,7 @@ function sendAnalyticsAndLog(
   if (process.env.CODEBUFF_DISABLE_FILE_LOGS === 'true') {
     return
   }
+
   try {
     if (
       process.env.CODEBUFF_GITHUB_ACTIONS !== 'true' &&
@@ -107,7 +108,7 @@ function sendAnalyticsAndLog(
 
       const logTarget =
         env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
-          ? path.join(projectRoot, 'debug', 'cli.log')
+          ? path.join(projectRoot, 'debug', 'cli.jsonl')
           : path.join(getCurrentChatDir(), 'log.jsonl')
 
       setLogPath(logTarget)
@@ -149,7 +150,22 @@ function sendAnalyticsAndLog(
       trackEvent(analyticsEventId, toTrack)
     }
 
-    if (pinoLogger !== undefined) {
+    // In dev mode, use appendFileSync for real-time logging (Bun has issues with pino sync)
+    // In prod mode, use pino for better performance
+    if (env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev' && logPath) {
+      const logEntry = JSON.stringify({
+        level: level.toUpperCase(),
+        timestamp: new Date().toISOString(),
+        ...loggerContext,
+        ...(includeData ? { data: normalizedData } : {}),
+        msg: stringFormat(normalizedMsg ?? '', ...args),
+      })
+      try {
+        appendFileSync(logPath, logEntry + '\n')
+      } catch {
+        // Ignore write errors
+      }
+    } else if (pinoLogger !== undefined) {
       try {
         const base = { ...loggerContext }
         const obj = includeData ? { ...base, data: normalizedData } : base
@@ -159,7 +175,7 @@ function sendAnalyticsAndLog(
       }
     }
   } catch {
-    // Swallow all logging errors in tests to avoid noisy failures
+    // Swallow all logging errors to avoid noisy failures in tests/CLI
   }
 }
 

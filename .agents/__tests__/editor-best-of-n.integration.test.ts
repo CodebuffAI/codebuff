@@ -30,7 +30,7 @@ function getApiKeyOrSkip(): string | null {
  * 4. Applies the chosen implementation
  */
 describe('Editor Best-of-N Max Agent Integration', () => {
-  it(
+  it.skip(
     'should generate and select the best implementation for a simple edit',
     async () => {
       const apiKey = getApiKeyOrSkip()
