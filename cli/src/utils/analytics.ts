@@ -27,7 +27,7 @@ export function initAnalytics() {
   })
 }
 
-export async function flushAnalytics() {
+export async function flushAnalytics(): Promise<void> {
   if (!client) {
     return
   }
@@ -114,4 +114,8 @@ export function logError(
     // Silently handle PostHog errors - don't log them to console
     // This prevents PostHog connection issues from cluttering the user's console
   }
+}
+
+export function flushAnalyticsThen(onComplete: () => void): void {
+  flushAnalytics().finally(onComplete)
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { getCurrentChatId } from '../project-files'
-import { flushAnalytics } from '../utils/analytics'
+import { flushAnalyticsThen } from '../utils/analytics'
 
 import type { InputValue } from '../state/chat-store'
 
@@ -64,7 +64,7 @@ export const useExitHandler = ({
       exitWarningTimeoutRef.current = null
     }
 
-    flushAnalytics().then(() => process.exit(0))
+    flushAnalyticsThen(() => process.exit(0))
     return true
   }, [inputValue, setInputValue, nextCtrlCWillExit])
 
@@ -75,12 +75,7 @@ export const useExitHandler = ({
         exitWarningTimeoutRef.current = null
       }
 
-      const flushed = flushAnalytics()
-      if (flushed && typeof (flushed as Promise<void>).finally === 'function') {
-        ;(flushed as Promise<void>).finally(() => process.exit(0))
-      } else {
-        process.exit(0)
-      }
+      flushAnalyticsThen(() => process.exit(0))
     }
 
     process.on('SIGINT', handleSigint)

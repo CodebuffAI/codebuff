@@ -103,7 +103,7 @@ If tests fail and leave orphaned containers:
 bun --cwd packages/internal run db:e2e:cleanup
 
 # Or manually:
-docker ps -aq --filter "name=manicode-e2e-" | xargs docker rm -f
+docker ps -aq --filter "name=${E2E_CONTAINER_NAME:-manicode-e2e}-" | xargs docker rm -f
 ```
 
 ## Adding New Tests
@@ -159,5 +159,5 @@ PGPASSWORD=e2e_secret_password psql -h localhost -p 5433 -U manicode_e2e_user -d
 ### Check running containers
 
 ```bash
-docker ps --filter "name=manicode-e2e-"
+docker ps --filter "name=${E2E_CONTAINER_NAME:-manicode-e2e}-"
 ```

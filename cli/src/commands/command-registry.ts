@@ -7,7 +7,7 @@ import { handleUsageCommand } from './usage'
 import { useChatStore } from '../state/chat-store'
 import { useLoginStore } from '../state/login-store'
 import { capturePendingImages } from '../utils/add-pending-image'
-import { flushAnalytics } from '../utils/analytics'
+import { flushAnalyticsThen } from '../utils/analytics'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
@@ -193,14 +193,9 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       params.setCanProcessQueue(false)
       params.stopStreaming()
 
-      // Allow the message to render, then flush analytics and exit the process
+      // Allow the message to render before exit; 800ms matches the React unmount timing in TUI
       setTimeout(() => {
-        const flushed = flushAnalytics()
-        if (flushed && typeof (flushed as Promise<void>).finally === 'function') {
-          ;(flushed as Promise<void>).finally(() => process.kill(process.pid, 'SIGINT'))
-        } else {
-          process.kill(process.pid, 'SIGINT')
-        }
+        flushAnalyticsThen(() => process.kill(process.pid, 'SIGINT'))
       }, 800)
     },
   },

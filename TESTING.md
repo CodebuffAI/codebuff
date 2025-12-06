@@ -251,7 +251,7 @@ Tests run automatically in CI. Some tests are skipped when prerequisites aren't 
 
 - Verify Docker is running: `docker info`
 - Rebuild SDK: `cd sdk && bun run build`
-- Clean up orphaned containers: `docker ps -aq --filter "name=manicode-e2e-" | xargs docker rm -f`
+- Clean up orphaned containers: `docker ps -aq --filter "name=${E2E_CONTAINER_NAME:-manicode-e2e}-" | xargs docker rm -f`
 
 ### Playwright tests failing?
 

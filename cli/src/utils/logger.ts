@@ -95,12 +95,11 @@ function sendAnalyticsAndLog(
   msg?: string,
   ...args: any[]
 ): void {
-  if (process.env.CODEBUFF_DISABLE_FILE_LOGS === 'true') {
-    return
-  }
+  const disableFileLogs = process.env.CODEBUFF_DISABLE_FILE_LOGS === 'true'
 
   try {
     if (
+      !disableFileLogs &&
       process.env.CODEBUFF_GITHUB_ACTIONS !== 'true' &&
       env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'test'
     ) {
@@ -127,8 +126,10 @@ function sendAnalyticsAndLog(
       msg: stringFormat(normalizedMsg, ...args),
     }
 
+    // Always report errors to analytics, even when file logs are disabled
     logAsErrorIfNeeded(toTrack)
 
+    // Always track analytics events, even when file logs are disabled
     logOrStore: if (
       env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'dev' &&
       normalizedData &&
@@ -148,6 +149,12 @@ function sendAnalyticsAndLog(
       }
       analyticsBuffer.length = 0
       trackEvent(analyticsEventId, toTrack)
+    }
+
+    // Skip file I/O when CODEBUFF_DISABLE_FILE_LOGS is set
+    // (used in isolated tests to avoid filesystem race conditions)
+    if (disableFileLogs) {
+      return
     }
 
     // In dev mode, use appendFileSync for real-time logging (Bun has issues with pino sync)

@@ -225,7 +225,7 @@ wsl --install
 sudo apt-get install tmux
 ```
 
-See [cli/src/**tests**/README.md](cli/src/__tests__/README.md) for comprehensive testing documentation.
+See [cli/src/\_\_tests\_\_/README.md](cli/src/__tests__/README.md) for comprehensive testing documentation.
 
 ### Commit Messages
 

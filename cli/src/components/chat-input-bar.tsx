@@ -140,7 +140,8 @@ export const ChatInputBar = ({
       }
 
       // Allow Enter to fall through when only slash suggestions are showing so slash
-      // commands submit without an extra keypress. Keep intercepting for mention menus.
+      // commands submit without an extra keypress. Keep intercepting when a mention menu
+      // is open so we don't submit before selecting a mention target.
       if (isPlainEnter) {
         return hasMentionSuggestions
       }
