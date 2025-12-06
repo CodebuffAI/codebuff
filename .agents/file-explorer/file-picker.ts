@@ -113,32 +113,34 @@ Do not use any further tools or spawn any further agents.
     }
 
     /**
-     * Extracts the text content from a 'lastMessage' AgentOutput.
-     * 
+     * Extracts all text content from a 'lastMessage' AgentOutput.
+     *
      * For agents with outputMode: 'last_message', the output structure is:
      * { type: 'lastMessage', value: [{ role: 'assistant', content: [{ type: 'text', text: '...' }] }] }
-     * 
-     * Returns the text from the last assistant message, or null if not found.
+     *
+     * Returns concatenated text from all assistant messages, or null if not found.
+     * Note: Due to streaming, each text chunk may be a separate assistant message,
+     * so we need to concatenate all of them to get the full response.
      */
     function extractLastMessageText(agentOutput: any): string | null {
       if (!agentOutput) return null
-      
+
       // Handle 'lastMessage' output mode - the value contains an array of messages
       if (agentOutput.type === 'lastMessage' && Array.isArray(agentOutput.value)) {
-        // Find the last assistant message with text content
-        for (let i = agentOutput.value.length - 1; i >= 0; i--) {
-          const message = agentOutput.value[i]
+        // Collect text from all assistant messages (streaming creates multiple messages)
+        const textParts: string[] = []
+        for (const message of agentOutput.value) {
           if (message.role === 'assistant' && Array.isArray(message.content)) {
-            // Find text content in the message
             for (const part of message.content) {
               if (part.type === 'text' && typeof part.text === 'string') {
-                return part.text
+                textParts.push(part.text)
               }
             }
           }
         }
+        return textParts.length > 0 ? textParts.join('') : null
       }
-      
+
       return null
     }
 
