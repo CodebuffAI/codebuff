@@ -36,20 +36,15 @@ function isDockerAvailable(): boolean {
 
 const dockerAvailable = isDockerAvailable()
 
-// Skip all e2e tests if prerequisites aren't met
-const shouldSkip = !sdkBuilt || !dockerAvailable
-
 if (!sdkBuilt) {
-  console.log(
-    '⚠️  E2E tests skipped: SDK not built. Run: cd sdk && bun run build',
-  )
+  throw new Error('E2E tests require SDK to be built. Run: cd sdk && bun run build')
 }
 
 if (!dockerAvailable) {
-  console.log('⚠️  E2E tests skipped: Docker not available')
+  throw new Error('E2E tests require Docker to be running')
 }
 
-describe.skipIf(shouldSkip)('E2E: Chat Interaction', () => {
+describe('E2E: Chat Interaction', () => {
   let ctx: E2ETestContext
 
   beforeAll(async () => {
@@ -128,7 +123,7 @@ describe.skipIf(shouldSkip)('E2E: Chat Interaction', () => {
   )
 })
 
-describe.skipIf(shouldSkip)('E2E: Slash Commands', () => {
+describe('E2E: Slash Commands', () => {
   let ctx: E2ETestContext
 
   beforeAll(async () => {
@@ -212,7 +207,7 @@ describe.skipIf(shouldSkip)('E2E: Slash Commands', () => {
   )
 })
 
-describe.skipIf(shouldSkip)('E2E: User Authentication', () => {
+describe('E2E: User Authentication', () => {
   let ctx: E2ETestContext
 
   beforeAll(async () => {
@@ -272,7 +267,7 @@ describe.skipIf(shouldSkip)('E2E: User Authentication', () => {
   )
 })
 
-describe.skipIf(shouldSkip)('E2E: Agent Modes', () => {
+describe('E2E: Agent Modes', () => {
   let ctx: E2ETestContext
 
   beforeAll(async () => {
@@ -339,7 +334,7 @@ describe.skipIf(shouldSkip)('E2E: Agent Modes', () => {
   )
 })
 
-describe.skipIf(shouldSkip)('E2E: Additional Slash Commands', () => {
+describe('E2E: Additional Slash Commands', () => {
   let ctx: E2ETestContext
 
   beforeAll(async () => {
@@ -513,7 +508,7 @@ describe.skipIf(shouldSkip)('E2E: Additional Slash Commands', () => {
   )
 })
 
-describe.skipIf(shouldSkip)('E2E: CLI Flags', () => {
+describe('E2E: CLI Flags', () => {
   let ctx: E2ETestContext
 
   beforeAll(async () => {
@@ -615,7 +610,7 @@ describe.skipIf(shouldSkip)('E2E: CLI Flags', () => {
   )
 })
 
-describe.skipIf(shouldSkip)('E2E: Keyboard Interactions', () => {
+describe('E2E: Keyboard Interactions', () => {
   let ctx: E2ETestContext
 
   beforeAll(async () => {
@@ -751,7 +746,7 @@ describe.skipIf(shouldSkip)('E2E: Keyboard Interactions', () => {
   )
 })
 
-describe.skipIf(shouldSkip)('E2E: Error Scenarios', () => {
+describe('E2E: Error Scenarios', () => {
   let ctx: E2ETestContext
 
   beforeAll(async () => {
@@ -890,15 +885,4 @@ describe.skipIf(shouldSkip)('E2E: Error Scenarios', () => {
   )
 })
 
-// Placeholder describe blocks for tests that are skipped when prerequisites aren't met
-if (!sdkBuilt) {
-  describe('E2E Prerequisites', () => {
-    test.skip('SDK must be built: cd sdk && bun run build', () => {})
-  })
-}
 
-if (!dockerAvailable) {
-  describe('E2E Prerequisites', () => {
-    test.skip('Docker must be running for e2e tests', () => {})
-  })
-}

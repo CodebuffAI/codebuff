@@ -14,6 +14,10 @@ const CLI_PATH = path.join(__dirname, '../index.tsx')
 const TIMEOUT_MS = 25000
 const sdkBuilt = isSDKBuilt()
 
+if (!sdkBuilt) {
+  throw new Error('CLI UI tests require SDK to be built. Run: cd sdk && bun run build')
+}
+
 let cliEnv: Record<string, string> = {}
 
 beforeAll(() => {
@@ -63,7 +67,7 @@ async function launchCLIWithoutAuth(options: {
   })
 }
 
-describe.skipIf(!sdkBuilt)('CLI UI Tests', () => {
+describe('CLI UI Tests', () => {
   describe('CLI flags', () => {
     test(
       'shows help with --help flag',
@@ -447,11 +451,4 @@ describe.skipIf(!sdkBuilt)('CLI UI Tests', () => {
   })
 })
 
-// Show message when SDK tests are skipped
-if (!sdkBuilt) {
-  describe('SDK Build Required', () => {
-    test.skip('Build SDK for CLI UI tests: cd sdk && bun run build', () => {
-      // This test is skipped to show the build instruction
-    })
-  })
-}
+
