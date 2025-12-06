@@ -501,7 +501,6 @@ export const createStreamChunkHandler =
 export const createEventHandler =
   (state: EventHandlerState) => (event: SDKEvent) => {
     return match(event)
-      .with({ type: 'text' }, (e) => handleTextEvent(state, e))
       .with({ type: 'subagent_start' }, (e) => handleSubagentStart(state, e))
       .with({ type: 'subagent_finish' }, (e) => handleSubagentFinish(state, e))
       .with({ type: 'tool_call' }, (e) => handleToolCall(state, e))
