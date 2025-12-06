@@ -138,7 +138,8 @@ export async function launchAuthenticatedCLI(options: {
       } else {
         await originalPress(char as any)
       }
-      await sleep(15)
+      // Slightly longer delay improves reliability under load (tuistory can miss very fast keystrokes)
+      await sleep(35)
     }
   }
 
