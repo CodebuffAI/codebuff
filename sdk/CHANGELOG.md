@@ -2,6 +2,10 @@
 
 All notable changes to the @codebuff/sdk package will be documented in this file.
 
+## [0.10.0]
+
+Lots of changes in the implementation, including native tool calls under the hood. Minimal changes in the public API.
+
 ## [0.4.3]
 
 ### Added
