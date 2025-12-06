@@ -117,36 +117,6 @@ export const App = ({
         })
       : null
 
-    const agentCount = sortedAgents?.length
-
-    const formatIdentifier = (agent: { id: string; displayName: string }) =>
-      agent.displayName && agent.displayName !== agent.id
-        ? `${agent.displayName} (${agent.id})`
-        : agent.displayName || agent.id
-
-    const renderAgentListItem = (
-      agent: { id: string; displayName: string },
-      idx: number,
-    ) => {
-      const identifier = formatIdentifier(agent)
-      return (
-        <text
-          key={`agent-${idx}`}
-          style={{ wrapMode: 'word', fg: theme.foreground }}
-        >
-          {`• ${identifier}`}
-        </text>
-      )
-    }
-
-    const agentListContent = sortedAgents ? (
-      <box style={{ flexDirection: 'column', gap: 0 }}>
-        {sortedAgents.map(renderAgentListItem)}
-      </box>
-    ) : null
-
-    const headerText = agentCount ? pluralize(agentCount, 'local agent') : null
-
     return (
       <box
         style={{
@@ -182,28 +152,9 @@ export const App = ({
             onActivate={() => openFileAtPath(repoRoot)}
           />
         </text>
-        {headerText ? (
-          <box style={{ marginBottom: 1 }}>
-            <ToolCallItem
-              name={headerText}
-              content={agentListContent}
-              isCollapsed={isAgentListCollapsed}
-              isStreaming={false}
-              streamingPreview=""
-              finishedPreview=""
-              onToggle={() => setIsAgentListCollapsed(!isAgentListCollapsed)}
-              dense
-            />
-          </box>
-        ) : null}
       </box>
     )
-  }, [
-    loadedAgentsData,
-    logoBlock,
-    theme,
-    isAgentListCollapsed,
-  ])
+  }, [loadedAgentsData, logoBlock, theme, isAgentListCollapsed])
 
   // Derive auth reachability + retrying state inline from authQuery error
   const authError = authQuery.error
