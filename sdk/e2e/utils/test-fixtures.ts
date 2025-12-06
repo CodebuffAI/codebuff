@@ -186,5 +186,6 @@ export const TEST_PROMPTS = {
   commitMessage: 'Generate a commit message for these changes',
 }
 
-export const DEFAULT_AGENT = 'base'
+// Use a lightweight published agent that exists in the dev/test backend
+export const DEFAULT_AGENT = 'ask'
 export const DEFAULT_TIMEOUT = 120_000 // 2 minutes

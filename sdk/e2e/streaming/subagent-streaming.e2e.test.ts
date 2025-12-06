@@ -27,9 +27,9 @@ describe('Streaming: Subagent Streaming', () => {
 
       const collector = new EventCollector()
 
-      // Use an agent that spawns subagents (like base which can spawn file-picker, etc.)
+      // Use an agent that can spawn subagents
       await client.run({
-        agent: 'codebuff/base@latest',
+        agent: 'base2-max',
         prompt: 'Search for files containing "test" in this project',
         handleEvent: collector.handleEvent,
         handleStreamChunk: collector.handleStreamChunk,
@@ -63,7 +63,7 @@ describe('Streaming: Subagent Streaming', () => {
       const collector = new EventCollector()
 
       await client.run({
-        agent: 'codebuff/base@latest',
+        agent: 'base2-max',
         prompt: 'List files in the current directory',
         handleEvent: collector.handleEvent,
         handleStreamChunk: collector.handleStreamChunk,
@@ -98,7 +98,7 @@ describe('Streaming: Subagent Streaming', () => {
       const collector = new EventCollector()
 
       await client.run({
-        agent: 'codebuff/base@latest',
+        agent: 'base2-max',
         prompt: 'What files are in the sdk folder?',
         handleEvent: collector.handleEvent,
         handleStreamChunk: collector.handleStreamChunk,
@@ -132,7 +132,7 @@ describe('Streaming: Subagent Streaming', () => {
       const collector = new EventCollector()
 
       await client.run({
-        agent: 'codebuff/base@latest',
+        agent: 'base2-max',
         prompt: 'Find TypeScript files',
         handleEvent: collector.handleEvent,
         cwd: process.cwd(),
