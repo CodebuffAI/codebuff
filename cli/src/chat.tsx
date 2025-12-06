@@ -391,7 +391,7 @@ export const Chat = ({
     ? { ...scrollboxProps, scrollAcceleration: inertialScrollAcceleration }
     : scrollboxProps
 
-  const localAgents = useMemo(() => loadLocalAgents(), [])
+  const localAgents = useMemo(() => loadLocalAgents(agentMode), [agentMode])
   const inputMode = useChatStore((state) => state.inputMode)
   const setInputMode = useChatStore((state) => state.setInputMode)
   const askUserState = useChatStore((state) => state.askUserState)

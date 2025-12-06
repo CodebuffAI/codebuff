@@ -142,7 +142,8 @@ async function main() {
   
   if (!fs.existsSync(AGENTS_DIR)) {
     console.error(`Error: .agents/ directory not found at ${AGENTS_DIR}`)
-    process.exit(1)
+    // process.exit(1)
+    return
   }
 
   const tsFiles = getAllTsFiles(AGENTS_DIR)

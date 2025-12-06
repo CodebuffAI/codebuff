@@ -4,6 +4,7 @@ import path from 'path'
 import { pluralize } from '@codebuff/common/util/string'
 
 import { getProjectRoot } from '../project-files'
+import { AGENT_MODE_TO_ID, type AgentMode } from './constants'
 
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 
@@ -176,21 +177,48 @@ export const findAgentsDirectory = (): string | null => {
 // Agent loading - LocalAgentInfo (lightweight, for UI/listing)
 // ============================================================================
 
-let cachedAgents: LocalAgentInfo[] | null = null
+// Cache keyed by agent mode (or 'all' for no filtering)
+const cachedAgentsByMode: Map<string, LocalAgentInfo[]> = new Map()
 
-export const loadLocalAgents = (): LocalAgentInfo[] => {
-  if (cachedAgents) {
-    return cachedAgents
+/**
+ * Load local agents for display in the '@' menu.
+ * 
+ * @param currentAgentMode - If provided, filters bundled agents to only include
+ *   subagents of the current mode's agent (e.g., base2's spawnableAgents for DEFAULT mode).
+ *   User's local agents from .agents/ are always included regardless of mode.
+ */
+export const loadLocalAgents = (currentAgentMode?: AgentMode): LocalAgentInfo[] => {
+  const cacheKey = currentAgentMode ?? 'all'
+  const cached = cachedAgentsByMode.get(cacheKey)
+  if (cached) {
+    return cached
   }
 
-  // Start with bundled agents - these are the default Codebuff agents
+  // Get bundled agents - these are the default Codebuff agents
   // compiled into the CLI binary at build time
   const bundledAgentsInfo = getBundledAgentsAsLocalInfo()
-  const results: LocalAgentInfo[] = [...bundledAgentsInfo]
-  const bundledIds = new Set(bundledAgentsInfo.map(a => a.id))
+  const bundledAgents = getBundledAgents()
+  
+  // Filter bundled agents to only include subagents of the current mode's agent
+  let filteredBundledAgents: LocalAgentInfo[]
+  if (currentAgentMode) {
+    const currentAgentId = AGENT_MODE_TO_ID[currentAgentMode]
+    const currentAgentDef = bundledAgents[currentAgentId]
+    const spawnableAgentIds = new Set(currentAgentDef?.spawnableAgents ?? [])
+    
+    // Only include bundled agents that are in the spawnableAgents list
+    filteredBundledAgents = bundledAgentsInfo.filter(agent => 
+      spawnableAgentIds.has(agent.id)
+    )
+  } else {
+    filteredBundledAgents = bundledAgentsInfo
+  }
+  
+  const results: LocalAgentInfo[] = [...filteredBundledAgents]
+  const includedIds = new Set(filteredBundledAgents.map(a => a.id))
 
   // Then load user's local agents from .agents/ directory
-  // User agents can override bundled agents with the same ID
+  // User agents are always included (not filtered by mode) and can override bundled agents
   const agentsDir = findAgentsDirectory()
 
   if (agentsDir) {
@@ -198,8 +226,9 @@ export const loadLocalAgents = (): LocalAgentInfo[] => {
       const userAgents = gatherAgentFiles(agentsDir)
       
       // Merge user agents - they override bundled agents with same ID
+      // and are always included regardless of mode filtering
       for (const userAgent of userAgents) {
-        if (bundledIds.has(userAgent.id)) {
+        if (includedIds.has(userAgent.id)) {
           // Replace bundled agent with user's version
           const idx = results.findIndex(a => a.id === userAgent.id)
           if (idx !== -1) {
@@ -207,6 +236,7 @@ export const loadLocalAgents = (): LocalAgentInfo[] => {
           }
         } else {
           results.push(userAgent)
+          includedIds.add(userAgent.id)
         }
       }
     } catch {
@@ -214,11 +244,12 @@ export const loadLocalAgents = (): LocalAgentInfo[] => {
     }
   }
 
-  cachedAgents = results.sort((a, b) =>
+  const sorted = results.sort((a, b) =>
     a.displayName.localeCompare(b.displayName, 'en'),
   )
-
-  return cachedAgents
+  
+  cachedAgentsByMode.set(cacheKey, sorted)
+  return sorted
 }
 
 // ============================================================================
@@ -352,6 +383,6 @@ export const getLoadedAgentsData = (): {
  * re-evaluate the filesystem state between cases.
  */
 export const __resetLocalAgentRegistryForTests = (): void => {
-  cachedAgents = null
+  cachedAgentsByMode.clear()
   cachedAgentsDir = null
 }
