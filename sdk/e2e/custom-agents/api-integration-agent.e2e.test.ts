@@ -17,7 +17,7 @@ describe('Custom Agents: API Integration Agent', () => {
 
   const apiAgent: AgentDefinition = {
     id: 'api-agent',
-    model: 'anthropic/claude-sonnet-4-20250514',
+    model: 'anthropic/claude-sonnet-4.5',
     displayName: 'API Integration Agent',
     toolNames: ['fetch_api'],
     instructionsPrompt: `You are an API integration assistant.

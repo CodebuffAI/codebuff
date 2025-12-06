@@ -17,7 +17,7 @@ describe('Custom Agents: Database Query Agent', () => {
 
   const dbAgent: AgentDefinition = {
     id: 'db-query-agent',
-    model: 'anthropic/claude-sonnet-4-20250514',
+    model: 'anthropic/claude-sonnet-4.5',
     displayName: 'Database Query Agent',
     toolNames: ['execute_sql'],
     instructionsPrompt: `You are a database assistant. Use the execute_sql tool to query the database.

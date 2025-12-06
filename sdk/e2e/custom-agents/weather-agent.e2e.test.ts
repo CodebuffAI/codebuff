@@ -17,7 +17,7 @@ describe('Custom Agents: Weather Agent', () => {
 
   const weatherAgent: AgentDefinition = {
     id: 'weather-agent',
-    model: 'anthropic/claude-sonnet-4-20250514',
+    model: 'anthropic/claude-sonnet-4.5',
     displayName: 'Weather Agent',
     toolNames: ['get_weather'],
     instructionsPrompt: `You are a helpful weather assistant. 
