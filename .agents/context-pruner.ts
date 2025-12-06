@@ -90,7 +90,16 @@ const definition: AgentDefinition = {
       return msgs.reduce((sum, msg) => sum + countMessageTokens(msg), 0)
     }
 
-    const maxMessageTokens: number = params?.maxContextLength ?? 200_000
+    // Account for system prompt and tool definition tokens when calculating effective message budget
+    const systemPromptTokens: number = agentState.systemPrompt
+      ? countTokensJson(agentState.systemPrompt)
+      : 0
+    const toolDefinitionTokens: number = agentState.toolDefinitions
+      ? countTokensJson(agentState.toolDefinitions) * 0.75
+      : 0
+    const maxContextLength: number = params?.maxContextLength ?? 200_000
+    const maxMessageTokens: number =
+      maxContextLength - systemPromptTokens - toolDefinitionTokens
     const numTerminalCommandsToKeep = 5
 
     // Helper to extract tool call IDs from messages

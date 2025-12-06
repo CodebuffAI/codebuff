@@ -5,7 +5,7 @@ import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constan
 import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { systemMessage, userMessage } from '@codebuff/common/util/messages'
-import { cloneDeep } from 'lodash'
+import { cloneDeep, mapValues } from 'lodash'
 
 import { checkLiveUserInput } from './live-user-inputs'
 import { getMCPToolData } from './mcp'
@@ -709,9 +709,17 @@ export async function loopAgentSteps(
       }),
   )
 
+  // Convert tools to a serializable format for context-pruner token counting
+  const toolDefinitions = mapValues(tools, (tool) => ({
+    description: tool.description,
+    inputSchema: tool.inputSchema as {},
+  }))
+
   let currentAgentState: AgentState = {
     ...agentState,
     messageHistory: initialMessages,
+    systemPrompt: system,
+    toolDefinitions,
   }
   let shouldEndTurn = false
   let hasRetriedOutputSchema = false

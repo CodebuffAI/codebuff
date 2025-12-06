@@ -39,6 +39,8 @@ export type AgentState = {
   directCreditsUsed: number
   output?: Record<string, any>
   parentId?: string
+  systemPrompt?: string
+  toolDefinitions?: Record<string, { description: string | undefined; inputSchema: {} }>
 }
 
 export const AgentOutputSchema = z.discriminatedUnion('type', [

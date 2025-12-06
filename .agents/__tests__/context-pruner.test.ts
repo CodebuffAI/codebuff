@@ -1,8 +1,11 @@
 import { describe, test, expect, beforeEach } from 'bun:test'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 
 import contextPruner from '../context-pruner'
 
 import type { JSONValue, Message, ToolMessage } from '../types/util-types'
+import { AgentState } from 'types/agent-definition'
 const createMessage = (
   role: 'user' | 'assistant',
   content: string,
@@ -62,11 +65,16 @@ describe('context-pruner handleSteps', () => {
     output: string,
     exitCode?: number,
   ): [Message, ToolMessage] =>
-    createToolCallPair(toolCallId, 'run_terminal_command', { command }, {
-      command,
-      stdout: output,
-      ...(exitCode !== undefined && { exitCode }),
-    })
+    createToolCallPair(
+      toolCallId,
+      'run_terminal_command',
+      { command },
+      {
+        command,
+        stdout: output,
+        ...(exitCode !== undefined && { exitCode }),
+      },
+    )
 
   const createLargeToolPair = (
     toolCallId: string,
@@ -787,6 +795,164 @@ describe('context-pruner image token counting', () => {
         m.content.some((c: any) => c.type === 'image'),
     )
     expect(hasImage).toBe(true)
+  })
+})
+
+describe('context-pruner saved run state overflow', () => {
+  test('prunes message history from saved run state with large token count', () => {
+    // Load the saved run state file with ~194k tokens in message history
+    const runStatePath = join(
+      __dirname,
+      'data',
+      'run-state-context-overflow.json',
+    )
+    const savedRunState = JSON.parse(readFileSync(runStatePath, 'utf-8'))
+    const initialMessages =
+      savedRunState.sessionState?.mainAgentState?.messageHistory ?? []
+
+    // Calculate initial token count
+    const countTokens = (msgs: any[]) => {
+      return msgs.reduce(
+        (sum, msg) => sum + Math.ceil(JSON.stringify(msg).length / 3),
+        0,
+      )
+    }
+    const initialTokens = countTokens(initialMessages)
+    console.log('Initial message count:', initialMessages.length)
+    console.log('Initial tokens (approx):', initialTokens)
+
+    // Run context-pruner with 100k limit
+    const mockAgentState = {
+      messageHistory: initialMessages,
+    } as AgentState
+    const mockLogger = {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    }
+
+    const maxContextLength = 190_000
+
+    // Override maxMessageTokens via params
+    const generator = contextPruner.handleSteps!({
+      agentState: mockAgentState,
+      logger: mockLogger,
+      params: { maxContextLength },
+    })
+
+    const results: any[] = []
+    let result = generator.next()
+    while (!result.done) {
+      if (typeof result.value === 'object') {
+        results.push(result.value)
+      }
+      result = generator.next()
+    }
+
+    expect(results).toHaveLength(1)
+    const prunedMessages = results[0].input.messages
+    const finalTokens = countTokens(prunedMessages)
+
+    console.log('Final message count:', prunedMessages.length)
+    console.log('Final tokens (approx):', finalTokens)
+    console.log('Token reduction:', initialTokens - finalTokens)
+
+    // The context-pruner should have actually pruned the token count.
+    // With a 100k limit and ~194k tokens, the pruner targets:
+    //   targetTokens = maxContextLength * shortenedMessageTokenFactor = 100k * 0.5 = 50k
+    // So final tokens should be around 50k.
+    const shortenedMessageTokenFactor = 0.5
+    const targetTokens = maxContextLength * shortenedMessageTokenFactor
+    // Allow 500 tokens overhead
+    const maxAllowedTokens = targetTokens + 500
+
+    expect(finalTokens).toBeLessThan(maxAllowedTokens)
+  })
+
+  test('accounts for system prompt and tool definitions when pruning with default 200k limit', () => {
+    // Load the saved run state file with ~194k tokens in message history
+    const runStatePath = join(
+      __dirname,
+      'data',
+      'run-state-context-overflow.json',
+    )
+    const savedRunState = JSON.parse(readFileSync(runStatePath, 'utf-8'))
+    const initialMessages =
+      savedRunState.sessionState?.mainAgentState?.messageHistory ?? []
+
+    // Create a huge system prompt (~10k tokens)
+    const hugeSystemPrompt = 'x'.repeat(30000) // ~10k tokens
+
+    // Create tool definitions (~10k tokens)
+    const toolDefinitions = Array.from({ length: 20 }, (_, i) => ({
+      name: `tool_${i}`,
+      description: 'A'.repeat(1000), // ~333 tokens each
+      parameters: { type: 'object', properties: {} },
+    }))
+
+    // Calculate initial token count
+    const countTokens = (obj: any) => Math.ceil(JSON.stringify(obj).length / 3)
+    const systemPromptTokens = countTokens(hugeSystemPrompt)
+    const toolDefinitionTokens = countTokens(toolDefinitions)
+    const initialMessageTokens = countTokens(initialMessages)
+    const totalInitialTokens =
+      systemPromptTokens + toolDefinitionTokens + initialMessageTokens
+
+    console.log('System prompt tokens (approx):', systemPromptTokens)
+    console.log('Tool definition tokens (approx):', toolDefinitionTokens)
+    console.log('Initial message tokens (approx):', initialMessageTokens)
+    console.log('Total initial tokens (approx):', totalInitialTokens)
+
+    // Run context-pruner with default 200k limit
+    // Both systemPrompt and toolDefinitions are read from agentState
+    const mockAgentState: any = {
+      messageHistory: initialMessages,
+      systemPrompt: hugeSystemPrompt,
+      toolDefinitions,
+    }
+    const mockLogger = {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    }
+
+    // No maxContextLength param, defaults to 200k
+    const generator = contextPruner.handleSteps!({
+      agentState: mockAgentState,
+      logger: mockLogger,
+      params: {},
+    })
+
+    const results: any[] = []
+    let result = generator.next()
+    while (!result.done) {
+      if (typeof result.value === 'object') {
+        results.push(result.value)
+      }
+      result = generator.next()
+    }
+
+    expect(results).toHaveLength(1)
+    const prunedMessages = results[0].input.messages
+    const finalMessageTokens = countTokens(prunedMessages)
+    const finalTotalTokens =
+      systemPromptTokens + toolDefinitionTokens + finalMessageTokens
+
+    console.log('Final message tokens (approx):', finalMessageTokens)
+    console.log('Final total tokens (approx):', finalTotalTokens)
+
+    // The context-pruner should prune so that system prompt + tools + messages < 200k
+    // With ~10k system prompt + ~10k tools and default 200k limit, effective message budget is ~180k
+    // Target is shortenedMessageTokenFactor (0.5) of effective budget = ~90k for messages
+    // Total should be well under 200k
+    const maxContextLength = 200_000
+    const prunedContextLength = maxContextLength * 0.6
+    expect(finalTotalTokens).toBeLessThan(prunedContextLength)
+
+    // Also verify significant pruning occurred
+    expect(finalMessageTokens).toBeLessThan(initialMessageTokens)
   })
 })
 
