@@ -3,13 +3,15 @@
 import { promises as fs } from 'fs'
 import { createRequire } from 'module'
 
-
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { getProjectFileTree } from '@codebuff/common/project-file-tree'
-import { validateAgents } from '@codebuff/sdk'
 import { createCliRenderer } from '@opentui/core'
 import { createRoot } from '@opentui/react'
-import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query'
+import {
+  QueryClient,
+  QueryClientProvider,
+  focusManager,
+} from '@tanstack/react-query'
 import { Command } from 'commander'
 import React from 'react'
 
@@ -19,11 +21,9 @@ import { initializeApp } from './init/init-app'
 import { getProjectRoot } from './project-files'
 import { initAnalytics } from './utils/analytics'
 import { getUserCredentials } from './utils/auth'
-import { loadAgentDefinitions, getLoadedAgentsData } from './utils/local-agent-registry'
 import { clearLogFile, logger } from './utils/logger'
 import { detectTerminalTheme } from './utils/terminal-color-detection'
 import { setOscDetectedTheme } from './utils/theme-system'
-import { filterNetworkErrors } from './utils/validation-error-helpers'
 
 import type { FileTreeNode } from '@codebuff/common/util/file'
 
@@ -171,20 +171,6 @@ async function main(): Promise<void> {
     clearLogFile()
   }
 
-  const loadedAgentsData = getLoadedAgentsData()
-
-  let validationErrors: Array<{ id: string; message: string }> = []
-  if (loadedAgentsData) {
-    const agentDefinitions = loadAgentDefinitions()
-    const validationResult = await validateAgents(agentDefinitions, {
-      remote: true,
-    })
-
-    if (!validationResult.success) {
-      validationErrors = filterNetworkErrors(validationResult.validationErrors)
-    }
-  }
-
   const queryClient = createQueryClient()
 
   const AppWithAsyncAuth = () => {
@@ -234,8 +220,6 @@ async function main(): Promise<void> {
         agentId={agent}
         requireAuth={requireAuth}
         hasInvalidCredentials={hasInvalidCredentials}
-        loadedAgentsData={loadedAgentsData}
-        validationErrors={validationErrors}
         fileTree={fileTree}
         continueChat={continueChat}
         continueChatId={continueId ?? undefined}

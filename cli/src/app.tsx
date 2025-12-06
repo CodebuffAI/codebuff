@@ -1,16 +1,13 @@
 import os from 'os'
 import path from 'path'
 
-import { pluralize } from '@codebuff/common/util/string'
 import { NetworkError, RETRYABLE_ERROR_CODES } from '@codebuff/sdk'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { Chat } from './chat'
 import { LoginModal } from './components/login-modal'
 import { TerminalLink } from './components/terminal-link'
-import { ToolCallItem } from './components/tools/tool-call-item'
-import { useAgentValidation } from './hooks/use-agent-validation'
 import { useAuthQuery } from './hooks/use-auth-query'
 import { useAuthState } from './hooks/use-auth-state'
 import { useLogo } from './hooks/use-logo'
@@ -30,11 +27,6 @@ interface AppProps {
   agentId?: string
   requireAuth: boolean | null
   hasInvalidCredentials: boolean
-  loadedAgentsData: {
-    agents: Array<{ id: string; displayName: string }>
-    agentsDir: string
-  } | null
-  validationErrors: Array<{ id: string; message: string }>
   fileTree: FileTreeNode[]
   continueChat: boolean
   continueChatId?: string
@@ -45,8 +37,6 @@ export const App = ({
   agentId,
   requireAuth,
   hasInvalidCredentials,
-  loadedAgentsData,
-  validationErrors,
   fileTree,
   continueChat,
   continueChatId,
@@ -55,7 +45,6 @@ export const App = ({
   const theme = useTheme()
   const { textBlock: logoBlock } = useLogo({ availableWidth: contentMaxWidth })
 
-  const [isAgentListCollapsed, setIsAgentListCollapsed] = useState(true)
   const inputRef = useRef<MultilineInputHandle | null>(null)
   const { setInputFocused, setIsFocusSupported, resetChatStore } = useChatStore(
     useShallow((store) => ({
@@ -93,9 +82,6 @@ export const App = ({
     resetChatStore,
   })
 
-  // Agent validation
-  useAgentValidation(validationErrors)
-
   const headerContent = useMemo(() => {
     const homeDir = os.homedir()
     const repoRoot = getProjectRoot()
@@ -103,19 +89,6 @@ export const App = ({
     const displayPath = relativePath.startsWith('..')
       ? repoRoot
       : `~/${relativePath}`
-
-    const sortedAgents = loadedAgentsData
-      ? [...loadedAgentsData.agents].sort((a, b) => {
-          const displayNameComparison = (a.displayName || '')
-            .toLowerCase()
-            .localeCompare((b.displayName || '').toLowerCase())
-
-          return (
-            displayNameComparison ||
-            a.id.toLowerCase().localeCompare(b.id.toLowerCase())
-          )
-        })
-      : null
 
     return (
       <box
@@ -154,7 +127,7 @@ export const App = ({
         </text>
       </box>
     )
-  }, [loadedAgentsData, logoBlock, theme, isAgentListCollapsed])
+  }, [logoBlock, theme])
 
   // Derive auth reachability + retrying state inline from authQuery error
   const authError = authQuery.error
@@ -195,7 +168,6 @@ export const App = ({
       headerContent={headerContent}
       initialPrompt={initialPrompt}
       agentId={agentId}
-      validationErrors={validationErrors}
       fileTree={fileTree}
       inputRef={inputRef}
       setIsAuthenticated={setIsAuthenticated}
