@@ -3,7 +3,7 @@ import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
 import { CodebuffClient } from '@codebuff/sdk'
 
 import { getAuthTokenDetails } from './auth'
-import { loadAgentDefinitions } from './load-agent-definitions'
+import { loadAgentDefinitions } from './local-agent-registry'
 import { logger } from './logger'
 import { getRgPath } from '../native/ripgrep'
 import { getProjectRoot } from '../project-files'

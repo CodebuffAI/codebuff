@@ -8,7 +8,7 @@ import { getCodebuffClient } from '../utils/codebuff-client'
 import { AGENT_MODE_TO_ID } from '../utils/constants'
 import { createEventHandlerState } from '../utils/create-event-handler-state'
 import { createRunConfig } from '../utils/create-run-config'
-import { loadAgentDefinitions } from '../utils/load-agent-definitions'
+import { loadAgentDefinitions } from '../utils/local-agent-registry'
 import { logger } from '../utils/logger'
 import {
   loadMostRecentChatState,

@@ -2,7 +2,7 @@ import { validateAgents } from '@codebuff/sdk'
 import { useCallback, useState } from 'react'
 
 
-import { loadAgentDefinitions } from '../utils/load-agent-definitions'
+import { loadAgentDefinitions } from '../utils/local-agent-registry'
 import { logger } from '../utils/logger'
 
 export type ValidationError = {

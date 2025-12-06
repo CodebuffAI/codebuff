@@ -127,6 +127,10 @@ async function main() {
     mkdirSync(binDir, { recursive: true })
   }
 
+  // Generate bundled agents file before compiling
+  log('Generating bundled agents...')
+  runCommand('bun', ['run', 'scripts/prebuild-agents.ts'], { cwd: cliRoot, env: process.env })
+
   // Ensure SDK assets exist before compiling the CLI
   log('Building SDK dependencies...')
   runCommand('bun', ['run', 'build:sdk'], { cwd: cliRoot, env: process.env })

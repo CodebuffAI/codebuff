@@ -3,8 +3,7 @@ import { cyan, green, red, yellow } from 'picocolors'
 
 import { getUserCredentials } from '../utils/auth'
 import { getApiClient, setApiClientAuthToken } from '../utils/codebuff-api'
-import { loadAgentDefinitions } from '../utils/load-agent-definitions'
-import { getLoadedAgentsData } from '../utils/local-agent-registry'
+import { loadAgentDefinitions, getLoadedAgentsData } from '../utils/local-agent-registry'
 
 import type {
   PublishAgentsErrorResponse,
