@@ -8,6 +8,7 @@ import { checkLiveUserInput } from '../live-user-inputs'
 import { getMCPToolData } from '../mcp'
 import { getAgentShortName } from '../templates/prompts'
 import { codebuffToolHandlers } from './handlers/list'
+import { ensureZodSchema } from './prompts'
 
 import type { AgentTemplateType } from '@codebuff/common/types/session-state'
 
@@ -332,19 +333,22 @@ export function parseRawCustomToolCall(params: {
       customToolDefs?.[toolName]?.endsAgentStep
   }
 
-  const paramsSchema = customToolDefs?.[toolName]?.inputSchema
-  const result = paramsSchema?.safeParse(processedParameters)
+  const rawSchema = customToolDefs?.[toolName]?.inputSchema
+  if (rawSchema) {
+    const paramsSchema = ensureZodSchema(rawSchema)
+    const result = paramsSchema.safeParse(processedParameters)
 
-  if (result && !result.success) {
-    return {
-      toolName: toolName,
-      toolCallId: rawToolCall.toolCallId,
-      input: rawToolCall.input,
-      error: `Invalid parameters for ${toolName}: ${JSON.stringify(
-        result.error.issues,
-        null,
-        2,
-      )}`,
+    if (!result.success) {
+      return {
+        toolName: toolName,
+        toolCallId: rawToolCall.toolCallId,
+        input: rawToolCall.input,
+        error: `Invalid parameters for ${toolName}: ${JSON.stringify(
+          result.error.issues,
+          null,
+          2,
+        )}`,
+      }
     }
   }
 

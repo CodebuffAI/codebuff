@@ -160,15 +160,21 @@ console.log(calc.getResult());
   'README.md': '# Sample Project\n\nA sample project for testing.',
 }
 
-export const MOCK_WEATHER_DATA: Record<string, { temp: number; condition: string }> = {
+export const MOCK_WEATHER_DATA: Record<
+  string,
+  { temp: number; condition: string }
+> = {
   'New York': { temp: 72, condition: 'Sunny' },
-  'London': { temp: 58, condition: 'Cloudy' },
-  'Tokyo': { temp: 68, condition: 'Partly Cloudy' },
-  'Sydney': { temp: 75, condition: 'Clear' },
-  'Paris': { temp: 62, condition: 'Rainy' },
+  London: { temp: 58, condition: 'Cloudy' },
+  Tokyo: { temp: 68, condition: 'Partly Cloudy' },
+  Sydney: { temp: 75, condition: 'Clear' },
+  Paris: { temp: 62, condition: 'Rainy' },
 }
 
-export const MOCK_DATABASE: Record<string, { id: number; name: string; email: string }[]> = {
+export const MOCK_DATABASE: Record<
+  string,
+  { id: number; name: string; email: string }[]
+> = {
   users: [
     { id: 1, name: 'Alice', email: 'alice@example.com' },
     { id: 2, name: 'Bob', email: 'bob@example.com' },
@@ -186,5 +192,5 @@ export const TEST_PROMPTS = {
   commitMessage: 'Generate a commit message for these changes',
 }
 
-export const DEFAULT_AGENT = 'base'
+export const DEFAULT_AGENT = 'base2'
 export const DEFAULT_TIMEOUT = 120_000 // 2 minutes

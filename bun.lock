@@ -211,6 +211,9 @@
     "packages/agent-runtime": {
       "name": "@codebuff/agent-runtime",
       "version": "0.0.0",
+      "dependencies": {
+        "zod-from-json-schema": "0.4.2",
+      },
       "devDependencies": {
         "@types/bun": "^1.3.0",
         "@types/node": "22",
