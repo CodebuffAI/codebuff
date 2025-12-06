@@ -8,9 +8,9 @@ import {
   ensureCliTestEnv,
   getDefaultCliEnv,
   sleep,
-} from './test-utils'
+} from '../test-utils'
 
-const CLI_PATH = path.join(__dirname, '../index.tsx')
+const CLI_PATH = path.join(__dirname, '../../index.tsx')
 const TIMEOUT_MS = 25000
 const sdkBuilt = isSDKBuilt()
 

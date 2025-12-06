@@ -1,7 +1,7 @@
 import { describe, test, expect, mock } from 'bun:test'
 
-import type { InputMode } from '../utils/input-modes'
-import type { InputValue } from '../state/chat-store'
+import type { InputMode } from '../../utils/input-modes'
+import type { InputValue } from '../../state/chat-store'
 
 /**
  * Tests for bash mode functionality in the CLI.

@@ -1,8 +1,8 @@
 import { describe, test, expect, mock } from 'bun:test'
 
-import { getInputModeConfig } from '../utils/input-modes'
+import { getInputModeConfig } from '../../utils/input-modes'
 
-import type { InputMode } from '../utils/input-modes'
+import type { InputMode } from '../../utils/input-modes'
 
 // Helper type for mock functions
 type MockSetInputMode = (mode: InputMode) => void
