@@ -4,11 +4,18 @@
  * Custom agent with a get_weather custom tool demonstrating custom tool integration.
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test'
+import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
 import { z } from 'zod/v4'
 
 import { CodebuffClient, getCustomToolDefinition } from '../../src'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, MOCK_WEATHER_DATA, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  isAuthError,
+  ensureBackendConnection,
+  MOCK_WEATHER_DATA,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 import type { AgentDefinition } from '../../src'
 
@@ -49,14 +56,16 @@ Always report the temperature and conditions clearly.`,
   })
 
   beforeAll(() => {
-    if (skipIfNoApiKey()) return
     client = new CodebuffClient({ apiKey: getApiKey() })
+  })
+
+  beforeEach(async () => {
+    await ensureBackendConnection()
   })
 
   test(
     'custom weather tool is called and returns data',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -93,7 +102,6 @@ Always report the temperature and conditions clearly.`,
   test(
     'custom tool handles unknown city gracefully',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 

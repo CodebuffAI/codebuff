@@ -4,23 +4,32 @@
  * Tests knowledgeFiles injection for providing context to the agent.
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test'
+import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
 
 import { CodebuffClient } from '../../src/client'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_AGENT, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  isAuthError,
+  ensureBackendConnection,
+  DEFAULT_AGENT,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 describe('Features: Knowledge Files', () => {
   let client: CodebuffClient
 
   beforeAll(() => {
-    if (skipIfNoApiKey()) return
     client = new CodebuffClient({ apiKey: getApiKey() })
+  })
+
+  beforeEach(async () => {
+    await ensureBackendConnection()
   })
 
   test(
     'agent uses injected knowledge files',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -46,7 +55,6 @@ describe('Features: Knowledge Files', () => {
   test(
     'multiple knowledge files are accessible',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 

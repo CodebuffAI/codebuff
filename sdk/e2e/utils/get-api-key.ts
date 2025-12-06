@@ -2,6 +2,11 @@
  * Utility to load Codebuff API key from environment or user credentials.
  */
 
+import { CodebuffClient } from '../../src'
+import { BACKEND_URL, WEBSITE_URL } from '../../src/constants'
+
+let backendCheckPromise: Promise<void> | null = null
+
 export function getApiKey(): string {
   const apiKey = process.env.CODEBUFF_API_KEY
 
@@ -16,10 +21,35 @@ export function getApiKey(): string {
 }
 
 /**
- * Skip test if no API key is available (for CI environments without credentials).
+ * Require an API key and return it (fails fast if missing).
  */
-export function skipIfNoApiKey(): boolean {
-  return !process.env.CODEBUFF_API_KEY
+export function requireApiKey(): string {
+  return getApiKey()
+}
+
+/**
+ * Ensure the configured backend is reachable with the provided API key.
+ * Cached after the first successful check to avoid repeated network calls.
+ */
+export async function ensureBackendConnection(): Promise<void> {
+  if (backendCheckPromise) {
+    return backendCheckPromise
+  }
+
+  const apiKey = getApiKey()
+  const client = new CodebuffClient({ apiKey })
+
+  backendCheckPromise = (async () => {
+    const isConnected = await client.checkConnection()
+    if (!isConnected) {
+      throw new Error(
+        `Backend not reachable. Tried WEBSITE_URL=${WEBSITE_URL} and BACKEND_URL=${BACKEND_URL}. ` +
+          'Verify the backend is up and the API key is valid.',
+      )
+    }
+  })()
+
+  return backendCheckPromise
 }
 
 /**

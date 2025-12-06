@@ -7,23 +7,32 @@
  * - Reasoning chunks
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test'
+import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
 
 import { CodebuffClient } from '../../src/client'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_AGENT, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  isAuthError,
+  ensureBackendConnection,
+  DEFAULT_AGENT,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 describe('Integration: Stream Chunks', () => {
   let client: CodebuffClient
 
   beforeAll(() => {
-    if (skipIfNoApiKey()) return
     client = new CodebuffClient({ apiKey: getApiKey() })
+  })
+
+  beforeEach(async () => {
+    await ensureBackendConnection()
   })
 
   test(
     'receives string chunks during text streaming',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -53,7 +62,6 @@ describe('Integration: Stream Chunks', () => {
   test(
     'stream chunks arrive incrementally (not all at once)',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const chunkTimestamps: number[] = []
       const collector = new EventCollector()
@@ -88,7 +96,6 @@ describe('Integration: Stream Chunks', () => {
   test(
     'handleStreamChunk receives chunks that match handleEvent text',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -118,7 +125,6 @@ describe('Integration: Stream Chunks', () => {
   test(
     'empty prompt still triggers start/finish events',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -140,7 +146,6 @@ describe('Integration: Stream Chunks', () => {
   test(
     'very long response streams correctly',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -166,7 +171,6 @@ describe('Integration: Stream Chunks', () => {
   test(
     'special characters stream correctly',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 

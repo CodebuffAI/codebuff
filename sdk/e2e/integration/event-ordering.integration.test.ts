@@ -5,23 +5,32 @@
  * start → content (text/tool_call/tool_result) → finish
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test'
+import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
 
 import { CodebuffClient } from '../../src/client'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_AGENT, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  isAuthError,
+  ensureBackendConnection,
+  DEFAULT_AGENT,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 describe('Integration: Event Ordering', () => {
   let client: CodebuffClient
 
   beforeAll(() => {
-    if (skipIfNoApiKey()) return
     client = new CodebuffClient({ apiKey: getApiKey() })
+  })
+
+  beforeEach(async () => {
+    await ensureBackendConnection()
   })
 
   test(
     'start event comes before all other events',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -42,7 +51,6 @@ describe('Integration: Event Ordering', () => {
   test(
     'finish event comes after all content events',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -71,7 +79,6 @@ describe('Integration: Event Ordering', () => {
   test(
     'tool_result follows tool_call for same tool',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -104,7 +111,6 @@ describe('Integration: Event Ordering', () => {
   test(
     'verifies standard event flow: start → text → finish',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -126,7 +132,6 @@ describe('Integration: Event Ordering', () => {
   test(
     'no events after final finish',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -155,7 +160,6 @@ describe('Integration: Event Ordering', () => {
   test(
     'multiple sequential runs maintain independent event ordering',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector1 = new EventCollector()
       const collector2 = new EventCollector()

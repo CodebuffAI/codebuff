@@ -4,23 +4,32 @@
  * Tests error handling, retries, and graceful failure scenarios.
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test'
+import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
 
 import { CodebuffClient } from '../../src/client'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_AGENT, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  isAuthError,
+  ensureBackendConnection,
+  DEFAULT_AGENT,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 describe('Workflows: Error Recovery', () => {
   let client: CodebuffClient
 
   beforeAll(() => {
-    if (skipIfNoApiKey()) return
     client = new CodebuffClient({ apiKey: getApiKey() })
+  })
+
+  beforeEach(async () => {
+    await ensureBackendConnection()
   })
 
   test(
     'handles empty prompt gracefully',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -41,7 +50,6 @@ describe('Workflows: Error Recovery', () => {
   test(
     'error events are captured in collector',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -63,7 +71,6 @@ describe('Workflows: Error Recovery', () => {
   test(
     'run completes even with unusual prompts',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -85,7 +92,6 @@ describe('Workflows: Error Recovery', () => {
   test(
     'abort controller cancels run',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
       const abortController = new AbortController()

@@ -20,6 +20,10 @@ describe('Prompt Caching', () => {
       const client = new CodebuffClient({
         apiKey,
       })
+
+      const isConnected = await client.checkConnection()
+      expect(isConnected).toBe(true)
+
       let cost1 = -1
       const run1 = await client.run({
         prompt: `${filler}\n\n${prompt}`,

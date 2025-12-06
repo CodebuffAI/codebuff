@@ -4,23 +4,32 @@
  * Tests the maxAgentSteps option for limiting agent execution.
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test'
+import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
 
 import { CodebuffClient } from '../../src/client'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_AGENT, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  isAuthError,
+  ensureBackendConnection,
+  DEFAULT_AGENT,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 describe('Features: Max Agent Steps', () => {
   let client: CodebuffClient
 
   beforeAll(() => {
-    if (skipIfNoApiKey()) return
     client = new CodebuffClient({ apiKey: getApiKey() })
+  })
+
+  beforeEach(async () => {
+    await ensureBackendConnection()
   })
 
   test(
     'run completes with maxAgentSteps set',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -42,7 +51,6 @@ describe('Features: Max Agent Steps', () => {
   test(
     'low maxAgentSteps still allows simple responses',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 

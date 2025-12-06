@@ -4,23 +4,32 @@
  * Tests previousRun chaining across multiple conversation turns.
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test'
+import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
 
 import { CodebuffClient } from '../../src/client'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_AGENT, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  isAuthError,
+  ensureBackendConnection,
+  DEFAULT_AGENT,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 describe('Workflows: Multi-Turn Conversation', () => {
   let client: CodebuffClient
 
   beforeAll(() => {
-    if (skipIfNoApiKey()) return
     client = new CodebuffClient({ apiKey: getApiKey() })
+  })
+
+  beforeEach(async () => {
+    await ensureBackendConnection()
   })
 
   test(
     'maintains context across two turns',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector1 = new EventCollector()
       const collector2 = new EventCollector()
@@ -57,7 +66,6 @@ describe('Workflows: Multi-Turn Conversation', () => {
   test(
     'maintains context across three turns',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collectors = [new EventCollector(), new EventCollector(), new EventCollector()]
 
@@ -97,7 +105,6 @@ describe('Workflows: Multi-Turn Conversation', () => {
   test(
     'each turn produces independent events',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector1 = new EventCollector()
       const collector2 = new EventCollector()

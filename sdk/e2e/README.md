@@ -96,7 +96,7 @@ bun run test:e2e && bun run test:integration && bun run test:unit:e2e
 ## Prerequisites
 
 - **API Key**: Set `CODEBUFF_API_KEY` environment variable for E2E and integration tests
-- Tests skip gracefully if API key is not set
+- Tests require the API key and will fail fast if it is not set.
 
 ## Writing Tests
 
@@ -104,18 +104,16 @@ bun run test:e2e && bun run test:integration && bun run test:unit:e2e
 ```typescript
 import { describe, test, expect, beforeAll } from 'bun:test'
 import { CodebuffClient } from '../../src/client'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_AGENT, DEFAULT_TIMEOUT } from '../utils'
+import { EventCollector, getApiKey, isAuthError, DEFAULT_AGENT, DEFAULT_TIMEOUT } from '../utils'
 
 describe('E2E: My Test', () => {
   let client: CodebuffClient
 
   beforeAll(() => {
-    if (skipIfNoApiKey()) return
     client = new CodebuffClient({ apiKey: getApiKey() })
   })
 
   test('does something', async () => {
-    if (skipIfNoApiKey()) return
     const collector = new EventCollector()
     
     const result = await client.run({

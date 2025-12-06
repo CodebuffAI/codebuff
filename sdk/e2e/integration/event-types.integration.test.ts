@@ -6,23 +6,32 @@
  * subagent_start, subagent_finish, reasoning_delta, download
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test'
+import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
 
 import { CodebuffClient } from '../../src/client'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_AGENT, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  isAuthError,
+  ensureBackendConnection,
+  DEFAULT_AGENT,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 describe('Integration: Event Types', () => {
   let client: CodebuffClient
 
   beforeAll(() => {
-    if (skipIfNoApiKey()) return
     client = new CodebuffClient({ apiKey: getApiKey() })
+  })
+
+  beforeEach(async () => {
+    await ensureBackendConnection()
   })
 
   test(
     'emits start event at the beginning of a run',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -48,7 +57,6 @@ describe('Integration: Event Types', () => {
   test(
     'emits finish event at the end of a run',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -75,7 +83,6 @@ describe('Integration: Event Types', () => {
   test(
     'emits text events during response generation',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -99,7 +106,6 @@ describe('Integration: Event Types', () => {
   test(
     'emits tool_call and tool_result events when tools are used',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -139,7 +145,6 @@ describe('Integration: Event Types', () => {
   test(
     'event types have correct structure',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -167,7 +172,6 @@ describe('Integration: Event Types', () => {
   test(
     'logs all event types for debugging (collector summary)',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 

@@ -4,11 +4,17 @@
  * Agent that fetches from external APIs demonstrating API integration patterns.
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test'
+import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
 import { z } from 'zod/v4'
 
 import { CodebuffClient, getCustomToolDefinition } from '../../src'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  isAuthError,
+  ensureBackendConnection,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 import type { AgentDefinition } from '../../src'
 
@@ -87,14 +93,16 @@ Summarize the response data clearly.`,
   })
 
   beforeAll(() => {
-    if (skipIfNoApiKey()) return
     client = new CodebuffClient({ apiKey: getApiKey() })
+  })
+
+  beforeEach(async () => {
+    await ensureBackendConnection()
   })
 
   test(
     'fetches mock API data and summarizes response',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -121,7 +129,6 @@ Summarize the response data clearly.`,
   test(
     'handles API errors gracefully',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 

@@ -4,11 +4,18 @@
  * Agent with mock SQL execution tool demonstrating database integration patterns.
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test'
+import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
 import { z } from 'zod/v4'
 
 import { CodebuffClient, getCustomToolDefinition } from '../../src'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, MOCK_DATABASE, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  isAuthError,
+  ensureBackendConnection,
+  MOCK_DATABASE,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 import type { AgentDefinition } from '../../src'
 
@@ -57,14 +64,16 @@ Always format query results in a readable way.`,
   })
 
   beforeAll(() => {
-    if (skipIfNoApiKey()) return
     client = new CodebuffClient({ apiKey: getApiKey() })
+  })
+
+  beforeEach(async () => {
+    await ensureBackendConnection()
   })
 
   test(
     'executes SELECT query and returns results',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -96,7 +105,6 @@ Always format query results in a readable way.`,
   test(
     'handles query with WHERE clause',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 

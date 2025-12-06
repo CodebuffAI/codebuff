@@ -5,23 +5,32 @@
  * without interference or data mixing.
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test'
+import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
 
 import { CodebuffClient } from '../../src/client'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_AGENT, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  isAuthError,
+  ensureBackendConnection,
+  DEFAULT_AGENT,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 describe('Streaming: Concurrent Streams', () => {
   let client: CodebuffClient
 
   beforeAll(() => {
-    if (skipIfNoApiKey()) return
     client = new CodebuffClient({ apiKey: getApiKey() })
+  })
+
+  beforeEach(async () => {
+    await ensureBackendConnection()
   })
 
   test(
     'two concurrent runs have independent event streams',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector1 = new EventCollector()
       const collector2 = new EventCollector()
@@ -65,7 +74,6 @@ describe('Streaming: Concurrent Streams', () => {
   test(
     'three concurrent runs all complete without errors',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collectors = [new EventCollector(), new EventCollector(), new EventCollector()]
 
@@ -99,7 +107,6 @@ describe('Streaming: Concurrent Streams', () => {
   test(
     'concurrent runs do not share stream chunks',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector1 = new EventCollector()
       const collector2 = new EventCollector()
@@ -130,7 +137,6 @@ describe('Streaming: Concurrent Streams', () => {
   test(
     'rapid sequential runs maintain event isolation',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collectors: EventCollector[] = []
 

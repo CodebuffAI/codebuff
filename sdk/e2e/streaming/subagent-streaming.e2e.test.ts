@@ -5,23 +5,25 @@
  * Validates subagent_start, subagent_finish events and chunk forwarding.
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test'
+import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
 
 import { CodebuffClient } from '../../src/client'
-import { EventCollector, getApiKey, skipIfNoApiKey, DEFAULT_TIMEOUT } from '../utils'
+import { EventCollector, getApiKey, ensureBackendConnection, DEFAULT_TIMEOUT } from '../utils'
 
 describe('Streaming: Subagent Streaming', () => {
   let client: CodebuffClient
 
   beforeAll(() => {
-    if (skipIfNoApiKey()) return
     client = new CodebuffClient({ apiKey: getApiKey() })
+  })
+
+  beforeEach(async () => {
+    await ensureBackendConnection()
   })
 
   test(
     'subagent_start and subagent_finish events are paired',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -57,7 +59,6 @@ describe('Streaming: Subagent Streaming', () => {
   test(
     'subagent events have correct structure',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -93,7 +94,6 @@ describe('Streaming: Subagent Streaming', () => {
   test(
     'subagent chunks are forwarded to handleStreamChunk',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -128,7 +128,6 @@ describe('Streaming: Subagent Streaming', () => {
   test(
     'no duplicate subagent_start events for same agent',
     async () => {
-      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
