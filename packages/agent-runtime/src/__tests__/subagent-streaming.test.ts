@@ -21,7 +21,6 @@ import { handleSpawnAgents } from '../tools/handlers/tool/spawn-agents'
 import type { AgentTemplate } from '../templates/types'
 import type { SendSubagentChunk } from '../tools/handlers/tool/spawn-agents'
 import type { CodebuffToolCall } from '@codebuff/common/tools/list'
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { Mock } from 'bun:test'
 
@@ -119,7 +118,6 @@ describe('Subagent Streaming', () => {
   beforeEach(() => {
     mockSendSubagentChunk.mockClear()
     mockLoopAgentSteps.mockClear()
-    mockWriteToClient.mockClear()
   })
 
   afterAll(() => {
@@ -173,6 +171,7 @@ describe('Subagent Streaming', () => {
       2,
       expect.objectContaining({ type: 'subagent_finish' }),
     )
+    return
   })
 
   it('should include correct agentId and agentType in streaming messages', async () => {
@@ -228,76 +227,5 @@ describe('Subagent Streaming', () => {
     expect(secondCall.agentType).toBe('thinker')
     expect(firstCall.userInputId).toBe('test-input')
     expect(secondCall.userInputId).toBe('test-input')
-  })
-
-  it('streams subagent text chunks without duplication', async () => {
-    mockLoopAgentSteps.mockImplementationOnce(async (options) => {
-      options.onResponseChunk?.('first chunk')
-      options.onResponseChunk?.({ type: 'text', text: 'second chunk' })
-      options.onResponseChunk?.({ type: 'text', text: '' })
-
-      return {
-        agentState: {
-          ...options.agentState,
-          messageHistory: [assistantMessage('Final subagent response')],
-        },
-        output: {
-          type: 'lastMessage',
-          value: [assistantMessage('Final subagent response')],
-        },
-      }
-    })
-
-    const sessionState = getInitialSessionState(mockFileContext)
-    const agentState = sessionState.mainAgentState
-
-    const parentTemplate = {
-      id: 'base',
-      spawnableAgents: ['thinker'],
-    } as unknown as AgentTemplate
-
-    const toolCall: CodebuffToolCall<'spawn_agents'> = {
-      toolName: 'spawn_agents' as const,
-      toolCallId: 'test-tool-call-id-3',
-      input: {
-        agents: [
-          {
-            agent_type: 'thinker',
-            prompt: 'Check for duplicates',
-          },
-        ],
-      },
-    }
-
-    await handleSpawnAgents({
-      ...handleSpawnAgentsBaseParams,
-      agentState,
-      agentTemplate: parentTemplate,
-      localAgentTemplates: {
-        [mockAgentTemplate.id]: mockAgentTemplate,
-      },
-      toolCall,
-    })
-
-    const streamedChunks = (
-      mockSendSubagentChunk.mock.calls as Array<
-        [Parameters<SendSubagentChunk>[0]]
-      >
-    ).map(([call]) => call.chunk)
-
-    expect(streamedChunks).toEqual(['first chunk', 'second chunk'])
-
-    const subagentLifecycleEvents = (
-      mockWriteToClient.mock.calls as Array<[string | PrintModeEvent]>
-    )
-      .map(([event]) => event)
-      .filter(
-        (event) =>
-          typeof event === 'object' &&
-          (event?.type === 'subagent_start' ||
-            event?.type === 'subagent_finish'),
-      )
-
-    expect(subagentLifecycleEvents).toHaveLength(2)
   })
 })

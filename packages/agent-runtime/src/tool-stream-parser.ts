@@ -4,6 +4,11 @@ import type { Model } from '@codebuff/common/old-constants'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type {
+  PrintModeError,
+  PrintModeText,
+} from '@codebuff/common/types/print-mode'
+
 export async function* processStreamWithTools(params: {
   stream: AsyncGenerator<StreamChunk, string | null>
   processors: Record<
@@ -18,6 +23,7 @@ export async function* processStreamWithTools(params: {
     onTagEnd: (tagName: string, params: Record<string, any>) => void
   }
   onError: (tagName: string, errorMessage: string) => void
+  onResponseChunk: (chunk: PrintModeText | PrintModeError) => void
   logger: Logger
   loggerOptions?: {
     userId?: string
@@ -31,11 +37,13 @@ export async function* processStreamWithTools(params: {
     processors,
     defaultProcessor,
     onError,
+    onResponseChunk,
     logger,
     loggerOptions,
     trackEvent,
   } = params
   let streamCompleted = false
+  let buffer = ''
   let autocompleted = false
 
   function processToolCallObject(params: {
@@ -65,12 +73,29 @@ export async function* processStreamWithTools(params: {
     processor.onTagEnd(toolName, input)
   }
 
+  function flush() {
+    if (buffer) {
+      onResponseChunk({
+        type: 'text',
+        text: buffer,
+      })
+    }
+    buffer = ''
+  }
+
   function* processChunk(
     chunk: StreamChunk | undefined,
   ): Generator<StreamChunk> {
     if (chunk === undefined) {
+      flush()
       streamCompleted = true
       return
+    }
+
+    if (chunk.type === 'text') {
+      buffer += chunk.text
+    } else {
+      flush()
     }
 
     if (chunk.type === 'tool-call') {

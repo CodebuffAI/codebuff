@@ -234,6 +234,21 @@ export async function processStream(
       model: agentTemplate.model,
       agentName: agentTemplate.id,
     },
+    onResponseChunk: (chunk) => {
+      if (chunk.type === 'text') {
+        if (chunk.text) {
+          assistantMessages.push(assistantMessage(chunk.text))
+        }
+      } else if (chunk.type === 'error') {
+        // do nothing
+      } else {
+        chunk satisfies never
+        throw new Error(
+          `Internal error: unhandled chunk type: ${(chunk as any).type}`,
+        )
+      }
+      return onResponseChunk(chunk)
+    },
   })
 
   let messageId: string | null = null
@@ -258,7 +273,6 @@ export async function processStream(
     } else if (chunk.type === 'text') {
       onResponseChunk(chunk.text)
       fullResponseChunks.push(chunk.text)
-      assistantMessages.push(assistantMessage(chunk.text))
     } else if (chunk.type === 'error') {
       onResponseChunk(chunk)
       
