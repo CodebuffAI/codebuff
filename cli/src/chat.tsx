@@ -45,6 +45,7 @@ import { useUsageMonitor } from './hooks/use-usage-monitor'
 import { getProjectRoot } from './project-files'
 import { useChatStore } from './state/chat-store'
 import { useFeedbackStore } from './state/feedback-store'
+import { usePublishStore } from './state/publish-store'
 import { addClipboardPlaceholder, addPendingImageFromFile, validateAndAddImage } from './utils/add-pending-image'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { showClipboardMessage } from './utils/clipboard'
@@ -56,6 +57,7 @@ import {
   createDefaultChatKeyboardState,
 } from './utils/keyboard-actions'
 import { loadLocalAgents } from './utils/local-agent-registry'
+import { usePublishMutation } from './hooks/use-publish-mutation'
 import { buildMessageTree } from './utils/message-tree-utils'
 import {
   getStatusIndicatorState,
@@ -720,6 +722,22 @@ export const Chat = ({
     })),
   )
 
+  const {
+    publishMode,
+    openPublishMode,
+    closePublish,
+    preSelectAgents,
+  } = usePublishStore(
+    useShallow((state) => ({
+      publishMode: state.publishMode,
+      openPublishMode: state.openPublishMode,
+      closePublish: state.closePublish,
+      preSelectAgents: state.preSelectAgents,
+    })),
+  )
+
+  const publishMutation = usePublishMutation()
+
   const inputValueRef = useRef(inputValue)
   const cursorPositionRef = useRef(cursorPosition)
   useEffect(() => {
@@ -773,6 +791,18 @@ export const Chat = ({
     handleExitFeedback()
   }, [closeFeedback, handleExitFeedback])
 
+  const handleExitPublish = useCallback(() => {
+    closePublish()
+    setInputFocused(true)
+  }, [closePublish, setInputFocused])
+
+  const handlePublish = useCallback(
+    async (agentIds: string[]) => {
+      await publishMutation.mutateAsync(agentIds)
+    },
+    [publishMutation],
+  )
+
   // Ensure bracketed paste events target the active chat input
   useEffect(() => {
     if (feedbackMode) {
@@ -814,6 +844,16 @@ export const Chat = ({
       saveCurrentInput('', 0)
       openFeedbackForMessage(null)
     }
+
+    if (result?.openPublishMode) {
+      if (result.preSelectAgents && result.preSelectAgents.length > 0) {
+        // Pre-select agents and skip to confirmation
+        preSelectAgents(result.preSelectAgents)
+      } else {
+        // Open selection UI
+        openPublishMode()
+      }
+    }
   }, [
     abortControllerRef,
     agentMode,
@@ -838,6 +878,8 @@ export const Chat = ({
     ensureQueueActiveBeforeSubmit,
     saveCurrentInput,
     openFeedbackForMessage,
+    openPublishMode,
+    preSelectAgents,
   ])
 
   const totalMentionMatches = agentMatches.length + fileMatches.length
@@ -1295,6 +1337,9 @@ export const Chat = ({
           isNarrowWidth={isNarrowWidth}
           feedbackMode={feedbackMode}
           handleExitFeedback={handleExitFeedback}
+          publishMode={publishMode}
+          handleExitPublish={handleExitPublish}
+          handlePublish={handlePublish}
           handleSubmit={handleSubmit}
           onPaste={createPasteHandler({
             text: inputValue,

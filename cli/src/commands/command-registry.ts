@@ -46,7 +46,7 @@ export type RouterParams = {
   stopStreaming: () => void
 }
 
-export type CommandResult = { openFeedbackMode?: boolean } | void
+export type CommandResult = { openFeedbackMode?: boolean; openPublishMode?: boolean; preSelectAgents?: string[] } | void
 
 export type CommandHandler = (
   params: RouterParams,
@@ -265,6 +265,24 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       clearInput(params)
     },
   })),
+  {
+    name: 'publish',
+    aliases: [],
+    handler: (params, args) => {
+      const trimmedArgs = args.trim()
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+
+      // If user provided agent ids directly, skip to confirmation step
+      if (trimmedArgs) {
+        const agentIds = trimmedArgs.split(/\s+/).filter(Boolean)
+        return { openPublishMode: true, preSelectAgents: agentIds }
+      }
+
+      // Otherwise open selection UI
+      return { openPublishMode: true }
+    },
+  },
 ]
 
 export function findCommand(cmd: string): CommandDefinition | undefined {

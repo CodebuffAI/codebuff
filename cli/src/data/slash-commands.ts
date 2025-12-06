@@ -88,5 +88,10 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     description: 'Attach an image file (or Ctrl+V to paste from clipboard)',
     aliases: ['img', 'attach'],
   },
+  {
+    id: 'publish',
+    label: 'publish',
+    description: 'Publish agents to the agent store',
+  },
   ...MODE_COMMANDS,
 ]

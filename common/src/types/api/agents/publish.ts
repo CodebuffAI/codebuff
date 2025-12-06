@@ -2,7 +2,9 @@ import { z } from 'zod/v4'
 
 export const publishAgentsRequestSchema = z.object({
   data: z.record(z.string(), z.any()).array(),
-  authToken: z.string(),
+  // DEPRECATED: authToken in body is for backwards compatibility with older CLI versions.
+  // New clients should use the Authorization header instead.
+  authToken: z.string().optional(),
 })
 export type PublishAgentsRequest = z.infer<typeof publishAgentsRequestSchema>
 

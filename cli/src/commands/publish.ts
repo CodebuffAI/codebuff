@@ -1,5 +1,4 @@
 import { WEBSITE_URL } from '@codebuff/sdk'
-import { cyan, green, red, yellow } from 'picocolors'
 
 import { getUserCredentials } from '../utils/auth'
 import { getApiClient, setApiClientAuthToken } from '../utils/codebuff-api'
@@ -9,6 +8,19 @@ import type {
   PublishAgentsErrorResponse,
   PublishAgentsResponse,
 } from '@codebuff/common/types/api/agents/publish'
+
+export interface PublishResult {
+  success: boolean
+  publisherId?: string
+  agents?: Array<{
+    id: string
+    version: string
+    displayName: string
+  }>
+  error?: string
+  details?: string
+  hint?: string
+}
 
 /**
  * Publish agent templates to the backend
@@ -77,42 +89,37 @@ async function publishAgentTemplates(
 /**
  * Handle the publish command to upload agent templates to the backend
  * @param agentIds The ids or display names of the agents to publish
+ * @returns PublishResult with success/error information
  */
-export async function handlePublish(agentIds: string[]): Promise<void> {
+export async function handlePublish(agentIds: string[]): Promise<PublishResult> {
   const user = getUserCredentials()
 
   if (!user) {
-    console.log(red('Please log in first using "login" command or web UI.'))
-    return
+    return {
+      success: false,
+      error: 'Not logged in',
+      hint: 'Please log in first using "login" command or web UI.',
+    }
   }
 
   const availableAgents = getLoadedAgentsData()?.agents || []
 
   if (agentIds?.length === 0) {
-    console.log(
-      red('Agent id is required. Usage: publish <agent-id> [agent-id2] ...'),
-    )
-
-    // Show available agents
-    if (availableAgents.length > 0) {
-      console.log(cyan('Available agents:'))
-      availableAgents.forEach((agent) => {
-        const identifier =
-          agent.displayName && agent.displayName !== agent.id
-            ? `${agent.displayName} (${agent.id})`
-            : agent.displayName || agent.id
-        console.log(`  - ${identifier}`)
-      })
+    return {
+      success: false,
+      error: 'No agents specified',
+      hint: 'Usage: publish <agent-id> [agent-id2] ...',
     }
-    return
   }
 
   try {
     const loadedDefinitions = loadAgentDefinitions()
 
     if (loadedDefinitions.length === 0) {
-      console.log(red('No valid agent templates found in .agents directory.'))
-      return
+      return {
+        success: false,
+        error: 'No valid agent templates found in .agents directory.',
+      }
     }
 
     const matchingTemplates: Record<string, any> = {}
@@ -125,15 +132,18 @@ export async function handlePublish(agentIds: string[]): Promise<void> {
       )
 
       if (!matchingTemplate) {
-        console.log(red(`Agent "${agentId}" not found. Available agents:`))
-        availableAgents.forEach((agent) => {
-          const identifier =
+        const availableList = availableAgents
+          .map((agent) =>
             agent.displayName && agent.displayName !== agent.id
               ? `${agent.displayName} (${agent.id})`
-              : agent.displayName || agent.id
-          console.log(`  - ${identifier}`)
-        })
-        return
+              : agent.displayName || agent.id,
+          )
+          .join(', ')
+        return {
+          success: false,
+          error: `Agent "${agentId}" not found`,
+          details: `Available agents: ${availableList}`,
+        }
       }
 
       // Process the template for publishing
@@ -149,59 +159,38 @@ export async function handlePublish(agentIds: string[]): Promise<void> {
       matchingTemplates[matchingTemplate.id] = processedTemplate
     }
 
-    console.log(yellow(`Publishing:`))
-    for (const template of Object.values(matchingTemplates)) {
-      const displayName = (template as any).displayName || template.id
-      console.log(`  - ${displayName} (${template.id})`)
-    }
-
     const result = await publishAgentTemplates(
       Object.values(matchingTemplates),
       user.authToken!,
     )
 
     if (result.success) {
-      console.log(green(`✅ Successfully published:`))
-      for (const agent of result.agents) {
-        console.log(
-          cyan(
-            `  - ${agent.displayName} (${result.publisherId}/${agent.id}@${agent.version})`,
-          ),
-        )
+      return {
+        success: true,
+        publisherId: result.publisherId,
+        agents: result.agents,
       }
-      return
     }
 
-    console.log(red(`❌ Failed to publish your agents`))
-    if (result.error) console.log(red(`Error: ${result.error}`))
-    if (result.details) console.log(red(`\n${result.details}`))
-    if (result.hint) console.log(yellow(`\nHint: ${result.hint}`))
-
-    // Show helpful guidance based on error type
+    // Build error result
+    let hint = result.hint
     if (result.error?.includes('Publisher field required')) {
-      console.log()
-      console.log(cyan('Add a "publisher" field to your agent templates:'))
-      console.log(yellow('  "publisher": "<publisher-id>"'))
-      console.log()
-    } else if (
-      result.error?.includes('Publisher not found or not accessible')
-    ) {
-      console.log()
-      console.log(
-        cyan(
-          'Check that the publisher ID is correct and you have access to it.',
-        ),
-      )
-      console.log()
+      hint = 'Add a "publisher" field to your agent templates.'
+    } else if (result.error?.includes('Publisher not found or not accessible')) {
+      hint = `Check that the publisher ID is correct and you have access to it. Visit ${WEBSITE_URL}/publishers to manage publishers.`
     }
 
-    console.log(cyan('Visit the website to manage your publishers:'))
-    console.log(yellow(`${WEBSITE_URL}/publishers`))
+    return {
+      success: false,
+      error: result.error,
+      details: result.details,
+      hint,
+    }
   } catch (error) {
-    console.log(
-      red(
-        `Error during publish: ${error instanceof Error ? error.message + '\n' + error.stack : String(error)}`,
-      ),
-    )
+    return {
+      success: false,
+      error: 'Publish failed',
+      details: error instanceof Error ? error.message : String(error),
+    }
   }
 }
