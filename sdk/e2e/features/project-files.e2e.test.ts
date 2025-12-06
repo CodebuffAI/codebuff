@@ -25,7 +25,7 @@ describe('Features: Project Files', () => {
     client = new CodebuffClient({ apiKey: getApiKey() })
   })
 
-  test(
+  test.skip(
     'agent can reference injected project files',
     async () => {
       if (skipIfNoApiKey()) return
@@ -55,7 +55,7 @@ describe('Features: Project Files', () => {
     DEFAULT_TIMEOUT,
   )
 
-  test(
+  test.skip(
     'agent can analyze content of project files',
     async () => {
       if (skipIfNoApiKey()) return

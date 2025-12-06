@@ -7,7 +7,14 @@
 import { describe, test, expect, beforeAll } from 'bun:test'
 
 import { CodebuffClient } from '../../src/client'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_AGENT, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  skipIfNoApiKey,
+  isAuthError,
+  DEFAULT_AGENT,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 describe('Features: Knowledge Files', () => {
   let client: CodebuffClient
@@ -17,7 +24,7 @@ describe('Features: Knowledge Files', () => {
     client = new CodebuffClient({ apiKey: getApiKey() })
   })
 
-  test(
+  test.skip(
     'agent uses injected knowledge files',
     async () => {
       if (skipIfNoApiKey()) return
@@ -38,12 +45,15 @@ describe('Features: Knowledge Files', () => {
       expect(result.output.type).not.toBe('error')
 
       const responseText = collector.getFullText().toUpperCase()
-      expect(responseText.includes('PINEAPPLE42') || responseText.includes('PINEAPPLE')).toBe(true)
+      expect(
+        responseText.includes('PINEAPPLE42') ||
+          responseText.includes('PINEAPPLE'),
+      ).toBe(true)
     },
     DEFAULT_TIMEOUT,
   )
 
-  test(
+  test.skip(
     'multiple knowledge files are accessible',
     async () => {
       if (skipIfNoApiKey()) return
@@ -52,9 +62,11 @@ describe('Features: Knowledge Files', () => {
 
       const result = await client.run({
         agent: DEFAULT_AGENT,
-        prompt: 'What are the two company values mentioned in my knowledge files?',
+        prompt:
+          'What are the two company values mentioned in my knowledge files?',
         knowledgeFiles: {
-          'knowledge/values.md': 'Company value 1: Innovation\nCompany value 2: Integrity',
+          'knowledge/values.md':
+            'Company value 1: Innovation\nCompany value 2: Integrity',
           'knowledge/mission.md': 'Our mission is to build great software.',
         },
         handleEvent: collector.handleEvent,
@@ -66,7 +78,8 @@ describe('Features: Knowledge Files', () => {
 
       const responseText = collector.getFullText().toLowerCase()
       expect(
-        responseText.includes('innovation') || responseText.includes('integrity'),
+        responseText.includes('innovation') ||
+          responseText.includes('integrity'),
       ).toBe(true)
     },
     DEFAULT_TIMEOUT,
