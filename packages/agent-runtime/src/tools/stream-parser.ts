@@ -258,7 +258,11 @@ export async function processStream(
     } else if (chunk.type === 'text') {
       onResponseChunk(chunk.text)
       fullResponseChunks.push(chunk.text)
-      assistantMessages.push(assistantMessage(chunk.text))
+      // Only add text as assistant message if no tool calls have been made yet
+      // to avoid separating tool_use from tool_result (Anthropic API requirement)
+      if (toolCalls.length === 0) {
+        assistantMessages.push(assistantMessage(chunk.text))
+      }
     } else if (chunk.type === 'error') {
       onResponseChunk(chunk)
       

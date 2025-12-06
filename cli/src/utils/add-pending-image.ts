@@ -5,6 +5,16 @@ import { processImageFile, resolveFilePath, isImageFile } from './image-handler'
 import { useChatStore, type PendingImage } from '../state/chat-store'
 
 /**
+ * Exit image input mode if currently active.
+ * Called after successfully adding an image via paste or path.
+ */
+function exitImageModeIfActive(): void {
+  if (useChatStore.getState().inputMode === 'image') {
+    useChatStore.getState().setInputMode('default')
+  }
+}
+
+/**
  * Process an image file and add it to the pending images state.
  * This handles compression/resizing and caches the result so we don't
  * need to reprocess at send time.
@@ -67,6 +77,11 @@ export async function addPendingImageFromFile(
       }
     }),
   }))
+
+  // Exit image mode after successfully adding an image
+  if (result.success) {
+    exitImageModeIfActive()
+  }
 }
 
 /**
@@ -164,7 +179,7 @@ export async function validateAndAddImage(
     return { success: false, error }
   }
   
-  // Process and add the image
+  // Process and add the image (addPendingImageFromFile handles exiting image mode on success)
   await addPendingImageFromFile(resolvedPath, cwd)
   return { success: true }
 }

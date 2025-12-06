@@ -57,8 +57,9 @@ describe('fetchUsageData', () => {
 
   test('should throw error on failed request', async () => {
     globalThis.fetch = mock(async () => new Response('Error', { status: 500 })) as unknown as typeof fetch
+    const mockLogger = { error: mock(() => {}), warn: mock(() => {}), info: mock(() => {}), debug: mock(() => {}) }
 
-    await expect(fetchUsageData({ authToken: 'test-token' })).rejects.toThrow(
+    await expect(fetchUsageData({ authToken: 'test-token', logger: mockLogger as any })).rejects.toThrow(
       'Failed to fetch usage: 500',
     )
   })

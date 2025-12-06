@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 
+import { Button } from './button'
 import { HighlightedSubsequenceText } from './highlighted-text'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
@@ -17,6 +18,7 @@ interface SuggestionMenuProps {
   selectedIndex: number
   maxVisible: number
   prefix?: string
+  onItemClick?: (index: number) => void
 }
 
 export const SuggestionMenu = ({
@@ -24,11 +26,22 @@ export const SuggestionMenu = ({
   selectedIndex,
   maxVisible,
   prefix = '/',
+  onItemClick,
 }: SuggestionMenuProps) => {
   const theme = useTheme()
   const { terminalWidth } = useTerminalDimensions()
   const screenPadding = 4
   const menuWidth = Math.max(10, terminalWidth - screenPadding * 2)
+
+  // Hover state: only highlight on hover after user has moved mouse
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const [hasHoveredSinceOpen, setHasHoveredSinceOpen] = useState(false)
+
+  // Reset hover state when items change (new menu session)
+  useEffect(() => {
+    setHasHoveredSinceOpen(false)
+    setHoveredIndex(null)
+  }, [items])
 
   if (items.length === 0) {
     return null
@@ -66,10 +79,18 @@ export const SuggestionMenu = ({
   const renderSuggestionItem = (item: SuggestionItem, idx: number) => {
     const absoluteIndex = start + idx
     const isSelected = absoluteIndex === clampedSelected
+    const isHovered = hasHoveredSinceOpen && absoluteIndex === hoveredIndex
+    const isHighlighted = isSelected || isHovered
     const labelLength = effectivePrefix.length + item.label.length
-    const textColor = isSelected ? theme.foreground : theme.inputFg
-    const descriptionColor = isSelected ? theme.foreground : theme.muted
+    const textColor = isHighlighted ? theme.foreground : theme.inputFg
+    const descriptionColor = isHighlighted ? theme.foreground : theme.muted
     const highlightColor = theme.primary
+
+    const handleClick = onItemClick ? () => onItemClick(absoluteIndex) : undefined
+    const handleMouseOver = () => {
+      setHoveredIndex(absoluteIndex)
+      setHasHoveredSinceOpen(true)
+    }
 
     if (useSameLine) {
       // Calculate padding to align descriptions
@@ -77,8 +98,10 @@ export const SuggestionMenu = ({
       const padding = ' '.repeat(paddingLength)
       // Wide terminal: description on same line with 2-space gap
       return (
-        <box
+        <Button
           key={item.id}
+          onClick={handleClick}
+          onMouseOver={handleMouseOver}
           style={{
             flexDirection: 'column',
             gap: 0,
@@ -86,7 +109,7 @@ export const SuggestionMenu = ({
             paddingRight: 1,
             paddingTop: 0,
             paddingBottom: 0,
-            backgroundColor: isSelected ? theme.surfaceHover : theme.background,
+            backgroundColor: isHighlighted ? theme.surfaceHover : theme.background,
             width: '100%',
           }}
         >
@@ -111,13 +134,15 @@ export const SuggestionMenu = ({
               highlightColor={highlightColor}
             />
           </text>
-        </box>
+        </Button>
       )
     } else {
       // Narrow terminal: description on next line
       return (
-        <box
+        <Button
           key={item.id}
+          onClick={handleClick}
+          onMouseOver={handleMouseOver}
           style={{
             flexDirection: 'column',
             gap: 0,
@@ -125,7 +150,7 @@ export const SuggestionMenu = ({
             paddingRight: 1,
             paddingTop: 0,
             paddingBottom: 0,
-            backgroundColor: isSelected ? theme.surfaceHover : theme.background,
+            backgroundColor: isHighlighted ? theme.surfaceHover : theme.background,
             width: '100%',
           }}
         >
@@ -157,7 +182,7 @@ export const SuggestionMenu = ({
               highlightColor={highlightColor}
             />
           </text>
-        </box>
+        </Button>
       )
     }
   }
@@ -174,6 +199,7 @@ export const SuggestionMenu = ({
         backgroundColor: theme.surface,
         width: '100%',
       }}
+      onMouseOut={() => setHoveredIndex(null)}
     >
       {visibleItems.map(renderSuggestionItem)}
     </box>

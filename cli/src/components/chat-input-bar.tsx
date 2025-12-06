@@ -44,6 +44,8 @@ interface ChatInputBarProps {
   fileSuggestionItems: SuggestionItem[]
   slashSelectedIndex: number
   agentSelectedIndex: number
+  onSlashItemClick?: (index: number) => void
+  onMentionItemClick?: (index: number) => void
 
   // Layout
   theme: Theme
@@ -82,6 +84,8 @@ export const ChatInputBar = ({
   fileSuggestionItems,
   slashSelectedIndex,
   agentSelectedIndex,
+  onSlashItemClick,
+  onMentionItemClick,
   theme,
   terminalHeight,
   separatorWidth,
@@ -294,6 +298,7 @@ export const ChatInputBar = ({
             selectedIndex={slashSelectedIndex}
             maxVisible={5}
             prefix="/"
+            onItemClick={onSlashItemClick}
           />
         ) : null}
         {hasMentionSuggestions ? (
@@ -302,6 +307,7 @@ export const ChatInputBar = ({
             selectedIndex={agentSelectedIndex}
             maxVisible={5}
             prefix="@"
+            onItemClick={onMentionItemClick}
           />
         ) : null}
         <box
@@ -368,6 +374,7 @@ export const ChatInputBar = ({
             selectedIndex={slashSelectedIndex}
             maxVisible={10}
             prefix="/"
+            onItemClick={onSlashItemClick}
           />
         ) : null}
         {hasMentionSuggestions ? (
@@ -376,6 +383,7 @@ export const ChatInputBar = ({
             selectedIndex={agentSelectedIndex}
             maxVisible={10}
             prefix="@"
+            onItemClick={onMentionItemClick}
           />
         ) : null}
         <box

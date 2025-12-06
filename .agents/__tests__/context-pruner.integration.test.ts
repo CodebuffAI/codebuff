@@ -152,25 +152,13 @@ Do not do anything else. Just spawn context-pruner and then report the result.`,
       const finalMessages =
         run.sessionState?.mainAgentState.messageHistory ?? []
 
-      console.log('Initial message count:', initialMessages.length)
-      console.log('Final message count:', finalMessages.length)
-
-      // The context-pruner should have run and processed messages.
-      // We can't assert on exact message count because:
-      // 1. The agent run adds messages (prompt, tool calls, responses)
-      // 2. Context pruning may replace messages with placeholders rather than removing them
-      // The key assertion is that tool-call/tool-result pairs remain intact (tested below)
-
       // Verify tool-call/tool-result pairs are intact
       // Extract all tool call IDs from assistant messages
       const toolCallIds = new Set<string>()
       for (const msg of finalMessages) {
         if (msg.role === 'assistant' && Array.isArray(msg.content)) {
           for (const part of msg.content) {
-            if (
-              part.type === 'tool-call' &&
-              (part as any).toolCallId
-            ) {
+            if (part.type === 'tool-call' && (part as any).toolCallId) {
               toolCallIds.add((part as any).toolCallId)
             }
           }
@@ -248,11 +236,15 @@ Do not do anything else. Just spawn context-pruner and then report the result.`,
         createMessage('assistant', `Response: ${largeContent}`),
         // Tool call pair 1
         createToolCallMessage('pair-1', 'read_files', { paths: ['a.ts'] }),
-        createToolResultMessage('pair-1', 'read_files', { content: largeContent }),
+        createToolResultMessage('pair-1', 'read_files', {
+          content: largeContent,
+        }),
         createMessage('user', `More: ${largeContent}`),
         // Tool call pair 2
         createToolCallMessage('pair-2', 'code_search', { pattern: 'foo' }),
-        createToolResultMessage('pair-2', 'code_search', { results: [largeContent] }),
+        createToolResultMessage('pair-2', 'code_search', {
+          results: [largeContent],
+        }),
         createMessage('user', 'Now prune the context'),
       ]
 

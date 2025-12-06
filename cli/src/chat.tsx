@@ -635,6 +635,62 @@ export const Chat = ({
     })
   })
 
+  // Click handlers for suggestion menu items
+  const handleSlashItemClick = useCallback(
+    (index: number) => {
+      const selected = slashMatches[index]
+      if (!selected || slashContext.startIndex < 0) return
+      const before = inputValue.slice(0, slashContext.startIndex)
+      const after = inputValue.slice(
+        slashContext.startIndex + 1 + slashContext.query.length,
+      )
+      const replacement = `/${selected.id} `
+      setInputValue({
+        text: before + replacement + after,
+        cursorPosition: before.length + replacement.length,
+        lastEditDueToNav: false,
+      })
+      setSlashSelectedIndex(0)
+    },
+    [slashMatches, slashContext, inputValue, setInputValue, setSlashSelectedIndex],
+  )
+
+  const handleMentionItemClick = useCallback(
+    (index: number) => {
+      if (mentionContext.startIndex < 0) return
+
+      let replacement: string
+      if (index < agentMatches.length) {
+        const selected = agentMatches[index]
+        if (!selected) return
+        replacement = `@${selected.displayName} `
+      } else {
+        const fileIndex = index - agentMatches.length
+        const selectedFile = fileMatches[fileIndex]
+        if (!selectedFile) return
+        replacement = `@${selectedFile.filePath} `
+      }
+      const before = inputValue.slice(0, mentionContext.startIndex)
+      const after = inputValue.slice(
+        mentionContext.startIndex + 1 + mentionContext.query.length,
+      )
+      setInputValue({
+        text: before + replacement + after,
+        cursorPosition: before.length + replacement.length,
+        lastEditDueToNav: false,
+      })
+      setAgentSelectedIndex(0)
+    },
+    [
+      mentionContext,
+      agentMatches,
+      fileMatches,
+      inputValue,
+      setInputValue,
+      setAgentSelectedIndex,
+    ],
+  )
+
   const { inputWidth, handleBuildFast, handleBuildMax } = useChatInput({
     setInputValue,
     agentMode,
@@ -1228,6 +1284,8 @@ export const Chat = ({
           fileSuggestionItems={fileSuggestionItems}
           slashSelectedIndex={slashSelectedIndex}
           agentSelectedIndex={agentSelectedIndex}
+          onSlashItemClick={handleSlashItemClick}
+          onMentionItemClick={handleMentionItemClick}
           theme={theme}
           terminalHeight={terminalHeight}
           separatorWidth={separatorWidth}
