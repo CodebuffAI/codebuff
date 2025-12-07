@@ -2,7 +2,7 @@ import os from 'os'
 import path from 'path'
 
 import { NetworkError, RETRYABLE_ERROR_CODES } from '@codebuff/sdk'
-import { useCallback, useMemo, useRef } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { Chat } from './chat'
@@ -11,6 +11,7 @@ import { TerminalLink } from './components/terminal-link'
 import { useAuthQuery } from './hooks/use-auth-query'
 import { useAuthState } from './hooks/use-auth-state'
 import { useLogo } from './hooks/use-logo'
+import { useSheenAnimation } from './hooks/use-sheen-animation'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTerminalFocus } from './hooks/use-terminal-focus'
 import { useTheme } from './hooks/use-theme'
@@ -41,9 +42,27 @@ export const App = ({
   continueChat,
   continueChatId,
 }: AppProps) => {
-  const { contentMaxWidth } = useTerminalDimensions()
+  const { contentMaxWidth, terminalWidth } = useTerminalDimensions()
   const theme = useTheme()
-  const { textBlock: logoBlock } = useLogo({ availableWidth: contentMaxWidth })
+
+  // Sheen animation state for the logo
+  const [sheenPosition, setSheenPosition] = useState(0)
+  const blockColor = theme.name === 'dark' ? '#ffffff' : '#000000'
+  const { applySheenToChar } = useSheenAnimation({
+    logoColor: theme.foreground,
+    accentColor: theme.primary,
+    blockColor,
+    terminalWidth,
+    sheenPosition,
+    setSheenPosition,
+  })
+
+  const { component: logoComponent } = useLogo({
+    availableWidth: contentMaxWidth,
+    accentColor: theme.primary,
+    blockColor,
+    applySheenToChar,
+  })
 
   const inputRef = useRef<MultilineInputHandle | null>(null)
   const { setInputFocused, setIsFocusSupported, resetChatStore } = useChatStore(
@@ -99,16 +118,15 @@ export const App = ({
           paddingRight: 1,
         }}
       >
-        <text
+        <box
           style={{
-            wrapMode: 'word',
+            flexDirection: 'column',
             marginBottom: 1,
             marginTop: 2,
-            fg: theme.foreground,
           }}
         >
-          {logoBlock}
-        </text>
+          {logoComponent}
+        </box>
         <text
           style={{ wrapMode: 'word', marginBottom: 1, fg: theme.foreground }}
         >
@@ -127,7 +145,7 @@ export const App = ({
         </text>
       </box>
     )
-  }, [logoBlock, theme])
+  }, [logoComponent, theme])
 
   // Derive auth reachability + retrying state inline from authQuery error
   const authError = authQuery.error

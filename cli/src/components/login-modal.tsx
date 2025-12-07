@@ -234,8 +234,11 @@ export const LoginModal = ({
   }, [loginUrl, copyToClipboard])
 
   // Use custom hook for sheen animation
+  const blockColor = theme.name === 'dark' ? '#ffffff' : '#000000'
   const { applySheenToChar } = useSheenAnimation({
     logoColor: theme.foreground,
+    accentColor: theme.primary,
+    blockColor,
     terminalWidth: renderer?.width,
     sheenPosition,
     setSheenPosition,

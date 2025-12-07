@@ -1,8 +1,7 @@
-import React, { useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 
 import {
   SHADOW_CHARS,
-  SHEEN_WIDTH,
   SHEEN_STEP,
   SHEEN_INTERVAL_MS,
 } from '../login/constants'
@@ -10,6 +9,8 @@ import { getSheenColor } from '../login/utils'
 
 interface UseSheenAnimationParams {
   logoColor: string
+  accentColor: string
+  blockColor: string
   terminalWidth: number | undefined
   sheenPosition: number
   setSheenPosition: (value: number | ((prev: number) => number)) => void
@@ -17,40 +18,40 @@ interface UseSheenAnimationParams {
 
 /**
  * Custom hook that handles the sheen animation effect on the logo
- * Extracts sheen animation logic from login-modal.tsx
+ * Animates a fill effect that loops: fill with accent color, then unfill back to original
  */
 export function useSheenAnimation({
   logoColor,
+  accentColor,
+  blockColor,
   terminalWidth,
   sheenPosition,
   setSheenPosition,
 }: UseSheenAnimationParams) {
-  // Run sheen animation once
+  // Track whether we're in the reverse (unfill) phase
+  const [isReversing, setIsReversing] = useState(false)
+
+  // Run looping sheen animation
   useEffect(() => {
     const maxPosition = Math.max(10, Math.min((terminalWidth || 80) - 4, 100))
-    const sheenWidth = SHEEN_WIDTH
-    const step = SHEEN_STEP // Advance 2 positions per frame for efficiency
-    const endPosition = maxPosition + sheenWidth
+    const step = SHEEN_STEP
 
     const interval = setInterval(() => {
       setSheenPosition((prev) => {
         const next = prev + step
-        // Stop animation when we've cleared all characters
-        return next >= endPosition ? endPosition : next
+        
+        if (next >= maxPosition) {
+          // Reached the end, switch direction
+          setIsReversing((wasReversing) => !wasReversing)
+          return 0 // Reset position for next phase
+        }
+        
+        return next
       })
     }, SHEEN_INTERVAL_MS)
 
-    // Calculate when animation should complete and clean up
-    const animationDuration = Math.ceil(
-      (endPosition / step) * SHEEN_INTERVAL_MS,
-    )
-    const stopTimeout = setTimeout(() => {
-      clearInterval(interval)
-    }, animationDuration)
-
     return () => {
       clearInterval(interval)
-      clearTimeout(stopTimeout)
     }
   }, [terminalWidth, setSheenPosition])
 
@@ -67,6 +68,9 @@ export function useSheenAnimation({
         sheenPosition,
         logoColor,
         SHADOW_CHARS,
+        accentColor,
+        blockColor,
+        isReversing,
       )
 
       return (
@@ -75,7 +79,7 @@ export function useSheenAnimation({
         </span>
       )
     },
-    [sheenPosition, logoColor],
+    [sheenPosition, logoColor, accentColor, blockColor, isReversing],
   )
 
   return {

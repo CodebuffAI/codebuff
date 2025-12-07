@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 
-import { LOGO, LOGO_SMALL } from '../login/constants'
+import { LOGO, LOGO_SMALL, SHADOW_CHARS } from '../login/constants'
 import { parseLogoLines } from '../login/utils'
 
 interface UseLogoOptions {
@@ -10,12 +10,21 @@ interface UseLogoOptions {
   availableWidth: number
   /**
    * Optional function to apply styling to each character (e.g., for sheen animation)
+   * If not provided, default coloring is applied (white blocks, accent shadows)
    */
   applySheenToChar?: (char: string, charIndex: number, lineIndex: number) => React.ReactNode
   /**
    * Color to apply to the text variant
    */
   textColor?: string
+  /**
+   * Accent color for shadow/border characters (defaults to acid green #9EFC62)
+   */
+  accentColor?: string
+  /**
+   * Block color for solid block characters (white for dark mode, black for light mode)
+   */
+  blockColor?: string
 }
 
 interface LogoResult {
@@ -49,6 +58,8 @@ export const useLogo = ({
   availableWidth,
   applySheenToChar,
   textColor,
+  accentColor = '#9EFC62',
+  blockColor = '#ffffff',
 }: UseLogoOptions): LogoResult => {
   const rawLogoString = useMemo(() => {
     if (availableWidth >= 70) return LOGO
@@ -91,22 +102,39 @@ export const useLogo = ({
     const logoLines = parseLogoLines(rawLogoString)
     const displayLines = logoLines.map((line) => line.slice(0, availableWidth))
 
+    // Default coloring function: blockColor for blocks, accent color for shadows
+    const defaultColorChar = (char: string, charIndex: number) => {
+      if (char === ' ' || char === '\n') {
+        return <span key={charIndex}>{char}</span>
+      }
+      // Block characters use blockColor (white in dark mode, black in light mode)
+      if (char === '█') {
+        return <span key={charIndex} fg={blockColor}>{char}</span>
+      }
+      // Shadow/border characters get accent color
+      if (SHADOW_CHARS.has(char)) {
+        return <span key={charIndex} fg={accentColor}>{char}</span>
+      }
+      // Other characters use accent color
+      return <span key={charIndex} fg={accentColor}>{char}</span>
+    }
+
     return (
       <>
         {displayLines.map((line, lineIndex) => (
           <text key={`logo-line-${lineIndex}`} style={{ wrapMode: 'none' }}>
-            {applySheenToChar
-              ? line
-                  .split('')
-                  .map((char, charIndex) =>
-                    applySheenToChar(char, charIndex, lineIndex),
-                  )
-              : line}
+            {line
+              .split('')
+              .map((char, charIndex) =>
+                applySheenToChar
+                  ? applySheenToChar(char, charIndex, lineIndex)
+                  : defaultColorChar(char, charIndex),
+              )}
           </text>
         ))}
       </>
     )
-  }, [rawLogoString, availableWidth, applySheenToChar, textColor])
+  }, [rawLogoString, availableWidth, applySheenToChar, textColor, accentColor, blockColor])
 
   return { component, textBlock }
 }
