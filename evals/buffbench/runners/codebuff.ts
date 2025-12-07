@@ -90,6 +90,31 @@ export class CodebuffRunner implements Runner {
       },
     })
 
+    if (result.output.type === 'error') {
+      console.error(
+        `[${this.commitId}:${this.agentId}] Error:`,
+        result.output.message,
+      )
+      if (DEBUG_ERROR) {
+        // Save errors in a file, but not tool calls with invalid json.
+        fs.writeFileSync(
+          path.join(
+            __dirname,
+            '..',
+            `${this.commitId}-${this.agentId}-error-${Math.random().toString(36).substring(2, 6)}.json`,
+          ),
+          JSON.stringify(
+            {
+              ...result.output,
+              trace: steps,
+            },
+            null,
+            2,
+          ),
+        )
+      }
+    }
+
     totalCostUsd = (result.sessionState?.mainAgentState.creditsUsed ?? 0) / 100
 
     // Get git diff after Codebuff has made changes
