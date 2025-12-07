@@ -9,7 +9,11 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 
 import { processStreamWithTools } from '../tool-stream-parser'
-import { executeCustomToolCall, executeToolCall, tryTransformAgentToolCall } from './tool-executor'
+import {
+  executeCustomToolCall,
+  executeToolCall,
+  tryTransformAgentToolCall,
+} from './tool-executor'
 import { expireMessages, withSystemTags } from '../util/messages'
 
 import type { CustomToolCall, ExecuteToolCallParams } from './tool-executor'
@@ -145,14 +149,14 @@ export async function processStream(
           return
         }
         const toolCallId = generateCompactId()
-        
+
         // Check if this is an agent tool call - if so, transform to spawn_agents
         const transformed = tryTransformAgentToolCall({
           toolName,
           input,
           spawnableAgents: agentTemplate.spawnableAgents,
         })
-        
+
         if (transformed) {
           // Use executeToolCall for spawn_agents (a native tool)
           previousToolCallFinished = executeToolCall({
@@ -276,7 +280,7 @@ export async function processStream(
       fullResponseChunks.push(chunk.text)
     } else if (chunk.type === 'error') {
       onResponseChunk(chunk)
-      
+
       hadToolCallError = true
       // Collect error messages to add AFTER all tool results
       // This ensures proper message ordering for Anthropic's API which requires
@@ -300,13 +304,16 @@ export async function processStream(
     ...expireMessages(agentState.messageHistory, 'agentStep'),
     ...assistantMessages,
     ...toolResultsToAddAfterStream,
-    ...errorMessages, // Error messages must come AFTER tool results for proper API ordering
   ])
 
   if (!signal.aborted) {
     resolveStreamDonePromise()
     await previousToolCallFinished
   }
+
+  // Error messages must come AFTER tool results for proper API ordering)
+  agentState.messageHistory.push(...errorMessages)
+
   return {
     fullResponse: fullResponseChunks.join(''),
     fullResponseChunks,
