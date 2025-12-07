@@ -763,7 +763,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
   dark: {
     name: 'dark',
     // Core semantic colors
-    primary: '#facc15',
+    primary: '#9EFC62',
     secondary: '#a3aed0',
     success: '#22c55e',
     error: '#ef4444',
@@ -823,7 +823,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
   light: {
     name: 'light',
     // Core semantic colors
-    primary: '#f59e0b',
+    primary: '#65A83E',
     secondary: '#6b7280',
     success: '#059669',
     error: '#ef4444',
