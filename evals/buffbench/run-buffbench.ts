@@ -98,8 +98,7 @@ async function runTask(options: {
 
     const judgeResult = await judgeCommitResult({
       client,
-      prompt: commit.prompt,
-      groundTruthFileDiffs: commit.fileDiffs,
+      commit,
       contextFiles: agentResult.contextFiles,
       agentDiff: agentResult.diff,
       error: agentResult.error,
