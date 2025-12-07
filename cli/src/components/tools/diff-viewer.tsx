@@ -7,11 +7,20 @@ interface DiffViewerProps {
 }
 
 const DIFF_LINE_COLORS = {
-  added: '#B6BD73',
-  removed: '#BF6C69',
+  dark: {
+    added: '#7ACC35',
+    removed: '#BF6C69',
+  },
+  light: {
+    added: '#4A9E1C',
+    removed: '#C53030',
+  },
 }
 
-const lineColor = (line: string): { fg: string; attrs?: number } => {
+const lineColor = (
+  line: string,
+  themeName: 'dark' | 'light',
+): { fg: string; attrs?: number } => {
   if (line.startsWith('@@')) {
     return { fg: 'cyan', attrs: TextAttributes.BOLD }
   }
@@ -27,10 +36,10 @@ const lineColor = (line: string): { fg: string; attrs?: number } => {
     return { fg: 'gray' }
   }
   if (line.startsWith('+')) {
-    return { fg: DIFF_LINE_COLORS.added }
+    return { fg: DIFF_LINE_COLORS[themeName].added }
   }
   if (line.startsWith('-')) {
-    return { fg: DIFF_LINE_COLORS.removed }
+    return { fg: DIFF_LINE_COLORS[themeName].removed }
   }
   if (line.startsWith('\\')) {
     return { fg: 'gray' }
@@ -50,7 +59,7 @@ export const DiffViewer = ({ diffText }: DiffViewerProps) => {
         .filter((rawLine) => !rawLine.startsWith('@@'))
         .map((rawLine, idx) => {
           const line = rawLine.length === 0 ? ' ' : rawLine
-          const { fg, attrs } = lineColor(line)
+          const { fg, attrs } = lineColor(line, theme.name)
           const resolvedFg = fg || theme.foreground
           return (
             <text key={`diff-line-${idx}`} style={{ wrapMode: 'none' }}>
