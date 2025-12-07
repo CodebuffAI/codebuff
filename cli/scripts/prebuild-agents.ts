@@ -115,6 +115,7 @@ export function getBundledAgentsAsLocalInfo(): LocalAgentInfo[] {
     id: agent.id,
     displayName: agent.displayName || agent.id,
     filePath: '[bundled]',
+    isBundled: true,
   }));
 }
 

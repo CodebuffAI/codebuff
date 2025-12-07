@@ -28,12 +28,13 @@ export interface PublishResult {
 async function publishAgentTemplates(
   data: Record<string, any>[],
   authToken: string,
+  allLocalAgentIds: string[],
 ): Promise<PublishAgentsResponse & { statusCode?: number }> {
   setApiClientAuthToken(authToken)
   const apiClient = getApiClient()
 
   try {
-    const response = await apiClient.publish(data)
+    const response = await apiClient.publish(data, allLocalAgentIds)
 
     if (!response.ok) {
       // Try to use the full error data if available (includes details, hint, etc.)
@@ -159,16 +160,21 @@ export async function handlePublish(agentIds: string[]): Promise<PublishResult> 
       matchingTemplates[matchingTemplate.id] = processedTemplate
     }
 
+    // Get all local agent IDs so the server knows which agents exist locally
+    // (even if not being published) for validation purposes
+    const allLocalAgentIds = loadedDefinitions.map((template) => template.id)
+
     const result = await publishAgentTemplates(
       Object.values(matchingTemplates),
       user.authToken!,
+      allLocalAgentIds,
     )
 
     if (result.success) {
       return {
         success: true,
         publisherId: result.publisherId,
-        agents: result.agents,
+        agents: result.agents ?? [],
       }
     }
 

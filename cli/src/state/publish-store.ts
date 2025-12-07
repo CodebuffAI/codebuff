@@ -27,6 +27,8 @@ interface PublishState {
   isPublishing: boolean
   successResult: PublishSuccessResult | null
   errorResult: PublishErrorResult | null
+  /** Whether to include agents that spawn the selected agents (reverse dependencies) */
+  includeDependents: boolean
 }
 
 interface PublishActions {
@@ -41,13 +43,14 @@ interface PublishActions {
   setIsPublishing: (publishing: boolean) => void
   setSuccessResult: (result: PublishSuccessResult) => void
   setErrorResult: (result: PublishErrorResult) => void
+  setIncludeDependents: (include: boolean) => void
   reset: () => void
 }
 
 type PublishStore = PublishState & PublishActions
 
-const initialState: PublishState = {
-  publishMode: false,
+const createInitialState = (publishMode = false): PublishState => ({
+  publishMode,
   selectedAgentIds: new Set(),
   searchQuery: '',
   currentStep: 'selection',
@@ -55,31 +58,18 @@ const initialState: PublishState = {
   isPublishing: false,
   successResult: null,
   errorResult: null,
-}
+  includeDependents: false,
+})
+
+const initialState: PublishState = createInitialState()
 
 export const usePublishStore = create<PublishStore>()(
   immer((set) => ({
     ...initialState,
 
-    openPublishMode: () =>
-      set((state) => {
-        state.publishMode = true
-        state.currentStep = 'selection'
-        state.selectedAgentIds = new Set()
-        state.searchQuery = ''
-        state.focusedIndex = 0
-        state.isPublishing = false
-      }),
+    openPublishMode: () => set(() => createInitialState(true)),
 
-    closePublish: () =>
-      set((state) => {
-        state.publishMode = false
-        state.currentStep = 'selection'
-        state.selectedAgentIds = new Set()
-        state.searchQuery = ''
-        state.focusedIndex = 0
-        state.isPublishing = false
-      }),
+    closePublish: () => set(() => createInitialState(false)),
 
     toggleAgentSelection: (agentId) =>
       set((state) => {
@@ -114,11 +104,11 @@ export const usePublishStore = create<PublishStore>()(
       }),
 
     preSelectAgents: (agentIds) =>
-      set((state) => {
-        state.selectedAgentIds = new Set(agentIds)
-        state.currentStep = 'confirmation'
-        state.publishMode = true
-        state.isPublishing = false
+      set(() => {
+        const nextState = createInitialState(true)
+        nextState.selectedAgentIds = new Set(agentIds)
+        nextState.currentStep = 'confirmation'
+        return nextState
       }),
 
     setIsPublishing: (publishing) =>
@@ -140,12 +130,11 @@ export const usePublishStore = create<PublishStore>()(
         state.isPublishing = false
       }),
 
-    reset: () =>
-      set(() => ({
-        ...initialState,
-        selectedAgentIds: new Set(),
-        successResult: null,
-        errorResult: null,
-      })),
+    setIncludeDependents: (include) =>
+      set((state) => {
+        state.includeDependents = include
+      }),
+
+    reset: () => set(() => createInitialState(false)),
   })),
 )

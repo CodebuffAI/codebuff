@@ -192,6 +192,7 @@ export interface CodebuffApiClient {
   /** Publish agents via /api/agents/publish */
   publish(
     data: Record<string, unknown>[],
+    allLocalAgentIds?: string[],
   ): Promise<ApiResponse<PublishAgentsResponse>>
 
   /** Logout via /api/auth/cli/logout */
@@ -491,10 +492,12 @@ export function createCodebuffApiClient(
 
     publish(
       data: Record<string, unknown>[],
+      allLocalAgentIds?: string[],
     ): Promise<ApiResponse<PublishAgentsResponse>> {
       // Auth is sent via Authorization header (includeAuth defaults to true)
       return request<PublishAgentsResponse>('POST', '/api/agents/publish', {
         data,
+        allLocalAgentIds,
       })
     },
 

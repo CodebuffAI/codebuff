@@ -30,6 +30,8 @@ export interface LocalAgentInfo {
   id: string
   displayName: string
   filePath: string
+  /** True if this is a bundled Codebuff agent (not user-created) */
+  isBundled?: boolean
 }
 
 // ============================================================================

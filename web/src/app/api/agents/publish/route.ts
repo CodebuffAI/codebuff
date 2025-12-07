@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     // DEPRECATED: authToken in body is for backwards compatibility with older CLI versions.
     // New clients should use the Authorization header instead.
-    const { data, authToken: bodyAuthToken } = parseResult.data
+    const { data, authToken: bodyAuthToken, allLocalAgentIds } = parseResult.data
     const agentDefinitions = data
 
     // Prefer Authorization header, fall back to body authToken for backwards compatibility
@@ -78,6 +78,7 @@ export async function POST(request: NextRequest) {
     const { validationErrors, dynamicTemplates } =
       await validateAgentsWithSpawnableAgents({
         agentTemplates: agentMap,
+        allLocalAgentIds,
         logger,
       })
     const agents = Object.values(dynamicTemplates)

@@ -8,6 +8,7 @@ import { logger } from '@/util/logger'
 interface ValidateAgentsRequest {
   agentConfigs?: any[]
   agentDefinitions?: any[]
+  allLocalAgentIds?: string[]
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -35,6 +36,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const { templates: configs, validationErrors } =
       await validateAgentsWithSpawnableAgents({
         agentTemplates: definitionsObject,
+        allLocalAgentIds: body.allLocalAgentIds,
         logger,
       })
 

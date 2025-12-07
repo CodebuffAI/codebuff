@@ -13,6 +13,7 @@ import {
   focusManager,
 } from '@tanstack/react-query'
 import { Command } from 'commander'
+import { cyan, green, red, yellow } from 'picocolors'
 import React from 'react'
 
 import { App } from './app'
@@ -155,8 +156,25 @@ async function main(): Promise<void> {
   if (process.argv.includes('publish')) {
     const publishIndex = process.argv.indexOf('publish')
     const agentIds = process.argv.slice(publishIndex + 1)
-    await handlePublish(agentIds)
-    process.exit(0)
+    const result = await handlePublish(agentIds)
+
+    if (result.success && result.publisherId && result.agents) {
+      console.log(green('✅ Successfully published:'))
+      for (const agent of result.agents) {
+        console.log(
+          cyan(
+            `  - ${agent.displayName} (${result.publisherId}/${agent.id}@${agent.version})`,
+          ),
+        )
+      }
+      process.exit(0)
+    } else {
+      console.log(red('❌ Publish failed'))
+      if (result.error) console.log(red(`Error: ${result.error}`))
+      if (result.details) console.log(red(result.details))
+      if (result.hint) console.log(yellow(`Hint: ${result.hint}`))
+      process.exit(1)
+    }
   }
 
   // Initialize analytics

@@ -2,11 +2,15 @@ import { TextAttributes } from '@opentui/core'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
+import { pluralize } from '@codebuff/common/util/string'
+
 import { AgentChecklist } from './agent-checklist'
 import { Button } from './button'
 import { MultilineInput, type MultilineInputHandle } from './multiline-input'
 import { PublishConfirmation, getAllPublishAgentIds } from './publish-confirmation'
+import { SelectedChips } from './selected-chips'
 import { Separator } from './separator'
+import { useTerminalLayout } from '../hooks/use-terminal-layout'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
 import { usePublishStore } from '../state/publish-store'
@@ -29,6 +33,8 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
   width,
 }) => {
   const theme = useTheme()
+  const { width: widthLayout, height: heightLayout } = useTerminalLayout()
+  const isTooSmall = widthLayout.atMost('xs') || heightLayout.atMost('xs')
   const [closeButtonHovered, setCloseButtonHovered] = useState(false)
   const [nextButtonHovered, setNextButtonHovered] = useState(false)
   const [backButtonHovered, setBackButtonHovered] = useState(false)
@@ -43,12 +49,14 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
     isPublishing,
     successResult,
     errorResult,
+    includeDependents,
     toggleAgentSelection,
     setSearchQuery,
     goToConfirmation,
     goBackToSelection,
     setFocusedIndex,
     closePublish,
+    setIncludeDependents,
   } = usePublishStore(
     useShallow((state) => ({
       publishMode: state.publishMode,
@@ -59,19 +67,21 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
       isPublishing: state.isPublishing,
       successResult: state.successResult,
       errorResult: state.errorResult,
+      includeDependents: state.includeDependents,
       toggleAgentSelection: state.toggleAgentSelection,
       setSearchQuery: state.setSearchQuery,
       goToConfirmation: state.goToConfirmation,
       goBackToSelection: state.goBackToSelection,
       setFocusedIndex: state.setFocusedIndex,
       closePublish: state.closePublish,
+      setIncludeDependents: state.setIncludeDependents,
     })),
   )
 
   const inputFocused = useChatStore((state) => state.inputFocused)
 
-  // Load agents data
-  const agents = useMemo(() => loadLocalAgents(), [])
+  // Load agents data - filter out bundled agents (they shouldn't be publishable by users)
+  const agents = useMemo(() => loadLocalAgents().filter(a => !a.isBundled), [])
   const agentDefinitions = useMemo(() => {
     const defs = loadAgentDefinitions()
     const map = new Map<string, { spawnableAgents?: string[] }>()
@@ -102,6 +112,16 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
   // Handle keyboard navigation in checklist
   const handleSearchKeyIntercept = useCallback(
     (key: { name?: string; shift?: boolean }) => {
+      if (key.name === 'escape') {
+        // Escape: clear input if there is any, otherwise exit publish mode
+        if (searchQuery.length > 0) {
+          setSearchQuery('')
+        } else {
+          closePublish()
+          onExitPublish?.()
+        }
+        return true
+      }
       if (key.name === 'up') {
         setFocusedIndex(Math.max(0, focusedIndex - 1))
         return true
@@ -131,9 +151,13 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
       focusedIndex,
       filteredAgents,
       canProceed,
+      searchQuery,
       setFocusedIndex,
       toggleAgentSelection,
       goToConfirmation,
+      setSearchQuery,
+      closePublish,
+      onExitPublish,
     ],
   )
 
@@ -152,10 +176,15 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
     goBackToSelection()
   }, [goBackToSelection])
 
+  // Compute the total count of agents to publish (for button label)
+  const publishAgentIds = useMemo(
+    () => getAllPublishAgentIds(selectedAgents, agents, agentDefinitions, includeDependents),
+    [selectedAgents, agents, agentDefinitions, includeDependents]
+  )
+
   const handlePublish = useCallback(async () => {
-    const allIds = getAllPublishAgentIds(selectedAgents, agents, agentDefinitions)
-    await onPublish(allIds)
-  }, [selectedAgents, agents, agentDefinitions, onPublish])
+    await onPublish(publishAgentIds)
+  }, [publishAgentIds, onPublish])
 
   useEffect(() => {
     if (publishMode && inputRef.current && currentStep === 'selection') {
@@ -163,8 +192,69 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
     }
   }, [publishMode, inputRef, currentStep])
 
+  // Handle escape key on non-selection screens
+  useEffect(() => {
+    if (!publishMode || currentStep === 'selection') return
+
+    // Use process.stdin for terminal key handling
+    if (typeof process !== 'undefined' && process.stdin) {
+      const stdin = process.stdin
+      const onData = (data: Buffer) => {
+        // ESC key is 0x1b
+        if (data[0] === 0x1b && data.length === 1) {
+          handleCancel()
+        }
+      }
+      stdin.on('data', onData)
+      return () => {
+        stdin.off('data', onData)
+      }
+    }
+    return undefined
+  }, [publishMode, currentStep, handleCancel])
+
   if (!publishMode) {
     return null
+  }
+
+  // Terminal too small - show placeholder
+  if (isTooSmall) {
+    return (
+      <box
+        border
+        borderStyle="single"
+        borderColor={theme.info}
+        customBorderChars={BORDER_CHARS}
+        style={{
+          flexDirection: 'column',
+          gap: 1,
+          paddingLeft: 1,
+          paddingRight: 1,
+          paddingTop: 1,
+          paddingBottom: 1,
+        }}
+      >
+        <text style={{ fg: theme.warning, attributes: TextAttributes.BOLD }}>
+          Terminal too small
+        </text>
+        <text style={{ fg: theme.muted }}>
+          Please resize your terminal to use the publish menu.
+        </text>
+        <Button
+          onClick={handleCancel}
+          style={{
+            marginTop: 1,
+            paddingLeft: 1,
+            paddingRight: 1,
+            borderStyle: 'single',
+            borderColor: theme.border,
+            customBorderChars: BORDER_CHARS,
+          }}
+        >
+          <text style={{ fg: theme.foreground }}>CLOSE</text>
+        </Button>
+      </box>
+    )
   }
 
   // Empty state - no agents found
@@ -173,7 +263,7 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
       <box
         border
         borderStyle="single"
-        borderColor={theme.primary}
+        borderColor={theme.info}
         customBorderChars={BORDER_CHARS}
         style={{
           flexDirection: 'column',
@@ -214,7 +304,7 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
     <box
       border
       borderStyle="single"
-      borderColor={theme.primary}
+      borderColor={theme.info}
       customBorderChars={BORDER_CHARS}
       style={{
         flexDirection: 'column',
@@ -236,7 +326,9 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
       >
         <text style={{ wrapMode: 'none', marginLeft: 1, marginRight: 1 }}>
           <span fg={theme.secondary}>
-            {currentStep === 'selection' && 'Select agents to publish'}
+            {currentStep === 'selection' && (selectedAgents.length > 0
+              ? `Selected ${pluralize(selectedAgents.length, 'agent')} to publish`
+              : 'Select agents to publish')}
             {currentStep === 'confirmation' && 'Confirm publish'}
             {currentStep === 'success' && 'Publish complete'}
             {currentStep === 'error' && 'Publish failed'}
@@ -264,7 +356,7 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
           <box style={{ paddingTop: 0, paddingBottom: 0 }}>
             <MultilineInput
               value={searchQuery}
-              onChange={({ text, cursorPosition }) => setSearchQuery(text)}
+              onChange={({ text }) => setSearchQuery(text)}
               onSubmit={handleNext}
               onPaste={() => {}}
               onKeyIntercept={handleSearchKeyIntercept}
@@ -278,9 +370,24 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
           </box>
           <Separator width={width} widthOffset={4} />
 
+          {/* Selected chips */}
+          {selectedAgents.length > 0 && (
+            <>
+              <SelectedChips
+                selectedAgents={selectedAgents.map((a) => ({
+                  id: a.id,
+                  displayName: a.displayName,
+                }))}
+                onRemove={toggleAgentSelection}
+              />
+              <Separator width={width} widthOffset={4} />
+            </>
+          )}
+
           {/* Agent checklist */}
           <AgentChecklist
-            agents={agents}
+            allAgents={agents}
+            filteredAgents={filteredAgents}
             selectedIds={selectedAgentIds}
             searchQuery={searchQuery}
             focusedIndex={focusedIndex}
@@ -352,7 +459,8 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
               selectedAgents={selectedAgents}
               allAgents={agents}
               agentDefinitions={agentDefinitions}
-              width={width}
+              includeDependents={includeDependents}
+              onToggleDependents={() => setIncludeDependents(!includeDependents)}
             />
           </box>
 
@@ -419,7 +527,7 @@ export const PublishContainer: React.FC<PublishContainerProps> = ({
                         : theme.foreground
                   }
                 >
-                  {isPublishing ? 'PUBLISHING...' : 'PUBLISH'}
+                  {isPublishing ? 'PUBLISHING...' : `PUBLISH ${pluralize(publishAgentIds.length, 'AGENT')}`}
                 </span>
               </text>
             </Button>

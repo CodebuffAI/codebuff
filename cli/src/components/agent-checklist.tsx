@@ -1,6 +1,8 @@
 import { TextAttributes } from '@opentui/core'
 import React, { useMemo, useRef, useEffect, useState } from 'react'
 
+import { pluralize } from '@codebuff/common/util/string'
+
 import { Button } from './button'
 import { useTheme } from '../hooks/use-theme'
 import { getSimpleAgentId } from '../utils/agent-id-utils'
@@ -108,7 +110,10 @@ const DepTree: React.FC<{
 }
 
 interface AgentChecklistProps {
-  agents: LocalAgentInfo[]
+  /** All agents (used for dependency tree calculations) */
+  allAgents: LocalAgentInfo[]
+  /** Agents filtered by search query (displayed in the list) */
+  filteredAgents: LocalAgentInfo[]
   selectedIds: Set<string>
   searchQuery: string
   focusedIndex: number
@@ -119,7 +124,8 @@ interface AgentChecklistProps {
 }
 
 export const AgentChecklist: React.FC<AgentChecklistProps> = ({
-  agents,
+  allAgents,
+  filteredAgents,
   selectedIds,
   searchQuery,
   focusedIndex,
@@ -135,17 +141,17 @@ export const AgentChecklist: React.FC<AgentChecklistProps> = ({
   const [hoveredSubagentLink, setHoveredSubagentLink] = useState<string | null>(null)
 
   // Precompute local agent IDs for dependency calculations
-  const localAgentIds = useMemo(() => new Set(agents.map((a) => a.id)), [agents])
+  const localAgentIds = useMemo(() => new Set(allAgents.map((a) => a.id)), [allAgents])
 
   // Calculate dependency count for each agent
   const dependencyCounts = useMemo(() => {
     const counts = new Map<string, number>()
-    for (const agent of agents) {
+    for (const agent of allAgents) {
       const count = countDependencies(agent.id, agentDefinitions, localAgentIds, new Set())
       counts.set(agent.id, count)
     }
     return counts
-  }, [agents, agentDefinitions, localAgentIds])
+  }, [allAgents, agentDefinitions, localAgentIds])
 
   // Toggle expansion of an agent's dependencies
   const toggleExpanded = (agentId: string) => {
@@ -159,19 +165,6 @@ export const AgentChecklist: React.FC<AgentChecklistProps> = ({
       return next
     })
   }
-
-  // Filter agents based on search query (instant filter)
-  const filteredAgents = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return agents
-    }
-    const query = searchQuery.toLowerCase()
-    return agents.filter(
-      (agent) =>
-        agent.displayName.toLowerCase().includes(query) ||
-        agent.id.toLowerCase().includes(query),
-    )
-  }, [agents, searchQuery])
 
   // Scroll focused item into view when focus changes via keyboard
   useEffect(() => {
@@ -244,6 +237,7 @@ export const AgentChecklist: React.FC<AgentChecklistProps> = ({
           const depCount = dependencyCounts.get(agent.id) ?? 0
           const isExpanded = expandedAgentIds.has(agent.id)
           const isSubagentLinkHovered = hoveredSubagentLink === agent.id
+          const subagentLabel = `(${isExpanded ? '-' : '+'} ${pluralize(depCount, 'subagent')})`
 
           const symbol = isSelected
             ? SYMBOLS.CHECKBOX_CHECKED
@@ -333,7 +327,7 @@ export const AgentChecklist: React.FC<AgentChecklistProps> = ({
                           : undefined,
                       }}
                     >
-                      {isExpanded ? `(- ${depCount} subagent${depCount === 1 ? '' : 's'})` : `(+ ${depCount} subagent${depCount === 1 ? '' : 's'})`}
+                      {subagentLabel}
                     </text>
                   </Button>
                 )}
@@ -342,7 +336,7 @@ export const AgentChecklist: React.FC<AgentChecklistProps> = ({
               {/* Expanded dependency tree */}
               {isExpanded && depCount > 0 && (
                 <DepTree
-                  nodes={buildDepTree(agent.id, agents, agentDefinitions, localAgentIds, new Set())}
+                  nodes={buildDepTree(agent.id, allAgents, agentDefinitions, localAgentIds, new Set())}
                   depth={0}
                   theme={theme}
                 />
@@ -351,15 +345,6 @@ export const AgentChecklist: React.FC<AgentChecklistProps> = ({
           )
         })}
       </scrollbox>
-
-      {/* Selection count */}
-      <box style={{ marginTop: 1, marginLeft: 1 }}>
-        <text style={{ fg: theme.secondary }}>
-          {selectedIds.size === 0
-            ? 'No agents selected'
-            : `Selected: ${Array.from(selectedIds).join(', ')}`}
-        </text>
-      </box>
     </box>
   )
 }
