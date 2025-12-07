@@ -253,6 +253,7 @@ export async function processStream(
 
   let messageId: string | null = null
   let hadToolCallError = false
+  const errorMessages: Message[] = []
   while (true) {
     if (signal.aborted) {
       break
@@ -277,8 +278,10 @@ export async function processStream(
       onResponseChunk(chunk)
       
       hadToolCallError = true
-      // Add error message to assistant messages so the agent can see what went wrong and retry
-      assistantMessages.push(
+      // Collect error messages to add AFTER all tool results
+      // This ensures proper message ordering for Anthropic's API which requires
+      // tool results to immediately follow the assistant message with tool calls
+      errorMessages.push(
         userMessage(
           withSystemTags(
             `Error during tool call: ${chunk.message}. Please check the tool name and arguments and try again.`,
@@ -297,6 +300,7 @@ export async function processStream(
     ...expireMessages(agentState.messageHistory, 'agentStep'),
     ...assistantMessages,
     ...toolResultsToAddAfterStream,
+    ...errorMessages, // Error messages must come AFTER tool results for proper API ordering
   ])
 
   if (!signal.aborted) {
