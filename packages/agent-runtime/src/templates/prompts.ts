@@ -20,36 +20,24 @@ export function getAgentShortName(agentType: AgentTemplateType): string {
 }
 
 /**
- * Builds a flat input schema for an agent tool by combining prompt and params.
- * E.g., { prompt?: string, ...paramsFields }
+ * Builds an input schema for an agent tool with prompt and params as top-level fields.
+ * This matches the spawn_agents schema structure: { prompt?: string, params?: object }
  */
-export function buildAgentFlatInputSchema(
+export function buildAgentToolInputSchema(
   agentTemplate: AgentTemplate,
 ): z.ZodType {
   const { inputSchema } = agentTemplate
 
-  // Start with an empty object schema
+  // Build schema with prompt and params as top-level fields (consistent with spawn_agents)
+  // Preserve the original optionality from the inputSchema
   let schemaFields: Record<string, z.ZodType> = {}
 
-  // Add prompt field if defined
   if (inputSchema?.prompt) {
-    schemaFields.prompt = inputSchema.prompt.optional()
+    schemaFields.prompt = inputSchema.prompt
   }
 
-  // Merge params fields directly into the schema (flat structure)
   if (inputSchema?.params) {
-    // Try to get the shape from the params schema directly if it's a ZodObject
-    // This preserves the full nested structure instead of converting to z.any()
-    const paramsShape = getZodObjectShape(inputSchema.params)
-
-    if (paramsShape) {
-      // We have the original Zod shape, use it directly
-      for (const [key, fieldSchema] of Object.entries(paramsShape)) {
-        // Skip if we already have a prompt field
-        if (key === 'prompt') continue
-        schemaFields[key] = fieldSchema as z.ZodType
-      }
-    }
+    schemaFields.params = inputSchema.params
   }
 
   return z
@@ -60,30 +48,6 @@ export function buildAgentFlatInputSchema(
     )
 }
 
-/**
- * Extracts the shape from a Zod schema if it's a ZodObject.
- * Handles wrapped types like ZodOptional, ZodNullable, ZodDefault, etc.
- */
-function getZodObjectShape(
-  schema: z.ZodType,
-): Record<string, z.ZodType> | null {
-  // ZodObject has a public .shape property in Zod v4
-  if (
-    'shape' in schema &&
-    typeof schema.shape === 'object' &&
-    schema.shape !== null
-  ) {
-    return schema.shape as Record<string, z.ZodType>
-  }
-
-  // Handle wrapped types (optional, nullable, default, etc.) via internal def
-  const def = (schema as any)?._zod?.def
-  if (def?.inner) {
-    return getZodObjectShape(def.inner)
-  }
-
-  return null
-}
 
 /**
  * Builds AI SDK tool definitions for spawnable agents.
@@ -113,7 +77,7 @@ export async function buildAgentToolSet(
     if (!agentTemplate) continue
 
     const shortName = getAgentShortName(agentType)
-    const inputSchema = buildAgentFlatInputSchema(agentTemplate)
+    const inputSchema = buildAgentToolInputSchema(agentTemplate)
 
     // Use the same structure as other tools in toolParams
     toolSet[shortName] = {

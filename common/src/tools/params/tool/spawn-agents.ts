@@ -37,7 +37,7 @@ The prompt field is a simple string, while params is a JSON object that gets val
 
 Each agent available is already defined as another tool, or, dynamically defined later in the conversation.
 
-You can call agents either as direct tool calls (e.g., \`example-agent\`) or use \`spawn_agents\`. Both formats work, but **prefer using spawn_agents** because it allows you to spawn multiple agents in parallel for better performance. When using direct tool calls, the schema is flat (prompt is a field alongside other params), whereas spawn_agents uses nested \`prompt\` and \`params\` fields.
+You can call agents either as direct tool calls (e.g., \`example-agent\`) or use \`spawn_agents\`. Both formats work, but **prefer using spawn_agents** because it allows you to spawn multiple agents in parallel for better performance. Both use the same schema with nested \`prompt\` and \`params\` fields.
 
 **IMPORTANT**: Many agents have REQUIRED fields in their params schema. Check the agent's schema before spawning - if params has required fields, you MUST include them in the params object. For example, code-searcher requires \`searchQueries\`, commander requires \`command\`.
 

@@ -527,20 +527,19 @@ export function tryTransformAgentToolCall(params: {
     (agentType) => getAgentShortName(agentType) === toolName,
   )
 
-  // Convert to spawn_agents call
+  // Convert to spawn_agents call - input already has prompt and params as top-level fields
+  // (consistent with spawn_agents schema)
+  const agentEntry: Record<string, unknown> = {
+    agent_type: fullAgentType || toolName,
+  }
+  if (typeof input.prompt === 'string') {
+    agentEntry.prompt = input.prompt
+  }
+  if (input.params && typeof input.params === 'object') {
+    agentEntry.params = input.params
+  }
   const spawnAgentsInput = {
-    agents: [
-      {
-        agent_type: fullAgentType || toolName,
-        ...(typeof input.prompt === 'string' && { prompt: input.prompt }),
-        // Put all other fields into params
-        ...(Object.keys(input).filter((k) => k !== 'prompt').length > 0 && {
-          params: Object.fromEntries(
-            Object.entries(input).filter(([k]) => k !== 'prompt'),
-          ),
-        }),
-      },
-    ],
+    agents: [agentEntry],
   }
 
   return { toolName: 'spawn_agents', input: spawnAgentsInput }
