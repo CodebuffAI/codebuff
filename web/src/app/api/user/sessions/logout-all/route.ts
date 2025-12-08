@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!isSameOrigin(request)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    return NextResponse.json({ error: 'Forbidden - not same origin, cannot logout all sessions' }, { status: 403 })
   }
 
   const currentToken = getCurrentSessionTokenFromCookies()
