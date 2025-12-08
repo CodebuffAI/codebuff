@@ -18,18 +18,27 @@ import {
 
 describe('Features: Knowledge Files', () => {
   let client: CodebuffClient
+  let apiKey: string | null = null
 
   beforeAll(() => {
+    apiKey = process.env.CODEBUFF_API_KEY ?? null
+    if (!apiKey) {
+      // Skip gracefully if no API key is configured
+      test.skip('CODEBUFF_API_KEY is required for knowledge files e2e')
+      return
+    }
     client = new CodebuffClient({ apiKey: getApiKey() })
   })
 
   beforeEach(async () => {
+    if (!apiKey) return
     await ensureBackendConnection()
   })
 
   test(
     'agent uses injected knowledge files',
     async () => {
+      if (!apiKey) return
       const collector = new EventCollector()
 
       const result = await client.run({
@@ -43,8 +52,12 @@ describe('Features: Knowledge Files', () => {
 
       if (isAuthError(result.output)) return
 
-      if (result.output.type === 'error') return
-      expect(collector.hasEventType('finish')).toBe(true)
+      expect(result.output.type).not.toBe('error')
+      const responseText = collector.getFullText().toUpperCase()
+      expect(
+        responseText.includes('PINEAPPLE42') ||
+          responseText.includes('PINEAPPLE'),
+      ).toBe(true)
     },
     DEFAULT_TIMEOUT,
   )
@@ -52,6 +65,7 @@ describe('Features: Knowledge Files', () => {
   test(
     'multiple knowledge files are accessible',
     async () => {
+      if (!apiKey) return
       const collector = new EventCollector()
 
       const result = await client.run({
@@ -68,8 +82,12 @@ describe('Features: Knowledge Files', () => {
 
       if (isAuthError(result.output)) return
 
-      if (result.output.type === 'error') return
-      expect(collector.hasEventType('finish')).toBe(true)
+      expect(result.output.type).not.toBe('error')
+      const responseText = collector.getFullText().toLowerCase()
+      expect(
+        responseText.includes('innovation') ||
+          responseText.includes('integrity'),
+      ).toBe(true)
     },
     DEFAULT_TIMEOUT,
   )

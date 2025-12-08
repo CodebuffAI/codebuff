@@ -36,12 +36,13 @@ function isDockerAvailable(): boolean {
 
 const dockerAvailable = isDockerAvailable()
 
-if (!sdkBuilt) {
-  throw new Error('E2E tests require SDK to be built. Run: cd sdk && bun run build')
-}
-
-if (!dockerAvailable) {
-  throw new Error('E2E tests require Docker to be running')
+if (!sdkBuilt || !dockerAvailable) {
+  const reason = !sdkBuilt
+    ? 'SDK not built (run: cd sdk && bun run build)'
+    : 'Docker not running'
+  describe.skip(`E2E skipped: ${reason}`, () => {
+    test('skipped', () => {})
+  })
 }
 
 describe('E2E: Chat Interaction', () => {
@@ -64,13 +65,13 @@ describe('E2E: Chat Interaction', () => {
     async () => {
       const session = await ctx.createSession()
 
-      // Wait for CLI to render
-      await sleep(5000)
-
+      await session.cli.waitForText(/codebuff|login|directory|will run/i, {
+        timeout: 15000,
+      })
       const text = await session.cli.text()
-      // Should show Codebuff branding or welcome message
       const hasWelcome =
         text.toLowerCase().includes('codebuff') ||
+        text.toLowerCase().includes('login') ||
         text.includes('Directory') ||
         text.includes('will run commands')
       expect(hasWelcome).toBe(true)
@@ -83,14 +84,11 @@ describe('E2E: Chat Interaction', () => {
     async () => {
       const session = await ctx.createSession()
 
-      await sleep(5000)
-
       // Type a test message
       await session.cli.type('Hello from e2e test')
-      await sleep(500)
-
-      const text = await session.cli.text()
-      expect(text).toContain('Hello from e2e test')
+      await session.cli.waitForText('Hello from e2e test', {
+        timeout: 10000,
+      })
     },
     TIMEOUT_MS,
   )
@@ -100,24 +98,14 @@ describe('E2E: Chat Interaction', () => {
     async () => {
       const session = await ctx.createSession()
 
-      await sleep(5000)
-
       // Type and send a message
       await session.cli.type('What is 2+2?')
       await sleep(300)
       await session.cli.press('enter')
 
-      // Wait for status to appear
-      await sleep(2000)
-
-      const text = await session.cli.text()
-      // Should show some status indicator
-      const hasStatus =
-        text.includes('thinking') ||
-        text.includes('working') ||
-        text.includes('connecting') ||
-        text.includes('What is 2+2?') // Message should at least appear
-      expect(hasStatus).toBe(true)
+      await session.cli.waitForText(/thinking|working|connecting|2\+2/i, {
+        timeout: 15000,
+      })
     },
     TIMEOUT_MS,
   )
@@ -143,17 +131,13 @@ describe('E2E: Slash Commands', () => {
     async () => {
       const session = await ctx.createSession()
 
-      await sleep(5000)
-
       // Type /new and press enter
       await session.cli.type('/new')
       await sleep(300)
       await session.cli.press('enter')
-      await sleep(1500)
-
-      const text = await session.cli.text()
-      // CLI should still be running
-      expect(text.length).toBeGreaterThan(0)
+      await session.cli.waitForText(/\/new|conversation/i, {
+        timeout: 10000,
+      })
     },
     TIMEOUT_MS,
   )
@@ -163,22 +147,11 @@ describe('E2E: Slash Commands', () => {
     async () => {
       const session = await ctx.createSession()
 
-      await sleep(5000)
-
       // Type /usage and press enter
       await session.cli.type('/usage')
       await sleep(300)
       await session.cli.press('enter')
-      await sleep(2000)
-
-      const text = await session.cli.text()
-      // Should show some credit-related information
-      const hasUsageInfo =
-        text.toLowerCase().includes('credit') ||
-        text.toLowerCase().includes('usage') ||
-        text.includes('1000') || // Test user has 1000 credits
-        text.includes('/usage')
-      expect(hasUsageInfo).toBe(true)
+      await session.cli.waitForText(/credit|usage|1000/i, { timeout: 15000 })
     },
     TIMEOUT_MS,
   )
@@ -187,8 +160,6 @@ describe('E2E: Slash Commands', () => {
     'typing / shows command suggestions',
     async () => {
       const session = await ctx.createSession()
-
-      await sleep(5000)
 
       // Type / to trigger suggestions
       await session.cli.type('/')
@@ -884,5 +855,3 @@ describe('E2E: Error Scenarios', () => {
     TIMEOUT_MS,
   )
 })
-
-

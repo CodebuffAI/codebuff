@@ -15,7 +15,9 @@ const TIMEOUT_MS = 25000
 const sdkBuilt = isSDKBuilt()
 
 if (!sdkBuilt) {
-  throw new Error('CLI UI tests require SDK to be built. Run: cd sdk && bun run build')
+  describe.skip('CLI UI Tests', () => {
+    test('skipped because SDK is not built', () => {})
+  })
 }
 
 let cliEnv: Record<string, string> = {}
@@ -99,6 +101,7 @@ describe('CLI UI Tests', () => {
 
           const text = await session.text()
           expect(text).toContain('--agent')
+          expect(text).toContain('--help')
         } finally {
           session.close()
         }
@@ -151,10 +154,10 @@ describe('CLI UI Tests', () => {
 
         try {
           // Commander should show an error for invalid flags
-          await session.waitForText('error', { timeout: 10000 })
+          await session.waitForText(/unknown option|error/i, { timeout: 10000 })
 
           const text = await session.text()
-          expect(text.toLowerCase()).toContain('error')
+          expect(text.toLowerCase()).toContain('unknown')
         } finally {
           session.close()
         }
@@ -170,12 +173,12 @@ describe('CLI UI Tests', () => {
         const session = await launchCLI({ args: [] })
 
         try {
-          // Wait for something to render - either the login modal or the main UI
-          // The CLI should render some UI within the timeout
-          await sleep(3000)
+          await session.waitForText(
+            /codebuff|login|directory|will run commands/i,
+            { timeout: 15000 },
+          )
 
           const text = await session.text()
-          // Should have rendered something - either login prompt or welcome message
           expect(text.length).toBeGreaterThan(0)
         } finally {
           await session.press(['ctrl', 'c'])
@@ -191,11 +194,10 @@ describe('CLI UI Tests', () => {
         const session = await launchCLI({ args: ['--agent', 'ask'] })
 
         try {
-          // CLI should start without errors
-          await sleep(2000)
+          await session.waitForText(/ask|codebuff|login/i, { timeout: 15000 })
 
           const text = await session.text()
-          expect(text.length).toBeGreaterThan(0)
+          expect(text.toLowerCase()).not.toContain('unknown option')
         } finally {
           await session.press(['ctrl', 'c'])
           session.close()
@@ -210,8 +212,9 @@ describe('CLI UI Tests', () => {
         const session = await launchCLI({ args: ['--clear-logs'] })
 
         try {
-          // CLI should start without errors
-          await sleep(2000)
+          await session.waitForText(/codebuff|login|directory/i, {
+            timeout: 15000,
+          })
 
           const text = await session.text()
           expect(text.length).toBeGreaterThan(0)
@@ -450,5 +453,3 @@ describe('CLI UI Tests', () => {
     )
   })
 })
-
-
