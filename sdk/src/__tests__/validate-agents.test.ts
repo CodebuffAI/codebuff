@@ -299,14 +299,14 @@ describe('validateAgents', () => {
         expect(result.errorCount).toBeGreaterThan(0)
       })
 
-      it('should reject structured_output without set_output tool', async () => {
+      it('allows structured_output without set_output tool (LLM handles output)', async () => {
         const agents: AgentDefinition[] = [
           {
             id: 'missing-set-output',
             displayName: 'Missing Set Output Tool',
             model: 'anthropic/claude-sonnet-4',
             outputMode: 'structured_output',
-            toolNames: ['read_files'], // Missing set_output
+            toolNames: ['read_files'], // Missing set_output is allowed
             outputSchema: {
               type: 'object',
               properties: {
@@ -319,8 +319,7 @@ describe('validateAgents', () => {
 
         const result = await validateAgents(agents)
 
-        expect(result.success).toBe(false)
-        expect(result.errorCount).toBeGreaterThan(0)
+        expect(result.success).toBe(true)
       })
 
       it('should reject spawnableAgents without spawn_agents tool', async () => {
