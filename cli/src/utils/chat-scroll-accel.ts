@@ -19,7 +19,7 @@ const ENVIRONMENTS = ['zed', 'ghostty', 'vscode'] as const
 type ScrollEnvironmentType = (typeof ENVIRONMENTS)[number] | 'default'
 
 const ENV_MULTIPLIERS = {
-  zed: 0.37,
+  zed: 0.5,
   ghostty: 1,
   vscode: 1,
   default: 1,
