@@ -750,7 +750,7 @@ describe('Agent Validation', () => {
       expect(typeof result.templates['test-agent'].handleSteps).toBe('string')
     })
 
-    test('should require set_output tool for handleSteps with json output mode', () => {
+    test('allows handleSteps with structured_output without set_output (LLM handles output)', () => {
       const {
         DynamicAgentTemplateSchema,
       } = require('../types/dynamic-agent-template')
@@ -765,18 +765,14 @@ describe('Agent Validation', () => {
         systemPrompt: 'Test',
         instructionsPrompt: 'Test',
         stepPrompt: 'Test',
-        toolNames: ['end_turn'], // Missing set_output
+        toolNames: ['end_turn'], // set_output not required in current validation
         spawnableAgents: [],
         handleSteps:
           'function* () { yield { toolName: "set_output", input: {} } }',
       }
 
       const result = DynamicAgentTemplateSchema.safeParse(agentConfig)
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        const errorMessage = result.error.issues[0]?.message || ''
-        expect(errorMessage).toContain('set_output')
-      }
+      expect(result.success).toBe(true)
     })
 
     // Note: The validation that rejected set_output without structured_output mode was

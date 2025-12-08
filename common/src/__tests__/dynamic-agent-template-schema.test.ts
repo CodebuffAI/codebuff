@@ -248,7 +248,7 @@ describe('DynamicAgentDefinitionSchema', () => {
       })
     })
 
-    it('should reject template with outputMode structured_output but missing set_output tool', () => {
+    it('allows structured_output without set_output tool (LLM handles output)', () => {
       const template = {
         ...validBaseTemplate,
         outputMode: 'structured_output' as const,
@@ -256,19 +256,7 @@ describe('DynamicAgentDefinitionSchema', () => {
       }
 
       const result = DynamicAgentTemplateSchema.safeParse(template)
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        // Find the specific error about set_output tool
-        const setOutputError = result.error.issues.find((issue) =>
-          issue.message.includes(
-            "outputMode 'structured_output' requires the 'set_output' tool",
-          ),
-        )
-        expect(setOutputError).toBeDefined()
-        expect(setOutputError?.message).toContain(
-          "outputMode 'structured_output' requires the 'set_output' tool",
-        )
-      }
+      expect(result.success).toBe(true)
     })
 
     it('should accept template with outputMode structured_output and set_output tool', () => {

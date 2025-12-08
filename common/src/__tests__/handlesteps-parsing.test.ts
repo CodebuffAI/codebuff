@@ -143,7 +143,7 @@ describe('handleSteps Parsing Tests', () => {
     expect(typeof result.templates['test-agent'].handleSteps).toBe('string')
   })
 
-  test('should require set_output tool for handleSteps with json output mode', () => {
+  test('allows handleSteps with structured_output without set_output (LLM handles output)', () => {
     const {
       DynamicAgentTemplateSchema,
     } = require('../types/dynamic-agent-template')
@@ -155,7 +155,7 @@ describe('handleSteps Parsing Tests', () => {
       spawnerPrompt: 'Testing handleSteps',
       model: 'claude-3-5-sonnet-20241022',
       outputMode: 'structured_output' as const,
-      toolNames: ['end_turn'], // Missing set_output
+      toolNames: ['end_turn'], // set_output not required in current validation
       spawnableAgents: [],
       systemPrompt: 'Test',
       instructionsPrompt: 'Test',
@@ -166,11 +166,7 @@ describe('handleSteps Parsing Tests', () => {
     }
 
     const result = DynamicAgentTemplateSchema.safeParse(agentConfig)
-    expect(result.success).toBe(false)
-    if (!result.success) {
-      const errorMessage = result.error.issues[0]?.message || ''
-      expect(errorMessage).toContain('set_output')
-    }
+    expect(result.success).toBe(true)
   })
 
   test('should validate that handleSteps is a generator function', async () => {
