@@ -227,23 +227,24 @@ export const DynamicAgentTemplateSchema = DynamicAgentDefinitionSchema.extend({
       path: ['outputMode'],
     },
   )
-  .refine(
-    (data) => {
-      // If outputMode is 'structured_output', 'set_output' tool must be included
-      if (
-        data.outputMode === 'structured_output' &&
-        !data.toolNames.includes('set_output')
-      ) {
-        return false
-      }
-      return true
-    },
-    {
-      message:
-        "outputMode 'structured_output' requires the 'set_output' tool. Add 'set_output' to toolNames.",
-      path: ['toolNames'],
-    },
-  )
+  // Note(James): Disabled so that handleSteps could use set_output while the llm does not see or have access to the set_output tool.
+  // .refine(
+  //   (data) => {
+  //     // If outputMode is 'structured_output', 'set_output' tool must be included
+  //     if (
+  //       data.outputMode === 'structured_output' &&
+  //       !data.toolNames.includes('set_output')
+  //     ) {
+  //       return false
+  //     }
+  //     return true
+  //   },
+  //   {
+  //     message:
+  //       "outputMode 'structured_output' requires the 'set_output' tool. Add 'set_output' to toolNames.",
+  //     path: ['toolNames'],
+  //   },
+  // )
   // Note(James): Disabled so that a parent agent can have set_output tool and 'last_message' outputMode while its subagents use 'structured_output'. (The set_output tool must be included in parent to preserver prompt caching.)
   // .refine(
   //   (data) => {

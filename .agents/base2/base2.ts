@@ -64,6 +64,7 @@ export function createBase2(
       'researcher-web',
       'researcher-docs',
       isLite ? 'commander-lite' : 'commander',
+      isDefault && 'thinker',
       isLite && 'editor-gpt-5',
       isDefault && 'editor',
       isMax && 'editor-best-of-n-max',
