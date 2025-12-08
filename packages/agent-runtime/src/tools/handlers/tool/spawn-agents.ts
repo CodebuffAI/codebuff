@@ -139,12 +139,10 @@ export const handleSpawnAgents = (async (
 
             if (chunk.type === 'text') {
               if (chunk.text) {
-                sendSubagentChunk({
-                  userInputId,
+                writeToClient({
+                  type: 'text' as const,
                   agentId: subAgentState.agentId,
-                  agentType,
-                  chunk: chunk.text,
-                  prompt,
+                  text: chunk.text,
                 })
               }
               return

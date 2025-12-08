@@ -1,8 +1,12 @@
 import { z } from 'zod/v4'
 
-import type { FileDiff } from './types'
+import type { EvalCommitV2 } from './types'
 import type { AgentDefinition, CodebuffClient } from '@codebuff/sdk'
 import { withTimeout } from '@codebuff/common/util/promise'
+import path from 'path'
+import fs from 'fs'
+
+const DEBUG_ERROR = true
 
 export const JudgingResultSchema = z.object({
   analysis: z
@@ -135,8 +139,7 @@ const judgeAgents: Record<string, AgentDefinition> = {
 
 interface JudgeCommitResultInput {
   client: CodebuffClient
-  prompt: string
-  groundTruthFileDiffs: FileDiff[]
+  commit: EvalCommitV2
   contextFiles: Record<string, string>
   agentDiff: string
   error?: string
@@ -177,7 +180,26 @@ async function runSingleJudge(
         `Judge ${judgeAgentId} - not structured output`,
         JSON.stringify(judgeResult.output, null, 2),
       )
-      console.error('Judge agent output trace:', agentOutput.join(''))
+      console.error(
+        'Judge agent output:',
+        JSON.stringify(judgeResult.output, null, 2),
+        'Judge agent output trace:',
+        agentOutput.join(''),
+      )
+      if (DEBUG_ERROR) {
+        fs.writeFileSync(
+          path.join(
+            __dirname,
+            '..',
+            `${input.commit.id}-${judgeAgentId}-agent-output-error.json`,
+          ),
+          JSON.stringify(
+            { output: judgeResult.output, trace: agentOutput },
+            null,
+            2,
+          ),
+        )
+      }
       return null
     }
 
@@ -191,16 +213,11 @@ async function runSingleJudge(
 export async function judgeCommitResult(
   input: JudgeCommitResultInput,
 ): Promise<JudgingResult> {
-  const {
-    prompt,
-    groundTruthFileDiffs,
-    contextFiles,
-    agentDiff,
-    error,
-    finalCheckOutputs,
-  } = input
+  const { commit, contextFiles, agentDiff, error, finalCheckOutputs } = input
 
-  const groundTruthDiffs = groundTruthFileDiffs
+  const { prompt, fileDiffs } = commit
+
+  const groundTruthDiffs = fileDiffs
     .map(({ path, diff }) => {
       return `### ${path}\n\`\`\`diff\n${diff}\n\`\`\``
     })

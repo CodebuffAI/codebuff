@@ -9,7 +9,7 @@ const endsAgentStep = true
 const inputSchema = z
   .object({
     paths: z
-      .array(z.string().min(1))
+      .array(z.string())
       .optional()
       .describe(
         `List of paths to directories or files. Relative to the project root. If omitted, the entire project tree is used.`,

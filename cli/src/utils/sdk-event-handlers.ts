@@ -173,6 +173,16 @@ const handleTextEvent = (state: EventHandlerState, event: PrintModeText) => {
   const text = event.text
 
   if (destination.type === 'agent') {
+    // Log when we receive text events with agentId - this path should be rare
+    // Most subagent text should come through handleStreamChunk as subagent_chunk
+    state.logger.debug(
+      {
+        agentId: destination.agentId,
+        textLength: text.length,
+        textPreview: text.slice(0, 50),
+      },
+      'handleTextEvent: received text event with agentId (potential duplication source)',
+    )
     const previous =
       state.streaming.streamRefs.state.agentStreamAccumulators.get(
         destination.agentId,
@@ -501,7 +511,6 @@ export const createStreamChunkHandler =
 export const createEventHandler =
   (state: EventHandlerState) => (event: SDKEvent) => {
     return match(event)
-      .with({ type: 'text' }, (e) => handleTextEvent(state, e))
       .with({ type: 'subagent_start' }, (e) => handleSubagentStart(state, e))
       .with({ type: 'subagent_finish' }, (e) => handleSubagentFinish(state, e))
       .with({ type: 'tool_call' }, (e) => handleToolCall(state, e))

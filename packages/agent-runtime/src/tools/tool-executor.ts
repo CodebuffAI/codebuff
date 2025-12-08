@@ -8,6 +8,7 @@ import { checkLiveUserInput } from '../live-user-inputs'
 import { getMCPToolData } from '../mcp'
 import { getAgentShortName } from '../templates/prompts'
 import { codebuffToolHandlers } from './handlers/list'
+import { ensureZodSchema } from './prompts'
 
 import type { AgentTemplateType } from '@codebuff/common/types/session-state'
 
@@ -332,19 +333,22 @@ export function parseRawCustomToolCall(params: {
       customToolDefs?.[toolName]?.endsAgentStep
   }
 
-  const paramsSchema = customToolDefs?.[toolName]?.inputSchema
-  const result = paramsSchema?.safeParse(processedParameters)
+  const rawSchema = customToolDefs?.[toolName]?.inputSchema
+  if (rawSchema) {
+    const paramsSchema = ensureZodSchema(rawSchema)
+    const result = paramsSchema.safeParse(processedParameters)
 
-  if (result && !result.success) {
-    return {
-      toolName: toolName,
-      toolCallId: rawToolCall.toolCallId,
-      input: rawToolCall.input,
-      error: `Invalid parameters for ${toolName}: ${JSON.stringify(
-        result.error.issues,
-        null,
-        2,
-      )}`,
+    if (!result.success) {
+      return {
+        toolName: toolName,
+        toolCallId: rawToolCall.toolCallId,
+        input: rawToolCall.input,
+        error: `Invalid parameters for ${toolName}: ${JSON.stringify(
+          result.error.issues,
+          null,
+          2,
+        )}`,
+      }
     }
   }
 
@@ -523,20 +527,19 @@ export function tryTransformAgentToolCall(params: {
     (agentType) => getAgentShortName(agentType) === toolName,
   )
 
-  // Convert to spawn_agents call
+  // Convert to spawn_agents call - input already has prompt and params as top-level fields
+  // (consistent with spawn_agents schema)
+  const agentEntry: Record<string, unknown> = {
+    agent_type: fullAgentType || toolName,
+  }
+  if (typeof input.prompt === 'string') {
+    agentEntry.prompt = input.prompt
+  }
+  if (input.params && typeof input.params === 'object') {
+    agentEntry.params = input.params
+  }
   const spawnAgentsInput = {
-    agents: [
-      {
-        agent_type: fullAgentType || toolName,
-        ...(typeof input.prompt === 'string' && { prompt: input.prompt }),
-        // Put all other fields into params
-        ...(Object.keys(input).filter((k) => k !== 'prompt').length > 0 && {
-          params: Object.fromEntries(
-            Object.entries(input).filter(([k]) => k !== 'prompt'),
-          ),
-        }),
-      },
-    ],
+    agents: [agentEntry],
   }
 
   return { toolName: 'spawn_agents', input: spawnAgentsInput }

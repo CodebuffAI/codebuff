@@ -25,6 +25,9 @@
   "engines": {
     "bun": "^1.3.0"
   },
+  "dependencies": {
+    "zod-from-json-schema": "0.4.2"
+  },
   "devDependencies": {
     "@types/node": "22",
     "@types/bun": "^1.3.0"

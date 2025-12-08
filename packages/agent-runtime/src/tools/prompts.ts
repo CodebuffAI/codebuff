@@ -5,6 +5,7 @@ import { buildArray } from '@codebuff/common/util/array'
 import { pluralize } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
+import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
 import type { ToolName } from '@codebuff/common/tools/constants'
 import type {
@@ -12,6 +13,24 @@ import type {
   customToolDefinitionsSchema,
 } from '@codebuff/common/util/file'
 import type { ToolSet } from 'ai'
+
+/**
+ * Ensures the inputSchema is a Zod schema. If it's a JSON Schema object
+ * (from SDK custom tools that were serialized), converts it to Zod.
+ */
+export function ensureZodSchema(
+  schema: z.ZodType | Record<string, unknown>,
+): z.ZodType {
+  // Check if it's already a Zod schema by looking for the safeParse method
+  if (
+    schema &&
+    typeof (schema as { safeParse?: unknown }).safeParse === 'function'
+  ) {
+    return schema as z.ZodType
+  }
+  // JSON Schema object - convert to Zod
+  return convertJsonSchemaToZod(schema as Record<string, unknown>)
+}
 
 function paramsSection(params: { schema: z.ZodType; endsAgentStep: boolean }) {
   const { schema, endsAgentStep } = params
@@ -206,7 +225,7 @@ ${[
     const toolDef = additionalToolDefinitions[toolName]
     return buildToolDescription({
       toolName,
-      schema: toolDef.inputSchema,
+      schema: ensureZodSchema(toolDef.inputSchema),
       description: toolDef.description,
       endsAgentStep: toolDef.endsAgentStep ?? true,
       exampleInputs: toolDef.exampleInputs,
@@ -226,7 +245,7 @@ export const getShortToolInstructions = (
     return ''
   }
 
-  const toolDescriptions = [
+  const toolDescriptionsList = [
     ...(
       toolNames.filter(
         (name) => (name as keyof typeof toolParams) in toolParams,
@@ -243,7 +262,7 @@ export const getShortToolInstructions = (
       const { inputSchema, endsAgentStep } = additionalToolDefinitions[name]
       return buildShortToolDescription({
         toolName: name,
-        schema: inputSchema,
+        schema: ensureZodSchema(inputSchema),
         endsAgentStep: endsAgentStep ?? true,
       })
     }),
@@ -265,7 +284,7 @@ ${getToolCallString(
 
 Important: You only have access to the tools below. Do not use any other tools -- they are not available to you, instead they may have been previously used by other agents.
 
-${toolDescriptions.join('\n\n')}
+${toolDescriptionsList.join('\n\n')}
 `.trim()
 }
 
@@ -285,9 +304,14 @@ export async function getToolSet(params: {
 
   const toolDefinitions = await additionalToolDefinitions()
   for (const [toolName, toolDefinition] of Object.entries(toolDefinitions)) {
-    toolSet[toolName] = cloneDeep(toolDefinition) satisfies {
-      inputSchema: { _zod: { input: any } }
-    } as Omit<typeof toolDefinition, 'inputSchema'> & { inputSchema: z.ZodType }
+    const clonedDef = cloneDeep(toolDefinition)
+    // Custom tool inputSchema may be JSON Schema (from SDK) or Zod (from MCP)
+    // Ensure it's a Zod schema for the AI SDK
+    const zodSchema = ensureZodSchema(clonedDef.inputSchema)
+    toolSet[toolName] = {
+      ...clonedDef,
+      inputSchema: zodSchema,
+    } as (typeof toolSet)[string]
   }
 
   // Add agent tools (agents as direct tool calls)

@@ -45,7 +45,12 @@ import { useUsageMonitor } from './hooks/use-usage-monitor'
 import { getProjectRoot } from './project-files'
 import { useChatStore } from './state/chat-store'
 import { useFeedbackStore } from './state/feedback-store'
-import { addClipboardPlaceholder, addPendingImageFromFile, validateAndAddImage } from './utils/add-pending-image'
+import { usePublishStore } from './state/publish-store'
+import {
+  addClipboardPlaceholder,
+  addPendingImageFromFile,
+  validateAndAddImage,
+} from './utils/add-pending-image'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { showClipboardMessage } from './utils/clipboard'
 import { readClipboardImage } from './utils/clipboard-image'
@@ -56,6 +61,7 @@ import {
   createDefaultChatKeyboardState,
 } from './utils/keyboard-actions'
 import { loadLocalAgents } from './utils/local-agent-registry'
+import { usePublishMutation } from './hooks/use-publish-mutation'
 import { buildMessageTree } from './utils/message-tree-utils'
 import {
   getStatusIndicatorState,
@@ -78,7 +84,6 @@ export const Chat = ({
   headerContent,
   initialPrompt,
   agentId,
-  validationErrors,
   fileTree,
   inputRef,
   setIsAuthenticated,
@@ -91,7 +96,6 @@ export const Chat = ({
   headerContent: React.ReactNode
   initialPrompt: string | null
   agentId?: string
-  validationErrors: Array<{ id: string; message: string }>
   fileTree: FileTreeNode[]
   inputRef: React.MutableRefObject<MultilineInputHandle | null>
   setIsAuthenticated: Dispatch<SetStateAction<boolean | null>>
@@ -122,7 +126,7 @@ export const Chat = ({
   const theme = useTheme()
   const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
 
-  const { validate: validateAgents } = useAgentValidation(validationErrors)
+  const { validate: validateAgents } = useAgentValidation()
 
   // Subscribe to ask_user bridge to trigger form display
   useAskUserBridge()
@@ -389,11 +393,10 @@ export const Chat = ({
     ? { ...scrollboxProps, scrollAcceleration: inertialScrollAcceleration }
     : scrollboxProps
 
-  const localAgents = useMemo(() => loadLocalAgents(), [])
+  const localAgents = useMemo(() => loadLocalAgents(agentMode), [agentMode])
   const inputMode = useChatStore((state) => state.inputMode)
   const setInputMode = useChatStore((state) => state.setInputMode)
   const askUserState = useChatStore((state) => state.askUserState)
-
 
   const {
     slashContext,
@@ -561,7 +564,7 @@ export const Chat = ({
       const ghostModeMessages = pendingBashMessages.filter(
         (msg) => !msg.isRunning && !msg.addedToHistory,
       )
-      
+
       // Add ghost mode messages to UI history
       for (const msg of ghostModeMessages) {
         addBashMessageToHistory({
@@ -573,7 +576,7 @@ export const Chat = ({
           setMessages,
         })
       }
-      
+
       // Mark ghost mode messages as added to history (so they don't show as ghost UI)
       // but keep them in pendingBashMessages so they get sent to LLM with next user message
       if (ghostModeMessages.length > 0) {
@@ -652,7 +655,13 @@ export const Chat = ({
       })
       setSlashSelectedIndex(0)
     },
-    [slashMatches, slashContext, inputValue, setInputValue, setSlashSelectedIndex],
+    [
+      slashMatches,
+      slashContext,
+      inputValue,
+      setInputValue,
+      setSlashSelectedIndex,
+    ],
   )
 
   const handleMentionItemClick = useCallback(
@@ -720,6 +729,18 @@ export const Chat = ({
     })),
   )
 
+  const { publishMode, openPublishMode, closePublish, preSelectAgents } =
+    usePublishStore(
+      useShallow((state) => ({
+        publishMode: state.publishMode,
+        openPublishMode: state.openPublishMode,
+        closePublish: state.closePublish,
+        preSelectAgents: state.preSelectAgents,
+      })),
+    )
+
+  const publishMutation = usePublishMutation()
+
   const inputValueRef = useRef(inputValue)
   const cursorPositionRef = useRef(cursorPosition)
   useEffect(() => {
@@ -773,6 +794,18 @@ export const Chat = ({
     handleExitFeedback()
   }, [closeFeedback, handleExitFeedback])
 
+  const handleExitPublish = useCallback(() => {
+    closePublish()
+    setInputFocused(true)
+  }, [closePublish, setInputFocused])
+
+  const handlePublish = useCallback(
+    async (agentIds: string[]) => {
+      await publishMutation.mutateAsync(agentIds)
+    },
+    [publishMutation],
+  )
+
   // Ensure bracketed paste events target the active chat input
   useEffect(() => {
     if (feedbackMode) {
@@ -814,6 +847,16 @@ export const Chat = ({
       saveCurrentInput('', 0)
       openFeedbackForMessage(null)
     }
+
+    if (result?.openPublishMode) {
+      if (result.preSelectAgents && result.preSelectAgents.length > 0) {
+        // Pre-select agents and skip to confirmation
+        preSelectAgents(result.preSelectAgents)
+      } else {
+        // Open selection UI
+        openPublishMode()
+      }
+    }
   }, [
     abortControllerRef,
     agentMode,
@@ -838,6 +881,8 @@ export const Chat = ({
     ensureQueueActiveBeforeSubmit,
     saveCurrentInput,
     openFeedbackForMessage,
+    openPublishMode,
+    preSelectAgents,
   ])
 
   const totalMentionMatches = agentMatches.length + fileMatches.length
@@ -1238,10 +1283,7 @@ export const Chat = ({
         {pendingBashMessages
           .filter((msg) => !msg.addedToHistory)
           .map((msg) => (
-            <PendingBashMessage
-              key={`pending-bash-${msg.id}`}
-              message={msg}
-            />
+            <PendingBashMessage key={`pending-bash-${msg.id}`} message={msg} />
           ))}
       </scrollbox>
 
@@ -1295,6 +1337,9 @@ export const Chat = ({
           isNarrowWidth={isNarrowWidth}
           feedbackMode={feedbackMode}
           handleExitFeedback={handleExitFeedback}
+          publishMode={publishMode}
+          handleExitPublish={handleExitPublish}
+          handlePublish={handlePublish}
           handleSubmit={handleSubmit}
           onPaste={createPasteHandler({
             text: inputValue,

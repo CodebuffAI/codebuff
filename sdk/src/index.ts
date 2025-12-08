@@ -2,10 +2,19 @@ export type * from '../../common/src/types/json'
 export type * from '../../common/src/types/messages/codebuff-message'
 export type * from '../../common/src/types/messages/data-content'
 export type * from '../../common/src/types/print-mode'
-export type { TextPart, ImagePart } from '../../common/src/types/messages/content-part'
+export type {
+  TextPart,
+  ImagePart,
+} from '../../common/src/types/messages/content-part'
 export { run, getRetryableErrorCode } from './run'
-export type { RunOptions, RetryOptions, MessageContent, TextContent, ImageContent } from './run'
-export { buildUserMessageContent } from '@codebuff/agent-runtime/util/messages'
+export type {
+  RunOptions,
+  RetryOptions,
+  MessageContent,
+  TextContent,
+  ImageContent,
+} from './run'
+export { buildUserMessageContent } from '../../packages/agent-runtime/src/util/messages'
 // Agent type exports
 export type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
 export type { ToolName } from '../../common/src/tools/constants'

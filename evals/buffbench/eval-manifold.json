@@ -1,6 +1,14 @@
 {
   "repoUrl": "https://github.com/manifoldmarkets/manifold",
   "generationDate": "2025-10-12T19:12:52.933Z",
+  "initCommand": "yarn install && git checkout -- yarn.lock",
+  "finalCheckCommands": [
+    "yarn --cwd common tsc --noEmit",
+    "yarn --cwd backend/api compile",
+    "yarn --cwd backend/scheduler compile",
+    "yarn --cwd backend/shared build",
+    "yarn --cwd web tsc --noEmit"
+  ],
   "evalCommits": [
     {
       "id": "unify-ai-prompts",

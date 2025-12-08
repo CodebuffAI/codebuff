@@ -110,11 +110,12 @@ function* handleStepsDefault({
   } satisfies ToolCall<'spawn_agents'>
 
   // Extract spawn results
-  const spawnedImplementations = extractSpawnResults(implementorResults)
+  const spawnedImplementations =
+    extractSpawnResults<{ text: string }[]>(implementorResults)
 
   logger.info({ spawnedImplementations }, 'spawnedImplementations')
 
-  // Extract all the plans from the lastMessage outputs
+  // Extract all the plans from the structured outputs
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
   // Parse implementations from spawn results
   const implementations = spawnedImplementations.map((result, index) => ({
@@ -122,7 +123,7 @@ function* handleStepsDefault({
     content:
       'errorMessage' in result
         ? `Error: ${result.errorMessage}`
-        : extractLastMessageText(result) ?? '',
+        : result[0].text,
   }))
 
   // Spawn selector with implementations as params
@@ -139,7 +140,10 @@ function* handleStepsDefault({
     includeToolCall: false,
   } satisfies ToolCall<'spawn_agents'>
 
-  const selectorOutput = extractSelectorResult(selectorResult)
+  const selectorOutput = extractSpawnResults<{
+    implementationId: string
+    reasoning: string
+  }>(selectorResult)[0]
 
   if ('errorMessage' in selectorOutput) {
     yield {
@@ -191,83 +195,24 @@ function* handleStepsDefault({
     includeToolCall: false,
   } satisfies ToolCall<'set_output'>
 
-  /**
-   * Extracts the array of subagent results from spawn_agents tool output.
-   *
-   * The spawn_agents tool result structure is:
-   * [{ type: 'json', value: [{ agentName, agentType, value: AgentOutput }] }]
-   *
-   * Returns an array of agent outputs, one per spawned agent.
-   */
-  function extractSpawnResults(results: any[] | undefined): any[] {
-    if (!results || results.length === 0) return []
-
-    // Find the json result containing spawn results
-    const jsonResult = results.find((r) => r.type === 'json')
-    if (!jsonResult?.value) return []
-
-    // Get the spawned agent results array
-    const spawnedResults = Array.isArray(jsonResult.value)
-      ? jsonResult.value
-      : [jsonResult.value]
-
-    // Extract the value (AgentOutput) from each result
-    return spawnedResults.map((result: any) => result?.value).filter(Boolean)
-  }
-
-  /**
-   * Extracts the structured output from a selector agent's spawn result.
-   * Selector agents use outputMode: 'structured_output'.
-   */
-  function extractSelectorResult(
+  function extractSpawnResults<T>(
     results: any[] | undefined,
-  ): { implementationId: string; reasoning: string } | { errorMessage: string } {
-    const outputs = extractSpawnResults(results)
-    const firstOutput = outputs[0]
-    if (!firstOutput) {
-      return { errorMessage: 'No selector output' }
-    }
-    if (firstOutput.type === 'structuredOutput' && firstOutput.value) {
-      return firstOutput.value
-    }
-    if (firstOutput.type === 'error') {
-      return { errorMessage: firstOutput.message ?? 'Selector error' }
-    }
-    return { errorMessage: 'Invalid selector output format' }
-  }
-
-  /**
-   * Extracts all text content from a 'lastMessage' AgentOutput.
-   *
-   * For agents with outputMode: 'last_message', the output structure is:
-   * { type: 'lastMessage', value: [{ role: 'assistant', content: [{ type: 'text', text: '...' }] }] }
-   *
-   * Returns concatenated text from all assistant messages, or null if not found.
-   * Note: Due to streaming, each text chunk may be a separate assistant message,
-   * so we need to concatenate all of them to get the full response.
-   */
-  function extractLastMessageText(agentOutput: any): string | null {
-    if (!agentOutput) return null
-
-    // Handle 'lastMessage' output mode - the value contains an array of messages
-    if (
-      agentOutput.type === 'lastMessage' &&
-      Array.isArray(agentOutput.value)
-    ) {
-      // Collect text from all assistant messages (streaming creates multiple messages)
-      const textParts: string[] = []
-      for (const message of agentOutput.value) {
-        if (message.role === 'assistant' && Array.isArray(message.content)) {
-          for (const part of message.content) {
-            if (part.type === 'text' && typeof part.text === 'string') {
-              textParts.push(part.text)
-            }
-          }
-        }
-      }
-      return textParts.length > 0 ? textParts.join('') : null
-    }
-    return null
+  ): (T | { errorMessage: string })[] {
+    if (!results) return []
+    const spawnedResults = results
+      .filter((result) => result.type === 'json')
+      .map((result) => result.value)
+      .flat() as {
+      agentType: string
+      value: { value?: T; errorMessage?: string }
+    }[]
+    return spawnedResults.map(
+      (result) =>
+        result.value.value ?? {
+          errorMessage:
+            result.value.errorMessage ?? 'Error extracting spawn results',
+        },
+    )
   }
 
   // Extract only tool calls from text, removing any commentary
@@ -450,14 +395,12 @@ function* handleStepsMax({
   }
 
   /**
-   * Extracts all text content from a 'lastMessage' AgentOutput.
+   * Extracts the text content from a 'lastMessage' AgentOutput.
    *
    * For agents with outputMode: 'last_message', the output structure is:
    * { type: 'lastMessage', value: [{ role: 'assistant', content: [{ type: 'text', text: '...' }] }] }
    *
-   * Returns concatenated text from all assistant messages, or null if not found.
-   * Note: Due to streaming, each text chunk may be a separate assistant message,
-   * so we need to concatenate all of them to get the full response.
+   * Returns the text from the last assistant message, or null if not found.
    */
   function extractLastMessageText(agentOutput: any): string | null {
     if (!agentOutput) return null
@@ -467,18 +410,18 @@ function* handleStepsMax({
       agentOutput.type === 'lastMessage' &&
       Array.isArray(agentOutput.value)
     ) {
-      // Collect text from all assistant messages (streaming creates multiple messages)
-      const textParts: string[] = []
-      for (const message of agentOutput.value) {
+      // Find the last assistant message with text content
+      for (let i = agentOutput.value.length - 1; i >= 0; i--) {
+        const message = agentOutput.value[i]
         if (message.role === 'assistant' && Array.isArray(message.content)) {
+          // Find text content in the message
           for (const part of message.content) {
             if (part.type === 'text' && typeof part.text === 'string') {
-              textParts.push(part.text)
+              return part.text
             }
           }
         }
       }
-      return textParts.length > 0 ? textParts.join('') : null
     }
     return null
   }
@@ -514,9 +457,10 @@ function* handleStepsOpus({
   } satisfies ToolCall<'spawn_agents'>
 
   // Extract spawn results
-  const spawnedImplementations = extractSpawnResults(implementorResults)
+  const spawnedImplementations =
+    extractSpawnResults<{ text: string }[]>(implementorResults)
 
-  // Extract all the plans from the lastMessage outputs
+  // Extract all the plans from the structured outputs
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
   // Parse implementations from spawn results
   const implementations = spawnedImplementations.map((result, index) => ({
@@ -524,7 +468,7 @@ function* handleStepsOpus({
     content:
       'errorMessage' in result
         ? `Error: ${result.errorMessage}`
-        : extractLastMessageText(result) ?? '',
+        : result[0].text,
   }))
 
   // Spawn selector with implementations as params
@@ -541,7 +485,10 @@ function* handleStepsOpus({
     includeToolCall: false,
   } satisfies ToolCall<'spawn_agents'>
 
-  const selectorOutput = extractSelectorResult(selectorResult)
+  const selectorOutput = extractSpawnResults<{
+    implementationId: string
+    reasoning: string
+  }>(selectorResult)[0]
 
   if ('errorMessage' in selectorOutput) {
     yield {
@@ -593,83 +540,24 @@ function* handleStepsOpus({
     includeToolCall: false,
   } satisfies ToolCall<'set_output'>
 
-  /**
-   * Extracts the array of subagent results from spawn_agents tool output.
-   *
-   * The spawn_agents tool result structure is:
-   * [{ type: 'json', value: [{ agentName, agentType, value: AgentOutput }] }]
-   *
-   * Returns an array of agent outputs, one per spawned agent.
-   */
-  function extractSpawnResults(results: any[] | undefined): any[] {
-    if (!results || results.length === 0) return []
-
-    // Find the json result containing spawn results
-    const jsonResult = results.find((r) => r.type === 'json')
-    if (!jsonResult?.value) return []
-
-    // Get the spawned agent results array
-    const spawnedResults = Array.isArray(jsonResult.value)
-      ? jsonResult.value
-      : [jsonResult.value]
-
-    // Extract the value (AgentOutput) from each result
-    return spawnedResults.map((result: any) => result?.value).filter(Boolean)
-  }
-
-  /**
-   * Extracts the structured output from a selector agent's spawn result.
-   * Selector agents use outputMode: 'structured_output'.
-   */
-  function extractSelectorResult(
+  function extractSpawnResults<T>(
     results: any[] | undefined,
-  ): { implementationId: string; reasoning: string } | { errorMessage: string } {
-    const outputs = extractSpawnResults(results)
-    const firstOutput = outputs[0]
-    if (!firstOutput) {
-      return { errorMessage: 'No selector output' }
-    }
-    if (firstOutput.type === 'structuredOutput' && firstOutput.value) {
-      return firstOutput.value
-    }
-    if (firstOutput.type === 'error') {
-      return { errorMessage: firstOutput.message ?? 'Selector error' }
-    }
-    return { errorMessage: 'Invalid selector output format' }
-  }
-
-  /**
-   * Extracts all text content from a 'lastMessage' AgentOutput.
-   *
-   * For agents with outputMode: 'last_message', the output structure is:
-   * { type: 'lastMessage', value: [{ role: 'assistant', content: [{ type: 'text', text: '...' }] }] }
-   *
-   * Returns concatenated text from all assistant messages, or null if not found.
-   * Note: Due to streaming, each text chunk may be a separate assistant message,
-   * so we need to concatenate all of them to get the full response.
-   */
-  function extractLastMessageText(agentOutput: any): string | null {
-    if (!agentOutput) return null
-
-    // Handle 'lastMessage' output mode - the value contains an array of messages
-    if (
-      agentOutput.type === 'lastMessage' &&
-      Array.isArray(agentOutput.value)
-    ) {
-      // Collect text from all assistant messages (streaming creates multiple messages)
-      const textParts: string[] = []
-      for (const message of agentOutput.value) {
-        if (message.role === 'assistant' && Array.isArray(message.content)) {
-          for (const part of message.content) {
-            if (part.type === 'text' && typeof part.text === 'string') {
-              textParts.push(part.text)
-            }
-          }
-        }
-      }
-      return textParts.length > 0 ? textParts.join('') : null
-    }
-    return null
+  ): (T | { errorMessage: string })[] {
+    if (!results) return []
+    const spawnedResults = results
+      .filter((result) => result.type === 'json')
+      .map((result) => result.value)
+      .flat() as {
+      agentType: string
+      value: { value?: T; errorMessage?: string }
+    }[]
+    return spawnedResults.map(
+      (result) =>
+        result.value.value ?? {
+          errorMessage:
+            result.value.errorMessage ?? 'Error extracting spawn results',
+        },
+    )
   }
 
   // Extract only tool calls from text, removing any commentary

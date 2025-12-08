@@ -763,12 +763,12 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
   dark: {
     name: 'dark',
     // Core semantic colors
-    primary: '#facc15',
+    primary: '#9EFC62',
     secondary: '#a3aed0',
     success: '#22c55e',
     error: '#ef4444',
     warning: '#FFA500',
-    info: '#38bdf8',
+    info: '#9EFC62',
 
     // Neutral scale
     foreground: '#f1f5f9',
@@ -780,7 +780,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
 
     // Context-specific
     aiLine: '#6b7280',
-    userLine: '#38bdf8',
+    userLine: '#9EFC62',
 
     // Agent backgrounds
     agentToggleHeaderBg: '#f97316',
@@ -803,7 +803,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
       // Dark mode: slightly darker gray for less brightness
       codeBackground: '#374151',
       codeHeaderFg: '#5b647a',
-      inlineCodeFg: '#fa8329',
+      inlineCodeFg: '#9EFC62',
       codeTextFg: '#f1f5f9',
       headingFg: {
         1: '#facc15',
@@ -823,12 +823,12 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
   light: {
     name: 'light',
     // Core semantic colors
-    primary: '#f59e0b',
+    primary: '#65A83E',
     secondary: '#6b7280',
     success: '#059669',
     error: '#ef4444',
     warning: '#F59E0B',
-    info: '#3b82f6',
+    info: '#65A83E',
 
     // Neutral scale
     foreground: '#111827',
@@ -840,7 +840,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
 
     // AI/User context
     aiLine: '#6b7280',
-    userLine: '#3b82f6',
+    userLine: '#65A83E',
 
     // Agent context
     agentToggleHeaderBg: '#ea580c',
@@ -863,7 +863,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
       // Light mode: lighter gray background so inline code feels airy
       codeBackground: '#f3f4f6',
       codeHeaderFg: '#6b7280',
-      inlineCodeFg: '#fa8329',
+      inlineCodeFg: '#65A83E',
       codeTextFg: '#111827',
       headingFg: {
         1: '#dc2626',

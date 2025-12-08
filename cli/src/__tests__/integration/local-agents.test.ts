@@ -6,7 +6,7 @@ import { validateAgents } from '@codebuff/sdk'
 import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
 
 import { setProjectRoot, getProjectRoot } from '../../project-files'
-import { loadAgentDefinitions } from '../../utils/load-agent-definitions'
+import { loadAgentDefinitions } from '../../utils/local-agent-registry'
 import {
   findAgentsDirectory,
   __resetLocalAgentRegistryForTests,

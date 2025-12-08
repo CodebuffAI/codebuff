@@ -4,6 +4,27 @@ import path from 'path'
 import { pluralize } from '@codebuff/common/util/string'
 
 import { getProjectRoot } from '../project-files'
+import { AGENT_MODE_TO_ID, type AgentMode } from './constants'
+
+import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
+
+// ============================================================================
+// Constants and types
+// ============================================================================
+
+const DISPLAY_NAME_REGEX = /displayName\s*:\s*['"`]([^'"`]+)['"`]/i
+const ID_REGEX = /id\s*:\s*['"`]([^'"`]+)['"`]/i
+const AGENTS_DIR_NAME = '.agents'
+
+const SKIPPED_DIRECTORIES = new Set([
+  'types',
+  'prompts',
+  'registry',
+  'constants',
+  '__tests__',
+  'factory',
+  'node_modules',
+])
 
 export interface LocalAgentInfo {
   id: string
@@ -11,29 +32,51 @@ export interface LocalAgentInfo {
   filePath: string
 }
 
-const DISPLAY_NAME_REGEX = /displayName\s*:\s*['"`]([^'"`]+)['"`]/i
-const ID_REGEX = /id\s*:\s*['"`]([^'"`]+)['"`]/i
-const AGENTS_DIR_NAME = '.agents'
+// ============================================================================
+// Bundled agents loading (generated at build time by prebuild-agents.ts)
+// ============================================================================
 
-let cachedAgents: LocalAgentInfo[] | null = null
-let cachedAgentsDir: string | null = null
+interface BundledAgentsModule {
+  bundledAgents: Record<string, AgentDefinition>
+  getBundledAgentsAsLocalInfo: () => LocalAgentInfo[]
+}
+
+let bundledAgentsModule: BundledAgentsModule | null = null
+try {
+  bundledAgentsModule = require('../agents/bundled-agents.generated')
+} catch {
+  // File not generated yet - running in development without prebuild
+}
+
+const getBundledAgents = (): Record<string, AgentDefinition> => {
+  return bundledAgentsModule?.bundledAgents ?? {}
+}
+
+const getBundledAgentsAsLocalInfo = (): LocalAgentInfo[] => {
+  return bundledAgentsModule?.getBundledAgentsAsLocalInfo?.() ?? []
+}
+
+// ============================================================================
+// File system utilities
+// ============================================================================
 
 const shouldSkipDirectory = (dirName: string): boolean => {
   if (!dirName) return true
   if (dirName.startsWith('.')) return true
-  const skipped = new Set([
-    'types',
-    'prompts',
-    'registry',
-    'constants',
-    '__tests__',
-    'factory',
-    'node_modules',
-  ])
-  return skipped.has(dirName)
+  return SKIPPED_DIRECTORIES.has(dirName)
 }
 
-const gatherAgentFiles = (dir: string, results: LocalAgentInfo[]) => {
+/**
+ * Recursively gathers agent files from a directory.
+ * Returns file info with id, displayName, and filePath for each valid agent file.
+ */
+const gatherAgentFiles = (dir: string): LocalAgentInfo[] => {
+  const results: LocalAgentInfo[] = []
+  gatherAgentFilesRecursive(dir, results)
+  return results
+}
+
+const gatherAgentFilesRecursive = (dir: string, results: LocalAgentInfo[]): void => {
   const entries = fs.readdirSync(dir, { withFileTypes: true })
 
   for (const entry of entries) {
@@ -43,16 +86,11 @@ const gatherAgentFiles = (dir: string, results: LocalAgentInfo[]) => {
       if (shouldSkipDirectory(entry.name)) {
         continue
       }
-
-      gatherAgentFiles(fullPath, results)
+      gatherAgentFilesRecursive(fullPath, results)
       continue
     }
 
-    if (!entry.isFile()) {
-      continue
-    }
-
-    if (!entry.name.endsWith('.ts')) {
+    if (!entry.isFile() || !entry.name.endsWith('.ts')) {
       continue
     }
 
@@ -64,26 +102,33 @@ const gatherAgentFiles = (dir: string, results: LocalAgentInfo[]) => {
     }
 
     const displayMatch = content.match(DISPLAY_NAME_REGEX)
-    if (!displayMatch) {
+    const idMatch = content.match(ID_REGEX)
+
+    // Must have at least one of displayName or id
+    if (!displayMatch && !idMatch) {
       continue
     }
 
-    const idMatch = content.match(ID_REGEX)
+    const displayName = displayMatch?.[1]?.trim() ?? ''
+    const id = idMatch?.[1]?.trim() ?? displayName
 
-    const displayName = displayMatch[1].trim()
-    const id = idMatch ? idMatch[1].trim() : displayName
-
-    if (!displayName) {
+    if (!displayName && !id) {
       continue
     }
 
     results.push({
       id,
-      displayName,
+      displayName: displayName || id,
       filePath: fullPath,
     })
   }
 }
+
+// ============================================================================
+// Directory finding
+// ============================================================================
+
+let cachedAgentsDir: string | null = null
 
 export const findAgentsDirectory = (): string | null => {
   if (cachedAgentsDir && fs.existsSync(cachedAgentsDir)) {
@@ -128,33 +173,143 @@ export const findAgentsDirectory = (): string | null => {
   return null
 }
 
-export const loadLocalAgents = (): LocalAgentInfo[] => {
-  if (cachedAgents) {
-    return cachedAgents
+// ============================================================================
+// Agent loading - LocalAgentInfo (lightweight, for UI/listing)
+// ============================================================================
+
+// Cache keyed by agent mode (or 'all' for no filtering)
+const cachedAgentsByMode: Map<string, LocalAgentInfo[]> = new Map()
+
+/**
+ * Load local agents for display in the '@' menu.
+ * 
+ * @param currentAgentMode - If provided, filters bundled agents to only include
+ *   subagents of the current mode's agent (e.g., base2's spawnableAgents for DEFAULT mode).
+ *   User's local agents from .agents/ are always included regardless of mode.
+ */
+export const loadLocalAgents = (currentAgentMode?: AgentMode): LocalAgentInfo[] => {
+  const cacheKey = currentAgentMode ?? 'all'
+  const cached = cachedAgentsByMode.get(cacheKey)
+  if (cached) {
+    return cached
   }
 
+  // Get bundled agents - these are the default Codebuff agents
+  // compiled into the CLI binary at build time
+  const bundledAgentsInfo = getBundledAgentsAsLocalInfo()
+  const bundledAgents = getBundledAgents()
+  
+  // Filter bundled agents to only include subagents of the current mode's agent
+  let filteredBundledAgents: LocalAgentInfo[]
+  if (currentAgentMode) {
+    const currentAgentId = AGENT_MODE_TO_ID[currentAgentMode]
+    const currentAgentDef = bundledAgents[currentAgentId]
+    const spawnableAgentIds = new Set(currentAgentDef?.spawnableAgents ?? [])
+    
+    // Only include bundled agents that are in the spawnableAgents list
+    filteredBundledAgents = bundledAgentsInfo.filter(agent => 
+      spawnableAgentIds.has(agent.id)
+    )
+  } else {
+    filteredBundledAgents = bundledAgentsInfo
+  }
+  
+  const results: LocalAgentInfo[] = [...filteredBundledAgents]
+  const includedIds = new Set(filteredBundledAgents.map(a => a.id))
+
+  // Then load user's local agents from .agents/ directory
+  // User agents are always included (not filtered by mode) and can override bundled agents
   const agentsDir = findAgentsDirectory()
 
-  if (!agentsDir) {
-    cachedAgents = []
-    return cachedAgents
+  if (agentsDir) {
+    try {
+      const userAgents = gatherAgentFiles(agentsDir)
+      
+      // Merge user agents - they override bundled agents with same ID
+      // and are always included regardless of mode filtering
+      for (const userAgent of userAgents) {
+        if (includedIds.has(userAgent.id)) {
+          // Replace bundled agent with user's version
+          const idx = results.findIndex(a => a.id === userAgent.id)
+          if (idx !== -1) {
+            results[idx] = userAgent
+          }
+        } else {
+          results.push(userAgent)
+          includedIds.add(userAgent.id)
+        }
+      }
+    } catch {
+      // Ignore errors loading user agents
+    }
   }
 
-  const results: LocalAgentInfo[] = []
-
-  try {
-    gatherAgentFiles(agentsDir, results)
-  } catch {
-    cachedAgents = []
-    return cachedAgents
-  }
-
-  cachedAgents = results.sort((a, b) =>
+  const sorted = results.sort((a, b) =>
     a.displayName.localeCompare(b.displayName, 'en'),
   )
-
-  return cachedAgents
+  
+  cachedAgentsByMode.set(cacheKey, sorted)
+  return sorted
 }
+
+// ============================================================================
+// Agent loading - AgentDefinition (full definitions for runtime)
+// ============================================================================
+
+/**
+ * Load agent definitions from bundled agents and user's .agents directory.
+ * Bundled agents are compiled into the CLI binary at build time.
+ * User agents from .agents/ can override bundled agents with the same ID.
+ * Note: The SDK's processAgentDefinitions will handle converting handleSteps functions to strings
+ */
+export const loadAgentDefinitions = (): AgentDefinition[] => {
+  // Start with bundled agents - these are the default Codebuff agents
+  const bundledAgents = getBundledAgents()
+  const definitions: AgentDefinition[] = Object.values(bundledAgents)
+  const bundledIds = new Set(Object.keys(bundledAgents))
+
+  // Then load user's local agents from .agents/ directory
+  const agentsDir = findAgentsDirectory()
+  if (!agentsDir) {
+    return definitions
+  }
+
+  const agentFiles = gatherAgentFiles(agentsDir)
+
+  for (const { filePath } of agentFiles) {
+    try {
+      // Use require to load the TypeScript file (works with ts-node/bun)
+      const agentModule = require(filePath)
+      const agentDef = agentModule.default
+      if (require.cache[filePath]) {
+        delete require.cache[filePath]
+      }
+
+      if (!agentDef || !agentDef.id || !agentDef.model) {
+        continue
+      }
+
+      // User agents override bundled agents with the same ID
+      if (bundledIds.has(agentDef.id)) {
+        const idx = definitions.findIndex(d => d.id === agentDef.id)
+        if (idx !== -1) {
+          definitions[idx] = agentDef as AgentDefinition
+        }
+      } else {
+        definitions.push(agentDef as AgentDefinition)
+      }
+    } catch {
+      // Skip files that can't be loaded
+      continue
+    }
+  }
+
+  return definitions
+}
+
+// ============================================================================
+// UI/Display utilities
+// ============================================================================
 
 export const announceLoadedAgents = (): void => {
   const agents = loadLocalAgents()
@@ -219,11 +374,15 @@ export const getLoadedAgentsData = (): {
   return { agents, agentsDir }
 }
 
+// ============================================================================
+// Testing utilities
+// ============================================================================
+
 /**
  * Clear cached agent listings. Intended for test scenarios that need to
  * re-evaluate the filesystem state between cases.
  */
 export const __resetLocalAgentRegistryForTests = (): void => {
-  cachedAgents = null
+  cachedAgentsByMode.clear()
   cachedAgentsDir = null
 }

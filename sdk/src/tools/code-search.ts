@@ -1,4 +1,5 @@
 import { spawn } from 'child_process'
+import * as fs from 'fs'
 import * as path from 'path'
 
 import { formatCodeSearchOutput } from '../../../common/src/util/format-code-search'
@@ -67,8 +68,16 @@ export function codeSearch({
     // -n shows line numbers
     // --json outputs in JSON format, which streams in and allows us to cut off the output if it grows too long
     // "--"" prevents pattern from being misparsed as a flag (e.g., pattern starting with '-')
-    // Search paths: '.' plus blessed hidden directories (ripgrep ignores non-existent paths)
-    const searchPaths = ['.', ...INCLUDED_HIDDEN_DIRS]
+    // Search paths: '.' plus blessed hidden directories that actually exist
+    // Filter out non-existent directories to avoid ripgrep stderr errors
+    const existingHiddenDirs = INCLUDED_HIDDEN_DIRS.filter((dir) => {
+      try {
+        return fs.statSync(path.join(searchCwd, dir)).isDirectory()
+      } catch {
+        return false
+      }
+    })
+    const searchPaths = ['.', ...existingHiddenDirs]
     const args = [
       '--no-config',
       '-n',

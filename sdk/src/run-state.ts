@@ -9,6 +9,7 @@ import {
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
+import z from 'zod/v4'
 
 import type { CustomToolDefinition } from './custom-tool'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
@@ -66,24 +67,31 @@ function processAgentDefinitions(
 }
 
 /**
- * Processes custom tool definitions into the format expected by SessionState
+ * Processes custom tool definitions into the format expected by SessionState.
+ * Converts Zod schemas to JSON Schema format so they can survive JSON serialization.
  */
 function processCustomToolDefinitions(
   customToolDefinitions: CustomToolDefinition[],
-): Record<
-  string,
-  Pick<CustomToolDefinition, keyof NonNullable<CustomToolDefinitions>[string]>
-> {
+): CustomToolDefinitions {
   return Object.fromEntries(
-    customToolDefinitions.map((toolDefinition) => [
-      toolDefinition.toolName,
-      {
-        inputSchema: toolDefinition.inputSchema,
-        description: toolDefinition.description,
-        endsAgentStep: toolDefinition.endsAgentStep,
-        exampleInputs: toolDefinition.exampleInputs,
-      },
-    ]),
+    customToolDefinitions.map((toolDefinition) => {
+      // Convert Zod schema to JSON Schema format so it survives JSON serialization
+      // The agent-runtime will wrap this with AI SDK's jsonSchema() helper
+      const jsonSchema = z.toJSONSchema(toolDefinition.inputSchema, {
+        io: 'input',
+      }) as Record<string, unknown>
+      delete jsonSchema['$schema']
+
+      return [
+        toolDefinition.toolName,
+        {
+          inputSchema: jsonSchema,
+          description: toolDefinition.description,
+          endsAgentStep: toolDefinition.endsAgentStep,
+          exampleInputs: toolDefinition.exampleInputs,
+        },
+      ]
+    }),
   )
 }
 

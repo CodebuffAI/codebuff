@@ -63,7 +63,10 @@ export function generateFingerprintId(): string {
 
 /**
  * Determines the color for a character based on its position relative to the sheen
- * Creates a "fill" effect where shadow characters permanently change to solid green as sheen passes
+ * Block characters use blockColor, shadow/border characters animate to accent green
+ * @param accentColor - The accent color to use for the sheen effect (typically theme.primary)
+ * @param blockColor - The color for solid block characters (white for dark mode, black for light mode)
+ * @param isReversing - Whether the sheen is in the reverse (unfill) phase
  */
 export function getSheenColor(
   char: string,
@@ -71,27 +74,35 @@ export function getSheenColor(
   sheenPosition: number,
   logoColor: string,
   shadowChars: Set<string>,
+  accentColor: string = '#9EFC62',
+  blockColor: string = '#ffffff',
+  isReversing: boolean = false,
 ): string {
+  // Block characters use the specified block color
+  if (char === '█') {
+    return blockColor
+  }
+
   // Only apply sheen to shadow/border characters
   if (!shadowChars.has(char)) {
     return logoColor
   }
 
-  const sheenWidth = 5
-  const distance = charIndex - sheenPosition
-
-  // Characters at the sheen (bright, solid green - the active sheen)
-  if (distance >= -sheenWidth && distance <= 0) {
-    return '#00ff00' // Bright solid green at the sheen
+  if (isReversing) {
+    // Reverse phase: characters behind the sheen return to logoColor
+    if (charIndex <= sheenPosition) {
+      return logoColor
+    }
+    // Characters ahead of the sheen stay accent color
+    return accentColor
+  } else {
+    // Forward phase: characters at or behind the sheen get the accent color
+    if (charIndex <= sheenPosition) {
+      return accentColor
+    }
+    // Characters ahead of the sheen remain original color
+    return logoColor
   }
-
-  // Characters behind the sheen stay solid green (permanent fill effect)
-  if (distance < -sheenWidth) {
-    return '#00cc00' // Solid green - stays filled permanently
-  }
-
-  // Characters ahead of the sheen remain original color (unfilled shadow)
-  return logoColor
 }
 
 /**

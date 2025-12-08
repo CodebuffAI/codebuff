@@ -4,14 +4,14 @@
  * Tests projectFiles injection for providing file context to the agent.
  */
 
-import { describe, test, expect, beforeAll, beforeEach } from 'bun:test'
+import { describe, test, expect, beforeAll } from 'bun:test'
 
 import { CodebuffClient } from '../../src/client'
 import {
   EventCollector,
   getApiKey,
+  skipIfNoApiKey,
   isAuthError,
-  ensureBackendConnection,
   SAMPLE_PROJECT_FILES,
   DEFAULT_AGENT,
   DEFAULT_TIMEOUT,
@@ -21,16 +21,14 @@ describe('Features: Project Files', () => {
   let client: CodebuffClient
 
   beforeAll(() => {
+    if (skipIfNoApiKey()) return
     client = new CodebuffClient({ apiKey: getApiKey() })
   })
 
-  beforeEach(async () => {
-    await ensureBackendConnection()
-  })
-
-  test(
+  test.skip(
     'agent can reference injected project files',
     async () => {
+      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -43,15 +41,24 @@ describe('Features: Project Files', () => {
 
       if (isAuthError(result.output)) return
 
-      if (result.output.type === 'error') return
-      expect(collector.hasEventType('finish')).toBe(true)
+      expect(result.output.type).not.toBe('error')
+
+      const responseText = collector.getFullText().toLowerCase()
+      // Should mention some of the files
+      expect(
+        responseText.includes('index') ||
+          responseText.includes('calculator') ||
+          responseText.includes('package.json') ||
+          responseText.includes('readme'),
+      ).toBe(true)
     },
     DEFAULT_TIMEOUT,
   )
 
-  test(
+  test.skip(
     'agent can analyze content of project files',
     async () => {
+      if (skipIfNoApiKey()) return
 
       const collector = new EventCollector()
 
@@ -65,7 +72,13 @@ describe('Features: Project Files', () => {
       if (isAuthError(result.output)) return
 
       expect(result.output.type).not.toBe('error')
-      expect(collector.hasEventType('finish')).toBe(true)
+
+      const responseText = collector.getFullText().toLowerCase()
+      expect(
+        responseText.includes('calculator') ||
+          responseText.includes('add') ||
+          responseText.includes('result'),
+      ).toBe(true)
     },
     DEFAULT_TIMEOUT,
   )

@@ -1,7 +1,6 @@
 import os from 'os'
 import path from 'path'
 
-import { pluralize } from '@codebuff/common/util/string'
 import { NetworkError, RETRYABLE_ERROR_CODES } from '@codebuff/sdk'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
@@ -9,11 +8,10 @@ import { useShallow } from 'zustand/react/shallow'
 import { Chat } from './chat'
 import { LoginModal } from './components/login-modal'
 import { TerminalLink } from './components/terminal-link'
-import { ToolCallItem } from './components/tools/tool-call-item'
-import { useAgentValidation } from './hooks/use-agent-validation'
 import { useAuthQuery } from './hooks/use-auth-query'
 import { useAuthState } from './hooks/use-auth-state'
 import { useLogo } from './hooks/use-logo'
+import { useSheenAnimation } from './hooks/use-sheen-animation'
 import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTerminalFocus } from './hooks/use-terminal-focus'
 import { useTheme } from './hooks/use-theme'
@@ -30,11 +28,6 @@ interface AppProps {
   agentId?: string
   requireAuth: boolean | null
   hasInvalidCredentials: boolean
-  loadedAgentsData: {
-    agents: Array<{ id: string; displayName: string }>
-    agentsDir: string
-  } | null
-  validationErrors: Array<{ id: string; message: string }>
   fileTree: FileTreeNode[]
   continueChat: boolean
   continueChatId?: string
@@ -45,17 +38,32 @@ export const App = ({
   agentId,
   requireAuth,
   hasInvalidCredentials,
-  loadedAgentsData,
-  validationErrors,
   fileTree,
   continueChat,
   continueChatId,
 }: AppProps) => {
-  const { contentMaxWidth } = useTerminalDimensions()
+  const { contentMaxWidth, terminalWidth } = useTerminalDimensions()
   const theme = useTheme()
-  const { textBlock: logoBlock } = useLogo({ availableWidth: contentMaxWidth })
 
-  const [isAgentListCollapsed, setIsAgentListCollapsed] = useState(true)
+  // Sheen animation state for the logo
+  const [sheenPosition, setSheenPosition] = useState(0)
+  const blockColor = theme.name === 'dark' ? '#ffffff' : '#000000'
+  const { applySheenToChar } = useSheenAnimation({
+    logoColor: theme.foreground,
+    accentColor: theme.primary,
+    blockColor,
+    terminalWidth,
+    sheenPosition,
+    setSheenPosition,
+  })
+
+  const { component: logoComponent } = useLogo({
+    availableWidth: contentMaxWidth,
+    accentColor: theme.primary,
+    blockColor,
+    applySheenToChar,
+  })
+
   const inputRef = useRef<MultilineInputHandle | null>(null)
   const { setInputFocused, setIsFocusSupported, resetChatStore } = useChatStore(
     useShallow((store) => ({
@@ -93,9 +101,6 @@ export const App = ({
     resetChatStore,
   })
 
-  // Agent validation
-  useAgentValidation(validationErrors)
-
   const headerContent = useMemo(() => {
     const homeDir = os.homedir()
     const repoRoot = getProjectRoot()
@@ -103,49 +108,6 @@ export const App = ({
     const displayPath = relativePath.startsWith('..')
       ? repoRoot
       : `~/${relativePath}`
-
-    const sortedAgents = loadedAgentsData
-      ? [...loadedAgentsData.agents].sort((a, b) => {
-          const displayNameComparison = (a.displayName || '')
-            .toLowerCase()
-            .localeCompare((b.displayName || '').toLowerCase())
-
-          return (
-            displayNameComparison ||
-            a.id.toLowerCase().localeCompare(b.id.toLowerCase())
-          )
-        })
-      : null
-
-    const agentCount = sortedAgents?.length
-
-    const formatIdentifier = (agent: { id: string; displayName: string }) =>
-      agent.displayName && agent.displayName !== agent.id
-        ? `${agent.displayName} (${agent.id})`
-        : agent.displayName || agent.id
-
-    const renderAgentListItem = (
-      agent: { id: string; displayName: string },
-      idx: number,
-    ) => {
-      const identifier = formatIdentifier(agent)
-      return (
-        <text
-          key={`agent-${idx}`}
-          style={{ wrapMode: 'word', fg: theme.foreground }}
-        >
-          {`• ${identifier}`}
-        </text>
-      )
-    }
-
-    const agentListContent = sortedAgents ? (
-      <box style={{ flexDirection: 'column', gap: 0 }}>
-        {sortedAgents.map(renderAgentListItem)}
-      </box>
-    ) : null
-
-    const headerText = agentCount ? pluralize(agentCount, 'local agent') : null
 
     return (
       <box
@@ -156,16 +118,15 @@ export const App = ({
           paddingRight: 1,
         }}
       >
-        <text
+        <box
           style={{
-            wrapMode: 'word',
+            flexDirection: 'column',
             marginBottom: 1,
             marginTop: 2,
-            fg: theme.foreground,
           }}
         >
-          {logoBlock}
-        </text>
+          {logoComponent}
+        </box>
         <text
           style={{ wrapMode: 'word', marginBottom: 1, fg: theme.foreground }}
         >
@@ -182,28 +143,9 @@ export const App = ({
             onActivate={() => openFileAtPath(repoRoot)}
           />
         </text>
-        {headerText ? (
-          <box style={{ marginBottom: 1 }}>
-            <ToolCallItem
-              name={headerText}
-              content={agentListContent}
-              isCollapsed={isAgentListCollapsed}
-              isStreaming={false}
-              streamingPreview=""
-              finishedPreview=""
-              onToggle={() => setIsAgentListCollapsed(!isAgentListCollapsed)}
-              dense
-            />
-          </box>
-        ) : null}
       </box>
     )
-  }, [
-    loadedAgentsData,
-    logoBlock,
-    theme,
-    isAgentListCollapsed,
-  ])
+  }, [logoComponent, theme])
 
   // Derive auth reachability + retrying state inline from authQuery error
   const authError = authQuery.error
@@ -244,7 +186,6 @@ export const App = ({
       headerContent={headerContent}
       initialPrompt={initialPrompt}
       agentId={agentId}
-      validationErrors={validationErrors}
       fileTree={fileTree}
       inputRef={inputRef}
       setIsAuthenticated={setIsAuthenticated}

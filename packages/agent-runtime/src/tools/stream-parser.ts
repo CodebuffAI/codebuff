@@ -9,7 +9,11 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 
 import { processStreamWithTools } from '../tool-stream-parser'
-import { executeCustomToolCall, executeToolCall, tryTransformAgentToolCall } from './tool-executor'
+import {
+  executeCustomToolCall,
+  executeToolCall,
+  tryTransformAgentToolCall,
+} from './tool-executor'
 import { expireMessages, withSystemTags } from '../util/messages'
 
 import type { CustomToolCall, ExecuteToolCallParams } from './tool-executor'
@@ -145,14 +149,14 @@ export async function processStream(
           return
         }
         const toolCallId = generateCompactId()
-        
+
         // Check if this is an agent tool call - if so, transform to spawn_agents
         const transformed = tryTransformAgentToolCall({
           toolName,
           input,
           spawnableAgents: agentTemplate.spawnableAgents,
         })
-        
+
         if (transformed) {
           // Use executeToolCall for spawn_agents (a native tool)
           previousToolCallFinished = executeToolCall({
@@ -234,10 +238,26 @@ export async function processStream(
       model: agentTemplate.model,
       agentName: agentTemplate.id,
     },
+    onResponseChunk: (chunk) => {
+      if (chunk.type === 'text') {
+        if (chunk.text) {
+          assistantMessages.push(assistantMessage(chunk.text))
+        }
+      } else if (chunk.type === 'error') {
+        // do nothing
+      } else {
+        chunk satisfies never
+        throw new Error(
+          `Internal error: unhandled chunk type: ${(chunk as any).type}`,
+        )
+      }
+      return onResponseChunk(chunk)
+    },
   })
 
   let messageId: string | null = null
   let hadToolCallError = false
+  const errorMessages: Message[] = []
   while (true) {
     if (signal.aborted) {
       break
@@ -258,17 +278,14 @@ export async function processStream(
     } else if (chunk.type === 'text') {
       onResponseChunk(chunk.text)
       fullResponseChunks.push(chunk.text)
-      // Only add text as assistant message if no tool calls have been made yet
-      // to avoid separating tool_use from tool_result (Anthropic API requirement)
-      if (toolCalls.length === 0) {
-        assistantMessages.push(assistantMessage(chunk.text))
-      }
     } else if (chunk.type === 'error') {
       onResponseChunk(chunk)
-      
+
       hadToolCallError = true
-      // Add error message to assistant messages so the agent can see what went wrong and retry
-      assistantMessages.push(
+      // Collect error messages to add AFTER all tool results
+      // This ensures proper message ordering for Anthropic's API which requires
+      // tool results to immediately follow the assistant message with tool calls
+      errorMessages.push(
         userMessage(
           withSystemTags(
             `Error during tool call: ${chunk.message}. Please check the tool name and arguments and try again.`,
@@ -293,6 +310,10 @@ export async function processStream(
     resolveStreamDonePromise()
     await previousToolCallFinished
   }
+
+  // Error messages must come AFTER tool results for proper API ordering)
+  agentState.messageHistory.push(...errorMessages)
+
   return {
     fullResponse: fullResponseChunks.join(''),
     fullResponseChunks,

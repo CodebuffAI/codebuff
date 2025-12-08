@@ -1,9 +1,9 @@
 import { validateAgents } from '@codebuff/sdk'
 import { useCallback, useState } from 'react'
 
-
-import { loadAgentDefinitions } from '../utils/load-agent-definitions'
+import { loadAgentDefinitions } from '../utils/local-agent-registry'
 import { logger } from '../utils/logger'
+import { filterNetworkErrors } from '../utils/validation-error-helpers'
 
 export type ValidationError = {
   id: string
@@ -25,11 +25,10 @@ type UseAgentValidationResult = {
  * Hook that provides agent validation functionality.
  * Call validate() manually to trigger validation (e.g., on message send).
  */
-export const useAgentValidation = (
-  initialErrors: ValidationError[] = [],
-): UseAgentValidationResult => {
-  const [validationErrors, setValidationErrors] =
-    useState<ValidationError[]>(initialErrors)
+export const useAgentValidation = (): UseAgentValidationResult => {
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
+    [],
+  )
   const [isValidating, setIsValidating] = useState(false)
 
   // Validate agents and update state
@@ -48,8 +47,11 @@ export const useAgentValidation = (
         setValidationErrors([])
         return { success: true, errors: [] }
       } else {
-        setValidationErrors(validationResult.validationErrors)
-        return { success: false, errors: validationResult.validationErrors }
+        const filteredValidationErrors = filterNetworkErrors(
+          validationResult.validationErrors,
+        )
+        setValidationErrors(filteredValidationErrors)
+        return { success: false, errors: filteredValidationErrors }
       }
     } catch (error) {
       logger.error({ error }, 'Agent validation failed with exception')
