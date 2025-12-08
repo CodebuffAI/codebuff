@@ -299,30 +299,6 @@ describe('validateAgents', () => {
         expect(result.errorCount).toBeGreaterThan(0)
       })
 
-      it('should reject structured_output without set_output tool', async () => {
-        const agents: AgentDefinition[] = [
-          {
-            id: 'missing-set-output',
-            displayName: 'Missing Set Output Tool',
-            model: 'anthropic/claude-sonnet-4',
-            outputMode: 'structured_output',
-            toolNames: ['read_files'], // Missing set_output
-            outputSchema: {
-              type: 'object',
-              properties: {
-                result: { type: 'string' },
-              },
-              required: ['result'],
-            },
-          },
-        ]
-
-        const result = await validateAgents(agents)
-
-        expect(result.success).toBe(false)
-        expect(result.errorCount).toBeGreaterThan(0)
-      })
-
       it('should reject spawnableAgents without spawn_agents tool', async () => {
         const agents: AgentDefinition[] = [
           {
@@ -491,11 +467,14 @@ describe('validateAgents', () => {
 
       it('should handle very large number of agents', async () => {
         // Create 100 agents
-        const agents: AgentDefinition[] = Array.from({ length: 100 }, (_, i) => ({
-          id: `agent-${i}`,
-          displayName: `Agent ${i}`,
-          model: 'anthropic/claude-sonnet-4',
-        }))
+        const agents: AgentDefinition[] = Array.from(
+          { length: 100 },
+          (_, i) => ({
+            id: `agent-${i}`,
+            displayName: `Agent ${i}`,
+            model: 'anthropic/claude-sonnet-4',
+          }),
+        )
 
         const result = await validateAgents(agents)
 
@@ -546,7 +525,9 @@ describe('validateAgents', () => {
         const result = await validateAgents(agents)
 
         expect(result.success).toBe(false)
-        expect(result.validationErrors[0].message).toContain('lowercase letters, numbers, and hyphens')
+        expect(result.validationErrors[0].message).toContain(
+          'lowercase letters, numbers, and hyphens',
+        )
       })
 
       it('should handle deeply nested input schemas', async () => {
@@ -752,7 +733,10 @@ describe('validateAgents', () => {
         json: async () => ({
           success: false,
           validationErrors: [
-            { filePath: 'bad-agent', message: 'Agent "bad-agent": Invalid configuration' },
+            {
+              filePath: 'bad-agent',
+              message: 'Agent "bad-agent": Invalid configuration',
+            },
           ],
           errorCount: 1,
         }),
@@ -765,7 +749,9 @@ describe('validateAgents', () => {
 
       expect(result.success).toBe(false)
       expect(result.errorCount).toBe(1)
-      expect(result.validationErrors[0].message).toContain('Invalid configuration')
+      expect(result.validationErrors[0].message).toContain(
+        'Invalid configuration',
+      )
     })
 
     it('should handle HTTP errors from API', async () => {
@@ -792,7 +778,9 @@ describe('validateAgents', () => {
       expect(result.success).toBe(false)
       expect(result.errorCount).toBe(1)
       expect(result.validationErrors[0].id).toBe('network_error')
-      expect(result.validationErrors[0].message).toContain('Server error occurred')
+      expect(result.validationErrors[0].message).toContain(
+        'Server error occurred',
+      )
     })
 
     it('should handle network failures', async () => {
