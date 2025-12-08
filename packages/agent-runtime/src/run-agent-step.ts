@@ -919,7 +919,10 @@ export async function loopAgentSteps(
     }
 
     // Extract clean error message (just the message, not name:message format)
-    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorMessage =
+      error instanceof Error
+        ? error.message + (error.stack ? `\n\n${error.stack}` : '')
+        : String(error)
 
     const status = checkLiveUserInput(params) ? 'failed' : 'cancelled'
     await finishAgentRun({
@@ -936,7 +939,7 @@ export async function loopAgentSteps(
       agentState: currentAgentState,
       output: {
         type: 'error',
-        message: errorMessage,
+        message: 'Agent run error: ' + errorMessage,
       },
     }
   }
