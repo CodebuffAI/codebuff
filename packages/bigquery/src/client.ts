@@ -156,7 +156,7 @@ export async function insertTrace({
     // )
     return true
   } catch (error) {
-    logger.error(
+    logger.warn(
       { error, traceId: trace.id },
       'Failed to insert trace into BigQuery',
     )
