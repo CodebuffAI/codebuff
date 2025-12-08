@@ -466,7 +466,8 @@ async function handleResponse({
   logger: Logger
   insertMessage: InsertMessageBigqueryFn
 }): Promise<StreamState> {
-  state = await handleStreamChunk({ data, state, logger })
+  const model = 'model' in data ? data.model : undefined
+  state = await handleStreamChunk({ data, state, logger, userId, agentId, model })
 
   if ('error' in data || !data.usage) {
     // Stream not finished
@@ -512,13 +513,41 @@ async function handleStreamChunk({
   data,
   state,
   logger,
+  userId,
+  agentId,
+  model,
 }: {
   data: OpenRouterStreamChatCompletionChunk
   state: StreamState
   logger: Logger
+  userId: string
+  agentId: string
+  model: string | undefined
 }): Promise<StreamState> {
   if ('error' in data) {
-    logger.warn({ streamChunk: data }, 'Received error from OpenRouter')
+    // Log detailed error information for stream errors (e.g., Forbidden from Anthropic)
+    const errorData = data.error as {
+      code?: string | number | null
+      type?: string | null
+      message: string
+      param?: unknown
+      metadata?: { raw?: string; provider_name?: string }
+    }
+    logger.error(
+      {
+        userId,
+        agentId,
+        model,
+        errorCode: errorData.code,
+        errorType: errorData.type,
+        errorMessage: errorData.message,
+        errorParam: errorData.param,
+        // Provider-specific error details (e.g., from Anthropic via OpenRouter)
+        providerName: errorData.metadata?.provider_name,
+        providerRawError: errorData.metadata?.raw,
+      },
+      'Received error chunk in OpenRouter stream',
+    )
     return state
   }
 

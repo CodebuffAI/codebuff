@@ -329,9 +329,28 @@ export async function postChatCompletions(params: {
       if (error instanceof OpenRouterError) {
         openrouterError = error
       }
+
+      // Log detailed error information for debugging
+      const errorDetails = openrouterError?.toJSON()
       logger.error(
-        { error: getErrorObject(error), body, openrouterError: openrouterError?.toJSON() },
-        'Error with OpenRouter request',
+        {
+          error: getErrorObject(error),
+          userId,
+          agentId,
+          runId: runIdFromBody,
+          model: (body as any)?.model,
+          streaming: !!bodyStream,
+          hasByokKey: !!openrouterApiKey,
+          messageCount: Array.isArray((body as any)?.messages) ? (body as any).messages.length : 0,
+          openrouterStatusCode: openrouterError?.statusCode,
+          openrouterStatusText: openrouterError?.statusText,
+          openrouterErrorCode: errorDetails?.error?.code,
+          openrouterErrorType: errorDetails?.error?.type,
+          openrouterErrorMessage: errorDetails?.error?.message,
+          openrouterProviderName: errorDetails?.error?.metadata?.provider_name,
+          openrouterProviderRaw: errorDetails?.error?.metadata?.raw,
+        },
+        'OpenRouter request failed',
       )
       trackEvent({
         event: AnalyticsEvent.CHAT_COMPLETIONS_ERROR,
