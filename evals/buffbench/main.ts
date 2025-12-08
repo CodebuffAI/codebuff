@@ -7,7 +7,7 @@ async function main() {
   // Use 'external:claude' for Claude Code CLI
   // Use 'external:codex' for OpenAI Codex CLI
   await runBuffBench({
-    evalDataPath: path.join(__dirname, 'eval-codebuff.json'),
+    evalDataPaths: [path.join(__dirname, 'eval-codebuff.json')],
     agents: ['base2', 'external:claude', 'external:codex'],
     taskConcurrency: 1,
   })
