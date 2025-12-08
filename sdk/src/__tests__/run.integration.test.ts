@@ -1,5 +1,6 @@
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { describe, expect, it } from 'bun:test'
+import { DEFAULT_TIMEOUT } from '../../e2e/utils/test-fixtures'
 
 // Force test environment for this integration so we hit the seeded local backend
 process.env.NEXT_PUBLIC_CB_ENVIRONMENT = 'test'
@@ -39,6 +40,6 @@ describe('Prompt Caching', () => {
       console.dir(run.output, { depth: null })
       expect(run.output.type).not.toEqual('error')
     },
-    { timeout: 20_000 },
+    { timeout: DEFAULT_TIMEOUT },
   )
 })
