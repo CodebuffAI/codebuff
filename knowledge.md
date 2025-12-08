@@ -79,8 +79,12 @@ base-lite "fix this bug"             # Works right away!
 
 ### Never Force Push to Main
 
-**Never use `git push --force` or `git push --force-with-lease` on the main branch.** This can overwrite other developers' work and cause CI/deployment issues.
+**Never use `git push --force` or `git push --force-with-lease` on the main branch unless the user explicitly and clearly asks for it.** This can overwrite other developers' work and cause CI/deployment issues.
 
+- A simple "push" request is NOT permission to force push - only a regular push should be attempted
+- If a push is rejected due to diverged history, **stop and ask the user** what they want to do
+- Do NOT automatically escalate to force push when a regular push fails
+- Only force push if the user explicitly says something like "force push to main" or "yes, force push"
 - If you need to amend a commit that's already on main, create a new commit instead
 - Force pushing is only acceptable on feature branches where you're the only contributor
 - If a push is rejected, use `git pull --rebase` to integrate remote changes first
