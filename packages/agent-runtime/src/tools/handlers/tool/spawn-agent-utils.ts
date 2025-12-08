@@ -269,6 +269,10 @@ export async function executeSubagent(
 
   const result = await loopAgentSteps({
     ...withDefaults,
+    // Don't propagate parent's image content to subagents.
+    // If subagents need to see images, they get them through includeMessageHistory,
+    // not by creating new image-containing messages for their prompts.
+    content: undefined,
     ancestorRunIds: [...ancestorRunIds, parentAgentState.runId ?? ''],
     agentType: agentTemplate.id,
   })
