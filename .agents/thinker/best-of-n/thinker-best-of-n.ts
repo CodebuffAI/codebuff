@@ -37,7 +37,7 @@ export function createThinkerBestOfN(
     inputSchema: {
       prompt: {
         type: 'string',
-        description: 'The problem you are trying to solve',
+        description: 'The problem you are trying to solve, very briefly. No need to provide context, as the thinker agent can see the entire conversation history.',
       },
       params: {
         type: 'object',
@@ -45,18 +45,19 @@ export function createThinkerBestOfN(
           n: {
             type: 'number',
             description:
-              'Number of parallel thinker agents to spawn. Defaults to 5. Use fewer for simple questions and max of 10 for complex questions.',
+              'Number of parallel thinker agents to spawn. Defaults to 3. Use fewer for simple questions and max of 6 for complex questions.',
           },
         },
       },
     },
     outputMode: 'last_message',
 
-    instructionsPrompt: `You are one agent within the thinker-best-of-n. You were spawned to generate deep thinking about the user's request.
-    
-Answer the user's query to the best of your ability and be extremely concise and to the point.
+    instructionsPrompt: `You are one subagent of the thinker-best-of-n agent that was spawned by the parent agent.
 
-**Important**: Do not use any tools! You are only thinking!`,
+Instructions:
+Use the <think> tag to think deeply about the user request.
+
+When satisfied, write out a brief response to the user's request. The parent agent will see your response -- no need to call any tools. In particular, do not use the spawn_agents tool or the set_output tool or any tools at all! `,
 
     handleSteps: isOpus ? handleStepsOpus : handleStepsDefault,
   }
@@ -69,7 +70,7 @@ function* handleStepsDefault({
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
   const selectorAgentType = 'thinker-selector'
-  const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 5))
+  const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 3))
 
   // Use GENERATE_N to generate n thinking outputs
   const { nResponses = [] } = yield {
@@ -77,11 +78,11 @@ function* handleStepsDefault({
     n,
   }
 
-  // Extract all the thinking outputs
+  // Extract all the thinking outputs and strip <think> tags
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
   const thoughts = nResponses.map((content, index) => ({
     id: letters[index],
-    content,
+    content: content.replace(/<think>[\s\S]*?<\/think>/g, '').trim(),
   }))
 
   // Spawn selector with thoughts as params
@@ -154,7 +155,7 @@ function* handleStepsOpus({
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
   const selectorAgentType = 'thinker-selector-opus'
-  const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 5))
+  const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 3))
 
   // Use GENERATE_N to generate n thinking outputs
   const { nResponses = [] } = yield {
@@ -162,11 +163,11 @@ function* handleStepsOpus({
     n,
   }
 
-  // Extract all the thinking outputs
+  // Extract all the thinking outputs and strip <think> tags
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
   const thoughts = nResponses.map((content, index) => ({
     id: letters[index],
-    content,
+    content: content.replace(/<think>[\s\S]*?<\/think>/g, '').trim(),
   }))
 
   // Spawn selector with thoughts as params

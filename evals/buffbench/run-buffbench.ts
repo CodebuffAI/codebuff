@@ -15,7 +15,7 @@ import { analyzeAgentTraces, type AgentTraceData } from './trace-analyzer'
 import { extractAgentLessons, saveAgentLessons } from './lessons-extractor'
 import { CodebuffClient } from '@codebuff/sdk'
 import { logger } from '../logger'
-import type { AgentEvalResults, EvalDataV2 } from './types'
+import type { AgentEvalResults, EvalDataV2, EvalCommitV2 } from './types'
 import { analyzeAllTasks } from './meta-analyzer'
 
 function parseAgentId(agent: string): {
@@ -283,11 +283,14 @@ function installBinaries(binInstalls: EvalDataV2['binInstalls']): {
   }
 }
 
+interface CommitWithSource {
+  commit: EvalCommitV2
+  evalData: EvalDataV2
+  evalDataPath: string
+}
+
 export async function runBuffBench(options: {
-  /** Single eval data file path (backward compatibility) */
-  evalDataPath?: string
-  /** One or more eval data file paths */
-  evalDataPaths?: string[]
+  evalDataPaths: string[]
   agents: string[]
   taskConcurrency?: number
   client?: CodebuffClient
@@ -296,7 +299,6 @@ export async function runBuffBench(options: {
   disableAnalysis?: boolean
 }) {
   const {
-    evalDataPath,
     evalDataPaths,
     agents,
     taskConcurrency = 1,
@@ -305,52 +307,64 @@ export async function runBuffBench(options: {
     disableAnalysis = false,
   } = options
 
-  const resolvedEvalDataPaths =
-    (evalDataPaths && evalDataPaths.length > 0
-      ? evalDataPaths
-      : evalDataPath
-        ? [evalDataPath]
-        : undefined) ?? []
-
-  if (resolvedEvalDataPaths.length === 0) {
-    throw new Error('runBuffBench: provide evalDataPaths (or evalDataPath).')
+  if (evalDataPaths.length === 0) {
+    throw new Error('At least one eval data path is required')
   }
-  if (resolvedEvalDataPaths.length > 1) {
-    console.warn(
-      `runBuffBench: multiple evalDataPaths provided, using first: ${resolvedEvalDataPaths[0]}`,
+
+  // Load all eval files and create a mapping of commits to their source eval data
+  const allCommitsWithSource: CommitWithSource[] = []
+  const loadedEvalFiles: { path: string; data: EvalDataV2 }[] = []
+
+  for (const evalDataPath of evalDataPaths) {
+    const evalData: EvalDataV2 = JSON.parse(
+      fs.readFileSync(evalDataPath, 'utf-8'),
     )
+    loadedEvalFiles.push({ path: evalDataPath, data: evalData })
+
+    for (const commit of evalData.evalCommits) {
+      allCommitsWithSource.push({
+        commit,
+        evalData,
+        evalDataPath,
+      })
+    }
   }
 
-  const primaryEvalDataPath = resolvedEvalDataPaths[0]
+  console.log(
+    `Loaded ${loadedEvalFiles.length} eval file(s) with ${allCommitsWithSource.length} total tasks`,
+  )
+  for (const { path: p, data } of loadedEvalFiles) {
+    console.log(`  - ${path.basename(p)}: ${data.evalCommits.length} tasks`)
+  }
 
-  const evalData: EvalDataV2 = JSON.parse(
-    fs.readFileSync(primaryEvalDataPath, 'utf-8'),
+  // Collect all unique binInstalls from all eval files
+  const allBinInstalls = loadedEvalFiles.flatMap(
+    (f) => f.data.binInstalls ?? [],
+  )
+  const uniqueBinInstalls = allBinInstalls.filter(
+    (bin, index, self) =>
+      index === self.findIndex((b) => b.name === bin.name),
   )
 
   // Install binaries once at the beginning
-  const { tempDir: binsTempDir, env: binsEnv } = installBinaries(
-    evalData.binInstalls,
-  )
+  const { tempDir: binsTempDir, env: binsEnv } = installBinaries(uniqueBinInstalls)
 
-  // Merge binaries env with eval data env
-  const mergedEnv = { ...binsEnv, ...evalData.env }
-
-  let commitsToRun: EvalDataV2['evalCommits']
+  let commitsToRun: CommitWithSource[]
   if (taskIds && taskIds.length > 0) {
-    const foundCommits: EvalDataV2['evalCommits'] = []
+    const foundCommits: CommitWithSource[] = []
     const notFoundIds: string[] = []
 
     for (const taskId of taskIds) {
-      const foundCommit = evalData.evalCommits.find((c) => c.id === taskId)
-      if (foundCommit) {
-        foundCommits.push(foundCommit)
+      const found = allCommitsWithSource.find((c) => c.commit.id === taskId)
+      if (found) {
+        foundCommits.push(found)
       } else {
         notFoundIds.push(taskId)
       }
     }
 
     if (notFoundIds.length > 0) {
-      const availableIds = evalData.evalCommits.map((c) => c.id).join(', ')
+      const availableIds = allCommitsWithSource.map((c) => c.commit.id).join(', ')
       throw new Error(
         `Task ID(s) not found: ${notFoundIds.join(', ')}. Available task IDs: ${availableIds}`,
       )
@@ -359,7 +373,7 @@ export async function runBuffBench(options: {
     commitsToRun = foundCommits
     console.log(`Running ${foundCommits.length} task(s): ${taskIds.join(', ')}`)
   } else {
-    commitsToRun = evalData.evalCommits
+    commitsToRun = allCommitsWithSource
   }
 
   const client =
@@ -413,8 +427,11 @@ export async function runBuffBench(options: {
 
   const commitLimit = pLimit(taskConcurrency)
 
-  const commitPromises = commitsToRun.map((commit, index) =>
-    commitLimit(() =>
+  const commitPromises = commitsToRun.map(({ commit, evalData }, index) => {
+    // Merge binaries env with this eval's env
+    const mergedEnv = { ...binsEnv, ...evalData.env }
+
+    return commitLimit(() =>
       runTask({
         client,
         commit,
@@ -432,8 +449,8 @@ export async function runBuffBench(options: {
         finalCheckCommands: evalData.finalCheckCommands,
         disableAnalysis,
       }),
-    ),
-  )
+    )
+  })
 
   const commitResults = await Promise.allSettled(commitPromises)
 
@@ -534,13 +551,15 @@ export async function runBuffBench(options: {
   const finalResults = {
     metadata: {
       timestamp: new Date().toISOString(),
-      evalDataPath: primaryEvalDataPath,
-      evalDataPaths: resolvedEvalDataPaths,
+      evalDataPaths,
       agentsTested: agents,
       commitsEvaluated: commitsToRun.length,
-      totalCommitsInEval: evalData.evalCommits.length,
-      repoUrl: evalData.repoUrl,
-      initCommand: evalData.initCommand,
+      totalCommitsInEval: allCommitsWithSource.length,
+      evalFiles: loadedEvalFiles.map((f) => ({
+        path: f.path,
+        repoUrl: f.data.repoUrl,
+        taskCount: f.data.evalCommits.length,
+      })),
       totalDuration: Date.now() - startTime,
       logsDirectory: logsDir,
       files: logFiles,
