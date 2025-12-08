@@ -4,7 +4,7 @@ import { format } from 'util'
 
 import { trackEvent } from '@codebuff/common/analytics'
 import { env } from '@codebuff/common/env'
-import { toTrackableAnalyticsPayload } from '@codebuff/common/util/analytics-log'
+import { createAnalyticsDispatcher } from '@codebuff/common/util/analytics-dispatcher'
 import { splitData } from '@codebuff/common/util/split-data'
 import pino from 'pino'
 
@@ -71,6 +71,9 @@ const pinoLogger = pino(
 
 const loggingLevels = ['info', 'debug', 'warn', 'error', 'fatal'] as const
 type LogLevel = (typeof loggingLevels)[number]
+const analyticsDispatcher = createAnalyticsDispatcher({
+  envName: env.NEXT_PUBLIC_CB_ENVIRONMENT,
+})
 
 function splitAndLog(
   level: LogLevel,
@@ -124,20 +127,20 @@ function logWithSync(level: LogLevel, data: any, msg?: string, ...args: any[]): 
     // Also output to console for interactive debugging
     pinoLogger[level](data, msg, ...args)
   } else {
-    const analyticsPayload = toTrackableAnalyticsPayload({
+    const analyticsPayloads = analyticsDispatcher.process({
       data,
       level,
       msg: formattedMsg,
     })
 
-    if (analyticsPayload) {
+    analyticsPayloads.forEach((payload) => {
       trackEvent({
-        event: analyticsPayload.event,
-        userId: analyticsPayload.userId,
-        properties: analyticsPayload.properties,
+        event: payload.event,
+        userId: payload.userId,
+        properties: payload.properties,
         logger: logger as any,
       })
-    }
+    })
 
     // In prod, use pino with splitAndLog for large payloads
     splitAndLog(level, data, msg, ...args)

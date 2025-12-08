@@ -2,12 +2,8 @@ import { appendFileSync, existsSync, mkdirSync, unlinkSync } from 'fs'
 import path, { dirname } from 'path'
 import { format as stringFormat } from 'util'
 
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { env } from '@codebuff/common/env'
-import {
-  getAnalyticsEventId,
-  toTrackableAnalyticsPayload,
-} from '@codebuff/common/util/analytics-log'
+import { createAnalyticsDispatcher } from '@codebuff/common/util/analytics-dispatcher'
 import { pino } from 'pino'
 
 import {
@@ -29,13 +25,15 @@ export interface LoggerContext {
 
 export const loggerContext: LoggerContext = {}
 
-const analyticsBuffer: { analyticsEventId: AnalyticsEvent; toTrack: any }[] = []
-
 let logPath: string | undefined = undefined
 let pinoLogger: any = undefined
 
 const loggingLevels = ['info', 'debug', 'warn', 'error', 'fatal'] as const
 type LogLevel = (typeof loggingLevels)[number]
+const analyticsDispatcher = createAnalyticsDispatcher({
+  envName: env.NEXT_PUBLIC_CB_ENVIRONMENT,
+  bufferWhenNoUser: true,
+})
 
 function isEmptyObject(value: any): boolean {
   return (
@@ -134,25 +132,16 @@ function sendAnalyticsAndLog(
   logAsErrorIfNeeded(toTrack)
 
   if (!isDevEnv && includeData && typeof normalizedData === 'object') {
-    const analyticsEventId = getAnalyticsEventId(normalizedData)
-    const analyticsPayload = toTrackableAnalyticsPayload({
+    const analyticsPayloads = analyticsDispatcher.process({
       data: normalizedData,
       level,
       msg: stringFormat(normalizedMsg ?? '', ...args),
       fallbackUserId: loggerContext.userId,
     })
 
-    if (analyticsEventId) {
-      if (!loggerContext.userId || !analyticsPayload) {
-        analyticsBuffer.push({ analyticsEventId, toTrack })
-      } else {
-        for (const item of analyticsBuffer) {
-          trackEvent(item.analyticsEventId, item.toTrack)
-        }
-        analyticsBuffer.length = 0
-        trackEvent(analyticsPayload.event, analyticsPayload.properties)
-      }
-    }
+    analyticsPayloads.forEach((payload) => {
+      trackEvent(payload.event, payload.properties)
+    })
   }
 
   // In dev mode, use appendFileSync for real-time logging (Bun has issues with pino sync)
