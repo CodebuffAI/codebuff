@@ -52,7 +52,7 @@ export function createBestOfNEditor(
         properties: {
           n: {
             type: 'number',
-            description: `Number of parallel implementor agents to spawn. Defaults to ${isMax ? 4 : 3}. Use fewer for simple tasks and max of 10 for complex tasks.`,
+            description: `Number of parallel implementor agents to spawn. Defaults to ${isMax ? 3 : 3}. Use fewer for simple tasks and max of 6 for complex tasks.`,
           },
         },
       },
@@ -235,7 +235,7 @@ function* handleStepsMax({
 }: AgentStepContext): ReturnType<
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
-  const MAX_N = 4
+  const MAX_N = 3
   const selectorAgent = 'best-of-n-selector-opus'
   const n = Math.min(
     10,

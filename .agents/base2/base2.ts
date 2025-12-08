@@ -67,7 +67,7 @@ export function createBase2(
       isDefault && 'thinker',
       isLite && 'editor-gpt-5',
       isDefault && 'editor',
-      isMax && 'editor-best-of-n-max',
+      isMax && 'editor-best-of-n-opus',
       isMax && 'thinker-best-of-n-opus',
       !isLite && 'code-reviewer-opus',
       'context-pruner',
@@ -123,10 +123,10 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
       '- Spawn the editor-gpt-5 agent to implement the changes after you have gathered all the context you need.',
     isDefault &&
       '- Spawn the editor agent to implement the changes after you have gathered all the context you need.',
+    (isDefault || isMax) &&
+      `- Spawn the ${isDefault ? 'thinker' : 'thinker-best-of-n-opus'} after gathering context to solve complex problems or when the user asks you to think about a problem.`,
     isMax &&
-      '- Spawn the thinker-best-of-n-opus after gathering context to solve complex problems.',
-    isMax &&
-      `- Spawn the editor-best-of-n-max agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
+      `- Spawn the editor-best-of-n-opus agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
     '- Spawn commanders sequentially if the second command depends on the the first.',
     !isFast &&
       !isLite &&
@@ -172,8 +172,7 @@ ${buildArray(
 
 [ You spawn one more code-searcher and file-picker ]
 
-[ You read a few other relevant files using the read_files tool ]
-
+[ You read a few other relevant files using the read_files tool ]${isMax ? `\n\n[ You spawn the thinker-best-of-n-opus to help solve a tricky part of the feature ]` : ``}
 ${
   isDefault
     ? `[ You implement the changes using the editor agent ]`
@@ -181,7 +180,7 @@ ${
       ? '[ You implement the changes using the str_replace or write_file tools ]'
       : isLite
         ? '[ You implement the changes using the editor-gpt-5 agent ]'
-        : '[ You implement the changes using the editor-best-of-n-max agent ]'
+        : '[ You implement the changes using the editor-best-of-n-opus agent ]'
 }
 
 ${
@@ -292,12 +291,16 @@ ${buildArray(
     `- Important: Read as many files as could possibly be relevant to the task over several steps to improve your understanding of the user's request and produce the best possible code changes. Find more examples within the codebase similar to the user's request, dependencies that help with understanding how things work, tests, etc. This is frequently 12-20 files, depending on the task.`,
   (isDefault || isMax) &&
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
+  isDefault &&
+    `- For complex problems, spawn the thinker agent to help find the best solution, or when the user asks you to think about a problem.`,
+  isMax &&
+    `- Important: Spawn the thinker-best-of-n-opus to help find the best solution before implementing changes, or especially when the user asks you to think about a problem.`,
   isLite &&
     '- IMPORTANT: You must spawn the editor-gpt-5 agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
   isDefault &&
     '- IMPORTANT: You must spawn the editor agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all non-trivial changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
   isMax &&
-    `- IMPORTANT: You must spawn the editor-best-of-n-max agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.`,
+    `- IMPORTANT: You must spawn the editor-best-of-n-opus agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.`,
   isFast &&
     '- Implement the changes using the str_replace or write_file tools. Implement all the changes in one go.',
   isFast &&
@@ -327,7 +330,7 @@ function buildImplementationStepPrompt({
     isMax &&
       `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
     isMax &&
-      `You must spawn the 'editor-best-of-n-max' agent to implement code changes, since it will generate the best code changes.`,
+      `You must spawn the 'editor-best-of-n-opus' agent to implement code changes, since it will generate the best code changes.`,
     isMax && 'Spawn the thinker-best-of-n-opus to solve complex problems.',
     (isDefault || isMax) &&
       'Spawn code-reviewer-opus to review the changes after you have implemented the changes and in parallel with typechecking or testing.',

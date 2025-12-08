@@ -12,7 +12,8 @@ const definition: SecretAgentDefinition = {
   inputSchema: {
     prompt: {
       type: 'string',
-      description: 'The problem you are trying to solve',
+      description:
+        'The problem you are trying to solve, very briefly. No need to provide context, as the thinker agent can see the entire conversation history.',
     },
   },
   outputSchema: {

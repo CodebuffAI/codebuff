@@ -37,7 +37,7 @@ export function createThinkerBestOfN(
     inputSchema: {
       prompt: {
         type: 'string',
-        description: 'The problem you are trying to solve',
+        description: 'The problem you are trying to solve, very briefly. No need to provide context, as the thinker agent can see the entire conversation history.',
       },
       params: {
         type: 'object',
@@ -45,7 +45,7 @@ export function createThinkerBestOfN(
           n: {
             type: 'number',
             description:
-              'Number of parallel thinker agents to spawn. Defaults to 5. Use fewer for simple questions and max of 10 for complex questions.',
+              'Number of parallel thinker agents to spawn. Defaults to 3. Use fewer for simple questions and max of 6 for complex questions.',
           },
         },
       },
@@ -70,7 +70,7 @@ function* handleStepsDefault({
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
   const selectorAgentType = 'thinker-selector'
-  const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 5))
+  const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 3))
 
   // Use GENERATE_N to generate n thinking outputs
   const { nResponses = [] } = yield {
@@ -155,7 +155,7 @@ function* handleStepsOpus({
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
   const selectorAgentType = 'thinker-selector-opus'
-  const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 5))
+  const n = Math.min(10, Math.max(1, (params?.n as number | undefined) ?? 3))
 
   // Use GENERATE_N to generate n thinking outputs
   const { nResponses = [] } = yield {
