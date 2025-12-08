@@ -11,7 +11,7 @@ const extractErrorMessage = (error: unknown, fallback: string): string => {
     return error
   }
   if (error instanceof Error && error.message) {
-    return error.message
+    return error.message + (error.stack ? `\n\n${error.stack}` : '')
   }
   if (error && typeof error === 'object' && 'message' in error) {
     const candidate = (error as any).message
@@ -39,7 +39,9 @@ export const isOutOfCreditsError = (error: unknown): boolean => {
   return false
 }
 
-export const createPaymentErrorMessage = (error: unknown): {
+export const createPaymentErrorMessage = (
+  error: unknown,
+): {
   message: string
   showUsageBanner: boolean
 } => {

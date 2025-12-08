@@ -53,12 +53,8 @@ export const prepareUserMessage = async (params: {
   bashContextForPrompt: string
 }> => {
   const { content, agentMode, postUserMessage, attachedImages, deps } = params
-  const {
-    setMessages,
-    lastMessageMode,
-    setLastMessageMode,
-    scrollToLatest,
-  } = deps
+  const { setMessages, lastMessageMode, setLastMessageMode, scrollToLatest } =
+    deps
 
   const { pendingBashMessages, clearPendingBashMessages } =
     useChatStore.getState()
@@ -228,7 +224,7 @@ export const handleRunCompletion = (params: {
       }
     } else {
       const partial = createErrorMessage(
-        output.message ?? 'No output from agent run',
+        'Output error: ' + (output.message ?? 'No output from agent run'),
         aiMessageId,
       )
       updater.setError(partial.content ?? '')
