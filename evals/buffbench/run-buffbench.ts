@@ -284,7 +284,10 @@ function installBinaries(binInstalls: EvalDataV2['binInstalls']): {
 }
 
 export async function runBuffBench(options: {
-  evalDataPath: string
+  /** Single eval data file path (backward compatibility) */
+  evalDataPath?: string
+  /** One or more eval data file paths */
+  evalDataPaths?: string[]
   agents: string[]
   taskConcurrency?: number
   client?: CodebuffClient
@@ -294,6 +297,7 @@ export async function runBuffBench(options: {
 }) {
   const {
     evalDataPath,
+    evalDataPaths,
     agents,
     taskConcurrency = 1,
     taskIds,
@@ -301,8 +305,26 @@ export async function runBuffBench(options: {
     disableAnalysis = false,
   } = options
 
+  const resolvedEvalDataPaths =
+    (evalDataPaths && evalDataPaths.length > 0
+      ? evalDataPaths
+      : evalDataPath
+        ? [evalDataPath]
+        : undefined) ?? []
+
+  if (resolvedEvalDataPaths.length === 0) {
+    throw new Error('runBuffBench: provide evalDataPaths (or evalDataPath).')
+  }
+  if (resolvedEvalDataPaths.length > 1) {
+    console.warn(
+      `runBuffBench: multiple evalDataPaths provided, using first: ${resolvedEvalDataPaths[0]}`,
+    )
+  }
+
+  const primaryEvalDataPath = resolvedEvalDataPaths[0]
+
   const evalData: EvalDataV2 = JSON.parse(
-    fs.readFileSync(evalDataPath, 'utf-8'),
+    fs.readFileSync(primaryEvalDataPath, 'utf-8'),
   )
 
   // Install binaries once at the beginning
@@ -512,7 +534,8 @@ export async function runBuffBench(options: {
   const finalResults = {
     metadata: {
       timestamp: new Date().toISOString(),
-      evalDataPath,
+      evalDataPath: primaryEvalDataPath,
+      evalDataPaths: resolvedEvalDataPaths,
       agentsTested: agents,
       commitsEvaluated: commitsToRun.length,
       totalCommitsInEval: evalData.evalCommits.length,

@@ -144,7 +144,7 @@ Example comparing Codebuff vs Claude Code:
 
 ```typescript
 await runBuffBench({
-  evalDataPath: 'evals/buffbench/eval-codebuff.json',
+  evalDataPaths: ['evals/buffbench/eval-codebuff.json'],
   agents: ['base2', 'external:claude'],
   taskConcurrency: 3,
 })
@@ -204,7 +204,7 @@ evals/buffbench/
 import { runBuffBench } from './run-buffbench'
 
 await runBuffBench({
-  evalDataPath: 'eval-codebuff.json',
+  evalDataPaths: ['eval-codebuff.json'],
   agents: ['base2', 'base2-fast'],
   taskConcurrency: 3,
 })
@@ -378,7 +378,7 @@ logs/YYYY-MM-DDTHH-MM_agent1_vs_agent2/
 {
   "metadata": {
     "timestamp": "2024-01-15T10:30:00.000Z",
-    "evalDataPath": "eval-codebuff.json",
+    "evalDataPaths": ["eval-codebuff.json"],
     "agentsTested": ["base2", "base2-fast"],
     "commitsEvaluated": 10,
     "logsDirectory": "logs/..."
