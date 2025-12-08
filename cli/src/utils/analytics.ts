@@ -3,6 +3,23 @@ import { PostHog } from 'posthog-node'
 
 import type { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
+export enum AnalyticsErrorStage {
+  Init = 'init',
+  Track = 'track',
+  Identify = 'identify',
+  Flush = 'flush',
+  CaptureException = 'captureException',
+}
+
+type AnalyticsErrorContext = {
+  stage: AnalyticsErrorStage
+} & Record<string, unknown>
+
+type AnalyticsErrorLogger = (
+  error: unknown,
+  context: AnalyticsErrorContext,
+) => void
+
 // Prints the events to console
 // It's very noisy, so recommended you set this to true
 // only when you're actively adding new analytics
@@ -13,18 +30,41 @@ let currentUserId: string | undefined
 let client: PostHog | undefined
 
 export let identified: boolean = false
+let analyticsErrorLogger: AnalyticsErrorLogger | undefined
+
+export function setAnalyticsErrorLogger(loggerFn: AnalyticsErrorLogger) {
+  analyticsErrorLogger = loggerFn
+}
+
+function logAnalyticsError(error: unknown, context: AnalyticsErrorContext) {
+  try {
+    analyticsErrorLogger?.(error, context)
+  } catch {
+    // Never throw from error reporting
+  }
+}
 
 export function initAnalytics() {
   if (!env.NEXT_PUBLIC_POSTHOG_API_KEY || !env.NEXT_PUBLIC_POSTHOG_HOST_URL) {
-    throw new Error(
+    const error = new Error(
       'NEXT_PUBLIC_POSTHOG_API_KEY or NEXT_PUBLIC_POSTHOG_HOST_URL is not set',
     )
+    logAnalyticsError(error, {
+      stage: AnalyticsErrorStage.Init,
+      missingEnv: true,
+    })
+    throw error
   }
 
-  client = new PostHog(env.NEXT_PUBLIC_POSTHOG_API_KEY, {
-    host: env.NEXT_PUBLIC_POSTHOG_HOST_URL,
-    enableExceptionAutocapture: env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod',
-  })
+  try {
+    client = new PostHog(env.NEXT_PUBLIC_POSTHOG_API_KEY, {
+      host: env.NEXT_PUBLIC_POSTHOG_HOST_URL,
+      enableExceptionAutocapture: env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod',
+    })
+  } catch (error) {
+    logAnalyticsError(error, { stage: AnalyticsErrorStage.Init })
+    throw error
+  }
 }
 
 export async function flushAnalytics() {
@@ -36,6 +76,7 @@ export async function flushAnalytics() {
   } catch (error) {
     // Silently handle PostHog network errors - don't log to console or logger
     // This prevents PostHog errors from cluttering the user's console
+    logAnalyticsError(error, { stage: AnalyticsErrorStage.Flush })
   }
 }
 
@@ -49,7 +90,13 @@ export function trackEvent(
   }
   if (!client) {
     if (env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod') {
-      throw new Error('Analytics client not initialized')
+      const error = new Error('Analytics client not initialized')
+      logAnalyticsError(error, {
+        stage: AnalyticsErrorStage.Track,
+        event,
+        properties,
+      })
+      throw error
     }
     return
   }
@@ -64,11 +111,19 @@ export function trackEvent(
     return
   }
 
-  client.capture({
-    distinctId,
-    event,
-    properties,
-  })
+  try {
+    client.capture({
+      distinctId,
+      event,
+      properties,
+    })
+  } catch (error) {
+    logAnalyticsError(error, {
+      stage: AnalyticsErrorStage.Track,
+      event,
+      properties,
+    })
+  }
 }
 
 export function identifyUser(userId: string, properties?: Record<string, any>) {
@@ -76,7 +131,12 @@ export function identifyUser(userId: string, properties?: Record<string, any>) {
   currentUserId = userId
 
   if (!client) {
-    throw new Error('Analytics client not initialized')
+    const error = new Error('Analytics client not initialized')
+    logAnalyticsError(error, {
+      stage: AnalyticsErrorStage.Identify,
+      properties,
+    })
+    throw error
   }
 
   if (env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
@@ -89,10 +149,17 @@ export function identifyUser(userId: string, properties?: Record<string, any>) {
     return
   }
 
-  client.identify({
-    distinctId: userId,
-    properties,
-  })
+  try {
+    client.identify({
+      distinctId: userId,
+      properties,
+    })
+  } catch (error) {
+    logAnalyticsError(error, {
+      stage: AnalyticsErrorStage.Identify,
+      properties,
+    })
+  }
 }
 
 export function logError(
@@ -113,5 +180,9 @@ export function logError(
   } catch (postHogError) {
     // Silently handle PostHog errors - don't log them to console
     // This prevents PostHog connection issues from cluttering the user's console
+    logAnalyticsError(postHogError, {
+      stage: AnalyticsErrorStage.CaptureException,
+      properties,
+    })
   }
 }

@@ -2,7 +2,9 @@ import fs, { appendFileSync } from 'fs'
 import path from 'path'
 import { format } from 'util'
 
+import { trackEvent } from '@codebuff/common/analytics'
 import { env } from '@codebuff/common/env'
+import { toTrackableAnalyticsPayload } from '@codebuff/common/util/analytics-log'
 import { splitData } from '@codebuff/common/util/split-data'
 import pino from 'pino'
 
@@ -102,8 +104,9 @@ function splitAndLog(
 // Also output to console via pinoLogger so logs remain visible in the terminal
 function logWithSync(level: LogLevel, data: any, msg?: string, ...args: any[]): void {
   const formattedMsg = format(msg ?? '', ...args)
-  
-  if (env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev') {
+  const isDevEnv = env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
+
+  if (isDevEnv) {
     // Write to file for real-time logging
     if (debugDir) {
       const logEntry = JSON.stringify({
@@ -121,6 +124,21 @@ function logWithSync(level: LogLevel, data: any, msg?: string, ...args: any[]): 
     // Also output to console for interactive debugging
     pinoLogger[level](data, msg, ...args)
   } else {
+    const analyticsPayload = toTrackableAnalyticsPayload({
+      data,
+      level,
+      msg: formattedMsg,
+    })
+
+    if (analyticsPayload) {
+      trackEvent({
+        event: analyticsPayload.event,
+        userId: analyticsPayload.userId,
+        properties: analyticsPayload.properties,
+        logger: logger as any,
+      })
+    }
+
     // In prod, use pino with splitAndLog for large payloads
     splitAndLog(level, data, msg, ...args)
   }
