@@ -234,7 +234,7 @@ async function relabelUsingFullFilesForUser(params: {
   promptContext: PromptContext
 }) {
   const { userId, limit, promptContext } = params
-  const tracesBundles = await getTracesAndAllDataForUser(userId)
+  const tracesBundles = await getTracesAndAllDataForUser(userId, limit)
 
   let relabeled = 0
   let didRelabel = false
