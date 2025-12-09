@@ -11,9 +11,19 @@ import { logger } from '@/util/logger'
 
 // Helper to construct backend URL
 function getBackendUrl() {
-  const backendUrl = env.NEXT_PUBLIC_CODEBUFF_BACKEND_URL || 'localhost:4242'
-  const protocol = backendUrl.startsWith('localhost') ? 'http://' : 'https://'
-  return `${protocol}${backendUrl}`
+  try {
+    const parsed = new URL(env.NEXT_PUBLIC_CODEBUFF_APP_URL)
+    // Avoid proxying to the same local instance to prevent recursion
+    if (
+      parsed.hostname === 'localhost' ||
+      parsed.hostname === '127.0.0.1'
+    ) {
+      return null
+    }
+    return parsed.origin
+  } catch {
+    return null
+  }
 }
 
 // Helper to forward request to backend
@@ -24,6 +34,9 @@ async function forwardToBackend(
   body?: any,
 ): Promise<Response> {
   const backendUrl = getBackendUrl()
+  if (!backendUrl) {
+    throw new Error('Admin relabel backend is not configured')
+  }
   const url = `${backendUrl}/api/admin/relabel-for-user?userId=${userId}`
 
   const headers: HeadersInit = {

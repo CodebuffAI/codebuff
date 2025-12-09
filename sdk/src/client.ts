@@ -1,4 +1,4 @@
-import { BACKEND_URL, WEBSITE_URL } from './constants'
+import { WEBSITE_URL } from './constants'
 import { run } from './run'
 import { API_KEY_ENV_VAR } from '../../common/src/old-constants'
 
