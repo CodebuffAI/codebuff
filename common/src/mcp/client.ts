@@ -111,8 +111,8 @@ export function listMCPTools(
 function getResourceData(
   resource: TextResourceContents | BlobResourceContents,
 ): string {
-  if ('text' in resource) return resource.text
-  if ('blob' in resource) return resource.blob
+  if ('text' in resource) return resource.text as string
+  if ('blob' in resource) return resource.blob as string
   return ''
 }
 
@@ -154,9 +154,12 @@ export async function callMCPTool(
         mediaType: c.resource.mimeType ?? 'text/plain',
       } satisfies ToolResultOutput
     }
+    const fallbackValue = 'uri' in c && typeof (c as { uri: unknown }).uri === 'string' 
+      ? (c as { uri: string }).uri 
+      : JSON.stringify(c)
     return {
       type: 'json',
-      value: c.uri,
+      value: fallbackValue,
     } satisfies ToolResultOutput
   })
 }
