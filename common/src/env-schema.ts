@@ -26,9 +26,10 @@ export type ClientEnv = z.infer<typeof clientEnvSchema>
 export const clientProcessEnv: ClientInput = {
   NEXT_PUBLIC_CB_ENVIRONMENT: process.env.NEXT_PUBLIC_CB_ENVIRONMENT ?? 'dev',
   NEXT_PUBLIC_CODEBUFF_APP_URL:
-    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL ?? 'http://localhost:3000',
+    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL ?? 'https://www.codebuff.com',
   NEXT_PUBLIC_CODEBUFF_BACKEND_URL:
-    process.env.NEXT_PUBLIC_CODEBUFF_BACKEND_URL ?? 'localhost:4242',
+    process.env.NEXT_PUBLIC_CODEBUFF_BACKEND_URL ??
+    'manicode-backend.onrender.com',
   NEXT_PUBLIC_SUPPORT_EMAIL:
     process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'support@codebuff.local',
   NEXT_PUBLIC_POSTHOG_API_KEY: process.env.NEXT_PUBLIC_POSTHOG_API_KEY ?? '',
