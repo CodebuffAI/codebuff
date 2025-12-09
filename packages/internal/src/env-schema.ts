@@ -6,10 +6,8 @@ export const serverEnvSchema = clientEnvSchema.extend({
   CODEBUFF_API_KEY: z.string().optional(),
   OPEN_ROUTER_API_KEY: z.string().min(1),
   OPENAI_API_KEY: z.string().min(1),
-  RELACE_API_KEY: z.string().min(1),
   LINKUP_API_KEY: z.string().min(1),
   CONTEXT7_API_KEY: z.string().optional(),
-  GOOGLE_CLOUD_PROJECT_ID: z.string().min(1),
   PORT: z.coerce.number().min(1000),
 
   // Web/Database variables
@@ -27,9 +25,6 @@ export const serverEnvSchema = clientEnvSchema.extend({
   DISCORD_PUBLIC_KEY: z.string().min(1),
   DISCORD_BOT_TOKEN: z.string().min(1),
   DISCORD_APPLICATION_ID: z.string().min(1),
-
-  // Common variables
-  API_KEY_ENCRYPTION_SECRET: z.string().length(32),
 })
 export const serverEnvVars = serverEnvSchema.keyof().options
 export type ServerEnvVar = (typeof serverEnvVars)[number]
@@ -46,10 +41,8 @@ export const serverProcessEnv: ServerInput = {
   CODEBUFF_API_KEY: process.env.CODEBUFF_API_KEY,
   OPEN_ROUTER_API_KEY: process.env.OPEN_ROUTER_API_KEY ?? 'test',
   OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? 'test',
-  RELACE_API_KEY: process.env.RELACE_API_KEY ?? 'test',
   LINKUP_API_KEY: process.env.LINKUP_API_KEY ?? 'test',
   CONTEXT7_API_KEY: process.env.CONTEXT7_API_KEY,
-  GOOGLE_CLOUD_PROJECT_ID: process.env.GOOGLE_CLOUD_PROJECT_ID ?? 'test-project',
   PORT: process.env.PORT ?? '4242',
 
   // Web/Database variables
@@ -67,8 +60,4 @@ export const serverProcessEnv: ServerInput = {
   DISCORD_PUBLIC_KEY: process.env.DISCORD_PUBLIC_KEY ?? 'test',
   DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN ?? 'test',
   DISCORD_APPLICATION_ID: process.env.DISCORD_APPLICATION_ID ?? 'test',
-
-  // Common variables
-  API_KEY_ENCRYPTION_SECRET:
-    process.env.API_KEY_ENCRYPTION_SECRET ?? '12345678901234567890123456789012',
 }

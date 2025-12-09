@@ -10,9 +10,7 @@ const ensureEnvDefault = (key: string, value: string) => {
 
 ensureEnvDefault('OPEN_ROUTER_API_KEY', 'test')
 ensureEnvDefault('OPENAI_API_KEY', 'test')
-ensureEnvDefault('RELACE_API_KEY', 'test')
 ensureEnvDefault('LINKUP_API_KEY', 'test')
-ensureEnvDefault('GOOGLE_CLOUD_PROJECT_ID', 'test-project')
 ensureEnvDefault('PORT', '4242')
 ensureEnvDefault('DATABASE_URL', 'postgres://user:pass@localhost:5432/db')
 ensureEnvDefault('CODEBUFF_GITHUB_ID', 'test-id')
@@ -26,7 +24,6 @@ ensureEnvDefault('LOOPS_API_KEY', 'test')
 ensureEnvDefault('DISCORD_PUBLIC_KEY', 'test')
 ensureEnvDefault('DISCORD_BOT_TOKEN', 'test')
 ensureEnvDefault('DISCORD_APPLICATION_ID', 'test')
-ensureEnvDefault('API_KEY_ENCRYPTION_SECRET', '12345678901234567890123456789012')
 
 
 // Only log environment in non-production
