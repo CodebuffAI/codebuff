@@ -89,6 +89,22 @@ base-lite "fix this bug"             # Works right away!
 - Force pushing is only acceptable on feature branches where you're the only contributor
 - If a push is rejected, use `git pull --rebase` to integrate remote changes first
 
+### Preserving Uncommitted Changes
+
+**NEVER use `git checkout HEAD --` or `git restore` on files to exclude them from a commit.** This destructively discards uncommitted work.
+
+When the user says "don't commit file X" or "exclude file X from the commit":
+- ✅ Only `git add` the specific files they DO want committed
+- ✅ Leave other files in their current state (staged or unstaged)
+- ❌ NEVER run `git checkout HEAD -- <file>` or `git restore <file>` - this permanently deletes uncommitted changes
+
+Correct approach for amending a commit with specific files:
+```bash
+# Only add the files to include
+git add path/to/file-to-include.ts
+git commit --amend --no-edit
+```
+
 ### Interactive Git Commands
 
 **Always use tmux when running interactive git commands** (e.g., `git rebase --continue`, `git add -p`, `git commit --amend`).
