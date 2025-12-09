@@ -16,6 +16,7 @@ export type ErrorObject = {
   name: string
   message: string
   stack?: string
+  rawError?: string
 }
 
 export function success<T>(value: T): Success<T> {
@@ -38,6 +39,7 @@ export function getErrorObject(error: any): ErrorObject {
       name: error.name,
       message: error.message,
       stack: error.stack,
+      rawError: JSON.stringify(error, null, 2),
     }
   }
 
