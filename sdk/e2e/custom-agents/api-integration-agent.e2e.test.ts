@@ -12,7 +12,6 @@ import {
   EventCollector,
   getApiKey,
   skipIfNoApiKey,
-  shouldSkipOutput,
   DEFAULT_TIMEOUT,
 } from '../utils'
 
@@ -112,8 +111,6 @@ Summarize the response data clearly.`,
         handleEvent: collector.handleEvent,
       })
 
-      if (shouldSkipOutput(result.output)) return
-
       expect(result.output.type).not.toBe('error')
 
       const toolCalls = collector.getEventsByType('tool_call')
@@ -138,8 +135,6 @@ Summarize the response data clearly.`,
         customToolDefinitions: [fetchTool],
         handleEvent: collector.handleEvent,
       })
-
-      if (shouldSkipOutput(result.output)) return
 
       // Should complete without crashing
       expect(collector.hasEventType('finish')).toBe(true)

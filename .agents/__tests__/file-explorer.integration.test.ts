@@ -7,17 +7,6 @@ import fileListerDefinition from '../file-explorer/file-lister'
 
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
-const shouldSkip = (output: { type: string; message?: string; errorCode?: string }) => {
-  if (output.type !== 'error') return false
-  const msg = output.message?.toLowerCase() ?? ''
-  return (
-    output.errorCode === 'NETWORK_ERROR' ||
-    msg.includes('network error') ||
-    msg.includes('authentication') ||
-    msg.includes('api key')
-  )
-}
-
 /**
  * Integration tests for agents that use the read_subtree tool.
  * These tests verify that the SDK properly initializes the session state
@@ -124,7 +113,6 @@ export interface User {
       })
 
       // The output should not be an error
-      if (shouldSkip(run.output)) return
       expect(run.output.type).not.toEqual('error')
 
       // Verify we got some output
@@ -189,7 +177,6 @@ export interface User {
         },
       })
 
-      if (shouldSkip(run.output)) return
       expect(run.output.type).not.toEqual('error')
 
       const outputStr =
@@ -244,7 +231,6 @@ export interface User {
         handleEvent: () => {},
       })
 
-      if (shouldSkip(run.output)) return
       expect(run.output.type).not.toEqual('error')
 
       const outputStr =

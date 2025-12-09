@@ -12,7 +12,6 @@ import {
   EventCollector,
   getApiKey,
   skipIfNoApiKey,
-  shouldSkipOutput,
   MOCK_DATABASE,
   DEFAULT_TIMEOUT,
 } from '../utils'
@@ -83,8 +82,6 @@ Always format query results in a readable way.`,
         handleEvent: collector.handleEvent,
       })
 
-      if (shouldSkipOutput(result.output)) return
-
       expect(result.output.type).not.toBe('error')
 
       const toolCalls = collector.getEventsByType('tool_call')
@@ -114,8 +111,6 @@ Always format query results in a readable way.`,
         customToolDefinitions: [sqlTool],
         handleEvent: collector.handleEvent,
       })
-
-      if (shouldSkipOutput(result.output)) return
 
       expect(result.output.type).not.toBe('error')
       expect(collector.hasEventType('finish')).toBe(true)

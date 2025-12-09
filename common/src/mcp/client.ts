@@ -6,7 +6,11 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import type { MCPConfig } from '../types/mcp'
 import type { ToolResultOutput } from '../types/messages/content-part'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
+import type {
+  BlobResourceContents,
+  CallToolResult,
+  TextResourceContents,
+} from '@modelcontextprotocol/sdk/types.js'
 
 const runningClients: Record<string, Client> = {}
 const listToolsCache: Record<
@@ -104,6 +108,14 @@ export function listMCPTools(
   return listToolsCache[clientId]
 }
 
+function getResourceData(
+  resource: TextResourceContents | BlobResourceContents,
+): string {
+  if ('text' in resource) return resource.text
+  if ('blob' in resource) return resource.blob
+  return ''
+}
+
 export async function callMCPTool(
   clientId: string,
   ...args: Parameters<typeof Client.prototype.callTool>
@@ -136,15 +148,9 @@ export async function callMCPTool(
       } satisfies ToolResultOutput
     }
     if (c.type === 'resource') {
-      const resourceData =
-        'text' in c.resource
-          ? c.resource.text
-          : 'blob' in c.resource
-            ? c.resource.blob
-            : undefined
       return {
         type: 'media',
-        data: resourceData ?? '',
+        data: getResourceData(c.resource),
         mediaType: c.resource.mimeType ?? 'text/plain',
       } satisfies ToolResultOutput
     }

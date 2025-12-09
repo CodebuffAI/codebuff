@@ -43,11 +43,3 @@ export function isNetworkError(output: {
   const msg = output.message?.toLowerCase() ?? ''
   return output.errorCode === 'NETWORK_ERROR' || msg.includes('network error')
 }
-
-export function shouldSkipOutput(output: {
-  type: string
-  message?: string
-  errorCode?: string
-}): boolean {
-  return isAuthError(output) || isNetworkError(output)
-}

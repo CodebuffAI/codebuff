@@ -12,7 +12,6 @@ import {
   EventCollector,
   getApiKey,
   skipIfNoApiKey,
-  shouldSkipOutput,
   MOCK_WEATHER_DATA,
   DEFAULT_TIMEOUT,
 } from '../utils'
@@ -75,8 +74,6 @@ Always report the temperature and conditions clearly.`,
         handleEvent: collector.handleEvent,
       })
 
-      if (shouldSkipOutput(result.output)) return
-
       expect(result.output.type).not.toBe('error')
 
       // Check that the tool was called
@@ -111,8 +108,6 @@ Always report the temperature and conditions clearly.`,
         customToolDefinitions: [weatherTool],
         handleEvent: collector.handleEvent,
       })
-
-      if (shouldSkipOutput(result.output)) return
 
       expect(result.output.type).not.toBe('error')
       expect(collector.hasEventType('finish')).toBe(true)

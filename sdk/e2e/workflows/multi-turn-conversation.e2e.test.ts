@@ -11,7 +11,6 @@ import {
   EventCollector,
   getApiKey,
   skipIfNoApiKey,
-  shouldSkipOutput,
   DEFAULT_AGENT,
   DEFAULT_TIMEOUT,
 } from '../utils'
@@ -39,8 +38,6 @@ describe('Workflows: Multi-Turn Conversation', () => {
         handleEvent: collector1.handleEvent,
       })
 
-      if (shouldSkipOutput(run1.output)) return
-
       expect(run1.output.type).not.toBe('error')
 
       // Second turn - reference previous context
@@ -50,8 +47,6 @@ describe('Workflows: Multi-Turn Conversation', () => {
         previousRun: run1,
         handleEvent: collector2.handleEvent,
       })
-
-      if (shouldSkipOutput(run2.output)) return
 
       expect(run2.output.type).not.toBe('error')
 
@@ -91,13 +86,6 @@ describe('Workflows: Multi-Turn Conversation', () => {
         handleEvent: collectors[2].handleEvent,
       })
 
-      if (
-        shouldSkipOutput(run1.output) ||
-        shouldSkipOutput(run2.output) ||
-        shouldSkipOutput(run3.output)
-      )
-        return
-
       expect(run3.output.type).not.toBe('error')
 
       const responseText = collectors[2].getFullText().toLowerCase()
@@ -120,16 +108,12 @@ describe('Workflows: Multi-Turn Conversation', () => {
         handleEvent: collector1.handleEvent,
       })
 
-      if (shouldSkipOutput(run1.output)) return
-
       const run2 = await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'Say "second"',
         previousRun: run1,
         handleEvent: collector2.handleEvent,
       })
-
-      if (shouldSkipOutput(run2.output)) return
 
       // Both should have their own start/finish
       expect(collector1.hasEventType('start')).toBe(true)

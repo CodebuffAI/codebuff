@@ -11,7 +11,6 @@ import {
   EventCollector,
   getApiKey,
   skipIfNoApiKey,
-  shouldSkipOutput,
   DEFAULT_AGENT,
   DEFAULT_TIMEOUT,
 } from '../utils'
@@ -38,8 +37,6 @@ describe('Features: Max Agent Steps', () => {
         handleEvent: collector.handleEvent,
       })
 
-      if (shouldSkipOutput(result.output)) return
-
       expect(result.output.type).not.toBe('error')
       expect(collector.hasEventType('finish')).toBe(true)
     },
@@ -59,8 +56,6 @@ describe('Features: Max Agent Steps', () => {
         maxAgentSteps: 2,
         handleEvent: collector.handleEvent,
       })
-
-      if (shouldSkipOutput(result.output)) return
 
       // Should still complete for simple prompts
       expect(collector.hasEventType('start')).toBe(true)

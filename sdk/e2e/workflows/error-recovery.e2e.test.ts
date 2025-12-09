@@ -11,7 +11,6 @@ import {
   EventCollector,
   getApiKey,
   skipIfNoApiKey,
-  shouldSkipOutput,
   DEFAULT_AGENT,
   DEFAULT_TIMEOUT,
 } from '../utils'
@@ -36,8 +35,6 @@ describe('Workflows: Error Recovery', () => {
         prompt: '',
         handleEvent: collector.handleEvent,
       })
-
-      if (shouldSkipOutput(result.output)) return
 
       // Should not crash, should have some response
       expect(collector.hasEventType('start')).toBe(true)
@@ -80,8 +77,6 @@ describe('Workflows: Error Recovery', () => {
         prompt: '🎉 Hello! "quotes" and `backticks` and \n newlines',
         handleEvent: collector.handleEvent,
       })
-
-      if (shouldSkipOutput(result.output)) return
 
       expect(result.output.type).not.toBe('error')
       expect(collector.hasEventType('finish')).toBe(true)

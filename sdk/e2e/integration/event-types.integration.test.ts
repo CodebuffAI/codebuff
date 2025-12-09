@@ -13,7 +13,6 @@ import {
   EventCollector,
   getApiKey,
   skipIfNoApiKey,
-  shouldSkipOutput,
   DEFAULT_AGENT,
   DEFAULT_TIMEOUT,
 } from '../utils'
@@ -39,9 +38,6 @@ describe('Integration: Event Types', () => {
         handleEvent: collector.handleEvent,
       })
 
-      // Skip if auth failed
-      if (shouldSkipOutput(result.output)) return
-
       const startEvents = collector.getEventsByType('start')
       expect(startEvents.length).toBeGreaterThanOrEqual(1)
 
@@ -64,9 +60,6 @@ describe('Integration: Event Types', () => {
         prompt: 'Say "hello"',
         handleEvent: collector.handleEvent,
       })
-
-      // Skip if auth failed
-      if (shouldSkipOutput(result.output)) return
 
       const finishEvents = collector.getEventsByType('finish')
       expect(finishEvents.length).toBeGreaterThanOrEqual(1)
@@ -92,8 +85,6 @@ describe('Integration: Event Types', () => {
         handleEvent: collector.handleEvent,
       })
 
-      if (shouldSkipOutput(result.output)) return
-
       const textEvents = collector.getEventsByType('text')
       expect(textEvents.length).toBeGreaterThan(0)
 
@@ -116,8 +107,6 @@ describe('Integration: Event Types', () => {
         handleEvent: collector.handleEvent,
         cwd: process.cwd(),
       })
-
-      if (shouldSkipOutput(result.output)) return
 
       // Check if any tool calls were made
       const toolCalls = collector.getEventsByType('tool_call')
@@ -156,8 +145,6 @@ describe('Integration: Event Types', () => {
         handleEvent: collector.handleEvent,
       })
 
-      if (shouldSkipOutput(result.output)) return
-
       // All events should have a type field
       for (const event of collector.events) {
         expect(event.type).toBeDefined()
@@ -183,8 +170,6 @@ describe('Integration: Event Types', () => {
         prompt: 'Say a greeting and explain what 2+2 equals',
         handleEvent: collector.handleEvent,
       })
-
-      if (shouldSkipOutput(result.output)) return
 
       const summary = collector.getSummary()
 

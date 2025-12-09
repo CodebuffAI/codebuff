@@ -14,7 +14,6 @@ import {
   EventCollector,
   getApiKey,
   skipIfNoApiKey,
-  shouldSkipOutput,
   DEFAULT_AGENT,
   DEFAULT_TIMEOUT,
 } from '../utils'
@@ -40,8 +39,6 @@ describe('Integration: Stream Chunks', () => {
         handleEvent: collector.handleEvent,
         handleStreamChunk: collector.handleStreamChunk,
       })
-
-      if (shouldSkipOutput(result.output)) return
 
       // Should receive string chunks
       const stringChunks = collector.streamChunks.filter(
@@ -77,8 +74,6 @@ describe('Integration: Stream Chunks', () => {
         handleStreamChunk: customChunkHandler,
       })
 
-      if (shouldSkipOutput(result.output)) return
-
       // Should have multiple chunks
       expect(chunkTimestamps.length).toBeGreaterThan(1)
 
@@ -105,8 +100,6 @@ describe('Integration: Stream Chunks', () => {
         handleEvent: collector.handleEvent,
         handleStreamChunk: collector.handleStreamChunk,
       })
-
-      if (shouldSkipOutput(result.output)) return
 
       const eventText = collector.getFullText()
       const streamText = collector.getFullStreamText()
@@ -136,8 +129,6 @@ describe('Integration: Stream Chunks', () => {
         handleStreamChunk: collector.handleStreamChunk,
       })
 
-      if (shouldSkipOutput(result.output)) return
-
       // Should still have start event at minimum
       expect(collector.hasEventType('start')).toBe(true)
     },
@@ -157,8 +148,6 @@ describe('Integration: Stream Chunks', () => {
         handleEvent: collector.handleEvent,
         handleStreamChunk: collector.handleStreamChunk,
       })
-
-      if (shouldSkipOutput(result.output)) return
 
       // Should have received multiple chunks for a longer response
       expect(collector.streamChunks.length).toBeGreaterThan(0)
@@ -183,8 +172,6 @@ describe('Integration: Stream Chunks', () => {
         handleEvent: collector.handleEvent,
         handleStreamChunk: collector.handleStreamChunk,
       })
-
-      if (shouldSkipOutput(result.output)) return
 
       const fullText = collector.getFullStreamText()
 
