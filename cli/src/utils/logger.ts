@@ -2,7 +2,7 @@ import { appendFileSync, existsSync, mkdirSync, unlinkSync } from 'fs'
 import path, { dirname } from 'path'
 import { format as stringFormat } from 'util'
 
-import { env } from '@codebuff/common/env'
+import { env, IS_DEV, IS_TEST, IS_CI } from '@codebuff/common/env'
 import { createAnalyticsDispatcher } from '@codebuff/common/util/analytics-dispatcher'
 import { pino } from 'pino'
 
@@ -101,16 +101,11 @@ function sendAnalyticsAndLog(
   msg?: string,
   ...args: any[]
 ): void {
-  const envName = env.NEXT_PUBLIC_CB_ENVIRONMENT
-  const isDevEnv = envName === 'dev'
-  const isTestEnv = envName === 'test'
-  const isCi = process.env.CODEBUFF_GITHUB_ACTIONS === 'true'
-
-  if (!isCi && !isTestEnv) {
+  if (!IS_CI && !IS_TEST) {
     const projectRoot = getProjectRoot()
 
     const logTarget =
-      isDevEnv
+      IS_DEV
         ? path.join(projectRoot, 'debug', 'cli.jsonl')
         : path.join(getCurrentChatDir(), 'log.jsonl')
 
@@ -131,7 +126,7 @@ function sendAnalyticsAndLog(
 
   logAsErrorIfNeeded(toTrack)
 
-  if (!isDevEnv && includeData && typeof normalizedData === 'object') {
+  if (!IS_DEV && includeData && typeof normalizedData === 'object') {
     const analyticsPayloads = analyticsDispatcher.process({
       data: normalizedData,
       level,
@@ -146,7 +141,7 @@ function sendAnalyticsAndLog(
 
   // In dev mode, use appendFileSync for real-time logging (Bun has issues with pino sync)
   // In prod mode, use pino for better performance
-  if (isDevEnv && logPath) {
+  if (IS_DEV && logPath) {
     const logEntry = JSON.stringify({
       level: level.toUpperCase(),
       timestamp: new Date().toISOString(),

@@ -1,4 +1,4 @@
-import { env } from '@codebuff/common/env'
+import { env, IS_PROD } from '@codebuff/common/env'
 import { PostHog } from 'posthog-node'
 
 import type { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
@@ -59,7 +59,7 @@ export function initAnalytics() {
   try {
     client = new PostHog(env.NEXT_PUBLIC_POSTHOG_API_KEY, {
       host: env.NEXT_PUBLIC_POSTHOG_HOST_URL,
-      enableExceptionAutocapture: env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod',
+      enableExceptionAutocapture: IS_PROD,
     })
   } catch (error) {
     logAnalyticsError(error, { stage: AnalyticsErrorStage.Init })
@@ -89,7 +89,7 @@ export function trackEvent(
     return
   }
   if (!client) {
-    if (env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod') {
+    if (IS_PROD) {
       const error = new Error('Analytics client not initialized')
       logAnalyticsError(error, {
         stage: AnalyticsErrorStage.Track,
@@ -101,7 +101,7 @@ export function trackEvent(
     return
   }
 
-  if (env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
+  if (!IS_PROD) {
     if (DEBUG_DEV_EVENTS) {
       console.log('Analytics event sent', {
         event,
@@ -139,7 +139,7 @@ export function identifyUser(userId: string, properties?: Record<string, any>) {
     throw error
   }
 
-  if (env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
+  if (!IS_PROD) {
     if (DEBUG_DEV_EVENTS) {
       console.log('Identify event sent', {
         userId,

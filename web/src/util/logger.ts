@@ -3,7 +3,7 @@ import path from 'path'
 import { format } from 'util'
 
 import { trackEvent } from '@codebuff/common/analytics'
-import { env } from '@codebuff/common/env'
+import { env, IS_DEV, IS_CI } from '@codebuff/common/env'
 import { createAnalyticsDispatcher } from '@codebuff/common/util/analytics-dispatcher'
 import { splitData } from '@codebuff/common/util/split-data'
 import pino from 'pino'
@@ -36,10 +36,7 @@ function getDebugDir(): string | null {
 }
 
 // Initialize debug directory in dev environment
-if (
-  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev' &&
-  process.env.CODEBUFF_GITHUB_ACTIONS !== 'true'
-) {
+if (IS_DEV && !IS_CI) {
   const dir = getDebugDir()
   if (dir) {
     try {
@@ -107,9 +104,7 @@ function splitAndLog(
 // Also output to console via pinoLogger so logs remain visible in the terminal
 function logWithSync(level: LogLevel, data: any, msg?: string, ...args: any[]): void {
   const formattedMsg = format(msg ?? '', ...args)
-  const isDevEnv = env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
-
-  if (isDevEnv) {
+  if (IS_DEV) {
     // Write to file for real-time logging
     if (debugDir) {
       const logEntry = JSON.stringify({

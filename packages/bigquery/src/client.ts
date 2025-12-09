@@ -1,4 +1,4 @@
-import { env } from '@codebuff/common/env'
+import { IS_PROD } from '@codebuff/common/env'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { BigQuery } from '@google-cloud/bigquery'
 
@@ -8,10 +8,7 @@ import type { BaseTrace, GetRelevantFilesTrace, Relabel, Trace } from './schema'
 import type { MessageRow } from '@codebuff/common/types/contracts/bigquery'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-const DATASET =
-  env.NEXT_PUBLIC_CB_ENVIRONMENT === 'prod'
-    ? 'codebuff_data'
-    : 'codebuff_data_dev'
+const DATASET = IS_PROD ? 'codebuff_data' : 'codebuff_data_dev'
 
 const TRACES_TABLE = 'traces'
 const RELABELS_TABLE = 'relabels'

@@ -1,6 +1,6 @@
 import { PostHog } from 'posthog-node'
 
-import { env } from '@codebuff/common/env'
+import { env, IS_PROD } from '@codebuff/common/env'
 
 import type { AnalyticsEvent } from './constants/analytics-events'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -46,7 +46,7 @@ export function trackEvent({
   properties?: Record<string, any>
   logger: Logger
 }) {
-  if (env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
+  if (!IS_PROD) {
     // Note (James): This log was too noisy. Reenable it as you need to test something.
     // logger.info({ payload: { event, properties } }, event)
     return

@@ -1,10 +1,8 @@
-import { env } from '@codebuff/common/env'
+import { env, IS_DEV, IS_TEST, IS_PROD } from '@codebuff/common/env'
+
+export { IS_DEV, IS_TEST, IS_PROD }
 
 export const CODEBUFF_BINARY = 'codebuff'
-
-export const IS_DEV = env.NEXT_PUBLIC_CB_ENVIRONMENT === 'dev'
-export const IS_TEST = env.NEXT_PUBLIC_CB_ENVIRONMENT === 'test'
-export const IS_PROD = !IS_DEV && !IS_TEST
 
 export const WEBSITE_URL = env.NEXT_PUBLIC_CODEBUFF_APP_URL
 
