@@ -41,7 +41,6 @@ import { runTerminalCommand } from './tools/run-terminal-command'
 
 import type { CustomToolDefinition } from './custom-tool'
 import type { RunState } from './run-state'
-import type { WebSocketHandler } from './websocket-client'
 import type { ServerAction } from '@codebuff/common/actions'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 import type {
@@ -918,7 +917,7 @@ async function handleToolCall({
   cwd?: string
   fs: CodebuffFileSystem
   env?: Record<string, string>
-}): ReturnType<WebSocketHandler['handleToolCall']> {
+}): Promise<{ output: ToolResultOutput[] }> {
   const toolName = action.toolName
   const input = action.input
 

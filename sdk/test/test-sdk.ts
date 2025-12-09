@@ -1,6 +1,5 @@
-import { getUserCredentials } from '@codebuff/npm-app/credentials'
-
 import { CodebuffClient } from '../src/client'
+import { getUserCredentials } from '../src/credentials'
 
 export async function testSdk() {
   const apiKey = getUserCredentials()?.authToken

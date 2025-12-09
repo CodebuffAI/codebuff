@@ -31,11 +31,9 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-code": "^2.0.56",
-    "@codebuff/backend": "workspace:*",
     "@codebuff/code-map": "workspace:*",
     "@codebuff/common": "workspace:*",
     "@codebuff/internal": "workspace:*",
-    "@codebuff/npm-app": "workspace:*",
     "@codebuff/sdk": "workspace:*",
     "@oclif/core": "^4.4.0",
     "@oclif/parser": "^3.8.17",

@@ -14,30 +14,6 @@
   ],
   "fileChangeHooks": [
     {
-      "name": "backend-unit-tests",
-      "command": "../scripts/run-tests-summary",
-      "cwd": "backend",
-      "filePattern": "backend/**/*.ts"
-    },
-    {
-      "name": "backend-typecheck",
-      "command": "bun run typecheck",
-      "cwd": "backend",
-      "filePattern": "backend/**/*.ts"
-    },
-    {
-      "name": "npm-app-unit-tests",
-      "command": "../scripts/run-tests-summary",
-      "cwd": "npm-app",
-      "filePattern": "npm-app/**/*.ts"
-    },
-    {
-      "name": "npm-typecheck",
-      "command": "bun run typecheck",
-      "cwd": "npm-app",
-      "filePattern": "npm-app/**/*.ts"
-    },
-    {
       "name": "web-typecheck",
       "command": "bun run typecheck",
       "cwd": "web",

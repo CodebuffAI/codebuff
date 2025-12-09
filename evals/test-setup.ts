@@ -3,11 +3,6 @@ import fs from 'fs'
 import path from 'path'
 
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import {
-  setProjectRoot,
-  setWorkingDirectory,
-} from '@codebuff/npm-app/project-files'
-import { recreateShell } from '@codebuff/npm-app/terminal/run-command'
 
 import {
   createFileReadingMock,
@@ -154,10 +149,8 @@ export async function setupTestEnvironment(projectName: string) {
   }
 
   const repoPath = path.join(TEST_REPOS_DIR, projectName)
-  setProjectRoot(repoPath)
   await createFileReadingMock(repoPath)
-  recreateShell(repoPath)
-  setWorkingDirectory(repoPath)
+  process.chdir(repoPath)
 
   // Return project info for use in tests
   return {

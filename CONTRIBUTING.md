@@ -69,7 +69,7 @@ Before you begin, you'll need to install a few tools:
 
    Now, you should be able to run the CLI and send commands, but it will error out because you don't have any credits.
 
-   **Note**: CLI requires both backend and web server running for authentication.
+   **Note**: CLI requires the web server running for authentication.
 
 6. **Giving yourself credits**:
 
@@ -123,9 +123,8 @@ In order to run the CLI from other directories, you need to first publish the ag
 
 Codebuff is organized as a monorepo with these main packages:
 
-- **backend/**: WebSocket server, LLM integration, agent orchestration
-- **npm-app/**: CLI application that users interact with
 - **web/**: Next.js web application and dashboard
+- **cli/**: CLI application that users interact with
 - **python-app/**: Python version of the CLI (experimental)
 - **common/**: Shared code, database schemas, utilities
 - **sdk/**: TypeScript SDK for programmatic usage
@@ -225,7 +224,7 @@ Build specialized agents in `.agents/` for different languages, frameworks, or w
 
 ### 🔧 **Tool System**
 
-Add new capabilities in `backend/src/tools.ts` - file operations, API integrations, development environment helpers. The sky's the limit!
+Add new capabilities in `common/src/tools` and the SDK helpers - file operations, API integrations, development environment helpers. The sky's the limit!
 
 ### 📦 **SDK Improvements**
 
@@ -233,7 +232,7 @@ Make the SDK in `sdk/` even more powerful with new methods, better TypeScript su
 
 ### 💻 **CLI Magic**
 
-Enhance the user experience in `npm-app/` with smoother commands, better error messages, or interactive features that make developers smile.
+Enhance the user experience in `cli/` with smoother commands, better error messages, or interactive features that make developers smile.
 
 ### 🌐 **Web Dashboard**
 

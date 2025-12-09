@@ -34,10 +34,6 @@ describe('processFileBlockModule', () => {
       },
     }))
 
-    // Mock message saving
-    await mockModule('@codebuff/backend/llm-apis/message-cost-tracker', () => ({
-      saveMessage: () => Promise.resolve(),
-    }))
   })
 
   afterAll(() => {

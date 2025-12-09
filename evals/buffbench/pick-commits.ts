@@ -5,7 +5,7 @@ import fs from 'fs'
 import path from 'path'
 
 import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
-import { promptAiSdkStructured } from '@codebuff/backend/llm-apis/vercel-ai-sdk/ai-sdk'
+import { promptAiSdkStructured } from '@codebuff/sdk/impl/llm'
 import { models } from '@codebuff/common/old-constants'
 import { userMessage } from '@codebuff/common/util/messages'
 import { mapLimit } from 'async'
