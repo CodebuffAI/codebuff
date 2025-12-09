@@ -2,6 +2,7 @@ import React from 'react'
 
 import { SimpleToolCallItem } from './tool-call-item'
 import { defineToolComponent } from './types'
+import { useTheme } from '../../hooks/use-theme'
 
 import type { ToolRenderConfig } from './types'
 
@@ -41,8 +42,20 @@ export const ListDirectoryComponent = defineToolComponent({
     // Format directory list
     const description = directories.join(', ')
 
+    // Use a wrapper component to access theme
+    const ListDirectoryContent = () => {
+      const theme = useTheme()
+      return (
+        <SimpleToolCallItem
+          name="List"
+          description={description}
+          descriptionColor={theme.directory}
+        />
+      )
+    }
+
     return {
-      content: <SimpleToolCallItem name="List" description={description} />,
+      content: <ListDirectoryContent />,
     }
   },
 })

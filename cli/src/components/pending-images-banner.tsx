@@ -66,7 +66,7 @@ export const PendingImagesBanner = () => {
         marginLeft: width.is('sm') ? 0 : 1,
         marginRight: width.is('sm') ? 0 : 1,
         borderStyle: 'single',
-        borderColor: theme.info,
+        borderColor: theme.imageCardBorder,
         paddingLeft: 1,
         paddingRight: 1,
         paddingTop: 0,
@@ -83,7 +83,7 @@ export const PendingImagesBanner = () => {
       ))}
 
       {/* Header */}
-      <text style={{ fg: theme.info }}>
+      <text style={{ fg: theme.imageCardBorder }}>
         📎{' '}
         {readyCount > 0 && `${pluralize(readyCount, 'image')} attached`}
         {readyCount > 0 && processingCount > 0 && ', '}

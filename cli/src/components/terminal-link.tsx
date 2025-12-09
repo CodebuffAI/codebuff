@@ -38,7 +38,7 @@ export const TerminalLink: React.FC<TerminalLinkProps> = ({
   const theme = useTheme()
 
   // Use theme colors as defaults if not provided
-  const linkColor = color ?? theme.info
+  const linkColor = color ?? theme.link
   const linkActiveColor = activeColor ?? theme.success
   const [isHovered, setIsHovered] = useState(false)
 

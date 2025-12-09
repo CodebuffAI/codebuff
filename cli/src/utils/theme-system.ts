@@ -769,6 +769,8 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     error: '#ef4444',
     warning: '#FFA500',
     info: '#9EFC62',
+    link: '#3B82F6',
+    directory: '#9CA3AF',
 
     // Neutral scale
     foreground: '#f1f5f9',
@@ -798,12 +800,15 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     modePlanBg: '#1e40af',
     modePlanText: '#1e40af',
 
+    // Image card
+    imageCardBorder: '#6B7280',
+
     // Markdown
     markdown: {
       // Dark mode: slightly darker gray for less brightness
       codeBackground: '#374151',
       codeHeaderFg: '#5b647a',
-      inlineCodeFg: '#9EFC62',
+      inlineCodeFg: '#FF8534',
       codeTextFg: '#f1f5f9',
       headingFg: {
         1: '#facc15',
@@ -829,6 +834,8 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     error: '#ef4444',
     warning: '#F59E0B',
     info: '#65A83E',
+    link: '#2563EB',
+    directory: '#6B7280',
 
     // Neutral scale
     foreground: '#111827',
@@ -858,12 +865,15 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
     modePlanBg: '#1e40af',
     modePlanText: '#1e40af',
 
+    // Image card
+    imageCardBorder: '#6B7280',
+
     // Markdown
     markdown: {
       // Light mode: lighter gray background so inline code feels airy
       codeBackground: '#f3f4f6',
       codeHeaderFg: '#6b7280',
-      inlineCodeFg: '#65A83E',
+      inlineCodeFg: '#C45A00',
       codeTextFg: '#111827',
       headingFg: {
         1: '#dc2626',
@@ -913,6 +923,7 @@ export const createMarkdownPalette = (theme: ChatTheme): MarkdownPalette => {
     dividerFg: theme.markdown?.dividerFg ?? theme.secondary,
     codeTextFg: theme.markdown?.codeTextFg ?? theme.foreground,
     codeMonochrome: theme.markdown?.codeMonochrome ?? true,
+    linkFg: theme.markdown?.linkFg ?? theme.link,
   }
 }
 

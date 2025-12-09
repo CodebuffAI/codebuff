@@ -1,5 +1,6 @@
 import { SimpleToolCallItem } from './tool-call-item'
 import { defineToolComponent } from './types'
+import { useTheme } from '../../hooks/use-theme'
 
 import type { ToolRenderConfig } from './types'
 
@@ -24,11 +25,20 @@ export const ReadSubtreeComponent = defineToolComponent({
 
     const finalPath = displayPath || '.'
 
-    // Render a single bullet line like the Read tool
+    // Use a wrapper component to access theme
+    const ReadSubtreeContent = () => {
+      const theme = useTheme()
+      return (
+        <SimpleToolCallItem
+          name="List deeply"
+          description={finalPath}
+          descriptionColor={theme.directory}
+        />
+      )
+    }
+
     return {
-      content: (
-        <SimpleToolCallItem name="List deeply" description={finalPath} />
-      ),
+      content: <ReadSubtreeContent />,
     }
   },
 })

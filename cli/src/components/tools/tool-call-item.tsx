@@ -124,11 +124,13 @@ const renderExpandedContent = (
 interface SimpleToolCallItemProps {
   name: string
   description: string
+  descriptionColor?: string
 }
 
 export const SimpleToolCallItem = ({
   name,
   description,
+  descriptionColor,
 }: SimpleToolCallItemProps) => {
   const theme = useTheme()
   const bulletChar = '• '
@@ -140,7 +142,7 @@ export const SimpleToolCallItem = ({
         <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
           {name}
         </span>
-        <span fg={theme.foreground}> {description}</span>
+        <span fg={descriptionColor ?? theme.foreground}> {description}</span>
       </text>
     </box>
   )

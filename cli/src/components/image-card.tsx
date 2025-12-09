@@ -98,7 +98,7 @@ export const ImageCard = ({
         style={{
           flexDirection: 'column',
           borderStyle: 'single',
-          borderColor: theme.info,
+          borderColor: theme.imageCardBorder,
           width: IMAGE_CARD_WIDTH,
           padding: 0,
         }}

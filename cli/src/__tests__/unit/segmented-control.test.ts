@@ -42,6 +42,12 @@ const theme: ChatTheme = {
   modeMaxText: '#d22',
   modePlanBg: '#14e',
   modePlanText: '#14e',
+  // Link
+  link: '#3B82F6',
+  // Directory
+  directory: '#9CA3AF',
+  // Image card
+  imageCardBorder: '#3B82F6',
   // Markdown
   markdown: {
     codeBackground: '#111',

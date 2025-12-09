@@ -51,6 +51,7 @@ export interface MarkdownPalette {
   dividerFg: string
   codeTextFg: string
   codeMonochrome: boolean
+  linkFg: string
 }
 
 export interface MarkdownRenderOptions {
@@ -76,6 +77,7 @@ const defaultPalette: MarkdownPalette = {
   dividerFg: '#666',
   codeTextFg: 'brightWhite',
   codeMonochrome: false,
+  linkFg: '#3B82F6',
 }
 
 const resolvePalette = (
@@ -617,6 +619,7 @@ const renderInlineCode = (
       key={nextKey()}
       fg={palette.inlineCodeFg}
       bg={palette.codeMonochrome ? undefined : palette.codeBackground}
+      attributes={TextAttributes.BOLD}
     >
       {` ${content} `}
     </span>,
@@ -633,7 +636,7 @@ const renderLink = (link: Link, state: RenderState): ReactNode[] => {
   const label = labelNodes.length > 0 ? labelNodes : [link.url]
 
   return [
-    <span key={nextKey()} fg={palette.inlineCodeFg}>
+    <span key={nextKey()} fg={palette.linkFg}>
       {wrapSegmentsInFragments(label, nextKey())}
     </span>,
   ]

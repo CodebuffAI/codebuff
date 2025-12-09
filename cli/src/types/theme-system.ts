@@ -16,6 +16,7 @@ export interface MarkdownThemeOverrides {
   blockquoteTextFg?: string
   dividerFg?: string
   codeMonochrome?: boolean
+  linkFg?: string
 }
 
 /**
@@ -45,8 +46,14 @@ export interface ChatTheme {
   /** Warning color - cautions, alerts, validation issues */
   warning: string
 
-  /** Info color - informational elements, links, hints */
+  /** Info color - informational elements, hints */
   info: string
+
+  /** Link color - hyperlinks, clickable references */
+  link: string
+
+  /** Directory color - folder/directory paths */
+  directory: string
 
   // ============================================================================
   // NEUTRAL SCALE
@@ -117,6 +124,13 @@ export interface ChatTheme {
 
   /** Plan mode toggle text */
   modePlanText: string
+
+  // ============================================================================
+  // IMAGE CARD
+  // ============================================================================
+
+  /** Image card border color */
+  imageCardBorder: string
 
   // ============================================================================
   // MARKDOWN

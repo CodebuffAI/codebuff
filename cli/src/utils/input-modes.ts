@@ -14,6 +14,8 @@ export type ThemeColorKey =
   | 'success'
   | 'info'
   | 'muted'
+  | 'imageCardBorder'
+  | 'link'
 
 export type InputModeConfig = {
   /** Prefix icon shown before input (e.g., "!" for bash) */
@@ -65,7 +67,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
   },
   image: {
     icon: '📎',
-    color: 'info',
+    color: 'imageCardBorder',
     placeholder: 'enter image path or Ctrl+V to paste',
     widthAdjustment: 3, // emoji width + padding
     showAgentModeToggle: false,
