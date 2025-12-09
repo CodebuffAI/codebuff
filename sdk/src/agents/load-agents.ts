@@ -2,25 +2,37 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { pathToFileURL } from 'url'
+import { build } from 'esbuild'
+import { createHash } from 'crypto'
+import { builtinModules } from 'module'
 
 export let loadedAgents: Record<string, any> = {}
 
-const getAllTsFiles = (dir: string): string[] => {
+const agentFileExtensions = new Set([
+  '.ts',
+  '.tsx',
+  '.js',
+  '.mjs',
+  '.cjs',
+])
+
+const getAllAgentFiles = (dir: string): string[] => {
   const files: string[] = []
   try {
     const entries = fs.readdirSync(dir, { withFileTypes: true })
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name)
       if (entry.isDirectory()) {
-        files.push(...getAllTsFiles(fullPath))
+        files.push(...getAllAgentFiles(fullPath))
         continue
       }
-      const isTsFile =
+      const extension = path.extname(entry.name).toLowerCase()
+      const isAgentFile =
         entry.isFile() &&
-        entry.name.endsWith('.ts') &&
+        agentFileExtensions.has(extension) &&
         !entry.name.endsWith('.d.ts') &&
         !entry.name.endsWith('.test.ts')
-      if (isTsFile) {
+      if (isAgentFile) {
         files.push(fullPath)
       }
     }
@@ -47,16 +59,18 @@ export async function loadLocalAgents({
   loadedAgents = {}
 
   const agentDirs = agentsPath ? [agentsPath] : getDefaultAgentDirs()
-  const allTsFiles = agentDirs.flatMap((dir) => getAllTsFiles(dir))
+  const allAgentFiles = agentDirs.flatMap((dir) => getAllAgentFiles(dir))
 
-  if (allTsFiles.length === 0) {
+  if (allAgentFiles.length === 0) {
     return loadedAgents
   }
 
-  for (const fullPath of allTsFiles) {
+  for (const fullPath of allAgentFiles) {
     try {
-      const moduleUrl = `${pathToFileURL(fullPath).href}?update=${Date.now()}`
-      const agentModule = await import(moduleUrl)
+      const agentModule = await importAgentModule(fullPath, verbose)
+      if (!agentModule) {
+        continue
+      }
       const agentDefinition = agentModule.default ?? agentModule
 
       if (!agentDefinition?.id || !agentDefinition?.model) {
@@ -86,4 +100,73 @@ export async function loadLocalAgents({
   }
 
   return loadedAgents
+}
+
+async function importAgentModule(
+  fullPath: string,
+  verbose: boolean,
+): Promise<any | null> {
+  const extension = path.extname(fullPath).toLowerCase()
+  const urlVersion = `?update=${Date.now()}`
+
+  if (extension === '.ts' || extension === '.tsx') {
+    const compiledPath = await transpileAgent(fullPath, verbose)
+    if (!compiledPath) {
+      return null
+    }
+    return import(`${pathToFileURL(compiledPath).href}${urlVersion}`)
+  }
+
+  return import(`${pathToFileURL(fullPath).href}${urlVersion}`)
+}
+
+async function transpileAgent(
+  fullPath: string,
+  verbose: boolean,
+): Promise<string | null> {
+  try {
+    const result = await build({
+      entryPoints: [fullPath],
+      bundle: true,
+      format: 'esm',
+      platform: 'node',
+      target: 'node18',
+      write: false,
+      logLevel: verbose ? 'info' : 'silent',
+      sourcemap: 'inline',
+      packages: 'external',
+      external: [
+        ...builtinModules,
+        ...builtinModules.map((mod) => `node:${mod}`),
+        '@codebuff/*',
+      ],
+    })
+
+    const jsOutput = result.outputFiles?.find((file) =>
+      file.path.endsWith('.js'),
+    )
+    if (!jsOutput?.text) {
+      if (verbose) {
+        console.error(`Failed to transpile agent (no output): ${fullPath}`)
+      }
+      return null
+    }
+
+    const hash = createHash('sha1').update(fullPath).digest('hex')
+    const tempDir = path.join(os.tmpdir(), 'codebuff-agents')
+    const compiledPath = path.join(tempDir, `${hash}.mjs`)
+
+    await fs.promises.mkdir(tempDir, { recursive: true })
+    await fs.promises.writeFile(compiledPath, jsOutput.text, 'utf8')
+
+    return compiledPath
+  } catch (error) {
+    if (verbose) {
+      console.error(
+        `Error transpiling agent ${fullPath}:`,
+        error instanceof Error ? error.message : error,
+      )
+    }
+    return null
+  }
 }

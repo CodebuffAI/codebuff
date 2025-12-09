@@ -68,3 +68,8 @@ export {
 export type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
 export { runTerminalCommand } from './tools/run-terminal-command'
+export {
+  promptAiSdk,
+  promptAiSdkStream,
+  promptAiSdkStructured,
+} from './impl/llm'
