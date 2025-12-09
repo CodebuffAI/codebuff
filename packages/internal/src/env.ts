@@ -9,8 +9,6 @@ const ensureEnvDefault = (key: string, value: string) => {
 }
 
 ensureEnvDefault('NEXT_PUBLIC_CB_ENVIRONMENT', 'dev')
-ensureEnvDefault('NEXT_PUBLIC_CODEBUFF_APP_URL', 'https://www.codebuff.com')
-ensureEnvDefault('NEXT_PUBLIC_CODEBUFF_BACKEND_URL', 'manicode-backend.onrender.com')
 ensureEnvDefault('NEXT_PUBLIC_SUPPORT_EMAIL', 'support@codebuff.local')
 ensureEnvDefault('NEXT_PUBLIC_POSTHOG_HOST_URL', 'http://localhost')
 ensureEnvDefault('NEXT_PUBLIC_POSTHOG_API_KEY', 'test-key')

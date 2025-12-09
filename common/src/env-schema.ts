@@ -24,12 +24,10 @@ export type ClientEnv = z.infer<typeof clientEnvSchema>
 
 // Bun will inject all these values, so we need to reference them individually (no for-loops)
 export const clientProcessEnv: ClientInput = {
-  NEXT_PUBLIC_CB_ENVIRONMENT: process.env.NEXT_PUBLIC_CB_ENVIRONMENT ?? 'dev',
-  NEXT_PUBLIC_CODEBUFF_APP_URL:
-    process.env.NEXT_PUBLIC_CODEBUFF_APP_URL ?? 'https://www.codebuff.com',
+  NEXT_PUBLIC_CB_ENVIRONMENT: process.env.NEXT_PUBLIC_CB_ENVIRONMENT,
+  NEXT_PUBLIC_CODEBUFF_APP_URL: process.env.NEXT_PUBLIC_CODEBUFF_APP_URL,
   NEXT_PUBLIC_CODEBUFF_BACKEND_URL:
-    process.env.NEXT_PUBLIC_CODEBUFF_BACKEND_URL ??
-    'manicode-backend.onrender.com',
+    process.env.NEXT_PUBLIC_CODEBUFF_BACKEND_URL,
   NEXT_PUBLIC_SUPPORT_EMAIL:
     process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'support@codebuff.local',
   NEXT_PUBLIC_POSTHOG_API_KEY: process.env.NEXT_PUBLIC_POSTHOG_API_KEY ?? '',
