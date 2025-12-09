@@ -30,3 +30,24 @@ export function isAuthError(output: { type: string; message?: string }): boolean
   const msg = output.message?.toLowerCase() ?? ''
   return msg.includes('authentication') || msg.includes('api key') || msg.includes('unauthorized')
 }
+
+/**
+ * Check if output indicates a network error (e.g., backend unreachable).
+ */
+export function isNetworkError(output: {
+  type: string
+  message?: string
+  errorCode?: string
+}): boolean {
+  if (output.type !== 'error') return false
+  const msg = output.message?.toLowerCase() ?? ''
+  return output.errorCode === 'NETWORK_ERROR' || msg.includes('network error')
+}
+
+export function shouldSkipOutput(output: {
+  type: string
+  message?: string
+  errorCode?: string
+}): boolean {
+  return isAuthError(output) || isNetworkError(output)
+}

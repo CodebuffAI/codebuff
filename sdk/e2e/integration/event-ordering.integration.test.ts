@@ -8,7 +8,14 @@
 import { describe, test, expect, beforeAll } from 'bun:test'
 
 import { CodebuffClient } from '../../src/client'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_AGENT, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  skipIfNoApiKey,
+  shouldSkipOutput,
+  DEFAULT_AGENT,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 describe('Integration: Event Ordering', () => {
   let client: CodebuffClient
@@ -31,7 +38,7 @@ describe('Integration: Event Ordering', () => {
         handleEvent: collector.handleEvent,
       })
 
-      if (isAuthError(result.output)) return
+      if (shouldSkipOutput(result.output)) return
 
       const startIndex = collector.events.findIndex((e) => e.type === 'start')
       expect(startIndex).toBe(0)
@@ -52,7 +59,7 @@ describe('Integration: Event Ordering', () => {
         handleEvent: collector.handleEvent,
       })
 
-      if (isAuthError(result.output)) return
+      if (shouldSkipOutput(result.output)) return
 
       const finishIndex = collector.events.findIndex((e) => e.type === 'finish')
       const lastTextIndex = collector.events
@@ -82,7 +89,7 @@ describe('Integration: Event Ordering', () => {
         cwd: process.cwd(),
       })
 
-      if (isAuthError(result.output)) return
+      if (shouldSkipOutput(result.output)) return
 
       const toolCalls = collector.getEventsByType('tool_call')
       const toolResults = collector.getEventsByType('tool_result')
@@ -114,7 +121,7 @@ describe('Integration: Event Ordering', () => {
         handleEvent: collector.handleEvent,
       })
 
-      if (isAuthError(result.output)) return
+      if (shouldSkipOutput(result.output)) return
 
       // Use collector's verifyEventOrder method
       const hasCorrectOrder = collector.verifyEventOrder(['start', 'finish'])
@@ -136,7 +143,7 @@ describe('Integration: Event Ordering', () => {
         handleEvent: collector.handleEvent,
       })
 
-      if (isAuthError(result.output)) return
+      if (shouldSkipOutput(result.output)) return
 
       // Find the last finish event
       const finishEvents = collector.getEventsByType('finish')
@@ -166,7 +173,7 @@ describe('Integration: Event Ordering', () => {
         handleEvent: collector1.handleEvent,
       })
 
-      if (isAuthError(result1.output)) return
+      if (shouldSkipOutput(result1.output)) return
 
       const result2 = await client.run({
         agent: DEFAULT_AGENT,
@@ -174,7 +181,7 @@ describe('Integration: Event Ordering', () => {
         handleEvent: collector2.handleEvent,
       })
 
-      if (isAuthError(result2.output)) return
+      if (shouldSkipOutput(result2.output)) return
 
       // Both should have correct ordering
       expect(collector1.verifyEventOrder(['start', 'finish'])).toBe(true)

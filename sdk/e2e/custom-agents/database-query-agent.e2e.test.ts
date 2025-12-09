@@ -8,7 +8,14 @@ import { describe, test, expect, beforeAll } from 'bun:test'
 import { z } from 'zod/v4'
 
 import { CodebuffClient, getCustomToolDefinition } from '../../src'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, MOCK_DATABASE, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  skipIfNoApiKey,
+  shouldSkipOutput,
+  MOCK_DATABASE,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 import type { AgentDefinition } from '../../src'
 
@@ -76,7 +83,7 @@ Always format query results in a readable way.`,
         handleEvent: collector.handleEvent,
       })
 
-      if (isAuthError(result.output)) return
+      if (shouldSkipOutput(result.output)) return
 
       expect(result.output.type).not.toBe('error')
 
@@ -108,7 +115,7 @@ Always format query results in a readable way.`,
         handleEvent: collector.handleEvent,
       })
 
-      if (isAuthError(result.output)) return
+      if (shouldSkipOutput(result.output)) return
 
       expect(result.output.type).not.toBe('error')
       expect(collector.hasEventType('finish')).toBe(true)

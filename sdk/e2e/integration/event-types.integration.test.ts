@@ -9,7 +9,14 @@
 import { describe, test, expect, beforeAll } from 'bun:test'
 
 import { CodebuffClient } from '../../src/client'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_AGENT, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  skipIfNoApiKey,
+  shouldSkipOutput,
+  DEFAULT_AGENT,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 describe('Integration: Event Types', () => {
   let client: CodebuffClient
@@ -33,7 +40,7 @@ describe('Integration: Event Types', () => {
       })
 
       // Skip if auth failed
-      if (isAuthError(result.output)) return
+      if (shouldSkipOutput(result.output)) return
 
       const startEvents = collector.getEventsByType('start')
       expect(startEvents.length).toBeGreaterThanOrEqual(1)
@@ -59,7 +66,7 @@ describe('Integration: Event Types', () => {
       })
 
       // Skip if auth failed
-      if (isAuthError(result.output)) return
+      if (shouldSkipOutput(result.output)) return
 
       const finishEvents = collector.getEventsByType('finish')
       expect(finishEvents.length).toBeGreaterThanOrEqual(1)
@@ -85,7 +92,7 @@ describe('Integration: Event Types', () => {
         handleEvent: collector.handleEvent,
       })
 
-      if (isAuthError(result.output)) return
+      if (shouldSkipOutput(result.output)) return
 
       const textEvents = collector.getEventsByType('text')
       expect(textEvents.length).toBeGreaterThan(0)
@@ -110,7 +117,7 @@ describe('Integration: Event Types', () => {
         cwd: process.cwd(),
       })
 
-      if (isAuthError(result.output)) return
+      if (shouldSkipOutput(result.output)) return
 
       // Check if any tool calls were made
       const toolCalls = collector.getEventsByType('tool_call')
@@ -149,7 +156,7 @@ describe('Integration: Event Types', () => {
         handleEvent: collector.handleEvent,
       })
 
-      if (isAuthError(result.output)) return
+      if (shouldSkipOutput(result.output)) return
 
       // All events should have a type field
       for (const event of collector.events) {
@@ -177,7 +184,7 @@ describe('Integration: Event Types', () => {
         handleEvent: collector.handleEvent,
       })
 
-      if (isAuthError(result.output)) return
+      if (shouldSkipOutput(result.output)) return
 
       const summary = collector.getSummary()
 

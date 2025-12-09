@@ -8,7 +8,20 @@
 import { describe, test, expect, beforeAll } from 'bun:test'
 
 import { CodebuffClient } from '../../src/client'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_AGENT, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  skipIfNoApiKey,
+  isAuthError,
+  DEFAULT_AGENT,
+  DEFAULT_TIMEOUT,
+} from '../utils'
+
+const isNetworkError = (output: { type: string; message?: string; errorCode?: string }) => {
+  if (output.type !== 'error') return false
+  const msg = output.message?.toLowerCase() ?? ''
+  return output.errorCode === 'NETWORK_ERROR' || msg.includes('network error')
+}
 
 describe('Streaming: Concurrent Streams', () => {
   let client: CodebuffClient
@@ -43,7 +56,13 @@ describe('Streaming: Concurrent Streams', () => {
       ])
 
       // Skip if auth failed
-      if (isAuthError(result1.output) || isAuthError(result2.output)) return
+      if (
+        isAuthError(result1.output) ||
+        isAuthError(result2.output) ||
+        isNetworkError(result1.output) ||
+        isNetworkError(result2.output)
+      )
+        return
 
       // Both should complete successfully
       expect(result1.output.type).not.toBe('error')
@@ -83,7 +102,8 @@ describe('Streaming: Concurrent Streams', () => {
       )
 
       // Skip if any auth failed
-      if (results.some((r) => isAuthError(r.output))) return
+      if (results.some((r) => isAuthError(r.output) || isNetworkError(r.output)))
+        return
 
       // All should complete
       for (let i = 0; i < results.length; i++) {
@@ -146,7 +166,7 @@ describe('Streaming: Concurrent Streams', () => {
           handleStreamChunk: collector.handleStreamChunk,
         })
 
-        if (isAuthError(result.output)) return
+        if (isAuthError(result.output) || isNetworkError(result.output)) return
       }
 
       // Each should have completed with its own events

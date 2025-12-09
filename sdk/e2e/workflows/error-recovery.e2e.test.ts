@@ -7,7 +7,14 @@
 import { describe, test, expect, beforeAll } from 'bun:test'
 
 import { CodebuffClient } from '../../src/client'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_AGENT, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  skipIfNoApiKey,
+  shouldSkipOutput,
+  DEFAULT_AGENT,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 describe('Workflows: Error Recovery', () => {
   let client: CodebuffClient
@@ -30,7 +37,7 @@ describe('Workflows: Error Recovery', () => {
         handleEvent: collector.handleEvent,
       })
 
-      if (isAuthError(result.output)) return
+      if (shouldSkipOutput(result.output)) return
 
       // Should not crash, should have some response
       expect(collector.hasEventType('start')).toBe(true)
@@ -74,7 +81,7 @@ describe('Workflows: Error Recovery', () => {
         handleEvent: collector.handleEvent,
       })
 
-      if (isAuthError(result.output)) return
+      if (shouldSkipOutput(result.output)) return
 
       expect(result.output.type).not.toBe('error')
       expect(collector.hasEventType('finish')).toBe(true)

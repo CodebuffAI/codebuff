@@ -8,7 +8,13 @@ import { describe, test, expect, beforeAll } from 'bun:test'
 import { z } from 'zod/v4'
 
 import { CodebuffClient, getCustomToolDefinition } from '../../src'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  skipIfNoApiKey,
+  shouldSkipOutput,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 import type { AgentDefinition } from '../../src'
 
@@ -106,7 +112,7 @@ Summarize the response data clearly.`,
         handleEvent: collector.handleEvent,
       })
 
-      if (isAuthError(result.output)) return
+      if (shouldSkipOutput(result.output)) return
 
       expect(result.output.type).not.toBe('error')
 
@@ -133,7 +139,7 @@ Summarize the response data clearly.`,
         handleEvent: collector.handleEvent,
       })
 
-      if (isAuthError(result.output)) return
+      if (shouldSkipOutput(result.output)) return
 
       // Should complete without crashing
       expect(collector.hasEventType('finish')).toBe(true)

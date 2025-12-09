@@ -8,12 +8,6 @@ const ensureEnvDefault = (key: string, value: string) => {
   }
 }
 
-ensureEnvDefault('NEXT_PUBLIC_CB_ENVIRONMENT', 'dev')
-ensureEnvDefault('NEXT_PUBLIC_SUPPORT_EMAIL', 'support@codebuff.local')
-ensureEnvDefault('NEXT_PUBLIC_POSTHOG_HOST_URL', 'http://localhost')
-ensureEnvDefault('NEXT_PUBLIC_POSTHOG_API_KEY', 'test-key')
-ensureEnvDefault('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', 'pk_test_dummy')
-ensureEnvDefault('NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL', 'http://localhost/portal')
 ensureEnvDefault('OPEN_ROUTER_API_KEY', 'test')
 ensureEnvDefault('OPENAI_API_KEY', 'test')
 ensureEnvDefault('RELACE_API_KEY', 'test')

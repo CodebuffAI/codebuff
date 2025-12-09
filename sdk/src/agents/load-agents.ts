@@ -30,10 +30,12 @@ const getAllTsFiles = (dir: string): string[] => {
   return files
 }
 
-const getDefaultAgentDirs = () => [
-  path.join(process.cwd(), '.agents'),
-  path.join(os.homedir(), '.agents'),
-]
+const getDefaultAgentDirs = () => {
+  const cwdAgents = path.join(process.cwd(), '.agents')
+  const parentAgents = path.join(process.cwd(), '..', '.agents')
+  const homeAgents = path.join(os.homedir(), '.agents')
+  return [cwdAgents, parentAgents, homeAgents]
+}
 
 export async function loadLocalAgents({
   agentsPath,

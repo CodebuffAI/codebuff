@@ -11,6 +11,7 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
 
+import { loadLocalAgents } from './agents/load-agents'
 import type { CustomToolDefinition } from './custom-tool'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -367,7 +368,12 @@ export async function initialSessionState(
     knowledgeFiles = projectFiles ? deriveKnowledgeFiles(projectFiles) : {}
   }
 
-  const processedAgentTemplates = processAgentDefinitions(agentDefinitions)
+  let processedAgentTemplates: Record<string, any> = {}
+  if (agentDefinitions && agentDefinitions.length > 0) {
+    processedAgentTemplates = processAgentDefinitions(agentDefinitions)
+  } else {
+    processedAgentTemplates = await loadLocalAgents({ verbose: false })
+  }
   const processedCustomToolDefinitions = processCustomToolDefinitions(
     customToolDefinitions,
   )

@@ -11,7 +11,7 @@ import {
   EventCollector,
   getApiKey,
   skipIfNoApiKey,
-  isAuthError,
+  shouldSkipOutput,
   SAMPLE_PROJECT_FILES,
   DEFAULT_AGENT,
   DEFAULT_TIMEOUT,
@@ -39,7 +39,7 @@ describe('Features: Project Files', () => {
         handleEvent: collector.handleEvent,
       })
 
-      if (isAuthError(result.output)) return
+      if (shouldSkipOutput(result.output)) return
 
       expect(result.output.type).not.toBe('error')
 
@@ -69,7 +69,7 @@ describe('Features: Project Files', () => {
         handleEvent: collector.handleEvent,
       })
 
-      if (isAuthError(result.output)) return
+      if (shouldSkipOutput(result.output)) return
 
       expect(result.output.type).not.toBe('error')
 

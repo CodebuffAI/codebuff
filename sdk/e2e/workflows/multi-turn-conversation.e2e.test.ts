@@ -7,7 +7,14 @@
 import { describe, test, expect, beforeAll } from 'bun:test'
 
 import { CodebuffClient } from '../../src/client'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_AGENT, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  skipIfNoApiKey,
+  shouldSkipOutput,
+  DEFAULT_AGENT,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 describe('Workflows: Multi-Turn Conversation', () => {
   let client: CodebuffClient
@@ -32,7 +39,7 @@ describe('Workflows: Multi-Turn Conversation', () => {
         handleEvent: collector1.handleEvent,
       })
 
-      if (isAuthError(run1.output)) return
+      if (shouldSkipOutput(run1.output)) return
 
       expect(run1.output.type).not.toBe('error')
 
@@ -44,7 +51,7 @@ describe('Workflows: Multi-Turn Conversation', () => {
         handleEvent: collector2.handleEvent,
       })
 
-      if (isAuthError(run2.output)) return
+      if (shouldSkipOutput(run2.output)) return
 
       expect(run2.output.type).not.toBe('error')
 
@@ -84,7 +91,12 @@ describe('Workflows: Multi-Turn Conversation', () => {
         handleEvent: collectors[2].handleEvent,
       })
 
-      if (isAuthError(run1.output) || isAuthError(run2.output) || isAuthError(run3.output)) return
+      if (
+        shouldSkipOutput(run1.output) ||
+        shouldSkipOutput(run2.output) ||
+        shouldSkipOutput(run3.output)
+      )
+        return
 
       expect(run3.output.type).not.toBe('error')
 
@@ -108,7 +120,7 @@ describe('Workflows: Multi-Turn Conversation', () => {
         handleEvent: collector1.handleEvent,
       })
 
-      if (isAuthError(run1.output)) return
+      if (shouldSkipOutput(run1.output)) return
 
       const run2 = await client.run({
         agent: DEFAULT_AGENT,
@@ -117,7 +129,7 @@ describe('Workflows: Multi-Turn Conversation', () => {
         handleEvent: collector2.handleEvent,
       })
 
-      if (isAuthError(run2.output)) return
+      if (shouldSkipOutput(run2.output)) return
 
       // Both should have their own start/finish
       expect(collector1.hasEventType('start')).toBe(true)

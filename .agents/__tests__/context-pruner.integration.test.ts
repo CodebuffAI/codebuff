@@ -11,6 +11,17 @@ import {
   type JSONValue,
 } from '@codebuff/sdk'
 
+const shouldSkip = (output: { type: string; message?: string; errorCode?: string }) => {
+  if (output.type !== 'error') return false
+  const msg = output.message?.toLowerCase() ?? ''
+  return (
+    output.errorCode === 'NETWORK_ERROR' ||
+    msg.includes('network error') ||
+    msg.includes('authentication') ||
+    msg.includes('api key')
+  )
+}
+
 /**
  * Integration tests for the context-pruner agent.
  * These tests verify that context-pruner correctly prunes message history
@@ -146,6 +157,7 @@ Do not do anything else. Just spawn context-pruner and then report the result.`,
       if (run.output.type === 'error') {
         console.error('Test 1 Error:', JSON.stringify(run.output, null, 2))
       }
+      if (shouldSkip(run.output)) return
       expect(run.output.type).not.toEqual('error')
 
       // Get the final message history from session state
@@ -274,6 +286,7 @@ Do not do anything else. Just spawn context-pruner and then report the result.`,
       if (run.output.type === 'error') {
         console.error('Test 2 Error:', JSON.stringify(run.output, null, 2))
       }
+      if (shouldSkip(run.output)) return
       expect(run.output.type).not.toEqual('error')
 
       // Get final messages and verify tool pairs are intact
