@@ -77,9 +77,7 @@ Try to select the thinking output that best answers the user's problem.
 
 ## Response Format
 
-Use <think> tags to briefly consider the thinking outputs as needed to pick the best one.
-
-If the best one is obvious or the outputs are very similar, you may not need to think very much (a few words suffice) or you may not need to use think tags at all, just pick the best one and output it. You have a dual goal of picking the best thinking and being fast (using as few words as possible).
+Use <think> tags to consider the thinking outputs as needed to pick the best one.
 
 Then, do not write any other explanations AT ALL. You should directly output a single tool call to set_output with the selected thoughtId.`,
   }
