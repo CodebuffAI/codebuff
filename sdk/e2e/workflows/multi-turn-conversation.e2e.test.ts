@@ -61,7 +61,11 @@ describe('Workflows: Multi-Turn Conversation', () => {
     async () => {
       if (skipIfNoApiKey()) return
 
-      const collectors = [new EventCollector(), new EventCollector(), new EventCollector()]
+      const collectors = [
+        new EventCollector(),
+        new EventCollector(),
+        new EventCollector(),
+      ]
 
       // Turn 1
       const run1 = await client.run({
@@ -89,7 +93,9 @@ describe('Workflows: Multi-Turn Conversation', () => {
       expect(run3.output.type).not.toBe('error')
 
       const responseText = collectors[2].getFullText().toLowerCase()
-      expect(responseText.includes('todo') || responseText.includes('task')).toBe(true)
+      expect(
+        responseText.includes('todo') || responseText.includes('task'),
+      ).toBe(true)
     },
     DEFAULT_TIMEOUT * 3,
   )
@@ -108,7 +114,7 @@ describe('Workflows: Multi-Turn Conversation', () => {
         handleEvent: collector1.handleEvent,
       })
 
-      const run2 = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'Say "second"',
         previousRun: run1,

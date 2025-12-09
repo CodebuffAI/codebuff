@@ -34,7 +34,6 @@ describe.skip('rewriteWithOpenAI', () => {
         }
       },
     }))
-
   })
 
   beforeEach(() => {

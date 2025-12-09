@@ -33,7 +33,6 @@ describe('processFileBlockModule', () => {
         }
       },
     }))
-
   })
 
   afterAll(() => {

@@ -39,7 +39,10 @@ Always report the temperature and conditions clearly.`,
     }),
     exampleInputs: [{ city: 'New York' }],
     execute: async ({ city }) => {
-      const weather = MOCK_WEATHER_DATA[city] || { temp: 65, condition: 'Unknown' }
+      const weather = MOCK_WEATHER_DATA[city] || {
+        temp: 65,
+        condition: 'Unknown',
+      }
       return [
         {
           type: 'json' as const,

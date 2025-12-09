@@ -51,14 +51,29 @@ Always format query results in a readable way.`,
           if (idMatch) {
             const id = parseInt(idMatch[1])
             const filtered = users.filter((u) => u.id === id)
-            return [{ type: 'json' as const, value: { rows: filtered, rowCount: filtered.length } }]
+            return [
+              {
+                type: 'json' as const,
+                value: { rows: filtered, rowCount: filtered.length },
+              },
+            ]
           }
         }
 
-        return [{ type: 'json' as const, value: { rows: users, rowCount: users.length } }]
+        return [
+          {
+            type: 'json' as const,
+            value: { rows: users, rowCount: users.length },
+          },
+        ]
       }
 
-      return [{ type: 'json' as const, value: { error: 'Query not supported', rows: [], rowCount: 0 } }]
+      return [
+        {
+          type: 'json' as const,
+          value: { error: 'Query not supported', rows: [], rowCount: 0 },
+        },
+      ]
     },
   })
 

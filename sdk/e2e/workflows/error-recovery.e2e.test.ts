@@ -30,7 +30,7 @@ describe('Workflows: Error Recovery', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: '',
         handleEvent: collector.handleEvent,

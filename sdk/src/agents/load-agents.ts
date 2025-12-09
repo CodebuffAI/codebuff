@@ -1,20 +1,15 @@
+import { createHash } from 'crypto'
 import fs from 'fs'
+import { builtinModules } from 'module'
 import os from 'os'
 import path from 'path'
 import { pathToFileURL } from 'url'
+
 import { build } from 'esbuild'
-import { createHash } from 'crypto'
-import { builtinModules } from 'module'
 
 export let loadedAgents: Record<string, any> = {}
 
-const agentFileExtensions = new Set([
-  '.ts',
-  '.tsx',
-  '.js',
-  '.mjs',
-  '.cjs',
-])
+const agentFileExtensions = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs'])
 
 const getAllAgentFiles = (dir: string): string[] => {
   const files: string[] = []

@@ -1,15 +1,17 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { createTwoFilesPatch } from 'diff'
 
+import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import {
-  AgentDefinition,
   CodebuffClient,
   getUserCredentials,
   loadLocalAgents,
 } from '@codebuff/sdk'
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
+import { createTwoFilesPatch } from 'diff'
+
 import { withTestRepo } from './test-repo-utils'
+
+import type { AgentDefinition } from '@codebuff/sdk'
 
 export const evalPlannerAgent = async (params: {
   client: CodebuffClient

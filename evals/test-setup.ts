@@ -24,7 +24,7 @@ export const SWE_BENCH_PYTHON_PATH = path.join(
 // Mock required environment variables for tests
 export function setupTestEnvironmentVariables() {
   // Set up mock environment variables needed for tests
-    // Add other required environment variables as needed
+  // Add other required environment variables as needed
 }
 
 // Patch the run_docker.py script to add git config command

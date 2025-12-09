@@ -31,7 +31,7 @@ describe('Integration: Event Ordering', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'Say hello',
         handleEvent: collector.handleEvent,
@@ -50,7 +50,7 @@ describe('Integration: Event Ordering', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'Write a haiku about TypeScript',
         handleEvent: collector.handleEvent,
@@ -77,7 +77,7 @@ describe('Integration: Event Ordering', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'List files in the current directory',
         handleEvent: collector.handleEvent,
@@ -90,7 +90,9 @@ describe('Integration: Event Ordering', () => {
       // For each tool call, verify its result comes after
       for (const call of toolCalls) {
         const callIndex = collector.events.indexOf(call)
-        const matchingResult = toolResults.find((r) => r.toolCallId === call.toolCallId)
+        const matchingResult = toolResults.find(
+          (r) => r.toolCallId === call.toolCallId,
+        )
 
         if (matchingResult) {
           const resultIndex = collector.events.indexOf(matchingResult)
@@ -108,7 +110,7 @@ describe('Integration: Event Ordering', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'Say "test" and nothing else',
         handleEvent: collector.handleEvent,
@@ -128,7 +130,7 @@ describe('Integration: Event Ordering', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'Say goodbye',
         handleEvent: collector.handleEvent,
@@ -137,11 +139,15 @@ describe('Integration: Event Ordering', () => {
       // Find the last finish event
       const finishEvents = collector.getEventsByType('finish')
       if (finishEvents.length > 0) {
-        const lastFinishIndex = collector.events.lastIndexOf(finishEvents[finishEvents.length - 1])
+        const lastFinishIndex = collector.events.lastIndexOf(
+          finishEvents[finishEvents.length - 1],
+        )
 
         // No non-finish events should come after the last finish
         const eventsAfterFinish = collector.events.slice(lastFinishIndex + 1)
-        const nonFinishAfter = eventsAfterFinish.filter((e) => e.type !== 'finish')
+        const nonFinishAfter = eventsAfterFinish.filter(
+          (e) => e.type !== 'finish',
+        )
         expect(nonFinishAfter.length).toBe(0)
       }
     },
@@ -156,13 +162,13 @@ describe('Integration: Event Ordering', () => {
       const collector1 = new EventCollector()
       const collector2 = new EventCollector()
 
-      const result1 = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'Say "first"',
         handleEvent: collector1.handleEvent,
       })
 
-      const result2 = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'Say "second"',
         handleEvent: collector2.handleEvent,

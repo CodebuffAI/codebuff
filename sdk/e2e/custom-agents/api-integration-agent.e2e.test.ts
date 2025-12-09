@@ -128,9 +128,10 @@ Summarize the response data clearly.`,
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: 'api-agent',
-        prompt: 'Try to fetch data from https://nonexistent-domain-12345.invalid/api',
+        prompt:
+          'Try to fetch data from https://nonexistent-domain-12345.invalid/api',
         agentDefinitions: [apiAgent],
         customToolDefinitions: [fetchTool],
         handleEvent: collector.handleEvent,

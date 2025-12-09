@@ -70,7 +70,11 @@ describe('Streaming: Concurrent Streams', () => {
     async () => {
       if (skipIfNoApiKey()) return
 
-      const collectors = [new EventCollector(), new EventCollector(), new EventCollector()]
+      const collectors = [
+        new EventCollector(),
+        new EventCollector(),
+        new EventCollector(),
+      ]
 
       const prompts = ['Count to 3', 'Name 3 colors', 'List 3 fruits']
 

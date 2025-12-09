@@ -23,11 +23,12 @@ import { env } from '@codebuff/internal/env'
 import { promptAiSdk } from '@codebuff/sdk'
 import { NextResponse } from 'next/server'
 
+import { checkAdminAuth } from '../../../../lib/admin-auth'
+import { logger } from '../../../../util/logger'
+
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { NextRequest } from 'next/server'
 
-import { checkAdminAuth } from '@/lib/admin-auth'
-import { logger } from '@/util/logger'
 
 const STATIC_SESSION_ID = 'relabel-trace-api'
 const DEFAULT_RELABEL_LIMIT = 10
@@ -442,7 +443,9 @@ function formatTraceResults(traceBundles: TraceBundle[]) {
     const timestamp =
       trace.created_at instanceof Date
         ? trace.created_at.toISOString()
-        : new Date((trace.created_at as any)?.value ?? trace.created_at).toISOString()
+        : new Date(
+            (trace.created_at as any)?.value ?? trace.created_at,
+          ).toISOString()
 
     const query = extractQueryFromMessages(payload.messages)
     const outputs: Record<string, string> = {

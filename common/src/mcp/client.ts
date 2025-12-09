@@ -154,9 +154,10 @@ export async function callMCPTool(
         mediaType: c.resource.mimeType ?? 'text/plain',
       } satisfies ToolResultOutput
     }
-    const fallbackValue = 'uri' in c && typeof (c as { uri: unknown }).uri === 'string' 
-      ? (c as { uri: string }).uri 
-      : JSON.stringify(c)
+    const fallbackValue =
+      'uri' in c && typeof (c as { uri: unknown }).uri === 'string'
+        ? (c as { uri: string }).uri
+        : JSON.stringify(c)
     return {
       type: 'json',
       value: fallbackValue,

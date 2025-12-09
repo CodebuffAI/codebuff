@@ -25,10 +25,17 @@ export function skipIfNoApiKey(): boolean {
 /**
  * Check if output indicates an authentication error.
  */
-export function isAuthError(output: { type: string; message?: string }): boolean {
+export function isAuthError(output: {
+  type: string
+  message?: string
+}): boolean {
   if (output.type !== 'error') return false
   const msg = output.message?.toLowerCase() ?? ''
-  return msg.includes('authentication') || msg.includes('api key') || msg.includes('unauthorized')
+  return (
+    msg.includes('authentication') ||
+    msg.includes('api key') ||
+    msg.includes('unauthorized')
+  )
 }
 
 /**

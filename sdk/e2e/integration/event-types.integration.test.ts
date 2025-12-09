@@ -32,7 +32,7 @@ describe('Integration: Event Types', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'Say "hello"',
         handleEvent: collector.handleEvent,
@@ -55,7 +55,7 @@ describe('Integration: Event Types', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'Say "hello"',
         handleEvent: collector.handleEvent,
@@ -79,7 +79,7 @@ describe('Integration: Event Types', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'Write a short poem about coding (2-3 lines)',
         handleEvent: collector.handleEvent,
@@ -101,7 +101,7 @@ describe('Integration: Event Types', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'List the files in the current directory using a tool',
         handleEvent: collector.handleEvent,
@@ -139,7 +139,7 @@ describe('Integration: Event Types', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'Say hello',
         handleEvent: collector.handleEvent,
@@ -165,7 +165,7 @@ describe('Integration: Event Types', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'Say a greeting and explain what 2+2 equals',
         handleEvent: collector.handleEvent,

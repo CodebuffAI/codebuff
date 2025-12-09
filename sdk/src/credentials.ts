@@ -1,9 +1,10 @@
 import fs from 'fs'
-import os from 'os'
 import path from 'node:path'
+import os from 'os'
 
 import { userSchema } from '@codebuff/common/util/credentials'
 import { z } from 'zod/v4'
+
 import type { User } from '@codebuff/common/util/credentials'
 
 const credentialsSchema = z

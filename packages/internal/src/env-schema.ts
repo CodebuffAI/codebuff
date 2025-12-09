@@ -46,16 +46,19 @@ export const serverProcessEnv: ServerInput = {
   PORT: process.env.PORT ?? '4242',
 
   // Web/Database variables
-  DATABASE_URL: process.env.DATABASE_URL ?? 'postgres://user:pass@localhost:5432/db',
+  DATABASE_URL:
+    process.env.DATABASE_URL ?? 'postgres://user:pass@localhost:5432/db',
   GOOGLE_SITE_VERIFICATION_ID: process.env.GOOGLE_SITE_VERIFICATION_ID,
   CODEBUFF_GITHUB_ID: process.env.CODEBUFF_GITHUB_ID ?? 'test-id',
   CODEBUFF_GITHUB_SECRET: process.env.CODEBUFF_GITHUB_SECRET ?? 'test-secret',
   NEXTAUTH_URL: process.env.NEXTAUTH_URL,
   NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET ?? 'test-secret',
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY ?? 'sk_test_dummy',
-  STRIPE_WEBHOOK_SECRET_KEY: process.env.STRIPE_WEBHOOK_SECRET_KEY ?? 'whsec_dummy',
+  STRIPE_WEBHOOK_SECRET_KEY:
+    process.env.STRIPE_WEBHOOK_SECRET_KEY ?? 'whsec_dummy',
   STRIPE_USAGE_PRICE_ID: process.env.STRIPE_USAGE_PRICE_ID ?? 'price_test',
-  STRIPE_TEAM_FEE_PRICE_ID: process.env.STRIPE_TEAM_FEE_PRICE_ID ?? 'price_test',
+  STRIPE_TEAM_FEE_PRICE_ID:
+    process.env.STRIPE_TEAM_FEE_PRICE_ID ?? 'price_test',
   LOOPS_API_KEY: process.env.LOOPS_API_KEY ?? 'test',
   DISCORD_PUBLIC_KEY: process.env.DISCORD_PUBLIC_KEY ?? 'test',
   DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN ?? 'test',

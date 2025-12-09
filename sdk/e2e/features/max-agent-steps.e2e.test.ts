@@ -50,7 +50,7 @@ describe('Features: Max Agent Steps', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'What is 2 + 2?',
         maxAgentSteps: 2,

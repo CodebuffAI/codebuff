@@ -33,7 +33,7 @@ describe('Integration: Stream Chunks', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'Write a paragraph about the benefits of TypeScript',
         handleEvent: collector.handleEvent,
@@ -62,14 +62,17 @@ describe('Integration: Stream Chunks', () => {
       const chunkTimestamps: number[] = []
       const collector = new EventCollector()
 
-      const customChunkHandler = (chunk: typeof collector.streamChunks[0]) => {
+      const customChunkHandler = (
+        chunk: (typeof collector.streamChunks)[0],
+      ) => {
         chunkTimestamps.push(Date.now())
         collector.handleStreamChunk(chunk)
       }
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
-        prompt: 'Write a detailed explanation of async/await in JavaScript (at least 100 words)',
+        prompt:
+          'Write a detailed explanation of async/await in JavaScript (at least 100 words)',
         handleEvent: collector.handleEvent,
         handleStreamChunk: customChunkHandler,
       })
@@ -79,7 +82,8 @@ describe('Integration: Stream Chunks', () => {
 
       // Verify chunks arrived over time (not all at the same millisecond)
       if (chunkTimestamps.length > 2) {
-        const timeSpread = chunkTimestamps[chunkTimestamps.length - 1] - chunkTimestamps[0]
+        const timeSpread =
+          chunkTimestamps[chunkTimestamps.length - 1] - chunkTimestamps[0]
         // The spread should be at least some milliseconds for a longer response
         expect(timeSpread).toBeGreaterThanOrEqual(0)
       }
@@ -94,7 +98,7 @@ describe('Integration: Stream Chunks', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'Say exactly: "Hello, World!"',
         handleEvent: collector.handleEvent,
@@ -122,7 +126,7 @@ describe('Integration: Stream Chunks', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: '',
         handleEvent: collector.handleEvent,
@@ -142,9 +146,10 @@ describe('Integration: Stream Chunks', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
-        prompt: 'List the numbers 1 through 20, each on a new line with a brief description',
+        prompt:
+          'List the numbers 1 through 20, each on a new line with a brief description',
         handleEvent: collector.handleEvent,
         handleStreamChunk: collector.handleStreamChunk,
       })
@@ -166,9 +171,10 @@ describe('Integration: Stream Chunks', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
-        prompt: 'Output these special characters: émojis 🎉, quotes "test", newlines, and tabs',
+        prompt:
+          'Output these special characters: émojis 🎉, quotes "test", newlines, and tabs',
         handleEvent: collector.handleEvent,
         handleStreamChunk: collector.handleStreamChunk,
       })
@@ -177,6 +183,7 @@ describe('Integration: Stream Chunks', () => {
 
       // Should handle the response without errors
       expect(collector.errors.length).toBe(0)
+      expect(fullText.length).toBeGreaterThan(0)
       expect(collector.hasEventType('finish')).toBe(true)
     },
     DEFAULT_TIMEOUT,

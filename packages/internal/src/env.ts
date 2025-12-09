@@ -1,4 +1,3 @@
-
 import { serverEnvSchema, serverProcessEnv } from './env-schema'
 
 // Provide safe defaults for local/test runs to avoid schema failures
@@ -24,7 +23,6 @@ ensureEnvDefault('LOOPS_API_KEY', 'test')
 ensureEnvDefault('DISCORD_PUBLIC_KEY', 'test')
 ensureEnvDefault('DISCORD_BOT_TOKEN', 'test')
 ensureEnvDefault('DISCORD_APPLICATION_ID', 'test')
-
 
 // Only log environment in non-production
 if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {

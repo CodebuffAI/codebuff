@@ -5,8 +5,8 @@ import path from 'path'
 import { runAgentStep } from '@codebuff/agent-runtime/run-agent-step'
 import { assembleLocalAgentTemplates } from '@codebuff/agent-runtime/templates/agent-registry'
 import { getFileTokenScores } from '@codebuff/code-map/parse'
-import { clientToolCallSchema } from '@codebuff/common/tools/list'
 import { API_KEY_ENV_VAR, TEST_USER_ID } from '@codebuff/common/old-constants'
+import { clientToolCallSchema } from '@codebuff/common/tools/list'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { getSystemInfo } from '@codebuff/common/util/system-info'
 import { ToolHelpers } from '@codebuff/sdk'
@@ -297,14 +297,12 @@ export async function runToolCalls(toolCalls: ClientToolCall[]) {
 export async function loopMainPrompt({
   sessionState,
   prompt,
-  projectPath,
   maxIterations,
   stopCondition,
   agentType,
 }: {
   sessionState: SessionState
   prompt: string
-  projectPath: string
   maxIterations: number
   stopCondition?: (sessionState: AgentState) => boolean
   agentType: AgentTemplateType

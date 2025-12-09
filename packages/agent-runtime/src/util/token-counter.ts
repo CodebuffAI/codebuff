@@ -11,7 +11,7 @@ export function countTokens(text: string): number {
   }
 
   // Approximate token count when tokenizer isn't available
-  const count = Math.floor(text.length / 3 * ANTHROPIC_TOKEN_FUDGE_FACTOR)
+  const count = Math.floor((text.length / 3) * ANTHROPIC_TOKEN_FUDGE_FACTOR)
 
   if (text.length > 100) {
     // Cache only if the text is long enough to be worth it.

@@ -5,9 +5,11 @@ Lessons accumulated across buffbench runs. Each lesson identifies what went wron
 ## 2025-10-21T02:19:38.224Z — add-sidebar-fades (257cb37)
 
 ### Original Agent Prompt
+
 Enhance the desktop docs sidebar UX by adding subtle top/bottom gradient fades that appear based on scroll position and a thin, themed custom scrollbar. The fades should show when there’s overflow in that direction (top when not at the top, bottom when not at the bottom), be non-interactive, and update on initial render and during scroll. Apply the custom scrollbar styles via a CSS class and use it on the scrollable sidebar container. Preserve the current hash-based smooth scrolling behavior and leave the mobile Sheet implementation unchanged.
 
 ### Lessons
+
 - **Issue:** Custom scrollbar only used -webkit selectors; Firefox shows default thick scrollbar.
   **Fix:** Add cross-browser styles: scrollbar-width: thin; scrollbar-color: hsl(var(--border)/0.6) transparent alongside -webkit rules.
 
@@ -23,9 +25,11 @@ Enhance the desktop docs sidebar UX by adding subtle top/bottom gradient fades t
 ## 2025-10-21T02:24:18.953Z — validate-custom-tools (30dc486)
 
 ### Original Agent Prompt
+
 Add schema-validated custom tool execution. Ensure the server validates custom tool inputs but forwards a sanitized copy of the original input (removing the end-of-step flag) to the client. In the SDK, parse custom tool inputs with the provided Zod schema before invoking the tool handler and update types so handlers receive fully parsed inputs. Keep built-in tool behavior and error handling unchanged.
 
 ### Lessons
+
 - **Issue:** Server streamed tool_call with parsed input, not sanitized original; client sees schema-shaped payload instead of original minus cb_easp.
   **Fix:** In parseRawCustomToolCall, validate with Zod but return input as a clone of raw input with cb_easp removed; use that for toolCalls and onResponseChunk.
 
@@ -41,9 +45,11 @@ Add schema-validated custom tool execution. Ensure the server validates custom t
 ## 2025-10-21T02:25:18.751Z — filter-system-history (456858c)
 
 ### Original Agent Prompt
+
 Improve spawned agent context handling so that parent system messages are not forwarded. Update both sync and async spawn flows to pass conversation history to sub-agents without any system-role entries, and add tests covering includeMessageHistory on/off, empty history, and system-only history. Keep the overall spawning, validation, and streaming behavior unchanged.
 
 ### Lessons
+
 - **Issue:** Tests asserted raw strings in the serialized history (e.g., 'assistant', '[]'), making them brittle to formatting changes.
   **Fix:** Parse the JSON portion of conversationHistoryMessage and assert on structured fields (roles, length), not string substrings.
 
@@ -56,21 +62,22 @@ Improve spawned agent context handling so that parent system messages are not fo
 - **Issue:** Role presence was verified by substring checks ('assistant') instead of checking message.role, risking false positives.
   **Fix:** Assert on exact role fields ("role":"assistant") or, better, parse JSON and check objects’ role values.
 
-- **Issue:** Initial sync test expected a non-standard empty array format ('[\n  \n]'), requiring a later patch.
+- **Issue:** Initial sync test expected a non-standard empty array format ('[\n \n]'), requiring a later patch.
   **Fix:** Use JSON.stringify semantics from the start or parse JSON and assert length === 0 to avoid format assumptions.
 
 ## 2025-10-21T02:26:14.756Z — add-spawn-perms-tests (257c995)
 
 ### Original Agent Prompt
+
 Add comprehensive unit tests to verify that the spawn_agents tool enforces parent-to-child spawn permissions and that agent ID matching works across publisher, name, and version combinations. Include edge cases and mixed-success scenarios. Also make the internal matching helper importable so the tests can target it directly. Keep the handler logic unchanged; focus on exporting the helper and covering behavior via tests.
 
 ### Lessons
+
 - **Issue:** Imported TEST_USER_ID from '@codebuff/common/constants' and AgentTemplate from '../templates/types' causing type/resolve errors.
   **Fix:** Use correct paths: TEST_USER_ID from '@codebuff/common/old-constants' and AgentTemplate from '@codebuff/common/types/agent-template'.
 
 - **Issue:** Omitted the 'agent template not found' scenario in handler tests, missing a key error path.
   **Fix:** Add a test where localAgentTemplates lacks the requested agent; assert the error message and no loopAgentSteps call.
-
 
 - **Issue:** Assertions tightly coupled to exact report header strings, making tests brittle to formatting changes.
   **Fix:** Assert via displayName-derived headers or use regex/contains on content while verifying loopAgentSteps calls for success.
@@ -90,12 +97,14 @@ Add comprehensive unit tests to verify that the spawn_agents tool enforces paren
 ## 2025-10-21T02:27:58.739Z — extract-agent-parsing (998b585)
 
 ### Original Agent Prompt
+
 - Add a common parser that can handle both published and local agent IDs, and a strict parser that only passes when a publisher is present.
 - Update the agent registry to rely on the strict parser for DB lookups and to prefix with the default org when needed.
 - Update the spawn-agents handler to use the shared general parser, with guards for optional fields, so that unprefixed, prefixed, and versioned forms are all matched correctly against the parent’s spawnable agents.
-Keep the existing registry cache behavior and spawn matching semantics the same, and make sure existing tests pass without modification.
+  Keep the existing registry cache behavior and spawn matching semantics the same, and make sure existing tests pass without modification.
 
 ### Lessons
+
 - **Issue:** Put new parsers in agent-name-normalization.ts, conflating concerns and diverging from the repo’s dedicated parsing util pattern.
   **Fix:** Create common/src/util/agent-id-parsing.ts exporting parseAgentId + parsePublishedAgentId; import these in registry and spawn-agents.
 
@@ -111,9 +120,11 @@ Keep the existing registry cache behavior and spawn matching semantics the same,
 ## 2025-10-21T02:29:20.144Z — enhance-docs-nav (26140c8)
 
 ### Original Agent Prompt
+
 Improve the developer docs experience: make heading clicks update the URL with the section hash and smoothly scroll to the heading, and ensure back/forward navigation to hashes also smoothly scrolls to the right place. Then refresh the Codebuff vs Claude Code comparison and agent-related docs to match current messaging: add SDK/programmatic bullets, expand Claude-specific enterprise reasons, standardize the feature comparison table, streamline the creating/customizing agent docs with concise control flow and field lists, and move domain-specific customization examples out of the overview into the customization page. Keep styles and existing components intact while making these UX and content updates.
 
 ### Lessons
+
 - **Issue:** copy-heading.tsx onClick handler misses a closing brace/paren, causing a TS/compile error.
   **Fix:** Run typecheck/format before commit and ensure onClick closes with '})'. Build locally to catch syntax errors.
 
@@ -135,9 +146,11 @@ Improve the developer docs experience: make heading clicks update the URL with t
 ## 2025-10-21T02:30:15.502Z — match-spawn-agents (9f0b66d)
 
 ### Original Agent Prompt
+
 Enable flexible matching for spawning subagents. When a parent agent spawns children, the child agent_type string may include an optional publisher and/or version. Update the spawn-agents handler so a child can be allowed if its identifier matches any of the parent’s spawnable agents by agent name alone, by name+publisher, by name+version, or by exact name+publisher+version. Export the existing agent ID parser and use it to implement this matching, while preserving all current spawning, validation, and streaming behaviors.
 
 ### Lessons
+
 - **Issue:** Matching was too strict: name-only child failed when parent allowed had publisher/version.
   **Fix:** Use asymmetric match: if names equal, allow regardless of extra qualifiers on either side.
 
@@ -162,9 +175,11 @@ Enable flexible matching for spawning subagents. When a parent agent spawns chil
 ## 2025-10-21T02:31:29.648Z — add-deep-thinkers (6c362c3)
 
 ### Original Agent Prompt
+
 Add a family of deep-thinking agents that orchestrate multi-model analysis. Create one coordinator agent that spawns three distinct sub-thinkers (OpenAI, Anthropic, and Gemini) and synthesizes their perspectives, plus a meta-coordinator that can spawn multiple instances of the coordinator to tackle different aspects of a problem. Each agent should define a clear purpose, model, and prompts, and the coordinators should be able to spawn their sub-agents. Ensure the definitions follow the existing agent typing, validation, and spawn mechanics used across the project.
 
 ### Lessons
+
 - **Issue:** Sub-thinkers rely on stepPrompt to call end_turn; no handleSteps to guarantee completion.
   **Fix:** Add handleSteps that yields STEP_ALL (or STEP then end_turn) to deterministically end each sub-thinker.
 
@@ -184,7 +199,7 @@ Add a family of deep-thinking agents that orchestrate multi-model analysis. Crea
   **Fix:** Use template literals with .trim() for system/instructions/step prompts to keep style consistent.
 
 - **Issue:** Captured toolResult into unused vars (subResults/aspectResults), causing avoidable lint warnings.
-  **Fix:** Prefix unused bindings with _ or omit them entirely to keep code lint-clean from the start.
+  **Fix:** Prefix unused bindings with \_ or omit them entirely to keep code lint-clean from the start.
 
 - **Issue:** Coordinator synthesis depends solely on implicit instructions; no structured output path.
   **Fix:** Yield STEP_ALL and optionally switch to structured_output + set_output to enforce a concrete synthesis.
@@ -192,9 +207,11 @@ Add a family of deep-thinking agents that orchestrate multi-model analysis. Crea
 ## 2025-10-21T02:33:02.024Z — add-custom-tools (212590d)
 
 ### Original Agent Prompt
+
 Add end-to-end support for user-defined custom tools alongside the built-in tool set. Agents should be able to list custom tools by string name, the system should describe and document them in prompts, recognize their calls in streamed responses, validate their inputs, and route execution to the SDK client where the tool handler runs. Include options for tools that end the agent step, and support example inputs for prompt documentation. Update types, schemas, and test fixtures accordingly.
 
 ### Lessons
+
 - **Issue:** CodebuffToolCall stays tied to ToolName; custom names break typing and casts to any in stream-parser/tool-executor.
   **Fix:** Broaden types to string tool names. Update CodebuffToolCall/clientTool schemas to accept custom names and map to runtime schemas.
 
@@ -205,7 +222,6 @@ Add end-to-end support for user-defined custom tools alongside the built-in tool
 
 - **Issue:** customTools defined as array in dynamic-agent-template, but prompts expect a record (customTools[name]).
   **Fix:** Normalize to Record<string, ToolDef> during validation. Store the record on AgentTemplate; use it everywhere.
-
 
 - **Issue:** Example inputs aren’t rendered in tool docs; requirement asked for example inputs in prompts.
   **Fix:** Enhance getToolsInstructions/getShortToolInstructions to render exampleInputs blocks under each tool description.
@@ -235,9 +251,11 @@ Add end-to-end support for user-defined custom tools alongside the built-in tool
 ## 2025-10-21T02:35:01.856Z — add-reasoning-options (fa43720)
 
 ### Original Agent Prompt
+
 Add a template-level reasoning configuration that agents can specify and have it applied at runtime. Introduce an optional "reasoningOptions" field on agent definitions and dynamic templates (supporting either a max token budget or an effort level, with optional enable/exclude flags). Validate this field in the dynamic template schema. Update the streaming path so these options are passed to the OpenRouter provider as reasoning settings for each agent. Centralize any provider-specific options in the template-aware streaming code and remove such configuration from the lower-level AI SDK wrapper. Provide a baseline agent example that opts into high reasoning effort.
 
 ### Lessons
+
 - **Issue:** Enabled reasoning in factory/base.ts, affecting all base-derived agents, instead of providing a single baseline example.
   **Fix:** Add reasoningOptions only in .agents/base-lite.ts to demo high-effort; keep factory defaults unchanged.
 
@@ -268,9 +286,11 @@ Add a template-level reasoning configuration that agents can specify and have it
 ## 2025-10-21T02:41:42.557Z — autodetect-knowledge (00e8860)
 
 ### Original Agent Prompt
+
 Add automatic discovery of knowledge files in the SDK run state builder. When users call the SDK without providing knowledge files but do provide project files, detect knowledge files from the provided project files and include them in the session. Treat files as knowledge files when their path ends with knowledge.md or claude.md (case-insensitive). Leave explicit knowledgeFiles untouched when provided. Update the changelog for the current SDK version to mention this behavior change.
 
 ### Lessons
+
 - **Issue:** Used an inline IIFE in sdk/src/run-state.ts to compute fallback knowledgeFiles, hurting readability.
   **Fix:** Build fallback in a small helper (e.g., detectKnowledgeFilesFromProjectFiles) or a simple block; avoid IIFEs.
 
@@ -286,9 +306,11 @@ Add automatic discovery of knowledge files in the SDK run state builder. When us
 ## 2025-10-21T02:41:48.918Z — update-tool-gen (f8fe9fe)
 
 ### Original Agent Prompt
+
 Update the tool type generator to write its output into the initial agents template types file and make the web search depth parameter optional. Ensure the generator creates any missing directories so it doesn’t fail on fresh clones. Keep formatting via Prettier and adjust logs accordingly. Confirm that the agent templates continue to import from the updated tools.ts file and that no code depends on the old tools.d.ts path. Depth should be optional and default to standard behavior where omitted.
 
 ### Lessons
+
 - **Issue:** Edited .agents/types/tools.ts unnecessarily. This is user-scaffolded output, not the generator target.
   **Fix:** Only write to common/src/templates/initial-agents-dir/types/tools.ts via the generator; don’t touch .agents/ files.
 
@@ -308,6 +330,7 @@ Update the tool type generator to write its output into the initial agents templ
 ### Original Agent Prompt
 
 ### Lessons
+
 - **Issue:** Used API_KEY_ENV_VAR in npm-app/src/index.ts without importing it, causing a compile/runtime error.
   **Fix:** Import API_KEY_ENV_VAR from @codebuff/common/constants at the top of index.ts before referencing it.
 
@@ -334,9 +357,11 @@ Update the tool type generator to write its output into the initial agents templ
 ## 2025-10-21T02:44:14.254Z — fix-agent-steps (fe667af)
 
 ### Original Agent Prompt
+
 Unify the default for the agent step limit and fix SDK behavior so that the configured maxAgentSteps reliably applies each run. Add a shared constant for the default in the config schema, make the SDK use that constant as the default run() parameter, and ensure the SDK sets stepsRemaining on the session state based on the provided or defaulted value. Update the changelog to reflect the fix.
 
 ### Lessons
+
 - **Issue:** Config schema imported MAX_AGENT_STEPS_DEFAULT (25) from constants/agents.ts, changing default from 12 and adding cross-module coupling.
   **Fix:** Define DEFAULT_MAX_AGENT_STEPS=12 in common/src/json-config/constants.ts and use it in the zod .default(); treat it as the shared source.
 
@@ -360,6 +385,7 @@ Unify the default for the agent step limit and fix SDK behavior so that the conf
 ### Original Agent Prompt
 
 ### Lessons
+
 - **Issue:** Added common/src/types/tools.ts duplicating schemas; lost Zod-backed runtime validation and created a second source of truth.
   **Fix:** Co-locate shared types with llmToolCallSchema in common/src/tools/list.ts and re-export; keep Zod-backed validation.
 
@@ -393,6 +419,7 @@ Unify the default for the agent step limit and fix SDK behavior so that the conf
 ### Original Agent Prompt
 
 ### Lessons
+
 - **Issue:** Used header name 'X-Codebuff-API-Key' vs canonical 'x-codebuff-api-key', causing inconsistency across CLI/server and tests.
   **Fix:** Standardize on 'x-codebuff-api-key' everywhere. Define a single constant and use it for both creation and extraction.
 
@@ -415,19 +442,19 @@ Unify the default for the agent step limit and fix SDK behavior so that the conf
 ## 2025-10-21T02:48:14.602Z — add-agent-validation (26066c2)
 
 ### Original Agent Prompt
+
 Add a lightweight agent validation system that prevents running with unknown agent IDs.
 
 On the server, expose a GET endpoint to validate an agent identifier. It should accept a required agentId query parameter, respond with whether it's valid, and include a short-lived cache for positive results. A valid agent can be either a built-in agent or a published agent, and the response should clarify which source it came from and return a normalized identifier. Handle invalid input with a 400 status and structured error. Log when authentication info is present.
 
-
 ### Lessons
-  **Fix:** Use AGENT_PERSONAS/AGENT_IDS from common/src/constants/agents to detect built-ins by ID.
+
+**Fix:** Use AGENT_PERSONAS/AGENT_IDS from common/src/constants/agents to detect built-ins by ID.
 
 - **Issue:** Client only sent Authorization; ignored API key env. Missed 'include any credentials'.
 
 - **Issue:** Server logs only noted Authorization presence; didn’t log X-API-Key as requested.
   **Fix:** In handler, log hasAuthHeader and hasApiKey (no secrets) alongside agentId for auditability.
-
 
   **Fix:** Add a test asserting URLSearchParams agentId equals the original (publisher/name@version).
 
@@ -451,6 +478,7 @@ On the server, expose a GET endpoint to validate an agent identifier. It should 
 ### Original Agent Prompt
 
 ### Lessons
+
 - **Issue:** CLI.validateAgent returns undefined for local agents, so the caller can’t print the resolved name.
   **Fix:** On local hit, return the displayName (id->config or name match), e.g., localById?.displayName || localByDisplay?.displayName || agent.
 
@@ -468,9 +496,11 @@ On the server, expose a GET endpoint to validate an agent identifier. It should 
 ## 2025-10-21T02:51:02.634Z — add-run-state-helpers (6a107de)
 
 ### Original Agent Prompt
+
 Add new run state helper utilities to the SDK to make it easy to create and modify runs, and refactor the client and exports to use them. Specifically: introduce a module that can initialize a fresh SessionState and wrap it in a RunState, provide helpers to append a new message or replace the entire message history for continuing a run, update the client to use this initializer instead of its local implementation, and expose these helpers from the SDK entrypoint. Update the README to show a simple example where a previous run is augmented with an image message before continuing, and bump the SDK version and changelog accordingly.
 
 ### Lessons
+
 - **Issue:** Helper names diverged from expected API (used create*/make*/append*/replace* vs initialSessionState/generate*/withAdditional*/withMessageHistory).
   **Fix:** Match the intended names: initialSessionState, generateInitialRunState, withAdditionalMessage, withMessageHistory; update client/README accordingly.
 
@@ -492,9 +522,11 @@ Add new run state helper utilities to the SDK to make it easy to create and modi
 ## 2025-10-21T02:52:33.654Z — fix-agent-publish (4018082)
 
 ### Original Agent Prompt
+
 Update the agent publishing pipeline so the publish API accepts raw agent definitions, validates them centrally, and allows missing prompts. On the validator side, return both compiled agent templates and their validated dynamic forms. In the CLI, adjust agent selection by id/displayName and send raw definitions to the API. Ensure that optional prompts are treated as empty strings during validation and that the API responds with clear validation errors when definitions are invalid.
 
 ### Lessons
+
 - **Issue:** Publish request schema still enforces DynamicAgentDefinitionSchema[] (common/src/types/api/agents/publish.ts), rejecting truly raw defs.
   **Fix:** Accept fully raw input: data: z.record(z.string(), z.any()).array(). Validate centrally via validateAgents in the API route.
 
@@ -512,17 +544,16 @@ Update the agent publishing pipeline so the publish API accepts raw agent defini
 ### Original Agent Prompt
 
 ### Lessons
+
 - **Issue:** Imported PLACEHOLDER from a non-existent path (@codebuff/common/.../secret-agent-definition), causing dangling refs.
   **Fix:** Only import from existing modules or add the file first. Create the common secret-agent-definition.ts before updating imports.
 
 - **Issue:** Changed common/agent-definition.ts to re-export from './secret-agent-definition' which doesn’t exist in common.
   **Fix:** Either add common/.../secret-agent-definition.ts or re-export from an existing module. Don’t point to files that aren’t there.
 
-
   **Fix:** Avoid editing files scheduled for deletion. Remove them and update imports/usage sites to the single source of truth.
 
 - **Issue:** Centralized across packages without a clear plan, introducing cross-package breakage and unresolved imports.
-
 
 - **Issue:** Did not validate the repo after refactor (no typecheck/build), so broken imports slipped in.
   **Fix:** Run a full typecheck/build after edits. Fix any unresolved modules before concluding to meet the “no dangling refs” requirement.
@@ -538,9 +569,11 @@ Update the agent publishing pipeline so the publish API accepts raw agent defini
 ## 2025-10-21T02:58:10.976Z — add-sdk-terminal (660fa34)
 
 ### Original Agent Prompt
+
 Add first-class SDK support for running terminal commands via the run_terminal_command tool. Implement a synchronous, cross-platform shell execution helper with timeout and project-root cwd handling, and wire it into the SDK client’s tool-call flow. Ensure the tool-call-response uses the standardized output object instead of the previous result string and that errors are surfaced as text output. Match the behavior and message schema used by the server and the npm app, but keep the SDK implementation minimal without background mode.
 
 ### Lessons
+
 - **Issue:** Used spawnSync, blocking Node’s event loop during command runs; hurts responsiveness even for short commands.
   **Fix:** Use spawn with a Promise and a kill-on-timeout guard. Keep SYNC semantics at tool level without blocking the event loop.
 
@@ -553,7 +586,6 @@ Add first-class SDK support for running terminal commands via the run_terminal_c
 - **Issue:** When returning a terminal_command_error payload, success stayed true and error field was empty.
   **Fix:** If output contains a terminal_command_error, also populate error (and optionally set success=false) for clearer signaling.
 
-
 - **Issue:** Timeout/termination status omitted the signal, reducing diagnostic clarity on killed processes.
   **Fix:** Include res.signal (e.g., 'Terminated by signal: SIGTERM') in status when present to improve parity and debuggability.
 
@@ -562,6 +594,7 @@ Add first-class SDK support for running terminal commands via the run_terminal_c
 ### Original Agent Prompt
 
 ### Lessons
+
 - **Issue:** Example 01 used find_files with input.prompt; param name likely mismatched the tool schema, risking runtime/type errors.
   **Fix:** Check .agents/types/tools.ts and use the exact params find_files expects (e.g., correct key names) inside input.
 
@@ -586,9 +619,11 @@ Add first-class SDK support for running terminal commands via the run_terminal_c
 ## 2025-10-21T03:00:16.042Z — surface-history-access (6bec422)
 
 ### Original Agent Prompt
+
 Make dynamic agents not inherit prior conversation history by default. Update the generated spawnable agents description so that, for any agent that can see the current message history, the listing explicitly states that capability. Keep showing each agent’s input schema (prompt and params) when available, otherwise show that there is none. Ensure the instructions prompt includes tool instructions, the spawnable agents description, and output schema details where applicable.
 
 ### Lessons
+
 - **Issue:** Added extra visibility lines (negative/unknown) in spawnable agents description beyond spec.
   **Fix:** Only append "This agent can see the current message history." when includeMessageHistory is true; omit else/unknown lines.
 
@@ -601,13 +636,15 @@ Make dynamic agents not inherit prior conversation history by default. Update th
 ## 2025-10-21T03:04:04.761Z — move-agent-templates (26e84af)
 
 ### Original Agent Prompt
+
 Centralize the built-in agent templates and type definitions under a new common/src/templates/initial-agents-dir. Update the CLI to scaffold user .agents files by copying from this new location instead of bundling from .agents. Update all imports in the SDK and common to reference the new AgentDefinition/ToolCall types path. Remove the old re-export that pointed to .agents so consumers can’t import from the legacy location. Keep runtime loading of user-defined agents from .agents unchanged and ensure the codebase builds cleanly.
 
 ### Lessons
+
 - **Issue:** Kept common/src/types/agent-definition.ts as a re-export (now to new path) instead of removing it, weakening path enforcement.
   **Fix:** Delete the file or stop re-exporting. Force consumers to import from common/src/templates/.../agent-definition directly.
 
-- **Issue:** Missed updating test import in common/src/types/__tests__/dynamic-agent-template.test.ts to the new AgentDefinition path.
+- **Issue:** Missed updating test import in common/src/types/**tests**/dynamic-agent-template.test.ts to the new AgentDefinition path.
   **Fix:** Change import to '../../templates/initial-agents-dir/types/agent-definition' so type-compat tests build and validate correctly.
 
 - **Issue:** Introduced types/secret-agent-definition.ts under initial-agents-dir, which wasn’t requested and adds scope creep.
@@ -625,9 +662,11 @@ Centralize the built-in agent templates and type definitions under a new common/
 ## 2025-10-21T03:04:54.094Z — add-agent-resolution (de3ea46)
 
 ### Original Agent Prompt
+
 Add agent ID resolution and improve the CLI UX for traces, agents listing, and publishing. Specifically: create a small utility that resolves a CLI-provided agent identifier by preserving explicit org prefixes, leaving known local IDs intact, and defaulting unknown unprefixed IDs to a default org prefix. Use this resolver in both the CLI and client when showing the selected agent and when sending requests. Replace usage of the old subagent trace viewer with a new traces handler that improves the status hints and allows pressing 'q' to go back (in both the trace buffer and the trace list). Update the agents menu to group valid custom agents by last modified time, with a "Recently Updated" section for the past week and a "Custom Agents" section for the rest; show a placeholder when none exist. Finally, make publishing errors clearer by printing a concise failure line, optional details, and an optional hint, and ensure the returned error contains non-duplicated fields for callers. Keep the implementation consistent with existing patterns in the codebase.
 
 ### Lessons
+
 - **Issue:** Kept using cli-handlers/subagent.ts; no new traces handler or import updates in cli.ts/client.ts/subagent-list.ts.
   **Fix:** Create cli-handlers/traces.ts, move trace UI there, and update all imports to './traces' with improved status and 'q' support.
 
@@ -649,9 +688,11 @@ Add agent ID resolution and improve the CLI UX for traces, agents listing, and p
 ## 2025-10-21T03:10:54.539Z — add-prompt-error (9847358)
 
 ### Original Agent Prompt
+
 Introduce a distinct error channel for user prompts. Add a new server action that specifically reports prompt-related failures, wire server middleware and the main prompt execution path to use it when the originating request is a prompt, and update the CLI client to listen for and display these prompt errors just like general action errors. Keep existing success and streaming behaviors unchanged.
 
 ### Lessons
+
 - **Issue:** Defined prompt-error with promptId; codebase standardizes on userInputId (e.g., response-chunk). Inconsistent ID naming.
   **Fix:** Use userInputId in prompt-error schema/payload and pass action.promptId into it. Keep ID fields consistent across actions.
 
@@ -673,9 +714,11 @@ Introduce a distinct error channel for user prompts. Add a new server action tha
 ## 2025-10-21T03:12:06.098Z — stop-think-deeply (97178a8)
 
 ### Original Agent Prompt
+
 Update the agent step termination so that purely reflective planning tools do not cause another step. Introduce a shared list of non-progress tools (starting with think_deeply) and adjust the end-of-step logic to end the turn whenever only those tools were used, while still ending on explicit end_turn. Keep the change minimal and localized to the agent step logic and shared tool constants.
 
 ### Lessons
+
 - **Issue:** Termination checked only toolCalls; toolResults were ignored. If a result from a progress tool appears, the step might not end correctly.
   **Fix:** Filter both toolCalls and toolResults by non-progress list; end when no progress items remain in either array (mirrors ground-truth logic).
 
@@ -694,9 +737,11 @@ Update the agent step termination so that purely reflective planning tools do no
 ## 2025-10-21T03:13:08.010Z — update-agent-builder (ab4819b)
 
 ### Original Agent Prompt
+
 Update the agent builder and example agents to support a new starter custom agent and align example configurations. Specifically: make the agent builder gather both existing diff-reviewer examples and a new your-custom-agent starter template; copy the starter template directly into the top-level agents directory while keeping examples under the examples subfolder; remove advertised spawnable agents from the builder; fix the agent personas to remove an obsolete entry and correct a wording typo; and refresh the diff-reviewer examples to use the current Anthropic model, correct the file-explorer spawn target, and streamline the final step behavior. Also add a new your-custom-agent file that scaffolds a Git Committer agent ready to run and publish.
 
 ### Lessons
+
 - **Issue:** Removed wrong persona in common/src/constants/agents.ts (deleted claude4_gemini_thinking, left base_agent_builder).
   **Fix:** Remove base_agent_builder entry and keep others. Also fix typo to 'multi-agent' in agent_builder purpose.
 
@@ -712,7 +757,7 @@ Update the agent builder and example agents to support a new starter custom agen
 - **Issue:** Builder injected publisher/version into starter via brittle string replaces and './constants' import.
   **Fix:** Author the starter file ready-to-use; builder should copy as-is to .agents root without string mutation/injection.
 
-- **Issue:** Updated .agents/examples/* directly (generated outputs), causing duplication and drift.
+- **Issue:** Updated .agents/examples/\* directly (generated outputs), causing duplication and drift.
   **Fix:** Only update source examples under common/src/util/examples; let the builder copy them to .agents/examples.
 
 - **Issue:** diff-reviewer-3 example text wasn’t aligned with streamlined flow (kept separate review message step).
@@ -723,16 +768,18 @@ Update the agent builder and example agents to support a new starter custom agen
 ## 2025-10-21T03:13:39.771Z — overhaul-agent-examples (bf5872d)
 
 ### Original Agent Prompt
-Overhaul the example agents and CLI scaffolding. Replace the older diff-reviewer-* examples with three new examples (basic diff reviewer, intermediate git committer, advanced file explorer), update the CLI to create these files in .agents/examples, enhance the changes-reviewer agent to be able to spawn the file explorer while reviewing diffs or staged changes, add structured output to the file-explorer agent, and revise the default my-custom-agent to focus on reviewing changes rather than committing. Keep existing types and README generation intact.
+
+Overhaul the example agents and CLI scaffolding. Replace the older diff-reviewer-\* examples with three new examples (basic diff reviewer, intermediate git committer, advanced file explorer), update the CLI to create these files in .agents/examples, enhance the changes-reviewer agent to be able to spawn the file explorer while reviewing diffs or staged changes, add structured output to the file-explorer agent, and revise the default my-custom-agent to focus on reviewing changes rather than committing. Keep existing types and README generation intact.
 
 ### Lessons
+
 - **Issue:** changes-reviewer spawnPurposePrompt didn’t mention staged changes.
   **Fix:** Update spawnPurposePrompt to “review code in git diff or staged changes” in .agents/changes-reviewer.ts.
 
 - **Issue:** changes-reviewer didn’t guide spawning the file explorer during review.
   **Fix:** Inject an add_message hint before STEP_ALL to prompt spawning file-explorer and add spawn_agents usage.
 
-- **Issue:** Old .agents/examples/diff-reviewer-*.ts files were left in repo.
+- **Issue:** Old .agents/examples/diff-reviewer-\*.ts files were left in repo.
   **Fix:** Delete diff-reviewer-1/2/3.ts to fully replace them with the new examples and avoid confusion.
 
 - **Issue:** Advanced example agent lacks an outputSchema while using structured_output.
@@ -753,9 +800,11 @@ Overhaul the example agents and CLI scaffolding. Replace the older diff-reviewer
 ## 2025-10-21T03:14:43.174Z — update-validation-api (0acdecd)
 
 ### Original Agent Prompt
+
 Simplify the agent validation flow to not require authentication and to use an array-based payload. Update the CLI helper to send an array of local agent configs and call the web validation API without any auth. Update the web validation endpoint to accept an array, convert it to the format expected by the shared validator, and return the same response structure. Make sure initialization validates local agents even when the user is not logged in, and keep logging and error responses clear.
 
 ### Lessons
+
 - **Issue:** Changed validate API payload to a top-level array, breaking callers expecting { agentConfigs }. See utils/agent-validation.ts and web route.
   **Fix:** Keep request envelope { agentConfigs: [...] } in client and server; convert to record internally; remove auth only.
 
@@ -773,6 +822,7 @@ Simplify the agent validation flow to not require authentication and to use an a
 ### Original Agent Prompt
 
 ### Lessons
+
 - **Issue:** Did not add .agents/types modules; used inline .d.ts strings from CLI scaffolding.
   **Fix:** Create .agents/types/agent-definition.ts and tools.ts files and bundle them; import as text where needed.
 
@@ -807,7 +857,7 @@ Simplify the agent validation flow to not require authentication and to use an a
   **Fix:** Avoid a top-level types.ts; add common/src/types/agent-definition.ts and re-export canonical .agents types.
 
 - **Issue:** SDK build scripts still copy legacy util/types; risk breakage after deletion.
-  **Fix:** Remove copy-types step in sdk/package.json; have sdk/src/types/* re-export from @codebuff/common/types.
+  **Fix:** Remove copy-types step in sdk/package.json; have sdk/src/types/\* re-export from @codebuff/common/types.
 
 - **Issue:** Imports across common/sdk not fully updated to canonical common/src/types.
   **Fix:** Point all imports (including tests) to '@codebuff/common/types' or local common/src/types re-exports.
@@ -818,9 +868,11 @@ Simplify the agent validation flow to not require authentication and to use an a
 ## 2025-10-21T03:18:26.438Z — restore-subagents-field (b30e2ef)
 
 ### Original Agent Prompt
+
 Migrate the AgentState structure to use a 'subagents' array instead of 'spawnableAgents' across the schema, state initialization, spawn handlers, and tests. Ensure all places that construct or validate AgentState use 'subagents' consistently while leaving AgentTemplate.spawnableAgents intact. Update developer-facing JSDoc to clarify how to specify spawnable agent IDs. Keep the existing agent spawning behavior unchanged.
 
 ### Lessons
+
 - **Issue:** Missed migrating async spawn handler: spawn-agents-async.ts still sets AgentState.spawnableAgents: [].
 
 - **Issue:** Tests not updated: sandbox-generator.test.ts still builds AgentState with spawnableAgents: [].
@@ -837,9 +889,11 @@ Migrate the AgentState structure to use a 'subagents' array instead of 'spawnabl
 ## 2025-10-21T03:23:52.779Z — expand-agent-types (68e4f6c)
 
 ### Original Agent Prompt
+
 We need to let our internal .agents declare a superset of tools (including some client-only/internal tools) without affecting public agent validation. Add a new SecretAgentDefinition type for .agents that accepts these internal tools, switch our built-in agents to use it, and keep dynamic/public agents constrained to the public tool list. Also relocate the publishedTools constant from the tools list module to the tools constants module and update any imports that depend on it. No runtime behavior should change—this is a type/constant refactor that must compile cleanly and keep existing tests green.
 
 ### Lessons
+
 - **Issue:** Did not add a dedicated SecretAgentDefinition for .agents to allow internal tools.
   **Fix:** Create .agents/types/secret-agent-definition.ts extending AgentDefinition with toolNames?: AllToolNames[].
 
@@ -865,7 +919,7 @@ We need to let our internal .agents declare a superset of tools (including some 
   **Fix:** Make a type/constant-only refactor; do not change llmToolCallSchema, handlers, or runtime code paths.
 
 - **Issue:** Missed updating all agent files to the new type (some remained on AgentDefinition).
-  **Fix:** Grep all .agents/*.ts and replace AgentDefinition with SecretAgentDefinition consistently (incl. oss agents).
+  **Fix:** Grep all .agents/\*.ts and replace AgentDefinition with SecretAgentDefinition consistently (incl. oss agents).
 
 - **Issue:** Didn’t validate the refactor with a compile/test pass.
   **Fix:** Run typecheck/tests locally to catch missing imports or schema mismatches and keep tests green.
@@ -875,6 +929,7 @@ We need to let our internal .agents declare a superset of tools (including some 
 ### Original Agent Prompt
 
 ### Lessons
+
 - **Issue:** API route expects 'agents' but CLI util posts 'agentConfigs' (utils/agent-validation.ts) → 400s get swallowed.
   **Fix:** Standardize payload to 'agentConfigs' across route and callers; validate and return clear errors.
 
@@ -900,6 +955,7 @@ We need to let our internal .agents declare a superset of tools (including some 
 ### Original Agent Prompt
 
 ### Lessons
+
 - **Issue:** Wrapper sendActionOrExit initially called itself, causing infinite recursion and potential stack overflow.
 
 - **Issue:** Wrapper returned Promise|void with a thenable check, making behavior/contract unclear and harder to reason about.
@@ -915,11 +971,13 @@ We need to let our internal .agents declare a superset of tools (including some 
 ## 2025-10-21T03:34:04.751Z — bundle-agent-types (5484add)
 
 ### Original Agent Prompt
+
 Internalize the AgentConfig definition and related tool type definitions within the SDK so that consumers import types directly from @codebuff/sdk. Update the SDK build to copy the .d.ts type sources from the monorepo’s common package into the SDK before compiling, adjust the client to import AgentConfig from the SDK’s local types, and update the SDK entrypoint to re-export AgentConfig as a type. Add the corresponding type files under sdk/src/util/types to mirror the common definitions and keep them self-contained.
 
 ### Lessons
+
 - **Issue:** Types weren’t copied from common to SDK before compile; a post-build copy was added from src→dist instead.
-  **Fix:** Add a prebuild step to copy ../common/src/util/types/*.d.ts into sdk/src/util/types before tsc runs.
+  **Fix:** Add a prebuild step to copy ../common/src/util/types/\*.d.ts into sdk/src/util/types before tsc runs.
 
 - **Issue:** Build order was wrong: ran tsc then copied .d.ts, so they weren’t part of the compilation pipeline.
   **Fix:** Invoke copy first, then compile (e.g., "bun run copy-types && tsc") so types are available during build.
@@ -937,7 +995,7 @@ Internalize the AgentConfig definition and related tool type definitions within 
   **Fix:** Add "copy-types" script (mkdir/cp) and call it in build: "bun run copy-types && tsc".
 
 - **Issue:** Didn’t validate publish output alignment; potential mismatch of exports/types paths in dist.
-  **Fix:** Run npm pack --dry-run on dist, verify dist/sdk/src/util/types/*.d.ts exists and exports/types resolve.
+  **Fix:** Run npm pack --dry-run on dist, verify dist/sdk/src/util/types/\*.d.ts exists and exports/types resolve.
 
 - **Issue:** Introduced unrelated changes (bun.lock, extra deps) not required for the task.
   **Fix:** Limit diffs to required files; avoid lockfile/dependency churn unless necessary for the feature.
@@ -947,6 +1005,7 @@ Internalize the AgentConfig definition and related tool type definitions within 
 ### Original Agent Prompt
 
 ### Lessons
+
 - **Issue:** sdk/src/tools/read-files.ts keyed results by originalPath, risking mismatch if server sends absolute paths.
   **Fix:** Key results by path.relative(cwd, absolutePath) so returned keys are cwd-relative and stable regardless of input form.
 
@@ -965,23 +1024,25 @@ Internalize the AgentConfig definition and related tool type definitions within 
 ## 2025-10-21T03:35:51.223Z — update-sdk-types (73a0d35)
 
 ### Original Agent Prompt
+
 In the SDK package, move the agent/tool type definitions into a new src/types directory and update internal imports to use it. Adjust the build step that copies type declarations to target the new directory. Simplify the publishing flow so that verification and publishing occur from the sdk directory (no rewriting package.json in dist). Update the package exports to reference the built index path that aligns with publishing from the sdk directory, include the changelog in package files, bump the version, and update the changelog to document the latest release with the completed client and new run() API.
 
 ### Lessons
-- **Issue:** package.json main/types/exports kept ./dist/index.*; doesn’t align with publishing from sdk or monorepo dist layout.
+
+- **Issue:** package.json main/types/exports kept ./dist/index.\*; doesn’t align with publishing from sdk or monorepo dist layout.
   **Fix:** Update main/types/exports to the actual built entry (e.g. ./dist/sdk/src/index.js/.d.ts) to match the publish cwd and build output.
 
-- **Issue:** SDK code still imports ../../common/src/*; publishing from sdk omits common, breaking runtime resolution.
+- **Issue:** SDK code still imports ../../common/src/\*; publishing from sdk omits common, breaking runtime resolution.
   **Fix:** Replace relative common imports with a proper package dep (e.g. @codebuff/common) or point entry to a build that includes common.
 
-- **Issue:** Committed src/types/*.ts while still running copy-types to overwrite them, risking drift and confusing source of truth.
+- **Issue:** Committed src/types/\*.ts while still running copy-types to overwrite them, risking drift and confusing source of truth.
   **Fix:** Pick one source: either generate at build (keep copy-types, don’t commit files) or commit types and remove the copy-types step.
 
 - **Issue:** Version bump and CHANGELOG didn’t follow existing style/timeline (0.2.0 vs expected 0.1.x; removed intro line; dates/notes off).
   **Fix:** Match repo’s semver and format. Bump to the intended version, keep the header line, and add notes for completed client and run() API.
 
 - **Issue:** Exports path wasn’t updated to the built index that matches simplified publish (npm pack from sdk, not dist/).
-  **Fix:** Ensure exports map points to built files reachable when packing from sdk (e.g. types/import/default -> ./dist/sdk/src/index.*).
+  **Fix:** Ensure exports map points to built files reachable when packing from sdk (e.g. types/import/default -> ./dist/sdk/src/index.\*).
 
 - **Issue:** Did not validate that removing util/types or adding src/types keeps ts outputs consistent and avoids duplicate emit.
   **Fix:** After moving types, remove old dir and verify tsconfig include/exclude produce a single set of .js/.d.ts without duplicates.
@@ -991,6 +1052,7 @@ In the SDK package, move the agent/tool type definitions into a new src/types di
 ### Original Agent Prompt
 
 ### Lessons
+
 - **Issue:** Event handlers aren’t cleared on non-success paths (schema fail, action-error, cancel, reconnect), risking leaks in promptIdToEventHandler.
   **Fix:** Always delete handlers on all end paths: in onResponseError, on PromptResponseSchema reject, on reconnect/close, and when canceling a run.
 
@@ -1005,6 +1067,7 @@ In the SDK package, move the agent/tool type definitions into a new src/types di
 ### Original Agent Prompt
 
 ### Lessons
+
 - **Issue:** Inline handler didn’t expire 'userPrompt' TTL after child finishes, leaving temporary prompts in history.
   **Fix:** After child run, call expireMessages(finalMessages, 'userPrompt') and write back to state/messages to purge temp prompts.
 
@@ -1032,9 +1095,11 @@ In the SDK package, move the agent/tool type definitions into a new src/types di
 ## 2025-10-21T03:37:39.469Z — support-agentconfigs (2fcbe70)
 
 ### Original Agent Prompt
+
 Enhance the SDK to accept multiple custom agents in a single run and provide a reusable AgentConfig type. Introduce a shared type module that defines both AgentConfig (for user-supplied agent definitions) and ToolCall, export AgentConfig from the SDK entrypoint, and update the SDK client API to take an agentConfigs array. When preparing session state, convert this array into the agentTemplates map, stringifying any handleSteps functions. Refresh the README to document agentConfigs with a brief example and update the parameter reference accordingly.
 
 ### Lessons
+
 - **Issue:** Breaking API change: agentConfig -> agentConfigs without backward-compat handling.
   **Fix:** Accept legacy agentConfig (map) and convert to agentTemplates, while supporting new agentConfigs[]. Deprecate with warning.
 
@@ -1056,9 +1121,11 @@ Enhance the SDK to accept multiple custom agents in a single run and provide a r
 ## 2025-10-21T03:38:58.318Z — unify-agent-builder (4852954)
 
 ### Original Agent Prompt
+
 Unify the agent-builder system into a single builder, update agent type definitions to use structured output, and introduce three diff-reviewer example agents. Remove the deprecated messaging tool and update the agent registry and CLI flows to target the unified builder. Ensure the builder prepares local .agents/types and .agents/examples, copies the correct type definitions and example agents from common, and leaves agents and examples ready to compile and run.
 
 ### Lessons
+
 - **Issue:** Unified the wrong builder: removed agent_builder and kept base_agent_builder across registry/types/personas.
   **Fix:** Keep agent_builder as the single builder, remove base_agent_builder and update all refs to AgentTemplateTypes.agent_builder.
 
@@ -1096,9 +1163,11 @@ Unify the agent-builder system into a single builder, update agent type definiti
 ## 2025-10-21T03:44:28.949Z — add-agent-store (95883eb)
 
 ### Original Agent Prompt
+
 Build a public Agent Store experience. Add a new /agents page that lists published agents with search and sorting and links into existing agent detail pages. Implement a simple /api/agents list endpoint that pulls agents from the database, joins publisher info, includes basic summary fields from the agent JSON, and adds placeholder usage metrics. Update the site navigation to include an "Agent Store" link in both the header and the user dropdown. Keep the implementation aligned with the existing agent detail route structure and the current database schema.
 
 ### Lessons
+
 - **Issue:** Agents page used native <input>/<select>, not the app’s UI kit, leading to inconsistent styling.
   **Fix:** Use '@/components/ui/input' and '@/components/ui/select' (and related) for search/sort controls to match design.
 
@@ -1132,9 +1201,11 @@ Build a public Agent Store experience. Add a new /agents page that lists publish
 ## 2025-10-21T03:44:58.583Z — remove-agent-messaging (31862b4)
 
 ### Original Agent Prompt
+
 Remove the inter-agent messaging capability and references from the codebase. Eliminate the send_agent_message tool entirely, including its definitions, handlers, type entries, and CLI rendering. Update the superagent configuration and instructions so it no longer offers or suggests inter-agent messaging, and adjust the async spawn description to emphasize that spawned agents run independently. Remove any logic that injected pending inter-agent messages into the agent loop. Align SDK tool typings by removing send_agent_message, adding inline spawn tool typings, and adjust the output mode documentation wording as needed. Ensure the system functions without inter-agent messaging and that async agents are still usable without parent-child message passing.
 
 ### Lessons
+
 - **Issue:** Left send-agent-message files as empty modules (export {}) instead of deleting them.
 
 - **Issue:** AsyncAgentManager still contains messaging scaffolding (AsyncAgentMessage, messageQueues, send/get methods).
@@ -1157,10 +1228,10 @@ Remove the inter-agent messaging capability and references from the codebase. El
 ### Original Agent Prompt
 
 ### Lessons
+
 - **Issue:** sendPrompt/cancelUserInput depend on init() to set auth/fingerprint. If init isn’t called, auth is missing and cancel throws.
 
-
-- **Issue:** Removed export * from './types' in sdk/src/index.ts, an unrelated API change that can break consumers.
+- **Issue:** Removed export \* from './types' in sdk/src/index.ts, an unrelated API change that can break consumers.
 
 - **Issue:** init-response unsubscribe uses an awkward self-reference with try/catch; easy to get wrong and hard to read.
   **Fix:** Capture unsubscribe with let and call unsubscribe?.() in the callback. Avoid self-referential try/catch for cleaner, safer code.
@@ -1171,9 +1242,11 @@ Remove the inter-agent messaging capability and references from the codebase. El
 ## 2025-10-21T03:47:57.220Z — new-account-banner (e79f36b)
 
 ### Original Agent Prompt
+
 Show the referral banner only for new users. Expose the account creation date from the user profile API, add a frontend hook to fetch and cache the profile, and update the banner to render only when the account is less than a week old. Keep existing referral behavior and analytics intact.
 
 ### Lessons
+
 - **Issue:** created_at was added as required string and serialized via toISOString (web/src/types/user.ts, API route), causing type drift.
   **Fix:** Keep created_at as Date | null in types; return Date from API and normalize to Date in the hook so clients use a consistent Date.
 
@@ -1189,9 +1262,11 @@ Show the referral banner only for new users. Expose the account creation date fr
 ## 2025-10-21T03:49:12.973Z — respect-agent-subagents (a784106)
 
 ### Original Agent Prompt
+
 Update the agent selection and loading behavior so that choosing a specific agent via the CLI does not alter that agent’s subagent allowlist. When no agent is specified, keep the current behavior of using subagents from the project config or falling back to all local agents. Ensure the CLI always loads and displays local agents on startup for discoverability. Also align the file-explorer agent to reference the local file picker subagent by its simple id, not a publisher/version-qualified id.
 
 ### Lessons
+
 - **Issue:** Local agents load asynchronously and prompt may appear before they print, reducing discoverability on fast startups.
   **Fix:** Await loadLocalAgents display before readyPromise resolves (resolve in .then or await) to guarantee printing before prompt.
 
@@ -1210,13 +1285,13 @@ Update the agent selection and loading behavior so that choosing a specific agen
 ## 2025-10-21T03:50:10.356Z — refactor-agent-loading (59eaafe)
 
 ### Original Agent Prompt
-Refactor the agent loading and validation flow.
 
+Refactor the agent loading and validation flow.
 
 CLI: Load local agents only when no specific --agent is requested. Ensure the configuration is loaded at the right time and avoid referencing it before it exists. Display loaded agents only after the config is read in that conditional path. Keep the overall startup sequence intact.
 
-
 ### Lessons
+
 - **Issue:** Validated DB agents with raw template.id unchanged; if DB stored a composite id, schema validation/logging would use the full ID.
   **Fix:** Override to simple ID before validating: validateSingleAgent({ ...rawAgentData, id: agentId }, { ... }). Then set composite ID on the returned template.
 
@@ -1238,21 +1313,17 @@ CLI: Load local agents only when no specific --agent is requested. Ensure the co
 
 ### Lessons
 
-
 - **Issue:** Primary client exposure diverged from the shared SDK surface expected by consumers, increasing misuse risk.
-
-
 
 ### Original Agent Prompt
 
 ### Lessons
+
 - **Issue:** common/src/actions.ts: Only removed some legacy server actions; left ResponseCompleteSchema, 'tool-call', 'commit-message-response'.
   **Fix:** Prune SERVER_ACTION_SCHEMA to match new surface: drop ResponseCompleteSchema, 'tool-call', 'commit-message-response' across codebase.
 
 - **Issue:** npm-app/src/client.ts still defines generateCommitMessage and listens for 'commit-message-response' (removed action).
   **Fix:** Delete generateCommitMessage and its 'commit-message-response' subscription. Remove any sendAction('generate-commit-message').
-
-
 
 - **Issue:** Breaking SDK changes (process APIs deprecated) published without version bump (sdk/package.json unchanged).
   **Fix:** Bump SDK semver (e.g., 0.1.0) in sdk/package.json to signal breaking changes and update changelog/README with migration notes.
@@ -1260,10 +1331,10 @@ CLI: Load local agents only when no specific --agent is requested. Ensure the co
 - **Issue:** SDK public surface still exports legacy types via './types' (ChatContext/NewChatOptions), inflating API.
   **Fix:** Limit exports to needed types (ClientAction/ServerAction). Remove or mark legacy types @deprecated and stop exporting them publicly.
 
-
 ## 2025-10-21T03:58:40.843Z — server-agent-validation (926a98c)
 
 ### Original Agent Prompt
+
 Move dynamic agent template validation to the server. Accept raw agent templates from the client without local validation, and perform all schema parsing, normalization, and error reporting on the server before use. Ensure error messages are concise and include the agent context, enforce that spawning subagents requires the appropriate tool, and make IDs and tests consistent with the schema. Remove validation from the npm-side loader while still stringifying any handleSteps function so the server can validate it.
 
 ### Lessons
@@ -1286,7 +1357,6 @@ Move dynamic agent template validation to the server. Accept raw agent templates
 - **Issue:** validateAgents kept type Record<string, DynamicAgentTemplate>, forcing pre-parse and blocking raw acceptance.
   **Fix:** Update validateAgents signature to Record<string, any>, then parse inside validateSingleAgent with agent-context errors.
 
-
 - **Issue:** Introduced unrelated bun.lock/version changes (e.g., @codebuff/sdk), risking regressions and noisy diffs.
   **Fix:** Avoid lockfile/version updates unless required by the change; keep the PR minimal and scoped to validation move.
 
@@ -1296,10 +1366,12 @@ Move dynamic agent template validation to the server. Accept raw agent templates
 ## 2025-10-21T04:01:15.922Z — enforce-agent-tools (8b6285b)
 
 ### Original Agent Prompt
+
 Strengthen dynamic agent template validation so tool usage and output modes are consistent. Specifically, enforce that structured output mode is the only configuration allowed when an agent intends to set a JSON result, and require the agent-spawning tool whenever templates declare subagents. Add thorough unit tests that cover rejection cases for mismatched modes and missing tools, as well as acceptance cases when constraints are satisfied.
 
 ### Lessons
-- **Issue:** Skipped adding the rejection test in common/src/__tests__/agent-validation.test.ts for set_output with non-json outputMode.
+
+- **Issue:** Skipped adding the rejection test in common/src/**tests**/agent-validation.test.ts for set_output with non-json outputMode.
   **Fix:** Add a test named 'should reject set_output tool without json output mode' asserting DynamicAgentTemplateSchema fails when outputMode!='json'.
 
 - **Issue:** No explicit test for outputMode 'all_messages' with set_output in dynamic-agent-template-schema.test.ts.
@@ -1314,9 +1386,11 @@ Strengthen dynamic agent template validation so tool usage and output modes are 
 ## 2025-10-21T04:02:01.190Z — unify-tool-types (2c70277)
 
 ### Original Agent Prompt
+
 Bring agent, type, and rendering behavior into alignment across the project. Update the open-source researcher and thinker agents to use the latest intended models. Normalize and modernize the agent template and tool parameter type definitions so they reflect real runtime structures and avoid transport-only flags. Unify the spawn agents rendering to prefer dynamic agent names provided by the client and gracefully fall back when unknown, without relying on static personas. Finally, make the read_docs tests deterministic by stubbing the library search so no network calls occur.
 
 ### Lessons
+
 - **Issue:** Updated OSS models to gemini/grok, not the intended ones.
   **Fix:** Set researcher=z-ai/glm-4.5:fast and thinker=qwen/qwen3-235b-a22b-thinking-2507:fast.
 
@@ -1344,10 +1418,12 @@ Bring agent, type, and rendering behavior into alignment across the project. Upd
 ## 2025-10-21T04:10:03.872Z — add-oss-agents (e24b851)
 
 ### Original Agent Prompt
+
 Add a new suite of open‑source–only agents for orchestration, coding, file discovery, research, review, and deep thinking under a dedicated namespace, using appropriate open‑source model IDs. Update the OpenRouter integration so that provider fallbacks are enabled for non‑explicit model strings but disabled for known, explicitly defined models. Introduce a small shared utility to detect whether a model is explicitly defined and use it to make cache‑control decisions. Keep changes minimal and consistent with existing agent patterns and prompts.
 
 ### Lessons
-  **Fix:** Create .agents/opensource/{base,coder,file-picker,researcher,reviewer,thinker}.ts configs following the .agents file-based template style.
+
+**Fix:** Create .agents/opensource/{base,coder,file-picker,researcher,reviewer,thinker}.ts configs following the .agents file-based template style.
 
 - **Issue:** No dedicated 'coder' agent was added despite the request for a coding role.
   **Fix:** Add .agents/opensource/coder.ts with tools: read_files, write_file, str_replace, code_search, run_terminal_command, end_turn.
@@ -1366,15 +1442,17 @@ Add a new suite of open‑source–only agents for orchestration, coding, file d
 - **Issue:** Cache-control utility wasn’t a standalone shared helper as requested; lives inside constants.
   **Fix:** Expose a tiny shared util (common/src/util/model-utils.ts) and make supportsCacheControl delegate to it to centralize logic.
 
-- **Issue:** Open‑source suite name used string keys 'oss/*' in agent-list, not a dedicated namespace folder.
-  **Fix:** Use a folder namespace .agents/opensource/* for the suite; let IDs/publisher fields reflect that namespace.
+- **Issue:** Open‑source suite name used string keys 'oss/_' in agent-list, not a dedicated namespace folder.
+  **Fix:** Use a folder namespace .agents/opensource/_ for the suite; let IDs/publisher fields reflect that namespace.
 
 ## 2025-10-21T04:11:55.605Z — agents-cleanup (b748a06)
 
 ### Original Agent Prompt
+
 Create a new agent that scaffolds agent templates and related type definitions, then streamline several existing agents to align with the current tool result behavior and simplified prompts. The builder should set up a local types folder under .agents, copy example templates for reference, and prepare the environment for creating or editing new agents. For the existing agents, remove placeholder prompt blocks, eliminate any reliance on object-shaped tool results, and simplify prompts while preserving intended functionality.
 
 ### Lessons
+
 - **Issue:** New builder created as .agents/agent-template-builder.ts using POSIX shell cmds; diverged from expected agent-builder and isn’t cross‑platform.
   **Fix:** Add .agents/agent-builder.ts (id 'agent-builder'); use read_files + write_file to copy assets; avoid OS-specific shell (mkdir/cp/for/test).
 
@@ -1387,7 +1465,7 @@ Create a new agent that scaffolds agent templates and related type definitions, 
 - **Issue:** Builder ends with set_output/end_turn only; no interactive phase to guide creating/editing a new agent.
   **Fix:** After scaffolding, yield 'STEP_ALL' to ask clarifying questions and continue with creating or editing the requested agent.
 
-- **Issue:** Missed updating superagent.ts; placeholders ({CODEBUFF_*}) left in systemPrompt against simplification goal.
+- **Issue:** Missed updating superagent.ts; placeholders ({CODEBUFF\_\*}) left in systemPrompt against simplification goal.
   **Fix:** Replace superagent systemPrompt with a concise, self-contained text and remove placeholder prompt blocks.
 
 - **Issue:** Missed simplifying claude4-gemini-thinking.ts handleSteps; still inspects thinkResult (object-shaped tool result).
@@ -1411,9 +1489,11 @@ Create a new agent that scaffolds agent templates and related type definitions, 
 ## 2025-10-21T04:13:46.920Z — simplify-tool-result (9bd3253)
 
 ### Original Agent Prompt
+
 Refactor programmatic agent step handling so that generators receive only the latest tool’s result text. Update the types, the step runner to pass a string or undefined, and all affected agent templates and tests that previously accessed wrapper fields. Keep the broader tool execution pipeline unchanged. Also make the researcher agent’s web search safer by defaulting the query and using a standard depth.
 
 ### Lessons
+
 - **Issue:** Changed sandbox.executeStep to accept a string, likely breaking QuickJS API without updating its implementation.
   **Fix:** Keep sandbox.executeStep input unchanged (object) or update quickjs-sandbox to accept string; don’t break existing API.
 
@@ -1437,16 +1517,17 @@ Refactor programmatic agent step handling so that generators receive only the la
 - **Issue:** Mixed result wrapper and string semantics in tests and code, creating ambiguity and potential runtime errors.
   **Fix:** Adopt a single convention: latest result as string; remove wrapper field access and adjust all call sites coherently.
 
-
 - **Issue:** Did not verify/update QuickJS sandbox tests/usages that expect the old wrapper shape.
   **Fix:** Audit sandbox-related tests/usages and either keep wrapper for sandbox or update sandbox + tests to string input.
 
 ## 2025-10-21T04:20:13.894Z — unescape-agent-prompts (aff88fd)
 
 ### Original Agent Prompt
+
 Refactor all agent prompt strings in the .agents directory to use multiline template literals instead of quoted strings with escaped newlines. Preserve all content and placeholders while making the text human-readable and removing escape sequences. Add a small Bun script under scripts/ that scans .agents and converts any prompt fields containing \n into template literals, safely escaping backticks and replacing \n with actual newlines. Do not change agent behavior or loaders—only the prompt string formatting and the new script.
 
 ### Lessons
+
 - **Issue:** scripts/convert-agent-prompts.ts lacks a Bun shebang, so it can't run directly as an executable.
   **Fix:** Add #!/usr/bin/env bun at top and chmod +x the script to allow ./scripts/convert-agent-prompts.ts execution.
 
@@ -1471,9 +1552,11 @@ Refactor all agent prompt strings in the .agents directory to use multiline temp
 ## 2025-10-21T04:22:44.337Z — remove-legacy-overrides (bb61b28)
 
 ### Original Agent Prompt
+
 We are removing legacy agent override support, agent name normalization, and parent-instructions. Migrate the system to use explicit full agent IDs and a single subagents mechanism, and update tests and docs accordingly.
 
 High-level goals:
+
 - Eliminate the overrides schema and any UI/docs references to it.
 - Remove all agent-name normalization helpers so agents are identified by explicit IDs.
 - Drop parent-instructions validation and references; rely on subagents only for spawn permissions.
@@ -1481,9 +1564,9 @@ High-level goals:
 - Adjust tests to use the new validation approach (spy on validateAgents/validateSingleAgent) and to expect full agent IDs in subagents.
 - Clean up docs/examples to reflect subagents-only and explicit IDs.
 
-
 ### Lessons
-  **Fix:** Implement required removals/updates and commit diffs; verify via updated tests and docs.
+
+**Fix:** Implement required removals/updates and commit diffs; verify via updated tests and docs.
 
 - **Issue:** Overrides schema and references remained (e.g., common/src/types/agent-overrides.ts, docs UI).
   **Fix:** Delete overrides schema file and remove all imports/usages (schema-display, guides, references).
@@ -1503,7 +1586,6 @@ High-level goals:
 - **Issue:** Tests didn’t adopt new validation approach (no spying on validateAgents/validateSingleAgent).
   **Fix:** Update tests to spy/mock validateAgents/validateSingleAgent and assert new behavior.
 
-
 - **Issue:** Tests still expected normalized subagent IDs (e.g., 'git-committer').
   **Fix:** Expect full agent IDs with publisher prefix (e.g., 'CodebuffAI/git-committer') in tests.
 
@@ -1512,7 +1594,6 @@ High-level goals:
 
 - **Issue:** Web schema-display still exposed AgentOverrideSchemaDisplay.
   **Fix:** Remove override schema display and its imports/exports; keep only DynamicAgentTemplate/Config schemas.
-
 
 - **Issue:** Agent-name resolver still normalized IDs when listing/resolving.
   **Fix:** Return IDs verbatim in resolver; drop normalization; ensure mapping uses exact IDs.
