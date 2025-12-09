@@ -46,9 +46,9 @@ let toolCalls: ClientToolCall[] = []
 let toolResults: ToolMessage[] = []
 const defaultFs: CodebuffFileSystem = {
   ...(fs.promises as unknown as CodebuffFileSystem),
-  exists: async (target: string | Buffer | URL) => {
+  exists: async (pathLike) => {
     try {
-      await fs.promises.access(target)
+      await fs.promises.access(pathLike as fs.PathLike)
       return true
     } catch {
       return false
@@ -143,7 +143,7 @@ async function executeToolCall(
         {
           type: 'json',
           value: {
-            errorMessage: `Unsupported tool: ${toolCall.toolName}`,
+            errorMessage: 'Unsupported tool in eval scaffolding',
           },
         },
       ]

@@ -1,7 +1,12 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["bun", "node"]
+    "types": ["bun", "node"],
+    "baseUrl": "..",
+    "paths": {
+      "@codebuff/sdk": ["./sdk/src/index.ts"],
+      "@codebuff/sdk/*": ["./sdk/src/*"]
+    }
   },
   "include": ["**/*.ts"],
   "exclude": ["node_modules", "generate-ci-env.ts"]

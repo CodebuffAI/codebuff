@@ -136,9 +136,15 @@ export async function callMCPTool(
       } satisfies ToolResultOutput
     }
     if (c.type === 'resource') {
+      const resourceData =
+        'text' in c.resource
+          ? c.resource.text
+          : 'blob' in c.resource
+            ? c.resource.blob
+            : undefined
       return {
         type: 'media',
-        data: (c.resource.text ?? c.resource.blob) as string,
+        data: resourceData ?? '',
         mediaType: c.resource.mimeType ?? 'text/plain',
       } satisfies ToolResultOutput
     }

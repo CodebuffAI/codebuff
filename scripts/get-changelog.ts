@@ -8,7 +8,7 @@ import { userMessage } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
 import prettier from 'prettier'
 
-import { promptAiSdk } from '../backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
+import { promptAiSdk } from '@codebuff/sdk/impl/llm'
 
 // Native slugify implementation
 function slugify(text: string): string {
