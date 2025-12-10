@@ -135,6 +135,7 @@ describe('runProgrammaticStep', () => {
       system: 'Test system prompt',
       stepsComplete: false,
       stepNumber: 1,
+      tools: {},
 
       logger,
       signal: new AbortController().signal,

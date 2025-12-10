@@ -148,6 +148,8 @@ describe('Cost Aggregation System', () => {
         stepsRemaining: 10,
         creditsUsed: 50, // Parent starts with some cost
         directCreditsUsed: 50,
+        systemPrompt: 'Test system prompt',
+        toolDefinitions: {},
       }
 
       // Mock executeAgent to return results with different credit costs

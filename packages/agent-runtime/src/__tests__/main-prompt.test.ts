@@ -98,6 +98,7 @@ describe('mainPrompt', () => {
       onResponseChunk: () => {},
       localAgentTemplates: mockLocalAgentTemplates,
       signal: new AbortController().signal,
+      tools: {},
     }
 
     // Mock analytics and tracing

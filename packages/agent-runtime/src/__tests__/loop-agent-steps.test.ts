@@ -141,6 +141,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       ancestorRunIds: [],
       onResponseChunk: () => {},
       signal: new AbortController().signal,
+      tools: {},
     }
   })
 
@@ -418,32 +419,24 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
   })
 
   it('should pass shouldEndTurn: true as stepsComplete when end_turn tool is called', async () => {
-    // Test that when LLM calls end_turn, shouldEndTurn is correctly passed to runProgrammaticStep
+    // Test that when LLM calls end_turn, shouldEndTurn (stepsComplete) is correctly passed
+    // to the handleSteps generator via the step result.
+    //
+    // Flow:
+    // 1. Generator yields 'STEP', runProgrammaticStep returns
+    // 2. loopAgentSteps calls runAgentStep (LLM), which calls end_turn -> shouldEndTurn = true
+    // 3. loopAgentSteps calls runProgrammaticStep again with stepsComplete: true
+    // 4. Generator resumes from yield 'STEP' and receives { stepsComplete: true }
 
-    let runProgrammaticStepCalls: any[] = []
-
-    // Mock runProgrammaticStep module to capture calls and verify stepsComplete parameter
-    const mockedRunProgrammaticStep = await mockModule(
-      '@codebuff/agent-runtime/run-programmatic-step',
-      () => ({
-        runProgrammaticStep: async (params: any) => {
-          runProgrammaticStepCalls.push(params)
-          // First call: return endTurn false to continue
-          // Second call: return endTurn true to end the loop
-          const shouldEnd = runProgrammaticStepCalls.length >= 2
-          return {
-            agentState: params.agentState,
-            endTurn: shouldEnd,
-            stepNumber: params.stepNumber,
-          }
-        },
-        clearAgentGeneratorCache: () => {},
-        runIdToStepAll: new Set(),
-      }),
-    )
+    let stepsCompleteValues: boolean[] = []
 
     const mockGeneratorFunction = function* () {
-      yield 'STEP' // Hand control to LLM
+      // First STEP - after LLM runs and calls end_turn, we receive stepsComplete: true
+      const result1 = yield 'STEP'
+      stepsCompleteValues.push(result1.stepsComplete)
+
+      // Since stepsComplete was true, we should end gracefully
+      yield { toolName: 'end_turn', input: {} }
     } as () => StepGenerator
 
     mockTemplate.handleSteps = mockGeneratorFunction
@@ -458,18 +451,11 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       localAgentTemplates,
     })
 
-    mockedRunProgrammaticStep.clear()
-
-    // Verify that runProgrammaticStep was called twice:
-    // 1. First with stepsComplete: false (initial call)
-    // 2. Second with stepsComplete: true (after LLM called end_turn)
-    expect(runProgrammaticStepCalls).toHaveLength(2)
-
-    // First call should have stepsComplete: false
-    expect(runProgrammaticStepCalls[0].stepsComplete).toBe(false)
-
-    // Second call should have stepsComplete: true (after end_turn tool was called)
-    expect(runProgrammaticStepCalls[1].stepsComplete).toBe(true)
+    // Verify that stepsComplete was passed correctly:
+    // After yielding STEP and LLM running (which calls end_turn), 
+    // the generator receives stepsComplete: true
+    expect(stepsCompleteValues).toHaveLength(1)
+    expect(stepsCompleteValues[0]).toBe(true)
   })
 
   it('should continue loop when handleSteps returns endTurn: false even if LLM calls end_turn', async () => {

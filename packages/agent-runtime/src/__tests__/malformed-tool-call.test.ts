@@ -84,6 +84,7 @@ describe('malformed tool call error handling', () => {
       fullResponse: '',
       prompt: '',
       signal: new AbortController().signal,
+      tools: {},
     }
 
     // Mock analytics and tracing

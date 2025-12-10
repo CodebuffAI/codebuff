@@ -259,6 +259,7 @@ describe('n parameter and GENERATE_N functionality', () => {
           stepNumber: 1,
           logger,
           signal: new AbortController().signal,
+          tools: {},
         })
 
         expect(result.generateN).toBe(nValue)
@@ -298,6 +299,7 @@ describe('n parameter and GENERATE_N functionality', () => {
         stepNumber: 1,
         logger,
         signal: new AbortController().signal,
+        tools: {},
       })
 
       expect(result.generateN).toBeUndefined()
@@ -362,6 +364,7 @@ describe('n parameter and GENERATE_N functionality', () => {
         stepNumber: 1,
         logger,
         signal: new AbortController().signal,
+        tools: {},
       }
 
       // First call: programmatic step yields GENERATE_N
@@ -444,6 +447,7 @@ describe('n parameter and GENERATE_N functionality', () => {
         stepNumber: 1,
         logger,
         signal: new AbortController().signal,
+        tools: {},
       }
 
       // First call: execute read_files and yield GENERATE_N
@@ -539,6 +543,7 @@ describe('n parameter and GENERATE_N functionality', () => {
         stepNumber: 1,
         logger,
         signal: new AbortController().signal,
+        tools: {},
       }
 
       // First GENERATE_N
@@ -603,6 +608,7 @@ describe('n parameter and GENERATE_N functionality', () => {
         stepNumber: 1,
         logger,
         signal: new AbortController().signal,
+        tools: {},
       })
 
       expect(result.generateN).toBe(1)
@@ -641,6 +647,7 @@ describe('n parameter and GENERATE_N functionality', () => {
         stepNumber: 1,
         logger,
         signal: new AbortController().signal,
+        tools: {},
       }
 
       await runProgrammaticStep(mockParams)
@@ -687,6 +694,7 @@ describe('n parameter and GENERATE_N functionality', () => {
         stepNumber: 1,
         logger,
         signal: new AbortController().signal,
+        tools: {},
       }
 
       await runProgrammaticStep(mockParams)
@@ -730,6 +738,7 @@ describe('n parameter and GENERATE_N functionality', () => {
         stepNumber: 1,
         logger,
         signal: new AbortController().signal,
+        tools: {},
       }
 
       const result1 = await runProgrammaticStep(mockParams)
@@ -792,6 +801,7 @@ describe('n parameter and GENERATE_N functionality', () => {
         stepNumber: 1,
         logger,
         signal: new AbortController().signal,
+        tools: {},
       }
 
       // First call yields GENERATE_N
@@ -839,6 +849,7 @@ describe('n parameter and GENERATE_N functionality', () => {
         stepNumber: 1,
         logger,
         signal: new AbortController().signal,
+        tools: {},
       })
 
       // Should still set generateN even though endTurn will be true

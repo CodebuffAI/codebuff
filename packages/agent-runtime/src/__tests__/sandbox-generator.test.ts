@@ -89,6 +89,7 @@ describe('QuickJS Sandbox Generator', () => {
       stepsComplete: false,
       stepNumber: 1,
       signal: new AbortController().signal,
+      tools: {},
     }
   })
 

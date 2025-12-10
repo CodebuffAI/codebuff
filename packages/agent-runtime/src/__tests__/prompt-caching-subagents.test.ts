@@ -136,6 +136,7 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
       ancestorRunIds: [],
       onResponseChunk: () => {},
       signal: new AbortController().signal,
+      tools: {},
     }
   })
 
