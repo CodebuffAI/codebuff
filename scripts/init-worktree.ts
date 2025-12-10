@@ -215,7 +215,6 @@ function createEnvDevelopmentLocalFile(
 # This file has highest precedence in Bun's .env loading order, overriding .env.local
 # PORT is used by Next.js dev server
 PORT=${args.webPort}
-NEXT_PUBLIC_CODEBUFF_BACKEND_URL=localhost:${args.backendPort}
 NEXT_PUBLIC_WEB_PORT=${args.webPort}
 NEXT_PUBLIC_CODEBUFF_APP_URL=http://localhost:${args.webPort}
 `
