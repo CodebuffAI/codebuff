@@ -11,6 +11,7 @@ import { CodebuffClient } from '@codebuff/sdk'
 import { extractRepoNameFromUrl } from './setup-test-repo'
 import { withTestRepoAndParent } from '../subagents/test-repo-utils'
 import { generateEvalTask } from './eval-task-generator'
+import { filterSupplementalFiles } from './filter-supplemental-files'
 
 import type { EvalDataV2, EvalCommitV2, FileDiff } from './types'
 
@@ -191,7 +192,24 @@ export async function generateEvalFileV2({
           },
         })
 
-        printTaskResult(taskResult)
+        // Filter out supplementalFiles that don't exist at parentSha
+        const { valid: validSupplementalFiles, removed } = filterSupplementalFiles(
+          repoPath,
+          parentSha,
+          taskResult.supplementalFiles,
+        )
+
+        if (removed.length > 0) {
+          console.log(`⚠️  Filtered out ${removed.length} supplementalFiles that don't exist at parentSha:`)
+          for (const file of removed) {
+            console.log(`   - ${file}`)
+          }
+        }
+
+        printTaskResult({
+          ...taskResult,
+          supplementalFiles: validSupplementalFiles,
+        })
 
         const evalCommit: EvalCommitV2 = {
           id: taskResult.id,
@@ -199,7 +217,7 @@ export async function generateEvalFileV2({
           parentSha,
           spec: taskResult.spec,
           prompt: taskResult.prompt,
-          supplementalFiles: taskResult.supplementalFiles,
+          supplementalFiles: validSupplementalFiles,
           fileDiffs,
         }
 
