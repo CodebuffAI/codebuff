@@ -70,7 +70,7 @@ jobs:
       - name: Set environment variables
         env:
           SECRETS_CONTEXT: ${{ toJSON(secrets) }}
-          ENV_OVERRIDES: '{"NEXT_PUBLIC_CODEBUFF_BACKEND_URL": "manicode-backend.onrender.com", "NEXT_PUBLIC_CB_ENVIRONMENT": "prod"}'
+          ENV_OVERRIDES: '{"NEXT_PUBLIC_CB_ENVIRONMENT": "prod"}'
         shell: bash
         run: |
           VAR_NAMES=$(bun scripts/generate-ci-env.ts --scope client)
