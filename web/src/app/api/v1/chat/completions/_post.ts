@@ -2,7 +2,7 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { pluralize } from '@codebuff/common/util/string'
-import { env } from '@codebuff/internal/env'
+import { webEnv } from '@codebuff/internal/env'
 import { NextResponse } from 'next/server'
 
 import {
@@ -179,7 +179,7 @@ export async function postChatCompletions(params: {
       const resetCountdown = formatQuotaResetCountdown(nextQuotaReset)
       return NextResponse.json(
         {
-          message: `Out of credits. Please add credits at ${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage. Your free credits reset ${resetCountdown}.`,
+          message: `Out of credits. Please add credits at ${webEnv.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage. Your free credits reset ${resetCountdown}.`,
         },
         { status: 402 },
       )

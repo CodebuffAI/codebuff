@@ -1,6 +1,6 @@
 import db from '@codebuff/internal/db'
 import { user } from '@codebuff/internal/db/schema'
-import { env } from '@codebuff/internal/env'
+import { webEnv } from '@codebuff/internal/env'
 import { Client, Events, GatewayIntentBits } from 'discord.js'
 import { eq, or } from 'drizzle-orm'
 
@@ -95,7 +95,7 @@ export function startDiscordBot() {
           userRecord.discordId !== null
         ) {
           await command.reply({
-            content: `I couldn't link that email to your Discord account. Make sure you're using the correct email and that it isn't already linked to another Discord account. Contact ${env.NEXT_PUBLIC_SUPPORT_EMAIL} if you need help.`,
+            content: `I couldn't link that email to your Discord account. Make sure you're using the correct email and that it isn't already linked to another Discord account. Contact ${webEnv.NEXT_PUBLIC_SUPPORT_EMAIL} if you need help.`,
             ephemeral: true,
           })
           return
@@ -142,7 +142,7 @@ export function startDiscordBot() {
   })
 
   // Login to Discord
-  client.login(env.DISCORD_BOT_TOKEN).catch((error) => {
+  client.login(webEnv.DISCORD_BOT_TOKEN).catch((error) => {
     logger.error({ error }, 'Failed to start Discord bot')
   })
 

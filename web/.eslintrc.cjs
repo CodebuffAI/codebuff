@@ -31,6 +31,20 @@ module.exports = {
         message: 'CODEBUFF_API_KEY is not allowed in web package. Users must provide their own API key via Authorization header.',
       },
     ],
+    // Enforce using webEnv instead of env in web package
+    // webEnv omits CODEBUFF_API_KEY for type-level protection
+    'no-restricted-imports': [
+      'error',
+      {
+        paths: [
+          {
+            name: '@codebuff/internal/env',
+            importNames: ['env'],
+            message: "Use 'webEnv' instead of 'env' in web package. webEnv omits CODEBUFF_API_KEY for security.",
+          },
+        ],
+      },
+    ],
   },
   settings: {
     tailwindcss: {

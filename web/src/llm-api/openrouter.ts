@@ -1,5 +1,5 @@
 import { getErrorObject } from '@codebuff/common/util/error'
-import { env } from '@codebuff/internal/env'
+import { webEnv } from '@codebuff/internal/env'
 
 import {
   consumeCreditsForMessage,
@@ -26,7 +26,7 @@ function createOpenRouterRequest(params: {
   return fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${openrouterApiKey ?? env.OPEN_ROUTER_API_KEY}`,
+      Authorization: `Bearer ${openrouterApiKey ?? webEnv.OPEN_ROUTER_API_KEY}`,
       'HTTP-Referer': 'https://codebuff.com',
       'X-Title': 'Codebuff',
       'Content-Type': 'application/json',

@@ -4,7 +4,7 @@ import { MAX_DATE } from '@codebuff/common/old-constants'
 import { genAuthCode } from '@codebuff/common/util/credentials'
 import { db } from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { env } from '@codebuff/internal/env'
+import { webEnv } from '@codebuff/internal/env'
 import { and, eq, gt } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
@@ -37,7 +37,7 @@ const Onboard = async ({ searchParams = {} }: PageProps) => {
   // Handle referral-only flow (no CLI auth required)
   if (!user) {
     console.log('🟢 Onboard Server: No user session, redirecting to app URL')
-    return redirect(env.NEXT_PUBLIC_CODEBUFF_APP_URL)
+    return redirect(webEnv.NEXT_PUBLIC_CODEBUFF_APP_URL)
   }
 
   // Handle all non-CLI flows (web users with or without referral codes)
@@ -84,7 +84,7 @@ const Onboard = async ({ searchParams = {} }: PageProps) => {
   const fingerprintHash = genAuthCode(
     fingerprintId,
     expiresAt,
-    env.NEXTAUTH_SECRET,
+    webEnv.NEXTAUTH_SECRET,
   )
   if (receivedfingerprintHash !== fingerprintHash) {
     return CardWithBeams({
@@ -174,7 +174,7 @@ const Onboard = async ({ searchParams = {} }: PageProps) => {
       content: (
         <p>
           Please try generating a new login code. If the problem persists,
-          contact {env.NEXT_PUBLIC_SUPPORT_EMAIL} for assistance.
+          contact {webEnv.NEXT_PUBLIC_SUPPORT_EMAIL} for assistance.
         </p>
       ),
     })
@@ -240,7 +240,7 @@ const Onboard = async ({ searchParams = {} }: PageProps) => {
     content: (
       <p>
         Not sure what happened with creating your user. Please try again and
-        reach out to {env.NEXT_PUBLIC_SUPPORT_EMAIL} if the problem persists.
+        reach out to {webEnv.NEXT_PUBLIC_SUPPORT_EMAIL} if the problem persists.
       </p>
     ),
   })

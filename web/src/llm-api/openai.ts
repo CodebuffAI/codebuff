@@ -1,4 +1,4 @@
-import { env } from '@codebuff/internal/env'
+import { webEnv } from '@codebuff/internal/env'
 
 import {
   consumeCreditsForMessage,
@@ -132,7 +132,7 @@ export async function handleOpenAINonStream({
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+      Authorization: `Bearer ${webEnv.OPENAI_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(openaiBody),

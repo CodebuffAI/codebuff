@@ -1,7 +1,7 @@
 import { genAuthCode } from '@codebuff/common/util/credentials'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { env } from '@codebuff/internal/env'
+import { webEnv } from '@codebuff/internal/env'
 import { and, eq, gt, or, isNull } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod/v4'
@@ -45,7 +45,7 @@ export async function GET(req: Request) {
   const expectedHash = genAuthCode(
     fingerprintId,
     expiresAt.toString(),
-    env.NEXTAUTH_SECRET,
+    webEnv.NEXTAUTH_SECRET,
   )
   if (fingerprintHash !== expectedHash) {
     logger.info(
