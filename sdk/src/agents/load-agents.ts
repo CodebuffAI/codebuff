@@ -24,6 +24,29 @@ export type LoadedAgentDefinition = AgentDefinition & {
  */
 export type LoadedAgents = Record<string, LoadedAgentDefinition>
 
+/**
+ * Validation error for an agent that failed validation.
+ */
+export type AgentValidationError = {
+  /** The agent's ID */
+  agentId: string
+  /** The source file path where the agent was loaded from */
+  filePath: string
+  /** The validation error message */
+  message: string
+}
+
+/**
+ * Result returned by loadLocalAgents when validate: true.
+ * Contains both the valid agents and any validation errors.
+ */
+export type LoadLocalAgentsResult = {
+  /** Valid agent definitions that passed validation */
+  agents: LoadedAgents
+  /** Validation errors for agents that failed validation */
+  validationErrors: AgentValidationError[]
+}
+
 const agentFileExtensions = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs'])
 
 const getAllAgentFiles = (dir: string): string[] => {
@@ -72,8 +95,9 @@ const getDefaultAgentDirs = () => {
  *
  * @param options.agentsPath - Optional path to a specific agents directory
  * @param options.verbose - Whether to log errors during loading
- * @param options.validate - Whether to validate agents after loading (filters out invalid agents)
- * @returns Record of agent definitions keyed by agent ID
+ * @param options.validate - Whether to validate agents after loading
+ * @returns When validate is false/omitted: Record of agent definitions keyed by agent ID.
+ *          When validate is true: Object with valid agents and validation errors.
  *
  * @example
  * ```typescript
@@ -83,8 +107,11 @@ const getDefaultAgentDirs = () => {
  * // Load from a specific directory
  * const agents = await loadLocalAgents({ agentsPath: './my-agents' })
  *
- * // Load and validate agents (invalid agents are filtered out)
- * const agents = await loadLocalAgents({ validate: true, verbose: true })
+ * // Load and validate agents - returns both valid agents and errors
+ * const { agents, validationErrors } = await loadLocalAgents({ validate: true })
+ * if (validationErrors.length > 0) {
+ *   console.error('Some agents failed validation:', validationErrors)
+ * }
  *
  * // Access source file path for debugging
  * for (const agent of Object.values(agents)) {
@@ -99,6 +126,21 @@ const getDefaultAgentDirs = () => {
  * })
  * ```
  */
+// Overload: validate: true returns result with agents and errors
+export async function loadLocalAgents(options: {
+  agentsPath?: string
+  verbose?: boolean
+  validate: true
+}): Promise<LoadLocalAgentsResult>
+
+// Overload: validate: false or omitted returns just agents (backward compatible)
+export async function loadLocalAgents(options: {
+  agentsPath?: string
+  verbose?: boolean
+  validate?: false
+}): Promise<LoadedAgents>
+
+// Implementation
 export async function loadLocalAgents({
   agentsPath,
   verbose = false,
@@ -107,14 +149,14 @@ export async function loadLocalAgents({
   agentsPath?: string
   verbose?: boolean
   validate?: boolean
-}): Promise<LoadedAgents> {
+}): Promise<LoadedAgents | LoadLocalAgentsResult> {
   const agents: LoadedAgents = {}
 
   const agentDirs = agentsPath ? [agentsPath] : getDefaultAgentDirs()
   const allAgentFiles = agentDirs.flatMap((dir) => getAllAgentFiles(dir))
 
   if (allAgentFiles.length === 0) {
-    return agents
+    return validate ? { agents, validationErrors: [] } : agents
   }
 
   for (const fullPath of allAgentFiles) {
@@ -155,36 +197,48 @@ export async function loadLocalAgents({
   }
 
   // Validate agents if requested
-  if (validate && Object.keys(agents).length > 0) {
-    const result = await validateAgents(Object.values(agents))
+  if (validate) {
+    const validationErrors: AgentValidationError[] = []
 
-    if (!result.success) {
-      // Build a map of agent IDs to their validation errors
-      // The validation error id format is "{agentId}_{index}" from validateAgents
-      const errorsByAgentId = new Map<string, string>()
-      for (const err of result.validationErrors) {
-        // Extract agent ID by removing the "_index" suffix added by validateAgents
-        const lastUnderscoreIdx = err.id.lastIndexOf('_')
-        const agentId =
-          lastUnderscoreIdx > 0 ? err.id.slice(0, lastUnderscoreIdx) : err.id
-        if (!errorsByAgentId.has(agentId)) {
-          errorsByAgentId.set(agentId, err.message)
-        }
-      }
+    if (Object.keys(agents).length > 0) {
+      const result = await validateAgents(Object.values(agents))
 
-      // Filter out invalid agents
-      for (const agentId of Object.keys(agents)) {
-        const errorMessage = errorsByAgentId.get(agentId)
-        if (errorMessage) {
-          if (verbose) {
-            console.error(
-              `Validation failed for agent '${agentId}': ${errorMessage}`,
-            )
+      if (!result.success) {
+        // Build a map of agent IDs to their validation errors
+        // The validation error id format is "{agentId}_{index}" from validateAgents
+        const errorsByAgentId = new Map<string, string>()
+        for (const err of result.validationErrors) {
+          // Extract agent ID by removing the "_index" suffix added by validateAgents
+          const lastUnderscoreIdx = err.id.lastIndexOf('_')
+          const agentId =
+            lastUnderscoreIdx > 0 ? err.id.slice(0, lastUnderscoreIdx) : err.id
+          if (!errorsByAgentId.has(agentId)) {
+            errorsByAgentId.set(agentId, err.message)
           }
-          delete agents[agentId]
+        }
+
+        // Filter out invalid agents and collect validation errors
+        for (const agentId of Object.keys(agents)) {
+          const errorMessage = errorsByAgentId.get(agentId)
+          if (errorMessage) {
+            const agent = agents[agentId]
+            validationErrors.push({
+              agentId,
+              filePath: agent._sourceFilePath,
+              message: errorMessage,
+            })
+            if (verbose) {
+              console.error(
+                `Validation failed for agent '${agentId}': ${errorMessage}`,
+              )
+            }
+            delete agents[agentId]
+          }
         }
       }
     }
+
+    return { agents, validationErrors }
   }
 
   return agents
