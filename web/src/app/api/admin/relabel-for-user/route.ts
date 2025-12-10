@@ -28,6 +28,18 @@ import { logger } from '../../../../util/logger'
 
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { NextRequest } from 'next/server'
+import type { System } from '@codebuff/agent-runtime/llm-api/claude'
+
+// Type for messages stored in BigQuery traces
+interface StoredMessage {
+  role?: string
+  content?: string | Array<{ type?: string; text?: string }>
+}
+
+// Type for BigQuery timestamp values
+interface BigQueryTimestamp {
+  value?: string | number
+}
 
 
 const STATIC_SESSION_ID = 'relabel-trace-api'
@@ -192,7 +204,7 @@ async function relabelTraceWithModel(params: {
   try {
     const messages = messagesWithSystem({
       messages: (payload.messages || []) as Message[],
-      system: payload.system as any,
+      system: payload.system as System,
     })
 
     const output = await promptAiSdk({
@@ -408,15 +420,17 @@ async function relabelWithClaudeWithFullFileContext(params: {
       ? (JSON.parse(trace.payload) as GetRelevantFilesPayload)
       : (trace.payload as GetRelevantFilesPayload)
 
-  let system = tracePayload.system as any
+  let system: System = tracePayload.system as System
   if (typeof system === 'string') {
     system = system + partialFileContext
   } else if (Array.isArray(system) && system.length > 0) {
-    system = [...system]
-    system[system.length - 1] = {
-      ...system[system.length - 1],
-      text: `${system[system.length - 1].text}${partialFileContext}`,
+    const systemCopy = [...system]
+    const lastBlock = systemCopy[systemCopy.length - 1]
+    systemCopy[systemCopy.length - 1] = {
+      ...lastBlock,
+      text: `${lastBlock.text}${partialFileContext}`,
     }
+    system = systemCopy
   }
 
   const output = await promptAiSdk({
@@ -459,7 +473,7 @@ function formatTraceResults(traceBundles: TraceBundle[]) {
       trace.created_at instanceof Date
         ? trace.created_at.toISOString()
         : new Date(
-            (trace.created_at as any)?.value ?? trace.created_at,
+            (trace.created_at as BigQueryTimestamp)?.value ?? trace.created_at,
           ).toISOString()
 
     const query = extractQueryFromMessages(payload.messages)
@@ -492,7 +506,7 @@ function formatTraceResults(traceBundles: TraceBundle[]) {
 
 function extractQueryFromMessages(messages: unknown): string {
   const items = Array.isArray(messages) ? messages : []
-  const lastMessage = items[items.length - 1] as any
+  const lastMessage = items[items.length - 1] as StoredMessage | undefined
   const content = Array.isArray(lastMessage?.content)
     ? lastMessage.content[0]?.text
     : lastMessage?.content
