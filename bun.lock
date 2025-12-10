@@ -126,6 +126,7 @@
       "name": "@codebuff/agent-runtime",
       "version": "0.0.0",
       "dependencies": {
+        "gpt-tokenizer": "^2.8.1",
         "zod-from-json-schema": "0.4.2",
       },
       "devDependencies": {
@@ -208,7 +209,7 @@
     },
     "sdk": {
       "name": "@codebuff/sdk",
-      "version": "0.10.0",
+      "version": "0.10.1",
       "dependencies": {
         "@jitl/quickjs-wasmfile-release-sync": "0.31.0",
         "@vscode/tree-sitter-wasm": "0.1.4",
@@ -2304,6 +2305,8 @@
     "google-logging-utils": ["google-logging-utils@0.0.2", "", {}, "sha512-NEgUnEcBiP5HrPzufUkBzJOD/Sxsco3rLNo1F1TNf7ieU8ryUzBhqba8r756CjLX7rn3fHl6iLEwPYuqpoKgQQ=="],
 
     "gopd": ["gopd@1.2.0", "", {}, "sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg=="],
+
+    "gpt-tokenizer": ["gpt-tokenizer@2.9.0", "", {}, "sha512-YSpexBL/k4bfliAzMrRqn3M6+it02LutVyhVpDeMKrC/O9+pCe/5s8U2hYKa2vFLD5/vHhsKc8sOn/qGqII8Kg=="],
 
     "graceful-fs": ["graceful-fs@4.2.11", "", {}, "sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ=="],
 

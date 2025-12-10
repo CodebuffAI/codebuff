@@ -1,23 +1,30 @@
 import { LRUCache } from '@codebuff/common/util/lru-cache'
+import { encode } from 'gpt-tokenizer/esm/model/gpt-4o'
 
 const ANTHROPIC_TOKEN_FUDGE_FACTOR = 1.35
 
 const TOKEN_COUNT_CACHE = new LRUCache<string, number>(1000)
 
 export function countTokens(text: string): number {
-  const cached = TOKEN_COUNT_CACHE.get(text)
-  if (cached !== undefined) {
-    return cached
-  }
+  try {
+    const cached = TOKEN_COUNT_CACHE.get(text)
+    if (cached !== undefined) {
+      return cached
+    }
+    const count = Math.floor(
+      encode(text, { allowedSpecial: 'all' }).length *
+        ANTHROPIC_TOKEN_FUDGE_FACTOR,
+    )
 
-  // Approximate token count when tokenizer isn't available
-  const count = Math.floor((text.length / 3) * ANTHROPIC_TOKEN_FUDGE_FACTOR)
-
-  if (text.length > 100) {
-    // Cache only if the text is long enough to be worth it.
-    TOKEN_COUNT_CACHE.set(text, count)
+    if (text.length > 100) {
+      // Cache only if the text is long enough to be worth it.
+      TOKEN_COUNT_CACHE.set(text, count)
+    }
+    return count
+  } catch (e) {
+    console.error('Error counting tokens', e)
+    return Math.ceil(text.length / 3)
   }
-  return count
 }
 
 export function countTokensJson(text: string | object): number {
