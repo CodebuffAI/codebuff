@@ -2,8 +2,11 @@ import { clientEnvSchema, clientProcessEnv } from '@codebuff/common/env-schema'
 import z from 'zod/v4'
 
 export const serverEnvSchema = clientEnvSchema.extend({
-  // Backend variables
+  // Codebuff API key - used by CLI/SDK for authentication
+  // NOTE: Web should NOT use this directly - users must provide their own key
+  // See web/.eslintrc.cjs for enforcement
   CODEBUFF_API_KEY: z.string().optional(),
+  // LLM API keys
   OPEN_ROUTER_API_KEY: z.string().min(1),
   OPENAI_API_KEY: z.string().min(1),
   LINKUP_API_KEY: z.string().min(1),
@@ -33,12 +36,18 @@ export type ServerInput = {
 }
 export type ServerEnv = z.infer<typeof serverEnvSchema>
 
+// Web-specific schema that omits CODEBUFF_API_KEY
+// Web should never use this key - users must provide their own via Authorization header
+export const webEnvSchema = serverEnvSchema.omit({ CODEBUFF_API_KEY: true })
+export type WebEnv = z.infer<typeof webEnvSchema>
+
 // Bun will inject all these values, so we need to reference them individually (no for-loops)
 export const serverProcessEnv: ServerInput = {
   ...clientProcessEnv,
 
-  // Backend variables
+  // Codebuff API key
   CODEBUFF_API_KEY: process.env.CODEBUFF_API_KEY,
+  // LLM API keys
   OPEN_ROUTER_API_KEY: process.env.OPEN_ROUTER_API_KEY,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   LINKUP_API_KEY: process.env.LINKUP_API_KEY,

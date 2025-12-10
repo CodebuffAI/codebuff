@@ -139,10 +139,9 @@ The path is resolved relative to the override file's directory.
 
 ## Implementation Details
 
-- Override processing happens in `backend/src/templates/agent-overrides.ts`
-- Integration points are in `backend/src/run-agent-step.ts`
+- Override processing happens in `packages/agent-runtime/src/templates/agent-overrides.ts`
 - Files are loaded into `ProjectFileContext.agentTemplates` (separate from knowledge files)
-- Agent template files are loaded in `npm-app/src/project-files.ts`
+- Agent template files are loaded in `cli/src/project-files.ts`
 - Path resolution uses `path.posix.join()` for cross-platform compatibility
 - Errors are logged but don't break agent execution (graceful fallback to base template)
 

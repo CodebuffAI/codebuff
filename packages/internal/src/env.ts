@@ -1,4 +1,4 @@
-import { serverEnvSchema, serverProcessEnv } from './env-schema'
+import { serverEnvSchema, serverProcessEnv, webEnvSchema } from './env-schema'
 
 // Provide safe defaults for local/test runs to avoid schema failures
 const ensureEnvDefault = (key: string, value: string) => {
@@ -29,4 +29,9 @@ if (process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
   console.log('Using environment:', process.env.NEXT_PUBLIC_CB_ENVIRONMENT)
 }
 
+// Full env for SDK/CLI - includes CODEBUFF_API_KEY
 export const env = serverEnvSchema.parse(serverProcessEnv)
+
+// Web-specific env - CODEBUFF_API_KEY does NOT exist on this type
+// Use this in web package to get type-level protection against using CODEBUFF_API_KEY
+export const webEnv = webEnvSchema.parse(serverProcessEnv)

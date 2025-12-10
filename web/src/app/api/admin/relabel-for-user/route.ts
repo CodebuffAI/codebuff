@@ -19,7 +19,6 @@ import {
 import { userMessage } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
-import { env } from '@codebuff/internal/env'
 import { promptAiSdk } from '@codebuff/sdk'
 import { NextResponse } from 'next/server'
 
@@ -112,15 +111,16 @@ export async function POST(req: NextRequest) {
       ? requestedLimit
       : DEFAULT_RELABEL_LIMIT
 
-  const apiKey = env.CODEBUFF_API_KEY
+  // Require API key from Authorization header - user must provide their own key
+  const apiKey = getApiKeyFromRequest(req)
   if (!apiKey) {
     return NextResponse.json(
       { 
-        error: 'CODEBUFF_API_KEY is not configured',
-        details: 'This endpoint now calls LLMs directly (backend was removed) and requires CODEBUFF_API_KEY to be set.',
-        hint: 'Add CODEBUFF_API_KEY to your environment variables. See .env.example for reference.',
+        error: 'API key required',
+        details: 'Provide your API key via Authorization header (Bearer token).',
+        hint: 'Visit /usage in the web app to create an API key.',
       },
-      { status: 500 },
+      { status: 401 },
     )
   }
 
@@ -533,6 +533,18 @@ function buildPromptContext(apiKey: string) {
     liveUserInputRecord: {},
     sessionConnections: {},
   }
+}
+
+/**
+ * Extract API key from Authorization header (Bearer token)
+ */
+function getApiKeyFromRequest(req: NextRequest): string | null {
+  const authHeader = req.headers.get('Authorization')
+  if (!authHeader?.startsWith('Bearer ')) {
+    return null
+  }
+  const token = authHeader.slice(7).trim()
+  return token || null
 }
 
 async function ensureBigQuery() {
