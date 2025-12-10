@@ -31,7 +31,7 @@
     "typecheck": "bun --filter='*' run typecheck && echo '✅ All type checks passed!'",
     "test": "bun --filter='{@codebuff/backend,@codebuff/common,@codebuff/npm-app,@codebuff/agents}' run test",
     "init-worktree": "bun scripts/init-worktree.ts",
-    "cleanup-worktree": "bash scripts/cleanup-worktree.sh",
+    "cleanup-worktree": "bun scripts/cleanup-worktree.ts",
     "generate-tool-definitions": "bun scripts/generate-tool-definitions.ts"
   },
   "dependencies": {
