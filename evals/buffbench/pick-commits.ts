@@ -58,57 +58,85 @@ const CommitSelectionSchema = z.object({
   ),
 })
 
-const COMMIT_SCREENING_PROMPT = `You are an expert at identifying substantial and well-scoped code changes in git commits that would make good evaluation examples for an AI coding assistant.
+const COMMIT_SCREENING_PROMPT = `You are an expert at identifying HARD and CHALLENGING code changes in git commits that would make difficult evaluation examples for an AI coding assistant.
 
-Given a commit with its actual file changes and diffs, determine if it represents a substantial, complete, and clear change that would make a good coding task.
+**IMPORTANT: We only want HARD commits. We have enough easy tasks already. Be very selective and only pick commits that represent genuinely difficult coding challenges.**
 
-A good evaluation commit should:
-1. Make a meaningful, self-contained change (not just typo fixes or formatting)
-2. Have a clear purpose that can be described without implementation details
-3. Represent work that a skilled developer could implement given a description
-4. Show interesting coding patterns or solve real problems
-5. Not be auto-generated, trivial refactoring, or pure dependency updates
-6. Have reasonable scope (not too small like 1-line fixes, not too large like massive refactors)
-7. Show coherent changes that work together toward a common goal
-8. Demonstrate meaningful logic or functionality changes, not just cosmetic edits
+Given a commit with its actual file changes and diffs, determine if it represents a HARD, substantial, and complex change that would challenge an advanced AI coding assistant.
 
-Avoid commits that are:
+A good HARD evaluation commit MUST:
+1. Require deep understanding of the codebase architecture or complex domain logic
+2. Involve non-trivial algorithmic thinking, state management, or system design
+3. Touch multiple interconnected parts of the system that require understanding dependencies
+4. Implement complex business logic, data transformations, or intricate control flow
+5. Require reasoning about edge cases, error handling, or concurrent operations
+6. Demonstrate advanced programming patterns (e.g., complex generics, metaprogramming, advanced async patterns)
+7. Involve substantial refactoring that requires understanding the full context
+8. Have changes that would be difficult to implement correctly without deep understanding
+
+**REJECT commits that are:**
+- Simple bug fixes or one-liner changes (TOO EASY)
+- Straightforward CRUD operations or basic UI changes (TOO EASY)
+- Adding simple new fields or properties (TOO EASY)
+- Basic configuration changes (TOO EASY)
+- Simple utility functions with obvious implementations (TOO EASY)
 - Dependency updates (package.json, lock files)
 - Auto-generated code (generated files, build outputs)
 - Pure formatting or linting changes
-- Documentation-only changes (unless they involve code examples)
+- Documentation-only changes
 - Merge commits or reverts
-- Trivial one-line fixes
 - Mass renaming or file moves without logic changes
-- Incoherent changes that seem unrelated or incomplete
 - Changes that only modify comments or whitespace
+- Simple test additions without complex logic
+- Boilerplate code additions
 
-When evaluating, pay special attention to:
-- The actual code changes shown in the diffs
-- Whether the changes form a coherent, complete feature or fix
-- The complexity and educational value of the implementation
-- Whether the changes would be implementable from a specification
+**Examples of HARD commits we want:**
+- Implementing a complex caching strategy with invalidation logic
+- Adding a new authentication/authorization system
+- Refactoring a component to support a fundamentally different data model
+- Implementing complex state machines or workflow engines
+- Adding real-time synchronization or conflict resolution
+- Complex database migrations with data transformations
+- Implementing advanced search/filtering with multiple criteria
+- Adding complex validation logic across multiple entities
+- Performance optimizations requiring algorithmic changes
+- Implementing complex integrations with external systems
+
+When evaluating, ask yourself:
+- Would this take a senior developer significant time to implement correctly?
+- Does this require understanding multiple files/modules and their interactions?
+- Are there non-obvious edge cases or gotchas that must be handled?
+- Would an AI need to reason deeply about the problem, not just pattern match?
+
+Be VERY selective. If in doubt, REJECT the commit. We want quality over quantity.
 
 For each commit you select:
-- Provide a clear reason why it makes a good evaluation example
+- Explain specifically WHY this is a HARD task (not just "substantial" or "meaningful")
+- Identify the specific complexity or challenge involved
 - Write a short description (1-2 sentences) of what the commit accomplishes
-- Reference specific aspects of the code changes that make it valuable
 
-Return your response as JSON with the selected commits.`
+Return your response as JSON with the selected commits. If none of the commits are hard enough, return an empty array.`
 
 const fingerprintId = 'commit-picker'
 const userInputId = 'commit-picker'
 
-function getCommits(repoPath: string, limit: number): CommitInfo[] {
+function getCommits(repoPath: string, limit: number, afterCommit?: string): CommitInfo[] {
+  const gitArgs = [
+    'log',
+    '--pretty=format:%H|%an|%ad|%s',
+    '--date=iso',
+    '-n',
+    limit.toString(),
+  ]
+
+  // If afterCommit is specified, start from that commit's parent
+  if (afterCommit) {
+    gitArgs.push(`${afterCommit}^`) // Start from the parent of the specified commit
+  }
+
   const gitLogOutput = execFileSync(
     'git',
-    [
-      'log',
-      '--pretty=format:%H|%an|%ad|%s',
-      '--date=iso',
-      '-n',
-      limit.toString(),
-    ],
+    gitArgs,
     { cwd: repoPath, encoding: 'utf-8' },
   )
 
@@ -444,11 +472,13 @@ export async function pickCommits({
   outputPath,
   clientSessionId,
   limit = 200,
+  afterCommit,
 }: {
   repoUrl: string
   outputPath?: string
   clientSessionId: string
   limit?: number
+  afterCommit?: string
 }): Promise<void> {
   const repoName = extractRepoNameFromUrl(repoUrl)
   console.log(`Picking commits from repository: ${repoName}`)
@@ -460,8 +490,12 @@ export async function pickCommits({
   const repoPath = await setupTestRepo(repoUrl, repoName)
 
   // Get commits
-  console.log(`Fetching last ${limit} commits...`)
-  const allCommits = getCommits(repoPath, limit)
+  if (afterCommit) {
+    console.log(`Fetching ${limit} commits after ${afterCommit}...`)
+  } else {
+    console.log(`Fetching last ${limit} commits...`)
+  }
+  const allCommits = getCommits(repoPath, limit, afterCommit)
   console.log(`Found ${allCommits.length} commits`)
 
   // Apply basic filtering
@@ -532,14 +566,25 @@ if (require.main === module) {
   const args = process.argv.slice(2)
 
   if (args.length === 0) {
-    console.log('Usage: bun run pick-commits <repo-url> [output-path] [limit]')
+    console.log('Usage: bun run pick-commits <repo-url> [output-path] [limit] [--after <commit-sha>]')
     console.log('')
     console.log('Examples:')
     console.log('  bun run pick-commits https://github.com/user/repo')
     console.log(
       '  bun run pick-commits https://github.com/user/repo ./commits.json 300',
     )
+    console.log(
+      '  bun run pick-commits https://github.com/user/repo ./commits.json 500 --after abc123',
+    )
     process.exit(1)
+  }
+
+  // Parse --after flag
+  const afterIndex = args.indexOf('--after')
+  let afterCommit: string | undefined
+  if (afterIndex !== -1 && args[afterIndex + 1]) {
+    afterCommit = args[afterIndex + 1]
+    args.splice(afterIndex, 2) // Remove --after and its value from args
   }
 
   const repoUrl = args[0]
@@ -559,6 +604,7 @@ if (require.main === module) {
     outputPath,
     clientSessionId: sessionId,
     limit,
+    afterCommit,
   })
     .then(() => {
       console.log('\nCommit picking completed successfully!')
