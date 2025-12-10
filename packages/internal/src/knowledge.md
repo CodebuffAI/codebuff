@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Centralized location for internal utilities, environment configuration, and select integrations used across the Codebuff monorepo (`backend` and `web`).
+Centralized location for internal utilities, environment configuration, and select integrations used across the Codebuff monorepo (`web`, `cli`, and `sdk`).
 
 ## Structure
 

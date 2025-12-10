@@ -2,13 +2,13 @@
 
 ## Overview
 
-Codebuff implements secure authentication between CLI (npm-app), backend, and web application using fingerprint-based device identification.
+Codebuff implements secure authentication between the CLI and web application using fingerprint-based device identification.
 
 ## Core Authentication Flow
 
 ```mermaid
 sequenceDiagram
-    participant CLI as npm-app
+    participant CLI as CLI
     participant Web as web app
     participant DB as Database
 
@@ -30,7 +30,7 @@ sequenceDiagram
 ### 1. First Time Login / Missing Credentials
 
 - CLI generates fingerprint from hardware info + 8 random bytes
-- Uses `calculateFingerprint()` in `npm-app/src/fingerprint.ts`
+- Uses `calculateFingerprint()` in the SDK
 - Continues to core flow with new fingerprintId
 
 ### 2. Logout Flow

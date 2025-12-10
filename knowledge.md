@@ -334,12 +334,11 @@ Important constants are centralized in `common/src/constants.ts`:
 
 ## Referral System
 
-**IMPORTANT**: Referral codes must be applied through the npm-app CLI, not through the web interface.
+**IMPORTANT**: Referral codes must be applied through the CLI, not through the web interface.
 
 - Web onboarding flow shows instructions for entering codes in CLI
 - Users must type their referral code in the Codebuff terminal after login
 - Auto-redemption during web login was removed to prevent abuse
-- The `handleReferralCode` function in `npm-app/src/client.ts` handles CLI redemption
 - The `redeemReferralCode` function in `web/src/app/api/referrals/helpers.ts` processes the actual credit granting
 
 ### OAuth Referral Code Preservation

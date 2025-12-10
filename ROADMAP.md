@@ -1,6 +1,6 @@
-In general, we reevaulate plans day-by-day and thus the roadmap may change at any point.
+In general, we reevaluate plans day-by-day and thus the roadmap may change at any point.
 
-As of Oct 6th, here's what we're working on:
-- Brandon is rebuilding npm-app from the ground up with a snazzy TUI and reusing the SDK instead of a custom connection to the backend
-- Charles is moving backend logic to the SDK so more code is run locally. 
-- James is building more powerful agents, especially "base2", which is the next-gen default codebuff agent. Try it with `codebuff --experimental`!
+As of Dec 2024, here's what we're working on:
+- The CLI has been rebuilt with a modern TUI using OpenTUI and React 19
+- Core functionality has been moved to the SDK for local execution, and our CLI now fully uses it!
+- Building more powerful agents, especially "base2", which is the next-gen default codebuff agent
