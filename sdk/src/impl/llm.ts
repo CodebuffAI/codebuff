@@ -40,7 +40,7 @@ import type {
 } from '@codebuff/common/types/contracts/llm'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { JSONObject } from '@codebuff/common/types/json'
-import type { OpenRouterProviderOptions } from '@openrouter/ai-sdk-provider'
+import type { OpenRouterProviderOptions } from '@codebuff/internal/openrouter-ai-sdk'
 import type z from 'zod/v4'
 
 // Forked from https://github.com/OpenRouterTeam/ai-sdk-provider/
