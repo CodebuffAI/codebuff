@@ -1,12 +1,19 @@
 import { test, expect } from '@playwright/test'
 
-test('store hydrates agents via client fetch when SSR is empty', async ({ page }) => {
+test('store hydrates agents via client fetch when SSR is empty', async ({
+  page,
+}) => {
   const agents = [
     {
       id: 'base',
       name: 'Base',
       description: 'desc',
-      publisher: { id: 'codebuff', name: 'Codebuff', verified: true, avatar_url: null },
+      publisher: {
+        id: 'codebuff',
+        name: 'Codebuff',
+        verified: true,
+        avatar_url: null,
+      },
       version: '1.2.3',
       created_at: new Date().toISOString(),
       weekly_spent: 10,

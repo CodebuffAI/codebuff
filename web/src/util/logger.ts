@@ -102,7 +102,12 @@ function splitAndLog(
 
 // In dev mode, use appendFileSync for real-time file logging (Bun has issues with pino sync)
 // Also output to console via pinoLogger so logs remain visible in the terminal
-function logWithSync(level: LogLevel, data: any, msg?: string, ...args: any[]): void {
+function logWithSync(
+  level: LogLevel,
+  data: any,
+  msg?: string,
+  ...args: any[]
+): void {
   const formattedMsg = format(msg ?? '', ...args)
   if (IS_DEV) {
     // Write to file for real-time logging

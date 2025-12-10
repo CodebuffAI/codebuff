@@ -14,4 +14,3 @@ describe('applyCacheHeaders', () => {
     expect(map.get('Content-Type')).toContain('application/json')
   })
 })
-

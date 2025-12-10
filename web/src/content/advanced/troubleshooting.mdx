@@ -119,6 +119,7 @@ rm -rf /some/path/to/node_modules/.codebuff-SOMEHASH
 If you're trying to automate Codebuff using tmux (e.g., for scripting or testing), standard `tmux send-keys` won't work correctly. Characters will be dropped or garbled.
 
 **The Problem:**
+
 ```bash
 # ❌ Doesn't work - characters get dropped
 tmux send-keys -t codebuff "hello world"
@@ -140,6 +141,7 @@ tmux send-keys -t codebuff Enter
 This tells the terminal that the input is a paste operation, which Codebuff handles atomically.
 
 **Helper script:**
+
 ```bash
 send_to_codebuff() {
   local session="$1"

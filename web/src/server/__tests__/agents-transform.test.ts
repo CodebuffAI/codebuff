@@ -9,7 +9,12 @@ describe('buildAgentsData', () => {
         version: '1.0.0',
         data: { name: 'Base', description: 'desc', tags: ['x'] },
         created_at: '2025-01-01T00:00:00.000Z',
-        publisher: { id: 'codebuff', name: 'Codebuff', verified: true, avatar_url: null },
+        publisher: {
+          id: 'codebuff',
+          name: 'Codebuff',
+          verified: true,
+          avatar_url: null,
+        },
       },
       // older duplicate by name should be ignored due to first-seen is latest ordering
       {
@@ -17,14 +22,24 @@ describe('buildAgentsData', () => {
         version: '0.9.0',
         data: { name: 'Base', description: 'old' },
         created_at: '2024-12-01T00:00:00.000Z',
-        publisher: { id: 'codebuff', name: 'Codebuff', verified: true, avatar_url: null },
+        publisher: {
+          id: 'codebuff',
+          name: 'Codebuff',
+          verified: true,
+          avatar_url: null,
+        },
       },
       {
         id: 'reviewer',
         version: '2.1.0',
         data: { name: 'Reviewer' },
         created_at: '2025-01-03T00:00:00.000Z',
-        publisher: { id: 'codebuff', name: 'Codebuff', verified: true, avatar_url: null },
+        publisher: {
+          id: 'codebuff',
+          name: 'Codebuff',
+          verified: true,
+          avatar_url: null,
+        },
       },
     ]
 
@@ -50,8 +65,18 @@ describe('buildAgentsData', () => {
     ]
 
     const weeklyMetrics = [
-      { publisher_id: 'codebuff', agent_name: 'Base', weekly_runs: 10, weekly_dollars: 20 },
-      { publisher_id: 'codebuff', agent_name: 'reviewer', weekly_runs: 2, weekly_dollars: 1 },
+      {
+        publisher_id: 'codebuff',
+        agent_name: 'Base',
+        weekly_runs: 10,
+        weekly_dollars: 20,
+      },
+      {
+        publisher_id: 'codebuff',
+        agent_name: 'reviewer',
+        weekly_runs: 2,
+        weekly_dollars: 1,
+      },
     ]
 
     const perVersionMetrics = [
@@ -96,7 +121,10 @@ describe('buildAgentsData', () => {
     expect(base.usage_count).toBe(50)
     expect(base.avg_cost_per_invocation).toBe(2)
     expect(base.unique_users).toBe(4)
-    expect(base.version_stats?.['1.0.0']).toMatchObject({ weekly_runs: 3, weekly_dollars: 6 })
+    expect(base.version_stats?.['1.0.0']).toMatchObject({
+      weekly_runs: 3,
+      weekly_dollars: 6,
+    })
 
     // sorted by weekly_spent desc
     expect(out[0].weekly_spent! >= out[1].weekly_spent!).toBe(true)
@@ -109,7 +137,12 @@ describe('buildAgentsData', () => {
         version: '0.1.0',
         data: { description: 'no name provided' },
         created_at: new Date('2025-02-01T00:00:00.000Z'),
-        publisher: { id: 'codebuff', name: 'Codebuff', verified: true, avatar_url: null },
+        publisher: {
+          id: 'codebuff',
+          name: 'Codebuff',
+          verified: true,
+          avatar_url: null,
+        },
       },
     ] as any
 
@@ -146,7 +179,12 @@ describe('buildAgentsData', () => {
         version: '1.2.0',
         data: { name: 'File Picker' },
         created_at: '2025-03-01T00:00:00.000Z',
-        publisher: { id: 'codebuff', name: 'Codebuff', verified: true, avatar_url: null },
+        publisher: {
+          id: 'codebuff',
+          name: 'Codebuff',
+          verified: true,
+          avatar_url: null,
+        },
       },
     ] as any
 
@@ -163,7 +201,12 @@ describe('buildAgentsData', () => {
       },
     ]
     const weeklyMetrics = [
-      { publisher_id: 'codebuff', agent_name: 'File Picker', weekly_runs: 4, weekly_dollars: 1.5 },
+      {
+        publisher_id: 'codebuff',
+        agent_name: 'File Picker',
+        weekly_runs: 4,
+        weekly_dollars: 1.5,
+      },
     ]
 
     // Version stats keyed by agent.id in runs
@@ -206,6 +249,9 @@ describe('buildAgentsData', () => {
     expect(fp.usage_count).toBe(7)
     expect(fp.total_spent).toBe(3.5)
     // Version stats keyed by id@version (not display name)
-    expect(fp.version_stats?.['1.2.0']).toMatchObject({ weekly_runs: 2, weekly_dollars: 1 })
+    expect(fp.version_stats?.['1.2.0']).toMatchObject({
+      weekly_runs: 2,
+      weekly_dollars: 1,
+    })
   })
 })

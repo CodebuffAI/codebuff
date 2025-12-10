@@ -94,7 +94,9 @@
   word-spacing: 0.005em;
   /* Enable proper text shaping */
   font-kerning: normal;
-  font-feature-settings: "kern" 1, "liga" 1;
+  font-feature-settings:
+    'kern' 1,
+    'liga' 1;
   text-rendering: optimizeLegibility;
 }
 
@@ -188,7 +190,9 @@
     margin-top: 0rem;
     /* Enable proper text shaping and kerning */
     font-kerning: normal;
-    font-feature-settings: "kern" 1, "liga" 1;
+    font-feature-settings:
+      'kern' 1,
+      'liga' 1;
     text-rendering: optimizeLegibility;
   }
 

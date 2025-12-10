@@ -131,7 +131,9 @@ export function OnboardingFlow({
           os: detectOS(), // Update OS detection after mount
           packageManager: parsed.packageManager || 'npm',
         })
-      } catch {}
+      } catch {
+        // Ignore JSON parsing errors from invalid saved progress
+      }
     } else {
       // Update OS detection after mount even if no saved progress
       setProgress((prev) => ({ ...prev, os: detectOS() }))

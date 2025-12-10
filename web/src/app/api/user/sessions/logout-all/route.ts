@@ -28,7 +28,9 @@ function isSameOrigin(request: NextRequest) {
     const referer = request.headers.get('referer')
     if (origin && new URL(origin).origin === base) return true
     if (referer && new URL(referer).origin === base) return true
-  } catch {}
+  } catch {
+    // Ignore URL parsing errors
+  }
   return false
 }
 
@@ -39,7 +41,10 @@ export async function POST(request: NextRequest) {
   }
 
   if (!isSameOrigin(request)) {
-    return NextResponse.json({ error: 'Forbidden - not same origin, cannot logout all sessions' }, { status: 403 })
+    return NextResponse.json(
+      { error: 'Forbidden - not same origin, cannot logout all sessions' },
+      { status: 403 },
+    )
   }
 
   const currentToken = getCurrentSessionTokenFromCookies()

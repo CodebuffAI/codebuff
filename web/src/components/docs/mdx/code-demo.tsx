@@ -153,10 +153,26 @@ export function CodeDemo({ children, language, rawContent }: CodeDemoProps) {
     // Use rawContent if available (from remark plugin), otherwise fall back to processing children
     const content = rawContent || getContent(children)
     return trimLeadingWhitespace(content)
-  }, [children, language, rawContent])
+  }, [children, rawContent])
 
   // Check if this is a mermaid diagram
   const isMermaid = language?.toLowerCase() === 'mermaid'
+
+  // Normalize language and get theme/color - must be called unconditionally
+  const {
+    normalizedLanguage,
+    theme: highlightTheme,
+    tokenColor,
+  } = useMemo(() => {
+    const normalized = language.toLowerCase().trim()
+    const normalizedLang = languageMap[normalized] || normalized
+    const { theme, tokenColor } = getLanguageTheme(normalizedLang)
+    return {
+      normalizedLanguage: normalizedLang,
+      theme,
+      tokenColor,
+    }
+  }, [language])
 
   if (isMermaid) {
     return (
@@ -184,22 +200,6 @@ export function CodeDemo({ children, language, rawContent }: CodeDemoProps) {
       </div>
     )
   }
-
-  // Normalize language and get theme/color in one useMemo
-  const {
-    normalizedLanguage,
-    theme: highlightTheme,
-    tokenColor,
-  } = useMemo(() => {
-    const normalized = language.toLowerCase().trim()
-    const normalizedLang = languageMap[normalized] || normalized
-    const { theme, tokenColor } = getLanguageTheme(normalizedLang)
-    return {
-      normalizedLanguage: normalizedLang,
-      theme,
-      tokenColor,
-    }
-  }, [language])
 
   return (
     <div className="rounded-lg border px-4 w-full max-w-80 md:max-w-full my-3 transition-all group overflow-x-auto">

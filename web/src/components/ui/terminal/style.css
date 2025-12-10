@@ -10,8 +10,9 @@
   background: #000000;
   color: #eee;
   font-size: 18px;
-  font-family: 'DM Mono', var(--font-mono), Consolas, Menlo, Monaco,
-    'Courier New', Courier, monospace;
+  font-family:
+    'DM Mono', var(--font-mono), Consolas, Menlo, Monaco, 'Courier New',
+    Courier, monospace;
   border-radius: 4px;
   position: relative;
   -webkit-box-sizing: border-box;

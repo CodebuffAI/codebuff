@@ -6,13 +6,14 @@ import { z } from 'zod/v4'
 import { extractApiKeyFromHeader } from '@/util/auth'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
-import type {
-  GetUserInfoFromApiKeyFn,
-} from '@codebuff/common/types/contracts/database'
+import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { NextRequest } from 'next/server'
 
-import type { GetOrganizationUsageResponseFn, GetUserUsageDataFn } from '@codebuff/common/types/contracts/billing'
+import type {
+  GetOrganizationUsageResponseFn,
+  GetUserUsageDataFn,
+} from '@codebuff/common/types/contracts/billing'
 
 const usageRequestSchema = z.object({
   fingerprintId: z.string(),

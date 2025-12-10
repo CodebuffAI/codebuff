@@ -209,7 +209,7 @@ export default function AgentStoreClient({
   }, [agents])
 
   const filteredAndSortedAgents = useMemo(() => {
-    let filtered = agents.filter((agent) => {
+    const filtered = agents.filter((agent) => {
       const matchesSearch =
         agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         agent.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -381,14 +381,14 @@ export default function AgentStoreClient({
     }
   }
 
-  const AgentCard = memo(
-    ({
-      agent,
-      isEditorsChoice = false,
-    }: {
-      agent: AgentData
-      isEditorsChoice?: boolean
-    }) => (
+  const AgentCard = memo(function AgentCard({
+    agent,
+    isEditorsChoice = false,
+  }: {
+    agent: AgentData
+    isEditorsChoice?: boolean
+  }) {
+    return (
       <Link
         href={`/publishers/${agent.publisher.id}/agents/${agent.id}/${agent.version || '1.0.0'}`}
         className="block group"
@@ -540,8 +540,8 @@ export default function AgentStoreClient({
           </CardContent>
         </Card>
       </Link>
-    ),
-  )
+    )
+  })
 
   return (
     <div className="container mx-auto py-8 px-4" style={{ cursor: 'default' }}>

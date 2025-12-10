@@ -9,7 +9,12 @@ test('SSR HTML contains at least one agent card', async ({ page }) => {
       id: 'base',
       name: 'Base',
       description: 'desc',
-      publisher: { id: 'codebuff', name: 'Codebuff', verified: true, avatar_url: null },
+      publisher: {
+        id: 'codebuff',
+        name: 'Codebuff',
+        verified: true,
+        avatar_url: null,
+      },
       version: '1.2.3',
       created_at: new Date().toISOString(),
       weekly_spent: 10,

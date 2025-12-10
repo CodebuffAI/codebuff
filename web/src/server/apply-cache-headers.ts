@@ -12,4 +12,3 @@ export function applyCacheHeaders<T extends HeaderWritable>(res: T): T {
   res.headers.set('Content-Type', 'application/json; charset=utf-8')
   return res
 }
-

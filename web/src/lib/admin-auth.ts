@@ -23,7 +23,10 @@ export async function checkAdminAuth(): Promise<
         'Unauthorized access attempt to admin endpoint',
       )
     }
-    return NextResponse.json({ error: 'Forbidden - not an admin' }, { status: 403 })
+    return NextResponse.json(
+      { error: 'Forbidden - not an admin' },
+      { status: 403 },
+    )
   }
 
   return adminUser

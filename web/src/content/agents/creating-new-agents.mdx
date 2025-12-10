@@ -6,56 +6,60 @@ order: 2
 ---
 
 # Creating New Agents
+
 Create specialized agents from scratch using TypeScript files in the `.agents/` directory.
 
 **Types:**
 
-  - **LLM-based** - Use prompts and language models
-  - **Programmatic** - Use TypeScript generator functions with `handleSteps`
+- **LLM-based** - Use prompts and language models
+- **Programmatic** - Use TypeScript generator functions with `handleSteps`
 
 **Control Flow:**
 
-  - `yield 'STEP'` - Run one LLM generation step
-  - `yield 'STEP_ALL'` - Run until completion
-  - `return` - End the agent's turn
+- `yield 'STEP'` - Run one LLM generation step
+- `yield 'STEP_ALL'` - Run until completion
+- `return` - End the agent's turn
 
 **Accessing Context:**
 
-  - `agentState` - Current agent state and message history
-  - `prompt` - User's prompt to the agent
-  - `params` - Additional parameters passed to the agent
+- `agentState` - Current agent state and message history
+- `prompt` - User's prompt to the agent
+- `params` - Additional parameters passed to the agent
 
 ## Basic Structure
 
 Create a new TypeScript file in `.agents/` directory:
 
 **.agents/my-custom-agent.ts**
+
 ```typescript
 import { AgentDefinition } from './types/agent-definition'
 
 const definition: AgentDefinition = {
-  id: "my-custom-agent",
-  version: "1.0.0",
+  id: 'my-custom-agent',
+  version: '1.0.0',
 
-
-  displayName: "My Custom Agent",
-  spawnerPrompt: "Spawn this agent for specialized workflow tasks requiring custom logic",
-  model: "anthropic/claude-4-sonnet-20250522",
-  outputMode: "last_message",
+  displayName: 'My Custom Agent',
+  spawnerPrompt:
+    'Spawn this agent for specialized workflow tasks requiring custom logic',
+  model: 'anthropic/claude-4-sonnet-20250522',
+  outputMode: 'last_message',
   includeMessageHistory: true,
-  toolNames: ["read_files", "write_file", "end_turn"],
-  spawnableAgents: ["codebuff/researcher@0.0.1"],  // Use full name for built-in agents
+  toolNames: ['read_files', 'write_file', 'end_turn'],
+  spawnableAgents: ['codebuff/researcher@0.0.1'], // Use full name for built-in agents
 
   inputSchema: {
     prompt: {
-      type: "string",
-      description: "What documentation to create or update"
-    }
+      type: 'string',
+      description: 'What documentation to create or update',
+    },
   },
 
   systemPrompt: `You are a documentation specialist.`,
-  instructionsPrompt: "Create comprehensive documentation based on the user's request. Research existing code and patterns first.",
-  stepPrompt: "Continue working on the documentation. Use end_turn when complete."
+  instructionsPrompt:
+    "Create comprehensive documentation based on the user's request. Research existing code and patterns first.",
+  stepPrompt:
+    'Continue working on the documentation. Use end_turn when complete.',
 }
 
 export default definition
@@ -73,33 +77,43 @@ Specialized for documenting REST APIs and GraphQL schemas:
 import { AgentDefinition } from './types/agent-definition'
 
 const definition: AgentDefinition = {
-  id: "api-documenter",
-  version: "1.0.0",
+  id: 'api-documenter',
+  version: '1.0.0',
 
-
-  displayName: "API Documentation Specialist",
-  spawnerPrompt: "Spawn this agent to create comprehensive API documentation with examples, schemas, and error codes",
-  model: "anthropic/claude-4-sonnet-20250522",
-  outputMode: "last_message",
+  displayName: 'API Documentation Specialist',
+  spawnerPrompt:
+    'Spawn this agent to create comprehensive API documentation with examples, schemas, and error codes',
+  model: 'anthropic/claude-4-sonnet-20250522',
+  outputMode: 'last_message',
   includeMessageHistory: true,
 
-  toolNames: ["read_files", "code_search", "write_file", "spawn_agents", "end_turn"],
-  spawnableAgents: ["codebuff/researcher@0.0.1"],  // Use full name for built-in agents
+  toolNames: [
+    'read_files',
+    'code_search',
+    'write_file',
+    'spawn_agents',
+    'end_turn',
+  ],
+  spawnableAgents: ['codebuff/researcher@0.0.1'], // Use full name for built-in agents
 
   inputSchema: {
     prompt: {
-      type: "string",
-      description: "What API endpoints or schemas to document"
-    }
+      type: 'string',
+      description: 'What API endpoints or schemas to document',
+    },
   },
 
-  systemPrompt: "You are an API documentation specialist. Create clear, comprehensive documentation for REST APIs and GraphQL schemas with examples, request/response formats, and error codes.",
-  instructionsPrompt: "Analyze the specified API endpoints and create detailed documentation including examples, parameters, and response schemas.",
-  stepPrompt: "Continue documenting the API. Include practical examples and edge cases. Use end_turn when complete."
+  systemPrompt:
+    'You are an API documentation specialist. Create clear, comprehensive documentation for REST APIs and GraphQL schemas with examples, request/response formats, and error codes.',
+  instructionsPrompt:
+    'Analyze the specified API endpoints and create detailed documentation including examples, parameters, and response schemas.',
+  stepPrompt:
+    'Continue documenting the API. Include practical examples and edge cases. Use end_turn when complete.',
 }
 
 export default definition
 ```
+
 ### Database Migration Agent
 
 Specialized for creating and reviewing database migrations:
@@ -110,28 +124,31 @@ Specialized for creating and reviewing database migrations:
 import { AgentDefinition } from './types/agent-definition'
 
 const definition: AgentDefinition = {
-  id: "migration-specialist",
-  version: "1.0.0",
+  id: 'migration-specialist',
+  version: '1.0.0',
 
-
-  displayName: "Database Migration Specialist",
-  spawnerPrompt: "Spawn this agent to create safe, reversible database migrations with proper indexing and rollback procedures",
-  model: "anthropic/claude-4-sonnet-20250522",
-  outputMode: "last_message",
+  displayName: 'Database Migration Specialist',
+  spawnerPrompt:
+    'Spawn this agent to create safe, reversible database migrations with proper indexing and rollback procedures',
+  model: 'anthropic/claude-4-sonnet-20250522',
+  outputMode: 'last_message',
   includeMessageHistory: true,
 
   toolNames: [
-    "read_files",
-    "write_file",
-    "code_search",
-    "run_terminal_command",
-    "end_turn"
+    'read_files',
+    'write_file',
+    'code_search',
+    'run_terminal_command',
+    'end_turn',
   ],
-  spawnableAgents: ["codebuff/reviewer@0.0.1"],
+  spawnableAgents: ['codebuff/reviewer@0.0.1'],
 
-  systemPrompt: "You are a database migration specialist. Your goal is to create safe, reversible database migrations with proper indexing and rollback procedures.",
-  instructionsPrompt: "Create a database migration for the requested schema changes. Ensure it's reversible and includes proper indexing.",
-  stepPrompt: "Continue working on the migration. Test it if possible and spawn a reviewer to check for issues."
+  systemPrompt:
+    'You are a database migration specialist. Your goal is to create safe, reversible database migrations with proper indexing and rollback procedures.',
+  instructionsPrompt:
+    "Create a database migration for the requested schema changes. Ensure it's reversible and includes proper indexing.",
+  stepPrompt:
+    'Continue working on the migration. Test it if possible and spawn a reviewer to check for issues.',
 }
 
 export default definition
@@ -153,23 +170,24 @@ export default definition
 Use TypeScript generator functions with the `handleSteps` field to control execution:
 
 **.agents/code-analyzer.ts**
+
 ```typescript
 import { AgentDefinition } from './types/agent-definition'
 
 const definition: AgentDefinition = {
-  id: "code-analyzer",
-  displayName: "Code Analysis Expert",
-  spawnerPrompt: "Spawn for deep code analysis and refactoring suggestions",
-  model: "anthropic/claude-4-sonnet-20250522",
+  id: 'code-analyzer',
+  displayName: 'Code Analysis Expert',
+  spawnerPrompt: 'Spawn for deep code analysis and refactoring suggestions',
+  model: 'anthropic/claude-4-sonnet-20250522',
 
-  toolNames: ["read_files", "code_search", "spawn_agents", "write_file"],
-  spawnableAgents: ["codebuff/thinker@0.0.1", "codebuff/reviewer@0.0.1"],
+  toolNames: ['read_files', 'code_search', 'spawn_agents', 'write_file'],
+  spawnableAgents: ['codebuff/thinker@0.0.1', 'codebuff/reviewer@0.0.1'],
 
   handleSteps: function* ({ agentState, prompt, params }) {
     // First, find relevant files
     const { toolResult: files } = yield {
       toolName: 'find_files',
-      input: { query: prompt }
+      input: { query: prompt },
     }
 
     // Read the most important files
@@ -177,7 +195,7 @@ const definition: AgentDefinition = {
       const filePaths = JSON.parse(files).slice(0, 5)
       yield {
         toolName: 'read_files',
-        input: { paths: filePaths }
+        input: { paths: filePaths },
       }
     }
 
@@ -185,16 +203,18 @@ const definition: AgentDefinition = {
     yield {
       toolName: 'spawn_agents',
       input: {
-        agents: [{
-          agent_type: 'thinker',
-          prompt: `Analyze the code structure and suggest improvements for: ${prompt}`
-        }]
-      }
+        agents: [
+          {
+            agent_type: 'thinker',
+            prompt: `Analyze the code structure and suggest improvements for: ${prompt}`,
+          },
+        ],
+      },
     }
 
     // Let the agent generate its response
     yield 'STEP_ALL'
-  }
+  },
 }
 
 export default definition
@@ -238,6 +258,7 @@ if (toolError) {
 #### 3. Control Flow Options
 
 **Control Flow:**
+
 - `yield 'STEP'` - Run one LLM generation step
 - `yield 'STEP_ALL'` - Run until completion
 - `return` - End the agent's turn
@@ -297,6 +318,7 @@ handleSteps: function* ({ agentState, prompt, params }) {
 ### When to Choose Programmatic vs LLM-based
 
 **Use Programmatic (`handleSteps`) when:**
+
 - You need guaranteed execution order
 - Decisions depend on specific file contents
 - Complex multi-step workflows with branching
@@ -304,6 +326,7 @@ handleSteps: function* ({ agentState, prompt, params }) {
 - Error recovery is critical
 
 **Use LLM-based (prompts only) when:**
+
 - Task is straightforward
 - Agent needs creative freedom
 - Natural language understanding is key

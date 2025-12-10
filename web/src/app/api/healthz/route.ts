@@ -10,7 +10,7 @@ export const GET = async () => {
     return NextResponse.json({
       status: 'ok',
       cached_agents: agents.length,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     })
   } catch (error) {
     console.error('[Healthz] Failed to warm cache:', error)
@@ -19,7 +19,7 @@ export const GET = async () => {
     return NextResponse.json({
       status: 'ok',
       cache_warm: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     })
   }
 }

@@ -162,7 +162,8 @@ export const authOptions: NextAuthOptions = {
 
       const potentialRedirectUrl = new URL(url, baseUrl)
       const authCode = potentialRedirectUrl.searchParams.get('auth_code')
-      let referralCode = potentialRedirectUrl.searchParams.get('referral_code')
+      const referralCode =
+        potentialRedirectUrl.searchParams.get('referral_code')
 
       console.log('🟡 NextAuth redirect parsed params:', {
         authCode: !!authCode,

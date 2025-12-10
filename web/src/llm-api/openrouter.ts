@@ -300,8 +300,11 @@ export async function handleOpenRouterStream({
       }, 30000)
 
       try {
-        while (true) {
-          const { done, value } = await reader.read()
+        let done = false
+        while (!done) {
+          const result = await reader.read()
+          done = result.done
+          const value = result.value
 
           if (done) {
             break
@@ -467,7 +470,14 @@ async function handleResponse({
   insertMessage: InsertMessageBigqueryFn
 }): Promise<StreamState> {
   const model = 'model' in data ? data.model : undefined
-  state = await handleStreamChunk({ data, state, logger, userId, agentId, model })
+  state = await handleStreamChunk({
+    data,
+    state,
+    logger,
+    userId,
+    agentId,
+    model,
+  })
 
   if ('error' in data || !data.usage) {
     // Stream not finished
@@ -553,6 +563,7 @@ async function handleStreamChunk({
 
   if (!data.choices.length) {
     logger.warn({ streamChunk: data }, 'Received empty choices from OpenRouter')
+    return state
   }
   const choice = data.choices[0]
   state.responseText += choice.delta?.content ?? ''

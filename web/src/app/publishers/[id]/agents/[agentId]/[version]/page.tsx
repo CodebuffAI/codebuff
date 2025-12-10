@@ -67,7 +67,8 @@ export async function generateMetadata({ params }: AgentDetailPageProps) {
 
   const title = `${agentName} v${agent[0].version} - Agent Details`
   const description =
-    agentData.description || `View details for ${agentName} version ${agent[0].version}`
+    agentData.description ||
+    `View details for ${agentName} version ${agent[0].version}`
   const ogImages = (pub?.[0]?.avatar_url ? [pub[0].avatar_url] : []) as string[]
 
   return {

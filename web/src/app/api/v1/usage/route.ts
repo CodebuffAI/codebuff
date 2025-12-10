@@ -1,4 +1,7 @@
-import { getUserUsageData, getOrganizationUsageResponse } from '@codebuff/billing'
+import {
+  getUserUsageData,
+  getOrganizationUsageResponse,
+} from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
 
 import { postUsage } from './_post'

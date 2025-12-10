@@ -90,7 +90,7 @@ export async function postChatCompletions(params: {
 
   try {
     // Parse request body
-    let body: {}
+    let body: Record<string, unknown>
     try {
       body = await req.json()
     } catch (error) {
@@ -341,7 +341,9 @@ export async function postChatCompletions(params: {
           model: (body as any)?.model,
           streaming: !!bodyStream,
           hasByokKey: !!openrouterApiKey,
-          messageCount: Array.isArray((body as any)?.messages) ? (body as any).messages.length : 0,
+          messageCount: Array.isArray((body as any)?.messages)
+            ? (body as any).messages.length
+            : 0,
           openrouterStatusCode: openrouterError?.statusCode,
           openrouterStatusText: openrouterError?.statusText,
           openrouterErrorCode: errorDetails?.error?.code,

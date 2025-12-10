@@ -446,7 +446,7 @@ export function extractActualAssistantResponse(response: any): string {
   if (!response) return ''
 
   // Extract the raw response content first
-  let responseContent = extractAssistantResponseFromResponse(response)
+  const responseContent = extractAssistantResponseFromResponse(response)
 
   if (!responseContent) return ''
 

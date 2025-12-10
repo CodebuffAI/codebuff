@@ -60,7 +60,11 @@ export async function POST(request: NextRequest) {
 
     // DEPRECATED: authToken in body is for backwards compatibility with older CLI versions.
     // New clients should use the Authorization header instead.
-    const { data, authToken: bodyAuthToken, allLocalAgentIds } = parseResult.data
+    const {
+      data,
+      authToken: bodyAuthToken,
+      allLocalAgentIds,
+    } = parseResult.data
     const agentDefinitions = data
 
     // Prefer Authorization header, fall back to body authToken for backwards compatibility
@@ -248,10 +252,10 @@ export async function POST(request: NextRequest) {
     const existsInSamePublisher = (full: string) =>
       publishingAgentIds.has(full) || publishedAgentIds.has(full)
 
-    async function getLatestPublishedVersion(
+    const getLatestPublishedVersion = async (
       publisherId: string,
       agentId: string,
-    ): Promise<string | null> {
+    ): Promise<string | null> => {
       const latest = await db
         .select({ version: schema.agentConfig.version })
         .from(schema.agentConfig)

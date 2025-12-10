@@ -44,13 +44,11 @@ Important event tracking considerations:
 The application uses the following event categories for consistent tracking:
 
 1. Home Page Events (`home.*`)
-
    - home.cta_clicked
    - home.video_opened
    - home.testimonial_clicked
 
 2. Demo Terminal Events (`demo_terminal.*`)
-
    - demo_terminal.command_executed
    - demo_terminal.help_viewed
    - demo_terminal.theme_changed
@@ -58,35 +56,29 @@ The application uses the following event categories for consistent tracking:
    - demo_terminal.rainbow_added
 
 3. Authentication Events (`auth.*`)
-
    - auth.login_started
    - auth.login_completed
    - auth.logout_completed
 
 4. Cookie Consent Events (`cookie_consent.*`)
-
    - cookie_consent.accepted
    - cookie_consent.declined
 
 5. Subscription Events (`subscription.*`)
-
    - subscription.plan_viewed
    - subscription.upgrade_started
    - subscription.payment_completed
    - subscription.change_confirmed
 
 6. Referral Events (`referral.*`)
-
    - referral.link_copied
    - referral.code_redeemed
    - referral.invite_sent
 
 7. Documentation Events (`docs.*`)
-
    - docs.viewed
 
 8. Banner Events (`banner.*`)
-
    - banner.clicked
 
 9. Usage Events (`usage.*`)
@@ -100,7 +92,6 @@ Progress bar color coding:
 - Shows warning message when exceeding quota with overage rate details
 
 9. Navigation Events (`navigation.*`)
-
    - navigation.docs_clicked
    - navigation.pricing_clicked
 
@@ -249,7 +240,6 @@ Example event properties:
 1. **Consistent Categories**: Use established categories (demo_terminal, auth, subscription, etc.) for all new events
 
 2. **Event Properties**:
-
    - Include theme in all UI events
    - Add source/location for user actions
    - Include error details for failure cases
@@ -310,7 +300,6 @@ export function PostHogProvider({ children }) {
 The application implements LinkedIn conversion tracking using a multi-step flow:
 
 1. Initial Visit:
-
    - Capture `li_fat_id` from URL query parameters
    - Store in localStorage
    - Clear from URL for cleaner user experience
@@ -332,7 +321,6 @@ Important: This pattern ensures accurate attribution even when users don't conve
 ## Implementation Guidelines
 
 1. Centralize Tracking Logic:
-
    - Keep tracking code DRY by centralizing in shared functions
    - Multiple UI components may trigger the same conversion event
    - Maintain consistent tracking parameters across all conversion points
