@@ -27,12 +27,6 @@ describe('Prompt Caching', () => {
       })
 
       console.dir(run1.output, { depth: null })
-      if (
-        run1.output.type === 'error' &&
-        run1.output.errorCode === 'NETWORK_ERROR'
-      ) {
-        return
-      }
       expect(run1.output.type).not.toEqual('error')
       expect(cost1).toBeGreaterThanOrEqual(0)
 
