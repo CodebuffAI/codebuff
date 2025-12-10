@@ -32,6 +32,7 @@ import type { NextRequest } from 'next/server'
 
 const STATIC_SESSION_ID = 'relabel-trace-api'
 const DEFAULT_RELABEL_LIMIT = 10
+const FULL_FILE_CONTEXT_SUFFIX = '-with-full-file-context'
 const modelsToRelabel = [
   finetunedVertexModels.ft_filepicker_008,
   finetunedVertexModels.ft_filepicker_topk_002,
@@ -102,7 +103,11 @@ export async function POST(req: NextRequest) {
   const apiKey = env.CODEBUFF_API_KEY
   if (!apiKey) {
     return NextResponse.json(
-      { error: 'CODEBUFF_API_KEY is not configured. This env var is required for relabeling operations.' },
+      { 
+        error: 'CODEBUFF_API_KEY is not configured',
+        details: 'This endpoint now calls LLMs directly (backend was removed) and requires CODEBUFF_API_KEY to be set.',
+        hint: 'Add CODEBUFF_API_KEY to your environment variables. See .env.example for reference.',
+      },
       { status: 500 },
     )
   }
@@ -249,14 +254,11 @@ async function relabelUsingFullFilesForUser(params: {
 
   for (const traceBundle of tracesBundles) {
     const trace = traceBundle.trace as GetRelevantFilesTrace
-    const files = traceBundle.relatedTraces.find(
-      (t) => t.type === 'get-expanded-file-context-for-training',
-    ) as GetExpandedFileContextForTrainingTrace | undefined
     const fileBlobs = traceBundle.relatedTraces.find(
       (t) => t.type === 'get-expanded-file-context-for-training-blobs',
     ) as GetExpandedFileContextForTrainingBlobTrace | undefined
 
-    if (!files || !fileBlobs) {
+    if (!fileBlobs) {
       continue
     }
 
@@ -277,7 +279,7 @@ async function relabelUsingFullFilesForUser(params: {
     ]) {
       if (
         !traceBundle.relabels.some(
-          (r) => r.model === `${model}-with-full-file-context`,
+          (r) => r.model === `${model}${FULL_FILE_CONTEXT_SUFFIX}`,
         )
       ) {
         relabelPromises.push(
@@ -302,7 +304,14 @@ async function relabelUsingFullFilesForUser(params: {
     }
   }
 
-  await Promise.allSettled(relabelPromises)
+  const results = await Promise.allSettled(relabelPromises)
+  
+  // Log any failures from parallel relabeling
+  for (const result of results) {
+    if (result.status === 'rejected') {
+      logger.error({ error: result.reason }, 'Relabeling task failed')
+    }
+  }
 
   return relabeled
 }
@@ -425,7 +434,7 @@ async function relabelWithClaudeWithFullFileContext(params: {
     agent_step_id: trace.agent_step_id,
     user_id: trace.user_id,
     created_at: new Date(),
-    model: `${model}-with-full-file-context`,
+    model: `${model}${FULL_FILE_CONTEXT_SUFFIX}`,
     payload: {
       user_input_id: tracePayload.user_input_id,
       client_session_id: tracePayload.client_session_id,

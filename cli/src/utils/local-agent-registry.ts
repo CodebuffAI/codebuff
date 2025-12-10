@@ -6,6 +6,7 @@ import { loadLocalAgents as sdkLoadLocalAgents } from '@codebuff/sdk'
 
 import { getProjectRoot } from '../project-files'
 import { AGENT_MODE_TO_ID, type AgentMode } from './constants'
+import { logger } from './logger'
 
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 
@@ -42,8 +43,9 @@ export async function initializeAgentRegistry(): Promise<void> {
       userAgentsCache = await sdkLoadLocalAgents({ agentsPath: agentsDir })
       // Build ID-to-filepath map by scanning agent files
       userAgentFilePaths = buildAgentFilePathMap(agentsDir)
-    } catch {
-      // Fall back to empty cache if SDK loading fails
+    } catch (error) {
+      // Fall back to empty cache if SDK loading fails, but log a warning
+      logger.warn({ error, agentsDir }, 'Failed to load user agents from .agents directory')
       userAgentsCache = {}
       userAgentFilePaths = new Map()
     }
