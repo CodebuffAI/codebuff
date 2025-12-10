@@ -1180,6 +1180,7 @@ export const Chat = ({
     authStatus,
     showReconnectionMessage,
     isRetrying,
+    isAskUserActive: askUserState !== null,
   })
   const hasStatusIndicatorContent = statusIndicatorState.kind !== 'idle'
   const inputBoxTitle = useMemo(() => {

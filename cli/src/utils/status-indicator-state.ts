@@ -24,6 +24,11 @@ export type StatusIndicatorStateArgs = {
    * This should only be true for a short period after a reconnection event.
    */
   showReconnectionMessage?: boolean
+  /**
+   * Whether the ask_user tool is currently active (waiting for user input).
+   * When true, hides the "working..." and "thinking..." indicators.
+   */
+  isAskUserActive?: boolean
 }
 
 /**
@@ -48,6 +53,7 @@ export const getStatusIndicatorState = ({
   authStatus = 'ok',
   isRetrying = false,
   showReconnectionMessage = false,
+  isAskUserActive = false,
 }: StatusIndicatorStateArgs): StatusIndicatorState => {
   if (nextCtrlCWillExit) {
     return { kind: 'ctrlC' }
@@ -74,6 +80,11 @@ export const getStatusIndicatorState = ({
   // Show connecting if service is disconnected OR auth service is unreachable
   if (!isConnected || authStatus === 'unreachable') {
     return { kind: 'connecting' }
+  }
+
+  // Hide working/thinking indicators when ask_user is active
+  if (isAskUserActive) {
+    return { kind: 'idle' }
   }
 
   if (streamStatus === 'waiting') {
