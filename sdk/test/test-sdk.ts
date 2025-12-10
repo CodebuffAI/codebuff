@@ -12,7 +12,7 @@ export async function testSdk() {
   })
 
   const run = await client.run({
-    agent: 'base',
+    agent: 'codebuff/base2@latest',
     prompt: 'Create a simple calculator class',
     handleEvent: (event) => {
       console.log(event)

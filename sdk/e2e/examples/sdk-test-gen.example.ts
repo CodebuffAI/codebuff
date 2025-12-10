@@ -39,7 +39,7 @@ async function main() {
   console.log('Generated tests:\n')
 
   const result = await client.run({
-    agent: 'base',
+    agent: 'codebuff/base2@latest',
     prompt: `Generate unit tests for these functions using Jest:\n\n${CODE_TO_TEST}`,
     handleStreamChunk: (chunk) => {
       if (typeof chunk === 'string') {

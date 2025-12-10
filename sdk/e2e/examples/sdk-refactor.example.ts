@@ -40,7 +40,7 @@ async function main() {
   console.log('Refactored version:\n')
 
   const result = await client.run({
-    agent: 'base',
+    agent: 'codebuff/base2@latest',
     prompt: `Refactor this code to be more readable and use modern JavaScript features:\n\n${CODE_TO_REFACTOR}`,
     handleStreamChunk: (chunk) => {
       if (typeof chunk === 'string') {

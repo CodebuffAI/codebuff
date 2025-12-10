@@ -114,7 +114,7 @@ describe('CodebuffClient handleEvent / handleStreamChunk', () => {
     })
 
     const result = await client.run({
-      agent: 'base',
+      agent: 'base2',
       prompt: 'hello world',
       handleEvent: (event) => {
         events.push(event)
