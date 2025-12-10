@@ -36,7 +36,8 @@ export * from './constants'
 
 export { getUserInfoFromApiKey } from './impl/database'
 export * from './credentials'
-export { loadLocalAgents, loadedAgents } from './agents/load-agents'
+export { loadLocalAgents } from './agents/load-agents'
+export type { LoadedAgents, LoadedAgentDefinition } from './agents/load-agents'
 
 export { validateAgents } from './validate-agents'
 export type { ValidationResult, ValidateAgentsOptions } from './validate-agents'

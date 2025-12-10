@@ -7,7 +7,20 @@ import { pathToFileURL } from 'url'
 
 import { build } from 'esbuild'
 
-export let loadedAgents: Record<string, any> = {}
+import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
+
+/**
+ * Agent definition with source file path metadata.
+ */
+export type LoadedAgentDefinition = AgentDefinition & {
+  /** The file path this agent was loaded from */
+  _sourceFilePath: string
+}
+
+/**
+ * Loaded agent definitions keyed by agent ID.
+ */
+export type LoadedAgents = Record<string, LoadedAgentDefinition>
 
 const agentFileExtensions = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs'])
 
@@ -44,20 +57,62 @@ const getDefaultAgentDirs = () => {
   return [cwdAgents, parentAgents, homeAgents]
 }
 
+/**
+ * Load agent definitions from `.agents` directories.
+ *
+ * By default, searches for agents in:
+ * - `{cwd}/.agents`
+ * - `{cwd}/../.agents`
+ * - `{homedir}/.agents`
+ *
+ * Agent files can be `.ts`, `.tsx`, `.js`, `.mjs`, or `.cjs`.
+ * TypeScript files are automatically transpiled.
+ *
+ * @param options.agentsPath - Optional path to a specific agents directory
+ * @param options.verbose - Whether to log errors during loading
+ * @param options.validate - Whether to validate agents after loading (filters out invalid agents)
+ * @returns Record of agent definitions keyed by agent ID
+ *
+ * @example
+ * ```typescript
+ * // Load from default locations
+ * const agents = await loadLocalAgents({ verbose: true })
+ *
+ * // Load from a specific directory
+ * const agents = await loadLocalAgents({ agentsPath: './my-agents' })
+ *
+ * // Load and validate agents (invalid agents are filtered out)
+ * const agents = await loadLocalAgents({ validate: true, verbose: true })
+ *
+ * // Access source file path for debugging
+ * for (const agent of Object.values(agents)) {
+ *   console.log(`${agent.id} loaded from ${agent._sourceFilePath}`)
+ * }
+ *
+ * // Use with client.run()
+ * const result = await client.run({
+ *   agent: 'my-agent',
+ *   agentDefinitions: Object.values(agents),
+ *   prompt: 'Hello',
+ * })
+ * ```
+ */
 export async function loadLocalAgents({
   agentsPath,
   verbose = false,
+  validate = false,
 }: {
   agentsPath?: string
   verbose?: boolean
-}): Promise<typeof loadedAgents> {
-  loadedAgents = {}
+  validate?: boolean
+}): Promise<LoadedAgents> {
+  const agents: LoadedAgents = {}
 
   const agentDirs = agentsPath ? [agentsPath] : getDefaultAgentDirs()
   const allAgentFiles = agentDirs.flatMap((dir) => getAllAgentFiles(dir))
 
   if (allAgentFiles.length === 0) {
-    return loadedAgents
+    return agents
   }
 
   for (const fullPath of allAgentFiles) {
@@ -77,13 +132,16 @@ export async function loadLocalAgents({
         continue
       }
 
-      const processedAgentDefinition = { ...agentDefinition }
+      const processedAgentDefinition: LoadedAgentDefinition = {
+        ...agentDefinition,
+        _sourceFilePath: fullPath,
+      }
       if (agentDefinition.handleSteps) {
         processedAgentDefinition.handleSteps =
           agentDefinition.handleSteps.toString()
       }
 
-      loadedAgents[processedAgentDefinition.id] = processedAgentDefinition
+      agents[processedAgentDefinition.id] = processedAgentDefinition
     } catch (error) {
       if (verbose) {
         console.error(
@@ -94,7 +152,41 @@ export async function loadLocalAgents({
     }
   }
 
-  return loadedAgents
+  // Validate agents if requested
+  if (validate && Object.keys(agents).length > 0) {
+    const { validateAgents } = await import('../validate-agents')
+    const result = await validateAgents(Object.values(agents))
+
+    if (!result.success) {
+      // Build a map of agent IDs to their validation errors
+      // The validation error id format is "{agentId}_{index}" from validateAgents
+      const errorsByAgentId = new Map<string, string>()
+      for (const err of result.validationErrors) {
+        // Extract agent ID by removing the "_index" suffix added by validateAgents
+        const lastUnderscoreIdx = err.id.lastIndexOf('_')
+        const agentId =
+          lastUnderscoreIdx > 0 ? err.id.slice(0, lastUnderscoreIdx) : err.id
+        if (!errorsByAgentId.has(agentId)) {
+          errorsByAgentId.set(agentId, err.message)
+        }
+      }
+
+      // Filter out invalid agents
+      for (const agentId of Object.keys(agents)) {
+        const errorMessage = errorsByAgentId.get(agentId)
+        if (errorMessage) {
+          if (verbose) {
+            console.error(
+              `Validation failed for agent '${agentId}': ${errorMessage}`,
+            )
+          }
+          delete agents[agentId]
+        }
+      }
+    }
+  }
+
+  return agents
 }
 
 async function importAgentModule(
