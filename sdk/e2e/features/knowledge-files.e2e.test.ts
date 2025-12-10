@@ -11,7 +11,6 @@ import {
   EventCollector,
   getApiKey,
   skipIfNoApiKey,
-  isAuthError,
   DEFAULT_AGENT,
   DEFAULT_TIMEOUT,
 } from '../utils'
@@ -39,8 +38,6 @@ describe('Features: Knowledge Files', () => {
         },
         handleEvent: collector.handleEvent,
       })
-
-      if (isAuthError(result.output)) return
 
       expect(result.output.type).not.toBe('error')
 
@@ -71,8 +68,6 @@ describe('Features: Knowledge Files', () => {
         },
         handleEvent: collector.handleEvent,
       })
-
-      if (isAuthError(result.output)) return
 
       expect(result.output.type).not.toBe('error')
 

@@ -11,10 +11,9 @@ import { toOptionalFile } from '@codebuff/common/old-constants'
 import { toolNames } from '@codebuff/common/tools/constants'
 import { clientToolCallSchema } from '@codebuff/common/tools/list'
 import { AgentOutputSchema } from '@codebuff/common/types/session-state'
+import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
-import { getAgentRuntimeImpl } from './impl/agent-runtime'
-import { getUserInfoFromApiKey } from './impl/database'
 import {
   RETRYABLE_ERROR_CODES,
   isNetworkError,
@@ -23,14 +22,14 @@ import {
   NetworkError,
   sanitizeErrorMessage,
 } from './errors'
-import type { ErrorCode } from './errors'
-import { getErrorObject } from '@codebuff/common/util/error'
-import { initialSessionState, applyOverridesToSessionState } from './run-state'
+import { getAgentRuntimeImpl } from './impl/agent-runtime'
+import { getUserInfoFromApiKey } from './impl/database'
 import {
   MAX_RETRIES_PER_MESSAGE,
   RETRY_BACKOFF_BASE_DELAY_MS,
   RETRY_BACKOFF_MAX_DELAY_MS,
 } from './retry-config'
+import { initialSessionState, applyOverridesToSessionState } from './run-state'
 import { filterXml } from './tool-xml-filter'
 import { changeFile } from './tools/change-file'
 import { codeSearch } from './tools/code-search'
@@ -40,8 +39,8 @@ import { getFiles } from './tools/read-files'
 import { runTerminalCommand } from './tools/run-terminal-command'
 
 import type { CustomToolDefinition } from './custom-tool'
+import type { ErrorCode } from './errors'
 import type { RunState } from './run-state'
-import type { WebSocketHandler } from './websocket-client'
 import type { ServerAction } from '@codebuff/common/actions'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 import type {
@@ -56,6 +55,7 @@ import type {
 } from '@codebuff/common/tools/list'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+import type { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
 import type {
   ImagePart,
   TextPart,
@@ -65,7 +65,6 @@ import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { SessionState } from '@codebuff/common/types/session-state'
 import type { Source } from '@codebuff/common/types/source'
 import type { CodebuffSpawn } from '@codebuff/common/types/spawn'
-import { ToolMessage } from '@codebuff/common/types/messages/codebuff-message'
 
 /**
  * Wraps content for user messages, ensuring text is wrapped in <user_message> tags.
@@ -252,13 +251,6 @@ const normalizeRetryOptions = (
     onRetry: retry.onRetry,
     onRetryExhausted: retry.onRetryExhausted,
   }
-}
-
-const shouldRetry = (
-  error: unknown,
-  retryableErrorCodes: Set<ErrorCode>,
-): boolean => {
-  return isNetworkError(error) && retryableErrorCodes.has(error.code)
 }
 
 const waitWithAbort = (delayMs: number, signal?: AbortSignal) => {
@@ -918,7 +910,7 @@ async function handleToolCall({
   cwd?: string
   fs: CodebuffFileSystem
   env?: Record<string, string>
-}): ReturnType<WebSocketHandler['handleToolCall']> {
+}): Promise<{ output: ToolResultOutput[] }> {
   const toolName = action.toolName
   const input = action.input
 

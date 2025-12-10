@@ -12,18 +12,13 @@ describe('Prompt Caching', () => {
         'Ignore this text. This is just to make the prompt longer. '.repeat(500)
       const prompt = 'respond with "hi"'
 
-      const apiKey = process.env[API_KEY_ENV_VAR]
-      if (!apiKey) {
-        throw new Error('API key not found')
-      }
-
       const client = new CodebuffClient({
-        apiKey,
+        apiKey: process.env[API_KEY_ENV_VAR]!,
       })
       let cost1 = -1
       const run1 = await client.run({
         prompt: `${filler}\n\n${prompt}`,
-        agent: 'base',
+        agent: 'codebuff/base2@latest',
         handleEvent: (event) => {
           if (event.type === 'finish') {
             cost1 = event.totalCost
@@ -38,7 +33,7 @@ describe('Prompt Caching', () => {
       let cost2 = -1
       const run2 = await client.run({
         prompt,
-        agent: 'base',
+        agent: 'codebuff/base2@latest',
         previousRun: run1,
         handleEvent: (event) => {
           if (event.type === 'finish') {

@@ -29,7 +29,7 @@ async function main() {
   console.log('```\n')
 
   const result = await client.run({
-    agent: 'base',
+    agent: 'codebuff/base2@latest',
     prompt: `Review this code and identify any bugs or issues:\n\n${SAMPLE_CODE}`,
     handleStreamChunk: (chunk) => {
       if (typeof chunk === 'string') {

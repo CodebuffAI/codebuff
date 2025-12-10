@@ -38,7 +38,7 @@ async function main() {
   console.log('Generated commit message:\n')
 
   const result = await client.run({
-    agent: 'base',
+    agent: 'codebuff/base2@latest',
     prompt: `Generate a concise git commit message for this diff:\n\n${SAMPLE_DIFF}`,
     handleStreamChunk: (chunk) => {
       if (typeof chunk === 'string') {

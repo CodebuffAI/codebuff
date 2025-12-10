@@ -640,7 +640,7 @@ This prevents invalid children from reaching `TextNodeRenderable` while preservi
 
 ### Slash Commands (`/`)
 
-Typing `/` opens a five-item slash menu above the input, mirroring npm-app commands.
+Typing `/` opens a five-item slash menu above the input.
 
 **Navigation**:
 

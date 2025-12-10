@@ -7,7 +7,13 @@
 import { describe, test, expect, beforeAll } from 'bun:test'
 
 import { CodebuffClient } from '../../src/client'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_AGENT, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  skipIfNoApiKey,
+  DEFAULT_AGENT,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 describe('Features: Max Agent Steps', () => {
   let client: CodebuffClient
@@ -31,8 +37,6 @@ describe('Features: Max Agent Steps', () => {
         handleEvent: collector.handleEvent,
       })
 
-      if (isAuthError(result.output)) return
-
       expect(result.output.type).not.toBe('error')
       expect(collector.hasEventType('finish')).toBe(true)
     },
@@ -46,14 +50,12 @@ describe('Features: Max Agent Steps', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'What is 2 + 2?',
         maxAgentSteps: 2,
         handleEvent: collector.handleEvent,
       })
-
-      if (isAuthError(result.output)) return
 
       // Should still complete for simple prompts
       expect(collector.hasEventType('start')).toBe(true)

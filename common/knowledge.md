@@ -1,6 +1,6 @@
 # Common Package Knowledge
 
-This package contains code shared between the `web` (Next.js frontend/backend) and `backend` (CLI backend) packages.
+This package contains code shared across the Codebuff monorepo, including the `web` (Next.js), `cli`, and `sdk` packages.
 
 ## Key Areas
 

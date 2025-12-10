@@ -8,7 +8,12 @@ import { describe, test, expect, beforeAll } from 'bun:test'
 import { z } from 'zod/v4'
 
 import { CodebuffClient, getCustomToolDefinition } from '../../src'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  skipIfNoApiKey,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 import type { AgentDefinition } from '../../src'
 
@@ -106,8 +111,6 @@ Summarize the response data clearly.`,
         handleEvent: collector.handleEvent,
       })
 
-      if (isAuthError(result.output)) return
-
       expect(result.output.type).not.toBe('error')
 
       const toolCalls = collector.getEventsByType('tool_call')
@@ -125,15 +128,14 @@ Summarize the response data clearly.`,
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: 'api-agent',
-        prompt: 'Try to fetch data from https://nonexistent-domain-12345.invalid/api',
+        prompt:
+          'Try to fetch data from https://nonexistent-domain-12345.invalid/api',
         agentDefinitions: [apiAgent],
         customToolDefinitions: [fetchTool],
         handleEvent: collector.handleEvent,
       })
-
-      if (isAuthError(result.output)) return
 
       // Should complete without crashing
       expect(collector.hasEventType('finish')).toBe(true)

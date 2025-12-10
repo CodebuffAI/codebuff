@@ -8,7 +8,13 @@
 import { describe, test, expect, beforeAll } from 'bun:test'
 
 import { CodebuffClient } from '../../src/client'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_AGENT, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  skipIfNoApiKey,
+  DEFAULT_AGENT,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 describe('Streaming: Concurrent Streams', () => {
   let client: CodebuffClient
@@ -42,9 +48,6 @@ describe('Streaming: Concurrent Streams', () => {
         }),
       ])
 
-      // Skip if auth failed
-      if (isAuthError(result1.output) || isAuthError(result2.output)) return
-
       // Both should complete successfully
       expect(result1.output.type).not.toBe('error')
       expect(result2.output.type).not.toBe('error')
@@ -67,7 +70,11 @@ describe('Streaming: Concurrent Streams', () => {
     async () => {
       if (skipIfNoApiKey()) return
 
-      const collectors = [new EventCollector(), new EventCollector(), new EventCollector()]
+      const collectors = [
+        new EventCollector(),
+        new EventCollector(),
+        new EventCollector(),
+      ]
 
       const prompts = ['Count to 3', 'Name 3 colors', 'List 3 fruits']
 
@@ -81,9 +88,6 @@ describe('Streaming: Concurrent Streams', () => {
           }),
         ),
       )
-
-      // Skip if any auth failed
-      if (results.some((r) => isAuthError(r.output))) return
 
       // All should complete
       for (let i = 0; i < results.length; i++) {
@@ -146,7 +150,7 @@ describe('Streaming: Concurrent Streams', () => {
           handleStreamChunk: collector.handleStreamChunk,
         })
 
-        if (isAuthError(result.output)) return
+        expect(result.output.type).not.toBe('error')
       }
 
       // Each should have completed with its own events

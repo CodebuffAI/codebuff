@@ -1,22 +1,25 @@
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
 import { execSync } from 'child_process'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
 
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
-import { getUserCredentials } from '@codebuff/npm-app/credentials'
-import { loadLocalAgents } from '@codebuff/npm-app/agents/load-agents'
+import {
+  CodebuffClient,
+  getUserCredentials,
+  loadLocalAgents,
+} from '@codebuff/sdk'
 import pLimit from 'p-limit'
 
 import { runAgentOnCommit, type ExternalAgentType } from './agent-runner'
 import { formatTaskResults } from './format-output'
 import { judgeCommitResult } from './judge'
-import { analyzeAgentTraces, type AgentTraceData } from './trace-analyzer'
 import { extractAgentLessons, saveAgentLessons } from './lessons-extractor'
-import { CodebuffClient } from '@codebuff/sdk'
+import { analyzeAgentTraces, type AgentTraceData } from './trace-analyzer'
 import { logger } from '../logger'
-import type { AgentEvalResults, EvalDataV2, EvalCommitV2 } from './types'
 import { analyzeAllTasks } from './meta-analyzer'
+
+import type { AgentEvalResults, EvalDataV2, EvalCommitV2 } from './types'
 
 function parseAgentId(agent: string): {
   agentId: string
@@ -342,12 +345,12 @@ export async function runBuffBench(options: {
     (f) => f.data.binInstalls ?? [],
   )
   const uniqueBinInstalls = allBinInstalls.filter(
-    (bin, index, self) =>
-      index === self.findIndex((b) => b.name === bin.name),
+    (bin, index, self) => index === self.findIndex((b) => b.name === bin.name),
   )
 
   // Install binaries once at the beginning
-  const { tempDir: binsTempDir, env: binsEnv } = installBinaries(uniqueBinInstalls)
+  const { tempDir: binsTempDir, env: binsEnv } =
+    installBinaries(uniqueBinInstalls)
 
   let commitsToRun: CommitWithSource[]
   if (taskIds && taskIds.length > 0) {
@@ -364,7 +367,9 @@ export async function runBuffBench(options: {
     }
 
     if (notFoundIds.length > 0) {
-      const availableIds = allCommitsWithSource.map((c) => c.commit.id).join(', ')
+      const availableIds = allCommitsWithSource
+        .map((c) => c.commit.id)
+        .join(', ')
       throw new Error(
         `Task ID(s) not found: ${notFoundIds.join(', ')}. Available task IDs: ${availableIds}`,
       )
@@ -475,7 +480,7 @@ export async function runBuffBench(options: {
     }
   }
 
-  for (const [_agentId, agentData] of Object.entries(results)) {
+  for (const agentData of Object.values(results)) {
     // Filter out runs from commits where ANY agent had an error
     const validRuns = agentData.runs.filter(
       (r) => !commitShasWithErrors.has(r.commitSha),

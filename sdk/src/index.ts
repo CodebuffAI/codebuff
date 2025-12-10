@@ -32,12 +32,17 @@ export * from './custom-tool'
 export * from './native/ripgrep'
 export * from './run-state'
 export { ToolHelpers } from './tools'
-export * from './websocket-client'
 export * from './constants'
-export { formatState } from '../../common/src/websockets/websocket-client'
-export type { ReadyState } from '../../common/src/websockets/websocket-client'
 
 export { getUserInfoFromApiKey } from './impl/database'
+export * from './credentials'
+export { loadLocalAgents } from './agents/load-agents'
+export type {
+  LoadedAgents,
+  LoadedAgentDefinition,
+  LoadLocalAgentsResult,
+  AgentValidationError,
+} from './agents/load-agents'
 
 export { validateAgents } from './validate-agents'
 export type { ValidationResult, ValidateAgentsOptions } from './validate-agents'
@@ -69,3 +74,8 @@ export {
 export type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
 export { runTerminalCommand } from './tools/run-terminal-command'
+export {
+  promptAiSdk,
+  promptAiSdkStream,
+  promptAiSdkStructured,
+} from './impl/llm'

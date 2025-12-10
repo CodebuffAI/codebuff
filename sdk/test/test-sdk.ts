@@ -1,6 +1,5 @@
-import { getUserCredentials } from '@codebuff/npm-app/credentials'
-
 import { CodebuffClient } from '../src/client'
+import { getUserCredentials } from '../src/credentials'
 
 export async function testSdk() {
   const apiKey = getUserCredentials()?.authToken
@@ -13,7 +12,7 @@ export async function testSdk() {
   })
 
   const run = await client.run({
-    agent: 'base',
+    agent: 'codebuff/base2@latest',
     prompt: 'Create a simple calculator class',
     handleEvent: (event) => {
       console.log(event)

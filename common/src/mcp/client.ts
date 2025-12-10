@@ -6,7 +6,11 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import type { MCPConfig } from '../types/mcp'
 import type { ToolResultOutput } from '../types/messages/content-part'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
+import type {
+  BlobResourceContents,
+  CallToolResult,
+  TextResourceContents,
+} from '@modelcontextprotocol/sdk/types.js'
 
 const runningClients: Record<string, Client> = {}
 const listToolsCache: Record<
@@ -104,6 +108,14 @@ export function listMCPTools(
   return listToolsCache[clientId]
 }
 
+function getResourceData(
+  resource: TextResourceContents | BlobResourceContents,
+): string {
+  if ('text' in resource) return resource.text as string
+  if ('blob' in resource) return resource.blob as string
+  return ''
+}
+
 export async function callMCPTool(
   clientId: string,
   ...args: Parameters<typeof Client.prototype.callTool>
@@ -138,13 +150,17 @@ export async function callMCPTool(
     if (c.type === 'resource') {
       return {
         type: 'media',
-        data: (c.resource.text ?? c.resource.blob) as string,
+        data: getResourceData(c.resource),
         mediaType: c.resource.mimeType ?? 'text/plain',
       } satisfies ToolResultOutput
     }
+    const fallbackValue =
+      'uri' in c && typeof (c as { uri: unknown }).uri === 'string'
+        ? (c as { uri: string }).uri
+        : JSON.stringify(c)
     return {
       type: 'json',
-      value: c.uri,
+      value: fallbackValue,
     } satisfies ToolResultOutput
   })
 }

@@ -4,7 +4,7 @@ import {
   OpenAICompatibleChatLanguageModel,
   VERSION,
 } from '@ai-sdk/openai-compatible'
-import { websiteUrl } from '@codebuff/npm-app/config'
+import { WEBSITE_URL } from '@codebuff/sdk'
 import { generateText } from 'ai'
 
 const apiKey = '12345'
@@ -14,7 +14,7 @@ const codebuffBackendModel = new OpenAICompatibleChatLanguageModel(
   {
     provider: 'codebuff.chat',
     url: ({ path: endpoint }) =>
-      new URL(path.join('/api/v1', endpoint), websiteUrl).toString(),
+      new URL(path.join('/api/v1', endpoint), WEBSITE_URL).toString(),
     headers: () => ({
       Authorization: `Bearer ${apiKey}`,
       'user-agent': `ai-sdk/openai-compatible/${VERSION}`,

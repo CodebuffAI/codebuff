@@ -11,7 +11,7 @@ import type { SessionState } from '@codebuff/common/types/session-state'
 const baseOptions = {
   apiKey: 'test-key',
   fingerprintId: 'fp',
-  agent: 'base',
+  agent: 'base2',
   prompt: 'hi',
 } as const
 

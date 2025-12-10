@@ -5,9 +5,9 @@
     "baseUrl": ".", // Bun & editors see the aliases
     "paths": {
       "@codebuff/common/*": ["./common/src/*"],
-      "@codebuff/backend/*": ["./backend/src/*"],
       "@codebuff/web/*": ["./web/src/*"],
       "@codebuff/evals/*": ["./evals/*"],
+      "@codebuff/sdk": ["./sdk/src/index.ts"],
       "@codebuff/sdk/*": ["./sdk/*"],
       "@codebuff/agent-runtime/*": ["./packages/agent-runtime/src/*"],
       "@codebuff/billing/*": ["./packages/billing/src/*"],
@@ -19,8 +19,6 @@
   "files": [],
   "references": [
     { "path": "./common" },
-    { "path": "./backend" },
-    { "path": "./npm-app" },
     { "path": "./web" },
     { "path": "./evals" },
     { "path": "./sdk" },

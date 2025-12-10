@@ -136,6 +136,56 @@ main()
 
 ## API Reference
 
+### `loadLocalAgents(options)`
+
+Loads agent definitions from `.agents` directories on disk.
+
+```typescript
+import { loadLocalAgents, CodebuffClient } from '@codebuff/sdk'
+
+// Load from default locations (.agents in cwd, parent, or home)
+const agents = await loadLocalAgents({ verbose: true })
+
+// Or load from a specific directory
+// const agents = await loadLocalAgents({ agentsPath: './my-agents' })
+
+// Or load and validate agents (invalid agents are filtered out)
+// const agents = await loadLocalAgents({ validate: true, verbose: true })
+
+// Access source file path for debugging
+for (const agent of Object.values(agents)) {
+  console.log(`${agent.id} loaded from ${agent._sourceFilePath}`)
+}
+
+// Use the loaded agents with client.run()
+const client = new CodebuffClient({ apiKey: process.env.CODEBUFF_API_KEY })
+const result = await client.run({
+  agent: 'my-custom-agent',
+  agentDefinitions: Object.values(agents),
+  prompt: 'Hello',
+})
+```
+
+#### Parameters
+
+- **`agentsPath`** (string, optional): Path to a specific agents directory. If omitted, searches in `{cwd}/.agents`, `{cwd}/../.agents`, and `{homedir}/.agents`.
+- **`verbose`** (boolean, optional): Whether to log errors during loading. Defaults to `false`.
+- **`validate`** (boolean, optional): Whether to validate agents after loading. Invalid agents are filtered out. Defaults to `false`.
+
+#### Returns
+
+Returns a `Promise<LoadedAgents>` - a `Record<string, LoadedAgentDefinition>` of agent definitions keyed by their ID.
+
+Each `LoadedAgentDefinition` extends `AgentDefinition` with:
+- **`_sourceFilePath`** (string): The file path the agent was loaded from
+
+#### Supported File Types
+
+- `.ts`, `.tsx` - TypeScript files (automatically transpiled)
+- `.js`, `.mjs`, `.cjs` - JavaScript files
+
+Files ending in `.d.ts` or `.test.ts` are excluded.
+
 ### `client.run(options)`
 
 Runs a Codebuff agent with the specified options.

@@ -6,9 +6,8 @@ import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inp
 import { models } from '@codebuff/common/old-constants'
 import { userMessage } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
+import { promptAiSdk } from '@codebuff/sdk'
 import prettier from 'prettier'
-
-import { promptAiSdk } from '../backend/src/llm-apis/vercel-ai-sdk/ai-sdk'
 
 // Native slugify implementation
 function slugify(text: string): string {

@@ -8,7 +8,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 
 import { CLIENT_ENV_PREFIX, clientEnvVars } from '@codebuff/common/env-schema'
-import { serverEnvVars } from '@codebuff/internal/env-schema'
+import { ciOnlyEnvVars, serverEnvVars } from '@codebuff/internal/env-schema'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -49,8 +49,10 @@ function parseArgs() {
 
 function generateGitHubEnv() {
   const { prefix, scope } = parseArgs()
+  // CI needs both serverEnvVars (typed schema) and ciOnlyEnvVars (for SDK tests)
+  const allVars = [...serverEnvVars, ...ciOnlyEnvVars]
   const varsByScope = {
-    all: serverEnvVars,
+    all: allVars,
     client: clientEnvVars,
   }
 

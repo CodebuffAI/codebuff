@@ -22,7 +22,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@codebuff/sdk": ["../sdk/src/index.ts"],
+      "@codebuff/sdk/*": ["../sdk/src/*"]
     }
   },
   "include": [

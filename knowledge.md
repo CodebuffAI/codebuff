@@ -12,33 +12,27 @@ Codebuff is a tool for editing codebases via natural language instruction to Buf
 
 - **TypeScript**: Primary programming language
 - **Bun**: Package manager and runtime
-- **WebSockets**: Real-time communication between client and server
 - **LLMs**: Multiple providers (Anthropic, OpenAI, Gemini, etc.) for various coding tasks
 
 ## Main Components
 
 1. **LLM Integration**: Processes natural language instructions and generates code changes
-2. **WebSocket Server**: Handles real-time communication between client and backend
-3. **File Management**: Reads, parses, and modifies project files
-4. **Action Handling**: Processes various client and server actions
-5. **Knowledge Management**: Handles creation, updating, and organization of knowledge files
-6. **Terminal Command Execution**: Allows running shell commands in user's terminal
+2. **File Management**: Reads, parses, and modifies project files
+3. **Action Handling**: Processes various client and server actions
+4. **Knowledge Management**: Handles creation, updating, and organization of knowledge files
+5. **Terminal Command Execution**: Allows running shell commands in user's terminal
 
-## WebSocket Communication Flow
+## API Flow
 
-1. Client connects to WebSocket server
-2. Client sends user input and file context to server
-3. Server processes input using LLMs
-4. Server streams response chunks back to client
-5. Client receives and displays response in real-time
-6. Server sends file changes to client for application
+1. The SDK/CLI sends user input and file context to the Codebuff web API.
+2. The agent runtime processes the request and streams response chunks back through the SDK callbacks.
+3. Tools run locally via the SDK's helpers (file edits, terminal commands, search) to satisfy model tool calls.
 
 ## Tool Handling System
 
-- Tools are defined in `backend/src/tools/definitions/list.ts` and implemented in `npm-app/src/tool-handlers.ts`
+- Tools are defined in `common/src/tools` and executed via the SDK tool helpers and agent runtime
 - Available tools: read_files, write_file, str_replace, run_terminal_command, code_search, browser_logs, spawn_agents, web_search, read_docs, run_file_change_hooks, and others
-- Backend uses tool calls to request additional information or perform actions
-- Client-side handles tool calls and sends results back to server
+- Tool calls request additional information or perform actions based on the current project state
 
 ## Agent System
 
@@ -172,12 +166,10 @@ tmux attach -t git-rebase
 ## Error Handling and Debugging
 
 - Error messages are logged to console and debug log files
-- WebSocket errors are caught and logged in server and client code
 
 ## Security Considerations
 
 - Project uses environment variables for sensitive information (API keys)
-- WebSocket connections should be secured in production (WSS)
 - User input is validated and sanitized before processing
 - File operations are restricted to project directory
 
@@ -342,12 +334,11 @@ Important constants are centralized in `common/src/constants.ts`:
 
 ## Referral System
 
-**IMPORTANT**: Referral codes must be applied through the npm-app CLI, not through the web interface.
+**IMPORTANT**: Referral codes must be applied through the CLI, not through the web interface.
 
 - Web onboarding flow shows instructions for entering codes in CLI
 - Users must type their referral code in the Codebuff terminal after login
 - Auto-redemption during web login was removed to prevent abuse
-- The `handleReferralCode` function in `npm-app/src/client.ts` handles CLI redemption
 - The `redeemReferralCode` function in `web/src/app/api/referrals/helpers.ts` processes the actual credit granting
 
 ### OAuth Referral Code Preservation

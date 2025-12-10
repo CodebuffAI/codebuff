@@ -3,11 +3,6 @@ import fs from 'fs'
 import path from 'path'
 
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import {
-  setProjectRoot,
-  setWorkingDirectory,
-} from '@codebuff/npm-app/project-files'
-import { recreateShell } from '@codebuff/npm-app/terminal/run-command'
 
 import {
   createFileReadingMock,
@@ -29,7 +24,6 @@ export const SWE_BENCH_PYTHON_PATH = path.join(
 // Mock required environment variables for tests
 export function setupTestEnvironmentVariables() {
   // Set up mock environment variables needed for tests
-  process.env.GOOGLE_CLOUD_PROJECT_ID = 'mock-project-id'
   // Add other required environment variables as needed
 }
 
@@ -154,10 +148,8 @@ export async function setupTestEnvironment(projectName: string) {
   }
 
   const repoPath = path.join(TEST_REPOS_DIR, projectName)
-  setProjectRoot(repoPath)
   await createFileReadingMock(repoPath)
-  recreateShell(repoPath)
-  setWorkingDirectory(repoPath)
+  process.chdir(repoPath)
 
   // Return project info for use in tests
   return {

@@ -9,7 +9,13 @@
 import { describe, test, expect, beforeAll } from 'bun:test'
 
 import { CodebuffClient } from '../../src/client'
-import { EventCollector, getApiKey, skipIfNoApiKey, isAuthError, DEFAULT_AGENT, DEFAULT_TIMEOUT } from '../utils'
+import {
+  EventCollector,
+  getApiKey,
+  skipIfNoApiKey,
+  DEFAULT_AGENT,
+  DEFAULT_TIMEOUT,
+} from '../utils'
 
 describe('Integration: Event Types', () => {
   let client: CodebuffClient
@@ -26,14 +32,11 @@ describe('Integration: Event Types', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'Say "hello"',
         handleEvent: collector.handleEvent,
       })
-
-      // Skip if auth failed
-      if (isAuthError(result.output)) return
 
       const startEvents = collector.getEventsByType('start')
       expect(startEvents.length).toBeGreaterThanOrEqual(1)
@@ -52,14 +55,11 @@ describe('Integration: Event Types', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'Say "hello"',
         handleEvent: collector.handleEvent,
       })
-
-      // Skip if auth failed
-      if (isAuthError(result.output)) return
 
       const finishEvents = collector.getEventsByType('finish')
       expect(finishEvents.length).toBeGreaterThanOrEqual(1)
@@ -79,13 +79,11 @@ describe('Integration: Event Types', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'Write a short poem about coding (2-3 lines)',
         handleEvent: collector.handleEvent,
       })
-
-      if (isAuthError(result.output)) return
 
       const textEvents = collector.getEventsByType('text')
       expect(textEvents.length).toBeGreaterThan(0)
@@ -103,14 +101,12 @@ describe('Integration: Event Types', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'List the files in the current directory using a tool',
         handleEvent: collector.handleEvent,
         cwd: process.cwd(),
       })
-
-      if (isAuthError(result.output)) return
 
       // Check if any tool calls were made
       const toolCalls = collector.getEventsByType('tool_call')
@@ -143,13 +139,11 @@ describe('Integration: Event Types', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'Say hello',
         handleEvent: collector.handleEvent,
       })
-
-      if (isAuthError(result.output)) return
 
       // All events should have a type field
       for (const event of collector.events) {
@@ -171,13 +165,11 @@ describe('Integration: Event Types', () => {
 
       const collector = new EventCollector()
 
-      const result = await client.run({
+      await client.run({
         agent: DEFAULT_AGENT,
         prompt: 'Say a greeting and explain what 2+2 equals',
         handleEvent: collector.handleEvent,
       })
-
-      if (isAuthError(result.output)) return
 
       const summary = collector.getSummary()
 

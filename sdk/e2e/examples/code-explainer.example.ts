@@ -39,7 +39,7 @@ async function main() {
   console.log('Explanation:\n')
 
   const result = await client.run({
-    agent: 'base',
+    agent: 'codebuff/base2@latest',
     prompt: `Explain what this code does in simple terms:\n\n${SAMPLE_CODE}`,
     handleStreamChunk: (chunk) => {
       if (typeof chunk === 'string') {

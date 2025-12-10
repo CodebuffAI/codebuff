@@ -11,16 +11,18 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
 
+import { loadLocalAgents } from './agents/load-agents'
+
 import type { CustomToolDefinition } from './custom-tool'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
-import type { CodebuffSpawn } from '@codebuff/common/types/spawn'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type {
   AgentOutput,
   SessionState,
 } from '@codebuff/common/types/session-state'
+import type { CodebuffSpawn } from '@codebuff/common/types/spawn'
 import type {
   CustomToolDefinitions,
   FileTreeNode,
@@ -290,7 +292,7 @@ export function selectKnowledgeFilePaths(allFilePaths: string[]): string[] {
   const selectedFiles: string[] = []
 
   // For each directory, select one knowledge file using fallback priority
-  for (const [_dir, files] of byDirectory.entries()) {
+  for (const files of byDirectory.values()) {
     const knowledgeMd = files.find((f) =>
       f.toLowerCase().endsWith('knowledge.md'),
     )
@@ -367,7 +369,12 @@ export async function initialSessionState(
     knowledgeFiles = projectFiles ? deriveKnowledgeFiles(projectFiles) : {}
   }
 
-  const processedAgentTemplates = processAgentDefinitions(agentDefinitions)
+  let processedAgentTemplates: Record<string, any> = {}
+  if (agentDefinitions && agentDefinitions.length > 0) {
+    processedAgentTemplates = processAgentDefinitions(agentDefinitions)
+  } else {
+    processedAgentTemplates = await loadLocalAgents({ verbose: false })
+  }
   const processedCustomToolDefinitions = processCustomToolDefinitions(
     customToolDefinitions,
   )

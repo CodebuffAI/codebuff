@@ -51,12 +51,14 @@ Before you begin, you'll need to install a few tools:
 5. **Start development services**:
 
    **Option A: All-in-one (recommended)**
+
    ```bash
    bun run dev
    # Starts the web server, builds the SDK, and launches the CLI automatically
    ```
 
    **Option B: Separate terminals (for more control)**
+
    ```bash
    # Terminal 1 - Web server (start first)
    bun run start-web
@@ -69,7 +71,7 @@ Before you begin, you'll need to install a few tools:
 
    Now, you should be able to run the CLI and send commands, but it will error out because you don't have any credits.
 
-   **Note**: CLI requires both backend and web server running for authentication.
+   **Note**: CLI requires the web server running for authentication.
 
 6. **Giving yourself credits**:
 
@@ -123,9 +125,8 @@ In order to run the CLI from other directories, you need to first publish the ag
 
 Codebuff is organized as a monorepo with these main packages:
 
-- **backend/**: WebSocket server, LLM integration, agent orchestration
-- **npm-app/**: CLI application that users interact with
 - **web/**: Next.js web application and dashboard
+- **cli/**: CLI application that users interact with
 - **python-app/**: Python version of the CLI (experimental)
 - **common/**: Shared code, database schemas, utilities
 - **sdk/**: TypeScript SDK for programmatic usage
@@ -202,7 +203,7 @@ cd cli
 bun run test:tmux-poc
 ```
 
-See [cli/src/__tests__/README.md](cli/src/__tests__/README.md) for comprehensive interactive testing documentation.
+See [cli/src/**tests**/README.md](cli/src/__tests__/README.md) for comprehensive interactive testing documentation.
 
 ### Commit Messages
 
@@ -225,7 +226,7 @@ Build specialized agents in `.agents/` for different languages, frameworks, or w
 
 ### 🔧 **Tool System**
 
-Add new capabilities in `backend/src/tools.ts` - file operations, API integrations, development environment helpers. The sky's the limit!
+Add new capabilities in `common/src/tools` and the SDK helpers - file operations, API integrations, development environment helpers. The sky's the limit!
 
 ### 📦 **SDK Improvements**
 
@@ -233,7 +234,7 @@ Make the SDK in `sdk/` even more powerful with new methods, better TypeScript su
 
 ### 💻 **CLI Magic**
 
-Enhance the user experience in `npm-app/` with smoother commands, better error messages, or interactive features that make developers smile.
+Enhance the user experience in `cli/` with smoother commands, better error messages, or interactive features that make developers smile.
 
 ### 🌐 **Web Dashboard**
 
