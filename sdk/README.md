@@ -141,16 +141,16 @@ main()
 Loads agent definitions from `.agents` directories on disk.
 
 ```typescript
-import { loadLocalAgents } from '@codebuff/sdk'
+import { loadLocalAgents, CodebuffClient } from '@codebuff/sdk'
 
 // Load from default locations (.agents in cwd, parent, or home)
 const agents = await loadLocalAgents({ verbose: true })
 
-// Load from a specific directory
-const agents = await loadLocalAgents({ agentsPath: './my-agents' })
+// Or load from a specific directory
+// const agents = await loadLocalAgents({ agentsPath: './my-agents' })
 
-// Load and validate agents (invalid agents are filtered out)
-const agents = await loadLocalAgents({ validate: true, verbose: true })
+// Or load and validate agents (invalid agents are filtered out)
+// const agents = await loadLocalAgents({ validate: true, verbose: true })
 
 // Access source file path for debugging
 for (const agent of Object.values(agents)) {
@@ -158,6 +158,7 @@ for (const agent of Object.values(agents)) {
 }
 
 // Use the loaded agents with client.run()
+const client = new CodebuffClient({ apiKey: process.env.CODEBUFF_API_KEY })
 const result = await client.run({
   agent: 'my-custom-agent',
   agentDefinitions: Object.values(agents),
