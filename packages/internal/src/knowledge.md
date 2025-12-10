@@ -16,7 +16,7 @@ All environment variables are defined and validated in `env.ts`:
 
 - Server variables: API keys, database URLs, service credentials
 - Client variables: Public configuration values
-- Uses Infisical for secret management in development
+- Loaded from `.env.local` (manually created or synced from Infisical)
 
 ## Current Integrations
 

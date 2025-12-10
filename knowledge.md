@@ -366,33 +366,52 @@ Important constants are centralized in `common/src/constants.ts`:
 
 ## Environment Variables
 
-This project uses [Infisical](https://infisical.com/) for secret management. All secrets are injected at runtime.
+This project uses standard `.env.*` files for environment configuration. Bun natively loads these files automatically.
+
+### File Hierarchy
+
+Bun loads `.env` files in this order (highest precedence last):
+
+1. `.env.local` - Main secrets file synced from Infisical (gitignored)
+2. `.env.development.local` - Worktree-specific overrides like ports (gitignored, highest precedence)
+
+**Note**: Bun also supports `.env` and `.env.development`, but this project only uses `.env.local` and `.env.development.local`.
+
+### Infisical Integration
+
+Infisical is used as a background sync mechanism to populate `.env.local`:
+
+- The `.bin/bun` wrapper syncs secrets from Infisical to `.env.local`
+- Caching: 15-minute TTL (configurable via `INFISICAL_CACHE_TTL`)
+- Cache invalidates when `.infisical.json` is modified or TTL expires
+- If Infisical is not set up, existing `.env.local` is used directly
+
+**Setup Options**:
+1. **With Infisical**: Run `infisical login`, secrets auto-sync to `.env.local`
+2. **Without Infisical**: Copy `.env.example` to `.env.local` and fill in values
+
+### Worktree Support
+
+For git worktrees running on different ports:
+
+- Create `.env.development.local` in the worktree with port overrides
+- Bun loads `.env.development.local` with highest precedence, so it overrides ports from `.env.local`
+- The `scripts/init-worktree.ts` script creates this file automatically
+
+### Bun Wrapper Script (`.bin/bun`)
+
+The wrapper's role is simple: ensure `.env.local` is synced from Infisical before running bun.
+
+- Checks `NEXT_PUBLIC_INFISICAL_UP` to prevent nested syncs
+- Uses `INFISICAL_DISABLE_UPDATE_CHECK=true` for faster startup
+- 10-second timeout on Infisical commands to prevent hangs
+- Falls back gracefully if Infisical is not available
 
 ### Release Process
 
-The release mechanism uses the `CODEBUFF_GITHUB_TOKEN` environment variable directly. The old complex GitHub App token generation system has been removed in favor of using a simple personal access token or the infisical-managed token.
+The release mechanism uses the `CODEBUFF_GITHUB_TOKEN` environment variable directly.
 
 Environment variables are defined and validated in `packages/internal/src/env.ts`. This module provides type-safe `env` objects for use throughout the monorepo.
-
-### Bun Wrapper Script
-
-The `.bin/bun` script automatically wraps bun commands with infisical when secrets are needed. It prevents nested infisical calls by checking for `NEXT_PUBLIC_INFISICAL_UP` environment variable, ensuring infisical runs only once at the top level while nested bun commands inherit the environment variables.
-
-**Worktree Support**: The wrapper automatically detects and loads `.env.worktree` files when present, allowing worktrees to override Infisical environment variables (like ports) for local development. This enables multiple worktrees to run simultaneously on different ports without conflicts.
-
-The wrapper also loads environment variables in the correct precedence order:
-
-1. Infisical secrets are loaded first (if needed)
-2. `.env.worktree` is loaded second to override any conflicting variables
-3. This ensures worktree-specific overrides (like custom ports) always take precedence over cached Infisical defaults
-
-The wrapper looks for `.env.worktree` in the project root directory, making it work consistently regardless of the current working directory when bun commands are executed.
-
-**Performance Optimizations**: The wrapper uses `--silent` flag with Infisical to reduce CLI output overhead and sets `INFISICAL_DISABLE_UPDATE_CHECK=true` to skip version checks for faster startup times.
-
-**Infisical Caching**: The wrapper implements robust caching of environment variables in `.infisical-cache` with a 15-minute TTL (configurable via `INFISICAL_CACHE_TTL`). This reduces startup time from ~1.2s to ~0.16s (87% improvement). The cache uses `infisical export` which outputs secrets directly in `KEY='value'` format, ensuring ONLY Infisical-managed secrets are cached (no system environment variables). Multi-line secrets like RSA private keys are handled correctly using `source` command. Cache automatically invalidates when `.infisical.json` is modified or after TTL expires. Uses subshell execution to avoid changing the main shell's working directory.
-
-**Session Validation**: The wrapper detects expired Infisical sessions using `infisical export` with a robust 10-second timeout implementation that works cross-platform (macOS and Linux). Uses background processes with polling to prevent hanging on interactive prompts. Valid sessions output environment variables in `KEY='value'` format, while expired sessions either output interactive prompts or timeout. Provides clear error messages directing users to run `infisical login`.
 
 ## Python Package
 

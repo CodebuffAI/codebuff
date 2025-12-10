@@ -10,7 +10,7 @@
     }
   },
   "scripts": {
-    "dev": "next dev -p ${NEXT_PUBLIC_WEB_PORT:-3000}",
+    "dev": "next dev",
     "build": "next build 2>&1 | sed '/Contentlayer esbuild warnings:/,/^]/d' && bun run scripts/prebuild-agents-cache.ts",
     "start": "next start",
     "preview": "bun run build && bun run start",

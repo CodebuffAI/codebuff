@@ -1,5 +1,18 @@
 #!/usr/bin/env bash
 
+# Bun wrapper that syncs secrets from Infisical to .env.local
+# Bun natively loads .env files in this order (highest precedence last):
+#   1. .env
+#   2. .env.development (or .env.production/.env.test based on NODE_ENV)
+#   3. .env.local
+#   4. .env.development.local - Worktree-specific overrides (ports, etc.)
+#
+# .env.development.local has highest precedence, so worktree port overrides
+# correctly override values from Infisical-synced .env.local.
+#
+# This wrapper ensures .env.local is up-to-date from Infisical before running bun.
+# If Infisical is not set up, it falls back to using existing .env.local if present.
+
 # Common bun installation paths to check
 BUN_PATHS=(
     "/opt/homebrew/bin/bun"
@@ -34,21 +47,23 @@ find_project_root() {
     fi
 }
 
-# Infisical cache configuration
+# Configuration
 PROJECT_ROOT="$(find_project_root)"
-CACHE_FILE="$PROJECT_ROOT/.infisical-cache"
-CACHE_TTL_SECONDS=${INFISICAL_CACHE_TTL:-900}  # Default 15 minutes, configurable via env var
+ENV_LOCAL_FILE="$PROJECT_ROOT/.env.local"
+ENV_DEVELOPMENT_LOCAL_FILE="$PROJECT_ROOT/.env.development.local"
+CACHE_TTL_SECONDS=${INFISICAL_CACHE_TTL:-900}  # Default 15 minutes
+CALLING_DIR="$(pwd)"
 
 # Clean up any leftover temporary files
-rm -f "$CACHE_FILE.tmp" 2>/dev/null
+rm -f "$ENV_LOCAL_FILE.tmp" 2>/dev/null
 
-# Function to check if cache is valid
+# Function to check if .env.local cache is valid
 is_cache_valid() {
-    if [ ! -f "$CACHE_FILE" ]; then
+    if [ ! -f "$ENV_LOCAL_FILE" ]; then
         return 1
     fi
 
-    local cache_time=$(stat -f "%m" "$CACHE_FILE" 2>/dev/null || stat -c "%Y" "$CACHE_FILE" 2>/dev/null)
+    local cache_time=$(stat -f "%m" "$ENV_LOCAL_FILE" 2>/dev/null || stat -c "%Y" "$ENV_LOCAL_FILE" 2>/dev/null)
     local current_time=$(date +%s)
     local age=$((current_time - cache_time))
 
@@ -68,70 +83,34 @@ is_cache_valid() {
     return 0
 }
 
-# Function to load environment variables from cache
-load_from_cache() {
-    if [ ! -f "$CACHE_FILE" ]; then
+# Function to sync secrets from Infisical to .env.local
+sync_from_infisical() {
+    # Check if infisical CLI is available
+    if ! command -v infisical &> /dev/null; then
         return 1
     fi
 
-    # Use source to handle multi-line environment variables correctly
-    set -a  # automatically export all variables
-    source "$CACHE_FILE" 2>/dev/null
-    set +a
-
-    # Verify that key variables are set to confirm success
-    if [ -n "$PORT" ] || [ -n "$DATABASE_URL" ] || [ -n "$ANTHROPIC_API_KEY" ]; then
-        return 0
-    else
-        # Cache validation failed
+    # Check if .infisical.json exists
+    if [ ! -f "$PROJECT_ROOT/.infisical.json" ]; then
         return 1
     fi
-}
 
-# Function to load worktree env if it exists
-load_worktree_env() {
-    if [ -f "$PROJECT_ROOT/.env.worktree" ]; then
-        if [ "$1" = "override" ]; then
-            echo "🔧 Loading worktree environment variables from .env.worktree (overriding Infisical)"
-        else
-            echo "🔧 Loading worktree environment variables from .env.worktree"
-        fi
-        set -a
-        source "$PROJECT_ROOT/.env.worktree"
-        set +a
-    fi
-}
-
-# Function to finalize and exec bun with secrets loaded
-finalize_and_exec() {
-    export NEXT_PUBLIC_INFISICAL_UP=true
-    # Load worktree overrides AFTER Infisical cache to ensure they take precedence
-    load_worktree_env "override"
-    exec "$REAL_BUN" "$@"
-}
-
-# Function to create cache from infisical
-create_cache() {
     # Set performance optimizations for Infisical
     export INFISICAL_DISABLE_UPDATE_CHECK=true
 
-    # Run infisical export in a subshell from project root to avoid cd in main shell
-    local output
     local temp_file=$(mktemp)
 
-    # Run infisical export in background from project root, suppress stderr to avoid cluttered output
+    # Run infisical export in background from project root
     (cd "$PROJECT_ROOT" && infisical export > "$temp_file" 2>/dev/null; echo $? > "$temp_file.exit") &
     local pid=$!
 
     # Wait up to 10 seconds
     local count=0
-    while [ $count -lt 100 ]; do  # 100 * 0.1s = 10s
+    local exit_code=1
+    while [ $count -lt 100 ]; do
         if ! kill -0 $pid 2>/dev/null; then
-            # Process finished
             wait $pid 2>/dev/null
-            output=$(cat "$temp_file")
-            local exit_code=$(cat "$temp_file.exit" 2>/dev/null || echo 1)
-            rm -f "$temp_file" "$temp_file.exit"
+            exit_code=$(cat "$temp_file.exit" 2>/dev/null || echo 1)
             break
         fi
         sleep 0.1
@@ -142,183 +121,155 @@ create_cache() {
     if kill -0 $pid 2>/dev/null; then
         kill $pid 2>/dev/null
         wait $pid 2>/dev/null
-        local exit_code=124  # Timeout exit code
-        output=""
+        local exit_code=124
         rm -f "$temp_file" "$temp_file.exit"
+        echo "⚠️  Infisical command timed out. Please check your connection or run 'infisical login'."
+        return 1
     fi
 
-    if [ $exit_code -eq 0 ]; then
-        # Command succeeded, write to cache
-        echo "$output" > "$CACHE_FILE"
-        if [ -s "$CACHE_FILE" ]; then
-            return 0  # Cache created successfully
-        else
-            rm -f "$CACHE_FILE"
-            return 1  # No variables found
-        fi
+    if [ "${exit_code:-1}" -eq 0 ] && [ -s "$temp_file" ]; then
+        # Success - move temp file to .env.local
+        mv "$temp_file" "$ENV_LOCAL_FILE"
+        rm -f "$temp_file" "$temp_file.exit" 2>/dev/null
+        return 0
     else
-        # Command failed or timed out
+        # Command failed
+        local output=$(cat "$temp_file" 2>/dev/null)
+        rm -f "$temp_file" "$temp_file.exit"
+        
         if echo "$output" | grep -q "Select the environment"; then
             echo "⚠️  Infisical session expired or not logged in."
-        elif [ $exit_code -eq 124 ]; then
-            echo "⚠️  Infisical command timed out. Please check your connection or run 'infisical login'."
         else
-            echo "⚠️  Infisical session expired or not logged in."
+            echo "⚠️  Infisical sync failed."
         fi
         echo "   Please run: infisical login"
-        echo "   Then try your command again."
-        rm -f "$CACHE_FILE"
         return 1
     fi
 }
 
-# Function to check if tmux is installed
-check_tmux_installed() {
-    if ! command -v tmux &> /dev/null; then
-        return 1
-    fi
-    return 0
-}
+# Create symlinks in package subdirectories pointing to root .env.local
+# This allows Next.js and other tools to find env vars when running from subdirs
+create_env_symlinks() {
+    # Skip on Windows - symlinks require admin/Developer Mode
+    case "$OSTYPE" in
+        msys*|cygwin*|win32*)
+            return
+            ;;
+    esac
 
-# Function to check if command doesn't need secrets
-# Returns 0 if secrets are NOT needed, 1 if they ARE needed
-doesnt_need_secrets() {
-    # If we're already running under infisical, don't need to wrap again
-    if [ -n "$NEXT_PUBLIC_INFISICAL_UP" ]; then
-        return 0
-    fi
-
-    # Find the first non-flag argument, which is the command
-    local cmd=""
-    for arg in "$@"; do
-        if [[ ! "$arg" =~ ^- ]]; then
-            cmd="$arg"
-            break
+    # Top-level packages (symlink: ../.env.local)
+    for subdir in web cli common evals scripts sdk; do
+        local link_path="$PROJECT_ROOT/$subdir/.env.local"
+        if [ -d "$PROJECT_ROOT/$subdir" ] && [ ! -L "$link_path" ] && [ ! -f "$link_path" ]; then
+            ln -sf ../.env.local "$link_path" 2>/dev/null || true
         fi
     done
 
-    # Handle version/help flags which can appear anywhere
-    for arg in "$@"; do
-        case "$arg" in
-            --version|-v|--help|-h|--revision)
-                return 0
-                ;;
-        esac
+    # Nested packages under packages/ (symlink: ../../.env.local)
+    for subdir in packages/agent-runtime packages/bigquery packages/billing packages/build-tools packages/code-map packages/internal; do
+        local link_path="$PROJECT_ROOT/$subdir/.env.local"
+        if [ -d "$PROJECT_ROOT/$subdir" ] && [ ! -L "$link_path" ] && [ ! -f "$link_path" ]; then
+            ln -sf ../../.env.local "$link_path" 2>/dev/null || true
+        fi
     done
-
-    # If no command is found (e.g., just 'bun'), it doesn't need secrets
-    if [ -z "$cmd" ]; then
-        return 0
-    fi
-
-    # Commands that don't need secrets
-    case "$cmd" in
-        # Package management
-        install|i|add|remove|rm|link|unlink|pm|update|upgrade)
-            return 0
-            ;;
-        # Project initialization
-        init|create)
-            return 0
-            ;;
-        # Info/utility
-        info|outdated|audit|typecheck)
-            return 0
-            ;;
-        # Run command needs special handling
-        run)
-            # Find the script name after 'run'
-            local script=""
-            local found_run=false
-            for arg in "$@"; do
-                if $found_run && [[ ! "$arg" =~ ^- ]]; then
-                    script="$arg"
-                    break
-                fi
-                if [[ "$arg" == "run" ]]; then
-                    found_run=true
-                fi
-            done
-
-            # 'bun run' with no script lists scripts, no secrets needed
-            if [ -z "$script" ]; then
-                return 0
-            fi
-
-            # Scripts that typically don't need secrets
-            case "$script" in
-                format|lint|typecheck|compile)
-                    return 0
-                    ;;
-                *)
-                    # Default run scripts to needing secrets
-                    return 1
-                    ;;
-            esac
-            ;;
-        # Test command needs special handling
-        test)
-            # Check for integration/e2e tests that require tmux
-            # Convention: test files matching *integration*.test.ts or *e2e*.test.ts
-            local needs_tmux=false
-
-            for arg in "$@"; do
-                # Check if running integration or e2e tests
-                if [[ "$arg" =~ (integration|e2e).*\.test\.(ts|tsx|js|jsx) ]]; then
-                    needs_tmux=true
-                    break
-                fi
-                # Also check if running all tests and integration files exist
-                if [[ "$arg" == "test" ]] || [[ -z "$arg" ]]; then
-                    if ls */src/__tests__/*integration*.test.ts 2>/dev/null || ls */src/__tests__/*e2e*.test.ts 2>/dev/null; then
-                        needs_tmux=true
-                        break
-                    fi
-                fi
-            done
-
-            # If running integration/e2e tests, check tmux availability
-            if [ "$needs_tmux" = true ]; then
-                if ! check_tmux_installed; then
-                    echo "⚠️  tmux not found but required for integration/E2E tests"
-                    echo ""
-                    echo "📦 Install tmux:"
-                    echo "   macOS:    brew install tmux"
-                    echo "   Ubuntu:   sudo apt-get install tmux"
-                    echo "   Windows:  Use WSL and run 'sudo apt-get install tmux'"
-                    echo ""
-                    echo "ℹ️  Skipping tmux-dependent tests..."
-                    echo ""
-                fi
-            fi
-            return 1  # Tests need secrets
-            ;;
-        *)
-            # Default to needing secrets for all other commands
-            return 1
-            ;;
-    esac
 }
 
-# Main logic - determine execution path based on secrets requirement
-if doesnt_need_secrets "$@"; then
-    # Path 1: Command doesn't need secrets - run directly
-    # But still load worktree overrides for commands that don't need secrets
-    load_worktree_env
+# Check for missing .env.local and print helpful guidance
+# This helps non-Infisical users understand how to set up their environment
+check_env_setup() {
+    # Skip in CI environments - they set env vars directly
+    if [ -n "$CI" ]; then
+        return
+    fi
+
+    # If .env.local exists, we're good
+    if [ -f "$ENV_LOCAL_FILE" ]; then
+        return
+    fi
+
+    # Print helpful guidance
+    echo "" >&2
+    echo "⚠️  No .env.local found at project root" >&2
+    echo "" >&2
+    echo "  To set up your environment:" >&2
+    echo "" >&2
+    echo "  📦 Infisical users:" >&2
+    echo "     Run 'infisical login' then retry this command" >&2
+    echo "" >&2
+    echo "  ✏️  Manual setup:" >&2
+    echo "     Run 'cp .env.example .env.local' and edit with your values" >&2
+    echo "     Then edit .env.local with your actual values" >&2
+    echo "" >&2
+}
+
+# Load project env files to ensure correct precedence
+# .env.development.local must be sourced last to override any inherited env vars
+load_project_env() {
+    # Source env files with auto-export
+    # Order matters: .env.local first, then .env.development.local overrides
+    set -a
+    
+    # Only source .env.local when running from subdirectory
+    # (Bun loads it natively when at project root)
+    if [ "$PROJECT_ROOT" != "$CALLING_DIR" ] && [ -f "$ENV_LOCAL_FILE" ]; then
+        # shellcheck disable=SC1090
+        source "$ENV_LOCAL_FILE"
+    fi
+    
+    # Always source .env.development.local to ensure worktree overrides
+    # take precedence over any inherited shell environment variables
+    if [ -f "$ENV_DEVELOPMENT_LOCAL_FILE" ]; then
+        # shellcheck disable=SC1090
+        source "$ENV_DEVELOPMENT_LOCAL_FILE"
+    fi
+    
+    set +a
+}
+
+run_bun() {
+    create_env_symlinks
+    check_env_setup
+    load_project_env
     exec "$REAL_BUN" "$@"
+}
+
+# Main logic
+
+# Path 1: Already running under Infisical wrapper - just exec bun
+# Bun will load .env files natively
+if [ -n "$NEXT_PUBLIC_INFISICAL_UP" ]; then
+    run_bun "$@"
 fi
 
-# Path 2: Command needs secrets - try cache first, then create if needed
-if is_cache_valid && load_from_cache; then
-    # Path 2a: Valid cache exists - use it, then apply worktree overrides
-    finalize_and_exec "$@"
+# Path 2: Check if .env.local cache is valid
+if is_cache_valid; then
+    export NEXT_PUBLIC_INFISICAL_UP=true
+    run_bun "$@"
 fi
 
-# Path 2b: No valid cache - create new one
-if create_cache; then
-    load_from_cache
-    finalize_and_exec "$@"
+# Path 3: Try to sync from Infisical
+if sync_from_infisical; then
+    export NEXT_PUBLIC_INFISICAL_UP=true
+    run_bun "$@"
 fi
 
-# Path 2c: Cache creation failed - exit with error
-exit 1
+# Path 4: Sync failed but .env.local exists - use it with warning
+if [ -f "$ENV_LOCAL_FILE" ]; then
+    echo "   Using existing .env.local (may be stale)"
+    export NEXT_PUBLIC_INFISICAL_UP=true
+    run_bun "$@"
+fi
+
+# Path 5: No .env.local and no Infisical - check if .env.example exists for guidance
+if [ -f "$PROJECT_ROOT/.env.example" ]; then
+    echo "❌ No .env.local found and Infisical sync failed."
+    echo ""
+    echo "   To set up environment variables, either:"
+    echo "   1. Copy .env.example to .env.local and fill in values"
+    echo "   2. Set up Infisical: see INFISICAL_SETUP_GUIDE.md"
+    echo ""
+    exit 1
+fi
+
+# No .env files at all - just run bun (might be a non-project command)
+run_bun "$@"

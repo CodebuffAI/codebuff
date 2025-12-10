@@ -9,74 +9,46 @@ Hey there! 👋 Thanks for wanting to contribute to Codebuff. Whether you're squ
 Before you begin, you'll need to install a few tools:
 
 1. **Bun** (our primary package manager): Follow the [Bun installation guide](https://bun.sh/docs/installation)
-2. **direnv**: This manages environment variables automatically
-   - macOS: `brew install direnv`
-   - Ubuntu/Debian: `sudo apt install direnv`
-   - Other systems: See [direnv installation guide](https://direnv.net/docs/installation.html)
-3. **Docker**: Required for the web server database
-4. **Infisical CLI**: For secrets management
-   ```bash
-   npm install -g @infisical/cli
-   ```
+2. **Docker**: Required for the web server database
 
 ### Setting Up Your Development Environment
 
-1. **Hook direnv into your shell** (one-time setup):
-
-   - For zsh: `echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc && source ~/.zshrc`
-   - For bash: `echo 'eval "$(direnv hook bash)"' >> ~/.bashrc && source ~/.bashrc`
-   - For fish: `echo 'direnv hook fish | source' >> ~/.config/fish/config.fish && source ~/.config/fish/config.fish`
-
-2. **Restart your shell**: Run `exec $SHELL` or restart your terminal
-
-3. **Clone the repository**:
+1. **Clone the repository**:
 
    ```bash
    git clone https://github.com/CodebuffAI/codebuff.git
    cd codebuff
    ```
 
-4. **Set up secrets management**:
+2. **Set up environment variables**:
 
    ```bash
-   npm install -g @infisical/cli
-   infisical init
-   infisical login
-   # Select "US" region when prompted
+   # Copy the example file
+   cp .env.example .env.local
+   
+   # Edit .env.local and update DATABASE_URL to match Docker:
+   # DATABASE_URL=postgresql://manicode_user_local:secretpassword_local@localhost:5432/manicode_db_local
    ```
 
-   Follow the [Infisical Setup Guide](./INFISICAL_SETUP_GUIDE.md) for detailed setup instructions.
+   > **Team members**: For shared secrets management, see the [Infisical Setup Guide](./INFISICAL_SETUP_GUIDE.md).
 
-   Load all environment variables at once:
-
-   ```bash
-   infisical secrets set --file .env.example
-   infisical secrets set DATABASE_URL=postgresql://manicode_user_local:secretpassword_local@localhost:5432/manicode_db_local
-   ```
-
-5. **Configure environment**:
-
-   ```bash
-   direnv allow
-   ```
-
-6. **Install dependencies**:
+3. **Install dependencies**:
 
    ```bash
    bun install
    ```
 
-7. **Setup a Github OAuth app**
+4. **Setup a Github OAuth app**
 
    1. Follow these instructions to set up a [Github OAuth app](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app)
-   2. Find your app's Github client ID and secret access key and set them in Infisical:
+   2. Add your Github client ID and secret to `.env.local`:
 
    ```bash
-   infisical secrets set CODEBUFF_GITHUB_ID=<your-github-app-id-here>
-   infisical secrets set CODEBUFF_GITHUB_SECRET=<your-github-app-secret-here>
+   CODEBUFF_GITHUB_ID=<your-github-app-id-here>
+   CODEBUFF_GITHUB_SECRET=<your-github-app-secret-here>
    ```
 
-8. **Start development services**:
+5. **Start development services**:
 
    **Option A: All-in-one (recommended)**
    ```bash
@@ -99,7 +71,7 @@ Before you begin, you'll need to install a few tools:
 
    **Note**: CLI requires both backend and web server running for authentication.
 
-9. **Giving yourself credits**:
+6. **Giving yourself credits**:
 
    1. Log into Codebuff at [http://localhost:3000/login](http://localhost:3000/login)
 
@@ -115,7 +87,7 @@ Before you begin, you'll need to install a few tools:
 
    Now, you should be able to run the CLI commands locally from within the `codebuff` directory.
 
-10. **Running in other directories**:
+7. **Running in other directories**:
 
 In order to run the CLI from other directories, you need to first publish the agents to the database.
 
@@ -271,14 +243,12 @@ Level up the web interface in `web/` with better agent management, project templ
 
 **Setup issues?**
 
-- **direnv problems?** Make sure it's hooked into your shell, run `direnv allow`, and restart your terminal
 - **Script errors?** Double-check you're using bun for all commands
-- **Infisical issues?** See our [Infisical Setup Guide](./INFISICAL_SETUP_GUIDE.md) for step-by-step instructions
 - **Database connection errors?** If you see `password authentication failed for user "postgres"` errors:
-  1. Ensure DATABASE_URL uses the correct credentials: `postgresql://manicode_user_local:secretpassword_local@localhost:5432/manicode_db_local`
-  2. Update both your local `.env` file and Infisical secret: `infisical secrets set DATABASE_URL=postgresql://manicode_user_local:secretpassword_local@localhost:5432/manicode_db_local`
-  3. Run the database migration: `infisical run -- bun run db:migrate`
-  4. Restart your development services
+  1. Ensure DATABASE_URL in `.env.local` uses the correct credentials: `postgresql://manicode_user_local:secretpassword_local@localhost:5432/manicode_db_local`
+  2. Run the database migration: `bun run db:migrate`
+  3. Restart your development services
+- **Using Infisical?** See the [Infisical Setup Guide](./INFISICAL_SETUP_GUIDE.md) for team secrets management
 - **Empty Agent Store in dev mode?** This is expected behavior - agents from `.agents/` directory need to be published to the database to appear in the marketplace
 
 **Questions?** Jump into our [Discord community](https://codebuff.com/discord) - we're friendly and always happy to help!

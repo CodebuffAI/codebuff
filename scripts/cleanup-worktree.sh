@@ -29,6 +29,13 @@ cleanup_worktree() {
     fi
     
     # Clean up any worktree-specific files that might be left behind
+    if [ -f "$WORKTREE_PATH/.env.development.local" ]; then
+        rm -f "$WORKTREE_PATH/.env.development.local" 2>/dev/null || true
+    fi
+    # Also clean up legacy .env.development and .env.worktree if present
+    if [ -f "$WORKTREE_PATH/.env.development" ]; then
+        rm -f "$WORKTREE_PATH/.env.development" 2>/dev/null || true
+    fi
     if [ -f "$WORKTREE_PATH/.env.worktree" ]; then
         rm -f "$WORKTREE_PATH/.env.worktree" 2>/dev/null || true
     fi

@@ -1,51 +1,80 @@
-# Simple Infisical Setup for Codebuff
+# Infisical Setup Guide
 
-Quick 5-step setup to get Codebuff running with Infisical secrets.
+This guide is for **team/advanced secrets management** using [Infisical](https://infisical.com/).
+
+> **Personal development?** Just copy `.env.example` to `.env.local` and fill in your values. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full setup guide.
+
+## Why Infisical?
+
+- **Team sync**: Share secrets securely across team members
+- **Auto-refresh**: The `.bin/bun` wrapper automatically syncs secrets to `.env.local`
+- **No manual copying**: Secrets stay up-to-date with a 15-minute cache
+
+## Prerequisites
+
+- **direnv**: Required for the bun wrapper to work
+  - macOS: `brew install direnv`
+  - Ubuntu/Debian: `sudo apt install direnv`
+  - [Hook it into your shell](https://direnv.net/docs/hook.html)
 
 ## Setup Steps
 
-### 1. Install & Setup
+### 1. Enable the bun wrapper
+```bash
+direnv allow
+```
+This adds `.bin/` to your PATH so the Infisical sync wrapper runs automatically.
+
+### 2. Install & Login
 ```bash
 npm install -g @infisical/cli
 infisical init
 infisical login
 # Select "US" region when prompted
-infisical secrets  # Verify setup works
 ```
 
-### 2. Browser Login
+### 3. Browser Login
 - Browser opens automatically to https://app.infisical.com
-- Login with **any email** (Gmail, etc.)
-- Fill in any **name** and **organization name** when asked
+- Login with your email
+- Select or create your organization and project
 - Copy the token from browser and paste in terminal
 
-### 3. Select Project  
-- Use arrow keys to choose your organization
-- Select or create a Codebuff project
-
-### 4. Load Environment Variables
+### 4. Load Initial Secrets
 ```bash
-# Load all variables at once
+# Load all variables from .env.example as a starting point
 infisical secrets set --file .env.example
 
-# IMPORTANT: Fix the database password separately
+# Fix the database password to match Docker
 infisical secrets set DATABASE_URL=postgresql://manicode_user_local:secretpassword_local@localhost:5432/manicode_db_local
 ```
 
-### 5. Done! Run Codebuff
+### 5. Run Codebuff
 ```bash
-bun run dev  # Starts everything automatically
+bun run dev  # Secrets auto-sync to .env.local
 ```
 
-## Common Issues & Quick Fixes
+## How It Works
 
-**Token won't paste?** → Right-click → paste  
-**Database error?** → Run the DATABASE_URL command above  
-**Can't navigate menus?** → Use arrow keys ↓ ↑  
+1. The `.bin/bun` wrapper checks if `.env.local` needs refreshing
+2. If stale (>15 min) or missing, it syncs from Infisical
+3. Bun then loads `.env.local` automatically
 
-## That's It!
+## Common Issues
 
-The `.env.example` file contains all the dummy values needed for development. Only the database password needs to be fixed to match Docker's password.
+| Problem | Solution |
+|---------|----------|
+| Token won't paste | Right-click → paste |
+| Session expired | Run `infisical login` again |
+| Can't navigate menus | Use arrow keys ↓ ↑ |
+| Infisical not working | Fall back to manual `.env.local` |
 
-You will need to populate all the secrets in the Infisical UI at https://app.infisical.com. You can provide dummy values for the secrets if you get an error about missing secrets, but you will need to update them with real values in order to use the associated feature.
+## Updating Secrets
 
+```bash
+# Set a single secret
+infisical secrets set MY_API_KEY=abc123
+
+# Delete the local cache to force refresh
+rm .env.local
+bun run dev  # Re-syncs from Infisical
+```

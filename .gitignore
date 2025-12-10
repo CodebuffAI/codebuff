@@ -2,11 +2,10 @@
 .idea/
 .vercel
 
+# Environment files (secrets) - Bun loads .env.* files natively
 .env
 .env.*
 !.env.example
-.env.worktree
-.worktree-env.sh
 
 # ctags
 tags
@@ -29,7 +28,5 @@ debug/
 .nx/cache
 .nx/workspace-data
 
-# Infisical cache (contains secrets, should not be committed)
-.infisical-cache
-.infisical-cache.tmp
+# Infisical config (user-specific)
 .infisical.json
