@@ -384,13 +384,23 @@ export async function runProgrammaticStep(
 export const getPublicAgentState = (
   agentState: AgentState & Required<Pick<AgentState, 'runId'>>,
 ): PublicAgentState => {
-  const { agentId, runId, parentId, messageHistory, output } = agentState
+  const {
+    agentId,
+    runId,
+    parentId,
+    messageHistory,
+    output,
+    systemPrompt,
+    toolDefinitions,
+  } = agentState
   return {
     agentId,
     runId,
     parentId,
     messageHistory: messageHistory as any as PublicAgentState['messageHistory'],
     output,
+    systemPrompt,
+    toolDefinitions,
   }
 }
 

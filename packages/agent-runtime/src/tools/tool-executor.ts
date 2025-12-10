@@ -143,7 +143,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   runId: string
   signal: AbortSignal
   system: string
-  tools?: ToolSet
+  tools: ToolSet
   toolCallId: string | undefined
   toolCalls: (CodebuffToolCall | CustomToolCall)[]
   toolResults: ToolMessage[]

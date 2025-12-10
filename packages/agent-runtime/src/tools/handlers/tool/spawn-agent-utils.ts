@@ -186,6 +186,8 @@ export function createAgentState(
     directCreditsUsed: 0,
     output: undefined,
     parentId: parentAgentState.agentId,
+    systemPrompt: '',
+    toolDefinitions: {},
   }
 }
 

@@ -39,8 +39,11 @@ export type AgentState = {
   directCreditsUsed: number
   output?: Record<string, any>
   parentId?: string
-  systemPrompt?: string
-  toolDefinitions?: Record<string, { description: string | undefined; inputSchema: {} }>
+  systemPrompt: string
+  toolDefinitions: Record<
+    string,
+    { description: string | undefined; inputSchema: {} }
+  >
 }
 
 export const AgentOutputSchema = z.discriminatedUnion('type', [
@@ -122,6 +125,8 @@ export function getInitialAgentState(): AgentState {
     directCreditsUsed: 0,
     output: undefined,
     parentId: undefined,
+    systemPrompt: '',
+    toolDefinitions: {},
   }
 }
 export function getInitialSessionState(

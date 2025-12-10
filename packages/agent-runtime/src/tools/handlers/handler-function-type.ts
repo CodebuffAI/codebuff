@@ -50,7 +50,7 @@ export type CodebuffToolHandlerFunction<T extends ToolName = ToolName> = (
     sendSubagentChunk: SendSubagentChunkFn
     signal: AbortSignal
     system: string
-    tools?: ToolSet
+    tools: ToolSet
     trackEvent: TrackEventFn
     userId: string | undefined
     userInputId: string

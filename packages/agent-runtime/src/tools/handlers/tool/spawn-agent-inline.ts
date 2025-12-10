@@ -18,6 +18,7 @@ import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { ToolSet } from 'ai'
+import { mapValues } from 'lodash'
 
 type ToolName = 'spawn_agent_inline'
 export const handleSpawnAgentInline = (async (
@@ -33,7 +34,7 @@ export const handleSpawnAgentInline = (async (
     localAgentTemplates: Record<string, AgentTemplate>
     logger: Logger
     system: string
-    tools?: ToolSet
+    tools: ToolSet
     userId: string | undefined
     userInputId: string
     writeToClient: (chunk: string | PrintModeEvent) => void
@@ -60,9 +61,10 @@ export const handleSpawnAgentInline = (async (
     agentTemplate: parentAgentTemplate,
     fingerprintId,
     system,
-    tools: parentTools = {},
+    tools: parentTools,
     userInputId,
     writeToClient,
+    logger,
   } = params
   const {
     agent_type: agentTypeStr,
@@ -80,17 +82,31 @@ export const handleSpawnAgentInline = (async (
 
   validateAgentInput(agentTemplate, agentType, prompt, spawnParams)
 
+  // Override template for inline agent to share system prompt & message history with parent
+  const inlineTemplate = {
+    ...agentTemplate,
+    includeMessageHistory: true,
+    inheritParentSystemPrompt: true,
+  }
+
   // Create child agent state that shares message history with parent
-  const childAgentState: AgentState = createAgentState(
-    agentType,
-    agentTemplate,
-    parentAgentState,
-    parentAgentState.agentContext,
-  )
+  const childAgentState: AgentState = {
+    ...createAgentState(
+      agentType,
+      inlineTemplate,
+      parentAgentState,
+      parentAgentState.agentContext,
+    ),
+    systemPrompt: system,
+    toolDefinitions: mapValues(parentTools, (tool) => ({
+      description: tool.description,
+      inputSchema: tool.inputSchema as {},
+    })),
+  }
 
   logAgentSpawn({
     ...params,
-    agentTemplate,
+    agentTemplate: inlineTemplate,
     agentType,
     agentId: childAgentState.agentId,
     parentId: childAgentState.parentId,
@@ -104,14 +120,12 @@ export const handleSpawnAgentInline = (async (
     userInputId: `${userInputId}-inline-${agentType}${childAgentState.agentId}`,
     prompt: prompt || '',
     spawnParams,
-    agentTemplate,
+    agentTemplate: inlineTemplate,
     parentAgentState,
     agentState: childAgentState,
     fingerprintId,
     parentSystemPrompt: system,
-    parentTools: agentTemplate.inheritParentSystemPrompt
-      ? parentTools
-      : undefined,
+    parentTools,
     onResponseChunk: (chunk) => {
       // Inherits parent's onResponseChunk, except for context-pruner (TODO: add an option for it to be silent?)
       if (agentType !== 'context-pruner') {

@@ -283,11 +283,14 @@ export interface AgentState {
   /** The last value set by the set_output tool. This is a plain object or undefined if not set. */
   output: Record<string, any> | undefined
 
-  /** The system prompt for this agent. Used by context-pruner to account for system prompt size when calculating effective message budget. */
-  systemPrompt?: string
+  /** The system prompt for this agent. */
+  systemPrompt: string
 
-  /** The tool definitions for this agent. Used by context-pruner to account for tool definition tokens when calculating effective message budget. */
-  toolDefinitions?: Record<string, { name: string; description: string; parameters: JsonObjectSchema }>[]
+  /** The tool definitions for this agent. */
+  toolDefinitions: Record<
+    string,
+    { description: string | undefined; inputSchema: {} }
+  >
 }
 
 /**
