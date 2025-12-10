@@ -158,7 +158,7 @@ export class WebSocketMiddleware {
         ws: WebSocket
       } & AgentRuntimeDeps &
         AgentRuntimeScopedDeps,
-    ) => void
+    ) => void | Promise<void>
     silent?: boolean
   }) {
     const { baseAction, silent } = params

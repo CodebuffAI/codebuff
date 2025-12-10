@@ -374,6 +374,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
         process.stdout.write(chunk)
       },
       signal: new AbortController().signal,
+      tools: {},
     })
     const requestToolCallSpy = agentRuntimeImpl.requestToolCall as any
 
@@ -462,6 +463,7 @@ export function getMessagesSubset(messages: Message[], otherTokens: number) {
           process.stdout.write(chunk)
         },
         signal: new AbortController().signal,
+        tools: {},
       })
 
       const requestToolCallSpy = agentRuntimeImpl.requestToolCall as any

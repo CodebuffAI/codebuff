@@ -222,6 +222,7 @@ describe('Cost Aggregation Integration Tests', () => {
       onResponseChunk: () => {},
       localAgentTemplates: mockLocalAgentTemplates,
       signal: new AbortController().signal,
+      tools: {},
     }
 
     callMainPromptBaseParams = {
@@ -232,6 +233,7 @@ describe('Cost Aggregation Integration Tests', () => {
       promptId: 'test-prompt',
       clientSessionId: 'test-session',
       signal: new AbortController().signal,
+      tools: {},
     }
 
     // Mock getAgentTemplate to return our mock templates
