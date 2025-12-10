@@ -10,7 +10,6 @@ export const clientEnvSchema = z.object({
   NEXT_PUBLIC_POSTHOG_HOST_URL: z.url().min(1),
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().min(1),
   NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: z.url().min(1),
-  NEXT_PUBLIC_LINKEDIN_PARTNER_ID: z.string().optional(),
   NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID: z.string().optional(),
   NEXT_PUBLIC_WEB_PORT: z.coerce.number().min(1000),
 } satisfies Record<`${typeof CLIENT_ENV_PREFIX}${string}`, any>)
@@ -32,7 +31,6 @@ export const clientProcessEnv: ClientInput = {
     process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
   NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL:
     process.env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL,
-  NEXT_PUBLIC_LINKEDIN_PARTNER_ID: process.env.NEXT_PUBLIC_LINKEDIN_PARTNER_ID,
   NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID:
     process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID,
   NEXT_PUBLIC_WEB_PORT: process.env.NEXT_PUBLIC_WEB_PORT,

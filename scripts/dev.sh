@@ -92,7 +92,7 @@ else
     tmux new-session -d -s codebuff-web "cd $PROJECT_ROOT && $BUN --cwd web dev 2>&1 | sed -l 's/\x1b\[[0-9;]*m//g' | tee $LOG_DIR/web.log"
 fi
 
-wait_for "web" "curl -sf ${NEXT_PUBLIC_APP_URL}/api/healthz"
+wait_for "web" "curl -sf ${NEXT_PUBLIC_CODEBUFF_APP_URL}/api/healthz"
 
 # 4. CLI (foreground - user interaction)
 echo ""

@@ -11,7 +11,6 @@ export const serverEnvSchema = clientEnvSchema.extend({
 
   // Web/Database variables
   DATABASE_URL: z.string().min(1),
-  GOOGLE_SITE_VERIFICATION_ID: z.string().optional(),
   CODEBUFF_GITHUB_ID: z.string().min(1),
   CODEBUFF_GITHUB_SECRET: z.string().min(1),
   NEXTAUTH_URL: z.url().optional(),
@@ -50,7 +49,6 @@ export const serverProcessEnv: ServerInput = {
 
   // Web/Database variables
   DATABASE_URL: process.env.DATABASE_URL,
-  GOOGLE_SITE_VERIFICATION_ID: process.env.GOOGLE_SITE_VERIFICATION_ID,
   CODEBUFF_GITHUB_ID: process.env.CODEBUFF_GITHUB_ID,
   CODEBUFF_GITHUB_SECRET: process.env.CODEBUFF_GITHUB_SECRET,
   NEXTAUTH_URL: process.env.NEXTAUTH_URL,
