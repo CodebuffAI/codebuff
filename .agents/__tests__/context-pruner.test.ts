@@ -824,6 +824,7 @@ describe('context-pruner saved run state overflow', () => {
     // Run context-pruner with 100k limit
     const mockAgentState = {
       messageHistory: initialMessages,
+      systemPrompt: savedRunState.sessionState?.mainAgentState?.systemPrompt,
     } as AgentState
     const mockLogger = {
       debug: () => {},
@@ -868,6 +869,90 @@ describe('context-pruner saved run state overflow', () => {
     const maxAllowedTokens = targetTokens + 500
 
     expect(finalTokens).toBeLessThan(maxAllowedTokens)
+  })
+
+  test('prunes message history from saved run state with large token count including system prompt', () => {
+    // Load the saved run state file - message tokens (~183k) + system prompt tokens (~22k) = ~205k total
+    // This exceeds the 200k limit when system prompt is included
+    const runStatePath = join(
+      __dirname,
+      'data',
+      'run-state-context-overflow2.json',
+    )
+    const savedRunState = JSON.parse(readFileSync(runStatePath, 'utf-8'))
+    const initialMessages =
+      savedRunState.sessionState?.mainAgentState?.messageHistory
+    const systemPrompt =
+      savedRunState.sessionState?.mainAgentState?.systemPrompt
+
+    // Calculate initial token count
+    const countTokens = (msgs: any[]) => {
+      return msgs.reduce(
+        (sum, msg) => sum + Math.ceil(JSON.stringify(msg).length / 3),
+        0,
+      )
+    }
+    const initialMessageTokens = countTokens(initialMessages)
+    const systemPromptTokens = Math.ceil(JSON.stringify(systemPrompt).length / 3)
+    console.log('Initial message count:', initialMessages.length)
+    console.log('Initial message tokens (approx):', initialMessageTokens)
+    console.log('System prompt tokens (approx):', systemPromptTokens)
+    console.log('Total initial tokens (approx):', initialMessageTokens + systemPromptTokens)
+
+    // Run context-pruner with 200k limit - must include systemPrompt in agentState
+    // so the pruner knows about the extra tokens from the system prompt
+    const mockAgentState = {
+      messageHistory: initialMessages,
+      systemPrompt: systemPrompt,
+    } as AgentState
+    const mockLogger = {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    }
+
+    const maxContextLength = 200_000
+
+    // Override maxMessageTokens via params
+    const generator = contextPruner.handleSteps!({
+      agentState: mockAgentState,
+      logger: mockLogger,
+      params: { maxContextLength },
+    })
+
+    const results: any[] = []
+    let result = generator.next()
+    while (!result.done) {
+      if (typeof result.value === 'object') {
+        results.push(result.value)
+      }
+      result = generator.next()
+    }
+
+    expect(results).toHaveLength(1)
+    const prunedMessages = results[0].input.messages
+    const finalMessageTokens = countTokens(prunedMessages)
+    const finalTotalTokens = finalMessageTokens + systemPromptTokens
+
+    console.log('Final message count:', prunedMessages.length)
+    console.log('Final message tokens (approx):', finalMessageTokens)
+    console.log('Final total tokens (approx):', finalTotalTokens)
+    console.log('Message token reduction:', initialMessageTokens - finalMessageTokens)
+
+    // The context-pruner calculates effective message budget as:
+    //   maxMessageTokens = maxContextLength - systemPromptTokens - toolDefinitionTokens
+    //   maxMessageTokens = 200k - ~22k - 0 = ~178k
+    // Then it targets shortenedMessageTokenFactor (0.5) of that budget:
+    //   targetMessageTokens = 178k * 0.5 = ~89k
+    // So final message tokens should be around 89k
+    const effectiveMessageBudget = maxContextLength - systemPromptTokens
+    const shortenedMessageTokenFactor = 0.5
+    const targetMessageTokens = effectiveMessageBudget * shortenedMessageTokenFactor
+    // Allow some overhead for the pruning not being exact
+    const maxAllowedMessageTokens = targetMessageTokens + 5000
+
+    expect(finalMessageTokens).toBeLessThan(maxAllowedMessageTokens)
   })
 
   test('accounts for system prompt and tool definitions when pruning with default 200k limit', () => {
