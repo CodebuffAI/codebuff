@@ -1,6 +1,6 @@
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { webEnv } from '@codebuff/internal/env'
+import { env } from '@codebuff/internal/env'
 import { stripeServer } from '@codebuff/internal/util/stripe'
 import { eq, and } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
 
     // Create Stripe customer if needed
     let stripeCustomerId = null
-    if (webEnv.STRIPE_SECRET_KEY) {
+    if (env.STRIPE_SECRET_KEY) {
       try {
         const customer = await stripeServer.customers.create({
           name: newOrg.name,

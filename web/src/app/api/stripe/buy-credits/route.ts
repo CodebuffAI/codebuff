@@ -3,7 +3,7 @@ import { convertCreditsToUsdCents } from '@codebuff/common/util/currency'
 import { generateCompactId } from '@codebuff/common/util/string'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { webEnv } from '@codebuff/internal/env'
+import { env } from '@codebuff/internal/env'
 import { stripeServer } from '@codebuff/internal/util/stripe'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
@@ -177,8 +177,8 @@ export async function POST(req: NextRequest) {
         },
       ],
       mode: 'payment',
-      success_url: `${webEnv.NEXT_PUBLIC_CODEBUFF_APP_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}&purchase=credits&amt=${credits}`,
-      cancel_url: `${webEnv.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage?purchase_canceled=true`,
+      success_url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}&purchase=credits&amt=${credits}`,
+      cancel_url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage?purchase_canceled=true`,
       metadata: {
         userId: userId,
         credits: credits.toString(),

@@ -1,4 +1,4 @@
-import { webEnv } from '@codebuff/internal/env'
+import { env } from '@codebuff/internal/env'
 import { REST, Routes, SlashCommandBuilder } from 'discord.js'
 
 import { logger } from '@/util/logger'
@@ -15,13 +15,13 @@ const commands = [
     ),
 ]
 
-const rest = new REST().setToken(webEnv.DISCORD_BOT_TOKEN)
+const rest = new REST().setToken(env.DISCORD_BOT_TOKEN)
 
 async function main() {
   try {
     logger.info('Started refreshing application (/) commands.')
 
-    await rest.put(Routes.applicationCommands(webEnv.DISCORD_APPLICATION_ID), {
+    await rest.put(Routes.applicationCommands(env.DISCORD_APPLICATION_ID), {
       body: commands,
     })
 

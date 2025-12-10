@@ -1,4 +1,4 @@
-import { webEnv } from '@codebuff/internal/env'
+import { env } from '@codebuff/internal/env'
 import { afterEach, beforeEach, describe, expect, mock, it } from 'bun:test'
 import { NextRequest } from 'next/server'
 

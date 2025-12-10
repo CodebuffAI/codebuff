@@ -3,7 +3,7 @@ import { CREDIT_PRICING } from '@codebuff/common/old-constants'
 import { generateCompactId } from '@codebuff/common/util/string'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { webEnv } from '@codebuff/internal/env'
+import { env } from '@codebuff/internal/env'
 import { stripeServer } from '@codebuff/internal/util/stripe'
 import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
@@ -231,8 +231,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Fall back to checkout session if direct charge failed or no valid payment method
-    const successUrl = `${webEnv.NEXT_PUBLIC_CODEBUFF_APP_URL}/orgs/${organization.slug}?purchase_success=true`
-    const cancelUrl = `${webEnv.NEXT_PUBLIC_CODEBUFF_APP_URL}/orgs/${organization.slug}?purchase_canceled=true`
+    const successUrl = `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/orgs/${organization.slug}?purchase_success=true`
+    const cancelUrl = `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/orgs/${organization.slug}?purchase_canceled=true`
 
     const checkoutSession = await stripeServer.checkout.sessions.create({
       payment_method_types: ['card', 'link'],

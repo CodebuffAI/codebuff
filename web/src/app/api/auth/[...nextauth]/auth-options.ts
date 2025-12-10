@@ -8,7 +8,7 @@ import { generateCompactId } from '@codebuff/common/util/string'
 import { loops } from '@codebuff/internal'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { webEnv } from '@codebuff/internal/env'
+import { env } from '@codebuff/internal/env'
 import { stripeServer } from '@codebuff/internal/util/stripe'
 import { logSyncFailure } from '@codebuff/internal/util/sync-failure'
 import { eq } from 'drizzle-orm'
@@ -46,14 +46,14 @@ async function createAndLinkStripeCustomer(params: {
     // Create subscription with the usage price
     await stripeServer.subscriptions.create({
       customer: customer.id,
-      items: [{ price: webEnv.STRIPE_USAGE_PRICE_ID }],
+      items: [{ price: env.STRIPE_USAGE_PRICE_ID }],
     })
 
     await db
       .update(schema.user)
       .set({
         stripe_customer_id: customer.id,
-        stripe_price_id: webEnv.STRIPE_USAGE_PRICE_ID,
+        stripe_price_id: env.STRIPE_USAGE_PRICE_ID,
       })
       .where(eq(schema.user.id, userId))
 
@@ -137,8 +137,8 @@ export const authOptions: NextAuthOptions = {
   }) as Adapter,
   providers: [
     GitHubProvider({
-      clientId: webEnv.CODEBUFF_GITHUB_ID,
-      clientSecret: webEnv.CODEBUFF_GITHUB_SECRET,
+      clientId: env.CODEBUFF_GITHUB_ID,
+      clientSecret: env.CODEBUFF_GITHUB_SECRET,
     }),
   ],
   session: {

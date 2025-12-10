@@ -5,7 +5,7 @@ import {
 } from '@codebuff/billing'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { webEnv } from '@codebuff/internal/env'
+import { env } from '@codebuff/internal/env'
 import { stripeServer } from '@codebuff/internal/util/stripe'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
@@ -331,7 +331,7 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
     event = stripeServer.webhooks.constructEvent(
       buf,
       sig,
-      webEnv.STRIPE_WEBHOOK_SECRET_KEY,
+      env.STRIPE_WEBHOOK_SECRET_KEY,
     )
   } catch (err) {
     const error = err as Error

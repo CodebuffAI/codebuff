@@ -1,7 +1,7 @@
 import { pluralize } from '@codebuff/common/util/string'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { webEnv } from '@codebuff/internal/env'
+import { env } from '@codebuff/internal/env'
 import { stripeServer } from '@codebuff/internal/util/stripe'
 import { eq, and, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
@@ -190,13 +190,13 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       mode: 'subscription',
       line_items: [
         {
-          price: webEnv.STRIPE_TEAM_FEE_PRICE_ID,
+          price: env.STRIPE_TEAM_FEE_PRICE_ID,
           quantity: seatCount,
         },
       ],
       allow_promotion_codes: true,
-      success_url: `${webEnv.NEXT_PUBLIC_CODEBUFF_APP_URL}/orgs/${organization.slug}/billing/purchase?subscription_success=true`,
-      cancel_url: `${webEnv.NEXT_PUBLIC_CODEBUFF_APP_URL}/orgs/${organization.slug}?subscription_canceled=true`,
+      success_url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/orgs/${organization.slug}/billing/purchase?subscription_success=true`,
+      cancel_url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/orgs/${organization.slug}?subscription_canceled=true`,
       metadata: {
         organization_id: orgId,
         type: 'subscription_setup',

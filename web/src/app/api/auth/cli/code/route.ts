@@ -1,7 +1,7 @@
 import { genAuthCode } from '@codebuff/common/util/credentials'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { webEnv } from '@codebuff/internal/env'
+import { env } from '@codebuff/internal/env'
 import { and, eq, gt } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod/v4'
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     const fingerprintHash = genAuthCode(
       fingerprintId,
       expiresAt.toString(),
-      webEnv.NEXTAUTH_SECRET,
+      env.NEXTAUTH_SECRET,
     )
 
     // Check if this fingerprint has any active sessions
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     }
 
     // Generate login URL without modifying the fingerprint record
-    const loginUrl = `${webEnv.NEXT_PUBLIC_CODEBUFF_APP_URL}/login?auth_code=${fingerprintId}.${expiresAt}.${fingerprintHash}${
+    const loginUrl = `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/login?auth_code=${fingerprintId}.${expiresAt}.${fingerprintHash}${
       referralCode ? `&referral_code=${referralCode}` : ''
     }`
 

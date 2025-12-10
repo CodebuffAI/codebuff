@@ -1,6 +1,6 @@
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { webEnv } from '@codebuff/internal/env'
+import { env } from '@codebuff/internal/env'
 import { stripeServer } from '@codebuff/internal/util/stripe'
 import { eq, and, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
@@ -76,7 +76,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         // Create billing portal session
         const portalSession = await stripeServer.billingPortal.sessions.create({
           customer: organization.stripe_customer_id,
-          return_url: `${webEnv.NEXT_PUBLIC_CODEBUFF_APP_URL}/orgs/${organization.slug}/settings`,
+          return_url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/orgs/${organization.slug}/settings`,
         })
         billingPortalUrl = portalSession.url
 

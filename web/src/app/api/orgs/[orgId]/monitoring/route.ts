@@ -1,7 +1,7 @@
 import { calculateOrganizationUsageAndBalance } from '@codebuff/billing'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { webEnv } from '@codebuff/internal/env'
+import { env } from '@codebuff/internal/env'
 import { eq, and, gte, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -143,7 +143,7 @@ export async function GET(
 
     // Get alerts count
     const alertsResponse = await fetch(
-      `${webEnv.NEXT_PUBLIC_CODEBUFF_APP_URL}/api/orgs/${orgId}/alerts`,
+      `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/api/orgs/${orgId}/alerts`,
       {
         headers: {
           Cookie: request.headers.get('Cookie') || '',
