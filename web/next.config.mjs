@@ -35,6 +35,16 @@ const nextConfig = {
       'async_hooks',
     )
 
+    // Externalize code-map package to avoid bundling tree-sitter WASM files
+    // The web app doesn't need code-map functionality (only SDK CLI tools do)
+    config.externals.push(
+      '@codebuff/code-map',
+      '@codebuff/code-map/parse',
+      '@codebuff/code-map/languages',
+      /^@codebuff\/code-map/,
+      'esbuild', // Used by SDK's load-agents.ts
+    )
+
     // Suppress contentlayer webpack cache warnings
     config.infrastructureLogging = {
       level: 'error',

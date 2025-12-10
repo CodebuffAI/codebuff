@@ -19,9 +19,6 @@ export { buildUserMessageContent } from '../../packages/agent-runtime/src/util/m
 export type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
 export type { ToolName } from '../../common/src/tools/constants'
 
-// Re-export code analysis functionality
-export * from '../../packages/code-map/src/index'
-
 export type {
   ClientToolCall,
   ClientToolName,
