@@ -133,13 +133,10 @@ async function transpileAgent(
       external: [
         ...builtinModules,
         ...builtinModules.map((mod) => `node:${mod}`),
-        '@codebuff/*',
       ],
     })
 
-    const jsOutput = result.outputFiles?.find((file) =>
-      file.path.endsWith('.js'),
-    )
+    const jsOutput = result.outputFiles?.[0]
     if (!jsOutput?.text) {
       if (verbose) {
         console.error(`Failed to transpile agent (no output): ${fullPath}`)

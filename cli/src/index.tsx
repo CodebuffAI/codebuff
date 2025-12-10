@@ -22,6 +22,7 @@ import { initializeApp } from './init/init-app'
 import { getProjectRoot } from './project-files'
 import { initAnalytics } from './utils/analytics'
 import { getUserCredentials } from './utils/auth'
+import { initializeAgentRegistry } from './utils/local-agent-registry'
 import { clearLogFile, logger } from './utils/logger'
 import { detectTerminalTheme } from './utils/terminal-color-detection'
 import { setOscDetectedTheme } from './utils/theme-system'
@@ -151,6 +152,9 @@ async function main(): Promise<void> {
   } = parseArgs()
 
   await initializeApp({ cwd })
+
+  // Initialize agent registry (loads user agents via SDK)
+  await initializeAgentRegistry()
 
   // Handle publish command before rendering the app
   if (process.argv.includes('publish')) {

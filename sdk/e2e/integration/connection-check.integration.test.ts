@@ -21,7 +21,6 @@ describe('Integration: Connection Check', () => {
     if (skipIfNoApiKey()) return
 
     const isConnected = await client.checkConnection()
-    if (!isConnected) return
     expect(isConnected).toBe(true)
   })
 

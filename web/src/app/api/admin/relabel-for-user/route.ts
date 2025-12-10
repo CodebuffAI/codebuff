@@ -99,7 +99,13 @@ export async function POST(req: NextRequest) {
       ? requestedLimit
       : DEFAULT_RELABEL_LIMIT
 
-  const apiKey = ensureApiKey()
+  const apiKey = env.CODEBUFF_API_KEY
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: 'CODEBUFF_API_KEY is not configured. This env var is required for relabeling operations.' },
+      { status: 500 },
+    )
+  }
 
   try {
     await ensureBigQuery()
@@ -504,13 +510,6 @@ function buildPromptContext(apiKey: string) {
     liveUserInputRecord: {},
     sessionConnections: {},
   }
-}
-
-function ensureApiKey(): string {
-  if (!env.CODEBUFF_API_KEY) {
-    throw new Error('CODEBUFF_API_KEY is not configured for relabeling')
-  }
-  return env.CODEBUFF_API_KEY
 }
 
 async function ensureBigQuery() {
