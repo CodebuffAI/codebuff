@@ -7,6 +7,8 @@ import { pathToFileURL } from 'url'
 
 import { build } from 'esbuild'
 
+import { validateAgents } from '../validate-agents'
+
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 
 /**
@@ -154,7 +156,6 @@ export async function loadLocalAgents({
 
   // Validate agents if requested
   if (validate && Object.keys(agents).length > 0) {
-    const { validateAgents } = await import('../validate-agents')
     const result = await validateAgents(Object.values(agents))
 
     if (!result.success) {
