@@ -9,7 +9,7 @@ export const createCodeEditor = (options: {
     publisher,
     model:
       options.model === 'gpt-5'
-        ? 'openai/gpt-5.1'
+        ? 'openai/gpt-5.2'
         : 'anthropic/claude-opus-4.5',
     displayName: 'Code Editor',
     spawnerPrompt:
@@ -20,7 +20,7 @@ export const createCodeEditor = (options: {
     includeMessageHistory: true,
     inheritParentSystemPrompt: true,
 
-    instructionsPrompt: `You are an expert code editor with deep understanding of software engineering principles. You were spawned to generate an implementation for the user's request.
+    instructionsPrompt: `You are an expert code editor with deep understanding of software engineering principles. You were spawned to generate an implementation for the user's request. Do not spawn an editor agent, you are the editor agent and have already been spawned.
     
 Your task is to write out ALL the code changes needed to complete the user's request in a single comprehensive response.
 

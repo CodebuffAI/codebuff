@@ -29,7 +29,11 @@ export function createMultiPromptEditor(): Omit<SecretAgentDefinition, 'id'> {
       'set_messages',
       'set_output',
     ],
-    spawnableAgents: ['best-of-n-selector-opus', 'editor-implementor-opus'],
+    spawnableAgents: [
+      'best-of-n-selector-opus',
+      'editor-implementor-opus',
+      'editor-implementor-gpt-5',
+    ],
 
     inputSchema: {
       params: {
@@ -92,10 +96,16 @@ function* handleStepsMultiPrompt({
   } satisfies ToolCall<'set_messages'>
 
   // Spawn one opus implementor per prompt
-  const implementorAgents = prompts.map((prompt) => ({
-    agent_type: 'editor-implementor-opus',
-    prompt: `Strategy: ${prompt}`,
-  }))
+  const implementorAgents: { agent_type: string; prompt?: string }[] =
+    prompts.map((prompt) => ({
+      agent_type: 'editor-implementor-opus',
+      prompt: `Strategy: ${prompt}`,
+    }))
+
+  // Always spawn an additional gpt-5 implementor with no prompt
+  implementorAgents.push({
+    agent_type: 'editor-implementor-gpt-5',
+  })
 
   // Spawn all implementor agents
   const { toolResult: implementorResults } = yield {
@@ -111,16 +121,12 @@ function* handleStepsMultiPrompt({
     implementorResults,
   ) as any[]
 
-  logger.info(
-    { implementorResults, spawnedImplementations, prompts },
-    'spawnedImplementations',
-  )
-
   // Extract all the implementations from the results
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  const strategies = [...prompts, prompts[0]]
   const implementations = spawnedImplementations.map((result, index) => ({
     id: letters[index],
-    strategy: prompts[index],
+    strategy: strategies[index],
     content:
       'errorMessage' in result
         ? `Error: ${result.errorMessage}`

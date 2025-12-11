@@ -19,7 +19,7 @@ export const createBestOfNImplementor = (options: {
         ? 'anthropic/claude-opus-4.5'
         : isGemini
           ? 'google/gemini-3-pro-preview'
-          : 'openai/gpt-5.1',
+          : 'openai/gpt-5.2',
     displayName: 'Implementation Generator',
     spawnerPrompt:
       'Generates a complete implementation plan with all code changes',
