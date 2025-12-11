@@ -3,6 +3,7 @@
 const { spawn } = require('child_process')
 const fs = require('fs')
 const https = require('https')
+const os = require('os')
 const path = require('path')
 const zlib = require('zlib')
 
@@ -11,17 +12,18 @@ const tar = require('tar')
 const packageName = 'codecane'
 
 function createConfig(packageName) {
-  // Store binary in package directory instead of ~/.config/manicode
-  const packageDir = __dirname
-  const binDir = path.join(packageDir, 'bin')
+  const homeDir = os.homedir()
+  const configDir = path.join(homeDir, '.config', 'manicode')
   const binaryName =
     process.platform === 'win32' ? `${packageName}.exe` : packageName
 
   return {
-    packageDir,
-    binDir,
+    homeDir,
+    configDir,
     binaryName,
-    binaryPath: path.join(binDir, binaryName),
+    binaryPath: path.join(configDir, binaryName),
+    metadataPath: path.join(configDir, 'codecane-metadata.json'),
+    tempDownloadDir: path.join(configDir, '.download-temp-staging'),
     userAgent: `${packageName}-cli`,
     requestTimeout: 20000,
   }
@@ -111,56 +113,74 @@ function streamToString(stream) {
 }
 
 function getCurrentVersion() {
-  if (!fs.existsSync(CONFIG.binaryPath)) return null
-
   try {
-    return new Promise((resolve) => {
-      const child = spawn(CONFIG.binaryPath, ['--version'], {
-        cwd: CONFIG.packageDir,
-        stdio: 'pipe',
-      })
-
-      let output = ''
-
-      child.stdout.on('data', (data) => {
-        output += data.toString()
-      })
-
-      child.stderr.on('data', () => {
-        // Ignore stderr output
-      })
-
-      const timeout = setTimeout(() => {
-        child.kill('SIGTERM')
-        setTimeout(() => {
-          if (!child.killed) {
-            child.kill('SIGKILL')
-          }
-        }, 4000)
-        resolve('error')
-      }, 4000)
-
-      child.on('exit', (code) => {
-        clearTimeout(timeout)
-        if (code === 0) {
-          resolve(output.trim())
-        } else {
-          resolve('error')
-        }
-      })
-
-      child.on('error', () => {
-        clearTimeout(timeout)
-        resolve('error')
-      })
-    })
+    if (!fs.existsSync(CONFIG.metadataPath)) {
+      return null
+    }
+    const metadata = JSON.parse(fs.readFileSync(CONFIG.metadataPath, 'utf8'))
+    // Also verify the binary still exists
+    if (!fs.existsSync(CONFIG.binaryPath)) {
+      return null
+    }
+    return metadata.version || null
   } catch (error) {
-    return 'error'
+    return null
   }
+}
+
+function runSmokeTest(binaryPath) {
+  return new Promise((resolve) => {
+    if (!fs.existsSync(binaryPath)) {
+      resolve(false)
+      return
+    }
+
+    const child = spawn(binaryPath, ['--version'], {
+      cwd: os.homedir(),
+      stdio: 'pipe',
+    })
+
+    let output = ''
+
+    child.stdout.on('data', (data) => {
+      output += data.toString()
+    })
+
+    const timeout = setTimeout(() => {
+      child.kill('SIGTERM')
+      setTimeout(() => {
+        if (!child.killed) {
+          child.kill('SIGKILL')
+        }
+      }, 1000)
+      resolve(false)
+    }, 5000)
+
+    child.on('exit', (code) => {
+      clearTimeout(timeout)
+      // Check that it exits successfully and outputs something that looks like a version
+      if (code === 0 && output.trim().match(/^\d+(\.\d+)*(-beta\.\d+)?$/)) {
+        resolve(true)
+      } else {
+        resolve(false)
+      }
+    })
+
+    child.on('error', () => {
+      clearTimeout(timeout)
+      resolve(false)
+    })
+  })
 }
 
 function compareVersions(v1, v2) {
   if (!v1 || !v2) return 0
+
+  // Always update if the current version is not a valid semver
+  // e.g. 1.0.420-beta.1
+  if (!v1.match(/^\d+(\.\d+)*$/)) {
+    return -1
+  }
 
   const parseVersion = (version) => {
     const parts = version.split('-')
@@ -243,32 +263,21 @@ async function downloadBinary(version) {
     process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
   }/api/releases/download/${version}/${fileName}`
 
-  // Create bin directory in package directory
-  fs.mkdirSync(CONFIG.binDir, { recursive: true })
+  // Ensure config directory exists
+  fs.mkdirSync(CONFIG.configDir, { recursive: true })
 
-  if (fs.existsSync(CONFIG.binaryPath)) {
-    try {
-      fs.unlinkSync(CONFIG.binaryPath)
-    } catch (err) {
-      const backupPath = CONFIG.binaryPath + `.old.${Date.now()}`
-
-      try {
-        fs.renameSync(CONFIG.binaryPath, backupPath)
-      } catch (renameErr) {
-        throw new Error(
-          `Failed to replace existing binary. ` +
-            `unlink error: ${err.code || err.message}, ` +
-            `rename error: ${renameErr.code || renameErr.message}`,
-        )
-      }
-    }
+  // Clean up any previous temp download directory
+  if (fs.existsSync(CONFIG.tempDownloadDir)) {
+    fs.rmSync(CONFIG.tempDownloadDir, { recursive: true })
   }
+  fs.mkdirSync(CONFIG.tempDownloadDir, { recursive: true })
 
   term.write('Downloading...')
 
   const res = await httpGet(downloadUrl)
 
   if (res.statusCode !== 200) {
+    fs.rmSync(CONFIG.tempDownloadDir, { recursive: true })
     throw new Error(`Download failed: HTTP ${res.statusCode}`)
   }
 
@@ -294,31 +303,71 @@ async function downloadBinary(version) {
     }
   })
 
+  // Extract to temp directory
   await new Promise((resolve, reject) => {
     res
       .pipe(zlib.createGunzip())
-      .pipe(tar.x({ cwd: CONFIG.binDir }))
+      .pipe(tar.x({ cwd: CONFIG.tempDownloadDir }))
       .on('finish', resolve)
       .on('error', reject)
   })
 
-  try {
-    const files = fs.readdirSync(CONFIG.binDir)
-    const extractedPath = path.join(CONFIG.binDir, CONFIG.binaryName)
+  const tempBinaryPath = path.join(CONFIG.tempDownloadDir, CONFIG.binaryName)
 
-    if (fs.existsSync(extractedPath)) {
-      if (process.platform !== 'win32') {
-        fs.chmodSync(extractedPath, 0o755)
+  // Verify the binary was extracted
+  if (!fs.existsSync(tempBinaryPath)) {
+    const files = fs.readdirSync(CONFIG.tempDownloadDir)
+    fs.rmSync(CONFIG.tempDownloadDir, { recursive: true })
+    throw new Error(
+      `Binary not found after extraction. Expected: ${CONFIG.binaryName}, Available files: ${files.join(', ')}`,
+    )
+  }
+
+  // Set executable permissions
+  if (process.platform !== 'win32') {
+    fs.chmodSync(tempBinaryPath, 0o755)
+  }
+
+  // Run smoke test on the downloaded binary
+  term.write('Verifying download...')
+  const smokeTestPassed = await runSmokeTest(tempBinaryPath)
+
+  if (!smokeTestPassed) {
+    fs.rmSync(CONFIG.tempDownloadDir, { recursive: true })
+    throw new Error('Downloaded binary failed smoke test (--version check)')
+  }
+
+  // Smoke test passed - move binary to final location
+  try {
+    if (fs.existsSync(CONFIG.binaryPath)) {
+      try {
+        fs.unlinkSync(CONFIG.binaryPath)
+      } catch (err) {
+        // Fallback: try renaming the locked/undeletable binary (Windows)
+        const backupPath = CONFIG.binaryPath + `.old.${Date.now()}`
+        try {
+          fs.renameSync(CONFIG.binaryPath, backupPath)
+        } catch (renameErr) {
+          throw new Error(
+            `Failed to replace existing binary. ` +
+              `unlink error: ${err.code || err.message}, ` +
+              `rename error: ${renameErr.code || renameErr.message}`,
+          )
+        }
       }
-    } else {
-      throw new Error(
-        `Binary not found after extraction. Expected: ${extractedPath}, Available files: ${files.join(', ')}`,
-      )
     }
-  } catch (error) {
-    term.clearLine()
-    console.error(`Extraction failed: ${error.message}`)
-    process.exit(1)
+    fs.renameSync(tempBinaryPath, CONFIG.binaryPath)
+
+    // Save version metadata for fast version checking
+    fs.writeFileSync(
+      CONFIG.metadataPath,
+      JSON.stringify({ version }, null, 2),
+    )
+  } finally {
+    // Clean up temp directory even if rename fails
+    if (fs.existsSync(CONFIG.tempDownloadDir)) {
+      fs.rmSync(CONFIG.tempDownloadDir, { recursive: true })
+    }
   }
 
   term.clearLine()
@@ -326,8 +375,8 @@ async function downloadBinary(version) {
 }
 
 async function ensureBinaryExists() {
-  const currentVersion = await getCurrentVersion()
-  if (currentVersion !== null && currentVersion !== 'error') {
+  const currentVersion = getCurrentVersion()
+  if (currentVersion !== null) {
     return
   }
 
@@ -350,14 +399,14 @@ async function ensureBinaryExists() {
 
 async function checkForUpdates(runningProcess, exitListener) {
   try {
-    const currentVersion = await getCurrentVersion()
-    if (!currentVersion) return
+    const currentVersion = getCurrentVersion()
 
     const latestVersion = await getLatestVersion()
     if (!latestVersion) return
 
     if (
-      currentVersion === 'error' ||
+      // Download new version if current version is unknown or outdated.
+      currentVersion === null ||
       compareVersions(currentVersion, latestVersion) < 0
     ) {
       term.clearLine()
