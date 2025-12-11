@@ -172,6 +172,12 @@ const definition: AgentDefinition = {
     if (lastInstructionsPromptIndex !== -1) {
       currentMessages.splice(lastInstructionsPromptIndex, 1)
     }
+    const lastSubagentSpawnIndex = currentMessages.findLastIndex((message) =>
+      message.tags?.includes('SUBAGENT_SPAWN'),
+    )
+    if (lastSubagentSpawnIndex !== -1) {
+      currentMessages.splice(lastSubagentSpawnIndex, 1)
+    }
 
     // Initial check - if already under limit, return
     const initialTokens = countMessagesTokens(currentMessages)
