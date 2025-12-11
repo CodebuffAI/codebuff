@@ -181,15 +181,6 @@ export function executeToolCall<T extends ToolName>(
     requestToolCall,
   } = params
   const toolCallId = params.toolCallId ?? generateCompactId()
-  onResponseChunk({
-    type: 'tool_call',
-    toolCallId,
-    toolName,
-    input,
-    agentId: agentState.agentId,
-    parentAgentId: agentState.parentId,
-    includeToolCall: !excludeToolFromMessageHistory,
-  })
 
   const toolCall: CodebuffToolCall<T> | ToolCallError = parseRawToolCall<T>({
     rawToolCall: {
@@ -217,25 +208,33 @@ export function executeToolCall<T extends ToolName>(
     return previousToolCallFinished
   }
 
-  toolCalls.push(toolCall)
-
-  // Filter out restricted tools
+  // Filter out restricted tools - emit error instead of tool call/result
+  // This prevents the CLI from showing tool calls that the agent doesn't have permission to use
   if (
     !agentTemplate.toolNames.includes(toolCall.toolName) &&
     !fromHandleSteps
   ) {
-    const toolResult: ToolMessage = {
-      role: 'tool',
-      toolName,
-      toolCallId: toolCall.toolCallId,
-      content: jsonToolResult({
-        errorMessage: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
-      }),
-    }
-    toolResults.push(cloneDeep(toolResult))
-    toolResultsToAddAfterStream.push(cloneDeep(toolResult))
+    // Emit an error event instead of tool call/result pair
+    // The stream parser will convert this to a user message for proper API compliance
+    onResponseChunk({
+      type: 'error',
+      message: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
+    })
     return previousToolCallFinished
   }
+
+  // Only emit tool_call event after permission check passes
+  onResponseChunk({
+    type: 'tool_call',
+    toolCallId,
+    toolName,
+    input,
+    agentId: agentState.agentId,
+    parentAgentId: agentState.parentId,
+    includeToolCall: !excludeToolFromMessageHistory,
+  })
+
+  toolCalls.push(toolCall)
 
   // Cast to any to avoid type errors
   const handler = codebuffToolHandlers[
@@ -418,6 +417,26 @@ export async function executeCustomToolCall(
     return previousToolCallFinished
   }
 
+  // Filter out restricted tools - emit error instead of tool call/result
+  // This prevents the CLI from showing tool calls that the agent doesn't have permission to use
+  if (
+    !(agentTemplate.toolNames as string[]).includes(toolCall.toolName) &&
+    !fromHandleSteps &&
+    !(
+      toolCall.toolName.includes('/') &&
+      toolCall.toolName.split('/')[0] in agentTemplate.mcpServers
+    )
+  ) {
+    // Emit an error event instead of tool call/result pair
+    // The stream parser will convert this to a user message for proper API compliance
+    onResponseChunk({
+      type: 'error',
+      message: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
+    })
+    return previousToolCallFinished
+  }
+
+  // Only emit tool_call event after permission check passes
   onResponseChunk({
     type: 'tool_call',
     toolCallId: toolCall.toolCallId,
@@ -430,28 +449,6 @@ export async function executeCustomToolCall(
   })
 
   toolCalls.push(toolCall)
-
-  // Filter out restricted tools in ask mode unless exporting summary
-  if (
-    !(agentTemplate.toolNames as string[]).includes(toolCall.toolName) &&
-    !fromHandleSteps &&
-    !(
-      toolCall.toolName.includes('/') &&
-      toolCall.toolName.split('/')[0] in agentTemplate.mcpServers
-    )
-  ) {
-    const toolResult: ToolMessage = {
-      role: 'tool',
-      toolName,
-      toolCallId: toolCall.toolCallId,
-      content: jsonToolResult({
-        errorMessage: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
-      }),
-    }
-    toolResults.push(cloneDeep(toolResult))
-    toolResultsToAddAfterStream.push(cloneDeep(toolResult))
-    return previousToolCallFinished
-  }
 
   return previousToolCallFinished
     .then(async () => {
