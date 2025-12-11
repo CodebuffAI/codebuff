@@ -24,6 +24,7 @@ const definition: AgentDefinition = {
     },
   },
 
+  inheritParentSystemPrompt: true,
   includeMessageHistory: true,
 
   handleSteps: function* ({ agentState, params, logger }) {
@@ -163,8 +164,14 @@ const definition: AgentDefinition = {
         .filter((m): m is Message => m !== null)
     }
 
-    // PASS 0: Validate and fix tool-call/tool-result pairs
-    let currentMessages = removeOrphanedToolMessages([...messages])
+    // PASS 0: Remove last instructions prompt message.
+    let currentMessages = [...messages]
+    const lastInstructionsPromptIndex = currentMessages.findLastIndex(
+      (message) => message.tags?.includes('INSTRUCTIONS_PROMPT'),
+    )
+    if (lastInstructionsPromptIndex !== -1) {
+      currentMessages.splice(lastInstructionsPromptIndex, 1)
+    }
 
     // Initial check - if already under limit, return
     const initialTokens = countMessagesTokens(currentMessages)

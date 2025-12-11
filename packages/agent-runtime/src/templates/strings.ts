@@ -190,7 +190,11 @@ export async function getAgentPrompt<T extends StringField>(
   if (promptType.type === 'instructionsPrompt' && agentState.agentType) {
     // Add subagent tools message when using parent's tools for prompt caching
     if (useParentTools) {
-      addendum += `\n\nYou are a subagent that only has access to the following tools: ${agentTemplate.toolNames.join(', ')}. Do not attempt to use any other tools.`
+      if (agentTemplate.toolNames.length > 0) {
+        addendum += `\n\nYou are a subagent that only has access to the following tools: ${agentTemplate.toolNames.join(', ')}. Do not attempt to use any other tools.`
+      } else {
+        addendum += `\n\nYou are a subagent and do not have access to any tools specified earlier in the conversation.`
+      }
 
       // For subagents with inheritSystemPrompt, include full spawnable agents spec
       // since the parent's system prompt may not have these agents listed
