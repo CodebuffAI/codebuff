@@ -1,4 +1,5 @@
-import React, { useCallback } from 'react'
+import React, { useCallback, useState } from 'react'
+import { TextAttributes } from '@opentui/core'
 
 import { Button } from '../button'
 import { defineToolComponent } from './types'
@@ -22,41 +23,64 @@ const FollowupCard = ({
   onSendFollowup,
 }: FollowupCardProps) => {
   const theme = useTheme()
+  const [isHovered, setIsHovered] = useState(false)
 
   const handleClick = useCallback(() => {
     onSendFollowup(followup.prompt, index)
   }, [followup.prompt, index, onSendFollowup])
 
-  // Use label if provided, otherwise truncate the prompt
-  const displayLabel = followup.label || truncateText(followup.prompt, 40)
+  const handleMouseOver = useCallback(() => setIsHovered(true), [])
+  const handleMouseOut = useCallback(() => setIsHovered(false), [])
+
+  const hasLabel = Boolean(followup.label)
+
+  // Determine colors based on state
+  const borderColor = isClicked
+    ? theme.success
+    : isHovered
+      ? theme.primary
+      : theme.border
+  const labelColor = isClicked ? theme.muted : theme.secondary
+  const promptColor = isClicked ? theme.muted : theme.foreground
 
   return (
     <Button
       onClick={handleClick}
+      onMouseOver={handleMouseOver}
+      onMouseOut={handleMouseOut}
       style={{
         paddingLeft: 2,
         paddingRight: 2,
         paddingTop: 0,
         paddingBottom: 0,
-        backgroundColor: isClicked ? theme.surface : theme.surfaceHover,
-        borderColor: isClicked ? theme.success : theme.border,
+        maxWidth: 40,
+        borderColor,
+        flexGrow: 1,
       }}
     >
-      <text
-        style={{
-          fg: isClicked ? theme.muted : theme.foreground,
-        }}
-      >
-        {isClicked && <span fg={theme.success}>✓ </span>}
-        <span>{displayLabel}</span>
-      </text>
+      <box style={{ flexDirection: 'column' }}>
+        {hasLabel && (
+          <text
+            style={{
+              fg: labelColor,
+            }}
+            attributes={TextAttributes.BOLD}
+          >
+            {isClicked ? <span fg={theme.success}>✓ </span> : <span>→ </span>}
+            <span>{followup.label}</span>
+          </text>
+        )}
+        <text
+          style={{
+            fg: promptColor,
+          }}
+        >
+          {!hasLabel && isClicked && <span fg={theme.success}>✓ </span>}
+          <span>{followup.prompt}</span>
+        </text>
+      </box>
     </Button>
   )
-}
-
-function truncateText(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text
-  return text.slice(0, maxLength - 1) + '…'
 }
 
 interface SuggestFollowupsItemProps {
@@ -80,14 +104,19 @@ const SuggestFollowupsItem = ({
       : new Set<number>()
 
   return (
-    <box style={{ flexDirection: 'column', gap: 1, width: '100%' }}>
-      <text style={{ fg: theme.muted }}>Suggested next steps:</text>
+    <box
+      style={{
+        flexDirection: 'column',
+        gap: 1,
+      }}
+    >
+      <text style={{ fg: theme.primary }} attributes={TextAttributes.BOLD}>
+        Suggested next steps:
+      </text>
       <box
         style={{
           flexDirection: 'row',
-          gap: 1,
           flexWrap: 'wrap',
-          width: '100%',
         }}
       >
         {followups.map((followup, index) => (
