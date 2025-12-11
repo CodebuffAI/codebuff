@@ -14,6 +14,7 @@ export const TOOLS_WHICH_WONT_FORCE_NEXT_STEP = [
   'add_message',
   'update_subgoal',
   'create_plan',
+  'suggest_followups',
   'task_completed',
 ]
 
