@@ -1,7 +1,6 @@
 import React, { useCallback, useState } from 'react'
 import { TextAttributes } from '@opentui/core'
 
-import { Button } from '../button'
 import { defineToolComponent } from './types'
 import { useTheme } from '../../hooks/use-theme'
 import { useChatStore } from '../../state/chat-store'
@@ -10,26 +9,24 @@ import { useTerminalDimensions } from '../../hooks/use-terminal-dimensions'
 import type { ToolRenderConfig } from './types'
 import type { SuggestedFollowup } from '../../state/chat-store'
 
-interface FollowupCardProps {
+interface FollowupLineProps {
   followup: SuggestedFollowup
   index: number
   isClicked: boolean
-  isStacked: boolean
   onSendFollowup: (prompt: string, index: number) => void
 }
 
-const FollowupCard = ({
+const FollowupLine = ({
   followup,
   index,
   isClicked,
-  isStacked,
   onSendFollowup,
-}: FollowupCardProps) => {
+}: FollowupLineProps) => {
   const theme = useTheme()
+  const { terminalWidth } = useTerminalDimensions()
   const [isHovered, setIsHovered] = useState(false)
 
   const handleClick = useCallback(() => {
-    // Don't allow clicking already-selected followups
     if (isClicked) return
     onSendFollowup(followup.prompt, index)
   }, [followup.prompt, index, onSendFollowup, isClicked])
@@ -38,52 +35,79 @@ const FollowupCard = ({
   const handleMouseOut = useCallback(() => setIsHovered(false), [])
 
   const hasLabel = Boolean(followup.label)
+  // "→ " = 2 chars (icon + space), " · " separator = 3 chars, "…" = 1 char
+  const iconWidth = 2
+  const separatorWidth = hasLabel ? 3 : 0
+  const ellipsisWidth = 1
+  const maxWidth = terminalWidth - 6 // Extra margin for safety
+
+  // Build the display text with label and prompt
+  let labelText = followup.label || ''
+  let promptText = followup.prompt
+
+  // Calculate available space
+  const availableForContent = maxWidth - iconWidth
+
+  if (hasLabel) {
+    // Show: label · prompt (truncated)
+    const labelWithSeparator = labelText.length + separatorWidth
+    const totalLength = labelWithSeparator + promptText.length
+
+    if (totalLength > availableForContent) {
+      // Truncate prompt to fit
+      const availableForPrompt = availableForContent - labelWithSeparator - ellipsisWidth
+      if (availableForPrompt > 0) {
+        promptText = promptText.slice(0, availableForPrompt) + '…'
+      } else {
+        // Not enough space for prompt, just show label truncated
+        promptText = ''
+        if (labelText.length > availableForContent - ellipsisWidth) {
+          labelText = labelText.slice(0, availableForContent - ellipsisWidth) + '…'
+        }
+      }
+    }
+  } else {
+    // No label, just show prompt (truncated)
+    if (promptText.length > availableForContent) {
+      promptText = promptText.slice(0, availableForContent - ellipsisWidth) + '…'
+    }
+  }
 
   // Determine colors based on state
-  const borderColor = isClicked
+  const iconColor = isClicked
     ? theme.success
     : isHovered
       ? theme.primary
-      : theme.border
-  const labelColor = isClicked ? theme.muted : theme.secondary
-  const promptColor = isClicked ? theme.muted : theme.foreground
+      : theme.muted
+  const labelColor = isClicked
+    ? theme.muted
+    : isHovered
+      ? theme.primary
+      : theme.foreground
+  const promptColor = isClicked
+    ? theme.muted
+    : isHovered
+      ? theme.primary
+      : theme.muted
 
   return (
-    <Button
-      onClick={handleClick}
+    <box
+      onMouseDown={handleClick}
       onMouseOver={handleMouseOver}
       onMouseOut={handleMouseOut}
-      style={{
-        paddingLeft: 2,
-        paddingRight: 2,
-        paddingTop: 0,
-        paddingBottom: 0,
-        ...(isStacked ? { width: '100%' } : { flexGrow: 1, flexShrink: 1 }),
-        borderColor,
-      }}
     >
-      <box style={{ flexDirection: 'column' }}>
-        {hasLabel && (
-          <text
-            style={{
-              fg: labelColor,
-            }}
-            attributes={TextAttributes.BOLD}
-          >
-            {isClicked ? <span fg={theme.success}>✓ </span> : <span>→ </span>}
-            <span>{followup.label}</span>
-          </text>
+      <text selectable={false}>
+        <span fg={iconColor}>{isClicked ? '✓' : '→'}</span>
+        <span fg={labelColor} attributes={isHovered ? TextAttributes.UNDERLINE : undefined}>
+          {' '}{hasLabel ? labelText : promptText}
+        </span>
+        {hasLabel && promptText && (
+          <span fg={promptColor}>
+            {' · '}{promptText}
+          </span>
         )}
-        <text
-          style={{
-            fg: promptColor,
-          }}
-        >
-          {!hasLabel && isClicked && <span fg={theme.success}>✓ </span>}
-          <span>{followup.prompt}</span>
-        </text>
-      </box>
-    </Button>
+      </text>
+    </box>
   )
 }
 
@@ -93,16 +117,12 @@ interface SuggestFollowupsItemProps {
   onSendFollowup: (prompt: string, index: number) => void
 }
 
-// Threshold width to switch between horizontal and stacked layouts
-const WIDE_SCREEN_THRESHOLD = 100
-
 const SuggestFollowupsItem = ({
   toolCallId,
   followups,
   onSendFollowup,
 }: SuggestFollowupsItemProps) => {
   const theme = useTheme()
-  const { terminalWidth } = useTerminalDimensions()
   const suggestedFollowups = useChatStore((state) => state.suggestedFollowups)
 
   // Get clicked indices for this specific tool call
@@ -111,35 +131,20 @@ const SuggestFollowupsItem = ({
       ? suggestedFollowups.clickedIndices
       : new Set<number>()
 
-  // Use stacked layout on narrow screens
-  const isStacked = terminalWidth < WIDE_SCREEN_THRESHOLD
-
   return (
-    <box
-      style={{
-        flexDirection: 'column',
-        gap: 1,
-      }}
-    >
-      <text style={{ fg: theme.primary }} attributes={TextAttributes.BOLD}>
-        Suggested next steps:
+    <box style={{ flexDirection: 'column' }}>
+      <text style={{ fg: theme.muted }}>
+        Next steps:
       </text>
-      <box
-        style={{
-          flexDirection: isStacked ? 'column' : 'row',
-        }}
-      >
-        {followups.map((followup, index) => (
-          <FollowupCard
-            key={`followup-${index}`}
-            followup={followup}
-            index={index}
-            isClicked={clickedIndices.has(index)}
-            isStacked={isStacked}
-            onSendFollowup={onSendFollowup}
-          />
-        ))}
-      </box>
+      {followups.map((followup, index) => (
+        <FollowupLine
+          key={`followup-${index}`}
+          followup={followup}
+          index={index}
+          isClicked={clickedIndices.has(index)}
+          onSendFollowup={onSendFollowup}
+        />
+      ))}
     </box>
   )
 }
