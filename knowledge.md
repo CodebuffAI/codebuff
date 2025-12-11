@@ -389,6 +389,30 @@ For git worktrees running on different ports:
 - Bun loads `.env.development.local` with highest precedence, so it overrides ports from `.env.local`
 - The `scripts/init-worktree.ts` script creates this file automatically
 
+#### Worktree App URL Configuration
+
+The `init-worktree.ts` script sets `NEXT_PUBLIC_CODEBUFF_APP_URL=http://localhost:${webPort}` in the root `.env.development.local`. This means:
+
+- **CLI**: Will hit the local web server instead of production
+- **SDK**: Will also use the local web server for API calls
+- **SDK E2E Tests**: Require the local web server to be running
+
+**Running SDK E2E tests in a worktree:**
+
+```bash
+# First, start the web server in one terminal
+bun run --cwd web dev
+
+# Then run SDK E2E tests in another terminal
+bun test sdk/e2e
+```
+
+If you need to run SDK tests against production instead, override the environment variable:
+
+```bash
+NEXT_PUBLIC_CODEBUFF_APP_URL=https://codebuff.com bun test sdk/e2e
+```
+
 ### Bun Wrapper Script (`.bin/bun`)
 
 The wrapper's role is simple: ensure `.env.local` is synced from Infisical before running bun.
