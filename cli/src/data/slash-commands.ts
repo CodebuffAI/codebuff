@@ -5,11 +5,6 @@ export interface SlashCommand {
   label: string
   description: string
   aliases?: string[]
-  /**
-   * If true, this command will NOT auto-execute when Tab is pressed with only one match.
-   * Use for dangerous commands that require explicit Enter to execute.
-   */
-  noTabAutoExecute?: boolean
 }
 
 // Generate mode commands from the AGENT_MODES constant
@@ -42,7 +37,6 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     label: 'exit',
     description: 'Quit the CLI',
     aliases: ['quit', 'q'],
-    noTabAutoExecute: true,
   },
   // {
   //   id: 'undo',
@@ -69,13 +63,12 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     id: 'new',
     label: 'new',
     description: 'Start a fresh conversation session',
-    aliases: ['n', 'clear', 'c'],
+    aliases: ['n', 'clear', 'c', 'reset'],
   },
   {
     id: 'feedback',
     label: 'feedback',
     description: 'Share general feedback about Codebuff',
-    aliases: ['bug', 'report'],
   },
   {
     id: 'bash',

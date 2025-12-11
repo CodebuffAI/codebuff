@@ -34,7 +34,8 @@ export type ChatKeyboardHandlers = {
   onSlashMenuUp: () => void
   onSlashMenuTab: () => void
   onSlashMenuShiftTab: () => void
-  onSlashMenuSelect: () => void
+  onSlashMenuSelect: () => Promise<void> | void
+  onSlashMenuComplete: () => void
 
   // Mention menu handlers
   onMentionMenuDown: () => void
@@ -42,6 +43,7 @@ export type ChatKeyboardHandlers = {
   onMentionMenuTab: () => void
   onMentionMenuShiftTab: () => void
   onMentionMenuSelect: () => void
+  onMentionMenuComplete: () => void
 
   // File menu handler
   onOpenFileMenuWithTab: () => boolean // Returns true if menu was opened
@@ -128,6 +130,9 @@ function dispatchAction(
     case 'slash-menu-select':
       handlers.onSlashMenuSelect()
       return true
+    case 'slash-menu-complete':
+      handlers.onSlashMenuComplete()
+      return true
     case 'mention-menu-down':
       handlers.onMentionMenuDown()
       return true
@@ -142,6 +147,9 @@ function dispatchAction(
       return true
     case 'mention-menu-select':
       handlers.onMentionMenuSelect()
+      return true
+    case 'mention-menu-complete':
+      handlers.onMentionMenuComplete()
       return true
     case 'open-file-menu-with-tab':
       return handlers.onOpenFileMenuWithTab()

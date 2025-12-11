@@ -7,6 +7,7 @@ import {
   isSlashCommand,
   isReferralCode,
 } from '../router-utils'
+import { SLASH_COMMANDS } from '../../data/slash-commands'
 
 describe('router-utils', () => {
   describe('normalizeInput', () => {
@@ -271,6 +272,20 @@ describe('command-registry', () => {
       const allAliases = COMMAND_REGISTRY.flatMap((c) => c.aliases)
       for (const alias of allAliases) {
         expect(names.has(alias)).toBe(false)
+      }
+    })
+
+    test('slash command metadata maps to registered commands', () => {
+      const registered = new Set([
+        ...COMMAND_REGISTRY.map((c) => c.name),
+        ...COMMAND_REGISTRY.flatMap((c) => c.aliases),
+      ])
+
+      for (const slashCommand of SLASH_COMMANDS) {
+        expect(registered.has(slashCommand.id)).toBe(true)
+        for (const alias of slashCommand.aliases ?? []) {
+          expect(registered.has(alias)).toBe(true)
+        }
       }
     })
   })

@@ -65,11 +65,13 @@ export type ChatKeyboardAction =
   | { type: 'slash-menu-tab' }
   | { type: 'slash-menu-shift-tab' }
   | { type: 'slash-menu-select' }
+  | { type: 'slash-menu-complete' }
   | { type: 'mention-menu-down' }
   | { type: 'mention-menu-up' }
   | { type: 'mention-menu-tab' }
   | { type: 'mention-menu-shift-tab' }
   | { type: 'mention-menu-select' }
+  | { type: 'mention-menu-complete' }
   | { type: 'open-file-menu-with-tab' }
 
   // History navigation
@@ -194,9 +196,12 @@ export function resolveChatKeyboardAction(
       return { type: 'slash-menu-shift-tab' }
     }
     if (isTab) {
-      return state.slashMatchesLength > 1
-        ? { type: 'slash-menu-tab' }
-        : { type: 'slash-menu-select' }
+      // Multiple matches: cycle through options
+      // Single match: complete the word without executing
+      if (state.slashMatchesLength > 1) {
+        return { type: 'slash-menu-tab' }
+      }
+      return { type: 'slash-menu-complete' }
     }
     if (isEnter) {
       return { type: 'slash-menu-select' }
@@ -230,9 +235,12 @@ export function resolveChatKeyboardAction(
       return { type: 'mention-menu-shift-tab' }
     }
     if (isTab) {
-      return state.totalMentionMatches > 1
-        ? { type: 'mention-menu-tab' }
-        : { type: 'mention-menu-select' }
+      // Multiple matches: cycle through options
+      // Single match: complete the word without executing
+      if (state.totalMentionMatches > 1) {
+        return { type: 'mention-menu-tab' }
+      }
+      return { type: 'mention-menu-complete' }
     }
     if (isEnter) {
       return { type: 'mention-menu-select' }

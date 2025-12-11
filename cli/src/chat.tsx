@@ -700,7 +700,7 @@ export const Chat = ({
     })
   })
 
-  // handleSlashItemClick is defined later after openPublishMode is available
+  // handleSlashItemClick is defined later after feedback/publish stores are available
 
   const handleMentionItemClick = useCallback(
     (index: number) => {
@@ -779,24 +779,52 @@ export const Chat = ({
 
   const publishMutation = usePublishMutation()
 
-  // Click handler for slash menu items (defined here after openPublishMode is available)
+  // Click handler for slash menu items - executes command immediately
   const handleSlashItemClick = useCallback(
     async (index: number) => {
       const selected = slashMatches[index]
       if (!selected) return
+
       // Execute the selected slash command immediately
       const commandString = `/${selected.id}`
       setSlashSelectedIndex(0)
+
+      ensureQueueActiveBeforeSubmit()
       const result = await onSubmitPrompt(commandString, agentMode)
+
       if (result?.openFeedbackMode) {
+        // Save the feedback text that was set by the command handler before opening feedback mode
+        const prefilledText = useFeedbackStore.getState().feedbackText
+        const prefilledCursor = useFeedbackStore.getState().feedbackCursor
         saveCurrentInput('', 0)
         openFeedbackForMessage(null)
+        // Restore the prefilled text after openFeedbackForMessage resets it
+        if (prefilledText) {
+          useFeedbackStore.getState().setFeedbackText(prefilledText)
+          useFeedbackStore.getState().setFeedbackCursor(prefilledCursor)
+        }
       }
       if (result?.openPublishMode) {
-        openPublishMode()
+        if (result.preSelectAgents && result.preSelectAgents.length > 0) {
+          // preSelectAgents already sets publishMode: true, so don't call openPublishMode
+          // which would reset the selectedAgentIds
+          preSelectAgents(result.preSelectAgents)
+        } else {
+          openPublishMode()
+        }
       }
     },
-    [slashMatches, setSlashSelectedIndex, onSubmitPrompt, agentMode, saveCurrentInput, openFeedbackForMessage, openPublishMode],
+    [
+      slashMatches,
+      setSlashSelectedIndex,
+      ensureQueueActiveBeforeSubmit,
+      onSubmitPrompt,
+      agentMode,
+      saveCurrentInput,
+      openFeedbackForMessage,
+      openPublishMode,
+      preSelectAgents,
+    ],
   )
 
   const inputValueRef = useRef(inputValue)
@@ -902,16 +930,24 @@ export const Chat = ({
     })
 
     if (result?.openFeedbackMode) {
+      // Save the feedback text that was set by the command handler before opening feedback mode
+      const prefilledText = useFeedbackStore.getState().feedbackText
+      const prefilledCursor = useFeedbackStore.getState().feedbackCursor
       saveCurrentInput('', 0)
       openFeedbackForMessage(null)
+      // Restore the prefilled text after openFeedbackForMessage resets it
+      if (prefilledText) {
+        useFeedbackStore.getState().setFeedbackText(prefilledText)
+        useFeedbackStore.getState().setFeedbackCursor(prefilledCursor)
+      }
     }
 
     if (result?.openPublishMode) {
       if (result.preSelectAgents && result.preSelectAgents.length > 0) {
-        // Pre-select agents and skip to confirmation
+        // preSelectAgents already sets publishMode: true, so don't call openPublishMode
+        // which would reset the selectedAgentIds
         preSelectAgents(result.preSelectAgents)
       } else {
-        // Open selection UI
         openPublishMode()
       }
     }
@@ -1028,28 +1064,9 @@ export const Chat = ({
       },
       onSlashMenuDown: () => setSlashSelectedIndex((prev) => prev + 1),
       onSlashMenuUp: () => setSlashSelectedIndex((prev) => prev - 1),
-      onSlashMenuTab: async () => {
-        // If only one match, execute it immediately (unless the command opts out)
-        if (slashMatches.length === 1) {
-          const selected = slashMatches[0]
-          if (!selected) return
-          // Don't auto-execute commands that opt out (e.g. /exit)
-          if (selected.noTabAutoExecute) {
-            return
-          }
-          const commandString = `/${selected.id}`
-          setSlashSelectedIndex(0)
-          const result = await onSubmitPrompt(commandString, agentMode)
-          if (result?.openFeedbackMode) {
-            saveCurrentInput('', 0)
-            openFeedbackForMessage(null)
-          }
-          if (result?.openPublishMode) {
-            openPublishMode()
-          }
-          return
-        }
-        // Otherwise cycle through options
+      onSlashMenuTab: () => {
+        // Do nothing if there's only one match - user needs to press Enter to select
+        if (slashMatches.length <= 1) return
         setSlashSelectedIndex((prev) => (prev + 1) % slashMatches.length)
       },
       onSlashMenuShiftTab: () =>
@@ -1059,17 +1076,51 @@ export const Chat = ({
       onSlashMenuSelect: async () => {
         const selected = slashMatches[slashSelectedIndex] || slashMatches[0]
         if (!selected) return
+        
         // Execute the selected slash command immediately
         const commandString = `/${selected.id}`
         setSlashSelectedIndex(0)
+        
+        ensureQueueActiveBeforeSubmit()
         const result = await onSubmitPrompt(commandString, agentMode)
+        
         if (result?.openFeedbackMode) {
+          // Save the feedback text that was set by the command handler before opening feedback mode
+          const prefilledText = useFeedbackStore.getState().feedbackText
+          const prefilledCursor = useFeedbackStore.getState().feedbackCursor
           saveCurrentInput('', 0)
           openFeedbackForMessage(null)
+          // Restore the prefilled text after openFeedbackForMessage resets it
+          if (prefilledText) {
+            useFeedbackStore.getState().setFeedbackText(prefilledText)
+            useFeedbackStore.getState().setFeedbackCursor(prefilledCursor)
+          }
         }
         if (result?.openPublishMode) {
-          openPublishMode()
+          if (result.preSelectAgents && result.preSelectAgents.length > 0) {
+            // preSelectAgents already sets publishMode: true, so don't call openPublishMode
+            // which would reset the selectedAgentIds
+            preSelectAgents(result.preSelectAgents)
+          } else {
+            openPublishMode()
+          }
         }
+      },
+      onSlashMenuComplete: () => {
+        // Complete the word without executing - same as clicking on the item
+        const selected = slashMatches[slashSelectedIndex] || slashMatches[0]
+        if (!selected || slashContext.startIndex < 0) return
+        const before = inputValue.slice(0, slashContext.startIndex)
+        const after = inputValue.slice(
+          slashContext.startIndex + 1 + slashContext.query.length,
+        )
+        const replacement = `/${selected.id} `
+        setInputValue({
+          text: before + replacement + after,
+          cursorPosition: before.length + replacement.length,
+          lastEditDueToNav: false,
+        })
+        setSlashSelectedIndex(0)
       },
       onMentionMenuDown: () => setAgentSelectedIndex((prev) => prev + 1),
       onMentionMenuUp: () => setAgentSelectedIndex((prev) => prev - 1),
@@ -1113,6 +1164,33 @@ export const Chat = ({
 
         // Try current selection, fall back to first item
         trySelectAtIndex(agentSelectedIndex) || trySelectAtIndex(0)
+      },
+      onMentionMenuComplete: () => {
+        // Complete the word without executing - same as select for mentions
+        if (mentionContext.startIndex < 0) return
+
+        let replacement: string
+        const index = agentSelectedIndex
+        if (index < agentMatches.length) {
+          const selected = agentMatches[index] || agentMatches[0]
+          if (!selected) return
+          replacement = `@${selected.displayName} `
+        } else {
+          const fileIndex = index - agentMatches.length
+          const selectedFile = fileMatches[fileIndex] || fileMatches[0]
+          if (!selectedFile) return
+          replacement = `@${selectedFile.filePath} `
+        }
+        const before = inputValue.slice(0, mentionContext.startIndex)
+        const after = inputValue.slice(
+          mentionContext.startIndex + 1 + mentionContext.query.length,
+        )
+        setInputValue({
+          text: before + replacement + after,
+          cursorPosition: before.length + replacement.length,
+          lastEditDueToNav: false,
+        })
+        setAgentSelectedIndex(0)
       },
       onOpenFileMenuWithTab: () => {
         const safeCursor = Math.max(
@@ -1187,8 +1265,13 @@ export const Chat = ({
       setSlashSelectedIndex,
       slashMatches,
       slashSelectedIndex,
+      ensureQueueActiveBeforeSubmit,
       onSubmitPrompt,
       agentMode,
+      saveCurrentInput,
+      openFeedbackForMessage,
+      openPublishMode,
+      preSelectAgents,
       setAgentSelectedIndex,
       agentMatches,
       fileMatches,

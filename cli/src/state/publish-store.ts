@@ -107,7 +107,8 @@ export const usePublishStore = create<PublishStore>()(
       set(() => {
         const nextState = createInitialState(true)
         nextState.selectedAgentIds = new Set(agentIds)
-        nextState.currentStep = 'confirmation'
+        // Stay on selection step so user can review/modify before confirming
+        nextState.currentStep = 'selection'
         return nextState
       }),
 

@@ -5,6 +5,7 @@ import { runBashCommand } from './router'
 import { normalizeReferralCode } from './router-utils'
 import { handleUsageCommand } from './usage'
 import { useChatStore } from '../state/chat-store'
+import { useFeedbackStore } from '../state/feedback-store'
 import { useLoginStore } from '../state/login-store'
 import { capturePendingImages } from '../utils/add-pending-image'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
@@ -57,7 +58,7 @@ export type CommandDefinition = {
   name: string
   aliases: string[]
   handler: CommandHandler
-  /** Whether this command accepts arguments. Set automatically by the factory. */
+  /** Whether this command accepts arguments. Set automatically by the factory functions. */
   acceptsArgs: boolean
 }
 
@@ -78,7 +79,6 @@ type CommandHandlerWithArgs = (
 
 /**
  * Configuration for defining a command that does NOT accept arguments.
- * This is the default, safe path - the handler cannot access args.
  */
 type CommandConfig = {
   name: string
@@ -88,7 +88,6 @@ type CommandConfig = {
 
 /**
  * Configuration for defining a command that accepts arguments.
- * Use this when the command needs to process user-provided arguments.
  */
 type CommandWithArgsConfig = {
   name: string
@@ -98,8 +97,7 @@ type CommandWithArgsConfig = {
 
 /**
  * Factory for commands that do NOT accept arguments.
- * This is the default, safe path - the handler cannot access args.
- * If the user provides args, an error message is shown automatically.
+ * Any args passed are gracefully ignored.
  *
  * @example
  * defineCommand({
@@ -115,21 +113,8 @@ export function defineCommand(config: CommandConfig): CommandDefinition {
     name: config.name,
     aliases: config.aliases ?? [],
     acceptsArgs: false,
-    handler: (params, args) => {
-      if (args.trim()) {
-        const displayArgs =
-          args.length > 50 ? args.slice(0, 50) + '...' : args
-        params.setMessages((prev) => [
-          ...prev,
-          getUserMessage(params.inputValue.trim()),
-          getSystemMessage(
-            `The /${config.name} command does not accept arguments. Did you mean to send "${displayArgs}" as a message?`,
-          ),
-        ])
-        params.saveToHistory(params.inputValue.trim())
-        clearInput(params)
-        return
-      }
+    handler: (params, _args) => {
+      // Args are gracefully ignored for commands that don't accept them
       return config.handler(params)
     },
   }
@@ -137,7 +122,6 @@ export function defineCommand(config: CommandConfig): CommandDefinition {
 
 /**
  * Factory for commands that accept arguments.
- * Use this when the command needs to process user-provided arguments.
  * The handler receives both params and args.
  *
  * @example
@@ -167,10 +151,18 @@ const clearInput = (params: RouterParams) => {
 }
 
 export const COMMAND_REGISTRY: CommandDefinition[] = [
-  defineCommand({
+  defineCommandWithArgs({
     name: 'feedback',
     aliases: ['bug', 'report'],
-    handler: (params) => {
+    handler: (params, args) => {
+      const trimmedArgs = args.trim()
+
+      // If user provided feedback text directly, pre-populate the form
+      if (trimmedArgs) {
+        useFeedbackStore.getState().setFeedbackText(trimmedArgs)
+        useFeedbackStore.getState().setFeedbackCursor(trimmedArgs.length)
+      }
+
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
       return { openFeedbackMode: true }
@@ -278,16 +270,34 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       process.kill(process.pid, 'SIGINT')
     },
   }),
-  defineCommand({
+  defineCommandWithArgs({
     name: 'new',
-    aliases: ['n', 'clear', 'c'],
-    handler: (params) => {
+    aliases: ['n', 'clear', 'c', 'reset'],
+    handler: (params, args) => {
+      const trimmedArgs = args.trim()
+
+      // Clear the conversation
       params.setMessages(() => [])
       params.clearMessages()
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
       params.stopStreaming()
-      params.setCanProcessQueue(false)
+
+      // If user provided a message, send it as the first message in the new chat
+      if (trimmedArgs) {
+        // Re-enable queue processing so the message can be sent
+        params.setCanProcessQueue(true)
+        params.sendMessage({
+          content: trimmedArgs,
+          agentMode: params.agentMode,
+        })
+        setTimeout(() => {
+          params.scrollToLatest()
+        }, 0)
+      } else {
+        // Only disable queue if we're not sending a message
+        params.setCanProcessQueue(false)
+      }
     },
   }),
   defineCommand({
@@ -354,9 +364,11 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   }),
   // Mode commands generated from AGENT_MODES
   ...AGENT_MODES.map((mode) =>
-    defineCommand({
+    defineCommandWithArgs({
       name: `mode:${mode.toLowerCase()}`,
-      handler: (params) => {
+      handler: (params, args) => {
+        const trimmedArgs = args.trim()
+
         useChatStore.getState().setAgentMode(mode)
         params.setMessages((prev) => [
           ...prev,
@@ -365,6 +377,18 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
         ])
         params.saveToHistory(params.inputValue.trim())
         clearInput(params)
+
+        // If user provided a message, send it in the new mode
+        if (trimmedArgs) {
+          params.setCanProcessQueue(true)
+          params.sendMessage({
+            content: trimmedArgs,
+            agentMode: mode,
+          })
+          setTimeout(() => {
+            params.scrollToLatest()
+          }, 0)
+        }
       },
     }),
   ),

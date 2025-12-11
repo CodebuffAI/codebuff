@@ -240,10 +240,10 @@ describe('resolveChatKeyboardAction', () => {
       })
     })
 
-    test('tab with single match selects', () => {
+    test('tab with single match completes without executing', () => {
       const state = { ...slashMenuState, slashMatchesLength: 1 }
       expect(resolveChatKeyboardAction(tabKey, state)).toEqual({
-        type: 'slash-menu-select',
+        type: 'slash-menu-complete',
       })
     })
 
@@ -479,10 +479,10 @@ describe('resolveChatKeyboardAction', () => {
       })
     })
 
-    test('tab with single match selects', () => {
+    test('tab with single match completes without executing', () => {
       const state = { ...mentionMenuState, totalMentionMatches: 1 }
       expect(resolveChatKeyboardAction(tabKey, state)).toEqual({
-        type: 'mention-menu-select',
+        type: 'mention-menu-complete',
       })
     })
 
