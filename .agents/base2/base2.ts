@@ -70,7 +70,7 @@ export function createBase2(
       isDefault && 'editor',
       isMax && 'editor-multi-prompt',
       isMax && 'thinker-best-of-n-opus',
-      !isLite && 'code-reviewer-opus',
+      !isLite && 'code-reviewer',
       'context-pruner',
     ),
 
@@ -131,7 +131,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
     '- Spawn commanders sequentially if the second command depends on the the first.',
     !isFast &&
       !isLite &&
-      '- Spawn a code-reviewer-opus to review the changes after you have implemented the changes.',
+      '- Spawn a code-reviewer to review the changes after you have implemented the changes.',
   ).join('\n  ')}
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 
@@ -305,7 +305,7 @@ ${buildArray(
   isFast &&
     '- Do a single typecheck targeted for your changes at most (if applicable for the project). Or skip this step if the change was small.',
   (isDefault || isMax) &&
-    '- Spawn a code-reviewer-opus to review the changes after you have implemented the changes. (Skip this step only if the change is extremely straightforward and obvious.)',
+    '- Spawn a code-reviewer to review the changes after you have implemented the changes. (Skip this step only if the change is extremely straightforward and obvious.)',
   !hasNoValidation &&
     `- Test your changes by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). Try to run all appropriate commands in parallel. ${isMax ? ' Typecheck and test the specific area of the project that you are editing *AND* then typecheck and test the entire project if necessary.' : ' If you can, only test the area of the project that you are editing, rather than the entire project.'} You may have to explore the project to find the appropriate commands. Don't skip this step!`,
   `- Inform the user that you have completed the task in one sentence or a few short bullet points.${isSonnet ? " Don't create any markdown summary files or example documentation files, unless asked by the user." : ''}`,
@@ -333,7 +333,7 @@ function buildImplementationStepPrompt({
     isMax &&
       `You must spawn the 'editor-multi-prompt' agent to implement code changes, since it will generate the best code changes.`,
     (isDefault || isMax) &&
-      'Spawn code-reviewer-opus to review the changes after you have implemented the changes and in parallel with typechecking or testing.',
+      'Spawn code-reviewer to review the changes after you have implemented the changes and in parallel with typechecking or testing.',
     `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''} Don't repeat yourself, especially if you have already concluded and summarized the changes in a previous step -- just end your turn.`,
     !isFast &&
       `After a successful implementation, use the suggest_followups tool to suggest around 3 next steps the user might want to take.`,

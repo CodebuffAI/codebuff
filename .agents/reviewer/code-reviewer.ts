@@ -25,7 +25,7 @@ export const createReviewer = (
   inheritParentSystemPrompt: true,
   includeMessageHistory: true,
 
-  instructionsPrompt: `For reference, here is the original user request:
+  instructionsPrompt: `You are a subagent that reviews code changes. Do not use any tools. For reference, here is the original user request:
 <user_message>
 ${PLACEHOLDER.USER_INPUT_PROMPT}
 </user_message>
@@ -57,7 +57,7 @@ Be extremely concise.`,
 const definition: SecretAgentDefinition = {
   id: 'code-reviewer',
   publisher,
-  ...createReviewer('anthropic/claude-sonnet-4.5'),
+  ...createReviewer('anthropic/claude-opus-4.5'),
 }
 
 export default definition
