@@ -51,7 +51,7 @@ export function createBase2(
       'read_files',
       'read_subtree',
       !isFast && !isLite && 'write_todos',
-      !isLite && 'suggest_followups',
+      !isFast && 'suggest_followups',
       'str_replace',
       'write_file',
       'ask_user',
@@ -240,6 +240,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           isMax,
           hasNoValidation,
           isSonnet,
+          isLite,
         }),
 
     handleSteps: function* ({ params }) {
@@ -309,7 +310,7 @@ ${buildArray(
   !hasNoValidation &&
     `- Test your changes by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). Try to run all appropriate commands in parallel. ${isMax ? ' Typecheck and test the specific area of the project that you are editing *AND* then typecheck and test the entire project if necessary.' : ' If you can, only test the area of the project that you are editing, rather than the entire project.'} You may have to explore the project to find the appropriate commands. Don't skip this step!`,
   `- Inform the user that you have completed the task in one sentence or a few short bullet points.${isSonnet ? " Don't create any markdown summary files or example documentation files, unless asked by the user." : ''}`,
-  !isLite &&
+  !isFast &&
     `- After successfully completing an implementation, use the suggest_followups tool to suggest ~3 next steps the user might want to take (e.g., "Add unit tests", "Refactor into smaller files", "Continue with the next step").`,
 ).join('\n')}`
 }
@@ -320,12 +321,14 @@ function buildImplementationStepPrompt({
   isMax,
   hasNoValidation,
   isSonnet,
+  isLite,
 }: {
   isDefault: boolean
   isFast: boolean
   isMax: boolean
   hasNoValidation: boolean
   isSonnet: boolean
+  isLite: boolean
 }) {
   return buildArray(
     isMax &&
