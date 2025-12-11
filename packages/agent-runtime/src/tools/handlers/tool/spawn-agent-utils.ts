@@ -4,7 +4,7 @@ import { generateCompactId } from '@codebuff/common/util/string'
 
 import { loopAgentSteps } from '../../../run-agent-step'
 import { getAgentTemplate } from '../../../templates/agent-registry'
-import { filterUnfinishedToolCalls, withSystemTags } from '../../../util/messages'
+import { filterUnfinishedToolCalls } from '../../../util/messages'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -19,7 +19,6 @@ import type {
   AgentTemplateType,
   Subgoal,
 } from '@codebuff/common/types/session-state'
-import { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 /**
  * Checks if a parent agent is allowed to spawn a child agent
@@ -167,21 +166,9 @@ export function createAgentState(
   // When including message history, filter out any tool calls that don't have
   // corresponding tool responses. This prevents the spawned agent from seeing
   // unfinished tool calls which throw errors in the Anthropic API.
-  let messageHistory: Message[] = []
-
-  if (agentTemplate.includeMessageHistory) {
-    messageHistory = filterUnfinishedToolCalls(parentAgentState.messageHistory)
-    messageHistory.push({
-      role: 'user',
-      content: [
-        {
-          type: 'text',
-          text: withSystemTags(`Subagent ${agentType} has been spawned.`),
-        },
-      ],
-      tags: ['SUBAGENT_SPAWN'],
-    })
-  }
+  const messageHistory = agentTemplate.includeMessageHistory
+    ? filterUnfinishedToolCalls(parentAgentState.messageHistory)
+    : []
 
   return {
     agentId,
