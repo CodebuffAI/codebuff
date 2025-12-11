@@ -29,11 +29,15 @@ codebuff --create minecraft-simple
 
 ## What model does Codebuff use?
 
-We use multiple models to get better results: Claude Sonnet for most of the coding, Gemini Flash for quick tasks and to find relevant files, Gemini 2.5 Pro for thinking (in --max mode), and we also use a speculative decoding model from Relace AI for fast file rewrites. We use o3-mini as a file editing fallback, and gpt-4o-mini for some trivial tasks.
+We use multiple models to get better results: Claude Opus 4.5 and Claude Sonnet 4.5 for most of the coding, GPT-5 for fast responses, and Gemini for file discovery and thinking tasks. We also use a speculative decoding model from Relace AI for fast file rewrites.
 
 ## Do you store my data?
 
-We don't store your codebase. Our server is a thin client that passes data along to OpenAI and Anthropic. We store portions of your chats to help us debug. Soon, we plan to support a Privacy Mode where none of your data at all is stored.
+We don't store your codebase. Our server is a thin client that passes data along to our LLM providers. We store portions of your chats to help us debug.
+
+## Is Codebuff open source?
+
+Yes! Codebuff is fully open source under the Apache 2.0 license. You can view, audit, and contribute to the code at [github.com/codebuffai/codebuff](https://github.com/codebuffai/codebuff). This means you can see exactly how your data is handled and verify our security practices.
 
 ## Can I trust Codebuff with full access to my terminal?
 
@@ -82,7 +86,7 @@ Compared to alternatives, Codebuff does more LLM calls using more examples from 
 
 ## How does Codebuff compare to Claude Code?
 
-Anthropic recently released [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview), their own AI coding assistant that also uses Claude 3.7 Sonnet. For a detailed comparison between Codebuff and Claude Code, see [Codebuff vs Claude Code](/docs/advanced#codebuff-vs-claude-code). TLDR: Codebuff is faster, cheaper, and more adept at analyzing large codebases.
+Anthropic recently released [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview), their own AI coding assistant that also uses Claude Sonnet 4. For a detailed comparison between Codebuff and Claude Code, see [Codebuff vs Claude Code](/docs/advanced#codebuff-vs-claude-code). TLDR: Codebuff is faster, cheaper, and more adept at analyzing large codebases.
 
 ## I have more questions!
 

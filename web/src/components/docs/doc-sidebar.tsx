@@ -1,17 +1,20 @@
 'use client'
 
+import { Code, GraduationCap, Library } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+// NEWS DISABLED: Uncomment these imports when re-enabling news
+// import { useEffect, useMemo, useState } from 'react'
 
-import type { NewsArticle } from '@/lib/docs'
-
-import { getDocsByCategory, getNewsArticles } from '@/lib/docs'
+// NEWS DISABLED: Uncomment to re-enable news in sidebar
+// import type { NewsArticle } from '@/lib/docs'
+// import { getDocsByCategory, getNewsArticles } from '@/lib/docs'
+import { getDocsByCategory } from '@/lib/docs'
 import { cn } from '@/lib/utils'
 
-export const sections = [
+const learnSections = [
   {
-    title: 'Intro',
+    title: 'Getting Started',
     href: '/docs/help',
     subsections: getDocsByCategory('help').map((doc) => ({
       title: doc.title,
@@ -20,7 +23,7 @@ export const sections = [
     external: false,
   },
   {
-    title: 'Tips & Tricks',
+    title: 'Using Codebuff',
     href: '/docs/tips',
     subsections: getDocsByCategory('tips').map((doc) => ({
       title: doc.title,
@@ -28,6 +31,9 @@ export const sections = [
     })),
     external: false,
   },
+]
+
+const buildSections = [
   {
     title: 'Agents',
     href: '/docs/agents',
@@ -46,6 +52,9 @@ export const sections = [
     })),
     external: false,
   },
+]
+
+const referenceSections = [
   {
     title: 'Advanced',
     href: '/docs/advanced',
@@ -66,6 +75,15 @@ export const sections = [
   },
 ]
 
+export const sectionGroups = [
+  { label: 'Learn', icon: GraduationCap, sections: learnSections },
+  { label: 'Build', icon: Code, sections: buildSections },
+  { label: 'Reference', icon: Library, sections: referenceSections },
+]
+
+// Flat list of all sections for compatibility with layout.tsx
+export const sections = [...learnSections, ...buildSections, ...referenceSections]
+
 export function DocSidebar({
   className,
   onNavigate,
@@ -74,55 +92,48 @@ export function DocSidebar({
   onNavigate: () => void
 }) {
   const pathname = usePathname()
-  const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([])
-
-  const allSections = useMemo(
-    () => [
-      ...sections,
-      {
-        title: 'News',
-        href: 'https://news.codebuff.com',
-        external: true,
-        subsections: newsArticles,
-      },
-    ],
-    [newsArticles],
-  )
-
-  useEffect(() => {
-    async function fetchNews() {
-      const articles = await getNewsArticles()
-      setNewsArticles(articles)
-    }
-
-    fetchNews()
-  }, [])
-
+  // NEWS DISABLED: Uncomment to re-enable news in sidebar
+  // const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([])
+  // const allSections = useMemo(
+  //   () => [
+  //     ...sections,
+  //     {
+  //       title: 'News',
+  //       href: 'https://news.codebuff.com',
+  //       external: true,
+  //       subsections: newsArticles,
+  //     },
+  //   ],
+  //   [newsArticles],
+  // )
+  // useEffect(() => {
+  //   async function fetchNews() {
+  //     const articles = await getNewsArticles()
+  //     setNewsArticles(articles)
+  //   }
+  //   fetchNews()
+  // }, [])
   return (
     <nav className={cn('space-y-6', className)}>
-      {allSections.map((section) => (
-        <div key={section.href} className="space-y-2">
-          <Link
-            href={section.href}
-            target={section.external ? '_blank' : undefined}
-            onClick={() => {
-              const sheet = document.querySelector('[data-state="open"]')
-              if (sheet) sheet.setAttribute('data-state', 'closed')
-              onNavigate?.()
-            }}
+      {sectionGroups.map((group, groupIndex) => (
+        <div key={group.label} className="space-y-3">
+          {/* Group header */}
+          <div
             className={cn(
-              'block px-3 py-2 hover:bg-accent rounded-md transition-all text-sm font-medium',
-              pathname === section.href && 'bg-accent text-accent-foreground',
+              'px-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70',
+              groupIndex > 0 && 'pt-2 border-t border-border/50',
             )}
           >
-            {section.title}
-          </Link>
-          {section.subsections && section.subsections.length > 0 && (
-            <div className="ml-4 space-y-1">
-              {section.subsections.map((subsection) => (
+            <group.icon className="h-3.5 w-3.5" />
+            {group.label}
+          </div>
+
+          {/* Sections within group */}
+          <div className="space-y-4">
+            {group.sections.map((section) => (
+              <div key={section.href} className="space-y-1">
                 <Link
-                  key={subsection.href}
-                  href={subsection.href}
+                  href={section.href}
                   target={section.external ? '_blank' : undefined}
                   onClick={() => {
                     const sheet = document.querySelector('[data-state="open"]')
@@ -130,16 +141,40 @@ export function DocSidebar({
                     onNavigate?.()
                   }}
                   className={cn(
-                    'block w-full text-left px-3 py-1.5 text-sm hover:bg-accent rounded-md transition-all text-muted-foreground hover:text-foreground',
-                    pathname === subsection.href &&
+                    'block px-3 py-2 hover:bg-accent rounded-md transition-all text-sm font-medium',
+                    pathname === section.href &&
                       'bg-accent text-accent-foreground',
                   )}
                 >
-                  {subsection.title}
+                  {section.title}
                 </Link>
-              ))}
-            </div>
-          )}
+                {section.subsections && section.subsections.length > 0 && (
+                  <div className="ml-4 space-y-1">
+                    {section.subsections.map((subsection) => (
+                      <Link
+                        key={subsection.href}
+                        href={subsection.href}
+                        target={section.external ? '_blank' : undefined}
+                        onClick={() => {
+                          const sheet =
+                            document.querySelector('[data-state="open"]')
+                          if (sheet) sheet.setAttribute('data-state', 'closed')
+                          onNavigate?.()
+                        }}
+                        className={cn(
+                          'block w-full text-left px-3 py-1.5 text-sm hover:bg-accent rounded-md transition-all text-muted-foreground hover:text-foreground',
+                          pathname === subsection.href &&
+                            'bg-accent text-accent-foreground',
+                        )}
+                      >
+                        {subsection.title}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       ))}
     </nav>
