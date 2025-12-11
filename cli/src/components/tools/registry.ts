@@ -6,6 +6,7 @@ import { ReadFilesComponent } from './read-files'
 import { ReadSubtreeComponent } from './read-subtree'
 import { RunTerminalCommandComponent } from './run-terminal-command'
 import { StrReplaceComponent } from './str-replace'
+import { SuggestFollowupsComponent } from './suggest-followups'
 import { TaskCompleteComponent } from './task-complete'
 import { WriteFileComponent } from './write-file'
 import { WriteTodosComponent } from './write-todos'
@@ -33,6 +34,7 @@ const toolComponentRegistry = new Map<ToolName, ToolComponent>([
   [ReadSubtreeComponent.toolName, ReadSubtreeComponent],
   [WriteTodosComponent.toolName, WriteTodosComponent],
   [StrReplaceComponent.toolName, StrReplaceComponent],
+  [SuggestFollowupsComponent.toolName, SuggestFollowupsComponent],
   [WriteFileComponent.toolName, WriteFileComponent],
   [TaskCompleteComponent.toolName, TaskCompleteComponent],
 ])

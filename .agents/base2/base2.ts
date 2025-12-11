@@ -51,6 +51,7 @@ export function createBase2(
       'read_files',
       'read_subtree',
       !isFast && !isLite && 'write_todos',
+      !isLite && 'suggest_followups',
       'str_replace',
       'write_file',
       'ask_user',
@@ -308,6 +309,8 @@ ${buildArray(
   !hasNoValidation &&
     `- Test your changes by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). Try to run all appropriate commands in parallel. ${isMax ? ' Typecheck and test the specific area of the project that you are editing *AND* then typecheck and test the entire project if necessary.' : ' If you can, only test the area of the project that you are editing, rather than the entire project.'} You may have to explore the project to find the appropriate commands. Don't skip this step!`,
   `- Inform the user that you have completed the task in one sentence or a few short bullet points.${isSonnet ? " Don't create any markdown summary files or example documentation files, unless asked by the user." : ''}`,
+  !isLite &&
+    `- After successfully completing an implementation, use the suggest_followups tool to suggest ~3 next steps the user might want to take (e.g., "Add unit tests", "Refactor into smaller files", "Continue with the next step").`,
 ).join('\n')}`
 }
 
@@ -332,6 +335,8 @@ function buildImplementationStepPrompt({
     (isDefault || isMax) &&
       'Spawn code-reviewer-opus to review the changes after you have implemented the changes and in parallel with typechecking or testing.',
     `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''} Don't repeat yourself, especially if you have already concluded and summarized the changes in a previous step -- just end your turn.`,
+    !isFast &&
+      `After a successful implementation, use the suggest_followups tool to suggest around 3 next steps the user might want to take.`,
   ).join('\n')
 }
 

@@ -613,6 +613,68 @@ export const Chat = ({
 
   sendMessageRef.current = sendMessage
 
+  // Handle followup suggestion clicks
+  useEffect(() => {
+    const handleFollowupClick = (event: Event) => {
+      const customEvent = event as CustomEvent<{ prompt: string; index: number }>
+      const { prompt, index } = customEvent.detail
+
+      // Mark this followup as clicked
+      useChatStore.getState().markFollowupClicked(index)
+
+      // Send the followup prompt as a user message
+      ensureQueueActiveBeforeSubmit()
+      void routeUserPrompt({
+        abortControllerRef,
+        agentMode,
+        inputRef,
+        inputValue: prompt,
+        isChainInProgressRef,
+        isStreaming,
+        logoutMutation,
+        streamMessageIdRef,
+        addToQueue,
+        clearMessages,
+        saveToHistory,
+        scrollToLatest,
+        sendMessage,
+        setCanProcessQueue,
+        setInputFocused,
+        setInputValue,
+        setIsAuthenticated,
+        setMessages,
+        setUser,
+        stopStreaming,
+      })
+    }
+
+    globalThis.addEventListener('codebuff:send-followup', handleFollowupClick)
+    return () => {
+      globalThis.removeEventListener('codebuff:send-followup', handleFollowupClick)
+    }
+  }, [
+    abortControllerRef,
+    agentMode,
+    inputRef,
+    isChainInProgressRef,
+    isStreaming,
+    logoutMutation,
+    streamMessageIdRef,
+    addToQueue,
+    clearMessages,
+    saveToHistory,
+    scrollToLatest,
+    sendMessage,
+    setCanProcessQueue,
+    setInputFocused,
+    setInputValue,
+    setIsAuthenticated,
+    setMessages,
+    setUser,
+    stopStreaming,
+    ensureQueueActiveBeforeSubmit,
+  ])
+
   const onSubmitPrompt = useEvent((content: string, mode: AgentMode) => {
     return routeUserPrompt({
       abortControllerRef,

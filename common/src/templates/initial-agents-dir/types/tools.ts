@@ -19,6 +19,7 @@ export type ToolName =
   | 'set_output'
   | 'spawn_agents'
   | 'str_replace'
+  | 'suggest_followups'
   | 'task_completed'
   | 'think_deeply'
   | 'web_search'
@@ -46,6 +47,7 @@ export interface ToolParamsMap {
   set_output: SetOutputParams
   spawn_agents: SpawnAgentsParams
   str_replace: StrReplaceParams
+  suggest_followups: SuggestFollowupsParams
   task_completed: TaskCompletedParams
   think_deeply: ThinkDeeplyParams
   web_search: WebSearchParams
@@ -239,6 +241,19 @@ export interface StrReplaceParams {
     new: string
     /** Whether to allow multiple replacements of old string. */
     allowMultiple?: boolean
+  }[]
+}
+
+/**
+ * Suggest clickable followup prompts to the user.
+ */
+export interface SuggestFollowupsParams {
+  /** List of suggested followup prompts the user can click to send */
+  followups: {
+    /** The full prompt text to send as a user message when clicked */
+    prompt: string
+    /** Short display label for the card (defaults to truncated prompt if not provided) */
+    label?: string
   }[]
 }
 
