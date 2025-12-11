@@ -74,6 +74,20 @@ export type PendingBashMessage = {
   addedToHistory?: boolean
 }
 
+export type SuggestedFollowup = {
+  prompt: string
+  label?: string
+}
+
+export type SuggestedFollowupsState = {
+  /** The tool call ID that created these followups */
+  toolCallId: string
+  /** The list of followup suggestions */
+  followups: SuggestedFollowup[]
+  /** Set of indices that have been clicked */
+  clickedIndices: Set<number>
+}
+
 export type ChatStoreState = {
   messages: ChatMessage[]
   streamingAgents: Set<string>
@@ -98,6 +112,7 @@ export type ChatStoreState = {
   askUserState: AskUserState
   pendingImages: PendingImage[]
   pendingBashMessages: PendingBashMessage[]
+  suggestedFollowups: SuggestedFollowupsState | null
 }
 
 type ChatStoreActions = {
@@ -143,6 +158,8 @@ type ChatStoreActions = {
   ) => void
   removePendingBashMessage: (id: string) => void
   clearPendingBashMessages: () => void
+  setSuggestedFollowups: (state: SuggestedFollowupsState | null) => void
+  markFollowupClicked: (index: number) => void
   reset: () => void
 }
 
@@ -172,6 +189,7 @@ const initialState: ChatStoreState = {
   askUserState: null,
   pendingImages: [],
   pendingBashMessages: [],
+  suggestedFollowups: null,
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -382,6 +400,18 @@ export const useChatStore = create<ChatStore>()(
         state.pendingBashMessages = []
       }),
 
+    setSuggestedFollowups: (suggestedFollowups) =>
+      set((state) => {
+        state.suggestedFollowups = suggestedFollowups
+      }),
+
+    markFollowupClicked: (index) =>
+      set((state) => {
+        if (state.suggestedFollowups) {
+          state.suggestedFollowups.clickedIndices.add(index)
+        }
+      }),
+
     reset: () =>
       set((state) => {
         state.messages = initialState.messages.slice()
@@ -409,6 +439,7 @@ export const useChatStore = create<ChatStore>()(
         state.askUserState = initialState.askUserState
         state.pendingImages = []
         state.pendingBashMessages = []
+        state.suggestedFollowups = null
       }),
   })),
 )
