@@ -1,9 +1,6 @@
 import z from 'zod/v4'
 
-import {
-  $getNativeToolCallExampleString,
-  jsonToolResultSchema,
-} from '../utils'
+import { $getNativeToolCallExampleString, jsonToolResultSchema } from '../utils'
 
 import type { $ToolParams } from '../../constants'
 
@@ -13,9 +10,7 @@ const endsAgentStep = false
 const followupSchema = z.object({
   prompt: z
     .string()
-    .describe(
-      'The full prompt text to send as a user message when clicked',
-    ),
+    .describe('The full prompt text to send as a user message when clicked'),
   label: z
     .string()
     .optional()
@@ -36,7 +31,7 @@ const inputSchema = z
       ),
   })
   .describe(
-    'Suggest clickable followup prompts to the user. Each followup becomes a card the user can click to send that prompt.',
+    `Suggest clickable followup prompts to the user. Each followup becomes a card the user can click to send that prompt.`,
   )
 
 const outputSchema = z.object({
@@ -47,10 +42,15 @@ const description = `
 Suggest clickable followup prompts to the user. When the user clicks a suggestion, it sends that prompt as a new user message.
 
 Use this tool after completing a task to suggest what the user might want to do next. Good suggestions include:
-- "Continue with the next step" - when there are more steps in a plan
+- Alternatives to the latest implementation like "Cache the data to local storage instead"
+- Related features like "Add a hover card to show the data from the state"
 - Cleanup opportunities like "Refactor app.ts into multiple files"
 - Testing suggestions like "Add unit tests for this change"
-- Related features like "Add a hover card to show the data from the state"
+- "Continue with the next step" - when there are more steps in a plan
+
+Don't include suggestions like:
+- "Commit these changes"
+- "Test the changes" without saying how you would test the changes (unit test, script, or something else?)
 
 Aim for around 3 suggestions. The suggestions persist and remain clickable, with clicked ones visually updated to show they were used.
 
