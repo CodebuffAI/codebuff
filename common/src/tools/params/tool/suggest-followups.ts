@@ -50,7 +50,7 @@ Use this tool after completing a task to suggest what the user might want to do 
 
 Don't include suggestions like:
 - "Commit these changes"
-- "Test the changes" without saying how you would test the changes (unit test, script, or something else?)
+- "Test x" without saying how you would test the changes (unit test, script, or something else?). Remember, this is a prompt for the assistant to do. Don't suggest manual testing that the user would have to do.
 
 Aim for around 3 suggestions. The suggestions persist and remain clickable, with clicked ones visually updated to show they were used.
 

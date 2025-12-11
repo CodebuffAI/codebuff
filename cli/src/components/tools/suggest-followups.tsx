@@ -29,8 +29,10 @@ const FollowupCard = ({
   const [isHovered, setIsHovered] = useState(false)
 
   const handleClick = useCallback(() => {
+    // Don't allow clicking already-selected followups
+    if (isClicked) return
     onSendFollowup(followup.prompt, index)
-  }, [followup.prompt, index, onSendFollowup])
+  }, [followup.prompt, index, onSendFollowup, isClicked])
 
   const handleMouseOver = useCallback(() => setIsHovered(true), [])
   const handleMouseOut = useCallback(() => setIsHovered(false), [])
