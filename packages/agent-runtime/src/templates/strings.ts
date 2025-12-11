@@ -61,12 +61,16 @@ export async function formatPrompt(
   let { prompt } = params
 
   const { messageHistory } = agentState
-  function isUserMessage(message: Message): message is UserMessage & {
+  function isUserInputMessage(message: Message): message is UserMessage & {
     content: [TextPart, ...any[]]
   } {
-    return message.role === 'user' && message.content[0].type === 'text'
+    return (
+      message.role === 'user' &&
+      message.content[0].type === 'text' &&
+      parseUserMessage(message.content[0].text) !== undefined
+    )
   }
-  const lastUserMessage = messageHistory.findLast(isUserMessage)
+  const lastUserMessage = messageHistory.findLast(isUserInputMessage)
   const lastUserInput = lastUserMessage
     ? parseUserMessage(lastUserMessage.content[0].text)
     : undefined
