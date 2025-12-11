@@ -76,6 +76,7 @@ bun dev                    # Starts db, studio, sdk, web, then CLI
 bun start-services         # Start services in background, exits when ready
 bun start-cli              # Start CLI in foreground
 bun stop-services          # Stop background services
+bun status-services        # Check if services are running
 ```
 
 **Services started:**
