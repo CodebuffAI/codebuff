@@ -172,7 +172,7 @@ ${buildArray(
 
 [ You spawn one more code-searcher and file-picker ]
 
-[ You read a few other relevant files using the read_files tool ]${isMax ? `\n\n[ You spawn the thinker-best-of-n-opus to help solve a tricky part of the feature ]` : ``}
+[ You read a few other relevant files using the read_files tool ]
 ${
   isDefault
     ? `[ You implement the changes using the editor agent ]`
@@ -293,8 +293,6 @@ ${buildArray(
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
   isDefault &&
     `- For complex problems, spawn the thinker agent to help find the best solution, or when the user asks you to think about a problem.`,
-  isMax &&
-    `- Important: Spawn the thinker-best-of-n-opus to help find the best solution before implementing changes, or especially when the user asks you to think about a problem.`,
   isLite &&
     '- IMPORTANT: You must spawn the editor-gpt-5 agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
   isDefault &&
@@ -331,7 +329,6 @@ function buildImplementationStepPrompt({
       `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
     isMax &&
       `You must spawn the 'editor-multi-prompt' agent to implement code changes, since it will generate the best code changes.`,
-    isMax && 'Spawn the thinker-best-of-n-opus to solve complex problems.',
     (isDefault || isMax) &&
       'Spawn code-reviewer-opus to review the changes after you have implemented the changes and in parallel with typechecking or testing.',
     `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''} Don't repeat yourself, especially if you have already concluded and summarized the changes in a previous step -- just end your turn.`,
