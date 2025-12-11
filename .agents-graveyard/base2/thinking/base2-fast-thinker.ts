@@ -1,4 +1,4 @@
-import { createBase2 } from '../base2'
+import { createBase2 } from '../../../.agents/base2/base2'
 
 const base2Fast = createBase2('fast')
 const definition = {

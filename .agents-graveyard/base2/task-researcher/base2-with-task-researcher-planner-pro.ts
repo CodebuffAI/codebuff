@@ -1,10 +1,10 @@
 import { buildArray } from '@codebuff/common/util/array'
 
-import { publisher } from '../../constants'
+import { publisher } from '../../../.agents/constants'
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
-} from '../../types/secret-agent-definition'
+} from '../../../.agents/types/secret-agent-definition'
 
 import type { ToolCall } from 'types/agent-definition'
 
