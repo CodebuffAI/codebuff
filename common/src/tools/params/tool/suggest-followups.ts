@@ -52,6 +52,8 @@ Don't include suggestions like:
 - "Commit these changes"
 - "Test x" without saying how you would test the changes (unit test, script, or something else?). Remember, this is a prompt for the assistant to do. Don't suggest manual testing that the user would have to do.
 
+Try to make different suggestions than you did in past steps. That's because users can still click previous suggestions if they want to.
+
 Aim for around 3 suggestions. The suggestions persist and remain clickable, with clicked ones visually updated to show they were used.
 
 ${$getNativeToolCallExampleString({
