@@ -4,6 +4,48 @@
 set -e
 
 # =============================================================================
+# Help
+# =============================================================================
+
+show_help() {
+    cat << EOF
+Usage: $(basename "$0") [OPTIONS] [-- CLI_ARGS...]
+
+Starts the Codebuff development environment including database, web server,
+and CLI.
+
+Options:
+  -h, --help    Show this help message and exit
+
+Services Started:
+  db            PostgreSQL database (via Docker)
+  studio        Drizzle Studio for database inspection
+  web           Next.js web server (in tmux session 'codebuff-web')
+  cli           Codebuff CLI (foreground, interactive)
+
+Logs:
+  All service logs are written to: debug/console/
+    - db.log      Database startup logs
+    - studio.log  Drizzle Studio logs
+    - sdk.log     SDK build logs
+    - web.log     Web server logs
+
+Examples:
+  $(basename "$0")              # Start dev environment
+  $(basename "$0") --help       # Show this help
+  $(basename "$0") -- --debug   # Pass --debug flag to CLI
+
+To attach to web server logs:
+  tmux attach -t codebuff-web
+EOF
+}
+
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    show_help
+    exit 0
+fi
+
+# =============================================================================
 # Configuration
 # =============================================================================
 
@@ -11,6 +53,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 LOG_DIR="$PROJECT_ROOT/debug/console"
 BUN="$PROJECT_ROOT/.bin/bun"
+APP_URL="$NEXT_PUBLIC_CODEBUFF_APP_URL"
 
 export PATH="$PROJECT_ROOT/.bin:$PATH"
 mkdir -p "$LOG_DIR"
@@ -92,7 +135,7 @@ else
     tmux new-session -d -s codebuff-web "cd $PROJECT_ROOT && $BUN --cwd web dev 2>&1 | sed -l 's/\x1b\[[0-9;]*m//g' | tee $LOG_DIR/web.log"
 fi
 
-wait_for "web" "curl -sf ${NEXT_PUBLIC_CODEBUFF_APP_URL}/api/healthz"
+wait_for "web" "curl -sf ${APP_URL}/api/healthz"
 
 # 4. CLI (foreground - user interaction)
 echo ""

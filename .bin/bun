@@ -202,34 +202,40 @@ check_env_setup() {
     echo "" >&2
 }
 
-# Load project env files to ensure correct precedence
-# .env.development.local must be sourced last to override any inherited env vars
-load_project_env() {
-    # Source env files with auto-export
-    # Order matters: .env.local first, then .env.development.local overrides
-    set -a
-    
-    # Only source .env.local when running from subdirectory
-    # (Bun loads it natively when at project root)
-    if [ "$PROJECT_ROOT" != "$CALLING_DIR" ] && [ -f "$ENV_LOCAL_FILE" ]; then
-        # shellcheck disable=SC1090
-        source "$ENV_LOCAL_FILE"
+# Clear inherited env vars that would conflict with .env file values
+# Bun loads .env files natively, but inherited shell variables take precedence.
+# We unset variables defined in our env files so Bun can set fresh values.
+clear_inherited_env_vars() {
+    # Unset variables from .env.local so Bun can load fresh values
+    if [ -f "$ENV_LOCAL_FILE" ]; then
+        while IFS='=' read -r key _; do
+            # Skip comments and empty lines
+            case "$key" in
+                '#'*|'') continue ;;
+            esac
+            # Remove any 'export ' prefix
+            key="${key#export }"
+            unset "$key" 2>/dev/null || true
+        done < "$ENV_LOCAL_FILE"
     fi
     
-    # Always source .env.development.local to ensure worktree overrides
-    # take precedence over any inherited shell environment variables
+    # Unset variables from .env.development.local
     if [ -f "$ENV_DEVELOPMENT_LOCAL_FILE" ]; then
-        # shellcheck disable=SC1090
-        source "$ENV_DEVELOPMENT_LOCAL_FILE"
+        while IFS='=' read -r key _; do
+            case "$key" in
+                '#'*|'') continue ;;
+            esac
+            key="${key#export }"
+            unset "$key" 2>/dev/null || true
+        done < "$ENV_DEVELOPMENT_LOCAL_FILE"
     fi
-    
-    set +a
 }
 
 run_bun() {
     create_env_symlinks
     check_env_setup
-    load_project_env
+    clear_inherited_env_vars
+    # Bun natively loads .env files in the correct precedence order
     exec "$REAL_BUN" "$@"
 }
 
