@@ -5,6 +5,7 @@ import { Button } from '../button'
 import { defineToolComponent } from './types'
 import { useTheme } from '../../hooks/use-theme'
 import { useChatStore } from '../../state/chat-store'
+import { useTerminalDimensions } from '../../hooks/use-terminal-dimensions'
 
 import type { ToolRenderConfig } from './types'
 import type { SuggestedFollowup } from '../../state/chat-store'
@@ -13,6 +14,7 @@ interface FollowupCardProps {
   followup: SuggestedFollowup
   index: number
   isClicked: boolean
+  isStacked: boolean
   onSendFollowup: (prompt: string, index: number) => void
 }
 
@@ -20,6 +22,7 @@ const FollowupCard = ({
   followup,
   index,
   isClicked,
+  isStacked,
   onSendFollowup,
 }: FollowupCardProps) => {
   const theme = useTheme()
@@ -53,9 +56,8 @@ const FollowupCard = ({
         paddingRight: 2,
         paddingTop: 0,
         paddingBottom: 0,
-        maxWidth: 40,
+        ...(isStacked ? { width: '100%' } : { flexGrow: 1, flexShrink: 1 }),
         borderColor,
-        flexGrow: 1,
       }}
     >
       <box style={{ flexDirection: 'column' }}>
@@ -89,12 +91,16 @@ interface SuggestFollowupsItemProps {
   onSendFollowup: (prompt: string, index: number) => void
 }
 
+// Threshold width to switch between horizontal and stacked layouts
+const WIDE_SCREEN_THRESHOLD = 100
+
 const SuggestFollowupsItem = ({
   toolCallId,
   followups,
   onSendFollowup,
 }: SuggestFollowupsItemProps) => {
   const theme = useTheme()
+  const { terminalWidth } = useTerminalDimensions()
   const suggestedFollowups = useChatStore((state) => state.suggestedFollowups)
 
   // Get clicked indices for this specific tool call
@@ -102,6 +108,9 @@ const SuggestFollowupsItem = ({
     suggestedFollowups?.toolCallId === toolCallId
       ? suggestedFollowups.clickedIndices
       : new Set<number>()
+
+  // Use stacked layout on narrow screens
+  const isStacked = terminalWidth < WIDE_SCREEN_THRESHOLD
 
   return (
     <box
@@ -115,8 +124,7 @@ const SuggestFollowupsItem = ({
       </text>
       <box
         style={{
-          flexDirection: 'row',
-          flexWrap: 'wrap',
+          flexDirection: isStacked ? 'column' : 'row',
         }}
       >
         {followups.map((followup, index) => (
@@ -125,6 +133,7 @@ const SuggestFollowupsItem = ({
             followup={followup}
             index={index}
             isClicked={clickedIndices.has(index)}
+            isStacked={isStacked}
             onSendFollowup={onSendFollowup}
           />
         ))}
