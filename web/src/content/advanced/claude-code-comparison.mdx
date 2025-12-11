@@ -7,48 +7,49 @@ order: 5
 
 # Codebuff vs Claude Code
 
-Anthropic recently released Claude Code, their own AI coding assistant.
+Claude Code is Anthropic's first-party coding assistant. Codebuff covers the same basics and adds its own workflow tools.
 
-Both Codebuff and Claude Code:
+Both tools:
 
-- Run in your terminal for a seamless coding experience
+- Run in your terminal
 - Understand your entire codebase context
 - Can edit files and execute terminal commands
 - Use Claude Sonnet 4 as their primary model
 
 ## When to Choose Codebuff
 
-Codebuff might be a better choice if you value:
+Pick Codebuff if you want:
 
-- Speed: Codebuff is [nearly 4 times faster](https://x.com/jahooma/status/1894224663817195599)
-- Cost: Codebuff is one third the cost of Claude Code for equivalent tasks and even less for back-and-forth conversation
-- Codebase Analysis: Codebuff pulls more context from scanning your entire codebase, rather than file-by-file. Codebuff also [blends different models](/docs/advanced#what-models-do-you-use) based on their strengths to provide more accurate results.
-- Staying in Flow: Codebuff requires fewer confirmation prompts for file edits and command execution.
-- Focused changes: Codebuff does just what you asked for, while Claude Code will often get carried away editing more and more files.
-- SDK and Programmatic Access: Codebuff provides a full TypeScript SDK for programmatic integration, allowing you to create custom workflows and embed AI coding capabilities into your own tools.
-- Advanced Agent System: Create custom agents with TypeScript generator functions, spawn subagents, and orchestrate complex multi-step workflows that go far beyond simple chat interactions.
+- Faster edits and responses ([benchmark](https://x.com/jahooma/status/1894224663817195599))
+- Lower credit burn for similar work
+- Context pulled from a broad code scan instead of one file at a time
+- Fewer confirmation prompts while editing or running commands
+- Tight, targeted diffs rather than wide rewrites
+- TypeScript SDK and custom agents for scripted workflows
 
 ## When to Choose Claude Code
 
-Claude Code might be a better choice if you:
+Pick Claude Code if you need:
 
-- You require first-party Anthropic integration (no intermediary/proxy) for procurement, data handling, or legal reasons
-- You need enterprise security/compliance controls directly from Anthropic (e.g., SOC 2/ISO programs, data-retention controls, private/VPC networking options)
-- Your org needs centralized admin controls within Anthropic's ecosystem (SSO, RBAC, governance, auditability)
-- You prioritize early access to Anthropic model capabilities and first-party tooling
+- Direct Anthropic access for procurement or data-handling rules
+- Enterprise controls handled by Anthropic (SSO, RBAC, compliance programs, private networking)
+- Early access to Anthropic features and their management UI
 
 ## Feature Comparison
 
 <MarkdownTable>
-  | Feature | Codebuff | Claude Code | | --- | --- | --- | | CLI-based
-  interaction | ✅ | ✅ | | Natural language commands | ✅ | ✅ | | Autonomous
-  test execution | ✅ | ✅ | | Large context window | ✅ (200k-1M) | ✅
-  (200k-1M) | | Directory-specific context awareness | ✅ | 🔄 | | Fast diff
-  edits (no full rewrites) | ✅ | ❌ | | Cost | $ | $$ | | Polished UI | ❌ | ✅
-  | | Minimal interruptions | ✅ | ❌ | | Full-featured SDK | ✅ | ❌ | |
-  Programmatic agent creation | ✅ | ❌ | | Project templates | ✅ | ❌ |
+| Feature | Codebuff | Claude Code |
+| --- | --- | --- |
+| CLI-based interaction | ✅ | ✅ |
+| Natural language commands | ✅ | ✅ |
+| Runs tests autonomously | ✅ | ✅ |
+| Large context window | ✅ (200k-1M) | ✅ (200k-1M) |
+| Directory-specific context | ✅ | 🔄 |
+| Diff-focused edits | ✅ | ❌ |
+| Cost | $ | $$ |
+| Polished UI | ❌ | ✅ |
+| Minimal confirmations | ✅ | ❌ |
+| Full SDK | ✅ | ❌ |
+| Programmatic agents | ✅ | ❌ |
+| Project templates | ✅ | ❌ |
 </MarkdownTable>
-
-## Summary
-
-Both Codebuff and Claude Code are powerful AI coding assistants that can significantly boost your productivity. Codebuff offers more flexible pricing and performance options, while Claude Code provides direct integration with Anthropic's ecosystem.

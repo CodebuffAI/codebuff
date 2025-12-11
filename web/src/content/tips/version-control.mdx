@@ -9,15 +9,13 @@ order: 5
 
 ## Undo and Redo Changes
 
-If Codebuff makes a change you don't like, you can easily undo it:
+If a change isn't right:
 
 - Type `undo` or `u` to remove the last change
 - Type `redo` or `r` to reapply a change you undid
 - Type `diff` or `d` to see what changes were made in the last response
 
-These commands work like your editor's undo/redo, making it easy to experiment with changes while keeping your code safe.
-
-Of course, if you use Git, you can always restore files to previous versions.
+They mirror editor undo/redo. You can always fall back to git as well.
 
 ## Git Integration
 
@@ -28,7 +26,7 @@ Codebuff works alongside your existing git workflow:
 - Review changes with `git diff` before committing
 - Use normal git commands to manage your repository
 
-You can also use Codebuff to create commit messages, just ask it to do so:
+Ask Codebuff to draft commit messages:
 
 ```bash
   Can you create a commit message, based on the files we just changed?

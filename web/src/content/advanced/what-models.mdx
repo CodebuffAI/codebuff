@@ -7,10 +7,12 @@ order: 3
 
 # What models do you use?
 
-We use multiple models to get better results: Claude Opus 4.5 and Claude Sonnet 4.5 for most implementation work, GPT-5 for fast responses, and Gemini for file discovery and thinking tasks. We also use a speculative decoding model from Relace AI for fast file rewrites. In other words, we carefully pick the best models for each job.
+We pick models by task:
 
-We have several modes which change the model setup to achieve different goals:
+- **Claude Opus 4.5** - Primary model for default and max modes
+- **Grok 4.1 Fast** - Used in lite mode for speed
+- **GPT-5** - Used for certain editing tasks
+- **Gemini 2.5 Pro/Flash** - File discovery and thinking tasks
+- **Relace AI** - Speculative decoding for fast file rewrites
 
-- `--lite`: Uses GPT-5 for faster, more economical responses. It also pulls fewer files, meaning that the context cost will be smaller.
-- `--max`: Uses Claude Sonnet 4.5 with enhanced multi-agent workflows to better handle complex problems and pulls more files from your codebase.
-- `--experimental`: Uses cutting-edge experimental features and the most advanced models available. This mode is for users who want to try the latest AI capabilities, though it may be less stable.
+See [Modes](/docs/tips#modes) for how each mode uses different model configurations.

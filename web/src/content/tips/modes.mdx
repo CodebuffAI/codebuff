@@ -7,11 +7,11 @@ order: 1
 
 # Modes
 
-Codebuff has four modes that control how it handles your requests. Switch modes using command-line flags or cycle through them with `Ctrl+M` in the CLI.
+Codebuff has four modes. Switch with flags or cycle using `Ctrl+M` in the CLI.
 
 ## Default
 
-The standard mode. Uses Claude Opus 4.5 with a balanced workflow:
+Standard mode with Claude Opus 4.5:
 
 - Spawns file pickers and code searchers to gather context
 - Uses the `editor` agent for code changes
@@ -25,14 +25,14 @@ codebuff  # no flag needed
 
 ## Lite (`--lite`)
 
-Faster and cheaper. Uses Grok 4.1 Fast with a streamlined workflow:
+Faster and cheaper with Grok 4.1 Fast:
 
 - Reduced file context gathering
 - Uses `editor-gpt-5` for code changes
 - Skips code review
 - No todo tracking or followup suggestions
 
-Best for quick fixes, simple questions, and when you want faster responses.
+Best for quick fixes and simple questions.
 
 ```bash
 codebuff --lite
@@ -40,7 +40,7 @@ codebuff --lite
 
 ## Max (`--max`)
 
-Maximum quality. Uses Claude Opus 4.5 with enhanced workflows:
+Uses Claude Opus 4.5 with more context gathering:
 
 - Reads 12-20+ files per task for deeper context
 - Uses `editor-multi-prompt` which generates multiple implementation proposals and picks the best
@@ -48,7 +48,7 @@ Maximum quality. Uses Claude Opus 4.5 with enhanced workflows:
 - Full code review after changes
 - Validates both specific changes and the full project
 
-Best for complex features, refactoring, and when correctness matters more than speed.
+Best for complex features and refactors.
 
 ```bash
 codebuff --max
@@ -56,7 +56,7 @@ codebuff --max
 
 ## Plan (`--plan`)
 
-Spec-writing mode. Does not modify files.
+Planning mode. No file writes.
 
 - Gathers context about your codebase
 - Asks clarifying questions using `ask_user`

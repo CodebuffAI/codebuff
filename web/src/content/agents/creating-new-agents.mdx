@@ -42,7 +42,7 @@ const definition: AgentDefinition = {
   displayName: 'My Custom Agent',
   spawnerPrompt:
     'Spawn this agent for specialized workflow tasks requiring custom logic',
-  model: 'anthropic/claude-4-sonnet-20250522',
+  model: 'anthropic/claude-sonnet-4.5',
   outputMode: 'last_message',
   includeMessageHistory: true,
   toolNames: ['read_files', 'write_file', 'end_turn'],
@@ -69,7 +69,7 @@ export default definition
 
 ### API Documentation Agent
 
-Specialized for documenting REST APIs and GraphQL schemas:
+Writes REST and GraphQL docs with examples:
 
 **.agents/api-documenter.ts**
 
@@ -82,8 +82,8 @@ const definition: AgentDefinition = {
 
   displayName: 'API Documentation Specialist',
   spawnerPrompt:
-    'Spawn this agent to create comprehensive API documentation with examples, schemas, and error codes',
-  model: 'anthropic/claude-4-sonnet-20250522',
+    'Spawn this agent to write API documentation with examples, schemas, and error codes',
+  model: 'anthropic/claude-sonnet-4.5',
   outputMode: 'last_message',
   includeMessageHistory: true,
 
@@ -104,9 +104,9 @@ const definition: AgentDefinition = {
   },
 
   systemPrompt:
-    'You are an API documentation specialist. Create clear, comprehensive documentation for REST APIs and GraphQL schemas with examples, request/response formats, and error codes.',
+    'You are an API documentation specialist. Write clear documentation for REST APIs and GraphQL schemas with examples, request/response formats, and error codes.',
   instructionsPrompt:
-    'Analyze the specified API endpoints and create detailed documentation including examples, parameters, and response schemas.',
+    'Analyze the specified API endpoints and create documentation including examples, parameters, and response schemas.',
   stepPrompt:
     'Continue documenting the API. Include practical examples and edge cases. Use end_turn when complete.',
 }
@@ -116,7 +116,7 @@ export default definition
 
 ### Database Migration Agent
 
-Specialized for creating and reviewing database migrations:
+Builds and reviews database migrations:
 
 **.agents/migration-specialist.ts**
 
@@ -129,8 +129,8 @@ const definition: AgentDefinition = {
 
   displayName: 'Database Migration Specialist',
   spawnerPrompt:
-    'Spawn this agent to create safe, reversible database migrations with proper indexing and rollback procedures',
-  model: 'anthropic/claude-4-sonnet-20250522',
+    'Spawn this agent to create reversible database migrations with proper indexing and rollback procedures',
+  model: 'anthropic/claude-sonnet-4.5',
   outputMode: 'last_message',
   includeMessageHistory: true,
 
@@ -144,7 +144,7 @@ const definition: AgentDefinition = {
   spawnableAgents: ['codebuff/reviewer@0.0.1'],
 
   systemPrompt:
-    'You are a database migration specialist. Your goal is to create safe, reversible database migrations with proper indexing and rollback procedures.',
+    'You are a database migration specialist. Create reversible database migrations with proper indexing and rollback procedures.',
   instructionsPrompt:
     "Create a database migration for the requested schema changes. Ensure it's reversible and includes proper indexing.",
   stepPrompt:
@@ -156,7 +156,7 @@ export default definition
 
 ## Programmatic Agents (Advanced)
 
-**🎯 This is where Codebuff agents become truly powerful!** While LLM-based agents work well for many tasks, programmatic agents give you precise control over complex workflows, while still letting you tap into LLMs when you want them.
+LLM-based agents cover many tasks. Programmatic agents add precise control over complex workflows while still letting you tap into LLMs when you want them.
 
 ### Why Use Programmatic Agents?
 
@@ -178,7 +178,7 @@ const definition: AgentDefinition = {
   id: 'code-analyzer',
   displayName: 'Code Analysis Expert',
   spawnerPrompt: 'Spawn for deep code analysis and refactoring suggestions',
-  model: 'anthropic/claude-4-sonnet-20250522',
+  model: 'anthropic/claude-sonnet-4.5',
 
   toolNames: ['read_files', 'code_search', 'spawn_agents', 'write_file'],
   spawnableAgents: ['codebuff/thinker@0.0.1', 'codebuff/reviewer@0.0.1'],

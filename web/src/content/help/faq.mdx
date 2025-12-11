@@ -9,13 +9,11 @@ order: 2
 
 ## What can Codebuff be used for?
 
-Our users use Codebuff to write frontend and backend code in every major language and framework. It can write features, tests, and scripts, and more.
-
-You can also use Codebuff to run CLI commands, configure your build, review your code, or answer questions on your codebase.
+Writing features, tests, and scripts across common languages and frameworks. It can also run CLI commands, adjust build configs, review code, and answer questions about your repo.
 
 ## What should I try first?
 
-Try tinkering with a simple project from one of our [starter templates](https://github.com/CodebuffAI/codebuff-community/tree/main/starter-templates) or [community showcase](https://github.com/CodebuffAI/codebuff-community/tree/main/showcase), e.g.:
+Start from a [starter template](https://github.com/CodebuffAI/codebuff-community/tree/main/starter-templates) or [community showcase](https://github.com/CodebuffAI/codebuff-community/tree/main/showcase):
 
 ```bash
 codebuff --create nextjs my-app
@@ -29,25 +27,23 @@ codebuff --create minecraft-simple
 
 ## What model does Codebuff use?
 
-We use multiple models to get better results: Claude Opus 4.5 and Claude Sonnet 4.5 for most of the coding, GPT-5 for fast responses, and Gemini for file discovery and thinking tasks. We also use a speculative decoding model from Relace AI for fast file rewrites.
+Multiple models: Claude Opus 4.5 and Claude Sonnet 4.5 for most coding, GPT-5 for quick edits, Gemini 2.5 Pro/Flash for discovery and thinking tasks, plus speculative decoding from Relace AI for faster file rewrites.
 
 ## Do you store my data?
 
-We don't store your codebase. Our server is a thin client that passes data along to our LLM providers. We store portions of your chats to help us debug.
+We don't store your codebase. The server forwards requests to model providers. We keep small slices of chat logs for debugging.
 
 ## Is Codebuff open source?
 
-Yes! Codebuff is fully open source under the Apache 2.0 license. You can view, audit, and contribute to the code at [github.com/codebuffai/codebuff](https://github.com/codebuffai/codebuff). This means you can see exactly how your data is handled and verify our security practices.
+Yes. It's Apache 2.0 at [github.com/CodebuffAI/codebuff](https://github.com/CodebuffAI/codebuff).
 
 ## Can I trust Codebuff with full access to my terminal?
 
-None of our users have had significant issues so far. However, if you prefer an extra layer of safety, we made a [Dockerfile](https://github.com/CodebuffAI/codebuff-community/tree/main/utils/docker) that you can use. It'll set up Codebuff in an environment that's isolated from your filesystem and only has the code you want to share.
+If you want isolation, use the [Dockerfile](https://github.com/CodebuffAI/codebuff-community/tree/main/utils/docker) to run Codebuff against a scoped copy of your codebase.
 
 ## Can I specify custom instructions for Codebuff?
 
-Yes! We recommend you create knowledge.md files to give Codebuff more context about your codebase, like you're introducing it to another engineer. All file names ending in knowledge.md are loaded into context automatically, and you can use the files to do your own prompt engineering for Codebuff.
-
-If you do not have a knowledge.md file, Codebuff typically will not create one, but it will update existing knowledge.md files autonomously. The Codebuff codebase currently has a knowledge.md in almost every directory.
+Yes. Add `knowledge.md` files to describe patterns, constraints, and commands. Files ending in `knowledge.md` load automatically. Codebuff updates existing ones but won't create them unless you ask.
 
 ## Can I tell Codebuff to ignore certain files?
 
@@ -82,14 +78,14 @@ The final set of files ignored by Codebuff are determined by the contents of `.g
 
 ## Why does Codebuff cost more?
 
-Compared to alternatives, Codebuff does more LLM calls using more examples from your codebase, leading to better code edits. We try to get you the best performance per dollar, but we bias towards spending more for better results. However, we are far [cheaper than some alternatives](https://x.com/jahooma/status/1894224663817195599).
+We run more model calls and feed more of your codebase to get tighter edits. That costs more per request, but per benchmark we are still [cheaper than some options](https://x.com/jahooma/status/1894224663817195599).
 
 ## How does Codebuff compare to Claude Code?
 
-Anthropic recently released [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview), their own AI coding assistant that also uses Claude Sonnet 4. For a detailed comparison between Codebuff and Claude Code, see [Codebuff vs Claude Code](/docs/advanced#codebuff-vs-claude-code). TLDR: Codebuff is faster, cheaper, and more adept at analyzing large codebases.
+See [Codebuff vs Claude Code](/docs/advanced#codebuff-vs-claude-code) for a detailed comparison. Short version: Codebuff is faster, cheaper, and handles large codebases better.
 
 ## I have more questions!
 
-We're happy to answer! Contact us at [support@codebuff.com](mailto:support@codebuff.com) or [join our Discord](https://discord.gg/mcWTGjgTj3)!
+Contact [support@codebuff.com](mailto:support@codebuff.com) or [join our Discord](https://discord.gg/mcWTGjgTj3).
 
 Having technical issues? Check out our [Troubleshooting](/docs/advanced#troubleshooting) guide for solutions to common problems.

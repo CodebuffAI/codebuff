@@ -7,7 +7,7 @@ order: 1
 
 # Customizing Agents
 
-Create specialized agents from scratch using TypeScript files in the `.agents/` directory:
+Create agents with TypeScript files in the `.agents/` directory:
 
 ```markdown
 .agents/
@@ -19,9 +19,7 @@ Create specialized agents from scratch using TypeScript files in the `.agents/` 
 
 ### Domain-Specific Customization
 
-Agents adapt to your specific workflow and project needs.
-
-Keep in mind you'll get the most value from agents if you treat them as context window managers. Design them to orchestrate and sequence work so the right files, facts, and decisions are in scope at each step. Break tasks into steps and build agents around controlling that flow instead of trying to replicate human specialties.
+Design agents to manage context flow: orchestrate steps so the right files and facts stay in scope, instead of trying to mimic job titles.
 
 **Tip:** Use specialty reviewers as spawnable subagents that your context-manager agent calls at the right time in the workflow.
 
@@ -46,8 +44,6 @@ const definition = {
 
 ## Example: Security Coordinator Agent
 
-Create a specialized agent for security-focused workflows:
-
 **.agents/security-coordinator.ts**
 
 ```typescript
@@ -59,7 +55,7 @@ const definition: AgentDefinition = {
 
   displayName: 'Security Coordinator',
   spawnerPrompt:
-    'Spawn this agent to coordinate security-focused development workflows and ensure secure coding practices',
+    'Spawn this agent to coordinate security-focused development workflows',
   model: 'anthropic/claude-sonnet-4.5',
   outputMode: 'last_message',
   includeMessageHistory: true,
@@ -79,9 +75,9 @@ const definition: AgentDefinition = {
   },
 
   systemPrompt:
-    'You are a security coordinator responsible for ensuring secure development practices.',
+    'You are a security coordinator responsible for secure development practices.',
   instructionsPrompt:
-    'Analyze the security implications of the request and coordinate appropriate security-focused agents.',
+    'Analyze the security implications of the request and coordinate security-focused agents.',
   stepPrompt:
     'Continue analyzing security requirements and coordinating the workflow. Use end_turn when complete.',
 }
@@ -89,9 +85,7 @@ const definition: AgentDefinition = {
 export default definition
 ```
 
-## Advanced: Adding Programmatic Control
-
-Make your agent even more powerful with programmatic control:
+## Adding Programmatic Control
 
 ```typescript
 const definition: AgentDefinition = {
@@ -131,10 +125,10 @@ const definition: AgentDefinition = {
 
 With `handleSteps`, your agent can:
 
-- Make decisions based on actual code analysis
-- Orchestrate multiple tools in sequence
-- Handle errors gracefully
-- Implement complex conditional logic
+- Make decisions from tool output
+- Orchestrate tools in sequence
+- Handle errors
+- Run conditional logic
 
 ## Available Fields
 
@@ -182,5 +176,3 @@ With `handleSteps`, your agent can:
 1. Check TypeScript: `bun run typecheck` in `.agents/` directory
 2. Restart Codebuff to see errors
 3. Test with `--agent <agent-id>` to debug specific agents
-
-**Tip:** Use specialty reviewers as spawnable subagents that your context-manager agent calls at the right time in the workflow.

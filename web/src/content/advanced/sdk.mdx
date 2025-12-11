@@ -7,7 +7,7 @@ order: 7
 
 # SDK & Programmatic Access
 
-The Codebuff SDK (`@codebuff/sdk`) allows you to integrate AI coding capabilities into your own applications, scripts, and workflows programmatically.
+The Codebuff SDK (`@codebuff/sdk`) lets you run Codebuff agents from your own code.
 
 ## Installation
 
@@ -66,7 +66,7 @@ import type { AgentDefinition } from '@codebuff/sdk'
 
 const myAgent: AgentDefinition = {
   id: 'my-custom-agent',
-  model: 'anthropic/claude-4-sonnet-20250522',
+  model: 'anthropic/claude-sonnet-4.5',
   displayName: 'My Custom Agent',
   toolNames: ['read_files', 'write_file'],
   instructionsPrompt: 'You are a helpful coding assistant.',
@@ -175,19 +175,14 @@ Returns a `RunState` object containing:
 
 ## Use Cases
 
-The SDK is perfect for:
-
-- **CI/CD Pipelines**: Automated code review, test generation, or refactoring
-- **Custom Workflows**: Build your own AI-powered development tools
-- **Batch Processing**: Process multiple files or projects programmatically
-- **Integration**: Embed Codebuff in VS Code extensions, web apps, or other tools
-- **Automation**: Create scripts that leverage AI for repetitive coding tasks
+- CI/CD pipelines (code review, test generation, refactoring)
+- Batch processing across multiple files
+- Embedding in VS Code extensions or web apps
+- Scripts for repetitive coding tasks
 
 ## Examples
 
 ### Test Generation
-
-Automatically generate unit tests for your code:
 
 ```typescript
 import { CodebuffClient } from '@codebuff/sdk'
@@ -217,9 +212,7 @@ async function generateTests(code: string) {
 }
 ```
 
-### Code Review Automation
-
-Integrate AI code review into your CI/CD pipeline:
+### Code Review in CI
 
 ```typescript
 import { CodebuffClient } from '@codebuff/sdk'
@@ -238,9 +231,7 @@ async function reviewPullRequest(diff: string) {
 }
 ```
 
-### Batch Processing Multiple Files
-
-Process multiple files in sequence while maintaining conversation context:
+### Batch Processing
 
 ```typescript
 import { CodebuffClient } from '@codebuff/sdk'
@@ -274,8 +265,6 @@ await addDocstringsToFiles(files)
 ```
 
 ### Code Refactoring
-
-Refactor code to use modern patterns:
 
 ```typescript
 import { CodebuffClient } from '@codebuff/sdk'
@@ -312,8 +301,6 @@ async function refactorCode(code: string) {
 
 ### Providing Project Context
 
-Pass project files to give the agent better context:
-
 ```typescript
 import { CodebuffClient } from '@codebuff/sdk'
 import * as fs from 'fs'
@@ -339,9 +326,7 @@ async function generateComponentWithContext() {
 }
 ```
 
-### CI/CD Integration (GitHub Actions)
-
-Example GitHub Action workflow for automated code review:
+### GitHub Actions Example
 
 ```yaml
 name: AI Code Review
@@ -370,6 +355,6 @@ jobs:
 
 ## Resources
 
-- [GitHub Repository](https://github.com/CodebuffAI/codebuff) - Full source code
+- [GitHub Repository](https://github.com/CodebuffAI/codebuff) - Source code
 - [Agent Store](https://codebuff.com/store) - Browse available agents
 - [API Keys](https://codebuff.com/api-keys) - Get your API key

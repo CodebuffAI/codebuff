@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils'
 
 const learnSections = [
   {
-    title: 'Getting Started',
+    title: 'Quick Start',
     href: '/docs/help',
     subsections: getDocsByCategory('help').map((doc) => ({
       title: doc.title,

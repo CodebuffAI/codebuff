@@ -7,8 +7,8 @@ order: 2
 
 # How does Codebuff actually work?
 
-Codebuff starts by running through the source files in all subdirectories and parsing them with tree-sitter. We use this information to help find relevant files to you requests.
+Codebuff scans your repo with tree-sitter and builds a quick index of the code. That index makes it fast to find files when you ask for help.
 
-We have a stateless server that passes messages along to Anthropic, OpenAI, or Gemini and websockets to ferry data back and forth to clients. It effectively acts as a proxy between the client and our LLM providers.
+The server is stateless. It proxies requests to Anthropic, OpenAI, or Gemini over websockets and streams results back to the CLI.
 
-We use a fast model to pick the relevant files, and we load them into context Claude Sonnet responds with the right edit. This main agent can also delegate to other agents, as when it does its planning step, or when searching for files.
+We use a fast model to pick files, load the right snippets into context, and let Claude Sonnet propose an edit. The main agent can hand work to other agents for planning or file search when needed.
