@@ -688,9 +688,15 @@ export const useSuggestionEngine = ({
       const isCurrentMode =
         modeMatch && currentAgentMode?.toLowerCase() === modeMatch[1]
 
+      // Build label with aliases if present, e.g. "exit (quit, q)"
+      const aliasesStr = command.aliases?.length
+        ? ` (${command.aliases.join(', ')})`
+        : ''
+      const label = command.label + aliasesStr
+
       return {
         id: command.id,
-        label: command.label,
+        label,
         labelHighlightIndices: command.labelHighlightIndices,
         description: isCurrentMode
           ? `${command.description} (current)`

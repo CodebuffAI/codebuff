@@ -700,31 +700,7 @@ export const Chat = ({
     })
   })
 
-  // Click handlers for suggestion menu items
-  const handleSlashItemClick = useCallback(
-    (index: number) => {
-      const selected = slashMatches[index]
-      if (!selected || slashContext.startIndex < 0) return
-      const before = inputValue.slice(0, slashContext.startIndex)
-      const after = inputValue.slice(
-        slashContext.startIndex + 1 + slashContext.query.length,
-      )
-      const replacement = `/${selected.id} `
-      setInputValue({
-        text: before + replacement + after,
-        cursorPosition: before.length + replacement.length,
-        lastEditDueToNav: false,
-      })
-      setSlashSelectedIndex(0)
-    },
-    [
-      slashMatches,
-      slashContext,
-      inputValue,
-      setInputValue,
-      setSlashSelectedIndex,
-    ],
-  )
+  // handleSlashItemClick is defined later after openPublishMode is available
 
   const handleMentionItemClick = useCallback(
     (index: number) => {
@@ -802,6 +778,26 @@ export const Chat = ({
     )
 
   const publishMutation = usePublishMutation()
+
+  // Click handler for slash menu items (defined here after openPublishMode is available)
+  const handleSlashItemClick = useCallback(
+    async (index: number) => {
+      const selected = slashMatches[index]
+      if (!selected) return
+      // Execute the selected slash command immediately
+      const commandString = `/${selected.id}`
+      setSlashSelectedIndex(0)
+      const result = await onSubmitPrompt(commandString, agentMode)
+      if (result?.openFeedbackMode) {
+        saveCurrentInput('', 0)
+        openFeedbackForMessage(null)
+      }
+      if (result?.openPublishMode) {
+        openPublishMode()
+      }
+    },
+    [slashMatches, setSlashSelectedIndex, onSubmitPrompt, agentMode, saveCurrentInput, openFeedbackForMessage, openPublishMode],
+  )
 
   const inputValueRef = useRef(inputValue)
   const cursorPositionRef = useRef(cursorPosition)
@@ -1032,26 +1028,48 @@ export const Chat = ({
       },
       onSlashMenuDown: () => setSlashSelectedIndex((prev) => prev + 1),
       onSlashMenuUp: () => setSlashSelectedIndex((prev) => prev - 1),
-      onSlashMenuTab: () =>
-        setSlashSelectedIndex((prev) => (prev + 1) % slashMatches.length),
+      onSlashMenuTab: async () => {
+        // If only one match, execute it immediately (unless the command opts out)
+        if (slashMatches.length === 1) {
+          const selected = slashMatches[0]
+          if (!selected) return
+          // Don't auto-execute commands that opt out (e.g. /exit)
+          if (selected.noTabAutoExecute) {
+            return
+          }
+          const commandString = `/${selected.id}`
+          setSlashSelectedIndex(0)
+          const result = await onSubmitPrompt(commandString, agentMode)
+          if (result?.openFeedbackMode) {
+            saveCurrentInput('', 0)
+            openFeedbackForMessage(null)
+          }
+          if (result?.openPublishMode) {
+            openPublishMode()
+          }
+          return
+        }
+        // Otherwise cycle through options
+        setSlashSelectedIndex((prev) => (prev + 1) % slashMatches.length)
+      },
       onSlashMenuShiftTab: () =>
         setSlashSelectedIndex(
           (prev) => (slashMatches.length + prev - 1) % slashMatches.length,
         ),
-      onSlashMenuSelect: () => {
+      onSlashMenuSelect: async () => {
         const selected = slashMatches[slashSelectedIndex] || slashMatches[0]
-        if (!selected || slashContext.startIndex < 0) return
-        const before = inputValue.slice(0, slashContext.startIndex)
-        const after = inputValue.slice(
-          slashContext.startIndex + 1 + slashContext.query.length,
-        )
-        const replacement = `/${selected.id} `
-        setInputValue({
-          text: before + replacement + after,
-          cursorPosition: before.length + replacement.length,
-          lastEditDueToNav: false,
-        })
+        if (!selected) return
+        // Execute the selected slash command immediately
+        const commandString = `/${selected.id}`
         setSlashSelectedIndex(0)
+        const result = await onSubmitPrompt(commandString, agentMode)
+        if (result?.openFeedbackMode) {
+          saveCurrentInput('', 0)
+          openFeedbackForMessage(null)
+        }
+        if (result?.openPublishMode) {
+          openPublishMode()
+        }
       },
       onMentionMenuDown: () => setAgentSelectedIndex((prev) => prev + 1),
       onMentionMenuUp: () => setAgentSelectedIndex((prev) => prev - 1),
@@ -1169,8 +1187,8 @@ export const Chat = ({
       setSlashSelectedIndex,
       slashMatches,
       slashSelectedIndex,
-      slashContext,
-      inputValue,
+      onSubmitPrompt,
+      agentMode,
       setAgentSelectedIndex,
       agentMatches,
       fileMatches,

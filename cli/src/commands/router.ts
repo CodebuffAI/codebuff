@@ -354,6 +354,8 @@ export async function routeUserPrompt(
     // Look up command in registry
     const commandDef = findCommand(cmd)
     if (commandDef) {
+      // The command handler (via defineCommand/defineCommandWithArgs factories)
+      // is responsible for validating and handling args
       return await commandDef.handler(params, args)
     }
   }

@@ -57,6 +57,109 @@ export type CommandDefinition = {
   name: string
   aliases: string[]
   handler: CommandHandler
+  /** Whether this command accepts arguments. Set automatically by the factory. */
+  acceptsArgs: boolean
+}
+
+/**
+ * Handler type for commands that don't accept arguments.
+ */
+type CommandHandlerNoArgs = (
+  params: RouterParams,
+) => Promise<CommandResult> | CommandResult
+
+/**
+ * Handler type for commands that accept arguments.
+ */
+type CommandHandlerWithArgs = (
+  params: RouterParams,
+  args: string,
+) => Promise<CommandResult> | CommandResult
+
+/**
+ * Configuration for defining a command that does NOT accept arguments.
+ * This is the default, safe path - the handler cannot access args.
+ */
+type CommandConfig = {
+  name: string
+  aliases?: string[]
+  handler: CommandHandlerNoArgs
+}
+
+/**
+ * Configuration for defining a command that accepts arguments.
+ * Use this when the command needs to process user-provided arguments.
+ */
+type CommandWithArgsConfig = {
+  name: string
+  aliases?: string[]
+  handler: CommandHandlerWithArgs
+}
+
+/**
+ * Factory for commands that do NOT accept arguments.
+ * This is the default, safe path - the handler cannot access args.
+ * If the user provides args, an error message is shown automatically.
+ *
+ * @example
+ * defineCommand({
+ *   name: 'new',
+ *   aliases: ['n', 'clear'],
+ *   handler: (params) => {
+ *     params.setMessages(() => [])
+ *   },
+ * })
+ */
+export function defineCommand(config: CommandConfig): CommandDefinition {
+  return {
+    name: config.name,
+    aliases: config.aliases ?? [],
+    acceptsArgs: false,
+    handler: (params, args) => {
+      if (args.trim()) {
+        const displayArgs =
+          args.length > 50 ? args.slice(0, 50) + '...' : args
+        params.setMessages((prev) => [
+          ...prev,
+          getUserMessage(params.inputValue.trim()),
+          getSystemMessage(
+            `The /${config.name} command does not accept arguments. Did you mean to send "${displayArgs}" as a message?`,
+          ),
+        ])
+        params.saveToHistory(params.inputValue.trim())
+        clearInput(params)
+        return
+      }
+      return config.handler(params)
+    },
+  }
+}
+
+/**
+ * Factory for commands that accept arguments.
+ * Use this when the command needs to process user-provided arguments.
+ * The handler receives both params and args.
+ *
+ * @example
+ * defineCommandWithArgs({
+ *   name: 'bash',
+ *   aliases: ['!'],
+ *   handler: (params, args) => {
+ *     if (args.trim()) {
+ *       runBashCommand(args.trim())
+ *     }
+ *   },
+ * })
+ */
+export function defineCommandWithArgs(
+  config: CommandWithArgsConfig,
+): CommandDefinition {
+  return {
+    name: config.name,
+    aliases: config.aliases ?? [],
+    acceptsArgs: true,
+    handler: config.handler,
+  }
 }
 
 const clearInput = (params: RouterParams) => {
@@ -64,7 +167,7 @@ const clearInput = (params: RouterParams) => {
 }
 
 export const COMMAND_REGISTRY: CommandDefinition[] = [
-  {
+  defineCommand({
     name: 'feedback',
     aliases: ['bug', 'report'],
     handler: (params) => {
@@ -72,8 +175,8 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       clearInput(params)
       return { openFeedbackMode: true }
     },
-  },
-  {
+  }),
+  defineCommandWithArgs({
     name: 'bash',
     aliases: ['!'],
     handler: (params, args) => {
@@ -93,8 +196,8 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
     },
-  },
-  {
+  }),
+  defineCommandWithArgs({
     name: 'referral',
     aliases: ['redeem'],
     handler: async (params, args) => {
@@ -129,8 +232,8 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
     },
-  },
-  {
+  }),
+  defineCommand({
     name: 'login',
     aliases: ['signin'],
     handler: (params) => {
@@ -142,8 +245,8 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       ])
       clearInput(params)
     },
-  },
-  {
+  }),
+  defineCommand({
     name: 'logout',
     aliases: ['signout'],
     handler: (params) => {
@@ -167,15 +270,15 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
         },
       })
     },
-  },
-  {
+  }),
+  defineCommand({
     name: 'exit',
     aliases: ['quit', 'q'],
     handler: () => {
       process.kill(process.pid, 'SIGINT')
     },
-  },
-  {
+  }),
+  defineCommand({
     name: 'new',
     aliases: ['n', 'clear', 'c'],
     handler: (params) => {
@@ -186,10 +289,9 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       params.stopStreaming()
       params.setCanProcessQueue(false)
     },
-  },
-  {
+  }),
+  defineCommand({
     name: 'init',
-    aliases: [],
     handler: async (params) => {
       const { postUserMessage } = handleInitializationFlowLocally()
       const trimmed = params.inputValue.trim()
@@ -219,8 +321,8 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
         params.scrollToLatest()
       }, 0)
     },
-  },
-  {
+  }),
+  defineCommand({
     name: 'usage',
     aliases: ['credits'],
     handler: async (params) => {
@@ -229,8 +331,8 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
     },
-  },
-  {
+  }),
+  defineCommandWithArgs({
     name: 'image',
     aliases: ['img', 'attach'],
     handler: async (params, args) => {
@@ -249,25 +351,25 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
     },
-  },
+  }),
   // Mode commands generated from AGENT_MODES
-  ...AGENT_MODES.map((mode) => ({
-    name: `mode:${mode.toLowerCase()}`,
-    aliases: [] as string[],
-    handler: (params: RouterParams) => {
-      useChatStore.getState().setAgentMode(mode)
-      params.setMessages((prev) => [
-        ...prev,
-        getUserMessage(params.inputValue.trim()),
-        getSystemMessage(`Switched to ${mode} mode.`),
-      ])
-      params.saveToHistory(params.inputValue.trim())
-      clearInput(params)
-    },
-  })),
-  {
+  ...AGENT_MODES.map((mode) =>
+    defineCommand({
+      name: `mode:${mode.toLowerCase()}`,
+      handler: (params) => {
+        useChatStore.getState().setAgentMode(mode)
+        params.setMessages((prev) => [
+          ...prev,
+          getUserMessage(params.inputValue.trim()),
+          getSystemMessage(`Switched to ${mode} mode.`),
+        ])
+        params.saveToHistory(params.inputValue.trim())
+        clearInput(params)
+      },
+    }),
+  ),
+  defineCommandWithArgs({
     name: 'publish',
-    aliases: [],
     handler: (params, args) => {
       const trimmedArgs = args.trim()
       params.saveToHistory(params.inputValue.trim())
@@ -282,7 +384,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       // Otherwise open selection UI
       return { openPublishMode: true }
     },
-  },
+  }),
 ]
 
 export function findCommand(cmd: string): CommandDefinition | undefined {
