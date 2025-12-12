@@ -44,17 +44,7 @@ function readMockFile(projectRoot: string, filePath: string): string | null {
 
 let toolCalls: ClientToolCall[] = []
 let toolResults: ToolMessage[] = []
-const defaultFs: CodebuffFileSystem = {
-  ...(fs.promises as unknown as CodebuffFileSystem),
-  exists: async (pathLike) => {
-    try {
-      await fs.promises.access(pathLike as fs.PathLike)
-      return true
-    } catch {
-      return false
-    }
-  },
-}
+const defaultFs: CodebuffFileSystem = fs.promises as unknown as CodebuffFileSystem
 let projectRootForMocks: string | undefined
 
 export function createFileReadingMock(projectRoot: string) {
