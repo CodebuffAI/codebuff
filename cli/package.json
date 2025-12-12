@@ -31,8 +31,8 @@
   },
   "dependencies": {
     "@codebuff/sdk": "workspace:*",
-    "@opentui/core": "^0.1.60",
-    "@opentui/react": "^0.1.60",
+    "@opentui/core": "^0.1.56",
+    "@opentui/react": "^0.1.56",
     "@tanstack/react-query": "^5.62.8",
     "commander": "^14.0.1",
     "immer": "^10.1.3",
