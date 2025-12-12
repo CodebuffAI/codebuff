@@ -91,7 +91,7 @@ jobs:
       - name: Build SDK
         run: |
           cd sdk
-          bun run build:verify
+          bun run verify
 
       - name: Set up Node.js for npm publishing
         uses: actions/setup-node@v4
