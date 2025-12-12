@@ -198,12 +198,15 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
       setAnswerForQuestion(questionIndex, (currentAnswer) =>
         isOtherOption
           ? {
-              ...currentAnswer,
+              // Selecting "Custom" should clear any single-select choice
+              selectedIndex: undefined,
+              selectedIndices: undefined,
               isOther: true,
               otherText: currentAnswer?.otherText || '',
             }
           : {
               selectedIndex: optionIndex,
+              selectedIndices: undefined,
               isOther: false,
             },
       )

@@ -121,6 +121,14 @@ export const AccordionQuestion: React.FC<AccordionQuestionProps> = ({
 
   // Question number (1-indexed) - only shown when multiple questions
   const questionNumber = questionIndex + 1
+  const isCustomSelected = answer?.isOther ?? false
+  const customSymbol = isMultiSelect
+    ? isCustomSelected
+      ? SYMBOLS.CHECKBOX_CHECKED
+      : SYMBOLS.CHECKBOX_UNCHECKED
+    : isCustomSelected
+      ? SYMBOLS.SELECTED
+      : SYMBOLS.UNSELECTED
 
   return (
     <box style={{ flexDirection: 'column', marginBottom: 1 }}>
@@ -187,7 +195,7 @@ export const AccordionQuestion: React.FC<AccordionQuestionProps> = ({
             )
           })}
 
-          {/* Custom option - text input (always uses radio button style) */}
+          {/* Custom option - uses checkbox style for multi-select questions */}
           <Button
             onClick={() => {
               if (isMultiSelect) {
@@ -218,7 +226,7 @@ export const AccordionQuestion: React.FC<AccordionQuestionProps> = ({
                       : undefined,
                 }}
               >
-                {answer?.isOther ? SYMBOLS.SELECTED : SYMBOLS.UNSELECTED}
+                {customSymbol}
               </text>
               <text
                 style={{
