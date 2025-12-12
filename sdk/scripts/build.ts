@@ -99,6 +99,15 @@ async function build() {
           output: {
             exportReferencedTypes: false,
           },
+          libraries: {
+            // Treat all @codebuff/* workspace packages as external imports
+            // so dts-bundle-generator doesn't fail on their internal relative imports
+            importedLibraries: [
+              '@codebuff/common',
+              '@codebuff/agent-runtime',
+              '@codebuff/code-map',
+            ],
+          },
         },
       ],
       {
