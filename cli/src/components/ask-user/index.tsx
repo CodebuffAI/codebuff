@@ -118,26 +118,44 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
     [questions, answers],
   )
 
+  const setAnswerForQuestion = useCallback(
+    (
+      questionIndex: number,
+      updater: (previous: AccordionAnswer | undefined) => AccordionAnswer,
+    ) => {
+      setAnswers((prev) => {
+        const nextAnswers = new Map(prev)
+        const previousAnswer = prev.get(questionIndex)
+        nextAnswers.set(questionIndex, updater(previousAnswer))
+        return nextAnswers
+      })
+    },
+    [],
+  )
+
+  const goToNextUnanswered = useCallback(
+    (questionIndex: number) => {
+      const nextUnanswered = findNextUnanswered(questionIndex)
+      setExpandedIndex(nextUnanswered)
+    },
+    [findNextUnanswered],
+  )
+
   // Handle setting "Other" text (with cursor position)
   const handleSetOtherText = useCallback(
     (questionIndex: number, text: string, cursorPosition: number) => {
-      setAnswers((prev) => {
-        const newAnswers = new Map(prev)
-        const currentAnswer = prev.get(questionIndex)
-        newAnswers.set(questionIndex, {
-          ...currentAnswer,
-          isOther: true,
-          otherText: text,
-        })
-        return newAnswers
-      })
+      setAnswerForQuestion(questionIndex, (currentAnswer) => ({
+        ...currentAnswer,
+        isOther: true,
+        otherText: text,
+      }))
       setOtherCursorPositions((prev) => {
         const newPositions = new Map(prev)
         newPositions.set(questionIndex, cursorPosition)
         return newPositions
       })
     },
-    [],
+    [setAnswerForQuestion],
   )
 
   // Handle "Other" text submit (Enter key)
@@ -149,28 +167,21 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
       setIsTypingOther(false)
       // If text is entered, move to next question
       if (currentText.trim()) {
-        const nextUnanswered = findNextUnanswered(questionIndex)
-        setExpandedIndex(nextUnanswered)
+        goToNextUnanswered(questionIndex)
       }
     },
-    [answers, findNextUnanswered],
+    [answers, goToNextUnanswered],
   )
 
   // Handle "Other" text cancel (Escape key) - deselect Custom option entirely
   const handleOtherCancel = useCallback(
     (questionIndex: number) => {
       // Clear text, deselect "Custom" option, and exit typing mode
-      setAnswers((prev) => {
-        const newAnswers = new Map(prev)
-        const currentAnswer = prev.get(questionIndex)
-        // Deselect "Custom" by setting isOther to false and clearing text
-        newAnswers.set(questionIndex, {
-          ...currentAnswer,
-          isOther: false,
-          otherText: '',
-        })
-        return newAnswers
-      })
+      setAnswerForQuestion(questionIndex, (currentAnswer) => ({
+        ...currentAnswer,
+        isOther: false,
+        otherText: '',
+      }))
       setOtherCursorPositions((prev) => {
         const newPositions = new Map(prev)
         newPositions.set(questionIndex, 0)
@@ -178,125 +189,124 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
       })
       setIsTypingOther(false)
     },
-    [],
+    [setAnswerForQuestion],
   )
 
   // Handle selecting an option (single-select)
   const handleSelectOption = useCallback(
     (questionIndex: number, optionIndex: number) => {
-      setAnswers((prev) => {
-        const newAnswers = new Map(prev)
-        if (optionIndex === OTHER_OPTION_INDEX) {
-          // "Other" option - enter typing mode
-          newAnswers.set(questionIndex, {
-            isOther: true,
-            otherText: prev.get(questionIndex)?.otherText || '',
-          })
-        } else {
-          newAnswers.set(questionIndex, {
-            selectedIndex: optionIndex,
-            isOther: false,
-          })
-        }
-        return newAnswers
-      })
+      const isOtherOption = optionIndex === OTHER_OPTION_INDEX
+      setAnswerForQuestion(questionIndex, (currentAnswer) =>
+        isOtherOption
+          ? {
+              ...currentAnswer,
+              isOther: true,
+              otherText: currentAnswer?.otherText || '',
+            }
+          : {
+              selectedIndex: optionIndex,
+              isOther: false,
+            },
+      )
 
       // For "Other" option, enter typing mode
-      if (optionIndex === OTHER_OPTION_INDEX) {
+      if (isOtherOption) {
         setIsTypingOther(true)
       } else {
         // For regular options, collapse and move to next unanswered
-        const nextUnanswered = findNextUnanswered(questionIndex)
-        setExpandedIndex(nextUnanswered)
+        goToNextUnanswered(questionIndex)
       }
     },
-    [findNextUnanswered],
+    [goToNextUnanswered, setAnswerForQuestion],
   )
 
   // Handle toggling an option (multi-select)
   const handleToggleOption = useCallback(
     (questionIndex: number, optionIndex: number) => {
+      let toggledOtherOn = false
+
       setAnswers((prev) => {
         const newAnswers = new Map(prev)
         const currentAnswer = prev.get(questionIndex)
-        const currentIndices = currentAnswer?.selectedIndices ?? new Set()
 
         if (optionIndex === OTHER_OPTION_INDEX) {
-          // "Other" option toggle
-          const wasOther = currentAnswer?.isOther ?? false
+          toggledOtherOn = !(currentAnswer?.isOther ?? false)
           newAnswers.set(questionIndex, {
             ...currentAnswer,
-            selectedIndices: currentIndices,
-            isOther: !wasOther,
+            selectedIndices: new Set(currentAnswer?.selectedIndices ?? []),
+            isOther: !currentAnswer?.isOther,
             otherText: currentAnswer?.otherText || '',
           })
-        } else {
-          const newIndices = new Set(currentIndices)
-          if (newIndices.has(optionIndex)) {
-            newIndices.delete(optionIndex)
-          } else {
-            newIndices.add(optionIndex)
-          }
-          newAnswers.set(questionIndex, {
-            ...currentAnswer,
-            selectedIndices: newIndices,
-            isOther: currentAnswer?.isOther ?? false,
-          })
+          return newAnswers
         }
+
+        const newIndices = new Set(currentAnswer?.selectedIndices ?? [])
+        if (newIndices.has(optionIndex)) {
+          newIndices.delete(optionIndex)
+        } else {
+          newIndices.add(optionIndex)
+        }
+        newAnswers.set(questionIndex, {
+          ...currentAnswer,
+          selectedIndices: newIndices,
+          isOther: currentAnswer?.isOther ?? false,
+        })
         return newAnswers
       })
 
       // For "Other" option in multi-select, also enter typing mode
       if (optionIndex === OTHER_OPTION_INDEX) {
-        // Check if we're toggling ON (not off)
-        const currentAnswer = answers.get(questionIndex)
-        if (!currentAnswer?.isOther) {
-          setIsTypingOther(true)
-        } else {
-          setIsTypingOther(false)
-        }
+        setIsTypingOther(toggledOtherOn)
       }
     },
-    [answers],
+    [],
+  )
+
+  const formatAnswer = useCallback(
+    (
+      question: AskUserQuestion,
+      answer: AccordionAnswer | undefined,
+    ) => {
+      if (!answer) {
+        return { question: question.question, answer: 'Skipped' }
+      }
+
+      const selectedOptions = question.multiSelect
+        ? Array.from(answer.selectedIndices ?? [])
+            .map((idx: number) => getOptionLabel(question.options[idx]))
+            .filter(Boolean)
+        : answer.selectedIndex !== undefined
+          ? [getOptionLabel(question.options[answer.selectedIndex])]
+          : []
+
+      const customText =
+        answer.isOther && (answer.otherText?.trim().length ?? 0) > 0
+          ? (answer.otherText ?? '').trim()
+          : ''
+
+      const parts = customText ? [...selectedOptions, customText] : selectedOptions
+      if (parts.length === 0) {
+        return { question: question.question, answer: 'Skipped' }
+      }
+
+      return {
+        question: question.question,
+        answer: question.multiSelect ? parts.join(', ') : parts[0],
+      }
+    },
+    [],
   )
 
   // Handle submit
   const handleSubmit = useCallback(() => {
     const formattedAnswers = questions.map(
       (question: AskUserQuestion, index: number) => {
-        const answer = answers.get(index)
-        if (!answer) {
-          return { question: question.question, answer: 'Skipped' }
-        }
-
-        if (answer.isOther && answer.otherText) {
-          return { question: question.question, answer: answer.otherText }
-        }
-
-        if (question.multiSelect && answer.selectedIndices) {
-          const selectedLabels = Array.from(answer.selectedIndices)
-            .map((idx: number) => getOptionLabel(question.options[idx]))
-            .filter(Boolean)
-          return {
-            question: question.question,
-            answer: selectedLabels.join(', '),
-          }
-        }
-
-        if (answer.selectedIndex !== undefined) {
-          const label = getOptionLabel(question.options[answer.selectedIndex])
-          return {
-            question: question.question,
-            answer: label || 'Unknown',
-          }
-        }
-
-        return { question: question.question, answer: 'Skipped' }
+        return formatAnswer(question, answers.get(index))
       },
     )
 
     onSubmit(formattedAnswers)
-  }, [questions, answers, onSubmit])
+  }, [questions, answers, onSubmit, formatAnswer])
 
   // Keyboard navigation using OpenTUI's useKeyboard hook
   useKeyboard(

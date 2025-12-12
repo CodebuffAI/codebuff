@@ -216,6 +216,7 @@ export const MessageWithAgents = memo(
                   }
                   attachments={message.attachments}
                   metadata={message.metadata}
+                  isLastMessage={isLastMessage}
                 />
               </box>
             </box>
@@ -246,6 +247,7 @@ export const MessageWithAgents = memo(
                 onCloseFeedback={onCloseFeedback}
                 attachments={message.attachments}
                 metadata={message.metadata}
+                isLastMessage={isLastMessage}
               />
             </box>
           )}

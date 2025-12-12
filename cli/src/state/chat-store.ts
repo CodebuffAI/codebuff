@@ -6,7 +6,7 @@ import { AGENT_MODES } from '../utils/constants'
 import { clamp } from '../utils/math'
 import { loadModePreference, saveModePreference } from '../utils/settings'
 
-import type { ChatMessage } from '../types/chat'
+import type { ChatMessage, ContentBlock } from '../types/chat'
 import type { AgentMode } from '../utils/constants'
 import type { InputMode } from '../utils/input-modes'
 import type { RunState } from '@codebuff/sdk'
@@ -118,6 +118,35 @@ export type ChatStoreState = {
   suggestedFollowups: SuggestedFollowupsState | null
   /** Persisted clicked indices per toolCallId */
   clickedFollowupsMap: ClickedFollowupsMap
+}
+
+const findLatestFollowupInBlocks = (
+  blocks: ContentBlock[] | undefined,
+): string | null => {
+  if (!blocks) return null
+
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const block = blocks[i]
+    if (block.type === 'tool' && block.toolName === 'suggest_followups') {
+      return block.toolCallId
+    }
+    if (block.type === 'agent') {
+      const nested = findLatestFollowupInBlocks(block.blocks)
+      if (nested) return nested
+    }
+  }
+
+  return null
+}
+
+export const getLatestFollowupToolCallId = (
+  messages: ChatMessage[],
+): string | null => {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const latest = findLatestFollowupInBlocks(messages[i]?.blocks)
+    if (latest) return latest
+  }
+  return null
 }
 
 type ChatStoreActions = {
