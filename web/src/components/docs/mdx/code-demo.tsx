@@ -176,7 +176,7 @@ export function CodeDemo({ children, language, rawContent }: CodeDemoProps) {
 
   if (isMermaid) {
     return (
-      <div className="rounded-lg border bg-muted/30 px-4 w-full max-w-80 md:max-w-full my-3 transition-all group hover:bg-muted/40 overflow-hidden">
+      <div className="rounded-lg border bg-muted/30 px-4 w-full my-3 transition-all group hover:bg-muted/40 overflow-hidden">
         <div className="flex items-center justify-between h-6 mt-0.5 mb-0.5">
           <div className="text-[10px] text-muted-foreground/40 font-mono tracking-wide">
             mermaid diagram
@@ -202,7 +202,7 @@ export function CodeDemo({ children, language, rawContent }: CodeDemoProps) {
   }
 
   return (
-    <div className="rounded-lg border px-4 w-full max-w-80 md:max-w-full my-3 transition-all group overflow-x-auto">
+    <div className="rounded-lg border px-4 w-full my-3 transition-all group overflow-x-auto">
       <div className="flex items-center justify-between h-6 mt-0.5 mb-0.5">
         <div className="text-[10px] text-muted-foreground/40 font-mono tracking-wide">
           {language.toLowerCase()}
