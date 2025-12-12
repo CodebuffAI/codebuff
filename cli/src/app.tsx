@@ -20,8 +20,8 @@ import { useChatStore } from './state/chat-store'
 import { openFileAtPath } from './utils/open-file'
 
 import type { MultilineInputHandle } from './components/multiline-input'
-import type { AuthStatus } from './utils/status-indicator-state'
 import type { AgentMode } from './utils/constants'
+import type { AuthStatus } from './utils/status-indicator-state'
 import type { FileTreeNode } from '@codebuff/common/util/file'
 
 interface AppProps {
@@ -141,6 +141,7 @@ export const App = ({
           Directory{' '}
           <TerminalLink
             text={displayPath}
+            color={theme.muted}
             inline={true}
             underlineOnHover={true}
             onActivate={() => openFileAtPath(repoRoot)}
