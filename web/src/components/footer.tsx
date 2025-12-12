@@ -30,7 +30,7 @@ const communityLinks: LinkInfo[] = [
     href: 'https://github.com/CodebuffAI/codebuff',
     target: '_blank',
   },
-  { text: 'Discord', href: 'https://discord.gg/mcWTGjgTj3', target: '_blank' },
+  { text: 'Discord', href: 'https://codebuff.com/discord', target: '_blank' },
 ]
 
 const authLinks: LinkInfo[] = [{ text: 'Login', href: '/login' }]

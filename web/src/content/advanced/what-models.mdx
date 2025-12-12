@@ -7,12 +7,32 @@ order: 3
 
 # What models do you use?
 
-We pick models by task:
+Codebuff runs an orchestrator agent that spawns specialized subagents. Each subagent uses a model suited to its task.
 
-- **Claude Opus 4.5** - Primary model for default and max modes
-- **Grok 4.1 Fast** - Used in lite mode for speed
-- **GPT-5** - Used for certain editing tasks
-- **Gemini 2.5 Pro/Flash** - File discovery and thinking tasks
-- **Relace AI** - Speculative decoding for fast file rewrites
+## Orchestrator
 
-See [Modes](/docs/tips#modes) for how each mode uses different model configurations.
+The main agent ("Buffy") coordinates everything:
+
+| Mode | Model |
+|------|-------|
+| Default | Claude Opus 4.5 |
+| Max | Claude Opus 4.5 |
+| Lite | Grok 4.1 Fast |
+
+## Subagents
+
+The orchestrator spawns these for specific jobs:
+
+| Task | Models |
+|------|--------|
+| Code editing | Claude Opus 4.5, GPT-5.1 |
+| Thinking/reasoning | Claude Opus 4.5, GPT-5.1, Gemini 2.5 Pro |
+| Code review | Claude Sonnet 4.5, GPT-5.1 |
+| File discovery | Gemini 2.0 Flash, Grok 4 Fast |
+| Terminal commands | Claude Haiku 4.5 |
+| Context management | GPT-5 Mini |
+| Web/docs research | Grok 4 Fast |
+
+Max mode runs multiple implementations in parallel and picks the best one. Default mode runs a single implementation pass. Lite mode skips validation steps for speed.
+
+File rewrites use speculative decoding from Relace AI.

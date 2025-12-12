@@ -27,7 +27,7 @@ codebuff --create minecraft-simple
 
 ## What model does Codebuff use?
 
-Multiple models: Claude Opus 4.5 and Claude Sonnet 4.5 for most coding, GPT-5 for quick edits, Gemini 2.5 Pro/Flash for discovery and thinking tasks, plus speculative decoding from Relace AI for faster file rewrites.
+Multiple. The orchestrator uses Claude Opus 4.5 (or Grok 4.1 Fast in lite mode). Subagents use GPT-5.1 for editing and thinking, Gemini 2.0/2.5 for file discovery and reasoning, Claude Haiku 4.5 for terminal commands, and Relace AI for fast file rewrites. See [What models do you use?](/docs/advanced#what-models-do-you-use) for the full breakdown.
 
 ## Do you store my data?
 
@@ -43,7 +43,7 @@ If you want isolation, use the [Dockerfile](https://github.com/CodebuffAI/codebu
 
 ## Can I specify custom instructions for Codebuff?
 
-Yes. Add `knowledge.md` files to describe patterns, constraints, and commands. Files ending in `knowledge.md` load automatically. Codebuff updates existing ones but won't create them unless you ask.
+Yes. Add `knowledge.md` files to describe patterns, constraints, and commands. Codebuff also reads `AGENTS.md` and `CLAUDE.md` if present. Per directory, it picks one: `knowledge.md` first, then `AGENTS.md`, then `CLAUDE.md`. Codebuff updates existing knowledge files but won't create them unless you ask.
 
 ## Can I tell Codebuff to ignore certain files?
 
@@ -86,6 +86,6 @@ See [Codebuff vs Claude Code](/docs/advanced#codebuff-vs-claude-code) for a deta
 
 ## I have more questions!
 
-Contact [support@codebuff.com](mailto:support@codebuff.com) or [join our Discord](https://discord.gg/mcWTGjgTj3).
+Contact [support@codebuff.com](mailto:support@codebuff.com) or [join our Discord](https://codebuff.com/discord).
 
 Having technical issues? Check out our [Troubleshooting](/docs/advanced#troubleshooting) guide for solutions to common problems.
