@@ -92,6 +92,7 @@ export const Chat = ({
   continueChat,
   continueChatId,
   authStatus,
+  initialMode,
 }: {
   headerContent: React.ReactNode
   initialPrompt: string | null
@@ -104,6 +105,7 @@ export const Chat = ({
   continueChat: boolean
   continueChatId?: string
   authStatus: AuthStatus
+  initialMode?: AgentMode
 }) => {
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const [hasOverflow, setHasOverflow] = useState(false)
@@ -228,6 +230,13 @@ export const Chat = ({
   const isConnected = useConnectionStatus(handleReconnection)
   const mainAgentTimer = useElapsedTime()
   const timerStartTime = mainAgentTimer.startTime
+
+  // Set initial mode from CLI flag on mount
+  useEffect(() => {
+    if (initialMode) {
+      setAgentMode(initialMode)
+    }
+  }, [initialMode, setAgentMode])
 
   // Sync refs with state
   useEffect(() => {

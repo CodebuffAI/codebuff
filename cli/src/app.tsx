@@ -21,6 +21,7 @@ import { openFileAtPath } from './utils/open-file'
 
 import type { MultilineInputHandle } from './components/multiline-input'
 import type { AuthStatus } from './utils/status-indicator-state'
+import type { AgentMode } from './utils/constants'
 import type { FileTreeNode } from '@codebuff/common/util/file'
 
 interface AppProps {
@@ -31,6 +32,7 @@ interface AppProps {
   fileTree: FileTreeNode[]
   continueChat: boolean
   continueChatId?: string
+  initialMode?: AgentMode
 }
 
 export const App = ({
@@ -41,6 +43,7 @@ export const App = ({
   fileTree,
   continueChat,
   continueChatId,
+  initialMode,
 }: AppProps) => {
   const { contentMaxWidth, terminalWidth } = useTerminalDimensions()
   const theme = useTheme()
@@ -194,6 +197,7 @@ export const App = ({
       continueChat={continueChat}
       continueChatId={continueChatId}
       authStatus={authStatus}
+      initialMode={initialMode}
     />
   )
 }
