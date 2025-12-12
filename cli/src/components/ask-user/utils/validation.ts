@@ -1,6 +1,5 @@
 /**
  * Validation utilities for the ask_user tool
- * Full implementation in Phase 3
  */
 
 /**
@@ -12,7 +11,7 @@ export interface ValidationResult {
 }
 
 /**
- * Question validation rules (Phase 2/3 feature)
+ * Question validation rules
  */
 export interface QuestionValidation {
   maxLength?: number

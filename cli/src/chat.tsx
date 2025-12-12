@@ -1452,12 +1452,7 @@ export const Chat = ({
       >
         {shouldShowStatusLine && (
           <StatusBar
-            statusMessage={statusMessage}
-            streamStatus={streamStatus}
             timerStartTime={timerStartTime}
-            nextCtrlCWillExit={nextCtrlCWillExit}
-            isConnected={isConnected}
-            authStatus={authStatus}
             isAtBottom={isAtBottom}
             scrollToLatest={scrollToLatest}
             statusIndicatorState={statusIndicatorState}

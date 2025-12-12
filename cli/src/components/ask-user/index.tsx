@@ -1,293 +1,529 @@
 /**
- * Main MultipleChoiceForm component - Orchestration layer
- * Refactored from 399 lines to ~150 lines with clear separation of concerns
+ * Ask User Tool - Multiple choice form with accordion-style FAQ layout
+ *
+ * Shows all questions at once, each expandable to reveal options.
+ * Auto-submits when all questions are answered.
  */
 
 import { TextAttributes } from '@opentui/core'
-import React, { useState, useMemo, useCallback } from 'react'
+import { useKeyboard } from '@opentui/react'
+import React, { useState, useMemo, useCallback, useEffect } from 'react'
 
-import { ConfirmScreen, type AnswerSummary } from './components/confirm-screen'
-import { OtherTextInput } from './components/other-text-input'
-import { QuestionHeader } from './components/question-header'
-import { QuestionOption } from './components/question-option'
-import { useAutoAdvance } from './hooks/use-auto-advance'
-import { useFocusManager, useFocusActions } from './hooks/use-focus-manager'
-import { useKeyboardNavigation } from './hooks/use-keyboard-navigation'
-import { isQuestionAnswered, areAllQuestionsAnswered, isFocusOnOption, isFocusOnTextInput, isFocusOnConfirmSubmit } from './types'
+import type { KeyEvent } from '@opentui/core'
+
+import {
+  AccordionQuestion,
+  type AccordionAnswer,
+} from './components/accordion-question'
 import { useTheme } from '../../hooks/use-theme'
+import { BORDER_CHARS } from '../../utils/ui-constants'
+import { Button } from '../button'
 
 import type { AskUserQuestion } from '../../state/chat-store'
 
+/** Option type - can be string or object with label/description */
+type AskUserOption = string | { label: string; description?: string }
+
+/** Constant for the "Other" option index */
+const OTHER_OPTION_INDEX = -1
+
+/** Helper to extract label from an option (handles both string and object formats) */
+const getOptionLabel = (option: AskUserOption): string => {
+  return typeof option === 'string' ? option : option?.label ?? ''
+}
+
+/** Helper to check if an answer is valid for a given question */
+const isAnswerValid = (
+  answer: AccordionAnswer | undefined,
+  question: AskUserQuestion,
+): boolean => {
+  if (!answer) return false
+
+  // "Other" answer needs non-empty text
+  if (answer.isOther) {
+    return (answer.otherText?.trim().length ?? 0) > 0
+  }
+
+  // Multi-select needs at least one selection
+  if (question.multiSelect) {
+    return (answer.selectedIndices?.size ?? 0) > 0
+  }
+
+  // Single-select needs a selected index
+  return answer.selectedIndex !== undefined
+}
 
 export interface MultipleChoiceFormProps {
   questions: AskUserQuestion[]
-  selectedAnswers: (number | number[])[]
-  otherTexts: string[]
-  onSelectAnswer: (questionIndex: number, optionIndex: number) => void
-  onOtherTextChange: (questionIndex: number, text: string) => void
-  onSubmit: (finalAnswers?: (number | number[])[], finalOtherTexts?: string[]) => void
-  onQuestionChange?: (currentIndex: number, totalQuestions: number, isOnConfirmScreen: boolean) => void
+  onSubmit: (answers: { question: string; answer: string }[]) => void
+  onSkip: () => void
 }
 
 export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
   questions,
-  selectedAnswers,
-  otherTexts,
-  onSelectAnswer,
-  onOtherTextChange,
   onSubmit,
-  onQuestionChange,
+  onSkip,
 }) => {
   const theme = useTheme()
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
-  const [isOnConfirmScreen, setIsOnConfirmScreen] = useState(false)
-  const [otherCursorPositions, setOtherCursorPositions] = useState<number[]>(
-    () => questions.map(() => 0),
+
+  // Track which question is currently expanded (null = none)
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(
+    // Start with first unanswered question expanded, or first question
+    0,
   )
 
-  // Notify parent when question changes
-  React.useEffect(() => {
-    onQuestionChange?.(currentQuestionIndex, questions.length, isOnConfirmScreen)
-  }, [currentQuestionIndex, questions.length, isOnConfirmScreen, onQuestionChange])
-
-  // Computed values
-  const currentQuestion = questions[currentQuestionIndex]
-  const isLastQuestion = currentQuestionIndex === questions.length - 1
-  const isFirstQuestion = currentQuestionIndex === 0
-
-  const answeredStates = useMemo(
-    () => questions.map((_, i) => isQuestionAnswered(selectedAnswers[i], otherTexts[i])),
-    [questions, selectedAnswers, otherTexts]
+  // Track answers for each question
+  const [answers, setAnswers] = useState<Map<number, AccordionAnswer>>(
+    new Map(),
   )
 
-  const allAnswered = useMemo(
-    () => areAllQuestionsAnswered(selectedAnswers, otherTexts),
-    [selectedAnswers, otherTexts]
+  // Track focused option within expanded question
+  const [focusedOptionIndex, setFocusedOptionIndex] = useState<number | null>(
+    null,
   )
 
+  // Track which question has keyboard focus
+  const [focusedQuestionIndex, setFocusedQuestionIndex] = useState<number>(0)
 
-  // Focus management
-  const { focus, dispatch: dispatchFocus } = useFocusManager(questions, currentQuestionIndex)
-  const focusActions = useFocusActions(dispatchFocus)
+  // Track if submit button has focus (Tab navigation)
+  const [submitFocused, setSubmitFocused] = useState<boolean>(false)
 
-  // Auto-advance logic
-  // Cast to AnswerState[] for the hook (Phase 1: always number, Phase 2: number | number[])
-  const { handleSelection, handleTextInputAdvance, forceSubmit } = useAutoAdvance({
-    isLastQuestion,
-    currentQuestionIndex,
-    currentQuestion,
-    selectedAnswers: selectedAnswers as (number | number[])[],
-    otherTexts,
-    onSubmit: () => {
-      // Instead of auto-submitting, go to confirm screen
-      setIsOnConfirmScreen(true)
-      focusActions.resetToConfirm()
-    },
-    onAdvanceQuestion: useCallback(() => {
-      setCurrentQuestionIndex((idx) => idx + 1)
-      focusActions.resetToQuestion(currentQuestionIndex + 1)
-    }, [focusActions, currentQuestionIndex]),
-  })
+  // Track if user is typing in "Other" text input
+  const [isTypingOther, setIsTypingOther] = useState<boolean>(false)
 
-  // Wrapper for onSelectAnswer that handles both state update and auto-advance
-  const handleOptionSelect = useCallback(
-    (questionIndex: number, optionIndex: number) => {
-      onSelectAnswer(questionIndex, optionIndex)
-      handleSelection(optionIndex)
-    },
-    [onSelectAnswer, handleSelection]
+  // Track cursor position for "Other" text input (per question)
+  const [otherCursorPositions, setOtherCursorPositions] = useState<Map<number, number>>(
+    new Map(),
   )
 
-  // Keyboard navigation
-  useKeyboardNavigation({
-    focus,
-    dispatchFocus,
-    currentQuestionIndex,
-    totalQuestions: questions.length,
-    currentQuestion,
-    isFirstQuestion,
-    isLastQuestion,
-    isOnConfirmScreen,
-    allAnswered,
-    selectedAnswers: selectedAnswers as (number | number[])[],
-    otherTexts,
-    onSelectAnswer,
-    onOtherTextChange,
-    onChangeQuestion: (newIndex) => {
-      setIsOnConfirmScreen(false)
-      setCurrentQuestionIndex(newIndex)
-    },
-    onSubmit: (answers, texts) => {
-      onSubmit(answers as number[], texts)
-    },
-    onAutoAdvance: handleSelection,
-    onTextInputAdvance: handleTextInputAdvance,
-    onForceSubmit: forceSubmit,
-    onGoToConfirm: () => {
-      setIsOnConfirmScreen(true)
-      focusActions.resetToConfirm()
-    },
-    onGoBackFromConfirm: () => {
-      setIsOnConfirmScreen(false)
-      focusActions.resetToQuestion(questions.length - 1)
-    },
-  })
-
-  const isConfirmSubmitFocused = isFocusOnConfirmSubmit(focus)
-
-  // Build answer summary for confirm screen
-  const answerSummary: AnswerSummary[] = useMemo(() => {
-    return questions.map((q, i) => {
-      const answer = selectedAnswers[i]
-      const otherText = otherTexts[i]?.trim()
-      
-      let answerText: string
-      if (otherText) {
-        answerText = otherText
-      } else if (Array.isArray(answer) && answer.length > 0) {
-        // Multi-select with selections
-        const selectedLabels = answer.map(idx => {
-          const opt = q.options[idx]
-          if (!opt) return '(invalid)'
-          return typeof opt === 'string' ? opt : opt.label
-        })
-        answerText = selectedLabels.join(', ')
-      } else if (typeof answer === 'number' && answer >= 0 && answer < q.options.length) {
-        // Single-select with valid selection
-        const opt = q.options[answer]
-        answerText = typeof opt === 'string' ? opt : opt.label
-      } else {
-        answerText = '(skipped)'
-      }
-      
-      return {
-        question: q.question,
-        header: q.header,
-        answer: answerText,
-      }
+  // Check if all questions are answered
+  const allAnswered = useMemo(() => {
+    return questions.every((question: AskUserQuestion, index: number) => {
+      return isAnswerValid(answers.get(index), question)
     })
-  }, [questions, selectedAnswers, otherTexts])
+  }, [questions, answers])
+
+  // Find next unanswered question index (checks for valid answers, not just existence)
+  const findNextUnanswered = useCallback(
+    (afterIndex: number): number | null => {
+      for (let i = afterIndex + 1; i < questions.length; i++) {
+        if (!isAnswerValid(answers.get(i), questions[i])) return i
+      }
+      // Wrap around
+      for (let i = 0; i < afterIndex; i++) {
+        if (!isAnswerValid(answers.get(i), questions[i])) return i
+      }
+      return null
+    },
+    [questions, answers],
+  )
+
+  // Handle setting "Other" text (with cursor position)
+  const handleSetOtherText = useCallback(
+    (questionIndex: number, text: string, cursorPosition: number) => {
+      setAnswers((prev) => {
+        const newAnswers = new Map(prev)
+        const currentAnswer = prev.get(questionIndex)
+        newAnswers.set(questionIndex, {
+          ...currentAnswer,
+          isOther: true,
+          otherText: text,
+        })
+        return newAnswers
+      })
+      setOtherCursorPositions((prev) => {
+        const newPositions = new Map(prev)
+        newPositions.set(questionIndex, cursorPosition)
+        return newPositions
+      })
+    },
+    [],
+  )
+
+  // Handle "Other" text submit (Enter key)
+  const handleOtherSubmit = useCallback(
+    (questionIndex: number) => {
+      const currentAnswer = answers.get(questionIndex)
+      const currentText = currentAnswer?.otherText || ''
+      
+      setIsTypingOther(false)
+      // If text is entered, move to next question
+      if (currentText.trim()) {
+        const nextUnanswered = findNextUnanswered(questionIndex)
+        setExpandedIndex(nextUnanswered)
+      }
+    },
+    [answers, findNextUnanswered],
+  )
+
+  // Handle "Other" text cancel (Escape key) - deselect Custom option entirely
+  const handleOtherCancel = useCallback(
+    (questionIndex: number) => {
+      // Clear text, deselect "Custom" option, and exit typing mode
+      setAnswers((prev) => {
+        const newAnswers = new Map(prev)
+        const currentAnswer = prev.get(questionIndex)
+        // Deselect "Custom" by setting isOther to false and clearing text
+        newAnswers.set(questionIndex, {
+          ...currentAnswer,
+          isOther: false,
+          otherText: '',
+        })
+        return newAnswers
+      })
+      setOtherCursorPositions((prev) => {
+        const newPositions = new Map(prev)
+        newPositions.set(questionIndex, 0)
+        return newPositions
+      })
+      setIsTypingOther(false)
+    },
+    [],
+  )
+
+  // Handle selecting an option (single-select)
+  const handleSelectOption = useCallback(
+    (questionIndex: number, optionIndex: number) => {
+      setAnswers((prev) => {
+        const newAnswers = new Map(prev)
+        if (optionIndex === OTHER_OPTION_INDEX) {
+          // "Other" option - enter typing mode
+          newAnswers.set(questionIndex, {
+            isOther: true,
+            otherText: prev.get(questionIndex)?.otherText || '',
+          })
+        } else {
+          newAnswers.set(questionIndex, {
+            selectedIndex: optionIndex,
+            isOther: false,
+          })
+        }
+        return newAnswers
+      })
+
+      // For "Other" option, enter typing mode
+      if (optionIndex === OTHER_OPTION_INDEX) {
+        setIsTypingOther(true)
+      } else {
+        // For regular options, collapse and move to next unanswered
+        const nextUnanswered = findNextUnanswered(questionIndex)
+        setExpandedIndex(nextUnanswered)
+      }
+    },
+    [findNextUnanswered],
+  )
+
+  // Handle toggling an option (multi-select)
+  const handleToggleOption = useCallback(
+    (questionIndex: number, optionIndex: number) => {
+      setAnswers((prev) => {
+        const newAnswers = new Map(prev)
+        const currentAnswer = prev.get(questionIndex)
+        const currentIndices = currentAnswer?.selectedIndices ?? new Set()
+
+        if (optionIndex === OTHER_OPTION_INDEX) {
+          // "Other" option toggle
+          const wasOther = currentAnswer?.isOther ?? false
+          newAnswers.set(questionIndex, {
+            ...currentAnswer,
+            selectedIndices: currentIndices,
+            isOther: !wasOther,
+            otherText: currentAnswer?.otherText || '',
+          })
+        } else {
+          const newIndices = new Set(currentIndices)
+          if (newIndices.has(optionIndex)) {
+            newIndices.delete(optionIndex)
+          } else {
+            newIndices.add(optionIndex)
+          }
+          newAnswers.set(questionIndex, {
+            ...currentAnswer,
+            selectedIndices: newIndices,
+            isOther: currentAnswer?.isOther ?? false,
+          })
+        }
+        return newAnswers
+      })
+
+      // For "Other" option in multi-select, also enter typing mode
+      if (optionIndex === OTHER_OPTION_INDEX) {
+        // Check if we're toggling ON (not off)
+        const currentAnswer = answers.get(questionIndex)
+        if (!currentAnswer?.isOther) {
+          setIsTypingOther(true)
+        } else {
+          setIsTypingOther(false)
+        }
+      }
+    },
+    [answers],
+  )
+
+  // Handle submit
+  const handleSubmit = useCallback(() => {
+    const formattedAnswers = questions.map(
+      (question: AskUserQuestion, index: number) => {
+        const answer = answers.get(index)
+        if (!answer) {
+          return { question: question.question, answer: 'Skipped' }
+        }
+
+        if (answer.isOther && answer.otherText) {
+          return { question: question.question, answer: answer.otherText }
+        }
+
+        if (question.multiSelect && answer.selectedIndices) {
+          const selectedLabels = Array.from(answer.selectedIndices)
+            .map((idx: number) => getOptionLabel(question.options[idx]))
+            .filter(Boolean)
+          return {
+            question: question.question,
+            answer: selectedLabels.join(', '),
+          }
+        }
+
+        if (answer.selectedIndex !== undefined) {
+          const label = getOptionLabel(question.options[answer.selectedIndex])
+          return {
+            question: question.question,
+            answer: label || 'Unknown',
+          }
+        }
+
+        return { question: question.question, answer: 'Skipped' }
+      },
+    )
+
+    onSubmit(formattedAnswers)
+  }, [questions, answers, onSubmit])
+
+  // Keyboard navigation using OpenTUI's useKeyboard hook
+  useKeyboard(
+    useCallback(
+      (key: KeyEvent) => {
+        // Helper to prevent default behavior
+        const preventDefault = () => {
+          if ('preventDefault' in key && typeof key.preventDefault === 'function') {
+            key.preventDefault()
+          }
+        }
+
+        // When typing in "Other" input, let MultilineInput handle all keyboard input
+        if (isTypingOther) {
+          return
+        }
+
+        // Handle submit button focus
+        if (submitFocused) {
+          if (key.name === 'tab' && key.shift) {
+            preventDefault()
+            setSubmitFocused(false)
+            setFocusedQuestionIndex(questions.length - 1)
+            return
+          }
+          if (key.name === 'return' || key.name === 'enter' || key.name === 'space') {
+            preventDefault()
+            if (allAnswered) {
+              handleSubmit()
+            }
+            return
+          }
+          return
+        }
+
+        const isQuestionExpanded = expandedIndex === focusedQuestionIndex
+        const currentQuestion = questions[focusedQuestionIndex]
+        const optionCount = currentQuestion
+          ? currentQuestion.options.length + 1
+          : 0
+
+        if (key.name === 'down') {
+          preventDefault()
+          if (isQuestionExpanded && focusedOptionIndex !== null) {
+            setFocusedOptionIndex(
+              Math.min(focusedOptionIndex + 1, optionCount - 1),
+            )
+          } else if (isQuestionExpanded && focusedOptionIndex === null) {
+            setFocusedOptionIndex(0)
+          } else {
+            setFocusedQuestionIndex(
+              Math.min(focusedQuestionIndex + 1, questions.length - 1),
+            )
+          }
+          return
+        }
+
+        if (key.name === 'up') {
+          preventDefault()
+          if (isQuestionExpanded && focusedOptionIndex !== null) {
+            if (focusedOptionIndex > 0) {
+              setFocusedOptionIndex(focusedOptionIndex - 1)
+            } else {
+              setFocusedOptionIndex(null)
+            }
+          } else {
+            setFocusedQuestionIndex(Math.max(focusedQuestionIndex - 1, 0))
+          }
+          return
+        }
+
+        if (key.name === 'right') {
+          preventDefault()
+          if (expandedIndex !== focusedQuestionIndex) {
+            setExpandedIndex(focusedQuestionIndex)
+            setFocusedOptionIndex(0)
+          }
+          return
+        }
+
+        if (key.name === 'left') {
+          preventDefault()
+          if (expandedIndex !== null) {
+            setExpandedIndex(null)
+            setFocusedOptionIndex(null)
+          }
+          return
+        }
+
+        if (key.name === 'return' || key.name === 'enter' || key.name === 'space') {
+          preventDefault()
+          if (isQuestionExpanded && focusedOptionIndex !== null) {
+            const optionIdx =
+              focusedOptionIndex >= currentQuestion.options.length
+                ? OTHER_OPTION_INDEX
+                : focusedOptionIndex
+            if (currentQuestion.multiSelect) {
+              handleToggleOption(focusedQuestionIndex, optionIdx)
+            } else {
+              handleSelectOption(focusedQuestionIndex, optionIdx)
+            }
+          } else if (!isQuestionExpanded) {
+            setExpandedIndex(focusedQuestionIndex)
+            setFocusedOptionIndex(0)
+          }
+          return
+        }
+
+        if (key.name === 'tab' && !key.shift) {
+          preventDefault()
+          setExpandedIndex(null)
+          setFocusedOptionIndex(null)
+          setSubmitFocused(true)
+          return
+        }
+
+        // Escape or Ctrl+C to skip/close the form
+        if (key.name === 'escape' || (key.ctrl && key.name === 'c')) {
+          preventDefault()
+          onSkip()
+          return
+        }
+      },
+      [
+        questions,
+        expandedIndex,
+        focusedQuestionIndex,
+        focusedOptionIndex,
+        submitFocused,
+        allAnswered,
+        isTypingOther,
+        handleSelectOption,
+        handleToggleOption,
+        handleSubmit,
+        onSkip,
+      ],
+    ),
+  )
+
+  // Sync focusedQuestionIndex when expandedIndex changes
+  useEffect(() => {
+    if (expandedIndex !== null) {
+      setFocusedQuestionIndex(expandedIndex)
+    }
+  }, [expandedIndex])
 
   return (
     <box style={{ flexDirection: 'column', padding: 1 }}>
-      {/* Header with progress */}
-      <QuestionHeader
-        currentIndex={currentQuestionIndex}
-        totalQuestions={questions.length}
-        answeredStates={answeredStates}
-        isOnConfirmScreen={isOnConfirmScreen}
-        onNavigate={(newIndex) => {
-          setIsOnConfirmScreen(false)
-          setCurrentQuestionIndex(newIndex)
-          focusActions.resetToQuestion(newIndex)
-        }}
-        onNavigateToConfirm={() => {
-          setIsOnConfirmScreen(true)
-          focusActions.resetToConfirm()
-        }}
-        onPrev={() => {
-          if (isOnConfirmScreen) {
-            setIsOnConfirmScreen(false)
-            focusActions.resetToQuestion(questions.length - 1)
-          } else if (!isFirstQuestion) {
-            const newIndex = currentQuestionIndex - 1
-            setCurrentQuestionIndex(newIndex)
-            focusActions.resetToQuestion(newIndex)
-          }
-        }}
-        onNext={() => {
-          if (isOnConfirmScreen) {
-            // Already at the end
-            return
-          }
-          if (isLastQuestion) {
-            // Go to confirm screen regardless of whether all answered
-            setIsOnConfirmScreen(true)
-            focusActions.resetToConfirm()
-          } else {
-            const newIndex = currentQuestionIndex + 1
-            setCurrentQuestionIndex(newIndex)
-            focusActions.resetToQuestion(newIndex)
-          }
-        }}
-      />
+      {/* Close button in top-right */}
+      <box style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 1 }}>
+        <Button
+          onClick={onSkip}
+          style={{
+            padding: 0,
+          }}
+        >
+          <text style={{ fg: theme.muted }}>✕</text>
+        </Button>
+      </box>
 
-      {/* Question content or Confirm screen */}
-      {isOnConfirmScreen ? (
-        <box style={{ flexDirection: 'column', gap: 1, marginTop: 1 }}>
-          <ConfirmScreen
-            onSubmit={() => onSubmit(selectedAnswers as number[], otherTexts)}
-            submitFocused={isConfirmSubmitFocused}
-            onSubmitMouseOver={() => focusActions.selectConfirmSubmit()}
-            answers={answerSummary}
-          />
-        </box>
-      ) : (
-        <box style={{ flexDirection: 'column', gap: 1, marginTop: 1 }}>
+      {/* All questions in accordion style */}
+      {questions.map((question, index) => (
+        <AccordionQuestion
+          key={index}
+          question={question}
+          questionIndex={index}
+          totalQuestions={questions.length}
+          answer={answers.get(index)}
+          isExpanded={expandedIndex === index}
+          isQuestionFocused={focusedQuestionIndex === index && !submitFocused}
+          isTypingOther={isTypingOther && expandedIndex === index}
+          onToggleExpand={() => {
+            setExpandedIndex(expandedIndex === index ? null : index)
+            setFocusedQuestionIndex(index)
+            setSubmitFocused(false)
+            setIsTypingOther(false)
+          }}
+          onSelectOption={(optionIndex) =>
+            handleSelectOption(index, optionIndex)
+          }
+          onToggleOption={(optionIndex) =>
+            handleToggleOption(index, optionIndex)
+          }
+          onSetOtherText={(text, cursorPos) => handleSetOtherText(index, text, cursorPos)}
+          onOtherSubmit={() => handleOtherSubmit(index)}
+          onOtherCancel={() => handleOtherCancel(index)}
+          otherCursorPosition={otherCursorPositions.get(index) ?? 0}
+          focusedOptionIndex={
+            expandedIndex === index ? focusedOptionIndex : null
+          }
+          onFocusOption={setFocusedOptionIndex}
+        />
+      ))}
+
+      {/* Submit button */}
+      <box style={{ flexDirection: 'row', marginTop: 1 }}>
+        <Button
+          onClick={handleSubmit}
+          disabled={!allAnswered}
+          style={{
+            borderStyle: 'single',
+            borderColor: submitFocused
+              ? theme.primary
+              : allAnswered
+                ? theme.success
+                : theme.muted,
+            backgroundColor: submitFocused ? theme.surface : undefined,
+            customBorderChars: BORDER_CHARS,
+            paddingLeft: 2,
+            paddingRight: 2,
+          }}
+        >
           <text
             style={{
-              fg: theme.foreground,
-              attributes: TextAttributes.BOLD,
-              marginBottom: 1,
+              fg: submitFocused
+                ? theme.primary
+                : allAnswered
+                  ? theme.success
+                  : theme.muted,
+              attributes:
+                allAnswered || submitFocused ? TextAttributes.BOLD : undefined,
             }}
           >
-            {currentQuestion.question}
+            Submit
           </text>
-
-          {/* Options */}
-          <box style={{ flexDirection: 'column', paddingLeft: 1, gap: 0 }}>
-            {currentQuestion.options.map((opt, optIdx) => {
-              const currentAnswer = selectedAnswers[currentQuestionIndex]
-              const isSelected = Array.isArray(currentAnswer)
-                ? currentAnswer.includes(optIdx) // Multi-select: check if array includes this option
-                : currentAnswer === optIdx // Single-select: direct equality check
-              const isFocused =
-                isFocusOnOption(focus) &&
-                focus.questionIndex === currentQuestionIndex &&
-                focus.optionIndex === optIdx
-
-              return (
-                <QuestionOption
-                  key={optIdx}
-                  option={opt}
-                  optionIndex={optIdx}
-                  isSelected={isSelected}
-                  isFocused={isFocused}
-                  isMultiSelect={currentQuestion.multiSelect}
-                  onSelect={() => handleOptionSelect(currentQuestionIndex, optIdx)}
-                  onMouseOver={() => focusActions.selectOption(currentQuestionIndex, optIdx)}
-                />
-              )
-            })}
-
-            {/* "Other" text input */}
-            <OtherTextInput
-              text={otherTexts[currentQuestionIndex] || ''}
-              isFocused={
-                isFocusOnTextInput(focus) && focus.questionIndex === currentQuestionIndex
-              }
-              hasText={!!otherTexts[currentQuestionIndex]?.trim()}
-              isSelected={false}
-              cursorPosition={
-                otherCursorPositions[currentQuestionIndex] ??
-                (otherTexts[currentQuestionIndex] || '').length
-              }
-              onClick={() => focusActions.selectTextInput(currentQuestionIndex)}
-              onMouseOver={() => focusActions.selectTextInput(currentQuestionIndex)}
-              onChange={({ text, cursorPosition }) => {
-                onOtherTextChange(currentQuestionIndex, text)
-                setOtherCursorPositions((prev) => {
-                  const next = [...prev]
-                  next[currentQuestionIndex] = cursorPosition
-                  return next
-                })
-              }}
-              onSubmit={handleTextInputAdvance}
-            />
-          </box>
-        </box>
-      )}
-
+        </Button>
+      </box>
     </box>
   )
 }

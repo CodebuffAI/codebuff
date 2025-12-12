@@ -4,10 +4,11 @@ import { AgentModeToggle } from './agent-mode-toggle'
 import { MultipleChoiceForm } from './ask-user'
 import { FeedbackContainer } from './feedback-container'
 import { InputModeBanner } from './input-mode-banner'
-import { PublishContainer } from './publish-container'
 import { MultilineInput, type MultilineInputHandle } from './multiline-input'
+import { PublishContainer } from './publish-container'
 import { SuggestionMenu, type SuggestionItem } from './suggestion-menu'
 import { useAskUserBridge } from '../hooks/use-ask-user-bridge'
+import { useEvent } from '../hooks/use-event'
 import { useChatStore } from '../state/chat-store'
 import { getInputModeConfig } from '../utils/input-modes'
 import { BORDER_CHARS } from '../utils/ui-constants'
@@ -15,7 +16,6 @@ import { BORDER_CHARS } from '../utils/ui-constants'
 import type { useTheme } from '../hooks/use-theme'
 import type { InputValue } from '../state/chat-store'
 import type { AgentMode } from '../utils/constants'
-import { useEvent } from '../hooks/use-event'
 
 type Theme = ReturnType<typeof useTheme>
 
@@ -113,12 +113,8 @@ export const ChatInputBar = ({
   const modeConfig = getInputModeConfig(inputMode)
   const askUserState = useChatStore((state) => state.askUserState)
   const hasAnyPreview = hasSuggestionMenu
-  const updateAskUserAnswer = useChatStore((state) => state.updateAskUserAnswer)
-  const updateAskUserOtherText = useChatStore(
-    (state) => state.updateAskUserOtherText,
-  )
   const { submitAnswers } = useAskUserBridge()
-  const [askUserTitle, setAskUserTitle] = React.useState(' Action Required ')
+  const [askUserTitle] = React.useState(' Some questions for you ')
 
   // Shared key intercept handler for suggestion menu navigation
   const handleKeyIntercept = useEvent(
@@ -199,64 +195,74 @@ export const ChatInputBar = ({
   }
 
   const handleFormSubmit = (
-    finalAnswers?: (number | number[])[],
-    finalOtherTexts?: string[],
+    answers: { question: string; answer: string }[],
   ) => {
     if (!askUserState) return
 
-    // Use final values if provided (for immediate submission), otherwise use current state
-    const answersToUse = finalAnswers || askUserState.selectedAnswers
-    const otherTextsToUse = finalOtherTexts || askUserState.otherTexts
+    // Convert accordion-style answers to the format expected by submitAnswers
+    const formattedAnswers = askUserState.questions.map((q, idx) => {
+      const answerObj = answers[idx]
+      if (!answerObj || answerObj.answer === 'Skipped') {
+        return { questionIndex: idx }
+      }
 
-    const answers = askUserState.questions.map((q, idx) => {
-      const otherText = otherTextsToUse[idx]?.trim()
-      if (otherText) {
-        // User provided custom text
+      // For multi-select questions, always use selectedOptions array format
+      if (q.multiSelect) {
+        // Split by ', ' to get individual options (even if just one)
+        const selectedOptions = answerObj.answer.split(', ').filter(Boolean)
+
+        // Check if all selected options match known options (not "other" text)
+        const allMatchKnownOptions = selectedOptions.every((selected) =>
+          q.options.some((opt) => {
+            const label = typeof opt === 'string' ? opt : opt.label
+            return label === selected
+          }),
+        )
+
+        if (allMatchKnownOptions && selectedOptions.length > 0) {
+          return {
+            questionIndex: idx,
+            selectedOptions,
+          }
+        }
+
+        // Otherwise it's an "other" text answer for multi-select
         return {
           questionIndex: idx,
-          otherText,
+          otherText: answerObj.answer,
         }
       }
 
-      const answer = answersToUse[idx]
+      // For single-select questions, check if the answer matches one of the options
+      const matchingOptionIndex = q.options.findIndex((opt) => {
+        const label = typeof opt === 'string' ? opt : opt.label
+        return label === answerObj.answer
+      })
 
-      // Helper to get option label (handles both string and object formats)
-      const getOptionLabel = (optionIndex: number) => {
-        const opt = q.options[optionIndex]
-        return typeof opt === 'string' ? opt : opt.label
+      if (matchingOptionIndex >= 0) {
+        return {
+          questionIndex: idx,
+          selectedOption: answerObj.answer,
+        }
       }
 
-      if (Array.isArray(answer)) {
-        // Multi-select: map array of indices to array of option labels
-        // Empty array means skipped - omit selectedOptions entirely to avoid undefined in JSON
-        if (answer.length > 0) {
-          return {
-            questionIndex: idx,
-            selectedOptions: answer.map(getOptionLabel),
-          }
-        } else {
-          return {
-            questionIndex: idx,
-          }
-        }
-      } else if (
-        typeof answer === 'number' &&
-        answer >= 0 &&
-        answer < q.options.length
-      ) {
-        // Single-select with valid answer
-        return {
-          questionIndex: idx,
-          selectedOption: getOptionLabel(answer),
-        }
-      } else {
-        // Skipped (answer is -1 or invalid)
-        return {
-          questionIndex: idx,
-        }
+      // Otherwise it's an "other" text answer
+      return {
+        questionIndex: idx,
+        otherText: answerObj.answer,
       }
     })
-    submitAnswers(answers)
+
+    submitAnswers(formattedAnswers)
+  }
+
+  const handleFormSkip = () => {
+    if (!askUserState) return
+    // Submit with all questions skipped
+    const skippedAnswers = askUserState.questions.map((_, idx) => ({
+      questionIndex: idx,
+    }))
+    submitAnswers(skippedAnswers)
   }
 
   const effectivePlaceholder =
@@ -277,24 +283,8 @@ export const ChatInputBar = ({
       >
         <MultipleChoiceForm
           questions={askUserState.questions}
-          selectedAnswers={askUserState.selectedAnswers}
-          otherTexts={askUserState.otherTexts}
-          onSelectAnswer={updateAskUserAnswer}
-          onOtherTextChange={updateAskUserOtherText}
           onSubmit={handleFormSubmit}
-          onQuestionChange={(
-            currentIndex,
-            totalQuestions,
-            isOnConfirmScreen,
-          ) => {
-            if (isOnConfirmScreen) {
-              setAskUserTitle(' Ready to submit ')
-            } else {
-              setAskUserTitle(
-                ` Question ${currentIndex + 1} of ${totalQuestions} `,
-              )
-            }
-          }}
+          onSkip={handleFormSkip}
         />
       </box>
     )

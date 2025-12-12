@@ -1,7 +1,5 @@
 /**
  * Question option component (radio button or checkbox)
- * Phase 1: Single-select (radio) only
- * Phase 2: Multi-select (checkbox) support
  */
 
 import { TextAttributes } from '@opentui/core'
@@ -16,7 +14,7 @@ export interface QuestionOptionProps {
   optionIndex: number
   isSelected: boolean
   isFocused: boolean
-  isMultiSelect?: boolean // Phase 2 feature
+  isMultiSelect?: boolean
   onSelect: () => void
   onMouseOver: () => void
 }
@@ -26,13 +24,13 @@ export const QuestionOption: React.FC<QuestionOptionProps> = memo(
     option,
     isSelected,
     isFocused,
-    isMultiSelect = false, // Phase 1: always false
+    isMultiSelect = false,
     onSelect,
     onMouseOver,
   }) => {
     const theme = useTheme()
 
-    // Extract label and description (Phase 2 feature)
+    // Extract label and description
     const label = typeof option === 'string' ? option : option.label
     const description = typeof option === 'object' ? option.description : undefined
 
@@ -76,7 +74,7 @@ export const QuestionOption: React.FC<QuestionOptionProps> = memo(
             {label}
           </text>
         </box>
-        {/* Phase 2: Show description on focus */}
+        {/* Show description on focus */}
         {isFocused && description && (
           <text
             style={{

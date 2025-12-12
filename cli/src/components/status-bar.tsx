@@ -5,31 +5,20 @@ import { ShimmerText } from './shimmer-text'
 import { useTheme } from '../hooks/use-theme'
 import { formatElapsedTime } from '../utils/format-elapsed-time'
 
-import type { StreamStatus } from '../hooks/use-message-queue'
-import type { AuthStatus, StatusIndicatorState } from '../utils/status-indicator-state'
+import type { StatusIndicatorState } from '../utils/status-indicator-state'
 
 
 const SHIMMER_INTERVAL_MS = 160
 
 interface StatusBarProps {
-  statusMessage: string | null
-  streamStatus: StreamStatus
   timerStartTime: number | null
-  nextCtrlCWillExit: boolean
-  isConnected: boolean
-  authStatus: AuthStatus
   isAtBottom: boolean
   scrollToLatest: () => void
-  statusIndicatorState?: StatusIndicatorState
+  statusIndicatorState: StatusIndicatorState
 }
 
 export const StatusBar = ({
-  statusMessage,
-  streamStatus,
   timerStartTime,
-  nextCtrlCWillExit,
-  isConnected,
-  authStatus,
   isAtBottom,
   scrollToLatest,
   statusIndicatorState,
@@ -37,7 +26,11 @@ export const StatusBar = ({
   const theme = useTheme()
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
 
-  const shouldShowTimer = streamStatus !== 'idle'
+  // Show timer only when actively working (streaming or waiting for response)
+  // This uses statusIndicatorState as the single source of truth for "is the LLM working?"
+  const shouldShowTimer =
+    statusIndicatorState?.kind === 'waiting' ||
+    statusIndicatorState?.kind === 'streaming'
 
   useEffect(() => {
     if (!timerStartTime || !shouldShowTimer) {
@@ -58,106 +51,54 @@ export const StatusBar = ({
   }, [timerStartTime, shouldShowTimer])
 
   const renderStatusIndicator = () => {
-    // Use the unified status indicator state if provided
-    if (statusIndicatorState) {
-      switch (statusIndicatorState.kind) {
-        case 'ctrlC':
-          return <span fg={theme.secondary}>Press Ctrl-C again to exit</span>
-        
-        case 'clipboard':
-          // Use green color for feedback success messages
-          const isFeedbackSuccess = statusIndicatorState.message.includes('Feedback sent')
-          return (
-            <span fg={isFeedbackSuccess ? theme.success : theme.primary}>
-              {statusIndicatorState.message}
-            </span>
-          )
-        
-        case 'reconnected':
-          return <span fg={theme.success}>Reconnected</span>
-        
-        case 'retrying':
-          return (
-            <ShimmerText
-              text="retrying..."
-              primaryColor={theme.warning}
-            />
-          )
-        
-        case 'connecting':
-          return <ShimmerText text="connecting..." />
-        
-        case 'waiting':
-          return (
-            <ShimmerText
-              text="thinking..."
-              interval={SHIMMER_INTERVAL_MS}
-              primaryColor={theme.secondary}
-            />
-          )
-        
-        case 'streaming':
-          return (
-            <ShimmerText
-              text="working..."
-              interval={SHIMMER_INTERVAL_MS}
-              primaryColor={theme.secondary}
-            />
-          )
-        
-        case 'idle':
-          return null
-      }
+    switch (statusIndicatorState.kind) {
+      case 'ctrlC':
+        return <span fg={theme.secondary}>Press Ctrl-C again to exit</span>
+      
+      case 'clipboard':
+        // Use green color for feedback success messages
+        const isFeedbackSuccess = statusIndicatorState.message.includes('Feedback sent')
+        return (
+          <span fg={isFeedbackSuccess ? theme.success : theme.primary}>
+            {statusIndicatorState.message}
+          </span>
+        )
+      
+      case 'reconnected':
+        return <span fg={theme.success}>Reconnected</span>
+      
+      case 'retrying':
+        return (
+          <ShimmerText
+            text="retrying..."
+            primaryColor={theme.warning}
+          />
+        )
+      
+      case 'connecting':
+        return <ShimmerText text="connecting..." />
+      
+      case 'waiting':
+        return (
+          <ShimmerText
+            text="thinking..."
+            interval={SHIMMER_INTERVAL_MS}
+            primaryColor={theme.secondary}
+          />
+        )
+      
+      case 'streaming':
+        return (
+          <ShimmerText
+            text="working..."
+            interval={SHIMMER_INTERVAL_MS}
+            primaryColor={theme.secondary}
+          />
+        )
+      
+      case 'idle':
+        return null
     }
-
-    // Fallback to old logic if statusIndicatorState not provided
-    if (nextCtrlCWillExit) {
-      return <span fg={theme.secondary}>Press Ctrl-C again to exit</span>
-    }
-
-    if (statusMessage) {
-      const isFeedbackSuccess = statusMessage.includes('Feedback sent')
-      return (
-        <span fg={isFeedbackSuccess ? theme.success : theme.primary}>
-          {statusMessage}
-        </span>
-      )
-    }
-
-    if (authStatus === 'retrying') {
-      return (
-        <ShimmerText
-          text="retrying..."
-          primaryColor={theme.warning}
-        />
-      )
-    }
-
-    if (!isConnected || authStatus === 'unreachable') {
-      return <ShimmerText text="connecting..." />
-    }
-
-    if (streamStatus === 'waiting') {
-      return (
-        <ShimmerText
-          text="thinking..."
-          interval={SHIMMER_INTERVAL_MS}
-          primaryColor={theme.secondary}
-        />
-      )
-    }
-
-    if (streamStatus === 'streaming') {
-      return (
-        <ShimmerText
-          text="working..."
-          interval={SHIMMER_INTERVAL_MS}
-          primaryColor={theme.secondary}
-        />
-      )
-    }
-
-    return null
   }
 
   const renderElapsedTime = () => {
