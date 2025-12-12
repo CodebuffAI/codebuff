@@ -9,7 +9,6 @@ import { Button } from '../button'
 import type { ToolRenderConfig } from './types'
 import type { SuggestedFollowup } from '../../state/chat-store'
 
-// Stable empty set to avoid creating new references on each render
 const EMPTY_CLICKED_SET = new Set<number>()
 const MIN_LABEL_COLUMN_WIDTH = 12
 const MAX_LABEL_COLUMN_WIDTH = 60
@@ -121,9 +120,6 @@ interface SuggestFollowupsItemProps {
   onSendFollowup: (prompt: string, index: number) => void
 }
 
-/**
- * Static display of a followup for past messages (non-interactive)
- */
 interface PastFollowupItemProps {
   followup: SuggestedFollowup
   isClicked: boolean
@@ -156,9 +152,6 @@ const PastFollowupItem = ({ followup, isClicked }: PastFollowupItemProps) => {
   )
 }
 
-/**
- * Collapsed toggle view for past messages showing "Previously suggested followups"
- */
 interface PastFollowupsToggleProps {
   toolCallId: string
   followups: SuggestedFollowup[]
@@ -219,8 +212,6 @@ const SuggestFollowupsItem = ({
   const latestFollowupToolCallId = useChatStore((state) =>
     getLatestFollowupToolCallId(state.messages),
   )
-  // Get clicked indices from the persistent map
-  // Use stable EMPTY_CLICKED_SET to avoid creating new references that cause infinite re-renders
   const clickedIndices = useChatStore(
     (state) => state.clickedFollowupsMap.get(toolCallId) ?? EMPTY_CLICKED_SET,
   )

@@ -2,7 +2,6 @@
  * Ask User Tool - Multiple choice form with accordion-style FAQ layout
  *
  * Shows all questions at once, each expandable to reveal options.
- * Auto-submits when all questions are answered.
  */
 
 import { TextAttributes } from '@opentui/core'
