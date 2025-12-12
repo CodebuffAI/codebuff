@@ -717,8 +717,12 @@ export const Chat = ({
       // Mark this followup as clicked (persisted per toolCallId)
       useChatStore.getState().markFollowupClicked(toolCallId, index)
 
-      // Send the followup prompt while preserving any text the user has typed
-      void onSubmitPrompt(prompt, agentMode, { preserveInputValue: true })
+      // Fill the input with the followup prompt so the user can modify it before sending
+      setInputValue({
+        text: prompt,
+        cursorPosition: prompt.length,
+        lastEditDueToNav: false,
+      })
     }
 
     globalThis.addEventListener('codebuff:send-followup', handleFollowupClick)
@@ -728,10 +732,7 @@ export const Chat = ({
         handleFollowupClick,
       )
     }
-  }, [
-    agentMode,
-    onSubmitPrompt,
-  ])
+  }, [setInputValue])
 
   // handleSlashItemClick is defined later after feedback/publish stores are available
 

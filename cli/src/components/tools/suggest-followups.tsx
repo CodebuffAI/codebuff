@@ -8,10 +8,13 @@ import { Button } from '../button'
 
 import type { ToolRenderConfig } from './types'
 import type { SuggestedFollowup } from '../../state/chat-store'
+import { useTerminalDimensions } from '../../hooks/use-terminal-dimensions'
 
 const EMPTY_CLICKED_SET = new Set<number>()
 const MIN_LABEL_COLUMN_WIDTH = 12
 const MAX_LABEL_COLUMN_WIDTH = 60
+/** Minimum terminal width to show the prompt description on hover */
+const MIN_WIDTH_FOR_DESCRIPTION = 80
 
 interface FollowupLineProps {
   followup: SuggestedFollowup
@@ -36,24 +39,36 @@ const FollowupLine = ({
   labelColumnWidth,
 }: FollowupLineProps) => {
   const theme = useTheme()
+  const { terminalWidth } = useTerminalDimensions()
 
   const handleClick = useCallback(() => {
-    if (isClicked || disabled) return
+    if (disabled) return
     onSendFollowup(followup.prompt, index)
-  }, [followup.prompt, index, onSendFollowup, isClicked, disabled])
+  }, [followup.prompt, index, onSendFollowup, disabled])
 
   const handleMouseOver = useCallback(() => onHover(index), [onHover, index])
   const handleMouseOut = useCallback(() => onHover(null), [onHover])
 
   // Compute effective hover state declaratively
-  // Only show hover effects if actually hovered AND item is interactive
-  const showHoverState = isHovered && !disabled && !isClicked
+  // Show hover effects if actually hovered AND not disabled (clicked items can still be hovered)
+  const showHoverState = isHovered && !disabled
 
   const hasLabel = Boolean(followup.label)
   const displayText = hasLabel ? followup.label : followup.prompt
 
-  // Show description when hovered and has a label
-  const showDescription = showHoverState && hasLabel
+  // Show description when hovered, has a label, and terminal is wide enough
+  const showDescription =
+    showHoverState && hasLabel && terminalWidth >= MIN_WIDTH_FOR_DESCRIPTION
+
+  // Calculate truncated prompt with ellipsis only when needed
+  const truncatedPrompt = showDescription
+    ? (() => {
+        const availableWidth = Math.max(0, terminalWidth - labelColumnWidth - 4)
+        return followup.prompt.length > availableWidth
+          ? followup.prompt.slice(0, availableWidth - 1) + '…'
+          : followup.prompt
+      })()
+    : ''
 
   // Determine colors based on state
   // When hovered, use primary color (acid green) for both arrow and title
@@ -99,12 +114,12 @@ const FollowupLine = ({
             </span>
           </text>
         </box>
-        {/* Flexible description column - text wraps within remaining space */}
+        {/* Flexible description column - truncated with ellipsis */}
         {showDescription && hasLabel && (
           <box style={{ flexGrow: 1 }}>
-            <text style={{ wrapMode: 'word' }}>
+            <text style={{ wrapMode: 'none' }}>
               <span fg={theme.foreground} attributes={TextAttributes.ITALIC}>
-                {followup.prompt}
+                {truncatedPrompt}
               </span>
             </text>
           </box>
