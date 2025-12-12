@@ -9,33 +9,23 @@ order: 2
 
 ## What can Codebuff be used for?
 
-Writing features, tests, and scripts across common languages and frameworks. It can also run CLI commands, adjust build configs, review code, and answer questions about your repo.
-
-## What should I try first?
-
-Start from a [starter template](https://github.com/CodebuffAI/codebuff-community/tree/main/starter-templates) or [community showcase](https://github.com/CodebuffAI/codebuff-community/tree/main/showcase):
-
-```bash
-codebuff --create nextjs my-app
-```
-
-Or:
-
-```bash
-codebuff --create minecraft-simple
-```
+Software development: Writing features, tests, and scripts across common languages and frameworks. It can also run CLI commands, adjust build configs, review code, and answer questions about your repo.
 
 ## What model does Codebuff use?
 
 Multiple. The orchestrator uses Claude Opus 4.5 (or Grok 4.1 Fast in lite mode). Subagents use GPT-5.1 for editing and thinking, Gemini 2.0/2.5 for file discovery and reasoning, Claude Haiku 4.5 for terminal commands, and Relace AI for fast file rewrites. See [What models do you use?](/docs/advanced#what-models-do-you-use) for the full breakdown.
 
+## Is Codebuff open source?
+
+Yes. It's Apache 2.0 at [github.com/CodebuffAI/codebuff](https://github.com/CodebuffAI/codebuff).
+
 ## Do you store my data?
 
 We don't store your codebase. The server forwards requests to model providers. We keep small slices of chat logs for debugging.
 
-## Is Codebuff open source?
+## Do you use model providers that train on my codebase or chat data?
 
-Yes. It's Apache 2.0 at [github.com/CodebuffAI/codebuff](https://github.com/CodebuffAI/codebuff).
+No, we don't choose providers that will train on your data in our standard modes.
 
 ## Can I trust Codebuff with full access to my terminal?
 
