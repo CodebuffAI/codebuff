@@ -1,0 +1,10 @@
+{
+  "type": "error",
+  "message": "Failed to start agent run",
+  "trace": [
+    {
+      "type": "start",
+      "messageHistoryLength": 0
+    }
+  ]
+}

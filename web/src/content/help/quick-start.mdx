@@ -5,41 +5,39 @@ tags: ['introduction', 'setup']
 order: 1
 ---
 
-# Getting Started
+# Get started with Codebuff
 
-Install Codebuff and run it from your project.
+Follow these steps to install and run Codebuff in your project.
 
-## Installation
+## 1. Install Codebuff
 
-Install globally with npm:
+Enter the following in your terminal, which could be inside your favorite IDE (VSCode, Cursor, etc.).
 
 ```bash
-  npm install -g codebuff
+npm install -g codebuff
 ```
 
-## Basic Usage
-
-Run Codebuff in your project directory:
+## 2. Navigate to your project directory
 
 ```bash
-  codebuff
+cd /path/to/your-repo
+```
+
+## 3. Run Codebuff
+
+```bash
+codebuff
 ```
 
 Codebuff has multiple [modes](/docs/help#modes): `--lite` for quick tasks, `--max` for complex work, and `--plan` for planning without file changes.
 
-## Troubleshooting Install
+## Troubleshooting
 
 If you run into issues during installation:
 
-1. **Check Node Version**
-   - Make sure you have [Node version 18+](https://nodejs.org/en/download) installed
-   - Verify your version: `node --version`
+1. **Permission issues** — On Mac/Linux try `sudo npm install -g codebuff`, on Windows run as administrator
 
-2. **Permission Issues**
-   - On Mac/Linux: Try `sudo npm install -g codebuff`
-   - On Windows: Run command prompt as administrator
-
-3. **Still Having Problems?**
+2. **Still Having Problems?**
    - Try reinstalling Node using [nvm or fnm](https://nodejs.org/en/download)
    - Run the Codebuff install command again
 
