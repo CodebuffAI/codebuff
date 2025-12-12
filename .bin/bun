@@ -202,46 +202,10 @@ check_env_setup() {
     echo "" >&2
 }
 
-# Clear inherited env vars that would conflict with .env file values
-# Bun loads .env files natively, but inherited shell variables take precedence.
-# We unset variables defined in our env files so Bun can set fresh values.
-clear_inherited_env_vars() {
-    # Skip clearing if CODEBUFF_SKIP_ENV_CLEAR is set
-    # Used by TypeScript scripts that already have env vars loaded via Bun
-    if [ -n "$CODEBUFF_SKIP_ENV_CLEAR" ]; then
-        return
-    fi
-
-    # Unset variables from .env.local so Bun can load fresh values
-    if [ -f "$ENV_LOCAL_FILE" ]; then
-        while IFS='=' read -r key _; do
-            # Skip comments and empty lines
-            case "$key" in
-                '#'*|'') continue ;;
-            esac
-            # Remove any 'export ' prefix
-            key="${key#export }"
-            unset "$key" 2>/dev/null || true
-        done < "$ENV_LOCAL_FILE"
-    fi
-    
-    # Unset variables from .env.development.local
-    if [ -f "$ENV_DEVELOPMENT_LOCAL_FILE" ]; then
-        while IFS='=' read -r key _; do
-            case "$key" in
-                '#'*|'') continue ;;
-            esac
-            key="${key#export }"
-            unset "$key" 2>/dev/null || true
-        done < "$ENV_DEVELOPMENT_LOCAL_FILE"
-    fi
-}
-
 run_bun() {
     create_env_symlinks
     check_env_setup
-    clear_inherited_env_vars
-    # Bun natively loads .env files in the correct precedence order
+    # Bun natively loads .env files and gives them precedence over inherited shell vars
     exec "$REAL_BUN" "$@"
 }
 
