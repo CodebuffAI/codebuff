@@ -7,7 +7,7 @@ order: 2
 
 # Modes
 
-Codebuff has four modes. Switch with flags or cycle using `Ctrl+M` in the CLI.
+Codebuff has four modes. Start with `--lite` or `--max` flags, or switch during a session with `Ctrl+M` or `/mode:` commands.
 
 ## Default
 
@@ -54,9 +54,9 @@ Best for complex features and refactors.
 codebuff --max
 ```
 
-## Plan (`--plan`)
+## Plan (`/mode:plan`)
 
-Planning mode. No file writes.
+Planning mode. No file writes. Only available via slash command during a session.
 
 - Gathers context about your codebase
 - Asks clarifying questions using `ask_user`
@@ -65,19 +65,19 @@ Planning mode. No file writes.
 
 Use this to scope out work before implementing, or to discuss approaches without making changes.
 
-```bash
-codebuff --plan
+```
+/mode:plan
 ```
 
 ## Mode Comparison
 
 <MarkdownTable>
-| Mode | Model | Editor Agent | Code Review | Best For |
+| Mode | How to activate | Model | Editor Agent | Code Review |
 | --- | --- | --- | --- | --- |
-| Default | Claude Opus 4.5 | `editor` | Yes | Everyday coding |
-| Lite | Grok 4.1 Fast | `editor-gpt-5` | No | Quick tasks |
-| Max | Claude Opus 4.5 | `editor-multi-prompt` | Yes | Complex work |
-| Plan | Claude Opus 4.5 | None | No | Planning |
+| Default | `codebuff` | Claude Opus 4.5 | `editor` | Yes |
+| Lite | `codebuff --lite` | Grok 4.1 Fast | `editor-gpt-5` | No |
+| Max | `codebuff --max` | Claude Opus 4.5 | `editor-multi-prompt` | Yes |
+| Plan | `/mode:plan` | Claude Opus 4.5 | None | No |
 </MarkdownTable>
 
 ## Switching Modes
@@ -86,8 +86,7 @@ codebuff --plan
 ```bash
 codebuff --lite
 codebuff --max
-codebuff --plan
 ```
 
 **During a session:**
-Press `Ctrl+M` to cycle through modes, or use the mode toggle in the input area.
+Press `Ctrl+M` to cycle through modes, or type `/mode:default`, `/mode:lite`, `/mode:max`, or `/mode:plan`.
