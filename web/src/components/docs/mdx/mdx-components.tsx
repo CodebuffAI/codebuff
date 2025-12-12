@@ -210,7 +210,7 @@ const components = {
   ),
   p: ({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) => (
     <p
-      className={cn('leading-7 mt-2 mb-3 text-muted-foreground', className)}
+      className={cn('leading-7 mt-2 mb-3', className)}
       {...props}
     />
   ),
