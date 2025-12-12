@@ -34,7 +34,7 @@ function main() {
 
   if (isDryRun) {
     log('Dry run complete! Package is ready for publishing.')
-    log('To publish for real, run: bun run publish-sdk')
+    log('To publish for real, run: bun run release')
     return
   }
 

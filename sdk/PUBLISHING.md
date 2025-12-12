@@ -5,11 +5,8 @@
 To publish the SDK to npm:
 
 ```bash
-# Dry run (recommended first)
-bun run publish-dry-run
-
 # Publish to npm
-bun run publish-sdk
+bun run release
 ```
 
 ## What the Publishing Script Does
@@ -34,19 +31,17 @@ This replaces the previous `tsup` + manual package.json manipulation approach.
 ## Available Scripts
 
 - `bun run build` - Build TypeScript only
-- `bun run build:verify` - Build + run smoke tests
+- `bun run verify` - Build + run smoke tests
 - `bun run smoke-test` - Run smoke tests on existing build
 - `bun run clean` - Remove dist directory
-- `bun run publish-dry-run` - Full build + verification (no publish)
-- `bun run publish-sdk` - Full build + publish to npm
+- `bun run release` - Remote build + publish to npm
 - `bun run typecheck` - Type checking only
 
 ## Before Publishing
 
 1. Update version in `package.json`
 2. Update `CHANGELOG.md` with new changes
-3. Run `bun run publish-dry-run` to verify
-4. Run `bun run publish-sdk` to publish
+3. Run `bun run release` to publish
 
 ## Package Contents
 

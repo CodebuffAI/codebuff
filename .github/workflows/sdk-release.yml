@@ -102,7 +102,7 @@ jobs:
       - name: Publish to npm
         run: |
           cd sdk
-          bun run publish-sdk
+          bun run scripts/publish.ts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 

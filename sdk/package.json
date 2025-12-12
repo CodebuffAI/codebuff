@@ -32,8 +32,6 @@
     "verify:skip-build": "bun run scripts/verify.ts --skip-build",
     "smoke-test:dist": "bun run smoke-test-dist.ts",
     "prepare-dist": "bun run scripts/publish.ts --dry-run",
-    "publish-sdk": "bun run scripts/publish.ts --public",
-    "publish-dry-run": "bun run verify && bun run scripts/publish.ts --dry-run",
     "release": "bun run scripts/release.js",
     "fetch-ripgrep": "bun scripts/fetch-ripgrep.ts",
     "prepack": "bun run build",
