@@ -625,8 +625,9 @@ export const Chat = ({
     ) => {
       ensureQueueActiveBeforeSubmit()
 
+      const preserveInput = options?.preserveInputValue === true
       const previousInputValue =
-        options?.preserveInputValue === true
+        preserveInput
           ? (() => {
               const {
                 inputValue: text,
@@ -636,39 +637,58 @@ export const Chat = ({
               return { text, cursorPosition, lastEditDueToNav }
             })()
           : null
+      const preservedPendingImages =
+        preserveInput && useChatStore.getState().pendingImages.length > 0
+          ? [...useChatStore.getState().pendingImages]
+          : null
 
-      const result = await routeUserPrompt({
-        abortControllerRef,
-        agentMode: mode,
-        inputRef,
-        inputValue: content,
-        isChainInProgressRef,
-        isStreaming,
-        logoutMutation,
-        streamMessageIdRef,
-        addToQueue,
-        clearMessages,
-        saveToHistory,
-        scrollToLatest,
-        sendMessage,
-        setCanProcessQueue,
-        setInputFocused,
-        setInputValue,
-        setIsAuthenticated,
-        setMessages,
-        setUser,
-        stopStreaming,
-      })
-
-      if (previousInputValue) {
-        setInputValue({
-          text: previousInputValue.text,
-          cursorPosition: previousInputValue.cursorPosition,
-          lastEditDueToNav: previousInputValue.lastEditDueToNav,
-        })
+      if (preserveInput && preservedPendingImages) {
+        useChatStore.getState().clearPendingImages()
       }
 
-      return result
+      try {
+        const result = await routeUserPrompt({
+          abortControllerRef,
+          agentMode: mode,
+          inputRef,
+          inputValue: content,
+          isChainInProgressRef,
+          isStreaming,
+          logoutMutation,
+          streamMessageIdRef,
+          addToQueue,
+          clearMessages,
+          saveToHistory,
+          scrollToLatest,
+          sendMessage,
+          setCanProcessQueue,
+          setInputFocused,
+          setInputValue,
+          setIsAuthenticated,
+          setMessages,
+          setUser,
+          stopStreaming,
+        })
+
+        return result
+      } finally {
+        if (previousInputValue) {
+          setInputValue({
+            text: previousInputValue.text,
+            cursorPosition: previousInputValue.cursorPosition,
+            lastEditDueToNav: previousInputValue.lastEditDueToNav,
+          })
+        }
+
+        if (preserveInput && preservedPendingImages) {
+          const currentPending = useChatStore.getState().pendingImages
+          if (currentPending.length === 0) {
+            useChatStore.setState((state) => {
+              state.pendingImages = preservedPendingImages
+            })
+          }
+        }
+      }
     },
   )
 

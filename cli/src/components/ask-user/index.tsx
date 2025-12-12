@@ -124,7 +124,7 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
     ) => {
       setAnswers((prev) => {
         const nextAnswers = new Map(prev)
-        const previousAnswer = prev.get(questionIndex)
+        const previousAnswer = prev.get(questionIndex) ?? {}
         nextAnswers.set(questionIndex, updater(previousAnswer))
         return nextAnswers
       })
@@ -226,7 +226,7 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
 
       setAnswers((prev) => {
         const newAnswers = new Map(prev)
-        const currentAnswer = prev.get(questionIndex)
+        const currentAnswer: AccordionAnswer = prev.get(questionIndex) ?? {}
 
         if (optionIndex === OTHER_OPTION_INDEX) {
           toggledOtherOn = !(currentAnswer?.isOther ?? false)
