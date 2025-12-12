@@ -11,6 +11,7 @@ import {
 import { useShallow } from 'zustand/react/shallow'
 
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
+import type { CommandResult } from './commands/command-registry'
 import { AnnouncementBanner } from './components/announcement-banner'
 import { ChatInputBar } from './components/chat-input-bar'
 import { MessageWithAgents } from './components/message-with-agents'
@@ -50,7 +51,6 @@ import { usePublishStore } from './state/publish-store'
 import {
   addClipboardPlaceholder,
   addPendingImageFromFile,
-  capturePendingImages,
   validateAndAddImage,
 } from './utils/add-pending-image'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
@@ -617,6 +617,61 @@ export const Chat = ({
 
   sendMessageRef.current = sendMessage
 
+  const onSubmitPrompt = useEvent(
+    async (
+      content: string,
+      mode: AgentMode,
+      options?: { preserveInputValue?: boolean },
+    ) => {
+      ensureQueueActiveBeforeSubmit()
+
+      const previousInputValue =
+        options?.preserveInputValue === true
+          ? (() => {
+              const {
+                inputValue: text,
+                cursorPosition,
+                lastEditDueToNav,
+              } = useChatStore.getState()
+              return { text, cursorPosition, lastEditDueToNav }
+            })()
+          : null
+
+      const result = await routeUserPrompt({
+        abortControllerRef,
+        agentMode: mode,
+        inputRef,
+        inputValue: content,
+        isChainInProgressRef,
+        isStreaming,
+        logoutMutation,
+        streamMessageIdRef,
+        addToQueue,
+        clearMessages,
+        saveToHistory,
+        scrollToLatest,
+        sendMessage,
+        setCanProcessQueue,
+        setInputFocused,
+        setInputValue,
+        setIsAuthenticated,
+        setMessages,
+        setUser,
+        stopStreaming,
+      })
+
+      if (previousInputValue) {
+        setInputValue({
+          text: previousInputValue.text,
+          cursorPosition: previousInputValue.cursorPosition,
+          lastEditDueToNav: previousInputValue.lastEditDueToNav,
+        })
+      }
+
+      return result
+    },
+  )
+
   // Handle followup suggestion clicks
   useEffect(() => {
     const handleFollowupClick = (event: Event) => {
@@ -630,24 +685,8 @@ export const Chat = ({
       // Mark this followup as clicked (persisted per toolCallId)
       useChatStore.getState().markFollowupClicked(toolCallId, index)
 
-      // Send the followup prompt directly without clearing the user's current input
-      ensureQueueActiveBeforeSubmit()
-
-      if (
-        isStreaming ||
-        streamMessageIdRef.current ||
-        isChainInProgressRef.current
-      ) {
-        const pendingImagesForQueue = capturePendingImages()
-        // Queue the followup message
-        addToQueue(prompt, pendingImagesForQueue)
-      } else {
-        // Send directly
-        sendMessage({ content: prompt, agentMode })
-        setTimeout(() => {
-          scrollToLatest()
-        }, 0)
-      }
+      // Send the followup prompt while preserving any text the user has typed
+      void onSubmitPrompt(prompt, agentMode, { preserveInputValue: true })
     }
 
     globalThis.addEventListener('codebuff:send-followup', handleFollowupClick)
@@ -659,39 +698,8 @@ export const Chat = ({
     }
   }, [
     agentMode,
-    isStreaming,
-    streamMessageIdRef,
-    isChainInProgressRef,
-    addToQueue,
-    scrollToLatest,
-    sendMessage,
-    ensureQueueActiveBeforeSubmit,
+    onSubmitPrompt,
   ])
-
-  const onSubmitPrompt = useEvent((content: string, mode: AgentMode) => {
-    return routeUserPrompt({
-      abortControllerRef,
-      agentMode: mode,
-      inputRef,
-      inputValue: content,
-      isChainInProgressRef,
-      isStreaming,
-      logoutMutation,
-      streamMessageIdRef,
-      addToQueue,
-      clearMessages,
-      saveToHistory,
-      scrollToLatest,
-      sendMessage,
-      setCanProcessQueue,
-      setInputFocused,
-      setInputValue,
-      setIsAuthenticated,
-      setMessages,
-      setUser,
-      stopStreaming,
-    })
-  })
 
   // handleSlashItemClick is defined later after feedback/publish stores are available
 
@@ -772,6 +780,35 @@ export const Chat = ({
 
   const publishMutation = usePublishMutation()
 
+  const handleCommandResult = useCallback(
+    (result?: CommandResult) => {
+      if (!result) return
+
+      if (result.openFeedbackMode) {
+        // Save the feedback text that was set by the command handler before opening feedback mode
+        const { feedbackText, feedbackCursor } = useFeedbackStore.getState()
+        saveCurrentInput('', 0)
+        openFeedbackForMessage(null)
+        // Restore the prefilled text after openFeedbackForMessage resets it
+        if (feedbackText) {
+          useFeedbackStore.getState().setFeedbackText(feedbackText)
+          useFeedbackStore.getState().setFeedbackCursor(feedbackCursor)
+        }
+      }
+
+      if (result.openPublishMode) {
+        if (result.preSelectAgents && result.preSelectAgents.length > 0) {
+          // preSelectAgents already sets publishMode: true, so don't call openPublishMode
+          // which would reset the selectedAgentIds
+          preSelectAgents(result.preSelectAgents)
+        } else {
+          openPublishMode()
+        }
+      }
+    },
+    [saveCurrentInput, openFeedbackForMessage, openPublishMode, preSelectAgents],
+  )
+
   // Click handler for slash menu items - executes command immediately
   const handleSlashItemClick = useCallback(
     async (index: number) => {
@@ -782,41 +819,15 @@ export const Chat = ({
       const commandString = `/${selected.id}`
       setSlashSelectedIndex(0)
 
-      ensureQueueActiveBeforeSubmit()
       const result = await onSubmitPrompt(commandString, agentMode)
-
-      if (result?.openFeedbackMode) {
-        // Save the feedback text that was set by the command handler before opening feedback mode
-        const prefilledText = useFeedbackStore.getState().feedbackText
-        const prefilledCursor = useFeedbackStore.getState().feedbackCursor
-        saveCurrentInput('', 0)
-        openFeedbackForMessage(null)
-        // Restore the prefilled text after openFeedbackForMessage resets it
-        if (prefilledText) {
-          useFeedbackStore.getState().setFeedbackText(prefilledText)
-          useFeedbackStore.getState().setFeedbackCursor(prefilledCursor)
-        }
-      }
-      if (result?.openPublishMode) {
-        if (result.preSelectAgents && result.preSelectAgents.length > 0) {
-          // preSelectAgents already sets publishMode: true, so don't call openPublishMode
-          // which would reset the selectedAgentIds
-          preSelectAgents(result.preSelectAgents)
-        } else {
-          openPublishMode()
-        }
-      }
+      handleCommandResult(result)
     },
     [
       slashMatches,
       setSlashSelectedIndex,
-      ensureQueueActiveBeforeSubmit,
       onSubmitPrompt,
       agentMode,
-      saveCurrentInput,
-      openFeedbackForMessage,
-      openPublishMode,
-      preSelectAgents,
+      handleCommandResult,
     ],
   )
 
@@ -897,79 +908,13 @@ export const Chat = ({
   }, [feedbackMode, askUserState, inputRef])
 
   const handleSubmit = useCallback(async () => {
-    ensureQueueActiveBeforeSubmit()
-
-    const result = await routeUserPrompt({
-      abortControllerRef,
-      agentMode,
-      inputRef,
-      inputValue,
-      isChainInProgressRef,
-      isStreaming,
-      logoutMutation,
-      streamMessageIdRef,
-      addToQueue,
-      clearMessages,
-      saveToHistory,
-      scrollToLatest,
-      sendMessage,
-      setCanProcessQueue,
-      setInputFocused,
-      setInputValue,
-      setIsAuthenticated,
-      setMessages,
-      setUser,
-      stopStreaming,
-    })
-
-    if (result?.openFeedbackMode) {
-      // Save the feedback text that was set by the command handler before opening feedback mode
-      const prefilledText = useFeedbackStore.getState().feedbackText
-      const prefilledCursor = useFeedbackStore.getState().feedbackCursor
-      saveCurrentInput('', 0)
-      openFeedbackForMessage(null)
-      // Restore the prefilled text after openFeedbackForMessage resets it
-      if (prefilledText) {
-        useFeedbackStore.getState().setFeedbackText(prefilledText)
-        useFeedbackStore.getState().setFeedbackCursor(prefilledCursor)
-      }
-    }
-
-    if (result?.openPublishMode) {
-      if (result.preSelectAgents && result.preSelectAgents.length > 0) {
-        // preSelectAgents already sets publishMode: true, so don't call openPublishMode
-        // which would reset the selectedAgentIds
-        preSelectAgents(result.preSelectAgents)
-      } else {
-        openPublishMode()
-      }
-    }
+    const result = await onSubmitPrompt(inputValue, agentMode)
+    handleCommandResult(result)
   }, [
-    abortControllerRef,
-    agentMode,
-    inputRef,
+    onSubmitPrompt,
     inputValue,
-    isChainInProgressRef,
-    isStreaming,
-    logoutMutation,
-    streamMessageIdRef,
-    addToQueue,
-    clearMessages,
-    saveToHistory,
-    scrollToLatest,
-    sendMessage,
-    setCanProcessQueue,
-    setInputFocused,
-    setInputValue,
-    setIsAuthenticated,
-    setMessages,
-    setUser,
-    stopStreaming,
-    ensureQueueActiveBeforeSubmit,
-    saveCurrentInput,
-    openFeedbackForMessage,
-    openPublishMode,
-    preSelectAgents,
+    agentMode,
+    handleCommandResult,
   ])
 
   const totalMentionMatches = agentMatches.length + fileMatches.length
@@ -1074,30 +1019,9 @@ export const Chat = ({
         const commandString = `/${selected.id}`
         setSlashSelectedIndex(0)
 
-        ensureQueueActiveBeforeSubmit()
         const result = await onSubmitPrompt(commandString, agentMode)
 
-        if (result?.openFeedbackMode) {
-          // Save the feedback text that was set by the command handler before opening feedback mode
-          const prefilledText = useFeedbackStore.getState().feedbackText
-          const prefilledCursor = useFeedbackStore.getState().feedbackCursor
-          saveCurrentInput('', 0)
-          openFeedbackForMessage(null)
-          // Restore the prefilled text after openFeedbackForMessage resets it
-          if (prefilledText) {
-            useFeedbackStore.getState().setFeedbackText(prefilledText)
-            useFeedbackStore.getState().setFeedbackCursor(prefilledCursor)
-          }
-        }
-        if (result?.openPublishMode) {
-          if (result.preSelectAgents && result.preSelectAgents.length > 0) {
-            // preSelectAgents already sets publishMode: true, so don't call openPublishMode
-            // which would reset the selectedAgentIds
-            preSelectAgents(result.preSelectAgents)
-          } else {
-            openPublishMode()
-          }
-        }
+        handleCommandResult(result)
       },
       onSlashMenuComplete: () => {
         // Complete the word without executing - same as clicking on the item
@@ -1258,13 +1182,9 @@ export const Chat = ({
       setSlashSelectedIndex,
       slashMatches,
       slashSelectedIndex,
-      ensureQueueActiveBeforeSubmit,
       onSubmitPrompt,
       agentMode,
-      saveCurrentInput,
-      openFeedbackForMessage,
-      openPublishMode,
-      preSelectAgents,
+      handleCommandResult,
       setAgentSelectedIndex,
       agentMatches,
       fileMatches,

@@ -113,7 +113,7 @@ export const ChatInputBar = ({
   const modeConfig = getInputModeConfig(inputMode)
   const askUserState = useChatStore((state) => state.askUserState)
   const hasAnyPreview = hasSuggestionMenu
-  const { submitAnswers } = useAskUserBridge()
+  const { submitAnswers, skip } = useAskUserBridge()
   const [askUserTitle] = React.useState(' Some questions for you ')
 
   // Shared key intercept handler for suggestion menu navigation
@@ -258,11 +258,7 @@ export const ChatInputBar = ({
 
   const handleFormSkip = () => {
     if (!askUserState) return
-    // Submit with all questions skipped
-    const skippedAnswers = askUserState.questions.map((_, idx) => ({
-      questionIndex: idx,
-    }))
-    submitAnswers(skippedAnswers)
+    skip()
   }
 
   const effectivePlaceholder =
