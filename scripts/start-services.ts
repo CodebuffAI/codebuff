@@ -265,7 +265,7 @@ async function main(): Promise<void> {
 
   console.log('')
   console.log(`  View logs:  tail -f ${join(LOG_DIR, 'web.log')}`)
-  console.log(`  Stop with:  bun stop-services`)
+  console.log(`  Stop with:  bun down`)
   console.log('')
   console.log('Now run: bun start-cli')
 }

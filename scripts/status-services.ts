@@ -153,9 +153,9 @@ async function main(): Promise<void> {
   console.log('')
 
   if (anyRunning) {
-    console.log('  To stop: bun stop-services')
+    console.log('  To stop: bun down')
   } else {
-    console.log('  To start: bun start-services')
+    console.log('  To start: bun up')
   }
 
   console.log('')

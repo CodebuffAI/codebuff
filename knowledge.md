@@ -73,10 +73,10 @@ bun dev                    # Starts db, studio, sdk, web, then CLI
                            # Ctrl+C stops everything
 
 # Or run services and CLI separately
-bun start-services         # Start services in background, exits when ready
+bun up                     # Start services in background, exits when ready
 bun start-cli              # Start CLI in foreground
-bun stop-services          # Stop background services
-bun status-services        # Check if services are running
+bun down                   # Stop background services
+bun ps                     # Check if services are running
 ```
 
 **Services started:**
@@ -95,7 +95,7 @@ NEXT_PUBLIC_WEB_PORT=3001
 NEXT_PUBLIC_CODEBUFF_APP_URL=http://localhost:3001
 ```
 
-The `stop-services` command is worktree-safe - it only kills services on the port configured for that worktree.
+The `bun down` command is worktree-safe - it only kills services on the port configured for that worktree.
 
 ## Package Management
 
