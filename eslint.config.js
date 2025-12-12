@@ -15,6 +15,62 @@ export default tseslint.config(
     ],
   },
 
+  // CLI package: enforce using CliProcessEnv instead of ProcessEnv
+  {
+    files: ['cli/src/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@codebuff/common/env-process',
+              importNames: ['getProcessEnv', 'processEnv'],
+              message:
+                'CLI should use getCliEnv() from "../utils/env" or "./env" instead of getProcessEnv() from common. This ensures CLI uses CliEnv type.',
+            },
+          ],
+          patterns: [
+            {
+              group: ['@codebuff/common/types/contracts/env'],
+              importNames: ['ProcessEnv'],
+              message:
+                'CLI should use CliEnv from "../types/env" instead of ProcessEnv from common.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  // SDK package: enforce using SdkProcessEnv instead of ProcessEnv
+  {
+    files: ['sdk/src/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@codebuff/common/env-process',
+              importNames: ['getProcessEnv', 'processEnv'],
+              message:
+                'SDK should use getSdkEnv() from "./env" instead of getProcessEnv() from common. This ensures SDK uses SdkEnv type.',
+            },
+          ],
+          patterns: [
+            {
+              group: ['@codebuff/common/types/contracts/env'],
+              importNames: ['ProcessEnv'],
+              message:
+                'SDK should use SdkEnv from "./types/env" instead of ProcessEnv from common.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
   // Base config for JS/TS files
   {
     files: ['**/*.{js,mjs,cjs,ts,tsx}'],

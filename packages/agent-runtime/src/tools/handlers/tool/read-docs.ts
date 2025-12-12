@@ -8,6 +8,7 @@ import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
+import type { ClientEnv, CiEnv } from '@codebuff/common/types/contracts/env'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 
@@ -23,6 +24,8 @@ export const handleReadDocs = (async (
     repoId: string | undefined
     userId: string | undefined
     userInputId: string
+    clientEnv: ClientEnv
+    ciEnv: CiEnv
   } & ParamsExcluding<
     typeof fetchContext7LibraryDocumentation,
     'query' | 'topic' | 'tokens'
@@ -44,6 +47,8 @@ export const handleReadDocs = (async (
     userInputId,
 
     fetch,
+    clientEnv,
+    ciEnv,
   } = params
   const { libraryTitle, topic, max_tokens } = toolCall.input
 
@@ -72,6 +77,7 @@ export const handleReadDocs = (async (
       repoUrl: null,
       logger,
       fetch,
+      env: { clientEnv, ciEnv },
     })
 
     if (viaWebApi.error || typeof viaWebApi.documentation !== 'string') {

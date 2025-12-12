@@ -3,6 +3,8 @@ import {
   disableSessionConnectionCheck,
 } from '@codebuff/agent-runtime/live-user-inputs'
 import { trackEvent } from '@codebuff/common/analytics'
+import { env as clientEnvDefault } from '@codebuff/common/env'
+import { getCiEnv } from '@codebuff/common/env-ci'
 import { success } from '@codebuff/common/util/error'
 
 import {
@@ -19,6 +21,7 @@ import type {
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
 import type { DatabaseAgentCache } from '@codebuff/common/types/contracts/database'
+import type { ClientEnv } from '@codebuff/common/types/contracts/env'
 import type {
   SessionRecord,
   UserInputRecord,
@@ -35,6 +38,7 @@ export function getAgentRuntimeImpl(
   params: {
     logger?: Logger
     apiKey: string
+    clientEnv?: ClientEnv
   } & Pick<
     AgentRuntimeScopedDeps,
     | 'handleStepsLogChunk'
@@ -49,6 +53,7 @@ export function getAgentRuntimeImpl(
   const {
     logger,
     apiKey,
+    clientEnv = clientEnvDefault,
     handleStepsLogChunk,
     requestToolCall,
     requestMcpToolData,
@@ -59,6 +64,10 @@ export function getAgentRuntimeImpl(
   } = params
 
   return {
+    // Environment
+    clientEnv,
+    ciEnv: getCiEnv(),
+
     // Database
     getUserInfoFromApiKey,
     fetchAgentFromDatabase,

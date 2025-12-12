@@ -11,6 +11,9 @@
 
 import { openSync, closeSync, writeSync, constants } from 'fs'
 
+import type { CliEnv } from '../types/env'
+import { getCliEnv } from './env'
+
 // Timeout constants
 const OSC_QUERY_TIMEOUT_MS = 500 // Timeout for individual OSC query
 const GLOBAL_OSC_TIMEOUT_MS = 2000 // Global timeout for entire detection process
@@ -44,9 +47,11 @@ export function withTimeout<T>(
 /**
  * Check if the current terminal supports OSC color queries
  */
-export function terminalSupportsOSC(): boolean {
-  const term = process.env.TERM || ''
-  const termProgram = process.env.TERM_PROGRAM || ''
+export function terminalSupportsOSC(
+  env: CliEnv = getCliEnv(),
+): boolean {
+  const term = env.TERM || ''
+  const termProgram = env.TERM_PROGRAM || ''
 
   // Known compatible terminals
   const supportedPrograms = [
@@ -323,8 +328,10 @@ function xtermColorToRGB(index: number): [number, number, number] | null {
   return null
 }
 
-function detectBgColorFromEnv(): [number, number, number] | null {
-  const termBackground = process.env.TERM_BACKGROUND?.toLowerCase()
+function detectBgColorFromEnv(
+  env: CliEnv = getCliEnv(),
+): [number, number, number] | null {
+  const termBackground = env.TERM_BACKGROUND?.toLowerCase()
   if (termBackground === 'dark') {
     return [0, 0, 0]
   }
@@ -332,7 +339,7 @@ function detectBgColorFromEnv(): [number, number, number] | null {
     return [255, 255, 255]
   }
 
-  const colorFgBg = process.env.COLORFGBG
+  const colorFgBg = env.COLORFGBG
   if (!colorFgBg) return null
 
   const parts = colorFgBg
@@ -399,9 +406,11 @@ export function themeFromFgColor(
  * Core detection logic without any timeout wrapping
  * This is the actual detection implementation
  */
-async function detectTerminalThemeCore(): Promise<'dark' | 'light' | null> {
+async function detectTerminalThemeCore(
+  env: CliEnv = getCliEnv(),
+): Promise<'dark' | 'light' | null> {
   // Check if terminal supports OSC
-  if (!terminalSupportsOSC()) {
+  if (!terminalSupportsOSC(env)) {
     return null
   }
 
@@ -424,7 +433,7 @@ async function detectTerminalThemeCore(): Promise<'dark' | 'light' | null> {
   }
 
   // Fallback to COLORFGBG environment variable if available
-  const envBgRgb = detectBgColorFromEnv()
+  const envBgRgb = detectBgColorFromEnv(env)
   if (envBgRgb) {
     return themeFromBgColor(envBgRgb)
   }

@@ -1,8 +1,13 @@
 import { withTimeout } from '@codebuff/common/util/promise'
-import { env } from '@codebuff/common/env'
+import type { ClientEnv, CiEnv } from '@codebuff/common/types/contracts/env'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const FETCH_TIMEOUT_MS = 30_000
+
+interface CodebuffWebApiEnv {
+  clientEnv: ClientEnv
+  ciEnv: CiEnv
+}
 
 export async function callWebSearchAPI(params: {
   query: string
@@ -10,12 +15,13 @@ export async function callWebSearchAPI(params: {
   repoUrl?: string | null
   fetch: typeof globalThis.fetch
   logger: Logger
+  env: CodebuffWebApiEnv
   baseUrl?: string
   apiKey?: string
 }): Promise<{ result?: string; error?: string; creditsUsed?: number }> {
-  const { query, depth = 'standard', repoUrl, fetch, logger } = params
-  const baseUrl = params.baseUrl ?? env.NEXT_PUBLIC_CODEBUFF_APP_URL
-  const apiKey = params.apiKey ?? process.env.CODEBUFF_API_KEY
+  const { query, depth = 'standard', repoUrl, fetch, logger, env } = params
+  const baseUrl = params.baseUrl ?? env.clientEnv.NEXT_PUBLIC_CODEBUFF_APP_URL
+  const apiKey = params.apiKey ?? env.ciEnv.CODEBUFF_API_KEY
 
   if (!baseUrl || !apiKey) {
     return { error: 'Missing Codebuff base URL or API key' }
@@ -94,12 +100,13 @@ export async function callDocsSearchAPI(params: {
   repoUrl?: string | null
   fetch: typeof globalThis.fetch
   logger: Logger
+  env: CodebuffWebApiEnv
   baseUrl?: string
   apiKey?: string
 }): Promise<{ documentation?: string; error?: string; creditsUsed?: number }> {
-  const { libraryTitle, topic, maxTokens, repoUrl, fetch, logger } = params
-  const baseUrl = params.baseUrl ?? env.NEXT_PUBLIC_CODEBUFF_APP_URL
-  const apiKey = params.apiKey ?? process.env.CODEBUFF_API_KEY
+  const { libraryTitle, topic, maxTokens, repoUrl, fetch, logger, env } = params
+  const baseUrl = params.baseUrl ?? env.clientEnv.NEXT_PUBLIC_CODEBUFF_APP_URL
+  const apiKey = params.apiKey ?? env.ciEnv.CODEBUFF_API_KEY
 
   if (!baseUrl || !apiKey) {
     return { error: 'Missing Codebuff base URL or API key' }

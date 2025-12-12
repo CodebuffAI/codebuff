@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react'
 
+import { getCliEnv } from '../utils/env'
+
 import { logger } from '../utils/logger'
 
 /**
@@ -35,9 +37,10 @@ export function useWhyDidYouUpdate<T extends Record<string, any>>(
     enabled?: boolean
   } = {},
 ): void {
+  const env = getCliEnv()
   const {
     logLevel = 'info',
-    enabled = process.env.NODE_ENV === 'development',
+    enabled = env.NODE_ENV === 'development',
   } = options
 
   const previousProps = useRef<T | null>(null)
@@ -115,7 +118,8 @@ export function useWhyDidYouUpdateById<T extends Record<string, any>>(
     enabled?: boolean
   } = {},
 ): void {
-  const { logLevel = 'info', enabled = process.env.ENVIRONMENT === 'dev' } =
+  const env = getCliEnv()
+  const { logLevel = 'info', enabled = env.NODE_ENV === 'development' } =
     options
 
   const previousProps = useRef<T | null>(null)

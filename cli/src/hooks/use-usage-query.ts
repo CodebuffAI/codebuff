@@ -1,8 +1,10 @@
+import { env } from '@codebuff/common/env'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { getAuthToken } from '../utils/auth'
 import { logger as defaultLogger } from '../utils/logger'
 
+import type { ClientEnv } from '@codebuff/common/types/contracts/env'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 // Query keys for type-safe cache management
@@ -26,6 +28,7 @@ interface UsageResponse {
 interface FetchUsageParams {
   authToken: string
   logger?: Logger
+  clientEnv?: ClientEnv
 }
 
 /**
@@ -34,8 +37,9 @@ interface FetchUsageParams {
 export async function fetchUsageData({
   authToken,
   logger = defaultLogger,
+  clientEnv = env,
 }: FetchUsageParams): Promise<UsageResponse> {
-  const appUrl = process.env.NEXT_PUBLIC_CODEBUFF_APP_URL
+  const appUrl = clientEnv.NEXT_PUBLIC_CODEBUFF_APP_URL
   if (!appUrl) {
     throw new Error('NEXT_PUBLIC_CODEBUFF_APP_URL is not set')
   }

@@ -393,6 +393,124 @@ Important constants are centralized in `common/src/constants.ts`:
 
 This project uses standard `.env.*` files for environment configuration. Bun natively loads these files automatically.
 
+### Environment Dependency Injection Architecture
+
+The codebase uses a structured dependency injection pattern for environment variables, making code more testable and removing direct `process.env.*` calls.
+
+#### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      BASE TYPES (common)                        │
+├─────────────────────────────────────────────────────────────────┤
+│  BaseEnv     - OS/runtime vars (SHELL, HOME, TERM, etc.)       │
+│  BaseCiEnv   - CI vars (CI, GITHUB_ACTIONS, etc.)              │
+│  ClientEnv   - Public vars (NEXT_PUBLIC_*) from env-schema     │
+└─────────────────────────────────────────────────────────────────┘
+                               │
+                     extends   │
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    PACKAGE-SPECIFIC ENVS                        │
+├─────────────────────────────────────────────────────────────────┤
+│  CLI:    CliEnv = BaseEnv & { CLI-specific }                   │
+│  SDK:    SdkEnv = BaseEnv & { SDK-specific }                   │
+│  Server: ServerEnv = ClientEnv & { server secrets }            │
+│  Evals:  EvalsEnv = BaseCiEnv & { eval-specific }              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Key Files
+
+| Package | Type Definition | Helper Functions | Tests |
+|---------|-----------------|------------------|-------|
+| common | `common/src/types/contracts/env.ts` | `common/src/env-process.ts` (getBaseEnv), `common/src/env-ci.ts` | `common/src/__tests__/env-*.test.ts` |
+| CLI | `cli/src/types/env.ts` (CliEnv) | `cli/src/utils/env.ts` (getCliEnv) | `cli/src/__tests__/utils/env.test.ts` |
+| SDK | `sdk/src/types/env.ts` (SdkEnv) | `sdk/src/env.ts` (getSdkEnv) | `sdk/src/__tests__/env.test.ts` |
+| Server | `packages/internal/src/types/contracts/env.ts` | `packages/internal/src/env.ts` | - |
+| Evals | `evals/types/env.ts` (`EvalsCiEnv`) | - | - |
+
+#### Usage Pattern
+
+**In CLI code:**
+```typescript
+import type { CliEnv } from '../types/env'
+import { getCliEnv } from './env'
+
+// Function accepts injectable env with default
+export function detectShell(env: CliEnv = getCliEnv()): string {
+  return env.SHELL || env.COMSPEC || 'unknown'
+}
+```
+
+**In SDK code:**
+```typescript
+import type { SdkEnv } from './types/env'
+import { getSdkEnv } from './env'
+
+export function getRipgrepPath(env: SdkEnv = getSdkEnv()): string {
+  return env.CODEBUFF_RG_PATH || '/usr/bin/rg'
+}
+```
+
+**In tests:**
+```typescript
+import { createTestCliEnv } from '../../utils/env'
+
+test('detects VS Code terminal', () => {
+  const env = createTestCliEnv({
+    VSCODE_PID: '1234',
+    TERM_PROGRAM: 'vscode',
+  })
+  expect(isVSCodeTerminal(env)).toBe(true)
+})
+```
+
+#### ESLint Enforcement
+
+Lint rules in `eslint.config.js` enforce that packages use their own env types:
+
+- **CLI**: Must use `CliEnv` and `getCliEnv()`, not `ProcessEnv` from common
+- **SDK**: Must use `SdkEnv` and `getSdkEnv()`, not `ProcessEnv` from common
+
+```javascript
+// eslint.config.js - Enforces package-specific env types
+{
+  files: ['cli/src/**/*.{ts,tsx}'],
+  rules: {
+    'no-restricted-imports': ['error', {
+      paths: [{
+        name: '@codebuff/common/env-process',
+        importNames: ['getProcessEnv', 'processEnv'],
+        message: 'CLI should use getCliEnv() from "../utils/env"',
+      }],
+    }],
+  },
+}
+```
+
+#### Base vs Extended Types
+
+| Type | Location | Purpose |
+|------|----------|--------|
+| `BaseEnv` | common | OS-level vars (SHELL, HOME, TERM, NODE_ENV, PATH) |
+| `BaseCiEnv` | common | CI platform vars (CI, GITHUB_ACTIONS, RENDER) |
+| `ClientEnv` | common | Public NEXT_PUBLIC_* vars (validated via Zod) |
+| `ProcessEnv` | common | Full process env (BaseEnv + all extensions) |
+| `CiEnv` | common | Extended CI env (BaseCiEnv + CODEBUFF_API_KEY, etc.) |
+| `CliEnv` | CLI | BaseEnv + terminal/IDE detection vars |
+| `SdkEnv` | SDK | BaseEnv + binary path/build flag vars |
+| `ServerEnv` | internal | ClientEnv + server secrets (API keys, DB URLs) |
+| `EvalsCiEnv` | evals | BaseCiEnv + eval-specific vars (EVAL_RESULTS_EMAIL) |
+
+#### Benefits
+
+1. **Testability**: Functions accept env as a parameter, easy to mock in tests
+2. **Type Safety**: Each package has its own typed env with only relevant vars
+3. **No Global State**: No direct `process.env.*` calls that pollute tests
+4. **Lint Enforcement**: ESLint prevents accidental use of wrong env types
+5. **Snapshot Isolation**: `get*ProcessEnv()` returns a snapshot that doesn't change
+
 ### File Hierarchy
 
 Bun loads `.env` files in this order (highest precedence last):
