@@ -88,6 +88,9 @@ export type SuggestedFollowupsState = {
   clickedIndices: Set<number>
 }
 
+/** Map of toolCallId -> Set of clicked indices (persists across followup sets) */
+export type ClickedFollowupsMap = Map<string, Set<number>>
+
 export type ChatStoreState = {
   messages: ChatMessage[]
   streamingAgents: Set<string>
@@ -113,6 +116,8 @@ export type ChatStoreState = {
   pendingImages: PendingImage[]
   pendingBashMessages: PendingBashMessage[]
   suggestedFollowups: SuggestedFollowupsState | null
+  /** Persisted clicked indices per toolCallId */
+  clickedFollowupsMap: ClickedFollowupsMap
 }
 
 type ChatStoreActions = {
@@ -159,7 +164,7 @@ type ChatStoreActions = {
   removePendingBashMessage: (id: string) => void
   clearPendingBashMessages: () => void
   setSuggestedFollowups: (state: SuggestedFollowupsState | null) => void
-  markFollowupClicked: (index: number) => void
+  markFollowupClicked: (toolCallId: string, index: number) => void
   reset: () => void
 }
 
@@ -190,6 +195,7 @@ const initialState: ChatStoreState = {
   pendingImages: [],
   pendingBashMessages: [],
   suggestedFollowups: null,
+  clickedFollowupsMap: new Map<string, Set<number>>(),
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -405,9 +411,16 @@ export const useChatStore = create<ChatStore>()(
         state.suggestedFollowups = suggestedFollowups
       }),
 
-    markFollowupClicked: (index) =>
+    markFollowupClicked: (toolCallId: string, index: number) =>
       set((state) => {
-        if (state.suggestedFollowups) {
+        // Store in the persistent map
+        if (!state.clickedFollowupsMap.has(toolCallId)) {
+          state.clickedFollowupsMap.set(toolCallId, new Set<number>())
+        }
+        state.clickedFollowupsMap.get(toolCallId)!.add(index)
+
+        // Also update the current suggestedFollowups if it matches
+        if (state.suggestedFollowups?.toolCallId === toolCallId) {
           state.suggestedFollowups.clickedIndices.add(index)
         }
       }),
@@ -440,6 +453,7 @@ export const useChatStore = create<ChatStore>()(
         state.pendingImages = []
         state.pendingBashMessages = []
         state.suggestedFollowups = null
+        state.clickedFollowupsMap = new Map<string, Set<number>>()
       }),
   })),
 )

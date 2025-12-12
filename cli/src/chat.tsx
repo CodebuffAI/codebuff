@@ -32,6 +32,7 @@ import { useEvent } from './hooks/use-event'
 import { useExitHandler } from './hooks/use-exit-handler'
 import { useInputHistory } from './hooks/use-input-history'
 import { useMessageQueue, type QueuedMessage } from './hooks/use-message-queue'
+import { usePublishMutation } from './hooks/use-publish-mutation'
 import { useQueueControls } from './hooks/use-queue-controls'
 import { useQueueUi } from './hooks/use-queue-ui'
 import { useChatScrollbox } from './hooks/use-scroll-management'
@@ -49,24 +50,24 @@ import { usePublishStore } from './state/publish-store'
 import {
   addClipboardPlaceholder,
   addPendingImageFromFile,
+  capturePendingImages,
   validateAndAddImage,
 } from './utils/add-pending-image'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { showClipboardMessage } from './utils/clipboard'
 import { readClipboardImage } from './utils/clipboard-image'
-import { createPasteHandler } from './utils/strings'
 import { getInputModeConfig } from './utils/input-modes'
 import {
   type ChatKeyboardState,
   createDefaultChatKeyboardState,
 } from './utils/keyboard-actions'
 import { loadLocalAgents } from './utils/local-agent-registry'
-import { usePublishMutation } from './hooks/use-publish-mutation'
 import { buildMessageTree } from './utils/message-tree-utils'
 import {
   getStatusIndicatorState,
   type AuthStatus,
 } from './utils/status-indicator-state'
+import { createPasteHandler } from './utils/strings'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
 
@@ -148,15 +149,12 @@ export const Chat = ({
     agentSelectedIndex,
     setAgentSelectedIndex,
     streamingAgents,
-    setStreamingAgents,
     focusedAgentId,
     setFocusedAgentId,
     messages,
     setMessages,
     activeSubagents,
-    setActiveSubagents,
     isChainInProgress,
-    setIsChainInProgress,
     agentMode,
     setAgentMode,
     toggleAgentMode,
@@ -176,15 +174,12 @@ export const Chat = ({
       agentSelectedIndex: store.agentSelectedIndex,
       setAgentSelectedIndex: store.setAgentSelectedIndex,
       streamingAgents: store.streamingAgents,
-      setStreamingAgents: store.setStreamingAgents,
       focusedAgentId: store.focusedAgentId,
       setFocusedAgentId: store.setFocusedAgentId,
       messages: store.messages,
       setMessages: store.setMessages,
       activeSubagents: store.activeSubagents,
-      setActiveSubagents: store.setActiveSubagents,
       isChainInProgress: store.isChainInProgress,
-      setIsChainInProgress: store.setIsChainInProgress,
       agentMode: store.agentMode,
       setAgentMode: store.setAgentMode,
       toggleAgentMode: store.toggleAgentMode,
@@ -625,62 +620,51 @@ export const Chat = ({
   // Handle followup suggestion clicks
   useEffect(() => {
     const handleFollowupClick = (event: Event) => {
-      const customEvent = event as CustomEvent<{ prompt: string; index: number }>
-      const { prompt, index } = customEvent.detail
+      const customEvent = event as CustomEvent<{
+        prompt: string
+        index: number
+        toolCallId: string
+      }>
+      const { prompt, index, toolCallId } = customEvent.detail
 
-      // Mark this followup as clicked
-      useChatStore.getState().markFollowupClicked(index)
+      // Mark this followup as clicked (persisted per toolCallId)
+      useChatStore.getState().markFollowupClicked(toolCallId, index)
 
-      // Send the followup prompt as a user message
+      // Send the followup prompt directly without clearing the user's current input
       ensureQueueActiveBeforeSubmit()
-      void routeUserPrompt({
-        abortControllerRef,
-        agentMode,
-        inputRef,
-        inputValue: prompt,
-        isChainInProgressRef,
-        isStreaming,
-        logoutMutation,
-        streamMessageIdRef,
-        addToQueue,
-        clearMessages,
-        saveToHistory,
-        scrollToLatest,
-        sendMessage,
-        setCanProcessQueue,
-        setInputFocused,
-        setInputValue,
-        setIsAuthenticated,
-        setMessages,
-        setUser,
-        stopStreaming,
-      })
+
+      if (
+        isStreaming ||
+        streamMessageIdRef.current ||
+        isChainInProgressRef.current
+      ) {
+        const pendingImagesForQueue = capturePendingImages()
+        // Queue the followup message
+        addToQueue(prompt, pendingImagesForQueue)
+      } else {
+        // Send directly
+        sendMessage({ content: prompt, agentMode })
+        setTimeout(() => {
+          scrollToLatest()
+        }, 0)
+      }
     }
 
     globalThis.addEventListener('codebuff:send-followup', handleFollowupClick)
     return () => {
-      globalThis.removeEventListener('codebuff:send-followup', handleFollowupClick)
+      globalThis.removeEventListener(
+        'codebuff:send-followup',
+        handleFollowupClick,
+      )
     }
   }, [
-    abortControllerRef,
     agentMode,
-    inputRef,
-    isChainInProgressRef,
     isStreaming,
-    logoutMutation,
     streamMessageIdRef,
+    isChainInProgressRef,
     addToQueue,
-    clearMessages,
-    saveToHistory,
     scrollToLatest,
     sendMessage,
-    setCanProcessQueue,
-    setInputFocused,
-    setInputValue,
-    setIsAuthenticated,
-    setMessages,
-    setUser,
-    stopStreaming,
     ensureQueueActiveBeforeSubmit,
   ])
 
@@ -1085,14 +1069,14 @@ export const Chat = ({
       onSlashMenuSelect: async () => {
         const selected = slashMatches[slashSelectedIndex] || slashMatches[0]
         if (!selected) return
-        
+
         // Execute the selected slash command immediately
         const commandString = `/${selected.id}`
         setSlashSelectedIndex(0)
-        
+
         ensureQueueActiveBeforeSubmit()
         const result = await onSubmitPrompt(commandString, agentMode)
-        
+
         if (result?.openFeedbackMode) {
           // Save the feedback text that was set by the command handler before opening feedback mode
           const prefilledText = useFeedbackStore.getState().feedbackText
