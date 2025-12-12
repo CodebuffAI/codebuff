@@ -14,6 +14,7 @@ import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
 import type { CommandResult } from './commands/command-registry'
 import { AnnouncementBanner } from './components/announcement-banner'
 import { ChatInputBar } from './components/chat-input-bar'
+import { LoadPreviousButton } from './components/load-previous-button'
 import { MessageWithAgents } from './components/message-with-agents'
 import { PendingBashMessage } from './components/pending-bash-message'
 import { StatusBar } from './components/status-bar'
@@ -111,6 +112,10 @@ export const Chat = ({
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const [hasOverflow, setHasOverflow] = useState(false)
   const hasOverflowRef = useRef(false)
+
+  // Message pagination - show last N messages with "Load previous" button
+  const MESSAGE_BATCH_SIZE = 15
+  const [visibleMessageCount, setVisibleMessageCount] = useState(MESSAGE_BATCH_SIZE)
 
   const queryClient = useQueryClient()
   const [, startUiTransition] = useTransition()
@@ -241,6 +246,13 @@ export const Chat = ({
   useEffect(() => {
     activeSubagentsRef.current = activeSubagents
   }, [activeSubagents])
+
+  // Reset visible message count when messages are cleared or conversation changes
+  useEffect(() => {
+    if (messages.length <= MESSAGE_BATCH_SIZE) {
+      setVisibleMessageCount(MESSAGE_BATCH_SIZE)
+    }
+  }, [messages.length])
 
   const isUserCollapsingRef = useRef<boolean>(false)
 
@@ -1235,6 +1247,20 @@ export const Chat = ({
     [messages],
   )
 
+  // Compute visible messages slice (from the end)
+  const visibleTopLevelMessages = useMemo(() => {
+    if (topLevelMessages.length <= visibleMessageCount) {
+      return topLevelMessages
+    }
+    return topLevelMessages.slice(-visibleMessageCount)
+  }, [topLevelMessages, visibleMessageCount])
+
+  const hiddenMessageCount = topLevelMessages.length - visibleTopLevelMessages.length
+
+  const handleLoadPreviousMessages = useCallback(() => {
+    setVisibleMessageCount((prev) => prev + MESSAGE_BATCH_SIZE)
+  }, [])
+
   const modeConfig = getInputModeConfig(inputMode)
   const hasSlashSuggestions =
     slashContext.active &&
@@ -1351,8 +1377,14 @@ export const Chat = ({
         )}
 
         {headerContent}
-        {topLevelMessages.map((message, idx) => {
-          const isLast = idx === topLevelMessages.length - 1
+        {hiddenMessageCount > 0 && (
+          <LoadPreviousButton
+            hiddenCount={hiddenMessageCount}
+            onLoadMore={handleLoadPreviousMessages}
+          />
+        )}
+        {visibleTopLevelMessages.map((message, idx) => {
+          const isLast = idx === visibleTopLevelMessages.length - 1
           return (
             <MessageWithAgents
               key={message.id}
