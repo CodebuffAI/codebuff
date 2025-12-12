@@ -50,7 +50,8 @@
   "dependencies": {
     "@ai-sdk/provider-utils": "^3.0.17",
     "@codebuff/common": "workspace:*",
-    "drizzle-orm": "*",
+    "drizzle-kit": "0.31.8",
+    "drizzle-orm": "0.45.1",
     "loops": "^5.0.1",
     "msw": "^2.12.1"
   },
