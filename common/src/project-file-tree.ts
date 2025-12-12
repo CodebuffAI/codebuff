@@ -4,7 +4,7 @@ import * as ignore from 'ignore'
 import { sortBy } from 'lodash'
 
 import { DEFAULT_IGNORED_PATHS } from './old-constants'
-import { isValidProjectRoot } from './util/file'
+import { fileExists, isValidProjectRoot } from './util/file'
 
 import type { CodebuffFileSystem } from './types/filesystem'
 import type { DirectoryNode, FileTreeNode } from './util/file'
@@ -167,7 +167,7 @@ export async function parseGitignore(params: {
   ]
 
   for (const ignoreFilePath of ignoreFiles) {
-    if (!(await fs.exists(ignoreFilePath))) continue
+    if (!(await fileExists({ filePath: ignoreFilePath, fs }))) continue
 
     const ignoreContent = await fs.readFile(ignoreFilePath, 'utf8')
     const lines = ignoreContent.split('\n')

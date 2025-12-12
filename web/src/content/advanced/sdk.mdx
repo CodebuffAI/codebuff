@@ -1,0 +1,360 @@
+---
+title: 'SDK & Programmatic Access'
+section: 'advanced'
+tags: ['sdk', 'api', 'programmatic']
+order: 7
+---
+
+# SDK & Programmatic Access
+
+The Codebuff SDK (`@codebuff/sdk`) lets you run Codebuff agents from your own code.
+
+## Installation
+
+```bash
+npm install @codebuff/sdk
+```
+
+## Prerequisites
+
+Get your API key from [codebuff.com/api-keys](https://www.codebuff.com/api-keys).
+
+## Quick Start
+
+```typescript
+import { CodebuffClient } from '@codebuff/sdk'
+
+const client = new CodebuffClient({
+  apiKey: process.env.CODEBUFF_API_KEY,
+  cwd: process.cwd(),
+})
+
+const result = await client.run({
+  agent: 'codebuff/base@0.0.16',
+  prompt: 'Create a simple calculator class',
+  handleEvent: (event) => {
+    console.log('Event:', event.type)
+  },
+})
+```
+
+## Continuing Conversations
+
+Pass the previous run state to maintain context across multiple interactions:
+
+```typescript
+// First run
+const run1 = await client.run({
+  agent: 'codebuff/base@0.0.16',
+  prompt: 'Create a calculator class',
+})
+
+// Continue the conversation
+const run2 = await client.run({
+  agent: 'codebuff/base@0.0.16',
+  prompt: 'Add unit tests for the calculator',
+  previousRun: run1, // Maintains conversation context
+})
+```
+
+## Custom Agents
+
+Define your own agents with custom models, tools, and prompts:
+
+```typescript
+import type { AgentDefinition } from '@codebuff/sdk'
+
+const myAgent: AgentDefinition = {
+  id: 'my-custom-agent',
+  model: 'anthropic/claude-sonnet-4.5',
+  displayName: 'My Custom Agent',
+  toolNames: ['read_files', 'write_file'],
+  instructionsPrompt: 'You are a helpful coding assistant.',
+}
+
+await client.run({
+  agent: 'my-custom-agent',
+  prompt: 'Help me refactor this code',
+  agentDefinitions: [myAgent],
+})
+```
+
+## Custom Tools
+
+Extend agent capabilities with your own tools:
+
+```typescript
+import { z } from 'zod/v4'
+import { getCustomToolDefinition } from '@codebuff/sdk'
+
+const fetchTool = getCustomToolDefinition({
+  toolName: 'fetch_api_data',
+  description: 'Fetch data from an API endpoint',
+  inputSchema: z.object({
+    url: z.url(),
+    method: z.enum(['GET', 'POST']).default('GET'),
+  }),
+  execute: async ({ url, method }) => {
+    const response = await fetch(url, { method })
+    const data = await response.text()
+    return [{ type: 'json', value: { data } }]
+  },
+})
+
+await client.run({
+  agent: 'my-custom-agent',
+  prompt: 'Fetch the latest data',
+  customToolDefinitions: [fetchTool],
+})
+```
+
+## Loading Local Agents
+
+Load agent definitions from your `.agents/` directory:
+
+```typescript
+import { loadLocalAgents, CodebuffClient } from '@codebuff/sdk'
+
+const agents = await loadLocalAgents({ verbose: true })
+
+const client = new CodebuffClient({ apiKey: process.env.CODEBUFF_API_KEY })
+await client.run({
+  agent: 'my-local-agent',
+  agentDefinitions: Object.values(agents),
+  prompt: 'Hello',
+})
+```
+
+## API Reference
+
+### `CodebuffClient`
+
+Main client for interacting with Codebuff.
+
+```typescript
+const client = new CodebuffClient({
+  apiKey: string,        // Required: Your Codebuff API key
+  cwd?: string,          // Working directory for file operations
+})
+```
+
+### `client.run(options)`
+
+Run an agent with the specified options.
+
+<MarkdownTable>
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `agent` | `string` | Agent ID from the store or custom agent ID |
+| `prompt` | `string` | The user prompt |
+| `params` | `object` | Additional parameters for the agent |
+| `handleEvent` | `function` | Callback for streaming events |
+| `previousRun` | `RunState` | Previous run state to continue conversation |
+| `projectFiles` | `object` | Project files as `{ path: content }` |
+| `knowledgeFiles` | `object` | Knowledge files to inject into context |
+| `agentDefinitions` | `array` | Custom agent definitions |
+| `customToolDefinitions` | `array` | Custom tool definitions |
+| `maxAgentSteps` | `number` | Maximum steps before stopping (default: ~20) |
+</MarkdownTable>
+
+### Event Types
+
+The `handleEvent` callback receives events during execution:
+
+- `agent_start` / `agent_finish` - Agent lifecycle
+- `tool_call` / `tool_result` - Tool execution
+- `text` - Text responses
+- `error` - Error events
+
+### Return Value
+
+Returns a `RunState` object containing:
+
+- `sessionState` - Internal state for continuing conversations
+- `output` - The agent's output (text, error, or structured data)
+
+## Use Cases
+
+- CI/CD pipelines (code review, test generation, refactoring)
+- Batch processing across multiple files
+- Embedding in VS Code extensions or web apps
+- Scripts for repetitive coding tasks
+
+## Examples
+
+### Test Generation
+
+```typescript
+import { CodebuffClient } from '@codebuff/sdk'
+
+const CODE_TO_TEST = `
+function add(a: number, b: number): number {
+  return a + b;
+}
+
+function divide(a: number, b: number): number {
+  if (b === 0) throw new Error('Division by zero');
+  return a / b;
+}
+`
+
+async function generateTests(code: string) {
+  const client = new CodebuffClient({
+    apiKey: process.env.CODEBUFF_API_KEY,
+  })
+
+  const { output } = await client.run({
+    agent: 'codebuff/base@latest',
+    prompt: `Generate unit tests for these functions using Jest:\n\n${code}`,
+  })
+
+  return output
+}
+```
+
+### Code Review in CI
+
+```typescript
+import { CodebuffClient } from '@codebuff/sdk'
+
+async function reviewPullRequest(diff: string) {
+  const client = new CodebuffClient({
+    apiKey: process.env.CODEBUFF_API_KEY,
+  })
+
+  const { output } = await client.run({
+    agent: 'codebuff/reviewer@latest',
+    prompt: `Review this code change for bugs, security issues, and best practices:\n\n${diff}`,
+  })
+
+  return output
+}
+```
+
+### Batch Processing
+
+```typescript
+import { CodebuffClient } from '@codebuff/sdk'
+import * as fs from 'fs'
+import * as path from 'path'
+
+async function addDocstringsToFiles(filePaths: string[]) {
+  const client = new CodebuffClient({
+    apiKey: process.env.CODEBUFF_API_KEY,
+  })
+
+  const results = []
+
+  for (const filePath of filePaths) {
+    const code = fs.readFileSync(filePath, 'utf-8')
+
+    const { output } = await client.run({
+      agent: 'codebuff/base@latest',
+      prompt: `Add JSDoc comments to all functions in this file:\n\n${code}`,
+    })
+
+    results.push({ filePath, output })
+  }
+
+  return results
+}
+
+// Usage
+const files = ['src/utils.ts', 'src/helpers.ts', 'src/api.ts']
+await addDocstringsToFiles(files)
+```
+
+### Code Refactoring
+
+```typescript
+import { CodebuffClient } from '@codebuff/sdk'
+
+const LEGACY_CODE = `
+function processData(data) {
+  let result = [];
+  for (let i = 0; i < data.length; i++) {
+    if (data[i].active === true) {
+      result.push({
+        id: data[i].id,
+        name: data[i].name.toUpperCase()
+      });
+    }
+  }
+  return result;
+}
+`
+
+async function refactorCode(code: string) {
+  const client = new CodebuffClient({
+    apiKey: process.env.CODEBUFF_API_KEY,
+  })
+
+  const { output } = await client.run({
+    agent: 'codebuff/base@latest',
+    prompt: `Refactor this code to use modern JavaScript (arrow functions, 
+             destructuring, array methods like filter/map):\n\n${code}`,
+  })
+
+  return output
+}
+```
+
+### Providing Project Context
+
+```typescript
+import { CodebuffClient } from '@codebuff/sdk'
+import * as fs from 'fs'
+
+async function generateComponentWithContext() {
+  const client = new CodebuffClient({
+    apiKey: process.env.CODEBUFF_API_KEY,
+  })
+
+  // Provide existing files as context
+  const projectFiles = {
+    'src/types.ts': fs.readFileSync('src/types.ts', 'utf-8'),
+    'src/components/Button.tsx': fs.readFileSync('src/components/Button.tsx', 'utf-8'),
+  }
+
+  const { output } = await client.run({
+    agent: 'codebuff/base@latest',
+    prompt: 'Create a new Card component that follows the same patterns as Button',
+    projectFiles,
+  })
+
+  return output
+}
+```
+
+### GitHub Actions Example
+
+```yaml
+name: AI Code Review
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get diff
+        id: diff
+        run: echo "diff=$(git diff origin/main...HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Run AI Review
+        run: |
+          npx ts-node scripts/ai-review.ts "${{ steps.diff.outputs.diff }}"
+        env:
+          CODEBUFF_API_KEY: ${{ secrets.CODEBUFF_API_KEY }}
+```
+
+## Resources
+
+- [GitHub Repository](https://github.com/CodebuffAI/codebuff) - Source code
+- [Agent Store](https://codebuff.com/store) - Browse available agents
+- [API Keys](https://codebuff.com/api-keys) - Get your API key

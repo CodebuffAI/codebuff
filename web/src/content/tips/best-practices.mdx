@@ -7,43 +7,22 @@ order: 1
 
 # Codebuff Best Practices
 
-Learn how to use Codebuff to streamline your code review process.
+Habits that make Codebuff more useful.
 
 ## Start in a Git Repo
 
-Ensure you're in a Git repository before starting Codebuff. This will allow you to track changes that Codebuff makes to your code.
-
-If Codebuff introduces an issue you don't like, you can easily revert to the previous version.
+Run Codebuff inside a git repo so you can track and revert changes.
 
 ## Leverage `.gitignore` in your repo
 
-Codebuff will ignore files specified in your `.gitignore` file. This allows you to specify files that you don't want Codebuff to read, like configuration files or build artifacts.
-
-If there are files you want to keep tracked in Git, but you don't want Codebuff to read, you can create a `.codebuffignore` file in your repo.
+Codebuff skips files in `.gitignore`. For files you keep in git but want Codebuff to avoid, add `.codebuffignore`.
 
 ## Planning
 
-Codebuff is really good at ad-hoc changes, but sometimes you have bigger features to build. You can ask Codebuff to help plan out all the details of your feature before you start coding!
+Use `/mode:plan` to scope work before implementing. Codebuff gathers context, asks clarifying questions, and outputs a structured plan without touching files. Review and adjust the plan, then switch to default or max mode to execute.
 
-Do a long brain dump of your feature, with as much technical detail as you want to consider. Don't worry about formatting it nicely.
+See [Modes](/docs/tips#modes) for details on plan mode and other options.
 
-Then, ask Codebuff to `re-word what I said in a goal-oriented plan, and output that to a `plan.md` file in markdown format.
+## Include docs by link
 
-Codebuff will write out what it thinks is the best way to implement your feature, and you can use that as a starting point! Make sure to read through it carefully and adjust anything needed.
-
-Then, you can simply ask Codebuff to build the feature, using the `plan.md` file you both collaborated on as a guide.
-
-## Include docs via pasting a link
-
-Make Codebuff even smarter by connecting it with external documentation:
-
-- Include URLs in your messages and Codebuff will automatically scrape and convert them to markdown format
-- Add documentation links to your knowledge.md files for automatic scraping on startup
-- Perfect for:
-  - API documentation
-  - Framework guides
-  - Library references
-  - Design patterns
-  - Stack Overflow solutions
-- The scraped content becomes part of Codebuff's context, helping it provide more accurate assistance
-- Example: "Here's the docs for the library I'm using: [url]. Can you help me implement feature X following their best practices?"
+Share URLs and Codebuff will scrape them to markdown. You can also drop links into `knowledge.md` so they load on startup. Useful for API docs, framework guides, or design references.

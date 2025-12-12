@@ -1,11 +1,11 @@
-export type * from '../../common/src/types/json'
-export type * from '../../common/src/types/messages/codebuff-message'
-export type * from '../../common/src/types/messages/data-content'
-export type * from '../../common/src/types/print-mode'
+export type * from '@codebuff/common/types/json'
+export type * from '@codebuff/common/types/messages/codebuff-message'
+export type * from '@codebuff/common/types/messages/data-content'
+export type * from '@codebuff/common/types/print-mode'
 export type {
   TextPart,
   ImagePart,
-} from '../../common/src/types/messages/content-part'
+} from '@codebuff/common/types/messages/content-part'
 export { run, getRetryableErrorCode } from './run'
 export type {
   RunOptions,
@@ -14,16 +14,16 @@ export type {
   TextContent,
   ImageContent,
 } from './run'
-export { buildUserMessageContent } from '../../packages/agent-runtime/src/util/messages'
+export { buildUserMessageContent } from '@codebuff/agent-runtime/util/messages'
 // Agent type exports
-export type { AgentDefinition } from '../../common/src/templates/initial-agents-dir/types/agent-definition'
-export type { ToolName } from '../../common/src/tools/constants'
+export type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
+export type { ToolName } from '@codebuff/common/tools/constants'
 
 export type {
   ClientToolCall,
   ClientToolName,
   CodebuffToolOutput,
-} from '../../common/src/tools/list'
+} from '@codebuff/common/tools/list'
 export * from './client'
 export * from './custom-tool'
 export * from './native/ripgrep'
@@ -69,6 +69,10 @@ export {
 } from './retry-config'
 
 export type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
+
+// Tree-sitter / code-map exports
+export { getFileTokenScores, setWasmDir } from '@codebuff/code-map'
+export type { FileTokenData, TokenCallerMap } from '@codebuff/code-map'
 
 export { runTerminalCommand } from './tools/run-terminal-command'
 export {

@@ -30,12 +30,12 @@ export const AskUserBranch = ({ block, availableWidth }: AskUserBranchProps) => 
     >
       {block.skipped ? (
         <text style={{ fg: theme.muted, attributes: TextAttributes.ITALIC }}>
-          User skipped the questions.
+          You skipped the questions.
         </text>
       ) : (
         <box style={{ flexDirection: 'column', gap: 1 }}>
           <text style={{ fg: theme.secondary, attributes: TextAttributes.BOLD }}>
-            User Answers:
+            Your answers:
           </text>
           {block.questions.map((q, idx) => {
             const answer = block.answers?.find((a) => a.questionIndex === idx)

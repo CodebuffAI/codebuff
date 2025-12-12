@@ -7,24 +7,21 @@ order: 6
 
 # Configuration
 
-Codebuff can be configured using a `codebuff.json` file in your project root. This file allows you to customize various aspects of how codebuff operates in your project.
+Configure Codebuff with `codebuff.json` in your project root.
 
-## Why configure codebuff?
+## Why configure Codebuff?
 
-Configuring codebuff helps you create a seamless development environment where codebuff becomes your central development hub. Instead of juggling multiple terminal windows and manually starting various services, you can let codebuff manage your entire development workflow.
+It lets Codebuff start your dev stack and keep the workflow in one place instead of juggling terminals.
 
 ### Startup Processes
 
-You can configure startup processes, which will run in the background every time codebuff starts! When you use this feature, codebuff will automatically:
+Set startup processes that run in the background every time Codebuff starts:
 
-1. Start your development processes:
-   - Servers (frontend, backend, etc.)
-   - Launch your database
-   - Run any other necessary background services
-2. Manage all these processes for you
-3. Read the logs and outputs and automatically handle any errors that arise
+1. Start your servers (frontend, backend, etc.)
+2. Launch databases or other services
+3. Stream logs and surface errors
 
-This means you can start your day with a single `codebuff` command, write code with codebuff's assistance, and when you're done, closing codebuff will cleanly shut down all your development processes. No more scattered terminal windows or forgotten running processes!
+Start Codebuff once, write code, and close it when you're done. It will stop the processes it started.
 
 ## Configuration Schema
 
@@ -34,7 +31,7 @@ The configuration file follows this structure:
 
 ## Example Configuration
 
-Here's an example configuration file that starts a development server and database:
+Example that starts a dev server and database:
 
 <CodeDemo language="json">
 ```
@@ -61,10 +58,10 @@ Here's an example configuration file that starts a development server and databa
 
 ## Best Practices
 
-1. **Process Names**: Use descriptive names that clearly indicate what each process does.
-2. **Working Directories**: Use relative paths for `cwd` to maintain portability.
-3. **Logging**: Consider using `stdoutFile` and `stderrFile` for important processes to help with debugging.
-4. **Process Management**: Use the `enabled` flag to temporarily disable processes without removing them from the configuration.
+1. Name processes clearly.
+2. Use relative `cwd` paths so configs travel well.
+3. Log important services with `stdoutFile`/`stderrFile`.
+4. Toggle processes with `enabled` instead of deleting them.
 
 ## Troubleshooting
 
@@ -75,4 +72,4 @@ If your startup processes aren't working as expected:
 3. Check the process output in the specified log files if you've configured them
 4. Make sure the JSON syntax in your configuration file is valid
 
-Need more help? Check out our [Troubleshooting](/docs/advanced#troubleshooting) guide or join our [Discord community](https://discord.gg/mcWTGjgTj3).
+Need more help? Check [Troubleshooting](/docs/advanced#troubleshooting) or join [Discord](https://codebuff.com/discord).

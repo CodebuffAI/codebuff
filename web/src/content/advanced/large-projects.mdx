@@ -7,30 +7,30 @@ order: 4
 
 # Working with Large Projects
 
-In general, Codebuff works quite well in larger projects. For example, we've pulled Codebuff into the VSCode repo (millions of lines of code) and have had no issues in our testing. That said, if you're noticing Codebuff getting stuck/forgetting context too soon or using a ton of credits, here are some tips to help you mitigate those issues.
+Codebuff runs fine on very large repos (we test against the VS Code codebase). If it starts to wander or burn too many credits, use the tips below.
 
 ## Directory-Based Approach
 
-When working with large codebases, you can start Codebuff from specific directories to maintain focus:
+Start Codebuff in the part of the repo you care about:
 
 ```bash
     cd backend
     codebuff
 ```
 
-Or equivalently without changing directories:
+Or set `--cwd`:
 
 ```bash
     codebuff --cwd backend
 ```
 
-This helps Codebuff concentrate on relevant files and provide more targeted assistance.
+This keeps the context tight.
 
 ## Knowledge Organization
 
-For large projects:
+For big trees, keep knowledge close to the code:
 
-- Create separate knowledge.md files in key directories, like so:
+- Add `knowledge.md` files in important subdirectories:
 
   ```
   services/
@@ -45,22 +45,22 @@ For large projects:
       src/
   ```
 
-- Focus each knowledge file on its directory's specific concerns
-- Link related concepts across knowledge files
-- Keep root knowledge.md for project-wide concepts
+- Keep each file focused on that area
+- Link related files when the areas overlap
+- Use the root `knowledge.md` for cross-cutting notes
 
 ## Effective Communication
 
-When working with large codebases:
+When asking for work in a large repo:
 
-- Be specific about file locations
-- Reference related files explicitly
-- Break large changes into smaller, focused requests
-- Use the `--max` mode for better context understanding by loading more files
+- Point to exact paths
+- Mention related files up front
+- Break large changes into smaller requests
+- Use `--max` when you need Codebuff to load more files
 
 ## Performance Tips
 
-- Leverage your `.codebuffignore` and `.gitignore` files to exclude irrelevant directories
-- Start in subdirectories when possible
-- Break large refactoring tasks into smaller chunks
-- Let Codebuff handle file discovery instead of listing all files
+- Trim noise with `.codebuffignore` and `.gitignore`
+- Start in the most relevant subdirectory
+- Split broad refactors into stages
+- Let Codebuff handle file discovery instead of pasting long file lists

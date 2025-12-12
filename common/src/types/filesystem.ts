@@ -6,5 +6,5 @@ import type fs from 'fs'
  */
 export type CodebuffFileSystem = Pick<
   typeof fs.promises,
-  'exists' | 'mkdir' | 'readdir' | 'readFile' | 'stat' | 'writeFile'
+  'mkdir' | 'readdir' | 'readFile' | 'stat' | 'writeFile'
 >

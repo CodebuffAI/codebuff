@@ -9,7 +9,7 @@ order: 0
 
 ## Why Multi-Agent Systems Work Better
 
-Codebuff uses specialized agents that collaborate instead of one agent doing everything. Agents spawn other agents, share tools, and pass context between tasks. Here are some of the sub-agents Codebuff uses:
+Codebuff uses agents that can spawn others, share tools, and pass context between tasks:
 
 - **Code Generation** - Write clean, functional code
 - **Review** - Catch bugs, security issues, style violations
@@ -17,18 +17,22 @@ Codebuff uses specialized agents that collaborate instead of one agent doing eve
 - **Planning** - Break down complex requirements
 - **File Discovery** - Navigate large codebases
 
-## What Makes Codebuff Agents Unique?
+## Programmatic Control
 
-Codebuff agents can be **programmatically controlled** using TypeScript generator functions. You can write actual code to orchestrate complex workflows, make decisions based on file contents, and add in determinism as you see fit. Instead of hoping an LLM understands your instructions you can guarantee specific behavior.
+Control agents with TypeScript generator functions. Orchestrate workflows, branch on file contents, and make steps deterministic instead of hoping a prompt lands the right way.
 
 ## Built-in Agents
 
-- `codebuff/base` - Main coding assistant
-- `codebuff/reviewer` - Code review
-- `codebuff/thinker` - Deep thinking
-- `codebuff/researcher` - Research & docs
-- `codebuff/planner` - Planning & architecture
-- `codebuff/file-picker` - File discovery
+- `codebuff/base` - Main coding assistant (orchestrates other agents)
+- `codebuff/editor` - Code editing and file modifications
+- `codebuff/reviewer` - Code review and feedback
+- `codebuff/thinker` - Deep thinking and problem analysis
+- `codebuff/researcher` - Web search and documentation lookup
+- `codebuff/file-picker` - File discovery in your codebase
+- `codebuff/commander` - Terminal command execution
+- `codebuff/code-searcher` - Search patterns in code files
+
+Browse all available agents at the [Agent Store](https://codebuff.com/store).
 
 ## Agent Workflow
 
@@ -61,7 +65,7 @@ flowchart TD
 
 ### Example: Authentication System Refactoring
 
-If you say "refactor this authentication system", Codebuff might break down the task into the following steps:
+If you ask "refactor this authentication system", Codebuff might:
 
 1. **File Picker** finds auth-related files
 2. **Research** looks up best practices
@@ -71,13 +75,13 @@ If you say "refactor this authentication system", Codebuff might break down the 
 
 ### Agent Coordination
 
-Agents coordinate through the `spawnerPrompt` field, which helps other agents understand when and why to spawn them. This creates intelligent workflows where:
+Agents coordinate through the `spawnerPrompt` field, which tells others when to spawn them:
 
 - Specialized agents are spawned for specific tasks
 - Each agent clearly describes its purpose and capabilities
 - The system automatically matches tasks to the right agents
 
-Agents can spawn other agents listed in their `spawnableAgents` field, creating a hierarchy of specialized helpers.
+Agents can spawn others listed in `spawnableAgents`, forming a simple hierarchy.
 
 ## Quick Start
 

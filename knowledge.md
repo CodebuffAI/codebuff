@@ -63,6 +63,40 @@ eval "$(codebuff shims env)"
 base-lite "fix this bug"             # Works right away!
 ```
 
+## Development Workflow
+
+### Starting the Development Environment
+
+```bash
+# Full development environment (services + CLI)
+bun dev                    # Starts db, studio, sdk, web, then CLI
+                           # Ctrl+C stops everything
+
+# Or run services and CLI separately
+bun up                     # Start services in background, exits when ready
+bun start-cli              # Start CLI in foreground
+bun down                   # Stop background services
+bun ps                     # Check if services are running
+```
+
+**Services started:**
+- `db` - PostgreSQL database (via Docker)
+- `studio` - Drizzle Studio for database inspection
+- `sdk` - SDK build (one-time)
+- `web` - Next.js web server
+
+**Logs:** All service logs are written to `debug/console/`:
+- `db.log`, `studio.log`, `sdk.log`, `web.log`
+
+**Worktree Support:** Each worktree can run on different ports. Create `.env.development.local` with:
+```
+PORT=3001
+NEXT_PUBLIC_WEB_PORT=3001
+NEXT_PUBLIC_CODEBUFF_APP_URL=http://localhost:3001
+```
+
+The `bun down` command is worktree-safe - it only kills services on the port configured for that worktree.
+
 ## Package Management
 
 - Use Bun for all package management operations

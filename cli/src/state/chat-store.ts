@@ -6,7 +6,7 @@ import { AGENT_MODES } from '../utils/constants'
 import { clamp } from '../utils/math'
 import { loadModePreference, saveModePreference } from '../utils/settings'
 
-import type { ChatMessage } from '../types/chat'
+import type { ChatMessage, ContentBlock } from '../types/chat'
 import type { AgentMode } from '../utils/constants'
 import type { InputMode } from '../utils/input-modes'
 import type { RunState } from '@codebuff/sdk'
@@ -88,6 +88,9 @@ export type SuggestedFollowupsState = {
   clickedIndices: Set<number>
 }
 
+/** Map of toolCallId -> Set of clicked indices (persists across followup sets) */
+export type ClickedFollowupsMap = Map<string, Set<number>>
+
 export type ChatStoreState = {
   messages: ChatMessage[]
   streamingAgents: Set<string>
@@ -113,6 +116,37 @@ export type ChatStoreState = {
   pendingImages: PendingImage[]
   pendingBashMessages: PendingBashMessage[]
   suggestedFollowups: SuggestedFollowupsState | null
+  /** Persisted clicked indices per toolCallId */
+  clickedFollowupsMap: ClickedFollowupsMap
+}
+
+const findLatestFollowupInBlocks = (
+  blocks: ContentBlock[] | undefined,
+): string | null => {
+  if (!blocks) return null
+
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const block = blocks[i]
+    if (block.type === 'tool' && block.toolName === 'suggest_followups') {
+      return block.toolCallId
+    }
+    if (block.type === 'agent') {
+      const nested = findLatestFollowupInBlocks(block.blocks)
+      if (nested) return nested
+    }
+  }
+
+  return null
+}
+
+export const getLatestFollowupToolCallId = (
+  messages: ChatMessage[],
+): string | null => {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const latest = findLatestFollowupInBlocks(messages[i]?.blocks)
+    if (latest) return latest
+  }
+  return null
 }
 
 type ChatStoreActions = {
@@ -159,7 +193,7 @@ type ChatStoreActions = {
   removePendingBashMessage: (id: string) => void
   clearPendingBashMessages: () => void
   setSuggestedFollowups: (state: SuggestedFollowupsState | null) => void
-  markFollowupClicked: (index: number) => void
+  markFollowupClicked: (toolCallId: string, index: number) => void
   reset: () => void
 }
 
@@ -190,6 +224,7 @@ const initialState: ChatStoreState = {
   pendingImages: [],
   pendingBashMessages: [],
   suggestedFollowups: null,
+  clickedFollowupsMap: new Map<string, Set<number>>(),
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -405,9 +440,16 @@ export const useChatStore = create<ChatStore>()(
         state.suggestedFollowups = suggestedFollowups
       }),
 
-    markFollowupClicked: (index) =>
+    markFollowupClicked: (toolCallId: string, index: number) =>
       set((state) => {
-        if (state.suggestedFollowups) {
+        // Store in the persistent map
+        if (!state.clickedFollowupsMap.has(toolCallId)) {
+          state.clickedFollowupsMap.set(toolCallId, new Set<number>())
+        }
+        state.clickedFollowupsMap.get(toolCallId)!.add(index)
+
+        // Also update the current suggestedFollowups if it matches
+        if (state.suggestedFollowups?.toolCallId === toolCallId) {
           state.suggestedFollowups.clickedIndices.add(index)
         }
       }),
@@ -440,6 +482,7 @@ export const useChatStore = create<ChatStore>()(
         state.pendingImages = []
         state.pendingBashMessages = []
         state.suggestedFollowups = null
+        state.clickedFollowupsMap = new Map<string, Set<number>>()
       }),
   })),
 )

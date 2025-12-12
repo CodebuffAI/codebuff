@@ -12,7 +12,14 @@
     "declaration": true,
     "outDir": "./dist",
     "allowImportingTsExtensions": false,
-    "types": ["node", "bun-types"]
+    "types": ["node", "bun-types"],
+    "baseUrl": ".",
+    "paths": {
+      "@codebuff/common/*": ["../common/src/*"],
+      "@codebuff/agent-runtime/*": ["../packages/agent-runtime/src/*"],
+      "@codebuff/code-map": ["../packages/code-map/src/index.ts"],
+      "@codebuff/code-map/*": ["../packages/code-map/src/*"]
+    }
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist"]

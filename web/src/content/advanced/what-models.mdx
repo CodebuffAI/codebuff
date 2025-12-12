@@ -7,10 +7,32 @@ order: 3
 
 # What models do you use?
 
-We use multiple models to get better results: Gemini 2.5 Pro for deep thinking, Claude Sonnet for most implementation work, Gemini Flash for quick tasks. We also use a speculative decoding model from Relace AI for fast file rewrites. We use o3-mini as a file editing fallback, and gpt-4o-mini for some trivial tasks. In other words, we carefully pick the best models for each job.
+Codebuff runs an orchestrator agent that spawns specialized subagents. Each subagent uses a model suited to its task.
 
-We have several modes which change the model setup to achieve different goals:
+## Orchestrator
 
-- `--lite`: Uses Gemini 2.5 Flash Thinking instead of Sonnet (~1/5 the cost). It also pulls fewer files, meaning that the context cost will be smaller.
-- `--max`: Uses a hybrid approach with Gemini 2.5 Pro + Sonnet to better handle complex problems and pulls more files on your codebase.
-- `--experimental`: Uses cutting-edge experimental features and the most advanced models available (like Gemini 2.5 Pro Experimental). This mode is for users who want to try the latest AI capabilities, though it may be less stable.
+The main agent ("Buffy") coordinates everything:
+
+| Mode | Model |
+|------|-------|
+| Default | Claude Opus 4.5 |
+| Max | Claude Opus 4.5 |
+| Lite | Grok 4.1 Fast |
+
+## Subagents
+
+The orchestrator spawns these for specific jobs:
+
+| Task | Models |
+|------|--------|
+| Code editing | Claude Opus 4.5, GPT-5.1 |
+| Thinking/reasoning | Claude Opus 4.5, GPT-5.1, Gemini 2.5 Pro |
+| Code review | Claude Sonnet 4.5, GPT-5.1 |
+| File discovery | Gemini 2.0 Flash, Grok 4 Fast |
+| Terminal commands | Claude Haiku 4.5 |
+| Context management | GPT-5 Mini |
+| Web/docs research | Grok 4 Fast |
+
+Max mode runs multiple implementations in parallel and picks the best one. Default mode runs a single implementation pass. Lite mode skips validation steps for speed.
+
+File rewrites use speculative decoding from Relace AI.

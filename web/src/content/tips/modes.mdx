@@ -1,0 +1,80 @@
+---
+title: 'Modes'
+section: 'help'
+tags: ['modes', 'lite', 'max', 'plan', 'configuration']
+order: 2
+---
+
+# Modes
+
+Codebuff has four modes. Switch during a session with `Shift+Tab` or `/mode:` commands.
+
+<MarkdownTable>
+| Mode | Model | Editor Agent | Code Review |
+| --- | --- | --- | --- | --- |
+| Default | Claude Opus 4.5 | editor | Yes |
+| Lite | Grok 4.1 Fast | editor-gpt-5 | No |
+| Max | Claude Opus 4.5 | editor-multi-prompt | Yes |
+| Plan | Claude Opus 4.5 | None | No |
+</MarkdownTable>
+
+## Default
+
+Standard mode with Claude Opus 4.5:
+
+- Spawns file pickers and code searchers to gather context
+- Uses the `editor` agent for code changes
+- Spawns `thinker` for complex problems
+- Runs code review after changes
+- Validates with typechecks and tests
+
+```bash
+codebuff  # no flag needed
+```
+
+## Lite
+
+Faster and cheaper with Grok 4.1 Fast:
+
+- Reduced file context gathering
+- Uses GPT-5 for code change with the `editor-gpt-5` agent
+- Skips code review
+- No todo tracking
+
+Best for quick fixes and simple questions.
+
+```bash
+codebuff --lite
+```
+
+## Max
+
+Uses Claude Opus 4.5 with more context gathering:
+
+- Reads 12-20+ files per task for deeper context
+- Uses `editor-multi-prompt` which generates multiple implementation proposals and picks the best
+- Spawns `thinker-best-of-n-opus` for complex problems (multiple reasoning paths)
+- Full code review after changes
+- Validates both specific changes and the full project
+
+Best for complex features and refactors.
+
+```bash
+codebuff --max
+```
+
+## Plan
+
+Planning mode. No file writes.
+
+- Gathers context about your codebase
+- Asks clarifying questions using `ask_user`
+- Outputs a spec/plan wrapped in `<PLAN>` tags
+- Includes requirements, constraints, and relevant files
+
+Use this to scope out work before implementing, or to discuss approaches without making changes.
+
+```bash
+codebuff --plan
+```
+

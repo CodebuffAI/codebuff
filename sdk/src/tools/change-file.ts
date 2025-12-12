@@ -3,6 +3,8 @@ import path from 'path'
 import { applyPatch } from 'diff'
 import z from 'zod/v4'
 
+import { fileExists } from '@codebuff/common/util/file'
+
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
@@ -96,8 +98,8 @@ async function applyChanges(params: {
     const { path: filePath, content, type } = change
     try {
       const fullPath = path.join(projectRoot, filePath)
-      const fileExists = await fs.exists(fullPath)
-      if (!fileExists) {
+      const exists = await fileExists({ filePath: fullPath, fs })
+      if (!exists) {
         const dirPath = path.dirname(fullPath)
         await fs.mkdir(dirPath, { recursive: true })
       }
@@ -114,7 +116,7 @@ async function applyChanges(params: {
         await fs.writeFile(fullPath, newContent)
       }
 
-      if (fileExists) {
+      if (exists) {
         modified.push(filePath)
       } else {
         created.push(filePath)

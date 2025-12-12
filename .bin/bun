@@ -206,6 +206,12 @@ check_env_setup() {
 # Bun loads .env files natively, but inherited shell variables take precedence.
 # We unset variables defined in our env files so Bun can set fresh values.
 clear_inherited_env_vars() {
+    # Skip clearing if CODEBUFF_SKIP_ENV_CLEAR is set
+    # Used by TypeScript scripts that already have env vars loaded via Bun
+    if [ -n "$CODEBUFF_SKIP_ENV_CLEAR" ]; then
+        return
+    fi
+
     # Unset variables from .env.local so Bun can load fresh values
     if [ -f "$ENV_LOCAL_FILE" ]; then
         while IFS='=' read -r key _; do

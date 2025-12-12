@@ -13,7 +13,8 @@ type LinkInfo = { text: string; href: string; target?: string }
 const siteLinks: LinkInfo[] = [
   { text: 'Home', href: '/' },
   { text: 'Docs', href: '/docs', target: '_blank' },
-  { text: 'News', href: 'https://news.codebuff.com', target: '_blank' },
+  // NEWS DISABLED: Uncomment to re-enable news link in footer
+  // { text: 'News', href: 'https://news.codebuff.com', target: '_blank' },
   { text: 'Pricing', href: '/pricing' },
   { text: 'Usage', href: '/usage' },
 ]
@@ -29,7 +30,7 @@ const communityLinks: LinkInfo[] = [
     href: 'https://github.com/CodebuffAI/codebuff',
     target: '_blank',
   },
-  { text: 'Discord', href: 'https://discord.gg/mcWTGjgTj3', target: '_blank' },
+  { text: 'Discord', href: 'https://codebuff.com/discord', target: '_blank' },
 ]
 
 const authLinks: LinkInfo[] = [{ text: 'Login', href: '/login' }]

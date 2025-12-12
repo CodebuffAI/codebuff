@@ -248,13 +248,31 @@ export const ensureEndsWithNewline = (
   return contents + '\n'
 }
 
+/**
+ * Node-compatible file existence check.
+ * Uses fs.stat instead of Bun-specific fs.exists.
+ */
+export async function fileExists(params: {
+  filePath: string
+  fs: CodebuffFileSystem
+}): Promise<boolean> {
+  const { filePath, fs } = params
+
+  try {
+    await fs.stat(filePath)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export const ensureDirectoryExists = async (params: {
   baseDir: string
   fs: CodebuffFileSystem
 }) => {
   const { baseDir, fs } = params
 
-  if (!(await fs.exists(baseDir))) {
+  if (!(await fileExists({ filePath: baseDir, fs }))) {
     await fs.mkdir(baseDir, { recursive: true })
   }
 }

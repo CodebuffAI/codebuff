@@ -13,14 +13,17 @@ import { processImagesForMessage } from '../../utils/image-processor'
 import { logger } from '../../utils/logger'
 import { appendInterruptionNotice } from '../../utils/message-block-helpers'
 import { getUserMessage } from '../../utils/message-history'
-import { createMessageUpdater } from '../../utils/message-updater'
+import {
+  createBatchedMessageUpdater,
+  type BatchedMessageUpdater,
+} from '../../utils/message-updater'
 import { createModeDividerMessage } from '../../utils/send-message-helpers'
 import { usageQueryKeys } from '../use-usage-query'
 
 import type { PendingImage } from '../../state/chat-store'
 import type { ChatMessage } from '../../types/chat'
 import type { AgentMode } from '../../utils/constants'
-import type { MessageUpdater } from '../../utils/message-updater'
+
 import type { SendMessageTimerController } from '../../utils/send-message-timer'
 import type { StreamController } from '../stream-state'
 import type { StreamStatus } from '../use-message-queue'
@@ -139,7 +142,7 @@ export const setupStreamingContext = (params: {
 
   streamRefs.reset()
   timerController.start(aiMessageId)
-  const updater = createMessageUpdater(aiMessageId, setMessages)
+  const updater = createBatchedMessageUpdater(aiMessageId, setMessages)
   const hasReceivedContentRef = { current: false }
   const abortController = new AbortController()
   abortControllerRef.current = abortController
@@ -165,7 +168,7 @@ export const handleRunCompletion = (params: {
   actualCredits: number | undefined
   agentMode: AgentMode
   timerController: SendMessageTimerController
-  updater: MessageUpdater
+  updater: BatchedMessageUpdater
   aiMessageId: string
   streamRefs: StreamController
   setStreamStatus: (status: StreamStatus) => void
@@ -268,7 +271,7 @@ export const handleRunError = (params: {
   error: unknown
   aiMessageId: string
   timerController: SendMessageTimerController
-  updater: MessageUpdater
+  updater: BatchedMessageUpdater
   setIsRetrying: (value: boolean) => void
   setStreamStatus: (status: StreamStatus) => void
   setCanProcessQueue: (can: boolean) => void

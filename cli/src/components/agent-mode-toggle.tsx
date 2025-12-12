@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Button } from './button'
 import { SegmentedControl } from './segmented-control'
 import { useTheme } from '../hooks/use-theme'
+import { useChatStore } from '../state/chat-store'
 import { AGENT_MODES } from '../utils/constants'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
@@ -156,10 +157,13 @@ export const AgentModeToggle = ({
   onSelectMode?: (mode: AgentMode) => void
 }) => {
   const theme = useTheme()
+  const inputFocused = useChatStore((state) => state.inputFocused)
   const [isCollapsedHovered, setIsCollapsedHovered] = useState(false)
   const hoverToggle = useHoverToggle()
 
   const handleMouseOver = () => {
+    // Don't open on hover if terminal is not focused
+    if (!inputFocused) return
     hoverToggle.clearCloseTimer()
     hoverToggle.scheduleOpen()
   }
@@ -199,11 +203,14 @@ export const AgentModeToggle = ({
           customBorderChars: BORDER_CHARS,
         }}
         onClick={() => {
+          if (!inputFocused) return
           hoverToggle.clearAllTimers()
           hoverToggle.openNow()
         }}
         onMouseOver={() => {
-          setIsCollapsedHovered(true)
+          if (inputFocused) {
+            setIsCollapsedHovered(true)
+          }
           handleMouseOver()
         }}
         onMouseOut={handleMouseOut}

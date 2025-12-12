@@ -91,7 +91,7 @@ jobs:
       - name: Build SDK
         run: |
           cd sdk
-          bun run build:verify
+          bun run verify
 
       - name: Set up Node.js for npm publishing
         uses: actions/setup-node@v4
@@ -102,7 +102,7 @@ jobs:
       - name: Publish to npm
         run: |
           cd sdk
-          bun run publish-sdk
+          bun run scripts/publish.ts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 

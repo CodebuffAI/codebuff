@@ -45,7 +45,7 @@ This field is key if the agent is intended to be spawned by other agents.
 The model to use, which can be any model string from [Openrouter](https://openrouter.ai/models).
 
 ```json
-"model": "anthropic/claude-4-sonnet-20250522"
+"model": "anthropic/claude-sonnet-4.5"
 ```
 
 #### Reasoning Options (`reasoningOptions`, object, optional)
@@ -212,23 +212,15 @@ Prompt inserted at each agent step. Powerful for changing behavior but usually n
 
 #### `handleSteps` (generator function, optional)
 
-**🚀 This is what makes Codebuff agents truly powerful!** Unlike traditional prompt-based agents, `handleSteps` lets you write actual code to control agent behavior.
-
-Programmatically control the agent's execution using a TypeScript generator function. This enables:
-
-- **Dynamic decision making** based on tool results
-- **Complex orchestration** between multiple tools and agents
-- **Conditional branching** based on file contents or agent responses
-- **Iterative refinement** until desired results are achieved
-- **State management** across multiple steps
-
-**What You Can Yield:**
+Use a generator to decide when to call tools or let the model run. Helpful for branching, retries, or coordinating multiple agents.
 
 <MarkdownTable>
-  | Yield Value | What It Does | |------------|-------------| | Tool call object
-  | Execute a specific tool and get its result | | 'STEP' | Run agent's LLM for
-  one generation step | | 'STEP_ALL' | Let agent run until completion | | return
-  | End the agent's turn immediately |
+| Yield Value | What It Does |
+| --- | --- |
+| Tool call object | Execute a tool and get its result |
+| 'STEP' | Run one LLM generation step |
+| 'STEP_ALL' | Let the agent run until completion |
+| return | End the agent's turn immediately |
 </MarkdownTable>
 
 **Tool Call Pattern:**
@@ -236,32 +228,27 @@ Programmatically control the agent's execution using a TypeScript generator func
 ```typescript
 const { toolResult, toolError } = yield {
   toolName: 'read_files',
-  input: { paths: ['file.ts'] }
+  input: { paths: ['file.ts'] },
 }
-// Now you can use toolResult to make decisions!
+// use toolResult or handle toolError
 ```
 
 **Example:**
 
 ```typescript
-handleSteps: function* ({ agentState, prompt, params }) {
-  // First, read some files
+handleSteps: function* ({ prompt }) {
   const { toolResult } = yield {
     toolName: 'read_files',
-    input: { paths: ['src/index.ts', 'src/config.ts'] }
+    input: { paths: ['src/index.ts', 'src/config.ts'] },
   }
-  // Then spawn a thinker agent
+
   yield {
     toolName: 'spawn_agents',
     input: {
-      agents: [{
-        agent_type: 'thinker',
-        prompt: 'Analyze this code structure'
-      }]
-    }
+      agents: [{ agent_type: 'thinker', prompt: 'Analyze this code structure' }],
+    },
   }
 
-  // Let the agent take over from here
   yield 'STEP_ALL'
 }
 ```
@@ -270,10 +257,10 @@ handleSteps: function* ({ agentState, prompt, params }) {
 
 #### `inputSchema` (object, optional)
 
-JSON Schema definitions for validating prompt and params when spawning the agent.
+JSON Schema for validating prompt and params when spawning the agent.
 
 ```json
-"inputSchema": {
+{
   "prompt": {
     "type": "string",
     "description": "What documentation to create"
@@ -285,57 +272,56 @@ JSON Schema definitions for validating prompt and params when spawning the agent
         "type": "string",
         "enum": ["markdown", "html"]
       }
+    }
+  }
+}
 ```
 
-**Real-World Example:**
+**Example combining tools**
 
 ```typescript
-  // 1. Dynamically find relevant files
   const { toolResult: searchResults } = yield {
     toolName: 'code_search',
-    input: { pattern: params.searchPattern || 'TODO' }
-    }
-
-  // 2. Parse results and decide what to read
-  const files = JSON.parse(searchResults || '[]')
-  if (files.length > 0) {
-    const { toolResult: fileContents } = yield {
-      toolName: 'read_files',
-      input: { paths: files.slice(0, 10) }
+    input: { pattern: params.searchPattern || 'TODO' },
   }
 
-    // 3. Conditionally spawn different agents based on content
-    if (fileContents?.includes('security')) {
-      yield {
-        toolName: 'spawn_agents',
-        input: {
-          agents: [{
-            agent_type: 'security-reviewer',
-            prompt: `Review security implications in: ${files.join(', ')}`
-          }]
-        }
-      }
-    }
-}
+  const files = JSON.parse(searchResults || '[]').slice(0, 10)
+  if (files.length) {
+    yield { toolName: 'read_files', input: { paths: files } }
+  }
 
-  // 4. Let the LLM handle the rest with context
-**Why This Matters:**
-- Traditional agents rely solely on prompts and hope the LLM makes the right decisions
-- With `handleSteps`, you have **deterministic control** over the agent's workflow
-- You can implement complex logic that would be impossible with prompts alone
-- Results from one tool directly inform the next action programmatically
+  if (files.some((file) => file.includes('security'))) {
+    yield {
+      toolName: 'spawn_agents',
+      input: {
+        agents: [
+          {
+            agent_type: 'security-reviewer',
+            prompt: `Review security implications in: ${files.join(', ')}`,
+          },
+        ],
+      },
+    }
+  }
+
+  yield 'STEP_ALL'
+```
 
 ### Agent Example
+
 **.agents/documentation-writer.ts**
+
+```typescript
 import { AgentDefinition } from './types/agent-definition'
+
 const definition: AgentDefinition = {
   id: "documentation-writer",
   version: "1.0.0",
   publisher: "mycompany",
 
   displayName: "Documentation Writer",
-  spawnerPrompt: "Spawn this agent for creating comprehensive documentation, API docs, or user guides",
-  model: "anthropic/claude-4-sonnet-20250522",
+  spawnerPrompt: "Spawn this agent for writing documentation, API docs, or user guides",
+  model: "anthropic/claude-sonnet-4.5",
   outputMode: "last_message",
   includeMessageHistory: true,
 
@@ -358,7 +344,7 @@ const definition: AgentDefinition = {
   systemPrompt: {
     path: "./prompts/doc-writer-system.md"
   },
-  instructionsPrompt: "Create comprehensive documentation based on the user's request. Research existing code first.",
+  instructionsPrompt: "Create documentation based on the user's request. Research existing code first.",
   stepPrompt: "Continue working on the documentation. Use end_turn when complete."
 }
 

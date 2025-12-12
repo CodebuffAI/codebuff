@@ -7,7 +7,7 @@ order: 1
 
 # Creating Your First Agent
 
-This walkthrough will guide you through creating, testing, and publishing your first custom agent. We'll build a simple code reviewer agent from scratch.
+Create, test, and publish a simple code reviewer agent.
 
 ## Video Walkthrough
 
@@ -36,11 +36,9 @@ This walkthrough will guide you through creating, testing, and publishing your f
   ></iframe>
 </div>
 
-_Follow along with this video or continue reading below for the step-by-step guide._
-
 ## Step 1: Install and Initialize
 
-First, install Codebuff globally:
+Install Codebuff globally:
 
 ```bash
 npm install -g codebuff
@@ -58,7 +56,7 @@ This creates a `.agents` directory with:
 - Example agents in `.agents/examples/`
 - A starter template: `.agents/my-custom-agent.ts`
 
-You should see output like:
+Typical output:
 
 ```
 📁 Creating agent files:
@@ -78,7 +76,7 @@ import type { AgentDefinition } from './types/agent-definition'
 const definition: AgentDefinition = {
   id: 'simple-code-reviewer',
   displayName: 'Simple Code Reviewer',
-  model: 'anthropic/claude-4-sonnet-20250522',
+  model: 'anthropic/claude-sonnet-4.5',
 
   // Tools this agent can use
   toolNames: [
@@ -111,7 +109,7 @@ Your job is to review code changes and provide helpful, constructive feedback.`,
 export default definition
 ```
 
-**💡 Quick tip:** You can also invoke `@Bob the Agent Builder` inside Codebuff to help you build an agent. However, we recommend trying to build your first agent manually to understand the fundamentals.
+You can also ask `@Bob the Agent Builder` inside Codebuff for help, but building one manually first makes the pieces clearer.
 
 ## Step 3: Test Your Agent Locally
 
@@ -130,11 +128,11 @@ Now test your agent with Codebuff:
    ```
 
 3. **Watch it work:**
-   - Your spawned agent will run `git diff` to see changes
-   - Read the modified files
-   - Provide a detailed code review
+   - It runs `git diff` to see changes
+   - Reads the modified files
+   - Provides a review
 
-Make some changes to a file first to give it something to review!
+Make some local changes first so it has something to inspect.
 
 ## Step 4: Create a Publisher Profile
 
@@ -169,7 +167,7 @@ const definition: AgentDefinition = {
   id: 'simple-code-reviewer',
   displayName: 'Simple Code Reviewer',
   publisher: 'your-publisher-id', // ← Add this line
-  model: 'anthropic/claude-4-sonnet-20250522',
+  model: 'anthropic/claude-sonnet-4.5',
   // ... rest of your definition
 }
 ```
@@ -203,7 +201,7 @@ codebuff --agent your-publisher-id/simple-code-reviewer@0.0.1
 
 ## Advanced Example: Deep Code Reviewer
 
-Once you're comfortable with basic agents, try building something more sophisticated using **programmatic control**. Here's an advanced agent that demonstrates the power of the `handleSteps` generator function:
+Once the basics work, try `handleSteps` for programmatic control. The agent below shows one way to structure it:
 
 `.agents/deep-code-reviewer.ts`:
 
@@ -214,7 +212,7 @@ const definition: AgentDefinition = {
   id: 'deep-code-reviewer',
   displayName: 'Deep Code Reviewer',
   publisher: 'your-publisher-id',
-  model: 'anthropic/claude-sonnet-4',
+  model: 'anthropic/claude-sonnet-4.5',
 
   spawnerPrompt:
     'Spawn when you need to review code changes in the git diff or staged changes',
@@ -240,7 +238,6 @@ const definition: AgentDefinition = {
 4. Look for simplification opportunities
 5. Check for logical errors and edge cases`,
 
-  // This is where the magic happens - programmatic control!
   handleSteps: function* () {
     // Step 1: Get changed files from git
     const { toolResult: gitDiffResult } = yield {
@@ -305,7 +302,7 @@ export default definition
 
 ### Understanding `handleSteps`
 
-The `handleSteps` generator function gives you **precise control** over your agent's execution:
+The `handleSteps` generator function gives you direct control over your agent's execution:
 
 **Key Concepts:**
 
@@ -351,7 +348,7 @@ The `handleSteps` generator function gives you **precise control** over your age
 
 ## Spawnable Agents
 
-Your agents can spawn other agents to help with specific tasks. This creates powerful workflows where specialized agents collaborate.
+Agents can spawn other agents for specific tasks.
 
 ### Agent Store vs Local Agents
 
@@ -380,13 +377,4 @@ spawnableAgents: [
 
 ---
 
-🎉 **Congratulations!** You've successfully:
-
-- ✅ Created a custom agent from scratch
-- ✅ Tested it locally with the @ command
-- ✅ Set up a publisher profile
-- ✅ Published your agent to the store
-- ✅ Learned the basics of agent architecture
-- ✅ Explored advanced programmatic control with `handleSteps`
-
-You're now ready to build sophisticated agents and contribute to the Codebuff ecosystem!
+You now have a published agent, a pattern for using `handleSteps`, and the basics for spawning other agents.

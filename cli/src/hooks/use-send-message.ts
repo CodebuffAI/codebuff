@@ -418,6 +418,11 @@ export const useSendMessage = ({
           updateChainInProgress,
           queryClient,
         })
+      } finally {
+        // Ensure the batched updater's flush interval is always cleaned up,
+        // even if handleRunCompletion or handleRunError throw unexpectedly.
+        // dispose() is safe to call multiple times.
+        updater.dispose()
       }
     },
     [
