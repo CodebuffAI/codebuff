@@ -206,6 +206,15 @@ async function checkGitBranchExists(branchName: string): Promise<boolean> {
   }
 }
 
+async function getCurrentBranch(): Promise<string> {
+  const proc = Bun.spawn(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], {
+    stdout: 'pipe',
+    stderr: 'pipe',
+  })
+  const output = await new Response(proc.stdout).text()
+  return output.trim() || 'main'
+}
+
 function createEnvDevelopmentLocalFile(
   worktreePath: string,
   args: WorktreeArgs,
@@ -387,13 +396,32 @@ async function main(): Promise<void> {
     console.log(`Location: ${worktreePath}`)
 
     // Create the git worktree (with or without creating new branch)
+    // Explicitly use HEAD to ensure worktree has latest tooling (.bin/bun, etc.)
+    const baseBranch = await getCurrentBranch()
     const worktreeAddArgs = ['worktree', 'add', worktreePath]
     if (branchExists) {
+      // Branch exists - check it out
       worktreeAddArgs.push(args.name)
     } else {
-      worktreeAddArgs.push('-b', args.name)
+      // New branch - explicitly create from HEAD to get latest tooling
+      worktreeAddArgs.push('-b', args.name, 'HEAD')
     }
     await runCommand('git', worktreeAddArgs)
+
+    // If branch already existed, merge in the base branch to get latest tooling
+    if (branchExists) {
+      console.log(`Merging ${baseBranch} into ${args.name} to get latest tooling...`)
+      const mergeResult = await runCommand(
+        'git',
+        ['merge', baseBranch, '--no-edit', '-m', `Merge ${baseBranch} to get latest tooling`],
+        worktreePath,
+      )
+      if (mergeResult.exitCode !== 0) {
+        console.warn(
+          `Warning: Merge had conflicts. Please resolve them manually in the worktree.`,
+        )
+      }
+    }
 
     console.log('Setting up worktree environment...')
     console.log(`Backend port: ${args.backendPort}`)
@@ -416,6 +444,7 @@ async function main(): Promise<void> {
 
     console.log(`✅ Worktree '${args.name}' created and set up successfully!`)
     console.log(`📁 Location: ${worktreePath}`)
+    console.log(`🌿 Based on: ${baseBranch} (HEAD)`)
     console.log(`🚀 You can now cd into the worktree and start working:`)
     console.log(`   cd ${worktreePath}`)
     console.log(``)
