@@ -121,6 +121,7 @@ export const handleSpawnAgents = (async (
           agentState: subAgentState,
           fingerprintId,
           isOnlyChild: agents.length === 1,
+          excludeToolFromMessageHistory: false,
           parentSystemPrompt,
           parentTools: agentTemplate.inheritParentSystemPrompt
             ? parentTools
