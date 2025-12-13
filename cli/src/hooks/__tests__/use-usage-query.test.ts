@@ -70,7 +70,7 @@ describe('fetchUsageData', () => {
     await expect(
       fetchUsageData({
         authToken: 'test-token',
-        clientEnv: { NEXT_PUBLIC_CODEBUFF_APP_URL: undefined } as ClientEnv,
+        clientEnv: { NEXT_PUBLIC_CODEBUFF_APP_URL: undefined } as unknown as ClientEnv,
       }),
     ).rejects.toThrow('NEXT_PUBLIC_CODEBUFF_APP_URL is not set')
   })
