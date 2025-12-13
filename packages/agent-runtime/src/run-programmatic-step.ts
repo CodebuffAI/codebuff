@@ -190,6 +190,7 @@ export async function runProgrammaticStep(
     fileChangeErrors: [],
     fileChanges: [],
     firstFileProcessed: false,
+    proposedContentByPath: {},
   }
   const agentContext = cloneDeep(agentState.agentContext)
   const sendSubagentChunk = (data: {
