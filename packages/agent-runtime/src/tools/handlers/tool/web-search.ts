@@ -7,6 +7,7 @@ import type {
   CodebuffToolCall,
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
+import type { ClientEnv, CiEnv } from '@codebuff/common/types/contracts/env'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 export const handleWebSearch = (async (params: {
@@ -24,6 +25,8 @@ export const handleWebSearch = (async (params: {
   userId: string | undefined
 
   fetch: typeof globalThis.fetch
+  clientEnv: ClientEnv
+  ciEnv: CiEnv
 }): Promise<{
   output: CodebuffToolOutput<'web_search'>
   creditsUsed: number
@@ -43,6 +46,8 @@ export const handleWebSearch = (async (params: {
     userInputId,
 
     fetch,
+    clientEnv,
+    ciEnv,
   } = params
   const { query, depth } = toolCall.input
 
@@ -71,6 +76,7 @@ export const handleWebSearch = (async (params: {
       fetch,
       logger,
       apiKey,
+      env: { clientEnv, ciEnv },
     })
 
     if (webApi.error) {

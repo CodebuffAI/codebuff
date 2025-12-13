@@ -3,6 +3,8 @@
  * Supports iTerm2 inline images protocol and Kitty graphics protocol
  */
 
+import type { CliEnv } from '../types/env'
+import { getCliEnv } from './env'
 
 export type TerminalImageProtocol = 'iterm2' | 'kitty' | 'sixel' | 'none'
 
@@ -11,21 +13,23 @@ let cachedProtocol: TerminalImageProtocol | null = null
 /**
  * Detect which image protocol the terminal supports
  */
-export function detectTerminalImageSupport(): TerminalImageProtocol {
+export function detectTerminalImageSupport(
+  env: CliEnv = getCliEnv(),
+): TerminalImageProtocol {
   if (cachedProtocol !== null) {
     return cachedProtocol
   }
 
   // Check for iTerm2
-  if (process.env.TERM_PROGRAM === 'iTerm.app') {
+  if (env.TERM_PROGRAM === 'iTerm.app') {
     cachedProtocol = 'iterm2'
     return cachedProtocol
   }
 
   // Check for Kitty
   if (
-    process.env.TERM === 'xterm-kitty' ||
-    process.env.KITTY_WINDOW_ID !== undefined
+    env.TERM === 'xterm-kitty' ||
+    env.KITTY_WINDOW_ID !== undefined
   ) {
     cachedProtocol = 'kitty'
     return cachedProtocol
@@ -33,8 +37,8 @@ export function detectTerminalImageSupport(): TerminalImageProtocol {
 
   // Check for Sixel support (less common)
   if (
-    process.env.TERM?.includes('sixel') ||
-    process.env.SIXEL_SUPPORT === 'true'
+    env.TERM?.includes('sixel') ||
+    env.SIXEL_SUPPORT === 'true'
   ) {
     cachedProtocol = 'sixel'
     return cachedProtocol

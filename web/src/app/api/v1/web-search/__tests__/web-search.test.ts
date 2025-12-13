@@ -14,6 +14,8 @@ import type {
   LoggerWithContextFn,
 } from '@codebuff/common/types/contracts/logger'
 
+const testServerEnv = { LINKUP_API_KEY: 'test-linkup-key' }
+
 describe('/api/v1/web-search POST endpoint', () => {
   let mockLogger: Logger
   let mockLoggerWithContext: LoggerWithContextFn
@@ -77,6 +79,7 @@ describe('/api/v1/web-search POST endpoint', () => {
       getUserUsageData: mockGetUserUsageData,
       consumeCreditsWithFallback: mockConsumeCreditsWithFallback,
       fetch: mockFetch,
+      serverEnv: testServerEnv,
     })
     expect(res.status).toBe(401)
   })
@@ -106,6 +109,7 @@ describe('/api/v1/web-search POST endpoint', () => {
       getUserUsageData: mockGetUserUsageData,
       consumeCreditsWithFallback: mockConsumeCreditsWithFallback,
       fetch: mockFetch,
+      serverEnv: testServerEnv,
     })
     expect(res.status).toBe(402)
   })
@@ -125,6 +129,7 @@ describe('/api/v1/web-search POST endpoint', () => {
       getUserUsageData: mockGetUserUsageData,
       consumeCreditsWithFallback: mockConsumeCreditsWithFallback,
       fetch: mockFetch,
+      serverEnv: testServerEnv,
     })
     expect(res.status).toBe(200)
     const body = await res.json()

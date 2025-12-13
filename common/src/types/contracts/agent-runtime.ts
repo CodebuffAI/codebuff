@@ -1,5 +1,6 @@
 import type { TrackEventFn } from './analytics'
 import type { ConsumeCreditsWithFallbackFn } from './billing'
+import type { ClientEnv, CiEnv } from './env'
 import type {
   HandleStepsLogChunkFn,
   RequestFilesFn,
@@ -27,6 +28,10 @@ import type { Logger } from './logger'
 
 /** Shared dependencies */
 export type AgentRuntimeDeps = {
+  // Environment
+  clientEnv: ClientEnv
+  ciEnv: CiEnv
+
   // Database
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
   fetchAgentFromDatabase: FetchAgentFromDatabaseFn

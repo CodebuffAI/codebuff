@@ -25,7 +25,6 @@ import { join, resolve } from 'path'
 const PROJECT_ROOT = resolve(import.meta.dir, '..')
 const LOG_DIR = join(PROJECT_ROOT, 'debug', 'console')
 const PID_FILE = join(LOG_DIR, 'services.json')
-// Use the .bin/bun wrapper with CODEBUFF_SKIP_ENV_CLEAR to preserve inherited env vars
 const BUN_PATH = join(PROJECT_ROOT, '.bin', 'bun')
 
 // Get config from environment (Bun loads .env files automatically)
@@ -127,7 +126,7 @@ function startDb(): boolean {
   const result = spawnSync(BUN_PATH, ['--cwd', 'packages/internal', 'db:start'], {
     cwd: PROJECT_ROOT,
     stdio: ['ignore', logFile, logFile],
-    env: { ...process.env, CODEBUFF_SKIP_ENV_CLEAR: 'true' },
+    env: process.env,
   })
 
   if (result.status !== 0) {
@@ -152,7 +151,7 @@ function spawnBackgroundProcess(
     cwd: PROJECT_ROOT,
     detached: true,
     stdio: ['ignore', logFile, logFile],
-    env: { ...process.env, CODEBUFF_SKIP_ENV_CLEAR: 'true' },
+    env: process.env,
   })
 
   child.unref()

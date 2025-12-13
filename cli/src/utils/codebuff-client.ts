@@ -1,3 +1,4 @@
+import { getCliEnv } from './env'
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
 import { CodebuffClient } from '@codebuff/sdk'
@@ -58,9 +59,11 @@ export async function getCodebuffClient(): Promise<CodebuffClient | null> {
     const projectRoot = getProjectRoot()
 
     // Set up ripgrep path for SDK to use
-    if (process.env.CODEBUFF_IS_BINARY) {
+    const env = getCliEnv()
+    if (env.CODEBUFF_IS_BINARY) {
       try {
         const rgPath = await getRgPath()
+        // Note: We still set process.env here because SDK reads from it
         process.env.CODEBUFF_RG_PATH = rgPath
       } catch (error) {
         logger.error(error, 'Failed to set up ripgrep binary for SDK')

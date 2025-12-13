@@ -9,6 +9,7 @@ import React, {
 
 import { AgentBranchItem } from './agent-branch-item'
 import { Button } from './button'
+import { CopyIconButton } from './copy-icon-button'
 import { ImageCard } from './image-card'
 import { MessageFooter } from './message-footer'
 import { ValidationErrorPopover } from './validation-error-popover'
@@ -188,7 +189,7 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
         width: '100%',
       }}
     >
-      {/* User message timestamp with error indicator button (non-bash commands) */}
+      {/* User message timestamp with copy button and error indicator (non-bash commands) */}
       {isUser && !bashCwd && (
         <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
           <text
@@ -200,6 +201,8 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
           >
             {`[${timestamp}]`}
           </text>
+
+          <CopyIconButton textToCopy={content} />
 
           {validationErrors && validationErrors.length > 0 && (
             <Button
@@ -218,7 +221,7 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
         </box>
       )}
 
-      {/* Bash command metadata header (timestamp + cwd) - now for user messages with bashCwd */}
+      {/* Bash command metadata header (timestamp + copy button + cwd) */}
       {bashCwd && (
         <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
           <text
@@ -230,6 +233,7 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
           >
             {`[${timestamp}]`}
           </text>
+          <CopyIconButton textToCopy={content} />
           <text
             attributes={TextAttributes.DIM}
             style={{

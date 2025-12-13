@@ -1,9 +1,9 @@
+import { env } from '@codebuff/common/env'
 import { ErrorCodes, isPaymentRequiredError } from '@codebuff/sdk'
 
 import type { ChatMessage } from '../types/chat'
 
-const defaultAppUrl =
-  process.env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
+const defaultAppUrl = env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
 
 // Normalize unknown errors to a user-facing string.
 const extractErrorMessage = (error: unknown, fallback: string): string => {

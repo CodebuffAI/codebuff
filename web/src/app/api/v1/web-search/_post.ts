@@ -18,6 +18,10 @@ import type { NextRequest } from 'next/server'
 import { searchWeb } from '@codebuff/agent-runtime/llm-api/linkup-api'
 import { extractApiKeyFromHeader } from '@/util/auth'
 
+interface WebSearchEnvDeps {
+  LINKUP_API_KEY: string
+}
+
 const bodySchema = z.object({
   query: z.string().min(1, 'query is required'),
   depth: z.enum(['standard', 'deep']).optional().default('standard'),
@@ -33,6 +37,7 @@ export async function postWebSearch(params: {
   getUserUsageData: GetUserUsageDataFn
   consumeCreditsWithFallback: ConsumeCreditsWithFallbackFn
   fetch: typeof globalThis.fetch
+  serverEnv: WebSearchEnvDeps
 }) {
   const {
     req,
@@ -42,6 +47,7 @@ export async function postWebSearch(params: {
     getUserUsageData,
     consumeCreditsWithFallback,
     fetch,
+    serverEnv,
   } = params
   let { logger } = params
 
@@ -165,7 +171,7 @@ export async function postWebSearch(params: {
 
   // Perform search
   try {
-    const result = await searchWeb({ query, depth, logger, fetch })
+    const result = await searchWeb({ query, depth, logger, fetch, serverEnv })
 
     if (!result) {
       trackEvent({

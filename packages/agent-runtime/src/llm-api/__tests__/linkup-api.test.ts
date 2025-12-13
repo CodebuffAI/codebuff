@@ -18,19 +18,13 @@ import { searchWeb } from '../linkup-api'
 
 import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
 
-// Mock environment variables
-process.env.LINKUP_API_KEY = 'test-api-key'
+// Test server env for Linkup API
+const testServerEnv = { LINKUP_API_KEY: 'test-api-key' }
 
 describe('Linkup API', () => {
-  let agentRuntimeImpl: AgentRuntimeDeps
+  let agentRuntimeImpl: AgentRuntimeDeps & { serverEnv: typeof testServerEnv }
 
   beforeAll(async () => {
-    await mockModule('@codebuff/internal', () => ({
-      env: {
-        LINKUP_API_KEY: 'test-api-key',
-      },
-    }))
-
     // Mock withTimeout utility
     await mockModule('@codebuff/common/util/promise', () => ({
       withTimeout: async (promise: Promise<any>, timeout: number) => promise,
@@ -40,6 +34,7 @@ describe('Linkup API', () => {
   beforeEach(() => {
     agentRuntimeImpl = {
       ...TEST_AGENT_RUNTIME_IMPL,
+      serverEnv: testServerEnv,
     }
   })
 

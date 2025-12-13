@@ -1,7 +1,7 @@
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { eq, and, not } from 'drizzle-orm/expressions'
 import { cookies } from 'next/headers'
+import { eq, and, not } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 

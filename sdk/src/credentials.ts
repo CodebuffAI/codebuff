@@ -2,9 +2,11 @@ import fs from 'fs'
 import path from 'node:path'
 import os from 'os'
 
+import { env } from '@codebuff/common/env'
 import { userSchema } from '@codebuff/common/util/credentials'
 import { z } from 'zod/v4'
 
+import type { ClientEnv } from '@codebuff/common/types/contracts/env'
 import type { User } from '@codebuff/common/util/credentials'
 
 const credentialsSchema = z
@@ -33,27 +35,39 @@ export const userFromJson = (
   }
 }
 
-export const CONFIG_DIR = path.join(
-  os.homedir(),
-  '.config',
-  'manicode' +
-    (process.env.NEXT_PUBLIC_CB_ENVIRONMENT &&
-    process.env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod'
-      ? `-${process.env.NEXT_PUBLIC_CB_ENVIRONMENT}`
-      : ''),
-)
+/**
+ * Get the config directory path based on the environment.
+ * Uses the clientEnv to determine the environment suffix.
+ */
+export const getConfigDir = (clientEnv: ClientEnv = env): string => {
+  const envSuffix =
+    clientEnv.NEXT_PUBLIC_CB_ENVIRONMENT &&
+    clientEnv.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod'
+      ? `-${clientEnv.NEXT_PUBLIC_CB_ENVIRONMENT}`
+      : ''
+  return path.join(os.homedir(), '.config', `manicode${envSuffix}`)
+}
 
+/**
+ * Get the credentials file path based on the environment.
+ */
+export const getCredentialsPath = (clientEnv: ClientEnv = env): string => {
+  return path.join(getConfigDir(clientEnv), 'credentials.json')
+}
+
+// Legacy exports for backward compatibility - use getConfigDir() and getCredentialsPath() for testability
+export const CONFIG_DIR = getConfigDir()
 ensureDirectoryExistsSync(CONFIG_DIR)
+export const CREDENTIALS_PATH = getCredentialsPath()
 
-export const CREDENTIALS_PATH = path.join(CONFIG_DIR, 'credentials.json')
-
-export const getUserCredentials = (): User | null => {
-  if (!fs.existsSync(CREDENTIALS_PATH)) {
+export const getUserCredentials = (clientEnv: ClientEnv = env): User | null => {
+  const credentialsPath = getCredentialsPath(clientEnv)
+  if (!fs.existsSync(credentialsPath)) {
     return null
   }
 
   try {
-    const credentialsFile = fs.readFileSync(CREDENTIALS_PATH, 'utf8')
+    const credentialsFile = fs.readFileSync(credentialsPath, 'utf8')
     const user = userFromJson(credentialsFile)
     return user || null
   } catch (error) {

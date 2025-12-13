@@ -2,6 +2,8 @@ import { existsSync, readFileSync, readdirSync, statSync, watch } from 'fs'
 import { homedir } from 'os'
 import { dirname, join } from 'path'
 
+import type { CliEnv } from '../types/env'
+import { getCliEnv } from './env'
 import type { MarkdownPalette } from './markdown-renderer'
 import type {
   ChatTheme,
@@ -127,7 +129,9 @@ const collectExistingPaths = (candidates: string[]): string[] => {
   return [...seen]
 }
 
-const resolveVSCodeSettingsPaths = (): string[] => {
+const resolveVSCodeSettingsPaths = (
+  env: CliEnv = getCliEnv(),
+): string[] => {
   const settings: string[] = []
   const home = homedir()
 
@@ -137,14 +141,14 @@ const resolveVSCodeSettingsPaths = (): string[] => {
       settings.push(join(base, product, 'User', 'settings.json'))
     }
   } else if (process.platform === 'win32') {
-    const appData = process.env.APPDATA
+    const appData = env.APPDATA
     if (appData) {
       for (const product of VS_CODE_PRODUCT_DIRS) {
         settings.push(join(appData, product, 'User', 'settings.json'))
       }
     }
   } else {
-    const configDir = process.env.XDG_CONFIG_HOME ?? join(home, '.config')
+    const configDir = env.XDG_CONFIG_HOME ?? join(home, '.config')
     for (const product of VS_CODE_PRODUCT_DIRS) {
       settings.push(join(configDir, product, 'User', 'settings.json'))
     }
@@ -153,14 +157,17 @@ const resolveVSCodeSettingsPaths = (): string[] => {
   return settings
 }
 
-const resolveJetBrainsLafPaths = (): string[] => {
+const resolveJetBrainsLafPaths = (
+  env: CliEnv = getCliEnv(),
+): string[] => {
   const candidates: string[] = []
 
-  for (const key of ['IDE_CONFIG_DIR', 'JB_IDE_CONFIG_DIR']) {
-    const raw = process.env[key]
-    if (raw) {
-      candidates.push(join(raw, 'options', 'laf.xml'))
-    }
+  // Check IDE config dirs
+  if (env.IDE_CONFIG_DIR) {
+    candidates.push(join(env.IDE_CONFIG_DIR, 'options', 'laf.xml'))
+  }
+  if (env.JB_IDE_CONFIG_DIR) {
+    candidates.push(join(env.JB_IDE_CONFIG_DIR, 'options', 'laf.xml'))
   }
 
   const home = homedir()
@@ -169,7 +176,7 @@ const resolveJetBrainsLafPaths = (): string[] => {
   if (process.platform === 'darwin') {
     baseDirs.push(join(home, 'Library', 'Application Support', 'JetBrains'))
   } else if (process.platform === 'win32') {
-    const appData = process.env.APPDATA
+    const appData = env.APPDATA
     if (appData) {
       baseDirs.push(join(appData, 'JetBrains'))
     }
@@ -200,13 +207,15 @@ const resolveJetBrainsLafPaths = (): string[] => {
   return candidates
 }
 
-const resolveZedSettingsPaths = (): string[] => {
+const resolveZedSettingsPaths = (
+  env: CliEnv = getCliEnv(),
+): string[] => {
   const home = homedir()
   const paths: string[] = []
 
   const configDirs = new Set<string>()
 
-  const xdgConfig = process.env.XDG_CONFIG_HOME ?? join(home, '.config')
+  const xdgConfig = env.XDG_CONFIG_HOME ?? join(home, '.config')
   configDirs.add(join(xdgConfig, 'zed'))
   configDirs.add(join(xdgConfig, 'dev.zed.Zed'))
 
@@ -214,7 +223,7 @@ const resolveZedSettingsPaths = (): string[] => {
     configDirs.add(join(home, 'Library', 'Application Support', 'Zed'))
     configDirs.add(join(home, 'Library', 'Application Support', 'dev.zed.Zed'))
   } else if (process.platform === 'win32') {
-    const appData = process.env.APPDATA
+    const appData = env.APPDATA
     if (appData) {
       configDirs.add(join(appData, 'Zed'))
       configDirs.add(join(appData, 'dev.zed.Zed'))
@@ -296,45 +305,63 @@ const extractJetBrainsTheme = (content: string): ThemeName | null => {
   return null
 }
 
-const isVSCodeFamilyTerminal = (): boolean => {
-  if (process.env.TERM_PROGRAM?.toLowerCase() === 'vscode') {
+const isVSCodeFamilyTerminal = (
+  env: CliEnv = getCliEnv(),
+): boolean => {
+  if (env.TERM_PROGRAM?.toLowerCase() === 'vscode') {
     return true
   }
 
-  for (const key of VS_CODE_FAMILY_ENV_KEYS) {
-    if (process.env[key]) {
-      return true
-    }
+  // Check VS Code family env keys
+  if (
+    env.VSCODE_GIT_IPC_HANDLE ||
+    env.VSCODE_PID ||
+    env.VSCODE_CWD ||
+    env.VSCODE_NLS_CONFIG ||
+    env.CURSOR_PORT ||
+    env.CURSOR
+  ) {
+    return true
   }
 
   return false
 }
 
-const isJetBrainsTerminal = (): boolean => {
-  if (process.env.TERMINAL_EMULATOR?.toLowerCase().includes('jetbrains')) {
+const isJetBrainsTerminal = (
+  env: CliEnv = getCliEnv(),
+): boolean => {
+  if (env.TERMINAL_EMULATOR?.toLowerCase().includes('jetbrains')) {
     return true
   }
 
-  for (const key of JETBRAINS_ENV_KEYS) {
-    if (process.env[key]) {
-      return true
-    }
+  // Check JetBrains env keys
+  if (
+    env.JETBRAINS_REMOTE_RUN ||
+    env.IDEA_INITIAL_DIRECTORY ||
+    env.IDE_CONFIG_DIR ||
+    env.JB_IDE_CONFIG_DIR
+  ) {
+    return true
   }
 
   return false
 }
 
-const isZedTerminal = (): boolean => {
-  const termProgram = process.env.TERM_PROGRAM?.toLowerCase()
+const isZedTerminal = (
+  env: CliEnv = getCliEnv(),
+): boolean => {
+  const termProgram = env.TERM_PROGRAM?.toLowerCase()
   return termProgram === 'zed' || false
 }
 
-const detectVSCodeTheme = (): ThemeName | null => {
-  if (!isVSCodeFamilyTerminal()) {
+const detectVSCodeTheme = (
+  env: CliEnv = getCliEnv(),
+): ThemeName | null => {
+  if (!isVSCodeFamilyTerminal(env)) {
     return null
   }
 
-  const settingsPaths = collectExistingPaths(resolveVSCodeSettingsPaths())
+  const settingsPaths = collectExistingPaths(resolveVSCodeSettingsPaths(env))
 
   for (const settingsPath of settingsPaths) {
     const content = safeReadFile(settingsPath)
@@ -355,7 +382,7 @@ const detectVSCodeTheme = (): ThemeName | null => {
   }
 
   const themeKindEnv =
-    process.env.VSCODE_THEME_KIND ?? process.env.VSCODE_COLOR_THEME_KIND
+    env.VSCODE_THEME_KIND ?? env.VSCODE_COLOR_THEME_KIND
   if (themeKindEnv) {
     const normalized = themeKindEnv.trim().toLowerCase()
     if (normalized === 'dark' || normalized === 'hc') return 'dark'
@@ -365,12 +392,14 @@ const detectVSCodeTheme = (): ThemeName | null => {
   return null
 }
 
-const detectJetBrainsTheme = (): ThemeName | null => {
-  if (!isJetBrainsTerminal()) {
+const detectJetBrainsTheme = (
+  env: CliEnv = getCliEnv(),
+): ThemeName | null => {
+  if (!isJetBrainsTerminal(env)) {
     return null
   }
 
-  const lafPaths = collectExistingPaths(resolveJetBrainsLafPaths())
+  const lafPaths = collectExistingPaths(resolveJetBrainsLafPaths(env))
 
   for (const lafPath of lafPaths) {
     const content = safeReadFile(lafPath)
@@ -468,12 +497,14 @@ const extractZedTheme = (content: string): ThemeName | null => {
   return null
 }
 
-const detectZedTheme = (): ThemeName | null => {
-  if (!isZedTerminal()) {
+const detectZedTheme = (
+  env: CliEnv = getCliEnv(),
+): ThemeName | null => {
+  if (!isZedTerminal(env)) {
     return null
   }
 
-  const settingsPaths = collectExistingPaths(resolveZedSettingsPaths())
+  const settingsPaths = collectExistingPaths(resolveZedSettingsPaths(env))
   for (const settingsPath of settingsPaths) {
     const content = safeReadFile(settingsPath)
     if (!content) continue
@@ -504,26 +535,32 @@ const detectZedTheme = (): ThemeName | null => {
   return null
 }
 
-export const detectIDETheme = (): ThemeName | null => {
-  const detectors = [detectVSCodeTheme, detectJetBrainsTheme, detectZedTheme]
-  for (const detector of detectors) {
-    const theme = detector()
-    if (theme) {
-      return theme
-    }
-  }
+export const detectIDETheme = (
+  env: CliEnv = getCliEnv(),
+): ThemeName | null => {
+  const theme = detectVSCodeTheme(env)
+  if (theme) return theme
+  
+  const jbTheme = detectJetBrainsTheme(env)
+  if (jbTheme) return jbTheme
+  
+  const zedTheme = detectZedTheme(env)
+  if (zedTheme) return zedTheme
+  
   return null
 }
 
-export const getIDEThemeConfigPaths = (): string[] => {
+export const getIDEThemeConfigPaths = (
+  env: CliEnv = getCliEnv(),
+): string[] => {
   const paths = new Set<string>()
-  for (const path of resolveVSCodeSettingsPaths()) {
+  for (const path of resolveVSCodeSettingsPaths(env)) {
     paths.add(path)
   }
-  for (const path of resolveJetBrainsLafPaths()) {
+  for (const path of resolveJetBrainsLafPaths(env)) {
     paths.add(path)
   }
-  for (const path of resolveZedSettingsPaths()) {
+  for (const path of resolveZedSettingsPaths(env)) {
     paths.add(path)
   }
   return [...paths]
@@ -1012,8 +1049,9 @@ export const initializeThemeWatcher = (setter: (name: ThemeName) => void) => {
  * Recompute system theme and update store if it changed
  */
 const recomputeSystemTheme = () => {
+  const env = getCliEnv()
   // Only recompute if theme is auto-detected (not explicitly set)
-  const envPreference = process.env.OPEN_TUI_THEME ?? process.env.OPENTUI_THEME
+  const envPreference = env.OPEN_TUI_THEME ?? env.OPENTUI_THEME
   if (envPreference && envPreference.toLowerCase() !== 'opposite') {
     // User explicitly set theme, don't react to system changes
     return

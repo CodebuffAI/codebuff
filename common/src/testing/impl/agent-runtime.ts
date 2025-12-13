@@ -3,6 +3,7 @@ import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
 } from '../../types/contracts/agent-runtime'
+import type { ClientEnv, CiEnv } from '../../types/contracts/env'
 import type { Logger } from '../../types/contracts/logger'
 
 export const testLogger: Logger = {
@@ -19,9 +20,34 @@ testFetch.preconnect = async () => {
   throw new Error('fetch.preconnect not implemented in test runtime')
 }
 
+export const testClientEnv: ClientEnv = {
+  NEXT_PUBLIC_CB_ENVIRONMENT: 'test',
+  NEXT_PUBLIC_CODEBUFF_APP_URL: 'https://test.codebuff.com',
+  NEXT_PUBLIC_SUPPORT_EMAIL: 'support@codebuff.test',
+  NEXT_PUBLIC_POSTHOG_API_KEY: 'test-posthog-key',
+  NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://test.posthog.com',
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test_123',
+  NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL: 'https://test.stripe.com/portal',
+  NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID: undefined,
+  NEXT_PUBLIC_WEB_PORT: 3000,
+}
+
+export const testCiEnv: CiEnv = {
+  CI: undefined,
+  GITHUB_ACTIONS: undefined,
+  RENDER: undefined,
+  IS_PULL_REQUEST: undefined,
+  CODEBUFF_GITHUB_TOKEN: undefined,
+  CODEBUFF_API_KEY: 'test-api-key',
+}
+
 export const TEST_AGENT_RUNTIME_IMPL = Object.freeze<
   AgentRuntimeDeps & AgentRuntimeScopedDeps
 >({
+  // Environment
+  clientEnv: testClientEnv,
+  ciEnv: testCiEnv,
+
   // Database
   getUserInfoFromApiKey: async () => ({
     id: 'test-user-id',

@@ -1,5 +1,8 @@
 import { execSync } from 'child_process'
 
+import type { CliEnv } from '../types/env'
+import { getCliEnv } from './env'
+
 type KnownShell =
   | 'bash'
   | 'zsh'
@@ -23,24 +26,24 @@ const SHELL_ALIASES: Record<string, KnownShell> = {
   'powershell.exe': 'powershell',
 }
 
-export function detectShell(): ShellName {
+export function detectShell(env: CliEnv = getCliEnv()): ShellName {
   if (cachedShell) {
     return cachedShell
   }
 
   const detected =
-    detectFromEnvironment() ?? detectViaParentProcessInspection() ?? 'unknown'
+    detectFromEnvironment(env) ?? detectViaParentProcessInspection() ?? 'unknown'
   cachedShell = detected
   return detected
 }
 
-function detectFromEnvironment(): ShellName | null {
+function detectFromEnvironment(env: CliEnv): ShellName | null {
   const candidates: Array<string | undefined> = []
 
   if (process.platform === 'win32') {
-    candidates.push(process.env.COMSPEC, process.env.SHELL)
+    candidates.push(env.COMSPEC, env.SHELL)
   } else {
-    candidates.push(process.env.SHELL)
+    candidates.push(env.SHELL)
   }
 
   for (const candidate of candidates) {

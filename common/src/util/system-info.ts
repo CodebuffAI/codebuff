@@ -2,8 +2,12 @@ import os from 'os'
 import path from 'path'
 import { platform } from 'process'
 
-export const getSystemInfo = () => {
-  const shell = process.env.SHELL || process.env.COMSPEC || 'unknown'
+import { getProcessEnv } from '../env-process'
+
+import type { ProcessEnv } from '../types/contracts/env'
+
+export const getSystemInfo = (processEnv: ProcessEnv = getProcessEnv()) => {
+  const shell = processEnv.SHELL || processEnv.COMSPEC || 'unknown'
 
   return {
     platform,
