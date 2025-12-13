@@ -11,7 +11,7 @@ import { SYMBOLS } from '../constants'
 
 export interface QuestionOptionProps {
   option: string | { label: string; description?: string }
-  optionIndex: number
+  indent: number
   isSelected: boolean
   isFocused: boolean
   isMultiSelect?: boolean
@@ -22,6 +22,7 @@ export interface QuestionOptionProps {
 export const QuestionOption: React.FC<QuestionOptionProps> = memo(
   ({
     option,
+    indent,
     isSelected,
     isFocused,
     isMultiSelect = false,
@@ -34,14 +35,12 @@ export const QuestionOption: React.FC<QuestionOptionProps> = memo(
     const label = typeof option === 'string' ? option : option.label
     const description = typeof option === 'object' ? option.description : undefined
 
-    // Determine symbol based on selection type
+    const selectedFg = theme.name === 'dark' ? '#ffffff' : '#000000'
     const symbol = isMultiSelect
-      ? isSelected
-        ? SYMBOLS.CHECKBOX_CHECKED
-        : SYMBOLS.CHECKBOX_UNCHECKED
-      : isSelected
-      ? SYMBOLS.SELECTED
-      : SYMBOLS.UNSELECTED
+      ? isSelected ? SYMBOLS.CHECKBOX_CHECKED : SYMBOLS.CHECKBOX_UNCHECKED
+      : isSelected ? SYMBOLS.SELECTED : SYMBOLS.UNSELECTED
+    const fg = isFocused ? '#000000' : isSelected ? selectedFg : theme.muted
+    const attributes = isFocused || isSelected ? TextAttributes.BOLD : undefined
 
     return (
       <Button
@@ -50,37 +49,21 @@ export const QuestionOption: React.FC<QuestionOptionProps> = memo(
         style={{
           flexDirection: 'column',
           gap: 0,
-          backgroundColor: isFocused ? theme.surface : undefined,
+          width: '100%',
+          backgroundColor: isFocused ? theme.primary : undefined,
           marginBottom: 0,
           paddingTop: 0,
           paddingBottom: 0,
+          paddingLeft: indent,
         }}
       >
-        <box style={{ flexDirection: 'row', gap: 1 }}>
-          <text
-            style={{
-              fg: isSelected ? theme.primary : isFocused ? theme.foreground : theme.muted,
-              attributes: isFocused ? TextAttributes.BOLD : undefined,
-            }}
-          >
-            {symbol}
-          </text>
-          <text
-            style={{
-              fg: isSelected ? theme.primary : isFocused ? theme.foreground : theme.muted,
-              attributes: isFocused ? TextAttributes.BOLD : undefined,
-            }}
-          >
-            {label}
-          </text>
-        </box>
+        <text style={{ fg, attributes }}>{`${symbol} ${label}`}</text>
         {/* Show description on focus */}
         {isFocused && description && (
           <text
             style={{
-              fg: theme.muted,
-              marginLeft: 3,
-              attributes: TextAttributes.ITALIC,
+              fg: '#000000',
+              marginLeft: 2,
             }}
           >
             {description}
@@ -95,7 +78,10 @@ export const QuestionOption: React.FC<QuestionOptionProps> = memo(
       prev.isSelected === next.isSelected &&
       prev.isFocused === next.isFocused &&
       prev.option === next.option &&
-      prev.isMultiSelect === next.isMultiSelect
+      prev.indent === next.indent &&
+      prev.isMultiSelect === next.isMultiSelect &&
+      prev.onSelect === next.onSelect &&
+      prev.onMouseOver === next.onMouseOver
     )
   }
 )
