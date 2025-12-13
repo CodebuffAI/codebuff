@@ -343,11 +343,32 @@ async function runDirenvAllow(worktreePath: string): Promise<void> {
   const envrcPath = join(worktreePath, '.envrc')
   if (existsSync(envrcPath)) {
     console.log('Running direnv allow...')
-    try {
-      await runCommand('direnv', ['allow'], worktreePath)
-    } catch (error) {
-      console.warn('Failed to run direnv allow:', error)
-    }
+    return new Promise((resolve) => {
+      // Use bash -c with explicit cd to ensure direnv sees the correct directory context
+      // Just using cwd option doesn't work reliably with direnv
+      const proc = spawn('bash', ['-c', `cd '${worktreePath}' && direnv allow`], {
+        stdio: 'inherit',
+        shell: false,
+      })
+
+      proc.on('close', (code) => {
+        if (code === 0) {
+          console.log('direnv allow completed successfully')
+        } else {
+          console.warn(`direnv allow exited with code ${code}`)
+        }
+        resolve()
+      })
+
+      proc.on('error', (error) => {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          console.warn('bash not found, skipping direnv allow')
+        } else {
+          console.warn('Failed to run direnv allow:', error.message)
+        }
+        resolve()
+      })
+    })
   } else {
     console.log('No .envrc found, skipping direnv allow')
   }
