@@ -206,6 +206,15 @@ async function checkGitBranchExists(branchName: string): Promise<boolean> {
   }
 }
 
+async function getCurrentBranch(): Promise<string> {
+  const proc = Bun.spawn(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], {
+    stdout: 'pipe',
+    stderr: 'pipe',
+  })
+  const output = await new Response(proc.stdout).text()
+  return output.trim() || 'main'
+}
+
 function createEnvDevelopmentLocalFile(
   worktreePath: string,
   args: WorktreeArgs,
@@ -334,11 +343,32 @@ async function runDirenvAllow(worktreePath: string): Promise<void> {
   const envrcPath = join(worktreePath, '.envrc')
   if (existsSync(envrcPath)) {
     console.log('Running direnv allow...')
-    try {
-      await runCommand('direnv', ['allow'], worktreePath)
-    } catch (error) {
-      console.warn('Failed to run direnv allow:', error)
-    }
+    return new Promise((resolve) => {
+      // Use bash -c with explicit cd to ensure direnv sees the correct directory context
+      // Just using cwd option doesn't work reliably with direnv
+      const proc = spawn('bash', ['-c', `cd '${worktreePath}' && direnv allow`], {
+        stdio: 'inherit',
+        shell: false,
+      })
+
+      proc.on('close', (code) => {
+        if (code === 0) {
+          console.log('direnv allow completed successfully')
+        } else {
+          console.warn(`direnv allow exited with code ${code}`)
+        }
+        resolve()
+      })
+
+      proc.on('error', (error) => {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          console.warn('bash not found, skipping direnv allow')
+        } else {
+          console.warn('Failed to run direnv allow:', error.message)
+        }
+        resolve()
+      })
+    })
   } else {
     console.log('No .envrc found, skipping direnv allow')
   }
@@ -387,13 +417,32 @@ async function main(): Promise<void> {
     console.log(`Location: ${worktreePath}`)
 
     // Create the git worktree (with or without creating new branch)
+    // Explicitly use HEAD to ensure worktree has latest tooling (.bin/bun, etc.)
+    const baseBranch = await getCurrentBranch()
     const worktreeAddArgs = ['worktree', 'add', worktreePath]
     if (branchExists) {
+      // Branch exists - check it out
       worktreeAddArgs.push(args.name)
     } else {
-      worktreeAddArgs.push('-b', args.name)
+      // New branch - explicitly create from HEAD to get latest tooling
+      worktreeAddArgs.push('-b', args.name, 'HEAD')
     }
     await runCommand('git', worktreeAddArgs)
+
+    // If branch already existed, merge in the base branch to get latest tooling
+    if (branchExists) {
+      console.log(`Merging ${baseBranch} into ${args.name} to get latest tooling...`)
+      const mergeResult = await runCommand(
+        'git',
+        ['merge', baseBranch, '--no-edit', '-m', `Merge ${baseBranch} to get latest tooling`],
+        worktreePath,
+      )
+      if (mergeResult.exitCode !== 0) {
+        console.warn(
+          `Warning: Merge had conflicts. Please resolve them manually in the worktree.`,
+        )
+      }
+    }
 
     console.log('Setting up worktree environment...')
     console.log(`Backend port: ${args.backendPort}`)
@@ -416,6 +465,7 @@ async function main(): Promise<void> {
 
     console.log(`✅ Worktree '${args.name}' created and set up successfully!`)
     console.log(`📁 Location: ${worktreePath}`)
+    console.log(`🌿 Based on: ${baseBranch} (HEAD)`)
     console.log(`🚀 You can now cd into the worktree and start working:`)
     console.log(`   cd ${worktreePath}`)
     console.log(``)

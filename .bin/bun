@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
 
 # Bun wrapper that syncs secrets from Infisical to .env.local
-# Bun natively loads .env files in this order (highest precedence last):
-#   1. .env
-#   2. .env.development (or .env.production/.env.test based on NODE_ENV)
-#   3. .env.local
-#   4. .env.development.local - Worktree-specific overrides (ports, etc.)
 #
-# .env.development.local has highest precedence, so worktree port overrides
-# correctly override values from Infisical-synced .env.local.
+# Why this wrapper exists:
+# Bun's automatic .env loading doesn't pass env vars to script subprocesses
+# (e.g., drizzle-kit, tsx, etc.). This wrapper explicitly passes --env-file
+# flags to ensure env vars are available everywhere.
 #
-# This wrapper ensures .env.local is up-to-date from Infisical before running bun.
-# If Infisical is not set up, it falls back to using existing .env.local if present.
+# Env file precedence (later files override earlier ones):
+#   1. .env.local - Main secrets from Infisical
+#   2. .env.development.local - Worktree-specific overrides (ports, etc.)
+#
+# This wrapper:
+# 1. Syncs .env.local from Infisical (with caching)
+# 2. Creates symlinks in subdirectories for tools that need local .env files
+# 3. Passes --env-file flags to bun so subprocesses inherit env vars
 
 # Common bun installation paths to check
 BUN_PATHS=(
@@ -202,11 +205,29 @@ check_env_setup() {
     echo "" >&2
 }
 
+# Build env file arguments for bun
+# Bun's automatic .env loading doesn't pass vars to script subprocesses (like drizzle-kit),
+# so we explicitly pass --env-file flags to ensure env vars are available everywhere.
+build_env_file_args() {
+    ENV_FILE_ARGS=""
+
+    # Add .env.local if it exists
+    if [ -f "$ENV_LOCAL_FILE" ]; then
+        ENV_FILE_ARGS="--env-file=$ENV_LOCAL_FILE"
+    fi
+
+    # Add .env.development.local if it exists (higher precedence for worktree overrides)
+    if [ -f "$ENV_DEVELOPMENT_LOCAL_FILE" ]; then
+        ENV_FILE_ARGS="$ENV_FILE_ARGS --env-file=$ENV_DEVELOPMENT_LOCAL_FILE"
+    fi
+}
+
 run_bun() {
     create_env_symlinks
     check_env_setup
-    # Bun natively loads .env files and gives them precedence over inherited shell vars
-    exec "$REAL_BUN" "$@"
+    build_env_file_args
+    # Use --env-file to ensure env vars are passed to script subprocesses
+    exec "$REAL_BUN" $ENV_FILE_ARGS "$@"
 }
 
 # Main logic

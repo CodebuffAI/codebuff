@@ -11,6 +11,8 @@ import {
 } from 'bun:test'
 import React from 'react'
 
+import type { ClientEnv } from '@codebuff/common/types/contracts/env'
+
 import { useChatStore } from '../../state/chat-store'
 import * as authModule from '../../utils/auth'
 import {
@@ -65,11 +67,12 @@ describe('fetchUsageData', () => {
   })
 
   test('should throw error when app URL is not set', async () => {
-    delete process.env.NEXT_PUBLIC_CODEBUFF_APP_URL
-
-    await expect(fetchUsageData({ authToken: 'test-token' })).rejects.toThrow(
-      'NEXT_PUBLIC_CODEBUFF_APP_URL is not set',
-    )
+    await expect(
+      fetchUsageData({
+        authToken: 'test-token',
+        clientEnv: { NEXT_PUBLIC_CODEBUFF_APP_URL: undefined } as unknown as ClientEnv,
+      }),
+    ).rejects.toThrow('NEXT_PUBLIC_CODEBUFF_APP_URL is not set')
   })
 })
 
