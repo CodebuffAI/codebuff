@@ -4,7 +4,10 @@ import {
   RETRY_BACKOFF_MAX_DELAY_MS,
 } from '@codebuff/sdk'
 
-import { createEventHandler, createStreamChunkHandler } from './sdk-event-handlers'
+import {
+  createEventHandler,
+  createStreamChunkHandler,
+} from './sdk-event-handlers'
 
 import type { EventHandlerState } from './sdk-event-handlers'
 import type { AgentDefinition, MessageContent, RunState } from '@codebuff/sdk'
@@ -68,15 +71,15 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
         setIsRetrying(true)
         setStreamStatus('waiting')
       },
-      onRetryExhausted: async ({ totalAttempts, errorCode }: RetryExhaustedArgs) => {
-        logger.warn(
-          { totalAttempts, errorCode },
-          'SDK exhausted all retries',
-        )
+      onRetryExhausted: async ({
+        totalAttempts,
+        errorCode,
+      }: RetryExhaustedArgs) => {
+        logger.warn({ totalAttempts, errorCode }, 'SDK exhausted all retries')
       },
     },
     agentDefinitions,
-    maxAgentSteps: 40,
+    maxAgentSteps: 100,
     handleStreamChunk: createStreamChunkHandler(eventHandlerState),
     handleEvent: createEventHandler(eventHandlerState),
   }
