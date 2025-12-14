@@ -1,11 +1,5 @@
-
 import { TextAttributes } from '@opentui/core'
-import React, {
-  memo,
-  useCallback,
-  useState,
-  type ReactNode,
-} from 'react'
+import React, { memo, useCallback, useState, type ReactNode } from 'react'
 
 import { AgentBranchItem } from './agent-branch-item'
 import { Button } from './button'
@@ -15,7 +9,7 @@ import { MessageFooter } from './message-footer'
 import { ValidationErrorPopover } from './validation-error-popover'
 import { useTheme } from '../hooks/use-theme'
 import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
-import { isTextBlock, isToolBlock , isImageBlock } from '../types/chat'
+import { isTextBlock, isToolBlock, isImageBlock } from '../types/chat'
 import { shouldRenderAsSimpleText } from '../utils/constants'
 import {
   isImplementorAgent,
@@ -105,9 +99,6 @@ const MessageAttachments = ({
     </box>
   )
 }
-
-
-
 
 export const MessageBlock: React.FC<MessageBlockProps> = ({
   messageId,
@@ -379,7 +370,6 @@ const isRenderableTimelineBlock = (
 
 interface AgentBodyProps {
   agentBlock: Extract<ContentBlock, { type: 'agent' }>
-  indentLevel: number
   keyPrefix: string
   parentIsStreaming: boolean
   availableWidth: number
@@ -394,7 +384,6 @@ interface AgentBodyProps {
 const AgentBody = memo(
   ({
     agentBlock,
-    indentLevel,
     keyPrefix,
     parentIsStreaming,
     availableWidth,
@@ -443,7 +432,6 @@ const AgentBody = memo(
             blocks={reasoningBlocks}
             keyPrefix={keyPrefix}
             startIndex={start}
-            indentLevel={indentLevel}
             onToggleCollapsed={onToggleCollapsed}
             availableWidth={availableWidth}
           />,
@@ -461,7 +449,7 @@ const AgentBody = memo(
             ? trimTrailingNewlines(textBlock.content)
             : textBlock.content.trim()
           const renderKey = `${keyPrefix}-text-${nestedIdx}`
-          const markdownOptionsForLevel = getAgentMarkdownOptions(indentLevel)
+          const markdownOptionsForLevel = getAgentMarkdownOptions(0)
           const marginTop = textBlock.marginTop ?? 0
           const marginBottom = textBlock.marginBottom ?? 0
           const explicitColor = textBlock.color
@@ -472,7 +460,6 @@ const AgentBody = memo(
               style={{
                 wrapMode: 'word',
                 fg: nestedTextColor,
-                marginLeft: Math.max(0, indentLevel * 2),
                 marginTop,
                 marginBottom,
               }}
@@ -527,7 +514,6 @@ const AgentBody = memo(
             <ToolBranch
               key={`${keyPrefix}-tool-${toolBlock.toolCallId}`}
               toolBlock={toolBlock}
-              indentLevel={indentLevel}
               keyPrefix={`${keyPrefix}-tool-${toolBlock.toolCallId}`}
               availableWidth={availableWidth}
               streamingAgents={streamingAgents}
@@ -572,7 +558,6 @@ const AgentBody = memo(
             <AgentBranchWrapper
               key={`${keyPrefix}-agent-${nestedIdx}`}
               agentBlock={agentBlock}
-              indentLevel={indentLevel}
               keyPrefix={`${keyPrefix}-agent-${nestedIdx}`}
               availableWidth={availableWidth}
               markdownPalette={markdownPalette}
@@ -596,7 +581,6 @@ const AgentBody = memo(
 
 interface AgentBranchWrapperProps {
   agentBlock: Extract<ContentBlock, { type: 'agent' }>
-  indentLevel: number
   keyPrefix: string
   availableWidth: number
   markdownPalette: MarkdownPalette
@@ -611,7 +595,6 @@ interface AgentBranchWrapperProps {
 const AgentBranchWrapper = memo(
   ({
     agentBlock,
-    indentLevel,
     keyPrefix,
     availableWidth,
     markdownPalette,
@@ -816,7 +799,6 @@ const AgentBranchWrapper = memo(
         >
           <AgentBody
             agentBlock={agentBlock}
-            indentLevel={indentLevel + 1}
             keyPrefix={keyPrefix}
             parentIsStreaming={isStreaming}
             availableWidth={availableWidth}
@@ -1020,7 +1002,6 @@ const SingleBlock = memo(
           <AgentBranchWrapper
             key={`${messageId}-agent-${block.agentId}`}
             agentBlock={block}
-            indentLevel={0}
             keyPrefix={`${messageId}-agent-${block.agentId}`}
             availableWidth={availableWidth}
             markdownPalette={markdownPalette}
@@ -1104,7 +1085,6 @@ const BlocksRenderer = memo(
             blocks={reasoningBlocks}
             keyPrefix={messageId}
             startIndex={start}
-            indentLevel={0}
             onToggleCollapsed={onToggleCollapsed}
             availableWidth={availableWidth}
           />,
@@ -1138,7 +1118,6 @@ const BlocksRenderer = memo(
           <ToolBranch
             key={`${messageId}-tool-${toolBlock.toolCallId}`}
             toolBlock={toolBlock}
-            indentLevel={0}
             keyPrefix={`${messageId}-tool-${toolBlock.toolCallId}`}
             availableWidth={availableWidth}
             streamingAgents={streamingAgents}

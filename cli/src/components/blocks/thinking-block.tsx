@@ -8,7 +8,6 @@ interface ThinkingBlockProps {
   blocks: Extract<ContentBlock, { type: 'text' }>[]
   keyPrefix: string
   startIndex: number
-  indentLevel: number
   onToggleCollapsed: (id: string) => void
   availableWidth: number
 }
@@ -18,7 +17,6 @@ export const ThinkingBlock = memo(
     blocks,
     keyPrefix,
     startIndex,
-    indentLevel,
     onToggleCollapsed,
     availableWidth,
   }: ThinkingBlockProps) => {
@@ -30,8 +28,7 @@ export const ThinkingBlock = memo(
 
     const firstBlock = blocks[0]
     const isCollapsed = firstBlock?.isCollapsed ?? true
-    const marginLeft = Math.max(0, indentLevel * 2)
-    const availWidth = Math.max(10, availableWidth - marginLeft - 10)
+    const availWidth = Math.max(10, availableWidth - 10)
 
     const handleToggle = useCallback(() => {
       onToggleCollapsed(thinkingId)
@@ -42,7 +39,7 @@ export const ThinkingBlock = memo(
     }
 
     return (
-      <box style={{ marginLeft }}>
+      <box>
         <Thinking
           content={combinedContent}
           isCollapsed={isCollapsed}

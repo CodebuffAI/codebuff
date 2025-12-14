@@ -11,7 +11,6 @@ import type { MarkdownPalette } from '../../utils/markdown-renderer'
 
 interface ToolBranchProps {
   toolBlock: Extract<ContentBlock, { type: 'tool' }>
-  indentLevel: number
   keyPrefix: string
   availableWidth: number
   streamingAgents: Set<string>
@@ -22,7 +21,6 @@ interface ToolBranchProps {
 export const ToolBranch = memo(
   ({
     toolBlock,
-    indentLevel,
     keyPrefix,
     availableWidth,
     streamingAgents,
@@ -105,9 +103,8 @@ export const ToolBranch = memo(
         getToolFinishedPreview(commandPreview, lastLine)
       : ''
 
-    const indentationOffset = indentLevel * 2
     const agentMarkdownOptions = {
-      codeBlockWidth: Math.max(10, availableWidth - 12 - indentationOffset),
+      codeBlockWidth: Math.max(10, availableWidth - 12),
       palette: {
         ...markdownPalette,
         codeTextFg: theme.foreground,
