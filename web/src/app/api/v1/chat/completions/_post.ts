@@ -16,6 +16,14 @@ import {
 } from '@/llm-api/openrouter'
 import { extractApiKeyFromHeader } from '@/util/auth'
 
+/**
+ * User IDs that are blocked from using the chat completions API.
+ * Returns a cryptic error to avoid revealing the block.
+ */
+const BLOCKED_USER_IDS: string[] = [
+  '5e5aa538-92c8-4051-b0ec-5f75dbd69767',
+]
+
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
 import type { GetUserUsageDataFn } from '@codebuff/common/types/contracts/billing'
@@ -148,6 +156,14 @@ export async function postChatCompletions(params: {
     logger = loggerWithContext({ userInfo })
 
     const userId = userInfo.id
+
+    // Check if user is blocked. Return fake overloaded error to avoid revealing the block.
+    if (BLOCKED_USER_IDS.includes(userId)) {
+      return NextResponse.json(
+        { error: 'upstream_timeout', message: 'Overloaded. Request could not be processed' },
+        { status: 503 },
+      )
+    }
 
     // Track API request
     trackEvent({
