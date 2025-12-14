@@ -401,6 +401,27 @@ export async function executeCustomToolCall(
     },
     autoInsertEndStepParam,
   })
+
+  // Filter out restricted tools - emit error instead of tool call/result
+  // This prevents the CLI from showing tool calls that the agent doesn't have permission to use
+  if (
+    toolCall.toolName &&
+    !(agentTemplate.toolNames as string[]).includes(toolCall.toolName) &&
+    !fromHandleSteps &&
+    !(
+      toolCall.toolName.includes('/') &&
+      toolCall.toolName.split('/')[0] in agentTemplate.mcpServers
+    )
+  ) {
+    // Emit an error event instead of tool call/result pair
+    // The stream parser will convert this to a user message for proper API compliance
+    onResponseChunk({
+      type: 'error',
+      message: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
+    })
+    return previousToolCallFinished
+  }
+
   if ('error' in toolCall) {
     const toolResult: ToolMessage = {
       role: 'tool',
@@ -416,25 +437,6 @@ export async function executeCustomToolCall(
       { toolCall, error: toolCall.error },
       `${toolName} error: ${toolCall.error}`,
     )
-    return previousToolCallFinished
-  }
-
-  // Filter out restricted tools - emit error instead of tool call/result
-  // This prevents the CLI from showing tool calls that the agent doesn't have permission to use
-  if (
-    !(agentTemplate.toolNames as string[]).includes(toolCall.toolName) &&
-    !fromHandleSteps &&
-    !(
-      toolCall.toolName.includes('/') &&
-      toolCall.toolName.split('/')[0] in agentTemplate.mcpServers
-    )
-  ) {
-    // Emit an error event instead of tool call/result pair
-    // The stream parser will convert this to a user message for proper API compliance
-    onResponseChunk({
-      type: 'error',
-      message: `Tool \`${toolName}\` is not currently available. Make sure to only use tools listed in the system instructions.`,
-    })
     return previousToolCallFinished
   }
 

@@ -35,7 +35,7 @@ export const getImplementorDisplayName = (
   ) {
     baseName = 'Opus'
   } else if (agentType.includes('editor-implementor2-gpt-5')) {
-    baseName = 'GPT-5'
+    baseName = 'GPT-5.2'
   } else if (agentType.includes('editor-implementor2-sonnet')) {
     baseName = 'Sonnet'
     // Then check editor-implementor-* patterns (less specific)
@@ -44,7 +44,7 @@ export const getImplementorDisplayName = (
   } else if (agentType.includes('editor-implementor-gemini')) {
     baseName = 'Gemini'
   } else if (agentType.includes('editor-implementor-gpt-5')) {
-    baseName = 'GPT-5.2'
+    baseName = 'GPT-5'
   } else if (agentType.includes('editor-implementor')) {
     baseName = 'Sonnet'
   }
