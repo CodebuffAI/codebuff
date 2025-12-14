@@ -294,12 +294,14 @@ export function multiply(a: number, b: number): number {
         }
         toolResultsCapture.push(step.toolResult)
         
+        const firstResult = step.toolResult?.[0]
+        const unifiedDiff = firstResult?.type === 'json' ? (firstResult.value as { unifiedDiff?: string })?.unifiedDiff : undefined
         yield {
           toolName: 'set_output',
           input: {
             toolCalls: [{ toolName: 'propose_str_replace', input: step }],
             toolResults: step.toolResult,
-            unifiedDiffs: step.toolResult?.[0]?.value?.unifiedDiff ?? '',
+            unifiedDiffs: unifiedDiff ?? '',
           },
         }
         yield { toolName: 'end_turn', input: {} }
@@ -321,9 +323,10 @@ export function multiply(a: number, b: number): number {
       const toolResult = toolResultsCapture[0]
       expect(toolResult).toBeDefined()
       expect(toolResult[0].type).toBe('json')
-      expect(toolResult[0].value.file).toBe('src/utils.ts')
-      expect(toolResult[0].value.unifiedDiff).toContain('+export function multiply')
-      expect(toolResult[0].value.unifiedDiff).toContain('return a * b')
+      const jsonResult = toolResult[0] as { type: 'json'; value: { file: string; unifiedDiff: string } }
+      expect(jsonResult.value.file).toBe('src/utils.ts')
+      expect(jsonResult.value.unifiedDiff).toContain('+export function multiply')
+      expect(jsonResult.value.unifiedDiff).toContain('return a * b')
     })
 
     it('should return error when string not found', async () => {
@@ -351,7 +354,8 @@ export function multiply(a: number, b: number): number {
 
       expect(toolResultsCapture).toHaveLength(1)
       const toolResult = toolResultsCapture[0]
-      expect(toolResult[0].value.errorMessage).toContain('String not found')
+      const jsonResult = toolResult[0] as { type: 'json'; value: { errorMessage: string } }
+      expect(jsonResult.value.errorMessage).toContain('String not found')
     })
 
     it('should stack multiple replacements on the same file', async () => {
@@ -396,8 +400,10 @@ export function multiply(a: number, b: number): number {
       expect(toolResultsCapture).toHaveLength(2)
       
       // Both replacements should succeed
-      expect(toolResultsCapture[0].result[0].value.unifiedDiff).toContain('// addition')
-      expect(toolResultsCapture[1].result[0].value.unifiedDiff).toContain('// subtraction')
+      const result0 = toolResultsCapture[0].result[0] as { type: 'json'; value: { unifiedDiff: string } }
+      const result1 = toolResultsCapture[1].result[0] as { type: 'json'; value: { unifiedDiff: string } }
+      expect(result0.value.unifiedDiff).toContain('// addition')
+      expect(result1.value.unifiedDiff).toContain('// subtraction')
       
       // Final file should have both changes
       expect(mockFiles['src/utils.ts']).toContain('// addition')
@@ -431,9 +437,10 @@ export function multiply(a: number, b: number): number {
 
       expect(toolResultsCapture).toHaveLength(1)
       const toolResult = toolResultsCapture[0]
-      expect(toolResult[0].value.file).toBe('src/multiply.ts')
-      expect(toolResult[0].value.message).toContain('new file')
-      expect(toolResult[0].value.unifiedDiff).toContain('+export function multiply')
+      const jsonResult = toolResult[0] as { type: 'json'; value: { file: string; message: string; unifiedDiff: string } }
+      expect(jsonResult.value.file).toBe('src/multiply.ts')
+      expect(jsonResult.value.message).toContain('new file')
+      expect(jsonResult.value.unifiedDiff).toContain('+export function multiply')
     })
 
     it('should propose file edit and return unified diff', async () => {
@@ -469,9 +476,10 @@ export function multiply(a: number, b: number): number {
 
       expect(toolResultsCapture).toHaveLength(1)
       const toolResult = toolResultsCapture[0]
-      expect(toolResult[0].value.file).toBe('src/utils.ts')
-      expect(toolResult[0].value.message).toContain('changes')
-      expect(toolResult[0].value.unifiedDiff).toContain('+export function multiply')
+      const jsonResult = toolResult[0] as { type: 'json'; value: { file: string; message: string; unifiedDiff: string } }
+      expect(jsonResult.value.file).toBe('src/utils.ts')
+      expect(jsonResult.value.message).toContain('changes')
+      expect(jsonResult.value.unifiedDiff).toContain('+export function multiply')
     })
   })
 
@@ -498,10 +506,12 @@ export function multiply(a: number, b: number): number {
             }],
           },
         }
+        const step1First = step1.toolResult?.[0]
+        const step1HasDiff = step1First?.type === 'json' && !!(step1First.value as { unifiedDiff?: string })?.unifiedDiff
         receivedToolResults.push({
           step: 1,
           toolResult: step1.toolResult,
-          hasUnifiedDiff: !!step1.toolResult?.[0]?.value?.unifiedDiff,
+          hasUnifiedDiff: step1HasDiff,
         })
 
         // Second tool call - another propose_str_replace
@@ -516,10 +526,12 @@ export function multiply(a: number, b: number): number {
             }],
           },
         }
+        const step2First = step2.toolResult?.[0]
+        const step2HasDiff = step2First?.type === 'json' && !!(step2First.value as { unifiedDiff?: string })?.unifiedDiff
         receivedToolResults.push({
           step: 2,
           toolResult: step2.toolResult,
-          hasUnifiedDiff: !!step2.toolResult?.[0]?.value?.unifiedDiff,
+          hasUnifiedDiff: step2HasDiff,
         })
 
         // Third tool call - propose_write_file
@@ -531,10 +543,12 @@ export function multiply(a: number, b: number): number {
             content: 'export const newFile = true;',
           },
         }
+        const step3First = step3.toolResult?.[0]
+        const step3HasDiff = step3First?.type === 'json' && !!(step3First.value as { unifiedDiff?: string })?.unifiedDiff
         receivedToolResults.push({
           step: 3,
           toolResult: step3.toolResult,
-          hasUnifiedDiff: !!step3.toolResult?.[0]?.value?.unifiedDiff,
+          hasUnifiedDiff: step3HasDiff,
         })
 
         yield { toolName: 'end_turn', input: {} }
@@ -553,22 +567,25 @@ export function multiply(a: number, b: number): number {
       expect(receivedToolResults[0].step).toBe(1)
       expect(receivedToolResults[0].toolResult).toBeDefined()
       expect(receivedToolResults[0].hasUnifiedDiff).toBe(true)
-      expect(receivedToolResults[0].toolResult[0].value.file).toBe('src/utils.ts')
-      expect(receivedToolResults[0].toolResult[0].value.unifiedDiff).toContain('first change')
+      const step1Result = receivedToolResults[0].toolResult[0] as { type: 'json'; value: { file: string; unifiedDiff: string } }
+      expect(step1Result.value.file).toBe('src/utils.ts')
+      expect(step1Result.value.unifiedDiff).toContain('first change')
       
       // Step 2: Should have received tool result with unified diff
       expect(receivedToolResults[1].step).toBe(2)
       expect(receivedToolResults[1].toolResult).toBeDefined()
       expect(receivedToolResults[1].hasUnifiedDiff).toBe(true)
-      expect(receivedToolResults[1].toolResult[0].value.file).toBe('src/utils.ts')
-      expect(receivedToolResults[1].toolResult[0].value.unifiedDiff).toContain('second change')
+      const step2Result = receivedToolResults[1].toolResult[0] as { type: 'json'; value: { file: string; unifiedDiff: string } }
+      expect(step2Result.value.file).toBe('src/utils.ts')
+      expect(step2Result.value.unifiedDiff).toContain('second change')
       
       // Step 3: Should have received tool result with unified diff for new file
       expect(receivedToolResults[2].step).toBe(3)
       expect(receivedToolResults[2].toolResult).toBeDefined()
       expect(receivedToolResults[2].hasUnifiedDiff).toBe(true)
-      expect(receivedToolResults[2].toolResult[0].value.file).toBe('src/new-file.ts')
-      expect(receivedToolResults[2].toolResult[0].value.message).toContain('new file')
+      const step3Result = receivedToolResults[2].toolResult[0] as { type: 'json'; value: { file: string; message: string } }
+      expect(step3Result.value.file).toBe('src/new-file.ts')
+      expect(step3Result.value.message).toContain('new file')
     })
 
     it('should collect tool calls and results for output', async () => {
@@ -607,8 +624,9 @@ export function multiply(a: number, b: number): number {
           toolName: 'propose_str_replace',
           input: step1,
         })
-        if (step1.toolResult?.[0]?.value) {
-          capturedToolResults.push(step1.toolResult[0].value)
+        const step1First = step1.toolResult?.[0]
+        if (step1First?.type === 'json' && step1First.value) {
+          capturedToolResults.push(step1First.value)
         }
 
         // Generate unified diffs string from captured results

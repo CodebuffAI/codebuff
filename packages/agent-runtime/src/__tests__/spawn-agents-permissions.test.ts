@@ -29,6 +29,10 @@ describe('Spawn Agents Permissions', () => {
     typeof handleSpawnAgents,
     'agentState' | 'agentTemplate' | 'localAgentTemplates' | 'toolCall'
   >
+  let handleSpawnAgentInlineBaseParams: ParamsExcluding<
+    typeof handleSpawnAgentInline,
+    'agentState' | 'agentTemplate' | 'localAgentTemplates' | 'toolCall'
+  >
 
   const createMockAgent = (
     id: string,
@@ -67,10 +71,14 @@ describe('Spawn Agents Permissions', () => {
       sendSubagentChunk: mockSendSubagentChunk,
       signal: new AbortController().signal,
       system: 'Test system prompt',
-      tools: {},
       userId: TEST_USER_ID,
       userInputId: 'test-input',
       writeToClient: () => {},
+    }
+
+    handleSpawnAgentInlineBaseParams = {
+      ...handleSpawnAgentsBaseParams,
+      tools: {},
     }
 
     // Mock sendSubagentChunk
@@ -426,7 +434,7 @@ describe('Spawn Agents Permissions', () => {
 
       // Should not throw
       await handleSpawnAgentInline({
-        ...handleSpawnAgentsBaseParams,
+        ...handleSpawnAgentInlineBaseParams,
         agentState: sessionState.mainAgentState,
         agentTemplate: parentAgent,
         localAgentTemplates: { thinker: childAgent },
@@ -443,7 +451,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createInlineSpawnToolCall('reviewer') // Try to spawn reviewer
 
       const result = handleSpawnAgentInline({
-        ...handleSpawnAgentsBaseParams,
+        ...handleSpawnAgentInlineBaseParams,
         agentState: sessionState.mainAgentState,
         agentTemplate: parentAgent,
         localAgentTemplates: { reviewer: childAgent },
@@ -462,7 +470,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createInlineSpawnToolCall('nonexistent')
 
       const result = handleSpawnAgentInline({
-        ...handleSpawnAgentsBaseParams,
+        ...handleSpawnAgentInlineBaseParams,
         agentState: sessionState.mainAgentState,
         agentTemplate: parentAgent,
         localAgentTemplates: {}, // Empty - agent not found
@@ -481,7 +489,7 @@ describe('Spawn Agents Permissions', () => {
 
       // Should not throw
       await handleSpawnAgentInline({
-        ...handleSpawnAgentsBaseParams,
+        ...handleSpawnAgentInlineBaseParams,
         agentState: sessionState.mainAgentState,
         agentTemplate: parentAgent,
         localAgentTemplates: { 'codebuff/thinker@1.0.0': childAgent },
@@ -499,7 +507,7 @@ describe('Spawn Agents Permissions', () => {
 
       // Should not throw
       await handleSpawnAgentInline({
-        ...handleSpawnAgentsBaseParams,
+        ...handleSpawnAgentInlineBaseParams,
         agentState: sessionState.mainAgentState,
         agentTemplate: parentAgent,
         localAgentTemplates: {
@@ -519,7 +527,7 @@ describe('Spawn Agents Permissions', () => {
       const toolCall = createInlineSpawnToolCall('codebuff/thinker@2.0.0')
 
       const result = handleSpawnAgentInline({
-        ...handleSpawnAgentsBaseParams,
+        ...handleSpawnAgentInlineBaseParams,
         agentState: sessionState.mainAgentState,
         agentTemplate: parentAgent,
         localAgentTemplates: { 'codebuff/thinker@2.0.0': childAgent },
