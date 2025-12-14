@@ -70,8 +70,13 @@ export const createBestOfNSelector2 = (options: {
           description:
             'An extremely short (1 sentence) description of why this implementation was chosen',
         },
+        suggestedImprovements: {
+          type: 'string',
+          description:
+            'A summary of suggested improvements from non-chosen implementations that could enhance the selected implementation. You can also include any new ideas you have to improve upon the selected implementation. Leave empty if no valuable improvements were found.',
+        },
       },
-      required: ['implementationId', 'reason'],
+      required: ['implementationId', 'reason', 'suggestedImprovements'],
     },
 
     instructionsPrompt: `As part of the best-of-n workflow of agents, you are the implementation selector agent.
@@ -85,7 +90,10 @@ The implementations are available in the params.implementations array, where eac
 - strategy: The strategy/approach used for this implementation
 - content: The unified diff showing what would change
 
-Your task is to analyze each implementation's diff carefully, compare them against the original user requirements, and select the best implementation.
+Your task is to:
+1. Analyze each implementation's diff carefully, compare them against the original user requirements
+2. Select the best implementation
+3. Identify the best ideas/techniques from the NON-CHOSEN implementations that could improve the selected implementation
 
 Evaluate each based on (in order of importance):
 - Correctness and completeness in fulfilling the user's request
@@ -94,6 +102,18 @@ Evaluate each based on (in order of importance):
 - Proper reuse of existing code (helper functions, libraries, etc.)
 - Minimal changes to existing code (fewer files changed, fewer lines changed)
 - Clarity and readability
+
+## Analyzing Non-Chosen Implementations
+
+After selecting the best implementation, look at each non-chosen implementation and identify any valuable aspects that could enhance the selected implementation. These might include:
+- More elegant code patterns or abstractions
+- Simplified logic or reuse of existing code
+- Additional edge case handling
+- Better naming or organization
+- Useful comments or documentation
+- Additional features that align with the user's request
+
+Only include improvements that are genuinely valuable and compatible with the selected implementation. If a non-chosen implementation has no useful improvements to offer, don't include it.
 
 ## User Request
 
@@ -108,10 +128,10 @@ Try to select an implementation that fulfills all the requirements in the user's
 
 ${
   isSonnet || isOpus
-    ? `Use <think> tags to write out your thoughts about the implementations as needed to pick the best implementation. IMPORTANT: You should think really really hard to make sure you pick the absolute best implementation! As soon as you know for sure which implementation is the best, you should output your choice.
+    ? `Use <think> tags to write out your thoughts about the implementations as needed to pick the best implementation. IMPORTANT: You should think really really hard to make sure you pick the absolute best implementation! Also analyze the non-chosen implementations for any valuable techniques or approaches that could improve the selected one.
 
-Then, do not write any other explanations AT ALL. You should directly output a single tool call to set_output with the selected implementationId and short reason.`
-    : `Output a single tool call to set_output with the selected implementationId. Do not write anything else.`
+Then, do not write any other explanations AT ALL. You should directly output a single tool call to set_output with the selected implementationId, short reason, and suggestedImprovements array.`
+    : `Output a single tool call to set_output with the selected implementationId, reason, and suggestedImprovements. Do not write anything else.`
 }`,
   }
 }

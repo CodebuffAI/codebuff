@@ -13,7 +13,7 @@ export function createMultiPromptEditor(): Omit<SecretAgentDefinition, 'id'> {
     model: 'anthropic/claude-opus-4.5',
     displayName: 'Multi-Prompt Editor',
     spawnerPrompt:
-      'Edits code by spawning multiple implementor agents with different strategy prompts, selects the best implementation, and applies the changes. Pass an array of short prompts specifying different implementation approaches. Make sure to read any files intended to be edited before spawning this agent.',
+      'Edits code by spawning multiple implementor agents with different strategy prompts, selects the best implementation, and applies the changes. It also returns further suggested improvements which you should take seriously and act on. Pass as input an array of short prompts specifying different implementation approaches or strategies. Make sure to read any files intended to be edited before spawning this agent.',
 
     includeMessageHistory: true,
     inheritParentSystemPrompt: true,
@@ -169,6 +169,7 @@ function* handleStepsMultiPrompt({
     value: {
       implementationId: string
       reason: string
+      suggestedImprovements: string
     }
   }>(selectorResult)[0]
 
@@ -226,12 +227,17 @@ function* handleStepsMultiPrompt({
     }
   }
 
-  // Set output with the applied results
+  // Extract suggested improvements from selector output
+  const selectorValue = selectorOutput.value ?? selectorOutput
+  const suggestedImprovements = selectorValue.suggestedImprovements
+
+  // Set output with the applied results and suggested improvements
   yield {
     toolName: 'set_output',
     input: {
       chosenStrategy: chosenImplementation.strategy,
       toolResults: appliedToolResults,
+      suggestedImprovements,
     },
     includeToolCall: false,
   } satisfies ToolCall<'set_output'>
