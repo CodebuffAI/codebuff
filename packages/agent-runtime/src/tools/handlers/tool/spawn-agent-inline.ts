@@ -4,6 +4,7 @@ import {
   logAgentSpawn,
   executeSubagent,
   createAgentState,
+  extractSubagentContextParams,
 } from './spawn-agent-utils'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
@@ -75,9 +76,13 @@ export const handleSpawnAgentInline = (async (
   await previousToolCallFinished
 
   const { agentTemplate, agentType } = await validateAndGetAgentTemplate({
-    ...params,
     agentTypeStr,
     parentAgentTemplate,
+    localAgentTemplates: params.localAgentTemplates,
+    logger,
+    fetchAgentFromDatabase: params.fetchAgentFromDatabase,
+    databaseAgentCache: params.databaseAgentCache,
+    apiKey: params.apiKey,
   })
 
   validateAgentInput(agentTemplate, agentType, prompt, spawnParams)
@@ -105,7 +110,6 @@ export const handleSpawnAgentInline = (async (
   }
 
   logAgentSpawn({
-    ...params,
     agentTemplate: inlineTemplate,
     agentType,
     agentId: childAgentState.agentId,
@@ -113,10 +117,17 @@ export const handleSpawnAgentInline = (async (
     prompt,
     spawnParams,
     inline: true,
+    logger,
   })
 
+  // Extract common context params to avoid bugs from spreading all params
+  const contextParams = extractSubagentContextParams(params)
+
   const result = await executeSubagent({
-    ...params,
+    ...contextParams,
+
+    // Spawn-specific params
+    ancestorRunIds: parentAgentState.ancestorRunIds,
     userInputId: `${userInputId}-inline-${agentType}${childAgentState.agentId}`,
     prompt: prompt || '',
     spawnParams,
