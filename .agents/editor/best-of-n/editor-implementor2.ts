@@ -61,38 +61,57 @@ Write out your complete implementation now.`,
       const initialMessageHistoryLength =
         initialAgentState.messageHistory.length
 
+      // Helper to check if a message is empty (no tool calls and empty/no text)
+      const isEmptyAssistantMessage = (message: any): boolean => {
+        if (message.role !== 'assistant' || !Array.isArray(message.content)) {
+          return false
+        }
+        const hasToolCalls = message.content.some(
+          (part: any) => part.type === 'tool-call',
+        )
+        if (hasToolCalls) {
+          return false
+        }
+        // Check if all text parts are empty or there are no text parts
+        const textParts = message.content.filter(
+          (part: any) => part.type === 'text',
+        )
+        if (textParts.length === 0) {
+          return true
+        }
+        return textParts.every((part: any) => !part.text || !part.text.trim())
+      }
+
       const { agentState } = yield 'STEP_ALL'
 
       let postMessages = agentState.messageHistory.slice(
         initialMessageHistoryLength,
       )
 
+      // Retry if no messages or if the only message is empty (no tool calls and empty text)
       if (postMessages.length === 0) {
-        const { agentState: postMessagesAgentState } = yield 'STEP'
+        logger.debug('No messages after STEP_ALL, retrying')
+        const { agentState: postMessagesAgentState } = yield 'STEP_ALL'
         postMessages = postMessagesAgentState.messageHistory.slice(
           initialMessageHistoryLength,
         )
-      } else if (postMessages.length == 1) {
-        const message = postMessages[0]
-        if (
-          message.role === 'assistant' &&
-          message.content.length === 1 &&
-          message.content[0].type === 'text' &&
-          !message.content[0].text
-        ) {
-          const { agentState: postMessagesAgentState } = yield 'STEP_ALL'
-          postMessages = postMessagesAgentState.messageHistory.slice(
-            initialMessageHistoryLength,
-          )
-        }
+      } else if (
+        postMessages.length === 1 &&
+        isEmptyAssistantMessage(postMessages[0])
+      ) {
+        logger.debug(
+          'Empty assistant message (no tool calls, empty text) after STEP_ALL, retrying',
+        )
+        const { agentState: postMessagesAgentState } = yield 'STEP_ALL'
+        postMessages = postMessagesAgentState.messageHistory.slice(
+          initialMessageHistoryLength,
+        )
       }
-
       logger.debug(
         {
-          numMessages: postMessages.length,
-          messageRoles: postMessages.map((m: any) => m.role),
+          postMessages,
         },
-        'Post STEP_ALL messages',
+        'Editor Implementor 2 Post STEP_ALL messages',
       )
 
       // Extract tool calls from assistant messages
@@ -122,24 +141,11 @@ Write out your complete implementation now.`,
         }
       }
 
-      logger.debug(
-        { numToolCalls: toolCalls.length, numToolResults: toolResults.length },
-        'Extracted tool calls and results',
-      )
-
       // Concatenate all unified diffs for the selector to review
       const unifiedDiffs = toolResults
         .filter((result: any) => result.unifiedDiff)
         .map((result: any) => `--- ${result.file} ---\n${result.unifiedDiff}`)
         .join('\n\n')
-
-      logger.debug(
-        {
-          unifiedDiffsLength: unifiedDiffs.length,
-          hasContent: unifiedDiffs.length > 0,
-        },
-        'Generated unified diffs',
-      )
 
       yield {
         toolName: 'set_output',
