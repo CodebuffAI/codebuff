@@ -317,6 +317,48 @@ export const nestBlockUnderParent = (
 }
 
 /**
+ * Checks if a block with the given targetId exists anywhere in the children of the blocks.
+ */
+const findBlockInChildren = (
+  blocks: ContentBlock[],
+  targetId: string,
+): boolean => {
+  for (const block of blocks) {
+    if (block.type === 'agent' && block.agentId === targetId) {
+      return true
+    }
+    if (block.type === 'agent' && block.blocks) {
+      if (findBlockInChildren(block.blocks, targetId)) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+/**
+ * Checks if a block with the given agentId is already nested under the specified parent.
+ */
+const checkBlockIsUnderParent = (
+  blocks: ContentBlock[],
+  targetAgentId: string,
+  parentAgentId: string,
+): boolean => {
+  for (const block of blocks) {
+    if (block.type === 'agent' && block.agentId === parentAgentId) {
+      // Found the parent, check if target is anywhere in its children
+      return findBlockInChildren(block.blocks || [], targetAgentId)
+    } else if (block.type === 'agent' && block.blocks) {
+      // Recurse into other agent blocks to find the parent
+      if (checkBlockIsUnderParent(block.blocks, targetAgentId, parentAgentId)) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+/**
  * Extracts a block with given agentId from nested blocks structure.
  * Returns the remaining blocks and the extracted block (if found).
  */
@@ -356,8 +398,6 @@ export const moveSpawnAgentBlock = (
   params?: Record<string, unknown>,
   prompt?: string,
 ): ContentBlock[] => {
-  const { remainingBlocks, extractedBlock } = extractBlockById(blocks, tempId)
-
   const updateAgentBlock = (block: ContentBlock): ContentBlock => {
     if (block.type !== 'agent') {
       return block
@@ -378,28 +418,34 @@ export const moveSpawnAgentBlock = (
     return updatedBlock
   }
 
-  if (!extractedBlock) {
-    return updateBlocksRecursively(blocks, tempId, updateAgentBlock)
-  }
-
-  if (extractedBlock.type !== 'agent') {
-    return remainingBlocks
-  }
-
-  const blockToMove = updateAgentBlock(extractedBlock)
-
+  // If there's a parentId, we need to move the block under the parent.
+  // First check if the block is already under the correct parent.
   if (parentId) {
-    const { blocks: nestedBlocks, parentFound } = nestBlockUnderParent(
-      remainingBlocks,
-      parentId,
-      blockToMove,
-    )
-    if (parentFound) {
-      return nestedBlocks
+    const isAlreadyUnderParent = checkBlockIsUnderParent(blocks, tempId, parentId)
+    if (isAlreadyUnderParent) {
+      // Block is already under the correct parent, just update it in place
+      return updateBlocksRecursively(blocks, tempId, updateAgentBlock)
+    }
+
+    // Block needs to be moved under the parent - extract and nest
+    const { remainingBlocks, extractedBlock } = extractBlockById(blocks, tempId)
+    if (extractedBlock && extractedBlock.type === 'agent') {
+      const blockToMove = updateAgentBlock(extractedBlock)
+      const { blocks: nestedBlocks, parentFound } = nestBlockUnderParent(
+        remainingBlocks,
+        parentId,
+        blockToMove,
+      )
+      if (parentFound) {
+        return nestedBlocks
+      }
+      // Parent not found, update in place instead of appending to end
+      return updateBlocksRecursively(blocks, tempId, updateAgentBlock)
     }
   }
 
-  return [...remainingBlocks, blockToMove]
+  // No parentId or block not found - just update in place to preserve order
+  return updateBlocksRecursively(blocks, tempId, updateAgentBlock)
 }
 
 /**
