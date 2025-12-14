@@ -54,51 +54,21 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
     toolCallId: string
     input: Record<string, unknown>
   }
-  autoInsertEndStepParam?: boolean
 }): CodebuffToolCall<T> | ToolCallError {
-  const { rawToolCall, autoInsertEndStepParam = false } = params
+  const { rawToolCall } = params
   const toolName = rawToolCall.toolName
 
-  if (!(toolName in toolParams)) {
-    return {
-      toolName,
-      toolCallId: rawToolCall.toolCallId,
-      input: rawToolCall.input,
-      error: `Tool ${toolName} not found`,
-    }
-  }
-  const validName = toolName as T
-
-  // const processedParameters: Record<string, any> = {}
-  // for (const [param, val] of Object.entries(rawToolCall.input ?? {})) {
-  //   processedParameters[param] = val
-  // }
-
-  // Add the required codebuff_end_step parameter with the correct value for this tool if requested
-  // if (autoInsertEndStepParam) {
-  //   processedParameters[endsAgentStepParam] =
-  //     toolParams[validName].endsAgentStep
-  // }
-
-  // const paramsSchema = toolParams[validName].endsAgentStep
-  //   ? (
-  //       toolParams[validName].inputSchema satisfies z.ZodObject as z.ZodObject
-  //     ).extend({
-  //       [endsAgentStepParam]: z.literal(toolParams[validName].endsAgentStep),
-  //     })
-  //   : toolParams[validName].inputSchema
-
   const processedParameters = rawToolCall.input
-  const paramsSchema = toolParams[validName].inputSchema
+  const paramsSchema = toolParams[toolName].inputSchema
 
   const result = paramsSchema.safeParse(processedParameters)
 
   if (!result.success) {
     return {
-      toolName: validName,
+      toolName,
       toolCallId: rawToolCall.toolCallId,
       input: rawToolCall.input,
-      error: `Invalid parameters for ${validName}: ${JSON.stringify(
+      error: `Invalid parameters for ${toolName}: ${JSON.stringify(
         result.error.issues,
         null,
         2,
@@ -111,7 +81,7 @@ export function parseRawToolCall<T extends ToolName = ToolName>(params: {
   }
 
   return {
-    toolName: validName,
+    toolName,
     input: result.data,
     toolCallId: rawToolCall.toolCallId,
   } as CodebuffToolCall<T>
@@ -163,7 +133,6 @@ export function executeToolCall<T extends ToolName>(
   const {
     toolName,
     input,
-    autoInsertEndStepParam = false,
     excludeToolFromMessageHistory = false,
     fromHandleSteps = false,
 
@@ -188,7 +157,6 @@ export function executeToolCall<T extends ToolName>(
       toolCallId,
       input,
     },
-    autoInsertEndStepParam,
   })
 
   // Filter out restricted tools - emit error instead of tool call/result

@@ -30,13 +30,6 @@ import type {
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { Subgoal } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import type { ToolCallPart } from 'ai'
-
-export type ToolCallError = {
-  toolName?: string
-  args: Record<string, unknown>
-  error: string
-} & Omit<ToolCallPart, 'type'>
 
 export async function processStream(
   params: {
