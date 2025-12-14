@@ -27,7 +27,7 @@ export function createMultiPromptEditor(): Omit<SecretAgentDefinition, 'id'> {
     ],
     spawnableAgents: [
       'best-of-n-selector2',
-      'editor-implementor2-opus',
+      'editor-implementor2',
       'editor-implementor2-gpt-5',
     ],
 
@@ -94,7 +94,7 @@ function* handleStepsMultiPrompt({
   // Spawn one implementor2 per prompt (uses propose_* tools)
   const implementorAgents: { agent_type: string; prompt?: string }[] =
     prompts.map((prompt) => ({
-      agent_type: 'editor-implementor2-opus',
+      agent_type: 'editor-implementor2',
       prompt: `Strategy: ${prompt}`,
     }))
 
