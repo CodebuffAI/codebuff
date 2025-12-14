@@ -33,8 +33,6 @@ export const getOptionLabel = (option: AskUserOption): string => {
 export const OTHER_OPTION_INDEX: number = -1
 
 export const KEYBOARD_HINTS = [
-  '←→ open/close •',
   '↑↓ navigate •',
-  'Enter select •',
-  'Esc/^C skip',
+  'Enter select',
 ] as const
