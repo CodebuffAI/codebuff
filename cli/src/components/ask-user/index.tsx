@@ -6,7 +6,7 @@
 
 import { TextAttributes } from '@opentui/core'
 import { useKeyboard } from '@opentui/react'
-import React, { useState, useMemo, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 
 import type { KeyEvent } from '@opentui/core'
 
@@ -14,43 +14,13 @@ import {
   AccordionQuestion,
   type AccordionAnswer,
 } from './components/accordion-question'
+import { getOptionLabel, KEYBOARD_HINTS, OTHER_OPTION_INDEX } from './constants'
 import { useTheme } from '../../hooks/use-theme'
+import { useChatStore } from '../../state/chat-store'
 import { BORDER_CHARS } from '../../utils/ui-constants'
 import { Button } from '../button'
 
 import type { AskUserQuestion } from '../../state/chat-store'
-
-/** Option type - can be string or object with label/description */
-type AskUserOption = string | { label: string; description?: string }
-
-/** Constant for the "Other" option index */
-const OTHER_OPTION_INDEX = -1
-
-/** Helper to extract label from an option (handles both string and object formats) */
-const getOptionLabel = (option: AskUserOption): string => {
-  return typeof option === 'string' ? option : option?.label ?? ''
-}
-
-/** Helper to check if an answer is valid for a given question */
-const isAnswerValid = (
-  answer: AccordionAnswer | undefined,
-  question: AskUserQuestion,
-): boolean => {
-  if (!answer) return false
-
-  // "Other" answer needs non-empty text
-  if (answer.isOther) {
-    return (answer.otherText?.trim().length ?? 0) > 0
-  }
-
-  // Multi-select needs at least one selection
-  if (question.multiSelect) {
-    return (answer.selectedIndices?.size ?? 0) > 0
-  }
-
-  // Single-select needs a selected index
-  return answer.selectedIndex !== undefined
-}
 
 export interface MultipleChoiceFormProps {
   questions: AskUserQuestion[]
@@ -64,11 +34,12 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
   onSkip,
 }) => {
   const theme = useTheme()
+  const terminalFocused = useChatStore((state) => state.inputFocused)
+  const suppressNextHoverFocusRef = useRef(false)
 
   // Track which question is currently expanded (null = none)
   const [expandedIndex, setExpandedIndex] = useState<number | null>(
-    // Start with first unanswered question expanded, or first question
-    0,
+    questions.length > 0 ? 0 : null,
   )
 
   // Track answers for each question
@@ -78,7 +49,7 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
 
   // Track focused option within expanded question
   const [focusedOptionIndex, setFocusedOptionIndex] = useState<number | null>(
-    null,
+    questions.length > 0 ? 0 : null,
   )
 
   // Track which question has keyboard focus
@@ -87,34 +58,21 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
   // Track if submit button has focus (Tab navigation)
   const [submitFocused, setSubmitFocused] = useState<boolean>(false)
 
+  const [submitHovered, setSubmitHovered] = useState<boolean>(false)
+
+  const [showFocusHighlight, setShowFocusHighlight] = useState<boolean>(true)
+
+  const [lastFocusBeforeSubmit, setLastFocusBeforeSubmit] = useState<{
+    questionIndex: number
+    optionIndex: number
+  } | null>(null)
+
   // Track if user is typing in "Other" text input
   const [isTypingOther, setIsTypingOther] = useState<boolean>(false)
 
   // Track cursor position for "Other" text input (per question)
   const [otherCursorPositions, setOtherCursorPositions] = useState<Map<number, number>>(
     new Map(),
-  )
-
-  // Check if all questions are answered
-  const allAnswered = useMemo(() => {
-    return questions.every((question: AskUserQuestion, index: number) => {
-      return isAnswerValid(answers.get(index), question)
-    })
-  }, [questions, answers])
-
-  // Find next unanswered question index (checks for valid answers, not just existence)
-  const findNextUnanswered = useCallback(
-    (afterIndex: number): number | null => {
-      for (let i = afterIndex + 1; i < questions.length; i++) {
-        if (!isAnswerValid(answers.get(i), questions[i])) return i
-      }
-      // Wrap around
-      for (let i = 0; i < afterIndex; i++) {
-        if (!isAnswerValid(answers.get(i), questions[i])) return i
-      }
-      return null
-    },
-    [questions, answers],
   )
 
   const setAnswerForQuestion = useCallback(
@@ -132,12 +90,23 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
     [],
   )
 
-  const goToNextUnanswered = useCallback(
-    (questionIndex: number) => {
-      const nextUnanswered = findNextUnanswered(questionIndex)
-      setExpandedIndex(nextUnanswered)
+  const openQuestion = useCallback((questionIndex: number, optionIndex: number) => {
+    setExpandedIndex(questionIndex)
+    setFocusedQuestionIndex(questionIndex)
+    setFocusedOptionIndex(optionIndex)
+    setSubmitFocused(false)
+    setIsTypingOther(false)
+  }, [])
+
+  const focusSubmit = useCallback(
+    (from?: { questionIndex: number; optionIndex: number }) => {
+      const optionIndex = from?.optionIndex ?? focusedOptionIndex ?? 0
+      const questionIndex = from?.questionIndex ?? focusedQuestionIndex
+      setLastFocusBeforeSubmit({ questionIndex, optionIndex })
+      setSubmitFocused(true)
+      setIsTypingOther(false)
     },
-    [findNextUnanswered],
+    [focusedOptionIndex, focusedQuestionIndex],
   )
 
   // Handle setting "Other" text (with cursor position)
@@ -160,41 +129,41 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
   // Handle "Other" text submit (Enter key)
   const handleOtherSubmit = useCallback(
     (questionIndex: number) => {
-      const currentAnswer = answers.get(questionIndex)
-      const currentText = currentAnswer?.otherText || ''
-      
       setIsTypingOther(false)
-      // If text is entered, move to next question
-      if (currentText.trim()) {
-        goToNextUnanswered(questionIndex)
-      }
-    },
-    [answers, goToNextUnanswered],
-  )
+      setSubmitFocused(false)
 
-  // Handle "Other" text cancel (Escape key) - deselect Custom option entirely
-  const handleOtherCancel = useCallback(
-    (questionIndex: number) => {
-      // Clear text, deselect "Custom" option, and exit typing mode
-      setAnswerForQuestion(questionIndex, (currentAnswer) => ({
-        ...currentAnswer,
-        isOther: false,
-        otherText: '',
-      }))
-      setOtherCursorPositions((prev) => {
-        const newPositions = new Map(prev)
-        newPositions.set(questionIndex, 0)
-        return newPositions
+      if (questions[questionIndex]?.multiSelect) {
+        return
+      }
+
+      if (questionIndex < questions.length - 1) {
+        openQuestion(questionIndex + 1, 0)
+        return
+      }
+
+      focusSubmit({
+        questionIndex,
+        optionIndex: questions[questionIndex]?.options.length ?? 0,
       })
-      setIsTypingOther(false)
     },
-    [setAnswerForQuestion],
+    [questions, openQuestion, focusSubmit],
   )
 
   // Handle selecting an option (single-select)
   const handleSelectOption = useCallback(
-    (questionIndex: number, optionIndex: number) => {
+    (
+      questionIndex: number,
+      optionIndex: number,
+      source: 'keyboard' | 'mouse' = 'keyboard',
+    ) => {
+      setSubmitFocused(false)
       const isOtherOption = optionIndex === OTHER_OPTION_INDEX
+
+      if (source === 'mouse' && !isOtherOption) {
+        setShowFocusHighlight(false)
+        suppressNextHoverFocusRef.current = true
+      }
+
       setAnswerForQuestion(questionIndex, (currentAnswer) =>
         isOtherOption
           ? {
@@ -213,18 +182,28 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
 
       // For "Other" option, enter typing mode
       if (isOtherOption) {
+        setFocusedQuestionIndex(questionIndex)
+        setFocusedOptionIndex(questions[questionIndex]?.options.length ?? 0)
         setIsTypingOther(true)
-      } else {
-        // For regular options, collapse and move to next unanswered
-        goToNextUnanswered(questionIndex)
+        return
       }
+
+      if (questionIndex < questions.length - 1) {
+        openQuestion(questionIndex + 1, 0)
+        return
+      }
+
+      // For last/only question, collapse to show answer summary
+      setExpandedIndex(null)
+      focusSubmit({ questionIndex, optionIndex })
     },
-    [goToNextUnanswered, setAnswerForQuestion],
+    [questions, openQuestion, focusSubmit, setAnswerForQuestion],
   )
 
   // Handle toggling an option (multi-select)
   const handleToggleOption = useCallback(
     (questionIndex: number, optionIndex: number) => {
+      setSubmitFocused(false)
       let toggledOtherOn = false
 
       setAnswers((prev) => {
@@ -275,7 +254,7 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
 
       const selectedOptions = question.multiSelect
         ? Array.from(answer.selectedIndices ?? [])
-            .map((idx: number) => getOptionLabel(question.options[idx]))
+            .map((idx) => getOptionLabel(question.options[idx]))
             .filter(Boolean)
         : answer.selectedIndex !== undefined
           ? [getOptionLabel(question.options[answer.selectedIndex])]
@@ -301,10 +280,8 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
 
   // Handle submit
   const handleSubmit = useCallback(() => {
-    const formattedAnswers = questions.map(
-      (question: AskUserQuestion, index: number) => {
-        return formatAnswer(question, answers.get(index))
-      },
+    const formattedAnswers = questions.map((question, index) =>
+      formatAnswer(question, answers.get(index)),
     )
 
     onSubmit(formattedAnswers)
@@ -321,70 +298,70 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
           }
         }
 
+        // Escape or Ctrl+C to skip/close the form
+        if (key.name === 'escape' || (key.ctrl && key.name === 'c')) {
+          preventDefault()
+          onSkip()
+          return
+        }
+
+        if (!showFocusHighlight) {
+          setShowFocusHighlight(true)
+        }
+
+        // Handle submit button focus
+        if (submitFocused) {
+          if (key.name === 'up' || (key.name === 'tab' && key.shift)) {
+            preventDefault()
+            setIsTypingOther(false)
+            setSubmitFocused(false)
+            if (questions.length === 0) return
+            if (lastFocusBeforeSubmit) {
+              openQuestion(lastFocusBeforeSubmit.questionIndex, lastFocusBeforeSubmit.optionIndex)
+            } else {
+              openQuestion(questions.length - 1, 0)
+            }
+            return
+          }
+          if (key.name === 'return' || key.name === 'enter' || key.name === 'space') {
+            preventDefault()
+            handleSubmit()
+            return
+          }
+          return
+        }
+
+        if (key.name === 'tab' && !key.shift) {
+          preventDefault()
+          focusSubmit()
+          return
+        }
+
         // When typing in "Other" input, let MultilineInput handle all keyboard input
         if (isTypingOther) {
           return
         }
 
-        // Handle submit button focus
-        if (submitFocused) {
-          if (key.name === 'tab' && key.shift) {
-            preventDefault()
-            setSubmitFocused(false)
-            setFocusedQuestionIndex(questions.length - 1)
-            return
-          }
-          if (key.name === 'return' || key.name === 'enter' || key.name === 'space') {
-            preventDefault()
-            if (allAnswered) {
-              handleSubmit()
-            }
-            return
-          }
+        if (questions.length === 0) {
           return
         }
 
-        const isQuestionExpanded = expandedIndex === focusedQuestionIndex
-        const currentQuestion = questions[focusedQuestionIndex]
-        const optionCount = currentQuestion
-          ? currentQuestion.options.length + 1
-          : 0
-
-        if (key.name === 'down') {
-          preventDefault()
-          if (isQuestionExpanded && focusedOptionIndex !== null) {
-            setFocusedOptionIndex(
-              Math.min(focusedOptionIndex + 1, optionCount - 1),
-            )
-          } else if (isQuestionExpanded && focusedOptionIndex === null) {
-            setFocusedOptionIndex(0)
-          } else {
-            setFocusedQuestionIndex(
-              Math.min(focusedQuestionIndex + 1, questions.length - 1),
-            )
-          }
-          return
-        }
-
-        if (key.name === 'up') {
-          preventDefault()
-          if (isQuestionExpanded && focusedOptionIndex !== null) {
-            if (focusedOptionIndex > 0) {
-              setFocusedOptionIndex(focusedOptionIndex - 1)
-            } else {
-              setFocusedOptionIndex(null)
-            }
-          } else {
-            setFocusedQuestionIndex(Math.max(focusedQuestionIndex - 1, 0))
-          }
-          return
-        }
+        const currentQuestionIndex = Math.min(
+          Math.max(focusedQuestionIndex, 0),
+          questions.length - 1,
+        )
+        const currentQuestion = questions[currentQuestionIndex]
+        const optionCount = currentQuestion.options.length + 1
+        const lastOptionIndex = optionCount - 1
+        const currentOptionIndex = Math.min(
+          Math.max(focusedOptionIndex ?? 0, 0),
+          lastOptionIndex,
+        )
 
         if (key.name === 'right') {
           preventDefault()
-          if (expandedIndex !== focusedQuestionIndex) {
-            setExpandedIndex(focusedQuestionIndex)
-            setFocusedOptionIndex(0)
+          if (expandedIndex !== currentQuestionIndex) {
+            openQuestion(currentQuestionIndex, 0)
           }
           return
         }
@@ -398,37 +375,75 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
           return
         }
 
-        if (key.name === 'return' || key.name === 'enter' || key.name === 'space') {
+        if (key.name === 'down') {
           preventDefault()
-          if (isQuestionExpanded && focusedOptionIndex !== null) {
-            const optionIdx =
-              focusedOptionIndex >= currentQuestion.options.length
-                ? OTHER_OPTION_INDEX
-                : focusedOptionIndex
-            if (currentQuestion.multiSelect) {
-              handleToggleOption(focusedQuestionIndex, optionIdx)
-            } else {
-              handleSelectOption(focusedQuestionIndex, optionIdx)
+
+          if (expandedIndex === null) {
+            openQuestion(currentQuestionIndex, 0)
+            return
+          }
+
+          if (currentOptionIndex < lastOptionIndex) {
+            setFocusedOptionIndex(currentOptionIndex + 1)
+            return
+          }
+
+          if (currentQuestionIndex < questions.length - 1) {
+            openQuestion(currentQuestionIndex + 1, 0)
+            return
+          }
+
+          focusSubmit({
+            questionIndex: currentQuestionIndex,
+            optionIndex: currentOptionIndex,
+          })
+          return
+        }
+
+        if (key.name === 'up') {
+          preventDefault()
+
+          if (expandedIndex === null) {
+            if (currentQuestionIndex > 0) {
+              const previousQuestionIndex = currentQuestionIndex - 1
+              const previousOptionCount =
+                (questions[previousQuestionIndex]?.options.length ?? 0) + 1
+              openQuestion(previousQuestionIndex, previousOptionCount - 1)
             }
-          } else if (!isQuestionExpanded) {
-            setExpandedIndex(focusedQuestionIndex)
-            setFocusedOptionIndex(0)
+            return
+          }
+
+          if (currentOptionIndex > 0) {
+            setFocusedOptionIndex(currentOptionIndex - 1)
+            return
+          }
+
+          if (currentQuestionIndex > 0) {
+            const previousQuestionIndex = currentQuestionIndex - 1
+            const previousOptionCount =
+              (questions[previousQuestionIndex]?.options.length ?? 0) + 1
+            openQuestion(previousQuestionIndex, previousOptionCount - 1)
           }
           return
         }
 
-        if (key.name === 'tab' && !key.shift) {
+        if (key.name === 'return' || key.name === 'enter' || key.name === 'space') {
           preventDefault()
-          setExpandedIndex(null)
-          setFocusedOptionIndex(null)
-          setSubmitFocused(true)
-          return
-        }
 
-        // Escape or Ctrl+C to skip/close the form
-        if (key.name === 'escape' || (key.ctrl && key.name === 'c')) {
-          preventDefault()
-          onSkip()
+          if (expandedIndex === null) {
+            openQuestion(currentQuestionIndex, 0)
+            return
+          }
+
+          const optionIdx =
+            currentOptionIndex === lastOptionIndex
+              ? OTHER_OPTION_INDEX
+              : currentOptionIndex
+          if (currentQuestion.multiSelect) {
+            handleToggleOption(currentQuestionIndex, optionIdx)
+          } else {
+            handleSelectOption(currentQuestionIndex, optionIdx, 'keyboard')
+          }
           return
         }
       },
@@ -438,12 +453,15 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
         focusedQuestionIndex,
         focusedOptionIndex,
         submitFocused,
-        allAnswered,
+        lastFocusBeforeSubmit,
         isTypingOther,
+        showFocusHighlight,
         handleSelectOption,
         handleToggleOption,
         handleSubmit,
         onSkip,
+        openQuestion,
+        focusSubmit,
       ],
     ),
   )
@@ -455,17 +473,23 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
     }
   }, [expandedIndex])
 
+  useEffect(() => {
+    if (!terminalFocused) {
+      setSubmitHovered(false)
+    }
+  }, [terminalFocused])
+
   return (
-    <box style={{ flexDirection: 'column', padding: 1 }}>
+    <box style={{ flexDirection: 'column', padding: 0, width: '100%' }}>
       {/* Close button in top-right */}
-      <box style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 1 }}>
+      <box style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 1, width: '100%' }}>
         <Button
           onClick={onSkip}
           style={{
             padding: 0,
           }}
         >
-          <text style={{ fg: theme.muted }}>✕</text>
+          <text style={{ fg: theme.muted }}>Close ✕</text>
         </Button>
       </box>
 
@@ -478,63 +502,113 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
           totalQuestions={questions.length}
           answer={answers.get(index)}
           isExpanded={expandedIndex === index}
-          isQuestionFocused={focusedQuestionIndex === index && !submitFocused}
           isTypingOther={isTypingOther && expandedIndex === index}
           onToggleExpand={() => {
-            setExpandedIndex(expandedIndex === index ? null : index)
+            const nextExpandedIndex = expandedIndex === index ? null : index
+            setExpandedIndex(nextExpandedIndex)
             setFocusedQuestionIndex(index)
             setSubmitFocused(false)
             setIsTypingOther(false)
+            setFocusedOptionIndex(nextExpandedIndex === null ? null : 0)
           }}
           onSelectOption={(optionIndex) =>
-            handleSelectOption(index, optionIndex)
+            handleSelectOption(index, optionIndex, 'mouse')
           }
           onToggleOption={(optionIndex) =>
             handleToggleOption(index, optionIndex)
           }
           onSetOtherText={(text, cursorPos) => handleSetOtherText(index, text, cursorPos)}
           onOtherSubmit={() => handleOtherSubmit(index)}
-          onOtherCancel={() => handleOtherCancel(index)}
           otherCursorPosition={otherCursorPositions.get(index) ?? 0}
           focusedOptionIndex={
-            expandedIndex === index ? focusedOptionIndex : null
+            expandedIndex === index && !submitFocused && showFocusHighlight
+              ? focusedOptionIndex
+              : null
           }
-          onFocusOption={setFocusedOptionIndex}
+          onFocusOption={(optionIndex) => {
+            if (!terminalFocused || isTypingOther) return
+            if (suppressNextHoverFocusRef.current) {
+              suppressNextHoverFocusRef.current = false
+              return
+            }
+            setShowFocusHighlight(true)
+            setSubmitFocused(false)
+            setFocusedQuestionIndex(index)
+            if (expandedIndex !== index) {
+              setExpandedIndex(index)
+            }
+            setFocusedOptionIndex(optionIndex)
+          }}
         />
       ))}
 
-      {/* Submit button */}
-      <box style={{ flexDirection: 'row', marginTop: 1 }}>
-        <Button
-          onClick={handleSubmit}
-          disabled={!allAnswered}
-          style={{
-            borderStyle: 'single',
-            borderColor: submitFocused
-              ? theme.primary
-              : allAnswered
-                ? theme.success
-                : theme.muted,
-            backgroundColor: submitFocused ? theme.surface : undefined,
-            customBorderChars: BORDER_CHARS,
-            paddingLeft: 2,
-            paddingRight: 2,
-          }}
-        >
-          <text
+      {/* Footer: submit + keyboard hints */}
+      <box
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'flex-start',
+          alignItems: 'center',
+          width: '100%',
+          gap: 4,
+        }}
+      >
+        <box style={{ flexShrink: 0 }}>
+          <Button
+            onClick={handleSubmit}
+            onMouseOver={() => {
+              if (!terminalFocused) return
+              setSubmitHovered(true)
+            }}
+            onMouseOut={() => {
+              setSubmitHovered(false)
+            }}
             style={{
-              fg: submitFocused
-                ? theme.primary
-                : allAnswered
-                  ? theme.success
+              borderStyle: 'single',
+              borderColor:
+                submitFocused || (submitHovered && terminalFocused)
+                  ? theme.primary
                   : theme.muted,
-              attributes:
-                allAnswered || submitFocused ? TextAttributes.BOLD : undefined,
+              customBorderChars: BORDER_CHARS,
+              paddingLeft: 2,
+              paddingRight: 2,
             }}
           >
-            Submit
-          </text>
-        </Button>
+            <text
+              style={{
+                fg:
+                  submitFocused || (submitHovered && terminalFocused)
+                    ? theme.primary
+                    : theme.muted,
+                attributes:
+                  submitFocused || (submitHovered && terminalFocused)
+                    ? TextAttributes.BOLD
+                    : undefined,
+              }}
+            >
+              Submit
+            </text>
+          </Button>
+        </box>
+
+        <box
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            flexShrink: 1,
+            minWidth: 0,
+          }}
+        >
+          {KEYBOARD_HINTS.map((hint, idx) => (
+            <text
+              key={hint}
+              wrapMode="none"
+              style={{ fg: theme.muted, marginRight: idx === KEYBOARD_HINTS.length - 1 ? 0 : 1 }}
+            >
+              {hint}
+            </text>
+          ))}
+        </box>
       </box>
     </box>
   )

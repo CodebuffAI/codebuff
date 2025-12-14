@@ -634,7 +634,7 @@ describe('moveSpawnAgentBlock', () => {
     expect(parent.blocks[0].agentId).toBe('real')
   })
 
-  test('appends when parent missing', () => {
+  test('updates in place when parent missing to preserve order', () => {
     const blocks: ContentBlock[] = [
       {
         type: 'agent',
@@ -649,7 +649,55 @@ describe('moveSpawnAgentBlock', () => {
       { type: 'text', content: 'other' },
     ]
     const result = moveSpawnAgentBlock(blocks, 'temp', 'real', 'missing')
-    expect(result[result.length - 1]).toMatchObject({ type: 'agent' })
+    // Block should stay in its original position (index 0), not move to end
+    expect(result[0]).toMatchObject({ type: 'agent', agentId: 'real' })
+    expect(result[1]).toMatchObject({ type: 'text', content: 'other' })
+  })
+
+  test('preserves block order when multiple agents resolve out of order', () => {
+    // Simulate spawn_agents creating 3 placeholder blocks in order
+    const blocks: ContentBlock[] = [
+      {
+        type: 'agent',
+        agentId: 'toolcall-0',
+        agentName: 'Agent A',
+        agentType: 'file-picker',
+        content: '',
+        status: 'running',
+        blocks: [],
+        initialPrompt: '',
+      },
+      {
+        type: 'agent',
+        agentId: 'toolcall-1',
+        agentName: 'Agent B',
+        agentType: 'code-searcher',
+        content: '',
+        status: 'running',
+        blocks: [],
+        initialPrompt: '',
+      },
+      {
+        type: 'agent',
+        agentId: 'toolcall-2',
+        agentName: 'Agent C',
+        agentType: 'commander',
+        content: '',
+        status: 'running',
+        blocks: [],
+        initialPrompt: '',
+      },
+    ]
+
+    // Agents resolve in different order: C first, then A, then B
+    let result = moveSpawnAgentBlock(blocks, 'toolcall-2', 'real-c')
+    result = moveSpawnAgentBlock(result, 'toolcall-0', 'real-a')
+    result = moveSpawnAgentBlock(result, 'toolcall-1', 'real-b')
+
+    // Order should be preserved: A, B, C
+    expect(result[0]).toMatchObject({ agentId: 'real-a' })
+    expect(result[1]).toMatchObject({ agentId: 'real-b' })
+    expect(result[2]).toMatchObject({ agentId: 'real-c' })
   })
 })
 

@@ -28,6 +28,9 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     'test-api-key-no-credits': {
       id: 'user-no-credits',
     },
+    'test-api-key-blocked': {
+      id: '5e5aa538-92c8-4051-b0ec-5f75dbd69767',
+    },
   }
 
   const mockGetUserInfoFromApiKey: GetUserInfoFromApiKeyFn = async ({
@@ -344,6 +347,41 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       const body = await response.json()
       expect(body).toEqual({
         message: 'runId Not Running: run-completed',
+      })
+    })
+  })
+
+  describe('Blocked users', () => {
+    it('returns 503 with cryptic error for blocked user IDs', async () => {
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: { Authorization: 'Bearer test-api-key-blocked' },
+          body: JSON.stringify({
+            stream: true,
+            codebuff_metadata: { run_id: 'run-123' },
+          }),
+        },
+      )
+
+      const response = await postChatCompletions({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+      })
+
+      expect(response.status).toBe(503)
+      const body = await response.json()
+      expect(body).toEqual({
+        error: 'upstream_timeout',
+        message: 'Overloaded. Request could not be processed',
       })
     })
   })
