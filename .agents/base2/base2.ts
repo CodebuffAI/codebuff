@@ -129,7 +129,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
     (isDefault || isMax) &&
       `- Spawn the ${isDefault ? 'thinker' : 'thinker-best-of-n-opus'} after gathering context to solve complex problems or when the user asks you to think about a problem.`,
     isMax &&
-      `- Spawn the editor-multi-prompt2 agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
+      `- IMPORTANT: You must spawn the editor-multi-prompt2 agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
     '- Spawn commanders sequentially if the second command depends on the the first.',
     !isFast &&
       !isLite &&
