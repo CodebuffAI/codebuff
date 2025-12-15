@@ -68,8 +68,6 @@ export const handleProposeWriteFile = (async (
   const isNewFile = initialContent === null
   const message = isNewFile ? `Proposed new file ${path}` : `Proposed changes to ${path}`
 
-  logger.debug({ path, isNewFile, contentLength: newContent.length }, message)
-
   return {
     output: [
       {
