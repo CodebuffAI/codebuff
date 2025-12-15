@@ -237,7 +237,10 @@ function* handleStepsMultiPrompt({
       ? jsonResult.value
       : [jsonResult.value]
 
-    return spawnedResults.map((result: any) => result?.value).filter(Boolean)
+    return spawnedResults
+      .map((result: any) => result?.value)
+      .map((result: any) => ('value' in result ? result.value : result))
+      .filter(Boolean)
   }
 }
 
