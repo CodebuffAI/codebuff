@@ -22,6 +22,7 @@ import { extractApiKeyFromHeader } from '@/util/auth'
  */
 const BLOCKED_USER_IDS: string[] = [
   '5e5aa538-92c8-4051-b0ec-5f75dbd69767',
+  '5972546e-648d-4da6-991f-17c42b037329',
 ]
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
@@ -160,7 +161,10 @@ export async function postChatCompletions(params: {
     // Check if user is blocked. Return fake overloaded error to avoid revealing the block.
     if (BLOCKED_USER_IDS.includes(userId)) {
       return NextResponse.json(
-        { error: 'upstream_timeout', message: 'Overloaded. Request could not be processed' },
+        {
+          error: 'upstream_timeout',
+          message: 'Overloaded. Request could not be processed',
+        },
         { status: 503 },
       )
     }
