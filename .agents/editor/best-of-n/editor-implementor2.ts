@@ -57,7 +57,7 @@ More style notes:
 
 Write out your complete implementation now.`,
 
-    handleSteps: function* ({ agentState: initialAgentState, logger }) {
+    handleSteps: function* ({ agentState: initialAgentState }) {
       const initialMessageHistoryLength =
         initialAgentState.messageHistory.length
 
@@ -90,7 +90,6 @@ Write out your complete implementation now.`,
 
       // Retry if no messages or if the only message is empty (no tool calls and empty text)
       if (postMessages.length === 0) {
-        logger.debug('No messages after STEP_ALL, retrying')
         const { agentState: postMessagesAgentState } = yield 'STEP_ALL'
         postMessages = postMessagesAgentState.messageHistory.slice(
           initialMessageHistoryLength,
@@ -99,20 +98,11 @@ Write out your complete implementation now.`,
         postMessages.length === 1 &&
         isEmptyAssistantMessage(postMessages[0])
       ) {
-        logger.debug(
-          'Empty assistant message (no tool calls, empty text) after STEP_ALL, retrying',
-        )
         const { agentState: postMessagesAgentState } = yield 'STEP_ALL'
         postMessages = postMessagesAgentState.messageHistory.slice(
           initialMessageHistoryLength,
         )
       }
-      logger.debug(
-        {
-          postMessages,
-        },
-        'Editor Implementor 2 Post STEP_ALL messages',
-      )
 
       // Extract tool calls from assistant messages
       // Handle both 'input' and 'args' property names for compatibility

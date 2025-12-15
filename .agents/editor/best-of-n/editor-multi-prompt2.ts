@@ -54,7 +54,6 @@ export function createMultiPromptEditor(): Omit<SecretAgentDefinition, 'id'> {
 function* handleStepsMultiPrompt({
   agentState,
   params,
-  logger,
 }: AgentStepContext): ReturnType<
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
@@ -110,17 +109,14 @@ function* handleStepsMultiPrompt({
       agents: implementorAgents,
     },
     includeToolCall: false,
-  } satisfies ToolCall<'spawn_agents'>
+  }
 
   // Extract spawn results - each is structured output with { toolCalls, toolResults, unifiedDiffs }
-  const spawnedImplementations = extractSpawnResults(
-    implementorResults,
-  ) as any[]
-
-  logger.info(
-    { spawnedImplementations },
-    'Spawned implementations from implementor2 agents',
-  )
+  const spawnedImplementations = extractSpawnResults<{
+    toolCalls: { toolName: string; input: any }[]
+    toolResults: any[]
+    unifiedDiffs: string
+  }>(implementorResults)
 
   // Build implementations for selector using the unified diffs
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -135,13 +131,11 @@ function* handleStepsMultiPrompt({
       }
     }
 
-    // For structured output, result.value contains { toolCalls, toolResults, unifiedDiffs }
-    const output = result.value ?? result
     return {
       id: letters[index],
       strategy: strategies[index] ?? 'unknown',
-      content: output.unifiedDiffs ?? 'No changes proposed',
-      toolCalls: output.toolCalls ?? [],
+      content: result.unifiedDiffs ?? 'No changes proposed',
+      toolCalls: result.toolCalls ?? [],
     }
   })
 
@@ -166,22 +160,20 @@ function* handleStepsMultiPrompt({
   } satisfies ToolCall<'spawn_agents'>
 
   const selectorOutput = extractSpawnResults<{
-    value: {
-      implementationId: string
-      reason: string
-      suggestedImprovements: string
-    }
+    implementationId: string
+    reason: string
+    suggestedImprovements: string
   }>(selectorResult)[0]
 
-  if (!selectorOutput || 'errorMessage' in selectorOutput) {
+  if (!selectorOutput || !selectorOutput.implementationId) {
     yield {
       toolName: 'set_output',
-      input: { error: selectorOutput?.errorMessage ?? 'Selector failed' },
+      input: { error: 'Selector failed to return an implementation' },
     } satisfies ToolCall<'set_output'>
     return
   }
 
-  const { implementationId } = selectorOutput.value ?? selectorOutput
+  const { implementationId } = selectorOutput
   const chosenImplementation = implementations.find(
     (implementation) => implementation.id === implementationId,
   )
@@ -195,15 +187,6 @@ function* handleStepsMultiPrompt({
     } satisfies ToolCall<'set_output'>
     return
   }
-
-  logger.info(
-    {
-      chosenId: implementationId,
-      strategy: chosenImplementation.strategy,
-      numToolCalls: chosenImplementation.toolCalls.length,
-    },
-    'Selected implementation, applying tool calls',
-  )
 
   // Apply the chosen implementation's tool calls as real edits
   const appliedToolResults: any[] = []
@@ -221,15 +204,14 @@ function* handleStepsMultiPrompt({
         toolName: realToolName,
         input: toolCall.input,
         includeToolCall: true,
-      } as ToolCall<'str_replace'> | ToolCall<'write_file'>
+      } satisfies ToolCall<'str_replace'> | ToolCall<'write_file'>
 
       appliedToolResults.push(toolResult)
     }
   }
 
   // Extract suggested improvements from selector output
-  const selectorValue = selectorOutput.value ?? selectorOutput
-  const suggestedImprovements = selectorValue.suggestedImprovements
+  const { suggestedImprovements } = selectorOutput
 
   // Set output with the applied results and suggested improvements
   yield {

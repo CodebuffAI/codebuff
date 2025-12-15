@@ -17,7 +17,7 @@ export const createBestOfNSelector2 = (options: {
       ? 'anthropic/claude-sonnet-4.5'
       : isOpus
         ? 'anthropic/claude-opus-4.5'
-        : 'openai/gpt-5.1',
+        : 'openai/gpt-5.2',
     ...(isGpt5 && {
       reasoningOptions: {
         effort: 'high',
