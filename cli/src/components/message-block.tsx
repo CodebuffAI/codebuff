@@ -180,7 +180,7 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
         width: '100%',
       }}
     >
-      {/* User message timestamp with copy button and error indicator (non-bash commands) */}
+      {/* User message timestamp with error indicator (non-bash commands) */}
       {isUser && !bashCwd && (
         <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
           <text
@@ -192,8 +192,6 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
           >
             {`[${timestamp}]`}
           </text>
-
-          <CopyIconButton textToCopy={content} />
 
           {validationErrors && validationErrors.length > 0 && (
             <Button
@@ -212,7 +210,7 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
         </box>
       )}
 
-      {/* Bash command metadata header (timestamp + copy button + cwd) */}
+      {/* Bash command metadata header (timestamp + cwd) - copy button moved inline */}
       {bashCwd && (
         <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
           <text
@@ -224,7 +222,6 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
           >
             {`[${timestamp}]`}
           </text>
-          <CopyIconButton textToCopy={content} />
           <text
             attributes={TextAttributes.DIM}
             style={{
@@ -285,9 +282,15 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
             onBuildMax={onBuildMax}
             isLastMessage={isLastMessage}
           />
+          {/* Copy button after user message content (for block-based messages) */}
+          {isUser && (
+            <box style={{ flexDirection: 'row', marginTop: 0 }}>
+              <CopyIconButton textToCopy={content} />
+            </box>
+          )}
         </box>
       ) : (
-        <SimpleContent
+        <UserContentWithCopyButton
           content={content}
           messageId={messageId}
           isLoading={isLoading}
@@ -296,6 +299,7 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
           textColor={resolvedTextColor}
           codeBlockWidth={markdownOptions.codeBlockWidth}
           palette={markdownOptions.palette}
+          showCopyButton={isUser}
         />
       )}
       {/* Show image attachments for user messages */}
@@ -815,7 +819,7 @@ const AgentBranchWrapper = memo(
   },
 )
 
-interface SimpleContentProps {
+interface UserContentWithCopyButtonProps {
   content: string
   messageId: string
   isLoading: boolean
@@ -824,9 +828,14 @@ interface SimpleContentProps {
   textColor: string
   codeBlockWidth: number
   palette: MarkdownPalette
+  showCopyButton: boolean
 }
 
-const SimpleContent = memo(
+/**
+ * Renders user content with an inline copy button that wraps together with the last word.
+ * Uses a wrapping flexbox so the copy button stays attached to the last word when line-breaking.
+ */
+const UserContentWithCopyButton = memo(
   ({
     content,
     messageId,
@@ -836,25 +845,99 @@ const SimpleContent = memo(
     textColor,
     codeBlockWidth,
     palette,
-  }: SimpleContentProps) => {
+    showCopyButton,
+  }: UserContentWithCopyButtonProps) => {
     const isStreamingMessage = isLoading || !isComplete
     const normalizedContent = isStreamingMessage
       ? trimTrailingNewlines(content)
       : content.trim()
 
+    if (!showCopyButton) {
+      return (
+        <text
+          key={`message-content-${messageId}`}
+          style={{ wrapMode: 'word', fg: textColor }}
+          attributes={isUser ? TextAttributes.ITALIC : undefined}
+        >
+          <ContentWithMarkdown
+            content={normalizedContent}
+            isStreaming={isStreamingMessage}
+            codeBlockWidth={codeBlockWidth}
+            palette={palette}
+          />
+        </text>
+      )
+    }
+
+    // For user messages with copy button, we need to handle the last word specially
+    // so the copy button wraps with it as a unit.
+    // Split by newlines first to handle multi-line content correctly.
+    const lines = normalizedContent.split('\n')
+    const lastLine = lines[lines.length - 1] || ''
+    const lastSpaceIndex = lastLine.lastIndexOf(' ')
+    
+    let contentBeforeLastWord: string
+    let lastWord: string
+    
+    if (lastSpaceIndex > 0) {
+      // Last line has multiple words - split on the last space
+      const beforeLastWordOnLastLine = lastLine.slice(0, lastSpaceIndex + 1)
+      lastWord = lastLine.slice(lastSpaceIndex + 1)
+      if (lines.length > 1) {
+        contentBeforeLastWord = lines.slice(0, -1).join('\n') + '\n' + beforeLastWordOnLastLine
+      } else {
+        contentBeforeLastWord = beforeLastWordOnLastLine
+      }
+    } else if (lines.length > 1) {
+      // Last line is a single word, but there are previous lines
+      contentBeforeLastWord = lines.slice(0, -1).join('\n') + '\n'
+      lastWord = lastLine
+    } else {
+      // Single word, single line
+      contentBeforeLastWord = ''
+      lastWord = normalizedContent
+    }
+
     return (
-      <text
+      <box
         key={`message-content-${messageId}`}
-        style={{ wrapMode: 'word', fg: textColor }}
-        attributes={isUser ? TextAttributes.ITALIC : undefined}
+        style={{
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          alignItems: 'baseline',
+        }}
       >
-        <ContentWithMarkdown
-          content={normalizedContent}
-          isStreaming={isStreamingMessage}
-          codeBlockWidth={codeBlockWidth}
-          palette={palette}
-        />
-      </text>
+        {contentBeforeLastWord && (
+          <text
+            style={{ wrapMode: 'word', fg: textColor }}
+            attributes={isUser ? TextAttributes.ITALIC : undefined}
+          >
+            <ContentWithMarkdown
+              content={contentBeforeLastWord}
+              isStreaming={isStreamingMessage}
+              codeBlockWidth={codeBlockWidth}
+              palette={palette}
+            />
+          </text>
+        )}
+        {/* Last word + copy button wrapped together so they line-break as a unit */}
+        <box
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            flexWrap: 'no-wrap',
+            gap: 1,
+          }}
+        >
+          <text
+            style={{ wrapMode: 'none', fg: textColor }}
+            attributes={isUser ? TextAttributes.ITALIC : undefined}
+          >
+            {lastWord}
+          </text>
+          <CopyIconButton textToCopy={content} />
+        </box>
+      </box>
     )
   },
 )

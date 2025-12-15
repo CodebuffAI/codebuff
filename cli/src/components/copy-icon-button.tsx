@@ -86,6 +86,7 @@ export const CopyIconButton: React.FC<CopyIconButtonProps> = ({
         suppressGlobalMessage: true,
       })
       setIsCopied(true)
+      hover.closeNow() // Close hover state so it doesn't persist after copied state ends
       setTimeout('reset-copied', () => setIsCopied(false), 2000)
     } catch (error) {
       // Error is already logged and displayed by copyTextToClipboard
