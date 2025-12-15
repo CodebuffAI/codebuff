@@ -51,7 +51,7 @@ export function getFileProcessingValues(
   }
   for (const [key, value] of Object.entries(state)) {
     const typedKey = key as keyof typeof fileProcessingValues
-    if (fileProcessingValues[typedKey] !== undefined) {
+    if (typedKey in fileProcessingValues) {
       fileProcessingValues[typedKey] = value as any
     }
   }

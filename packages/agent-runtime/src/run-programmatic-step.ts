@@ -2,6 +2,7 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { assistantMessage } from '@codebuff/common/util/messages'
 import { cloneDeep } from 'lodash'
 
+import { clearProposedContentForRun } from './tools/handlers/tool/proposed-content-store'
 import { executeToolCall } from './tools/tool-executor'
 import { parseTextWithToolCalls } from './util/parse-tool-calls-from-text'
 
@@ -38,6 +39,7 @@ export const runIdToStepAll: Set<string> = new Set()
 // Function to clear the generator cache for testing purposes
 export function clearAgentGeneratorCache(params: { logger: Logger }) {
   for (const key in runIdToGenerator) {
+    clearProposedContentForRun(key)
     delete runIdToGenerator[key]
   }
   runIdToStepAll.clear()
@@ -377,6 +379,7 @@ export async function runProgrammaticStep(
     if (endTurn) {
       delete runIdToGenerator[agentState.runId]
       runIdToStepAll.delete(agentState.runId)
+      clearProposedContentForRun(agentState.runId)
     }
   }
 }

@@ -4,9 +4,13 @@ import { generateCompactId } from '@codebuff/common/util/string'
 
 import { loopAgentSteps } from '../../../run-agent-step'
 import { getAgentTemplate } from '../../../templates/agent-registry'
-import { filterUnfinishedToolCalls } from '../../../util/messages'
+import { filterUnfinishedToolCalls, withSystemTags } from '../../../util/messages'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
+import type {
+  AgentRuntimeDeps,
+  AgentRuntimeScopedDeps,
+} from '@codebuff/common/types/contracts/agent-runtime'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   ParamsExcluding,
@@ -19,6 +23,79 @@ import type {
   AgentTemplateType,
   Subgoal,
 } from '@codebuff/common/types/session-state'
+import type { ProjectFileContext } from '@codebuff/common/util/file'
+import { Message } from '@codebuff/common/types/messages/codebuff-message'
+
+/**
+ * Common context params needed for spawning subagents.
+ * These are the params that don't change between different spawn calls
+ * and are passed through from the parent agent runtime.
+ */
+export type SubagentContextParams = AgentRuntimeDeps &
+  AgentRuntimeScopedDeps & {
+    clientSessionId: string
+    fileContext: ProjectFileContext
+    localAgentTemplates: Record<string, AgentTemplate>
+    repoId: string | undefined
+    repoUrl: string | undefined
+    signal: AbortSignal
+    userId: string | undefined
+  }
+
+/**
+ * Extracts the common context params needed for spawning subagents.
+ * This avoids bugs from spreading all params with `...params` which can
+ * accidentally pass through params that should be overridden.
+ */
+export function extractSubagentContextParams(
+  params: SubagentContextParams,
+): SubagentContextParams {
+  return {
+    // AgentRuntimeDeps - Environment
+    clientEnv: params.clientEnv,
+    ciEnv: params.ciEnv,
+    // AgentRuntimeDeps - Database
+    getUserInfoFromApiKey: params.getUserInfoFromApiKey,
+    fetchAgentFromDatabase: params.fetchAgentFromDatabase,
+    startAgentRun: params.startAgentRun,
+    finishAgentRun: params.finishAgentRun,
+    addAgentStep: params.addAgentStep,
+    // AgentRuntimeDeps - Billing
+    consumeCreditsWithFallback: params.consumeCreditsWithFallback,
+    // AgentRuntimeDeps - LLM
+    promptAiSdkStream: params.promptAiSdkStream,
+    promptAiSdk: params.promptAiSdk,
+    promptAiSdkStructured: params.promptAiSdkStructured,
+    // AgentRuntimeDeps - Mutable State
+    databaseAgentCache: params.databaseAgentCache,
+    liveUserInputRecord: params.liveUserInputRecord,
+    sessionConnections: params.sessionConnections,
+    // AgentRuntimeDeps - Analytics
+    trackEvent: params.trackEvent,
+    // AgentRuntimeDeps - Other
+    logger: params.logger,
+    fetch: params.fetch,
+
+    // AgentRuntimeScopedDeps - Client (WebSocket)
+    handleStepsLogChunk: params.handleStepsLogChunk,
+    requestToolCall: params.requestToolCall,
+    requestMcpToolData: params.requestMcpToolData,
+    requestFiles: params.requestFiles,
+    requestOptionalFile: params.requestOptionalFile,
+    sendAction: params.sendAction,
+    sendSubagentChunk: params.sendSubagentChunk,
+    apiKey: params.apiKey,
+
+    // Core context params
+    clientSessionId: params.clientSessionId,
+    fileContext: params.fileContext,
+    localAgentTemplates: params.localAgentTemplates,
+    repoId: params.repoId,
+    repoUrl: params.repoUrl,
+    signal: params.signal,
+    userId: params.userId,
+  }
+}
 
 /**
  * Checks if a parent agent is allowed to spawn a child agent
@@ -166,9 +243,21 @@ export function createAgentState(
   // When including message history, filter out any tool calls that don't have
   // corresponding tool responses. This prevents the spawned agent from seeing
   // unfinished tool calls which throw errors in the Anthropic API.
-  const messageHistory = agentTemplate.includeMessageHistory
-    ? filterUnfinishedToolCalls(parentAgentState.messageHistory)
-    : []
+  let messageHistory: Message[] = []
+
+  if (agentTemplate.includeMessageHistory) {
+    messageHistory = filterUnfinishedToolCalls(parentAgentState.messageHistory)
+    messageHistory.push({
+      role: 'user',
+      content: [
+        {
+          type: 'text',
+          text: withSystemTags(`Subagent ${agentType} has been spawned.`),
+        },
+      ],
+      tags: ['SUBAGENT_SPAWN'],
+    })
+  }
 
   return {
     agentId,

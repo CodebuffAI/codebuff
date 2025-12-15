@@ -141,7 +141,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       ancestorRunIds: [],
       onResponseChunk: () => {},
       signal: new AbortController().signal,
-      tools: {},
     }
   })
 

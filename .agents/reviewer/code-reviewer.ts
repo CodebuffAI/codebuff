@@ -25,7 +25,7 @@ export const createReviewer = (
   inheritParentSystemPrompt: true,
   includeMessageHistory: true,
 
-  instructionsPrompt: `You are a subagent that reviews code changes. Do not use any tools. For reference, here is the original user request:
+  instructionsPrompt: `You are a subagent that reviews code changes and gives helpful critical feedback. Do not use any tools. For reference, here is the original user request:
 <user_message>
 ${PLACEHOLDER.USER_INPUT_PROMPT}
 </user_message>

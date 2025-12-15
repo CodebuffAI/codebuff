@@ -1,10 +1,6 @@
 import { publisher } from '../../constants'
 
-import type {
-  AgentStepContext,
-  StepText,
-  ToolCall,
-} from '../../types/agent-definition'
+import type { AgentStepContext, ToolCall } from '../../types/agent-definition'
 import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
 
 /**
@@ -17,7 +13,7 @@ export function createMultiPromptEditor(): Omit<SecretAgentDefinition, 'id'> {
     model: 'anthropic/claude-opus-4.5',
     displayName: 'Multi-Prompt Editor',
     spawnerPrompt:
-      'Edits code by spawning multiple implementor agents with different strategy prompts, selects the best implementation, and applies the changes. Pass an array of short prompts specifying different implementation approaches. Make sure to read any files intended to be edited before spawning this agent.',
+      'Edits code by spawning multiple implementor agents with different strategy prompts, selects the best implementation, and applies the changes. It also returns further suggested improvements which you should take seriously and act on. Pass as input an array of short prompts specifying different implementation approaches or strategies. Make sure to read any files intended to be edited before spawning this agent.',
 
     includeMessageHistory: true,
     inheritParentSystemPrompt: true,
@@ -30,9 +26,9 @@ export function createMultiPromptEditor(): Omit<SecretAgentDefinition, 'id'> {
       'set_output',
     ],
     spawnableAgents: [
-      'best-of-n-selector-opus',
-      'editor-implementor-opus',
-      'editor-implementor-gpt-5',
+      'best-of-n-selector2',
+      'editor-implementor2',
+      'editor-implementor2-gpt-5',
     ],
 
     inputSchema: {
@@ -58,7 +54,6 @@ export function createMultiPromptEditor(): Omit<SecretAgentDefinition, 'id'> {
 function* handleStepsMultiPrompt({
   agentState,
   params,
-  logger,
 }: AgentStepContext): ReturnType<
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
@@ -95,16 +90,16 @@ function* handleStepsMultiPrompt({
     includeToolCall: false,
   } satisfies ToolCall<'set_messages'>
 
-  // Spawn one opus implementor per prompt
+  // Spawn one implementor2 per prompt (uses propose_* tools)
   const implementorAgents: { agent_type: string; prompt?: string }[] =
     prompts.map((prompt) => ({
-      agent_type: 'editor-implementor-opus',
+      agent_type: 'editor-implementor2',
       prompt: `Strategy: ${prompt}`,
     }))
 
-  // Always spawn an additional gpt-5 implementor with no prompt
-  implementorAgents.push({
-    agent_type: 'editor-implementor-gpt-5',
+  // Always spawn an additional gpt-5 implementor first with no prompt
+  implementorAgents.unshift({
+    agent_type: 'editor-implementor2-gpt-5',
   })
 
   // Spawn all implementor agents
@@ -114,33 +109,50 @@ function* handleStepsMultiPrompt({
       agents: implementorAgents,
     },
     includeToolCall: false,
-  } satisfies ToolCall<'spawn_agents'>
+  }
 
-  // Extract spawn results
-  const spawnedImplementations = extractSpawnResults(
-    implementorResults,
-  ) as any[]
+  // Extract spawn results - each is structured output with { toolCalls, toolResults, unifiedDiffs }
+  const spawnedImplementations = extractSpawnResults<{
+    toolCalls: { toolName: string; input: any }[]
+    toolResults: any[]
+    unifiedDiffs: string
+  }>(implementorResults)
 
-  // Extract all the implementations from the results
+  // Build implementations for selector using the unified diffs
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-  const strategies = [...prompts, prompts[0]]
-  const implementations = spawnedImplementations.map((result, index) => ({
-    id: letters[index],
-    strategy: strategies[index],
-    content:
-      'errorMessage' in result
-        ? `Error: ${result.errorMessage}`
-        : extractLastMessageText(result) ?? '',
-  }))
+  const strategies = [...prompts, 'default']
+  const implementations = spawnedImplementations.map((result, index) => {
+    if (!result || 'errorMessage' in result) {
+      return {
+        id: letters[index],
+        strategy: strategies[index] ?? 'unknown',
+        content: `Error: ${result?.errorMessage ?? 'Unknown error'}`,
+        toolCalls: [],
+      }
+    }
 
-  // Spawn selector with implementations as params
-  const { toolResult: selectorResult, agentState: selectorAgentState } = yield {
+    return {
+      id: letters[index],
+      strategy: strategies[index] ?? 'unknown',
+      content: result.unifiedDiffs ?? 'No changes proposed',
+      toolCalls: result.toolCalls ?? [],
+    }
+  })
+
+  // Spawn selector with implementations (showing unified diffs for review)
+  const { toolResult: selectorResult } = yield {
     toolName: 'spawn_agents',
     input: {
       agents: [
         {
-          agent_type: 'best-of-n-selector-opus',
-          params: { implementations },
+          agent_type: 'best-of-n-selector2',
+          params: {
+            implementations: implementations.map((impl) => ({
+              id: impl.id,
+              strategy: impl.strategy,
+              content: impl.content,
+            })),
+          },
         },
       ],
     },
@@ -148,45 +160,66 @@ function* handleStepsMultiPrompt({
   } satisfies ToolCall<'spawn_agents'>
 
   const selectorOutput = extractSpawnResults<{
-    value: {
-      implementationId: string
-      reasoning: string
-    }
+    implementationId: string
+    reason: string
+    suggestedImprovements: string
   }>(selectorResult)[0]
 
-  if ('errorMessage' in selectorOutput) {
+  if (!selectorOutput || !selectorOutput.implementationId) {
     yield {
       toolName: 'set_output',
-      input: { error: selectorOutput.errorMessage },
+      input: { error: 'Selector failed to return an implementation' },
     } satisfies ToolCall<'set_output'>
     return
   }
-  const { implementationId } = selectorOutput.value
+
+  const { implementationId } = selectorOutput
   const chosenImplementation = implementations.find(
     (implementation) => implementation.id === implementationId,
   )
+
   if (!chosenImplementation) {
     yield {
       toolName: 'set_output',
-      input: { error: 'Failed to find chosen implementation.' },
+      input: {
+        error: `Failed to find chosen implementation: ${implementationId}`,
+      },
     } satisfies ToolCall<'set_output'>
     return
   }
 
-  const numMessagesBeforeStepText = selectorAgentState.messageHistory.length
+  // Apply the chosen implementation's tool calls as real edits
+  const appliedToolResults: any[] = []
+  for (const toolCall of chosenImplementation.toolCalls) {
+    // Convert propose_* tool calls to real edit tool calls
+    const realToolName =
+      toolCall.toolName === 'propose_str_replace'
+        ? 'str_replace'
+        : toolCall.toolName === 'propose_write_file'
+          ? 'write_file'
+          : toolCall.toolName
 
-  const { agentState: postEditsAgentState } = yield {
-    type: 'STEP_TEXT',
-    text: chosenImplementation.content,
-  } as StepText
-  const { messageHistory } = postEditsAgentState
+    if (realToolName === 'str_replace' || realToolName === 'write_file') {
+      const { toolResult } = yield {
+        toolName: realToolName,
+        input: toolCall.input,
+        includeToolCall: true,
+      } satisfies ToolCall<'str_replace'> | ToolCall<'write_file'>
 
-  // Set output with the messages from running the step text of the chosen implementation
+      appliedToolResults.push(toolResult)
+    }
+  }
+
+  // Extract suggested improvements from selector output
+  const { suggestedImprovements } = selectorOutput
+
+  // Set output with the applied results and suggested improvements
   yield {
     toolName: 'set_output',
     input: {
       chosenStrategy: chosenImplementation.strategy,
-      messages: messageHistory.slice(numMessagesBeforeStepText),
+      toolResults: appliedToolResults,
+      suggestedImprovements,
     },
     includeToolCall: false,
   } satisfies ToolCall<'set_output'>
@@ -204,36 +237,15 @@ function* handleStepsMultiPrompt({
       ? jsonResult.value
       : [jsonResult.value]
 
-    return spawnedResults.map((result: any) => result?.value).filter(Boolean)
-  }
-
-  /**
-   * Extracts the text content from a 'lastMessage' AgentOutput.
-   */
-  function extractLastMessageText(agentOutput: any): string | null {
-    if (!agentOutput) return null
-
-    if (
-      agentOutput.type === 'lastMessage' &&
-      Array.isArray(agentOutput.value)
-    ) {
-      for (let i = agentOutput.value.length - 1; i >= 0; i--) {
-        const message = agentOutput.value[i]
-        if (message.role === 'assistant' && Array.isArray(message.content)) {
-          for (const part of message.content) {
-            if (part.type === 'text' && typeof part.text === 'string') {
-              return part.text
-            }
-          }
-        }
-      }
-    }
-    return null
+    return spawnedResults
+      .map((result: any) => result?.value)
+      .map((result: any) => ('value' in result ? result.value : result))
+      .filter(Boolean)
   }
 }
 
 const definition = {
   ...createMultiPromptEditor(),
-  id: 'editor-multi-prompt',
+  id: 'editor-multi-prompt2',
 }
 export default definition

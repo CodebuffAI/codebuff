@@ -15,7 +15,7 @@
     "cli"
   ],
   "scripts": {
-    "dev": "bun scripts/dev.ts",
+    "dev": "bun start-cli",
     "up": "bun scripts/start-services.ts",
     "start-cli": "bun --cwd cli dev",
     "start-db": "bun --cwd packages/internal db:start",

@@ -5,6 +5,10 @@ export const IMPLEMENTOR_AGENT_IDS = [
   'editor-implementor-opus',
   'editor-implementor-gemini',
   'editor-implementor-gpt-5',
+  'editor-implementor2',
+  'editor-implementor2-opus',
+  'editor-implementor2-gpt-5',
+  'editor-implementor2-sonnet',
 ] as const
 
 /**
@@ -24,12 +28,23 @@ export const getImplementorDisplayName = (
   index?: number,
 ): string => {
   let baseName = 'Implementor'
-  if (agentType.includes('editor-implementor-opus')) {
+  // Check most specific patterns first (editor-implementor2-* with model suffix)
+  if (agentType.includes('editor-implementor2-gpt-5')) {
+    baseName = 'GPT-5.2'
+  } else if (agentType.includes('editor-implementor2-opus')) {
+    baseName = 'Opus'
+  } else if (agentType.includes('editor-implementor2-sonnet')) {
+    baseName = 'Sonnet'
+  } else if (agentType.includes('editor-implementor2')) {
+    // Generic editor-implementor2 defaults to Opus
+    baseName = 'Opus'
+    // Then check editor-implementor-* patterns (less specific)
+  } else if (agentType.includes('editor-implementor-gpt-5')) {
+    baseName = 'GPT-5'
+  } else if (agentType.includes('editor-implementor-opus')) {
     baseName = 'Opus'
   } else if (agentType.includes('editor-implementor-gemini')) {
     baseName = 'Gemini'
-  } else if (agentType.includes('editor-implementor-gpt-5')) {
-    baseName = 'GPT-5'
   } else if (agentType.includes('editor-implementor')) {
     baseName = 'Sonnet'
   }

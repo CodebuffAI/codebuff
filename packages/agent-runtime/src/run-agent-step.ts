@@ -506,6 +506,7 @@ export async function loopAgentSteps(
       | 'system'
       | 'template'
       | 'toolCallParams'
+      | 'tools'
     > &
     ParamsExcluding<typeof getAgentTemplate, 'agentId'> &
     ParamsExcluding<

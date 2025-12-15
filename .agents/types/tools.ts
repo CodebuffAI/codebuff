@@ -10,6 +10,8 @@ export type ToolName =
   | 'glob'
   | 'list_directory'
   | 'lookup_agent_info'
+  | 'propose_str_replace'
+  | 'propose_write_file'
   | 'read_docs'
   | 'read_files'
   | 'read_subtree'
@@ -38,6 +40,8 @@ export interface ToolParamsMap {
   glob: GlobParams
   list_directory: ListDirectoryParams
   lookup_agent_info: LookupAgentInfoParams
+  propose_str_replace: ProposeStrReplaceParams
+  propose_write_file: ProposeWriteFileParams
   read_docs: ReadDocsParams
   read_files: ReadFilesParams
   read_subtree: ReadSubtreeParams
@@ -147,6 +151,35 @@ export interface ListDirectoryParams {
 export interface LookupAgentInfoParams {
   /** Agent ID (short local or full published format) */
   agentId: string
+}
+
+/**
+ * Propose string replacements in a file without actually applying them.
+ */
+export interface ProposeStrReplaceParams {
+  /** The path to the file to edit. */
+  path: string
+  /** Array of replacements to make. */
+  replacements: {
+    /** The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation. */
+    old: string
+    /** The string to replace the corresponding old string with. Can be empty to delete. */
+    new: string
+    /** Whether to allow multiple replacements of old string. */
+    allowMultiple?: boolean
+  }[]
+}
+
+/**
+ * Propose creating or editing a file without actually applying the changes.
+ */
+export interface ProposeWriteFileParams {
+  /** Path to the file relative to the **project root** */
+  path: string
+  /** What the change is intended to do in only one sentence. */
+  instructions: string
+  /** Edit snippet to apply to the file. */
+  content: string
 }
 
 /**

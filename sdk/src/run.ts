@@ -833,7 +833,6 @@ export async function runOnce({
     clientSessionId: promptId,
     userId,
     signal: signal ?? new AbortController().signal,
-    tools: {},
   }).catch((error) => {
     // Let retryable errors and PaymentRequiredError propagate so the retry wrapper can handle them
     const isRetryable = isRetryableError(error)

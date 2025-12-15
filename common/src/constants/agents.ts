@@ -92,4 +92,4 @@ export const AGENT_NAME_TO_TYPES = Object.entries(AGENT_NAMES).reduce(
   {} as Record<string, string[]>,
 )
 
-export const MAX_AGENT_STEPS_DEFAULT = 25
+export const MAX_AGENT_STEPS_DEFAULT = 100

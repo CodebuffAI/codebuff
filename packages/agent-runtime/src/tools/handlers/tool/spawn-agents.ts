@@ -6,6 +6,7 @@ import {
   createAgentState,
   logAgentSpawn,
   executeSubagent,
+  extractSubagentContextParams,
 } from './spawn-agent-utils'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
@@ -111,8 +112,14 @@ export const handleSpawnAgents = (async (
           logger,
         })
 
+        // Extract common context params to avoid bugs from spreading all params
+        const contextParams = extractSubagentContextParams(params)
+
         const result = await executeSubagent({
-          ...params,
+          ...contextParams,
+
+          // Spawn-specific params
+          ancestorRunIds: parentAgentState.ancestorRunIds,
           userInputId: `${userInputId}-${agentType}${subAgentState.agentId}`,
           prompt: prompt || '',
           spawnParams,
@@ -121,6 +128,8 @@ export const handleSpawnAgents = (async (
           agentState: subAgentState,
           fingerprintId,
           isOnlyChild: agents.length === 1,
+          excludeToolFromMessageHistory: false,
+          fromHandleSteps: false,
           parentSystemPrompt,
           parentTools: agentTemplate.inheritParentSystemPrompt
             ? parentTools

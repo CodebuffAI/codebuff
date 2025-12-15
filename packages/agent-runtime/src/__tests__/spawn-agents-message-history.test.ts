@@ -143,7 +143,8 @@ describe('Spawn Agents Message History', () => {
     // Verify that the subagent's message history contains the filtered messages
     // expireMessages filters based on timeToLive property, not role
     // Since the system message doesn't have timeToLive, it will be included
-    expect(capturedSubAgentState.messageHistory).toHaveLength(4) // System + user + assistant messages
+    // System + user + assistant messages + spawn message
+    expect(capturedSubAgentState.messageHistory).toHaveLength(5)
 
     // Verify system message is included (because it has no timeToLive property)
     const systemMessages = capturedSubAgentState.messageHistory.filter(
@@ -173,6 +174,14 @@ describe('Spawn Agents Message History', () => {
         (msg: any) => msg.content[0]?.text === 'How are you?',
       ),
     ).toBeTruthy()
+
+    // Verify the subagent spawn message is included with proper structure
+    const spawnMessage = capturedSubAgentState.messageHistory.find(
+      (msg: any) => msg.tags?.includes('SUBAGENT_SPAWN'),
+    )
+    expect(spawnMessage).toBeTruthy()
+    expect(spawnMessage.role).toBe('user')
+    expect(spawnMessage.content[0]?.text).toContain('Subagent child-agent has been spawned')
   })
 
   it('should not include conversation history when includeMessageHistory is false', async () => {
@@ -215,8 +224,15 @@ describe('Spawn Agents Message History', () => {
       toolCall,
     })
 
-    // Verify that the subagent's message history is empty when there are no messages to pass
-    expect(capturedSubAgentState.messageHistory).toHaveLength(0)
+    // Verify that the subagent's message history contains only the spawn message
+    // when includeMessageHistory is true (even with empty parent history)
+    expect(capturedSubAgentState.messageHistory).toHaveLength(1)
+
+    // Verify the spawn message structure
+    const spawnMessage = capturedSubAgentState.messageHistory[0]
+    expect(spawnMessage.role).toBe('user')
+    expect(spawnMessage.tags).toContain('SUBAGENT_SPAWN')
+    expect(spawnMessage.content[0]?.text).toContain('Subagent child-agent has been spawned')
   })
 
   it('should handle message history with only system messages', async () => {
@@ -240,10 +256,17 @@ describe('Spawn Agents Message History', () => {
 
     // Verify that system messages without timeToLive are included
     // expireMessages only filters messages with timeToLive='userPrompt'
-    expect(capturedSubAgentState.messageHistory).toHaveLength(2)
+    // Plus 1 for the subagent spawn message
+    expect(capturedSubAgentState.messageHistory).toHaveLength(3)
     const systemMessages = capturedSubAgentState.messageHistory.filter(
       (msg: any) => msg.role === 'system',
     )
     expect(systemMessages).toHaveLength(2)
+
+    // Verify spawn message is present
+    const spawnMessage = capturedSubAgentState.messageHistory.find(
+      (msg: any) => msg.tags?.includes('SUBAGENT_SPAWN'),
+    )
+    expect(spawnMessage).toBeTruthy()
   })
 })
