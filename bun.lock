@@ -185,6 +185,7 @@
         "drizzle-orm": "0.45.1",
         "loops": "^5.0.1",
         "msw": "^2.12.1",
+        "server-only": "0.0.1",
       },
       "devDependencies": {
         "@types/bun": "^1.3.0",
