@@ -115,7 +115,8 @@ export const Chat = ({
 
   // Message pagination - show last N messages with "Load previous" button
   const MESSAGE_BATCH_SIZE = 15
-  const [visibleMessageCount, setVisibleMessageCount] = useState(MESSAGE_BATCH_SIZE)
+  const [visibleMessageCount, setVisibleMessageCount] =
+    useState(MESSAGE_BATCH_SIZE)
 
   const queryClient = useQueryClient()
   const [, startUiTransition] = useTransition()
@@ -638,17 +639,16 @@ export const Chat = ({
       ensureQueueActiveBeforeSubmit()
 
       const preserveInput = options?.preserveInputValue === true
-      const previousInputValue =
-        preserveInput
-          ? (() => {
-              const {
-                inputValue: text,
-                cursorPosition,
-                lastEditDueToNav,
-              } = useChatStore.getState()
-              return { text, cursorPosition, lastEditDueToNav }
-            })()
-          : null
+      const previousInputValue = preserveInput
+        ? (() => {
+            const {
+              inputValue: text,
+              cursorPosition,
+              lastEditDueToNav,
+            } = useChatStore.getState()
+            return { text, cursorPosition, lastEditDueToNav }
+          })()
+        : null
       const preservedPendingImages =
         preserveInput && useChatStore.getState().pendingImages.length > 0
           ? [...useChatStore.getState().pendingImages]
@@ -717,11 +717,9 @@ export const Chat = ({
       // Mark this followup as clicked (persisted per toolCallId)
       useChatStore.getState().markFollowupClicked(toolCallId, index)
 
-      // Fill the input with the followup prompt so the user can modify it before sending
-      setInputValue({
-        text: prompt,
-        cursorPosition: prompt.length,
-        lastEditDueToNav: false,
+      // Send the followup prompt directly, preserving the user's current input
+      void onSubmitPrompt(prompt, agentMode, {
+        preserveInputValue: true,
       })
     }
 
@@ -732,7 +730,7 @@ export const Chat = ({
         handleFollowupClick,
       )
     }
-  }, [setInputValue])
+  }, [onSubmitPrompt, agentMode])
 
   // handleSlashItemClick is defined later after feedback/publish stores are available
 
@@ -839,7 +837,12 @@ export const Chat = ({
         }
       }
     },
-    [saveCurrentInput, openFeedbackForMessage, openPublishMode, preSelectAgents],
+    [
+      saveCurrentInput,
+      openFeedbackForMessage,
+      openPublishMode,
+      preSelectAgents,
+    ],
   )
 
   // Click handler for slash menu items - executes command immediately
@@ -943,12 +946,7 @@ export const Chat = ({
   const handleSubmit = useCallback(async () => {
     const result = await onSubmitPrompt(inputValue, agentMode)
     handleCommandResult(result)
-  }, [
-    onSubmitPrompt,
-    inputValue,
-    agentMode,
-    handleCommandResult,
-  ])
+  }, [onSubmitPrompt, inputValue, agentMode, handleCommandResult])
 
   const totalMentionMatches = agentMatches.length + fileMatches.length
   const historyNavUpEnabled =
@@ -1256,7 +1254,8 @@ export const Chat = ({
     return topLevelMessages.slice(-visibleMessageCount)
   }, [topLevelMessages, visibleMessageCount])
 
-  const hiddenMessageCount = topLevelMessages.length - visibleTopLevelMessages.length
+  const hiddenMessageCount =
+    topLevelMessages.length - visibleTopLevelMessages.length
 
   const handleLoadPreviousMessages = useCallback(() => {
     setVisibleMessageCount((prev) => prev + MESSAGE_BATCH_SIZE)

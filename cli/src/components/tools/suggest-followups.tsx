@@ -50,8 +50,8 @@ const FollowupLine = ({
   const handleMouseOut = useCallback(() => onHover(null), [onHover])
 
   // Compute effective hover state declaratively
-  // Show hover effects if actually hovered AND not disabled (clicked items can still be hovered)
-  const showHoverState = isHovered && !disabled
+  // Show hover effects if actually hovered AND not disabled AND not already clicked
+  const showHoverState = isHovered && !disabled && !isClicked
 
   const hasLabel = Boolean(followup.label)
   const displayText = hasLabel ? followup.label : followup.prompt
