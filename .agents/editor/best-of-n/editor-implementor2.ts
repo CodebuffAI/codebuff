@@ -38,9 +38,7 @@ Your task is to write out ALL the code changes needed to complete the user's req
 
 IMPORTANT: Use propose_str_replace and propose_write_file tools to make your edits. These tools draft changes without actually applying them - they will be reviewed first.
 
-You can make multiple tool calls across multiple steps to complete the implementation.
-
-After your edit tool calls, you can optionally mention any follow-up steps to take, like deleting a file, or a specific way to validate the changes.
+You can make multiple tool calls across multiple steps to complete the implementation. Only the file changes will be passed on, so you can say whatever you want to help you think. Do not write any final summary as that would be a waste of tokens because no one is reading it.
 
 Your implementation should:
 - Be complete and comprehensive
@@ -55,7 +53,7 @@ More style notes:
 - Optional arguments are code smell and worse than required arguments.
 - New components often should be added to a new file, not added to an existing file.
 
-Write out your complete implementation now.`,
+Write out your complete implementation now. Do not write any final summary. `,
 
     handleSteps: function* ({ agentState: initialAgentState }) {
       const initialMessageHistoryLength =

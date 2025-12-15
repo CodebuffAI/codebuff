@@ -120,7 +120,7 @@ function* handleStepsMultiPrompt({
 
   // Build implementations for selector using the unified diffs
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-  const strategies = [...prompts, 'default']
+  const strategies = ['default', ...prompts]
   const implementations = spawnedImplementations.map((result, index) => {
     if (!result || 'errorMessage' in result) {
       return {
