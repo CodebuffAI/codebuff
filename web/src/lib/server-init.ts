@@ -1,4 +1,5 @@
 import { initAnalytics } from '@codebuff/common/analytics'
+import { env } from '@codebuff/common/env'
 // Errors if this file is included in client bundles
 import 'server-only'
 
@@ -14,6 +15,7 @@ export function initializeServer({ logger }: { logger: Logger }) {
   try {
     initAnalytics({
       logger,
+      clientEnv: env,
     })
     // Initialize other services as needed
     initialized = true

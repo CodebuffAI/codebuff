@@ -1,41 +1,66 @@
 import { PostHog } from 'posthog-node'
 
-import type { ClientEnv } from '@codebuff/common/types/contracts/env'
 import type { AnalyticsEvent } from './constants/analytics-events'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ClientEnv } from './env-schema'
 
 let client: PostHog | undefined
 
-// Lazy load env to avoid validation at import time in test environments
-let _cachedEnv: ClientEnv | undefined
-let _cachedIsProd: boolean | undefined
+type EnvName = 'dev' | 'test' | 'prod'
 
-const getEnv = (): ClientEnv => {
-  if (_cachedEnv === undefined) {
-    _cachedEnv = require('@codebuff/common/env').env as ClientEnv
-  }
-  return _cachedEnv
+type AnalyticsConfig = {
+  envName: EnvName
+  posthogApiKey: string
+  posthogHostUrl: string
 }
 
-const getIsProd = (): boolean => {
-  if (_cachedIsProd === undefined) {
-    _cachedIsProd = require('@codebuff/common/env').IS_PROD as boolean
-  }
-  return _cachedIsProd
+let analyticsConfig: AnalyticsConfig | null = null
+
+export const configureAnalytics = (config: AnalyticsConfig | null) => {
+  analyticsConfig = config
+  client = undefined
 }
 
-export function initAnalytics({ logger }: { logger: Logger }) {
-  const env = getEnv()
-  if (!env.NEXT_PUBLIC_POSTHOG_API_KEY || !env.NEXT_PUBLIC_POSTHOG_HOST_URL) {
-    logger.warn(
-      'Analytics environment variables not set - analytics will be disabled',
-    )
+const getConfigFromClientEnv = (
+  clientEnv: Pick<
+    ClientEnv,
+    | 'NEXT_PUBLIC_CB_ENVIRONMENT'
+    | 'NEXT_PUBLIC_POSTHOG_API_KEY'
+    | 'NEXT_PUBLIC_POSTHOG_HOST_URL'
+  >,
+): AnalyticsConfig | null => {
+  const envName = clientEnv.NEXT_PUBLIC_CB_ENVIRONMENT
+  const posthogApiKey = clientEnv.NEXT_PUBLIC_POSTHOG_API_KEY
+  const posthogHostUrl = clientEnv.NEXT_PUBLIC_POSTHOG_HOST_URL
+
+  if (!envName) return null
+  if (!posthogApiKey || !posthogHostUrl) return null
+
+  return { envName, posthogApiKey, posthogHostUrl }
+}
+
+export function initAnalytics({
+  logger,
+  clientEnv,
+}: {
+  logger: Logger
+  clientEnv?: Parameters<typeof getConfigFromClientEnv>[0]
+}) {
+  if (clientEnv) {
+    configureAnalytics(getConfigFromClientEnv(clientEnv))
+  }
+
+  if (analyticsConfig?.envName !== 'prod') {
+    return
+  }
+
+  if (!analyticsConfig) {
     return
   }
 
   try {
-    client = new PostHog(env.NEXT_PUBLIC_POSTHOG_API_KEY, {
-      host: env.NEXT_PUBLIC_POSTHOG_HOST_URL,
+    client = new PostHog(analyticsConfig.posthogApiKey, {
+      host: analyticsConfig.posthogHostUrl,
       flushAt: 1,
       flushInterval: 0,
     })
@@ -50,7 +75,7 @@ export async function flushAnalytics() {
   }
   try {
     await client.flush()
-  } catch (error) {}
+  } catch {}
 }
 
 export function trackEvent({
@@ -64,7 +89,7 @@ export function trackEvent({
   properties?: Record<string, any>
   logger: Logger
 }) {
-  if (!getIsProd()) {
+  if (analyticsConfig?.envName !== 'prod') {
     // Note (James): This log was too noisy. Reenable it as you need to test something.
     // logger.info({ payload: { event, properties } }, event)
     return
