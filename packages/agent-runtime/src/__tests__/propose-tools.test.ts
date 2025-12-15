@@ -19,6 +19,7 @@ import {
   clearAgentGeneratorCache,
   runProgrammaticStep,
 } from '../run-programmatic-step'
+import { clearAllProposedContent } from '../tools/handlers/tool/proposed-content-store'
 import { mockFileContext } from './test-utils'
 import * as toolExecutor from '../tools/tool-executor'
 
@@ -268,6 +269,7 @@ console.log(add(1, 2));
   afterEach(() => {
     mock.restore()
     clearAgentGeneratorCache({ logger })
+    clearAllProposedContent()
   })
 
   describe('propose_str_replace', () => {

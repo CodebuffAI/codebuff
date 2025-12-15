@@ -1,7 +1,11 @@
 import { createPatch } from 'diff'
 
+import {
+  getProposedContent,
+  setProposedContent,
+} from './proposed-content-store'
+
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type { FileProcessingState } from './write-file'
 import type {
   CodebuffToolCall,
   CodebuffToolOutput,
@@ -20,8 +24,8 @@ export const handleProposeWriteFile = (async (
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<'propose_write_file'>
 
-    fileProcessingState: FileProcessingState
     logger: Logger
+    runId: string
 
     requestOptionalFile: RequestOptionalFileFn
   } & ParamsExcluding<RequestOptionalFileFn, 'filePath'>,
@@ -29,15 +33,15 @@ export const handleProposeWriteFile = (async (
   const {
     previousToolCallFinished,
     toolCall,
-    fileProcessingState,
     logger,
+    runId,
     requestOptionalFile,
   } = params
   const { path, content } = toolCall.input
 
-  // Get content from proposed state first, then fall back to disk
+  // Get content from proposed state first (by runId), then fall back to disk
   const getProposedOrDiskContent = async (): Promise<string | null> => {
-    const proposedContent = fileProcessingState.proposedContentByPath[path]
+    const proposedContent = getProposedContent(runId, path)
     if (proposedContent !== undefined) {
       return proposedContent
     }
@@ -49,8 +53,8 @@ export const handleProposeWriteFile = (async (
   // Normalize content (remove leading newline if present)
   const newContent = content.startsWith('\n') ? content.slice(1) : content
 
-  // Store the proposed content for future propose calls on the same file
-  fileProcessingState.proposedContentByPath[path] = Promise.resolve(newContent)
+  // Store the proposed content for future propose calls on the same file (by runId)
+  setProposedContent(runId, path, Promise.resolve(newContent))
 
   await previousToolCallFinished
 

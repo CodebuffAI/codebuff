@@ -1,7 +1,10 @@
 import { processStrReplace } from '../../../process-str-replace'
+import {
+  getProposedContent,
+  setProposedContent,
+} from './proposed-content-store'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
-import type { FileProcessingState } from './write-file'
 import type {
   CodebuffToolCall,
   CodebuffToolOutput,
@@ -16,9 +19,9 @@ export const handleProposeStrReplace = (async (
     previousToolCallFinished: Promise<void>
     toolCall: CodebuffToolCall<'propose_str_replace'>
 
-    fileProcessingState: FileProcessingState
     logger: Logger
     agentState: AgentState
+    runId: string
 
     requestOptionalFile: RequestOptionalFileFn
   } & ParamsExcluding<RequestOptionalFileFn, 'filePath'>,
@@ -27,16 +30,16 @@ export const handleProposeStrReplace = (async (
     previousToolCallFinished,
     toolCall,
 
-    fileProcessingState,
     logger,
+    runId,
 
     requestOptionalFile,
   } = params
   const { path, replacements } = toolCall.input
 
-  // Get content from proposed state first, then fall back to disk
+  // Get content from proposed state first (by runId), then fall back to disk
   const getProposedOrDiskContent = async (): Promise<string | null> => {
-    const proposedContent = fileProcessingState.proposedContentByPath[path]
+    const proposedContent = getProposedContent(runId, path)
     if (proposedContent !== undefined) {
       return proposedContent
     }
@@ -59,9 +62,13 @@ export const handleProposeStrReplace = (async (
     }
   })
 
-  // Store the proposed content for future propose calls on the same file
-  fileProcessingState.proposedContentByPath[path] = strReplaceResultPromise.then(
-    (result) => ('content' in result ? result.content : null),
+  // Store the proposed content for future propose calls on the same file (by runId)
+  setProposedContent(
+    runId,
+    path,
+    strReplaceResultPromise.then((result) =>
+      'content' in result ? result.content : null,
+    ),
   )
 
   await previousToolCallFinished

@@ -37,8 +37,6 @@ export type FileProcessingState = {
   fileChangeErrors: Extract<FileProcessing, { error: string }>[]
   fileChanges: Exclude<FileProcessing, { error: string }>[]
   firstFileProcessed: boolean
-  /** Tracks proposed file contents for propose_* tools (not written to disk) */
-  proposedContentByPath: Record<string, Promise<string | null>>
 }
 
 export function getFileProcessingValues(
@@ -50,7 +48,6 @@ export function getFileProcessingValues(
     fileChangeErrors: [],
     fileChanges: [],
     firstFileProcessed: false,
-    proposedContentByPath: {},
   }
   for (const [key, value] of Object.entries(state)) {
     const typedKey = key as keyof typeof fileProcessingValues

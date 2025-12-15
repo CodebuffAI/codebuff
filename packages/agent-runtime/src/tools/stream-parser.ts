@@ -96,7 +96,6 @@ export async function processStream(
     fileChangeErrors: [],
     fileChanges: [],
     firstFileProcessed: false,
-    proposedContentByPath: {},
   }
 
   function toolCallback<T extends ToolName>(toolName: T) {
