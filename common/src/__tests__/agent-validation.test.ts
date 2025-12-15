@@ -74,39 +74,6 @@ describe('Agent Validation', () => {
       expect(result.templates.brainstormer.id).toBe('brainstormer')
     })
 
-    test.skip('should validate spawnable agents', async () => {
-      const fileContext: ProjectFileContext = {
-        ...mockFileContext,
-        agentTemplates: {
-          'invalid.ts': {
-            id: 'invalid_agent',
-            version: '1.0.0',
-            displayName: 'Invalid',
-            spawnerPrompt: 'Invalid agent',
-            model: 'anthropic/claude-4-sonnet-20250522',
-            systemPrompt: 'Test',
-            instructionsPrompt: 'Test',
-            stepPrompt: 'Test',
-            spawnableAgents: ['nonexistent_agent'],
-            outputMode: 'last_message',
-            includeMessageHistory: true,
-            inheritParentSystemPrompt: false,
-            toolNames: ['end_turn'],
-          },
-        },
-      }
-
-      const result = validateAgents({
-        agentTemplates: fileContext.agentTemplates || {},
-        logger,
-      })
-
-      expect(result.validationErrors).toHaveLength(1)
-      expect(result.validationErrors[0].message).toContain(
-        'Invalid spawnable agents: nonexistent_agent',
-      )
-    })
-
     it('should merge static and dynamic templates', async () => {
       const fileContext: ProjectFileContext = {
         ...mockFileContext,

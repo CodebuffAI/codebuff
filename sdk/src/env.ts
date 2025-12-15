@@ -9,6 +9,8 @@ import {
   getBaseEnv,
   createTestBaseEnv,
 } from '@codebuff/common/env-process'
+import { BYOK_OPENROUTER_ENV_VAR } from '@codebuff/common/constants/byok'
+import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 
 import type { SdkEnv } from './types/env'
 
@@ -48,3 +50,15 @@ export const createTestSdkEnv = (
   OVERRIDE_ARCH: undefined,
   ...overrides,
 })
+
+export const getCodebuffApiKeyFromEnv = (): string | undefined => {
+  return process.env[API_KEY_ENV_VAR]
+}
+
+export const getSystemProcessEnv = (): NodeJS.ProcessEnv => {
+  return process.env
+}
+
+export const getByokOpenrouterApiKeyFromEnv = (): string | undefined => {
+  return process.env[BYOK_OPENROUTER_ENV_VAR]
+}

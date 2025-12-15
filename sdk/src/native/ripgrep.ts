@@ -2,15 +2,22 @@ import { existsSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
+import { getSdkEnv } from '../env'
+
+import type { SdkEnv } from '../types/env'
+
 /**
  * Get the path to the bundled ripgrep binary based on the current platform
  * @param importMetaUrl - import.meta.url from the calling module
  * @returns Path to the ripgrep binary
  */
-export function getBundledRgPath(importMetaUrl?: string): string {
+export function getBundledRgPath(
+  importMetaUrl?: string,
+  env: SdkEnv = getSdkEnv(),
+): string {
   // Allow override via environment variable
-  if (process.env.CODEBUFF_RG_PATH) {
-    return process.env.CODEBUFF_RG_PATH
+  if (env.CODEBUFF_RG_PATH) {
+    return env.CODEBUFF_RG_PATH
   }
 
   // Determine platform-specific directory name

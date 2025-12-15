@@ -18,7 +18,7 @@ describe('Prompt Caching', () => {
       let cost1 = -1
       const run1 = await client.run({
         prompt: `${filler}\n\n${prompt}`,
-        agent: 'codebuff/base2@latest',
+        agent: 'base2',
         handleEvent: (event) => {
           if (event.type === 'finish') {
             cost1 = event.totalCost
@@ -33,7 +33,7 @@ describe('Prompt Caching', () => {
       let cost2 = -1
       const run2 = await client.run({
         prompt,
-        agent: 'codebuff/base2@latest',
+        agent: 'base2',
         previousRun: run1,
         handleEvent: (event) => {
           if (event.type === 'finish') {

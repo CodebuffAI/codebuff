@@ -7,6 +7,7 @@
 import { create } from 'zustand'
 
 import { themeConfig, buildTheme } from '../utils/theme-config'
+import { getCliEnv } from '../utils/env'
 import {
   chatThemes,
   cloneChatTheme,
@@ -58,7 +59,8 @@ const THEME_PRIORITY: ThemeDetector[] = [
 ]
 
 export const detectSystemTheme = (): ThemeName => {
-  const envPreference = process.env.OPEN_TUI_THEME ?? process.env.OPENTUI_THEME
+  const env = getCliEnv()
+  const envPreference = env.OPEN_TUI_THEME ?? env.OPENTUI_THEME
   const normalizedEnv = envPreference?.toLowerCase()
 
   if (normalizedEnv === 'dark' || normalizedEnv === 'light') {

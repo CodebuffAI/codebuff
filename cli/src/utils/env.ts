@@ -5,10 +5,7 @@
  * process env with CLI-specific vars for terminal/IDE detection.
  */
 
-import {
-  getBaseEnv,
-  createTestBaseEnv,
-} from '@codebuff/common/env-process'
+import { getBaseEnv, createTestBaseEnv } from '@codebuff/common/env-process'
 
 import type { CliEnv } from '../types/env'
 
@@ -23,6 +20,8 @@ export const getCliEnv = (): CliEnv => ({
   KITTY_WINDOW_ID: process.env.KITTY_WINDOW_ID,
   SIXEL_SUPPORT: process.env.SIXEL_SUPPORT,
   ZED_NODE_ENV: process.env.ZED_NODE_ENV,
+  ZED_TERM: process.env.ZED_TERM,
+  ZED_SHELL: process.env.ZED_SHELL,
 
   // VS Code family detection
   VSCODE_THEME_KIND: process.env.VSCODE_THEME_KIND,
@@ -57,21 +56,29 @@ export const getCliEnv = (): CliEnv => ({
   CODEBUFF_CLI_VERSION: process.env.CODEBUFF_CLI_VERSION,
   CODEBUFF_CLI_TARGET: process.env.CODEBUFF_CLI_TARGET,
   CODEBUFF_RG_PATH: process.env.CODEBUFF_RG_PATH,
+  CODEBUFF_SCROLL_MULTIPLIER: process.env.CODEBUFF_SCROLL_MULTIPLIER,
 })
+
+/**
+ * Get the raw system process.env object.
+ * Use this when you need to pass the full environment to subprocesses
+ * or when you need to set environment variables at runtime.
+ */
+export const getSystemProcessEnv = (): NodeJS.ProcessEnv => process.env
 
 /**
  * Create a test CliEnv with optional overrides.
  * Composes from createTestBaseEnv() for DRY.
  */
-export const createTestCliEnv = (
-  overrides: Partial<CliEnv> = {},
-): CliEnv => ({
+export const createTestCliEnv = (overrides: Partial<CliEnv> = {}): CliEnv => ({
   ...createTestBaseEnv(),
 
   // CLI-specific defaults
   KITTY_WINDOW_ID: undefined,
   SIXEL_SUPPORT: undefined,
   ZED_NODE_ENV: undefined,
+  ZED_TERM: undefined,
+  ZED_SHELL: undefined,
   VSCODE_THEME_KIND: undefined,
   VSCODE_COLOR_THEME_KIND: undefined,
   VSCODE_GIT_IPC_HANDLE: undefined,
@@ -94,5 +101,6 @@ export const createTestCliEnv = (
   CODEBUFF_CLI_VERSION: undefined,
   CODEBUFF_CLI_TARGET: undefined,
   CODEBUFF_RG_PATH: undefined,
+  CODEBUFF_SCROLL_MULTIPLIER: undefined,
   ...overrides,
 })

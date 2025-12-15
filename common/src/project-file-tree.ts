@@ -169,7 +169,12 @@ export async function parseGitignore(params: {
   for (const ignoreFilePath of ignoreFiles) {
     if (!(await fileExists({ filePath: ignoreFilePath, fs }))) continue
 
-    const ignoreContent = await fs.readFile(ignoreFilePath, 'utf8')
+    let ignoreContent: string
+    try {
+      ignoreContent = await fs.readFile(ignoreFilePath, 'utf8')
+    } catch {
+      continue
+    }
     const lines = ignoreContent.split('\n')
     for (let line of lines) {
       line = line.trim()

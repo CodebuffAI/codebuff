@@ -1,9 +1,9 @@
 import { Queue } from './arrays'
 import { clamp } from './math'
+import { getCliEnv } from './env'
 
 import type { ScrollAcceleration } from '@opentui/core'
-
-const SCROLL_MULTIPLIER = 'CODEBUFF_SCROLL_MULTIPLIER'
+import type { CliEnv } from '../types/env'
 
 const ENVIRONMENT_TYPE_VARS = [
   'TERM_PROGRAM',
@@ -30,18 +30,20 @@ type ScrollEnvironment = {
   multiplier: number
 }
 
-const resolveScrollEnvironment = (): ScrollEnvironment => {
-  let multiplier = parseFloat(process.env[SCROLL_MULTIPLIER] ?? '')
+const resolveScrollEnvironment = (
+  env: CliEnv = getCliEnv(),
+): ScrollEnvironment => {
+  let multiplier = parseFloat(env.CODEBUFF_SCROLL_MULTIPLIER ?? '')
 
   if (Number.isNaN(multiplier)) {
     multiplier = 1
   }
 
   for (const hintVar of ENVIRONMENT_TYPE_VARS) {
-    const value = process.env[hintVar]
-    for (const env of ENVIRONMENTS) {
-      if (value?.includes(env)) {
-        return { type: env, multiplier }
+    const value = env[hintVar]
+    for (const environment of ENVIRONMENTS) {
+      if (value?.includes(environment)) {
+        return { type: environment, multiplier }
       }
     }
   }

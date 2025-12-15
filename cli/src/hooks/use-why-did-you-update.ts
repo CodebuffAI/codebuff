@@ -24,7 +24,7 @@ import { logger } from '../utils/logger'
  * function MyComponent(props: MyProps) {
  *   useWhyDidYouUpdate('MyComponent', props, {
  *     logLevel: 'debug',
- *     enabled: process.env.NODE_ENV === 'development'
+ *     enabled: getCliEnv().NODE_ENV === 'development'
  *   })
  *   return <div>...</div>
  * }

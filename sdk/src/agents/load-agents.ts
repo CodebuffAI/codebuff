@@ -292,7 +292,9 @@ async function transpileAgent(
     }
 
     const hash = createHash('sha1').update(fullPath).digest('hex')
-    const tempDir = path.join(os.tmpdir(), 'codebuff-agents')
+    // Store compiled agents inside the current project so node module resolution
+    // can find dependencies (e.g. lodash, zod/v4) via parent node_modules.
+    const tempDir = path.join(process.cwd(), '.codebuff', 'agents')
     const compiledPath = path.join(tempDir, `${hash}.mjs`)
 
     await fs.promises.mkdir(tempDir, { recursive: true })

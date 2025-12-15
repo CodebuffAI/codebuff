@@ -1,0 +1,9 @@
+[install]
+# Keep SDK installs consistent with root hoisted setup
+linker = "hoisted"
+linkWorkspacePackages = true
+
+[test]
+# Exclude large test repositories from execution
+exclude = ["../evals/test-repos/**"]
+preload = ["./test/setup-env.ts"]

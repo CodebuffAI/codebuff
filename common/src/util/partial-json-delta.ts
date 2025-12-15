@@ -5,17 +5,17 @@ export function parsePartialJsonObjectSingle(content: string): {
 } {
   try {
     return { lastParamComplete: true, params: JSON.parse(content) }
-  } catch (error) {}
+  } catch {}
 
   if (!content.match(/\d$/)) {
     try {
       return { lastParamComplete: true, params: JSON.parse(content + '}') }
-    } catch (error) {}
+    } catch {}
   }
 
   try {
     return { lastParamComplete: false, params: JSON.parse(content + '"}') }
-  } catch (error) {}
+  } catch {}
 
   if (content.endsWith('\\')) {
     try {
@@ -23,7 +23,7 @@ export function parsePartialJsonObjectSingle(content: string): {
         lastParamComplete: false,
         params: JSON.parse(content.slice(0, -1) + '"}'),
       }
-    } catch (error) {}
+    } catch {}
   }
 
   let lastIndex = content.lastIndexOf(',')
@@ -33,7 +33,7 @@ export function parsePartialJsonObjectSingle(content: string): {
         lastParamComplete: true,
         params: JSON.parse(content.slice(0, lastIndex) + '}'),
       }
-    } catch (error) {}
+    } catch {}
 
     lastIndex = content.lastIndexOf(',', lastIndex - 1)
   }

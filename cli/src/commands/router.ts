@@ -1,5 +1,6 @@
 import { runTerminalCommand } from '@codebuff/sdk'
 
+
 import {
   findCommand,
   type RouterParams,
@@ -25,9 +26,8 @@ import {
   createRunTerminalToolResult,
 } from '../utils/bash-messages'
 import { showClipboardMessage } from '../utils/clipboard'
+import { getSystemProcessEnv } from '../utils/env'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
-
-
 
 /**
  * Run a bash command with automatic ghost/direct mode selection.
@@ -74,7 +74,7 @@ export function runBashCommand(command: string) {
     process_type: 'SYNC',
     cwd: commandCwd,
     timeout_seconds: -1,
-    env: process.env,
+    env: getSystemProcessEnv(),
   })
     .then(([{ value }]) => {
       const stdout = 'stdout' in value ? value.stdout || '' : ''

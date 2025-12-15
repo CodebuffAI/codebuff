@@ -20,6 +20,8 @@ export type CliEnv = BaseEnv & {
   KITTY_WINDOW_ID?: string
   SIXEL_SUPPORT?: string
   ZED_NODE_ENV?: string
+  ZED_TERM?: string
+  ZED_SHELL?: string
 
   // VS Code family detection
   VSCODE_THEME_KIND?: string
@@ -54,6 +56,7 @@ export type CliEnv = BaseEnv & {
   CODEBUFF_CLI_VERSION?: string
   CODEBUFF_CLI_TARGET?: string
   CODEBUFF_RG_PATH?: string
+  CODEBUFF_SCROLL_MULTIPLIER?: string
 }
 
 /**

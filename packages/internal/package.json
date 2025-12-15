@@ -28,6 +28,14 @@
       "types": "./src/openrouter-ai-sdk/index.ts",
       "default": "./src/openrouter-ai-sdk/index.ts"
     },
+    "./env": {
+      "react-server": "./src/env.react-server.ts",
+      "browser": "./src/env.browser.ts",
+      "bun": "./src/env.ts",
+      "import": "./src/env.ts",
+      "types": "./src/env.ts",
+      "default": "./src/env.ts"
+    },
     "./*": {
       "bun": "./src/*.ts",
       "import": "./src/*.ts",
@@ -53,6 +61,7 @@
     "drizzle-kit": "0.31.8",
     "drizzle-orm": "0.45.1",
     "loops": "^5.0.1",
+    "server-only": "0.0.1",
     "msw": "^2.12.1"
   },
   "devDependencies": {

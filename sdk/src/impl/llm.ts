@@ -4,8 +4,8 @@ import {
   checkLiveUserInput,
   getLiveUserInputIds,
 } from '@codebuff/agent-runtime/live-user-inputs'
+import { getByokOpenrouterApiKeyFromEnv } from '../env'
 import {
-  BYOK_OPENROUTER_ENV_VAR,
   BYOK_OPENROUTER_HEADER,
 } from '@codebuff/common/constants/byok'
 import { models, PROFIT_MARGIN } from '@codebuff/common/old-constants'
@@ -134,7 +134,7 @@ function getAiSdkModel(params: {
     },
   }
 
-  const openrouterApiKey = process.env[BYOK_OPENROUTER_ENV_VAR]
+  const openrouterApiKey = getByokOpenrouterApiKeyFromEnv()
   const codebuffBackendModel = new OpenAICompatibleChatLanguageModel(model, {
     provider: 'codebuff',
     url: ({ path: endpoint }) =>
@@ -157,7 +157,7 @@ function getAiSdkModel(params: {
           typeof parsedBody?.usage?.cost_details?.upstream_inference_cost ===
           'number'
         ) {
-          openrouterUsage.cost =
+          openrouterUsage.costDetails.upstreamInferenceCost =
             parsedBody.usage.cost_details.upstream_inference_cost
         }
         return { codebuff: { usage: openrouterUsage } }

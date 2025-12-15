@@ -7,3 +7,4 @@ linkWorkspacePackages = true
 [test]
 # Exclude test repositories from test execution to prevent timeouts
 exclude = ["evals/test-repos/**"]
+preload = ["./sdk/test/setup-env.ts"]

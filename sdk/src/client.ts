@@ -1,6 +1,7 @@
 import { WEBSITE_URL } from './constants'
+import { getCodebuffApiKeyFromEnv } from './env'
 import { run } from './run'
-import { API_KEY_ENV_VAR } from '../../common/src/old-constants'
+import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 
 import type { RunOptions, CodebuffClientOptions } from './run'
 import type { RunState } from './run-state'
@@ -12,7 +13,7 @@ export class CodebuffClient {
   }
 
   constructor(options: CodebuffClientOptions) {
-    const foundApiKey = options.apiKey ?? process.env[API_KEY_ENV_VAR]
+    const foundApiKey = options.apiKey ?? getCodebuffApiKeyFromEnv()
     if (!foundApiKey) {
       throw new Error(
         `Codebuff API key not found. Please provide an apiKey in the constructor of CodebuffClient or set the ${API_KEY_ENV_VAR} environment variable.`,
@@ -46,7 +47,7 @@ export class CodebuffClient {
    * @param agentDefinitions - (Optional) Array of custom agent definitions. Each object should satisfy the AgentDefinition type. You can input the agent's id field into the agent parameter to run that agent.
    * @param customToolDefinitions - (Optional) Array of custom tool definitions that extend the agent's capabilities. Each tool definition includes a name, Zod schema for input validation, and a handler function. These tools can be called by the agent during execution.
    * @param maxAgentSteps - (Optional) Maximum number of steps the agent can take before stopping. Use this as a safety measure in case your agent starts going off the rails. A reasonable number is around 20.
-   * @param env - (Optional) Environment variables to pass to terminal commands executed by the agent. These will be merged with process.env, with the custom values taking precedence. Can also be provided in individual run() calls to override.
+   * @param env - (Optional) Environment variables to pass to terminal commands executed by the agent. These will be merged with the current process environment, with the custom values taking precedence. Can also be provided in individual run() calls to override.
    *
    * @returns A Promise that resolves to a RunState JSON object which you can pass to a subsequent run() call to continue the run. Use result.output to get the agent's output.
    */
