@@ -97,8 +97,8 @@ function* handleStepsMultiPrompt({
       prompt: `Strategy: ${prompt}`,
     }))
 
-  // Always spawn an additional gpt-5 implementor with no prompt
-  implementorAgents.push({
+  // Always spawn an additional gpt-5 implementor first with no prompt
+  implementorAgents.unshift({
     agent_type: 'editor-implementor2-gpt-5',
   })
 
