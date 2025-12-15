@@ -20,6 +20,7 @@ import {
 import { setProjectRoot } from '../../project-files'
 
 import type * as AuthModule from '../../utils/auth'
+import type * as CodebuffApiModule from '../../utils/codebuff-api'
 
 type User = AuthModule.User
 
@@ -63,8 +64,16 @@ describe('Logout and Re-login helpers', () => {
     )
   }
 
+  const mockLogoutApi = () => {
+    const apiModule = require('../../utils/codebuff-api') as typeof CodebuffApiModule
+    spyOn(apiModule, 'getApiClient').mockReturnValue({
+      logout: async () => ({ ok: true, status: 200 }),
+    } as any)
+  }
+
   test('logoutUser removes credentials file and returns true', async () => {
     mockConfigPaths()
+    mockLogoutApi()
     saveUserCredentials(ORIGINAL_USER)
 
     const credentialsPath = path.join(tempConfigDir, 'credentials.json')
@@ -77,6 +86,7 @@ describe('Logout and Re-login helpers', () => {
 
   test('re-login can persist new credentials after logout', async () => {
     mockConfigPaths()
+    mockLogoutApi()
 
     saveUserCredentials(ORIGINAL_USER)
     const firstLoaded = getUserCredentials()

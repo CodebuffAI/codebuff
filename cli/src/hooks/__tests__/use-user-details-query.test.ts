@@ -1,9 +1,10 @@
-import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test'
+import { describe, test, expect, mock, beforeEach, afterEach, spyOn } from 'bun:test'
 
 import { createMockApiClient } from '../../__tests__/helpers/mock-api-client'
 import { fetchUserDetails } from '../use-user-details-query'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type * as CodebuffApiModule from '../../utils/codebuff-api'
 
 describe('fetchUserDetails', () => {
   const mockLogger: Logger = {
@@ -179,18 +180,29 @@ describe('fetchUserDetails', () => {
   })
 
   describe('environment validation', () => {
-    test('throws error when NEXT_PUBLIC_CODEBUFF_APP_URL is not set', async () => {
-      delete process.env.NEXT_PUBLIC_CODEBUFF_APP_URL
+    test('uses shared API client when apiClient is not provided', async () => {
+      const meMock = mock(() =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          data: { email: 'test@example.com' },
+        }),
+      )
+      const apiClient = createMockApiClient({ me: meMock })
 
-      // When no apiClient is provided and env is not set, createCodebuffApiClient
-      // will throw due to missing baseUrl (or we test directly)
+      const apiModule = require('../../utils/codebuff-api') as typeof CodebuffApiModule
+      const setTokenSpy = spyOn(apiModule, 'setApiClientAuthToken')
+      spyOn(apiModule, 'getApiClient').mockReturnValue(apiClient as any)
+
       await expect(
         fetchUserDetails({
           authToken: 'valid-token',
           fields: ['email'] as const,
           logger: mockLogger,
         }),
-      ).rejects.toThrow()
+      ).resolves.toEqual({ email: 'test@example.com' })
+
+      expect(setTokenSpy).toHaveBeenCalledWith('valid-token')
     })
   })
 })

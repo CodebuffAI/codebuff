@@ -85,10 +85,8 @@ jobs:
         package:
           [
             .agents,
-            backend,
             cli,
             common,
-            npm-app,
             packages/agent-runtime,
             packages/billing,
             packages/internal,
@@ -97,10 +95,8 @@ jobs:
           ]
         include:
           - package: .agents
-          - package: backend
           - package: cli
           - package: common
-          - package: npm-app
           - package: packages/agent-runtime
           - package: packages/billing
           - package: packages/internal
@@ -180,10 +176,8 @@ jobs:
         package:
           [
             .agents,
-            backend,
             cli,
             common,
-            npm-app,
             packages/agent-runtime,
             packages/billing,
             packages/internal,
@@ -192,10 +186,8 @@ jobs:
           ]
         include:
           - package: .agents
-          - package: backend
           - package: cli
           - package: common
-          - package: npm-app
           - package: packages/agent-runtime
           - package: packages/billing
           - package: packages/internal
