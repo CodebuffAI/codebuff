@@ -3,6 +3,11 @@ import { PROFIT_MARGIN } from '@codebuff/common/old-constants'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
+import {
+  checkCreditsAndCharge,
+  parseJsonBody,
+  requireUserFromApiKey,
+} from '../_helpers'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type {
   GetUserUsageDataFn,
@@ -16,11 +21,8 @@ import type {
 import type { NextRequest } from 'next/server'
 
 import { searchWeb } from '@codebuff/agent-runtime/llm-api/linkup-api'
-import { extractApiKeyFromHeader } from '@/util/auth'
 
-interface WebSearchEnvDeps {
-  LINKUP_API_KEY: string
-}
+import type { LinkupEnv } from '@codebuff/agent-runtime/llm-api/linkup-api'
 
 const bodySchema = z.object({
   query: z.string().min(1, 'query is required'),
@@ -37,7 +39,7 @@ export async function postWebSearch(params: {
   getUserUsageData: GetUserUsageDataFn
   consumeCreditsWithFallback: ConsumeCreditsWithFallbackFn
   fetch: typeof globalThis.fetch
-  serverEnv: WebSearchEnvDeps
+  serverEnv: LinkupEnv
 }) {
   const {
     req,
@@ -49,72 +51,30 @@ export async function postWebSearch(params: {
     fetch,
     serverEnv,
   } = params
-  let { logger } = params
+  const baseLogger = params.logger
 
-  // Parse JSON body
-  let json: unknown
-  try {
-    json = await req.json()
-  } catch (e) {
-    trackEvent({
-      event: AnalyticsEvent.WEB_SEARCH_VALIDATION_ERROR,
-      userId: 'unknown',
-      properties: { error: 'Invalid JSON' },
-      logger,
-    })
-    return NextResponse.json(
-      { error: 'Invalid JSON in request body' },
-      { status: 400 },
-    )
-  }
-
-  // Validate body
-  const parsed = bodySchema.safeParse(json)
-  if (!parsed.success) {
-    trackEvent({
-      event: AnalyticsEvent.WEB_SEARCH_VALIDATION_ERROR,
-      userId: 'unknown',
-      properties: { issues: parsed.error.format() },
-      logger,
-    })
-    return NextResponse.json(
-      { error: 'Invalid request body', details: parsed.error.format() },
-      { status: 400 },
-    )
-  }
-  const { query, depth, repoUrl } = parsed.data
-
-  // Auth
-  const apiKey = extractApiKeyFromHeader(req)
-  if (!apiKey) {
-    trackEvent({
-      event: AnalyticsEvent.WEB_SEARCH_AUTH_ERROR,
-      userId: 'unknown',
-      properties: { reason: 'Missing API key' },
-      logger,
-    })
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
-  }
-
-  const userInfo = await getUserInfoFromApiKey({
-    apiKey,
-    fields: ['id', 'email', 'discord_id'],
-    logger,
+  const parsedBody = await parseJsonBody({
+    req,
+    schema: bodySchema,
+    logger: baseLogger,
+    trackEvent,
+    validationErrorEvent: AnalyticsEvent.WEB_SEARCH_VALIDATION_ERROR,
   })
-  if (!userInfo) {
-    trackEvent({
-      event: AnalyticsEvent.WEB_SEARCH_AUTH_ERROR,
-      userId: 'unknown',
-      properties: { reason: 'Invalid API key' },
-      logger,
-    })
-    return NextResponse.json(
-      { message: 'Invalid Codebuff API key' },
-      { status: 401 },
-    )
-  }
-  logger = loggerWithContext({ userInfo })
-  const userId = userInfo.id
+  if (!parsedBody.ok) return parsedBody.response
+
+  const { query, depth, repoUrl } = parsedBody.data
+
+  const authed = await requireUserFromApiKey({
+    req,
+    getUserInfoFromApiKey,
+    logger: baseLogger,
+    loggerWithContext,
+    trackEvent,
+    authErrorEvent: AnalyticsEvent.WEB_SEARCH_AUTH_ERROR,
+  })
+  if (!authed.ok) return authed.response
+
+  const { userId, logger } = authed.data
 
   // Track request
   trackEvent({
@@ -124,50 +84,21 @@ export async function postWebSearch(params: {
     logger,
   })
 
-  // Check credits (pre-check)
-  const {
-    balance: { totalRemaining },
-    nextQuotaReset,
-  } = await getUserUsageData({ userId, logger })
   const baseCost = depth === 'deep' ? 5 : 1
   const creditsToCharge = Math.round(baseCost * (1 + PROFIT_MARGIN))
 
-  if (totalRemaining <= 0 || totalRemaining < creditsToCharge) {
-    trackEvent({
-      event: AnalyticsEvent.WEB_SEARCH_INSUFFICIENT_CREDITS,
-      userId,
-      properties: { totalRemaining, required: creditsToCharge, nextQuotaReset },
-      logger,
-    })
-    return NextResponse.json(
-      {
-        message: 'Insufficient credits',
-        totalRemaining,
-        required: creditsToCharge,
-        nextQuotaReset,
-      },
-      { status: 402 },
-    )
-  }
-
-  // Charge credits upfront with delegation fallback
-  const chargeResult = await consumeCreditsWithFallback({
+  const credits = await checkCreditsAndCharge({
     userId,
     creditsToCharge,
     repoUrl,
     context: 'web search',
     logger,
+    trackEvent,
+    insufficientCreditsEvent: AnalyticsEvent.WEB_SEARCH_INSUFFICIENT_CREDITS,
+    getUserUsageData,
+    consumeCreditsWithFallback,
   })
-  if (!chargeResult.success) {
-    logger.error(
-      { userId, creditsToCharge, error: chargeResult.error },
-      'Failed to charge credits for web search',
-    )
-    return NextResponse.json(
-      { error: 'Failed to charge credits' },
-      { status: 500 },
-    )
-  }
+  if (!credits.ok) return credits.response
 
   // Perform search
   try {
@@ -186,7 +117,10 @@ export async function postWebSearch(params: {
       )
     }
 
-    return NextResponse.json({ result, creditsUsed: creditsToCharge })
+    return NextResponse.json({
+      result,
+      creditsUsed: credits.data.creditsUsed,
+    })
   } catch (error) {
     logger.error(
       {

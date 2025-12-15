@@ -2,7 +2,7 @@ import { withTimeout } from '@codebuff/common/util/promise'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-interface LinkupEnv {
+export interface LinkupEnv {
   LINKUP_API_KEY: string
 }
 
@@ -20,12 +20,14 @@ export interface LinkupSearchResponse {
   sources: LinkupSearchResult[]
 }
 
-/**
- * Searches the web using Linkup API
- * @param query The search query
- * @param options Search options including depth and max results
- * @returns Array containing a single result with the sourced answer or null if the request fails
- */
+const headersToRecord = (headers: Headers): Record<string, string> => {
+  const record: Record<string, string> = {}
+  headers.forEach((value, key) => {
+    record[key] = value
+  })
+  return record
+}
+
 export async function searchWeb(options: {
   query: string
   depth?: 'standard' | 'deep'
@@ -57,7 +59,7 @@ export async function searchWeb(options: {
   try {
     const fetchStartTime = Date.now()
     const response = await withTimeout(
-      fetch(`${LINKUP_API_BASE_URL}/search`, {
+      fetch(requestUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -92,15 +94,7 @@ export async function searchWeb(options: {
           responseBody: responseBody.substring(0, 500), // Truncate long responses
           fetchDuration,
           totalDuration: Date.now() - apiStartTime,
-          headers: response.headers
-            ? (() => {
-                const headerObj: Record<string, string> = {}
-                response.headers.forEach((value, key) => {
-                  headerObj[key] = value
-                })
-                return headerObj
-              })()
-            : 'No headers',
+          headers: headersToRecord(response.headers),
         },
         `Request failed with ${response.status}: ${response.statusText}`,
       )
@@ -108,10 +102,11 @@ export async function searchWeb(options: {
     }
 
     let data: LinkupSearchResponse
+    let parseDuration = 0
     try {
       const parseStartTime = Date.now()
       data = (await response.json()) as LinkupSearchResponse
-      const parseDuration = Date.now() - parseStartTime
+      parseDuration = Date.now() - parseStartTime
     } catch (jsonError) {
       logger.error(
         {
@@ -124,6 +119,7 @@ export async function searchWeb(options: {
                 }
               : jsonError,
           fetchDuration,
+          parseDuration,
           totalDuration: Date.now() - apiStartTime,
           status: response.status,
           statusText: response.statusText,
@@ -142,6 +138,7 @@ export async function searchWeb(options: {
           answerLength: data?.answer?.length || 0,
           sourcesCount: data?.sources?.length || 0,
           fetchDuration,
+          parseDuration,
           totalDuration: Date.now() - apiStartTime,
         },
         'Invalid response format - missing or invalid answer field',
@@ -156,6 +153,7 @@ export async function searchWeb(options: {
         answerLength: data.answer.length,
         sourcesCount: data.sources?.length || 0,
         fetchDuration,
+        parseDuration,
         totalDuration,
         success: true,
       },

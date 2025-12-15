@@ -9,17 +9,39 @@ interface CodebuffWebApiEnv {
   ciEnv: CiEnv
 }
 
-export async function callWebSearchAPI(params: {
-  query: string
-  depth?: 'standard' | 'deep'
-  repoUrl?: string | null
+const tryParseJson = (text: string): unknown => {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return null
+  }
+}
+
+const getStringField = (value: unknown, key: string): string | undefined => {
+  if (!value || typeof value !== 'object') return undefined
+  const record = value as Record<string, unknown>
+  const field = record[key]
+  return typeof field === 'string' ? field : undefined
+}
+
+const getNumberField = (value: unknown, key: string): number | undefined => {
+  if (!value || typeof value !== 'object') return undefined
+  const record = value as Record<string, unknown>
+  const field = record[key]
+  return typeof field === 'number' ? field : undefined
+}
+
+const callCodebuffV1 = async (params: {
+  endpoint: '/api/v1/web-search' | '/api/v1/docs-search'
+  payload: unknown
   fetch: typeof globalThis.fetch
   logger: Logger
   env: CodebuffWebApiEnv
   baseUrl?: string
   apiKey?: string
-}): Promise<{ result?: string; error?: string; creditsUsed?: number }> {
-  const { query, depth = 'standard', repoUrl, fetch, logger, env } = params
+  requestName: 'web-search' | 'docs-search'
+}): Promise<{ json?: unknown; error?: string; creditsUsed?: number }> => {
+  const { endpoint, payload, fetch, logger, env, requestName } = params
   const baseUrl = params.baseUrl ?? env.clientEnv.NEXT_PUBLIC_CODEBUFF_APP_URL
   const apiKey = params.apiKey ?? env.ciEnv.CODEBUFF_API_KEY
 
@@ -27,8 +49,7 @@ export async function callWebSearchAPI(params: {
     return { error: 'Missing Codebuff base URL or API key' }
   }
 
-  const url = `${baseUrl}/api/v1/web-search`
-  const payload = { query, depth, ...(repoUrl ? { repoUrl } : {}) }
+  const url = `${baseUrl}${endpoint}`
 
   try {
     const res = await withTimeout(
@@ -45,18 +66,14 @@ export async function callWebSearchAPI(params: {
     )
 
     const text = await res.text()
-    const tryJson = () => {
-      try {
-        return JSON.parse(text)
-      } catch {
-        return null
-      }
-    }
+    const json = tryParseJson(text)
 
     if (!res.ok) {
-      const maybe = tryJson()
       const err =
-        (maybe && (maybe.error || maybe.message)) || text || 'Request failed'
+        getStringField(json, 'error') ??
+        getStringField(json, 'message') ??
+        text ??
+        'Request failed'
       logger.warn(
         {
           url,
@@ -64,21 +81,12 @@ export async function callWebSearchAPI(params: {
           statusText: res.statusText,
           body: text?.slice(0, 500),
         },
-        'Web API web-search request failed',
+        `Web API ${requestName} request failed`,
       )
-      return { error: typeof err === 'string' ? err : 'Unknown error' }
+      return { error: err }
     }
 
-    const data = tryJson()
-    if (data && typeof data.result === 'string') {
-      return {
-        result: data.result,
-        creditsUsed:
-          typeof data.creditsUsed === 'number' ? data.creditsUsed : undefined,
-      }
-    }
-    if (data && typeof data.error === 'string') return { error: data.error }
-    return { error: 'Invalid response format' }
+    return { json, creditsUsed: getNumberField(json, 'creditsUsed') }
   } catch (error) {
     logger.error(
       {
@@ -87,10 +95,44 @@ export async function callWebSearchAPI(params: {
             ? { name: error.name, message: error.message, stack: error.stack }
             : error,
       },
-      'Web API web-search network error',
+      `Web API ${requestName} network error`,
     )
     return { error: error instanceof Error ? error.message : 'Network error' }
   }
+}
+
+export async function callWebSearchAPI(params: {
+  query: string
+  depth?: 'standard' | 'deep'
+  repoUrl?: string | null
+  fetch: typeof globalThis.fetch
+  logger: Logger
+  env: CodebuffWebApiEnv
+  baseUrl?: string
+  apiKey?: string
+}): Promise<{ result?: string; error?: string; creditsUsed?: number }> {
+  const { query, depth = 'standard', repoUrl, fetch, logger, env } = params
+  const payload = { query, depth, ...(repoUrl ? { repoUrl } : {}) }
+
+  const res = await callCodebuffV1({
+    endpoint: '/api/v1/web-search',
+    payload,
+    fetch,
+    logger,
+    env,
+    baseUrl: params.baseUrl,
+    apiKey: params.apiKey,
+    requestName: 'web-search',
+  })
+  if (res.error) return { error: res.error }
+
+  const result = getStringField(res.json, 'result')
+  if (result) {
+    return { result, creditsUsed: res.creditsUsed }
+  }
+
+  const error = getStringField(res.json, 'error')
+  return { error: error ?? 'Invalid response format' }
 }
 
 export async function callDocsSearchAPI(params: {
@@ -105,78 +147,28 @@ export async function callDocsSearchAPI(params: {
   apiKey?: string
 }): Promise<{ documentation?: string; error?: string; creditsUsed?: number }> {
   const { libraryTitle, topic, maxTokens, repoUrl, fetch, logger, env } = params
-  const baseUrl = params.baseUrl ?? env.clientEnv.NEXT_PUBLIC_CODEBUFF_APP_URL
-  const apiKey = params.apiKey ?? env.ciEnv.CODEBUFF_API_KEY
-
-  if (!baseUrl || !apiKey) {
-    return { error: 'Missing Codebuff base URL or API key' }
-  }
-
-  const url = `${baseUrl}/api/v1/docs-search`
-  const payload: Record<string, any> = { libraryTitle }
+  const payload: Record<string, unknown> = { libraryTitle }
   if (topic) payload.topic = topic
   if (typeof maxTokens === 'number') payload.maxTokens = maxTokens
   if (repoUrl) payload.repoUrl = repoUrl
 
-  try {
-    const res = await withTimeout(
-      fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-          'x-codebuff-api-key': apiKey,
-        },
-        body: JSON.stringify(payload),
-      }),
-      FETCH_TIMEOUT_MS,
-    )
+  const res = await callCodebuffV1({
+    endpoint: '/api/v1/docs-search',
+    payload,
+    fetch,
+    logger,
+    env,
+    baseUrl: params.baseUrl,
+    apiKey: params.apiKey,
+    requestName: 'docs-search',
+  })
+  if (res.error) return { error: res.error }
 
-    const text = await res.text()
-    const tryJson = () => {
-      try {
-        return JSON.parse(text) as any
-      } catch {
-        return null
-      }
-    }
-
-    if (!res.ok) {
-      const maybe = tryJson()
-      const err =
-        (maybe && (maybe.error || maybe.message)) || text || 'Request failed'
-      logger.warn(
-        {
-          url,
-          status: res.status,
-          statusText: res.statusText,
-          body: text?.slice(0, 500),
-        },
-        'Web API docs-search request failed',
-      )
-      return { error: typeof err === 'string' ? err : 'Unknown error' }
-    }
-
-    const data = tryJson()
-    if (data && typeof data.documentation === 'string') {
-      return {
-        documentation: data.documentation,
-        creditsUsed:
-          typeof data.creditsUsed === 'number' ? data.creditsUsed : undefined,
-      }
-    }
-    if (data && typeof data.error === 'string') return { error: data.error }
-    return { error: 'Invalid response format' }
-  } catch (error) {
-    logger.error(
-      {
-        error:
-          error instanceof Error
-            ? { name: error.name, message: error.message, stack: error.stack }
-            : error,
-      },
-      'Web API docs-search network error',
-    )
-    return { error: error instanceof Error ? error.message : 'Network error' }
+  const documentation = getStringField(res.json, 'documentation')
+  if (documentation) {
+    return { documentation, creditsUsed: res.creditsUsed }
   }
+
+  const error = getStringField(res.json, 'error')
+  return { error: error ?? 'Invalid response format' }
 }
