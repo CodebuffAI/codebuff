@@ -1,42 +1,47 @@
-import { PostHog } from 'posthog-node'
+import {
+  createPostHogClient,
+  getConfigFromEnv,
+  isProdEnv,
+  type AnalyticsClient,
+  type AnalyticsConfig,
+  type PostHogClientOptions,
+} from './analytics-core'
 
 import type { AnalyticsEvent } from './constants/analytics-events'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { ClientEnv } from './env-schema'
 
-let client: PostHog | undefined
+// Re-export types from core for backwards compatibility
+export type { AnalyticsClient, AnalyticsConfig } from './analytics-core'
 
-type EnvName = 'dev' | 'test' | 'prod'
-
-type AnalyticsConfig = {
-  envName: EnvName
-  posthogApiKey: string
-  posthogHostUrl: string
+/** Dependencies that can be injected for testing */
+export interface ServerAnalyticsDeps {
+  createClient: (apiKey: string, options: PostHogClientOptions) => AnalyticsClient
 }
 
+let client: AnalyticsClient | undefined
 let analyticsConfig: AnalyticsConfig | null = null
+let injectedDeps: ServerAnalyticsDeps | undefined
+
+/** Get client factory (injected or default PostHog) */
+function getCreateClient() {
+  return injectedDeps?.createClient ?? createPostHogClient
+}
+
+/** Reset analytics state - for testing only */
+export function resetServerAnalyticsState(deps?: ServerAnalyticsDeps) {
+  client = undefined
+  analyticsConfig = null
+  injectedDeps = deps
+}
+
+/** Get current config - exposed for testing */
+export function getAnalyticsConfig() {
+  return analyticsConfig
+}
 
 export const configureAnalytics = (config: AnalyticsConfig | null) => {
   analyticsConfig = config
   client = undefined
-}
-
-const getConfigFromClientEnv = (
-  clientEnv: Pick<
-    ClientEnv,
-    | 'NEXT_PUBLIC_CB_ENVIRONMENT'
-    | 'NEXT_PUBLIC_POSTHOG_API_KEY'
-    | 'NEXT_PUBLIC_POSTHOG_HOST_URL'
-  >,
-): AnalyticsConfig | null => {
-  const envName = clientEnv.NEXT_PUBLIC_CB_ENVIRONMENT
-  const posthogApiKey = clientEnv.NEXT_PUBLIC_POSTHOG_API_KEY
-  const posthogHostUrl = clientEnv.NEXT_PUBLIC_POSTHOG_HOST_URL
-
-  if (!envName) return null
-  if (!posthogApiKey || !posthogHostUrl) return null
-
-  return { envName, posthogApiKey, posthogHostUrl }
 }
 
 export function initAnalytics({
@@ -44,23 +49,21 @@ export function initAnalytics({
   clientEnv,
 }: {
   logger: Logger
-  clientEnv?: Parameters<typeof getConfigFromClientEnv>[0]
+  clientEnv?: Parameters<typeof getConfigFromEnv>[0]
 }) {
   if (clientEnv) {
-    configureAnalytics(getConfigFromClientEnv(clientEnv))
+    configureAnalytics(getConfigFromEnv(clientEnv))
   }
 
-  if (analyticsConfig?.envName !== 'prod') {
+  if (!isProdEnv(analyticsConfig?.envName)) {
     return
   }
 
-  if (!analyticsConfig) {
-    return
-  }
+  const createClient = getCreateClient()
 
   try {
-    client = new PostHog(analyticsConfig.posthogApiKey, {
-      host: analyticsConfig.posthogHostUrl,
+    client = createClient(analyticsConfig!.posthogApiKey, {
+      host: analyticsConfig!.posthogHostUrl,
       flushAt: 1,
       flushInterval: 0,
     })
@@ -69,13 +72,16 @@ export function initAnalytics({
   }
 }
 
-export async function flushAnalytics() {
+export async function flushAnalytics(logger?: Logger) {
   if (!client) {
     return
   }
   try {
     await client.flush()
-  } catch {}
+  } catch (error) {
+    // Log the error but don't throw - flushing is best-effort
+    logger?.warn({ error }, 'Failed to flush analytics')
+  }
 }
 
 export function trackEvent({
@@ -89,21 +95,20 @@ export function trackEvent({
   properties?: Record<string, any>
   logger: Logger
 }) {
-  if (analyticsConfig?.envName !== 'prod') {
+  if (!isProdEnv(analyticsConfig?.envName)) {
     // Note (James): This log was too noisy. Reenable it as you need to test something.
     // logger.info({ payload: { event, properties } }, event)
     return
   }
 
   if (!client) {
-    initAnalytics({ logger })
-    if (!client) {
-      logger.warn(
-        { event, userId },
-        'Analytics client not initialized, skipping event tracking',
-      )
-      return
-    }
+    // Don't attempt to re-initialize here - initAnalytics requires clientEnv
+    // which we don't have in this context. Just warn and skip.
+    logger.warn(
+      { event, userId },
+      'Analytics client not initialized, skipping event tracking',
+    )
+    return
   }
 
   try {

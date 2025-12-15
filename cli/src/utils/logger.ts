@@ -102,14 +102,20 @@ function sendAnalyticsAndLog(
   ...args: any[]
 ): void {
   if (!IS_CI && !IS_TEST) {
-    const projectRoot = getProjectRoot()
+    let projectRoot: string | undefined
+    try {
+      projectRoot = getProjectRoot()
+    } catch {
+      projectRoot = undefined
+    }
+    if (projectRoot) {
+      const logTarget =
+        IS_DEV
+          ? path.join(projectRoot, 'debug', 'cli.jsonl')
+          : path.join(getCurrentChatDir(), 'log.jsonl')
 
-    const logTarget =
-      IS_DEV
-        ? path.join(projectRoot, 'debug', 'cli.jsonl')
-        : path.join(getCurrentChatDir(), 'log.jsonl')
-
-    setLogPath(logTarget)
+      setLogPath(logTarget)
+    }
   }
 
   const isStringOnly = typeof data === 'string' && msg === undefined
