@@ -7,8 +7,6 @@ order: 1
 
 # Creating Your First Agent
 
-Create, test, and publish a simple code reviewer agent.
-
 ## Video Walkthrough
 
 <div
@@ -36,39 +34,27 @@ Create, test, and publish a simple code reviewer agent.
   ></iframe>
 </div>
 
-## Step 1: Install and Initialize
-
-Install Codebuff globally:
+## Install and Initialize
 
 ```bash
 npm install -g codebuff
 ```
 
-Then navigate to your project and run:
+In your project:
 
 ```bash
 codebuff init-agents
 ```
 
-This creates a `.agents` directory with:
+This creates:
 
-- Type definitions in `.agents/types/`
-- Example agents in `.agents/examples/`
-- A starter template: `.agents/my-custom-agent.ts`
+- `.agents/types/` - type definitions
+- `.agents/examples/` - example agents
+- `.agents/my-custom-agent.ts` - starter template
 
-Typical output:
+## Create an Agent
 
-```
-📁 Creating agent files:
-  ✓ .agents/README.md - Documentation for your agents
-  ✓ .agents/types/agent-definition.ts - TypeScript type definitions for agents
-  ✓ .agents/my-custom-agent.ts - Your first custom agent example
-  ✓ .agents/examples/01-basic-diff-reviewer.ts - Basic diff reviewer agent example
-```
-
-## Step 2: Create Your Agent
-
-Create a new file `.agents/simple-code-reviewer.ts`:
+`.agents/simple-code-reviewer.ts`:
 
 ```typescript
 import type { AgentDefinition } from './types/agent-definition'
@@ -109,57 +95,31 @@ Your job is to review code changes and provide helpful, constructive feedback.`,
 export default definition
 ```
 
-You can also ask `@Bob the Agent Builder` inside Codebuff for help, but building one manually first makes the pieces clearer.
+`@Bob the Agent Builder` in Codebuff can also help.
 
-## Step 3: Test Your Agent Locally
+## Test Locally
 
-Now test your agent with Codebuff:
+```bash
+codebuff
+```
 
-1. **Start Codebuff:**
+Then:
 
-   ```bash
-   codebuff
-   ```
-
-2. **Have Codebuff spawn your agent using the @ command:**
-
-   ```
-   @Simple Code Reviewer please review my recent changes
-   ```
-
-3. **Watch it work:**
-   - It runs `git diff` to see changes
-   - Reads the modified files
-   - Provides a review
+```
+@Simple Code Reviewer please review my recent changes
+```
 
 Make some local changes first so it has something to inspect.
 
-## Step 4: Create a Publisher Profile
+## Create a Publisher Profile
 
-Before publishing, you need a publisher profile:
+[codebuff.com/publishers/new](https://www.codebuff.com/publishers/new)
 
-1. **Visit the publisher creation page:**
+Fill in your publisher name and ID.
 
-   Go to [https://www.codebuff.com/publishers/new](https://www.codebuff.com/publishers/new)
+## Prepare for Publishing
 
-2. **Choose ownership type:**
-   - **Personal**: Publish under your own name
-   - **Organization**: Publish under a team/company
-
-3. **Fill in basic information:**
-   - **Publisher Name**: Your display name (e.g., "John Smith")
-   - **Publisher ID**: URL-friendly identifier (e.g., "john-smith")
-   - **Email**: Contact email (optional)
-
-4. **Add profile details:**
-   - **Bio**: Brief description of yourself
-   - **Avatar**: Profile picture (optional)
-
-5. **Create your profile**
-
-## Step 5: Prepare for Publishing
-
-Add your publisher ID to your agent definition:
+Add your publisher ID:
 
 ```typescript
 // Add this field to your agent definition
@@ -172,36 +132,25 @@ const definition: AgentDefinition = {
 }
 ```
 
-Replace `'your-publisher-id'` with the ID you created in Step 4.
 
-## Step 6: Publish Your Agent
 
-Publish your agent to the Codebuff store:
+## Publish
 
 ```bash
 codebuff publish simple-code-reviewer
 ```
 
-You should see:
 
-```
-Publishing:
-  - Simple Code Reviewer (simple-code-reviewer)
-✅ Successfully published:
-  - Simple Code Reviewer (your-publisher-id/simple-code-reviewer@1.0.0)
-```
 
-## Step 7: Test Your Published Agent
-
-Now anyone can use your agent:
+## Use Your Published Agent
 
 ```bash
 codebuff --agent your-publisher-id/simple-code-reviewer@0.0.1
 ```
 
-## Advanced Example: Deep Code Reviewer
+## Advanced: Programmatic Control
 
-Once the basics work, try `handleSteps` for programmatic control. The agent below shows one way to structure it:
+Use `handleSteps` for programmatic control:
 
 `.agents/deep-code-reviewer.ts`:
 
@@ -231,12 +180,11 @@ const definition: AgentDefinition = {
     'codebuff/deep-thinker@0.0.3',
   ],
 
-  instructionsPrompt: `Review code changes comprehensively:
+  instructionsPrompt: `Review code changes:
 1. Analyze git diff and untracked files
 2. Find related files using file explorer
-3. Use multiple perspectives for thorough review
-4. Look for simplification opportunities
-5. Check for logical errors and edge cases`,
+3. Look for simplification opportunities
+4. Check for logical errors and edge cases`,
 
   handleSteps: function* () {
     // Step 1: Get changed files from git
@@ -300,13 +248,9 @@ const definition: AgentDefinition = {
 export default definition
 ```
 
-### Understanding `handleSteps`
+### `handleSteps` Basics
 
-The `handleSteps` generator function gives you direct control over your agent's execution:
-
-**Key Concepts:**
-
-1. **`yield` tool calls**: Execute tools and get results
+**`yield` tool calls** - execute tools:
 
    ```typescript
    const { toolResult, toolError } = yield {
@@ -315,46 +259,17 @@ The `handleSteps` generator function gives you direct control over your agent's 
    }
    ```
 
-2. **`yield 'STEP_ALL'`**: Let the LLM take over and generate responses
+**`yield 'STEP_ALL'`** - LLM runs until completion
 
-   ```typescript
-   yield 'STEP_ALL' // LLM runs until completion
-   ```
+**`yield 'STEP'`** - LLM takes one turn, then back to your code
 
-3. **`yield 'STEP'`**: Let the LLM take one step, then return control
+**`return`** - end execution
 
-   ```typescript
-   yield 'STEP' // LLM takes one turn, then back to your code
-   ```
-
-4. **`return`**: End the agent's execution immediately
-   ```typescript
-   return // Agent stops here
-   ```
-
-**When to Use Programmatic Control:**
-
-- **Complex workflows** with multiple steps
-- **Conditional logic** based on file contents
-- **Error handling** for tool failures
-- **Dynamic agent spawning** based on analysis
-- **Data transformation** between steps
-
-**When to Use Simple Prompts:**
-
-- **Straightforward tasks** with clear instructions
-- **Creative tasks** that benefit from LLM flexibility
-- **Quick prototypes** that don't need complex logic
+Use `handleSteps` for complex workflows with branching logic. Use prompts-only for straightforward tasks.
 
 ## Spawnable Agents
 
-Agents can spawn other agents for specific tasks.
-
-### Agent Store vs Local Agents
-
-**Agent Store Agents (Use Fully Qualified IDs):**
-
-When spawning agents from the [Codebuff Agent Store](https://www.codebuff.com/store), always use the full `publisher/agent-name@version` format:
+**From the Agent Store** - use full IDs:
 
 ```typescript
 spawnableAgents: [
@@ -363,9 +278,7 @@ spawnableAgents: [
 ]
 ```
 
-**Local Agents (Use Simple IDs):**
-
-When spawning agents defined in your own `.agents` directory, use just the agent ID:
+**Local agents** - just the ID:
 
 ```typescript
 spawnableAgents: [
@@ -375,6 +288,4 @@ spawnableAgents: [
 ]
 ```
 
----
 
-You now have a published agent, a pattern for using `handleSteps`, and the basics for spawning other agents.

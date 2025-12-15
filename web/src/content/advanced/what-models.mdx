@@ -7,7 +7,7 @@ order: 3
 
 # What models do you use?
 
-Codebuff runs an orchestrator agent that spawns specialized subagents. Each subagent uses a model suited to its task.
+Codebuff uses different models for different tasks. The orchestrator coordinates; subagents handle specific jobs.
 
 ## Orchestrator
 
@@ -27,9 +27,9 @@ The orchestrator spawns these for specific jobs:
 |------|--------|
 | Code editing | Claude Opus 4.5, GPT-5.1 |
 | Thinking/reasoning | Claude Opus 4.5, GPT-5.1, Gemini 2.5 Pro |
-| Code review | Claude Sonnet 4.5, GPT-5.1 |
+| Code review | Claude Opus 4.5, Claude Sonnet 4.5, GPT-5.1 |
 | File discovery | Gemini 2.0 Flash, Grok 4 Fast |
-| Terminal commands | Claude Haiku 4.5 |
+| Terminal commands | Grok 4 Fast, Claude Sonnet 4.5 |
 | Context management | GPT-5 Mini |
 | Web/docs research | Grok 4 Fast |
 

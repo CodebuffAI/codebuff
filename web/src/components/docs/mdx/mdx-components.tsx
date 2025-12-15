@@ -1,6 +1,6 @@
 import { Check, Link } from 'lucide-react'
 import Image from 'next/image'
-import { useMDXComponent } from 'next-contentlayer/hooks'
+import { useMDXComponent } from 'next-contentlayer2/hooks'
 import React, { useState, useEffect } from 'react'
 
 import { CodeDemo } from './code-demo'

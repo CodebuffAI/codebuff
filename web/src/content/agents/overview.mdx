@@ -7,15 +7,15 @@ order: 0
 
 # Overview
 
-## Why Multi-Agent Systems Work Better
+## Why Multiple Agents?
 
-Codebuff uses agents that can spawn others, share tools, and pass context between tasks:
+Codebuff agents spawn other agents, share tools, and pass context between tasks:
 
-- **Code Generation** - Write clean, functional code
-- **Review** - Catch bugs, security issues, style violations
-- **Research** - Find documentation and examples
-- **Planning** - Break down complex requirements
-- **File Discovery** - Navigate large codebases
+- **Code Generation** - writes code
+- **Review** - catches bugs and style issues
+- **Research** - finds docs and examples
+- **Planning** - breaks down requirements
+- **File Discovery** - navigates codebases
 
 ## Programmatic Control
 
@@ -23,14 +23,14 @@ Control agents with TypeScript generator functions. Orchestrate workflows, branc
 
 ## Built-in Agents
 
-- `codebuff/base` - Main coding assistant (orchestrates other agents)
-- `codebuff/editor` - Code editing and file modifications
-- `codebuff/reviewer` - Code review and feedback
-- `codebuff/thinker` - Deep thinking and problem analysis
-- `codebuff/researcher` - Web search and documentation lookup
-- `codebuff/file-picker` - File discovery in your codebase
-- `codebuff/commander` - Terminal command execution
-- `codebuff/code-searcher` - Search patterns in code files
+- [`codebuff/base`](/publishers/codebuff/agents/base) - Main coding assistant (orchestrates other agents)
+- [`codebuff/editor`](/publishers/codebuff/agents/editor) - Code editing and file modifications
+- [`codebuff/reviewer`](/publishers/codebuff/agents/reviewer) - Code review and feedback
+- [`codebuff/thinker`](/publishers/codebuff/agents/thinker) - Deep thinking and problem analysis
+- [`codebuff/researcher`](/publishers/codebuff/agents/researcher) - Web search and documentation lookup
+- [`codebuff/file-picker`](/publishers/codebuff/agents/file-picker) - File discovery in your codebase
+- [`codebuff/commander`](/publishers/codebuff/agents/commander) - Terminal command execution
+- [`codebuff/code-searcher`](/publishers/codebuff/agents/code-searcher) - Search patterns in code files
 
 Browse all available agents at the [Agent Store](https://codebuff.com/store).
 
@@ -75,34 +75,13 @@ If you ask "refactor this authentication system", Codebuff might:
 
 ### Agent Coordination
 
-Agents coordinate through the `spawnerPrompt` field, which tells others when to spawn them:
-
-- Specialized agents are spawned for specific tasks
-- Each agent clearly describes its purpose and capabilities
-- The system automatically matches tasks to the right agents
-
-Agents can spawn others listed in `spawnableAgents`, forming a simple hierarchy.
+Agents coordinate through the `spawnerPrompt` field, which tells others when to spawn them. Agents can spawn others listed in `spawnableAgents`.
 
 ## Quick Start
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-
-<Card className="not-prose">
-  <CardHeader>
-    <CardTitle className="flex items-center gap-2 text-lg">
-      <span>🚀</span>
-      <span>Ready to create your first agent?</span>
-    </CardTitle>
-  </CardHeader>
-  <CardContent>
-    <p className="mb-4">Start Codebuff in your project and run:</p>
-
-    ```bash
-    codebuff init-agents
-    ```
-
-  </CardContent>
-</Card>
+```bash
+codebuff init-agents
+```
 
 1. **[Customize existing agents](/docs/agents#customizing-agents)** - Modify prompts and tools
 2. **[Create new agents](/docs/agents#creating-new-agents)** - Build specialized functionality

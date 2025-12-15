@@ -28,7 +28,7 @@ Create specialized agents from scratch using TypeScript files in the `.agents/` 
 
 ## Basic Structure
 
-Create a new TypeScript file in `.agents/` directory:
+Create a new TypeScript file in `.agents/` directory. This example uses the [`researcher`](/publishers/codebuff/agents/researcher) as a spawnable subagent:
 
 **.agents/my-custom-agent.ts**
 
@@ -69,7 +69,7 @@ export default definition
 
 ### API Documentation Agent
 
-Writes REST and GraphQL docs with examples:
+Writes REST and GraphQL docs with examples. Uses the [`researcher`](/publishers/codebuff/agents/researcher) for documentation lookup:
 
 **.agents/api-documenter.ts**
 
@@ -116,7 +116,7 @@ export default definition
 
 ### Database Migration Agent
 
-Builds and reviews database migrations:
+Builds and reviews database migrations. Uses the [`reviewer`](/publishers/codebuff/agents/reviewer) for checking migrations:
 
 **.agents/migration-specialist.ts**
 
@@ -167,7 +167,7 @@ LLM-based agents cover many tasks. Programmatic agents add precise control over 
 
 ### How It Works
 
-Use TypeScript generator functions with the `handleSteps` field to control execution:
+Use TypeScript generator functions with the `handleSteps` field to control execution. This example spawns [`thinker`](/publishers/codebuff/agents/thinker) and [`reviewer`](/publishers/codebuff/agents/reviewer) subagents:
 
 **.agents/code-analyzer.ts**
 

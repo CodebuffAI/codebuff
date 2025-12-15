@@ -7,8 +7,6 @@ order: 1
 
 # Get started with Codebuff
 
-Follow these steps to install and run Codebuff in your project.
-
 ## 1. Install Codebuff
 
 Enter the following in your terminal, which could be inside your favorite IDE (VSCode, Cursor, etc.).
@@ -29,16 +27,16 @@ cd /path/to/your-repo
 codebuff
 ```
 
-Codebuff has multiple [modes](/docs/tips#modes): `--lite` for quick tasks, `--max` for complex work, and `/mode:plan` for planning without file changes.
+Codebuff has multiple [modes](/docs/tips#modes): `lite` for quick tasks, `max` for complex work, and `plan` for planning without file changes. You can invoke them in the slash menu with `/mode:`.
 
 ## Troubleshooting
 
 If you run into issues during installation:
 
-1. **Permission issues** — On Mac/Linux try `sudo npm install -g codebuff`, on Windows run as administrator
+1. **Permission issues** — The best fix is to install Node.js using [nvm](https://github.com/nvm-sh/nvm) or [fnm](https://github.com/Schniz/fnm), which avoids permission problems entirely. Then run `npm install -g codebuff` again.
 
 2. **Still Having Problems?**
-   - Try reinstalling Node using [nvm or fnm](https://nodejs.org/en/download)
-   - Run the Codebuff install command again
+   - On Mac/Linux, you can fix permissions with: `sudo chown -R $(whoami) $(npm config get prefix)/{lib/node_modules,bin,share}`
+   - On Windows, run your terminal as administrator
 
-If you're still experiencing issues, check out our [Troubleshooting](/docs/advanced#troubleshooting) guide or join our [Discord community](https://codebuff.com/discord)!
+[Troubleshooting](/docs/advanced#troubleshooting) | [Discord](https://codebuff.com/discord)

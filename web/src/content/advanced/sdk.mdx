@@ -7,7 +7,7 @@ order: 7
 
 # SDK & Programmatic Access
 
-The Codebuff SDK (`@codebuff/sdk`) lets you run Codebuff agents from your own code.
+Run Codebuff agents from your own code with `@codebuff/sdk`.
 
 ## Installation
 
@@ -17,9 +17,11 @@ npm install @codebuff/sdk
 
 ## Prerequisites
 
-Get your API key from [codebuff.com/api-keys](https://www.codebuff.com/api-keys).
+API key: [codebuff.com/api-keys](https://www.codebuff.com/api-keys)
 
 ## Quick Start
+
+Use the [`base`](/publishers/codebuff/agents/base) agent (or any agent from the [Agent Store](/store)) to run tasks:
 
 ```typescript
 import { CodebuffClient } from '@codebuff/sdk'
@@ -40,7 +42,7 @@ const result = await client.run({
 
 ## Continuing Conversations
 
-Pass the previous run state to maintain context across multiple interactions:
+Pass the previous run state to keep context:
 
 ```typescript
 // First run
@@ -58,8 +60,6 @@ const run2 = await client.run({
 ```
 
 ## Custom Agents
-
-Define your own agents with custom models, tools, and prompts:
 
 ```typescript
 import type { AgentDefinition } from '@codebuff/sdk'
@@ -80,8 +80,6 @@ await client.run({
 ```
 
 ## Custom Tools
-
-Extend agent capabilities with your own tools:
 
 ```typescript
 import { z } from 'zod/v4'
@@ -110,8 +108,6 @@ await client.run({
 
 ## Loading Local Agents
 
-Load agent definitions from your `.agents/` directory:
-
 ```typescript
 import { loadLocalAgents, CodebuffClient } from '@codebuff/sdk'
 
@@ -129,8 +125,6 @@ await client.run({
 
 ### `CodebuffClient`
 
-Main client for interacting with Codebuff.
-
 ```typescript
 const client = new CodebuffClient({
   apiKey: string,        // Required: Your Codebuff API key
@@ -139,8 +133,6 @@ const client = new CodebuffClient({
 ```
 
 ### `client.run(options)`
-
-Run an agent with the specified options.
 
 <MarkdownTable>
 | Parameter | Type | Description |
@@ -159,8 +151,6 @@ Run an agent with the specified options.
 
 ### Event Types
 
-The `handleEvent` callback receives events during execution:
-
 - `agent_start` / `agent_finish` - Agent lifecycle
 - `tool_call` / `tool_result` - Tool execution
 - `text` - Text responses
@@ -168,17 +158,17 @@ The `handleEvent` callback receives events during execution:
 
 ### Return Value
 
-Returns a `RunState` object containing:
+`RunState` object:
 
 - `sessionState` - Internal state for continuing conversations
 - `output` - The agent's output (text, error, or structured data)
 
 ## Use Cases
 
-- CI/CD pipelines (code review, test generation, refactoring)
-- Batch processing across multiple files
-- Embedding in VS Code extensions or web apps
-- Scripts for repetitive coding tasks
+- CI/CD pipelines: code review, test generation, refactoring
+- Batch processing
+- VS Code extensions, web apps
+- Automation scripts
 
 ## Examples
 
@@ -213,6 +203,8 @@ async function generateTests(code: string) {
 ```
 
 ### Code Review in CI
+
+Use the [`reviewer`](/publishers/codebuff/agents/reviewer) agent for automated code review:
 
 ```typescript
 import { CodebuffClient } from '@codebuff/sdk'
@@ -355,6 +347,6 @@ jobs:
 
 ## Resources
 
-- [GitHub Repository](https://github.com/CodebuffAI/codebuff) - Source code
-- [Agent Store](https://codebuff.com/store) - Browse available agents
-- [API Keys](https://codebuff.com/api-keys) - Get your API key
+- [GitHub](https://github.com/CodebuffAI/codebuff)
+- [Agent Store](https://codebuff.com/store)
+- [API Keys](https://codebuff.com/api-keys)

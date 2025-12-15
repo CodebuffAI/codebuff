@@ -1,4 +1,4 @@
-import { defineDocumentType, makeSource } from 'contentlayer/source-files'
+import { defineDocumentType, makeSource } from 'contentlayer2/source-files'
 
 import { remarkCodeToCodeDemo } from './src/lib/remark-code-to-codedemo'
 
