@@ -3,7 +3,6 @@
 import { promises as fs } from 'fs'
 import { createRequire } from 'module'
 
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { getProjectFileTree } from '@codebuff/common/project-file-tree'
 import { createCliRenderer } from '@opentui/core'
 import { createRoot } from '@opentui/react'
@@ -21,7 +20,8 @@ import { handlePublish } from './commands/publish'
 import { initializeApp } from './init/init-app'
 import { getProjectRoot } from './project-files'
 import { initAnalytics } from './utils/analytics'
-import { getUserCredentials } from './utils/auth'
+import { getAuthTokenDetails } from './utils/auth'
+import { getCliEnv } from './utils/env'
 import { initializeAgentRegistry } from './utils/local-agent-registry'
 import { clearLogFile, logger } from './utils/logger'
 import { detectTerminalTheme } from './utils/terminal-color-detection'
@@ -33,8 +33,9 @@ import type { AgentMode } from './utils/constants'
 const require = createRequire(import.meta.url)
 
 function loadPackageVersion(): string {
-  if (process.env.CODEBUFF_CLI_VERSION) {
-    return process.env.CODEBUFF_CLI_VERSION
+  const env = getCliEnv()
+  if (env.CODEBUFF_CLI_VERSION) {
+    return env.CODEBUFF_CLI_VERSION
   }
 
   try {
@@ -215,9 +216,7 @@ async function main(): Promise<void> {
     const [fileTree, setFileTree] = React.useState<FileTreeNode[]>([])
 
     React.useEffect(() => {
-      const userCredentials = getUserCredentials()
-      const apiKey =
-        userCredentials?.authToken || process.env[API_KEY_ENV_VAR] || ''
+      const apiKey = getAuthTokenDetails().token ?? ''
 
       if (!apiKey) {
         setRequireAuth(true)

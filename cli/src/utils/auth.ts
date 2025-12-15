@@ -2,9 +2,11 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 
+import { getCiEnv } from '@codebuff/common/env-ci'
 import { env } from '@codebuff/common/env'
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { z } from 'zod'
+
+import type { CiEnv } from '@codebuff/common/types/contracts/env'
 
 import { getApiClient, setApiClientAuthToken } from './codebuff-api'
 import { logger } from './logger'
@@ -107,13 +109,15 @@ export interface AuthTokenDetails {
 /**
  * Resolve the auth token and track where it came from.
  */
-export const getAuthTokenDetails = (): AuthTokenDetails => {
+export const getAuthTokenDetails = (
+  ciEnv: CiEnv = getCiEnv(),
+): AuthTokenDetails => {
   const userCredentials = getUserCredentials()
   if (userCredentials?.authToken) {
     return { token: userCredentials.authToken, source: 'credentials' }
   }
 
-  const envToken = process.env[API_KEY_ENV_VAR]
+  const envToken = ciEnv.CODEBUFF_API_KEY
   if (envToken) {
     return { token: envToken, source: 'environment' }
   }

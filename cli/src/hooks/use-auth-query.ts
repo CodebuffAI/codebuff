@@ -1,4 +1,6 @@
-import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
+import { createHash } from 'crypto'
+
+import { getCiEnv } from '@codebuff/common/env-ci'
 import {
   AuthenticationError,
   ErrorCodes,
@@ -22,12 +24,16 @@ import { logger as defaultLogger, loggerContext } from '../utils/logger'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
+const getApiKeyHash = (apiKey: string): string => {
+  return createHash('sha256').update(apiKey).digest('hex')
+}
+
 // Query keys for type-safe cache management
 export const authQueryKeys = {
   all: ['auth'] as const,
   user: () => [...authQueryKeys.all, 'user'] as const,
   validation: (apiKey: string) =>
-    [...authQueryKeys.all, 'validation', apiKey] as const,
+    [...authQueryKeys.all, 'validation', getApiKeyHash(apiKey)] as const,
 }
 
 interface ValidateAuthParams {
@@ -122,8 +128,7 @@ export function useAuthQuery(deps: UseAuthQueryDeps = {}) {
   } = deps
 
   const userCredentials = getUserCredentials()
-  const apiKey =
-    userCredentials?.authToken || process.env[API_KEY_ENV_VAR] || ''
+  const apiKey = userCredentials?.authToken || getCiEnv().CODEBUFF_API_KEY || ''
 
   return useQuery({
     queryKey: authQueryKeys.validation(apiKey),

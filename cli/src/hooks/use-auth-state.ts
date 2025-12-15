@@ -10,6 +10,17 @@ import { loggerContext } from '../utils/logger'
 import type { MultilineInputHandle } from '../components/multiline-input'
 import type { User } from '../utils/auth'
 
+const setAuthLoggerContext = (params: { userId: string; email: string }) => {
+  loggerContext.userId = params.userId
+  loggerContext.userEmail = params.email
+  identifyUser(params.userId, { email: params.email })
+}
+
+const clearAuthLoggerContext = () => {
+  delete loggerContext.userId
+  delete loggerContext.userEmail
+}
+
 interface UseAuthStateOptions {
   requireAuth: boolean | null
   inputRef: React.MutableRefObject<MultilineInputHandle | null>
@@ -27,8 +38,7 @@ export const useAuthState = ({
   const logoutMutation = useLogoutMutation()
   const { resetLoginState } = useLoginStore()
 
-  const initialAuthState =
-    requireAuth === false ? true : requireAuth === true ? false : null
+  const initialAuthState = requireAuth === null ? null : !requireAuth
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(
     initialAuthState,
   )
@@ -55,23 +65,15 @@ export const useAuthState = ({
           authToken: userCredentials?.authToken || '',
         }
         setUser(userData)
-        
-        // Set logger context for analytics
-        loggerContext.userId = authQuery.data.id
-        loggerContext.userEmail = authQuery.data.email
-        
-        // Identify user with PostHog
-        identifyUser(authQuery.data.id, {
-          email: authQuery.data.email,
+        setAuthLoggerContext({
+          userId: authQuery.data.id,
+          email: authQuery.data.email || '',
         })
       }
     } else if (authQuery.isError) {
       setIsAuthenticated(false)
       setUser(null)
-      
-      // Clear logger context on auth error
-      delete loggerContext.userId
-      delete loggerContext.userEmail
+      clearAuthLoggerContext()
     }
   }, [authQuery.isSuccess, authQuery.isError, authQuery.data, user])
 
@@ -85,14 +87,10 @@ export const useAuthState = ({
       setInputFocused(true)
       setUser(loggedInUser)
       setIsAuthenticated(true)
-      
-      // Set logger context for analytics
+
       if (loggedInUser.id && loggedInUser.email) {
-        loggerContext.userId = loggedInUser.id
-        loggerContext.userEmail = loggedInUser.email
-        
-        // Identify user with PostHog
-        identifyUser(loggedInUser.id, {
+        setAuthLoggerContext({
+          userId: loggedInUser.id,
           email: loggedInUser.email,
         })
       }
