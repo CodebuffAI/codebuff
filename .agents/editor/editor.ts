@@ -9,7 +9,7 @@ export const createCodeEditor = (options: {
     publisher,
     model:
       options.model === 'gpt-5'
-        ? 'openai/gpt-5.2'
+        ? 'openai/gpt-5.1'
         : 'anthropic/claude-opus-4.5',
     displayName: 'Code Editor',
     spawnerPrompt:
