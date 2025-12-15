@@ -1,3 +1,4 @@
+import { pluralize } from '@codebuff/common/util/string'
 import { TextAttributes } from '@opentui/core'
 import React from 'react'
 
@@ -30,12 +31,12 @@ export const AskUserBranch = ({ block, availableWidth }: AskUserBranchProps) => 
     >
       {block.skipped ? (
         <text style={{ fg: theme.muted, attributes: TextAttributes.ITALIC }}>
-          You skipped the questions.
+          You skipped the {pluralize(block.questions.length, 'question', { includeCount: false })}.
         </text>
       ) : (
         <box style={{ flexDirection: 'column', gap: 1 }}>
           <text style={{ fg: theme.secondary, attributes: TextAttributes.BOLD }}>
-            Your answers:
+            Your {pluralize(block.questions.length, 'answer', { includeCount: false })}:
           </text>
           {block.questions.map((q, idx) => {
             const answer = block.answers?.find((a) => a.questionIndex === idx)
