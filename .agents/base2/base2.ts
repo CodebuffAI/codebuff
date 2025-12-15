@@ -11,9 +11,14 @@ export function createBase2(
   options?: {
     hasNoValidation?: boolean
     planOnly?: boolean
+    noAskUser?: boolean
   },
 ): Omit<SecretAgentDefinition, 'id'> {
-  const { hasNoValidation = mode === 'fast', planOnly = false } = options ?? {}
+  const {
+    hasNoValidation = mode === 'fast',
+    planOnly = false,
+    noAskUser = false,
+  } = options ?? {}
   const isDefault = mode === 'default'
   const isFast = mode === 'fast'
   const isMax = mode === 'max'
@@ -51,12 +56,12 @@ export function createBase2(
       'read_files',
       'read_subtree',
       !isFast && !isLite && 'write_todos',
-      !isFast && 'suggest_followups',
+      !isFast && !noAskUser && 'suggest_followups',
       'str_replace',
       'write_file',
       'propose_str_replace',
       'propose_write_file',
-      'ask_user',
+      !noAskUser && 'ask_user',
       'set_output',
     ),
     spawnableAgents: buildArray(
@@ -86,8 +91,12 @@ export function createBase2(
 - **Spawn mentioned agents:** If the user uses "@AgentName" in their message, you must spawn that agent.
 - **Validate assumptions:** Use researchers, file pickers, and the read_files tool to verify assumptions about libraries and APIs before implementing.
 - **Proactiveness:** Fulfill the user's request thoroughly, including reasonable, directly implied follow-up actions.
-- **Confirm Ambiguity/Expansion:** Do not take significant actions beyond the clear scope of the request without confirming with the user. If asked *how* to do something, explain first, don't just do it.
-- **Ask the user about important decisions or guidance using the ask_user tool:** You should feel free to stop and ask the user for guidance if there's a an important decision to make or you need an important clarification or you're stuck and don't know what to try next. Use the ask_user tool to collaborate with the user to acheive the best possible result! Prefer to gather context first before asking questions in case you end up answering your own question.
+- **Confirm Ambiguity/Expansion:** Do not take significant actions beyond the clear scope of the request without confirming with the user. If asked *how* to do something, explain first, don't just do it.${
+      noAskUser
+        ? ''
+        : `
+- **Ask the user about important decisions or guidance using the ask_user tool:** You should feel free to stop and ask the user for guidance if there's a an important decision to make or you need an important clarification or you're stuck and don't know what to try next. Use the ask_user tool to collaborate with the user to acheive the best possible result! Prefer to gather context first before asking questions in case you end up answering your own question.`
+    }
 - **Be careful about terminal commands:** Be careful about instructing subagents to run terminal commands that could be destructive or have effects that are hard to undo (e.g. git push, git commit, running any scripts -- especially ones that could alter production environments (!), installing packages globally, etc). Don't run any of these effectful commands unless the user explicitly asks you to.
 - **Do what the user asks:** If the user asks you to do something, even running a risky terminal command, do it.
 
@@ -233,6 +242,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           isMax,
           isLite,
           hasNoValidation,
+          noAskUser,
         }),
     stepPrompt: planOnly
       ? buildPlanOnlyStepPrompt({})
@@ -243,6 +253,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
           hasNoValidation,
           isSonnet,
           isLite,
+          noAskUser,
         }),
 
     handleSteps: function* ({ params }) {
@@ -275,6 +286,7 @@ function buildImplementationInstructionsPrompt({
   isMax,
   isLite,
   hasNoValidation,
+  noAskUser,
 }: {
   isSonnet: boolean
   isFast: boolean
@@ -282,6 +294,7 @@ function buildImplementationInstructionsPrompt({
   isMax: boolean
   isLite: boolean
   hasNoValidation: boolean
+  noAskUser: boolean
 }) {
   return `Act as a helpful assistant and freely respond to the user's request however would be most helpful to the user. Use your judgement to orchestrate the completion of the user's request using your specialized sub-agents and tools as needed. Take your time and be comprehensive. Don't surprise the user. For example, don't modify files if the user has not asked you to do so at least implicitly.
 
@@ -293,7 +306,8 @@ ${buildArray(
   EXPLORE_PROMPT,
   isMax &&
     `- Important: Read as many files as could possibly be relevant to the task over several steps to improve your understanding of the user's request and produce the best possible code changes. Find more examples within the codebase similar to the user's request, dependencies that help with understanding how things work, tests, etc. This is frequently 12-20 files, depending on the task.`,
-  isMax &&
+  !noAskUser &&
+    isMax &&
     'If needed, use the ask_user tool to ask the user for clarification on their request or alternate implementation strategies. It is good to get context on the codebase before asking questions so you can ask informed questions.',
   (isDefault || isMax) &&
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
@@ -315,6 +329,7 @@ ${buildArray(
     `- Test your changes by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). Try to run all appropriate commands in parallel. ${isMax ? ' Typecheck and test the specific area of the project that you are editing *AND* then typecheck and test the entire project if necessary.' : ' If you can, only test the area of the project that you are editing, rather than the entire project.'} You may have to explore the project to find the appropriate commands. Don't skip this step!`,
   `- Inform the user that you have completed the task in one sentence or a few short bullet points.${isSonnet ? " Don't create any markdown summary files or example documentation files, unless asked by the user." : ''}`,
   !isFast &&
+    !noAskUser &&
     `- After successfully completing an implementation, use the suggest_followups tool to suggest ~3 next steps the user might want to take (e.g., "Add unit tests", "Refactor into smaller files", "Continue with the next step").`,
 ).join('\n')}`
 }
@@ -326,6 +341,7 @@ function buildImplementationStepPrompt({
   hasNoValidation,
   isSonnet,
   isLite,
+  noAskUser,
 }: {
   isDefault: boolean
   isFast: boolean
@@ -333,6 +349,7 @@ function buildImplementationStepPrompt({
   hasNoValidation: boolean
   isSonnet: boolean
   isLite: boolean
+  noAskUser: boolean
 }) {
   return buildArray(
     isMax &&
@@ -343,6 +360,7 @@ function buildImplementationStepPrompt({
       'Spawn code-reviewer to review the changes after you have implemented the changes and in parallel with typechecking or testing.',
     `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''} Don't repeat yourself, especially if you have already concluded and summarized the changes in a previous step -- just end your turn.`,
     !isFast &&
+      !noAskUser &&
       `After a successful implementation, use the suggest_followups tool to suggest around 3 next steps the user might want to take.`,
   ).join('\n')
 }
