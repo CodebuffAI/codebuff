@@ -22,11 +22,35 @@ export const isImplementorAgent = (agentType: string): boolean => {
 
 /**
  * Get the display name for an implementor agent
+ * When a prompt is provided, shows "Prompt #N: [prompt]" format
+ * Otherwise falls back to model-based naming like "Opus #1"
  */
 export const getImplementorDisplayName = (
   agentType: string,
   index?: number,
+  prompt?: string,
+  availableWidth?: number,
 ): string => {
+  // If we have both an index and a prompt, show "Prompt #N: [prompt]"
+  if (index !== undefined && prompt?.trim()) {
+    // Strip "Strategy: " prefix if present (added by editor-multi-prompt)
+    const cleanPrompt = prompt.startsWith('Strategy: ')
+      ? prompt.slice('Strategy: '.length)
+      : prompt
+    // Calculate max prompt length based on terminal width
+    // Account for: status indicator (2), "Prompt #N: " (~12), potential "Selected " prefix (9)
+    const prefixLength = `Prompt #${index + 1}: `.length + 2 + 9 // +2 for status indicator, +9 for "Selected "
+    const margin = 30 // Large margin to prevent wrapping
+    const maxLength = availableWidth
+      ? Math.max(20, availableWidth - prefixLength - margin)
+      : 40
+    const displayPrompt =
+      cleanPrompt.length > maxLength
+        ? cleanPrompt.slice(0, maxLength) + '...'
+        : cleanPrompt
+    return `Prompt #${index + 1}: ${displayPrompt}`
+  }
+
   let baseName = 'Implementor'
   // Check most specific patterns first (editor-implementor2-* with model suffix)
   if (agentType.includes('editor-implementor2-gpt-5')) {
