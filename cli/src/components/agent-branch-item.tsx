@@ -219,13 +219,14 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
 
         {isCollapsed ? (
           showCollapsedPreview ? (
-            <box
+            <Button
               style={{
                 paddingLeft: 1,
                 paddingRight: 1,
                 paddingTop: 0,
                 paddingBottom: 0,
               }}
+              onClick={onToggle}
             >
               <text
                 fg={isStreaming ? theme.foreground : theme.muted}
@@ -233,7 +234,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
               >
                 {isStreaming ? streamingPreview : finishedPreview}
               </text>
-            </box>
+            </Button>
           ) : null
         ) : (
           <box
