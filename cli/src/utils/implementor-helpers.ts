@@ -30,7 +30,7 @@ export const getImplementorDisplayName = (
   let baseName = 'Implementor'
   // Check most specific patterns first (editor-implementor2-* with model suffix)
   if (agentType.includes('editor-implementor2-gpt-5')) {
-    baseName = 'GPT-5.2'
+    baseName = 'GPT-5'
   } else if (agentType.includes('editor-implementor2-opus')) {
     baseName = 'Opus'
   } else if (agentType.includes('editor-implementor2-sonnet')) {
