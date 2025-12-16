@@ -48,6 +48,14 @@ const formatUsageCount = (count?: number) => {
   return count.toString()
 }
 
+const formatLastUsed = (dateStr: string) => {
+  const date = new Date(dateStr)
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
 export const AgentUsageMetrics = ({
   publisherId,
   agentId,
@@ -108,72 +116,62 @@ export const AgentUsageMetrics = ({
   }
 
   return (
-    <div>
-      <div className="grid grid-cols-2 xs:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-emerald-400" />
-            <span className="font-medium text-emerald-300">
-              {formatCurrency(usageMetrics.weekly_spent)}
-            </span>
-          </div>
-          <span className="text-xs text-muted-foreground">Weekly Spend</span>
-        </div>
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex items-center gap-2">
-            <Play className="h-4 w-4 text-blue-400" />
-            <span className="font-medium text-blue-300">
-              {formatUsageCount(usageMetrics.weekly_runs)}
-            </span>
-          </div>
-          <span className="text-xs text-muted-foreground">Weekly Runs</span>
-        </div>
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex items-center gap-2">
-            <Play className="h-4 w-4 text-muted-foreground" />
-            <span>{formatUsageCount(usageMetrics.usage_count)}</span>
-          </div>
-          <span className="text-xs text-muted-foreground">Total Runs</span>
-        </div>
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            <span>{usageMetrics.unique_users || 0}</span>
-          </div>
-          <span className="text-xs text-muted-foreground">Unique Users</span>
-        </div>
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex items-center gap-2">
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-            <span>
-              {formatCurrency(usageMetrics.avg_cost_per_invocation).replace(
-                '$',
-                '',
-              )}
-            </span>
-          </div>
-          <span className="text-xs text-muted-foreground">
-            Avg Cost per Run
+    <div className="grid grid-cols-2 xs:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6">
+      <div className="flex flex-col items-center gap-2">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-emerald-400" />
+          <span className="font-medium text-emerald-300">
+            {formatCurrency(usageMetrics.weekly_spent)}
           </span>
         </div>
+        <span className="text-xs text-muted-foreground">Weekly Spend</span>
       </div>
-      {usageMetrics.last_used && (
-        <div className="mt-4 pt-4 border-t border-border/40">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Calendar className="h-4 w-4" />
-            <span>
-              Last used:{' '}
-              {new Date(usageMetrics.last_used).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </span>
-          </div>
+      <div className="flex flex-col items-center gap-2">
+        <div className="flex items-center gap-2">
+          <Play className="h-4 w-4 text-blue-400" />
+          <span className="font-medium text-blue-300">
+            {formatUsageCount(usageMetrics.weekly_runs)}
+          </span>
         </div>
-      )}
+        <span className="text-xs text-muted-foreground">Weekly Runs</span>
+      </div>
+      <div className="flex flex-col items-center gap-2">
+        <div className="flex items-center gap-2">
+          <Play className="h-4 w-4 text-muted-foreground" />
+          <span>{formatUsageCount(usageMetrics.usage_count)}</span>
+        </div>
+        <span className="text-xs text-muted-foreground">Total Runs</span>
+      </div>
+      <div className="flex flex-col items-center gap-2">
+        <div className="flex items-center gap-2">
+          <Users className="h-4 w-4 text-muted-foreground" />
+          <span>{usageMetrics.unique_users || 0}</span>
+        </div>
+        <span className="text-xs text-muted-foreground">Unique Users</span>
+      </div>
+      <div className="flex flex-col items-center gap-2">
+        <div className="flex items-center gap-2">
+          <DollarSign className="h-4 w-4 text-muted-foreground" />
+          <span>
+            {formatCurrency(usageMetrics.avg_cost_per_invocation).replace(
+              '$',
+              '',
+            )}
+          </span>
+        </div>
+        <span className="text-xs text-muted-foreground">Avg Cost/Run</span>
+      </div>
+      <div className="flex flex-col items-center gap-2">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <span>
+            {usageMetrics.last_used
+              ? formatLastUsed(usageMetrics.last_used)
+              : '—'}
+          </span>
+        </div>
+        <span className="text-xs text-muted-foreground">Last Used</span>
+      </div>
     </div>
   )
 }

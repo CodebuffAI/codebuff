@@ -11,6 +11,7 @@ import { RunAgentButton } from './run-agent-button'
 import { SaveAgentButton } from './save-agent-button'
 import { VersionUsageBadge } from './version-usage-badge'
 
+import { AgentDependencyTree } from '@/components/agent/agent-dependency-tree'
 import { TypeScriptViewer } from '@/components/agent/typescript-viewer'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { BackButton } from '@/components/ui/back-button'
@@ -311,6 +312,18 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
                 {/* Agent Definition */}
                 <div className="border-t pt-6">
                   <h3 className="text-base font-semibold mb-3">Definition</h3>
+                  
+                  {/* Subagents - part of the definition */}
+                  {agentData.spawnableAgents && agentData.spawnableAgents.length > 0 && (
+                    <div className="mb-4">
+                      <AgentDependencyTree
+                        publisherId={id}
+                        agentId={agentId}
+                        version={version}
+                      />
+                    </div>
+                  )}
+                  
                   <TypeScriptViewer data={agentData} />
                 </div>
               </CardContent>

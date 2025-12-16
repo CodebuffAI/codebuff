@@ -1,14 +1,44 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, Copy } from 'lucide-react'
+import { Check, Copy, ExternalLink } from 'lucide-react'
 import { Highlight, themes } from 'prism-react-renderer'
+import Link from 'next/link'
 
 import { Button } from '@/components/ui/button'
 
 interface TypeScriptViewerProps {
   data: any
   className?: string
+}
+
+// Pattern to match agent IDs like "codebuff/file-picker@0.0.7" (with quotes)
+const AGENT_ID_PATTERN = /^"([^/]+)\/([^@]+)@([^"]+)"$/
+
+// Only allow safe characters to prevent XSS: alphanumeric, hyphens, underscores, dots
+const SAFE_ID_PATTERN = /^[a-zA-Z0-9_.-]+$/
+
+function isValidAgentIdComponent(value: string): boolean {
+  return SAFE_ID_PATTERN.test(value) && value.length > 0 && value.length <= 128
+}
+
+function parseAgentIdFromToken(tokenContent: string): { publisher: string; agentId: string; version: string } | null {
+  const match = tokenContent.match(AGENT_ID_PATTERN)
+  if (match) {
+    const publisher = match[1]
+    const agentId = match[2]
+    const version = match[3]
+    
+    // Validate all components contain only safe characters
+    if (!isValidAgentIdComponent(publisher) || 
+        !isValidAgentIdComponent(agentId) || 
+        !isValidAgentIdComponent(version)) {
+      return null
+    }
+    
+    return { publisher, agentId, version }
+  }
+  return null
 }
 
 function formatAsTypeScript(obj: any, indent: number = 0): string {
@@ -152,6 +182,40 @@ export function TypeScriptViewer({
                   {line.map((token, tokenIndex) => {
                     // eslint-disable-next-line @typescript-eslint/no-unused-vars
                     const { key: _tokenKey, ...tokenProps } = getTokenProps({ token, key: tokenIndex })
+                    
+                    // Check if this token is an agent ID string
+                    const agentInfo = token.types.includes('string') 
+                      ? parseAgentIdFromToken(token.content)
+                      : null
+                    
+                    if (agentInfo) {
+                      const agentUrl = `/publishers/${agentInfo.publisher}/agents/${agentInfo.agentId}/${agentInfo.version}`
+                      return (
+                        <span key={tokenIndex} className="group/agent">
+                          <Link
+                            href={agentUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:underline cursor-pointer"
+                            style={tokenProps.style}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {token.content}
+                          </Link>
+                          <Link
+                            href={agentUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hidden group-hover/agent:inline-flex items-center ml-1 p-0.5 rounded hover:bg-muted-foreground/20"
+                            onClick={(e) => e.stopPropagation()}
+                            title="Open in new tab"
+                          >
+                            <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                          </Link>
+                        </span>
+                      )
+                    }
+                    
                     return <span key={tokenIndex} {...tokenProps} />
                   })}
                 </div>
