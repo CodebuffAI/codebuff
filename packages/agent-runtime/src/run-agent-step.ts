@@ -215,7 +215,7 @@ export const runAgentStep = async (
         ...expireMessages(messageHistory, 'userPrompt'),
         userMessage(
           withSystemTags(
-            `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The number of responses can be changed in codebuff.json.`,
+            `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The maximum number of responses can be configured via maxAgentSteps.`,
           ),
         ),
       ],

@@ -24,7 +24,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'init',
     label: 'init',
-    description: 'Configure project for better results',
+    description: 'Create a starter knowledge.md file',
   },
   {
     id: 'logout',

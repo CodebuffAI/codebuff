@@ -1,4 +1,4 @@
-import type { MDX } from 'contentlayer/core'
+import type { MDX } from 'contentlayer2/core'
 
 export interface Doc {
   title: string

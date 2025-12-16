@@ -22,9 +22,9 @@ Codebuff has four modes. Switch during a session with `Shift+Tab` or `/mode:` co
 
 Standard mode with Claude Opus 4.5:
 
-- Spawns file pickers and code searchers to gather context
-- Uses the `editor` agent for code changes
-- Spawns `thinker` for complex problems
+- Spawns [file pickers](/publishers/codebuff/agents/file-picker) and [code searchers](/publishers/codebuff/agents/code-searcher) to gather context
+- Uses the [`editor`](/publishers/codebuff/agents/editor) agent for code changes
+- Spawns [`thinker`](/publishers/codebuff/agents/thinker) for complex problems
 - Runs code review after changes
 - Validates with typechecks and tests
 
@@ -34,14 +34,14 @@ codebuff  # no flag needed
 
 ## Lite
 
-Faster and cheaper with Grok 4.1 Fast:
+Grok 4.1 Fast, cheaper and faster:
 
-- Reduced file context gathering
-- Uses GPT-5 for code change with the `editor-gpt-5` agent
+- Less file context gathering
+- Uses GPT-5.1 for code changes ([`editor-gpt-5`](/publishers/codebuff/agents/editor-gpt-5) agent)
 - Skips code review
 - No todo tracking
 
-Best for quick fixes and simple questions.
+Good for quick fixes and simple questions.
 
 ```bash
 codebuff --lite
@@ -49,15 +49,16 @@ codebuff --lite
 
 ## Max
 
-Uses Claude Opus 4.5 with more context gathering:
+Claude Opus 4.5 with best-of-N selection:
 
-- Reads 12-20+ files per task for deeper context
-- Uses `editor-multi-prompt` which generates multiple implementation proposals and picks the best
-- Spawns `thinker-best-of-n-opus` for complex problems (multiple reasoning paths)
+- Reads 12-20+ files per task
+- Spawns multiple [editor](/publishers/codebuff/agents/editor) agents in parallel, each with a different strategy
+- A selector compares outputs and picks the best one
+- Spawns [`thinker-best-of-n-opus`](/publishers/codebuff/agents/thinker-best-of-n-opus) for hard problems
 - Full code review after changes
-- Validates both specific changes and the full project
+- Runs typechecks and tests on both the changed files and the full project
 
-Best for complex features and refactors.
+Use for complex features and refactors.
 
 ```bash
 codebuff --max

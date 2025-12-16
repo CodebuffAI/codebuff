@@ -126,7 +126,7 @@ export async function callMCPTool(
   }
   const content = ((await client.callTool(...args)) as CallToolResult).content
 
-  return content.map((c) => {
+  return content.map((c: (typeof content)[number]) => {
     if (c.type === 'text') {
       return {
         type: 'json',

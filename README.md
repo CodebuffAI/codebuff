@@ -83,17 +83,17 @@ To get started building your own agents, run:
 codebuff init-agents
 ```
 
-> 💡 **Tip**: This command creates a comprehensive agent development guide at `.agents/README.md` (293 lines) with detailed documentation, complete examples, and full TypeScript type definitions. Start there for complete guidance.
+> 💡 **Tip**: This creates an agent development guide at `.agents/README.md` with examples and TypeScript types.
 
 This creates:
 ```
 .agents/
-├── README.md              # Comprehensive 293-line agent guide
-├── my-custom-agent.ts     # Working agent template to edit
-├── package.json           # NPM package configuration
-├── LICENSE                # Apache-2.0 license for publishing
-├── examples/              # 3 example agents (basic → advanced)
-└── types/                 # Complete TypeScript definitions
+├── README.md              # Agent development guide
+├── my-custom-agent.ts     # Working agent template
+├── package.json           # NPM package config
+├── LICENSE                # Apache-2.0 license
+├── examples/              # 3 example agents
+└── types/                 # TypeScript definitions
 ```
 
 You can write agent definition files that give you maximum control over agent behavior.
@@ -146,7 +146,7 @@ const client = new CodebuffClient({
 // 2. Do a coding task...
 const result = await client.run({
   agent: 'base', // Codebuff's base coding agent
-  prompt: 'Add comprehensive error handling to all API endpoints',
+  prompt: 'Add error handling to all API endpoints',
   handleEvent: (event) => {
     console.log('Progress', event)
   },
@@ -174,13 +174,13 @@ Learn more about the SDK [here](https://www.npmjs.com/package/@codebuff/sdk).
 
 ## Why choose Codebuff
 
-**Deep customizability**: Create sophisticated agent workflows with TypeScript generators that mix AI generation with programmatic control. Define custom agents that spawn subagents, implement conditional logic, and orchestrate complex multi-step processes that adapt to your specific use cases.
+**Custom workflows**: TypeScript generators let you mix AI generation with programmatic control. Agents can spawn subagents, branch on conditions, and run multi-step processes.
 
 **Any model on OpenRouter**: Unlike Claude Code which locks you into Anthropic's models, Codebuff supports any model available on [OpenRouter](https://openrouter.ai/models) - from Claude and GPT to specialized models like Qwen, DeepSeek, and others. Switch models for different tasks or use the latest releases without waiting for platform updates.
 
 **Reuse any published agent**: Compose existing [published agents](https://www.codebuff.com/store) to get a leg up. Codebuff agents are the new MCP!
 
-**Fully customizable SDK**: Build Codebuff's capabilities directly into your applications with a complete TypeScript SDK. Create custom tools, integrate with your CI/CD pipeline, build AI-powered development environments, or embed intelligent coding assistance into your products.
+**SDK**: Build Codebuff into your applications. Create custom tools, integrate with CI/CD, or embed coding assistance into your products.
 
 ## Contributing to Codebuff
 
@@ -232,7 +232,7 @@ Some ways you can help:
 
 **Documentation**: [codebuff.com/docs](https://codebuff.com/docs)
 
-**Community**: [Discord](https://codebuff.com/discord) - Join our friendly community
+**Community**: [Discord](https://codebuff.com/discord)
 
 **Issues & Ideas**: [GitHub Issues](https://github.com/CodebuffAI/codebuff/issues)
 

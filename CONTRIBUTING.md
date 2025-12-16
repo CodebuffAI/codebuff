@@ -1,6 +1,6 @@
 # Contributing to Codebuff
 
-Hey there! 👋 Thanks for wanting to contribute to Codebuff. Whether you're squashing bugs, building cool features, or making our docs better, we're excited to have you aboard!
+Hey there! 👋 Thanks for contributing to Codebuff. Bug fixes, features, and documentation improvements are welcome.
 
 ## Getting Started
 
@@ -147,15 +147,13 @@ Not sure where to start? Here are some great ways to jump in:
 
 ### Development Workflow
 
-Here's how we like to work together:
+1. **Fork and branch** - Create a fork and a new branch
+2. **Follow style guidelines** - See below
+3. **Test** - Write tests for new features, run `bun test`
+4. **Type check** - Run `bun run typecheck`
+5. **Submit a PR** - Clear description of changes
 
-1. **Fork and branch** - Create your own fork and a new branch for your changes
-2. **Code away** - Follow our style guidelines (more on that below)
-3. **Test it** - Write tests for new features and run `bun test` to make sure everything works
-4. **Type check** - Run `bun run typecheck` to catch any TypeScript issues
-5. **Submit a PR** - Open a pull request with a clear description of what you built and why
-
-_Pro tip: Small, focused PRs are easier to review and merge quickly!_
+Small PRs merge faster.
 
 ### Code Style Guidelines
 
@@ -218,27 +216,25 @@ test: add unit tests for file operations
 
 ## Areas Where We Need Help
 
-There are tons of ways to make Codebuff better! Here are some areas where your skills could really shine:
-
 ### 🤖 **Agent Development**
 
-Build specialized agents in `.agents/` for different languages, frameworks, or workflows. Think React experts, Python debuggers, or Git wizards!
+Build agents in `.agents/` for different languages, frameworks, or workflows.
 
 ### 🔧 **Tool System**
 
-Add new capabilities in `common/src/tools` and the SDK helpers - file operations, API integrations, development environment helpers. The sky's the limit!
+Add capabilities in `common/src/tools` and SDK helpers: file operations, API integrations, dev environment helpers.
 
 ### 📦 **SDK Improvements**
 
-Make the SDK in `sdk/` even more powerful with new methods, better TypeScript support, or killer integration examples.
+New methods, better TypeScript support, integration examples in `sdk/`.
 
-### 💻 **CLI Magic**
+### 💻 **CLI**
 
-Enhance the user experience in `cli/` with smoother commands, better error messages, or interactive features that make developers smile.
+Improve `cli/`: better commands, error messages, interactive features.
 
 ### 🌐 **Web Dashboard**
 
-Level up the web interface in `web/` with better agent management, project templates, analytics, or any UX improvements you can dream up.
+Improve `web/`: agent management, project templates, analytics.
 
 ## Getting Help
 

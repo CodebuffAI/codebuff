@@ -7,8 +7,37 @@ order: 2
 
 # How does Codebuff actually work?
 
-Codebuff scans your repo with tree-sitter and builds a quick index of the code. That index makes it fast to find files when you ask for help.
+Codebuff runs multiple agents, each tuned for a specific task.
 
-The server is stateless. It proxies requests to Anthropic, OpenAI, or Gemini over websockets and streams results back to the CLI.
+## The Orchestrator
 
-We use a fast model to pick files, load the right snippets into context, and let Claude Sonnet propose an edit. The main agent can hand work to other agents for planning or file search when needed.
+The main agent ("Buffy") runs on Claude Opus 4.5. It reads your prompt, gathers context, and spawns subagents. The orchestrator is available in several variants:
+
+- [`base2`](/publishers/codebuff/agents/base2) - Default mode orchestrator
+- [`base2-lite`](/publishers/codebuff/agents/base2-lite) - Lite mode (faster, cheaper)
+- [`base2-max`](/publishers/codebuff/agents/base2-max) - Max mode (best-of-N selection)
+- [`base2-plan`](/publishers/codebuff/agents/base2-plan) - Plan mode (no file writes)
+
+## Subagents
+
+- [**File Picker**](/publishers/codebuff/agents/file-picker) (Gemini 2.0 Flash) - finds relevant files
+- [**Code Searcher**](/publishers/codebuff/agents/code-searcher) - grep-style pattern matching
+- [**Researcher**](/publishers/codebuff/agents/researcher) (Grok 4 Fast) - web and docs lookup
+- [**Thinker**](/publishers/codebuff/agents/thinker) (GPT-5.1, Gemini 2.5 Pro) - works through hard problems
+- [**Editor**](/publishers/codebuff/agents/editor) (GPT-5.1, Claude Opus 4.5) - writes and modifies code
+- [**Reviewer**](/publishers/codebuff/agents/reviewer) (Claude Sonnet 4.5) - catches bugs and style issues
+- [**Commander**](/publishers/codebuff/agents/commander) (Grok 4 Fast or Claude Sonnet 4.5) - runs terminal commands
+
+## Best-of-N Selection (Max Mode)
+
+In Max mode, Codebuff spawns multiple editors with different strategies. A selector compares the outputs and picks the best one.
+
+## The Pipeline
+
+1. Tree-sitter scans your repo and builds a code map
+2. File pickers and searchers find relevant code
+3. Thinkers analyze the problem if needed
+4. Editors generate changes
+5. Reviewers check for issues; commanders run tests
+
+The server is stateless. It streams requests to model providers (Anthropic, OpenAI, Google, xAI) over websockets. Your code stays local; only relevant context is sent.

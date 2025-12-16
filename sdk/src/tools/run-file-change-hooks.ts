@@ -5,7 +5,7 @@ export function runFileChangeHooks({
 }: {
   files: string[]
 }): Promise<CodebuffToolOutput<'run_file_change_hooks'>> {
-  // In the SDK, we don't have access to codebuff.json configuration
+  // In the SDK, we don't have access to client-side hook configuration
   // or the hook running infrastructure, so this is a no-op
 
   return Promise.resolve([

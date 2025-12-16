@@ -11,10 +11,10 @@ Quick fixes for common agent customization issues.
 
 ## Quick Fix Checklist
 
-1. **Restart Codebuff** to reload templates
-2. **Check JSON syntax:** `cat your-agent-file.json | jq`
+1. **Restart Codebuff** to reload agent definitions
+2. **Check TypeScript syntax:** Run `bun run typecheck` in your `.agents/` directory
 3. **Verify file paths** are relative to project root
-4. **Ensure `"override": true`** is set for overrides
+4. **Ensure your agent exports a default definition**
 
 ## Common Errors
 
@@ -24,7 +24,7 @@ Quick fixes for common agent customization issues.
 Error: Agent 'my-custom-agent' not found
 ```
 
-**Fix:** Check agent ID spelling, file location (`.agents/templates/`), JSON syntax (`cat file.json | jq`)
+**Fix:** Check agent ID spelling, file location (`.agents/`), and that your TypeScript file has `export default definition`
 
 ### "Invalid spawnable agent"
 
@@ -78,29 +78,28 @@ Error: Cannot resolve prompt file './my-prompt.md'
 
 ### Missing Required Fields
 
-```json
-{
-  "id": "my-agent",
-  "override": false,
-  "displayName": "My Agent"
-  // ❌ Missing required fields for new agents
+```typescript
+// ❌ Missing required fields for new agents
+const definition = {
+  id: 'my-agent',
+  displayName: 'My Agent'
 }
 ```
 
 **Fix:** Include all required fields for new agents:
 
-```json
-{
-  "id": "my-agent",
-  "version": "1.0.0",
-  "override": false,
-  "displayName": "My Agent",
-  "purpose": "Brief description of the agent's purpose",
-  "model": "anthropic/claude-sonnet-4.5",
-  "systemPrompt": "You are a helpful assistant...",
-  "instructionsPrompt": "Process the user's request...",
-  "stepPrompt": "Continue working on the task..."
+```typescript
+import type { AgentDefinition } from './types/agent-definition'
+
+const definition: AgentDefinition = {
+  id: 'my-agent',
+  displayName: 'My Agent',
+  model: 'anthropic/claude-sonnet-4.5',
+  toolNames: ['read_files', 'write_file', 'end_turn'],
+  instructionsPrompt: 'Process the user\'s request...',
 }
+
+export default definition
 ```
 
 ### "Path not found"
@@ -211,7 +210,7 @@ codebuff
 
 ## File Organization Issues
 
-### Templates Not Loading
+### Agents Not Loading
 
 **Symptoms:**
 
@@ -225,20 +224,23 @@ codebuff
 ```markdown
 your-project/
 ├── .agents/
-│ ├── my-agent.json
-│ └── my-prompts.md
+│   ├── my-agent.ts
+│   ├── types/
+│   │   └── agent-definition.ts
+│   └── prompts/
+│       └── my-prompts.md
 ```
 
 2. Verify file permissions:
 
 ```bash
-ls -la .agents/templates/
+ls -la .agents/
 ```
 
-3. Check for hidden characters or encoding issues:
+3. Check TypeScript compiles:
 
 ```bash
-file .agents/templates/*.json
+cd .agents && bun run typecheck
 ```
 
 ## Best Practices for Debugging
@@ -257,9 +259,9 @@ Begin with minimal overrides and add complexity gradually:
 
 ### 2. Use Validation Tools
 
-- JSON validator: `cat file.json | jq`
-- File existence: `ls -la .agents/templates/`
-- Syntax check: Most editors highlight JSON errors
+- TypeScript check: `cd .agents && bun run typecheck`
+- File existence: `ls -la .agents/`
+- Syntax check: Most editors highlight TypeScript errors
 
 ### 3. Check Logs
 
@@ -289,12 +291,10 @@ git commit -m "Add custom reviewer agent"
 
 ## Getting Help
 
-If you're still experiencing issues:
-
-1. **Check the logs**: Look for specific error messages when starting Codebuff
-2. **Simplify**: Remove customizations until it works, then add back gradually
-3. **Community**: Join our [Discord](https://codebuff.com/discord) for real-time help
-4. **Documentation**: Review the [Agent Reference](/docs/agents#agent-reference) for complete field descriptions
+1. Check logs for error messages on startup
+2. Remove customizations until it works, then add back one at a time
+3. Join [Discord](https://codebuff.com/discord)
+4. See the [Agent Reference](/docs/agents#agent-reference)
 
 ## Quick Reference
 
@@ -306,12 +306,14 @@ If you're still experiencing issues:
 
 ### Required Fields for New Agents
 
-- `id`, `version`, `override: false`
-- `displayName`, `purpose`, `model`
-- `systemPrompt`, `instructionsPrompt`, `stepPrompt`
+- `id` — Unique identifier
+- `displayName` — Human-readable name  
+- `model` — The LLM to use (e.g., `anthropic/claude-sonnet-4.5`)
+- `toolNames` — Array of tools the agent can use
+- `instructionsPrompt` — What the agent should do
 
 ### Common File Paths
 
-- Agent templates: `.agents/templates/*.json`
-- External prompts: `.agents/templates/*.md`
-- Project root: `./` (for absolute paths)
+- Agent definitions: `.agents/*.ts`
+- Type definitions: `.agents/types/agent-definition.ts`
+- External prompts: `.agents/prompts/*.md`

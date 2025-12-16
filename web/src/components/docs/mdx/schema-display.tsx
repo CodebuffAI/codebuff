@@ -1,6 +1,5 @@
 'use client'
 
-import { CodebuffConfigSchema } from '@codebuff/common/json-config/constants'
 import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
 import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent-template'
 import { useState, useRef } from 'react'
@@ -17,11 +16,6 @@ import { useIsMobile } from '@/hooks/use-mobile'
 
 // Configuration constant for easy adjustment
 const SCHEMA_TRUNCATE_LINES = 25
-
-export function SchemaDisplay() {
-  const schemaString = schemaToJsonStr(CodebuffConfigSchema, { io: 'input' })
-  return <CodeDemo language="json">{schemaString}</CodeDemo>
-}
 
 export function AgentTemplateSchemaDisplay() {
   const [isExpanded, setIsExpanded] = useState(false)

@@ -1,38 +1,51 @@
 import { existsSync, writeFileSync } from 'fs'
 import path from 'path'
 
-import {
-  codebuffConfigFile,
-  INITIAL_CODEBUFF_CONFIG,
-} from '@codebuff/common/json-config/constants'
-
 import { getProjectRoot } from '../project-files'
 import { getSystemMessage } from '../utils/message-history'
 
 import type { PostUserMessageFn } from '../types/contracts/send-message'
 
+const KNOWLEDGE_FILE_NAME = 'knowledge.md'
+
+const INITIAL_KNOWLEDGE_FILE = `# Project knowledge
+
+This file gives Codebuff context about your project: goals, commands, conventions, and gotchas.
+
+## Quickstart
+- Setup:
+- Dev:
+- Test:
+
+## Architecture
+- Key directories:
+- Data flow:
+
+## Conventions
+- Formatting/linting:
+- Patterns to follow:
+- Things to avoid:
+`
+
 export function handleInitializationFlowLocally(): {
   postUserMessage: PostUserMessageFn
 } {
   const projectRoot = getProjectRoot()
-  const configPath = path.join(projectRoot, codebuffConfigFile)
+  const knowledgePath = path.join(projectRoot, KNOWLEDGE_FILE_NAME)
 
-  if (existsSync(configPath)) {
+  if (existsSync(knowledgePath)) {
     const postUserMessage: PostUserMessageFn = (prev) => [
       ...prev,
-      getSystemMessage(`📋 ${codebuffConfigFile} already exists.`),
+      getSystemMessage(`📋 \`${KNOWLEDGE_FILE_NAME}\` already exists.`),
     ]
-    return {
-      postUserMessage,
-    }
+    return { postUserMessage }
   }
 
-  // Create the config file
-  writeFileSync(configPath, JSON.stringify(INITIAL_CODEBUFF_CONFIG, null, 2))
+  writeFileSync(knowledgePath, INITIAL_KNOWLEDGE_FILE)
 
   const postUserMessage: PostUserMessageFn = (prev) => [
     ...prev,
-    getSystemMessage(`✅ Created \`${codebuffConfigFile}\``),
+    getSystemMessage(`✅ Created \`${KNOWLEDGE_FILE_NAME}\``),
   ]
   return { postUserMessage }
 }
