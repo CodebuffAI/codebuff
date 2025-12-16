@@ -10,7 +10,8 @@ const commander: AgentDefinition = {
   model: 'anthropic/claude-haiku-4.5',
   displayName: 'Commander',
   spawnerPrompt:
-    'Runs a single terminal command and describes its output based on what information is requested.',
+    'Runs a single terminal command and describes its output using an LLM based on what information is requested.',
+
   inputSchema: {
     prompt: {
       type: 'string',
@@ -27,6 +28,11 @@ const commander: AgentDefinition = {
         timeout_seconds: {
           type: 'number',
           description: 'Set to -1 for no timeout. Default 30',
+        },
+        rawOutput: {
+          type: 'boolean',
+          description:
+            'If true, returns the full command output without summarization. Defaults to false.',
         },
       },
       required: ['command'],
@@ -60,14 +66,27 @@ Do not use any tools! Only analyze the output of the command.`,
     }
 
     const timeout_seconds = params?.timeout_seconds as number | undefined
+    const rawOutput = params?.rawOutput as boolean | undefined
 
     // Run the command
-    yield {
+    const { toolResult } = yield {
       toolName: 'run_terminal_command',
       input: {
         command,
         ...(timeout_seconds !== undefined && { timeout_seconds }),
       },
+    }
+
+    if (rawOutput) {
+      // Return the raw command output without summarization
+      const result = toolResult?.[0]
+      const output = result?.type === 'json' ? result.value : ''
+      yield {
+        toolName: 'set_output',
+        input: { output },
+        includeToolCall: false,
+      }
+      return
     }
 
     // Let the model analyze and describe the output
