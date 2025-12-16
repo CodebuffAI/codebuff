@@ -648,7 +648,7 @@ const AgentBranchWrapper = memo(
               siblingBlocks,
             )
             // Just show "Selected Prompt #N" without repeating the prompt text
-            statusText = index !== undefined ? `Selected Prompt #${index + 1}` : 'Selected'
+            statusText = index !== undefined ? `Selected Strategy #${index + 1}` : 'Selected'
             reason = lastBlock?.input?.reason
           }
         }

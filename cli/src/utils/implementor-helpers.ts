@@ -38,9 +38,8 @@ export const getImplementorDisplayName = (
       ? prompt.slice('Strategy: '.length)
       : prompt
     // Calculate max prompt length based on terminal width
-    // Account for: status indicator (2), "Prompt #N: " (~12), potential "Selected " prefix (9)
-    const prefixLength = `Prompt #${index + 1}: `.length + 2 + 9 // +2 for status indicator, +9 for "Selected "
-    const margin = 30 // Large margin to prevent wrapping
+    const prefixLength = `Strategy #${index + 1}: `.length + 2 // +2 for status indicator
+    const margin = 12
     const maxLength = availableWidth
       ? Math.max(20, availableWidth - prefixLength - margin)
       : 40
@@ -48,7 +47,7 @@ export const getImplementorDisplayName = (
       cleanPrompt.length > maxLength
         ? cleanPrompt.slice(0, maxLength) + '...'
         : cleanPrompt
-    return `Prompt #${index + 1}: ${displayPrompt}`
+    return `Strategy #${index + 1}: ${displayPrompt}`
   }
 
   let baseName = 'Implementor'
