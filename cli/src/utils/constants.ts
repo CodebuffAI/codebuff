@@ -15,6 +15,10 @@ export const COLLAPSED_BY_DEFAULT_AGENT_IDS = [
   'thinker-selector',
   'best-of-n-selector',
   'commander',
+  'commander-lite',
+  'code-searcher',
+  'directory-lister',
+  'glob-matcher',
 ] as const
 
 /**
@@ -40,7 +44,6 @@ export const shouldRenderAsSimpleText = (agentType: string): boolean => {
     agentType.includes(simpleTextId),
   )
 }
-
 
 /**
  * The parent agent ID for all root-level agents
