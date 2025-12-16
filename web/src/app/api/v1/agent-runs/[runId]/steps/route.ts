@@ -10,9 +10,9 @@ import { logger, loggerWithContext } from '@/util/logger'
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { runId: string } },
+  { params }: { params: Promise<{ runId: string }> },
 ) {
-  const { runId } = params
+  const { runId } = await params
   return postAgentRunsSteps({
     req,
     runId,

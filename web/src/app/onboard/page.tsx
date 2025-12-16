@@ -15,15 +15,16 @@ import CardWithBeams from '@/components/card-with-beams'
 import { OnboardClientWrapper } from '@/components/onboard/onboard-client-wrapper'
 
 interface PageProps {
-  searchParams?: {
+  searchParams?: Promise<{
     auth_code?: string
     referral_code?: string
-  }
+  }>
 }
 
-const Onboard = async ({ searchParams = {} }: PageProps) => {
-  const authCode = searchParams.auth_code
-  const referralCode = searchParams.referral_code
+const Onboard = async ({ searchParams }: PageProps) => {
+  const resolvedSearchParams = searchParams ? await searchParams : {}
+  const authCode = resolvedSearchParams.auth_code
+  const referralCode = resolvedSearchParams.referral_code
   const session = await getServerSession(authOptions)
   const user = session?.user
 

@@ -10,9 +10,9 @@ import { checkAdminAuth } from '@/lib/admin-auth'
 import { logger } from '@/util/logger'
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     clientRequestId: string
-  }
+  }>
 }
 
 export interface TimelineEvent {
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     return authResult
   }
 
-  const { clientRequestId } = params
+  const { clientRequestId } = await params
 
   if (!clientRequestId) {
     return NextResponse.json(

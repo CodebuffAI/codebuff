@@ -18,9 +18,9 @@ export type ReferralCodeResponse = {
 
 export async function GET(
   _req: Request,
-  { params }: { params: { code: string } },
+  { params }: { params: Promise<{ code: string }> },
 ): Promise<NextResponse<ReferralCodeResponse | { error: string }>> {
-  const { code } = params
+  const { code } = await params
   const session = await getServerSession(authOptions)
 
   try {

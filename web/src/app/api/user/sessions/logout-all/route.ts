@@ -10,8 +10,8 @@ import type { NextRequest } from 'next/server'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { siteConfig } from '@/lib/constant'
 
-function getCurrentSessionTokenFromCookies(): string | null {
-  const jar = cookies()
+async function getCurrentSessionTokenFromCookies(): Promise<string | null> {
+  const jar = await cookies()
   // NextAuth may use one of these cookie names depending on secure context
   const names = ['next-auth.session-token', '__Secure-next-auth.session-token']
   for (const name of names) {
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const currentToken = getCurrentSessionTokenFromCookies()
+  const currentToken = await getCurrentSessionTokenFromCookies()
 
   if (currentToken) {
     await db.delete(schema.session).where(

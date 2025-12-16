@@ -12,7 +12,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { logger } from '@/util/logger'
 
 interface RouteParams {
-  params: { orgId: string }
+  params: Promise<{ orgId: string }>
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { orgId } = params
+    const { orgId } = await params
 
     // Check if user is a member of this organization
     const userMembership = await db
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { orgId } = params
+    const { orgId } = await params
     const body: InviteMemberRequest = await request.json()
 
     // Check if user is owner or admin and get organization details

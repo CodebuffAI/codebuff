@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import NextLink from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, useParams } from 'next/navigation'
 import React from 'react'
 
 import type { Doc } from '@/types/docs'
@@ -71,13 +71,12 @@ const DocNavigation = ({
   )
 }
 
-interface DocPageProps {
-  params: { category: string; slug: string }
-}
-
-export default function DocPage({ params }: DocPageProps) {
-  const docs = getDocsByCategory(params.category)
-  const doc = docs.find((d: Doc) => d.slug === params.slug)
+export default function DocPage() {
+  const params = useParams<{ category: string; slug: string }>()
+  const category = params?.category ?? ''
+  const slug = params?.slug ?? ''
+  const docs = getDocsByCategory(category)
+  const doc = docs.find((d: Doc) => d.slug === slug)
 
   if (!doc) {
     return notFound()
@@ -101,8 +100,8 @@ export default function DocPage({ params }: DocPageProps) {
 
       <DocNavigation
         sortedDocs={sortedDocs}
-        category={params.category}
-        currentSlug={params.slug}
+        category={category}
+        currentSlug={slug}
       />
     </div>
   )

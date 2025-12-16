@@ -12,7 +12,7 @@ import { checkOrganizationPermission } from '@/lib/organization-permissions'
 import { logger } from '@/util/logger'
 
 interface RouteParams {
-  params: { orgId: string }
+  params: Promise<{ orgId: string }>
 }
 
 // Get all publishers for organization
@@ -26,7 +26,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { orgId } = params
+    const { orgId } = await params
 
     // Check if user has access to this organization
     const orgPermission = await checkOrganizationPermission(orgId, [
@@ -79,7 +79,7 @@ export async function GET(
     return NextResponse.json({ publishers: response })
   } catch (error) {
     logger.error(
-      { error, orgId: params.orgId },
+      { error },
       'Error fetching organization publishers',
     )
     return NextResponse.json(

@@ -11,12 +11,12 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { logger } from '@/util/logger'
 
 interface RouteParams {
-  params: { token: string }
+  params: Promise<{ token: string }>
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { token } = params
+    const { token } = await params
 
     // Get invitation details
     const invitation = await db
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     })
   } catch (error) {
-    logger.error({ token: params.token, error }, 'Error fetching invitation')
+    logger.error({ error }, 'Error fetching invitation')
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { token } = params
+    const { token } = await params
 
     // Get invitation details
     const invitation = await db
@@ -209,7 +209,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
     })
   } catch (error) {
-    logger.error({ token: params.token, error }, 'Error accepting invitation')
+    logger.error({ error }, 'Error accepting invitation')
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },

@@ -9,7 +9,7 @@ import type { NextRequest } from 'next/server'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 
 interface RouteParams {
-  params: { orgId: string }
+  params: Promise<{ orgId: string }>
 }
 
 export async function GET(
@@ -22,7 +22,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { orgId } = params
+    const { orgId } = await params
     const { searchParams } = new URL(request.url)
     const format = searchParams.get('format') || 'csv'
 

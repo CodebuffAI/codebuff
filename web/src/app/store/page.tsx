@@ -53,10 +53,11 @@ export const revalidate = 600
 export const dynamic = 'force-static'
 
 interface StorePageProps {
-  searchParams: { [key: string]: string | string[] | undefined }
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
 export default async function StorePage({ searchParams }: StorePageProps) {
+  const resolvedSearchParams = await searchParams
   // Fetch agents data on the server with ISR cache
   let agentsData: any[] = []
   try {
@@ -75,7 +76,7 @@ export default async function StorePage({ searchParams }: StorePageProps) {
       initialAgents={agentsData}
       initialPublishers={userPublishers}
       session={null} // Client will handle session
-      searchParams={searchParams}
+      searchParams={resolvedSearchParams}
     />
   )
 }

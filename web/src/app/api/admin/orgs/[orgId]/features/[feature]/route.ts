@@ -8,10 +8,10 @@ import type { NextRequest } from 'next/server'
 import { checkAdminAuth } from '@/app/api/admin/admin-auth'
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     orgId: string
     feature: string
-  }
+  }>
 }
 
 // GET handler to fetch feature configuration
@@ -24,7 +24,7 @@ export async function GET(
     return authResult
   }
 
-  const { orgId, feature } = params
+  const { orgId, feature } = await params
 
   try {
     const featureConfig = await db
@@ -62,7 +62,7 @@ export async function POST(
     return authResult
   }
 
-  const { orgId, feature } = params
+  const { orgId, feature } = await params
   const body = await request.json()
 
   try {

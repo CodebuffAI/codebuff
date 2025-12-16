@@ -12,7 +12,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { logger } from '@/util/logger'
 
 interface RouteParams {
-  params: { orgId: string; userId: string }
+  params: Promise<{ orgId: string; userId: string }>
 }
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
@@ -22,7 +22,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { orgId, userId } = params
+    const { orgId, userId } = await params
     const body: UpdateMemberRoleRequest = await request.json()
 
     // Check if current user is owner or admin
@@ -112,7 +112,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { orgId, userId } = params
+    const { orgId, userId } = await params
 
     // Check if current user is owner or admin, or removing themselves, and get organization details
     const currentUserMembership = await db

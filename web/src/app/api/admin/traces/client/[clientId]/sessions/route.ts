@@ -13,9 +13,9 @@ import { checkAdminAuth } from '@/lib/admin-auth'
 import { logger } from '@/util/logger'
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     clientId: string
-  }
+  }>
 }
 
 export interface ClientMessage {
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     return authResult
   }
 
-  const { clientId } = params
+  const { clientId } = await params
 
   if (!clientId) {
     return NextResponse.json(

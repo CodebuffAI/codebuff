@@ -9,7 +9,7 @@ import type { NextRequest } from 'next/server'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 
 interface RouteParams {
-  params: { orgId: string; repoId: string }
+  params: Promise<{ orgId: string; repoId: string }>
 }
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
@@ -19,7 +19,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { orgId, repoId } = params
+    const { orgId, repoId } = await params
 
     // Check if user is owner or admin
     const membership = await db
@@ -84,7 +84,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { orgId, repoId } = params
+    const { orgId, repoId } = await params
     const body = await request.json()
 
     // Check if user is owner or admin

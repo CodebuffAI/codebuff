@@ -15,7 +15,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { logger } from '@/util/logger'
 
 interface RouteParams {
-  params: { orgId: string }
+  params: Promise<{ orgId: string }>
 }
 
 const ORG_MIN_PURCHASE_CREDITS = 5000 // $50 minimum for organizations
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { orgId } = params
+  const { orgId } = await params
 
   try {
     const body = await request.json()
