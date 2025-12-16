@@ -84,19 +84,8 @@ export const Thinking = memo(
                 style={{
                   paddingLeft: 1,
                   flexGrow: 1,
-                  flexDirection: 'column',
-                  gap: 0,
                 }}
               >
-                <text
-                  style={{
-                    wrapMode: 'none',
-                    fg: theme.muted,
-                  }}
-                  attributes={TextAttributes.ITALIC}
-                >
-                  {hasMore ? '...' : ' '}
-                </text>
                 <text
                   style={{
                     wrapMode: 'word',
@@ -104,7 +93,7 @@ export const Thinking = memo(
                   }}
                   attributes={TextAttributes.ITALIC}
                 >
-                  {previewLines.join(' ')}
+                  {(hasMore ? '...' : '') + previewLines.join(' ')}
                 </text>
               </box>
             </box>

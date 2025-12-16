@@ -433,6 +433,7 @@ const AgentBody = memo(
             startIndex={start}
             onToggleCollapsed={onToggleCollapsed}
             availableWidth={availableWidth}
+            isNested={true}
           />,
         )
         continue
@@ -716,6 +717,11 @@ const AgentBranchWrapper = memo(
             ? theme.foreground
             : theme.muted
 
+      // Split "Strategy #N: prompt" into parts for separate styling
+      const strategyMatch = displayName.match(/^(Strategy #\d+:)(.*)$/)
+      const strategyLabel = strategyMatch ? strategyMatch[1] : displayName
+      const strategyPrompt = strategyMatch ? strategyMatch[2] : ''
+
       return (
         <box
           key={keyPrefix}
@@ -729,8 +735,11 @@ const AgentBranchWrapper = memo(
             <span fg={statusColor}>{statusIndicator}</span>
             <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
               {' '}
-              {displayName}
+              {strategyLabel}
             </span>
+            {strategyPrompt && (
+              <span fg={theme.foreground}>{strategyPrompt}</span>
+            )}
           </text>
         </box>
       )
@@ -1237,6 +1246,7 @@ const BlocksRenderer = memo(
             startIndex={start}
             onToggleCollapsed={onToggleCollapsed}
             availableWidth={availableWidth}
+            isNested={false}
           />,
         )
         continue
