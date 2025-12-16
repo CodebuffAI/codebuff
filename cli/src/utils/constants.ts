@@ -14,6 +14,7 @@ export const COLLAPSED_BY_DEFAULT_AGENT_IDS = [
   'code-reviewer-selector',
   'thinker-selector',
   'best-of-n-selector',
+  'commander',
 ] as const
 
 /**
