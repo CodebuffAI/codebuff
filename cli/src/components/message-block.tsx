@@ -3,7 +3,7 @@ import React, { memo, useCallback, useState, type ReactNode } from 'react'
 
 import { AgentBranchItem } from './agent-branch-item'
 import { Button } from './button'
-import { CopyIconButton } from './copy-icon-button'
+import { CopyButton, useCopyButton } from './copy-icon-button'
 import { ImageCard } from './image-card'
 import { MessageFooter } from './message-footer'
 import { ValidationErrorPopover } from './validation-error-popover'
@@ -281,13 +281,8 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
             onBuildFast={onBuildFast}
             onBuildMax={onBuildMax}
             isLastMessage={isLastMessage}
+            contentToCopy={isUser ? content : undefined}
           />
-          {/* Copy button after user message content (for block-based messages) */}
-          {isUser && (
-            <box style={{ flexDirection: 'row', marginTop: 0 }}>
-              <CopyIconButton textToCopy={content} />
-            </box>
-          )}
         </box>
       ) : (
         <UserContentWithCopyButton
@@ -832,8 +827,8 @@ interface UserContentWithCopyButtonProps {
 }
 
 /**
- * Renders user content with an inline copy button that wraps together with the last word.
- * Uses a wrapping flexbox so the copy button stays attached to the last word when line-breaking.
+ * Renders user content with an inline copy button.
+ * The text flows naturally with word wrapping, and the copy button appears inline after the content.
  */
 const UserContentWithCopyButton = memo(
   ({
@@ -869,75 +864,118 @@ const UserContentWithCopyButton = memo(
       )
     }
 
-    // For user messages with copy button, we need to handle the last word specially
-    // so the copy button wraps with it as a unit.
-    // Split by newlines first to handle multi-line content correctly.
-    const lines = normalizedContent.split('\n')
-    const lastLine = lines[lines.length - 1] || ''
-    const lastSpaceIndex = lastLine.lastIndexOf(' ')
-    
-    let contentBeforeLastWord: string
-    let lastWord: string
-    
-    if (lastSpaceIndex > 0) {
-      // Last line has multiple words - split on the last space
-      const beforeLastWordOnLastLine = lastLine.slice(0, lastSpaceIndex + 1)
-      lastWord = lastLine.slice(lastSpaceIndex + 1)
-      if (lines.length > 1) {
-        contentBeforeLastWord = lines.slice(0, -1).join('\n') + '\n' + beforeLastWordOnLastLine
-      } else {
-        contentBeforeLastWord = beforeLastWordOnLastLine
-      }
-    } else if (lines.length > 1) {
-      // Last line is a single word, but there are previous lines
-      contentBeforeLastWord = lines.slice(0, -1).join('\n') + '\n'
-      lastWord = lastLine
-    } else {
-      // Single word, single line
-      contentBeforeLastWord = ''
-      lastWord = normalizedContent
-    }
+    // Render text content with inline copy icon - clicking the icon copies the text
+    return (
+      <UserTextWithInlineCopy
+        messageId={messageId}
+        content={content}
+        normalizedContent={normalizedContent}
+        isStreamingMessage={isStreamingMessage}
+        textColor={textColor}
+        codeBlockWidth={codeBlockWidth}
+        palette={palette}
+      />
+    )
+  },
+)
+
+interface UserTextWithInlineCopyProps {
+  messageId: string
+  content: string
+  normalizedContent: string
+  isStreamingMessage: boolean
+  textColor: string
+  codeBlockWidth: number
+  palette: MarkdownPalette
+}
+
+/**
+ * Renders user text content with an inline copy icon at the end.
+ * Clicking the copy icon copies the text to clipboard.
+ */
+const UserTextWithInlineCopy = memo(
+  ({
+    messageId,
+    content,
+    normalizedContent,
+    isStreamingMessage,
+    textColor,
+    codeBlockWidth,
+    palette,
+  }: UserTextWithInlineCopyProps) => {
+    const copyButton = useCopyButton(content)
 
     return (
-      <box
+      <text
         key={`message-content-${messageId}`}
-        style={{
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          alignItems: 'baseline',
-        }}
+        style={{ wrapMode: 'word', fg: textColor }}
+        onMouseDown={copyButton.handleCopy}
+        onMouseOver={copyButton.handleMouseOver}
+        onMouseOut={copyButton.handleMouseOut}
       >
-        {contentBeforeLastWord && (
-          <text
-            style={{ wrapMode: 'word', fg: textColor }}
-            attributes={isUser ? TextAttributes.ITALIC : undefined}
-          >
-            <ContentWithMarkdown
-              content={contentBeforeLastWord}
-              isStreaming={isStreamingMessage}
-              codeBlockWidth={codeBlockWidth}
-              palette={palette}
-            />
-          </text>
-        )}
-        {/* Last word + copy button wrapped together so they line-break as a unit */}
-        <box
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            flexWrap: 'no-wrap',
-            gap: 1,
-          }}
-        >
-          <text
-            style={{ wrapMode: 'none', fg: textColor }}
-            attributes={isUser ? TextAttributes.ITALIC : undefined}
-          >
-            {lastWord}
-          </text>
-          <CopyIconButton textToCopy={content} />
-        </box>
-      </box>
+        <span attributes={TextAttributes.ITALIC}>
+          <ContentWithMarkdown
+            content={normalizedContent}
+            isStreaming={isStreamingMessage}
+            codeBlockWidth={codeBlockWidth}
+            palette={palette}
+          />
+        </span>
+        <CopyButton textToCopy={content} isCopied={copyButton.isCopied} isHovered={copyButton.isHovered} />
+      </text>
+    )
+  },
+)
+
+interface UserBlockTextWithInlineCopyProps {
+  content: string
+  contentToCopy: string
+  isStreaming: boolean
+  textColor: string
+  codeBlockWidth: number
+  palette: MarkdownPalette
+  marginTop: number
+  marginBottom: number
+}
+
+/**
+ * Renders a text block for user messages with an inline copy icon at the end.
+ */
+const UserBlockTextWithInlineCopy = memo(
+  ({
+    content,
+    contentToCopy,
+    isStreaming,
+    textColor,
+    codeBlockWidth,
+    palette,
+    marginTop,
+    marginBottom,
+  }: UserBlockTextWithInlineCopyProps) => {
+    const copyButton = useCopyButton(contentToCopy)
+
+    return (
+      <text
+        style={{
+          wrapMode: 'word',
+          fg: textColor,
+          marginTop,
+          marginBottom,
+        }}
+        onMouseDown={copyButton.handleCopy}
+        onMouseOver={copyButton.handleMouseOver}
+        onMouseOut={copyButton.handleMouseOut}
+      >
+        <span attributes={TextAttributes.ITALIC}>
+          <ContentWithMarkdown
+            content={content}
+            isStreaming={isStreaming}
+            codeBlockWidth={codeBlockWidth}
+            palette={palette}
+          />
+        </span>
+        <CopyButton textToCopy={contentToCopy} isCopied={copyButton.isCopied} isHovered={copyButton.isHovered} />
+      </text>
     )
   },
 )
@@ -958,6 +996,7 @@ interface SingleBlockProps {
   onBuildFast: () => void
   onBuildMax: () => void
   isLastMessage?: boolean
+  contentToCopy?: string
 }
 
 const SingleBlock = memo(
@@ -977,6 +1016,7 @@ const SingleBlock = memo(
     onBuildFast,
     onBuildMax,
     isLastMessage,
+    contentToCopy,
   }: SingleBlockProps): ReactNode => {
     const theme = useTheme()
     const codeBlockWidth = Math.max(10, availableWidth - 8)
@@ -1001,6 +1041,24 @@ const SingleBlock = memo(
         const marginBottom = textBlock.marginBottom ?? 0
         const explicitColor = textBlock.color
         const blockTextColor = explicitColor ?? textColor
+        
+        // If this block should have an inline copy icon, use the special component
+        if (contentToCopy) {
+          return (
+            <UserBlockTextWithInlineCopy
+              key={renderKey}
+              content={filteredContent}
+              contentToCopy={contentToCopy}
+              isStreaming={isStreamingText}
+              textColor={blockTextColor}
+              codeBlockWidth={codeBlockWidth}
+              palette={markdownPalette}
+              marginTop={marginTop}
+              marginBottom={marginBottom}
+            />
+          )
+        }
+        
         return (
           <text
             key={renderKey}
@@ -1129,6 +1187,7 @@ interface BlocksRendererProps {
   onBuildFast: () => void
   onBuildMax: () => void
   isLastMessage?: boolean
+  contentToCopy?: string
 }
 
 const BlocksRenderer = memo(
@@ -1146,8 +1205,17 @@ const BlocksRenderer = memo(
     onBuildFast,
     onBuildMax,
     isLastMessage,
+    contentToCopy,
   }: BlocksRendererProps) => {
     const nodes: React.ReactNode[] = []
+    
+    // Find the index of the last text block for inline copy icon
+    const lastTextBlockIndex = contentToCopy
+      ? sourceBlocks.reduceRight(
+          (acc, block, idx) => (acc === -1 && block.type === 'text' ? idx : acc),
+          -1,
+        )
+      : -1
 
     for (let i = 0; i < sourceBlocks.length; ) {
       const block = sourceBlocks[i]
@@ -1258,6 +1326,7 @@ const BlocksRenderer = memo(
           onBuildFast={onBuildFast}
           onBuildMax={onBuildMax}
           isLastMessage={isLastMessage}
+          contentToCopy={i === lastTextBlockIndex ? contentToCopy : undefined}
         />,
       )
       i++
