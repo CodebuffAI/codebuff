@@ -8,30 +8,30 @@ interface MarkdownTableProps {
   children: React.ReactNode
 }
 
+// Recursively extract text content from React elements
+function extractTextContent(node: React.ReactNode): string {
+  if (node === null || node === undefined) {
+    return ''
+  }
+  if (typeof node === 'string' || typeof node === 'number') {
+    return String(node)
+  }
+  if (Array.isArray(node)) {
+    return node.map(extractTextContent).join('')
+  }
+  if (typeof node === 'object' && 'props' in node) {
+    const element = node as React.ReactElement
+    return extractTextContent(element.props.children)
+  }
+  return ''
+}
+
 export function MarkdownTable({ children }: MarkdownTableProps) {
   const [copied, setCopied] = useState(false)
 
   const { content, tableData } = useMemo(() => {
-    // Extract content from children
-    let contentStr = ''
-    if (typeof children === 'string') {
-      contentStr = children
-    } else if (Array.isArray(children)) {
-      contentStr = children
-        .map((child) => (typeof child === 'string' ? child : ''))
-        .join('')
-    } else if (
-      children &&
-      typeof children === 'object' &&
-      'props' in children
-    ) {
-      contentStr =
-        typeof children.props.children === 'string'
-          ? children.props.children
-          : Array.isArray(children.props.children)
-            ? children.props.children.join('')
-            : ''
-    }
+    // Extract content from children (recursively handles React elements)
+    const contentStr = extractTextContent(children)
 
     // Parse table data from markdown string
     const lines = contentStr.trim().split('\n')
