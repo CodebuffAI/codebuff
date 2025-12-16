@@ -20,12 +20,13 @@ const DIFF_LINE_COLORS = {
 const lineColor = (
   line: string,
   themeName: 'dark' | 'light',
+  mutedColor: string,
 ): { fg: string; attrs?: number } => {
   if (line.startsWith('@@')) {
     return { fg: 'cyan', attrs: TextAttributes.BOLD }
   }
   if (line.startsWith('+++') || line.startsWith('---')) {
-    return { fg: 'gray', attrs: TextAttributes.BOLD }
+    return { fg: mutedColor, attrs: TextAttributes.BOLD }
   }
   if (
     line.startsWith('diff ') ||
@@ -33,7 +34,7 @@ const lineColor = (
     line.startsWith('rename ') ||
     line.startsWith('similarity ')
   ) {
-    return { fg: 'gray' }
+    return { fg: mutedColor }
   }
   if (line.startsWith('+')) {
     return { fg: DIFF_LINE_COLORS[themeName].added }
@@ -42,7 +43,7 @@ const lineColor = (
     return { fg: DIFF_LINE_COLORS[themeName].removed }
   }
   if (line.startsWith('\\')) {
-    return { fg: 'gray' }
+    return { fg: mutedColor }
   }
   return { fg: '' }
 }
@@ -59,7 +60,7 @@ export const DiffViewer = ({ diffText }: DiffViewerProps) => {
         .filter((rawLine) => !rawLine.startsWith('@@'))
         .map((rawLine, idx) => {
           const line = rawLine.length === 0 ? ' ' : rawLine
-          const { fg, attrs } = lineColor(line, theme.name)
+          const { fg, attrs } = lineColor(line, theme.name, theme.muted)
           const resolvedFg = fg || theme.foreground
           return (
             <text key={`diff-line-${idx}`} style={{ wrapMode: 'none' }}>

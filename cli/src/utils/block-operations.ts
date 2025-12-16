@@ -95,7 +95,6 @@ const createReasoningBlock = (
   type: 'text',
   content,
   textType: 'reasoning',
-  color: 'grey',
   isCollapsed: true,
   thinkingOpen,
 })
@@ -295,7 +294,6 @@ export const appendTextToRootStream = (
       type: 'text',
       content: delta.text,
       textType: 'reasoning',
-      color: 'grey',
       isCollapsed: true,
     }
 

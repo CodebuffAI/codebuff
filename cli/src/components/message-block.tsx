@@ -199,7 +199,7 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
             >
               <text
                 style={{
-                  fg: 'red',
+                  fg: theme.error,
                   wrapMode: 'none',
                 }}
               >
@@ -332,13 +332,7 @@ const isReasoningTextBlock = (
   b: ContentBlock | null | undefined,
 ): b is TextContentBlock => {
   if (!b || b.type !== 'text') return false
-
-  return (
-    b.textType === 'reasoning' ||
-    (b.color !== undefined &&
-      typeof b.color === 'string' &&
-      (b.color.toLowerCase() === 'grey' || b.color.toLowerCase() === 'gray'))
-  )
+  return b.textType === 'reasoning'
 }
 
 const isRenderableTimelineBlock = (
