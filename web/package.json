@@ -73,7 +73,7 @@
     "framer-motion": "^11.13.3",
     "lucide-react": "^0.487.0",
     "mermaid": "^11.8.1",
-    "next": "14.2.25",
+    "next": "15.5.9",
     "next-auth": "^4.24.11",
     "next-contentlayer2": "^0.5.8",
     "next-themes": "^0.3.0",
