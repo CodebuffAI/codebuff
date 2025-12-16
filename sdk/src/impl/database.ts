@@ -1,5 +1,4 @@
 import { validateSingleAgent } from '@codebuff/common/templates/agent-validation'
-import { userColumns } from '@codebuff/common/types/contracts/database'
 import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent-template'
 import { getErrorObject } from '@codebuff/common/util/error'
 import z from 'zod/v4'
@@ -19,9 +18,13 @@ import type {
 import type { DynamicAgentTemplate } from '@codebuff/common/types/dynamic-agent-template'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 
+type CachedUserInfo = Partial<
+  NonNullable<Awaited<GetUserInfoFromApiKeyOutput<UserColumn>>>
+>
+
 const userInfoCache: Record<
   string,
-  Awaited<GetUserInfoFromApiKeyOutput<UserColumn>> | null
+  CachedUserInfo | null
 > = {}
 
 const agentsResponseSchema = z.object({
@@ -34,20 +37,29 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
 ): GetUserInfoFromApiKeyOutput<T> {
   const { apiKey, fields, logger } = params
 
-  if (apiKey in userInfoCache) {
-    const userInfo = userInfoCache[apiKey]
-    if (userInfo === null) {
-      throw new AuthenticationError('Authentication failed', 401)
-    }
-    return Object.fromEntries(
-      fields.map((field) => [field, userInfo[field]]),
-    ) as {
-      [K in (typeof fields)[number]]: (typeof userInfo)[K]
-    }
+  const cached = userInfoCache[apiKey]
+  if (cached === null) {
+    throw new AuthenticationError('Authentication failed', 401)
+  }
+  if (
+    cached &&
+    fields.every((field) =>
+      Object.prototype.hasOwnProperty.call(cached, field),
+    )
+  ) {
+    return Object.fromEntries(fields.map((field) => [field, cached[field]])) as {
+      [K in T]: CachedUserInfo[K]
+    } as Awaited<GetUserInfoFromApiKeyOutput<T>>
   }
 
+  const fieldsToFetch = cached
+    ? fields.filter(
+        (field) => !Object.prototype.hasOwnProperty.call(cached, field),
+      )
+    : fields
+
   const urlParams = new URLSearchParams({
-    fields: userColumns.join(','),
+    fields: fieldsToFetch.join(','),
   })
   const url = new URL(`/api/v1/me?${urlParams}`, WEBSITE_URL)
 
@@ -100,8 +112,13 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
     throw new NetworkError('Request failed', ErrorCodes.UNKNOWN_ERROR, response.status)
   }
 
+  const cachedBeforeMerge = userInfoCache[apiKey]
   try {
-    userInfoCache[apiKey] = await response.json()
+    const fetchedFields = (await response.json()) as CachedUserInfo
+    userInfoCache[apiKey] = {
+      ...(cachedBeforeMerge ?? {}),
+      ...fetchedFields,
+    }
   } catch (error) {
     logger.error(
       { error: getErrorObject(error), apiKey, fields },
@@ -114,11 +131,21 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
   if (userInfo === null) {
     throw new AuthenticationError('Authentication failed', 401)
   }
+  if (
+    !userInfo ||
+    !fields.every((field) =>
+      Object.prototype.hasOwnProperty.call(userInfo, field),
+    )
+  ) {
+    logger.error(
+      { apiKey, fields },
+      'getUserInfoFromApiKey: response missing required fields',
+    )
+    throw new NetworkError('Request failed', ErrorCodes.UNKNOWN_ERROR, response.status)
+  }
   return Object.fromEntries(
     fields.map((field) => [field, userInfo[field]]),
-  ) as {
-    [K in (typeof fields)[number]]: (typeof userInfo)[K]
-  }
+  ) as Awaited<GetUserInfoFromApiKeyOutput<T>>
 }
 
 export async function fetchAgentFromDatabase(
