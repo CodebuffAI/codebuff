@@ -33,11 +33,6 @@ export const Thinking = memo(
       width,
       PREVIEW_LINE_COUNT,
     )
-    // Pad to exactly PREVIEW_LINE_COUNT lines for consistent height while streaming.
-    const previewLines = [...lines]
-    while (previewLines.length < PREVIEW_LINE_COUNT) {
-      previewLines.push('')
-    }
 
     return (
       <Button
@@ -49,21 +44,8 @@ export const Thinking = memo(
         }}
         onClick={onToggle}
       >
-        <box
-          style={{
-            flexDirection: 'row',
-            alignSelf: 'flex-start',
-          }}
-        >
-          <text
-            style={{ wrapMode: 'none', attributes: TextAttributes.BOLD }}
-            fg={theme.foreground}
-          >
-            • Thinking
-          </text>
-        </box>
         {isCollapsed ? (
-          previewLines.length > 0 && (
+          lines.length > 0 && (
             <box
               style={{
                 flexDirection: 'row',
@@ -93,7 +75,7 @@ export const Thinking = memo(
                   }}
                   attributes={TextAttributes.ITALIC}
                 >
-                  {(hasMore ? '...' : '') + previewLines.join(' ')}
+                  {hasMore ? '...' + lines.join(' ') : lines.join(' ')}
                 </text>
               </box>
             </box>

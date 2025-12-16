@@ -5,8 +5,8 @@ import { Thinking } from '../thinking'
 import type { ContentBlock } from '../../types/chat'
 
 // Nested thinking blocks need more offset to account for the subagent's border and padding
-const WIDTH_OFFSET = 8
-const NESTED_WIDTH_OFFSET = 12
+const WIDTH_OFFSET = 6
+const NESTED_WIDTH_OFFSET = 10
 
 interface ThinkingBlockProps {
   blocks: Extract<ContentBlock, { type: 'text' }>[]
