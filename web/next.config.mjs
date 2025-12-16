@@ -1,5 +1,5 @@
 import createMDX from '@next/mdx'
-import { withContentlayer } from 'next-contentlayer'
+import { withContentlayer } from 'next-contentlayer2'
 
 const withMDX = createMDX({
   extension: /\.mdx?$/,
