@@ -1,5 +1,11 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
+import {
+  createStreamParserState,
+  parseStreamChunk,
+} from './util/stream-xml-parser'
+
+import type { StreamParserState } from './util/stream-xml-parser'
 import type { Model } from '@codebuff/common/old-constants'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
@@ -31,6 +37,11 @@ export async function* processStreamWithTools(params: {
     agentName?: string
   }
   trackEvent: TrackEventFn
+  executeXmlToolCall: (params: {
+    toolCallId: string
+    toolName: string
+    input: Record<string, unknown>
+  }) => Promise<void>
 }): AsyncGenerator<StreamChunk, string | null> {
   const {
     stream,
@@ -41,10 +52,14 @@ export async function* processStreamWithTools(params: {
     logger,
     loggerOptions,
     trackEvent,
+    executeXmlToolCall,
   } = params
   let streamCompleted = false
   let buffer = ''
   let autocompleted = false
+
+  // State for parsing XML tool calls from text stream
+  const xmlParserState: StreamParserState = createStreamParserState()
 
   function processToolCallObject(params: {
     toolName: string
@@ -83,9 +98,9 @@ export async function* processStreamWithTools(params: {
     buffer = ''
   }
 
-  function* processChunk(
+  async function* processChunk(
     chunk: StreamChunk | undefined,
-  ): Generator<StreamChunk> {
+  ): AsyncGenerator<StreamChunk> {
     if (chunk === undefined) {
       flush()
       streamCompleted = true
@@ -93,7 +108,38 @@ export async function* processStreamWithTools(params: {
     }
 
     if (chunk.type === 'text') {
-      buffer += chunk.text
+      // Parse XML tool calls from the text stream
+      const { filteredText, toolCalls } = parseStreamChunk(
+        chunk.text,
+        xmlParserState,
+      )
+
+      if (filteredText) {
+        buffer += filteredText
+        yield {
+          type: 'text',
+          text: filteredText,
+        }
+      }
+
+      // Flush buffer before yielding tool calls so text event is sent first
+      if (toolCalls.length > 0) {
+        flush()
+      }
+
+      // Then process and yield any XML tool calls found
+      for (const toolCall of toolCalls) {
+        const toolCallId = `xml-${crypto.randomUUID().slice(0, 8)}`
+
+        // Execute the tool immediately if callback provided, pausing the stream
+        // The callback handles emitting tool_call and tool_result events
+        await executeXmlToolCall({
+          toolCallId,
+          toolName: toolCall.toolName,
+          input: toolCall.input,
+        })
+      }
+      return
     } else {
       flush()
     }

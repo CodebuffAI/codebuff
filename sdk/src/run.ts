@@ -30,7 +30,6 @@ import {
   RETRY_BACKOFF_MAX_DELAY_MS,
 } from './retry-config'
 import { initialSessionState, applyOverridesToSessionState } from './run-state'
-import { filterXml } from './tool-xml-filter'
 import { changeFile } from './tools/change-file'
 import { codeSearch } from './tools/code-search'
 import { glob } from './tools/glob'
@@ -600,8 +599,6 @@ export async function runOnce({
     }
   }
 
-  const buffers: Record<string | 0, string> = { 0: '' }
-
   const onResponseChunk = async (
     action: ServerAction<'response-chunk'>,
   ): Promise<void> => {
@@ -633,21 +630,7 @@ export async function runOnce({
     }
 
     if (handleStreamChunk) {
-      const stream = filterXml({
-        chunk,
-        buffer: buffers[0],
-      })
-      while (true) {
-        const { value, done } = stream.next()
-        if (done) {
-          buffers[0] = value.buffer
-          break
-        }
-
-        if (value.chunk) {
-          await handleStreamChunk(value.chunk)
-        }
-      }
+      await handleStreamChunk(chunk)
     }
   }
   const onSubagentResponseChunk = async (
@@ -658,24 +641,13 @@ export async function runOnce({
     }
     const { agentId, agentType, chunk } = action
 
-    if (handleStreamChunk) {
-      const stream = filterXml({
+    if (handleStreamChunk && chunk) {
+      await handleStreamChunk({
+        type: 'subagent_chunk',
+        agentId,
+        agentType,
         chunk,
-        buffer: buffers[agentId] ?? '',
       })
-      while (true) {
-        const { value, done } = stream.next()
-        if (done) {
-          buffers[agentId] = value.buffer
-          break
-        }
-        await handleStreamChunk({
-          type: 'subagent_chunk',
-          agentId,
-          agentType,
-          chunk: value.chunk,
-        })
-      }
     }
   }
 

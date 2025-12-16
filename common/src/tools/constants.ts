@@ -61,6 +61,8 @@ export const publishedTools = [
   'glob',
   'list_directory',
   'lookup_agent_info',
+  'propose_str_replace',
+  'propose_write_file',
   'read_docs',
   'read_files',
   'read_subtree',

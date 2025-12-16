@@ -64,7 +64,11 @@ export async function processStream(
   > &
     ParamsExcluding<
       typeof processStreamWithTools,
-      'processors' | 'defaultProcessor' | 'onError' | 'loggerOptions'
+      | 'processors'
+      | 'defaultProcessor'
+      | 'onError'
+      | 'loggerOptions'
+      | 'executeXmlToolCall'
     >,
 ) {
   const {
@@ -245,6 +249,26 @@ export async function processStream(
         )
       }
       return onResponseChunk(chunk)
+    },
+    // Execute XML-parsed tool calls immediately during streaming
+    executeXmlToolCall: async ({ toolName, input }) => {
+      if (signal.aborted) {
+        return
+      }
+
+      // Cast input to the expected type - the XML parser produces Record<string, unknown>
+      // but the callbacks expect Record<string, string>. The actual values are strings.
+      const inputAsStrings = input as Record<string, string>
+
+      // Use the appropriate callback based on whether it's a native or custom tool
+      const isNativeTool = toolNames.includes(toolName as ToolName)
+      if (isNativeTool) {
+        const callback = toolCallback(toolName as ToolName)
+        await callback.onTagEnd(toolName, inputAsStrings)
+      } else {
+        const callback = customToolCallback(toolName)
+        await callback.onTagEnd(toolName, inputAsStrings)
+      }
     },
   })
 
