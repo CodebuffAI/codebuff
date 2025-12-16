@@ -67,7 +67,7 @@ export async function mainPrompt(
 
   const availableAgents = Object.keys(localAgentTemplates)
 
-  // Determine agent type - prioritize CLI agent selection, then config base agent, then cost mode
+  // Determine agent type - prioritize CLI agent selection, then cost mode
   let agentType: AgentTemplateType
 
   if (agentId) {
@@ -87,40 +87,15 @@ export async function mainPrompt(
       `Using CLI-specified agent: ${agentId}`,
     )
   } else {
-    // Check for base agent in config
-    const configBaseAgent = fileContext.codebuffConfig?.baseAgent
-    if (configBaseAgent) {
-      if (
-        !(await getAgentTemplate({
-          ...params,
-          agentId: configBaseAgent,
-        }))
-      ) {
-        throw new Error(
-          `Invalid base agent in config: "${configBaseAgent}". Available agents: ${availableAgents.join(', ')}`,
-        )
-      }
-      agentType = configBaseAgent
-      logger.info(
-        {
-          configBaseAgent,
-          promptParams,
-          prompt: prompt?.slice(0, 50),
-        },
-        `Using config-specified base agent: ${configBaseAgent}`,
-      )
-    } else {
-      // Fall back to cost mode mapping
-      agentType = (
-        {
-          ask: AgentTemplateTypes.ask,
-          lite: AgentTemplateTypes.base_lite,
-          normal: AgentTemplateTypes.base,
-          max: AgentTemplateTypes.base_max,
-          experimental: 'base2',
-        } satisfies Record<CostMode, AgentTemplateType>
-      )[costMode ?? 'normal']
-    }
+    agentType = (
+      {
+        ask: AgentTemplateTypes.ask,
+        lite: AgentTemplateTypes.base_lite,
+        normal: AgentTemplateTypes.base,
+        max: AgentTemplateTypes.base_max,
+        experimental: 'base2',
+      } satisfies Record<CostMode, AgentTemplateType>
+    )[costMode ?? 'normal']
   }
 
   mainAgentState.agentType = agentType
@@ -135,20 +110,8 @@ export async function mainPrompt(
 
   let updatedSubagents = mainAgentTemplate.spawnableAgents
   if (!agentId) {
-    // If --agent is not specified, use the spawnableAgents from the codebuff config or add all local agents
-    const {
-      spawnableAgents,
-      addedSpawnableAgents = [],
-      removedSpawnableAgents = [],
-    } = fileContext.codebuffConfig ?? {}
     updatedSubagents =
-      spawnableAgents ??
       uniq([...mainAgentTemplate.spawnableAgents, ...availableAgents])
-
-    updatedSubagents = uniq([
-      ...updatedSubagents,
-      ...addedSpawnableAgents,
-    ]).filter((subagent) => !removedSpawnableAgents.includes(subagent))
   }
   mainAgentTemplate.spawnableAgents = updatedSubagents
   localAgentTemplates[agentType] = mainAgentTemplate

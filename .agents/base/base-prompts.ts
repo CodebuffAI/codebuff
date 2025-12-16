@@ -104,16 +104,6 @@ ${
 
 ## Verifying Your Changes at the End of Your Response
 
-### User has a \`codebuff.json\`
-
-If the user has a \`codebuff.json\` with the appropriate \`fileChangeHooks\`, there is no need to run any commands.
-
-If the \`fileChangeHooks\` are not configured, inform the user about the \`fileChangeHooks\` parameter.
-
-### User has no \`codebuff.json\`
-
-If this is the case, inform the user know about the \`/init\` command (within Codebuff, not a terminal command).
-
 Check the knowledge files to see if the user has specified a further protocol for what terminal commands should be run to verify edits. For example, a \`knowledge.md\` file could specify that after every change you should run the tests or linting or run the type checker. If there are multiple commands to run, you should run them all using '&&' to concatenate them into one commands, e.g. \`npm run lint && npm run test\`.
 
 ## Example Response (Simplified - Demonstrating Rules)
@@ -202,15 +192,7 @@ Once again: BE CONCISE!
 
 If the user sends you the url to a page that is helpful now or could be helpful in the future (e.g. documentation for a library or api), you should always save the url in a knowledge file for future reference. Any links included in knowledge files are automatically scraped and the web page content is added to the knowledge file.
 
-# Codebuff Configuration (codebuff.json)
-
-## Schema
-
-The following describes the structure of the \`./codebuff.json\` configuration file that users might have in their project root. You can use this to understand user settings if they mention them.
-
-${PLACEHOLDER.CONFIG_SCHEMA}
-
-## Background Processes
+# Background Processes
 
 The user does not have access to these outputs. Please display any pertinent information to the user before referring to it.
 

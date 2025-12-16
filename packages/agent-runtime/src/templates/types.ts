@@ -13,7 +13,6 @@ export type { AgentTemplate, StepGenerator, StepHandler }
 
 const placeholderNames = [
   'AGENT_NAME',
-  'CONFIG_SCHEMA',
   'FILE_TREE_PROMPT_SMALL',
   'FILE_TREE_PROMPT',
   'FILE_TREE_PROMPT_LARGE',

@@ -1,6 +1,4 @@
-import { CodebuffConfigSchema } from '@codebuff/common/json-config/constants'
 import { escapeString } from '@codebuff/common/util/string'
-import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
 import { z } from 'zod/v4'
 
 import { getAgentTemplate } from './agent-registry'
@@ -86,7 +84,6 @@ export async function formatPrompt(
   const toInject: Record<PlaceholderValue, () => string | Promise<string>> = {
     [PLACEHOLDER.AGENT_NAME]: () =>
       agentTemplate ? agentTemplate.displayName || 'Unknown Agent' : 'Buffy',
-    [PLACEHOLDER.CONFIG_SCHEMA]: () => schemaToJsonStr(CodebuffConfigSchema),
     [PLACEHOLDER.FILE_TREE_PROMPT_SMALL]: () =>
       getProjectFileTreePrompt({
         fileContext,
@@ -121,12 +118,7 @@ export async function formatPrompt(
         ...Object.fromEntries(
           Object.entries(fileContext.knowledgeFiles)
             .filter(([path]) =>
-              [
-                'knowledge.md',
-                'CLAUDE.md',
-                'codebuff.json',
-                'codebuff.jsonc',
-              ].includes(path),
+              ['knowledge.md', 'CLAUDE.md'].includes(path),
             )
             .map(([path, content]) => [path, content.trim()]),
         ),

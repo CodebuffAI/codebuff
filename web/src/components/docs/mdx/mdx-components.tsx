@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react'
 
 import { CodeDemo } from './code-demo'
 import { MarkdownTable } from './markdown-table'
-import { AgentTemplateSchemaDisplay, SchemaDisplay } from './schema-display'
+import { AgentTemplateSchemaDisplay } from './schema-display'
 import { AgentDefinitionDisplay } from './agent-definition-display'
 
 import type {
@@ -287,7 +287,6 @@ const components = {
   Image,
   CodeDemo,
   MarkdownTable,
-  SchemaDisplay,
   AgentTemplateSchemaDisplay,
   AgentDefinitionDisplay,
 }

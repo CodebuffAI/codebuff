@@ -3,9 +3,6 @@ import * as path from 'path'
 
 import { z } from 'zod/v4'
 
-import { CodebuffConfigSchema } from '../json-config/constants'
-
-import type { CodebuffConfig } from '../json-config/constants'
 import type { CodebuffFileSystem } from '../types/filesystem'
 
 export const FileTreeNodeSchema: z.ZodType<FileTreeNode> = z.object({
@@ -70,7 +67,6 @@ export const ProjectFileContextSchema = z.object({
   userKnowledgeFiles: z.record(z.string(), z.string()).optional(),
   agentTemplates: z.record(z.string(), z.any()).default(() => ({})),
   customToolDefinitions: customToolDefinitionsSchema,
-  codebuffConfig: CodebuffConfigSchema.optional(),
   gitChanges: z.object({
     status: z.string(),
     diff: z.string(),
@@ -99,7 +95,6 @@ export type ProjectFileContext = {
   userKnowledgeFiles?: Record<string, string>
   agentTemplates: Record<string, any>
   customToolDefinitions: CustomToolDefinitions
-  codebuffConfig?: CodebuffConfig
   gitChanges: {
     status: string
     diff: string
@@ -143,7 +138,6 @@ export const getStubProjectFileContext = (): ProjectFileContext => ({
   userKnowledgeFiles: {},
   agentTemplates: {},
   customToolDefinitions: {},
-  codebuffConfig: undefined,
   gitChanges: {
     status: '',
     diff: '',

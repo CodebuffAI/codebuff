@@ -15,7 +15,7 @@ const inputSchema = z.object({
     ),
 })
 const description = `
-Purpose: Trigger file change hooks defined in codebuff.json for the specified files. This tool allows the backend to request the client to run its configured file change hooks (like tests, linting, type checking) after file changes have been applied.
+Purpose: Trigger client-configured file change hooks for the specified files. This tool allows the backend to request the client to run its configured file change hooks (like tests, linting, type checking) after file changes have been applied.
 
 Use cases:
 - After making code changes, trigger the relevant tests and checks

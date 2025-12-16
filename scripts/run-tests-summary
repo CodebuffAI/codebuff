@@ -4,7 +4,7 @@
 # - If any test fails: print the full output
 #
 # Usage: invoked from package directory (e.g., backend/, npm-app/, common/)
-# The codebuff.json hooks set cwd accordingly and call this script via ../.bin/run-tests-summary
+# File change hooks may set cwd accordingly and call this script via ../.bin/run-tests-summary
 
 set -o pipefail
 
