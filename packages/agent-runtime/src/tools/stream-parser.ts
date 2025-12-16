@@ -136,7 +136,6 @@ export async function processStream(
   ) {
     const responseHandler = createResponseHandler(isXmlMode)
     const resultsArray = isXmlMode ? [] : toolResultsToAddAfterStream
-    const previousPromise = isXmlMode ? Promise.resolve() : previousToolCallFinished
 
     return {
       onTagStart: () => {},
@@ -155,6 +154,13 @@ export async function processStream(
               spawnableAgents: agentTemplate.spawnableAgents,
             })
           : null
+
+        // Read previousToolCallFinished at execution time to ensure proper sequential chaining.
+        // For XML mode, if this is the first tool call (still pointing to streamDonePromise),
+        // start with a resolved promise so we don't wait for the stream to complete.
+        const previousPromise = isXmlMode && previousToolCallFinished === streamDonePromise
+          ? Promise.resolve()
+          : previousToolCallFinished
 
         // Determine which executor to use and with what parameters
         let toolPromise: Promise<void>
