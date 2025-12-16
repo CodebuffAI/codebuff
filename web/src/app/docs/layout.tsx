@@ -1,11 +1,10 @@
 'use client'
 
-import { Menu } from 'lucide-react'
+import { ChevronUp, Menu } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 
 import { DocSidebar, sections } from '@/components/docs/doc-sidebar'
-import { Button } from '@/components/ui/button'
 import {
   Sheet,
   SheetContent,
@@ -80,7 +79,7 @@ export default function DocsLayout({
           {children}
         </main>
       </div>
-      <div className="flex items-center lg:hidden sticky bottom-0 z-50 bg-background/80 backdrop-blur-sm container p-4 rounded-t-lg border-t">
+      <div className="lg:hidden sticky bottom-0 z-50 bg-background/80 backdrop-blur-sm rounded-t-lg border-t">
         <Sheet
           open={open}
           onOpenChange={(isOpen) => {
@@ -93,10 +92,18 @@ export default function DocsLayout({
           }}
         >
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="mr-4">
-              <Menu className="h-5 w-5" />
-              <span className="sr-only">Toggle menu</span>
-            </Button>
+            <button className="flex items-center w-full px-4 py-4 hover:bg-accent/50 transition-colors">
+              <div className="container flex items-center justify-between">
+                <div className="flex items-center">
+                  <Menu className="h-5 w-5 mr-4" />
+                  <span className="text-xl font-semibold">
+                    {sections.find((section) => pathname.startsWith(section.href))
+                      ?.title || 'Documentation'}
+                  </span>
+                </div>
+                <ChevronUp className="h-5 w-5 text-muted-foreground" />
+              </div>
+            </button>
           </SheetTrigger>
           <SheetContent
             side="bottom"
@@ -107,12 +114,6 @@ export default function DocsLayout({
             </VisuallyHidden>
             <DocSidebar onNavigate={() => setOpen(false)} />
           </SheetContent>
-          <SheetTrigger asChild>
-            <h1 className="text-xl font-semibold w-full">
-              {sections.find((section) => pathname.startsWith(section.href))
-                ?.title || 'Documentation'}
-            </h1>
-          </SheetTrigger>
         </Sheet>
       </div>
     </div>
