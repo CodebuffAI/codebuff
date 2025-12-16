@@ -23,12 +23,14 @@ describe('/api/v1/me route', () => {
       email: 'test@example.com',
       discord_id: 'discord-123',
       referral_code: 'ref-user-123',
+      banned: false,
     },
     'test-api-key-456': {
       id: 'user-456',
       email: 'test2@example.com',
       discord_id: null,
       referral_code: 'ref-user-456',
+      banned: false,
     },
   }
 

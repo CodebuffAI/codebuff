@@ -6,8 +6,9 @@ type User = {
   email: string
   discord_id: string | null
   referral_code: string | null
+  banned: boolean
 }
-export const userColumns = ['id', 'email', 'discord_id', 'referral_code'] as const
+export const userColumns = ['id', 'email', 'discord_id', 'referral_code', 'banned'] as const
 export type UserColumn = keyof User
 export type GetUserInfoFromApiKeyInput<T extends UserColumn> = {
   apiKey: string

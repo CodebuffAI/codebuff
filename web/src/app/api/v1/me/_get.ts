@@ -129,7 +129,7 @@ export async function getMe(params: {
 
   // Build response including derived fields
   const userInfoRecord = userInfo as Partial<
-    Record<ValidDbField, string | null>
+    Record<ValidDbField, string | boolean | null>
   >
 
   const responseBody: Record<string, unknown> = {}

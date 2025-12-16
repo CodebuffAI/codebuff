@@ -12,6 +12,7 @@ export const VALID_USER_INFO_FIELDS = [
   'email',
   'discord_id',
   'referral_code',
+  'banned',
 ] as const
 
 export async function getUserInfoFromApiKey<

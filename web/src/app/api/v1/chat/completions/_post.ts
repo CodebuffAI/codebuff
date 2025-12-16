@@ -16,15 +16,6 @@ import {
 } from '@/llm-api/openrouter'
 import { extractApiKeyFromHeader } from '@/util/auth'
 
-/**
- * User IDs that are blocked from using the chat completions API.
- * Returns a cryptic error to avoid revealing the block.
- */
-const BLOCKED_USER_IDS: string[] = [
-  '5e5aa538-92c8-4051-b0ec-5f75dbd69767',
-  '5972546e-648d-4da6-991f-17c42b037329',
-]
-
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
 import type { GetUserUsageDataFn } from '@codebuff/common/types/contracts/billing'
@@ -137,7 +128,7 @@ export async function postChatCompletions(params: {
     // Get user info
     const userInfo = await getUserInfoFromApiKey({
       apiKey,
-      fields: ['id', 'email', 'discord_id'],
+      fields: ['id', 'email', 'discord_id', 'banned'],
       logger,
     })
     if (!userInfo) {
@@ -158,8 +149,8 @@ export async function postChatCompletions(params: {
 
     const userId = userInfo.id
 
-    // Check if user is blocked. Return fake overloaded error to avoid revealing the block.
-    if (BLOCKED_USER_IDS.includes(userId)) {
+    // Check if user is banned. Return fake overloaded error to avoid revealing the block.
+    if (userInfo.banned) {
       return NextResponse.json(
         {
           error: 'upstream_timeout',

@@ -76,6 +76,7 @@ export const user = pgTable('user', {
   auto_topup_enabled: boolean('auto_topup_enabled').notNull().default(false),
   auto_topup_threshold: integer('auto_topup_threshold'),
   auto_topup_amount: integer('auto_topup_amount'),
+  banned: boolean('banned').notNull().default(false),
 })
 
 export const account = pgTable(

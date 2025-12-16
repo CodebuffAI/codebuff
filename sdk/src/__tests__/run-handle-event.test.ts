@@ -19,6 +19,7 @@ describe('CodebuffClient handleEvent / handleStreamChunk', () => {
       email: 'test@example.com',
       discord_id: null,
       referral_code: null,
+      banned: false,
     })
     spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
     spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')

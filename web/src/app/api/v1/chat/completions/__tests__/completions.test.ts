@@ -20,16 +20,19 @@ import type {
 describe('/api/v1/chat/completions POST endpoint', () => {
   const mockUserData: Record<
     string,
-    NonNullable<Awaited<GetUserInfoFromApiKeyOutput<'id'>>>
+    { id: string; banned: boolean }
   > = {
     'test-api-key-123': {
       id: 'user-123',
+      banned: false,
     },
     'test-api-key-no-credits': {
       id: 'user-no-credits',
+      banned: false,
     },
     'test-api-key-blocked': {
-      id: '5e5aa538-92c8-4051-b0ec-5f75dbd69767',
+      id: 'banned-user-id',
+      banned: true,
     },
   }
 
@@ -40,7 +43,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     if (!userData) {
       return null
     }
-    return { id: userData.id } as any
+    return { id: userData.id, banned: userData.banned } as any
   }
 
   let mockLogger: Logger
