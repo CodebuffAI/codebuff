@@ -1,14 +1,9 @@
 'use client'
 
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useId, useLayoutEffect, useRef, useState } from 'react'
 
-let idCounter = 0
 let mermaidPromise: Promise<typeof import('mermaid')> | null = null
 let isInitialized = false
-
-function generateUniqueId() {
-  return `mermaid-${idCounter++}`
-}
 
 interface MermaidDiagramProps {
   code: string
@@ -16,7 +11,8 @@ interface MermaidDiagramProps {
 }
 
 export function MermaidDiagram({ code, className = '' }: MermaidDiagramProps) {
-  const idRef = useRef(generateUniqueId())
+  const id = useId()
+  const mermaidId = `mermaid-${id.replace(/:/g, '-')}`
   const containerRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -51,7 +47,7 @@ export function MermaidDiagram({ code, className = '' }: MermaidDiagramProps) {
         }
 
         // Render the diagram with a unique ID each time
-        const uniqueId = `${idRef.current}-${Date.now()}`
+        const uniqueId = `${mermaidId}-${Date.now()}`
         const { svg } = await mermaid.render(uniqueId, code)
 
         if (containerRef.current) {
@@ -97,7 +93,7 @@ export function MermaidDiagram({ code, className = '' }: MermaidDiagramProps) {
       )}
       <div
         ref={containerRef}
-        id={idRef.current}
+        id={mermaidId}
         className="mermaid-diagram flex justify-center"
         style={{ display: isLoading ? 'none' : 'block' }}
       />
