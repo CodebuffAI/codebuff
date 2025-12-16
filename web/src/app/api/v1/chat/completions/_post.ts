@@ -149,14 +149,20 @@ export async function postChatCompletions(params: {
 
     const userId = userInfo.id
 
-    // Check if user is banned. Return fake overloaded error to avoid revealing the block.
+    // Check if user is banned.
+    // We use a clear, helpful message rather than a cryptic error because:
+    // 1. Legitimate users banned by mistake deserve to know what's happening
+    // 2. Bad actors will figure out they're banned regardless of the message
+    // 3. Clear messaging encourages resolution (matches our dispute notification email)
+    // 4. 403 Forbidden is the correct HTTP status for "you're not allowed"
     if (userInfo.banned) {
       return NextResponse.json(
         {
-          error: 'upstream_timeout',
-          message: 'Overloaded. Request could not be processed',
+          error: 'account_suspended',
+          message:
+            'Your account has been suspended due to billing issues. Please contact support@codebuff.com to resolve this.',
         },
-        { status: 503 },
+        { status: 403 },
       )
     }
 

@@ -354,8 +354,8 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     })
   })
 
-  describe('Blocked users', () => {
-    it('returns 503 with cryptic error for blocked user IDs', async () => {
+  describe('Banned users', () => {
+    it('returns 403 with clear message for banned users', async () => {
       const req = new NextRequest(
         'http://localhost:3000/api/v1/chat/completions',
         {
@@ -380,11 +380,12 @@ describe('/api/v1/chat/completions POST endpoint', () => {
         loggerWithContext: mockLoggerWithContext,
       })
 
-      expect(response.status).toBe(503)
+      expect(response.status).toBe(403)
       const body = await response.json()
       expect(body).toEqual({
-        error: 'upstream_timeout',
-        message: 'Overloaded. Request could not be processed',
+        error: 'account_suspended',
+        message:
+          'Your account has been suspended due to billing issues. Please contact support@codebuff.com to resolve this.',
       })
     })
   })

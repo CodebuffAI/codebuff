@@ -199,3 +199,40 @@ export async function sendBasicEmail(
     },
   })
 }
+
+/**
+ * Send a notification email when a user files a dispute.
+ * Offers to work with them to resolve the issue.
+ */
+export async function sendDisputeNotificationEmail(params: {
+  email: string
+  firstName: string
+  disputeAmount: string
+  logger: Logger
+}): Promise<SendEmailResult> {
+  const { email, firstName, disputeAmount, logger } = params
+
+  const subject = "We noticed a dispute on your account - let's resolve this together"
+  const message = `Hi ${firstName},
+
+We noticed that a dispute was filed for a ${disputeAmount} charge on your Codebuff account. We're sorry to hear you had an issue and we'd love the opportunity to make things right.
+
+If there was a problem with your experience or a charge you didn't recognize, please reach out to us directly and we'll be happy to:
+
+• Issue a full refund if appropriate
+• Help resolve any technical issues you experienced
+• Answer any questions about your billing
+
+Working with us directly is often faster than going through your bank, and it helps us improve our service for everyone.
+
+Please reply to this email or contact our support team - we're here to help!
+
+Best regards,
+The Codebuff Team`
+
+  return sendBasicEmail({
+    email,
+    data: { subject, message },
+    logger,
+  })
+}

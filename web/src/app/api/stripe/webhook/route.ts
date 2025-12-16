@@ -6,6 +6,7 @@ import {
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
 import { env } from '@codebuff/internal/env'
+import { sendDisputeNotificationEmail } from '@codebuff/internal/loops'
 import { stripeServer } from '@codebuff/internal/util/stripe'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
@@ -13,6 +14,11 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import type Stripe from 'stripe'
 
+import {
+  banUser,
+  evaluateBanConditions,
+  getUserByStripeCustomerId,
+} from '@/lib/ban-conditions'
 import { getStripeCustomerId } from '@/lib/stripe-utils'
 import { logger } from '@/util/logger'
 
@@ -355,6 +361,111 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted': {
         await handleSubscriptionEvent(event.data.object as Stripe.Subscription)
+        break
+      }
+      case 'charge.dispute.created': {
+        const dispute = event.data.object as Stripe.Dispute
+        const chargeId =
+          typeof dispute.charge === 'string'
+            ? dispute.charge
+            : dispute.charge?.id
+
+        if (!chargeId) {
+          logger.warn(
+            { disputeId: dispute.id },
+            'Dispute received without charge ID',
+          )
+          break
+        }
+
+        // Get the charge to find the customer
+        const charge = await stripeServer.charges.retrieve(chargeId)
+        if (!charge.customer) {
+          logger.warn(
+            { disputeId: dispute.id, chargeId },
+            'Dispute charge has no customer (guest payment)',
+          )
+          break
+        }
+
+        const customerId = getStripeCustomerId(
+          charge.customer as string | Stripe.Customer | Stripe.DeletedCustomer,
+        )
+
+        if (!customerId) {
+          logger.warn(
+            { disputeId: dispute.id, chargeId },
+            'Dispute charge has no customer',
+          )
+          break
+        }
+
+        // Look up the user
+        const user = await getUserByStripeCustomerId(customerId)
+        if (!user) {
+          logger.info(
+            { disputeId: dispute.id, customerId },
+            'Dispute received for unknown customer (may be an organization)',
+          )
+          break
+        }
+
+        // Skip if already banned
+        if (user.banned) {
+          logger.debug(
+            { disputeId: dispute.id, userId: user.id },
+            'Dispute received for already-banned user, skipping evaluation',
+          )
+          break
+        }
+
+        // Evaluate ban conditions
+        const banResult = await evaluateBanConditions({
+          userId: user.id,
+          stripeCustomerId: customerId,
+          logger,
+        })
+
+        if (banResult.shouldBan) {
+          await banUser(user.id, banResult.reason, logger)
+          logger.warn(
+            {
+              disputeId: dispute.id,
+              userId: user.id,
+              customerId,
+              reason: banResult.reason,
+            },
+            'User auto-banned due to dispute threshold',
+          )
+          // Don't send email to banned users
+        } else {
+          // Send friendly dispute notification email to non-banned users
+          const firstName = user.name?.split(' ')[0] || 'there'
+          const disputeAmount = `$${(dispute.amount / 100).toFixed(2)}`
+          const emailResult = await sendDisputeNotificationEmail({
+            email: user.email,
+            firstName,
+            disputeAmount,
+            logger,
+          })
+
+          if (emailResult.success) {
+            logger.info(
+              { disputeId: dispute.id, userId: user.id, email: user.email },
+              'Sent dispute notification email to user',
+            )
+          } else {
+            logger.warn(
+              {
+                disputeId: dispute.id,
+                userId: user.id,
+                email: user.email,
+                error: emailResult.error,
+              },
+              'Failed to send dispute notification email',
+            )
+          }
+        }
         break
       }
       case 'charge.refunded': {
