@@ -22,7 +22,6 @@ import {
 } from './spawn-agent-matcher'
 import {
   destinationFromChunkEvent,
-  destinationFromTextEvent,
   processTextChunk,
 } from './stream-chunk-processor'
 
@@ -160,40 +159,6 @@ const updateStreamingAgents = (
     }
     return next
   })
-}
-
-const handleTextEvent = (state: EventHandlerState, event: PrintModeText) => {
-  if (!event.text) {
-    return
-  }
-
-  ensureStreaming(state)
-
-  const destination = destinationFromTextEvent(event)
-  const text = event.text
-
-  if (destination.type === 'agent') {
-    const previous =
-      state.streaming.streamRefs.state.agentStreamAccumulators.get(
-        destination.agentId,
-      ) ?? ''
-    state.streaming.streamRefs.setters.setAgentAccumulator(
-      destination.agentId,
-      previous + text,
-    )
-    state.message.updater.updateAiMessageBlocks((blocks) =>
-      processTextChunk(blocks, destination, text),
-    )
-    return
-  }
-
-  if (state.streaming.streamRefs.state.rootStreamSeen) {
-    return
-  }
-
-  state.streaming.streamRefs.setters.appendRootStreamBuffer(text)
-  state.streaming.streamRefs.setters.setRootStreamSeen(true)
-  appendRootChunk(state, { type: destination.textType, text })
 }
 
 const handleSubagentStart = (
@@ -482,16 +447,6 @@ export const createStreamChunkHandler =
       appendRootChunk(state, { type: destination.textType, text })
       return
     }
-
-    const previous =
-      state.streaming.streamRefs.state.agentStreamAccumulators.get(
-        destination.agentId,
-      ) ?? ''
-
-    state.streaming.streamRefs.setters.setAgentAccumulator(
-      destination.agentId,
-      previous + text,
-    )
 
     state.message.updater.updateAiMessageBlocks((blocks) =>
       processTextChunk(blocks, destination, text),

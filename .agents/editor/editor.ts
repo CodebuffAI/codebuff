@@ -103,44 +103,19 @@ More style notes:
 
 Write out your complete implementation now, formatting all changes as tool calls as shown above.`,
 
-    handleSteps: function* ({ agentState: initialAgentState }) {
+    handleSteps: function* ({ agentState: initialAgentState, logger }) {
       const initialMessageHistoryLength =
         initialAgentState.messageHistory.length
       const { agentState } = yield 'STEP'
       const { messageHistory } = agentState
 
       const newMessages = messageHistory.slice(initialMessageHistoryLength)
-      const assistantText = newMessages
-        .filter((message) => message.role === 'assistant')
-        .flatMap((message) => message.content)
-        .filter((content) => content.type === 'text')
-        .map((content) => content.text)
-        .join('\n')
-
-      // Extract tool calls from the assistant text
-      const toolCallsText = extractToolCallsOnly(assistantText)
-
-      const { agentState: postAssistantTextAgentState } = yield {
-        type: 'STEP_TEXT',
-        text: toolCallsText,
-      } as StepText
-
-      const postAssistantTextMessageHistory =
-        postAssistantTextAgentState.messageHistory.slice(
-          initialMessageHistoryLength,
-        )
-      const toolResults = postAssistantTextMessageHistory
-        .filter((message) => message.role === 'tool')
-        .flatMap((message) => message.content)
-        .filter((content) => content.type === 'json')
-        .map((content) => content.value)
 
       yield {
         toolName: 'set_output',
         input: {
           output: {
-            message: toolCallsText,
-            toolResults,
+            messages: newMessages,
           },
         },
         includeToolCall: false,

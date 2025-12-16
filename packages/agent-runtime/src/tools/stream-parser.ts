@@ -64,7 +64,11 @@ export async function processStream(
   > &
     ParamsExcluding<
       typeof processStreamWithTools,
-      'processors' | 'defaultProcessor' | 'onError' | 'loggerOptions'
+      | 'processors'
+      | 'defaultProcessor'
+      | 'onError'
+      | 'loggerOptions'
+      | 'executeXmlToolCall'
     >,
 ) {
   const {
@@ -78,10 +82,10 @@ export async function processStream(
     runId,
     signal,
     userId,
-    logger,
   } = params
   const fullResponseChunks: string[] = [fullResponse]
 
+  // === MUTABLE STATE ===
   const toolResults: ToolMessage[] = []
   const toolResultsToAddAfterStream: ToolMessage[] = []
   const toolCalls: (CodebuffToolCall | CustomToolCall)[] = []
@@ -98,43 +102,41 @@ export async function processStream(
     firstFileProcessed: false,
   }
 
-  function toolCallback<T extends ToolName>(toolName: T) {
-    return {
-      onTagStart: () => {},
-      onTagEnd: async (_: string, input: Record<string, string>) => {
-        if (signal.aborted) {
-          return
+  // === RESPONSE HANDLER ===
+  // Creates a response handler that captures tool events into assistantMessages.
+  // When isXmlMode=true, also captures tool_result events for interleaved ordering.
+  function createResponseHandler(isXmlMode: boolean) {
+    return (chunk: string | PrintModeEvent) => {
+      if (typeof chunk !== 'string') {
+        if (chunk.type === 'tool_call') {
+          assistantMessages.push(
+            assistantMessage({ ...chunk, type: 'tool-call' }),
+          )
+        } else if (isXmlMode && chunk.type === 'tool_result') {
+          const toolResultMessage: ToolMessage = {
+            role: 'tool',
+            toolName: chunk.toolName,
+            toolCallId: chunk.toolCallId,
+            content: chunk.output,
+          }
+          assistantMessages.push(toolResultMessage)
         }
-        const toolCallId = generateCompactId()
-        // delegated to reusable helper
-        previousToolCallFinished = executeToolCall({
-          ...params,
-          toolName,
-          input,
-          fromHandleSteps: false,
-
-          fileProcessingState,
-          fullResponse: fullResponseChunks.join(''),
-          previousToolCallFinished,
-          toolCallId,
-          toolCalls,
-          toolResults,
-          toolResultsToAddAfterStream,
-
-          onCostCalculated,
-          onResponseChunk: (chunk) => {
-            if (typeof chunk !== 'string' && chunk.type === 'tool_call') {
-              assistantMessages.push(
-                assistantMessage({ ...chunk, type: 'tool-call' }),
-              )
-            }
-            return onResponseChunk(chunk)
-          },
-        })
-      },
+      }
+      return onResponseChunk(chunk)
     }
   }
-  function customToolCallback(toolName: string) {
+
+  // === TOOL EXECUTION ===
+  // Unified callback factory for both native and custom tools.
+  // isXmlMode=true: execute immediately, capture results inline (for XML tool calls)
+  // isXmlMode=false: defer execution, results added at end (for native tool calls)
+  function createToolExecutionCallback(
+    toolName: string,
+    isXmlMode: boolean,
+  ) {
+    const responseHandler = createResponseHandler(isXmlMode)
+    const resultsArray = isXmlMode ? [] : toolResultsToAddAfterStream
+
     return {
       onTagStart: () => {},
       onTagEnd: async (_: string, input: Record<string, string>) => {
@@ -142,86 +144,88 @@ export async function processStream(
           return
         }
         const toolCallId = generateCompactId()
+        const isNativeTool = toolNames.includes(toolName as ToolName)
 
-        // Check if this is an agent tool call - if so, transform to spawn_agents
-        const transformed = tryTransformAgentToolCall({
-          toolName,
-          input,
-          spawnableAgents: agentTemplate.spawnableAgents,
-        })
+        // Check if this is an agent tool call that should be transformed to spawn_agents
+        const transformed = !isNativeTool
+          ? tryTransformAgentToolCall({
+              toolName,
+              input,
+              spawnableAgents: agentTemplate.spawnableAgents,
+            })
+          : null
 
-        if (transformed) {
-          // Use executeToolCall for spawn_agents (a native tool)
-          previousToolCallFinished = executeToolCall({
+        // Read previousToolCallFinished at execution time to ensure proper sequential chaining.
+        // For XML mode, if this is the first tool call (still pointing to streamDonePromise),
+        // start with a resolved promise so we don't wait for the stream to complete.
+        const previousPromise = isXmlMode && previousToolCallFinished === streamDonePromise
+          ? Promise.resolve()
+          : previousToolCallFinished
+
+        // Determine which executor to use and with what parameters
+        let toolPromise: Promise<void>
+        if (isNativeTool || transformed) {
+          // Use executeToolCall for native tools or transformed agent calls
+          toolPromise = executeToolCall({
             ...params,
-            toolName: transformed.toolName,
-            input: transformed.input,
+            toolName: transformed ? transformed.toolName : (toolName as ToolName),
+            input: transformed ? transformed.input : input,
             fromHandleSteps: false,
-
+            skipDirectResultPush: isXmlMode,
             fileProcessingState,
             fullResponse: fullResponseChunks.join(''),
-            previousToolCallFinished,
+            previousToolCallFinished: previousPromise,
             toolCallId,
             toolCalls,
             toolResults,
-            toolResultsToAddAfterStream,
-
+            toolResultsToAddAfterStream: resultsArray,
             onCostCalculated,
-            onResponseChunk: (chunk) => {
-              if (typeof chunk !== 'string' && chunk.type === 'tool_call') {
-                assistantMessages.push(
-                  assistantMessage({ ...chunk, type: 'tool-call' }),
-                )
-              }
-              return onResponseChunk(chunk)
-            },
+            onResponseChunk: responseHandler,
           })
         } else {
-          // delegated to reusable helper for custom tools
-          previousToolCallFinished = executeCustomToolCall({
+          // Use executeCustomToolCall for custom/MCP tools
+          toolPromise = executeCustomToolCall({
             ...params,
             toolName,
             input,
-
+            skipDirectResultPush: isXmlMode,
             fileProcessingState,
             fullResponse: fullResponseChunks.join(''),
-            previousToolCallFinished,
+            previousToolCallFinished: previousPromise,
             toolCallId,
             toolCalls,
             toolResults,
-            toolResultsToAddAfterStream,
-
-            onResponseChunk: (chunk) => {
-              if (typeof chunk !== 'string' && chunk.type === 'tool_call') {
-                assistantMessages.push(
-                  assistantMessage({ ...chunk, type: 'tool-call' }),
-                )
-              }
-              return onResponseChunk(chunk)
-            },
+            toolResultsToAddAfterStream: resultsArray,
+            onResponseChunk: responseHandler,
           })
+        }
+
+        previousToolCallFinished = toolPromise
+
+        // For XML mode, await execution so results appear inline before stream continues
+        if (isXmlMode) {
+          await toolPromise
         }
       },
     }
   }
 
+  // === STREAM PROCESSING ===
   const streamWithTags = processStreamWithTools({
     ...params,
     processors: Object.fromEntries([
-      ...toolNames.map((toolName) => [toolName, toolCallback(toolName)]),
+      ...toolNames.map((name) => [name, createToolExecutionCallback(name, false)]),
       ...Object.keys(fileContext.customToolDefinitions ?? {}).map(
-        (toolName) => [toolName, customToolCallback(toolName)],
+        (name) => [name, createToolExecutionCallback(name, false)],
       ),
     ]),
-    defaultProcessor: customToolCallback,
+    defaultProcessor: (name: string) => createToolExecutionCallback(name, false),
     onError: (toolName, error) => {
       const toolResult: ToolMessage = {
         role: 'tool',
         toolName,
         toolCallId: generateCompactId(),
-        content: jsonToolResult({
-          errorMessage: error,
-        }),
+        content: jsonToolResult({ errorMessage: error }),
       }
       toolResults.push(cloneDeep(toolResult))
       toolResultsToAddAfterStream.push(cloneDeep(toolResult))
@@ -246,11 +250,21 @@ export async function processStream(
       }
       return onResponseChunk(chunk)
     },
+    // Execute XML-parsed tool calls immediately during streaming
+    executeXmlToolCall: async ({ toolName, input }) => {
+      if (signal.aborted) {
+        return
+      }
+      const callback = createToolExecutionCallback(toolName, true)
+      await callback.onTagEnd(toolName, input as Record<string, string>)
+    },
   })
 
+  // === STREAM CONSUMPTION LOOP ===
   let messageId: string | null = null
   let hadToolCallError = false
   const errorMessages: Message[] = []
+
   while (true) {
     if (signal.aborted) {
       break
@@ -273,7 +287,6 @@ export async function processStream(
       fullResponseChunks.push(chunk.text)
     } else if (chunk.type === 'error') {
       onResponseChunk(chunk)
-
       hadToolCallError = true
       // Collect error messages to add AFTER all tool results
       // This ensures proper message ordering for Anthropic's API which requires
@@ -286,13 +299,14 @@ export async function processStream(
         ),
       )
     } else if (chunk.type === 'tool-call') {
-      // Do nothing, the onResponseChunk for tool is handled in the processor
+      // Tool call handling is done in the processor's onResponseChunk
     } else {
       chunk satisfies never
       throw new Error(`Unhandled chunk type: ${(chunk as any).type}`)
     }
   }
 
+  // === FINALIZATION ===
   agentState.messageHistory = buildArray<Message>([
     ...expireMessages(agentState.messageHistory, 'agentStep'),
     ...assistantMessages,
@@ -304,7 +318,7 @@ export async function processStream(
     await previousToolCallFinished
   }
 
-  // Error messages must come AFTER tool results for proper API ordering)
+  // Error messages must come AFTER tool results for proper API ordering
   agentState.messageHistory.push(...errorMessages)
 
   return {

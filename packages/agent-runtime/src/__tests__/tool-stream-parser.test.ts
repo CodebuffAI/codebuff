@@ -71,6 +71,7 @@ describe('processStreamWithTags', () => {
       defaultProcessor,
       onError,
       onResponseChunk,
+      executeXmlToolCall: async () => {},
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -137,6 +138,7 @@ describe('processStreamWithTags', () => {
       defaultProcessor,
       onError,
       onResponseChunk,
+      executeXmlToolCall: async () => {},
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -213,6 +215,7 @@ describe('processStreamWithTags', () => {
       defaultProcessor,
       onError,
       onResponseChunk,
+      executeXmlToolCall: async () => {},
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -293,6 +296,7 @@ describe('processStreamWithTags', () => {
       defaultProcessor,
       onError,
       onResponseChunk,
+      executeXmlToolCall: async () => {},
     })) {
       // consume stream
     }
@@ -361,6 +365,7 @@ describe('processStreamWithTags', () => {
       defaultProcessor,
       onError,
       onResponseChunk,
+      executeXmlToolCall: async () => {},
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -433,6 +438,7 @@ describe('processStreamWithTags', () => {
       defaultProcessor,
       onError,
       onResponseChunk,
+      executeXmlToolCall: async () => {},
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -486,6 +492,7 @@ describe('processStreamWithTags', () => {
       defaultProcessor,
       onError,
       onResponseChunk,
+      executeXmlToolCall: async () => {},
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)
@@ -532,6 +539,7 @@ describe('processStreamWithTags', () => {
       defaultProcessor,
       onError,
       onResponseChunk,
+      executeXmlToolCall: async () => {},
     })) {
       if (chunk.type === 'text') {
         result.push(chunk.text)

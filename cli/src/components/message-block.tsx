@@ -642,11 +642,8 @@ const AgentBranchWrapper = memo(
               selectedAgent.agentType,
               siblingBlocks,
             )
-            const name = getImplementorDisplayName(
-              selectedAgent.agentType,
-              index,
-            )
-            statusText = `Selected ${name}`
+            // Just show "Selected Prompt #N" without repeating the prompt text
+            statusText = index !== undefined ? `Selected Strategy #${index + 1}` : 'Selected'
             reason = lastBlock?.input?.reason
           }
         }
@@ -701,6 +698,8 @@ const AgentBranchWrapper = memo(
       const displayName = getImplementorDisplayName(
         agentBlock.agentType,
         implementorIndex,
+        agentBlock.initialPrompt,
+        availableWidth,
       )
       const statusIndicator = isStreaming
         ? '●'
