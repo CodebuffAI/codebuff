@@ -62,7 +62,7 @@
     "@vscode/tree-sitter-wasm": "0.1.4",
     "ai": "^5.0.0",
     "diff": "8.0.2",
-    "esbuild": "^0.19.12",
+    "esbuild": "^0.25.0",
     "ignore": "7.0.5",
     "micromatch": "^4.0.8",
     "web-tree-sitter": "0.25.6",
