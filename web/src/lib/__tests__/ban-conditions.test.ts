@@ -42,7 +42,7 @@ mock.module('@codebuff/internal/db/schema', () => ({
 }))
 
 // Mock Stripe server
-const mockDisputesList = mock(() =>
+const mockDisputesList = mock((): Promise<{ data: any[] }> =>
   Promise.resolve({
     data: [],
   }),
@@ -244,7 +244,7 @@ describe('ban-conditions', () => {
       expect(result.shouldBan).toBe(true)
     })
 
-    it('calls Stripe API with correct time window', async () => {
+    it('calls Stripe API with correct time window and expand parameter', async () => {
       mockDisputesList.mockResolvedValueOnce({ data: [] })
 
       const logger = createMockLogger()
@@ -259,14 +259,40 @@ describe('ban-conditions', () => {
       const afterCall = Math.floor(Date.now() / 1000)
 
       expect(mockDisputesList).toHaveBeenCalledTimes(1)
-      const callArgs = mockDisputesList.mock.calls[0][0]
+      const callArgs = (mockDisputesList.mock.calls as any)[0]?.[0]
       expect(callArgs.limit).toBe(100)
+      // Verify expand parameter is set to get full charge object
+      expect(callArgs.expand).toEqual(['data.charge'])
 
       // Verify the created.gte is within the expected window
       const expectedWindowStart = beforeCall - DISPUTE_WINDOW_DAYS * 24 * 60 * 60
       const windowTolerance = afterCall - beforeCall + 1 // Allow for time passing during test
       expect(callArgs.created.gte).toBeGreaterThanOrEqual(expectedWindowStart - windowTolerance)
       expect(callArgs.created.gte).toBeLessThanOrEqual(expectedWindowStart + windowTolerance)
+    })
+
+    // REGRESSION TEST: Without expand: ['data.charge'], dispute.charge is a string ID,
+    // not an object, so dispute.charge.customer is undefined and no disputes match.
+    // This test ensures we always expand the charge object.
+    it('REGRESSION: must expand data.charge to access customer field', async () => {
+      mockDisputesList.mockResolvedValueOnce({ data: [] })
+
+      const logger = createMockLogger()
+      const context: BanConditionContext = {
+        userId: 'user-123',
+        stripeCustomerId: 'cus_123',
+        logger,
+      }
+
+      await evaluateBanConditions(context)
+
+      const callArgs = (mockDisputesList.mock.calls as any)[0]?.[0]
+      
+      // This is critical: without expand, dispute.charge is just a string ID like "ch_xxx"
+      // and we cannot access dispute.charge.customer to filter by customer.
+      // If this test fails, the ban condition will NEVER match any disputes.
+      expect(callArgs.expand).toBeDefined()
+      expect(callArgs.expand).toContain('data.charge')
     })
 
     it('logs debug message after checking condition', async () => {

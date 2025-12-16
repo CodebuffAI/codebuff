@@ -159,8 +159,7 @@ export async function postChatCompletions(params: {
       return NextResponse.json(
         {
           error: 'account_suspended',
-          message:
-            'Your account has been suspended due to billing issues. Please contact support@codebuff.com to resolve this.',
+          message: `Your account has been suspended due to billing issues. Please contact ${env.NEXT_PUBLIC_SUPPORT_EMAIL} to resolve this.`,
         },
         { status: 403 },
       )

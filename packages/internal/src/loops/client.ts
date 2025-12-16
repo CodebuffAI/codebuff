@@ -225,7 +225,7 @@ If there was a problem with your experience or a charge you didn't recognize, pl
 
 Working with us directly is often faster than going through your bank, and it helps us improve our service for everyone.
 
-Please reply to this email or contact our support team - we're here to help!
+Just reply to this email - we're here to help!
 
 Best regards,
 The Codebuff Team`

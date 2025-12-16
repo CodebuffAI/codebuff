@@ -54,6 +54,7 @@ async function disputeThresholdCondition(
   const disputes = await stripeServer.disputes.list({
     limit: 100,
     created: { gte: windowStart },
+    expand: ['data.charge'],
   })
 
   // Filter to only this customer's disputes
