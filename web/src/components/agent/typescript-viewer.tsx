@@ -144,13 +144,19 @@ export function TypeScriptViewer({
             className={`${highlightClassName} bg-muted p-4 rounded-lg overflow-x-auto text-sm max-h-[600px] overflow-y-auto`}
             style={{ ...style, backgroundColor: 'transparent' }}
           >
-            {tokens.map((line, i) => (
-              <div key={i} {...getLineProps({ line })}>
-                {line.map((token, key) => (
-                  <span key={key} {...getTokenProps({ token, key })} />
-                ))}
-              </div>
-            ))}
+            {tokens.map((line, i) => {
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              const { key: _lineKey, ...lineProps } = getLineProps({ line })
+              return (
+                <div key={i} {...lineProps}>
+                  {line.map((token, tokenIndex) => {
+                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                    const { key: _tokenKey, ...tokenProps } = getTokenProps({ token, key: tokenIndex })
+                    return <span key={tokenIndex} {...tokenProps} />
+                  })}
+                </div>
+              )
+            })}
           </pre>
         )}
       </Highlight>
