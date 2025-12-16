@@ -15,9 +15,10 @@ import {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams?: { [key: string]: string | string[] | undefined }
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  const authCode = searchParams?.auth_code as string | undefined
+  const resolvedSearchParams = searchParams ? await searchParams : {}
+  const authCode = resolvedSearchParams?.auth_code as string | undefined
 
   if (authCode) {
     const [_fingerprintId, expiresAt, _receivedfingerprintHash] =

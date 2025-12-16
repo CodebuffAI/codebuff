@@ -11,7 +11,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { logger } from '@/util/logger'
 
 interface RouteParams {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }
 
 export async function GET(
@@ -24,7 +24,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { slug } = params
+    const { slug } = await params
 
     // Check if user is a member of this organization
     const membership = await db

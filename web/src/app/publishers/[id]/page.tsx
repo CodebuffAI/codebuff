@@ -11,16 +11,17 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface PublisherPageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export async function generateMetadata({ params }: PublisherPageProps) {
+  const { id } = await params
   const publisher = await db
     .select()
     .from(schema.publisher)
-    .where(eq(schema.publisher.id, params.id))
+    .where(eq(schema.publisher.id, id))
     .limit(1)
 
   if (publisher.length === 0) {
@@ -63,10 +64,11 @@ type GroupedAgent = {
 }
 
 const PublisherPage = async ({ params }: PublisherPageProps) => {
+  const { id } = await params
   const publisher = await db
     .select()
     .from(schema.publisher)
-    .where(eq(schema.publisher.id, params.id))
+    .where(eq(schema.publisher.id, id))
     .limit(1)
 
   if (publisher.length === 0) {

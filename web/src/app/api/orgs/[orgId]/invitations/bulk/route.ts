@@ -11,7 +11,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { logger } from '@/util/logger'
 
 interface RouteParams {
-  params: { orgId: string }
+  params: Promise<{ orgId: string }>
 }
 
 interface BulkInviteRequest {
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { orgId } = params
+    const { orgId } = await params
     const body: BulkInviteRequest = await request.json()
 
     if (

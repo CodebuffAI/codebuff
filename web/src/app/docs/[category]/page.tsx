@@ -3,11 +3,12 @@ import { redirect } from 'next/navigation'
 import { getDocsByCategory } from '@/lib/docs'
 
 interface CategoryPageProps {
-  params: { category: string }
+  params: Promise<{ category: string }>
 }
 
-export default function CategoryPage({ params }: CategoryPageProps) {
-  const docs = getDocsByCategory(params.category)
+export default async function CategoryPage({ params }: CategoryPageProps) {
+  const { category } = await params
+  const docs = getDocsByCategory(category)
 
   if (!docs.length) {
     redirect('/docs')
@@ -17,5 +18,5 @@ export default function CategoryPage({ params }: CategoryPageProps) {
   const sortedDocs = [...docs].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
   const firstDoc = sortedDocs[0]
 
-  redirect(`/docs/${params.category}/${firstDoc.slug}`)
+  redirect(`/docs/${category}/${firstDoc.slug}`)
 }

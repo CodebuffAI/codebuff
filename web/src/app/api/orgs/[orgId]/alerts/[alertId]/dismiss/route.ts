@@ -9,7 +9,7 @@ import type { NextRequest } from 'next/server'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 
 interface RouteParams {
-  params: { orgId: string; alertId: string }
+  params: Promise<{ orgId: string; alertId: string }>
 }
 
 export async function POST(
@@ -22,7 +22,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { orgId, alertId } = params
+    const { orgId, alertId } = await params
 
     // Check if user is a member of this organization
     const membership = await db

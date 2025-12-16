@@ -10,7 +10,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { logger } from '@/util/logger'
 
 interface RouteParams {
-  params: { orgId: string; email: string }
+  params: Promise<{ orgId: string; email: string }>
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { orgId, email } = params
+    const { orgId, email } = await params
     const decodedEmail = decodeURIComponent(email)
 
     // Check if user is owner or admin

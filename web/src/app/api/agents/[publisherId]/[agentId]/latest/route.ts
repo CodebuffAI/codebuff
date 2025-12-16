@@ -8,15 +8,15 @@ import type { NextRequest } from 'next/server'
 import { logger } from '@/util/logger'
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     publisherId: string
     agentId: string
-  }
+  }>
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { publisherId, agentId } = params
+    const { publisherId, agentId } = await params
 
     if (!publisherId || !agentId) {
       return NextResponse.json(

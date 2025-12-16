@@ -1,7 +1,7 @@
 'use client'
 
 import { CheckCircle, XCircle, Clock, Users } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useEffect, useState } from 'react'
 
@@ -24,11 +24,9 @@ interface InvitationData {
   expires_at: string
 }
 
-interface PageProps {
-  params: { token: string }
-}
-
-export default function InvitationPage({ params }: PageProps) {
+export default function InvitationPage() {
+  const params = useParams<{ token: string }>()
+  const token = params?.token ?? ''
   const { data: session, status } = useSession()
   const router = useRouter()
   const [invitation, setInvitation] = useState<InvitationData | null>(null)
@@ -39,11 +37,11 @@ export default function InvitationPage({ params }: PageProps) {
 
   useEffect(() => {
     fetchInvitation()
-  }, [params.token])
+  }, [token])
 
   const fetchInvitation = async () => {
     try {
-      const response = await fetch(`/api/invites/${params.token}`)
+      const response = await fetch(`/api/invites/${token}`)
       const data = await response.json()
 
       if (!response.ok) {
@@ -71,7 +69,7 @@ export default function InvitationPage({ params }: PageProps) {
     setError(null)
 
     try {
-      const response = await fetch(`/api/invites/${params.token}`, {
+      const response = await fetch(`/api/invites/${token}`, {
         method: 'POST',
       })
       const data = await response.json()

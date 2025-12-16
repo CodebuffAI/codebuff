@@ -96,6 +96,10 @@
     "use-debounce": "^10.0.4",
     "zod": "^4.0.0"
   },
+  "overrides": {
+    "@types/react": "$@types/react",
+    "@types/react-dom": "$@types/react-dom"
+  },
   "devDependencies": {
     "@commitlint/cli": "^19.8.0",
     "@commitlint/config-conventional": "^19.8.0",
@@ -108,8 +112,8 @@
     "@types/jest": "^29.5.14",
     "@types/node": "^22.14.0",
     "@types/pg": "^8.11.11",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
+    "@types/react": "18",
+    "@types/react-dom": "18",
     "@typescript-eslint/eslint-plugin": "^8.29.1",
     "@typescript-eslint/parser": "^8.29.1",
     "autoprefixer": "^10.4.21",

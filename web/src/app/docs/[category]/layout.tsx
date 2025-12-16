@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 
 type Props = {
-  params: { category: string }
+  params: Promise<{ category: string }>
   children: React.ReactNode
 }
 
@@ -9,10 +9,11 @@ type Props = {
 export async function generateMetadata({
   params,
 }: {
-  params: { category: string }
+  params: Promise<{ category: string }>
 }): Promise<Metadata> {
+  const { category } = await params
   return {
-    title: `${params.category} | Codebuff Docs`,
+    title: `${category} | Codebuff Docs`,
   }
 }
 

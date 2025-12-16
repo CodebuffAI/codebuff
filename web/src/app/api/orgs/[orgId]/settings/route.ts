@@ -9,7 +9,7 @@ import type { NextRequest } from 'next/server'
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 
 interface RouteParams {
-  params: { orgId: string }
+  params: Promise<{ orgId: string }>
 }
 
 export async function GET(
@@ -22,7 +22,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { orgId } = params
+    const { orgId } = await params
 
     // Check if user is a member of this organization
     const membership = await db
@@ -103,7 +103,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { orgId } = params
+    const { orgId } = await params
 
     // Check if user is a member of this organization with admin/owner role
     const membership = await db
@@ -182,7 +182,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { orgId } = params
+    const { orgId } = await params
 
     // Check if user is the owner of this organization
     const membership = await db

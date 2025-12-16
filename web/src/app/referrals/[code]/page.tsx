@@ -16,10 +16,11 @@ export const generateMetadata = async ({
   params,
   searchParams,
 }: {
-  params: { code: string }
-  searchParams: { referrer?: string }
+  params: Promise<{ code: string }>
+  searchParams: Promise<{ referrer?: string }>
 }): Promise<Metadata> => {
-  const referrerName = searchParams.referrer
+  const resolvedSearchParams = await searchParams
+  const referrerName = resolvedSearchParams.referrer
   const title = referrerName
     ? `${referrerName} invited you to Codebuff!`
     : 'Join Codebuff with a referral bonus!'
@@ -35,11 +36,12 @@ export default async function ReferralPage({
   params,
   searchParams,
 }: {
-  params: { code: string }
-  searchParams: { referrer?: string }
+  params: Promise<{ code: string }>
+  searchParams: Promise<{ referrer?: string }>
 }) {
-  const { code } = params
-  const referrerName = searchParams.referrer
+  const { code } = await params
+  const resolvedSearchParams = await searchParams
+  const referrerName = resolvedSearchParams.referrer
   const session = await getServerSession(authOptions)
 
   // Fetch referral information
@@ -48,7 +50,7 @@ export default async function ReferralPage({
     const baseUrl = env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'http://localhost:3000'
     const response = await fetch(`${baseUrl}/api/referrals/${code}`, {
       headers: {
-        Cookie: headers().get('Cookie') ?? '',
+        Cookie: (await headers()).get('Cookie') ?? '',
       },
     })
 

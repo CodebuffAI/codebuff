@@ -14,19 +14,21 @@ import CardWithBeams from '@/components/card-with-beams'
 export const generateMetadata = async ({
   params,
 }: {
-  params: { sponsee: string }
+  params: Promise<{ sponsee: string }>
 }): Promise<Metadata> => {
+  const { sponsee } = await params
   return {
-    title: `${params.sponsee}'s Referral | Codebuff`,
+    title: `${sponsee}'s Referral | Codebuff`,
   }
 }
 
 export default async function SponseePage({
   params,
 }: {
-  params: { sponsee: string }
+  params: Promise<{ sponsee: string }>
 }) {
-  const sponseeName = params.sponsee.toLowerCase()
+  const { sponsee } = await params
+  const sponseeName = sponsee.toLowerCase()
 
   const referralCode = await db
     .select({
@@ -41,7 +43,7 @@ export default async function SponseePage({
     return (
       <CardWithBeams
         title="Hmm, that link doesn't look right."
-        description={`We don't have a referral code for "${params.sponsee}".`}
+        description={`We don't have a referral code for "${sponsee}".`}
         content={
           <>
             <p className="text-center">

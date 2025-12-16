@@ -12,7 +12,7 @@ import { checkPublisherPermission } from '@/lib/publisher-permissions'
 import { logger } from '@/util/logger'
 
 interface RouteParams {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 // Link publisher to organization
@@ -26,7 +26,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id: publisherId } = params
+    const { id: publisherId } = await params
     const { org_id } = await request.json()
 
     if (!org_id) {
@@ -119,7 +119,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id: publisherId } = params
+    const { id: publisherId } = await params
 
     // Check if user can edit this publisher
     const publisherPermission = await checkPublisherPermission(publisherId)

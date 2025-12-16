@@ -13,9 +13,9 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
 import { logger } from '@/util/logger'
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     orgId: string
-  }
+  }>
 }
 
 export async function GET(req: NextRequest, { params }: RouteParams) {
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { orgId } = params
+  const { orgId } = await params
 
   try {
     // Check if user has access to this organization
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { orgId } = params
+  const { orgId } = await params
 
   try {
     // Check if user has access to this organization and get org details
