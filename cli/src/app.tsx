@@ -16,6 +16,7 @@ import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTerminalFocus } from './hooks/use-terminal-focus'
 import { useTheme } from './hooks/use-theme'
 import { getProjectRoot } from './project-files'
+import { getLogoBlockColor, getLogoAccentColor } from './utils/theme-system'
 import { useChatStore } from './state/chat-store'
 import { openFileAtPath } from './utils/open-file'
 
@@ -50,10 +51,11 @@ export const App = ({
 
   // Sheen animation state for the logo
   const [sheenPosition, setSheenPosition] = useState(0)
-  const blockColor = theme.name === 'dark' ? '#ffffff' : '#000000'
+  const blockColor = getLogoBlockColor(theme.name)
+  const accentColor = getLogoAccentColor(theme.name)
   const { applySheenToChar } = useSheenAnimation({
     logoColor: theme.foreground,
-    accentColor: theme.primary,
+    accentColor,
     blockColor,
     terminalWidth,
     sheenPosition,
@@ -62,7 +64,7 @@ export const App = ({
 
   const { component: logoComponent } = useLogo({
     availableWidth: contentMaxWidth,
-    accentColor: theme.primary,
+    accentColor,
     blockColor,
     applySheenToChar,
   })

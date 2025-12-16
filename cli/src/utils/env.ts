@@ -22,6 +22,7 @@ export const getCliEnv = (): CliEnv => ({
   ZED_NODE_ENV: process.env.ZED_NODE_ENV,
   ZED_TERM: process.env.ZED_TERM,
   ZED_SHELL: process.env.ZED_SHELL,
+  COLORTERM: process.env.COLORTERM,
 
   // VS Code family detection
   VSCODE_THEME_KIND: process.env.VSCODE_THEME_KIND,
@@ -79,6 +80,7 @@ export const createTestCliEnv = (overrides: Partial<CliEnv> = {}): CliEnv => ({
   ZED_NODE_ENV: undefined,
   ZED_TERM: undefined,
   ZED_SHELL: undefined,
+  COLORTERM: undefined,
   VSCODE_THEME_KIND: undefined,
   VSCODE_COLOR_THEME_KIND: undefined,
   VSCODE_GIT_IPC_HANDLE: undefined,

@@ -11,6 +11,7 @@ import {
 
 import { InputCursor } from './input-cursor'
 import { useTheme } from '../hooks/use-theme'
+import { supportsTruecolor } from '../utils/theme-system'
 import { useChatStore } from '../state/chat-store'
 import { logger } from '../utils/logger'
 import { clamp } from '../utils/math'
@@ -1048,7 +1049,7 @@ export const MultilineInput = forwardRef<
                 visible={true}
                 focused={focused}
                 shouldBlink={effectiveShouldBlinkCursor}
-                color={theme.info}
+                color={supportsTruecolor() ? theme.info : 'lime'}
                 key={lastActivity}
               />
             )}

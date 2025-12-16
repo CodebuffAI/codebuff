@@ -22,6 +22,7 @@ export type CliEnv = BaseEnv & {
   ZED_NODE_ENV?: string
   ZED_TERM?: string
   ZED_SHELL?: string
+  COLORTERM?: string
 
   // VS Code family detection
   VSCODE_THEME_KIND?: string

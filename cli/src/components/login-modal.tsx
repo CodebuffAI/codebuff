@@ -10,6 +10,7 @@ import { useLoginPolling } from '../hooks/use-login-polling'
 import { useLogo } from '../hooks/use-logo'
 import { useSheenAnimation } from '../hooks/use-sheen-animation'
 import { useTheme } from '../hooks/use-theme'
+import { getLogoBlockColor, getLogoAccentColor } from '../utils/theme-system'
 import {
   formatUrl,
   generateFingerprintId,
@@ -234,10 +235,11 @@ export const LoginModal = ({
   }, [loginUrl, copyToClipboard])
 
   // Use custom hook for sheen animation
-  const blockColor = theme.name === 'dark' ? '#ffffff' : '#000000'
+  const blockColor = getLogoBlockColor(theme.name)
+  const accentColor = getLogoAccentColor(theme.name)
   const { applySheenToChar } = useSheenAnimation({
     logoColor: theme.foreground,
-    accentColor: theme.primary,
+    accentColor,
     blockColor,
     terminalWidth: renderer?.width,
     sheenPosition,

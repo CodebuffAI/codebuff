@@ -12,6 +12,100 @@ import type {
   ThemeName,
 } from '../types/theme-system'
 
+/**
+ * Check if the terminal supports truecolor (24-bit color).
+ * Terminals like macOS Terminal.app only support 256 colors and cannot
+ * render hex colors properly - they need ANSI color name fallbacks.
+ */
+// Cache the truecolor support result since it won't change during runtime
+let _truecolorSupport: boolean | null = null
+
+export function supportsTruecolor(env: CliEnv = getCliEnv()): boolean {
+  if (_truecolorSupport !== null) {
+    return _truecolorSupport
+  }
+  
+  const termProgram = env.TERM_PROGRAM?.toLowerCase() ?? ''
+  
+  // Terminal.app (Apple_Terminal) does NOT support truecolor - only 256 colors
+  if (termProgram === 'apple_terminal') {
+    _truecolorSupport = false
+    return false
+  }
+  
+  const colorterm = env.COLORTERM?.toLowerCase()
+  if (colorterm === 'truecolor' || colorterm === '24bit') {
+    _truecolorSupport = true
+    return true
+  }
+  
+  // Some terminals that are known to support truecolor
+  const truecolorTerminals = [
+    'iterm.app',
+    'hyper',
+    'wezterm',
+    'alacritty',
+    'kitty',
+    'ghostty',
+    'vscode',
+  ]
+  
+  if (truecolorTerminals.some(t => termProgram.includes(t))) {
+    _truecolorSupport = true
+    return true
+  }
+  
+  // Check TERM for known truecolor-capable values
+  const term = env.TERM?.toLowerCase() ?? ''
+  if (term.includes('truecolor') || term.includes('24bit')) {
+    _truecolorSupport = true
+    return true
+  }
+  
+  // xterm-kitty, alacritty, etc.
+  if (term === 'xterm-kitty' || term === 'alacritty' || term.includes('ghostty')) {
+    _truecolorSupport = true
+    return true
+  }
+  
+  _truecolorSupport = false
+  return false
+}
+
+
+
+/**
+ * Get the block color for the logo based on theme and terminal capabilities.
+ * In dark mode: white (#ffffff or 'white')
+ * In light mode: black (#000000 or 'black')
+ */
+export function getLogoBlockColor(
+  themeName: ThemeName,
+  env: CliEnv = getCliEnv(),
+): string {
+  const isTruecolor = supportsTruecolor(env)
+  if (themeName === 'dark') {
+    return isTruecolor ? '#ffffff' : 'white'
+  }
+  return isTruecolor ? '#000000' : 'black'
+}
+
+/**
+ * Get the accent color for the logo based on theme and terminal capabilities.
+ * Returns the primary green color with appropriate fallback.
+ */
+export function getLogoAccentColor(
+  themeName: ThemeName,
+  env: CliEnv = getCliEnv(),
+): string {
+  const isTruecolor = supportsTruecolor(env)
+  // The primary green color - 'lime' is CSS bright green
+  if (themeName === 'dark') {
+    return isTruecolor ? '#9EFC62' : 'lime'
+  }
+  return isTruecolor ? '#65A83E' : 'green'
+}
+
 const IDE_THEME_INFERENCE = {
   dark: [
     'dark',
