@@ -188,7 +188,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
             paddingLeft: 1,
             paddingRight: 1,
             paddingTop: 0,
-            paddingBottom: isCollapsed ? 0 : 1,
+            paddingBottom: 0,
             width: '100%',
           }}
           onClick={onToggle}
@@ -284,7 +284,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
               <Button
                 style={{
                   alignSelf: 'flex-end',
-                  marginTop: 1,
+                  marginTop: 0,
                 }}
                 onClick={onToggle}
               >
