@@ -13,16 +13,19 @@ Codebuff uses different models for different tasks. The orchestrator coordinates
 
 The main agent ("Buffy") coordinates everything:
 
+<MarkdownTable>
 | Mode | Model |
 |------|-------|
 | Default | Claude Opus 4.5 |
 | Max | Claude Opus 4.5 |
 | Lite | Grok 4.1 Fast |
+</MarkdownTable>
 
 ## Subagents
 
 The orchestrator spawns these for specific jobs:
 
+<MarkdownTable>
 | Task | Models |
 |------|--------|
 | Code editing | Claude Opus 4.5, GPT-5.1 |
@@ -32,6 +35,7 @@ The orchestrator spawns these for specific jobs:
 | Terminal commands | Grok 4 Fast, Claude Sonnet 4.5 |
 | Context management | GPT-5 Mini |
 | Web/docs research | Grok 4 Fast |
+</MarkdownTable>
 
 Max mode runs multiple implementations in parallel and picks the best one. Default mode runs a single implementation pass. Lite mode skips validation steps for speed.
 
