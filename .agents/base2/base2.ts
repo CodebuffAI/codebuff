@@ -75,7 +75,7 @@ export function createBase2(
       isDefault && 'thinker',
       isLite && 'editor-gpt-5',
       isDefault && 'editor',
-      isMax && 'editor-multi-prompt2',
+      isMax && 'editor-multi-prompt',
       isMax && 'thinker-best-of-n-opus',
       !isLite && 'code-reviewer',
       'context-pruner',
@@ -138,7 +138,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
     (isDefault || isMax) &&
       `- Spawn the ${isDefault ? 'thinker' : 'thinker-best-of-n-opus'} after gathering context to solve complex problems or when the user asks you to think about a problem.`,
     isMax &&
-      `- IMPORTANT: You must spawn the editor-multi-prompt2 agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
+      `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
     '- Spawn commanders sequentially if the second command depends on the the first.',
     !isFast &&
       !isLite &&
@@ -192,7 +192,7 @@ ${
       ? '[ You implement the changes using the str_replace or write_file tools ]'
       : isLite
         ? '[ You implement the changes using the editor-gpt-5 agent ]'
-        : '[ You implement the changes using the editor-multi-prompt2 agent ]'
+        : '[ You implement the changes using the editor-multi-prompt agent ]'
 }
 
 ${
@@ -318,7 +318,7 @@ ${buildArray(
   isDefault &&
     '- IMPORTANT: You must spawn the editor agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all non-trivial changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
   isMax &&
-    `- IMPORTANT: You must spawn the editor-multi-prompt2 agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious.`,
+    `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious.`,
   isFast &&
     '- Implement the changes using the str_replace or write_file tools. Implement all the changes in one go.',
   isFast &&
@@ -355,7 +355,7 @@ function buildImplementationStepPrompt({
     isMax &&
       `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
     isMax &&
-      `You must spawn the 'editor-multi-prompt2' agent to implement code changes, since it will generate the best code changes.`,
+      `You must spawn the 'editor-multi-prompt' agent to implement code changes, since it will generate the best code changes.`,
     (isDefault || isMax) &&
       'Spawn code-reviewer to review the changes after you have implemented the changes and in parallel with typechecking or testing.',
     `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''} Don't repeat yourself, especially if you have already concluded and summarized the changes in a previous step -- just end your turn.`,

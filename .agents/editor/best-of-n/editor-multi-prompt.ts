@@ -102,11 +102,6 @@ function* handleStepsMultiPrompt({
       prompt: `Strategy: ${prompt}`,
     }))
 
-  // Always spawn an additional gpt-5 implementor with no prompt
-  implementorAgents.push({
-    agent_type: 'editor-implementor-gpt-5',
-  })
-
   // Spawn all implementor agents
   const { toolResult: implementorResults } = yield {
     toolName: 'spawn_agents',
