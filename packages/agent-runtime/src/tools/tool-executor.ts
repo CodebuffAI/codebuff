@@ -118,6 +118,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
   toolCalls: (CodebuffToolCall | CustomToolCall)[]
   toolResults: ToolMessage[]
   toolResultsToAddAfterStream: ToolMessage[]
+  skipDirectResultPush?: boolean
   userId: string | undefined
   userInputId: string
 
@@ -252,7 +253,7 @@ export function executeToolCall<T extends ToolName>(
 
     toolResults.push(toolResult)
 
-    if (!excludeToolFromMessageHistory) {
+    if (!excludeToolFromMessageHistory && !params.skipDirectResultPush) {
       agentState.messageHistory.push(toolResult)
     }
 
@@ -468,7 +469,7 @@ export async function executeCustomToolCall(
 
       toolResults.push(toolResult)
 
-      if (!excludeToolFromMessageHistory) {
+      if (!excludeToolFromMessageHistory && !params.skipDirectResultPush) {
         agentState.messageHistory.push(toolResult)
       }
       return
