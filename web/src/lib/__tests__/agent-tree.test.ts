@@ -13,9 +13,9 @@ describe('buildAgentTree', () => {
     return async (
       publisher: string,
       agentId: string,
-      version: string | null
+      version: string,
     ): Promise<AgentLookupResult | null> => {
-      const key = version ? `${publisher}/${agentId}@${version}` : `${publisher}/${agentId}`
+      const key = `${publisher}/${agentId}@${version}`
       return agents[key] ?? null
     }
   }

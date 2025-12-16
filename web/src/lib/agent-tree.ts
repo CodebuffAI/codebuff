@@ -1,7 +1,7 @@
 interface ParsedAgentId {
   publisher: string
   agentId: string
-  version: string | null
+  version: string
 }
 
 export interface AgentTreeNode {
@@ -12,7 +12,7 @@ export interface AgentTreeNode {
   /** Publisher ID */
   publisher: string
   /** Version string */
-  version: string | null
+  version: string
   /** Human-readable display name */
   displayName: string
   /** Description of when/why to spawn this agent */
@@ -48,50 +48,30 @@ function sanitizeIdForMermaid(id: string): string {
 }
 
 /** Parse agent ID string (e.g. "publisher/agentId@version") */
-function parseAgentId(
-  agentIdString: string,
-  defaultPublisher?: string,
-): ParsedAgentId {
-  // Fully qualified: publisher/agentId@version
+function parseAgentId(agentIdString: string): ParsedAgentId {
   const fqMatch = agentIdString.match(/^([^/]+)\/(.+)@(.+)$/)
-  if (fqMatch) {
-    return {
-      publisher: fqMatch[1]!,
-      agentId: fqMatch[2]!,
-      version: fqMatch[3]!,
-    }
+  if (!fqMatch) {
+    throw new Error(
+      `Invalid agent reference '${agentIdString}'. Expected 'publisher/agentId@version'.`,
+    )
   }
 
-  // With publisher but no version: publisher/agentId
-  const publisherMatch = agentIdString.match(/^([^/]+)\/(.+)$/)
-  if (publisherMatch) {
-    return {
-      publisher: publisherMatch[1]!,
-      agentId: publisherMatch[2]!,
-      version: null,
-    }
-  }
-
-  // Simple ID: agentId
   return {
-    publisher: defaultPublisher ?? 'unknown',
-    agentId: agentIdString,
-    version: null,
+    publisher: fqMatch[1]!,
+    agentId: fqMatch[2]!,
+    version: fqMatch[3]!,
   }
 }
 
 function formatAgentId(parsed: ParsedAgentId): string {
-  if (parsed.version) {
-    return `${parsed.publisher}/${parsed.agentId}@${parsed.version}`
-  }
-  return `${parsed.publisher}/${parsed.agentId}`
+  return `${parsed.publisher}/${parsed.agentId}@${parsed.version}`
 }
 
 interface BuildTreeContext {
   lookupAgent: (
     publisher: string,
     agentId: string,
-    version: string | null,
+    version: string,
   ) => Promise<AgentLookupResult | null>
   visitedIds: Set<string>
   currentDepth: number
@@ -100,10 +80,9 @@ interface BuildTreeContext {
 
 async function buildTreeNodeRecursive(
   agentIdString: string,
-  defaultPublisher: string,
   ctx: BuildTreeContext,
 ): Promise<AgentTreeNode> {
-  const parsed = parseAgentId(agentIdString, defaultPublisher)
+  const parsed = parseAgentId(agentIdString)
   const fullId = formatAgentId(parsed)
 
   // Check for cycles
@@ -146,7 +125,7 @@ async function buildTreeNodeRecursive(
   // Recursively build children if we haven't hit max depth
   if (agentData && ctx.currentDepth < ctx.maxDepth) {
     const childPromises = agentData.spawnableAgents.map((childId) =>
-      buildTreeNodeRecursive(childId, parsed.publisher, {
+      buildTreeNodeRecursive(childId, {
         ...ctx,
         currentDepth: ctx.currentDepth + 1,
         visitedIds: new Set(ctx.visitedIds), // Clone for each branch
@@ -168,7 +147,7 @@ export async function buildAgentTree(params: {
   lookupAgent: (
     publisher: string,
     agentId: string,
-    version: string | null,
+    version: string,
   ) => Promise<AgentLookupResult | null>
   maxDepth?: number
 }): Promise<AgentTreeData> {
@@ -188,7 +167,7 @@ export async function buildAgentTree(params: {
 
   // Build children
   const childPromises = rootSpawnableAgents.map((childId) =>
-    buildTreeNodeRecursive(childId, rootPublisher, {
+    buildTreeNodeRecursive(childId, {
       lookupAgent,
       visitedIds: new Set(visitedIds),
       currentDepth: 1,
@@ -256,7 +235,7 @@ export function generateMermaidDiagram(tree: AgentTreeData): string {
 
   function getNodeLabel(node: AgentTreeNode): string {
     const name = node.displayName
-    const version = node.version ? `v${node.version}` : ''
+    const version = `v${node.version}`
     // Escape special characters for Mermaid to prevent XSS
     const escapedName = name
       .replace(/"/g, "'")
@@ -264,7 +243,7 @@ export function generateMermaidDiagram(tree: AgentTreeData): string {
       .replace(/>/g, '&gt;')
       .replace(/&(?!lt;|gt;|amp;)/g, '&amp;')
     const escapedVersion = version.replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    return escapedVersion ? `"${escapedName}<br/>${escapedVersion}"` : `"${escapedName}"`
+    return `"${escapedName}<br/>${escapedVersion}"`
   }
 
   function traverse(node: AgentTreeNode, parentSanitizedId: string | null) {
@@ -315,7 +294,7 @@ export interface NodeData {
   fullId: string
   agentId: string
   publisher: string
-  version: string | null
+  version: string
   displayName: string
   spawnerPrompt: string | null
   isAvailable: boolean
