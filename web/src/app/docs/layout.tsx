@@ -6,7 +6,13 @@ import { useState, useEffect, useRef } from 'react'
 
 import { DocSidebar, sections } from '@/components/docs/doc-sidebar'
 import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 
 export default function DocsLayout({
   children,
@@ -96,6 +102,9 @@ export default function DocsLayout({
             side="bottom"
             className="h-[80vh] p-6 pt-12 overflow-y-auto"
           >
+            <VisuallyHidden>
+              <SheetTitle>Documentation Navigation</SheetTitle>
+            </VisuallyHidden>
             <DocSidebar onNavigate={() => setOpen(false)} />
           </SheetContent>
           <SheetTrigger asChild>

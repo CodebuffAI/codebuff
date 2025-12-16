@@ -236,26 +236,31 @@ export function CodeDemo({ children, language, rawContent }: CodeDemoProps) {
                   color: tokenColor || style.color,
                 }}
               >
-                {tokens.map((line, i) => (
-                  <div key={i} {...getLineProps({ line })}>
-                    {line.map((token, key) => {
-                      const tokenProps = getTokenProps({ token, key })
-                      // Override colors for special languages in render loop
-                      const color = tokenColor || tokenProps.style?.color
+                {tokens.map((line, i) => {
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  const { key: _lineKey, ...lineProps } = getLineProps({ line })
+                  return (
+                    <div key={i} {...lineProps}>
+                      {line.map((token, tokenIndex) => {
+                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                        const { key: _tokenKey, ...tokenProps } = getTokenProps({ token, key: tokenIndex })
+                        // Override colors for special languages in render loop
+                        const color = tokenColor || tokenProps.style?.color
 
-                      return (
-                        <span
-                          key={key}
-                          {...tokenProps}
-                          style={{
-                            ...tokenProps.style,
-                            color,
-                          }}
-                        />
-                      )
-                    })}
-                  </div>
-                ))}
+                        return (
+                          <span
+                            key={tokenIndex}
+                            {...tokenProps}
+                            style={{
+                              ...tokenProps.style,
+                              color,
+                            }}
+                          />
+                        )
+                      })}
+                    </div>
+                  )
+                })}
               </pre>
             )
           }}

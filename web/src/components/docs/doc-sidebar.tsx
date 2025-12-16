@@ -119,10 +119,7 @@ export function DocSidebar({
         <div key={group.label} className="space-y-3">
           {/* Group header */}
           <div
-            className={cn(
-              'px-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70',
-              groupIndex > 0 && 'pt-2 border-t border-border/50',
-            )}
+            className="px-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70 select-none pointer-events-none"
           >
             <group.icon className="h-3.5 w-3.5" />
             {group.label}
@@ -132,22 +129,11 @@ export function DocSidebar({
           <div className="space-y-4">
             {group.sections.map((section) => (
               <div key={section.href} className="space-y-1">
-                <Link
-                  href={section.href}
-                  target={section.external ? '_blank' : undefined}
-                  onClick={() => {
-                    const sheet = document.querySelector('[data-state="open"]')
-                    if (sheet) sheet.setAttribute('data-state', 'closed')
-                    onNavigate?.()
-                  }}
-                  className={cn(
-                    'block px-3 py-2 hover:bg-accent rounded-md transition-all text-sm font-medium',
-                    pathname === section.href &&
-                      'bg-accent text-accent-foreground',
-                  )}
+                <div
+                  className="block px-3 py-2 text-sm font-medium select-none"
                 >
                   {section.title}
-                </Link>
+                </div>
                 {section.subsections && section.subsections.length > 0 && (
                   <div className="ml-4 space-y-1">
                     {section.subsections.map((subsection) => (
