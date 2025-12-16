@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
-import { getCachedAgents } from '@/server/agents-data'
+import { getCachedAgentsLite } from '@/server/agents-data'
 
 export const GET = async () => {
   try {
     // Warm the cache by fetching agents data
     // This ensures SEO-critical data is available immediately
-    const agents = await getCachedAgents()
+    const agents = await getCachedAgentsLite()
 
     return NextResponse.json({
       status: 'ok',

@@ -1,5 +1,5 @@
 import { Metadata } from 'next'
-import { getCachedAgents } from '@/server/agents-data'
+import { getCachedAgentsLite } from '@/server/agents-data'
 import AgentStoreClient from './store-client'
 
 interface PublisherProfileResponse {
@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
     publisher?: { avatar_url?: string | null }
   }> = []
   try {
-    agents = await getCachedAgents()
+    agents = await getCachedAgentsLite()
   } catch (error) {
     console.error('[Store] Failed to fetch agents for metadata:', error)
     agents = []
@@ -61,7 +61,7 @@ export default async function StorePage({ searchParams }: StorePageProps) {
   // Fetch agents data on the server with ISR cache
   let agentsData: any[] = []
   try {
-    agentsData = await getCachedAgents()
+    agentsData = await getCachedAgentsLite()
   } catch (error) {
     console.error('[Store] Failed to fetch agents data:', error)
     agentsData = []

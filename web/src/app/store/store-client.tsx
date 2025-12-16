@@ -3,6 +3,7 @@
 import { useMemo, useCallback, memo, useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import {
   Search,
   TrendingUp,
@@ -127,6 +128,7 @@ export default function AgentStoreClient({
   session: initialSession,
   searchParams,
 }: AgentStoreClientProps) {
+  const router = useRouter()
   // Use client-side session for authentication state, but don't block rendering
   const { data: clientSession, status: sessionStatus } = useSession()
   const session = clientSession || initialSession
@@ -150,6 +152,18 @@ export default function AgentStoreClient({
 
   // Local state for immediate input feedback
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery)
+
+  const prefetchedRoutes = useRef<Set<string>>(new Set())
+  const prefetchRoute = useCallback(
+    (href: string) => {
+      if (prefetchedRoutes.current.has(href)) {
+        return
+      }
+      prefetchedRoutes.current.add(href)
+      router.prefetch(href)
+    },
+    [router],
+  )
 
   const observerRef = useRef<IntersectionObserver | null>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
@@ -388,9 +402,14 @@ export default function AgentStoreClient({
     agent: AgentData
     isEditorsChoice?: boolean
   }) {
+    const href = `/publishers/${agent.publisher.id}/agents/${agent.id}/${agent.version || '1.0.0'}`
     return (
       <Link
-        href={`/publishers/${agent.publisher.id}/agents/${agent.id}/${agent.version || '1.0.0'}`}
+        href={href}
+        prefetch={false}
+        onMouseEnter={() => prefetchRoute(href)}
+        onFocus={() => prefetchRoute(href)}
+        onTouchStart={() => prefetchRoute(href)}
         className="block group"
       >
         <Card

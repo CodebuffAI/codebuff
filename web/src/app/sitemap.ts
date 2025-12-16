@@ -1,5 +1,5 @@
 import { env } from '@codebuff/common/env'
-import { getCachedAgents } from '@/server/agents-data'
+import { getCachedAgentsLite } from '@/server/agents-data'
 
 import type { MetadataRoute } from 'next'
 
@@ -28,7 +28,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Include agent detail pages and publisher pages derived from cached store data
   try {
-    const agents = await getCachedAgents()
+    const agents = await getCachedAgentsLite()
 
     const seenPublishers = new Set<string>()
     for (const agent of agents) {
