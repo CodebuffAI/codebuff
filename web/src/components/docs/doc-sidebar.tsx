@@ -1,6 +1,5 @@
 'use client'
 
-import { Code, GraduationCap, Library } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 // NEWS DISABLED: Uncomment these imports when re-enabling news
@@ -75,12 +74,6 @@ const referenceSections = [
   },
 ]
 
-export const sectionGroups = [
-  { label: 'Learn', icon: GraduationCap, sections: learnSections },
-  { label: 'Build', icon: Code, sections: buildSections },
-  { label: 'Reference', icon: Library, sections: referenceSections },
-]
-
 // Flat list of all sections for compatibility with layout.tsx
 export const sections = [...learnSections, ...buildSections, ...referenceSections]
 
@@ -114,53 +107,38 @@ export function DocSidebar({
   //   fetchNews()
   // }, [])
   return (
-    <nav className={cn('space-y-6', className)}>
-      {sectionGroups.map((group, groupIndex) => (
-        <div key={group.label} className="space-y-3">
-          {/* Group header */}
+    <nav className={cn('space-y-4', className)}>
+      {sections.map((section) => (
+        <div key={section.href} className="space-y-1">
           <div
-            className="px-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70 select-none pointer-events-none"
+            className="block px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground/60 select-none"
           >
-            <group.icon className="h-3.5 w-3.5" />
-            {group.label}
+            {section.title}
           </div>
-
-          {/* Sections within group */}
-          <div className="space-y-4">
-            {group.sections.map((section) => (
-              <div key={section.href} className="space-y-1">
-                <div
-                  className="block px-3 py-2 text-sm font-medium select-none"
+          {section.subsections && section.subsections.length > 0 && (
+            <div className="ml-4 space-y-1">
+              {section.subsections.map((subsection) => (
+                <Link
+                  key={subsection.href}
+                  href={subsection.href}
+                  target={section.external ? '_blank' : undefined}
+                  onClick={() => {
+                    const sheet =
+                      document.querySelector('[data-state="open"]')
+                    if (sheet) sheet.setAttribute('data-state', 'closed')
+                    onNavigate?.()
+                  }}
+                  className={cn(
+                    'block w-full text-left px-3 py-1.5 text-sm hover:bg-accent rounded-md transition-all text-muted-foreground hover:text-foreground',
+                    pathname === subsection.href &&
+                      'bg-accent text-accent-foreground',
+                  )}
                 >
-                  {section.title}
-                </div>
-                {section.subsections && section.subsections.length > 0 && (
-                  <div className="ml-4 space-y-1">
-                    {section.subsections.map((subsection) => (
-                      <Link
-                        key={subsection.href}
-                        href={subsection.href}
-                        target={section.external ? '_blank' : undefined}
-                        onClick={() => {
-                          const sheet =
-                            document.querySelector('[data-state="open"]')
-                          if (sheet) sheet.setAttribute('data-state', 'closed')
-                          onNavigate?.()
-                        }}
-                        className={cn(
-                          'block w-full text-left px-3 py-1.5 text-sm hover:bg-accent rounded-md transition-all text-muted-foreground hover:text-foreground',
-                          pathname === subsection.href &&
-                            'bg-accent text-accent-foreground',
-                        )}
-                      >
-                        {subsection.title}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+                  {subsection.title}
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       ))}
     </nav>
