@@ -1,37 +1,25 @@
-import { describe, it, expect, beforeEach, mock, spyOn } from 'bun:test'
+import { beforeEach, describe, expect, it } from '@jest/globals'
 
-import {
-  DISPUTE_THRESHOLD,
-  DISPUTE_WINDOW_DAYS,
-  evaluateBanConditions,
-  getUserByStripeCustomerId,
-  banUser,
-  type BanConditionContext,
-} from '../ban-conditions'
-
-// Mock the database module
-const mockSelect = mock(() => ({
-  from: mock(() => ({
-    where: mock(() => ({
-      limit: mock(() => Promise.resolve([])),
-    })),
-  })),
-}))
-
-const mockUpdate = mock(() => ({
-  set: mock(() => ({
-    where: mock(() => Promise.resolve()),
-  })),
-}))
-
-mock.module('@codebuff/internal/db', () => ({
+jest.mock('@codebuff/internal/db', () => ({
+  __esModule: true,
   default: {
-    select: mockSelect,
-    update: mockUpdate,
+    select: jest.fn(() => ({
+      from: jest.fn(() => ({
+        where: jest.fn(() => ({
+          limit: jest.fn(() => Promise.resolve([])),
+        })),
+      })),
+    })),
+    update: jest.fn(() => ({
+      set: jest.fn(() => ({
+        where: jest.fn(() => Promise.resolve()),
+      })),
+    })),
   },
 }))
 
-mock.module('@codebuff/internal/db/schema', () => ({
+jest.mock('@codebuff/internal/db/schema', () => ({
+  __esModule: true,
   user: {
     id: 'id',
     banned: 'banned',
@@ -41,31 +29,45 @@ mock.module('@codebuff/internal/db/schema', () => ({
   },
 }))
 
-// Mock Stripe server
-const mockDisputesList = mock((): Promise<{ data: any[] }> =>
-  Promise.resolve({
-    data: [],
-  }),
-)
-
-mock.module('@codebuff/internal/util/stripe', () => ({
+jest.mock('@codebuff/internal/util/stripe', () => ({
+  __esModule: true,
   stripeServer: {
     disputes: {
-      list: mockDisputesList,
+      list: jest.fn(() =>
+        Promise.resolve({
+          data: [],
+        }),
+      ),
     },
   },
 }))
 
-// Mock drizzle-orm eq function
-mock.module('drizzle-orm', () => ({
-  eq: mock((a: any, b: any) => ({ column: a, value: b })),
+jest.mock('drizzle-orm', () => ({
+  __esModule: true,
+  eq: jest.fn((a: any, b: any) => ({ column: a, value: b })),
 }))
 
+import db from '@codebuff/internal/db'
+import { stripeServer } from '@codebuff/internal/util/stripe'
+
+import {
+  DISPUTE_THRESHOLD,
+  DISPUTE_WINDOW_DAYS,
+  banUser,
+  evaluateBanConditions,
+  getUserByStripeCustomerId,
+  type BanConditionContext,
+} from '../ban-conditions'
+
+const mockSelect = db.select as unknown as jest.Mock
+const mockUpdate = db.update as unknown as jest.Mock
+const mockDisputesList = stripeServer.disputes.list as unknown as jest.Mock
+
 const createMockLogger = () => ({
-  debug: mock(() => {}),
-  info: mock(() => {}),
-  warn: mock(() => {}),
-  error: mock(() => {}),
+  debug: jest.fn(() => {}),
+  info: jest.fn(() => {}),
+  warn: jest.fn(() => {}),
+  error: jest.fn(() => {}),
 })
 
 describe('ban-conditions', () => {
@@ -104,11 +106,14 @@ describe('ban-conditions', () => {
 
     it('returns shouldBan: false when disputes are below threshold', async () => {
       // Create disputes for the customer (below threshold)
-      const disputes = Array.from({ length: DISPUTE_THRESHOLD - 1 }, (_, i) => ({
-        id: `dp_${i}`,
-        charge: { customer: 'cus_123' },
-        created: Math.floor(Date.now() / 1000),
-      }))
+      const disputes = Array.from(
+        { length: DISPUTE_THRESHOLD - 1 },
+        (_, i) => ({
+          id: `dp_${i}`,
+          charge: { customer: 'cus_123' },
+          created: Math.floor(Date.now() / 1000),
+        }),
+      )
 
       mockDisputesList.mockResolvedValueOnce({ data: disputes })
 
@@ -151,11 +156,14 @@ describe('ban-conditions', () => {
 
     it('returns shouldBan: true when disputes exceed threshold', async () => {
       // Create disputes for the customer (above threshold)
-      const disputes = Array.from({ length: DISPUTE_THRESHOLD + 3 }, (_, i) => ({
-        id: `dp_${i}`,
-        charge: { customer: 'cus_123' },
-        created: Math.floor(Date.now() / 1000),
-      }))
+      const disputes = Array.from(
+        { length: DISPUTE_THRESHOLD + 3 },
+        (_, i) => ({
+          id: `dp_${i}`,
+          charge: { customer: 'cus_123' },
+          created: Math.floor(Date.now() / 1000),
+        }),
+      )
 
       mockDisputesList.mockResolvedValueOnce({ data: disputes })
 
@@ -176,13 +184,37 @@ describe('ban-conditions', () => {
       // Mix of disputes from different customers
       const disputes = [
         // Disputes for our customer
-        { id: 'dp_1', charge: { customer: 'cus_123' }, created: Math.floor(Date.now() / 1000) },
-        { id: 'dp_2', charge: { customer: 'cus_123' }, created: Math.floor(Date.now() / 1000) },
+        {
+          id: 'dp_1',
+          charge: { customer: 'cus_123' },
+          created: Math.floor(Date.now() / 1000),
+        },
+        {
+          id: 'dp_2',
+          charge: { customer: 'cus_123' },
+          created: Math.floor(Date.now() / 1000),
+        },
         // Disputes for other customers (should be ignored)
-        { id: 'dp_3', charge: { customer: 'cus_other' }, created: Math.floor(Date.now() / 1000) },
-        { id: 'dp_4', charge: { customer: 'cus_different' }, created: Math.floor(Date.now() / 1000) },
-        { id: 'dp_5', charge: { customer: 'cus_another' }, created: Math.floor(Date.now() / 1000) },
-        { id: 'dp_6', charge: { customer: 'cus_more' }, created: Math.floor(Date.now() / 1000) },
+        {
+          id: 'dp_3',
+          charge: { customer: 'cus_other' },
+          created: Math.floor(Date.now() / 1000),
+        },
+        {
+          id: 'dp_4',
+          charge: { customer: 'cus_different' },
+          created: Math.floor(Date.now() / 1000),
+        },
+        {
+          id: 'dp_5',
+          charge: { customer: 'cus_another' },
+          created: Math.floor(Date.now() / 1000),
+        },
+        {
+          id: 'dp_6',
+          charge: { customer: 'cus_more' },
+          created: Math.floor(Date.now() / 1000),
+        },
       ]
 
       mockDisputesList.mockResolvedValueOnce({ data: disputes })
@@ -265,10 +297,15 @@ describe('ban-conditions', () => {
       expect(callArgs.expand).toEqual(['data.charge'])
 
       // Verify the created.gte is within the expected window
-      const expectedWindowStart = beforeCall - DISPUTE_WINDOW_DAYS * 24 * 60 * 60
+      const expectedWindowStart =
+        beforeCall - DISPUTE_WINDOW_DAYS * 24 * 60 * 60
       const windowTolerance = afterCall - beforeCall + 1 // Allow for time passing during test
-      expect(callArgs.created.gte).toBeGreaterThanOrEqual(expectedWindowStart - windowTolerance)
-      expect(callArgs.created.gte).toBeLessThanOrEqual(expectedWindowStart + windowTolerance)
+      expect(callArgs.created.gte).toBeGreaterThanOrEqual(
+        expectedWindowStart - windowTolerance,
+      )
+      expect(callArgs.created.gte).toBeLessThanOrEqual(
+        expectedWindowStart + windowTolerance,
+      )
     })
 
     // REGRESSION TEST: Without expand: ['data.charge'], dispute.charge is a string ID,
@@ -287,7 +324,7 @@ describe('ban-conditions', () => {
       await evaluateBanConditions(context)
 
       const callArgs = (mockDisputesList.mock.calls as any)[0]?.[0]
-      
+
       // This is critical: without expand, dispute.charge is just a string ID like "ch_xxx"
       // and we cannot access dispute.charge.customer to filter by customer.
       // If this test fails, the ban condition will NEVER match any disputes.
@@ -320,9 +357,9 @@ describe('ban-conditions', () => {
         name: 'Test User',
       }
 
-      const limitMock = mock(() => Promise.resolve([mockUser]))
-      const whereMock = mock(() => ({ limit: limitMock }))
-      const fromMock = mock(() => ({ where: whereMock }))
+      const limitMock = jest.fn(() => Promise.resolve([mockUser]))
+      const whereMock = jest.fn(() => ({ limit: limitMock }))
+      const fromMock = jest.fn(() => ({ where: whereMock }))
       mockSelect.mockReturnValueOnce({ from: fromMock })
 
       const result = await getUserByStripeCustomerId('cus_123')
@@ -331,9 +368,9 @@ describe('ban-conditions', () => {
     })
 
     it('returns null when user not found', async () => {
-      const limitMock = mock(() => Promise.resolve([]))
-      const whereMock = mock(() => ({ limit: limitMock }))
-      const fromMock = mock(() => ({ where: whereMock }))
+      const limitMock = jest.fn(() => Promise.resolve([]))
+      const whereMock = jest.fn(() => ({ limit: limitMock }))
+      const fromMock = jest.fn(() => ({ where: whereMock }))
       mockSelect.mockReturnValueOnce({ from: fromMock })
 
       const result = await getUserByStripeCustomerId('cus_nonexistent')
@@ -342,9 +379,9 @@ describe('ban-conditions', () => {
     })
 
     it('queries with correct stripe_customer_id', async () => {
-      const limitMock = mock(() => Promise.resolve([]))
-      const whereMock = mock(() => ({ limit: limitMock }))
-      const fromMock = mock(() => ({ where: whereMock }))
+      const limitMock = jest.fn(() => Promise.resolve([]))
+      const whereMock = jest.fn(() => ({ limit: limitMock }))
+      const fromMock = jest.fn(() => ({ where: whereMock }))
       mockSelect.mockReturnValueOnce({ from: fromMock })
 
       await getUserByStripeCustomerId('cus_test_123')
@@ -358,8 +395,8 @@ describe('ban-conditions', () => {
 
   describe('banUser', () => {
     it('updates user banned status to true', async () => {
-      const whereMock = mock(() => Promise.resolve())
-      const setMock = mock(() => ({ where: whereMock }))
+      const whereMock = jest.fn(() => Promise.resolve())
+      const setMock = jest.fn(() => ({ where: whereMock }))
       mockUpdate.mockReturnValueOnce({ set: setMock })
 
       const logger = createMockLogger()
@@ -371,8 +408,8 @@ describe('ban-conditions', () => {
     })
 
     it('logs the ban action with user ID and reason', async () => {
-      const whereMock = mock(() => Promise.resolve())
-      const setMock = mock(() => ({ where: whereMock }))
+      const whereMock = jest.fn(() => Promise.resolve())
+      const setMock = jest.fn(() => ({ where: whereMock }))
       mockUpdate.mockReturnValueOnce({ set: setMock })
 
       const logger = createMockLogger()
