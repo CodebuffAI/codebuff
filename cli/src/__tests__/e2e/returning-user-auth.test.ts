@@ -13,12 +13,8 @@ import {
   spyOn,
 } from 'bun:test'
 
-
 import { validateApiKey } from '../../hooks/use-auth-query'
-import {
-  getAuthTokenDetails,
-  saveUserCredentials,
-} from '../../utils/auth'
+import { getAuthTokenDetails, saveUserCredentials } from '../../utils/auth'
 
 import type * as AuthModule from '../../utils/auth'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'

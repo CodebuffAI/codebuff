@@ -23,21 +23,29 @@ describe('formatValidationError', () => {
   })
 
   test('strips agent name prefix', () => {
-    const result = formatValidationError('Agent "demo" (demo.ts): Invalid input: expected string, received number')
+    const result = formatValidationError(
+      'Agent "demo" (demo.ts): Invalid input: expected string, received number',
+    )
 
     expect(result.fieldName).toBeUndefined()
-    expect(result.message).toBe('Invalid input: expected string, received number')
+    expect(result.message).toBe(
+      'Invalid input: expected string, received number',
+    )
   })
 
   test('extracts field:message pattern', () => {
-    const result = formatValidationError('instructions: Required field is missing')
+    const result = formatValidationError(
+      'instructions: Required field is missing',
+    )
 
     expect(result.fieldName).toBe('instructions')
     expect(result.message).toBe('Required field is missing')
   })
 
   test('handles messages without field patterns', () => {
-    const result = formatValidationError('Schema validation failed: Generic error')
+    const result = formatValidationError(
+      'Schema validation failed: Generic error',
+    )
 
     expect(result.fieldName).toBeUndefined()
     expect(result.message).toBe('Generic error')
@@ -92,7 +100,9 @@ describe('formatValidationError', () => {
   })
 
   test('handles colon in message part correctly', () => {
-    const result = formatValidationError('fieldName: Error: something went wrong')
+    const result = formatValidationError(
+      'fieldName: Error: something went wrong',
+    )
 
     expect(result.fieldName).toBe('fieldName')
     expect(result.message).toBe('Error: something went wrong')

@@ -279,12 +279,28 @@ describe('useTimeout', () => {
   test.skip('mixing set and clear operations maintains correct state', () => {
     const { setTimeout, clearTimeout } = useTimeout()
 
-    setTimeout('a', mock(() => {}), 100)
-    setTimeout('b', mock(() => {}), 200)
+    setTimeout(
+      'a',
+      mock(() => {}),
+      100,
+    )
+    setTimeout(
+      'b',
+      mock(() => {}),
+      200,
+    )
     clearTimeout('a')
-    setTimeout('c', mock(() => {}), 300)
+    setTimeout(
+      'c',
+      mock(() => {}),
+      300,
+    )
     clearTimeout('b')
-    setTimeout('d', mock(() => {}), 400)
+    setTimeout(
+      'd',
+      mock(() => {}),
+      400,
+    )
 
     expect(timers[0].cleared).toBe(true) // a - cleared
     expect(timers[1].cleared).toBe(true) // b - cleared

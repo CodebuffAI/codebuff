@@ -2,7 +2,7 @@ import { describe, test, expect } from 'bun:test'
 
 /**
  * Tests for the handleImageCommand argument parsing behavior.
- * 
+ *
  * These tests verify the parsing logic independently of the actual
  * validateAndAddImage implementation by testing the parsing function directly.
  */
@@ -14,11 +14,11 @@ function parseImageCommandArgs(args: string): {
   message: string
 } {
   const [imagePath, ...rest] = args.trim().split(/\s+/)
-  
+
   if (!imagePath) {
     return { imagePath: null, message: '' }
   }
-  
+
   return { imagePath, message: rest.join(' ') }
 }
 
@@ -31,13 +31,17 @@ describe('handleImageCommand parsing', () => {
     })
 
     test('parses image path with message', () => {
-      const result = parseImageCommandArgs('./screenshot.png please analyze this')
+      const result = parseImageCommandArgs(
+        './screenshot.png please analyze this',
+      )
       expect(result.imagePath).toBe('./screenshot.png')
       expect(result.message).toBe('please analyze this')
     })
 
     test('parses image path with multi-word message', () => {
-      const result = parseImageCommandArgs('./image.jpg what is in this picture?')
+      const result = parseImageCommandArgs(
+        './image.jpg what is in this picture?',
+      )
       expect(result.imagePath).toBe('./image.jpg')
       expect(result.message).toBe('what is in this picture?')
     })

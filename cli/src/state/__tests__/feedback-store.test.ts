@@ -88,7 +88,9 @@ describe('FeedbackStore', () => {
 
       const state = useFeedbackStore.getState()
       expect(state.messagesWithFeedback.has('message-123')).toBe(true)
-      expect(state.messageFeedbackCategories.get('message-123')).toBe('good_result')
+      expect(state.messageFeedbackCategories.get('message-123')).toBe(
+        'good_result',
+      )
     })
 
     it('should track multiple message feedbacks', () => {
@@ -101,7 +103,9 @@ describe('FeedbackStore', () => {
       const state = useFeedbackStore.getState()
       expect(state.messagesWithFeedback.size).toBe(3)
       expect(state.messageFeedbackCategories.size).toBe(3)
-      expect(state.messageFeedbackCategories.get('message-2')).toBe('bad_result')
+      expect(state.messageFeedbackCategories.get('message-2')).toBe(
+        'bad_result',
+      )
     })
   })
 
@@ -180,8 +184,12 @@ describe('FeedbackStore', () => {
       store.markMessageFeedbackSubmitted('message-123', 'bad_result')
 
       const state = useFeedbackStore.getState()
-      expect(selectMessageFeedbackCategory('message-123')(state)).toBe('bad_result')
-      expect(selectMessageFeedbackCategory('message-456')(state)).toBeUndefined()
+      expect(selectMessageFeedbackCategory('message-123')(state)).toBe(
+        'bad_result',
+      )
+      expect(
+        selectMessageFeedbackCategory('message-456')(state),
+      ).toBeUndefined()
     })
   })
 })

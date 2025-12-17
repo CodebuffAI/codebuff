@@ -93,6 +93,7 @@
         "readable-stream": "^4.7.0",
         "seedrandom": "^3.0.5",
         "stripe": "^16.11.0",
+        "ts-pattern": "^5.9.0",
         "zod": "^4.0.0",
       },
       "devDependencies": {

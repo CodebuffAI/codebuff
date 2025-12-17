@@ -1,19 +1,17 @@
 import { WEBSITE_URL } from '@codebuff/sdk'
 import React from 'react'
 
-import { BannerWrapper } from './banner-wrapper'
-import { useTheme } from '../hooks/use-theme'
+import { BottomBanner } from './bottom-banner'
 import { useChatStore } from '../state/chat-store'
 
 export const ReferralBanner = () => {
-  const theme = useTheme()
   const setInputMode = useChatStore((state) => state.setInputMode)
 
   const referralUrl = `${WEBSITE_URL}/referrals`
 
   return (
-    <BannerWrapper
-      color={theme.warning}
+    <BottomBanner
+      borderColorKey="warning"
       text={`Refer your friends: ${referralUrl}`}
       onClose={() => setInputMode('default')}
     />

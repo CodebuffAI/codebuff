@@ -37,18 +37,28 @@ export const createMockApiClient = (
   overrides: MockApiClientOverrides = {},
 ): CodebuffApiClient => ({
   get: (overrides.get ?? mock(defaultOkResponse)) as CodebuffApiClient['get'],
-  post: (overrides.post ?? mock(defaultOkResponse)) as CodebuffApiClient['post'],
+  post: (overrides.post ??
+    mock(defaultOkResponse)) as CodebuffApiClient['post'],
   put: (overrides.put ?? mock(defaultOkResponse)) as CodebuffApiClient['put'],
-  patch: (overrides.patch ?? mock(defaultOkResponse)) as CodebuffApiClient['patch'],
-  delete: (overrides.delete ?? mock(defaultOkResponse)) as CodebuffApiClient['delete'],
-  request: (overrides.request ?? mock(defaultOkResponse)) as CodebuffApiClient['request'],
+  patch: (overrides.patch ??
+    mock(defaultOkResponse)) as CodebuffApiClient['patch'],
+  delete: (overrides.delete ??
+    mock(defaultOkResponse)) as CodebuffApiClient['delete'],
+  request: (overrides.request ??
+    mock(defaultOkResponse)) as CodebuffApiClient['request'],
   me: (overrides.me ?? mock(defaultOkResponse)) as CodebuffApiClient['me'],
-  usage: (overrides.usage ?? mock(defaultOkResponse)) as CodebuffApiClient['usage'],
-  loginCode: (overrides.loginCode ?? mock(defaultOkResponse)) as CodebuffApiClient['loginCode'],
-  loginStatus: (overrides.loginStatus ?? mock(defaultOkResponse)) as CodebuffApiClient['loginStatus'],
-  referral: (overrides.referral ?? mock(defaultOkResponse)) as CodebuffApiClient['referral'],
-  publish: (overrides.publish ?? mock(defaultOkResponse)) as CodebuffApiClient['publish'],
-  logout: (overrides.logout ?? mock(defaultOkResponse)) as CodebuffApiClient['logout'],
+  usage: (overrides.usage ??
+    mock(defaultOkResponse)) as CodebuffApiClient['usage'],
+  loginCode: (overrides.loginCode ??
+    mock(defaultOkResponse)) as CodebuffApiClient['loginCode'],
+  loginStatus: (overrides.loginStatus ??
+    mock(defaultOkResponse)) as CodebuffApiClient['loginStatus'],
+  referral: (overrides.referral ??
+    mock(defaultOkResponse)) as CodebuffApiClient['referral'],
+  publish: (overrides.publish ??
+    mock(defaultOkResponse)) as CodebuffApiClient['publish'],
+  logout: (overrides.logout ??
+    mock(defaultOkResponse)) as CodebuffApiClient['logout'],
   baseUrl: overrides.baseUrl ?? 'https://test.codebuff.com',
   authToken: overrides.authToken,
 })

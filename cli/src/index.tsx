@@ -2,6 +2,7 @@
 
 import { promises as fs } from 'fs'
 import { createRequire } from 'module'
+import os from 'os'
 
 import { getProjectFileTree } from '@codebuff/common/project-file-tree'
 import { createCliRenderer } from '@opentui/core'
@@ -18,17 +19,19 @@ import React from 'react'
 import { App } from './app'
 import { handlePublish } from './commands/publish'
 import { initializeApp } from './init/init-app'
-import { getProjectRoot } from './project-files'
+import { getProjectRoot, setProjectRoot } from './project-files'
 import { initAnalytics } from './utils/analytics'
 import { getAuthTokenDetails } from './utils/auth'
 import { getCliEnv } from './utils/env'
+import { findGitRoot } from './utils/git'
 import { initializeAgentRegistry } from './utils/local-agent-registry'
 import { clearLogFile, logger } from './utils/logger'
+import { saveRecentProject } from './utils/recent-projects'
 import { detectTerminalTheme } from './utils/terminal-color-detection'
 import { setOscDetectedTheme } from './utils/theme-system'
 
-import type { FileTreeNode } from '@codebuff/common/util/file'
 import type { AgentMode } from './utils/constants'
+import type { FileTreeNode } from '@codebuff/common/util/file'
 
 const require = createRequire(import.meta.url)
 
@@ -167,6 +170,13 @@ async function main(): Promise<void> {
 
   await initializeApp({ cwd })
 
+  // Detect if user is at home directory or outside a project (should show project picker)
+  const projectRoot = getProjectRoot()
+  const homeDir = os.homedir()
+  const gitRoot = findGitRoot({ cwd: projectRoot })
+  const showProjectPicker =
+    projectRoot === '/' || projectRoot === homeDir || gitRoot === null
+
   // Initialize agent registry (loads user agents via SDK)
   await initializeAgentRegistry()
 
@@ -214,6 +224,10 @@ async function main(): Promise<void> {
     const [hasInvalidCredentials, setHasInvalidCredentials] =
       React.useState(false)
     const [fileTree, setFileTree] = React.useState<FileTreeNode[]>([])
+    const [currentProjectRoot, setCurrentProjectRoot] =
+      React.useState(projectRoot)
+    const [showProjectPickerScreen, setShowProjectPickerScreen] =
+      React.useState(showProjectPicker)
 
     React.useEffect(() => {
       const apiKey = getAuthTokenDetails().token ?? ''
@@ -228,25 +242,43 @@ async function main(): Promise<void> {
       setRequireAuth(false)
     }, [])
 
-    React.useEffect(() => {
-      const loadFileTree = async () => {
-        try {
-          const projectRoot = getProjectRoot()
-          if (projectRoot) {
-            const tree = await getProjectFileTree({
-              projectRoot,
-              fs: fs,
-            })
-            logger.info({ tree }, 'Loaded file tree')
-            setFileTree(tree)
-          }
-        } catch (error) {
-          // Silently fail - fileTree is optional for @ menu
+    const loadFileTree = React.useCallback(async (root: string) => {
+      try {
+        if (root) {
+          const tree = await getProjectFileTree({
+            projectRoot: root,
+            fs: fs,
+          })
+          logger.info({ tree }, 'Loaded file tree')
+          setFileTree(tree)
         }
+      } catch (error) {
+        // Silently fail - fileTree is optional for @ menu
       }
-
-      loadFileTree()
     }, [])
+
+    React.useEffect(() => {
+      loadFileTree(currentProjectRoot)
+    }, [currentProjectRoot, loadFileTree])
+
+    // Callback for when user selects a new project from the picker
+    const handleProjectChange = React.useCallback(
+      async (newProjectPath: string) => {
+        // Change process working directory
+        process.chdir(newProjectPath)
+        // Update the project root in the module state
+        setProjectRoot(newProjectPath)
+        // Save to recent projects list
+        saveRecentProject(newProjectPath)
+        // Update local state
+        setCurrentProjectRoot(newProjectPath)
+        // Reset file tree state to trigger reload
+        setFileTree([])
+        // Hide the picker and show the chat
+        setShowProjectPickerScreen(false)
+      },
+      [],
+    )
 
     return (
       <App
@@ -258,6 +290,8 @@ async function main(): Promise<void> {
         continueChat={continueChat}
         continueChatId={continueId ?? undefined}
         initialMode={initialMode}
+        showProjectPicker={showProjectPickerScreen}
+        onProjectChange={handleProjectChange}
       />
     )
   }

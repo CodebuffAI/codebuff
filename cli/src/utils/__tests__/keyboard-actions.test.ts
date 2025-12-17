@@ -8,16 +8,16 @@ import {
 
 import type { KeyEvent } from '@opentui/core'
 
-
-const createKey = (overrides: Partial<KeyEvent> = {}): KeyEvent => ({
-  name: '',
-  sequence: '',
-  ctrl: false,
-  meta: false,
-  shift: false,
-  option: false,
-  ...overrides,
-}) as KeyEvent
+const createKey = (overrides: Partial<KeyEvent> = {}): KeyEvent =>
+  ({
+    name: '',
+    sequence: '',
+    ctrl: false,
+    meta: false,
+    shift: false,
+    option: false,
+    ...overrides,
+  }) as KeyEvent
 
 const escapeKey = createKey({ name: 'escape' })
 const ctrlC = createKey({ name: 'c', ctrl: true })

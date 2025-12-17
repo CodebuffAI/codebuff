@@ -11,13 +11,12 @@ import {
 import { useShallow } from 'zustand/react/shallow'
 
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
-import type { CommandResult } from './commands/command-registry'
-import { AnnouncementBanner } from './components/announcement-banner'
 import { ChatInputBar } from './components/chat-input-bar'
 import { LoadPreviousButton } from './components/load-previous-button'
 import { MessageWithAgents } from './components/message-with-agents'
 import { PendingBashMessage } from './components/pending-bash-message'
 import { StatusBar } from './components/status-bar'
+import { TopBanner } from './components/top-banner'
 import { SLASH_COMMANDS } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
 import { useAskUserBridge } from './hooks/use-ask-user-bridge'
@@ -72,6 +71,7 @@ import { createPasteHandler } from './utils/strings'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
 
+import type { CommandResult } from './commands/command-registry'
 import type { MultilineInputHandle } from './components/multiline-input'
 import type { ContentBlock } from './types/chat'
 import type { SendMessageFn } from './types/contracts/send-message'
@@ -164,8 +164,6 @@ export const Chat = ({
     agentMode,
     setAgentMode,
     toggleAgentMode,
-    isAnnouncementVisible,
-    setIsAnnouncementVisible,
     isRetrying,
   } = useChatStore(
     useShallow((store) => ({
@@ -189,8 +187,6 @@ export const Chat = ({
       agentMode: store.agentMode,
       setAgentMode: store.setAgentMode,
       toggleAgentMode: store.toggleAgentMode,
-      isAnnouncementVisible: store.isAnnouncementVisible,
-      setIsAnnouncementVisible: store.setIsAnnouncementVisible,
       isRetrying: store.isRetrying,
     })),
   )
@@ -1372,9 +1368,7 @@ export const Chat = ({
           },
         }}
       >
-        {isAnnouncementVisible && (
-          <AnnouncementBanner onClose={() => setIsAnnouncementVisible(false)} />
-        )}
+        <TopBanner />
 
         {headerContent}
         {hiddenMessageCount > 0 && (

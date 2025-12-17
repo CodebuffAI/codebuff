@@ -1,14 +1,12 @@
 import { pluralize } from '@codebuff/common/util/string'
 
+import { BottomBanner } from './bottom-banner'
 import { ImageCard } from './image-card'
-import { useTerminalLayout } from '../hooks/use-terminal-layout'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
-import { BORDER_CHARS } from '../utils/ui-constants'
 
 export const PendingImagesBanner = () => {
   const theme = useTheme()
-  const { width } = useTerminalLayout()
   const pendingImages = useChatStore((state) => state.pendingImages)
   const removePendingImage = useChatStore((state) => state.removePendingImage)
 
@@ -35,46 +33,18 @@ export const PendingImagesBanner = () => {
   // If we only have errors (no valid images), show just the error messages
   if (validImages.length === 0 && errorImages.length > 0) {
     return (
-      <box
-        style={{
-          flexDirection: 'column',
-          marginLeft: width.is('sm') ? 0 : 1,
-          marginRight: width.is('sm') ? 0 : 1,
-          borderStyle: 'single',
-          borderColor: theme.error,
-          paddingLeft: 1,
-          paddingRight: 1,
-          paddingTop: 0,
-          paddingBottom: 0,
-        }}
-        border={['bottom', 'left', 'right']}
-        customBorderChars={BORDER_CHARS}
-      >
+      <BottomBanner borderColorKey="error">
         {errorImages.map((image, index) => (
           <text key={`${image.path}-${index}`} style={{ fg: theme.error }}>
             {image.note} ({image.filename})
           </text>
         ))}
-      </box>
+      </BottomBanner>
     )
   }
 
   return (
-    <box
-      style={{
-        flexDirection: 'column',
-        marginLeft: width.is('sm') ? 0 : 1,
-        marginRight: width.is('sm') ? 0 : 1,
-        borderStyle: 'single',
-        borderColor: theme.imageCardBorder,
-        paddingLeft: 1,
-        paddingRight: 1,
-        paddingTop: 0,
-        paddingBottom: 0,
-      }}
-      border={['bottom', 'left', 'right']}
-      customBorderChars={BORDER_CHARS}
-    >
+    <BottomBanner borderColorKey="imageCardBorder">
       {/* Error messages shown above the header */}
       {errorImages.map((image, index) => (
         <text key={`error-${image.path}-${index}`} style={{ fg: theme.error }}>
@@ -84,10 +54,10 @@ export const PendingImagesBanner = () => {
 
       {/* Header */}
       <text style={{ fg: theme.imageCardBorder }}>
-        📎{' '}
-        {readyCount > 0 && `${pluralize(readyCount, 'image')} attached`}
+        📎 {readyCount > 0 && `${pluralize(readyCount, 'image')} attached`}
         {readyCount > 0 && processingCount > 0 && ', '}
-        {processingCount > 0 && `${pluralize(processingCount, 'image')} processing`}
+        {processingCount > 0 &&
+          `${pluralize(processingCount, 'image')} processing`}
         {processingCount > 0 && ' (wait to send)'}
       </text>
 
@@ -107,6 +77,6 @@ export const PendingImagesBanner = () => {
           />
         ))}
       </box>
-    </box>
+    </BottomBanner>
   )
 }

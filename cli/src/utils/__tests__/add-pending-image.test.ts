@@ -45,7 +45,9 @@ describe('add-pending-image', () => {
 
       const pendingImages = useChatStore.getState().pendingImages
       expect(pendingImages).toHaveLength(3)
-      expect(pendingImages.every((img) => img.status === 'processing')).toBe(true)
+      expect(pendingImages.every((img) => img.status === 'processing')).toBe(
+        true,
+      )
     })
   })
 
@@ -179,7 +181,12 @@ describe('add-pending-image', () => {
       const placeholder = addClipboardPlaceholder()
 
       // Add a ready image
-      await addPendingImageFromBase64('data', 'image/png', 'ready.png', '/ready.png')
+      await addPendingImageFromBase64(
+        'data',
+        'image/png',
+        'ready.png',
+        '/ready.png',
+      )
 
       // Add an error image
       addPendingImageWithError('/error.png', '❌ error')

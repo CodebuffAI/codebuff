@@ -1,4 +1,12 @@
-import { describe, test, expect, mock, beforeEach, afterEach, spyOn } from 'bun:test'
+import {
+  describe,
+  test,
+  expect,
+  mock,
+  beforeEach,
+  afterEach,
+  spyOn,
+} from 'bun:test'
 
 import { createMockApiClient } from '../../__tests__/helpers/mock-api-client'
 import { fetchUserDetails } from '../use-user-details-query'
@@ -190,7 +198,8 @@ describe('fetchUserDetails', () => {
       )
       const apiClient = createMockApiClient({ me: meMock })
 
-      const apiModule = require('../../utils/codebuff-api') as typeof CodebuffApiModule
+      const apiModule =
+        require('../../utils/codebuff-api') as typeof CodebuffApiModule
       const setTokenSpy = spyOn(apiModule, 'setApiClientAuthToken')
       spyOn(apiModule, 'getApiClient').mockReturnValue(apiClient as any)
 

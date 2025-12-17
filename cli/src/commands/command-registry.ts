@@ -1,3 +1,4 @@
+import { handleHelpCommand } from './help'
 import { handleImageCommand } from './image'
 import { handleInitializationFlowLocally } from './init'
 import { handleReferralCode } from './referral'
@@ -8,6 +9,7 @@ import { useChatStore } from '../state/chat-store'
 import { useFeedbackStore } from '../state/feedback-store'
 import { useLoginStore } from '../state/login-store'
 import { capturePendingImages } from '../utils/add-pending-image'
+import { AGENT_MODES } from '../utils/constants'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
@@ -15,8 +17,6 @@ import type { InputValue, PendingImage } from '../state/chat-store'
 import type { ChatMessage } from '../types/chat'
 import type { SendMessageFn } from '../types/contracts/send-message'
 import type { User } from '../utils/auth'
-import { AGENT_MODES } from '../utils/constants'
-
 import type { AgentMode } from '../utils/constants'
 import type { UseMutationResult } from '@tanstack/react-query'
 
@@ -47,7 +47,11 @@ export type RouterParams = {
   stopStreaming: () => void
 }
 
-export type CommandResult = { openFeedbackMode?: boolean; openPublishMode?: boolean; preSelectAgents?: string[] } | void
+export type CommandResult = {
+  openFeedbackMode?: boolean
+  openPublishMode?: boolean
+  preSelectAgents?: string[]
+} | void
 
 export type CommandHandler = (
   params: RouterParams,
@@ -113,7 +117,7 @@ export function defineCommand(config: CommandConfig): CommandDefinition {
     name: config.name,
     aliases: config.aliases ?? [],
     acceptsArgs: false,
-    handler: (params, _args) => {
+    handler: (params) => {
       // Args are gracefully ignored for commands that don't accept them
       return config.handler(params)
     },
@@ -151,6 +155,16 @@ const clearInput = (params: RouterParams) => {
 }
 
 export const COMMAND_REGISTRY: CommandDefinition[] = [
+  defineCommand({
+    name: 'help',
+    aliases: ['h', '?'],
+    handler: async (params) => {
+      const { postUserMessage } = await handleHelpCommand()
+      params.setMessages((prev) => postUserMessage(prev))
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
   defineCommandWithArgs({
     name: 'feedback',
     aliases: ['bug', 'report'],

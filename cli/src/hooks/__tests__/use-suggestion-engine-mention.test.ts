@@ -32,7 +32,9 @@ const isInsideQuotes = (text: string, position: number): boolean => {
   return inSingleQuote || inDoubleQuote || inBacktick
 }
 
-const parseAtInLine = (line: string): { active: boolean; query: string; atIndex: number } => {
+const parseAtInLine = (
+  line: string,
+): { active: boolean; query: string; atIndex: number } => {
   const atIndex = line.lastIndexOf('@')
   if (atIndex === -1) {
     return { active: false, query: '', atIndex: -1 }
@@ -44,7 +46,7 @@ const parseAtInLine = (line: string): { active: boolean; query: string; atIndex:
   }
 
   const beforeChar = atIndex > 0 ? line[atIndex - 1] : ''
-  
+
   // Don't trigger on escaped @: \@
   if (beforeChar === '\\') {
     return { active: false, query: '', atIndex: -1 }
@@ -62,7 +64,8 @@ const parseAtInLine = (line: string): { active: boolean; query: string; atIndex:
 
   const afterAt = line.slice(atIndex + 1)
   const firstSpaceIndex = afterAt.search(/\s/)
-  const query = firstSpaceIndex === -1 ? afterAt : afterAt.slice(0, firstSpaceIndex)
+  const query =
+    firstSpaceIndex === -1 ? afterAt : afterAt.slice(0, firstSpaceIndex)
 
   if (firstSpaceIndex !== -1) {
     return { active: false, query: '', atIndex: -1 }
@@ -244,7 +247,7 @@ describe('parseAtInLine - comprehensive edge cases', () => {
   })
 
   test('handles double quote inside single quotes', () => {
-    const result = parseAtInLine("'say \"@hello\"'")
+    const result = parseAtInLine('\'say "@hello"\'')
     expect(result.active).toBe(false)
   })
 

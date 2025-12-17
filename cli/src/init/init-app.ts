@@ -9,8 +9,11 @@ import { enableManualThemeRefresh } from '../utils/theme-system'
 export async function initializeApp(params: {
   cwd?: string
 }): Promise<void> {
-  const projectRoot =
-    findGitRoot({ cwd: params.cwd ?? process.cwd() }) ?? process.cwd()
+  if (params.cwd) {
+    process.chdir(params.cwd)
+  }
+  const baseCwd = process.cwd()
+  const projectRoot = findGitRoot({ cwd: baseCwd }) ?? baseCwd
   setProjectRoot(projectRoot)
 
   enableMapSet()

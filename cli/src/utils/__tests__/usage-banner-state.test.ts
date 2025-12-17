@@ -11,28 +11,68 @@ import {
 describe('usage-banner-state', () => {
   describe('getThresholdInfo', () => {
     test('returns high tier for >= 1000 credits', () => {
-      expect(getThresholdInfo(1000)).toEqual({ tier: 'high', colorLevel: 'success', threshold: 1000 })
-      expect(getThresholdInfo(5000)).toEqual({ tier: 'high', colorLevel: 'success', threshold: 1000 })
+      expect(getThresholdInfo(1000)).toEqual({
+        tier: 'high',
+        colorLevel: 'success',
+        threshold: 1000,
+      })
+      expect(getThresholdInfo(5000)).toEqual({
+        tier: 'high',
+        colorLevel: 'success',
+        threshold: 1000,
+      })
     })
 
     test('returns medium tier for 500-999 credits', () => {
-      expect(getThresholdInfo(999)).toEqual({ tier: 'medium', colorLevel: 'warning', threshold: 500 })
-      expect(getThresholdInfo(500)).toEqual({ tier: 'medium', colorLevel: 'warning', threshold: 500 })
+      expect(getThresholdInfo(999)).toEqual({
+        tier: 'medium',
+        colorLevel: 'warning',
+        threshold: 500,
+      })
+      expect(getThresholdInfo(500)).toEqual({
+        tier: 'medium',
+        colorLevel: 'warning',
+        threshold: 500,
+      })
     })
 
     test('returns low tier for 100-499 credits', () => {
-      expect(getThresholdInfo(499)).toEqual({ tier: 'low', colorLevel: 'warning', threshold: 100 })
-      expect(getThresholdInfo(100)).toEqual({ tier: 'low', colorLevel: 'warning', threshold: 100 })
+      expect(getThresholdInfo(499)).toEqual({
+        tier: 'low',
+        colorLevel: 'warning',
+        threshold: 100,
+      })
+      expect(getThresholdInfo(100)).toEqual({
+        tier: 'low',
+        colorLevel: 'warning',
+        threshold: 100,
+      })
     })
 
     test('returns out tier for < 100 credits', () => {
-      expect(getThresholdInfo(99)).toEqual({ tier: 'out', colorLevel: 'error', threshold: 0 })
-      expect(getThresholdInfo(0)).toEqual({ tier: 'out', colorLevel: 'error', threshold: 0 })
-      expect(getThresholdInfo(-50)).toEqual({ tier: 'out', colorLevel: 'error', threshold: 0 })
+      expect(getThresholdInfo(99)).toEqual({
+        tier: 'out',
+        colorLevel: 'error',
+        threshold: 0,
+      })
+      expect(getThresholdInfo(0)).toEqual({
+        tier: 'out',
+        colorLevel: 'error',
+        threshold: 0,
+      })
+      expect(getThresholdInfo(-50)).toEqual({
+        tier: 'out',
+        colorLevel: 'error',
+        threshold: 0,
+      })
     })
 
     test('returns medium tier when balance is unknown', () => {
-      expect(getThresholdInfo(null)).toEqual({ tier: 'medium', colorLevel: 'warning', threshold: 500 })
+      expect(getThresholdInfo(null)).toEqual({
+        tier: 'medium',
+        colorLevel: 'warning',
+        threshold: 500,
+      })
     })
   })
 
@@ -148,12 +188,7 @@ describe('usage-banner-state', () => {
 
       test('when staying within the same threshold bucket', () => {
         // Already warned about 500, current is 400 (still in < 500 bucket and > 100)
-        const result = shouldAutoShowBanner(
-          false,
-          true,
-          400,
-          500,
-        )
+        const result = shouldAutoShowBanner(false, true, 400, 500)
         expect(result.shouldShow).toBe(false)
         expect(result.newWarningThreshold).toBe(500)
       })
@@ -278,12 +313,7 @@ describe('usage-banner-state', () => {
 
     describe('state reset behavior', () => {
       test('clears warning state when credits return to healthy', () => {
-        const result = shouldAutoShowBanner(
-          false,
-          true,
-          1500,
-          100,
-        )
+        const result = shouldAutoShowBanner(false, true, 1500, 100)
         expect(result.shouldShow).toBe(false)
         expect(result.newWarningThreshold).toBe(null)
       })
@@ -295,11 +325,21 @@ describe('usage-banner-state', () => {
         expect(result.newWarningThreshold).toBe(100)
 
         // Then: refilled
-        result = shouldAutoShowBanner(false, true, 1500, result.newWarningThreshold)
+        result = shouldAutoShowBanner(
+          false,
+          true,
+          1500,
+          result.newWarningThreshold,
+        )
         expect(result.newWarningThreshold).toBe(null) // cleared
 
         // Finally: dropped again - should warn again
-        result = shouldAutoShowBanner(false, true, 50, result.newWarningThreshold)
+        result = shouldAutoShowBanner(
+          false,
+          true,
+          50,
+          result.newWarningThreshold,
+        )
         expect(result.shouldShow).toBe(true)
         expect(result.newWarningThreshold).toBe(100)
       })

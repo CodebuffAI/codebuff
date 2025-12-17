@@ -2,20 +2,13 @@ import { TextAttributes } from '@opentui/core'
 import { describe, expect, test } from 'bun:test'
 import React from 'react'
 
-import {
-  renderMarkdown,
-  renderStreamingMarkdown,
-} from '../markdown-renderer'
+import { renderMarkdown, renderStreamingMarkdown } from '../markdown-renderer'
 
 const flattenNodes = (input: React.ReactNode): React.ReactNode[] => {
   const result: React.ReactNode[] = []
 
   const visit = (value: React.ReactNode): void => {
-    if (
-      value === null ||
-      value === undefined ||
-      typeof value === 'boolean'
-    ) {
+    if (value === null || value === undefined || typeof value === 'boolean') {
       return
     }
 
@@ -231,8 +224,10 @@ codebuff "add a new feature to handle user authentication"
 
     // Should contain the complete command text
     expect(textContent).toContain('# Start using it')
-    expect(textContent).toContain('codebuff "add a new feature to handle user authentication"')
-    
+    expect(textContent).toContain(
+      'codebuff "add a new feature to handle user authentication"',
+    )
+
     // Should NOT have quotes concatenated with backticks
     expect(textContent).not.toContain('it"')
     expect(textContent).not.toContain('```"')
@@ -251,7 +246,7 @@ codebuff "add a new feature to handle user authentication"
     expect(inlineContent).toContain('codebuff "fix bug"')
 
     expect(nodes[2]).toBe(' to fix bugs.')
-    
+
     // Verify quotes are inside the inline code, not concatenated after
     expect(inlineContent).toMatch(/codebuff\s+"fix bug"/)
   })
@@ -286,7 +281,7 @@ console.log("world")
     expect(textContent).toContain('console.log("hello")')
     expect(textContent).toContain('Middle text with "quotes"')
     expect(textContent).toContain('console.log("world")')
-    
+
     // Verify no quote concatenation issues
     expect(textContent).not.toContain('```"')
     expect(textContent).not.toContain('"```')
@@ -321,7 +316,7 @@ codebuff "implement feature" --verbose
 
     const inlineCode = nodes[1] as React.ReactElement
     const inlineContent = flattenChildren(inlineCode.props.children).join('')
-    
+
     // Should preserve quotes and special characters within inline code
     expect(inlineContent).toContain('git commit -m "fix: bug"')
     expect(nodes[2]).toBe(' to commit.')

@@ -13,24 +13,30 @@ beforeEach(async () => {
   mkdirSync(TEST_DIR, { recursive: true })
   // Create debug directory for logger
   mkdirSync(path.join(TEST_DIR, 'debug'), { recursive: true })
-  
+
   // Set project root so logger doesn't throw
   setProjectRoot(TEST_DIR)
-  
+
   // Create test images with known dimensions using Jimp
   const { Jimp } = await import('jimp')
-  
+
   // Wide image: 200x100 (2:1 aspect ratio)
   const wideImage = new Jimp({ width: 200, height: 100, color: 0xff0000ff })
-  await wideImage.write(path.join(TEST_DIR, 'wide-200x100.png') as `${string}.${string}`)
-  
+  await wideImage.write(
+    path.join(TEST_DIR, 'wide-200x100.png') as `${string}.${string}`,
+  )
+
   // Tall image: 100x200 (1:2 aspect ratio)
   const tallImage = new Jimp({ width: 100, height: 200, color: 0x00ff00ff })
-  await tallImage.write(path.join(TEST_DIR, 'tall-100x200.png') as `${string}.${string}`)
-  
+  await tallImage.write(
+    path.join(TEST_DIR, 'tall-100x200.png') as `${string}.${string}`,
+  )
+
   // Square image: 150x150 (1:1 aspect ratio)
   const squareImage = new Jimp({ width: 150, height: 150, color: 0x0000ffff })
-  await squareImage.write(path.join(TEST_DIR, 'square-150x150.png') as `${string}.${string}`)
+  await squareImage.write(
+    path.join(TEST_DIR, 'square-150x150.png') as `${string}.${string}`,
+  )
 })
 
 afterEach(() => {
@@ -46,7 +52,7 @@ describe('Image Dimensions', () => {
     test('should return width and height for a wide image', async () => {
       // Use filename only since processImageFile resolves relative to cwd
       const result = await processImageFile('wide-200x100.png', TEST_DIR)
-      
+
       expect(result.success).toBe(true)
       expect(result.imagePart).toBeDefined()
       expect(result.imagePart!.width).toBe(200)
@@ -55,7 +61,7 @@ describe('Image Dimensions', () => {
 
     test('should return width and height for a tall image', async () => {
       const result = await processImageFile('tall-100x200.png', TEST_DIR)
-      
+
       expect(result.success).toBe(true)
       expect(result.imagePart).toBeDefined()
       expect(result.imagePart!.width).toBe(100)
@@ -64,7 +70,7 @@ describe('Image Dimensions', () => {
 
     test('should return width and height for a square image', async () => {
       const result = await processImageFile('square-150x150.png', TEST_DIR)
-      
+
       expect(result.success).toBe(true)
       expect(result.imagePart).toBeDefined()
       expect(result.imagePart!.width).toBe(150)
@@ -74,8 +80,12 @@ describe('Image Dimensions', () => {
     test('should return compressed dimensions when image is compressed', async () => {
       // Create a large image that will be compressed
       const { Jimp } = await import('jimp')
-      const largeImage = new Jimp({ width: 2000, height: 1000, color: 0xff00ffff })
-      
+      const largeImage = new Jimp({
+        width: 2000,
+        height: 1000,
+        color: 0xff00ffff,
+      })
+
       // Fill with varied data to make it less compressible (using unsigned values)
       for (let y = 0; y < 1000; y++) {
         for (let x = 0; x < 2000; x++) {
@@ -88,10 +98,12 @@ describe('Image Dimensions', () => {
           largeImage.setPixelColor(color, x, y)
         }
       }
-      await largeImage.write(path.join(TEST_DIR, 'large-2000x1000.png') as `${string}.${string}`)
-      
+      await largeImage.write(
+        path.join(TEST_DIR, 'large-2000x1000.png') as `${string}.${string}`,
+      )
+
       const result = await processImageFile('large-2000x1000.png', TEST_DIR)
-      
+
       expect(result.success).toBe(true)
       expect(result.imagePart).toBeDefined()
       // Dimensions should be defined even after compression
@@ -114,7 +126,7 @@ describe('Image Dimensions', () => {
         height: 100,
         availableWidth: 80,
       })
-      
+
       // With 200x100 image (2:1), scaling to fit 80 width
       // Display width should be reasonable portion of available
       expect(result.width).toBeLessThanOrEqual(80)
@@ -129,12 +141,14 @@ describe('Image Dimensions', () => {
         height: 200,
         availableWidth: 80,
       })
-      
+
       expect(result.width).toBeLessThanOrEqual(80)
       expect(result.width).toBeGreaterThan(0)
       expect(result.height).toBeGreaterThan(0)
       // Tall images should have larger height relative to width
-      expect(result.height).toBeGreaterThanOrEqual(result.width / CELL_ASPECT_RATIO)
+      expect(result.height).toBeGreaterThanOrEqual(
+        result.width / CELL_ASPECT_RATIO,
+      )
     })
 
     test('should handle square images', () => {
@@ -143,7 +157,7 @@ describe('Image Dimensions', () => {
         height: 150,
         availableWidth: 80,
       })
-      
+
       expect(result.width).toBeLessThanOrEqual(80)
       expect(result.width).toBeGreaterThan(0)
       expect(result.height).toBeGreaterThan(0)
@@ -153,7 +167,7 @@ describe('Image Dimensions', () => {
       const result = calculateDisplaySize({
         availableWidth: 80,
       })
-      
+
       // Fallback should still return reasonable values
       expect(result.width).toBeLessThanOrEqual(80)
       expect(result.width).toBeGreaterThan(0)
@@ -166,7 +180,7 @@ describe('Image Dimensions', () => {
         height: 100,
         availableWidth: 80,
       })
-      
+
       expect(result.width).toBeGreaterThan(0)
       expect(result.height).toBeGreaterThan(0)
     })
@@ -177,7 +191,7 @@ describe('Image Dimensions', () => {
         height: 0,
         availableWidth: 80,
       })
-      
+
       expect(result.width).toBeGreaterThan(0)
       expect(result.height).toBeGreaterThan(0)
     })
@@ -188,7 +202,7 @@ describe('Image Dimensions', () => {
         height: 1,
         availableWidth: 80,
       })
-      
+
       // Even tiny images should have at least 1 cell
       expect(result.width).toBeGreaterThanOrEqual(1)
       expect(result.height).toBeGreaterThanOrEqual(1)
@@ -200,7 +214,7 @@ describe('Image Dimensions', () => {
         height: 100,
         availableWidth: 200,
       })
-      
+
       // Should not blow up image beyond reasonable size
       expect(result.width).toBeLessThanOrEqual(100) // Don't exceed original
       expect(result.height).toBeGreaterThan(0)
@@ -212,7 +226,7 @@ describe('Image Dimensions', () => {
         height: 500,
         availableWidth: 20,
       })
-      
+
       expect(result.width).toBeLessThanOrEqual(20)
       expect(result.height).toBeGreaterThan(0)
     })

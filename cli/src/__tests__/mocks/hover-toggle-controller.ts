@@ -1,4 +1,8 @@
-import { OPEN_DELAY_MS, CLOSE_DELAY_MS, REOPEN_SUPPRESS_MS } from '../../components/agent-mode-toggle'
+import {
+  OPEN_DELAY_MS,
+  CLOSE_DELAY_MS,
+  REOPEN_SUPPRESS_MS,
+} from '../../components/agent-mode-toggle'
 
 export const createHoverToggleControllerForTest = () => {
   let isOpen = false
@@ -65,4 +69,3 @@ export const createHoverToggleControllerForTest = () => {
     clearAllTimers,
   }
 }
-

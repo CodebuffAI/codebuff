@@ -34,7 +34,9 @@ describe('parseThinkTags', () => {
 
   test('parses multiple think tags', () => {
     expect(
-      parseThinkTags('Start <think>first</think> middle <think>second</think> end'),
+      parseThinkTags(
+        'Start <think>first</think> middle <think>second</think> end',
+      ),
     ).toEqual([
       { type: 'text', content: 'Start ' },
       { type: 'thinking', content: 'first' },
@@ -82,10 +84,12 @@ describe('parseThinkTags', () => {
   })
 
   test('handles consecutive think tags', () => {
-    expect(parseThinkTags('<think>first</think><think>second</think>')).toEqual([
-      { type: 'thinking', content: 'first' },
-      { type: 'thinking', content: 'second' },
-    ])
+    expect(parseThinkTags('<think>first</think><think>second</think>')).toEqual(
+      [
+        { type: 'thinking', content: 'first' },
+        { type: 'thinking', content: 'second' },
+      ],
+    )
   })
 
   test('preserves whitespace inside think tags', () => {

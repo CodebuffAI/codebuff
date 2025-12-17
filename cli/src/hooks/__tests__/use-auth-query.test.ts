@@ -19,4 +19,3 @@ describe('authQueryKeys.validation', () => {
     expect(apiKeyHash).toMatch(/^[0-9a-f]{64}$/)
   })
 })
-

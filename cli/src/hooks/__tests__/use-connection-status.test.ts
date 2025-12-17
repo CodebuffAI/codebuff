@@ -4,7 +4,7 @@ import { getNextInterval } from '../use-connection-status'
 
 /**
  * Tests for the adaptive health check interval logic.
- * 
+ *
  * These tests verify the core exponential backoff algorithm that determines
  * how frequently health checks should run based on consecutive successful checks.
  */

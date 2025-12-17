@@ -1,12 +1,10 @@
-import os from 'os'
-import path from 'path'
-
 import { NetworkError, RETRYABLE_ERROR_CODES } from '@codebuff/sdk'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { Chat } from './chat'
 import { LoginModal } from './components/login-modal'
+import { ProjectPickerScreen } from './components/project-picker-screen'
 import { TerminalLink } from './components/terminal-link'
 import { useAuthQuery } from './hooks/use-auth-query'
 import { useAuthState } from './hooks/use-auth-state'
@@ -16,9 +14,10 @@ import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTerminalFocus } from './hooks/use-terminal-focus'
 import { useTheme } from './hooks/use-theme'
 import { getProjectRoot } from './project-files'
-import { getLogoBlockColor, getLogoAccentColor } from './utils/theme-system'
 import { useChatStore } from './state/chat-store'
 import { openFileAtPath } from './utils/open-file'
+import { formatCwd } from './utils/path-helpers'
+import { getLogoBlockColor, getLogoAccentColor } from './utils/theme-system'
 
 import type { MultilineInputHandle } from './components/multiline-input'
 import type { AgentMode } from './utils/constants'
@@ -34,6 +33,8 @@ interface AppProps {
   continueChat: boolean
   continueChatId?: string
   initialMode?: AgentMode
+  showProjectPicker: boolean
+  onProjectChange: (projectPath: string) => void
 }
 
 export const App = ({
@@ -45,6 +46,8 @@ export const App = ({
   continueChat,
   continueChatId,
   initialMode,
+  showProjectPicker,
+  onProjectChange,
 }: AppProps) => {
   const { contentMaxWidth, terminalWidth } = useTerminalDimensions()
   const theme = useTheme()
@@ -106,13 +109,10 @@ export const App = ({
     resetChatStore,
   })
 
+  const projectRoot = getProjectRoot()
+
   const headerContent = useMemo(() => {
-    const homeDir = os.homedir()
-    const repoRoot = getProjectRoot()
-    const relativePath = path.relative(homeDir, repoRoot)
-    const displayPath = relativePath.startsWith('..')
-      ? repoRoot
-      : `~/${relativePath}`
+    const displayPath = formatCwd(projectRoot)
 
     return (
       <box
@@ -146,12 +146,12 @@ export const App = ({
             color={theme.muted}
             inline={true}
             underlineOnHover={true}
-            onActivate={() => openFileAtPath(repoRoot)}
+            onActivate={() => openFileAtPath(projectRoot)}
           />
         </text>
       </box>
     )
-  }, [logoComponent, theme])
+  }, [logoComponent, projectRoot, theme])
 
   // Derive auth reachability + retrying state inline from authQuery error
   const authError = authQuery.error
@@ -183,6 +183,16 @@ export const App = ({
       <LoginModal
         onLoginSuccess={handleLoginSuccess}
         hasInvalidCredentials={hasInvalidCredentials}
+      />
+    )
+  }
+
+  // Render project picker when at home directory or outside a project
+  if (showProjectPicker) {
+    return (
+      <ProjectPickerScreen
+        onSelectProject={onProjectChange}
+        initialPath={projectRoot}
       />
     )
   }

@@ -65,7 +65,8 @@ describe('Logout and Re-login helpers', () => {
   }
 
   const mockLogoutApi = () => {
-    const apiModule = require('../../utils/codebuff-api') as typeof CodebuffApiModule
+    const apiModule =
+      require('../../utils/codebuff-api') as typeof CodebuffApiModule
     spyOn(apiModule, 'getApiClient').mockReturnValue({
       logout: async () => ({ ok: true, status: 200 }),
     } as any)

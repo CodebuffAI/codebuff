@@ -1,8 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import React, { useEffect } from 'react'
 
-import { BannerWrapper } from './banner-wrapper'
-import { useTheme } from '../hooks/use-theme'
+import { BottomBanner } from './bottom-banner'
 import { usageQueryKeys, useUsageQuery } from '../hooks/use-usage-query'
 import { useChatStore } from '../state/chat-store'
 import {
@@ -15,7 +14,6 @@ const MANUAL_SHOW_TIMEOUT = 60 * 1000 // 1 minute
 const USAGE_POLL_INTERVAL = 30 * 1000 // 30 seconds
 
 export const UsageBanner = ({ showTime }: { showTime: number }) => {
-  const theme = useTheme()
   const queryClient = useQueryClient()
   const sessionCreditsUsed = useChatStore((state) => state.sessionCreditsUsed)
   const setInputMode = useChatStore((state) => state.setInputMode)
@@ -62,8 +60,8 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
   // Show loading state immediately when banner is opened but data isn't ready
   if (!activeData) {
     return (
-      <BannerWrapper
-        color={theme.muted}
+      <BottomBanner
+        borderColorKey="muted"
         text={generateLoadingBannerText(sessionCreditsUsed)}
         onClose={() => setInputMode('default')}
       />
@@ -71,7 +69,6 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
   }
 
   const colorLevel = getBannerColorLevel(activeData.remainingBalance)
-  const color = theme[colorLevel]
 
   // Show loading indicator if refreshing data
   const text = isLoadingData
@@ -83,8 +80,8 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
       })
 
   return (
-    <BannerWrapper
-      color={isLoadingData ? theme.muted : color}
+    <BottomBanner
+      borderColorKey={isLoadingData ? 'muted' : colorLevel}
       text={text}
       onClose={() => setInputMode('default')}
     />

@@ -11,6 +11,9 @@ import type { AgentMode } from '../utils/constants'
 import type { InputMode } from '../utils/input-modes'
 import type { RunState } from '@codebuff/sdk'
 
+/** Types of banners that can appear at the top of the chat */
+export type TopBannerType = 'homeDir' | null
+
 export type InputValue = {
   text: string
   cursorPosition: number
@@ -109,7 +112,8 @@ export type ChatStoreState = {
   lastMessageMode: AgentMode | null
   sessionCreditsUsed: number
   runState: RunState | null
-  isAnnouncementVisible: boolean
+  /** The currently active top banner, or null if none */
+  activeTopBanner: TopBannerType
   inputMode: InputMode
   isRetrying: boolean
   askUserState: AskUserState
@@ -176,7 +180,8 @@ type ChatStoreActions = {
   setLastMessageMode: (mode: AgentMode | null) => void
   addSessionCredits: (credits: number) => void
   setRunState: (runState: RunState | null) => void
-  setIsAnnouncementVisible: (visible: boolean) => void
+  setActiveTopBanner: (banner: TopBannerType) => void
+  closeTopBanner: () => void
   setInputMode: (mode: InputMode) => void
   setIsRetrying: (retrying: boolean) => void
   setAskUserState: (state: AskUserState) => void
@@ -217,7 +222,7 @@ const initialState: ChatStoreState = {
   lastMessageMode: null,
   sessionCreditsUsed: 0,
   runState: null,
-  isAnnouncementVisible: false,
+  activeTopBanner: null,
   inputMode: 'default' as InputMode,
   isRetrying: false,
   askUserState: null,
@@ -331,9 +336,14 @@ export const useChatStore = create<ChatStore>()(
         state.runState = runState ? castDraft(runState) : null
       }),
 
-    setIsAnnouncementVisible: (visible) =>
+    setActiveTopBanner: (banner) =>
       set((state) => {
-        state.isAnnouncementVisible = visible
+        state.activeTopBanner = banner
+      }),
+
+    closeTopBanner: () =>
+      set((state) => {
+        state.activeTopBanner = null
       }),
 
     setInputMode: (mode) =>
@@ -475,7 +485,7 @@ export const useChatStore = create<ChatStore>()(
         state.runState = initialState.runState
           ? castDraft(initialState.runState)
           : null
-        state.isAnnouncementVisible = initialState.isAnnouncementVisible
+        state.activeTopBanner = initialState.activeTopBanner
         state.inputMode = initialState.inputMode
         state.isRetrying = initialState.isRetrying
         state.askUserState = initialState.askUserState

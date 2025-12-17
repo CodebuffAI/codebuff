@@ -159,9 +159,15 @@ describe('analytics with PostHog alias', () => {
 
       // All events should use the real user ID
       const calls = captureMock.mock.calls
-      expect((calls[0][0] as { distinctId: string }).distinctId).toBe('user-direct')
-      expect((calls[1][0] as { distinctId: string }).distinctId).toBe('user-direct')
-      expect((calls[2][0] as { distinctId: string }).distinctId).toBe('user-direct')
+      expect((calls[0][0] as { distinctId: string }).distinctId).toBe(
+        'user-direct',
+      )
+      expect((calls[1][0] as { distinctId: string }).distinctId).toBe(
+        'user-direct',
+      )
+      expect((calls[2][0] as { distinctId: string }).distinctId).toBe(
+        'user-direct',
+      )
     })
   })
 

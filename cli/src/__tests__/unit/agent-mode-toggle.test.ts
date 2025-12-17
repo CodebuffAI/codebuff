@@ -1,6 +1,12 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 
-import { buildExpandedSegments, resolveAgentModeClick, OPEN_DELAY_MS, CLOSE_DELAY_MS, REOPEN_SUPPRESS_MS } from '../../components/agent-mode-toggle'
+import {
+  buildExpandedSegments,
+  resolveAgentModeClick,
+  OPEN_DELAY_MS,
+  CLOSE_DELAY_MS,
+  REOPEN_SUPPRESS_MS,
+} from '../../components/agent-mode-toggle'
 import { createHoverToggleControllerForTest } from '../mocks/hover-toggle-controller'
 
 import type { AgentMode } from '../../utils/constants'

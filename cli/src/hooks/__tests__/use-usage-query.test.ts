@@ -58,19 +58,28 @@ describe('fetchUsageData', () => {
   })
 
   test('should throw error on failed request', async () => {
-    globalThis.fetch = mock(async () => new Response('Error', { status: 500 })) as unknown as typeof fetch
-    const mockLogger = { error: mock(() => {}), warn: mock(() => {}), info: mock(() => {}), debug: mock(() => {}) }
+    globalThis.fetch = mock(
+      async () => new Response('Error', { status: 500 }),
+    ) as unknown as typeof fetch
+    const mockLogger = {
+      error: mock(() => {}),
+      warn: mock(() => {}),
+      info: mock(() => {}),
+      debug: mock(() => {}),
+    }
 
-    await expect(fetchUsageData({ authToken: 'test-token', logger: mockLogger as any })).rejects.toThrow(
-      'Failed to fetch usage: 500',
-    )
+    await expect(
+      fetchUsageData({ authToken: 'test-token', logger: mockLogger as any }),
+    ).rejects.toThrow('Failed to fetch usage: 500')
   })
 
   test('should throw error when app URL is not set', async () => {
     await expect(
       fetchUsageData({
         authToken: 'test-token',
-        clientEnv: { NEXT_PUBLIC_CODEBUFF_APP_URL: undefined } as unknown as ClientEnv,
+        clientEnv: {
+          NEXT_PUBLIC_CODEBUFF_APP_URL: undefined,
+        } as unknown as ClientEnv,
       }),
     ).rejects.toThrow('NEXT_PUBLIC_CODEBUFF_APP_URL is not set')
   })
@@ -139,7 +148,9 @@ describe('useUsageQuery', () => {
     getAuthTokenSpy = spyOn(authModule, 'getAuthToken').mockReturnValue(
       'test-token',
     )
-    const fetchMock = mock(async () => new Response('{}')) as unknown as typeof fetch
+    const fetchMock = mock(
+      async () => new Response('{}'),
+    ) as unknown as typeof fetch
     globalThis.fetch = fetchMock
 
     const { result } = renderHook(() => useUsageQuery({ enabled: false }), {
@@ -156,7 +167,9 @@ describe('useUsageQuery', () => {
     getAuthTokenSpy = spyOn(authModule, 'getAuthToken').mockReturnValue(
       undefined,
     )
-    const fetchMock = mock(async () => new Response('{}')) as unknown as typeof fetch
+    const fetchMock = mock(
+      async () => new Response('{}'),
+    ) as unknown as typeof fetch
     globalThis.fetch = fetchMock
 
     renderHook(() => useUsageQuery(), {

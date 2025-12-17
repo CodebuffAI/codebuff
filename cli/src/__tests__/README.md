@@ -84,6 +84,7 @@ The `.bin/bun` wrapper automatically checks for tmux when running integration/E2
 - **Skips** tests gracefully if tmux unavailable
 
 **Benefits:**
+
 - ✅ Project-wide (works in any package)
 - ✅ No hardcoded paths
 - ✅ Clear test categorization
@@ -165,17 +166,19 @@ await sleep(1000)
 ## tmux Testing
 
 **See [`../../tmux.knowledge.md`](../../tmux.knowledge.md) for comprehensive tmux documentation**, including:
+
 - Why standard `send-keys` doesn't work (must use bracketed paste mode)
 - Helper functions for Bash and TypeScript
 - Complete example scripts
 - Debugging and troubleshooting tips
 
 **Quick reference:**
+
 ```typescript
-// ❌ Broken: 
+// ❌ Broken:
 await tmux(['send-keys', '-t', session, 'hello'])
 
-// ✅ Works:  
+// ✅ Works:
 await tmux(['send-keys', '-t', session, '-l', '\x1b[200~hello\x1b[201~'])
 ```
 

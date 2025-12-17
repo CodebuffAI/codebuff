@@ -15,12 +15,12 @@ const MODE_COMMANDS: SlashCommand[] = AGENT_MODES.map((mode) => ({
 }))
 
 export const SLASH_COMMANDS: SlashCommand[] = [
-  // {
-  //   id: 'help',
-  //   label: 'help',
-  //   description: 'Display help information and available commands',
-  //   aliases: ['h'],
-  // },
+  {
+    id: 'help',
+    label: 'help',
+    description: 'Display keyboard shortcuts and tips',
+    aliases: ['h', '?'],
+  },
   {
     id: 'init',
     label: 'init',

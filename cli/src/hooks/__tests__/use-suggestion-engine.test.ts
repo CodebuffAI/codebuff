@@ -1,6 +1,5 @@
 import { describe, test, expect } from 'bun:test'
 
-
 // Import the filterFileMatches function indirectly by testing the hook behavior
 // For unit testing, we'll extract and test the logic directly
 
@@ -200,23 +199,33 @@ describe('use-suggestion-engine - filterFileMatches', () => {
       const results = filterFileMatches(sampleFiles, 'cli/use-')
 
       expect(results.length).toBeGreaterThan(0)
-      expect(results.some((r) => r.filePath.includes('use-suggestion-engine'))).toBe(true)
+      expect(
+        results.some((r) => r.filePath.includes('use-suggestion-engine')),
+      ).toBe(true)
       expect(results.some((r) => r.filePath.includes('use-timeout'))).toBe(true)
-      expect(results.some((r) => r.filePath.includes('use-usage-query'))).toBe(true)
+      expect(results.some((r) => r.filePath.includes('use-usage-query'))).toBe(
+        true,
+      )
     })
 
     test('matches "cli/hooks/use-" to specific hook files', () => {
       const results = filterFileMatches(sampleFiles, 'cli/hooks/use-')
 
       expect(results.length).toBeGreaterThan(0)
-      expect(results.some((r) => r.filePath === 'cli/src/hooks/use-suggestion-engine.ts')).toBe(true)
+      expect(
+        results.some(
+          (r) => r.filePath === 'cli/src/hooks/use-suggestion-engine.ts',
+        ),
+      ).toBe(true)
     })
 
     test('matches "web/ui/button" to button component', () => {
       const results = filterFileMatches(sampleFiles, 'web/ui/button')
 
       expect(results.length).toBeGreaterThan(0)
-      expect(results.some((r) => r.filePath === 'web/src/components/ui/button.tsx')).toBe(true)
+      expect(
+        results.some((r) => r.filePath === 'web/src/components/ui/button.tsx'),
+      ).toBe(true)
     })
 
     test('does not match when segments are not found in order', () => {
@@ -259,7 +268,12 @@ describe('use-suggestion-engine - filterFileMatches', () => {
 
       expect(results.length).toBeGreaterThan(0)
       expect(
-        results.every((r) => r.filePath.includes('cli') && r.filePath.includes('src') && r.filePath.includes('hooks')),
+        results.every(
+          (r) =>
+            r.filePath.includes('cli') &&
+            r.filePath.includes('src') &&
+            r.filePath.includes('hooks'),
+        ),
       ).toBe(true)
     })
   })
@@ -269,7 +283,9 @@ describe('use-suggestion-engine - filterFileMatches', () => {
       const results = filterFileMatches(sampleFiles, 'use-')
 
       expect(results.length).toBeGreaterThan(0)
-      expect(results.some((r) => r.filePath.includes('use-suggestion-engine'))).toBe(true)
+      expect(
+        results.some((r) => r.filePath.includes('use-suggestion-engine')),
+      ).toBe(true)
       expect(results.some((r) => r.filePath.includes('use-timeout'))).toBe(true)
     })
 
@@ -284,8 +300,12 @@ describe('use-suggestion-engine - filterFileMatches', () => {
       const results = filterFileMatches(sampleFiles, 'suggestion')
 
       expect(results.length).toBeGreaterThan(0)
-      expect(results.some((r) => r.filePath.includes('suggestion-engine'))).toBe(true)
-      expect(results.some((r) => r.filePath.includes('suggestion-menu'))).toBe(true)
+      expect(
+        results.some((r) => r.filePath.includes('suggestion-engine')),
+      ).toBe(true)
+      expect(results.some((r) => r.filePath.includes('suggestion-menu'))).toBe(
+        true,
+      )
     })
 
     test('matches substring in path', () => {
@@ -321,10 +341,7 @@ describe('use-suggestion-engine - filterFileMatches', () => {
     })
 
     test('prioritizes "cli/src" over "cli" + "src" scattered', () => {
-      const files = [
-        'cli/something/src/file.ts',
-        'cli/src/file.ts',
-      ]
+      const files = ['cli/something/src/file.ts', 'cli/src/file.ts']
       const results = filterFileMatches(files, 'cli/src')
 
       // 'cli/src/file.ts' should come first because "cli/src" is fully contiguous (7 chars)
@@ -347,10 +364,10 @@ describe('use-suggestion-engine - filterFileMatches', () => {
 
     test('ranks results by total contiguous match length for slash queries', () => {
       const files = [
-        'a/b/c/d.ts',        // "a/b" = 3 chars contiguous (exact match)
-        'a/b/e.ts',          // "a/b" = 3 chars contiguous (exact match)  
-        'ab/c/d.ts',         // "ab/" = 3 chars contiguous
-        'abc/d.ts',          // "ab" = 2 chars only
+        'a/b/c/d.ts', // "a/b" = 3 chars contiguous (exact match)
+        'a/b/e.ts', // "a/b" = 3 chars contiguous (exact match)
+        'ab/c/d.ts', // "ab/" = 3 chars contiguous
+        'abc/d.ts', // "ab" = 2 chars only
       ]
       const results = filterFileMatches(files, 'a/b')
 
@@ -417,7 +434,9 @@ describe('use-suggestion-engine - filterFileMatches', () => {
       const results = filterFileMatches(sampleFiles, 'CLI/USE-')
 
       expect(results.length).toBeGreaterThan(0)
-      expect(results.some((r) => r.filePath.includes('use-suggestion-engine'))).toBe(true)
+      expect(
+        results.some((r) => r.filePath.includes('use-suggestion-engine')),
+      ).toBe(true)
     })
 
     test('does not match partial segments incorrectly', () => {
@@ -425,7 +444,11 @@ describe('use-suggestion-engine - filterFileMatches', () => {
 
       // Should only match if "cl" and "us" appear as substrings in order
       expect(results.length).toBeGreaterThan(0)
-      expect(results.some((r) => r.filePath === 'cli/src/hooks/use-suggestion-engine.ts')).toBe(true)
+      expect(
+        results.some(
+          (r) => r.filePath === 'cli/src/hooks/use-suggestion-engine.ts',
+        ),
+      ).toBe(true)
     })
 
     test('handles files with no directory separators', () => {
@@ -444,7 +467,9 @@ describe('use-suggestion-engine - filterFileMatches', () => {
       const results = filterFileMatches(deepFiles, 'deep/path')
 
       expect(results.length).toBeGreaterThan(0)
-      expect(results.some((r) => r.filePath.includes('deeply/nested/path'))).toBe(true)
+      expect(
+        results.some((r) => r.filePath.includes('deeply/nested/path')),
+      ).toBe(true)
       expect(results.some((r) => r.filePath.includes('deep/path'))).toBe(true)
     })
 

@@ -89,7 +89,8 @@ describe('bash-mode', () => {
       }
       const inputMode = 'bash' as InputMode
 
-      const userTypedBang = inputMode === ('default' as InputMode) && inputValue.text === '!'
+      const userTypedBang =
+        inputMode === ('default' as InputMode) && inputValue.text === '!'
 
       if (userTypedBang) {
         setInputMode('bash')
@@ -231,7 +232,8 @@ describe('bash-mode', () => {
       const trimmedInput = 'ls -la' // The stored value WITHOUT '!'
 
       // Router logic prepends '!' when in bash mode
-      const commandWithBang = inputMode === 'bash' ? '!' + trimmedInput : trimmedInput
+      const commandWithBang =
+        inputMode === 'bash' ? '!' + trimmedInput : trimmedInput
 
       expect(commandWithBang).toBe('!ls -la')
     })
@@ -239,7 +241,8 @@ describe('bash-mode', () => {
     test('submission displays "!" in user message', () => {
       const inputMode: InputMode = 'bash'
       const trimmedInput = 'pwd'
-      const commandWithBang = inputMode === 'bash' ? '!' + trimmedInput : trimmedInput
+      const commandWithBang =
+        inputMode === 'bash' ? '!' + trimmedInput : trimmedInput
 
       // The user message should show the command WITH '!'
       const userMessage = { content: commandWithBang }
@@ -291,8 +294,14 @@ describe('bash-mode', () => {
   describe('bash mode UI state', () => {
     test('input mode is stored separately from input value', () => {
       // The inputMode is independent of the input text
-      const state1: { inputMode: InputMode; inputValue: string } = { inputMode: 'bash', inputValue: 'ls' }
-      const state2: { inputMode: InputMode; inputValue: string } = { inputMode: 'default', inputValue: 'hello' }
+      const state1: { inputMode: InputMode; inputValue: string } = {
+        inputMode: 'bash',
+        inputValue: 'ls',
+      }
+      const state2: { inputMode: InputMode; inputValue: string } = {
+        inputMode: 'default',
+        inputValue: 'hello',
+      }
 
       expect(state1.inputMode).toBe('bash')
       expect(state1.inputValue).not.toContain('!')
@@ -317,7 +326,9 @@ describe('bash-mode', () => {
       const inputModeValue = 'default' as InputMode
 
       const adjustedInputWidth =
-        inputModeValue === ('bash' as InputMode) ? baseInputWidth - 2 : baseInputWidth
+        inputModeValue === ('bash' as InputMode)
+          ? baseInputWidth - 2
+          : baseInputWidth
 
       expect(adjustedInputWidth).toBe(100)
     })
@@ -339,7 +350,9 @@ describe('bash-mode', () => {
       const inputMode = 'default' as InputMode
 
       const effectivePlaceholder =
-        inputMode === ('bash' as InputMode) ? bashPlaceholder : normalPlaceholder
+        inputMode === ('bash' as InputMode)
+          ? bashPlaceholder
+          : normalPlaceholder
 
       expect(effectivePlaceholder).toBe('Ask Buffy anything...')
     })

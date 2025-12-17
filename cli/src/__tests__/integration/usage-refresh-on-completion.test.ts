@@ -1,5 +1,13 @@
 import { QueryClient } from '@tanstack/react-query'
-import { describe, test, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test'
+import {
+  describe,
+  test,
+  expect,
+  beforeEach,
+  afterEach,
+  mock,
+  spyOn,
+} from 'bun:test'
 
 import { usageQueryKeys } from '../../hooks/use-usage-query'
 import { useChatStore } from '../../state/chat-store'
@@ -39,19 +47,22 @@ describe('Usage Refresh on SDK Completion', () => {
     })
 
     // Mock auth token
-    getAuthTokenSpy = spyOn(authModule, 'getAuthToken').mockReturnValue('test-token')
+    getAuthTokenSpy = spyOn(authModule, 'getAuthToken').mockReturnValue(
+      'test-token',
+    )
 
     // Mock successful API response
-    globalThis.fetch = mock(async () =>
-      new Response(
-        JSON.stringify({
-          type: 'usage-response',
-          usage: 100,
-          remainingBalance: 850,
-          next_quota_reset: '2024-03-01T00:00:00.000Z',
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
+    globalThis.fetch = mock(
+      async () =>
+        new Response(
+          JSON.stringify({
+            type: 'usage-response',
+            usage: 100,
+            remainingBalance: 850,
+            next_quota_reset: '2024-03-01T00:00:00.000Z',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
     ) as unknown as typeof fetch
   })
 
@@ -69,7 +80,9 @@ describe('Usage Refresh on SDK Completion', () => {
       expect(useChatStore.getState().inputMode).toBe('usage')
 
       // Spy on invalidateQueries
-      const invalidateSpy = mock(queryClient.invalidateQueries.bind(queryClient))
+      const invalidateSpy = mock(
+        queryClient.invalidateQueries.bind(queryClient),
+      )
       queryClient.invalidateQueries = invalidateSpy as any
 
       // Simulate SDK run completion triggering invalidation
@@ -88,7 +101,9 @@ describe('Usage Refresh on SDK Completion', () => {
     test('should invalidate multiple times for sequential runs', () => {
       useChatStore.getState().setInputMode('usage')
 
-      const invalidateSpy = mock(queryClient.invalidateQueries.bind(queryClient))
+      const invalidateSpy = mock(
+        queryClient.invalidateQueries.bind(queryClient),
+      )
       queryClient.invalidateQueries = invalidateSpy as any
 
       // Simulate three sequential SDK runs
@@ -108,7 +123,9 @@ describe('Usage Refresh on SDK Completion', () => {
       useChatStore.getState().setInputMode('default')
       expect(useChatStore.getState().inputMode).toBe('default')
 
-      const invalidateSpy = mock(queryClient.invalidateQueries.bind(queryClient))
+      const invalidateSpy = mock(
+        queryClient.invalidateQueries.bind(queryClient),
+      )
       queryClient.invalidateQueries = invalidateSpy as any
 
       // Simulate SDK run completion check
@@ -128,7 +145,9 @@ describe('Usage Refresh on SDK Completion', () => {
       // User closes banner before run completes
       useChatStore.getState().setInputMode('default')
 
-      const invalidateSpy = mock(queryClient.invalidateQueries.bind(queryClient))
+      const invalidateSpy = mock(
+        queryClient.invalidateQueries.bind(queryClient),
+      )
       queryClient.invalidateQueries = invalidateSpy as any
 
       // Simulate run completion

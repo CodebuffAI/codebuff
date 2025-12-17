@@ -61,7 +61,9 @@ describe('getOptionLabel', () => {
   })
 
   it('extracts label from object option', () => {
-    expect(getOptionLabel({ label: 'Option B', description: 'Description' })).toBe('Option B')
+    expect(
+      getOptionLabel({ label: 'Option B', description: 'Description' }),
+    ).toBe('Option B')
   })
 
   it('extracts label from object option without description', () => {
@@ -373,7 +375,8 @@ describe('answer state management patterns', () => {
       }
 
       const optionIndex = OTHER_OPTION_INDEX
-      const toggledOtherOn = optionIndex === OTHER_OPTION_INDEX && !currentAnswer.isOther
+      const toggledOtherOn =
+        optionIndex === OTHER_OPTION_INDEX && !currentAnswer.isOther
 
       expect(toggledOtherOn).toBe(true)
     })

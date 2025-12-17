@@ -3,7 +3,14 @@
 // 1. Add it to the InputMode type
 // 2. Add its configuration to INPUT_MODE_CONFIGS
 
-export type InputMode = 'default' | 'bash' | 'referral' | 'usage' | 'image'
+export type InputMode =
+  | 'default'
+  | 'bash'
+  | 'homeDir'
+  | 'referral'
+  | 'usage'
+  | 'image'
+  | 'help'
 
 // Theme color keys that are valid color values (must match ChatTheme keys)
 export type ThemeColorKey =
@@ -49,6 +56,14 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     showAgentModeToggle: false,
     disableSlashSuggestions: true,
   },
+  homeDir: {
+    icon: null,
+    color: 'warning',
+    placeholder: 'enter a coding task or / for commands',
+    widthAdjustment: 0,
+    showAgentModeToggle: true,
+    disableSlashSuggestions: false,
+  },
   referral: {
     icon: '◎',
     color: 'warning',
@@ -72,6 +87,14 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     widthAdjustment: 3, // emoji width + padding
     showAgentModeToggle: false,
     disableSlashSuggestions: true,
+  },
+  help: {
+    icon: null,
+    color: 'info',
+    placeholder: 'enter a coding task or / for commands',
+    widthAdjustment: 0,
+    showAgentModeToggle: true,
+    disableSlashSuggestions: false,
   },
 }
 

@@ -21,7 +21,9 @@ describe('bash command', () => {
   })
 
   describe('/bash slash command handler', () => {
-    const createMockParams = (overrides: Partial<RouterParams> = {}): RouterParams => ({
+    const createMockParams = (
+      overrides: Partial<RouterParams> = {},
+    ): RouterParams => ({
       abortControllerRef: { current: null },
       agentMode: 'DEFAULT',
       inputRef: { current: null },
@@ -287,7 +289,9 @@ describe('bash command', () => {
   })
 
   describe('/bash with special characters in args', () => {
-    const createMockParams = (overrides: Partial<RouterParams> = {}): RouterParams => ({
+    const createMockParams = (
+      overrides: Partial<RouterParams> = {},
+    ): RouterParams => ({
       abortControllerRef: { current: null },
       agentMode: 'DEFAULT',
       inputRef: { current: null },
@@ -338,7 +342,9 @@ describe('bash command', () => {
 
       bashCommand?.handler(params, 'echo test > debug/output.txt')
 
-      expect(saveToHistory).toHaveBeenCalledWith('!echo test > debug/output.txt')
+      expect(saveToHistory).toHaveBeenCalledWith(
+        '!echo test > debug/output.txt',
+      )
     })
 
     test('/bash with environment variables preserves them', () => {

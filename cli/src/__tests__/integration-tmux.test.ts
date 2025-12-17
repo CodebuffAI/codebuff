@@ -4,7 +4,6 @@ import path from 'path'
 import { describe, test, expect, beforeAll } from 'bun:test'
 import stripAnsi from 'strip-ansi'
 
-
 import {
   isTmuxAvailable,
   isSDKBuilt,

@@ -15,23 +15,25 @@ const ensureEnv = () => {
   process.env.NEXT_PUBLIC_POSTHOG_API_KEY =
     process.env.NEXT_PUBLIC_POSTHOG_API_KEY || 'phc_test_key'
   process.env.NEXT_PUBLIC_POSTHOG_HOST_URL =
-    process.env.NEXT_PUBLIC_POSTHOG_HOST_URL ||
-    'https://posthog.codebuff.test'
+    process.env.NEXT_PUBLIC_POSTHOG_HOST_URL || 'https://posthog.codebuff.test'
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY =
     process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_test_123'
   process.env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL =
     process.env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL ||
     'https://stripe.codebuff.test'
-  process.env.NEXT_PUBLIC_WEB_PORT =
-    process.env.NEXT_PUBLIC_WEB_PORT || '3000'
+  process.env.NEXT_PUBLIC_WEB_PORT = process.env.NEXT_PUBLIC_WEB_PORT || '3000'
 }
 
 ensureEnv()
 
 const { useChatStore } = await import('../../../state/chat-store')
 const { createStreamController } = await import('../../stream-state')
-const { setupStreamingContext, handleRunError } = await import('../send-message')
-const { createBatchedMessageUpdater } = await import('../../../utils/message-updater')
+const { setupStreamingContext, handleRunError } = await import(
+  '../send-message'
+)
+const { createBatchedMessageUpdater } = await import(
+  '../../../utils/message-updater'
+)
 const { PaymentRequiredError } = await import('@codebuff/sdk')
 
 const createMockTimerController = (): SendMessageTimerController & {

@@ -170,5 +170,3 @@ describe('OSC Timeout Protection Scenarios', () => {
     })
   })
 })
-
-

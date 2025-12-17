@@ -77,7 +77,8 @@ describe('extractPlanFromBuffer', () => {
   })
 
   test('handles multiline plan content', () => {
-    const buffer = '<PLAN>\n1. First step\n2. Second step\n3. Third step\n</PLAN>'
+    const buffer =
+      '<PLAN>\n1. First step\n2. Second step\n3. Third step\n</PLAN>'
     expect(extractPlanFromBuffer(buffer)).toBe(
       '1. First step\n2. Second step\n3. Third step',
     )
@@ -439,10 +440,12 @@ describe('updateBlocksRecursively', () => {
   })
 
   test('returns original array if target not found', () => {
-    const blocks: ContentBlock[] = [
-      { type: 'text', content: 'Hello' },
-    ]
-    const result = updateBlocksRecursively(blocks, 'nonexistent', (block) => block)
+    const blocks: ContentBlock[] = [{ type: 'text', content: 'Hello' }]
+    const result = updateBlocksRecursively(
+      blocks,
+      'nonexistent',
+      (block) => block,
+    )
     expect(result).toBe(blocks)
   })
 

@@ -347,7 +347,10 @@ describe('referral-mode', () => {
 
   describe('referral mode UI state', () => {
     test('input mode is stored separately from input value', () => {
-      const state1 = { inputMode: 'referral' as InputMode, inputValue: 'abc123' }
+      const state1 = {
+        inputMode: 'referral' as InputMode,
+        inputValue: 'abc123',
+      }
       const state2 = { inputMode: 'default' as InputMode, inputValue: 'hello' }
 
       expect(state1.inputMode).toBe('referral')

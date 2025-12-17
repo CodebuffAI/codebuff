@@ -165,10 +165,9 @@ describe('command factory pattern', () => {
       for (const name of expectedNoArgs) {
         const cmd = COMMAND_REGISTRY.find((c) => c.name === name)
         expect(cmd, `Command ${name} should exist`).toBeDefined()
-        expect(
-          cmd?.acceptsArgs,
-          `Command ${name} should not accept args`,
-        ).toBe(false)
+        expect(cmd?.acceptsArgs, `Command ${name} should not accept args`).toBe(
+          false,
+        )
       }
     })
 

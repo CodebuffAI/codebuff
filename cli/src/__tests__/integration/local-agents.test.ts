@@ -3,7 +3,15 @@ import os from 'os'
 import path from 'path'
 
 import { validateAgents } from '@codebuff/sdk'
-import { describe, test, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test'
+import {
+  describe,
+  test,
+  expect,
+  beforeEach,
+  afterEach,
+  mock,
+  spyOn,
+} from 'bun:test'
 
 import { setProjectRoot, getProjectRoot } from '../../project-files'
 import {
@@ -69,7 +77,9 @@ describe('Local Agent Integration', () => {
     await initializeAgentRegistry()
     const definitions = loadAgentDefinitions()
     // No test agents should be present
-    expect(definitions.find((d) => d.id.startsWith('test-empty-'))).toBeUndefined()
+    expect(
+      definitions.find((d) => d.id.startsWith('test-empty-')),
+    ).toBeUndefined()
   })
 
   test('skips files lacking displayName/id metadata', async () => {
@@ -157,9 +167,11 @@ describe('Local Agent Integration', () => {
 
     await initializeAgentRegistry()
     const definitions = loadAgentDefinitions()
-    
+
     // SDK loader deduplicates by ID, keeping only one
-    const duplicateAgents = definitions.filter((d) => d.id === 'test-duplicate-id')
+    const duplicateAgents = definitions.filter(
+      (d) => d.id === 'test-duplicate-id',
+    )
     expect(duplicateAgents).toHaveLength(1)
   })
 
@@ -239,7 +251,7 @@ describe('Local Agent Integration', () => {
     await initializeAgentRegistry()
     const definitions = loadAgentDefinitions()
     const dynamicAgent = definitions.find((d) => d.id === 'test-dynamic-agent')
-    
+
     expect(dynamicAgent).toBeDefined()
     expect(dynamicAgent?.displayName).toBe('Dynamic Agent')
     expect(dynamicAgent?.handleSteps).toBeDefined()
@@ -349,7 +361,9 @@ describe('Local Agent Integration', () => {
 
     await initializeAgentRegistry()
     const definitions = loadAgentDefinitions()
-    const authlessAgent = definitions.find((d) => d.id === 'test-authless-agent')
+    const authlessAgent = definitions.find(
+      (d) => d.id === 'test-authless-agent',
+    )
     expect(authlessAgent).toBeDefined()
     expect(authlessAgent!.displayName).toBe('Authless Agent')
   })
@@ -432,7 +446,9 @@ describe('Local Agent Integration', () => {
 
     // Filter to just our test agents
     const testAgents = agents.filter((a) =>
-      ['test-alpha-agent', 'test-middle-agent', 'test-zebra-agent'].includes(a.id),
+      ['test-alpha-agent', 'test-middle-agent', 'test-zebra-agent'].includes(
+        a.id,
+      ),
     )
 
     expect(testAgents).toHaveLength(3)
@@ -528,7 +544,9 @@ describe('Local Agent Integration', () => {
 
     await initializeAgentRegistry()
     const definitions = loadAgentDefinitions()
-    const asyncAgent = definitions.find((d) => d.id === 'test-async-generator-agent')
+    const asyncAgent = definitions.find(
+      (d) => d.id === 'test-async-generator-agent',
+    )
 
     expect(asyncAgent).toBeDefined()
     expect(asyncAgent!.handleSteps).toBeDefined()
@@ -591,7 +609,9 @@ describe('Local Agent Integration', () => {
     expect(fullAgent!.toolNames).toContain('read_files')
     expect(fullAgent!.spawnableAgents).toContain('codebuff/file-picker@0.0.1')
     expect(fullAgent!.systemPrompt).toBe('You are a helpful assistant.')
-    expect(fullAgent!.instructionsPrompt).toBe('Follow these instructions carefully.')
+    expect(fullAgent!.instructionsPrompt).toBe(
+      'Follow these instructions carefully.',
+    )
     expect(fullAgent!.stepPrompt).toBe('Think step by step.')
     expect(fullAgent!.spawnerPrompt).toBe('Use this agent for complex tasks.')
     expect(fullAgent!.includeMessageHistory).toBe(true)
@@ -721,10 +741,14 @@ describe('Local Agent Integration', () => {
 
     await initializeAgentRegistry()
     const definitions = loadAgentDefinitions()
-    const specialAgent = definitions.find((d) => d.id === 'test-special-chars-agent')
+    const specialAgent = definitions.find(
+      (d) => d.id === 'test-special-chars-agent',
+    )
 
     expect(specialAgent).toBeDefined()
-    expect(specialAgent!.displayName).toBe('Agent with Émojis 🚀 & Spëcial Chars!')
+    expect(specialAgent!.displayName).toBe(
+      'Agent with Émojis 🚀 & Spëcial Chars!',
+    )
   })
 
   test('handles agent with multiline strings in prompts', async () => {
@@ -753,7 +777,9 @@ describe('Local Agent Integration', () => {
 
     await initializeAgentRegistry()
     const definitions = loadAgentDefinitions()
-    const multilineAgent = definitions.find((d) => d.id === 'test-multiline-agent')
+    const multilineAgent = definitions.find(
+      (d) => d.id === 'test-multiline-agent',
+    )
 
     expect(multilineAgent).toBeDefined()
     expect(multilineAgent!.instructionsPrompt).toContain('multiline prompt')
@@ -824,7 +850,9 @@ describe('Local Agent Integration', () => {
     const definitions = loadAgentDefinitions()
 
     expect(definitions.find((d) => d.id === 'test-dts-agent')).toBeUndefined()
-    expect(definitions.find((d) => d.id === 'test-valid-loaded-agent')).toBeDefined()
+    expect(
+      definitions.find((d) => d.id === 'test-valid-loaded-agent'),
+    ).toBeDefined()
   })
 
   test('skips .test.ts test files', async () => {
@@ -900,7 +928,9 @@ describe('Local Agent Integration', () => {
     const definitions = loadAgentDefinitions()
 
     // Should load the valid agent despite syntax error in other file
-    expect(definitions.find((d) => d.id === 'test-valid-after-error')).toBeDefined()
+    expect(
+      definitions.find((d) => d.id === 'test-valid-after-error'),
+    ).toBeDefined()
   })
 
   test('handles runtime errors in agent module gracefully', async () => {
@@ -938,7 +968,9 @@ describe('Local Agent Integration', () => {
     await initializeAgentRegistry()
     const definitions = loadAgentDefinitions()
 
-    expect(definitions.find((d) => d.id === 'test-healthy-after-runtime')).toBeDefined()
+    expect(
+      definitions.find((d) => d.id === 'test-healthy-after-runtime'),
+    ).toBeDefined()
   })
 
   test('skips agents without required id field', async () => {
@@ -1025,7 +1057,7 @@ describe('Local Agent Integration', () => {
 
     // Reset clears the cache
     __resetLocalAgentRegistryForTests()
-    
+
     // After reset, cache is empty so loadLocalAgents returns fresh results
     await initializeAgentRegistry()
     const agents3 = loadLocalAgents()
@@ -1057,7 +1089,9 @@ describe('Local Agent Integration', () => {
     const definitions = loadAgentDefinitions()
 
     // Agent with empty model should not be loaded
-    expect(definitions.find((d) => d.id === 'test-bad-model-agent')).toBeUndefined()
+    expect(
+      definitions.find((d) => d.id === 'test-bad-model-agent'),
+    ).toBeUndefined()
   })
 
   test('validates agent with invalid spawnableAgents format', async () => {
@@ -1082,7 +1116,9 @@ describe('Local Agent Integration', () => {
     const result = await validateAgents(definitions, { remote: false })
 
     // Should have validation errors for invalid spawnable agent format
-    const badAgent = definitions.find((d) => d.id === 'test-bad-spawnable-agent')
+    const badAgent = definitions.find(
+      (d) => d.id === 'test-bad-spawnable-agent',
+    )
     expect(badAgent).toBeDefined()
 
     // The validation should catch the format issue

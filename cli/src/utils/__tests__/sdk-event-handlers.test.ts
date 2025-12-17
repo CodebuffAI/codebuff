@@ -84,9 +84,12 @@ const createTestContext = (agentMode: AgentMode = 'DEFAULT') => {
   let hasPlanResponse = false
   const streamRefs = createStreamRefs()
 
-  const updater = createMessageUpdater('ai-1', (fn: (msgs: ChatMessage[]) => ChatMessage[]) => {
-    messages = fn(messages)
-  })
+  const updater = createMessageUpdater(
+    'ai-1',
+    (fn: (msgs: ChatMessage[]) => ChatMessage[]) => {
+      messages = fn(messages)
+    },
+  )
 
   const ctx: EventHandlerState = {
     streaming: {
@@ -113,7 +116,12 @@ const createTestContext = (agentMode: AgentMode = 'DEFAULT') => {
         hasPlanResponse = value
       },
     },
-    logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } as any,
+    logger: {
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+      debug: () => {},
+    } as any,
     setIsRetrying: () => {},
   }
 
@@ -129,8 +137,7 @@ const createTestContext = (agentMode: AgentMode = 'DEFAULT') => {
 
 describe('sdk-event-handlers', () => {
   test('extracts plan content from root stream', () => {
-    const { ctx, getMessages, getHasPlanResponse } =
-      createTestContext('PLAN')
+    const { ctx, getMessages, getHasPlanResponse } = createTestContext('PLAN')
     const handleChunk = createStreamChunkHandler(ctx)
 
     handleChunk('<PLAN>Build plan</PLAN>')
