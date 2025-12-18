@@ -23,6 +23,7 @@ describe('/api/v1/me route', () => {
       email: 'test@example.com',
       discord_id: 'discord-123',
       referral_code: 'ref-user-123',
+      stripe_customer_id: 'cus_test_123',
       banned: false,
     },
     'test-api-key-456': {
@@ -30,6 +31,7 @@ describe('/api/v1/me route', () => {
       email: 'test2@example.com',
       discord_id: null,
       referral_code: 'ref-user-456',
+      stripe_customer_id: null,
       banned: false,
     },
   }
@@ -44,7 +46,7 @@ describe('/api/v1/me route', () => {
           return null
         }
         return Object.fromEntries(
-          fields.map((field) => [field, userData[field]]),
+          fields.map((field) => [field, (userData as any)[field]]),
         ) as any
       },
     }
@@ -212,7 +214,7 @@ describe('/api/v1/me route', () => {
       const body = await response.json()
       expect(body.error).toContain('Invalid fields: invalid_field')
       expect(body.error).toContain(
-        'Valid fields are: id, email, discord_id, referral_code, referral_link',
+        'Valid fields are: id, email, discord_id, referral_code, stripe_customer_id, banned, referral_link',
       )
     })
 

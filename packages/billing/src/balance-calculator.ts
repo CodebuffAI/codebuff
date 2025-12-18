@@ -6,6 +6,8 @@ import * as schema from '@codebuff/internal/db/schema'
 import { withSerializableTransaction } from '@codebuff/internal/db/transaction'
 import { and, asc, gt, isNull, or, eq, sql } from 'drizzle-orm'
 
+import { reportPurchasedCreditsToStripe } from './stripe-metering'
+
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   ParamsExcluding,
@@ -330,12 +332,13 @@ export async function calculateUsageAndBalance(
  */
 export async function consumeCredits(params: {
   userId: string
+  stripeCustomerId?: string | null
   creditsToConsume: number
   logger: Logger
 }): Promise<CreditConsumptionResult> {
   const { userId, creditsToConsume, logger } = params
 
-  return await withSerializableTransaction({
+  const result = await withSerializableTransaction({
     callback: async (tx) => {
       const now = new Date()
       const activeGrants = await getOrderedActiveGrants({
@@ -364,11 +367,24 @@ export async function consumeCredits(params: {
     context: { userId, creditsToConsume },
     logger,
   })
+
+  await reportPurchasedCreditsToStripe({
+    userId,
+    stripeCustomerId: params.stripeCustomerId,
+    purchasedCredits: result.fromPurchased,
+    logger,
+    extraPayload: {
+      source: 'consumeCredits',
+    },
+  })
+
+  return result
 }
 
 export async function consumeCreditsAndAddAgentStep(params: {
   messageId: string
   userId: string
+  stripeCustomerId?: string | null
   agentId: string
   clientId: string | null
   clientRequestId: string | null
@@ -421,8 +437,7 @@ export async function consumeCreditsAndAddAgentStep(params: {
   const latencyMs = finishedAt.getTime() - startTime.getTime()
 
   try {
-    return success(
-      await withSerializableTransaction({
+    const result = await withSerializableTransaction({
         callback: async (tx) => {
           const now = new Date()
 
@@ -493,8 +508,22 @@ export async function consumeCreditsAndAddAgentStep(params: {
         },
         context: { userId, credits },
         logger,
-      }),
-    )
+      })
+
+    await reportPurchasedCreditsToStripe({
+      userId,
+      stripeCustomerId: params.stripeCustomerId,
+      purchasedCredits: result.fromPurchased,
+      logger,
+      eventId: messageId,
+      timestamp: finishedAt,
+      extraPayload: {
+        source: 'consumeCreditsAndAddAgentStep',
+        message_id: messageId,
+      },
+    })
+
+    return success(result)
   } catch (error) {
     logger.error(
       { error: getErrorObject(error) },

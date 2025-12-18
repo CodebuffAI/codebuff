@@ -128,7 +128,7 @@ export async function postChatCompletions(params: {
     // Get user info
     const userInfo = await getUserInfoFromApiKey({
       apiKey,
-      fields: ['id', 'email', 'discord_id', 'banned'],
+      fields: ['id', 'email', 'discord_id', 'stripe_customer_id', 'banned'],
       logger,
     })
     if (!userInfo) {
@@ -148,6 +148,7 @@ export async function postChatCompletions(params: {
     logger = loggerWithContext({ userInfo })
 
     const userId = userInfo.id
+    const stripeCustomerId = userInfo.stripe_customer_id ?? null
 
     // Check if user is banned.
     // We use a clear, helpful message rather than a cryptic error because:
@@ -269,6 +270,7 @@ export async function postChatCompletions(params: {
         const stream = await handleOpenRouterStream({
           body,
           userId,
+          stripeCustomerId,
           agentId,
           openrouterApiKey,
           fetch,
@@ -312,6 +314,7 @@ export async function postChatCompletions(params: {
           ? handleOpenAINonStream({
               body,
               userId,
+              stripeCustomerId,
               agentId,
               fetch,
               logger,
@@ -320,6 +323,7 @@ export async function postChatCompletions(params: {
           : handleOpenRouterNonStream({
               body,
               userId,
+              stripeCustomerId,
               agentId,
               openrouterApiKey,
               fetch,

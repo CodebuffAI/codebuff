@@ -65,6 +65,7 @@ function extractUsageAndCost(
 export async function handleOpenAINonStream({
   body,
   userId,
+  stripeCustomerId,
   agentId,
   fetch,
   logger,
@@ -72,6 +73,7 @@ export async function handleOpenAINonStream({
 }: {
   body: any
   userId: string
+  stripeCustomerId?: string | null
   agentId: string
   fetch: typeof globalThis.fetch
   logger: Logger
@@ -182,6 +184,7 @@ export async function handleOpenAINonStream({
   await consumeCreditsForMessage({
     messageId: data.id,
     userId,
+    stripeCustomerId,
     agentId,
     clientId,
     clientRequestId,

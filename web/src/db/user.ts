@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm'
 import type {
   GetUserInfoFromApiKeyInput,
   GetUserInfoFromApiKeyOutput,
+  UserColumn,
 } from '@codebuff/common/types/contracts/database'
 
 export const VALID_USER_INFO_FIELDS = [
@@ -12,12 +13,11 @@ export const VALID_USER_INFO_FIELDS = [
   'email',
   'discord_id',
   'referral_code',
+  'stripe_customer_id',
   'banned',
 ] as const
 
-export async function getUserInfoFromApiKey<
-  T extends (typeof VALID_USER_INFO_FIELDS)[number],
->({
+export async function getUserInfoFromApiKey<T extends UserColumn>({
   apiKey,
   fields,
 }: GetUserInfoFromApiKeyInput<T>): GetUserInfoFromApiKeyOutput<T> {

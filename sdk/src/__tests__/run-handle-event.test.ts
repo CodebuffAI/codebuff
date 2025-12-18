@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 
+import * as mainPromptModule from '@codebuff/agent-runtime/main-prompt'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { getStubProjectFileContext } from '@codebuff/common/util/file'
+import { CodebuffClient } from '../client'
+import * as databaseModule from '../impl/database'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { CodebuffClientOptions } from '../run'
 
@@ -11,14 +14,12 @@ describe('CodebuffClient handleEvent / handleStreamChunk', () => {
   })
 
   it('streams subagent start/finish once and forwards subagent chunks to handleStreamChunk', async () => {
-    const databaseModule = await import('../impl/database')
-    const mainPromptModule = await import('@codebuff/agent-runtime/main-prompt')
-
     spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
       id: 'user-123',
       email: 'test@example.com',
       discord_id: null,
       referral_code: null,
+      stripe_customer_id: null,
       banned: false,
     })
     spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
@@ -107,8 +108,6 @@ describe('CodebuffClient handleEvent / handleStreamChunk', () => {
 
     const events: PrintModeEvent[] = []
     const streamChunks: StreamChunk[] = []
-
-    const { CodebuffClient } = await import('../client')
 
     const client = new CodebuffClient({
       apiKey: 'test-key',

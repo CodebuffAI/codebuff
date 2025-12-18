@@ -60,6 +60,7 @@ function extractRequestMetadataWithN(params: {
 export async function handleOpenRouterNonStream({
   body,
   userId,
+  stripeCustomerId,
   agentId,
   openrouterApiKey,
   fetch,
@@ -68,6 +69,7 @@ export async function handleOpenRouterNonStream({
 }: {
   body: any
   userId: string
+  stripeCustomerId?: string | null
   agentId: string
   openrouterApiKey: string | null
   fetch: typeof globalThis.fetch
@@ -145,6 +147,7 @@ export async function handleOpenRouterNonStream({
     await consumeCreditsForMessage({
       messageId: firstData.id,
       userId,
+      stripeCustomerId,
       agentId,
       clientId,
       clientRequestId,
@@ -212,6 +215,7 @@ export async function handleOpenRouterNonStream({
   await consumeCreditsForMessage({
     messageId: data.id,
     userId,
+    stripeCustomerId,
     agentId,
     clientId,
     clientRequestId,
@@ -230,6 +234,7 @@ export async function handleOpenRouterNonStream({
 export async function handleOpenRouterStream({
   body,
   userId,
+  stripeCustomerId,
   agentId,
   openrouterApiKey,
   fetch,
@@ -238,6 +243,7 @@ export async function handleOpenRouterStream({
 }: {
   body: any
   userId: string
+  stripeCustomerId?: string | null
   agentId: string
   openrouterApiKey: string | null
   fetch: typeof globalThis.fetch
@@ -319,6 +325,7 @@ export async function handleOpenRouterStream({
 
             state = await handleLine({
               userId,
+              stripeCustomerId,
               agentId,
               clientId,
               clientRequestId,
@@ -377,6 +384,7 @@ export async function handleOpenRouterStream({
 
 async function handleLine({
   userId,
+  stripeCustomerId,
   agentId,
   clientId,
   clientRequestId,
@@ -389,6 +397,7 @@ async function handleLine({
   insertMessage,
 }: {
   userId: string
+  stripeCustomerId?: string | null
   agentId: string
   clientId: string | null
   clientRequestId: string | null
@@ -431,6 +440,7 @@ async function handleLine({
 
   return await handleResponse({
     userId,
+    stripeCustomerId,
     agentId,
     clientId,
     clientRequestId,
@@ -446,6 +456,7 @@ async function handleLine({
 
 async function handleResponse({
   userId,
+  stripeCustomerId,
   agentId,
   clientId,
   clientRequestId,
@@ -458,6 +469,7 @@ async function handleResponse({
   insertMessage,
 }: {
   userId: string
+  stripeCustomerId?: string | null
   agentId: string
   clientId: string | null
   clientRequestId: string | null
@@ -504,6 +516,7 @@ async function handleResponse({
   await consumeCreditsForMessage({
     messageId: data.id,
     userId,
+    stripeCustomerId,
     agentId,
     clientId,
     clientRequestId,

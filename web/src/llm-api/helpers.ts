@@ -90,6 +90,7 @@ export async function insertMessageToBigQuery(params: {
 export async function consumeCreditsForMessage(params: {
   messageId: string
   userId: string
+  stripeCustomerId?: string | null
   agentId: string
   clientId: string | null
   clientRequestId: string | null
@@ -104,6 +105,7 @@ export async function consumeCreditsForMessage(params: {
   const {
     messageId,
     userId,
+    stripeCustomerId,
     agentId,
     clientId,
     clientRequestId,
@@ -119,6 +121,7 @@ export async function consumeCreditsForMessage(params: {
   await consumeCreditsAndAddAgentStep({
     messageId,
     userId,
+    stripeCustomerId,
     agentId,
     clientId,
     clientRequestId,
