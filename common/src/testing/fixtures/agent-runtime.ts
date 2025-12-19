@@ -10,6 +10,7 @@ import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
 } from '../../types/contracts/agent-runtime'
+import type { GetUserInfoFromApiKeyInput, UserColumn } from '../../types/contracts/database'
 import type { ClientEnv, CiEnv } from '../../types/contracts/env'
 import type { Logger } from '../../types/contracts/logger'
 
@@ -56,13 +57,22 @@ export const TEST_AGENT_RUNTIME_IMPL = Object.freeze<
   ciEnv: testCiEnv,
 
   // Database
-  getUserInfoFromApiKey: async () => ({
-    id: 'test-user-id',
-    email: 'test-email',
-    discord_id: 'test-discord-id',
-    referral_code: 'ref-test-code',
-    banned: false,
-  }),
+  getUserInfoFromApiKey: async <T extends UserColumn>({
+    fields,
+  }: GetUserInfoFromApiKeyInput<T>) => {
+    const user = {
+      id: 'test-user-id',
+      email: 'test-email',
+      discord_id: 'test-discord-id',
+      referral_code: 'ref-test-code',
+      stripe_customer_id: null,
+      banned: false,
+    } as const
+
+    return Object.fromEntries(fields.map((field) => [field, user[field]])) as {
+      [K in T]: (typeof user)[K]
+    }
+  },
   fetchAgentFromDatabase: async () => null,
   startAgentRun: async () => 'test-agent-run-id',
   finishAgentRun: async () => {},
@@ -125,4 +135,3 @@ export const TEST_AGENT_RUNTIME_IMPL = Object.freeze<
 
   apiKey: 'test-api-key',
 })
-

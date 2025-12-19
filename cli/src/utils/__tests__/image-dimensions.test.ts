@@ -2,6 +2,7 @@ import { mkdirSync, rmSync } from 'fs'
 import path from 'path'
 
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
+import { Jimp } from 'jimp'
 
 import { setProjectRoot } from '../../project-files'
 import { calculateDisplaySize } from '../image-display'
@@ -18,8 +19,6 @@ beforeEach(async () => {
   setProjectRoot(TEST_DIR)
 
   // Create test images with known dimensions using Jimp
-  const { Jimp } = await import('jimp')
-
   // Wide image: 200x100 (2:1 aspect ratio)
   const wideImage = new Jimp({ width: 200, height: 100, color: 0xff0000ff })
   await wideImage.write(
@@ -79,7 +78,6 @@ describe('Image Dimensions', () => {
 
     test('should return compressed dimensions when image is compressed', async () => {
       // Create a large image that will be compressed
-      const { Jimp } = await import('jimp')
       const largeImage = new Jimp({
         width: 2000,
         height: 1000,

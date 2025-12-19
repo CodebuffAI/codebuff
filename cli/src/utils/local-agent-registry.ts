@@ -118,6 +118,8 @@ interface BundledAgentsModule {
   getBundledAgentsAsLocalInfo: () => LocalAgentInfo[]
 }
 
+// NOTE: Inline require() with try/catch is used because this file is generated at
+// build time by prebuild-agents.ts and may not exist during development
 let bundledAgentsModule: BundledAgentsModule | null = null
 try {
   bundledAgentsModule = require('../agents/bundled-agents.generated')

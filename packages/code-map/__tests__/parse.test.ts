@@ -2,6 +2,7 @@ import { describe, it, expect, mock } from 'bun:test'
 import {
   parseTokens,
   DEBUG_PARSING,
+  getFileTokenScores,
   type TokenCallerMap,
   type FileTokenData,
 } from '../src/parse'
@@ -569,66 +570,7 @@ console.log('Total:', formatCurrency(total));
         return testFiles[fullPath as keyof typeof testFiles] || null
       }
 
-      // Mock getLanguageConfig to return a working config
-      const originalGetLanguageConfig = (await import('../src/parse'))
-        .getFileTokenScores
-
-      // Create a mock implementation that simulates real parsing results
-      const mockUtilsCaptures = [
-        { name: 'identifier', node: { text: 'calculateTax' } },
-        { name: 'identifier', node: { text: 'amount' } },
-        { name: 'identifier', node: { text: 'rate' } },
-        { name: 'identifier', node: { text: 'formatCurrency' } },
-        { name: 'identifier', node: { text: 'value' } },
-        { name: 'call.identifier', node: { text: 'toFixed' } },
-      ]
-
-      const mockMainCaptures = [
-        { name: 'identifier', node: { text: 'price' } },
-        { name: 'identifier', node: { text: 'taxRate' } },
-        { name: 'identifier', node: { text: 'total' } },
-        { name: 'call.identifier', node: { text: 'calculateTax' } },
-        { name: 'call.identifier', node: { text: 'formatCurrency' } },
-        { name: 'call.identifier', node: { text: 'console' } },
-        { name: 'call.identifier', node: { text: 'log' } },
-      ]
-
-      const createMockConfig = (captures: any[]) => {
-        const mockTree = { rootNode: { text: 'mock tree' } }
-        const mockQuery = { captures: mock(() => captures) } as any
-        const mockParser = { parse: mock(() => mockTree) } as any
-
-        return {
-          extensions: ['.ts'],
-          wasmFile: 'tree-sitter-typescript.wasm',
-          queryText: 'mock query',
-          parser: mockParser,
-          query: mockQuery,
-        }
-      }
-
-      // Mock the getLanguageConfig function used internally
-      const mockGetLanguageConfig = mock().mockImplementation(
-        async (filePath: string) => {
-          if (filePath.includes('utils.ts')) {
-            return createMockConfig(mockUtilsCaptures)
-          } else if (filePath.includes('main.ts')) {
-            return createMockConfig(mockMainCaptures)
-          }
-          return undefined
-        },
-      )
-
-      // Temporarily replace the import
-      const parseModule = await import('../src/parse')
-      const originalFunction = parseModule.getFileTokenScores
-
-      // Create a version that uses our mock
-      const result = await originalFunction(
-        projectRoot,
-        filePaths,
-        fileProvider,
-      )
+      const result = await getFileTokenScores(projectRoot, filePaths, fileProvider)
 
       // This test actually runs with the real implementation but uses mocked file content
       // The real implementation should gracefully handle when no language config is found

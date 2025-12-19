@@ -6,11 +6,12 @@ const BASE_URL = `http://127.0.0.1:${PORT}`
 
 export default defineConfig({
   testDir: './src/__tests__/e2e',
+  outputDir: '../debug/playwright-results',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
+  reporter: [['html', { outputFolder: '../debug/playwright-report' }]],
   use: {
     baseURL: BASE_URL,
     trace: 'on-first-retry',

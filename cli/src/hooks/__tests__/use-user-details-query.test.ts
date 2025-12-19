@@ -11,8 +11,8 @@ import {
 import { createMockApiClient } from '../../__tests__/helpers/mock-api-client'
 import { fetchUserDetails } from '../use-user-details-query'
 
+import * as CodebuffApiModule from '../../utils/codebuff-api'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type * as CodebuffApiModule from '../../utils/codebuff-api'
 
 describe('fetchUserDetails', () => {
   const mockLogger: Logger = {
@@ -198,10 +198,11 @@ describe('fetchUserDetails', () => {
       )
       const apiClient = createMockApiClient({ me: meMock })
 
-      const apiModule =
-        require('../../utils/codebuff-api') as typeof CodebuffApiModule
-      const setTokenSpy = spyOn(apiModule, 'setApiClientAuthToken')
-      spyOn(apiModule, 'getApiClient').mockReturnValue(apiClient as any)
+      const setTokenSpy = spyOn(
+        CodebuffApiModule,
+        'setApiClientAuthToken',
+      )
+      spyOn(CodebuffApiModule, 'getApiClient').mockReturnValue(apiClient as any)
 
       await expect(
         fetchUserDetails({

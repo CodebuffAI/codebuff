@@ -14,9 +14,8 @@ import {
 } from 'bun:test'
 
 import { validateApiKey } from '../../hooks/use-auth-query'
+import * as AuthModule from '../../utils/auth'
 import { getAuthTokenDetails, saveUserCredentials } from '../../utils/auth'
-
-import type * as AuthModule from '../../utils/auth'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
@@ -58,10 +57,8 @@ describe('Returning User Authentication helpers', () => {
   })
 
   test('should load auth token from credentials file for returning user', () => {
-    const authModule = require('../../utils/auth') as typeof AuthModule
-
-    spyOn(authModule, 'getConfigDir').mockReturnValue(tempConfigDir)
-    spyOn(authModule, 'getCredentialsPath').mockReturnValue(
+    spyOn(AuthModule, 'getConfigDir').mockReturnValue(tempConfigDir)
+    spyOn(AuthModule, 'getCredentialsPath').mockReturnValue(
       path.join(tempConfigDir, 'credentials.json'),
     )
 
@@ -73,10 +70,8 @@ describe('Returning User Authentication helpers', () => {
   })
 
   test('should fall back to CODEBUFF_API_KEY when credentials are missing', () => {
-    const authModule = require('../../utils/auth') as typeof AuthModule
-
-    spyOn(authModule, 'getConfigDir').mockReturnValue(tempConfigDir)
-    spyOn(authModule, 'getCredentialsPath').mockReturnValue(
+    spyOn(AuthModule, 'getConfigDir').mockReturnValue(tempConfigDir)
+    spyOn(AuthModule, 'getCredentialsPath').mockReturnValue(
       path.join(tempConfigDir, 'credentials.json'),
     )
 
@@ -88,10 +83,8 @@ describe('Returning User Authentication helpers', () => {
   })
 
   test('should validate stored credentials without blocking the UI thread', async () => {
-    const authModule = require('../../utils/auth') as typeof AuthModule
-
-    spyOn(authModule, 'getConfigDir').mockReturnValue(tempConfigDir)
-    spyOn(authModule, 'getCredentialsPath').mockReturnValue(
+    spyOn(AuthModule, 'getConfigDir').mockReturnValue(tempConfigDir)
+    spyOn(AuthModule, 'getCredentialsPath').mockReturnValue(
       path.join(tempConfigDir, 'credentials.json'),
     )
 

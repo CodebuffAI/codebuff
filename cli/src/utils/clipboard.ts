@@ -84,6 +84,8 @@ export async function copyTextToClipboard(
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       await navigator.clipboard.writeText(text)
     } else if (typeof process !== 'undefined' && process.platform) {
+      // NOTE: Inline require() is used because this code path only runs in Node.js
+      // environments, and we need to check process.platform at runtime first
       const { execSync } = require('child_process') as {
         execSync: (command: string, options: { input: string }) => void
       }

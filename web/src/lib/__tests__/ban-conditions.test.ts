@@ -1,82 +1,99 @@
-import { beforeEach, describe, expect, it } from '@jest/globals'
-
-jest.mock('@codebuff/internal/db', () => ({
-  __esModule: true,
-  default: {
-    select: jest.fn(() => ({
-      from: jest.fn(() => ({
-        where: jest.fn(() => ({
-          limit: jest.fn(() => Promise.resolve([])),
-        })),
-      })),
-    })),
-    update: jest.fn(() => ({
-      set: jest.fn(() => ({
-        where: jest.fn(() => Promise.resolve()),
-      })),
-    })),
-  },
-}))
-
-jest.mock('@codebuff/internal/db/schema', () => ({
-  __esModule: true,
-  user: {
-    id: 'id',
-    banned: 'banned',
-    email: 'email',
-    name: 'name',
-    stripe_customer_id: 'stripe_customer_id',
-  },
-}))
-
-jest.mock('@codebuff/internal/util/stripe', () => ({
-  __esModule: true,
-  stripeServer: {
-    disputes: {
-      list: jest.fn(() =>
-        Promise.resolve({
-          data: [],
-        }),
-      ),
-    },
-  },
-}))
-
-jest.mock('drizzle-orm', () => ({
-  __esModule: true,
-  eq: jest.fn((a: any, b: any) => ({ column: a, value: b })),
-}))
-
-import db from '@codebuff/internal/db'
-import { stripeServer } from '@codebuff/internal/util/stripe'
-
+import { afterAll, beforeEach, describe, expect, it, mock } from 'bun:test'
 import {
-  DISPUTE_THRESHOLD,
-  DISPUTE_WINDOW_DAYS,
-  banUser,
-  evaluateBanConditions,
-  getUserByStripeCustomerId,
-  type BanConditionContext,
-} from '../ban-conditions'
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
 
-const mockSelect = db.select as unknown as jest.Mock
-const mockUpdate = db.update as unknown as jest.Mock
-const mockDisputesList = stripeServer.disputes.list as unknown as jest.Mock
+import type { BanConditionContext } from '../ban-conditions'
+
+let DISPUTE_THRESHOLD!: number
+let DISPUTE_WINDOW_DAYS!: number
+let banUser!: typeof import('../ban-conditions').banUser
+let evaluateBanConditions!: typeof import('../ban-conditions').evaluateBanConditions
+let getUserByStripeCustomerId!: typeof import('../ban-conditions').getUserByStripeCustomerId
+
+let mockSelect!: ReturnType<typeof mock>
+let mockUpdate!: ReturnType<typeof mock>
+let mockDisputesList!: ReturnType<typeof mock>
+
+const setupMocks = async () => {
+  mockSelect = mock(() => ({
+    from: mock(() => ({
+      where: mock(() => ({
+        limit: mock(() => Promise.resolve([])),
+      })),
+    })),
+  }))
+
+  mockUpdate = mock(() => ({
+    set: mock(() => ({
+      where: mock(() => Promise.resolve()),
+    })),
+  }))
+
+  mockDisputesList = mock(() =>
+    Promise.resolve({
+      data: [],
+    }),
+  )
+
+  await mockModule('@codebuff/internal/db', () => ({
+    default: {
+      select: mockSelect,
+      update: mockUpdate,
+    },
+  }))
+
+  await mockModule('@codebuff/internal/db/schema', () => ({
+    user: {
+      id: 'id',
+      banned: 'banned',
+      email: 'email',
+      name: 'name',
+      stripe_customer_id: 'stripe_customer_id',
+    },
+  }))
+
+  await mockModule('@codebuff/internal/util/stripe', () => ({
+    stripeServer: {
+      disputes: {
+        list: mockDisputesList,
+      },
+    },
+  }))
+
+  await mockModule('drizzle-orm', () => ({
+    eq: mock((a: any, b: any) => ({ column: a, value: b })),
+  }))
+
+  const module = await import('../ban-conditions')
+  DISPUTE_THRESHOLD = module.DISPUTE_THRESHOLD
+  DISPUTE_WINDOW_DAYS = module.DISPUTE_WINDOW_DAYS
+  banUser = module.banUser
+  evaluateBanConditions = module.evaluateBanConditions
+  getUserByStripeCustomerId = module.getUserByStripeCustomerId
+}
+
+await setupMocks()
 
 const createMockLogger = () => ({
-  debug: jest.fn(() => {}),
-  info: jest.fn(() => {}),
-  warn: jest.fn(() => {}),
-  error: jest.fn(() => {}),
+  debug: mock(() => {}),
+  info: mock(() => {}),
+  warn: mock(() => {}),
+  error: mock(() => {}),
+})
+
+beforeEach(() => {
+  mockDisputesList.mockClear()
+  mockSelect.mockClear()
+  mockUpdate.mockClear()
+})
+
+afterAll(() => {
+  clearMockedModules()
 })
 
 describe('ban-conditions', () => {
-  beforeEach(() => {
-    mockDisputesList.mockClear()
-    mockSelect.mockClear()
-    mockUpdate.mockClear()
-  })
-
   describe('DISPUTE_THRESHOLD and DISPUTE_WINDOW_DAYS', () => {
     it('has expected default threshold', () => {
       expect(DISPUTE_THRESHOLD).toBe(5)
@@ -291,7 +308,7 @@ describe('ban-conditions', () => {
       const afterCall = Math.floor(Date.now() / 1000)
 
       expect(mockDisputesList).toHaveBeenCalledTimes(1)
-      const callArgs = (mockDisputesList.mock.calls as any)[0]?.[0]
+      const callArgs = mockDisputesList.mock.calls[0]?.[0]
       expect(callArgs.limit).toBe(100)
       // Verify expand parameter is set to get full charge object
       expect(callArgs.expand).toEqual(['data.charge'])
@@ -323,7 +340,7 @@ describe('ban-conditions', () => {
 
       await evaluateBanConditions(context)
 
-      const callArgs = (mockDisputesList.mock.calls as any)[0]?.[0]
+      const callArgs = mockDisputesList.mock.calls[0]?.[0]
 
       // This is critical: without expand, dispute.charge is just a string ID like "ch_xxx"
       // and we cannot access dispute.charge.customer to filter by customer.
@@ -357,9 +374,9 @@ describe('ban-conditions', () => {
         name: 'Test User',
       }
 
-      const limitMock = jest.fn(() => Promise.resolve([mockUser]))
-      const whereMock = jest.fn(() => ({ limit: limitMock }))
-      const fromMock = jest.fn(() => ({ where: whereMock }))
+      const limitMock = mock(() => Promise.resolve([mockUser]))
+      const whereMock = mock(() => ({ limit: limitMock }))
+      const fromMock = mock(() => ({ where: whereMock }))
       mockSelect.mockReturnValueOnce({ from: fromMock })
 
       const result = await getUserByStripeCustomerId('cus_123')
@@ -368,9 +385,9 @@ describe('ban-conditions', () => {
     })
 
     it('returns null when user not found', async () => {
-      const limitMock = jest.fn(() => Promise.resolve([]))
-      const whereMock = jest.fn(() => ({ limit: limitMock }))
-      const fromMock = jest.fn(() => ({ where: whereMock }))
+      const limitMock = mock(() => Promise.resolve([]))
+      const whereMock = mock(() => ({ limit: limitMock }))
+      const fromMock = mock(() => ({ where: whereMock }))
       mockSelect.mockReturnValueOnce({ from: fromMock })
 
       const result = await getUserByStripeCustomerId('cus_nonexistent')
@@ -379,9 +396,9 @@ describe('ban-conditions', () => {
     })
 
     it('queries with correct stripe_customer_id', async () => {
-      const limitMock = jest.fn(() => Promise.resolve([]))
-      const whereMock = jest.fn(() => ({ limit: limitMock }))
-      const fromMock = jest.fn(() => ({ where: whereMock }))
+      const limitMock = mock(() => Promise.resolve([]))
+      const whereMock = mock(() => ({ limit: limitMock }))
+      const fromMock = mock(() => ({ where: whereMock }))
       mockSelect.mockReturnValueOnce({ from: fromMock })
 
       await getUserByStripeCustomerId('cus_test_123')
@@ -395,8 +412,8 @@ describe('ban-conditions', () => {
 
   describe('banUser', () => {
     it('updates user banned status to true', async () => {
-      const whereMock = jest.fn(() => Promise.resolve())
-      const setMock = jest.fn(() => ({ where: whereMock }))
+      const whereMock = mock(() => Promise.resolve())
+      const setMock = mock(() => ({ where: whereMock }))
       mockUpdate.mockReturnValueOnce({ set: setMock })
 
       const logger = createMockLogger()
@@ -408,8 +425,8 @@ describe('ban-conditions', () => {
     })
 
     it('logs the ban action with user ID and reason', async () => {
-      const whereMock = jest.fn(() => Promise.resolve())
-      const setMock = jest.fn(() => ({ where: whereMock }))
+      const whereMock = mock(() => Promise.resolve())
+      const setMock = mock(() => ({ where: whereMock }))
       mockUpdate.mockReturnValueOnce({ set: setMock })
 
       const logger = createMockLogger()

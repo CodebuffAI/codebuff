@@ -19,8 +19,8 @@ import {
 } from '../../utils/auth'
 import { setProjectRoot } from '../../project-files'
 
-import type * as AuthModule from '../../utils/auth'
-import type * as CodebuffApiModule from '../../utils/codebuff-api'
+import * as AuthModule from '../../utils/auth'
+import * as CodebuffApiModule from '../../utils/codebuff-api'
 
 type User = AuthModule.User
 
@@ -57,17 +57,14 @@ describe('Logout and Re-login helpers', () => {
   })
 
   const mockConfigPaths = () => {
-    const authModule = require('../../utils/auth') as typeof AuthModule
-    spyOn(authModule, 'getConfigDir').mockReturnValue(tempConfigDir)
-    spyOn(authModule, 'getCredentialsPath').mockReturnValue(
+    spyOn(AuthModule, 'getConfigDir').mockReturnValue(tempConfigDir)
+    spyOn(AuthModule, 'getCredentialsPath').mockReturnValue(
       path.join(tempConfigDir, 'credentials.json'),
     )
   }
 
   const mockLogoutApi = () => {
-    const apiModule =
-      require('../../utils/codebuff-api') as typeof CodebuffApiModule
-    spyOn(apiModule, 'getApiClient').mockReturnValue({
+    spyOn(CodebuffApiModule, 'getApiClient').mockReturnValue({
       logout: async () => ({ ok: true, status: 200 }),
     } as any)
   }

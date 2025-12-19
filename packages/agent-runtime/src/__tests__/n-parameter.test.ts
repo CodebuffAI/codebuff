@@ -18,10 +18,10 @@ import {
   clearAgentGeneratorCache,
   runProgrammaticStep,
 } from '../run-programmatic-step'
+import * as toolExecutor from '../tools/tool-executor'
 import { mockFileContext } from './test-utils'
 
 import type { AgentTemplate, StepGenerator } from '../templates/types'
-import type { executeToolCall } from '../tools/tool-executor'
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
@@ -329,12 +329,12 @@ describe('n parameter and GENERATE_N functionality', () => {
 
       // Mock executeToolCall to handle set_output
       const executeToolCallSpy = spyOn(
-        await import('../tools/tool-executor'),
+        toolExecutor,
         'executeToolCall',
       ).mockImplementation(
         async (
-          options: ParamsOf<typeof executeToolCall>,
-        ): ReturnType<typeof executeToolCall> => {
+          options: ParamsOf<typeof toolExecutor.executeToolCall>,
+        ): ReturnType<typeof toolExecutor.executeToolCall> => {
           if (options.toolName === 'set_output') {
             options.agentState.output = options.input
           }
@@ -420,7 +420,7 @@ describe('n parameter and GENERATE_N functionality', () => {
 
       // Mock executeToolCall for this test
       const executeToolCallSpy = spyOn(
-        await import('../tools/tool-executor'),
+        toolExecutor,
         'executeToolCall',
       ).mockImplementation(async () => {})
 
@@ -508,12 +508,12 @@ describe('n parameter and GENERATE_N functionality', () => {
 
       // Mock executeToolCall for this test
       const executeToolCallSpy = spyOn(
-        await import('../tools/tool-executor'),
+        toolExecutor,
         'executeToolCall',
       ).mockImplementation(
         async (
-          options: ParamsOf<typeof executeToolCall>,
-        ): ReturnType<typeof executeToolCall> => {
+          options: ParamsOf<typeof toolExecutor.executeToolCall>,
+        ): ReturnType<typeof toolExecutor.executeToolCall> => {
           if (options.toolName === 'set_output') {
             options.agentState.output = options.input
           }

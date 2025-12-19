@@ -43,7 +43,8 @@ function loadCliEnv(): Record<string, string> {
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    // NOTE: Inline require() is used for lazy loading - the env module depends on
+    // Infisical secrets which may not be available at module load time in test environments
     const { env } = require('../../../packages/internal/src/env') as {
       env: Record<string, unknown>
     }

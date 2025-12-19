@@ -1,5 +1,12 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
-import { mkdirSync, mkdtempSync, rmSync } from 'fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'fs'
 import os from 'os'
 import path from 'path'
 
@@ -21,7 +28,6 @@ const expandPath = (inputPath: string): string => {
 
 // Extract the path validation logic for testing
 const isValidDirectoryPath = (inputPath: string): boolean => {
-  const { existsSync, statSync } = require('fs')
   const expandedPath = expandPath(inputPath.trim())
   try {
     return existsSync(expandedPath) && statSync(expandedPath).isDirectory()
@@ -141,7 +147,7 @@ describe('useDirectoryBrowser - path validation', () => {
 
     test('returns false for file (not directory)', () => {
       const filePath = path.join(tempDir, 'test.txt')
-      require('fs').writeFileSync(filePath, 'test')
+      writeFileSync(filePath, 'test')
       expect(isValidDirectoryPath(filePath)).toBe(false)
     })
 
