@@ -1,3 +1,5 @@
+export {}
+
 import { describe, expect, it, setDefaultTimeout } from 'bun:test'
 
 setDefaultTimeout(10 * 60 * 1000)
