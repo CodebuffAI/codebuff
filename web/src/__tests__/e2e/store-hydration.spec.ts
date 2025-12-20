@@ -1,3 +1,5 @@
+export {}
+
 const isBun = typeof Bun !== 'undefined'
 
 if (isBun) {
