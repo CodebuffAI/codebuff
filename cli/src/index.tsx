@@ -303,26 +303,25 @@ async function main(): Promise<void> {
   
   const root = createRoot(renderer)
   
-  // Add SIGWINCH listener for terminal resize support on Windows PowerShell
-  // This ensures the terminal UI updates when the window is resized
-  // The listener triggers a re-render to update the layout with new dimensions
+  // React component tree to render
+  const app = (
+    <QueryClientProvider client={queryClient}>
+      <AppWithAsyncAuth />
+    </QueryClientProvider>
+  )
+  
+  // Add resize event listener for terminal resize support on Windows PowerShell
+  // On Windows, the SIGWINCH signal may not fire reliably, so we listen to
+  // process.stdout 'resize' event to ensure the UI updates when the window is resized
   if (process.stdout.isTTY) {
     process.stdout.on('resize', () => {
       // Re-render the React tree to update with new terminal dimensions
-      // This is necessary on Windows where SIGWINCH may not work reliably
-      root.render(
-        <QueryClientProvider client={queryClient}>
-          <AppWithAsyncAuth />
-        </QueryClientProvider>,
-      )
+      root.render(app)
     })
   }
   
-  root.render(
-    <QueryClientProvider client={queryClient}>
-      <AppWithAsyncAuth />
-    </QueryClientProvider>,
-  )
+  // Initial render
+  root.render(app)
 }
 
 void main()
