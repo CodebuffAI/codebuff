@@ -1,8 +1,11 @@
 import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import path from 'path'
 
+// @ts-expect-error - Bun text import attribute not supported by TypeScript
 import agentDefinitionSource from '../../../common/src/templates/initial-agents-dir/types/agent-definition' with { type: 'text' }
+// @ts-expect-error - Bun text import attribute not supported by TypeScript
 import toolsSource from '../../../common/src/templates/initial-agents-dir/types/tools' with { type: 'text' }
+// @ts-expect-error - Bun text import attribute not supported by TypeScript
 import utilTypesSource from '../../../common/src/templates/initial-agents-dir/types/util-types' with { type: 'text' }
 
 import { getProjectRoot } from '../project-files'

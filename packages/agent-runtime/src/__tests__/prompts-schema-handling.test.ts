@@ -34,7 +34,7 @@ describe('Schema handling error recovery', () => {
         model: 'gpt-4o-mini',
         inputSchema: {
           prompt: z.string().describe('A test prompt'),
-          params: problematicSchema as unknown as z.ZodType,
+          params: problematicSchema as unknown as z.ZodType<Record<string, unknown> | undefined>,
         },
         outputMode: 'last_message',
         includeMessageHistory: false,
