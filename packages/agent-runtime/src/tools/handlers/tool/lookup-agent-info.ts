@@ -83,11 +83,15 @@ export const handleLookupAgentInfo = (async (params: {
 }) satisfies CodebuffToolHandlerFunction<'lookup_agent_info'>
 
 const toJSONSchema = (schema: z.ZodSchema) => {
-  const jsonSchema = z.toJSONSchema(schema, { io: 'input' }) as {
-    [key: string]: any
+  try {
+    const jsonSchema = z.toJSONSchema(schema, { io: 'input' }) as {
+      [key: string]: any
+    }
+    delete jsonSchema['$schema']
+    return jsonSchema
+  } catch {
+    return { type: 'object', description: 'Schema unavailable' }
   }
-  delete jsonSchema['$schema']
-  return jsonSchema
 }
 
 const inputSchemaToJSONSchema = (inputSchema: {

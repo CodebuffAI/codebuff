@@ -200,6 +200,68 @@ describe('mainPrompt', () => {
     },
   }
 
+  it('includes local agents in spawnableAgents when agentId is provided', async () => {
+    const sessionState = getInitialSessionState(mockFileContext)
+    const mainAgentId = 'test-main-agent'
+    const localAgentId = 'test-local-agent'
+
+    const localAgentTemplates: Record<string, AgentTemplate> = {
+      [mainAgentId]: {
+        id: mainAgentId,
+        displayName: 'Test Main Agent',
+        outputMode: 'last_message',
+        inputSchema: {},
+        spawnerPrompt: '',
+        model: 'gpt-4o-mini',
+        includeMessageHistory: true,
+        inheritParentSystemPrompt: false,
+        mcpServers: {},
+        toolNames: ['write_file', 'run_terminal_command', 'end_turn'],
+        spawnableAgents: [],
+        systemPrompt: '',
+        instructionsPrompt: '',
+        stepPrompt: '',
+      },
+      [localAgentId]: {
+        id: localAgentId,
+        displayName: 'Test Local Agent',
+        outputMode: 'last_message',
+        inputSchema: {},
+        spawnerPrompt: '',
+        model: 'gpt-4o-mini',
+        includeMessageHistory: false,
+        inheritParentSystemPrompt: false,
+        mcpServers: {},
+        toolNames: ['write_file', 'run_terminal_command', 'end_turn'],
+        spawnableAgents: [],
+        systemPrompt: '',
+        instructionsPrompt: '',
+        stepPrompt: '',
+      },
+    }
+
+    const action = {
+      type: 'prompt' as const,
+      prompt: 'Hello',
+      sessionState,
+      fingerprintId: 'test',
+      costMode: 'normal' as const,
+      promptId: 'test',
+      toolResults: [],
+      agentId: mainAgentId,
+    }
+
+    await mainPrompt({
+      ...mainPromptBaseParams,
+      action,
+      localAgentTemplates,
+    })
+
+    expect(localAgentTemplates[mainAgentId].spawnableAgents).toContain(
+      localAgentId,
+    )
+  })
+
   it('should handle write_file tool call', async () => {
     // Mock LLM to return a write_file tool call using native tool call chunks
     mockAgentStream([

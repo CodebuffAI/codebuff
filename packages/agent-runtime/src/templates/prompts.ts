@@ -9,6 +9,16 @@ import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { AgentTemplateType } from '@codebuff/common/types/session-state'
 import type { ToolSet } from 'ai'
 
+function ensureJsonSchemaCompatible(schema: z.ZodType): z.ZodType {
+  try {
+    z.toJSONSchema(schema, { io: 'input' })
+    return schema
+  } catch {
+    const fallback = z.object({}).passthrough()
+    return schema.description ? fallback.describe(schema.description) : fallback
+  }
+}
+
 /**
  * Gets the short agent name from a fully qualified agent ID.
  * E.g., 'codebuff/file-picker@1.0.0' -> 'file-picker'
@@ -77,7 +87,9 @@ export async function buildAgentToolSet(
     if (!agentTemplate) continue
 
     const shortName = getAgentShortName(agentType)
-    const inputSchema = buildAgentToolInputSchema(agentTemplate)
+    const inputSchema = ensureJsonSchemaCompatible(
+      buildAgentToolInputSchema(agentTemplate),
+    )
 
     // Use the same structure as other tools in toolParams
     toolSet[shortName] = {

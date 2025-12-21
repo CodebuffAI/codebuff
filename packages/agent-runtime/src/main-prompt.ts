@@ -108,11 +108,10 @@ export async function mainPrompt(
     throw new Error(`Agent template not found for type: ${agentType}`)
   }
 
-  let updatedSubagents = mainAgentTemplate.spawnableAgents
-  if (!agentId) {
-    updatedSubagents =
-      uniq([...mainAgentTemplate.spawnableAgents, ...availableAgents])
-  }
+  const updatedSubagents = uniq([
+    ...mainAgentTemplate.spawnableAgents,
+    ...availableAgents,
+  ])
   mainAgentTemplate.spawnableAgents = updatedSubagents
   localAgentTemplates[agentType] = mainAgentTemplate
 
@@ -166,7 +165,9 @@ export async function callMainPrompt(
   // Add any extra tool results (e.g. from user-executed terminal commands) to message history
   // This allows the AI to see context from commands run between prompts
   if (action.toolResults && action.toolResults.length > 0) {
-    action.sessionState.mainAgentState.messageHistory.push(...action.toolResults)
+    action.sessionState.mainAgentState.messageHistory.push(
+      ...action.toolResults,
+    )
   }
 
   // Assemble local agent templates from fileContext

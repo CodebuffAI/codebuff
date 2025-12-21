@@ -32,22 +32,37 @@ export function ensureZodSchema(
   return convertJsonSchemaToZod(schema as Record<string, unknown>)
 }
 
+function ensureJsonSchemaCompatible(schema: z.ZodType): z.ZodType {
+  try {
+    z.toJSONSchema(schema, { io: 'input' })
+    return schema
+  } catch {
+    const fallback = z.object({}).passthrough()
+    return schema.description ? fallback.describe(schema.description) : fallback
+  }
+}
+
+function toJsonSchemaSafe(schema: z.ZodType): Record<string, unknown> {
+  try {
+    return z.toJSONSchema(schema, { io: 'input' }) as Record<string, unknown>
+  } catch {
+    return { type: 'object', properties: {} }
+  }
+}
+
 function paramsSection(params: { schema: z.ZodType; endsAgentStep: boolean }) {
   const { schema, endsAgentStep } = params
-  const schemaWithEndsAgentStepParam = z.toJSONSchema(
-    endsAgentStep
-      ? schema.and(
-          z.object({
-            [endsAgentStepParam]: z
-              .literal(endsAgentStep)
-              .describe('Easp flag must be set to true'),
-          }),
-        )
-      : schema,
-    { io: 'input' },
-  )
-
-  const jsonSchema = schemaWithEndsAgentStepParam
+  const safeSchema = ensureJsonSchemaCompatible(schema)
+  const schemaWithEndsAgentStepParam = endsAgentStep
+    ? safeSchema.and(
+        z.object({
+          [endsAgentStepParam]: z
+            .literal(endsAgentStep)
+            .describe('Easp flag must be set to true'),
+        }),
+      )
+    : safeSchema
+  const jsonSchema = toJsonSchemaSafe(schemaWithEndsAgentStepParam)
   delete jsonSchema.description
   delete jsonSchema['$schema']
   const paramsDescription = Object.keys(jsonSchema.properties ?? {}).length
@@ -308,9 +323,10 @@ export async function getToolSet(params: {
     // Custom tool inputSchema may be JSON Schema (from SDK) or Zod (from MCP)
     // Ensure it's a Zod schema for the AI SDK
     const zodSchema = ensureZodSchema(clonedDef.inputSchema)
+    const safeSchema = ensureJsonSchemaCompatible(zodSchema)
     toolSet[toolName] = {
       ...clonedDef,
-      inputSchema: zodSchema,
+      inputSchema: safeSchema,
     } as (typeof toolSet)[string]
   }
 
