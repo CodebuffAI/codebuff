@@ -265,43 +265,14 @@ async function transpileAgent(
   verbose: boolean,
 ): Promise<string | null> {
   try {
-    // Check if we're in a compiled binary where esbuild isn't available
-    let buildFn: typeof import('esbuild')['build']
+    let buildFn: typeof import('esbuild')['build'] | null = null
+    const canUseBunBuild =
+      typeof Bun !== 'undefined' && typeof Bun.build === 'function'
     try {
       const esbuildModule = await import('esbuild')
       buildFn = esbuildModule.build
     } catch {
       // esbuild not available (likely running in compiled binary)
-      // Local TypeScript agents cannot be transpiled - bundled agents will still work
-      if (verbose) {
-        console.error(`Cannot transpile ${fullPath}: esbuild not available in compiled binary`)
-      }
-      return null
-    }
-    
-    const result = await buildFn({
-      entryPoints: [fullPath],
-      absWorkingDir: process.cwd(), // Force esbuild to use current cwd for path resolution
-      bundle: true,
-      format: 'esm',
-      platform: 'node',
-      target: 'node18',
-      write: false,
-      logLevel: verbose ? 'info' : 'silent',
-      sourcemap: 'inline',
-      packages: 'external',
-      external: [
-        ...builtinModules,
-        ...builtinModules.map((mod) => `node:${mod}`),
-      ],
-    })
-
-    const jsOutput = result.outputFiles?.[0]
-    if (!jsOutput?.text) {
-      if (verbose) {
-        console.error(`Failed to transpile agent (no output): ${fullPath}`)
-      }
-      return null
     }
 
     const hash = createHash('sha1').update(fullPath).digest('hex')
@@ -310,10 +281,108 @@ async function transpileAgent(
     const tempDir = path.join(process.cwd(), '.codebuff', 'agents')
     const compiledPath = path.join(tempDir, `${hash}.mjs`)
 
-    await fs.promises.mkdir(tempDir, { recursive: true })
-    await fs.promises.writeFile(compiledPath, jsOutput.text, 'utf8')
+    const buildWithBun = async (): Promise<string | null> => {
+      if (!canUseBunBuild) {
+        return null
+      }
+      const result = await Bun.build({
+        entrypoints: [fullPath],
+        outdir: tempDir,
+        target: 'node',
+        format: 'esm',
+        sourcemap: 'inline',
+        splitting: false,
+        minify: false,
+        root: process.cwd(),
+        packages: 'external',
+        external: [
+          ...builtinModules,
+          ...builtinModules.map((mod) => `node:${mod}`),
+        ],
+        throw: false,
+      })
 
-    return compiledPath
+      if (!result.success) {
+        if (verbose) {
+          console.error(`Bun.build failed for agent: ${fullPath}`)
+        }
+        return null
+      }
+
+      const entryOutput =
+        result.outputs.find((output) => output.kind === 'entry-point') ??
+        result.outputs[0]
+      const jsText = entryOutput ? await entryOutput.text() : null
+      if (!jsText) {
+        if (verbose) {
+          console.error(`Failed to transpile agent (no output): ${fullPath}`)
+        }
+        return null
+      }
+
+      await fs.promises.mkdir(tempDir, { recursive: true })
+      await fs.promises.writeFile(compiledPath, jsText, 'utf8')
+      return compiledPath
+    }
+
+    if (buildFn) {
+      try {
+        const result = await buildFn({
+          entryPoints: [fullPath],
+          absWorkingDir: process.cwd(), // Force esbuild to use current cwd for path resolution
+          bundle: true,
+          format: 'esm',
+          platform: 'node',
+          target: 'node18',
+          write: false,
+          logLevel: verbose ? 'info' : 'silent',
+          sourcemap: 'inline',
+          packages: 'external',
+          external: [
+            ...builtinModules,
+            ...builtinModules.map((mod) => `node:${mod}`),
+          ],
+        })
+
+        const jsOutput = result.outputFiles?.[0]
+        if (!jsOutput?.text) {
+          if (verbose) {
+            console.error(`Failed to transpile agent (no output): ${fullPath}`)
+          }
+          return null
+        }
+
+        await fs.promises.mkdir(tempDir, { recursive: true })
+        await fs.promises.writeFile(compiledPath, jsOutput.text, 'utf8')
+
+        return compiledPath
+      } catch (error) {
+        const bunResult = await buildWithBun()
+        if (bunResult) {
+          return bunResult
+        }
+        if (verbose) {
+          console.error(
+            `Error transpiling agent ${fullPath}:`,
+            error instanceof Error ? error.message : error,
+          )
+        }
+        return null
+      }
+    }
+
+    const bunResult = await buildWithBun()
+    if (bunResult) {
+      return bunResult
+    }
+
+    if (verbose) {
+      console.error(
+        `Cannot transpile ${fullPath}: esbuild not available in compiled binary`,
+      )
+    }
+    return null
+
   } catch (error) {
     if (verbose) {
       console.error(
