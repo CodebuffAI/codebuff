@@ -424,7 +424,8 @@ async function handleLine({
     obj = JSON.parse(raw)
   } catch (error) {
     logger.warn(
-      `Received non-JSON OpenRouter response: ${JSON.stringify(getErrorObject(error), null, 2)}`,
+      { error: getErrorObject(error, { includeRawError: true }) },
+      'Received non-JSON OpenRouter response',
     )
     return state
   }
@@ -433,7 +434,8 @@ async function handleLine({
   const parsed = OpenRouterStreamChatCompletionChunkSchema.safeParse(obj)
   if (!parsed.success) {
     logger.warn(
-      `Unable to parse OpenRotuer response: ${JSON.stringify(getErrorObject(parsed.error), null, 2)}`,
+      { error: getErrorObject(parsed.error, { includeRawError: true }) },
+      'Unable to parse OpenRouter response',
     )
     return state
   }

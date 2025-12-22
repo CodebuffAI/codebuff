@@ -925,15 +925,7 @@ export async function loopAgentSteps(
 
     let errorMessage = ''
     if (error instanceof APICallError) {
-      const {
-        url,
-        requestBodyValues,
-        statusCode,
-        responseHeaders,
-        responseBody,
-        isRetryable,
-      } = error
-      errorMessage = `API call error: ${error.message}\n\n ${error.stack}\n\nURL: ${url}\nRequest body values: ${JSON.stringify(requestBodyValues)}\nStatus code: ${statusCode}\nResponse headers: ${JSON.stringify(responseHeaders)}\nResponse body: ${responseBody}\nIs retryable: ${isRetryable}\nData: ${JSON.stringify(error.data)}`
+      errorMessage = `${error.message}`
     } else {
       // Extract clean error message (just the message, not name:message format)
       errorMessage =

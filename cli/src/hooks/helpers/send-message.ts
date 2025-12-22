@@ -1,7 +1,6 @@
 import { getProjectRoot } from '../../project-files'
 import { useChatStore } from '../../state/chat-store'
 import { processBashContext } from '../../utils/bash-context-processor'
-import { getErrorObject } from '../../utils/error'
 import {
   createErrorMessage,
   createPaymentErrorMessage,
@@ -30,6 +29,7 @@ import type { StreamStatus } from '../use-message-queue'
 import type { MessageContent, RunState } from '@codebuff/sdk'
 import type { QueryClient } from '@tanstack/react-query'
 import type { MutableRefObject, SetStateAction } from 'react'
+import { getErrorObject } from '@codebuff/common/util/error'
 
 const yieldToEventLoop = () =>
   new Promise<void>((resolve) => {
@@ -227,7 +227,7 @@ export const handleRunCompletion = (params: {
       }
     } else {
       const partial = createErrorMessage(
-        'Output error: ' + (output.message ?? 'No output from agent run'),
+        output.message ?? 'No output from agent run',
         aiMessageId,
       )
       updater.setError(partial.content ?? '')
@@ -292,7 +292,10 @@ export const handleRunError = (params: {
 
   const partial = createErrorMessage(error, aiMessageId)
 
-  logger.error({ error: getErrorObject(error) }, 'SDK client.run() failed')
+  logger.error(
+    { error: getErrorObject(error, { includeRawError: true }) },
+    'SDK client.run() failed',
+  )
   setIsRetrying(false)
   setStreamStatus('idle')
   setCanProcessQueue(true)
