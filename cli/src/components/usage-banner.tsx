@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import React, { useEffect } from 'react'
+import open from 'open'
 
 import { BottomBanner } from './bottom-banner'
 import { usageQueryKeys, useUsageQuery } from '../hooks/use-usage-query'
@@ -9,6 +10,9 @@ import {
   generateUsageBannerText,
   generateLoadingBannerText,
 } from '../utils/usage-banner-state'
+import { WEBSITE_URL } from '../login/constants'
+import { useTheme } from '../hooks/use-theme'
+import { Button } from './button'
 
 const MANUAL_SHOW_TIMEOUT = 60 * 1000 // 1 minute
 const USAGE_POLL_INTERVAL = 30 * 1000 // 30 seconds
@@ -54,6 +58,8 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
     return () => clearTimeout(timer)
   }, [showTime, setInputMode])
 
+  const theme = useTheme()
+
   const activeData = apiData || cachedUsageData
   const isLoadingData = isLoading || isFetching
 
@@ -82,8 +88,15 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
   return (
     <BottomBanner
       borderColorKey={isLoadingData ? 'muted' : colorLevel}
-      text={text}
       onClose={() => setInputMode('default')}
-    />
+    >
+      <Button
+        onClick={() => {
+          open(WEBSITE_URL + '/usage')
+        }}
+      >
+        <text style={{ fg: theme.foreground }}>{text}</text>
+      </Button>
+    </BottomBanner>
   )
 }

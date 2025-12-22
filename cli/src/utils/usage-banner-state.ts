@@ -18,16 +18,32 @@ export type ThresholdInfo = {
  */
 export function getThresholdInfo(balance: number | null): ThresholdInfo {
   if (balance === null) {
-    return { tier: 'medium', colorLevel: 'warning', threshold: MEDIUM_CREDITS_THRESHOLD }
+    return {
+      tier: 'medium',
+      colorLevel: 'warning',
+      threshold: MEDIUM_CREDITS_THRESHOLD,
+    }
   }
   if (balance >= HIGH_CREDITS_THRESHOLD) {
-    return { tier: 'high', colorLevel: 'success', threshold: HIGH_CREDITS_THRESHOLD }
+    return {
+      tier: 'high',
+      colorLevel: 'success',
+      threshold: HIGH_CREDITS_THRESHOLD,
+    }
   }
   if (balance >= MEDIUM_CREDITS_THRESHOLD) {
-    return { tier: 'medium', colorLevel: 'warning', threshold: MEDIUM_CREDITS_THRESHOLD }
+    return {
+      tier: 'medium',
+      colorLevel: 'warning',
+      threshold: MEDIUM_CREDITS_THRESHOLD,
+    }
   }
   if (balance >= LOW_CREDITS_THRESHOLD) {
-    return { tier: 'low', colorLevel: 'warning', threshold: LOW_CREDITS_THRESHOLD }
+    return {
+      tier: 'low',
+      colorLevel: 'warning',
+      threshold: LOW_CREDITS_THRESHOLD,
+    }
   }
   return { tier: 'out', colorLevel: 'error', threshold: 0 }
 }
@@ -37,7 +53,7 @@ export function getThresholdInfo(balance: number | null): ThresholdInfo {
  *
  * Color mapping:
  * - success (green): >= 1000 credits
- * - warning (yellow): 100-999 credits OR balance is null/unknown  
+ * - warning (yellow): 100-999 credits OR balance is null/unknown
  * - error (red): < 100 credits
  *
  * @deprecated Use getThresholdInfo(balance).colorLevel instead
@@ -64,8 +80,15 @@ export function generateLoadingBannerText(sessionCreditsUsed: number): string {
 /**
  * Generates the text content for the usage banner.
  */
-export function generateUsageBannerText(options: UsageBannerTextOptions): string {
-  const { sessionCreditsUsed, remainingBalance, next_quota_reset, today = new Date() } = options
+export function generateUsageBannerText(
+  options: UsageBannerTextOptions,
+): string {
+  const {
+    sessionCreditsUsed,
+    remainingBalance,
+    next_quota_reset,
+    today = new Date(),
+  } = options
 
   let text = `Session usage: ${sessionCreditsUsed.toLocaleString()}`
 
@@ -93,6 +116,8 @@ export function generateUsageBannerText(options: UsageBannerTextOptions): string
 
     text += `. Free credits renew ${dateDisplay}`
   }
+
+  text += `. See more`
 
   return text
 }

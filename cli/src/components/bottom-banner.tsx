@@ -89,9 +89,8 @@ export const BottomBanner: React.FC<BottomBannerProps> = ({
         marginRight: width.is('sm') ? 0 : 1,
         borderStyle: 'single',
         borderColor: borderColor,
-        flexDirection: hasTextContent && hasCloseButton ? 'row' : 'column',
-        justifyContent:
-          hasTextContent && hasCloseButton ? 'space-between' : undefined,
+        flexDirection: hasCloseButton ? 'row' : 'column',
+        justifyContent: hasCloseButton ? 'space-between' : undefined,
         paddingLeft: 1,
         paddingRight: 1,
         marginTop: 0,
@@ -113,21 +112,21 @@ export const BottomBanner: React.FC<BottomBannerProps> = ({
           >
             {text}
           </text>
-          {hasCloseButton && (
-            <Button
-              onClick={onClose}
-              onMouseOver={() => setIsCloseHovered(true)}
-              onMouseOut={() => setIsCloseHovered(false)}
-            >
-              <text style={{ fg: isCloseHovered ? theme.error : theme.muted }}>
-                x
-              </text>
-            </Button>
-          )}
         </>
       ) : (
         // Custom children content
         children
+      )}
+      {hasCloseButton && (
+        <Button
+          onClick={onClose}
+          onMouseOver={() => setIsCloseHovered(true)}
+          onMouseOut={() => setIsCloseHovered(false)}
+        >
+          <text style={{ fg: isCloseHovered ? theme.error : theme.muted }}>
+            x
+          </text>
+        </Button>
       )}
     </box>
   )
