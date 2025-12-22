@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 360 # 6 hours is the max for any hosted github action
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
@@ -20,7 +20,7 @@ jobs:
           bun-version: '1.3.0'
 
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             node_modules

@@ -10,7 +10,7 @@ jobs:
     timeout-minutes: 360
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Check commit message
         id: check_commit
@@ -34,7 +34,7 @@ jobs:
 
       - name: Cache dependencies
         if: ${{ steps.check_commit.outputs.should_run_evals == 'true' }}
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             node_modules

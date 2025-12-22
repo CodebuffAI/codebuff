@@ -44,9 +44,9 @@ The CI pipeline consists of two main jobs:
 
 ### Key Configuration
 
-- Uses Bun v1.2.12 for all jobs
+- Uses Bun v1.3.0 for all jobs
 - Tests use retry logic (max 5 attempts, 10 min timeout)
-- Dependencies are cached between jobs using `actions/cache@v3`
+- Dependencies are cached between jobs using `actions/cache@v4`
 - Environment variables are set from GitHub secrets using `scripts/generate-ci-env.ts`
 
 ### Test Strategy
@@ -75,7 +75,7 @@ Each test job:
 
 - Triggered on push/PR to main branch
 - Build job must complete before test jobs start (`needs: build`)
-- Uses `actions/checkout@v3`, `oven-sh/setup-bun@v2`, and `actions/cache@v3`
+- Uses `actions/checkout@v4`, `oven-sh/setup-bun@v2`, and `actions/cache@v4`
 - Commented debug shell available for troubleshooting failures
 
 ## Artifact Actions
@@ -174,7 +174,7 @@ When running GitHub Actions locally using `act`:
    - Ensure all required environment variables are present
 
 3. If Bun commands fail:
-   - Check that Bun version in Dockerfile matches CI (1.1.26)
+   - Check that Bun version in Dockerfile matches CI (1.3.0)
    - Verify Docker image built successfully
    - Try rebuilding the image without cache
 
