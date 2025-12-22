@@ -281,6 +281,7 @@ async function transpileAgent(
     
     const result = await buildFn({
       entryPoints: [fullPath],
+      absWorkingDir: process.cwd(), // Force esbuild to use current cwd for path resolution
       bundle: true,
       format: 'esm',
       platform: 'node',
