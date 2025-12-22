@@ -41,7 +41,7 @@ jobs:
             bun_target: bun-linux-arm64
             platform: linux
             arch: arm64
-          - os: macos-13
+          - os: macos-15-intel
             target: darwin-x64
             bun_target: bun-darwin-x64
             platform: darwin
