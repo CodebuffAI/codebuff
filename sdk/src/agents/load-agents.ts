@@ -5,8 +5,6 @@ import os from 'os'
 import path from 'path'
 import { pathToFileURL } from 'url'
 
-import { build } from 'esbuild'
-
 import { validateAgents } from '../validate-agents'
 
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
@@ -267,7 +265,21 @@ async function transpileAgent(
   verbose: boolean,
 ): Promise<string | null> {
   try {
-    const result = await build({
+    // Check if we're in a compiled binary where esbuild isn't available
+    let buildFn: typeof import('esbuild')['build']
+    try {
+      const esbuildModule = await import('esbuild')
+      buildFn = esbuildModule.build
+    } catch {
+      // esbuild not available (likely running in compiled binary)
+      // Local TypeScript agents cannot be transpiled - bundled agents will still work
+      if (verbose) {
+        console.error(`Cannot transpile ${fullPath}: esbuild not available in compiled binary`)
+      }
+      return null
+    }
+    
+    const result = await buildFn({
       entryPoints: [fullPath],
       bundle: true,
       format: 'esm',
