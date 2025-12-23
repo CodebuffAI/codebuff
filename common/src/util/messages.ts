@@ -11,6 +11,7 @@ import type {
 } from '../types/messages/codebuff-message'
 import type { ToolResultOutput } from '../types/messages/content-part'
 import type { ProviderMetadata } from '../types/messages/provider-metadata'
+import { modelMessageSchema } from 'ai'
 import type {
   AssistantModelMessage,
   ModelMessage,
@@ -18,6 +19,7 @@ import type {
   ToolModelMessage,
   UserModelMessage,
 } from 'ai'
+import { Logger } from '../types/contracts/logger'
 
 export function toContentString(msg: ModelMessage): string {
   const { content } = msg
@@ -189,9 +191,11 @@ function convertToolMessages(
 export function convertCbToModelMessages({
   messages,
   includeCacheControl = true,
+  logger,
 }: {
   messages: Message[]
   includeCacheControl?: boolean
+  logger?: Logger
 }): ModelMessage[] {
   const toolMessagesConverted: ModelMessageWithAuxiliaryData[] =
     convertToolMessages(messages)
@@ -299,6 +303,25 @@ export function convertCbToModelMessages({
         break addCacheControlLoop
       }
       break
+    }
+  }
+
+  // Validate each message against the AI SDK schema
+  for (let i = 0; i < aggregated.length; i++) {
+    const message = aggregated[i]
+    const result = modelMessageSchema.safeParse(message)
+    if (!result.success) {
+      if (logger) {
+        logger.error(
+          { message, aggregated, error: result.error },
+          `convertCbToModelMessages: Message at index ${i} failed schema validation.`,
+        )
+      }
+      throw new Error(
+        `convertCbToModelMessages: Message at index ${i} failed schema validation.\n` +
+          `Role: ${message.role}\n` +
+          `Message:\n${result.error.message}`,
+      )
     }
   }
 
