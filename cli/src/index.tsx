@@ -168,6 +168,9 @@ async function main(): Promise<void> {
     initialMode,
   } = parseArgs()
 
+  const isPublishCommand = process.argv.includes('publish')
+  const hasAgentOverride = Boolean(agent && agent.trim().length > 0)
+
   await initializeApp({ cwd })
 
   // Detect if user is at home directory or outside a project (should show project picker)
@@ -178,10 +181,12 @@ async function main(): Promise<void> {
     projectRoot === '/' || projectRoot === homeDir || gitRoot === null
 
   // Initialize agent registry (loads user agents via SDK)
-  await initializeAgentRegistry()
+  if (isPublishCommand || !hasAgentOverride) {
+    await initializeAgentRegistry()
+  }
 
   // Handle publish command before rendering the app
-  if (process.argv.includes('publish')) {
+  if (isPublishCommand) {
     const publishIndex = process.argv.indexOf('publish')
     const agentIds = process.argv.slice(publishIndex + 1)
     const result = await handlePublish(agentIds)
