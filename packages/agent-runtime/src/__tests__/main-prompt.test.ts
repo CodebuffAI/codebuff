@@ -200,7 +200,9 @@ describe('mainPrompt', () => {
     },
   }
 
-  it('includes local agents in spawnableAgents when agentId is provided', async () => {
+  it('does not include other local agents in spawnableAgents when agentId is provided', async () => {
+    // When a specific agentId is provided, we only use the spawnable agents
+    // defined in that agent's template - we don't auto-add all available agents
     const sessionState = getInitialSessionState(mockFileContext)
     const mainAgentId = 'test-main-agent'
     const localAgentId = 'test-local-agent'
@@ -257,9 +259,12 @@ describe('mainPrompt', () => {
       localAgentTemplates,
     })
 
-    expect(localAgentTemplates[mainAgentId].spawnableAgents).toContain(
+    // When agentId is provided, spawnableAgents should only contain what was
+    // explicitly defined in the template (empty in this case)
+    expect(localAgentTemplates[mainAgentId].spawnableAgents).not.toContain(
       localAgentId,
     )
+    expect(localAgentTemplates[mainAgentId].spawnableAgents).toEqual([])
   })
 
   it('should handle write_file tool call', async () => {
