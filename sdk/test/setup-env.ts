@@ -13,7 +13,6 @@ const testDefaults: Record<string, string> = {
     'https://billing.stripe.com/p/login/test_placeholder',
   NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION_ID: 'test-verification',
   NEXT_PUBLIC_WEB_PORT: '3000',
-  CODEBUFF_API_KEY: 'test-api-key',
 }
 
 for (const [key, value] of Object.entries(testDefaults)) {

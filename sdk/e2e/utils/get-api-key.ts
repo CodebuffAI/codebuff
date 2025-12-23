@@ -19,7 +19,16 @@ export function getApiKey(): string {
  * Skip test if no API key is available (for CI environments without credentials).
  */
 export function skipIfNoApiKey(): boolean {
-  return !process.env.CODEBUFF_API_KEY
+  const apiKey = process.env.CODEBUFF_API_KEY
+  if (!apiKey) return true
+
+  const isCi =
+    process.env.CI === 'true' ||
+    process.env.CI === '1' ||
+    process.env.GITHUB_ACTIONS === 'true'
+  const optedIn = process.env.RUN_CODEBUFF_E2E === 'true'
+
+  return !(isCi || optedIn)
 }
 
 /**

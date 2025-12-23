@@ -4,7 +4,6 @@ import { describe, expect, it } from 'bun:test'
 import { CodebuffClient } from '@codebuff/sdk'
 import filePickerDefinition from '../file-explorer/file-picker'
 import fileListerDefinition from '../file-explorer/file-lister'
-
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
 /**
@@ -22,10 +21,7 @@ describe('File Lister Agent Integration - read_subtree tool', () => {
   it(
     'should find relevant files using read_subtree tool',
     async () => {
-      const apiKey = process.env[API_KEY_ENV_VAR]
-      if (!apiKey) {
-        throw new Error('API key not found')
-      }
+      const apiKey = process.env[API_KEY_ENV_VAR]!
 
       // Create mock project files that the file-lister should be able to find
       const projectFiles: Record<string, string> = {
@@ -142,10 +138,7 @@ export interface User {
   it(
     'should use the file tree from session state',
     async () => {
-      const apiKey = process.env[API_KEY_ENV_VAR]
-      if (!apiKey) {
-        throw new Error('API key not found')
-      }
+      const apiKey = process.env[API_KEY_ENV_VAR]!
 
       // Create a different set of project files with a specific structure
       const projectFiles: Record<string, string> = {
@@ -196,10 +189,7 @@ export interface User {
   it(
     'should respect directories parameter',
     async () => {
-      const apiKey = process.env[API_KEY_ENV_VAR]
-      if (!apiKey) {
-        throw new Error('API key not found')
-      }
+      const apiKey = process.env[API_KEY_ENV_VAR]!
 
       // Create project with multiple top-level directories
       const projectFiles: Record<string, string> = {
@@ -261,10 +251,7 @@ describe('File Picker Agent Integration - spawn_agents tool', () => {
   it.skip(
     'should spawn file-lister subagent and find relevant files',
     async () => {
-      const apiKey = process.env[API_KEY_ENV_VAR]
-      if (!apiKey) {
-        throw new Error('API key not found')
-      }
+      const apiKey = process.env[API_KEY_ENV_VAR]!
 
       // Create mock project files
       const projectFiles: Record<string, string> = {

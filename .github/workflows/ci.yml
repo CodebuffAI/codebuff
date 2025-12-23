@@ -242,12 +242,9 @@ jobs:
           command: |
             cd ${{ matrix.package }}
             if [ "${{ matrix.package }}" = ".agents" ]; then
-              TEST_FILES=$(find __tests__ -name '*.integration.test.ts' 2>/dev/null | sort)
-              if [ -n "$TEST_FILES" ]; then
-                echo "$TEST_FILES" | xargs -I {} bun test --timeout=60000 {}
-              else
-                echo "No integration tests found in .agents"
-              fi
+              # .agents e2e tests are in e2e/ directory and require real services
+              # They are skipped in CI - run locally with: bun run test:e2e
+              echo "Skipping .agents e2e tests in CI (require real services)"
             else
               find src -name '*.integration.test.ts' | sort | xargs -I {} bun test --timeout=60000 {}
             fi
