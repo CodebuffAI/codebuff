@@ -27,12 +27,12 @@
   },
   "sideEffects": false,
   "engines": {
-    "bun": "^1.3.0"
+    "bun": "^1.3.5"
   },
   "dependencies": {
     "@codebuff/sdk": "workspace:*",
-    "@opentui/core": "^0.1.56",
-    "@opentui/react": "^0.1.56",
+    "@opentui/core": "^0.1.63",
+    "@opentui/react": "^0.1.63",
     "@tanstack/react-query": "^5.62.8",
     "commander": "^14.0.1",
     "immer": "^10.1.3",
@@ -54,7 +54,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.0",
+    "@types/bun": "^1.3.5",
     "@types/node": "22",
     "@types/react": "^18.3.12",
     "@types/react-reconciler": "^0.32.0",

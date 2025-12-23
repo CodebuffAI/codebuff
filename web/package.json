@@ -30,7 +30,7 @@
   },
   "sideEffects": false,
   "engines": {
-    "bun": "^1.3.0"
+    "bun": "^1.3.5"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.8.0",

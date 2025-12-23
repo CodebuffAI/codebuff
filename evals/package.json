@@ -27,7 +27,7 @@
   },
   "sideEffects": false,
   "engines": {
-    "bun": "^1.3.0"
+    "bun": "^1.3.5"
   },
   "dependencies": {
     "@anthropic-ai/claude-code": "^2.0.56",
