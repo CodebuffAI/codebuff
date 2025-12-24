@@ -95,6 +95,8 @@ export const Chat = ({
   continueChatId,
   authStatus,
   initialMode,
+  gitRoot,
+  onSwitchToGitRoot,
 }: {
   headerContent: React.ReactNode
   initialPrompt: string | null
@@ -108,6 +110,8 @@ export const Chat = ({
   continueChatId?: string
   authStatus: AuthStatus
   initialMode?: AgentMode
+  gitRoot?: string | null
+  onSwitchToGitRoot?: () => void
 }) => {
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
   const [hasOverflow, setHasOverflow] = useState(false)
@@ -1368,7 +1372,7 @@ export const Chat = ({
           },
         }}
       >
-        <TopBanner />
+        <TopBanner gitRoot={gitRoot} onSwitchToGitRoot={onSwitchToGitRoot} />
 
         {headerContent}
         {hiddenMessageCount > 0 && (

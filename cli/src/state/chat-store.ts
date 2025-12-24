@@ -12,7 +12,7 @@ import type { InputMode } from '../utils/input-modes'
 import type { RunState } from '@codebuff/sdk'
 
 /** Types of banners that can appear at the top of the chat */
-export type TopBannerType = 'homeDir' | null
+export type TopBannerType = 'homeDir' | 'gitRoot' | null
 
 export type InputValue = {
   text: string

@@ -22,6 +22,7 @@ import { initializeApp } from './init/init-app'
 import { getProjectRoot, setProjectRoot } from './project-files'
 import { initAnalytics } from './utils/analytics'
 import { getAuthTokenDetails } from './utils/auth'
+import { resetCodebuffClient } from './utils/codebuff-client'
 import { getCliEnv } from './utils/env'
 import { initializeAgentRegistry } from './utils/local-agent-registry'
 import { clearLogFile, logger } from './utils/logger'
@@ -273,6 +274,8 @@ async function main(): Promise<void> {
         process.chdir(newProjectPath)
         // Update the project root in the module state
         setProjectRoot(newProjectPath)
+        // Reset client to ensure tools use the updated project root
+        resetCodebuffClient()
         // Save to recent projects list
         saveRecentProject(newProjectPath)
         // Update local state

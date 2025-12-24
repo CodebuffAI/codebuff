@@ -1,5 +1,5 @@
 import { NetworkError, RETRYABLE_ERROR_CODES } from '@codebuff/sdk'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { Chat } from './chat'
@@ -14,9 +14,10 @@ import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
 import { useTerminalFocus } from './hooks/use-terminal-focus'
 import { useTheme } from './hooks/use-theme'
 import { getProjectRoot } from './project-files'
-import { useChatStore } from './state/chat-store'
+import { useChatStore, type TopBannerType } from './state/chat-store'
 import { openFileAtPath } from './utils/open-file'
 import { formatCwd } from './utils/path-helpers'
+import { findGitRoot } from './utils/git'
 import { getLogoBlockColor, getLogoAccentColor } from './utils/theme-system'
 
 import type { MultilineInputHandle } from './components/multiline-input'
@@ -73,11 +74,21 @@ export const App = ({
   })
 
   const inputRef = useRef<MultilineInputHandle | null>(null)
-  const { setInputFocused, setIsFocusSupported, resetChatStore } = useChatStore(
+  const {
+    setInputFocused,
+    setIsFocusSupported,
+    resetChatStore,
+    activeTopBanner,
+    setActiveTopBanner,
+    closeTopBanner,
+  } = useChatStore(
     useShallow((store) => ({
       setInputFocused: store.setInputFocused,
       setIsFocusSupported: store.setIsFocusSupported,
       resetChatStore: store.reset,
+      activeTopBanner: store.activeTopBanner,
+      setActiveTopBanner: store.setActiveTopBanner,
+      closeTopBanner: store.closeTopBanner,
     })),
   )
 
@@ -110,6 +121,53 @@ export const App = ({
   })
 
   const projectRoot = getProjectRoot()
+  const gitRoot = useMemo(
+    () => findGitRoot({ cwd: projectRoot }),
+    [projectRoot],
+  )
+  const showGitRootBanner = Boolean(gitRoot && gitRoot !== projectRoot)
+  const [gitRootBannerDismissed, setGitRootBannerDismissed] = useState(false)
+  const prevTopBannerRef = useRef<TopBannerType | null>(null)
+
+  useEffect(() => {
+    setGitRootBannerDismissed(false)
+  }, [projectRoot])
+
+  useEffect(() => {
+    const prevBanner = prevTopBannerRef.current
+    if (
+      prevBanner === 'gitRoot' &&
+      activeTopBanner === null &&
+      showGitRootBanner
+    ) {
+      setGitRootBannerDismissed(true)
+    }
+    prevTopBannerRef.current = activeTopBanner
+  }, [activeTopBanner, showGitRootBanner])
+
+  useEffect(() => {
+    if (!showGitRootBanner) {
+      if (activeTopBanner === 'gitRoot') {
+        closeTopBanner()
+      }
+      return
+    }
+    if (!gitRootBannerDismissed && activeTopBanner === null) {
+      setActiveTopBanner('gitRoot')
+    }
+  }, [
+    activeTopBanner,
+    closeTopBanner,
+    gitRootBannerDismissed,
+    setActiveTopBanner,
+    showGitRootBanner,
+  ])
+
+  const handleSwitchToGitRoot = useCallback(() => {
+    if (gitRoot) {
+      onProjectChange(gitRoot)
+    }
+  }, [gitRoot, onProjectChange])
 
   const headerContent = useMemo(() => {
     const displayPath = formatCwd(projectRoot)
@@ -211,6 +269,8 @@ export const App = ({
       continueChatId={continueChatId}
       authStatus={authStatus}
       initialMode={initialMode}
+      gitRoot={gitRoot}
+      onSwitchToGitRoot={handleSwitchToGitRoot}
     />
   )
 }
