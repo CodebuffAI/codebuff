@@ -162,6 +162,7 @@ async function main() {
     'build',
     'src/index.tsx',
     '--compile',
+    '--production',
     `--target=${targetInfo.bunTarget}`,
     `--outfile=${outputFile}`,
     '--sourcemap=none',
