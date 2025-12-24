@@ -381,6 +381,35 @@ export async function consumeCredits(params: {
   return result
 }
 
+/**
+ * Extracts PostgreSQL-specific error details for better debugging.
+ */
+function extractPostgresErrorDetails(error: unknown): Record<string, unknown> {
+  if (!error || typeof error !== 'object') {
+    return {}
+  }
+
+  const pgError = error as Record<string, unknown>
+  const details: Record<string, unknown> = {}
+
+  // Standard PostgreSQL error fields
+  if ('code' in pgError) details.pgCode = pgError.code
+  if ('constraint' in pgError) details.pgConstraint = pgError.constraint
+  if ('detail' in pgError) details.pgDetail = pgError.detail
+  if ('schema' in pgError) details.pgSchema = pgError.schema
+  if ('table' in pgError) details.pgTable = pgError.table
+  if ('column' in pgError) details.pgColumn = pgError.column
+  if ('severity' in pgError) details.pgSeverity = pgError.severity
+  if ('routine' in pgError) details.pgRoutine = pgError.routine
+
+  // Drizzle-specific fields
+  if ('cause' in pgError && pgError.cause) {
+    details.causeDetails = extractPostgresErrorDetails(pgError.cause)
+  }
+
+  return details
+}
+
 export async function consumeCreditsAndAddAgentStep(params: {
   messageId: string
   userId: string
@@ -436,79 +465,116 @@ export async function consumeCreditsAndAddAgentStep(params: {
   const finishedAt = new Date()
   const latencyMs = finishedAt.getTime() - startTime.getTime()
 
+  // Track grant state for error logging (declared outside transaction for access in catch block)
+  let activeGrantsSnapshot: Array<{
+    operation_id: string
+    balance: number
+    type: string
+    priority: number
+    expires_at: Date | null
+  }> = []
+  let phase: 'fetch_grants' | 'consume_credits' | 'insert_message' | 'complete' =
+    'fetch_grants'
+
   try {
     const result = await withSerializableTransaction({
-        callback: async (tx) => {
-          const now = new Date()
+      callback: async (tx) => {
+        // Reset state at start of each transaction attempt (in case of retries)
+        activeGrantsSnapshot = []
+        phase = 'fetch_grants'
 
-          let result: CreditConsumptionResult | null = null
-          consumeCredits: {
-            if (byok) {
-              break consumeCredits
-            }
-            const activeGrants = await getOrderedActiveGrants({
-              ...params,
-              now,
-              conn: tx,
-            })
+        const now = new Date()
 
-            if (activeGrants.length === 0) {
-              logger.error(
-                { userId, credits },
-                'No active grants found to consume credits from',
-              )
-              throw new Error('No active grants found')
-            }
-
-            result = await consumeFromOrderedGrants({
-              ...params,
-              creditsToConsume: credits,
-              grants: activeGrants,
-              tx,
-            })
-
-            if (userId === TEST_USER_ID) {
-              return { ...result, agentStepId: 'test-step-id' }
-            }
+        let result: CreditConsumptionResult | null = null
+        consumeCredits: {
+          if (byok) {
+            break consumeCredits
           }
 
-          try {
-            await tx.insert(schema.message).values({
-              id: messageId,
-              agent_id: agentId,
-              finished_at: new Date(),
-              client_id: clientId,
-              client_request_id: clientRequestId,
-              model,
-              reasoning_text: reasoningText,
-              response,
-              input_tokens: inputTokens,
-              cache_creation_input_tokens: cacheCreationInputTokens,
-              cache_read_input_tokens: cacheReadInputTokens,
-              reasoning_tokens: reasoningTokens,
-              output_tokens: outputTokens,
-              cost: cost.toString(),
-              credits,
-              byok,
-              latency_ms: latencyMs,
-              user_id: userId,
-            })
-          } catch (error) {
-            logger.error({ ...params, error }, 'Failed to add message')
-            throw error
+          const activeGrants = await getOrderedActiveGrants({
+            ...params,
+            now,
+            conn: tx,
+          })
+
+          // Capture grant snapshot for error logging (includes expires_at for timing issues)
+          activeGrantsSnapshot = activeGrants.map((g) => ({
+            operation_id: g.operation_id,
+            balance: g.balance,
+            type: g.type,
+            priority: g.priority,
+            expires_at: g.expires_at,
+          }))
+
+          if (activeGrants.length === 0) {
+            logger.error(
+              { userId, credits },
+              'No active grants found to consume credits from',
+            )
+            throw new Error('No active grants found')
           }
 
-          if (!result) {
-            result = {
-              consumed: 0,
-              fromPurchased: 0,
-            }
+          phase = 'consume_credits'
+          result = await consumeFromOrderedGrants({
+            ...params,
+            creditsToConsume: credits,
+            grants: activeGrants,
+            tx,
+          })
+
+          if (userId === TEST_USER_ID) {
+            return { ...result, agentStepId: 'test-step-id' }
           }
-          return { ...result, agentStepId: crypto.randomUUID() }
-        },
-        context: { userId, credits },
-        logger,
-      })
+        }
+
+        phase = 'insert_message'
+        try {
+          await tx.insert(schema.message).values({
+            id: messageId,
+            agent_id: agentId,
+            finished_at: new Date(),
+            client_id: clientId,
+            client_request_id: clientRequestId,
+            model,
+            reasoning_text: reasoningText,
+            response,
+            input_tokens: inputTokens,
+            cache_creation_input_tokens: cacheCreationInputTokens,
+            cache_read_input_tokens: cacheReadInputTokens,
+            reasoning_tokens: reasoningTokens,
+            output_tokens: outputTokens,
+            cost: cost.toString(),
+            credits,
+            byok,
+            latency_ms: latencyMs,
+            user_id: userId,
+          })
+        } catch (error) {
+          logger.error(
+            {
+              messageId,
+              userId,
+              agentId,
+              error: getErrorObject(error),
+              pgDetails: extractPostgresErrorDetails(error),
+            },
+            'Failed to insert message',
+          )
+          throw error
+        }
+
+        phase = 'complete'
+        if (!result) {
+          result = {
+            consumed: 0,
+            fromPurchased: 0,
+          }
+        }
+        return { ...result, agentStepId: crypto.randomUUID() }
+      },
+      context: { userId, credits },
+      logger,
+    })
 
     await reportPurchasedCreditsToStripe({
       userId,
@@ -525,8 +591,33 @@ export async function consumeCreditsAndAddAgentStep(params: {
 
     return success(result)
   } catch (error) {
+    // Extract detailed error information for debugging
+    const pgDetails = extractPostgresErrorDetails(error)
+
     logger.error(
-      { error: getErrorObject(error) },
+      {
+        error: getErrorObject(error),
+        pgDetails,
+        transactionContext: {
+          phase,
+          userId,
+          messageId,
+          agentId,
+          clientId,
+          clientRequestId,
+          credits,
+          cost,
+          byok,
+          model,
+          latencyMs,
+        },
+        grantsSnapshot: activeGrantsSnapshot,
+        grantsCount: activeGrantsSnapshot.length,
+        totalGrantBalance: activeGrantsSnapshot.reduce(
+          (sum, g) => sum + g.balance,
+          0,
+        ),
+      },
       'Error consuming credits and adding agent step',
     )
     return failure(error)
