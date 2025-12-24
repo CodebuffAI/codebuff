@@ -2,10 +2,10 @@ name: 'Setup Project'
 description: 'Setup Bun, cache dependencies, and install packages'
 
 inputs:
-  bun-version:
-    description: 'Bun version to install'
+  bun-version-file:
+    description: 'File containing Bun version to install'
     required: false
-    default: '1.3.0'
+    default: '.bun-version'
 
 runs:
   using: 'composite'
@@ -13,7 +13,7 @@ runs:
     - name: Set up Bun
       uses: oven-sh/setup-bun@v2
       with:
-        bun-version: ${{ inputs.bun-version }}
+        bun-version-file: ${{ inputs.bun-version-file }}
 
     - name: Cache dependencies
       uses: actions/cache@v4
