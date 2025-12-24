@@ -5,7 +5,7 @@ Create specialized agent workflows that coordinate multiple AI agents to tackle 
 ## Getting Started
 
 1. **Edit an existing agent**: Start with `my-custom-agent.ts` and modify it for your needs
-2. **Test your agent**: Run `codebuff --agent your-agent-name`
+2. **Test your agent**: Run `codebuff` without `--agent` so local `.agents` load, then invoke your agent from a prompt
 3. **Publish your agent**: Run `codebuff publish your-agent-name`
 
 ## Need Help?
@@ -228,7 +228,7 @@ async *handleSteps() {
 
 ## Testing Your Agent
 
-1. **Local Testing**: `codebuff --agent your-agent-name`
+1. **Local Testing**: Run `codebuff` without `--agent` so local `.agents` load, then invoke your agent from a prompt
 2. **Debug Mode**: Add logging to your `handleSteps` function
 3. **Unit Testing**: Test individual functions in isolation
 4. **Integration Testing**: Test agent coordination workflows

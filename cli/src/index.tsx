@@ -99,7 +99,7 @@ function parseArgs(): ParsedArgs {
     .version(loadPackageVersion(), '-v, --version', 'Print the CLI version')
     .option(
       '--agent <agent-id>',
-      'Specify which agent to use (e.g., "base", "ask", "file-picker")',
+      'Run a specific agent id (skips loading local .agents overrides)',
     )
     .option('--clear-logs', 'Remove any existing CLI log files before starting')
     .option(
@@ -180,7 +180,8 @@ async function main(): Promise<void> {
   const showProjectPicker =
     projectRoot === '/' || projectRoot === homeDir || gitRoot === null
 
-  // Initialize agent registry (loads user agents via SDK)
+  // Initialize agent registry (loads user agents via SDK).
+  // When --agent is provided, skip local .agents to avoid overrides.
   if (isPublishCommand || !hasAgentOverride) {
     await initializeAgentRegistry()
   }

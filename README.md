@@ -61,7 +61,7 @@ Control how Codebuff runs with these flags:
 - `--print, -p` - Print-only mode, run once and exit (for scripts/CI)
 
 **Agent Control**:
-- `--agent <id>` - Run specific agent (e.g., `--agent file-picker`)
+- `--agent <id>` - Run specific agent (skips loading local `.agents` overrides)
 - `--spawn <id>` - Spawn agent directly (e.g., `--spawn reviewer`)
 - `--params <json>` - Pass JSON parameters to agent
 
