@@ -161,8 +161,8 @@ async function main() {
   const buildArgs = [
     'build',
     'src/index.tsx',
-    '--compile', // Required so compiled binaries use the production JSX runtime (avoids jsxDEV crashes).
-    '--production',
+    '--compile',
+    '--production', // Required so compiled binaries use the production JSX runtime (avoids jsxDEV crashes).
     `--target=${targetInfo.bunTarget}`,
     `--outfile=${outputFile}`,
     '--sourcemap=none',
