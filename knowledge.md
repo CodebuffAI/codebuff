@@ -110,8 +110,11 @@ Env DI helpers:
 
 - Base contracts: `common/src/types/contracts/env.ts` (`BaseEnv`, `BaseCiEnv`, `ClientEnv`, `CiEnv`)
 - Helpers: `common/src/env-process.ts`, `common/src/env-ci.ts`
-- CLI: `cli/src/utils/env.ts` (`getCliEnv`, `createTestCliEnv`)
-- SDK: `sdk/src/env.ts` (`getSdkEnv`, `createTestSdkEnv`)
+- Test helpers: `common/src/testing-env-process.ts`, `common/src/testing-env-ci.ts`
+- CLI: `cli/src/utils/env.ts` (`getCliEnv`)
+- CLI test helpers: `cli/src/testing/env.ts` (`createTestCliEnv`)
+- SDK: `sdk/src/env.ts` (`getSdkEnv`)
+- SDK test helpers: `sdk/src/testing/env.ts` (`createTestSdkEnv`)
 
 Bun loads (highest precedence last):
 

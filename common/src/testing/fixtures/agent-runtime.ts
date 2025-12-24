@@ -5,6 +5,8 @@
  * Do not import from production code.
  */
 
+import { getInitialAgentState } from '../../types/session-state'
+
 import type { AgentTemplate } from '../../types/agent-template'
 import type {
   AgentRuntimeDeps,
@@ -13,6 +15,10 @@ import type {
 import type { GetUserInfoFromApiKeyInput, UserColumn } from '../../types/contracts/database'
 import type { ClientEnv, CiEnv } from '../../types/contracts/env'
 import type { Logger } from '../../types/contracts/logger'
+import type { PrintModeEvent } from '../../types/print-mode'
+import type { AgentState } from '../../types/session-state'
+import type { ProjectFileContext } from '../../util/file'
+import type { ToolSet } from 'ai'
 
 export const testLogger: Logger = {
   debug: () => {},
@@ -135,3 +141,144 @@ export const TEST_AGENT_RUNTIME_IMPL = Object.freeze<
 
   apiKey: 'test-api-key',
 })
+
+/**
+ * Mock file context for tests
+ */
+export const testFileContext: ProjectFileContext = {
+  projectRoot: '/test',
+  cwd: '/test',
+  fileTree: [],
+  fileTokenScores: {},
+  knowledgeFiles: {},
+  userKnowledgeFiles: {},
+  agentTemplates: {},
+  customToolDefinitions: {},
+  gitChanges: {
+    status: '',
+    diff: '',
+    diffCached: '',
+    lastCommitMessages: '',
+  },
+  changesSinceLastChat: {},
+  shellConfigFiles: {},
+  systemInfo: {
+    platform: 'test',
+    shell: 'test',
+    nodeVersion: 'test',
+    arch: 'test',
+    homedir: '/home/test',
+    cpus: 1,
+  },
+}
+
+/**
+ * Mock agent template for tests
+ */
+export const testAgentTemplate: AgentTemplate = {
+  id: 'test-agent',
+  displayName: 'Test Agent',
+  spawnerPrompt: 'Testing',
+  model: 'claude-3-5-sonnet-20241022',
+  inputSchema: {},
+  outputMode: 'last_message',
+  includeMessageHistory: true,
+  inheritParentSystemPrompt: false,
+  mcpServers: {},
+  toolNames: ['read_files', 'write_file', 'end_turn'],
+  spawnableAgents: [],
+  systemPrompt: 'Test system prompt',
+  instructionsPrompt: 'Test user prompt',
+  stepPrompt: 'Test agent step prompt',
+}
+
+/**
+ * Extended test params that include all commonly needed properties for
+ * testing agent runtime functions like loopAgentSteps and handleSpawnAgents.
+ *
+ * This type extends AgentRuntimeDeps & AgentRuntimeScopedDeps with additional
+ * properties that are frequently required in tests.
+ */
+export type TestAgentRuntimeParams = AgentRuntimeDeps &
+  AgentRuntimeScopedDeps & {
+    // Identifiers
+    clientSessionId: string
+    fingerprintId: string
+    userInputId: string
+    userId: string | undefined
+    repoId: string | undefined
+    repoUrl: string | undefined
+    runId: string
+
+    // Agent configuration
+    agentState: AgentState
+    agentTemplate: AgentTemplate
+    localAgentTemplates: Record<string, AgentTemplate>
+    ancestorRunIds: string[]
+
+    // Context
+    fileContext: ProjectFileContext
+    system: string
+    tools: ToolSet
+    prompt: string | undefined
+    spawnParams: Record<string, any> | undefined
+
+    // Control
+    signal: AbortSignal
+    previousToolCallFinished: Promise<void>
+
+    // Callbacks
+    onResponseChunk: (chunk: string | PrintModeEvent) => void
+    writeToClient: (chunk: string | PrintModeEvent) => void
+  }
+
+/**
+ * Creates a complete test params object that includes all commonly needed properties.
+ * Use this when calling functions like loopAgentSteps, handleSpawnAgents, etc.
+ *
+ * @param overrides - Optional overrides for any properties
+ * @returns Complete test params object
+ */
+export function createTestAgentRuntimeParams(
+  overrides: Partial<TestAgentRuntimeParams> = {},
+): TestAgentRuntimeParams {
+  const agentState = overrides.agentState ?? getInitialAgentState()
+
+  return {
+    // Include all base runtime deps
+    ...TEST_AGENT_RUNTIME_IMPL,
+
+    // Identifiers
+    clientSessionId: 'test-session',
+    fingerprintId: 'test-fingerprint',
+    userInputId: 'test-input',
+    userId: 'test-user',
+    repoId: undefined,
+    repoUrl: undefined,
+    runId: 'test-run-id',
+
+    // Agent configuration
+    agentState,
+    agentTemplate: testAgentTemplate,
+    localAgentTemplates: { 'test-agent': testAgentTemplate },
+    ancestorRunIds: [],
+
+    // Context
+    fileContext: testFileContext,
+    system: 'Test system prompt',
+    tools: {},
+    prompt: undefined,
+    spawnParams: undefined,
+
+    // Control
+    signal: new AbortController().signal,
+    previousToolCallFinished: Promise.resolve(),
+
+    // Callbacks
+    onResponseChunk: () => {},
+    writeToClient: () => {},
+
+    // Apply overrides last
+    ...overrides,
+  }
+}

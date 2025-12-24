@@ -27,7 +27,7 @@ function getClient(): BigQuery {
 }
 
 export async function setupBigQuery({
-  dataset = DATASET,
+  dataset,
   logger,
 }: {
   dataset?: string
@@ -36,11 +36,14 @@ export async function setupBigQuery({
   if (client) {
     return
   }
+  const resolvedDataset = dataset ?? DATASET
   try {
     client = new BigQuery()
 
     // Ensure dataset exists
-    const [ds] = await client.dataset(dataset).get({ autoCreate: true })
+    const [ds] = await client
+      .dataset(resolvedDataset)
+      .get({ autoCreate: true })
 
     // Ensure tables exist
     await ds.table(TRACES_TABLE).get({
@@ -94,16 +97,17 @@ export async function setupBigQuery({
 
 export async function insertMessageBigquery({
   row,
-  dataset = DATASET,
+  dataset,
   logger,
 }: {
   row: MessageRow
   dataset?: string
   logger: Logger
 }) {
+  const resolvedDataset = dataset ?? DATASET
   try {
     await getClient()
-      .dataset(dataset)
+      .dataset(resolvedDataset)
       .table(MESSAGE_TABLE)
       .insert({ ...row, request: JSON.stringify(row.request) })
 
@@ -127,13 +131,14 @@ export async function insertMessageBigquery({
 
 export async function insertTrace({
   trace,
-  dataset = DATASET,
+  dataset,
   logger,
 }: {
   trace: Trace
   dataset?: string
   logger: Logger
 }) {
+  const resolvedDataset = dataset ?? DATASET
   try {
     // Create a copy of the trace and stringify payload if needed
     const traceToInsert = {
@@ -144,7 +149,10 @@ export async function insertTrace({
           : trace.payload,
     }
 
-    await getClient().dataset(dataset).table(TRACES_TABLE).insert(traceToInsert)
+    await getClient()
+      .dataset(resolvedDataset)
+      .table(TRACES_TABLE)
+      .insert(traceToInsert)
 
     // Note (James): This log was too noisy.
     // logger.debug(
@@ -163,13 +171,14 @@ export async function insertTrace({
 
 export async function insertRelabel({
   relabel,
-  dataset = DATASET,
+  dataset,
   logger,
 }: {
   relabel: Relabel
   dataset?: string
   logger: Logger
 }) {
+  const resolvedDataset = dataset ?? DATASET
   try {
     // Stringify payload if needed
     const relabelToInsert = {
@@ -181,7 +190,7 @@ export async function insertRelabel({
     }
 
     await getClient()
-      .dataset(dataset)
+      .dataset(resolvedDataset)
       .table(RELABELS_TABLE)
       .insert(relabelToInsert)
 

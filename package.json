@@ -35,15 +35,15 @@
   },
   "dependencies": {
     "@t3-oss/env-nextjs": "^0.7.3",
-    "zod": "^4.0.0"
+    "zod": "^4.2.1"
   },
   "overrides": {
-    "zod": "^4.0.0"
+    "zod": "^4.2.1"
   },
   "devDependencies": {
-    "@tanstack/react-query": "^5.59.16",
+    "@tanstack/react-query": "^5.90.12",
     "@types/bun": "^1.3.5",
-    "@types/lodash": "4.17.7",
+    "@types/lodash": "^4.17.21",
     "@types/node": "^22.9.0",
     "@types/node-fetch": "^2.6.12",
     "@types/parse-path": "^7.1.0",
@@ -54,10 +54,10 @@
     "eslint-plugin-unused-imports": "^4.1.4",
     "ignore": "^6.0.2",
     "lodash": "4.17.21",
-    "prettier": "3.3.2",
+    "prettier": "^3.7.4",
     "ts-node": "^10.9.2",
     "ts-pattern": "^5.5.0",
-    "tsc-alias": "1.7.0",
+    "tsc-alias": "^1.8.16",
     "tsconfig-paths": "4.2.0",
     "types": "^0.1.1",
     "typescript": "5.5.4",

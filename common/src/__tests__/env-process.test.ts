@@ -1,10 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 
-import {
-  getProcessEnv,
-  processEnv,
-  createTestProcessEnv,
-} from '../env-process'
+import { getProcessEnv, processEnv } from '../env-process'
+import { createTestProcessEnv } from '../testing-env-process'
 
 describe('env-process', () => {
   describe('getProcessEnv', () => {

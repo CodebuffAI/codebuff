@@ -205,7 +205,7 @@ const isDynamicImportCall = (
 }
 
 /**
- * Detect if a file is an "env helper" by checking if it imports getBaseEnv or createTestBaseEnv
+ * Detect if a file is an "env helper" by checking if it imports getBaseEnv
  * from @codebuff/common/env-process. These files are the designated entry points for env access.
  */
 const isEnvHelperFile = (sourceFile: ts.SourceFile): boolean => {
@@ -216,10 +216,7 @@ const isEnvHelperFile = (sourceFile: ts.SourceFile): boolean => {
 
     if (info.kind === 'named') {
       for (const spec of info.named) {
-        if (
-          spec.imported === 'getBaseEnv' ||
-          spec.imported === 'createTestBaseEnv'
-        ) {
+        if (spec.imported === 'getBaseEnv') {
           return true
         }
       }

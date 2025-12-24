@@ -5,7 +5,7 @@
  * process env with CLI-specific vars for terminal/IDE detection.
  */
 
-import { getBaseEnv, createTestBaseEnv } from '@codebuff/common/env-process'
+import { getBaseEnv } from '@codebuff/common/env-process'
 
 import type { CliEnv } from '../types/env'
 
@@ -66,43 +66,3 @@ export const getCliEnv = (): CliEnv => ({
  * or when you need to set environment variables at runtime.
  */
 export const getSystemProcessEnv = (): NodeJS.ProcessEnv => process.env
-
-/**
- * Create a test CliEnv with optional overrides.
- * Composes from createTestBaseEnv() for DRY.
- */
-export const createTestCliEnv = (overrides: Partial<CliEnv> = {}): CliEnv => ({
-  ...createTestBaseEnv(),
-
-  // CLI-specific defaults
-  KITTY_WINDOW_ID: undefined,
-  SIXEL_SUPPORT: undefined,
-  ZED_NODE_ENV: undefined,
-  ZED_TERM: undefined,
-  ZED_SHELL: undefined,
-  COLORTERM: undefined,
-  VSCODE_THEME_KIND: undefined,
-  VSCODE_COLOR_THEME_KIND: undefined,
-  VSCODE_GIT_IPC_HANDLE: undefined,
-  VSCODE_PID: undefined,
-  VSCODE_CWD: undefined,
-  VSCODE_NLS_CONFIG: undefined,
-  CURSOR_PORT: undefined,
-  CURSOR: undefined,
-  JETBRAINS_REMOTE_RUN: undefined,
-  IDEA_INITIAL_DIRECTORY: undefined,
-  IDE_CONFIG_DIR: undefined,
-  JB_IDE_CONFIG_DIR: undefined,
-  VISUAL: undefined,
-  EDITOR: undefined,
-  CODEBUFF_CLI_EDITOR: undefined,
-  CODEBUFF_EDITOR: undefined,
-  OPEN_TUI_THEME: undefined,
-  OPENTUI_THEME: undefined,
-  CODEBUFF_IS_BINARY: undefined,
-  CODEBUFF_CLI_VERSION: undefined,
-  CODEBUFF_CLI_TARGET: undefined,
-  CODEBUFF_RG_PATH: undefined,
-  CODEBUFF_SCROLL_MULTIPLIER: undefined,
-  ...overrides,
-})

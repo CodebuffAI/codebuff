@@ -1,7 +1,7 @@
 import path from 'path'
 
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import { createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures/agent-runtime'
 import {
   clearMockedModules,
   mockModule,
@@ -11,13 +11,8 @@ import { createPatch } from 'diff'
 
 import { rewriteWithOpenAI } from '../fast-rewrite'
 
-import type {
-  AgentRuntimeDeps,
-  AgentRuntimeScopedDeps,
-} from '@codebuff/common/types/contracts/agent-runtime'
-
-describe.skip('rewriteWithOpenAI', () => {
-  let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
+describe('rewriteWithOpenAI', () => {
+  let agentRuntimeImpl: any
 
   beforeAll(async () => {
     // Mock database interactions
@@ -37,7 +32,7 @@ describe.skip('rewriteWithOpenAI', () => {
   })
 
   beforeEach(() => {
-    agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
+    agentRuntimeImpl = { ...createTestAgentRuntimeParams() }
   })
 
   afterAll(() => {
@@ -49,6 +44,12 @@ describe.skip('rewriteWithOpenAI', () => {
     const originalContent = await Bun.file(`${testDataDir}/original.go`).text()
     const editSnippet = await Bun.file(`${testDataDir}/edit-snippet.go`).text()
     const expectedResult = await Bun.file(`${testDataDir}/expected.go`).text()
+    let capturedPromptText: string | undefined
+
+    agentRuntimeImpl.promptAiSdk = async (params: any) => {
+      capturedPromptText = params?.messages?.[0]?.content?.[0]?.text
+      return expectedResult.replace(/\n$/, '')
+    }
 
     const result = await rewriteWithOpenAI({
       ...agentRuntimeImpl,
@@ -60,6 +61,9 @@ describe.skip('rewriteWithOpenAI', () => {
       userId: TEST_USER_ID,
       runId: 'test-run-id',
     })
+
+    expect(capturedPromptText).toContain(originalContent)
+    expect(capturedPromptText).toContain(editSnippet)
 
     const patch = createPatch('test.ts', expectedResult, result)
     const patchLines = patch.split('\n').slice(4)

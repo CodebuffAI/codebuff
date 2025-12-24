@@ -11,9 +11,8 @@ const STRIPE_METER_EVENT_NAME = 'credits'
 const STRIPE_METER_REQUEST_TIMEOUT_MS = 10_000
 
 function shouldAttemptStripeMetering(): boolean {
-  // Avoid sending Stripe metering events in CI/tests, and when Stripe isn't configured.
+  // Avoid sending Stripe metering events in CI and when Stripe isn't configured.
   if (process.env.CI === 'true' || process.env.CI === '1') return false
-  if (process.env.NODE_ENV === 'test') return false
   return Boolean(process.env.STRIPE_SECRET_KEY)
 }
 

@@ -36,5 +36,6 @@ export default defineConfig({
     command: `NEXT_PUBLIC_WEB_PORT=${PORT} bun run dev`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
   },
 })

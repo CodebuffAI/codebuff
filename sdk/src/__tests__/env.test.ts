@@ -1,6 +1,7 @@
 import { describe, test, expect, afterEach } from 'bun:test'
 
-import { getSdkEnv, createTestSdkEnv } from '../env'
+import { getSdkEnv } from '../env'
+import { createTestSdkEnv } from '../testing/env'
 
 describe('sdk/env', () => {
   describe('getSdkEnv', () => {

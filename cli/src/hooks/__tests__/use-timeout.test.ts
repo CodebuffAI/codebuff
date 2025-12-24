@@ -1,3 +1,4 @@
+import React from 'react'
 import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
 
 import { useTimeout } from '../use-timeout'
@@ -5,21 +6,28 @@ import { useTimeout } from '../use-timeout'
 /**
  * Tests for useTimeout hook
  *
- * NOTE: These tests are currently skipped due to React 19 + Bun compatibility issues.
- * The renderHook utility from React Testing Library returns null results in this environment.
- * See cli/knowledge.md "React Testing Library + React 19 + Bun Incompatibility" section.
- *
- * The hook implementation follows the spec exactly and will be tested through integration
- * tests when used in actual components (e.g., in Part 5 when used for reconnection messages).
+ * NOTE: Tests install a minimal React dispatcher so hooks can run without a renderer.
  */
 
 describe('useTimeout', () => {
+  const reactInternals = (React as any)
+    .__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE
   let originalSetTimeout: typeof setTimeout
   let originalClearTimeout: typeof clearTimeout
   let timers: { id: number; ms: number; fn: Function; cleared: boolean }[]
   let nextId: number
+  let originalDispatcher: any
 
   beforeEach(() => {
+    originalDispatcher = reactInternals.H
+    reactInternals.H = {
+      useRef: (value: any) => ({ current: value }),
+      useCallback: (callback: any) => callback,
+      useEffect: (effect: any) => {
+        effect()
+      },
+    }
+
     timers = []
     nextId = 1
     originalSetTimeout = globalThis.setTimeout
@@ -40,11 +48,12 @@ describe('useTimeout', () => {
   })
 
   afterEach(() => {
+    reactInternals.H = originalDispatcher
     globalThis.setTimeout = originalSetTimeout
     globalThis.clearTimeout = originalClearTimeout
   })
 
-  test.skip('setTimeout schedules a timeout with correct delay', () => {
+  test('setTimeout schedules a timeout with correct delay', () => {
     const { setTimeout } = useTimeout()
     const callback = mock(() => {})
 
@@ -55,7 +64,7 @@ describe('useTimeout', () => {
     expect(timers[0].cleared).toBe(false)
   })
 
-  test.skip('timeout callback executes when invoked', () => {
+  test('timeout callback executes when invoked', () => {
     const { setTimeout } = useTimeout()
     const callback = mock(() => {})
 
@@ -69,7 +78,7 @@ describe('useTimeout', () => {
     expect(callback).toHaveBeenCalledTimes(1)
   })
 
-  test.skip('clearTimeout marks the timeout as cleared', () => {
+  test('clearTimeout marks the timeout as cleared', () => {
     const { setTimeout, clearTimeout } = useTimeout()
     const callback = mock(() => {})
 
@@ -80,7 +89,7 @@ describe('useTimeout', () => {
     expect(timers[0].cleared).toBe(true)
   })
 
-  test.skip('clearTimeout prevents callback from being used', () => {
+  test('clearTimeout prevents callback from being used', () => {
     const { setTimeout, clearTimeout } = useTimeout()
     const callback = mock(() => {})
 
@@ -92,7 +101,7 @@ describe('useTimeout', () => {
     expect(timers[0].cleared).toBe(true)
   })
 
-  test.skip('replacing timeout with same key clears the previous one', () => {
+  test('replacing timeout with same key clears the previous one', () => {
     const { setTimeout } = useTimeout()
     const callback1 = mock(() => {})
     const callback2 = mock(() => {})
@@ -108,7 +117,7 @@ describe('useTimeout', () => {
     expect(timers[1].ms).toBe(2000)
   })
 
-  test.skip('clearTimeout when no timeout is active does nothing', () => {
+  test('clearTimeout when no timeout is active does nothing', () => {
     const { clearTimeout } = useTimeout()
 
     // Should not throw
@@ -117,7 +126,7 @@ describe('useTimeout', () => {
     expect(timers.length).toBe(0)
   })
 
-  test.skip('multiple setTimeout calls with different keys work independently', () => {
+  test('multiple setTimeout calls with different keys work independently', () => {
     const { setTimeout } = useTimeout()
     const callbacks = [mock(() => {}), mock(() => {}), mock(() => {})]
 
@@ -131,7 +140,7 @@ describe('useTimeout', () => {
     expect(timers[2].cleared).toBe(false)
   })
 
-  test.skip('setTimeout after clearTimeout works correctly', () => {
+  test('setTimeout after clearTimeout works correctly', () => {
     const { setTimeout, clearTimeout } = useTimeout()
     const callback1 = mock(() => {})
     const callback2 = mock(() => {})
@@ -145,7 +154,7 @@ describe('useTimeout', () => {
     expect(timers[1].cleared).toBe(false)
   })
 
-  test.skip('hook returns stable setTimeout and clearTimeout functions', () => {
+  test('hook returns distinct setTimeout and clearTimeout functions', () => {
     const result1 = useTimeout()
     const result2 = useTimeout()
 
@@ -154,7 +163,7 @@ describe('useTimeout', () => {
     expect(result1.clearTimeout).not.toBe(result2.clearTimeout)
   })
 
-  test.skip('clearTimeout without key clears all timeouts', () => {
+  test('clearTimeout without key clears all timeouts', () => {
     const { setTimeout, clearTimeout } = useTimeout()
     const callbacks = [mock(() => {}), mock(() => {}), mock(() => {})]
 
@@ -174,7 +183,7 @@ describe('useTimeout', () => {
     expect(timers[2].cleared).toBe(true)
   })
 
-  test.skip('clearTimeout with specific key only clears that timeout', () => {
+  test('clearTimeout with specific key only clears that timeout', () => {
     const { setTimeout, clearTimeout } = useTimeout()
     const callbacks = [mock(() => {}), mock(() => {}), mock(() => {})]
 
@@ -189,7 +198,7 @@ describe('useTimeout', () => {
     expect(timers[2].cleared).toBe(false)
   })
 
-  test.skip('timeout auto-cleans up after execution', () => {
+  test('timeout auto-cleans up after execution', () => {
     const { setTimeout } = useTimeout()
     const callback = mock(() => {})
 
@@ -203,7 +212,7 @@ describe('useTimeout', () => {
     // but the implementation removes the key from the Map after execution
   })
 
-  test.skip('can reuse same key after timeout executes', () => {
+  test('can reuse same key after timeout executes', () => {
     const { setTimeout } = useTimeout()
     const callback1 = mock(() => {})
     const callback2 = mock(() => {})
@@ -222,7 +231,7 @@ describe('useTimeout', () => {
     expect(timers[1].cleared).toBe(false)
   })
 
-  test.skip('multiple timeouts can execute independently', () => {
+  test('multiple timeouts can execute independently', () => {
     const { setTimeout } = useTimeout()
     const callback1 = mock(() => {})
     const callback2 = mock(() => {})
@@ -242,7 +251,7 @@ describe('useTimeout', () => {
     expect(callback3).toHaveBeenCalledTimes(1)
   })
 
-  test.skip('replacing timeout before execution prevents old callback', () => {
+  test('replacing timeout before execution prevents old callback', () => {
     const { setTimeout } = useTimeout()
     const oldCallback = mock(() => {})
     const newCallback = mock(() => {})
@@ -261,7 +270,7 @@ describe('useTimeout', () => {
     expect(newCallback).toHaveBeenCalledTimes(1)
   })
 
-  test.skip('clearTimeout on executed timeout does nothing', () => {
+  test('clearTimeout on executed timeout does nothing', () => {
     const { setTimeout, clearTimeout } = useTimeout()
     const callback = mock(() => {})
 
@@ -276,7 +285,7 @@ describe('useTimeout', () => {
     expect(timers.length).toBe(1)
   })
 
-  test.skip('mixing set and clear operations maintains correct state', () => {
+  test('mixing set and clear operations maintains correct state', () => {
     const { setTimeout, clearTimeout } = useTimeout()
 
     setTimeout(

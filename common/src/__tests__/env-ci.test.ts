@@ -1,6 +1,7 @@
 import { describe, test, expect, afterEach } from 'bun:test'
 
-import { getCiEnv, ciEnv, isCI, createTestCiEnv } from '../env-ci'
+import { getCiEnv, ciEnv, isCI } from '../env-ci'
+import { createTestCiEnv } from '../testing-env-ci'
 
 describe('env-ci', () => {
   describe('getCiEnv', () => {

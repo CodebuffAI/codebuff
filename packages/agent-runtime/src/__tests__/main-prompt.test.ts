@@ -1,7 +1,7 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import { createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures/agent-runtime'
 import {
   AgentTemplateTypes,
   getInitialSessionState,
@@ -23,14 +23,15 @@ import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
-import type { RequestToolCallFn } from '@codebuff/common/types/contracts/client'
 import type {
-  ParamsExcluding,
-  ParamsOf,
-} from '@codebuff/common/types/function-params'
+  RequestFilesFn,
+  RequestOptionalFileFn,
+  RequestToolCallFn,
+} from '@codebuff/common/types/contracts/client'
+import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
-let mainPromptBaseParams: ParamsExcluding<typeof mainPrompt, 'action'>
+let mainPromptBaseParams: any
 
 import { createToolCallChunk } from './test-utils'
 
@@ -90,7 +91,7 @@ describe('mainPrompt', () => {
     }
 
     mainPromptBaseParams = {
-      ...TEST_AGENT_RUNTIME_IMPL,
+      ...createTestAgentRuntimeParams(),
       repoId: undefined,
       repoUrl: undefined,
       userId: TEST_USER_ID,
@@ -125,7 +126,9 @@ describe('mainPrompt', () => {
     mockAgentStream([{ type: 'text', text: 'Test response' }])
 
     // Mock websocket actions
-    mainPromptBaseParams.requestFiles = async ({ filePaths }) => {
+    mainPromptBaseParams.requestFiles = async ({
+      filePaths,
+    }: ParamsOf<RequestFilesFn>) => {
       const results: Record<string, string | null> = {}
       filePaths.forEach((p) => {
         if (p === 'test.txt') {
@@ -137,7 +140,9 @@ describe('mainPrompt', () => {
       return results
     }
 
-    mainPromptBaseParams.requestOptionalFile = async ({ filePath }) => {
+    mainPromptBaseParams.requestOptionalFile = async ({
+      filePath,
+    }: ParamsOf<RequestOptionalFileFn>) => {
       if (filePath === 'test.txt') {
         return 'mock content for test.txt'
       }

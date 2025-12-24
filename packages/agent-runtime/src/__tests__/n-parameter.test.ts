@@ -1,6 +1,6 @@
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import { createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import {
@@ -22,16 +22,9 @@ import * as toolExecutor from '../tools/tool-executor'
 import { mockFileContext } from './test-utils'
 
 import type { AgentTemplate, StepGenerator } from '../templates/types'
-import type {
-  AgentRuntimeDeps,
-  AgentRuntimeScopedDeps,
-} from '@codebuff/common/types/contracts/agent-runtime'
 import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type {
-  ParamsExcluding,
-  ParamsOf,
-} from '@codebuff/common/types/function-params'
+import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { AgentState } from '@codebuff/common/types/session-state'
 
 const logger: Logger = {
@@ -44,12 +37,12 @@ const logger: Logger = {
 describe('n parameter and GENERATE_N functionality', () => {
   let mockTemplate: AgentTemplate
   let mockAgentState: AgentState
-  let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
-  let runAgentStepBaseParams: ParamsExcluding<typeof runAgentStep, 'n'>
+  let agentRuntimeImpl: any
+  let runAgentStepBaseParams: any
 
   beforeEach(() => {
     agentRuntimeImpl = {
-      ...TEST_AGENT_RUNTIME_IMPL,
+      ...createTestAgentRuntimeParams(),
       addAgentStep: async () => 'test-agent-step-id',
 
       sendAction: () => {},

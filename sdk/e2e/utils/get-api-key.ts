@@ -1,34 +1,33 @@
+import { E2E_MOCK_API_KEY, setupE2eMocks } from './e2e-mocks'
+
+const shouldRunLiveE2e = process.env.RUN_CODEBUFF_E2E === 'true'
+
 /**
  * Utility to load Codebuff API key from environment or user credentials.
+ * Defaults to a mock key for deterministic local runs.
  */
-
 export function getApiKey(): string {
-  const apiKey = process.env.CODEBUFF_API_KEY
-
-  if (!apiKey) {
-    throw new Error(
-      'CODEBUFF_API_KEY environment variable is required for e2e tests. ' +
-        'Get your API key at https://www.codebuff.com/api-keys',
-    )
+  if (shouldRunLiveE2e) {
+    const apiKey = process.env.CODEBUFF_API_KEY
+    if (!apiKey) {
+      throw new Error(
+        'CODEBUFF_API_KEY environment variable is required for live e2e tests. ' +
+          'Get your API key at https://www.codebuff.com/api-keys',
+      )
+    }
+    return apiKey
   }
 
-  return apiKey
+  setupE2eMocks()
+  process.env.CODEBUFF_API_KEY = E2E_MOCK_API_KEY
+  return E2E_MOCK_API_KEY
 }
 
 /**
- * Skip test if no API key is available (for CI environments without credentials).
+ * E2E tests should always run; use mock mode when not opted-in.
  */
 export function skipIfNoApiKey(): boolean {
-  const apiKey = process.env.CODEBUFF_API_KEY
-  if (!apiKey) return true
-
-  const isCi =
-    process.env.CI === 'true' ||
-    process.env.CI === '1' ||
-    process.env.GITHUB_ACTIONS === 'true'
-  const optedIn = process.env.RUN_CODEBUFF_E2E === 'true'
-
-  return !(isCi || optedIn)
+  return false
 }
 
 /**

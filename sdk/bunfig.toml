@@ -6,4 +6,4 @@ linkWorkspacePackages = true
 [test]
 # Exclude large test repositories from execution
 exclude = ["../evals/test-repos/**"]
-preload = ["./test/setup-env.ts"]
+preload = ["./test/setup-env.ts", "../test/setup-bigquery-mocks.ts"]

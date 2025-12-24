@@ -23,7 +23,7 @@ describe('Features: Knowledge Files', () => {
     client = new CodebuffClient({ apiKey: getApiKey() })
   })
 
-  test.skip(
+  test(
     'agent uses injected knowledge files',
     async () => {
       if (skipIfNoApiKey()) return
@@ -50,7 +50,7 @@ describe('Features: Knowledge Files', () => {
     DEFAULT_TIMEOUT,
   )
 
-  test.skip(
+  test(
     'multiple knowledge files are accessible',
     async () => {
       if (skipIfNoApiKey()) return

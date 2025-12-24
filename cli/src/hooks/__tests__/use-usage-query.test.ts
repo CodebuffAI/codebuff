@@ -1,25 +1,55 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { renderHook, waitFor } from '@testing-library/react'
+import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
 import {
   describe,
   test,
   expect,
+  beforeAll,
   beforeEach,
+  afterAll,
   afterEach,
   mock,
   spyOn,
 } from 'bun:test'
-import React from 'react'
 
 import type { ClientEnv } from '@codebuff/common/types/contracts/env'
 
 import { useChatStore } from '../../state/chat-store'
 import * as authModule from '../../utils/auth'
-import {
-  fetchUsageData,
-  useUsageQuery,
-  useRefreshUsage,
-} from '../use-usage-query'
+
+let fetchUsageData: typeof import('../use-usage-query').fetchUsageData
+let useUsageQuery: typeof import('../use-usage-query').useUsageQuery
+let useRefreshUsage: typeof import('../use-usage-query').useRefreshUsage
+let usageQueryKeys: typeof import('../use-usage-query').usageQueryKeys
+let lastQueryOptions: any
+let queryClientMock: { invalidateQueries: (...args: any[]) => void }
+
+beforeAll(async () => {
+  await mockModule('@tanstack/react-query', () => ({
+    useQuery: (options: any) => {
+      lastQueryOptions = options
+      return { data: undefined, isSuccess: false, error: null } as any
+    },
+    useQueryClient: () => queryClientMock,
+  }))
+
+  ;({
+    fetchUsageData,
+    useUsageQuery,
+    useRefreshUsage,
+    usageQueryKeys,
+  } = await import('../use-usage-query'))
+})
+
+afterAll(() => {
+  clearMockedModules()
+})
+
+beforeEach(() => {
+  lastQueryOptions = undefined
+})
 
 describe('fetchUsageData', () => {
   const originalFetch = globalThis.fetch
@@ -86,36 +116,23 @@ describe('fetchUsageData', () => {
 })
 
 describe('useUsageQuery', () => {
-  let queryClient: QueryClient
   let getAuthTokenSpy: ReturnType<typeof spyOn>
+  const originalFetch = globalThis.fetch
   const originalEnv = process.env.NEXT_PUBLIC_CODEBUFF_APP_URL
 
-  function createWrapper() {
-    return ({ children }: { children: React.ReactNode }) =>
-      React.createElement(
-        QueryClientProvider,
-        { client: queryClient },
-        children,
-      )
-  }
-
   beforeEach(() => {
-    queryClient = new QueryClient({
-      defaultOptions: {
-        queries: { retry: false },
-      },
-    })
     process.env.NEXT_PUBLIC_CODEBUFF_APP_URL = 'https://test.codebuff.local'
     useChatStore.getState().reset()
   })
 
   afterEach(() => {
     getAuthTokenSpy?.mockRestore()
+    globalThis.fetch = originalFetch
     process.env.NEXT_PUBLIC_CODEBUFF_APP_URL = originalEnv
     mock.restore()
   })
 
-  test.skip('should fetch data when enabled', async () => {
+  test('should fetch data when enabled', async () => {
     getAuthTokenSpy = spyOn(authModule, 'getAuthToken').mockReturnValue(
       'test-token',
     )
@@ -135,79 +152,55 @@ describe('useUsageQuery', () => {
         }),
     ) as unknown as typeof fetch
 
-    const { result } = renderHook(() => useUsageQuery(), {
-      wrapper: createWrapper(),
-    })
+    useUsageQuery()
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(lastQueryOptions?.enabled).toBe(true)
 
-    expect(result.current.data).toEqual(mockResponse)
+    const result = await lastQueryOptions.queryFn()
+    expect(result).toEqual(mockResponse)
   })
 
-  test.skip('should not fetch when disabled', async () => {
+  test('should not fetch when disabled', () => {
     getAuthTokenSpy = spyOn(authModule, 'getAuthToken').mockReturnValue(
       'test-token',
     )
-    const fetchMock = mock(
-      async () => new Response('{}'),
-    ) as unknown as typeof fetch
+    const fetchMock = mock(async () => new Response('{}')) as unknown as typeof fetch
     globalThis.fetch = fetchMock
 
-    const { result } = renderHook(() => useUsageQuery({ enabled: false }), {
-      wrapper: createWrapper(),
-    })
+    useUsageQuery({ enabled: false })
 
-    await new Promise((resolve) => setTimeout(resolve, 100))
-
+    expect(lastQueryOptions?.enabled).toBe(false)
     expect(fetchMock).not.toHaveBeenCalled()
-    expect(result.current.data).toBeUndefined()
   })
 
-  test.skip('should not fetch when no auth token', async () => {
+  test('should not fetch when no auth token', () => {
     getAuthTokenSpy = spyOn(authModule, 'getAuthToken').mockReturnValue(
       undefined,
     )
-    const fetchMock = mock(
-      async () => new Response('{}'),
-    ) as unknown as typeof fetch
+    const fetchMock = mock(async () => new Response('{}')) as unknown as typeof fetch
     globalThis.fetch = fetchMock
 
-    renderHook(() => useUsageQuery(), {
-      wrapper: createWrapper(),
-    })
+    useUsageQuery()
 
-    await new Promise((resolve) => setTimeout(resolve, 100))
-
+    expect(lastQueryOptions?.enabled).toBe(false)
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })
 
 describe('useRefreshUsage', () => {
-  let queryClient: QueryClient
-
-  function createWrapper() {
-    return ({ children }: { children: React.ReactNode }) =>
-      React.createElement(
-        QueryClientProvider,
-        { client: queryClient },
-        children,
-      )
-  }
-
-  beforeEach(() => {
-    queryClient = new QueryClient()
+  afterEach(() => {
+    mock.restore()
   })
 
-  test.skip('should invalidate usage queries', async () => {
-    const invalidateSpy = mock(queryClient.invalidateQueries.bind(queryClient))
-    queryClient.invalidateQueries = invalidateSpy as any
+  test('should invalidate usage queries', () => {
+    const invalidateSpy = mock(() => {})
+    queryClientMock = { invalidateQueries: invalidateSpy }
 
-    const { result } = renderHook(() => useRefreshUsage(), {
-      wrapper: createWrapper(),
+    const refresh = useRefreshUsage()
+    refresh()
+
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: usageQueryKeys.current(),
     })
-
-    result.current()
-
-    expect(invalidateSpy).toHaveBeenCalled()
   })
 })

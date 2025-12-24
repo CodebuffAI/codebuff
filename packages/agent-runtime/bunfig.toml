@@ -1,0 +1,2 @@
+[test]
+preload = ["../../sdk/test/setup-env.ts", "../../test/setup-bigquery-mocks.ts"]
