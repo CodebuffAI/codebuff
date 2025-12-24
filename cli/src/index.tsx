@@ -23,9 +23,9 @@ import { getProjectRoot, setProjectRoot } from './project-files'
 import { initAnalytics } from './utils/analytics'
 import { getAuthTokenDetails } from './utils/auth'
 import { getCliEnv } from './utils/env'
-import { findGitRoot } from './utils/git'
 import { initializeAgentRegistry } from './utils/local-agent-registry'
 import { clearLogFile, logger } from './utils/logger'
+import { shouldShowProjectPicker } from './utils/project-picker'
 import { saveRecentProject } from './utils/recent-projects'
 import { detectTerminalTheme } from './utils/terminal-color-detection'
 import { setOscDetectedTheme } from './utils/theme-system'
@@ -173,12 +173,11 @@ async function main(): Promise<void> {
 
   await initializeApp({ cwd })
 
-  // Detect if user is at home directory or outside a project (should show project picker)
+  // Show project picker only when user starts at the home directory or an ancestor
   const projectRoot = getProjectRoot()
   const homeDir = os.homedir()
-  const gitRoot = findGitRoot({ cwd: projectRoot })
-  const showProjectPicker =
-    projectRoot === '/' || projectRoot === homeDir || gitRoot === null
+  const startCwd = process.cwd()
+  const showProjectPicker = shouldShowProjectPicker(startCwd, homeDir)
 
   // Initialize agent registry (loads user agents via SDK).
   // When --agent is provided, skip local .agents to avoid overrides.
