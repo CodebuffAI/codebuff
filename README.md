@@ -8,7 +8,6 @@ Codebuff is an **open-source AI coding assistant** that edits your codebase thro
 
 Codebuff beats Claude Code at 61% vs 53% on [our evals](evals/README.md) across 175+ coding tasks over multiple open-source repos that simulate real-world tasks.
 
-![Codebuff Demo](./assets/demo.gif)
 
 ## How it works
 
