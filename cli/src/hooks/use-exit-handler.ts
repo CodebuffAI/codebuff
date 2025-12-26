@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { getCurrentChatId } from '../project-files'
 import { flushAnalytics } from '../utils/analytics'
+import { cleanupRenderer } from '../utils/renderer-cleanup'
 
 import type { InputValue } from '../state/chat-store'
 
@@ -64,7 +65,10 @@ export const useExitHandler = ({
       exitWarningTimeoutRef.current = null
     }
 
-    flushAnalytics().then(() => process.exit(0))
+    flushAnalytics().then(() => {
+      cleanupRenderer()
+      process.exit(0)
+    })
     return true
   }, [inputValue, setInputValue, nextCtrlCWillExit])
 
@@ -77,8 +81,12 @@ export const useExitHandler = ({
 
       const flushed = flushAnalytics()
       if (flushed && typeof (flushed as Promise<void>).finally === 'function') {
-        ;(flushed as Promise<void>).finally(() => process.exit(0))
+        ;(flushed as Promise<void>).finally(() => {
+          cleanupRenderer()
+          process.exit(0)
+        })
       } else {
+        cleanupRenderer()
         process.exit(0)
       }
     }
