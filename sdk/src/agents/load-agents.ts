@@ -264,132 +264,58 @@ async function transpileAgent(
   fullPath: string,
   verbose: boolean,
 ): Promise<string | null> {
-  try {
-    let buildFn: typeof import('esbuild')['build'] | null = null
-    const canUseBunBuild =
-      typeof Bun !== 'undefined' && typeof Bun.build === 'function'
-    try {
-      const esbuildModule = await import('esbuild')
-      buildFn = esbuildModule.build
-    } catch {
-      // esbuild not available (likely running in compiled binary)
-    }
+  const canUseBunBuild =
+    typeof Bun !== 'undefined' && typeof Bun.build === 'function'
 
-    const hash = createHash('sha1').update(fullPath).digest('hex')
-    // Store compiled agents inside the current project so node module resolution
-    // can find dependencies (e.g. lodash, zod/v4) via parent node_modules.
-    const tempDir = path.join(process.cwd(), '.codebuff', 'agents')
-    const compiledPath = path.join(tempDir, `${hash}.mjs`)
-
-    const buildWithBun = async (): Promise<string | null> => {
-      if (!canUseBunBuild) {
-        return null
-      }
-      const result = await Bun.build({
-        entrypoints: [fullPath],
-        outdir: tempDir,
-        target: 'node',
-        format: 'esm',
-        sourcemap: 'inline',
-        splitting: false,
-        minify: false,
-        root: process.cwd(),
-        packages: 'external',
-        external: [
-          ...builtinModules,
-          ...builtinModules.map((mod) => `node:${mod}`),
-        ],
-        throw: false,
-      })
-
-      if (!result.success) {
-        if (verbose) {
-          console.error(`Bun.build failed for agent: ${fullPath}`)
-        }
-        return null
-      }
-
-      const entryOutput =
-        result.outputs.find((output) => output.kind === 'entry-point') ??
-        result.outputs[0]
-      const jsText = entryOutput ? await entryOutput.text() : null
-      if (!jsText) {
-        if (verbose) {
-          console.error(`Failed to transpile agent (no output): ${fullPath}`)
-        }
-        return null
-      }
-
-      await fs.promises.mkdir(tempDir, { recursive: true })
-      await fs.promises.writeFile(compiledPath, jsText, 'utf8')
-      return compiledPath
-    }
-
-    if (buildFn) {
-      try {
-        const result = await buildFn({
-          entryPoints: [fullPath],
-          absWorkingDir: process.cwd(), // Force esbuild to use current cwd for path resolution
-          bundle: true,
-          format: 'esm',
-          platform: 'node',
-          target: 'node18',
-          write: false,
-          logLevel: verbose ? 'info' : 'silent',
-          sourcemap: 'inline',
-          packages: 'external',
-          external: [
-            ...builtinModules,
-            ...builtinModules.map((mod) => `node:${mod}`),
-          ],
-        })
-
-        const jsOutput = result.outputFiles?.[0]
-        if (!jsOutput?.text) {
-          if (verbose) {
-            console.error(`Failed to transpile agent (no output): ${fullPath}`)
-          }
-          return null
-        }
-
-        await fs.promises.mkdir(tempDir, { recursive: true })
-        await fs.promises.writeFile(compiledPath, jsOutput.text, 'utf8')
-
-        return compiledPath
-      } catch (error) {
-        const bunResult = await buildWithBun()
-        if (bunResult) {
-          return bunResult
-        }
-        if (verbose) {
-          console.error(
-            `Error transpiling agent ${fullPath}:`,
-            error instanceof Error ? error.message : error,
-          )
-        }
-        return null
-      }
-    }
-
-    const bunResult = await buildWithBun()
-    if (bunResult) {
-      return bunResult
-    }
-
+  if (!canUseBunBuild) {
     if (verbose) {
-      console.error(
-        `Cannot transpile ${fullPath}: esbuild not available in compiled binary`,
-      )
-    }
-    return null
-
-  } catch (error) {
-    if (verbose) {
-      console.error(
-        `Error transpiling agent ${fullPath}:`,
-        error instanceof Error ? error.message : error,
-      )
+      console.error(`Cannot transpile ${fullPath}: Bun.build not available`)
     }
     return null
   }
+
+  const hash = createHash('sha1').update(fullPath).digest('hex')
+  // Store compiled agents inside the current project so node module resolution
+  // can find dependencies (e.g. lodash, zod/v4) via parent node_modules.
+  const tempDir = path.join(process.cwd(), '.codebuff', 'agents')
+  const compiledPath = path.join(tempDir, `${hash}.mjs`)
+
+  const result = await Bun.build({
+    entrypoints: [fullPath],
+    outdir: tempDir,
+    target: 'node',
+    format: 'esm',
+    sourcemap: 'inline',
+    splitting: false,
+    minify: false,
+    root: process.cwd(),
+    packages: 'external',
+    external: [
+      ...builtinModules,
+      ...builtinModules.map((mod) => `node:${mod}`),
+    ],
+    throw: false,
+  })
+
+  if (!result.success) {
+    if (verbose) {
+      console.error(`Bun.build failed for agent: ${fullPath}`)
+    }
+    return null
+  }
+
+  const entryOutput =
+    result.outputs.find((output) => output.kind === 'entry-point') ??
+    result.outputs[0]
+  const jsText = entryOutput ? await entryOutput.text() : null
+  if (!jsText) {
+    if (verbose) {
+      console.error(`Failed to transpile agent (no output): ${fullPath}`)
+    }
+    return null
+  }
+
+  await fs.promises.mkdir(tempDir, { recursive: true })
+  await fs.promises.writeFile(compiledPath, jsText, 'utf8')
+  return compiledPath
 }

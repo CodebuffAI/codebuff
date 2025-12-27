@@ -41,8 +41,7 @@ const nextConfig = {
       '@codebuff/code-map',
       '@codebuff/code-map/parse',
       '@codebuff/code-map/languages',
-      /^@codebuff\/code-map/,
-      'esbuild', // Used by SDK's load-agents.ts
+      /^@codebuff\/code-map/
     )
 
     // Suppress contentlayer webpack cache warnings
