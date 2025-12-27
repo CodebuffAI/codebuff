@@ -15,12 +15,11 @@
     }
   },
   "scripts": {
-    "dev": "bun run prebuild:agents && bun run src/index.tsx",
+    "dev": "bun run prebuild:agents && bun run src/index.tsx --cwd ..",
     "prebuild:agents": "bun run scripts/prebuild-agents.ts",
     "build:sdk": "cd ../sdk && bun run build",
     "build:binary": "bun ./scripts/build-binary.ts codebuff $npm_package_version",
     "release": "bun run scripts/release.ts",
-    "start": "bun run dist/index.js",
     "test": "bun test",
     "test:tmux-poc": "bun run src/__tests__/tmux-poc.ts",
     "typecheck": "tsc --noEmit -p ."
