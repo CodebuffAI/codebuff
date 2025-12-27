@@ -1,4 +1,4 @@
-import React, { cloneElement, isValidElement, memo, type ReactElement, type ReactNode } from 'react'
+import React, { cloneElement, isValidElement, memo, useRef, type ReactElement, type ReactNode } from 'react'
 
 interface ButtonProps {
   onClick?: (e?: unknown) => void | Promise<unknown>
@@ -37,13 +37,36 @@ function makeTextUnselectable(node: ReactNode): ReactNode {
 
 export const Button = memo(({ onClick, onMouseOver, onMouseOut, style, children, ...rest }: ButtonProps) => {
   const processedChildren = makeTextUnselectable(children)
+  // Track whether mouse down occurred on this element to implement proper click detection
+  // This prevents hover from triggering clicks in some terminals
+  const mouseDownRef = useRef(false)
+
+  const handleMouseDown = () => {
+    mouseDownRef.current = true
+  }
+
+  const handleMouseUp = (e?: unknown) => {
+    // Only trigger click if mouse down happened on this element
+    if (mouseDownRef.current && onClick) {
+      onClick(e)
+    }
+    mouseDownRef.current = false
+  }
+
+  const handleMouseOut = () => {
+    // Reset mouse down state when leaving the element
+    mouseDownRef.current = false
+    onMouseOut?.()
+  }
+
   return (
     <box
       {...rest}
       style={style}
-      onMouseDown={onClick}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
       onMouseOver={onMouseOver}
-      onMouseOut={onMouseOut}
+      onMouseOut={handleMouseOut}
     >
       {processedChildren}
     </box>
