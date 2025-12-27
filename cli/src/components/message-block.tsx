@@ -421,10 +421,8 @@ const AgentBody = memo(
 
         nodes.push(
           <ThinkingBlock
-            key={`${keyPrefix}-thinking-${start}`}
+            key={reasoningBlocks[0]?.thinkingId ?? `${keyPrefix}-thinking-${start}`}
             blocks={reasoningBlocks}
-            keyPrefix={keyPrefix}
-            startIndex={start}
             onToggleCollapsed={onToggleCollapsed}
             availableWidth={availableWidth}
             isNested={true}
@@ -1234,10 +1232,8 @@ const BlocksRenderer = memo(
 
         nodes.push(
           <ThinkingBlock
-            key={`${messageId}-thinking-${start}`}
+            key={reasoningBlocks[0]?.thinkingId ?? `${messageId}-thinking-${start}`}
             blocks={reasoningBlocks}
-            keyPrefix={messageId}
-            startIndex={start}
             onToggleCollapsed={onToggleCollapsed}
             availableWidth={availableWidth}
             isNested={false}

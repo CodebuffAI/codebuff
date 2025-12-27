@@ -286,7 +286,7 @@ export const Chat = ({
           ): ContentBlock[] => {
             let foundTarget = false
             const result = blocks.map((block) => {
-              // Handle thinking blocks (grouped text blocks)
+              // Handle thinking blocks - just match by thinkingId
               if (block.type === 'text' && block.thinkingId === id) {
                 foundTarget = true
                 const wasCollapsed = block.isCollapsed ?? false
@@ -330,7 +330,7 @@ export const Chat = ({
                 }
               }
 
-              // Recursively update nested blocks
+              // Recursively update nested blocks inside agent blocks
               if (block.type === 'agent' && block.blocks) {
                 const updatedBlocks = updateBlocksRecursively(block.blocks)
                 // Only create new block if nested blocks actually changed

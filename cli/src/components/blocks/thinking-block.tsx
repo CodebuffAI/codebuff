@@ -10,8 +10,6 @@ const NESTED_WIDTH_OFFSET = 10
 
 interface ThinkingBlockProps {
   blocks: Extract<ContentBlock, { type: 'text' }>[]
-  keyPrefix: string
-  startIndex: number
   onToggleCollapsed: (id: string) => void
   availableWidth: number
   isNested: boolean
@@ -20,28 +18,28 @@ interface ThinkingBlockProps {
 export const ThinkingBlock = memo(
   ({
     blocks,
-    keyPrefix,
-    startIndex,
     onToggleCollapsed,
     availableWidth,
     isNested,
   }: ThinkingBlockProps) => {
-    const thinkingId = `${keyPrefix}-thinking-${startIndex}`
+    const firstBlock = blocks[0]
+    const thinkingId = firstBlock?.thinkingId
     const combinedContent = blocks
       .map((b) => b.content)
       .join('')
       .trim()
 
-    const firstBlock = blocks[0]
     const isCollapsed = firstBlock?.isCollapsed ?? true
     const offset = isNested ? NESTED_WIDTH_OFFSET : WIDTH_OFFSET
     const availWidth = Math.max(10, availableWidth - offset)
 
     const handleToggle = useCallback(() => {
-      onToggleCollapsed(thinkingId)
+      if (thinkingId) {
+        onToggleCollapsed(thinkingId)
+      }
     }, [onToggleCollapsed, thinkingId])
 
-    if (!combinedContent) {
+    if (!combinedContent || !thinkingId) {
       return null
     }
 

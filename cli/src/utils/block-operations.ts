@@ -13,6 +13,12 @@ import type {
 } from '../types/chat'
 import { logger } from './logger'
 
+let thinkingIdCounter = 0
+const generateThinkingId = (): string => {
+  thinkingIdCounter++
+  return `thinking-${thinkingIdCounter}`
+}
+
 type AgentTextUpdate =
   | { type: 'text'; mode: 'append'; content: string }
   | { type: 'text'; mode: 'replace'; content: string }
@@ -91,12 +97,14 @@ const isOpenThinkingBlock = (block: ContentBlock | undefined): boolean => {
 const createReasoningBlock = (
   content: string,
   thinkingOpen: boolean,
+  thinkingId: string,
 ): TextContentBlock => ({
   type: 'text',
   content,
   textType: 'reasoning',
   isCollapsed: true,
   thinkingOpen,
+  thinkingId,
 })
 
 /**
@@ -242,7 +250,7 @@ const appendTextWithThinkParsingToBlocks = (
       const thinkingOpen =
         isLastSegment && !textToParse.endsWith(THINK_CLOSE_TAG)
       if (thinkingOpen) {
-        nextBlocks.push(createReasoningBlock(segment.content, thinkingOpen))
+        nextBlocks.push(createReasoningBlock(segment.content, thinkingOpen, generateThinkingId()))
       }
     } else {
       const prevBlock = nextBlocks[nextBlocks.length - 1]
@@ -295,6 +303,7 @@ export const appendTextToRootStream = (
       content: delta.text,
       textType: 'reasoning',
       isCollapsed: true,
+      thinkingId: generateThinkingId(),
     }
 
     return [...nextBlocks, newBlock]
