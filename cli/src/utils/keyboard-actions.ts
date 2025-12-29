@@ -282,8 +282,12 @@ export function resolveChatKeyboardAction(
     return { type: 'history-down' }
   }
 
-  // Priority 11: Agent mode toggle (shift-tab when not in menus)
-  if (isShiftTab && !state.slashMenuActive && !state.mentionMenuActive) {
+  // Priority 11: Agent mode toggle (tab or shift-tab when not in menus)
+  if (
+    (isShiftTab || isTab) &&
+    !state.slashMenuActive &&
+    !state.mentionMenuActive
+  ) {
     return { type: 'toggle-agent-mode' }
   }
 

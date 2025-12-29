@@ -358,13 +358,13 @@ describe('resolveChatKeyboardAction', () => {
       })
     })
 
-    test('tab disabled when disableSlashSuggestions is true', () => {
+    test('tab toggles agent mode when disableSlashSuggestions is true', () => {
       const state: ChatKeyboardState = {
         ...defaultState,
         disableSlashSuggestions: true,
       }
       expect(resolveChatKeyboardAction(tabKey, state)).toEqual({
-        type: 'none',
+        type: 'toggle-agent-mode',
       })
     })
   })

@@ -151,8 +151,13 @@ function dispatchAction(
     case 'mention-menu-complete':
       handlers.onMentionMenuComplete()
       return true
-    case 'open-file-menu-with-tab':
-      return handlers.onOpenFileMenuWithTab()
+    case 'open-file-menu-with-tab': {
+      const opened = handlers.onOpenFileMenuWithTab()
+      if (!opened) {
+        handlers.onToggleAgentMode()
+      }
+      return true
+    }
     case 'history-up':
       handlers.onHistoryUp()
       return true
