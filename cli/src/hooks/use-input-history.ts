@@ -50,7 +50,9 @@ export const useInputHistory = (
   }, [])
 
   const saveToHistory = useCallback((message: string) => {
-    const newHistory = [...messageHistoryRef.current, message]
+    // Re-read from disk to pick up messages from other terminals
+    const diskHistory = loadMessageHistory()
+    const newHistory = [...diskHistory, message]
     messageHistoryRef.current = newHistory
     historyIndexRef.current = -1
     currentDraftRef.current = ''

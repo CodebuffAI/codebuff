@@ -256,6 +256,8 @@ export async function routeUserPrompt(
   // Handle bash commands from queue (starts with '!')
   if (trimmed.startsWith('!') && trimmed.length > 1) {
     const command = trimmed.slice(1)
+    saveToHistory(trimmed)
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     runBashCommand(command)
     return
   }
