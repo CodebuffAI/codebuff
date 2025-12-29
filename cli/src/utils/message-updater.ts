@@ -77,7 +77,6 @@ export const createMessageUpdater = (
       const nextMessage: ChatMessage = {
         ...msg,
         content: message,
-        blocks: undefined,
         isComplete: true,
       }
       return nextMessage
@@ -192,14 +191,13 @@ export const createBatchedMessageUpdater = (
     pendingUpdaters.length = 0
     dispose()
 
-    // Apply error immediately, clearing blocks
+    // Apply error immediately, preserving blocks for debugging context
     setMessages((prev) =>
       prev.map((msg) => {
         if (msg.id !== aiMessageId) return msg
         return {
           ...msg,
           content: message,
-          blocks: undefined,
           isComplete: true,
         }
       }),

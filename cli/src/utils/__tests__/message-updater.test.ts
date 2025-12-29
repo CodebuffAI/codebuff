@@ -53,8 +53,16 @@ describe('createMessageUpdater', () => {
     expect((state[0].metadata as any).runState).toEqual({ id: 'run-1' })
   })
 
-  test('setError clears blocks and marks complete', () => {
-    let state = [...baseMessages]
+  test('setError preserves blocks and marks complete', () => {
+    let state: ChatMessage[] = [
+      {
+        id: 'ai-1',
+        variant: 'ai',
+        content: '',
+        blocks: [{ type: 'text', content: 'existing block' }],
+        timestamp: 'now',
+      },
+    ]
 
     const updater = createMessageUpdater('ai-1', (fn) => {
       state = fn(state)
@@ -64,7 +72,8 @@ describe('createMessageUpdater', () => {
 
     expect(state[0].content).toBe('boom')
     expect(state[0].isComplete).toBe(true)
-    expect(state[0].blocks).toBeUndefined()
+    expect(state[0].blocks).toHaveLength(1)
+    expect((state[0].blocks![0] as any).content).toBe('existing block')
   })
 })
 
@@ -155,8 +164,16 @@ describe('createBatchedMessageUpdater', () => {
     expect(state[0].credits).toBe(0.5)
   })
 
-  test('setError discards pending updates and applies error', () => {
-    let state = [...baseMessages]
+  test('setError discards pending updates but preserves existing blocks', () => {
+    let state: ChatMessage[] = [
+      {
+        id: 'ai-1',
+        variant: 'ai',
+        content: '',
+        blocks: [{ type: 'text', content: 'existing block' }],
+        timestamp: 'now',
+      },
+    ]
     let setMessagesCallCount = 0
 
     const updater = createBatchedMessageUpdater(
@@ -169,7 +186,7 @@ describe('createBatchedMessageUpdater', () => {
     )
 
     // Queue an update (will be discarded by error)
-    updater.addBlock({ type: 'text', content: 'will be cleared' })
+    updater.addBlock({ type: 'text', content: 'pending block' })
 
     updater.setError('something went wrong')
 
@@ -177,7 +194,9 @@ describe('createBatchedMessageUpdater', () => {
     expect(setMessagesCallCount).toBe(1)
     expect(state[0].content).toBe('something went wrong')
     expect(state[0].isComplete).toBe(true)
-    expect(state[0].blocks).toBeUndefined()
+    // Existing blocks are preserved, but pending block was discarded
+    expect(state[0].blocks).toHaveLength(1)
+    expect((state[0].blocks![0] as any).content).toBe('existing block')
   })
 
   test('updates after dispose are applied immediately', () => {
