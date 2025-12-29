@@ -3,8 +3,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { getCurrentChatId } from '../project-files'
 import { flushAnalytics } from '../utils/analytics'
 import { cleanupRenderer } from '../utils/renderer-cleanup'
+import { withTimeout } from '../utils/terminal-color-detection'
 
 import type { InputValue } from '../state/chat-store'
+
+// Timeout for analytics flush during exit - don't block exit for too long
+const EXIT_FLUSH_TIMEOUT_MS = 1000
 
 interface UseExitHandlerOptions {
   inputValue: string
@@ -65,7 +69,7 @@ export const useExitHandler = ({
       exitWarningTimeoutRef.current = null
     }
 
-    flushAnalytics().then(() => {
+    withTimeout(flushAnalytics(), EXIT_FLUSH_TIMEOUT_MS, undefined).then(() => {
       cleanupRenderer()
       process.exit(0)
     })
@@ -79,16 +83,12 @@ export const useExitHandler = ({
         exitWarningTimeoutRef.current = null
       }
 
-      const flushed = flushAnalytics()
-      if (flushed && typeof (flushed as Promise<void>).finally === 'function') {
-        ;(flushed as Promise<void>).finally(() => {
+      withTimeout(flushAnalytics(), EXIT_FLUSH_TIMEOUT_MS, undefined).finally(
+        () => {
           cleanupRenderer()
           process.exit(0)
-        })
-      } else {
-        cleanupRenderer()
-        process.exit(0)
-      }
+        },
+      )
     }
 
     process.on('SIGINT', handleSigint)
