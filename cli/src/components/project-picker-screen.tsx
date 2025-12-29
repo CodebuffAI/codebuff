@@ -27,28 +27,20 @@ const LAYOUT = {
   PREFERRED_CONTENT_WIDTH: 60,
   CONTENT_PADDING: 4,
 
-  // Height thresholds for showing UI elements
-  MIN_HEIGHT_FOR_LOGO: 14,
-  MIN_HEIGHT_FOR_HELP_TEXT: 18,
-  MIN_HEIGHT_FOR_RECENTS: 10,
+  // Essential element heights (always shown)
+  INPUT_HEIGHT: 1,
+  BOTTOM_BAR_HEIGHT: 2,
+  MIN_LIST_HEIGHT: 2, // Minimum rows to show in file picker
+  MAX_LIST_HEIGHT: 12,
 
-  // Thresholds for number of recent projects to show
-  HEIGHT_FOR_3_RECENTS: 16,
-  HEIGHT_FOR_2_RECENTS: 12,
+  // Compact mode threshold - below this, remove padding/margins
+  COMPACT_MODE_THRESHOLD: 12,
 
-  // Approximate heights of UI elements (in rows)
-  BASE_HEIGHT: 10, // input (~3) + bottom bar (~3) + padding (~4)
+  // Decorative element heights
   LOGO_HEIGHT: 8,
   HELP_TEXT_HEIGHT: 2,
 
-  // Directory list constraints
-  MIN_LIST_HEIGHT: 4,
-  MAX_LIST_HEIGHT: 12,
-
-  // Bottom bar height (border + content)
-  BOTTOM_BAR_HEIGHT: 2,
-
-  // Spacing constants
+  // Spacing constants (used in normal mode)
   MAIN_CONTENT_PADDING: 2,
   LOGO_MARGIN_TOP: 1,
   LOGO_MARGIN_BOTTOM: 1,
@@ -114,54 +106,82 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
   }, [])
 
   // Use the terminal layout hook for responsive breakpoints
-  const { width, terminalWidth, terminalHeight } = useTerminalLayout()
-  const isNarrow = width.is('xs')
-  const contentMaxWidth = Math.min(terminalWidth - LAYOUT.CONTENT_PADDING, LAYOUT.MAX_CONTENT_WIDTH)
+  const { terminalWidth, terminalHeight } = useTerminalLayout()
+  const contentMaxWidth = Math.min(
+    terminalWidth - LAYOUT.CONTENT_PADDING,
+    LAYOUT.MAX_CONTENT_WIDTH,
+  )
   const contentWidth = Math.min(LAYOUT.PREFERRED_CONTENT_WIDTH, contentMaxWidth)
 
-  // Granular responsive breakpoints for showing UI elements
-  const canShowLogo = terminalHeight >= LAYOUT.MIN_HEIGHT_FOR_LOGO
-  const canShowHelpText = terminalHeight >= LAYOUT.MIN_HEIGHT_FOR_HELP_TEXT
-  const canShowRecents = terminalHeight >= LAYOUT.MIN_HEIGHT_FOR_RECENTS && recentProjects.length > 0
-  
-  // Limit number of recent projects based on available height
-  const maxRecentsToShow = terminalHeight >= LAYOUT.HEIGHT_FOR_3_RECENTS ? 3 
-    : terminalHeight >= LAYOUT.HEIGHT_FOR_2_RECENTS ? 2 
-    : 1
+  // Compact mode: remove padding/margins when space is tight
+  const isCompactMode = terminalHeight < LAYOUT.COMPACT_MODE_THRESHOLD
+  const mainPadding = isCompactMode ? 0 : LAYOUT.MAIN_CONTENT_PADDING
 
-  // Calculate available height for directory list dynamically
-  const logoHeight = canShowLogo ? LAYOUT.LOGO_HEIGHT : 0
-  const helpTextHeight = canShowHelpText ? LAYOUT.HELP_TEXT_HEIGHT : 0
-  const recentsHeight = canShowRecents ? Math.min(recentProjects.length, maxRecentsToShow) + 1 : 0 // +1 for header
-  const fixedElementsHeight = LAYOUT.BASE_HEIGHT + logoHeight + helpTextHeight + recentsHeight
-  const availableListHeight = terminalHeight - fixedElementsHeight
-  
-  // Only show file picker if we have at least MIN_LIST_HEIGHT rows available
-  const canShowFilePicker = availableListHeight >= LAYOUT.MIN_LIST_HEIGHT
-  // Clamp the height between min and max
-  const maxListHeight = canShowFilePicker 
-    ? Math.min(availableListHeight, LAYOUT.MAX_LIST_HEIGHT) 
-    : 0
+  // Calculate essential height first (these always show)
+  // Essential = input (1) + file picker border (2) + bottom bar (2) + minimal padding
+  const essentialHeight =
+    LAYOUT.INPUT_HEIGHT + 2 + LAYOUT.BOTTOM_BAR_HEIGHT + (isCompactMode ? 0 : 2)
 
-  // Calculate actual content height to determine if we should center vertically
-  const actualListHeight = canShowFilePicker ? Math.min(filteredDirectoryItems.length + 2, maxListHeight + 2) : 0 // +2 for border
-  const inputHeight = 3 // input box with border
-  const totalContentHeight = 
-    LAYOUT.MAIN_CONTENT_PADDING * 2 + // top and bottom padding
-    logoHeight + 
-    (canShowLogo ? LAYOUT.LOGO_MARGIN_TOP + LAYOUT.LOGO_MARGIN_BOTTOM : 0) +
-    helpTextHeight +
-    (canShowHelpText ? LAYOUT.HELP_TEXT_MARGIN_BOTTOM : 0) +
-    inputHeight +
-    actualListHeight +
-    recentsHeight +
-    (canShowRecents ? LAYOUT.RECENTS_MARGIN_TOP : 0)
-  
-  // Available space for content (total height minus bottom bar)
-  const availableContentHeight = terminalHeight - LAYOUT.BOTTOM_BAR_HEIGHT
-  
-  // Center content when it doesn't fill the available space
-  const shouldCenterContent = totalContentHeight < availableContentHeight
+  // Calculate remaining height for file picker and optional elements
+  const remainingHeight = terminalHeight - essentialHeight
+
+  // File picker gets priority - calculate how much space it needs
+  const filePickerHeight = Math.max(
+    LAYOUT.MIN_LIST_HEIGHT,
+    Math.min(remainingHeight, LAYOUT.MAX_LIST_HEIGHT),
+  )
+
+  // After file picker, calculate space for optional elements
+  const spaceAfterFilePicker = remainingHeight - filePickerHeight
+
+  // Determine which optional elements can fit (priority: recents first, then logo, then help text)
+  const logoHeightNeeded =
+    LAYOUT.LOGO_HEIGHT +
+    (isCompactMode ? 0 : LAYOUT.LOGO_MARGIN_TOP + LAYOUT.LOGO_MARGIN_BOTTOM)
+  const helpTextHeightNeeded =
+    LAYOUT.HELP_TEXT_HEIGHT +
+    (isCompactMode ? 0 : LAYOUT.HELP_TEXT_MARGIN_BOTTOM)
+
+  // Allocate space for optional elements based on available space
+  let availableForOptional = spaceAfterFilePicker
+
+  // Try to fit recents first (most useful)
+  let recentsToShow = 0
+  if (recentProjects.length > 0 && availableForOptional >= 2) {
+    // Calculate how many recents fit
+    const baseRecentsHeight =
+      1 + (isCompactMode ? 0 : LAYOUT.RECENTS_MARGIN_TOP) // header + margin
+    const remainingForRecents = availableForOptional - baseRecentsHeight
+    recentsToShow = Math.min(
+      recentProjects.length,
+      Math.max(0, remainingForRecents),
+      3,
+    )
+    if (recentsToShow > 0) {
+      availableForOptional -=
+        recentsToShow + 1 + (isCompactMode ? 0 : LAYOUT.RECENTS_MARGIN_TOP)
+    }
+  }
+
+  // Try to fit logo (decorative but nice)
+  const canShowLogo = !isCompactMode && availableForOptional >= logoHeightNeeded
+  if (canShowLogo) {
+    availableForOptional -= logoHeightNeeded
+  }
+
+  // Try to fit help text (least important)
+  const canShowHelpText =
+    !isCompactMode && availableForOptional >= helpTextHeightNeeded
+
+  const canShowRecents = recentsToShow > 0
+  const maxRecentsToShow = recentsToShow
+
+  // File picker is always shown if there's any space
+  const canShowFilePicker = remainingHeight >= LAYOUT.MIN_LIST_HEIGHT
+  const maxListHeight = filePickerHeight
+
+  // Center content only in non-compact mode when there's extra space
+  const shouldCenterContent = !isCompactMode && spaceAfterFilePicker > 10
 
   // Logo setup
   const blockColor = getLogoBlockColor(theme.name)
@@ -284,21 +304,21 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
           alignItems: 'center',
           justifyContent: shouldCenterContent ? 'center' : 'flex-start',
           width: '100%',
-          padding: LAYOUT.MAIN_CONTENT_PADDING,
-          gap: 1,
+          padding: mainPadding,
+          gap: isCompactMode ? 0 : 1,
           flexGrow: 1,
           flexShrink: 1,
         }}
       >
-        {/* Logo - show when terminal height >= 14 */}
+        {/* Logo - show when there's enough space after essentials */}
         {canShowLogo && (
           <box
             style={{
               flexDirection: 'column',
               alignItems: 'center',
               width: '100%',
-              marginTop: LAYOUT.LOGO_MARGIN_TOP,
-              marginBottom: LAYOUT.LOGO_MARGIN_BOTTOM,
+              marginTop: isCompactMode ? 0 : LAYOUT.LOGO_MARGIN_TOP,
+              marginBottom: isCompactMode ? 0 : LAYOUT.LOGO_MARGIN_BOTTOM,
               flexShrink: 0,
             }}
           >
@@ -308,14 +328,14 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
           </box>
         )}
 
-        {/* Help text - show when terminal height >= 18 */}
+        {/* Help text - show only when there's plenty of space */}
         {canShowHelpText && (
           <box
             style={{
               flexDirection: 'column',
               alignItems: 'center',
               maxWidth: contentMaxWidth,
-              marginBottom: LAYOUT.HELP_TEXT_MARGIN_BOTTOM,
+              marginBottom: isCompactMode ? 0 : LAYOUT.HELP_TEXT_MARGIN_BOTTOM,
               flexShrink: 0,
             }}
           >
@@ -339,7 +359,7 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
             onSubmit={() => {}} // Enter key handled by onKeyIntercept
             onPaste={() => {}} // Paste not needed for path input
             onKeyIntercept={handleSearchKeyIntercept}
-            placeholder="Type path or filter (Tab to complete)..."
+            placeholder="Select project directory..."
             focused={true}
             maxHeight={1}
             minHeight={1}
@@ -372,13 +392,13 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
           </box>
         )}
 
-        {/* Recent Projects - show when terminal height >= 10 */}
+        {/* Recent Projects - show when there's space after file picker */}
         {canShowRecents && (
           <box
             style={{
               flexDirection: 'column',
               width: contentWidth,
-              marginTop: LAYOUT.RECENTS_MARGIN_TOP,
+              marginTop: isCompactMode ? 0 : LAYOUT.RECENTS_MARGIN_TOP,
               flexShrink: 0,
               gap: 0,
             }}
@@ -390,7 +410,7 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
                 style={{
                   flexDirection: 'row',
                   gap: 1,
-                  paddingLeft: LAYOUT.RECENTS_PADDING_LEFT,
+                  paddingLeft: isCompactMode ? 0 : LAYOUT.RECENTS_PADDING_LEFT,
                   height: 1,
                 }}
               >
@@ -405,7 +425,6 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
             ))}
           </box>
         )}
-
       </box>
 
       {/* Bottom bar - fixed at bottom with Open button */}
@@ -434,9 +453,7 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
         >
           {/* Current directory path */}
           <box style={{ flexGrow: 1, flexShrink: 1, overflow: 'hidden' }}>
-            <text style={{ fg: theme.muted }}>
-              {formatCwd(currentPath)}
-            </text>
+            <text style={{ fg: theme.muted }}>{formatCwd(currentPath)}</text>
           </box>
 
           {/* Open button */}
