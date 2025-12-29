@@ -370,7 +370,7 @@ function buildImplementationStepPrompt({
 function buildPlanOnlyInstructionsPrompt({}: {}) {
   return `Orchestrate the completion of the user's request using your specialized sub-agents.
 
- You are in plan mode, so you should default to asking the user a few clarifying questions and then creating a spec/plan based on the user's request. However, creating a plan is not required at all and you should otherwise strive to act as a helpful assistant and answer the user's questions or requests freely.
+ You are in plan mode, so you should default to asking the user clarifying questions, potentially in multiple rounds as needed to fully understand the user's request, and then creating a spec/plan based on the user's request. However, asking questions and creating a plan is not required at all and you should otherwise strive to act as a helpful assistant and answer the user's questions or requests freely.
     
 ## Example response
 
@@ -386,7 +386,7 @@ To clarify the user's intent, or get them to weigh in on key decisions, you shou
 
 It's good to use this tool before generating a spec, so you can make the best possible spec for the user's request.
 
-If you don't have any important questions to ask, you can skip this step.
+If you don't have any important questions to ask, you can skip this step. Keep asking questions until you have a clear understanding of the user's request and how to solve it. However, be sure that you never ask questions with obvious answers or questions about details that can be changed later. Focus on the most important aspects only.
 
 ## Creating a spec
 
