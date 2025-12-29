@@ -89,6 +89,7 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
         id: entry.path,
         label: entry.name,
         icon: entry.isParent ? '📂' : '📁',
+        accent: entry.isGitRepo,
       })),
     [directories],
   )
@@ -319,8 +320,7 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
             }}
           >
             <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-              Navigate to your project folder, or choose Start here to create a
-              new one.
+              Navigate to your project folder and press Open.
             </text>
           </box>
         )}
@@ -432,10 +432,12 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
             width: contentWidth,
           }}
         >
-          {/* Left side: shortcuts */}
-          <text style={{ fg: theme.muted }}>
-            {isGitRepo ? '(git) • ' : ''}{isNarrow ? '↑↓ Tab ^C' : '↑↓ Tab complete ^C quit'}
-          </text>
+          {/* Current directory path */}
+          <box style={{ flexGrow: 1, flexShrink: 1, overflow: 'hidden' }}>
+            <text style={{ fg: theme.muted }}>
+              {formatCwd(currentPath)}
+            </text>
+          </box>
 
           {/* Open button */}
           <Button
@@ -451,7 +453,7 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
             }}
             border={['top', 'bottom', 'left', 'right']}
           >
-            <text style={{ fg: '#ffffff' }}>Open</text>
+            <text style={{ fg: '#1a1a1a' }}>Open</text>
           </Button>
         </box>
       </box>

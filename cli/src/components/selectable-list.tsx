@@ -28,6 +28,8 @@ export interface SelectableListItem {
   label: string
   icon?: string
   secondary?: string
+  /** If true, the label will be displayed in an accent color */
+  accent?: boolean
 }
 
 export interface SelectableListProps {
@@ -136,9 +138,9 @@ export const SelectableList = forwardRef<
           const isHovered = idx === hoveredIndex
           const isHighlighted = isFocused || isHovered
 
-          // Use theme.primary background when highlighted, contrast text for readability
-          const backgroundColor = isHighlighted ? theme.primary : 'transparent'
-          const textColor = isHighlighted ? theme.background : theme.muted
+          // Use subtle highlight that works in both light and dark themes
+          const backgroundColor = isHighlighted ? theme.surfaceHover : 'transparent'
+          const textColor = isHighlighted ? theme.foreground : theme.muted
           const textAttributes = isHighlighted ? TextAttributes.BOLD : undefined
 
           return (
@@ -165,20 +167,20 @@ export const SelectableList = forwardRef<
               }}
             >
               {item.icon && (
-                <text style={{ fg: isHighlighted ? theme.background : theme.muted }}>
+                <text style={{ fg: isHighlighted ? theme.foreground : theme.muted }}>
                   {item.icon}
                 </text>
               )}
               <text
                 style={{
-                  fg: textColor,
-                  attributes: textAttributes,
+                  fg: item.accent && !isHighlighted ? theme.primary : textColor,
+                  attributes: item.accent || isHighlighted ? TextAttributes.BOLD : undefined,
                 }}
               >
                 {item.label}
               </text>
               {item.secondary && (
-                <text style={{ fg: isHighlighted ? theme.surface : theme.muted }}>
+                <text style={{ fg: theme.muted }}>
                   {item.secondary}
                 </text>
               )}
