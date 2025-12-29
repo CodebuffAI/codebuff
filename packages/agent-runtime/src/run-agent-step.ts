@@ -911,6 +911,8 @@ export async function loopAgentSteps(
         totalSteps,
         directCreditsUsed: currentAgentState.directCreditsUsed,
         creditsUsed: currentAgentState.creditsUsed,
+        messageHistory: currentAgentState.messageHistory,
+        systemPrompt: system,
       },
       'Agent execution failed',
     )
