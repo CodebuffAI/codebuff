@@ -7,6 +7,7 @@ import { MultilineInput } from './multiline-input'
 import { SelectableList } from './selectable-list'
 import { TerminalLink } from './terminal-link'
 import { useDirectoryBrowser } from '../hooks/use-directory-browser'
+import { cleanupRenderer } from '../utils/renderer-cleanup'
 import { useLogo } from '../hooks/use-logo'
 import { usePathTabCompletion } from '../hooks/use-path-tab-completion'
 import { useSearchableList } from '../hooks/use-searchable-list'
@@ -245,6 +246,7 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
       }
       // Ctrl+C always quits
       if (key.name === 'c' && key.ctrl) {
+        cleanupRenderer()
         process.exit(0)
         return true
       }
