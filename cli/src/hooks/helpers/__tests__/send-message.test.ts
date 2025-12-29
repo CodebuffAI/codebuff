@@ -418,8 +418,8 @@ describe('handleRunError', () => {
     expect(aiMessage!.content).not.toContain('Partial streamed content')
     expect(aiMessage!.content).toContain('Out of credits')
 
-    // Blocks should be cleared by setError
-    expect(aiMessage!.blocks).toBeUndefined()
+    // Blocks should be preserved for debugging context
+    expect(aiMessage!.blocks).toEqual([{ type: 'text', content: 'some block' }])
 
     // Message should be marked complete
     expect(aiMessage!.isComplete).toBe(true)
