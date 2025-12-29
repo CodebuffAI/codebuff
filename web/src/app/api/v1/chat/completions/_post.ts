@@ -364,6 +364,7 @@ export async function postChatCompletions(params: {
           messageCount: Array.isArray((body as any)?.messages)
             ? (body as any).messages.length
             : 0,
+          messages: (body as any)?.messages,
           openrouterStatusCode: openrouterError?.statusCode,
           openrouterStatusText: openrouterError?.statusText,
           openrouterErrorCode: errorDetails?.error?.code,
