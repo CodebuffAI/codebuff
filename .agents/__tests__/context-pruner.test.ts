@@ -83,7 +83,7 @@ describe('context-pruner handleSteps', () => {
   ): [Message, ToolMessage] =>
     createToolCallPair(toolCallId, toolName, {}, { data: largeData })
 
-  const runHandleSteps = (messages: Message[]) => {
+  const runHandleSteps = (messages: Message[], maxContextLength?: number) => {
     mockAgentState.messageHistory = messages
     const mockLogger = {
       debug: () => {},
@@ -94,6 +94,7 @@ describe('context-pruner handleSteps', () => {
     const generator = contextPruner.handleSteps!({
       agentState: mockAgentState,
       logger: mockLogger,
+      params: maxContextLength ? { maxContextLength } : {},
     })
     const results: any[] = []
     let result = generator.next()
@@ -818,10 +819,10 @@ describe('context-pruner saved run state overflow', () => {
     console.log('Initial tokens (approx):', initialTokens)
 
     // Run context-pruner with 100k limit
-    const mockAgentState = {
+    const mockAgentState: any = {
       messageHistory: initialMessages,
       systemPrompt: savedRunState.sessionState?.mainAgentState?.systemPrompt,
-    } as AgentState
+    }
     const mockLogger = {
       debug: () => {},
       info: () => {},
@@ -897,10 +898,10 @@ describe('context-pruner saved run state overflow', () => {
 
     // Run context-pruner with 200k limit - must include systemPrompt in agentState
     // so the pruner knows about the extra tokens from the system prompt
-    const mockAgentState = {
+    const mockAgentState: any = {
       messageHistory: initialMessages,
       systemPrompt: systemPrompt,
-    } as AgentState
+    }
     const mockLogger = {
       debug: () => {},
       info: () => {},
@@ -1725,7 +1726,7 @@ describe('context-pruner PASS 0 instructions removal', () => {
   test('keeps only last INSTRUCTIONS_PROMPT when pruning passes run (over token limit)', () => {
     // Use a lower maxContextLength to trigger pruning without needing massive content
     // This ensures PASS 0.5 runs (past the initial check)
-    const mockAgentState = {
+    const mockAgentState: any = {
       messageHistory: [] as Message[],
     }
 
