@@ -1,6 +1,5 @@
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
 import { toolParams } from '@codebuff/common/tools/list'
-import { jsonToolResult } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 
@@ -177,16 +176,10 @@ export function executeToolCall<T extends ToolName>(
   }
 
   if ('error' in toolCall) {
-    const toolResult: ToolMessage = {
-      role: 'tool',
-      toolName,
-      toolCallId: toolCall.toolCallId,
-      content: jsonToolResult({
-        errorMessage: toolCall.error,
-      }),
-    }
-    toolResults.push(cloneDeep(toolResult))
-    toolResultsToAddAfterStream.push(cloneDeep(toolResult))
+    onResponseChunk({
+      type: 'error',
+      message: toolCall.error,
+    })
     logger.debug(
       { toolCall, error: toolCall.error },
       `${toolName} error: ${toolCall.error}`,
@@ -392,16 +385,10 @@ export async function executeCustomToolCall(
   }
 
   if ('error' in toolCall) {
-    const toolResult: ToolMessage = {
-      role: 'tool',
-      toolName,
-      toolCallId: toolCall.toolCallId,
-      content: jsonToolResult({
-        errorMessage: toolCall.error,
-      }),
-    }
-    toolResults.push(cloneDeep(toolResult))
-    toolResultsToAddAfterStream.push(cloneDeep(toolResult))
+    onResponseChunk({
+      type: 'error',
+      message: toolCall.error,
+    })
     logger.debug(
       { toolCall, error: toolCall.error },
       `${toolName} error: ${toolCall.error}`,
