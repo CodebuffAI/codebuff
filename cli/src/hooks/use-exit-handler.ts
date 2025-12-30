@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { getCurrentChatId } from '../project-files'
 import { flushAnalytics } from '../utils/analytics'
-import { cleanupRenderer } from '../utils/renderer-cleanup'
 import { withTimeout } from '../utils/terminal-color-detection'
 
 import type { InputValue } from '../state/chat-store'
@@ -70,7 +69,6 @@ export const useExitHandler = ({
     }
 
     withTimeout(flushAnalytics(), EXIT_FLUSH_TIMEOUT_MS, undefined).then(() => {
-      cleanupRenderer()
       process.exit(0)
     })
     return true
@@ -85,7 +83,6 @@ export const useExitHandler = ({
 
       withTimeout(flushAnalytics(), EXIT_FLUSH_TIMEOUT_MS, undefined).finally(
         () => {
-          cleanupRenderer()
           process.exit(0)
         },
       )

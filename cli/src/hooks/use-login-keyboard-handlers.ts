@@ -1,8 +1,6 @@
 import { useKeyboard } from '@opentui/react'
 import { useCallback } from 'react'
 
-import { cleanupRenderer } from '../utils/renderer-cleanup'
-
 import type { KeyEvent } from '@opentui/core'
 
 interface UseLoginKeyboardHandlersParams {
@@ -45,7 +43,6 @@ export function useLoginKeyboardHandlers({
           ) {
             key.preventDefault()
           }
-          cleanupRenderer()
           process.exit(0)
         }
 
