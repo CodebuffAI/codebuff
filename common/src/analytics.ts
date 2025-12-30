@@ -15,7 +15,10 @@ export type { AnalyticsClient, AnalyticsConfig } from './analytics-core'
 
 /** Dependencies that can be injected for testing */
 export interface ServerAnalyticsDeps {
-  createClient: (apiKey: string, options: PostHogClientOptions) => AnalyticsClient
+  createClient: (
+    apiKey: string,
+    options: PostHogClientOptions,
+  ) => AnalyticsClient
 }
 
 let client: AnalyticsClient | undefined
@@ -54,6 +57,17 @@ export function initAnalytics({
   if (clientEnv) {
     configureAnalytics(getConfigFromEnv(clientEnv))
   }
+
+  logger.info(
+    {
+      analyticsConfig: {
+        envName: analyticsConfig?.envName,
+        posthogApiKey: !!analyticsConfig?.posthogApiKey,
+        posthogHostUrl: analyticsConfig?.posthogHostUrl,
+      },
+    },
+    '🔵 [analytics] initAnalytics() called',
+  )
 
   if (!isProdEnv(analyticsConfig?.envName)) {
     return

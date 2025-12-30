@@ -166,6 +166,7 @@ export async function postChatCompletions(params: {
       )
     }
 
+    logger.info({ userInfo, runId }, 'chat completions request received')
     // Track API request
     trackEvent({
       event: AnalyticsEvent.CHAT_COMPLETIONS_REQUEST,
