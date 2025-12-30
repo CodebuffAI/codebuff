@@ -125,6 +125,52 @@ describe('context-pruner handleSteps', () => {
     )
   })
 
+  test('skips all pruning passes and returns early when under limit', () => {
+    // Create messages with tool calls that would normally be pruned by PASS 2
+    // (non-important tools outside last 30 messages)
+    // But since we're under the token limit, they should all be preserved
+    const messages: Message[] = []
+    
+    // Add 40 code_search tool pairs (80 messages total, but small content)
+    for (let i = 0; i < 40; i++) {
+      messages.push(
+        {
+          role: 'assistant',
+          content: [
+            {
+              type: 'tool-call',
+              toolCallId: `search-${i}`,
+              toolName: 'code_search',
+              input: { pattern: 'x' },
+            },
+          ],
+        },
+        {
+          role: 'tool',
+          toolCallId: `search-${i}`,
+          toolName: 'code_search',
+          content: [{ type: 'json', value: { results: [] } }],
+        } as ToolMessage,
+      )
+    }
+
+    // With default 200k limit, these small messages are well under limit
+    // So early return should preserve ALL messages, including old non-important tools
+    const results = runHandleSteps(messages)
+
+    expect(results).toHaveLength(1)
+    const resultMessages = results[0].input.messages
+
+    // All 80 messages should be preserved (early return skips PASS 2)
+    expect(resultMessages.length).toBe(80)
+    
+    // All code_search tool results should still be present
+    const codeSearchCount = resultMessages.filter(
+      (m: any) => m.role === 'tool' && m.toolName === 'code_search',
+    ).length
+    expect(codeSearchCount).toBe(40)
+  })
+
   test('does not remove messages if assistant message does not contain context-pruner spawn call', () => {
     const messages = [
       createMessage('user', 'Hello'),
@@ -135,55 +181,6 @@ describe('context-pruner handleSteps', () => {
     const results = runHandleSteps(messages)
     expect(results).toHaveLength(1)
     expect(results[0].input.messages).toHaveLength(3)
-  })
-
-  test('removes old terminal command results while keeping recent 5', () => {
-    // Create content large enough to exceed 200k token limit (~600k chars)
-    const largeContent = 'x'.repeat(150000)
-
-    // 7 terminal commands with proper tool call pairs (should keep last 5, simplify first 2)
-    const terminalPairs = Array.from({ length: 7 }, (_, i) =>
-      createTerminalToolPair(
-        `terminal-${i + 1}`,
-        `command-${i + 1}`,
-        `Large output ${i + 1}: ${'y'.repeat(1000)}`,
-        0,
-      ),
-    ).flat()
-
-    const messages = [
-      createMessage('user', largeContent),
-      createMessage('assistant', largeContent),
-      createMessage('user', largeContent),
-      createMessage('assistant', largeContent),
-      ...terminalPairs,
-    ]
-
-    const results = runHandleSteps(messages)
-
-    expect(results).toHaveLength(1)
-    const resultMessages = results[0].input.messages
-
-    // Check that first 2 terminal commands are simplified
-    const firstTerminalMessage = resultMessages.find(
-      (m: any) =>
-        m.role === 'tool' &&
-        m.toolName === 'run_terminal_command' &&
-        m.content?.[0]?.value?.command === 'command-1',
-    )
-    expect(
-      firstTerminalMessage?.content?.[0]?.value?.stdoutOmittedForLength,
-    ).toBe(true)
-
-    // Check that recent terminal commands are preserved (but may be processed by large tool result pass)
-    const recentTerminalMessage = resultMessages.find(
-      (m: any) =>
-        m.role === 'tool' &&
-        m.toolName === 'run_terminal_command' &&
-        (m.content?.[0]?.value?.command === 'command-7' ||
-          m.content?.[0]?.value?.message === '[LARGE_TOOL_RESULT_OMITTED]'),
-    )
-    expect(recentTerminalMessage).toBeDefined()
   })
 
   test('removes large tool results', () => {
@@ -253,33 +250,32 @@ describe('context-pruner handleSteps', () => {
     expect(hasReplacementMessage).toBe(true)
   })
 
-  test('preserves messages with keepDuringTruncation flag', () => {
-    const largeContent = 'w'.repeat(50000)
+  test('preserves user messages during pruning when under aggressive limit', () => {
+    // Use smaller content so we stay above 25% target but don't trigger PASS 4
+    const largeContent = 'w'.repeat(10000)
 
     const messages = [
-      createMessage('user', `Message 1: ${largeContent}`),
-      {
-        ...createMessage('assistant', `Important message: ${largeContent}`),
-        keepDuringTruncation: true,
-      },
-      createMessage('user', `Message 3: ${largeContent}`),
-    ] as any[]
+      createMessage('user', `User message 1: ${largeContent}`),
+      createMessage('assistant', `Assistant response: ${largeContent}`),
+      createMessage('user', `User message 2: ${largeContent}`),
+      createMessage('assistant', `Another response: ${largeContent}`),
+      createMessage('user', `User message 3: ${largeContent}`),
+    ]
 
-    const results = runHandleSteps(messages)
+    // Use high limit so PASS 4 doesn't trigger
+    const results = runHandleSteps(messages, 200000)
 
     expect(results).toHaveLength(1)
     const resultMessages = results[0].input.messages
 
-    // Important message should be preserved (content is an array of parts)
-    const importantMessage = resultMessages.find(
-      (m: any) =>
-        Array.isArray(m.content) &&
-        m.content.some(
-          (part: any) =>
-            part.type === 'text' && part.text.includes('Important message'),
-        ),
+    // All user messages should be preserved (PASS 3 preserves user messages)
+    const userMessages = resultMessages.filter(
+      (m: any) => m.role === 'user' && !m.content?.[0]?.text?.includes('omitted'),
     )
-    expect(importantMessage).toBeDefined()
+    const originalUserMessages = userMessages.filter((m: any) =>
+      m.content?.[0]?.text?.includes('User message'),
+    )
+    expect(originalUserMessages.length).toBe(3)
   })
 
   test('handles non-string message content', () => {
@@ -697,7 +693,8 @@ describe('context-pruner image token counting', () => {
 
   test('counts media type tool results with fixed 500 tokens', () => {
     // Create a tool message with media type content
-    const largeMediaData = 'x'.repeat(300000) // Would be ~100k tokens if counted as text
+    // Use small media data to avoid PASS 1 truncation (>1000 chars triggers truncation)
+    const smallMediaData = 'x'.repeat(100) // Small enough to not be truncated
 
     // Need matching tool call for the tool result
     const toolCallMessage: Message = {
@@ -719,7 +716,7 @@ describe('context-pruner image token counting', () => {
       content: [
         {
           type: 'media',
-          data: largeMediaData,
+          data: smallMediaData,
           mediaType: 'image/png',
         },
       ],
@@ -769,26 +766,25 @@ describe('context-pruner image token counting', () => {
   })
 
   test('mixed text and image content is counted correctly', () => {
-    // Large text that would exceed limit if image was also counted by string length
-    const largeText = 'y'.repeat(500000) // ~167k tokens
-    const largeImageData = 'x'.repeat(200000) // Would be ~67k tokens if counted as text
+    // Use smaller text so we stay under 25% target (50k tokens for 200k limit)
+    const smallerText = 'y'.repeat(100000) // ~33k tokens
+    const smallImageData = 'x'.repeat(100) // Small to avoid truncation
 
     const messageWithTextAndImage: Message = {
       role: 'user',
       content: [
-        { type: 'text', text: largeText },
-        { type: 'image', image: largeImageData, mediaType: 'image/png' },
+        { type: 'text', text: smallerText },
+        { type: 'image', image: smallImageData, mediaType: 'image/png' },
       ],
     }
 
-    // ~167k text tokens + 500 image tokens = ~167.5k, under 200k limit
-    // But if image was counted as text: ~167k + ~67k = ~234k, would exceed limit
+    // ~33k text tokens + 1000 image tokens = ~34k, under 50k target (25% of 200k)
     const messages: Message[] = [messageWithTextAndImage]
 
     const results = runHandleSteps(messages)
 
     expect(results).toHaveLength(1)
-    // Should preserve without message-level pruning (may still pass through other passes)
+    // Should preserve without pruning (under 25% target)
     const hasImage = results[0].input.messages.some(
       (m: any) =>
         Array.isArray(m.content) &&
@@ -1089,13 +1085,12 @@ describe('context-pruner token counting accuracy', () => {
       ],
     }
 
-    // With a 50k token limit and a ~30k token message, should NOT be pruned
-    // If token counting was broken and didn't count content, it would see ~0 tokens
-    // and definitely not prune
-    const results = runHandleSteps([messageWithLargeContent], 50000)
+    // With a 200k token limit and a ~30k token message, should NOT be pruned
+    // (30k is well under 25% of 200k = 50k target)
+    const results = runHandleSteps([messageWithLargeContent], 200000)
 
     expect(results).toHaveLength(1)
-    // Message should be preserved (under limit)
+    // Message should be preserved (under 25% target)
     expect(results[0].input.messages).toHaveLength(1)
     expect(results[0].input.messages[0].content[0].text).toBe(largeText)
   })
@@ -1233,6 +1228,716 @@ describe('context-pruner token counting accuracy', () => {
     )
     expect(hasToolCall).toBe(true)
     expect(hasToolResult).toBe(true)
+  })
+})
+
+describe('context-pruner aggressive pruning for many messages', () => {
+  let mockAgentState: any
+
+  beforeEach(() => {
+    mockAgentState = {
+      messageHistory: [] as Message[],
+    }
+  })
+
+  const runHandleSteps = (messages: Message[], maxContextLength?: number) => {
+    mockAgentState.messageHistory = messages
+    const mockLogger = {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    }
+    const generator = contextPruner.handleSteps!({
+      agentState: mockAgentState,
+      logger: mockLogger,
+      params: maxContextLength ? { maxContextLength } : {},
+    })
+    const results: any[] = []
+    let result = generator.next()
+    while (!result.done) {
+      if (typeof result.value === 'object') {
+        results.push(result.value)
+      }
+      result = generator.next()
+    }
+    return results
+  }
+
+  const createToolCallPair = (
+    toolCallId: string,
+    toolName: string,
+    input: Record<string, unknown>,
+    resultValue: unknown,
+  ): [Message, ToolMessage] => [
+    {
+      role: 'assistant',
+      content: [
+        {
+          type: 'tool-call',
+          toolCallId,
+          toolName,
+          input,
+        },
+      ],
+    },
+    {
+      role: 'tool',
+      toolCallId,
+      toolName,
+      content: [
+        {
+          type: 'json',
+          value: resultValue as JSONValue,
+        },
+      ],
+    },
+  ]
+
+  test('removes non-important tool call pairs not in last 30 messages when over limit', () => {
+    // Create messages with a mix of important and non-important tool calls
+    // PASS 2 removes non-important tool pairs not in the last 30 messages
+    // Use a LOW token limit to trigger pruning passes
+    const messages: Message[] = []
+
+    // Add 50 code_search tool pairs (100 messages, most outside last 30)
+    for (let i = 0; i < 50; i++) {
+      messages.push(...createToolCallPair(
+        `search-${i}`,
+        'code_search',
+        { pattern: `pattern${i}` },
+        { results: [] },
+      ))
+    }
+
+    // Add 10 read_files tool pairs at the end (important - should be kept)
+    for (let i = 0; i < 10; i++) {
+      messages.push(...createToolCallPair(
+        `read-${i}`,
+        'read_files',
+        { paths: [`file${i}.ts`] },
+        { content: 'file content' },
+      ))
+    }
+
+    // Add 5 write_file tool pairs at the end (important - should be kept)
+    for (let i = 0; i < 5; i++) {
+      messages.push(...createToolCallPair(
+        `write-${i}`,
+        'write_file',
+        { path: `file${i}.ts`, content: 'new content' },
+        { success: true },
+      ))
+    }
+
+    // Total: 130 messages (50*2 + 10*2 + 5*2)
+    expect(messages.length).toBe(130)
+
+    // Use low token limit (5000) to force pruning to trigger
+    const results = runHandleSteps(messages, 5000)
+    expect(results).toHaveLength(1)
+    const resultMessages = results[0].input.messages
+
+    // Should have removed old non-important tool pairs (not in last 30)
+    expect(resultMessages.length).toBeLessThan(130)
+
+    // Important tools (read_files, write_file) should still be present
+    const hasReadFiles = resultMessages.some(
+      (m: any) => m.role === 'tool' && m.toolName === 'read_files',
+    )
+    const hasWriteFile = resultMessages.some(
+      (m: any) => m.role === 'tool' && m.toolName === 'write_file',
+    )
+    expect(hasReadFiles).toBe(true)
+    expect(hasWriteFile).toBe(true)
+  })
+
+  test('preserves non-important tool calls in last 30 messages', () => {
+    // Non-important tool pairs in the last 30 messages should be preserved
+    const messages: Message[] = []
+
+    // Add 10 code_search tool pairs (20 messages total, all in last 30)
+    for (let i = 0; i < 10; i++) {
+      messages.push(...createToolCallPair(
+        `search-${i}`,
+        'code_search',
+        { pattern: `pattern${i}` },
+        { results: [] },
+      ))
+    }
+
+    // Total: 20 messages (all within last 30)
+    expect(messages.length).toBe(20)
+
+    // These should all be preserved since they're in the last 30 messages
+    const results = runHandleSteps(messages, 200000)
+    const resultMessages = results[0].input.messages
+
+    // All code_search tool pairs should remain (in last 30 messages)
+    const codeSearchCount = resultMessages.filter(
+      (m: any) => m.role === 'tool' && m.toolName === 'code_search',
+    ).length
+
+    expect(codeSearchCount).toBe(10)
+  })
+
+  test('preserves str_replace and write_todos as important tools', () => {
+    const messages: Message[] = []
+
+    // Add many find_files calls (non-important)
+    for (let i = 0; i < 60; i++) {
+      messages.push(...createToolCallPair(
+        `find-${i}`,
+        'find_files',
+        { pattern: '*.ts' },
+        { files: [] },
+      ))
+    }
+
+    // Add str_replace calls (important)
+    for (let i = 0; i < 5; i++) {
+      messages.push(...createToolCallPair(
+        `replace-${i}`,
+        'str_replace',
+        { path: 'file.ts', old: 'old', new: 'new' },
+        { success: true },
+      ))
+    }
+
+    // Add write_todos calls (important)
+    for (let i = 0; i < 3; i++) {
+      messages.push(...createToolCallPair(
+        `todos-${i}`,
+        'write_todos',
+        { todos: [] },
+        { success: true },
+      ))
+    }
+
+    // Total: 136 messages
+    expect(messages.length).toBe(136)
+
+    const results = runHandleSteps(messages)
+    const resultMessages = results[0].input.messages
+
+    // str_replace and write_todos should be preserved
+    const strReplaceCount = resultMessages.filter(
+      (m: any) => m.role === 'tool' && m.toolName === 'str_replace',
+    ).length
+    const writeTodosCount = resultMessages.filter(
+      (m: any) => m.role === 'tool' && m.toolName === 'write_todos',
+    ).length
+
+    expect(strReplaceCount).toBe(5)
+    expect(writeTodosCount).toBe(3)
+  })
+
+  test('limits placeholder messages to maximum of 2', () => {
+    // Create many messages that will trigger lots of pruning
+    const largeText = 'x'.repeat(10000)
+    const messages: Message[] = []
+
+    // Create 50 user/assistant pairs that will get pruned
+    for (let i = 0; i < 50; i++) {
+      messages.push(createMessage('user', `Message ${i}: ${largeText}`))
+      messages.push(createMessage('assistant', `Response ${i}: ${largeText}`))
+    }
+
+    // With a low token limit, many messages will be pruned
+    const results = runHandleSteps(messages, 50000)
+    const resultMessages = results[0].input.messages
+
+    // Count placeholder messages
+    const placeholderCount = resultMessages.filter(
+      (m: any) =>
+        Array.isArray(m.content) &&
+        m.content.some(
+          (part: any) =>
+            part.type === 'text' &&
+            part.text?.includes('Previous message(s) omitted'),
+        ),
+    ).length
+
+    // Should have at most 2 placeholders
+    expect(placeholderCount).toBeLessThanOrEqual(2)
+  })
+
+  test('preserves tool calls in last 30 messages regardless of importance', () => {
+    // Create messages where all tool calls are within the last 30 messages
+    const messages: Message[] = []
+
+    // Add 10 code_search tool pairs (20 messages total, all in last 30)
+    for (let i = 0; i < 10; i++) {
+      messages.push(...createToolCallPair(
+        `search-${i}`,
+        'code_search',
+        { pattern: `pattern${i}` },
+        { results: [] },
+      ))
+    }
+
+    // Total: 20 messages (all within last 30)
+    expect(messages.length).toBe(20)
+
+    // With high token limit, all should be preserved (within last 30)
+    const results = runHandleSteps(messages, 200000)
+    const resultMessages = results[0].input.messages
+
+    // All code_search tool pairs should be preserved (in last 30 messages)
+    const codeSearchCount = resultMessages.filter(
+      (m: any) => m.role === 'tool' && m.toolName === 'code_search',
+    ).length
+
+    expect(codeSearchCount).toBe(10)
+  })
+})
+
+describe('context-pruner PASS 4 most aggressive pruning', () => {
+  let mockAgentState: any
+
+  beforeEach(() => {
+    mockAgentState = {
+      messageHistory: [] as Message[],
+    }
+  })
+
+  const runHandleSteps = (messages: Message[], maxContextLength?: number) => {
+    mockAgentState.messageHistory = messages
+    const mockLogger = {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    }
+    const generator = contextPruner.handleSteps!({
+      agentState: mockAgentState,
+      logger: mockLogger,
+      params: maxContextLength ? { maxContextLength } : {},
+    })
+    const results: any[] = []
+    let result = generator.next()
+    while (!result.done) {
+      if (typeof result.value === 'object') {
+        results.push(result.value)
+      }
+      result = generator.next()
+    }
+    return results
+  }
+
+  const createMessage = (
+    role: 'user' | 'assistant',
+    content: string,
+  ): Message => ({
+    role,
+    content: [{ type: 'text', text: content }],
+  })
+
+  test('PASS 4 removes all messages from front when PASS 3 is insufficient', () => {
+    // Create messages where PASS 3 cannot remove enough
+    // (all messages are user messages or tool pairs, which PASS 3 preserves)
+    const largeText = 'x'.repeat(30000) // ~10k tokens each
+    
+    // Create only user messages - PASS 3 won't remove any of these
+    const messages: Message[] = []
+    for (let i = 0; i < 20; i++) {
+      messages.push(createMessage('user', `User message ${i}: ${largeText}`))
+    }
+
+    // With 50k limit and ~200k tokens, PASS 3 can't help (won't remove user messages)
+    // PASS 4 should remove messages from the front
+    const results = runHandleSteps(messages, 50000)
+
+    expect(results).toHaveLength(1)
+    const resultMessages = results[0].input.messages
+
+    // Should have fewer messages (PASS 4 removed from front)
+    expect(resultMessages.length).toBeLessThan(20)
+
+    // Should have a placeholder at the start
+    const hasPlaceholder = resultMessages[0]?.content?.[0]?.text?.includes('omitted')
+    expect(hasPlaceholder).toBe(true)
+
+    // Remaining messages should be from the END of the original list
+    const lastRemainingText = resultMessages[resultMessages.length - 1]?.content?.[0]?.text
+    expect(lastRemainingText).toContain('User message 19') // Last original message
+  })
+
+  test('PASS 4 triggers when user messages and tool pairs exceed limit', () => {
+    const largeText = 'x'.repeat(20000)
+    const messages: Message[] = []
+
+    // Add large user messages interspersed with tool pairs
+    for (let i = 0; i < 10; i++) {
+      messages.push(createMessage('user', `Request ${i}: ${largeText}`))
+      messages.push({
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: `call-${i}`,
+            toolName: 'read_files',
+            input: { paths: ['file.ts'] },
+          },
+        ],
+      })
+      messages.push({
+        role: 'tool',
+        toolCallId: `call-${i}`,
+        toolName: 'read_files',
+        content: [{ type: 'json', value: { content: largeText } }],
+      } as ToolMessage)
+    }
+
+    // 30 messages total, all protected by PASS 3 (user messages + tool pairs)
+    expect(messages.length).toBe(30)
+
+    // Use very low limit to force PASS 4
+    const results = runHandleSteps(messages, 20000)
+    const resultMessages = results[0].input.messages
+
+    // PASS 4 should have removed messages from the front
+    expect(resultMessages.length).toBeLessThan(30)
+  })
+})
+
+describe('context-pruner PASS 0 instructions removal', () => {
+  let mockAgentState: any
+
+  beforeEach(() => {
+    mockAgentState = {
+      messageHistory: [] as Message[],
+    }
+  })
+
+  const runHandleSteps = (messages: Message[]) => {
+    mockAgentState.messageHistory = messages
+    const mockLogger = {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    }
+    const generator = contextPruner.handleSteps!({
+      agentState: mockAgentState,
+      logger: mockLogger,
+      params: {},
+    })
+    const results: any[] = []
+    let result = generator.next()
+    while (!result.done) {
+      if (typeof result.value === 'object') {
+        results.push(result.value)
+      }
+      result = generator.next()
+    }
+    return results
+  }
+
+  test('removes messages with INSTRUCTIONS_PROMPT tag', () => {
+    const messages: Message[] = [
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'First message' }],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'Instructions prompt message' }],
+        tags: ['INSTRUCTIONS_PROMPT'],
+      },
+      {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Response' }],
+      },
+    ]
+
+    const results = runHandleSteps(messages)
+    const resultMessages = results[0].input.messages
+
+    // Should have removed the INSTRUCTIONS_PROMPT message
+    expect(resultMessages.length).toBe(2)
+    expect(
+      resultMessages.every(
+        (m: any) => !m.tags?.includes('INSTRUCTIONS_PROMPT'),
+      ),
+    ).toBe(true)
+  })
+
+  test('removes messages with SUBAGENT_SPAWN tag', () => {
+    const messages: Message[] = [
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'First message' }],
+      },
+      {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Spawning subagent...' }],
+        tags: ['SUBAGENT_SPAWN'],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'Follow up' }],
+      },
+    ]
+
+    const results = runHandleSteps(messages)
+    const resultMessages = results[0].input.messages
+
+    // Should have removed the SUBAGENT_SPAWN message
+    expect(resultMessages.length).toBe(2)
+    expect(
+      resultMessages.every((m: any) => !m.tags?.includes('SUBAGENT_SPAWN')),
+    ).toBe(true)
+  })
+
+  test('removes both INSTRUCTIONS_PROMPT and SUBAGENT_SPAWN messages', () => {
+    const messages: Message[] = [
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'Start' }],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'Instructions' }],
+        tags: ['INSTRUCTIONS_PROMPT'],
+      },
+      {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Spawning...' }],
+        tags: ['SUBAGENT_SPAWN'],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'End' }],
+      },
+    ]
+
+    const results = runHandleSteps(messages)
+    const resultMessages = results[0].input.messages
+
+    // Should have removed both tagged messages
+    expect(resultMessages.length).toBe(2)
+    const texts = resultMessages.map((m: any) => m.content[0].text)
+    expect(texts).toContain('Start')
+    expect(texts).toContain('End')
+  })
+})
+
+describe('context-pruner orphan removal', () => {
+  let mockAgentState: any
+
+  beforeEach(() => {
+    mockAgentState = {
+      messageHistory: [] as Message[],
+    }
+  })
+
+  const runHandleSteps = (messages: Message[], maxContextLength?: number) => {
+    mockAgentState.messageHistory = messages
+    const mockLogger = {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    }
+    const generator = contextPruner.handleSteps!({
+      agentState: mockAgentState,
+      logger: mockLogger,
+      params: maxContextLength ? { maxContextLength } : {},
+    })
+    const results: any[] = []
+    let result = generator.next()
+    while (!result.done) {
+      if (typeof result.value === 'object') {
+        results.push(result.value)
+      }
+      result = generator.next()
+    }
+    return results
+  }
+
+  test('removes orphaned tool results after aggressive pruning', () => {
+    const largeText = 'x'.repeat(30000)
+    const messages: Message[] = [
+      // Tool call that will be removed by PASS 4
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'orphan-call',
+            toolName: 'code_search',
+            input: { pattern: 'test' },
+          },
+        ],
+      },
+      // Many large user messages to trigger PASS 4
+      ...Array.from({ length: 10 }, (_, i) => ({
+        role: 'user' as const,
+        content: [{ type: 'text' as const, text: `Message ${i}: ${largeText}` }],
+      })),
+      // Tool result at the end - will become orphaned when tool call is removed
+      {
+        role: 'tool',
+        toolCallId: 'orphan-call',
+        toolName: 'code_search',
+        content: [{ type: 'json', value: { results: [] } }],
+      } as ToolMessage,
+    ]
+
+    // Low limit to trigger aggressive pruning
+    const results = runHandleSteps(messages, 30000)
+    const resultMessages = results[0].input.messages
+
+    // Should not have any orphaned tool results
+    const toolResults = resultMessages.filter((m: any) => m.role === 'tool')
+    for (const result of toolResults) {
+      // Each tool result should have a matching tool call
+      const hasMatchingCall = resultMessages.some(
+        (m: any) =>
+          m.role === 'assistant' &&
+          Array.isArray(m.content) &&
+          m.content.some(
+            (c: any) =>
+              c.type === 'tool-call' && c.toolCallId === result.toolCallId,
+          ),
+      )
+      expect(hasMatchingCall).toBe(true)
+    }
+  })
+
+  test('removes orphaned tool calls after aggressive pruning', () => {
+    const largeText = 'x'.repeat(30000)
+    const messages: Message[] = [
+      // Tool result that will be removed by PASS 4 (at the front)
+      {
+        role: 'tool',
+        toolCallId: 'orphan-result',
+        toolName: 'read_files',
+        content: [{ type: 'json', value: { content: largeText } }],
+      } as ToolMessage,
+      // Many large user messages
+      ...Array.from({ length: 10 }, (_, i) => ({
+        role: 'user' as const,
+        content: [{ type: 'text' as const, text: `Message ${i}: ${largeText}` }],
+      })),
+      // Tool call at the end - will become orphaned when result is removed
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'orphan-result',
+            toolName: 'read_files',
+            input: { paths: ['file.ts'] },
+          },
+        ],
+      },
+    ]
+
+    // Low limit to trigger aggressive pruning
+    const results = runHandleSteps(messages, 30000)
+    const resultMessages = results[0].input.messages
+
+    // Should not have any orphaned tool calls
+    const assistantMessages = resultMessages.filter(
+      (m: any) =>
+        m.role === 'assistant' &&
+        Array.isArray(m.content) &&
+        m.content.some((c: any) => c.type === 'tool-call'),
+    )
+
+    for (const assistant of assistantMessages) {
+      for (const part of assistant.content) {
+        if (part.type === 'tool-call') {
+          // Each tool call should have a matching tool result
+          const hasMatchingResult = resultMessages.some(
+            (m: any) => m.role === 'tool' && m.toolCallId === part.toolCallId,
+          )
+          expect(hasMatchingResult).toBe(true)
+        }
+      }
+    }
+  })
+
+  test('handles multiple orphaned pairs correctly', () => {
+    const largeText = 'x'.repeat(20000)
+    const messages: Message[] = [
+      // First orphan pair (call at start, result at end)
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'orphan-1',
+            toolName: 'find_files',
+            input: {},
+          },
+        ],
+      },
+      // Second orphan pair (result at start, call at end)
+      {
+        role: 'tool',
+        toolCallId: 'orphan-2',
+        toolName: 'code_search',
+        content: [{ type: 'json', value: {} }],
+      } as ToolMessage,
+      // Large content in the middle
+      ...Array.from({ length: 8 }, (_, i) => ({
+        role: 'user' as const,
+        content: [{ type: 'text' as const, text: `Msg ${i}: ${largeText}` }],
+      })),
+      // Matching results/calls at the end (will become orphans)
+      {
+        role: 'tool',
+        toolCallId: 'orphan-1',
+        toolName: 'find_files',
+        content: [{ type: 'json', value: {} }],
+      } as ToolMessage,
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'orphan-2',
+            toolName: 'code_search',
+            input: {},
+          },
+        ],
+      },
+    ]
+
+    const results = runHandleSteps(messages, 25000)
+    const resultMessages = results[0].input.messages
+
+    // No orphaned tool results
+    const toolResults = resultMessages.filter((m: any) => m.role === 'tool')
+    for (const result of toolResults) {
+      const hasMatchingCall = resultMessages.some(
+        (m: any) =>
+          m.role === 'assistant' &&
+          Array.isArray(m.content) &&
+          m.content.some(
+            (c: any) =>
+              c.type === 'tool-call' && c.toolCallId === result.toolCallId,
+          ),
+      )
+      expect(hasMatchingCall).toBe(true)
+    }
+
+    // No orphaned tool calls
+    for (const msg of resultMessages) {
+      if (msg.role === 'assistant' && Array.isArray(msg.content)) {
+        for (const part of msg.content) {
+          if (part.type === 'tool-call') {
+            const hasMatchingResult = resultMessages.some(
+              (m: any) => m.role === 'tool' && m.toolCallId === part.toolCallId,
+            )
+            expect(hasMatchingResult).toBe(true)
+          }
+        }
+      }
+    }
   })
 })
 
@@ -1429,7 +2134,8 @@ describe('context-pruner edge cases', () => {
       createMessage('assistant', largeContent),
       ...createToolPair('tool-1', 'test1', { data: 'a'.repeat(500) }), // Small
       ...createToolPair('tool-2', 'test2', { data: 'a'.repeat(999) }), // Just under 1000 when stringified
-      ...createToolPair('tool-3', 'test3', { data: 'a'.repeat(2000) }), // Large
+      // Use 'read_files' (an important tool) so it won't be removed in PASS 2
+      ...createToolPair('tool-3', 'read_files', { data: 'a'.repeat(2000) }), // Large
     ]
 
     const results = runHandleSteps(messages)
@@ -1441,7 +2147,7 @@ describe('context-pruner edge cases', () => {
     const hasToolResults = resultMessages.some((m: any) => m.role === 'tool')
     expect(hasToolResults).toBe(true)
 
-    // Check that large tool result replacement occurred
+    // Check that large tool result replacement occurred (for important tool read_files)
     const hasLargeToolResultReplacement = resultMessages.some(
       (m: any) =>
         m.role === 'tool' &&

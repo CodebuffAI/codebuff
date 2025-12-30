@@ -2,7 +2,6 @@ import { publisher } from './constants'
 
 import type { AgentDefinition, ToolCall } from './types/agent-definition'
 import type { Message, ToolMessage } from './types/util-types'
-import type { CodebuffToolMessage } from '@codebuff/common/tools/list'
 
 const definition: AgentDefinition = {
   id: 'context-pruner',
@@ -29,6 +28,26 @@ const definition: AgentDefinition = {
 
   handleSteps: function* ({ agentState, params, logger }) {
     const messages = agentState.messageHistory
+
+    // Tools that should be preserved during aggressive pruning
+    // These are essential for understanding file state and task progress
+    const IMPORTANT_TOOLS = new Set([
+      'read_files',
+      'write_todos',
+      'write_file',
+      'str_replace',
+      'propose_write_file',
+      'propose_str_replace',
+    ])
+
+    // Threshold for truncating large tool results (chars)
+    const LARGE_TOOL_RESULT_THRESHOLD = 1000
+
+    // Number of recent messages to protect from non-important tool removal
+    const KEEP_LAST_N_MESSAGES = 30
+
+    // Target token factor (25% of max = aggressive trimming)
+    const TARGET_TOKEN_FACTOR = 0.25
 
     // Anthropic image token formula: 85 + (num_tiles × 170), where tiles are ~512×512px
     // Our compression limits images to max 1500px on longest side (typically 800-1200px)
@@ -89,7 +108,6 @@ const definition: AgentDefinition = {
     const maxContextLength: number = params?.maxContextLength ?? 200_000
     const maxMessageTokens: number =
       maxContextLength - systemPromptTokens - toolDefinitionTokens
-    const numTerminalCommandsToKeep = 5
 
     // Helper to extract tool call IDs from messages
     const extractToolCallIds = (msgs: Message[]): Set<string> => {
@@ -152,6 +170,61 @@ const definition: AgentDefinition = {
         .filter((m): m is Message => m !== null)
     }
 
+    // Helper to build tool call pair info from messages
+    // Returns a map of toolCallId -> { callIndex, resultIndex, toolName }
+    const buildToolPairMap = (
+      msgs: Message[],
+    ): Map<
+      string,
+      { callIndex: number; resultIndex: number; toolName: string }
+    > => {
+      const pairs = new Map<
+        string,
+        { callIndex: number; resultIndex: number; toolName: string }
+      >()
+
+      for (const [i, message] of msgs.entries()) {
+        if (message.role === 'assistant' && Array.isArray(message.content)) {
+          for (const part of message.content) {
+            if (part.type === 'tool-call' && part.toolCallId) {
+              const existing = pairs.get(part.toolCallId) || {
+                callIndex: -1,
+                resultIndex: -1,
+                toolName: part.toolName || '',
+              }
+              existing.callIndex = i
+              existing.toolName = part.toolName || ''
+              pairs.set(part.toolCallId, existing)
+            }
+          }
+        } else if (message.role === 'tool' && message.toolCallId) {
+          const existing = pairs.get(message.toolCallId) || {
+            callIndex: -1,
+            resultIndex: -1,
+            toolName: message.toolName || '',
+          }
+          existing.resultIndex = i
+          if (!existing.toolName) {
+            existing.toolName = message.toolName || ''
+          }
+          pairs.set(message.toolCallId, existing)
+        }
+      }
+
+      return pairs
+    }
+
+    // Helper to get all indices that are part of tool call pairs
+    const getPairedIndices = (msgs: Message[]): Set<number> => {
+      const pairs = buildToolPairMap(msgs)
+      const indices = new Set<number>()
+      for (const { callIndex, resultIndex } of pairs.values()) {
+        if (callIndex >= 0) indices.add(callIndex)
+        if (resultIndex >= 0) indices.add(resultIndex)
+      }
+      return indices
+    }
+
     // PASS 0: Remove last instructions prompt message.
     let currentMessages = [...messages]
     const lastInstructionsPromptIndex = currentMessages.findLastIndex(
@@ -167,7 +240,7 @@ const definition: AgentDefinition = {
       currentMessages.splice(lastSubagentSpawnIndex, 1)
     }
 
-    // Initial check - if already under limit, return
+    // Initial check - if already under limit, return early (skip all pruning)
     const initialTokens = countMessagesTokens(currentMessages)
     if (initialTokens < maxMessageTokens) {
       yield {
@@ -178,67 +251,13 @@ const definition: AgentDefinition = {
       return
     }
 
-    // PASS 1: Remove terminal command results (oldest first, preserve recent 5)
+    // PASS 1: Truncate large tool results
     // Only prune the tool result content, keeping the tool-call/tool-result pairs intact
-    let numKeptTerminalCommands = 0
-    const afterTerminalPass: Message[] = []
-
-    for (let i = currentMessages.length - 1; i >= 0; i--) {
-      const message = currentMessages[i]
-
-      // Handle tool messages with new object format
-      if (
-        message.role === 'tool' &&
-        message.toolName === 'run_terminal_command'
-      ) {
-        const toolMessage =
-          message as CodebuffToolMessage<'run_terminal_command'>
-
-        if (numKeptTerminalCommands < numTerminalCommandsToKeep) {
-          numKeptTerminalCommands++
-          afterTerminalPass.unshift(message)
-        } else {
-          // Simplify terminal command result by replacing output content only
-          const simplifiedMessage: CodebuffToolMessage<'run_terminal_command'> =
-            {
-              ...toolMessage,
-              content: [
-                {
-                  type: 'json',
-                  value: {
-                    command: toolMessage.content[0]?.value?.command || '',
-                    stdoutOmittedForLength: true,
-                  },
-                },
-              ],
-            }
-          afterTerminalPass.unshift(simplifiedMessage)
-        }
-      } else {
-        afterTerminalPass.unshift(message)
-      }
-    }
-
-    // Check if terminal pass was enough
-    const tokensAfterTerminal = countMessagesTokens(afterTerminalPass)
-    if (tokensAfterTerminal < maxMessageTokens) {
-      yield {
-        toolName: 'set_messages',
-        input: {
-          messages: afterTerminalPass,
-        },
-        includeToolCall: false,
-      }
-      return
-    }
-
-    // PASS 2: Remove large tool results (any tool result output > 1000 chars when stringified)
-    // Only prune the tool result content, keeping the tool-call/tool-result pairs intact
-    const afterToolResultsPass = afterTerminalPass.map((message) => {
+    const afterPass1 = currentMessages.map((message) => {
       if (message.role === 'tool') {
         const outputSize = JSON.stringify(message.content).length
 
-        if (outputSize > 1000) {
+        if (outputSize > LARGE_TOOL_RESULT_THRESHOLD) {
           // Replace tool result content with simplified output
           const simplifiedMessage: ToolMessage = {
             ...message,
@@ -258,22 +277,43 @@ const definition: AgentDefinition = {
       return message
     })
 
-    // Check if tool results pass was enough
-    const tokensAfterToolResults = countMessagesTokens(afterToolResultsPass)
-    if (tokensAfterToolResults < maxMessageTokens) {
-      yield {
-        toolName: 'set_messages',
-        input: {
-          messages: afterToolResultsPass,
-        },
-        includeToolCall: false,
-      } satisfies ToolCall<'set_messages'>
-      return
+    // PASS 2: Remove non-important tool call pairs that aren't in the last N messages
+    // Always run to clean up old tool calls that aren't essential
+    let afterPass2: Message[] = afterPass1
+    {
+      const lastNStartIndex = Math.max(
+        0,
+        afterPass1.length - KEEP_LAST_N_MESSAGES,
+      )
+      const toolPairs = buildToolPairMap(afterPass1)
+
+      // Identify indices of non-important tool pairs to remove
+      // Remove pairs where:
+      // 1. Tool is not in IMPORTANT_TOOLS list
+      // 2. Both call and result are NOT in the last N messages
+      const indicesToRemovePass2 = new Set<number>()
+      for (const { callIndex, resultIndex, toolName } of toolPairs.values()) {
+        // Check if this tool pair is in the last N messages
+        const isInLastN =
+          (callIndex >= 0 && callIndex >= lastNStartIndex) ||
+          (resultIndex >= 0 && resultIndex >= lastNStartIndex)
+
+        // Remove if not important AND not in last N messages
+        if (!IMPORTANT_TOOLS.has(toolName) && !isInLastN) {
+          if (callIndex >= 0) indicesToRemovePass2.add(callIndex)
+          if (resultIndex >= 0) indicesToRemovePass2.add(resultIndex)
+        }
+      }
+
+      // Rebuild messages without the removed indices
+      if (indicesToRemovePass2.size > 0) {
+        afterPass2 = afterPass1.filter((_, i) => !indicesToRemovePass2.has(i))
+      }
     }
 
-    // PASS 3: Message-level pruning
-    // Must keep tool-call and tool-result pairs together for Anthropic API compliance
-    const shortenedMessageTokenFactor = 0.5
+    // PASS 3: Message-level pruning (more severe)
+    // Preserves: user messages, tool-call/tool-result pairs
+    // Target 25% of max tokens for aggressive trimming
     const replacementMessage: Message = {
       role: 'user',
       content: [
@@ -284,95 +324,65 @@ const definition: AgentDefinition = {
       ],
     }
 
-    const keepLastTags: Record<string, number> = {}
-    for (const [i, message] of afterToolResultsPass.entries()) {
-      if (!message.keepLastTags) {
-        continue
-      }
-      for (const tag of message.keepLastTags) {
-        keepLastTags[tag] = i
-      }
-    }
-    const keepLastIndices = Object.values(keepLastTags)
-
-    // Build a map of toolCallId -> indices that must be kept together
-    const toolCallPairs: Map<string, number[]> = new Map()
-    for (const [i, message] of afterToolResultsPass.entries()) {
-      if (message.role === 'assistant' && Array.isArray(message.content)) {
-        for (const part of message.content) {
-          if (part.type === 'tool-call' && part.toolCallId) {
-            const existing = toolCallPairs.get(part.toolCallId) || []
-            existing.push(i)
-            toolCallPairs.set(part.toolCallId, existing)
-          }
-        }
-      } else if (message.role === 'tool' && message.toolCallId) {
-        const existing = toolCallPairs.get(message.toolCallId) || []
-        existing.push(i)
-        toolCallPairs.set(message.toolCallId, existing)
-      }
-    }
+    const tokensAfterPass2 = countMessagesTokens(afterPass2)
+    let afterPass3: Message[] = afterPass2
 
     // Get all indices that are part of tool call pairs
-    const pairedIndices = new Set<number>()
-    for (const indices of toolCallPairs.values()) {
-      for (const idx of indices) {
-        pairedIndices.add(idx)
-      }
-    }
+    const pairedIndices = getPairedIndices(afterPass2)
 
-    const requiredTokens = countMessagesTokens(
-      afterToolResultsPass.filter((m: any) => m.keepDuringTruncation),
-    )
+    // Calculate how much we need to remove to get to target (25% of limit)
+    // If already under target, tokensToRemove will be non-positive and loop won't remove anything
+    const targetTokens = maxMessageTokens * TARGET_TOKEN_FACTOR
+    const tokensToRemove = tokensAfterPass2 - targetTokens
+
     let removedTokens = 0
-    const tokensToRemove =
-      (maxMessageTokens - requiredTokens) * (1 - shortenedMessageTokenFactor)
-
-    const placeholder = 'deleted'
-    const filteredMessages: any[] = []
     const indicesToRemove = new Set<number>()
 
-    // First pass: identify which messages to remove (excluding tool call pairs)
-    let lastWasRemoval = false
-    for (const [i, message] of afterToolResultsPass.entries()) {
-      if (
-        removedTokens >= tokensToRemove ||
-        message.keepDuringTruncation ||
-        keepLastIndices.includes(i) ||
-        pairedIndices.has(i) // Never remove tool-call/tool-result pairs
-      ) {
-        lastWasRemoval = false
+    // Identify which messages to remove (oldest first)
+    // Preserve: user messages, tool call pairs
+    for (const [i, message] of afterPass2.entries()) {
+      if (removedTokens >= tokensToRemove) {
+        break
+      }
+      // Never remove user messages or tool call pairs
+      if (message.role === 'user' || pairedIndices.has(i)) {
         continue
       }
       indicesToRemove.add(i)
       removedTokens += countMessageTokens(message)
-      // Account for placeholder token cost when starting a new removal sequence
-      if (!lastWasRemoval) {
-        removedTokens -= countMessageTokens(replacementMessage)
-      }
-      lastWasRemoval = true
     }
 
-    // Second pass: build filtered messages with placeholders
-    for (const [i, message] of afterToolResultsPass.entries()) {
-      if (indicesToRemove.has(i)) {
-        if (
-          filteredMessages.length === 0 ||
-          filteredMessages[filteredMessages.length - 1] !== placeholder
-        ) {
-          filteredMessages.push(placeholder)
-        }
-      } else {
-        filteredMessages.push(message)
-      }
+    // Build filtered messages with a single placeholder at the front
+    if (indicesToRemove.size > 0) {
+      afterPass3 = [
+        replacementMessage,
+        ...afterPass2.filter((_, i) => !indicesToRemove.has(i)),
+      ]
     }
 
-    const finalMessages = filteredMessages.map((m) =>
-      m === placeholder ? replacementMessage : m,
-    )
+    // PASS 4: Most aggressive - remove ALL messages from front until under 25% target
+    // This is the last resort when even PASS 3 couldn't get us under the limit
+    let afterPass4: Message[] = afterPass3
+    const tokensAfterPass3 = countMessagesTokens(afterPass3)
+
+    if (tokensAfterPass3 > targetTokens) {
+      let currentTokens = tokensAfterPass3
+      let startIndex = 0
+
+      // Remove messages from the front until under target
+      while (currentTokens > targetTokens && startIndex < afterPass3.length) {
+        currentTokens -= countMessageTokens(afterPass3[startIndex])
+        startIndex++
+      }
+
+      // Keep messages from startIndex onwards, prepend a placeholder
+      if (startIndex > 0) {
+        afterPass4 = [replacementMessage, ...afterPass3.slice(startIndex)]
+      }
+    }
 
     // FINAL VALIDATION: Ensure all tool calls and results are properly paired
-    const validatedMessages = removeOrphanedToolMessages(finalMessages)
+    const validatedMessages = removeOrphanedToolMessages(afterPass4)
 
     // Apply the final pruned message history
     yield {
