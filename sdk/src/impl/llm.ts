@@ -5,9 +5,7 @@ import {
   getLiveUserInputIds,
 } from '@codebuff/agent-runtime/live-user-inputs'
 import { getByokOpenrouterApiKeyFromEnv } from '../env'
-import {
-  BYOK_OPENROUTER_HEADER,
-} from '@codebuff/common/constants/byok'
+import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import { models, PROFIT_MARGIN } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
@@ -115,7 +113,6 @@ function getProviderOptions(params: {
         client_id: clientSessionId,
         ...(n && { n }),
       },
-      transforms: ['middle-out'],
       provider: providerConfig,
     },
   }
