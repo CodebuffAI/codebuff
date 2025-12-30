@@ -25,7 +25,7 @@ const nextConfig = {
     optimizePackageImports: ['@/components/ui'],
   },
   webpack: (config) => {
-    config.resolve.fallback = { fs: false, net: false, tls: false }
+    config.resolve.fallback = { fs: false, net: false, tls: false, path: false }
     // Tell Next.js to leave pino and thread-stream unbundled
     config.externals.push(
       { 'thread-stream': 'commonjs thread-stream', pino: 'commonjs pino' },
