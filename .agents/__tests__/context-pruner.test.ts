@@ -1041,6 +1041,201 @@ describe('context-pruner saved run state overflow', () => {
   })
 })
 
+describe('context-pruner token counting accuracy', () => {
+  let mockAgentState: any
+
+  beforeEach(() => {
+    mockAgentState = {
+      messageHistory: [] as Message[],
+    }
+  })
+
+  const runHandleSteps = (messages: Message[], maxContextLength?: number) => {
+    mockAgentState.messageHistory = messages
+    const mockLogger = {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    }
+    const generator = contextPruner.handleSteps!({
+      agentState: mockAgentState,
+      logger: mockLogger,
+      params: maxContextLength ? { maxContextLength } : {},
+    })
+    const results: any[] = []
+    let result = generator.next()
+    while (!result.done) {
+      if (typeof result.value === 'object') {
+        results.push(result.value)
+      }
+      result = generator.next()
+    }
+    return results
+  }
+
+  test('accurately counts tokens for message with large text content', () => {
+    // Create a message with large content that would be significantly undercounted
+    // if we only counted metadata fields without the content
+    const largeText = 'x'.repeat(90000) // ~30k tokens
+    
+    const messageWithLargeContent: Message = {
+      role: 'user',
+      content: [
+        {
+          type: 'text',
+          text: largeText,
+        },
+      ],
+    }
+
+    // With a 50k token limit and a ~30k token message, should NOT be pruned
+    // If token counting was broken and didn't count content, it would see ~0 tokens
+    // and definitely not prune
+    const results = runHandleSteps([messageWithLargeContent], 50000)
+
+    expect(results).toHaveLength(1)
+    // Message should be preserved (under limit)
+    expect(results[0].input.messages).toHaveLength(1)
+    expect(results[0].input.messages[0].content[0].text).toBe(largeText)
+  })
+
+  test('prunes when large content exceeds token limit', () => {
+    // Create multiple messages with large content that should trigger pruning
+    const largeText = 'x'.repeat(60000) // ~20k tokens each
+    
+    const messages: Message[] = [
+      {
+        role: 'user',
+        content: [{ type: 'text', text: `First: ${largeText}` }],
+      },
+      {
+        role: 'assistant', 
+        content: [{ type: 'text', text: `Second: ${largeText}` }],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'text', text: `Third: ${largeText}` }],
+      },
+      {
+        role: 'assistant',
+        content: [{ type: 'text', text: `Fourth: ${largeText}` }],
+      },
+    ]
+
+    // ~80k tokens total, with 50k limit should trigger pruning
+    // If content wasn't being counted, it would see ~0 tokens and NOT prune
+    const results = runHandleSteps(messages, 50000)
+
+    expect(results).toHaveLength(1)
+    const resultMessages = results[0].input.messages
+    
+    // Should have pruned some messages (either removed or replaced with placeholder)
+    // If token counting was broken, all 4 messages would remain
+    const hasReplacementMessage = resultMessages.some(
+      (m: any) =>
+        Array.isArray(m.content) &&
+        m.content.some(
+          (part: any) =>
+            part.type === 'text' &&
+            part.text.includes('Previous message(s) omitted'),
+        ),
+    )
+    expect(hasReplacementMessage).toBe(true)
+  })
+
+  test('many small messages have JSON structure overhead counted correctly', () => {
+    // When there are MANY small messages, the JSON structure overhead becomes significant:
+    // Each message has ~50 chars of structure: {"role":"user","content":[{"type":"text","text":""}]}
+    // With 500 messages, that's ~25k chars = ~8k tokens just in structure
+    // The old code would undercount because it only counted content parts + minimal metadata
+    
+    const smallMessages: Message[] = []
+    for (let i = 0; i < 500; i++) {
+      smallMessages.push({
+        role: i % 2 === 0 ? 'user' : 'assistant',
+        content: [{ type: 'text', text: `msg${i}` }], // ~5 chars of actual content each
+      })
+    }
+
+    // Calculate expected tokens:
+    // Each message stringified is roughly: {"role":"user","content":[{"type":"text","text":"msg123"}]}
+    // That's about 60-65 chars per message = ~20 tokens per message
+    // 500 messages * 20 tokens = ~10k tokens
+    // With a 5k limit, should trigger pruning
+    // If structure wasn't counted (only content parts), we'd see ~500 * 5 chars / 3 = ~800 tokens
+    // which wouldn't trigger pruning
+    
+    const results = runHandleSteps(smallMessages, 5000)
+
+    expect(results).toHaveLength(1)
+    const resultMessages = results[0].input.messages
+    
+    // Should have pruned - either fewer messages or replacement placeholders
+    // If JSON structure wasn't being counted, all 500 messages would fit in 5k tokens
+    const hasReplacementMessage = resultMessages.some(
+      (m: any) =>
+        Array.isArray(m.content) &&
+        m.content.some(
+          (part: any) =>
+            part.type === 'text' &&
+            part.text.includes('Previous message(s) omitted'),
+        ),
+    )
+    // Either we have fewer messages OR we have replacement messages
+    const wasPruned = resultMessages.length < 500 || hasReplacementMessage
+    expect(wasPruned).toBe(true)
+  })
+
+  test('tool message with large result content is counted correctly', () => {
+    // Tool message with large content that must be counted
+    const largeResult = 'y'.repeat(90000) // ~30k tokens
+    
+    const toolCallMessage: Message = {
+      role: 'assistant',
+      content: [
+        {
+          type: 'tool-call',
+          toolCallId: 'test-large-result',
+          toolName: 'read_files',
+          input: { paths: ['big-file.ts'] },
+        },
+      ],
+    }
+
+    const toolResultMessage: ToolMessage = {
+      role: 'tool',
+      toolCallId: 'test-large-result',
+      toolName: 'read_files',
+      content: [
+        {
+          type: 'json',
+          value: { content: largeResult },
+        },
+      ],
+    }
+
+    // With 50k limit and ~30k token tool result, should not trigger message-level pruning
+    // but may trigger large tool result simplification (>1000 chars)
+    const results = runHandleSteps([toolCallMessage, toolResultMessage], 50000)
+
+    expect(results).toHaveLength(1)
+    // Both tool call and result should be present (may be simplified but paired)
+    const resultMessages = results[0].input.messages
+    const hasToolCall = resultMessages.some(
+      (m: any) =>
+        m.role === 'assistant' &&
+        Array.isArray(m.content) &&
+        m.content.some((c: any) => c.toolCallId === 'test-large-result'),
+    )
+    const hasToolResult = resultMessages.some(
+      (m: any) => m.role === 'tool' && m.toolCallId === 'test-large-result',
+    )
+    expect(hasToolCall).toBe(true)
+    expect(hasToolResult).toBe(true)
+  })
+})
+
 describe('context-pruner edge cases', () => {
   let mockAgentState: any
 

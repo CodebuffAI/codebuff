@@ -43,46 +43,34 @@ const definition: AgentDefinition = {
 
     // Count tokens for a message, handling media content specially
     const countMessageTokens = (message: Message): number => {
-      // For tool messages, check if content contains media type
-      if (message.role === 'tool' && Array.isArray(message.content)) {
-        let tokens = 0
-        for (const part of message.content) {
-          if (part.type === 'media') {
-            // Use fixed token count for images since we compress them
-            tokens += TOKENS_PER_IMAGE
-          } else {
-            tokens += countTokensJson(part)
+      // For messages with images/media, we need special handling to avoid counting base64 data
+      if (Array.isArray(message.content)) {
+        // Check if there are any images or media
+        const hasImagesOrMedia = message.content.some(
+          (part: any) => part.type === 'image' || part.type === 'media',
+        )
+
+        if (hasImagesOrMedia) {
+          let tokens = 0
+
+          // Count content parts, handling images specially
+          for (const part of message.content) {
+            if (part.type === 'image' || part.type === 'media') {
+              tokens += TOKENS_PER_IMAGE
+            } else {
+              tokens += countTokensJson(part)
+            }
           }
+
+          // Count the rest of the message fields (role, toolCallId, toolName, tags, etc.)
+          const { content, ...rest } = message
+          tokens += countTokensJson(rest)
+
+          return tokens
         }
-        // Add overhead for message metadata
-        tokens += countTokensJson({
-          role: message.role,
-          toolCallId: message.toolCallId,
-          toolName: message.toolName,
-        })
-        return tokens
       }
 
-      // For user/assistant messages, check content array for images
-      if (
-        (message.role === 'user' || message.role === 'assistant') &&
-        Array.isArray(message.content)
-      ) {
-        let tokens = 0
-        for (const part of message.content) {
-          if (part.type === 'image') {
-            // Use fixed token count for images
-            tokens += TOKENS_PER_IMAGE
-          } else {
-            tokens += countTokensJson(part)
-          }
-        }
-        // Add overhead for message metadata
-        tokens += countTokensJson({ role: message.role })
-        return tokens
-      }
-
-      // Fallback to JSON-based counting
+      // No images/media, just count the whole message
       return countTokensJson(message)
     }
 
