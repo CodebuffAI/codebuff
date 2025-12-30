@@ -225,7 +225,7 @@ const definition: AgentDefinition = {
       return indices
     }
 
-    // PASS 0: Remove last instructions prompt message.
+    // PASS 0: Remove last instructions prompt and subagent spawn messages.
     let currentMessages = [...messages]
     const lastInstructionsPromptIndex = currentMessages.findLastIndex(
       (message) => message.tags?.includes('INSTRUCTIONS_PROMPT'),
@@ -249,6 +249,18 @@ const definition: AgentDefinition = {
         includeToolCall: false,
       }
       return
+    }
+
+    // PASS 0.5: Remove all remaining INSTRUCTIONS_PROMPT messages except the last one
+    const remainingInstructionsPromptIndex = currentMessages.findLastIndex(
+      (message) => message.tags?.includes('INSTRUCTIONS_PROMPT'),
+    )
+    if (remainingInstructionsPromptIndex !== -1) {
+      currentMessages = currentMessages.filter(
+        (message, index) =>
+          !message.tags?.includes('INSTRUCTIONS_PROMPT') ||
+          index === remainingInstructionsPromptIndex,
+      )
     }
 
     // PASS 1: Truncate large tool results

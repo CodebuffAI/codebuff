@@ -1634,7 +1634,7 @@ describe('context-pruner PASS 0 instructions removal', () => {
     return results
   }
 
-  test('removes messages with INSTRUCTIONS_PROMPT tag', () => {
+  test('removes last INSTRUCTIONS_PROMPT message in PASS 0', () => {
     const messages: Message[] = [
       {
         role: 'user',
@@ -1720,6 +1720,90 @@ describe('context-pruner PASS 0 instructions removal', () => {
     const texts = resultMessages.map((m: any) => m.content[0].text)
     expect(texts).toContain('Start')
     expect(texts).toContain('End')
+  })
+
+  test('keeps only last INSTRUCTIONS_PROMPT when pruning passes run (over token limit)', () => {
+    // Use a lower maxContextLength to trigger pruning without needing massive content
+    // This ensures PASS 0.5 runs (past the initial check)
+    const mockAgentState = {
+      messageHistory: [] as Message[],
+    }
+
+    const runHandleStepsWithLimit = (messages: Message[], maxContextLength: number) => {
+      mockAgentState.messageHistory = messages
+      const mockLogger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      }
+      const generator = contextPruner.handleSteps!({
+        agentState: mockAgentState,
+        logger: mockLogger,
+        params: { maxContextLength },
+      })
+      const results: any[] = []
+      let result = generator.next()
+      while (!result.done) {
+        if (typeof result.value === 'object') {
+          results.push(result.value)
+        }
+        result = generator.next()
+      }
+      return results
+    }
+
+    // Content that's ~1000 tokens each (3000 chars / 3)
+    const mediumContent = 'x'.repeat(3000)
+
+    const messages: Message[] = [
+      {
+        role: 'user',
+        content: [{ type: 'text', text: mediumContent }],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'Old instructions 1' }],
+        tags: ['INSTRUCTIONS_PROMPT'],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'text', text: mediumContent }],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'Old instructions 2' }],
+        tags: ['INSTRUCTIONS_PROMPT'],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'text', text: mediumContent }],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'Latest instructions' }],
+        tags: ['INSTRUCTIONS_PROMPT'],
+      },
+    ]
+
+    // Use a very low limit (1000 tokens) to ensure we exceed it and trigger PASS 0.5
+    // Messages are ~3000+ tokens total, so 1000 limit will be exceeded
+    const results = runHandleStepsWithLimit(messages, 1000)
+    const resultMessages = results[0].input.messages
+
+    // PASS 0 removes the last INSTRUCTIONS_PROMPT ('Latest instructions')
+    // PASS 0.5 keeps only the last remaining one ('Old instructions 2') and removes 'Old instructions 1'
+    // So we should have at most 1 INSTRUCTIONS_PROMPT message remaining
+    const instructionsPrompts = resultMessages.filter(
+      (m: any) => m.tags?.includes('INSTRUCTIONS_PROMPT'),
+    )
+    // Either 0 (if aggressive pruning removed it) or 1 (kept the last one)
+    // The key assertion is that we don't have 2 (both old ones kept)
+    expect(instructionsPrompts.length).toBeLessThanOrEqual(1)
+    if (instructionsPrompts.length === 1) {
+      // If one remains, it should be 'Old instructions 2' (the last remaining after PASS 0)
+      expect(instructionsPrompts[0].content[0].text).toBe('Old instructions 2')
+    }
   })
 })
 
