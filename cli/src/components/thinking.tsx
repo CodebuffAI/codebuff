@@ -25,12 +25,14 @@ export const Thinking = memo(
     const theme = useTheme()
     const { contentMaxWidth } = useTerminalDimensions()
 
-    const width = Math.max(10, Math.min(availableWidth ?? contentMaxWidth, 120))
+    const width = Math.max(10, availableWidth ?? contentMaxWidth)
     // Normalize content to single line for consistent preview
     const normalizedContent = content.replace(/\n+/g, ' ').trim()
+    // Account for "..." prefix (3 chars) when calculating line widths
+    const effectiveWidth = width - 3
     const { lines, hasMore } = getLastNVisualLines(
       normalizedContent,
-      width,
+      effectiveWidth,
       PREVIEW_LINE_COUNT,
     )
 
@@ -53,12 +55,12 @@ export const Thinking = memo(
             <box style={{ paddingLeft: 2 }}>
               <text
                 style={{
-                  wrapMode: 'word',
+                  wrapMode: 'none',
                   fg: theme.muted,
                 }}
                 attributes={TextAttributes.ITALIC}
               >
-                {hasMore ? '...' + lines.join(' ') : lines.join(' ')}
+                {hasMore ? '...' + lines.join('\n') : lines.join('\n')}
               </text>
             </box>
           )
