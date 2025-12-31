@@ -52,6 +52,9 @@ export type CliEnv = BaseEnv & {
   OPEN_TUI_THEME?: string
   OPENTUI_THEME?: string
 
+  // Gravity AI Ads
+  GRAVITY_API_KEY?: string
+
   // Codebuff CLI-specific (set during binary build)
   CODEBUFF_IS_BINARY?: string
   CODEBUFF_CLI_VERSION?: string

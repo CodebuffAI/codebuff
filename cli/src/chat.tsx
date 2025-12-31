@@ -10,7 +10,9 @@ import {
 } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
+import { getAdsEnabled } from './commands/ads'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
+import { AdBanner } from './components/ad-banner'
 import { ChatInputBar } from './components/chat-input-bar'
 import { LoadPreviousButton } from './components/load-previous-button'
 import { MessageWithAgents } from './components/message-with-agents'
@@ -29,6 +31,7 @@ import {
 import { useClipboard } from './hooks/use-clipboard'
 import { useConnectionStatus } from './hooks/use-connection-status'
 import { useElapsedTime } from './hooks/use-elapsed-time'
+import { useGravityAd } from './hooks/use-gravity-ad'
 import { useEvent } from './hooks/use-event'
 import { useExitHandler } from './hooks/use-exit-handler'
 import { useInputHistory } from './hooks/use-input-history'
@@ -230,6 +233,7 @@ export const Chat = ({
 
   const isConnected = useConnectionStatus(handleReconnection)
   const mainAgentTimer = useElapsedTime()
+  const { ad, reportActivity } = useGravityAd()
   const timerStartTime = mainAgentTimer.startTime
 
   // Set initial mode from CLI flag on mount
@@ -415,6 +419,16 @@ export const Chat = ({
   const setInputMode = useChatStore((state) => state.setInputMode)
   const askUserState = useChatStore((state) => state.askUserState)
 
+  // Filter slash commands based on current ads state - only show the option that changes state
+  const filteredSlashCommands = useMemo(() => {
+    const adsEnabled = getAdsEnabled()
+    return SLASH_COMMANDS.filter((cmd) => {
+      if (cmd.id === 'ads:enable') return !adsEnabled
+      if (cmd.id === 'ads:disable') return adsEnabled
+      return true
+    })
+  }, [inputValue]) // Re-evaluate when input changes (user may have just toggled)
+
   const {
     slashContext,
     mentionContext,
@@ -428,7 +442,7 @@ export const Chat = ({
     disableAgentSuggestions: forceFileOnlyMentions || inputMode !== 'default',
     inputValue: inputMode === 'bash' ? '' : inputValue,
     cursorPosition,
-    slashCommands: SLASH_COMMANDS,
+    slashCommands: filteredSlashCommands,
     localAgents,
     fileTree,
     currentAgentMode: agentMode,
@@ -872,6 +886,17 @@ export const Chat = ({
   useEffect(() => {
     inputValueRef.current = inputValue
   }, [inputValue])
+  
+  // Report activity on input changes for ad rotation (debounced via separate effect)
+  const lastReportedActivityRef = useRef<number>(0)
+  useEffect(() => {
+    const now = Date.now()
+    // Throttle to max once per second to avoid excessive calls
+    if (now - lastReportedActivityRef.current > 1000) {
+      lastReportedActivityRef.current = now
+      reportActivity()
+    }
+  }, [inputValue, reportActivity])
   useEffect(() => {
     cursorPositionRef.current = cursorPosition
   }, [cursorPosition])
@@ -944,9 +969,11 @@ export const Chat = ({
   }, [feedbackMode, askUserState, inputRef])
 
   const handleSubmit = useCallback(async () => {
+    // Report activity for ad rotation
+    reportActivity()
     const result = await onSubmitPrompt(inputValue, agentMode)
     handleCommandResult(result)
-  }, [onSubmitPrompt, inputValue, agentMode, handleCommandResult])
+  }, [onSubmitPrompt, inputValue, agentMode, handleCommandResult, reportActivity])
 
   const totalMentionMatches = agentMatches.length + fileMatches.length
   const historyNavUpEnabled =
@@ -1325,8 +1352,20 @@ export const Chat = ({
     !feedbackMode &&
     (hasStatusIndicatorContent || shouldShowQueuePreview || !isAtBottom)
 
+  // Track mouse movement for ad activity (throttled)
+  const lastMouseActivityRef = useRef<number>(0)
+  const handleMouseActivity = useCallback(() => {
+    const now = Date.now()
+    // Throttle to max once per second
+    if (now - lastMouseActivityRef.current > 1000) {
+      lastMouseActivityRef.current = now
+      reportActivity()
+    }
+  }, [reportActivity])
+
   return (
     <box
+      onMouseMove={handleMouseActivity}
       style={{
         flexDirection: 'column',
         gap: 0,
@@ -1428,6 +1467,8 @@ export const Chat = ({
             statusIndicatorState={statusIndicatorState}
           />
         )}
+
+        {ad && getAdsEnabled() && <AdBanner ad={ad} />}
 
         <ChatInputBar
           inputValue={inputValue}

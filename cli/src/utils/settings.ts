@@ -12,7 +12,7 @@ import type { AgentMode } from './constants'
  */
 export interface Settings {
   mode?: AgentMode
-  // Add new settings here over time
+  adsEnabled?: boolean
 }
 
 /**
@@ -67,7 +67,10 @@ const validateSettings = (parsed: unknown): Settings => {
     settings.mode = obj.mode as AgentMode
   }
 
-  // Add validation for new settings here
+  // Validate adsEnabled
+  if (typeof obj.adsEnabled === 'boolean') {
+    settings.adsEnabled = obj.adsEnabled
+  }
 
   return settings
 }

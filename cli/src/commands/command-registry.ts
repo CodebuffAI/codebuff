@@ -1,3 +1,4 @@
+import { handleAdsEnable, handleAdsDisable } from './ads'
 import { handleHelpCommand } from './help'
 import { handleImageCommand } from './image'
 import { handleInitializationFlowLocally } from './init'
@@ -155,6 +156,24 @@ const clearInput = (params: RouterParams) => {
 }
 
 export const COMMAND_REGISTRY: CommandDefinition[] = [
+  defineCommand({
+    name: 'ads:enable',
+    handler: (params) => {
+      const { postUserMessage } = handleAdsEnable()
+      params.setMessages((prev) => postUserMessage(prev))
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  defineCommand({
+    name: 'ads:disable',
+    handler: (params) => {
+      const { postUserMessage } = handleAdsDisable()
+      params.setMessages((prev) => postUserMessage(prev))
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
   defineCommand({
     name: 'help',
     aliases: ['h', '?'],
