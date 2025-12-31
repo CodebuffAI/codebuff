@@ -31,7 +31,7 @@ interface UsageDisplayProps {
   isLoading?: boolean
 }
 
-type FilteredGrantType = Exclude<GrantType, 'organization'>
+type FilteredGrantType = Exclude<GrantType, 'organization' | 'ad'>
 
 const grantTypeInfo: Record<
   FilteredGrantType,

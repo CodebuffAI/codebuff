@@ -43,7 +43,7 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
     type: 'usage-response'
     usage: number
     remainingBalance: number | null
-    balanceBreakdown?: { free: number; paid: number }
+    balanceBreakdown?: { free: number; paid: number; ad?: number }
     next_quota_reset: string | null
   }>({
     queryKey: usageQueryKeys.current(),
@@ -83,6 +83,7 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
         sessionCreditsUsed,
         remainingBalance: activeData.remainingBalance,
         next_quota_reset: activeData.next_quota_reset,
+        adCredits: activeData.balanceBreakdown?.ad,
       })
 
   return (

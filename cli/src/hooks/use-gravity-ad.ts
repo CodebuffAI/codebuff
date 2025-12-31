@@ -1,12 +1,11 @@
-import { Client } from '@gravity-ai/api'
+import { WEBSITE_URL } from '@codebuff/sdk'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { getAdsEnabled } from '../commands/ads'
 import { useChatStore } from '../state/chat-store'
-import { getCliEnv } from '../utils/env'
+import { getAuthToken } from '../utils/auth'
 import { logger } from '../utils/logger'
 
-import type { AdResponse } from '@gravity-ai/api'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
 const MAX_MESSAGES_FOR_AD = 100
@@ -15,6 +14,17 @@ const PREFETCH_BEFORE_MS = 5 * 1000 // Fetch next ad 5 seconds before swap
 const MAX_ADS_AFTER_ACTIVITY = 3 // Show up to 3 ads after last activity, then stop
 
 type AdMessage = { role: 'user' | 'assistant'; content: string }
+
+// Ad response type (matches Gravity API response)
+export type AdResponse = {
+  adText: string
+  title: string
+  url: string
+  favicon: string
+  clickUrl: string
+  impUrl: string
+  payout: number
+}
 
 /**
  * Extract text content from a Message's content array
@@ -71,7 +81,6 @@ export type GravityAdState = {
 export const useGravityAd = (): GravityAdState => {
   const [ad, setAd] = useState<AdResponse | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const clientRef = useRef<Client | null>(null)
   const impressionFiredRef = useRef<Set<string>>(new Set())
 
   // Pre-fetched next ad ready to display
@@ -93,29 +102,42 @@ export const useGravityAd = (): GravityAdState => {
   // Get runState from chat store
   const runState = useChatStore((state) => state.runState)
 
-  // Initialize client on mount
-  useEffect(() => {
-    const apiKey = getCliEnv().GRAVITY_API_KEY
-    logger.info(
-      { hasApiKey: !!apiKey, adsEnabled: getAdsEnabled() },
-      '[gravity] Initializing Gravity ad client',
-    )
-    if (apiKey) {
-      clientRef.current = new Client(apiKey)
-      logger.info('[gravity] Gravity client initialized successfully')
-    } else {
-      logger.warn('[gravity] No GRAVITY_API_KEY found in environment')
-    }
-  }, [])
-
-  // Fire impression when ad changes
+  // Fire impression via web API when ad changes (grants credits)
   useEffect(() => {
     if (ad?.impUrl && !impressionFiredRef.current.has(ad.impUrl)) {
       impressionFiredRef.current.add(ad.impUrl)
-      logger.info({ impUrl: ad.impUrl }, '[gravity] Firing ad impression')
-      fetch(ad.impUrl).catch((err) => {
-        logger.debug({ err }, '[gravity] Failed to fire ad impression')
+      logger.info({ impUrl: ad.impUrl, payout: ad.payout }, '[gravity] Recording ad impression')
+      
+      const authToken = getAuthToken()
+      if (!authToken) {
+        logger.warn('[gravity] No auth token, skipping impression recording')
+        return
+      }
+      
+      // Call our web API to fire impression and grant credits
+      fetch(`${WEBSITE_URL}/api/v1/ads/impression`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          impUrl: ad.impUrl,
+          payout: ad.payout,
+        }),
       })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.creditsGranted > 0) {
+            logger.info(
+              { creditsGranted: data.creditsGranted },
+              '[gravity] Ad impression credits granted',
+            )
+          }
+        })
+        .catch((err) => {
+          logger.debug({ err }, '[gravity] Failed to record ad impression')
+        })
     }
   }, [ad])
 
@@ -131,10 +153,15 @@ export const useGravityAd = (): GravityAdState => {
     }
   }, [])
 
-  // Fetch an ad and return it (for pre-fetching)
+  // Fetch an ad via web API and return it (for pre-fetching)
   const fetchAdAsync = useCallback(async (): Promise<AdResponse | null> => {
-    const client = clientRef.current
-    if (!client || !getAdsEnabled()) return null
+    if (!getAdsEnabled()) return null
+    
+    const authToken = getAuthToken()
+    if (!authToken) {
+      logger.warn('[gravity] No auth token available')
+      return null
+    }
 
     const currentRunState = useChatStore.getState().runState
     const messageHistory =
@@ -143,22 +170,38 @@ export const useGravityAd = (): GravityAdState => {
 
     if (adMessages.length === 0) return null
 
-    logger.info('[gravity] Fetching ad from Gravity API')
+    logger.info('[gravity] Fetching ad from web API')
     
     try {
-      const response = await client.getAd({ messages: adMessages })
+      const response = await fetch(`${WEBSITE_URL}/api/v1/ads`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ messages: adMessages }),
+      })
+      
+      if (!response.ok) {
+        logger.warn({ status: response.status }, '[gravity] Web API returned error')
+        return null
+      }
+      
+      const data = await response.json()
+      const ad = data.ad as AdResponse | null
+      
       logger.info(
         {
-          hasAd: !!response,
-          adText: response?.adText,
-          title: (response as { title?: string })?.title,
-          clickUrl: response?.clickUrl,
-          impUrl: response?.impUrl,
-          payout: response?.payout,
+          hasAd: !!ad,
+          adText: ad?.adText,
+          title: ad?.title,
+          clickUrl: ad?.clickUrl,
+          impUrl: ad?.impUrl,
+          payout: ad?.payout,
         },
         '[gravity] Received ad response',
       )
-      return response
+      return ad
     } catch (err) {
       logger.error({ err }, '[gravity] Failed to fetch ad')
       return null
@@ -231,9 +274,9 @@ export const useGravityAd = (): GravityAdState => {
       runState?.sessionState?.mainAgentState?.messageHistory ?? []
     const hasMessages = messageHistory.length > 0
     const adsEnabled = getAdsEnabled()
-    const hasClient = !!clientRef.current
+    const hasAuth = !!getAuthToken()
 
-    if (hasMessages && adsEnabled && hasClient && !isStartedRef.current) {
+    if (hasMessages && adsEnabled && hasAuth && !isStartedRef.current) {
       logger.info('[gravity] Starting ad rotation')
       isStartedRef.current = true
       setIsLoading(true)

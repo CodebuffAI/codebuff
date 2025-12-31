@@ -52,9 +52,6 @@ export const getCliEnv = (): CliEnv => ({
   OPEN_TUI_THEME: process.env.OPEN_TUI_THEME,
   OPENTUI_THEME: process.env.OPENTUI_THEME,
 
-  // Gravity AI Ads
-  GRAVITY_API_KEY: process.env.GRAVITY_API_KEY,
-
   // Binary build configuration
   CODEBUFF_IS_BINARY: process.env.CODEBUFF_IS_BINARY,
   CODEBUFF_CLI_VERSION: process.env.CODEBUFF_CLI_VERSION,

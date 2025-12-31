@@ -6,7 +6,7 @@ import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
 import { logger } from '../utils/logger'
 
-import type { AdResponse } from '@gravity-ai/api'
+import type { AdResponse } from '../hooks/use-gravity-ad'
 
 interface AdBannerProps {
   ad: AdResponse
@@ -40,12 +40,10 @@ export const AdBanner: React.FC<AdBannerProps> = ({ ad }) => {
     }
   }, [ad.clickUrl])
 
-  // Use 'url' field for display domain (the actual destination), fallback to clickUrl
-  const displayUrl = (ad as { url?: string }).url || ad.clickUrl
-  const domain = displayUrl ? extractDomain(displayUrl) : ''
-  const title = (ad as { title?: string }).title
-  // Use title as CTA, or fallback to "Learn more" if there's a clickUrl
-  const ctaText = title || (ad.clickUrl ? 'Learn more' : '')
+  // Use 'url' field for display domain (the actual destination)
+  const domain = extractDomain(ad.url)
+  // Use title as CTA
+  const ctaText = ad.title
 
   // Calculate available width for ad text
   // Account for: padding (2), "Ad" label with space (3)
