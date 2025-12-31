@@ -115,6 +115,7 @@ export const useGravityAd = (): GravityAdState => {
       }
       
       // Call our web API to fire impression and grant credits
+      // Only send impUrl - server looks up trusted ad data from database
       fetch(`${WEBSITE_URL}/api/v1/ads/impression`, {
         method: 'POST',
         headers: {
@@ -123,7 +124,6 @@ export const useGravityAd = (): GravityAdState => {
         },
         body: JSON.stringify({
           impUrl: ad.impUrl,
-          payout: ad.payout,
         }),
       })
         .then((res) => res.json())

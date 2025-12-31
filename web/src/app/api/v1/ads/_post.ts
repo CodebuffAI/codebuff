@@ -1,4 +1,6 @@
 // Note: Using existing analytics events as placeholders since ads-specific events don't exist yet
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
@@ -79,7 +81,7 @@ export async function postAds(params: {
   })
   if (!authed.ok) return authed.response
 
-  const { logger } = authed.data
+  const { userId, logger } = authed.data
 
   try {
     // Call Gravity API
@@ -115,6 +117,41 @@ export async function postAds(params: {
       },
       '[ads] Fetched ad from Gravity API',
     )
+
+    // Insert ad_impression row to database (served_at = now)
+    // This stores the trusted ad data server-side so we don't have to trust the client later
+    try {
+      await db.insert(schema.adImpression).values({
+        user_id: userId,
+        ad_text: ad.adText,
+        title: ad.title,
+        url: ad.url,
+        favicon: ad.favicon,
+        click_url: ad.clickUrl,
+        imp_url: ad.impUrl,
+        payout: String(ad.payout),
+        credits_granted: 0, // Will be updated when impression is fired
+      })
+
+      logger.info(
+        { userId, impUrl: ad.impUrl },
+        '[ads] Created ad_impression record for served ad',
+      )
+    } catch (error) {
+      // If insert fails (e.g., duplicate impUrl), log but continue
+      // The ad can still be shown, it just won't be tracked
+      logger.warn(
+        {
+          userId,
+          impUrl: ad.impUrl,
+          error:
+            error instanceof Error
+              ? { name: error.name, message: error.message }
+              : error,
+        },
+        '[ads] Failed to create ad_impression record (likely duplicate)',
+      )
+    }
 
     // Return complete ad to client (client will call /impression endpoint when displayed)
     return NextResponse.json({ ad })

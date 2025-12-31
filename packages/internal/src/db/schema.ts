@@ -400,6 +400,46 @@ export const orgFeature = pgTable(
   ],
 )
 
+// Ad impression logging table
+export const adImpression = pgTable(
+  'ad_impression',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    user_id: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+
+    // Ad content from Gravity API
+    ad_text: text('ad_text').notNull(),
+    title: text('title').notNull(),
+    url: text('url').notNull(),
+    favicon: text('favicon').notNull(),
+    click_url: text('click_url').notNull(),
+    imp_url: text('imp_url').notNull().unique(), // Unique to prevent duplicates
+    payout: numeric('payout', { precision: 10, scale: 6 }).notNull(),
+
+    // Credit tracking
+    credits_granted: integer('credits_granted').notNull(),
+    grant_operation_id: text('grant_operation_id'), // Links to credit_ledger.operation_id
+
+    // Timestamps
+    served_at: timestamp('served_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    impression_fired_at: timestamp('impression_fired_at', {
+      mode: 'date',
+      withTimezone: true,
+    }),
+    clicked_at: timestamp('clicked_at', { mode: 'date', withTimezone: true }),
+  },
+  (table) => [
+    index('idx_ad_impression_user').on(table.user_id, table.served_at),
+    index('idx_ad_impression_imp_url').on(table.imp_url),
+  ],
+)
+
 export type GitEvalMetadata = {
   numCases?: number // Number of eval cases successfully run (total)
   avgScore?: number // Average score across all cases

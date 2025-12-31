@@ -1,5 +1,8 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { createHash } from 'crypto'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
+import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
@@ -21,7 +24,10 @@ const AD_REVENUE_SHARE = 0.75
 const MAX_IMPRESSIONS_PER_HOUR = 60
 
 // In-memory rate limiter (resets on server restart, which is acceptable for this use case)
-const impressionRateLimiter = new Map<string, { count: number; resetAt: number }>()
+const impressionRateLimiter = new Map<
+  string,
+  { count: number; resetAt: number }
+>()
 
 /**
  * Check and update rate limit for a user.
@@ -30,19 +36,19 @@ const impressionRateLimiter = new Map<string, { count: number; resetAt: number }
 function checkRateLimit(userId: string): boolean {
   const now = Date.now()
   const hourMs = 60 * 60 * 1000
-  
+
   const userLimit = impressionRateLimiter.get(userId)
-  
+
   if (!userLimit || now >= userLimit.resetAt) {
     // Reset or initialize the counter
     impressionRateLimiter.set(userId, { count: 1, resetAt: now + hourMs })
     return true
   }
-  
+
   if (userLimit.count >= MAX_IMPRESSIONS_PER_HOUR) {
     return false
   }
-  
+
   userLimit.count++
   return true
 }
@@ -60,8 +66,8 @@ function generateImpressionOperationId(userId: string, impUrl: string): string {
 }
 
 const bodySchema = z.object({
+  // Only impUrl needed - we look up the ad data from our database
   impUrl: z.string().url(),
-  payout: z.number().optional(),
 })
 
 export async function postAdImpression(params: {
@@ -85,7 +91,6 @@ export async function postAdImpression(params: {
 
   // Parse and validate request body
   let impUrl: string
-  let payout: number | undefined
   try {
     const json = await req.json()
     const parsed = bodySchema.safeParse(json)
@@ -96,7 +101,6 @@ export async function postAdImpression(params: {
       )
     }
     impUrl = parsed.data.impUrl
-    payout = parsed.data.payout
   } catch {
     return NextResponse.json(
       { error: 'Invalid JSON in request body' },
@@ -110,13 +114,55 @@ export async function postAdImpression(params: {
     logger: baseLogger,
     loggerWithContext,
     trackEvent,
-    authErrorEvent: AnalyticsEvent.USAGE_API_AUTH_ERROR, // Reuse existing event
+    authErrorEvent: AnalyticsEvent.USAGE_API_AUTH_ERROR,
   })
   if (!authed.ok) return authed.response
 
   const { userId, logger } = authed.data
 
-  // Check rate limit before processing
+  // Look up the ad from our database using the impUrl
+  // This ensures we use server-side trusted data, not client-provided data
+  const adRecord = await db.query.adImpression.findFirst({
+    where: eq(schema.adImpression.imp_url, impUrl),
+  })
+
+  if (!adRecord) {
+    logger.warn(
+      { userId, impUrl },
+      '[ads] Ad impression not found in database - was it served through our API?',
+    )
+    return NextResponse.json(
+      { success: false, error: 'Ad not found', creditsGranted: 0 },
+      { status: 404 },
+    )
+  }
+
+  // Verify the ad belongs to this user
+  if (adRecord.user_id !== userId) {
+    logger.warn(
+      { userId, adUserId: adRecord.user_id, impUrl },
+      '[ads] User attempting to claim impression for ad served to different user',
+    )
+    return NextResponse.json(
+      { success: false, error: 'Ad not found', creditsGranted: 0 },
+      { status: 404 },
+    )
+  }
+
+  // Check if impression was already fired (before rate limiting to not penalize duplicates)
+  if (adRecord.impression_fired_at) {
+    logger.debug(
+      { userId, impUrl },
+      '[ads] Impression already recorded for this ad',
+    )
+    return NextResponse.json({
+      success: true,
+      creditsGranted: adRecord.credits_granted,
+      alreadyRecorded: true,
+    })
+  }
+
+  // Check rate limit (after duplicate check so duplicates don't consume quota)
   if (!checkRateLimit(userId)) {
     logger.warn(
       { userId, maxPerHour: MAX_IMPRESSIONS_PER_HOUR },
@@ -128,8 +174,10 @@ export async function postAdImpression(params: {
     )
   }
 
+  // Get payout from the trusted database record
+  const payout = parseFloat(adRecord.payout)
+
   // Generate deterministic operation ID for deduplication
-  // Same user + same impUrl = same operationId, preventing duplicate credits
   const operationId = generateImpressionOperationId(userId, impUrl)
 
   // Fire the impression pixel to Gravity
@@ -150,63 +198,90 @@ export async function postAdImpression(params: {
     // Continue anyway - we still want to grant credits
   }
 
-  // Grant credits if there's a payout
+  // Calculate credits to grant (75% of payout, converted to credits)
+  // Payout is in dollars, credits are 1:1 with cents, so multiply by 100
+  const userShareDollars = payout * AD_REVENUE_SHARE
+  const creditsToGrant = Math.floor(userShareDollars * 100)
+
+  // Grant credits if any
   let creditsGranted = 0
-  if (payout && payout > 0) {
-    // Calculate user's share (75%) and convert to credits (round down)
-    // Payout is in dollars, credits are 1:1 with cents, so multiply by 100
-    const userShareDollars = payout * AD_REVENUE_SHARE
-    const creditsToGrant = Math.floor(userShareDollars * 100)
+  if (creditsToGrant > 0) {
+    try {
+      await processAndGrantCredit({
+        userId,
+        amount: creditsToGrant,
+        type: 'ad',
+        description: `Ad impression credit (${(userShareDollars * 100).toFixed(1)}¢ from $${payout.toFixed(4)} payout)`,
+        expiresAt: null, // Ad credits don't expire
+        operationId,
+        logger,
+      })
 
-    if (creditsToGrant > 0) {
-      try {
-        await processAndGrantCredit({
+      creditsGranted = creditsToGrant
+
+      logger.info(
+        {
           userId,
-          amount: creditsToGrant,
-          type: 'ad',
-          description: `Ad impression credit (${(userShareDollars * 100).toFixed(1)}¢ from $${payout.toFixed(4)} payout)`,
-          expiresAt: null, // Ad credits don't expire
+          payout,
+          creditsGranted,
           operationId,
-          logger,
-        })
+        },
+        '[ads] Granted ad impression credits',
+      )
 
-        creditsGranted = creditsToGrant
-
-        logger.info(
-          {
-            userId,
-            payout,
-            creditsGranted,
-            operationId,
-          },
-          '[ads] Granted ad impression credits',
-        )
-
-        trackEvent({
-          event: AnalyticsEvent.CREDIT_GRANT,
+      trackEvent({
+        event: AnalyticsEvent.CREDIT_GRANT,
+        userId,
+        properties: {
+          type: 'ad',
+          amount: creditsGranted,
+          payout,
+        },
+        logger,
+      })
+    } catch (error) {
+      logger.error(
+        {
           userId,
-          properties: {
-            type: 'ad',
-            amount: creditsGranted,
-            payout,
-          },
-          logger,
-        })
-      } catch (error) {
-        logger.error(
-          {
-            userId,
-            payout,
-            error:
-              error instanceof Error
-                ? { name: error.name, message: error.message }
-                : error,
-          },
-          '[ads] Failed to grant ad impression credits',
-        )
-        // Don't fail the request - impression was still recorded
-      }
+          payout,
+          error:
+            error instanceof Error
+              ? { name: error.name, message: error.message }
+              : error,
+        },
+        '[ads] Failed to grant ad impression credits',
+      )
+      // Don't fail the request - we still want to update the impression record
     }
+  }
+
+  // Update the ad_impression record with impression details
+  try {
+    await db
+      .update(schema.adImpression)
+      .set({
+        impression_fired_at: new Date(),
+        credits_granted: creditsGranted,
+        grant_operation_id: creditsGranted > 0 ? operationId : null,
+      })
+      .where(eq(schema.adImpression.id, adRecord.id))
+
+    logger.info(
+      { userId, impUrl, creditsGranted },
+      '[ads] Updated ad impression record',
+    )
+  } catch (error) {
+    logger.error(
+      {
+        userId,
+        impUrl,
+        error:
+          error instanceof Error
+            ? { name: error.name, message: error.message }
+            : error,
+      },
+      '[ads] Failed to update ad impression record',
+    )
   }
 
   return NextResponse.json({
