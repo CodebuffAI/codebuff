@@ -30,12 +30,35 @@ const impressionRateLimiter = new Map<
 >()
 
 /**
+ * Clean up expired entries from the rate limiter to prevent memory leaks.
+ * Called periodically during rate limit checks.
+ */
+function cleanupExpiredEntries(): void {
+  const now = Date.now()
+  for (const [userId, limit] of impressionRateLimiter) {
+    if (now >= limit.resetAt) {
+      impressionRateLimiter.delete(userId)
+    }
+  }
+}
+
+// Track last cleanup time to avoid cleaning up on every request
+let lastCleanupTime = 0
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000 // Clean up every 5 minutes
+
+/**
  * Check and update rate limit for a user.
  * Returns true if the request is allowed, false if rate limited.
  */
 function checkRateLimit(userId: string): boolean {
   const now = Date.now()
   const hourMs = 60 * 60 * 1000
+
+  // Periodically clean up expired entries to prevent memory leak
+  if (now - lastCleanupTime > CLEANUP_INTERVAL_MS) {
+    cleanupExpiredEntries()
+    lastCleanupTime = now
+  }
 
   const userLimit = impressionRateLimiter.get(userId)
 
