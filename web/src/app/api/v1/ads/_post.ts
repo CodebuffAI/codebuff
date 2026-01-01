@@ -20,7 +20,7 @@ const messageSchema = z.object({
 })
 
 const bodySchema = z.object({
-  messages: z.array(messageSchema).min(1),
+  messages: z.array(messageSchema),
 })
 
 export type GravityEnv = {
@@ -91,7 +91,10 @@ export async function postAds(params: {
         Authorization: `Bearer ${serverEnv.GRAVITY_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ messages }),
+      body: JSON.stringify({
+        messages,
+        user: { uid: userId },
+      }),
     })
 
     if (response.status === 204) {
