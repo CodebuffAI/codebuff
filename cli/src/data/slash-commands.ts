@@ -18,7 +18,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'ads:enable',
     label: 'ads:enable',
-    description: 'Enable contextual ads',
+    description: 'Enable contextual ads and earn credits',
   },
   {
     id: 'ads:disable',

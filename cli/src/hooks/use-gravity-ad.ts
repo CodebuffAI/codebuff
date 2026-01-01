@@ -6,14 +6,9 @@ import { useChatStore } from '../state/chat-store'
 import { getAuthToken } from '../utils/auth'
 import { logger } from '../utils/logger'
 
-import type { Message } from '@codebuff/common/types/messages/codebuff-message'
-
-const MAX_MESSAGES_FOR_AD = 100
 const AD_DISPLAY_DURATION_MS = 60 * 1000 // 60 seconds per ad
 const PREFETCH_BEFORE_MS = 5 * 1000 // Fetch next ad 5 seconds before swap
 const MAX_ADS_AFTER_ACTIVITY = 3 // Show up to 3 ads after last activity, then stop
-
-type AdMessage = { role: 'user' | 'assistant'; content: string }
 
 // Ad response type (matches Gravity API response, credits added after impression)
 export type AdResponse = {
@@ -24,24 +19,6 @@ export type AdResponse = {
   clickUrl: string
   impUrl: string
   credits?: number // Set after impression is recorded (in cents)
-}
-
-/**
- * Extract text content from a Message's content array
- */
-const extractTextFromMessageContent = (content: Message['content']): string => {
-  if (!Array.isArray(content)) return ''
-
-  return content
-    .filter(
-      (part): part is { type: 'text'; text: string } =>
-        typeof part === 'object' &&
-        part !== null &&
-        'type' in part &&
-        part.type === 'text',
-    )
-    .map((part) => part.text)
-    .join('\n')
 }
 
 export type GravityAdState = {
