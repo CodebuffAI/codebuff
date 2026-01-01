@@ -39,6 +39,7 @@ export type GravityAdState = {
 export const useGravityAd = (): GravityAdState => {
   const [ad, setAd] = useState<AdResponse | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [shouldShowAd, setShouldShowAd] = useState(false)
   const impressionFiredRef = useRef<Set<string>>(new Set())
 
   // Pre-fetched next ad ready to display
@@ -58,8 +59,9 @@ export const useGravityAd = (): GravityAdState => {
   const isStartedRef = useRef<boolean>(false)
 
   // Fire impression via web API when ad changes (grants credits)
+  // Only fire impressions when ad is actually being shown
   useEffect(() => {
-    if (ad?.impUrl && !impressionFiredRef.current.has(ad.impUrl)) {
+    if (shouldShowAd && ad?.impUrl && !impressionFiredRef.current.has(ad.impUrl)) {
       const currentImpUrl = ad.impUrl
       impressionFiredRef.current.add(currentImpUrl)
       logger.info(
@@ -104,7 +106,7 @@ export const useGravityAd = (): GravityAdState => {
           logger.debug({ err }, '[gravity] Failed to record ad impression')
         })
     }
-  }, [ad])
+  }, [ad, shouldShowAd])
 
   // Clear all timers
   const clearTimers = useCallback(() => {
@@ -250,10 +252,40 @@ export const useGravityAd = (): GravityAdState => {
     }
   }, [fetchAdAsync, scheduleNextCycle])
 
+  // Subscribe to UI messages to detect first user message
+  // Only show ads after the user has sent at least one message (clean startup UX)
+  // We use UI messages instead of runState.messageHistory because UI messages
+  // update immediately when the user sends a message
+  useEffect(() => {
+    if (shouldShowAd || !getAdsEnabled()) {
+      return
+    }
+
+    // Check initial state
+    const initialMessages = useChatStore.getState().messages
+    if (initialMessages.some((msg) => msg.variant === 'user')) {
+      setShouldShowAd(true)
+      return
+    }
+
+    const unsubscribe = useChatStore.subscribe((state) => {
+      const hasUserMessage = state.messages.some((msg) => msg.variant === 'user')
+
+      if (hasUserMessage) {
+        unsubscribe()
+        logger.info('[gravity] First user message detected, showing ads')
+        setShouldShowAd(true)
+      }
+    })
+
+    return unsubscribe
+  }, [shouldShowAd])
+
   // Clear timers only on unmount
   useEffect(() => {
     return () => clearTimers()
   }, [clearTimers])
 
-  return { ad, isLoading, reportActivity }
+  // Only return the ad if we should show it (after first user message)
+  return { ad: shouldShowAd ? ad : null, isLoading, reportActivity }
 }
