@@ -9,6 +9,7 @@ import {
   Users,
   CreditCard,
   Star,
+  Megaphone,
 } from 'lucide-react'
 import React from 'react'
 
@@ -75,6 +76,14 @@ const grantTypeInfo: Record<
     icon: <Star className="h-4 w-4" />,
     label: 'Special Grant',
     description: 'Special credits from Codebuff',
+  },
+  ad: {
+    bg: 'bg-purple-500',
+    text: 'text-purple-600 dark:text-purple-400',
+    gradient: 'from-purple-500/70 to-purple-600/70',
+    icon: <Megaphone className="h-4 w-4" />,
+    label: 'Ad Credits',
+    description: 'Earned from viewing ads',
   },
 }
 
@@ -227,6 +236,7 @@ export const UsageDisplay = ({
     referral: 0,
     purchase: 0,
     admin: 0,
+    ad: 0,
   }
 
   Object.entries(GRANT_PRIORITIES).forEach(([type]) => {
@@ -243,7 +253,7 @@ export const UsageDisplay = ({
 
   // Group credits by expiration type (excluding organization)
   const expiringTypes: FilteredGrantType[] = ['free', 'referral']
-  const nonExpiringTypes: FilteredGrantType[] = ['admin', 'purchase']
+  const nonExpiringTypes: FilteredGrantType[] = ['admin', 'purchase', 'ad']
 
   const expiringTotal = expiringTypes.reduce(
     (acc, type) => acc + (principals?.[type] || breakdown[type] || 0),

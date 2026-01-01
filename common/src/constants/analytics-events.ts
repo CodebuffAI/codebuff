@@ -119,6 +119,9 @@ export enum AnalyticsEvent {
   DOCS_SEARCH_INSUFFICIENT_CREDITS = 'api.docs_search_insufficient_credits',
   DOCS_SEARCH_ERROR = 'api.docs_search_error',
 
+  // Web - Ads API
+  ADS_API_AUTH_ERROR = 'api.ads_auth_error',
+
   // Common
   FLUSH_FAILED = 'common.flush_failed',
 }
