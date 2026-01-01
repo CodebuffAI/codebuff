@@ -71,7 +71,7 @@ export type GravityAdState = {
 
 /**
  * Hook for fetching and rotating Gravity ads.
- * 
+ *
  * Behavior:
  * - Ads rotate every 60 seconds
  * - Next ad is pre-fetched 5 seconds before display for instant swap
@@ -85,17 +85,17 @@ export const useGravityAd = (): GravityAdState => {
 
   // Pre-fetched next ad ready to display
   const nextAdRef = useRef<AdResponse | null>(null)
-  
+
   // Counter: how many ads shown since last user activity
   const adsShownRef = useRef<number>(0)
-  
+
   // Is rotation currently paused (shown 3 ads without activity)?
   const isPausedRef = useRef<boolean>(false)
-  
+
   // Timers
   const prefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const swapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  
+
   // Has the first ad been fetched?
   const isStartedRef = useRef<boolean>(false)
 
@@ -106,21 +106,24 @@ export const useGravityAd = (): GravityAdState => {
   useEffect(() => {
     if (ad?.impUrl && !impressionFiredRef.current.has(ad.impUrl)) {
       impressionFiredRef.current.add(ad.impUrl)
-      logger.info({ impUrl: ad.impUrl, payout: ad.payout }, '[gravity] Recording ad impression')
-      
+      logger.info(
+        { impUrl: ad.impUrl, payout: ad.payout },
+        '[gravity] Recording ad impression',
+      )
+
       const authToken = getAuthToken()
       if (!authToken) {
         logger.warn('[gravity] No auth token, skipping impression recording')
         return
       }
-      
+
       // Call our web API to fire impression and grant credits
       // Only send impUrl - server looks up trusted ad data from database
       fetch(`${WEBSITE_URL}/api/v1/ads/impression`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({
           impUrl: ad.impUrl,
@@ -156,7 +159,7 @@ export const useGravityAd = (): GravityAdState => {
   // Fetch an ad via web API and return it (for pre-fetching)
   const fetchAdAsync = useCallback(async (): Promise<AdResponse | null> => {
     if (!getAdsEnabled()) return null
-    
+
     const authToken = getAuthToken()
     if (!authToken) {
       logger.warn('[gravity] No auth token available')
@@ -168,28 +171,32 @@ export const useGravityAd = (): GravityAdState => {
       currentRunState?.sessionState?.mainAgentState?.messageHistory ?? []
     const adMessages = convertToAdMessages(messageHistory)
 
-    if (adMessages.length === 0) return null
+    logger.info(
+      { messageCount: adMessages.length },
+      '[gravity] Fetching ad from web API',
+    )
 
-    logger.info('[gravity] Fetching ad from web API')
-    
     try {
       const response = await fetch(`${WEBSITE_URL}/api/v1/ads`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({ messages: adMessages }),
       })
-      
+
       if (!response.ok) {
-        logger.warn({ status: response.status }, '[gravity] Web API returned error')
+        logger.warn(
+          { status: response.status },
+          '[gravity] Web API returned error',
+        )
         return null
       }
-      
+
       const data = await response.json()
       const ad = data.ad as AdResponse | null
-      
+
       logger.info(
         {
           hasAd: !!ad,
@@ -256,10 +263,10 @@ export const useGravityAd = (): GravityAdState => {
   // Report user activity - resets counter and resumes rotation if paused
   const reportActivity = useCallback(() => {
     const wasPaused = isPausedRef.current
-    
+
     // Reset counter
     adsShownRef.current = 0
-    
+
     if (wasPaused) {
       logger.info('[gravity] User active, resuming ad rotation')
       isPausedRef.current = false
@@ -268,29 +275,29 @@ export const useGravityAd = (): GravityAdState => {
     }
   }, [scheduleNextCycle])
 
-  // Start ad rotation when enabled and we have messages
+  // Prefetch ad on startup (before any messages are sent)
   useEffect(() => {
-    const messageHistory =
-      runState?.sessionState?.mainAgentState?.messageHistory ?? []
-    const hasMessages = messageHistory.length > 0
     const adsEnabled = getAdsEnabled()
     const hasAuth = !!getAuthToken()
 
-    if (hasMessages && adsEnabled && hasAuth && !isStartedRef.current) {
-      logger.info('[gravity] Starting ad rotation')
+    if (adsEnabled && hasAuth && !isStartedRef.current) {
+      logger.info('[gravity] Prefetching ad on startup')
       isStartedRef.current = true
       setIsLoading(true)
-      
-      // Fetch and display first ad
+
+      // Prefetch first ad immediately
       fetchAdAsync().then((firstAd) => {
         setAd(firstAd)
         setIsLoading(false)
         scheduleNextCycle()
       })
     }
+  }, [fetchAdAsync, scheduleNextCycle])
 
+  // Clear timers only on unmount
+  useEffect(() => {
     return () => clearTimers()
-  }, [runState, fetchAdAsync, scheduleNextCycle, clearTimers])
+  }, [clearTimers])
 
   return { ad, isLoading, reportActivity }
 }
