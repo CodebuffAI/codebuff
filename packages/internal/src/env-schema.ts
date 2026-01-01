@@ -7,7 +7,7 @@ export const serverEnvSchema = clientEnvSchema.extend({
   OPENAI_API_KEY: z.string().min(1),
   LINKUP_API_KEY: z.string().min(1),
   CONTEXT7_API_KEY: z.string().optional(),
-  GRAVITY_API_KEY: z.string().optional(),
+  GRAVITY_API_KEY: z.string().min(1),
   PORT: z.coerce.number().min(1000),
 
   // Web/Database variables

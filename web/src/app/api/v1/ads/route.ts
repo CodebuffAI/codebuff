@@ -16,6 +16,6 @@ export async function POST(req: NextRequest) {
     loggerWithContext,
     trackEvent,
     fetch,
-    serverEnv: { GRAVITY_API_KEY: env.GRAVITY_API_KEY },
+    serverEnv: { GRAVITY_API_KEY: env.GRAVITY_API_KEY, CB_ENVIRONMENT: env.NEXT_PUBLIC_CB_ENVIRONMENT },
   })
 }

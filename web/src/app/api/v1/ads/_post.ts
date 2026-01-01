@@ -24,7 +24,8 @@ const bodySchema = z.object({
 })
 
 export type GravityEnv = {
-  GRAVITY_API_KEY: string | undefined
+  GRAVITY_API_KEY: string
+  CB_ENVIRONMENT: string
 }
 
 export async function postAds(params: {
@@ -94,6 +95,7 @@ export async function postAds(params: {
       body: JSON.stringify({
         messages,
         user: { uid: userId },
+        testAd: serverEnv.CB_ENVIRONMENT !== 'prod',
       }),
     })
 
