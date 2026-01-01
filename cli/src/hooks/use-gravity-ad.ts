@@ -44,25 +44,6 @@ const extractTextFromMessageContent = (content: Message['content']): string => {
     .join('\n')
 }
 
-/**
- * Convert LLM message history to ad API format.
- * Includes all message types (user, assistant, tool, system) for analytics.
- */
-const convertToAdMessages = (messages: Message[]): AdMessage[] => {
-  const adMessages: AdMessage[] = []
-
-  for (const message of messages.slice(-MAX_MESSAGES_FOR_AD)) {
-    const textContent = extractTextFromMessageContent(message.content)
-    if (textContent) {
-      // Map all roles to user/assistant as required by the API
-      const role = message.role === 'user' ? 'user' : 'assistant'
-      adMessages.push({ role, content: textContent })
-    }
-  }
-
-  return adMessages
-}
-
 export type GravityAdState = {
   ad: AdResponse | null
   isLoading: boolean
@@ -98,9 +79,6 @@ export const useGravityAd = (): GravityAdState => {
 
   // Has the first ad been fetched?
   const isStartedRef = useRef<boolean>(false)
-
-  // Get runState from chat store
-  const runState = useChatStore((state) => state.runState)
 
   // Fire impression via web API when ad changes (grants credits)
   useEffect(() => {
@@ -176,10 +154,9 @@ export const useGravityAd = (): GravityAdState => {
     const currentRunState = useChatStore.getState().runState
     const messageHistory =
       currentRunState?.sessionState?.mainAgentState?.messageHistory ?? []
-    const adMessages = convertToAdMessages(messageHistory)
 
     logger.info(
-      { messageCount: adMessages.length },
+      { messageCount: messageHistory.length },
       '[gravity] Fetching ad from web API',
     )
 
