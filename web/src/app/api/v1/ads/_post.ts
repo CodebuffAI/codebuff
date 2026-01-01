@@ -1,4 +1,4 @@
-// Note: Using existing analytics events as placeholders since ads-specific events don't exist yet
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
 import { NextResponse } from 'next/server'
@@ -78,7 +78,7 @@ export async function postAds(params: {
     logger: baseLogger,
     loggerWithContext,
     trackEvent,
-    authErrorEvent: 'api.ads_auth_error' as any, // TODO: Add proper analytics event
+    authErrorEvent: AnalyticsEvent.ADS_API_AUTH_ERROR,
   })
   if (!authed.ok) return authed.response
 
