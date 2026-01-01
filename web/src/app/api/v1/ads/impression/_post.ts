@@ -67,7 +67,7 @@ function generateImpressionOperationId(userId: string, impUrl: string): string {
 
 const bodySchema = z.object({
   // Only impUrl needed - we look up the ad data from our database
-  impUrl: z.string().url(),
+  impUrl: z.url(),
 })
 
 export async function postAdImpression(params: {

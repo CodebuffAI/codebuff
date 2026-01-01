@@ -15,7 +15,7 @@ const MAX_ADS_AFTER_ACTIVITY = 3 // Show up to 3 ads after last activity, then s
 
 type AdMessage = { role: 'user' | 'assistant'; content: string }
 
-// Ad response type (matches Gravity API response)
+// Ad response type (matches Gravity API response, credits added after impression)
 export type AdResponse = {
   adText: string
   title: string
@@ -23,7 +23,7 @@ export type AdResponse = {
   favicon: string
   clickUrl: string
   impUrl: string
-  payout: number
+  credits?: number // Set after impression is recorded (in cents)
 }
 
 /**
@@ -105,9 +105,10 @@ export const useGravityAd = (): GravityAdState => {
   // Fire impression via web API when ad changes (grants credits)
   useEffect(() => {
     if (ad?.impUrl && !impressionFiredRef.current.has(ad.impUrl)) {
-      impressionFiredRef.current.add(ad.impUrl)
+      const currentImpUrl = ad.impUrl
+      impressionFiredRef.current.add(currentImpUrl)
       logger.info(
-        { impUrl: ad.impUrl, payout: ad.payout },
+        { impUrl: currentImpUrl },
         '[gravity] Recording ad impression',
       )
 
@@ -126,7 +127,7 @@ export const useGravityAd = (): GravityAdState => {
           Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({
-          impUrl: ad.impUrl,
+          impUrl: currentImpUrl,
         }),
       })
         .then((res) => res.json())
@@ -135,6 +136,12 @@ export const useGravityAd = (): GravityAdState => {
             logger.info(
               { creditsGranted: data.creditsGranted },
               '[gravity] Ad impression credits granted',
+            )
+            // Update ad with credits from impression response
+            setAd((currentAd) =>
+              currentAd?.impUrl === currentImpUrl
+                ? { ...currentAd, credits: data.creditsGranted }
+                : currentAd,
             )
           }
         })
@@ -183,7 +190,7 @@ export const useGravityAd = (): GravityAdState => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
         },
-        body: JSON.stringify({ messages: adMessages }),
+        body: JSON.stringify({ messages: messageHistory }),
       })
 
       if (!response.ok) {
@@ -199,12 +206,7 @@ export const useGravityAd = (): GravityAdState => {
 
       logger.info(
         {
-          hasAd: !!ad,
-          adText: ad?.adText,
-          title: ad?.title,
-          clickUrl: ad?.clickUrl,
-          impUrl: ad?.impUrl,
-          payout: ad?.payout,
+          ad,
         },
         '[gravity] Received ad response',
       )

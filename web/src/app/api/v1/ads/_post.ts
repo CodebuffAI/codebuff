@@ -158,8 +158,9 @@ export async function postAds(params: {
       )
     }
 
-    // Return complete ad to client (client will call /impression endpoint when displayed)
-    return NextResponse.json({ ad })
+    // Return ad to client without payout (credits will come from impression endpoint)
+    const { payout: _payout, ...adWithoutPayout } = ad
+    return NextResponse.json({ ad: adWithoutPayout })
   } catch (error) {
     logger.error(
       {

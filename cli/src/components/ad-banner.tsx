@@ -25,7 +25,7 @@ export const AdBanner: React.FC<AdBannerProps> = ({ ad }) => {
   useEffect(() => {
     logger.info(
       { adText: ad.adText?.substring(0, 50), hasClickUrl: !!ad.clickUrl },
-      '[gravity] Rendering AdBanner'
+      '[gravity] Rendering AdBanner',
     )
   }, [ad])
   const theme = useTheme()
@@ -58,6 +58,7 @@ export const AdBanner: React.FC<AdBannerProps> = ({ ad }) => {
     >
       {/* Horizontal divider line */}
       <text style={{ fg: theme.muted }}>{'─'.repeat(terminalWidth)}</text>
+      {/* Top line: ad text + Ad label */}
       <box
         style={{
           width: '100%',
@@ -68,43 +69,50 @@ export const AdBanner: React.FC<AdBannerProps> = ({ ad }) => {
           alignItems: 'flex-start',
         }}
       >
-        <box
+        <text
           style={{
-            flexDirection: 'column',
+            fg: theme.foreground,
             flexShrink: 1,
             maxWidth: maxTextWidth,
           }}
         >
-          <text
-            style={{
-              fg: theme.foreground,
-            }}
-          >
-            {ad.adText}
-          </text>
-          <box style={{ flexDirection: 'row', gap: 2 }}>
-            {ctaText && (
-              <Button
-                onClick={handleClick}
-                onMouseOver={() => setIsLinkHovered(true)}
-                onMouseOut={() => setIsLinkHovered(false)}
-              >
-                <text
-                  style={{
-                    fg: theme.name === 'light' ? '#ffffff' : theme.background,
-                    bg: isLinkHovered ? theme.link : theme.muted,
-                  }}
-                >
-                  {` ${ctaText} `}
-                </text>
-              </Button>
-            )}
-            {domain && (
-              <text style={{ fg: theme.muted }}>{domain}</text>
-            )}
-          </box>
-        </box>
+          {ad.adText}
+        </text>
         <text style={{ fg: theme.muted, flexShrink: 0 }}>Ad</text>
+      </box>
+      {/* Bottom line: button, domain, credits */}
+      <box
+        style={{
+          width: '100%',
+          paddingLeft: 1,
+          paddingRight: 1,
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          columnGap: 2,
+          alignItems: 'center',
+        }}
+      >
+        {ctaText && (
+          <Button
+            onClick={handleClick}
+            onMouseOver={() => setIsLinkHovered(true)}
+            onMouseOut={() => setIsLinkHovered(false)}
+          >
+            <text
+              style={{
+                fg: theme.name === 'light' ? '#ffffff' : theme.background,
+                bg: isLinkHovered ? theme.link : theme.muted,
+              }}
+            >
+              {` ${ctaText} `}
+            </text>
+          </Button>
+        )}
+        {domain && <text style={{ fg: theme.muted }}>{domain}</text>}
+        <box style={{ flexGrow: 1 }} />
+        {ad.credits != null && ad.credits > 0 && (
+          <text style={{ fg: theme.muted }}>+{ad.credits} credits</text>
+        )}
       </box>
     </box>
   )
