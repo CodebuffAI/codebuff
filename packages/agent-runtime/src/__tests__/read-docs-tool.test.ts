@@ -54,8 +54,6 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
   beforeEach(() => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL, sendAction: () => {} }
 
-    spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
-    analytics.initAnalytics(agentRuntimeImpl)
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
     spyOn(analytics, 'flushAnalytics').mockImplementation(() =>
       Promise.resolve(),

@@ -5,7 +5,6 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import type { AnalyticsClient } from '../analytics-core'
 
 import {
-  initAnalytics,
   trackEvent,
   flushAnalytics,
   configureAnalytics,
@@ -48,15 +47,12 @@ describe('server-side analytics', () => {
     resetServerAnalyticsState(createTestDeps())
   })
 
-  describe('initAnalytics', () => {
-    test('should configure analytics from clientEnv', () => {
-      initAnalytics({
-        logger: mockLogger,
-        clientEnv: {
-          NEXT_PUBLIC_CB_ENVIRONMENT: 'prod',
-          NEXT_PUBLIC_POSTHOG_API_KEY: 'test-key',
-          NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://posthog.test',
-        },
+  describe('configureAnalytics', () => {
+    test('should configure analytics with config object', () => {
+      configureAnalytics({
+        envName: 'prod',
+        posthogApiKey: 'test-key',
+        posthogHostUrl: 'https://posthog.test',
       })
 
       const config = getAnalyticsConfig()
@@ -67,13 +63,10 @@ describe('server-side analytics', () => {
     })
 
     test('should not create client in non-prod environments', () => {
-      initAnalytics({
-        logger: mockLogger,
-        clientEnv: {
-          NEXT_PUBLIC_CB_ENVIRONMENT: 'dev',
-          NEXT_PUBLIC_POSTHOG_API_KEY: 'test-key',
-          NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://posthog.test',
-        },
+      configureAnalytics({
+        envName: 'dev',
+        posthogApiKey: 'test-key',
+        posthogHostUrl: 'https://posthog.test',
       })
 
       // Track an event - should not call capture since not prod
@@ -87,13 +80,10 @@ describe('server-side analytics', () => {
     })
 
     test('should create client in prod environment', () => {
-      initAnalytics({
-        logger: mockLogger,
-        clientEnv: {
-          NEXT_PUBLIC_CB_ENVIRONMENT: 'prod',
-          NEXT_PUBLIC_POSTHOG_API_KEY: 'test-key',
-          NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://posthog.test',
-        },
+      configureAnalytics({
+        envName: 'prod',
+        posthogApiKey: 'test-key',
+        posthogHostUrl: 'https://posthog.test',
       })
 
       // Track an event - should call capture since prod
@@ -106,15 +96,8 @@ describe('server-side analytics', () => {
       expect(captureMock).toHaveBeenCalledTimes(1)
     })
 
-    test('should set config to null if env vars are missing', () => {
-      initAnalytics({
-        logger: mockLogger,
-        clientEnv: {
-          NEXT_PUBLIC_CB_ENVIRONMENT: 'prod',
-          NEXT_PUBLIC_POSTHOG_API_KEY: '', // Missing
-          NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://posthog.test',
-        },
-      })
+    test('should set config to null when passed null', () => {
+      configureAnalytics(null)
 
       const config = getAnalyticsConfig()
       expect(config).toBeNull()
@@ -123,13 +106,10 @@ describe('server-side analytics', () => {
 
   describe('trackEvent', () => {
     test('should send events with correct parameters in prod', () => {
-      initAnalytics({
-        logger: mockLogger,
-        clientEnv: {
-          NEXT_PUBLIC_CB_ENVIRONMENT: 'prod',
-          NEXT_PUBLIC_POSTHOG_API_KEY: 'test-key',
-          NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://posthog.test',
-        },
+      configureAnalytics({
+        envName: 'prod',
+        posthogApiKey: 'test-key',
+        posthogHostUrl: 'https://posthog.test',
       })
 
       trackEvent({
@@ -146,8 +126,8 @@ describe('server-side analytics', () => {
       })
     })
 
-    test('should warn when client is not initialized', () => {
-      // Configure as prod but don't initialize properly
+    test('should lazily initialize client in prod when tracking events', () => {
+      // Configure as prod
       configureAnalytics({
         envName: 'prod',
         posthogApiKey: 'test-key',
@@ -168,18 +148,15 @@ describe('server-side analytics', () => {
         logger: mockLogger,
       })
 
-      expect(mockLogger.warn).toHaveBeenCalled()
-      expect(captureMock).not.toHaveBeenCalled()
+      // With lazy initialization, the client should be created and capture should be called
+      expect(captureMock).toHaveBeenCalled()
     })
 
     test('should silently skip events in non-prod environments', () => {
-      initAnalytics({
-        logger: mockLogger,
-        clientEnv: {
-          NEXT_PUBLIC_CB_ENVIRONMENT: 'test',
-          NEXT_PUBLIC_POSTHOG_API_KEY: 'test-key',
-          NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://posthog.test',
-        },
+      configureAnalytics({
+        envName: 'test',
+        posthogApiKey: 'test-key',
+        posthogHostUrl: 'https://posthog.test',
       })
 
       trackEvent({
@@ -193,13 +170,10 @@ describe('server-side analytics', () => {
     })
 
     test('should handle capture errors gracefully', () => {
-      initAnalytics({
-        logger: mockLogger,
-        clientEnv: {
-          NEXT_PUBLIC_CB_ENVIRONMENT: 'prod',
-          NEXT_PUBLIC_POSTHOG_API_KEY: 'test-key',
-          NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://posthog.test',
-        },
+      configureAnalytics({
+        envName: 'prod',
+        posthogApiKey: 'test-key',
+        posthogHostUrl: 'https://posthog.test',
       })
 
       // Make capture throw an error
@@ -221,14 +195,18 @@ describe('server-side analytics', () => {
   })
 
   describe('flushAnalytics', () => {
-    test('should call client flush in prod', async () => {
-      initAnalytics({
+    test('should call client flush in prod after tracking an event', async () => {
+      configureAnalytics({
+        envName: 'prod',
+        posthogApiKey: 'test-key',
+        posthogHostUrl: 'https://posthog.test',
+      })
+
+      // Track an event to initialize the client
+      trackEvent({
+        event: AnalyticsEvent.APP_LAUNCHED,
+        userId: 'user-123',
         logger: mockLogger,
-        clientEnv: {
-          NEXT_PUBLIC_CB_ENVIRONMENT: 'prod',
-          NEXT_PUBLIC_POSTHOG_API_KEY: 'test-key',
-          NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://posthog.test',
-        },
       })
 
       await flushAnalytics(mockLogger)
@@ -242,13 +220,17 @@ describe('server-side analytics', () => {
     })
 
     test('should log errors but not throw on flush failure', async () => {
-      initAnalytics({
+      configureAnalytics({
+        envName: 'prod',
+        posthogApiKey: 'test-key',
+        posthogHostUrl: 'https://posthog.test',
+      })
+
+      // Track an event to initialize the client
+      trackEvent({
+        event: AnalyticsEvent.APP_LAUNCHED,
+        userId: 'user-123',
         logger: mockLogger,
-        clientEnv: {
-          NEXT_PUBLIC_CB_ENVIRONMENT: 'prod',
-          NEXT_PUBLIC_POSTHOG_API_KEY: 'test-key',
-          NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://posthog.test',
-        },
       })
 
       flushMock.mockImplementation(() => {
@@ -260,7 +242,7 @@ describe('server-side analytics', () => {
     })
   })
 
-  describe('configureAnalytics', () => {
+  describe('configureAnalytics manual configuration', () => {
     test('should allow manual configuration', () => {
       configureAnalytics({
         envName: 'prod',
@@ -289,13 +271,10 @@ describe('server-side analytics', () => {
 
   describe('edge cases', () => {
     test('should handle events with undefined properties', () => {
-      initAnalytics({
-        logger: mockLogger,
-        clientEnv: {
-          NEXT_PUBLIC_CB_ENVIRONMENT: 'prod',
-          NEXT_PUBLIC_POSTHOG_API_KEY: 'test-key',
-          NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://posthog.test',
-        },
+      configureAnalytics({
+        envName: 'prod',
+        posthogApiKey: 'test-key',
+        posthogHostUrl: 'https://posthog.test',
       })
 
       trackEvent({
@@ -313,13 +292,10 @@ describe('server-side analytics', () => {
     })
 
     test('should handle events with empty properties', () => {
-      initAnalytics({
-        logger: mockLogger,
-        clientEnv: {
-          NEXT_PUBLIC_CB_ENVIRONMENT: 'prod',
-          NEXT_PUBLIC_POSTHOG_API_KEY: 'test-key',
-          NEXT_PUBLIC_POSTHOG_HOST_URL: 'https://posthog.test',
-        },
+      configureAnalytics({
+        envName: 'prod',
+        posthogApiKey: 'test-key',
+        posthogHostUrl: 'https://posthog.test',
       })
 
       trackEvent({

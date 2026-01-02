@@ -84,7 +84,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     }
 
     // Mock analytics
-    spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
 
     // Mock crypto.randomUUID

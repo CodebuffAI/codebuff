@@ -49,8 +49,6 @@ describe('n parameter and GENERATE_N functionality', () => {
     }
 
     // Mock analytics
-    spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
-    analytics.initAnalytics({ logger })
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
 
     // Mock crypto.randomUUID
