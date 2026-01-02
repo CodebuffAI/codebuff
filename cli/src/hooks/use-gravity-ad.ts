@@ -1,4 +1,4 @@
-import { WEBSITE_URL } from '@codebuff/sdk'
+import { Message, WEBSITE_URL } from '@codebuff/sdk'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { getAdsEnabled } from '../commands/ads'
@@ -61,7 +61,11 @@ export const useGravityAd = (): GravityAdState => {
   // Fire impression via web API when ad changes (grants credits)
   // Only fire impressions when ad is actually being shown
   useEffect(() => {
-    if (shouldShowAd && ad?.impUrl && !impressionFiredRef.current.has(ad.impUrl)) {
+    if (
+      shouldShowAd &&
+      ad?.impUrl &&
+      !impressionFiredRef.current.has(ad.impUrl)
+    ) {
       const currentImpUrl = ad.impUrl
       impressionFiredRef.current.add(currentImpUrl)
       logger.info(
@@ -133,11 +137,7 @@ export const useGravityAd = (): GravityAdState => {
     const currentRunState = useChatStore.getState().runState
     const messageHistory =
       currentRunState?.sessionState?.mainAgentState?.messageHistory ?? []
-
-    logger.info(
-      { messageCount: messageHistory.length },
-      '[gravity] Fetching ad from web API',
-    )
+    const adMessages = convertToAdMessages(messageHistory)
 
     try {
       const response = await fetch(`${WEBSITE_URL}/api/v1/ads`, {
@@ -146,12 +146,12 @@ export const useGravityAd = (): GravityAdState => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
         },
-        body: JSON.stringify({ messages: messageHistory }),
+        body: JSON.stringify({ messages: adMessages }),
       })
 
       if (!response.ok) {
         logger.warn(
-          { status: response.status },
+          { status: response.status, response: await response.json() },
           '[gravity] Web API returned error',
         )
         return null
@@ -269,7 +269,9 @@ export const useGravityAd = (): GravityAdState => {
     }
 
     const unsubscribe = useChatStore.subscribe((state) => {
-      const hasUserMessage = state.messages.some((msg) => msg.variant === 'user')
+      const hasUserMessage = state.messages.some(
+        (msg) => msg.variant === 'user',
+      )
 
       if (hasUserMessage) {
         unsubscribe()
@@ -288,4 +290,26 @@ export const useGravityAd = (): GravityAdState => {
 
   // Only return the ad if we should show it (after first user message)
   return { ad: shouldShowAd ? ad : null, isLoading, reportActivity }
+}
+
+type AdMessage = { role: 'user' | 'assistant'; content: string }
+
+/**
+ * Convert LLM message history to ad API format.
+ * Includes only user and assistant messages.
+ */
+const convertToAdMessages = (messages: Message[]): AdMessage[] => {
+  const adMessages: AdMessage[] = messages
+    .filter(
+      (message) => message.role === 'assistant' || message.role === 'user',
+    )
+    .map((message) => ({
+      role: message.role,
+      content: message.content
+        .filter((c) => c.type === 'text')
+        .map((c) => c.text)
+        .join('\n\n'),
+    }))
+
+  return adMessages
 }

@@ -14,7 +14,10 @@ import type {
 } from '@codebuff/common/types/contracts/logger'
 import type { NextRequest } from 'next/server'
 
-const messageSchema = z.object({})
+const messageSchema = z.object({
+  role: z.string(),
+  content: z.string(),
+})
 
 const bodySchema = z.object({
   messages: z.array(messageSchema),
@@ -56,6 +59,7 @@ export async function postAds(params: {
     const json = await req.json()
     const parsed = bodySchema.safeParse(json)
     if (!parsed.success) {
+      baseLogger.error({ parsed, json }, '[ads] Invalid request body')
       return NextResponse.json(
         { error: 'Invalid request body', details: parsed.error.format() },
         { status: 400 },
@@ -63,6 +67,10 @@ export async function postAds(params: {
     }
     messages = parsed.data.messages
   } catch {
+    baseLogger.error(
+      { error: 'Invalid JSON in request body' },
+      '[ads] Invalid request body',
+    )
     return NextResponse.json(
       { error: 'Invalid JSON in request body' },
       { status: 400 },
@@ -96,17 +104,17 @@ export async function postAds(params: {
       }),
     })
 
-    if (response.status === 204) {
-      // No ad available
-      logger.debug('[ads] No ad available from Gravity API')
+    if (!response.ok) {
+      logger.error(
+        { status: response.status, response: await response.json(), messages },
+        '[ads] Gravity API returned error',
+      )
       return NextResponse.json({ ad: null }, { status: 200 })
     }
 
-    if (!response.ok) {
-      logger.error(
-        { status: response.status },
-        '[ads] Gravity API returned error',
-      )
+    if (response.status === 204) {
+      // No ad available. This is common and expected.
+      logger.debug({}, '[ads] No ad available from Gravity API')
       return NextResponse.json({ ad: null }, { status: 200 })
     }
 
