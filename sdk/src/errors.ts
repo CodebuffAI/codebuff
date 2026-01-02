@@ -145,10 +145,26 @@ export function isAuthenticationError(error: unknown): error is AuthenticationEr
 }
 
 /**
- * Type guard to check if an error is a PaymentRequiredError
+ * Type guard to check if an error is a PaymentRequiredError or an AI SDK APICallError with 402 status
  */
 export function isPaymentRequiredError(error: unknown): error is PaymentRequiredError {
-  return error instanceof PaymentRequiredError
+  // Check for our custom PaymentRequiredError
+  if (error instanceof PaymentRequiredError) {
+    return true
+  }
+
+  // Check for AI SDK's APICallError with 402 status code
+  // Use duck typing since we can't import APICallError directly
+  if (
+    error &&
+    typeof error === 'object' &&
+    'statusCode' in error &&
+    (error as { statusCode: unknown }).statusCode === 402
+  ) {
+    return true
+  }
+
+  return false
 }
 
 /**

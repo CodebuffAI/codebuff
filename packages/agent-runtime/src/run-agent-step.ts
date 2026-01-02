@@ -629,7 +629,7 @@ export async function loopAgentSteps(
   const system =
     agentTemplate.inheritParentSystemPrompt && parentSystemPrompt
       ? parentSystemPrompt
-      : (await getAgentPrompt({
+      : ((await getAgentPrompt({
           ...params,
           agentTemplate,
           promptType: { type: 'systemPrompt' },
@@ -645,7 +645,7 @@ export async function loopAgentSteps(
             }
             return cachedAdditionalToolDefinitions
           },
-        })) ?? ''
+        })) ?? '')
 
   // Build agent tools (agents as direct tool calls) for non-inherited tools
   const agentTools = useParentTools
@@ -674,8 +674,8 @@ export async function loopAgentSteps(
 
   const hasUserMessage = Boolean(
     prompt ||
-      (spawnParams && Object.keys(spawnParams).length > 0) ||
-      (content && content.length > 0),
+    (spawnParams && Object.keys(spawnParams).length > 0) ||
+    (content && content.length > 0),
   )
 
   const initialMessages = buildArray<Message>(
@@ -918,10 +918,14 @@ export async function loopAgentSteps(
     )
 
     // Re-throw NetworkError and PaymentRequiredError to allow SDK retry wrapper to handle it
-    if (
-      error instanceof Error &&
-      (error.name === 'NetworkError' || error.name === 'PaymentRequiredError')
-    ) {
+    if (error instanceof Error && error.name === 'NetworkError') {
+      throw error
+    }
+
+    const isPaymentRequired =
+      (error as { statusCode?: number }).statusCode === 402
+
+    if (isPaymentRequired) {
       throw error
     }
 
