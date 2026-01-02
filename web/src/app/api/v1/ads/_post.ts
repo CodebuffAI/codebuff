@@ -14,10 +14,7 @@ import type {
 } from '@codebuff/common/types/contracts/logger'
 import type { NextRequest } from 'next/server'
 
-const messageSchema = z.object({
-  role: z.enum(['user', 'assistant']),
-  content: z.string(),
-})
+const messageSchema = z.object({})
 
 const bodySchema = z.object({
   messages: z.array(messageSchema),
