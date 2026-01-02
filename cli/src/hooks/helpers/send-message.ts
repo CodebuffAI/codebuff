@@ -3,9 +3,8 @@ import { useChatStore } from '../../state/chat-store'
 import { processBashContext } from '../../utils/bash-context-processor'
 import {
   createErrorMessage,
-  createPaymentErrorMessage,
   isOutOfCreditsError,
-  isPaymentRequiredError,
+  OUT_OF_CREDITS_MESSAGE,
 } from '../../utils/error-handling'
 import { formatElapsedTime } from '../../utils/format-elapsed-time'
 import { processImagesForMessage } from '../../utils/image-processor'
@@ -215,23 +214,11 @@ export const handleRunCompletion = (params: {
       return
     }
 
-    if (isOutOfCreditsError(output)) {
-      const { message, showUsageBanner } = createPaymentErrorMessage(output)
-      updater.setError(message)
-
-      if (showUsageBanner) {
-        useChatStore.getState().setInputMode('usage')
-        queryClient.invalidateQueries({
-          queryKey: usageQueryKeys.current(),
-        })
-      }
-    } else {
-      const partial = createErrorMessage(
-        output.message ?? 'No output from agent run',
-        aiMessageId,
-      )
-      updater.setError(partial.content ?? '')
-    }
+    const partial = createErrorMessage(
+      output.message ?? 'No output from agent run',
+      aiMessageId,
+    )
+    updater.setError(partial.content ?? '')
 
     finalizeAfterError()
     return
@@ -302,10 +289,8 @@ export const handleRunError = (params: {
   updateChainInProgress(false)
   timerController.stop('error')
 
-  if (isPaymentRequiredError(error)) {
-    const { message } = createPaymentErrorMessage(error)
-
-    updater.setError(message)
+  if (isOutOfCreditsError(error)) {
+    updater.setError(OUT_OF_CREDITS_MESSAGE)
     useChatStore.getState().setInputMode('usage')
     queryClient.invalidateQueries({ queryKey: usageQueryKeys.current() })
     return

@@ -18,6 +18,8 @@ export type ErrorObject = {
   stack?: string
   /** Optional numeric HTTP status code, if available */
   status?: number
+  /** Optional numeric HTTP status code, if available */
+  statusCode?: number
   /** Optional machine-friendly error code, if available */
   code?: string
   /** Optional raw error object */
@@ -49,6 +51,10 @@ export function getErrorObject(
       message: error.message,
       stack: error.stack,
       status: typeof anyError.status === 'number' ? anyError.status : undefined,
+      statusCode:
+        typeof anyError.statusCode === 'number'
+          ? anyError.statusCode
+          : undefined,
       code: typeof anyError.code === 'string' ? anyError.code : undefined,
       rawError: options.includeRawError
         ? JSON.stringify(error, null, 2)

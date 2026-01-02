@@ -27,16 +27,12 @@ const extractErrorMessage = (error: unknown, fallback: string): string => {
  * Standardized on statusCode === 402 for payment required detection.
  */
 export const isOutOfCreditsError = (error: unknown): boolean => {
-  if (isPaymentRequiredError(error)) {
-    return true
-  }
-
   // Check for error output with errorCode property (from agent run results)
   if (
     error &&
     typeof error === 'object' &&
-    'errorCode' in error &&
-    (error as { errorCode: unknown }).errorCode === ErrorCodes.PAYMENT_REQUIRED
+    'statusCode' in error &&
+    error.statusCode === 402
   ) {
     return true
   }
@@ -44,20 +40,7 @@ export const isOutOfCreditsError = (error: unknown): boolean => {
   return false
 }
 
-export const createPaymentErrorMessage = (
-  error: unknown,
-): {
-  message: string
-  showUsageBanner: boolean
-} => {
-  const fallback = `Out of credits. Please add credits at ${defaultAppUrl}/usage`
-  const message = extractErrorMessage(error, fallback)
-
-  return {
-    message,
-    showUsageBanner: isOutOfCreditsError(error),
-  }
-}
+export const OUT_OF_CREDITS_MESSAGE = `Out of credits. Please add credits at ${defaultAppUrl}/usage`
 
 export const createErrorMessage = (
   error: unknown,

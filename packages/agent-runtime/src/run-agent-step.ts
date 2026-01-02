@@ -917,18 +917,6 @@ export async function loopAgentSteps(
       'Agent execution failed',
     )
 
-    // Re-throw NetworkError and PaymentRequiredError to allow SDK retry wrapper to handle it
-    if (error instanceof Error && error.name === 'NetworkError') {
-      throw error
-    }
-
-    const isPaymentRequired =
-      (error as { statusCode?: number }).statusCode === 402
-
-    if (isPaymentRequired) {
-      throw error
-    }
-
     let errorMessage = ''
     if (error instanceof APICallError) {
       errorMessage = `${error.message}`
@@ -950,6 +938,13 @@ export async function loopAgentSteps(
       totalCredits: currentAgentState.creditsUsed,
       errorMessage,
     })
+
+    const isPaymentRequired =
+      (error as { statusCode?: number }).statusCode === 402
+
+    if (isPaymentRequired) {
+      throw error
+    }
 
     return {
       agentState: currentAgentState,
