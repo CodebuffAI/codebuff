@@ -1,52 +1,9 @@
-import {
-  createPostHogClient,
-  getConfigFromEnv,
-  isProdEnv,
-  type AnalyticsClient,
-  type AnalyticsConfig,
-  type PostHogClientOptions,
-} from './analytics-core'
-
+import { createPostHogClient, type AnalyticsClient } from './analytics-core'
 import type { AnalyticsEvent } from './constants/analytics-events'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import { env } from '@codebuff/common/env'
 
-// Re-export types from core for backwards compatibility
-export type { AnalyticsClient, AnalyticsConfig } from './analytics-core'
-
-/** Dependencies that can be injected for testing */
-export interface ServerAnalyticsDeps {
-  createClient: (
-    apiKey: string,
-    options: PostHogClientOptions,
-  ) => AnalyticsClient
-}
-
 let client: AnalyticsClient | undefined
-let analyticsConfig: AnalyticsConfig | null = null
-let injectedDeps: ServerAnalyticsDeps | undefined
-
-/** Get client factory (injected or default PostHog) */
-function getCreateClient() {
-  return injectedDeps?.createClient ?? createPostHogClient
-}
-
-/** Reset analytics state - for testing only */
-export function resetServerAnalyticsState(deps?: ServerAnalyticsDeps) {
-  client = undefined
-  analyticsConfig = null
-  injectedDeps = deps
-}
-
-/** Get current config - exposed for testing */
-export function getAnalyticsConfig() {
-  return analyticsConfig
-}
-
-export const configureAnalytics = (config: AnalyticsConfig | null) => {
-  analyticsConfig = config
-  client = undefined
-}
 
 export async function flushAnalytics(logger?: Logger) {
   if (!client) {
@@ -77,12 +34,9 @@ export function trackEvent({
   }
 
   if (!client) {
-    configureAnalytics(getConfigFromEnv(env))
-    const createClient = getCreateClient()
-
     try {
-      client = createClient(analyticsConfig!.posthogApiKey, {
-        host: analyticsConfig!.posthogHostUrl,
+      client = createPostHogClient(env.NEXT_PUBLIC_POSTHOG_API_KEY, {
+        host: env.NEXT_PUBLIC_POSTHOG_HOST_URL,
         flushAt: 1,
         flushInterval: 0,
       })
@@ -91,7 +45,7 @@ export function trackEvent({
       return
     }
     logger.info(
-      { envName: analyticsConfig?.envName },
+      { envName: env.NEXT_PUBLIC_CB_ENVIRONMENT },
       'Analytics client initialized',
     )
   }

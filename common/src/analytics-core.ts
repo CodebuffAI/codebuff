@@ -1,7 +1,5 @@
 import { PostHog } from 'posthog-node'
 
-import type { AnalyticsEvent } from './constants/analytics-events'
-
 /**
  * Shared analytics core module.
  * Provides common interfaces, types, and utilities used by both
@@ -60,32 +58,6 @@ export function createPostHogClient(
   options: PostHogClientOptions,
 ): AnalyticsClientWithIdentify {
   return new PostHog(apiKey, options) as AnalyticsClientWithIdentify
-}
-
-/**
- * Extracts analytics config from client environment variables.
- * Returns null if required env vars are missing.
- */
-export function getConfigFromEnv(env: {
-  NEXT_PUBLIC_CB_ENVIRONMENT?: string
-  NEXT_PUBLIC_POSTHOG_API_KEY?: string
-  NEXT_PUBLIC_POSTHOG_HOST_URL?: string
-}): AnalyticsConfig | null {
-  const envName = env.NEXT_PUBLIC_CB_ENVIRONMENT as AnalyticsEnvName | undefined
-  const posthogApiKey = env.NEXT_PUBLIC_POSTHOG_API_KEY
-  const posthogHostUrl = env.NEXT_PUBLIC_POSTHOG_HOST_URL
-
-  if (!envName) return null
-  if (!posthogApiKey || !posthogHostUrl) return null
-
-  return { envName, posthogApiKey, posthogHostUrl }
-}
-
-/**
- * Checks if the environment is production.
- */
-export function isProdEnv(envName: AnalyticsEnvName | undefined): boolean {
-  return envName === 'prod'
 }
 
 /**
