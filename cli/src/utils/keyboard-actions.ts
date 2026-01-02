@@ -142,8 +142,8 @@ export function resolveChatKeyboardAction(
     return { type: 'exit-input-mode' }
   }
 
-  // Priority 3: Clear input with escape/ctrl-c when there's text
-  if ((isEscape || isCtrlC) && state.inputValue.trim().length > 0) {
+  // Priority 3: Clear input with ctrl-c when there's text
+  if (isCtrlC && state.inputValue.trim().length > 0) {
     return { type: 'clear-input' }
   }
 

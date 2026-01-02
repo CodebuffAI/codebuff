@@ -111,13 +111,13 @@ describe('resolveChatKeyboardAction', () => {
   })
 
   describe('escape with input text', () => {
-    test('escape with text clears input', () => {
+    test('escape with text does NOT clear input (better UX)', () => {
       const state: ChatKeyboardState = {
         ...defaultState,
         inputValue: 'hello world',
       }
       expect(resolveChatKeyboardAction(escapeKey, state)).toEqual({
-        type: 'clear-input',
+        type: 'none',
       })
     })
 
