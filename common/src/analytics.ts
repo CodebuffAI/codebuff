@@ -71,9 +71,8 @@ export function trackEvent({
   properties?: Record<string, any>
   logger: Logger
 }) {
-  if (!isProdEnv(analyticsConfig?.envName)) {
-    // Note (James): This log was too noisy. Reenable it as you need to test something.
-    // logger.info({ payload: { event, properties } }, event)
+  // Don't track events in non-production environments
+  if (env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
     return
   }
 
