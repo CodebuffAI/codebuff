@@ -9,6 +9,7 @@ import {
 
 import type { AnalyticsEvent } from './constants/analytics-events'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import { env } from '@codebuff/common/env'
 
 // Re-export types from core for backwards compatibility
 export type { AnalyticsClient, AnalyticsConfig } from './analytics-core'
@@ -47,45 +48,6 @@ export const configureAnalytics = (config: AnalyticsConfig | null) => {
   client = undefined
 }
 
-export function initAnalytics({
-  logger,
-  clientEnv,
-}: {
-  logger: Logger
-  clientEnv?: Parameters<typeof getConfigFromEnv>[0]
-}) {
-  if (clientEnv) {
-    configureAnalytics(getConfigFromEnv(clientEnv))
-  }
-
-  logger.info(
-    {
-      analyticsConfig: {
-        envName: analyticsConfig?.envName,
-        posthogApiKey: !!analyticsConfig?.posthogApiKey,
-        posthogHostUrl: analyticsConfig?.posthogHostUrl,
-      },
-    },
-    '🔵 [analytics] initAnalytics() called',
-  )
-
-  if (!isProdEnv(analyticsConfig?.envName)) {
-    return
-  }
-
-  const createClient = getCreateClient()
-
-  try {
-    client = createClient(analyticsConfig!.posthogApiKey, {
-      host: analyticsConfig!.posthogHostUrl,
-      flushAt: 1,
-      flushInterval: 0,
-    })
-  } catch (error) {
-    logger.warn({ error }, 'Failed to initialize analytics client')
-  }
-}
-
 export async function flushAnalytics(logger?: Logger) {
   if (!client) {
     return
@@ -116,13 +78,23 @@ export function trackEvent({
   }
 
   if (!client) {
-    // Don't attempt to re-initialize here - initAnalytics requires clientEnv
-    // which we don't have in this context. Just warn and skip.
-    logger.warn(
-      { event, userId },
-      'Analytics client not initialized, skipping event tracking',
+    configureAnalytics(getConfigFromEnv(env))
+    const createClient = getCreateClient()
+
+    try {
+      client = createClient(analyticsConfig!.posthogApiKey, {
+        host: analyticsConfig!.posthogHostUrl,
+        flushAt: 1,
+        flushInterval: 0,
+      })
+    } catch (error) {
+      logger.warn({ error }, 'Failed to initialize analytics client')
+      return
+    }
+    logger.info(
+      { envName: analyticsConfig?.envName },
+      'Analytics client initialized',
     )
-    return
   }
 
   try {
