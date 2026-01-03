@@ -9,7 +9,6 @@ export type {
 export { run, getRetryableStatusCode } from './run'
 export type {
   RunOptions,
-  RetryOptions,
   MessageContent,
   TextContent,
   ImageContent,
