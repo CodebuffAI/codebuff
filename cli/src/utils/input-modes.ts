@@ -11,6 +11,7 @@ export type InputMode =
   | 'usage'
   | 'image'
   | 'help'
+  | 'outOfCredits'
 
 // Theme color keys that are valid color values (must match ChatTheme keys)
 export type ThemeColorKey =
@@ -95,6 +96,14 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     widthAdjustment: 0,
     showAgentModeToggle: true,
     disableSlashSuggestions: false,
+  },
+  outOfCredits: {
+    icon: null,
+    color: 'warning',
+    placeholder: '',
+    widthAdjustment: 0,
+    showAgentModeToggle: false,
+    disableSlashSuggestions: true,
   },
 }
 

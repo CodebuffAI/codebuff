@@ -5,6 +5,7 @@ import { MultipleChoiceForm } from './ask-user'
 import { FeedbackContainer } from './feedback-container'
 import { InputModeBanner } from './input-mode-banner'
 import { MultilineInput, type MultilineInputHandle } from './multiline-input'
+import { OutOfCreditsBanner } from './out-of-credits-banner'
 import { PublishContainer } from './publish-container'
 import { SuggestionMenu, type SuggestionItem } from './suggestion-menu'
 import { useAskUserBridge } from '../hooks/use-ask-user-bridge'
@@ -174,6 +175,11 @@ export const ChatInputBar = ({
         width={separatorWidth}
       />
     )
+  }
+
+  // Out of credits mode: replace entire input with out-of-credits banner
+  if (inputMode === 'outOfCredits') {
+    return <OutOfCreditsBanner />
   }
 
   // Handle input changes with special mode entry detection

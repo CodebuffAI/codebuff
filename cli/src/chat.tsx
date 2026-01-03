@@ -1,4 +1,5 @@
 import { RECONNECTION_MESSAGE_DURATION_MS } from '@codebuff/sdk'
+import open from 'open'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   useCallback,
@@ -14,6 +15,7 @@ import { getAdsEnabled } from './commands/ads'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
 import { AdBanner } from './components/ad-banner'
 import { ChatInputBar } from './components/chat-input-bar'
+import { areCreditsRestored } from './components/out-of-credits-banner'
 import { LoadPreviousButton } from './components/load-previous-button'
 import { MessageWithAgents } from './components/message-with-agents'
 import { PendingBashMessage } from './components/pending-bash-message'
@@ -47,6 +49,7 @@ import { useTerminalLayout } from './hooks/use-terminal-layout'
 import { useTheme } from './hooks/use-theme'
 import { useTimeout } from './hooks/use-timeout'
 import { useUsageMonitor } from './hooks/use-usage-monitor'
+import { WEBSITE_URL } from './login/constants'
 import { getProjectRoot } from './project-files'
 import { useChatStore } from './state/chat-store'
 import { useFeedbackStore } from './state/feedback-store'
@@ -1227,6 +1230,15 @@ export const Chat = ({
             lastEditDueToNav: false,
           }
         })
+      },
+      onOpenBuyCredits: () => {
+        // If credits have been restored, just return to default mode
+        if (areCreditsRestored()) {
+          setInputMode('default')
+          return
+        }
+        // Otherwise open the buy credits page
+        open(WEBSITE_URL + '/usage')
       },
     }),
     [

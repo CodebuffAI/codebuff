@@ -71,6 +71,9 @@ export type ChatKeyboardHandlers = {
   onPasteImage: () => void
   onPasteImagePath: (imagePath: string) => void
   onPasteText: (text: string) => void
+
+  // Out of credits handler
+  onOpenBuyCredits: () => void
 }
 
 /**
@@ -223,6 +226,9 @@ function dispatchAction(
       }
       return true
     }
+    case 'open-buy-credits':
+      handlers.onOpenBuyCredits()
+      return true
     case 'none':
       return false
   }

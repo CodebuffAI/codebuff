@@ -216,7 +216,7 @@ export const handleRunCompletion = (params: {
 
     if (isOutOfCreditsError(output)) {
       updater.setError(OUT_OF_CREDITS_MESSAGE)
-      useChatStore.getState().setInputMode('usage')
+      useChatStore.getState().setInputMode('outOfCredits')
       queryClient.invalidateQueries({ queryKey: usageQueryKeys.current() })
       finalizeAfterError()
       return
@@ -299,7 +299,7 @@ export const handleRunError = (params: {
 
   if (isOutOfCreditsError(error)) {
     updater.setError(OUT_OF_CREDITS_MESSAGE)
-    useChatStore.getState().setInputMode('usage')
+    useChatStore.getState().setInputMode('outOfCredits')
     queryClient.invalidateQueries({ queryKey: usageQueryKeys.current() })
     return
   }
