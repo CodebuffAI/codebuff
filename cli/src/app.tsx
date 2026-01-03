@@ -211,21 +211,20 @@ export const App = ({
     )
   }, [logoComponent, projectRoot, theme])
 
-  // Derive auth reachability + retrying state inline from authQuery error
+  // Derive auth reachability + retrying state from authQuery error
   const authError = authQuery.error
   const authErrorStatusCode = authError ? getErrorStatusCode(authError) : undefined
-  const isRetryableNetworkError = authErrorStatusCode !== undefined && isRetryableStatusCode(authErrorStatusCode)
 
   let authStatus: AuthStatus = 'ok'
-  if (authQuery.isError) {
-    // Only show network status if it's a server/network error (5xx)
-    if (authErrorStatusCode === undefined || authErrorStatusCode < 500) {
-      authStatus = 'ok'
-    } else if (isRetryableNetworkError) {
+  if (authQuery.isError && authErrorStatusCode !== undefined) {
+    if (isRetryableStatusCode(authErrorStatusCode)) {
+      // Retryable errors (408 timeout, 429 rate limit, 5xx server errors)
       authStatus = 'retrying'
-    } else {
+    } else if (authErrorStatusCode >= 500) {
+      // Non-retryable server errors (unlikely but possible future codes)
       authStatus = 'unreachable'
     }
+    // 4xx client errors (401, 403, etc.) keep 'ok' - network is fine, just auth failed
   }
 
   // Render login modal when not authenticated AND auth service is reachable
