@@ -6,6 +6,7 @@ import {
   isOutOfCreditsError,
   OUT_OF_CREDITS_MESSAGE,
 } from '../../utils/error-handling'
+import { usageQueryKeys } from '../use-usage-query'
 import { formatElapsedTime } from '../../utils/format-elapsed-time'
 import { processImagesForMessage } from '../../utils/image-processor'
 import { logger } from '../../utils/logger'
@@ -16,7 +17,6 @@ import {
   type BatchedMessageUpdater,
 } from '../../utils/message-updater'
 import { createModeDividerMessage } from '../../utils/send-message-helpers'
-import { usageQueryKeys } from '../use-usage-query'
 
 import type { PendingImage } from '../../state/chat-store'
 import type { ChatMessage } from '../../types/chat'
@@ -211,6 +211,14 @@ export const handleRunCompletion = (params: {
 
   if (output.type === 'error') {
     if (streamRefs.state.wasAbortedByUser) {
+      return
+    }
+
+    if (isOutOfCreditsError(output)) {
+      updater.setError(OUT_OF_CREDITS_MESSAGE)
+      useChatStore.getState().setInputMode('usage')
+      queryClient.invalidateQueries({ queryKey: usageQueryKeys.current() })
+      finalizeAfterError()
       return
     }
 
