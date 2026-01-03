@@ -30,12 +30,12 @@ export type CreateRunConfigParams = {
 type RetryArgs = {
   attempt: number
   delayMs: number
-  errorCode?: string
+  statusCode?: number
 }
 
 type RetryExhaustedArgs = {
   totalAttempts: number
-  errorCode?: string
+  statusCode?: number
 }
 
 export const createRunConfig = (params: CreateRunConfigParams) => {
@@ -63,9 +63,9 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
       maxRetries: MAX_RETRIES_PER_MESSAGE,
       backoffBaseMs: RETRY_BACKOFF_BASE_DELAY_MS,
       backoffMaxMs: RETRY_BACKOFF_MAX_DELAY_MS,
-      onRetry: async ({ attempt, delayMs, errorCode }: RetryArgs) => {
+      onRetry: async ({ attempt, delayMs, statusCode }: RetryArgs) => {
         logger.warn(
-          { sdkAttempt: attempt, delayMs, errorCode },
+          { sdkAttempt: attempt, delayMs, statusCode },
           'SDK retrying after error',
         )
         setIsRetrying(true)
@@ -73,9 +73,9 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
       },
       onRetryExhausted: async ({
         totalAttempts,
-        errorCode,
+        statusCode,
       }: RetryExhaustedArgs) => {
-        logger.warn({ totalAttempts, errorCode }, 'SDK exhausted all retries')
+        logger.warn({ totalAttempts, statusCode }, 'SDK exhausted all retries')
       },
     },
     agentDefinitions,

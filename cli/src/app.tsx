@@ -1,4 +1,4 @@
-import { NetworkError, RETRYABLE_ERROR_CODES } from '@codebuff/sdk'
+import { isRetryableStatusCode, getErrorStatusCode } from '@codebuff/sdk'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -213,15 +213,13 @@ export const App = ({
 
   // Derive auth reachability + retrying state inline from authQuery error
   const authError = authQuery.error
-  const networkError =
-    authError && authError instanceof NetworkError ? authError : null
-  const isRetryableNetworkError = Boolean(
-    networkError && RETRYABLE_ERROR_CODES.has(networkError.code),
-  )
+  const authErrorStatusCode = authError ? getErrorStatusCode(authError) : undefined
+  const isRetryableNetworkError = authErrorStatusCode !== undefined && isRetryableStatusCode(authErrorStatusCode)
 
   let authStatus: AuthStatus = 'ok'
   if (authQuery.isError) {
-    if (!networkError) {
+    // Only show network status if it's a server/network error (5xx)
+    if (authErrorStatusCode === undefined || authErrorStatusCode < 500) {
       authStatus = 'ok'
     } else if (isRetryableNetworkError) {
       authStatus = 'retrying'

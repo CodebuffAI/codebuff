@@ -15,13 +15,11 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
 import {
-  RETRYABLE_ERROR_CODES,
-  isNetworkError,
-  isPaymentRequiredError,
-  ErrorCodes,
-  NetworkError,
+  getErrorStatusCode,
   sanitizeErrorMessage,
-} from './errors'
+  RETRYABLE_STATUS_CODES,
+  createHttpError,
+} from './error-utils'
 import { getAgentRuntimeImpl } from './impl/agent-runtime'
 import { getUserInfoFromApiKey } from './impl/database'
 import {
@@ -38,7 +36,6 @@ import { getFiles } from './tools/read-files'
 import { runTerminalCommand } from './tools/run-terminal-command'
 
 import type { CustomToolDefinition } from './custom-tool'
-import type { ErrorCode } from './errors'
 import type { RunState } from './run-state'
 import type { ServerAction } from '@codebuff/common/actions'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
@@ -141,10 +138,10 @@ export type RetryOptions = {
    */
   backoffMaxMs?: number
   /**
-   * Error codes that should trigger retry.
-   * Defaults to RETRYABLE_ERROR_CODES.
+   * HTTP status codes that should trigger retry.
+   * Defaults to RETRYABLE_STATUS_CODES (408, 429, 5xx).
    */
-  retryableErrorCodes?: Set<ErrorCode>
+  retryableStatusCodes?: Set<number>
   /**
    * Optional callback invoked before each retry attempt.
    */
@@ -152,7 +149,7 @@ export type RetryOptions = {
     attempt: number
     error: unknown
     delayMs: number
-    errorCode?: ErrorCode
+    statusCode?: number
   }) => void | Promise<void>
   /**
    * Optional callback invoked when all SDK retries are exhausted.
@@ -161,7 +158,7 @@ export type RetryOptions = {
   onRetryExhausted?: (params: {
     totalAttempts: number
     error: unknown
-    errorCode?: ErrorCode
+    statusCode?: number
   }) => void | Promise<void>
 }
 
@@ -195,17 +192,17 @@ type NormalizedRetryOptions = {
   maxRetries: number
   backoffBaseMs: number
   backoffMaxMs: number
-  retryableErrorCodes: Set<ErrorCode>
+  retryableStatusCodes: Set<number>
   onRetry?: (params: {
     attempt: number
     error: unknown
     delayMs: number
-    errorCode?: ErrorCode
+    statusCode?: number
   }) => void | Promise<void>
   onRetryExhausted?: (params: {
     totalAttempts: number
     error: unknown
-    errorCode?: ErrorCode
+    statusCode?: number
   }) => void | Promise<void>
 }
 
@@ -213,7 +210,7 @@ const defaultRetryOptions: NormalizedRetryOptions = {
   maxRetries: MAX_RETRIES_PER_MESSAGE,
   backoffBaseMs: RETRY_BACKOFF_BASE_DELAY_MS,
   backoffMaxMs: RETRY_BACKOFF_MAX_DELAY_MS,
-  retryableErrorCodes: RETRYABLE_ERROR_CODES,
+  retryableStatusCodes: RETRYABLE_STATUS_CODES,
 }
 
 const createAbortError = (signal?: AbortSignal) => {
@@ -226,10 +223,14 @@ const createAbortError = (signal?: AbortSignal) => {
 }
 
 /**
- * Checks if an error should trigger a retry attempt.
+ * Checks if an error should trigger a retry attempt based on statusCode.
  */
-const isRetryableError = (error: unknown): boolean => {
-  return isNetworkError(error) && RETRYABLE_ERROR_CODES.has(error.code)
+const isRetryableError = (
+  error: unknown,
+  retryableStatusCodes: Set<number>,
+): boolean => {
+  const statusCode = getErrorStatusCode(error)
+  return statusCode !== undefined && retryableStatusCodes.has(statusCode)
 }
 
 const normalizeRetryOptions = (
@@ -245,8 +246,8 @@ const normalizeRetryOptions = (
     maxRetries: retry.maxRetries ?? defaultRetryOptions.maxRetries,
     backoffBaseMs: retry.backoffBaseMs ?? defaultRetryOptions.backoffBaseMs,
     backoffMaxMs: retry.backoffMaxMs ?? defaultRetryOptions.backoffMaxMs,
-    retryableErrorCodes:
-      retry.retryableErrorCodes ?? defaultRetryOptions.retryableErrorCodes,
+    retryableStatusCodes:
+      retry.retryableStatusCodes ?? defaultRetryOptions.retryableStatusCodes,
     onRetry: retry.onRetry,
     onRetryExhausted: retry.onRetryExhausted,
   }
@@ -323,11 +324,13 @@ export async function run(options: RunExecutionOptions): Promise<RunState> {
 
       // Check if result contains a retryable error in the output
       if (result.output.type === 'error') {
-        const retryableCode = getRetryableErrorCode(result.output.message)
+        const statusCode =
+          result.output.statusCode ??
+          getRetryableStatusCode(result.output.message)
         const canRetry =
-          retryableCode &&
+          statusCode !== undefined &&
           attemptIndex < retryOptions.maxRetries &&
-          retryOptions.retryableErrorCodes.has(retryableCode)
+          retryOptions.retryableStatusCodes.has(statusCode)
 
         if (canRetry) {
           // Treat this as a retryable error - continue retry loop
@@ -343,7 +346,7 @@ export async function run(options: RunExecutionOptions): Promise<RunState> {
                 attempt: attemptIndex + 1,
                 maxRetries: retryOptions.maxRetries,
                 delayMs,
-                errorCode: retryableCode,
+                statusCode,
                 errorMessage: result.output.message,
               },
               'SDK retrying after error',
@@ -354,7 +357,7 @@ export async function run(options: RunExecutionOptions): Promise<RunState> {
             attempt: attemptIndex + 1,
             error: new Error(result.output.message),
             delayMs,
-            errorCode: retryableCode,
+            statusCode,
           })
 
           await waitWithAbort(delayMs, signal)
@@ -367,7 +370,7 @@ export async function run(options: RunExecutionOptions): Promise<RunState> {
               {
                 attemptIndex,
                 totalAttempts: attemptIndex + 1,
-                errorCode: retryableCode,
+                statusCode,
               },
               'SDK exhausted all retries',
             )
@@ -376,7 +379,7 @@ export async function run(options: RunExecutionOptions): Promise<RunState> {
           await retryOptions.onRetryExhausted?.({
             totalAttempts: attemptIndex + 1,
             error: new Error(result.output.message),
-            errorCode: retryableCode ?? undefined,
+            statusCode,
           })
         }
       }
@@ -406,23 +409,19 @@ export async function run(options: RunExecutionOptions): Promise<RunState> {
       // Unexpected exception - convert to error output and check if retryable
       // Use sanitizeErrorMessage to get clean user-facing message without stack traces
       const errorMessage = sanitizeErrorMessage(error)
-      const errorCode = isNetworkError(error)
-        ? error.code
-        : isPaymentRequiredError(error)
-          ? error.code
-          : undefined
-      const retryableCode = errorCode ?? getRetryableErrorCode(errorMessage)
+      const statusCode =
+        getErrorStatusCode(error) ?? getRetryableStatusCode(errorMessage)
 
       const canRetry =
-        retryableCode &&
+        statusCode !== undefined &&
         attemptIndex < retryOptions.maxRetries &&
-        retryOptions.retryableErrorCodes.has(retryableCode)
+        retryOptions.retryableStatusCodes.has(statusCode)
 
       if (rest.logger) {
         rest.logger.error(
           {
             attemptIndex,
-            errorCode: retryableCode,
+            statusCode,
             canRetry,
             error: errorMessage,
           },
@@ -448,7 +447,7 @@ export async function run(options: RunExecutionOptions): Promise<RunState> {
           output: {
             type: 'error',
             message: errorMessage,
-            ...(errorCode && { errorCode }),
+            ...(statusCode !== undefined && { statusCode }),
           },
         }
       }
@@ -465,7 +464,7 @@ export async function run(options: RunExecutionOptions): Promise<RunState> {
             attempt: attemptIndex + 1,
             maxRetries: retryOptions.maxRetries,
             delayMs,
-            errorCode: retryableCode,
+            statusCode,
             errorMessage,
           },
           'SDK retrying after unexpected exception',
@@ -476,7 +475,7 @@ export async function run(options: RunExecutionOptions): Promise<RunState> {
         attempt: attemptIndex + 1,
         error: error instanceof Error ? error : new Error(errorMessage),
         delayMs,
-        errorCode: retryableCode,
+        statusCode,
       })
 
       await waitWithAbort(delayMs, signal)
@@ -806,18 +805,17 @@ export async function runOnce({
     userId,
     signal: signal ?? new AbortController().signal,
   }).catch((error) => {
-    // Let retryable errors and PaymentRequiredError propagate so the retry wrapper can handle them
-    const isRetryable = isRetryableError(error)
-    const isPaymentRequired = isPaymentRequiredError(error)
+    // Let retryable errors and payment errors propagate so the retry wrapper can handle them
+    const statusCode = getErrorStatusCode(error)
+    const isRetryable = isRetryableError(
+      error,
+      defaultRetryOptions.retryableStatusCodes,
+    )
+    const isPaymentRequired = statusCode === 402
     logger?.warn(
       {
-        isNetworkError: isNetworkError(error),
+        statusCode,
         isPaymentRequired,
-        errorCode: isNetworkError(error)
-          ? error.code
-          : isPaymentRequired
-            ? error.code
-            : undefined,
         isRetryable,
         error: getErrorObject(error),
       },
@@ -825,7 +823,7 @@ export async function runOnce({
     )
 
     if (isRetryable || isPaymentRequired) {
-      // Reject the promise so the retry wrapper can catch it and include the error code
+      // Reject the promise so the retry wrapper can catch it and include the statusCode
       reject(error)
       return
     }
@@ -981,12 +979,12 @@ async function handleToolCall({
 }
 
 /**
- * Extracts an error code from a prompt error message.
- * Returns the appropriate ErrorCode if the error is retryable, null otherwise.
+ * Extracts an HTTP status code from a prompt error message.
+ * Returns the status code if the error is retryable, undefined otherwise.
  */
-export const getRetryableErrorCode = (
+export const getRetryableStatusCode = (
   errorMessage: string,
-): ErrorCode | null => {
+): number | undefined => {
   const lowerMessage = errorMessage.toLowerCase()
 
   // AI SDK's built-in retry error (e.g., "Failed after 4 attempts. Last error: Service Unavailable")
@@ -997,52 +995,56 @@ export const getRetryableErrorCode = (
   ) {
     // Extract the underlying error type from the message
     if (lowerMessage.includes('service unavailable')) {
-      return ErrorCodes.SERVICE_UNAVAILABLE
+      return 503
     }
     if (lowerMessage.includes('timeout')) {
-      return ErrorCodes.TIMEOUT
+      return 408
     }
     if (lowerMessage.includes('connection refused')) {
-      return ErrorCodes.CONNECTION_REFUSED
+      return 503
     }
-    // Default to SERVER_ERROR for other AI SDK retry failures
-    return ErrorCodes.SERVER_ERROR
+    // Default to 500 for other AI SDK retry failures
+    return 500
   }
 
   if (
     errorMessage.includes('503') ||
     lowerMessage.includes('service unavailable')
   ) {
-    return ErrorCodes.SERVICE_UNAVAILABLE
+    return 503
   }
-  if (lowerMessage.includes('timeout')) {
-    return ErrorCodes.TIMEOUT
+  if (errorMessage.includes('504')) {
+    return 504
+  }
+  if (errorMessage.includes('502')) {
+    return 502
+  }
+  if (lowerMessage.includes('timeout') || errorMessage.includes('408')) {
+    return 408
   }
   if (
     lowerMessage.includes('econnrefused') ||
     lowerMessage.includes('connection refused')
   ) {
-    return ErrorCodes.CONNECTION_REFUSED
+    return 503
   }
   if (lowerMessage.includes('dns') || lowerMessage.includes('enotfound')) {
-    return ErrorCodes.DNS_FAILURE
+    return 503
   }
-  if (
-    lowerMessage.includes('server error') ||
-    lowerMessage.includes('500') ||
-    lowerMessage.includes('502') ||
-    lowerMessage.includes('504')
-  ) {
-    return ErrorCodes.SERVER_ERROR
+  if (lowerMessage.includes('server error') || errorMessage.includes('500')) {
+    return 500
+  }
+  if (errorMessage.includes('429') || lowerMessage.includes('rate limit')) {
+    return 429
   }
   if (
     lowerMessage.includes('network error') ||
     lowerMessage.includes('fetch failed')
   ) {
-    return ErrorCodes.NETWORK_ERROR
+    return 503
   }
 
-  return null
+  return undefined
 }
 
 async function handlePromptResponse({
@@ -1059,10 +1061,10 @@ async function handlePromptResponse({
   if (action.type === 'prompt-error') {
     onError({ message: action.message })
 
-    // If this is a retryable error, throw NetworkError so retry wrapper can handle it
-    const retryableCode = getRetryableErrorCode(action.message)
-    if (retryableCode) {
-      throw new NetworkError(action.message, retryableCode)
+    // If this is a retryable error, throw with statusCode so retry wrapper can handle it
+    const retryableStatusCode = getRetryableStatusCode(action.message)
+    if (retryableStatusCode) {
+      throw createHttpError(action.message, retryableStatusCode)
     }
 
     // For non-retryable errors, resolve with error state

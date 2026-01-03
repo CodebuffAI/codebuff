@@ -1,7 +1,7 @@
 import { assistantMessage } from '@codebuff/common/util/messages'
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 
-import { ErrorCodes } from '../errors'
+
 import { run } from '../run'
 import * as runModule from '../run'
 
@@ -134,7 +134,7 @@ describe('run retry wrapper', () => {
       retry: {
         backoffBaseMs: 1,
         backoffMaxMs: 2,
-        retryableErrorCodes: new Set([ErrorCodes.SERVER_ERROR]),
+        retryableStatusCodes: new Set([500]),  // SERVER_ERROR
       },
     })
 
@@ -188,7 +188,7 @@ describe('run retry wrapper', () => {
     expect(onRetryCalls).toHaveLength(1)
     expect(onRetryCalls[0].attempt).toBe(1)
     expect(onRetryCalls[0].delayMs).toBe(1)
-    expect(onRetryCalls[0].errorCode).toBe('SERVICE_UNAVAILABLE')
+    expect(onRetryCalls[0].statusCode).toBe(503)
   })
 
   it('calls onRetryExhausted after all retries fail', async () => {
@@ -211,7 +211,7 @@ describe('run retry wrapper', () => {
 
     expect(onRetryExhaustedCalls).toHaveLength(1)
     expect(onRetryExhaustedCalls[0].totalAttempts).toBe(3) // Initial + 2 retries
-    expect(onRetryExhaustedCalls[0].errorCode).toBe('TIMEOUT')
+    expect(onRetryExhaustedCalls[0].statusCode).toBe(408)
   })
 
   it('returns error output without sessionState on first attempt failure', async () => {

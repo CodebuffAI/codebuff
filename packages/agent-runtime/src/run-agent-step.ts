@@ -928,6 +928,8 @@ export async function loopAgentSteps(
           : String(error)
     }
 
+    const statusCode = (error as { statusCode?: number }).statusCode
+
     const status = checkLiveUserInput(params) ? 'failed' : 'cancelled'
     await finishAgentRun({
       ...params,
@@ -939,10 +941,8 @@ export async function loopAgentSteps(
       errorMessage,
     })
 
-    const isPaymentRequired =
-      (error as { statusCode?: number }).statusCode === 402
-
-    if (isPaymentRequired) {
+    // Payment required errors (402) should propagate
+    if (statusCode === 402) {
       throw error
     }
 
@@ -951,6 +951,7 @@ export async function loopAgentSteps(
       output: {
         type: 'error',
         message: 'Agent run error: ' + errorMessage,
+        ...(statusCode !== undefined && { statusCode }),
       },
     }
   }

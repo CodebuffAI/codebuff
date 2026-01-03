@@ -52,9 +52,11 @@ export function isAuthError(output: {
 export function isNetworkError(output: {
   type: string
   message?: string
-  errorCode?: string
+  statusCode?: number
 }): boolean {
   if (output.type !== 'error') return false
   const msg = output.message?.toLowerCase() ?? ''
-  return output.errorCode === 'NETWORK_ERROR' || msg.includes('network error')
+  // Check for 5xx status codes or network-related messages
+  const isServerError = output.statusCode !== undefined && output.statusCode >= 500
+  return isServerError || msg.includes('network error')
 }

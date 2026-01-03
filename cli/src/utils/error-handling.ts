@@ -1,5 +1,4 @@
 import { env } from '@codebuff/common/env'
-import { ErrorCodes, isPaymentRequiredError } from '@codebuff/sdk'
 
 import type { ChatMessage } from '../types/chat'
 
@@ -14,7 +13,7 @@ const extractErrorMessage = (error: unknown, fallback: string): string => {
     return error.message + (error.stack ? `\n\n${error.stack}` : '')
   }
   if (error && typeof error === 'object' && 'message' in error) {
-    const candidate = (error as any).message
+    const candidate = (error as { message: unknown }).message
     if (typeof candidate === 'string' && candidate.length > 0) {
       return candidate
     }
@@ -27,16 +26,14 @@ const extractErrorMessage = (error: unknown, fallback: string): string => {
  * Standardized on statusCode === 402 for payment required detection.
  */
 export const isOutOfCreditsError = (error: unknown): boolean => {
-  // Check for error output with errorCode property (from agent run results)
   if (
     error &&
     typeof error === 'object' &&
     'statusCode' in error &&
-    error.statusCode === 402
+    (error as { statusCode: unknown }).statusCode === 402
   ) {
     return true
   }
-
   return false
 }
 
@@ -55,6 +52,3 @@ export const createErrorMessage = (
     isComplete: true,
   }
 }
-
-// Re-export for convenience in helpers
-export { isPaymentRequiredError }
