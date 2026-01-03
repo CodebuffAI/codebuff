@@ -4,7 +4,12 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import z from 'zod/v4'
 
 import { WEBSITE_URL } from '../constants'
-import { AuthenticationError, ErrorCodes, NetworkError } from '../errors'
+import {
+  createAuthError,
+  createNetworkError,
+  createServerError,
+  createHttpError,
+} from '../error-utils'
 
 import type {
   AddAgentStepFn,
@@ -39,7 +44,7 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
 
   const cached = userInfoCache[apiKey]
   if (cached === null) {
-    throw new AuthenticationError('Authentication failed', 401)
+    throw createAuthError()
   }
   if (
     cached &&
@@ -77,7 +82,7 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
       'getUserInfoFromApiKey network error',
     )
     // Network-level failure: DNS, connection refused, timeout, etc.
-    throw new NetworkError('Network request failed', ErrorCodes.NETWORK_ERROR, undefined, error)
+    throw createNetworkError('Network request failed')
   }
 
   if (response.status === 401 || response.status === 403 || response.status === 404) {
@@ -89,7 +94,7 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
     delete userInfoCache[apiKey]
     // If the server returns 404 for invalid credentials, surface as 401 to callers
     const normalizedStatus = response.status === 404 ? 401 : response.status
-    throw new AuthenticationError('Authentication failed', normalizedStatus)
+    throw createHttpError('Authentication failed', normalizedStatus)
   }
 
   if (response.status >= 500 && response.status <= 599) {
@@ -97,11 +102,7 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
       { apiKey, fields, status: response.status },
       'getUserInfoFromApiKey server error',
     )
-    throw new NetworkError(
-      'Server error',
-      response.status === 503 ? ErrorCodes.SERVICE_UNAVAILABLE : ErrorCodes.SERVER_ERROR,
-      response.status,
-    )
+    throw createServerError('Server error', response.status)
   }
 
   if (!response.ok) {
@@ -109,7 +110,7 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
       { apiKey, fields, status: response.status },
       'getUserInfoFromApiKey request failed',
     )
-    throw new NetworkError('Request failed', ErrorCodes.UNKNOWN_ERROR, response.status)
+    throw createHttpError('Request failed', response.status)
   }
 
   const cachedBeforeMerge = userInfoCache[apiKey]
@@ -124,12 +125,12 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
       { error: getErrorObject(error), apiKey, fields },
       'getUserInfoFromApiKey JSON parse error',
     )
-    throw new NetworkError('Failed to parse response', ErrorCodes.UNKNOWN_ERROR, response.status, error)
+    throw createHttpError('Failed to parse response', response.status)
   }
 
   const userInfo = userInfoCache[apiKey]
   if (userInfo === null) {
-    throw new AuthenticationError('Authentication failed', 401)
+    throw createAuthError()
   }
   if (
     !userInfo ||
@@ -141,7 +142,7 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
       { apiKey, fields },
       'getUserInfoFromApiKey: response missing required fields',
     )
-    throw new NetworkError('Request failed', ErrorCodes.UNKNOWN_ERROR, response.status)
+    throw createHttpError('Request failed', response.status)
   }
   return Object.fromEntries(
     fields.map((field) => [field, userInfo[field]]),

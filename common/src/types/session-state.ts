@@ -62,7 +62,7 @@ export const AgentOutputSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('error'),
     message: z.string(),
-    errorCode: z.string().optional(),
+    statusCode: z.number().optional(),
   }),
 ])
 export type AgentOutput = z.infer<typeof AgentOutputSchema>

@@ -373,11 +373,8 @@ export const useSendMessage = ({
           prompt: effectivePrompt,
           content: messageContent,
           previousRunState: previousRunStateRef.current,
-          abortController,
           agentDefinitions,
           eventHandlerState,
-          setIsRetrying,
-          setStreamStatus,
         })
 
         const runState = await client.run(runConfig)

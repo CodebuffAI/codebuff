@@ -1,4 +1,4 @@
-import { NetworkError, RETRYABLE_ERROR_CODES } from '@codebuff/sdk'
+import { isRetryableStatusCode, getErrorStatusCode } from '@codebuff/sdk'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -211,23 +211,20 @@ export const App = ({
     )
   }, [logoComponent, projectRoot, theme])
 
-  // Derive auth reachability + retrying state inline from authQuery error
+  // Derive auth reachability + retrying state from authQuery error
   const authError = authQuery.error
-  const networkError =
-    authError && authError instanceof NetworkError ? authError : null
-  const isRetryableNetworkError = Boolean(
-    networkError && RETRYABLE_ERROR_CODES.has(networkError.code),
-  )
+  const authErrorStatusCode = authError ? getErrorStatusCode(authError) : undefined
 
   let authStatus: AuthStatus = 'ok'
-  if (authQuery.isError) {
-    if (!networkError) {
-      authStatus = 'ok'
-    } else if (isRetryableNetworkError) {
+  if (authQuery.isError && authErrorStatusCode !== undefined) {
+    if (isRetryableStatusCode(authErrorStatusCode)) {
+      // Retryable errors (408 timeout, 429 rate limit, 5xx server errors)
       authStatus = 'retrying'
-    } else {
+    } else if (authErrorStatusCode >= 500) {
+      // Non-retryable server errors (unlikely but possible future codes)
       authStatus = 'unreachable'
     }
+    // 4xx client errors (401, 403, etc.) keep 'ok' - network is fine, just auth failed
   }
 
   // Render login modal when not authenticated AND auth service is reachable

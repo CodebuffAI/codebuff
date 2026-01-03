@@ -34,7 +34,7 @@ const { setupStreamingContext, handleRunError } = await import(
 const { createBatchedMessageUpdater } = await import(
   '../../../utils/message-updater'
 )
-const { PaymentRequiredError } = await import('@codebuff/sdk')
+import { createPaymentRequiredError } from '@codebuff/sdk'
 
 const createMockTimerController = (): SendMessageTimerController & {
   startCalls: string[]
@@ -375,7 +375,7 @@ describe('handleRunError', () => {
     expect(mockInvalidateQueries).not.toHaveBeenCalled()
   })
 
-  test('PaymentRequiredError uses setError, invalidates queries, and switches input mode', () => {
+  test('Payment required error (402) uses setError, invalidates queries, and switches input mode', () => {
     let messages: ChatMessage[] = [
       {
         id: 'ai-1',
@@ -397,7 +397,7 @@ describe('handleRunError', () => {
       setInputMode: setInputModeMock,
     })
 
-    const paymentError = new PaymentRequiredError('Out of credits')
+    const paymentError = createPaymentRequiredError('Out of credits')
 
     handleRunError({
       error: paymentError,

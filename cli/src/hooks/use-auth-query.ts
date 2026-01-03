@@ -2,11 +2,11 @@ import { createHash } from 'crypto'
 
 import { getCiEnv } from '@codebuff/common/env-ci'
 import {
-  AuthenticationError,
-  ErrorCodes,
   getUserInfoFromApiKey as defaultGetUserInfoFromApiKey,
-  NetworkError,
-  RETRYABLE_ERROR_CODES,
+  isRetryableStatusCode,
+  getErrorStatusCode,
+  createAuthError,
+  createServerError,
   MAX_RETRIES_PER_MESSAGE,
   RETRY_BACKOFF_BASE_DELAY_MS,
 } from '@codebuff/sdk'
@@ -48,6 +48,14 @@ type ValidatedUserInfo = {
 }
 
 /**
+ * Check if an error is an authentication error (401, 403)
+ */
+function isAuthenticationError(error: unknown): boolean {
+  const statusCode = getErrorStatusCode(error)
+  return statusCode === 401 || statusCode === 403
+}
+
+/**
  * Validates an API key by calling the backend
  *
  * CHANGE: Exported for testing purposes and accepts optional dependencies
@@ -69,42 +77,39 @@ export async function validateApiKey({
 
     if (!authResult) {
       logger.error('❌ API key validation failed - invalid credentials')
-      throw new AuthenticationError('Invalid API key', 401)
+      throw createAuthError('Invalid API key')
     }
 
     return authResult
   } catch (error) {
-    if (error instanceof AuthenticationError) {
+    const statusCode = getErrorStatusCode(error)
+
+    if (isAuthenticationError(error)) {
       logger.error('❌ API key validation failed - authentication error')
-      // Rethrow the original error to preserve error type for higher layers
+      // Rethrow the original error to preserve statusCode for higher layers
       throw error
     }
 
-    if (error instanceof NetworkError) {
+    if (statusCode !== undefined && isRetryableStatusCode(statusCode)) {
       logger.error(
         {
-          error: error.message,
-          code: error.code,
+          error: error instanceof Error ? error.message : String(error),
+          statusCode,
         },
         '❌ API key validation failed - network error',
       )
-      // Rethrow the original error to preserve error type for higher layers
+      // Rethrow the original error to preserve statusCode for higher layers
       throw error
     }
 
-    // Unknown error - wrap in NetworkError for consistency
+    // Unknown error - wrap with statusCode for consistency
     logger.error(
       {
         error: error instanceof Error ? error.message : String(error),
       },
       '❌ API key validation failed - unknown error',
     )
-    throw new NetworkError(
-      'Authentication failed',
-      ErrorCodes.UNKNOWN_ERROR,
-      undefined,
-      error,
-    )
+    throw createServerError('Authentication failed')
   }
 }
 
@@ -139,12 +144,13 @@ export function useAuthQuery(deps: UseAuthQueryDeps = {}) {
     // Retry only for retryable network errors (5xx, timeouts, etc.)
     // Don't retry authentication errors (invalid credentials)
     retry: (failureCount, error) => {
+      const statusCode = getErrorStatusCode(error)
       // Don't retry authentication errors - user needs to update credentials
-      if (error instanceof AuthenticationError) {
+      if (isAuthenticationError(error)) {
         return false
       }
       // Retry network errors if they're retryable and we haven't exceeded max retries
-      if (error instanceof NetworkError && RETRYABLE_ERROR_CODES.has(error.code)) {
+      if (statusCode !== undefined && isRetryableStatusCode(statusCode)) {
         return failureCount < MAX_RETRIES_PER_MESSAGE
       }
       // Don't retry other errors

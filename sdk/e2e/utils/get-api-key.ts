@@ -47,14 +47,21 @@ export function isAuthError(output: {
 }
 
 /**
- * Check if output indicates a network error (e.g., backend unreachable).
+ * Check if output indicates a network error (e.g., backend unreachable, timeout, rate limit).
  */
 export function isNetworkError(output: {
   type: string
   message?: string
-  errorCode?: string
+  statusCode?: number
 }): boolean {
   if (output.type !== 'error') return false
   const msg = output.message?.toLowerCase() ?? ''
-  return output.errorCode === 'NETWORK_ERROR' || msg.includes('network error')
+  // Check for retryable status codes (408 timeout, 429 rate limit, 5xx server errors)
+  // or network-related messages
+  const isRetryableStatusCode =
+    output.statusCode !== undefined &&
+    (output.statusCode === 408 ||
+      output.statusCode === 429 ||
+      output.statusCode >= 500)
+  return isRetryableStatusCode || msg.includes('network error')
 }
