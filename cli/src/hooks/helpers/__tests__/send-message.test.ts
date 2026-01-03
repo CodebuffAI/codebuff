@@ -427,7 +427,7 @@ describe('handleRunError', () => {
     // Should invalidate queries for payment errors
     expect(mockInvalidateQueries).toHaveBeenCalled()
     // Input mode should switch to usage
-    expect(setInputModeMock).toHaveBeenCalledWith('usage')
+    expect(setInputModeMock).toHaveBeenCalledWith('outOfCredits')
 
     // Timer should still be stopped with error
     expect(timerController.stopCalls).toContain('error')
