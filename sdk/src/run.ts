@@ -648,10 +648,11 @@ async function handleToolCall({
 }
 
 /**
- * Extracts an HTTP status code from a prompt error message.
- * Returns the status code if the error is retryable, undefined otherwise.
+ * Extracts an HTTP status code from an error message string.
+ * Parses common error patterns to identify the underlying status code.
+ * Returns the status code if found, undefined otherwise.
  */
-export const getRetryableStatusCode = (
+export const extractStatusCodeFromMessage = (
   errorMessage: string,
 ): number | undefined => {
   const lowerMessage = errorMessage.toLowerCase()
@@ -730,7 +731,7 @@ async function handlePromptResponse({
   if (action.type === 'prompt-error') {
     onError({ message: action.message })
 
-    const statusCode = getRetryableStatusCode(action.message)
+    const statusCode = extractStatusCodeFromMessage(action.message)
     resolve({
       sessionState: initialSessionState,
       output: {

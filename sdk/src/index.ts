@@ -6,7 +6,7 @@ export type {
   TextPart,
   ImagePart,
 } from '@codebuff/common/types/messages/content-part'
-export { run, getRetryableStatusCode } from './run'
+export { run } from './run'
 export type {
   RunOptions,
   MessageContent,

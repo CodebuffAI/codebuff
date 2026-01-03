@@ -16,9 +16,9 @@ export type ErrorObject = {
   name: string
   message: string
   stack?: string
-  /** Optional numeric HTTP status code, if available */
+  /** HTTP status code from error.status (used by some libraries) */
   status?: number
-  /** Optional numeric HTTP status code, if available */
+  /** HTTP status code from error.statusCode (used by AI SDK and Codebuff errors) */
   statusCode?: number
   /** Optional machine-friendly error code, if available */
   code?: string
