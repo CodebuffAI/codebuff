@@ -6,7 +6,7 @@ import path from 'path'
 
 import { generateCompactId } from '@codebuff/common/util/string'
 
-import { TEST_REPOS_DIR } from '../test-setup'
+export const TEST_REPOS_DIR = path.join(__dirname, '..', 'test-repos')
 
 /**
  * Extracts the repository name from a git URL
