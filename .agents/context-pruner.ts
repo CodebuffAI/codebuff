@@ -390,9 +390,12 @@ const definition: AgentDefinition = {
         if (Array.isArray(message.content)) {
           for (const part of message.content) {
             if (part.type === 'text' && typeof part.text === 'string') {
-              const text = (part.text as string).trim()
-              if (text) {
-                textParts.push(text)
+              // Remove <think> tags and their contents before summarizing
+              const textWithoutThinkTags = (part.text as string)
+                .replace(/<think>[\s\S]*?<\/think>/g, '')
+                .trim()
+              if (textWithoutThinkTags) {
+                textParts.push(textWithoutThinkTags)
               }
             } else if (part.type === 'tool-call') {
               const toolName = part.toolName as string
