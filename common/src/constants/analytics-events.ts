@@ -122,6 +122,12 @@ export enum AnalyticsEvent {
   // Web - Ads API
   ADS_API_AUTH_ERROR = 'api.ads_auth_error',
 
+  // Web - Token Count API
+  TOKEN_COUNT_REQUEST = 'api.token_count_request',
+  TOKEN_COUNT_AUTH_ERROR = 'api.token_count_auth_error',
+  TOKEN_COUNT_VALIDATION_ERROR = 'api.token_count_validation_error',
+  TOKEN_COUNT_ERROR = 'api.token_count_error',
+
   // Common
   FLUSH_FAILED = 'common.flush_failed',
 }

@@ -172,3 +172,81 @@ export async function callDocsSearchAPI(params: {
   const error = getStringField(res.json, 'error')
   return { error: error ?? 'Invalid response format' }
 }
+
+export async function callTokenCountAPI(params: {
+  messages: unknown[]
+  system?: string
+  model?: string
+  fetch: typeof globalThis.fetch
+  logger: Logger
+  env: CodebuffWebApiEnv
+  baseUrl?: string
+  apiKey?: string
+}): Promise<{ inputTokens?: number; error?: string }> {
+  const { messages, system, model, fetch, logger, env } = params
+  const baseUrl = params.baseUrl ?? env.clientEnv.NEXT_PUBLIC_CODEBUFF_APP_URL
+  const apiKey = params.apiKey ?? env.ciEnv.CODEBUFF_API_KEY
+
+  if (!baseUrl || !apiKey) {
+    return { error: 'Missing Codebuff base URL or API key' }
+  }
+
+  const url = `${baseUrl}/api/v1/token-count`
+  const payload: Record<string, unknown> = { messages }
+  if (system) payload.system = system
+  if (model) payload.model = model
+
+  try {
+    const res = await withTimeout(
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+          'x-codebuff-api-key': apiKey,
+        },
+        body: JSON.stringify(payload),
+      }),
+      FETCH_TIMEOUT_MS,
+    )
+
+    const text = await res.text()
+    const json = tryParseJson(text)
+
+    if (!res.ok) {
+      const err =
+        getStringField(json, 'error') ??
+        getStringField(json, 'message') ??
+        text ??
+        'Request failed'
+      logger.warn(
+        {
+          url,
+          status: res.status,
+          statusText: res.statusText,
+          body: text?.slice(0, 500),
+        },
+        'Web API token-count request failed',
+      )
+      return { error: err }
+    }
+
+    const inputTokens = getNumberField(json, 'inputTokens')
+    if (typeof inputTokens === 'number') {
+      return { inputTokens }
+    }
+
+    return { error: 'Invalid response format' }
+  } catch (error) {
+    logger.error(
+      {
+        error:
+          error instanceof Error
+            ? { name: error.name, message: error.message, stack: error.stack }
+            : error,
+      },
+      'Web API token-count network error',
+    )
+    return { error: error instanceof Error ? error.message : 'Network error' }
+  }
+}

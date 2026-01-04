@@ -44,7 +44,12 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
   let capturedMessages: Message[] = []
   let loopAgentStepsBaseParams: ParamsExcluding<
     typeof loopAgentSteps,
-    'agentState' | 'userInputId' | 'prompt' | 'agentType' | 'parentSystemPrompt'
+    | 'agentState'
+    | 'userInputId'
+    | 'prompt'
+    | 'agentType'
+    | 'parentSystemPrompt'
+    | 'agentTemplate'
   >
 
   beforeAll(() => {

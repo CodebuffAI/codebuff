@@ -8,6 +8,7 @@ import { systemMessage, userMessage } from '@codebuff/common/util/messages'
 import { cloneDeep, mapValues } from 'lodash'
 
 import { checkLiveUserInput } from './live-user-inputs'
+import { callTokenCountAPI } from './llm-api/codebuff-web-api'
 import { getMCPToolData } from './mcp'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
 import { runProgrammaticStep } from './run-programmatic-step'
@@ -97,6 +98,7 @@ export const runAgentStep = async (
     onResponseChunk: (chunk: string | PrintModeEvent) => void
 
     agentType: AgentTemplateType
+    agentTemplate: AgentTemplate
     fileContext: ProjectFileContext
     agentState: AgentState
     localAgentTemplates: Record<string, AgentTemplate>
@@ -152,6 +154,7 @@ export const runAgentStep = async (
     agentType,
     clientSessionId,
     fileContext,
+    agentTemplate,
     fingerprintId,
     localAgentTemplates,
     logger,
@@ -161,10 +164,10 @@ export const runAgentStep = async (
     system,
     userId,
     userInputId,
-
     onResponseChunk,
     promptAiSdk,
     trackEvent,
+    additionalToolDefinitions,
   } = params
   let agentState = params.agentState
 
@@ -189,30 +192,18 @@ export const runAgentStep = async (
     logger,
   })
 
-  let messageHistory = agentState.messageHistory
-
-  // Check if we need to warn about too many consecutive responses
-  const needsStepWarning = agentState.stepsRemaining <= 0
-  let stepWarningMessage = ''
-
-  if (needsStepWarning) {
+  if (agentState.stepsRemaining <= 0) {
     logger.warn(
       `Detected too many consecutive assistant messages without user prompt`,
     )
 
-    stepWarningMessage = [
-      "I've made quite a few responses in a row.",
-      "Let me pause here to make sure we're still on the right track.",
-      "Please let me know if you'd like me to continue or if you'd like to guide me in a different direction.",
-    ].join(' ')
-
-    onResponseChunk(`${stepWarningMessage}\n\n`)
+    onResponseChunk(`${STEP_WARNING_MESSAGE}\n\n`)
 
     // Update message history to include the warning
     agentState = {
       ...agentState,
       messageHistory: [
-        ...expireMessages(messageHistory, 'userPrompt'),
+        ...expireMessages(agentState.messageHistory, 'userPrompt'),
         userMessage(
           withSystemTags(
             `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The maximum number of responses can be configured via maxAgentSteps.`,
@@ -220,16 +211,12 @@ export const runAgentStep = async (
         ),
       ],
     }
-  }
-
-  const agentTemplate = await getAgentTemplate({
-    ...params,
-    agentId: agentType,
-  })
-  if (!agentTemplate) {
-    throw new Error(
-      `Agent template not found for type: ${agentType}. Available types: ${Object.keys(localAgentTemplates).join(', ')}`,
-    )
+    return {
+      agentState,
+      fullResponse: STEP_WARNING_MESSAGE,
+      shouldEndTurn: true,
+      messageId: null,
+    }
   }
 
   const stepPrompt = await getAgentPrompt({
@@ -240,10 +227,11 @@ export const runAgentStep = async (
     agentState,
     agentTemplates: localAgentTemplates,
     logger,
+    additionalToolDefinitions,
   })
 
   const agentMessagesUntruncated = buildArray<Message>(
-    ...expireMessages(messageHistory, 'agentStep'),
+    ...expireMessages(agentState.messageHistory, 'agentStep'),
 
     stepPrompt &&
       userMessage({
@@ -257,16 +245,6 @@ export const runAgentStep = async (
   )
 
   agentState.messageHistory = agentMessagesUntruncated
-
-  // Early return for step warning case
-  if (needsStepWarning) {
-    return {
-      agentState,
-      fullResponse: stepWarningMessage,
-      shouldEndTurn: true,
-      messageId: null,
-    }
-  }
 
   const { model } = agentTemplate
 
@@ -287,6 +265,7 @@ export const runAgentStep = async (
       agentId: agentState.agentId,
       model,
       duration: Date.now() - startTime,
+      contextTokenCount: agentState.contextTokenCount,
       agentMessages: agentState.messageHistory,
       system,
       prompt,
@@ -530,6 +509,7 @@ export async function loopAgentSteps(
       typeof runAgentStep,
       | 'additionalToolDefinitions'
       | 'agentState'
+      | 'agentTemplate'
       | 'prompt'
       | 'runId'
       | 'spawnParams'
@@ -552,7 +532,7 @@ export async function loopAgentSteps(
 }> {
   const {
     addAgentStep,
-    agentState,
+    agentState: initialAgentState,
     agentType,
     clearUserPromptMessagesAfterResponse = true,
     clientSessionId,
@@ -569,6 +549,8 @@ export async function loopAgentSteps(
     startAgentRun,
     userId,
     userInputId,
+    clientEnv,
+    ciEnv,
   } = params
 
   const agentTemplate =
@@ -583,7 +565,7 @@ export async function loopAgentSteps(
 
   if (signal.aborted) {
     return {
-      agentState,
+      agentState: initialAgentState,
       output: {
         type: 'error',
         message: 'Run cancelled by user',
@@ -594,12 +576,12 @@ export async function loopAgentSteps(
   const runId = await startAgentRun({
     ...params,
     agentId: agentTemplate.id,
-    ancestorRunIds: agentState.ancestorRunIds,
+    ancestorRunIds: initialAgentState.ancestorRunIds,
   })
   if (!runId) {
     throw new Error('Failed to start agent run')
   }
-  agentState.runId = runId
+  initialAgentState.runId = runId
 
   let cachedAdditionalToolDefinitions: CustomToolDefinitions | undefined
   // Use parent's tools for prompt caching when inheritParentSystemPrompt is true
@@ -679,7 +661,7 @@ export async function loopAgentSteps(
   )
 
   const initialMessages = buildArray<Message>(
-    ...agentState.messageHistory,
+    ...initialAgentState.messageHistory,
 
     hasUserMessage && [
       {
@@ -719,8 +701,18 @@ export async function loopAgentSteps(
     inputSchema: tool.inputSchema as {},
   }))
 
+  const additionalToolDefinitionsWithCache = async () => {
+    if (!cachedAdditionalToolDefinitions) {
+      cachedAdditionalToolDefinitions = await additionalToolDefinitions({
+        ...params,
+        agentTemplate,
+      })
+    }
+    return cachedAdditionalToolDefinitions
+  }
+
   let currentAgentState: AgentState = {
-    ...agentState,
+    ...initialAgentState,
     messageHistory: initialMessages,
     systemPrompt: system,
     toolDefinitions,
@@ -743,7 +735,7 @@ export async function loopAgentSteps(
             clientSessionId,
             totalSteps,
             runId,
-            agentState,
+            agentState: currentAgentState,
           },
           'User input no longer live (likely cancelled)',
         )
@@ -751,6 +743,47 @@ export async function loopAgentSteps(
       }
 
       const startTime = new Date()
+
+      const stepPrompt = await getAgentPrompt({
+        ...params,
+        agentTemplate,
+        promptType: { type: 'stepPrompt' },
+        fileContext,
+        agentState: currentAgentState,
+        agentTemplates: localAgentTemplates,
+        logger,
+        additionalToolDefinitions: additionalToolDefinitionsWithCache,
+      })
+      const messagesWithStepPrompt = buildArray(
+        ...currentAgentState.messageHistory,
+        stepPrompt &&
+          userMessage({
+            content: stepPrompt,
+          }),
+      )
+
+      // Check context token count via Anthropic API
+      const tokenCountResult = await callTokenCountAPI({
+        messages: messagesWithStepPrompt,
+        system,
+        fetch,
+        logger,
+        env: { clientEnv, ciEnv },
+      })
+      if (tokenCountResult.inputTokens !== undefined) {
+        currentAgentState.contextTokenCount = tokenCountResult.inputTokens
+      } else if (tokenCountResult.error) {
+        logger.warn(
+          { error: tokenCountResult.error },
+          'Failed to get token count from Anthropic API',
+        )
+        // Fall back to local estimate
+        const estimatedTokens =
+          countTokensJson(currentAgentState.messageHistory) +
+          countTokensJson(system) +
+          countTokensJson(toolDefinitions)
+        currentAgentState.contextTokenCount = estimatedTokens
+      }
 
       // 1. Run programmatic step first if it exists
       let n: number | undefined = undefined
@@ -763,8 +796,8 @@ export async function loopAgentSteps(
           localAgentTemplates,
           nResponses,
           onCostCalculated: async (credits: number) => {
-            agentState.creditsUsed += credits
-            agentState.directCreditsUsed += credits
+            currentAgentState.creditsUsed += credits
+            currentAgentState.directCreditsUsed += credits
           },
           prompt: currentPrompt,
           runId,
@@ -839,22 +872,14 @@ export async function loopAgentSteps(
         ...params,
 
         agentState: currentAgentState,
+        agentTemplate,
         n,
         prompt: currentPrompt,
         runId,
         spawnParams: currentParams,
         system,
         tools,
-
-        additionalToolDefinitions: async () => {
-          if (!cachedAdditionalToolDefinitions) {
-            cachedAdditionalToolDefinitions = await additionalToolDefinitions({
-              ...params,
-              agentTemplate,
-            })
-          }
-          return cachedAdditionalToolDefinitions
-        },
+        additionalToolDefinitions: additionalToolDefinitionsWithCache,
       })
 
       if (newAgentState.runId) {
@@ -956,3 +981,9 @@ export async function loopAgentSteps(
     }
   }
 }
+
+const STEP_WARNING_MESSAGE = [
+  "I've made quite a few responses in a row.",
+  "Let me pause here to make sure we're still on the right track.",
+  "Please let me know if you'd like me to continue or if you'd like to guide me in a different direction.",
+].join(' ')

@@ -241,8 +241,7 @@ const definition: AgentDefinition = {
     }
 
     // Initial check - if already under limit, return early (skip all pruning)
-    const initialTokens = countMessagesTokens(currentMessages)
-    if (initialTokens < maxMessageTokens) {
+    if (agentState.contextTokenCount < maxMessageTokens) {
       yield {
         toolName: 'set_messages',
         input: { messages: currentMessages },

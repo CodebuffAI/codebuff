@@ -291,6 +291,12 @@ export interface AgentState {
     string,
     { description: string | undefined; inputSchema: {} }
   >
+
+  /**
+   * The token count from the Anthropic API.
+   * This is updated on every agent step via the /api/v1/token-count endpoint.
+   */
+  contextTokenCount: number
 }
 
 /**

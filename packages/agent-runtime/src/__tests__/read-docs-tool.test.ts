@@ -30,7 +30,7 @@ import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 let runAgentStepBaseParams: ParamsExcluding<
   typeof runAgentStep,
-  'fileContext' | 'localAgentTemplates' | 'agentState' | 'prompt'
+  'fileContext' | 'localAgentTemplates' | 'agentState' | 'prompt' | 'agentTemplate'
 >
 
 import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
@@ -126,6 +126,7 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
       ...runAgentStepBaseParams,
       fileContext: mockFileContextWithAgents,
       localAgentTemplates: agentTemplates,
+      agentTemplate: agentTemplates['researcher'],
       agentState,
       prompt: 'Get React documentation',
     })
@@ -173,6 +174,7 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
       ...runAgentStepBaseParams,
       fileContext: mockFileContextWithAgents,
       localAgentTemplates: agentTemplates,
+      agentTemplate: agentTemplates['researcher'],
       agentState,
       prompt: 'Get React hooks documentation',
     })
@@ -212,6 +214,7 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
       ...runAgentStepBaseParams,
       fileContext: mockFileContextWithAgents,
       localAgentTemplates: agentTemplates,
+      agentTemplate: agentTemplates['researcher'],
       agentState,
       prompt: 'Get documentation for NonExistentLibrary',
     })
@@ -251,6 +254,7 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
       ...runAgentStepBaseParams,
       fileContext: mockFileContextWithAgents,
       localAgentTemplates: agentTemplates,
+      agentTemplate: agentTemplates['researcher'],
       agentState,
       prompt: 'Get React documentation',
     })
@@ -289,6 +293,7 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
       ...runAgentStepBaseParams,
       fileContext: mockFileContextWithAgents,
       localAgentTemplates: agentTemplates,
+      agentTemplate: agentTemplates['researcher'],
       agentState,
       prompt: 'Get React server components documentation',
     })
@@ -329,6 +334,7 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
       ...runAgentStepBaseParams,
       fileContext: mockFileContextWithAgents,
       localAgentTemplates: agentTemplates,
+      agentTemplate: agentTemplates['researcher'],
       agentState,
       prompt: 'Get React documentation',
     })
@@ -374,6 +380,7 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
       ...runAgentStepBaseParams,
       fileContext: mockFileContextWithAgents,
       localAgentTemplates: agentTemplates,
+      agentTemplate: agentTemplates['researcher'],
       agentState,
       prompt: 'Get React documentation',
     })
