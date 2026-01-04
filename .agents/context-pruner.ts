@@ -9,7 +9,7 @@ const definition: AgentDefinition = {
   displayName: 'Context Pruner',
   model: 'openai/gpt-5-mini',
 
-  spawnerPrompt: `Spawn this agent between steps to prune context, starting with old tool results and then old messages.`,
+  spawnerPrompt: `Spawn this agent between steps to prune context, summarizing the conversation into a condensed format when context exceeds the limit.`,
 
   inputSchema: {
     params: {
@@ -26,206 +26,38 @@ const definition: AgentDefinition = {
   inheritParentSystemPrompt: true,
   includeMessageHistory: true,
 
-  handleSteps: function* ({ agentState, params, logger }) {
+  handleSteps: function* ({ agentState, params }) {
     const messages = agentState.messageHistory
 
-    // Tools that should be preserved during aggressive pruning
-    // These are essential for understanding file state and task progress
-    const IMPORTANT_TOOLS = new Set([
-      'read_files',
-      'write_todos',
-      'write_file',
-      'str_replace',
-      'propose_write_file',
-      'propose_str_replace',
-    ])
+    // Target: summarized messages should be at most 15% of max context
+    const TARGET_SUMMARY_FACTOR = 0.15
 
-    // Threshold for truncating large tool results (chars)
-    const LARGE_TOOL_RESULT_THRESHOLD = 1000
+    // Limits for truncating long messages (chars)
+    const USER_MESSAGE_LIMIT = 20000
+    const ASSISTANT_MESSAGE_LIMIT = 5000
 
-    // Number of recent messages to protect from non-important tool removal
-    const KEEP_LAST_N_MESSAGES = 30
+    // Helper to truncate long text with 80% beginning + 20% end
+    const truncateLongText = (text: string, limit: number): string => {
+      if (text.length <= limit) {
+        return text
+      }
+      const availableChars = limit - 50 // 50 chars for the truncation notice
+      const prefixLength = Math.floor(availableChars * 0.8)
+      const suffixLength = availableChars - prefixLength
+      const prefix = text.slice(0, prefixLength)
+      const suffix = text.slice(-suffixLength)
+      const truncatedChars = text.length - prefixLength - suffixLength
+      return `${prefix}\n\n[...truncated ${truncatedChars} chars...]\n\n${suffix}`
+    }
 
-    // Target token factor (25% of max = aggressive trimming)
-    const TARGET_TOKEN_FACTOR = 0.25
-
-    // Anthropic image token formula: 85 + (num_tiles × 170), where tiles are ~512×512px
-    // Our compression limits images to max 1500px on longest side (typically 800-1200px)
-    // Worst case 1500×1500 = 9 tiles = 1615 tokens, typical 1000×750 = 4 tiles = 765 tokens
-    // Using 1000 as reasonable upper estimate for compressed images
-    const TOKENS_PER_IMAGE = 1000
-
-    const countTokensJson = (obj: any): number => {
-      // Very rough approximation
+    const countTokensJson = (obj: unknown): number => {
       return Math.ceil(JSON.stringify(obj).length / 3)
     }
 
-    // Count tokens for a message, handling media content specially
-    const countMessageTokens = (message: Message): number => {
-      // For messages with images/media, we need special handling to avoid counting base64 data
-      if (Array.isArray(message.content)) {
-        // Check if there are any images or media
-        const hasImagesOrMedia = message.content.some(
-          (part: any) => part.type === 'image' || part.type === 'media',
-        )
-
-        if (hasImagesOrMedia) {
-          let tokens = 0
-
-          // Count content parts, handling images specially
-          for (const part of message.content) {
-            if (part.type === 'image' || part.type === 'media') {
-              tokens += TOKENS_PER_IMAGE
-            } else {
-              tokens += countTokensJson(part)
-            }
-          }
-
-          // Count the rest of the message fields (role, toolCallId, toolName, tags, etc.)
-          const { content, ...rest } = message
-          tokens += countTokensJson(rest)
-
-          return tokens
-        }
-      }
-
-      // No images/media, just count the whole message
-      return countTokensJson(message)
-    }
-
-    // Count tokens for an array of messages
-    const countMessagesTokens = (msgs: Message[]): number => {
-      return msgs.reduce((sum, msg) => sum + countMessageTokens(msg), 0)
-    }
-
-    // Account for system prompt and tool definition tokens when calculating effective message budget
-    const systemPromptTokens: number = agentState.systemPrompt
-      ? countTokensJson(agentState.systemPrompt)
-      : 0
-    const toolDefinitionTokens: number = agentState.toolDefinitions
-      ? countTokensJson(agentState.toolDefinitions) * 0.75
-      : 0
     const maxContextLength: number = params?.maxContextLength ?? 200_000
-    const maxMessageTokens: number =
-      maxContextLength - systemPromptTokens - toolDefinitionTokens
 
-    // Helper to extract tool call IDs from messages
-    const extractToolCallIds = (msgs: Message[]): Set<string> => {
-      const ids = new Set<string>()
-      for (const message of msgs) {
-        if (message.role === 'assistant' && Array.isArray(message.content)) {
-          for (const part of message.content) {
-            if (part.type === 'tool-call' && part.toolCallId) {
-              ids.add(part.toolCallId)
-            }
-          }
-        }
-      }
-      return ids
-    }
-
-    // Helper to extract tool result IDs from messages
-    const extractToolResultIds = (msgs: Message[]): Set<string> => {
-      const ids = new Set<string>()
-      for (const message of msgs) {
-        if (message.role === 'tool' && message.toolCallId) {
-          ids.add(message.toolCallId)
-        }
-      }
-      return ids
-    }
-
-    // Helper to remove orphaned tool calls and results
-    const removeOrphanedToolMessages = (msgs: Message[]): Message[] => {
-      const toolCallIds = extractToolCallIds(msgs)
-      const toolResultIds = extractToolResultIds(msgs)
-
-      return msgs
-        .filter((message) => {
-          // Remove tool results without matching tool calls
-          if (message.role === 'tool' && message.toolCallId) {
-            return toolCallIds.has(message.toolCallId)
-          }
-          return true
-        })
-        .map((message) => {
-          // Remove orphaned tool calls from assistant messages
-          if (message.role === 'assistant' && Array.isArray(message.content)) {
-            const filteredContent = message.content.filter((part: any) => {
-              if (part.type === 'tool-call' && part.toolCallId) {
-                return toolResultIds.has(part.toolCallId)
-              }
-              return true
-            })
-            // If all content was tool calls and all were removed, skip the message
-            if (filteredContent.length === 0) {
-              return null
-            }
-            if (filteredContent.length !== message.content.length) {
-              return { ...message, content: filteredContent }
-            }
-          }
-          return message
-        })
-        .filter((m): m is Message => m !== null)
-    }
-
-    // Helper to build tool call pair info from messages
-    // Returns a map of toolCallId -> { callIndex, resultIndex, toolName }
-    const buildToolPairMap = (
-      msgs: Message[],
-    ): Map<
-      string,
-      { callIndex: number; resultIndex: number; toolName: string }
-    > => {
-      const pairs = new Map<
-        string,
-        { callIndex: number; resultIndex: number; toolName: string }
-      >()
-
-      for (const [i, message] of msgs.entries()) {
-        if (message.role === 'assistant' && Array.isArray(message.content)) {
-          for (const part of message.content) {
-            if (part.type === 'tool-call' && part.toolCallId) {
-              const existing = pairs.get(part.toolCallId) || {
-                callIndex: -1,
-                resultIndex: -1,
-                toolName: part.toolName || '',
-              }
-              existing.callIndex = i
-              existing.toolName = part.toolName || ''
-              pairs.set(part.toolCallId, existing)
-            }
-          }
-        } else if (message.role === 'tool' && message.toolCallId) {
-          const existing = pairs.get(message.toolCallId) || {
-            callIndex: -1,
-            resultIndex: -1,
-            toolName: message.toolName || '',
-          }
-          existing.resultIndex = i
-          if (!existing.toolName) {
-            existing.toolName = message.toolName || ''
-          }
-          pairs.set(message.toolCallId, existing)
-        }
-      }
-
-      return pairs
-    }
-
-    // Helper to get all indices that are part of tool call pairs
-    const getPairedIndices = (msgs: Message[]): Set<number> => {
-      const pairs = buildToolPairMap(msgs)
-      const indices = new Set<number>()
-      for (const { callIndex, resultIndex } of pairs.values()) {
-        if (callIndex >= 0) indices.add(callIndex)
-        if (resultIndex >= 0) indices.add(resultIndex)
-      }
-      return indices
-    }
-
-    // PASS 0: Remove last instructions prompt and subagent spawn messages.
+    // STEP 0: Always remove the last INSTRUCTIONS_PROMPT and SUBAGENT_SPAWN
+    // (these are inserted for the context-pruner subagent itself)
     let currentMessages = [...messages]
     const lastInstructionsPromptIndex = currentMessages.findLastIndex(
       (message) => message.tags?.includes('INSTRUCTIONS_PROMPT'),
@@ -240,8 +72,9 @@ const definition: AgentDefinition = {
       currentMessages.splice(lastSubagentSpawnIndex, 1)
     }
 
-    // Initial check - if already under limit, return early (skip all pruning)
-    if (agentState.contextTokenCount < maxMessageTokens) {
+    // Check if we need to prune at all (prune when context exceeds max)
+    // If not, return messages with just the subagent-specific tags removed
+    if (agentState.contextTokenCount <= maxContextLength) {
       yield {
         toolName: 'set_messages',
         input: { messages: currentMessages },
@@ -250,156 +83,472 @@ const definition: AgentDefinition = {
       return
     }
 
-    // PASS 0.5: Remove all remaining INSTRUCTIONS_PROMPT messages except the last one
-    const remainingInstructionsPromptIndex = currentMessages.findLastIndex(
+    // === SUMMARIZATION MODE ===
+    // Find and extract the last remaining INSTRUCTIONS_PROMPT message (for the parent agent)
+    // to be preserved as the second message after the summary
+    let instructionsPromptMessage: Message | null = null
+    const lastRemainingInstructionsIndex = currentMessages.findLastIndex(
       (message) => message.tags?.includes('INSTRUCTIONS_PROMPT'),
     )
-    if (remainingInstructionsPromptIndex !== -1) {
-      currentMessages = currentMessages.filter(
-        (message, index) =>
-          !message.tags?.includes('INSTRUCTIONS_PROMPT') ||
-          index === remainingInstructionsPromptIndex,
-      )
+    if (lastRemainingInstructionsIndex !== -1) {
+      instructionsPromptMessage = currentMessages[lastRemainingInstructionsIndex]
+      currentMessages.splice(lastRemainingInstructionsIndex, 1)
     }
 
-    // PASS 1: Truncate large tool results
-    // Only prune the tool result content, keeping the tool-call/tool-result pairs intact
-    const afterPass1 = currentMessages.map((message) => {
-      if (message.role === 'tool') {
-        const outputSize = JSON.stringify(message.content).length
+    // === SUMMARIZATION STRATEGY ===
+    // Convert entire conversation to a single summarized user message
+    // If there's already a summary from a previous compaction, extract and preserve it
 
-        if (outputSize > LARGE_TOOL_RESULT_THRESHOLD) {
-          // Replace tool result content with simplified output
-          const simplifiedMessage: ToolMessage = {
-            ...message,
-            content: [
-              {
-                type: 'json',
-                value: {
-                  message: '[LARGE_TOOL_RESULT_OMITTED]',
-                  originalSize: outputSize,
-                },
-              },
-            ],
+    // Check for existing conversation summary and extract its content
+    let previousSummary = ''
+    const SUMMARY_HEADER =
+      'This is a summary of the conversation so far. The original messages have been condensed to save context space.'
+    for (const message of currentMessages) {
+      if (message.role === 'user' && Array.isArray(message.content)) {
+        for (const part of message.content) {
+          if (part.type === 'text' && typeof part.text === 'string') {
+            const text = part.text as string
+            const summaryMatch = text.match(
+              /<conversation_summary>([\s\S]*?)<\/conversation_summary>/,
+            )
+            if (summaryMatch) {
+              let summaryContent = summaryMatch[1].trim()
+              // Remove the standard header if present
+              if (summaryContent.startsWith(SUMMARY_HEADER)) {
+                summaryContent = summaryContent
+                  .slice(SUMMARY_HEADER.length)
+                  .trim()
+              }
+              // Remove [PREVIOUS SUMMARY] prefix if present (from earlier compaction)
+              // to avoid nested markers
+              if (summaryContent.startsWith('[PREVIOUS SUMMARY]')) {
+                summaryContent = summaryContent
+                  .slice('[PREVIOUS SUMMARY]'.length)
+                  .trim()
+              }
+              previousSummary = summaryContent
+            }
           }
-          return simplifiedMessage
         }
       }
-      return message
+    }
+
+    // Filter out messages that are previous summaries or have special tags to exclude
+    const messagesWithoutOldSummaries = currentMessages.filter((message) => {
+      // Exclude messages with special tags that shouldn't be in the summary
+      if (message.tags?.includes('INSTRUCTIONS_PROMPT')) return false
+      if (message.tags?.includes('STEP_PROMPT')) return false
+      if (message.tags?.includes('SUBAGENT_SPAWN')) return false
+      
+      // Exclude previous conversation summaries
+      if (message.role === 'user' && Array.isArray(message.content)) {
+        for (const part of message.content) {
+          if (part.type === 'text' && typeof part.text === 'string') {
+            if ((part.text as string).includes('<conversation_summary>')) {
+              return false
+            }
+          }
+        }
+      }
+      return true
     })
 
-    // PASS 2: Remove non-important tool call pairs that aren't in the last N messages
-    // Always run to clean up old tool calls that aren't essential
-    let afterPass2: Message[] = afterPass1
-    {
-      const lastNStartIndex = Math.max(
-        0,
-        afterPass1.length - KEEP_LAST_N_MESSAGES,
-      )
-      const toolPairs = buildToolPairMap(afterPass1)
-
-      // Identify indices of non-important tool pairs to remove
-      // Remove pairs where:
-      // 1. Tool is not in IMPORTANT_TOOLS list
-      // 2. Both call and result are NOT in the last N messages
-      const indicesToRemovePass2 = new Set<number>()
-      for (const { callIndex, resultIndex, toolName } of toolPairs.values()) {
-        // Check if this tool pair is in the last N messages
-        const isInLastN =
-          (callIndex >= 0 && callIndex >= lastNStartIndex) ||
-          (resultIndex >= 0 && resultIndex >= lastNStartIndex)
-
-        // Remove if not important AND not in last N messages
-        if (!IMPORTANT_TOOLS.has(toolName) && !isInLastN) {
-          if (callIndex >= 0) indicesToRemovePass2.add(callIndex)
-          if (resultIndex >= 0) indicesToRemovePass2.add(resultIndex)
-        }
+    // Helper to get text content from a message
+    const getTextContent = (message: Message): string => {
+      if (typeof message.content === 'string') {
+        return message.content
       }
+      if (Array.isArray(message.content)) {
+        return message.content
+          .filter(
+            (part: Record<string, unknown>) =>
+              part.type === 'text' && typeof part.text === 'string',
+          )
+          .map((part: Record<string, unknown>) => part.text as string)
+          .join('\n')
+      }
+      return ''
+    }
 
-      // Rebuild messages without the removed indices
-      if (indicesToRemovePass2.size > 0) {
-        afterPass2 = afterPass1.filter((_, i) => !indicesToRemovePass2.has(i))
+    // Helper to summarize a tool call
+    const summarizeToolCall = (
+      toolName: string,
+      input: Record<string, unknown>,
+    ): string => {
+      switch (toolName) {
+        case 'read_files': {
+          const paths = input.paths as string[] | undefined
+          if (paths && paths.length > 0) {
+            return `Read files: ${paths.join(', ')}`
+          }
+          return 'Read files'
+        }
+        case 'write_file': {
+          const path = input.path as string | undefined
+          return path ? `Wrote file: ${path}` : 'Wrote file'
+        }
+        case 'str_replace': {
+          const path = input.path as string | undefined
+          return path ? `Edited file: ${path}` : 'Edited file'
+        }
+        case 'propose_write_file': {
+          const path = input.path as string | undefined
+          return path ? `Proposed write to: ${path}` : 'Proposed file write'
+        }
+        case 'propose_str_replace': {
+          const path = input.path as string | undefined
+          return path ? `Proposed edit to: ${path}` : 'Proposed file edit'
+        }
+        case 'read_subtree': {
+          const paths = input.paths as string[] | undefined
+          if (paths && paths.length > 0) {
+            return `Read subtree: ${paths.join(', ')}`
+          }
+          return 'Read subtree'
+        }
+        case 'code_search': {
+          const pattern = input.pattern as string | undefined
+          const flags = input.flags as string | undefined
+          if (pattern && flags) {
+            return `Code search: "${pattern}" (${flags})`
+          }
+          return pattern ? `Code search: "${pattern}"` : 'Code search'
+        }
+        case 'glob': {
+          const patterns = input.patterns as
+            | Array<{ pattern: string }>
+            | undefined
+          if (patterns && patterns.length > 0) {
+            return `Glob: ${patterns.map((p) => p.pattern).join(', ')}`
+          }
+          return 'Glob search'
+        }
+        case 'list_directory': {
+          const directories = input.directories as
+            | Array<{ path: string }>
+            | undefined
+          if (directories && directories.length > 0) {
+            return `Listed dirs: ${directories.map((d) => d.path).join(', ')}`
+          }
+          return 'Listed directory'
+        }
+        case 'find_files': {
+          const pattern = input.pattern as string | undefined
+          return pattern ? `Find files: "${pattern}"` : 'Find files'
+        }
+        case 'run_terminal_command': {
+          const command = input.command as string | undefined
+          if (command) {
+            const shortCmd =
+              command.length > 50 ? command.slice(0, 50) + '...' : command
+            return `Ran command: ${shortCmd}`
+          }
+          return 'Ran terminal command'
+        }
+        case 'spawn_agents':
+        case 'spawn_agent_inline': {
+          const agents = input.agents as
+            | Array<{
+                agent_type: string
+                prompt?: string
+                params?: Record<string, unknown>
+              }>
+            | undefined
+          const agentType = input.agent_type as string | undefined
+          const prompt = input.prompt as string | undefined
+          const agentParams = input.params as
+            | Record<string, unknown>
+            | undefined
+
+          if (agents && agents.length > 0) {
+            const agentDetails = agents.map((a) => {
+              let detail = a.agent_type
+              const extras: string[] = []
+              if (a.prompt) {
+                const truncatedPrompt =
+                  a.prompt.length > 1000
+                    ? a.prompt.slice(0, 1000) + '...'
+                    : a.prompt
+                extras.push(`prompt: "${truncatedPrompt}"`)
+              }
+              if (a.params && Object.keys(a.params).length > 0) {
+                const paramsStr = JSON.stringify(a.params)
+                const truncatedParams =
+                  paramsStr.length > 1000
+                    ? paramsStr.slice(0, 1000) + '...'
+                    : paramsStr
+                extras.push(`params: ${truncatedParams}`)
+              }
+              if (extras.length > 0) {
+                detail += ` (${extras.join(', ')})`
+              }
+              return detail
+            })
+            return `Spawned agents:\n${agentDetails.map((d) => `- ${d}`).join('\n')}`
+          }
+          if (agentType) {
+            const extras: string[] = []
+            if (prompt) {
+              const truncatedPrompt =
+                prompt.length > 1000 ? prompt.slice(0, 1000) + '...' : prompt
+              extras.push(`prompt: "${truncatedPrompt}"`)
+            }
+            if (agentParams && Object.keys(agentParams).length > 0) {
+              const paramsStr = JSON.stringify(agentParams)
+              const truncatedParams =
+                paramsStr.length > 1000
+                  ? paramsStr.slice(0, 1000) + '...'
+                  : paramsStr
+              extras.push(`params: ${truncatedParams}`)
+            }
+            if (extras.length > 0) {
+              return `Spawned agent: ${agentType} (${extras.join(', ')})`
+            }
+            return `Spawned agent: ${agentType}`
+          }
+          return 'Spawned agent(s)'
+        }
+        case 'write_todos': {
+          const todos = input.todos as
+            | Array<{ task: string; completed: boolean }>
+            | undefined
+          if (todos) {
+            const completed = todos.filter((t) => t.completed).length
+            const incomplete = todos.filter((t) => !t.completed)
+            if (incomplete.length === 0) {
+              return `Todos: ${completed}/${todos.length} complete (all done!)`
+            }
+            const remainingTasks = incomplete
+              .map((t) => `- ${t.task}`)
+              .join('\n')
+            return `Todos: ${completed}/${todos.length} complete. Remaining:\n${remainingTasks}`
+          }
+          return 'Updated todos'
+        }
+        case 'ask_user': {
+          const questions = input.questions as
+            | Array<{ question: string }>
+            | undefined
+          if (questions && questions.length > 0) {
+            const questionTexts = questions.map((q) => q.question).join('; ')
+            const truncated =
+              questionTexts.length > 200
+                ? questionTexts.slice(0, 200) + '...'
+                : questionTexts
+            return `Asked user: ${truncated}`
+          }
+          return 'Asked user question'
+        }
+        case 'suggest_followups':
+          return 'Suggested followups'
+        case 'web_search': {
+          const query = input.query as string | undefined
+          return query ? `Web search: "${query}"` : 'Web search'
+        }
+        case 'read_docs': {
+          const query = input.query as string | undefined
+          return query ? `Read docs: "${query}"` : 'Read docs'
+        }
+        case 'set_output':
+          return 'Set output'
+        case 'set_messages':
+          return 'Set messages'
+        default:
+          return `Used tool: ${toolName}`
       }
     }
 
-    // PASS 3: Message-level pruning (more severe)
-    // Preserves: user messages, tool-call/tool-result pairs
-    // Target 25% of max tokens for aggressive trimming
-    const replacementMessage: Message = {
+    // Build the summary
+    const summaryParts: string[] = []
+
+    // If there was a previous summary, include it first (no marker needed, already chronological)
+    if (previousSummary) {
+      summaryParts.push(previousSummary)
+    }
+
+    for (const message of messagesWithoutOldSummaries) {
+      if (message.role === 'user') {
+        let text = getTextContent(message).trim()
+        if (text) {
+          // Truncate very long user messages (80% prefix, 20% suffix)
+          text = truncateLongText(text, USER_MESSAGE_LIMIT)
+          // Check for images in the message
+          let hasImages = false
+          if (Array.isArray(message.content)) {
+            hasImages = message.content.some(
+              (part: Record<string, unknown>) =>
+                part.type === 'image' || part.type === 'media',
+            )
+          }
+          const imageNote = hasImages ? ' [with image(s)]' : ''
+          summaryParts.push(`[USER]${imageNote}\n${text}`)
+        }
+      } else if (message.role === 'assistant') {
+        const textParts: string[] = []
+        const toolSummaries: string[] = []
+
+        if (Array.isArray(message.content)) {
+          for (const part of message.content) {
+            if (part.type === 'text' && typeof part.text === 'string') {
+              const text = (part.text as string).trim()
+              if (text) {
+                textParts.push(text)
+              }
+            } else if (part.type === 'tool-call') {
+              const toolName = part.toolName as string
+              const input = (part.input as Record<string, unknown>) || {}
+              toolSummaries.push(summarizeToolCall(toolName, input))
+            }
+          }
+        }
+
+        const parts: string[] = []
+        if (textParts.length > 0) {
+          // Truncate very long assistant text (80% prefix, 20% suffix)
+          let combinedText = textParts.join('\n')
+          combinedText = truncateLongText(combinedText, ASSISTANT_MESSAGE_LIMIT)
+          parts.push(combinedText)
+        }
+        if (toolSummaries.length > 0) {
+          parts.push(`Tools: ${toolSummaries.join('; ')}`)
+        }
+
+        if (parts.length > 0) {
+          summaryParts.push(`[ASSISTANT]\n${parts.join('\n')}`)
+        }
+      } else if (message.role === 'tool') {
+        // Tool results are already captured via the tool-call summaries
+        // But we capture errors, terminal exit codes, and ask_user answers
+        const toolMessage = message as ToolMessage
+        if (Array.isArray(toolMessage.content)) {
+          for (const part of toolMessage.content) {
+            if (part.type === 'json' && part.value) {
+              const value = part.value as Record<string, unknown>
+
+              // Capture errors
+              if (value.errorMessage || value.error) {
+                let errorText = String(value.errorMessage || value.error)
+                // Truncate long error messages to 100 chars
+                if (errorText.length > 100) {
+                  errorText = errorText.slice(0, 100) + '...'
+                }
+                summaryParts.push(
+                  `[TOOL ERROR: ${toolMessage.toolName}] ${errorText}`,
+                )
+              }
+
+              // Capture terminal command exit codes (non-zero = failure)
+              if (
+                toolMessage.toolName === 'run_terminal_command' &&
+                'exitCode' in value
+              ) {
+                const exitCode = value.exitCode as number
+                if (exitCode !== 0) {
+                  summaryParts.push(`[COMMAND FAILED] Exit code: ${exitCode}`)
+                }
+              }
+
+              // Capture ask_user answers or skipped
+              if (toolMessage.toolName === 'ask_user') {
+                if (value.skipped) {
+                  summaryParts.push('[USER SKIPPED QUESTION]')
+                } else if ('answers' in value) {
+                  const answers = value.answers as
+                    | Array<{
+                        selectedOption?: string
+                        selectedOptions?: string[]
+                        otherText?: string
+                      }>
+                    | undefined
+                  if (answers && answers.length > 0) {
+                    const answerTexts = answers
+                      .map((a) => {
+                        if (a.otherText) return a.otherText
+                        if (a.selectedOptions)
+                          return a.selectedOptions.join(', ')
+                        if (a.selectedOption) return a.selectedOption
+                        return '(no answer)'
+                      })
+                      .join('; ')
+                    // Truncate long answers to 10,000 chars
+                    const truncated =
+                      answerTexts.length > 10_000
+                        ? answerTexts.slice(0, 10_000) + '...'
+                        : answerTexts
+                    summaryParts.push(`[USER ANSWERED] ${truncated}`)
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    let summaryText = summaryParts.join('\n\n---\n\n')
+
+    // Calculate target size (15% of max context, for messages only)
+    const targetTokens = maxContextLength * TARGET_SUMMARY_FACTOR
+    let summaryTokens = countTokensJson(summaryText)
+
+    // If summary is too big, truncate from the beginning
+    if (summaryTokens > targetTokens) {
+      const truncationMessage =
+        '[CONVERSATION TRUNCATED - Earlier messages omitted due to length]\n\n'
+      const truncationTokens = countTokensJson(truncationMessage)
+      const availableTokens = targetTokens - truncationTokens
+
+      // Estimate characters to keep (rough: 3 chars per token)
+      const charsToKeep = Math.floor(availableTokens * 3)
+
+      if (charsToKeep > 0 && charsToKeep < summaryText.length) {
+        // Truncate from the beginning, try to find a clean break point
+        const truncatedText = summaryText.slice(-charsToKeep)
+        // Find the first separator to make a clean cut
+        const separatorIndex = truncatedText.indexOf('\n\n---\n\n')
+        if (
+          separatorIndex !== -1 &&
+          separatorIndex < truncatedText.length / 2
+        ) {
+          summaryText =
+            truncationMessage +
+            truncatedText.slice(separatorIndex + '\n\n---\n\n'.length)
+        } else {
+          summaryText = truncationMessage + truncatedText
+        }
+      } else if (charsToKeep <= 0) {
+        summaryText =
+          truncationMessage + '[Summary too large - content omitted]'
+      }
+    }
+
+    // Create the summarized message
+    const summarizedMessage: Message = {
       role: 'user',
       content: [
         {
           type: 'text',
-          text: '<system>Previous message(s) omitted due to length</system>',
+          text: `<conversation_summary>
+This is a summary of the conversation so far. The original messages have been condensed to save context space.
+
+${summaryText}
+</conversation_summary>
+
+Please continue the conversation from here. In particular, try to address the user's latest request detailed in the summary above. You may need to re-gather context (e.g. read some files) to get up to speed and then tackle the user's request.`,
         },
       ],
     }
 
-    const tokensAfterPass2 = countMessagesTokens(afterPass2)
-    let afterPass3: Message[] = afterPass2
-
-    // Get all indices that are part of tool call pairs
-    const pairedIndices = getPairedIndices(afterPass2)
-
-    // Calculate how much we need to remove to get to target (25% of limit)
-    // If already under target, tokensToRemove will be non-positive and loop won't remove anything
-    const targetTokens = maxMessageTokens * TARGET_TOKEN_FACTOR
-    const tokensToRemove = tokensAfterPass2 - targetTokens
-
-    let removedTokens = 0
-    const indicesToRemove = new Set<number>()
-
-    // Identify which messages to remove (oldest first)
-    // Preserve: user messages, tool call pairs
-    for (const [i, message] of afterPass2.entries()) {
-      if (removedTokens >= tokensToRemove) {
-        break
-      }
-      // Never remove user messages or tool call pairs
-      if (message.role === 'user' || pairedIndices.has(i)) {
-        continue
-      }
-      indicesToRemove.add(i)
-      removedTokens += countMessageTokens(message)
+    // Build final messages array: summary first, then INSTRUCTIONS_PROMPT if it exists
+    const finalMessages: Message[] = [summarizedMessage]
+    if (instructionsPromptMessage) {
+      finalMessages.push(instructionsPromptMessage)
     }
 
-    // Build filtered messages with a single placeholder at the front
-    if (indicesToRemove.size > 0) {
-      afterPass3 = [
-        replacementMessage,
-        ...afterPass2.filter((_, i) => !indicesToRemove.has(i)),
-      ]
-    }
-
-    // PASS 4: Most aggressive - remove ALL messages from front until under 25% target
-    // This is the last resort when even PASS 3 couldn't get us under the limit
-    let afterPass4: Message[] = afterPass3
-    const tokensAfterPass3 = countMessagesTokens(afterPass3)
-
-    if (tokensAfterPass3 > targetTokens) {
-      let currentTokens = tokensAfterPass3
-      let startIndex = 0
-
-      // Remove messages from the front until under target
-      while (currentTokens > targetTokens && startIndex < afterPass3.length) {
-        currentTokens -= countMessageTokens(afterPass3[startIndex])
-        startIndex++
-      }
-
-      // Keep messages from startIndex onwards, prepend a placeholder
-      if (startIndex > 0) {
-        afterPass4 = [replacementMessage, ...afterPass3.slice(startIndex)]
-      }
-    }
-
-    // FINAL VALIDATION: Ensure all tool calls and results are properly paired
-    const validatedMessages = removeOrphanedToolMessages(afterPass4)
-
-    // Apply the final pruned message history
     yield {
       toolName: 'set_messages',
       input: {
-        messages: validatedMessages,
+        messages: finalMessages,
       },
       includeToolCall: false,
     } satisfies ToolCall<'set_messages'>
