@@ -126,25 +126,34 @@ async function countTokensViaAnthropic(params: {
   const anthropicMessages = convertToAnthropicMessages(messages)
 
   // Use the count_tokens endpoint (beta) or make a minimal request
-  const response = await fetch('https://api.anthropic.com/v1/messages/count_tokens', {
-    method: 'POST',
-    headers: {
-      'x-api-key': env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'anthropic-beta': 'token-counting-2024-11-01',
-      'content-type': 'application/json',
+  const response = await fetch(
+    'https://api.anthropic.com/v1/messages/count_tokens',
+    {
+      method: 'POST',
+      headers: {
+        'x-api-key': env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'token-counting-2024-11-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: model ?? 'claude-opus-4-5-20251101',
+        messages: anthropicMessages,
+        ...(system && { system }),
+      }),
     },
-    body: JSON.stringify({
-      model: model ?? 'claude-opus-4-5-20251101',
-      messages: anthropicMessages,
-      ...(system && { system }),
-    }),
-  })
+  )
 
   if (!response.ok) {
     const errorText = await response.text()
     logger.error(
-      { status: response.status, errorText },
+      {
+        status: response.status,
+        errorText,
+        messages: anthropicMessages,
+        system,
+        model,
+      },
       'Anthropic token count API error',
     )
     throw new Error(`Anthropic API error: ${response.status} - ${errorText}`)
@@ -211,7 +220,7 @@ function convertContentToAnthropic(
 
   for (const part of content) {
     if (part.type === 'text') {
-      anthropicContent.push({ type: 'text', text: part.text })
+      anthropicContent.push({ type: 'text', text: part.text.trim() })
     } else if (part.type === 'tool-call' && role === 'assistant') {
       anthropicContent.push({
         type: 'tool_use',
@@ -231,7 +240,10 @@ function convertContentToAnthropic(
     } else if (part.type === 'json') {
       anthropicContent.push({
         type: 'text',
-        text: JSON.stringify(part.value),
+        text:
+          typeof part.value === 'string'
+            ? part.value.trim()
+            : JSON.stringify(part.value).trim(),
       })
     }
   }
