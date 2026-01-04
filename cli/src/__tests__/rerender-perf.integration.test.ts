@@ -82,10 +82,7 @@ function tmux(args: string[]): Promise<string> {
  * Send input to the CLI using bracketed paste mode.
  * Standard send-keys doesn't work with OpenTUI - see tmux.knowledge.md
  */
-async function sendCliInput(
-  sessionName: string,
-  text: string,
-): Promise<void> {
+async function sendCliInput(sessionName: string, text: string): Promise<void> {
   await tmux([
     'send-keys',
     '-t',
@@ -115,7 +112,7 @@ describe.skipIf(!tmuxAvailable || !sdkBuilt)(
         // Propagate environment into tmux server
         await Promise.all(
           entries.map(([key, value]) =>
-            tmux(['set-environment', '-g', key, value]).catch(() => {}),
+            tmux(['set-environment', '-g', key, value]),
           ),
         )
         // Enable performance testing
@@ -162,10 +159,10 @@ describe.skipIf(!tmuxAvailable || !sdkBuilt)(
           // Log analysis for debugging
           console.log('\n📊 Re-render Analysis:')
           console.log(`   Total re-renders: ${analysis.totalRerenders}`)
+          console.log(`   Max per message: ${analysis.maxRerenderPerMessage}`)
           console.log(
-            `   Max per message: ${analysis.maxRerenderPerMessage}`,
+            `   Messages tracked: ${analysis.rerendersByMessage.size}`,
           )
-          console.log(`   Messages tracked: ${analysis.rerendersByMessage.size}`)
           if (analysis.propChangeFrequency.size > 0) {
             console.log('   Prop change frequency:')
             for (const [prop, count] of analysis.propChangeFrequency) {

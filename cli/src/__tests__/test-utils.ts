@@ -6,8 +6,16 @@ import path from 'path'
  * Check if tmux is available and usable on the system.
  * This checks both that tmux is installed AND that it can actually run
  * (e.g., the tmux server socket directory exists and is accessible).
+ *
+ * Note: Always returns false on CI since tmux integration tests require
+ * a real interactive terminal environment.
  */
 export function isTmuxAvailable(): boolean {
+  // Skip on CI - tmux integration tests need a real terminal environment
+  if (process.env.CI === 'true' || process.env.CI === '1') {
+    return false
+  }
+
   try {
     // First check if tmux is installed
     execSync('which tmux', { stdio: 'pipe' })
