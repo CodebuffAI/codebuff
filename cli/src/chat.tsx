@@ -164,7 +164,7 @@ export const Chat = ({
     setSlashSelectedIndex,
     agentSelectedIndex,
     setAgentSelectedIndex,
-    streamingAgents,
+    streamingAgents: rawStreamingAgents,
     focusedAgentId,
     setFocusedAgentId,
     messages,
@@ -199,6 +199,16 @@ export const Chat = ({
       toggleAgentMode: store.toggleAgentMode,
       isRetrying: store.isRetrying,
     })),
+  )
+
+  // Stabilize streamingAgents reference - only create new Set when content changes
+  const streamingAgentsKey = useMemo(
+    () => Array.from(rawStreamingAgents).sort().join(','),
+    [rawStreamingAgents],
+  )
+  const streamingAgents = useMemo(
+    () => rawStreamingAgents,
+    [streamingAgentsKey],
   )
   const pendingBashMessages = useChatStore((state) => state.pendingBashMessages)
 
@@ -889,7 +899,7 @@ export const Chat = ({
   useEffect(() => {
     inputValueRef.current = inputValue
   }, [inputValue])
-  
+
   // Report activity on input changes for ad rotation (debounced via separate effect)
   const lastReportedActivityRef = useRef<number>(0)
   useEffect(() => {
@@ -976,7 +986,13 @@ export const Chat = ({
     reportActivity()
     const result = await onSubmitPrompt(inputValue, agentMode)
     handleCommandResult(result)
-  }, [onSubmitPrompt, inputValue, agentMode, handleCommandResult, reportActivity])
+  }, [
+    onSubmitPrompt,
+    inputValue,
+    agentMode,
+    handleCommandResult,
+    reportActivity,
+  ])
 
   const totalMentionMatches = agentMatches.length + fileMatches.length
   const historyNavUpEnabled =
