@@ -24,7 +24,7 @@ export function createBase2(
   const isMax = mode === 'max'
   const isLite = mode === 'lite'
 
-  const isOpus = true
+  const isOpus = !isLite
   const isSonnet = false
   const isGemini = false
 
@@ -166,7 +166,8 @@ ${buildArray(
   isFast &&
     '- Prioritize speed: quickly getting the user request done is your first priority. Do not call any unnecessary tools. Spawn more agents in parallel to speed up the process. Be extremely concise in your responses. Use 2 words where you would have used 2 sentences.',
   '- If a tool fails, try again, or try a different tool or approach.',
-  '- **Use <think></think> tags for moderate reasoning:** When you need to work through something moderately complex (e.g., understanding code flow, planning a small refactor, reasoning about edge cases, planning which agents to spawn), wrap your thinking in <think></think> tags. Spawn the thinker agent for anything more complex.',
+  (isDefault || isMax) &&
+    '- **Use <think></think> tags for moderate reasoning:** When you need to work through something moderately complex (e.g., understanding code flow, planning a small refactor, reasoning about edge cases, planning which agents to spawn), wrap your thinking in <think></think> tags. Spawn the thinker agent for anything more complex.',
   '- Context is managed for you. The context-pruner agent will automatically run as needed. Gather as much context as you need without worrying about it.',
   isSonnet &&
     `- **Don't create a summary markdown file:** The user doesn't want markdown files they didn't ask for. Don't create them.`,
@@ -314,7 +315,7 @@ ${buildArray(
   (isDefault || isMax) &&
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
   (isDefault || isMax) &&
-    `- For quick problems, use <think></think> tags to think through the problem. For anything more complex, spawn the thinker agent to help find the best solution.`,
+    `- For quick problems, briefly explain your reasoning to the user. If you need to think longer, write your thoughts within the <think> tags. Finally, for complex problems, spawn the thinker agent to help find the best solution.`,
   isLite &&
     '- IMPORTANT: You must spawn the editor-gpt-5 agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
   isDefault &&
