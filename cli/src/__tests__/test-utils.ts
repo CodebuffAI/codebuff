@@ -3,11 +3,20 @@ import fs from 'fs'
 import path from 'path'
 
 /**
- * Check if tmux is available on the system
+ * Check if tmux is available and usable on the system.
+ * This checks both that tmux is installed AND that it can actually run
+ * (e.g., the tmux server socket directory exists and is accessible).
  */
 export function isTmuxAvailable(): boolean {
   try {
+    // First check if tmux is installed
     execSync('which tmux', { stdio: 'pipe' })
+    // Then verify tmux can actually run by creating and killing a test session
+    // This will fail if tmux server can't start (e.g., no socket directory on CI)
+    execSync('tmux new-session -d -s __codebuff_tmux_check__ && tmux kill-session -t __codebuff_tmux_check__', {
+      stdio: 'pipe',
+      timeout: 5000,
+    })
     return true
   } catch {
     return false
