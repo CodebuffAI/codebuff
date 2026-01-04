@@ -669,6 +669,7 @@ export async function loopAgentSteps(
         role: 'user' as const,
         content: buildUserMessageContent(prompt, spawnParams, content),
         tags: ['USER_PROMPT'],
+        sentAt: Date.now(),
 
         // James: Deprecate the below, only use tags, which are not prescriptive.
         keepDuringTruncation: true,

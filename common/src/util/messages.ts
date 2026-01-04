@@ -391,11 +391,13 @@ export function userMessage(
       ...params,
       role: 'user',
       content: userContent(params.content),
+      sentAt: Date.now(),
     }
   }
   return {
     role: 'user',
     content: userContent(params),
+    sentAt: Date.now(),
   }
 }
 
@@ -427,11 +429,13 @@ export function assistantMessage(
       ...params,
       role: 'assistant',
       content: assistantContent(params.content),
+      sentAt: Date.now(),
     }
   }
   return {
     role: 'assistant',
     content: assistantContent(params),
+    sentAt: Date.now(),
   }
 }
 

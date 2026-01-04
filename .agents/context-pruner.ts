@@ -36,6 +36,9 @@ const definition: AgentDefinition = {
     const USER_MESSAGE_LIMIT = 20000
     const ASSISTANT_MESSAGE_LIMIT = 5000
 
+    // Prompt cache expiry time (Anthropic caches for 5 minutes)
+    const CACHE_EXPIRY_MS = 5 * 60 * 1000
+
     // Helper to truncate long text with 80% beginning + 20% end
     const truncateLongText = (text: string, limit: number): string => {
       if (text.length <= limit) {
@@ -72,9 +75,34 @@ const definition: AgentDefinition = {
       currentMessages.splice(lastSubagentSpawnIndex, 1)
     }
 
-    // Check if we need to prune at all (prune when context exceeds max)
+    // Check for prompt cache miss (>5 min gap before the USER_PROMPT message)
+    // The USER_PROMPT is the actual user message; INSTRUCTIONS_PROMPT comes after it
+    // We need to find the USER_PROMPT and check the gap between it and the last assistant message
+    let cacheWillMiss = false
+    const userPromptIndex = currentMessages.findLastIndex(
+      (message) => message.tags?.includes('USER_PROMPT'),
+    )
+    if (userPromptIndex > 0) {
+      const userPromptMsg = currentMessages[userPromptIndex]
+      // Find the last assistant message before USER_PROMPT (tool messages don't have sentAt)
+      let lastAssistantMsg: Message | undefined
+      for (let i = userPromptIndex - 1; i >= 0; i--) {
+        if (currentMessages[i].role === 'assistant') {
+          lastAssistantMsg = currentMessages[i]
+          break
+        }
+      }
+      if (userPromptMsg.sentAt && lastAssistantMsg?.sentAt) {
+        const gap = userPromptMsg.sentAt - lastAssistantMsg.sentAt
+        cacheWillMiss = gap > CACHE_EXPIRY_MS
+      }
+    }
+
+    // Check if we need to prune at all:
+    // - Prune when context exceeds max, OR
+    // - Prune when prompt cache will miss (>5 min gap) to take advantage of fresh context
     // If not, return messages with just the subagent-specific tags removed
-    if (agentState.contextTokenCount <= maxContextLength) {
+    if (agentState.contextTokenCount <= maxContextLength && !cacheWillMiss) {
       yield {
         toolName: 'set_messages',
         input: { messages: currentMessages },
@@ -525,7 +553,8 @@ const definition: AgentDefinition = {
       }
     }
 
-    // Create the summarized message
+    // Create the summarized message with fresh sentAt timestamp
+    const now = Date.now()
     const summarizedMessage: Message = {
       role: 'user',
       content: [
@@ -540,12 +569,14 @@ ${summaryText}
 Please continue the conversation from here. In particular, try to address the user's latest request detailed in the summary above. You may need to re-gather context (e.g. read some files) to get up to speed and then tackle the user's request.`,
         },
       ],
+      sentAt: now,
     }
 
     // Build final messages array: summary first, then INSTRUCTIONS_PROMPT if it exists
     const finalMessages: Message[] = [summarizedMessage]
     if (instructionsPromptMessage) {
-      finalMessages.push(instructionsPromptMessage)
+      // Update sentAt to current time so future cache miss checks use fresh timestamps
+      finalMessages.push({ ...instructionsPromptMessage, sentAt: now })
     }
 
     yield {
