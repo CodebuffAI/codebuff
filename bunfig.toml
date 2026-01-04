@@ -5,6 +5,6 @@ linker = "hoisted"
 linkWorkspacePackages = true
 
 [test]
-# Exclude test repositories from test execution to prevent timeouts
-exclude = ["evals/test-repos/**"]
+# Exclude test repositories and integration tests from test execution by default
+exclude = ["evals/test-repos/**", "**/*.integration.test.*"]
 preload = ["./sdk/test/setup-env.ts", "./test/setup-bigquery-mocks.ts"]
