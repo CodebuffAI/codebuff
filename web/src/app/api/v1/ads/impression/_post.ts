@@ -206,7 +206,7 @@ export async function postAdImpression(params: {
   // Fire the impression pixel to Gravity
   try {
     await fetch(impUrl)
-    logger.info({ impUrl }, '[ads] Fired impression pixel')
+    logger.info({ userId, operationId, impUrl }, '[ads] Fired impression pixel')
   } catch (error) {
     logger.warn(
       {

@@ -45,11 +45,22 @@ export async function postAds(params: {
     fetch,
     serverEnv,
   } = params
-  const baseLogger = params.logger
+
+  const authed = await requireUserFromApiKey({
+    req,
+    getUserInfoFromApiKey,
+    logger: params.logger,
+    loggerWithContext,
+    trackEvent,
+    authErrorEvent: AnalyticsEvent.ADS_API_AUTH_ERROR,
+  })
+  if (!authed.ok) return authed.response
+
+  const { userId, logger } = authed.data
 
   // Check if Gravity API key is configured
   if (!serverEnv.GRAVITY_API_KEY) {
-    baseLogger.warn('[ads] GRAVITY_API_KEY not configured')
+    logger.warn('[ads] GRAVITY_API_KEY not configured')
     return NextResponse.json({ ad: null }, { status: 200 })
   }
 
@@ -59,15 +70,17 @@ export async function postAds(params: {
     const json = await req.json()
     const parsed = bodySchema.safeParse(json)
     if (!parsed.success) {
-      baseLogger.error({ parsed, json }, '[ads] Invalid request body')
+      logger.error({ parsed, json }, '[ads] Invalid request body')
       return NextResponse.json(
         { error: 'Invalid request body', details: parsed.error.format() },
         { status: 400 },
       )
     }
-    messages = parsed.data.messages
+
+    // Filter out messages with no content
+    messages = parsed.data.messages.filter((message) => message.content)
   } catch {
-    baseLogger.error(
+    logger.error(
       { error: 'Invalid JSON in request body' },
       '[ads] Invalid request body',
     )
@@ -77,19 +90,12 @@ export async function postAds(params: {
     )
   }
 
-  const authed = await requireUserFromApiKey({
-    req,
-    getUserInfoFromApiKey,
-    logger: baseLogger,
-    loggerWithContext,
-    trackEvent,
-    authErrorEvent: AnalyticsEvent.ADS_API_AUTH_ERROR,
-  })
-  if (!authed.ok) return authed.response
-
-  const { userId, logger } = authed.data
-
   try {
+    const requestBody = {
+      messages,
+      user: { uid: userId },
+      testAd: serverEnv.CB_ENVIRONMENT !== 'prod',
+    }
     // Call Gravity API
     const response = await fetch('https://server.trygravity.ai/ad', {
       method: 'POST',
@@ -97,33 +103,33 @@ export async function postAds(params: {
         Authorization: `Bearer ${serverEnv.GRAVITY_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        messages,
-        user: { uid: userId },
-        testAd: serverEnv.CB_ENVIRONMENT !== 'prod',
-      }),
+      body: JSON.stringify(requestBody),
     })
+
+    // Handle 204 No Content first (no body to parse)
+    if (response.status === 204) {
+      logger.debug(
+        { request: requestBody },
+        '[ads] No ad available from Gravity API',
+      )
+      return NextResponse.json({ ad: null }, { status: 200 })
+    }
+
+    // Now safe to parse JSON body
+    const ad = await response.json()
 
     if (!response.ok) {
       logger.error(
-        { status: response.status, response: await response.json(), messages },
+        { request: requestBody, response: ad },
         '[ads] Gravity API returned error',
       )
       return NextResponse.json({ ad: null }, { status: 200 })
     }
 
-    if (response.status === 204) {
-      // No ad available. This is common and expected.
-      logger.debug({}, '[ads] No ad available from Gravity API')
-      return NextResponse.json({ ad: null }, { status: 200 })
-    }
-
-    const ad = await response.json()
-
-    // Log the complete ad response from Gravity API
     logger.info(
       {
         ad,
+        request: requestBody,
       },
       '[ads] Fetched ad from Gravity API',
     )
@@ -169,6 +175,8 @@ export async function postAds(params: {
   } catch (error) {
     logger.error(
       {
+        userId,
+        messages,
         error:
           error instanceof Error
             ? { name: error.name, message: error.message }
