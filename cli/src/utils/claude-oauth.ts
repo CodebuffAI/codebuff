@@ -4,11 +4,7 @@
 
 import crypto from 'crypto'
 import open from 'open'
-import {
-  CLAUDE_OAUTH_CLIENT_ID,
-  CLAUDE_OAUTH_AUTHORIZE_URL,
-  CLAUDE_OAUTH_TOKEN_URL,
-} from '@codebuff/common/constants/claude-oauth'
+import { CLAUDE_OAUTH_CLIENT_ID } from '@codebuff/common/constants/claude-oauth'
 import {
   saveClaudeOAuthCredentials,
   clearClaudeOAuthCredentials,
@@ -51,7 +47,7 @@ let pendingState: string | null = null
 export function startOAuthFlow(): { codeVerifier: string; authUrl: string } {
   const codeVerifier = generateCodeVerifier()
   const codeChallenge = generateCodeChallenge(codeVerifier)
-  
+
   // Generate a random state parameter for CSRF protection
   const state = crypto.randomBytes(16).toString('hex')
 
@@ -65,8 +61,14 @@ export function startOAuthFlow(): { codeVerifier: string; authUrl: string } {
   authUrl.searchParams.set('code', 'true')
   authUrl.searchParams.set('client_id', CLAUDE_OAUTH_CLIENT_ID)
   authUrl.searchParams.set('response_type', 'code')
-  authUrl.searchParams.set('redirect_uri', 'https://console.anthropic.com/oauth/code/callback')
-  authUrl.searchParams.set('scope', 'org:create_api_key user:profile user:inference')
+  authUrl.searchParams.set(
+    'redirect_uri',
+    'https://console.anthropic.com/oauth/code/callback',
+  )
+  authUrl.searchParams.set(
+    'scope',
+    'org:create_api_key user:profile user:inference',
+  )
   authUrl.searchParams.set('code_challenge', codeChallenge)
   authUrl.searchParams.set('code_challenge_method', 'S256')
   authUrl.searchParams.set('state', codeVerifier) // opencode uses verifier as state
@@ -92,7 +94,9 @@ export async function exchangeCodeForTokens(
 ): Promise<ClaudeOAuthCredentials> {
   const verifier = codeVerifier ?? pendingCodeVerifier
   if (!verifier) {
-    throw new Error('No code verifier found. Please start the OAuth flow again.')
+    throw new Error(
+      'No code verifier found. Please start the OAuth flow again.',
+    )
   }
 
   // The authorization code from claude.ai comes in format: code#state
@@ -138,55 +142,6 @@ export async function exchangeCodeForTokens(
   saveClaudeOAuthCredentials(credentials)
 
   return credentials
-}
-
-/**
- * Refresh the access token using the refresh token.
- */
-export async function refreshAccessToken(): Promise<ClaudeOAuthCredentials | null> {
-  const credentials = getClaudeOAuthCredentials()
-  if (!credentials?.refreshToken) {
-    return null
-  }
-
-  try {
-    // Use the v1 OAuth token endpoint (same as opencode)
-    const response = await fetch('https://console.anthropic.com/v1/oauth/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        grant_type: 'refresh_token',
-        refresh_token: credentials.refreshToken,
-        client_id: CLAUDE_OAUTH_CLIENT_ID,
-      }),
-    })
-
-    if (!response.ok) {
-      // Refresh failed, clear credentials
-      clearClaudeOAuthCredentials()
-      return null
-    }
-
-    const data = await response.json()
-
-    const newCredentials: ClaudeOAuthCredentials = {
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token ?? credentials.refreshToken,
-      expiresAt: Date.now() + data.expires_in * 1000,
-      connectedAt: credentials.connectedAt,
-    }
-
-    // Save updated credentials
-    saveClaudeOAuthCredentials(newCredentials)
-
-    return newCredentials
-  } catch {
-    // Refresh failed, clear credentials
-    clearClaudeOAuthCredentials()
-    return null
-  }
 }
 
 /**

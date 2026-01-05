@@ -143,6 +143,43 @@ function isClaudeOAuthRateLimitError(error: unknown): boolean {
   return false
 }
 
+/**
+ * Check if an error is a Claude OAuth authentication error (expired/invalid token).
+ * This indicates we should try refreshing the token.
+ */
+function isClaudeOAuthAuthError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+
+  const err = error as {
+    statusCode?: number
+    message?: string
+    responseBody?: string
+  }
+
+  // 401 Unauthorized or 403 Forbidden typically indicate auth issues
+  if (err.statusCode === 401 || err.statusCode === 403) return true
+
+  const message = (err.message || '').toLowerCase()
+  const responseBody = (err.responseBody || '').toLowerCase()
+
+  if (message.includes('unauthorized') || message.includes('invalid_token'))
+    return true
+  if (message.includes('authentication') || message.includes('expired'))
+    return true
+  if (
+    responseBody.includes('unauthorized') ||
+    responseBody.includes('invalid_token')
+  )
+    return true
+  if (
+    responseBody.includes('authentication') ||
+    responseBody.includes('expired')
+  )
+    return true
+
+  return false
+}
+
 export async function* promptAiSdkStream(
   params: ParamsOf<PromptAiSdkStreamFn> & {
     skipClaudeOAuth?: boolean
@@ -169,7 +206,7 @@ export async function* promptAiSdkStream(
     model: params.model,
     skipClaudeOAuth: params.skipClaudeOAuth,
   }
-  const { model: aiSDKModel, isClaudeOAuth } = getModelForRequest(modelParams)
+  const { model: aiSDKModel, isClaudeOAuth } = await getModelForRequest(modelParams)
 
   // Notify about Claude OAuth usage
   if (isClaudeOAuth && params.onClaudeOAuthStatusChange) {
@@ -377,6 +414,28 @@ export async function* promptAiSdkStream(
         return fallbackResult
       }
 
+      // Check if this is a Claude OAuth authentication error (expired token) - only fall back if no content yielded yet
+      if (
+        isClaudeOAuth &&
+        !params.skipClaudeOAuth &&
+        !hasYieldedContent &&
+        isClaudeOAuthAuthError(chunkValue.error)
+      ) {
+        logger.info(
+          { error: getErrorObject(chunkValue.error) },
+          'Claude OAuth auth error during stream, falling back to Codebuff backend',
+        )
+        if (params.onClaudeOAuthStatusChange) {
+          params.onClaudeOAuthStatusChange(false)
+        }
+        // Retry with Codebuff backend (skipClaudeOAuth will bypass the failed OAuth)
+        const fallbackResult = yield* promptAiSdkStream({
+          ...params,
+          skipClaudeOAuth: true,
+        })
+        return fallbackResult
+      }
+
       logger.error(
         {
           chunk: { ...chunkValue, error: undefined },
@@ -495,7 +554,7 @@ export async function promptAiSdk(
     model: params.model,
     skipClaudeOAuth: true, // Always use Codebuff backend for non-streaming
   }
-  const { model: aiSDKModel } = getModelForRequest(modelParams)
+  const { model: aiSDKModel } = await getModelForRequest(modelParams)
 
   const response = await generateText({
     ...params,
@@ -552,7 +611,7 @@ export async function promptAiSdkStructured<T>(
     model: params.model,
     skipClaudeOAuth: true, // Always use Codebuff backend for non-streaming
   }
-  const { model: aiSDKModel } = getModelForRequest(modelParams)
+  const { model: aiSDKModel } = await getModelForRequest(modelParams)
 
   const response = await generateObject<z.ZodType<T>, 'object'>({
     ...params,

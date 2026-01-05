@@ -21,7 +21,7 @@ import {
 } from '@codebuff/internal/openai-compatible/index'
 
 import { WEBSITE_URL } from '../constants'
-import { getClaudeOAuthCredentials, isClaudeOAuthValid } from '../credentials'
+import { getValidClaudeOAuthCredentials } from '../credentials'
 import { getByokOpenrouterApiKeyFromEnv } from '../env'
 
 import type { LanguageModel } from 'ai'
@@ -61,13 +61,16 @@ type OpenRouterUsageAccounting = {
  *
  * If Claude OAuth credentials are available and the model is a Claude model,
  * returns an Anthropic direct model. Otherwise, returns the Codebuff backend model.
+ * 
+ * This function is async because it may need to refresh the OAuth token.
  */
-export function getModelForRequest(params: ModelRequestParams): ModelResult {
+export async function getModelForRequest(params: ModelRequestParams): Promise<ModelResult> {
   const { apiKey, model, skipClaudeOAuth } = params
 
   // Check if we should use Claude OAuth direct
-  if (!skipClaudeOAuth && isClaudeModel(model) && isClaudeOAuthValid()) {
-    const claudeOAuthCredentials = getClaudeOAuthCredentials()
+  if (!skipClaudeOAuth && isClaudeModel(model)) {
+    // Get valid credentials (will refresh if needed)
+    const claudeOAuthCredentials = await getValidClaudeOAuthCredentials()
     if (claudeOAuthCredentials) {
       return {
         model: createAnthropicOAuthModel(
