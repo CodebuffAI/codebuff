@@ -220,7 +220,10 @@ function convertContentToAnthropic(
 
   for (const part of content) {
     if (part.type === 'text') {
-      anthropicContent.push({ type: 'text', text: part.text.trim() })
+      const text = part.text.trim()
+      if (text) {
+        anthropicContent.push({ type: 'text', text })
+      }
     } else if (part.type === 'tool-call' && role === 'assistant') {
       anthropicContent.push({
         type: 'tool_use',
@@ -238,13 +241,16 @@ function convertContentToAnthropic(
         },
       })
     } else if (part.type === 'json') {
-      anthropicContent.push({
-        type: 'text',
-        text:
-          typeof part.value === 'string'
-            ? part.value.trim()
-            : JSON.stringify(part.value).trim(),
-      })
+      const text =
+        typeof part.value === 'string'
+          ? part.value.trim()
+          : JSON.stringify(part.value).trim()
+      if (text) {
+        anthropicContent.push({
+          type: 'text',
+          text,
+        })
+      }
     }
   }
 
