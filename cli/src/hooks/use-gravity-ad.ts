@@ -122,18 +122,24 @@ export const useGravityAd = (): GravityAdState => {
     // Also check UI messages for the latest user message
     // (UI messages update immediately, runState.messageHistory updates after LLM responds)
     const uiMessages = useChatStore.getState().messages
-    const latestUserMessage = [...uiMessages]
+    const lastUIMessage = [...uiMessages]
       .reverse()
       .find((msg) => msg.variant === 'user')
 
     // If the latest UI user message isn't in our converted history, append it
     // This ensures we always include the most recent user message even before LLM responds
-    if (latestUserMessage?.content) {
+    if (lastUIMessage?.content) {
       const lastAdUserMessage = [...adMessages]
         .reverse()
         .find((m) => m.role === 'user')
-      if (lastAdUserMessage?.content !== latestUserMessage.content) {
-        adMessages.push({ role: 'user', content: latestUserMessage.content })
+      if (
+        !lastAdUserMessage ||
+        !lastAdUserMessage.content.includes(lastUIMessage.content)
+      ) {
+        adMessages.push({
+          role: 'user',
+          content: `<user_message>${lastUIMessage.content}</user_message>`,
+        })
       }
     }
 
@@ -280,7 +286,10 @@ const convertToAdMessages = (messages: Message[]): AdMessage[] => {
     .filter(
       (message) => message.role === 'assistant' || message.role === 'user',
     )
-    .filter((message) => !message.tags?.includes('USER_PROMPT'))
+    .filter(
+      (message) =>
+        !message.tags || !message.tags.includes('INSTRUCTIONS_PROMPT'),
+    )
     .map((message) => ({
       role: message.role,
       content: message.content
