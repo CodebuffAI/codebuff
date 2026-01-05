@@ -29,12 +29,12 @@ const definition: AgentDefinition = {
   handleSteps: function* ({ agentState, params }) {
     const messages = agentState.messageHistory
 
-    // Target: summarized messages should be at most 15% of max context
-    const TARGET_SUMMARY_FACTOR = 0.15
+    // Target: summarized messages should be at most 10% of max context
+    const TARGET_SUMMARY_FACTOR = 0.1
 
     // Limits for truncating long messages (chars)
-    const USER_MESSAGE_LIMIT = 20000
-    const ASSISTANT_MESSAGE_LIMIT = 5000
+    const USER_MESSAGE_LIMIT = 15000
+    const ASSISTANT_MESSAGE_LIMIT = 4000
 
     // Prompt cache expiry time (Anthropic caches for 5 minutes)
     const CACHE_EXPIRY_MS = 5 * 60 * 1000
@@ -79,8 +79,8 @@ const definition: AgentDefinition = {
     // The USER_PROMPT is the actual user message; INSTRUCTIONS_PROMPT comes after it
     // We need to find the USER_PROMPT and check the gap between it and the last assistant message
     let cacheWillMiss = false
-    const userPromptIndex = currentMessages.findLastIndex(
-      (message) => message.tags?.includes('USER_PROMPT'),
+    const userPromptIndex = currentMessages.findLastIndex((message) =>
+      message.tags?.includes('USER_PROMPT'),
     )
     if (userPromptIndex > 0) {
       const userPromptMsg = currentMessages[userPromptIndex]
@@ -119,7 +119,8 @@ const definition: AgentDefinition = {
       (message) => message.tags?.includes('INSTRUCTIONS_PROMPT'),
     )
     if (lastRemainingInstructionsIndex !== -1) {
-      instructionsPromptMessage = currentMessages[lastRemainingInstructionsIndex]
+      instructionsPromptMessage =
+        currentMessages[lastRemainingInstructionsIndex]
       currentMessages.splice(lastRemainingInstructionsIndex, 1)
     }
 
@@ -167,7 +168,7 @@ const definition: AgentDefinition = {
       if (message.tags?.includes('INSTRUCTIONS_PROMPT')) return false
       if (message.tags?.includes('STEP_PROMPT')) return false
       if (message.tags?.includes('SUBAGENT_SPAWN')) return false
-      
+
       // Exclude previous conversation summaries
       if (message.role === 'user' && Array.isArray(message.content)) {
         for (const part of message.content) {
