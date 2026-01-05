@@ -37,7 +37,6 @@ function generateCodeChallenge(verifier: string): string {
 
 // Store the code verifier and state during the OAuth flow
 let pendingCodeVerifier: string | null = null
-let pendingState: string | null = null
 
 /**
  * Start the OAuth authorization flow.
@@ -48,12 +47,8 @@ export function startOAuthFlow(): { codeVerifier: string; authUrl: string } {
   const codeVerifier = generateCodeVerifier()
   const codeChallenge = generateCodeChallenge(codeVerifier)
 
-  // Generate a random state parameter for CSRF protection
-  const state = crypto.randomBytes(16).toString('hex')
-
   // Store the code verifier and state for later use
   pendingCodeVerifier = codeVerifier
-  pendingState = state
 
   // Build the authorization URL
   // Use claude.ai for Max subscription (same as opencode)
