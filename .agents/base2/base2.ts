@@ -24,7 +24,7 @@ export function createBase2(
   const isMax = mode === 'max'
   const isLite = mode === 'lite'
 
-  const isOpus = true
+  const isOpus = !isLite
   const isSonnet = false
   const isGemini = false
 
@@ -166,7 +166,8 @@ ${buildArray(
   isFast &&
     '- Prioritize speed: quickly getting the user request done is your first priority. Do not call any unnecessary tools. Spawn more agents in parallel to speed up the process. Be extremely concise in your responses. Use 2 words where you would have used 2 sentences.',
   '- If a tool fails, try again, or try a different tool or approach.',
-  '- **Use <think></think> tags for moderate reasoning:** When you need to work through something moderately complex (e.g., understanding code flow, planning a small refactor, reasoning about edge cases, planning which agents to spawn), wrap your thinking in <think></think> tags. Spawn the thinker agent for anything more complex.',
+  (isDefault || isMax) &&
+    '- **Use <think></think> tags for moderate reasoning:** When you need to work through something moderately complex (e.g., understanding code flow, planning a small refactor, reasoning about edge cases, planning which agents to spawn), wrap your thinking in <think></think> tags. Spawn the thinker agent for anything more complex.',
   '- Context is managed for you. The context-pruner agent will automatically run as needed. Gather as much context as you need without worrying about it.',
   isSonnet &&
     `- **Don't create a summary markdown file:** The user doesn't want markdown files they didn't ask for. Don't create them.`,
@@ -186,7 +187,11 @@ ${buildArray(
 
 [ You spawn one more code-searcher and file-picker ]
 
-[ You read a few other relevant files using the read_files tool ]
+[ You read a few other relevant files using the read_files tool ]${
+      !noAskUser
+        ? `\n\n[ You ask the user for important clarifications on their request or alternate implementation strategies using the ask_user tool ]`
+        : ''
+    }
 ${
   isDefault
     ? `[ You implement the changes using the editor agent ]`
@@ -309,12 +314,11 @@ ${buildArray(
   isMax &&
     `- Important: Read as many files as could possibly be relevant to the task over several steps to improve your understanding of the user's request and produce the best possible code changes. Find more examples within the codebase similar to the user's request, dependencies that help with understanding how things work, tests, etc. This is frequently 12-20 files, depending on the task.`,
   !noAskUser &&
-    isMax &&
-    'If needed, use the ask_user tool to ask the user for clarification on their request or alternate implementation strategies. It is good to get context on the codebase before asking questions so you can ask informed questions.',
+    'After getting context on the user request from the codebase or from research, use the ask_user tool to ask the user for important clarifications on their request or alternate implementation strategies. You should skip this step if there are no important clarifications to make.',
   (isDefault || isMax) &&
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
   (isDefault || isMax) &&
-    `- For quick problems, use <think></think> tags to think through the problem. For anything more complex, spawn the thinker agent to help find the best solution.`,
+    `- For quick problems, briefly explain your reasoning to the user. If you need to think longer, write your thoughts within the <think> tags. Finally, for complex problems, spawn the thinker agent to help find the best solution.`,
   isLite &&
     '- IMPORTANT: You must spawn the editor-gpt-5 agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
   isDefault &&
@@ -370,7 +374,7 @@ function buildImplementationStepPrompt({
 function buildPlanOnlyInstructionsPrompt({}: {}) {
   return `Orchestrate the completion of the user's request using your specialized sub-agents.
 
- You are in plan mode, so you should default to asking the user a few clarifying questions and then creating a spec/plan based on the user's request. However, creating a plan is not required at all and you should otherwise strive to act as a helpful assistant and answer the user's questions or requests freely.
+ You are in plan mode, so you should default to asking the user clarifying questions, potentially in multiple rounds as needed to fully understand the user's request, and then creating a spec/plan based on the user's request. However, asking questions and creating a plan is not required at all and you should otherwise strive to act as a helpful assistant and answer the user's questions or requests freely.
     
 ## Example response
 
@@ -386,7 +390,7 @@ To clarify the user's intent, or get them to weigh in on key decisions, you shou
 
 It's good to use this tool before generating a spec, so you can make the best possible spec for the user's request.
 
-If you don't have any important questions to ask, you can skip this step.
+If you don't have any important questions to ask, you can skip this step. Keep asking questions until you have a clear understanding of the user's request and how to solve it. However, be sure that you never ask questions with obvious answers or questions about details that can be changed later. Focus on the most important aspects only.
 
 ## Creating a spec
 

@@ -119,6 +119,15 @@ export enum AnalyticsEvent {
   DOCS_SEARCH_INSUFFICIENT_CREDITS = 'api.docs_search_insufficient_credits',
   DOCS_SEARCH_ERROR = 'api.docs_search_error',
 
+  // Web - Ads API
+  ADS_API_AUTH_ERROR = 'api.ads_auth_error',
+
+  // Web - Token Count API
+  TOKEN_COUNT_REQUEST = 'api.token_count_request',
+  TOKEN_COUNT_AUTH_ERROR = 'api.token_count_auth_error',
+  TOKEN_COUNT_VALIDATION_ERROR = 'api.token_count_validation_error',
+  TOKEN_COUNT_ERROR = 'api.token_count_error',
+
   // Common
   FLUSH_FAILED = 'common.flush_failed',
 }

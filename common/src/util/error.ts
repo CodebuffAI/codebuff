@@ -16,8 +16,10 @@ export type ErrorObject = {
   name: string
   message: string
   stack?: string
-  /** Optional numeric HTTP status code, if available */
+  /** HTTP status code from error.status (used by some libraries) */
   status?: number
+  /** HTTP status code from error.statusCode (used by AI SDK and Codebuff errors) */
+  statusCode?: number
   /** Optional machine-friendly error code, if available */
   code?: string
   /** Optional raw error object */
@@ -49,6 +51,10 @@ export function getErrorObject(
       message: error.message,
       stack: error.stack,
       status: typeof anyError.status === 'number' ? anyError.status : undefined,
+      statusCode:
+        typeof anyError.statusCode === 'number'
+          ? anyError.statusCode
+          : undefined,
       code: typeof anyError.code === 'string' ? anyError.code : undefined,
       rawError: options.includeRawError
         ? JSON.stringify(error, null, 2)

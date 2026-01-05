@@ -8,7 +8,7 @@ import db from '@codebuff/internal/db'
 import {
   afterAll,
   afterEach,
-  beforeAll,
+
   beforeEach,
   describe,
   expect,
@@ -17,7 +17,6 @@ import {
   spyOn,
 } from 'bun:test'
 
-import { disableLiveUserInputCheck } from '../live-user-inputs'
 import { runAgentStep } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
 import { asUserMessage } from '../util/messages'
@@ -36,12 +35,8 @@ describe('runAgentStep - set_output tool', () => {
   let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
   let runAgentStepBaseParams: ParamsExcluding<
     typeof runAgentStep,
-    'agentType' | 'prompt' | 'localAgentTemplates' | 'agentState'
+    'agentType' | 'prompt' | 'localAgentTemplates' | 'agentState' | 'agentTemplate'
   >
-
-  beforeAll(() => {
-    disableLiveUserInputCheck()
-  })
 
   beforeEach(async () => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL, sendAction: () => {} }
@@ -76,8 +71,6 @@ describe('runAgentStep - set_output tool', () => {
     } as any)
 
     // Mock analytics and tracing
-    spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
-    analytics.initAnalytics(agentRuntimeImpl)
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
     spyOn(bigquery, 'insertTrace').mockImplementation(() =>
       Promise.resolve(true),
@@ -186,6 +179,7 @@ describe('runAgentStep - set_output tool', () => {
       ...runAgentStepBaseParams,
       agentType: 'test-set-output-agent',
       localAgentTemplates,
+      agentTemplate: testAgent,
       agentState,
       prompt: 'Analyze the codebase',
     })
@@ -217,6 +211,7 @@ describe('runAgentStep - set_output tool', () => {
       ...runAgentStepBaseParams,
       agentType: 'test-set-output-agent',
       localAgentTemplates,
+      agentTemplate: testAgent,
       agentState,
       prompt: 'Analyze the codebase',
     })
@@ -253,6 +248,7 @@ describe('runAgentStep - set_output tool', () => {
     const result = await runAgentStep({
       ...runAgentStepBaseParams,
       localAgentTemplates,
+      agentTemplate: testAgent,
       agentState,
       prompt: 'Update the output',
       agentType: 'test-set-output-agent',
@@ -281,6 +277,7 @@ describe('runAgentStep - set_output tool', () => {
     const result = await runAgentStep({
       ...runAgentStepBaseParams,
       localAgentTemplates,
+      agentTemplate: testAgent,
       agentState,
       agentType: 'test-set-output-agent',
       prompt: 'Update with empty object',
@@ -365,6 +362,7 @@ describe('runAgentStep - set_output tool', () => {
       ...runAgentStepBaseParams,
       agentType: 'test-handlesteps-agent',
       localAgentTemplates: mockAgentRegistry,
+      agentTemplate: mockAgentTemplate,
       agentState,
       prompt: 'Test the handleSteps functionality',
     })
@@ -512,6 +510,7 @@ describe('runAgentStep - set_output tool', () => {
       ...runAgentStepBaseParams,
       agentType: 'parent-agent',
       localAgentTemplates: mockAgentRegistry,
+      agentTemplate: mockParentAgentTemplate,
       agentState,
       prompt: 'Spawn an inline agent to clean up messages',
     })

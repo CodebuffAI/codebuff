@@ -34,7 +34,7 @@ const { setupStreamingContext, handleRunError } = await import(
 const { createBatchedMessageUpdater } = await import(
   '../../../utils/message-updater'
 )
-const { PaymentRequiredError } = await import('@codebuff/sdk')
+import { createPaymentRequiredError } from '@codebuff/sdk'
 
 const createMockTimerController = (): SendMessageTimerController & {
   startCalls: string[]
@@ -375,7 +375,7 @@ describe('handleRunError', () => {
     expect(mockInvalidateQueries).not.toHaveBeenCalled()
   })
 
-  test('PaymentRequiredError uses setError, invalidates queries, and switches input mode', () => {
+  test('Payment required error (402) uses setError, invalidates queries, and switches input mode', () => {
     let messages: ChatMessage[] = [
       {
         id: 'ai-1',
@@ -397,7 +397,7 @@ describe('handleRunError', () => {
       setInputMode: setInputModeMock,
     })
 
-    const paymentError = new PaymentRequiredError('Out of credits')
+    const paymentError = createPaymentRequiredError('Out of credits')
 
     handleRunError({
       error: paymentError,
@@ -418,8 +418,8 @@ describe('handleRunError', () => {
     expect(aiMessage!.content).not.toContain('Partial streamed content')
     expect(aiMessage!.content).toContain('Out of credits')
 
-    // Blocks should be cleared by setError
-    expect(aiMessage!.blocks).toBeUndefined()
+    // Blocks should be preserved for debugging context
+    expect(aiMessage!.blocks).toEqual([{ type: 'text', content: 'some block' }])
 
     // Message should be marked complete
     expect(aiMessage!.isComplete).toBe(true)
@@ -427,7 +427,7 @@ describe('handleRunError', () => {
     // Should invalidate queries for payment errors
     expect(mockInvalidateQueries).toHaveBeenCalled()
     // Input mode should switch to usage
-    expect(setInputModeMock).toHaveBeenCalledWith('usage')
+    expect(setInputModeMock).toHaveBeenCalledWith('outOfCredits')
 
     // Timer should still be stopped with error
     expect(timerController.stopCalls).toContain('error')

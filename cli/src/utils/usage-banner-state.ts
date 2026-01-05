@@ -66,6 +66,8 @@ export interface UsageBannerTextOptions {
   sessionCreditsUsed: number
   remainingBalance: number | null
   next_quota_reset: string | null
+  /** Ad impression credits earned */
+  adCredits?: number
   /** For testing purposes, allows overriding "today" */
   today?: Date
 }
@@ -87,6 +89,7 @@ export function generateUsageBannerText(
     sessionCreditsUsed,
     remainingBalance,
     next_quota_reset,
+    adCredits,
     today = new Date(),
   } = options
 
@@ -94,6 +97,11 @@ export function generateUsageBannerText(
 
   if (remainingBalance !== null) {
     text += `. Credits remaining: ${remainingBalance.toLocaleString()}`
+  }
+
+  // Show ad credits earned if any
+  if (adCredits && adCredits > 0) {
+    text += ` (${adCredits.toLocaleString()} from ads)`
   }
 
   if (next_quota_reset) {

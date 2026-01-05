@@ -28,7 +28,7 @@ import { initializeAgentRegistry } from './utils/local-agent-registry'
 import { clearLogFile, logger } from './utils/logger'
 import { shouldShowProjectPicker } from './utils/project-picker'
 import { saveRecentProject } from './utils/recent-projects'
-import { registerRendererForCleanup } from './utils/renderer-cleanup'
+import { installProcessCleanupHandlers } from './utils/renderer-cleanup'
 import { detectTerminalTheme } from './utils/terminal-color-detection'
 import { setOscDetectedTheme } from './utils/theme-system'
 
@@ -309,7 +309,7 @@ async function main(): Promise<void> {
     backgroundColor: 'transparent',
     exitOnCtrlC: false,
   })
-  registerRendererForCleanup(renderer)
+  installProcessCleanupHandlers(renderer)
   createRoot(renderer).render(
     <QueryClientProvider client={queryClient}>
       <AppWithAsyncAuth />

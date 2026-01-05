@@ -50,8 +50,16 @@ export async function POST(req: NextRequest) {
   try {
     const user = await db.query.user.findFirst({
       where: eq(schema.user.id, userId),
-      columns: { stripe_customer_id: true },
+      columns: { stripe_customer_id: true, banned: true },
     })
+
+    if (user?.banned) {
+      logger.warn({ userId }, 'Banned user attempted to purchase credits')
+      return NextResponse.json(
+        { error: 'Your account has been suspended. Please contact support.' },
+        { status: 403 },
+      )
+    }
 
     if (!user?.stripe_customer_id) {
       logger.error(

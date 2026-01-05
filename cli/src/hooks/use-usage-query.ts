@@ -20,6 +20,9 @@ interface UsageResponse {
   balanceBreakdown?: {
     free: number
     paid: number
+    ad?: number
+    referral?: number
+    admin?: number
   }
   next_quota_reset: string | null
   autoTopupEnabled?: boolean

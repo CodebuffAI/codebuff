@@ -44,6 +44,11 @@ export type AgentState = {
     string,
     { description: string | undefined; inputSchema: {} }
   >
+  /**
+   * The accurate token count from the Anthropic API.
+   * This is updated on every agent step via the /api/v1/token-count endpoint.
+   */
+  contextTokenCount: number
 }
 
 export const AgentOutputSchema = z.discriminatedUnion('type', [
@@ -62,7 +67,7 @@ export const AgentOutputSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('error'),
     message: z.string(),
-    errorCode: z.string().optional(),
+    statusCode: z.number().optional(),
   }),
 ])
 export type AgentOutput = z.infer<typeof AgentOutputSchema>
@@ -127,6 +132,7 @@ export function getInitialAgentState(): AgentState {
     parentId: undefined,
     systemPrompt: '',
     toolDefinitions: {},
+    contextTokenCount: 0,
   }
 }
 export function getInitialSessionState(

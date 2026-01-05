@@ -395,6 +395,7 @@ export const getPublicAgentState = (
     output,
     systemPrompt,
     toolDefinitions,
+    contextTokenCount,
   } = agentState
   return {
     agentId,
@@ -404,6 +405,7 @@ export const getPublicAgentState = (
     output,
     systemPrompt,
     toolDefinitions,
+    contextTokenCount,
   }
 }
 

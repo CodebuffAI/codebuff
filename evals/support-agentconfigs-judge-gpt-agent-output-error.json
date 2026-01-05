@@ -1,7 +1,0 @@
-{
-  "output": {
-    "type": "error",
-    "message": "Failed to start agent run"
-  },
-  "trace": []
-}

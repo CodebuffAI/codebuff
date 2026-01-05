@@ -900,7 +900,7 @@ export const MultilineInput = forwardRef<
   // Handle character input (regular chars and tab)
   const handleCharacterInput = useCallback(
     (key: KeyEvent): boolean => {
-      // Tab: insert literal tab when no modifiers are held
+      // Tab: let higher-level keyboard handlers (like chat keyboard shortcuts) handle it
       if (
         key.name === 'tab' &&
         key.sequence &&
@@ -909,9 +909,8 @@ export const MultilineInput = forwardRef<
         !key.meta &&
         !key.option
       ) {
-        preventKeyDefault(key)
-        insertTextAtCursor('\t')
-        return true
+        // Don't insert a literal tab character here; allow global keyboard handlers to process it
+        return false
       }
 
       // Regular character input

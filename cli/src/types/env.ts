@@ -58,6 +58,7 @@ export type CliEnv = BaseEnv & {
   CODEBUFF_CLI_TARGET?: string
   CODEBUFF_RG_PATH?: string
   CODEBUFF_SCROLL_MULTIPLIER?: string
+  CODEBUFF_PERF_TEST?: string
 }
 
 /**

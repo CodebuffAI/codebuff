@@ -1,62 +1,35 @@
-import {
-  AuthenticationError,
-  NetworkError,
-  ErrorCodes,
-  isErrorWithCode,
-  sanitizeErrorMessage,
-} from '@codebuff/sdk'
+import { sanitizeErrorMessage, getErrorStatusCode } from '@codebuff/sdk'
 
 /**
  * Formats an unknown error into a user-facing markdown string.
  *
- * The goal is to provide clear, consistent messaging across the CLI while
- * reusing the SDK error typing and sanitization logic.
+ * The goal is to provide clear, consistent messaging across the CLI.
  */
 export function formatErrorForDisplay(error: unknown, fallbackTitle: string): string {
-  // Authentication-specific messaging
-  if (error instanceof AuthenticationError) {
-    if (error.status === 401) {
-      return `${fallbackTitle}: Authentication failed. Please check your API key.`
-    }
+  const statusCode = getErrorStatusCode(error)
 
-    if (error.status === 403) {
-      return `${fallbackTitle}: Access forbidden. You do not have permission to access this resource.`
-    }
-
-    return `${fallbackTitle}: Invalid API key. Please check your credentials.`
+  // Authentication-specific messaging based on statusCode
+  if (statusCode === 401) {
+    return `${fallbackTitle}: Authentication failed. Please check your API key.`
+  }
+  if (statusCode === 403) {
+    return `${fallbackTitle}: Access forbidden. You do not have permission to access this resource.`
   }
 
-  // Network-specific messaging
-  if (error instanceof NetworkError) {
-    let detail: string
-
-    switch (error.code) {
-      case ErrorCodes.TIMEOUT:
-        detail = 'Request timed out. Please check your internet connection.'
-        break
-      case ErrorCodes.CONNECTION_REFUSED:
-        detail = 'Connection refused. The server may be down.'
-        break
-      case ErrorCodes.DNS_FAILURE:
-        detail = 'DNS resolution failed. Please check your internet connection.'
-        break
-      case ErrorCodes.SERVER_ERROR:
-      case ErrorCodes.SERVICE_UNAVAILABLE:
-        detail = 'Server error. Please try again later.'
-        break
-      case ErrorCodes.NETWORK_ERROR:
-      default:
-        detail = 'Network error. Please check your internet connection.'
-        break
+  // Network/server error messaging based on statusCode
+  if (statusCode !== undefined) {
+    if (statusCode === 408) {
+      return `${fallbackTitle}: Request timed out. Please check your internet connection.`
     }
-
-    return `${fallbackTitle}: ${detail}`
-  }
-
-  // Any other typed error that exposes a code
-  if (isErrorWithCode(error)) {
-    const safeMessage = sanitizeErrorMessage(error)
-    return `${fallbackTitle}: ${safeMessage}`
+    if (statusCode === 503) {
+      return `${fallbackTitle}: Service unavailable. The server may be down.`
+    }
+    if (statusCode >= 500) {
+      return `${fallbackTitle}: Server error. Please try again later.`
+    }
+    if (statusCode === 429) {
+      return `${fallbackTitle}: Rate limited. Please try again later.`
+    }
   }
 
   // Generic Error instance
@@ -65,8 +38,9 @@ export function formatErrorForDisplay(error: unknown, fallbackTitle: string): st
     return `${fallbackTitle}: ${message}`
   }
 
-  // Fallback for unknown values
-  return `${fallbackTitle}: ${String(error)}`
+  // Try sanitizeErrorMessage for other cases
+  const safeMessage = sanitizeErrorMessage(error)
+  return `${fallbackTitle}: ${safeMessage}`
 }
 
 /**

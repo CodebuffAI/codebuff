@@ -4,7 +4,6 @@ import { execFileSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
 import { models } from '@codebuff/common/old-constants'
 import { userMessage } from '@codebuff/common/util/messages'
 import { promptAiSdkStructured } from '@codebuff/sdk'
@@ -399,7 +398,6 @@ async function screenCommitsWithGpt5(
     const prompt = `${COMMIT_SCREENING_PROMPT}\n\nCommit to evaluate:\n\n${commitInfo}`
 
     try {
-      disableLiveUserInputCheck()
       const response = await promptAiSdkStructured({
         messages: [userMessage(prompt)],
         schema: CommitSelectionSchema,
@@ -409,12 +407,11 @@ async function screenCommitsWithGpt5(
         userInputId,
         userId: undefined,
         sendAction: () => {},
-        liveUserInputRecord: {},
-        sessionConnections: {},
         logger: console,
         trackEvent: () => {},
         apiKey: 'unused-api-key',
         runId: 'unused-run-id',
+        signal: new AbortController().signal,
       })
 
       // Handle empty or invalid response

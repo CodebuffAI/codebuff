@@ -101,7 +101,7 @@ function splitAndLog(
 }
 
 // In dev mode, use appendFileSync for real-time file logging (Bun has issues with pino sync)
-// Also output to console via pinoLogger so logs remain visible in the terminal
+// Also output to console so logs remain visible in the terminal
 function logWithSync(
   level: LogLevel,
   data: any,
@@ -124,8 +124,9 @@ function logWithSync(
         // Ignore write errors
       }
     }
-    // Also output to console for interactive debugging
-    pinoLogger[level](data, msg, ...args)
+    // Also output to console for interactive debugging (don't use pinoLogger here
+    // as it's configured to write to the same file, which would cause double logging)
+    console[level === 'fatal' ? 'error' : level](formattedMsg, data)
   } else {
     const analyticsPayloads = analyticsDispatcher.process({
       data,

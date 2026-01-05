@@ -3,11 +3,28 @@ import fs from 'fs'
 import path from 'path'
 
 /**
- * Check if tmux is available on the system
+ * Check if tmux is available and usable on the system.
+ * This checks both that tmux is installed AND that it can actually run
+ * (e.g., the tmux server socket directory exists and is accessible).
+ *
+ * Note: Always returns false on CI since tmux integration tests require
+ * a real interactive terminal environment.
  */
 export function isTmuxAvailable(): boolean {
+  // Skip on CI - tmux integration tests need a real terminal environment
+  if (process.env.CI === 'true' || process.env.CI === '1') {
+    return false
+  }
+
   try {
+    // First check if tmux is installed
     execSync('which tmux', { stdio: 'pipe' })
+    // Then verify tmux can actually run by creating and killing a test session
+    // This will fail if tmux server can't start (e.g., no socket directory on CI)
+    execSync('tmux new-session -d -s __codebuff_tmux_check__ && tmux kill-session -t __codebuff_tmux_check__', {
+      stdio: 'pipe',
+      timeout: 5000,
+    })
     return true
   } catch {
     return false
@@ -134,4 +151,116 @@ export function ensureCliTestEnv(): void {
 
 export function getDefaultCliEnv(): Record<string, string> {
   return { ...loadCliEnv() }
+}
+
+/**
+ * Parsed re-render log entry from useWhyDidYouUpdate hook
+ */
+export interface RerenderLogEntry {
+  timestamp: string
+  componentName: string
+  messageId: string
+  renderCount: number
+  changedProps: string[]
+}
+
+/**
+ * Aggregated re-render analysis results
+ */
+export interface RerenderAnalysis {
+  totalRerenders: number
+  rerendersByMessage: Map<string, number>
+  propChangeFrequency: Map<string, number>
+  maxRerenderPerMessage: number
+}
+
+/**
+ * Parse re-render logs from the CLI debug log file
+ */
+export function parseRerenderLogs(logPath: string): RerenderLogEntry[] {
+  const entries: RerenderLogEntry[] = []
+
+  try {
+    const content = fs.readFileSync(logPath, 'utf-8')
+    const lines = content.split('\n').filter((line) => line.trim())
+
+    for (const line of lines) {
+      try {
+        const parsed = JSON.parse(line)
+
+        // Check if this is a re-render log entry
+        if (
+          parsed.msg &&
+          typeof parsed.msg === 'string' &&
+          parsed.msg.includes('render #')
+        ) {
+          // Extract component name from msg like "MessageBlock render #2 [user-123]: 2 props changed"
+          const msgMatch = parsed.msg.match(
+            /^(\w+) render #(\d+) \[([^\]]+)\]/,
+          )
+          if (msgMatch && parsed.data) {
+            entries.push({
+              timestamp: parsed.timestamp,
+              componentName: msgMatch[1],
+              messageId: parsed.data.id || msgMatch[3],
+              renderCount: parseInt(msgMatch[2], 10),
+              changedProps: parsed.data.changedProps || [],
+            })
+          }
+        }
+      } catch {
+        // Skip malformed lines
+      }
+    }
+  } catch {
+    // File doesn't exist or can't be read
+  }
+
+  return entries
+}
+
+/**
+ * Analyze re-render logs and return aggregated statistics
+ */
+export function analyzeRerenders(entries: RerenderLogEntry[]): RerenderAnalysis {
+  const rerendersByMessage = new Map<string, number>()
+  const propChangeFrequency = new Map<string, number>()
+
+  for (const entry of entries) {
+    // Count re-renders per message
+    const currentCount = rerendersByMessage.get(entry.messageId) || 0
+    rerendersByMessage.set(entry.messageId, currentCount + 1)
+
+    // Count how often each prop changes
+    for (const prop of entry.changedProps) {
+      const propCount = propChangeFrequency.get(prop) || 0
+      propChangeFrequency.set(prop, propCount + 1)
+    }
+  }
+
+  // Find max re-renders for any single message
+  let maxRerenderPerMessage = 0
+  for (const count of rerendersByMessage.values()) {
+    if (count > maxRerenderPerMessage) {
+      maxRerenderPerMessage = count
+    }
+  }
+
+  return {
+    totalRerenders: entries.length,
+    rerendersByMessage,
+    propChangeFrequency,
+    maxRerenderPerMessage,
+  }
+}
+
+/**
+ * Clear the CLI debug log file
+ */
+export function clearCliDebugLog(logPath: string): void {
+  try {
+    fs.writeFileSync(logPath, '')
+  } catch {
+    // Ignore errors
+  }
 }

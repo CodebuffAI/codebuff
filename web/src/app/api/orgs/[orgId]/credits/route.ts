@@ -41,6 +41,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       )
     }
 
+    // Check if user is banned
+    const user = await db.query.user.findFirst({
+      where: eq(schema.user.id, session.user.id),
+      columns: { banned: true },
+    })
+
+    if (user?.banned) {
+      logger.warn(
+        { userId: session.user.id, orgId },
+        'Banned user attempted to purchase organization credits',
+      )
+      return NextResponse.json(
+        { error: 'Your account has been suspended. Please contact support.' },
+        { status: 403 },
+      )
+    }
+
     // Verify user has permission to purchase credits for this organization
     const membership = await db.query.orgMember.findFirst({
       where: and(

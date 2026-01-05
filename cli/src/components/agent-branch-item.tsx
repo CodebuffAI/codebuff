@@ -4,6 +4,7 @@ import React, { memo, type ReactNode } from 'react'
 import { Button } from './button'
 import { useTheme } from '../hooks/use-theme'
 import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
+import { getCliEnv } from '../utils/env'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 interface AgentBranchItemProps {
@@ -40,7 +41,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
   } = props
   useWhyDidYouUpdateById('AgentBranchItem', agentId ?? '', props, {
     logLevel: 'debug',
-    enabled: false,
+    enabled: getCliEnv().CODEBUFF_PERF_TEST === 'true',
   })
   const theme = useTheme()
 

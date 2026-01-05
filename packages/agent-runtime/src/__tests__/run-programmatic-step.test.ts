@@ -62,8 +62,6 @@ describe('runProgrammaticStep', () => {
     }
 
     // Mock analytics
-    spyOn(analytics, 'initAnalytics').mockImplementation(() => {})
-    analytics.initAnalytics({ logger })
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
 
     // Mock executeToolCall

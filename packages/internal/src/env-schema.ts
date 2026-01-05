@@ -5,8 +5,10 @@ export const serverEnvSchema = clientEnvSchema.extend({
   // LLM API keys
   OPEN_ROUTER_API_KEY: z.string().min(1),
   OPENAI_API_KEY: z.string().min(1),
+  ANTHROPIC_API_KEY: z.string().min(1),
   LINKUP_API_KEY: z.string().min(1),
   CONTEXT7_API_KEY: z.string().optional(),
+  GRAVITY_API_KEY: z.string().min(1),
   PORT: z.coerce.number().min(1000),
 
   // Web/Database variables
@@ -43,8 +45,10 @@ export const serverProcessEnv: ServerInput = {
   // LLM API keys
   OPEN_ROUTER_API_KEY: process.env.OPEN_ROUTER_API_KEY,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
   LINKUP_API_KEY: process.env.LINKUP_API_KEY,
   CONTEXT7_API_KEY: process.env.CONTEXT7_API_KEY,
+  GRAVITY_API_KEY: process.env.GRAVITY_API_KEY,
   PORT: process.env.PORT,
 
   // Web/Database variables

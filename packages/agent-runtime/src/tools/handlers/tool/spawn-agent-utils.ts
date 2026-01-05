@@ -4,7 +4,10 @@ import { generateCompactId } from '@codebuff/common/util/string'
 
 import { loopAgentSteps } from '../../../run-agent-step'
 import { getAgentTemplate } from '../../../templates/agent-registry'
-import { filterUnfinishedToolCalls, withSystemTags } from '../../../util/messages'
+import {
+  filterUnfinishedToolCalls,
+  withSystemTags,
+} from '../../../util/messages'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type {
@@ -68,8 +71,6 @@ export function extractSubagentContextParams(
     promptAiSdkStructured: params.promptAiSdkStructured,
     // AgentRuntimeDeps - Mutable State
     databaseAgentCache: params.databaseAgentCache,
-    liveUserInputRecord: params.liveUserInputRecord,
-    sessionConnections: params.sessionConnections,
     // AgentRuntimeDeps - Analytics
     trackEvent: params.trackEvent,
     // AgentRuntimeDeps - Other
@@ -277,6 +278,7 @@ export function createAgentState(
     parentId: parentAgentState.agentId,
     systemPrompt: '',
     toolDefinitions: {},
+    contextTokenCount: parentAgentState.contextTokenCount,
   }
 }
 

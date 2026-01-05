@@ -6,10 +6,9 @@ export type {
   TextPart,
   ImagePart,
 } from '@codebuff/common/types/messages/content-part'
-export { run, getRetryableErrorCode } from './run'
+export { run } from './run'
 export type {
   RunOptions,
-  RetryOptions,
   MessageContent,
   TextContent,
   ImageContent,
@@ -44,20 +43,20 @@ export type {
 export { validateAgents } from './validate-agents'
 export type { ValidationResult, ValidateAgentsOptions } from './validate-agents'
 
-// Error types and utilities
+// Error utilities
 export {
-  ErrorCodes,
-  RETRYABLE_ERROR_CODES,
-  AuthenticationError,
-  PaymentRequiredError,
-  NetworkError,
-  isAuthenticationError,
-  isPaymentRequiredError,
-  isNetworkError,
-  isErrorWithCode,
+  isRetryableStatusCode,
+  getErrorStatusCode,
   sanitizeErrorMessage,
-} from './errors'
-export type { ErrorCode } from './errors'
+  RETRYABLE_STATUS_CODES,
+  createHttpError,
+  createAuthError,
+  createForbiddenError,
+  createPaymentRequiredError,
+  createServerError,
+  createNetworkError,
+} from './error-utils'
+export type { HttpError } from './error-utils'
 
 // Retry configuration constants
 export {

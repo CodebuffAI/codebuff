@@ -1,6 +1,4 @@
 import {
-  AuthenticationError,
-  NetworkError,
   getUserInfoFromApiKey,
 } from '@codebuff/sdk'
 import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
@@ -143,7 +141,7 @@ describe('API Integration', () => {
           fields: ['id'],
           logger: testLogger,
         }),
-      ).rejects.toBeInstanceOf(AuthenticationError)
+      ).rejects.toMatchObject({ statusCode: 401 })
 
       // 401s are now logged as auth failures
       expect(testLogger.error.mock.calls.length).toBeGreaterThan(0)
@@ -161,7 +159,7 @@ describe('API Integration', () => {
           fields: ['id'],
           logger: testLogger,
         }),
-      ).rejects.toBeInstanceOf(AuthenticationError)
+      ).rejects.toMatchObject({ statusCode: 401 })
 
       expect(testLogger.error.mock.calls.length).toBeGreaterThan(0)
     })
@@ -180,7 +178,7 @@ describe('API Integration', () => {
           fields: ['id'],
           logger: testLogger,
         }),
-      ).rejects.toBeInstanceOf(NetworkError)
+      ).rejects.toMatchObject({ statusCode: expect.any(Number) })
 
       expect(testLogger.error.mock.calls.length).toBeGreaterThan(0)
     })
@@ -197,7 +195,7 @@ describe('API Integration', () => {
           fields: ['id'],
           logger: testLogger,
         }),
-      ).rejects.toBeInstanceOf(NetworkError)
+      ).rejects.toMatchObject({ statusCode: expect.any(Number) })
 
       expect(
         testLogger.error.mock.calls.some(([payload]) =>
@@ -218,7 +216,7 @@ describe('API Integration', () => {
           fields: ['id'],
           logger: testLogger,
         }),
-      ).rejects.toBeInstanceOf(NetworkError)
+      ).rejects.toMatchObject({ statusCode: expect.any(Number) })
 
       expect(testLogger.error.mock.calls.length).toBeGreaterThan(0)
     })
@@ -239,7 +237,7 @@ describe('API Integration', () => {
           fields: ['id'],
           logger: testLogger,
         }),
-      ).rejects.toBeInstanceOf(NetworkError)
+      ).rejects.toMatchObject({ statusCode: expect.any(Number) })
 
       expect(fetchMock.mock.calls.length).toBe(1)
       expect(
@@ -263,7 +261,7 @@ describe('API Integration', () => {
           fields: ['id'],
           logger: testLogger,
         }),
-      ).rejects.toBeInstanceOf(NetworkError)
+      ).rejects.toMatchObject({ statusCode: expect.any(Number) })
 
       expect(fetchMock.mock.calls.length).toBe(1)
       expect(

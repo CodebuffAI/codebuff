@@ -1,7 +1,3 @@
-import {
-  disableLiveUserInputCheck,
-  disableSessionConnectionCheck,
-} from '@codebuff/agent-runtime/live-user-inputs'
 import { trackEvent } from '@codebuff/common/analytics'
 import { env as clientEnvDefault } from '@codebuff/common/env'
 import { getCiEnv } from '@codebuff/common/env-ci'
@@ -22,17 +18,9 @@ import type {
 } from '@codebuff/common/types/contracts/agent-runtime'
 import type { DatabaseAgentCache } from '@codebuff/common/types/contracts/database'
 import type { ClientEnv } from '@codebuff/common/types/contracts/env'
-import type {
-  SessionRecord,
-  UserInputRecord,
-} from '@codebuff/common/types/contracts/live-user-input'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const databaseAgentCache: DatabaseAgentCache = new Map()
-const liveUserInputRecord: UserInputRecord = {}
-const sessionConnections: SessionRecord = {}
-disableLiveUserInputCheck()
-disableSessionConnectionCheck()
 
 export function getAgentRuntimeImpl(
   params: {
@@ -88,8 +76,6 @@ export function getAgentRuntimeImpl(
 
     // Mutable State
     databaseAgentCache,
-    liveUserInputRecord,
-    sessionConnections,
 
     // Analytics
     trackEvent,

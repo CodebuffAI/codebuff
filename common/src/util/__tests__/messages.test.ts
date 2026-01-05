@@ -323,6 +323,7 @@ describe('convertCbToModelMessages', () => {
               text: 'Second user message',
             },
           ],
+          sentAt: expect.any(Number),
         },
       ])
     })
@@ -351,6 +352,7 @@ describe('convertCbToModelMessages', () => {
               text: 'Second assistant message',
             },
           ],
+          sentAt: expect.any(Number),
         },
       ])
     })
@@ -530,6 +532,7 @@ describe('convertCbToModelMessages', () => {
         expect.objectContaining({ role: 'assistant' }),
         {
           role: 'user',
+          sentAt: expect.any(Number),
           content: [
             {
               type: 'text',
@@ -571,6 +574,7 @@ describe('convertCbToModelMessages', () => {
         expect.objectContaining({ role: 'assistant' }),
         {
           role: 'user',
+          sentAt: expect.any(Number),
           content: [
             {
               type: 'text',
@@ -609,6 +613,7 @@ describe('convertCbToModelMessages', () => {
         expect.objectContaining({ role: 'assistant' }),
         {
           role: 'user',
+          sentAt: expect.any(Number),
           content: [
             {
               type: 'text',
@@ -648,6 +653,7 @@ describe('convertCbToModelMessages', () => {
         expect.objectContaining({ role: 'assistant' }),
         {
           role: 'user',
+          sentAt: expect.any(Number),
           content: [
             { type: 'text', text: 'More context' },
             {
@@ -717,6 +723,7 @@ describe('convertCbToModelMessages', () => {
         expect.objectContaining({ role: 'system' }),
         {
           role: 'user',
+          sentAt: expect.any(Number),
           content: [
             {
               type: 'text',
@@ -759,6 +766,7 @@ describe('convertCbToModelMessages', () => {
         expect.objectContaining({ role: 'system' }),
         {
           role: 'user',
+          sentAt: expect.any(Number),
           content: [
             { type: 'text', text: 'Longer text' },
             {
@@ -807,6 +815,7 @@ describe('convertCbToModelMessages', () => {
       expect(result).toEqual([
         {
           role: 'assistant',
+          sentAt: expect.any(Number),
           content: [
             {
               type: 'tool-call',
@@ -815,7 +824,7 @@ describe('convertCbToModelMessages', () => {
               input: { param: 'value' },
             },
           ],
-        } satisfies AssistantModelMessage,
+        },
       ])
     })
 

@@ -57,7 +57,7 @@ export const writeTodosParams = {
     z.object({
       type: z.literal('json'),
       value: z.object({
-        todos: z.array(z.object({ task: z.string(), completed: z.boolean() })),
+        message: z.string(),
       }),
     }),
   ]),

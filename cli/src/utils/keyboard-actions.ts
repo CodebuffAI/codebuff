@@ -96,6 +96,9 @@ export type ChatKeyboardAction =
   // Paste action (dispatcher checks clipboard content to route to image or text handler)
   | { type: 'paste' }
 
+  // Out of credits action
+  | { type: 'open-buy-credits' }
+
   // No action needed
   | { type: 'none' }
 
@@ -124,6 +127,19 @@ export function resolveChatKeyboardAction(
     !key.shift &&
     !hasModifier(key)
 
+  // Priority 0: Out of credits mode - Enter opens buy credits page
+  if (state.inputMode === 'outOfCredits') {
+    if (isEnter) {
+      return { type: 'open-buy-credits' }
+    }
+    // Allow Escape or Ctrl+C to exit out-of-credits mode (return to normal input)
+    if (isEscape || isCtrlC) {
+      return { type: 'exit-input-mode' }
+    }
+    // Block most other inputs in this mode
+    return { type: 'none' }
+  }
+
   // Priority 1: Feedback mode handlers
   if (state.feedbackMode) {
     if (isEscape) {
@@ -142,8 +158,8 @@ export function resolveChatKeyboardAction(
     return { type: 'exit-input-mode' }
   }
 
-  // Priority 3: Clear input with escape/ctrl-c when there's text
-  if ((isEscape || isCtrlC) && state.inputValue.trim().length > 0) {
+  // Priority 3: Clear input with ctrl-c when there's text
+  if (isCtrlC && state.inputValue.trim().length > 0) {
     return { type: 'clear-input' }
   }
 
@@ -282,8 +298,12 @@ export function resolveChatKeyboardAction(
     return { type: 'history-down' }
   }
 
-  // Priority 11: Agent mode toggle (shift-tab when not in menus)
-  if (isShiftTab && !state.slashMenuActive && !state.mentionMenuActive) {
+  // Priority 11: Agent mode toggle (tab or shift-tab when not in menus)
+  if (
+    (isShiftTab || isTab) &&
+    !state.slashMenuActive &&
+    !state.mentionMenuActive
+  ) {
     return { type: 'toggle-agent-mode' }
   }
 

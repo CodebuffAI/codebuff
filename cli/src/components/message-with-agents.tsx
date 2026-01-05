@@ -1,5 +1,5 @@
 import { TextAttributes } from '@opentui/core'
-import { memo, useMemo, type ReactNode } from 'react'
+import { memo, useCallback, useMemo, type ReactNode } from 'react'
 import React from 'react'
 
 import { Button } from './button'
@@ -63,6 +63,18 @@ export const MessageWithAgents = memo(
   }: MessageWithAgentsProps): ReactNode => {
     const SIDE_GUTTER = 1
     const isAgent = message.variant === 'agent'
+
+    // Memoize onOpenFeedback to prevent unnecessary re-renders
+    const onOpenFeedback = useCallback(
+      (options?: {
+        category?: string
+        footerMessage?: string
+        errors?: Array<{ id: string; message: string }>
+      }) => {
+        onFeedback(message.id, options)
+      },
+      [onFeedback, message.id],
+    )
 
     const contentBoxStyle = useMemo(
       () => ({
@@ -209,11 +221,7 @@ export const MessageWithAgents = memo(
                   onFeedback={onFeedback}
                   onCloseFeedback={onCloseFeedback}
                   validationErrors={message.validationErrors}
-                  onOpenFeedback={
-                    onFeedback
-                      ? (options) => onFeedback(message.id, options)
-                      : undefined
-                  }
+                  onOpenFeedback={onOpenFeedback}
                   attachments={message.attachments}
                   metadata={message.metadata}
                   isLastMessage={isLastMessage}

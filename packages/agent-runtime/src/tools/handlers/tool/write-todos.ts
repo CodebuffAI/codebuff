@@ -11,9 +11,9 @@ export const handleWriteTodos = (async (params: {
   previousToolCallFinished: Promise<void>
   toolCall: CodebuffToolCall<ToolName>
 }): Promise<{ output: CodebuffToolOutput<ToolName> }> => {
-  const { previousToolCallFinished, toolCall } = params
-  const { todos } = toolCall.input
+  const { previousToolCallFinished } = params
 
   await previousToolCallFinished
-  return { output: jsonToolResult({ todos }) }
+
+  return { output: jsonToolResult({ message: 'Todos written' }) }
 }) satisfies CodebuffToolHandlerFunction<ToolName>

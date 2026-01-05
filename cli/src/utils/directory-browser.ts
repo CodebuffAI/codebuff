@@ -5,6 +5,7 @@ export type DirectoryEntry = {
   name: string
   path: string
   isParent: boolean
+  isGitRepo: boolean
 }
 
 /**
@@ -21,6 +22,7 @@ export function getDirectories(dirPath: string): DirectoryEntry[] {
       name: '..',
       path: parentDir,
       isParent: true,
+      isGitRepo: false,
     })
   }
 
@@ -38,6 +40,7 @@ export function getDirectories(dirPath: string): DirectoryEntry[] {
             name: item,
             path: fullPath,
             isParent: false,
+            isGitRepo: hasGitDirectory(fullPath),
           })
         }
       } catch {
@@ -48,7 +51,12 @@ export function getDirectories(dirPath: string): DirectoryEntry[] {
     // If we can't read the directory, just return parent option
   }
 
-  return entries
+  // Sort non-parent entries alphabetically (case-insensitive)
+  const parentEntry = entries.find((e) => e.isParent)
+  const childEntries = entries.filter((e) => !e.isParent)
+  childEntries.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+
+  return parentEntry ? [parentEntry, ...childEntries] : childEntries
 }
 
 /**

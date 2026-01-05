@@ -7,7 +7,7 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { systemMessage, userMessage } from '@codebuff/common/util/messages'
 import { cloneDeep, mapValues } from 'lodash'
 
-import { checkLiveUserInput } from './live-user-inputs'
+import { callTokenCountAPI } from './llm-api/codebuff-web-api'
 import { getMCPToolData } from './mcp'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
 import { runProgrammaticStep } from './run-programmatic-step'
@@ -34,7 +34,6 @@ import type {
   FinishAgentRunFn,
   StartAgentRunFn,
 } from '@codebuff/common/types/contracts/database'
-import type { CheckLiveUserInputFn } from '@codebuff/common/types/contracts/live-user-input'
 import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
@@ -97,6 +96,7 @@ export const runAgentStep = async (
     onResponseChunk: (chunk: string | PrintModeEvent) => void
 
     agentType: AgentTemplateType
+    agentTemplate: AgentTemplate
     fileContext: ProjectFileContext
     agentState: AgentState
     localAgentTemplates: Record<string, AgentTemplate>
@@ -152,6 +152,7 @@ export const runAgentStep = async (
     agentType,
     clientSessionId,
     fileContext,
+    agentTemplate,
     fingerprintId,
     localAgentTemplates,
     logger,
@@ -161,10 +162,10 @@ export const runAgentStep = async (
     system,
     userId,
     userInputId,
-
     onResponseChunk,
     promptAiSdk,
     trackEvent,
+    additionalToolDefinitions,
   } = params
   let agentState = params.agentState
 
@@ -189,30 +190,18 @@ export const runAgentStep = async (
     logger,
   })
 
-  let messageHistory = agentState.messageHistory
-
-  // Check if we need to warn about too many consecutive responses
-  const needsStepWarning = agentState.stepsRemaining <= 0
-  let stepWarningMessage = ''
-
-  if (needsStepWarning) {
+  if (agentState.stepsRemaining <= 0) {
     logger.warn(
       `Detected too many consecutive assistant messages without user prompt`,
     )
 
-    stepWarningMessage = [
-      "I've made quite a few responses in a row.",
-      "Let me pause here to make sure we're still on the right track.",
-      "Please let me know if you'd like me to continue or if you'd like to guide me in a different direction.",
-    ].join(' ')
-
-    onResponseChunk(`${stepWarningMessage}\n\n`)
+    onResponseChunk(`${STEP_WARNING_MESSAGE}\n\n`)
 
     // Update message history to include the warning
     agentState = {
       ...agentState,
       messageHistory: [
-        ...expireMessages(messageHistory, 'userPrompt'),
+        ...expireMessages(agentState.messageHistory, 'userPrompt'),
         userMessage(
           withSystemTags(
             `The assistant has responded too many times in a row. The assistant's turn has automatically been ended. The maximum number of responses can be configured via maxAgentSteps.`,
@@ -220,16 +209,12 @@ export const runAgentStep = async (
         ),
       ],
     }
-  }
-
-  const agentTemplate = await getAgentTemplate({
-    ...params,
-    agentId: agentType,
-  })
-  if (!agentTemplate) {
-    throw new Error(
-      `Agent template not found for type: ${agentType}. Available types: ${Object.keys(localAgentTemplates).join(', ')}`,
-    )
+    return {
+      agentState,
+      fullResponse: STEP_WARNING_MESSAGE,
+      shouldEndTurn: true,
+      messageId: null,
+    }
   }
 
   const stepPrompt = await getAgentPrompt({
@@ -240,10 +225,11 @@ export const runAgentStep = async (
     agentState,
     agentTemplates: localAgentTemplates,
     logger,
+    additionalToolDefinitions,
   })
 
   const agentMessagesUntruncated = buildArray<Message>(
-    ...expireMessages(messageHistory, 'agentStep'),
+    ...expireMessages(agentState.messageHistory, 'agentStep'),
 
     stepPrompt &&
       userMessage({
@@ -257,16 +243,6 @@ export const runAgentStep = async (
   )
 
   agentState.messageHistory = agentMessagesUntruncated
-
-  // Early return for step warning case
-  if (needsStepWarning) {
-    return {
-      agentState,
-      fullResponse: stepWarningMessage,
-      shouldEndTurn: true,
-      messageId: null,
-    }
-  }
 
   const { model } = agentTemplate
 
@@ -287,6 +263,7 @@ export const runAgentStep = async (
       agentId: agentState.agentId,
       model,
       duration: Date.now() - startTime,
+      contextTokenCount: agentState.contextTokenCount,
       agentMessages: agentState.messageHistory,
       system,
       prompt,
@@ -370,6 +347,7 @@ export const runAgentStep = async (
     stream,
     onCostCalculated,
   })
+
   toolResults.push(...newToolResults)
 
   fullResponse = fullResponseAfterStream
@@ -520,7 +498,6 @@ export async function loopAgentSteps(
       typeof getMCPToolData,
       'toolNames' | 'mcpServers' | 'writeTo'
     > &
-    ParamsOf<CheckLiveUserInputFn> &
     ParamsExcluding<StartAgentRunFn, 'agentId' | 'ancestorRunIds'> &
     ParamsExcluding<
       FinishAgentRunFn,
@@ -530,6 +507,7 @@ export async function loopAgentSteps(
       typeof runAgentStep,
       | 'additionalToolDefinitions'
       | 'agentState'
+      | 'agentTemplate'
       | 'prompt'
       | 'runId'
       | 'spawnParams'
@@ -552,7 +530,7 @@ export async function loopAgentSteps(
 }> {
   const {
     addAgentStep,
-    agentState,
+    agentState: initialAgentState,
     agentType,
     clearUserPromptMessagesAfterResponse = true,
     clientSessionId,
@@ -569,6 +547,8 @@ export async function loopAgentSteps(
     startAgentRun,
     userId,
     userInputId,
+    clientEnv,
+    ciEnv,
   } = params
 
   const agentTemplate =
@@ -583,7 +563,7 @@ export async function loopAgentSteps(
 
   if (signal.aborted) {
     return {
-      agentState,
+      agentState: initialAgentState,
       output: {
         type: 'error',
         message: 'Run cancelled by user',
@@ -594,12 +574,12 @@ export async function loopAgentSteps(
   const runId = await startAgentRun({
     ...params,
     agentId: agentTemplate.id,
-    ancestorRunIds: agentState.ancestorRunIds,
+    ancestorRunIds: initialAgentState.ancestorRunIds,
   })
   if (!runId) {
     throw new Error('Failed to start agent run')
   }
-  agentState.runId = runId
+  initialAgentState.runId = runId
 
   let cachedAdditionalToolDefinitions: CustomToolDefinitions | undefined
   // Use parent's tools for prompt caching when inheritParentSystemPrompt is true
@@ -629,7 +609,7 @@ export async function loopAgentSteps(
   const system =
     agentTemplate.inheritParentSystemPrompt && parentSystemPrompt
       ? parentSystemPrompt
-      : (await getAgentPrompt({
+      : ((await getAgentPrompt({
           ...params,
           agentTemplate,
           promptType: { type: 'systemPrompt' },
@@ -645,7 +625,7 @@ export async function loopAgentSteps(
             }
             return cachedAdditionalToolDefinitions
           },
-        })) ?? ''
+        })) ?? '')
 
   // Build agent tools (agents as direct tool calls) for non-inherited tools
   const agentTools = useParentTools
@@ -674,12 +654,12 @@ export async function loopAgentSteps(
 
   const hasUserMessage = Boolean(
     prompt ||
-      (spawnParams && Object.keys(spawnParams).length > 0) ||
-      (content && content.length > 0),
+    (spawnParams && Object.keys(spawnParams).length > 0) ||
+    (content && content.length > 0),
   )
 
   const initialMessages = buildArray<Message>(
-    ...agentState.messageHistory,
+    ...initialAgentState.messageHistory,
 
     hasUserMessage && [
       {
@@ -687,6 +667,7 @@ export async function loopAgentSteps(
         role: 'user' as const,
         content: buildUserMessageContent(prompt, spawnParams, content),
         tags: ['USER_PROMPT'],
+        sentAt: Date.now(),
 
         // James: Deprecate the below, only use tags, which are not prescriptive.
         keepDuringTruncation: true,
@@ -719,8 +700,18 @@ export async function loopAgentSteps(
     inputSchema: tool.inputSchema as {},
   }))
 
+  const additionalToolDefinitionsWithCache = async () => {
+    if (!cachedAdditionalToolDefinitions) {
+      cachedAdditionalToolDefinitions = await additionalToolDefinitions({
+        ...params,
+        agentTemplate,
+      })
+    }
+    return cachedAdditionalToolDefinitions
+  }
+
   let currentAgentState: AgentState = {
-    ...agentState,
+    ...initialAgentState,
     messageHistory: initialMessages,
     systemPrompt: system,
     toolDefinitions,
@@ -735,22 +726,62 @@ export async function loopAgentSteps(
   try {
     while (true) {
       totalSteps++
-      if (!checkLiveUserInput(params)) {
-        logger.warn(
+      if (signal.aborted) {
+        logger.info(
           {
             userId,
             userInputId,
             clientSessionId,
             totalSteps,
             runId,
-            agentState,
           },
-          'User input no longer live (likely cancelled)',
+          'Agent run cancelled by user',
         )
         break
       }
 
       const startTime = new Date()
+
+      const stepPrompt = await getAgentPrompt({
+        ...params,
+        agentTemplate,
+        promptType: { type: 'stepPrompt' },
+        fileContext,
+        agentState: currentAgentState,
+        agentTemplates: localAgentTemplates,
+        logger,
+        additionalToolDefinitions: additionalToolDefinitionsWithCache,
+      })
+      const messagesWithStepPrompt = buildArray(
+        ...currentAgentState.messageHistory,
+        stepPrompt &&
+          userMessage({
+            content: stepPrompt,
+          }),
+      )
+
+      // Check context token count via Anthropic API
+      const tokenCountResult = await callTokenCountAPI({
+        messages: messagesWithStepPrompt,
+        system,
+        fetch,
+        logger,
+        env: { clientEnv, ciEnv },
+      })
+      if (tokenCountResult.inputTokens !== undefined) {
+        currentAgentState.contextTokenCount = tokenCountResult.inputTokens
+      } else if (tokenCountResult.error) {
+        logger.warn(
+          { error: tokenCountResult.error },
+          'Failed to get token count from Anthropic API',
+        )
+        // Fall back to local estimate
+        const estimatedTokens =
+          countTokensJson(currentAgentState.messageHistory) +
+          countTokensJson(system) +
+          countTokensJson(toolDefinitions)
+        currentAgentState.contextTokenCount = estimatedTokens
+      }
 
       // 1. Run programmatic step first if it exists
       let n: number | undefined = undefined
@@ -763,8 +794,8 @@ export async function loopAgentSteps(
           localAgentTemplates,
           nResponses,
           onCostCalculated: async (credits: number) => {
-            agentState.creditsUsed += credits
-            agentState.directCreditsUsed += credits
+            currentAgentState.creditsUsed += credits
+            currentAgentState.directCreditsUsed += credits
           },
           prompt: currentPrompt,
           runId,
@@ -839,22 +870,14 @@ export async function loopAgentSteps(
         ...params,
 
         agentState: currentAgentState,
+        agentTemplate,
         n,
         prompt: currentPrompt,
         runId,
         spawnParams: currentParams,
         system,
         tools,
-
-        additionalToolDefinitions: async () => {
-          if (!cachedAdditionalToolDefinitions) {
-            cachedAdditionalToolDefinitions = await additionalToolDefinitions({
-              ...params,
-              agentTemplate,
-            })
-          }
-          return cachedAdditionalToolDefinitions
-        },
+        additionalToolDefinitions: additionalToolDefinitionsWithCache,
       })
 
       if (newAgentState.runId) {
@@ -887,7 +910,7 @@ export async function loopAgentSteps(
       )
     }
 
-    const status = checkLiveUserInput(params) ? 'completed' : 'cancelled'
+    const status = signal.aborted ? 'cancelled' : 'completed'
     await finishAgentRun({
       ...params,
       runId,
@@ -911,17 +934,11 @@ export async function loopAgentSteps(
         totalSteps,
         directCreditsUsed: currentAgentState.directCreditsUsed,
         creditsUsed: currentAgentState.creditsUsed,
+        messageHistory: currentAgentState.messageHistory,
+        systemPrompt: system,
       },
       'Agent execution failed',
     )
-
-    // Re-throw NetworkError and PaymentRequiredError to allow SDK retry wrapper to handle it
-    if (
-      error instanceof Error &&
-      (error.name === 'NetworkError' || error.name === 'PaymentRequiredError')
-    ) {
-      throw error
-    }
 
     let errorMessage = ''
     if (error instanceof APICallError) {
@@ -934,7 +951,9 @@ export async function loopAgentSteps(
           : String(error)
     }
 
-    const status = checkLiveUserInput(params) ? 'failed' : 'cancelled'
+    const statusCode = (error as { statusCode?: number }).statusCode
+
+    const status = signal.aborted ? 'cancelled' : 'failed'
     await finishAgentRun({
       ...params,
       runId,
@@ -945,12 +964,24 @@ export async function loopAgentSteps(
       errorMessage,
     })
 
+    // Payment required errors (402) should propagate
+    if (statusCode === 402) {
+      throw error
+    }
+
     return {
       agentState: currentAgentState,
       output: {
         type: 'error',
         message: 'Agent run error: ' + errorMessage,
+        ...(statusCode !== undefined && { statusCode }),
       },
     }
   }
 }
+
+const STEP_WARNING_MESSAGE = [
+  "I've made quite a few responses in a row.",
+  "Let me pause here to make sure we're still on the right track.",
+  "Please let me know if you'd like me to continue or if you'd like to guide me in a different direction.",
+].join(' ')

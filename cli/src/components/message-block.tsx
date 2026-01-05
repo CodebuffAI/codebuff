@@ -9,6 +9,7 @@ import { MessageFooter } from './message-footer'
 import { ValidationErrorPopover } from './validation-error-popover'
 import { useTheme } from '../hooks/use-theme'
 import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
+import { getCliEnv } from '../utils/env'
 import { isTextBlock, isToolBlock, isImageBlock } from '../types/chat'
 import { shouldRenderAsSimpleText } from '../utils/constants'
 import {
@@ -166,7 +167,7 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
     },
     {
       logLevel: 'debug',
-      enabled: false,
+      enabled: getCliEnv().CODEBUFF_PERF_TEST === 'true',
     },
   )
 

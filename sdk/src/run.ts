@@ -11,24 +11,11 @@ import { toOptionalFile } from '@codebuff/common/old-constants'
 import { toolNames } from '@codebuff/common/tools/constants'
 import { clientToolCallSchema } from '@codebuff/common/tools/list'
 import { AgentOutputSchema } from '@codebuff/common/types/session-state'
-import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 
-import {
-  RETRYABLE_ERROR_CODES,
-  isNetworkError,
-  isPaymentRequiredError,
-  ErrorCodes,
-  NetworkError,
-  sanitizeErrorMessage,
-} from './errors'
+import { getErrorStatusCode } from './error-utils'
 import { getAgentRuntimeImpl } from './impl/agent-runtime'
 import { getUserInfoFromApiKey } from './impl/database'
-import {
-  MAX_RETRIES_PER_MESSAGE,
-  RETRY_BACKOFF_BASE_DELAY_MS,
-  RETRY_BACKOFF_MAX_DELAY_MS,
-} from './retry-config'
 import { initialSessionState, applyOverridesToSessionState } from './run-state'
 import { changeFile } from './tools/change-file'
 import { codeSearch } from './tools/code-search'
@@ -38,7 +25,6 @@ import { getFiles } from './tools/read-files'
 import { runTerminalCommand } from './tools/run-terminal-command'
 
 import type { CustomToolDefinition } from './custom-tool'
-import type { ErrorCode } from './errors'
 import type { RunState } from './run-state'
 import type { ServerAction } from '@codebuff/common/actions'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
@@ -126,45 +112,6 @@ export type CodebuffClientOptions = {
   logger?: Logger
 }
 
-export type RetryOptions = {
-  /**
-   * Maximum number of retry attempts after the initial failure.
-   * A value of 0 disables retries.
-   */
-  maxRetries?: number
-  /**
-   * Base delay in milliseconds for exponential backoff.
-   */
-  backoffBaseMs?: number
-  /**
-   * Maximum delay in milliseconds for exponential backoff.
-   */
-  backoffMaxMs?: number
-  /**
-   * Error codes that should trigger retry.
-   * Defaults to RETRYABLE_ERROR_CODES.
-   */
-  retryableErrorCodes?: Set<ErrorCode>
-  /**
-   * Optional callback invoked before each retry attempt.
-   */
-  onRetry?: (params: {
-    attempt: number
-    error: unknown
-    delayMs: number
-    errorCode?: ErrorCode
-  }) => void | Promise<void>
-  /**
-   * Optional callback invoked when all SDK retries are exhausted.
-   * This allows the caller to be notified before the error is thrown.
-   */
-  onRetryExhausted?: (params: {
-    totalAttempts: number
-    error: unknown
-    errorCode?: ErrorCode
-  }) => void | Promise<void>
-}
-
 export type ImageContent = {
   type: 'image'
   image: string // base64 encoded
@@ -187,33 +134,6 @@ export type RunOptions = {
   previousRun?: RunState
   extraToolResults?: ToolMessage[]
   signal?: AbortSignal
-  abortController?: AbortController
-  retry?: boolean | RetryOptions
-}
-
-type NormalizedRetryOptions = {
-  maxRetries: number
-  backoffBaseMs: number
-  backoffMaxMs: number
-  retryableErrorCodes: Set<ErrorCode>
-  onRetry?: (params: {
-    attempt: number
-    error: unknown
-    delayMs: number
-    errorCode?: ErrorCode
-  }) => void | Promise<void>
-  onRetryExhausted?: (params: {
-    totalAttempts: number
-    error: unknown
-    errorCode?: ErrorCode
-  }) => void | Promise<void>
-}
-
-const defaultRetryOptions: NormalizedRetryOptions = {
-  maxRetries: MAX_RETRIES_PER_MESSAGE,
-  backoffBaseMs: RETRY_BACKOFF_BASE_DELAY_MS,
-  backoffMaxMs: RETRY_BACKOFF_MAX_DELAY_MS,
-  retryableErrorCodes: RETRYABLE_ERROR_CODES,
 }
 
 const createAbortError = (signal?: AbortSignal) => {
@@ -225,267 +145,31 @@ const createAbortError = (signal?: AbortSignal) => {
   return error
 }
 
-/**
- * Checks if an error should trigger a retry attempt.
- */
-const isRetryableError = (error: unknown): boolean => {
-  return isNetworkError(error) && RETRYABLE_ERROR_CODES.has(error.code)
-}
-
-const normalizeRetryOptions = (
-  retry: RunOptions['retry'],
-): NormalizedRetryOptions => {
-  if (!retry) {
-    return { ...defaultRetryOptions, maxRetries: 0 }
-  }
-  if (retry === true) {
-    return { ...defaultRetryOptions }
-  }
-  return {
-    maxRetries: retry.maxRetries ?? defaultRetryOptions.maxRetries,
-    backoffBaseMs: retry.backoffBaseMs ?? defaultRetryOptions.backoffBaseMs,
-    backoffMaxMs: retry.backoffMaxMs ?? defaultRetryOptions.backoffMaxMs,
-    retryableErrorCodes:
-      retry.retryableErrorCodes ?? defaultRetryOptions.retryableErrorCodes,
-    onRetry: retry.onRetry,
-    onRetryExhausted: retry.onRetryExhausted,
-  }
-}
-
-const waitWithAbort = (delayMs: number, signal?: AbortSignal) => {
-  if (delayMs <= 0) return Promise.resolve()
-
-  return new Promise<void>((resolve, reject) => {
-    let timeoutId: ReturnType<typeof setTimeout>
-
-    const onAbort = () => {
-      clearTimeout(timeoutId)
-      signal?.removeEventListener('abort', onAbort)
-      reject(createAbortError(signal))
-    }
-
-    timeoutId = setTimeout(() => {
-      if (signal) {
-        signal.removeEventListener('abort', onAbort)
-      }
-      resolve()
-    }, delayMs)
-
-    if (!signal) {
-      return
-    }
-
-    if (signal.aborted) {
-      onAbort()
-      return
-    }
-
-    signal.addEventListener('abort', onAbort, { once: true })
-  })
-}
-
 type RunExecutionOptions = RunOptions &
   CodebuffClientOptions & {
     apiKey: string
     fingerprintId: string
   }
-type RunOnceOptions = Omit<RunExecutionOptions, 'retry' | 'abortController'>
 type RunReturnType = RunState
 
 export async function run(options: RunExecutionOptions): Promise<RunState> {
-  const { retry, abortController, ...rest } = options
-  const retryOptions = normalizeRetryOptions(retry)
+  const { signal } = options
 
-  // Prefer provided signal; otherwise reuse a shared controller across retries.
-  const sharedController =
-    abortController ?? (rest.signal ? undefined : new AbortController())
-  const signal = rest.signal ?? sharedController?.signal
-
-  let attemptIndex = 0
-  while (true) {
-    if (signal?.aborted) {
-      // Return error output for abort instead of throwing
-      const abortError = createAbortError(signal)
-      return {
-        sessionState: rest.previousRun?.sessionState,
-        output: {
-          type: 'error',
-          message: abortError.message,
-        },
-      }
-    }
-
-    try {
-      const result = await runOnce({
-        ...rest,
-        signal,
-      })
-
-      // Check if result contains a retryable error in the output
-      if (result.output.type === 'error') {
-        const retryableCode = getRetryableErrorCode(result.output.message)
-        const canRetry =
-          retryableCode &&
-          attemptIndex < retryOptions.maxRetries &&
-          retryOptions.retryableErrorCodes.has(retryableCode)
-
-        if (canRetry) {
-          // Treat this as a retryable error - continue retry loop
-          const delayMs = Math.min(
-            retryOptions.backoffBaseMs * Math.pow(2, attemptIndex),
-            retryOptions.backoffMaxMs,
-          )
-
-          // Log retry attempt with full context
-          if (rest.logger) {
-            rest.logger.warn(
-              {
-                attempt: attemptIndex + 1,
-                maxRetries: retryOptions.maxRetries,
-                delayMs,
-                errorCode: retryableCode,
-                errorMessage: result.output.message,
-              },
-              'SDK retrying after error',
-            )
-          }
-
-          await retryOptions.onRetry?.({
-            attempt: attemptIndex + 1,
-            error: new Error(result.output.message),
-            delayMs,
-            errorCode: retryableCode,
-          })
-
-          await waitWithAbort(delayMs, signal)
-          attemptIndex++
-          continue
-        } else if (attemptIndex > 0) {
-          // Non-retryable error or exhausted retries
-          if (rest.logger) {
-            rest.logger.warn(
-              {
-                attemptIndex,
-                totalAttempts: attemptIndex + 1,
-                errorCode: retryableCode,
-              },
-              'SDK exhausted all retries',
-            )
-          }
-
-          await retryOptions.onRetryExhausted?.({
-            totalAttempts: attemptIndex + 1,
-            error: new Error(result.output.message),
-            errorCode: retryableCode ?? undefined,
-          })
-        }
-      }
-
-      // Log successful completion after retries
-      if (attemptIndex > 0 && rest.logger) {
-        rest.logger.info(
-          { attemptIndex, totalAttempts: attemptIndex + 1 },
-          'SDK run succeeded after retries',
-        )
-      }
-
-      return result
-    } catch (error) {
-      // Handle unexpected exceptions by converting to error output
-      if (signal?.aborted) {
-        const abortError = createAbortError(signal)
-        return {
-          sessionState: rest.previousRun?.sessionState,
-          output: {
-            type: 'error',
-            message: abortError.message,
-          },
-        }
-      }
-
-      // Unexpected exception - convert to error output and check if retryable
-      // Use sanitizeErrorMessage to get clean user-facing message without stack traces
-      const errorMessage = sanitizeErrorMessage(error)
-      const errorCode = isNetworkError(error)
-        ? error.code
-        : isPaymentRequiredError(error)
-          ? error.code
-          : undefined
-      const retryableCode = errorCode ?? getRetryableErrorCode(errorMessage)
-
-      const canRetry =
-        retryableCode &&
-        attemptIndex < retryOptions.maxRetries &&
-        retryOptions.retryableErrorCodes.has(retryableCode)
-
-      if (rest.logger) {
-        rest.logger.error(
-          {
-            attemptIndex,
-            errorCode: retryableCode,
-            canRetry,
-            error: errorMessage,
-          },
-          'Unexpected exception in SDK run',
-        )
-      }
-
-      if (!canRetry) {
-        // Can't retry - convert to error output and return
-        if (attemptIndex > 0 && rest.logger) {
-          rest.logger.warn(
-            {
-              attemptIndex,
-              totalAttempts: attemptIndex + 1,
-            },
-            'SDK exhausted all retries after unexpected exception',
-          )
-        }
-
-        // Return error output instead of throwing
-        return {
-          sessionState: rest.previousRun?.sessionState,
-          output: {
-            type: 'error',
-            message: errorMessage,
-            ...(errorCode && { errorCode }),
-          },
-        }
-      }
-
-      // Exception is retryable - trigger retry
-      const delayMs = Math.min(
-        retryOptions.backoffBaseMs * Math.pow(2, attemptIndex),
-        retryOptions.backoffMaxMs,
-      )
-
-      if (rest.logger) {
-        rest.logger.warn(
-          {
-            attempt: attemptIndex + 1,
-            maxRetries: retryOptions.maxRetries,
-            delayMs,
-            errorCode: retryableCode,
-            errorMessage,
-          },
-          'SDK retrying after unexpected exception',
-        )
-      }
-
-      await retryOptions.onRetry?.({
-        attempt: attemptIndex + 1,
-        error: error instanceof Error ? error : new Error(errorMessage),
-        delayMs,
-        errorCode: retryableCode,
-      })
-
-      await waitWithAbort(delayMs, signal)
-      attemptIndex++
+  if (signal?.aborted) {
+    const abortError = createAbortError(signal)
+    return {
+      sessionState: options.previousRun?.sessionState,
+      output: {
+        type: 'error',
+        message: abortError.message,
+      },
     }
   }
+
+  return runOnce(options)
 }
 
-export async function runOnce({
+async function runOnce({
   apiKey,
   fingerprintId,
 
@@ -513,7 +197,7 @@ export async function runOnce({
   previousRun,
   extraToolResults,
   signal,
-}: RunOnceOptions): Promise<RunState> {
+}: RunExecutionOptions): Promise<RunState> {
   const fs = await (typeof fsSource === 'function' ? fsSource() : fsSource)
   const spawn: CodebuffSpawn = (
     spawnSource ? await spawnSource : require('child_process').spawn
@@ -573,7 +257,7 @@ export async function runOnce({
   let pendingAgentResponse = ''
   /** Calculates the current session state if cancelled.
    *
-   * This includes the user'e message and pending assistant message.
+   * This includes the user's message and pending assistant message.
    */
   function getCancelledSessionState(message: string): SessionState {
     const state = cloneDeep(sessionState)
@@ -806,34 +490,17 @@ export async function runOnce({
     userId,
     signal: signal ?? new AbortController().signal,
   }).catch((error) => {
-    // Let retryable errors and PaymentRequiredError propagate so the retry wrapper can handle them
-    const isRetryable = isRetryableError(error)
-    const isPaymentRequired = isPaymentRequiredError(error)
-    logger?.warn(
-      {
-        isNetworkError: isNetworkError(error),
-        isPaymentRequired,
-        errorCode: isNetworkError(error)
-          ? error.code
-          : isPaymentRequired
-            ? error.code
-            : undefined,
-        isRetryable,
-        error: getErrorObject(error),
-      },
-      'callMainPrompt caught error, checking if retryable',
-    )
-
-    if (isRetryable || isPaymentRequired) {
-      // Reject the promise so the retry wrapper can catch it and include the error code
-      reject(error)
-      return
-    }
-
-    // For non-retryable errors, resolve with cancelled state
     const errorMessage =
       error instanceof Error ? error.message : String(error ?? '')
-    resolve(getCancelledRunState(errorMessage))
+    const statusCode = getErrorStatusCode(error)
+    resolve({
+      sessionState: getCancelledSessionState(errorMessage),
+      output: {
+        type: 'error',
+        message: errorMessage,
+        ...(statusCode !== undefined && { statusCode }),
+      },
+    })
   })
 
   return promise
@@ -981,12 +648,13 @@ async function handleToolCall({
 }
 
 /**
- * Extracts an error code from a prompt error message.
- * Returns the appropriate ErrorCode if the error is retryable, null otherwise.
+ * Extracts an HTTP status code from an error message string.
+ * Parses common error patterns to identify the underlying status code.
+ * Returns the status code if found, undefined otherwise.
  */
-export const getRetryableErrorCode = (
+export const extractStatusCodeFromMessage = (
   errorMessage: string,
-): ErrorCode | null => {
+): number | undefined => {
   const lowerMessage = errorMessage.toLowerCase()
 
   // AI SDK's built-in retry error (e.g., "Failed after 4 attempts. Last error: Service Unavailable")
@@ -997,52 +665,56 @@ export const getRetryableErrorCode = (
   ) {
     // Extract the underlying error type from the message
     if (lowerMessage.includes('service unavailable')) {
-      return ErrorCodes.SERVICE_UNAVAILABLE
+      return 503
     }
     if (lowerMessage.includes('timeout')) {
-      return ErrorCodes.TIMEOUT
+      return 408
     }
     if (lowerMessage.includes('connection refused')) {
-      return ErrorCodes.CONNECTION_REFUSED
+      return 503
     }
-    // Default to SERVER_ERROR for other AI SDK retry failures
-    return ErrorCodes.SERVER_ERROR
+    // Default to 500 for other AI SDK retry failures
+    return 500
   }
 
   if (
     errorMessage.includes('503') ||
     lowerMessage.includes('service unavailable')
   ) {
-    return ErrorCodes.SERVICE_UNAVAILABLE
+    return 503
   }
-  if (lowerMessage.includes('timeout')) {
-    return ErrorCodes.TIMEOUT
+  if (errorMessage.includes('504')) {
+    return 504
+  }
+  if (errorMessage.includes('502')) {
+    return 502
+  }
+  if (lowerMessage.includes('timeout') || errorMessage.includes('408')) {
+    return 408
   }
   if (
     lowerMessage.includes('econnrefused') ||
     lowerMessage.includes('connection refused')
   ) {
-    return ErrorCodes.CONNECTION_REFUSED
+    return 503
   }
   if (lowerMessage.includes('dns') || lowerMessage.includes('enotfound')) {
-    return ErrorCodes.DNS_FAILURE
+    return 503
   }
-  if (
-    lowerMessage.includes('server error') ||
-    lowerMessage.includes('500') ||
-    lowerMessage.includes('502') ||
-    lowerMessage.includes('504')
-  ) {
-    return ErrorCodes.SERVER_ERROR
+  if (lowerMessage.includes('server error') || errorMessage.includes('500')) {
+    return 500
+  }
+  if (errorMessage.includes('429') || lowerMessage.includes('rate limit')) {
+    return 429
   }
   if (
     lowerMessage.includes('network error') ||
     lowerMessage.includes('fetch failed')
   ) {
-    return ErrorCodes.NETWORK_ERROR
+    return 503
   }
 
-  return null
+  return undefined
 }
 
 async function handlePromptResponse({
@@ -1059,18 +731,13 @@ async function handlePromptResponse({
   if (action.type === 'prompt-error') {
     onError({ message: action.message })
 
-    // If this is a retryable error, throw NetworkError so retry wrapper can handle it
-    const retryableCode = getRetryableErrorCode(action.message)
-    if (retryableCode) {
-      throw new NetworkError(action.message, retryableCode)
-    }
-
-    // For non-retryable errors, resolve with error state
+    const statusCode = extractStatusCodeFromMessage(action.message)
     resolve({
       sessionState: initialSessionState,
       output: {
         type: 'error',
         message: action.message,
+        ...(statusCode !== undefined && { statusCode }),
       },
     })
   } else if (action.type === 'prompt-response') {

@@ -166,6 +166,7 @@ export async function postChatCompletions(params: {
       )
     }
 
+    logger.info({ userInfo, runId }, 'chat completions request received')
     // Track API request
     trackEvent({
       event: AnalyticsEvent.CHAT_COMPLETIONS_REQUEST,
@@ -364,6 +365,7 @@ export async function postChatCompletions(params: {
           messageCount: Array.isArray((body as any)?.messages)
             ? (body as any).messages.length
             : 0,
+          messages: (body as any)?.messages,
           openrouterStatusCode: openrouterError?.statusCode,
           openrouterStatusText: openrouterError?.statusText,
           openrouterErrorCode: errorDetails?.error?.code,
