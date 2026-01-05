@@ -21,6 +21,7 @@ import {
 
 import { getModelForRequest } from './model-provider'
 
+import type { ModelRequestParams } from './model-provider'
 import type { OpenRouterProviderRoutingOptions } from '@codebuff/common/types/agent-template'
 import type {
   PromptAiSdkFn,
@@ -110,8 +111,43 @@ type OpenRouterUsageAccounting = {
   }
 }
 
+/**
+ * Check if an error is a Claude OAuth rate limit error that should trigger fallback.
+ */
+function isClaudeOAuthRateLimitError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+
+  // Check for APICallError from AI SDK
+  const err = error as {
+    statusCode?: number
+    message?: string
+    responseBody?: string
+  }
+
+  // Check status code
+  if (err.statusCode === 429) return true
+
+  // Check error message for rate limit indicators
+  const message = (err.message || '').toLowerCase()
+  const responseBody = (err.responseBody || '').toLowerCase()
+
+  if (message.includes('rate_limit') || message.includes('rate limit'))
+    return true
+  if (message.includes('overloaded')) return true
+  if (
+    responseBody.includes('rate_limit') ||
+    responseBody.includes('overloaded')
+  )
+    return true
+
+  return false
+}
+
 export async function* promptAiSdkStream(
-  params: ParamsOf<PromptAiSdkStreamFn>,
+  params: ParamsOf<PromptAiSdkStreamFn> & {
+    skipClaudeOAuth?: boolean
+    onClaudeOAuthStatusChange?: (isActive: boolean) => void
+  },
 ): ReturnType<PromptAiSdkStreamFn> {
   const { logger } = params
   const agentChunkMetadata =
@@ -128,7 +164,17 @@ export async function* promptAiSdkStream(
     return null
   }
 
-  const { model: aiSDKModel, isClaudeOAuth } = getModelForRequest(params)
+  const modelParams: ModelRequestParams = {
+    apiKey: params.apiKey,
+    model: params.model,
+    skipClaudeOAuth: params.skipClaudeOAuth,
+  }
+  const { model: aiSDKModel, isClaudeOAuth } = getModelForRequest(modelParams)
+
+  // Notify about Claude OAuth usage
+  if (isClaudeOAuth && params.onClaudeOAuthStatusChange) {
+    params.onClaudeOAuthStatusChange(true)
+  }
 
   const response = streamText({
     ...params,
@@ -255,10 +301,14 @@ export async function* promptAiSdkStream(
   let content = ''
   const stopSequenceHandler = new StopSequenceHandler(params.stopSequences)
 
+  // Track if we've yielded any content - if so, we can't safely fall back
+  let hasYieldedContent = false
+
   for await (const chunkValue of response.fullStream) {
     if (chunkValue.type !== 'text-delta') {
       const flushed = stopSequenceHandler.flush()
       if (flushed) {
+        hasYieldedContent = true
         content += flushed
         yield {
           type: 'text',
@@ -268,8 +318,8 @@ export async function* promptAiSdkStream(
       }
     }
     if (chunkValue.type === 'error') {
-      // Error chunks from fullStream are non-network errors (tool failures, model issues, etc.)
-      // Network errors are thrown, not yielded as chunks.
+      // Error chunks from fullStream are non-network errors (tool failures, model issues, rate limits, etc.)
+      // Network errors which cannot be recovered from are thrown, not yielded as chunks.
 
       const errorBody = APICallError.isInstance(chunkValue.error)
         ? chunkValue.error.responseBody
@@ -305,6 +355,28 @@ export async function* promptAiSdkStream(
         continue
       }
 
+      // Check if this is a Claude OAuth rate limit error - only fall back if no content yielded yet
+      if (
+        isClaudeOAuth &&
+        !params.skipClaudeOAuth &&
+        !hasYieldedContent &&
+        isClaudeOAuthRateLimitError(chunkValue.error)
+      ) {
+        logger.info(
+          { error: getErrorObject(chunkValue.error) },
+          'Claude OAuth rate limited during stream, falling back to Codebuff backend',
+        )
+        if (params.onClaudeOAuthStatusChange) {
+          params.onClaudeOAuthStatusChange(false)
+        }
+        // Retry with Codebuff backend
+        const fallbackResult = yield* promptAiSdkStream({
+          ...params,
+          skipClaudeOAuth: true,
+        })
+        return fallbackResult
+      }
+
       logger.error(
         {
           chunk: { ...chunkValue, error: undefined },
@@ -338,6 +410,7 @@ export async function* promptAiSdkStream(
       if (!params.stopSequences) {
         content += chunkValue.text
         if (chunkValue.text) {
+          hasYieldedContent = true
           yield {
             type: 'text',
             text: chunkValue.text,
@@ -349,6 +422,7 @@ export async function* promptAiSdkStream(
 
       const stopSequenceResult = stopSequenceHandler.process(chunkValue.text)
       if (stopSequenceResult.text) {
+        hasYieldedContent = true
         content += stopSequenceResult.text
         yield {
           type: 'text',
@@ -416,7 +490,12 @@ export async function promptAiSdk(
     return ''
   }
 
-  const { model: aiSDKModel, isClaudeOAuth } = getModelForRequest(params)
+  const modelParams: ModelRequestParams = {
+    apiKey: params.apiKey,
+    model: params.model,
+    skipClaudeOAuth: true, // Always use Codebuff backend for non-streaming
+  }
+  const { model: aiSDKModel } = getModelForRequest(modelParams)
 
   const response = await generateText({
     ...params,
@@ -430,27 +509,24 @@ export async function promptAiSdk(
   })
   const content = response.text
 
-  // Skip cost tracking for Claude OAuth (user is on their own subscription)
-  if (!isClaudeOAuth) {
-    const providerMetadata = response.providerMetadata ?? {}
-    let costOverrideDollars: number | undefined
-    if (providerMetadata.codebuff) {
-      if (providerMetadata.codebuff.usage) {
-        const openrouterUsage = providerMetadata.codebuff
-          .usage as OpenRouterUsageAccounting
+  const providerMetadata = response.providerMetadata ?? {}
+  let costOverrideDollars: number | undefined
+  if (providerMetadata.codebuff) {
+    if (providerMetadata.codebuff.usage) {
+      const openrouterUsage = providerMetadata.codebuff
+        .usage as OpenRouterUsageAccounting
 
-        costOverrideDollars =
-          (openrouterUsage.cost ?? 0) +
-          (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
-      }
+      costOverrideDollars =
+        (openrouterUsage.cost ?? 0) +
+        (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
     }
+  }
 
-    // Call the cost callback if provided
-    if (params.onCostCalculated && costOverrideDollars) {
-      await params.onCostCalculated(
-        calculateUsedCredits({ costDollars: costOverrideDollars }),
-      )
-    }
+  // Call the cost callback if provided
+  if (params.onCostCalculated && costOverrideDollars) {
+    await params.onCostCalculated(
+      calculateUsedCredits({ costDollars: costOverrideDollars }),
+    )
   }
 
   return content
@@ -471,7 +547,12 @@ export async function promptAiSdkStructured<T>(
     )
     return {} as T
   }
-  const { model: aiSDKModel, isClaudeOAuth } = getModelForRequest(params)
+  const modelParams: ModelRequestParams = {
+    apiKey: params.apiKey,
+    model: params.model,
+    skipClaudeOAuth: true, // Always use Codebuff backend for non-streaming
+  }
+  const { model: aiSDKModel } = getModelForRequest(modelParams)
 
   const response = await generateObject<z.ZodType<T>, 'object'>({
     ...params,
@@ -487,27 +568,24 @@ export async function promptAiSdkStructured<T>(
 
   const content = response.object
 
-  // Skip cost tracking for Claude OAuth (user is on their own subscription)
-  if (!isClaudeOAuth) {
-    const providerMetadata = response.providerMetadata ?? {}
-    let costOverrideDollars: number | undefined
-    if (providerMetadata.codebuff) {
-      if (providerMetadata.codebuff.usage) {
-        const openrouterUsage = providerMetadata.codebuff
-          .usage as OpenRouterUsageAccounting
+  const providerMetadata = response.providerMetadata ?? {}
+  let costOverrideDollars: number | undefined
+  if (providerMetadata.codebuff) {
+    if (providerMetadata.codebuff.usage) {
+      const openrouterUsage = providerMetadata.codebuff
+        .usage as OpenRouterUsageAccounting
 
-        costOverrideDollars =
-          (openrouterUsage.cost ?? 0) +
-          (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
-      }
+      costOverrideDollars =
+        (openrouterUsage.cost ?? 0) +
+        (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
     }
+  }
 
-    // Call the cost callback if provided
-    if (params.onCostCalculated && costOverrideDollars) {
-      await params.onCostCalculated(
-        calculateUsedCredits({ costDollars: costOverrideDollars }),
-      )
-    }
+  // Call the cost callback if provided
+  if (params.onCostCalculated && costOverrideDollars) {
+    await params.onCostCalculated(
+      calculateUsedCredits({ costDollars: costOverrideDollars }),
+    )
   }
 
   return content

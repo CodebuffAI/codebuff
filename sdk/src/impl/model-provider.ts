@@ -34,6 +34,8 @@ export interface ModelRequestParams {
   apiKey: string
   /** Model ID (OpenRouter format, e.g., "anthropic/claude-sonnet-4") */
   model: string
+  /** If true, skip Claude OAuth and use Codebuff backend (for fallback after rate limit) */
+  skipClaudeOAuth?: boolean
 }
 
 /**
@@ -61,10 +63,10 @@ type OpenRouterUsageAccounting = {
  * returns an Anthropic direct model. Otherwise, returns the Codebuff backend model.
  */
 export function getModelForRequest(params: ModelRequestParams): ModelResult {
-  const { apiKey, model } = params
+  const { apiKey, model, skipClaudeOAuth } = params
 
   // Check if we should use Claude OAuth direct
-  if (isClaudeModel(model) && isClaudeOAuthValid()) {
+  if (!skipClaudeOAuth && isClaudeModel(model) && isClaudeOAuthValid()) {
     const claudeOAuthCredentials = getClaudeOAuthCredentials()
     if (claudeOAuthCredentials) {
       return {

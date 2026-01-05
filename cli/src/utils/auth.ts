@@ -24,9 +24,18 @@ const userSchema = z.object({
 
 export type User = z.infer<typeof userSchema>
 
+// Claude OAuth credentials schema (for passthrough, not strict validation here)
+const claudeOAuthSchema = z.object({
+  accessToken: z.string(),
+  refreshToken: z.string(),
+  expiresAt: z.number(),
+  connectedAt: z.number(),
+}).optional()
+
 const credentialsSchema = z
   .object({
     default: userSchema,
+    claudeOAuth: claudeOAuthSchema,
   })
   .catchall(userSchema)
 
