@@ -64,8 +64,6 @@ export const EVALS_AGENT_RUNTIME_IMPL = Object.freeze<AgentRuntimeDeps>({
   },
 
   // Mutable State
-  liveUserInputRecord: {},
-  sessionConnections: {},
   databaseAgentCache: new Map<string, AgentTemplate | null>(),
 
   // Analytics

@@ -3,10 +3,6 @@ import { globalStopSequence } from './constants'
 import type { AgentTemplate } from './templates/types'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { SendActionFn } from '@codebuff/common/types/contracts/client'
-import type {
-  SessionRecord,
-  UserInputRecord,
-} from '@codebuff/common/types/contracts/live-user-input'
 import type { PromptAiSdkStreamFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
@@ -20,12 +16,11 @@ export const getAgentStreamFromTemplate = (params: {
   clientSessionId: string
   fingerprintId: string
   includeCacheControl?: boolean
-  liveUserInputRecord: UserInputRecord
   localAgentTemplates: Record<string, AgentTemplate>
   logger: Logger
   messages: Message[]
   runId: string
-  sessionConnections: SessionRecord
+  signal: AbortSignal
   template: AgentTemplate
   tools: ToolSet
   userId: string | undefined
@@ -42,12 +37,10 @@ export const getAgentStreamFromTemplate = (params: {
     clientSessionId,
     fingerprintId,
     includeCacheControl,
-    liveUserInputRecord,
     localAgentTemplates,
     logger,
     messages,
     runId,
-    sessionConnections,
     template,
     tools,
     userId,
@@ -72,14 +65,13 @@ export const getAgentStreamFromTemplate = (params: {
     fingerprintId,
     includeCacheControl,
     logger,
-    liveUserInputRecord,
     localAgentTemplates,
     maxOutputTokens: 32_000,
     maxRetries: 3,
     messages,
     model,
     runId,
-    sessionConnections,
+    signal: params.signal,
     spawnableAgents: template.spawnableAgents,
     stopSequences: [globalStopSequence],
     tools,

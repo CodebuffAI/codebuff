@@ -2,7 +2,6 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-import { disableLiveUserInputCheck } from '@codebuff/agent-runtime/live-user-inputs'
 import { models } from '@codebuff/common/old-constants'
 import { userMessage } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
@@ -165,7 +164,6 @@ Please create a changelog with:
 
 Start your response with a heading using ### (three hashes) and organize the content below it.`
 
-    disableLiveUserInputCheck()
     const response = await promptAiSdk({
       messages: [userMessage(prompt)],
       clientSessionId: generateCompactId(),
@@ -175,12 +173,11 @@ Start your response with a heading using ### (three hashes) and organize the con
       userId: undefined,
       chargeUser: false,
       sendAction: () => {},
-      liveUserInputRecord: {},
-      sessionConnections: {},
       logger: console,
       trackEvent: () => {},
       apiKey: 'unused-api-key',
       runId: 'unused-run-id',
+      signal: new AbortController().signal,
     })
 
     // Clean up the AI response

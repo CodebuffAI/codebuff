@@ -6,7 +6,7 @@ import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { success } from '@codebuff/common/util/error'
 import {
   afterEach,
-  beforeAll,
+
   beforeEach,
   describe,
   expect,
@@ -15,7 +15,6 @@ import {
   test,
 } from 'bun:test'
 
-import { disableLiveUserInputCheck } from '../live-user-inputs'
 import { createToolCallChunk, mockFileContext } from './test-utils'
 import researcherAgent from '../../../../.agents/researcher/researcher'
 import * as webApi from '../llm-api/codebuff-web-api'
@@ -45,10 +44,6 @@ function mockAgentStream(chunks: StreamChunk[]) {
 }
 
 describe('web_search tool with researcher agent (via web API facade)', () => {
-  beforeAll(() => {
-    disableLiveUserInputCheck()
-  })
-
   beforeEach(() => {
     agentRuntimeImpl = {
       ...TEST_AGENT_RUNTIME_IMPL,

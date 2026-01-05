@@ -85,6 +85,7 @@ describe('processFileBlockModule', () => {
         fingerprintId: 'fingerprintId',
         userInputId: 'userInputId',
         userId: TEST_USER_ID,
+        signal: new AbortController().signal,
       })
 
       expect(result).not.toBeNull()
@@ -136,6 +137,7 @@ describe('processFileBlockModule', () => {
         fingerprintId: 'fingerprintId',
         userInputId: 'userInputId',
         userId: TEST_USER_ID,
+        signal: new AbortController().signal,
       })
 
       expect(result).not.toBeNull()
@@ -170,6 +172,7 @@ describe('processFileBlockModule', () => {
         fingerprintId: 'fingerprintId',
         userInputId: 'userInputId',
         userId: TEST_USER_ID,
+        signal: new AbortController().signal,
       })
 
       expect(result).not.toBeNull()
@@ -210,6 +213,7 @@ describe('processFileBlockModule', () => {
         fingerprintId: 'fingerprintId',
         userInputId: 'userInputId',
         userId: TEST_USER_ID,
+        signal: new AbortController().signal,
       })
 
       expect(result).not.toBeNull()
@@ -258,6 +262,7 @@ describe('processFileBlockModule', () => {
         fingerprintId: 'fingerprintId',
         userInputId: 'userInputId',
         userId: TEST_USER_ID,
+        signal: new AbortController().signal,
       })
 
       expect(result).not.toBeNull()

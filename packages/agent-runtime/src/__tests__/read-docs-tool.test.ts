@@ -5,7 +5,7 @@ import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-run
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
   afterEach,
-  beforeAll,
+
   beforeEach,
   describe,
   expect,
@@ -14,7 +14,6 @@ import {
   test,
 } from 'bun:test'
 
-import { disableLiveUserInputCheck } from '../live-user-inputs'
 import { createToolCallChunk, mockFileContext } from './test-utils'
 import researcherAgent from '../../../../.agents/researcher/researcher'
 import * as webApi from '../llm-api/codebuff-web-api'
@@ -47,10 +46,6 @@ function mockAgentStream(chunks: StreamChunk[]) {
 }
 
 describe('read_docs tool with researcher agent (via web API facade)', () => {
-  beforeAll(() => {
-    disableLiveUserInputCheck()
-  })
-
   beforeEach(() => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL, sendAction: () => {} }
 

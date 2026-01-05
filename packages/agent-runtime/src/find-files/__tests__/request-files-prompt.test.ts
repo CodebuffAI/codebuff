@@ -72,6 +72,7 @@ describe('requestRelevantFiles', () => {
       userId: mockUserId,
       repoId: mockRepoId,
       runId: mockRunId,
+      signal: new AbortController().signal,
     })
     expect(agentRuntimeImpl.promptAiSdk).toHaveBeenCalled()
   })
@@ -96,6 +97,7 @@ describe('requestRelevantFiles', () => {
       userId: mockUserId,
       repoId: mockRepoId,
       runId: mockRunId,
+      signal: new AbortController().signal,
     })
     expect(agentRuntimeImpl.promptAiSdk).toHaveBeenCalled()
   })
@@ -119,6 +121,7 @@ describe('requestRelevantFiles', () => {
       userId: mockUserId,
       repoId: mockRepoId,
       runId: mockRunId,
+      signal: new AbortController().signal,
     })
     expect(result).toBeArray()
     if (result) {
@@ -144,6 +147,7 @@ describe('requestRelevantFiles', () => {
       userId: mockUserId,
       repoId: mockRepoId,
       runId: mockRunId,
+      signal: new AbortController().signal,
     })
     expect(agentRuntimeImpl.promptAiSdk).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -170,6 +174,7 @@ describe('requestRelevantFiles', () => {
       userId: mockUserId,
       repoId: mockRepoId,
       runId: mockRunId,
+      signal: new AbortController().signal,
     })
     const expectedModel = finetunedVertexModels.ft_filepicker_010
     expect(agentRuntimeImpl.promptAiSdk).toHaveBeenCalledWith(

@@ -1,9 +1,5 @@
 import path from 'path'
 
-import {
-  checkLiveUserInput,
-  getLiveUserInputIds,
-} from '@codebuff/agent-runtime/live-user-inputs'
 import { getByokOpenrouterApiKeyFromEnv } from '../env'
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import { models, PROFIT_MARGIN } from '@codebuff/common/old-constants'
@@ -195,14 +191,11 @@ export async function* promptAiSdkStream(
   const agentChunkMetadata =
     params.agentId != null ? { agentId: params.agentId } : undefined
 
-  if (
-    !checkLiveUserInput({ ...params, clientSessionId: params.clientSessionId })
-  ) {
+  if (params.signal.aborted) {
     logger.info(
       {
         userId: params.userId,
         userInputId: params.userInputId,
-        liveUserInputId: getLiveUserInputIds(params),
       },
       'Skipping stream due to canceled user input',
     )
@@ -483,12 +476,11 @@ export async function promptAiSdk(
 ): ReturnType<PromptAiSdkFn> {
   const { logger } = params
 
-  if (!checkLiveUserInput(params)) {
+  if (params.signal.aborted) {
     logger.info(
       {
         userId: params.userId,
         userInputId: params.userInputId,
-        liveUserInputId: getLiveUserInputIds(params),
       },
       'Skipping prompt due to canceled user input',
     )
@@ -537,12 +529,11 @@ export async function promptAiSdkStructured<T>(
 ): PromptAiSdkStructuredOutput<T> {
   const { logger } = params
 
-  if (!checkLiveUserInput(params)) {
+  if (params.signal.aborted) {
     logger.info(
       {
         userId: params.userId,
         userInputId: params.userInputId,
-        liveUserInputId: getLiveUserInputIds(params),
       },
       'Skipping structured prompt due to canceled user input',
     )

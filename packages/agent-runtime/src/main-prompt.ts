@@ -1,7 +1,6 @@
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
 import { uniq } from 'lodash'
 
-import { checkLiveUserInput } from './live-user-inputs'
 import { loopAgentSteps } from './run-agent-step'
 import {
   assembleLocalAgentTemplates,
@@ -15,7 +14,6 @@ import type {
   RequestToolCallFn,
   SendActionFn,
 } from '@codebuff/common/types/contracts/client'
-import type { UserInputRecord } from '@codebuff/common/types/contracts/live-user-input'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
@@ -147,8 +145,8 @@ export async function callMainPrompt(
     action: ClientAction<'prompt'>
     promptId: string
     sendAction: SendActionFn
-    liveUserInputRecord: UserInputRecord
     logger: Logger
+    signal: AbortSignal
   } & ParamsExcluding<
     typeof mainPrompt,
     'localAgentTemplates' | 'onResponseChunk'
@@ -201,7 +199,7 @@ export async function callMainPrompt(
     ...params,
     localAgentTemplates,
     onResponseChunk: (chunk) => {
-      if (checkLiveUserInput({ ...params, userInputId: promptId })) {
+      if (!params.signal.aborted) {
         sendAction({
           action: {
             type: 'response-chunk',

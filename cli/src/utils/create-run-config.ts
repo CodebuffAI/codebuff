@@ -15,6 +15,7 @@ export type CreateRunConfigParams = {
   previousRunState: RunState | null
   agentDefinitions: AgentDefinition[]
   eventHandlerState: EventHandlerState
+  signal: AbortSignal
 }
 
 export const createRunConfig = (params: CreateRunConfigParams) => {
@@ -38,5 +39,6 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     maxAgentSteps: 100,
     handleStreamChunk: createStreamChunkHandler(eventHandlerState),
     handleEvent: createEventHandler(eventHandlerState),
+    signal: params.signal,
   }
 }

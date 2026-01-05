@@ -104,8 +104,6 @@ export const TEST_AGENT_RUNTIME_IMPL = Object.freeze<
 
   // Mutable State
   databaseAgentCache: new Map<string, AgentTemplate | null>(),
-  liveUserInputRecord: {},
-  sessionConnections: {},
 
   // Analytics
   trackEvent: () => {},

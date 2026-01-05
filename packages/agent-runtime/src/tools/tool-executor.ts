@@ -3,7 +3,6 @@ import { toolParams } from '@codebuff/common/tools/list'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 
-import { checkLiveUserInput } from '../live-user-inputs'
 import { getMCPToolData } from '../mcp'
 import { getAgentShortName } from '../templates/prompts'
 import { codebuffToolHandlers } from './handlers/list'
@@ -211,7 +210,7 @@ export function executeToolCall<T extends ToolName>(
     requestClientToolCall: (async (
       clientToolCall: ClientToolCall<T extends ClientToolName ? T : never>,
     ) => {
-      if (!checkLiveUserInput(params)) {
+      if (params.signal.aborted) {
         return []
       }
 
@@ -412,7 +411,7 @@ export async function executeCustomToolCall(
 
   return previousToolCallFinished
     .then(async () => {
-      if (!checkLiveUserInput(params)) {
+      if (params.signal.aborted) {
         return null
       }
 

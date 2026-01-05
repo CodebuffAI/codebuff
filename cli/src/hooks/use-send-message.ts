@@ -375,6 +375,7 @@ export const useSendMessage = ({
           previousRunState: previousRunStateRef.current,
           agentDefinitions,
           eventHandlerState,
+          signal: abortController.signal,
         })
 
         const runState = await client.run(runConfig)

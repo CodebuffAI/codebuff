@@ -2,7 +2,6 @@ import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-run
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { beforeEach, describe, expect, it } from 'bun:test'
 
-import { disableLiveUserInputCheck } from '../live-user-inputs'
 import { processStream } from '../tools/stream-parser'
 import { mockFileContext } from './test-utils'
 
@@ -18,7 +17,6 @@ describe('tool validation error handling', () => {
   let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
   beforeEach(() => {
-    disableLiveUserInputCheck()
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL, sendAction: () => {} }
   })
 

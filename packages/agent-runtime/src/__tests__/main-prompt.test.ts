@@ -17,8 +17,6 @@ import {
   spyOn,
 } from 'bun:test'
 
-import { disableLiveUserInputCheck } from '../live-user-inputs'
-import * as liveUserInputs from '../live-user-inputs'
 import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
 
@@ -48,10 +46,6 @@ const mockAgentStream = (chunks: StreamChunk[]) => {
 
 describe('mainPrompt', () => {
   let mockLocalAgentTemplates: Record<string, any>
-
-  beforeAll(() => {
-    disableLiveUserInputCheck()
-  })
 
   beforeEach(() => {
     // Setup common mock agent templates
@@ -167,8 +161,6 @@ describe('mainPrompt', () => {
       }),
     )
 
-    // Mock live user inputs
-    spyOn(liveUserInputs, 'checkLiveUserInput').mockImplementation(() => true)
   })
 
   afterEach(() => {

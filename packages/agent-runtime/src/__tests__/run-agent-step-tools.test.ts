@@ -8,7 +8,7 @@ import db from '@codebuff/internal/db'
 import {
   afterAll,
   afterEach,
-  beforeAll,
+
   beforeEach,
   describe,
   expect,
@@ -17,7 +17,6 @@ import {
   spyOn,
 } from 'bun:test'
 
-import { disableLiveUserInputCheck } from '../live-user-inputs'
 import { runAgentStep } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
 import { asUserMessage } from '../util/messages'
@@ -38,10 +37,6 @@ describe('runAgentStep - set_output tool', () => {
     typeof runAgentStep,
     'agentType' | 'prompt' | 'localAgentTemplates' | 'agentState' | 'agentTemplate'
   >
-
-  beforeAll(() => {
-    disableLiveUserInputCheck()
-  })
 
   beforeEach(async () => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL, sendAction: () => {} }

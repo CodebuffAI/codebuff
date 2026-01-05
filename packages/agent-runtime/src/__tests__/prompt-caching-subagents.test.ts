@@ -2,9 +2,8 @@ import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
-import { beforeEach, describe, expect, it, beforeAll } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 
-import { disableLiveUserInputCheck } from '../live-user-inputs'
 import { loopAgentSteps } from '../run-agent-step'
 
 import type { AgentTemplate } from '../templates/types'
@@ -51,10 +50,6 @@ describe('Prompt Caching for Subagents with inheritParentSystemPrompt', () => {
     | 'parentSystemPrompt'
     | 'agentTemplate'
   >
-
-  beforeAll(() => {
-    disableLiveUserInputCheck()
-  })
 
   beforeEach(() => {
     capturedMessages = []

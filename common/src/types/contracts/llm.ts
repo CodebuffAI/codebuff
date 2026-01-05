@@ -1,6 +1,5 @@
 import type { TrackEventFn } from './analytics'
 import type { SendActionFn } from './client'
-import type { CheckLiveUserInputFn } from './live-user-input'
 import type { OpenRouterProviderRoutingOptions } from '../agent-template'
 import type { ParamsExcluding } from '../function-params'
 import type { Logger } from './logger'
@@ -50,8 +49,8 @@ export type PromptAiSdkStreamFn = (
     sendAction: SendActionFn
     logger: Logger
     trackEvent: TrackEventFn
-  } & ParamsExcluding<typeof streamText, 'model' | 'messages'> &
-    ParamsExcluding<CheckLiveUserInputFn, 'clientSessionId'>,
+    signal: AbortSignal
+  } & ParamsExcluding<typeof streamText, 'model' | 'messages'>,
 ) => AsyncGenerator<StreamChunk, string | null>
 
 export type PromptAiSdkFn = (
@@ -74,8 +73,8 @@ export type PromptAiSdkFn = (
     logger: Logger
     trackEvent: TrackEventFn
     n?: number
-  } & ParamsExcluding<typeof generateText, 'model' | 'messages'> &
-    ParamsExcluding<CheckLiveUserInputFn, 'clientSessionId'>,
+    signal: AbortSignal
+  } & ParamsExcluding<typeof generateText, 'model' | 'messages'>,
 ) => Promise<string>
 
 export type PromptAiSdkStructuredInput<T> = {
@@ -100,7 +99,8 @@ export type PromptAiSdkStructuredInput<T> = {
   sendAction: SendActionFn
   logger: Logger
   trackEvent: TrackEventFn
-} & ParamsExcluding<CheckLiveUserInputFn, 'clientSessionId'>
+  signal: AbortSignal
+}
 export type PromptAiSdkStructuredOutput<T> = Promise<T>
 export type PromptAiSdkStructuredFn = <T>(
   params: PromptAiSdkStructuredInput<T>,

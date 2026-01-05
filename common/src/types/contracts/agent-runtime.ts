@@ -18,7 +18,6 @@ import type {
   GetUserInfoFromApiKeyFn,
   StartAgentRunFn,
 } from './database'
-import type { SessionRecord, UserInputRecord } from './live-user-input'
 import type {
   PromptAiSdkFn,
   PromptAiSdkStreamFn,
@@ -49,8 +48,6 @@ export type AgentRuntimeDeps = {
 
   // Mutable State
   databaseAgentCache: DatabaseAgentCache
-  liveUserInputRecord: UserInputRecord
-  sessionConnections: SessionRecord
 
   // Analytics
   trackEvent: TrackEventFn

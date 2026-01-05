@@ -21,7 +21,6 @@ import {
 } from 'bun:test'
 import { z } from 'zod/v4'
 
-import { disableLiveUserInputCheck } from '../live-user-inputs'
 import { loopAgentSteps } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
 import { createToolCallChunk, mockFileContext } from './test-utils'
@@ -38,8 +37,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
   let loopAgentStepsBaseParams: any
 
   beforeAll(async () => {
-    disableLiveUserInputCheck()
-
     // Mock bigquery
     await mockModule('@codebuff/bigquery', () => ({
       insertTrace: () => {},

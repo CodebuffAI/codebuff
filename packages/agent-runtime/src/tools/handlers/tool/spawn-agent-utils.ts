@@ -71,8 +71,6 @@ export function extractSubagentContextParams(
     promptAiSdkStructured: params.promptAiSdkStructured,
     // AgentRuntimeDeps - Mutable State
     databaseAgentCache: params.databaseAgentCache,
-    liveUserInputRecord: params.liveUserInputRecord,
-    sessionConnections: params.sessionConnections,
     // AgentRuntimeDeps - Analytics
     trackEvent: params.trackEvent,
     // AgentRuntimeDeps - Other

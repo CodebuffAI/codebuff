@@ -530,8 +530,7 @@ function buildPromptContext(apiKey: string) {
     sendAction: async () => {},
     trackEvent: async () => {},
     logger,
-    liveUserInputRecord: {},
-    sessionConnections: {},
+    signal: new AbortController().signal,
   }
 }
 

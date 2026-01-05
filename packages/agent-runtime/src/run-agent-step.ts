@@ -7,7 +7,6 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import { systemMessage, userMessage } from '@codebuff/common/util/messages'
 import { cloneDeep, mapValues } from 'lodash'
 
-import { checkLiveUserInput } from './live-user-inputs'
 import { callTokenCountAPI } from './llm-api/codebuff-web-api'
 import { getMCPToolData } from './mcp'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
@@ -35,7 +34,6 @@ import type {
   FinishAgentRunFn,
   StartAgentRunFn,
 } from '@codebuff/common/types/contracts/database'
-import type { CheckLiveUserInputFn } from '@codebuff/common/types/contracts/live-user-input'
 import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
@@ -349,6 +347,7 @@ export const runAgentStep = async (
     stream,
     onCostCalculated,
   })
+
   toolResults.push(...newToolResults)
 
   fullResponse = fullResponseAfterStream
@@ -499,7 +498,6 @@ export async function loopAgentSteps(
       typeof getMCPToolData,
       'toolNames' | 'mcpServers' | 'writeTo'
     > &
-    ParamsOf<CheckLiveUserInputFn> &
     ParamsExcluding<StartAgentRunFn, 'agentId' | 'ancestorRunIds'> &
     ParamsExcluding<
       FinishAgentRunFn,
@@ -728,17 +726,16 @@ export async function loopAgentSteps(
   try {
     while (true) {
       totalSteps++
-      if (!checkLiveUserInput(params)) {
-        logger.warn(
+      if (signal.aborted) {
+        logger.info(
           {
             userId,
             userInputId,
             clientSessionId,
             totalSteps,
             runId,
-            agentState: currentAgentState,
           },
-          'User input no longer live (likely cancelled)',
+          'Agent run cancelled by user',
         )
         break
       }
@@ -913,7 +910,7 @@ export async function loopAgentSteps(
       )
     }
 
-    const status = checkLiveUserInput(params) ? 'completed' : 'cancelled'
+    const status = signal.aborted ? 'cancelled' : 'completed'
     await finishAgentRun({
       ...params,
       runId,
@@ -956,7 +953,7 @@ export async function loopAgentSteps(
 
     const statusCode = (error as { statusCode?: number }).statusCode
 
-    const status = checkLiveUserInput(params) ? 'failed' : 'cancelled'
+    const status = signal.aborted ? 'cancelled' : 'failed'
     await finishAgentRun({
       ...params,
       runId,
