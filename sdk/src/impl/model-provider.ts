@@ -12,6 +12,7 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import {
   CLAUDE_CODE_SYSTEM_PROMPT_PREFIX,
+  CLAUDE_OAUTH_BETA_HEADERS,
   isClaudeModel,
   toAnthropicModelId,
 } from '@codebuff/common/constants/claude-oauth'
@@ -121,13 +122,7 @@ function createAnthropicOAuthModel(
       .map((b) => b.trim())
       .filter(Boolean)
     const mergedBetas = [
-      ...new Set([
-        'oauth-2025-04-20',
-        'claude-code-20250219',
-        'interleaved-thinking-2025-05-14',
-        'fine-grained-tool-streaming-2025-05-14',
-        ...betaList,
-      ]),
+      ...new Set([...CLAUDE_OAUTH_BETA_HEADERS, ...betaList]),
     ].join(',')
     headers.set('anthropic-beta', mergedBetas)
 

@@ -1,5 +1,3 @@
-import path from 'path'
-
 import { getByokOpenrouterApiKeyFromEnv } from '../env'
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import { models, PROFIT_MARGIN } from '@codebuff/common/old-constants'
