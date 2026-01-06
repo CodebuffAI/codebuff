@@ -3,7 +3,6 @@ import { describe, test, expect } from 'bun:test'
 import {
   getBannerColorLevel,
   getThresholdInfo,
-  generateUsageBannerText,
   generateLoadingBannerText,
   shouldAutoShowBanner,
 } from '../usage-banner-state'
@@ -108,55 +107,6 @@ describe('usage-banner-state', () => {
     test('indicates loading state', () => {
       const text = generateLoadingBannerText(0)
       expect(text.toLowerCase()).toContain('loading')
-    })
-  })
-
-  describe('generateUsageBannerText', () => {
-    test('always shows session usage', () => {
-      const text = generateUsageBannerText({
-        sessionCreditsUsed: 250,
-        remainingBalance: null,
-        next_quota_reset: null,
-      })
-      expect(text).toContain('250')
-    })
-
-    test('shows remaining balance when available', () => {
-      const text = generateUsageBannerText({
-        sessionCreditsUsed: 100,
-        remainingBalance: 500,
-        next_quota_reset: null,
-      })
-      expect(text).toContain('500')
-    })
-
-    test('omits balance when not available', () => {
-      const text = generateUsageBannerText({
-        sessionCreditsUsed: 100,
-        remainingBalance: null,
-        next_quota_reset: null,
-      })
-      expect(text).not.toContain('remaining')
-    })
-
-    test('shows renewal date when available', () => {
-      const text = generateUsageBannerText({
-        sessionCreditsUsed: 100,
-        remainingBalance: 500,
-        next_quota_reset: '2025-03-15T00:00:00.000Z',
-        today: new Date('2025-03-01'),
-      })
-      expect(text).toContain('Mar')
-      expect(text).toContain('15')
-    })
-
-    test('omits renewal date when not available', () => {
-      const text = generateUsageBannerText({
-        sessionCreditsUsed: 100,
-        remainingBalance: 500,
-        next_quota_reset: null,
-      })
-      expect(text.toLowerCase()).not.toContain('renew')
     })
   })
 

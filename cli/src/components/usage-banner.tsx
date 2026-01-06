@@ -10,33 +10,34 @@ import { usageQueryKeys, useUsageQuery } from '../hooks/use-usage-query'
 import { useChatStore } from '../state/chat-store'
 import {
   getBannerColorLevel,
-  generateUsageBannerText,
   generateLoadingBannerText,
 } from '../utils/usage-banner-state'
 import { WEBSITE_URL } from '../login/constants'
 import { useTheme } from '../hooks/use-theme'
 import { isClaudeOAuthValid } from '@codebuff/sdk'
 
+import { formatResetTime } from '../utils/time-format'
+
 const MANUAL_SHOW_TIMEOUT = 60 * 1000 // 1 minute
 const USAGE_POLL_INTERVAL = 30 * 1000 // 30 seconds
 
 /**
- * Format time until reset in human-readable form
+ * Format the renewal date for display
  */
-const formatResetTime = (resetDate: Date | null): string => {
-  if (!resetDate) return ''
-  const now = new Date()
-  const diffMs = resetDate.getTime() - now.getTime()
-  if (diffMs <= 0) return 'now'
-
-  const diffMins = Math.floor(diffMs / (1000 * 60))
-  const diffHours = Math.floor(diffMins / 60)
-  const remainingMins = diffMins % 60
-
-  if (diffHours > 0) {
-    return `${diffHours}h ${remainingMins}m`
-  }
-  return `${diffMins}m`
+const formatRenewalDate = (dateStr: string | null): string => {
+  if (!dateStr) return ''
+  const resetDate = new Date(dateStr)
+  const today = new Date()
+  const isToday = resetDate.toDateString() === today.toDateString()
+  return isToday
+    ? resetDate.toLocaleString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+      })
+    : resetDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      })
 }
 
 export const UsageBanner = ({ showTime }: { showTime: number }) => {
@@ -106,16 +107,8 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
   }
 
   const colorLevel = getBannerColorLevel(activeData.remainingBalance)
-
-  // Show loading indicator if refreshing data
-  const text = isLoadingData
-    ? generateLoadingBannerText(sessionCreditsUsed)
-    : generateUsageBannerText({
-        sessionCreditsUsed,
-        remainingBalance: activeData.remainingBalance,
-        next_quota_reset: activeData.next_quota_reset,
-        adCredits: activeData.balanceBreakdown?.ad,
-      })
+  const adCredits = activeData.balanceBreakdown?.ad
+  const renewalDate = activeData.next_quota_reset ? formatRenewalDate(activeData.next_quota_reset) : null
 
   return (
     <BottomBanner
@@ -123,19 +116,45 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
       onClose={() => setInputMode('default')}
     >
       <box style={{ flexDirection: 'column', gap: 0 }}>
-        {/* Codebuff credits section */}
+        {/* Codebuff credits section - structured layout */}
         <Button
           onClick={() => {
             open(WEBSITE_URL + '/usage')
           }}
         >
-          <text style={{ fg: theme.foreground }}>{text}</text>
+          <box style={{ flexDirection: 'column', gap: 0 }}>
+            {/* Main stats row */}
+            <box style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 1 }}>
+              <text style={{ fg: theme.muted }}>Session:</text>
+              <text style={{ fg: theme.foreground }}>{sessionCreditsUsed.toLocaleString()}</text>
+              <text style={{ fg: theme.muted }}>·</text>
+              <text style={{ fg: theme.muted }}>Remaining:</text>
+              {isLoadingData ? (
+                <text style={{ fg: theme.muted }}>...</text>
+              ) : (
+                <text style={{ fg: theme.foreground }}>
+                  {activeData.remainingBalance?.toLocaleString() ?? '?'}
+                </text>
+              )}
+              {adCredits != null && adCredits > 0 && (
+                <text style={{ fg: theme.muted }}>{`(${adCredits} from ads)`}</text>
+              )}
+              {renewalDate && (
+                <>
+                  <text style={{ fg: theme.muted }}>· Renews:</text>
+                  <text style={{ fg: theme.foreground }}>{renewalDate}</text>
+                </>
+              )}
+            </box>
+            {/* See more link */}
+            <text style={{ fg: theme.muted }}>↗ See more on codebuff.com</text>
+          </box>
         </Button>
 
         {/* Claude subscription section - only show if connected */}
         {isClaudeConnected && (
           <box style={{ flexDirection: 'column', marginTop: 1 }}>
-            <text style={{ fg: theme.primary }}>Claude subscription</text>
+            <text style={{ fg: theme.muted }}>Claude subscription</text>
             {isClaudeLoading ? (
               <text style={{ fg: theme.muted }}>Loading quota...</text>
             ) : claudeQuota ? (

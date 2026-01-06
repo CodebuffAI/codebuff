@@ -18,11 +18,16 @@ interface ProgressBarProps {
  */
 const getProgressColor = (
   value: number,
-  theme: { primary: string; muted: string; warning: string; error: string },
+  theme: {
+    primary: string
+    foreground: string
+    warning: string
+    error: string
+  },
 ): string => {
   if (value <= 10) return theme.error
   if (value <= 25) return theme.warning
-  return theme.muted // Use muted for normal levels
+  return theme.foreground
 }
 
 /**
@@ -63,9 +68,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
 
   return (
     <box style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
-      {label && (
-        <text style={{ fg: theme.muted }}>{label} </text>
-      )}
+      {label && <text style={{ fg: theme.muted }}>{label} </text>}
       <text style={{ fg: barColor }}>{filled}</text>
       <text style={{ fg: theme.muted }}>{empty}</text>
       {showPercentage && (

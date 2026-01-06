@@ -62,72 +62,11 @@ export function getBannerColorLevel(balance: number | null): BannerColorLevel {
   return getThresholdInfo(balance).colorLevel
 }
 
-export interface UsageBannerTextOptions {
-  sessionCreditsUsed: number
-  remainingBalance: number | null
-  next_quota_reset: string | null
-  /** Ad impression credits earned */
-  adCredits?: number
-  /** For testing purposes, allows overriding "today" */
-  today?: Date
-}
-
 /**
  * Generates loading text for the usage banner while data is being fetched.
  */
 export function generateLoadingBannerText(sessionCreditsUsed: number): string {
   return `Session usage: ${sessionCreditsUsed.toLocaleString()}. Loading credit balance...`
-}
-
-/**
- * Generates the text content for the usage banner.
- */
-export function generateUsageBannerText(
-  options: UsageBannerTextOptions,
-): string {
-  const {
-    sessionCreditsUsed,
-    remainingBalance,
-    next_quota_reset,
-    adCredits,
-    today = new Date(),
-  } = options
-
-  let text = `Session usage: ${sessionCreditsUsed.toLocaleString()}`
-
-  if (remainingBalance !== null) {
-    text += `. Credits remaining: ${remainingBalance.toLocaleString()}`
-  }
-
-  // Show ad credits earned if any
-  if (adCredits && adCredits > 0) {
-    text += ` (${adCredits.toLocaleString()} from ads)`
-  }
-
-  if (next_quota_reset) {
-    const resetDate = new Date(next_quota_reset)
-    const isToday = resetDate.toDateString() === today.toDateString()
-
-    const dateDisplay = isToday
-      ? resetDate.toLocaleString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit',
-        })
-      : resetDate.toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-        })
-
-    text += `. Free credits renew ${dateDisplay}`
-  }
-
-  text += `. See more`
-
-  return text
 }
 
 /**

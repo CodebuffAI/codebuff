@@ -2,8 +2,9 @@ import React from 'react'
 
 import { useTheme } from '../hooks/use-theme'
 
+import { formatResetTime } from '../utils/time-format'
+
 import type { ClaudeQuotaData } from '../hooks/use-claude-quota-query'
-import type { ChatTheme } from '../types/theme-system'
 
 interface BottomStatusLineProps {
   /** Whether Claude OAuth is connected */
@@ -12,23 +13,6 @@ interface BottomStatusLineProps {
   isClaudeActive: boolean
   /** Quota data from Anthropic API */
   claudeQuota?: ClaudeQuotaData | null
-}
-
-/**
- * Format remaining quota for display
- */
-const formatQuota = (remaining: number): string => {
-  const rounded = Math.round(remaining)
-  return `${rounded}%`
-}
-
-/**
- * Get color for quota percentage - only highlight when approaching limit
- */
-const getQuotaColor = (remaining: number, theme: ChatTheme): string => {
-  if (remaining <= 10) return theme.error
-  if (remaining <= 25) return theme.warning
-  return theme.muted // Use muted for normal levels - doesn't need to be salient
 }
 
 /**
@@ -52,6 +36,23 @@ export const BottomStatusLine: React.FC<BottomStatusLineProps> = ({
     ? Math.min(claudeQuota.fiveHourRemaining, claudeQuota.sevenDayRemaining)
     : null
 
+  // Check if quota is exhausted (0%)
+  const isExhausted = displayRemaining !== null && displayRemaining <= 0
+
+  // Get the reset time for the limiting quota window
+  const resetTime = claudeQuota
+    ? claudeQuota.fiveHourRemaining <= claudeQuota.sevenDayRemaining
+      ? claudeQuota.fiveHourResetsAt
+      : claudeQuota.sevenDayResetsAt
+    : null
+
+  // Determine dot color: red if exhausted, green if active, muted otherwise
+  const dotColor = isExhausted
+    ? theme.error
+    : isClaudeActive
+      ? theme.success
+      : theme.muted
+
   return (
     <box
       style={{
@@ -68,13 +69,13 @@ export const BottomStatusLine: React.FC<BottomStatusLineProps> = ({
           gap: 0,
         }}
       >
-        <text style={{ fg: isClaudeActive ? theme.success : theme.muted }}>●</text>
-        <text style={{ fg: isClaudeActive ? theme.primary : theme.muted }}> Claude subscription</text>
-        {displayRemaining !== null && (
-          <text style={{ fg: getQuotaColor(displayRemaining, theme) }}>
-            {' '}{formatQuota(displayRemaining)}
-          </text>
-        )}
+        <text style={{ fg: dotColor }}>●</text>
+        <text style={{ fg: theme.muted }}> Claude subscription</text>
+        {isExhausted && resetTime ? (
+          <text style={{ fg: theme.muted }}>{` · resets in ${formatResetTime(resetTime)}`}</text>
+        ) : displayRemaining !== null ? (
+          <text style={{ fg: theme.foreground }}>{` ${Math.round(displayRemaining)}%`}</text>
+        ) : null}
       </box>
     </box>
   )
