@@ -101,6 +101,7 @@ function getProviderOptions(params: {
 }
 
 // Usage accounting type for OpenRouter/Codebuff backend responses
+// Forked from https://github.com/OpenRouterTeam/ai-sdk-provider/
 type OpenRouterUsageAccounting = {
   cost: number | null
   costDetails: {
