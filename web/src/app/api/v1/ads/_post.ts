@@ -13,6 +13,7 @@ import type {
   LoggerWithContextFn,
 } from '@codebuff/common/types/contracts/logger'
 import type { NextRequest } from 'next/server'
+import { getErrorObject } from '@codebuff/common/util/error'
 
 const messageSchema = z.object({
   role: z.string(),
@@ -109,7 +110,7 @@ export async function postAds(params: {
     // Handle 204 No Content first (no body to parse)
     if (response.status === 204) {
       logger.debug(
-        { request: requestBody },
+        { request: requestBody, status: response.status },
         '[ads] No ad available from Gravity API',
       )
       return NextResponse.json({ ad: null }, { status: 200 })
@@ -120,7 +121,7 @@ export async function postAds(params: {
 
     if (!response.ok) {
       logger.error(
-        { request: requestBody, response: ad },
+        { request: requestBody, response: ad, status: response.status },
         '[ads] Gravity API returned error',
       )
       return NextResponse.json({ ad: null }, { status: 200 })
@@ -130,6 +131,7 @@ export async function postAds(params: {
       {
         ad,
         request: requestBody,
+        status: response.status,
       },
       '[ads] Fetched ad from Gravity API',
     )
@@ -150,7 +152,7 @@ export async function postAds(params: {
       })
 
       logger.info(
-        { userId, impUrl: ad.impUrl },
+        { userId, impUrl: ad.impUrl, status: response.status },
         '[ads] Created ad_impression record for served ad',
       )
     } catch (error) {
@@ -160,6 +162,7 @@ export async function postAds(params: {
         {
           userId,
           impUrl: ad.impUrl,
+          status: response.status,
           error:
             error instanceof Error
               ? { name: error.name, message: error.message }
@@ -177,6 +180,7 @@ export async function postAds(params: {
       {
         userId,
         messages,
+        status: 500,
         error:
           error instanceof Error
             ? { name: error.name, message: error.message }
@@ -184,6 +188,9 @@ export async function postAds(params: {
       },
       '[ads] Failed to fetch ad from Gravity API',
     )
-    return NextResponse.json({ ad: null }, { status: 200 })
+    return NextResponse.json(
+      { ad: null, error: getErrorObject(error) },
+      { status: 500 },
+    )
   }
 }
