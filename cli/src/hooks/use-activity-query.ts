@@ -107,7 +107,11 @@ function getCacheEntry<T>(key: string): CacheEntry<T> | undefined {
   return cache.entries.get(key) as CacheEntry<T> | undefined
 }
 
-function isEntryStale(key: string, staleTime: number): boolean {
+/**
+ * Check if a cache entry is stale based on staleTime.
+ * Exported for testing purposes.
+ */
+export function isEntryStale(key: string, staleTime: number): boolean {
   const entry = getCacheEntry(key)
   if (!entry) return true
   if (entry.dataUpdatedAt === 0) return true
@@ -253,6 +257,12 @@ export function useActivityQuery<T>(
   const mountedRef = useRef(true)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const wasIdleRef = useRef(false)
+  
+  // Store queryFn in a ref to avoid recreating doFetch when queryFn changes.
+  // This is critical because inline arrow functions create new references on every render,
+  // which would cause the polling interval to reset constantly.
+  const queryFnRef = useRef(queryFn)
+  queryFnRef.current = queryFn
 
   // Snapshot includes entry + isFetching (so fetch-status updates rerender correctly)
   const snap = useSyncExternalStore(
@@ -288,7 +298,8 @@ export function useActivityQuery<T>(
 
     const fetchPromise = (async () => {
       try {
-        const result = await queryFn()
+        // Use ref to get latest queryFn without including it in dependencies
+        const result = await queryFnRef.current()
 
         // If someone removed/GC'd this key while we were in-flight, don’t resurrect it.
         if (getGeneration(serializedKey) !== myGen) return
@@ -350,7 +361,7 @@ export function useActivityQuery<T>(
 
     inFlight.set(serializedKey, fetchPromise)
     await fetchPromise
-  }, [enabled, queryFn, serializedKey, retry])
+  }, [enabled, serializedKey, retry])
 
   const refetch = useCallback(async (): Promise<void> => {
     retryCounts.set(serializedKey, 0)

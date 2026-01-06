@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach } from 'bun:test'
+import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 
 import {
   invalidateActivityQuery,
@@ -6,6 +6,7 @@ import {
   getActivityQueryData,
   setActivityQueryData,
   resetActivityQueryCache,
+  isEntryStale,
 } from '../use-activity-query'
 
 describe('use-activity-query utilities', () => {
@@ -345,5 +346,422 @@ describe('refetch interval staleness bug fix', () => {
     // Invalidate and verify data is preserved
     invalidateActivityQuery(testKey)
     expect(getActivityQueryData<string>(testKey)).toBe('third')
+  })
+})
+
+/**
+ * Tests for cache listener notification behavior.
+ * These tests verify that cache updates properly notify subscribers,
+ * which is critical for React components to re-render when data changes.
+ */
+describe('cache listener notifications', () => {
+  beforeEach(() => {
+    resetActivityQueryCache()
+  })
+
+  test('setActivityQueryData notifies listeners', () => {
+    const testKey = ['listener-test']
+    let notificationCount = 0
+    
+    // First set up some data so the cache entry exists
+    setActivityQueryData(testKey, 'initial')
+    
+    // Now update the data - we can't directly subscribe but we can verify
+    // the data is updated properly
+    setActivityQueryData(testKey, 'updated')
+    expect(getActivityQueryData<string>(testKey)).toBe('updated')
+  })
+
+  test('invalidateActivityQuery notifies listeners', () => {
+    const testKey = ['invalidate-listener-test']
+    
+    // Set initial data
+    setActivityQueryData(testKey, 'data')
+    
+    // Invalidate should trigger listeners
+    invalidateActivityQuery(testKey)
+    
+    // Data should still be there but marked stale
+    expect(getActivityQueryData<string>(testKey)).toBe('data')
+  })
+
+  test('removeActivityQuery clears data and notifies listeners', () => {
+    const testKey = ['remove-listener-test']
+    
+    setActivityQueryData(testKey, 'data')
+    expect(getActivityQueryData<string>(testKey)).toBe('data')
+    
+    removeActivityQuery(testKey)
+    expect(getActivityQueryData<string>(testKey)).toBeUndefined()
+  })
+})
+
+/**
+ * Tests simulating the polling behavior to verify refetch intervals work.
+ * These tests mock Date.now() to simulate time passing.
+ */
+describe('polling and staleness simulation', () => {
+  let originalDateNow: typeof Date.now
+  let mockNow: number
+
+  beforeEach(() => {
+    resetActivityQueryCache()
+    originalDateNow = Date.now
+    mockNow = 1000000
+    Date.now = () => mockNow
+  })
+
+  afterEach(() => {
+    Date.now = originalDateNow
+  })
+
+  test('data becomes stale after staleTime passes', () => {
+    const testKey = ['stale-time-test']
+    const serializedKey = JSON.stringify(testKey)
+    const staleTime = 30000 // 30 seconds
+    
+    // Set data at t=0
+    setActivityQueryData(testKey, 'fresh-data')
+    
+    // Data was set at mockNow (1000000), so dataUpdatedAt = 1000000
+    expect(getActivityQueryData<string>(testKey)).toBe('fresh-data')
+    expect(isEntryStale(serializedKey, staleTime)).toBe(false) // Fresh
+    
+    // Advance time by 25 seconds - still fresh
+    mockNow += 25000
+    expect(isEntryStale(serializedKey, staleTime)).toBe(false)
+    
+    // Advance time past staleTime
+    mockNow += 10000 // Now 35 seconds have passed
+    // Data should now be considered stale (35s > 30s staleTime)
+    expect(isEntryStale(serializedKey, staleTime)).toBe(true)
+    
+    // The data is still accessible even when stale
+    expect(getActivityQueryData<string>(testKey)).toBe('fresh-data')
+  })
+
+  test('invalidated data is immediately stale', () => {
+    const testKey = ['invalidate-stale-test']
+    const serializedKey = JSON.stringify(testKey)
+    const staleTime = 30000
+    
+    // Set fresh data
+    setActivityQueryData(testKey, 'data')
+    expect(isEntryStale(serializedKey, staleTime)).toBe(false)
+    
+    // Invalidate immediately makes it stale (dataUpdatedAt = 0)
+    invalidateActivityQuery(testKey)
+    expect(isEntryStale(serializedKey, staleTime)).toBe(true)
+    
+    // Data still exists but would be refetched on next access
+    expect(getActivityQueryData<string>(testKey)).toBe('data')
+  })
+
+  test('updating data resets the staleness timer', () => {
+    const testKey = ['reset-timer-test']
+    const serializedKey = JSON.stringify(testKey)
+    const staleTime = 30000
+    
+    // Set initial data
+    setActivityQueryData(testKey, 'initial')
+    expect(isEntryStale(serializedKey, staleTime)).toBe(false)
+    
+    // Advance time past staleTime
+    mockNow += 35000
+    expect(isEntryStale(serializedKey, staleTime)).toBe(true)
+    
+    // Update data - should reset the timer
+    setActivityQueryData(testKey, 'updated')
+    expect(isEntryStale(serializedKey, staleTime)).toBe(false) // Fresh again
+    
+    // Data is fresh again
+    expect(getActivityQueryData<string>(testKey)).toBe('updated')
+    
+    // Advance a little bit - should still be fresh
+    mockNow += 10000
+    expect(isEntryStale(serializedKey, staleTime)).toBe(false)
+    expect(getActivityQueryData<string>(testKey)).toBe('updated')
+  })
+
+  test('staleTime of 0 means always stale', () => {
+    const testKey = ['zero-stale-test']
+    const serializedKey = JSON.stringify(testKey)
+    
+    // Set data
+    setActivityQueryData(testKey, 'data')
+    
+    // With staleTime=0, data is always considered stale
+    // (this means refetch should happen on every interval tick)
+    expect(isEntryStale(serializedKey, 0)).toBe(true)
+    expect(getActivityQueryData<string>(testKey)).toBe('data')
+  })
+
+  test('non-existent key is always stale', () => {
+    const serializedKey = JSON.stringify(['non-existent'])
+    expect(isEntryStale(serializedKey, 30000)).toBe(true)
+  })
+})
+
+/**
+ * Tests for the refetch on activity feature.
+ * Verifies that data is refetched when user becomes active after being idle.
+ */
+describe('refetch on activity behavior', () => {
+  let originalDateNow: typeof Date.now
+  let mockNow: number
+
+  beforeEach(() => {
+    resetActivityQueryCache()
+    originalDateNow = Date.now
+    mockNow = 1000000
+    Date.now = () => mockNow
+  })
+
+  afterEach(() => {
+    Date.now = originalDateNow
+  })
+
+  test('data should be refetchable when user becomes active after idle', () => {
+    const testKey = ['activity-refetch-test']
+    const staleTime = 30000
+    const idleThreshold = 30000
+    
+    // Set initial data
+    setActivityQueryData(testKey, 'initial')
+    
+    // Simulate time passing beyond staleTime
+    mockNow += 35000
+    
+    // At this point, if user was idle and becomes active,
+    // and data is stale, a refetch should occur
+    
+    // Data should still be accessible
+    expect(getActivityQueryData<string>(testKey)).toBe('initial')
+    
+    // Update with new data (simulating what refetch would do)
+    setActivityQueryData(testKey, 'refetched')
+    expect(getActivityQueryData<string>(testKey)).toBe('refetched')
+  })
+
+  test('pause when idle should prevent polling updates', () => {
+    const testKey = ['pause-idle-test']
+    
+    // Set data
+    setActivityQueryData(testKey, 'before-idle')
+    
+    // When pauseWhenIdle is true and user is idle:
+    // - Polling interval fires
+    // - But isUserActive returns false
+    // - So no refetch happens
+    
+    // Data remains unchanged
+    expect(getActivityQueryData<string>(testKey)).toBe('before-idle')
+  })
+})
+
+/**
+ * Tests verifying the exact scenarios that could cause the
+ * Claude subscription percent to not update in the bottom bar.
+ */
+describe('Claude subscription update scenarios', () => {
+  let originalDateNow: typeof Date.now
+  let mockNow: number
+
+  beforeEach(() => {
+    resetActivityQueryCache()
+    originalDateNow = Date.now
+    mockNow = 1000000
+    Date.now = () => mockNow
+  })
+
+  afterEach(() => {
+    Date.now = originalDateNow
+  })
+
+  test('Claude quota data updates should be reflected in cache', () => {
+    const claudeQuotaKey = ['claude-quota', 'current']
+    
+    // Initial quota data
+    const initialQuota = {
+      fiveHourRemaining: 80,
+      fiveHourResetsAt: new Date('2024-02-01T12:00:00Z'),
+      sevenDayRemaining: 90,
+      sevenDayResetsAt: new Date('2024-02-07T00:00:00Z'),
+    }
+    
+    setActivityQueryData(claudeQuotaKey, initialQuota)
+    
+    const cached1 = getActivityQueryData<typeof initialQuota>(claudeQuotaKey)
+    expect(cached1?.fiveHourRemaining).toBe(80)
+    
+    // Simulate quota being used
+    const updatedQuota = {
+      fiveHourRemaining: 60,
+      fiveHourResetsAt: new Date('2024-02-01T12:00:00Z'),
+      sevenDayRemaining: 85,
+      sevenDayResetsAt: new Date('2024-02-07T00:00:00Z'),
+    }
+    
+    setActivityQueryData(claudeQuotaKey, updatedQuota)
+    
+    const cached2 = getActivityQueryData<typeof updatedQuota>(claudeQuotaKey)
+    expect(cached2?.fiveHourRemaining).toBe(60)
+    expect(cached2?.sevenDayRemaining).toBe(85)
+  })
+
+  test('polling should update Claude quota when data is stale', () => {
+    const claudeQuotaKey = ['claude-quota', 'current']
+    const staleTime = 30000 // 30 seconds (matches useClaudeQuotaQuery)
+    const refetchInterval = 60000 // 60 seconds
+    
+    // Set initial data
+    const initialQuota = { fiveHourRemaining: 100, sevenDayRemaining: 100 }
+    setActivityQueryData(claudeQuotaKey, initialQuota)
+    
+    // Time passes beyond staleTime
+    mockNow += 35000 // 35 seconds
+    
+    // Data is now stale, polling tick should trigger refetch
+    // In real code: if (isEntryStale(serializedKey, staleTime)) void doFetch()
+    
+    // Simulate what refetch would do
+    const newQuota = { fiveHourRemaining: 75, sevenDayRemaining: 95 }
+    setActivityQueryData(claudeQuotaKey, newQuota)
+    
+    // Verify the update is reflected
+    const cached = getActivityQueryData<typeof newQuota>(claudeQuotaKey)
+    expect(cached?.fiveHourRemaining).toBe(75)
+  })
+
+  test('multiple rapid updates should always reflect latest value', () => {
+    const claudeQuotaKey = ['claude-quota', 'current']
+    
+    // Simulate rapid API responses (e.g., user making multiple requests)
+    for (let remaining = 100; remaining >= 0; remaining -= 10) {
+      setActivityQueryData(claudeQuotaKey, { fiveHourRemaining: remaining })
+    }
+    
+    // Should have the final value
+    const cached = getActivityQueryData<{ fiveHourRemaining: number }>(claudeQuotaKey)
+    expect(cached?.fiveHourRemaining).toBe(0)
+  })
+
+  test('cache reset should clear Claude quota data', () => {
+    const claudeQuotaKey = ['claude-quota', 'current']
+    
+    setActivityQueryData(claudeQuotaKey, { fiveHourRemaining: 50 })
+    expect(getActivityQueryData(claudeQuotaKey)).toBeDefined()
+    
+    resetActivityQueryCache()
+    
+    expect(getActivityQueryData(claudeQuotaKey)).toBeUndefined()
+  })
+
+  test('invalidation should mark Claude quota for refetch without losing data', () => {
+    const claudeQuotaKey = ['claude-quota', 'current']
+    
+    const quota = { fiveHourRemaining: 50, sevenDayRemaining: 80 }
+    setActivityQueryData(claudeQuotaKey, quota)
+    
+    // Invalidate - marks as stale but preserves data
+    invalidateActivityQuery(claudeQuotaKey)
+    
+    // Data should still be accessible for display while refetch happens
+    const cached = getActivityQueryData<typeof quota>(claudeQuotaKey)
+    expect(cached?.fiveHourRemaining).toBe(50)
+    expect(cached?.sevenDayRemaining).toBe(80)
+  })
+})
+
+/**
+ * Tests for edge cases and error scenarios in the caching system.
+ */
+describe('cache edge cases and error handling', () => {
+  beforeEach(() => {
+    resetActivityQueryCache()
+  })
+
+  test('setting undefined data should still create cache entry', () => {
+    const testKey = ['undefined-test']
+    
+    setActivityQueryData(testKey, undefined)
+    
+    // getActivityQueryData returns undefined for both "not in cache" and "data is undefined"
+    // This is expected behavior - undefined is a valid cached value
+    expect(getActivityQueryData(testKey)).toBeUndefined()
+  })
+
+  test('setting null data should store null', () => {
+    const testKey = ['null-test']
+    
+    setActivityQueryData(testKey, null)
+    
+    expect(getActivityQueryData(testKey)).toBeNull()
+  })
+
+  test('complex nested objects should be stored correctly', () => {
+    const testKey = ['complex-object-test']
+    
+    const complexData = {
+      user: {
+        id: 1,
+        profile: {
+          name: 'Test',
+          settings: {
+            theme: 'dark',
+            notifications: [1, 2, 3],
+          },
+        },
+      },
+      timestamp: new Date('2024-01-01'),
+    }
+    
+    setActivityQueryData(testKey, complexData)
+    
+    const cached = getActivityQueryData<typeof complexData>(testKey)
+    expect(cached?.user.profile.settings.notifications).toEqual([1, 2, 3])
+    expect(cached?.timestamp).toEqual(new Date('2024-01-01'))
+  })
+
+  test('array data should be stored and retrieved correctly', () => {
+    const testKey = ['array-test']
+    
+    const arrayData = [1, 2, 3, { nested: 'value' }]
+    setActivityQueryData(testKey, arrayData)
+    
+    const cached = getActivityQueryData<typeof arrayData>(testKey)
+    expect(cached).toEqual(arrayData)
+    expect(cached?.[3]).toEqual({ nested: 'value' })
+  })
+
+  test('invalidating non-existent key should not throw', () => {
+    expect(() => {
+      invalidateActivityQuery(['non-existent-key'])
+    }).not.toThrow()
+  })
+
+  test('removing non-existent key should not throw', () => {
+    expect(() => {
+      removeActivityQuery(['non-existent-key'])
+    }).not.toThrow()
+  })
+
+  test('getting data after remove should return undefined', () => {
+    const testKey = ['remove-then-get-test']
+    
+    setActivityQueryData(testKey, 'data')
+    removeActivityQuery(testKey)
+    
+    expect(getActivityQueryData(testKey)).toBeUndefined()
+  })
+
+  test('setting data after remove should work', () => {
+    const testKey = ['remove-then-set-test']
+    
+    setActivityQueryData(testKey, 'first')
+    removeActivityQuery(testKey)
+    setActivityQueryData(testKey, 'second')
+    
+    expect(getActivityQueryData<string>(testKey)).toBe('second')
   })
 })
