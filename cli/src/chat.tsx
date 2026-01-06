@@ -1363,13 +1363,8 @@ export const Chat = ({
     isAskUserActive: askUserState !== null,
   })
   const hasStatusIndicatorContent = statusIndicatorState.kind !== 'idle'
-  
-  // Check if Claude OAuth is active for the current agent mode
-  const isClaudeOAuthActive = useMemo(() => {
-    const status = getClaudeOAuthStatus()
-    // When connected, Claude OAuth is active for Claude models
-    return status.connected
-  }, [inputMode]) // Re-check when input mode changes (e.g., after /connect:claude)
+
+  const isClaudeOAuthActive = getClaudeOAuthStatus().connected
 
   // Fetch Claude quota when OAuth is active
   const { data: claudeQuota } = useClaudeQuotaQuery({
