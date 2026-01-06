@@ -229,13 +229,9 @@ describe('setupStreamingContext', () => {
 })
 
 describe('handleRunError', () => {
-  let mockInvalidateQueries: ReturnType<typeof mock>
-  let mockQueryClient: { invalidateQueries: ReturnType<typeof mock> }
   let originalGetState: typeof useChatStore.getState
 
   beforeEach(() => {
-    mockInvalidateQueries = mock(() => {})
-    mockQueryClient = { invalidateQueries: mockInvalidateQueries }
     originalGetState = useChatStore.getState
   })
 
@@ -281,7 +277,6 @@ describe('handleRunError', () => {
       updateChainInProgress: (value: boolean) => {
         chainInProgress = value
       },
-      queryClient: mockQueryClient as any,
     })
 
     // Flush the batched updates
@@ -332,7 +327,6 @@ describe('handleRunError', () => {
       setStreamStatus: () => {},
       setCanProcessQueue: () => {},
       updateChainInProgress: () => {},
-      queryClient: mockQueryClient as any,
     })
 
     updater.flush()
@@ -343,7 +337,7 @@ describe('handleRunError', () => {
     expect(aiMessage!.isComplete).toBe(true)
   })
 
-  test('does not invalidate queries for regular errors', () => {
+  test('handles regular errors without switching input mode', () => {
     let messages: ChatMessage[] = [
       {
         id: 'ai-1',
@@ -359,6 +353,12 @@ describe('handleRunError', () => {
       messages = fn(messages)
     })
 
+    const setInputModeMock = mock(() => {})
+    useChatStore.getState = () => ({
+      ...originalGetState(),
+      setInputMode: setInputModeMock,
+    })
+
     handleRunError({
       error: new Error('Regular error'),
       aiMessageId: 'ai-1',
@@ -368,11 +368,10 @@ describe('handleRunError', () => {
       setStreamStatus: () => {},
       setCanProcessQueue: () => {},
       updateChainInProgress: () => {},
-      queryClient: mockQueryClient as any,
     })
 
-    // Should NOT invalidate queries for regular errors
-    expect(mockInvalidateQueries).not.toHaveBeenCalled()
+    // Should NOT switch input mode for regular errors
+    expect(setInputModeMock).not.toHaveBeenCalled()
   })
 
   test('Payment required error (402) uses setError, invalidates queries, and switches input mode', () => {
@@ -408,7 +407,6 @@ describe('handleRunError', () => {
       setStreamStatus: () => {},
       setCanProcessQueue: () => {},
       updateChainInProgress: () => {},
-      queryClient: mockQueryClient as any,
     })
 
     const aiMessage = messages.find((m) => m.id === 'ai-1')
@@ -424,9 +422,7 @@ describe('handleRunError', () => {
     // Message should be marked complete
     expect(aiMessage!.isComplete).toBe(true)
 
-    // Should invalidate queries for payment errors
-    expect(mockInvalidateQueries).toHaveBeenCalled()
-    // Input mode should switch to usage
+    // Input mode should switch to outOfCredits
     expect(setInputModeMock).toHaveBeenCalledWith('outOfCredits')
 
     // Timer should still be stopped with error

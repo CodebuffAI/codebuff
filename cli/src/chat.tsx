@@ -79,6 +79,7 @@ import { getClaudeOAuthStatus } from './utils/claude-oauth'
 import { createPasteHandler } from './utils/strings'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
+import { reportActivity } from './utils/activity-tracker'
 
 import type { CommandResult } from './commands/command-registry'
 import type { MultilineInputHandle } from './components/multiline-input'
@@ -249,7 +250,7 @@ export const Chat = ({
 
   const isConnected = useConnectionStatus(handleReconnection)
   const mainAgentTimer = useElapsedTime()
-  const { ad, reportActivity } = useGravityAd()
+  const { ad } = useGravityAd()
   const timerStartTime = mainAgentTimer.startTime
 
   // Set initial mode from CLI flag on mount
@@ -912,7 +913,7 @@ export const Chat = ({
       lastReportedActivityRef.current = now
       reportActivity()
     }
-  }, [inputValue, reportActivity])
+  }, [inputValue])
   useEffect(() => {
     cursorPositionRef.current = cursorPosition
   }, [cursorPosition])
@@ -989,13 +990,7 @@ export const Chat = ({
     reportActivity()
     const result = await onSubmitPrompt(inputValue, agentMode)
     handleCommandResult(result)
-  }, [
-    onSubmitPrompt,
-    inputValue,
-    agentMode,
-    handleCommandResult,
-    reportActivity,
-  ])
+  }, [onSubmitPrompt, inputValue, agentMode, handleCommandResult])
 
   const totalMentionMatches = agentMatches.length + fileMatches.length
   const historyNavUpEnabled =
@@ -1404,7 +1399,7 @@ export const Chat = ({
       lastMouseActivityRef.current = now
       reportActivity()
     }
-  }, [reportActivity])
+  }, [])
 
   return (
     <box

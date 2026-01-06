@@ -1,7 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
-
 import { getClaudeOAuthCredentials, isClaudeOAuthValid } from '@codebuff/sdk'
 
+import { useActivityQuery } from './use-activity-query'
 import { logger as defaultLogger } from '../utils/logger'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -85,24 +84,34 @@ export async function fetchClaudeQuota(
 export interface UseClaudeQuotaQueryDeps {
   logger?: Logger
   enabled?: boolean
-  /** Refetch interval in milliseconds (default: 60 seconds) */
+  /** Refetch interval in milliseconds */
   refetchInterval?: number | false
+  /** Refetch stale data when user becomes active after being idle */
+  refetchOnActivity?: boolean
+  /** Pause polling when user is idle */
+  pauseWhenIdle?: boolean
+  /** Time in ms to consider user idle (default: 30 seconds) */
+  idleThreshold?: number
 }
 
 /**
  * Hook to fetch Claude OAuth quota data from Anthropic API
  * Only fetches when Claude OAuth is connected and valid
+ * Uses the activity-aware query hook for terminal-specific optimizations
  */
 export function useClaudeQuotaQuery(deps: UseClaudeQuotaQueryDeps = {}) {
   const {
     logger = defaultLogger,
     enabled = true,
-    refetchInterval = 120 * 1000, // Default: refetch every 120 seconds
+    refetchInterval = 60 * 1000,
+    refetchOnActivity = true,
+    pauseWhenIdle = true,
+    idleThreshold = 30_000,
   } = deps
 
   const isConnected = isClaudeOAuthValid()
 
-  return useQuery({
+  return useActivityQuery({
     queryKey: claudeQuotaQueryKeys.current(),
     queryFn: () => {
       // Get credentials inside queryFn to avoid stale closures
@@ -117,9 +126,9 @@ export function useClaudeQuotaQuery(deps: UseClaudeQuotaQueryDeps = {}) {
     gcTime: 5 * 60 * 1000, // 5 minutes
     retry: 1, // Only retry once on failure
     refetchOnMount: true,
-    refetchOnWindowFocus: false, // CLI doesn't have window focus
-    refetchOnReconnect: false,
     refetchInterval,
-    refetchIntervalInBackground: true, // Required for terminal environments
+    refetchOnActivity,
+    pauseWhenIdle,
+    idleThreshold,
   })
 }

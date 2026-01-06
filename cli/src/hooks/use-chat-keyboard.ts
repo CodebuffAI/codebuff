@@ -1,8 +1,9 @@
 import { useKeyboard } from '@opentui/react'
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 
 import { hasClipboardImage, readClipboardText, readClipboardImageFilePath, getImageFilePathFromText } from '../utils/clipboard-image'
 import { getProjectRoot } from '../project-files'
+import { reportActivity } from '../utils/activity-tracker'
 import {
   resolveChatKeyboardAction,
   type ChatKeyboardState,
@@ -11,6 +12,8 @@ import {
 
 import type { KeyEvent } from '@opentui/core'
 
+// Throttle interval for keyboard activity reporting (ms)
+const KEYBOARD_ACTIVITY_THROTTLE_MS = 1000
 
 /**
  * Handlers for chat keyboard actions.
@@ -256,10 +259,19 @@ export function useChatKeyboard({
   handlers,
   disabled = false,
 }: UseChatKeyboardOptions): void {
+  const lastKeyboardActivityRef = useRef<number>(0)
+
   useKeyboard(
     useCallback(
       (key: KeyEvent) => {
         if (disabled) return
+
+        // Report keyboard activity for activity-aware features (throttled)
+        const now = Date.now()
+        if (now - lastKeyboardActivityRef.current > KEYBOARD_ACTIVITY_THROTTLE_MS) {
+          lastKeyboardActivityRef.current = now
+          reportActivity()
+        }
 
         const action = resolveChatKeyboardAction(key, state)
         const handled = dispatchAction(action, handlers)

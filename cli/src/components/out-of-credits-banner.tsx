@@ -1,6 +1,6 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
 import React, { useEffect, useState } from 'react'
 
+import { getActivityQueryData } from '../hooks/use-activity-query'
 import { usageQueryKeys, useUsageQuery } from '../hooks/use-usage-query'
 import { useChatStore } from '../state/chat-store'
 import { useTheme } from '../hooks/use-theme'
@@ -16,35 +16,25 @@ export const areCreditsRestored = () => creditsRestoredGlobal
 
 export const OutOfCreditsBanner = () => {
   const sessionCreditsUsed = useChatStore((state) => state.sessionCreditsUsed)
-  const queryClient = useQueryClient()
   const [creditsRestored, setCreditsRestored] = useState(false)
 
   const { data: apiData } = useUsageQuery({
     enabled: true,
+    refetchInterval: CREDIT_POLL_INTERVAL,
   })
 
-  const { data: cachedUsageData } = useQuery<{
+  // Get cached data for immediate display
+  const cachedUsageData = getActivityQueryData<{
     type: 'usage-response'
     usage: number
     remainingBalance: number | null
     balanceBreakdown?: { free: number; paid: number; ad?: number }
     next_quota_reset: string | null
-  }>({
-    queryKey: usageQueryKeys.current(),
-    enabled: false,
-  })
+  }>(usageQueryKeys.current())
 
   const theme = useTheme()
   const activeData = apiData || cachedUsageData
   const remainingBalance = activeData?.remainingBalance ?? 0
-
-  // Poll for credit updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      queryClient.invalidateQueries({ queryKey: usageQueryKeys.current() })
-    }, CREDIT_POLL_INTERVAL)
-    return () => clearInterval(interval)
-  }, [queryClient])
 
   // Track if we've confirmed the zero-balance state to avoid false positives from stale cache
   const [confirmedZeroBalance, setConfirmedZeroBalance] = useState(false)

@@ -1,10 +1,10 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
 import React, { useEffect } from 'react'
 import open from 'open'
 
 import { BottomBanner } from './bottom-banner'
 import { Button } from './button'
 import { ProgressBar } from './progress-bar'
+import { getActivityQueryData } from '../hooks/use-activity-query'
 import { useClaudeQuotaQuery } from '../hooks/use-claude-quota-query'
 import { usageQueryKeys, useUsageQuery } from '../hooks/use-usage-query'
 import { useChatStore } from '../state/chat-store'
@@ -41,7 +41,6 @@ const formatRenewalDate = (dateStr: string | null): string => {
 }
 
 export const UsageBanner = ({ showTime }: { showTime: number }) => {
-  const queryClient = useQueryClient()
   const sessionCreditsUsed = useChatStore((state) => state.sessionCreditsUsed)
   const setInputMode = useChatStore((state) => state.setInputMode)
 
@@ -60,27 +59,17 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
     isFetching,
   } = useUsageQuery({
     enabled: true,
+    refetchInterval: USAGE_POLL_INTERVAL,
   })
 
-  // Manual polling using setInterval - TanStack Query's refetchInterval doesn't work
-  // reliably in terminal environments even with focusManager configuration
-  useEffect(() => {
-    const interval = setInterval(() => {
-      queryClient.invalidateQueries({ queryKey: usageQueryKeys.current() })
-    }, USAGE_POLL_INTERVAL)
-    return () => clearInterval(interval)
-  }, [queryClient])
-
-  const { data: cachedUsageData } = useQuery<{
+  // Get cached data for immediate display
+  const cachedUsageData = getActivityQueryData<{
     type: 'usage-response'
     usage: number
     remainingBalance: number | null
     balanceBreakdown?: { free: number; paid: number; ad?: number }
     next_quota_reset: string | null
-  }>({
-    queryKey: usageQueryKeys.current(),
-    enabled: false,
-  })
+  }>(usageQueryKeys.current())
 
   // Auto-hide after timeout
   useEffect(() => {

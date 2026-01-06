@@ -1,6 +1,7 @@
 import { env } from '@codebuff/common/env'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useCallback } from 'react'
 
+import { invalidateActivityQuery, useActivityQuery } from './use-activity-query'
 import { getAuthToken } from '../utils/auth'
 import { logger as defaultLogger } from '../utils/logger'
 
@@ -74,23 +75,30 @@ export interface UseUsageQueryDeps {
   logger?: Logger
   enabled?: boolean
   refetchInterval?: number | false
-  refetchIntervalInBackground?: boolean
+  /** Refetch stale data when user becomes active after being idle */
+  refetchOnActivity?: boolean
+  /** Pause polling when user is idle */
+  pauseWhenIdle?: boolean
+  /** Time in ms to consider user idle (default: 30 seconds) */
+  idleThreshold?: number
 }
 
 /**
  * Hook to fetch usage data from the API
- * Returns TanStack Query result directly - no store synchronization needed
+ * Uses the activity-aware query hook for terminal-specific optimizations
  */
 export function useUsageQuery(deps: UseUsageQueryDeps = {}) {
-  const { 
-    logger = defaultLogger, 
-    enabled = true, 
+  const {
+    logger = defaultLogger,
+    enabled = true,
     refetchInterval = false,
-    refetchIntervalInBackground = false,
+    refetchOnActivity = false,
+    pauseWhenIdle = true,
+    idleThreshold = 30_000,
   } = deps
   const authToken = getAuthToken()
 
-  return useQuery({
+  return useActivityQuery({
     queryKey: usageQueryKeys.current(),
     queryFn: () => fetchUsageData({ authToken: authToken!, logger }),
     enabled: enabled && !!authToken,
@@ -98,10 +106,10 @@ export function useUsageQuery(deps: UseUsageQueryDeps = {}) {
     gcTime: 5 * 60 * 1000, // 5 minutes
     retry: false, // Don't retry failed usage queries
     refetchOnMount: 'always', // Always refetch on mount to get fresh data when banner opens
-    refetchOnWindowFocus: false, // CLI doesn't have window focus
-    refetchOnReconnect: false, // Don't auto-refetch on reconnect
     refetchInterval, // Poll at specified interval (when banner is visible)
-    refetchIntervalInBackground, // Required for terminal environments without browser visibility API
+    refetchOnActivity,
+    pauseWhenIdle,
+    idleThreshold,
   })
 }
 
@@ -109,9 +117,7 @@ export function useUsageQuery(deps: UseUsageQueryDeps = {}) {
  * Hook to manually trigger a usage data refresh
  */
 export function useRefreshUsage() {
-  const queryClient = useQueryClient()
-
-  return () => {
-    queryClient.invalidateQueries({ queryKey: usageQueryKeys.current() })
-  }
+  return useCallback(() => {
+    invalidateActivityQuery(usageQueryKeys.current())
+  }, [])
 }
