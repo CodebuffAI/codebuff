@@ -74,7 +74,16 @@ export const BottomStatusLine: React.FC<BottomStatusLineProps> = ({
         {isExhausted && resetTime ? (
           <text style={{ fg: theme.muted }}>{` · resets in ${formatResetTime(resetTime)}`}</text>
         ) : displayRemaining !== null ? (
-          <text style={{ fg: theme.foreground }}>{` ${Math.round(displayRemaining)}%`}</text>
+          <text
+            style={{
+              fg:
+                displayRemaining <= 10
+                  ? theme.error
+                  : displayRemaining <= 25
+                    ? theme.warning
+                    : theme.muted,
+            }}
+          >{` ${Math.round(displayRemaining)}%`}</text>
         ) : null}
       </box>
     </box>
