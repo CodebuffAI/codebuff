@@ -3,6 +3,9 @@ import React, { useEffect } from 'react'
 import open from 'open'
 
 import { BottomBanner } from './bottom-banner'
+import { Button } from './button'
+import { ProgressBar } from './progress-bar'
+import { useClaudeQuotaQuery } from '../hooks/use-claude-quota-query'
 import { usageQueryKeys, useUsageQuery } from '../hooks/use-usage-query'
 import { useChatStore } from '../state/chat-store'
 import {
@@ -12,15 +15,43 @@ import {
 } from '../utils/usage-banner-state'
 import { WEBSITE_URL } from '../login/constants'
 import { useTheme } from '../hooks/use-theme'
-import { Button } from './button'
+import { isClaudeOAuthValid } from '@codebuff/sdk'
 
 const MANUAL_SHOW_TIMEOUT = 60 * 1000 // 1 minute
 const USAGE_POLL_INTERVAL = 30 * 1000 // 30 seconds
+
+/**
+ * Format time until reset in human-readable form
+ */
+const formatResetTime = (resetDate: Date | null): string => {
+  if (!resetDate) return ''
+  const now = new Date()
+  const diffMs = resetDate.getTime() - now.getTime()
+  if (diffMs <= 0) return 'now'
+
+  const diffMins = Math.floor(diffMs / (1000 * 60))
+  const diffHours = Math.floor(diffMins / 60)
+  const remainingMins = diffMins % 60
+
+  if (diffHours > 0) {
+    return `${diffHours}h ${remainingMins}m`
+  }
+  return `${diffMins}m`
+}
 
 export const UsageBanner = ({ showTime }: { showTime: number }) => {
   const queryClient = useQueryClient()
   const sessionCreditsUsed = useChatStore((state) => state.sessionCreditsUsed)
   const setInputMode = useChatStore((state) => state.setInputMode)
+
+  // Check if Claude OAuth is connected
+  const isClaudeConnected = isClaudeOAuthValid()
+
+  // Fetch Claude quota data if connected
+  const { data: claudeQuota, isLoading: isClaudeLoading } = useClaudeQuotaQuery({
+    enabled: isClaudeConnected,
+    refetchInterval: 30 * 1000, // Refresh every 30 seconds when banner is open
+  })
 
   const {
     data: apiData,
@@ -91,13 +122,50 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
       borderColorKey={isLoadingData ? 'muted' : colorLevel}
       onClose={() => setInputMode('default')}
     >
-      <Button
-        onClick={() => {
-          open(WEBSITE_URL + '/usage')
-        }}
-      >
-        <text style={{ fg: theme.foreground }}>{text}</text>
-      </Button>
+      <box style={{ flexDirection: 'column', gap: 0 }}>
+        {/* Codebuff credits section */}
+        <Button
+          onClick={() => {
+            open(WEBSITE_URL + '/usage')
+          }}
+        >
+          <text style={{ fg: theme.foreground }}>{text}</text>
+        </Button>
+
+        {/* Claude subscription section - only show if connected */}
+        {isClaudeConnected && (
+          <box style={{ flexDirection: 'column', marginTop: 1 }}>
+            <text style={{ fg: theme.primary }}>Claude subscription</text>
+            {isClaudeLoading ? (
+              <text style={{ fg: theme.muted }}>Loading quota...</text>
+            ) : claudeQuota ? (
+              <box style={{ flexDirection: 'column', gap: 0 }}>
+                <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
+                  <text style={{ fg: theme.muted }}>5-hour:</text>
+                  <ProgressBar value={claudeQuota.fiveHourRemaining} width={15} />
+                  {claudeQuota.fiveHourResetsAt && (
+                    <text style={{ fg: theme.muted }}>
+                      (resets in {formatResetTime(claudeQuota.fiveHourResetsAt)})
+                    </text>
+                  )}
+                </box>
+                {/* Only show 7-day bar if the user has a 7-day limit */}
+                {claudeQuota.sevenDayResetsAt && (
+                  <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
+                    <text style={{ fg: theme.muted }}>7-day: </text>
+                    <ProgressBar value={claudeQuota.sevenDayRemaining} width={15} />
+                    <text style={{ fg: theme.muted }}>
+                      (resets in {formatResetTime(claudeQuota.sevenDayResetsAt)})
+                    </text>
+                  </box>
+                )}
+              </box>
+            ) : (
+              <text style={{ fg: theme.muted }}>Unable to fetch quota</text>
+            )}
+          </box>
+        )}
+      </box>
     </BottomBanner>
   )
 }
