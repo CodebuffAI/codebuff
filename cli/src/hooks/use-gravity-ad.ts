@@ -34,7 +34,7 @@ export type GravityAdState = {
  * - Ads rotate every 60 seconds
  * - After 3 ads without user activity, rotation stops
  * - Any user activity resets the counter and resumes rotation
- * 
+ *
  * Activity is tracked via the global activity-tracker module.
  */
 export const useGravityAd = (): GravityAdState => {
@@ -145,6 +145,17 @@ export const useGravityAd = (): GravityAdState => {
       }
     }
 
+    const userAdMessages = adMessages
+      .filter((message) => message.role === 'user')
+      .slice(-3)
+      .map((message) => ({
+        role: message.role,
+        content: message.content.replace(
+          /<user_message>(.*?)<\/user_message>/,
+          '$1',
+        ),
+      }))
+
     try {
       const response = await fetch(`${WEBSITE_URL}/api/v1/ads`, {
         method: 'POST',
@@ -152,7 +163,7 @@ export const useGravityAd = (): GravityAdState => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
         },
-        body: JSON.stringify({ messages: adMessages }),
+        body: JSON.stringify({ messages: userAdMessages }),
       })
 
       if (!response.ok) {
@@ -167,7 +178,7 @@ export const useGravityAd = (): GravityAdState => {
       const ad = data.ad as AdResponse | null
 
       logger.info(
-        { ad, request: { messages: adMessages } },
+        { ad, request: { messages: userAdMessages } },
         '[gravity] Received ad response',
       )
       return ad
@@ -226,7 +237,7 @@ export const useGravityAd = (): GravityAdState => {
   // Subscribe to global activity tracker
   useEffect(() => {
     if (!getAdsEnabled()) return
-    
+
     const unsubscribe = subscribeToActivity(handleActivity)
     return unsubscribe
   }, [handleActivity])
