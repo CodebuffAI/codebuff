@@ -1,5 +1,3 @@
-import { getByokOpenrouterApiKeyFromEnv } from '../env'
-import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import { models, PROFIT_MARGIN } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
@@ -17,7 +15,8 @@ import {
   TypeValidationError,
 } from 'ai'
 
-import { getModelForRequest } from './model-provider'
+import { getModelForRequest, markClaudeOAuthRateLimited, fetchClaudeOAuthResetTime } from './model-provider'
+import { getValidClaudeOAuthCredentials } from '../credentials'
 
 import type { ModelRequestParams } from './model-provider'
 import type { OpenRouterProviderRoutingOptions } from '@codebuff/common/types/agent-template'
@@ -404,6 +403,13 @@ export async function* promptAiSdkStream(
           { error: getErrorObject(chunkValue.error) },
           'Claude OAuth rate limited during stream, falling back to Codebuff backend',
         )
+        // Try to get the actual reset time from the quota API, fall back to default cooldown
+        const credentials = await getValidClaudeOAuthCredentials()
+        const resetTime = credentials?.accessToken 
+          ? await fetchClaudeOAuthResetTime(credentials.accessToken)
+          : null
+        // Mark as rate-limited so subsequent requests skip Claude OAuth
+        markClaudeOAuthRateLimited(resetTime ?? undefined)
         if (params.onClaudeOAuthStatusChange) {
           params.onClaudeOAuthStatusChange(false)
         }

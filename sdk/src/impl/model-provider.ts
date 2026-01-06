@@ -27,6 +27,107 @@ import { getByokOpenrouterApiKeyFromEnv } from '../env'
 
 import type { LanguageModel } from 'ai'
 
+// ============================================================================
+// Claude OAuth Rate Limit Cache
+// ============================================================================
+
+/** Timestamp (ms) when Claude OAuth rate limit expires, or null if not rate-limited */
+let claudeOAuthRateLimitedUntil: number | null = null
+
+/**
+ * Mark Claude OAuth as rate-limited. Subsequent requests will skip Claude OAuth
+ * and use Codebuff backend until the reset time.
+ * @param resetAt - When the rate limit resets. If not provided, guesses 5 minutes from now.
+ */
+export function markClaudeOAuthRateLimited(resetAt?: Date): void {
+  const fiveMinutesFromNow = Date.now() + 5 * 60 * 1000
+  claudeOAuthRateLimitedUntil = resetAt ? resetAt.getTime() : fiveMinutesFromNow
+}
+
+/**
+ * Check if Claude OAuth is currently rate-limited.
+ * Returns true if rate-limited and reset time hasn't passed.
+ */
+export function isClaudeOAuthRateLimited(): boolean {
+  if (claudeOAuthRateLimitedUntil === null) {
+    return false
+  }
+  if (Date.now() >= claudeOAuthRateLimitedUntil) {
+    // Rate limit expired, clear the cache
+    claudeOAuthRateLimitedUntil = null
+    return false
+  }
+  return true
+}
+
+/**
+ * Reset the Claude OAuth rate limit cache.
+ * Call this when user reconnects their Claude subscription.
+ */
+export function resetClaudeOAuthRateLimit(): void {
+  claudeOAuthRateLimitedUntil = null
+}
+
+// ============================================================================
+// Claude OAuth Quota Fetching
+// ============================================================================
+
+interface ClaudeQuotaWindow {
+  utilization: number
+  resets_at: string | null
+}
+
+interface ClaudeQuotaResponse {
+  five_hour: ClaudeQuotaWindow | null
+  seven_day: ClaudeQuotaWindow | null
+  seven_day_oauth_apps: ClaudeQuotaWindow | null
+  seven_day_opus: ClaudeQuotaWindow | null
+}
+
+/**
+ * Fetch the rate limit reset time from Anthropic's quota API.
+ * Returns the earliest reset time (whichever limit is more restrictive).
+ * Returns null if fetch fails or no reset time is available.
+ */
+export async function fetchClaudeOAuthResetTime(accessToken: string): Promise<Date | null> {
+  try {
+    const response = await fetch('https://api.anthropic.com/api/oauth/usage', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'oauth-2025-04-20,claude-code-20250219',
+      },
+    })
+
+    if (!response.ok) {
+      return null
+    }
+
+    const data = (await response.json()) as ClaudeQuotaResponse
+
+    // Parse reset times
+    const fiveHour = data.five_hour
+    const sevenDay = data.seven_day
+
+    const fiveHourRemaining = fiveHour ? Math.max(0, 100 - fiveHour.utilization) : 100
+    const sevenDayRemaining = sevenDay ? Math.max(0, 100 - sevenDay.utilization) : 100
+
+    // Return the reset time for whichever limit is more restrictive (lower remaining)
+    if (fiveHourRemaining <= sevenDayRemaining && fiveHour?.resets_at) {
+      return new Date(fiveHour.resets_at)
+    } else if (sevenDay?.resets_at) {
+      return new Date(sevenDay.resets_at)
+    }
+
+    return null
+  } catch {
+    return null
+  }
+}
+
 /**
  * Parameters for requesting a model.
  */
@@ -69,7 +170,8 @@ export async function getModelForRequest(params: ModelRequestParams): Promise<Mo
   const { apiKey, model, skipClaudeOAuth } = params
 
   // Check if we should use Claude OAuth direct
-  if (!skipClaudeOAuth && isClaudeModel(model)) {
+  // Skip if explicitly requested, if rate-limited, or if not a Claude model
+  if (!skipClaudeOAuth && !isClaudeOAuthRateLimited() && isClaudeModel(model)) {
     // Get valid credentials (will refresh if needed)
     const claudeOAuthCredentials = await getValidClaudeOAuthCredentials()
     if (claudeOAuthCredentials) {

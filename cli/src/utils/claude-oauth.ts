@@ -10,6 +10,7 @@ import {
   clearClaudeOAuthCredentials,
   getClaudeOAuthCredentials,
   isClaudeOAuthValid,
+  resetClaudeOAuthRateLimit,
 } from '@codebuff/sdk'
 
 import type { ClaudeOAuthCredentials } from '@codebuff/sdk'
@@ -135,6 +136,9 @@ export async function exchangeCodeForTokens(
 
   // Save credentials to file
   saveClaudeOAuthCredentials(credentials)
+
+  // Reset any cached rate limit since user just reconnected
+  resetClaudeOAuthRateLimit()
 
   return credentials
 }
