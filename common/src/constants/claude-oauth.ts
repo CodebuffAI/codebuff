@@ -49,9 +49,6 @@ export const OPENROUTER_TO_ANTHROPIC_MODEL_MAP: Record<string, string> = {
   'anthropic/claude-3-5-haiku': 'claude-3-5-haiku-20241022',
   'anthropic/claude-3-5-haiku-20241022': 'claude-3-5-haiku-20241022',
   'anthropic/claude-3-haiku': 'claude-3-haiku-20240307',
-  'claude-3.5-haiku': 'claude-3-5-haiku-20241022',
-  'claude-3-5-haiku': 'claude-3-5-haiku-20241022',
-  'claude-3-haiku': 'claude-3-haiku-20240307',
 
   // Claude 3.x Sonnet models
   'anthropic/claude-3.5-sonnet': 'claude-3-5-sonnet-20241022',
@@ -59,34 +56,23 @@ export const OPENROUTER_TO_ANTHROPIC_MODEL_MAP: Record<string, string> = {
   'anthropic/claude-3-5-sonnet-20241022': 'claude-3-5-sonnet-20241022',
   'anthropic/claude-3-5-sonnet-20240620': 'claude-3-5-sonnet-20240620',
   'anthropic/claude-3-sonnet': 'claude-3-sonnet-20240229',
-  'claude-3.5-sonnet': 'claude-3-5-sonnet-20241022',
-  'claude-3-5-sonnet': 'claude-3-5-sonnet-20241022',
-  'claude-3-sonnet': 'claude-3-sonnet-20240229',
 
   // Claude 3.x Opus models
   'anthropic/claude-3-opus': 'claude-3-opus-20240229',
   'anthropic/claude-3-opus-20240229': 'claude-3-opus-20240229',
-  'claude-3-opus': 'claude-3-opus-20240229',
 
   // Claude 4.x Haiku models
   'anthropic/claude-haiku-4.5': 'claude-haiku-4-5-20251001',
   'anthropic/claude-haiku-4': 'claude-haiku-4-20250514',
-  'claude-haiku-4.5': 'claude-haiku-4-5-20251001',
-  'claude-haiku-4': 'claude-haiku-4-20250514',
 
   // Claude 4.x Sonnet models
   'anthropic/claude-sonnet-4.5': 'claude-sonnet-4-5-20250929',
   'anthropic/claude-sonnet-4': 'claude-sonnet-4-20250514',
-  'claude-sonnet-4.5': 'claude-sonnet-4-5-20250929',
-  'claude-sonnet-4': 'claude-sonnet-4-20250514',
 
   // Claude 4.x Opus models
   'anthropic/claude-opus-4.5': 'claude-opus-4-5-20251101',
   'anthropic/claude-opus-4.1': 'claude-opus-4-1-20250805',
   'anthropic/claude-opus-4': 'claude-opus-4-1-20250805',
-  'claude-opus-4.5': 'claude-opus-4-5-20251101',
-  'claude-opus-4.1': 'claude-opus-4-1-20250805',
-  'claude-opus-4': 'claude-opus-4-1-20250805',
 }
 
 /**
@@ -98,24 +84,27 @@ export function isClaudeModel(model: string): boolean {
 
 /**
  * Convert an OpenRouter model ID to an Anthropic model ID.
- * Returns the original if no mapping exists.
+ * Throws an error if the model has a provider prefix but is not an Anthropic model.
  */
 export function toAnthropicModelId(openrouterModel: string): string {
   // If it's already an Anthropic model ID (no prefix), return as-is
   if (!openrouterModel.includes('/')) {
     return openrouterModel
   }
-  
+
+  // Require anthropic/ prefix for OpenRouter model IDs
+  if (!openrouterModel.startsWith('anthropic/')) {
+    throw new Error(
+      `Cannot convert non-Anthropic model to Anthropic model ID: ${openrouterModel}`,
+    )
+  }
+
   // Check the mapping table
   const mapped = OPENROUTER_TO_ANTHROPIC_MODEL_MAP[openrouterModel]
   if (mapped) {
     return mapped
   }
-  
-  // Fallback: strip the "anthropic/" prefix if present
-  if (openrouterModel.startsWith('anthropic/')) {
-    return openrouterModel.replace('anthropic/', '')
-  }
-  
-  return openrouterModel
+
+  // Fallback: strip the "anthropic/" prefix
+  return openrouterModel.replace('anthropic/', '')
 }
