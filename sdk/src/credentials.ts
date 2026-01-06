@@ -12,11 +12,24 @@ import { getClaudeOAuthTokenFromEnv } from './env'
 import type { ClientEnv } from '@codebuff/common/types/contracts/env'
 import type { User } from '@codebuff/common/util/credentials'
 
-const credentialsSchema = z
-  .object({
-    default: userSchema,
-  })
-  .catchall(userSchema)
+/**
+ * Schema for Claude OAuth credentials.
+ */
+const claudeOAuthSchema = z.object({
+  accessToken: z.string(),
+  refreshToken: z.string(),
+  expiresAt: z.number(),
+  connectedAt: z.number(),
+})
+
+/**
+ * Unified schema for the credentials file.
+ * Contains both Codebuff user credentials and Claude OAuth credentials.
+ */
+const credentialsFileSchema = z.object({
+  default: userSchema.optional(),
+  claudeOAuth: claudeOAuthSchema.optional(),
+})
 
 const ensureDirectoryExistsSync = (dir: string) => {
   if (!fs.existsSync(dir)) {
@@ -24,17 +37,12 @@ const ensureDirectoryExistsSync = (dir: string) => {
   }
 }
 
-export const userFromJson = (
-  json: string,
-  profileName: string = 'default',
-): User | undefined => {
+export const userFromJson = (json: string): User | null => {
   try {
-    const allCredentials = credentialsSchema.parse(JSON.parse(json))
-    const profile = allCredentials[profileName]
-    return profile
-  } catch (error) {
-    console.error('Error parsing user JSON:', error)
-    return
+    const credentials = credentialsFileSchema.parse(JSON.parse(json))
+    return credentials.default ?? null
+  } catch {
+    return null
   }
 }
 
@@ -57,11 +65,6 @@ export const getConfigDir = (clientEnv: ClientEnv = env): string => {
 export const getCredentialsPath = (clientEnv: ClientEnv = env): string => {
   return path.join(getConfigDir(clientEnv), 'credentials.json')
 }
-
-// Legacy exports for backward compatibility - use getConfigDir() and getCredentialsPath() for testability
-export const CONFIG_DIR = getConfigDir()
-ensureDirectoryExistsSync(CONFIG_DIR)
-export const CREDENTIALS_PATH = getCredentialsPath()
 
 export const getUserCredentials = (clientEnv: ClientEnv = env): User | null => {
   const credentialsPath = getCredentialsPath(clientEnv)
@@ -88,24 +91,6 @@ export interface ClaudeOAuthCredentials {
   expiresAt: number // Unix timestamp in milliseconds
   connectedAt: number // Unix timestamp in milliseconds
 }
-
-/**
- * Schema for Claude OAuth credentials in the credentials file.
- */
-const claudeOAuthSchema = z.object({
-  accessToken: z.string(),
-  refreshToken: z.string(),
-  expiresAt: z.number(),
-  connectedAt: z.number(),
-})
-
-/**
- * Extended credentials file schema that includes Claude OAuth.
- */
-const extendedCredentialsSchema = z.object({
-  default: userSchema.optional(),
-  claudeOAuth: claudeOAuthSchema.optional(),
-}).catchall(z.unknown())
 
 /**
  * Get Claude OAuth credentials from file or environment variable.
@@ -135,7 +120,7 @@ export const getClaudeOAuthCredentials = (
 
   try {
     const credentialsFile = fs.readFileSync(credentialsPath, 'utf8')
-    const parsed = extendedCredentialsSchema.safeParse(JSON.parse(credentialsFile))
+    const parsed = credentialsFileSchema.safeParse(JSON.parse(credentialsFile))
     if (!parsed.success || !parsed.data.claudeOAuth) {
       return null
     }
@@ -201,9 +186,7 @@ export const clearClaudeOAuthCredentials = (
  * Check if Claude OAuth credentials are valid (not expired).
  * Returns true if credentials exist and haven't expired.
  */
-export const isClaudeOAuthValid = (
-  clientEnv: ClientEnv = env,
-): boolean => {
+export const isClaudeOAuthValid = (clientEnv: ClientEnv = env): boolean => {
   const credentials = getClaudeOAuthCredentials(clientEnv)
   if (!credentials) {
     return false
@@ -237,17 +220,20 @@ export const refreshClaudeOAuthToken = async (
   // Start the refresh and store the promise
   refreshPromise = (async () => {
     try {
-      const response = await fetch('https://console.anthropic.com/v1/oauth/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        'https://console.anthropic.com/v1/oauth/token',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            grant_type: 'refresh_token',
+            refresh_token: credentials.refreshToken,
+            client_id: CLAUDE_OAUTH_CLIENT_ID,
+          }),
         },
-        body: JSON.stringify({
-          grant_type: 'refresh_token',
-          refresh_token: credentials.refreshToken,
-          client_id: CLAUDE_OAUTH_CLIENT_ID,
-        }),
-      })
+      )
 
       if (!response.ok) {
         // Refresh failed, clear credentials
@@ -284,7 +270,7 @@ export const refreshClaudeOAuthToken = async (
 /**
  * Get valid Claude OAuth credentials, refreshing if necessary.
  * This is the main function to use when you need credentials for an API call.
- * 
+ *
  * - Returns credentials immediately if valid (>5 min until expiry)
  * - Attempts refresh if token is expired or near-expiry
  * - Returns null if no credentials or refresh fails
