@@ -11,7 +11,12 @@ import {
 } from '../utils/claude-oauth'
 import { useTheme } from '../hooks/use-theme'
 
-type FlowState = 'checking' | 'not-connected' | 'waiting-for-code' | 'connected' | 'error'
+type FlowState =
+  | 'checking'
+  | 'not-connected'
+  | 'waiting-for-code'
+  | 'connected'
+  | 'error'
 
 export const ClaudeConnectBanner = () => {
   const setInputMode = useChatStore((state) => state.setInputMode)
@@ -19,6 +24,7 @@ export const ClaudeConnectBanner = () => {
   const [flowState, setFlowState] = useState<FlowState>('checking')
   const [error, setError] = useState<string | null>(null)
   const [isDisconnectHovered, setIsDisconnectHovered] = useState(false)
+  const [isConnectHovered, setIsConnectHovered] = useState(false)
 
   // Check initial connection status
   useEffect(() => {
@@ -58,19 +64,23 @@ export const ClaudeConnectBanner = () => {
 
     return (
       <BottomBanner borderColorKey="success" onClose={handleClose}>
-        <box style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
-          <text style={{ fg: theme.success }}>
-            ✓ Connected to Claude (since {connectedDate})
-          </text>
-          <Button
-            onClick={handleDisconnect}
-            onMouseOver={() => setIsDisconnectHovered(true)}
-            onMouseOut={() => setIsDisconnectHovered(false)}
-          >
-            <text style={{ fg: isDisconnectHovered ? theme.error : theme.muted }}>
-              disconnect
-            </text>
-          </Button>
+        <box style={{ flexDirection: 'column', gap: 0, flexGrow: 1 }}>
+          <text style={{ fg: theme.success }}>✓ Connected to Claude</text>
+          <box style={{ flexDirection: 'row', gap: 2, marginTop: 1 }}>
+            <text style={{ fg: theme.muted }}>Since {connectedDate}</text>
+            <text style={{ fg: theme.muted }}>·</text>
+            <Button
+              onClick={handleDisconnect}
+              onMouseOver={() => setIsDisconnectHovered(true)}
+              onMouseOut={() => setIsDisconnectHovered(false)}
+            >
+              <text
+                style={{ fg: isDisconnectHovered ? theme.error : theme.muted }}
+              >
+                Disconnect
+              </text>
+            </Button>
+          </box>
         </box>
       </BottomBanner>
     )
@@ -91,12 +101,11 @@ export const ClaudeConnectBanner = () => {
   if (flowState === 'waiting-for-code') {
     return (
       <BottomBanner borderColorKey="info" onClose={handleClose}>
-        <box style={{ flexDirection: 'column', gap: 0 }}>
-          <text style={{ fg: theme.info }}>
-            Browser opened. Sign in with your Claude account, then paste the authorization code below.
-          </text>
+        <box style={{ flexDirection: 'column', gap: 0, flexGrow: 1 }}>
+          <text style={{ fg: theme.info }}>Waiting for authorization</text>
           <text style={{ fg: theme.muted, marginTop: 1 }}>
-            Type the code in the input box above and press Enter.
+            Sign in with your Claude account in the browser, then paste the code
+            here.
           </text>
         </box>
       </BottomBanner>
@@ -106,13 +115,21 @@ export const ClaudeConnectBanner = () => {
   // Not connected / checking state - show connect button
   return (
     <BottomBanner borderColorKey="info" onClose={handleClose}>
-      <box style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
-        <text style={{ fg: theme.info }}>
-          Connect your Claude Pro/Max subscription to use Claude models directly.
-        </text>
-        <Button onClick={handleConnect}>
-          <text style={{ fg: theme.link }}>Connect →</text>
-        </Button>
+      <box style={{ flexDirection: 'column', gap: 0, flexGrow: 1 }}>
+        <text style={{ fg: theme.info }}>Connect to Claude</text>
+        <box style={{ flexDirection: 'row', gap: 2, marginTop: 1 }}>
+          <text style={{ fg: theme.muted }}>Use your Pro/Max subscription</text>
+          <text style={{ fg: theme.muted }}>·</text>
+          <Button
+            onClick={handleConnect}
+            onMouseOver={() => setIsConnectHovered(true)}
+            onMouseOut={() => setIsConnectHovered(false)}
+          >
+            <text style={{ fg: isConnectHovered ? theme.success : theme.link }}>
+              Click to connect →
+            </text>
+          </Button>
+        </box>
       </box>
     </BottomBanner>
   )
@@ -130,12 +147,16 @@ export async function handleClaudeAuthCode(code: string): Promise<{
     await exchangeCodeForTokens(code)
     return {
       success: true,
-      message: 'Successfully connected to Claude! Your Claude models will now use your subscription.',
+      message:
+        'Successfully connected your Claude subscription! Codebuff will now use it for Claude model requests.',
     }
   } catch (err) {
     return {
       success: false,
-      message: err instanceof Error ? err.message : 'Failed to exchange authorization code',
+      message:
+        err instanceof Error
+          ? err.message
+          : 'Failed to exchange authorization code',
     }
   }
 }
