@@ -24,11 +24,22 @@ const userSchema = z.object({
 
 export type User = z.infer<typeof userSchema>
 
+// Claude OAuth credentials schema (for passthrough, not strict validation here)
+const claudeOAuthSchema = z
+  .object({
+    accessToken: z.string(),
+    refreshToken: z.string(),
+    expiresAt: z.number(),
+    connectedAt: z.number(),
+  })
+  .optional()
+
 const credentialsSchema = z
   .object({
     default: userSchema,
+    claudeOAuth: claudeOAuthSchema,
   })
-  .catchall(userSchema)
+  .catchall(z.unknown())
 
 // Get the config directory path
 export const getConfigDir = (): string => {
@@ -58,7 +69,9 @@ const userFromJson = (
   try {
     const allCredentials = credentialsSchema.parse(JSON.parse(json))
     const profile = allCredentials[profileName]
-    return profile
+    // Validate that the profile matches the user schema
+    const parsed = userSchema.safeParse(profile)
+    return parsed.success ? parsed.data : undefined
   } catch (error) {
     logger.error(
       {

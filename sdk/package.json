@@ -58,6 +58,7 @@
     "url": "https://github.com/CodebuffAI/codebuff/issues"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "2.0.50",
     "@jitl/quickjs-wasmfile-release-sync": "0.31.0",
     "@vscode/tree-sitter-wasm": "0.1.4",
     "ai": "^5.0.0",

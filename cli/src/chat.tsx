@@ -15,6 +15,7 @@ import { getAdsEnabled } from './commands/ads'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
 import { AdBanner } from './components/ad-banner'
 import { ChatInputBar } from './components/chat-input-bar'
+import { BottomStatusLine } from './components/bottom-status-line'
 import { areCreditsRestored } from './components/out-of-credits-banner'
 import { LoadPreviousButton } from './components/load-previous-button'
 import { MessageWithAgents } from './components/message-with-agents'
@@ -26,6 +27,7 @@ import { useAgentValidation } from './hooks/use-agent-validation'
 import { useAskUserBridge } from './hooks/use-ask-user-bridge'
 import { authQueryKeys } from './hooks/use-auth-query'
 import { useChatInput } from './hooks/use-chat-input'
+import { useClaudeQuotaQuery } from './hooks/use-claude-quota-query'
 import {
   useChatKeyboard,
   type ChatKeyboardHandlers,
@@ -73,6 +75,7 @@ import {
   getStatusIndicatorState,
   type AuthStatus,
 } from './utils/status-indicator-state'
+import { getClaudeOAuthStatus } from './utils/claude-oauth'
 import { createPasteHandler } from './utils/strings'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
@@ -1360,6 +1363,15 @@ export const Chat = ({
     isAskUserActive: askUserState !== null,
   })
   const hasStatusIndicatorContent = statusIndicatorState.kind !== 'idle'
+
+  const isClaudeOAuthActive = getClaudeOAuthStatus().connected
+
+  // Fetch Claude quota when OAuth is active
+  const { data: claudeQuota } = useClaudeQuotaQuery({
+    enabled: isClaudeOAuthActive,
+    refetchInterval: 60 * 1000, // Refetch every 60 seconds
+  })
+
   const inputBoxTitle = useMemo(() => {
     const segments: string[] = []
 
@@ -1379,6 +1391,9 @@ export const Chat = ({
   const shouldShowStatusLine =
     !feedbackMode &&
     (hasStatusIndicatorContent || shouldShowQueuePreview || !isAtBottom)
+
+  // Determine if Claude is actively streaming/waiting
+  const isClaudeActive = isStreaming || isWaitingForResponse
 
   // Track mouse movement for ad activity (throttled)
   const lastMouseActivityRef = useRef<number>(0)
@@ -1540,6 +1555,12 @@ export const Chat = ({
             onPasteImagePath: chatKeyboardHandlers.onPasteImagePath,
             cwd: getProjectRoot() ?? process.cwd(),
           })}
+        />
+
+        <BottomStatusLine
+          isClaudeConnected={isClaudeOAuthActive}
+          isClaudeActive={isClaudeActive}
+          claudeQuota={claudeQuota}
         />
       </box>
     </box>

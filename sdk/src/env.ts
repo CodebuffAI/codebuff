@@ -7,6 +7,7 @@
 
 import { getBaseEnv } from '@codebuff/common/env-process'
 import { BYOK_OPENROUTER_ENV_VAR } from '@codebuff/common/constants/byok'
+import { CLAUDE_OAUTH_TOKEN_ENV_VAR } from '@codebuff/common/constants/claude-oauth'
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 
 import type { SdkEnv } from './types/env'
@@ -39,4 +40,12 @@ export const getSystemProcessEnv = (): NodeJS.ProcessEnv => {
 
 export const getByokOpenrouterApiKeyFromEnv = (): string | undefined => {
   return process.env[BYOK_OPENROUTER_ENV_VAR]
+}
+
+/**
+ * Get Claude OAuth token from environment variable.
+ * This allows users to provide their Claude Pro/Max OAuth token for direct Anthropic API access.
+ */
+export const getClaudeOAuthTokenFromEnv = (): string | undefined => {
+  return process.env[CLAUDE_OAUTH_TOKEN_ENV_VAR]
 }
