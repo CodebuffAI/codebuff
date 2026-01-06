@@ -97,7 +97,7 @@ export function useClaudeQuotaQuery(deps: UseClaudeQuotaQueryDeps = {}) {
   const {
     logger = defaultLogger,
     enabled = true,
-    refetchInterval = 60 * 1000, // Default: refetch every 60 seconds
+    refetchInterval = 120 * 1000, // Default: refetch every 120 seconds
   } = deps
 
   const isConnected = isClaudeOAuthValid()
