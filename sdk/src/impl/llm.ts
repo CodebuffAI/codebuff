@@ -216,6 +216,9 @@ export async function* promptAiSdkStream(
     prompt: undefined,
     model: aiSDKModel,
     messages: convertCbToModelMessages(params),
+    // When using Claude OAuth, disable retries so we can immediately fall back to Codebuff
+    // backend on rate limit errors instead of retrying 4 times first
+    ...(isClaudeOAuth && { maxRetries: 0 }),
     providerOptions: getProviderOptions({
       ...params,
       agentProviderOptions: params.agentProviderOptions,
