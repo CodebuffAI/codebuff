@@ -70,6 +70,11 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     aliases: ['credits'],
   },
   {
+    id: 'buy-credits',
+    label: 'buy-credits',
+    description: 'Open the usage page to buy credits',
+  },
+  {
     id: 'new',
     label: 'new',
     description: 'Start a fresh conversation session',
