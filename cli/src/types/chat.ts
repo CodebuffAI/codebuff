@@ -48,6 +48,10 @@ export type AgentContentBlock = {
   params?: Record<string, any>
   isCollapsed?: boolean
   userOpened?: boolean
+  /** The spawn_agents tool call ID that created this block, used to match results */
+  spawnToolCallId?: string
+  /** The index within the spawn_agents call, used to match the correct result */
+  spawnIndex?: number
 }
 export type AgentListContentBlock = {
   type: 'agent-list'

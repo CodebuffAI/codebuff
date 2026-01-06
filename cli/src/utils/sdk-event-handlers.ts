@@ -1,4 +1,3 @@
-import { has } from 'lodash'
 import { match } from 'ts-pattern'
 
 import {
@@ -275,12 +274,15 @@ const handleSpawnAgentsToolCall = (
 
   state.message.updater.updateAiMessageBlocks((blocks) => {
     const newAgentBlocks: ContentBlock[] = agents
-      .filter((agent: any) => !shouldHideAgent(agent.agent_type || ''))
-      .map((agent: any, index: number) =>
+      .map((agent: any, originalIndex: number) => ({ agent, originalIndex }))
+      .filter(({ agent }) => !shouldHideAgent(agent.agent_type || ''))
+      .map(({ agent, originalIndex }) =>
         createAgentBlock({
-          agentId: `${event.toolCallId}-${index}`,
+          agentId: `${event.toolCallId}-${originalIndex}`,
           agentType: agent.agent_type || '',
           prompt: agent.prompt,
+          spawnToolCallId: event.toolCallId,
+          spawnIndex: originalIndex,
         }),
       )
 
@@ -334,6 +336,48 @@ const handleToolCall = (state: EventHandlerState, event: PrintModeToolCall) => {
   updateStreamingAgents(state, { add: event.toolCallId })
 }
 
+/**
+ * Recursively finds and updates agent blocks that match a spawn_agents tool call.
+ */
+const updateSpawnAgentBlocks = (
+  blocks: ContentBlock[],
+  toolCallId: string,
+  results: any[],
+): ContentBlock[] => {
+  return blocks.map((block) => {
+    if (block.type !== 'agent') {
+      return block
+    }
+
+    if (block.spawnToolCallId === toolCallId && block.spawnIndex !== undefined && block.blocks) {
+      const result = results[block.spawnIndex]
+
+      if (result?.value) {
+        const { content, hasError } = extractSpawnAgentResultContent(result.value)
+        // Preserve streamed content (agents like commander stream their output)
+        const hasStreamedContent = block.blocks.length > 0
+        if (hasError || content || hasStreamedContent) {
+          return {
+            ...block,
+            blocks: hasStreamedContent ? block.blocks : [{ type: 'text', content } as ContentBlock],
+            status: hasError ? ('failed' as const) : ('complete' as const),
+          }
+        }
+      }
+    }
+
+    // Recursively process nested agent blocks
+    if (block.blocks?.length) {
+      const updatedNestedBlocks = updateSpawnAgentBlocks(block.blocks, toolCallId, results)
+      if (updatedNestedBlocks !== block.blocks) {
+        return { ...block, blocks: updatedNestedBlocks }
+      }
+    }
+
+    return block
+  })
+}
+
 const handleSpawnAgentsResult = (
   state: EventHandlerState,
   toolCallId: string,
@@ -341,35 +385,7 @@ const handleSpawnAgentsResult = (
 ) => {
   // Replace placeholder spawn agent blocks with their final text/status output.
   state.message.updater.updateAiMessageBlocks((blocks) =>
-    blocks.map((block) => {
-      if (
-        block.type === 'agent' &&
-        block.agentId.startsWith(toolCallId) &&
-        block.blocks
-      ) {
-        const agentIndex = Number.parseInt(
-          block.agentId.split('-').pop() || '0',
-          10,
-        )
-        const result = results[agentIndex]
-
-        if (has(result, 'value') && result.value) {
-          const { content, hasError } = extractSpawnAgentResultContent(
-            result.value,
-          )
-          const resultTextBlock: ContentBlock = {
-            type: 'text',
-            content,
-          }
-          return {
-            ...block,
-            blocks: [resultTextBlock],
-            status: hasError ? ('failed' as const) : ('complete' as const),
-          }
-        }
-      }
-      return block
-    }),
+    updateSpawnAgentBlocks(blocks, toolCallId, results),
   )
 
   results.forEach((_, index: number) => {
@@ -390,9 +406,8 @@ const handleToolResult = (
     }),
   )
 
-  const firstOutputValue = has(event.output?.[0], 'value')
-    ? event.output?.[0]?.value
-    : undefined
+  const firstOutput = event.output?.[0]
+  const firstOutputValue = firstOutput && 'value' in firstOutput ? firstOutput.value : undefined
   const isSpawnAgentsResult =
     Array.isArray(firstOutputValue) &&
     firstOutputValue.some((v: any) => v?.agentName || v?.agentType)

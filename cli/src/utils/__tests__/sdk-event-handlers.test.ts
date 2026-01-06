@@ -182,7 +182,12 @@ describe('sdk-event-handlers', () => {
   test('handles spawn_agents tool results and clears streaming agents', () => {
     const { ctx, getMessages, getStreamingAgents } = createTestContext()
     ctx.message.updater.addBlock(
-      createAgentBlock({ agentId: 'tool-1-0', agentType: 'temp' }),
+      createAgentBlock({
+        agentId: 'tool-1-0',
+        agentType: 'temp',
+        spawnToolCallId: 'tool-1',
+        spawnIndex: 0,
+      }),
     )
     ctx.streaming.setStreamingAgents(() => new Set(['tool-1-0']))
 
