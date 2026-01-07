@@ -77,7 +77,8 @@ export function createBase2(
       isDefault && 'editor',
       isMax && 'editor-multi-prompt',
       isMax && 'thinker-best-of-n-opus',
-      !isLite && 'code-reviewer',
+      isDefault && 'code-reviewer',
+      isMax && 'reviewer-editor-gpt-5',
       'context-pruner',
     ),
 
@@ -140,9 +141,10 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
     isMax &&
       `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
     '- Spawn commanders sequentially if the second command depends on the the first.',
-    !isFast &&
-      !isLite &&
+    isDefault &&
       '- Spawn a code-reviewer to review the changes after you have implemented the changes.',
+    isMax &&
+      '- Spawn a reviewer-editor-gpt-5 to review the changes after you have implemented the changes.',
   ).join('\n  ')}
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 - **Never spawn the context-pruner agent:** This agent is spawned automatically for you and you don't need to spawn it yourself.
@@ -204,13 +206,13 @@ ${
 
 ${
   isDefault || isMax
-    ? '[ You spawn a code-reviewer, a commander to typecheck the changes, and another commander to run tests, all in parallel ]'
+    ? `[ You spawn a ${isDefault ? 'code-reviewer' : 'reviewer-editor-gpt-5'}, a commander to typecheck the changes, and another commander to run tests, all in parallel ]`
     : '[ You spawn a commander to typecheck the changes and another commander to run tests, all in parallel ]'
 }
 
 ${
   isDefault || isMax
-    ? '[ You fix the issues found by the code-reviewer and type/test errors ]'
+    ? `[ You fix the issues found by the ${isDefault ? 'code-reviewer' : 'reviewer-editor-gpt-5'} and type/test errors ]`
     : '[ You fix the issues found by the type/test errors and spawn more commanders to confirm ]'
 }
 
@@ -330,7 +332,7 @@ ${buildArray(
   isFast &&
     '- Do a single typecheck targeted for your changes at most (if applicable for the project). Or skip this step if the change was small.',
   (isDefault || isMax) &&
-    '- Spawn a code-reviewer to review the changes after you have implemented the changes. (Skip this step only if the change is extremely straightforward and obvious.)',
+    `- Spawn a ${isDefault ? 'code-reviewer' : 'reviewer-editor-gpt-5'} to review the changes after you have implemented the changes. (Skip this step only if the change is extremely straightforward and obvious.)`,
   !hasNoValidation &&
     `- Test your changes by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). Try to run all appropriate commands in parallel. ${isMax ? ' Typecheck and test the specific area of the project that you are editing *AND* then typecheck and test the entire project if necessary.' : ' If you can, only test the area of the project that you are editing, rather than the entire project.'} You may have to explore the project to find the appropriate commands. Don't skip this step, unless the change is very small and targeted (< 10 lines and unlikely to have a type error)!`,
   `- Inform the user that you have completed the task in one sentence or a few short bullet points.${isSonnet ? " Don't create any markdown summary files or example documentation files, unless asked by the user." : ''}`,
@@ -363,7 +365,7 @@ function buildImplementationStepPrompt({
     isMax &&
       `You must spawn the 'editor-multi-prompt' agent to implement code changes, since it will generate the best code changes.`,
     (isDefault || isMax) &&
-      'Spawn code-reviewer to review the changes after you have implemented the changes and in parallel with typechecking or testing.',
+      `Spawn ${isDefault ? 'code-reviewer' : 'reviewer-editor-gpt-5'} to review the changes after you have implemented the changes and in parallel with typechecking or testing.`,
     `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''} Don't repeat yourself, especially if you have already concluded and summarized the changes in a previous step -- just end your turn.`,
     !isFast &&
       !noAskUser &&

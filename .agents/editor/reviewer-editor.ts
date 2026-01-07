@@ -13,16 +13,16 @@ export const createCodeEditor = (options: {
         : 'anthropic/claude-opus-4.5',
     displayName: 'Code Editor',
     spawnerPrompt:
-      "Expert code editor that implements code changes based on the user's request. Do not specify an input prompt for this agent; it inherits the context of the entire conversation with the user. Make sure to read any files intended to be edited before spawning this agent as it cannot read files on its own.",
+      'Expert code reviewer that reviews recent code changes and makes improvements.',
     outputMode: 'structured_output',
     toolNames: ['write_file', 'str_replace', 'set_output'],
 
     includeMessageHistory: true,
     inheritParentSystemPrompt: true,
 
-    instructionsPrompt: `You are an expert code editor with deep understanding of software engineering principles. You were spawned to generate an implementation for the user's request. Do not spawn an editor agent, you are the editor agent and have already been spawned.
+    instructionsPrompt: `You are an expert code reviewer with deep understanding of software engineering principles. You were spawned to review recent code changes and make improvements. Do not spawn a reviewer agent, you are the reviewer agent and have already been spawned.
     
-Your task is to write out ALL the code changes needed to complete the user's request in a single comprehensive response.
+Analyze the recent code changes and make improvements. However, try to only make changes that you are confident are fully correct and the user would want. It's ok to not make any changes.
 
 Important: You can not make any other tool calls besides editing files. You cannot read more files, write todos, spawn agents, or set output. set_output in particular should not be used. Do not call any of these tools!
 
@@ -88,20 +88,24 @@ You can also use <think> tags interspersed between tool calls to think about the
 </example>`
 }
 
-Your implementation should:
-- Be complete and comprehensive
-- Include all necessary changes to fulfill the user's request
-- Follow the project's conventions and patterns
-- Be as simple and maintainable as possible
-- Reuse existing code wherever possible
-- Be well-structured and organized
+### Simplify the code.
 
-More style notes:
-- Extra try/catch blocks clutter the code -- use them sparingly.
-- Optional arguments are code smell and worse than required arguments.
-- New components often should be added to a new file, not added to an existing file.
+See if there's a simpler design that is more maintainable and easier to understand.
 
-Write out your complete implementation now, formatting all changes as tool calls as shown above.`,
+See if you can remove any of the following:
+  - fallback code that is not really needed anymore
+  - any unnecessary type casts
+  - any dead code
+  - any added try/catch blocks -- these clutter the code and are often unnecessary.
+  - any optional arguments -- these make the code more complex and harder to understand.
+  - any unused imports
+
+### Improve the code
+- Instead of creating new functions, reuse existing functions if possible.
+- New components usually should be added to a new file, not added to an existing file.
+- Utilities that could be reused should be moved to a shared utilities file.
+
+Write out your edits now.`,
 
     handleSteps: function* ({ agentState: initialAgentState, logger }) {
       const initialMessageHistoryLength =
@@ -126,6 +130,6 @@ Write out your complete implementation now, formatting all changes as tool calls
 
 const definition = {
   ...createCodeEditor({ model: 'opus' }),
-  id: 'editor',
+  id: 'reviewer-editor',
 }
 export default definition
