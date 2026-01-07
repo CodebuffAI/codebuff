@@ -26,13 +26,18 @@ export const ClaudeConnectBanner = () => {
   const [isDisconnectHovered, setIsDisconnectHovered] = useState(false)
   const [isConnectHovered, setIsConnectHovered] = useState(false)
 
-  // Check initial connection status
+  // Check initial connection status and auto-open browser if not connected
   useEffect(() => {
     const status = getClaudeOAuthStatus()
     if (status.connected) {
       setFlowState('connected')
     } else {
-      setFlowState('not-connected')
+      // Automatically start OAuth flow when not connected
+      setFlowState('waiting-for-code')
+      openOAuthInBrowser().catch((err) => {
+        setError(err instanceof Error ? err.message : 'Failed to open browser')
+        setFlowState('error')
+      })
     }
   }, [])
 
