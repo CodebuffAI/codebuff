@@ -20,7 +20,7 @@ export const HelpBanner = () => {
   return (
     <BottomBanner
       borderColorKey="info"
-      text="Shortcuts: Ctrl+C stop • Tab @files • ↑↓ history • /commands • !bash mode"
+      text="Shortcuts: /commands • Ctrl+C stop • @files • ↑↓ history • !bash mode"
       onClose={() => setInputMode('default')}
     />
   )
