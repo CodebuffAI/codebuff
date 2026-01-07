@@ -17,12 +17,12 @@ const MODE_COMMANDS: SlashCommand[] = AGENT_MODES.map((mode) => ({
 export const SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'ads:enable',
-    label: 'ads:enable',
+    label: 'ads:enable (beta)',
     description: 'Enable contextual ads and earn credits',
   },
   {
     id: 'ads:disable',
-    label: 'ads:disable',
+    label: 'ads:disable (beta)',
     description: 'Disable contextual ads',
   },
   {
