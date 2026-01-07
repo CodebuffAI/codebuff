@@ -142,6 +142,9 @@ export const OutOfCreditsBanner = () => {
         <text style={{ fg: theme.muted }}>
           {statsText}
         </text>
+        <text style={{ fg: theme.muted }}>
+          Note: Some credits are needed even with a Claude subscription for other model usage.
+        </text>
         <text style={{ fg: theme.foreground }}>
           Press Enter to buy more credits
         </text>
