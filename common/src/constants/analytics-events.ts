@@ -128,6 +128,11 @@ export enum AnalyticsEvent {
   TOKEN_COUNT_VALIDATION_ERROR = 'api.token_count_validation_error',
   TOKEN_COUNT_ERROR = 'api.token_count_error',
 
+  // Claude OAuth
+  CLAUDE_OAUTH_REQUEST = 'sdk.claude_oauth_request',
+  CLAUDE_OAUTH_RATE_LIMITED = 'sdk.claude_oauth_rate_limited',
+  CLAUDE_OAUTH_AUTH_ERROR = 'sdk.claude_oauth_auth_error',
+
   // Common
   FLUSH_FAILED = 'common.flush_failed',
 }

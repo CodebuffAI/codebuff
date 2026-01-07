@@ -15,6 +15,7 @@ import {
   TypeValidationError,
 } from 'ai'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { getModelForRequest, markClaudeOAuthRateLimited, fetchClaudeOAuthResetTime } from './model-provider'
 import { getValidClaudeOAuthCredentials } from '../credentials'
 
@@ -184,7 +185,7 @@ export async function* promptAiSdkStream(
     onClaudeOAuthStatusChange?: (isActive: boolean) => void
   },
 ): ReturnType<PromptAiSdkStreamFn> {
-  const { logger } = params
+  const { logger, trackEvent, userId, userInputId, model: requestedModel } = params
   const agentChunkMetadata =
     params.agentId != null ? { agentId: params.agentId } : undefined
 
@@ -206,9 +207,20 @@ export async function* promptAiSdkStream(
   }
   const { model: aiSDKModel, isClaudeOAuth } = await getModelForRequest(modelParams)
 
-  // Notify about Claude OAuth usage
-  if (isClaudeOAuth && params.onClaudeOAuthStatusChange) {
-    params.onClaudeOAuthStatusChange(true)
+  // Track and notify about Claude OAuth usage
+  if (isClaudeOAuth) {
+    trackEvent({
+      event: AnalyticsEvent.CLAUDE_OAUTH_REQUEST,
+      userId: userId ?? '',
+      properties: {
+        model: requestedModel,
+        userInputId,
+      },
+      logger,
+    })
+    if (params.onClaudeOAuthStatusChange) {
+      params.onClaudeOAuthStatusChange(true)
+    }
   }
 
   const response = streamText({
@@ -404,6 +416,16 @@ export async function* promptAiSdkStream(
           { error: getErrorObject(chunkValue.error) },
           'Claude OAuth rate limited during stream, falling back to Codebuff backend',
         )
+        // Track the rate limit event
+        trackEvent({
+          event: AnalyticsEvent.CLAUDE_OAUTH_RATE_LIMITED,
+          userId: userId ?? '',
+          properties: {
+            model: requestedModel,
+            userInputId,
+          },
+          logger,
+        })
         // Try to get the actual reset time from the quota API, fall back to default cooldown
         const credentials = await getValidClaudeOAuthCredentials()
         const resetTime = credentials?.accessToken 
@@ -433,6 +455,16 @@ export async function* promptAiSdkStream(
           { error: getErrorObject(chunkValue.error) },
           'Claude OAuth auth error during stream, falling back to Codebuff backend',
         )
+        // Track the auth error event
+        trackEvent({
+          event: AnalyticsEvent.CLAUDE_OAUTH_AUTH_ERROR,
+          userId: userId ?? '',
+          properties: {
+            model: requestedModel,
+            userInputId,
+          },
+          logger,
+        })
         if (params.onClaudeOAuthStatusChange) {
           params.onClaudeOAuthStatusChange(false)
         }
