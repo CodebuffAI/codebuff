@@ -30,6 +30,8 @@ export interface SelectableListItem {
   secondary?: string
   /** If true, the label will be displayed in an accent color */
   accent?: boolean
+  /** If true, secondary text is hidden (used only for search filtering) */
+  hideSecondary?: boolean
 }
 
 export interface SelectableListProps {
@@ -158,12 +160,14 @@ export const SelectableList = forwardRef<
               }}
               style={{
                 flexDirection: 'row',
-                gap: 1,
+                gap: 3,
                 backgroundColor,
                 paddingLeft: 1,
                 paddingRight: 1,
                 paddingTop: 0,
                 paddingBottom: 0,
+                height: 1,
+                overflow: 'hidden',
               }}
             >
               {item.icon && (
@@ -179,7 +183,7 @@ export const SelectableList = forwardRef<
               >
                 {item.label}
               </text>
-              {item.secondary && (
+              {item.secondary && !item.hideSecondary && (
                 <text style={{ fg: theme.muted }}>
                   {item.secondary}
                 </text>

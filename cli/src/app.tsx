@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
 import { Chat } from './chat'
+import { ChatHistoryScreen } from './components/chat-history-screen'
 import { LoginModal } from './components/login-modal'
 import { ProjectPickerScreen } from './components/project-picker-screen'
 import { TerminalLink } from './components/terminal-link'
@@ -15,6 +16,7 @@ import { useTerminalFocus } from './hooks/use-terminal-focus'
 import { useTheme } from './hooks/use-theme'
 import { getProjectRoot } from './project-files'
 import { useChatStore, type TopBannerType } from './state/chat-store'
+import { useChatHistoryStore } from './state/chat-history-store'
 import { openFileAtPath } from './utils/open-file'
 import { formatCwd } from './utils/path-helpers'
 import { findGitRoot } from './utils/git'
@@ -169,6 +171,32 @@ export const App = ({
     }
   }, [gitRoot, onProjectChange])
 
+  // Chat history state from store
+  const { showChatHistory, closeChatHistory } = useChatHistoryStore()
+
+  // State to track which chat to resume (set when user selects from history)
+  const [resumeChatId, setResumeChatId] = useState<string | null>(null)
+
+  const handleResumeChat = useCallback(
+    (chatId: string) => {
+      closeChatHistory()
+      // Reset chat store to clear previous messages before loading the selected chat
+      resetChatStore()
+      setResumeChatId(chatId)
+    },
+    [closeChatHistory, resetChatStore]
+  )
+
+  const handleNewChat = useCallback(() => {
+    closeChatHistory()
+    resetChatStore()
+    setResumeChatId(null)
+  }, [closeChatHistory, resetChatStore])
+
+  // Determine effective continueChat values
+  const effectiveContinueChat = continueChat || resumeChatId !== null
+  const effectiveContinueChatId = resumeChatId ?? continueChatId
+
   const headerContent = useMemo(() => {
     const displayPath = formatCwd(projectRoot)
 
@@ -252,8 +280,23 @@ export const App = ({
     )
   }
 
+  // Render chat history screen when requested
+  if (showChatHistory) {
+    return (
+      <ChatHistoryScreen
+        onSelectChat={handleResumeChat}
+        onCancel={closeChatHistory}
+        onNewChat={handleNewChat}
+      />
+    )
+  }
+
+  // Use key to force remount when resuming a different chat from history
+  const chatKey = resumeChatId ?? 'current'
+
   return (
     <Chat
+      key={chatKey}
       headerContent={headerContent}
       initialPrompt={initialPrompt}
       agentId={agentId}
@@ -262,8 +305,8 @@ export const App = ({
       setIsAuthenticated={setIsAuthenticated}
       setUser={setUser}
       logoutMutation={logoutMutation}
-      continueChat={continueChat}
-      continueChatId={continueChatId}
+      continueChat={effectiveContinueChat}
+      continueChatId={effectiveContinueChatId}
       authStatus={authStatus}
       initialMode={initialMode}
       gitRoot={gitRoot}

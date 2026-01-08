@@ -54,6 +54,7 @@ export type RouterParams = {
 export type CommandResult = {
   openFeedbackMode?: boolean
   openPublishMode?: boolean
+  openChatHistory?: boolean
   preSelectAgents?: string[]
 } | void
 
@@ -461,6 +462,15 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       useChatStore.getState().setInputMode('connect:claude')
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
+    },
+  }),
+  defineCommand({
+    name: 'chats',
+    aliases: ['history'],
+    handler: (params) => {
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+      return { openChatHistory: true }
     },
   }),
 ]
