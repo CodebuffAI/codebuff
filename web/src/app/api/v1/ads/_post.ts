@@ -22,6 +22,7 @@ const messageSchema = z.object({
 
 const bodySchema = z.object({
   messages: z.array(messageSchema),
+  sessionId: z.string().optional(),
 })
 
 export type GravityEnv = {
@@ -67,6 +68,7 @@ export async function postAds(params: {
 
   // Parse and validate request body
   let messages: z.infer<typeof bodySchema>['messages']
+  let sessionId: string | undefined
   try {
     const json = await req.json()
     const parsed = bodySchema.safeParse(json)
@@ -80,6 +82,7 @@ export async function postAds(params: {
 
     // Filter out messages with no content
     messages = parsed.data.messages.filter((message) => message.content)
+    sessionId = parsed.data.sessionId
   } catch {
     logger.error(
       { error: 'Invalid JSON in request body' },
@@ -94,7 +97,7 @@ export async function postAds(params: {
   try {
     const requestBody = {
       messages,
-      user: { uid: userId },
+      user: { uid: userId, ...(sessionId ? { sessionId } : {}) },
       testAd: serverEnv.CB_ENVIRONMENT !== 'prod',
     }
     // Call Gravity API
