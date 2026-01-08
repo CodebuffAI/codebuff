@@ -130,7 +130,7 @@ Codebuff is organized as a monorepo with these main packages:
 - **python-app/**: Python version of the CLI (experimental)
 - **common/**: Shared code, database schemas, utilities
 - **sdk/**: TypeScript SDK for programmatic usage
-- **.agents/**: Agent definition files and templates
+- **agents/**: Agent definition files and templates
 - **packages/**: Internal packages (billing, bigquery, etc.)
 - **evals/**: Evaluation framework and benchmarks
 
@@ -218,7 +218,7 @@ test: add unit tests for file operations
 
 ### 🤖 **Agent Development**
 
-Build agents in `.agents/` for different languages, frameworks, or workflows.
+Build agents in `agents/` for different languages, frameworks, or workflows.
 
 ### 🔧 **Tool System**
 

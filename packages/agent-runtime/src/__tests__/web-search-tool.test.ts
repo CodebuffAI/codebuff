@@ -16,7 +16,7 @@ import {
 } from 'bun:test'
 
 import { createToolCallChunk, mockFileContext } from './test-utils'
-import researcherAgent from '../../../../.agents/researcher/researcher'
+import researcherAgent from '../../../../agents/researcher/researcher'
 import * as webApi from '../llm-api/codebuff-web-api'
 import { runAgentStep } from '../run-agent-step'
 import { assembleLocalAgentTemplates } from '../templates/agent-registry'

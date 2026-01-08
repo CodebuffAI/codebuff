@@ -1,10 +1,10 @@
 import { buildArray } from '@codebuff/common/util/array'
 
-import { publisher } from '../.agents/constants'
+import { publisher } from '../agents/constants'
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
-} from '../.agents/types/secret-agent-definition'
+} from '../agents/types/secret-agent-definition'
 
 export const createBase2: (mode: 'normal' | 'max') => SecretAgentDefinition = (
   mode,

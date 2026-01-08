@@ -1,0 +1,18 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "skipLibCheck": true,
+    "types": ["bun", "node"],
+    "paths": {
+      "@codebuff/sdk": ["../sdk/src/index.ts"],
+      "@codebuff/common/*": ["../common/src/*"]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "../.agents-graveyard/charles.ts",
+    "../.agents/notion-agent.ts",
+    "../.agents/notion-researcher.ts"
+  ]
+}

@@ -22,6 +22,7 @@ Codebuff is a tool for editing codebases via natural-language instructions to Bu
 - `web/`: Next.js app + API routes (the “web API”)
 - `packages/agent-runtime/`: agent runtime + tool handling (server-side)
 - `common/`: shared types, tools, schemas, utilities
+- `agents/`: main agents shipped with codebuff
 - `.agents/`: local agent templates (prompt + programmatic agents)
 
 ## Request Flow

@@ -1,5 +1,5 @@
-import { publisher } from '../../.agents/constants'
-import { type SecretAgentDefinition } from '../../.agents/types/secret-agent-definition'
+import { publisher } from '../../agents/constants'
+import { type SecretAgentDefinition } from '../../agents/types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
   id: 'decomposing-planner',
