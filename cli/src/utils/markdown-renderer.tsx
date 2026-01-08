@@ -3,6 +3,7 @@ import React from 'react'
 import remarkBreaks from 'remark-breaks'
 import remarkGfm from 'remark-gfm'
 import remarkParse from 'remark-parse'
+import stringWidth from 'string-width'
 import { unified } from 'unified'
 
 import { logger } from './logger'
@@ -642,56 +643,175 @@ const renderLink = (link: Link, state: RenderState): ReactNode[] => {
   ]
 }
 
+/**
+ * Truncates text to fit within a specified width, adding ellipsis if needed.
+ * Uses stringWidth to properly measure Unicode and wide characters.
+ */
+const truncateText = (text: string, maxWidth: number): string => {
+  if (maxWidth < 1) return ''
+  const textWidth = stringWidth(text)
+  if (textWidth <= maxWidth) {
+    return text
+  }
+  
+  // Need to truncate - leave room for ellipsis
+  if (maxWidth === 1) return '…'
+  
+  let truncated = ''
+  let width = 0
+  for (const char of text) {
+    const charWidth = stringWidth(char)
+    if (width + charWidth + 1 > maxWidth) break // +1 for ellipsis
+    truncated += char
+    width += charWidth
+  }
+  return truncated + '…'
+}
+
+/**
+ * Pads text to reach exact width using spaces.
+ */
+const padText = (text: string, targetWidth: number): string => {
+  const currentWidth = stringWidth(text)
+  if (currentWidth >= targetWidth) return text
+  return text + ' '.repeat(targetWidth - currentWidth)
+}
+
 const renderTable = (table: Table, state: RenderState): ReactNode[] => {
-  const { palette, nextKey } = state
+  const { palette, nextKey, codeBlockWidth } = state
   const nodes: ReactNode[] = []
 
-  // Calculate column widths
-  const columnWidths: number[] = []
-  table.children.forEach((row) => {
-    (row as TableRow).children.forEach((cell, colIdx) => {
-      const cellText = nodeToPlainText(cell as TableCell)
-      const width = cellText.length
-      columnWidths[colIdx] = Math.max(columnWidths[colIdx] || 0, width)
-    })
+  // Extract all rows and their plain text content
+  const rows = table.children.map((row) => {
+    const cells = (row as TableRow).children as TableCell[]
+    return cells.map((cell) => nodeToPlainText(cell).trim())
   })
+
+  if (rows.length === 0) return nodes
+
+  // Determine number of columns
+  const numCols = Math.max(...rows.map((r) => r.length))
+  if (numCols === 0) return nodes
+
+  // Calculate natural column widths (minimum 3 chars per column)
+  const naturalWidths: number[] = Array(numCols).fill(3)
+  for (const row of rows) {
+    for (let i = 0; i < row.length; i++) {
+      const cellWidth = stringWidth(row[i] || '')
+      naturalWidths[i] = Math.max(naturalWidths[i], cellWidth)
+    }
+  }
+
+  // Calculate total width needed:
+  // Each column has its content width
+  // Separators: " │ " between columns (3 chars each), none at edges
+  const separatorWidth = 3 // ' │ '
+  const numSeparators = numCols - 1
+  const totalNaturalWidth =
+    naturalWidths.reduce((a, b) => a + b, 0) + numSeparators * separatorWidth
+
+  // Available width for the table (leave some margin)
+  const availableWidth = Math.max(20, codeBlockWidth - 2)
+
+  // Calculate final column widths
+  let columnWidths: number[]
+  if (totalNaturalWidth <= availableWidth) {
+    // Table fits - use natural widths
+    columnWidths = naturalWidths
+  } else {
+    // Table too wide - proportionally shrink columns
+    const availableForContent = availableWidth - numSeparators * separatorWidth
+    const totalNaturalContent = naturalWidths.reduce((a, b) => a + b, 0)
+    const scale = availableForContent / totalNaturalContent
+    
+    columnWidths = naturalWidths.map((w) => {
+      // Minimum 3 chars, scale the rest
+      return Math.max(3, Math.floor(w * scale))
+    })
+    
+    // Distribute any remaining width to columns that were clamped
+    let usedWidth = columnWidths.reduce((a, b) => a + b, 0)
+    let remaining = availableForContent - usedWidth
+    for (let i = 0; i < columnWidths.length && remaining > 0; i++) {
+      if (columnWidths[i] < naturalWidths[i]) {
+        const add = Math.min(remaining, naturalWidths[i] - columnWidths[i])
+        columnWidths[i] += add
+        remaining -= add
+      }
+    }
+  }
+
+  // Helper to render a horizontal separator line
+  const renderSeparator = (leftChar: string, midChar: string, rightChar: string): void => {
+    let line = leftChar
+    columnWidths.forEach((width, idx) => {
+      line += '─'.repeat(width + 2) // +2 for padding spaces
+      line += idx < columnWidths.length - 1 ? midChar : rightChar
+    })
+    nodes.push(
+      <span key={nextKey()} fg={palette.dividerFg}>
+        {line}
+      </span>,
+    )
+    nodes.push('\n')
+  }
+
+  // Render top border
+  renderSeparator('┌', '┬', '┐')
 
   // Render each row
   table.children.forEach((row, rowIdx) => {
     const isHeader = rowIdx === 0
     const cells = (row as TableRow).children as TableCell[]
 
-    // Render cells in the row
-    cells.forEach((cell, cellIdx) => {
-      const cellNodes = renderNodes(
-        cell.children as MarkdownNode[],
-        state,
-        cell.type,
-      )
-      const cellWidth = columnWidths[cellIdx] || 10
-      const cellText = nodeToPlainText(cell)
-      const padding = ' '.repeat(Math.max(0, cellWidth - cellText.length))
+    // Render row content
+    for (let cellIdx = 0; cellIdx < numCols; cellIdx++) {
+      const cell = cells[cellIdx]
+      const cellText = cell ? nodeToPlainText(cell).trim() : ''
+      const colWidth = columnWidths[cellIdx]
+      
+      // Truncate and pad the cell content
+      const displayText = padText(truncateText(cellText, colWidth), colWidth)
 
+      // Left border for first cell
+      if (cellIdx === 0) {
+        nodes.push(
+          <span key={nextKey()} fg={palette.dividerFg}>
+            │
+          </span>,
+        )
+      }
+
+      // Cell content with padding
       nodes.push(
-        <span key={nextKey()} fg={isHeader ? palette.headingFg[3] : undefined}>
-          {cellIdx === 0 ? '| ' : ' | '}
-          {wrapSegmentsInFragments(cellNodes, nextKey())}
-          {padding}
+        <span
+          key={nextKey()}
+          fg={isHeader ? palette.headingFg[3] : undefined}
+          attributes={isHeader ? TextAttributes.BOLD : undefined}
+        >
+          {' '}
+          {displayText}
+          {' '}
         </span>,
       )
-    })
-    nodes.push(' |\n')
+
+      // Separator or right border
+      nodes.push(
+        <span key={nextKey()} fg={palette.dividerFg}>
+          │
+        </span>,
+      )
+    }
+    nodes.push('\n')
 
     // Add separator line after header
     if (isHeader) {
-      nodes.push('|')
-      columnWidths.forEach((width, idx) => {
-        nodes.push(idx === 0 ? ' ' : ' | ')
-        nodes.push('-'.repeat(width))
-      })
-      nodes.push(' |\n')
+      renderSeparator('├', '┼', '┤')
     }
   })
+
+  // Render bottom border
+  renderSeparator('└', '┴', '┘')
 
   nodes.push('\n')
   return nodes

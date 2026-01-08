@@ -182,7 +182,7 @@ describe('markdown renderer', () => {
     const output = renderMarkdown(markdown)
     const nodes = flattenNodes(output)
 
-    // Check that table structure is rendered (pipes and separators)
+    // Check that table structure is rendered with box-drawing characters
     const textContent = nodes
       .map((node) => {
         if (typeof node === 'string') return node
@@ -199,8 +199,9 @@ describe('markdown renderer', () => {
     expect(textContent).toContain('Jane')
     expect(textContent).toContain('30')
     expect(textContent).toContain('25')
-    expect(textContent).toContain('|')
-    expect(textContent).toContain('---')
+    // Table uses box-drawing characters for borders
+    expect(textContent).toContain('│')
+    expect(textContent).toContain('─')
   })
 
   test('renders code fence followed by text with quotes correctly', () => {
@@ -320,5 +321,93 @@ codebuff "implement feature" --verbose
     // Should preserve quotes and special characters within inline code
     expect(inlineContent).toContain('git commit -m "fix: bug"')
     expect(nodes[2]).toBe(' to commit.')
+  })
+
+  test('truncates table columns when content exceeds available width', () => {
+    // Table with very long content that should be truncated
+    const markdown = `| ID | This is a very long column header that should be truncated |
+| -- | ---------------------------------------------------------- |
+| 1  | This cell has extremely long content that definitely exceeds the width |`
+    
+    // Use a narrow codeBlockWidth to force truncation
+    const output = renderMarkdown(markdown, { codeBlockWidth: 50 })
+    const nodes = flattenNodes(output)
+
+    const textContent = nodes
+      .map((node) => {
+        if (typeof node === 'string') return node
+        if (React.isValidElement(node)) {
+          return flattenChildren(node.props.children).join('')
+        }
+        return ''
+      })
+      .join('')
+
+    // Should contain ellipsis indicating truncation of the long column
+    expect(textContent).toContain('…')
+    // The short column content should be present (ID and 1 are short enough)
+    expect(textContent).toContain('ID')
+    expect(textContent).toContain('1')
+    // Box-drawing characters should still be present
+    expect(textContent).toContain('│')
+    expect(textContent).toContain('─')
+    // The long header should be truncated (not fully present)
+    expect(textContent).not.toContain('This is a very long column header that should be truncated')
+  })
+
+  test('does not truncate table columns when content fits available width', () => {
+    const markdown = `| Name | Age |
+| ---- | --- |
+| John | 30  |`
+    
+    // Use a wide codeBlockWidth so no truncation is needed
+    const output = renderMarkdown(markdown, { codeBlockWidth: 80 })
+    const nodes = flattenNodes(output)
+
+    const textContent = nodes
+      .map((node) => {
+        if (typeof node === 'string') return node
+        if (React.isValidElement(node)) {
+          return flattenChildren(node.props.children).join('')
+        }
+        return ''
+      })
+      .join('')
+
+    // Should NOT contain ellipsis when content fits
+    expect(textContent).not.toContain('…')
+    // All content should be present in full
+    expect(textContent).toContain('Name')
+    expect(textContent).toContain('Age')
+    expect(textContent).toContain('John')
+    expect(textContent).toContain('30')
+  })
+
+  test('proportionally shrinks table columns when table is too wide', () => {
+    // Three columns of roughly equal width
+    const markdown = `| Column One | Column Two | Column Three |
+| ---------- | ---------- | ------------ |
+| Value1     | Value2     | Value3       |`
+    
+    // Very narrow width to force significant shrinking
+    const output = renderMarkdown(markdown, { codeBlockWidth: 30 })
+    const nodes = flattenNodes(output)
+
+    const textContent = nodes
+      .map((node) => {
+        if (typeof node === 'string') return node
+        if (React.isValidElement(node)) {
+          return flattenChildren(node.props.children).join('')
+        }
+        return ''
+      })
+      .join('')
+
+    // Table structure should still be present
+    expect(textContent).toContain('│')
+    expect(textContent).toContain('┌')
+    expect(textContent).toContain('└')
+    // With such narrow width, some content should be truncated
+    expect(textContent).toContain('…')
   })
 })
