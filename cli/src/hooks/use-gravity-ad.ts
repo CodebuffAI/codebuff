@@ -5,7 +5,7 @@ import { getAdsEnabled } from '../commands/ads'
 import { useChatStore } from '../state/chat-store'
 import { subscribeToActivity } from '../utils/activity-tracker'
 import { getAuthToken } from '../utils/auth'
-import { logger } from '../utils/logger'
+import { logger, loggerContext } from '../utils/logger'
 
 const AD_ROTATION_INTERVAL_MS = 60 * 1000 // 60 seconds per ad
 const MAX_ADS_AFTER_ACTIVITY = 3 // Show up to 3 ads after last activity, then stop
@@ -145,16 +145,30 @@ export const useGravityAd = (): GravityAdState => {
       }
     }
 
-    const userAdMessages = adMessages
-      .filter((message) => message.role === 'user')
-      .slice(-3)
-      .map((message) => ({
-        role: message.role,
-        content: message.content.replace(
+    // Get the last assistant message and last user message
+    const lastAssistantMessage = [...adMessages]
+      .reverse()
+      .find((message) => message.role === 'assistant')
+    const lastUserMessage = [...adMessages]
+      .reverse()
+      .find((message) => message.role === 'user')
+
+    const messagesToSend: { role: string; content: string }[] = []
+    if (lastAssistantMessage) {
+      messagesToSend.push({
+        role: lastAssistantMessage.role,
+        content: lastAssistantMessage.content,
+      })
+    }
+    if (lastUserMessage) {
+      messagesToSend.push({
+        role: lastUserMessage.role,
+        content: lastUserMessage.content.replace(
           /<user_message>(.*?)<\/user_message>/,
           '$1',
         ),
-      }))
+      })
+    }
 
     try {
       const response = await fetch(`${WEBSITE_URL}/api/v1/ads`, {
@@ -163,7 +177,10 @@ export const useGravityAd = (): GravityAdState => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authToken}`,
         },
-        body: JSON.stringify({ messages: userAdMessages }),
+        body: JSON.stringify({
+          messages: messagesToSend,
+          sessionId: loggerContext.clientSessionId,
+        }),
       })
 
       if (!response.ok) {
@@ -178,7 +195,7 @@ export const useGravityAd = (): GravityAdState => {
       const ad = data.ad as AdResponse | null
 
       logger.info(
-        { ad, request: { messages: userAdMessages } },
+        { ad, request: { messages: messagesToSend } },
         '[gravity] Received ad response',
       )
       return ad
