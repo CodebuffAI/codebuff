@@ -12,9 +12,11 @@ import {
 import { useShallow } from 'zustand/react/shallow'
 
 import { getAdsEnabled } from './commands/ads'
+import { handleChatSelection } from './commands/chats'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
 import { AdBanner } from './components/ad-banner'
 import { ChatInputBar } from './components/chat-input-bar'
+import { ChatPickerScreen } from './components/chat-picker-screen'
 import { BottomStatusLine } from './components/bottom-status-line'
 import { areCreditsRestored } from './components/out-of-credits-banner'
 import { LoadPreviousButton } from './components/load-previous-button'
@@ -215,6 +217,8 @@ export const Chat = ({
     [streamingAgentsKey],
   )
   const pendingBashMessages = useChatStore((state) => state.pendingBashMessages)
+  const showChatPicker = useChatStore((state) => state.showChatPicker)
+  const setShowChatPicker = useChatStore((state) => state.setShowChatPicker)
 
   // Refs for tracking state across renders
   const activeAgentStreamsRef = useRef<number>(0)
@@ -1400,6 +1404,39 @@ export const Chat = ({
       reportActivity()
     }
   }, [])
+
+  // Show chat picker if active
+  if (showChatPicker) {
+    return (
+      <ChatPickerScreen
+        onSelectChat={async (chatId) => {
+          await handleChatSelection(chatId, {
+            abortControllerRef,
+            agentMode,
+            inputRef,
+            inputValue,
+            isChainInProgressRef,
+            isStreaming,
+            logoutMutation,
+            streamMessageIdRef,
+            addToQueue,
+            clearMessages,
+            saveToHistory,
+            scrollToLatest,
+            sendMessage,
+            setCanProcessQueue,
+            setInputFocused,
+            setInputValue,
+            setIsAuthenticated,
+            setMessages,
+            setUser,
+            stopStreaming,
+          })
+        }}
+        onClose={() => setShowChatPicker(false)}
+      />
+    )
+  }
 
   return (
     <box

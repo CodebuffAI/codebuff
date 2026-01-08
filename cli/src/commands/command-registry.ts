@@ -1,6 +1,7 @@
 import open from 'open'
 
 import { handleAdsEnable, handleAdsDisable } from './ads'
+import { handleChatsCommand } from './chats'
 import { handleHelpCommand } from './help'
 import { handleImageCommand } from './image'
 import { handleInitializationFlowLocally } from './init'
@@ -185,6 +186,13 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       params.setMessages((prev) => postUserMessage(prev))
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
+    },
+  }),
+  defineCommand({
+    name: 'chats',
+    aliases: ['history'],
+    handler: async (params) => {
+      await handleChatsCommand(params)
     },
   }),
   defineCommandWithArgs({

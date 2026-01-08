@@ -90,6 +90,41 @@ export function getMostRecentChatDir(): string | null {
   }
 }
 
+/**
+ * Get all chat directories sorted by modification time (most recent first)
+ * Returns empty array if no chat directories exist
+ */
+export function getAllChatDirs(): Array<{ chatId: string; mtime: Date }> {
+  try {
+    const chatsDir = path.join(getProjectDataDir(), 'chats')
+    if (!statSync(chatsDir, { throwIfNoEntry: false })) {
+      return []
+    }
+
+    const chatDirs = readdirSync(chatsDir)
+      .map((name) => {
+        const fullPath = path.join(chatsDir, name)
+        try {
+          const stat = statSync(fullPath)
+          return { chatId: name, mtime: stat.mtime, fullPath }
+        } catch {
+          return null
+        }
+      })
+      .filter(
+        (item): item is { chatId: string; mtime: Date; fullPath: string } =>
+          item !== null && statSync(item.fullPath).isDirectory(),
+      )
+
+    // Sort by modification time, most recent first
+    chatDirs.sort((a, b) => b.mtime.getTime() - a.mtime.getTime())
+
+    return chatDirs.map(({ chatId, mtime }) => ({ chatId, mtime }))
+  } catch {
+    return []
+  }
+}
+
 export function getCurrentChatDir(): string {
   const chatId = getCurrentChatId()
   const dir = path.join(getProjectDataDir(), 'chats', chatId)

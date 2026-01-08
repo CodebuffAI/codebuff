@@ -116,6 +116,7 @@ export type ChatStoreState = {
   activeTopBanner: TopBannerType
   inputMode: InputMode
   isRetrying: boolean
+  showChatPicker: boolean
   askUserState: AskUserState
   pendingImages: PendingImage[]
   pendingBashMessages: PendingBashMessage[]
@@ -184,6 +185,7 @@ type ChatStoreActions = {
   closeTopBanner: () => void
   setInputMode: (mode: InputMode) => void
   setIsRetrying: (retrying: boolean) => void
+  setShowChatPicker: (show: boolean) => void
   setAskUserState: (state: AskUserState) => void
   updateAskUserAnswer: (questionIndex: number, optionIndex: number) => void
   updateAskUserOtherText: (questionIndex: number, text: string) => void
@@ -225,6 +227,7 @@ const initialState: ChatStoreState = {
   activeTopBanner: null,
   inputMode: 'default' as InputMode,
   isRetrying: false,
+  showChatPicker: false,
   askUserState: null,
   pendingImages: [],
   pendingBashMessages: [],
@@ -354,6 +357,11 @@ export const useChatStore = create<ChatStore>()(
     setIsRetrying: (retrying) =>
       set((state) => {
         state.isRetrying = retrying
+      }),
+
+    setShowChatPicker: (show) =>
+      set((state) => {
+        state.showChatPicker = show
       }),
 
     setAskUserState: (askUserState) =>

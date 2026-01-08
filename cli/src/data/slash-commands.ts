@@ -37,6 +37,12 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   //   description: 'Redo the most recent undone change',
   // },
   {
+    id: 'chats',
+    label: 'chats',
+    description: 'View your chat history',
+    aliases: ['history'],
+  },
+  {
     id: 'usage',
     label: 'usage',
     description: 'View credits and subscription quota',
