@@ -106,13 +106,6 @@ export async function mainPrompt(
     throw new Error(`Agent template not found for type: ${agentType}`)
   }
 
-  const updatedSubagents = agentId
-    ? // Use only the spawnable agents from the main agent template if an agent ID is specified
-      mainAgentTemplate.spawnableAgents
-    : uniq([...mainAgentTemplate.spawnableAgents, ...availableAgents])
-  mainAgentTemplate.spawnableAgents = updatedSubagents
-  localAgentTemplates[agentType] = mainAgentTemplate
-
   const { agentState, output } = await loopAgentSteps({
     ...params,
     userInputId: promptId,

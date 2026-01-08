@@ -264,25 +264,47 @@ export const loadLocalAgents = (currentAgentMode?: AgentMode): LocalAgentInfo[] 
  * Bundled agents are compiled into the CLI binary at build time.
  * User agents from .agents/ are loaded via SDK at startup and cached.
  * User agents can override bundled agents with the same ID.
+ * 
+ * Additionally, all user agent IDs are automatically added to the spawnableAgents
+ * of any base agent (agents with IDs starting with 'base'), so users can spawn
+ * their custom agents without needing to modify the base agent definition.
  */
 export const loadAgentDefinitions = (): AgentDefinition[] => {
   // Start with bundled agents - these are the default Codebuff agents
   const bundledAgents = getBundledAgents()
-  const definitions: AgentDefinition[] = Object.values(bundledAgents)
+  const definitions: AgentDefinition[] = Object.values(bundledAgents).map(def => ({ ...def }))
   const bundledIds = new Set(Object.keys(bundledAgents))
 
   // Get user agents from the SDK-loaded cache
   const userAgentDefs = getUserAgentDefinitions()
+  const userAgentIds = userAgentDefs.map(def => def.id)
 
   for (const agentDef of userAgentDefs) {
     // User agents override bundled agents with the same ID
     if (bundledIds.has(agentDef.id)) {
       const idx = definitions.findIndex(d => d.id === agentDef.id)
       if (idx !== -1) {
-        definitions[idx] = agentDef
+        definitions[idx] = { ...agentDef }
       }
     } else {
-      definitions.push(agentDef)
+      definitions.push({ ...agentDef })
+    }
+  }
+
+  // Auto-add user agent IDs to spawnableAgents of base agents
+  // This allows users to spawn their custom agents without needing to
+  // explicitly add them to the base agent's spawnableAgents list
+  if (userAgentIds.length > 0) {
+    for (const def of definitions) {
+      // Consider any agent with an ID starting with 'base' as a base agent
+      if (def.id.startsWith('base') && def.spawnableAgents) {
+        const existingSpawnable = new Set(def.spawnableAgents)
+        for (const userAgentId of userAgentIds) {
+          if (!existingSpawnable.has(userAgentId)) {
+            def.spawnableAgents = [...def.spawnableAgents, userAgentId]
+          }
+        }
+      }
     }
   }
 
