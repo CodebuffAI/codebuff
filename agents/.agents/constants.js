@@ -1,8 +1,0 @@
-// ../../.agents/constants.ts
-var publisher = "codebuff";
-export {
-  publisher
-};
-
-//# debugId=8EF69007288BD09464756E2164756E21
-//# sourceMappingURL=data:application/json;base64,ewogICJ2ZXJzaW9uIjogMywKICAic291cmNlcyI6IFsiLi4vLi4vLi4vLi4vLmFnZW50cy9jb25zdGFudHMudHMiXSwKICAic291cmNlc0NvbnRlbnQiOiBbCiAgICAiZXhwb3J0IGNvbnN0IHB1Ymxpc2hlciA9ICdjb2RlYnVmZidcbiIKICBdLAogICJtYXBwaW5ncyI6ICI7QUFBTyxJQUFNLFlBQVk7IiwKICAiZGVidWdJZCI6ICI4RUY2OTAwNzI4OEJEMDk0NjQ3NTZFMjE2NDc1NkUyMSIsCiAgIm5hbWVzIjogW10KfQ==
