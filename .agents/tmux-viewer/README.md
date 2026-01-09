@@ -8,6 +8,9 @@ Interactive TUI for viewing tmux session logs. Designed to work for **both human
 # Interactive TUI (for humans)
 bun .agents/tmux-viewer/index.tsx <session-name>
 
+# Start in replay mode (auto-plays through captures like a video)
+bun .agents/tmux-viewer/index.tsx <session-name> --replay
+
 # JSON output (for AIs)
 bun .agents/tmux-viewer/index.tsx <session-name> --json
 
@@ -30,11 +33,37 @@ cd .agents && bun run view-session <session-name>
 - **Timeline panel**: Navigate through captures with ↑↓ arrows
 - **Capture panel**: View terminal output at each point in time
 - **Metadata display**: Session info, dimensions, command count
+- **Replay mode**: Auto-play through captures like a video player
 - **Keyboard shortcuts**:
-  - `↑↓` or `jk`: Navigate captures
+  - `Space`: Play/pause replay
+  - `+` / `-`: Adjust playback speed (faster/slower)
+  - `r`: Restart from beginning
+  - `↑↓` or `jk`: Navigate captures (pauses replay)
   - `←→` or `hl`: Switch panels
   - `q` or Ctrl+C: Quit
   - Use the `--json` flag on the CLI entrypoint for JSON output
+
+### Replay Mode
+
+Replay mode auto-advances through captures chronologically, like a video player:
+
+```bash
+# Start replay immediately
+bun .agents/tmux-viewer/index.tsx my-session --replay
+
+# Or press Space in the TUI to start/stop replay
+```
+
+**Playback controls:**
+- `Space` - Toggle play/pause
+- `+` or `=` - Speed up (shorter interval between captures)
+- `-` or `_` - Slow down (longer interval between captures)
+- `r` - Restart from the first capture
+- Arrow keys - Manual navigation (automatically pauses replay)
+
+**Available speeds:** 0.5s, 1.0s, 1.5s (default), 2.0s, 3.0s, 5.0s per capture
+
+The footer shows the current position (e.g., `3/10`), playback speed (e.g., `@1.5s`), and play/pause status.
 
 ### For AIs (JSON Output)
 Use the `--json` flag to get structured output:

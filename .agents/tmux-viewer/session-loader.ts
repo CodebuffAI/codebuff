@@ -86,18 +86,46 @@ function parseFrontMatter(content: string): { frontMatter: CaptureFrontMatter; b
 }
 
 /**
+ * Check if a filename matches capture file patterns:
+ * - New format: 001-label.txt (sequence number prefix)
+ * - Old format: capture-*.txt
+ */
+function isCaptureFile(filename: string): boolean {
+  // New format: 3-digit sequence prefix (e.g., 001-initial-state.txt)
+  const newPattern = /^\d{3}-.*\.txt$/
+  // Old format: capture- prefix (e.g., capture-20260108-160030-initial-state.txt)
+  const oldPattern = /^capture-.*\.txt$/
+  
+  return newPattern.test(filename) || oldPattern.test(filename)
+}
+
+/**
  * Load all captures from a session directory
+ * Checks captures/ subdirectory first, falls back to session directory
  */
 async function loadCaptures(sessionDir: string): Promise<Capture[]> {
-  const files = await fs.readdir(sessionDir)
+  // Try captures/ subdirectory first, then fall back to session directory
+  const capturesSubdir = path.join(sessionDir, 'captures')
+  let capturesDir = sessionDir
+  
+  try {
+    const stats = await fs.stat(capturesSubdir)
+    if (stats.isDirectory()) {
+      capturesDir = capturesSubdir
+    }
+  } catch {
+    // captures/ subdirectory doesn't exist, use session directory
+  }
+  
+  const files = await fs.readdir(capturesDir)
   const captureFiles = files
-    .filter((f) => f.startsWith('capture-') && f.endsWith('.txt'))
+    .filter(isCaptureFile)
     .sort()
   
   const captures: Capture[] = []
   
   for (const filename of captureFiles) {
-    const filePath = path.join(sessionDir, filename)
+    const filePath = path.join(capturesDir, filename)
     const content = await fs.readFile(filePath, 'utf-8')
     const { frontMatter, body } = parseFrontMatter(content)
     
@@ -142,7 +170,7 @@ export function buildTimeline(
   })
   
   // Sort by timestamp
-  entries.sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+  entries.sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)))
   
   return entries
 }

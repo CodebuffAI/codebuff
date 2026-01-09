@@ -6,6 +6,7 @@
  * Usage:
  *   bun .agents/tmux-viewer/index.tsx <session-name>
  *   bun .agents/tmux-viewer/index.tsx <session-name> --json
+ *   bun .agents/tmux-viewer/index.tsx <session-name> --replay
  *   bun .agents/tmux-viewer/index.tsx --list
  * 
  * Both humans and AIs can use this tool:
@@ -26,6 +27,7 @@ interface ParsedArgs {
   session: string | null
   json: boolean
   list: boolean
+  replay: boolean
 }
 
 function parseArgs(): ParsedArgs {
@@ -37,6 +39,7 @@ function parseArgs(): ParsedArgs {
     .version('0.0.1')
     .option('--json', 'Output session data as JSON (for AI consumption)')
     .option('--list', 'List available sessions')
+    .option('--replay', 'Start in replay mode (auto-playing through captures)')
     .argument('[session]', 'Session name to view')
     .parse(process.argv)
 
@@ -47,11 +50,12 @@ function parseArgs(): ParsedArgs {
     session: args[0] ?? null,
     json: options.json ?? false,
     list: options.list ?? false,
+    replay: options.replay ?? false,
   }
 }
 
 async function main(): Promise<void> {
-  const { session, json, list } = parseArgs()
+  const { session, json, list, replay } = parseArgs()
   const projectRoot = process.cwd()
 
   // List sessions mode
@@ -90,15 +94,16 @@ async function main(): Promise<void> {
     // Use the most recent session
     const mostRecent = sessions[0]
     console.log(dim(`Using most recent session: ${mostRecent}`))
-    return runViewer(mostRecent, json, projectRoot)
+    return runViewer(mostRecent, json, replay, projectRoot)
   }
 
-  return runViewer(session, json, projectRoot)
+  return runViewer(session, json, replay, projectRoot)
 }
 
 async function runViewer(
   sessionName: string,
   jsonMode: boolean,
+  replayMode: boolean,
   projectRoot: string
 ): Promise<void> {
   // Load session data
@@ -149,6 +154,7 @@ async function runViewer(
       data={data}
       onExit={handleExit}
       onJsonOutput={handleJsonOutput}
+      startInReplayMode={replayMode}
     />
   )
 }
