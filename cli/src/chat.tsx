@@ -1,3 +1,4 @@
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { RECONNECTION_MESSAGE_DURATION_MS } from '@codebuff/sdk'
 import open from 'open'
 import { useQueryClient } from '@tanstack/react-query'
@@ -81,6 +82,7 @@ import { createPasteHandler } from './utils/strings'
 import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
 import { reportActivity } from './utils/activity-tracker'
+import { trackEvent } from './utils/analytics'
 
 import type { CommandResult } from './commands/command-registry'
 import type { MultilineInputHandle } from './components/multiline-input'
@@ -481,6 +483,17 @@ export const Chat = ({
       setForceFileOnlyMentions(false)
     }
   }, [mentionContext.active])
+
+  // Track when slash menu is activated
+  const prevSlashActiveRef = useRef(false)
+  useEffect(() => {
+    if (slashContext.active && !prevSlashActiveRef.current) {
+      trackEvent(AnalyticsEvent.SLASH_MENU_ACTIVATED, {
+        query: slashContext.query,
+      })
+    }
+    prevSlashActiveRef.current = slashContext.active
+  }, [slashContext.active, slashContext.query])
 
   // Reset suggestion menu indexes when context changes
   useEffect(() => {

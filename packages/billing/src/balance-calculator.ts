@@ -1,3 +1,5 @@
+import { trackEvent } from '@codebuff/common/analytics'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { GrantTypeValues } from '@codebuff/common/types/grant'
 import { failure, getErrorObject, success } from '@codebuff/common/util/error'
@@ -368,6 +370,18 @@ export async function consumeCredits(params: {
     logger,
   })
 
+  // Track credit consumption analytics
+  trackEvent({
+    event: AnalyticsEvent.CREDIT_CONSUMED,
+    userId,
+    properties: {
+      creditsConsumed: result.consumed,
+      fromPurchased: result.fromPurchased,
+      source: 'consumeCredits',
+    },
+    logger,
+  })
+
   await reportPurchasedCreditsToStripe({
     userId,
     stripeCustomerId: params.stripeCustomerId,
@@ -573,6 +587,21 @@ export async function consumeCreditsAndAddAgentStep(params: {
         return { ...result, agentStepId: crypto.randomUUID() }
       },
       context: { userId, credits },
+      logger,
+    })
+
+    // Track credit consumption analytics
+    trackEvent({
+      event: AnalyticsEvent.CREDIT_CONSUMED,
+      userId,
+      properties: {
+        creditsConsumed: result.consumed,
+        fromPurchased: result.fromPurchased,
+        messageId,
+        agentId,
+        model,
+        source: 'consumeCreditsAndAddAgentStep',
+      },
       logger,
     })
 

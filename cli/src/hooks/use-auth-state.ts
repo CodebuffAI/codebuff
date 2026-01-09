@@ -1,8 +1,9 @@
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { useCallback, useEffect, useState } from 'react'
 
 import { useAuthQuery, useLogoutMutation } from './use-auth-query'
 import { useLoginStore } from '../state/login-store'
-import { identifyUser } from '../utils/analytics'
+import { identifyUser, trackEvent } from '../utils/analytics'
 import { getUserCredentials } from '../utils/auth'
 import { resetCodebuffClient } from '../utils/codebuff-client'
 import { loggerContext } from '../utils/logger'
@@ -80,6 +81,11 @@ export const useAuthState = ({
   // Handle successful login
   const handleLoginSuccess = useCallback(
     (loggedInUser: User) => {
+      // Track successful login
+      trackEvent(AnalyticsEvent.LOGIN, {
+        userId: loggedInUser.id,
+      })
+
       // Reset the SDK client to pick up new credentials
       resetCodebuffClient()
       resetChatStore()

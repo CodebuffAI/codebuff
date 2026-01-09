@@ -4,6 +4,7 @@ import { promises as fs } from 'fs'
 import { createRequire } from 'module'
 import os from 'os'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { getProjectFileTree } from '@codebuff/common/project-file-tree'
 import { createCliRenderer } from '@opentui/core'
 import { createRoot } from '@opentui/react'
@@ -20,7 +21,7 @@ import { App } from './app'
 import { handlePublish } from './commands/publish'
 import { initializeApp } from './init/init-app'
 import { getProjectRoot, setProjectRoot } from './project-files'
-import { initAnalytics } from './utils/analytics'
+import { initAnalytics, trackEvent } from './utils/analytics'
 import { getAuthTokenDetails } from './utils/auth'
 import { resetCodebuffClient } from './utils/codebuff-client'
 import { getCliEnv } from './utils/env'
@@ -215,6 +216,17 @@ async function main(): Promise<void> {
   // Initialize analytics
   try {
     initAnalytics()
+
+    // Track app launch event
+    trackEvent(AnalyticsEvent.APP_LAUNCHED, {
+      version: loadPackageVersion(),
+      platform: process.platform,
+      arch: process.arch,
+      hasInitialPrompt: Boolean(initialPrompt),
+      hasAgentOverride: hasAgentOverride,
+      continueChat,
+      initialMode: initialMode ?? 'DEFAULT',
+    })
   } catch (error) {
     // Analytics initialization is optional - don't fail the app if it errors
     logger.debug(error, 'Failed to initialize analytics')
@@ -271,8 +283,15 @@ async function main(): Promise<void> {
     // Callback for when user selects a new project from the picker
     const handleProjectChange = React.useCallback(
       async (newProjectPath: string) => {
+        const previousPath = process.cwd()
         // Change process working directory
         process.chdir(newProjectPath)
+
+        // Track directory change
+        trackEvent(AnalyticsEvent.CHANGE_DIRECTORY, {
+          from: previousPath,
+          to: newProjectPath,
+        })
         // Update the project root in the module state
         setProjectRoot(newProjectPath)
         // Reset client to ensure tools use the updated project root

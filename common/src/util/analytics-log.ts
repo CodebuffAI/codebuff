@@ -20,6 +20,15 @@ const analyticsEvents = new Set<AnalyticsEvent>(Object.values(AnalyticsEvent))
 const toStringOrNull = (value: unknown): string | null =>
   typeof value === 'string' ? value : null
 
+const getUserId = (
+  record: AnalyticsLogData,
+  fallbackUserId?: string,
+): string | null =>
+  toStringOrNull(record.userId) ??
+  toStringOrNull(record.user_id) ??
+  toStringOrNull(record.user?.id) ??
+  toStringOrNull(fallbackUserId)
+
 export function getAnalyticsEventId(data: unknown): AnalyticsEvent | null {
   if (!data || typeof data !== 'object') {
     return null
@@ -46,24 +55,19 @@ export function toTrackableAnalyticsPayload({
   }
 
   const record = data as AnalyticsLogData
-  const eventId = record.eventId
-
-  if (!eventId || !analyticsEvents.has(eventId as AnalyticsEvent)) {
+  const eventId = getAnalyticsEventId(record)
+  if (!eventId) {
     return null
   }
 
-  const userId =
-    toStringOrNull(record.userId) ??
-    toStringOrNull(record.user_id) ??
-    toStringOrNull(record.user?.id) ??
-    toStringOrNull(fallbackUserId)
+  const userId = getUserId(record, fallbackUserId)
 
   if (!userId) {
     return null
   }
 
   return {
-    event: eventId as AnalyticsEvent,
+    event: eventId,
     userId,
     properties: {
       ...record,

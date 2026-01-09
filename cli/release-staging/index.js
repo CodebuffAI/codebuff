@@ -2,6 +2,7 @@
 
 const { spawn } = require('child_process')
 const fs = require('fs')
+const http = require('http')
 const https = require('https')
 const os = require('os')
 const path = require('path')
@@ -30,6 +31,70 @@ function createConfig(packageName) {
 }
 
 const CONFIG = createConfig(packageName)
+
+function getPostHogConfig() {
+  const apiKey =
+    process.env.CODEBUFF_POSTHOG_API_KEY ||
+    process.env.NEXT_PUBLIC_POSTHOG_API_KEY
+  const host =
+    process.env.CODEBUFF_POSTHOG_HOST ||
+    process.env.NEXT_PUBLIC_POSTHOG_HOST_URL
+
+  if (!apiKey || !host) {
+    return null
+  }
+
+  return { apiKey, host }
+}
+
+/**
+ * Track update failure event to PostHog.
+ * Fire-and-forget - errors are silently ignored.
+ */
+function trackUpdateFailed(errorMessage, version, context = {}) {
+  try {
+    const posthogConfig = getPostHogConfig()
+    if (!posthogConfig) {
+      return
+    }
+
+    const payload = JSON.stringify({
+      api_key: posthogConfig.apiKey,
+      event: 'cli.update_codebuff_failed',
+      properties: {
+        distinct_id: `anonymous-${CONFIG.homeDir}`,
+        error: errorMessage,
+        version: version || 'unknown',
+        platform: process.platform,
+        arch: process.arch,
+        isStaging: true,
+        ...context,
+      },
+      timestamp: new Date().toISOString(),
+    })
+
+    const parsedUrl = new URL(`${posthogConfig.host}/capture/`)
+    const isHttps = parsedUrl.protocol === 'https:'
+    const options = {
+      hostname: parsedUrl.hostname,
+      port: parsedUrl.port || (isHttps ? 443 : 80),
+      path: parsedUrl.pathname + parsedUrl.search,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+      },
+    }
+
+    const transport = isHttps ? https : http
+    const req = transport.request(options)
+    req.on('error', () => {}) // Silently ignore errors
+    req.write(payload)
+    req.end()
+  } catch (e) {
+    // Silently ignore any tracking errors
+  }
+}
 
 const PLATFORM_TARGETS = {
   'linux-x64': `${packageName}-linux-x64.tar.gz`,
@@ -256,7 +321,9 @@ async function downloadBinary(version) {
   const fileName = PLATFORM_TARGETS[platformKey]
 
   if (!fileName) {
-    throw new Error(`Unsupported platform: ${process.platform} ${process.arch}`)
+    const error = new Error(`Unsupported platform: ${process.platform} ${process.arch}`)
+    trackUpdateFailed(error.message, version, { stage: 'platform_check' })
+    throw error
   }
 
   const downloadUrl = `${
@@ -278,7 +345,9 @@ async function downloadBinary(version) {
 
   if (res.statusCode !== 200) {
     fs.rmSync(CONFIG.tempDownloadDir, { recursive: true })
-    throw new Error(`Download failed: HTTP ${res.statusCode}`)
+    const error = new Error(`Download failed: HTTP ${res.statusCode}`)
+    trackUpdateFailed(error.message, version, { stage: 'http_download', statusCode: res.statusCode })
+    throw error
   }
 
   const totalSize = parseInt(res.headers['content-length'] || '0', 10)
@@ -318,9 +387,11 @@ async function downloadBinary(version) {
   if (!fs.existsSync(tempBinaryPath)) {
     const files = fs.readdirSync(CONFIG.tempDownloadDir)
     fs.rmSync(CONFIG.tempDownloadDir, { recursive: true })
-    throw new Error(
+    const error = new Error(
       `Binary not found after extraction. Expected: ${CONFIG.binaryName}, Available files: ${files.join(', ')}`,
     )
+    trackUpdateFailed(error.message, version, { stage: 'extraction' })
+    throw error
   }
 
   // Set executable permissions
@@ -334,7 +405,9 @@ async function downloadBinary(version) {
 
   if (!smokeTestPassed) {
     fs.rmSync(CONFIG.tempDownloadDir, { recursive: true })
-    throw new Error('Downloaded binary failed smoke test (--version check)')
+    const error = new Error('Downloaded binary failed smoke test (--version check)')
+    trackUpdateFailed(error.message, version, { stage: 'smoke_test' })
+    throw error
   }
 
   // Smoke test passed - move binary to final location

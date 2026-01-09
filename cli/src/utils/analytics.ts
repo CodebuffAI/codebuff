@@ -28,6 +28,13 @@ type AnalyticsErrorLogger = (
   context: AnalyticsErrorContext,
 ) => void
 
+type ResolvedAnalyticsDeps = {
+  env: AnalyticsDeps['env']
+  isProd: boolean
+  createClient: AnalyticsDeps['createClient']
+  generateAnonymousId: NonNullable<AnalyticsDeps['generateAnonymousId']>
+}
+
 /** Dependencies that can be injected for testing */
 export interface AnalyticsDeps {
   env: {
@@ -53,24 +60,13 @@ let client: AnalyticsClientWithIdentify | undefined
 // Store injected dependencies (for testing)
 let injectedDeps: AnalyticsDeps | undefined
 
-/** Get current env config (injected or default) */
-function getEnv() {
-  return injectedDeps?.env ?? defaultEnv
-}
-
-/** Get current isProd flag (injected or default) */
-function getIsProd() {
-  return injectedDeps?.isProd ?? defaultIsProd
-}
-
-/** Get client factory (injected or default PostHog) */
-function getCreateClient() {
-  return injectedDeps?.createClient ?? createPostHogClient
-}
-
-/** Get anonymous ID generator (injected or default) */
-function getGenerateAnonymousId() {
-  return injectedDeps?.generateAnonymousId ?? generateAnonymousId
+function resolveDeps(): ResolvedAnalyticsDeps {
+  return {
+    env: injectedDeps?.env ?? defaultEnv,
+    isProd: injectedDeps?.isProd ?? defaultIsProd,
+    createClient: injectedDeps?.createClient ?? createPostHogClient,
+    generateAnonymousId: injectedDeps?.generateAnonymousId ?? generateAnonymousId,
+  }
 }
 
 /** Get current distinct ID (real user ID if identified, otherwise anonymous ID) */
@@ -84,6 +80,7 @@ export function resetAnalyticsState(deps?: AnalyticsDeps) {
   currentUserId = undefined
   client = undefined
   injectedDeps = deps
+  identified = false
 }
 
 export let identified: boolean = false
@@ -102,9 +99,7 @@ function logAnalyticsError(error: unknown, context: AnalyticsErrorContext) {
 }
 
 export function initAnalytics() {
-  const env = getEnv()
-  const isProd = getIsProd()
-  const createClient = getCreateClient()
+  const { env, isProd, createClient, generateAnonymousId } = resolveDeps()
 
   if (!env.NEXT_PUBLIC_POSTHOG_API_KEY || !env.NEXT_PUBLIC_POSTHOG_HOST_URL) {
     const error = new Error(
@@ -119,7 +114,8 @@ export function initAnalytics() {
 
   // Generate anonymous ID for pre-login tracking
   // PostHog will merge this with the real user ID via alias() when user logs in
-  anonymousId = getGenerateAnonymousId()()
+  anonymousId = generateAnonymousId()
+  identified = false
 
   try {
     client = createClient(env.NEXT_PUBLIC_POSTHOG_API_KEY, {
@@ -149,8 +145,8 @@ export function trackEvent(
   event: AnalyticsEvent,
   properties?: Record<string, any>,
 ) {
+  const { isProd } = resolveDeps()
   const distinctId = getDistinctId()
-  const isProd = getIsProd()
 
   if (!client) {
     if (isProd) {
@@ -206,11 +202,12 @@ export function identifyUser(userId: string, properties?: Record<string, any>) {
     throw error
   }
 
-  const isProd = getIsProd()
+  const { isProd } = resolveDeps()
   const previousAnonymousId = anonymousId
 
   // Store the real user ID for future events
   currentUserId = userId
+  identified = true
 
   if (!isProd) {
     if (DEBUG_DEV_EVENTS) {

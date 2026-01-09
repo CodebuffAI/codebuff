@@ -1,6 +1,8 @@
 import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import path from 'path'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+
 // @ts-expect-error - Bun text import attribute not supported by TypeScript
 import agentDefinitionSource from '../../../common/src/templates/initial-agents-dir/types/agent-definition' with { type: 'text' }
 // @ts-expect-error - Bun text import attribute not supported by TypeScript
@@ -9,6 +11,7 @@ import toolsSource from '../../../common/src/templates/initial-agents-dir/types/
 import utilTypesSource from '../../../common/src/templates/initial-agents-dir/types/util-types' with { type: 'text' }
 
 import { getProjectRoot } from '../project-files'
+import { trackEvent } from '../utils/analytics'
 import { getSystemMessage } from '../utils/message-history'
 
 import type { PostUserMessageFn } from '../types/contracts/send-message'
@@ -61,6 +64,12 @@ export function handleInitializationFlowLocally(): {
   } else {
     writeFileSync(knowledgePath, INITIAL_KNOWLEDGE_FILE)
     messages.push(`✅ Created \`${KNOWLEDGE_FILE_NAME}\``)
+
+    // Track knowledge file creation
+    trackEvent(AnalyticsEvent.KNOWLEDGE_FILE_UPDATED, {
+      action: 'created',
+      fileName: KNOWLEDGE_FILE_NAME,
+    })
   }
 
   const agentsDir = path.join(projectRoot, '.agents')

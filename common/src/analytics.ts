@@ -1,5 +1,5 @@
 import { createPostHogClient, type AnalyticsClient } from './analytics-core'
-import type { AnalyticsEvent } from './constants/analytics-events'
+import { AnalyticsEvent } from './constants/analytics-events'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import { env } from '@codebuff/common/env'
 
@@ -14,6 +14,19 @@ export async function flushAnalytics(logger?: Logger) {
   } catch (error) {
     // Log the error but don't throw - flushing is best-effort
     logger?.warn({ error }, 'Failed to flush analytics')
+
+    // Track the flush failure event (will be queued for next successful flush)
+    try {
+      client.capture({
+        distinctId: 'system',
+        event: AnalyticsEvent.FLUSH_FAILED,
+        properties: {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      })
+    } catch {
+      // Silently ignore if we can't even track the failure
+    }
   }
 }
 

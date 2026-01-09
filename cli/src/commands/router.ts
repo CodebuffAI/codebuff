@@ -1,5 +1,6 @@
 import { runTerminalCommand } from '@codebuff/sdk'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import {
   findCommand,
@@ -29,6 +30,7 @@ import {
 import { showClipboardMessage } from '../utils/clipboard'
 import { getSystemProcessEnv } from '../utils/env'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
+import { trackEvent } from '../utils/analytics'
 
 /**
  * Run a bash command with automatic ghost/direct mode selection.
@@ -82,6 +84,14 @@ export function runBashCommand(command: string) {
       const stderr = 'stderr' in value ? value.stderr || '' : ''
       const exitCode = 'exitCode' in value ? value.exitCode ?? 0 : 0
 
+      // Track terminal command completion
+      trackEvent(AnalyticsEvent.TERMINAL_COMMAND_COMPLETED, {
+        command: command.split(' ')[0], // Just the command name, not args
+        exitCode,
+        success: exitCode === 0,
+        ghost,
+      })
+
       if (ghost) {
         updatePendingBashMessage(id, {
           stdout,
@@ -131,6 +141,15 @@ export function runBashCommand(command: string) {
     .catch((error) => {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
+
+      // Track terminal command completion with error
+      trackEvent(AnalyticsEvent.TERMINAL_COMMAND_COMPLETED, {
+        command: command.split(' ')[0], // Just the command name, not args
+        exitCode: 1,
+        success: false,
+        ghost,
+        error: true,
+      })
 
       if (ghost) {
         updatePendingBashMessage(id, {
@@ -240,6 +259,16 @@ export async function routeUserPrompt(
   const trimmed = inputValue.trim()
   // Allow empty messages if there are pending images attached
   if (!trimmed && pendingImages.length === 0) return
+
+  // Track user input complete
+  trackEvent(AnalyticsEvent.USER_INPUT_COMPLETE, {
+    inputLength: trimmed.length,
+    mode: agentMode,
+    inputMode,
+    hasImages: pendingImages.length > 0,
+    imageCount: pendingImages.length,
+    isSlashCommand: isSlashCommand(trimmed),
+  })
 
   // Handle bash mode commands
   if (inputMode === 'bash') {
@@ -374,6 +403,12 @@ export async function routeUserPrompt(
     // Look up command in registry
     const commandDef = findCommand(cmd)
     if (commandDef) {
+      // Track slash command usage
+      trackEvent(AnalyticsEvent.SLASH_COMMAND_USED, {
+        command: commandDef.name,
+        hasArgs: args.trim().length > 0,
+      })
+
       // The command handler (via defineCommand/defineCommandWithArgs factories)
       // is responsible for validating and handling args
       return await commandDef.handler(params, args)
@@ -409,6 +444,11 @@ export async function routeUserPrompt(
 
   // Unknown slash command - show error
   if (isSlashCommand(trimmed)) {
+    // Track invalid/unknown command
+    trackEvent(AnalyticsEvent.INVALID_COMMAND, {
+      command: trimmed,
+    })
+
     setMessages((prev) => [
       ...prev,
       getUserMessage(trimmed),
