@@ -201,4 +201,6 @@ async function runViewer(
   )
 }
 
-void main()
+if (import.meta.main) {
+  void main()
+}
