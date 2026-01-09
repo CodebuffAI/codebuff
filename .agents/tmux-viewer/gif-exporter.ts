@@ -258,10 +258,11 @@ export async function renderSessionToGif(
 }
 
 /**
- * Get suggested output filename based on session name
+ * Get suggested output filename based on session name.
+ * Returns a path inside the session folder (debug/tmux-sessions/{session}/).
  */
 export function getSuggestedFilename(sessionData: SessionData): string {
   const sessionName = sessionData.sessionInfo.session
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-  return `${sessionName}-${timestamp}.gif`
+  return `debug/tmux-sessions/${sessionName}/${sessionName}-${timestamp}.gif`
 }
