@@ -67,6 +67,7 @@ OUTPUT_FILE=""
 WAIT_SECONDS=0
 AUTO_SAVE=true
 LABEL=""
+SEQUENCE_FILE=""
 
 # Check minimum arguments
 if [[ $# -lt 1 ]]; then
@@ -169,13 +170,55 @@ else
     # Auto-save capture if enabled
     if [[ "$AUTO_SAVE" == true ]]; then
         mkdir -p "$SESSION_DIR"
-        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-        if [[ -n "$LABEL" ]]; then
-            CAPTURE_FILE="$SESSION_DIR/capture-${TIMESTAMP}-${LABEL}.txt"
+        
+        # Get sequence number from counter file
+        SEQUENCE_FILE="$SESSION_DIR/.capture-sequence"
+        if [[ -f "$SEQUENCE_FILE" ]]; then
+            SEQUENCE=$(cat "$SEQUENCE_FILE")
         else
-            CAPTURE_FILE="$SESSION_DIR/capture-${TIMESTAMP}.txt"
+            SEQUENCE=0
         fi
-        echo "$CAPTURED_OUTPUT" > "$CAPTURE_FILE"
+        SEQUENCE=$((SEQUENCE + 1))
+        echo "$SEQUENCE" > "$SEQUENCE_FILE"
+        
+        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+        ISO_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        
+        # Build filename with sequence prefix
+        SEQUENCE_PADDED=$(printf "%03d" "$SEQUENCE")
+        if [[ -n "$LABEL" ]]; then
+            CAPTURE_FILE="$SESSION_DIR/capture-${SEQUENCE_PADDED}-${LABEL}.txt"
+        else
+            CAPTURE_FILE="$SESSION_DIR/capture-${SEQUENCE_PADDED}-${TIMESTAMP}.txt"
+        fi
+        
+        # Get the last command from commands.yaml (if exists)
+        AFTER_COMMAND="null"
+        if [[ -f "$SESSION_DIR/commands.yaml" ]]; then
+            # Get the last input from the commands.yaml file
+            LAST_INPUT=$(grep '^  input:' "$SESSION_DIR/commands.yaml" | tail -1 | sed 's/^  input: //')
+            if [[ -n "$LAST_INPUT" ]]; then
+                AFTER_COMMAND="$LAST_INPUT"
+            fi
+        fi
+        
+        # Get terminal dimensions
+        TERM_WIDTH=$(tmux display-message -t "$SESSION_NAME" -p '#{window_width}' 2>/dev/null || echo "unknown")
+        TERM_HEIGHT=$(tmux display-message -t "$SESSION_NAME" -p '#{window_height}' 2>/dev/null || echo "unknown")
+        
+        # Write capture with YAML front-matter
+        cat > "$CAPTURE_FILE" << EOF
+---
+sequence: $SEQUENCE
+label: ${LABEL:-null}
+timestamp: $ISO_TIMESTAMP
+after_command: $AFTER_COMMAND
+dimensions:
+  width: $TERM_WIDTH
+  height: $TERM_HEIGHT
+---
+$CAPTURED_OUTPUT
+EOF
         # Print capture path to stderr so it can be captured separately
         echo "$CAPTURE_FILE" >&2
     fi

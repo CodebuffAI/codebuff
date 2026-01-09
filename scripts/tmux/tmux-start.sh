@@ -111,10 +111,16 @@ fi
 SESSION_DIR="$PROJECT_ROOT/debug/tmux-sessions/$SESSION_NAME"
 mkdir -p "$SESSION_DIR"
 
-# Save session info to the logs directory
-echo "Session: $SESSION_NAME" > "$SESSION_DIR/session-info.txt"
-echo "Started: $(date)" >> "$SESSION_DIR/session-info.txt"
-echo "Dimensions: ${WIDTH}x${HEIGHT}" >> "$SESSION_DIR/session-info.txt"
+# Save session info as YAML
+cat > "$SESSION_DIR/session-info.yaml" << EOF
+session: $SESSION_NAME
+started: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+started_local: $(date)
+dimensions:
+  width: $WIDTH
+  height: $HEIGHT
+status: active
+EOF
 
 # Wait for CLI to initialize
 if [[ "$WAIT_SECONDS" -gt 0 ]]; then

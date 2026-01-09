@@ -9,5 +9,5 @@
       "@codebuff/common/*": ["../common/src/*"]
     }
   },
-  "include": ["**/*.ts"]
+  "include": ["**/*.ts", "**/*.tsx"]
 }

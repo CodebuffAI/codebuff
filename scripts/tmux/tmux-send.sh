@@ -115,11 +115,16 @@ fi
 if [[ -n "$SPECIAL_KEY" ]]; then
     tmux send-keys -t "$SESSION_NAME" "$SPECIAL_KEY"
     
-    # Log the special key send
+    # Log the special key send as YAML
     SESSION_DIR="$PROJECT_ROOT/debug/tmux-sessions/$SESSION_NAME"
     if [[ -d "$SESSION_DIR" ]]; then
-        TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
-        echo "[$TIMESTAMP] SEND KEY: $SPECIAL_KEY" >> "$SESSION_DIR/commands-log.txt"
+        TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        # Append YAML entry to commands.yaml
+        cat >> "$SESSION_DIR/commands.yaml" << EOF
+- timestamp: $TIMESTAMP
+  type: key
+  input: "$SPECIAL_KEY"
+EOF
     fi
     
     exit 0
@@ -141,13 +146,17 @@ if [[ "$AUTO_ENTER" == true ]]; then
     tmux send-keys -t "$SESSION_NAME" Enter
 fi
 
-# Log the text send
+# Log the text send as YAML
 SESSION_DIR="$PROJECT_ROOT/debug/tmux-sessions/$SESSION_NAME"
 if [[ -d "$SESSION_DIR" ]]; then
-    TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
-    if [[ "$AUTO_ENTER" == true ]]; then
-        echo "[$TIMESTAMP] SEND TEXT (+ Enter): $TEXT" >> "$SESSION_DIR/commands-log.txt"
-    else
-        echo "[$TIMESTAMP] SEND TEXT (no Enter): $TEXT" >> "$SESSION_DIR/commands-log.txt"
-    fi
+    TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    # Escape special characters in text for YAML (double quotes, backslashes)
+    ESCAPED_TEXT=$(echo "$TEXT" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
+    # Append YAML entry to commands.yaml
+    cat >> "$SESSION_DIR/commands.yaml" << EOF
+- timestamp: $TIMESTAMP
+  type: text
+  input: "$ESCAPED_TEXT"
+  auto_enter: $AUTO_ENTER
+EOF
 fi

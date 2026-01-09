@@ -167,25 +167,75 @@ ls -la debug/tmux-sessions/$SESSION/
 ```
 debug/tmux-sessions/
 └── cli-test-1234567890/
-    ├── session-info.txt              # Session metadata (start time, dimensions)
-    ├── commands-log.txt              # Log of all commands sent to the CLI
-    ├── capture-20250101-120000-initial-state.txt
-    ├── capture-20250101-120005-after-status.txt
-    └── capture-20250101-120010-after-prompt.txt
+    ├── session-info.yaml             # Session metadata (YAML format)
+    ├── commands.yaml                 # Log of all commands sent (YAML array)
+    ├── capture-001-initial-state.txt # Captures with YAML front-matter
+    ├── capture-002-after-status.txt
+    └── capture-003-after-prompt.txt
 ```
 
-### Commands Log
+### Session Info (session-info.yaml)
 
-The `commands-log.txt` file records every input sent to the CLI:
-
+```yaml
+session: cli-test-1234567890
+started: 2025-01-01T12:00:00Z
+started_local: Wed Jan  1 12:00:00 PST 2025
+dimensions:
+  width: 120
+  height: 30
+status: active
 ```
-[2025-01-01 12:00:05] SEND TEXT (+ Enter): /help
-[2025-01-01 12:00:10] SEND TEXT (+ Enter): hello world
-[2025-01-01 12:00:15] SEND KEY: Escape
-[2025-01-01 12:00:20] SEND TEXT (no Enter): partial input
+
+### Commands Log (commands.yaml)
+
+The `commands.yaml` file records every input sent to the CLI as a YAML array:
+
+```yaml
+- timestamp: 2025-01-01T12:00:05Z
+  type: text
+  input: "/help"
+  auto_enter: true
+
+- timestamp: 2025-01-01T12:00:10Z
+  type: text
+  input: "hello world"
+  auto_enter: true
+
+- timestamp: 2025-01-01T12:00:15Z
+  type: key
+  input: "Escape"
+
+- timestamp: 2025-01-01T12:00:20Z
+  type: text
+  input: "partial input"
+  auto_enter: false
 ```
 
-This provides a **paper trail** that both the testing agent and parent agent can review to understand what happened during testing.
+### Capture Files with YAML Front-Matter
+
+Each capture file includes YAML front-matter with metadata:
+
+```yaml
+---
+sequence: 1
+label: initial-state
+timestamp: 2025-01-01T12:00:30Z
+after_command: null
+dimensions:
+  width: 120
+  height: 30
+---
+[actual terminal output below]
+```
+
+The front-matter provides:
+- **sequence**: Order of captures (1, 2, 3, ...)
+- **label**: Descriptive label if provided via `--label`
+- **timestamp**: ISO 8601 timestamp
+- **after_command**: The last command sent before this capture (or `null`)
+- **dimensions**: Terminal dimensions at capture time
+
+This structured format enables both human reading and programmatic parsing (AI agents, viewers, etc.).
 
 ## Debugging
 

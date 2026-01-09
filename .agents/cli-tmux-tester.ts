@@ -186,16 +186,51 @@ sleep 2
 
 ## Session Logs (Paper Trail)
 
-Captures are **automatically saved** to \`debug/tmux-sessions/{session-name}/\` whenever you capture output.
+All session data is stored in **YAML format** in \`debug/tmux-sessions/{session-name}/\`:
+
+- \`session-info.yaml\` - Session metadata (start time, dimensions, status)
+- \`commands.yaml\` - YAML array of all commands sent with timestamps
+- \`capture-{sequence}-{label}.txt\` - Captures with YAML front-matter
 
 \`\`\`bash
 # Capture with a descriptive label (recommended)
 ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "after-help-command" --wait 2
 
-# Capture saved to: debug/tmux-sessions/{session}/capture-{timestamp}-after-help-command.txt
+# Capture saved to: debug/tmux-sessions/{session}/capture-001-after-help-command.txt
+\`\`\`
+
+Each capture file has YAML front-matter with metadata:
+\`\`\`yaml
+---
+sequence: 1
+label: after-help-command
+timestamp: 2025-01-01T12:00:30Z
+after_command: "/help"
+dimensions:
+  width: 120
+  height: 30
+---
+[terminal content]
 \`\`\`
 
 The capture path is printed to stderr. Both you and the parent agent can read these files to see exactly what the CLI displayed.
+
+## Viewing Session Data
+
+Use the **tmux-viewer** to inspect session data interactively or as JSON:
+
+\`\`\`bash
+# Interactive TUI (for humans)
+bun .agents/tmux-viewer/index.tsx "$SESSION"
+
+# JSON output (for AIs) - includes all captures, commands, and timeline
+bun .agents/tmux-viewer/index.tsx "$SESSION" --json
+
+# List available sessions
+bun .agents/tmux-viewer/index.tsx --list
+\`\`\`
+
+The viewer parses all YAML data (session-info.yaml, commands.yaml, capture front-matter) and presents it in a unified format.
 
 ## Debugging Tips
 
