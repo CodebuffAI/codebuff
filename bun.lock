@@ -35,6 +35,10 @@
         "typescript-eslint": "^7.17.0",
       },
     },
+    ".agents": {
+      "name": "@codebuff/.agents",
+      "version": "0.0.0",
+    },
     "agents": {
       "name": "@codebuff/agents",
       "version": "0.0.0",
@@ -449,6 +453,8 @@
     "@chevrotain/types": ["@chevrotain/types@11.0.3", "", {}, "sha512-gsiM3G8b58kZC2HaWR50gu6Y1440cHiJ+i3JUvcp/35JchYejb2+5MVeJK0iKThYpAa/P2PYFV4hoi44HD+aHQ=="],
 
     "@chevrotain/utils": ["@chevrotain/utils@11.0.3", "", {}, "sha512-YslZMgtJUyuMbZ+aKvfF3x1f5liK4mWNxghFRv7jqRR9C3R3fAOGTTKvxXDa2Y1s9zSbcpuO0cAxDYsc9SrXoQ=="],
+
+    "@codebuff/.agents": ["@codebuff/.agents@workspace:.agents"],
 
     "@codebuff/agent-runtime": ["@codebuff/agent-runtime@workspace:packages/agent-runtime"],
 
