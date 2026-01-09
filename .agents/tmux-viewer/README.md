@@ -14,6 +14,15 @@ bun .agents/tmux-viewer/index.tsx <session-name> --replay
 # JSON output (for AIs)
 bun .agents/tmux-viewer/index.tsx <session-name> --json
 
+# Export as animated GIF
+bun .agents/tmux-viewer/index.tsx <session-name> --export-gif output.gif
+
+# Export with custom frame delay (default: 1500ms)
+bun .agents/tmux-viewer/index.tsx <session-name> --export-gif output.gif --frame-delay 2000
+
+# Export with custom font size (default: 14px)
+bun .agents/tmux-viewer/index.tsx <session-name> --export-gif output.gif --font-size 16
+
 # List available sessions
 bun .agents/tmux-viewer/index.tsx --list
 
@@ -153,6 +162,47 @@ The `@cli-tmux-tester` agent can use this viewer to inspect session data:
 // Parent agent can view the session
 // bun .agents/tmux-viewer/index.tsx cli-test-123 --json
 ```
+
+## GIF Export
+
+The `--export-gif` flag renders the session replay as an animated GIF, perfect for:
+- Sharing CLI demonstrations
+- Embedding in documentation
+- Bug reports and issue tracking
+- Creating tutorials
+
+### GIF Export Options
+
+| Option | Description | Default |
+|--------|-------------|--------|
+| `--export-gif [path]` | Output file path | `<session>-<timestamp>.gif` |
+| `--frame-delay <ms>` | Delay between frames in milliseconds | `1500` |
+| `--font-size <px>` | Font size for terminal text | `14` |
+
+### Examples
+
+```bash
+# Basic export (auto-names the file)
+bun .agents/tmux-viewer/index.tsx my-session --export-gif
+
+# Specify output path
+bun .agents/tmux-viewer/index.tsx my-session --export-gif demo.gif
+
+# Fast playback (500ms per frame)
+bun .agents/tmux-viewer/index.tsx my-session --export-gif fast.gif --frame-delay 500
+
+# Larger text for readability
+bun .agents/tmux-viewer/index.tsx my-session --export-gif large.gif --font-size 18
+```
+
+### GIF Output
+
+The exported GIF includes:
+- Terminal content rendered as monospace text
+- Frame labels showing capture sequence number and label
+- Timestamps for each frame
+- Dark terminal-style background
+- Automatic sizing based on terminal dimensions
 
 ## Development
 

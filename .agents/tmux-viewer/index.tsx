@@ -7,11 +7,13 @@
  *   bun .agents/tmux-viewer/index.tsx <session-name>
  *   bun .agents/tmux-viewer/index.tsx <session-name> --json
  *   bun .agents/tmux-viewer/index.tsx <session-name> --replay
+ *   bun .agents/tmux-viewer/index.tsx <session-name> --export-gif output.gif
  *   bun .agents/tmux-viewer/index.tsx --list
  * 
  * Both humans and AIs can use this tool:
  *   - Humans: Interactive TUI with keyboard navigation
  *   - AIs: Use --json flag to get structured output
+ *   - Export: Use --export-gif to create animated GIF replays
  */
 
 import { createCliRenderer } from '@opentui/core'
@@ -22,12 +24,16 @@ import React from 'react'
 
 import { SessionViewer } from './components/session-viewer'
 import { loadSession, listSessions, sessionToJSON } from './session-loader'
+import { renderSessionToGif, getSuggestedFilename } from './gif-exporter'
 
 interface ParsedArgs {
   session: string | null
   json: boolean
   list: boolean
   replay: boolean
+  exportGif: string | boolean
+  frameDelay: number | undefined
+  fontSize: number | undefined
 }
 
 function parseArgs(): ParsedArgs {
@@ -40,6 +46,9 @@ function parseArgs(): ParsedArgs {
     .option('--json', 'Output session data as JSON (for AI consumption)')
     .option('--list', 'List available sessions')
     .option('--replay', 'Start in replay mode (auto-playing through captures)')
+    .option('--export-gif [path]', 'Export session as animated GIF (default: <session>.gif)')
+    .option('--frame-delay <ms>', 'Frame delay in ms for GIF export (default: 1500)', parseInt)
+    .option('--font-size <px>', 'Font size in pixels for GIF export (default: 14)', parseInt)
     .argument('[session]', 'Session name to view')
     .parse(process.argv)
 
@@ -51,11 +60,14 @@ function parseArgs(): ParsedArgs {
     json: options.json ?? false,
     list: options.list ?? false,
     replay: options.replay ?? false,
+    exportGif: options.exportGif ?? false,
+    frameDelay: options.frameDelay,
+    fontSize: options.fontSize,
   }
 }
 
 async function main(): Promise<void> {
-  const { session, json, list, replay } = parseArgs()
+  const { session, json, list, replay, exportGif, frameDelay, fontSize } = parseArgs()
   const projectRoot = process.cwd()
 
   // List sessions mode
@@ -85,6 +97,7 @@ async function main(): Promise<void> {
       console.log('Usage:')
       console.log('  bun .agents/tmux-viewer/index.tsx <session-name>')
       console.log('  bun .agents/tmux-viewer/index.tsx <session-name> --json')
+      console.log('  bun .agents/tmux-viewer/index.tsx <session-name> --export-gif output.gif')
       console.log('  bun .agents/tmux-viewer/index.tsx --list')
       console.log('')
       console.log(dim('Start a session with: ./scripts/tmux/tmux-cli.sh start'))
@@ -94,16 +107,19 @@ async function main(): Promise<void> {
     // Use the most recent session
     const mostRecent = sessions[0]
     console.log(dim(`Using most recent session: ${mostRecent}`))
-    return runViewer(mostRecent, json, replay, projectRoot)
+    return runViewer(mostRecent, json, replay, exportGif, frameDelay, fontSize, projectRoot)
   }
 
-  return runViewer(session, json, replay, projectRoot)
+  return runViewer(session, json, replay, exportGif, frameDelay, fontSize, projectRoot)
 }
 
 async function runViewer(
   sessionName: string,
   jsonMode: boolean,
   replayMode: boolean,
+  exportGif: string | boolean,
+  frameDelay: number | undefined,
+  fontSize: number | undefined,
   projectRoot: string
 ): Promise<void> {
   // Load session data
@@ -126,6 +142,32 @@ async function runViewer(
     const jsonOutput = sessionToJSON(data)
     console.log(JSON.stringify(jsonOutput, null, 2))
     process.exit(0)
+  }
+
+  // GIF export mode
+  if (exportGif) {
+    const outputPath = typeof exportGif === 'string' 
+      ? exportGif 
+      : getSuggestedFilename(data)
+    
+    console.log(cyan(`Exporting session "${sessionName}" to GIF...`))
+    console.log(dim(`  Frames: ${data.captures.length}`))
+    console.log(dim(`  Delay: ${frameDelay ?? 1500}ms per frame`))
+    console.log(dim(`  Output: ${outputPath}`))
+    console.log('')
+    
+    try {
+      const result = await renderSessionToGif(data, {
+        outputPath,
+        frameDelay,
+        fontSize,
+      })
+      console.log(cyan(`✓ GIF exported successfully: ${result}`))
+      process.exit(0)
+    } catch (error) {
+      console.log(red(`✗ Failed to export GIF: ${(error as Error).message}`))
+      process.exit(1)
+    }
   }
 
   // Interactive TUI mode
