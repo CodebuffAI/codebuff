@@ -252,6 +252,7 @@ export const Chat = ({
   const isConnected = useConnectionStatus(handleReconnection)
   const mainAgentTimer = useElapsedTime()
   const { ad } = useGravityAd()
+  // Use startTime for active timer display; when paused, timer hook maintains frozen value
   const timerStartTime = mainAgentTimer.startTime
 
   // Set initial mode from CLI flag on mount
@@ -436,6 +437,15 @@ export const Chat = ({
   const inputMode = useChatStore((state) => state.inputMode)
   const setInputMode = useChatStore((state) => state.setInputMode)
   const askUserState = useChatStore((state) => state.askUserState)
+
+  // Pause/resume timer when ask_user tool becomes active/inactive
+  useEffect(() => {
+    if (askUserState !== null) {
+      mainAgentTimer.pause()
+    } else if (mainAgentTimer.isPaused) {
+      mainAgentTimer.resume()
+    }
+  }, [askUserState, mainAgentTimer])
 
   // Filter slash commands based on current ads state - only show the option that changes state
   const filteredSlashCommands = useMemo(() => {

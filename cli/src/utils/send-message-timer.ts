@@ -26,6 +26,8 @@ export interface SendMessageTimerController {
     finishedAt: number
     elapsedMs: number
   } | null
+  pause: () => void
+  resume: () => void
   isActive: () => boolean
 }
 
@@ -94,7 +96,15 @@ export const createSendMessageTimerController = (
     return { finishedAt, elapsedMs }
   }
 
+  const pause = () => {
+    mainAgentTimer.pause()
+  }
+
+  const resume = () => {
+    mainAgentTimer.resume()
+  }
+
   const isActive = () => timerActive
 
-  return { start, stop, isActive }
+  return { start, stop, pause, resume, isActive }
 }

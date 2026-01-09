@@ -9,6 +9,9 @@ describe('createSendMessageTimerController', () => {
     const mainAgentTimer = {
       start: mock(() => {}),
       stop: mock(() => {}),
+      pause: mock(() => {}),
+      resume: mock(() => {}),
+      isPaused: false,
     }
 
     const controller = createSendMessageTimerController({
@@ -37,6 +40,9 @@ describe('createSendMessageTimerController', () => {
     const mainAgentTimer = {
       start: mock(() => {}),
       stop: mock(() => {}),
+      pause: mock(() => {}),
+      resume: mock(() => {}),
+      isPaused: false,
     }
 
     const controller = createSendMessageTimerController({

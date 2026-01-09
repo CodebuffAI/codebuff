@@ -53,6 +53,8 @@ const createMockTimerController = (): SendMessageTimerController & {
       stopCalls.push(outcome)
       return { finishedAt: Date.now(), elapsedMs: 100 }
     },
+    pause: () => {},
+    resume: () => {},
     isActive: () => startCalls.length > stopCalls.length,
   }
 }

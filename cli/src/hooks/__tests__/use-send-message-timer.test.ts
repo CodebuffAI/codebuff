@@ -31,8 +31,11 @@ describe('createSendMessageTimerController', () => {
     mainAgentTimer = {
       start: startMock,
       stop: stopMock,
+      pause: mock(() => {}),
+      resume: mock(() => {}),
       elapsedSeconds: 0,
       startTime: null,
+      isPaused: false,
     }
   })
 

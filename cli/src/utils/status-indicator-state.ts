@@ -9,6 +9,7 @@ export type StatusIndicatorState =
   | { kind: 'waiting' }
   | { kind: 'streaming' }
   | { kind: 'reconnected' }
+  | { kind: 'paused' }
 
 export type AuthStatus = 'ok' | 'retrying' | 'unreachable'
 
@@ -82,9 +83,9 @@ export const getStatusIndicatorState = ({
     return { kind: 'connecting' }
   }
 
-  // Hide working/thinking indicators when ask_user is active
+  // Show paused state when ask_user is active (timer stays visible but frozen)
   if (isAskUserActive) {
-    return { kind: 'idle' }
+    return { kind: 'paused' }
   }
 
   if (streamStatus === 'waiting') {

@@ -26,15 +26,25 @@ export const StatusBar = ({
   const theme = useTheme()
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
 
-  // Show timer only when actively working (streaming or waiting for response)
+  // Show timer when actively working (streaming or waiting for response) or paused (ask_user)
   // This uses statusIndicatorState as the single source of truth for "is the LLM working?"
   const shouldShowTimer =
     statusIndicatorState?.kind === 'waiting' ||
-    statusIndicatorState?.kind === 'streaming'
+    statusIndicatorState?.kind === 'streaming' ||
+    statusIndicatorState?.kind === 'paused'
 
   useEffect(() => {
     if (!timerStartTime || !shouldShowTimer) {
       setElapsedSeconds(0)
+      return
+    }
+
+    // When paused, don't update the timer - just keep the frozen value
+    if (statusIndicatorState?.kind === 'paused') {
+      // Calculate current elapsed time once and freeze it
+      const now = Date.now()
+      const elapsed = Math.floor((now - timerStartTime) / 1000)
+      setElapsedSeconds(elapsed)
       return
     }
 
@@ -48,7 +58,7 @@ export const StatusBar = ({
     const interval = setInterval(updateElapsed, 1000)
 
     return () => clearInterval(interval)
-  }, [timerStartTime, shouldShowTimer])
+  }, [timerStartTime, shouldShowTimer, statusIndicatorState?.kind])
 
   const renderStatusIndicator = () => {
     switch (statusIndicatorState.kind) {
@@ -95,6 +105,9 @@ export const StatusBar = ({
             primaryColor={theme.secondary}
           />
         )
+      
+      case 'paused':
+        return null
       
       case 'idle':
         return null

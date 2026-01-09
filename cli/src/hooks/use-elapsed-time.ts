@@ -10,6 +10,14 @@ export interface ElapsedTimeTracker {
    */
   stop: () => void
   /**
+   * Pause tracking, freezing the current elapsed time
+   */
+  pause: () => void
+  /**
+   * Resume tracking from the frozen elapsed time
+   */
+  resume: () => void
+  /**
    * Get the current elapsed seconds
    */
   elapsedSeconds: number
@@ -17,6 +25,10 @@ export interface ElapsedTimeTracker {
    * Get the start time timestamp (null if not started)
    */
   startTime: number | null
+  /**
+   * Whether the timer is currently paused
+   */
+  isPaused: boolean
 }
 
 /**
@@ -37,19 +49,47 @@ export interface ElapsedTimeTracker {
 export const useElapsedTime = (): ElapsedTimeTracker => {
   const [startTime, setStartTime] = useState<number | null>(null)
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0)
+  const [isPaused, setIsPaused] = useState(false)
+  // Track accumulated time from previous pause/resume cycles
+  const [accumulatedSeconds, setAccumulatedSeconds] = useState(0)
 
   const start = useCallback(() => {
     setStartTime(Date.now())
+    setAccumulatedSeconds(0)
+    setIsPaused(false)
   }, [])
 
   const stop = useCallback(() => {
     setStartTime(null)
     setElapsedSeconds(0)
+    setAccumulatedSeconds(0)
+    setIsPaused(false)
   }, [])
 
+  const pause = useCallback(() => {
+    if (startTime && !isPaused) {
+      // Capture current elapsed time before pausing
+      const currentElapsed = Math.floor((Date.now() - startTime) / 1000)
+      setAccumulatedSeconds(currentElapsed)
+      setElapsedSeconds(currentElapsed)
+      setIsPaused(true)
+    }
+  }, [startTime, isPaused])
+
+  const resume = useCallback(() => {
+    if (isPaused) {
+      // Set a new start time adjusted for accumulated time
+      setStartTime(Date.now() - accumulatedSeconds * 1000)
+      setIsPaused(false)
+    }
+  }, [isPaused, accumulatedSeconds])
+
   useEffect(() => {
-    if (!startTime) {
-      setElapsedSeconds(0)
+    if (!startTime || isPaused) {
+      // When paused, keep showing the frozen elapsed time (don't reset)
+      if (!isPaused && !startTime) {
+        setElapsedSeconds(0)
+      }
       return
     }
 
@@ -65,11 +105,11 @@ export const useElapsedTime = (): ElapsedTimeTracker => {
     const interval = setInterval(updateElapsed, 1000)
 
     return () => clearInterval(interval)
-  }, [startTime])
+  }, [startTime, isPaused])
 
   const timer = useMemo(
-    () => ({ start, stop, elapsedSeconds, startTime }),
-    [start, stop, elapsedSeconds, startTime],
+    () => ({ start, stop, pause, resume, elapsedSeconds, startTime, isPaused }),
+    [start, stop, pause, resume, elapsedSeconds, startTime, isPaused],
   )
 
   return timer
