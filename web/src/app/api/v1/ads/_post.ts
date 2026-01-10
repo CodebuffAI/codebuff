@@ -145,7 +145,7 @@ export async function postAds(params: {
       await db.insert(schema.adImpression).values({
         user_id: userId,
         ad_text: ad.adText,
-        title: ad.title || '',
+        title: ad.title || ad.cta || '',
         url: ad.url,
         favicon: ad.favicon || '',
         click_url: ad.clickUrl,
