@@ -4,9 +4,15 @@ import {
   type AnalyticsClientWithIdentify,
   type PostHogClientOptions,
 } from '@codebuff/common/analytics-core'
-import { env as defaultEnv, IS_PROD as defaultIsProd } from '@codebuff/common/env'
+import {
+  env as defaultEnv,
+  IS_PROD as defaultIsProd,
+  DEBUG_ANALYTICS,
+} from '@codebuff/common/env'
 
 import type { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+
+import { logger } from './logger'
 
 // Re-export types from core for backwards compatibility
 export type { AnalyticsClientWithIdentify as AnalyticsClient } from '@codebuff/common/analytics-core'
@@ -42,14 +48,12 @@ export interface AnalyticsDeps {
     NEXT_PUBLIC_POSTHOG_HOST_URL?: string
   }
   isProd: boolean
-  createClient: (apiKey: string, options: PostHogClientOptions) => AnalyticsClientWithIdentify
+  createClient: (
+    apiKey: string,
+    options: PostHogClientOptions,
+  ) => AnalyticsClientWithIdentify
   generateAnonymousId?: () => string
 }
-
-// Prints the events to console
-// It's very noisy, so recommended you set this to true
-// only when you're actively adding new analytics
-let DEBUG_DEV_EVENTS = false
 
 // Anonymous ID used before user identification (for PostHog alias)
 let anonymousId: string | undefined
@@ -65,7 +69,8 @@ function resolveDeps(): ResolvedAnalyticsDeps {
     env: injectedDeps?.env ?? defaultEnv,
     isProd: injectedDeps?.isProd ?? defaultIsProd,
     createClient: injectedDeps?.createClient ?? createPostHogClient,
-    generateAnonymousId: injectedDeps?.generateAnonymousId ?? generateAnonymousId,
+    generateAnonymousId:
+      injectedDeps?.generateAnonymousId ?? generateAnonymousId,
   }
 }
 
@@ -167,12 +172,8 @@ export function trackEvent(
   }
 
   if (!isProd) {
-    if (DEBUG_DEV_EVENTS) {
-      console.log('Analytics event sent', {
-        event,
-        properties,
-        distinctId,
-      })
+    if (DEBUG_ANALYTICS) {
+      logger.debug({ event, properties, distinctId }, `[analytics] ${event}`)
     }
     return
   }
@@ -210,12 +211,11 @@ export function identifyUser(userId: string, properties?: Record<string, any>) {
   identified = true
 
   if (!isProd) {
-    if (DEBUG_DEV_EVENTS) {
-      console.log('Identify event sent', {
-        userId,
-        previousAnonymousId,
-        properties,
-      })
+    if (DEBUG_ANALYTICS) {
+      logger.debug(
+        { userId, previousAnonymousId, properties },
+        '[analytics] user identified',
+      )
     }
     return
   }

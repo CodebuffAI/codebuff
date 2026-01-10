@@ -84,6 +84,8 @@ export const useAuthState = ({
       // Track successful login
       trackEvent(AnalyticsEvent.LOGIN, {
         userId: loggedInUser.id,
+        hasEmail: Boolean(loggedInUser.email),
+        hasName: Boolean(loggedInUser.name),
       })
 
       // Reset the SDK client to pick up new credentials

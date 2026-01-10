@@ -1,7 +1,7 @@
 import { createPostHogClient, type AnalyticsClient } from './analytics-core'
 import { AnalyticsEvent } from './constants/analytics-events'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import { env } from '@codebuff/common/env'
+import { env, DEBUG_ANALYTICS } from '@codebuff/common/env'
 
 let client: AnalyticsClient | undefined
 
@@ -43,6 +43,9 @@ export function trackEvent({
 }) {
   // Don't track events in non-production environments
   if (env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod') {
+    if (DEBUG_ANALYTICS) {
+      logger.debug({ event, userId, properties }, `[analytics] ${event}`)
+    }
     return
   }
 

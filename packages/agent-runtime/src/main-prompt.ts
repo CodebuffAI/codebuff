@@ -79,7 +79,11 @@ export async function mainPrompt(
         hasPrompt: !!prompt,
         hasContent: !!content,
         hasPromptParams: !!promptParams && Object.keys(promptParams).length > 0,
+        promptParamsCount: promptParams ? Object.keys(promptParams).length : 0,
         fingerprintId,
+        promptLength: prompt?.length ?? 0,
+        contentLength: content?.length ?? 0,
+        messageHistoryLength: mainAgentState.messageHistory.length,
       },
       logger,
     })

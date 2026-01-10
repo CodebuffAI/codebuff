@@ -287,10 +287,16 @@ async function main(): Promise<void> {
         // Change process working directory
         process.chdir(newProjectPath)
 
-        // Track directory change
+        // Track directory change (avoid logging full paths for privacy)
+        // Use existsSync to check if .git exists in the new path
+        const fs = await import('fs')
+        const path = await import('path')
+        const isGitRepo = fs.existsSync(path.join(newProjectPath, '.git'))
+        const pathDepth = newProjectPath.split(path.sep).filter(Boolean).length
         trackEvent(AnalyticsEvent.CHANGE_DIRECTORY, {
-          from: previousPath,
-          to: newProjectPath,
+          isGitRepo,
+          pathDepth,
+          isHomeDir: newProjectPath === os.homedir(),
         })
         // Update the project root in the module state
         setProjectRoot(newProjectPath)

@@ -376,6 +376,7 @@ export async function consumeCredits(params: {
     userId,
     properties: {
       creditsConsumed: result.consumed,
+      creditsRequested: creditsToConsume,
       fromPurchased: result.fromPurchased,
       source: 'consumeCredits',
     },
@@ -596,11 +597,18 @@ export async function consumeCreditsAndAddAgentStep(params: {
       userId,
       properties: {
         creditsConsumed: result.consumed,
+        creditsRequested: credits,
         fromPurchased: result.fromPurchased,
         messageId,
         agentId,
         model,
         source: 'consumeCreditsAndAddAgentStep',
+        inputTokens,
+        outputTokens,
+        reasoningTokens: reasoningTokens ?? 0,
+        cacheReadInputTokens,
+        latencyMs,
+        byok,
       },
       logger,
     })

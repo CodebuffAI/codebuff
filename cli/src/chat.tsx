@@ -489,11 +489,13 @@ export const Chat = ({
   useEffect(() => {
     if (slashContext.active && !prevSlashActiveRef.current) {
       trackEvent(AnalyticsEvent.SLASH_MENU_ACTIVATED, {
-        query: slashContext.query,
+        queryLength: slashContext.query.length,
+        matchCount: slashMatches.length,
+        inputLength: inputValue.length,
       })
     }
     prevSlashActiveRef.current = slashContext.active
-  }, [slashContext.active, slashContext.query])
+  }, [slashContext.active, slashContext.query, slashMatches.length, inputValue.length])
 
   // Reset suggestion menu indexes when context changes
   useEffect(() => {

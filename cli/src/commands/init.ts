@@ -69,6 +69,7 @@ export function handleInitializationFlowLocally(): {
     trackEvent(AnalyticsEvent.KNOWLEDGE_FILE_UPDATED, {
       action: 'created',
       fileName: KNOWLEDGE_FILE_NAME,
+      fileSizeBytes: Buffer.byteLength(INITIAL_KNOWLEDGE_FILE, 'utf8'),
     })
   }
 
