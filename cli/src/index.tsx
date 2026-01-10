@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
 
-import { promises as fs } from 'fs'
+import fs from 'fs'
 import { createRequire } from 'module'
 import os from 'os'
+import path from 'path'
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { getProjectFileTree } from '@codebuff/common/project-file-tree'
@@ -266,7 +267,7 @@ async function main(): Promise<void> {
         if (root) {
           const tree = await getProjectFileTree({
             projectRoot: root,
-            fs: fs,
+            fs: fs.promises,
           })
           logger.info({ tree }, 'Loaded file tree')
           setFileTree(tree)
@@ -288,9 +289,6 @@ async function main(): Promise<void> {
         process.chdir(newProjectPath)
 
         // Track directory change (avoid logging full paths for privacy)
-        // Use existsSync to check if .git exists in the new path
-        const fs = await import('fs')
-        const path = await import('path')
         const isGitRepo = fs.existsSync(path.join(newProjectPath, '.git'))
         const pathDepth = newProjectPath.split(path.sep).filter(Boolean).length
         trackEvent(AnalyticsEvent.CHANGE_DIRECTORY, {
