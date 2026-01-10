@@ -73,15 +73,32 @@ function resolveDeps(): ResolvedAnalyticsDeps {
   }
 }
 
+let loggerModulePromise:
+  | Promise<{ logger: { debug: (data: any, msg?: string, ...args: any[]) => void } }>
+  | null = null
+
+const loadLogger = () => {
+  if (!loggerModulePromise) {
+    loggerModulePromise = import('./logger')
+  }
+  return loggerModulePromise
+}
+
 function logAnalyticsDebug(message: string, data: Record<string, unknown>) {
   if (!DEBUG_ANALYTICS) {
     return
   }
-  try {
-    console.debug(message, data)
-  } catch {
-    // Ignore console errors in restricted environments
-  }
+  void loadLogger()
+    .then(({ logger }) => {
+      logger.debug(data, message)
+    })
+    .catch(() => {
+      try {
+        console.debug(message, data)
+      } catch {
+        // Ignore console errors in restricted environments
+      }
+    })
 }
 
 /** Get current distinct ID (real user ID if identified, otherwise anonymous ID) */
