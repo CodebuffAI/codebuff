@@ -86,6 +86,10 @@ tmux new-session -d -s test-session 'cd /path/to/codebuff && bun --cwd=cli run d
 # ✅ Works:  tmux send-keys -t session $'\e[200~hello\e[201~'
 ```
 
+**Why standard send-keys fails:** When `tmux send-keys` sends multiple characters without bracketed paste mode, the CLI's input handling only captures some characters due to timing issues with OpenTUI's async event processing. This manifests as partial input (e.g., only the last character appearing in the input field like `a▍` instead of the full message).
+
+**Bracketed paste mode** wraps the input in escape sequences (`\e[200~` start, `\e[201~` end) that signal to the terminal "this is pasted content" - the CLI handles this correctly and receives the full input.
+
 ## Migration from Custom OpenTUI Fork
 
 **October 2024**: Migrated from custom `CodebuffAI/opentui#codebuff/custom` fork to official `@opentui/react@^0.1.27` and `@opentui/core@^0.1.27` packages. Updated to `^0.1.28` in February 2025.
