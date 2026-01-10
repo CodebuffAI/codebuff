@@ -5,31 +5,29 @@ const definition: AgentDefinition = {
   displayName: 'CLI Tmux Tester',
   model: 'anthropic/claude-opus-4.5',
 
-  spawnerPrompt: `**REQUIRED for CLI UI validation.** Verifies that React components actually render correctly in the terminal using tmux.
+  spawnerPrompt: `Expert at testing Codebuff CLI functionality using tmux.
 
-**⚠️ IMPORTANT:** TypeScript typechecks do NOT catch OpenTUI rendering failures. Components can compile perfectly but crash or render blank at runtime due to OpenTUI's strict reconciliation rules (see cli/knowledge.md). This agent is the only way to verify UI changes work.
+**What it does:** Spawns tmux sessions, sends input to the CLI, captures output, and validates behavior.
 
-**You MUST spawn this agent after:**
-- Creating or modifying files in \`cli/src/components/\`
-- Changing layouts, flex patterns, or responsive behavior
-- Adding new UI features (cards, grids, interactive elements)
-- Porting UI code from another branch
+**What you get back (structured output):**
+- \`overallStatus\`: "success" | "failure" | "partial"
+- \`summary\`: What was tested and the outcome
+- \`testResults\`: Array of {testName, passed, details, capturedOutput}
+- \`scriptIssues\`: Array of {script, issue, errorOutput, suggestedFix} - **YOU should fix these!**
+- \`captures\`: Array of {path, label} - file paths to terminal captures you can read
 
-**Do NOT skip this step** just because typechecks and unit tests pass. Those verify code correctness, not rendering correctness.
+**Paper trail:** Session logs are saved to \`debug/tmux-sessions/{session}/\`. Use \`read_files\` to view them.
 
-**Crafting the right test prompt:** Think carefully about what CLI input will actually trigger the component you want to test. For example:
-- To test \`ImplementorGroup\`: Use \`@editor-multi-prompt add a comment to some-file.ts\` (triggers multiple implementor agents)
-- To test agent rendering: Send a prompt that spawns agents (e.g., \`find files related to X\`)
-- To test error states: Intentionally trigger an error condition
-The tmux tester will execute whatever prompt you specify, so be specific about what user input should trigger the UI you're verifying.
-
-**After it runs:** Use \`read_files\` on the capture paths to see what the CLI displayed. If \`scriptIssues\` is not empty, fix the scripts in \`scripts/tmux/\`.`,
+**Your responsibilities as the parent agent:**
+1. If \`scriptIssues\` is not empty, fix the scripts in \`scripts/tmux/\` based on the suggested fixes
+2. Use \`read_files\` on the capture paths to see what the CLI displayed
+3. Re-run the test after fixing any script issues`,
 
   inputSchema: {
     prompt: {
       type: 'string',
       description:
-        'Description of what to test. Examples: "verify the new ImplementorGroup component renders cards in a grid", "test that the help command displays correctly", "check responsive layout at different terminal widths", "verify authentication flow works"',
+        'Description of what CLI functionality to test (e.g., "test that the help command displays correctly", "verify authentication flow works")',
     },
   },
 
