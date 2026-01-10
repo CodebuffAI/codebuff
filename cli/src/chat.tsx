@@ -394,7 +394,7 @@ export const Chat = ({
     return isUserCollapsingRef.current
   }, [])
 
-  const { scrollToLatest, scrollboxProps, isAtBottom } = useChatScrollbox(
+  const { scrollToLatest, scrollUp, scrollDown, scrollboxProps, isAtBottom } = useChatScrollbox(
     scrollRef,
     messages,
     isUserCollapsing,
@@ -1275,6 +1275,8 @@ export const Chat = ({
           }
         })
       },
+      onScrollUp: scrollUp,
+      onScrollDown: scrollDown,
       onOpenBuyCredits: () => {
         // If credits have been restored, just return to default mode
         if (areCreditsRestored()) {
@@ -1314,6 +1316,8 @@ export const Chat = ({
       inputRef,
       handleCtrlC,
       clearQueue,
+      scrollUp,
+      scrollDown,
     ],
   )
 

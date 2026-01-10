@@ -15,7 +15,7 @@
 # OPTIONS:
 #   -n, --name NAME     Session name (default: cli-test-<timestamp>)
 #   -w, --width WIDTH   Terminal width (default: 120)
-#   -h, --height HEIGHT Terminal height (default: 30)
+#   -h, --height HEIGHT Terminal height (default: 80)
 #   --wait SECONDS      Seconds to wait for CLI to initialize (default: 4)
 #   --help              Show this help message
 #
@@ -47,7 +47,7 @@ set -e
 # Defaults
 SESSION_NAME=""
 WIDTH=120
-HEIGHT=30
+HEIGHT=80  # Tall enough to capture most output without scrolling
 WAIT_SECONDS=4
 
 # Parse arguments
