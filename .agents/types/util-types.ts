@@ -135,6 +135,28 @@ export type Message =
 
 // ===== MCP Server Types =====
 
+/**
+ * MCP server configuration for stdio-based servers.
+ *
+ * Environment variables in `env` can be:
+ * - A plain string value (hardcoded, e.g., `'production'`)
+ * - A `$VAR_NAME` reference to read from local environment (e.g., `'$NOTION_TOKEN'`)
+ *
+ * The `$VAR_NAME` syntax reads from `process.env.VAR_NAME` at agent load time.
+ * This keeps secrets out of your agent definitions - store them in `.env.local` instead.
+ *
+ * @example
+ * ```typescript
+ * env: {
+ *   // Read NOTION_TOKEN from local .env file
+ *   NOTION_TOKEN: '$NOTION_TOKEN',
+ *   // Read MY_API_KEY from local env, pass as API_KEY to MCP server
+ *   API_KEY: '$MY_API_KEY',
+ *   // Hardcoded value (non-secret)
+ *   NODE_ENV: 'production',
+ * }
+ * ```
+ */
 export type MCPConfig =
   | {
       type?: 'stdio'

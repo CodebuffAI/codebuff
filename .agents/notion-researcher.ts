@@ -28,7 +28,7 @@ const definition: AgentDefinition = {
       command: 'npx',
       args: ['-y', '@notionhq/notion-mcp-server'],
       env: {
-        NOTION_TOKEN: 'ntn_***',
+        NOTION_TOKEN: '$NOTION_TOKEN',
       },
     },
   },
