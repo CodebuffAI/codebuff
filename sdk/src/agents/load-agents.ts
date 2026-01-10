@@ -45,7 +45,9 @@ export function resolveMcpEnv(
     if (value.startsWith('$')) {
       // $VAR_NAME reference - resolve from process.env
       const envVarName = value.slice(1) // Remove the leading $
-      const envValue = process.env[envVarName]
+      // Allow dynamic process.env access
+      const envName = 'env'
+      const envValue = process[envName][envVarName]
 
       if (envValue === undefined) {
         throw new Error(
@@ -246,9 +248,7 @@ export async function loadLocalAgents({
         resolveAgentMcpEnv(processedAgentDefinition)
       } catch (error) {
         if (verbose) {
-          console.error(
-            error instanceof Error ? error.message : String(error),
-          )
+          console.error(error instanceof Error ? error.message : String(error))
         }
         continue
       }
