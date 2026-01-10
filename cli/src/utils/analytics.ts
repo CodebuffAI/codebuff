@@ -12,7 +12,6 @@ import {
 
 import type { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
-import { logger } from './logger'
 
 // Re-export types from core for backwards compatibility
 export type { AnalyticsClientWithIdentify as AnalyticsClient } from '@codebuff/common/analytics-core'
@@ -71,6 +70,17 @@ function resolveDeps(): ResolvedAnalyticsDeps {
     createClient: injectedDeps?.createClient ?? createPostHogClient,
     generateAnonymousId:
       injectedDeps?.generateAnonymousId ?? generateAnonymousId,
+  }
+}
+
+function logAnalyticsDebug(message: string, data: Record<string, unknown>) {
+  if (!DEBUG_ANALYTICS) {
+    return
+  }
+  try {
+    console.debug(message, data)
+  } catch {
+    // Ignore console errors in restricted environments
   }
 }
 
@@ -173,7 +183,11 @@ export function trackEvent(
 
   if (!isProd) {
     if (DEBUG_ANALYTICS) {
-      logger.debug({ event, properties, distinctId }, `[analytics] ${event}`)
+      logAnalyticsDebug(`[analytics] ${event}`, {
+        event,
+        properties,
+        distinctId,
+      })
     }
     return
   }
@@ -212,10 +226,11 @@ export function identifyUser(userId: string, properties?: Record<string, any>) {
 
   if (!isProd) {
     if (DEBUG_ANALYTICS) {
-      logger.debug(
-        { userId, previousAnonymousId, properties },
-        '[analytics] user identified',
-      )
+      logAnalyticsDebug('[analytics] user identified', {
+        userId,
+        previousAnonymousId,
+        properties,
+      })
     }
     return
   }
