@@ -163,7 +163,7 @@ async function countTokensViaAnthropic(params: {
   return data.input_tokens
 }
 
-function convertToAnthropicMessages(
+export function convertToAnthropicMessages(
   messages: TokenCountRequest['messages'],
 ): Array<{ role: 'user' | 'assistant'; content: any }> {
   const result: Array<{ role: 'user' | 'assistant'; content: any }> = []
@@ -204,7 +204,7 @@ function convertToAnthropicMessages(
   return result
 }
 
-function convertContentToAnthropic(
+export function convertContentToAnthropic(
   content: any,
   role: 'user' | 'assistant',
 ): any {
@@ -232,14 +232,31 @@ function convertContentToAnthropic(
         input: part.input ?? {},
       })
     } else if (part.type === 'image') {
-      anthropicContent.push({
-        type: 'image',
-        source: {
-          type: 'base64',
-          media_type: part.mimeType ?? 'image/png',
-          data: part.data,
-        },
-      })
+      // Handle image content - the image field can be base64 data or a URL string
+      const imageData = part.image
+      if (typeof imageData === 'string' && imageData) {
+        if (imageData.startsWith('http://') || imageData.startsWith('https://')) {
+          // URL-based image
+          anthropicContent.push({
+            type: 'image',
+            source: {
+              type: 'url',
+              url: imageData,
+            },
+          })
+        } else {
+          // Base64 encoded image data
+          anthropicContent.push({
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: part.mediaType ?? 'image/png',
+              data: imageData,
+            },
+          })
+        }
+      }
+      // Skip images without valid data
     } else if (part.type === 'json') {
       const text =
         typeof part.value === 'string'
@@ -257,7 +274,7 @@ function convertContentToAnthropic(
   return anthropicContent.length > 0 ? anthropicContent : undefined
 }
 
-function formatToolContent(content: any): string {
+export function formatToolContent(content: any): string {
   if (typeof content === 'string') {
     return content
   }
