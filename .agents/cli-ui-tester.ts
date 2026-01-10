@@ -1,22 +1,22 @@
 import type { AgentDefinition } from './types/agent-definition'
 
 const definition: AgentDefinition = {
-  id: 'cli-tmux-tester',
-  displayName: 'CLI Tmux Tester',
+  id: 'cli-ui-tester',
+  displayName: 'CLI UI Tester',
   model: 'anthropic/claude-opus-4.5',
 
   spawnerPrompt: `Expert at testing Codebuff CLI functionality using tmux.
 
-**What it does:** Spawns tmux sessions, sends input to the CLI, captures output, and validates behavior.
+**Use this agent after modifying:**
+- \`cli/src/components/\` - UI components, layouts, rendering
+- \`cli/src/hooks/\` - hooks that affect what users see
+- Any CLI visual elements: borders, colors, spacing, text formatting
 
-**What you get back (structured output):**
-- \`overallStatus\`: "success" | "failure" | "partial"
-- \`summary\`: What was tested and the outcome
-- \`testResults\`: Array of {testName, passed, details, capturedOutput}
-- \`scriptIssues\`: Array of {script, issue, errorOutput, suggestedFix} - **YOU should fix these!**
-- \`captures\`: Array of {path, label} - file paths to terminal captures you can read
+**When to use:** After implementing CLI UI changes, use this to verify the visual output actually renders correctly. Unit tests and typechecks cannot catch layout bugs, rendering issues, or visual regressions. This agent captures real terminal output including colors and layout.
 
-**Paper trail:** Session logs are saved to \`debug/tmux-sessions/{session}/\`. Use \`read_files\` to view them.
+**What it does:** Spawns tmux sessions, sends input to the CLI, captures terminal output, and validates behavior.
+
+**Paper trail:** Session logs are saved to \`debug/tmux-sessions/{session}/\`. Use \`read_files\` to view captures.
 
 **Your responsibilities as the parent agent:**
 1. If \`scriptIssues\` is not empty, fix the scripts in \`scripts/tmux/\` based on the suggested fixes
@@ -49,10 +49,19 @@ const definition: AgentDefinition = {
         items: {
           type: 'object',
           properties: {
-            testName: { type: 'string', description: 'Name/description of the test' },
+            testName: {
+              type: 'string',
+              description: 'Name/description of the test',
+            },
             passed: { type: 'boolean', description: 'Whether the test passed' },
-            details: { type: 'string', description: 'Details about what happened' },
-            capturedOutput: { type: 'string', description: 'Relevant output captured from the CLI' },
+            details: {
+              type: 'string',
+              description: 'Details about what happened',
+            },
+            capturedOutput: {
+              type: 'string',
+              description: 'Relevant output captured from the CLI',
+            },
           },
           required: ['testName', 'passed'],
         },
@@ -65,7 +74,8 @@ const definition: AgentDefinition = {
           properties: {
             script: {
               type: 'string',
-              description: 'Which script had the issue (e.g., "tmux-start.sh", "tmux-send.sh")',
+              description:
+                'Which script had the issue (e.g., "tmux-start.sh", "tmux-send.sh")',
             },
             issue: {
               type: 'string',
@@ -77,12 +87,14 @@ const definition: AgentDefinition = {
             },
             suggestedFix: {
               type: 'string',
-              description: 'Suggested fix or improvement for the parent agent to implement',
+              description:
+                'Suggested fix or improvement for the parent agent to implement',
             },
           },
           required: ['script', 'issue', 'suggestedFix'],
         },
-        description: 'Issues encountered with the helper scripts that the parent agent should fix',
+        description:
+          'Issues encountered with the helper scripts that the parent agent should fix',
       },
       captures: {
         type: 'array',
@@ -91,11 +103,13 @@ const definition: AgentDefinition = {
           properties: {
             path: {
               type: 'string',
-              description: 'Path to the capture file (relative to project root)',
+              description:
+                'Path to the capture file (relative to project root)',
             },
             label: {
               type: 'string',
-              description: 'What this capture shows (e.g., "initial-cli-state", "after-help-command")',
+              description:
+                'What this capture shows (e.g., "initial-cli-state", "after-help-command")',
             },
             timestamp: {
               type: 'string',
@@ -104,14 +118,26 @@ const definition: AgentDefinition = {
           },
           required: ['path', 'label'],
         },
-        description: 'Paths to saved terminal captures for debugging - check debug/tmux-sessions/{session}/',
+        description:
+          'Paths to saved terminal captures for debugging - check debug/tmux-sessions/{session}/',
       },
     },
-    required: ['overallStatus', 'summary', 'testResults', 'scriptIssues', 'captures'],
+    required: [
+      'overallStatus',
+      'summary',
+      'testResults',
+      'scriptIssues',
+      'captures',
+    ],
   },
   includeMessageHistory: false,
 
-  toolNames: ['run_terminal_command', 'read_files', 'code_search', 'set_output'],
+  toolNames: [
+    'run_terminal_command',
+    'read_files',
+    'code_search',
+    'set_output',
+  ],
 
   systemPrompt: `You are an expert at testing the Codebuff CLI using tmux. You have access to helper scripts that handle the complexities of tmux communication with the CLI.
 
