@@ -36,19 +36,49 @@ Or using the npm script:
 cd .agents && bun run view-session <session-name>
 ```
 
+## Layout
+
+The TUI uses a vertical layout designed for clarity:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Session: my-session  120x30           5 cmds  10 captures       │  ← Header
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│                    ┌──────────────────┐                         │
+│                    │ [terminal output │                         │  ← Capture
+│                    │  centered in     │                         │     View
+│                    │  muted border]   │                         │
+│                    └──────────────────┘                         │
+│                                                                 │
+├─ ⏸ Paused ──────────────────────────────────────────────────────┤
+│  ┌─○ [1] 12:00:00─┐ ┌─▶ [2] 12:00:05─┐ ┌─○ [3] 12:00:10─┐       │  ← Timeline
+│  │ initial-state  │ │ after-command  │ │ final-state    │       │     Cards
+│  │ $ codebuff...  │ │ $ /help        │ │ $ /quit        │       │
+│  └────────────────┘ └────────────────┘ └────────────────┘       │
+├─────────────────────────────────────────────────────────────────┤
+│ ▶ 2/10 @1.5s   space: play/pause  +/-: speed  ←→: navigate      │  ← Footer
+└─────────────────────────────────────────────────────────────────┘
+```
+
+- **Header**: Session name, dimensions, command/capture counts
+- **Capture View**: Terminal output centered with a muted border showing exact capture dimensions
+- **Timeline**: Horizontal card-style navigation at the bottom, selected card stays centered
+- **Footer**: Playback status, position, speed, and keyboard shortcuts
+
 ## Features
 
 ### For Humans (Interactive TUI)
-- **Timeline panel**: Navigate through captures with ↑↓ arrows
-- **Capture panel**: View terminal output at each point in time
+- **Capture view**: Terminal output centered with visible boundary
+- **Timeline panel**: Card-style navigation at the bottom with label and triggering command
+- **Auto-centering**: Selected timeline card stays centered in view
 - **Metadata display**: Session info, dimensions, command count
 - **Replay mode**: Auto-play through captures like a video player
 - **Keyboard shortcuts**:
+  - `←` / `→` or `h` / `l`: Navigate between captures
   - `Space`: Play/pause replay
   - `+` / `-`: Adjust playback speed (faster/slower)
   - `r`: Restart from beginning
-  - `↑↓` or `jk`: Navigate captures (pauses replay)
-  - `←→` or `hl`: Switch panels
   - `q` or Ctrl+C: Quit
   - Use the `--json` flag on the CLI entrypoint for JSON output
 
@@ -68,11 +98,11 @@ bun .agents/tmux-viewer/index.tsx my-session --replay
 - `+` or `=` - Speed up (shorter interval between captures)
 - `-` or `_` - Slow down (longer interval between captures)
 - `r` - Restart from the first capture
-- Arrow keys - Manual navigation (automatically pauses replay)
+- `←` / `→` - Navigate captures (automatically pauses replay)
 
 **Available speeds:** 0.5s, 1.0s, 1.5s (default), 2.0s, 3.0s, 5.0s per capture
 
-The footer shows the current position (e.g., `3/10`), playback speed (e.g., `@1.5s`), and play/pause status.
+The timeline panel title shows `▶ Playing` or `⏸ Paused`, and the footer shows current position (e.g., `2/10`), playback speed (e.g., `@1.5s`), and controls.
 
 ### For AIs (JSON Output)
 Use the `--json` flag to get structured output:
