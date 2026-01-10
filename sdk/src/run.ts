@@ -6,7 +6,7 @@ import {
   getCancelledAdditionalMessages,
 } from '@codebuff/agent-runtime/util/messages'
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
-import { getMCPClient, listMCPTools } from '@codebuff/common/mcp/client'
+import { getMCPClient, listMCPTools, callMCPTool } from '@codebuff/common/mcp/client'
 import { toOptionalFile } from '@codebuff/common/old-constants'
 import { toolNames } from '@codebuff/common/tools/constants'
 import { clientToolCallSchema } from '@codebuff/common/tools/list'
@@ -551,6 +551,30 @@ async function handleToolCall({
 }): Promise<{ output: ToolResultOutput[] }> {
   const toolName = action.toolName
   const input = action.input
+
+  // Handle MCP tool calls when mcpConfig is present
+  if (action.mcpConfig) {
+    try {
+      const mcpClientId = await getMCPClient(action.mcpConfig)
+      const result = await callMCPTool(mcpClientId, {
+        name: toolName,
+        arguments: input,
+      })
+      return { output: result }
+    } catch (error) {
+      return {
+        output: [
+          {
+            type: 'json',
+            value: {
+              errorMessage:
+                error instanceof Error ? error.message : String(error),
+            },
+          },
+        ],
+      }
+    }
+  }
 
   let result: ToolResultOutput[]
   if (toolNames.includes(toolName as ToolName)) {

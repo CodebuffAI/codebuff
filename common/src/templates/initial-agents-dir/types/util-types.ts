@@ -134,12 +134,12 @@ export type MCPConfig =
       command: string
       args?: string[]
       env?: Record<string, string>
-      headers?: Record<string, string>
     }
   | {
       type?: 'http' | 'sse'
       url: string
       params?: Record<string, string>
+      headers?: Record<string, string>
     }
 
 // ============================================================================
