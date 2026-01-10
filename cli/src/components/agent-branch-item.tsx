@@ -2,6 +2,7 @@ import { TextAttributes } from '@opentui/core'
 import React, { memo, type ReactNode } from 'react'
 
 import { Button } from './button'
+import { CollapseButton } from './collapse-button'
 import { useTheme } from '../hooks/use-theme'
 import { useWhyDidYouUpdateById } from '../hooks/use-why-did-you-update'
 import { getCliEnv } from '../utils/env'
@@ -282,19 +283,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
               </box>
             )}
             {renderExpandedContent(children)}
-            {onToggle && (
-              <Button
-                style={{
-                  alignSelf: 'flex-end',
-                  marginTop: 0,
-                }}
-                onClick={onToggle}
-              >
-                <text fg={theme.secondary} style={{ wrapMode: 'none' }}>
-                  ▴ collapse
-                </text>
-              </Button>
-            )}
+            {onToggle && <CollapseButton onClick={onToggle} />}
           </box>
         )}
       </box>

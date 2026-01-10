@@ -5,6 +5,7 @@ import { AgentBranchItem } from './agent-branch-item'
 import { Button } from './button'
 import { CopyButton, useCopyButton } from './copy-icon-button'
 import { ImageCard } from './image-card'
+import { ImplementorGroup } from './implementor-row'
 import { MessageFooter } from './message-footer'
 import { ValidationErrorPopover } from './validation-error-popover'
 import { useTheme } from '../hooks/use-theme'
@@ -14,9 +15,10 @@ import { isTextBlock, isToolBlock, isImageBlock } from '../types/chat'
 import { shouldRenderAsSimpleText } from '../utils/constants'
 import {
   isImplementorAgent,
-  getImplementorDisplayName,
   getImplementorIndex,
+  groupConsecutiveImplementors,
 } from '../utils/implementor-helpers'
+import { getAgentStatusInfo } from '../utils/agent-helpers'
 import { type MarkdownPalette } from '../utils/markdown-renderer'
 import { formatCwd } from '../utils/path-helpers'
 import { AgentListBranch } from './blocks/agent-list-branch'
@@ -547,6 +549,25 @@ const AgentBody = memo(
 
         case 'agent': {
           const agentBlock = nestedBlock as AgentContentBlock
+          
+          // Group consecutive implementor agents and render with ImplementorGroup
+          if (isImplementorAgent(agentBlock)) {
+            const start = nestedIdx
+            const { group: implementors, nextIndex } = groupConsecutiveImplementors(nestedBlocks, nestedIdx)
+            nestedIdx = nextIndex
+
+            nodes.push(
+              <ImplementorGroup
+                key={`${keyPrefix}-implementor-group-${start}`}
+                implementors={implementors}
+                siblingBlocks={nestedBlocks}
+                onToggleCollapsed={onToggleCollapsed}
+                availableWidth={availableWidth}
+              />,
+            )
+            break
+          }
+          
           nodes.push(
             <AgentBranchWrapper
               key={`${keyPrefix}-agent-${nestedIdx}`}
@@ -604,18 +625,19 @@ const AgentBranchWrapper = memo(
       const isStreaming =
         agentBlock.status === 'running' ||
         streamingAgents.has(agentBlock.agentId)
-      const isComplete = agentBlock.status === 'complete'
-      const statusIndicator = isStreaming ? '●' : isComplete ? '✓' : '○'
-      const statusColor = isStreaming
-        ? theme.primary
-        : isComplete
-          ? theme.foreground
-          : theme.muted
+      
+      // Get base status info, but override if streaming
+      const effectiveStatus = isStreaming ? 'running' : agentBlock.status
+      const { indicator: statusIndicator, color: statusColor } = getAgentStatusInfo(
+        effectiveStatus,
+        theme,
+      )
 
       let statusText = 'Selecting best'
       let reason: string | undefined
 
       // If complete, try to show which implementation was selected
+      const isComplete = agentBlock.status === 'complete'
       if (isComplete && siblingBlocks) {
         const blocks = agentBlock.blocks ?? []
         const lastBlock = blocks[blocks.length - 1] as
@@ -626,16 +648,12 @@ const AgentBranchWrapper = memo(
           // Convert letter to index: 'A' -> 0, 'B' -> 1, etc.
           const letterIndex = implementationId.charCodeAt(0) - 65
           const implementors = siblingBlocks.filter(
-            (b) => b.type === 'agent' && isImplementorAgent(b.agentType),
-          ) as AgentContentBlock[]
+            (b): b is AgentContentBlock => b.type === 'agent' && isImplementorAgent(b),
+          )
 
           const selectedAgent = implementors[letterIndex]
           if (selectedAgent) {
-            const index = getImplementorIndex(
-              selectedAgent.agentId,
-              selectedAgent.agentType,
-              siblingBlocks,
-            )
+            const index = getImplementorIndex(selectedAgent, siblingBlocks)
             // Just show "Selected Prompt #N" without repeating the prompt text
             statusText = index !== undefined ? `Selected Strategy #${index + 1}` : 'Selected'
             reason = lastBlock?.input?.reason
@@ -675,69 +693,6 @@ const AgentBranchWrapper = memo(
       )
     }
 
-    // Render implementor agents as simple tool calls
-    if (isImplementorAgent(agentBlock.agentType)) {
-      const isStreaming =
-        agentBlock.status === 'running' ||
-        streamingAgents.has(agentBlock.agentId)
-      const isComplete = agentBlock.status === 'complete'
-      const isFailed = agentBlock.status === 'failed'
-      const implementorIndex = siblingBlocks
-        ? getImplementorIndex(
-            agentBlock.agentId,
-            agentBlock.agentType,
-            siblingBlocks,
-          )
-        : undefined
-      const displayName = getImplementorDisplayName(
-        agentBlock.agentType,
-        implementorIndex,
-        agentBlock.initialPrompt,
-        availableWidth,
-      )
-      const statusIndicator = isStreaming
-        ? '●'
-        : isFailed
-          ? '✗'
-          : isComplete
-            ? '✓'
-            : '○'
-      const statusColor = isStreaming
-        ? theme.primary
-        : isFailed
-          ? 'red'
-          : isComplete
-            ? theme.foreground
-            : theme.muted
-
-      // Split "Strategy #N: prompt" into parts for separate styling
-      const strategyMatch = displayName.match(/^(Strategy #\d+:)(.*)$/)
-      const strategyLabel = strategyMatch ? strategyMatch[1] : displayName
-      const strategyPrompt = strategyMatch ? strategyMatch[2] : ''
-
-      return (
-        <box
-          key={keyPrefix}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            width: '100%',
-          }}
-        >
-          <text style={{ wrapMode: 'word' }}>
-            <span fg={statusColor}>{statusIndicator}</span>
-            <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
-              {' '}
-              {strategyLabel}
-            </span>
-            {strategyPrompt && (
-              <span fg={theme.foreground}>{strategyPrompt}</span>
-            )}
-          </text>
-        </box>
-      )
-    }
-
     const isCollapsed = agentBlock.isCollapsed ?? false
     const isStreaming =
       agentBlock.status === 'running' || streamingAgents.has(agentBlock.agentId)
@@ -763,20 +718,11 @@ const AgentBranchWrapper = memo(
         : ''
 
     const isActive = isStreaming || agentBlock.status === 'running'
-    const isFailed = agentBlock.status === 'failed'
-    const statusLabel = isActive
-      ? 'running'
-      : agentBlock.status === 'complete'
-        ? 'completed'
-        : isFailed
-          ? 'failed'
-          : agentBlock.status
-    const statusColor = isActive
-      ? theme.primary
-      : isFailed
-        ? 'red'
-        : theme.muted
-    const statusIndicator = isActive ? '●' : isFailed ? '✗' : '✓'
+    const effectiveStatus = isActive ? 'running' : agentBlock.status
+    const { indicator: statusIndicator, label: statusLabel, color: statusColor } = getAgentStatusInfo(
+      effectiveStatus,
+      theme,
+    )
 
     const onToggle = useCallback(() => {
       onToggleCollapsed(agentBlock.agentId)
@@ -1305,6 +1251,24 @@ const BlocksRenderer = memo(
             </box>,
           )
         }
+        continue
+      }
+
+      // Group consecutive implementor agents and render with ImplementorGroup
+      if (block.type === 'agent' && isImplementorAgent(block)) {
+        const start = i
+        const { group: implementors, nextIndex } = groupConsecutiveImplementors(sourceBlocks, i)
+        i = nextIndex
+
+        nodes.push(
+          <ImplementorGroup
+            key={`${messageId}-implementor-group-${start}`}
+            implementors={implementors}
+            siblingBlocks={sourceBlocks}
+            onToggleCollapsed={onToggleCollapsed}
+            availableWidth={availableWidth}
+          />,
+        )
         continue
       }
 

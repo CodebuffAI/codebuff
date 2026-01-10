@@ -40,7 +40,30 @@ Dynamic imports make code harder to analyze, break tree-shaking, and can hide ci
 
 Use tmux to test CLI behavior in a controlled, scriptable way. This is especially useful for testing UI updates, authentication flows, and time-dependent behavior.
 
-### Basic Pattern
+### Recommended: Use Helper Scripts
+
+**Use the helper scripts in `scripts/tmux/`** for reliable CLI testing:
+
+```bash
+# Start a test session
+SESSION=$(./scripts/tmux/tmux-cli.sh start)
+
+# Send commands and capture output
+./scripts/tmux/tmux-cli.sh send "$SESSION" "/help"
+./scripts/tmux/tmux-cli.sh capture "$SESSION" --wait 2 --label "after-help"
+
+# View session data
+bun .agents/tmux-viewer/index.tsx "$SESSION" --json
+
+# Clean up
+./scripts/tmux/tmux-cli.sh stop "$SESSION"
+```
+
+Session logs are saved to `debug/tmux-sessions/{session}/` in YAML format for easy debugging.
+
+See `scripts/tmux/README.md` for full documentation or `cli/tmux.knowledge.md` for low-level details.
+
+### Manual Pattern (Legacy)
 
 ```bash
 tmux new-session -d -s test-session 'cd /path/to/codebuff && bun --cwd=cli run dev 2>&1' && \
@@ -86,10 +109,6 @@ tmux new-session -d -s test-session 'cd /path/to/codebuff && bun --cwd=cli run d
 # ✅ Works:  tmux send-keys -t session $'\e[200~hello\e[201~'
 ```
 
-**Why standard send-keys fails:** When `tmux send-keys` sends multiple characters without bracketed paste mode, the CLI's input handling only captures some characters due to timing issues with OpenTUI's async event processing. This manifests as partial input (e.g., only the last character appearing in the input field like `a▍` instead of the full message).
-
-**Bracketed paste mode** wraps the input in escape sequences (`\e[200~` start, `\e[201~` end) that signal to the terminal "this is pasted content" - the CLI handles this correctly and receives the full input.
-
 ## Migration from Custom OpenTUI Fork
 
 **October 2024**: Migrated from custom `CodebuffAI/opentui#codebuff/custom` fork to official `@opentui/react@^0.1.27` and `@opentui/core@^0.1.27` packages. Updated to `^0.1.28` in February 2025.
@@ -102,6 +121,38 @@ tmux new-session -d -s test-session 'cd /path/to/codebuff && bun --cwd=cli run d
 
 - Paste functionality still works through the terminal's native paste mechanism, but we can no longer intercept paste events separately from typing.
 - If custom paste handling is needed in the future, it must be reimplemented using `useKeyboard` hook or by checking the official OpenTUI for updates.
+
+## OpenTUI Flex Layouts
+
+### Multi-Column / Masonry Layouts
+
+For columns that share space equally within a container, use the **flex trio pattern**:
+
+```tsx
+<box style={{ flexDirection: 'row', width: '100%' }}>
+  {columns.map((col, idx) => (
+    <box
+      key={idx}
+      style={{
+        flexDirection: 'column',
+        flexGrow: 1,      // Take equal share of space
+        flexShrink: 1,    // Allow shrinking
+        flexBasis: 0,     // Start from 0 and grow (not from content size)
+        minWidth: 0,      // Critical! Allows shrinking below content width
+      }}
+    >
+      {/* Column content */}
+    </box>
+  ))}
+</box>
+```
+
+**Why not explicit width?** Using `width: someNumber` for columns causes OpenTUI to overflow beyond container boundaries. The flex trio pattern respects the parent container's width constraints.
+
+**Key points:**
+- `minWidth: 0` is essential - without it, content won't shrink below its natural width
+- Use `width: '100%'` (string) for parent containers, not numeric values
+- `alignItems: 'flex-start'` prevents children from stretching to fill row height
 
 ## OpenTUI Text Rendering Constraints
 
