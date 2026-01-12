@@ -2,32 +2,16 @@
 
 # Simple tmux-based CLI validation script
 # Usage: ./cli/scripts/validate-cli-with-tmux.sh
+#
+# Uses scripts/tmux/tmux-start.sh as the single source of truth for
+# terminal dimensions and session creation.
 
 set -e
 
-SESSION_NAME="cli-validation-$(date +%s)"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-
-
-# Check if tmux is available
-if ! command -v tmux &> /dev/null; then
-    echo "❌ tmux not found"
-    echo ""
-    echo "📦 Installation:"
-    echo "  macOS:   brew install tmux"
-    echo "  Ubuntu:  sudo apt-get install tmux"
-    echo "  Arch:    sudo pacman -S tmux"
-    echo ""
-    exit 1
-fi
-
-
-
-# Create tmux session running CLI
-tmux new-session -d -s "$SESSION_NAME" \
-    -x 120 -y 30 \
-    "cd $PROJECT_ROOT && bun --cwd=cli run dev 2>&1" 2>/dev/null
+# Use tmux-start.sh to create the session (handles tmux availability check too)
+SESSION_NAME=$("$PROJECT_ROOT/scripts/tmux/tmux-start.sh" --name "cli-validation-$(date +%s)" --wait 2)
 
 # Capture output at intervals
 sleep 2

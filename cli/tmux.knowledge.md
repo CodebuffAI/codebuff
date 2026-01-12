@@ -51,13 +51,13 @@ Use the **tmux-viewer** to inspect sessions:
 
 ```bash
 # Interactive TUI (for humans)
-bun .agents/tmux-viewer/index.tsx <session-name>
+bun scripts/tmux/tmux-viewer/index.tsx <session-name>
 
 # JSON output (for AI consumption)
-bun .agents/tmux-viewer/index.tsx <session-name> --json
+bun scripts/tmux/tmux-viewer/index.tsx <session-name> --json
 
 # List available sessions
-bun .agents/tmux-viewer/index.tsx --list
+bun scripts/tmux/tmux-viewer/index.tsx --list
 ```
 
 ### CLI Tmux Tester Agent

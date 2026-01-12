@@ -1,0 +1,9 @@
+{
+  "name": "@codebuff/tmux-viewer",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun run index.tsx"
+  }
+}

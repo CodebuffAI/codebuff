@@ -53,7 +53,7 @@ SESSION=$(./scripts/tmux/tmux-cli.sh start)
 ./scripts/tmux/tmux-cli.sh capture "$SESSION" --wait 2 --label "after-help"
 
 # View session data
-bun .agents/tmux-viewer/index.tsx "$SESSION" --json
+bun scripts/tmux/tmux-viewer/index.tsx "$SESSION" --json
 
 # Clean up
 ./scripts/tmux/tmux-cli.sh stop "$SESSION"
