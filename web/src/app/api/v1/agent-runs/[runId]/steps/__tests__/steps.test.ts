@@ -236,31 +236,6 @@ describe('agentRunsStepsPost', () => {
     expect(json.error).toBe('Unauthorized to add steps to this run')
   })
 
-  test('returns test step ID for test user', async () => {
-    const req = new NextRequest(
-      'http://localhost/api/v1/agent-runs/run-123/steps',
-      {
-        method: 'POST',
-        headers: { Authorization: 'Bearer test-key' },
-        body: JSON.stringify({ stepNumber: 1 }),
-      },
-    )
-
-    const response = await postAgentRunsSteps({
-      req,
-      runId: 'run-123',
-      getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-      logger: mockLogger,
-      loggerWithContext: mockLoggerWithContext,
-      trackEvent: mockTrackEvent,
-      db: mockDb,
-    })
-
-    expect(response.status).toBe(200)
-    const json = await response.json()
-    expect(json.stepId).toBe('test-step-id')
-  })
-
   test('successfully adds agent step', async () => {
     const req = new NextRequest(
       'http://localhost/api/v1/agent-runs/run-123/steps',

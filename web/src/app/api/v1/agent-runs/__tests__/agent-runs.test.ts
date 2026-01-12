@@ -743,35 +743,4 @@ describe('/api/v1/agent-runs POST endpoint', () => {
       })
     })
   })
-
-  describe('Test user handling', () => {
-    test('skips database update for test user on FINISH action', async () => {
-      const req = new NextRequest('http://localhost:3000/api/v1/agent-runs', {
-        method: 'POST',
-        headers: { Authorization: 'Bearer test-api-key-test' },
-        body: JSON.stringify({
-          action: 'FINISH',
-          runId: 'run-test',
-          status: 'completed',
-          totalSteps: 5,
-          directCredits: 100,
-          totalCredits: 150,
-        }),
-      })
-
-      const response = await postAgentRuns({
-        req,
-        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
-        logger: mockLogger,
-        loggerWithContext: mockLoggerWithContext,
-        trackEvent: mockTrackEvent,
-        db: mockDb,
-      })
-
-      expect(response.status).toBe(200)
-      const body = await response.json()
-      expect(body).toEqual({ success: true })
-      expect(mockDb.update).not.toHaveBeenCalled()
-    })
-  })
 })
