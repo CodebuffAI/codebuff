@@ -38,7 +38,6 @@ Test fixtures live in `common/src/testing/fixtures/` and provide consistent test
 ```typescript
 // Recommended: import from the barrel export
 import { 
-  TEST_USER_ID,
   testLogger,
   createTestAgentRuntimeParams,
   createMockUser,
@@ -75,7 +74,6 @@ const params = createTestAgentRuntimeParams({
 
 ```typescript
 import {
-  TEST_USER_ID,                  // Standard test user ID
   TEST_BILLING_USER_ID,          // Billing-specific test user ID
   testLogger,                    // Silent logger
   createMockUser,                // Factory for mock users
@@ -344,7 +342,7 @@ describe('triggerMonthlyResetAndGrant', () => {
 ```typescript
 import { describe, expect, it, spyOn } from 'bun:test'
 import * as bigquery from '@codebuff/bigquery'
-import { TEST_USER_ID, createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures'
+import { createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures'
 
 describe('loopAgentSteps', () => {
   beforeEach(() => {
@@ -354,7 +352,7 @@ describe('loopAgentSteps', () => {
 
   it('calls LLM after STEP yield', async () => {
     const params = createTestAgentRuntimeParams({
-      userId: TEST_USER_ID,
+      userId: 'test-user-id',  // Use inline string for test user IDs
       promptAiSdkStream: async function* () {
         yield { type: 'text', text: 'response' }
         yield createToolCallChunk('end_turn', {})
