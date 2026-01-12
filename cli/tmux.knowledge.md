@@ -2,7 +2,77 @@
 
 This document covers essential knowledge for using tmux to test and automate the Codebuff CLI.
 
-## Critical: Sending Input to the CLI
+## Recommended: Use the Helper Scripts
+
+**For most CLI testing, use the helper scripts in `scripts/tmux/`** instead of raw tmux commands. These scripts handle bracketed paste mode, session management, and logging automatically.
+
+### Quick Start
+
+```bash
+# Start a test session
+SESSION=$(./scripts/tmux/tmux-cli.sh start)
+
+# Send a command
+./scripts/tmux/tmux-cli.sh send "$SESSION" "/help"
+
+# Capture output (auto-saves to debug/tmux-sessions/)
+./scripts/tmux/tmux-cli.sh capture "$SESSION" --wait 2 --label "after-help"
+
+# Stop the session
+./scripts/tmux/tmux-cli.sh stop "$SESSION"
+```
+
+### Available Scripts
+
+| Script | Purpose |
+|--------|--------|
+| `tmux-cli.sh` | Unified interface with subcommands (start, send, capture, stop, list) |
+| `tmux-start.sh` | Start a CLI test session with custom name/dimensions |
+| `tmux-send.sh` | Send input using bracketed paste mode (handles escaping) |
+| `tmux-capture.sh` | Capture terminal output with YAML metadata |
+| `tmux-stop.sh` | Stop individual or all test sessions |
+
+### Session Logs
+
+All session data is saved to `debug/tmux-sessions/{session}/` in YAML format:
+- `session-info.yaml` - Session metadata
+- `commands.yaml` - All commands sent with timestamps
+- `capture-*.txt` - Terminal captures with YAML front-matter
+
+### Why Use Helper Scripts?
+
+1. Automatic **bracketed paste mode** so CLI input is reliable and characters are not dropped.
+2. Automatic **session logging** in `debug/tmux-sessions/{session}/` so you always have a reproducible paper trail.
+3. A shared **YAML format** consumed by both humans (via `tmux-viewer` TUI) and AIs (via `--json` output and the `@cli-ui-tester` agent).
+
+### Viewing Session Data
+
+Use the **tmux-viewer** to inspect sessions:
+
+```bash
+# Interactive TUI (for humans)
+bun .agents/tmux-viewer/index.tsx <session-name>
+
+# JSON output (for AI consumption)
+bun .agents/tmux-viewer/index.tsx <session-name> --json
+
+# List available sessions
+bun .agents/tmux-viewer/index.tsx --list
+```
+
+### CLI Tmux Tester Agent
+
+For automated testing, use the `@cli-ui-tester` agent which wraps all of this with structured output reporting.
+
+See `scripts/tmux/README.md` for comprehensive documentation.
+
+---
+
+## Manual Approach (Understanding the Internals)
+
+The sections below explain how tmux communication with the CLI works at a low level. This is useful for understanding why the helper scripts exist and for debugging edge cases.
+
+### Critical: Sending Input to the CLI
 
 **Standard `tmux send-keys` does NOT work with the Codebuff CLI.** Characters are dropped or garbled due to how OpenTUI handles keyboard input.
 

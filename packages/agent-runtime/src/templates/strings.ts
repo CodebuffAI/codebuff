@@ -202,8 +202,21 @@ export async function getAgentPrompt<T extends StringField>(
       }
     } else if (spawnableAgents.length > 0) {
       // For non-inherited tools, agents are already defined as tools with full schemas,
-      // so we just list the available agent IDs here
-      addendum += `\n\nYou can spawn the following agents: ${spawnableAgents.join(', ')}.`
+      // so we add the spawnerPrompt for each agent
+      const agentDescriptions = await Promise.all(
+        spawnableAgents.map(async (agentType) => {
+          const template = await getAgentTemplate({
+            ...params,
+            agentId: agentType,
+            localAgentTemplates: agentTemplates,
+          })
+          if (template?.spawnerPrompt) {
+            return `- ${agentType}: ${template.spawnerPrompt}`
+          }
+          return `- ${agentType}`
+        }),
+      )
+      addendum += `\n\nYou can spawn the following agents:\n\n${agentDescriptions.join('\n')}`
     }
 
     // Add output schema information if defined
