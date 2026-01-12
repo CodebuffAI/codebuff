@@ -56,6 +56,9 @@ const createMockAgentState = (agentType: string): AgentState => ({
   ancestorRunIds: [],
   contextTokenCount: 0,
   agentContext: {},
+  subagents: [],
+  systemPrompt: '',
+  toolDefinitions: {},
 })
 
 const createMockAgentTemplate = (
