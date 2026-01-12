@@ -331,6 +331,41 @@ describe('extractSpawnAgentResultContent', () => {
     })
     expect(result).toEqual({ content: '', hasError: false })
   })
+
+  test('handles allMessages output mode', () => {
+    const result = extractSpawnAgentResultContent({
+      type: 'allMessages',
+      value: [
+        {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'First response' }],
+        },
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Follow up' }],
+        },
+        {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'Second response' }],
+        },
+      ],
+    })
+    expect(result).toEqual({
+      content: 'First response\nSecond response',
+      hasError: false,
+    })
+  })
+
+  test('handles structuredOutput with message field', () => {
+    const result = extractSpawnAgentResultContent({
+      type: 'structuredOutput',
+      value: { message: 'Structured output message' },
+    })
+    expect(result).toEqual({
+      content: 'Structured output message',
+      hasError: false,
+    })
+  })
 })
 
 describe('appendInterruptionNotice', () => {

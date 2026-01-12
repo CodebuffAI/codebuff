@@ -170,9 +170,9 @@ export const extractSpawnAgentResultContent = (
     return { content: String((obj.value as any).errorMessage), hasError: true }
   }
 
-  // Handle lastMessage output mode: { type: "lastMessage", value: [Message array] }
+  // Handle lastMessage and allMessages output modes: { type: "lastMessage"|"allMessages", value: [Message array] }
   // This is common for agents like researcher-web
-  if (obj.type === 'lastMessage' && Array.isArray(obj.value)) {
+  if ((obj.type === 'lastMessage' || obj.type === 'allMessages') && Array.isArray(obj.value)) {
     const messages = obj.value as Array<{ role?: string; content?: unknown }>
     const textContent = messages
       .filter((msg) => msg?.role === 'assistant')
@@ -180,6 +180,30 @@ export const extractSpawnAgentResultContent = (
       .filter(Boolean)
       .join('\n')
     return { content: textContent, hasError: false }
+  }
+
+  // Handle structuredOutput mode: { type: "structuredOutput", value: any }
+  if (obj.type === 'structuredOutput') {
+    const value = obj.value
+    // Check for message field in structured output
+    if (value && typeof value === 'object') {
+      const valueObj = value as Record<string, unknown>
+      if (typeof valueObj.message === 'string') {
+        return { content: valueObj.message, hasError: false }
+      }
+      // Check for data.message pattern
+      if (valueObj.data && typeof valueObj.data === 'object') {
+        const dataObj = valueObj.data as Record<string, unknown>
+        if (typeof dataObj.message === 'string') {
+          return { content: dataObj.message, hasError: false }
+        }
+      }
+    }
+    // Fall through to format as JSON
+    return {
+      content: formatToolOutput([{ type: 'json', value: obj.value }]),
+      hasError: false,
+    }
   }
 
   // Handle nested string value: { value: "..." }
