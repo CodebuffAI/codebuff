@@ -1,3 +1,6 @@
+// Set CI=true to skip Stripe billing during evals
+process.env.CI = 'true'
+
 import fs from 'fs'
 import path from 'path'
 

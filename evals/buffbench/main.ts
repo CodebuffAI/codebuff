@@ -1,3 +1,6 @@
+// Set CI=true to skip Stripe billing during evals
+process.env.CI = 'true'
+
 import path from 'path'
 
 import { runBuffBench } from './run-buffbench'
