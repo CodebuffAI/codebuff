@@ -289,18 +289,30 @@ describe('grant-credits', () => {
               where: () => Promise.resolve(),
             }),
           }),
-          // Note: grantCreditOperation uses `db.insert` directly when no debt,
-          // not `tx.insert`. This test verifies the debt-checking path works.
+          insert: () => ({
+            values: (values: any) => {
+              insertedGrants.push(values)
+              return Promise.resolve()
+            },
+          }),
         }
 
-        // Since the function uses db.insert directly for no-debt case,
-        // we test by verifying that the debt check path returns empty array
-        // and the function completes without error
-        // The actual insert would hit the real DB, so we verify the flow instead
-        
-        // For a pure unit test, we'd need to inject the db dependency too
-        // This is a limitation of the current DI pattern
-        expect(true).toBe(true) // Placeholder - function flow verified
+        await grantCreditOperation({
+          userId: 'user-123',
+          amount: 500,
+          type: 'free',
+          description: 'Monthly free credits',
+          expiresAt: futureDate,
+          operationId: 'new-grant-1',
+          tx: mockTx as any,
+          logger,
+        })
+
+        // Should have created a new grant with full balance (no debt to deduct)
+        expect(insertedGrants.length).toBe(1)
+        expect(insertedGrants[0].principal).toBe(500)
+        expect(insertedGrants[0].balance).toBe(500)
+        expect(insertedGrants[0].description).toBe('Monthly free credits')
       })
 
       it('should not create grant when debt exceeds amount', async () => {
@@ -368,58 +380,41 @@ describe('grant-credits', () => {
   describe('revokeGrantByOperationId', () => {
     it('should successfully revoke a grant with positive balance', async () => {
       const updatedValues: any[] = []
-      let transactionCalled = false
 
-      // Mock db.transaction
-      const mockDb = {
-        transaction: async <T>(callback: (tx: any) => Promise<T>): Promise<T> => {
-          transactionCalled = true
-          const tx = {
-            query: {
-              creditLedger: {
-                findFirst: async () => ({
-                  operation_id: 'grant-to-revoke',
-                  user_id: 'user-123',
-                  principal: 500,
-                  balance: 300, // 200 already consumed
-                  type: 'purchase',
-                  description: 'Purchased 500 credits',
-                }),
-              },
-            },
-            update: () => ({
-              set: (values: any) => ({
-                where: () => {
-                  updatedValues.push(values)
-                  return Promise.resolve()
-                },
+      const mockTransaction: BillingTransactionFn = async (callback) => {
+        const tx = {
+          query: {
+            creditLedger: {
+              findFirst: async () => ({
+                operation_id: 'grant-to-revoke',
+                user_id: 'user-123',
+                principal: 500,
+                balance: 300, // 200 already consumed
+                type: 'purchase',
+                description: 'Purchased 500 credits',
               }),
+            },
+          },
+          update: () => ({
+            set: (values: any) => ({
+              where: () => {
+                updatedValues.push(values)
+                return Promise.resolve()
+              },
             }),
-          }
-          return callback(tx)
-        },
+          }),
+        }
+        return callback(tx)
       }
 
-      // Use the actual function with mocked db
-      const result = await mockDb.transaction(async (tx) => {
-        const grant = await tx.query.creditLedger.findFirst({})
-        if (!grant) return false
-        if (grant.balance < 0) return false
-
-        await tx
-          .update()
-          .set({
-            principal: 0,
-            balance: 0,
-            description: `${grant.description} (Revoked: Test refund)`,
-          })
-          .where()
-
-        return true
+      const result = await revokeGrantByOperationId({
+        operationId: 'grant-to-revoke',
+        reason: 'Test refund',
+        logger,
+        deps: { transaction: mockTransaction },
       })
 
       expect(result).toBe(true)
-      expect(transactionCalled).toBe(true)
       expect(updatedValues.length).toBe(1)
       expect(updatedValues[0].principal).toBe(0)
       expect(updatedValues[0].balance).toBe(0)
@@ -427,106 +422,107 @@ describe('grant-credits', () => {
     })
 
     it('should return false when grant does not exist', async () => {
-      const mockDb = {
-        transaction: async <T>(callback: (tx: any) => Promise<T>): Promise<T> => {
-          const tx = {
-            query: {
-              creditLedger: {
-                findFirst: async () => null, // Grant not found
-              },
+      const mockTransaction: BillingTransactionFn = async (callback) => {
+        const tx = {
+          query: {
+            creditLedger: {
+              findFirst: async () => null, // Grant not found
             },
-            update: () => ({
-              set: () => ({
-                where: () => Promise.resolve(),
-              }),
+          },
+          update: () => ({
+            set: () => ({
+              where: () => Promise.resolve(),
             }),
-          }
-          return callback(tx)
-        },
+          }),
+        }
+        return callback(tx)
       }
 
-      const result = await mockDb.transaction(async (tx) => {
-        const grant = await tx.query.creditLedger.findFirst({})
-        if (!grant) return false
-        return true
+      const result = await revokeGrantByOperationId({
+        operationId: 'non-existent-grant',
+        reason: 'Test refund',
+        logger,
+        deps: { transaction: mockTransaction },
       })
 
       expect(result).toBe(false)
     })
 
     it('should return false when grant has negative balance', async () => {
-      const mockDb = {
-        transaction: async <T>(callback: (tx: any) => Promise<T>): Promise<T> => {
-          const tx = {
-            query: {
-              creditLedger: {
-                findFirst: async () => ({
-                  operation_id: 'debt-grant',
-                  user_id: 'user-123',
-                  principal: 500,
-                  balance: -100, // User has overspent
-                  type: 'free',
-                  description: 'Monthly free credits',
-                }),
-              },
-            },
-            update: () => ({
-              set: () => ({
-                where: () => Promise.resolve(),
+      const mockTransaction: BillingTransactionFn = async (callback) => {
+        const tx = {
+          query: {
+            creditLedger: {
+              findFirst: async () => ({
+                operation_id: 'debt-grant',
+                user_id: 'user-123',
+                principal: 500,
+                balance: -100, // User has overspent
+                type: 'free',
+                description: 'Monthly free credits',
               }),
+            },
+          },
+          update: () => ({
+            set: () => ({
+              where: () => Promise.resolve(),
             }),
-          }
-          return callback(tx)
-        },
+          }),
+        }
+        return callback(tx)
       }
 
-      const result = await mockDb.transaction(async (tx) => {
-        const grant = await tx.query.creditLedger.findFirst({})
-        if (!grant) return false
-        if (grant.balance < 0) return false // Cannot revoke debt
-        return true
+      const result = await revokeGrantByOperationId({
+        operationId: 'debt-grant',
+        reason: 'Test refund',
+        logger,
+        deps: { transaction: mockTransaction },
       })
 
       expect(result).toBe(false)
     })
 
-    it('should return false when grant balance is exactly zero', async () => {
-      const mockDb = {
-        transaction: async <T>(callback: (tx: any) => Promise<T>): Promise<T> => {
-          const tx = {
-            query: {
-              creditLedger: {
-                findFirst: async () => ({
-                  operation_id: 'depleted-grant',
-                  user_id: 'user-123',
-                  principal: 500,
-                  balance: 0, // Fully consumed
-                  type: 'free',
-                  description: 'Monthly free credits',
-                }),
-              },
-            },
-            update: () => ({
-              set: (values: any) => ({
-                where: () => Promise.resolve(),
+    it('should successfully revoke a grant with zero balance', async () => {
+      const updatedValues: any[] = []
+
+      const mockTransaction: BillingTransactionFn = async (callback) => {
+        const tx = {
+          query: {
+            creditLedger: {
+              findFirst: async () => ({
+                operation_id: 'depleted-grant',
+                user_id: 'user-123',
+                principal: 500,
+                balance: 0, // Fully consumed
+                type: 'free',
+                description: 'Monthly free credits',
               }),
+            },
+          },
+          update: () => ({
+            set: (values: any) => ({
+              where: () => {
+                updatedValues.push(values)
+                return Promise.resolve()
+              },
             }),
-          }
-          return callback(tx)
-        },
+          }),
+        }
+        return callback(tx)
       }
 
-      // Note: The actual revokeGrantByOperationId checks for balance < 0,
-      // so a balance of 0 would still be revoked (nothing to revoke though)
-      const result = await mockDb.transaction(async (tx) => {
-        const grant = await tx.query.creditLedger.findFirst({})
-        if (!grant) return false
-        if (grant.balance < 0) return false
-        // Balance of 0 is technically revocable but there's nothing to revoke
-        return true
+      // Balance of 0 is not negative, so it can be revoked (nothing to actually revoke though)
+      const result = await revokeGrantByOperationId({
+        operationId: 'depleted-grant',
+        reason: 'Test refund',
+        logger,
+        deps: { transaction: mockTransaction },
       })
 
       expect(result).toBe(true)
+      expect(updatedValues.length).toBe(1)
+      expect(updatedValues[0].principal).toBe(0)
+      expect(updatedValues[0].balance).toBe(0)
     })
   })
 })

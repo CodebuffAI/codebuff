@@ -266,6 +266,10 @@ export async function calculateOrganizationUsageAndBalance(
 
 /**
  * Consumes credits from organization grants in priority order.
+ *
+ * TODO: Add DI support for testing. This function requires more complex mocking
+ * due to withSerializableTransaction usage. Better tested with integration tests
+ * that verify the full org credit flow works correctly.
  */
 export async function consumeOrganizationCredits(params: {
   organizationId: string
@@ -308,6 +312,10 @@ export async function consumeOrganizationCredits(params: {
 
 /**
  * Grants credits to an organization.
+ *
+ * TODO: Add DI support for testing. This function uses the global db directly.
+ * Better tested with integration tests that verify the full org credit flow
+ * works correctly with database constraints and idempotency checks.
  */
 export async function grantOrganizationCredits(
   params: OptionalFields<

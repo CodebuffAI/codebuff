@@ -12,7 +12,10 @@ import { and, desc, eq, gt, isNull, lte, or, sql } from 'drizzle-orm'
 import { generateOperationIdTimestamp } from './utils'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { TriggerMonthlyResetAndGrantDeps } from '@codebuff/common/types/contracts/billing'
+import type {
+  TriggerMonthlyResetAndGrantDeps,
+  BillingTransactionFn,
+} from '@codebuff/common/types/contracts/billing'
 import type { GrantType } from '@codebuff/internal/db/schema'
 
 type CreditGrantSelect = typeof schema.creditLedger.$inferSelect
@@ -201,7 +204,7 @@ export async function grantCreditOperation(params: {
   } else {
     // No debt - create grant normally
     try {
-      await db.insert(schema.creditLedger).values({
+      await dbClient.insert(schema.creditLedger).values({
         operation_id: operationId,
         user_id: userId,
         principal: amount,
@@ -290,16 +293,19 @@ export async function processAndGrantCredit(params: {
  *
  * @param operationId The operation ID of the grant to revoke
  * @param reason The reason for revoking the credits (e.g. refund)
+ * @param deps Optional dependencies for testing (transaction function)
  * @returns true if the grant was found and revoked, false otherwise
  */
 export async function revokeGrantByOperationId(params: {
   operationId: string
   reason: string
   logger: Logger
+  deps?: { transaction?: BillingTransactionFn }
 }): Promise<boolean> {
-  const { operationId, reason, logger } = params
+  const { operationId, reason, logger, deps = {} } = params
+  const transaction = deps.transaction ?? db.transaction.bind(db)
 
-  return await db.transaction(async (tx) => {
+  return await transaction(async (tx) => {
     const grant = await tx.query.creditLedger.findFirst({
       where: eq(schema.creditLedger.operation_id, operationId),
     })
