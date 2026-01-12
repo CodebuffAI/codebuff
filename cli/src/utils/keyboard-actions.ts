@@ -93,6 +93,10 @@ export type ChatKeyboardAction =
   | { type: 'bash-history-up' }
   | { type: 'bash-history-down' }
 
+  // Scroll actions
+  | { type: 'scroll-up' }
+  | { type: 'scroll-down' }
+
   // Paste action (dispatcher checks clipboard content to route to image or text handler)
   | { type: 'paste' }
 
@@ -126,6 +130,8 @@ export function resolveChatKeyboardAction(
     (key.name === 'return' || key.name === 'enter') &&
     !key.shift &&
     !hasModifier(key)
+  const isPageUp = key.name === 'pageup' && !hasModifier(key)
+  const isPageDown = key.name === 'pagedown' && !hasModifier(key)
 
   // Priority 0: Out of credits mode - Enter opens buy credits page
   if (state.inputMode === 'outOfCredits') {
@@ -312,12 +318,20 @@ export function resolveChatKeyboardAction(
     return { type: 'unfocus-agent' }
   }
 
-  // Priority 13: Paste (ctrl-v)
+  // Priority 13: Scroll with PageUp/PageDown
+  if (isPageUp) {
+    return { type: 'scroll-up' }
+  }
+  if (isPageDown) {
+    return { type: 'scroll-down' }
+  }
+
+  // Priority 14: Paste (ctrl-v)
   if (isCtrlV) {
     return { type: 'paste' }
   }
 
-  // Priority 14: Exit app (ctrl-c double-tap)
+  // Priority 15: Exit app (ctrl-c double-tap)
   if (isCtrlC) {
     if (state.nextCtrlCWillExit) {
       return { type: 'exit-app' }
