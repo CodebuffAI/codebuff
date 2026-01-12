@@ -3,7 +3,7 @@
  *
  * Import test fixtures from this module:
  * ```typescript
- * import { testLogger, createTestAgentRuntimeParams, TEST_USER_ID } from '@codebuff/common/testing/fixtures'
+ * import { testLogger, createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures'
  * ```
  */
 

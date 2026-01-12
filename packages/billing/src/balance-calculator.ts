@@ -1,6 +1,5 @@
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { GrantTypeValues } from '@codebuff/common/types/grant'
 import { failure, getErrorObject, success } from '@codebuff/common/util/error'
 import db from '@codebuff/internal/db'
@@ -537,9 +536,6 @@ export async function consumeCreditsAndAddAgentStep(params: {
             tx,
           })
 
-          if (userId === TEST_USER_ID) {
-            return { ...result, agentStepId: 'test-step-id' }
-          }
         }
 
         phase = 'insert_message'

@@ -1,6 +1,6 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
-import { TEST_USER_ID } from '@codebuff/common/testing/fixtures'
+
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
@@ -71,7 +71,7 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
       repoId: undefined,
       repoUrl: undefined,
       system: 'Test system prompt',
-      userId: TEST_USER_ID,
+      userId: 'test-user-id',
       userInputId: 'test-input',
       clientSessionId: 'test-session',
       fingerprintId: 'test-fingerprint',

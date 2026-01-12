@@ -1,6 +1,6 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
-import { TEST_USER_ID } from '@codebuff/common/testing/fixtures'
+
 import { createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures/agent-runtime'
 import {
   AgentTemplateTypes,
@@ -88,7 +88,7 @@ describe('mainPrompt', () => {
       ...createTestAgentRuntimeParams(),
       repoId: undefined,
       repoUrl: undefined,
-      userId: TEST_USER_ID,
+      userId: 'test-user-id',
       clientSessionId: 'test-session',
       onResponseChunk: () => {},
       localAgentTemplates: mockLocalAgentTemplates,

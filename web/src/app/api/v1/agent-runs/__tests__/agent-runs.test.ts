@@ -1,5 +1,5 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { TEST_USER_ID } from '@codebuff/common/testing/fixtures'
+
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 import { NextRequest } from 'next/server'
 
@@ -27,7 +27,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
       id: 'user-456',
     },
     'test-api-key-test': {
-      id: TEST_USER_ID,
+      id: 'test-user-id',
     },
   }
 

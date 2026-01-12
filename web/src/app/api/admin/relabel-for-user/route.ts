@@ -11,11 +11,7 @@ import {
   type Relabel,
   type TraceBundle,
 } from '@codebuff/bigquery'
-import {
-  finetunedVertexModels,
-  models,
-  TEST_USER_ID,
-} from '@codebuff/common/old-constants'
+import { finetunedVertexModels, models } from '@codebuff/common/old-constants'
 import { userMessage } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
@@ -42,6 +38,8 @@ interface BigQueryTimestamp {
 
 
 const STATIC_SESSION_ID = 'relabel-trace-api'
+// Admin relabeling operations use a placeholder user ID since they're not associated with a real user
+const ADMIN_RELABEL_USER_ID = 'admin-relabel-user'
 const DEFAULT_RELABEL_LIMIT = 10
 const FULL_FILE_CONTEXT_SUFFIX = '-with-full-file-context'
 const modelsToRelabel = [
@@ -526,7 +524,7 @@ function buildPromptContext(apiKey: string) {
     clientSessionId: STATIC_SESSION_ID,
     fingerprintId: STATIC_SESSION_ID,
     userInputId: STATIC_SESSION_ID,
-    userId: TEST_USER_ID,
+    userId: ADMIN_RELABEL_USER_ID,
     sendAction: async () => {},
     trackEvent: async () => {},
     logger,

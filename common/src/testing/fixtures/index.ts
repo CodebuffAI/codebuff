@@ -12,7 +12,6 @@ export * from './agent-runtime'
 // Re-export billing fixtures except testLogger (already exported from agent-runtime)
 export {
   TEST_BILLING_USER_ID,
-  TEST_USER_ID,
   createFutureDate,
   createPastDate,
   createMockCreditGrant,

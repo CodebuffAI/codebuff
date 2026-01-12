@@ -1,4 +1,3 @@
-import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { withRetry, withTimeout } from '@codebuff/common/util/promise'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
@@ -47,7 +46,6 @@ export async function reportPurchasedCreditsToStripe(params: {
   } = params
 
   if (purchasedCredits <= 0) return
-  if (userId === TEST_USER_ID) return
   if (!shouldAttemptStripeMetering()) return
 
   const logContext = { userId, purchasedCredits, eventId }

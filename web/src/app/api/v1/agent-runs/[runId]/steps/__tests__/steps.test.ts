@@ -1,4 +1,4 @@
-import { TEST_USER_ID } from '@codebuff/common/testing/fixtures'
+
 import { beforeEach, describe, expect, mock, test } from 'bun:test'
 import { NextRequest } from 'next/server'
 
@@ -32,7 +32,7 @@ describe('agentRunsStepsPost', () => {
         return Object.fromEntries(
           fields.map((field) => [
             field,
-            field === 'id' ? TEST_USER_ID : undefined,
+            field === 'id' ? 'test-user-id' : undefined,
           ]),
         ) as any
       }

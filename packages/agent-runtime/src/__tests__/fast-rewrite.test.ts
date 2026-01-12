@@ -1,6 +1,6 @@
 import path from 'path'
 
-import { TEST_USER_ID } from '@codebuff/common/testing/fixtures'
+
 import { createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures/agent-runtime'
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { createPatch } from 'diff'
@@ -33,7 +33,7 @@ describe('rewriteWithOpenAI', () => {
       clientSessionId: 'clientSessionId',
       fingerprintId: 'fingerprintId',
       userInputId: 'userInputId',
-      userId: TEST_USER_ID,
+      userId: 'test-user-id',
       runId: 'test-run-id',
     })
 

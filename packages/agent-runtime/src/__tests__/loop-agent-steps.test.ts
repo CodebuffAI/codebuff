@@ -1,6 +1,6 @@
 import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
-import { TEST_USER_ID } from '@codebuff/common/testing/fixtures'
+
 import { createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
@@ -122,7 +122,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       spawnParams: undefined,
       fingerprintId: 'test-fingerprint',
       fileContext: mockFileContext,
-      userId: TEST_USER_ID,
+      userId: 'test-user-id',
       clientSessionId: 'test-session',
       ancestorRunIds: [],
       onResponseChunk: () => {},

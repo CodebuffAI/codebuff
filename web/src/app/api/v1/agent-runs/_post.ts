@@ -1,5 +1,4 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { getErrorObject } from '@codebuff/common/util/error'
 import * as schema from '@codebuff/internal/db/schema'
 import { eq } from 'drizzle-orm'
@@ -116,11 +115,6 @@ async function handleFinishAction(params: {
     totalCredits,
     errorMessage,
   } = data
-
-  // Skip database update for test user
-  if (userId === TEST_USER_ID) {
-    return NextResponse.json({ success: true })
-  }
 
   try {
     await db

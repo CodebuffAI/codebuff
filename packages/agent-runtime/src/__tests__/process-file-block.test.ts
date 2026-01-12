@@ -1,4 +1,4 @@
-import { TEST_USER_ID } from '@codebuff/common/testing/fixtures'
+
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { beforeEach, describe, expect, it } from 'bun:test'
@@ -59,7 +59,7 @@ describe('processFileBlockModule', () => {
         clientSessionId: 'clientSessionId',
         fingerprintId: 'fingerprintId',
         userInputId: 'userInputId',
-        userId: TEST_USER_ID,
+        userId: 'test-user-id',
         signal: new AbortController().signal,
       })
 
@@ -111,7 +111,7 @@ describe('processFileBlockModule', () => {
         clientSessionId: 'clientSessionId',
         fingerprintId: 'fingerprintId',
         userInputId: 'userInputId',
-        userId: TEST_USER_ID,
+        userId: 'test-user-id',
         signal: new AbortController().signal,
       })
 
@@ -146,7 +146,7 @@ describe('processFileBlockModule', () => {
         clientSessionId: 'clientSessionId',
         fingerprintId: 'fingerprintId',
         userInputId: 'userInputId',
-        userId: TEST_USER_ID,
+        userId: 'test-user-id',
         signal: new AbortController().signal,
       })
 
@@ -187,7 +187,7 @@ describe('processFileBlockModule', () => {
         clientSessionId: 'clientSessionId',
         fingerprintId: 'fingerprintId',
         userInputId: 'userInputId',
-        userId: TEST_USER_ID,
+        userId: 'test-user-id',
         signal: new AbortController().signal,
       })
 
@@ -236,7 +236,7 @@ describe('processFileBlockModule', () => {
         clientSessionId: 'clientSessionId',
         fingerprintId: 'fingerprintId',
         userInputId: 'userInputId',
-        userId: TEST_USER_ID,
+        userId: 'test-user-id',
         signal: new AbortController().signal,
       })
 

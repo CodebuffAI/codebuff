@@ -1,5 +1,5 @@
 import * as analytics from '@codebuff/common/analytics'
-import { TEST_USER_ID } from '@codebuff/common/testing/fixtures'
+
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import {
@@ -122,7 +122,7 @@ describe('runProgrammaticStep', () => {
       template: mockTemplate,
       prompt: 'Test prompt',
       toolCallParams: { testParam: 'value' },
-      userId: TEST_USER_ID,
+      userId: 'test-user-id',
       userInputId: 'test-user-input',
       clientSessionId: 'test-session',
       fingerprintId: 'test-fingerprint',

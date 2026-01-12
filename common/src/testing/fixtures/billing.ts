@@ -15,16 +15,9 @@ import type { MockCreditGrant, MockUser, MockDbConfig } from '../mock-db'
 
 /**
  * Test user ID for billing tests.
- * Use this instead of importing TEST_USER_ID from old-constants.
+ * Use this shared ID in tests instead of hardcoding user IDs.
  */
 export const TEST_BILLING_USER_ID = 'test-billing-user-id'
-
-/**
- * Test user ID matching the value in old-constants.ts.
- * This is exported here for tests that need to use the same value.
- * Prefer TEST_BILLING_USER_ID for new tests.
- */
-export const TEST_USER_ID = 'test-user-id'
 
 // ============================================================================
 // Test date helpers

@@ -1,5 +1,4 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { getErrorObject } from '@codebuff/common/util/error'
 import * as schema from '@codebuff/internal/db/schema'
 import { eq } from 'drizzle-orm'
@@ -107,11 +106,6 @@ export async function postAgentRunsSteps(params: {
     errorMessage,
     startTime,
   } = data
-
-  // Skip database insert for test user
-  if (userInfo.id === TEST_USER_ID) {
-    return NextResponse.json({ stepId: 'test-step-id' })
-  }
 
   // Verify the run belongs to the authenticated user
   const agentRun = await db
