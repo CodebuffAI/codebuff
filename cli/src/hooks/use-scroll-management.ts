@@ -9,6 +9,9 @@ const SCROLL_NEAR_BOTTOM_THRESHOLD = 1
 const ANIMATION_FRAME_INTERVAL_MS = 16 // ~60fps
 const DEFAULT_SCROLL_ANIMATION_DURATION_MS = 200
 
+// Page scroll amount (fraction of viewport height)
+const PAGE_SCROLL_FRACTION = 0.8
+
 // Delay before auto-scrolling after content changes
 const AUTO_SCROLL_DELAY_MS = 50
 
@@ -86,6 +89,30 @@ export const useChatScrollbox = (
     animateScrollTo(maxScroll)
   }, [scrollRef, animateScrollTo])
 
+  const scrollUp = useCallback((): void => {
+    const scrollbox = scrollRef.current
+    if (!scrollbox) return
+
+    const viewportHeight = scrollbox.viewport.height
+    const scrollAmount = Math.floor(viewportHeight * PAGE_SCROLL_FRACTION)
+    const targetScroll = Math.max(0, scrollbox.scrollTop - scrollAmount)
+    animateScrollTo(targetScroll)
+  }, [scrollRef, animateScrollTo])
+
+  const scrollDown = useCallback((): void => {
+    const scrollbox = scrollRef.current
+    if (!scrollbox) return
+
+    const viewportHeight = scrollbox.viewport.height
+    const maxScroll = Math.max(
+      0,
+      scrollbox.scrollHeight - viewportHeight,
+    )
+    const scrollAmount = Math.floor(viewportHeight * PAGE_SCROLL_FRACTION)
+    const targetScroll = Math.min(maxScroll, scrollbox.scrollTop + scrollAmount)
+    animateScrollTo(targetScroll)
+  }, [scrollRef, animateScrollTo])
+
   useEffect(() => {
     const scrollbox = scrollRef.current
     if (!scrollbox) return
@@ -149,6 +176,8 @@ export const useChatScrollbox = (
 
   return {
     scrollToLatest,
+    scrollUp,
+    scrollDown,
     scrollboxProps: {},
     isAtBottom,
   }
