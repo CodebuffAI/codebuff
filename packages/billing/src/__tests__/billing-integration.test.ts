@@ -17,6 +17,10 @@ import {
   consumeCreditsWithDelegation,
   consumeCreditsWithFallback,
 } from '../credit-delegation'
+import {
+  consumeOrganizationCredits,
+  grantOrganizationCredits,
+} from '../org-billing'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
@@ -925,6 +929,399 @@ describe('Billing Integration: Balance Calculation', () => {
     // Verify isPersonalContext was passed to calculateUsageAndBalance
     expect(capturedParams.isPersonalContext).toBe(true)
     expect(result.balance.breakdown.organization).toBe(0)
+  })
+})
+
+// ============================================================================
+// Integration Test: Organization Billing Flow
+// ============================================================================
+
+describe('Billing Integration: Organization Credits', () => {
+  const logger = createTestLogger()
+
+  describe('consumeOrganizationCredits', () => {
+    it('should consume credits from organization grants in priority order', async () => {
+      const organizationId = 'org-123'
+      const updatedGrants: any[] = []
+
+      // Mock grants with different priorities
+      const mockGrants = [
+        {
+          operation_id: 'org-grant-1',
+          org_id: organizationId,
+          user_id: 'admin-user',
+          principal: 500,
+          balance: 300,
+          type: 'organization',
+          priority: 50,
+          expires_at: futureDate(30),
+          created_at: pastDate(10),
+        },
+        {
+          operation_id: 'org-grant-2',
+          org_id: organizationId,
+          user_id: 'admin-user',
+          principal: 1000,
+          balance: 1000,
+          type: 'organization',
+          priority: 50,
+          expires_at: null, // Never expires
+          created_at: pastDate(5),
+        },
+      ]
+
+      const mockWithSerializableTransaction = async <T>(params: {
+        callback: (tx: any) => Promise<T>
+        context: Record<string, unknown>
+        logger: Logger
+      }): Promise<T> => {
+        const tx = {
+          select: () => ({
+            from: () => ({
+              where: () => ({
+                orderBy: () => Promise.resolve(mockGrants),
+              }),
+            }),
+          }),
+          update: () => ({
+            set: (values: any) => ({
+              where: () => {
+                updatedGrants.push(values)
+                return Promise.resolve()
+              },
+            }),
+          }),
+        }
+        return params.callback(tx)
+      }
+
+      const result = await consumeOrganizationCredits({
+        organizationId,
+        creditsToConsume: 200,
+        logger,
+        deps: { withSerializableTransaction: mockWithSerializableTransaction },
+      })
+
+      // Should consume 200 credits from first grant (has 300 balance)
+      expect(result.consumed).toBe(200)
+      expect(updatedGrants.length).toBe(1)
+      expect(updatedGrants[0].balance).toBe(100) // 300 - 200
+    })
+
+    it('should consume across multiple grants when first is insufficient', async () => {
+      const organizationId = 'org-multi-grant'
+      const updatedGrants: any[] = []
+
+      const mockGrants = [
+        {
+          operation_id: 'org-grant-1',
+          org_id: organizationId,
+          user_id: 'admin-user',
+          principal: 100,
+          balance: 50, // Only 50 remaining
+          type: 'organization',
+          priority: 50,
+          expires_at: futureDate(10),
+          created_at: pastDate(10),
+        },
+        {
+          operation_id: 'org-grant-2',
+          org_id: organizationId,
+          user_id: 'admin-user',
+          principal: 500,
+          balance: 500,
+          type: 'organization',
+          priority: 50,
+          expires_at: futureDate(30),
+          created_at: pastDate(5),
+        },
+      ]
+
+      const mockWithSerializableTransaction = async <T>(params: {
+        callback: (tx: any) => Promise<T>
+        context: Record<string, unknown>
+        logger: Logger
+      }): Promise<T> => {
+        const tx = {
+          select: () => ({
+            from: () => ({
+              where: () => ({
+                orderBy: () => Promise.resolve(mockGrants),
+              }),
+            }),
+          }),
+          update: () => ({
+            set: (values: any) => ({
+              where: () => {
+                updatedGrants.push(values)
+                return Promise.resolve()
+              },
+            }),
+          }),
+        }
+        return params.callback(tx)
+      }
+
+      const result = await consumeOrganizationCredits({
+        organizationId,
+        creditsToConsume: 150,
+        logger,
+        deps: { withSerializableTransaction: mockWithSerializableTransaction },
+      })
+
+      // Should consume 150 total: 50 from first grant, 100 from second
+      expect(result.consumed).toBe(150)
+      expect(updatedGrants.length).toBe(2)
+      expect(updatedGrants[0].balance).toBe(0) // First grant depleted
+      expect(updatedGrants[1].balance).toBe(400) // 500 - 100
+    })
+
+    it('should throw error when no active grants exist', async () => {
+      const mockWithSerializableTransaction = async <T>(params: {
+        callback: (tx: any) => Promise<T>
+        context: Record<string, unknown>
+        logger: Logger
+      }): Promise<T> => {
+        const tx = {
+          select: () => ({
+            from: () => ({
+              where: () => ({
+                orderBy: () => Promise.resolve([]), // No grants
+              }),
+            }),
+          }),
+          update: () => ({
+            set: () => ({
+              where: () => Promise.resolve(),
+            }),
+          }),
+        }
+        return params.callback(tx)
+      }
+
+      await expect(
+        consumeOrganizationCredits({
+          organizationId: 'org-no-grants',
+          creditsToConsume: 100,
+          logger,
+          deps: { withSerializableTransaction: mockWithSerializableTransaction },
+        }),
+      ).rejects.toThrow('No active organization grants found')
+    })
+
+    it('should track purchased credits consumed from organization', async () => {
+      const organizationId = 'org-purchased'
+      const updatedGrants: any[] = []
+
+      // Mock a purchased grant (type: purchase but for org)
+      const mockGrants = [
+        {
+          operation_id: 'org-purchase-grant',
+          org_id: organizationId,
+          user_id: 'admin-user',
+          principal: 1000,
+          balance: 800,
+          type: 'purchase', // Purchased credits
+          priority: 40,
+          expires_at: null,
+          created_at: pastDate(5),
+        },
+      ]
+
+      const mockWithSerializableTransaction = async <T>(params: {
+        callback: (tx: any) => Promise<T>
+        context: Record<string, unknown>
+        logger: Logger
+      }): Promise<T> => {
+        const tx = {
+          select: () => ({
+            from: () => ({
+              where: () => ({
+                orderBy: () => Promise.resolve(mockGrants),
+              }),
+            }),
+          }),
+          update: () => ({
+            set: (values: any) => ({
+              where: () => {
+                updatedGrants.push(values)
+                return Promise.resolve()
+              },
+            }),
+          }),
+        }
+        return params.callback(tx)
+      }
+
+      const result = await consumeOrganizationCredits({
+        organizationId,
+        creditsToConsume: 300,
+        logger,
+        deps: { withSerializableTransaction: mockWithSerializableTransaction },
+      })
+
+      expect(result.consumed).toBe(300)
+      expect(result.fromPurchased).toBe(300) // All from purchased grant
+    })
+  })
+
+  describe('grantOrganizationCredits', () => {
+    it('should create organization credit grant with correct values', async () => {
+      const insertedGrants: any[] = []
+
+      const mockDb = {
+        insert: () => ({
+          values: (values: any) => {
+            insertedGrants.push(values)
+            return Promise.resolve()
+          },
+        }),
+      }
+
+      await grantOrganizationCredits({
+        organizationId: 'org-123',
+        userId: 'admin-user',
+        amount: 5000,
+        operationId: 'purchase-op-1',
+        description: 'Team credit purchase',
+        expiresAt: null,
+        logger,
+        deps: { db: mockDb as any },
+      })
+
+      expect(insertedGrants.length).toBe(1)
+      expect(insertedGrants[0].org_id).toBe('org-123')
+      expect(insertedGrants[0].user_id).toBe('admin-user')
+      expect(insertedGrants[0].principal).toBe(5000)
+      expect(insertedGrants[0].balance).toBe(5000)
+      expect(insertedGrants[0].type).toBe('organization')
+      expect(insertedGrants[0].description).toBe('Team credit purchase')
+    })
+
+    it('should use default description when not provided', async () => {
+      const insertedGrants: any[] = []
+
+      const mockDb = {
+        insert: () => ({
+          values: (values: any) => {
+            insertedGrants.push(values)
+            return Promise.resolve()
+          },
+        }),
+      }
+
+      await grantOrganizationCredits({
+        organizationId: 'org-456',
+        userId: 'admin-user',
+        amount: 1000,
+        operationId: 'default-desc-op',
+        logger,
+        deps: { db: mockDb as any },
+      })
+
+      expect(insertedGrants[0].description).toBe('Organization credit purchase')
+    })
+
+    it('should handle duplicate grant gracefully (idempotency)', async () => {
+      let insertAttempts = 0
+
+      const mockDb = {
+        insert: () => ({
+          values: () => {
+            insertAttempts++
+            // Simulate unique constraint violation
+            const error = new Error('duplicate key value')
+            ;(error as any).code = '23505'
+            ;(error as any).constraint = 'credit_ledger_pkey'
+            throw error
+          },
+        }),
+      }
+
+      // Should NOT throw - duplicate grants are handled gracefully
+      await grantOrganizationCredits({
+        organizationId: 'org-789',
+        userId: 'admin-user',
+        amount: 500,
+        operationId: 'duplicate-op',
+        logger,
+        deps: { db: mockDb as any },
+      })
+
+      expect(insertAttempts).toBe(1) // Attempted once, then returned
+    })
+
+    it('should re-throw non-duplicate errors', async () => {
+      const mockDb = {
+        insert: () => ({
+          values: () => {
+            throw new Error('Database connection failed')
+          },
+        }),
+      }
+
+      await expect(
+        grantOrganizationCredits({
+          organizationId: 'org-error',
+          userId: 'admin-user',
+          amount: 500,
+          operationId: 'error-op',
+          logger,
+          deps: { db: mockDb as any },
+        }),
+      ).rejects.toThrow('Database connection failed')
+    })
+
+    it('should set correct priority for organization grants', async () => {
+      const insertedGrants: any[] = []
+
+      const mockDb = {
+        insert: () => ({
+          values: (values: any) => {
+            insertedGrants.push(values)
+            return Promise.resolve()
+          },
+        }),
+      }
+
+      await grantOrganizationCredits({
+        organizationId: 'org-priority',
+        userId: 'admin-user',
+        amount: 1000,
+        operationId: 'priority-op',
+        logger,
+        deps: { db: mockDb as any },
+      })
+
+      // Organization grants should have priority 70 (from GRANT_PRIORITIES)
+      expect(insertedGrants[0].priority).toBe(70)
+    })
+
+    it('should set expiration date when provided', async () => {
+      const insertedGrants: any[] = []
+      const expirationDate = futureDate(90)
+
+      const mockDb = {
+        insert: () => ({
+          values: (values: any) => {
+            insertedGrants.push(values)
+            return Promise.resolve()
+          },
+        }),
+      }
+
+      await grantOrganizationCredits({
+        organizationId: 'org-expiring',
+        userId: 'admin-user',
+        amount: 2000,
+        operationId: 'expiring-op',
+        expiresAt: expirationDate,
+        logger,
+        deps: { db: mockDb as any },
+      })
+
+      expect(insertedGrants[0].expires_at).toEqual(expirationDate)
+    })
   })
 })
 

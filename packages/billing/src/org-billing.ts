@@ -265,20 +265,34 @@ export async function calculateOrganizationUsageAndBalance(
 }
 
 /**
+ * Type for the withSerializableTransaction dependency.
+ */
+type WithSerializableTransactionFn = <T>(params: {
+  callback: (tx: any) => Promise<T>
+  context: Record<string, unknown>
+  logger: Logger
+}) => Promise<T>
+
+/**
+ * Dependencies for consumeOrganizationCredits
+ */
+export type ConsumeOrganizationCreditsDeps = {
+  withSerializableTransaction?: WithSerializableTransactionFn
+}
+
+/**
  * Consumes credits from organization grants in priority order.
- *
- * TODO: Add DI support for testing. This function requires more complex mocking
- * due to withSerializableTransaction usage. Better tested with integration tests
- * that verify the full org credit flow works correctly.
  */
 export async function consumeOrganizationCredits(params: {
   organizationId: string
   creditsToConsume: number
   logger: Logger
+  deps?: ConsumeOrganizationCreditsDeps
 }): Promise<CreditConsumptionResult> {
-  const { organizationId, creditsToConsume, logger } = params
+  const { organizationId, creditsToConsume, logger, deps = {} } = params
+  const transactionFn = deps.withSerializableTransaction ?? withSerializableTransaction
 
-  return await withSerializableTransaction({
+  return await transactionFn({
     callback: async (tx) => {
       const now = new Date()
       const activeGrants = await getOrderedActiveOrganizationGrants({
@@ -311,11 +325,14 @@ export async function consumeOrganizationCredits(params: {
 }
 
 /**
+ * Dependencies for grantOrganizationCredits
+ */
+export type GrantOrganizationCreditsDeps = {
+  db?: Pick<typeof db, 'insert'>
+}
+
+/**
  * Grants credits to an organization.
- *
- * TODO: Add DI support for testing. This function uses the global db directly.
- * Better tested with integration tests that verify the full org credit flow
- * works correctly with database constraints and idempotency checks.
  */
 export async function grantOrganizationCredits(
   params: OptionalFields<
@@ -327,13 +344,15 @@ export async function grantOrganizationCredits(
       description: string
       expiresAt: Date | null
       logger: Logger
+      deps: GrantOrganizationCreditsDeps
     },
-    'description' | 'expiresAt'
+    'description' | 'expiresAt' | 'deps'
   >,
 ): Promise<void> {
   const withDefaults = {
     description: 'Organization credit purchase',
     expiresAt: null,
+    deps: {},
     ...params,
   }
   const {
@@ -344,12 +363,14 @@ export async function grantOrganizationCredits(
     description,
     expiresAt,
     logger,
+    deps,
   } = withDefaults
 
+  const dbClient = deps.db ?? db
   const now = new Date()
 
   try {
-    await db.insert(schema.creditLedger).values({
+    await dbClient.insert(schema.creditLedger).values({
       operation_id: operationId,
       user_id: userId,
       org_id: organizationId,
