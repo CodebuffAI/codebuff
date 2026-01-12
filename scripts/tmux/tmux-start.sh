@@ -47,7 +47,7 @@ set -e
 # Defaults
 SESSION_NAME=""
 WIDTH=120
-HEIGHT=80  # Tall enough to capture most output without scrolling
+HEIGHT=30  # Reasonable default that matches typical terminal heights
 WAIT_SECONDS=4
 
 # Parse arguments
