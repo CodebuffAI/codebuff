@@ -1,82 +1,16 @@
 export {}
 
-import { afterAll, beforeEach, describe, expect, it, mock } from 'bun:test'
+import { beforeEach, describe, expect, it, mock } from 'bun:test'
+
 import {
-  clearMockedModules,
-  mockModule,
-} from '@codebuff/common/testing/mock-modules'
-
-import type { BanConditionContext } from '../ban-conditions'
-
-let DISPUTE_THRESHOLD!: number
-let DISPUTE_WINDOW_DAYS!: number
-let banUser!: typeof import('../ban-conditions').banUser
-let evaluateBanConditions!: typeof import('../ban-conditions').evaluateBanConditions
-let getUserByStripeCustomerId!: typeof import('../ban-conditions').getUserByStripeCustomerId
-
-let mockSelect!: ReturnType<typeof mock>
-let mockUpdate!: ReturnType<typeof mock>
-let mockDisputesList!: ReturnType<typeof mock>
-
-const setupMocks = async () => {
-  mockSelect = mock(() => ({
-    from: mock(() => ({
-      where: mock(() => ({
-        limit: mock(() => Promise.resolve([])),
-      })),
-    })),
-  }))
-
-  mockUpdate = mock(() => ({
-    set: mock(() => ({
-      where: mock(() => Promise.resolve()),
-    })),
-  }))
-
-  mockDisputesList = mock(() =>
-    Promise.resolve({
-      data: [],
-    }),
-  )
-
-  await mockModule('@codebuff/internal/db', () => ({
-    default: {
-      select: mockSelect,
-      update: mockUpdate,
-    },
-  }))
-
-  await mockModule('@codebuff/internal/db/schema', () => ({
-    user: {
-      id: 'id',
-      banned: 'banned',
-      email: 'email',
-      name: 'name',
-      stripe_customer_id: 'stripe_customer_id',
-    },
-  }))
-
-  await mockModule('@codebuff/internal/util/stripe', () => ({
-    stripeServer: {
-      disputes: {
-        list: mockDisputesList,
-      },
-    },
-  }))
-
-  await mockModule('drizzle-orm', () => ({
-    eq: mock((a: any, b: any) => ({ column: a, value: b })),
-  }))
-
-  const module = await import('../ban-conditions')
-  DISPUTE_THRESHOLD = module.DISPUTE_THRESHOLD
-  DISPUTE_WINDOW_DAYS = module.DISPUTE_WINDOW_DAYS
-  banUser = module.banUser
-  evaluateBanConditions = module.evaluateBanConditions
-  getUserByStripeCustomerId = module.getUserByStripeCustomerId
-}
-
-await setupMocks()
+  banUser,
+  DISPUTE_THRESHOLD,
+  DISPUTE_WINDOW_DAYS,
+  evaluateBanConditions,
+  getUserByStripeCustomerId,
+  type BanConditionContext,
+  type BanConditionsDeps,
+} from '../ban-conditions'
 
 const createMockLogger = () => ({
   debug: mock(() => {}),
@@ -85,15 +19,42 @@ const createMockLogger = () => ({
   error: mock(() => {}),
 })
 
-beforeEach(() => {
-  mockDisputesList.mockClear()
-  mockSelect.mockClear()
-  mockUpdate.mockClear()
-})
+// Create mock database and stripe dependencies
+const createMockDeps = () => {
+  const mockSelect = mock(() => ({
+    from: mock(() => ({
+      where: mock(() => ({
+        limit: mock(() => Promise.resolve([])),
+      })),
+    })),
+  }))
 
-afterAll(() => {
-  clearMockedModules()
-})
+  const mockUpdate = mock(() => ({
+    set: mock(() => ({
+      where: mock(() => Promise.resolve()),
+    })),
+  }))
+
+  const mockDisputesList = mock(() =>
+    Promise.resolve({
+      data: [],
+    }),
+  )
+
+  const deps: BanConditionsDeps = {
+    db: {
+      select: mockSelect,
+      update: mockUpdate,
+    } as any,
+    stripeServer: {
+      disputes: {
+        list: mockDisputesList,
+      },
+    } as any,
+  }
+
+  return { deps, mockSelect, mockUpdate, mockDisputesList }
+}
 
 describe('ban-conditions', () => {
   describe('DISPUTE_THRESHOLD and DISPUTE_WINDOW_DAYS', () => {
@@ -107,6 +68,15 @@ describe('ban-conditions', () => {
   })
 
   describe('evaluateBanConditions', () => {
+    let mockDisputesList: ReturnType<typeof mock>
+    let deps: BanConditionsDeps
+
+    beforeEach(() => {
+      const mocks = createMockDeps()
+      deps = mocks.deps
+      mockDisputesList = mocks.mockDisputesList
+    })
+
     it('returns shouldBan: false when no disputes exist', async () => {
       mockDisputesList.mockResolvedValueOnce({ data: [] })
 
@@ -117,7 +87,7 @@ describe('ban-conditions', () => {
         logger,
       }
 
-      const result = await evaluateBanConditions(context)
+      const result = await evaluateBanConditions(context, deps)
 
       expect(result.shouldBan).toBe(false)
       expect(result.reason).toBe('')
@@ -143,7 +113,7 @@ describe('ban-conditions', () => {
         logger,
       }
 
-      const result = await evaluateBanConditions(context)
+      const result = await evaluateBanConditions(context, deps)
 
       expect(result.shouldBan).toBe(false)
       expect(result.reason).toBe('')
@@ -166,7 +136,7 @@ describe('ban-conditions', () => {
         logger,
       }
 
-      const result = await evaluateBanConditions(context)
+      const result = await evaluateBanConditions(context, deps)
 
       expect(result.shouldBan).toBe(true)
       expect(result.reason).toContain(`${DISPUTE_THRESHOLD} disputes`)
@@ -193,7 +163,7 @@ describe('ban-conditions', () => {
         logger,
       }
 
-      const result = await evaluateBanConditions(context)
+      const result = await evaluateBanConditions(context, deps)
 
       expect(result.shouldBan).toBe(true)
       expect(result.reason).toContain(`${DISPUTE_THRESHOLD + 3} disputes`)
@@ -245,7 +215,7 @@ describe('ban-conditions', () => {
         logger,
       }
 
-      const result = await evaluateBanConditions(context)
+      const result = await evaluateBanConditions(context, deps)
 
       // Only 2 disputes for cus_123, which is below threshold
       expect(result.shouldBan).toBe(false)
@@ -268,7 +238,7 @@ describe('ban-conditions', () => {
         logger,
       }
 
-      const result = await evaluateBanConditions(context)
+      const result = await evaluateBanConditions(context, deps)
 
       expect(result.shouldBan).toBe(true)
     })
@@ -290,7 +260,7 @@ describe('ban-conditions', () => {
         logger,
       }
 
-      const result = await evaluateBanConditions(context)
+      const result = await evaluateBanConditions(context, deps)
 
       expect(result.shouldBan).toBe(true)
     })
@@ -306,7 +276,7 @@ describe('ban-conditions', () => {
       }
 
       const beforeCall = Math.floor(Date.now() / 1000)
-      await evaluateBanConditions(context)
+      await evaluateBanConditions(context, deps)
       const afterCall = Math.floor(Date.now() / 1000)
 
       expect(mockDisputesList).toHaveBeenCalledTimes(1)
@@ -340,7 +310,7 @@ describe('ban-conditions', () => {
         logger,
       }
 
-      await evaluateBanConditions(context)
+      await evaluateBanConditions(context, deps)
 
       const callArgs = mockDisputesList.mock.calls[0]?.[0]
 
@@ -361,7 +331,7 @@ describe('ban-conditions', () => {
         logger,
       }
 
-      await evaluateBanConditions(context)
+      await evaluateBanConditions(context, deps)
 
       expect(logger.debug).toHaveBeenCalled()
     })
@@ -379,9 +349,13 @@ describe('ban-conditions', () => {
       const limitMock = mock(() => Promise.resolve([mockUser]))
       const whereMock = mock(() => ({ limit: limitMock }))
       const fromMock = mock(() => ({ where: whereMock }))
-      mockSelect.mockReturnValueOnce({ from: fromMock })
+      const mockSelect = mock(() => ({ from: fromMock }))
 
-      const result = await getUserByStripeCustomerId('cus_123')
+      const deps: BanConditionsDeps = {
+        db: { select: mockSelect } as any,
+      }
+
+      const result = await getUserByStripeCustomerId('cus_123', deps)
 
       expect(result).toEqual(mockUser)
     })
@@ -390,9 +364,13 @@ describe('ban-conditions', () => {
       const limitMock = mock(() => Promise.resolve([]))
       const whereMock = mock(() => ({ limit: limitMock }))
       const fromMock = mock(() => ({ where: whereMock }))
-      mockSelect.mockReturnValueOnce({ from: fromMock })
+      const mockSelect = mock(() => ({ from: fromMock }))
 
-      const result = await getUserByStripeCustomerId('cus_nonexistent')
+      const deps: BanConditionsDeps = {
+        db: { select: mockSelect } as any,
+      }
+
+      const result = await getUserByStripeCustomerId('cus_nonexistent', deps)
 
       expect(result).toBeNull()
     })
@@ -401,9 +379,13 @@ describe('ban-conditions', () => {
       const limitMock = mock(() => Promise.resolve([]))
       const whereMock = mock(() => ({ limit: limitMock }))
       const fromMock = mock(() => ({ where: whereMock }))
-      mockSelect.mockReturnValueOnce({ from: fromMock })
+      const mockSelect = mock(() => ({ from: fromMock }))
 
-      await getUserByStripeCustomerId('cus_test_123')
+      const deps: BanConditionsDeps = {
+        db: { select: mockSelect } as any,
+      }
+
+      await getUserByStripeCustomerId('cus_test_123', deps)
 
       expect(mockSelect).toHaveBeenCalled()
       expect(fromMock).toHaveBeenCalled()
@@ -416,11 +398,15 @@ describe('ban-conditions', () => {
     it('updates user banned status to true', async () => {
       const whereMock = mock(() => Promise.resolve())
       const setMock = mock(() => ({ where: whereMock }))
-      mockUpdate.mockReturnValueOnce({ set: setMock })
+      const mockUpdate = mock(() => ({ set: setMock }))
+
+      const deps: BanConditionsDeps = {
+        db: { update: mockUpdate } as any,
+      }
 
       const logger = createMockLogger()
 
-      await banUser('user-123', 'Test ban reason', logger)
+      await banUser('user-123', 'Test ban reason', logger, deps)
 
       expect(mockUpdate).toHaveBeenCalled()
       expect(setMock).toHaveBeenCalledWith({ banned: true })
@@ -429,13 +415,17 @@ describe('ban-conditions', () => {
     it('logs the ban action with user ID and reason', async () => {
       const whereMock = mock(() => Promise.resolve())
       const setMock = mock(() => ({ where: whereMock }))
-      mockUpdate.mockReturnValueOnce({ set: setMock })
+      const mockUpdate = mock(() => ({ set: setMock }))
+
+      const deps: BanConditionsDeps = {
+        db: { update: mockUpdate } as any,
+      }
 
       const logger = createMockLogger()
       const userId = 'user-123'
       const reason = 'Too many disputes'
 
-      await banUser(userId, reason, logger)
+      await banUser(userId, reason, logger, deps)
 
       expect(logger.info).toHaveBeenCalledWith(
         { userId, reason },

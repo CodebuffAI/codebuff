@@ -1,11 +1,7 @@
-import { TEST_USER_ID } from '@codebuff/common/old-constants'
+import { TEST_USER_ID } from '@codebuff/common/testing/fixtures'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import {
-  clearMockedModules,
-  mockModule,
-} from '@codebuff/common/testing/mock-modules'
 import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 import { applyPatch } from 'diff'
 
 import { processFileBlock } from '../process-file-block'
@@ -18,27 +14,6 @@ import type {
 let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
 
 describe('processFileBlockModule', () => {
-  beforeAll(async () => {
-    // Mock database interactions
-    await mockModule('pg-pool', () => ({
-      Pool: class {
-        connect() {
-          return {
-            query: () => ({
-              rows: [{ id: 'test-user-id' }],
-              rowCount: 1,
-            }),
-            release: () => {},
-          }
-        }
-      },
-    }))
-  })
-
-  afterAll(() => {
-    clearMockedModules()
-  })
-
   beforeEach(() => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL }
   })

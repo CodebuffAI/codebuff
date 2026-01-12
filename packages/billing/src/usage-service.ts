@@ -12,6 +12,7 @@ import {
 
 import type { CreditBalance } from './balance-calculator'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { UsageServiceDeps } from '@codebuff/common/types/contracts/billing'
 
 export interface UserUsageData {
   usageThisCycle: number
@@ -48,19 +49,37 @@ export async function getUserUsageData(params: {
   userId: string
   logger: Logger
 }): Promise<UserUsageData> {
-  const { userId, logger } = params
+  return getUserUsageDataWithDeps(params)
+}
+
+/**
+ * Gets comprehensive user usage data with optional dependency injection.
+ * Use this version in tests to inject mock dependencies.
+ */
+export async function getUserUsageDataWithDeps(params: {
+  userId: string
+  logger: Logger
+  deps?: UsageServiceDeps
+}): Promise<UserUsageData> {
+  const { userId, logger, deps = {} } = params
+  
+  // Use injected dependencies or defaults
+  const triggerMonthlyResetAndGrantFn = deps.triggerMonthlyResetAndGrant ?? triggerMonthlyResetAndGrant
+  const checkAndTriggerAutoTopupFn = deps.checkAndTriggerAutoTopup ?? checkAndTriggerAutoTopup
+  const calculateUsageAndBalanceFn = deps.calculateUsageAndBalance ?? calculateUsageAndBalance
+  
   try {
     const now = new Date()
 
     // Check if we need to reset quota and grant new credits
     // This also returns autoTopupEnabled to avoid a separate query
     const { quotaResetDate, autoTopupEnabled } =
-      await triggerMonthlyResetAndGrant(params)
+      await triggerMonthlyResetAndGrantFn({ userId, logger })
 
     // Check if we need to trigger auto top-up
     let autoTopupTriggered = false
     try {
-      const topupAmount = await checkAndTriggerAutoTopup(params)
+      const topupAmount = await checkAndTriggerAutoTopupFn({ userId, logger })
       autoTopupTriggered = topupAmount !== undefined
     } catch (error) {
       logger.error(
@@ -72,11 +91,12 @@ export async function getUserUsageData(params: {
 
     // Use the canonical balance calculation function with the effective reset date
     // Pass isPersonalContext: true to exclude organization credits from personal usage
-    const { usageThisCycle, balance } = await calculateUsageAndBalance({
-      ...params,
+    const { usageThisCycle, balance } = await calculateUsageAndBalanceFn({
+      userId,
       quotaResetDate,
       now,
       isPersonalContext: true, // isPersonalContext: true to exclude organization credits
+      logger,
     })
 
     return {

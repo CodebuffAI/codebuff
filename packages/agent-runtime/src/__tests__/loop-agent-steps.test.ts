@@ -1,10 +1,7 @@
+import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
-import { TEST_USER_ID } from '@codebuff/common/old-constants'
+import { TEST_USER_ID } from '@codebuff/common/testing/fixtures'
 import { createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures/agent-runtime'
-import {
-  clearMockedModules,
-  mockModule,
-} from '@codebuff/common/testing/mock-modules'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import db from '@codebuff/internal/db'
@@ -36,14 +33,9 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
   let agentRuntimeImpl: any
   let loopAgentStepsBaseParams: any
 
-  beforeAll(async () => {
-    // Mock bigquery
-    await mockModule('@codebuff/bigquery', () => ({
-      insertTrace: () => {},
-    }))
-  })
-
   beforeEach(() => {
+    // Mock bigquery insertTrace
+    spyOn(bigquery, 'insertTrace').mockImplementation(() => Promise.resolve(true))
     const {
       agentTemplate: _agentTemplate,
       localAgentTemplates: _localAgentTemplates,
@@ -147,10 +139,6 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       ...baseRuntimeParams
     } = createTestAgentRuntimeParams()
     agentRuntimeImpl = { ...baseRuntimeParams }
-  })
-
-  afterAll(() => {
-    clearMockedModules()
   })
 
   it('should verify correct STEP behavior - LLM called once after STEP', async () => {

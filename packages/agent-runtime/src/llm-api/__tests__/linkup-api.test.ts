@@ -1,12 +1,6 @@
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import {
-  clearMockedModules,
-  mockModule,
-} from '@codebuff/common/testing/mock-modules'
-import {
-  afterAll,
   afterEach,
-  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -21,15 +15,11 @@ import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-ru
 // Test server env for Linkup API
 const testServerEnv = { LINKUP_API_KEY: 'test-api-key' }
 
+// Mock withTimeout that just passes through the promise without timeout
+const mockWithTimeout = async <T>(promise: Promise<T>, _timeout: number): Promise<T> => promise
+
 describe('Linkup API', () => {
   let agentRuntimeImpl: AgentRuntimeDeps & { serverEnv: typeof testServerEnv }
-
-  beforeAll(async () => {
-    // Mock withTimeout utility
-    await mockModule('@codebuff/common/util/promise', () => ({
-      withTimeout: async (promise: Promise<any>, timeout: number) => promise,
-    }))
-  })
 
   beforeEach(() => {
     agentRuntimeImpl = {
@@ -40,10 +30,6 @@ describe('Linkup API', () => {
 
   afterEach(() => {
     mock.restore()
-  })
-
-  afterAll(() => {
-    clearMockedModules()
   })
 
   test('should successfully search with basic query', async () => {
@@ -72,6 +58,7 @@ describe('Linkup API', () => {
     const result = await searchWeb({
       ...agentRuntimeImpl,
       query: 'React tutorial',
+      withTimeout: mockWithTimeout,
     })
 
     expect(result).toBe(
@@ -122,6 +109,7 @@ describe('Linkup API', () => {
       ...agentRuntimeImpl,
       query: 'React patterns',
       depth: 'deep',
+      withTimeout: mockWithTimeout,
     })
 
     expect(result).toBe(
@@ -151,7 +139,7 @@ describe('Linkup API', () => {
       )
     }) as unknown as typeof global.fetch
 
-    const result = await searchWeb({ ...agentRuntimeImpl, query: 'test query' })
+    const result = await searchWeb({ ...agentRuntimeImpl, query: 'test query', withTimeout: mockWithTimeout })
 
     expect(result).toBeNull()
   })
@@ -161,7 +149,7 @@ describe('Linkup API', () => {
       return Promise.reject(new Error('Network error'))
     }) as unknown as typeof global.fetch
 
-    const result = await searchWeb({ ...agentRuntimeImpl, query: 'test query' })
+    const result = await searchWeb({ ...agentRuntimeImpl, query: 'test query', withTimeout: mockWithTimeout })
 
     expect(result).toBeNull()
   })
@@ -176,7 +164,7 @@ describe('Linkup API', () => {
       )
     }) as unknown as typeof global.fetch
 
-    const result = await searchWeb({ ...agentRuntimeImpl, query: 'test query' })
+    const result = await searchWeb({ ...agentRuntimeImpl, query: 'test query', withTimeout: mockWithTimeout })
 
     expect(result).toBeNull()
   })
@@ -194,6 +182,7 @@ describe('Linkup API', () => {
     const result = await searchWeb({
       ...agentRuntimeImpl,
       query: 'test query',
+      withTimeout: mockWithTimeout,
     })
 
     expect(result).toBeNull()
@@ -213,7 +202,7 @@ describe('Linkup API', () => {
       )
     }) as unknown as typeof global.fetch
 
-    const result = await searchWeb({ ...agentRuntimeImpl, query: 'test query' })
+    const result = await searchWeb({ ...agentRuntimeImpl, query: 'test query', withTimeout: mockWithTimeout })
 
     expect(result).toBeNull()
   })
@@ -235,7 +224,7 @@ describe('Linkup API', () => {
       )
     }) as unknown as typeof global.fetch
 
-    await searchWeb({ ...agentRuntimeImpl, query: 'test query' })
+    await searchWeb({ ...agentRuntimeImpl, query: 'test query', withTimeout: mockWithTimeout })
 
     // Verify fetch was called with default parameters
     expect(agentRuntimeImpl.fetch).toHaveBeenCalledWith(
@@ -261,7 +250,7 @@ describe('Linkup API', () => {
     }) as unknown as typeof global.fetch
     agentRuntimeImpl.logger.error = mock(() => {})
 
-    const result = await searchWeb({ ...agentRuntimeImpl, query: 'test query' })
+    const result = await searchWeb({ ...agentRuntimeImpl, query: 'test query', withTimeout: mockWithTimeout })
 
     expect(result).toBeNull()
     // Verify that error logging was called
@@ -284,6 +273,7 @@ describe('Linkup API', () => {
     const result = await searchWeb({
       ...agentRuntimeImpl,
       query: 'test query for 404',
+      withTimeout: mockWithTimeout,
     })
 
     expect(result).toBeNull()

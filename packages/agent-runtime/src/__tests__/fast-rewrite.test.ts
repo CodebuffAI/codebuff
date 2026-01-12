@@ -1,12 +1,8 @@
 import path from 'path'
 
-import { TEST_USER_ID } from '@codebuff/common/old-constants'
+import { TEST_USER_ID } from '@codebuff/common/testing/fixtures'
 import { createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures/agent-runtime'
-import {
-  clearMockedModules,
-  mockModule,
-} from '@codebuff/common/testing/mock-modules'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 import { createPatch } from 'diff'
 
 import { rewriteWithOpenAI } from '../fast-rewrite'
@@ -14,29 +10,8 @@ import { rewriteWithOpenAI } from '../fast-rewrite'
 describe('rewriteWithOpenAI', () => {
   let agentRuntimeImpl: any
 
-  beforeAll(async () => {
-    // Mock database interactions
-    await mockModule('pg-pool', () => ({
-      Pool: class {
-        connect() {
-          return {
-            query: () => ({
-              rows: [{ id: 'test-user-id' }],
-              rowCount: 1,
-            }),
-            release: () => {},
-          }
-        }
-      },
-    }))
-  })
-
   beforeEach(() => {
     agentRuntimeImpl = { ...createTestAgentRuntimeParams() }
-  })
-
-  afterAll(() => {
-    clearMockedModules()
   })
 
   it('should correctly integrate edit snippet changes while preserving formatting', async () => {

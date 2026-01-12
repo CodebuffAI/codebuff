@@ -1,4 +1,4 @@
-import { withTimeout } from '@codebuff/common/util/promise'
+import { withTimeout as defaultWithTimeout } from '@codebuff/common/util/promise'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
@@ -34,8 +34,16 @@ export async function searchWeb(options: {
   logger: Logger
   fetch: typeof globalThis.fetch
   serverEnv: LinkupEnv
+  withTimeout?: typeof defaultWithTimeout
 }): Promise<string | null> {
-  const { query, depth = 'standard', logger, fetch, serverEnv } = options
+  const {
+    query,
+    depth = 'standard',
+    logger,
+    fetch,
+    serverEnv,
+    withTimeout = defaultWithTimeout,
+  } = options
   const apiStartTime = Date.now()
 
   if (!serverEnv.LINKUP_API_KEY) {

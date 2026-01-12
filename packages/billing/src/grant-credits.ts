@@ -12,6 +12,7 @@ import { and, desc, eq, gt, isNull, lte, or, sql } from 'drizzle-orm'
 import { generateOperationIdTimestamp } from './utils'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { TriggerMonthlyResetAndGrantDeps } from '@codebuff/common/types/contracts/billing'
 import type { GrantType } from '@codebuff/internal/db/schema'
 
 type CreditGrantSelect = typeof schema.creditLedger.$inferSelect
@@ -200,7 +201,7 @@ export async function grantCreditOperation(params: {
   } else {
     // No debt - create grant normally
     try {
-      await dbClient.insert(schema.creditLedger).values({
+      await db.insert(schema.creditLedger).values({
         operation_id: operationId,
         user_id: userId,
         principal: amount,
@@ -357,10 +358,12 @@ export interface MonthlyResetResult {
 export async function triggerMonthlyResetAndGrant(params: {
   userId: string
   logger: Logger
+  deps?: TriggerMonthlyResetAndGrantDeps
 }): Promise<MonthlyResetResult> {
-  const { userId, logger } = params
+  const { userId, logger, deps = {} } = params
+  const transaction = deps.transaction ?? db.transaction.bind(db)
 
-  return await db.transaction(async (tx) => {
+  return await transaction(async (tx) => {
     const now = new Date()
 
     // Get user's current reset date and auto top-up status
@@ -389,8 +392,8 @@ export async function triggerMonthlyResetAndGrant(params: {
 
     // Calculate grant amounts separately
     const [freeGrantAmount, referralBonus] = await Promise.all([
-      getPreviousFreeGrantAmount(params),
-      calculateTotalReferralBonus(params),
+      getPreviousFreeGrantAmount({ userId, logger }),
+      calculateTotalReferralBonus({ userId, logger }),
     ])
 
     // Generate a deterministic operation ID based on userId and reset date to minute precision
@@ -406,7 +409,8 @@ export async function triggerMonthlyResetAndGrant(params: {
 
     // Always grant free credits - use grantCreditOperation with tx to keep everything in the same transaction
     await grantCreditOperation({
-      ...params,
+      userId,
+      logger,
       amount: freeGrantAmount,
       type: 'free',
       description: 'Monthly free credits',
@@ -418,7 +422,8 @@ export async function triggerMonthlyResetAndGrant(params: {
     // Only grant referral credits if there are any
     if (referralBonus > 0) {
       await grantCreditOperation({
-        ...params,
+        userId,
+        logger,
         amount: referralBonus,
         type: 'referral',
         description: 'Monthly referral bonus',

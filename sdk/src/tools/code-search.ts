@@ -1,10 +1,11 @@
-import { spawn } from 'child_process'
+import { spawn as defaultSpawn } from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
 
 import { formatCodeSearchOutput } from '../../../common/src/util/format-code-search'
 import { getBundledRgPath } from '../native/ripgrep'
 
+import type { ChildProcess } from 'child_process'
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
 // Hidden directories to include in code search by default.
@@ -18,6 +19,14 @@ const INCLUDED_HIDDEN_DIRS = [
   '.husky', // Git hooks
 ]
 
+export interface CodeSearchDeps {
+  spawn?: (
+    command: string,
+    args: string[],
+    options: { cwd: string; stdio: ['ignore', 'pipe', 'pipe'] },
+  ) => ChildProcess
+}
+
 export function codeSearch({
   projectPath,
   pattern,
@@ -27,6 +36,7 @@ export function codeSearch({
   globalMaxResults = 250,
   maxOutputStringLength = 20_000,
   timeoutSeconds = 10,
+  deps = {},
 }: {
   projectPath: string
   pattern: string
@@ -36,7 +46,9 @@ export function codeSearch({
   globalMaxResults?: number
   maxOutputStringLength?: number
   timeoutSeconds?: number
+  deps?: CodeSearchDeps
 }): Promise<CodebuffToolOutput<'code_search'>> {
+  const spawn = deps.spawn ?? defaultSpawn
   return new Promise((resolve) => {
     let isResolved = false
 
@@ -92,7 +104,7 @@ export function codeSearch({
     const childProcess = spawn(rgPath, args, {
       cwd: searchCwd,
       stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    }) as ChildProcess
 
     let jsonRemainder = ''
     let stderrBuf = ''
@@ -109,8 +121,8 @@ export function codeSearch({
       isResolved = true
 
       // Clean up listeners immediately
-      childProcess.stdout.removeAllListeners()
-      childProcess.stderr.removeAllListeners()
+      childProcess.stdout?.removeAllListeners()
+      childProcess.stderr?.removeAllListeners()
       childProcess.removeAllListeners()
 
       clearTimeout(timeoutId)
@@ -157,7 +169,7 @@ export function codeSearch({
     }, timeoutSeconds * 1000)
 
     // Parse ripgrep JSON for early stopping
-    childProcess.stdout.on('data', (chunk: Buffer | string) => {
+    childProcess.stdout?.on('data', (chunk: Buffer | string) => {
       if (isResolved) return
       const chunkStr =
         typeof chunk === 'string' ? chunk : chunk.toString('utf8')
@@ -252,7 +264,7 @@ export function codeSearch({
       }
     })
 
-    childProcess.stderr.on('data', (chunk: Buffer | string) => {
+    childProcess.stderr?.on('data', (chunk: Buffer | string) => {
       if (isResolved) return
       const chunkStr =
         typeof chunk === 'string' ? chunk : chunk.toString('utf8')
