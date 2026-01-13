@@ -385,7 +385,9 @@ export const LoginModal = ({
           >
             <text style={{ wrapMode: 'word' }}>
               <span fg={theme.secondary}>
-                {isNarrow ? 'Click to copy:' : 'Click link to copy:'}
+                {isNarrow
+                  ? 'Opening browser...'
+                  : 'Opening browser to complete login...'}
               </span>
             </text>
             <box
@@ -431,6 +433,27 @@ export const LoginModal = ({
                 </text>
               </box>
             )}
+            {/* Show raw URL as fallback for devices where open() doesn't work */}
+            <box
+              style={{
+                marginTop: isVerySmall ? 1 : 2,
+                flexDirection: 'column',
+                alignItems: 'center',
+                width: '100%',
+                flexShrink: 0,
+              }}
+            >
+              <text style={{ wrapMode: 'word' }}>
+                <span fg={theme.muted}>
+                  {isNarrow ? 'Or copy URL:' : "Or copy this URL if browser didn't open:"}
+                </span>
+              </text>
+              <text style={{ wrapMode: 'word' }}>
+                <span fg={theme.muted}>
+                  {loginUrl}
+                </span>
+              </text>
+            </box>
           </box>
         )}
       </box>
