@@ -136,6 +136,25 @@ main()
 
 ## API Reference
 
+### File Filtering
+
+The `fileFilter` option controls which files the agent can read:
+
+```typescript
+const client = new CodebuffClient({
+  apiKey: process.env.CODEBUFF_API_KEY,
+  fileFilter: (filePath) => {
+    if (filePath === '.env') return { status: 'blocked' }
+    if (filePath.endsWith('.env.example')) return { status: 'allow-example' }
+    return { status: 'allow' }
+  },
+})
+```
+
+**Statuses:** `'blocked'` (returns `[BLOCKED]`), `'allow-example'` (prefixes content with `[TEMPLATE]`), `'allow'` (normal read).
+
+**Default behavior:** When no `fileFilter` is provided, gitignore checking is applied automatically. When a `fileFilter` IS provided, the caller owns all filtering.
+
 ### `loadLocalAgents(options)`
 
 Loads agent definitions from `.agents` directories on disk.
