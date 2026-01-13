@@ -43,6 +43,19 @@ export type Referral = {
   credits: number
 }
 
+/**
+ * Organization record fields relevant to billing
+ */
+export type BillingOrganization = {
+  id: string
+  auto_topup_enabled: boolean | null
+  auto_topup_threshold: number | null
+  auto_topup_amount: number | null
+  stripe_customer_id: string | null
+  current_period_start: Date | null
+  current_period_end: Date | null
+}
+
 // ============================================================================
 // Query Builder Types for Type-Safe Database Operations
 // ============================================================================
@@ -208,6 +221,8 @@ export type BillingDbConnection = {
     user: TableQuery<BillingUser>
     /** Query the creditLedger table */
     creditLedger: TableQuery<CreditGrant>
+    /** Query the org table (for organization billing) */
+    org: TableQuery<BillingOrganization>
   }
 }
 

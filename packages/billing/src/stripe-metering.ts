@@ -5,9 +5,19 @@ import { stripeServer } from '@codebuff/internal/util/stripe'
 import { eq } from 'drizzle-orm'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { BillingDbConnection } from '@codebuff/common/types/contracts/billing'
 
 const STRIPE_METER_EVENT_NAME = 'credits'
 const STRIPE_METER_REQUEST_TIMEOUT_MS = 10_000
+
+/**
+ * Dependencies for reportPurchasedCreditsToStripe (for testing)
+ */
+export interface ReportPurchasedCreditsToStripeDeps {
+  db?: BillingDbConnection
+  stripeServer?: typeof stripeServer
+  shouldAttemptStripeMetering?: () => boolean
+}
 
 function shouldAttemptStripeMetering(): boolean {
   // Avoid sending Stripe metering events in CI or when Stripe isn't configured.
@@ -35,6 +45,10 @@ export async function reportPurchasedCreditsToStripe(params: {
    * Optional additional payload fields (must be strings).
    */
   extraPayload?: Record<string, string>
+  /**
+   * Optional dependencies for testing.
+   */
+  deps?: ReportPurchasedCreditsToStripeDeps
 }): Promise<void> {
   const {
     userId,
@@ -44,21 +58,26 @@ export async function reportPurchasedCreditsToStripe(params: {
     eventId,
     timestamp = new Date(),
     extraPayload,
+    deps = {},
   } = params
 
+  const dbClient = deps.db ?? db
+  const stripe = deps.stripeServer ?? stripeServer
+  const checkShouldAttempt = deps.shouldAttemptStripeMetering ?? shouldAttemptStripeMetering
+
   if (purchasedCredits <= 0) return
-  if (!shouldAttemptStripeMetering()) return
+  if (!checkShouldAttempt()) return
 
   const logContext = { userId, purchasedCredits, eventId }
 
   let stripeCustomerId = providedStripeCustomerId
   if (stripeCustomerId === undefined) {
-    let user: { stripe_customer_id: string | null } | undefined
     try {
-      user = await db.query.user.findFirst({
+      const user = await dbClient.query.user.findFirst({
         where: eq(schema.user.id, userId),
         columns: { stripe_customer_id: true },
       })
+      stripeCustomerId = user?.stripe_customer_id ?? null
     } catch (error) {
       logger.error(
         { ...logContext, error },
@@ -66,8 +85,6 @@ export async function reportPurchasedCreditsToStripe(params: {
       )
       return
     }
-
-    stripeCustomerId = user?.stripe_customer_id ?? null
   }
   if (!stripeCustomerId) {
     logger.warn(logContext, 'Skipping Stripe metering (missing stripe_customer_id)')
@@ -81,7 +98,7 @@ export async function reportPurchasedCreditsToStripe(params: {
     await withTimeout(
       withRetry(
         () =>
-          stripeServer.billing.meterEvents.create(
+          stripe.billing.meterEvents.create(
             {
               event_name: STRIPE_METER_EVENT_NAME,
               timestamp: stripeTimestamp,

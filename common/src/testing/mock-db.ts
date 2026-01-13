@@ -21,6 +21,7 @@
 import type { GrantType } from '../types/grant'
 import type {
   BillingDbConnection,
+  BillingOrganization,
   BillingUser,
   CreditGrant,
   FindFirstParams,
@@ -425,6 +426,7 @@ export function createMockDb(config: MockDbConfig = {}): BillingDbConnection {
     query: {
       user: createTableQuery<BillingUser>(users as BillingUser[]),
       creditLedger: createTableQuery<CreditGrant>(creditGrants as CreditGrant[]),
+      org: createTableQuery<BillingOrganization>(organizations as BillingOrganization[]),
     },
   }
 }

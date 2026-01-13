@@ -26,6 +26,13 @@ type DbTransaction = Parameters<typeof db.transaction>[0] extends (
   : never
 
 /**
+ * Dependencies for getPreviousFreeGrantAmount (for testing)
+ */
+export interface GetPreviousFreeGrantAmountDeps {
+  db?: typeof db
+}
+
+/**
  * Finds the amount of the most recent expired 'free' grant for a user.
  * Finds the amount of the most recent expired 'free' grant for a user,
  * excluding migration grants (operation_id starting with 'migration-').
@@ -37,11 +44,13 @@ type DbTransaction = Parameters<typeof db.transaction>[0] extends (
 export async function getPreviousFreeGrantAmount(params: {
   userId: string
   logger: Logger
+  deps?: GetPreviousFreeGrantAmountDeps
 }): Promise<number> {
-  const { userId, logger } = params
+  const { userId, logger, deps = {} } = params
+  const dbClient = deps.db ?? db
 
   const now = new Date()
-  const lastExpiredFreeGrant = await db
+  const lastExpiredFreeGrant = await dbClient
     .select({
       principal: schema.creditLedger.principal,
     })
@@ -74,6 +83,13 @@ export async function getPreviousFreeGrantAmount(params: {
 }
 
 /**
+ * Dependencies for calculateTotalReferralBonus (for testing)
+ */
+export interface CalculateTotalReferralBonusDeps {
+  db?: typeof db
+}
+
+/**
  * Calculates the total referral bonus credits a user should receive based on
  * their referral history (both as referrer and referred).
  * @param userId The ID of the user.
@@ -82,11 +98,13 @@ export async function getPreviousFreeGrantAmount(params: {
 export async function calculateTotalReferralBonus(params: {
   userId: string
   logger: Logger
+  deps?: CalculateTotalReferralBonusDeps
 }): Promise<number> {
-  const { userId, logger } = params
+  const { userId, logger, deps = {} } = params
+  const dbClient = deps.db ?? db
 
   try {
-    const result = await db
+    const result = await dbClient
       .select({
         totalCredits: sql<string>`COALESCE(SUM(${schema.referral.credits}), 0)`,
       })
@@ -249,6 +267,14 @@ export async function grantCreditOperation(params: {
 }
 
 /**
+ * Dependencies for processAndGrantCredit (for testing)
+ */
+export interface ProcessAndGrantCreditDeps {
+  grantCreditFn?: typeof grantCreditOperation
+  logSyncFailureFn?: typeof logSyncFailure
+}
+
+/**
  * Processes a credit grant request with retries and failure logging.
  * Used for standalone credit grants that need retry logic and failure tracking.
  */
@@ -260,11 +286,14 @@ export async function processAndGrantCredit(params: {
   expiresAt: Date | null
   operationId: string
   logger: Logger
+  deps?: ProcessAndGrantCreditDeps
 }): Promise<void> {
-  const { operationId, logger } = params
+  const { operationId, logger, deps = {} } = params
+  const grantCreditFn = deps.grantCreditFn ?? grantCreditOperation
+  const logSyncFailureFn = deps.logSyncFailureFn ?? logSyncFailure
 
   try {
-    await withRetry(() => grantCreditOperation(params), {
+    await withRetry(() => grantCreditFn(params), {
       maxRetries: 3,
       retryIf: () => true,
       onRetry: (error, attempt) => {
@@ -276,7 +305,7 @@ export async function processAndGrantCredit(params: {
     })
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    await logSyncFailure({
+    await logSyncFailureFn({
       id: operationId,
       errorMessage,
       provider: 'internal',

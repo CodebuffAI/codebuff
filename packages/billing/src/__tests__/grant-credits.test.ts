@@ -1,9 +1,12 @@
-import { describe, expect, it, mock, beforeEach } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 
 import {
   triggerMonthlyResetAndGrant,
   grantCreditOperation,
   revokeGrantByOperationId,
+  getPreviousFreeGrantAmount,
+  calculateTotalReferralBonus,
+  processAndGrantCredit,
 } from '../grant-credits'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -374,6 +377,205 @@ describe('grant-credits', () => {
         // Should NOT create a new grant since remainingAmount would be 0
         expect(insertedGrants.length).toBe(0)
       })
+    })
+  })
+
+  describe('getPreviousFreeGrantAmount', () => {
+    it('should return default amount when no expired grants exist', async () => {
+      // The select().from().where().orderBy().limit() chain returns a promise-like
+      // array in Drizzle, so we need to make it thenable
+      const emptyResult: { principal: number }[] = []
+      // @ts-expect-error - adding then to make it promise-like
+      emptyResult.then = (cb: (rows: typeof emptyResult) => unknown) => Promise.resolve(cb(emptyResult))
+      
+      const mockDb = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              orderBy: () => ({
+                limit: () => emptyResult,
+              }),
+            }),
+          }),
+        }),
+      }
+
+      const result = await getPreviousFreeGrantAmount({
+        userId: 'user-new',
+        logger,
+        deps: { db: mockDb as any },
+      })
+
+      // Default free credits grant is 1000
+      expect(result).toBe(1000)
+    })
+
+    it('should return capped amount from previous expired grant', async () => {
+      const grantResult = [{ principal: 3000 }]
+      // @ts-expect-error - adding then to make it promise-like
+      grantResult.then = (cb: (rows: typeof grantResult) => unknown) => Promise.resolve(cb(grantResult))
+      
+      const mockDb = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              orderBy: () => ({
+                limit: () => grantResult,
+              }),
+            }),
+          }),
+        }),
+      }
+
+      const result = await getPreviousFreeGrantAmount({
+        userId: 'user-high-grant',
+        logger,
+        deps: { db: mockDb as any },
+      })
+
+      // Should be capped at 2000
+      expect(result).toBe(2000)
+    })
+
+    it('should return exact amount when previous grant was below cap', async () => {
+      const grantResult = [{ principal: 1500 }]
+      // @ts-expect-error - adding then to make it promise-like
+      grantResult.then = (cb: (rows: typeof grantResult) => unknown) => Promise.resolve(cb(grantResult))
+      
+      const mockDb = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              orderBy: () => ({
+                limit: () => grantResult,
+              }),
+            }),
+          }),
+        }),
+      }
+
+      const result = await getPreviousFreeGrantAmount({
+        userId: 'user-normal-grant',
+        logger,
+        deps: { db: mockDb as any },
+      })
+
+      expect(result).toBe(1500)
+    })
+  })
+
+  describe('calculateTotalReferralBonus', () => {
+    it('should return 0 when no referrals exist', async () => {
+      const mockDb = {
+        select: () => ({
+          from: () => ({
+            where: () =>
+              Promise.resolve([{ totalCredits: '0' }]),
+          }),
+        }),
+      }
+
+      const result = await calculateTotalReferralBonus({
+        userId: 'user-no-referrals',
+        logger,
+        deps: { db: mockDb as any },
+      })
+
+      expect(result).toBe(0)
+    })
+
+    it('should return sum of referral credits', async () => {
+      const mockDb = {
+        select: () => ({
+          from: () => ({
+            where: () =>
+              Promise.resolve([{ totalCredits: '500' }]),
+          }),
+        }),
+      }
+
+      const result = await calculateTotalReferralBonus({
+        userId: 'user-with-referrals',
+        logger,
+        deps: { db: mockDb as any },
+      })
+
+      expect(result).toBe(500)
+    })
+
+    it('should return 0 on database error', async () => {
+      const mockDb = {
+        select: () => ({
+          from: () => ({
+            where: () => {
+              throw new Error('Database error')
+            },
+          }),
+        }),
+      }
+
+      const result = await calculateTotalReferralBonus({
+        userId: 'user-db-error',
+        logger,
+        deps: { db: mockDb as any },
+      })
+
+      expect(result).toBe(0)
+    })
+  })
+
+  describe('processAndGrantCredit', () => {
+    it('should call grantCreditOperation with correct params', async () => {
+      let capturedParams: any = null
+      const mockGrantCreditFn = async (params: any) => {
+        capturedParams = params
+      }
+
+      await processAndGrantCredit({
+        userId: 'user-123',
+        amount: 500,
+        type: 'purchase',
+        description: 'Test grant',
+        expiresAt: null,
+        operationId: 'op-123',
+        logger,
+        deps: { grantCreditFn: mockGrantCreditFn as any },
+      })
+
+      expect(capturedParams.userId).toBe('user-123')
+      expect(capturedParams.amount).toBe(500)
+      expect(capturedParams.type).toBe('purchase')
+      expect(capturedParams.description).toBe('Test grant')
+      expect(capturedParams.operationId).toBe('op-123')
+    })
+
+    it('should log sync failure on error', async () => {
+      let syncFailureLogged = false
+      const mockLogSyncFailure = async () => {
+        syncFailureLogged = true
+      }
+
+      const mockGrantCreditFn = async () => {
+        throw new Error('Grant failed')
+      }
+
+      await expect(
+        processAndGrantCredit({
+          userId: 'user-123',
+          amount: 500,
+          type: 'purchase',
+          description: 'Test grant',
+          expiresAt: null,
+          operationId: 'op-fail',
+          logger,
+          deps: {
+            grantCreditFn: mockGrantCreditFn as any,
+            logSyncFailureFn: mockLogSyncFailure as any,
+          },
+        }),
+      ).rejects.toThrow('Grant failed')
+
+      expect(syncFailureLogged).toBe(true)
     })
   })
 

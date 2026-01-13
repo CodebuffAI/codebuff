@@ -17,6 +17,7 @@ import {
 import { generateOperationIdTimestamp } from './utils'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { BillingDbConnection } from '@codebuff/common/types/contracts/billing'
 import type Stripe from 'stripe'
 
 const MINIMUM_PURCHASE_CREDITS = 500
@@ -40,15 +41,46 @@ class AutoTopupPaymentError extends Error {
   }
 }
 
+/**
+ * Dependencies for validateAutoTopupStatus (for testing)
+ */
+export interface ValidateAutoTopupStatusDeps {
+  db?: BillingDbConnection
+  stripeServer?: typeof stripeServer
+}
+
+/**
+ * Dependencies for checkAndTriggerAutoTopup (for testing)
+ */
+export interface CheckAndTriggerAutoTopupDeps {
+  db?: BillingDbConnection
+  stripeServer?: typeof stripeServer
+  calculateUsageAndBalanceFn?: typeof calculateUsageAndBalance
+  validateAutoTopupStatusFn?: typeof validateAutoTopupStatus
+  processAndGrantCreditFn?: typeof processAndGrantCredit
+}
+
+/**
+ * Dependencies for checkAndTriggerOrgAutoTopup (for testing)
+ */
+export interface CheckAndTriggerOrgAutoTopupDeps {
+  db?: BillingDbConnection
+  stripeServer?: typeof stripeServer
+  calculateOrganizationUsageAndBalanceFn?: typeof calculateOrganizationUsageAndBalance
+  grantOrganizationCreditsFn?: typeof grantOrganizationCredits
+}
+
 export async function validateAutoTopupStatus(params: {
   userId: string
   logger: Logger
+  deps?: ValidateAutoTopupStatusDeps
 }): Promise<AutoTopupValidationResult> {
-  const { userId, logger } = params
-  const logContext = { userId }
+  const { userId, logger, deps = {} } = params
+  const dbClient = deps.db ?? db
+  const stripe = deps.stripeServer ?? stripeServer
 
   try {
-    const user = await db.query.user.findFirst({
+    const user = await dbClient.query.user.findFirst({
       where: eq(schema.user.id, userId),
       columns: {
         stripe_customer_id: true,
@@ -62,11 +94,11 @@ export async function validateAutoTopupStatus(params: {
     }
 
     const [cardPaymentMethods, linkPaymentMethods] = await Promise.all([
-      stripeServer.paymentMethods.list({
+      stripe.paymentMethods.list({
         customer: user.stripe_customer_id,
         type: 'card',
       }),
-      stripeServer.paymentMethods.list({
+      stripe.paymentMethods.list({
         customer: user.stripe_customer_id,
         type: 'link',
       }),
@@ -109,7 +141,7 @@ export async function validateAutoTopupStatus(params: {
     // Only disable auto-topup for permanent validation errors (missing customer, no payment method, expired card)
     // Don't disable for transient errors (Stripe API issues, network errors) to avoid false disables
     if (error instanceof AutoTopupValidationError) {
-      await disableAutoTopup({ ...params, reason: error.message })
+      await disableAutoTopupInternal({ userId, reason: error.message, logger, dbClient: dbClient as typeof db })
       return {
         blockedReason: error.message,
         validPaymentMethod: null,
@@ -126,13 +158,17 @@ export async function validateAutoTopupStatus(params: {
   }
 }
 
-async function disableAutoTopup(params: {
+/**
+ * Internal helper to disable auto-topup that works with any db-like object.
+ */
+async function disableAutoTopupInternal(params: {
   userId: string
   reason: string
   logger: Logger
+  dbClient: typeof db
 }) {
-  const { userId, reason, logger } = params
-  await db
+  const { userId, reason, logger, dbClient } = params
+  await dbClient
     .update(schema.user)
     .set({ auto_topup_enabled: false })
     .where(eq(schema.user.id, userId))
@@ -146,10 +182,15 @@ async function processAutoTopupPayment(params: {
   stripeCustomerId: string
   paymentMethod: Stripe.PaymentMethod
   logger: Logger
+  deps?: {
+    stripeServer?: typeof stripeServer
+    processAndGrantCreditFn?: typeof processAndGrantCredit
+  }
 }): Promise<void> {
-  const { userId, amountToTopUp, stripeCustomerId, paymentMethod, logger } =
+  const { userId, amountToTopUp, stripeCustomerId, paymentMethod, logger, deps = {} } =
     params
-  const logContext = { userId, amountToTopUp }
+  const stripe = deps.stripeServer ?? stripeServer
+  const grantCreditFn = deps.processAndGrantCreditFn ?? processAndGrantCredit
 
   // Generate a deterministic operation ID based on userId and current time to minute precision
   const timestamp = generateOperationIdTimestamp(new Date())
@@ -163,7 +204,7 @@ async function processAutoTopupPayment(params: {
     throw new AutoTopupPaymentError('Invalid payment amount calculated')
   }
 
-  const paymentIntent = await stripeServer.paymentIntents.create(
+  const paymentIntent = await stripe.paymentIntents.create(
     {
       amount: amountInCents,
       currency: 'usd',
@@ -189,8 +230,9 @@ async function processAutoTopupPayment(params: {
     throw new AutoTopupPaymentError('Payment failed or requires action')
   }
 
-  await processAndGrantCredit({
-    ...params,
+  await grantCreditFn({
+    userId,
+    logger,
     amount: amountToTopUp,
     type: 'purchase',
     description: `Auto top-up of ${amountToTopUp.toLocaleString()} credits`,
@@ -200,7 +242,8 @@ async function processAutoTopupPayment(params: {
 
   logger.info(
     {
-      ...logContext,
+      userId,
+      amountToTopUp,
       operationId,
       paymentIntentId: paymentIntent.id,
     },
@@ -211,13 +254,19 @@ async function processAutoTopupPayment(params: {
 export async function checkAndTriggerAutoTopup(params: {
   userId: string
   logger: Logger
+  deps?: CheckAndTriggerAutoTopupDeps
 }): Promise<number | undefined> {
-  const { userId, logger } = params
+  const { userId, logger, deps = {} } = params
+  const dbClient = deps.db ?? db
+  const stripe = deps.stripeServer ?? stripeServer
+  const calcUsageAndBalance = deps.calculateUsageAndBalanceFn ?? calculateUsageAndBalance
+  const validateTopupStatus = deps.validateAutoTopupStatusFn ?? validateAutoTopupStatus
+  const grantCreditFn = deps.processAndGrantCreditFn ?? processAndGrantCredit
   const logContext = { userId }
 
   try {
     // Get user info
-    const user = await db.query.user.findFirst({
+    const user = await dbClient.query.user.findFirst({
       where: eq(schema.user.id, userId),
       columns: {
         auto_topup_enabled: true,
@@ -239,8 +288,9 @@ export async function checkAndTriggerAutoTopup(params: {
     }
 
     // Calculate balance
-    const { balance } = await calculateUsageAndBalance({
-      ...params,
+    const { balance } = await calcUsageAndBalance({
+      userId,
+      logger,
       quotaResetDate: user.next_quota_reset ?? new Date(0),
     })
 
@@ -286,7 +336,7 @@ export async function checkAndTriggerAutoTopup(params: {
 
     // Validate payment method
     const { blockedReason, validPaymentMethod } =
-      await validateAutoTopupStatus(params)
+      await validateTopupStatus({ userId, logger, deps: { db: dbClient as BillingDbConnection, stripeServer: stripe } })
 
     if (blockedReason || !validPaymentMethod) {
       throw new Error(blockedReason || 'Auto top-up is not available.')
@@ -294,10 +344,12 @@ export async function checkAndTriggerAutoTopup(params: {
 
     try {
       await processAutoTopupPayment({
-        ...params,
+        userId,
+        logger,
         amountToTopUp,
         stripeCustomerId: user.stripe_customer_id,
         paymentMethod: validPaymentMethod,
+        deps: { stripeServer: stripe, processAndGrantCreditFn: grantCreditFn },
       })
       return amountToTopUp // Return the amount that was successfully added
     } catch (error) {
@@ -305,7 +357,7 @@ export async function checkAndTriggerAutoTopup(params: {
       // Don't disable for transient errors (Stripe API issues, network errors)
       if (error instanceof AutoTopupPaymentError) {
         const message = error.message
-        await disableAutoTopup({ ...params, reason: message })
+        await disableAutoTopupInternal({ userId, logger, reason: message, dbClient: dbClient as typeof db })
         throw new Error(message)
       }
 
@@ -325,8 +377,11 @@ export async function checkAndTriggerAutoTopup(params: {
   }
 }
 
-async function getOrganizationSettings(organizationId: string) {
-  const organization = await db.query.org.findFirst({
+async function getOrganizationSettings(
+  organizationId: string,
+  dbClient: BillingDbConnection | typeof db = db,
+) {
+  const organization = await dbClient.query.org.findFirst({
     where: eq(schema.org.id, organizationId),
     columns: {
       auto_topup_enabled: true,
@@ -351,17 +406,18 @@ async function getOrganizationPaymentMethod(params: {
   organizationId: string
   stripeCustomerId: string
   logger: Logger
+  stripe?: typeof stripeServer
 }): Promise<string> {
-  const { organizationId, stripeCustomerId, logger } = params
+  const { organizationId, stripeCustomerId, logger, stripe = stripeServer } = params
   const logContext = { organizationId, stripeCustomerId }
 
   // Get payment methods for the organization - include both card and link types
   const [cardPaymentMethods, linkPaymentMethods] = await Promise.all([
-    stripeServer.paymentMethods.list({
+    stripe.paymentMethods.list({
       customer: stripeCustomerId,
       type: 'card',
     }),
-    stripeServer.paymentMethods.list({
+    stripe.paymentMethods.list({
       customer: stripeCustomerId,
       type: 'link',
     }),
@@ -391,7 +447,7 @@ async function getOrganizationPaymentMethod(params: {
   }
 
   // Get the customer to check for default payment method
-  const customer = await stripeServer.customers.retrieve(stripeCustomerId)
+  const customer = await stripe.customers.retrieve(stripeCustomerId)
 
   let paymentMethodToUse: string | null = null
 
@@ -427,7 +483,7 @@ async function getOrganizationPaymentMethod(params: {
 
     // Set this payment method as the default for future use
     try {
-      await stripeServer.customers.update(stripeCustomerId, {
+      await stripe.customers.update(stripeCustomerId, {
         invoice_settings: {
           default_payment_method: paymentMethodToUse,
         },
@@ -454,9 +510,15 @@ async function processOrgAutoTopupPayment(params: {
   amountToTopUp: number
   stripeCustomerId: string
   logger: Logger
+  deps?: {
+    stripeServer?: typeof stripeServer
+    grantOrganizationCreditsFn?: typeof grantOrganizationCredits
+  }
 }): Promise<void> {
-  const { organizationId, userId, amountToTopUp, stripeCustomerId, logger } =
+  const { organizationId, userId, amountToTopUp, stripeCustomerId, logger, deps = {} } =
     params
+  const stripe = deps.stripeServer ?? stripeServer
+  const grantOrgCreditsFn = deps.grantOrganizationCreditsFn ?? grantOrganizationCredits
   const logContext = { organizationId, userId, amountToTopUp, stripeCustomerId }
 
   // Generate a deterministic operation ID based on organizationId and current time to minute precision
@@ -472,9 +534,14 @@ async function processOrgAutoTopupPayment(params: {
   }
 
   // Get the payment method to use for this organization
-  const paymentMethodToUse = await getOrganizationPaymentMethod(params)
+  const paymentMethodToUse = await getOrganizationPaymentMethod({
+    organizationId,
+    stripeCustomerId,
+    logger,
+    stripe,
+  })
 
-  const paymentIntent = await stripeServer.paymentIntents.create(
+  const paymentIntent = await stripe.paymentIntents.create(
     {
       amount: amountInCents,
       currency: 'usd',
@@ -499,8 +566,10 @@ async function processOrgAutoTopupPayment(params: {
     throw new AutoTopupPaymentError('Payment failed or requires action')
   }
 
-  await grantOrganizationCredits({
-    ...params,
+  await grantOrgCreditsFn({
+    organizationId,
+    userId,
+    logger,
     amount: amountToTopUp,
     operationId,
     description: `Organization auto top-up of ${amountToTopUp.toLocaleString()} credits`,
@@ -522,19 +591,25 @@ export async function checkAndTriggerOrgAutoTopup(params: {
   organizationId: string
   userId: string
   logger: Logger
+  deps?: CheckAndTriggerOrgAutoTopupDeps
 }): Promise<void> {
-  const { organizationId, userId, logger } = params
+  const { organizationId, userId, logger, deps = {} } = params
+  const dbClient = deps.db ?? db
+  const stripe = deps.stripeServer ?? stripeServer
+  const calcOrgUsageAndBalance = deps.calculateOrganizationUsageAndBalanceFn ?? calculateOrganizationUsageAndBalance
+  const grantOrgCreditsFn = deps.grantOrganizationCreditsFn ?? grantOrganizationCredits
   const logContext: Record<string, unknown> = { organizationId, userId }
 
   try {
-    const org = await getOrganizationSettings(organizationId)
+    const org = await getOrganizationSettings(organizationId, dbClient)
 
     if (!org.auto_topup_enabled || !org.stripe_customer_id) {
       return
     }
 
-    const { balance } = await calculateOrganizationUsageAndBalance({
-      ...params,
+    const { balance } = await calcOrgUsageAndBalance({
+      organizationId,
+      logger,
       quotaResetDate: getNextQuotaReset(null),
     })
 
@@ -572,9 +647,12 @@ export async function checkAndTriggerOrgAutoTopup(params: {
 
     try {
       await processOrgAutoTopupPayment({
-        ...params,
+        organizationId,
+        userId,
+        logger,
         amountToTopUp,
         stripeCustomerId: org.stripe_customer_id,
+        deps: { stripeServer: stripe, grantOrganizationCreditsFn: grantOrgCreditsFn },
       })
     } catch (error) {
       // Auto-topup failures are automatically logged to sync_failures table
