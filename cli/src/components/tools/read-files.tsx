@@ -1,12 +1,60 @@
+import { TextAttributes } from '@opentui/core'
+
+import { useTheme } from '../../hooks/use-theme'
+import {
+  isEnvTemplateFile,
+  isSensitiveFile,
+} from '../../utils/create-run-config'
 import { SimpleToolCallItem } from './tool-call-item'
 import { defineToolComponent } from './types'
 
 import type { ToolRenderConfig } from './types'
 
+function FilePathsDescription({ filePaths }: { filePaths: string[] }) {
+  const theme = useTheme()
+
+  return (
+    <>
+      {filePaths.map((fp, idx) => {
+        const isLast = idx === filePaths.length - 1
+        const separator = isLast ? '' : ', '
+
+        if (isSensitiveFile(fp)) {
+          return (
+            <span key={fp}>
+              <span fg={theme.muted} attributes={TextAttributes.STRIKETHROUGH}>
+                {fp}
+              </span>
+              <span fg={theme.muted}> (blocked)</span>
+              <span fg={theme.foreground}>{separator}</span>
+            </span>
+          )
+        }
+
+        if (isEnvTemplateFile(fp)) {
+          return (
+            <span key={fp}>
+              <span fg={theme.foreground}>{fp}</span>
+              <span fg={theme.muted}> (allowed - example only)</span>
+              <span fg={theme.foreground}>{separator}</span>
+            </span>
+          )
+        }
+
+        return (
+          <span key={fp} fg={theme.foreground}>
+            {fp}
+            {separator}
+          </span>
+        )
+      })}
+    </>
+  )
+}
+
 /**
  * UI component for read_files tool.
- * Displays all file paths as comma-separated list.
- * Does not support expand/collapse - always shows as a simple list.
+ * Displays file paths with labels for blocked/template files.
  */
 export const ReadFilesComponent = defineToolComponent({
   toolName: 'read_files',
@@ -26,9 +74,23 @@ export const ReadFilesComponent = defineToolComponent({
       return { content: null }
     }
 
+    // Check if any files need special labels
+    const hasSpecialFiles = filePaths.some(
+      (fp) => isSensitiveFile(fp) || isEnvTemplateFile(fp),
+    )
+
     return {
       content: (
-        <SimpleToolCallItem name="Read" description={filePaths.join(', ')} />
+        <SimpleToolCallItem
+          name="Read"
+          description={
+            hasSpecialFiles ? (
+              <FilePathsDescription filePaths={filePaths} />
+            ) : (
+              filePaths.join(', ')
+            )
+          }
+        />
       ),
     }
   },

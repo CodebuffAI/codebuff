@@ -24,6 +24,8 @@ import { listDirectory } from './tools/list-directory'
 import { getFiles } from './tools/read-files'
 import { runTerminalCommand } from './tools/run-terminal-command'
 
+import type { FileFilter } from './tools/read-files'
+
 import type { CustomToolDefinition } from './custom-tool'
 import type { RunState } from './run-state'
 import type { ServerAction } from '@codebuff/common/actions'
@@ -92,6 +94,9 @@ export type CodebuffClientOptions = {
           chunk: string
         },
   ) => void | Promise<void>
+
+  /** Optional filter to classify files before reading (runs before gitignore check) */
+  fileFilter?: FileFilter
 
   overrideTools?: Partial<
     {
@@ -183,6 +188,7 @@ async function runOnce({
   handleEvent,
   handleStreamChunk,
 
+  fileFilter,
   overrideTools,
   customToolDefinitions,
 
@@ -384,6 +390,7 @@ async function runOnce({
       readFiles({
         filePaths,
         override: overrideTools?.read_files,
+        fileFilter,
         cwd,
         fs,
       }),
@@ -391,6 +398,7 @@ async function runOnce({
       const files = await readFiles({
         filePaths: [filePath],
         override: overrideTools?.read_files,
+        fileFilter,
         cwd,
         fs,
       })
@@ -518,6 +526,7 @@ function requireCwd(cwd: string | undefined, toolName: string): string {
 async function readFiles({
   filePaths,
   override,
+  fileFilter,
   cwd,
   fs,
 }: {
@@ -525,13 +534,14 @@ async function readFiles({
   override?: NonNullable<
     Required<CodebuffClientOptions>['overrideTools']['read_files']
   >
+  fileFilter?: FileFilter
   cwd?: string
   fs: CodebuffFileSystem
 }) {
   if (override) {
     return await override({ filePaths })
   }
-  return getFiles({ filePaths, cwd: requireCwd(cwd, 'read_files'), fs })
+  return getFiles({ filePaths, cwd: requireCwd(cwd, 'read_files'), fs, fileFilter })
 }
 
 async function handleToolCall({

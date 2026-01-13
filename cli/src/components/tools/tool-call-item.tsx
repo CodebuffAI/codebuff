@@ -123,7 +123,8 @@ const renderExpandedContent = (
 
 interface SimpleToolCallItemProps {
   name: string
-  description: string
+  /** Description - can be a string or ReactNode for rich formatting */
+  description: string | ReactNode
   descriptionColor?: string
 }
 
@@ -142,7 +143,12 @@ export const SimpleToolCallItem = ({
         <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
           {name}
         </span>
-        <span fg={descriptionColor ?? theme.foreground}> {description}</span>
+        <span fg={theme.foreground}> </span>
+        {typeof description === 'string' ? (
+          <span fg={descriptionColor ?? theme.foreground}>{description}</span>
+        ) : (
+          description
+        )}
       </text>
     </box>
   )
