@@ -214,8 +214,23 @@ export type BillingDbConnection = {
 /**
  * Transaction callback type.
  * This matches the signature of drizzle's db.transaction method.
+ * 
+ * Note: The callback parameter uses `any` because the real Drizzle transaction
+ * type (`PgTransaction`) has many additional properties (schema, rollback, etc.)
+ * that our minimal `BillingDbConnection` doesn't include. Using `any` allows
+ * both the real transaction and mock implementations to work.
+ * 
+ * In tests, you can pass a mock that satisfies `BillingDbConnection`:
+ * @example
+ * ```typescript
+ * const mockTransaction: BillingTransactionFn = async (callback) => {
+ *   const mockDb = createMockDb({ users: [...] })
+ *   return callback(mockDb)
+ * }
+ * ```
  */
 export type BillingTransactionFn = <T>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   callback: (tx: any) => Promise<T>,
 ) => Promise<T>
 
