@@ -30,6 +30,13 @@ export interface CreditDelegationResult {
 }
 
 /**
+ * Dependencies for findOrganizationForRepository (for testing)
+ */
+export interface FindOrganizationForRepositoryDeps {
+  db?: typeof db
+}
+
+/**
  * Finds the organization associated with a repository for a given user.
  * Uses owner/repo comparison for better matching.
  */
@@ -37,8 +44,10 @@ export async function findOrganizationForRepository(params: {
   userId: string
   repositoryUrl: string
   logger: Logger
+  deps?: FindOrganizationForRepositoryDeps
 }): Promise<OrganizationLookupResult> {
-  const { userId, repositoryUrl, logger } = params
+  const { userId, repositoryUrl, logger, deps = {} } = params
+  const dbClient = deps.db ?? db
 
   try {
     const normalizedUrl = normalizeRepositoryUrl(repositoryUrl)
@@ -53,7 +62,7 @@ export async function findOrganizationForRepository(params: {
     }
 
     // First, check if user is a member of any organizations
-    const userOrganizations = await db
+    const userOrganizations = await dbClient
       .select({
         orgId: schema.orgMember.org_id,
         orgName: schema.org.name,
@@ -73,7 +82,7 @@ export async function findOrganizationForRepository(params: {
 
     // Check each organization for matching repositories
     for (const userOrg of userOrganizations) {
-      const orgRepos = await db
+      const orgRepos = await dbClient
         .select({
           repoUrl: schema.orgRepo.repo_url,
           repoName: schema.orgRepo.repo_name,

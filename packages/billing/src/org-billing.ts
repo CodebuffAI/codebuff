@@ -22,16 +22,27 @@ import type { GrantType } from '@codebuff/internal/db/schema'
 type DbConn = Pick<typeof db, 'select' | 'update'>
 
 /**
+ * Dependencies for syncOrganizationBillingCycle (for testing)
+ */
+export interface SyncOrganizationBillingCycleDeps {
+  db?: typeof db
+  stripeServer?: typeof stripeServer
+}
+
+/**
  * Syncs organization billing cycle with Stripe subscription and returns the current cycle start date.
  * All organizations are expected to have Stripe subscriptions.
  */
 export async function syncOrganizationBillingCycle(params: {
   organizationId: string
   logger: Logger
+  deps?: SyncOrganizationBillingCycleDeps
 }): Promise<Date> {
-  const { organizationId, logger } = params
+  const { organizationId, logger, deps = {} } = params
+  const dbClient = deps.db ?? db
+  const stripe = deps.stripeServer ?? stripeServer
 
-  const organization = await db.query.org.findFirst({
+  const organization = await dbClient.query.org.findFirst({
     where: eq(schema.org.id, organizationId),
     columns: {
       stripe_customer_id: true,
@@ -53,7 +64,7 @@ export async function syncOrganizationBillingCycle(params: {
   const now = new Date()
 
   try {
-    const subscriptions = await stripeServer.subscriptions.list({
+    const subscriptions = await stripe.subscriptions.list({
       customer: organization.stripe_customer_id,
       status: 'active',
       limit: 1,
@@ -86,7 +97,7 @@ export async function syncOrganizationBillingCycle(params: {
         60 * 1000
 
     if (needsUpdate) {
-      await db
+      await dbClient
         .update(schema.org)
         .set({
           current_period_start: stripeCurrentStart,
