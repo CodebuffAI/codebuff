@@ -18,10 +18,10 @@ import type {
 } from '@codebuff/common/types/contracts/billing'
 import type { GrantType } from '@codebuff/internal/db/schema'
 
-type CreditGrantSelect = typeof schema.creditLedger.$inferSelect
+// Local type alias for the transaction object - extracts the actual type from db.transaction
 type DbTransaction = Parameters<typeof db.transaction>[0] extends (
   tx: infer T,
-) => any
+) => unknown
   ? T
   : never
 
@@ -328,11 +328,18 @@ export async function processAndGrantCredit(params: {
  * @param deps Optional dependencies for testing (transaction function)
  * @returns true if the grant was found and revoked, false otherwise
  */
+/**
+ * Dependencies for revokeGrantByOperationId (for testing)
+ */
+export interface RevokeGrantByOperationIdDeps {
+  transaction?: BillingTransactionFn
+}
+
 export async function revokeGrantByOperationId(params: {
   operationId: string
   reason: string
   logger: Logger
-  deps?: { transaction?: BillingTransactionFn }
+  deps?: RevokeGrantByOperationIdDeps
 }): Promise<boolean> {
   const { operationId, reason, logger, deps = {} } = params
   const transaction = deps.transaction ?? db.transaction.bind(db)

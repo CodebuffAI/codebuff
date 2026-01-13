@@ -227,22 +227,34 @@ export type BillingDbConnection = {
 }
 
 /**
- * Transaction callback type.
- * This matches the signature of drizzle's db.transaction method.
+ * Transaction callback type for dependency injection.
  * 
- * Note: The callback parameter uses `any` because the real Drizzle transaction
- * type (`PgTransaction`) has many additional properties (schema, rollback, etc.)
- * that our minimal `BillingDbConnection` doesn't include. Using `any` allows
- * both the real transaction and mock implementations to work.
+ * This type uses `any` for the callback parameter to allow both:
+ * - Real Drizzle transactions (which have complex generic types)
+ * - Mock implementations using `BillingDbConnection`
  * 
- * In tests, you can pass a mock that satisfies `BillingDbConnection`:
+ * The `any` is necessary because Drizzle's `PgTransaction` type has method
+ * signatures incompatible with our simplified `BillingDbConnection` interface.
+ * Using a union or intersection type creates uncallable method signatures.
+ * 
+ * For production code that needs full Drizzle type safety (no DI), use
+ * `CodebuffTransactionFn` from `@codebuff/internal/db` instead.
+ * 
  * @example
  * ```typescript
+ * // In tests - create mocks that satisfy BillingDbConnection
  * const mockTransaction: BillingTransactionFn = async (callback) => {
  *   const mockDb = createMockDb({ users: [...] })
  *   return callback(mockDb)
  * }
+ * 
+ * // In production - use with db.transaction.bind(db)
+ * const transaction = deps.transaction ?? db.transaction.bind(db)
+ * await transaction(async (tx) => { ... })
  * ```
+ * 
+ * @see CodebuffTransactionFn in `@codebuff/internal/db` for fully-typed production use
+ * @see BillingDbConnection for the minimal interface that mocks should implement
  */
 export type BillingTransactionFn = <T>(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -300,7 +312,12 @@ export type GetOrganizationUsageResponseFn = (params: {
 // ============================================================================
 
 /**
- * Dependencies for triggerMonthlyResetAndGrant
+ * Dependencies for triggerMonthlyResetAndGrant.
+ * 
+ * Note: The `transaction` field uses `BillingTransactionFn` which accepts
+ * `BillingDbConnection` in the callback. This works for testing with mocks.
+ * In production code, the billing package uses `CodebuffTransactionFn` from
+ * `@codebuff/internal/db` which provides full Drizzle type safety.
  */
 export type TriggerMonthlyResetAndGrantDeps = {
   db?: BillingDbConnection
