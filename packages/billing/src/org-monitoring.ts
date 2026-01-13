@@ -369,12 +369,12 @@ export async function trackOrganizationUsageMetrics(params: {
     // TODO: Generate usage reports
     // TODO: Identify usage patterns and optimization opportunities
   } catch (error) {
-    const obj: any = {
-      ...params,
+    const { logger: _logger, ...paramsWithoutLogger } = params
+    const logData: Record<string, unknown> = {
+      ...paramsWithoutLogger,
       error: getErrorObject(error),
     }
-    delete obj.logger
-    logger.error(obj, 'Failed to track organization usage metrics')
+    logger.error(logData, 'Failed to track organization usage metrics')
   }
 }
 

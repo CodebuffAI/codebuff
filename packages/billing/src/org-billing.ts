@@ -387,9 +387,10 @@ export async function grantOrganizationCredits(
       { organizationId, userId, operationId, amount, expiresAt },
       'Created new organization credit grant',
     )
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Check if this is a unique constraint violation on operation_id
-    if (error.code === '23505' && error.constraint === 'credit_ledger_pkey') {
+    const dbError = error as { code?: string; constraint?: string } | null
+    if (dbError?.code === '23505' && dbError?.constraint === 'credit_ledger_pkey') {
       logger.info(
         { organizationId, userId, operationId, amount },
         'Skipping duplicate organization credit grant due to idempotency check',
@@ -559,7 +560,7 @@ export async function updateStripeSubscriptionQuantity(params: {
         proration_date: Math.floor(Date.now() / 1000),
       })
 
-      const logData: any = {
+      const logData: Record<string, unknown> = {
         orgId,
         actualQuantity,
         previousQuantity: teamFeeItem.quantity,
@@ -572,7 +573,7 @@ export async function updateStripeSubscriptionQuantity(params: {
       logger.info(logData, `Updated Stripe subscription quantity: ${context}`)
     }
   } catch (stripeError) {
-    const logData: any = {
+    const logData: Record<string, unknown> = {
       orgId,
       actualQuantity,
       context,

@@ -96,11 +96,15 @@ export async function reportPurchasedCreditsToStripe(params: {
           ),
         {
           maxRetries: 3,
-          retryIf: (error: any) =>
-            error?.type === 'StripeConnectionError' ||
-            error?.type === 'StripeAPIError' ||
-            error?.type === 'StripeRateLimitError',
-          onRetry: (error: any, attempt: number) => {
+          retryIf: (error: unknown) => {
+            const stripeError = error as { type?: string } | null
+            return (
+              stripeError?.type === 'StripeConnectionError' ||
+              stripeError?.type === 'StripeAPIError' ||
+              stripeError?.type === 'StripeRateLimitError'
+            )
+          },
+          onRetry: (error: unknown, attempt: number) => {
             logger.warn(
               { ...logContext, attempt, error },
               'Retrying Stripe metering call',

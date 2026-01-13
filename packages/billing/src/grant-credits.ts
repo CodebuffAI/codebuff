@@ -140,10 +140,12 @@ export async function grantCreditOperation(params: {
 
   // If the grant already exists, we can safely ignore this error since
   // the operation is idempotent - the grant was already created successfully
-  const isUniqueConstraintError = (error: any): boolean => {
+  const isUniqueConstraintError = (error: unknown): boolean => {
+    if (typeof error !== 'object' || error === null) return false
+    const err = error as { code?: string; message?: string }
     return (
-      error.code === '23505' ||
-      (error.message && error.message.includes('already exists'))
+      err.code === '23505' ||
+      (err.message !== undefined && err.message.includes('already exists'))
     )
   }
 
@@ -190,7 +192,7 @@ export async function grantCreditOperation(params: {
           expires_at: expiresAt,
           created_at: now,
         })
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (isUniqueConstraintError(error)) {
           logger.info(
             { userId, operationId, type, amount },
@@ -215,7 +217,7 @@ export async function grantCreditOperation(params: {
         expires_at: expiresAt,
         created_at: now,
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (isUniqueConstraintError(error)) {
         logger.info(
           { userId, operationId, type, amount },
@@ -272,10 +274,11 @@ export async function processAndGrantCredit(params: {
         )
       },
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     await logSyncFailure({
       id: operationId,
-      errorMessage: error.message,
+      errorMessage,
       provider: 'internal',
       logger,
     })

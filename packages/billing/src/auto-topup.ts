@@ -524,7 +524,7 @@ export async function checkAndTriggerOrgAutoTopup(params: {
   logger: Logger
 }): Promise<void> {
   const { organizationId, userId, logger } = params
-  const logContext: any = { organizationId, userId }
+  const logContext: Record<string, unknown> = { organizationId, userId }
 
   try {
     const org = await getOrganizationSettings(organizationId)
