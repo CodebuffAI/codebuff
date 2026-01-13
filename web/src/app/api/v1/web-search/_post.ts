@@ -23,6 +23,7 @@ import type { NextRequest } from 'next/server'
 import { searchWeb } from '@codebuff/agent-runtime/llm-api/linkup-api'
 
 import type { LinkupEnv } from '@codebuff/agent-runtime/llm-api/linkup-api'
+import { sleep } from '@codebuff/common/util/promise'
 
 const bodySchema = z.object({
   query: z.string().min(1, 'query is required'),
@@ -87,18 +88,27 @@ export async function postWebSearch(params: {
   const baseCost = depth === 'deep' ? 5 : 1
   const creditsToCharge = Math.round(baseCost * (1 + PROFIT_MARGIN))
 
-  const credits = await checkCreditsAndCharge({
-    userId,
-    creditsToCharge,
-    repoUrl,
-    context: 'web search',
-    logger,
-    trackEvent,
-    insufficientCreditsEvent: AnalyticsEvent.WEB_SEARCH_INSUFFICIENT_CREDITS,
-    getUserUsageData,
-    consumeCreditsWithFallback,
-  })
-  if (!credits.ok) return credits.response
+  // Retry credits charge up to 3 times (flaky)
+  let credits: Awaited<ReturnType<typeof checkCreditsAndCharge>> | undefined
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    credits = await checkCreditsAndCharge({
+      userId,
+      creditsToCharge,
+      repoUrl,
+      context: 'web search',
+      logger,
+      trackEvent,
+      insufficientCreditsEvent: AnalyticsEvent.WEB_SEARCH_INSUFFICIENT_CREDITS,
+      getUserUsageData,
+      consumeCreditsWithFallback,
+    })
+    if (credits.ok) break
+    if (attempt < 3) {
+      await sleep(1000 * attempt)
+      logger.warn({ attempt }, 'Credits charge failed, retrying')
+    }
+  }
+  if (!credits!.ok) return credits!.response
 
   // Perform search
   try {
@@ -119,7 +129,7 @@ export async function postWebSearch(params: {
 
     return NextResponse.json({
       result,
-      creditsUsed: credits.data.creditsUsed,
+      creditsUsed: credits!.data.creditsUsed,
     })
   } catch (error) {
     logger.error(
