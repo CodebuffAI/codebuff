@@ -174,6 +174,69 @@ For columns that share space equally within a container, use the **flex trio pat
 
 OpenTUI expects plain text content or the `content` prop - it does not handle JSX expressions within text elements.
 
+## Interactive Clickable Elements and Text Selection
+
+When building interactive UI in the CLI, text inside clickable areas should **not** be selectable. Otherwise users accidentally highlight text when clicking buttons, which creates a poor UX.
+
+### Components
+
+**`Button`** (`cli/src/components/button.tsx`) - Primary choice for clickable controls:
+- Automatically makes all nested `<text>`/`<span>` children non-selectable
+- Implements safe click detection via mouseDown/mouseUp tracking (prevents accidental clicks from hover events)
+- Use for standard button-like interactions
+
+**`Clickable`** (`cli/src/components/clickable.tsx`) - For custom interactive regions:
+- Also makes all nested text non-selectable
+- Gives you direct control over mouse events (`onMouseDown`, `onMouseUp`, `onMouseOver`, `onMouseOut`)
+- Use when you need more control than `Button` provides
+
+**`makeTextUnselectable()`** - Exported utility for edge cases:
+- Recursively processes React children to add `selectable={false}` to all `<text>` and `<span>` elements
+- Use when building custom interactive components that can't use `Button` or `Clickable`
+
+### Usage Examples
+
+```tsx
+// ✅ CORRECT: Use Button for clickable controls
+import { Button } from './button'
+
+<Button onClick={handleClick}>
+  <text>Click me</text>
+</Button>
+
+// ✅ CORRECT: Use Clickable for custom mouse handling
+import { Clickable } from './clickable'
+
+<Clickable
+  onMouseDown={handleMouseDown}
+  onMouseOver={() => setHovered(true)}
+  onMouseOut={() => setHovered(false)}
+>
+  <text>Hover or click me</text>
+</Clickable>
+
+// ❌ WRONG: Raw <box> with mouse handlers (text will be selectable!)
+<box onMouseDown={handleClick}>
+  <text>Click me</text>  {/* Text can be accidentally selected */}
+</box>
+```
+
+### When to Use Which
+
+| Scenario | Use |
+|----------|-----|
+| Standard button | `Button` |
+| Link-like clickable text | `Button` |
+| Custom hover/click behavior | `Clickable` |
+| Building a new interactive primitive | `makeTextUnselectable()` |
+
+### Why This Matters
+
+These patterns:
+1. **Prevent accidental text selection** during clicks
+2. **Provide consistent behavior** across all interactive elements
+3. **Give future contributors clear building blocks** - no need to remember to add `selectable={false}` manually
+
 ## Screen Mode and TODO List Positioning
 
 The CLI chat interface adapts its layout based on terminal dimensions:

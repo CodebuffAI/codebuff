@@ -3,6 +3,7 @@ import React, { memo, useCallback, useState, type ReactNode } from 'react'
 
 import { AgentBranchItem } from './agent-branch-item'
 import { Button } from './button'
+import { Clickable } from './clickable'
 import { CopyButton, useCopyButton } from './copy-icon-button'
 import { ImageCard } from './image-card'
 import { ImplementorGroup } from './implementor-row'
@@ -853,7 +854,8 @@ const UserTextWithInlineCopy = memo(
     const copyButton = useCopyButton(content)
 
     return (
-      <text
+      <Clickable
+        as="text"
         key={`message-content-${messageId}`}
         style={{ wrapMode: 'word', fg: textColor }}
         onMouseDown={copyButton.handleCopy}
@@ -868,8 +870,8 @@ const UserTextWithInlineCopy = memo(
             palette={palette}
           />
         </span>
-        <CopyButton textToCopy={content} isCopied={copyButton.isCopied} isHovered={copyButton.isHovered} />
-      </text>
+        <CopyButton isCopied={copyButton.isCopied} isHovered={copyButton.isHovered} />
+      </Clickable>
     )
   },
 )
@@ -902,7 +904,8 @@ const UserBlockTextWithInlineCopy = memo(
     const copyButton = useCopyButton(contentToCopy)
 
     return (
-      <text
+      <Clickable
+        as="text"
         style={{
           wrapMode: 'word',
           fg: textColor,
@@ -921,8 +924,8 @@ const UserBlockTextWithInlineCopy = memo(
             palette={palette}
           />
         </span>
-        <CopyButton textToCopy={contentToCopy} isCopied={copyButton.isCopied} isHovered={copyButton.isHovered} />
-      </text>
+        <CopyButton isCopied={copyButton.isCopied} isHovered={copyButton.isHovered} />
+      </Clickable>
     )
   },
 )

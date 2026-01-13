@@ -6,7 +6,6 @@ import { useTimeout } from '../hooks/use-timeout'
 import { copyTextToClipboard } from '../utils/clipboard'
 
 interface CopyButtonProps {
-  textToCopy: string
   isCopied?: boolean
   isHovered?: boolean
   /** Whether to include a leading space before the icon */
