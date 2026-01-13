@@ -465,8 +465,8 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     },
   }),
   defineCommand({
-    name: 'chats',
-    aliases: ['history'],
+    name: 'history',
+    aliases: ['chats'],
     handler: (params) => {
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)

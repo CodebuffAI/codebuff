@@ -54,10 +54,10 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     aliases: ['n', 'clear', 'c', 'reset'],
   },
   {
-    id: 'chats',
-    label: 'chats',
+    id: 'history',
+    label: 'history',
     description: 'Browse and resume past conversations',
-    aliases: ['history'],
+    aliases: ['chats'],
   },
   {
     id: 'feedback',
