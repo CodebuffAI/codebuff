@@ -354,24 +354,12 @@ const updateSpawnAgentBlocks = (
 
       if (result?.value) {
         const { content, hasError } = extractSpawnAgentResultContent(result.value)
-        
-        // Check if there's meaningful text content already streamed
-        const existingTextContent = block.blocks
-          .filter((b): b is { type: 'text'; content: string } => b.type === 'text')
-          .map(b => b.content)
-          .join('')
-          .trim()
-        
-        // Use extracted content from result if it's more substantial than existing streamed content.
-        // This ensures agents with lastMessage output mode (like researcher-web) show their final
-        // result inside the box, even if they had tool blocks or partial content during execution.
-        const shouldUseExtractedContent = content && (!existingTextContent || content.length > existingTextContent.length)
-        
+        // Preserve streamed content (agents like commander stream their output)
         const hasStreamedContent = block.blocks.length > 0
         if (hasError || content || hasStreamedContent) {
           return {
             ...block,
-            blocks: shouldUseExtractedContent ? [{ type: 'text', content } as ContentBlock] : block.blocks,
+            blocks: hasStreamedContent ? block.blocks : [{ type: 'text', content } as ContentBlock],
             status: hasError ? ('failed' as const) : ('complete' as const),
           }
         }
