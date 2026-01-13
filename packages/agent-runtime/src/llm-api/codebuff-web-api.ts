@@ -3,6 +3,9 @@ import type { ClientEnv, CiEnv } from '@codebuff/common/types/contracts/env'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const FETCH_TIMEOUT_MS = 30_000
+const MAX_RETRIES = 3
+const RETRY_BASE_DELAY_MS = 1000
+const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504])
 
 interface CodebuffWebApiEnv {
   clientEnv: ClientEnv
@@ -50,55 +53,103 @@ const callCodebuffV1 = async (params: {
   }
 
   const url = `${baseUrl}${endpoint}`
+  let lastError: string | undefined
 
-  try {
-    const res = await withTimeout(
-      fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-          'x-codebuff-api-key': apiKey,
-        },
-        body: JSON.stringify(payload),
-      }),
-      FETCH_TIMEOUT_MS,
-    )
-
-    const text = await res.text()
-    const json = tryParseJson(text)
-
-    if (!res.ok) {
-      const err =
-        getStringField(json, 'error') ??
-        getStringField(json, 'message') ??
-        text ??
-        'Request failed'
-      logger.warn(
-        {
-          url,
-          status: res.status,
-          statusText: res.statusText,
-          body: text?.slice(0, 500),
-        },
-        `Web API ${requestName} request failed`,
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await withTimeout(
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+            'x-codebuff-api-key': apiKey,
+          },
+          body: JSON.stringify(payload),
+        }),
+        FETCH_TIMEOUT_MS,
       )
-      return { error: err }
-    }
 
-    return { json, creditsUsed: getNumberField(json, 'creditsUsed') }
-  } catch (error) {
-    logger.error(
-      {
-        error:
-          error instanceof Error
-            ? { name: error.name, message: error.message, stack: error.stack }
-            : error,
-      },
-      `Web API ${requestName} network error`,
-    )
-    return { error: error instanceof Error ? error.message : 'Network error' }
+      const text = await res.text()
+      const json = tryParseJson(text)
+
+      if (!res.ok) {
+        const err =
+          getStringField(json, 'error') ??
+          getStringField(json, 'message') ??
+          text ??
+          'Request failed'
+
+        // Retry on transient errors
+        if (RETRYABLE_STATUS_CODES.has(res.status) && attempt < MAX_RETRIES) {
+          const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1)
+          logger.warn(
+            {
+              url,
+              status: res.status,
+              statusText: res.statusText,
+              attempt,
+              maxRetries: MAX_RETRIES,
+              nextRetryDelayMs: delay,
+            },
+            `Web API ${requestName} request failed with retryable status, retrying...`,
+          )
+          await new Promise((resolve) => setTimeout(resolve, delay))
+          lastError = err
+          continue
+        }
+
+        logger.warn(
+          {
+            url,
+            status: res.status,
+            statusText: res.statusText,
+            body: text?.slice(0, 500),
+            attempt,
+          },
+          `Web API ${requestName} request failed`,
+        )
+        return { error: err }
+      }
+
+      return { json, creditsUsed: getNumberField(json, 'creditsUsed') }
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : 'Network error'
+
+      // Retry on network errors
+      if (attempt < MAX_RETRIES) {
+        const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1)
+        logger.warn(
+          {
+            error:
+              error instanceof Error
+                ? { name: error.name, message: error.message }
+                : error,
+            attempt,
+            maxRetries: MAX_RETRIES,
+            nextRetryDelayMs: delay,
+          },
+          `Web API ${requestName} network error, retrying...`,
+        )
+        await new Promise((resolve) => setTimeout(resolve, delay))
+        continue
+      }
+
+      logger.error(
+        {
+          error:
+            error instanceof Error
+              ? { name: error.name, message: error.message, stack: error.stack }
+              : error,
+          attempt,
+        },
+        `Web API ${requestName} network error after all retries`,
+      )
+      return { error: lastError }
+    }
   }
+
+  return { error: lastError ?? 'Request failed after all retries' }
 }
 
 export async function callWebSearchAPI(params: {
