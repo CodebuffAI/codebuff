@@ -1,18 +1,20 @@
 import { describe, test, expect } from 'bun:test'
 
 /**
- * Tests for the CopyButton hover state behavior.
+ * Tests for the CopyButton internal hover state behavior.
  *
  * The key behavior being tested:
  * - Hover state should be set when mouse enters and cleared when mouse leaves
  * - When copied, hover state should be cleared and not re-open until mouse re-enters
+ *
+ * These tests verify the state logic that's now internal to the CopyButton component.
  */
 describe('CopyButton hover state behavior', () => {
   test('hover state logic: hover should not open while in copied state', () => {
     let isCopied = false
     let isHovered = false
 
-    // Simulate the handleMouseOver logic from useCopyButton
+    // Simulate the handleMouseOver logic from CopyButton
     const handleMouseOver = () => {
       if (!isCopied) {
         isHovered = true
@@ -38,7 +40,7 @@ describe('CopyButton hover state behavior', () => {
     let isCopied = false
     let isHovered = true
 
-    // Simulate the handleCopy logic from useCopyButton
+    // Simulate the handleCopy logic from CopyButton
     const handleCopy = () => {
       isCopied = true
       isHovered = false
@@ -55,7 +57,7 @@ describe('CopyButton hover state behavior', () => {
   test('hover state logic: mouse out always clears hover', () => {
     let isHovered = true
 
-    // Simulate the handleMouseOut logic from useCopyButton
+    // Simulate the handleMouseOut logic from CopyButton
     const handleMouseOut = () => {
       isHovered = false
     }

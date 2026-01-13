@@ -3,7 +3,7 @@ import React, { memo, useCallback, useState, type ReactNode } from 'react'
 
 import { AgentBranchItem } from './agent-branch-item'
 import { Button } from './button'
-import { CopyButton, useCopyButton } from './copy-icon-button'
+import { CopyButton } from './copy-button'
 import { ImageCard } from './image-card'
 import { ImplementorGroup } from './implementor-row'
 import { MessageFooter } from './message-footer'
@@ -850,15 +850,10 @@ const UserTextWithInlineCopy = memo(
     codeBlockWidth,
     palette,
   }: UserTextWithInlineCopyProps) => {
-    const copyButton = useCopyButton(content)
-
     return (
-      <text
-        key={`message-content-${messageId}`}
+      <CopyButton
+        textToCopy={content}
         style={{ wrapMode: 'word', fg: textColor }}
-        onMouseDown={copyButton.handleCopy}
-        onMouseOver={copyButton.handleMouseOver}
-        onMouseOut={copyButton.handleMouseOut}
       >
         <span attributes={TextAttributes.ITALIC}>
           <ContentWithMarkdown
@@ -868,8 +863,7 @@ const UserTextWithInlineCopy = memo(
             palette={palette}
           />
         </span>
-        <CopyButton textToCopy={content} isCopied={copyButton.isCopied} isHovered={copyButton.isHovered} />
-      </text>
+      </CopyButton>
     )
   },
 )
@@ -899,19 +893,15 @@ const UserBlockTextWithInlineCopy = memo(
     marginTop,
     marginBottom,
   }: UserBlockTextWithInlineCopyProps) => {
-    const copyButton = useCopyButton(contentToCopy)
-
     return (
-      <text
+      <CopyButton
+        textToCopy={contentToCopy}
         style={{
           wrapMode: 'word',
           fg: textColor,
           marginTop,
           marginBottom,
         }}
-        onMouseDown={copyButton.handleCopy}
-        onMouseOver={copyButton.handleMouseOver}
-        onMouseOut={copyButton.handleMouseOut}
       >
         <span attributes={TextAttributes.ITALIC}>
           <ContentWithMarkdown
@@ -921,8 +911,7 @@ const UserBlockTextWithInlineCopy = memo(
             palette={palette}
           />
         </span>
-        <CopyButton textToCopy={contentToCopy} isCopied={copyButton.isCopied} isHovered={copyButton.isHovered} />
-      </text>
+      </CopyButton>
     )
   },
 )
