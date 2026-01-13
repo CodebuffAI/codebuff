@@ -1,7 +1,3 @@
-import {
-  clearMockedModules,
-  mockModule,
-} from '@codebuff/common/testing/mock-modules'
 import { getUserInfoFromApiKey } from '@codebuff/sdk'
 import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
 
@@ -48,21 +44,27 @@ describe('API Integration', () => {
     return fetchMock
   }
 
-  beforeEach(async () => {
+  // Store original setTimeout to restore later
+  const originalSetTimeout = globalThis.setTimeout
+
+  beforeEach(() => {
     process.env.NEXT_PUBLIC_CODEBUFF_APP_URL = 'https://example.codebuff.test'
-    // Mock retry delays to be instant for faster tests
-    // Use relative path from mock-modules.ts to the actual retry-config file
-    await mockModule('../../sdk/src/retry-config', () => ({
-      MAX_RETRIES_PER_MESSAGE: 3,
-      RETRY_BACKOFF_BASE_DELAY_MS: 0,
-      RETRY_BACKOFF_MAX_DELAY_MS: 0,
-    }))
+    // Mock setTimeout to execute immediately for faster tests
+    // This makes the retry backoff delays instant
+    globalThis.setTimeout = ((
+      fn: (...args: unknown[]) => void,
+      _delay?: number,
+      ...args: unknown[]
+    ) => {
+      fn(...args)
+      return 0 as unknown as ReturnType<typeof setTimeout>
+    }) as typeof setTimeout
   })
 
   afterEach(() => {
     globalThis.fetch = originalFetch
+    globalThis.setTimeout = originalSetTimeout
     process.env.NEXT_PUBLIC_CODEBUFF_APP_URL = originalAppUrl
-    clearMockedModules()
     mock.restore()
   })
 
