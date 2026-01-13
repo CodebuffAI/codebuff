@@ -17,6 +17,9 @@ import type {
 } from '@codebuff/common/types/function-params'
 import type { ErrorOr } from '@codebuff/common/util/error'
 import type { GrantType } from '@codebuff/internal/db/schema'
+import type { withSerializableTransaction as withSerializableTransactionFn } from '@codebuff/internal/db/transaction'
+import type { trackEvent as trackEventFn } from '@codebuff/common/analytics'
+import type { reportPurchasedCreditsToStripe as reportPurchasedCreditsToStripeFn } from './stripe-metering'
 
 export interface CreditBalance {
   totalRemaining: number
@@ -41,6 +44,22 @@ type DbConn = Pick<
   typeof db,
   'select' | 'update'
 > /* + whatever else you call */
+
+/**
+ * Dependencies for calculateUsageThisCycle (for testing)
+ */
+export interface CalculateUsageThisCycleDeps {
+  db?: typeof db
+}
+
+/**
+ * Dependencies for consumeCreditsAndAddAgentStep (for testing)
+ */
+export interface ConsumeCreditsAndAddAgentStepDeps {
+  withSerializableTransaction?: typeof withSerializableTransactionFn
+  trackEvent?: typeof trackEventFn
+  reportPurchasedCreditsToStripe?: typeof reportPurchasedCreditsToStripeFn
+}
 
 /**
  * Gets active grants for a user, ordered by expiration (soonest first), then priority, and creation date.
@@ -449,6 +468,7 @@ export async function consumeCreditsAndAddAgentStep(params: {
   outputTokens: number
 
   logger: Logger
+  deps?: ConsumeCreditsAndAddAgentStepDeps
 }): Promise<ErrorOr<CreditConsumptionResult & { agentStepId: string }>> {
   const {
     messageId,
@@ -474,7 +494,13 @@ export async function consumeCreditsAndAddAgentStep(params: {
     outputTokens,
 
     logger,
+    deps = {},
   } = params
+
+  // Use injected dependencies or defaults
+  const withTransaction = deps.withSerializableTransaction ?? withSerializableTransaction
+  const track = deps.trackEvent ?? trackEvent
+  const reportToStripe = deps.reportPurchasedCreditsToStripe ?? reportPurchasedCreditsToStripe
 
   const finishedAt = new Date()
   const latencyMs = finishedAt.getTime() - startTime.getTime()
@@ -491,7 +517,7 @@ export async function consumeCreditsAndAddAgentStep(params: {
     'fetch_grants'
 
   try {
-    const result = await withSerializableTransaction({
+    const result = await withTransaction({
       callback: async (tx) => {
         // Reset state at start of each transaction attempt (in case of retries)
         activeGrantsSnapshot = []
@@ -588,7 +614,7 @@ export async function consumeCreditsAndAddAgentStep(params: {
     })
 
     // Track credit consumption analytics
-    trackEvent({
+    track({
       event: AnalyticsEvent.CREDIT_CONSUMED,
       userId,
       properties: {
@@ -609,7 +635,7 @@ export async function consumeCreditsAndAddAgentStep(params: {
       logger,
     })
 
-    await reportPurchasedCreditsToStripe({
+    await reportToStripe({
       userId,
       stripeCustomerId: params.stripeCustomerId,
       purchasedCredits: result.fromPurchased,
@@ -664,10 +690,12 @@ export async function consumeCreditsAndAddAgentStep(params: {
 export async function calculateUsageThisCycle(params: {
   userId: string
   quotaResetDate: Date
+  deps?: CalculateUsageThisCycleDeps
 }): Promise<number> {
-  const { userId, quotaResetDate } = params
+  const { userId, quotaResetDate, deps = {} } = params
+  const dbClient = deps.db ?? db
 
-  const usageResult = await db
+  const usageResult = await dbClient
     .select({
       totalUsed: sql<number>`COALESCE(SUM(${schema.creditLedger.principal} - ${schema.creditLedger.balance}), 0)`,
     })
