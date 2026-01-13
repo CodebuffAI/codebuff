@@ -4,19 +4,22 @@ export async function withRetry<T>(
   operation: () => Promise<T>,
   options: {
     maxRetries?: number
-    retryIf?: (error: any) => boolean
-    onRetry?: (error: any, attempt: number) => void
+    retryIf?: (error: unknown) => boolean
+    onRetry?: (error: unknown, attempt: number) => void
     retryDelayMs?: number
   } = {},
 ): Promise<T> {
   const {
     maxRetries = 3,
-    retryIf = (error) => error?.type === 'APIConnectionError',
+    retryIf = (error) => {
+      const errorObj = error as { type?: string } | null | undefined
+      return errorObj?.type === 'APIConnectionError'
+    },
     onRetry = () => {},
     retryDelayMs = INITIAL_RETRY_DELAY,
   } = options
 
-  let lastError: any = null
+  let lastError: unknown = null
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {

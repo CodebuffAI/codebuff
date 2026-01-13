@@ -1,33 +1,37 @@
 import { isEqual, mapValues, union } from 'lodash'
 
+type RemoveUndefined<T extends object> = {
+  [K in keyof T as T[K] extends undefined ? never : K]: Exclude<T[K], undefined>
+}
+
 export const removeUndefinedProps = <T extends object>(
   obj: T,
-): {
-  [K in keyof T as T[K] extends undefined ? never : K]: Exclude<T[K], undefined>
-} => {
-  const newObj: any = {}
+): RemoveUndefined<T> => {
+  const newObj: Record<string, unknown> = {}
 
   for (const key of Object.keys(obj)) {
-    if ((obj as any)[key] !== undefined) newObj[key] = (obj as any)[key]
+    const value = obj[key as keyof T]
+    if (value !== undefined) newObj[key] = value
   }
 
-  return newObj
+  return newObj as RemoveUndefined<T>
 }
 
 export const removeNullOrUndefinedProps = <T extends object>(
   obj: T,
   exceptions?: string[],
 ): T => {
-  const newObj: any = {}
+  const newObj: Record<string, unknown> = {}
 
   for (const key of Object.keys(obj)) {
+    const value = obj[key as keyof T]
     if (
-      ((obj as any)[key] !== undefined && (obj as any)[key] !== null) ||
+      (value !== undefined && value !== null) ||
       (exceptions ?? []).includes(key)
     )
-      newObj[key] = (obj as any)[key]
+      newObj[key] = value
   }
-  return newObj
+  return newObj as T
 }
 
 export const addObjects = <T extends { [key: string]: number }>(
@@ -35,7 +39,7 @@ export const addObjects = <T extends { [key: string]: number }>(
   obj2: T,
 ) => {
   const keys = union(Object.keys(obj1), Object.keys(obj2))
-  const newObj = {} as any
+  const newObj: Record<string, number> = {}
 
   for (const key of keys) {
     newObj[key] = (obj1[key] ?? 0) + (obj2[key] ?? 0)
@@ -49,7 +53,7 @@ export const subtractObjects = <T extends { [key: string]: number }>(
   obj2: T,
 ) => {
   const keys = union(Object.keys(obj1), Object.keys(obj2))
-  const newObj = {} as any
+  const newObj: Record<string, number> = {}
 
   for (const key of keys) {
     newObj[key] = (obj1[key] ?? 0) - (obj2[key] ?? 0)
@@ -68,14 +72,19 @@ export const hasSignificantDeepChanges = <T extends object>(
   partial: Partial<T>,
   epsilonForNumbers: number,
 ): boolean => {
-  const compareValues = (currValue: any, partialValue: any): boolean => {
+  const compareValues = (currValue: unknown, partialValue: unknown): boolean => {
     if (typeof currValue === 'number' && typeof partialValue === 'number') {
       return Math.abs(currValue - partialValue) > epsilonForNumbers
     }
-    if (typeof currValue === 'object' && typeof partialValue === 'object') {
+    if (
+      typeof currValue === 'object' &&
+      currValue !== null &&
+      typeof partialValue === 'object' &&
+      partialValue !== null
+    ) {
       return hasSignificantDeepChanges(
-        currValue,
-        partialValue,
+        currValue as Record<string, unknown>,
+        partialValue as Partial<Record<string, unknown>>,
         epsilonForNumbers,
       )
     }
@@ -95,7 +104,7 @@ export const hasSignificantDeepChanges = <T extends object>(
 
 export const filterObject = <T extends object>(
   obj: T,
-  predicate: (value: any, key: keyof T) => boolean,
+  predicate: (value: T[keyof T], key: keyof T) => boolean,
 ): { [P in keyof T]: T[P] } => {
   const result = {} as { [P in keyof T]: T[P] }
   for (const key in obj) {

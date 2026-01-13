@@ -277,8 +277,16 @@ export async function calculateOrganizationUsageAndBalance(
 
 /**
  * Type for the withSerializableTransaction dependency.
+ * 
+ * The callback parameter uses `any` for the same reason as `BillingTransactionFn`:
+ * Drizzle's `PgTransaction` type has method signatures incompatible with our
+ * simplified `BillingDbConnection` interface. Using `any` allows both real
+ * Drizzle transactions and mock implementations to work.
+ * 
+ * @see BillingTransactionFn in `@codebuff/common/types/contracts/billing` for details
  */
 type WithSerializableTransactionFn = <T>(params: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   callback: (tx: any) => Promise<T>
   context: Record<string, unknown>
   logger: Logger
