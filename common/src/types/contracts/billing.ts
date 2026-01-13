@@ -44,24 +44,170 @@ export type Referral = {
 }
 
 // ============================================================================
+// Query Builder Types for Type-Safe Database Operations
+// ============================================================================
+
+/**
+ * Result of a where clause - provides ordering, grouping, limiting, and promise resolution.
+ * @template T - The type of records being queried
+ */
+export interface WhereResult<T> {
+  /** Order results by specified columns */
+  orderBy: (...columns: unknown[]) => OrderByResult<T>
+  /** Group results by specified columns */
+  groupBy: (...columns: unknown[]) => GroupByResult<T>
+  /** Limit the number of results */
+  limit: (n: number) => T[]
+  /** Execute query and resolve with results */
+  then: <R>(callback: (rows: T[]) => R) => R
+}
+
+/**
+ * Result of an orderBy clause - provides limiting and promise resolution.
+ * @template T - The type of records being queried
+ */
+export interface OrderByResult<T> {
+  /** Limit the number of results */
+  limit: (n: number) => T[]
+  /** Execute query and resolve with results */
+  then: <R>(callback: (rows: T[]) => R) => R
+}
+
+/**
+ * Result of a groupBy clause - provides ordering.
+ * @template T - The type of records being queried
+ */
+export interface GroupByResult<T> {
+  /** Order grouped results */
+  orderBy: (...columns: unknown[]) => OrderByResult<T>
+}
+
+/**
+ * Result of a from clause - provides where, join, and promise resolution.
+ * @template T - The type of records being queried
+ */
+export interface FromResult<T> {
+  /** Filter results with a condition */
+  where: (condition?: unknown) => WhereResult<T>
+  /** Join with another table */
+  innerJoin: (...args: unknown[]) => InnerJoinResult<T>
+  /** Execute query and resolve with results */
+  then: <R>(callback: (rows: T[]) => R) => R
+}
+
+/**
+ * Result of an innerJoin clause.
+ * @template T - The type of records being queried
+ */
+export interface InnerJoinResult<T> {
+  /** Filter joined results */
+  where: (condition?: unknown) => Promise<T[]>
+}
+
+/**
+ * Select query builder for type-safe select operations.
+ * @template T - The type of records being selected
+ */
+export interface SelectQueryBuilder<T = unknown> {
+  /** Specify the table to select from */
+  from: (table?: unknown) => FromResult<T>
+}
+
+/**
+ * Insert query builder for type-safe insert operations.
+ * @template T - The type of record being inserted
+ */
+export interface InsertQueryBuilder<T = unknown> {
+  /** Specify the values to insert */
+  values: (values: T | T[]) => Promise<void>
+}
+
+/**
+ * Update set result - provides where clause.
+ */
+export interface UpdateSetResult {
+  /** Filter which records to update */
+  where: (condition?: unknown) => Promise<void>
+}
+
+/**
+ * Update query builder for type-safe update operations.
+ * @template T - The type of record being updated
+ */
+export interface UpdateQueryBuilder<T = unknown> {
+  /** Specify the values to set */
+  set: (values: Partial<T>) => UpdateSetResult
+}
+
+/**
+ * Parameters for findFirst query.
+ * @template T - The type of record columns
+ */
+export interface FindFirstParams<T = unknown> {
+  /** Condition to filter by */
+  where?: unknown
+  /** Columns to select */
+  columns?: Partial<Record<keyof T, boolean>>
+}
+
+/**
+ * Query interface for a specific table.
+ * @template T - The type of records in the table
+ */
+export interface TableQuery<T> {
+  /** Find the first matching record */
+  findFirst: (params?: FindFirstParams<T>) => Promise<T | null>
+}
+
+// ============================================================================
 // Database connection type for DI
 // ============================================================================
 
 /**
  * Minimal database connection interface that both `db` and transaction `tx` satisfy.
  * Used for dependency injection in billing functions.
+ * 
+ * The generic type parameters allow for type-safe queries while still being
+ * flexible enough for mocking in tests.
+ * 
+ * @example
+ * ```typescript
+ * // Using with real db
+ * const db: BillingDbConnection = realDb
+ * 
+ * // Using with mock in tests
+ * const mockDb = createMockDb({ users: [...], creditGrants: [...] })
+ * await myFunction({ deps: { db: mockDb } })
+ * ```
  */
 export type BillingDbConnection = {
-  select: (...args: any[]) => any
-  update: (...args: any[]) => any
-  insert: (...args: any[]) => any
+  /**
+   * Start a select query. Returns a builder for chaining from/where/orderBy/limit.
+   * @param fields - Optional fields object to select specific columns
+   */
+  select: <T = unknown>(fields?: Record<string, unknown>) => SelectQueryBuilder<T>
+  
+  /**
+   * Start an update query. Returns a builder for chaining set/where.
+   * @param table - Optional table reference
+   */
+  update: <T = unknown>(table?: unknown) => UpdateQueryBuilder<T>
+  
+  /**
+   * Start an insert query. Returns a builder for chaining values.
+   * @param table - Optional table reference
+   */
+  insert: <T = unknown>(table?: unknown) => InsertQueryBuilder<T>
+  
+  /**
+   * Direct query access for Drizzle-style queries.
+   * Provides findFirst/findMany methods on specific tables.
+   */
   query: {
-    user: {
-      findFirst: (params: any) => Promise<any>
-    }
-    creditLedger: {
-      findFirst: (params: any) => Promise<any>
-    }
+    /** Query the user table */
+    user: TableQuery<BillingUser>
+    /** Query the creditLedger table */
+    creditLedger: TableQuery<CreditGrant>
   }
 }
 
