@@ -1,4 +1,8 @@
-import React, { cloneElement, isValidElement, memo, useRef, type ReactElement, type ReactNode } from 'react'
+import { memo, useRef } from 'react'
+
+import { makeTextUnselectable } from './clickable'
+
+import type { ReactNode } from 'react'
 
 interface ButtonProps {
   onClick?: (e?: unknown) => void | Promise<unknown>
@@ -10,33 +14,21 @@ interface ButtonProps {
   [key: string]: unknown
 }
 
-function makeTextUnselectable(node: ReactNode): ReactNode {
-  if (node === null || node === undefined || typeof node === 'boolean') return node
-  if (typeof node === 'string' || typeof node === 'number') return node
-
-  if (Array.isArray(node)) {
-    return node.map((child, idx) => <React.Fragment key={idx}>{makeTextUnselectable(child)}</React.Fragment>)
-  }
-
-  if (!isValidElement(node)) return node
-
-  const el = node as ReactElement
-  const type = el.type
-
-  // Ensure text nodes are not selectable
-  if (typeof type === 'string' && type === 'text') {
-    const nextProps = { ...el.props, selectable: false }
-    const nextChildren = el.props?.children ? makeTextUnselectable(el.props.children) : el.props?.children
-    return cloneElement(el, nextProps, nextChildren)
-  }
-
-  // Recurse into other host elements and components' children
-  const nextChildren = el.props?.children ? makeTextUnselectable(el.props.children) : el.props?.children
-  return cloneElement(el, el.props, nextChildren)
-}
-
-export const Button = memo(({ onClick, onMouseOver, onMouseOut, style, children, ...rest }: ButtonProps) => {
+/**
+ * A button component with proper click detection and non-selectable text.
+ *
+ * Key behavior:
+ * - All nested `<text>`/`<span>` children are made `selectable={false}` via `makeTextUnselectable`
+ * - Uses mouseDown/mouseUp tracking so hover or stray mouse events don't trigger clicks
+ *
+ * When to use:
+ * - Use `Button` for standard button-like interactions (primary choice for clickable controls)
+ * - Use {@link Clickable} when you need direct control over mouse events but still want
+ *   non-selectable text for an interactive region.
+ */
+export const Button = memo(function Button({ onClick, onMouseOver, onMouseOut, style, children, ...rest }: ButtonProps) {
   const processedChildren = makeTextUnselectable(children)
+
   // Track whether mouse down occurred on this element to implement proper click detection
   // This prevents hover from triggering clicks in some terminals
   const mouseDownRef = useRef(false)

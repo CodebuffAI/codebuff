@@ -2,6 +2,7 @@ import { pluralize } from '@codebuff/common/util/string'
 import { TextAttributes } from '@opentui/core'
 import React, { useCallback, useMemo } from 'react'
 
+import { Clickable } from './clickable'
 import { CopyButton, useCopyButton } from './copy-icon-button'
 import { ElapsedTimer } from './elapsed-timer'
 import { FeedbackIconButton } from './feedback-icon-button'
@@ -130,19 +131,19 @@ export const MessageFooter: React.FC<MessageFooterProps> = ({
     footerItems.push({
       key: 'copy',
       node: (
-        <text
+        <Clickable
+          as="text"
           style={{ wrapMode: 'none' }}
           onMouseDown={copyButton.handleCopy}
           onMouseOver={copyButton.handleMouseOver}
           onMouseOut={copyButton.handleMouseOut}
         >
           <CopyButton
-            textToCopy={textToCopy}
             isCopied={copyButton.isCopied}
             isHovered={copyButton.isHovered}
             leadingSpace={false}
           />
-        </text>
+        </Clickable>
       ),
     })
   }
