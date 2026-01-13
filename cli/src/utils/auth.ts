@@ -41,21 +41,17 @@ const credentialsSchema = z
   })
   .catchall(z.unknown())
 
-// Get the config directory path from a specific environment value
-export const getConfigDirFromEnvironment = (
-  environment: string | undefined,
-): string => {
+// Get the config directory path
+export const getConfigDir = (): string => {
   return path.join(
     os.homedir(),
     '.config',
     'manicode' +
-      (environment && environment !== 'prod' ? `-${environment}` : ''),
+      // on a development stack?
+      (env.NEXT_PUBLIC_CB_ENVIRONMENT !== 'prod'
+        ? `-${env.NEXT_PUBLIC_CB_ENVIRONMENT}`
+        : ''),
   )
-}
-
-// Get the config directory path
-export const getConfigDir = (): string => {
-  return getConfigDirFromEnvironment(env.NEXT_PUBLIC_CB_ENVIRONMENT)
 }
 
 // Get the credentials file path

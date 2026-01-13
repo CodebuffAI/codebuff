@@ -3,6 +3,10 @@ import os from 'os'
 import path from 'path'
 
 import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
+import {
   describe,
   test,
   expect,
@@ -13,11 +17,7 @@ import {
 } from 'bun:test'
 
 import * as authModule from '../../utils/auth'
-import {
-  saveUserCredentials,
-  getUserCredentials,
-  getConfigDirFromEnvironment,
-} from '../../utils/auth'
+import { saveUserCredentials, getUserCredentials } from '../../utils/auth'
 import { setProjectRoot } from '../../project-files'
 
 import type { User } from '../../utils/auth'
@@ -71,6 +71,7 @@ describe('Credentials Storage Integration', () => {
     }
 
     mock.restore()
+    clearMockedModules()
   })
 
   describe('P0: File System Operations', () => {
@@ -157,22 +158,47 @@ describe('Credentials Storage Integration', () => {
       expect(keys[0]).toBe('default')
     })
 
-    test('should use manicode-test directory in test environment', () => {
-      const configDir = getConfigDirFromEnvironment('test')
+    test('should use manicode-test directory in test environment', async () => {
+      // Restore getConfigDir to use real implementation for this test
+      mock.restore()
+
+      await mockModule('@codebuff/common/env', () => ({
+        env: { NEXT_PUBLIC_CB_ENVIRONMENT: 'test' },
+      }))
+
+      // Call real getConfigDir to verify it includes '-dev'
+      const configDir = authModule.getConfigDir()
       expect(configDir).toEqual(
         path.join(os.homedir(), '.config', 'manicode-test'),
       )
     })
 
-    test('should use manicode-dev directory in development environment', () => {
-      const configDir = getConfigDirFromEnvironment('dev')
+    test('should use manicode-dev directory in development environment', async () => {
+      // Restore getConfigDir to use real implementation for this test
+      mock.restore()
+
+      await mockModule('@codebuff/common/env', () => ({
+        env: { NEXT_PUBLIC_CB_ENVIRONMENT: 'dev' },
+      }))
+
+      // Call real getConfigDir to verify it includes '-dev'
+      const configDir = authModule.getConfigDir()
       expect(configDir).toEqual(
         path.join(os.homedir(), '.config', 'manicode-dev'),
       )
     })
 
-    test('should use manicode directory in production environment', () => {
-      const configDir = getConfigDirFromEnvironment('prod')
+    test('should use manicode directory in production environment', async () => {
+      // Restore getConfigDir to use real implementation
+      mock.restore()
+
+      // Set environment to prod (or unset it)
+      await mockModule('@codebuff/common/env', () => ({
+        env: { NEXT_PUBLIC_CB_ENVIRONMENT: 'prod' },
+      }))
+
+      // Call real getConfigDir to verify it doesn't include '-dev'
+      const configDir = authModule.getConfigDir()
       expect(configDir).toEqual(path.join(os.homedir(), '.config', 'manicode'))
     })
 

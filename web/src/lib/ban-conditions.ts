@@ -1,6 +1,6 @@
-import defaultDb from '@codebuff/internal/db'
+import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { stripeServer as defaultStripeServer } from '@codebuff/internal/util/stripe'
+import { stripeServer } from '@codebuff/internal/util/stripe'
 import { eq } from 'drizzle-orm'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -19,12 +19,6 @@ export const DISPUTE_WINDOW_DAYS = 14
 // TYPES
 // =============================================================================
 
-/** Dependencies for ban conditions functions (for testing) */
-export interface BanConditionsDeps {
-  db?: typeof defaultDb
-  stripeServer?: typeof defaultStripeServer
-}
-
 export interface BanConditionResult {
   shouldBan: boolean
   reason: string
@@ -38,7 +32,6 @@ export interface BanConditionContext {
 
 type BanCondition = (
   context: BanConditionContext,
-  deps?: BanConditionsDeps,
 ) => Promise<BanConditionResult>
 
 // =============================================================================
@@ -51,10 +44,8 @@ type BanCondition = (
  */
 async function disputeThresholdCondition(
   context: BanConditionContext,
-  deps?: BanConditionsDeps,
 ): Promise<BanConditionResult> {
   const { stripeCustomerId, logger } = context
-  const stripeServer = deps?.stripeServer ?? defaultStripeServer
 
   const windowStart = Math.floor(
     (Date.now() - DISPUTE_WINDOW_DAYS * 24 * 60 * 60 * 1000) / 1000,
@@ -116,14 +107,12 @@ const BAN_CONDITIONS: BanCondition[] = [
  */
 export async function getUserByStripeCustomerId(
   stripeCustomerId: string,
-  deps?: BanConditionsDeps,
 ): Promise<{
   id: string
   banned: boolean
   email: string
   name: string | null
 } | null> {
-  const db = deps?.db ?? defaultDb
   const users = await db
     .select({
       id: schema.user.id,
@@ -145,9 +134,7 @@ export async function banUser(
   userId: string,
   reason: string,
   logger: Logger,
-  deps?: BanConditionsDeps,
 ): Promise<void> {
-  const db = deps?.db ?? defaultDb
   await db
     .update(schema.user)
     .set({ banned: true })
@@ -162,10 +149,9 @@ export async function banUser(
  */
 export async function evaluateBanConditions(
   context: BanConditionContext,
-  deps?: BanConditionsDeps,
 ): Promise<BanConditionResult> {
   for (const condition of BAN_CONDITIONS) {
-    const result = await condition(context, deps)
+    const result = await condition(context)
     if (result.shouldBan) {
       return result
     }

@@ -1,11 +1,14 @@
 import { EventEmitter } from 'events'
 
+import {
+  clearMockedModules,
+  mockModule,
+} from '@codebuff/common/testing/mock-modules'
 import { describe, expect, it, mock, beforeEach, afterEach } from 'bun:test'
 
 import { codeSearch } from '../tools/code-search'
 
 import type { ChildProcess } from 'child_process'
-import type { CodeSearchDeps } from '../tools/code-search'
 
 // Helper to create a mock child process
 function createMockChildProcess() {
@@ -53,16 +56,18 @@ function createRgJsonContext(
 describe('codeSearch', () => {
   let mockSpawn: ReturnType<typeof mock>
   let mockProcess: ReturnType<typeof createMockChildProcess>
-  let deps: CodeSearchDeps
 
-  beforeEach(() => {
+  beforeEach(async () => {
     mockProcess = createMockChildProcess()
     mockSpawn = mock(() => mockProcess)
-    deps = { spawn: mockSpawn as CodeSearchDeps['spawn'] }
+    await mockModule('child_process', () => ({
+      spawn: mockSpawn,
+    }))
   })
 
   afterEach(() => {
     mock.restore()
+    clearMockedModules()
   })
 
   describe('basic search', () => {
@@ -70,7 +75,6 @@ describe('codeSearch', () => {
       const searchPromise = codeSearch({
         projectPath: '/test/project',
         pattern: 'import',
-        deps,
       })
 
       // Simulate ripgrep JSON output
@@ -97,7 +101,6 @@ describe('codeSearch', () => {
         projectPath: '/test/project',
         pattern: 'import.*env',
         flags: '-A 2',
-        deps,
       })
 
       // Ripgrep JSON output with -A 2 includes match + 2 context lines after
@@ -133,7 +136,6 @@ describe('codeSearch', () => {
         projectPath: '/test/project',
         pattern: 'export',
         flags: '-B 2',
-        deps,
       })
 
       // Ripgrep JSON output with -B 2 includes 2 context lines before + match
@@ -167,7 +169,6 @@ describe('codeSearch', () => {
         projectPath: '/test/project',
         pattern: 'TODO',
         flags: '-C 1',
-        deps,
       })
 
       // Ripgrep JSON output with -C 1 includes 1 line before + match + 1 line after
@@ -196,7 +197,6 @@ describe('codeSearch', () => {
         projectPath: '/test/project',
         pattern: 'import',
         flags: '-A 1',
-        deps,
       })
 
       const output = [
@@ -225,7 +225,6 @@ describe('codeSearch', () => {
         projectPath: '/test/project',
         pattern: 'import',
         flags: '-B 2',
-        deps,
       })
 
       // First line match has no before context
@@ -246,7 +245,6 @@ describe('codeSearch', () => {
         projectPath: '/test/project',
         pattern: 'test',
         flags: '-A 1',
-        deps,
       })
 
       const output = [
@@ -271,7 +269,6 @@ describe('codeSearch', () => {
         projectPath: '/test/project',
         pattern: 'import',
         flags: '-A 1',
-        deps,
       })
 
       const output = [
@@ -297,7 +294,6 @@ describe('codeSearch', () => {
         projectPath: '/test/project',
         pattern: 'test',
         flags: '-A 1',
-        deps,
       })
 
       const output = createRgJsonMatch(
@@ -323,7 +319,6 @@ describe('codeSearch', () => {
         pattern: 'import.*env',
         flags: '-A 2',
         maxOutputStringLength: 20000,
-        deps,
       })
 
       const output = [
@@ -353,7 +348,6 @@ describe('codeSearch', () => {
         pattern: 'test',
         flags: '-A 1',
         maxResults: 2,
-        deps,
       })
 
       const output = [
@@ -394,7 +388,6 @@ describe('codeSearch', () => {
         pattern: 'test',
         flags: '-A 1',
         globalMaxResults: 3,
-        deps,
       })
 
       const output = [
@@ -430,7 +423,6 @@ describe('codeSearch', () => {
         pattern: 'match',
         flags: '-A 2 -B 2',
         maxResults: 1,
-        deps,
       })
 
       const output = [
@@ -463,7 +455,6 @@ describe('codeSearch', () => {
       const searchPromise = codeSearch({
         projectPath: '/test/project',
         pattern: 'test',
-        deps,
       })
 
       const output = [
@@ -487,7 +478,6 @@ describe('codeSearch', () => {
       const searchPromise = codeSearch({
         projectPath: '/test/project',
         pattern: 'nonexistent',
-        deps,
       })
 
       mockProcess.stdout.emit('data', Buffer.from(''))
@@ -508,7 +498,6 @@ describe('codeSearch', () => {
       const searchPromise = codeSearch({
         projectPath: '/test/project',
         pattern: '-foo',
-        deps,
       })
 
       const output = createRgJsonMatch('file.ts', 1, 'const x = -foo')
@@ -529,7 +518,6 @@ describe('codeSearch', () => {
       const searchPromise = codeSearch({
         projectPath: '/test/project',
         pattern: 'import',
-        deps,
       })
 
       // Simulate ripgrep JSON with trailing newlines in lineText
@@ -559,7 +547,6 @@ describe('codeSearch', () => {
       const searchPromise = codeSearch({
         projectPath: '/test/project',
         pattern: 'test',
-        deps,
       })
 
       // Send partial JSON chunks that will be completed in remainder
@@ -589,7 +576,6 @@ describe('codeSearch', () => {
         projectPath: '/test/project',
         pattern: 'test',
         maxOutputStringLength: 500, // Small limit
-        deps,
       })
 
       // Generate many matches that would exceed the limit
@@ -617,7 +603,6 @@ describe('codeSearch', () => {
       const searchPromise = codeSearch({
         projectPath: '/test/project',
         pattern: 'test',
-        deps,
       })
 
       // Simulate ripgrep JSON with path.bytes instead of path.text
@@ -648,7 +633,6 @@ describe('codeSearch', () => {
         projectPath: '/test/project',
         pattern: 'import',
         flags: '-g *.ts',
-        deps,
       })
 
       const output = [
@@ -676,7 +660,6 @@ describe('codeSearch', () => {
         projectPath: '/test/project',
         pattern: 'import',
         flags: '-g *.ts -g *.tsx',
-        deps,
       })
 
       const output = createRgJsonMatch('file.tsx', 1, 'import React from "react"')
@@ -703,7 +686,6 @@ describe('codeSearch', () => {
         projectPath: '/test/project',
         pattern: 'import',
         flags: '-g *.ts -i -g *.tsx',
-        deps,
       })
 
       const output = createRgJsonMatch('file.tsx', 1, 'import React from "react"')
@@ -733,7 +715,6 @@ describe('codeSearch', () => {
         projectPath: '/test/project',
         pattern: 'test',
         timeoutSeconds: 1,
-        deps,
       })
 
       // Don't emit any data or close event to simulate hanging
@@ -756,7 +737,6 @@ describe('codeSearch', () => {
         projectPath: '/test/project',
         pattern: 'test',
         cwd: '.',
-        deps,
       })
 
       const output = createRgJsonMatch('file.ts', 1, 'test content')
@@ -784,7 +764,6 @@ describe('codeSearch', () => {
         projectPath: '/test/project',
         pattern: 'test',
         cwd: 'subdir',
-        deps,
       })
 
       const output = createRgJsonMatch('file.ts', 1, 'test content')
@@ -809,7 +788,6 @@ describe('codeSearch', () => {
         projectPath: '/test/project',
         pattern: 'test',
         cwd: '../outside',
-        deps,
       })
 
       const result = await searchPromise
