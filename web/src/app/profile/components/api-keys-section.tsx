@@ -99,7 +99,7 @@ export function ApiKeysSection() {
       toast({
         title: 'Creation failed',
         description: e.message ?? String(e),
-        variant: 'destructive' as any,
+        variant: 'destructive',
       })
     },
   })
@@ -124,7 +124,7 @@ export function ApiKeysSection() {
       toast({
         title: 'Revoke failed',
         description: e.message ?? String(e),
-        variant: 'destructive' as any,
+        variant: 'destructive',
       })
     },
   })
@@ -179,7 +179,9 @@ export function ApiKeysSection() {
         <div className="rounded-md border border-destructive/50 bg-destructive/10 text-destructive px-3 py-2 flex items-center justify-between mb-4">
           <span className="text-sm">
             Error loading API keys:{' '}
-            {(tokensError as any)?.message ?? 'Please try again.'}
+            {tokensError instanceof Error
+              ? tokensError.message
+              : 'Please try again.'}
           </span>
           <Button
             variant="outline"

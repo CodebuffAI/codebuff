@@ -72,7 +72,9 @@ export function ReferralsSection() {
           </CardHeader>
           <CardContent>
             <p>We couldn't fetch your referral data.</p>
-            <code className="text-sm">{(error as any).message}</code>
+            <code className="text-sm">
+              {error instanceof Error ? error.message : 'Unknown error'}
+            </code>
           </CardContent>
         </Card>
       </ProfileSection>

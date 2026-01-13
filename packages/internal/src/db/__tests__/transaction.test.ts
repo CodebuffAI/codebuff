@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
+import { createPostgresError } from '@codebuff/common/testing/errors'
 
 import {
   getRetryableErrorDescription,
@@ -204,8 +205,7 @@ describe('transaction error handling', () => {
       })
 
       it('should handle Error object with code property', () => {
-        const error = new Error('Connection failed')
-        ;(error as Error & { code: string }).code = '08006'
+        const error = createPostgresError('Connection failed', '08006')
         expect(getRetryableErrorDescription(error)).toBe('connection_failure')
       })
     })
@@ -352,9 +352,7 @@ describe('withSerializableTransaction', () => {
         async (callback) => {
           attempts++
           if (attempts === 1) {
-            const error = new Error('serialization failure')
-            ;(error as Error & { code: string }).code = '40001'
-            throw error
+            throw createPostgresError('serialization failure', '40001')
           }
           return callback({} as Parameters<typeof callback>[0])
         },
@@ -377,9 +375,7 @@ describe('withSerializableTransaction', () => {
         async (callback) => {
           attempts++
           if (attempts <= 2) {
-            const error = new Error('connection failure')
-            ;(error as Error & { code: string }).code = '08006'
-            throw error
+            throw createPostgresError('connection failure', '08006')
           }
           return callback({} as Parameters<typeof callback>[0])
         },
@@ -401,9 +397,7 @@ describe('withSerializableTransaction', () => {
         async (callback) => {
           attempts++
           if (attempts === 1) {
-            const error = new Error('deadlock detected')
-            ;(error as Error & { code: string }).code = '40P01'
-            throw error
+            throw createPostgresError('deadlock detected', '40P01')
           }
           return callback({} as Parameters<typeof callback>[0])
         },
@@ -425,9 +419,7 @@ describe('withSerializableTransaction', () => {
         async (callback) => {
           attempts++
           if (attempts === 1) {
-            const error = new Error('serialization failure')
-            ;(error as Error & { code: string }).code = '40001'
-            throw error
+            throw createPostgresError('serialization failure', '40001')
           }
           return callback({} as Parameters<typeof callback>[0])
         },
@@ -460,9 +452,7 @@ describe('withSerializableTransaction', () => {
       transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
         async () => {
           attempts++
-          const error = new Error('unique violation')
-          ;(error as Error & { code: string }).code = '23505'
-          throw error
+          throw createPostgresError('unique violation', '23505')
         },
       )
 
@@ -482,9 +472,7 @@ describe('withSerializableTransaction', () => {
       transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
         async () => {
           attempts++
-          const error = new Error('syntax error')
-          ;(error as Error & { code: string }).code = '42601'
-          throw error
+          throw createPostgresError('syntax error', '42601')
         },
       )
 
@@ -504,9 +492,7 @@ describe('withSerializableTransaction', () => {
       transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
         async () => {
           attempts++
-          const error = new Error('foreign key violation')
-          ;(error as Error & { code: string }).code = '23503'
-          throw error
+          throw createPostgresError('foreign key violation', '23503')
         },
       )
 
@@ -545,9 +531,7 @@ describe('withSerializableTransaction', () => {
       transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
         async () => {
           attempts++
-          const error = new Error('persistent serialization failure')
-          ;(error as Error & { code: string }).code = '40001'
-          throw error
+          throw createPostgresError('persistent serialization failure', '40001')
         },
       )
 

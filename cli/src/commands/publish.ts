@@ -129,7 +129,8 @@ export async function handlePublish(agentIds: string[]): Promise<PublishResult> 
       // Find the specific agent
       const matchingTemplate = loadedDefinitions.find(
         (template) =>
-          template.id === agentId || (template as any).displayName === agentId,
+          template.id === agentId ||
+          (template as { displayName?: string }).displayName === agentId,
       )
 
       if (!matchingTemplate) {

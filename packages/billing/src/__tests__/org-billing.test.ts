@@ -2,6 +2,7 @@ import {
   clearMockedModules,
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
+import { createPostgresError } from '@codebuff/common/testing/errors'
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 
 import {
@@ -255,10 +256,11 @@ describe('Organization Billing', () => {
         default: createDbMock({
           insert: () => ({
             values: () => {
-              const error = new Error('Duplicate key')
-              ;(error as any).code = '23505'
-              ;(error as any).constraint = 'credit_ledger_pkey'
-              throw error
+              throw createPostgresError(
+                'Duplicate key',
+                '23505',
+                'credit_ledger_pkey',
+              )
             },
           }),
         }),

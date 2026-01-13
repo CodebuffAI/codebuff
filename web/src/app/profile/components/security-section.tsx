@@ -106,7 +106,7 @@ export function SecuritySection() {
       toast({
         title: 'Revoke failed',
         description: e.message ?? String(e),
-        variant: 'destructive' as any,
+        variant: 'destructive',
       })
     },
   })
@@ -139,7 +139,7 @@ export function SecuritySection() {
       toast({
         title: 'Logout failed',
         description: e?.message ?? String(e),
-        variant: 'destructive' as any,
+        variant: 'destructive',
       })
     } finally {
       setIsBulkLoggingOut(false)
@@ -174,7 +174,9 @@ export function SecuritySection() {
         <div className="rounded-md border border-destructive/50 bg-destructive/10 text-destructive px-3 py-2 flex items-center justify-between">
           <span className="text-sm">
             Error loading sessions:{' '}
-            {(sessionsError as any)?.message ?? 'Please try again.'}
+            {sessionsError instanceof Error
+              ? sessionsError.message
+              : 'Please try again.'}
           </span>
           <Button
             variant="outline"
