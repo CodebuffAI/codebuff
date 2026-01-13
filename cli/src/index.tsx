@@ -196,9 +196,9 @@ async function main(): Promise<void> {
     const result = await handlePublish(agentIds)
 
     if (result.success && result.publisherId && result.agents) {
-      console.log(green('✅ Successfully published:'))
+      logger.info(green('✅ Successfully published:'))
       for (const agent of result.agents) {
-        console.log(
+        logger.info(
           cyan(
             `  - ${agent.displayName} (${result.publisherId}/${agent.id}@${agent.version})`,
           ),
@@ -206,10 +206,10 @@ async function main(): Promise<void> {
       }
       process.exit(0)
     } else {
-      console.log(red('❌ Publish failed'))
-      if (result.error) console.log(red(`Error: ${result.error}`))
-      if (result.details) console.log(red(result.details))
-      if (result.hint) console.log(yellow(`Hint: ${result.hint}`))
+      logger.error(red('❌ Publish failed'))
+      if (result.error) logger.error(red(`Error: ${result.error}`))
+      if (result.details) logger.error(red(result.details))
+      if (result.hint) logger.warn(yellow(`Hint: ${result.hint}`))
       process.exit(1)
     }
   }
