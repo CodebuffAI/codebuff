@@ -29,7 +29,7 @@ tmux send-keys -t session "hello world"
 ## Quick Start
 
 ```bash
-# Start a test session
+# Start a test session (dynamic CLI via bun)
 SESSION=$(./scripts/tmux/tmux-cli.sh start)
 echo "Started session: $SESSION"
 
@@ -42,6 +42,26 @@ echo "Started session: $SESSION"
 # Clean up
 ./scripts/tmux/tmux-cli.sh stop "$SESSION"
 ```
+
+## Testing Compiled Binaries
+
+To test a compiled CLI binary instead of the dynamic development server:
+
+```bash
+# Build the binary first
+cd cli && bun run build:binary
+
+# Test with binary at default location (./cli/bin/codebuff)
+SESSION=$(./scripts/tmux/tmux-cli.sh start --binary)
+
+# Or specify a custom binary path
+SESSION=$(./scripts/tmux/tmux-cli.sh start --binary /path/to/codebuff)
+
+# Or use environment variable
+CODEBUFF_BINARY=./cli/bin/codebuff ./scripts/tmux/tmux-cli.sh start
+```
+
+The session-info.yaml will record which mode was used (`cli_mode: binary` or `cli_mode: dynamic`).
 
 ## Scripts
 
@@ -63,7 +83,7 @@ The main entry point with subcommands:
 Start a new tmux session with the CLI.
 
 ```bash
-# Default settings
+# Default settings (dynamic CLI)
 ./scripts/tmux/tmux-start.sh
 # Output: cli-test-1234567890
 
@@ -75,6 +95,15 @@ Start a new tmux session with the CLI.
 
 # Custom wait time for CLI initialization
 ./scripts/tmux/tmux-start.sh --wait 6
+
+# Test a compiled binary (default location: ./cli/bin/codebuff)
+./scripts/tmux/tmux-start.sh --binary
+
+# Test a compiled binary at custom path
+./scripts/tmux/tmux-start.sh --binary /path/to/binary
+
+# Via environment variable
+CODEBUFF_BINARY=./my-binary ./scripts/tmux/tmux-start.sh
 ```
 
 ### `tmux-send.sh`
@@ -183,6 +212,8 @@ started_local: Wed Jan  1 12:00:00 PST 2025
 dimensions:
   width: 120
   height: 30
+cli_mode: dynamic  # or "binary"
+cli_command: bun --cwd=cli run dev  # or path to binary
 status: active
 ```
 

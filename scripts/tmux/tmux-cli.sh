@@ -45,6 +45,11 @@
 #   ./scripts/tmux/tmux-cli.sh capture "$SESSION" --wait 3
 #   ./scripts/tmux/tmux-cli.sh stop "$SESSION"
 #
+#   # Test a compiled binary (instead of dynamic CLI)
+#   SESSION=$(./scripts/tmux/tmux-cli.sh start --binary)
+#   # Or with custom path:
+#   SESSION=$(./scripts/tmux/tmux-cli.sh start --binary ./path/to/codebuff)
+#
 #   # Stop all test sessions
 #   ./scripts/tmux/tmux-cli.sh stop --all
 #
