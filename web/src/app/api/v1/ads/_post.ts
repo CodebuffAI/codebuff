@@ -16,6 +16,8 @@ import type { NextRequest } from 'next/server'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { buildArray } from '@codebuff/common/util/array'
 
+const DEFAULT_PAYOUT = 0.04
+
 const messageSchema = z.object({
   role: z.string(),
   content: z.string(),
@@ -78,7 +80,7 @@ export async function postAds(params: {
   const forwardedFor = req.headers.get('x-forwarded-for')
   const clientIp = forwardedFor
     ? forwardedFor.split(',')[0].trim()
-    : req.headers.get('x-real-ip') ?? undefined
+    : (req.headers.get('x-real-ip') ?? undefined)
 
   // Parse and validate request body
   let messages: z.infer<typeof bodySchema>['messages']
@@ -144,23 +146,19 @@ export async function postAds(params: {
   try {
     const requestBody = {
       messages: filteredMessages,
-      userId,
       ...(sessionId ? { sessionId } : {}),
+      placements: [
+        { placement: 'below_response', placement_id: 'code-assist-ad' },
+      ],
+      testAd: serverEnv.CB_ENVIRONMENT !== 'prod',
+      ...(device ? { device } : {}),
       user: {
+        id: userId,
         email: userInfo.email,
       },
-      renderContext: {
-        placements: [{ placement: 'below_response' }],
-        max_ad_length: 200,
-        supports_links: true,
-        supports_markdown: false,
-      },
-      ...(device ? { device } : {}),
-      testAd: serverEnv.CB_ENVIRONMENT !== 'prod',
-      numAds: 1,
     }
     // Call Gravity API
-    const response = await fetch('https://server.trygravity.ai/ad', {
+    const response = await fetch('https://server.trygravity.ai/api/v1/ad', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${serverEnv.GRAVITY_API_KEY}`,
@@ -189,11 +187,19 @@ export async function postAds(params: {
       return NextResponse.json({ ad: null }, { status: 200 })
     }
 
+    const payout = ad.payout || DEFAULT_PAYOUT
+
     logger.info(
       {
         ad,
         request: requestBody,
         status: response.status,
+        payout: {
+          included: ad.payout && ad.payout > 0,
+          recieved: ad.payout,
+          default: DEFAULT_PAYOUT,
+          final: payout,
+        },
       },
       '[ads] Fetched ad from Gravity API',
     )
@@ -210,14 +216,9 @@ export async function postAds(params: {
         favicon: ad.favicon,
         click_url: ad.clickUrl,
         imp_url: ad.impUrl,
-        payout: String(ad.payout),
+        payout: String(payout),
         credits_granted: 0, // Will be updated when impression is fired
       })
-
-      logger.info(
-        { userId, impUrl: ad.impUrl, status: response.status },
-        '[ads] Created ad_impression record for served ad',
-      )
     } catch (error) {
       // If insert fails (e.g., duplicate impUrl), log but continue
       // The ad can still be shown, it just won't be tracked
