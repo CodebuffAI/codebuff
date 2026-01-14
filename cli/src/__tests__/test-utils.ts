@@ -69,7 +69,9 @@ const TEST_CLIENT_ENV_DEFAULTS: Record<string, string> = {
 const TEST_SERVER_ENV_DEFAULTS: Record<string, string> = {
   OPEN_ROUTER_API_KEY: 'test',
   OPENAI_API_KEY: 'test',
+  ANTHROPIC_API_KEY: 'test',
   LINKUP_API_KEY: 'test',
+  GRAVITY_API_KEY: 'test',
   PORT: '4242',
   DATABASE_URL: 'postgres://user:pass@localhost:5432/db',
   CODEBUFF_GITHUB_ID: 'test-id',

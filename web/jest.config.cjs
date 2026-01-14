@@ -13,6 +13,7 @@ const config = {
     '^common/(.*)$': '<rootDir>/../common/src/$1',
     '^@codebuff/internal/env$': '<rootDir>/../packages/internal/src/env.ts',
     '^@codebuff/internal/xml-parser$': '<rootDir>/src/test-stubs/xml-parser.ts',
+    '^bun:test$': '<rootDir>/src/test-stubs/bun-test.ts',
     '^react$': '<rootDir>/node_modules/react',
     '^react-dom$': '<rootDir>/node_modules/react-dom',
   },
