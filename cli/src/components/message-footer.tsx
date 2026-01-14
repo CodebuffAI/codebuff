@@ -2,8 +2,7 @@ import { pluralize } from '@codebuff/common/util/string'
 import { TextAttributes } from '@opentui/core'
 import React, { useCallback, useMemo } from 'react'
 
-import { Clickable } from './clickable'
-import { CopyButton, useCopyButton } from './copy-icon-button'
+import { CopyButton } from './copy-button'
 import { ElapsedTimer } from './elapsed-timer'
 import { FeedbackIconButton } from './feedback-icon-button'
 import { useTheme } from '../hooks/use-theme'
@@ -86,7 +85,6 @@ export const MessageFooter: React.FC<MessageFooterProps> = ({
   }, [canRequestFeedback, onCloseFeedback])
 
   // Build text from content and text blocks for copy button
-  // Must compute this before early returns so useCopyButton hook is always called
   const textToCopy = [
     content,
     ...(blocks || [])
@@ -96,8 +94,6 @@ export const MessageFooter: React.FC<MessageFooterProps> = ({
     .filter(Boolean)
     .join('\n\n')
     .trim()
-
-  const copyButton = useCopyButton(textToCopy)
 
   // Loading timer
   if (shouldShowLoadingTimer) {
@@ -131,19 +127,11 @@ export const MessageFooter: React.FC<MessageFooterProps> = ({
     footerItems.push({
       key: 'copy',
       node: (
-        <Clickable
-          as="text"
+        <CopyButton
+          textToCopy={textToCopy}
+          leadingSpace={false}
           style={{ wrapMode: 'none' }}
-          onMouseDown={copyButton.handleCopy}
-          onMouseOver={copyButton.handleMouseOver}
-          onMouseOut={copyButton.handleMouseOut}
-        >
-          <CopyButton
-            isCopied={copyButton.isCopied}
-            isHovered={copyButton.isHovered}
-            leadingSpace={false}
-          />
-        </Clickable>
+        />
       ),
     })
   }
