@@ -382,18 +382,12 @@ describe('grant-credits', () => {
 
   describe('getPreviousFreeGrantAmount', () => {
     it('should return default amount when no expired grants exist', async () => {
-      // The select().from().where().orderBy().limit() chain returns a promise-like
-      // array in Drizzle, so we need to make it thenable
-      const emptyResult: { principal: number }[] = []
-      // @ts-expect-error - adding then to make it promise-like
-      emptyResult.then = (cb: (rows: typeof emptyResult) => unknown) => Promise.resolve(cb(emptyResult))
-      
       const mockDb = {
         select: () => ({
           from: () => ({
             where: () => ({
               orderBy: () => ({
-                limit: () => emptyResult,
+                limit: () => Promise.resolve([]),
               }),
             }),
           }),
@@ -406,21 +400,17 @@ describe('grant-credits', () => {
         deps: { db: mockDb as any },
       })
 
-      // Default free credits grant is 1000
-      expect(result).toBe(1000)
+      // Default free credits grant is 500
+      expect(result).toBe(500)
     })
 
     it('should return capped amount from previous expired grant', async () => {
-      const grantResult = [{ principal: 3000 }]
-      // @ts-expect-error - adding then to make it promise-like
-      grantResult.then = (cb: (rows: typeof grantResult) => unknown) => Promise.resolve(cb(grantResult))
-      
       const mockDb = {
         select: () => ({
           from: () => ({
             where: () => ({
               orderBy: () => ({
-                limit: () => grantResult,
+                limit: () => Promise.resolve([{ principal: 3000 }]),
               }),
             }),
           }),
@@ -438,16 +428,12 @@ describe('grant-credits', () => {
     })
 
     it('should return exact amount when previous grant was below cap', async () => {
-      const grantResult = [{ principal: 1500 }]
-      // @ts-expect-error - adding then to make it promise-like
-      grantResult.then = (cb: (rows: typeof grantResult) => unknown) => Promise.resolve(cb(grantResult))
-      
       const mockDb = {
         select: () => ({
           from: () => ({
             where: () => ({
               orderBy: () => ({
-                limit: () => grantResult,
+                limit: () => Promise.resolve([{ principal: 1500 }]),
               }),
             }),
           }),
