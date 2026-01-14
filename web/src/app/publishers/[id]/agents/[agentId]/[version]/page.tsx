@@ -74,10 +74,14 @@ export async function generateMetadata({ params }: AgentDetailPageProps) {
     agentData.description ||
     `View details for ${agentName} version ${agent[0].version}`
   const ogImages = (pub?.[0]?.avatar_url ? [pub[0].avatar_url] : []) as string[]
+  const canonicalUrl = `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/publishers/${id}/agents/${agentId}/${version}`
 
   return {
     title,
     description,
+    alternates: {
+      canonical: canonicalUrl,
+    },
     openGraph: {
       title,
       description,
@@ -132,6 +136,59 @@ function AgentJsonLd({
       priceCurrency: 'USD',
       availability: 'https://schema.org/InStock',
     },
+  }
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    />
+  )
+}
+
+// Breadcrumb JSON-LD for navigation hierarchy
+function BreadcrumbJsonLd({
+  publisherId,
+  publisherName,
+  agentName,
+  agentId,
+  version,
+}: {
+  publisherId: string
+  publisherName: string
+  agentName: string
+  agentId: string
+  version: string
+}) {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Home',
+        item: env.NEXT_PUBLIC_CODEBUFF_APP_URL,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Agent Store',
+        item: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/store`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name: publisherName,
+        item: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/publishers/${publisherId}`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 4,
+        name: `${agentName} v${version}`,
+        item: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/publishers/${publisherId}/agents/${agentId}/${version}`,
+      },
+    ],
   }
 
   return (
@@ -214,6 +271,13 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
         publisherId={id}
         publisherName={publisherData.name}
         createdAt={new Date(agent[0].created_at)}
+      />
+      <BreadcrumbJsonLd
+        publisherId={id}
+        publisherName={publisherData.name}
+        agentName={agentName}
+        agentId={agentId}
+        version={version}
       />
       <div className="container mx-auto py-6 px-4">
       <div className="max-w-4xl mx-auto">

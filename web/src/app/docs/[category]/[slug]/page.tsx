@@ -1,5 +1,6 @@
 'use client'
 
+import { env } from '@codebuff/common/env'
 import dynamic from 'next/dynamic'
 import NextLink from 'next/link'
 import { notFound, useParams } from 'next/navigation'
@@ -10,6 +11,126 @@ import type { Doc } from '@/types/docs'
 import { Mdx } from '@/components/docs/mdx/mdx-components'
 import { getDocsByCategory } from '@/lib/docs'
 import { allDocs } from '.contentlayer/generated'
+
+// FAQ structured data for SEO - parsed from the FAQ MDX content
+const FAQ_ITEMS = [
+  {
+    question: 'What can Codebuff be used for?',
+    answer:
+      'Software development: Writing features, tests, and scripts across common languages and frameworks. It can also run CLI commands, adjust build configs, review code, and answer questions about your repo.',
+  },
+  {
+    question: 'What model does Codebuff use?',
+    answer:
+      'Multiple. The orchestrator ("Buffy") uses Claude Opus 4.5 in Default and Max modes, or Grok 4.1 Fast in Lite mode. Subagents are matched to their tasks: GPT-5.1 and Claude Opus 4.5 for code editing, Gemini 2.5 Pro for deep reasoning, Grok 4 Fast for terminal commands and research, and Relace AI for fast file rewrites.',
+  },
+  {
+    question: 'Is Codebuff open source?',
+    answer:
+      "Yes. It's Apache 2.0 at github.com/CodebuffAI/codebuff.",
+  },
+  {
+    question: 'Do you store my data?',
+    answer:
+      "We don't store your codebase. The server forwards requests to model providers. We keep small slices of chat logs for debugging.",
+  },
+  {
+    question:
+      'Do you use model providers that train on my codebase or chat data?',
+    answer:
+      "No, we don't choose providers that will train on your data in our standard modes.",
+  },
+  {
+    question: 'Can I trust Codebuff with full access to my terminal?',
+    answer:
+      'If you want isolation, use the Dockerfile to run Codebuff against a scoped copy of your codebase.',
+  },
+  {
+    question: 'Can I specify custom instructions for Codebuff?',
+    answer:
+      "Yes. Add knowledge.md files to describe patterns, constraints, and commands. Codebuff also reads AGENTS.md and CLAUDE.md if present. Per directory, it picks one: knowledge.md first, then AGENTS.md, then CLAUDE.md. Codebuff updates existing knowledge files but won't create them unless you ask.",
+  },
+  {
+    question: 'Can I tell Codebuff to ignore certain files?',
+    answer:
+      'Codebuff by default will not read files that are specified in your .gitignore. You can also create a .codebuffignore file to specify additional files or folders to ignore.',
+  },
+  {
+    question: 'How does Codebuff work?',
+    answer:
+      'Codebuff runs specialized models in parallel: one finds files, another reasons through the problem, another writes code, another reviews. A selector picks the best output. In Max mode, multiple implementations compete.',
+  },
+  {
+    question: 'How does Codebuff compare to Claude Code?',
+    answer:
+      'Codebuff is faster, cheaper, and handles large codebases better. See the detailed comparison in our documentation.',
+  },
+]
+
+function FAQJsonLd() {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: FAQ_ITEMS.map((item) => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: item.answer,
+      },
+    })),
+  }
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    />
+  )
+}
+
+// Breadcrumb JSON-LD for docs pages
+function DocsBreadcrumbJsonLd({
+  category,
+  title,
+  slug,
+}: {
+  category: string
+  title: string
+  slug: string
+}) {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Documentation',
+        item: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/docs`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: category.charAt(0).toUpperCase() + category.slice(1),
+        item: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/docs/${category}`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name: title,
+        item: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/docs/${category}/${slug}`,
+      },
+    ],
+  }
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    />
+  )
+}
 
 const DocNavigation = ({
   sortedDocs,
@@ -84,25 +205,31 @@ export default function DocPage() {
 
   const sortedDocs = [...docs].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
 
+  const isFaqPage = slug === 'faq'
+
   return (
-    <div className="max-w-3xl mx-auto">
-      <article className="prose dark:prose-invert prose-compact max-w-none overflow-x-auto">
-        <Mdx code={doc.body.code} />
+    <>
+      <DocsBreadcrumbJsonLd category={category} title={doc.title} slug={slug} />
+      {isFaqPage && <FAQJsonLd />}
+      <div className="max-w-3xl mx-auto">
+        <article className="prose dark:prose-invert prose-compact max-w-none overflow-x-auto">
+          <Mdx code={doc.body.code} />
 
-        {React.createElement(
-          dynamic(() =>
-            import(`@/content/${doc.category}/_cta.mdx`).catch(
-              () => () => null,
+          {React.createElement(
+            dynamic(() =>
+              import(`@/content/${doc.category}/_cta.mdx`).catch(
+                () => () => null,
+              ),
             ),
-          ),
-        )}
-      </article>
+          )}
+        </article>
 
-      <DocNavigation
-        sortedDocs={sortedDocs}
-        category={category}
-        currentSlug={slug}
-      />
-    </div>
+        <DocNavigation
+          sortedDocs={sortedDocs}
+          category={category}
+          currentSlug={slug}
+        />
+      </div>
+    </>
   )
 }

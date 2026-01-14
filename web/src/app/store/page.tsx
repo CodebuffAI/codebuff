@@ -37,9 +37,15 @@ export async function generateMetadata(): Promise<Metadata> {
     .filter((u): u is string => !!u)
     .slice(0, 3)
 
+  // Canonical URL strips query params to prevent duplicate content
+  const canonicalUrl = `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/store`
+
   return {
     title,
     description,
+    alternates: {
+      canonical: canonicalUrl,
+    },
     openGraph: {
       title,
       description,

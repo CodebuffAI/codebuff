@@ -38,10 +38,14 @@ export async function generateMetadata({ params }: PublisherPageProps) {
   const ogImages = (
     publisher[0].avatar_url ? [publisher[0].avatar_url] : []
   ) as string[]
+  const canonicalUrl = `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/publishers/${id}`
 
   return {
     title,
     description,
+    alternates: {
+      canonical: canonicalUrl,
+    },
     openGraph: {
       title,
       description,
@@ -62,6 +66,47 @@ type GroupedAgent = {
   }>
   latestVersion: string
   totalVersions: number
+}
+
+// Breadcrumb JSON-LD for navigation hierarchy
+function BreadcrumbJsonLd({
+  publisherId,
+  publisherName,
+}: {
+  publisherId: string
+  publisherName: string
+}) {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Home',
+        item: env.NEXT_PUBLIC_CODEBUFF_APP_URL,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Agent Store',
+        item: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/store`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name: publisherName,
+        item: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/publishers/${publisherId}`,
+      },
+    ],
+  }
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    />
+  )
 }
 
 // JSON-LD structured data for SEO
@@ -243,6 +288,10 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
         verified={publisherData.verified}
         email={publisherData.email}
         agents={agentsForJsonLd}
+      />
+      <BreadcrumbJsonLd
+        publisherId={publisherData.id}
+        publisherName={publisherData.name}
       />
       <div className="container mx-auto py-6 px-4">
         <div className="max-w-4xl mx-auto">

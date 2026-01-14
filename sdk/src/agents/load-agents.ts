@@ -1,6 +1,4 @@
-import { createHash } from 'crypto'
 import fs from 'fs'
-import { builtinModules } from 'module'
 import os from 'os'
 import path from 'path'
 import { pathToFileURL } from 'url'
@@ -149,7 +147,7 @@ const getDefaultAgentDirs = () => {
  * - `{homedir}/.agents`
  *
  * Agent files can be `.ts`, `.tsx`, `.js`, `.mjs`, or `.cjs`.
- * TypeScript files are automatically transpiled.
+ * TypeScript files are loaded natively by Bun's runtime.
  *
  * @param options.agentsPath - Optional path to a specific agents directory
  * @param options.verbose - Whether to log errors during loading
@@ -219,7 +217,7 @@ export async function loadLocalAgents({
 
   for (const fullPath of allAgentFiles) {
     try {
-      const agentModule = await importAgentModule(fullPath, verbose)
+      const agentModule = await importAgentModule(fullPath)
       if (!agentModule) {
         continue
       }
@@ -312,80 +310,8 @@ export async function loadLocalAgents({
   return agents
 }
 
-async function importAgentModule(
-  fullPath: string,
-  verbose: boolean,
-): Promise<any | null> {
-  const extension = path.extname(fullPath).toLowerCase()
+async function importAgentModule(fullPath: string): Promise<any | null> {
+  // Cache-bust to ensure fresh imports when agent files change
   const urlVersion = `?update=${Date.now()}`
-
-  if (extension === '.ts' || extension === '.tsx') {
-    const compiledPath = await transpileAgent(fullPath, verbose)
-    if (!compiledPath) {
-      return null
-    }
-    return import(`${pathToFileURL(compiledPath).href}${urlVersion}`)
-  }
-
   return import(`${pathToFileURL(fullPath).href}${urlVersion}`)
-}
-
-async function transpileAgent(
-  fullPath: string,
-  verbose: boolean,
-): Promise<string | null> {
-  const canUseBunBuild =
-    typeof Bun !== 'undefined' && typeof Bun.build === 'function'
-
-  if (!canUseBunBuild) {
-    if (verbose) {
-      console.error(`Cannot transpile ${fullPath}: Bun.build not available`)
-    }
-    return null
-  }
-
-  const hash = createHash('sha1').update(fullPath).digest('hex')
-  // Store compiled agents inside the current project so node module resolution
-  // can find dependencies (e.g. lodash, zod/v4) via parent node_modules.
-  const tempDir = path.join(process.cwd(), '.codebuff', 'agents')
-  const compiledPath = path.join(tempDir, `${hash}.mjs`)
-
-  const result = await Bun.build({
-    entrypoints: [fullPath],
-    outdir: tempDir,
-    target: 'node',
-    format: 'esm',
-    sourcemap: 'inline',
-    splitting: false,
-    minify: false,
-    root: process.cwd(),
-    packages: 'external',
-    external: [
-      ...builtinModules,
-      ...builtinModules.map((mod) => `node:${mod}`),
-    ],
-    throw: false,
-  })
-
-  if (!result.success) {
-    if (verbose) {
-      console.error(`Bun.build failed for agent: ${fullPath}`)
-    }
-    return null
-  }
-
-  const entryOutput =
-    result.outputs.find((output) => output.kind === 'entry-point') ??
-    result.outputs[0]
-  const jsText = entryOutput ? await entryOutput.text() : null
-  if (!jsText) {
-    if (verbose) {
-      console.error(`Failed to transpile agent (no output): ${fullPath}`)
-    }
-    return null
-  }
-
-  await fs.promises.mkdir(tempDir, { recursive: true })
-  await fs.promises.writeFile(compiledPath, jsText, 'utf8')
-  return compiledPath
 }
