@@ -2,12 +2,61 @@ import type { CliRenderer } from '@opentui/core'
 
 let renderer: CliRenderer | null = null
 let handlersInstalled = false
+let terminalStateReset = false
+
+/**
+ * Terminal escape sequences to reset terminal state.
+ * These are written directly to stdout to ensure they're sent even if the renderer is in a bad state.
+ *
+ * Sequences:
+ * - \x1b[?1000l: Disable X10 mouse mode
+ * - \x1b[?1002l: Disable button event mouse mode
+ * - \x1b[?1003l: Disable any-event mouse mode (all motion tracking)
+ * - \x1b[?1006l: Disable SGR extended mouse mode
+ * - \x1b[?1004l: Disable focus reporting
+ * - \x1b[?2004l: Disable bracketed paste mode
+ * - \x1b[?25h: Show cursor (safety measure)
+ */
+const TERMINAL_RESET_SEQUENCES =
+  '\x1b[?1000l' + // Disable X10 mouse mode
+  '\x1b[?1002l' + // Disable button event mouse mode
+  '\x1b[?1003l' + // Disable any-event mouse mode (all motion)
+  '\x1b[?1006l' + // Disable SGR extended mouse mode
+  '\x1b[?1004l' + // Disable focus reporting
+  '\x1b[?2004l' + // Disable bracketed paste mode
+  '\x1b[?25h' // Show cursor
+
+/**
+ * Reset terminal state by writing escape sequences directly to stdout.
+ * This is called BEFORE renderer.destroy() to ensure sequences are sent
+ * even if the renderer is in a bad state.
+ *
+ * This is especially important on Windows where signals like SIGTERM and SIGHUP
+ * don't work, so we rely on the 'exit' event which is guaranteed to run.
+ */
+function resetTerminalState(): void {
+  if (terminalStateReset) return
+  terminalStateReset = true
+
+  try {
+    // Write directly to stdout - this is synchronous and will complete
+    // before the process exits, ensuring the terminal is reset
+    process.stdout.write(TERMINAL_RESET_SEQUENCES)
+  } catch {
+    // Ignore errors - stdout may already be closed
+  }
+}
 
 /**
  * Clean up the renderer by calling destroy().
  * This resets terminal state to prevent garbled output after exit.
  */
 function cleanup(): void {
+  // FIRST: Reset terminal state by writing escape sequences directly to stdout.
+  // This ensures mouse mode, focus reporting, etc. are disabled even if
+  // renderer.destroy() fails or doesn't fully clean up.
+  resetTerminalState()
+
   if (renderer && !renderer.isDestroyed) {
     try {
       renderer.destroy()
