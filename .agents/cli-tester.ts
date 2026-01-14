@@ -1,8 +1,8 @@
 import type { AgentDefinition } from './types/agent-definition'
 
 const definition: AgentDefinition = {
-  id: 'cli-ui-tester',
-  displayName: 'CLI UI Tester',
+  id: 'cli-tester',
+  displayName: 'CLI Tester',
   model: 'anthropic/claude-opus-4.5',
 
   spawnerPrompt: `Expert at testing Codebuff CLI functionality using tmux.

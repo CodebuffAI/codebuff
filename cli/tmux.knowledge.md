@@ -43,7 +43,7 @@ All session data is saved to `debug/tmux-sessions/{session}/` in YAML format:
 
 1. Automatic **bracketed paste mode** so CLI input is reliable and characters are not dropped.
 2. Automatic **session logging** in `debug/tmux-sessions/{session}/` so you always have a reproducible paper trail.
-3. A shared **YAML format** consumed by both humans (via `tmux-viewer` TUI) and AIs (via `--json` output and the `@cli-ui-tester` agent).
+3. A shared **YAML format** consumed by both humans (via `tmux-viewer` TUI) and AIs (via `--json` output and the `@cli-tester` agent).
 
 ### Viewing Session Data
 
@@ -62,7 +62,7 @@ bun scripts/tmux/tmux-viewer/index.tsx --list
 
 ### CLI Tmux Tester Agent
 
-For automated testing, use the `@cli-ui-tester` agent which wraps all of this with structured output reporting.
+For automated testing, use the `@cli-tester` agent which wraps all of this with structured output reporting.
 
 See `scripts/tmux/README.md` for comprehensive documentation.
 

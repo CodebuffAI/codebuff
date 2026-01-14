@@ -300,4 +300,4 @@ tmux has-session -t SESSION_NAME && echo "exists" || echo "not found"
 
 ## Used By
 
-These scripts are used by the `@cli-ui-tester` agent (`.agents/cli-ui-tester.ts`) to automate CLI testing.
+These scripts are used by the `@cli-tester` agent (`.agents/cli-tester.ts`) to automate CLI testing.

@@ -177,12 +177,12 @@ dimensions:
 [terminal content here]
 ```
 
-## Integration with cli-ui-tester
+## Integration with cli-tester
 
-The `@cli-ui-tester` agent can use this viewer to inspect session data:
+The `@cli-tester` agent can use this viewer to inspect session data:
 
 ```typescript
-// In cli-ui-tester output
+// In cli-tester output
 {
   captures: [
     { path: "debug/tmux-sessions/cli-test-123/capture-001-initial.txt", label: "initial" }
