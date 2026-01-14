@@ -10,7 +10,7 @@ import {
 
 type MockFactory = <T extends (...args: any[]) => any>(
   impl?: T,
-) => jest.Mock<ReturnType<T>, Parameters<T>>
+) => jest.Mock<T>
 
 const mock = ((impl?: (...args: any[]) => any) => jest.fn(impl)) as MockFactory & {
   restore: () => void
