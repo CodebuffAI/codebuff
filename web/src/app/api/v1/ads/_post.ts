@@ -21,9 +21,16 @@ const messageSchema = z.object({
   content: z.string(),
 })
 
+const deviceSchema = z.object({
+  os: z.enum(['macos', 'windows', 'linux']).optional(),
+  timezone: z.string().optional(),
+  locale: z.string().optional(),
+})
+
 const bodySchema = z.object({
   messages: z.array(messageSchema),
   sessionId: z.string().optional(),
+  device: deviceSchema.optional(),
 })
 
 export type GravityEnv = {
@@ -67,9 +74,16 @@ export async function postAds(params: {
     return NextResponse.json({ ad: null }, { status: 200 })
   }
 
+  // Extract client IP from request headers
+  const forwardedFor = req.headers.get('x-forwarded-for')
+  const clientIp = forwardedFor
+    ? forwardedFor.split(',')[0].trim()
+    : req.headers.get('x-real-ip') ?? undefined
+
   // Parse and validate request body
   let messages: z.infer<typeof bodySchema>['messages']
   let sessionId: string | undefined
+  let deviceInfo: z.infer<typeof deviceSchema> | undefined
   try {
     const json = await req.json()
     const parsed = bodySchema.safeParse(json)
@@ -95,6 +109,7 @@ export async function postAds(params: {
         return message
       })
     sessionId = parsed.data.sessionId
+    deviceInfo = parsed.data.device
   } catch {
     logger.error(
       { error: 'Invalid JSON in request body' },
@@ -115,6 +130,17 @@ export async function postAds(params: {
     .slice(0, lastUserMessageIndex)
     .findLast((message) => message.role === 'assistant')
   const filteredMessages = buildArray(lastAssistantMessage, lastUserMessage)
+
+  // Build device object for Gravity API
+  const device = clientIp
+    ? {
+        ip: clientIp,
+        ...(deviceInfo?.os ? { os: deviceInfo.os } : {}),
+        ...(deviceInfo?.timezone ? { timezone: deviceInfo.timezone } : {}),
+        ...(deviceInfo?.locale ? { locale: deviceInfo.locale } : {}),
+      }
+    : undefined
+
   try {
     const requestBody = {
       messages: filteredMessages,
@@ -123,6 +149,11 @@ export async function postAds(params: {
       user: {
         email: userInfo.email,
       },
+      renderContext: {
+        placements: [{ placement: 'below_response' }],
+        max_ad_length: 200,
+      },
+      ...(device ? { device } : {}),
       testAd: serverEnv.CB_ENVIRONMENT !== 'prod',
     }
     // Call Gravity API

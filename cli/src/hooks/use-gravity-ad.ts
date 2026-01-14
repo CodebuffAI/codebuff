@@ -156,6 +156,7 @@ export const useGravityAd = (): GravityAdState => {
         body: JSON.stringify({
           messages: adMessages,
           sessionId: loggerContext.clientSessionId,
+          device: getDeviceInfo(),
         }),
       })
 
@@ -316,4 +317,30 @@ const convertToAdMessages = (messages: Message[]): AdMessage[] => {
     .filter((message) => message.content !== '')
 
   return adMessages
+}
+
+/** Device info sent to the ads API for targeting */
+type DeviceInfo = {
+  os: 'macos' | 'windows' | 'linux'
+  timezone: string
+  locale: string
+}
+
+/** Get device info for ads API */
+function getDeviceInfo(): DeviceInfo {
+  // Map Node.js platform to Gravity API os values
+  const platformToOs: Record<string, 'macos' | 'windows' | 'linux'> = {
+    darwin: 'macos',
+    win32: 'windows',
+    linux: 'linux',
+  }
+  const os = platformToOs[process.platform] ?? 'linux'
+
+  // Get IANA timezone (e.g., "America/New_York")
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+
+  // Get locale (e.g., "en-US")
+  const locale = Intl.DateTimeFormat().resolvedOptions().locale
+
+  return { os, timezone, locale }
 }
