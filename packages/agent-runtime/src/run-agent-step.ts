@@ -553,10 +553,11 @@ export async function loopAgentSteps(
 
   let agentTemplate = params.agentTemplate
   if (!agentTemplate) {
-    agentTemplate = await getAgentTemplate({
-      ...params,
-      agentId: agentType,
-    })
+    agentTemplate =
+      (await getAgentTemplate({
+        ...params,
+        agentId: agentType,
+      })) ?? undefined
   }
   if (!agentTemplate) {
     throw new Error(`Agent template not found for type: ${agentType}`)
