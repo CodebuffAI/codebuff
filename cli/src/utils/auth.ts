@@ -36,7 +36,7 @@ const claudeOAuthSchema = z
 
 const credentialsSchema = z
   .object({
-    default: userSchema,
+    default: userSchema.optional(),
     claudeOAuth: claudeOAuthSchema,
   })
   .catchall(z.unknown())
