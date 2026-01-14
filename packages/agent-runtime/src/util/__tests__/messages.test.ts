@@ -33,11 +33,8 @@ describe('messagesWithSystem', () => {
 
     const result = messagesWithSystem({ messages, system })
 
-    expect(result).toEqual([
-      systemMessage('Be helpful'),
-      userMessage('hello'),
-      assistantMessage('hi'),
-    ])
+    // Use the original message objects to avoid flaky sentAt timestamp comparisons
+    expect(result).toEqual([systemMessage('Be helpful'), ...messages])
   })
 })
 
