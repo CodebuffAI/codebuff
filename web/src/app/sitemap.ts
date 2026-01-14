@@ -1,5 +1,5 @@
 import { env } from '@codebuff/common/env'
-import { getCachedAgentsLite } from '@/server/agents-data'
+import { getCachedAgentsForSitemap } from '@/server/agents-data'
 
 import type { MetadataRoute } from 'next'
 
@@ -26,13 +26,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ]
 
-  // Include agent detail pages and publisher pages derived from cached store data
+  // Include agent detail pages and publisher pages derived from minimal sitemap data
+  // Uses optimized query that doesn't fetch full agent data blob
   try {
-    const agents = await getCachedAgentsLite()
+    const agents = await getCachedAgentsForSitemap()
 
     const seenPublishers = new Set<string>()
     for (const agent of agents) {
-      const pubId = agent.publisher?.id
+      const pubId = agent.publisher_id
       if (pubId && !seenPublishers.has(pubId)) {
         items.push({
           url: toUrl(`/publishers/${pubId}`),

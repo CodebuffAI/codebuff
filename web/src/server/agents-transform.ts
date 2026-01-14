@@ -11,6 +11,44 @@ export interface AgentRow {
   }
 }
 
+// Slim agent row with pre-extracted JSON fields (for optimized lite queries)
+export interface AgentRowSlim {
+  id: string
+  version: string
+  name: string | null
+  description: string | null
+  tags: string[] | null
+  created_at: string | Date
+  publisher: {
+    id: string
+    name: string
+    verified: boolean
+    avatar_url?: string | null
+  }
+}
+
+// Minimal agent row for sitemap (no data fields at all)
+export interface AgentRowSitemap {
+  id: string
+  version: string
+  created_at: string | Date
+  publisher_id: string
+}
+
+export interface SitemapMetricRow {
+  publisher_id: string | null
+  agent_id: string | null
+  last_used: Date | string | null
+}
+
+export interface SitemapAgentDataOut {
+  id: string
+  version: string
+  publisher_id: string
+  created_at: string
+  last_used?: string
+}
+
 export interface UsageMetricRow {
   publisher_id: string | null
   agent_name: string | null
@@ -244,7 +282,7 @@ export function buildAgentsData(params: {
 }
 
 export function buildAgentsDataLite(params: {
-  agents: AgentRow[]
+  agents: AgentRowSlim[]
   usageMetrics: UsageMetricRow[]
   weeklyMetrics: WeeklyMetricRow[]
 }): AgentDataOut[] {
@@ -295,22 +333,21 @@ export function buildAgentsDataLite(params: {
     }
   })
 
+  // With slim rows, name/description/tags are pre-extracted from the JSON
   const latestAgents = new Map<
     string,
-    { agent: AgentRow; agentData: any; agentName: string }
+    { agent: AgentRowSlim; agentName: string }
   >()
   agents.forEach((agent) => {
-    const agentData =
-      typeof agent.data === 'string' ? JSON.parse(agent.data) : agent.data
-    const agentName = agentData?.name || agent.id
+    const agentName = agent.name || agent.id
     const key = `${agent.publisher.id}/${agentName}`
     if (!latestAgents.has(key)) {
-      latestAgents.set(key, { agent, agentData, agentName })
+      latestAgents.set(key, { agent, agentName })
     }
   })
 
   const result = Array.from(latestAgents.values()).map(
-    ({ agent, agentData, agentName }) => {
+    ({ agent, agentName }) => {
       const agentKey = `${agent.publisher.id}/${agentName}`
       const metrics = metricsMap.get(agentKey) || {
         weekly_runs: 0,
@@ -322,10 +359,24 @@ export function buildAgentsDataLite(params: {
         last_used: null,
       }
 
+      // Parse tags if they came as a JSON string from the database
+      let tags: string[] = []
+      if (agent.tags) {
+        if (typeof agent.tags === 'string') {
+          try {
+            tags = JSON.parse(agent.tags)
+          } catch {
+            tags = []
+          }
+        } else {
+          tags = agent.tags
+        }
+      }
+
       return {
         id: agent.id,
         name: agentName,
-        description: agentData?.description,
+        description: agent.description || undefined,
         publisher: agent.publisher,
         version: agent.version,
         created_at:
@@ -343,11 +394,57 @@ export function buildAgentsDataLite(params: {
             ? metrics.last_used
             : metrics.last_used.toISOString()
           : undefined,
-        tags: agentData?.tags || [],
+        tags,
       }
     },
   )
 
   result.sort((a, b) => (b.weekly_spent || 0) - (a.weekly_spent || 0))
   return result
+}
+
+// Build minimal data for sitemap - just URLs and dates
+export function buildAgentsDataForSitemap(params: {
+  agents: AgentRowSitemap[]
+  metrics: SitemapMetricRow[]
+}): SitemapAgentDataOut[] {
+  const { agents, metrics } = params
+
+  // Build map of last_used dates by publisher/agent
+  const lastUsedMap = new Map<string, Date | string>()
+  metrics.forEach((metric) => {
+    if (metric.publisher_id && metric.agent_id && metric.last_used) {
+      const key = `${metric.publisher_id}/${metric.agent_id}`
+      lastUsedMap.set(key, metric.last_used)
+    }
+  })
+
+  // Dedupe to latest version per agent
+  const latestAgents = new Map<string, AgentRowSitemap>()
+  agents.forEach((agent) => {
+    const key = `${agent.publisher_id}/${agent.id}`
+    if (!latestAgents.has(key)) {
+      latestAgents.set(key, agent)
+    }
+  })
+
+  return Array.from(latestAgents.values()).map((agent) => {
+    const metricKey = `${agent.publisher_id}/${agent.id}`
+    const lastUsed = lastUsedMap.get(metricKey)
+
+    return {
+      id: agent.id,
+      version: agent.version,
+      publisher_id: agent.publisher_id,
+      created_at:
+        agent.created_at instanceof Date
+          ? agent.created_at.toISOString()
+          : (agent.created_at as string),
+      last_used: lastUsed
+        ? typeof lastUsed === 'string'
+          ? lastUsed
+          : lastUsed.toISOString()
+        : undefined,
+    }
+  })
 }

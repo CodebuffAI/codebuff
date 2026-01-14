@@ -1,4 +1,5 @@
 import { Metadata } from 'next'
+import { env } from '@codebuff/common/env'
 import { getCachedAgentsLite } from '@/server/agents-data'
 import AgentStoreClient from './store-client'
 
@@ -56,6 +57,39 @@ interface StorePageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
+// JSON-LD structured data for the store page (ItemList schema)
+function StoreJsonLd({ agentCount }: { agentCount: number }) {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: 'Codebuff Agent Store',
+    description: `Browse ${agentCount} AI agents for code assistance, automation, and development workflows.`,
+    url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/store`,
+    mainEntity: {
+      '@type': 'ItemList',
+      name: 'AI Agents',
+      description: 'Published AI agents available for use with Codebuff',
+      numberOfItems: agentCount,
+      itemListElement: {
+        '@type': 'ListItem',
+        name: 'AI Agent',
+      },
+    },
+    provider: {
+      '@type': 'Organization',
+      name: 'Codebuff',
+      url: env.NEXT_PUBLIC_CODEBUFF_APP_URL,
+    },
+  }
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    />
+  )
+}
+
 export default async function StorePage({ searchParams }: StorePageProps) {
   const resolvedSearchParams = await searchParams
   // Fetch agents data on the server with ISR cache
@@ -72,11 +106,14 @@ export default async function StorePage({ searchParams }: StorePageProps) {
   const userPublishers: PublisherProfileResponse[] = []
 
   return (
-    <AgentStoreClient
-      initialAgents={agentsData}
-      initialPublishers={userPublishers}
-      session={null} // Client will handle session
-      searchParams={resolvedSearchParams}
-    />
+    <>
+      <StoreJsonLd agentCount={agentsData.length} />
+      <AgentStoreClient
+        initialAgents={agentsData}
+        initialPublishers={userPublishers}
+        session={null} // Client will handle session
+        searchParams={resolvedSearchParams}
+      />
+    </>
   )
 }

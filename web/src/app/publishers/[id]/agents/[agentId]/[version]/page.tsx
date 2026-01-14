@@ -1,5 +1,6 @@
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
+import { env } from '@codebuff/common/env'
 import { and, eq } from 'drizzle-orm'
 import { Calendar } from 'lucide-react'
 import Link from 'next/link'
@@ -34,6 +35,7 @@ export async function generateMetadata({ params }: AgentDetailPageProps) {
     .select({
       data: schema.agentConfig.data,
       version: schema.agentConfig.version,
+      created_at: schema.agentConfig.created_at,
     })
     .from(schema.agentConfig)
     .innerJoin(
@@ -83,6 +85,61 @@ export async function generateMetadata({ params }: AgentDetailPageProps) {
       images: ogImages,
     },
   }
+}
+
+// JSON-LD structured data for SEO
+function AgentJsonLd({
+  agentName,
+  agentId,
+  version,
+  description,
+  publisherId,
+  publisherName,
+  createdAt,
+}: {
+  agentName: string
+  agentId: string
+  version: string
+  description?: string
+  publisherId: string
+  publisherName: string
+  createdAt: Date
+}) {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: agentName,
+    applicationCategory: 'DeveloperApplication',
+    operatingSystem: 'Cross-platform',
+    softwareVersion: version,
+    description:
+      description || `AI agent ${agentName} for code assistance and automation`,
+    url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/publishers/${publisherId}/agents/${agentId}/${version}`,
+    datePublished: createdAt.toISOString(),
+    author: {
+      '@type': 'Organization',
+      name: publisherName,
+      url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/publishers/${publisherId}`,
+    },
+    provider: {
+      '@type': 'Organization',
+      name: 'Codebuff',
+      url: env.NEXT_PUBLIC_CODEBUFF_APP_URL,
+    },
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'USD',
+      availability: 'https://schema.org/InStock',
+    },
+  }
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    />
+  )
 }
 
 const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
@@ -148,7 +205,17 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
   const fullAgentId = `${id}/${agentId}@${latestVersion}`
 
   return (
-    <div className="container mx-auto py-6 px-4">
+    <>
+      <AgentJsonLd
+        agentName={agentName}
+        agentId={agentId}
+        version={version}
+        description={agentData.description}
+        publisherId={id}
+        publisherName={publisherData.name}
+        createdAt={new Date(agent[0].created_at)}
+      />
+      <div className="container mx-auto py-6 px-4">
       <div className="max-w-4xl mx-auto">
         {' '}
         {/* Navigation */}
@@ -332,6 +399,7 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
         </div>
       </div>
     </div>
+    </>
   )
 }
 
