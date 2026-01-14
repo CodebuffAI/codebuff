@@ -1,24 +1,68 @@
 'use server'
 
-import { MAX_DATE } from '@codebuff/common/old-constants'
-import { genAuthCode } from '@codebuff/common/util/credentials'
-import { db } from '@codebuff/internal/db'
-import * as schema from '@codebuff/internal/db/schema'
-import { env } from '@codebuff/internal/env'
-import { and, eq, gt } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 
-import { authOptions } from '../api/auth/[...nextauth]/auth-options'
+import { env } from '@codebuff/internal/env'
 
+import { authOptions } from '../api/auth/[...nextauth]/auth-options'
 import CardWithBeams from '@/components/card-with-beams'
+import { logger } from '@/util/logger'
 import { OnboardClientWrapper } from '@/components/onboard/onboard-client-wrapper'
+
+import {
+  checkFingerprintConflict,
+  checkReplayAttack,
+  createCliSession,
+  getSessionTokenFromCookies,
+} from './_db'
+import { isAuthCodeExpired, parseAuthCode, validateAuthCode } from './_helpers'
 
 interface PageProps {
   searchParams?: Promise<{
     auth_code?: string
     referral_code?: string
   }>
+}
+
+function renderErrorCard(title: string, description: string, message: string) {
+  return CardWithBeams({
+    title,
+    description,
+    content: <p>{message}</p>,
+  })
+}
+
+function renderSuccessPage(
+  title: string,
+  description: string,
+  message: string,
+  referralCode?: string,
+) {
+  const successCard = CardWithBeams({
+    title,
+    description,
+    content: (
+      <div className="flex flex-col space-y-4 text-center">
+        <p className="text-lg">{message}</p>
+        {referralCode && (
+          <p className="text-muted-foreground">
+            Don't forget to enter your referral code in the CLI to claim your
+            bonus credits!
+          </p>
+        )}
+      </div>
+    ),
+  })
+
+  return (
+    <OnboardClientWrapper
+      hasReferralCode={!!referralCode}
+      referralCode={referralCode}
+    >
+      {successCard}
+    </OnboardClientWrapper>
+  )
 }
 
 const Onboard = async ({ searchParams }: PageProps) => {
@@ -28,223 +72,95 @@ const Onboard = async ({ searchParams }: PageProps) => {
   const session = await getServerSession(authOptions)
   const user = session?.user
 
-  console.log('🟢 Onboard Server: Page loaded with params', {
-    authCode: !!authCode,
-    referralCode,
-    hasUser: !!user,
-    userId: user?.id,
-  })
-
-  // Handle referral-only flow (no CLI auth required)
   if (!user) {
-    console.log('🟢 Onboard Server: No user session, redirecting to app URL')
     return redirect(env.NEXT_PUBLIC_CODEBUFF_APP_URL)
   }
 
-  // Handle all non-CLI flows (web users with or without referral codes)
   if (!authCode) {
-    const hasReferralInUrl = !!referralCode
-    console.log('🟢 Onboard Server: Non-CLI flow detected', {
-      hasReferralInUrl,
-      referralCode,
-    })
-    const successCard = CardWithBeams({
-      title: 'Welcome to Codebuff!',
-      description: hasReferralInUrl
+    return renderSuccessPage(
+      'Welcome to Codebuff!',
+      referralCode
         ? "Once you've installed Codebuff, you can close this window."
         : '',
-      content: (
-        <div className="flex flex-col space-y-4 text-center">
-          <p className="text-lg">
-            You're all set! Head back to your terminal to continue.
-          </p>
-          {hasReferralInUrl && (
-            <p className="text-muted-foreground">
-              Don't forget to enter your referral code in the CLI to claim your
-              bonus credits!
-            </p>
-          )}
-        </div>
-      ),
-    })
-
-    return (
-      <OnboardClientWrapper
-        hasReferralCode={hasReferralInUrl}
-        referralCode={referralCode}
-      >
-        {successCard}
-      </OnboardClientWrapper>
+      "You're all set! Head back to your terminal to continue.",
+      referralCode,
     )
   }
 
-  const [fingerprintId, expiresAt, receivedfingerprintHash] =
-    authCode.split('.')
-
-  // check if auth code is valid
-  const fingerprintHash = genAuthCode(
+  const { fingerprintId, expiresAt, receivedHash } = parseAuthCode(authCode)
+  const { valid, expectedHash: fingerprintHash } = validateAuthCode(
+    receivedHash,
     fingerprintId,
     expiresAt,
     env.NEXTAUTH_SECRET,
   )
-  if (receivedfingerprintHash !== fingerprintHash) {
-    return CardWithBeams({
-      title: 'Uh-oh, spaghettio!',
-      description: 'Invalid auth code.',
-      content: (
-        <p>
-          Please try again and reach out to support@codebuff.com if the problem
-          persists.
-        </p>
-      ),
-    })
+
+  if (!valid) {
+    return renderErrorCard(
+      'Uh-oh, spaghettio!',
+      'Invalid auth code.',
+      'Please try again and reach out to support@codebuff.com if the problem persists.',
+    )
   }
 
-  // Check for token expiration
-  if (expiresAt < Date.now().toString()) {
-    return CardWithBeams({
-      title: 'Uh-oh, spaghettio!',
-      description: 'Auth code expired.',
-      content: (
-        <p>
-          Please generate a new code and reach out to support@codebuff.com if
-          the problem persists.
-        </p>
-      ),
-    })
+  if (isAuthCodeExpired(expiresAt)) {
+    return renderErrorCard(
+      'Uh-oh, spaghettio!',
+      'Auth code expired.',
+      'Please generate a new code and reach out to support@codebuff.com if the problem persists.',
+    )
   }
 
-  // If fingerprint already exists, don't do anything, as this might be a replay attack
-  const fingerprintExists = await db
-    .select({
-      id: schema.user.id,
-    })
-    .from(schema.user)
-    .leftJoin(schema.session, eq(schema.user.id, schema.session.userId))
-    .leftJoin(
-      schema.fingerprint,
-      eq(schema.session.fingerprint_id, schema.fingerprint.id),
-    )
-    .where(
-      and(
-        eq(schema.fingerprint.sig_hash, fingerprintHash),
-        eq(schema.user.id, user.id),
-      ),
-    )
-    .limit(1)
-  if (fingerprintExists.length > 0) {
+  const isReplay = await checkReplayAttack(fingerprintHash, user.id)
+  if (isReplay) {
     return CardWithBeams({
-      title: 'Your account is already connected to your cli!',
+      title: 'Your account is already connected to your CLI!',
       description:
-        'Feel free to close this window and head back to your terminal. Enjoy the extra api credits!',
+        'Feel free to close this window and head back to your terminal.',
       content: <p>No replay attack for you 👊</p>,
     })
   }
 
-  // Check if this fingerprint is already associated with a different user
-  const existingSession = await db
-    .select({
-      userId: schema.session.userId,
-      expires: schema.session.expires,
-    })
-    .from(schema.session)
-    .where(
-      and(
-        eq(schema.session.fingerprint_id, fingerprintId),
-        gt(schema.session.expires, new Date()),
-      ),
+  const { hasConflict, existingUserId } = await checkFingerprintConflict(
+    fingerprintId,
+    user.id,
+  )
+  if (hasConflict) {
+    logger.warn(
+      { fingerprintId, existingUserId, attemptedUserId: user.id },
+      'Fingerprint ownership conflict',
     )
-    .limit(1)
-
-  const activeSession = existingSession[0]
-  if (activeSession && activeSession.userId !== user.id) {
-    // Only reject if the session belongs to a different user
-    console.warn(
-      {
-        fingerprintId,
-        existingUserId: activeSession.userId,
-        attemptedUserId: user.id,
-        event: 'fingerprint_ownership_conflict',
-      },
-      'Attempt to associate fingerprint with different user',
+    return renderErrorCard(
+      'Unable to complete login',
+      'Something went wrong during the login process.',
+      `Please try generating a new login code. If the problem persists, contact ${env.NEXT_PUBLIC_SUPPORT_EMAIL} for assistance.`,
     )
-
-    return CardWithBeams({
-      title: 'Unable to complete login',
-      description: 'Something went wrong during the login process.',
-      content: (
-        <p>
-          Please try generating a new login code. If the problem persists,
-          contact {env.NEXT_PUBLIC_SUPPORT_EMAIL} for assistance.
-        </p>
-      ),
-    })
   }
 
-  // Add it to the db
-  const didInsert = await db.transaction(async (tx: any) => {
-    await tx
-      .insert(schema.fingerprint)
-      .values({
-        sig_hash: fingerprintHash,
-        id: fingerprintId,
-      })
-      .onConflictDoNothing()
+  const sessionToken = await getSessionTokenFromCookies()
+  const success = await createCliSession(
+    user.id,
+    fingerprintId,
+    fingerprintHash,
+    sessionToken,
+  )
 
-    const session = await tx
-      .insert(schema.session)
-      .values({
-        sessionToken: crypto.randomUUID(),
-        userId: user.id,
-        expires: MAX_DATE,
-        fingerprint_id: fingerprintId,
-        type: 'cli',
-      })
-      .returning({ userId: schema.session.userId })
-
-    return !!session.length
-  })
-
-  // Render the result for CLI flow
-  if (didInsert) {
-    const isReferralUser = !!referralCode
-    const successCard = CardWithBeams({
-      title: 'Login successful!',
-      description: isReferralUser
+  if (success) {
+    return renderSuccessPage(
+      'Login successful!',
+      referralCode
         ? 'Follow the steps above to install Codebuff, then you can close this window.'
         : '',
-      content: (
-        <div className="flex flex-col space-y-4 text-center">
-          <p className="text-lg">Return to your terminal to continue.</p>
-          {referralCode && (
-            <p className="text-muted-foreground">
-              Don't forget to enter your referral code in the CLI to claim your
-              bonus credits!
-            </p>
-          )}
-        </div>
-      ),
-    })
-
-    return (
-      <OnboardClientWrapper
-        hasReferralCode={isReferralUser}
-        referralCode={referralCode}
-      >
-        {successCard}
-      </OnboardClientWrapper>
+      'Return to your terminal to continue.',
+      referralCode,
     )
   }
-  return CardWithBeams({
-    title: 'Uh-oh, spaghettio!',
-    description: 'Something went wrong.',
-    content: (
-      <p>
-        Not sure what happened with creating your user. Please try again and
-        reach out to {env.NEXT_PUBLIC_SUPPORT_EMAIL} if the problem persists.
-      </p>
-    ),
-  })
+
+  return renderErrorCard(
+    'Uh-oh, spaghettio!',
+    'Something went wrong.',
+    `Not sure what happened. Please try again and reach out to ${env.NEXT_PUBLIC_SUPPORT_EMAIL} if the problem persists.`,
+  )
 }
 
 export default Onboard

@@ -2,7 +2,10 @@ import { DrizzleAdapter } from '@auth/drizzle-adapter'
 import { processAndGrantCredit } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { DEFAULT_FREE_CREDITS_GRANT } from '@codebuff/common/old-constants'
+import {
+  DEFAULT_FREE_CREDITS_GRANT,
+  SESSION_MAX_AGE_SECONDS,
+} from '@codebuff/common/old-constants'
 import { getNextQuotaReset } from '@codebuff/common/util/dates'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { loops } from '@codebuff/internal'
@@ -143,7 +146,7 @@ export const authOptions: NextAuthOptions = {
   ],
   session: {
     strategy: 'database',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: SESSION_MAX_AGE_SECONDS,
   },
   callbacks: {
     async session({ session, user }) {

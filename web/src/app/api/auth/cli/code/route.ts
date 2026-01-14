@@ -13,7 +13,8 @@ export async function POST(req: Request) {
     fingerprintId: z.string(),
     referralCode: z.string().optional(),
   })
-  const result = reqSchema.safeParse(await req.json())
+  const requestBody = await req.json()
+  const result = reqSchema.safeParse(requestBody)
   if (!result.success) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }

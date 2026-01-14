@@ -48,9 +48,11 @@ export default async function ReferralPage({
   let referralData: ReferralCodeResponse
   try {
     const baseUrl = env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'http://localhost:3000'
+    const headerList = await headers()
+    const cookie = headerList.get('Cookie') ?? ''
     const response = await fetch(`${baseUrl}/api/referrals/${code}`, {
       headers: {
-        Cookie: (await headers()).get('Cookie') ?? '',
+        Cookie: cookie,
       },
     })
 
