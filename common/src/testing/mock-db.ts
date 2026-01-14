@@ -211,7 +211,21 @@ function createTableQuery<T>(data: T[]): TableQuery<T> {
   }
 }
 
-/** Creates a mock database connection for testing billing functions. */
+/**
+ * Creates a mock database connection for testing billing functions.
+ *
+ * **Limitation: Field-based Query Detection**
+ *
+ * This mock uses field inspection to determine what data to return from select queries.
+ * The detection logic checks for specific field names in the select clause:
+ * - `orgId` field → returns org member data
+ * - `repoUrl` field → returns org repo data
+ * - `totalCredits` field → returns referral sum data
+ * - `principal` field → returns credit grant data
+ *
+ * If you add new queries with different field patterns, you may need to update the
+ * `select()` implementation below to handle the new query type.
+ */
 export function createMockDb(config: MockDbConfig = {}): BillingDbConnection {
   const {
     users = [],
