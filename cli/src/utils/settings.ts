@@ -7,6 +7,11 @@ import { logger } from './logger'
 
 import type { AgentMode } from './constants'
 
+const DEFAULT_SETTINGS: Settings = {
+  mode: 'DEFAULT' as const,
+  adsEnabled: true,
+}
+
 /**
  * Settings schema - add new settings here as the product evolves
  */
@@ -30,7 +35,9 @@ export const loadSettings = (): Settings => {
   const settingsPath = getSettingsPath()
 
   if (!fs.existsSync(settingsPath)) {
-    return {}
+    // Create default settings file
+    fs.writeFileSync(settingsPath, JSON.stringify(DEFAULT_SETTINGS, null, 2))
+    return DEFAULT_SETTINGS
   }
 
   try {

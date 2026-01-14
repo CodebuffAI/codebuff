@@ -22,6 +22,16 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     aliases: ['claude'],
   },
   {
+    id: 'ads:enable',
+    label: 'ads:enable',
+    description: 'Enable contextual ads and earn credits',
+  },
+  {
+    id: 'ads:disable',
+    label: 'ads:disable',
+    description: 'Disable contextual ads and stop earning credits',
+  },
+  {
     id: 'init',
     label: 'init',
     description: 'Create a starter knowledge.md file',
@@ -83,16 +93,6 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     aliases: ['h', '?'],
   },
   ...MODE_COMMANDS,
-  {
-    id: 'ads:enable',
-    label: 'ads:enable (beta)',
-    description: 'Enable contextual ads and earn credits',
-  },
-  {
-    id: 'ads:disable',
-    label: 'ads:disable (beta)',
-    description: 'Disable contextual ads',
-  },
   {
     id: 'referral',
     label: 'referral',
