@@ -3,6 +3,7 @@ import {
   buildAgentsData,
   buildAgentsDataLite,
   type AgentRow,
+  type AgentRowSlim,
 } from '../agents-transform'
 
 describe('buildAgentsData', () => {
@@ -262,11 +263,14 @@ describe('buildAgentsData', () => {
 
 describe('buildAgentsDataLite', () => {
   it('dedupes by latest, merges metrics, and omits version_stats', () => {
-    const agents: AgentRow[] = [
+    // AgentRowSlim has pre-extracted fields (name, description, tags) instead of data blob
+    const agents: AgentRowSlim[] = [
       {
         id: 'base',
         version: '1.0.0',
-        data: { name: 'Base', description: 'desc', tags: ['x'] },
+        name: 'Base',
+        description: 'desc',
+        tags: ['x'],
         created_at: '2025-01-01T00:00:00.000Z',
         publisher: {
           id: 'codebuff',
@@ -279,7 +283,9 @@ describe('buildAgentsDataLite', () => {
       {
         id: 'base-old',
         version: '0.9.0',
-        data: { name: 'Base', description: 'old' },
+        name: 'Base',
+        description: 'old',
+        tags: null,
         created_at: '2024-12-01T00:00:00.000Z',
         publisher: {
           id: 'codebuff',
@@ -291,7 +297,9 @@ describe('buildAgentsDataLite', () => {
       {
         id: 'reviewer',
         version: '2.1.0',
-        data: { name: 'Reviewer' },
+        name: 'Reviewer',
+        description: null,
+        tags: null,
         created_at: '2025-01-03T00:00:00.000Z',
         publisher: {
           id: 'codebuff',
@@ -365,11 +373,14 @@ describe('buildAgentsDataLite', () => {
   })
 
   it('handles missing metrics gracefully and omits version_stats', () => {
-    const agents = [
+    // AgentRowSlim with null name (should fall back to id)
+    const agents: AgentRowSlim[] = [
       {
         id: 'solo',
         version: '0.1.0',
-        data: { description: 'no name provided' },
+        name: null,
+        description: 'no name provided',
+        tags: null,
         created_at: new Date('2025-02-01T00:00:00.000Z'),
         publisher: {
           id: 'codebuff',
@@ -378,7 +389,7 @@ describe('buildAgentsDataLite', () => {
           avatar_url: null,
         },
       },
-    ] as any
+    ]
 
     const out = buildAgentsDataLite({
       agents,

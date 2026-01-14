@@ -49,6 +49,33 @@ export interface SitemapAgentDataOut {
   last_used?: string
 }
 
+// Basic agent info without metrics - for lightweight SSR
+export interface AgentBasicInfo {
+  id: string
+  name: string
+  description?: string
+  publisher: {
+    id: string
+    name: string
+    verified: boolean
+    avatar_url?: string | null
+  }
+  version: string
+  created_at: string
+  tags?: string[]
+}
+
+// Metrics data keyed by publisher/agentName
+export interface AgentMetrics {
+  usage_count: number
+  weekly_runs: number
+  weekly_spent: number
+  total_spent: number
+  avg_cost_per_invocation: number
+  unique_users: number
+  last_used?: string
+}
+
 export interface UsageMetricRow {
   publisher_id: string | null
   agent_name: string | null
@@ -403,7 +430,107 @@ export function buildAgentsDataLite(params: {
   return result
 }
 
-// Build minimal data for sitemap - just URLs and dates
+// Build basic agent info without any metrics - for lightweight initial page load
+export function buildAgentsBasicInfo(params: {
+  agents: AgentRowSlim[]
+}): AgentBasicInfo[] {
+  const { agents } = params
+
+  // Dedupe to latest version per agent
+  const latestAgents = new Map<
+    string,
+    { agent: AgentRowSlim; agentName: string }
+  >()
+  agents.forEach((agent) => {
+    const agentName = agent.name || agent.id
+    const key = `${agent.publisher.id}/${agentName}`
+    if (!latestAgents.has(key)) {
+      latestAgents.set(key, { agent, agentName })
+    }
+  })
+
+  const result = Array.from(latestAgents.values()).map(({ agent, agentName }) => {
+    // Parse tags if they came as a JSON string from the database
+    let tags: string[] = []
+    if (agent.tags) {
+      if (typeof agent.tags === 'string') {
+        try {
+          tags = JSON.parse(agent.tags)
+        } catch {
+          tags = []
+        }
+      } else {
+        tags = agent.tags
+      }
+    }
+
+    return {
+      id: agent.id,
+      name: agentName,
+      description: agent.description || undefined,
+      publisher: agent.publisher,
+      version: agent.version,
+      created_at:
+        agent.created_at instanceof Date
+          ? agent.created_at.toISOString()
+          : (agent.created_at as string),
+      tags,
+    }
+  })
+
+  // Sort alphabetically by name as default (metrics-based sorting happens client-side)
+  result.sort((a, b) => a.name.localeCompare(b.name))
+  return result
+}
+
+// Build metrics map from usage data - keyed by "publisherId/agentName"
+export function buildAgentsMetricsMap(params: {
+  usageMetrics: UsageMetricRow[]
+  weeklyMetrics: WeeklyMetricRow[]
+}): Record<string, AgentMetrics> {
+  const { usageMetrics, weeklyMetrics } = params
+
+  const weeklyMap = new Map<
+    string,
+    { weekly_runs: number; weekly_dollars: number }
+  >()
+  weeklyMetrics.forEach((metric) => {
+    if (metric.publisher_id && metric.agent_name) {
+      const key = `${metric.publisher_id}/${metric.agent_name}`
+      weeklyMap.set(key, {
+        weekly_runs: Number(metric.weekly_runs),
+        weekly_dollars: Number(metric.weekly_dollars),
+      })
+    }
+  })
+
+  const metricsMap: Record<string, AgentMetrics> = {}
+  usageMetrics.forEach((metric) => {
+    if (metric.publisher_id && metric.agent_name) {
+      const key = `${metric.publisher_id}/${metric.agent_name}`
+      const weeklyData = weeklyMap.get(key) || {
+        weekly_runs: 0,
+        weekly_dollars: 0,
+      }
+      metricsMap[key] = {
+        usage_count: Number(metric.total_invocations),
+        weekly_runs: weeklyData.weekly_runs,
+        weekly_spent: weeklyData.weekly_dollars,
+        total_spent: Number(metric.total_dollars),
+        avg_cost_per_invocation: Number(metric.avg_cost_per_run),
+        unique_users: Number(metric.unique_users),
+        last_used: metric.last_used
+          ? typeof metric.last_used === 'string'
+            ? metric.last_used
+            : metric.last_used.toISOString()
+          : undefined,
+      }
+    }
+  })
+
+  return metricsMap
+}
+
 export function buildAgentsDataForSitemap(params: {
   agents: AgentRowSitemap[]
   metrics: SitemapMetricRow[]

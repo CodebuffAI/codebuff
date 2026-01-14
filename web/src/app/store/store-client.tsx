@@ -35,7 +35,8 @@ import { cn } from '@/lib/utils'
 import type { Session } from 'next-auth'
 import { create } from 'zustand'
 
-interface AgentData {
+// Basic agent info from SSR (no metrics)
+interface AgentBasicInfo {
   id: string
   name: string
   description?: string
@@ -47,6 +48,22 @@ interface AgentData {
   }
   version: string
   created_at: string
+  tags?: string[]
+}
+
+// Metrics loaded client-side
+interface AgentMetrics {
+  usage_count: number
+  weekly_runs: number
+  weekly_spent: number
+  total_spent: number
+  avg_cost_per_invocation: number
+  unique_users: number
+  last_used?: string
+}
+
+// Combined data for display
+interface AgentData extends AgentBasicInfo {
   usage_count?: number
   weekly_runs?: number
   weekly_spent?: number
@@ -54,8 +71,6 @@ interface AgentData {
   avg_cost_per_invocation?: number
   unique_users?: number
   last_used?: string
-  version_stats?: Record<string, any>
-  tags?: string[]
 }
 
 interface AgentStoreState {
@@ -92,7 +107,7 @@ interface PublisherProfileResponse {
 }
 
 interface AgentStoreClientProps {
-  initialAgents: AgentData[]
+  initialAgents: AgentBasicInfo[]
   initialPublishers: PublisherProfileResponse[]
   session: Session | null
   searchParams: { [key: string]: string | string[] | undefined }
@@ -199,24 +214,42 @@ export default function AgentStoreClient({
     loadingStateRef.current = { isLoadingMore, hasMore }
   }, [isLoadingMore, hasMore])
 
-  // Hydrate agents client-side if SSR provided none (build-time fallback)
-  const { data: hydratedAgents } = useQuery<AgentData[]>({
-    queryKey: ['agents'],
+  // Fetch metrics client-side - this is the progressive loading part
+  const { data: metricsMap, isLoading: isLoadingMetrics } = useQuery<
+    Record<string, AgentMetrics>
+  >({
+    queryKey: ['agents-metrics'],
     queryFn: async () => {
-      const response = await fetch('/api/agents')
+      const response = await fetch('/api/agents/metrics')
       if (!response.ok) {
-        throw new Error(`Failed to fetch agents: ${response.statusText}`)
+        throw new Error(`Failed to fetch metrics: ${response.statusText}`)
       }
       return response.json()
     },
-    enabled: (initialAgents?.length ?? 0) === 0,
     staleTime: 600000, // 10 minutes
   })
 
-  // Prefer hydrated data if present; else use SSR data
-  const agents = useMemo(() => {
-    return hydratedAgents ?? initialAgents
-  }, [hydratedAgents, initialAgents])
+  // Combine basic agent info with metrics when available
+  const agents: AgentData[] = useMemo(() => {
+    if (!initialAgents?.length) return []
+
+    return initialAgents.map((agent) => {
+      // Key matches how metrics are stored: publisherId/agentName
+      const metricsKey = `${agent.publisher.id}/${agent.name}`
+      const metrics = metricsMap?.[metricsKey]
+
+      return {
+        ...agent,
+        usage_count: metrics?.usage_count,
+        weekly_runs: metrics?.weekly_runs,
+        weekly_spent: metrics?.weekly_spent,
+        total_spent: metrics?.total_spent,
+        avg_cost_per_invocation: metrics?.avg_cost_per_invocation,
+        unique_users: metrics?.unique_users,
+        last_used: metrics?.last_used,
+      }
+    })
+  }, [initialAgents, metricsMap])
 
   const editorsChoice = useMemo(() => {
     return agents.filter((agent) => EDITORS_CHOICE_AGENTS.includes(agent.id))
@@ -503,25 +536,33 @@ export default function AgentStoreClient({
                     </Badge>
                   )}
                 </div>
-                {agent.last_used && (
-                  <span
-                    className="text-xs text-muted-foreground/60"
-                    title={new Date(agent.last_used).toLocaleString()}
-                  >
-                    Used <RelativeTime date={agent.last_used} />
-                  </span>
+                {isLoadingMetrics ? (
+                  <div className="h-4 w-20 bg-muted/30 rounded animate-pulse" />
+                ) : (
+                  agent.last_used && (
+                    <span
+                      className="text-xs text-muted-foreground/60"
+                      title={new Date(agent.last_used).toLocaleString()}
+                    >
+                      Used <RelativeTime date={agent.last_used} />
+                    </span>
+                  )
                 )}
               </div>
             </div>
 
-            {/* Metrics Grid - Redesigned for better readability */}
+            {/* Metrics Grid - Shows skeleton while loading */}
             <div className="grid grid-cols-2 gap-3 py-3 border-t border-border/30">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-emerald-400" />
-                  <span className="font-semibold text-emerald-400">
-                    {formatCurrency(agent.weekly_spent)}
-                  </span>
+                  {isLoadingMetrics ? (
+                    <div className="h-5 w-12 bg-muted/50 rounded animate-pulse" />
+                  ) : (
+                    <span className="font-semibold text-emerald-400">
+                      {formatCurrency(agent.weekly_spent)}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground">Weekly spend</p>
               </div>
@@ -529,9 +570,13 @@ export default function AgentStoreClient({
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <Play className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-semibold">
-                    {formatUsageCount(agent.weekly_runs)}
-                  </span>
+                  {isLoadingMetrics ? (
+                    <div className="h-5 w-10 bg-muted/50 rounded animate-pulse" />
+                  ) : (
+                    <span className="font-semibold">
+                      {formatUsageCount(agent.weekly_runs)}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground">Weekly runs</p>
               </div>
@@ -539,9 +584,13 @@ export default function AgentStoreClient({
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-semibold">
-                    {formatCurrency(agent.avg_cost_per_invocation)}
-                  </span>
+                  {isLoadingMetrics ? (
+                    <div className="h-5 w-12 bg-muted/50 rounded animate-pulse" />
+                  ) : (
+                    <span className="font-semibold">
+                      {formatCurrency(agent.avg_cost_per_invocation)}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground">Per run</p>
               </div>
@@ -549,9 +598,13 @@ export default function AgentStoreClient({
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-semibold">
-                    {agent.unique_users || 0}
-                  </span>
+                  {isLoadingMetrics ? (
+                    <div className="h-5 w-8 bg-muted/50 rounded animate-pulse" />
+                  ) : (
+                    <span className="font-semibold">
+                      {agent.unique_users || 0}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground">Users</p>
               </div>
