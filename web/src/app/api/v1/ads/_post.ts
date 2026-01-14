@@ -152,9 +152,12 @@ export async function postAds(params: {
       renderContext: {
         placements: [{ placement: 'below_response' }],
         max_ad_length: 200,
+        supports_links: true,
+        supports_markdown: false,
       },
       ...(device ? { device } : {}),
       testAd: serverEnv.CB_ENVIRONMENT !== 'prod',
+      numAds: 1,
     }
     // Call Gravity API
     const response = await fetch('https://server.trygravity.ai/ad', {

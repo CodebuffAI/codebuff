@@ -95,6 +95,8 @@ export type SuggestedFollowupsState = {
 export type ClickedFollowupsMap = Map<string, Set<number>>
 
 export type ChatStoreState = {
+  /** Unique ID for this chat session, regenerated on /new */
+  chatSessionId: string
   messages: ChatMessage[]
   streamingAgents: Set<string>
   focusedAgentId: string | null
@@ -204,7 +206,10 @@ type ChatStoreActions = {
 
 type ChatStore = ChatStoreState & ChatStoreActions
 
+const generateSessionId = () => crypto.randomUUID()
+
 const initialState: ChatStoreState = {
+  chatSessionId: generateSessionId(),
   messages: [],
   streamingAgents: new Set<string>(),
   focusedAgentId: null,
@@ -466,6 +471,7 @@ export const useChatStore = create<ChatStore>()(
 
     reset: () =>
       set((state) => {
+        state.chatSessionId = generateSessionId()
         state.messages = initialState.messages.slice()
         state.streamingAgents = new Set(initialState.streamingAgents)
         state.focusedAgentId = initialState.focusedAgentId
