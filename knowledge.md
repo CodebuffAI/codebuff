@@ -96,7 +96,6 @@ Prefer `ErrorOr<T>` return values (`success(...)`/`failure(...)` in `common/src/
 - Prefer dependency injection over module mocking; define contracts in `common/src/types/contracts/`.
 - Use `spyOn()` only for globals / legacy seams.
 - Avoid `mock.module()` for functions; use `@codebuff/common/testing/mock-modules.ts` helpers for constants only.
-- See [TESTING.md](./TESTING.md) for comprehensive DI patterns, test fixtures, and migration guides.
 
 CLI hook testing note: React 19 + Bun + RTL `renderHook()` is unreliable; prefer integration tests via components for hook behavior.
 

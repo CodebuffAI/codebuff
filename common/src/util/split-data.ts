@@ -1,24 +1,11 @@
-/**
- * Represents any JSON-serializable value (primitives, arrays, or objects).
- * Used internally for type-safe JSON splitting operations.
- */
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | undefined
-  | JsonValue[]
-  | { [key: string]: JsonValue }
-
-type PlainObject = Record<string, JsonValue>
+type PlainObject = Record<string, any>
 
 interface Chunk<T> {
   data: T
   length: number
 }
 
-function isPlainObject(val: unknown): val is PlainObject {
+function isPlainObject(val: any): val is PlainObject {
   return (
     typeof val === 'object' &&
     val !== null &&
@@ -26,7 +13,7 @@ function isPlainObject(val: unknown): val is PlainObject {
   )
 }
 
-function getJsonSize(data: unknown): number {
+function getJsonSize(data: any): number {
   if (data === undefined) {
     return 'undefined'.length
   }
@@ -106,7 +93,7 @@ function splitObject(params: {
       })
 
       for (const [index, item] of items.entries()) {
-        const itemWithKey: Chunk<PlainObject> = {
+        const itemWithKey: Chunk<any> = {
           data: { [key]: item.data },
           length: item.length + overhead,
         }
@@ -168,14 +155,14 @@ function splitObject(params: {
   return chunks
 }
 
-function splitArray(params: { arr: JsonValue[]; maxSize: number }): Chunk<JsonValue[]>[] {
+function splitArray(params: { arr: any[]; maxSize: number }): Chunk<any[]>[] {
   const { arr, maxSize } = params
-  const chunks: Chunk<JsonValue[]>[] = []
-  let currentChunk: Chunk<JsonValue[]> = { data: [], length: 2 }
+  const chunks: Chunk<any[]>[] = []
+  let currentChunk: Chunk<any[]> = { data: [], length: 2 }
 
   for (const element of arr) {
-    const entryArr: JsonValue[] = [element]
-    const standaloneEntry: Chunk<JsonValue[]> = {
+    const entryArr = [element]
+    const standaloneEntry: Chunk<any[]> = {
       data: entryArr,
       length: getJsonSize(entryArr),
     }
@@ -237,9 +224,9 @@ function splitArray(params: { arr: JsonValue[]; maxSize: number }): Chunk<JsonVa
 }
 
 function splitDataWithLengths(params: {
-  data: unknown
+  data: any
   maxChunkSize: number
-}): Chunk<JsonValue>[] {
+}): Chunk<any>[] {
   const { data, maxChunkSize } = params
   // Handle primitives
   if (typeof data !== 'object' || data === null) {
@@ -247,19 +234,17 @@ function splitDataWithLengths(params: {
       const result = splitString({ data, maxSize: maxChunkSize })
       return result
     }
-    // Primitives (number, boolean, null, undefined) are valid JsonValues
-    return [{ data: data as JsonValue, length: getJsonSize(data) }]
+    return [{ data, length: getJsonSize(data) }]
   }
 
-  // Non-plain objects (Date, RegExp, etc.) - pass through as-is
-  // These will be serialized by JSON.stringify when needed
+  // Non-plain objects (Date, RegExp, etc.)
   if (!Array.isArray(data) && !isPlainObject(data)) {
-    return [{ data: data as JsonValue, length: getJsonSize(data) }]
+    return [{ data, length: getJsonSize(data) }]
   }
 
   // Arrays
   if (Array.isArray(data)) {
-    const result = splitArray({ arr: data as JsonValue[], maxSize: maxChunkSize })
+    const result = splitArray({ arr: data, maxSize: maxChunkSize })
     return result
   }
 
@@ -268,15 +253,7 @@ function splitDataWithLengths(params: {
   return result
 }
 
-/**
- * Splits JSON-serializable data into smaller chunks that fit within the specified size limit.
- * Preserves the structure of objects and arrays while splitting long strings and nested values.
- *
- * @param params.data - The data to split (can be any JSON-serializable value)
- * @param params.maxChunkSize - Maximum size in characters for each chunk (default: 99,000)
- * @returns An array of chunks, each fitting within the size limit
- */
-export function splitData(params: { data: unknown; maxChunkSize?: number }): unknown[] {
+export function splitData(params: { data: any; maxChunkSize?: number }): any[] {
   const { data, maxChunkSize = 99_000 } = params
   return splitDataWithLengths({ data, maxChunkSize }).map((cwjl) => cwjl.data)
 }

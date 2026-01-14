@@ -21,7 +21,7 @@ describe('splitData - base cases', () => {
   it('splits short strings when maxChunkSize is small', () => {
     const input = { msg: 'abcdef'.repeat(10) } // 60 chars
 
-    const chunks = splitData({ data: input, maxChunkSize: 30 }) as { msg?: string }[]
+    const chunks = splitData({ data: input, maxChunkSize: 30 })
 
     expect(chunks.length).toBeGreaterThan(1)
     const combined = chunks.map((c) => c.msg).join('')
@@ -32,7 +32,7 @@ describe('splitData - base cases', () => {
   it('splits deeply nested strings with small maxChunkSize', () => {
     const input = { a: { b: { c: 'xyz123'.repeat(10) } } }
 
-    const chunks = splitData({ data: input, maxChunkSize: 50 }) as { a?: { b?: { c?: string } } }[]
+    const chunks = splitData({ data: input, maxChunkSize: 50 })
 
     expect(chunks.length).toBeGreaterThan(1)
     const reconstructed = chunks.map((c) => c.a?.b?.c ?? '').join('')
@@ -60,7 +60,7 @@ describe('splitData - base cases', () => {
       str: 'hello world'.repeat(5),
     }
 
-    const chunks = splitData({ data: input, maxChunkSize: 50 }) as { flag?: boolean; num?: number; str?: string }[]
+    const chunks = splitData({ data: input, maxChunkSize: 50 })
 
     expect(chunks.length).toBeGreaterThan(1)
     expect(chunks.every((c) => JSON.stringify(c).length <= 50)).toBe(true)
@@ -74,7 +74,7 @@ describe('splitData - base cases', () => {
       a: 'A'.repeat(20),
       b: 'B'.repeat(20),
     }
-    const chunks = splitData({ data: input, maxChunkSize: 30 }) as { a?: string; b?: string }[]
+    const chunks = splitData({ data: input, maxChunkSize: 30 })
 
     expect(chunks.length).toBeGreaterThan(1)
 
@@ -89,7 +89,7 @@ describe('splitData - base cases', () => {
 describe('splitData - array and string-specific splitting', () => {
   it('splits long strings into smaller string chunks', () => {
     const input = '12345678901234567890'
-    const chunks = splitData({ data: input, maxChunkSize: 5 }) as string[]
+    const chunks = splitData({ data: input, maxChunkSize: 5 })
 
     expect(Array.isArray(chunks)).toBe(true)
     chunks.forEach((chunk) => {
@@ -121,7 +121,7 @@ describe('splitData - array and string-specific splitting', () => {
       b: 'bbb'.repeat(10),
     }
     const maxSize = 40
-    const chunks = splitData({ data: input, maxChunkSize: maxSize }) as { a?: string; b?: string }[]
+    const chunks = splitData({ data: input, maxChunkSize: maxSize })
 
     expect(Array.isArray(chunks)).toBe(true)
     chunks.forEach((chunk) => {
@@ -162,7 +162,7 @@ describe('splitData - array and string-specific splitting', () => {
     ]
     const maxSize = 30
 
-    const chunks = splitData({ data: input, maxChunkSize: maxSize }) as { msg?: string; val?: number }[][]
+    const chunks = splitData({ data: input, maxChunkSize: maxSize })
 
     expect(Array.isArray(chunks)).toBe(true)
     chunks.forEach((chunk) => {

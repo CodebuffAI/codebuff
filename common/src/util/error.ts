@@ -33,7 +33,7 @@ export function success<T>(value: T): Success<T> {
   }
 }
 
-export function failure(error: unknown): Failure<ErrorObject> {
+export function failure(error: any): Failure<ErrorObject> {
   return {
     success: false,
     error: getErrorObject(error),
@@ -41,21 +41,21 @@ export function failure(error: unknown): Failure<ErrorObject> {
 }
 
 export function getErrorObject(
-  error: unknown,
+  error: any,
   options: { includeRawError?: boolean } = {},
 ): ErrorObject {
   if (error instanceof Error) {
-    const errorWithExtras = error as { status?: unknown; statusCode?: unknown; code?: unknown }
+    const anyError = error as any
     return {
       name: error.name,
       message: error.message,
       stack: error.stack,
-      status: typeof errorWithExtras.status === 'number' ? errorWithExtras.status : undefined,
+      status: typeof anyError.status === 'number' ? anyError.status : undefined,
       statusCode:
-        typeof errorWithExtras.statusCode === 'number'
-          ? errorWithExtras.statusCode
+        typeof anyError.statusCode === 'number'
+          ? anyError.statusCode
           : undefined,
-      code: typeof errorWithExtras.code === 'string' ? errorWithExtras.code : undefined,
+      code: typeof anyError.code === 'string' ? anyError.code : undefined,
       rawError: options.includeRawError
         ? JSON.stringify(error, null, 2)
         : undefined,

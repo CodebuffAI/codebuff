@@ -299,7 +299,7 @@ describe('withRetry', () => {
 
       const result = await withRetry(operation, {
         maxRetries: 3,
-        retryIf: (error) => (error as { code?: string })?.code === 'RETRY_ME',
+        retryIf: (error) => error?.code === 'RETRY_ME',
       })
 
       expect(result).toBe('success')
@@ -315,7 +315,7 @@ describe('withRetry', () => {
       await expect(
         withRetry(operation, {
           maxRetries: 3,
-          retryIf: (err) => (err as { code?: string })?.code === 'RETRY_ME',
+          retryIf: (err) => err?.code === 'RETRY_ME',
         }),
       ).rejects.toMatchObject({ code: 'DO_NOT_RETRY' })
 

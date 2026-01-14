@@ -2,8 +2,20 @@ import React, { cloneElement, isValidElement, memo } from 'react'
 import type { ReactElement, ReactNode } from 'react'
 
 /**
- * Makes all `<text>` and `<span>` children non-selectable.
- * Use for interactive elements where text selection during clicks is undesirable.
+ * Makes all text content within a React node tree non-selectable.
+ *
+ * This is important for interactive elements (buttons, clickable boxes) because
+ * text inside them should not be selectable when the user clicks - it creates
+ * a poor UX where text gets highlighted during interactions.
+ *
+ * Handles both `<text>` and `<span>` OpenTUI elements by adding `selectable={false}`.
+ *
+ * @example
+ * ```tsx
+ * // Use this when building custom interactive components
+ * const processedChildren = makeTextUnselectable(children)
+ * return <box onMouseDown={handleClick}>{processedChildren}</box>
+ * ```
  */
 export function makeTextUnselectable(node: ReactNode): ReactNode {
   if (node === null || node === undefined || typeof node === 'boolean') return node
@@ -44,8 +56,34 @@ interface ClickableProps {
 }
 
 /**
- * Wrapper for interactive areas. Makes text non-selectable automatically.
- * Use `as="text"` for inline clickable text, default is `as="box"`.
+ * A wrapper component for any interactive/clickable area in the CLI.
+ *
+ * **Why use this instead of raw `<box>` or `<text>` with mouse handlers?**
+ *
+ * This component automatically makes all text content non-selectable, which is
+ * essential for good UX - users shouldn't accidentally select text when clicking
+ * interactive elements.
+ *
+ * **The `as` prop:**
+ * - `as="box"` (default) - Renders a `<box>` element for layout containers
+ * - `as="text"` - Renders a `<text>` element for inline clickable text
+ *
+ * **When to use `Clickable` vs `Button`:**
+ * - Use `Button` for actual button-like interactions (has click-on-mouseup logic)
+ * - Use `Clickable` for simpler interactive areas where you need direct mouse event control
+ *
+ * @example
+ * ```tsx
+ * // Default: renders <box>
+ * <Clickable onMouseDown={handleClick}>
+ *   <text>Click me</text>
+ * </Clickable>
+ *
+ * // For inline text: renders <text>
+ * <Clickable as="text" onMouseDown={handleCopy}>
+ *   <span>⎘ copy</span>
+ * </Clickable>
+ * ```
  */
 export const Clickable = memo(function Clickable({
   as = 'box',
