@@ -14,6 +14,7 @@ const MAX_ADS_AFTER_ACTIVITY = 3 // Show up to 3 ads after last activity, then s
 export type AdResponse = {
   adText: string
   title: string
+  cta: string
   url: string
   favicon: string
   clickUrl: string

@@ -239,6 +239,13 @@
       "when": 1767205858214,
       "tag": "0033_overconfident_skreet",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1768357152841,
+      "tag": "0034_orange_firebrand",
+      "breakpoints": true
     }
   ]
 }

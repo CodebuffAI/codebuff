@@ -414,6 +414,7 @@ export const adImpression = pgTable(
     // Ad content from Gravity API
     ad_text: text('ad_text').notNull(),
     title: text('title').notNull(),
+    cta: text('cta').notNull().default(''),
     url: text('url').notNull(),
     favicon: text('favicon').notNull(),
     click_url: text('click_url').notNull(),

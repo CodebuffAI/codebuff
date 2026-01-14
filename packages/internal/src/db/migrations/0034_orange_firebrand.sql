@@ -1,0 +1,1 @@
+ALTER TABLE "ad_impression" ADD COLUMN "cta" text NOT NULL DEFAULT '';
