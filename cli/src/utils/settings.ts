@@ -28,6 +28,16 @@ export const getSettingsPath = (): string => {
 }
 
 /**
+ * Ensure the config directory exists, creating it if necessary
+ */
+const ensureConfigDirExists = (): void => {
+  const configDir = getConfigDir()
+  if (!fs.existsSync(configDir)) {
+    fs.mkdirSync(configDir, { recursive: true })
+  }
+}
+
+/**
  * Load all settings from file system
  * @returns The saved settings object, with defaults for missing values
  */
@@ -35,6 +45,7 @@ export const loadSettings = (): Settings => {
   const settingsPath = getSettingsPath()
 
   if (!fs.existsSync(settingsPath)) {
+    ensureConfigDirExists()
     // Create default settings file
     fs.writeFileSync(settingsPath, JSON.stringify(DEFAULT_SETTINGS, null, 2))
     return DEFAULT_SETTINGS
@@ -86,13 +97,10 @@ const validateSettings = (parsed: unknown): Settings => {
  * Save settings to file system (merges with existing settings)
  */
 export const saveSettings = (newSettings: Partial<Settings>): void => {
-  const configDir = getConfigDir()
   const settingsPath = getSettingsPath()
 
   try {
-    if (!fs.existsSync(configDir)) {
-      fs.mkdirSync(configDir, { recursive: true })
-    }
+    ensureConfigDirExists()
 
     // Load existing settings and merge
     const existingSettings = loadSettings()
