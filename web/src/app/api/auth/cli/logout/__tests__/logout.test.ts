@@ -45,6 +45,7 @@ describe('/api/auth/cli/logout POST endpoint', () => {
       deleteSessionsByFingerprint: mock(async () => []),
       getFingerprintData: mock(async () => []),
       deleteOrphanedWebSessions: mock(async () => []),
+      deleteWebSessionsInTimeWindow: mock(async () => []),
       deleteAllWebSessions: mock(async () => []),
       unclaimFingerprint: mock(async () => {}),
     }
@@ -77,14 +78,11 @@ describe('/api/auth/cli/logout POST endpoint', () => {
 
   describe('Request validation', () => {
     test('returns 400 when body is not valid JSON', async () => {
-      const req = new NextRequest(
-        'http://localhost:3000/api/auth/cli/logout',
-        {
-          method: 'POST',
-          headers: { Authorization: 'Bearer test-token' },
-          body: 'not json',
-        },
-      )
+      const req = new NextRequest('http://localhost:3000/api/auth/cli/logout', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer test-token' },
+        body: 'not json',
+      })
 
       const response = await postLogout({ req, db: mockDb, logger: mockLogger })
 
@@ -242,7 +240,9 @@ describe('/api/auth/cli/logout POST endpoint', () => {
     })
 
     test('unclaims fingerprint when fingerprint match succeeds', async () => {
-      mockDb.deleteSessionsByFingerprint = mock(async () => [{ id: 'session-1' }])
+      mockDb.deleteSessionsByFingerprint = mock(async () => [
+        { id: 'session-1' },
+      ])
 
       const req = createRequest(createValidBody(), {
         Authorization: `Bearer ${testAuthToken}`,
@@ -255,7 +255,9 @@ describe('/api/auth/cli/logout POST endpoint', () => {
     })
 
     test('cleans up orphaned web sessions after fingerprint match succeeds', async () => {
-      mockDb.deleteSessionsByFingerprint = mock(async () => [{ id: 'cli-session' }])
+      mockDb.deleteSessionsByFingerprint = mock(async () => [
+        { id: 'cli-session' },
+      ])
       mockDb.deleteOrphanedWebSessions = mock(async () => [
         { id: 'orphan-web-session' },
       ])
@@ -282,15 +284,14 @@ describe('/api/auth/cli/logout POST endpoint', () => {
     })
   })
 
-  describe('Fallback deletion: All web sessions', () => {
+  describe('Time-window deletion (intermediate strategy)', () => {
     beforeEach(() => {
       setupFallbackMocks(mockDb)
     })
 
-    test('proceeds to fallback deletion when fingerprint match finds nothing', async () => {
-      mockDb.deleteAllWebSessions = mock(async () => [
-        { id: 'web-1' },
-        { id: 'web-2' },
+    test('tries time-window deletion when fingerprint match fails but fingerprint data exists', async () => {
+      mockDb.deleteWebSessionsInTimeWindow = mock(async () => [
+        { id: 'web-in-window' },
       ])
 
       const req = createRequest(createValidBody(), {
@@ -300,11 +301,16 @@ describe('/api/auth/cli/logout POST endpoint', () => {
       const response = await postLogout({ req, db: mockDb, logger: mockLogger })
 
       expect(response.status).toBe(200)
-      expect(mockDb.getFingerprintData).toHaveBeenCalledWith(testFingerprintId)
-      expect(mockDb.deleteAllWebSessions).toHaveBeenCalledWith(testUserId)
+      expect(mockDb.deleteWebSessionsInTimeWindow).toHaveBeenCalledWith(
+        testUserId,
+        testFingerprintCreatedAt,
+      )
+      // Should NOT proceed to nuclear fallback when time-window deletion succeeds
+      expect(mockDb.deleteAllWebSessions).not.toHaveBeenCalled()
     })
 
-    test('deletes all web sessions in fallback path', async () => {
+    test('falls back to deleteAllWebSessions when time-window deletion finds nothing', async () => {
+      mockDb.deleteWebSessionsInTimeWindow = mock(async () => [])
       mockDb.deleteAllWebSessions = mock(async () => [{ id: 'web-1' }])
 
       const req = createRequest(createValidBody(), {
@@ -314,13 +320,52 @@ describe('/api/auth/cli/logout POST endpoint', () => {
       const response = await postLogout({ req, db: mockDb, logger: mockLogger })
 
       expect(response.status).toBe(200)
+      expect(mockDb.deleteWebSessionsInTimeWindow).toHaveBeenCalled()
+      expect(mockDb.deleteAllWebSessions).toHaveBeenCalledWith(testUserId)
+    })
+  })
+
+  describe('Final fallback deletion: All web sessions', () => {
+    test('proceeds directly to nuclear fallback when no fingerprint data exists', async () => {
+      mockDb.deleteSessionsByFingerprint = mock(async () => [])
+      mockDb.getFingerprintData = mock(async () => [])
+      mockDb.deleteAllWebSessions = mock(async () => [{ id: 'web-1' }])
+
+      const req = createRequest(createValidBody(), {
+        Authorization: `Bearer ${testAuthToken}`,
+      })
+
+      const response = await postLogout({ req, db: mockDb, logger: mockLogger })
+
+      expect(response.status).toBe(200)
+      expect(mockDb.deleteWebSessionsInTimeWindow).not.toHaveBeenCalled()
+      expect(mockDb.deleteAllWebSessions).toHaveBeenCalledWith(testUserId)
+    })
+
+    test('proceeds directly to nuclear fallback when fingerprint has no created_at', async () => {
+      mockDb.deleteSessionsByFingerprint = mock(async () => [])
+      mockDb.getFingerprintData = mock(async () => [
+        { created_at: null as unknown as Date, sig_hash: testFingerprintHash },
+      ])
+      mockDb.deleteAllWebSessions = mock(async () => [{ id: 'web-1' }])
+
+      const req = createRequest(createValidBody(), {
+        Authorization: `Bearer ${testAuthToken}`,
+      })
+
+      const response = await postLogout({ req, db: mockDb, logger: mockLogger })
+
+      expect(response.status).toBe(200)
+      expect(mockDb.deleteWebSessionsInTimeWindow).not.toHaveBeenCalled()
       expect(mockDb.deleteAllWebSessions).toHaveBeenCalledWith(testUserId)
     })
   })
 
   describe('Fingerprint unclaim security', () => {
     test('unclaims when fingerprint match succeeds (ownership via session)', async () => {
-      mockDb.deleteSessionsByFingerprint = mock(async () => [{ id: 'session-1' }])
+      mockDb.deleteSessionsByFingerprint = mock(async () => [
+        { id: 'session-1' },
+      ])
 
       const req = createRequest(createValidBody(), {
         Authorization: `Bearer ${testAuthToken}`,
@@ -430,7 +475,7 @@ describe('/api/auth/cli/logout POST endpoint', () => {
   })
 
   describe('Full flow integration', () => {
-    test('fingerprint match success: deletes sessions, runs orphan cleanup, unclaims, skips fallback', async () => {
+    test('fingerprint match success: deletes sessions, runs orphan cleanup, unclaims, skips fallbacks', async () => {
       mockDb.deleteSessionsByFingerprint = mock(async () => [
         { id: 'cli-session' },
       ])
@@ -452,14 +497,36 @@ describe('/api/auth/cli/logout POST endpoint', () => {
       expect(responseBody).toEqual({ success: true })
       expect(mockDb.deleteSessionsByFingerprint).toHaveBeenCalled()
       expect(mockDb.unclaimFingerprint).toHaveBeenCalled()
-      // Should run orphan cleanup after fingerprint match success (no timestamp filtering)
+      // Should run orphan cleanup after fingerprint match success
       expect(mockDb.deleteOrphanedWebSessions).toHaveBeenCalledWith(testUserId)
-      // Should NOT use fallback deletion
+      // Should NOT use intermediate or nuclear fallback
+      expect(mockDb.deleteWebSessionsInTimeWindow).not.toHaveBeenCalled()
       expect(mockDb.deleteAllWebSessions).not.toHaveBeenCalled()
     })
 
-    test('fallback deletion with hash mismatch: deletes sessions, does NOT unclaim', async () => {
+    test('time-window deletion success: deletes sessions, unclaims, skips nuclear fallback', async () => {
+      setupFallbackMocks(mockDb)
+      mockDb.deleteWebSessionsInTimeWindow = mock(async () => [
+        { id: 'web-in-window' },
+      ])
+
+      const req = createRequest(createValidBody(), {
+        Authorization: `Bearer ${testAuthToken}`,
+      })
+
+      const response = await postLogout({ req, db: mockDb, logger: mockLogger })
+
+      expect(response.status).toBe(200)
+      const responseBody = await response.json()
+      expect(responseBody).toEqual({ success: true })
+      expect(mockDb.deleteWebSessionsInTimeWindow).toHaveBeenCalled()
+      expect(mockDb.unclaimFingerprint).toHaveBeenCalled()
+      expect(mockDb.deleteAllWebSessions).not.toHaveBeenCalled()
+    })
+
+    test('nuclear fallback with hash mismatch: deletes all sessions, does NOT unclaim', async () => {
       setupFallbackMocks(mockDb, 'different-hash')
+      mockDb.deleteWebSessionsInTimeWindow = mock(async () => [])
       mockDb.deleteAllWebSessions = mock(async () => [{ id: 'web-1' }])
 
       const req = createRequest(createValidBody(), {

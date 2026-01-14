@@ -26,7 +26,11 @@ const reqSchema = z.object({
   fingerprintHash: z.string(),
 })
 
-export async function postLogout({ req, db, logger }: PostLogoutDeps): Promise<NextResponse> {
+export async function postLogout({
+  req,
+  db,
+  logger,
+}: PostLogoutDeps): Promise<NextResponse> {
   let body: unknown
   try {
     body = await req.json()
@@ -39,7 +43,12 @@ export async function postLogout({ req, db, logger }: PostLogoutDeps): Promise<N
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const { authToken: bodyToken, userId, fingerprintId, fingerprintHash } = parsed.data
+  const {
+    authToken: bodyToken,
+    userId,
+    fingerprintId,
+    fingerprintHash,
+  } = parsed.data
   const authToken = extractApiKeyFromHeader(req) ?? bodyToken
 
   if (!authToken) {
@@ -53,25 +62,40 @@ export async function postLogout({ req, db, logger }: PostLogoutDeps): Promise<N
       return NextResponse.json({ success: true })
     }
 
-    const fingerprintSessionsDeleted = await db.deleteSessionsByFingerprint(userId, fingerprintId)
+    const fingerprintSessionsDeleted = await db.deleteSessionsByFingerprint(
+      userId,
+      fingerprintId,
+    )
     const fingerprintMatchFound = fingerprintSessionsDeleted.length > 0
 
-    let fingerprintData: FingerprintData | undefined
+    // Always fetch fingerprint data for subsequent logic
+    const fingerprintRows = await db.getFingerprintData(fingerprintId)
+    const fingerprintData = fingerprintRows[0]
 
     if (fingerprintMatchFound) {
       // Also clean up orphaned web sessions (fingerprint_id = null) for this user
       await db.deleteOrphanedWebSessions(userId)
-      const fingerprintRows = await db.getFingerprintData(fingerprintId)
-      fingerprintData = fingerprintRows[0]
+    } else if (fingerprintData?.created_at) {
+      // Intermediate strategy: delete web sessions created around the same time as the fingerprint
+      const timeWindowDeleted = await db.deleteWebSessionsInTimeWindow(
+        userId,
+        fingerprintData.created_at,
+      )
+      if (timeWindowDeleted.length === 0) {
+        // Final fallback: delete all web sessions when time-window deletion finds nothing
+        await db.deleteAllWebSessions(userId)
+      }
     } else {
-      const fingerprintRows = await db.getFingerprintData(fingerprintId)
-      fingerprintData = fingerprintRows[0]
-      // Fallback: delete all web sessions when no fingerprint match found
+      // No fingerprint data available, fall back to deleting all web sessions
       await db.deleteAllWebSessions(userId)
     }
 
     const storedHash = fingerprintData?.sig_hash
-    const canUnclaim = shouldUnclaim(fingerprintMatchFound, storedHash, fingerprintHash)
+    const canUnclaim = shouldUnclaim(
+      fingerprintMatchFound,
+      storedHash,
+      fingerprintHash,
+    )
 
     if (canUnclaim) {
       await db.unclaimFingerprint(fingerprintId)
@@ -80,6 +104,9 @@ export async function postLogout({ req, db, logger }: PostLogoutDeps): Promise<N
     return NextResponse.json({ success: true })
   } catch (error) {
     logger.error({ error, userId, fingerprintId }, 'Error during CLI logout')
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 },
+    )
   }
 }

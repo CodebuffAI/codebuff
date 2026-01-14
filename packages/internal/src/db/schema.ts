@@ -238,6 +238,7 @@ export const session = pgTable('session', {
   expires: timestamp('expires', { mode: 'date' }).notNull(),
   fingerprint_id: text('fingerprint_id').references(() => fingerprint.id),
   type: sessionTypeEnum('type').notNull().default('web'),
+  created_at: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
 })
 
 export const verificationToken = pgTable(
