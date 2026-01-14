@@ -14,6 +14,7 @@ import type {
 } from '@codebuff/common/types/contracts/logger'
 import type { NextRequest } from 'next/server'
 import { getErrorObject } from '@codebuff/common/util/error'
+import { buildArray } from '@codebuff/common/util/array'
 
 const messageSchema = z.object({
   role: z.string(),
@@ -58,7 +59,7 @@ export async function postAds(params: {
   })
   if (!authed.ok) return authed.response
 
-  const { userId, logger } = authed.data
+  const { userId, userInfo, logger } = authed.data
 
   // Check if Gravity API key is configured
   if (!serverEnv.GRAVITY_API_KEY) {
@@ -80,8 +81,19 @@ export async function postAds(params: {
       )
     }
 
-    // Filter out messages with no content
-    messages = parsed.data.messages.filter((message) => message.content)
+    // Filter out messages with no content and extract user message content from tags
+    messages = parsed.data.messages
+      .filter((message) => message.content)
+      .map((message) => {
+        // For user messages, extract content from the last <user_message> tag if present
+        if (message.role === 'user') {
+          return {
+            ...message,
+            content: extractLastUserMessageContent(message.content),
+          }
+        }
+        return message
+      })
     sessionId = parsed.data.sessionId
   } catch {
     logger.error(
@@ -94,10 +106,23 @@ export async function postAds(params: {
     )
   }
 
+  // Keep just the last user message and the last assistant message before it
+  const lastUserMessageIndex = messages.findLastIndex(
+    (message) => message.role === 'user',
+  )
+  const lastUserMessage = messages[lastUserMessageIndex]
+  const lastAssistantMessage = messages
+    .slice(0, lastUserMessageIndex)
+    .findLast((message) => message.role === 'assistant')
+  const filteredMessages = buildArray(lastAssistantMessage, lastUserMessage)
   try {
     const requestBody = {
-      messages,
-      user: { uid: userId, ...(sessionId ? { sessionId } : {}) },
+      messages: filteredMessages,
+      userId,
+      ...(sessionId ? { sessionId } : {}),
+      user: {
+        email: userInfo.email,
+      },
       testAd: serverEnv.CB_ENVIRONMENT !== 'prod',
     }
     // Call Gravity API
@@ -197,4 +222,22 @@ export async function postAds(params: {
       { status: 500 },
     )
   }
+}
+
+/**
+ * Extract the content from the last <user_message> tag in a string.
+ * If no tag is found, returns the original content.
+ */
+function extractLastUserMessageContent(content: string): string {
+  // Find all <user_message>...</user_message> matches
+  const regex = /<user_message>([\s\S]*?)<\/user_message>/gi
+  const matches = [...content.matchAll(regex)]
+
+  if (matches.length > 0) {
+    // Return the content from the last match
+    const lastMatch = matches[matches.length - 1]
+    return lastMatch[1].trim()
+  }
+
+  return content
 }
