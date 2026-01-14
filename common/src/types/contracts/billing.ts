@@ -212,16 +212,9 @@ export type BillingDbConnection = {
    */
   insert: <T = unknown>(table?: unknown) => InsertQueryBuilder<T>
   
-  /**
-   * Direct query access for Drizzle-style queries.
-   * Provides findFirst/findMany methods on specific tables.
-   */
   query: {
-    /** Query the user table */
     user: TableQuery<BillingUser>
-    /** Query the creditLedger table */
     creditLedger: TableQuery<CreditGrant>
-    /** Query the org table (for organization billing) */
     org: TableQuery<BillingOrganization>
   }
 }

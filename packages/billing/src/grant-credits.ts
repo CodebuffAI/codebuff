@@ -18,12 +18,7 @@ import type {
 } from '@codebuff/common/types/contracts/billing'
 import type { GrantType } from '@codebuff/internal/db/schema'
 
-// Local type alias for the transaction object - extracts the actual type from db.transaction
-type DbTransaction = Parameters<typeof db.transaction>[0] extends (
-  tx: infer T,
-) => unknown
-  ? T
-  : never
+import type { CodebuffTransaction } from '@codebuff/internal/db'
 
 /**
  * Dependencies for getPreviousFreeGrantAmount (for testing)
@@ -33,13 +28,8 @@ export interface GetPreviousFreeGrantAmountDeps {
 }
 
 /**
- * Finds the amount of the most recent expired 'free' grant for a user.
- * Finds the amount of the most recent expired 'free' grant for a user,
- * excluding migration grants (operation_id starting with 'migration-').
- * If there is a previous grant, caps the amount at 2000 credits.
- * If no expired 'free' grant is found, returns the default free limit.
- * @param userId The ID of the user.
- * @returns The amount of the last expired free grant (capped at 2000) or the default.
+ * Finds the most recent expired 'free' grant amount for a user.
+ * Returns capped amount (max 2000) or default if none found.
  */
 export async function getPreviousFreeGrantAmount(params: {
   userId: string
@@ -138,7 +128,7 @@ export async function grantCreditOperation(params: {
   description: string
   expiresAt: Date | null
   operationId: string
-  tx?: DbTransaction
+  tx?: CodebuffTransaction
   logger: Logger
 }) {
   const {

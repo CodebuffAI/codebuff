@@ -1,21 +1,5 @@
 /**
  * Mock database helpers for testing billing functions with dependency injection.
- * 
- * This file provides utilities to create mock database connections that can be
- * injected into billing functions during tests, eliminating the need for mockModule.
- * 
- * @example
- * ```typescript
- * import { createMockDb, createMockTransaction } from '@codebuff/common/testing/mock-db'
- * import { createMockUser, createMockCreditGrant } from '@codebuff/common/testing/fixtures'
- * 
- * const mockDb = createMockDb({
- *   users: [createMockUser({ id: 'user-123' })],
- *   creditGrants: [createMockCreditGrant({ user_id: 'user-123', balance: 500 })],
- * })
- * 
- * const result = await myBillingFunction({ deps: { db: mockDb } })
- * ```
  */
 
 import type { GrantType } from '../types/grant'
@@ -41,10 +25,7 @@ import type {
 // Mock data types
 // ============================================================================
 
-/**
- * Mock credit grant type - requires essential fields, allows partial others.
- * Use `createMockCreditGrant` from fixtures for convenient creation.
- */
+/** Mock credit grant - requires essential fields. */
 export type MockCreditGrant = Partial<CreditGrant> & {
   operation_id: string
   user_id: string
@@ -53,17 +34,12 @@ export type MockCreditGrant = Partial<CreditGrant> & {
   type: GrantType
 }
 
-/**
- * Mock user type - requires id, allows partial other billing fields.
- * Use `createMockUser` from fixtures for convenient creation.
- */
+/** Mock user - requires id field. */
 export type MockUser = Partial<BillingUser> & {
   id: string
 }
 
-/**
- * Mock organization for testing org billing flows.
- */
+/** Mock organization for org billing tests. */
 export type MockOrganization = {
   id: string
   name?: string
@@ -76,18 +52,14 @@ export type MockOrganization = {
   auto_topup_amount?: number | null
 }
 
-/**
- * Mock organization member for testing org membership.
- */
+/** Mock org member. */
 export type MockOrgMember = {
   org_id: string
   user_id: string
   role?: string
 }
 
-/**
- * Mock organization repository for testing repo-org associations.
- */
+/** Mock org repository. */
 export type MockOrgRepo = {
   org_id: string
   repo_url: string
@@ -95,9 +67,7 @@ export type MockOrgRepo = {
   is_active?: boolean
 }
 
-/**
- * Mock referral for testing referral credit calculations.
- */
+/** Mock referral. */
 export type MockReferral = {
   referrer_id: string
   referred_id: string
@@ -108,22 +78,13 @@ export type MockReferral = {
 // Callback types for tracking database operations
 // ============================================================================
 
-/**
- * Callback invoked when an insert operation occurs.
- * @param table - The table name being inserted into
- * @param values - The values being inserted
- */
+/** Callback for insert operations. */
 export type OnInsertCallback = (
   table: string,
   values: Record<string, unknown>,
 ) => void | Promise<void>
 
-/**
- * Callback invoked when an update operation occurs.
- * @param table - The table name being updated
- * @param values - The values being set
- * @param where - The where condition (if any)
- */
+/** Callback for update operations. */
 export type OnUpdateCallback = (
   table: string,
   values: Record<string, unknown>,
@@ -134,41 +95,17 @@ export type OnUpdateCallback = (
 // Mock database configuration
 // ============================================================================
 
-/**
- * Configuration for creating a mock database.
- * Provide test data and optional behavior overrides.
- * 
- * @example
- * ```typescript
- * const config: MockDbConfig = {
- *   users: [{ id: 'user-1', auto_topup_enabled: true }],
- *   creditGrants: [{ operation_id: 'grant-1', user_id: 'user-1', ... }],
- *   onInsert: (table, values) => console.log(`Inserted into ${table}:`, values),
- * }
- * ```
- */
+/** Configuration for creating a mock database. */
 export interface MockDbConfig {
-  /** Mock user records */
   users?: MockUser[]
-  /** Mock credit grant records */
   creditGrants?: MockCreditGrant[]
-  /** Mock organization records */
   organizations?: MockOrganization[]
-  /** Mock organization member records */
   orgMembers?: MockOrgMember[]
-  /** Mock organization repository records */
   orgRepos?: MockOrgRepo[]
-  /** Mock referral records */
   referrals?: MockReferral[]
-  
-  // Behavior overrides
-  /** Callback when insert is called - useful for tracking inserts in tests */
   onInsert?: OnInsertCallback
-  /** Callback when update is called - useful for tracking updates in tests */
   onUpdate?: OnUpdateCallback
-  /** Error to throw on insert - useful for testing error handling */
   throwOnInsert?: Error
-  /** Error to throw on update - useful for testing error handling */
   throwOnUpdate?: Error
 }
 
@@ -176,27 +113,18 @@ export interface MockDbConfig {
 // Query builder factory types
 // ============================================================================
 
-/**
- * Internal type for org member query results.
- */
 type OrgMemberQueryResult = {
   orgId: string
   orgName: string
   orgSlug: string
 }
 
-/**
- * Internal type for org repo query results.
- */
 type OrgRepoQueryResult = {
   repoUrl: string
   repoName: string
   isActive: boolean
 }
 
-/**
- * Internal type for referral sum query results.
- */
 type ReferralSumResult = {
   totalCredits: string
 }
@@ -205,10 +133,6 @@ type ReferralSumResult = {
 // Mock database implementation
 // ============================================================================
 
-/**
- * Creates a type-safe WhereResult for query chaining.
- * @internal
- */
 function createWhereResult<T>(data: T[]): WhereResult<T> {
   return {
     orderBy: (): OrderByResult<T> => ({
@@ -226,10 +150,6 @@ function createWhereResult<T>(data: T[]): WhereResult<T> {
   }
 }
 
-/**
- * Creates a type-safe FromResult for query chaining.
- * @internal
- */
 function createFromResult<T>(data: T[]): FromResult<T> {
   return {
     where: (): WhereResult<T> => createWhereResult(data),
@@ -240,20 +160,12 @@ function createFromResult<T>(data: T[]): FromResult<T> {
   }
 }
 
-/**
- * Creates a type-safe SelectQueryBuilder.
- * @internal
- */
 function createSelectBuilder<T>(data: T[]): SelectQueryBuilder<T> {
   return {
     from: (): FromResult<T> => createFromResult(data),
   }
 }
 
-/**
- * Creates a type-safe InsertQueryBuilder.
- * @internal
- */
 function createInsertBuilder<T>(
   onInsert: OnInsertCallback | undefined,
   throwOnInsert: Error | undefined,
@@ -266,10 +178,6 @@ function createInsertBuilder<T>(
   }
 }
 
-/**
- * Creates a type-safe UpdateQueryBuilder.
- * @internal
- */
 function createUpdateBuilder<T>(
   onUpdate: OnUpdateCallback | undefined,
   throwOnUpdate: Error | undefined,
@@ -284,10 +192,6 @@ function createUpdateBuilder<T>(
   }
 }
 
-/**
- * Creates a type-safe TableQuery for findFirst operations.
- * @internal
- */
 function createTableQuery<T>(data: T[]): TableQuery<T> {
   return {
     findFirst: async (params?: FindFirstParams<T>): Promise<T | null> => {
@@ -307,66 +211,7 @@ function createTableQuery<T>(data: T[]): TableQuery<T> {
   }
 }
 
-/**
- * Creates a mock database connection for testing billing functions.
- * 
- * The mock database provides type-safe query builders that match the real
- * Drizzle ORM interface, allowing tests to verify billing logic without
- * hitting a real database.
- * 
- * @param config - Configuration with mock data and behavior overrides
- * @returns A BillingDbConnection that can be injected into billing functions
- * 
- * @example
- * ```typescript
- * // Basic usage with mock data
- * const mockDb = createMockDb({
- *   users: [{
- *     id: 'user-123',
- *     next_quota_reset: new Date('2024-02-01'),
- *     auto_topup_enabled: true,
- *   }],
- *   creditGrants: [{
- *     operation_id: 'grant-1',
- *     user_id: 'user-123',
- *     principal: 1000,
- *     balance: 800,
- *     type: 'free',
- *   }]
- * })
- * 
- * const result = await triggerMonthlyResetAndGrant({
- *   userId: 'user-123',
- *   logger: testLogger,
- *   deps: { db: mockDb }
- * })
- * ```
- * 
- * @example
- * ```typescript
- * // Tracking inserts for assertions
- * const insertedGrants: unknown[] = []
- * const mockDb = createMockDb({
- *   users: [createMockUser()],
- *   onInsert: (table, values) => {
- *     insertedGrants.push(values)
- *   },
- * })
- * 
- * await grantCredits({ deps: { db: mockDb } })
- * expect(insertedGrants).toHaveLength(1)
- * ```
- * 
- * @example
- * ```typescript
- * // Testing error handling
- * const mockDb = createMockDb({
- *   throwOnInsert: new Error('Database unavailable'),
- * })
- * 
- * await expect(grantCredits({ deps: { db: mockDb } })).rejects.toThrow('Database unavailable')
- * ```
- */
+/** Creates a mock database connection for testing billing functions. */
 export function createMockDb(config: MockDbConfig = {}): BillingDbConnection {
   const {
     users = [],
@@ -431,28 +276,7 @@ export function createMockDb(config: MockDbConfig = {}): BillingDbConnection {
   }
 }
 
-/**
- * Creates a mock transaction function for testing.
- * 
- * The transaction executes the callback with a mock db, simulating
- * how real Drizzle transactions work.
- * 
- * @param config - Configuration with mock data and behavior overrides
- * @returns A transaction function that can be injected as `deps.transaction`
- * 
- * @example
- * ```typescript
- * const mockTransaction = createMockTransaction({
- *   users: [createMockUser({ next_quota_reset: futureDate })],
- * })
- * 
- * const result = await triggerMonthlyResetAndGrant({
- *   userId: 'user-123',
- *   logger: testLogger,
- *   deps: { transaction: mockTransaction },
- * })
- * ```
- */
+/** Creates a mock transaction function for testing. */
 export function createMockTransaction(
   config: MockDbConfig = {},
 ): <T>(callback: (tx: BillingDbConnection) => Promise<T>) => Promise<T> {
@@ -466,64 +290,24 @@ export function createMockTransaction(
 // Tracked mock database for assertions
 // ============================================================================
 
-/**
- * Represents a tracked database operation for test assertions.
- */
+/** A tracked database operation for test assertions. */
 export interface TrackedOperation {
-  /** Type of operation performed */
   type: 'select' | 'insert' | 'update' | 'query'
-  /** Table the operation was performed on */
   table?: string
-  /** Values being inserted or updated */
   values?: Record<string, unknown>
-  /** Where condition for updates */
   condition?: unknown
 }
 
-/**
- * Result of createTrackedMockDb - provides the mock db and operation tracking.
- */
+/** Result of createTrackedMockDb. */
 export interface TrackedMockDbResult {
-  /** The mock database connection */
   db: BillingDbConnection
-  /** All tracked operations */
   operations: TrackedOperation[]
-  /** Get only insert operations */
   getInserts: () => TrackedOperation[]
-  /** Get only update operations */
   getUpdates: () => TrackedOperation[]
-  /** Clear all tracked operations */
   clear: () => void
 }
 
-/**
- * Creates a mock database that tracks all operations for assertions.
- * 
- * Use this when you need to verify specific database operations were called
- * with expected values.
- * 
- * @param config - Configuration with mock data and behavior overrides
- * @returns Object containing the mock db and tracking utilities
- * 
- * @example
- * ```typescript
- * const { db, operations, getInserts, getUpdates, clear } = createTrackedMockDb({
- *   users: [createMockUser()],
- * })
- * 
- * await someFunction({ deps: { db } })
- * 
- * // Assert on specific operations
- * expect(getInserts()).toHaveLength(1)
- * expect(getInserts()[0].values).toMatchObject({
- *   user_id: 'user-123',
- *   type: 'free',
- * })
- * 
- * // Clear between tests
- * clear()
- * ```
- */
+/** Creates a mock database that tracks all operations for assertions. */
 export function createTrackedMockDb(config: MockDbConfig = {}): TrackedMockDbResult {
   const operations: TrackedOperation[] = []
   
