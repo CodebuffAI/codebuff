@@ -101,12 +101,12 @@ export class OpenAICompatibleCompletionLanguageModel
     const warnings: LanguageModelV2CallWarning[] = [];
 
     // Parse provider options
-    const completionOptions =
-      (await parseProviderOptions({
-        provider: this.providerOptionsName,
-        providerOptions,
-        schema: openaiCompatibleCompletionProviderOptions,
-      })) ?? {};
+    const completionOptionsResult = await parseProviderOptions({
+      provider: this.providerOptionsName,
+      providerOptions,
+      schema: openaiCompatibleCompletionProviderOptions,
+    });
+    const completionOptions = completionOptionsResult ?? {};
 
     if (topK != null) {
       warnings.push({ type: 'unsupported-setting', setting: 'topK' });

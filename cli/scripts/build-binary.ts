@@ -296,7 +296,8 @@ async function ensureOpenTuiNativeBundle(targetInfo: TargetInfo) {
     )
   }
 
-  const metadata = (await metadataResponse.json()) as {
+  const metadataResponseBody = await metadataResponse.json()
+  const metadata = metadataResponseBody as {
     versions?: Record<
       string,
       {
@@ -325,7 +326,8 @@ async function ensureOpenTuiNativeBundle(targetInfo: TargetInfo) {
       tempDir,
       `${packageName.split('/').pop() ?? 'package'}-${version}.tgz`,
     )
-    await Bun.write(tarballPath, await tarballResponse.arrayBuffer())
+    const tarballBuffer = await tarballResponse.arrayBuffer()
+    await Bun.write(tarballPath, tarballBuffer)
 
     for (const target of missingTargets) {
       mkdirSync(target.packagesDir, { recursive: true })

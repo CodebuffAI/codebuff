@@ -177,7 +177,8 @@ export async function getUserInfoFromApiKey<T extends UserColumn>(
 
   const cachedBeforeMerge = userInfoCache[apiKey]
   try {
-    const fetchedFields = (await response.json()) as CachedUserInfo
+    const responseBody = await response.json()
+    const fetchedFields = responseBody as CachedUserInfo
     userInfoCache[apiKey] = {
       ...(cachedBeforeMerge ?? {}),
       ...fetchedFields,

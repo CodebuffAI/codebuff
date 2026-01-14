@@ -28,7 +28,8 @@ export function MermaidDiagram({ code, className = '' }: MermaidDiagramProps) {
           mermaidPromise = import('mermaid')
         }
 
-        const mermaid = (await mermaidPromise).default
+        const mermaidModule = await mermaidPromise
+        const mermaid = mermaidModule.default
 
         // Initialize mermaid only once globally
         if (!isInitialized) {

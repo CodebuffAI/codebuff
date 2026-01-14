@@ -115,17 +115,19 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
     const warnings: LanguageModelV2CallWarning[] = [];
 
     // Parse provider options
+    const baseOptionsResult = await parseProviderOptions({
+      provider: 'openai-compatible',
+      providerOptions,
+      schema: openaiCompatibleProviderOptions,
+    });
+    const providerOptionsResult = await parseProviderOptions({
+      provider: this.providerOptionsName,
+      providerOptions,
+      schema: openaiCompatibleProviderOptions,
+    });
     const compatibleOptions = Object.assign(
-      (await parseProviderOptions({
-        provider: 'openai-compatible',
-        providerOptions,
-        schema: openaiCompatibleProviderOptions,
-      })) ?? {},
-      (await parseProviderOptions({
-        provider: this.providerOptionsName,
-        providerOptions,
-        schema: openaiCompatibleProviderOptions,
-      })) ?? {},
+      baseOptionsResult ?? {},
+      providerOptionsResult ?? {},
     );
 
     if (topK != null) {
@@ -266,11 +268,13 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
     }
 
     // provider metadata:
+    const extractedMetadata =
+      await this.config.metadataExtractor?.extractMetadata?.({
+        parsedBody: rawResponse,
+      });
     const providerMetadata: SharedV2ProviderMetadata = {
       [this.providerOptionsName]: {},
-      ...(await this.config.metadataExtractor?.extractMetadata?.({
-        parsedBody: rawResponse,
-      })),
+      ...extractedMetadata,
     };
     const completionTokenDetails =
       responseBody.usage?.completion_tokens_details;

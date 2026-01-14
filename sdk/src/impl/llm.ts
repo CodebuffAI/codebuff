@@ -544,11 +544,13 @@ export async function* promptAiSdkStream(
     }
   }
 
-  const messageId = (await response.response).id
+  const responseValue = await response.response
+  const messageId = responseValue.id
 
   // Skip cost tracking for Claude OAuth (user is on their own subscription)
   if (!isClaudeOAuth) {
-    const providerMetadata = (await response.providerMetadata) ?? {}
+    const providerMetadataResult = await response.providerMetadata
+    const providerMetadata = providerMetadataResult ?? {}
 
     let costOverrideDollars: number | undefined
     if (providerMetadata.codebuff) {

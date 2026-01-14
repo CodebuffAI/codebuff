@@ -81,7 +81,8 @@ export async function requestRelevantFiles(
     return { files: [] as string[], duration: 0 }
   })
 
-  const candidateFiles = (await keyPromise).files
+  const keyFiles = await keyPromise
+  const candidateFiles = keyFiles.files
 
   validateFilePaths(uniq(candidateFiles))
 

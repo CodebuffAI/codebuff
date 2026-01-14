@@ -204,10 +204,15 @@ async function runOnce({
   extraToolResults,
   signal,
 }: RunExecutionOptions): Promise<RunState> {
-  const fs = await (typeof fsSource === 'function' ? fsSource() : fsSource)
-  const spawn: CodebuffSpawn = (
-    spawnSource ? await spawnSource : require('child_process').spawn
-  ) as CodebuffSpawn
+  const fsSourceValue = typeof fsSource === 'function' ? fsSource() : fsSource
+  const fs = await fsSourceValue
+  let spawn: CodebuffSpawn
+  if (spawnSource) {
+    const spawnSourceValue = await spawnSource
+    spawn = spawnSourceValue as CodebuffSpawn
+  } else {
+    spawn = require('child_process').spawn as CodebuffSpawn
+  }
   const preparedContent = wrapContentForUserMessage(content)
 
   // Init session state
@@ -371,7 +376,8 @@ async function runOnce({
     },
     requestMcpToolData: async ({ mcpConfig, toolNames }) => {
       const mcpClientId = await getMCPClient(mcpConfig)
-      const tools = (await listMCPTools(mcpClientId)).tools
+      const listToolsResult = await listMCPTools(mcpClientId)
+      const tools = listToolsResult.tools
       const filteredTools: typeof tools = []
       for (const tool of tools) {
         if (!toolNames) {

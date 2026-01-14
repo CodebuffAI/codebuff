@@ -78,10 +78,11 @@ export async function getCodebuffClient(): Promise<CodebuffClient | null> {
         agentDefinitions,
         overrideTools: {
           ask_user: async (input: ClientToolCall<'ask_user'>['input']) => {
-            const response = (await AskUserBridge.request(
+            const askUserResponse = await AskUserBridge.request(
               'cli-override',
               input.questions,
-            )) as {
+            )
+            const response = askUserResponse as {
               answers?: Array<{ questionIndex: number; selectedOption: string }>
               skipped?: boolean
             }

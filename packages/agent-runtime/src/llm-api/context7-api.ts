@@ -85,7 +85,8 @@ export async function searchLibraries(params: {
     }
 
     const parseStartTime = Date.now()
-    const projects = (await response.json()) as SearchResponse
+    const responseBody = await response.json()
+    const projects = responseBody as SearchResponse
     const parseDuration = Date.now() - parseStartTime
     const totalDuration = Date.now() - searchStartTime
 

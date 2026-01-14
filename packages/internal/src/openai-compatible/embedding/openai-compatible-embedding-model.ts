@@ -78,17 +78,19 @@ export class OpenAICompatibleEmbeddingModel
   }: Parameters<EmbeddingModelV2<string>['doEmbed']>[0]): Promise<
     Awaited<ReturnType<EmbeddingModelV2<string>['doEmbed']>>
   > {
+    const baseOptionsResult = await parseProviderOptions({
+      provider: 'openai-compatible',
+      providerOptions,
+      schema: openaiCompatibleEmbeddingProviderOptions,
+    });
+    const providerOptionsResult = await parseProviderOptions({
+      provider: this.providerOptionsName,
+      providerOptions,
+      schema: openaiCompatibleEmbeddingProviderOptions,
+    });
     const compatibleOptions = Object.assign(
-      (await parseProviderOptions({
-        provider: 'openai-compatible',
-        providerOptions,
-        schema: openaiCompatibleEmbeddingProviderOptions,
-      })) ?? {},
-      (await parseProviderOptions({
-        provider: this.providerOptionsName,
-        providerOptions,
-        schema: openaiCompatibleEmbeddingProviderOptions,
-      })) ?? {},
+      baseOptionsResult ?? {},
+      providerOptionsResult ?? {},
     );
 
     if (values.length > this.maxEmbeddingsPerCall) {

@@ -349,10 +349,8 @@ async function main(): Promise<void> {
       const worktreePath = resolve(WORKTREES_DIR, args.name)
 
       // Check if worktree exists
-      if (
-        !existsSync(worktreePath) &&
-        !(await isWorktreeInGitList(worktreePath))
-      ) {
+      const isInGitList = await isWorktreeInGitList(worktreePath)
+      if (!existsSync(worktreePath) && !isInGitList) {
         console.log(`\nWorktree '${args.name}' does not exist.`)
         process.exit(0)
       }

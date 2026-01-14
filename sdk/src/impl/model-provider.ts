@@ -106,7 +106,8 @@ export async function fetchClaudeOAuthResetTime(accessToken: string): Promise<Da
       return null
     }
 
-    const data = (await response.json()) as ClaudeQuotaResponse
+    const responseBody = await response.json()
+    const data = responseBody as ClaudeQuotaResponse
 
     // Parse reset times
     const fiveHour = data.five_hour

@@ -311,7 +311,7 @@ export async function postChatCompletions(params: {
         const shouldUseOpenAIEndpoint =
           isOpenAIDirectModel && (body as any)?.codebuff_metadata?.n
 
-        const result = await (shouldUseOpenAIEndpoint
+        const nonStreamRequest = shouldUseOpenAIEndpoint
           ? handleOpenAINonStream({
               body,
               userId,
@@ -330,7 +330,8 @@ export async function postChatCompletions(params: {
               fetch,
               logger,
               insertMessageBigquery,
-            }))
+            })
+        const result = await nonStreamRequest
 
         trackEvent({
           event: AnalyticsEvent.CHAT_COMPLETIONS_GENERATION_STARTED,

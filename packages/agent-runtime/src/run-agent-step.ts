@@ -551,12 +551,13 @@ export async function loopAgentSteps(
     ciEnv,
   } = params
 
-  const agentTemplate =
-    params.agentTemplate ??
-    (await getAgentTemplate({
+  let agentTemplate = params.agentTemplate
+  if (!agentTemplate) {
+    agentTemplate = await getAgentTemplate({
       ...params,
       agentId: agentType,
-    }))
+    })
+  }
   if (!agentTemplate) {
     throw new Error(`Agent template not found for type: ${agentType}`)
   }
@@ -606,26 +607,27 @@ export async function loopAgentSteps(
 
   // Build the initial message history with user prompt and instructions
   // Generate system prompt once, using parent's if inheritParentSystemPrompt is true
-  const system =
-    agentTemplate.inheritParentSystemPrompt && parentSystemPrompt
-      ? parentSystemPrompt
-      : ((await getAgentPrompt({
-          ...params,
-          agentTemplate,
-          promptType: { type: 'systemPrompt' },
-          agentTemplates: localAgentTemplates,
-          additionalToolDefinitions: async () => {
-            if (!cachedAdditionalToolDefinitions) {
-              cachedAdditionalToolDefinitions = await additionalToolDefinitions(
-                {
-                  ...params,
-                  agentTemplate,
-                },
-              )
-            }
-            return cachedAdditionalToolDefinitions
-          },
-        })) ?? '')
+  let system: string
+  if (agentTemplate.inheritParentSystemPrompt && parentSystemPrompt) {
+    system = parentSystemPrompt
+  } else {
+    const systemPrompt = await getAgentPrompt({
+      ...params,
+      agentTemplate,
+      promptType: { type: 'systemPrompt' },
+      agentTemplates: localAgentTemplates,
+      additionalToolDefinitions: async () => {
+        if (!cachedAdditionalToolDefinitions) {
+          cachedAdditionalToolDefinitions = await additionalToolDefinitions({
+            ...params,
+            agentTemplate,
+          })
+        }
+        return cachedAdditionalToolDefinitions
+      },
+    })
+    system = systemPrompt ?? ''
+  }
 
   // Build agent tools (agents as direct tool calls) for non-inherited tools
   const agentTools = useParentTools

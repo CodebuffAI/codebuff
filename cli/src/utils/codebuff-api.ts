@@ -331,7 +331,8 @@ export function createCodebuffApiClient(
 
         if (response.ok) {
           try {
-            const data = (await response.json()) as T
+            const responseBody = await response.json()
+            const data = responseBody as T
             return { ok: true, status: response.status, data }
           } catch {
             // Response was OK but no JSON body (e.g., 204 No Content)

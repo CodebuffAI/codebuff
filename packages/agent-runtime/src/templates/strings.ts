@@ -131,7 +131,8 @@ export async function formatPrompt(
   }
 
   for (const varName of placeholderValues) {
-    const value = await (toInject[varName] ?? (() => ''))()
+    const valueProvider = toInject[varName] ?? (() => '')
+    const value = await valueProvider()
     prompt = prompt.replaceAll(varName, value)
   }
   return prompt
@@ -192,13 +193,12 @@ export async function getAgentPrompt<T extends StringField>(
       // For subagents with inheritSystemPrompt, include full spawnable agents spec
       // since the parent's system prompt may not have these agents listed
       if (spawnableAgents.length > 0) {
-        addendum +=
-          '\n\n' +
-          (await buildFullSpawnableAgentsSpec({
-            ...params,
-            spawnableAgents,
-            agentTemplates,
-          }))
+        const spawnableAgentsSpec = await buildFullSpawnableAgentsSpec({
+          ...params,
+          spawnableAgents,
+          agentTemplates,
+        })
+        addendum += `\n\n${spawnableAgentsSpec}`
       }
     } else if (spawnableAgents.length > 0) {
       // For non-inherited tools, agents are already defined as tools with full schemas,

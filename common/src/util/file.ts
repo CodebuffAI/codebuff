@@ -266,7 +266,8 @@ export const ensureDirectoryExists = async (params: {
 }) => {
   const { baseDir, fs } = params
 
-  if (!(await fileExists({ filePath: baseDir, fs }))) {
+  const baseDirExists = await fileExists({ filePath: baseDir, fs })
+  if (!baseDirExists) {
     await fs.mkdir(baseDir, { recursive: true })
   }
 }
@@ -301,7 +302,8 @@ export async function isDir(params: {
   const { path, fs } = params
 
   try {
-    return (await fs.stat(path)).isDirectory()
+    const stats = await fs.stat(path)
+    return stats.isDirectory()
   } catch {
     return false
   }

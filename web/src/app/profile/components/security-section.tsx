@@ -41,7 +41,8 @@ async function deleteSessions(sessionIds: string[]): Promise<void> {
   })
 
   if (!res.ok) {
-    throw new Error(await res.text())
+    const errorText = await res.text()
+    throw new Error(errorText)
   }
 }
 
@@ -49,7 +50,10 @@ async function fetchSessions(): Promise<{
   activeSessions: Session[]
 }> {
   const res = await fetch('/api/user/sessions')
-  if (!res.ok) throw new Error(await res.text())
+  if (!res.ok) {
+    const errorText = await res.text()
+    throw new Error(errorText)
+  }
   return res.json()
 }
 
@@ -95,7 +99,10 @@ export function SecuritySection() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionIds: [id] }),
       })
-      if (!res.ok) throw new Error(await res.text())
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(errorText)
+      }
       return res.json()
     },
     onSuccess: async () => {

@@ -540,7 +540,9 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     })
 
-    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+    const requestBody = await server.calls[0]!.requestBodyJson
+
+    expect(requestBody).toStrictEqual({
       model: 'anthropic/claude-3.5-sonnet',
       messages: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }],
     })
@@ -557,7 +559,9 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     })
 
-    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+    const requestBody = await server.calls[0]!.requestBodyJson
+
+    expect(requestBody).toStrictEqual({
       model: 'anthropic/claude-3.5-sonnet',
       models: ['anthropic/claude-2', 'gryphe/mythomax-l2-13b'],
       messages: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }],
@@ -578,7 +582,9 @@ describe('doGenerate', () => {
         prompt: TEST_PROMPT,
       })
 
-    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+    const requestBody = await server.calls[0]!.requestBodyJson
+
+    expect(requestBody).toStrictEqual({
       model: 'openai/gpt-3.5-turbo',
       messages: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }],
       logprobs: true,
@@ -614,7 +620,9 @@ describe('doGenerate', () => {
       },
     })
 
-    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+    const requestBody = await server.calls[0]!.requestBodyJson
+
+    expect(requestBody).toStrictEqual({
       model: 'anthropic/claude-3.5-sonnet',
       messages: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }],
       tools: [
@@ -694,7 +702,9 @@ describe('doGenerate', () => {
       },
     })
 
-    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+    const requestBody = await server.calls[0]!.requestBodyJson
+
+    expect(requestBody).toStrictEqual({
       model: 'anthropic/claude-3.5-sonnet',
       messages: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }],
       response_format: {
@@ -730,7 +740,9 @@ describe('doGenerate', () => {
       },
     })
 
-    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+    const requestBody = await server.calls[0]!.requestBodyJson
+
+    expect(requestBody).toStrictEqual({
       model: 'anthropic/claude-3.5-sonnet',
       messages: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }],
       response_format: {
@@ -1130,7 +1142,9 @@ describe('doStream', () => {
       prompt: TEST_PROMPT,
     })
 
-    expect(await convertReadableStreamToArray(stream)).toStrictEqual([
+    const elements = await convertReadableStreamToArray(stream)
+
+    expect(elements).toStrictEqual([
       {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
@@ -1398,7 +1412,9 @@ describe('doStream', () => {
       prompt: TEST_PROMPT,
     })
 
-    expect(await convertReadableStreamToArray(stream)).toStrictEqual([
+    const elements = await convertReadableStreamToArray(stream)
+
+    expect(elements).toStrictEqual([
       {
         type: 'error',
         error: {
@@ -1470,7 +1486,9 @@ describe('doStream', () => {
       prompt: TEST_PROMPT,
     })
 
-    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+    const requestBody = await server.calls[0]!.requestBodyJson
+
+    expect(requestBody).toStrictEqual({
       stream: true,
       stream_options: { include_usage: true },
       model: 'anthropic/claude-3.5-sonnet',
@@ -1561,7 +1579,9 @@ describe('doStream', () => {
       },
     })
 
-    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+    const requestBody = await server.calls[0]!.requestBodyJson
+
+    expect(requestBody).toStrictEqual({
       stream: true,
       stream_options: { include_usage: true },
       model: 'anthropic/claude-3.5-sonnet',

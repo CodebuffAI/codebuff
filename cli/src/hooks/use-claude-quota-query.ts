@@ -67,7 +67,8 @@ export async function fetchClaudeQuota(
     throw new Error(`Failed to fetch Claude quota: ${response.status}`)
   }
 
-  const data = (await response.json()) as ClaudeQuotaResponse
+  const responseBody = await response.json()
+  const data = responseBody as ClaudeQuotaResponse
 
   // Parse the response into a more usable format
   const fiveHour = data.five_hour

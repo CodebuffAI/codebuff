@@ -67,7 +67,8 @@ export async function fetchUsageData({
     throw new Error(`Failed to fetch usage: ${response.status}`)
   }
 
-  const data = (await response.json()) as UsageResponse
+  const responseBody = await response.json()
+  const data = responseBody as UsageResponse
   return data
 }
 

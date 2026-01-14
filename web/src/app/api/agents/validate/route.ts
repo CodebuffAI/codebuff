@@ -13,7 +13,8 @@ interface ValidateAgentsRequest {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const body = (await request.json()) as ValidateAgentsRequest
+    const requestBody = await request.json()
+    const body = requestBody as ValidateAgentsRequest
     const { agentConfigs } = body
     let { agentDefinitions } = body
 

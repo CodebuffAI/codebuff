@@ -216,7 +216,8 @@ async function waitForHealth(timeoutSeconds: number = 60): Promise<boolean> {
   process.stdout.write('\x1B[?25l') // Hide cursor
 
   while (Date.now() - startTime < timeoutMs) {
-    if (await checkHealth()) {
+    const isHealthy = await checkHealth()
+    if (isHealthy) {
       process.stdout.write('\r\x1B[K') // Clear line
       process.stdout.write('\x1B[?25h') // Show cursor
       ok('web', 'ready!')

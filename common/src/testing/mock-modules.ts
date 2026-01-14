@@ -17,10 +17,14 @@ export async function mockModule(
   modulePath: string,
   renderMocks: () => Record<string, any>,
 ): Promise<MockResult> {
-  let original = originalModuleCache[modulePath] ?? {
-    ...(await import(modulePath)),
+  let original = originalModuleCache[modulePath]
+  if (!original) {
+    const moduleExports = await import(modulePath)
+    original = {
+      ...moduleExports,
+    }
+    originalModuleCache[modulePath] = original
   }
-  originalModuleCache[modulePath] = original
   let mocks = renderMocks()
   let result = {
     ...original,

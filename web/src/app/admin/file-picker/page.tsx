@@ -136,7 +136,8 @@ export default function FilePicker() {
         )
       }
 
-      const { data } = (await response.json()) as { data: Result[] }
+      const responseBody = await response.json()
+      const { data } = responseBody as { data: Result[] }
 
       if (!data || !Array.isArray(data)) {
         throw new Error('Invalid data format received from API')

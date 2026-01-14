@@ -54,7 +54,8 @@ if (isBun) {
     })
 
     const response = await page.goto(storeUrl)
-    const html = (await response?.text()) ?? ''
+    const responseText = response ? await response.text() : undefined
+    const html = responseText ?? ''
 
     if (html.match(/Copy: .*--agent/)) {
       // SSR already provided agents; hydration fetch is not expected.

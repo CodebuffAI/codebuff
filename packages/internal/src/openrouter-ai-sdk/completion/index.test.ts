@@ -337,7 +337,9 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     })
 
-    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+    const requestBody = await server.calls[0]!.requestBodyJson
+
+    expect(requestBody).toStrictEqual({
       model: 'openai/gpt-3.5-turbo-instruct',
       prompt: 'Hello',
     })
@@ -354,7 +356,9 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     })
 
-    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+    const requestBody = await server.calls[0]!.requestBodyJson
+
+    expect(requestBody).toStrictEqual({
       model: 'openai/gpt-3.5-turbo-instruct',
       models: ['openai/gpt-4', 'anthropic/claude-2'],
       prompt: 'Hello',
@@ -517,7 +521,9 @@ describe('doStream', () => {
       prompt: TEST_PROMPT,
     })
 
-    expect(await convertReadableStreamToArray(stream)).toStrictEqual([
+    const elements = await convertReadableStreamToArray(stream)
+
+    expect(elements).toStrictEqual([
       {
         type: 'error',
         error: {
@@ -588,7 +594,9 @@ describe('doStream', () => {
       prompt: TEST_PROMPT,
     })
 
-    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+    const requestBody = await server.calls[0]!.requestBodyJson
+
+    expect(requestBody).toStrictEqual({
       stream: true,
       stream_options: { include_usage: true },
       model: 'openai/gpt-3.5-turbo-instruct',

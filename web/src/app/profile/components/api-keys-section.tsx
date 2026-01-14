@@ -38,7 +38,10 @@ async function fetchTokens(): Promise<{
   }[]
 }> {
   const res = await fetch('/api/api-keys')
-  if (!res.ok) throw new Error(await res.text())
+  if (!res.ok) {
+    const errorText = await res.text()
+    throw new Error(errorText)
+  }
   return res.json()
 }
 
@@ -84,7 +87,10 @@ export function ApiKeysSection() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, expiresInDays }),
       })
-      if (!res.ok) throw new Error(await res.text())
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(errorText)
+      }
       return res.json()
     },
     onSuccess: async (data) => {
@@ -111,7 +117,10 @@ export function ApiKeysSection() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tokenIds: [tokenId] }),
       })
-      if (!res.ok) throw new Error(await res.text())
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(errorText)
+      }
       return res.json()
     },
     onSuccess: async () => {

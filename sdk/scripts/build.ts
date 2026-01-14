@@ -27,7 +27,8 @@ async function build() {
   await mkdir('./dist', { recursive: true })
 
   // Read external dependencies from package.json
-  const pkg = JSON.parse(await Bun.file('./package.json').text())
+  const pkgText = await Bun.file('./package.json').text()
+  const pkg = JSON.parse(pkgText)
   const external = [
     // Only exclude actual npm dependencies, not workspace packages
     ...Object.keys(pkg.dependencies || {}).filter(

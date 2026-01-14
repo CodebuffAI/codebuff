@@ -46,8 +46,11 @@ export async function getProjectFileContext(
       knowledgeFiles[filePath] = content
     }
   }
-  const fileTokenScores = (await getFileTokenScores(projectPath, allFilePaths))
-    .tokenScores
+  const fileTokenScoresResponse = await getFileTokenScores(
+    projectPath,
+    allFilePaths,
+  )
+  const fileTokenScores = fileTokenScoresResponse.tokenScores
   return {
     projectRoot: projectPath,
     cwd: projectPath,

@@ -35,7 +35,8 @@ try {
   
   // Test 4: Test that both access patterns work identically
   console.log('\n4. Testing access pattern consistency...');
-  const ClientFromNamed = (await import('@codebuff/sdk')).CodebuffClient;
+  const namedModule = await import('@codebuff/sdk');
+  const ClientFromNamed = namedModule.CodebuffClient;
   const ClientFromNamespace = SDK.CodebuffClient;
   
   if (ClientFromNamed !== ClientFromNamespace) {

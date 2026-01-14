@@ -95,7 +95,8 @@ export async function mainPrompt(
   let agentType: AgentTemplateType
 
   if (agentId) {
-    if (!(await getAgentTemplate({ ...params, agentId }))) {
+    const agentTemplate = await getAgentTemplate({ ...params, agentId })
+    if (!agentTemplate) {
       throw new Error(
         `Invalid agent ID: "${agentId}". Available agents: ${availableAgents.join(', ')}`,
       )

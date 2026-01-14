@@ -38,11 +38,12 @@ describe('playwright e2e suite', () => {
     env.DISCORD_APPLICATION_ID ||= 'test'
 
     const proc = Bun.spawn(
-      ['bunx', 'playwright', 'test', '-c', 'web/playwright.config.ts'],
+      ['bunx', 'playwright', 'test', '-c', 'playwright.config.ts'],
       {
         stdout: 'inherit',
         stderr: 'inherit',
         env,
+        cwd: import.meta.dir.replace('/src/__tests__', ''),
       },
     )
 

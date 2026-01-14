@@ -58,7 +58,7 @@ export function formatUrl(url: string, maxWidth?: number): string[] {
  * Generates a unique fingerprint ID for CLI authentication
  */
 export function generateFingerprintId(): string {
-  return `codecane-cli-${Math.random().toString(36).substring(2, 15)}`
+  return `codebuff-cli-${Math.random().toString(36).substring(2, 15)}`
 }
 
 /**

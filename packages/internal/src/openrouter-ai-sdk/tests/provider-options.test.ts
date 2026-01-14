@@ -204,7 +204,9 @@ describe('providerOptions', () => {
       },
     }).consumeStream()
 
-    expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
+    const requestBody = await server.calls[0]?.requestBodyJson
+
+    expect(requestBody).toStrictEqual({
       messages: [
         {
           content: [{ type: 'text', text: 'Hello' }],

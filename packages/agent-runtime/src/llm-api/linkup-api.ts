@@ -105,7 +105,8 @@ export async function searchWeb(options: {
     let parseDuration = 0
     try {
       const parseStartTime = Date.now()
-      data = (await response.json()) as LinkupSearchResponse
+      const responseBody = await response.json()
+      data = responseBody as LinkupSearchResponse
       parseDuration = Date.now() - parseStartTime
     } catch (jsonError) {
       logger.error(

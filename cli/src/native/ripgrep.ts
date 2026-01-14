@@ -19,7 +19,8 @@ const getRipgrepPath = async (): Promise<string> => {
   const outPath = path.join(binaryDir, rgFileName)
 
   // Check if already extracted
-  if (await Bun.file(outPath).exists()) {
+  const outPathExists = await Bun.file(outPath).exists()
+  if (outPathExists) {
     return outPath
   }
 
@@ -44,7 +45,8 @@ const getRipgrepPath = async (): Promise<string> => {
     }
 
     // Copy SDK's bundled binary to binary directory for portability
-    await Bun.write(outPath, await Bun.file(embeddedRgPath).arrayBuffer())
+    const embeddedBuffer = await Bun.file(embeddedRgPath).arrayBuffer()
+    await Bun.write(outPath, embeddedBuffer)
 
     // Make executable on Unix systems
     if (process.platform !== 'win32') {

@@ -52,10 +52,15 @@ export async function getProjectFileTree(params: {
 
   while (queue.length > 0 && totalFiles < maxFiles) {
     const { node, fullPath, ignore: currentIgnore } = queue.shift()!
+    const parsedIgnore = await parseGitignore({
+      fullDirPath: fullPath,
+      projectRoot,
+      fs,
+    })
     const mergedIgnore = ignore
       .default()
       .add(currentIgnore)
-      .add(await parseGitignore({ fullDirPath: fullPath, projectRoot, fs }))
+      .add(parsedIgnore)
 
     try {
       const files = await fs.readdir(fullPath)
@@ -167,7 +172,8 @@ export async function parseGitignore(params: {
   ]
 
   for (const ignoreFilePath of ignoreFiles) {
-    if (!(await fileExists({ filePath: ignoreFilePath, fs }))) continue
+    const ignoreFileExists = await fileExists({ filePath: ignoreFilePath, fs })
+    if (!ignoreFileExists) continue
 
     let ignoreContent: string
     try {

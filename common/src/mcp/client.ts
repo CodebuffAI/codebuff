@@ -124,7 +124,9 @@ export async function callMCPTool(
   if (!client) {
     throw new Error(`callTool: client not found with id: ${clientId}`)
   }
-  const content = ((await client.callTool(...args)) as CallToolResult).content
+  const callResult = await client.callTool(...args)
+  const result = callResult as CallToolResult
+  const content = result.content
 
   return content.map((c: (typeof content)[number]) => {
     if (c.type === 'text') {
