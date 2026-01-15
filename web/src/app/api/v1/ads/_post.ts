@@ -177,15 +177,17 @@ export async function postAds(params: {
     }
 
     // Now safe to parse JSON body
-    const ad = await response.json()
+    const ads = await response.json()
 
     if (!response.ok) {
       logger.error(
-        { request: requestBody, response: ad, status: response.status },
+        { request: requestBody, response: ads, status: response.status },
         '[ads] Gravity API returned error',
       )
       return NextResponse.json({ ad: null }, { status: 200 })
     }
+
+    const ad = ads.ads[0]
 
     const payout = ad.payout || DEFAULT_PAYOUT
 
