@@ -1,6 +1,7 @@
-'use client'
+// Force static generation - legal pages only change on redeploy
+export const dynamic = 'force-static'
 
-const TermsOfServicePage = () => {
+export default function TermsOfServicePage() {
   return (
     <div className="max-w-6xl mx-auto">
       <main className="container mx-auto px-4 py-20 relative z-10">
@@ -460,5 +461,3 @@ const TermsOfServicePage = () => {
     </div>
   )
 }
-
-export default TermsOfServicePage

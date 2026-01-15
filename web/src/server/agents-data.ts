@@ -272,6 +272,12 @@ export interface SitemapAgentData {
   last_used?: string
 }
 
+export interface StaticParamsAgentData {
+  id: string
+  version: string
+  publisher_id: string
+}
+
 export const fetchAgentsForSitemap = async (): Promise<SitemapAgentData[]> => {
   // Fetch only the fields needed for sitemap URLs - no data blob at all
   const agentsPromise = db
@@ -310,12 +316,41 @@ export const fetchAgentsForSitemap = async (): Promise<SitemapAgentData[]> => {
   return buildAgentsDataForSitemap({ agents, metrics })
 }
 
+export const fetchAgentsForStaticParams = async (): Promise<
+  StaticParamsAgentData[]
+> => {
+  // Fetch only the fields needed to build static params for versioned agents.
+  const agents = await db
+    .select({
+      id: schema.agentConfig.id,
+      version: schema.agentConfig.version,
+      publisher_id: schema.publisher.id,
+    })
+    .from(schema.agentConfig)
+    .innerJoin(
+      schema.publisher,
+      eq(schema.agentConfig.publisher_id, schema.publisher.id),
+    )
+    .orderBy(sql`${schema.agentConfig.created_at} DESC`)
+
+  return agents
+}
+
 export const getCachedAgentsForSitemap = unstable_cache(
   fetchAgentsForSitemap,
   ['agents-sitemap'],
   {
     revalidate: 600, // 10 minutes
     tags: ['agents', 'sitemap'],
+  },
+)
+
+export const getCachedAgentsForStaticParams = unstable_cache(
+  fetchAgentsForStaticParams,
+  ['agents-static-params'],
+  {
+    revalidate: 600, // 10 minutes
+    tags: ['agents', 'static-params'],
   },
 )
 

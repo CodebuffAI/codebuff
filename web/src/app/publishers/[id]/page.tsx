@@ -1,6 +1,6 @@
+import { env } from '@codebuff/common/env'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { env } from '@codebuff/common/env'
 import { eq } from 'drizzle-orm'
 import { User, Mail, Calendar, CheckCircle, ChevronRight } from 'lucide-react'
 import Image from 'next/image'
@@ -10,6 +10,7 @@ import { notFound } from 'next/navigation'
 import { BackButton } from '@/components/ui/back-button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { getCachedAgentsForStaticParams } from '@/server/agents-data'
 
 interface PublisherPageProps {
   params: Promise<{
@@ -268,8 +269,7 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
     return {
       name: groupedAgent.name,
       description: groupedAgent.description,
-      latestVersion:
-        sortedVersions[0]?.version || groupedAgent.latestVersion,
+      latestVersion: sortedVersions[0]?.version || groupedAgent.latestVersion,
       agentId:
         sortedVersions[0]?.id ||
         groupedAgent.versions[0]?.id ||
@@ -385,7 +385,9 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
                 <div className="text-2xl font-bold">
                   {publisherData.verified ? 'Verified' : 'Unverified'}
                 </div>
-                <p className="text-sm text-muted-foreground">Publisher Status</p>
+                <p className="text-sm text-muted-foreground">
+                  Publisher Status
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -427,7 +429,8 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
                                 <Badge variant="secondary">
                                   {groupedAgentsList.find(
                                     (ga) => ga.name === groupedAgent.name,
-                                  )?.totalVersions || groupedAgent.totalVersions}{' '}
+                                  )?.totalVersions ||
+                                    groupedAgent.totalVersions}{' '}
                                   versions
                                 </Badge>
                               )}
@@ -456,6 +459,17 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
       </div>
     </>
   )
+}
+
+// ISR Configuration - revalidate every 10 minutes
+export const revalidate = 600
+
+// Generate static params for all publishers
+export async function generateStaticParams(): Promise<Array<{ id: string }>> {
+  const agents = await getCachedAgentsForStaticParams()
+  // Get unique publisher IDs
+  const publisherIds = [...new Set(agents.map((agent) => agent.publisher_id))]
+  return publisherIds.map((id) => ({ id }))
 }
 
 export default PublisherPage

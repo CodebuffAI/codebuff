@@ -68,12 +68,12 @@ const setupMocks = async () => {
     eq: mock((a: any, b: any) => ({ column: a, value: b })),
   }))
 
-  const module = await import('../ban-conditions')
-  DISPUTE_THRESHOLD = module.DISPUTE_THRESHOLD
-  DISPUTE_WINDOW_DAYS = module.DISPUTE_WINDOW_DAYS
-  banUser = module.banUser
-  evaluateBanConditions = module.evaluateBanConditions
-  getUserByStripeCustomerId = module.getUserByStripeCustomerId
+  const banConditionsModule = await import('../ban-conditions')
+  DISPUTE_THRESHOLD = banConditionsModule.DISPUTE_THRESHOLD
+  DISPUTE_WINDOW_DAYS = banConditionsModule.DISPUTE_WINDOW_DAYS
+  banUser = banConditionsModule.banUser
+  evaluateBanConditions = banConditionsModule.evaluateBanConditions
+  getUserByStripeCustomerId = banConditionsModule.getUserByStripeCustomerId
 }
 
 await setupMocks()

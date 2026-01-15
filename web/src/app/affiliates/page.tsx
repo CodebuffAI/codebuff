@@ -114,6 +114,9 @@ function BreadcrumbJsonLd() {
   )
 }
 
+// Force static generation - content only changes on redeploy
+export const dynamic = 'force-static'
+
 export default function AffiliatesPage() {
   return (
     <>
