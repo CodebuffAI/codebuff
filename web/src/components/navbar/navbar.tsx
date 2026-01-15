@@ -50,14 +50,14 @@ export const Navbar = () => {
             className="relative font-medium px-3 py-2 rounded-md transition-all duration-200 hover:bg-accent hover:text-accent-foreground group"
           >
             <span className="relative z-10">Docs</span>
-            <span className="absolute inset-0 rounded-md bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <span className="pointer-events-none absolute inset-0 rounded-md bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           </Link>
           <Link
             href="/pricing"
             className="relative font-medium px-3 py-2 rounded-md transition-all duration-200 hover:bg-accent hover:text-accent-foreground group"
           >
             <span className="relative z-10">Pricing</span>
-            <span className="absolute inset-0 rounded-md bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <span className="pointer-events-none absolute inset-0 rounded-md bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           </Link>
           <Link
             href="https://github.com/CodebuffAI/codebuff"
@@ -67,7 +67,7 @@ export const Navbar = () => {
           >
             <Icons.github className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" />
             <span className="relative z-10">GitHub</span>
-            <span className="absolute inset-0 rounded-md bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <span className="pointer-events-none absolute inset-0 rounded-md bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           </Link>
           <Link
             href="/store"
@@ -75,7 +75,7 @@ export const Navbar = () => {
           >
             <Bot className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" />
             <span className="relative z-10">Agent Store</span>
-            <span className="absolute inset-0 rounded-md bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <span className="pointer-events-none absolute inset-0 rounded-md bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           </Link>
 
           {/* Only show Usage link when session is ready and user is authenticated */}
@@ -85,7 +85,7 @@ export const Navbar = () => {
               className="relative font-medium px-3 py-2 rounded-md transition-all duration-200 hover:bg-accent hover:text-accent-foreground group"
             >
               <span className="relative z-10">Usage</span>
-              <span className="absolute inset-0 rounded-md bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <span className="pointer-events-none absolute inset-0 rounded-md bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </Link>
           )}
         </nav>
