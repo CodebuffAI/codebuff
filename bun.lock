@@ -322,6 +322,7 @@
         "eslint-config-prettier": "^9.1.0",
         "eslint-plugin-prettier": "^5.2.6",
         "eslint-plugin-tailwindcss": "^3.18.0",
+        "gray-matter": "^4.0.3",
         "husky": "^9.1.7",
         "jest": "^29.7.0",
         "jest-environment-jsdom": "^29.7.0",

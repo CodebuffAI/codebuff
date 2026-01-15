@@ -1,0 +1,11 @@
+# Flag TODO/FIXME comments that shouldn't be in published docs
+extends: existence
+message: "Found '%s' - remove before publishing"
+level: warning
+ignorecase: true
+tokens:
+  - 'TODO'
+  - 'FIXME'
+  - 'XXX'
+  - 'HACK'
+  - 'WIP'

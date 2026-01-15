@@ -1,0 +1,21 @@
+# Flag wordy phrases that can be simplified
+extends: substitution
+message: "Consider using '%s' instead of '%match'."
+level: suggestion
+swap:
+  in order to: to
+  due to the fact that: because
+  at this point in time: now
+  in the event that: if
+  prior to: before
+  subsequent to: after
+  a large number of: many
+  a majority of: most
+  at the present time: now
+  for the purpose of: to
+  in spite of the fact that: although
+  on a daily basis: daily
+  in close proximity to: near
+  with regard to: about
+  in reference to: about
+  make use of: use

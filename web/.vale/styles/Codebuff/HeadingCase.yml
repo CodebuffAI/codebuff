@@ -1,0 +1,6 @@
+# Headings should use sentence case (not Title Case)
+extends: capitalization
+message: "Use sentence case for headings: '%s'"
+level: suggestion
+match: $sentence
+scope: heading
