@@ -19,6 +19,7 @@ import type { NextRequest } from 'next/server'
 
 // Revenue share: users get 75% of payout as credits
 const AD_REVENUE_SHARE = 0.75
+const MINIMUM_CREDITS_GRANTED = 0.02
 
 // Rate limiting: max impressions per user per hour
 const MAX_IMPRESSIONS_PER_HOUR = 60
@@ -224,7 +225,10 @@ export async function postAdImpression(params: {
   // Calculate credits to grant (75% of payout, converted to credits)
   // Payout is in dollars, credits are 1:1 with cents, so multiply by 100
   const userShareDollars = payout * AD_REVENUE_SHARE
-  const creditsToGrant = Math.floor(userShareDollars * 100)
+  const creditsToGrant = Math.max(
+    MINIMUM_CREDITS_GRANTED,
+    Math.floor(userShareDollars * 100),
+  )
 
   // Grant credits if any
   let creditsGranted = 0
