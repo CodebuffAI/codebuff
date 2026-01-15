@@ -1582,6 +1582,21 @@ export const Chat = ({
             onChange: setInputValue,
             onPasteImage: chatKeyboardHandlers.onPasteImage,
             onPasteImagePath: chatKeyboardHandlers.onPasteImagePath,
+            onPasteLongText: (pastedText) => {
+              const id = crypto.randomUUID()
+              const preview = pastedText.slice(0, 100).replace(/\n/g, ' ')
+              useChatStore.getState().addPendingTextAttachment({
+                id,
+                content: pastedText,
+                preview,
+                charCount: pastedText.length,
+              })
+              // Show temporary status message
+              showClipboardMessage(
+                `📋 Pasted text (${pastedText.length.toLocaleString()} chars)`,
+                { durationMs: 5000 },
+              )
+            },
             cwd: getProjectRoot() ?? process.cwd(),
           })}
         />

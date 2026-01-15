@@ -35,6 +35,10 @@ export function getSubsequenceIndices(
 
 export const BULLET_CHAR = '• '
 
+// Threshold for treating pasted text as an attachment instead of inline insertion
+// Text longer than this value (not equal) becomes an attachment
+export const LONG_TEXT_THRESHOLD = 200
+
 /**
  * Insert text at cursor position and return the new text and cursor position.
  */
@@ -92,6 +96,7 @@ export function createPasteHandler(options: {
   onChange: (value: InputValue) => void
   onPasteImage?: () => void
   onPasteImagePath?: (imagePath: string) => void
+  onPasteLongText?: (text: string) => void
   cwd?: string
 }): (fallbackText?: string) => void {
   const {
@@ -100,6 +105,7 @@ export function createPasteHandler(options: {
     onChange,
     onPasteImage,
     onPasteImagePath,
+    onPasteLongText,
     cwd,
   } = options
   return (fallbackText) => {
@@ -137,8 +143,15 @@ export function createPasteHandler(options: {
       }
     }
 
-    // fallbackText provided but not an image - just paste it as regular text
+    // fallbackText provided but not an image - check if it's long text
     if (fallbackText) {
+      // If text is long, treat it as an attachment
+      if (onPasteLongText && fallbackText.length > LONG_TEXT_THRESHOLD) {
+        onPasteLongText(fallbackText)
+        return
+      }
+
+      // Otherwise paste it as regular text
       const { newText, newCursor } = insertTextAtCursor(
         text,
         cursorPosition,
@@ -182,6 +195,13 @@ export function createPasteHandler(options: {
 
     // Regular text paste
     if (!clipboardText) return
+
+    // If text is long, treat it as an attachment
+    if (onPasteLongText && clipboardText.length > LONG_TEXT_THRESHOLD) {
+      onPasteLongText(clipboardText)
+      return
+    }
+
     const { newText, newCursor } = insertTextAtCursor(
       text,
       cursorPosition,

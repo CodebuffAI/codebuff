@@ -19,7 +19,7 @@ import {
 } from '../../utils/message-updater'
 import { createModeDividerMessage } from '../../utils/send-message-helpers'
 
-import type { PendingImage } from '../../state/chat-store'
+import type { PendingImage, PendingTextAttachment } from '../../state/chat-store'
 import type { ChatMessage } from '../../types/chat'
 import type { AgentMode } from '../../utils/constants'
 
@@ -48,13 +48,15 @@ export const prepareUserMessage = async (params: {
   agentMode: AgentMode
   postUserMessage?: (prev: ChatMessage[]) => ChatMessage[]
   attachedImages?: PendingImage[]
+  attachedTexts?: PendingTextAttachment[]
   deps: PrepareUserMessageDeps
 }): Promise<{
   userMessageId: string
   messageContent: MessageContent[] | undefined
   bashContextForPrompt: string
+  finalContent: string
 }> => {
-  const { content, agentMode, postUserMessage, attachedImages, deps } = params
+  const { content, agentMode, postUserMessage, attachedImages, attachedTexts, deps } = params
   const { setMessages, lastMessageMode, setLastMessageMode, scrollToLatest } =
     deps
 
@@ -73,8 +75,26 @@ export const prepareUserMessage = async (params: {
     useChatStore.getState().clearPendingImages()
   }
 
+  // Handle text attachments
+  const pendingTextAttachments =
+    attachedTexts ?? useChatStore.getState().pendingTextAttachments
+  if (!attachedTexts && pendingTextAttachments.length > 0) {
+    useChatStore.getState().clearPendingTextAttachments()
+  }
+
+  // Append text attachments to the content
+  let finalContent = content
+  if (pendingTextAttachments.length > 0) {
+    const textAttachmentContent = pendingTextAttachments
+      .map((att) => `[Pasted Text]\n${att.content}`)
+      .join('\n\n')
+    finalContent = content
+      ? `${content}\n\n${textAttachmentContent}`
+      : textAttachmentContent
+  }
+
   const { attachments, messageContent } = await processImagesForMessage({
-    content,
+    content: finalContent,
     pendingImages,
     projectRoot: getProjectRoot(),
   })
@@ -82,7 +102,16 @@ export const prepareUserMessage = async (params: {
   const shouldInsertDivider =
     lastMessageMode === null || lastMessageMode !== agentMode
 
-  const userMessage = getUserMessage(content, attachments)
+  // Convert pending text attachments to stored text attachments for display
+  const textAttachmentsForMessage = pendingTextAttachments.map((att) => ({
+    id: att.id,
+    content: att.content,
+    preview: att.preview,
+    charCount: att.charCount,
+  }))
+
+  // Pass original content (not finalContent) for display, but finalContent goes to agent
+  const userMessage = getUserMessage(content, attachments, textAttachmentsForMessage)
   const userMessageId = userMessage.id
   if (attachments.length > 0) {
     userMessage.attachments = attachments
@@ -111,6 +140,7 @@ export const prepareUserMessage = async (params: {
     userMessageId,
     messageContent,
     bashContextForPrompt,
+    finalContent,
   }
 }
 

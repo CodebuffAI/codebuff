@@ -116,6 +116,13 @@ export type ImageAttachment = {
   size?: number
 }
 
+export type TextAttachment = {
+  id: string
+  content: string
+  preview: string
+  charCount: number
+}
+
 export type ContentBlock =
   | AgentContentBlock
   | AgentListContentBlock
@@ -160,6 +167,7 @@ export type ChatMessage = {
   metadata?: ChatMessageMetadata
   validationErrors?: Array<{ id: string; message: string }>
   attachments?: ImageAttachment[]
+  textAttachments?: TextAttachment[]
 }
 
 // Type guard functions for safe type narrowing

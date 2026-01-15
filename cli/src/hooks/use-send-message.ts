@@ -237,7 +237,7 @@ export const useSendMessage = ({
       setIsRetrying(false)
 
       // Prepare user message (bash context, images, mode divider)
-      const { userMessageId, messageContent, bashContextForPrompt } =
+      const { userMessageId, messageContent, bashContextForPrompt, finalContent } =
         await prepareUserMessage({
           content,
           agentMode,
@@ -339,8 +339,8 @@ export const useSendMessage = ({
         const resolvedAgent = resolveAgent(agentMode, agentId, agentDefinitions)
 
         const promptWithBashContext = bashContextForPrompt
-          ? bashContextForPrompt + content
-          : content
+          ? bashContextForPrompt + finalContent
+          : finalContent
         const effectivePrompt = buildPromptWithContext(
           promptWithBashContext,
           messageContent,

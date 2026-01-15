@@ -2,7 +2,7 @@ import React from 'react'
 
 import { ClaudeConnectBanner } from './claude-connect-banner'
 import { HelpBanner } from './help-banner'
-import { PendingImagesBanner } from './pending-images-banner'
+import { PendingAttachmentsBanner } from './pending-attachments-banner'
 import { ReferralBanner } from './referral-banner'
 import { UsageBanner } from './usage-banner'
 import { useChatStore } from '../state/chat-store'
@@ -20,8 +20,8 @@ const BANNER_REGISTRY: Record<
   string,
   (ctx: { showTime: number }) => React.ReactNode
 > = {
-  default: () => <PendingImagesBanner />,
-  image: () => <PendingImagesBanner />,
+  default: () => <PendingAttachmentsBanner />,
+  image: () => <PendingAttachmentsBanner />,
   usage: ({ showTime }) => <UsageBanner showTime={showTime} />,
   referral: () => <ReferralBanner />,
   help: () => <HelpBanner />,

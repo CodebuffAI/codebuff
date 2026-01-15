@@ -63,6 +63,13 @@ export type PendingImage = {
   }
 }
 
+export type PendingTextAttachment = {
+  id: string
+  content: string
+  preview: string // First ~100 chars for display
+  charCount: number
+}
+
 export type PendingBashMessage = {
   id: string
   command: string
@@ -120,6 +127,7 @@ export type ChatStoreState = {
   isRetrying: boolean
   askUserState: AskUserState
   pendingImages: PendingImage[]
+  pendingTextAttachments: PendingTextAttachment[]
   pendingBashMessages: PendingBashMessage[]
   suggestedFollowups: SuggestedFollowupsState | null
   /** Persisted clicked indices per toolCallId */
@@ -192,6 +200,9 @@ type ChatStoreActions = {
   addPendingImage: (image: PendingImage) => void
   removePendingImage: (path: string) => void
   clearPendingImages: () => void
+  addPendingTextAttachment: (attachment: PendingTextAttachment) => void
+  removePendingTextAttachment: (id: string) => void
+  clearPendingTextAttachments: () => void
   addPendingBashMessage: (message: PendingBashMessage) => void
   updatePendingBashMessage: (
     id: string,
@@ -232,6 +243,7 @@ const initialState: ChatStoreState = {
   isRetrying: false,
   askUserState: null,
   pendingImages: [],
+  pendingTextAttachments: [],
   pendingBashMessages: [],
   suggestedFollowups: null,
   clickedFollowupsMap: new Map<string, Set<number>>(),
@@ -384,6 +396,26 @@ export const useChatStore = create<ChatStore>()(
         state.pendingImages = []
       }),
 
+    addPendingTextAttachment: (attachment) =>
+      set((state) => {
+        // Don't add duplicates
+        if (!state.pendingTextAttachments.some((t) => t.id === attachment.id)) {
+          state.pendingTextAttachments.push(attachment)
+        }
+      }),
+
+    removePendingTextAttachment: (id) =>
+      set((state) => {
+        state.pendingTextAttachments = state.pendingTextAttachments.filter(
+          (t) => t.id !== id,
+        )
+      }),
+
+    clearPendingTextAttachments: () =>
+      set((state) => {
+        state.pendingTextAttachments = []
+      }),
+
     updateAskUserAnswer: (questionIndex, optionIndex) =>
       set((state) => {
         if (!state.askUserState) return
@@ -496,6 +528,7 @@ export const useChatStore = create<ChatStore>()(
         state.isRetrying = initialState.isRetrying
         state.askUserState = initialState.askUserState
         state.pendingImages = []
+        state.pendingTextAttachments = []
         state.pendingBashMessages = []
         state.suggestedFollowups = null
         state.clickedFollowupsMap = new Map<string, Set<number>>()

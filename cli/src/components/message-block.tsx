@@ -5,6 +5,7 @@ import { AgentBranchItem } from './agent-branch-item'
 import { Button } from './button'
 import { CopyButton } from './copy-button'
 import { ImageCard } from './image-card'
+import { TextAttachmentCard } from './text-attachment-card'
 import { ImplementorGroup } from './implementor-row'
 import { MessageFooter } from './message-footer'
 import { ValidationErrorPopover } from './validation-error-popover'
@@ -35,6 +36,7 @@ import type {
   HtmlContentBlock,
   AgentContentBlock,
   ImageAttachment,
+  TextAttachment,
   ImageContentBlock,
   ChatMessageMetadata,
 } from '../types/chat'
@@ -70,16 +72,19 @@ interface MessageBlockProps {
     errors?: Array<{ id: string; message: string }>
   }) => void
   attachments?: ImageAttachment[]
+  textAttachments?: TextAttachment[]
   metadata?: ChatMessageMetadata
   isLastMessage?: boolean
 }
 
 const MessageAttachments = ({
-  attachments,
+  imageAttachments,
+  textAttachments,
 }: {
-  attachments: ImageAttachment[]
+  imageAttachments: ImageAttachment[]
+  textAttachments: TextAttachment[]
 }) => {
-  if (attachments.length === 0) {
+  if (imageAttachments.length === 0 && textAttachments.length === 0) {
     return null
   }
 
@@ -92,10 +97,17 @@ const MessageAttachments = ({
         marginTop: 1,
       }}
     >
-      {attachments.map((attachment) => (
+      {imageAttachments.map((attachment) => (
         <ImageCard
           key={attachment.path}
           image={attachment}
+          showRemoveButton={false}
+        />
+      ))}
+      {textAttachments.map((attachment) => (
+        <TextAttachmentCard
+          key={attachment.id}
+          attachment={attachment}
           showRemoveButton={false}
         />
       ))}
@@ -129,6 +141,7 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
   validationErrors,
   onOpenFeedback,
   attachments,
+  textAttachments,
   metadata,
   isLastMessage,
 }) => {
@@ -300,9 +313,12 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
           showCopyButton={isUser}
         />
       )}
-      {/* Show image attachments for user messages */}
-      {isUser && attachments && attachments.length > 0 && (
-        <MessageAttachments attachments={attachments} />
+      {/* Show attachments for user messages */}
+      {isUser && ((attachments && attachments.length > 0) || (textAttachments && textAttachments.length > 0)) && (
+        <MessageAttachments
+          imageAttachments={attachments ?? []}
+          textAttachments={textAttachments ?? []}
+        />
       )}
 
       {isAi && (

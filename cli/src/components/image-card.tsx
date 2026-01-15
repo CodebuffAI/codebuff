@@ -161,9 +161,7 @@ export const ImageCard = ({
           onMouseOut={() => setIsCloseHovered(false)}
           style={{ paddingLeft: 0, paddingRight: 0 }}
         >
-          <text style={{ fg: isCloseHovered ? theme.error : theme.muted }}>
-            ×
-          </text>
+          <text style={{ fg: isCloseHovered ? theme.error : theme.muted }}>X</text>
         </Button>
       ) : (
         <box style={{ width: CLOSE_BUTTON_WIDTH }} />
