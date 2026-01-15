@@ -146,7 +146,7 @@ export async function postAds(params: {
   try {
     const requestBody = {
       messages: filteredMessages,
-      ...(sessionId ? { sessionId } : {}),
+      sessionId: sessionId ?? userId,
       placements: [
         { placement: 'below_response', placement_id: 'code-assist-ad' },
       ],
