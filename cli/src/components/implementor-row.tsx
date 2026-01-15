@@ -288,14 +288,10 @@ interface CompactFileStatsProps {
 }
 
 /**
- * Compact view showing file changes with center-aligned addition/deletion bars
- * Click a file name to view its diff inline below that row
- *
- * Layout:
- * M handler.ts    ██████████ +30  -5 ░░░   2 hunks
- * A utils.ts          ████ +15            1 hunk
- *   [diff content shown here when selected]
- * M config.ts           ██  +2  -1 ░      1 hunk
+ * Compact view showing file changes with full-width, center-aligned addition/deletion bars.
+ * The left side is a green bar (additions) and the right side is a red bar (deletions),
+ * both extending to the center with their +N / -N counts rendered in white inside the bars.
+ * Click a file name to view its diff inline below that row.
  */
 const CompactFileStats = memo(({
   fileStats,
@@ -313,11 +309,6 @@ const CompactFileStats = memo(({
       </text>
     )
   }
-
-  // Calculate max values for proportional bar sizing
-  const maxAdded = Math.max(...fileStats.map(f => f.stats.linesAdded), 1)
-  const maxRemoved = Math.max(...fileStats.map(f => f.stats.linesRemoved), 1)
-  const maxLines = Math.max(maxAdded, maxRemoved)
 
   // Fixed bar width - keeps layout simple and predictable
   const maxBarWidth = 5
@@ -341,7 +332,6 @@ const CompactFileStats = memo(({
           file={file}
           availableWidth={availableWidth}
           maxBarWidth={maxBarWidth}
-          maxLines={maxLines}
           maxAddedStrWidth={maxAddedStrWidth}
           maxRemovedStrWidth={maxRemovedStrWidth}
           isSelected={selectedFile === file.path}
@@ -357,7 +347,6 @@ interface CompactFileRowProps {
   file: FileStats
   availableWidth: number
   maxBarWidth: number
-  maxLines: number
   maxAddedStrWidth: number
   maxRemovedStrWidth: number
   isSelected: boolean
@@ -366,17 +355,13 @@ interface CompactFileRowProps {
 }
 
 /**
- * Single file row with center-aligned bars
- * Layout: M  filename  ████+4  -2░░   2 hunks
- * Bar visualization is fixed, file path flexes/truncates to fit
- * Bars meet at a center axis with proper padding for alignment across all rows
- * File name is underlined on hover, clickable to show diff inline below
+ * Single file row with full-width colored bars meeting at center.
+ * File name is underlined on hover, clickable to show diff inline below.
  */
 const CompactFileRow = memo(({
   file,
   availableWidth,
   maxBarWidth,
-  maxLines,
   maxAddedStrWidth,
   maxRemovedStrWidth,
   isSelected,
@@ -385,36 +370,27 @@ const CompactFileRow = memo(({
 }: CompactFileRowProps) => {
   const theme = useTheme()
   const [isHovered, setIsHovered] = useState(false)
-  const { linesAdded, linesRemoved } = file.stats
-
-  // Calculate bar widths proportional to line counts
-  const addedBarWidth = linesAdded > 0
-    ? Math.max(1, Math.round((linesAdded / maxLines) * maxBarWidth))
-    : 0
-  const removedBarWidth = linesRemoved > 0
-    ? Math.max(1, Math.round((linesRemoved / maxLines) * maxBarWidth))
-    : 0
-
-  // Build bar strings - use spaces since we're using background colors
-  const addedBarSpaces = ' '.repeat(addedBarWidth)
-  const removedBarSpaces = ' '.repeat(removedBarWidth)
 
   // Format numbers - always show counts, including +0 and -0
-  const addedStr = `+${linesAdded}`
-  const removedStr = `-${linesRemoved}`
+  const addedStr = `+${file.stats.linesAdded}`
+  const removedStr = `-${file.stats.linesRemoved}`
 
-  // Calculate left padding for center alignment
-  // Left padding: space for missing bar width + missing number width
-  // This ensures all "+N" values align at a center axis
-  const leftPadding = ' '.repeat(
-    (maxBarWidth - addedBarWidth) + (maxAddedStrWidth - addedStr.length)
-  )
-  // No right padding needed - bars extend to the edge of the card
+  // Full-width colored sections with numbers inside:
+  // - Added section: green bar extending to center with +N in white (right-aligned)
+  // - Removed section: red bar extending from center with -N in white (left-aligned)
+  const addedSectionWidth = maxBarWidth + maxAddedStrWidth
+  const removedSectionWidth = maxBarWidth + maxRemovedStrWidth
+
+  // +N right-aligned within the green section with 1 space padding before the center edge
+  const addedContent = (addedStr + ' ').padStart(addedSectionWidth)
+  // -N left-aligned within the red section with 1 space padding after the center edge
+  const removedContent = (' ' + removedStr).padEnd(removedSectionWidth)
 
   // Calculate available width for file path
   // Layout: changeType(1) + spaces(2) + filePath + spaces(2) + hunks + spaces(2) + bars
   const hunkText = `${file.stats.hunks} ${file.stats.hunks === 1 ? 'hunk' : 'hunks'}`
-  const barWidth = maxBarWidth + maxAddedStrWidth + 1 + 1 + maxRemovedStrWidth + maxBarWidth // bars + numbers + spaces between
+  // Total bar section width: 2*maxBarWidth + maxAddedStrWidth + maxRemovedStrWidth (no center gap)
+  const barWidth = 2 * maxBarWidth + maxAddedStrWidth + maxRemovedStrWidth
   const fixedWidth = 1 + 2 + 2 + hunkText.length + 2 + barWidth
   const maxFilePathWidth = Math.max(10, availableWidth - fixedWidth)
   
@@ -458,15 +434,16 @@ const CompactFileRow = memo(({
 
         {/* Hunk count */}
         <text fg={theme.muted} style={{ flexShrink: 0, wrapMode: 'none' }}>
-          {file.stats.hunks} {file.stats.hunks === 1 ? 'hunk' : 'hunks'}
+          {hunkText}
         </text>
         <text style={{ flexShrink: 0 }}>  </text>
 
-        {/* Bar visualization: left-padded for center alignment, extends to edge */}
+        {/* Bar visualization: full-width bars meeting at center with numbers inside */}
         <text style={{ flexShrink: 0, wrapMode: 'none' }}>
-          <span>{leftPadding}</span>
-          <span fg={theme.inputFocusedFg} bg={theme.success}>{addedBarSpaces}{addedStr} </span>
-          <span fg={theme.inputFocusedFg} bg={theme.error}> {removedStr}{removedBarSpaces}</span>
+          {/* Added section: full green bar with +N in white inside, right-aligned to center */}
+          <span fg="white" bg={theme.success}>{addedContent}</span>
+          {/* Removed section: full red bar with -N in white inside, left-aligned from center */}
+          <span fg="white" bg={theme.error}>{removedContent}</span>
         </text>
       </box>
 
