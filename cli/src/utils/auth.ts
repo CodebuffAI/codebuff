@@ -157,21 +157,31 @@ export interface AuthValidationResult {
   hasInvalidCredentials: boolean
 }
 
+/** Read existing credentials file, returns empty object if missing/invalid */
+const readCredentialsFile = (): Record<string, unknown> => {
+  const credentialsPath = getCredentialsPath()
+  if (!fs.existsSync(credentialsPath)) return {}
+  try {
+    return JSON.parse(fs.readFileSync(credentialsPath, 'utf8'))
+  } catch {
+    return {}
+  }
+}
+
 /**
- * Save user credentials to file system
+ * Save user credentials to file system.
  */
 export const saveUserCredentials = (user: User): void => {
   const configDir = getConfigDir()
   const credentialsPath = getCredentialsPath()
 
   try {
-    // Ensure config directory exists
     if (!fs.existsSync(configDir)) {
       fs.mkdirSync(configDir, { recursive: true })
     }
 
-    // Save credentials
-    fs.writeFileSync(credentialsPath, JSON.stringify({ default: user }))
+    const updatedData = { ...readCredentialsFile(), default: user }
+    fs.writeFileSync(credentialsPath, JSON.stringify(updatedData, null, 2))
   } catch (error) {
     logger.error(
       {
@@ -184,14 +194,21 @@ export const saveUserCredentials = (user: User): void => {
 }
 
 /**
- * Clear user credentials from file system
+ * Clear user credentials from file system.
+ * Only removes the 'default' field, preserving other credentials.
  */
 export const clearUserCredentials = (): void => {
   const credentialsPath = getCredentialsPath()
 
   try {
-    if (fs.existsSync(credentialsPath)) {
+    if (!fs.existsSync(credentialsPath)) return
+
+    const { default: _, ...rest } = readCredentialsFile()
+
+    if (Object.keys(rest).length === 0) {
       fs.unlinkSync(credentialsPath)
+    } else {
+      fs.writeFileSync(credentialsPath, JSON.stringify(rest, null, 2))
     }
   } catch (error) {
     logger.error(
