@@ -1,9 +1,7 @@
-'use client'
-
 import { env } from '@codebuff/common/env'
 import dynamic from 'next/dynamic'
 import NextLink from 'next/link'
-import { notFound, useParams } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import React from 'react'
 
 import type { Doc } from '@/types/docs'
@@ -11,6 +9,16 @@ import type { Doc } from '@/types/docs'
 import { Mdx } from '@/components/docs/mdx/mdx-components'
 import { getDocsByCategory } from '@/lib/docs'
 import { allDocs } from '.contentlayer/generated'
+
+// Generate static params for all doc pages at build time
+export function generateStaticParams(): Array<{ category: string; slug: string }> {
+  return allDocs
+    .filter((doc) => !doc.slug.startsWith('_'))
+    .map((doc) => ({
+      category: doc.category,
+      slug: doc.slug,
+    }))
+}
 
 // FAQ structured data for SEO - parsed from the FAQ MDX content
 const FAQ_ITEMS = [
@@ -192,10 +200,8 @@ const DocNavigation = ({
   )
 }
 
-export default function DocPage() {
-  const params = useParams<{ category: string; slug: string }>()
-  const category = params?.category ?? ''
-  const slug = params?.slug ?? ''
+export default async function DocPage({ params }: { params: Promise<{ category: string; slug: string }> }) {
+  const { category, slug } = await params
   const docs = getDocsByCategory(category)
   const doc = docs.find((d: Doc) => d.slug === slug)
 
