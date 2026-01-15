@@ -40,8 +40,8 @@ type MockTransactionOptions = {
     expires_at: Date
   }>
   referralTotal?: number
-  onInsert?: (values: any) => void
-  onUpdate?: (values: any) => void
+  onInsert?: (values: Record<string, unknown>) => void
+  onUpdate?: (values: Record<string, unknown>) => void
 }
 
 const createMockTransaction = (options: MockTransactionOptions): BillingTransactionFn => {
@@ -54,14 +54,14 @@ const createMockTransaction = (options: MockTransactionOptions): BillingTransact
     onUpdate,
   } = options
 
-  return async <T>(callback: (tx: any) => Promise<T>): Promise<T> => {
+  return async <T>(callback: (tx: Record<string, unknown>) => Promise<T>): Promise<T> => {
     const tx = {
       query: {
         user: {
           findFirst: async () => user,
         },
         creditLedger: {
-          findFirst: async (params: any) => {
+          findFirst: async (params: Record<string, unknown> | undefined) => {
             // For revoke tests - find by operation_id
             if (params?.where) {
               return grants[0] ?? null
@@ -71,7 +71,7 @@ const createMockTransaction = (options: MockTransactionOptions): BillingTransact
         },
       },
       update: () => ({
-        set: (values: any) => ({
+        set: (values: Record<string, unknown>) => ({
           where: () => {
             onUpdate?.(values)
             return Promise.resolve()
@@ -79,24 +79,24 @@ const createMockTransaction = (options: MockTransactionOptions): BillingTransact
         }),
       }),
       insert: () => ({
-        values: (values: any) => {
+        values: (values: Record<string, unknown>) => {
           onInsert?.(values)
           return Promise.resolve()
         },
       }),
-      select: (fields?: any) => ({
+      select: (fields?: Record<string, unknown>) => ({
         from: () => ({
           where: () => ({
             orderBy: () => ({
               limit: () => expiredGrants,
             }),
-            then: (cb: any) => {
+            then: <R>(cb: (rows: Array<{ balance: number }>) => R): R => {
               // For checking negative balances - filter grants with balance < 0
               const negativeGrants = grants.filter(g => g.balance < 0)
               return cb(negativeGrants)
             },
           }),
-          then: (cb: any) => {
+          then: <R>(cb: (rows: Array<{ totalCredits: string }>) => R): R => {
             // For referral query
             if (fields && 'totalCredits' in fields) {
               return cb([{ totalCredits: referralTotal.toString() }])
@@ -208,8 +208,8 @@ describe('grant-credits', () => {
   describe('grantCreditOperation', () => {
     describe('debt settlement', () => {
       it('should settle debt when granting new credits', async () => {
-        const insertedGrants: any[] = []
-        const updatedValues: any[] = []
+        const insertedGrants: Record<string, unknown>[] = []
+        const updatedValues: Record<string, unknown>[] = []
 
         // Create a mock tx with negative balance grant
         const mockTx = {
@@ -221,7 +221,7 @@ describe('grant-credits', () => {
           select: () => ({
             from: () => ({
               where: () => ({
-                then: (cb: any) =>
+                then: <R>(cb: (rows: Array<{ operation_id: string; user_id: string; balance: number; type: string }>) => R): R =>
                   cb([
                     {
                       operation_id: 'debt-grant-1',
@@ -234,7 +234,7 @@ describe('grant-credits', () => {
             }),
           }),
           update: () => ({
-            set: (values: any) => ({
+            set: (values: Record<string, unknown>) => ({
               where: () => {
                 updatedValues.push(values)
                 return Promise.resolve()
@@ -242,7 +242,7 @@ describe('grant-credits', () => {
             }),
           }),
           insert: () => ({
-            values: (values: any) => {
+            values: (values: Record<string, unknown>) => {
               insertedGrants.push(values)
               return Promise.resolve()
             },
@@ -272,7 +272,7 @@ describe('grant-credits', () => {
       })
 
       it('should create grant with full balance when no debt exists', async () => {
-        const insertedGrants: any[] = []
+        const insertedGrants: Record<string, unknown>[] = []
 
         const mockTx = {
           query: {
@@ -283,7 +283,7 @@ describe('grant-credits', () => {
           select: () => ({
             from: () => ({
               where: () => ({
-                then: (cb: any) => cb([]), // No negative balance grants
+                then: <R>(cb: (rows: never[]) => R): R => cb([]), // No negative balance grants
               }),
             }),
           }),
@@ -293,7 +293,7 @@ describe('grant-credits', () => {
             }),
           }),
           insert: () => ({
-            values: (values: any) => {
+            values: (values: Record<string, unknown>) => {
               insertedGrants.push(values)
               return Promise.resolve()
             },
@@ -319,8 +319,8 @@ describe('grant-credits', () => {
       })
 
       it('should not create grant when debt exceeds amount', async () => {
-        const insertedGrants: any[] = []
-        const updatedValues: any[] = []
+        const insertedGrants: Record<string, unknown>[] = []
+        const updatedValues: Record<string, unknown>[] = []
 
         const mockTx = {
           query: {
@@ -331,7 +331,7 @@ describe('grant-credits', () => {
           select: () => ({
             from: () => ({
               where: () => ({
-                then: (cb: any) =>
+                then: <R>(cb: (rows: Array<{ operation_id: string; user_id: string; balance: number; type: string }>) => R): R =>
                   cb([
                     {
                       operation_id: 'debt-grant-1',
@@ -344,7 +344,7 @@ describe('grant-credits', () => {
             }),
           }),
           update: () => ({
-            set: (values: any) => ({
+            set: (values: Record<string, unknown>) => ({
               where: () => {
                 updatedValues.push(values)
                 return Promise.resolve()
@@ -352,7 +352,7 @@ describe('grant-credits', () => {
             }),
           }),
           insert: () => ({
-            values: (values: any) => {
+            values: (values: Record<string, unknown>) => {
               insertedGrants.push(values)
               return Promise.resolve()
             },
@@ -512,8 +512,8 @@ describe('grant-credits', () => {
 
   describe('processAndGrantCredit', () => {
     it('should call grantCreditOperation with correct params', async () => {
-      let capturedParams: any = null
-      const mockGrantCreditFn = async (params: any) => {
+      let capturedParams: Record<string, unknown> | null = null
+      const mockGrantCreditFn = async (params: Record<string, unknown>) => {
         capturedParams = params
       }
 
@@ -528,11 +528,12 @@ describe('grant-credits', () => {
         deps: { grantCreditFn: mockGrantCreditFn as any },
       })
 
-      expect(capturedParams.userId).toBe('user-123')
-      expect(capturedParams.amount).toBe(500)
-      expect(capturedParams.type).toBe('purchase')
-      expect(capturedParams.description).toBe('Test grant')
-      expect(capturedParams.operationId).toBe('op-123')
+      expect(capturedParams).not.toBeNull()
+      expect(capturedParams!.userId).toBe('user-123')
+      expect(capturedParams!.amount).toBe(500)
+      expect(capturedParams!.type).toBe('purchase')
+      expect(capturedParams!.description).toBe('Test grant')
+      expect(capturedParams!.operationId).toBe('op-123')
     })
 
     it('should log sync failure on error', async () => {
@@ -567,7 +568,7 @@ describe('grant-credits', () => {
 
   describe('revokeGrantByOperationId', () => {
     it('should successfully revoke a grant with positive balance', async () => {
-      const updatedValues: any[] = []
+      const updatedValues: Record<string, unknown>[] = []
 
       const mockTransaction: BillingTransactionFn = async (callback) => {
         const tx = {
@@ -584,7 +585,7 @@ describe('grant-credits', () => {
             },
           },
           update: () => ({
-            set: (values: any) => ({
+            set: (values: Record<string, unknown>) => ({
               where: () => {
                 updatedValues.push(values)
                 return Promise.resolve()
@@ -671,7 +672,7 @@ describe('grant-credits', () => {
     })
 
     it('should successfully revoke a grant with zero balance', async () => {
-      const updatedValues: any[] = []
+      const updatedValues: Record<string, unknown>[] = []
 
       const mockTransaction: BillingTransactionFn = async (callback) => {
         const tx = {
@@ -688,7 +689,7 @@ describe('grant-credits', () => {
             },
           },
           update: () => ({
-            set: (values: any) => ({
+            set: (values: Record<string, unknown>) => ({
               where: () => {
                 updatedValues.push(values)
                 return Promise.resolve()

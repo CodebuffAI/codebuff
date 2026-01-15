@@ -19,9 +19,17 @@ export interface ReportPurchasedCreditsToStripeDeps {
   shouldAttemptStripeMetering?: () => boolean
 }
 
+/**
+ * Determines if Stripe metering should be attempted.
+ * 
+ * Returns false in the following cases:
+ * - CI environment (CI=true or CI=1): Evals and tests set this to skip billing
+ * - No STRIPE_SECRET_KEY: Stripe isn't configured for this environment
+ * 
+ * This replaced the previous TEST_USER_ID bypass. Now all test/eval scenarios
+ * should set CI=true at their entry point to skip Stripe metering.
+ */
 function shouldAttemptStripeMetering(): boolean {
-  // Avoid sending Stripe metering events in CI or when Stripe isn't configured.
-  // Evals set CI=true to skip billing.
   if (process.env.CI === 'true' || process.env.CI === '1') return false
   return Boolean(process.env.STRIPE_SECRET_KEY)
 }

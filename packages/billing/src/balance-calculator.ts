@@ -39,11 +39,10 @@ export interface CreditConsumptionResult {
   fromPurchased: number
 }
 
-// Add a minimal structural type that both `db` and `tx` satisfy
-type DbConn = Pick<
-  typeof db,
-  'select' | 'update'
-> /* + whatever else you call */
+// Minimal structural type that both `db` and `tx` satisfy
+// Note: This is intentionally defined locally rather than imported from billing.ts
+// because it needs to be compatible with real Drizzle types (PgTransaction, etc.)
+type DbConn = Pick<typeof db, 'select' | 'update'>
 
 /**
  * Dependencies for calculateUsageThisCycle (for testing)

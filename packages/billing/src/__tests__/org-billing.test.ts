@@ -153,7 +153,7 @@ describe('syncOrganizationBillingCycle', () => {
     const newPeriodStart = new Date('2024-02-01T00:00:00Z')
     const newPeriodEnd = new Date('2024-03-01T00:00:00Z')
 
-    let updatedValues: any = null
+    let updatedValues: { current_period_start: Date; current_period_end: Date; updated_at: Date } | null = null
 
     const mockDb = {
       query: {
@@ -166,7 +166,7 @@ describe('syncOrganizationBillingCycle', () => {
         },
       },
       update: () => ({
-        set: (values: any) => {
+        set: (values: { current_period_start: Date; current_period_end: Date; updated_at: Date }) => {
           updatedValues = values
           return {
             where: () => Promise.resolve(),
@@ -195,8 +195,8 @@ describe('syncOrganizationBillingCycle', () => {
     })
 
     expect(updatedValues).not.toBeNull()
-    expect(updatedValues.current_period_start.getTime()).toBe(newPeriodStart.getTime())
-    expect(updatedValues.current_period_end.getTime()).toBe(newPeriodEnd.getTime())
+    expect(updatedValues!.current_period_start.getTime()).toBe(newPeriodStart.getTime())
+    expect(updatedValues!.current_period_end.getTime()).toBe(newPeriodEnd.getTime())
   })
 })
 

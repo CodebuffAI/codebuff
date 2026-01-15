@@ -15,10 +15,13 @@ import type {
   CreditConsumptionResult,
 } from './balance-calculator'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { BillingTransactionFn } from '@codebuff/common/types/contracts/billing'
 import type { OptionalFields } from '@codebuff/common/types/function-params'
 import type { GrantType } from '@codebuff/internal/db/schema'
 
-// Add a minimal structural type that both `db` and `tx` satisfy
+// Minimal structural type that both `db` and `tx` satisfy
+// Note: This is intentionally defined locally rather than imported from billing.ts
+// because it needs to be compatible with real Drizzle types (PgTransaction, etc.)
 type DbConn = Pick<typeof db, 'select' | 'update'>
 
 /**
@@ -276,27 +279,15 @@ export async function calculateOrganizationUsageAndBalance(
 }
 
 /**
- * Type for the withSerializableTransaction dependency.
- * 
- * The callback parameter uses `any` for the same reason as `BillingTransactionFn`:
- * Drizzle's `PgTransaction` type has method signatures incompatible with our
- * simplified `BillingDbConnection` interface. Using `any` allows both real
- * Drizzle transactions and mock implementations to work.
- * 
- * @see BillingTransactionFn in `@codebuff/common/types/contracts/billing` for details
- */
-type WithSerializableTransactionFn = <T>(params: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  callback: (tx: any) => Promise<T>
-  context: Record<string, unknown>
-  logger: Logger
-}) => Promise<T>
-
-/**
  * Dependencies for consumeOrganizationCredits
  */
 export type ConsumeOrganizationCreditsDeps = {
-  withSerializableTransaction?: WithSerializableTransactionFn
+  withSerializableTransaction?: <T>(params: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    callback: (tx: any) => Promise<T>
+    context: Record<string, unknown>
+    logger: Logger
+  }) => Promise<T>
 }
 
 /**

@@ -192,10 +192,38 @@ function createUpdateBuilder<T>(
   }
 }
 
-function createTableQuery<T>(data: T[]): TableQuery<T> {
+/**
+ * Creates a table query interface that supports findFirst with basic filtering.
+ * 
+ * **Limitation: Where Condition Filtering**
+ * 
+ * The `findFirst` method performs basic filtering by matching the `where` condition
+ * if it's a Drizzle `eq()` style object with `value` property. For more complex
+ * filtering (AND, OR, etc.), the mock returns the first record that matches
+ * any simple equality check, or falls back to `data[0]`.
+ * 
+ * If your test requires specific filtering behavior, provide pre-filtered data
+ * in the mock configuration or use a more specific mock setup.
+ */
+function createTableQuery<T extends Record<string, unknown>>(data: T[]): TableQuery<T> {
   return {
     findFirst: async (params?: FindFirstParams<T>): Promise<T | null> => {
-      const record = data[0]
+      let record: T | undefined = data[0]
+      
+      // Attempt to honor where condition if it's a simple eq() condition
+      // Drizzle eq() creates an object like { value: 'user-id', ... }
+      if (params?.where && typeof params.where === 'object') {
+        const whereObj = params.where as Record<string, unknown>
+        // Try to find a matching record based on the where condition's value
+        if ('value' in whereObj && whereObj.value !== undefined) {
+          const searchValue = whereObj.value
+          // Search through data for a record that has this value in any field
+          record = data.find(item => {
+            return Object.values(item).some(val => val === searchValue)
+          })
+        }
+      }
+      
       if (!record) return null
       
       // Return only requested columns if specified
@@ -214,17 +242,32 @@ function createTableQuery<T>(data: T[]): TableQuery<T> {
 /**
  * Creates a mock database connection for testing billing functions.
  *
- * **Limitation: Field-based Query Detection**
+ * ## Field-based Query Detection
  *
  * This mock uses field inspection to determine what data to return from select queries.
  * The detection logic checks for specific field names in the select clause:
  * - `orgId` field → returns org member data
- * - `repoUrl` field → returns org repo data
+ * - `repoUrl` field → returns org repo data  
  * - `totalCredits` field → returns referral sum data
  * - `principal` field → returns credit grant data
  *
- * If you add new queries with different field patterns, you may need to update the
- * `select()` implementation below to handle the new query type.
+ * **Important:** If you add new queries with different field patterns, you will need
+ * to update the `select()` implementation below to handle the new query type. The
+ * field-based detection is checked in order, so more specific fields should be
+ * checked first.
+ *
+ * ## Where Condition Handling
+ *
+ * The mock's `where()` methods return the full dataset without filtering. This is
+ * intentional for simplicity - tests should provide appropriately scoped mock data
+ * rather than relying on the mock to filter. For tests that need filtering behavior,
+ * configure the mock with pre-filtered data specific to that test case.
+ *
+ * ## findFirst Filtering
+ *
+ * The `query.*.findFirst()` methods attempt basic filtering when a `where` condition
+ * is provided. They match against Drizzle's `eq()` style objects by extracting the
+ * `value` property and searching for records containing that value.
  */
 export function createMockDb(config: MockDbConfig = {}): BillingDbConnection {
   const {

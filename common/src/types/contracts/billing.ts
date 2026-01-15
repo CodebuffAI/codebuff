@@ -177,7 +177,7 @@ export interface TableQuery<T> {
 // ============================================================================
 
 /**
- * Minimal database connection interface that both `db` and transaction `tx` satisfy.
+ * Full database connection interface for dependency injection in billing functions.
  * Used for dependency injection in billing functions.
  * 
  * The generic type parameters allow for type-safe queries while still being
