@@ -19,6 +19,8 @@ export const COLLAPSED_BY_DEFAULT_AGENT_IDS = [
   'code-searcher',
   'directory-lister',
   'glob-matcher',
+  'researcher-web',
+  'researcher-docs',
 ] as const
 
 /**
