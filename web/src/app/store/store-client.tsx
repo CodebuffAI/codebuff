@@ -234,8 +234,8 @@ export default function AgentStoreClient({
     if (!initialAgents?.length) return []
 
     return initialAgents.map((agent) => {
-      // Key matches how metrics are stored: publisherId/agentName
-      const metricsKey = `${agent.publisher.id}/${agent.name}`
+      // Key matches how metrics are stored: publisherId/agentId
+      const metricsKey = `${agent.publisher.id}/${agent.id}`
       const metrics = metricsMap?.[metricsKey]
 
       return {

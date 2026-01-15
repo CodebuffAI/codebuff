@@ -436,14 +436,14 @@ export function buildAgentsBasicInfo(params: {
 }): AgentBasicInfo[] {
   const { agents } = params
 
-  // Dedupe to latest version per agent
+  // Dedupe to latest version per agent (stable by publisher + agent id).
   const latestAgents = new Map<
     string,
     { agent: AgentRowSlim; agentName: string }
   >()
   agents.forEach((agent) => {
     const agentName = agent.name || agent.id
-    const key = `${agent.publisher.id}/${agentName}`
+    const key = `${agent.publisher.id}/${agent.id}`
     if (!latestAgents.has(key)) {
       latestAgents.set(key, { agent, agentName })
     }
@@ -483,7 +483,7 @@ export function buildAgentsBasicInfo(params: {
   return result
 }
 
-// Build metrics map from usage data - keyed by "publisherId/agentName"
+// Build metrics map from usage data - keyed by "publisherId/agentId"
 export function buildAgentsMetricsMap(params: {
   usageMetrics: UsageMetricRow[]
   weeklyMetrics: WeeklyMetricRow[]
