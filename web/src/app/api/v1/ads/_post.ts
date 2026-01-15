@@ -187,7 +187,7 @@ export async function postAds(params: {
       return NextResponse.json({ ad: null }, { status: 200 })
     }
 
-    const ad = ads.ads[0]
+    const ad = ads[0]
 
     const payout = ad.payout || DEFAULT_PAYOUT
 
