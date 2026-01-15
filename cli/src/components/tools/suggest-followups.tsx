@@ -42,8 +42,9 @@ const FollowupLine = ({
   const { terminalWidth } = useTerminalDimensions()
 
   const handleClick = useCallback(() => {
-    if (disabled) return
-    onSendFollowup(followup.prompt, index)
+    if (!disabled) {
+      onSendFollowup(followup.prompt, index)
+    }
   }, [followup.prompt, index, onSendFollowup, disabled])
 
   const handleMouseOver = useCallback(() => onHover(index), [onHover, index])
@@ -83,24 +84,25 @@ const FollowupLine = ({
       ? theme.primary
       : theme.foreground
 
+  // Calculate padding spaces needed to align descriptions (only when showing description)
+  const labelLength = (displayText ?? '').length
+  const paddingSpaces = showDescription
+    ? ' '.repeat(Math.max(0, labelColumnWidth - 2 - labelLength)) // -2 for "→ " prefix
+    : ''
+
   return (
-    <Button
-      onClick={handleClick}
-      onMouseOver={handleMouseOver}
-      onMouseOut={handleMouseOut}
-      style={{
-        flexDirection: 'column',
-        backgroundColor: showHoverState ? theme.surface : undefined,
-      }}
-    >
-      {/* Row layout: fixed-width label column + flexible description */}
+    <box style={{ flexDirection: 'column' }}>
+      {/* Row layout: clickable label + non-clickable description */}
       <box style={{ flexDirection: 'row', width: '100%' }}>
-        {/* Fixed-width label column */}
-        <box
+        {/* Clickable label area - only the text itself is clickable */}
+        <Button
+          onClick={handleClick}
+          onMouseOver={handleMouseOver}
+          onMouseOut={handleMouseOut}
           style={{
-            width: hasLabel ? labelColumnWidth : undefined,
-            flexShrink: hasLabel ? 0 : 1,
-            flexGrow: hasLabel ? 0 : 1,
+            flexShrink: 0,
+            flexGrow: 0,
+            backgroundColor: showHoverState ? theme.surface : undefined,
           }}
         >
           <text style={{ wrapMode: hasLabel ? 'none' : 'word' }}>
@@ -113,19 +115,19 @@ const FollowupLine = ({
               {displayText}
             </span>
           </text>
-        </box>
-        {/* Flexible description column - truncated with ellipsis */}
+        </Button>
+        {/* Flexible description column - NOT clickable, with padding for alignment */}
         {showDescription && hasLabel && (
           <box style={{ flexGrow: 1 }}>
             <text style={{ wrapMode: 'none' }}>
-              <span fg={theme.foreground} attributes={TextAttributes.ITALIC}>
-                {truncatedPrompt}
+              <span fg={theme.muted} attributes={TextAttributes.ITALIC}>
+                {paddingSpaces}{truncatedPrompt}
               </span>
             </text>
           </box>
         )}
       </box>
-    </Button>
+    </box>
   )
 }
 
