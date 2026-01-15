@@ -76,23 +76,26 @@ Run `codebuff --help` for full details and examples.
 
 ## Create custom agents
 
-To get started building your own agents, run:
+To get started building your own agents, start Codebuff and run the `/init` command:
 
 ```bash
-codebuff init-agents
+codebuff
 ```
 
-> 💡 **Tip**: This creates an agent development guide at `.agents/README.md` with examples and TypeScript types.
+Then inside the CLI:
+
+```
+/init
+```
 
 This creates:
 ```
+knowledge.md               # Project context for Codebuff
 .agents/
-├── README.md              # Agent development guide
-├── my-custom-agent.ts     # Working agent template
-├── package.json           # NPM package config
-├── LICENSE                # Apache-2.0 license
-├── examples/              # 3 example agents
-└── types/                 # TypeScript definitions
+└── types/                 # TypeScript type definitions
+    ├── agent-definition.ts
+    ├── tools.ts
+    └── util-types.ts
 ```
 
 You can write agent definition files that give you maximum control over agent behavior.

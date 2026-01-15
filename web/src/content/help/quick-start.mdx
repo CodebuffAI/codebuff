@@ -29,6 +29,29 @@ codebuff
 
 Codebuff has multiple [modes](/docs/tips#modes): `lite` for quick tasks, `max` for complex work, and `plan` for planning without file changes. You can invoke them in the slash menu with `/mode:`.
 
+## 4. Initialize Your Project (Optional)
+
+Run the `/init` command inside Codebuff to set up project-specific files:
+
+```
+/init
+```
+
+### What `/init` Creates
+
+| File/Directory | Purpose |
+|---------------|----------|
+| `knowledge.md` | A starter file for documenting your project's setup commands, architecture, and coding conventions. Codebuff reads this to understand your project better. |
+| `.agents/types/` | TypeScript type definitions for creating custom agents. |
+
+### When to Use `/init`
+
+- **New projects** — Run `/init` once to create a `knowledge.md` file and get Codebuff familiar with your project.
+- **Building custom agents** — The `.agents/types/` directory provides TypeScript types for full IntelliSense when creating agents.
+- **Team onboarding** — Commit `knowledge.md` to your repo so Codebuff works consistently for all team members.
+
+> **Note:** `/init` is safe to run multiple times. It skips files that already exist and only creates missing ones.
+
 ## Troubleshooting
 
 If you run into issues during installation:

@@ -40,17 +40,22 @@ order: 1
 npm install -g codebuff
 ```
 
-In your project:
+In your project, start Codebuff and run the `/init` command:
 
 ```bash
-codebuff init-agents
+codebuff
+```
+
+Then inside the CLI:
+
+```
+/init
 ```
 
 This creates:
 
-- `.agents/types/` - type definitions
-- `.agents/examples/` - example agents
-- `.agents/my-custom-agent.ts` - starter template
+- `knowledge.md` - project context for Codebuff
+- `.agents/types/` - TypeScript type definitions for creating agents
 
 ## Create an Agent
 
