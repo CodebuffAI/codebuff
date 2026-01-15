@@ -135,6 +135,16 @@ const nextConfig = {
         permanent: false,
       },
       {
+        source: '/docs',
+        destination: '/docs/help/quick-start',
+        permanent: false,
+      },
+      {
+        source: '/docs/help',
+        destination: '/docs/help/quick-start',
+        permanent: false,
+      },
+      {
         source: '/releases',
         destination:
           'https://github.com/CodebuffAI/codebuff-community/releases',

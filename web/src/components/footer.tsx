@@ -12,7 +12,7 @@ type LinkInfo = { text: string; href: string; target?: string }
 
 const siteLinks: LinkInfo[] = [
   { text: 'Home', href: '/' },
-  { text: 'Docs', href: '/docs', target: '_blank' },
+  { text: 'Docs', href: '/docs' },
   // NEWS DISABLED: Uncomment to re-enable news link in footer
   // { text: 'News', href: 'https://news.codebuff.com', target: '_blank' },
   { text: 'Pricing', href: '/pricing' },
