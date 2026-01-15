@@ -69,13 +69,17 @@ jobs:
       - name: Install Playwright browsers
         run: cd web && bunx playwright install --with-deps chromium
 
-      - name: Run documentation E2E tests
-        run: cd web && bun run e2e:docs --project=chromium
+      - name: Run web E2E tests (chromium)
+        run: cd web && bun run e2e --project=chromium
 
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-docs-report
+          name: playwright-report
           path: debug/playwright-report/
           retention-days: 7
+
+      - name: Cleanup e2e database
+        if: always()
+        run: bun --cwd packages/internal db:e2e:down

@@ -1,0 +1,21 @@
+name: manicode-e2e
+services:
+  db:
+    image: postgres:16
+    restart: "no"
+    ports:
+      - 5433:5432
+    environment:
+      POSTGRES_USER: manicode_user_local
+      POSTGRES_PASSWORD: secretpassword_local
+      POSTGRES_DB: manicode_db_e2e
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U manicode_user_local -d manicode_db_e2e"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    volumes:
+      - db_data_e2e:/var/lib/postgresql/data
+volumes:
+  db_data_e2e:

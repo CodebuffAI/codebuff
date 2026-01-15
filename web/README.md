@@ -110,4 +110,8 @@ cd web
 bun run e2e
 ```
 
+The e2e runner starts a dedicated Postgres container on port 5433, migrates, and
+seeds minimal data for SSR. Override the connection with `E2E_DATABASE_URL` if
+needed.
+
 <!-- Lighthouse CI workflow removed for now. Reintroduce later if needed. -->

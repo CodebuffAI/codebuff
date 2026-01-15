@@ -1,8 +1,10 @@
 import { defineConfig, devices } from '@playwright/test'
+import { getE2EDatabaseUrl } from '@codebuff/internal/db/e2e-constants'
 
 // Use the same port as the dev server, defaulting to 3000
 const PORT = process.env.NEXT_PUBLIC_WEB_PORT || '3000'
 const BASE_URL = `http://127.0.0.1:${PORT}`
+const E2E_DATABASE_URL = getE2EDatabaseUrl()
 
 export default defineConfig({
   testDir: './src/__tests__/e2e',
@@ -33,9 +35,15 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: `NEXT_PUBLIC_WEB_PORT=${PORT} bun run dev`,
+    command: 'bun run dev',
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    env: {
+      ...process.env,
+      NEXT_PUBLIC_WEB_PORT: PORT,
+      BASELINE_BROWSER_MAPPING_IGNORE_OLD_DATA: 'true',
+      DATABASE_URL: E2E_DATABASE_URL,
+    },
   },
 })

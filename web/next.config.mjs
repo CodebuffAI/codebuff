@@ -9,6 +9,8 @@ const withMDX = createMDX({
   },
 })
 
+const DEV_ALLOWED_ORIGINS = ['localhost', '127.0.0.1']
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
@@ -19,6 +21,7 @@ const nextConfig = {
     // Disable TypeScript errors during builds
     ignoreBuildErrors: true,
   },
+  allowedDevOrigins: DEV_ALLOWED_ORIGINS,
 
   // Enable experimental features for better SSG performance
   experimental: {
