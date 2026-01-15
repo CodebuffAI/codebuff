@@ -22,12 +22,6 @@ const extractDomain = (url: string): string => {
 }
 
 export const AdBanner: React.FC<AdBannerProps> = ({ ad }) => {
-  useEffect(() => {
-    logger.info(
-      { adText: ad.adText?.substring(0, 50), hasClickUrl: !!ad.clickUrl },
-      '[gravity] Rendering AdBanner',
-    )
-  }, [ad])
   const theme = useTheme()
   const { separatorWidth, terminalWidth } = useTerminalDimensions()
   const [isLinkHovered, setIsLinkHovered] = useState(false)

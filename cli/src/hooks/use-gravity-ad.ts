@@ -58,11 +58,6 @@ export const useGravityAd = (): GravityAdState => {
     if (isActive && ad?.impUrl && !impressionFiredRef.current.has(ad.impUrl)) {
       const currentImpUrl = ad.impUrl
       impressionFiredRef.current.add(currentImpUrl)
-      logger.info(
-        { impUrl: currentImpUrl },
-        '[gravity] Recording ad impression',
-      )
-
       const authToken = getAuthToken()
       if (!authToken) {
         logger.warn('[gravity] No auth token, skipping impression recording')
@@ -196,13 +191,8 @@ export const useGravityAd = (): GravityAdState => {
 
     rotationTimerRef.current = setTimeout(async () => {
       adsShownRef.current += 1
-      logger.info(
-        { adsShown: adsShownRef.current, max: MAX_ADS_AFTER_ACTIVITY },
-        '[gravity] Ad cycle complete',
-      )
 
       if (adsShownRef.current >= MAX_ADS_AFTER_ACTIVITY) {
-        logger.info('[gravity] Max ads shown, pausing rotation')
         isPausedRef.current = true
         return
       }
@@ -222,7 +212,6 @@ export const useGravityAd = (): GravityAdState => {
     adsShownRef.current = 0
 
     if (wasPaused) {
-      logger.info('[gravity] User active, resuming ad rotation')
       isPausedRef.current = false
       scheduleRotation()
     }
@@ -259,7 +248,6 @@ export const useGravityAd = (): GravityAdState => {
 
       if (hasUserMessage) {
         unsubscribe()
-        logger.info('[gravity] First user message detected, starting ads')
         setIsActive(true)
       }
     })
