@@ -6,6 +6,7 @@ import {
   parseCommand,
   isSlashCommand,
   isReferralCode,
+  parseCommandInput,
 } from '../router-utils'
 import { SLASH_COMMANDS } from '../../data/slash-commands'
 
@@ -135,6 +136,84 @@ describe('router-utils', () => {
       expect(isReferralCode('REF-abc')).toBe(false)
       expect(isReferralCode('Ref-abc')).toBe(false)
       expect(isReferralCode('/REF-abc')).toBe(false)
+    })
+  })
+
+  describe('parseCommandInput', () => {
+    test('returns command info for exact slashless matches', () => {
+      expect(parseCommandInput('init')).toEqual({
+        command: 'init',
+        args: '',
+        implicitCommand: true,
+      })
+      expect(parseCommandInput('new')).toEqual({
+        command: 'new',
+        args: '',
+        implicitCommand: true,
+      })
+    })
+
+    test('is case-insensitive and trims whitespace for slashless matches', () => {
+      expect(parseCommandInput('INIT')).toEqual({
+        command: 'init',
+        args: '',
+        implicitCommand: true,
+      })
+      expect(parseCommandInput('  new  ')).toEqual({
+        command: 'new',
+        args: '',
+        implicitCommand: true,
+      })
+    })
+
+    test('returns null for slashless commands with arguments', () => {
+      expect(parseCommandInput('init something')).toBe(null)
+      expect(parseCommandInput('new my message')).toBe(null)
+    })
+
+    test('returns null for commands not configured for slashless invocation', () => {
+      expect(parseCommandInput('usage')).toBe(null)
+      expect(parseCommandInput('bash')).toBe(null)
+      expect(parseCommandInput('feedback')).toBe(null)
+    })
+
+    test('distinguishes slashed and slashless invocation', () => {
+      expect(parseCommandInput('/init')).toEqual({
+        command: 'init',
+        args: '',
+        implicitCommand: false,
+      })
+    })
+
+    test('does not match aliases for slashless commands', () => {
+      const newCmd = SLASH_COMMANDS.find((cmd) => cmd.id === 'new')
+      for (const alias of newCmd?.aliases ?? []) {
+        expect(parseCommandInput(alias)).toBe(null)
+      }
+    })
+
+    test('returns null for empty input', () => {
+      expect(parseCommandInput('')).toBe(null)
+      expect(parseCommandInput('   ')).toBe(null)
+    })
+
+    test('commands with implicitCommand are configured correctly', () => {
+      const initCmd = SLASH_COMMANDS.find((cmd) => cmd.id === 'init')
+      const newCmd = SLASH_COMMANDS.find((cmd) => cmd.id === 'new')
+
+      expect(initCmd?.implicitCommand).toBe(true)
+      expect(newCmd?.implicitCommand).toBe(true)
+    })
+
+    test('parseCommandInput matches all implicitCommand commands', () => {
+      const implicitCommands = SLASH_COMMANDS.filter((cmd) => cmd.implicitCommand)
+      for (const cmd of implicitCommands) {
+        expect(parseCommandInput(cmd.id)).toEqual({
+          command: cmd.id.toLowerCase(),
+          args: '',
+          implicitCommand: true,
+        })
+      }
     })
   })
 

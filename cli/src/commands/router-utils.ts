@@ -1,3 +1,5 @@
+import { SLASHLESS_COMMAND_IDS } from '../data/slash-commands'
+
 /**
  * Normalize user input by stripping the leading slash if present.
  * This is used for referral codes which work with or without the slash.
@@ -87,6 +89,54 @@ const REFERRAL_PREFIX = 'ref-'
 export function normalizeReferralCode(code: string): string {
   const trimmed = code.trim()
   const hasPrefix = trimmed.toLowerCase().startsWith(REFERRAL_PREFIX)
-  const codeWithoutPrefix = hasPrefix ? trimmed.slice(REFERRAL_PREFIX.length) : trimmed
+  const codeWithoutPrefix = hasPrefix
+    ? trimmed.slice(REFERRAL_PREFIX.length)
+    : trimmed
   return `${REFERRAL_PREFIX}${codeWithoutPrefix}`
+}
+
+/**
+ * Result of parsing a command-like input.
+ */
+export type ParsedCommandInput = {
+  command: string
+  args: string
+  implicitCommand: boolean
+}
+
+/**
+ * Parse a command from user input.
+ * Supports:
+ * - Standard slash commands: "/command args"
+ * - Slashless exact commands: "init" (only if configured)
+ *
+ * Returns null when the input should be treated as a normal message.
+ *
+ * @example
+ * parseCommandInput('/help') // => { command: 'help', args: '', implicitCommand: false }
+ * parseCommandInput('/usage stats') // => { command: 'usage', args: 'stats', implicitCommand: false }
+ * parseCommandInput('init') // => { command: 'init', args: '', implicitCommand: true }
+ * parseCommandInput('init something') // => null
+ */
+export function parseCommandInput(input: string): ParsedCommandInput | null {
+  const trimmed = input.trim()
+  if (!trimmed) return null
+
+  if (trimmed.startsWith('/')) {
+    const command = parseCommand(trimmed)
+    if (!command) return null
+    const args = trimmed.slice(1 + command.length).trim()
+    return { command, args, implicitCommand: false }
+  }
+
+  if (/\s/.test(trimmed)) {
+    return null
+  }
+
+  const normalized = trimmed.toLowerCase()
+  if (!SLASHLESS_COMMAND_IDS.has(normalized)) {
+    return null
+  }
+
+  return { command: normalized, args: '', implicitCommand: true }
 }

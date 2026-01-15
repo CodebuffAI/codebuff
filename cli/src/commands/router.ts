@@ -9,11 +9,11 @@ import {
 } from './command-registry'
 import { handleReferralCode } from './referral'
 import {
-  parseCommand,
   isSlashCommand,
   isReferralCode,
   extractReferralCode,
   normalizeReferralCode,
+  parseCommandInput,
 } from './router-utils'
 import { handleClaudeAuthCode } from '../components/claude-connect-banner'
 import { getProjectRoot } from '../project-files'
@@ -413,25 +413,25 @@ export async function routeUserPrompt(
     return
   }
 
-  // Only process slash commands if input starts with '/'
-  if (isSlashCommand(trimmed)) {
-    const cmd = parseCommand(trimmed)
-    const args = trimmed.slice(1 + cmd.length).trim()
-
-    // Look up command in registry
-    const commandDef = findCommand(cmd)
+  // Handle slash commands or configured slashless exact commands.
+  const parsedCommand = parseCommandInput(trimmed)
+  if (parsedCommand) {
+    const commandDef = findCommand(parsedCommand.command)
     if (commandDef) {
-      // Track slash command usage
-      trackEvent(AnalyticsEvent.SLASH_COMMAND_USED, {
+      const argsLength = parsedCommand.args.length
+      const analyticsPayload = {
         command: commandDef.name,
-        hasArgs: args.trim().length > 0,
-        argsLength: args.trim().length,
+        hasArgs: argsLength > 0,
+        argsLength,
         agentMode,
-      })
+        ...(parsedCommand.implicitCommand ? { implicitCommand: true } : {}),
+      }
+
+      trackEvent(AnalyticsEvent.SLASH_COMMAND_USED, analyticsPayload)
 
       // The command handler (via defineCommand/defineCommandWithArgs factories)
       // is responsible for validating and handling args
-      return await commandDef.handler(params, args)
+      return await commandDef.handler(params, parsedCommand.args)
     }
   }
 
@@ -465,7 +465,7 @@ export async function routeUserPrompt(
   // Unknown slash command - show error
   if (isSlashCommand(trimmed)) {
     // Track invalid/unknown command (only log command name, not full input for privacy)
-    const attemptedCmd = parseCommand(trimmed)
+    const attemptedCmd = trimmed.slice(1).split(/\s+/)[0]?.toLowerCase() || ''
     trackEvent(AnalyticsEvent.INVALID_COMMAND, {
       attemptedCommand: attemptedCmd,
       inputLength: trimmed.length,
