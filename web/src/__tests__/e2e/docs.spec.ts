@@ -48,7 +48,7 @@ test.describe('Documentation Pages', { tag: '@docs' }, () => {
 
     test('has working internal links', async ({ page }) => {
       // Find an internal link
-      const internalLinks = page.locator('a[href^="/docs/"]')
+      const internalLinks = page.locator('article a[href^="/docs/"]')
       const count = await internalLinks.count()
 
       if (count > 0) {

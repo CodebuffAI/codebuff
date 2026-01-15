@@ -131,6 +131,7 @@ describe('Documentation Content Integrity', () => {
   describe('Internal Links Validation', () => {
     // Build a set of valid doc paths
     const validDocPaths = new Set<string>()
+    const categoryPaths = new Set<string>()
 
     beforeAll(() => {
       for (const filePath of getMdxFiles(CONTENT_DIR)) {
@@ -139,13 +140,11 @@ describe('Documentation Content Integrity', () => {
         const category = parts[0]
         const slug = path.basename(filePath, '.mdx')
         validDocPaths.add(`/docs/${category}/${slug}`)
-        validDocPaths.add(`/docs/${category}#${slug}`)
       }
       // Add category index paths
       VALID_SECTIONS.forEach((section) => {
-        validDocPaths.add(`/docs/${section}`)
+        categoryPaths.add(`/docs/${section}`)
       })
-      validDocPaths.add('/docs')
     })
 
     it.each(
@@ -164,20 +163,17 @@ describe('Documentation Content Integrity', () => {
         // For doc links, validate they exist
         if (link.startsWith('/docs/')) {
           const pathWithoutAnchor = link.split('#')[0]
-          const isValid =
-            validDocPaths.has(pathWithoutAnchor) ||
-            validDocPaths.has(link)
+          const hasAnchor = link.includes('#')
+          const isDocPath = validDocPaths.has(pathWithoutAnchor)
+          const isCategoryPath = categoryPaths.has(pathWithoutAnchor)
+          const isDocsIndex = pathWithoutAnchor === '/docs'
 
-          if (!isValid) {
-            // Check if it's a category#slug format (e.g., /docs/tips#modes)
-            const categoryMatch = pathWithoutAnchor.match(/^\/docs\/([^/]+)$/)
-            if (categoryMatch) {
-              // Category pages are valid
-              continue
-            }
+          if (hasAnchor) {
+            expect(isDocPath).toBe(true)
+            continue
           }
 
-          expect(isValid).toBe(true)
+          expect(isDocPath || isCategoryPath || isDocsIndex).toBe(true)
         }
       }
     })
