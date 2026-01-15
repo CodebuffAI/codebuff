@@ -19,7 +19,7 @@ import type { NextRequest } from 'next/server'
 
 // Revenue share: users get 75% of payout as credits
 const AD_REVENUE_SHARE = 0.75
-const MINIMUM_CREDITS_GRANTED = 0.02
+const MINIMUM_CREDITS_GRANTED = 2
 
 // Rate limiting: max impressions per user per hour
 const MAX_IMPRESSIONS_PER_HOUR = 60
