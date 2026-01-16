@@ -333,4 +333,5 @@ These scripts are used by TUI testing agents:
 - `@codebuff-tester` - Tests the Codebuff CLI
 - `@claude-code-tester` - Tests Claude Code CLI
 - `@codex-tester` - Tests OpenAI Codex CLI
+- `@gemini-tester` - Tests Google Gemini CLI
 - Custom agents for other TUI apps can easily be created following the same pattern
