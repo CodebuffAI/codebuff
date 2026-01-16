@@ -16,6 +16,7 @@
 # USAGE:
 #   ./scripts/tmux/tmux-send.sh SESSION_NAME "your text here"
 #   ./scripts/tmux/tmux-send.sh SESSION_NAME --key KEY
+#   ./scripts/tmux/tmux-send.sh SESSION_NAME --paste
 #
 # ARGUMENTS:
 #   SESSION_NAME        Name of the tmux session
@@ -24,8 +25,15 @@
 # OPTIONS:
 #   --key KEY           Send a special key instead of text
 #                       Supported: Enter, Escape, Up, Down, Left, Right,
-#                                  C-c, C-u, C-d, Tab
+#                                  C-c, C-u, C-d, C-v, Tab
+#   --paste             Paste current clipboard content using bracketed paste
+#                       mode. This triggers the CLI's paste handler correctly,
+#                       unlike --key C-v which just sends the raw keystroke.
+#                       By default, Enter is pressed after pasting. Use with
+#                       --no-enter to paste without submitting (useful for
+#                       testing attachment UI before sending).
 #   --no-enter          Don't automatically press Enter after text
+#   --retry N           Retry session detection N times (default: 3)
 #   --help              Show this help message
 #
 # EXAMPLES:
@@ -40,6 +48,12 @@
 #
 #   # Send Ctrl+C to interrupt
 #   ./scripts/tmux/tmux-send.sh cli-test-123 --key C-c
+#
+#   # Paste clipboard content and submit immediately
+#   ./scripts/tmux/tmux-send.sh cli-test-123 --paste
+#
+#   # Paste clipboard content but don't submit (view attachment card first)
+#   ./scripts/tmux/tmux-send.sh cli-test-123 --paste --no-enter
 #
 # WHY BRACKETED PASTE?
 #   The Codebuff CLI uses OpenTUI for rendering, which processes keyboard
@@ -62,6 +76,9 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # Defaults
 AUTO_ENTER=true
 SPECIAL_KEY=""
+PASTE_CLIPBOARD=false
+RETRY_COUNT=3
+RETRY_DELAY=0.3
 
 # Check minimum arguments
 if [[ $# -lt 1 ]]; then
@@ -89,9 +106,17 @@ while [[ $# -gt 0 ]]; do
             SPECIAL_KEY="$2"
             shift 2
             ;;
+        --paste)
+            PASTE_CLIPBOARD=true
+            shift
+            ;;
         --no-enter)
             AUTO_ENTER=false
             shift
+            ;;
+        --retry)
+            RETRY_COUNT="$2"
+            shift 2
             ;;
         --help)
             head -n 55 "$0" | tail -n +2 | sed 's/^# //' | sed 's/^#//'
@@ -104,9 +129,21 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Verify session exists
-if ! tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
-    echo "❌ Session '$SESSION_NAME' not found" >&2
+# Verify session exists with retry logic
+# Sometimes sessions take a moment to be fully registered
+SESSION_FOUND=false
+for ((i=1; i<=RETRY_COUNT; i++)); do
+    if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+        SESSION_FOUND=true
+        break
+    fi
+    if [[ $i -lt $RETRY_COUNT ]]; then
+        sleep "$RETRY_DELAY"
+    fi
+done
+
+if [[ "$SESSION_FOUND" != true ]]; then
+    echo "❌ Session '$SESSION_NAME' not found after $RETRY_COUNT attempts" >&2
     echo "   Run: tmux list-sessions" >&2
     exit 1
 fi
@@ -124,6 +161,49 @@ if [[ -n "$SPECIAL_KEY" ]]; then
 - timestamp: $TIMESTAMP
   type: key
   input: "$SPECIAL_KEY"
+EOF
+    fi
+    
+    exit 0
+fi
+
+# Paste clipboard content if --paste flag is set
+if [[ "$PASTE_CLIPBOARD" == true ]]; then
+    # Get clipboard content using pbpaste (macOS) or xclip (Linux)
+    if command -v pbpaste &>/dev/null; then
+        CLIPBOARD_CONTENT=$(pbpaste)
+    elif command -v xclip &>/dev/null; then
+        CLIPBOARD_CONTENT=$(xclip -selection clipboard -o)
+    elif command -v xsel &>/dev/null; then
+        CLIPBOARD_CONTENT=$(xsel --clipboard --output)
+    else
+        echo "❌ No clipboard utility found (pbpaste, xclip, or xsel)" >&2
+        exit 1
+    fi
+    
+    if [[ -z "$CLIPBOARD_CONTENT" ]]; then
+        echo "❌ Clipboard is empty" >&2
+        exit 1
+    fi
+    
+    # Send clipboard content using bracketed paste mode
+    tmux send-keys -t "$SESSION_NAME" $'\e[200~'"$CLIPBOARD_CONTENT"$'\e[201~'
+    
+    # Optionally press Enter
+    if [[ "$AUTO_ENTER" == true ]]; then
+        tmux send-keys -t "$SESSION_NAME" Enter
+    fi
+    
+    # Log the paste as YAML
+    SESSION_DIR="$PROJECT_ROOT/debug/tmux-sessions/$SESSION_NAME"
+    if [[ -d "$SESSION_DIR" ]]; then
+        TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        CONTENT_LENGTH=${#CLIPBOARD_CONTENT}
+        cat >> "$SESSION_DIR/commands.yaml" << EOF
+- timestamp: $TIMESTAMP
+  type: paste
+  content_length: $CONTENT_LENGTH
+  auto_enter: $AUTO_ENTER
 EOF
     fi
     

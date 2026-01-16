@@ -121,6 +121,13 @@ Send input to a running session.
 ./scripts/tmux/tmux-send.sh SESSION --key Escape
 ./scripts/tmux/tmux-send.sh SESSION --key C-c
 ./scripts/tmux/tmux-send.sh SESSION --key Enter
+
+# Paste clipboard content and submit immediately
+./scripts/tmux/tmux-send.sh SESSION --paste
+
+# Paste clipboard but don't submit (useful for testing attachment UI)
+# This lets you capture a screenshot of the attachment card before sending
+./scripts/tmux/tmux-send.sh SESSION --paste --no-enter
 ```
 
 ### `tmux-capture.sh`
