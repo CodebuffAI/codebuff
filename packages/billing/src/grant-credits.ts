@@ -15,6 +15,7 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   TriggerMonthlyResetAndGrantDeps,
   BillingTransactionFn,
+  BillingDbConnection,
 } from '@codebuff/common/types/contracts/billing'
 import type { GrantType } from '@codebuff/internal/db/schema'
 
@@ -24,7 +25,7 @@ import type { CodebuffTransaction } from '@codebuff/internal/db'
  * Dependencies for getPreviousFreeGrantAmount (for testing)
  */
 export interface GetPreviousFreeGrantAmountDeps {
-  db?: typeof db
+  db?: BillingDbConnection
 }
 
 /**
@@ -37,7 +38,8 @@ export async function getPreviousFreeGrantAmount(params: {
   deps?: GetPreviousFreeGrantAmountDeps
 }): Promise<number> {
   const { userId, logger, deps = {} } = params
-  const dbClient = deps.db ?? db
+  // Cast to BillingDbConnection to allow either real db or mock to be used
+  const dbClient = (deps.db ?? db) as BillingDbConnection
 
   const now = new Date()
   const lastExpiredFreeGrant = await dbClient
@@ -53,7 +55,7 @@ export async function getPreviousFreeGrantAmount(params: {
       ),
     )
     .orderBy(desc(schema.creditLedger.expires_at)) // Most recent expiry first
-    .limit(1)
+    .limit(1) as unknown as { principal: number }[]
 
   if (lastExpiredFreeGrant.length > 0) {
     // TODO: remove this once it's past May 22nd, after all users have been migrated over
@@ -76,7 +78,7 @@ export async function getPreviousFreeGrantAmount(params: {
  * Dependencies for calculateTotalReferralBonus (for testing)
  */
 export interface CalculateTotalReferralBonusDeps {
-  db?: typeof db
+  db?: BillingDbConnection
 }
 
 /**
@@ -91,7 +93,8 @@ export async function calculateTotalReferralBonus(params: {
   deps?: CalculateTotalReferralBonusDeps
 }): Promise<number> {
   const { userId, logger, deps = {} } = params
-  const dbClient = deps.db ?? db
+  // Cast to BillingDbConnection to allow either real db or mock to be used
+  const dbClient = (deps.db ?? db) as BillingDbConnection
 
   try {
     const result = await dbClient
@@ -104,7 +107,7 @@ export async function calculateTotalReferralBonus(params: {
           eq(schema.referral.referrer_id, userId),
           eq(schema.referral.referred_id, userId),
         ),
-      )
+      ) as unknown as { totalCredits: string }[]
 
     const totalBonus = parseInt(result[0]?.totalCredits ?? '0')
     logger.debug({ userId, totalBonus }, 'Calculated total referral bonus.')

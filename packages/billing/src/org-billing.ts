@@ -15,7 +15,7 @@ import type {
   CreditConsumptionResult,
 } from './balance-calculator'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { BillingTransactionFn } from '@codebuff/common/types/contracts/billing'
+import type { BillingTransactionFn, BillingDbConnection } from '@codebuff/common/types/contracts/billing'
 import type { OptionalFields } from '@codebuff/common/types/function-params'
 import type { GrantType } from '@codebuff/internal/db/schema'
 
@@ -28,7 +28,7 @@ type DbConn = Pick<typeof db, 'select' | 'update'>
  * Dependencies for syncOrganizationBillingCycle (for testing)
  */
 export interface SyncOrganizationBillingCycleDeps {
-  db?: typeof db
+  db?: BillingDbConnection
   stripeServer?: typeof stripeServer
 }
 
@@ -42,7 +42,8 @@ export async function syncOrganizationBillingCycle(params: {
   deps?: SyncOrganizationBillingCycleDeps
 }): Promise<Date> {
   const { organizationId, logger, deps = {} } = params
-  const dbClient = deps.db ?? db
+  // Cast to BillingDbConnection to allow either real db or mock to be used
+  const dbClient = (deps.db ?? db) as BillingDbConnection
   const stripe = deps.stripeServer ?? stripeServer
 
   const organization = await dbClient.query.org.findFirst({

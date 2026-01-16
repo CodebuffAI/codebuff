@@ -20,6 +20,7 @@ import type { GrantType } from '@codebuff/internal/db/schema'
 import type { withSerializableTransaction as withSerializableTransactionFn } from '@codebuff/internal/db/transaction'
 import type { trackEvent as trackEventFn } from '@codebuff/common/analytics'
 import type { reportPurchasedCreditsToStripe as reportPurchasedCreditsToStripeFn } from './stripe-metering'
+import type { BillingDbConnection } from '@codebuff/common/types/contracts/billing'
 
 export interface CreditBalance {
   totalRemaining: number
@@ -48,7 +49,7 @@ type DbConn = Pick<typeof db, 'select' | 'update'>
  * Dependencies for calculateUsageThisCycle (for testing)
  */
 export interface CalculateUsageThisCycleDeps {
-  db?: typeof db
+  db?: BillingDbConnection
 }
 
 /**
@@ -692,7 +693,8 @@ export async function calculateUsageThisCycle(params: {
   deps?: CalculateUsageThisCycleDeps
 }): Promise<number> {
   const { userId, quotaResetDate, deps = {} } = params
-  const dbClient = deps.db ?? db
+  // Cast to BillingDbConnection to allow either real db or mock to be used
+  const dbClient = (deps.db ?? db) as BillingDbConnection
 
   const usageResult = await dbClient
     .select({
@@ -713,7 +715,7 @@ export async function calculateUsageThisCycle(params: {
           ),
         ),
       ),
-    )
+    ) as unknown as { totalUsed: number }[]
 
   return usageResult[0].totalUsed
 }

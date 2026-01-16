@@ -10,7 +10,7 @@ import {
   extractOwnerAndRepo,
 } from './org-billing'
 
-import type { ConsumeCreditsWithFallbackFn } from '@codebuff/common/types/contracts/billing'
+import type { ConsumeCreditsWithFallbackFn, BillingDbConnection } from '@codebuff/common/types/contracts/billing'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 
@@ -33,7 +33,7 @@ export interface CreditDelegationResult {
  * Dependencies for findOrganizationForRepository (for testing)
  */
 export interface FindOrganizationForRepositoryDeps {
-  db?: typeof db
+  db?: BillingDbConnection
 }
 
 /**
@@ -47,7 +47,8 @@ export async function findOrganizationForRepository(params: {
   deps?: FindOrganizationForRepositoryDeps
 }): Promise<OrganizationLookupResult> {
   const { userId, repositoryUrl, logger, deps = {} } = params
-  const dbClient = deps.db ?? db
+  // Cast to BillingDbConnection to allow either real db or mock to be used
+  const dbClient = (deps.db ?? db) as BillingDbConnection
 
   try {
     const normalizedUrl = normalizeRepositoryUrl(repositoryUrl)
@@ -70,7 +71,7 @@ export async function findOrganizationForRepository(params: {
       })
       .from(schema.orgMember)
       .innerJoin(schema.org, eq(schema.orgMember.org_id, schema.org.id))
-      .where(eq(schema.orgMember.user_id, userId))
+      .where(eq(schema.orgMember.user_id, userId)) as unknown as { orgId: string; orgName: string; orgSlug: string }[]
 
     if (userOrganizations.length === 0) {
       logger.debug(
@@ -94,7 +95,7 @@ export async function findOrganizationForRepository(params: {
             eq(schema.orgRepo.org_id, userOrg.orgId),
             eq(schema.orgRepo.is_active, true),
           ),
-        )
+        ) as unknown as { repoUrl: string; repoName: string; isActive: boolean }[]
 
       // Check if any repository in this organization matches
       for (const orgRepo of orgRepos) {
