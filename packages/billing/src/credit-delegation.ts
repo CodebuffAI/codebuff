@@ -14,6 +14,10 @@ import type { ConsumeCreditsWithFallbackFn, BillingDbConnection } from '@codebuf
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 
+const getBillingDbClient = (
+  dbOverride?: BillingDbConnection,
+): BillingDbConnection => (dbOverride ?? db) as BillingDbConnection
+
 export interface OrganizationLookupResult {
   found: boolean
   organizationId?: string
@@ -47,8 +51,7 @@ export async function findOrganizationForRepository(params: {
   deps?: FindOrganizationForRepositoryDeps
 }): Promise<OrganizationLookupResult> {
   const { userId, repositoryUrl, logger, deps = {} } = params
-  // Cast to BillingDbConnection to allow either real db or mock to be used
-  const dbClient = (deps.db ?? db) as BillingDbConnection
+  const dbClient = getBillingDbClient(deps.db)
 
   try {
     const normalizedUrl = normalizeRepositoryUrl(repositoryUrl)

@@ -22,6 +22,10 @@ import type { trackEvent as trackEventFn } from '@codebuff/common/analytics'
 import type { reportPurchasedCreditsToStripe as reportPurchasedCreditsToStripeFn } from './stripe-metering'
 import type { BillingDbConnection } from '@codebuff/common/types/contracts/billing'
 
+const getBillingDbClient = (
+  dbOverride?: BillingDbConnection,
+): BillingDbConnection => (dbOverride ?? db) as BillingDbConnection
+
 export interface CreditBalance {
   totalRemaining: number
   totalDebt: number
@@ -693,8 +697,7 @@ export async function calculateUsageThisCycle(params: {
   deps?: CalculateUsageThisCycleDeps
 }): Promise<number> {
   const { userId, quotaResetDate, deps = {} } = params
-  // Cast to BillingDbConnection to allow either real db or mock to be used
-  const dbClient = (deps.db ?? db) as BillingDbConnection
+  const dbClient = getBillingDbClient(deps.db)
 
   const usageResult = await dbClient
     .select({

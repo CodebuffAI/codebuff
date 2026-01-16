@@ -19,6 +19,10 @@ import type { BillingTransactionFn, BillingDbConnection } from '@codebuff/common
 import type { OptionalFields } from '@codebuff/common/types/function-params'
 import type { GrantType } from '@codebuff/internal/db/schema'
 
+const getBillingDbClient = (
+  dbOverride?: BillingDbConnection,
+): BillingDbConnection => (dbOverride ?? db) as BillingDbConnection
+
 // Minimal structural type that both `db` and `tx` satisfy
 // Note: This is intentionally defined locally rather than imported from billing.ts
 // because it needs to be compatible with real Drizzle types (PgTransaction, etc.)
@@ -42,8 +46,7 @@ export async function syncOrganizationBillingCycle(params: {
   deps?: SyncOrganizationBillingCycleDeps
 }): Promise<Date> {
   const { organizationId, logger, deps = {} } = params
-  // Cast to BillingDbConnection to allow either real db or mock to be used
-  const dbClient = (deps.db ?? db) as BillingDbConnection
+  const dbClient = getBillingDbClient(deps.db)
   const stripe = deps.stripeServer ?? stripeServer
 
   const organization = await dbClient.query.org.findFirst({
