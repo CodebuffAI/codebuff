@@ -55,7 +55,7 @@ export async function getPreviousFreeGrantAmount(params: {
       ),
     )
     .orderBy(desc(schema.creditLedger.expires_at)) // Most recent expiry first
-    .limit(1) as unknown as { principal: number }[]
+    .limit(1) as { principal: number }[]
 
   if (lastExpiredFreeGrant.length > 0) {
     // TODO: remove this once it's past May 22nd, after all users have been migrated over
@@ -107,7 +107,7 @@ export async function calculateTotalReferralBonus(params: {
           eq(schema.referral.referrer_id, userId),
           eq(schema.referral.referred_id, userId),
         ),
-      ) as unknown as { totalCredits: string }[]
+      ) as { totalCredits: string }[]
 
     const totalBonus = parseInt(result[0]?.totalCredits ?? '0')
     logger.debug({ userId, totalBonus }, 'Calculated total referral bonus.')

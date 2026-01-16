@@ -715,7 +715,8 @@ export async function calculateUsageThisCycle(params: {
           ),
         ),
       ),
-    ) as unknown as { totalUsed: number }[]
+    )
+    .then(rows => rows as { totalUsed: number }[])
 
   return usageResult[0].totalUsed
 }

@@ -71,7 +71,8 @@ export async function findOrganizationForRepository(params: {
       })
       .from(schema.orgMember)
       .innerJoin(schema.org, eq(schema.orgMember.org_id, schema.org.id))
-      .where(eq(schema.orgMember.user_id, userId)) as unknown as { orgId: string; orgName: string; orgSlug: string }[]
+      .where(eq(schema.orgMember.user_id, userId))
+      .then(rows => rows as { orgId: string; orgName: string; orgSlug: string }[])
 
     if (userOrganizations.length === 0) {
       logger.debug(
@@ -95,7 +96,8 @@ export async function findOrganizationForRepository(params: {
             eq(schema.orgRepo.org_id, userOrg.orgId),
             eq(schema.orgRepo.is_active, true),
           ),
-        ) as unknown as { repoUrl: string; repoName: string; isActive: boolean }[]
+        )
+        .then(rows => rows as { repoUrl: string; repoName: string; isActive: boolean }[])
 
       // Check if any repository in this organization matches
       for (const orgRepo of orgRepos) {
