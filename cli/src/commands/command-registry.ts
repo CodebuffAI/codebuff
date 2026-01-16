@@ -12,12 +12,12 @@ import { WEBSITE_URL } from '../login/constants'
 import { useChatStore } from '../state/chat-store'
 import { useFeedbackStore } from '../state/feedback-store'
 import { useLoginStore } from '../state/login-store'
-import { capturePendingImages } from '../utils/add-pending-image'
+import { capturePendingAttachments } from '../utils/pending-attachments'
 import { AGENT_MODES } from '../utils/constants'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
-import type { InputValue, PendingImage } from '../state/chat-store'
+import type { InputValue, PendingAttachment } from '../state/chat-store'
 import type { ChatMessage } from '../types/chat'
 import type { SendMessageFn } from '../types/contracts/send-message'
 import type { User } from '../utils/auth'
@@ -33,7 +33,7 @@ export type RouterParams = {
   isStreaming: boolean
   logoutMutation: UseMutationResult<boolean, Error, void, unknown>
   streamMessageIdRef: React.MutableRefObject<string | null>
-  addToQueue: (message: string, images?: PendingImage[]) => void
+  addToQueue: (message: string, attachments?: PendingAttachment[]) => void
   clearMessages: () => void
   saveToHistory: (message: string) => void
   scrollToLatest: () => void
@@ -352,8 +352,8 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
         params.streamMessageIdRef.current ||
         params.isChainInProgressRef.current
       ) {
-        const pendingImages = capturePendingImages()
-        params.addToQueue(trimmed, pendingImages)
+        const pendingAttachments = capturePendingAttachments()
+        params.addToQueue(trimmed, pendingAttachments)
         params.setInputFocused(true)
         params.inputRef.current?.focus()
         return

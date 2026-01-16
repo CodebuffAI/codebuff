@@ -2,9 +2,10 @@ import { describe, expect, test, mock } from 'bun:test'
 
 import { processImagesForMessage } from '../image-processor'
 
-import type { PendingImage } from '../../state/chat-store'
+import type { PendingImageAttachment } from '../../state/chat-store'
 
-const createPendingImage = (path: string): PendingImage => ({
+const createPendingImage = (path: string): PendingImageAttachment => ({
+  kind: 'image',
   path,
   filename: path.split('/').pop() ?? 'image.png',
   status: 'ready',

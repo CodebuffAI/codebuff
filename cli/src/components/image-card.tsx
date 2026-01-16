@@ -1,15 +1,14 @@
 import fs from 'fs'
 
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 
-import { Button } from './button'
+import { AttachmentCard } from './attachment-card'
 import { ImageThumbnail } from './image-thumbnail'
 import { useTheme } from '../hooks/use-theme'
 import {
   supportsInlineImages,
   renderInlineImage,
 } from '../utils/terminal-images'
-import { IMAGE_CARD_BORDER_CHARS } from '../utils/ui-constants'
 
 // Image card display constants
 const MAX_FILENAME_LENGTH = 16
@@ -18,7 +17,6 @@ const THUMBNAIL_WIDTH = 14
 const THUMBNAIL_HEIGHT = 3
 const INLINE_IMAGE_WIDTH = 4
 const INLINE_IMAGE_HEIGHT = 3
-const CLOSE_BUTTON_WIDTH = 1
 
 const truncateFilename = (filename: string): string => {
   if (filename.length <= MAX_FILENAME_LENGTH) {
@@ -34,8 +32,8 @@ const truncateFilename = (filename: string): string => {
 export interface ImageCardImage {
   path: string
   filename: string
-  status?: 'processing' | 'ready' | 'error'  // Defaults to 'ready' if not provided
-  note?: string  // Display note: "compressed" | error message
+  status?: 'processing' | 'ready' | 'error' // Defaults to 'ready' if not provided
+  note?: string // Display note: 'compressed' | error message
 }
 
 interface ImageCardProps {
@@ -50,7 +48,6 @@ export const ImageCard = ({
   showRemoveButton = true,
 }: ImageCardProps) => {
   const theme = useTheme()
-  const [isCloseHovered, setIsCloseHovered] = useState(false)
   const [thumbnailSequence, setThumbnailSequence] = useState<string | null>(
     null,
   )
@@ -92,80 +89,60 @@ export const ImageCard = ({
   const truncatedName = truncateFilename(image.filename)
 
   return (
-    <box style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-      {/* Main card with border */}
+    <AttachmentCard
+      width={IMAGE_CARD_WIDTH}
+      onRemove={onRemove}
+      showRemoveButton={showRemoveButton}
+    >
+      {/* Thumbnail or icon area */}
       <box
         style={{
-          flexDirection: 'column',
-          borderStyle: 'single',
-          borderColor: theme.imageCardBorder,
-          width: IMAGE_CARD_WIDTH,
-          padding: 0,
+          height: THUMBNAIL_HEIGHT,
+          justifyContent: 'center',
+          alignItems: 'center',
         }}
-        customBorderChars={IMAGE_CARD_BORDER_CHARS}
       >
-        {/* Thumbnail or icon area */}
-        <box
-          style={{
-            height: THUMBNAIL_HEIGHT,
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
-        >
-          {thumbnailSequence ? (
-            <text>{thumbnailSequence}</text>
-          ) : (
-            <ImageThumbnail
-              imagePath={image.path}
-              width={THUMBNAIL_WIDTH}
-              height={THUMBNAIL_HEIGHT}
-              fallback={<text style={{ fg: theme.info }}>🖼️</text>}
-            />
-          )}
-        </box>
+        {thumbnailSequence ? (
+          <text>{thumbnailSequence}</text>
+        ) : (
+          <ImageThumbnail
+            imagePath={image.path}
+            width={THUMBNAIL_WIDTH}
+            height={THUMBNAIL_HEIGHT}
+            fallback={<text style={{ fg: theme.info }}>🖼️</text>}
+          />
+        )}
+      </box>
 
-        {/* Filename - full width */}
-        <box
+      {/* Filename - full width */}
+      <box
+        style={{
+          paddingLeft: 1,
+          paddingRight: 1,
+          flexDirection: 'column',
+        }}
+      >
+        <text
           style={{
-            paddingLeft: 1,
-            paddingRight: 1,
-            flexDirection: 'column',
+            fg: theme.foreground,
+            wrapMode: 'none',
           }}
         >
+          {truncatedName}
+        </text>
+        {((image.status ?? 'ready') === 'processing' || image.note) && (
           <text
             style={{
-              fg: theme.foreground,
+              fg: theme.muted,
               wrapMode: 'none',
             }}
           >
-            {truncatedName}
+            {(image.status ?? 'ready') === 'processing'
+              ? 'processing…'
+              : image.note}
           </text>
-          {((image.status ?? 'ready') === 'processing' || image.note) && (
-            <text
-              style={{
-                fg: theme.muted,
-                wrapMode: 'none',
-              }}
-            >
-              {(image.status ?? 'ready') === 'processing' ? 'processing…' : image.note}
-            </text>
-          )}
-        </box>
+        )}
       </box>
-
-      {/* Close button outside the card */}
-      {showRemoveButton && onRemove ? (
-        <Button
-          onClick={onRemove}
-          onMouseOver={() => setIsCloseHovered(true)}
-          onMouseOut={() => setIsCloseHovered(false)}
-          style={{ paddingLeft: 0, paddingRight: 0 }}
-        >
-          <text style={{ fg: isCloseHovered ? theme.error : theme.muted }}>X</text>
-        </Button>
-      ) : (
-        <box style={{ width: CLOSE_BUTTON_WIDTH }} />
-      )}
-    </box>
+    </AttachmentCard>
   )
 }

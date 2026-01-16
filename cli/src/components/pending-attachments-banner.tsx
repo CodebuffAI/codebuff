@@ -4,24 +4,30 @@ import { TextAttachmentCard } from './text-attachment-card'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
 
+import type { PendingImageAttachment, PendingTextAttachment } from '../state/chat-store'
+
 /**
  * Combined banner for both image and text attachments.
  * Displays all attachments in a single horizontal row.
  */
 export const PendingAttachmentsBanner = () => {
   const theme = useTheme()
-  const pendingImages = useChatStore((state) => state.pendingImages)
-  const removePendingImage = useChatStore((state) => state.removePendingImage)
-  const pendingTextAttachments = useChatStore(
-    (state) => state.pendingTextAttachments,
+  const pendingAttachments = useChatStore((state) => state.pendingAttachments)
+  const removePendingAttachment = useChatStore(
+    (state) => state.removePendingAttachment,
   )
-  const removePendingTextAttachment = useChatStore(
-    (state) => state.removePendingTextAttachment,
+
+  // Split and categorize attachments
+  const pendingImages = pendingAttachments.filter(
+    (a): a is PendingImageAttachment => a.kind === 'image',
+  )
+  const pendingTextAttachments = pendingAttachments.filter(
+    (a): a is PendingTextAttachment => a.kind === 'text',
   )
 
   // Separate error messages from actual images
-  const errorImages: typeof pendingImages = []
-  const validImages: typeof pendingImages = []
+  const errorImages: PendingImageAttachment[] = []
+  const validImages: PendingImageAttachment[] = []
   for (const img of pendingImages) {
     if (img.status === 'error') {
       errorImages.push(img)
@@ -74,7 +80,7 @@ export const PendingAttachmentsBanner = () => {
           <ImageCard
             key={`img-${image.path}-${index}`}
             image={image}
-            onRemove={() => removePendingImage(image.path)}
+            onRemove={() => removePendingAttachment(image.path)}
           />
         ))}
 
@@ -83,7 +89,7 @@ export const PendingAttachmentsBanner = () => {
           <TextAttachmentCard
             key={attachment.id}
             attachment={attachment}
-            onRemove={() => removePendingTextAttachment(attachment.id)}
+            onRemove={() => removePendingAttachment(attachment.id)}
           />
         ))}
       </box>

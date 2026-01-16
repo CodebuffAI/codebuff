@@ -19,7 +19,11 @@ import {
 } from '../../utils/message-updater'
 import { createModeDividerMessage } from '../../utils/send-message-helpers'
 
-import type { PendingImage, PendingTextAttachment } from '../../state/chat-store'
+import type {
+  PendingAttachment,
+  PendingImageAttachment,
+  PendingTextAttachment,
+} from '../../state/chat-store'
 import type { ChatMessage } from '../../types/chat'
 import type { AgentMode } from '../../utils/constants'
 
@@ -47,8 +51,7 @@ export const prepareUserMessage = async (params: {
   content: string
   agentMode: AgentMode
   postUserMessage?: (prev: ChatMessage[]) => ChatMessage[]
-  attachedImages?: PendingImage[]
-  attachedTexts?: PendingTextAttachment[]
+  attachments?: PendingAttachment[]
   deps: PrepareUserMessageDeps
 }): Promise<{
   userMessageId: string
@@ -56,7 +59,7 @@ export const prepareUserMessage = async (params: {
   bashContextForPrompt: string
   finalContent: string
 }> => {
-  const { content, agentMode, postUserMessage, attachedImages, attachedTexts, deps } = params
+  const { content, agentMode, postUserMessage, attachments, deps } = params
   const { setMessages, lastMessageMode, setLastMessageMode, scrollToLatest } =
     deps
 
@@ -70,17 +73,19 @@ export const prepareUserMessage = async (params: {
   }
   clearPendingBashMessages()
 
-  const pendingImages = attachedImages ?? useChatStore.getState().pendingImages
-  if (!attachedImages && pendingImages.length > 0) {
-    useChatStore.getState().clearPendingImages()
+  // Split attachments by kind
+  const allAttachments =
+    attachments ?? useChatStore.getState().pendingAttachments
+  if (!attachments && allAttachments.length > 0) {
+    useChatStore.getState().clearPendingAttachments()
   }
 
-  // Handle text attachments
-  const pendingTextAttachments =
-    attachedTexts ?? useChatStore.getState().pendingTextAttachments
-  if (!attachedTexts && pendingTextAttachments.length > 0) {
-    useChatStore.getState().clearPendingTextAttachments()
-  }
+  const pendingImages = allAttachments.filter(
+    (a): a is PendingImageAttachment => a.kind === 'image',
+  )
+  const pendingTextAttachments = allAttachments.filter(
+    (a): a is PendingTextAttachment => a.kind === 'text',
+  )
 
   // Append text attachments to the content
   let finalContent = content
@@ -93,7 +98,7 @@ export const prepareUserMessage = async (params: {
       : textAttachmentContent
   }
 
-  const { attachments, messageContent } = await processImagesForMessage({
+  const { attachments: imageAttachments, messageContent } = await processImagesForMessage({
     content: finalContent,
     pendingImages,
     projectRoot: getProjectRoot(),
@@ -111,10 +116,10 @@ export const prepareUserMessage = async (params: {
   }))
 
   // Pass original content (not finalContent) for display, but finalContent goes to agent
-  const userMessage = getUserMessage(content, attachments, textAttachmentsForMessage)
+  const userMessage = getUserMessage(content, imageAttachments, textAttachmentsForMessage)
   const userMessageId = userMessage.id
-  if (attachments.length > 0) {
-    userMessage.attachments = attachments
+  if (imageAttachments.length > 0) {
+    userMessage.attachments = imageAttachments
   }
 
   setMessages((prev) => {

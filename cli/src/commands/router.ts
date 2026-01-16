@@ -19,10 +19,10 @@ import { handleClaudeAuthCode } from '../components/claude-connect-banner'
 import { getProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
 import {
-  capturePendingImages,
+  capturePendingAttachments,
   hasProcessingImages,
   validateAndAddImage,
-} from '../utils/add-pending-image'
+} from '../utils/pending-attachments'
 import {
   buildBashHistoryMessages,
   createRunTerminalToolResult,
@@ -267,11 +267,16 @@ export async function routeUserPrompt(
 
   const inputMode = useChatStore.getState().inputMode
   const setInputMode = useChatStore.getState().setInputMode
-  const pendingImages = useChatStore.getState().pendingImages
+  const pendingAttachments = useChatStore.getState().pendingAttachments
+  const pendingImages = pendingAttachments.filter((a) => a.kind === 'image')
+  const pendingTextAttachments = pendingAttachments.filter(
+    (a) => a.kind === 'text',
+  )
 
   const trimmed = inputValue.trim()
-  // Allow empty messages if there are pending images attached
-  if (!trimmed && pendingImages.length === 0) return
+  // Allow empty messages if there are pending attachments (images or text)
+  const hasAttachments = pendingAttachments.length > 0
+  if (!trimmed && !hasAttachments) return
 
   // Track user input complete
   // Count @ mentions (simple pattern match - more accurate than nothing)
@@ -282,6 +287,8 @@ export async function routeUserPrompt(
     inputMode,
     hasImages: pendingImages.length > 0,
     imageCount: pendingImages.length,
+    hasTextAttachments: pendingTextAttachments.length > 0,
+    textAttachmentCount: pendingTextAttachments.length,
     isSlashCommand: isSlashCommand(trimmed),
     isBashCommand: trimmed.startsWith('!'),
     hasMentions: mentionMatches.length > 0,
@@ -453,9 +460,9 @@ export async function routeUserPrompt(
     streamMessageIdRef.current ||
     isChainInProgressRef.current
   ) {
-    const pendingImagesForQueue = capturePendingImages()
-    // Pass a copy of pending images to the queue
-    addToQueue(trimmed, pendingImagesForQueue)
+    const pendingAttachmentsForQueue = capturePendingAttachments()
+    // Pass a copy of pending attachments to the queue
+    addToQueue(trimmed, pendingAttachmentsForQueue)
 
     setInputFocused(true)
     inputRef.current?.focus()

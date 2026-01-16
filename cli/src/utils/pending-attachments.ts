@@ -3,7 +3,11 @@ import path from 'node:path'
 
 import { showClipboardMessage } from './clipboard'
 import { processImageFile, resolveFilePath, isImageFile } from './image-handler'
-import { useChatStore, type PendingImage } from '../state/chat-store'
+import {
+  useChatStore,
+  type PendingAttachment,
+  type PendingImageAttachment,
+} from '../state/chat-store'
 
 /**
  * Exit image input mode if currently active.
@@ -32,20 +36,19 @@ export async function addPendingImageFromFile(
   if (replacePlaceholder) {
     // Replace existing placeholder with actual image info (still processing)
     useChatStore.setState((state) => ({
-      pendingImages: state.pendingImages.map((img) =>
-        img.path === replacePlaceholder
-          ? { ...img, path: imagePath, filename }
-          : img
+      pendingAttachments: state.pendingAttachments.map((att) =>
+        att.kind === 'image' && att.path === replacePlaceholder
+          ? { ...att, path: imagePath, filename }
+          : att
       ),
     }))
   } else {
     // Add to pending state immediately with processing status so user sees loading state
-    const pendingImage: PendingImage = {
+    useChatStore.getState().addPendingImage({
       path: imagePath,
       filename,
       status: 'processing',
-    }
-    useChatStore.getState().addPendingImage(pendingImage)
+    })
   }
 
   // Process the image in background
@@ -53,12 +56,12 @@ export async function addPendingImageFromFile(
 
   // Update the pending image with processed data
   useChatStore.setState((state) => ({
-    pendingImages: state.pendingImages.map((img) => {
-      if (img.path !== imagePath) return img
+    pendingAttachments: state.pendingAttachments.map((att) => {
+      if (att.kind !== 'image' || att.path !== imagePath) return att
 
       if (result.success && result.imagePart) {
         return {
-          ...img,
+          ...att,
           status: 'ready' as const,
           size: result.imagePart.size,
           width: result.imagePart.width,
@@ -72,7 +75,7 @@ export async function addPendingImageFromFile(
       }
 
       return {
-        ...img,
+        ...att,
         status: 'error' as const,
         note: result.error || 'failed',
       }
@@ -99,7 +102,7 @@ export async function addPendingImageFromBase64(
   // Check size and add directly
   const size = Math.round((base64Data.length * 3) / 4) // Approximate decoded size
   
-  const pendingImage: PendingImage = {
+  useChatStore.getState().addPendingImage({
     path: tempPath || `clipboard:${filename}`,
     filename,
     status: 'ready',
@@ -108,9 +111,7 @@ export async function addPendingImageFromBase64(
       base64: base64Data,
       mediaType,
     },
-  }
-  
-  useChatStore.getState().addPendingImage(pendingImage)
+  })
 }
 
 const AUTO_REMOVE_ERROR_DELAY_MS = 3000
@@ -190,19 +191,21 @@ export async function validateAndAddImage(
  * Check if any pending images are still processing.
  */
 export function hasProcessingImages(): boolean {
-  return useChatStore.getState().pendingImages.some(
-    (img) => img.status === 'processing',
+  return useChatStore.getState().pendingAttachments.some(
+    (att) => att.kind === 'image' && att.status === 'processing',
   )
 }
 
 /**
- * Capture and clear pending images so they can be passed to the queue without
- * duplicating state handling logic in multiple callers.
+ * Capture and clear all pending attachments so they can be passed to the queue
+ * without duplicating state handling logic in multiple callers.
  */
-export function capturePendingImages(): PendingImage[] {
-  const pendingImages = [...useChatStore.getState().pendingImages]
-  if (pendingImages.length > 0) {
-    useChatStore.getState().clearPendingImages()
+export function capturePendingAttachments(): PendingAttachment[] {
+  const pendingAttachments = [...useChatStore.getState().pendingAttachments]
+  if (pendingAttachments.length > 0) {
+    useChatStore.getState().clearPendingAttachments()
   }
-  return pendingImages
+  return pendingAttachments
 }
+
+

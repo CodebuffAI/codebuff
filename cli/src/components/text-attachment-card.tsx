@@ -1,13 +1,12 @@
-import { useState } from 'react'
-
-import { Button } from './button'
+import { AttachmentCard } from './attachment-card'
 import { useTheme } from '../hooks/use-theme'
-import { IMAGE_CARD_BORDER_CHARS } from '../utils/ui-constants'
 
 import type { PendingTextAttachment } from '../state/chat-store'
 
 const TEXT_CARD_WIDTH = 24
 const MAX_PREVIEW_LINES = 2
+// Available width for text: card width - 2 (border) - 2 (padding) = 20 chars per line
+const TEXT_CONTENT_WIDTH = TEXT_CARD_WIDTH - 4
 
 interface TextAttachmentCardProps {
   attachment: PendingTextAttachment | { preview: string; charCount: number }
@@ -21,77 +20,58 @@ export const TextAttachmentCard = ({
   showRemoveButton = true,
 }: TextAttachmentCardProps) => {
   const theme = useTheme()
-  const [isCloseHovered, setIsCloseHovered] = useState(false)
 
-  // Preview is already processed (newlines replaced with spaces), truncate to fit
+  // Preview is already processed (newlines replaced with spaces)
+  // Show as much as fits in the available space (width × lines)
+  const maxPreviewChars = TEXT_CONTENT_WIDTH * MAX_PREVIEW_LINES
   const displayPreview =
-    attachment.preview.slice(0, 40) +
-    (attachment.preview.length > 40 ? '…' : '')
+    attachment.preview.slice(0, maxPreviewChars) +
+    (attachment.preview.length > maxPreviewChars ? '…' : '')
 
   return (
-    <box style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-      {/* Main card with border */}
+    <AttachmentCard
+      width={TEXT_CARD_WIDTH}
+      onRemove={onRemove}
+      showRemoveButton={showRemoveButton}
+    >
+      {/* Preview area */}
       <box
         style={{
-          flexDirection: 'column',
-          borderStyle: 'single',
-          borderColor: theme.imageCardBorder,
-          width: TEXT_CARD_WIDTH,
-          padding: 0,
+          paddingLeft: 1,
+          paddingRight: 1,
+          height: 3,
+          justifyContent: 'center',
         }}
-        customBorderChars={IMAGE_CARD_BORDER_CHARS}
       >
-        {/* Preview area */}
-        <box
+        <text
           style={{
-            paddingLeft: 1,
-            paddingRight: 1,
-            height: 3,
-            justifyContent: 'center',
+            fg: theme.foreground,
+            wrapMode: 'word',
           }}
         >
-          <text
-            style={{
-              fg: theme.foreground,
-              wrapMode: 'none',
-            }}
-          >
-            {displayPreview || '(empty)'}
-          </text>
-        </box>
-
-        {/* Footer with icon and char count */}
-        <box
-          style={{
-            paddingLeft: 1,
-            paddingRight: 1,
-            flexDirection: 'row',
-            gap: 1,
-          }}
-        >
-          <text style={{ fg: theme.info }}>📄</text>
-          <text
-            style={{
-              fg: theme.muted,
-              wrapMode: 'none',
-            }}
-          >
-            {attachment.charCount.toLocaleString()} chars
-          </text>
-        </box>
+          {displayPreview || '(empty)'}
+        </text>
       </box>
 
-      {/* Close button outside the card */}
-      {showRemoveButton && onRemove && (
-        <Button
-          onClick={onRemove}
-          onMouseOver={() => setIsCloseHovered(true)}
-          onMouseOut={() => setIsCloseHovered(false)}
-          style={{ paddingLeft: 0, paddingRight: 0 }}
+      {/* Footer with icon and char count */}
+      <box
+        style={{
+          paddingLeft: 1,
+          paddingRight: 1,
+          flexDirection: 'row',
+          gap: 1,
+        }}
+      >
+        <text style={{ fg: theme.info }}>📄</text>
+        <text
+          style={{
+            fg: theme.muted,
+            wrapMode: 'none',
+          }}
         >
-          <text style={{ fg: isCloseHovered ? theme.error : theme.muted }}>[×]</text>
-        </Button>
-      )}
-    </box>
+          {attachment.charCount.toLocaleString()} chars
+        </text>
+      </box>
+    </AttachmentCard>
   )
 }

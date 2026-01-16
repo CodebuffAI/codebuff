@@ -61,8 +61,9 @@ import { usePublishStore } from './state/publish-store'
 import {
   addClipboardPlaceholder,
   addPendingImageFromFile,
+  capturePendingAttachments,
   validateAndAddImage,
-} from './utils/add-pending-image'
+} from './utils/pending-attachments'
 import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { showClipboardMessage } from './utils/clipboard'
 import { readClipboardImage } from './utils/clipboard-image'
@@ -589,7 +590,7 @@ export const Chat = ({
       sendMessageRef.current?.({
         content: message.content,
         agentMode,
-        images: message.images,
+        attachments: message.attachments,
       }) ?? Promise.resolve(),
     isChainInProgressRef,
     activeAgentStreamsRef,
@@ -707,14 +708,18 @@ export const Chat = ({
             return { text, cursorPosition, lastEditDueToNav }
           })()
         : null
-      const preservedPendingImages =
-        preserveInput && useChatStore.getState().pendingImages.length > 0
-          ? [...useChatStore.getState().pendingImages]
-          : null
 
-      if (preserveInput && preservedPendingImages) {
-        useChatStore.getState().clearPendingImages()
-      }
+      // Preserve attachments if needed (inline logic to avoid abstraction overhead)
+      const preservedAttachments = preserveInput
+        ? (() => {
+            const items = useChatStore.getState().pendingAttachments
+            if (items.length > 0) {
+              useChatStore.getState().clearPendingAttachments()
+              return [...items]
+            }
+            return null
+          })()
+        : null
 
       try {
         const result = await routeUserPrompt({
@@ -750,13 +755,11 @@ export const Chat = ({
           })
         }
 
-        if (preserveInput && preservedPendingImages) {
-          const currentPending = useChatStore.getState().pendingImages
-          if (currentPending.length === 0) {
-            useChatStore.setState((state) => {
-              state.pendingImages = preservedPendingImages
-            })
-          }
+        // Restore attachments if they were preserved and none have been added since
+        if (preservedAttachments && useChatStore.getState().pendingAttachments.length === 0) {
+          useChatStore.setState((state) => {
+            state.pendingAttachments = preservedAttachments
+          })
         }
       }
     },

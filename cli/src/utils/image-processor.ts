@@ -1,7 +1,7 @@
 import { extractImagePaths, processImageFile } from './image-handler'
 import { logger } from './logger'
 
-import type { PendingImage } from '../state/chat-store'
+import type { PendingImageAttachment } from '../state/chat-store'
 import type { MessageContent } from '@codebuff/sdk'
 
 // Converts pending images + inline references into SDK-ready message content.
@@ -18,7 +18,7 @@ export type ProcessedImagePart = {
 
 export const processImagesForMessage = async (params: {
   content: string
-  pendingImages: PendingImage[]
+  pendingImages: PendingImageAttachment[]
   projectRoot: string
   processor?: typeof processImageFile
   log?: typeof logger

@@ -1,28 +1,40 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 
-import { useChatStore } from '../../state/chat-store'
+import {
+  useChatStore,
+  type PendingImageAttachment,
+} from '../../state/chat-store'
 import {
   addClipboardPlaceholder,
   addPendingImageFromBase64,
   addPendingImageWithError,
-  capturePendingImages,
-} from '../add-pending-image'
+  capturePendingAttachments,
+} from '../pending-attachments'
 
-describe('add-pending-image', () => {
+/** Helper to get only image attachments from the unified pendingAttachments array */
+function getPendingImages(): PendingImageAttachment[] {
+  return useChatStore
+    .getState()
+    .pendingAttachments.filter(
+      (att): att is PendingImageAttachment => att.kind === 'image',
+    )
+}
+
+describe('pending-attachments', () => {
   beforeEach(() => {
     // Reset the store before each test
-    useChatStore.getState().clearPendingImages()
+    useChatStore.getState().clearPendingAttachments()
   })
 
   afterEach(() => {
-    useChatStore.getState().clearPendingImages()
+    useChatStore.getState().clearPendingAttachments()
   })
 
   describe('addClipboardPlaceholder', () => {
     test('creates placeholder with processing status', () => {
       const placeholderPath = addClipboardPlaceholder()
 
-      const pendingImages = useChatStore.getState().pendingImages
+      const pendingImages = getPendingImages()
       expect(pendingImages).toHaveLength(1)
       expect(pendingImages[0].path).toBe(placeholderPath)
       expect(pendingImages[0].status).toBe('processing')
@@ -43,7 +55,7 @@ describe('add-pending-image', () => {
       addClipboardPlaceholder()
       addClipboardPlaceholder()
 
-      const pendingImages = useChatStore.getState().pendingImages
+      const pendingImages = getPendingImages()
       expect(pendingImages).toHaveLength(3)
       expect(pendingImages.every((img) => img.status === 'processing')).toBe(
         true,
@@ -60,7 +72,7 @@ describe('add-pending-image', () => {
         '/tmp/test.png',
       )
 
-      const pendingImages = useChatStore.getState().pendingImages
+      const pendingImages = getPendingImages()
       expect(pendingImages).toHaveLength(1)
       expect(pendingImages[0].status).toBe('ready')
       expect(pendingImages[0].filename).toBe('test.png')
@@ -71,7 +83,7 @@ describe('add-pending-image', () => {
     test('uses clipboard path when tempPath not provided', async () => {
       await addPendingImageFromBase64('base64data', 'image/png', 'test.png')
 
-      const pendingImages = useChatStore.getState().pendingImages
+      const pendingImages = getPendingImages()
       expect(pendingImages[0].path).toBe('clipboard:test.png')
     })
 
@@ -79,7 +91,7 @@ describe('add-pending-image', () => {
       const base64Data = 'a'.repeat(1000) // 1000 base64 chars
       await addPendingImageFromBase64(base64Data, 'image/png', 'test.png')
 
-      const pendingImages = useChatStore.getState().pendingImages
+      const pendingImages = getPendingImages()
       // Size should be approximately 750 bytes (3/4 of 1000)
       expect(pendingImages[0].size).toBe(750)
     })
@@ -89,7 +101,7 @@ describe('add-pending-image', () => {
     test('adds image with error status', () => {
       addPendingImageWithError('/path/to/image.png', '❌ file not found')
 
-      const pendingImages = useChatStore.getState().pendingImages
+      const pendingImages = getPendingImages()
       expect(pendingImages).toHaveLength(1)
       expect(pendingImages[0].status).toBe('error')
       expect(pendingImages[0].note).toBe('❌ file not found')
@@ -97,21 +109,21 @@ describe('add-pending-image', () => {
     })
   })
 
-  describe('capturePendingImages', () => {
-    test('returns and clears all pending images', () => {
+  describe('capturePendingAttachments', () => {
+    test('returns and clears all pending attachments', () => {
       addClipboardPlaceholder()
       addClipboardPlaceholder()
 
-      expect(useChatStore.getState().pendingImages).toHaveLength(2)
+      expect(getPendingImages()).toHaveLength(2)
 
-      const captured = capturePendingImages()
+      const captured = capturePendingAttachments()
 
       expect(captured).toHaveLength(2)
-      expect(useChatStore.getState().pendingImages).toHaveLength(0)
+      expect(getPendingImages()).toHaveLength(0)
     })
 
-    test('returns empty array when no pending images', () => {
-      const captured = capturePendingImages()
+    test('returns empty array when no pending attachments', () => {
+      const captured = capturePendingAttachments()
       expect(captured).toHaveLength(0)
     })
   })
@@ -122,14 +134,14 @@ describe('add-pending-image', () => {
 
       // Simulate what addPendingImageFromFile does when replacing placeholder
       useChatStore.setState((state) => ({
-        pendingImages: state.pendingImages.map((img) =>
-          img.path === placeholderPath
-            ? { ...img, path: '/real/path.png', filename: 'screenshot.png' }
-            : img,
+        pendingAttachments: state.pendingAttachments.map((att) =>
+          att.kind === 'image' && att.path === placeholderPath
+            ? { ...att, path: '/real/path.png', filename: 'screenshot.png' }
+            : att,
         ),
       }))
 
-      const pendingImages = useChatStore.getState().pendingImages
+      const pendingImages = getPendingImages()
       expect(pendingImages).toHaveLength(1)
       expect(pendingImages[0].path).toBe('/real/path.png')
       expect(pendingImages[0].filename).toBe('screenshot.png')
@@ -141,18 +153,18 @@ describe('add-pending-image', () => {
 
       // Simulate processing completion
       useChatStore.setState((state) => ({
-        pendingImages: state.pendingImages.map((img) =>
-          img.path === placeholderPath
+        pendingAttachments: state.pendingAttachments.map((att) =>
+          att.kind === 'image' && att.path === placeholderPath
             ? {
-                ...img,
+                ...att,
                 status: 'ready' as const,
                 processedImage: { base64: 'data', mediaType: 'image/png' },
               }
-            : img,
+            : att,
         ),
       }))
 
-      const pendingImages = useChatStore.getState().pendingImages
+      const pendingImages = getPendingImages()
       expect(pendingImages[0].status).toBe('ready')
       expect(pendingImages[0].processedImage).toBeDefined()
     })
@@ -162,14 +174,14 @@ describe('add-pending-image', () => {
 
       // Simulate processing failure
       useChatStore.setState((state) => ({
-        pendingImages: state.pendingImages.map((img) =>
-          img.path === placeholderPath
-            ? { ...img, status: 'error' as const, note: 'Processing failed' }
-            : img,
+        pendingAttachments: state.pendingAttachments.map((att) =>
+          att.kind === 'image' && att.path === placeholderPath
+            ? { ...att, status: 'error' as const, note: 'Processing failed' }
+            : att,
         ),
       }))
 
-      const pendingImages = useChatStore.getState().pendingImages
+      const pendingImages = getPendingImages()
       expect(pendingImages[0].status).toBe('error')
       expect(pendingImages[0].note).toBe('Processing failed')
     })
@@ -191,7 +203,7 @@ describe('add-pending-image', () => {
       // Add an error image
       addPendingImageWithError('/error.png', '❌ error')
 
-      const pendingImages = useChatStore.getState().pendingImages
+      const pendingImages = getPendingImages()
       expect(pendingImages).toHaveLength(3)
 
       const processing = pendingImages.find((img) => img.path === placeholder)
@@ -226,7 +238,7 @@ describe('add-pending-image', () => {
 
       addPendingImageWithError('/error.png', '❌ error')
 
-      const pendingImages = useChatStore.getState().pendingImages
+      const pendingImages = getPendingImages()
       const processingCount = pendingImages.filter(
         (img) => img.status === 'processing',
       ).length
@@ -246,20 +258,20 @@ describe('add-pending-image', () => {
   describe('removePendingImage', () => {
     test('removes placeholder by path', () => {
       const placeholderPath = addClipboardPlaceholder()
-      expect(useChatStore.getState().pendingImages).toHaveLength(1)
+      expect(getPendingImages()).toHaveLength(1)
 
       useChatStore.getState().removePendingImage(placeholderPath)
-      expect(useChatStore.getState().pendingImages).toHaveLength(0)
+      expect(getPendingImages()).toHaveLength(0)
     })
 
     test('only removes matching path', () => {
       const path1 = addClipboardPlaceholder()
       const path2 = addClipboardPlaceholder()
-      expect(useChatStore.getState().pendingImages).toHaveLength(2)
+      expect(getPendingImages()).toHaveLength(2)
 
       useChatStore.getState().removePendingImage(path1)
 
-      const remaining = useChatStore.getState().pendingImages
+      const remaining = getPendingImages()
       expect(remaining).toHaveLength(1)
       expect(remaining[0].path).toBe(path2)
     })

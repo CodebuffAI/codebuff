@@ -1,5 +1,5 @@
 import { getProjectRoot } from '../project-files'
-import { validateAndAddImage } from '../utils/add-pending-image'
+import { validateAndAddImage } from '../utils/pending-attachments'
 
 /**
  * Handle the /image command to attach an image file.

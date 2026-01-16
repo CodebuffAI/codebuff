@@ -30,7 +30,7 @@ import { NETWORK_ERROR_ID } from '../utils/validation-error-helpers'
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
 import type { StreamStatus } from './use-message-queue'
-import type { PendingImage } from '../state/chat-store'
+import type { PendingAttachment } from '../state/chat-store'
 import type { ChatMessage } from '../types/chat'
 import type { SendMessageFn } from '../types/contracts/send-message'
 import type { AgentMode } from '../utils/constants'
@@ -197,7 +197,7 @@ export const useSendMessage = ({
       content: string
       agentMode: AgentMode
       postUserMessage?: (prev: ChatMessage[]) => ChatMessage[]
-      attachedImages?: PendingImage[]
+      attachments?: PendingAttachment[]
     }) => {
       // Access lastMessageMode fresh each call to get current value
       const { lastMessageMode } = useChatStore.getState()
@@ -223,7 +223,7 @@ export const useSendMessage = ({
   )
 
   const sendMessage = useCallback<SendMessageFn>(
-    async ({ content, agentMode, postUserMessage, images: attachedImages }) => {
+    async ({ content, agentMode, postUserMessage, attachments }) => {
       if (agentMode !== 'PLAN') {
         setHasReceivedPlanResponse(false)
       }
@@ -236,7 +236,7 @@ export const useSendMessage = ({
       })
       setIsRetrying(false)
 
-      // Prepare user message (bash context, images, mode divider)
+      // Prepare user message (bash context, images, text attachments, mode divider)
       const {
         userMessageId,
         messageContent,
@@ -246,7 +246,7 @@ export const useSendMessage = ({
         content,
         agentMode,
         postUserMessage,
-        attachedImages,
+        attachments,
       })
 
       // Validate before sending (e.g., agent config checks)

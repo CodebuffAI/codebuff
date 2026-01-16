@@ -2,13 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { logger } from '../utils/logger'
 
-import type { PendingImage } from '../state/chat-store'
+import type { PendingAttachment } from '../state/chat-store'
 
 export type StreamStatus = 'idle' | 'waiting' | 'streaming'
 
 export type QueuedMessage = {
   content: string
-  images: PendingImage[]
+  attachments: PendingAttachment[]
 }
 
 export const useMessageQueue = (
@@ -121,16 +121,19 @@ export const useMessageQueue = (
     activeAgentStreamsRef,
   ])
 
-  const addToQueue = useCallback((message: string, images: PendingImage[] = []) => {
-    const queuedMessage = { content: message, images }
-    const newQueue = [...queuedMessagesRef.current, queuedMessage]
-    queuedMessagesRef.current = newQueue
-    setQueuedMessages(newQueue)
-    logger.info(
-      { newQueueLength: newQueue.length, messageLength: message.length },
-      '[message-queue] Message added to queue',
-    )
-  }, [])
+  const addToQueue = useCallback(
+    (message: string, attachments: PendingAttachment[] = []) => {
+      const queuedMessage = { content: message, attachments }
+      const newQueue = [...queuedMessagesRef.current, queuedMessage]
+      queuedMessagesRef.current = newQueue
+      setQueuedMessages(newQueue)
+      logger.info(
+        { newQueueLength: newQueue.length, messageLength: message.length },
+        '[message-queue] Message added to queue',
+      )
+    },
+    [],
+  )
 
   const pauseQueue = useCallback(() => {
     setQueuePaused(true)
