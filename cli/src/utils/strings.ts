@@ -37,7 +37,7 @@ export const BULLET_CHAR = '• '
 
 // Threshold for treating pasted text as an attachment instead of inline insertion
 // Text longer than this value (not equal) becomes an attachment
-export const LONG_TEXT_THRESHOLD = 200
+export const LONG_TEXT_THRESHOLD = 1000
 
 /**
  * Insert text at cursor position and return the new text and cursor position.
