@@ -119,8 +119,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Generate session name if not provided
+# Use timestamp + PID + random suffix to avoid collisions when running multiple agents in parallel
 if [[ -z "$SESSION_NAME" ]]; then
-    SESSION_NAME="tui-test-$(date +%s)"
+    SESSION_NAME="tui-test-$(date +%s)-$$-$RANDOM"
 fi
 
 # Check if tmux is available
@@ -181,6 +182,9 @@ fi
 # Create session logs directory
 SESSION_DIR="$PROJECT_ROOT/debug/tmux-sessions/$SESSION_NAME"
 mkdir -p "$SESSION_DIR"
+
+# Clear deduplication state from any previous session with the same name
+rm -f "$SESSION_DIR/.last-sent-text"
 
 # Save session info as YAML
 cat > "$SESSION_DIR/session-info.yaml" << EOF

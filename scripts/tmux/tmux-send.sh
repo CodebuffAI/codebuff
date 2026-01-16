@@ -233,14 +233,24 @@ if [[ "$FORCE_SEND" != true ]] && [[ -f "$LAST_SENT_FILE" ]]; then
     fi
 fi
 
+# Clear any existing input in the buffer before sending new text
+# This prevents concatenation when commands are sent in rapid succession
+tmux send-keys -t "$SESSION_NAME" C-u
+sleep 0.05
+
 # Send text using bracketed paste mode
 # \e[200~ = start bracketed paste
 # \e[201~ = end bracketed paste
 tmux send-keys -t "$SESSION_NAME" $'\e[200~'"$TEXT"$'\e[201~'
 
-# Optionally press Enter
+# Optionally press Enter (with small delay to let TUI apps process the paste first)
 if [[ "$AUTO_ENTER" == true ]]; then
+    sleep 0.05
     tmux send-keys -t "$SESSION_NAME" Enter
+    # Wait for CLI to process Enter and clear input buffer before returning
+    # This prevents the next send from concatenating with the previous input
+    # 200ms is needed for slower CLIs like Codex to fully process the command
+    sleep 0.2
 fi
 
 # Log the text send as YAML and update last-sent tracker
