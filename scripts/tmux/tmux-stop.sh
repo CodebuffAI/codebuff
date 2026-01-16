@@ -15,19 +15,19 @@
 #   SESSION_NAME        Name of the tmux session to stop
 #
 # OPTIONS:
-#   --all               Stop ALL cli-test-* sessions
+#   --all               Stop ALL test sessions (tui-test-* and cli-test-*)
 #   --list              List all active tmux sessions first
 #   --help              Show this help message
 #
 # EXAMPLES:
 #   # Stop a specific session
-#   ./scripts/tmux/tmux-stop.sh cli-test-123
+#   ./scripts/tmux/tmux-stop.sh tui-test-123
 #
 #   # Stop all test sessions
 #   ./scripts/tmux/tmux-stop.sh --all
 #
 #   # List sessions then stop one
-#   ./scripts/tmux/tmux-stop.sh --list cli-test-123
+#   ./scripts/tmux/tmux-stop.sh --list tui-test-123
 #
 # EXIT CODES:
 #   0 - Success (session stopped or already doesn't exist)
@@ -109,11 +109,11 @@ fi
 
 # Stop all test sessions
 if [[ "$STOP_ALL" == true ]]; then
-    # Get all cli-test-* sessions
-    SESSIONS=$(tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^cli-test-' || true)
+    # Get all tui-test-* sessions (and legacy cli-test-* for backward compatibility)
+    SESSIONS=$(tmux list-sessions -F '#{session_name}' 2>/dev/null | grep -E '^(tui-test-|cli-test-)' || true)
     
     if [[ -z "$SESSIONS" ]]; then
-        echo "No cli-test-* sessions found"
+        echo "No tui-test-* or cli-test-* sessions found"
         exit 0
     fi
     
@@ -131,6 +131,23 @@ if [[ -z "$SESSION_NAME" ]]; then
     echo "❌ No session name specified" >&2
     echo "   Use --all to stop all test sessions" >&2
     exit 1
+fi
+
+# Update session-info.yaml status to 'stopped' before killing
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+SESSION_DIR="$PROJECT_ROOT/debug/tmux-sessions/$SESSION_NAME"
+SESSION_INFO="$SESSION_DIR/session-info.yaml"
+
+if [[ -f "$SESSION_INFO" ]]; then
+    # Update status to 'stopped' and add stopped timestamp
+    STOPPED_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    if [[ "$(uname)" == "Darwin" ]]; then
+        sed -i '' "s/^status: active$/status: stopped/" "$SESSION_INFO"
+    else
+        sed -i "s/^status: active$/status: stopped/" "$SESSION_INFO"
+    fi
+    echo "stopped: $STOPPED_TIME" >> "$SESSION_INFO"
 fi
 
 # Stop the specific session (silently succeed if not found)

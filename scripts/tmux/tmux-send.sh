@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
 #######################################################################
-# tmux-send.sh - Send input to the Codebuff CLI in a tmux session
+# tmux-send.sh - Send input to a TUI app in a tmux session
 #######################################################################
 #
 # DESCRIPTION:
-#   Sends text input to a tmux session running the Codebuff CLI.
-#   Uses BRACKETED PASTE MODE which is REQUIRED for the CLI to receive
+#   Sends text input to a tmux session running a TUI application.
+#   Uses BRACKETED PASTE MODE which is REQUIRED for TUI apps to receive
 #   input correctly. Standard tmux send-keys drops characters!
 #
 # IMPORTANT:
@@ -27,40 +27,41 @@
 #                       Supported: Enter, Escape, Up, Down, Left, Right,
 #                                  C-c, C-u, C-d, C-v, Tab
 #   --paste             Paste current clipboard content using bracketed paste
-#                       mode. This triggers the CLI's paste handler correctly,
+#                       mode. This triggers the app's paste handler correctly,
 #                       unlike --key C-v which just sends the raw keystroke.
 #                       By default, Enter is pressed after pasting. Use with
 #                       --no-enter to paste without submitting (useful for
 #                       testing attachment UI before sending).
 #   --no-enter          Don't automatically press Enter after text
 #   --retry N           Retry session detection N times (default: 3)
+#   --force             Bypass duplicate detection (send even if same text was just sent)
 #   --help              Show this help message
 #
 # EXAMPLES:
-#   # Send a command to the CLI
-#   ./scripts/tmux/tmux-send.sh cli-test-123 "/help"
+#   # Send a command to the app
+#   ./scripts/tmux/tmux-send.sh tui-test-123 "/help"
 #
 #   # Send text without pressing Enter
-#   ./scripts/tmux/tmux-send.sh cli-test-123 "partial text" --no-enter
+#   ./scripts/tmux/tmux-send.sh tui-test-123 "partial text" --no-enter
 #
 #   # Send a special key
-#   ./scripts/tmux/tmux-send.sh cli-test-123 --key Escape
+#   ./scripts/tmux/tmux-send.sh tui-test-123 --key Escape
 #
 #   # Send Ctrl+C to interrupt
-#   ./scripts/tmux/tmux-send.sh cli-test-123 --key C-c
+#   ./scripts/tmux/tmux-send.sh tui-test-123 --key C-c
 #
 #   # Paste clipboard content and submit immediately
-#   ./scripts/tmux/tmux-send.sh cli-test-123 --paste
+#   ./scripts/tmux/tmux-send.sh tui-test-123 --paste
 #
 #   # Paste clipboard content but don't submit (view attachment card first)
-#   ./scripts/tmux/tmux-send.sh cli-test-123 --paste --no-enter
+#   ./scripts/tmux/tmux-send.sh tui-test-123 --paste --no-enter
 #
 # WHY BRACKETED PASTE?
-#   The Codebuff CLI uses OpenTUI for rendering, which processes keyboard
-#   input character-by-character. When tmux sends characters rapidly,
-#   they get dropped or garbled. Bracketed paste mode (\e[200~...\e[201~)
-#   tells the terminal to treat the input as a paste operation, which is
-#   processed atomically.
+#   Many TUI apps (like those using OpenTUI, Ink, or similar frameworks)
+#   process keyboard input character-by-character. When tmux sends
+#   characters rapidly, they get dropped or garbled. Bracketed paste mode
+#   (\e[200~...\e[201~) tells the terminal to treat the input as a paste
+#   operation, which is processed atomically.
 #
 # EXIT CODES:
 #   0 - Success
@@ -79,6 +80,7 @@ SPECIAL_KEY=""
 PASTE_CLIPBOARD=false
 RETRY_COUNT=3
 RETRY_DELAY=0.3
+FORCE_SEND=false
 
 # Check minimum arguments
 if [[ $# -lt 1 ]]; then
@@ -117,6 +119,10 @@ while [[ $# -gt 0 ]]; do
         --retry)
             RETRY_COUNT="$2"
             shift 2
+            ;;
+        --force)
+            FORCE_SEND=true
+            shift
             ;;
         --help)
             head -n 55 "$0" | tail -n +2 | sed 's/^# //' | sed 's/^#//'
@@ -216,6 +222,17 @@ if [[ -z "$TEXT" ]]; then
     exit 1
 fi
 
+# Deduplication check (skip if same text as last send)
+SESSION_DIR="$PROJECT_ROOT/debug/tmux-sessions/$SESSION_NAME"
+LAST_SENT_FILE="$SESSION_DIR/.last-sent-text"
+if [[ "$FORCE_SEND" != true ]] && [[ -f "$LAST_SENT_FILE" ]]; then
+    LAST_SENT=$(cat "$LAST_SENT_FILE")
+    if [[ "$LAST_SENT" == "$TEXT" ]]; then
+        echo "⚠️  Skipping duplicate send (same as last). Use --force to send anyway." >&2
+        exit 0
+    fi
+fi
+
 # Send text using bracketed paste mode
 # \e[200~ = start bracketed paste
 # \e[201~ = end bracketed paste
@@ -226,8 +243,7 @@ if [[ "$AUTO_ENTER" == true ]]; then
     tmux send-keys -t "$SESSION_NAME" Enter
 fi
 
-# Log the text send as YAML
-SESSION_DIR="$PROJECT_ROOT/debug/tmux-sessions/$SESSION_NAME"
+# Log the text send as YAML and update last-sent tracker
 if [[ -d "$SESSION_DIR" ]]; then
     TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     # Escape special characters in text for YAML (double quotes, backslashes)
@@ -239,4 +255,6 @@ if [[ -d "$SESSION_DIR" ]]; then
   input: "$ESCAPED_TEXT"
   auto_enter: $AUTO_ENTER
 EOF
+    # Update last-sent tracker for deduplication
+    echo "$TEXT" > "$LAST_SENT_FILE"
 fi

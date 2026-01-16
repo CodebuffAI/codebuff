@@ -1,23 +1,25 @@
 #!/usr/bin/env bash
 
 #######################################################################
-# tmux-start.sh - Start a tmux session with the Codebuff CLI
+# tmux-start.sh - Start a tmux session with a TUI application
 #######################################################################
 #
 # DESCRIPTION:
-#   Creates a new detached tmux session running the Codebuff CLI.
+#   Creates a new detached tmux session running a TUI application.
 #   Returns the session name for use with other tmux helper scripts.
-#   Also creates a screenshots directory for capturing terminal output.
+#   Also creates a logs directory for capturing terminal output.
 #
 # USAGE:
 #   ./scripts/tmux/tmux-start.sh [OPTIONS]
 #
 # OPTIONS:
-#   -n, --name NAME     Session name (default: cli-test-<timestamp>)
+#   -c, --command CMD   Command to run in the session (required for
+#                       non-Codebuff apps, or use --binary)
+#   -n, --name NAME     Session name (default: tui-test-<timestamp>)
 #   -w, --width WIDTH   Terminal width (default: 120)
-#   -h, --height HEIGHT Terminal height (default: 80)
-#   --wait SECONDS      Seconds to wait for CLI to initialize (default: 4)
-#   -b, --binary [PATH] Use compiled binary instead of dynamic CLI
+#   -h, --height HEIGHT Terminal height (default: 30)
+#   --wait SECONDS      Seconds to wait for app to initialize (default: 4)
+#   -b, --binary [PATH] Use compiled binary (Codebuff-specific shortcut)
 #                       If PATH omitted, uses ./cli/bin/codebuff
 #                       Can also set CODEBUFF_BINARY env var
 #   --help              Show this help message
@@ -29,9 +31,14 @@
 #   Use tmux-capture.sh to save timestamped captures to this directory.
 #
 # EXAMPLES:
-#   # Start with default settings
+#   # Start with a custom command (any TUI app)
+#   ./scripts/tmux/tmux-start.sh --command "claude"
+#   ./scripts/tmux/tmux-start.sh --command "codex chat"
+#   ./scripts/tmux/tmux-start.sh --command "python my_tui.py"
+#
+#   # Start with default Codebuff dev server (backward compatible)
 #   ./scripts/tmux/tmux-start.sh
-#   # Output: cli-test-1234567890
+#   # Output: tui-test-1234567890
 #
 #   # Start with custom session name
 #   ./scripts/tmux/tmux-start.sh --name my-test-session
@@ -39,14 +46,11 @@
 #   # Start with custom dimensions
 #   ./scripts/tmux/tmux-start.sh -w 160 -h 40
 #
-#   # Test a compiled binary (default location)
+#   # Test a compiled binary (Codebuff default location)
 #   ./scripts/tmux/tmux-start.sh --binary
 #
 #   # Test a compiled binary at custom path
 #   ./scripts/tmux/tmux-start.sh --binary ./path/to/codebuff
-#
-#   # Via environment variable
-#   CODEBUFF_BINARY=./cli/bin/codebuff ./scripts/tmux/tmux-start.sh
 #
 # EXIT CODES:
 #   0 - Success (session name printed to stdout)
@@ -67,10 +71,15 @@ HEIGHT=30  # Reasonable default that matches typical terminal heights
 WAIT_SECONDS=4
 DEFAULT_BINARY="$PROJECT_ROOT/cli/bin/codebuff"
 BINARY_PATH="${CODEBUFF_BINARY:-}"  # Environment variable takes precedence
+CUSTOM_COMMAND=""  # Custom command to run (takes priority over binary/default)
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+        -c|--command)
+            CUSTOM_COMMAND="$2"
+            shift 2
+            ;;
         -n|--name)
             SESSION_NAME="$2"
             shift 2
@@ -99,7 +108,7 @@ while [[ $# -gt 0 ]]; do
             fi
             ;;
         --help)
-            head -n 50 "$0" | tail -n +2 | sed 's/^# //' | sed 's/^#//'
+            head -n 55 "$0" | tail -n +2 | sed 's/^# //' | sed 's/^#//'
             exit 0
             ;;
         *)
@@ -111,7 +120,7 @@ done
 
 # Generate session name if not provided
 if [[ -z "$SESSION_NAME" ]]; then
-    SESSION_NAME="cli-test-$(date +%s)"
+    SESSION_NAME="tui-test-$(date +%s)"
 fi
 
 # Check if tmux is available
@@ -125,8 +134,13 @@ if ! command -v tmux &> /dev/null; then
     exit 1
 fi
 
-# Determine CLI command (binary vs dynamic)
-if [[ -n "$BINARY_PATH" ]]; then
+# Determine command to run (priority: custom command > binary > default)
+if [[ -n "$CUSTOM_COMMAND" ]]; then
+    # Custom command mode - run exactly what was specified
+    CLI_CMD="cd '$PROJECT_ROOT' && $CUSTOM_COMMAND 2>&1"
+    CLI_MODE="custom"
+    CLI_DISPLAY="$CUSTOM_COMMAND"
+elif [[ -n "$BINARY_PATH" ]]; then
     # Binary mode - validate the binary exists and is executable
     if [[ ! -f "$BINARY_PATH" ]]; then
         echo "❌ Binary not found: $BINARY_PATH" >&2
@@ -145,17 +159,22 @@ if [[ -n "$BINARY_PATH" ]]; then
     CLI_MODE="binary"
     CLI_DISPLAY="$BINARY_PATH"
 else
-    # Dynamic mode (default) - run via bun
+    # Default mode - Codebuff dev server via bun (for backward compatibility)
     CLI_CMD="cd '$PROJECT_ROOT' && bun --cwd=cli run dev 2>&1"
     CLI_MODE="dynamic"
     CLI_DISPLAY="bun --cwd=cli run dev"
 fi
 
-# Create tmux session running CLI
-if ! tmux new-session -d -s "$SESSION_NAME" \
+# Create tmux session running app
+# Note: We suppress stderr and verify session exists afterward to avoid race conditions
+# where tmux returns non-zero but the session is actually created
+tmux new-session -d -s "$SESSION_NAME" \
     -x "$WIDTH" -y "$HEIGHT" \
-    "$CLI_CMD" 2>/dev/null; then
-    echo "❌ Failed to create tmux session" >&2
+    "$CLI_CMD" 2>/dev/null || true
+
+# Verify the session was actually created (more reliable than exit code)
+if ! tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+    echo "❌ Failed to create tmux session '$SESSION_NAME'" >&2
     exit 1
 fi
 
@@ -176,7 +195,7 @@ cli_command: $CLI_DISPLAY
 status: active
 EOF
 
-# Wait for CLI to initialize
+# Wait for app to initialize
 if [[ "$WAIT_SECONDS" -gt 0 ]]; then
     sleep "$WAIT_SECONDS"
 fi

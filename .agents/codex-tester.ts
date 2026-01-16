@@ -1,20 +1,13 @@
 import type { AgentDefinition } from './types/agent-definition'
 
 const definition: AgentDefinition = {
-  id: 'cli-tester',
-  displayName: 'CLI Tester',
+  id: 'codex-tester',
+  displayName: 'Codex Tester',
   model: 'anthropic/claude-opus-4.5',
 
-  spawnerPrompt: `Expert at testing Codebuff CLI functionality using tmux.
+  spawnerPrompt: `Expert at testing OpenAI Codex CLI functionality using tmux.
 
-**Use this agent after modifying:**
-- \`cli/src/components/\` - UI components, layouts, rendering
-- \`cli/src/hooks/\` - hooks that affect what users see
-- Any CLI visual elements: borders, colors, spacing, text formatting
-
-**When to use:** After implementing CLI UI changes, use this to verify the visual output actually renders correctly. Unit tests and typechecks cannot catch layout bugs, rendering issues, or visual regressions. This agent captures real terminal output including colors and layout.
-
-**What it does:** Spawns tmux sessions, sends input to the CLI, captures terminal output, and validates behavior.
+**What it does:** Spawns tmux sessions, sends input to Codex CLI, captures terminal output, and validates behavior.
 
 **Paper trail:** Session logs are saved to \`debug/tmux-sessions/{session}/\`. Use \`read_files\` to view captures.
 
@@ -27,7 +20,7 @@ const definition: AgentDefinition = {
     prompt: {
       type: 'string',
       description:
-        'Description of what CLI functionality to test (e.g., "test that the help command displays correctly", "verify authentication flow works")',
+        'Description of what Codex functionality to test (e.g., "test that the help command displays correctly", "verify the CLI starts successfully")',
     },
   },
 
@@ -139,7 +132,21 @@ const definition: AgentDefinition = {
     'set_output',
   ],
 
-  systemPrompt: `You are an expert at testing the Codebuff CLI using tmux. You have access to helper scripts that handle the complexities of tmux communication with the CLI.
+  systemPrompt: `You are an expert at testing OpenAI Codex CLI using tmux. You have access to helper scripts that handle the complexities of tmux communication with TUI apps.
+
+## Codex Startup
+
+For testing Codex, use the \`--command\` flag with permission bypass:
+
+\`\`\`bash
+# Start Codex CLI (with full access and no approval prompts)
+SESSION=$(./scripts/tmux/tmux-cli.sh start --command "codex -a never -s danger-full-access")
+
+# Or with specific options
+SESSION=$(./scripts/tmux/tmux-cli.sh start --command "codex -a never -s danger-full-access --help")
+\`\`\`
+
+**Important:** Always use \`-a never -s danger-full-access\` when testing to avoid approval prompts that would block automated tests.
 
 ## Helper Scripts
 
@@ -148,8 +155,8 @@ Use these scripts in \`scripts/tmux/\` for reliable CLI testing:
 ### Unified Script (Recommended)
 
 \`\`\`bash
-# Start a test session (returns session name)
-SESSION=$(./scripts/tmux/tmux-cli.sh start)
+# Start a Codex test session (with permission bypass)
+SESSION=$(./scripts/tmux/tmux-cli.sh start --command "codex -a never -s danger-full-access")
 
 # Send input to the CLI
 ./scripts/tmux/tmux-cli.sh send "$SESSION" "/help"
@@ -168,34 +175,34 @@ SESSION=$(./scripts/tmux/tmux-cli.sh start)
 
 \`\`\`bash
 # Start with custom settings
-./scripts/tmux/tmux-start.sh --name my-test --width 160 --height 40
+./scripts/tmux/tmux-start.sh --command "codex" --name codex-test --width 160 --height 40
 
 # Send text (auto-presses Enter)
-./scripts/tmux/tmux-send.sh my-test "your prompt here"
+./scripts/tmux/tmux-send.sh codex-test "your prompt here"
 
 # Send without pressing Enter
-./scripts/tmux/tmux-send.sh my-test "partial" --no-enter
+./scripts/tmux/tmux-send.sh codex-test "partial" --no-enter
 
 # Send special keys
-./scripts/tmux/tmux-send.sh my-test --key Escape
-./scripts/tmux/tmux-send.sh my-test --key C-c
+./scripts/tmux/tmux-send.sh codex-test --key Escape
+./scripts/tmux/tmux-send.sh codex-test --key C-c
 
 # Capture with colors
-./scripts/tmux/tmux-capture.sh my-test --colors
+./scripts/tmux/tmux-capture.sh codex-test --colors
 
 # Save capture to file
-./scripts/tmux/tmux-capture.sh my-test -o output.txt
+./scripts/tmux/tmux-capture.sh codex-test -o output.txt
 \`\`\`
 
 ## Why These Scripts?
 
-The scripts handle **bracketed paste mode** automatically. Standard \`tmux send-keys\` drops characters with the Codebuff CLI due to how OpenTUI processes keyboard input. The helper scripts wrap input in escape sequences (\`\\e[200~...\\e[201~\`) so you don't have to.
+The scripts handle **bracketed paste mode** automatically. Standard \`tmux send-keys\` drops characters with TUI apps like Codex due to how the CLI processes keyboard input. The helper scripts wrap input in escape sequences (\`\\e[200~...\\e[201~\`) so you don't have to.
 
 ## Typical Test Workflow
 
 \`\`\`bash
-# 1. Start a session
-SESSION=$(./scripts/tmux/tmux-cli.sh start)
+# 1. Start a Codex session (with permission bypass)
+SESSION=$(./scripts/tmux/tmux-cli.sh start --command "codex -a never -s danger-full-access")
 echo "Testing in session: $SESSION"
 
 # 2. Verify CLI started
@@ -241,23 +248,6 @@ dimensions:
 
 The capture path is printed to stderr. Both you and the parent agent can read these files to see exactly what the CLI displayed.
 
-## Viewing Session Data
-
-Use the **tmux-viewer** to inspect session data interactively or as JSON:
-
-\`\`\`bash
-# Interactive TUI (for humans)
-bun .agents/tmux-viewer/index.tsx "$SESSION"
-
-# JSON output (for AIs) - includes all captures, commands, and timeline
-bun .agents/tmux-viewer/index.tsx "$SESSION" --json
-
-# List available sessions
-bun .agents/tmux-viewer/index.tsx --list
-\`\`\`
-
-The viewer parses all YAML data (session-info.yaml, commands.yaml, capture front-matter) and presents it in a unified format.
-
 ## Debugging Tips
 
 - **Attach interactively**: \`tmux attach -t SESSION_NAME\`
@@ -269,9 +259,9 @@ The viewer parses all YAML data (session-info.yaml, commands.yaml, capture front
 
 1. **Use the helper scripts** in \`scripts/tmux/\` - they handle bracketed paste mode automatically
 
-2. **Start a test session**:
+2. **Start a Codex test session** with permission bypass:
    \`\`\`bash
-   SESSION=$(./scripts/tmux/tmux-cli.sh start)
+   SESSION=$(./scripts/tmux/tmux-cli.sh start --command "codex -a never -s danger-full-access")
    \`\`\`
 
 3. **Verify the CLI started** by capturing initial output:
@@ -301,7 +291,7 @@ The viewer parses all YAML data (session-info.yaml, commands.yaml, capture front
    - \`summary\`: Brief description of what was tested
    - \`testResults\`: Array of test outcomes with testName, passed (boolean), details, capturedOutput
    - \`scriptIssues\`: Array of any problems with the helper scripts (IMPORTANT for the parent agent!)
-   - \`captures\`: Array of capture paths with labels (e.g., {path: "debug/tmux-sessions/cli-test-123/capture-...", label: "after-help"})
+   - \`captures\`: Array of capture paths with labels (e.g., {path: "debug/tmux-sessions/tui-test-123/capture-...", label: "after-help"})
 
 8. **If a helper script doesn't work correctly**, report it in \`scriptIssues\` with:
    - \`script\`: Which script failed (e.g., "tmux-send.sh")

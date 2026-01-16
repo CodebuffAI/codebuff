@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
 
 #######################################################################
-# tmux-cli.sh - Unified CLI testing helper using tmux
+# tmux-cli.sh - Unified TUI testing helper using tmux
 #######################################################################
 #
 # DESCRIPTION:
-#   A unified script for testing the Codebuff CLI using tmux.
+#   A unified script for testing TUI applications using tmux.
 #   Provides subcommands for starting, sending input, capturing output,
-#   and stopping test sessions.
+#   and stopping test sessions. Works with any TUI app (Codebuff,
+#   Claude Code, Codex, custom apps, etc.).
 #
 # USAGE:
 #   ./scripts/tmux/tmux-cli.sh <command> [arguments]
 #
 # COMMANDS:
-#   start               Start a new CLI test session
+#   start               Start a new TUI test session
 #   send                Send input to a session (uses bracketed paste)
 #   capture             Capture output from a session
 #   stop                Stop a session
@@ -21,8 +22,8 @@
 #   help                Show this help message
 #
 # QUICK START:
-#   # Start a test session
-#   SESSION=$(./scripts/tmux/tmux-cli.sh start)
+#   # Start a test session with a custom command
+#   SESSION=$(./scripts/tmux/tmux-cli.sh start --command "claude")
 #   echo "Started session: $SESSION"
 #
 #   # Send a command
@@ -39,13 +40,17 @@
 #   Use --label to add descriptive names to capture files.
 #
 # EXAMPLES:
-#   # Full test workflow
+#   # Test any TUI app
+#   SESSION=$(./scripts/tmux/tmux-cli.sh start --command "codex chat")
+#   SESSION=$(./scripts/tmux/tmux-cli.sh start --command "python my_app.py")
+#
+#   # Test Codebuff (default when no --command specified)
 #   SESSION=$(./scripts/tmux/tmux-cli.sh start --name my-test)
 #   ./scripts/tmux/tmux-cli.sh send "$SESSION" "hello world"
 #   ./scripts/tmux/tmux-cli.sh capture "$SESSION" --wait 3
 #   ./scripts/tmux/tmux-cli.sh stop "$SESSION"
 #
-#   # Test a compiled binary (instead of dynamic CLI)
+#   # Test a compiled Codebuff binary
 #   SESSION=$(./scripts/tmux/tmux-cli.sh start --binary)
 #   # Or with custom path:
 #   SESSION=$(./scripts/tmux/tmux-cli.sh start --binary ./path/to/codebuff)
@@ -77,7 +82,7 @@ show_short_help() {
     echo "Usage: $0 <command> [arguments]"
     echo ""
     echo "Commands:"
-    echo "  start     Start a new CLI test session"
+    echo "  start     Start a new TUI test session"
     echo "  send      Send input to a session"
     echo "  capture   Capture output from a session"
     echo "  stop      Stop a session"

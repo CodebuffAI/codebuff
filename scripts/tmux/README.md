@@ -1,16 +1,17 @@
-# tmux CLI Testing Scripts
+# tmux TUI Testing Scripts
 
-Helper scripts for testing the Codebuff CLI using tmux. These scripts abstract away the complexity of tmux communication, particularly the **bracketed paste mode** requirement.
+Helper scripts for testing TUI applications (Terminal User Interface apps) using tmux. These scripts abstract away the complexity of tmux communication, particularly the **bracketed paste mode** requirement.
 
 ## Features
 
 - **Automatic bracketed paste mode** - Input is wrapped in escape sequences so characters don't get dropped
 - **Automatic session logs** - Every capture is saved to `debug/tmux-sessions/{session}/` for debugging
-- **Paper trail** - Both the subagent and parent agent can review what the CLI displayed
+- **Works with any TUI app** - Codebuff, Claude Code, Codex, or any custom TUI application
+- **Paper trail** - Both the subagent and parent agent can review what the app displayed
 
 ## Why These Scripts?
 
-The Codebuff CLI uses OpenTUI for rendering, which processes keyboard input character-by-character. When tmux sends characters rapidly via `send-keys`, they get dropped or garbled. These scripts automatically wrap input in bracketed paste escape sequences (`\e[200~...\e[201~`), which tells the terminal to process the input atomically.
+Many TUI apps (using frameworks like OpenTUI, Ink, Textual, etc.) process keyboard input character-by-character. When tmux sends characters rapidly via `send-keys`, they get dropped or garbled. These scripts automatically wrap input in bracketed paste escape sequences (`\e[200~...\e[201~`), which tells the terminal to process the input atomically.
 
 **Without these scripts:**
 ```bash
@@ -28,8 +29,29 @@ tmux send-keys -t session "hello world"
 
 ## Quick Start
 
+### Testing Any TUI App
+
 ```bash
-# Start a test session (dynamic CLI via bun)
+# Start a test session with any command
+SESSION=$(./scripts/tmux/tmux-cli.sh start --command "claude")
+SESSION=$(./scripts/tmux/tmux-cli.sh start --command "codex chat")
+SESSION=$(./scripts/tmux/tmux-cli.sh start --command "python my_tui.py")
+echo "Started session: $SESSION"
+
+# Send a command
+./scripts/tmux/tmux-cli.sh send "$SESSION" "/help"
+
+# Wait and capture output
+./scripts/tmux/tmux-cli.sh capture "$SESSION" --wait 2
+
+# Clean up
+./scripts/tmux/tmux-cli.sh stop "$SESSION"
+```
+
+### Testing Codebuff (Default)
+
+```bash
+# Start a test session (defaults to Codebuff dev server)
 SESSION=$(./scripts/tmux/tmux-cli.sh start)
 echo "Started session: $SESSION"
 
@@ -43,25 +65,23 @@ echo "Started session: $SESSION"
 ./scripts/tmux/tmux-cli.sh stop "$SESSION"
 ```
 
-## Testing Compiled Binaries
-
-To test a compiled CLI binary instead of the dynamic development server:
+### Testing Compiled Binaries
 
 ```bash
-# Build the binary first
+# Build the binary first (Codebuff example)
 cd cli && bun run build:binary
 
 # Test with binary at default location (./cli/bin/codebuff)
 SESSION=$(./scripts/tmux/tmux-cli.sh start --binary)
 
 # Or specify a custom binary path
-SESSION=$(./scripts/tmux/tmux-cli.sh start --binary /path/to/codebuff)
+SESSION=$(./scripts/tmux/tmux-cli.sh start --binary /path/to/binary)
 
 # Or use environment variable
 CODEBUFF_BINARY=./cli/bin/codebuff ./scripts/tmux/tmux-cli.sh start
 ```
 
-The session-info.yaml will record which mode was used (`cli_mode: binary` or `cli_mode: dynamic`).
+The session-info.yaml will record which mode was used (`cli_mode: custom`, `cli_mode: binary`, or `cli_mode: dynamic`).
 
 ## Scripts
 
@@ -80,12 +100,17 @@ The main entry point with subcommands:
 
 ### `tmux-start.sh`
 
-Start a new tmux session with the CLI.
+Start a new tmux session with a TUI app.
 
 ```bash
-# Default settings (dynamic CLI)
+# Start with a custom command (any TUI app)
+./scripts/tmux/tmux-start.sh --command "claude"
+./scripts/tmux/tmux-start.sh --command "codex chat"
+./scripts/tmux/tmux-start.sh --command "python my_app.py"
+
+# Default settings (Codebuff dev server)
 ./scripts/tmux/tmux-start.sh
-# Output: cli-test-1234567890
+# Output: tui-test-1234567890
 
 # Custom session name
 ./scripts/tmux/tmux-start.sh --name my-test
@@ -93,7 +118,7 @@ Start a new tmux session with the CLI.
 # Custom dimensions
 ./scripts/tmux/tmux-start.sh -w 160 -h 40
 
-# Custom wait time for CLI initialization
+# Custom wait time for app initialization
 ./scripts/tmux/tmux-start.sh --wait 6
 
 # Test a compiled binary (default location: ./cli/bin/codebuff)
@@ -101,9 +126,6 @@ Start a new tmux session with the CLI.
 
 # Test a compiled binary at custom path
 ./scripts/tmux/tmux-start.sh --binary /path/to/binary
-
-# Via environment variable
-CODEBUFF_BINARY=./my-binary ./scripts/tmux/tmux-start.sh
 ```
 
 ### `tmux-send.sh`
@@ -140,7 +162,7 @@ Capture output from a session. **Automatically saves captures** to `debug/tmux-s
 
 # Capture with a descriptive label (recommended)
 ./scripts/tmux/tmux-capture.sh SESSION --label "after-help-command"
-# Saves to: debug/tmux-sessions/SESSION/capture-{timestamp}-after-help-command.txt
+# Saves to: debug/tmux-sessions/SESSION/capture-{sequence}-after-help-command.txt
 
 # Wait before capturing
 ./scripts/tmux/tmux-capture.sh SESSION --wait 3
@@ -163,7 +185,7 @@ Stop/kill sessions.
 # Stop specific session
 ./scripts/tmux/tmux-stop.sh SESSION
 
-# Stop all test sessions
+# Stop all test sessions (tui-test-* and cli-test-*)
 ./scripts/tmux/tmux-stop.sh --all
 
 # List sessions first, then stop
@@ -175,11 +197,11 @@ Stop/kill sessions.
 ```bash
 #!/bin/bash
 
-# Start session
-SESSION=$(./scripts/tmux/tmux-cli.sh start --name auth-test)
-echo "Testing authentication in: $SESSION"
+# Start session with a TUI app
+SESSION=$(./scripts/tmux/tmux-cli.sh start --command "my-tui-app" --name my-test)
+echo "Testing in: $SESSION"
 
-# Verify CLI started (capture auto-saved with label)
+# Verify app started (capture auto-saved with label)
 ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "initial-state"
 
 # Send /status command
@@ -202,7 +224,7 @@ ls -la debug/tmux-sessions/$SESSION/
 
 ```
 debug/tmux-sessions/
-└── cli-test-1234567890/
+└── tui-test-1234567890/
     ├── session-info.yaml             # Session metadata (YAML format)
     ├── commands.yaml                 # Log of all commands sent (YAML array)
     ├── capture-001-initial-state.txt # Captures with YAML front-matter
@@ -213,20 +235,20 @@ debug/tmux-sessions/
 ### Session Info (session-info.yaml)
 
 ```yaml
-session: cli-test-1234567890
+session: tui-test-1234567890
 started: 2025-01-01T12:00:00Z
 started_local: Wed Jan  1 12:00:00 PST 2025
 dimensions:
   width: 120
   height: 30
-cli_mode: dynamic  # or "binary"
-cli_command: bun --cwd=cli run dev  # or path to binary
+cli_mode: custom  # or "binary" or "dynamic"
+cli_command: claude  # or path to binary, or "bun --cwd=cli run dev"
 status: active
 ```
 
 ### Commands Log (commands.yaml)
 
-The `commands.yaml` file records every input sent to the CLI as a YAML array:
+The `commands.yaml` file records every input sent to the app as a YAML array:
 
 ```yaml
 - timestamp: 2025-01-01T12:00:05Z
@@ -307,4 +329,8 @@ tmux has-session -t SESSION_NAME && echo "exists" || echo "not found"
 
 ## Used By
 
-These scripts are used by the `@cli-tester` agent (`.agents/cli-tester.ts`) to automate CLI testing.
+These scripts are used by TUI testing agents:
+- `@codebuff-tester` - Tests the Codebuff CLI
+- `@claude-code-tester` - Tests Claude Code CLI
+- `@codex-tester` - Tests OpenAI Codex CLI
+- Custom agents for other TUI apps can easily be created following the same pattern

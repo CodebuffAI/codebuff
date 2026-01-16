@@ -7,7 +7,7 @@
 # DESCRIPTION:
 #   Captures the current terminal output from a tmux session.
 #   Automatically saves captures to debug/tmux-sessions/{session}/
-#   Useful for verifying CLI behavior and debugging.
+#   Useful for verifying TUI app behavior and debugging.
 #
 # USAGE:
 #   ./scripts/tmux/tmux-capture.sh SESSION_NAME [OPTIONS]
