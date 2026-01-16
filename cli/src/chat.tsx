@@ -83,6 +83,7 @@ import { computeInputLayoutMetrics } from './utils/text-layout'
 import { createMarkdownPalette } from './utils/theme-system'
 import { reportActivity } from './utils/activity-tracker'
 import { trackEvent } from './utils/analytics'
+import { logger } from './utils/logger'
 
 import type { CommandResult } from './commands/command-registry'
 import type { MultilineInputHandle } from './components/multiline-input'
@@ -771,13 +772,37 @@ export const Chat = ({
       }>
       const { prompt, index, toolCallId } = customEvent.detail
 
+      logger.info(
+        { promptLength: prompt.length, index, toolCallId, agentMode },
+        '[followup-click] Followup clicked',
+      )
+
+      // Track analytics event
+      trackEvent(AnalyticsEvent.FOLLOWUP_CLICKED, {
+        promptLength: prompt.length,
+        index,
+        agentMode,
+      })
+
       // Mark this followup as clicked (persisted per toolCallId)
       useChatStore.getState().markFollowupClicked(toolCallId, index)
 
       // Send the followup prompt directly, preserving the user's current input
-      void onSubmitPrompt(prompt, agentMode, {
+      onSubmitPrompt(prompt, agentMode, {
         preserveInputValue: true,
       })
+        .then((result) => {
+          logger.info(
+            { hasResult: !!result },
+            '[followup-click] onSubmitPrompt completed',
+          )
+        })
+        .catch((error) => {
+          logger.error(
+            { error },
+            '[followup-click] onSubmitPrompt failed with error',
+          )
+        })
     }
 
     globalThis.addEventListener('codebuff:send-followup', handleFollowupClick)
