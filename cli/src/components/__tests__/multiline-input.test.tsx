@@ -579,3 +579,406 @@ describe('MultilineInput - Chinese/IME character input', () => {
     expect(shouldAcceptCharacterInput(key)).toBe(true)
   })
 })
+
+/**
+ * Tests for newline keyboard shortcuts in MultilineInput component.
+ *
+ * These test the handleEnterKeys logic which determines whether:
+ * - A newline should be inserted (Ctrl+J, Shift+Enter, Option+Enter, Backslash+Enter)
+ * - The input should be submitted (plain Enter)
+ * - The key should be ignored (other keys)
+ */
+describe('MultilineInput - newline keyboard shortcuts', () => {
+  /**
+   * Helper function that checks for alt-like modifier keys.
+   * This mirrors the isAltModifier function in multiline-input.tsx.
+   */
+  function isAltModifier(key: {
+    option?: boolean
+    sequence?: string
+  }): boolean {
+    const ESC = '\x1b'
+    return Boolean(
+      key.option ||
+        (key.sequence?.length === 2 &&
+          key.sequence[0] === ESC &&
+          key.sequence[1] !== '['),
+    )
+  }
+
+  /**
+   * Determines the action that handleEnterKeys would take for a given key event.
+   * Returns 'newline' if it should insert a newline, 'submit' if it should submit,
+   * or 'ignore' if the key should not be handled.
+   *
+   * This mirrors the handleEnterKeys logic in multiline-input.tsx.
+   */
+  function getEnterKeyAction(
+    key: {
+      name?: string
+      sequence?: string
+      ctrl?: boolean
+      meta?: boolean
+      shift?: boolean
+      option?: boolean
+    },
+    hasBackslashBeforeCursor: boolean = false,
+  ): 'newline' | 'submit' | 'ignore' {
+    const lowerKeyName = (key.name ?? '').toLowerCase()
+    const isEnterKey = key.name === 'return' || key.name === 'enter'
+    // Ctrl+J is translated by the terminal to a linefeed character (0x0a)
+    // So we detect it by checking for name === 'linefeed' rather than ctrl + j
+    const isCtrlJ =
+      lowerKeyName === 'linefeed' ||
+      (key.ctrl &&
+        !key.meta &&
+        !key.option &&
+        lowerKeyName === 'j')
+
+    // Only handle Enter and Ctrl+J here
+    if (!isEnterKey && !isCtrlJ) return 'ignore'
+
+    const isAltLikeModifier = isAltModifier(key)
+    const hasEscapePrefix =
+      typeof key.sequence === 'string' &&
+      key.sequence.length > 0 &&
+      key.sequence.charCodeAt(0) === 0x1b
+
+    const isPlainEnter =
+      isEnterKey &&
+      !key.shift &&
+      !key.ctrl &&
+      !key.meta &&
+      !key.option &&
+      !isAltLikeModifier &&
+      !hasEscapePrefix &&
+      key.sequence === '\r' &&
+      !hasBackslashBeforeCursor
+    const isShiftEnter =
+      isEnterKey && (Boolean(key.shift) || key.sequence === '\n')
+    const isOptionEnter =
+      isEnterKey && (isAltLikeModifier || hasEscapePrefix)
+    const isBackslashEnter = isEnterKey && hasBackslashBeforeCursor
+
+    const shouldInsertNewline =
+      isCtrlJ || isShiftEnter || isOptionEnter || isBackslashEnter
+
+    if (shouldInsertNewline) return 'newline'
+    if (isPlainEnter) return 'submit'
+
+    return 'ignore'
+  }
+
+  // --- Ctrl+J tests ---
+  // Note: Terminals translate Ctrl+J to a linefeed character (0x0a) with name 'linefeed'
+  // The ctrl flag is NOT set because the terminal performs the translation
+
+  test('Ctrl+J inserts newline (detected as linefeed)', () => {
+    // This is what terminals actually send when Ctrl+J is pressed
+    const key = {
+      name: 'linefeed',
+      sequence: '\n',
+      ctrl: false, // Terminal strips the ctrl flag
+      meta: false,
+      shift: false,
+      option: false,
+    }
+
+    expect(getEnterKeyAction(key)).toBe('newline')
+  })
+
+  test('Ctrl+J with uppercase LINEFEED name also works', () => {
+    const key = {
+      name: 'LINEFEED',
+      sequence: '\n',
+      ctrl: false,
+      meta: false,
+      shift: false,
+      option: false,
+    }
+
+    expect(getEnterKeyAction(key)).toBe('newline')
+  })
+
+  test('Ctrl+J fallback: raw ctrl+j event (if terminal passes it through)', () => {
+    // Some terminals might pass through the raw key event
+    const key = {
+      name: 'j',
+      sequence: '\n',
+      ctrl: true,
+      meta: false,
+      shift: false,
+      option: false,
+    }
+
+    expect(getEnterKeyAction(key)).toBe('newline')
+  })
+
+  test('Ctrl+Meta+J does not insert newline (meta blocks it)', () => {
+    const key = {
+      name: 'j',
+      sequence: '\n',
+      ctrl: true,
+      meta: true,
+      shift: false,
+      option: false,
+    }
+
+    expect(getEnterKeyAction(key)).toBe('ignore')
+  })
+
+  test('Ctrl+Option+J does not insert newline (option blocks it)', () => {
+    const key = {
+      name: 'j',
+      sequence: '\n',
+      ctrl: true,
+      meta: false,
+      shift: false,
+      option: true,
+    }
+
+    expect(getEnterKeyAction(key)).toBe('ignore')
+  })
+
+  // --- Ctrl+Enter (non-J) tests ---
+
+  test('Ctrl+Enter (with return name) is ignored', () => {
+    const key = {
+      name: 'return',
+      sequence: '\r',
+      ctrl: true,
+      meta: false,
+      shift: false,
+      option: false,
+    }
+
+    expect(getEnterKeyAction(key)).toBe('ignore')
+  })
+
+  // --- Shift+Enter tests ---
+
+  test('Shift+Enter inserts newline (via shift flag)', () => {
+    const key = {
+      name: 'return',
+      sequence: '\r',
+      ctrl: false,
+      meta: false,
+      shift: true,
+      option: false,
+    }
+
+    expect(getEnterKeyAction(key)).toBe('newline')
+  })
+
+  test('Shift+Enter inserts newline (via sequence being newline char)', () => {
+    // Some terminals send \n instead of setting shift flag
+    const key = {
+      name: 'return',
+      sequence: '\n',
+      ctrl: false,
+      meta: false,
+      shift: false,
+      option: false,
+    }
+
+    expect(getEnterKeyAction(key)).toBe('newline')
+  })
+
+  test('Shift+Enter with "enter" key name also works', () => {
+    const key = {
+      name: 'enter',
+      sequence: '\r',
+      ctrl: false,
+      meta: false,
+      shift: true,
+      option: false,
+    }
+
+    expect(getEnterKeyAction(key)).toBe('newline')
+  })
+
+  // --- Option/Alt+Enter tests ---
+
+  test('Option+Enter inserts newline (via option flag)', () => {
+    const key = {
+      name: 'return',
+      sequence: '\r',
+      ctrl: false,
+      meta: false,
+      shift: false,
+      option: true,
+    }
+
+    expect(getEnterKeyAction(key)).toBe('newline')
+  })
+
+  test('Option+Enter inserts newline (via escape prefix sequence)', () => {
+    // Alt key often sends ESC prefix followed by the key
+    const key = {
+      name: 'return',
+      sequence: '\x1b\r', // ESC + carriage return
+      ctrl: false,
+      meta: false,
+      shift: false,
+      option: false,
+    }
+
+    expect(getEnterKeyAction(key)).toBe('newline')
+  })
+
+  test('Escape prefix with bracket does NOT trigger alt detection', () => {
+    // Sequences like ESC+[ are ANSI escape codes, not alt+key
+    // This should be treated differently based on hasEscapePrefix
+    const key = {
+      name: 'return',
+      sequence: '\x1b[', // This is an escape sequence, not alt+enter
+      ctrl: false,
+      meta: false,
+      shift: false,
+      option: false,
+    }
+
+    // hasEscapePrefix is still true, so isOptionEnter is true
+    expect(getEnterKeyAction(key)).toBe('newline')
+  })
+
+  // --- Backslash+Enter tests ---
+
+  test('Backslash+Enter inserts newline (removes backslash)', () => {
+    const key = {
+      name: 'return',
+      sequence: '\r',
+      ctrl: false,
+      meta: false,
+      shift: false,
+      option: false,
+    }
+
+    // When there's a backslash before cursor, it should insert newline
+    expect(getEnterKeyAction(key, true)).toBe('newline')
+  })
+
+  test('Backslash+Shift+Enter still inserts newline', () => {
+    const key = {
+      name: 'return',
+      sequence: '\r',
+      ctrl: false,
+      meta: false,
+      shift: true,
+      option: false,
+    }
+
+    // Both backslash and shift trigger newline
+    expect(getEnterKeyAction(key, true)).toBe('newline')
+  })
+
+  // --- Plain Enter tests ---
+
+  test('Plain Enter submits', () => {
+    const key = {
+      name: 'return',
+      sequence: '\r',
+      ctrl: false,
+      meta: false,
+      shift: false,
+      option: false,
+    }
+
+    expect(getEnterKeyAction(key, false)).toBe('submit')
+  })
+
+  test('Plain Enter with "enter" key name submits', () => {
+    const key = {
+      name: 'enter',
+      sequence: '\r',
+      ctrl: false,
+      meta: false,
+      shift: false,
+      option: false,
+    }
+
+    expect(getEnterKeyAction(key, false)).toBe('submit')
+  })
+
+  // --- Non-Enter key tests ---
+
+  test('Regular J key (no ctrl) is ignored', () => {
+    const key = {
+      name: 'j',
+      sequence: 'j',
+      ctrl: false,
+      meta: false,
+      shift: false,
+      option: false,
+    }
+
+    expect(getEnterKeyAction(key)).toBe('ignore')
+  })
+
+  test('Arrow key is ignored', () => {
+    const key = {
+      name: 'up',
+      sequence: '\x1b[A',
+      ctrl: false,
+      meta: false,
+      shift: false,
+      option: false,
+    }
+
+    expect(getEnterKeyAction(key)).toBe('ignore')
+  })
+
+  test('Backspace is ignored', () => {
+    const key = {
+      name: 'backspace',
+      sequence: '\x7f',
+      ctrl: false,
+      meta: false,
+      shift: false,
+      option: false,
+    }
+
+    expect(getEnterKeyAction(key)).toBe('ignore')
+  })
+
+  test('Tab is ignored', () => {
+    const key = {
+      name: 'tab',
+      sequence: '\t',
+      ctrl: false,
+      meta: false,
+      shift: false,
+      option: false,
+    }
+
+    expect(getEnterKeyAction(key)).toBe('ignore')
+  })
+
+  // --- isAltModifier helper tests ---
+
+  test('isAltModifier returns true when option flag is set', () => {
+    expect(isAltModifier({ option: true, sequence: '\r' })).toBe(true)
+  })
+
+  test('isAltModifier returns true for ESC+char sequence (alt key)', () => {
+    // Alt+a typically sends ESC followed by 'a'
+    expect(isAltModifier({ option: false, sequence: '\x1ba' })).toBe(true)
+  })
+
+  test('isAltModifier returns false for ESC+[ sequence (ANSI escape)', () => {
+    // ESC+[ is an ANSI escape code prefix, not alt+[
+    expect(isAltModifier({ option: false, sequence: '\x1b[' })).toBe(false)
+  })
+
+  test('isAltModifier returns false for plain sequence', () => {
+    expect(isAltModifier({ option: false, sequence: 'a' })).toBe(false)
+  })
+
+  test('isAltModifier returns false for empty sequence', () => {
+    expect(isAltModifier({ option: false, sequence: '' })).toBe(false)
+  })
+
+  test('isAltModifier returns false for undefined sequence', () => {
+    expect(isAltModifier({ option: false })).toBe(false)
+  })
+})

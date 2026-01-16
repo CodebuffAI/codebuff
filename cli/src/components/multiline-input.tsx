@@ -469,10 +469,20 @@ export const MultilineInput = forwardRef<
   // Handle enter/newline keys
   const handleEnterKeys = useCallback(
     (key: KeyEvent): boolean => {
-      const isEnterKey = key.name === 'return' || key.name === 'enter'
-      if (!isEnterKey) return false
-
       const lowerKeyName = (key.name ?? '').toLowerCase()
+      const isEnterKey = key.name === 'return' || key.name === 'enter'
+      // Ctrl+J is translated by the terminal to a linefeed character (0x0a)
+      // So we detect it by checking for name === 'linefeed' rather than ctrl + j
+      const isCtrlJ =
+        lowerKeyName === 'linefeed' ||
+        (key.ctrl &&
+          !key.meta &&
+          !key.option &&
+          lowerKeyName === 'j')
+
+      // Only handle Enter and Ctrl+J here
+      if (!isEnterKey && !isCtrlJ) return false
+
       const isAltLikeModifier = isAltModifier(key)
       const hasEscapePrefix =
         typeof key.sequence === 'string' &&
@@ -495,15 +505,10 @@ export const MultilineInput = forwardRef<
         isEnterKey && (Boolean(key.shift) || key.sequence === '\n')
       const isOptionEnter =
         isEnterKey && (isAltLikeModifier || hasEscapePrefix)
-      const isCtrlJ =
-        key.ctrl &&
-        !key.meta &&
-        !key.option &&
-        (lowerKeyName === 'j' || isEnterKey)
       const isBackslashEnter = isEnterKey && hasBackslashBeforeCursor
 
       const shouldInsertNewline =
-        isShiftEnter || isOptionEnter || isCtrlJ || isBackslashEnter
+        isCtrlJ || isShiftEnter || isOptionEnter || isBackslashEnter
 
       if (shouldInsertNewline) {
         preventKeyDefault(key)
@@ -522,7 +527,7 @@ export const MultilineInput = forwardRef<
           return true
         }
 
-        // For other newline shortcuts, just insert newline
+        // For other newline shortcuts (Shift+Enter, Option+Enter, Ctrl+J), just insert newline
         const newValue =
           value.slice(0, cursorPosition) + '\n' + value.slice(cursorPosition)
         onChange({
