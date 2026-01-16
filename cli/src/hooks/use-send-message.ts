@@ -237,19 +237,27 @@ export const useSendMessage = ({
       setIsRetrying(false)
 
       // Prepare user message (bash context, images, mode divider)
-      const { userMessageId, messageContent, bashContextForPrompt, finalContent } =
-        await prepareUserMessage({
-          content,
-          agentMode,
-          postUserMessage,
-          attachedImages,
-        })
+      const {
+        userMessageId,
+        messageContent,
+        bashContextForPrompt,
+        finalContent,
+      } = await prepareUserMessage({
+        content,
+        agentMode,
+        postUserMessage,
+        attachedImages,
+      })
 
       // Validate before sending (e.g., agent config checks)
       try {
         const validationResult = await onBeforeMessageSend()
 
         if (!validationResult.success) {
+          logger.warn(
+            { errors: validationResult.errors },
+            '[send-message] Validation failed',
+          )
           const errorsToAttach =
             validationResult.errors.length === 0
               ? [
@@ -277,7 +285,7 @@ export const useSendMessage = ({
       } catch (error) {
         logger.error(
           { error },
-          'Validation before message send failed with exception',
+          '[send-message] Validation before message send failed with exception',
         )
 
         setMessages((prev) => [
@@ -303,7 +311,7 @@ export const useSendMessage = ({
       if (!client) {
         logger.error(
           {},
-          'No Codebuff client available. Please ensure you are authenticated.',
+          '[send-message] No Codebuff client available. Please ensure you are authenticated.',
         )
         return
       }
@@ -376,6 +384,7 @@ export const useSendMessage = ({
           signal: abortController.signal,
         })
 
+        logger.info({ runConfig }, '[send-message] Sending message with sdk run config')
         const runState = await client.run(runConfig)
 
         // Finalize: persist state and mark complete
@@ -413,6 +422,17 @@ export const useSendMessage = ({
           updateChainInProgress,
         })
       } finally {
+        // Defensive reset: ensure chain state is always cleared even if handlers throw.
+        // This prevents the system from getting stuck in "chain in progress" state.
+        if (isChainInProgressRef.current) {
+          logger.warn(
+            {},
+            '[send-message] Chain still in progress after try/catch, forcing reset',
+          )
+          updateChainInProgress(false)
+          setStreamStatus('idle')
+          setCanProcessQueue(!isQueuePausedRef?.current)
+        }
         // Ensure the batched updater's flush interval is always cleaned up,
         // even if handleRunCompletion or handleRunError throw unexpectedly.
         // dispose() is safe to call multiple times.

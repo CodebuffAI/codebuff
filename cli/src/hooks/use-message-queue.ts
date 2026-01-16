@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { logger } from '../utils/logger'
+
 import type { PendingImage } from '../state/chat-store'
 
 export type StreamStatus = 'idle' | 'waiting' | 'streaming'
@@ -54,14 +56,52 @@ export const useMessageQueue = (
   }, [clearStreaming])
 
   useEffect(() => {
-    if (!canProcessQueue || queuePaused) return
-    if (streamStatus !== 'idle') return
-    if (streamMessageIdRef.current) return
-    if (isChainInProgressRef.current) return
-    if (activeAgentStreamsRef.current > 0) return
-
     const queuedList = queuedMessagesRef.current
-    if (queuedList.length === 0) return
+    const queueLength = queuedList.length
+
+    if (queueLength === 0) return
+
+    // Log why queue is blocked (only when there are messages waiting)
+    if (!canProcessQueue || queuePaused) {
+      logger.debug(
+        { queueLength, canProcessQueue, queuePaused },
+        '[message-queue] Queue blocked: canProcessQueue or paused',
+      )
+      return
+    }
+    if (streamStatus !== 'idle') {
+      logger.debug(
+        { queueLength, streamStatus },
+        '[message-queue] Queue blocked: stream not idle',
+      )
+      return
+    }
+    if (streamMessageIdRef.current) {
+      logger.debug(
+        { queueLength, streamMessageId: streamMessageIdRef.current },
+        '[message-queue] Queue blocked: streamMessageId set',
+      )
+      return
+    }
+    if (isChainInProgressRef.current) {
+      logger.debug(
+        { queueLength, isChainInProgress: isChainInProgressRef.current },
+        '[message-queue] Queue blocked: chain in progress',
+      )
+      return
+    }
+    if (activeAgentStreamsRef.current > 0) {
+      logger.debug(
+        { queueLength, activeAgentStreams: activeAgentStreamsRef.current },
+        '[message-queue] Queue blocked: active agent streams',
+      )
+      return
+    }
+
+    logger.info(
+      { queueLength },
+      '[message-queue] Processing next message from queue',
+    )
 
     const timeoutId = setTimeout(() => {
       const nextMessage = queuedList[0]
@@ -86,6 +126,10 @@ export const useMessageQueue = (
     const newQueue = [...queuedMessagesRef.current, queuedMessage]
     queuedMessagesRef.current = newQueue
     setQueuedMessages(newQueue)
+    logger.info(
+      { newQueueLength: newQueue.length, messageLength: message.length },
+      '[message-queue] Message added to queue',
+    )
   }, [])
 
   const pauseQueue = useCallback(() => {
