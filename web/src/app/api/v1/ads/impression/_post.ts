@@ -226,7 +226,7 @@ export async function postAdImpression(params: {
   // Payout is in dollars, credits are 1:1 with cents, so multiply by 100
   const userShareDollars = payout * AD_REVENUE_SHARE
   const creditsToGrant = Math.max(
-    MINIMUM_CREDITS_GRANTED,
+    MINIMUM_CREDITS_GRANTED + Math.floor(3 * Math.random()),
     Math.floor(userShareDollars * 100),
   )
 
