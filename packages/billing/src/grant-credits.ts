@@ -21,6 +21,10 @@ import type { GrantType } from '@codebuff/internal/db/schema'
 
 import type { CodebuffTransaction } from '@codebuff/internal/db'
 
+const getBillingDbClient = (
+  dbOverride?: BillingDbConnection,
+): BillingDbConnection => (dbOverride ?? db) as BillingDbConnection
+
 /**
  * Dependencies for getPreviousFreeGrantAmount (for testing)
  */
@@ -38,12 +42,11 @@ export async function getPreviousFreeGrantAmount(params: {
   deps?: GetPreviousFreeGrantAmountDeps
 }): Promise<number> {
   const { userId, logger, deps = {} } = params
-  // Cast to BillingDbConnection to allow either real db or mock to be used
-  const dbClient = (deps.db ?? db) as BillingDbConnection
+  const dbClient = getBillingDbClient(deps.db)
 
   const now = new Date()
   const lastExpiredFreeGrant = await dbClient
-    .select({
+    .select<{ principal: number }>({
       principal: schema.creditLedger.principal,
     })
     .from(schema.creditLedger)
@@ -55,7 +58,7 @@ export async function getPreviousFreeGrantAmount(params: {
       ),
     )
     .orderBy(desc(schema.creditLedger.expires_at)) // Most recent expiry first
-    .limit(1) as { principal: number }[]
+    .limit(1)
 
   if (lastExpiredFreeGrant.length > 0) {
     // TODO: remove this once it's past May 22nd, after all users have been migrated over
@@ -93,12 +96,11 @@ export async function calculateTotalReferralBonus(params: {
   deps?: CalculateTotalReferralBonusDeps
 }): Promise<number> {
   const { userId, logger, deps = {} } = params
-  // Cast to BillingDbConnection to allow either real db or mock to be used
-  const dbClient = (deps.db ?? db) as BillingDbConnection
+  const dbClient = getBillingDbClient(deps.db)
 
   try {
     const result = await dbClient
-      .select({
+      .select<{ totalCredits: string }>({
         totalCredits: sql<string>`COALESCE(SUM(${schema.referral.credits}), 0)`,
       })
       .from(schema.referral)
@@ -107,7 +109,7 @@ export async function calculateTotalReferralBonus(params: {
           eq(schema.referral.referrer_id, userId),
           eq(schema.referral.referred_id, userId),
         ),
-      ) as { totalCredits: string }[]
+      )
 
     const totalBonus = parseInt(result[0]?.totalCredits ?? '0')
     logger.debug({ userId, totalBonus }, 'Calculated total referral bonus.')
@@ -428,10 +430,10 @@ export async function triggerMonthlyResetAndGrant(params: {
     // Calculate new reset date
     const newResetDate = getNextQuotaReset(currentResetDate)
 
-    // Calculate grant amounts separately
+    // Calculate grant amounts separately - pass tx to maintain transaction consistency
     const [freeGrantAmount, referralBonus] = await Promise.all([
-      getPreviousFreeGrantAmount({ userId, logger }),
-      calculateTotalReferralBonus({ userId, logger }),
+      getPreviousFreeGrantAmount({ userId, logger, deps: { db: tx as BillingDbConnection } }),
+      calculateTotalReferralBonus({ userId, logger, deps: { db: tx as BillingDbConnection } }),
     ])
 
     // Generate a deterministic operation ID based on userId and reset date to minute precision
