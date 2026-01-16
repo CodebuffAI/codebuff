@@ -1,13 +1,15 @@
 import type { AgentDefinition } from './types/agent-definition'
 
 const definition: AgentDefinition = {
-  id: 'claude-code-tester',
-  displayName: 'Claude Code Tester',
+  id: 'claude-code-cli',
+  displayName: 'Claude Code CLI',
   model: 'anthropic/claude-opus-4.5',
 
-  spawnerPrompt: `Expert at testing Claude Code CLI functionality using tmux.
+  spawnerPrompt: `Expert at testing Claude Code CLI functionality using tmux, or performing code reviews via Claude Code.
 
-**What it does:** Spawns tmux sessions, sends input to Claude Code CLI, captures terminal output, and validates behavior.
+**Modes:**
+- \`test\` (default): Spawns tmux sessions, sends input to Claude Code CLI, captures terminal output, and validates behavior.
+- \`review\`: Uses Claude Code CLI to perform code reviews on specified files or directories.
 
 **Paper trail:** Session logs are saved to \`debug/tmux-sessions/{session}/\`. Use \`read_files\` to view captures.
 
@@ -20,7 +22,18 @@ const definition: AgentDefinition = {
     prompt: {
       type: 'string',
       description:
-        'Description of what Claude Code functionality to test (e.g., "test that the help command displays correctly", "verify the CLI starts successfully")',
+        'Description of what to do. For test mode: what CLI functionality to test. For review mode: what code to review and any specific concerns.',
+    },
+    params: {
+      type: 'object',
+      properties: {
+        mode: {
+          type: 'string',
+          enum: ['test', 'review'],
+          description:
+            'Operation mode - "test" for CLI testing (default), "review" for code review via Claude Code',
+        },
+      },
     },
   },
 
@@ -113,6 +126,38 @@ const definition: AgentDefinition = {
         },
         description:
           'Paths to saved terminal captures for debugging - check debug/tmux-sessions/{session}/',
+      },
+      reviewFindings: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            file: {
+              type: 'string',
+              description: 'File path where the issue was found',
+            },
+            severity: {
+              type: 'string',
+              enum: ['critical', 'warning', 'suggestion', 'info'],
+              description: 'Severity level of the finding',
+            },
+            line: {
+              type: 'number',
+              description: 'Line number (if applicable)',
+            },
+            finding: {
+              type: 'string',
+              description: 'Description of the issue or suggestion',
+            },
+            suggestion: {
+              type: 'string',
+              description: 'Suggested fix or improvement',
+            },
+          },
+          required: ['file', 'severity', 'finding'],
+        },
+        description:
+          'Code review findings (only populated in review mode)',
       },
     },
     required: [
@@ -257,6 +302,14 @@ The capture path is printed to stderr. Both you and the parent agent can read th
 
   instructionsPrompt: `Instructions:
 
+Check the \`mode\` parameter to determine your operation:
+- If \`mode\` is "review" or the prompt mentions reviewing/analyzing code: follow **Review Mode** instructions
+- Otherwise: follow **Test Mode** instructions (default)
+
+---
+
+## Test Mode Instructions
+
 1. **Use the helper scripts** in \`scripts/tmux/\` - they handle bracketed paste mode automatically
 
 2. **Start a Claude Code test session** with permission bypass:
@@ -286,22 +339,110 @@ The capture path is printed to stderr. Both you and the parent agent can read th
    ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "after-help-command" --wait 2
    \`\`\`
 
-7. **Report results using set_output** - You MUST call set_output with structured results:
-   - \`overallStatus\`: "success", "failure", or "partial"
-   - \`summary\`: Brief description of what was tested
-   - \`testResults\`: Array of test outcomes with testName, passed (boolean), details, capturedOutput
-   - \`scriptIssues\`: Array of any problems with the helper scripts (IMPORTANT for the parent agent!)
-   - \`captures\`: Array of capture paths with labels (e.g., {path: "debug/tmux-sessions/tui-test-123/capture-...", label: "after-help"})
+---
 
-8. **If a helper script doesn't work correctly**, report it in \`scriptIssues\` with:
-   - \`script\`: Which script failed (e.g., "tmux-send.sh")
-   - \`issue\`: What went wrong
-   - \`errorOutput\`: The actual error message
-   - \`suggestedFix\`: How the parent agent should fix the script
+## Review Mode Instructions
 
-   The parent agent CAN edit the scripts - you cannot. Your job is to identify issues clearly.
+In review mode, you send a detailed review prompt to Claude Code. The prompt MUST start with the word "review" and include specific areas of concern.
 
-9. **Always include captures** in your output so the parent agent can see what you saw.
+### What We're Looking For
+
+The review should focus on these key areas:
+
+1. **Code Organization Issues**
+   - Poor file/module structure
+   - Unclear separation of concerns
+   - Functions/classes that do too many things
+   - Missing or inconsistent abstractions
+
+2. **Over-Engineering & Complexity**
+   - Unnecessarily abstract or generic code
+   - Premature optimization
+   - Complex patterns where simple solutions would suffice
+   - "Enterprise" patterns in small codebases
+
+3. **AI-Generated Code Patterns ("AI Slop")**
+   - Verbose, flowery language in comments ("It's important to note...", "Worth mentioning...")
+   - Excessive disclaimers and hedging in documentation
+   - Inconsistent coding style within the same file
+   - Overly generic variable/function names
+   - Redundant explanatory comments that just restate the code
+   - Sudden shifts between formal and casual tone
+   - Filler phrases that add no value
+
+4. **Lack of Systems-Level Thinking**
+   - Missing error handling strategy
+   - No consideration for scaling or performance
+   - Ignoring edge cases and failure modes
+   - Lack of observability (logging, metrics, tracing)
+   - Missing or incomplete type definitions
+
+### Workflow
+
+1. **Start Claude Code** with permission bypass:
+   \`\`\`bash
+   SESSION=$(./scripts/tmux/tmux-cli.sh start --command "claude --dangerously-skip-permissions")
+   \`\`\`
+
+2. **Wait for CLI to initialize**, then capture:
+   \`\`\`bash
+   sleep 3
+   ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "initial-state"
+   \`\`\`
+
+3. **Send a detailed review prompt** (MUST start with "review"):
+   \`\`\`bash
+   ./scripts/tmux/tmux-cli.sh send "$SESSION" "Review [files/directories from prompt]. Look for:
+
+   1. CODE ORGANIZATION: Poor structure, unclear separation of concerns, functions doing too much
+   2. OVER-ENGINEERING: Unnecessary abstractions, premature optimization, complex patterns where simple would work
+   3. AI SLOP: Verbose comments ('it\\'s important to note'), excessive disclaimers, inconsistent style, generic names, redundant explanations
+   4. SYSTEMS THINKING: Missing error handling strategy, no scaling consideration, ignored edge cases, lack of observability
+
+   For each issue found, specify the file, line number, what\\'s wrong, and how to fix it. Be direct and specific."
+   \`\`\`
+
+4. **Wait for and capture the review output** (reviews take longer):
+   \`\`\`bash
+   ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "review-output" --wait 60
+   \`\`\`
+
+   If the review is still in progress, wait and capture again:
+   \`\`\`bash
+   ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "review-output-continued" --wait 30
+   \`\`\`
+
+5. **Parse the review output** and populate \`reviewFindings\` with:
+   - \`file\`: Path to the file with the issue
+   - \`severity\`: "critical", "warning", "suggestion", or "info"
+   - \`line\`: Line number if mentioned
+   - \`finding\`: Description of the issue
+   - \`suggestion\`: How to fix it
+
+6. **Clean up**:
+   \`\`\`bash
+   ./scripts/tmux/tmux-cli.sh stop "$SESSION"
+   \`\`\`
+
+---
+
+## Output (Both Modes)
+
+**Report results using set_output** - You MUST call set_output with structured results:
+- \`overallStatus\`: "success", "failure", or "partial"
+- \`summary\`: Brief description of what was tested/reviewed
+- \`testResults\`: Array of test outcomes (for test mode)
+- \`scriptIssues\`: Array of any problems with the helper scripts
+- \`captures\`: Array of capture paths with labels
+- \`reviewFindings\`: Array of code review findings (for review mode)
+
+**If a helper script doesn't work correctly**, report it in \`scriptIssues\` with:
+- \`script\`: Which script failed
+- \`issue\`: What went wrong
+- \`errorOutput\`: The actual error message
+- \`suggestedFix\`: How the parent agent should fix the script
+
+**Always include captures** in your output so the parent agent can see what you saw.
 
 For advanced options, run \`./scripts/tmux/tmux-cli.sh help\` or check individual scripts with \`--help\`.`,
 }

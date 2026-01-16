@@ -1,13 +1,15 @@
 import type { AgentDefinition } from './types/agent-definition'
 
 const definition: AgentDefinition = {
-  id: 'codex-tester',
-  displayName: 'Codex Tester',
+  id: 'codex-cli',
+  displayName: 'Codex CLI',
   model: 'anthropic/claude-opus-4.5',
 
-  spawnerPrompt: `Expert at testing OpenAI Codex CLI functionality using tmux.
+  spawnerPrompt: `Expert at testing OpenAI Codex CLI functionality using tmux, or performing code reviews via Codex.
 
-**What it does:** Spawns tmux sessions, sends input to Codex CLI, captures terminal output, and validates behavior.
+**Modes:**
+- \`test\` (default): Spawns tmux sessions, sends input to Codex CLI, captures terminal output, and validates behavior.
+- \`review\`: Uses Codex CLI to perform code reviews on specified files or directories.
 
 **Paper trail:** Session logs are saved to \`debug/tmux-sessions/{session}/\`. Use \`read_files\` to view captures.
 
@@ -20,7 +22,24 @@ const definition: AgentDefinition = {
     prompt: {
       type: 'string',
       description:
-        'Description of what Codex functionality to test (e.g., "test that the help command displays correctly", "verify the CLI starts successfully")',
+        'Description of what to do. For test mode: what CLI functionality to test. For review mode: what code to review and any specific concerns.',
+    },
+    params: {
+      type: 'object',
+      properties: {
+        mode: {
+          type: 'string',
+          enum: ['test', 'review'],
+          description:
+            'Operation mode - "test" for CLI testing (default), "review" for code review via Codex',
+        },
+        reviewType: {
+          type: 'string',
+          enum: ['pr', 'uncommitted', 'commit', 'custom'],
+          description:
+            'For review mode: "pr" = Review against base branch (PR style), "uncommitted" = Review uncommitted changes, "commit" = Review a specific commit, "custom" = Custom review instructions. Defaults to "uncommitted".',
+        },
+      },
     },
   },
 
@@ -113,6 +132,38 @@ const definition: AgentDefinition = {
         },
         description:
           'Paths to saved terminal captures for debugging - check debug/tmux-sessions/{session}/',
+      },
+      reviewFindings: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            file: {
+              type: 'string',
+              description: 'File path where the issue was found',
+            },
+            severity: {
+              type: 'string',
+              enum: ['critical', 'warning', 'suggestion', 'info'],
+              description: 'Severity level of the finding',
+            },
+            line: {
+              type: 'number',
+              description: 'Line number (if applicable)',
+            },
+            finding: {
+              type: 'string',
+              description: 'Description of the issue or suggestion',
+            },
+            suggestion: {
+              type: 'string',
+              description: 'Suggested fix or improvement',
+            },
+          },
+          required: ['file', 'severity', 'finding'],
+        },
+        description:
+          'Code review findings (only populated in review mode)',
       },
     },
     required: [
@@ -257,6 +308,14 @@ The capture path is printed to stderr. Both you and the parent agent can read th
 
   instructionsPrompt: `Instructions:
 
+Check the \`mode\` parameter to determine your operation:
+- If \`mode\` is "review" or the prompt mentions reviewing/analyzing code: follow **Review Mode** instructions
+- Otherwise: follow **Test Mode** instructions (default)
+
+---
+
+## Test Mode Instructions
+
 1. **Use the helper scripts** in \`scripts/tmux/\` - they handle bracketed paste mode automatically
 
 2. **Start a Codex test session** with permission bypass:
@@ -286,22 +345,97 @@ The capture path is printed to stderr. Both you and the parent agent can read th
    ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "after-help-command" --wait 2
    \`\`\`
 
-7. **Report results using set_output** - You MUST call set_output with structured results:
-   - \`overallStatus\`: "success", "failure", or "partial"
-   - \`summary\`: Brief description of what was tested
-   - \`testResults\`: Array of test outcomes with testName, passed (boolean), details, capturedOutput
-   - \`scriptIssues\`: Array of any problems with the helper scripts (IMPORTANT for the parent agent!)
-   - \`captures\`: Array of capture paths with labels (e.g., {path: "debug/tmux-sessions/tui-test-123/capture-...", label: "after-help"})
+---
 
-8. **If a helper script doesn't work correctly**, report it in \`scriptIssues\` with:
-   - \`script\`: Which script failed (e.g., "tmux-send.sh")
-   - \`issue\`: What went wrong
-   - \`errorOutput\`: The actual error message
-   - \`suggestedFix\`: How the parent agent should fix the script
+## Review Mode Instructions
 
-   The parent agent CAN edit the scripts - you cannot. Your job is to identify issues clearly.
+Codex CLI has a built-in \`/review\` command that presents an interactive questionnaire. You must navigate it using arrow keys and Enter.
 
-9. **Always include captures** in your output so the parent agent can see what you saw.
+### Review Type Mapping
+
+The \`reviewType\` param maps to menu options (1-indexed from top):
+- \`"pr"\` → Option 1: "Review against a base branch (PR Style)"
+- \`"uncommitted"\` → Option 2: "Review uncommitted changes" (default)
+- \`"commit"\` → Option 3: "Review a commit"
+- \`"custom"\` → Option 4: "Custom review instructions"
+
+### Workflow
+
+1. **Start Codex** with permission bypass:
+   \`\`\`bash
+   SESSION=$(./scripts/tmux/tmux-cli.sh start --command "codex -a never -s danger-full-access")
+   \`\`\`
+
+2. **Wait for CLI to initialize**, then capture:
+   \`\`\`bash
+   sleep 3
+   ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "initial-state"
+   \`\`\`
+
+3. **Send the /review command**:
+   \`\`\`bash
+   ./scripts/tmux/tmux-cli.sh send "$SESSION" "/review"
+   sleep 2
+   ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "review-menu"
+   \`\`\`
+
+4. **Navigate to the correct option** using arrow keys:
+   - The menu starts with Option 1 selected (PR Style)
+   - Use Down arrow to move to the desired option:
+     - \`reviewType="pr"\`: No navigation needed, just press Enter
+     - \`reviewType="uncommitted"\`: Send Down once, then Enter
+     - \`reviewType="commit"\`: Send Down twice, then Enter
+     - \`reviewType="custom"\`: Send Down three times, then Enter
+   
+   \`\`\`bash
+   # Example for "uncommitted" (option 2):
+   ./scripts/tmux/tmux-send.sh "$SESSION" --key Down
+   sleep 0.5
+   ./scripts/tmux/tmux-send.sh "$SESSION" --key Enter
+   \`\`\`
+
+5. **For "custom" reviewType**, after selecting option 4, you'll need to send the custom instructions from the prompt:
+   \`\`\`bash
+   sleep 1
+   ./scripts/tmux/tmux-cli.sh send "$SESSION" "[custom instructions from the prompt]"
+   \`\`\`
+
+6. **Wait for and capture the review output** (reviews take longer):
+   \`\`\`bash
+   ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "review-output" --wait 60
+   \`\`\`
+
+7. **Parse the review output** and populate \`reviewFindings\` with:
+   - \`file\`: Path to the file with the issue
+   - \`severity\`: "critical", "warning", "suggestion", or "info"
+   - \`line\`: Line number if mentioned
+   - \`finding\`: Description of the issue
+   - \`suggestion\`: How to fix it
+
+8. **Clean up**:
+   \`\`\`bash
+   ./scripts/tmux/tmux-cli.sh stop "$SESSION"
+   \`\`\`
+
+---
+
+## Output (Both Modes)
+
+**Report results using set_output** - You MUST call set_output with structured results:
+- \`overallStatus\`: "success", "failure", or "partial"
+- \`summary\`: Brief description of what was tested/reviewed
+- \`testResults\`: Array of test outcomes (for test mode)
+- \`scriptIssues\`: Array of any problems with the helper scripts
+- \`captures\`: Array of capture paths with labels
+- \`reviewFindings\`: Array of code review findings (for review mode)
+
+**If a helper script doesn't work correctly**, report it in \`scriptIssues\` with:
+- \`script\`: Which script failed
+- \`issue\`: What went wrong
+- \`errorOutput\`: The actual error message
+- \`suggestedFix\`: How the parent agent should fix the script
+
+**Always include captures** in your output so the parent agent can see what you saw.
 
 For advanced options, run \`./scripts/tmux/tmux-cli.sh help\` or check individual scripts with \`--help\`.`,
 }
