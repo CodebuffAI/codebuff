@@ -35,6 +35,8 @@ If you want isolation, use the [Dockerfile](https://github.com/CodebuffAI/codebu
 
 Yes. Add `knowledge.md` files to describe patterns, constraints, and commands. Codebuff also reads `AGENTS.md` and `CLAUDE.md` if present. Per directory, it picks one: `knowledge.md` first, then `AGENTS.md`, then `CLAUDE.md`. Codebuff updates existing knowledge files but won't create them unless you ask.
 
+You can also create a **home directory knowledge file** (`~/.knowledge.md`, `~/.AGENTS.md`, or `~/.CLAUDE.md`) for preferences that apply across all projects. File name matching is case-insensitive. See [Knowledge Files](/docs/tips/knowledge-files#home-directory-knowledge-files) for details.
+
 ## Can I tell Codebuff to ignore certain files?
 
 Codebuff by default will not read files that are specified in your `.gitignore`. You can also create a `.codebuffignore` file to specify additional files or folders to ignore.

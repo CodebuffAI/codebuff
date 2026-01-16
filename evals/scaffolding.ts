@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 
 import { getFileTokenScores } from '@codebuff/code-map/parse'
+import { isKnowledgeFile } from '@codebuff/common/constants/knowledge'
 import { getSystemInfo } from '@codebuff/common/util/system-info'
 
 import {
@@ -36,9 +37,7 @@ export async function getProjectFileContext(
     fs: fs.promises,
   })
   const allFilePaths = getAllFilePaths(fileTree)
-  const knowledgeFilePaths = allFilePaths.filter((filePath) =>
-    filePath.endsWith('knowledge.md'),
-  )
+  const knowledgeFilePaths = allFilePaths.filter(isKnowledgeFile)
   const knowledgeFiles: Record<string, string> = {}
   for (const filePath of knowledgeFilePaths) {
     const content = readMockFile(projectPath, filePath)

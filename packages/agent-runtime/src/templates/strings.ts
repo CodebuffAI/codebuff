@@ -1,3 +1,4 @@
+import { KNOWLEDGE_FILE_NAMES_LOWERCASE } from '@codebuff/common/constants/knowledge'
 import { escapeString } from '@codebuff/common/util/string'
 import { z } from 'zod/v4'
 
@@ -117,9 +118,11 @@ export async function formatPrompt(
       Object.entries({
         ...Object.fromEntries(
           Object.entries(fileContext.knowledgeFiles)
-            .filter(([path]) =>
-              ['knowledge.md', 'CLAUDE.md'].includes(path),
-            )
+            .filter(([filePath]) => {
+              const lowerPath = filePath.toLowerCase()
+              // Root-level knowledge files only (knowledge.md, AGENTS.md, CLAUDE.md)
+              return KNOWLEDGE_FILE_NAMES_LOWERCASE.includes(lowerPath)
+            })
             .map(([path, content]) => [path, content.trim()]),
         ),
         ...fileContext.userKnowledgeFiles,

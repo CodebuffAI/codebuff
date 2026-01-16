@@ -11,24 +11,38 @@ order: 4
 
 ## Getting Started
 
-Ask Codebuff to create one:
+The easiest way to create a knowledge file is to run the `/init` command inside Codebuff:
 
 ```bash
-    codebuff "Please create a knowledge.md file with initial project information"
+codebuff
 ```
 
-Or create it yourself:
+Then inside the CLI:
 
-1. Create a `knowledge.md` file at the root of your project:
-
-```bash
-    touch knowledge.md
+```
+/init
 ```
 
-2. For larger projects, you can optionally create additional knowledge files in subdirectories:
+This analyzes your project and generates a `knowledge.md` file with relevant information about your codebase, including build commands, project structure, and conventions.
+
+### Manual Creation
+
+You can also create knowledge files manually:
 
 ```bash
-    touch backend/knowledge.md frontend/knowledge.md
+touch knowledge.md
+```
+
+Or ask Codebuff to create one for you:
+
+```bash
+codebuff "Please create a knowledge.md file with initial project information"
+```
+
+For larger projects, you can optionally create additional knowledge files in subdirectories:
+
+```bash
+touch backend/knowledge.md frontend/knowledge.md
 ```
 
 Keep each file next to the code it describes.
@@ -48,6 +62,59 @@ Capture facts that aren't obvious from the code:
 - Verification commands to run after changes (e.g., `npm run build`, `npm run lint`, or `npm test`)
 
 A few hundred lines is fine.
+
+## Home Directory Knowledge Files
+
+In addition to project-specific knowledge files, you can create a **global knowledge file** in your home directory. This is useful for preferences that apply across all your projects.
+
+### Supported File Names
+
+Codebuff looks for these files in your home directory (in priority order):
+
+1. `~/.knowledge.md` (highest priority)
+2. `~/.AGENTS.md`
+3. `~/.CLAUDE.md`
+
+Only the first file found is used. File name matching is **case-insensitive**, so `~/.KNOWLEDGE.md` or `~/.Knowledge.md` will also work.
+
+### Creating a Home Directory Knowledge File
+
+```bash
+touch ~/.knowledge.md
+```
+
+Then add your global preferences:
+
+```markdown
+# User Preferences
+
+## Coding Style
+- Always use TypeScript over JavaScript
+- Prefer functional programming patterns
+- Use descriptive variable names
+- Add JSDoc comments to exported functions
+
+## Communication
+- Be concise in explanations
+- Show examples when explaining concepts
+- Ask for clarification on ambiguous requests
+
+## Tools & Frameworks
+- I prefer React over Vue
+- Use Tailwind CSS for styling
+- Prefer pnpm over npm
+```
+
+### When to Use Home Directory vs Project Knowledge Files
+
+| Home Directory (`~/.knowledge.md`) | Project (`knowledge.md`) |
+|-----------------------------------|------------------------------------|
+| Personal coding preferences | Project-specific conventions |
+| Preferred frameworks/tools | Architecture decisions |
+| Communication style | Build and deploy commands |
+| Global defaults | Team coding standards |
+
+Both files are loaded—project knowledge files add to (and can override) your home directory preferences.
 
 ## Post-Change Verification
 

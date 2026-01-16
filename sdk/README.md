@@ -136,6 +136,24 @@ main()
 
 ## API Reference
 
+### Knowledge Files
+
+Knowledge files provide project context to the agent. The SDK auto-discovers:
+
+- **Project files**: `knowledge.md`, `AGENTS.md`, or `CLAUDE.md` in each directory (priority order)
+- **User files**: `~/.knowledge.md`, `~/.AGENTS.md`, or `~/.CLAUDE.md` (case-insensitive)
+
+Override with `knowledgeFiles` (replaces project files) or `userKnowledgeFiles` (merges with home directory files):
+
+```typescript
+await client.run({
+  agent: 'codebuff/base@0.0.16',
+  prompt: 'Help me refactor',
+  knowledgeFiles: { 'knowledge.md': '# Guidelines\n- Use TypeScript' },
+  userKnowledgeFiles: { '~/.knowledge.md': '# Preferences\n- Be concise' },
+})
+```
+
 ### File Filtering
 
 The `fileFilter` option controls which files the agent can read:

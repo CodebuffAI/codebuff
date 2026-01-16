@@ -14,13 +14,13 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 export const knowledgeFilesPrompt = `
 # Knowledge files
 
-Knowledge files are your guide to the project. Knowledge files (files ending in "knowledge.md" or "CLAUDE.md") within a directory capture knowledge about that portion of the codebase. They are another way to take notes in this "Memento"-style environment.
+Knowledge files are your guide to the project. Knowledge files (files ending in "knowledge.md", "AGENTS.md", or "CLAUDE.md") within a directory capture knowledge about that portion of the codebase. They are another way to take notes in this "Memento"-style environment.
 
 Knowledge files were created by previous engineers working on the codebase, and they were given these same instructions. They contain key concepts or helpful tips that are not obvious from the code. e.g., let's say I want to use a package manager aside from the default. That is hard to find in the codebase and would therefore be an appropriate piece of information to add to a knowledge file.
 
 Each knowledge file should develop over time into a concise but rich repository of knowledge about the files within the directory, subdirectories, or the specific file it's associated with.
 
-There is a special class of user knowledge files that are stored in the user's home directory, e.g. \`~/.knowledge.md\`. These files are available to be read, but you cannot edit them because they are outside of the project directory. Do not try to edit them.
+There is a special class of user knowledge files that are stored in the user's home directory, e.g. \`~/.knowledge.md\`, \`~/.AGENTS.md\`, or \`~/.CLAUDE.md\`. These files are available to be read, but you cannot edit them because they are outside of the project directory. Do not try to edit them.
 
 When should you update a knowledge file?
 - If the user gives broad advice to "always do x", that is a good candidate for updating a knowledge file with a concise rule to follow or bit of advice so you won't make the mistake again.

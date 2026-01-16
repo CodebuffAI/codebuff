@@ -3,6 +3,11 @@ import path from 'path'
 
 import { getFileTokenScores } from '@codebuff/code-map/parse'
 import {
+  KNOWLEDGE_FILE_NAMES,
+  KNOWLEDGE_FILE_NAMES_LOWERCASE,
+  isKnowledgeFile,
+} from '@codebuff/common/constants/knowledge'
+import {
   getProjectFileTree,
   getAllFilePaths,
 } from '@codebuff/common/project-file-tree'
@@ -12,6 +17,13 @@ import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
 
 import { loadLocalAgents } from './agents/load-agents'
+
+// Re-export for SDK consumers
+export {
+  KNOWLEDGE_FILE_NAMES,
+  PRIMARY_KNOWLEDGE_FILE_NAME,
+  isKnowledgeFile,
+} from '@codebuff/common/constants/knowledge'
 
 import type { CustomToolDefinition } from './custom-tool'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
@@ -29,6 +41,25 @@ import type {
 } from '@codebuff/common/util/file'
 import type * as fsType from 'fs'
 
+/**
+ * Given a list of candidate file paths, selects the one with highest priority.
+ * Priority order: knowledge.md > AGENTS.md > CLAUDE.md (case-insensitive).
+ * Returns undefined if no knowledge files are found.
+ * @internal Exported for testing
+ */
+export function selectHighestPriorityKnowledgeFile(
+  candidates: string[],
+): string | undefined {
+  // Loop through priorities and find the first match directly
+  for (const priorityName of KNOWLEDGE_FILE_NAMES_LOWERCASE) {
+    const match = candidates.find((f) =>
+      f.toLowerCase().endsWith(priorityName),
+    )
+    if (match) return match
+  }
+  return undefined
+}
+
 export type RunState = {
   sessionState?: SessionState
   output: AgentOutput
@@ -38,6 +69,8 @@ export type InitialSessionStateOptions = {
   cwd?: string
   projectFiles?: Record<string, string>
   knowledgeFiles?: Record<string, string>
+  /** User-provided knowledge files that will be merged with home directory files */
+  userKnowledgeFiles?: Record<string, string>
   agentDefinitions?: AgentDefinition[]
   customToolDefinitions?: CustomToolDefinition[]
   maxAgentSteps?: number
@@ -265,19 +298,71 @@ async function discoverProjectFiles(params: {
 }
 
 /**
+ * Loads user knowledge files from the home directory.
+ * Checks for ~/.knowledge.md, ~/.AGENTS.md, and ~/.CLAUDE.md with priority fallback.
+ * Matching is case-insensitive (e.g., ~/.KNOWLEDGE.md will match).
+ * Returns a record with the tilde-prefixed path as key (e.g., "~/.knowledge.md").
+ * @internal Exported for testing
+ */
+export async function loadUserKnowledgeFiles(params: {
+  fs: CodebuffFileSystem
+  logger: Logger
+  /** Optional home directory override for testing */
+  homeDir?: string
+}): Promise<Record<string, string>> {
+  const { fs, logger } = params
+  const homeDir = params.homeDir ?? os.homedir()
+  const userKnowledgeFiles: Record<string, string> = {}
+
+  // List home directory to find knowledge files case-insensitively
+  let entries: string[]
+  try {
+    entries = await fs.readdir(homeDir)
+  } catch {
+    logger.debug?.({ homeDir }, 'Failed to read home directory')
+    return userKnowledgeFiles
+  }
+
+  // Find hidden files that match our knowledge file patterns (case-insensitive)
+  // Build a map of lowercase name -> actual filename for priority selection
+  const candidates = new Map<string, string>()
+  for (const entry of entries) {
+    if (!entry.startsWith('.')) continue
+    const nameWithoutDot = entry.slice(1) // Remove leading dot
+    const lowerName = nameWithoutDot.toLowerCase()
+    if (KNOWLEDGE_FILE_NAMES_LOWERCASE.includes(lowerName)) {
+      candidates.set(lowerName, entry)
+    }
+  }
+
+  // Select highest priority file (priority: knowledge.md > AGENTS.md > CLAUDE.md)
+  for (const priorityName of KNOWLEDGE_FILE_NAMES_LOWERCASE) {
+    const actualFileName = candidates.get(priorityName)
+    if (actualFileName) {
+      const filePath = path.join(homeDir, actualFileName)
+      try {
+        const content = await fs.readFile(filePath, 'utf8')
+        // Use tilde notation with the actual filename (preserving case)
+        const tildeKey = `~/${actualFileName}`
+        userKnowledgeFiles[tildeKey] = content
+        // Only use the first file found (highest priority)
+        break
+      } catch {
+        logger.debug?.({ filePath }, 'Failed to read user knowledge file')
+      }
+    }
+  }
+
+  return userKnowledgeFiles
+}
+
+/**
  * Selects knowledge files from a list of file paths with fallback logic.
  * For each directory, checks for knowledge.md first, then AGENTS.md, then CLAUDE.md.
  * @internal Exported for testing
  */
 export function selectKnowledgeFilePaths(allFilePaths: string[]): string[] {
-  const knowledgeCandidates = allFilePaths.filter((filePath) => {
-    const lowercaseFilePath = filePath.toLowerCase()
-    return (
-      lowercaseFilePath.endsWith('knowledge.md') ||
-      lowercaseFilePath.endsWith('agents.md') ||
-      lowercaseFilePath.endsWith('claude.md')
-    )
-  })
+  const knowledgeCandidates = allFilePaths.filter(isKnowledgeFile)
 
   // Group candidates by directory
   const byDirectory = new Map<string, string[]>()
@@ -291,18 +376,11 @@ export function selectKnowledgeFilePaths(allFilePaths: string[]): string[] {
 
   const selectedFiles: string[] = []
 
-  // For each directory, select one knowledge file using fallback priority
+  // For each directory, select one knowledge file using priority fallback
   for (const files of byDirectory.values()) {
-    const knowledgeMd = files.find((f) =>
-      f.toLowerCase().endsWith('knowledge.md'),
-    )
-    const agentsMd = files.find((f) => f.toLowerCase().endsWith('agents.md'))
-    const claudeMd = files.find((f) => f.toLowerCase().endsWith('claude.md'))
-
-    // Priority: knowledge.md > AGENTS.md > CLAUDE.md
-    const selectedKnowledgeFile = knowledgeMd || agentsMd || claudeMd
-    if (selectedKnowledgeFile) {
-      selectedFiles.push(selectedKnowledgeFile)
+    const selected = selectHighestPriorityKnowledgeFile(files)
+    if (selected) {
+      selectedFiles.push(selected)
     }
   }
 
@@ -335,6 +413,7 @@ export async function initialSessionState(
     customToolDefinitions,
     projectFiles,
     knowledgeFiles,
+    userKnowledgeFiles: providedUserKnowledgeFiles,
     fs,
     spawn,
     logger,
@@ -401,6 +480,13 @@ export async function initialSessionState(
         lastCommitMessages: '',
       }
 
+  // Load user knowledge files from home directory and merge with any provided ones
+  const homeKnowledgeFiles = await loadUserKnowledgeFiles({ fs, logger })
+  const userKnowledgeFiles = {
+    ...homeKnowledgeFiles,
+    ...providedUserKnowledgeFiles,
+  }
+
   const initialState = getInitialSessionState({
     projectRoot: cwd ?? process.cwd(),
     cwd: cwd ?? process.cwd(),
@@ -408,7 +494,7 @@ export async function initialSessionState(
     fileTokenScores,
     tokenCallers,
     knowledgeFiles,
-    userKnowledgeFiles: {},
+    userKnowledgeFiles,
     agentTemplates: processedAgentTemplates,
     customToolDefinitions: processedCustomToolDefinitions,
     gitChanges,
@@ -435,6 +521,7 @@ export async function generateInitialRunState({
   cwd,
   projectFiles,
   knowledgeFiles,
+  userKnowledgeFiles,
   agentDefinitions,
   customToolDefinitions,
   maxAgentSteps,
@@ -443,6 +530,7 @@ export async function generateInitialRunState({
   cwd: string
   projectFiles?: Record<string, string>
   knowledgeFiles?: Record<string, string>
+  userKnowledgeFiles?: Record<string, string>
   agentDefinitions?: AgentDefinition[]
   customToolDefinitions?: CustomToolDefinition[]
   maxAgentSteps?: number
@@ -453,6 +541,7 @@ export async function generateInitialRunState({
       cwd,
       projectFiles,
       knowledgeFiles,
+      userKnowledgeFiles,
       agentDefinitions,
       customToolDefinitions,
       maxAgentSteps,
