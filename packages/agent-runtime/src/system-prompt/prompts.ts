@@ -178,7 +178,8 @@ However, some differences remain:
   // Default cmd.exe note
   return `
 Note: The user is running Windows Command Prompt (cmd.exe).
-Many Unix commands are different on cmd.exe:
+
+**Command equivalents:**
 - Use \`mkdir\` instead of \`mkdir -p\` (mkdir creates parent dirs automatically on Windows)
 - Use \`findstr\` instead of \`grep\`
 - Use \`dir\` instead of \`ls\`
@@ -186,11 +187,23 @@ Many Unix commands are different on cmd.exe:
 - Use \`del\` instead of \`rm\`
 - Use \`copy\` instead of \`cp\`
 - Use \`type\` instead of \`cat\`
-- HEREDOC syntax (\`<<'EOF'\`) does NOT work
-- **cmd.exe has complex escaping rules** - for commands with quotes, special chars (& | < > ^), or multi-line strings:
-  - Use the \`write_file\` tool to create a temp file with the content, then reference it
-  - For git commits: write message to \`.codebuff-commit-msg.txt\`, run \`git commit -F .codebuff-commit-msg.txt\`, then \`del .codebuff-commit-msg.txt\`
-  - This file-based approach completely avoids escaping issues
+
+**cmd.exe escaping rules (IMPORTANT):**
+- Escape special characters \`& | < > ^\` with a caret: \`^&\`, \`^|\`, \`^<\`, \`^>\`, \`^^\`
+- For literal \`%\`, use \`%%\` (e.g., \`echo 50%% complete\`)
+- Double quotes work for strings, but nested quotes are complex - avoid when possible
+- HEREDOC syntax (\`<<'EOF'\`) does NOT work at all
+- Multi-line strings in commands are unreliable - use file-based approach instead
+
+**Recommended: File-based approach for complex content:**
+For commands involving quotes, special characters, or multi-line content, avoid escaping entirely:
+1. Use \`write_file\` tool to create a temp file with the content
+2. Run the command referencing that file
+3. Delete the temp file with \`del\`
+
+Examples:
+- **Git commits:** write message to \`.codebuff-commit-msg.txt\`, run \`git commit -F .codebuff-commit-msg.txt\`, then \`del .codebuff-commit-msg.txt\`
+- **Complex echo:** write content to \`.codebuff-temp.txt\`, run \`type .codebuff-temp.txt\`, then \`del .codebuff-temp.txt\`
 `.trim()
 }
 
