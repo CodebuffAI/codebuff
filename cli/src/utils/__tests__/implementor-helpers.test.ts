@@ -10,6 +10,10 @@ import {
   isImplementorAgent,
   getImplementorDisplayName,
   getImplementorIndex,
+  groupConsecutiveBlocks,
+  groupConsecutiveImplementors,
+  groupConsecutiveNonImplementorAgents,
+  groupConsecutiveToolBlocks,
 } from '../implementor-helpers'
 import type { ToolContentBlock, ContentBlock, AgentContentBlock, TextContentBlock } from '../../types/chat'
 
@@ -394,5 +398,494 @@ describe('getImplementorIndex', () => {
     const siblings: ContentBlock[] = [filePicker]
 
     expect(getImplementorIndex(filePicker, siblings)).toBeUndefined()
+  })
+})
+
+describe('groupConsecutiveBlocks', () => {
+  const createTextBlock = (content: string): TextContentBlock => ({
+    type: 'text',
+    content,
+  } as TextContentBlock)
+
+  const createToolBlock = (toolName: string): ToolContentBlock => ({
+    type: 'tool',
+    toolCallId: `tool-${toolName}`,
+    toolName: toolName as ToolContentBlock['toolName'],
+    input: {},
+  })
+
+  const createAgentBlock = (agentType: string, agentId: string): AgentContentBlock => ({
+    type: 'agent',
+    agentId,
+    agentName: agentType,
+    agentType,
+    content: '',
+    status: 'complete',
+    blocks: [],
+  } as AgentContentBlock)
+
+  test('groups consecutive matching blocks from start', () => {
+    const blocks: ContentBlock[] = [
+      createTextBlock('text1'),
+      createTextBlock('text2'),
+      createToolBlock('str_replace'),
+    ]
+    const isText = (b: ContentBlock): b is TextContentBlock => b.type === 'text'
+    const result = groupConsecutiveBlocks(blocks, 0, isText)
+
+    expect(result.group).toHaveLength(2)
+    expect(result.group[0].content).toBe('text1')
+    expect(result.group[1].content).toBe('text2')
+    expect(result.nextIndex).toBe(2)
+  })
+
+  test('groups from middle of array', () => {
+    const blocks: ContentBlock[] = [
+      createToolBlock('read_files'),
+      createTextBlock('text1'),
+      createTextBlock('text2'),
+      createTextBlock('text3'),
+      createToolBlock('write_file'),
+    ]
+    const isText = (b: ContentBlock): b is TextContentBlock => b.type === 'text'
+    const result = groupConsecutiveBlocks(blocks, 1, isText)
+
+    expect(result.group).toHaveLength(3)
+    expect(result.nextIndex).toBe(4)
+  })
+
+  test('returns empty group when first block does not match', () => {
+    const blocks: ContentBlock[] = [
+      createToolBlock('str_replace'),
+      createTextBlock('text1'),
+    ]
+    const isText = (b: ContentBlock): b is TextContentBlock => b.type === 'text'
+    const result = groupConsecutiveBlocks(blocks, 0, isText)
+
+    expect(result.group).toHaveLength(0)
+    expect(result.nextIndex).toBe(0)
+  })
+
+  test('handles empty blocks array', () => {
+    const blocks: ContentBlock[] = []
+    const isText = (b: ContentBlock): b is TextContentBlock => b.type === 'text'
+    const result = groupConsecutiveBlocks(blocks, 0, isText)
+
+    expect(result.group).toHaveLength(0)
+    expect(result.nextIndex).toBe(0)
+  })
+
+  test('handles startIndex at end of array', () => {
+    const blocks: ContentBlock[] = [createTextBlock('text1')]
+    const isText = (b: ContentBlock): b is TextContentBlock => b.type === 'text'
+    const result = groupConsecutiveBlocks(blocks, 1, isText)
+
+    expect(result.group).toHaveLength(0)
+    expect(result.nextIndex).toBe(1)
+  })
+
+  test('handles startIndex beyond array length', () => {
+    const blocks: ContentBlock[] = [createTextBlock('text1')]
+    const isText = (b: ContentBlock): b is TextContentBlock => b.type === 'text'
+    const result = groupConsecutiveBlocks(blocks, 10, isText)
+
+    expect(result.group).toHaveLength(0)
+    expect(result.nextIndex).toBe(10)
+  })
+
+  test('groups all blocks when all match', () => {
+    const blocks: ContentBlock[] = [
+      createTextBlock('text1'),
+      createTextBlock('text2'),
+      createTextBlock('text3'),
+    ]
+    const isText = (b: ContentBlock): b is TextContentBlock => b.type === 'text'
+    const result = groupConsecutiveBlocks(blocks, 0, isText)
+
+    expect(result.group).toHaveLength(3)
+    expect(result.nextIndex).toBe(3)
+  })
+
+  test('groups single matching block', () => {
+    const blocks: ContentBlock[] = [
+      createTextBlock('text1'),
+      createToolBlock('str_replace'),
+    ]
+    const isText = (b: ContentBlock): b is TextContentBlock => b.type === 'text'
+    const result = groupConsecutiveBlocks(blocks, 0, isText)
+
+    expect(result.group).toHaveLength(1)
+    expect(result.nextIndex).toBe(1)
+  })
+
+  test('works with complex predicates', () => {
+    const blocks: ContentBlock[] = [
+      createToolBlock('str_replace'),
+      createToolBlock('write_file'),
+      createToolBlock('read_files'),
+      createTextBlock('done'),
+    ]
+    const isEditTool = (b: ContentBlock): b is ToolContentBlock =>
+      b.type === 'tool' && ['str_replace', 'write_file'].includes(b.toolName as string)
+    const result = groupConsecutiveBlocks(blocks, 0, isEditTool)
+
+    expect(result.group).toHaveLength(2)
+    expect(result.group[0].toolName).toBe('str_replace')
+    expect(result.group[1].toolName).toBe('write_file')
+    expect(result.nextIndex).toBe(2)
+  })
+})
+
+describe('groupConsecutiveImplementors', () => {
+  const createImplementorAgent = (id: string, agentType = 'editor-implementor'): AgentContentBlock => ({
+    type: 'agent',
+    agentId: id,
+    agentName: 'Implementor',
+    agentType,
+    content: '',
+    status: 'complete',
+    blocks: [],
+  } as AgentContentBlock)
+
+  const createNonImplementorAgent = (id: string, agentType: string): AgentContentBlock => ({
+    type: 'agent',
+    agentId: id,
+    agentName: agentType,
+    agentType,
+    content: '',
+    status: 'complete',
+    blocks: [],
+  } as AgentContentBlock)
+
+  const createTextBlock = (content: string): TextContentBlock => ({
+    type: 'text',
+    content,
+  } as TextContentBlock)
+
+  test('groups consecutive implementor agents', () => {
+    const blocks: ContentBlock[] = [
+      createImplementorAgent('impl-1'),
+      createImplementorAgent('impl-2', 'editor-implementor-opus'),
+      createImplementorAgent('impl-3', 'editor-implementor-gpt-5'),
+      createNonImplementorAgent('fp-1', 'file-picker'),
+    ]
+    const result = groupConsecutiveImplementors(blocks, 0)
+
+    expect(result.group).toHaveLength(3)
+    expect(result.group[0].agentId).toBe('impl-1')
+    expect(result.group[1].agentId).toBe('impl-2')
+    expect(result.group[2].agentId).toBe('impl-3')
+    expect(result.nextIndex).toBe(3)
+  })
+
+  test('stops at non-implementor agent', () => {
+    const blocks: ContentBlock[] = [
+      createImplementorAgent('impl-1'),
+      createNonImplementorAgent('cmd-1', 'commander'),
+      createImplementorAgent('impl-2'),
+    ]
+    const result = groupConsecutiveImplementors(blocks, 0)
+
+    expect(result.group).toHaveLength(1)
+    expect(result.nextIndex).toBe(1)
+  })
+
+  test('stops at non-agent block', () => {
+    const blocks: ContentBlock[] = [
+      createImplementorAgent('impl-1'),
+      createTextBlock('some text'),
+      createImplementorAgent('impl-2'),
+    ]
+    const result = groupConsecutiveImplementors(blocks, 0)
+
+    expect(result.group).toHaveLength(1)
+    expect(result.nextIndex).toBe(1)
+  })
+
+  test('returns empty group when starting at non-implementor', () => {
+    const blocks: ContentBlock[] = [
+      createNonImplementorAgent('fp-1', 'file-picker'),
+      createImplementorAgent('impl-1'),
+    ]
+    const result = groupConsecutiveImplementors(blocks, 0)
+
+    expect(result.group).toHaveLength(0)
+    expect(result.nextIndex).toBe(0)
+  })
+
+  test('handles agents with proposed tools as implementors', () => {
+    const agentWithProposedTools: AgentContentBlock = {
+      type: 'agent',
+      agentId: 'custom-1',
+      agentName: 'Custom Agent',
+      agentType: 'custom-agent',
+      content: '',
+      status: 'complete',
+      blocks: [
+        {
+          type: 'tool',
+          toolCallId: 'tool-1',
+          toolName: 'propose_str_replace',
+          input: {},
+        },
+      ],
+    } as AgentContentBlock
+
+    const blocks: ContentBlock[] = [
+      agentWithProposedTools,
+      createImplementorAgent('impl-1'),
+    ]
+    const result = groupConsecutiveImplementors(blocks, 0)
+
+    expect(result.group).toHaveLength(2)
+    expect(result.group[0].agentId).toBe('custom-1')
+    expect(result.group[1].agentId).toBe('impl-1')
+  })
+
+  test('handles empty blocks array', () => {
+    const result = groupConsecutiveImplementors([], 0)
+    expect(result.group).toHaveLength(0)
+    expect(result.nextIndex).toBe(0)
+  })
+})
+
+describe('groupConsecutiveNonImplementorAgents', () => {
+  const createImplementorAgent = (id: string): AgentContentBlock => ({
+    type: 'agent',
+    agentId: id,
+    agentName: 'Implementor',
+    agentType: 'editor-implementor',
+    content: '',
+    status: 'complete',
+    blocks: [],
+  } as AgentContentBlock)
+
+  const createNonImplementorAgent = (id: string, agentType: string): AgentContentBlock => ({
+    type: 'agent',
+    agentId: id,
+    agentName: agentType,
+    agentType,
+    content: '',
+    status: 'complete',
+    blocks: [],
+  } as AgentContentBlock)
+
+  const createTextBlock = (content: string): TextContentBlock => ({
+    type: 'text',
+    content,
+  } as TextContentBlock)
+
+  test('groups consecutive non-implementor agents', () => {
+    const blocks: ContentBlock[] = [
+      createNonImplementorAgent('fp-1', 'file-picker'),
+      createNonImplementorAgent('cmd-1', 'commander'),
+      createNonImplementorAgent('cs-1', 'code-searcher'),
+      createImplementorAgent('impl-1'),
+    ]
+    const result = groupConsecutiveNonImplementorAgents(blocks, 0)
+
+    expect(result.group).toHaveLength(3)
+    expect(result.group[0].agentType).toBe('file-picker')
+    expect(result.group[1].agentType).toBe('commander')
+    expect(result.group[2].agentType).toBe('code-searcher')
+    expect(result.nextIndex).toBe(3)
+  })
+
+  test('stops at implementor agent', () => {
+    const blocks: ContentBlock[] = [
+      createNonImplementorAgent('fp-1', 'file-picker'),
+      createImplementorAgent('impl-1'),
+      createNonImplementorAgent('cmd-1', 'commander'),
+    ]
+    const result = groupConsecutiveNonImplementorAgents(blocks, 0)
+
+    expect(result.group).toHaveLength(1)
+    expect(result.nextIndex).toBe(1)
+  })
+
+  test('stops at non-agent block', () => {
+    const blocks: ContentBlock[] = [
+      createNonImplementorAgent('fp-1', 'file-picker'),
+      createTextBlock('some text'),
+      createNonImplementorAgent('cmd-1', 'commander'),
+    ]
+    const result = groupConsecutiveNonImplementorAgents(blocks, 0)
+
+    expect(result.group).toHaveLength(1)
+    expect(result.nextIndex).toBe(1)
+  })
+
+  test('returns empty group when starting at implementor', () => {
+    const blocks: ContentBlock[] = [
+      createImplementorAgent('impl-1'),
+      createNonImplementorAgent('fp-1', 'file-picker'),
+    ]
+    const result = groupConsecutiveNonImplementorAgents(blocks, 0)
+
+    expect(result.group).toHaveLength(0)
+    expect(result.nextIndex).toBe(0)
+  })
+
+  test('returns empty group when starting at text block', () => {
+    const blocks: ContentBlock[] = [
+      createTextBlock('some text'),
+      createNonImplementorAgent('fp-1', 'file-picker'),
+    ]
+    const result = groupConsecutiveNonImplementorAgents(blocks, 0)
+
+    expect(result.group).toHaveLength(0)
+    expect(result.nextIndex).toBe(0)
+  })
+
+  test('groups from middle of array', () => {
+    const blocks: ContentBlock[] = [
+      createImplementorAgent('impl-1'),
+      createNonImplementorAgent('fp-1', 'file-picker'),
+      createNonImplementorAgent('cmd-1', 'commander'),
+      createTextBlock('done'),
+    ]
+    const result = groupConsecutiveNonImplementorAgents(blocks, 1)
+
+    expect(result.group).toHaveLength(2)
+    expect(result.group[0].agentType).toBe('file-picker')
+    expect(result.group[1].agentType).toBe('commander')
+    expect(result.nextIndex).toBe(3)
+  })
+
+  test('handles mixed agent types', () => {
+    const blocks: ContentBlock[] = [
+      createNonImplementorAgent('fp-1', 'file-picker'),
+      createNonImplementorAgent('think-1', 'thinker'),
+      createNonImplementorAgent('rev-1', 'reviewer'),
+    ]
+    const result = groupConsecutiveNonImplementorAgents(blocks, 0)
+
+    expect(result.group).toHaveLength(3)
+    expect(result.nextIndex).toBe(3)
+  })
+
+  test('handles empty blocks array', () => {
+    const result = groupConsecutiveNonImplementorAgents([], 0)
+    expect(result.group).toHaveLength(0)
+    expect(result.nextIndex).toBe(0)
+  })
+})
+
+describe('groupConsecutiveToolBlocks', () => {
+  const createToolBlock = (toolName: string, id: string): ToolContentBlock => ({
+    type: 'tool',
+    toolCallId: id,
+    toolName: toolName as ToolContentBlock['toolName'],
+    input: {},
+  })
+
+  const createTextBlock = (content: string): TextContentBlock => ({
+    type: 'text',
+    content,
+  } as TextContentBlock)
+
+  const createAgentBlock = (id: string): AgentContentBlock => ({
+    type: 'agent',
+    agentId: id,
+    agentName: 'Test Agent',
+    agentType: 'file-picker',
+    content: '',
+    status: 'complete',
+    blocks: [],
+  } as AgentContentBlock)
+
+  test('groups consecutive tool blocks', () => {
+    const blocks: ContentBlock[] = [
+      createToolBlock('str_replace', 'tool-1'),
+      createToolBlock('write_file', 'tool-2'),
+      createToolBlock('read_files', 'tool-3'),
+      createTextBlock('done'),
+    ]
+    const result = groupConsecutiveToolBlocks(blocks, 0)
+
+    expect(result.group).toHaveLength(3)
+    expect(result.group[0].toolCallId).toBe('tool-1')
+    expect(result.group[1].toolCallId).toBe('tool-2')
+    expect(result.group[2].toolCallId).toBe('tool-3')
+    expect(result.nextIndex).toBe(3)
+  })
+
+  test('stops at non-tool block', () => {
+    const blocks: ContentBlock[] = [
+      createToolBlock('str_replace', 'tool-1'),
+      createTextBlock('some text'),
+      createToolBlock('write_file', 'tool-2'),
+    ]
+    const result = groupConsecutiveToolBlocks(blocks, 0)
+
+    expect(result.group).toHaveLength(1)
+    expect(result.nextIndex).toBe(1)
+  })
+
+  test('stops at agent block', () => {
+    const blocks: ContentBlock[] = [
+      createToolBlock('str_replace', 'tool-1'),
+      createAgentBlock('agent-1'),
+      createToolBlock('write_file', 'tool-2'),
+    ]
+    const result = groupConsecutiveToolBlocks(blocks, 0)
+
+    expect(result.group).toHaveLength(1)
+    expect(result.nextIndex).toBe(1)
+  })
+
+  test('returns empty group when starting at non-tool block', () => {
+    const blocks: ContentBlock[] = [
+      createTextBlock('some text'),
+      createToolBlock('str_replace', 'tool-1'),
+    ]
+    const result = groupConsecutiveToolBlocks(blocks, 0)
+
+    expect(result.group).toHaveLength(0)
+    expect(result.nextIndex).toBe(0)
+  })
+
+  test('groups from middle of array', () => {
+    const blocks: ContentBlock[] = [
+      createTextBlock('start'),
+      createToolBlock('str_replace', 'tool-1'),
+      createToolBlock('write_file', 'tool-2'),
+      createTextBlock('end'),
+    ]
+    const result = groupConsecutiveToolBlocks(blocks, 1)
+
+    expect(result.group).toHaveLength(2)
+    expect(result.group[0].toolCallId).toBe('tool-1')
+    expect(result.group[1].toolCallId).toBe('tool-2')
+    expect(result.nextIndex).toBe(3)
+  })
+
+  test('handles empty blocks array', () => {
+    const result = groupConsecutiveToolBlocks([], 0)
+    expect(result.group).toHaveLength(0)
+    expect(result.nextIndex).toBe(0)
+  })
+
+  test('groups all tool blocks when all match', () => {
+    const blocks: ContentBlock[] = [
+      createToolBlock('str_replace', 'tool-1'),
+      createToolBlock('write_file', 'tool-2'),
+      createToolBlock('read_files', 'tool-3'),
+    ]
+    const result = groupConsecutiveToolBlocks(blocks, 0)
+
+    expect(result.group).toHaveLength(3)
+    expect(result.nextIndex).toBe(3)
+  })
+
+  test('handles single tool block', () => {
+    const blocks: ContentBlock[] = [
+      createToolBlock('str_replace', 'tool-1'),
+      createTextBlock('done'),
+    ]
+    const result = groupConsecutiveToolBlocks(blocks, 0)
+
+    expect(result.group).toHaveLength(1)
+    expect(result.nextIndex).toBe(1)
   })
 })
