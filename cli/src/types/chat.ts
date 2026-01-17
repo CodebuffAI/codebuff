@@ -166,6 +166,12 @@ export type ChatMessage = {
   isComplete?: boolean
   metadata?: ChatMessageMetadata
   validationErrors?: Array<{ id: string; message: string }>
+  /**
+   * UI-only runtime error displayed in UserErrorBanner (not sent to LLM).
+   * Set by setError() when an error occurs during message streaming.
+   * Can be cleared by clearUserError() when starting a new successful interaction.
+   */
+  userError?: string
   attachments?: ImageAttachment[]
   textAttachments?: TextAttachment[]
 }

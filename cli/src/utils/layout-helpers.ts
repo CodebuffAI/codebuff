@@ -1,7 +1,8 @@
-/**
- * Compute the ideal number of columns for a grid layout
- * Tries to create a balanced grid (e.g. 2x2 instead of 3x1 + 1) while respecting max columns
- */
+export const MIN_COLUMN_WIDTH = 10
+export const MAX_AGENT_DEPTH = 10
+export const AGENT_CONTENT_HORIZONTAL_PADDING = 12
+
+// Prefers balanced grids (2x2 over 3+1)
 export function computeSmartColumns(itemCount: number, maxColumns: number): number {
   if (itemCount === 0) return 1
   if (itemCount <= maxColumns) return itemCount

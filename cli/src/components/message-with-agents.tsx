@@ -3,6 +3,8 @@ import { memo, useCallback, useMemo, type ReactNode } from 'react'
 import React from 'react'
 
 import { Button } from './button'
+import { ErrorBoundary } from './error-boundary'
+import { GridLayout } from './grid-layout'
 import { MessageBlock } from './message-block'
 import { ModeDivider } from './mode-divider'
 import {
@@ -10,9 +12,132 @@ import {
   hasMarkdown,
   type MarkdownPalette,
 } from '../utils/markdown-renderer'
+import { AGENT_CONTENT_HORIZONTAL_PADDING, MAX_AGENT_DEPTH } from '../utils/layout-helpers'
+import { getCliEnv } from '../utils/env'
 
 import type { ChatMessage } from '../types/chat'
 import type { ChatTheme } from '../types/theme-system'
+
+interface AgentChildrenGridProps {
+  agentChildren: ChatMessage[]
+  depth: number
+  theme: ChatTheme
+  markdownPalette: MarkdownPalette
+  streamingAgents: Set<string>
+  messageTree: Map<string, ChatMessage[]>
+  messages: ChatMessage[]
+  availableWidth: number
+  setFocusedAgentId: React.Dispatch<React.SetStateAction<string | null>>
+  isWaitingForResponse: boolean
+  timerStartTime: number | null
+  onToggleCollapsed: (id: string) => void
+  onBuildFast: () => void
+  onBuildMax: () => void
+  onFeedback: (
+    messageId: string,
+    options?: {
+      category?: string
+      footerMessage?: string
+      errors?: Array<{ id: string; message: string }>
+    },
+  ) => void
+  onCloseFeedback: () => void
+}
+
+const AgentChildrenGrid = memo(
+  ({
+    agentChildren,
+    depth,
+    theme,
+    markdownPalette,
+    streamingAgents,
+    messageTree,
+    messages,
+    availableWidth,
+    setFocusedAgentId,
+    isWaitingForResponse,
+    timerStartTime,
+    onToggleCollapsed,
+    onBuildFast,
+    onBuildMax,
+    onFeedback,
+    onCloseFeedback,
+  }: AgentChildrenGridProps) => {
+    const getItemKey = useCallback((agent: ChatMessage) => agent.id, [])
+
+    const renderAgentChild = useCallback(
+      (agent: ChatMessage, _idx: number, columnWidth: number) => (
+        <MessageWithAgents
+          message={agent}
+          depth={depth + 1}
+          isLastMessage={false}
+          theme={theme}
+          markdownPalette={markdownPalette}
+          streamingAgents={streamingAgents}
+          messageTree={messageTree}
+          messages={messages}
+          availableWidth={columnWidth}
+          setFocusedAgentId={setFocusedAgentId}
+          isWaitingForResponse={isWaitingForResponse}
+          timerStartTime={timerStartTime}
+          onToggleCollapsed={onToggleCollapsed}
+          onBuildFast={onBuildFast}
+          onBuildMax={onBuildMax}
+          onFeedback={onFeedback}
+          onCloseFeedback={onCloseFeedback}
+        />
+      ),
+      [
+        depth,
+        theme,
+        markdownPalette,
+        streamingAgents,
+        messageTree,
+        messages,
+        setFocusedAgentId,
+        isWaitingForResponse,
+        timerStartTime,
+        onToggleCollapsed,
+        onBuildFast,
+        onBuildMax,
+        onFeedback,
+        onCloseFeedback,
+      ],
+    )
+
+    if (agentChildren.length === 0) return null
+
+    if (depth >= MAX_AGENT_DEPTH) {
+      if (getCliEnv().NODE_ENV === 'development') {
+        console.warn(
+          `[AgentChildrenGrid] Depth limit (${MAX_AGENT_DEPTH}) reached, truncating agent tree`,
+        )
+      }
+      return (
+        <text fg={theme.muted} attributes={TextAttributes.ITALIC}>
+          {`${agentChildren.length} nested agent${
+            agentChildren.length > 1 ? 's' : ''
+          } not shown (depth limit)`}
+        </text>
+      )
+    }
+
+    const errorFallback = (
+      <text fg={theme.error}>Error rendering agent children</text>
+    )
+
+    return (
+      <ErrorBoundary fallback={errorFallback} componentName="AgentChildrenGrid">
+        <GridLayout
+          items={agentChildren}
+          availableWidth={availableWidth}
+          getItemKey={getItemKey}
+          renderItem={renderAgentChild}
+        />
+      </ErrorBoundary>
+    )
+  },
+)
 
 interface MessageWithAgentsProps {
   message: ChatMessage
@@ -134,11 +259,7 @@ export const MessageWithAgents = memo(
       )
     }
     const lineColor = isError ? 'red' : isAi ? theme.aiLine : theme.userLine
-    const textColor = isError
-      ? theme.foreground
-      : isAi
-        ? theme.foreground
-        : theme.foreground
+    const textColor = theme.foreground
     const timestampColor = isError ? 'red' : isAi ? theme.muted : theme.muted
     const estimatedMessageWidth = availableWidth
     const codeBlockWidth = Math.max(10, estimatedMessageWidth - 8)
@@ -221,6 +342,7 @@ export const MessageWithAgents = memo(
                   onFeedback={onFeedback}
                   onCloseFeedback={onCloseFeedback}
                   validationErrors={message.validationErrors}
+                  userError={message.userError}
                   onOpenFeedback={onOpenFeedback}
                   attachments={message.attachments}
                   textAttachments={message.textAttachments}
@@ -254,6 +376,9 @@ export const MessageWithAgents = memo(
                 onBuildMax={onBuildMax}
                 onFeedback={onFeedback}
                 onCloseFeedback={onCloseFeedback}
+                validationErrors={message.validationErrors}
+                userError={message.userError}
+                onOpenFeedback={onOpenFeedback}
                 attachments={message.attachments}
                 textAttachments={message.textAttachments}
                 metadata={message.metadata}
@@ -264,31 +389,24 @@ export const MessageWithAgents = memo(
         </box>
 
         {hasAgentChildren && (
-          <box style={{ flexDirection: 'column', width: '100%', gap: 0 }}>
-            {agentChildren.map((agent) => (
-              <box key={agent.id} style={{ width: '100%' }}>
-                <MessageWithAgents
-                  message={agent}
-                  depth={depth + 1}
-                  isLastMessage={false}
-                  theme={theme}
-                  markdownPalette={markdownPalette}
-                  streamingAgents={streamingAgents}
-                  messageTree={messageTree}
-                  messages={messages}
-                  availableWidth={availableWidth}
-                  setFocusedAgentId={setFocusedAgentId}
-                  isWaitingForResponse={isWaitingForResponse}
-                  timerStartTime={timerStartTime}
-                  onToggleCollapsed={onToggleCollapsed}
-                  onBuildFast={onBuildFast}
-                  onBuildMax={onBuildMax}
-                  onFeedback={onFeedback}
-                  onCloseFeedback={onCloseFeedback}
-                />
-              </box>
-            ))}
-          </box>
+          <AgentChildrenGrid
+            agentChildren={agentChildren}
+            depth={depth}
+            theme={theme}
+            markdownPalette={markdownPalette}
+            streamingAgents={streamingAgents}
+            messageTree={messageTree}
+            messages={messages}
+            availableWidth={availableWidth}
+            setFocusedAgentId={setFocusedAgentId}
+            isWaitingForResponse={isWaitingForResponse}
+            timerStartTime={timerStartTime}
+            onToggleCollapsed={onToggleCollapsed}
+            onBuildFast={onBuildFast}
+            onBuildMax={onBuildMax}
+            onFeedback={onFeedback}
+            onCloseFeedback={onCloseFeedback}
+          />
         )}
       </box>
     )
@@ -340,7 +458,15 @@ const AgentMessage = memo(
     onFeedback,
     onCloseFeedback,
   }: AgentMessageProps): ReactNode => {
-    const agentInfo = message.agent!
+    // Guard against missing agent info (should not happen for agent variant messages)
+    if (!message.agent) {
+      return (
+        <text fg={theme.error}>
+          Error: Missing agent info for agent message
+        </text>
+      )
+    }
+    const agentInfo = message.agent
 
     // Get or initialize collapse state from message metadata
     const isCollapsed = message.metadata?.isCollapsed ?? false
@@ -365,7 +491,7 @@ const AgentMessage = memo(
         ? lastLine.replace(/[#*_`~\[\]()]/g, '').trim()
         : ''
 
-    const agentCodeBlockWidth = Math.max(10, availableWidth - 12)
+    const agentCodeBlockWidth = Math.max(10, availableWidth - AGENT_CONTENT_HORIZONTAL_PADDING)
     const agentPalette: MarkdownPalette = {
       ...markdownPalette,
       codeTextFg: theme.foreground,
@@ -378,20 +504,12 @@ const AgentMessage = memo(
       ? renderMarkdown(rawDisplayContent, agentMarkdownOptions)
       : rawDisplayContent
 
-    const handleTitleClick = (e: any): void => {
-      if (e && e.stopPropagation) {
-        e.stopPropagation()
-      }
-
+    const handleTitleClick = (): void => {
       onToggleCollapsed(message.id)
       setFocusedAgentId(message.id)
     }
 
-    const handleContentClick = (e: any): void => {
-      if (e && e.stopPropagation) {
-        e.stopPropagation()
-      }
-
+    const handleContentClick = (): void => {
       if (!isCollapsed) {
         return
       }
@@ -475,37 +593,24 @@ const AgentMessage = memo(
           </box>
         </box>
         {agentChildren.length > 0 && (
-          <box
-            style={{
-              flexDirection: 'column',
-              gap: 0,
-              flexShrink: 0,
-            }}
-          >
-            {agentChildren.map((childAgent) => (
-              <box key={childAgent.id} style={{ flexShrink: 0 }}>
-                <MessageWithAgents
-                  message={childAgent}
-                  depth={depth + 1}
-                  isLastMessage={false}
-                  theme={theme}
-                  markdownPalette={markdownPalette}
-                  streamingAgents={streamingAgents}
-                  messageTree={messageTree}
-                  messages={messages}
-                  availableWidth={availableWidth}
-                  setFocusedAgentId={setFocusedAgentId}
-                  isWaitingForResponse={isWaitingForResponse}
-                  timerStartTime={timerStartTime}
-                onToggleCollapsed={onToggleCollapsed}
-                onBuildFast={onBuildFast}
-                onBuildMax={onBuildMax}
-                onFeedback={onFeedback}
-                onCloseFeedback={onCloseFeedback}
-              />
-              </box>
-            ))}
-          </box>
+          <AgentChildrenGrid
+            agentChildren={agentChildren}
+            depth={depth}
+            theme={theme}
+            markdownPalette={markdownPalette}
+            streamingAgents={streamingAgents}
+            messageTree={messageTree}
+            messages={messages}
+            availableWidth={availableWidth}
+            setFocusedAgentId={setFocusedAgentId}
+            isWaitingForResponse={isWaitingForResponse}
+            timerStartTime={timerStartTime}
+            onToggleCollapsed={onToggleCollapsed}
+            onBuildFast={onBuildFast}
+            onBuildMax={onBuildMax}
+            onFeedback={onFeedback}
+            onCloseFeedback={onCloseFeedback}
+          />
         )}
       </box>
     )

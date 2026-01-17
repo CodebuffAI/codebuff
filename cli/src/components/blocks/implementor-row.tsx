@@ -12,8 +12,7 @@ import {
   type FileStats,
 } from '../../utils/implementor-helpers'
 import { useTheme } from '../../hooks/use-theme'
-import { useTerminalLayout } from '../../hooks/use-terminal-layout'
-import { computeSmartColumns } from '../../utils/layout-helpers'
+import { useGridLayout } from '../../hooks/use-grid-layout'
 import { getRelativePath } from '../../utils/path-helpers'
 import { PROPOSAL_BORDER_CHARS } from '../../utils/ui-constants'
 import { Button } from '../button'
@@ -24,13 +23,9 @@ import type { AgentContentBlock, ContentBlock } from '../../types/chat'
 interface ImplementorGroupProps {
   implementors: AgentContentBlock[]
   siblingBlocks: ContentBlock[]
-  onToggleCollapsed: (id: string) => void
   availableWidth: number
 }
 
-/**
- * Responsive card grid for comparing implementor proposals
- */
 export const ImplementorGroup = memo(
   ({
     implementors,
@@ -38,36 +33,7 @@ export const ImplementorGroup = memo(
     availableWidth,
   }: ImplementorGroupProps) => {
     const theme = useTheme()
-    const { width } = useTerminalLayout()
-    
-    // Determine max columns based on terminal width
-    const maxColumns = useMemo(() => {
-      if (width.is('xs')) return 1
-      if (width.is('sm')) return 1
-      if (width.is('md')) return 2
-      return 3 // lg
-    }, [width])
-
-    // Smart column selection based on item count
-    const columns = useMemo(() => 
-      computeSmartColumns(implementors.length, maxColumns),
-    [implementors.length, maxColumns])
-    
-    // Calculate card width based on columns and available space
-    const cardWidth = useMemo(() => {
-      // No gap between columns - cards are flush
-      return Math.floor(availableWidth / columns)
-    }, [availableWidth, columns])
-    
-    // Masonry layout: distribute items to columns round-robin style
-    // (simpler than height-based, but still gives masonry effect)
-    const columnGroups = useMemo(() => {
-      const result: AgentContentBlock[][] = Array.from({ length: columns }, () => [])
-      implementors.forEach((impl, idx) => {
-        result[idx % columns].push(impl)
-      })
-      return result
-    }, [implementors, columns])
+    const { columns, columnWidth: cardWidth, columnGroups } = useGridLayout(implementors, availableWidth)
 
     // Check if any implementors are still running
     const anyRunning = implementors.some(impl => impl.status === 'running')
@@ -84,52 +50,55 @@ export const ImplementorGroup = memo(
           marginTop: 1,
         }}
       >
-        <text
-          fg={theme.muted}
-          attributes={TextAttributes.DIM}
-        >
-          {headerText}
-        </text>
-        
         {/* Masonry layout: columns side by side, cards stack vertically in each */}
         <box
           style={{
             flexDirection: 'row',
-            gap: 1, // Small horizontal gap to balance visual weight with vertical double-borders
+            gap: 1,
             width: '100%',
             alignItems: 'flex-start',
           }}
         >
-          {columnGroups.map((columnItems, colIdx) => (
-            <box
-              key={`col-${colIdx}`}
+          {columnGroups.map((columnItems, colIdx) => {
+            // Use first agent's ID as stable column key
+            const columnKey = columnItems[0]?.agentId ?? `col-${colIdx}`
+            return (
+              <box
+                key={columnKey}
               style={{
                 flexDirection: 'column',
                 gap: 0,
                 flexGrow: 1,
                 flexShrink: 1,
                 flexBasis: 0,
-                minWidth: 0, // Allow shrinking below content size
+                minWidth: 0,
               }}
             >
-              {columnItems.map((agentBlock) => {
-                const implementorIndex = getImplementorIndex(
-                  agentBlock,
-                  siblingBlocks,
-                )
-                
-                return (
-                  <ImplementorCard
-                    key={agentBlock.agentId}
-                    agentBlock={agentBlock}
-                    implementorIndex={implementorIndex}
-                    cardWidth={cardWidth}
-                  />
-                )
-              })}
-            </box>
-          ))}
+                {columnItems.map((agentBlock) => {
+                  const implementorIndex = getImplementorIndex(
+                    agentBlock,
+                    siblingBlocks,
+                  )
+                  
+                  return (
+                    <ImplementorCard
+                      key={agentBlock.agentId}
+                      agentBlock={agentBlock}
+                      implementorIndex={implementorIndex}
+                      cardWidth={cardWidth}
+                    />
+                  )
+                })}
+              </box>
+            )
+          })}
         </box>
+        <text
+          fg={theme.muted}
+          attributes={TextAttributes.DIM}
+        >
+          {headerText}
+        </text>
       </box>
     )
   },
@@ -141,10 +110,6 @@ interface ImplementorCardProps {
   cardWidth: number
 }
 
-/**
- * Individual proposal card with dashed border
- * Click file rows to view their diffs
- */
 const ImplementorCard = memo(
   ({
     agentBlock,
@@ -274,10 +239,6 @@ const ImplementorCard = memo(
   },
 )
 
-// ============================================================================
-// COMPACT FILE STATS VIEW
-// ============================================================================
-
 interface CompactFileStatsProps {
   fileStats: FileStats[]
   availableWidth: number
@@ -287,12 +248,6 @@ interface CompactFileStatsProps {
   fileDiffs: Map<string, string>
 }
 
-/**
- * Compact view showing file changes with full-width, center-aligned addition/deletion bars.
- * The left side is a green bar (additions) and the right side is a red bar (deletions),
- * both extending to the center with their +N / -N counts rendered in white inside the bars.
- * Click a file name to view its diff inline below that row.
- */
 const CompactFileStats = memo(({
   fileStats,
   availableWidth,
@@ -354,10 +309,6 @@ interface CompactFileRowProps {
   diff?: string
 }
 
-/**
- * Single file row with full-width colored bars meeting at center.
- * File name is underlined on hover, clickable to show diff inline below.
- */
 const CompactFileRow = memo(({
   file,
   availableWidth,
