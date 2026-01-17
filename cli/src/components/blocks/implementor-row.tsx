@@ -1,8 +1,8 @@
 import { pluralize } from '@codebuff/common/util/string'
 import { TextAttributes } from '@opentui/core'
-import React, { memo, useMemo, useState, useCallback } from 'react'
+import React, { memo, useCallback, useMemo, useState } from 'react'
 
-import { getAgentStatusInfo } from '../utils/agent-helpers'
+import { getAgentStatusInfo } from '../../utils/agent-helpers'
 import {
   buildActivityTimeline,
   getImplementorDisplayName,
@@ -10,16 +10,16 @@ import {
   getFileStatsFromBlocks,
   truncateWithEllipsis,
   type FileStats,
-} from '../utils/implementor-helpers'
-import { useTheme } from '../hooks/use-theme'
-import { useTerminalLayout } from '../hooks/use-terminal-layout'
-import { computeSmartColumns } from '../utils/layout-helpers'
-import { getRelativePath } from '../utils/path-helpers'
-import { PROPOSAL_BORDER_CHARS } from '../utils/ui-constants'
-import { Button } from './button'
-import { CollapseButton } from './collapse-button'
-import { DiffViewer } from './tools/diff-viewer'
-import type { AgentContentBlock, ContentBlock } from '../types/chat'
+} from '../../utils/implementor-helpers'
+import { useTheme } from '../../hooks/use-theme'
+import { useTerminalLayout } from '../../hooks/use-terminal-layout'
+import { computeSmartColumns } from '../../utils/layout-helpers'
+import { getRelativePath } from '../../utils/path-helpers'
+import { PROPOSAL_BORDER_CHARS } from '../../utils/ui-constants'
+import { Button } from '../button'
+import { CollapseButton } from '../collapse-button'
+import { DiffViewer } from '../tools/diff-viewer'
+import type { AgentContentBlock, ContentBlock } from '../../types/chat'
 
 interface ImplementorGroupProps {
   implementors: AgentContentBlock[]

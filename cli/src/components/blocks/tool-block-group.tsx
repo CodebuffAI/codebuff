@@ -1,8 +1,8 @@
 import React, { memo, type ReactNode } from 'react'
 
-import { ToolBranch } from './blocks/tool-branch'
-import type { ContentBlock } from '../types/chat'
-import type { MarkdownPalette } from '../utils/markdown-renderer'
+import { ToolBranch } from './tool-branch'
+import type { ContentBlock } from '../../types/chat'
+import type { MarkdownPalette } from '../../utils/markdown-renderer'
 
 interface ToolBlockGroupProps {
   toolBlocks: Extract<ContentBlock, { type: 'tool' }>[]

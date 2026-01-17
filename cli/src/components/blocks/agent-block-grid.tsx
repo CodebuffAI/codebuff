@@ -2,9 +2,9 @@ import { pluralize } from '@codebuff/common/util/string'
 import { TextAttributes } from '@opentui/core'
 import React, { memo, useCallback } from 'react'
 
-import { GridLayout } from './grid-layout'
-import { useTheme } from '../hooks/use-theme'
-import type { AgentContentBlock } from '../types/chat'
+import { GridLayout } from '../grid-layout'
+import { useTheme } from '../../hooks/use-theme'
+import type { AgentContentBlock } from '../../types/chat'
 
 export interface AgentBlockGridProps {
   agentBlocks: AgentContentBlock[]
