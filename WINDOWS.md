@@ -79,33 +79,59 @@ Codebuff checks GitHub for the latest release on first run. This fails when:
 
 ---
 
+### Issue: "Bash is required but was not found" Error
+
+**Symptom**:
+```
+Bash is required but was not found on this Windows system.
+```
+
+**Cause**:
+Codebuff requires bash for command execution. This error appears when:
+- Git for Windows is not installed
+- You're not running inside WSL
+- bash.exe is not in your PATH
+
+**Solutions**:
+
+1. **Install Git for Windows** (recommended):
+   - Download from https://git-scm.com/download/win
+   - This installs `bash.exe` which Codebuff will automatically detect
+   - Works in PowerShell, CMD, or Git Bash terminals
+
+2. **Use WSL (Windows Subsystem for Linux)**:
+   - Provides full Linux environment with native bash
+   - Install: `wsl --install` in PowerShell (Admin)
+   - Run codebuff inside WSL for best compatibility
+
+3. **Set custom bash path** (advanced):
+   - If bash.exe is installed in a non-standard location:
+   ```powershell
+   set CODEBUFF_GIT_BASH_PATH=C:\path\to\bash.exe
+   ```
+
+**Reference**: Issue [#274](https://github.com/CodebuffAI/codebuff/issues/274)
+
+---
+
 ### Issue: Git Commands Fail on Windows
 
 **Symptom**:
 Git operations (commit, rebase, complex commands) fail with syntax errors or unexpected behavior.
 
 **Cause**:
-Codebuff uses Windows `cmd.exe` for command execution, which:
-- Does not support bash syntax (HEREDOC, process substitution)
-- Has limited quote escaping compared to bash
-- Cannot execute complex git commands that work in Git Bash
+Complex git commands may have issues with Windows path handling or shell escaping.
 
 **Solutions**:
 
-1. **Install Git for Windows** (if not already installed):
+1. **Ensure Git for Windows is installed**:
    - Download from https://git-scm.com/download/win
-   - Ensures git commands are available in PATH
+   - Codebuff uses bash.exe from Git for Windows for command execution
 
-2. **Use Git Bash terminal** instead of PowerShell:
-   - Git Bash provides better compatibility with bash-style commands
-   - Launch Git Bash and run `codebuff` from there
-
-3. **Or use WSL (Windows Subsystem for Linux)**:
+2. **Use WSL for complex operations**:
    - Provides full Linux environment with native bash
    - Install: `wsl --install` in PowerShell (Admin)
    - Run codebuff inside WSL for best compatibility
-
-**Note**: Even when running in Git Bash, Codebuff spawns commands using `cmd.exe`. Using WSL provides the most reliable experience for git operations.
 
 **Reference**: Issue [#274](https://github.com/CodebuffAI/codebuff/issues/274)
 
