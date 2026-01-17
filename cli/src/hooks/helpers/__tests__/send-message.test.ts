@@ -384,7 +384,7 @@ describe('handleRunError', () => {
     useChatStore.getState = originalGetState
   })
 
-  test('appends error to existing streamed content for regular errors', () => {
+  test('stores error in userError field for regular errors', () => {
     let messages: ChatMessage[] = [
       {
         id: 'ai-1',
@@ -407,7 +407,6 @@ describe('handleRunError', () => {
 
     handleRunError({
       error: new Error('Network timeout'),
-      aiMessageId: 'ai-1',
       timerController,
       updater,
       setIsRetrying: (value: boolean) => {
@@ -424,15 +423,12 @@ describe('handleRunError', () => {
       },
     })
 
-    // Flush the batched updates
-    updater.flush()
-
     const aiMessage = messages.find((m) => m.id === 'ai-1')
     expect(aiMessage).toBeDefined()
 
-    // Content should be appended, not overwritten
-    expect(aiMessage!.content).toContain('Partial streamed content')
-    expect(aiMessage!.content).toContain('Network timeout')
+    // Content should be preserved, error stored in userError
+    expect(aiMessage!.content).toBe('Partial streamed content')
+    expect(aiMessage!.userError).toBe('Network timeout')
 
     // Verify state resets
     expect(streamStatus).toBe('idle')
@@ -465,7 +461,6 @@ describe('handleRunError', () => {
 
     handleRunError({
       error: new Error('Something failed'),
-      aiMessageId: 'ai-1',
       timerController,
       updater,
       setIsRetrying: () => {},
@@ -474,11 +469,9 @@ describe('handleRunError', () => {
       updateChainInProgress: () => {},
     })
 
-    updater.flush()
-
     const aiMessage = messages.find((m) => m.id === 'ai-1')
-    // Should contain error message
-    expect(aiMessage!.content).toContain('Something failed')
+    // Error should be in userError field
+    expect(aiMessage!.userError).toBe('Something failed')
     expect(aiMessage!.isComplete).toBe(true)
   })
 
@@ -506,7 +499,6 @@ describe('handleRunError', () => {
 
     handleRunError({
       error: new Error('Regular error'),
-      aiMessageId: 'ai-1',
       timerController,
       updater,
       setIsRetrying: () => {},
@@ -541,7 +533,6 @@ describe('handleRunError', () => {
 
     handleRunError({
       error: new Error('Some error'),
-      aiMessageId: 'ai-1',
       timerController,
       updater,
       setIsRetrying: () => {},
@@ -575,7 +566,6 @@ describe('handleRunError', () => {
 
     handleRunError({
       error: new Error('Some error'),
-      aiMessageId: 'ai-1',
       timerController,
       updater,
       setIsRetrying: () => {},
@@ -589,6 +579,82 @@ describe('handleRunError', () => {
 
     // When queue is paused, canProcessQueue should be false
     expect(canProcessQueue).toBe(false)
+  })
+
+  test('context length exceeded error (AI_APICallError) stores error in userError and preserves content', () => {
+    let messages: ChatMessage[] = [
+      {
+        id: 'ai-1',
+        variant: 'ai',
+        content: 'Partial streamed content before error',
+        blocks: [{ type: 'text', content: 'some block content' }],
+        timestamp: 'now',
+      },
+    ]
+
+    const timerController = createMockTimerController()
+    const updater = createBatchedMessageUpdater('ai-1', (fn: any) => {
+      messages = fn(messages)
+    })
+
+    // Create an error that matches the real AI_APICallError structure
+    const contextLengthError = Object.assign(
+      new Error(
+        "This endpoint's maximum context length is 200000 tokens. However, you requested about 201209 tokens (158536 of text input, 10673 of tool input, 32000 in the output). Please reduce the length of either one, or use the \"middle-out\" transform to compress your prompt automatically."
+      ),
+      {
+        name: 'AI_APICallError',
+        statusCode: 400,
+      }
+    )
+
+    let streamStatus = 'streaming' as StreamStatus
+    let canProcessQueue = false
+    let chainInProgress = true
+    let isRetrying = true
+
+    handleRunError({
+      error: contextLengthError,
+      timerController,
+      updater,
+      setIsRetrying: (value: boolean) => {
+        isRetrying = value
+      },
+      setStreamStatus: (status: StreamStatus) => {
+        streamStatus = status
+      },
+      setCanProcessQueue: (can: boolean) => {
+        canProcessQueue = can
+      },
+      updateChainInProgress: (value: boolean) => {
+        chainInProgress = value
+      },
+    })
+
+    const aiMessage = messages.find((m) => m.id === 'ai-1')
+    expect(aiMessage).toBeDefined()
+
+    // Content should be preserved
+    expect(aiMessage!.content).toBe('Partial streamed content before error')
+
+    // Blocks should be preserved
+    expect(aiMessage!.blocks).toEqual([{ type: 'text', content: 'some block content' }])
+
+    // Error should be stored in userError (displayed in UserErrorBanner)
+    expect(aiMessage!.userError).toContain('maximum context length is 200000 tokens')
+    expect(aiMessage!.userError).toContain('201209 tokens')
+
+    // Message should be marked complete
+    expect(aiMessage!.isComplete).toBe(true)
+
+    // State should be reset
+    expect(streamStatus).toBe('idle')
+    expect(canProcessQueue).toBe(true)
+    expect(chainInProgress).toBe(false)
+    expect(isRetrying).toBe(false)
+
+    // Timer should be stopped with error
+    expect(timerController.stopCalls).toContain('error')
   })
 
   test('Payment required error (402) uses setError, invalidates queries, and switches input mode', () => {
@@ -617,7 +683,6 @@ describe('handleRunError', () => {
 
     handleRunError({
       error: paymentError,
-      aiMessageId: 'ai-1',
       timerController,
       updater,
       setIsRetrying: () => {},
@@ -629,9 +694,10 @@ describe('handleRunError', () => {
     const aiMessage = messages.find((m) => m.id === 'ai-1')
     expect(aiMessage).toBeDefined()
 
-    // For PaymentRequiredError, setError is used which OVERWRITES content
-    expect(aiMessage!.content).not.toContain('Partial streamed content')
-    expect(aiMessage!.content).toContain('Out of credits')
+    // For PaymentRequiredError, setError sets userError (not content)
+    // Content is preserved, error is stored in userError field
+    expect(aiMessage!.content).toBe('Partial streamed content')
+    expect(aiMessage!.userError).toContain('Out of credits')
 
     // Blocks should be preserved for debugging context
     expect(aiMessage!.blocks).toEqual([{ type: 'text', content: 'some block' }])

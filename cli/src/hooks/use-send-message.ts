@@ -424,7 +424,6 @@ export const useSendMessage = ({
       } catch (error) {
         handleRunError({
           error,
-          aiMessageId,
           timerController,
           updater,
           setIsRetrying,

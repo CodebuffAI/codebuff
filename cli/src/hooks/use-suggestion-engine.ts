@@ -70,9 +70,9 @@ interface MentionParseResult {
   atIndex: number
 }
 
-// Helper to check if a position is inside quotes
-const isInsideQuotes = (text: string, position: number): boolean => {
-  let inSingleQuote = false
+// Helper to check if a position is inside string delimiters (double quotes or backticks only)
+// Single quotes are excluded because they're commonly used as apostrophes (don't, it's, etc.)
+export const isInsideStringDelimiters = (text: string, position: number): boolean => {
   let inDoubleQuote = false
   let inBacktick = false
 
@@ -91,27 +91,25 @@ const isInsideQuotes = (text: string, position: number): boolean => {
     const isEscaped = numBackslashes % 2 === 1
 
     if (!isEscaped) {
-      if (char === "'" && !inDoubleQuote && !inBacktick) {
-        inSingleQuote = !inSingleQuote
-      } else if (char === '"' && !inSingleQuote && !inBacktick) {
+      if (char === '"' && !inBacktick) {
         inDoubleQuote = !inDoubleQuote
-      } else if (char === '`' && !inSingleQuote && !inDoubleQuote) {
+      } else if (char === '`' && !inDoubleQuote) {
         inBacktick = !inBacktick
       }
     }
   }
 
-  return inSingleQuote || inDoubleQuote || inBacktick
+  return inDoubleQuote || inBacktick
 }
 
-const parseAtInLine = (line: string): MentionParseResult => {
+export const parseAtInLine = (line: string): MentionParseResult => {
   const atIndex = line.lastIndexOf('@')
   if (atIndex === -1) {
     return { active: false, query: '', atIndex: -1 }
   }
 
-  // Check if @ is inside quotes
-  if (isInsideQuotes(line, atIndex)) {
+  // Check if @ is inside string delimiters
+  if (isInsideStringDelimiters(line, atIndex)) {
     return { active: false, query: '', atIndex: -1 }
   }
 

@@ -42,13 +42,8 @@ const TOP_BANNER_REGISTRY: Record<NonNullable<TopBannerType>, BannerConfig> = {
     borderColorKey: 'warning',
     textColorKey: 'foreground',
     relatedInputMode: 'homeDir',
-    content: (
-      <>
-        You are currently in your home directory.
-        <br />
-        Select a project folder to get started, or choose "Start here".
-      </>
-    ),
+    content:
+      'You are currently in your home directory.\nSelect a project folder to get started, or choose "Start here".',
   },
   gitRoot: {
     borderColorKey: 'warning',

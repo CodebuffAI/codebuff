@@ -5,7 +5,6 @@ import { useChatStore } from '../state/chat-store'
 
 export function useAskUserBridge() {
   const setAskUserState = useChatStore((state) => state.setAskUserState)
-  const setInputValue = useChatStore((state) => state.setInputValue)
 
   useEffect(() => {
     const unsubscribe = AskUserBridge.subscribe((request) => {
@@ -32,14 +31,12 @@ export function useAskUserBridge() {
       otherText?: string
     }>
   ) => {
-    // Clear input value so previous prompt doesn't appear after form closes
-    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+    // Don't clear input value - preserve user's input from before the questionnaire
     AskUserBridge.submit({ answers })
   }
 
   const skip = () => {
-    // Clear input value so previous prompt doesn't appear after form closes
-    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+    // Don't clear input value - preserve user's input from before the questionnaire
     AskUserBridge.submit({ skipped: true })
   }
 

@@ -19,7 +19,7 @@
     "prebuild:agents": "bun run scripts/prebuild-agents.ts",
     "build:binary": "bun ./scripts/build-binary.ts codebuff $npm_package_version",
     "release": "bun run scripts/release.ts",
-    "test": "bun test",
+    "test": "NODE_ENV=production bun test",
     "test:tmux-poc": "bun run src/__tests__/tmux-poc.ts",
     "typecheck": "tsc --noEmit -p ."
   },

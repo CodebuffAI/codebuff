@@ -2,7 +2,6 @@ import { getProjectRoot } from '../../project-files'
 import { useChatStore } from '../../state/chat-store'
 import { processBashContext } from '../../utils/bash-context-processor'
 import {
-  createErrorMessage,
   isOutOfCreditsError,
   OUT_OF_CREDITS_MESSAGE,
 } from '../../utils/error-handling'
@@ -68,6 +67,8 @@ export const finalizeQueueState = (params: FinalizeQueueStateParams): void => {
   }
   updateChainInProgress(false)
 }
+
+const DEFAULT_RUN_OUTPUT_ERROR_MESSAGE = 'No output from agent run'
 
 export type PrepareUserMessageDeps = {
   setMessages: (update: SetStateAction<ChatMessage[]>) => void
@@ -209,6 +210,8 @@ export const setupStreamingContext = (params: {
   streamRefs.reset()
   timerController.start(aiMessageId)
   const updater = createBatchedMessageUpdater(aiMessageId, setMessages)
+  // Clear any previous UI-only error on this message when starting a new run
+  updater.clearUserError()
   const hasReceivedContentRef = { current: false }
   const abortController = new AbortController()
   abortControllerRef.current = abortController
@@ -280,7 +283,7 @@ export const handleRunCompletion = (params: {
 
   if (!output) {
     if (!streamRefs.state.wasAbortedByUser) {
-      updater.setError('No output from agent run')
+      updater.setError(DEFAULT_RUN_OUTPUT_ERROR_MESSAGE)
       finalizeAfterError()
     }
     return
@@ -299,11 +302,8 @@ export const handleRunCompletion = (params: {
       return
     }
 
-    const partial = createErrorMessage(
-      output.message ?? 'No output from agent run',
-      aiMessageId,
-    )
-    updater.setError(partial.content ?? '')
+    // Pass the raw error message to setError (displayed in UserErrorBanner without additional wrapper formatting)
+    updater.setError(output.message ?? DEFAULT_RUN_OUTPUT_ERROR_MESSAGE)
 
     finalizeAfterError()
     return
@@ -343,7 +343,6 @@ export const handleRunCompletion = (params: {
 
 export const handleRunError = (params: {
   error: unknown
-  aiMessageId: string
   timerController: SendMessageTimerController
   updater: BatchedMessageUpdater
   setIsRetrying: (value: boolean) => void
@@ -355,7 +354,6 @@ export const handleRunError = (params: {
 }) => {
   const {
     error,
-    aiMessageId,
     timerController,
     updater,
     setIsRetrying,
@@ -366,12 +364,9 @@ export const handleRunError = (params: {
     isQueuePausedRef,
   } = params
 
-  const partial = createErrorMessage(error, aiMessageId)
+  const errorInfo = getErrorObject(error, { includeRawError: true })
 
-  logger.error(
-    { error: getErrorObject(error, { includeRawError: true }) },
-    'SDK client.run() failed',
-  )
+  logger.error({ error: errorInfo }, 'SDK client.run() failed')
   setIsRetrying(false)
   finalizeQueueState({
     setStreamStatus,
@@ -389,15 +384,7 @@ export const handleRunError = (params: {
     return
   }
 
-  updater.updateAiMessage((msg) => {
-    const updatedContent = [msg.content, partial.content]
-      .filter(Boolean)
-      .join('\n\n')
-    return {
-      ...msg,
-      content: updatedContent,
-    }
-  })
-
-  updater.markComplete()
+  // Use setError for all errors so they display in UserErrorBanner consistently
+  const errorMessage = errorInfo.message || 'An unexpected error occurred'
+  updater.setError(errorMessage)
 }

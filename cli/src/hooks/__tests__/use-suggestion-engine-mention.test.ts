@@ -1,98 +1,27 @@
 import { describe, test, expect } from 'bun:test'
 
-// Helper function extracted from use-suggestion-engine.ts for testing
-const isInsideQuotes = (text: string, position: number): boolean => {
-  let inSingleQuote = false
-  let inDoubleQuote = false
-  let inBacktick = false
-  let escaped = false
-
-  for (let i = 0; i < position; i++) {
-    const char = text[i]
-
-    if (escaped) {
-      escaped = false
-      continue
-    }
-
-    if (char === '\\') {
-      escaped = true
-      continue
-    }
-
-    if (char === "'" && !inDoubleQuote && !inBacktick) {
-      inSingleQuote = !inSingleQuote
-    } else if (char === '"' && !inSingleQuote && !inBacktick) {
-      inDoubleQuote = !inDoubleQuote
-    } else if (char === '`' && !inSingleQuote && !inDoubleQuote) {
-      inBacktick = !inBacktick
-    }
-  }
-
-  return inSingleQuote || inDoubleQuote || inBacktick
-}
-
-const parseAtInLine = (
-  line: string,
-): { active: boolean; query: string; atIndex: number } => {
-  const atIndex = line.lastIndexOf('@')
-  if (atIndex === -1) {
-    return { active: false, query: '', atIndex: -1 }
-  }
-
-  // Check if @ is inside quotes
-  if (isInsideQuotes(line, atIndex)) {
-    return { active: false, query: '', atIndex: -1 }
-  }
-
-  const beforeChar = atIndex > 0 ? line[atIndex - 1] : ''
-
-  // Don't trigger on escaped @: \@
-  if (beforeChar === '\\') {
-    return { active: false, query: '', atIndex: -1 }
-  }
-
-  // Don't trigger on email-like patterns or URLs
-  if (beforeChar && /[a-zA-Z0-9.:]/.test(beforeChar)) {
-    return { active: false, query: '', atIndex: -1 }
-  }
-
-  // Require whitespace or start of line before @
-  if (beforeChar && !/\s/.test(beforeChar)) {
-    return { active: false, query: '', atIndex: -1 }
-  }
-
-  const afterAt = line.slice(atIndex + 1)
-  const firstSpaceIndex = afterAt.search(/\s/)
-  const query =
-    firstSpaceIndex === -1 ? afterAt : afterAt.slice(0, firstSpaceIndex)
-
-  if (firstSpaceIndex !== -1) {
-    return { active: false, query: '', atIndex: -1 }
-  }
-
-  return { active: true, query, atIndex }
-}
+import { isInsideStringDelimiters, parseAtInLine } from '../use-suggestion-engine'
 
 describe('@ mention edge cases - quote detection', () => {
-  test('isInsideQuotes detects position inside double quotes', () => {
-    expect(isInsideQuotes('"hello @world"', 7)).toBe(true)
+  test('isInsideStringDelimiters detects position inside double quotes', () => {
+    expect(isInsideStringDelimiters('"hello @world"', 7)).toBe(true)
   })
 
-  test('isInsideQuotes detects position inside single quotes', () => {
-    expect(isInsideQuotes("'hello @world'", 7)).toBe(true)
+  test('isInsideStringDelimiters does NOT detect position inside single quotes (apostrophes)', () => {
+    // Single quotes are ignored - they're commonly used as apostrophes
+    expect(isInsideStringDelimiters("'hello @world'", 7)).toBe(false)
   })
 
-  test('isInsideQuotes detects position inside backticks', () => {
-    expect(isInsideQuotes('`hello @world`', 7)).toBe(true)
+  test('isInsideStringDelimiters detects position inside backticks', () => {
+    expect(isInsideStringDelimiters('`hello @world`', 7)).toBe(true)
   })
 
-  test('isInsideQuotes returns false for position outside quotes', () => {
-    expect(isInsideQuotes('"hello" @world', 8)).toBe(false)
+  test('isInsideStringDelimiters returns false for position outside quotes', () => {
+    expect(isInsideStringDelimiters('"hello" @world', 8)).toBe(false)
   })
 
-  test('isInsideQuotes handles escaped quotes', () => {
-    expect(isInsideQuotes('"hello \\" @world"', 11)).toBe(true)
+  test('isInsideStringDelimiters handles escaped quotes', () => {
+    expect(isInsideStringDelimiters('"hello \\" @world"', 11)).toBe(true)
   })
 })
 
@@ -114,7 +43,8 @@ describe('parseAtInLine - @ mention trigger logic', () => {
     expect(result.active).toBe(false)
   })
 
-  test('does NOT trigger for @ inside single quotes', () => {
+  test('does NOT trigger for @ immediately after single quote (whitespace still required)', () => {
+    // Single quotes don't create quoted regions, but whitespace before @ is still required
     const result = parseAtInLine("'@agent'")
     expect(result.active).toBe(false)
   })
@@ -175,44 +105,24 @@ describe('parseAtInLine - @ mention trigger logic', () => {
 
 describe('parseAtInLine - comprehensive edge cases', () => {
   // Email variations
-  test('does NOT trigger for email with subdomain', () => {
-    const result = parseAtInLine('user@mail.example.com')
-    expect(result.active).toBe(false)
-  })
-
-  test('does NOT trigger for email with numbers', () => {
-    const result = parseAtInLine('user123@example.com')
-    expect(result.active).toBe(false)
-  })
-
-  test('does NOT trigger for email with underscores', () => {
-    const result = parseAtInLine('user_name@example.com')
-    expect(result.active).toBe(false)
-  })
-
-  test('does NOT trigger for email with hyphens', () => {
-    const result = parseAtInLine('user-name@example.com')
-    expect(result.active).toBe(false)
-  })
-
-  test('does NOT trigger for email with dots in username', () => {
-    const result = parseAtInLine('first.last@example.com')
+  test.each([
+    ['user@mail.example.com', 'email with subdomain'],
+    ['user123@example.com', 'email with numbers'],
+    ['user_name@example.com', 'email with underscores'],
+    ['user-name@example.com', 'email with hyphens'],
+    ['first.last@example.com', 'email with dots in username'],
+  ])('does NOT trigger for %s (%s)', (input) => {
+    const result = parseAtInLine(input)
     expect(result.active).toBe(false)
   })
 
   // URL variations
-  test('does NOT trigger for http URL', () => {
-    const result = parseAtInLine('http://example.com/@user')
-    expect(result.active).toBe(false)
-  })
-
-  test('does NOT trigger for https URL', () => {
-    const result = parseAtInLine('https://example.com/@user')
-    expect(result.active).toBe(false)
-  })
-
-  test('does NOT trigger for URL with port', () => {
-    const result = parseAtInLine('http://localhost:3000/@user')
+  test.each([
+    ['http://example.com/@user', 'http URL'],
+    ['https://example.com/@user', 'https URL'],
+    ['http://localhost:3000/@user', 'URL with port'],
+  ])('does NOT trigger for %s (%s)', (input) => {
+    const result = parseAtInLine(input)
     expect(result.active).toBe(false)
   })
 
@@ -283,20 +193,12 @@ describe('parseAtInLine - comprehensive edge cases', () => {
   })
 
   // Whitespace variations
-  test('triggers with tab before @', () => {
-    const result = parseAtInLine('\t@agent')
-    expect(result.active).toBe(true)
-    expect(result.query).toBe('agent')
-  })
-
-  test('triggers with newline before @ (in same line context)', () => {
-    const result = parseAtInLine(' @agent')
-    expect(result.active).toBe(true)
-    expect(result.query).toBe('agent')
-  })
-
-  test('triggers with multiple spaces before @', () => {
-    const result = parseAtInLine('text    @agent')
+  test.each([
+    ['\t@agent', 'tab before @'],
+    [' @agent', 'space before @'],
+    ['text    @agent', 'multiple spaces before @'],
+  ])('triggers with %s (%s)', (input) => {
+    const result = parseAtInLine(input)
     expect(result.active).toBe(true)
     expect(result.query).toBe('agent')
   })
@@ -320,13 +222,11 @@ describe('parseAtInLine - comprehensive edge cases', () => {
   })
 
   // Code-like contexts (where @ might appear)
-  test('does NOT trigger for decorator-like syntax', () => {
-    const result = parseAtInLine('something.@decorator')
-    expect(result.active).toBe(false)
-  })
-
-  test('does NOT trigger for array access', () => {
-    const result = parseAtInLine('array.@index')
+  test.each([
+    ['something.@decorator', 'decorator-like syntax'],
+    ['array.@index', 'array access'],
+  ])('does NOT trigger for %s (%s)', (input) => {
+    const result = parseAtInLine(input)
     expect(result.active).toBe(false)
   })
 
@@ -360,13 +260,102 @@ describe('parseAtInLine - comprehensive edge cases', () => {
     expect(result.active).toBe(false)
   })
 
-  test('does NOT trigger when inside unclosed single quote', () => {
+  test('DOES trigger when inside unclosed single quote (apostrophes dont suppress)', () => {
+    // Single quotes are treated as apostrophes, not string delimiters
     const result = parseAtInLine("'unclosed @mention")
-    expect(result.active).toBe(false)
+    expect(result.active).toBe(true)
+    expect(result.query).toBe('mention')
   })
 
   test('does NOT trigger when inside unclosed backtick', () => {
     const result = parseAtInLine('`unclosed @mention')
     expect(result.active).toBe(false)
   })
+})
+
+describe('single quote handling - apostrophes should NOT suppress @ menu', () => {
+  // Common contractions with apostrophes - use test.each for repetitive cases
+  const contractions = [
+    ["don't", 'agent'],
+    ["it's", 'agent'],
+    ["I'm", 'agent'],
+    ["can't", 'agent'],
+    ["won't", 'agent'],
+    ["you're", 'agent'],
+    ["they're", 'agent'],
+    ["doesn't", 'agent'],
+  ] as const
+
+  test.each(contractions)(
+    'triggers @ after contraction "%s"',
+    (contraction, expectedQuery) => {
+      const result = parseAtInLine(`I ${contraction} @${expectedQuery}`)
+      expect(result.active).toBe(true)
+      expect(result.query).toBe(expectedQuery)
+    },
+  )
+
+  // Possessives with apostrophes
+  const possessives = [
+    ["user's", 'mention'],
+    ["file's", 'content'],
+  ] as const
+
+  test.each(possessives)(
+    'triggers @ after possessive "%s"',
+    (possessive, expectedQuery) => {
+      const result = parseAtInLine(`${possessive} @${expectedQuery}`)
+      expect(result.active).toBe(true)
+      expect(result.query).toBe(expectedQuery)
+    },
+  )
+
+  // Multiple apostrophes in sentence
+  test('triggers @ with multiple apostrophes in sentence', () => {
+    const result = parseAtInLine("I don't think it's working @agent")
+    expect(result.active).toBe(true)
+    expect(result.query).toBe('agent')
+  })
+
+  // Single quotes that look like string delimiters
+  test('triggers @ after space inside single-quoted-looking string', () => {
+    // The @ triggers because there's a space before it, not because of single quotes
+    const result = parseAtInLine("'hello @world'")
+    expect(result.active).toBe(true)
+    // Query includes the trailing quote since it's not a delimiter
+    expect(result.query).toBe("world'")
+  })
+
+  test('does NOT trigger @ at start of single-quoted-looking string (whitespace required)', () => {
+    // Single quotes don't create quoted regions, but whitespace before @ is still required
+    const result = parseAtInLine("'@agent'")
+    expect(result.active).toBe(false)
+  })
+
+  // Mixed quotes - double quotes still suppress
+  test('does NOT trigger when @ is inside double quotes even with apostrophes', () => {
+    const result = parseAtInLine('"I don\'t @agent"')
+    expect(result.active).toBe(false)
+  })
+
+  test('does NOT trigger when @ is inside backticks even with apostrophes', () => {
+    const result = parseAtInLine("`I don't @agent`")
+    expect(result.active).toBe(false)
+  })
+
+  // Real-world usage examples
+  const realWorldExamples = [
+    ["Why doesn't this work? @agent", 'agent'],
+    ["That's what @file-picker", 'file-picker'],
+    ["What's @commander", 'commander'],
+  ] as const
+
+  test.each(realWorldExamples)(
+    'triggers in natural sentence: "%s"',
+    (sentence, expectedQuery) => {
+      const result = parseAtInLine(sentence)
+      expect(result.active).toBe(true)
+      expect(result.query).toBe(expectedQuery)
+    },
+  )
 })

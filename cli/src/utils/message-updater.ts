@@ -12,6 +12,8 @@ export type MessageUpdater = {
   ) => void
   markComplete: (metadata?: Partial<ChatMessage>) => void
   setError: (message: string) => void
+  /** Clears the userError field (e.g., when a new message is sent successfully) */
+  clearUserError: () => void
   addBlock: (block: ContentBlock) => void
 }
 
@@ -73,13 +75,22 @@ export const createMessageUpdater = (
   }
 
   const setError = (message: string) => {
+    updateAiMessage((msg) => ({
+      ...msg,
+      userError: message,
+      isComplete: true,
+    }))
+  }
+
+  /**
+   * Clears the userError field from the message.
+   * Call this when starting a new successful interaction to dismiss any previous error banners.
+   */
+  const clearUserError = () => {
     updateAiMessage((msg) => {
-      const nextMessage: ChatMessage = {
-        ...msg,
-        content: message,
-        isComplete: true,
-      }
-      return nextMessage
+      if (!msg.userError) return msg
+      const { userError: _, ...rest } = msg
+      return rest as ChatMessage
     })
   }
 
@@ -88,6 +99,7 @@ export const createMessageUpdater = (
     updateAiMessageBlocks,
     markComplete,
     setError,
+    clearUserError,
     addBlock,
   }
 }
@@ -187,19 +199,35 @@ export const createBatchedMessageUpdater = (
   }
 
   const setError = (message: string) => {
-    // Clear pending updates (they'll be overwritten anyway) and stop the interval
-    pendingUpdaters.length = 0
+    // Flush any pending updates first so we don't lose streamed content
+    flush()
+    // Stop the interval
     dispose()
 
-    // Apply error immediately, preserving blocks for debugging context
+    // Apply error immediately while preserving existing content and blocks
     setMessages((prev) =>
       prev.map((msg) => {
         if (msg.id !== aiMessageId) return msg
         return {
           ...msg,
-          content: message,
+          userError: message,
           isComplete: true,
         }
+      }),
+    )
+  }
+
+  /**
+   * Clears the userError field from the message immediately (bypasses batch queue).
+   * Call this when starting a new successful interaction to dismiss any previous error banners.
+   */
+  const clearUserError = () => {
+    // Apply immediately (bypass batch queue) so error banners are dismissed instantly
+    setMessages((prev) =>
+      prev.map((msg) => {
+        if (msg.id !== aiMessageId || !msg.userError) return msg
+        const { userError: _, ...rest } = msg
+        return rest as ChatMessage
       }),
     )
   }
@@ -209,6 +237,7 @@ export const createBatchedMessageUpdater = (
     updateAiMessageBlocks,
     markComplete,
     setError,
+    clearUserError,
     addBlock,
     flush,
     dispose,

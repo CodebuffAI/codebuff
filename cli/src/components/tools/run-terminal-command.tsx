@@ -3,6 +3,44 @@ import { TerminalCommandDisplay } from '../terminal-command-display'
 
 import type { ToolRenderConfig } from './types'
 
+export interface ParsedTerminalOutput {
+  output: string | null
+  startingCwd?: string
+}
+
+/**
+ * Parse terminal command output from JSON or raw string format.
+ * Exported for testing.
+ */
+export const parseTerminalOutput = (rawOutput: string | undefined): ParsedTerminalOutput => {
+  if (!rawOutput) {
+    return { output: null }
+  }
+
+  try {
+    const parsed = JSON.parse(rawOutput)
+    // Handle array format [{ type: 'json', value: {...} }]
+    const value = Array.isArray(parsed) ? parsed[0]?.value : parsed
+    if (value) {
+      const startingCwd = value.startingCwd
+      // Handle error case
+      if (value.errorMessage) {
+        return { output: `Error: ${value.errorMessage}`, startingCwd }
+      }
+      // Combine stdout and stderr for display
+      // Use trimEnd() to preserve leading spaces (used for UI elements like trees/tables)
+      const stdout = value.stdout || ''
+      const stderr = value.stderr || ''
+      const output = (stdout + stderr).trimEnd() || null
+      return { output, startingCwd }
+    }
+    return { output: null }
+  } catch {
+    // If not JSON, use raw output (preserve leading spaces)
+    return { output: rawOutput.trimEnd() || null }
+  }
+}
+
 /**
  * UI component for run_terminal_command tool.
  * Displays the command in bold next to the bullet point,
@@ -19,31 +57,7 @@ export const RunTerminalCommandComponent = defineToolComponent({
         : ''
 
     // Extract output and startingCwd from tool result
-    let output: string | null = null
-    let startingCwd: string | undefined
-
-    if (toolBlock.output) {
-      try {
-        const parsed = JSON.parse(toolBlock.output)
-        // Handle array format [{ type: 'json', value: {...} }]
-        const value = Array.isArray(parsed) ? parsed[0]?.value : parsed
-        if (value) {
-          startingCwd = value.startingCwd
-          // Handle error case
-          if (value.errorMessage) {
-            output = `Error: ${value.errorMessage}`
-          } else {
-            // Combine stdout and stderr for display
-            const stdout = value.stdout || ''
-            const stderr = value.stderr || ''
-            output = (stdout + stderr).trim() || null
-          }
-        }
-      } catch {
-        // If not JSON, use raw output
-        output = toolBlock.output.trim() || null
-      }
-    }
+    const { output, startingCwd } = parseTerminalOutput(toolBlock.output)
 
     // Custom content component using shared TerminalCommandDisplay
     const content = (

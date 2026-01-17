@@ -53,12 +53,12 @@ describe('createMessageUpdater', () => {
     expect((state[0].metadata as any).runState).toEqual({ id: 'run-1' })
   })
 
-  test('setError preserves blocks and marks complete', () => {
+  test('setError preserves content and blocks, sets userError, and marks complete', () => {
     let state: ChatMessage[] = [
       {
         id: 'ai-1',
         variant: 'ai',
-        content: '',
+        content: 'original content',
         blocks: [{ type: 'text', content: 'existing block' }],
         timestamp: 'now',
       },
@@ -70,10 +70,53 @@ describe('createMessageUpdater', () => {
 
     updater.setError('boom')
 
-    expect(state[0].content).toBe('boom')
+    // setError stores error in userError field, preserving content
+    expect(state[0].content).toBe('original content')
+    expect(state[0].userError).toBe('boom')
     expect(state[0].isComplete).toBe(true)
     expect(state[0].blocks).toHaveLength(1)
     expect((state[0].blocks![0] as any).content).toBe('existing block')
+  })
+
+  test('clearUserError removes userError field from message', () => {
+    let state: ChatMessage[] = [
+      {
+        id: 'ai-1',
+        variant: 'ai',
+        content: 'original content',
+        userError: 'previous error',
+        timestamp: 'now',
+      },
+    ]
+
+    const updater = createMessageUpdater('ai-1', (fn) => {
+      state = fn(state)
+    })
+
+    updater.clearUserError()
+
+    expect(state[0].content).toBe('original content')
+    expect(state[0].userError).toBeUndefined()
+  })
+
+  test('clearUserError is a no-op if no userError exists', () => {
+    let state: ChatMessage[] = [
+      {
+        id: 'ai-1',
+        variant: 'ai',
+        content: 'original content',
+        timestamp: 'now',
+      },
+    ]
+
+    const updater = createMessageUpdater('ai-1', (fn) => {
+      state = fn(state)
+    })
+
+    updater.clearUserError()
+
+    expect(state[0].content).toBe('original content')
+    expect(state[0].userError).toBeUndefined()
   })
 })
 
@@ -164,12 +207,12 @@ describe('createBatchedMessageUpdater', () => {
     expect(state[0].credits).toBe(0.5)
   })
 
-  test('setError discards pending updates but preserves existing blocks', () => {
+  test('setError flushes pending updates and preserves existing content and blocks', () => {
     let state: ChatMessage[] = [
       {
         id: 'ai-1',
         variant: 'ai',
-        content: '',
+        content: 'original content',
         blocks: [{ type: 'text', content: 'existing block' }],
         timestamp: 'now',
       },
@@ -185,18 +228,21 @@ describe('createBatchedMessageUpdater', () => {
       1000,
     )
 
-    // Queue an update (will be discarded by error)
+    // Queue an update that should be flushed before applying the error
     updater.addBlock({ type: 'text', content: 'pending block' })
 
     updater.setError('something went wrong')
 
-    // Should have 1 call: setError (pending updates discarded, not flushed)
-    expect(setMessagesCallCount).toBe(1)
-    expect(state[0].content).toBe('something went wrong')
+    // Should have 2 calls: flush + setError
+    expect(setMessagesCallCount).toBe(2)
+    // setError stores error in userError field, preserving content
+    expect(state[0].content).toBe('original content')
+    expect(state[0].userError).toBe('something went wrong')
     expect(state[0].isComplete).toBe(true)
-    // Existing blocks are preserved, but pending block was discarded
-    expect(state[0].blocks).toHaveLength(1)
+    // Existing blocks are preserved and pending block was flushed
+    expect(state[0].blocks).toHaveLength(2)
     expect((state[0].blocks![0] as any).content).toBe('existing block')
+    expect((state[0].blocks![1] as any).content).toBe('pending block')
   })
 
   test('updates after dispose are applied immediately', () => {
@@ -504,6 +550,74 @@ describe('createBatchedMessageUpdater timer behavior', () => {
     updater.setError('error message')
 
     expect(clearedIntervals).toContain(intervalId)
+  })
+
+  test('clearUserError applies immediately (bypasses batch queue)', () => {
+    let state: ChatMessage[] = [
+      {
+        id: 'ai-1',
+        variant: 'ai',
+        content: 'content',
+        userError: 'previous error',
+        timestamp: 'now',
+      },
+    ]
+    let setMessagesCallCount = 0
+
+    const updater = createBatchedMessageUpdater(
+      'ai-1',
+      (fn) => {
+        setMessagesCallCount++
+        state = fn(state)
+      },
+      1000, // Long interval so it won't auto-flush
+    )
+
+    // Queue an update (should NOT be applied yet)
+    updater.updateAiMessage((msg) => ({ ...msg, content: 'updated' }))
+    expect(setMessagesCallCount).toBe(0)
+    expect(state[0].content).toBe('content')
+
+    // clearUserError should apply immediately
+    updater.clearUserError()
+
+    // Should have 1 call from clearUserError (applied immediately)
+    expect(setMessagesCallCount).toBe(1)
+    expect(state[0].userError).toBeUndefined()
+    // Content should still be 'content' since the queued update wasn't flushed
+    expect(state[0].content).toBe('content')
+
+    updater.dispose()
+  })
+
+  test('clearUserError is a no-op if no userError exists', () => {
+    let state: ChatMessage[] = [
+      {
+        id: 'ai-1',
+        variant: 'ai',
+        content: 'content',
+        timestamp: 'now',
+      },
+    ]
+    let setMessagesCallCount = 0
+
+    const updater = createBatchedMessageUpdater(
+      'ai-1',
+      (fn) => {
+        setMessagesCallCount++
+        state = fn(state)
+      },
+      1000,
+    )
+
+    updater.clearUserError()
+
+    // Should have 1 call but message unchanged
+    expect(setMessagesCallCount).toBe(1)
+    expect(state[0].userError).toBeUndefined()
+    expect(state[0].content).toBe('content')
+
+    updater.dispose()
   })
 
   test('no stray timers after all termination methods', () => {
