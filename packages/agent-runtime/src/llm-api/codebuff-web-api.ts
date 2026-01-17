@@ -68,6 +68,7 @@ const callCodebuffV1 = async (params: {
           body: JSON.stringify(payload),
         }),
         FETCH_TIMEOUT_MS,
+        `Request to ${endpoint} timed out after ${FETCH_TIMEOUT_MS}ms`,
       )
 
       const text = await res.text()
@@ -259,6 +260,7 @@ export async function callTokenCountAPI(params: {
         body: JSON.stringify(payload),
       }),
       FETCH_TIMEOUT_MS,
+      `Request to /api/v1/token-count timed out after ${FETCH_TIMEOUT_MS}ms`,
     )
 
     const text = await res.text()

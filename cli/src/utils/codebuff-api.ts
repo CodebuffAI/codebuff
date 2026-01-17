@@ -393,7 +393,15 @@ export function createCodebuffApiClient(
           continue
         }
 
-        // Don't retry, throw the error
+        // Don't retry, throw the error with URL context
+        if (error instanceof Error) {
+          const enhancedError = new Error(
+            `${error.message} (${method} ${url})`,
+          )
+          enhancedError.name = error.name
+          enhancedError.cause = error
+          throw enhancedError
+        }
         throw error
       }
     }
