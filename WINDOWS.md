@@ -79,33 +79,49 @@ Codebuff checks GitHub for the latest release on first run. This fails when:
 
 ---
 
+### Shell Detection & PowerShell Support
+
+Codebuff now automatically detects your shell (PowerShell, cmd.exe, bash, etc.) and adapts its behavior accordingly.
+
+**PowerShell users benefit from:**
+- Many Unix-like commands work natively (`mkdir`, `rm`, `cp`, `mv`, `ls`, `cat`)
+- Better compatibility with cross-platform commands
+- Codebuff generates shell-appropriate commands based on detection
+
+**To check your detected shell:**
+Look at the "Shell:" line in the system info at the start of each conversation.
+
+**Recommendation:** Use PowerShell instead of cmd.exe for the best Windows experience.
+
+---
+
 ### Issue: Git Commands Fail on Windows
 
 **Symptom**:
 Git operations (commit, rebase, complex commands) fail with syntax errors or unexpected behavior.
 
-**Cause**:
-Codebuff uses Windows `cmd.exe` for command execution, which:
-- Does not support bash syntax (HEREDOC, process substitution)
-- Has limited quote escaping compared to bash
-- Cannot execute complex git commands that work in Git Bash
+**Cause** (now largely fixed):
+Older versions of Codebuff used HEREDOC syntax for git commits, which doesn't work on Windows. This has been fixed - Codebuff now uses cross-platform compatible syntax.
 
-**Solutions**:
+**If you still experience issues:**
 
-1. **Install Git for Windows** (if not already installed):
+1. **Ensure you have the latest Codebuff version**:
+   ```powershell
+   npm update -g codebuff
+   ```
+
+2. **Install Git for Windows** (if not already installed):
    - Download from https://git-scm.com/download/win
    - Ensures git commands are available in PATH
 
-2. **Use Git Bash terminal** instead of PowerShell:
-   - Git Bash provides better compatibility with bash-style commands
-   - Launch Git Bash and run `codebuff` from there
+3. **Use PowerShell** instead of cmd.exe:
+   - PowerShell has better command compatibility
+   - Codebuff detects PowerShell and adjusts accordingly
 
-3. **Or use WSL (Windows Subsystem for Linux)**:
+4. **Or use WSL (Windows Subsystem for Linux)**:
    - Provides full Linux environment with native bash
    - Install: `wsl --install` in PowerShell (Admin)
    - Run codebuff inside WSL for best compatibility
-
-**Note**: Even when running in Git Bash, Codebuff spawns commands using `cmd.exe`. Using WSL provides the most reliable experience for git operations.
 
 **Reference**: Issue [#274](https://github.com/CodebuffAI/codebuff/issues/274)
 

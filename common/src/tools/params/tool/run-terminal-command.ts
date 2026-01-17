@@ -62,20 +62,8 @@ When the user requests a new git commit, please follow these steps closely:
    Generated with Codebuff 🤖
    Co-Authored-By: Codebuff <noreply@codebuff.com>
    \`\`\`
-   To maintain proper formatting, use cross-platform compatible commit messages:
    
-   **For Unix/bash shells:**
-   \`\`\`
-   git commit -m "$(cat <<'EOF'
-   Your commit message here.
-
-   🤖 Generated with Codebuff
-   Co-Authored-By: Codebuff <noreply@codebuff.com>
-   EOF
-   )"
-   \`\`\`
-   
-   **For Windows Command Prompt:**
+   **For bash/PowerShell:** Use multi-line \`-m\` format:
    \`\`\`
    git commit -m "Your commit message here.
 
@@ -83,7 +71,14 @@ When the user requests a new git commit, please follow these steps closely:
    Co-Authored-By: Codebuff <noreply@codebuff.com>"
    \`\`\`
    
-   Always detect the platform and use the appropriate syntax. HEREDOC syntax (\`<<'EOF'\`) only works in bash/Unix shells and will fail on Windows Command Prompt.
+   **For cmd.exe (Windows Command Prompt):** Use the file-based approach to avoid escaping issues:
+   1. Use \`write_file\` to create \`.codebuff-commit-msg.txt\` with the full commit message
+   2. Run \`git commit -F .codebuff-commit-msg.txt\`
+   3. Run \`del .codebuff-commit-msg.txt\` to clean up
+   
+   This file-based approach completely avoids cmd.exe's complex escaping rules for quotes, newlines, and special characters.
+   
+   **Important:** Do NOT use HEREDOC syntax (\`<<'EOF'\`) - it only works in bash and will fail on Windows.
 
 **Important details**
 

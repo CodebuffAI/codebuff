@@ -7,6 +7,10 @@ import {
   stripColors,
   truncateStringWithMessage,
 } from '../../../common/src/util/string'
+import {
+  detectShell,
+  getShellArgs,
+} from '@codebuff/common/util/detect-shell'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 
@@ -31,8 +35,15 @@ export function runTerminalCommand({
 
   return new Promise((resolve, reject) => {
     const isWindows = os.platform() === 'win32'
-    const shell = isWindows ? 'cmd.exe' : 'bash'
-    const shellArgs = isWindows ? ['/c'] : ['-c']
+    // Detect the user's actual shell instead of hardcoding cmd.exe/bash
+    const detectedShell = detectShell()
+    // Map shell names to executables (powershell needs special handling)
+    const shell = detectedShell === 'powershell' 
+      ? (isWindows ? 'powershell.exe' : 'pwsh')
+      : (detectedShell === 'unknown' 
+        ? (isWindows ? 'cmd.exe' : 'bash') 
+        : detectedShell)
+    const shellArgs = getShellArgs(detectedShell)
 
     // Resolve cwd to absolute path
     const resolvedCwd = path.resolve(cwd)

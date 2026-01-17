@@ -158,6 +158,43 @@ ${truncationNote}
 `.trim()
 }
 
+/**
+ * Get Windows-specific notes based on the detected shell.
+ * PowerShell supports many Unix-like commands, so guidance differs from cmd.exe.
+ */
+function getWindowsNote(shell: string): string {
+  if (shell === 'powershell') {
+    return `
+Note: The user is running PowerShell on Windows.
+PowerShell supports many Unix-like commands: \`mkdir\`, \`rm\`, \`cp\`, \`mv\`, \`ls\`, \`cat\` all work.
+However, some differences remain:
+- Use \`Select-String\` instead of \`grep\` for text searching, or install ripgrep (\`rg\`)
+- Use \`Get-ChildItem\` or \`ls\` for directory listing
+- Multi-line strings in commands work with double quotes
+- HEREDOC syntax (\`<<'EOF'\`) does NOT work - use simple multi-line strings instead
+`.trim()
+  }
+  
+  // Default cmd.exe note
+  return `
+Note: The user is running Windows Command Prompt (cmd.exe).
+Many Unix commands are different on cmd.exe:
+- Use \`mkdir\` instead of \`mkdir -p\` (mkdir creates parent dirs automatically on Windows)
+- Use \`findstr\` instead of \`grep\`
+- Use \`dir\` instead of \`ls\`
+- Use \`move\` instead of \`mv\`
+- Use \`del\` instead of \`rm\`
+- Use \`copy\` instead of \`cp\`
+- Use \`type\` instead of \`cat\`
+- HEREDOC syntax (\`<<'EOF'\`) does NOT work
+- **cmd.exe has complex escaping rules** - for commands with quotes, special chars (& | < > ^), or multi-line strings:
+  - Use the \`write_file\` tool to create a temp file with the content, then reference it
+  - For git commits: write message to \`.codebuff-commit-msg.txt\`, run \`git commit -F .codebuff-commit-msg.txt\`, then \`del .codebuff-commit-msg.txt\`
+  - This file-based approach completely avoids escaping issues
+`.trim()
+}
+
+// Kept for backwards compatibility - used when shell is not known
 const windowsNote = `
 Note: many commands in the terminal are different on Windows.
 For example, the mkdir command is \`mkdir\` instead of \`mkdir -p\`. Instead of grep, use \`findstr\`. Instead of \`ls\` use \`dir\` to list files. Instead of \`mv\` use \`move\`. Instead of \`rm\` use \`del\`. Instead of \`cp\` use \`copy\`. Unless the user is in Powershell, in which case you should use the Powershell commands instead.
@@ -167,12 +204,17 @@ export const getSystemInfoPrompt = (fileContext: ProjectFileContext) => {
   const { fileTree, shellConfigFiles, systemInfo } = fileContext
   const flattenedNodes = flattenTree(fileTree)
   const lastReadFilePaths = getLastReadFilePaths(flattenedNodes, 20)
+  
+  // Use shell-specific Windows notes when available
+  const windowsNotes = systemInfo.platform === 'win32' 
+    ? getWindowsNote(systemInfo.shell) + '\n'
+    : ''
 
   return `
 # System Info
 
 Operating System: ${systemInfo.platform}
-${systemInfo.platform === 'win32' ? windowsNote + '\n' : ''}
+${windowsNotes}
 Shell: ${systemInfo.shell}
 
 <user_shell_config_files>

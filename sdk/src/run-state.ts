@@ -12,6 +12,7 @@ import {
   getAllFilePaths,
 } from '@codebuff/common/project-file-tree'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
+import { detectShell } from '@codebuff/common/util/detect-shell'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
@@ -502,7 +503,7 @@ export async function initialSessionState(
     shellConfigFiles: {},
     systemInfo: {
       platform: process.platform,
-      shell: process.platform === 'win32' ? 'cmd.exe' : 'bash',
+      shell: detectShell(),
       nodeVersion: process.version,
       arch: process.arch,
       homedir: os.homedir(),
