@@ -18,6 +18,7 @@ import {
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { getModelForRequest, markClaudeOAuthRateLimited, fetchClaudeOAuthResetTime } from './model-provider'
 import { getValidClaudeOAuthCredentials } from '../credentials'
+import { getErrorStatusCode } from '../error-utils'
 
 import type { ModelRequestParams } from './model-provider'
 import type { OpenRouterProviderRoutingOptions } from '@codebuff/common/types/agent-template'
@@ -116,17 +117,15 @@ type OpenRouterUsageAccounting = {
 function isClaudeOAuthRateLimitError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
 
-  // Check for APICallError from AI SDK
+  // Check status code (handles both 'status' from AI SDK and 'statusCode' from our errors)
+  const statusCode = getErrorStatusCode(error)
+  if (statusCode === 429) return true
+
+  // Check error message for rate limit indicators
   const err = error as {
-    statusCode?: number
     message?: string
     responseBody?: string
   }
-
-  // Check status code
-  if (err.statusCode === 429) return true
-
-  // Check error message for rate limit indicators
   const message = (err.message || '').toLowerCase()
   const responseBody = (err.responseBody || '').toLowerCase()
 
@@ -149,15 +148,15 @@ function isClaudeOAuthRateLimitError(error: unknown): boolean {
 function isClaudeOAuthAuthError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
 
+  // Check status code (handles both 'status' from AI SDK and 'statusCode' from our errors)
+  const statusCode = getErrorStatusCode(error)
+  if (statusCode === 401 || statusCode === 403) return true
+
+  // Check error message for auth indicators
   const err = error as {
-    statusCode?: number
     message?: string
     responseBody?: string
   }
-
-  // 401 Unauthorized or 403 Forbidden typically indicate auth issues
-  if (err.statusCode === 401 || err.statusCode === 403) return true
-
   const message = (err.message || '').toLowerCase()
   const responseBody = (err.responseBody || '').toLowerCase()
 

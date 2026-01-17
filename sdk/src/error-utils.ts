@@ -73,13 +73,24 @@ export function isRetryableStatusCode(statusCode: number | undefined): boolean {
 }
 
 /**
- * Extracts the statusCode from an error if available
+ * Extracts the statusCode from an error if available.
+ * Checks both 'statusCode' (our convention) and 'status' (AI SDK's APICallError convention).
  */
 export function getErrorStatusCode(error: unknown): number | undefined {
-  if (error && typeof error === 'object' && 'statusCode' in error) {
-    const statusCode = (error as { statusCode: unknown }).statusCode
-    if (typeof statusCode === 'number') {
-      return statusCode
+  if (error && typeof error === 'object') {
+    // Check 'statusCode' first (our convention)
+    if ('statusCode' in error) {
+      const statusCode = (error as { statusCode: unknown }).statusCode
+      if (typeof statusCode === 'number') {
+        return statusCode
+      }
+    }
+    // Check 'status' (AI SDK's APICallError uses this)
+    if ('status' in error) {
+      const status = (error as { status: unknown }).status
+      if (typeof status === 'number') {
+        return status
+      }
     }
   }
   return undefined
