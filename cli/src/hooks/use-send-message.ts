@@ -27,6 +27,7 @@ import {
   setupStreamingContext,
 } from './helpers/send-message'
 import { NETWORK_ERROR_ID } from '../utils/validation-error-helpers'
+import { yieldToEventLoop } from '../utils/yield-to-event-loop'
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
 import type { StreamStatus } from './use-message-queue'
@@ -36,12 +37,6 @@ import type { SendMessageFn } from '../types/contracts/send-message'
 import type { AgentMode } from '../utils/constants'
 import type { SendMessageTimerEvent } from '../utils/send-message-timer'
 import type { AgentDefinition, MessageContent, RunState } from '@codebuff/sdk'
-
-// Main chat send hook: orchestrates prep, streaming, and completion.
-const yieldToEventLoop = () =>
-  new Promise<void>((resolve) => {
-    setTimeout(resolve, 0)
-  })
 
 interface UseSendMessageOptions {
   inputRef: React.MutableRefObject<any>
@@ -59,6 +54,7 @@ interface UseSendMessageOptions {
   scrollToLatest: () => void
   onTimerEvent?: (event: SendMessageTimerEvent) => void
   isQueuePausedRef?: React.MutableRefObject<boolean>
+  isProcessingQueueRef?: React.MutableRefObject<boolean>
   resumeQueue?: () => void
   continueChat: boolean
   continueChatId?: string
@@ -108,6 +104,7 @@ export const useSendMessage = ({
   scrollToLatest,
   onTimerEvent = () => {},
   isQueuePausedRef,
+  isProcessingQueueRef,
   resumeQueue,
   continueChat,
   continueChatId,
@@ -212,8 +209,6 @@ export const useSendMessage = ({
         },
       })
     },
-    // Note: lastMessageMode is accessed via getState() inside the callback,
-    // so it always gets the fresh value - no need to include in deps
     [
       setMessages,
       setLastMessageMode,
@@ -313,6 +308,19 @@ export const useSendMessage = ({
           {},
           '[send-message] No Codebuff client available. Please ensure you are authenticated.',
         )
+        // Show error to user instead of silently failing
+        setMessages((prev) => [
+          ...prev,
+          createErrorChatMessage(
+            '⚠️ Unable to connect to Codebuff. Please check your authentication and try again.',
+          ),
+        ])
+        await yieldToEventLoop()
+        setTimeout(() => scrollToLatest(), 0)
+        // Release the queue processing lock since we're returning early (before try block)
+        if (isProcessingQueueRef) {
+          isProcessingQueueRef.current = false
+        }
         return
       }
 
@@ -332,6 +340,7 @@ export const useSendMessage = ({
           setStreamStatus,
           setCanProcessQueue,
           isQueuePausedRef,
+          isProcessingQueueRef,
           updateChainInProgress,
           setIsRetrying,
         })
@@ -409,6 +418,8 @@ export const useSendMessage = ({
           updateChainInProgress,
           setHasReceivedPlanResponse,
           resumeQueue,
+          isProcessingQueueRef,
+          isQueuePausedRef,
         })
       } catch (error) {
         handleRunError({
@@ -420,10 +431,10 @@ export const useSendMessage = ({
           setStreamStatus,
           setCanProcessQueue,
           updateChainInProgress,
+          isProcessingQueueRef,
+          isQueuePausedRef,
         })
       } finally {
-        // Defensive reset: ensure chain state is always cleared even if handlers throw.
-        // This prevents the system from getting stuck in "chain in progress" state.
         if (isChainInProgressRef.current) {
           logger.warn(
             {},
@@ -433,9 +444,11 @@ export const useSendMessage = ({
           setStreamStatus('idle')
           setCanProcessQueue(!isQueuePausedRef?.current)
         }
-        // Ensure the batched updater's flush interval is always cleaned up,
-        // even if handleRunCompletion or handleRunError throw unexpectedly.
-        // dispose() is safe to call multiple times.
+        // Safety net: ensure lock is always released even if handleRunCompletion/handleRunError
+        // didn't run (e.g., due to unexpected early return). Redundant releases are safe (idempotent).
+        if (isProcessingQueueRef) {
+          isProcessingQueueRef.current = false
+        }
         updater.dispose()
       }
     },
@@ -444,6 +457,7 @@ export const useSendMessage = ({
       addSessionCredits,
       agentId,
       inputRef,
+      isProcessingQueueRef,
       isQueuePausedRef,
       mainAgentTimer,
       onBeforeMessageSend,

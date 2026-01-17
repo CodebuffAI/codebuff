@@ -18,6 +18,8 @@ import {
   type BatchedMessageUpdater,
 } from '../../utils/message-updater'
 import { createModeDividerMessage } from '../../utils/send-message-helpers'
+import { yieldToEventLoop } from '../../utils/yield-to-event-loop'
+import { getErrorObject } from '@codebuff/common/util/error'
 
 import type {
   PendingAttachment,
@@ -32,12 +34,40 @@ import type { StreamController } from '../stream-state'
 import type { StreamStatus } from '../use-message-queue'
 import type { MessageContent, RunState } from '@codebuff/sdk'
 import type { MutableRefObject, SetStateAction } from 'react'
-import { getErrorObject } from '@codebuff/common/util/error'
 
-const yieldToEventLoop = () =>
-  new Promise<void>((resolve) => {
-    setTimeout(resolve, 0)
-  })
+/** Resets queue state after streaming completes, aborts, or errors. */
+export type FinalizeQueueStateParams = {
+  setStreamStatus: (status: StreamStatus) => void
+  setCanProcessQueue: (can: boolean) => void
+  updateChainInProgress: (value: boolean) => void
+  isProcessingQueueRef?: MutableRefObject<boolean>
+  isQueuePausedRef?: MutableRefObject<boolean>
+  resumeQueue?: () => void
+}
+
+export const finalizeQueueState = (params: FinalizeQueueStateParams): void => {
+  const {
+    setStreamStatus,
+    setCanProcessQueue,
+    updateChainInProgress,
+    isProcessingQueueRef,
+    isQueuePausedRef,
+    resumeQueue,
+  } = params
+
+  setStreamStatus('idle')
+  // Release lock here as part of normal completion flow.
+  // Also released in finally block and .catch() as safety nets (idempotent).
+  if (isProcessingQueueRef) {
+    isProcessingQueueRef.current = false
+  }
+  if (resumeQueue) {
+    resumeQueue()
+  } else {
+    setCanProcessQueue(!isQueuePausedRef?.current)
+  }
+  updateChainInProgress(false)
+}
 
 export type PrepareUserMessageDeps = {
   setMessages: (update: SetStateAction<ChatMessage[]>) => void
@@ -158,6 +188,7 @@ export const setupStreamingContext = (params: {
   setStreamStatus: (status: StreamStatus) => void
   setCanProcessQueue: (can: boolean) => void
   isQueuePausedRef?: MutableRefObject<boolean>
+  isProcessingQueueRef?: MutableRefObject<boolean>
   updateChainInProgress: (value: boolean) => void
   setIsRetrying: (value: boolean) => void
 }) => {
@@ -170,6 +201,7 @@ export const setupStreamingContext = (params: {
     setStreamStatus,
     setCanProcessQueue,
     isQueuePausedRef,
+    isProcessingQueueRef,
     updateChainInProgress,
     setIsRetrying,
   } = params
@@ -184,9 +216,13 @@ export const setupStreamingContext = (params: {
   abortController.signal.addEventListener('abort', () => {
     // Abort means the user stopped streaming; finalize with an interruption notice.
     streamRefs.setters.setWasAbortedByUser(true)
-    setStreamStatus('idle')
-    setCanProcessQueue(!isQueuePausedRef?.current)
-    updateChainInProgress(false)
+    finalizeQueueState({
+      setStreamStatus,
+      setCanProcessQueue,
+      updateChainInProgress,
+      isProcessingQueueRef,
+      isQueuePausedRef,
+    })
     setIsRetrying(false)
     timerController.stop('aborted')
 
@@ -210,6 +246,8 @@ export const handleRunCompletion = (params: {
   updateChainInProgress: (value: boolean) => void
   setHasReceivedPlanResponse: (value: boolean) => void
   resumeQueue?: () => void
+  isProcessingQueueRef?: MutableRefObject<boolean>
+  isQueuePausedRef?: MutableRefObject<boolean>
 }) => {
   const {
     runState,
@@ -224,13 +262,19 @@ export const handleRunCompletion = (params: {
     updateChainInProgress,
     setHasReceivedPlanResponse,
     resumeQueue,
+    isProcessingQueueRef,
+    isQueuePausedRef,
   } = params
 
   const output = runState.output
   const finalizeAfterError = () => {
-    setStreamStatus('idle')
-    setCanProcessQueue(true)
-    updateChainInProgress(false)
+    finalizeQueueState({
+      setStreamStatus,
+      setCanProcessQueue,
+      updateChainInProgress,
+      isProcessingQueueRef,
+      isQueuePausedRef,
+    })
     timerController.stop('error')
   }
 
@@ -267,12 +311,14 @@ export const handleRunCompletion = (params: {
 
   invalidateActivityQuery(usageQueryKeys.current())
 
-  setStreamStatus('idle')
-  if (resumeQueue) {
-    resumeQueue()
-  }
-  setCanProcessQueue(true)
-  updateChainInProgress(false)
+  finalizeQueueState({
+    setStreamStatus,
+    setCanProcessQueue,
+    updateChainInProgress,
+    isProcessingQueueRef,
+    isQueuePausedRef,
+    resumeQueue,
+  })
   const timerResult = timerController.stop('success')
 
   if (agentMode === 'PLAN') {
@@ -304,6 +350,8 @@ export const handleRunError = (params: {
   setStreamStatus: (status: StreamStatus) => void
   setCanProcessQueue: (can: boolean) => void
   updateChainInProgress: (value: boolean) => void
+  isProcessingQueueRef?: MutableRefObject<boolean>
+  isQueuePausedRef?: MutableRefObject<boolean>
 }) => {
   const {
     error,
@@ -314,6 +362,8 @@ export const handleRunError = (params: {
     setStreamStatus,
     setCanProcessQueue,
     updateChainInProgress,
+    isProcessingQueueRef,
+    isQueuePausedRef,
   } = params
 
   const partial = createErrorMessage(error, aiMessageId)
@@ -323,9 +373,13 @@ export const handleRunError = (params: {
     'SDK client.run() failed',
   )
   setIsRetrying(false)
-  setStreamStatus('idle')
-  setCanProcessQueue(true)
-  updateChainInProgress(false)
+  finalizeQueueState({
+    setStreamStatus,
+    setCanProcessQueue,
+    updateChainInProgress,
+    isProcessingQueueRef,
+    isQueuePausedRef,
+  })
   timerController.stop('error')
 
   if (isOutOfCreditsError(error)) {

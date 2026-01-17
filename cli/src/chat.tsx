@@ -585,6 +585,7 @@ export const Chat = ({
     resumeQueue,
     clearQueue,
     isQueuePausedRef,
+    isProcessingQueueRef,
   } = useMessageQueue(
     (message: QueuedMessage) =>
       sendMessageRef.current?.({
@@ -682,6 +683,7 @@ export const Chat = ({
     scrollToLatest,
     onTimerEvent: () => {}, // No-op for now
     isQueuePausedRef,
+    isProcessingQueueRef,
     resumeQueue,
     continueChat,
     continueChatId,

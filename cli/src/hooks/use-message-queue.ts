@@ -12,7 +12,7 @@ export type QueuedMessage = {
 }
 
 export const useMessageQueue = (
-  sendMessage: (message: QueuedMessage) => void,
+  sendMessage: (message: QueuedMessage) => Promise<void>,
   isChainInProgressRef: React.MutableRefObject<boolean>,
   activeAgentStreamsRef: React.MutableRefObject<number>,
 ) => {
@@ -26,6 +26,7 @@ export const useMessageQueue = (
   const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const streamMessageIdRef = useRef<string | null>(null)
   const isQueuePausedRef = useRef<boolean>(false)
+  const isProcessingQueueRef = useRef<boolean>(false)
 
   useEffect(() => {
     queuedMessagesRef.current = queuedMessages
@@ -98,20 +99,35 @@ export const useMessageQueue = (
       return
     }
 
+    if (isProcessingQueueRef.current) {
+      logger.debug(
+        { queueLength },
+        '[message-queue] Queue blocked: already processing',
+      )
+      return
+    }
+
     logger.info(
       { queueLength },
       '[message-queue] Processing next message from queue',
     )
 
-    const timeoutId = setTimeout(() => {
-      const nextMessage = queuedList[0]
-      const remainingMessages = queuedList.slice(1)
-      queuedMessagesRef.current = remainingMessages
-      setQueuedMessages(remainingMessages)
-      sendMessage(nextMessage)
-    }, 100)
+    isProcessingQueueRef.current = true
 
-    return () => clearTimeout(timeoutId)
+    const nextMessage = queuedList[0]
+    const remainingMessages = queuedList.slice(1)
+    queuedMessagesRef.current = remainingMessages
+    setQueuedMessages(remainingMessages)
+    // Add .catch() to prevent unhandled promise rejections.
+    // Safety net: release lock here in case sendMessage failed before its own error handling.
+    // Lock is also released in finalizeQueueState and sendMessage's finally block (idempotent).
+    sendMessage(nextMessage).catch((err: unknown) => {
+      logger.warn(
+        { error: err },
+        '[message-queue] sendMessage promise rejected - releasing lock',
+      )
+      isProcessingQueueRef.current = false
+    })
   }, [
     canProcessQueue,
     queuePaused,
@@ -159,8 +175,9 @@ export const useMessageQueue = (
 
   const stopStreaming = useCallback(() => {
     setStreamStatus('idle')
-    setCanProcessQueue(!queuePaused)
-  }, [queuePaused])
+    // Use ref instead of queuePaused state to avoid stale closure issues
+    setCanProcessQueue(!isQueuePausedRef.current)
+  }, [])
 
   return {
     queuedMessages,
@@ -178,5 +195,6 @@ export const useMessageQueue = (
     resumeQueue,
     clearQueue,
     isQueuePausedRef,
+    isProcessingQueueRef,
   }
 }

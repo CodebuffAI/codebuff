@@ -28,7 +28,7 @@ ensureEnv()
 
 const { useChatStore } = await import('../../../state/chat-store')
 const { createStreamController } = await import('../../stream-state')
-const { setupStreamingContext, handleRunError } = await import(
+const { setupStreamingContext, handleRunError, finalizeQueueState } = await import(
   '../send-message'
 )
 const { createBatchedMessageUpdater } = await import(
@@ -172,6 +172,94 @@ describe('setupStreamingContext', () => {
       expect(canProcessQueue).toBe(false)
     })
 
+    test('abort resets isProcessingQueueRef to false', () => {
+      let messages = createBaseMessages()
+      const streamRefs = createStreamController()
+      const timerController = createMockTimerController()
+      const abortControllerRef = { current: null as AbortController | null }
+      const isProcessingQueueRef = { current: true }
+
+      const { abortController } = setupStreamingContext({
+        aiMessageId: 'ai-1',
+        timerController,
+        setMessages: (fn: any) => {
+          messages = fn(messages)
+        },
+        streamRefs,
+        abortControllerRef,
+        setStreamStatus: () => {},
+        setCanProcessQueue: () => {},
+        isProcessingQueueRef,
+        updateChainInProgress: () => {},
+        setIsRetrying: () => {},
+      })
+
+      // Verify ref starts as true
+      expect(isProcessingQueueRef.current).toBe(true)
+
+      // Trigger abort
+      abortController.abort()
+
+      // Verify isProcessingQueueRef is reset to false after abort
+      expect(isProcessingQueueRef.current).toBe(false)
+    })
+
+    test('abort with both isProcessingQueueRef and isQueuePausedRef handles correctly', () => {
+      let messages = createBaseMessages()
+      const streamRefs = createStreamController()
+      const timerController = createMockTimerController()
+      const abortControllerRef = { current: null as AbortController | null }
+      const isProcessingQueueRef = { current: true }
+      const isQueuePausedRef = { current: true }
+      let streamStatus = 'streaming' as StreamStatus
+      let canProcessQueue = true
+      let chainInProgress = true
+      let isRetrying = true
+
+      const { abortController } = setupStreamingContext({
+        aiMessageId: 'ai-1',
+        timerController,
+        setMessages: (fn: any) => {
+          messages = fn(messages)
+        },
+        streamRefs,
+        abortControllerRef,
+        setStreamStatus: (status) => {
+          streamStatus = status
+        },
+        setCanProcessQueue: (can) => {
+          canProcessQueue = can
+        },
+        isQueuePausedRef,
+        isProcessingQueueRef,
+        updateChainInProgress: (value) => {
+          chainInProgress = value
+        },
+        setIsRetrying: (value) => {
+          isRetrying = value
+        },
+      })
+
+      // Sanity check initial state
+      expect(isProcessingQueueRef.current).toBe(true)
+      expect(isQueuePausedRef.current).toBe(true)
+      expect(streamStatus).toBe('streaming')
+      expect(canProcessQueue).toBe(true)
+      expect(chainInProgress).toBe(true)
+      expect(isRetrying).toBe(true)
+
+      // Trigger abort
+      abortController.abort()
+
+      // After abort, lock should be released, queue should respect pause state,
+      // chain and retry flags should be cleared, and stream should be idle.
+      expect(isProcessingQueueRef.current).toBe(false)
+      expect(canProcessQueue).toBe(false)
+      expect(chainInProgress).toBe(false)
+      expect(isRetrying).toBe(false)
+      expect(streamStatus).toBe('idle')
+    })
+
     test('abort handler stores abortController in ref', () => {
       let messages = createBaseMessages()
       const streamRefs = createStreamController()
@@ -227,6 +315,61 @@ describe('setupStreamingContext', () => {
       // Verify timer was started with correct message ID
       expect(timerController.startCalls).toContain('ai-1')
     })
+  })
+})
+
+describe('finalizeQueueState', () => {
+  test('sets stream status to idle and resets queue state', () => {
+    let streamStatus = 'streaming' as StreamStatus
+    let canProcessQueue = false
+    let chainInProgress = true
+    const isProcessingQueueRef = { current: true }
+
+    finalizeQueueState({
+      setStreamStatus: (status) => { streamStatus = status },
+      setCanProcessQueue: (can) => { canProcessQueue = can },
+      updateChainInProgress: (value) => { chainInProgress = value },
+      isProcessingQueueRef,
+    })
+
+    expect(streamStatus).toBe('idle')
+    expect(canProcessQueue).toBe(true)
+    expect(chainInProgress).toBe(false)
+    expect(isProcessingQueueRef.current).toBe(false)
+  })
+
+  test('calls resumeQueue instead of setCanProcessQueue when provided', () => {
+    let streamStatus = 'streaming' as StreamStatus
+    let canProcessQueueCalled = false
+    let resumeQueueCalled = false
+    let chainInProgress = true
+
+    finalizeQueueState({
+      setStreamStatus: (status) => { streamStatus = status },
+      setCanProcessQueue: () => { canProcessQueueCalled = true },
+      updateChainInProgress: (value) => { chainInProgress = value },
+      resumeQueue: () => { resumeQueueCalled = true },
+    })
+
+    expect(streamStatus).toBe('idle')
+    expect(resumeQueueCalled).toBe(true)
+    expect(canProcessQueueCalled).toBe(false)
+    expect(chainInProgress).toBe(false)
+  })
+
+  test('respects isQueuePausedRef when no resumeQueue provided', () => {
+    let canProcessQueue = true
+    const isQueuePausedRef = { current: true }
+
+    finalizeQueueState({
+      setStreamStatus: () => {},
+      setCanProcessQueue: (can) => { canProcessQueue = can },
+      updateChainInProgress: () => {},
+      isQueuePausedRef,
+    })
+
+    // When queue is paused, canProcessQueue should be false
+    expect(canProcessQueue).toBe(false)
   })
 })
 
@@ -374,6 +517,78 @@ describe('handleRunError', () => {
 
     // Should NOT switch input mode for regular errors
     expect(setInputModeMock).not.toHaveBeenCalled()
+  })
+
+  test('resets isProcessingQueueRef to false on error', () => {
+    let messages: ChatMessage[] = [
+      {
+        id: 'ai-1',
+        variant: 'ai',
+        content: '',
+        blocks: [],
+        timestamp: 'now',
+      },
+    ]
+
+    const timerController = createMockTimerController()
+    const updater = createBatchedMessageUpdater('ai-1', (fn: any) => {
+      messages = fn(messages)
+    })
+    const isProcessingQueueRef = { current: true }
+
+    // Verify ref starts as true
+    expect(isProcessingQueueRef.current).toBe(true)
+
+    handleRunError({
+      error: new Error('Some error'),
+      aiMessageId: 'ai-1',
+      timerController,
+      updater,
+      setIsRetrying: () => {},
+      setStreamStatus: () => {},
+      setCanProcessQueue: () => {},
+      updateChainInProgress: () => {},
+      isProcessingQueueRef,
+    })
+
+    // Verify isProcessingQueueRef is reset to false
+    expect(isProcessingQueueRef.current).toBe(false)
+  })
+
+  test('respects isQueuePausedRef when setting canProcessQueue on error', () => {
+    let messages: ChatMessage[] = [
+      {
+        id: 'ai-1',
+        variant: 'ai',
+        content: '',
+        blocks: [],
+        timestamp: 'now',
+      },
+    ]
+
+    const timerController = createMockTimerController()
+    const updater = createBatchedMessageUpdater('ai-1', (fn: any) => {
+      messages = fn(messages)
+    })
+    const isQueuePausedRef = { current: true }
+    let canProcessQueue = true
+
+    handleRunError({
+      error: new Error('Some error'),
+      aiMessageId: 'ai-1',
+      timerController,
+      updater,
+      setIsRetrying: () => {},
+      setStreamStatus: () => {},
+      setCanProcessQueue: (can: boolean) => {
+        canProcessQueue = can
+      },
+      updateChainInProgress: () => {},
+      isQueuePausedRef,
+    })
+
+    // When queue is paused, canProcessQueue should be false
+    expect(canProcessQueue).toBe(false)
   })
 
   test('Payment required error (402) uses setError, invalidates queries, and switches input mode', () => {
