@@ -33,7 +33,12 @@ export function createCodeReviewerMultiPrompt(): Omit<
             type: 'array',
             items: { type: 'string' },
             description:
-              'Array of 3-5 short prompts, each specifying a different review focus or perspective. Example: ["api design", "frontend changes", "correctness and edge cases", "code style and readability", "performance implications", "security concerns"]',
+              `Array of 3-5 short prompts, each specifying a different review focus or perspective. Can be specific parts of the code that was changed (frontend), or angles like reviewing with an eye for simplifying the code or design or code style.
+Example 1:
+["api design", "correctness and edge cases", "find ways to simplify the code or reuse existing code", "security concerns", "overall review"]
+Example 2:
+[ "frontend changes", "backend changes", "code style, maintainability, and readability"]
+`,
           },
         },
         required: ['prompts'],
