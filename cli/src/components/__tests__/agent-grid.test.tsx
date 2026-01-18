@@ -139,7 +139,7 @@ describe('AgentBlockGrid (via MessageBlock)', () => {
   })
 
   describe('multiple agents rendering', () => {
-    test('renders multiple agents with count header', () => {
+    test('renders multiple agents without footer label', () => {
       const blocks: ContentBlock[] = [
         createAgentBlock('agent-1', 'File Picker', 'file-picker'),
         createAgentBlock('agent-2', 'Code Searcher', 'code-searcher'),
@@ -153,10 +153,11 @@ describe('AgentBlockGrid (via MessageBlock)', () => {
       expect(markup).toContain('File Picker')
       expect(markup).toContain('Code Searcher')
       expect(markup).toContain('Commander')
-      expect(markup).toContain('3 agents completed')
+      // Footer label was removed as redundant
+      expect(markup).not.toContain('agents completed')
     })
 
-    test('shows running count when agents are running', () => {
+    test('renders running agents without footer label', () => {
       const blocks: ContentBlock[] = [
         createAgentBlock('agent-1', 'File Picker', 'file-picker', 'running'),
         createAgentBlock('agent-2', 'Code Searcher', 'code-searcher', 'running'),
@@ -166,37 +167,10 @@ describe('AgentBlockGrid (via MessageBlock)', () => {
         <MessageBlock {...baseMessageBlockProps} blocks={blocks} />,
       )
 
-      expect(markup).toContain('2 agents running')
-    })
-
-    test('shows running when at least one agent is running', () => {
-      const blocks: ContentBlock[] = [
-        createAgentBlock('agent-1', 'File Picker', 'file-picker', 'complete'),
-        createAgentBlock('agent-2', 'Code Searcher', 'code-searcher', 'running'),
-      ]
-
-      const markup = renderToStaticMarkup(
-        <MessageBlock {...baseMessageBlockProps} blocks={blocks} />,
-      )
-
-      expect(markup).toContain('2 agents running')
-    })
-
-    test('shows running when agent is in streamingAgents set', () => {
-      const blocks: ContentBlock[] = [
-        createAgentBlock('agent-1', 'File Picker', 'file-picker', 'complete'),
-        createAgentBlock('agent-2', 'Code Searcher', 'code-searcher', 'complete'),
-      ]
-
-      const markup = renderToStaticMarkup(
-        <MessageBlock
-          {...baseMessageBlockProps}
-          blocks={blocks}
-          streamingAgents={new Set(['agent-1'])}
-        />,
-      )
-
-      expect(markup).toContain('2 agents running')
+      expect(markup).toContain('File Picker')
+      expect(markup).toContain('Code Searcher')
+      // Footer label was removed as redundant
+      expect(markup).not.toContain('agents running')
     })
   })
 
@@ -237,7 +211,6 @@ describe('AgentBlockGrid (via MessageBlock)', () => {
       expect(markup).toContain('File Picker')
       expect(markup).toContain('Code Searcher')
       expect(markup).toContain('After agents')
-      expect(markup).toContain('2 agents completed')
     })
 
     test('groups only consecutive non-implementor agents', () => {
@@ -252,9 +225,9 @@ describe('AgentBlockGrid (via MessageBlock)', () => {
         <MessageBlock {...baseMessageBlockProps} blocks={blocks} />,
       )
 
-      // First group of 2 agents
-      expect(markup).toContain('2 agents completed')
-      // Single agent after separator shouldn't have header
+      expect(markup).toContain('File Picker 1')
+      expect(markup).toContain('File Picker 2')
+      expect(markup).toContain('Separator')
       expect(markup).toContain('Commander')
     })
   })
@@ -529,7 +502,6 @@ describe('Grid layout width handling', () => {
 
     expect(markup).toContain('Agent 1')
     expect(markup).toContain('Agent 2')
-    expect(markup).toContain('2 agents completed')
   })
 
   test('renders with medium width (up to 2 columns)', () => {
@@ -562,6 +534,5 @@ describe('Grid layout width handling', () => {
     expect(markup).toContain('Agent 1')
     expect(markup).toContain('Agent 2')
     expect(markup).toContain('Agent 3')
-    expect(markup).toContain('3 agents completed')
   })
 })
