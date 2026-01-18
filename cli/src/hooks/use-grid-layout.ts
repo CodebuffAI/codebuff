@@ -2,10 +2,19 @@ import { useMemo } from 'react'
 
 import { computeSmartColumns, MIN_COLUMN_WIDTH } from '../utils/layout-helpers'
 
+/**
+ * Terminal column width thresholds for responsive grid layout.
+ * These are character counts (not pixels) representing terminal width breakpoints:
+ * - Below 100 cols: 1 column (narrow terminal)
+ * - 100-149 cols: up to 2 columns (medium terminal)
+ * - 150-199 cols: up to 3 columns (large terminal)  
+ * - 200+ cols: up to 4 columns (extra large terminal)
+ */
 export const WIDTH_MD_THRESHOLD = 100
 export const WIDTH_LG_THRESHOLD = 150
 export const WIDTH_XL_THRESHOLD = 200
 
+/** Ordered thresholds for determining max columns based on terminal width */
 const WIDTH_THRESHOLDS = [WIDTH_MD_THRESHOLD, WIDTH_LG_THRESHOLD, WIDTH_XL_THRESHOLD] as const
 
 export interface GridLayoutResult<T> {
@@ -18,6 +27,17 @@ export function computeGridLayout<T>(
   items: T[],
   availableWidth: number,
 ): GridLayoutResult<T> {
+  // Force single column for very narrow terminals where multi-column wouldn't fit
+  const COLUMN_GAP = 1
+  const minWidthForTwoColumns = MIN_COLUMN_WIDTH * 2 + COLUMN_GAP
+  if (availableWidth < minWidthForTwoColumns) {
+    return {
+      columns: 1,
+      columnWidth: availableWidth,
+      columnGroups: [items],
+    }
+  }
+
   const maxColumns = WIDTH_THRESHOLDS.filter(t => availableWidth >= t).length + 1
 
   const columns = computeSmartColumns(items.length, maxColumns)

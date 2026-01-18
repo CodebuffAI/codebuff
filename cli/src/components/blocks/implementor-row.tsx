@@ -1,6 +1,15 @@
 import { TextAttributes } from '@opentui/core'
 import React, { memo, useCallback, useMemo, useState } from 'react'
 
+/** Horizontal padding inside implementor cards (left + right) */
+const CARD_HORIZONTAL_PADDING = 4
+/** Fixed width for the +/- bar visualization */
+const STATS_BAR_WIDTH = 5
+/** Minimum width to display file paths */
+const MIN_FILE_PATH_WIDTH = 10
+/** Minimum inner content width */
+const MIN_INNER_WIDTH = 10
+
 import { getAgentStatusInfo } from '../../utils/agent-helpers'
 import {
   buildActivityTimeline,
@@ -148,7 +157,7 @@ const ImplementorCard = memo(
       : `${statusIndicator} ${statusLabel}`
 
     // Use cardWidth for internal truncation calculations (approximate internal space)
-    const innerWidth = Math.max(10, cardWidth - 4)
+    const innerWidth = Math.max(MIN_INNER_WIDTH, cardWidth - CARD_HORIZONTAL_PADDING)
 
     // Toggle file selection - clicking same file deselects it
     const handleFileSelect = useCallback((filePath: string) => {
@@ -254,7 +263,7 @@ const CompactFileStats = memo(({
   }
 
   // Fixed bar width - keeps layout simple and predictable
-  const maxBarWidth = 5
+  const maxBarWidth = STATS_BAR_WIDTH
 
   // Calculate max string widths for alignment (so all bars meet at center axis)
   // Always include +0/-0 in width calculation since we always show them

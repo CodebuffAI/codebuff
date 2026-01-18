@@ -1,5 +1,5 @@
 import { TextAttributes } from '@opentui/core'
-import React, { memo, useCallback, useMemo, type ReactNode } from 'react'
+import React, { memo, useCallback, useMemo, useRef, type ReactNode } from 'react'
 
 import { AgentBlockGrid } from './agent-block-grid'
 import { AgentBranchItem } from './agent-branch-item'
@@ -14,6 +14,7 @@ import { shouldRenderAsSimpleText } from '../../utils/constants'
 import { isImplementorAgent, getImplementorIndex } from '../../utils/implementor-helpers'
 import { processBlocks, type BlockProcessorHandlers } from '../../utils/block-processor'
 import { getAgentStatusInfo } from '../../utils/agent-helpers'
+import { extractHtmlBlockMargins } from '../../utils/block-margins'
 import { isTextBlock } from '../../types/chat'
 import type {
   AgentContentBlock,
@@ -34,6 +35,22 @@ interface AgentBodyProps {
   onBuildFast: () => void
   onBuildMax: () => void
   isLastMessage?: boolean
+}
+
+/** Props stored in ref for stable handler access in AgentBody */
+interface AgentBodyPropsRef {
+  keyPrefix: string
+  nestedBlocks: ContentBlock[]
+  parentIsStreaming: boolean
+  availableWidth: number
+  markdownPalette: MarkdownPalette
+  streamingAgents: Set<string>
+  onToggleCollapsed: (id: string) => void
+  onBuildFast: () => void
+  onBuildMax: () => void
+  isLastMessage?: boolean
+  theme: ReturnType<typeof useTheme>
+  getAgentMarkdownOptions: (indent: number) => { codeBlockWidth: number; palette: MarkdownPalette }
 }
 
 const AgentBody = memo(
@@ -69,83 +86,114 @@ const AgentBody = memo(
       [availableWidth, markdownPalette, theme.foreground],
     )
 
+    // Store props in ref for stable handler access (avoids 12+ useMemo dependencies)
+    const propsRef = useRef<AgentBodyPropsRef>(null!)
+    propsRef.current = {
+      keyPrefix,
+      nestedBlocks,
+      parentIsStreaming,
+      availableWidth,
+      markdownPalette,
+      streamingAgents,
+      onToggleCollapsed,
+      onBuildFast,
+      onBuildMax,
+      isLastMessage,
+      theme,
+      getAgentMarkdownOptions,
+    }
+
+    // Handlers are stable (empty deps) and read latest props from ref
     const handlers: BlockProcessorHandlers = useMemo(
       () => ({
-        onReasoningGroup: (reasoningBlocks, startIndex) => (
-          <ThinkingBlock
-            key={reasoningBlocks[0]?.thinkingId ?? `${keyPrefix}-thinking-${startIndex}`}
-            blocks={reasoningBlocks}
-            onToggleCollapsed={onToggleCollapsed}
-            availableWidth={availableWidth}
-            isNested={true}
-          />
-        ),
+        onReasoningGroup: (reasoningBlocks, startIndex) => {
+          const p = propsRef.current
+          return (
+            <ThinkingBlock
+              key={reasoningBlocks[0]?.thinkingId ?? `${p.keyPrefix}-thinking-${startIndex}`}
+              blocks={reasoningBlocks}
+              onToggleCollapsed={p.onToggleCollapsed}
+              availableWidth={p.availableWidth}
+              isNested={true}
+            />
+          )
+        },
 
-        onToolGroup: (toolBlocks, startIndex, nextIndex) => (
-          <ToolBlockGroup
-            key={`${keyPrefix}-tool-group-${startIndex}`}
-            toolBlocks={toolBlocks}
-            keyPrefix={keyPrefix}
-            startIndex={startIndex}
-            nextIndex={nextIndex}
-            siblingBlocks={nestedBlocks}
-            availableWidth={availableWidth}
-            streamingAgents={streamingAgents}
-            onToggleCollapsed={onToggleCollapsed}
-            markdownPalette={markdownPalette}
-          />
-        ),
+        onToolGroup: (toolBlocks, startIndex, nextIndex) => {
+          const p = propsRef.current
+          return (
+            <ToolBlockGroup
+              key={`${p.keyPrefix}-tool-group-${startIndex}`}
+              toolBlocks={toolBlocks}
+              keyPrefix={p.keyPrefix}
+              startIndex={startIndex}
+              nextIndex={nextIndex}
+              siblingBlocks={p.nestedBlocks}
+              availableWidth={p.availableWidth}
+              streamingAgents={p.streamingAgents}
+              onToggleCollapsed={p.onToggleCollapsed}
+              markdownPalette={p.markdownPalette}
+            />
+          )
+        },
 
-        onImplementorGroup: (implementors, startIndex) => (
-          <ImplementorGroup
-            key={`${keyPrefix}-implementor-group-${startIndex}`}
-            implementors={implementors}
-            siblingBlocks={nestedBlocks}
-            availableWidth={availableWidth}
-          />
-        ),
+        onImplementorGroup: (implementors, startIndex) => {
+          const p = propsRef.current
+          return (
+            <ImplementorGroup
+              key={`${p.keyPrefix}-implementor-group-${startIndex}`}
+              implementors={implementors}
+              siblingBlocks={p.nestedBlocks}
+              availableWidth={p.availableWidth}
+            />
+          )
+        },
 
-        onAgentGroup: (agentBlocks, startIndex) => (
-          <AgentBlockGrid
-            key={`${keyPrefix}-agent-grid-${startIndex}`}
-            agentBlocks={agentBlocks}
-            keyPrefix={`${keyPrefix}-agent-grid-${startIndex}`}
-            availableWidth={availableWidth}
-            streamingAgents={streamingAgents}
-            renderAgentBranch={(innerAgentBlock, prefix, width) => (
-              <AgentBranchWrapper
-                agentBlock={innerAgentBlock}
-                keyPrefix={prefix}
-                availableWidth={width}
-                markdownPalette={markdownPalette}
-                streamingAgents={streamingAgents}
-                onToggleCollapsed={onToggleCollapsed}
-                onBuildFast={onBuildFast}
-                onBuildMax={onBuildMax}
-                siblingBlocks={nestedBlocks}
-                isLastMessage={isLastMessage}
-              />
-            )}
-          />
-        ),
+        onAgentGroup: (agentBlocks, startIndex) => {
+          const p = propsRef.current
+          return (
+            <AgentBlockGrid
+              key={`${p.keyPrefix}-agent-grid-${startIndex}`}
+              agentBlocks={agentBlocks}
+              keyPrefix={`${p.keyPrefix}-agent-grid-${startIndex}`}
+              availableWidth={p.availableWidth}
+              streamingAgents={p.streamingAgents}
+              renderAgentBranch={(innerAgentBlock, prefix, width) => (
+                <AgentBranchWrapper
+                  agentBlock={innerAgentBlock}
+                  keyPrefix={prefix}
+                  availableWidth={width}
+                  markdownPalette={p.markdownPalette}
+                  streamingAgents={p.streamingAgents}
+                  onToggleCollapsed={p.onToggleCollapsed}
+                  onBuildFast={p.onBuildFast}
+                  onBuildMax={p.onBuildMax}
+                  siblingBlocks={p.nestedBlocks}
+                  isLastMessage={p.isLastMessage}
+                />
+              )}
+            />
+          )
+        },
 
         onSingleBlock: (block, index) => {
+          const p = propsRef.current
           if (block.type === 'text') {
             const textBlock = block as TextContentBlock
             const nestedStatus = textBlock.status
-            const isNestedStreamingText = parentIsStreaming || nestedStatus === 'running'
+            const isNestedStreamingText = p.parentIsStreaming || nestedStatus === 'running'
             const filteredNestedContent = isNestedStreamingText
               ? trimTrailingNewlines(textBlock.content)
               : textBlock.content.trim()
-            const markdownOptionsForLevel = getAgentMarkdownOptions(0)
+            const markdownOptionsForLevel = p.getAgentMarkdownOptions(0)
             const marginTop = textBlock.marginTop ?? 0
             const marginBottom = textBlock.marginBottom ?? 0
             const explicitColor = textBlock.color
-            const nestedTextColor = explicitColor ?? theme.foreground
+            const nestedTextColor = explicitColor ?? p.theme.foreground
 
             return (
               <text
-                key={`${keyPrefix}-text-${index}`}
+                key={`${p.keyPrefix}-text-${index}`}
                 style={{
                   wrapMode: 'word',
                   fg: nestedTextColor,
@@ -165,12 +213,11 @@ const AgentBody = memo(
 
           if (block.type === 'html') {
             const htmlBlock = block as HtmlContentBlock
-            const marginTop = htmlBlock.marginTop ?? 0
-            const marginBottom = htmlBlock.marginBottom ?? 0
+            const { marginTop, marginBottom } = extractHtmlBlockMargins(htmlBlock)
 
             return (
               <box
-                key={`${keyPrefix}-html-${index}`}
+                key={`${p.keyPrefix}-html-${index}`}
                 style={{
                   flexDirection: 'column',
                   gap: 0,
@@ -179,8 +226,8 @@ const AgentBody = memo(
                 }}
               >
                 {htmlBlock.render({
-                  textColor: theme.foreground,
-                  theme,
+                  textColor: p.theme.foreground,
+                  theme: p.theme,
                 })}
               </box>
             )
@@ -190,20 +237,7 @@ const AgentBody = memo(
           return null
         },
       }),
-      [
-        keyPrefix,
-        nestedBlocks,
-        parentIsStreaming,
-        availableWidth,
-        markdownPalette,
-        streamingAgents,
-        onToggleCollapsed,
-        onBuildFast,
-        onBuildMax,
-        isLastMessage,
-        theme,
-        getAgentMarkdownOptions,
-      ],
+      [], // Empty deps - handlers read from propsRef.current
     )
 
     return processBlocks(nestedBlocks, handlers) as ReactNode[]

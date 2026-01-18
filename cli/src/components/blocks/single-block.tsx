@@ -10,6 +10,7 @@ import { UserBlockTextWithInlineCopy } from './user-content-copy'
 import { trimTrailingNewlines, isReasoningTextBlock } from './block-helpers'
 import { PlanBox } from '../renderers/plan-box'
 import { useTheme } from '../../hooks/use-theme'
+import { extractTextBlockMargins, extractHtmlBlockMargins } from '../../utils/block-margins'
 import type {
   ContentBlock,
   TextContentBlock,
@@ -70,11 +71,7 @@ export const SingleBlock = memo(
           : textBlock.content.trim()
         const renderKey = `${messageId}-text-${idx}`
         const prevBlock = idx > 0 && blocks ? blocks[idx - 1] : null
-        const marginTop =
-          prevBlock && (prevBlock.type === 'tool' || prevBlock.type === 'agent')
-            ? 0
-            : textBlock.marginTop ?? 0
-        const marginBottom = textBlock.marginBottom ?? 0
+        const { marginTop, marginBottom } = extractTextBlockMargins(textBlock, prevBlock)
         const explicitColor = textBlock.color
         const blockTextColor = explicitColor ?? textColor
 
@@ -130,8 +127,7 @@ export const SingleBlock = memo(
       }
 
       case 'html': {
-        const marginTop = block.marginTop ?? 0
-        const marginBottom = block.marginBottom ?? 0
+        const { marginTop, marginBottom } = extractHtmlBlockMargins(block)
         return (
           <box
             key={`${messageId}-html-${idx}`}

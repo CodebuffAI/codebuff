@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react'
+import React, { memo, useMemo, useRef } from 'react'
 
 import { AgentBlockGrid } from './agent-block-grid'
 import { ImplementorGroup } from './implementor-row'
@@ -28,6 +28,25 @@ interface BlocksRendererProps {
   contentToCopy?: string
 }
 
+/** Props stored in ref for stable handler access */
+interface BlocksRendererPropsRef {
+  sourceBlocks: ContentBlock[]
+  messageId: string
+  isLoading: boolean
+  isComplete?: boolean
+  isUser: boolean
+  textColor: string
+  availableWidth: number
+  markdownPalette: MarkdownPalette
+  streamingAgents: Set<string>
+  onToggleCollapsed: (id: string) => void
+  onBuildFast: () => void
+  onBuildMax: () => void
+  isLastMessage?: boolean
+  contentToCopy?: string
+  lastTextBlockIndex: number
+}
+
 export const BlocksRenderer = memo(
   ({
     sourceBlocks,
@@ -53,115 +72,138 @@ export const BlocksRenderer = memo(
         )
       : -1
 
+    // Store props in ref for stable handler access (avoids 17 useMemo dependencies)
+    const propsRef = useRef<BlocksRendererPropsRef>(null!)
+    propsRef.current = {
+      sourceBlocks,
+      messageId,
+      isLoading,
+      isComplete,
+      isUser,
+      textColor,
+      availableWidth,
+      markdownPalette,
+      streamingAgents,
+      onToggleCollapsed,
+      onBuildFast,
+      onBuildMax,
+      isLastMessage,
+      contentToCopy,
+      lastTextBlockIndex,
+    }
+
+    // Handlers are stable (empty deps) and read latest props from ref
     const handlers: BlockProcessorHandlers = useMemo(
       () => ({
-        onReasoningGroup: (reasoningBlocks, startIndex) => (
-          <ThinkingBlock
-            key={reasoningBlocks[0]?.thinkingId ?? `${messageId}-thinking-${startIndex}`}
-            blocks={reasoningBlocks}
-            onToggleCollapsed={onToggleCollapsed}
-            availableWidth={availableWidth}
-            isNested={false}
-          />
-        ),
+        onReasoningGroup: (reasoningBlocks, startIndex) => {
+          const p = propsRef.current
+          return (
+            <ThinkingBlock
+              key={reasoningBlocks[0]?.thinkingId ?? `${p.messageId}-thinking-${startIndex}`}
+              blocks={reasoningBlocks}
+              onToggleCollapsed={p.onToggleCollapsed}
+              availableWidth={p.availableWidth}
+              isNested={false}
+            />
+          )
+        },
 
-        onImageBlock: (block, index) => (
-          <ImageBlock
-            key={`${messageId}-image-${index}`}
-            block={block}
-            availableWidth={availableWidth}
-          />
-        ),
+        onImageBlock: (block, index) => {
+          const p = propsRef.current
+          return (
+            <ImageBlock
+              key={`${p.messageId}-image-${index}`}
+              block={block}
+              availableWidth={p.availableWidth}
+            />
+          )
+        },
 
-        onToolGroup: (toolBlocks, startIndex, nextIndex) => (
-          <ToolBlockGroup
-            key={`${messageId}-tool-group-${startIndex}`}
-            toolBlocks={toolBlocks}
-            keyPrefix={messageId}
-            startIndex={startIndex}
-            nextIndex={nextIndex}
-            siblingBlocks={sourceBlocks}
-            availableWidth={availableWidth}
-            streamingAgents={streamingAgents}
-            onToggleCollapsed={onToggleCollapsed}
-            markdownPalette={markdownPalette}
-          />
-        ),
+        onToolGroup: (toolBlocks, startIndex, nextIndex) => {
+          const p = propsRef.current
+          return (
+            <ToolBlockGroup
+              key={`${p.messageId}-tool-group-${startIndex}`}
+              toolBlocks={toolBlocks}
+              keyPrefix={p.messageId}
+              startIndex={startIndex}
+              nextIndex={nextIndex}
+              siblingBlocks={p.sourceBlocks}
+              availableWidth={p.availableWidth}
+              streamingAgents={p.streamingAgents}
+              onToggleCollapsed={p.onToggleCollapsed}
+              markdownPalette={p.markdownPalette}
+            />
+          )
+        },
 
-        onImplementorGroup: (implementors, startIndex) => (
-          <ImplementorGroup
-            key={`${messageId}-implementor-group-${startIndex}`}
-            implementors={implementors}
-            siblingBlocks={sourceBlocks}
-            availableWidth={availableWidth}
-          />
-        ),
+        onImplementorGroup: (implementors, startIndex) => {
+          const p = propsRef.current
+          return (
+            <ImplementorGroup
+              key={`${p.messageId}-implementor-group-${startIndex}`}
+              implementors={implementors}
+              siblingBlocks={p.sourceBlocks}
+              availableWidth={p.availableWidth}
+            />
+          )
+        },
 
-        onAgentGroup: (agentBlocks, startIndex) => (
-          <AgentBlockGrid
-            key={`${messageId}-agent-grid-${startIndex}`}
-            agentBlocks={agentBlocks}
-            keyPrefix={`${messageId}-agent-grid-${startIndex}`}
-            availableWidth={availableWidth}
-            streamingAgents={streamingAgents}
-            renderAgentBranch={(agentBlock, prefix, width) => (
-              <AgentBranchWrapper
-                agentBlock={agentBlock}
-                keyPrefix={prefix}
-                availableWidth={width}
-                markdownPalette={markdownPalette}
-                streamingAgents={streamingAgents}
-                onToggleCollapsed={onToggleCollapsed}
-                onBuildFast={onBuildFast}
-                onBuildMax={onBuildMax}
-                siblingBlocks={sourceBlocks}
-                isLastMessage={isLastMessage}
-              />
-            )}
-          />
-        ),
+        onAgentGroup: (agentBlocks, startIndex) => {
+          const p = propsRef.current
+          return (
+            <AgentBlockGrid
+              key={`${p.messageId}-agent-grid-${startIndex}`}
+              agentBlocks={agentBlocks}
+              keyPrefix={`${p.messageId}-agent-grid-${startIndex}`}
+              availableWidth={p.availableWidth}
+              streamingAgents={p.streamingAgents}
+              renderAgentBranch={(agentBlock, prefix, width) => (
+                <AgentBranchWrapper
+                  agentBlock={agentBlock}
+                  keyPrefix={prefix}
+                  availableWidth={width}
+                  markdownPalette={p.markdownPalette}
+                  streamingAgents={p.streamingAgents}
+                  onToggleCollapsed={p.onToggleCollapsed}
+                  onBuildFast={p.onBuildFast}
+                  onBuildMax={p.onBuildMax}
+                  siblingBlocks={p.sourceBlocks}
+                  isLastMessage={p.isLastMessage}
+                />
+              )}
+            />
+          )
+        },
 
-        onSingleBlock: (block, index) => (
-          <SingleBlock
-            key={`${messageId}-block-${index}`}
-            block={block}
-            idx={index}
-            messageId={messageId}
-            blocks={sourceBlocks}
-            isLoading={isLoading}
-            isComplete={isComplete}
-            isUser={isUser}
-            textColor={textColor}
-            availableWidth={availableWidth}
-            markdownPalette={markdownPalette}
-            streamingAgents={streamingAgents}
-            onToggleCollapsed={onToggleCollapsed}
-            onBuildFast={onBuildFast}
-            onBuildMax={onBuildMax}
-            isLastMessage={isLastMessage}
-            contentToCopy={index === lastTextBlockIndex ? contentToCopy : undefined}
-          />
-        ),
+        onSingleBlock: (block, index) => {
+          const p = propsRef.current
+          return (
+            <SingleBlock
+              key={`${p.messageId}-block-${index}`}
+              block={block}
+              idx={index}
+              messageId={p.messageId}
+              blocks={p.sourceBlocks}
+              isLoading={p.isLoading}
+              isComplete={p.isComplete}
+              isUser={p.isUser}
+              textColor={p.textColor}
+              availableWidth={p.availableWidth}
+              markdownPalette={p.markdownPalette}
+              streamingAgents={p.streamingAgents}
+              onToggleCollapsed={p.onToggleCollapsed}
+              onBuildFast={p.onBuildFast}
+              onBuildMax={p.onBuildMax}
+              isLastMessage={p.isLastMessage}
+              contentToCopy={index === p.lastTextBlockIndex ? p.contentToCopy : undefined}
+            />
+          )
+        },
       }),
-      [
-        messageId,
-        sourceBlocks,
-        isLoading,
-        isComplete,
-        isUser,
-        textColor,
-        availableWidth,
-        markdownPalette,
-        streamingAgents,
-        onToggleCollapsed,
-        onBuildFast,
-        onBuildMax,
-        isLastMessage,
-        contentToCopy,
-        lastTextBlockIndex,
-      ],
+      [], // Empty deps - handlers read from propsRef.current
     )
 
-    return processBlocks(sourceBlocks, handlers)
+    return <>{processBlocks(sourceBlocks, handlers)}</>
   },
 )
