@@ -32,8 +32,7 @@ export function createCodeReviewerMultiPrompt(): Omit<
           prompts: {
             type: 'array',
             items: { type: 'string' },
-            description:
-              `Array of 3-5 short prompts, each specifying a different review focus or perspective. Can be specific parts of the code that was changed (frontend), or angles like reviewing with an eye for simplifying the code or design or code style.
+            description: `Array of 3-5 short prompts, each specifying a different review focus or perspective. Can be specific parts of the code that was changed (frontend), or angles like reviewing with an eye for simplifying the code or design or code style.
 Example 1:
 ["api design", "correctness and edge cases", "find ways to simplify the code or reuse existing code", "security concerns", "overall review"]
 Example 2:
@@ -52,6 +51,7 @@ Example 2:
 
 function* handleStepsMultiPrompt({
   params,
+  agentState,
 }: AgentStepContext): ReturnType<
   NonNullable<SecretAgentDefinition['handleSteps']>
 > {
@@ -68,11 +68,25 @@ function* handleStepsMultiPrompt({
     return
   }
 
+  const { messageHistory } = agentState
+  // Remove last user messages (prompt, subagent spawn message, instructions prompt)
+  while (messageHistory.length > 0 && messageHistory[messageHistory.length - 1].role === 'user') {
+    messageHistory.pop()
+  }
+
+  yield {
+    toolName: 'set_messages',
+    input: {
+      messages: messageHistory,
+    },
+    includeToolCall: false,
+  } satisfies ToolCall<'set_messages'>
+
   // Spawn one code-reviewer per prompt
   const reviewerAgents: { agent_type: string; prompt: string }[] = prompts.map(
     (prompt) => ({
       agent_type: 'code-reviewer',
-      prompt: `Review focus: ${prompt}`,
+      prompt: `Review the above code changes with the following focus: ${prompt}`,
     }),
   )
 
@@ -85,38 +99,45 @@ function* handleStepsMultiPrompt({
     includeToolCall: false,
   } satisfies ToolCall<'spawn_agents'>
 
-  // Extract spawn results - each is last_message output (string content)
-  const spawnedReviews = extractSpawnResults<string>(reviewerResults)
+  const spawnedReviews = extractSpawnResults(reviewerResults)
 
-  // Combine all reviews with their focus areas
-  const combinedReviews = spawnedReviews
-    .map((review, index) => {
-      const focus = prompts[index] ?? 'unknown'
-      if (!review || (typeof review === 'object' && 'errorMessage' in review)) {
-        return `## Review Focus: ${focus}\n\nError: ${(review as { errorMessage?: string })?.errorMessage ?? 'Unknown error'}`
+  // Extract text content from each review's message content blocks
+  const reviewTexts: string[] = []
+  for (const review of spawnedReviews) {
+    if ('errorMessage' in review) {
+      reviewTexts.push(`Error: ${review.errorMessage}`)
+    } else {
+      // Each review is an array of messages
+      for (const message of review) {
+        for (const block of message.content) {
+          if (block.type === 'text' && block.text) {
+            reviewTexts.push(block.text)
+          }
+        }
       }
-      return `## Review Focus: ${focus}\n\n${review}`
-    })
-    .join('\n\n---\n\n')
+    }
+  }
 
-  // Set output with the combined reviews
+  // Set output with the simplified reviews (array of strings)
   yield {
     toolName: 'set_output',
     input: {
-      reviews: spawnedReviews,
-      combinedReview: combinedReviews,
-      promptCount: prompts.length,
+      reviews: reviewTexts,
     },
     includeToolCall: false,
   } satisfies ToolCall<'set_output'>
 
+  type ContentBlock = { type: string; text?: string }
+  type ReviewMessage = { role: string; content: ContentBlock[]; sentAt?: number }
+  type ReviewResult = ReviewMessage[]
+
   /**
    * Extracts the array of subagent results from spawn_agents tool output.
-   * For code-reviewer agents with outputMode: 'last_message', the value is the message content.
+   * For code-reviewer agents with outputMode: 'last_message', the value is an array of messages.
    */
-  function extractSpawnResults<T>(
+  function extractSpawnResults(
     results: { type: string; value?: unknown }[] | undefined,
-  ): (T | { errorMessage: string })[] {
+  ): (ReviewResult | { errorMessage: string })[] {
     if (!results || results.length === 0) return []
 
     const jsonResult = results.find((r) => r.type === 'json')
@@ -126,7 +147,7 @@ function* handleStepsMultiPrompt({
       ? jsonResult.value
       : [jsonResult.value]
 
-    const extracted: (T | { errorMessage: string })[] = []
+    const extracted: (ReviewResult | { errorMessage: string })[] = []
     for (const result of spawnedResults) {
       const innerValue = result?.value
       if (
@@ -134,7 +155,7 @@ function* handleStepsMultiPrompt({
         typeof innerValue === 'object' &&
         'value' in innerValue
       ) {
-        extracted.push(innerValue.value as T)
+        extracted.push(innerValue.value as ReviewResult)
       } else if (
         innerValue &&
         typeof innerValue === 'object' &&
@@ -142,7 +163,7 @@ function* handleStepsMultiPrompt({
       ) {
         extracted.push({ errorMessage: String(innerValue.errorMessage) })
       } else if (innerValue != null) {
-        extracted.push(innerValue as T)
+        extracted.push(innerValue as ReviewResult)
       }
     }
     return extracted

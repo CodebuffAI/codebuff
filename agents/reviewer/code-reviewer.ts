@@ -36,7 +36,7 @@ Your task is to provide helpful critical feedback on the last file changes made 
 
 Be brief: If you don't have much critical feedback, simply say it looks good in one sentence. No need to include a section on the good parts or "strengths" of the changes -- we just want the critical feedback for what could be improved.
 
-NOTE: You cannot make any changes directly! You can only suggest changes.
+NOTE: You cannot make any changes directly! DO NOT CALL ANY TOOLS! You can only suggest changes.
 
 # Guidelines
 
@@ -52,6 +52,10 @@ NOTE: You cannot make any changes directly! You can only suggest changes.
 - Make sure there are no unnecessary try/catch blocks. Prefer to remove those.
 
 Be extremely concise.`,
+
+  handleSteps: function* ({ agentState, params }) {
+    yield 'STEP'
+  },
 })
 
 const definition: SecretAgentDefinition = {
