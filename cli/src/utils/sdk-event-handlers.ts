@@ -10,6 +10,7 @@ import {
   createAgentBlock,
   extractPlanFromBuffer,
   extractSpawnAgentResultContent,
+  findAgentTypeById,
   insertPlanBlock,
   nestBlockUnderParent,
   transformAskUserBlocks,
@@ -216,14 +217,20 @@ const handleSubagentStart = (
     'Creating new agent block (no spawn_agents match)',
   )
 
-  const newAgentBlock = createAgentBlock({
-    agentId: event.agentId,
-    agentType: event.agentType || '',
-    prompt: event.prompt,
-    params: event.params,
-  })
-
   state.message.updater.updateAiMessageBlocks((blocks) => {
+    // Look up the parent agent's type if there's a parent agent ID
+    const parentAgentType = event.parentAgentId
+      ? findAgentTypeById(blocks, event.parentAgentId)
+      : undefined
+
+    const newAgentBlock = createAgentBlock({
+      agentId: event.agentId,
+      agentType: event.agentType || '',
+      prompt: event.prompt,
+      params: event.params,
+      parentAgentType,
+    })
+
     if (event.parentAgentId) {
       const { blocks: nestedBlocks, parentFound } = nestBlockUnderParent(
         blocks,
@@ -273,6 +280,11 @@ const handleSpawnAgentsToolCall = (
   })
 
   state.message.updater.updateAiMessageBlocks((blocks) => {
+    // Look up the parent agent's type if there's a parent agent ID
+    const parentAgentType = event.agentId
+      ? findAgentTypeById(blocks, event.agentId)
+      : undefined
+
     const newAgentBlocks: ContentBlock[] = agents
       .map((agent: any, originalIndex: number) => ({ agent, originalIndex }))
       .filter(({ agent }) => !shouldHideAgent(agent.agent_type || ''))
@@ -283,6 +295,7 @@ const handleSpawnAgentsToolCall = (
           prompt: agent.prompt,
           spawnToolCallId: event.toolCallId,
           spawnIndex: originalIndex,
+          parentAgentType,
         }),
       )
 

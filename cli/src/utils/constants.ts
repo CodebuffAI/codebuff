@@ -32,6 +32,40 @@ export const shouldCollapseByDefault = (agentType: string): boolean => {
   )
 }
 
+/**
+ * Rules for collapsing child agents when spawned by specific parent agents.
+ * Key: parent agent type pattern, Value: array of child agent type patterns to collapse
+ */
+export const PARENT_CHILD_COLLAPSE_RULES: Record<string, string[]> = {
+  'code-reviewer-multi-prompt': ['code-reviewer'],
+}
+
+/**
+ * Check if a child agent should be collapsed when spawned by a specific parent
+ */
+export const shouldCollapseForParent = (
+  childAgentType: string,
+  parentAgentType: string | undefined,
+): boolean => {
+  if (!parentAgentType) {
+    return false
+  }
+
+  for (const [parentPattern, childPatterns] of Object.entries(
+    PARENT_CHILD_COLLAPSE_RULES,
+  )) {
+    if (parentAgentType.includes(parentPattern)) {
+      for (const childPattern of childPatterns) {
+        if (childAgentType.includes(childPattern)) {
+          return true
+        }
+      }
+    }
+  }
+
+  return false
+}
+
 // Agent IDs that should render as simple text instead of full agent boxes
 export const SIMPLE_TEXT_AGENT_IDS = [
   'best-of-n-selector',

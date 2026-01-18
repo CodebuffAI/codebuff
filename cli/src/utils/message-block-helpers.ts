@@ -1,7 +1,7 @@
 import { isEqual } from 'lodash'
 
 import { formatToolOutput } from './codebuff-client'
-import { shouldCollapseByDefault } from './constants'
+import { shouldCollapseByDefault, shouldCollapseForParent } from './constants'
 
 import type {
   ContentBlock,
@@ -251,6 +251,30 @@ export const appendInterruptionNotice = (
 }
 
 /**
+ * Recursively finds an agent block by ID and returns its agent type.
+ * Returns undefined if not found.
+ */
+export const findAgentTypeById = (
+  blocks: ContentBlock[],
+  agentId: string,
+): string | undefined => {
+  for (const block of blocks) {
+    if (block.type === 'agent') {
+      if (block.agentId === agentId) {
+        return block.agentType
+      }
+      if (block.blocks) {
+        const found = findAgentTypeById(block.blocks, agentId)
+        if (found) {
+          return found
+        }
+      }
+    }
+  }
+  return undefined
+}
+
+/**
  * Options for creating an agent content block.
  */
 export interface CreateAgentBlockOptions {
@@ -262,6 +286,8 @@ export interface CreateAgentBlockOptions {
   spawnToolCallId?: string
   /** The index within the spawn_agents call */
   spawnIndex?: number
+  /** The agent type of the parent agent that spawned this one */
+  parentAgentType?: string
 }
 
 /**
@@ -270,7 +296,10 @@ export interface CreateAgentBlockOptions {
 export const createAgentBlock = (
   options: CreateAgentBlockOptions,
 ): AgentContentBlock => {
-  const { agentId, agentType, prompt, params, spawnToolCallId, spawnIndex } = options
+  const { agentId, agentType, prompt, params, spawnToolCallId, spawnIndex, parentAgentType } = options
+  const shouldCollapse =
+    shouldCollapseByDefault(agentType || '') ||
+    shouldCollapseForParent(agentType || '', parentAgentType)
   return {
     type: 'agent',
     agentId,
@@ -283,7 +312,7 @@ export const createAgentBlock = (
     ...(params && { params }),
     ...(spawnToolCallId && { spawnToolCallId }),
     ...(spawnIndex !== undefined && { spawnIndex }),
-    ...(shouldCollapseByDefault(agentType || '') && { isCollapsed: true }),
+    ...(shouldCollapse && { isCollapsed: true }),
   }
 }
 
