@@ -206,13 +206,13 @@ ${
 
 ${
   isDefault || isMax
-    ? `[ You spawn a ${isDefault ? 'code-reviewer' : 'reviewer-editor-gpt-5'}, a commander to typecheck the changes, and another commander to run tests, all in parallel ]`
+    ? `[ You spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'}, a commander to typecheck the changes, and another commander to run tests, all in parallel ]`
     : '[ You spawn a commander to typecheck the changes and another commander to run tests, all in parallel ]'
 }
 
 ${
   isDefault || isMax
-    ? `[ You fix the issues found by the ${isDefault ? 'code-reviewer' : 'reviewer-editor-gpt-5'} and type/test errors ]`
+    ? `[ You fix the issues found by the ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} and type/test errors ]`
     : '[ You fix the issues found by the type/test errors and spawn more commanders to confirm ]'
 }
 
@@ -332,7 +332,7 @@ ${buildArray(
   isFast &&
     '- Do a single typecheck targeted for your changes at most (if applicable for the project). Or skip this step if the change was small.',
   (isDefault || isMax) &&
-    `- Spawn a ${isDefault ? 'code-reviewer' : 'reviewer-editor-gpt-5'} to review the changes after you have implemented the changes. (Skip this step only if the change is extremely straightforward and obvious.)`,
+    `- Spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review the changes after you have implemented the changes. (Skip this step only if the change is extremely straightforward and obvious.)`,
   !hasNoValidation &&
     `- For non-trivial changes, test them by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). Try to run all appropriate commands in parallel. ${isMax ? ' Typecheck and test the specific area of the project that you are editing *AND* then typecheck and test the entire project if necessary.' : ' If you can, only test the area of the project that you are editing, rather than the entire project.'} You may have to explore the project to find the appropriate commands. Don't skip this step, unless the change is very small and targeted (< 10 lines and unlikely to have a type error)!`,
   `- Inform the user that you have completed the task in one sentence or a few short bullet points.${isSonnet ? " Don't create any markdown summary files or example documentation files, unless asked by the user." : ''}`,
@@ -363,9 +363,9 @@ function buildImplementationStepPrompt({
     isMax &&
       `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
     isMax &&
-      `You must spawn the 'editor-multi-prompt' agent to implement code changes, since it will generate the best code changes.`,
+      `You must spawn the 'editor-multi-prompt' agent to implement code changes rather than using the str_replace or write_file tools, since it will generate the best code changes.`,
     (isDefault || isMax) &&
-      `Spawn ${isDefault ? 'code-reviewer' : 'reviewer-editor-gpt-5'} to review the changes after you have implemented the changes and in parallel with typechecking or testing.`,
+      `You must spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review the changes after you have implemented the changes and in parallel with typechecking or testing.`,
     `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''} Don't repeat yourself, especially if you have already concluded and summarized the changes in a previous step -- just end your turn.`,
     !isFast &&
       !noAskUser &&
