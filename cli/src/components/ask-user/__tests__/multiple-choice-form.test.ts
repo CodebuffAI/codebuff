@@ -8,7 +8,7 @@
 
 import { describe, it, expect } from 'bun:test'
 
-import { getOptionLabel, OTHER_OPTION_INDEX } from '../constants'
+import { getOptionLabel, CUSTOM_OPTION_INDEX } from '../constants'
 
 import type { AccordionAnswer } from '../components/accordion-question'
 import type { AskUserOption } from '../constants'
@@ -40,8 +40,8 @@ function formatAnswer(
       : []
 
   const customText =
-    answer.isOther && (answer.otherText?.trim().length ?? 0) > 0
-      ? (answer.otherText ?? '').trim()
+    answer.isCustom && (answer.customText?.trim().length ?? 0) > 0
+      ? (answer.customText ?? '').trim()
       : ''
 
   const parts = customText ? [...selectedOptions, customText] : selectedOptions
@@ -132,10 +132,10 @@ describe('formatAnswer', () => {
       })
     })
 
-    it('returns custom text when isOther is true', () => {
+    it('returns custom text when isCustom is true', () => {
       const answer: AccordionAnswer = {
-        isOther: true,
-        otherText: 'Purple',
+        isCustom: true,
+        customText: 'Purple',
       }
       const result = formatAnswer(singleSelectQuestion, answer)
       expect(result).toEqual({
@@ -146,8 +146,8 @@ describe('formatAnswer', () => {
 
     it('trims whitespace from custom text', () => {
       const answer: AccordionAnswer = {
-        isOther: true,
-        otherText: '  Purple  ',
+        isCustom: true,
+        customText: '  Purple  ',
       }
       const result = formatAnswer(singleSelectQuestion, answer)
       expect(result).toEqual({
@@ -156,10 +156,10 @@ describe('formatAnswer', () => {
       })
     })
 
-    it('returns Skipped when isOther is true but text is empty', () => {
+    it('returns Skipped when isCustom is true but text is empty', () => {
       const answer: AccordionAnswer = {
-        isOther: true,
-        otherText: '',
+        isCustom: true,
+        customText: '',
       }
       const result = formatAnswer(singleSelectQuestion, answer)
       expect(result).toEqual({
@@ -168,10 +168,10 @@ describe('formatAnswer', () => {
       })
     })
 
-    it('returns Skipped when isOther is true but text is only whitespace', () => {
+    it('returns Skipped when isCustom is true but text is only whitespace', () => {
       const answer: AccordionAnswer = {
-        isOther: true,
-        otherText: '   ',
+        isCustom: true,
+        customText: '   ',
       }
       const result = formatAnswer(singleSelectQuestion, answer)
       expect(result).toEqual({
@@ -221,8 +221,8 @@ describe('formatAnswer', () => {
     it('includes custom text with selections', () => {
       const answer: AccordionAnswer = {
         selectedIndices: new Set([0]),
-        isOther: true,
-        otherText: 'Cooking',
+        isCustom: true,
+        customText: 'Cooking',
       }
       const result = formatAnswer(multiSelectQuestion, answer)
       expect(result).toEqual({
@@ -234,8 +234,8 @@ describe('formatAnswer', () => {
     it('returns only custom text when no other selections', () => {
       const answer: AccordionAnswer = {
         selectedIndices: new Set(),
-        isOther: true,
-        otherText: 'Cooking',
+        isCustom: true,
+        customText: 'Cooking',
       }
       const result = formatAnswer(multiSelectQuestion, answer)
       expect(result).toEqual({
@@ -266,67 +266,67 @@ describe('formatAnswer', () => {
   })
 })
 
-describe('OTHER_OPTION_INDEX constant', () => {
-  it('is -1 for identifying custom/other option', () => {
-    expect(OTHER_OPTION_INDEX).toBe(-1)
+describe('CUSTOM_OPTION_INDEX constant', () => {
+  it('is -1 for identifying custom option', () => {
+    expect(CUSTOM_OPTION_INDEX).toBe(-1)
   })
 
   it('is distinct from valid option indices', () => {
-    expect(OTHER_OPTION_INDEX).toBeLessThan(0)
+    expect(CUSTOM_OPTION_INDEX).toBeLessThan(0)
   })
 })
 
 describe('answer state management patterns', () => {
   describe('single-select behavior', () => {
-    it('selecting an option clears isOther flag', () => {
+    it('selecting an option clears isCustom flag', () => {
       const previousAnswer: AccordionAnswer = {
-        isOther: true,
-        otherText: 'Custom text',
+        isCustom: true,
+        customText: 'Custom text',
       }
 
       const optionIndex: number = 1
-      const isOtherOption = optionIndex === OTHER_OPTION_INDEX
+      const isCustomOption = optionIndex === CUSTOM_OPTION_INDEX
 
-      const newAnswer: AccordionAnswer = isOtherOption
+      const newAnswer: AccordionAnswer = isCustomOption
         ? {
             selectedIndex: undefined,
             selectedIndices: undefined,
-            isOther: true,
-            otherText: previousAnswer.otherText || '',
+            isCustom: true,
+            customText: previousAnswer.customText || '',
           }
         : {
             selectedIndex: optionIndex,
             selectedIndices: undefined,
-            isOther: false,
+            isCustom: false,
           }
 
       expect(newAnswer.selectedIndex).toBe(1)
-      expect(newAnswer.isOther).toBe(false)
+      expect(newAnswer.isCustom).toBe(false)
     })
 
-    it('selecting OTHER clears selectedIndex and enables isOther', () => {
+    it('selecting CUSTOM clears selectedIndex and enables isCustom', () => {
       const previousAnswer: AccordionAnswer = {
         selectedIndex: 1,
       }
 
-      const optionIndex = OTHER_OPTION_INDEX
-      const isOtherOption = optionIndex === OTHER_OPTION_INDEX
+      const optionIndex = CUSTOM_OPTION_INDEX
+      const isCustomOption = optionIndex === CUSTOM_OPTION_INDEX
 
-      const newAnswer: AccordionAnswer = isOtherOption
+      const newAnswer: AccordionAnswer = isCustomOption
         ? {
             selectedIndex: undefined,
             selectedIndices: undefined,
-            isOther: true,
-            otherText: previousAnswer.otherText || '',
+            isCustom: true,
+            customText: previousAnswer.customText || '',
           }
         : {
             selectedIndex: optionIndex,
             selectedIndices: undefined,
-            isOther: false,
+            isCustom: false,
           }
 
       expect(newAnswer.selectedIndex).toBeUndefined()
-      expect(newAnswer.isOther).toBe(true)
+      expect(newAnswer.isCustom).toBe(true)
     })
   })
 
@@ -368,17 +368,17 @@ describe('answer state management patterns', () => {
       expect(newIndices.size).toBe(2)
     })
 
-    it('toggling OTHER toggles isOther flag', () => {
+    it('toggling CUSTOM toggles isCustom flag', () => {
       const currentAnswer: AccordionAnswer = {
         selectedIndices: new Set([0]),
-        isOther: false,
+        isCustom: false,
       }
 
-      const optionIndex = OTHER_OPTION_INDEX
-      const toggledOtherOn =
-        optionIndex === OTHER_OPTION_INDEX && !currentAnswer.isOther
+      const optionIndex = CUSTOM_OPTION_INDEX
+      const toggledCustomOn =
+        optionIndex === CUSTOM_OPTION_INDEX && !currentAnswer.isCustom
 
-      expect(toggledOtherOn).toBe(true)
+      expect(toggledCustomOn).toBe(true)
     })
   })
 })

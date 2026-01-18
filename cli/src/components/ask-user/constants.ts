@@ -29,8 +29,8 @@ export const getOptionLabel = (option: AskUserOption): string => {
   return typeof option === 'string' ? option : option?.label ?? ''
 }
 
-/** Constant for the "Other" option index */
-export const OTHER_OPTION_INDEX: number = -1
+/** Constant for the "Custom" option index */
+export const CUSTOM_OPTION_INDEX: number = -1
 
 export const KEYBOARD_HINTS = [
   '↑↓ navigate •',

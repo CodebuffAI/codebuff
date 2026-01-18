@@ -14,7 +14,7 @@ import {
   AccordionQuestion,
   type AccordionAnswer,
 } from './components/accordion-question'
-import { getOptionLabel, KEYBOARD_HINTS, OTHER_OPTION_INDEX } from './constants'
+import { getOptionLabel, KEYBOARD_HINTS, CUSTOM_OPTION_INDEX } from './constants'
 import { useTheme } from '../../hooks/use-theme'
 import { useChatStore } from '../../state/chat-store'
 import { BORDER_CHARS } from '../../utils/ui-constants'
@@ -67,11 +67,11 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
     optionIndex: number
   } | null>(null)
 
-  // Track if user is typing in "Other" text input
-  const [isTypingOther, setIsTypingOther] = useState<boolean>(false)
+  // Track if user is typing in "Custom" text input
+  const [isTypingCustom, setIsTypingCustom] = useState<boolean>(false)
 
-  // Track cursor position for "Other" text input (per question)
-  const [otherCursorPositions, setOtherCursorPositions] = useState<Map<number, number>>(
+  // Track cursor position for "Custom" text input (per question)
+  const [customCursorPositions, setCustomCursorPositions] = useState<Map<number, number>>(
     new Map(),
   )
 
@@ -95,7 +95,7 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
     setFocusedQuestionIndex(questionIndex)
     setFocusedOptionIndex(optionIndex)
     setSubmitFocused(false)
-    setIsTypingOther(false)
+    setIsTypingCustom(false)
   }, [])
 
   const focusSubmit = useCallback(
@@ -104,20 +104,20 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
       const questionIndex = from?.questionIndex ?? focusedQuestionIndex
       setLastFocusBeforeSubmit({ questionIndex, optionIndex })
       setSubmitFocused(true)
-      setIsTypingOther(false)
+      setIsTypingCustom(false)
     },
     [focusedOptionIndex, focusedQuestionIndex],
   )
 
-  // Handle setting "Other" text (with cursor position)
-  const handleSetOtherText = useCallback(
+  // Handle setting "Custom" text (with cursor position)
+  const handleSetCustomText = useCallback(
     (questionIndex: number, text: string, cursorPosition: number) => {
       setAnswerForQuestion(questionIndex, (currentAnswer) => ({
         ...currentAnswer,
-        isOther: true,
-        otherText: text,
+        isCustom: true,
+        customText: text,
       }))
-      setOtherCursorPositions((prev) => {
+      setCustomCursorPositions((prev) => {
         const newPositions = new Map(prev)
         newPositions.set(questionIndex, cursorPosition)
         return newPositions
@@ -126,10 +126,10 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
     [setAnswerForQuestion],
   )
 
-  // Handle "Other" text submit (Enter key)
-  const handleOtherSubmit = useCallback(
+  // Handle "Custom" text submit (Enter key)
+  const handleCustomSubmit = useCallback(
     (questionIndex: number) => {
-      setIsTypingOther(false)
+      setIsTypingCustom(false)
       setSubmitFocused(false)
 
       if (questions[questionIndex]?.multiSelect) {
@@ -157,34 +157,34 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
       source: 'keyboard' | 'mouse' = 'keyboard',
     ) => {
       setSubmitFocused(false)
-      const isOtherOption = optionIndex === OTHER_OPTION_INDEX
+      const isCustomOption = optionIndex === CUSTOM_OPTION_INDEX
 
-      if (source === 'mouse' && !isOtherOption) {
+      if (source === 'mouse' && !isCustomOption) {
         setShowFocusHighlight(false)
         suppressNextHoverFocusRef.current = true
       }
 
       setAnswerForQuestion(questionIndex, (currentAnswer) =>
-        isOtherOption
+        isCustomOption
           ? {
               // Selecting "Custom" should clear any single-select choice
               selectedIndex: undefined,
               selectedIndices: undefined,
-              isOther: true,
-              otherText: currentAnswer?.otherText || '',
+              isCustom: true,
+              customText: currentAnswer?.customText || '',
             }
           : {
               selectedIndex: optionIndex,
               selectedIndices: undefined,
-              isOther: false,
+              isCustom: false,
             },
       )
 
-      // For "Other" option, enter typing mode
-      if (isOtherOption) {
+      // For "Custom" option, enter typing mode
+      if (isCustomOption) {
         setFocusedQuestionIndex(questionIndex)
         setFocusedOptionIndex(questions[questionIndex]?.options.length ?? 0)
-        setIsTypingOther(true)
+        setIsTypingCustom(true)
         return
       }
 
@@ -204,19 +204,19 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
   const handleToggleOption = useCallback(
     (questionIndex: number, optionIndex: number) => {
       setSubmitFocused(false)
-      let toggledOtherOn = false
+      let toggledCustomOn = false
 
       setAnswers((prev) => {
         const newAnswers = new Map(prev)
         const currentAnswer: AccordionAnswer = prev.get(questionIndex) ?? {}
 
-        if (optionIndex === OTHER_OPTION_INDEX) {
-          toggledOtherOn = !(currentAnswer?.isOther ?? false)
+        if (optionIndex === CUSTOM_OPTION_INDEX) {
+          toggledCustomOn = !(currentAnswer?.isCustom ?? false)
           newAnswers.set(questionIndex, {
             ...currentAnswer,
             selectedIndices: new Set(currentAnswer?.selectedIndices ?? []),
-            isOther: !currentAnswer?.isOther,
-            otherText: currentAnswer?.otherText || '',
+            isCustom: !currentAnswer?.isCustom,
+            customText: currentAnswer?.customText || '',
           })
           return newAnswers
         }
@@ -230,14 +230,14 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
         newAnswers.set(questionIndex, {
           ...currentAnswer,
           selectedIndices: newIndices,
-          isOther: currentAnswer?.isOther ?? false,
+          isCustom: currentAnswer?.isCustom ?? false,
         })
         return newAnswers
       })
 
-      // For "Other" option in multi-select, also enter typing mode
-      if (optionIndex === OTHER_OPTION_INDEX) {
-        setIsTypingOther(toggledOtherOn)
+      // For "Custom" option in multi-select, also enter typing mode
+      if (optionIndex === CUSTOM_OPTION_INDEX) {
+        setIsTypingCustom(toggledCustomOn)
       }
     },
     [],
@@ -261,8 +261,8 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
           : []
 
       const customText =
-        answer.isOther && (answer.otherText?.trim().length ?? 0) > 0
-          ? (answer.otherText ?? '').trim()
+        answer.isCustom && (answer.customText?.trim().length ?? 0) > 0
+          ? (answer.customText ?? '').trim()
           : ''
 
       const parts = customText ? [...selectedOptions, customText] : selectedOptions
@@ -313,7 +313,7 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
         if (submitFocused) {
           if (key.name === 'up' || (key.name === 'tab' && key.shift)) {
             preventDefault()
-            setIsTypingOther(false)
+            setIsTypingCustom(false)
             setSubmitFocused(false)
             if (questions.length === 0) return
             if (lastFocusBeforeSubmit) {
@@ -337,8 +337,8 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
           return
         }
 
-        // When typing in "Other" input, let MultilineInput handle all keyboard input
-        if (isTypingOther) {
+        // When typing in "Custom" input, let MultilineInput handle all keyboard input
+        if (isTypingCustom) {
           return
         }
 
@@ -437,7 +437,7 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
 
           const optionIdx =
             currentOptionIndex === lastOptionIndex
-              ? OTHER_OPTION_INDEX
+              ? CUSTOM_OPTION_INDEX
               : currentOptionIndex
           if (currentQuestion.multiSelect) {
             handleToggleOption(currentQuestionIndex, optionIdx)
@@ -454,7 +454,7 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
         focusedOptionIndex,
         submitFocused,
         lastFocusBeforeSubmit,
-        isTypingOther,
+        isTypingCustom,
         showFocusHighlight,
         handleSelectOption,
         handleToggleOption,
@@ -502,13 +502,13 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
           totalQuestions={questions.length}
           answer={answers.get(index)}
           isExpanded={expandedIndex === index}
-          isTypingOther={isTypingOther && expandedIndex === index}
+          isTypingCustom={isTypingCustom && expandedIndex === index}
           onToggleExpand={() => {
             const nextExpandedIndex = expandedIndex === index ? null : index
             setExpandedIndex(nextExpandedIndex)
             setFocusedQuestionIndex(index)
             setSubmitFocused(false)
-            setIsTypingOther(false)
+            setIsTypingCustom(false)
             setFocusedOptionIndex(nextExpandedIndex === null ? null : 0)
           }}
           onSelectOption={(optionIndex) =>
@@ -517,16 +517,16 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
           onToggleOption={(optionIndex) =>
             handleToggleOption(index, optionIndex)
           }
-          onSetOtherText={(text, cursorPos) => handleSetOtherText(index, text, cursorPos)}
-          onOtherSubmit={() => handleOtherSubmit(index)}
-          otherCursorPosition={otherCursorPositions.get(index) ?? 0}
+          onSetCustomText={(text, cursorPos) => handleSetCustomText(index, text, cursorPos)}
+          onCustomSubmit={() => handleCustomSubmit(index)}
+          customCursorPosition={customCursorPositions.get(index) ?? 0}
           focusedOptionIndex={
             expandedIndex === index && !submitFocused && showFocusHighlight
               ? focusedOptionIndex
               : null
           }
           onFocusOption={(optionIndex) => {
-            if (!terminalFocused || isTypingOther) return
+            if (!terminalFocused || isTypingCustom) return
             if (suppressNextHoverFocusRef.current) {
               suppressNextHoverFocusRef.current = false
               return
