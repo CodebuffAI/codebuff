@@ -1,4 +1,3 @@
-import { pluralize } from '@codebuff/common/util/string'
 import { TextAttributes } from '@opentui/core'
 import React, { memo, useCallback, useMemo, useState } from 'react'
 
@@ -35,11 +34,6 @@ export const ImplementorGroup = memo(
     const theme = useTheme()
     const { columns, columnWidth: cardWidth, columnGroups } = useGridLayout(implementors, availableWidth)
 
-    // Check if any implementors are still running
-    const anyRunning = implementors.some(impl => impl.status === 'running')
-    const headerText = anyRunning
-      ? `${pluralize(implementors.length, 'proposal')} being generated`
-      : `${pluralize(implementors.length, 'proposal')} generated`
 
     return (
       <box
@@ -93,12 +87,6 @@ export const ImplementorGroup = memo(
             )
           })}
         </box>
-        <text
-          fg={theme.muted}
-          attributes={TextAttributes.DIM}
-        >
-          {headerText}
-        </text>
       </box>
     )
   },
@@ -338,11 +326,10 @@ const CompactFileRow = memo(({
   const removedContent = (' ' + removedStr).padEnd(removedSectionWidth)
 
   // Calculate available width for file path
-  // Layout: changeType(1) + spaces(2) + filePath + spaces(2) + hunks + spaces(2) + bars
-  const hunkText = `${file.stats.hunks} ${file.stats.hunks === 1 ? 'hunk' : 'hunks'}`
+  // Layout: changeType(1) + spaces(2) + filePath + spaces(2) + bars
   // Total bar section width: 2*maxBarWidth + maxAddedStrWidth + maxRemovedStrWidth (no center gap)
   const barWidth = 2 * maxBarWidth + maxAddedStrWidth + maxRemovedStrWidth
-  const fixedWidth = 1 + 2 + 2 + hunkText.length + 2 + barWidth
+  const fixedWidth = 1 + 2 + 2 + barWidth
   const maxFilePathWidth = Math.max(10, availableWidth - fixedWidth)
   
   // Get and truncate file path
@@ -383,18 +370,12 @@ const CompactFileRow = memo(({
         </Button>
         <text style={{ flexShrink: 0 }}>  </text>
 
-        {/* Hunk count */}
-        <text fg={theme.muted} style={{ flexShrink: 0, wrapMode: 'none' }}>
-          {hunkText}
-        </text>
-        <text style={{ flexShrink: 0 }}>  </text>
-
         {/* Bar visualization: full-width bars meeting at center with numbers inside */}
         <text style={{ flexShrink: 0, wrapMode: 'none' }}>
-          {/* Added section: full green bar with +N in white inside, right-aligned to center */}
-          <span fg="white" bg={theme.success}>{addedContent}</span>
-          {/* Removed section: full red bar with -N in white inside, left-aligned from center */}
-          <span fg="white" bg={theme.error}>{removedContent}</span>
+          {/* Added section: muted gray-green bar with +N inside */}
+          <span fg={theme.foreground} bg="#3A5A3A">{addedContent}</span>
+          {/* Removed section: muted gray-red bar with -N inside */}
+          <span fg={theme.foreground} bg="#5A3A3A">{removedContent}</span>
         </text>
       </box>
 
