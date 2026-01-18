@@ -179,16 +179,16 @@ export const MessageWithAgents = memo(
     const estimatedMessageWidth = availableWidth
     const codeBlockWidth = Math.max(10, estimatedMessageWidth - 8)
 
-    const paletteForMessage: MarkdownPalette = useMemo(
-      () => ({
+    const paletteForMessage: MarkdownPalette | undefined = useMemo(
+      () => markdownPalette ? {
         ...markdownPalette,
         codeTextFg: textColor,
-      }),
+      } : undefined,
       [markdownPalette, textColor],
     )
 
     const markdownOptions = useMemo(
-      () => ({ codeBlockWidth, palette: paletteForMessage }),
+      () => ({ codeBlockWidth, palette: paletteForMessage! }),
       [codeBlockWidth, paletteForMessage],
     )
 
@@ -251,7 +251,7 @@ export const MessageWithAgents = memo(
                   timestampColor={timestampColor}
                   markdownOptions={markdownOptions}
                   availableWidth={availableWidth}
-                  markdownPalette={markdownPalette}
+                  markdownPalette={markdownPalette!}
                   streamingAgents={streamingAgents}
                   onToggleCollapsed={onToggleCollapsed}
                   onBuildFast={onBuildFast}
@@ -286,7 +286,7 @@ export const MessageWithAgents = memo(
                 timestampColor={timestampColor}
                 markdownOptions={markdownOptions}
                 availableWidth={availableWidth}
-                markdownPalette={markdownPalette}
+                markdownPalette={markdownPalette!}
                 streamingAgents={streamingAgents}
                 onToggleCollapsed={onToggleCollapsed}
                 onBuildFast={onBuildFast}
@@ -372,13 +372,13 @@ const AgentMessage = memo(
       10,
       availableWidth - AGENT_CONTENT_HORIZONTAL_PADDING,
     )
-    const agentPalette: MarkdownPalette = {
+    const agentPalette: MarkdownPalette | undefined = markdownPalette ? {
       ...markdownPalette,
       codeTextFg: theme?.foreground ?? markdownPalette.codeTextFg,
-    }
+    } : undefined
     const agentMarkdownOptions = {
       codeBlockWidth: agentCodeBlockWidth,
-      palette: agentPalette,
+      palette: agentPalette!,
     }
     const displayContent = hasMarkdown(rawDisplayContent)
       ? renderMarkdown(rawDisplayContent, agentMarkdownOptions)
