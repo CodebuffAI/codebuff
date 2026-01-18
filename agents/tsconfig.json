@@ -9,10 +9,5 @@
       "@codebuff/common/*": ["../common/src/*"]
     }
   },
-  "include": [
-    "**/*.ts",
-    "../.agents-graveyard/charles.ts",
-    "../.agents/notion-agent.ts",
-    "../.agents/notion-researcher.ts"
-  ]
+  "include": ["**/*.ts"]
 }
