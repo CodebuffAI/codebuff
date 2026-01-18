@@ -34,6 +34,11 @@
 #                       testing attachment UI before sending).
 #   --no-enter          Don't automatically press Enter after text
 #   --retry N           Retry session detection N times (default: 3)
+#   --delay MS          Wait time in ms after Enter (default: 500, use 200 for faster tests)
+#   --wait-idle SECS    Wait until terminal output is stable for SECS seconds (for streaming)
+#                       This polls every 250ms until output hasn't changed for SECS seconds.
+#                       Useful for rapid message testing where you need to wait for streaming.
+#                       Max wait time is 120 seconds to prevent infinite loops.
 #   --force             Bypass duplicate detection (send even if same text was just sent)
 #   --help              Show this help message
 #
@@ -49,6 +54,9 @@
 #
 #   # Send Ctrl+C to interrupt
 #   ./scripts/tmux/tmux-send.sh tui-test-123 --key C-c
+#
+#   # Send a message and wait for CLI to finish streaming before returning
+#   ./scripts/tmux/tmux-send.sh tui-test-123 "hello" --wait-idle 2
 #
 #   # Paste clipboard content and submit immediately
 #   ./scripts/tmux/tmux-send.sh tui-test-123 --paste
@@ -80,7 +88,11 @@ SPECIAL_KEY=""
 PASTE_CLIPBOARD=false
 RETRY_COUNT=3
 RETRY_DELAY=0.3
+POST_ENTER_DELAY=0.5
 FORCE_SEND=false
+WAIT_IDLE_SECONDS=0
+WAIT_IDLE_MAX=120
+WAIT_IDLE_POLL_INTERVAL=0.25
 
 # Check minimum arguments
 if [[ $# -lt 1 ]]; then
@@ -118,6 +130,15 @@ while [[ $# -gt 0 ]]; do
             ;;
         --retry)
             RETRY_COUNT="$2"
+            shift 2
+            ;;
+        --delay)
+            # Convert ms to seconds for sleep command
+            POST_ENTER_DELAY=$(echo "scale=3; $2 / 1000" | bc)
+            shift 2
+            ;;
+        --wait-idle)
+            WAIT_IDLE_SECONDS="$2"
             shift 2
             ;;
         --force)
@@ -249,8 +270,52 @@ if [[ "$AUTO_ENTER" == true ]]; then
     tmux send-keys -t "$SESSION_NAME" Enter
     # Wait for CLI to process Enter and clear input buffer before returning
     # This prevents the next send from concatenating with the previous input
-    # 200ms is needed for slower CLIs like Codex to fully process the command
-    sleep 0.2
+    # Default 500ms is needed for TUI CLIs to fully process the command and reset input state
+    # Use --delay to customize (e.g., --delay 200 for faster tests if not testing rapid input)
+    sleep $POST_ENTER_DELAY
+fi
+
+# If --wait-idle is specified, poll until terminal output stabilizes
+# This is essential for rapid message testing where we need to wait for streaming to complete
+# Works with both --auto-enter and --no-enter modes
+if [[ "$WAIT_IDLE_SECONDS" != "0" && -n "$WAIT_IDLE_SECONDS" ]]; then
+    LAST_OUTPUT=""
+    STABLE_START=0
+    POLL_COUNT=0
+    # Calculate max polls: WAIT_IDLE_MAX / WAIT_IDLE_POLL_INTERVAL (120 / 0.25 = 480)
+    MAX_POLLS=480
+    
+    while true; do
+        # Capture current terminal output
+        CURRENT_OUTPUT=$(tmux capture-pane -t "$SESSION_NAME" -p 2>/dev/null || echo "")
+        CURRENT_TIME=$(date +%s)
+        
+        if [[ "$CURRENT_OUTPUT" == "$LAST_OUTPUT" ]]; then
+            # Output unchanged - check if stable long enough
+            if [[ "$STABLE_START" == "0" ]]; then
+                STABLE_START=$CURRENT_TIME
+            fi
+            
+            STABLE_DURATION=$((CURRENT_TIME - STABLE_START))
+            if [[ "$STABLE_DURATION" -ge "$WAIT_IDLE_SECONDS" ]]; then
+                # Output has been stable for the required duration
+                break
+            fi
+        else
+            # Output changed - reset stability timer
+            LAST_OUTPUT="$CURRENT_OUTPUT"
+            STABLE_START=0
+        fi
+        
+        # Check max wait timeout using simple integer counter
+        POLL_COUNT=$((POLL_COUNT + 1))
+        if [[ "$POLL_COUNT" -ge "$MAX_POLLS" ]]; then
+            echo "⚠️  --wait-idle timed out after ${WAIT_IDLE_MAX}s" >&2
+            break
+        fi
+        
+        sleep $WAIT_IDLE_POLL_INTERVAL
+    done
 fi
 
 # Log the text send as YAML and update last-sent tracker

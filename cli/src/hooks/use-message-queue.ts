@@ -28,9 +28,8 @@ export const useMessageQueue = (
   const isQueuePausedRef = useRef<boolean>(false)
   const isProcessingQueueRef = useRef<boolean>(false)
 
-  useEffect(() => {
-    queuedMessagesRef.current = queuedMessages
-  }, [queuedMessages])
+  // Note: queuedMessagesRef is now updated atomically inside functional setState calls
+  // (in addToQueue and the queue processing effect), so no sync effect is needed here.
 
   useEffect(() => {
     isQueuePausedRef.current = queuePaused
@@ -114,24 +113,45 @@ export const useMessageQueue = (
 
     isProcessingQueueRef.current = true
 
-    const nextMessage = queuedList[0]
-    const remainingMessages = queuedList.slice(1)
-    queuedMessagesRef.current = remainingMessages
-    setQueuedMessages(remainingMessages)
-    // Add .catch() to prevent unhandled promise rejections.
-    // Safety net: release lock here in case sendMessage failed before its own error handling.
-    // Lock is also released in finalizeQueueState and sendMessage's finally block (idempotent).
-    sendMessage(nextMessage).catch((err: unknown) => {
-      logger.warn(
-        { error: err },
-        '[message-queue] sendMessage promise rejected - releasing lock',
-      )
-      isProcessingQueueRef.current = false
+    // IMPORTANT: We must read the message to process INSIDE the functional setState
+    // to ensure we send the same message we remove. Reading from the ref separately
+    // can cause a race condition where we send message X but remove message Y.
+    let messageToProcess: QueuedMessage | undefined
+
+    setQueuedMessages((prev) => {
+      if (prev.length === 0) {
+        return prev
+      }
+      messageToProcess = prev[0]
+      const remainingMessages = prev.slice(1)
+      queuedMessagesRef.current = remainingMessages
+      return remainingMessages
     })
+
+    if (!messageToProcess) {
+      isProcessingQueueRef.current = false
+      return
+    }
+
+    // Use .finally() to ensure lock is always released after sendMessage completes
+    sendMessage(messageToProcess)
+      .catch((err: unknown) => {
+        logger.warn(
+          { error: err },
+          '[message-queue] sendMessage promise rejected',
+        )
+      })
+      .finally(() => {
+        // Release the processing lock so the next message can be processed
+        // The effect will re-run when streamStatus changes or other deps update
+        isProcessingQueueRef.current = false
+        logger.debug('[message-queue] Processing lock released')
+      })
   }, [
     canProcessQueue,
     queuePaused,
     streamStatus,
+    queuedMessages, // Re-run when queue changes to process next message
     sendMessage,
     isChainInProgressRef,
     activeAgentStreamsRef,
@@ -140,13 +160,19 @@ export const useMessageQueue = (
   const addToQueue = useCallback(
     (message: string, attachments: PendingAttachment[] = []) => {
       const queuedMessage = { content: message, attachments }
-      const newQueue = [...queuedMessagesRef.current, queuedMessage]
-      queuedMessagesRef.current = newQueue
-      setQueuedMessages(newQueue)
-      logger.info(
-        { newQueueLength: newQueue.length, messageLength: message.length },
-        '[message-queue] Message added to queue',
-      )
+      // Use functional setState to ensure atomic updates during rapid calls.
+      // We update queuedMessagesRef inside the callback to keep ref and state
+      // in sync atomically - this prevents race conditions when multiple
+      // messages are added before React can process state updates.
+      setQueuedMessages((prev) => {
+        const newQueue = [...prev, queuedMessage]
+        queuedMessagesRef.current = newQueue
+        logger.info(
+          { newQueueLength: newQueue.length, messageLength: message.length },
+          '[message-queue] Message added to queue',
+        )
+        return newQueue
+      })
     },
     [],
   )

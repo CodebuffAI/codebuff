@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -1372,8 +1373,9 @@ export const Chat = ({
     (state) => state.setCallbacks,
   )
 
-  // Update context when values change
-  useEffect(() => {
+  // Update context when values change - useLayoutEffect ensures synchronous updates
+  // to prevent message loss during rapid streaming (race condition fix)
+  useLayoutEffect(() => {
     setMessageBlockContext({
       theme,
       markdownPalette,

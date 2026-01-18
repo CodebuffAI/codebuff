@@ -144,6 +144,9 @@ Send input to a running session.
 ./scripts/tmux/tmux-send.sh SESSION --key C-c
 ./scripts/tmux/tmux-send.sh SESSION --key Enter
 
+# Send and wait for CLI to finish streaming (for rapid message tests)
+./scripts/tmux/tmux-send.sh SESSION "hello" --wait-idle 2
+
 # Paste clipboard content and submit immediately
 ./scripts/tmux/tmux-send.sh SESSION --paste
 
