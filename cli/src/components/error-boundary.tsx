@@ -1,30 +1,41 @@
 import { memo, type ReactNode } from 'react'
 
-interface ErrorBoundaryProps {
+interface ErrorBoundaryPlaceholderProps {
   children: ReactNode
   fallback: ReactNode
   componentName?: string
 }
 
 /**
- * A wrapper component that provides error boundary-like behavior.
- * Since OpenTUI's JSX types don't support React class components,
- * this uses a memo wrapper. Errors that occur during render will
- * be caught by React's error boundary mechanism if one exists higher
- * in the tree, or will propagate normally.
+ * **WARNING: This component does NOT catch render errors.**
  * 
- * For true error boundary behavior in OpenTUI, wrap at the application
- * root level using React's native error boundary support.
+ * This is a placeholder/passthrough component that exists for structural purposes.
+ * OpenTUI's JSX types don't support React class components, which are required
+ * for true error boundary functionality.
+ * 
+ * For actual error catching in render functions, use `withErrorFallback()` instead.
+ * 
+ * @example
+ * // Use withErrorFallback for catching render errors:
+ * const safeContent = withErrorFallback(
+ *   () => riskyRenderFunction(),
+ *   <FallbackComponent />,
+ *   'MyComponent'
+ * )
  */
-export const ErrorBoundary = memo(
-  ({ children, fallback, componentName }: ErrorBoundaryProps) => {
-    // Note: This is a structural wrapper. True error catching requires
-    // a class component, but OpenTUI's JSX types don't support them.
-    // The fallback is available for parent components to use when they
-    // detect errors through other means.
+export const ErrorBoundaryPlaceholder = memo(
+  ({ children }: ErrorBoundaryPlaceholderProps) => {
+    // This component does NOT catch errors - it's a passthrough.
+    // Use withErrorFallback() for actual error catching.
     return <>{children}</>
   },
 )
+
+/**
+ * @deprecated Use `ErrorBoundaryPlaceholder` instead. This alias exists for backward
+ * compatibility but the name is misleading since it doesn't actually catch errors.
+ */
+export const ErrorBoundary = ErrorBoundaryPlaceholder
 
 /**
  * Helper to safely render content with error handling.

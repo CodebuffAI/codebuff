@@ -134,6 +134,8 @@ export const createBatchedMessageUpdater = (
 
   const dispose = () => {
     if (isDisposed) return
+    // Flush any pending updates before disposing to prevent data loss
+    flush()
     isDisposed = true
     if (intervalId !== null) {
       clearInterval(intervalId)

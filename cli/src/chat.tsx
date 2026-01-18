@@ -57,6 +57,7 @@ import { getProjectRoot } from './project-files'
 import { useChatStore } from './state/chat-store'
 import { useChatHistoryStore } from './state/chat-history-store'
 import { useFeedbackStore } from './state/feedback-store'
+import { useMessageBlockStore } from './state/message-block-store'
 import { usePublishStore } from './state/publish-store'
 import {
   addClipboardPlaceholder,
@@ -1363,6 +1364,52 @@ export const Chat = ({
     [messages],
   )
 
+  // Sync message block context to zustand store for child components
+  const setMessageBlockContext = useMessageBlockStore(
+    (state) => state.setContext,
+  )
+  const setMessageBlockCallbacks = useMessageBlockStore(
+    (state) => state.setCallbacks,
+  )
+
+  // Update context when values change
+  useEffect(() => {
+    setMessageBlockContext({
+      theme,
+      markdownPalette,
+      messageTree,
+      isWaitingForResponse,
+      timerStartTime,
+      availableWidth: messageAvailableWidth,
+    })
+  }, [
+    theme,
+    markdownPalette,
+    messageTree,
+    isWaitingForResponse,
+    timerStartTime,
+    messageAvailableWidth,
+    setMessageBlockContext,
+  ])
+
+  // Update callbacks once (they're stable)
+  useEffect(() => {
+    setMessageBlockCallbacks({
+      onToggleCollapsed: handleCollapseToggle,
+      onBuildFast: handleBuildFast,
+      onBuildMax: handleBuildMax,
+      onFeedback: handleMessageFeedback,
+      onCloseFeedback: handleCloseFeedback,
+    })
+  }, [
+    handleCollapseToggle,
+    handleBuildFast,
+    handleBuildMax,
+    handleMessageFeedback,
+    handleCloseFeedback,
+    setMessageBlockCallbacks,
+  ])
+
   // Compute visible messages slice (from the end)
   const visibleTopLevelMessages = useMemo(() => {
     if (topLevelMessages.length <= visibleMessageCount) {
@@ -1530,20 +1577,7 @@ export const Chat = ({
               message={message}
               depth={0}
               isLastMessage={isLast}
-              theme={theme}
-              markdownPalette={markdownPalette}
-              streamingAgents={streamingAgents}
-              messageTree={messageTree}
-              messages={messages}
               availableWidth={messageAvailableWidth}
-              setFocusedAgentId={setFocusedAgentId}
-              isWaitingForResponse={isWaitingForResponse}
-              timerStartTime={timerStartTime}
-              onToggleCollapsed={handleCollapseToggle}
-              onBuildFast={handleBuildFast}
-              onBuildMax={handleBuildMax}
-              onFeedback={handleMessageFeedback}
-              onCloseFeedback={handleCloseFeedback}
             />
           )
         })}

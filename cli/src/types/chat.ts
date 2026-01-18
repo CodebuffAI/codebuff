@@ -2,6 +2,12 @@ import type { ChatTheme } from './theme-system'
 import type { ToolName } from '@codebuff/sdk'
 import type { ReactNode } from 'react'
 
+/**
+ * isCollapsed/userOpened are duplicated across block types intentionally - each UI
+ * element tracks collapse state independently for different defaults and to persist
+ * user intent vs programmatic state.
+ */
+
 export type ChatVariant = 'ai' | 'user' | 'agent' | 'error'
 
 export type TextContentBlock = {
@@ -18,6 +24,7 @@ export type TextContentBlock = {
   /** True if this is a reasoning block from a <think> tag that hasn't been closed yet */
   thinkingOpen?: boolean
 }
+/** Renders dynamic React content. NOT serializable - don't use for persistent data. */
 export type HtmlContentBlock = {
   type: 'html'
   marginTop?: number
