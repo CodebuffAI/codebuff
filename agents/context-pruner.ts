@@ -32,6 +32,18 @@ const definition: AgentDefinition = {
     // Target: summarized messages should be at most 10% of max context
     const TARGET_SUMMARY_FACTOR = 0.1
 
+    // Blacklist of agent IDs whose output should be excluded from spawn_agents results
+    const SPAWN_AGENTS_OUTPUT_BLACKLIST = [
+      'file-picker',
+      'code-searcher',
+      'directory-lister',
+      'glob-matcher',
+      'researcher-web',
+      'researcher-docs',
+      'code-reviewer',
+      'code-reviewer-multi-prompt',
+    ]
+
     // Limits for truncating long messages (chars)
     const USER_MESSAGE_LIMIT = 15000
     const ASSISTANT_MESSAGE_LIMIT = 4000
@@ -510,6 +522,57 @@ const definition: AgentDefinition = {
                     summaryParts.push(`[USER ANSWERED] ${truncated}`)
                   }
                 }
+              }
+            }
+          }
+        }
+
+        // Capture spawn_agents results (excluding blacklisted agents)
+        // The tool result value is an array of agent results at the top level
+        if (
+          toolMessage.toolName === 'spawn_agents' &&
+          Array.isArray(toolMessage.content)
+        ) {
+          for (const part of toolMessage.content) {
+            if (part.type === 'json' && Array.isArray(part.value)) {
+              const agentResults = part.value as Array<{
+                agentName?: string
+                agentType?: string
+                value?: {
+                  type?: string
+                  value?: unknown
+                }
+              }>
+              const includedResults = agentResults.filter(
+                (r) =>
+                  r.agentType &&
+                  !SPAWN_AGENTS_OUTPUT_BLACKLIST.includes(r.agentType),
+              )
+              if (includedResults.length > 0) {
+                const resultSummaries = includedResults.map((r) => {
+                  let outputStr = ''
+                  // Extract the actual output from value.value (e.g., lastMessage content)
+                  if (r.value?.value !== undefined && r.value?.value !== null) {
+                    if (typeof r.value.value === 'string') {
+                      outputStr = r.value.value
+                    } else {
+                      outputStr = JSON.stringify(r.value.value)
+                    }
+                    // Remove <think> tags and their contents to save context tokens
+                    outputStr = outputStr
+                      .replace(/<think>[\s\S]*?<\/think>/g, '')
+                      .trim()
+                    // Truncate long outputs to ASSISTANT_MESSAGE_LIMIT chars
+                    if (outputStr.length > ASSISTANT_MESSAGE_LIMIT) {
+                      outputStr =
+                        outputStr.slice(0, ASSISTANT_MESSAGE_LIMIT) + '...'
+                    }
+                  }
+                  return `- ${r.agentType}: ${outputStr || '(no output)'}`
+                })
+                summaryParts.push(
+                  `[AGENT RESULTS]\n${resultSummaries.join('\n')}`,
+                )
               }
             }
           }
