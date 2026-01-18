@@ -23,11 +23,15 @@ const researcherGrok4FastExampleContent = readFileSync(
   'utf8',
 )
 const generatePlanExampleContent = readFileSync(
-  join(__dirname, 'planners', 'generate-plan.ts'),
+  join(__dirname, 'planners', 'planner-pro-with-files-input.ts'),
   'utf8',
 )
 const reviewerExampleContent = readFileSync(
-  join(__dirname, 'reviewer', 'reviewer.ts'),
+  join(__dirname, 'reviewer', 'code-reviewer.ts'),
+  'utf8',
+)
+const reviewerMultiPromptExampleContent = readFileSync(
+  join(__dirname, 'reviewer', 'multi-prompt','code-reviewer-multi-prompt.ts'),
   'utf8',
 )
 const examplesAgentsContent = [
@@ -35,6 +39,7 @@ const examplesAgentsContent = [
   researcherGrok4FastExampleContent,
   generatePlanExampleContent,
   reviewerExampleContent,
+  reviewerMultiPromptExampleContent,
 ]
 
 const definition: AgentDefinition = {
