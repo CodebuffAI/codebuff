@@ -38,6 +38,8 @@ Be brief: If you don't have much critical feedback, simply say it looks good in 
 
 NOTE: You cannot make any changes directly! DO NOT CALL ANY TOOLS! You can only suggest changes.
 
+Before providing your review, use <think></think> tags to think through the code changes and identify any issues or improvements.
+
 # Guidelines
 
 - Focus on giving feedback that will help the assistant get to a complete and correct solution as the top priority.
