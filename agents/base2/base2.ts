@@ -78,7 +78,7 @@ export function createBase2(
       isMax && 'editor-multi-prompt',
       isMax && 'thinker-best-of-n-opus',
       isDefault && 'code-reviewer',
-      isMax && 'reviewer-editor-gpt-5',
+      isMax && 'code-reviewer-multi-prompt',
       'context-pruner',
     ),
 
