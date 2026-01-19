@@ -4,6 +4,147 @@ import contextPruner from '../context-pruner'
 
 import type { Message, ToolMessage } from '../types/util-types'
 
+/**
+ * Regression test: Verify handleSteps can be serialized and run in isolation.
+ * This catches bugs like CACHE_EXPIRY_MS not being defined when the function
+ * is stringified and executed in a QuickJS sandbox.
+ *
+ * The handleSteps function is serialized to a string and executed in a sandbox
+ * at runtime. Any variables referenced from outside the function scope will
+ * cause "X is not defined" errors. This test ensures all constants and helper
+ * functions are defined inside handleSteps.
+ */
+describe('context-pruner handleSteps serialization', () => {
+  test('handleSteps works when serialized and executed in isolation (regression test for external variable references)', () => {
+    // Get the handleSteps function and convert it to a string, just like the SDK does
+    const handleStepsString = contextPruner.handleSteps!.toString()
+
+    // Verify it's a valid generator function string
+    expect(handleStepsString).toMatch(/^function\*\s*\(/)
+
+    // Create a new function from the string to simulate sandbox isolation.
+    // This will fail if handleSteps references any external variables
+    // (like CACHE_EXPIRY_MS was before the fix).
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval
+    const isolatedFunction = new Function(`return (${handleStepsString})`)()
+
+    // Create minimal mock data to run the function
+    const mockAgentState = {
+      messageHistory: [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Hello' }],
+        },
+        {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'Hi there!' }],
+        },
+      ],
+      contextTokenCount: 100, // Under the limit, so it won't prune
+    }
+
+    const mockLogger = {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    }
+
+    // Run the isolated function - this will throw if any external variables are undefined
+    const generator = isolatedFunction({
+      agentState: mockAgentState,
+      logger: mockLogger,
+      params: { maxContextLength: 200000 },
+    })
+
+    // Consume the generator to ensure all code paths execute
+    const results: unknown[] = []
+    let result = generator.next()
+    while (!result.done) {
+      results.push(result.value)
+      result = generator.next()
+    }
+
+    // Should have produced a result (set_messages call)
+    expect(results.length).toBeGreaterThan(0)
+  })
+
+  test('handleSteps works in isolation when pruning is triggered', () => {
+    // Get the handleSteps function and convert it to a string
+    const handleStepsString = contextPruner.handleSteps!.toString()
+
+    // Create a new function from the string to simulate sandbox isolation
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval
+    const isolatedFunction = new Function(`return (${handleStepsString})`)()
+
+    // Create mock data that will trigger pruning (context over limit)
+    const mockAgentState = {
+      messageHistory: [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Please help me with a task' }],
+        },
+        {
+          role: 'assistant',
+          content: [
+            { type: 'text', text: 'Sure, I can help with that' },
+            {
+              type: 'tool-call',
+              toolCallId: 'call-1',
+              toolName: 'read_files',
+              input: { paths: ['test.ts'] },
+            },
+          ],
+        },
+        {
+          role: 'tool',
+          toolCallId: 'call-1',
+          toolName: 'read_files',
+          content: [{ type: 'json', value: { content: 'file content' } }],
+        },
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Thanks!' }],
+        },
+      ],
+      contextTokenCount: 250000, // Over the limit, will trigger pruning
+    }
+
+    const mockLogger = {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    }
+
+    // Run the isolated function - exercises all the helper functions like
+    // truncateLongText, estimateTokens, getTextContent, summarizeToolCall
+    const generator = isolatedFunction({
+      agentState: mockAgentState,
+      logger: mockLogger,
+      params: { maxContextLength: 200000 },
+    })
+
+    // Consume the generator
+    const results: any[] = []
+    let result = generator.next()
+    while (!result.done) {
+      results.push(result.value)
+      result = generator.next()
+    }
+
+    // Should have produced a result
+    expect(results.length).toBeGreaterThan(0)
+
+    // The result should contain a summary
+    const setMessagesCall = results[0]
+    expect(setMessagesCall.toolName).toBe('set_messages')
+    expect(setMessagesCall.input.messages[0].content[0].text).toContain(
+      '<conversation_summary>',
+    )
+  })
+})
+
 const createMessage = (
   role: 'user' | 'assistant',
   content: string,
