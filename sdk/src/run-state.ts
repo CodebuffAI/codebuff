@@ -502,7 +502,7 @@ export async function initialSessionState(
     shellConfigFiles: {},
     systemInfo: {
       platform: process.platform,
-      shell: process.platform === 'win32' ? 'cmd.exe' : 'bash',
+      shell: 'bash',
       nodeVersion: process.version,
       arch: process.arch,
       homedir: os.homedir(),
