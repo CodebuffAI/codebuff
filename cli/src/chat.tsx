@@ -1,7 +1,5 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { RECONNECTION_MESSAGE_DURATION_MS } from '@codebuff/sdk'
 import open from 'open'
-import { useQueryClient } from '@tanstack/react-query'
 import {
   useCallback,
   useEffect,
@@ -9,7 +7,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useTransition,
 } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -27,7 +24,6 @@ import { TopBanner } from './components/top-banner'
 import { SLASH_COMMANDS } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
 import { useAskUserBridge } from './hooks/use-ask-user-bridge'
-import { authQueryKeys } from './hooks/use-auth-query'
 import { useChatInput } from './hooks/use-chat-input'
 import { useClaudeQuotaQuery } from './hooks/use-claude-quota-query'
 import {
@@ -36,24 +32,16 @@ import {
 } from './hooks/use-chat-keyboard'
 import { useChatMessages } from './hooks/use-chat-messages'
 import { useChatState } from './hooks/use-chat-state'
+import { useChatStreaming } from './hooks/use-chat-streaming'
+import { useChatUI } from './hooks/use-chat-ui'
 import { useClipboard } from './hooks/use-clipboard'
-import { useConnectionStatus } from './hooks/use-connection-status'
-import { useElapsedTime } from './hooks/use-elapsed-time'
 import { useGravityAd } from './hooks/use-gravity-ad'
 import { useEvent } from './hooks/use-event'
-import { useExitHandler } from './hooks/use-exit-handler'
 import { useInputHistory } from './hooks/use-input-history'
-import { useMessageQueue, type QueuedMessage } from './hooks/use-message-queue'
+import { type QueuedMessage } from './hooks/use-message-queue'
 import { usePublishMutation } from './hooks/use-publish-mutation'
-import { useQueueControls } from './hooks/use-queue-controls'
-import { useQueueUi } from './hooks/use-queue-ui'
-import { useChatScrollbox } from './hooks/use-scroll-management'
 import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
-import { useTerminalDimensions } from './hooks/use-terminal-dimensions'
-import { useTerminalLayout } from './hooks/use-terminal-layout'
-import { useTheme } from './hooks/use-theme'
-import { useTimeout } from './hooks/use-timeout'
 import { useUsageMonitor } from './hooks/use-usage-monitor'
 import { WEBSITE_URL } from './login/constants'
 import { getProjectRoot } from './project-files'
@@ -65,10 +53,8 @@ import { usePublishStore } from './state/publish-store'
 import {
   addClipboardPlaceholder,
   addPendingImageFromFile,
-  capturePendingAttachments,
   validateAndAddImage,
 } from './utils/pending-attachments'
-import { createChatScrollAcceleration } from './utils/chat-scroll-accel'
 import { showClipboardMessage } from './utils/clipboard'
 import { readClipboardImage } from './utils/clipboard-image'
 import { getInputModeConfig } from './utils/input-modes'
@@ -77,7 +63,6 @@ import {
   createDefaultChatKeyboardState,
 } from './utils/keyboard-actions'
 import { loadLocalAgents } from './utils/local-agent-registry'
-// buildMessageTree is now used internally by useChatMessages hook
 import {
   getStatusIndicatorState,
   type AuthStatus,
@@ -85,15 +70,12 @@ import {
 import { getClaudeOAuthStatus } from './utils/claude-oauth'
 import { createPasteHandler } from './utils/strings'
 import { computeInputLayoutMetrics } from './utils/text-layout'
-import { createMarkdownPalette } from './utils/theme-system'
 import { reportActivity } from './utils/activity-tracker'
 import { trackEvent } from './utils/analytics'
 import { logger } from './utils/logger'
 
 import type { CommandResult } from './commands/command-registry'
 import type { MultilineInputHandle } from './components/multiline-input'
-
-// SendMessageFn type is now used internally by useChatState hook
 import type { User } from './utils/auth'
 import type { AgentMode } from './utils/constants'
 import type { FileTreeNode } from '@codebuff/common/util/file'
@@ -132,28 +114,7 @@ export const Chat = ({
   gitRoot?: string | null
   onSwitchToGitRoot?: () => void
 }) => {
-  const scrollRef = useRef<ScrollBoxRenderable | null>(null)
-  const [hasOverflow, setHasOverflow] = useState(false)
-  const hasOverflowRef = useRef(false)
-
-  // Message handling extracted to useChatMessages hook (initialized below after streamStatus is available)
-
-  const queryClient = useQueryClient()
-  const [, startUiTransition] = useTransition()
-
-  const [showReconnectionMessage, setShowReconnectionMessage] = useState(false)
-  const reconnectionTimeout = useTimeout()
   const [forceFileOnlyMentions, setForceFileOnlyMentions] = useState(false)
-
-  const { separatorWidth, terminalWidth, terminalHeight } =
-    useTerminalDimensions()
-  const { height: heightLayout, width: widthLayout } = useTerminalLayout()
-  const isCompactHeight = heightLayout.is('xs')
-  const isNarrowWidth = widthLayout.is('xs')
-  const messageAvailableWidth = separatorWidth
-
-  const theme = useTheme()
-  const markdownPalette = useMemo(() => createMarkdownPalette(theme), [theme])
 
   const { validate: validateAgents } = useAgentValidation()
 
@@ -197,35 +158,7 @@ export const Chat = ({
   } = useChatState()
 
   const { statusMessage } = useClipboard()
-
-  const handleReconnection = useCallback(
-    (isInitialConnection: boolean) => {
-      // Invalidate auth queries so we refetch with current credentials
-      queryClient.invalidateQueries({ queryKey: authQueryKeys.all })
-
-      startUiTransition(() => {
-        if (!isInitialConnection) {
-          setShowReconnectionMessage(true)
-          reconnectionTimeout.setTimeout(
-            'reconnection-message',
-            () => {
-              startUiTransition(() => {
-                setShowReconnectionMessage(false)
-              })
-            },
-            RECONNECTION_MESSAGE_DURATION_MS,
-          )
-        }
-      })
-    },
-    [queryClient, reconnectionTimeout, startUiTransition],
-  )
-
-  const isConnected = useConnectionStatus(handleReconnection)
-  const mainAgentTimer = useElapsedTime()
   const { ad } = useGravityAd()
-  // Use startTime for active timer display; when paused, timer hook maintains frozen value
-  const timerStartTime = mainAgentTimer.startTime
 
   // Set initial mode from CLI flag on mount
   useEffect(() => {
@@ -245,60 +178,29 @@ export const Chat = ({
     handleLoadPreviousMessages,
   } = useChatMessages({ messages, setMessages })
 
-  const { scrollToLatest, scrollUp, scrollDown, scrollboxProps, isAtBottom } = useChatScrollbox(
+  // Use extracted UI hook for scroll, terminal dimensions, and theme
+  const {
     scrollRef,
-    messages,
-    isUserCollapsing,
-  )
-
-  // Check if content has overflowed and needs scrolling
-  useEffect(() => {
-    const scrollbox = scrollRef.current
-    if (!scrollbox) return
-
-    const checkOverflow = () => {
-      const contentHeight = scrollbox.scrollHeight
-      const viewportHeight = scrollbox.viewport.height
-      const isOverflowing = contentHeight > viewportHeight
-
-      // Only update state if overflow status actually changed
-      if (hasOverflowRef.current !== isOverflowing) {
-        hasOverflowRef.current = isOverflowing
-        setHasOverflow(isOverflowing)
-      }
-    }
-
-    // Check initially and whenever scroll state changes
-    checkOverflow()
-    scrollbox.verticalScrollBar.on('change', checkOverflow)
-
-    return () => {
-      scrollbox.verticalScrollBar.off('change', checkOverflow)
-    }
-  }, [])
-
-  const inertialScrollAcceleration = useMemo(
-    () => createChatScrollAcceleration(),
-    [],
-  )
-
-  const appliedScrollboxProps = inertialScrollAcceleration
-    ? { ...scrollboxProps, scrollAcceleration: inertialScrollAcceleration }
-    : scrollboxProps
+    scrollToLatest,
+    scrollUp,
+    scrollDown,
+    appliedScrollboxProps,
+    isAtBottom,
+    hasOverflow,
+    terminalWidth,
+    terminalHeight,
+    separatorWidth,
+    messageAvailableWidth,
+    isCompactHeight,
+    isNarrowWidth,
+    theme,
+    markdownPalette,
+  } = useChatUI({ messages, isUserCollapsing })
 
   const localAgents = useMemo(() => loadLocalAgents(agentMode), [agentMode])
   const inputMode = useChatStore((state) => state.inputMode)
   const setInputMode = useChatStore((state) => state.setInputMode)
   const askUserState = useChatStore((state) => state.askUserState)
-
-  // Pause/resume timer when ask_user tool becomes active/inactive
-  useEffect(() => {
-    if (askUserState !== null) {
-      mainAgentTimer.pause()
-    } else if (mainAgentTimer.isPaused) {
-      mainAgentTimer.resume()
-    }
-  }, [askUserState, mainAgentTimer])
 
   // Filter slash commands based on current ads state - only show the option that changes state
   const filteredSlashCommands = useMemo(() => {
@@ -421,61 +323,45 @@ export const Chat = ({
     { inputMode, setInputMode },
   )
 
+  // Use extracted streaming hook for connection, timer, queue, and exit handling
   const {
-    queuedMessages,
+    isConnected,
+    showReconnectionMessage,
+    mainAgentTimer,
+    timerStartTime,
     streamStatus,
+    isWaitingForResponse,
+    isStreaming,
+    setStreamStatus,
+    queuedMessages,
     queuePaused,
     streamMessageIdRef,
     addToQueue,
     stopStreaming,
-    setStreamStatus,
     setCanProcessQueue,
     pauseQueue,
     resumeQueue,
     clearQueue,
     isQueuePausedRef,
     isProcessingQueueRef,
-  } = useMessageQueue(
-    (message: QueuedMessage) =>
-      sendMessageRef.current?.({
-        content: message.content,
-        agentMode,
-        attachments: message.attachments,
-      }) ?? Promise.resolve(),
-    isChainInProgressRef,
-    activeAgentStreamsRef,
-  )
-
-  const {
     queuedCount,
     shouldShowQueuePreview,
     queuePreviewTitle,
     pausedQueueText,
     inputPlaceholder,
-  } = useQueueUi({
-    queuePaused,
-    queuedMessages,
-    separatorWidth,
-    terminalWidth,
-  })
-
-  const { handleCtrlC: baseHandleCtrlC, nextCtrlCWillExit } = useExitHandler({
+    handleCtrlC,
+    ensureQueueActiveBeforeSubmit,
+    nextCtrlCWillExit,
+  } = useChatStreaming({
+    agentMode,
     inputValue,
     setInputValue,
+    terminalWidth,
+    separatorWidth,
+    isChainInProgressRef,
+    activeAgentStreamsRef,
+    sendMessageRef,
   })
-
-  const { handleCtrlC, ensureQueueActiveBeforeSubmit } = useQueueControls({
-    queuePaused,
-    queuedCount,
-    clearQueue,
-    resumeQueue,
-    inputHasText: Boolean(inputValue),
-    baseHandleCtrlC,
-  })
-
-  // Derive boolean flags from streamStatus for convenience
-  const isWaitingForResponse = streamStatus === 'waiting'
-  const isStreaming = streamStatus !== 'idle'
 
   // When streaming completes, flush any pending bash commands into history (ghost mode only)
   // Non-ghost mode commands are already in history and will be cleared when user sends next message
@@ -516,9 +402,6 @@ export const Chat = ({
     }
   }, [isStreaming, pendingBashMessages, setMessages])
 
-  // Timer events are currently tracked but not used for UI updates
-  // Future: Could be used for analytics or debugging
-
   const { sendMessage, clearMessages } = useSendMessage({
     inputRef,
     activeSubagentsRef,
@@ -530,7 +413,7 @@ export const Chat = ({
     onBeforeMessageSend: validateAgents,
     mainAgentTimer,
     scrollToLatest,
-    onTimerEvent: () => {}, // No-op for now
+    onTimerEvent: () => {},
     isQueuePausedRef,
     isProcessingQueueRef,
     resumeQueue,
@@ -1207,8 +1090,6 @@ export const Chat = ({
     disabled: askUserState !== null,
   })
 
-  // messageTree and topLevelMessages now come from useChatMessages hook
-
   // Sync message block context to zustand store for child components
   const setMessageBlockContext = useMessageBlockStore(
     (state) => state.setContext,
@@ -1255,8 +1136,6 @@ export const Chat = ({
     handleCloseFeedback,
     setMessageBlockCallbacks,
   ])
-
-  // visibleTopLevelMessages, hiddenMessageCount, handleLoadPreviousMessages come from useChatMessages hook
 
   const modeConfig = getInputModeConfig(inputMode)
   const hasSlashSuggestions =
@@ -1355,7 +1234,7 @@ export const Chat = ({
       }}
     >
       <scrollbox
-        ref={scrollRef}
+        ref={scrollRef as React.Ref<ScrollBoxRenderable>}
         stickyScroll
         stickyStart="bottom"
         scrollX={false}

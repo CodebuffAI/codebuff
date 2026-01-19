@@ -22,7 +22,7 @@ This document outlines a prioritized refactoring plan for the 51 issues identifi
 | Commit | Description | Status | Completed By |
 |--------|-------------|--------|-------------|
 | 1.1a | Extract chat state management | ✅ Complete | Codex CLI |
-| 1.1b | Extract chat UI and orchestration | ⬜ Not Started | - |
+| 1.1b | Extract chat UI and orchestration | ✅ Complete | Codebuff |
 | 1.2 | Refactor context-pruner god function | ✅ Complete | Codex CLI |
 | 1.3 | Split old-constants.ts god module | ✅ Complete | Codex CLI |
 | 1.4 | Fix silent error swallowing | ✅ Complete | Codex CLI |
