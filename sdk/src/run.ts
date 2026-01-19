@@ -7,7 +7,7 @@ import {
 } from '@codebuff/agent-runtime/util/messages'
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
 import { getMCPClient, listMCPTools, callMCPTool } from '@codebuff/common/mcp/client'
-import { toOptionalFile } from '@codebuff/common/old-constants'
+import { toOptionalFile } from '@codebuff/common/constants/paths'
 import { toolNames } from '@codebuff/common/tools/constants'
 import { clientToolCallSchema } from '@codebuff/common/tools/list'
 import { AgentOutputSchema } from '@codebuff/common/types/session-state'

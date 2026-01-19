@@ -1,4 +1,4 @@
-import { models } from '@codebuff/common/old-constants'
+import { models } from '@codebuff/common/constants/model-config'
 import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { userMessage } from '@codebuff/common/util/messages'
 import { hasLazyEdit } from '@codebuff/common/util/string'

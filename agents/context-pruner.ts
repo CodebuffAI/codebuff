@@ -3,6 +3,289 @@ import { publisher } from './constants'
 import type { AgentDefinition, ToolCall } from './types/agent-definition'
 import type { Message, ToolMessage } from './types/util-types'
 
+// =============================================================================
+// Constants
+// =============================================================================
+
+/** Target: summarized messages should be at most 10% of max context */
+const TARGET_SUMMARY_FACTOR = 0.1
+
+/** Agent IDs whose output should be excluded from spawn_agents results */
+const SPAWN_AGENTS_OUTPUT_BLACKLIST = [
+  'file-picker',
+  'code-searcher',
+  'directory-lister',
+  'glob-matcher',
+  'researcher-web',
+  'researcher-docs',
+  'code-reviewer',
+  'code-reviewer-multi-prompt',
+]
+
+/** Limits for truncating long messages (chars) */
+const USER_MESSAGE_LIMIT = 15000
+const ASSISTANT_MESSAGE_LIMIT = 4000
+
+/** Prompt cache expiry time (Anthropic caches for 5 minutes) */
+const CACHE_EXPIRY_MS = 5 * 60 * 1000
+
+/** Header used in conversation summaries */
+const SUMMARY_HEADER =
+  'This is a summary of the conversation so far. The original messages have been condensed to save context space.'
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+/**
+ * Truncates long text with 80% from the beginning and 20% from the end.
+ * Preserves context from both ends of the text while indicating what was removed.
+ *
+ * @param text - The text to truncate
+ * @param limit - Maximum character length
+ * @returns Truncated text with notice of how many chars were removed
+ */
+export function truncateLongText(text: string, limit: number): string {
+  if (text.length <= limit) {
+    return text
+  }
+  const availableChars = limit - 50 // 50 chars for the truncation notice
+  const prefixLength = Math.floor(availableChars * 0.8)
+  const suffixLength = availableChars - prefixLength
+  const prefix = text.slice(0, prefixLength)
+  const suffix = text.slice(-suffixLength)
+  const truncatedChars = text.length - prefixLength - suffixLength
+  return `${prefix}\n\n[...truncated ${truncatedChars} chars...]\n\n${suffix}`
+}
+
+/**
+ * Estimates token count from a JSON-serializable object.
+ * Uses a simple heuristic of ~3 characters per token.
+ *
+ * @param obj - The object to estimate tokens for
+ * @returns Estimated token count
+ */
+export function estimateTokens(obj: unknown): number {
+  return Math.ceil(JSON.stringify(obj).length / 3)
+}
+
+/**
+ * Extracts text content from a message, handling both string and array formats.
+ *
+ * @param message - The message to extract text from
+ * @returns Combined text content from the message
+ */
+export function getTextContent(message: Message): string {
+  if (typeof message.content === 'string') {
+    return message.content
+  }
+  if (Array.isArray(message.content)) {
+    return message.content
+      .filter(
+        (part: Record<string, unknown>) =>
+          part.type === 'text' && typeof part.text === 'string',
+      )
+      .map((part: Record<string, unknown>) => part.text as string)
+      .join('\n')
+  }
+  return ''
+}
+
+/**
+ * Summarizes a tool call into a human-readable description.
+ * Handles various tool types with appropriate formatting.
+ *
+ * @param toolName - The name of the tool
+ * @param input - The tool's input parameters
+ * @returns A concise summary of the tool call
+ */
+export function summarizeToolCall(
+  toolName: string,
+  input: Record<string, unknown>,
+): string {
+  switch (toolName) {
+    case 'read_files': {
+      const paths = input.paths as string[] | undefined
+      if (paths && paths.length > 0) {
+        return `Read files: ${paths.join(', ')}`
+      }
+      return 'Read files'
+    }
+    case 'write_file': {
+      const path = input.path as string | undefined
+      return path ? `Wrote file: ${path}` : 'Wrote file'
+    }
+    case 'str_replace': {
+      const path = input.path as string | undefined
+      return path ? `Edited file: ${path}` : 'Edited file'
+    }
+    case 'propose_write_file': {
+      const path = input.path as string | undefined
+      return path ? `Proposed write to: ${path}` : 'Proposed file write'
+    }
+    case 'propose_str_replace': {
+      const path = input.path as string | undefined
+      return path ? `Proposed edit to: ${path}` : 'Proposed file edit'
+    }
+    case 'read_subtree': {
+      const paths = input.paths as string[] | undefined
+      if (paths && paths.length > 0) {
+        return `Read subtree: ${paths.join(', ')}`
+      }
+      return 'Read subtree'
+    }
+    case 'code_search': {
+      const pattern = input.pattern as string | undefined
+      const flags = input.flags as string | undefined
+      if (pattern && flags) {
+        return `Code search: "${pattern}" (${flags})`
+      }
+      return pattern ? `Code search: "${pattern}"` : 'Code search'
+    }
+    case 'glob': {
+      const patterns = input.patterns as
+        | Array<{ pattern: string }>
+        | undefined
+      if (patterns && patterns.length > 0) {
+        return `Glob: ${patterns.map((p) => p.pattern).join(', ')}`
+      }
+      return 'Glob search'
+    }
+    case 'list_directory': {
+      const directories = input.directories as
+        | Array<{ path: string }>
+        | undefined
+      if (directories && directories.length > 0) {
+        return `Listed dirs: ${directories.map((d) => d.path).join(', ')}`
+      }
+      return 'Listed directory'
+    }
+    case 'find_files': {
+      const pattern = input.pattern as string | undefined
+      return pattern ? `Find files: "${pattern}"` : 'Find files'
+    }
+    case 'run_terminal_command': {
+      const command = input.command as string | undefined
+      if (command) {
+        const shortCmd =
+          command.length > 50 ? command.slice(0, 50) + '...' : command
+        return `Ran command: ${shortCmd}`
+      }
+      return 'Ran terminal command'
+    }
+    case 'spawn_agents':
+    case 'spawn_agent_inline': {
+      const agents = input.agents as
+        | Array<{
+            agent_type: string
+            prompt?: string
+            params?: Record<string, unknown>
+          }>
+        | undefined
+      const agentType = input.agent_type as string | undefined
+      const prompt = input.prompt as string | undefined
+      const agentParams = input.params as
+        | Record<string, unknown>
+        | undefined
+
+      if (agents && agents.length > 0) {
+        const agentDetails = agents.map((a) => {
+          let detail = a.agent_type
+          const extras: string[] = []
+          if (a.prompt) {
+            const truncatedPrompt =
+              a.prompt.length > 1000
+                ? a.prompt.slice(0, 1000) + '...'
+                : a.prompt
+            extras.push(`prompt: "${truncatedPrompt}"`)
+          }
+          if (a.params && Object.keys(a.params).length > 0) {
+            const paramsStr = JSON.stringify(a.params)
+            const truncatedParams =
+              paramsStr.length > 1000
+                ? paramsStr.slice(0, 1000) + '...'
+                : paramsStr
+            extras.push(`params: ${truncatedParams}`)
+          }
+          if (extras.length > 0) {
+            detail += ` (${extras.join(', ')})`
+          }
+          return detail
+        })
+        return `Spawned agents:\n${agentDetails.map((d) => `- ${d}`).join('\n')}`
+      }
+      if (agentType) {
+        const extras: string[] = []
+        if (prompt) {
+          const truncatedPrompt =
+            prompt.length > 1000 ? prompt.slice(0, 1000) + '...' : prompt
+          extras.push(`prompt: "${truncatedPrompt}"`)
+        }
+        if (agentParams && Object.keys(agentParams).length > 0) {
+          const paramsStr = JSON.stringify(agentParams)
+          const truncatedParams =
+            paramsStr.length > 1000
+              ? paramsStr.slice(0, 1000) + '...'
+              : paramsStr
+          extras.push(`params: ${truncatedParams}`)
+        }
+        if (extras.length > 0) {
+          return `Spawned agent: ${agentType} (${extras.join(', ')})`
+        }
+        return `Spawned agent: ${agentType}`
+      }
+      return 'Spawned agent(s)'
+    }
+    case 'write_todos': {
+      const todos = input.todos as
+        | Array<{ task: string; completed: boolean }>
+        | undefined
+      if (todos) {
+        const completed = todos.filter((t) => t.completed).length
+        const incomplete = todos.filter((t) => !t.completed)
+        if (incomplete.length === 0) {
+          return `Todos: ${completed}/${todos.length} complete (all done!)`
+        }
+        const remainingTasks = incomplete
+          .map((t) => `- ${t.task}`)
+          .join('\n')
+        return `Todos: ${completed}/${todos.length} complete. Remaining:\n${remainingTasks}`
+      }
+      return 'Updated todos'
+    }
+    case 'ask_user': {
+      const questions = input.questions as
+        | Array<{ question: string }>
+        | undefined
+      if (questions && questions.length > 0) {
+        const questionTexts = questions.map((q) => q.question).join('; ')
+        const truncated =
+          questionTexts.length > 200
+            ? questionTexts.slice(0, 200) + '...'
+            : questionTexts
+        return `Asked user: ${truncated}`
+      }
+      return 'Asked user question'
+    }
+    case 'suggest_followups':
+      return 'Suggested followups'
+    case 'web_search': {
+      const query = input.query as string | undefined
+      return query ? `Web search: "${query}"` : 'Web search'
+    }
+    case 'read_docs': {
+      const query = input.query as string | undefined
+      return query ? `Read docs: "${query}"` : 'Read docs'
+    }
+    case 'set_output':
+      return 'Set output'
+    case 'set_messages':
+      return 'Set messages'
+    default:
+      return `Used tool: ${toolName}`
+  }
+}
+
 const definition: AgentDefinition = {
   id: 'context-pruner',
   publisher,
@@ -28,47 +311,6 @@ const definition: AgentDefinition = {
 
   handleSteps: function* ({ agentState, params }) {
     const messages = agentState.messageHistory
-
-    // Target: summarized messages should be at most 10% of max context
-    const TARGET_SUMMARY_FACTOR = 0.1
-
-    // Blacklist of agent IDs whose output should be excluded from spawn_agents results
-    const SPAWN_AGENTS_OUTPUT_BLACKLIST = [
-      'file-picker',
-      'code-searcher',
-      'directory-lister',
-      'glob-matcher',
-      'researcher-web',
-      'researcher-docs',
-      'code-reviewer',
-      'code-reviewer-multi-prompt',
-    ]
-
-    // Limits for truncating long messages (chars)
-    const USER_MESSAGE_LIMIT = 15000
-    const ASSISTANT_MESSAGE_LIMIT = 4000
-
-    // Prompt cache expiry time (Anthropic caches for 5 minutes)
-    const CACHE_EXPIRY_MS = 5 * 60 * 1000
-
-    // Helper to truncate long text with 80% beginning + 20% end
-    const truncateLongText = (text: string, limit: number): string => {
-      if (text.length <= limit) {
-        return text
-      }
-      const availableChars = limit - 50 // 50 chars for the truncation notice
-      const prefixLength = Math.floor(availableChars * 0.8)
-      const suffixLength = availableChars - prefixLength
-      const prefix = text.slice(0, prefixLength)
-      const suffix = text.slice(-suffixLength)
-      const truncatedChars = text.length - prefixLength - suffixLength
-      return `${prefix}\n\n[...truncated ${truncatedChars} chars...]\n\n${suffix}`
-    }
-
-    const countTokensJson = (obj: unknown): number => {
-      return Math.ceil(JSON.stringify(obj).length / 3)
-    }
-
     const maxContextLength: number = params?.maxContextLength ?? 200_000
 
     // STEP 0: Always remove the last INSTRUCTIONS_PROMPT and SUBAGENT_SPAWN
@@ -142,8 +384,6 @@ const definition: AgentDefinition = {
 
     // Check for existing conversation summary and extract its content
     let previousSummary = ''
-    const SUMMARY_HEADER =
-      'This is a summary of the conversation so far. The original messages have been condensed to save context space.'
     for (const message of currentMessages) {
       if (message.role === 'user' && Array.isArray(message.content)) {
         for (const part of message.content) {
@@ -193,211 +433,6 @@ const definition: AgentDefinition = {
       }
       return true
     })
-
-    // Helper to get text content from a message
-    const getTextContent = (message: Message): string => {
-      if (typeof message.content === 'string') {
-        return message.content
-      }
-      if (Array.isArray(message.content)) {
-        return message.content
-          .filter(
-            (part: Record<string, unknown>) =>
-              part.type === 'text' && typeof part.text === 'string',
-          )
-          .map((part: Record<string, unknown>) => part.text as string)
-          .join('\n')
-      }
-      return ''
-    }
-
-    // Helper to summarize a tool call
-    const summarizeToolCall = (
-      toolName: string,
-      input: Record<string, unknown>,
-    ): string => {
-      switch (toolName) {
-        case 'read_files': {
-          const paths = input.paths as string[] | undefined
-          if (paths && paths.length > 0) {
-            return `Read files: ${paths.join(', ')}`
-          }
-          return 'Read files'
-        }
-        case 'write_file': {
-          const path = input.path as string | undefined
-          return path ? `Wrote file: ${path}` : 'Wrote file'
-        }
-        case 'str_replace': {
-          const path = input.path as string | undefined
-          return path ? `Edited file: ${path}` : 'Edited file'
-        }
-        case 'propose_write_file': {
-          const path = input.path as string | undefined
-          return path ? `Proposed write to: ${path}` : 'Proposed file write'
-        }
-        case 'propose_str_replace': {
-          const path = input.path as string | undefined
-          return path ? `Proposed edit to: ${path}` : 'Proposed file edit'
-        }
-        case 'read_subtree': {
-          const paths = input.paths as string[] | undefined
-          if (paths && paths.length > 0) {
-            return `Read subtree: ${paths.join(', ')}`
-          }
-          return 'Read subtree'
-        }
-        case 'code_search': {
-          const pattern = input.pattern as string | undefined
-          const flags = input.flags as string | undefined
-          if (pattern && flags) {
-            return `Code search: "${pattern}" (${flags})`
-          }
-          return pattern ? `Code search: "${pattern}"` : 'Code search'
-        }
-        case 'glob': {
-          const patterns = input.patterns as
-            | Array<{ pattern: string }>
-            | undefined
-          if (patterns && patterns.length > 0) {
-            return `Glob: ${patterns.map((p) => p.pattern).join(', ')}`
-          }
-          return 'Glob search'
-        }
-        case 'list_directory': {
-          const directories = input.directories as
-            | Array<{ path: string }>
-            | undefined
-          if (directories && directories.length > 0) {
-            return `Listed dirs: ${directories.map((d) => d.path).join(', ')}`
-          }
-          return 'Listed directory'
-        }
-        case 'find_files': {
-          const pattern = input.pattern as string | undefined
-          return pattern ? `Find files: "${pattern}"` : 'Find files'
-        }
-        case 'run_terminal_command': {
-          const command = input.command as string | undefined
-          if (command) {
-            const shortCmd =
-              command.length > 50 ? command.slice(0, 50) + '...' : command
-            return `Ran command: ${shortCmd}`
-          }
-          return 'Ran terminal command'
-        }
-        case 'spawn_agents':
-        case 'spawn_agent_inline': {
-          const agents = input.agents as
-            | Array<{
-                agent_type: string
-                prompt?: string
-                params?: Record<string, unknown>
-              }>
-            | undefined
-          const agentType = input.agent_type as string | undefined
-          const prompt = input.prompt as string | undefined
-          const agentParams = input.params as
-            | Record<string, unknown>
-            | undefined
-
-          if (agents && agents.length > 0) {
-            const agentDetails = agents.map((a) => {
-              let detail = a.agent_type
-              const extras: string[] = []
-              if (a.prompt) {
-                const truncatedPrompt =
-                  a.prompt.length > 1000
-                    ? a.prompt.slice(0, 1000) + '...'
-                    : a.prompt
-                extras.push(`prompt: "${truncatedPrompt}"`)
-              }
-              if (a.params && Object.keys(a.params).length > 0) {
-                const paramsStr = JSON.stringify(a.params)
-                const truncatedParams =
-                  paramsStr.length > 1000
-                    ? paramsStr.slice(0, 1000) + '...'
-                    : paramsStr
-                extras.push(`params: ${truncatedParams}`)
-              }
-              if (extras.length > 0) {
-                detail += ` (${extras.join(', ')})`
-              }
-              return detail
-            })
-            return `Spawned agents:\n${agentDetails.map((d) => `- ${d}`).join('\n')}`
-          }
-          if (agentType) {
-            const extras: string[] = []
-            if (prompt) {
-              const truncatedPrompt =
-                prompt.length > 1000 ? prompt.slice(0, 1000) + '...' : prompt
-              extras.push(`prompt: "${truncatedPrompt}"`)
-            }
-            if (agentParams && Object.keys(agentParams).length > 0) {
-              const paramsStr = JSON.stringify(agentParams)
-              const truncatedParams =
-                paramsStr.length > 1000
-                  ? paramsStr.slice(0, 1000) + '...'
-                  : paramsStr
-              extras.push(`params: ${truncatedParams}`)
-            }
-            if (extras.length > 0) {
-              return `Spawned agent: ${agentType} (${extras.join(', ')})`
-            }
-            return `Spawned agent: ${agentType}`
-          }
-          return 'Spawned agent(s)'
-        }
-        case 'write_todos': {
-          const todos = input.todos as
-            | Array<{ task: string; completed: boolean }>
-            | undefined
-          if (todos) {
-            const completed = todos.filter((t) => t.completed).length
-            const incomplete = todos.filter((t) => !t.completed)
-            if (incomplete.length === 0) {
-              return `Todos: ${completed}/${todos.length} complete (all done!)`
-            }
-            const remainingTasks = incomplete
-              .map((t) => `- ${t.task}`)
-              .join('\n')
-            return `Todos: ${completed}/${todos.length} complete. Remaining:\n${remainingTasks}`
-          }
-          return 'Updated todos'
-        }
-        case 'ask_user': {
-          const questions = input.questions as
-            | Array<{ question: string }>
-            | undefined
-          if (questions && questions.length > 0) {
-            const questionTexts = questions.map((q) => q.question).join('; ')
-            const truncated =
-              questionTexts.length > 200
-                ? questionTexts.slice(0, 200) + '...'
-                : questionTexts
-            return `Asked user: ${truncated}`
-          }
-          return 'Asked user question'
-        }
-        case 'suggest_followups':
-          return 'Suggested followups'
-        case 'web_search': {
-          const query = input.query as string | undefined
-          return query ? `Web search: "${query}"` : 'Web search'
-        }
-        case 'read_docs': {
-          const query = input.query as string | undefined
-          return query ? `Read docs: "${query}"` : 'Read docs'
-        }
-        case 'set_output':
-          return 'Set output'
-        case 'set_messages':
-          return 'Set messages'
-        default:
-          return `Used tool: ${toolName}`
-      }
-    }
 
     // Build the summary
     const summaryParts: string[] = []
@@ -582,15 +617,15 @@ const definition: AgentDefinition = {
 
     let summaryText = summaryParts.join('\n\n---\n\n')
 
-    // Calculate target size (15% of max context, for messages only)
+    // Calculate target size (10% of max context, for messages only)
     const targetTokens = maxContextLength * TARGET_SUMMARY_FACTOR
-    let summaryTokens = countTokensJson(summaryText)
+    let summaryTokens = estimateTokens(summaryText)
 
     // If summary is too big, truncate from the beginning
     if (summaryTokens > targetTokens) {
       const truncationMessage =
         '[CONVERSATION TRUNCATED - Earlier messages omitted due to length]\n\n'
-      const truncationTokens = countTokensJson(truncationMessage)
+      const truncationTokens = estimateTokens(truncationMessage)
       const availableTokens = targetTokens - truncationTokens
 
       // Estimate characters to keep (rough: 3 chars per token)

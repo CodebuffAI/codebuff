@@ -1,6 +1,6 @@
 import { env } from 'process'
 
-import { CREDIT_PRICING } from '@codebuff/common/old-constants'
+import { CREDIT_PRICING } from '@codebuff/common/constants/limits'
 import { convertCreditsToUsdCents } from '@codebuff/common/util/currency'
 import { getNextQuotaReset } from '@codebuff/common/util/dates'
 import db from '@codebuff/internal/db'

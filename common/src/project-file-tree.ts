@@ -3,11 +3,40 @@ import path from 'path'
 import * as ignore from 'ignore'
 import { sortBy } from 'lodash'
 
-import { DEFAULT_IGNORED_PATHS } from './old-constants'
+import { DEFAULT_IGNORED_PATHS } from './constants/paths'
 import { fileExists, isValidProjectRoot } from './util/file'
 
 import type { CodebuffFileSystem } from './types/filesystem'
 import type { DirectoryNode, FileTreeNode } from './util/file'
+
+/**
+ * Logs file tree errors in debug mode only.
+ * Errors are logged but not thrown to preserve tree-building behavior.
+ *
+ * File tree operations commonly encounter expected errors (permissions,
+ * deleted files) that are not fatal. We only log in debug mode to avoid
+ * noisy output during normal operation.
+ */
+function logFileTreeError(
+  operation: string,
+  filePath: string,
+  error: unknown,
+): void {
+  // Only log in debug mode to avoid noisy output
+  if (!process.env.DEBUG && !process.env.CODEBUFF_DEBUG) {
+    return
+  }
+
+  const err = error as { code?: string } | undefined
+  const code = err?.code
+  const errorMessage = error instanceof Error ? error.message : String(error)
+
+  console.debug(
+    `[FileTree] ${operation} failed for "${filePath}"${
+      code ? ` (${code})` : ''
+    }: ${errorMessage}`,
+  )
+}
 
 export const DEFAULT_MAX_FILES = 10_000
 
@@ -97,12 +126,16 @@ export async function getProjectFileTree(params: {
             })
             totalFiles++
           }
-        } catch (error: any) {
-          // Don't print errors, you probably just don't have access to the file.
+        } catch (error: unknown) {
+          // File may be inaccessible due to permissions or may have been deleted.
+          // Log with context for debugging, but continue building the tree.
+          logFileTreeError('fs.stat', filePath, error)
         }
       }
-    } catch (error: any) {
-      // Don't print errors, you probably just don't have access to the directory.
+    } catch (error: unknown) {
+      // Directory may be inaccessible due to permissions.
+      // Log with context for debugging, but continue building the tree.
+      logFileTreeError('fs.readdir', fullPath, error)
     }
   }
   return root.children
@@ -178,7 +211,10 @@ export async function parseGitignore(params: {
     let ignoreContent: string
     try {
       ignoreContent = await fs.readFile(ignoreFilePath, 'utf8')
-    } catch {
+    } catch (error: unknown) {
+      // Ignore file may be inaccessible or deleted after existence check.
+      // Log with context for debugging, but continue without these ignore rules.
+      logFileTreeError('fs.readFile (ignore file)', ignoreFilePath, error)
       continue
     }
     const lines = ignoreContent.split('\n')
