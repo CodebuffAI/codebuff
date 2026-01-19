@@ -34,6 +34,8 @@ import {
   useChatKeyboard,
   type ChatKeyboardHandlers,
 } from './hooks/use-chat-keyboard'
+import { useChatMessages } from './hooks/use-chat-messages'
+import { useChatState } from './hooks/use-chat-state'
 import { useClipboard } from './hooks/use-clipboard'
 import { useConnectionStatus } from './hooks/use-connection-status'
 import { useElapsedTime } from './hooks/use-elapsed-time'
@@ -75,7 +77,7 @@ import {
   createDefaultChatKeyboardState,
 } from './utils/keyboard-actions'
 import { loadLocalAgents } from './utils/local-agent-registry'
-import { buildMessageTree } from './utils/message-tree-utils'
+// buildMessageTree is now used internally by useChatMessages hook
 import {
   getStatusIndicatorState,
   type AuthStatus,
@@ -90,8 +92,8 @@ import { logger } from './utils/logger'
 
 import type { CommandResult } from './commands/command-registry'
 import type { MultilineInputHandle } from './components/multiline-input'
-import type { ContentBlock } from './types/chat'
-import type { SendMessageFn } from './types/contracts/send-message'
+
+// SendMessageFn type is now used internally by useChatState hook
 import type { User } from './utils/auth'
 import type { AgentMode } from './utils/constants'
 import type { FileTreeNode } from '@codebuff/common/util/file'
@@ -134,10 +136,7 @@ export const Chat = ({
   const [hasOverflow, setHasOverflow] = useState(false)
   const hasOverflowRef = useRef(false)
 
-  // Message pagination - show last N messages with "Load previous" button
-  const MESSAGE_BATCH_SIZE = 15
-  const [visibleMessageCount, setVisibleMessageCount] =
-    useState(MESSAGE_BATCH_SIZE)
+  // Message handling extracted to useChatMessages hook (initialized below after streamStatus is available)
 
   const queryClient = useQueryClient()
   const [, startUiTransition] = useTransition()
@@ -164,6 +163,7 @@ export const Chat = ({
   // Monitor usage data and auto-show banner when thresholds are crossed
   useUsageMonitor()
 
+  // Get chat state from extracted hook
   const {
     inputValue,
     cursorPosition,
@@ -175,7 +175,7 @@ export const Chat = ({
     setSlashSelectedIndex,
     agentSelectedIndex,
     setAgentSelectedIndex,
-    streamingAgents: rawStreamingAgents,
+    streamingAgents,
     focusedAgentId,
     setFocusedAgentId,
     messages,
@@ -186,49 +186,15 @@ export const Chat = ({
     setAgentMode,
     toggleAgentMode,
     isRetrying,
-  } = useChatStore(
-    useShallow((store) => ({
-      inputValue: store.inputValue,
-      cursorPosition: store.cursorPosition,
-      lastEditDueToNav: store.lastEditDueToNav,
-      setInputValue: store.setInputValue,
-      inputFocused: store.inputFocused,
-      setInputFocused: store.setInputFocused,
-      slashSelectedIndex: store.slashSelectedIndex,
-      setSlashSelectedIndex: store.setSlashSelectedIndex,
-      agentSelectedIndex: store.agentSelectedIndex,
-      setAgentSelectedIndex: store.setAgentSelectedIndex,
-      streamingAgents: store.streamingAgents,
-      focusedAgentId: store.focusedAgentId,
-      setFocusedAgentId: store.setFocusedAgentId,
-      messages: store.messages,
-      setMessages: store.setMessages,
-      activeSubagents: store.activeSubagents,
-      isChainInProgress: store.isChainInProgress,
-      agentMode: store.agentMode,
-      setAgentMode: store.setAgentMode,
-      toggleAgentMode: store.toggleAgentMode,
-      isRetrying: store.isRetrying,
-    })),
-  )
-
-  // Stabilize streamingAgents reference - only create new Set when content changes
-  const streamingAgentsKey = useMemo(
-    () => Array.from(rawStreamingAgents).sort().join(','),
-    [rawStreamingAgents],
-  )
-  const streamingAgents = useMemo(
-    () => rawStreamingAgents,
-    [streamingAgentsKey],
-  )
-  const pendingBashMessages = useChatStore((state) => state.pendingBashMessages)
-
-  // Refs for tracking state across renders
-  const activeAgentStreamsRef = useRef<number>(0)
-  const isChainInProgressRef = useRef<boolean>(isChainInProgress)
-  const activeSubagentsRef = useRef<Set<string>>(activeSubagents)
-  const abortControllerRef = useRef<AbortController | null>(null)
-  const sendMessageRef = useRef<SendMessageFn>()
+    pendingBashMessages,
+    refs: {
+      activeAgentStreamsRef,
+      isChainInProgressRef,
+      activeSubagentsRef,
+      abortControllerRef,
+      sendMessageRef,
+    },
+  } = useChatState()
 
   const { statusMessage } = useClipboard()
 
@@ -268,135 +234,16 @@ export const Chat = ({
     }
   }, [initialMode, setAgentMode])
 
-  // Sync refs with state
-  useEffect(() => {
-    isChainInProgressRef.current = isChainInProgress
-  }, [isChainInProgress])
-
-  useEffect(() => {
-    activeSubagentsRef.current = activeSubagents
-  }, [activeSubagents])
-
-  // Reset visible message count when messages are cleared or conversation changes
-  useEffect(() => {
-    if (messages.length <= MESSAGE_BATCH_SIZE) {
-      setVisibleMessageCount(MESSAGE_BATCH_SIZE)
-    }
-  }, [messages.length])
-
-  const isUserCollapsingRef = useRef<boolean>(false)
-
-  const handleCollapseToggle = useCallback(
-    (id: string) => {
-      // Set flag to prevent auto-scroll during user-initiated collapse
-      isUserCollapsingRef.current = true
-
-      // Find and toggle the block's isCollapsed property
-      setMessages((prevMessages) => {
-        return prevMessages.map((message) => {
-          // Handle agent variant messages
-          if (message.variant === 'agent' && message.id === id) {
-            const wasCollapsed = message.metadata?.isCollapsed ?? false
-            return {
-              ...message,
-              metadata: {
-                ...message.metadata,
-                isCollapsed: !wasCollapsed,
-                userOpened: wasCollapsed, // Mark as user-opened if expanding
-              },
-            }
-          }
-
-          // Handle blocks within messages
-          if (!message.blocks) return message
-
-          const updateBlocksRecursively = (
-            blocks: ContentBlock[],
-          ): ContentBlock[] => {
-            let foundTarget = false
-            const result = blocks.map((block) => {
-              // Handle thinking blocks - just match by thinkingId
-              if (block.type === 'text' && block.thinkingId === id) {
-                foundTarget = true
-                const wasCollapsed = block.isCollapsed ?? false
-                return {
-                  ...block,
-                  isCollapsed: !wasCollapsed,
-                  userOpened: wasCollapsed, // Mark as user-opened if expanding
-                }
-              }
-
-              // Handle agent blocks
-              if (block.type === 'agent' && block.agentId === id) {
-                foundTarget = true
-                const wasCollapsed = block.isCollapsed ?? false
-                return {
-                  ...block,
-                  isCollapsed: !wasCollapsed,
-                  userOpened: wasCollapsed, // Mark as user-opened if expanding
-                }
-              }
-
-              // Handle tool blocks
-              if (block.type === 'tool' && block.toolCallId === id) {
-                foundTarget = true
-                const wasCollapsed = block.isCollapsed ?? false
-                return {
-                  ...block,
-                  isCollapsed: !wasCollapsed,
-                  userOpened: wasCollapsed, // Mark as user-opened if expanding
-                }
-              }
-
-              // Handle agent-list blocks
-              if (block.type === 'agent-list' && block.id === id) {
-                foundTarget = true
-                const wasCollapsed = block.isCollapsed ?? false
-                return {
-                  ...block,
-                  isCollapsed: !wasCollapsed,
-                  userOpened: wasCollapsed, // Mark as user-opened if expanding
-                }
-              }
-
-              // Recursively update nested blocks inside agent blocks
-              if (block.type === 'agent' && block.blocks) {
-                const updatedBlocks = updateBlocksRecursively(block.blocks)
-                // Only create new block if nested blocks actually changed
-                if (updatedBlocks !== block.blocks) {
-                  foundTarget = true
-                  return {
-                    ...block,
-                    blocks: updatedBlocks,
-                  }
-                }
-              }
-
-              return block
-            })
-
-            // Return original array reference if nothing changed
-            return foundTarget ? result : blocks
-          }
-
-          return {
-            ...message,
-            blocks: updateBlocksRecursively(message.blocks),
-          }
-        })
-      })
-
-      // Reset flag after state update completes
-      setTimeout(() => {
-        isUserCollapsingRef.current = false
-      }, 0)
-    },
-    [setMessages],
-  )
-
-  const isUserCollapsing = useCallback(() => {
-    return isUserCollapsingRef.current
-  }, [])
+  // Use extracted chat messages hook for message tree and pagination
+  const {
+    messageTree,
+    topLevelMessages,
+    visibleTopLevelMessages,
+    hiddenMessageCount,
+    handleCollapseToggle,
+    isUserCollapsing,
+    handleLoadPreviousMessages,
+  } = useChatMessages({ messages, setMessages })
 
   const { scrollToLatest, scrollUp, scrollDown, scrollboxProps, isAtBottom } = useChatScrollbox(
     scrollRef,
@@ -1360,10 +1207,7 @@ export const Chat = ({
     disabled: askUserState !== null,
   })
 
-  const { tree: messageTree, topLevelMessages } = useMemo(
-    () => buildMessageTree(messages),
-    [messages],
-  )
+  // messageTree and topLevelMessages now come from useChatMessages hook
 
   // Sync message block context to zustand store for child components
   const setMessageBlockContext = useMessageBlockStore(
@@ -1412,20 +1256,7 @@ export const Chat = ({
     setMessageBlockCallbacks,
   ])
 
-  // Compute visible messages slice (from the end)
-  const visibleTopLevelMessages = useMemo(() => {
-    if (topLevelMessages.length <= visibleMessageCount) {
-      return topLevelMessages
-    }
-    return topLevelMessages.slice(-visibleMessageCount)
-  }, [topLevelMessages, visibleMessageCount])
-
-  const hiddenMessageCount =
-    topLevelMessages.length - visibleTopLevelMessages.length
-
-  const handleLoadPreviousMessages = useCallback(() => {
-    setVisibleMessageCount((prev) => prev + MESSAGE_BATCH_SIZE)
-  }, [])
+  // visibleTopLevelMessages, hiddenMessageCount, handleLoadPreviousMessages come from useChatMessages hook
 
   const modeConfig = getInputModeConfig(inputMode)
   const hasSlashSuggestions =

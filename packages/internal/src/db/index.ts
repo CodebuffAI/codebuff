@@ -11,3 +11,11 @@ const client = postgres(env.DATABASE_URL)
 
 export const db: CodebuffPgDatabase = drizzle(client, { schema })
 export default db
+
+// Re-export advisory lock utilities
+export {
+  ADVISORY_LOCK_IDS,
+  tryAcquireAdvisoryLock,
+  releaseAdvisoryLock,
+} from './advisory-lock'
+export type { AdvisoryLockId } from './advisory-lock'
