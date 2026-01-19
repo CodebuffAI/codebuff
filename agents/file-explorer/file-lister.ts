@@ -1,11 +1,10 @@
 import { publisher } from '../constants'
 import { type SecretAgentDefinition } from '../types/secret-agent-definition'
 
-const definition: SecretAgentDefinition = {
-  id: 'file-lister',
+export const createFileLister = (): Omit<SecretAgentDefinition, 'id'> => ({
   displayName: 'Liszt the File Lister',
   publisher,
-  model: 'x-ai/grok-4-fast',
+  model: 'x-ai/grok-4.1-fast',
   spawnerPrompt:
     'Lists up to 12 files that are relevant to the prompt within the given directories. Unless you know which directories are relevant, omit the directories parameter. This agent is great for finding files that could be relevant to the prompt.',
   inputSchema: {
@@ -33,11 +32,12 @@ const definition: SecretAgentDefinition = {
 
   systemPrompt: `You are an expert at finding relevant files in a codebase and listing them out.`,
   instructionsPrompt: `Instructions:
+- List out the full paths of 12 files that are relevant to the prompt, separated by newlines. Each file path is relative to the project root. Don't forget to include all the subdirectories in the path -- sometimes you have forgotten to include 'src' in the path. Make sure that the file paths are exactly correct.
 - Do not write any introductory commentary.
 - Do not write any analysis or any English text at all.
 - Do not use any more tools. Do not call read_subtree again.
-- List out the full paths of up to 12 files that are relevant to the prompt, separated by newlines. Each file path is relative to the project root. Don't forget to include all the subdirectories in the path -- sometimes you have forgotten to include 'src' in the path.
 
+Here's an example response with made up file paths (these are not real file paths, just an example):
 <example_response>
 packages/core/src/index.ts
 packages/core/src/api/server.ts
@@ -53,7 +53,7 @@ package.json
 README.md
 </example_response>
 
-Again: Do not write anything else other than the file paths on new lines.
+Again: Do not call any tools or write anything else other than the chosen file paths on new lines. Go.
 `.trim(),
 
   handleSteps: function* ({ params }) {
@@ -66,8 +66,13 @@ Again: Do not write anything else other than the file paths on new lines.
       },
     }
 
-    yield 'STEP_ALL'
+    yield 'STEP'
   },
+})
+
+const definition: SecretAgentDefinition = {
+  id: 'file-lister',
+  ...createFileLister(),
 }
 
 export default definition
