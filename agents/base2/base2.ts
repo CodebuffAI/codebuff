@@ -65,7 +65,8 @@ export function createBase2(
       'set_output',
     ),
     spawnableAgents: buildArray(
-      'file-picker',
+      !isMax && 'file-picker',
+      isMax && 'file-picker-max',
       'code-searcher',
       'directory-lister',
       'glob-matcher',
