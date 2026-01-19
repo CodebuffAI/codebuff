@@ -12,55 +12,94 @@ export const ADVISORY_LOCK_IDS = {
 
 export type AdvisoryLockId = (typeof ADVISORY_LOCK_IDS)[keyof typeof ADVISORY_LOCK_IDS]
 
+const HEALTH_CHECK_INTERVAL_MS = 30_000 // 30 seconds
+
+export interface LockHandle {
+  /** Register a callback to be called if the lock is lost (connection dies) */
+  onLost(callback: () => void): void
+  /** Release the lock and clean up resources */
+  release(): Promise<void>
+}
+
 /**
  * Tries to acquire a PostgreSQL session-level advisory lock.
  *
- * Advisory locks are held until explicitly released or the connection closes.
- * This is useful for leader election - only one instance can hold the lock.
- *
  * @param lockId - The unique lock identifier
- * @returns An object with `acquired` boolean and the `connection` if acquired.
- *          The connection must be kept alive to maintain the lock.
- *          Close the connection to release the lock.
+ * @returns An object with `acquired` boolean and a `handle` if acquired.
+ *          Use handle.onLost() to detect connection failures.
+ *          Use handle.release() to release the lock.
  */
 export async function tryAcquireAdvisoryLock(lockId: AdvisoryLockId): Promise<{
   acquired: boolean
-  connection: postgres.Sql | null
+  handle: LockHandle | null
 }> {
-  // Create a dedicated connection for this lock
-  // This connection must stay open to maintain the lock
   const connection = postgres(env.DATABASE_URL, {
-    max: 1, // Single connection for the lock
-    idle_timeout: 0, // Never timeout - keep connection alive
-    connect_timeout: 10, // 10 second connection timeout
+    max: 1,
+    idle_timeout: 0,
+    connect_timeout: 10,
   })
 
   try {
     const result = await connection`SELECT pg_try_advisory_lock(${lockId}) as acquired`
     const acquired = result[0]?.acquired === true
 
-    if (acquired) {
-      return { acquired: true, connection }
-    } else {
-      // Lock not acquired, close the connection
+    if (!acquired) {
       await connection.end()
-      return { acquired: false, connection: null }
+      return { acquired: false, handle: null }
     }
+
+    // Create the lock handle
+    let lostCallback: (() => void) | null = null
+    let isReleased = false
+    let healthCheckTimer: ReturnType<typeof setInterval> | null = null
+
+    const triggerLost = () => {
+      if (isReleased) return
+      if (healthCheckTimer) {
+        clearInterval(healthCheckTimer)
+        healthCheckTimer = null
+      }
+      // Close the connection before marking as released
+      connection.end().catch(() => {})
+      isReleased = true
+      if (lostCallback) {
+        lostCallback()
+      }
+    }
+
+    // Start health check interval
+    healthCheckTimer = setInterval(async () => {
+      if (isReleased) return
+      try {
+        await connection`SELECT 1`
+      } catch {
+        console.error('Advisory lock health check failed - connection lost')
+        triggerLost()
+      }
+    }, HEALTH_CHECK_INTERVAL_MS)
+
+    const handle: LockHandle = {
+      onLost(callback: () => void) {
+        lostCallback = callback
+      },
+      async release() {
+        if (isReleased) return
+        isReleased = true
+        if (healthCheckTimer) {
+          clearInterval(healthCheckTimer)
+          healthCheckTimer = null
+        }
+        try {
+          await connection.end()
+        } catch (error) {
+          console.error('Error releasing advisory lock:', error)
+        }
+      },
+    }
+
+    return { acquired: true, handle }
   } catch (error) {
-    // On error, ensure connection is closed
     await connection.end().catch(() => {})
     throw error
-  }
-}
-
-/**
- * Releases an advisory lock by closing the connection.
- * The lock is automatically released when the connection closes.
- */
-export async function releaseAdvisoryLock(
-  connection: postgres.Sql | null,
-): Promise<void> {
-  if (connection) {
-    await connection.end()
   }
 }

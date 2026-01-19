@@ -13,138 +13,155 @@ import { logger } from '@/util/logger'
 const VERIFIED_ROLE_ID = '1354877460583415929'
 const WELCOME_CHANNEL_ID = '1272621334580429053'
 
-export function startDiscordBot() {
-  const client = new Client({
-    intents: [
-      GatewayIntentBits.Guilds,
-      GatewayIntentBits.GuildMembers,
-      GatewayIntentBits.GuildMessages,
-      GatewayIntentBits.MessageContent,
-    ],
-  })
+/**
+ * Starts the Discord bot and waits for it to be ready.
+ * @returns A promise that resolves with the client when ready, or rejects on error.
+ */
+export function startDiscordBot(): Promise<Client> {
+  return new Promise((resolve, reject) => {
+    const client = new Client({
+      intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+      ],
+    })
 
-  client.once(Events.ClientReady, (c) => {
-    logger.info(`Discord bot ready! Logged in as ${c.user.tag}`)
-  })
+    let isResolved = false
 
-  // Listen for messages in the welcome channel
-  client.on(Events.MessageCreate, async (message) => {
-    if (message.channelId !== WELCOME_CHANNEL_ID) return
+    client.once(Events.ClientReady, (c) => {
+      logger.info(`Discord bot ready! Logged in as ${c.user.tag}`)
+      isResolved = true
+      resolve(client)
+    })
 
-    // Check if this is a system message about a new member (7 is GuildMemberJoin)
-    if (message.system && message.type === 7) {
-      try {
-        await message.reply({
-          content: `Hey there! Enter \`/link\` to connect your Discord account with Codebuff (don't worry, only you can see it).`,
-        })
-      } catch (error) {
-        logger.error({ error }, 'Failed to send welcome message')
+    client.once('error', (error) => {
+      if (!isResolved) {
+        reject(error)
       }
-    }
-  })
+    })
 
-  // Handle slash commands
-  client.on(Events.InteractionCreate, async (interaction: Interaction) => {
-    if (!interaction.isChatInputCommand()) return
+    // Listen for messages in the welcome channel
+    client.on(Events.MessageCreate, async (message) => {
+      if (message.channelId !== WELCOME_CHANNEL_ID) return
 
-    const command = interaction as ChatInputCommandInteraction
+      // Check if this is a system message about a new member (7 is GuildMemberJoin)
+      if (message.system && message.type === 7) {
+        try {
+          await message.reply({
+            content: `Hey there! Enter \`/link\` to connect your Discord account with Codebuff (don't worry, only you can see it).`,
+          })
+        } catch (error) {
+          logger.error({ error }, 'Failed to send welcome message')
+        }
+      }
+    })
 
-    // Check rate limit before processing command
-    if (isRateLimited(command.user.id)) {
-      await command.reply({
-        content:
-          'You are sending commands too quickly. Please wait a minute and try again.',
-        ephemeral: true,
-      })
-      return
-    }
+    // Handle slash commands
+    client.on(Events.InteractionCreate, async (interaction: Interaction) => {
+      if (!interaction.isChatInputCommand()) return
 
-    if (command.commandName === 'link') {
-      const email = command.options.getString('email')
+      const command = interaction as ChatInputCommandInteraction
 
-      if (!email) {
+      // Check rate limit before processing command
+      if (isRateLimited(command.user.id)) {
         await command.reply({
-          content: 'Please provide your email address with the command.',
+          content:
+            'You are sending commands too quickly. Please wait a minute and try again.',
           ephemeral: true,
         })
         return
       }
 
-      try {
-        // Get any users with this discord_id or email in one query
-        const users = await db
-          .select({
-            id: user.id,
-            email: user.email,
-            discordId: user.discord_id,
-          })
-          .from(user)
-          .where(
-            or(eq(user.discord_id, command.user.id), eq(user.email, email)),
-          )
+      if (command.commandName === 'link') {
+        const email = command.options.getString('email')
 
-        // Find the user with this email
-        const userRecord = users.find((u) => u.email === email)
-
-        if (
-          // Discord ID is already linked to any account
-          users.some((u) => u.discordId === command.user.id) ||
-          // Email doesn't exist
-          !userRecord ||
-          // Email exists but has a different discord_id
-          userRecord.discordId !== null
-        ) {
+        if (!email) {
           await command.reply({
-            content: `I couldn't link that email to your Discord account. Make sure you're using the correct email and that it isn't already linked to another Discord account. Contact ${env.NEXT_PUBLIC_SUPPORT_EMAIL} if you need help.`,
+            content: 'Please provide your email address with the command.',
             ephemeral: true,
           })
           return
         }
 
-        // Update the discord_id since we know it's null
-        await db
-          .update(user)
-          .set({ discord_id: command.user.id })
-          .where(eq(user.id, userRecord.id))
-
-        // Add the role
-        if (command.guild) {
-          try {
-            const member = await command.guild.members.fetch(command.user.id)
-            await member.roles.add(VERIFIED_ROLE_ID)
-            logger.info(
-              {
-                userId: userRecord.id,
-                discordId: command.user.id,
-                discordUsername: command.user.username,
-              },
-              'Added verified role to user',
+        try {
+          // Get any users with this discord_id or email in one query
+          const users = await db
+            .select({
+              id: user.id,
+              email: user.email,
+              discordId: user.discord_id,
+            })
+            .from(user)
+            .where(
+              or(eq(user.discord_id, command.user.id), eq(user.email, email)),
             )
-          } catch (error) {
-            logger.error({ error }, 'Failed to add verified role to user')
+
+          // Find the user with this email
+          const userRecord = users.find((u) => u.email === email)
+
+          if (
+            // Discord ID is already linked to any account
+            users.some((u) => u.discordId === command.user.id) ||
+            // Email doesn't exist
+            !userRecord ||
+            // Email exists but has a different discord_id
+            userRecord.discordId !== null
+          ) {
+            await command.reply({
+              content: `I couldn't link that email to your Discord account. Make sure you're using the correct email and that it isn't already linked to another Discord account. Contact ${env.NEXT_PUBLIC_SUPPORT_EMAIL} if you need help.`,
+              ephemeral: true,
+            })
+            return
           }
+
+          // Update the discord_id since we know it's null
+          await db
+            .update(user)
+            .set({ discord_id: command.user.id })
+            .where(eq(user.id, userRecord.id))
+
+          // Add the role
+          if (command.guild) {
+            try {
+              const member = await command.guild.members.fetch(command.user.id)
+              await member.roles.add(VERIFIED_ROLE_ID)
+              logger.info(
+                {
+                  userId: userRecord.id,
+                  discordId: command.user.id,
+                  discordUsername: command.user.username,
+                },
+                'Added verified role to user',
+              )
+            } catch (error) {
+              logger.error({ error }, 'Failed to add verified role to user')
+            }
+          }
+
+          await command.reply({
+            content:
+              "Thanks! I've linked your Discord account to your Codebuff account. You're all set! 🎉",
+            ephemeral: true,
+          })
+        } catch (error) {
+          logger.error({ error }, 'Error updating user Discord ID')
+          await command.reply({
+            content:
+              'Sorry, I ran into an error while trying to link your account. Please try again later or contact support if the problem persists.',
+            ephemeral: true,
+          })
         }
-
-        await command.reply({
-          content:
-            "Thanks! I've linked your Discord account to your Codebuff account. You're all set! 🎉",
-          ephemeral: true,
-        })
-      } catch (error) {
-        logger.error({ error }, 'Error updating user Discord ID')
-        await command.reply({
-          content:
-            'Sorry, I ran into an error while trying to link your account. Please try again later or contact support if the problem persists.',
-          ephemeral: true,
-        })
       }
-    }
-  })
+    })
 
-  // Login to Discord
-  client.login(env.DISCORD_BOT_TOKEN).catch((error) => {
-    logger.error({ error }, 'Failed to start Discord bot')
+    // Login to Discord
+    client.login(env.DISCORD_BOT_TOKEN).catch((error) => {
+      logger.error({ error }, 'Failed to start Discord bot')
+      if (!isResolved) {
+        reject(error)
+      }
+    })
   })
-
-  return client
 }

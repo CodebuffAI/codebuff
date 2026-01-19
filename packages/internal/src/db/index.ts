@@ -16,6 +16,5 @@ export default db
 export {
   ADVISORY_LOCK_IDS,
   tryAcquireAdvisoryLock,
-  releaseAdvisoryLock,
 } from './advisory-lock'
-export type { AdvisoryLockId } from './advisory-lock'
+export type { LockHandle, AdvisoryLockId } from './advisory-lock'
