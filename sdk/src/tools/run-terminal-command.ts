@@ -20,12 +20,25 @@ const GIT_BASH_COMMON_PATHS = [
   'C:\\Git\\bin\\bash.exe',
 ]
 
+// WSL bash paths that are often unreliable (VM may not be running, quote escaping issues)
+// These are checked last as a fallback only
+const WSL_BASH_PATH_PATTERNS = [
+  'system32',
+  'windowsapps',
+]
+
 /**
  * Find bash executable on Windows.
  * Priority:
- * 1. CODEBUFF_GIT_BASH_PATH environment variable
- * 2. bash.exe in PATH (e.g., inside WSL or Git Bash terminal)
- * 3. Common Git Bash installation locations
+ * 1. CODEBUFF_GIT_BASH_PATH environment variable (user override)
+ * 2. Common Git Bash installation locations (most reliable)
+ * 3. Non-WSL bash in PATH (e.g., Git Bash added to PATH)
+ * 4. WSL bash in PATH (last resort - System32, WindowsApps)
+ * 
+ * WSL bash is deprioritized because it can fail with cryptic errors when:
+ * - The WSL VM is not running
+ * - Quote/argument escaping issues between Windows and Linux
+ * - UTF-16 encoding mismatches
  */
 function findWindowsBash(env: NodeJS.ProcessEnv): string | null {
   // Check for user-specified path via environment variable
@@ -34,27 +47,48 @@ function findWindowsBash(env: NodeJS.ProcessEnv): string | null {
     return customPath
   }
 
-  // Check if bash.exe is in PATH (works inside WSL or Git Bash)
-  const pathEnv = env.PATH || env.Path || ''
-  const pathDirs = pathEnv.split(path.delimiter)
-  
-  for (const dir of pathDirs) {
-    const bashPath = path.join(dir, 'bash.exe')
-    if (fs.existsSync(bashPath)) {
-      return bashPath
-    }
-    // Also check for just 'bash' (for WSL)
-    const bashPathNoExt = path.join(dir, 'bash')
-    if (fs.existsSync(bashPathNoExt)) {
-      return bashPathNoExt
-    }
-  }
-
-  // Check common Git Bash installation locations
+  // Check common Git Bash installation locations first (most reliable)
   for (const commonPath of GIT_BASH_COMMON_PATHS) {
     if (fs.existsSync(commonPath)) {
       return commonPath
     }
+  }
+
+  // Fall back to bash.exe in PATH, but skip WSL paths initially
+  const pathEnv = env.PATH || env.Path || ''
+  const pathDirs = pathEnv.split(path.delimiter)
+  const wslFallbackPaths: string[] = []
+  
+  for (const dir of pathDirs) {
+    const dirLower = dir.toLowerCase()
+    const isWslPath = WSL_BASH_PATH_PATTERNS.some(pattern => dirLower.includes(pattern))
+    
+    const bashPath = path.join(dir, 'bash.exe')
+    if (fs.existsSync(bashPath)) {
+      if (isWslPath) {
+        // Save WSL paths for last resort
+        wslFallbackPaths.push(bashPath)
+      } else {
+        // Non-WSL bash in PATH (e.g., Git Bash added to PATH)
+        return bashPath
+      }
+    }
+    
+    // Also check for just 'bash' (without .exe)
+    const bashPathNoExt = path.join(dir, 'bash')
+    if (fs.existsSync(bashPathNoExt)) {
+      if (isWslPath) {
+        wslFallbackPaths.push(bashPathNoExt)
+      } else {
+        return bashPathNoExt
+      }
+    }
+  }
+
+  // Last resort: use WSL bash if nothing else is available
+  // WSL can be unreliable (VM not running, quote escaping issues, UTF-16 encoding)
+  if (wslFallbackPaths.length > 0) {
+    return wslFallbackPaths[0]
   }
 
   return null
