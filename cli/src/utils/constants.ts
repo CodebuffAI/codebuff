@@ -1,5 +1,20 @@
+import type { ToolName } from '@codebuff/sdk'
+
 // Agent IDs that should not be rendered in the CLI UI
 export const HIDDEN_AGENT_IDS = ['codebuff/context-pruner'] as const
+
+// Tool names that should be collapsed by default when rendered
+// Uses ToolName type to ensure only valid tool names are added
+export const COLLAPSED_BY_DEFAULT_TOOL_NAMES: readonly ToolName[] = [
+  'set_output',
+] as const
+
+/**
+ * Check if a tool should be collapsed by default
+ */
+export const shouldCollapseToolByDefault = (toolName: string): boolean => {
+  return COLLAPSED_BY_DEFAULT_TOOL_NAMES.includes(toolName as ToolName)
+}
 
 /**
  * Check if an agent ID should be hidden from rendering

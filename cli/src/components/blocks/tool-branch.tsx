@@ -3,6 +3,7 @@ import { memo, useCallback } from 'react'
 import { ContentWithMarkdown } from './content-with-markdown'
 import { useTheme } from '../../hooks/use-theme'
 import { getToolDisplayInfo } from '../../utils/codebuff-client'
+import { shouldCollapseToolByDefault } from '../../utils/constants'
 import { renderToolComponent } from '../tools/registry'
 import { ToolCallItem } from '../tools/tool-call-item'
 
@@ -43,7 +44,7 @@ export const ToolBranch = memo(
     }
 
     const displayInfo = getToolDisplayInfo(toolBlock.toolName)
-    const isCollapsed = toolBlock.isCollapsed ?? false
+    const isCollapsed = toolBlock.isCollapsed ?? shouldCollapseToolByDefault(toolBlock.toolName)
     const isStreaming = streamingAgents.has(toolBlock.toolCallId)
 
     const inputContent = `\`\`\`json\n${JSON.stringify(toolBlock.input, null, 2)}\n\`\`\``
