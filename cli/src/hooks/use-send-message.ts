@@ -343,6 +343,7 @@ export const useSendMessage = ({
           isProcessingQueueRef,
           updateChainInProgress,
           setIsRetrying,
+          setStreamingAgents,
         })
       setStreamStatus('waiting')
       setMessages((prev) => [...prev, aiMessage])

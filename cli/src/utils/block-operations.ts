@@ -355,3 +355,35 @@ export const markAgentComplete = (blocks: ContentBlock[], agentId: string) =>
     }
     return { ...block, status: 'complete' as const }
   })
+
+/**
+ * Recursively marks all agent blocks with status 'running' as 'cancelled'.
+ * Used when the user interrupts a response to indicate subagents were stopped.
+ */
+export const markRunningAgentsAsCancelled = (
+  blocks: ContentBlock[],
+): ContentBlock[] => {
+  return blocks.map((block) => {
+    if (block.type !== 'agent') {
+      return block
+    }
+
+    const updatedBlocks = block.blocks
+      ? markRunningAgentsAsCancelled(block.blocks)
+      : undefined
+
+    if (block.status === 'running') {
+      return {
+        ...block,
+        status: 'cancelled' as const,
+        ...(updatedBlocks && { blocks: updatedBlocks }),
+      }
+    }
+
+    if (updatedBlocks && updatedBlocks !== block.blocks) {
+      return { ...block, blocks: updatedBlocks }
+    }
+
+    return block
+  })
+}

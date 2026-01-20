@@ -101,6 +101,7 @@ describe('setupStreamingContext', () => {
         setIsRetrying: (value: boolean) => {
           isRetrying = value
         },
+        setStreamingAgents: () => {},
       })
 
       // Trigger abort
@@ -163,6 +164,7 @@ describe('setupStreamingContext', () => {
         isQueuePausedRef,
         updateChainInProgress: () => {},
         setIsRetrying: () => {},
+        setStreamingAgents: () => {},
       })
 
       // Trigger abort
@@ -192,6 +194,7 @@ describe('setupStreamingContext', () => {
         isProcessingQueueRef,
         updateChainInProgress: () => {},
         setIsRetrying: () => {},
+        setStreamingAgents: () => {},
       })
 
       // Verify ref starts as true
@@ -238,6 +241,7 @@ describe('setupStreamingContext', () => {
         setIsRetrying: (value) => {
           isRetrying = value
         },
+        setStreamingAgents: () => {},
       })
 
       // Sanity check initial state
@@ -278,6 +282,7 @@ describe('setupStreamingContext', () => {
         setCanProcessQueue: () => {},
         updateChainInProgress: () => {},
         setIsRetrying: () => {},
+        setStreamingAgents: () => {},
       })
 
       // Verify abortController is stored in ref
@@ -306,6 +311,7 @@ describe('setupStreamingContext', () => {
         setCanProcessQueue: () => {},
         updateChainInProgress: () => {},
         setIsRetrying: () => {},
+        setStreamingAgents: () => {},
       })
 
       // Verify streamRefs was reset

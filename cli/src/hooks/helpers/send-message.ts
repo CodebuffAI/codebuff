@@ -7,6 +7,7 @@ import {
 } from '../../utils/error-handling'
 import { invalidateActivityQuery } from '../use-activity-query'
 import { usageQueryKeys } from '../use-usage-query'
+import { markRunningAgentsAsCancelled } from '../../utils/block-operations'
 import { formatElapsedTime } from '../../utils/format-elapsed-time'
 import { processImagesForMessage } from '../../utils/image-processor'
 import { logger } from '../../utils/logger'
@@ -192,6 +193,7 @@ export const setupStreamingContext = (params: {
   isProcessingQueueRef?: MutableRefObject<boolean>
   updateChainInProgress: (value: boolean) => void
   setIsRetrying: (value: boolean) => void
+  setStreamingAgents: (updater: (prev: Set<string>) => Set<string>) => void
 }) => {
   const {
     aiMessageId,
@@ -205,6 +207,7 @@ export const setupStreamingContext = (params: {
     isProcessingQueueRef,
     updateChainInProgress,
     setIsRetrying,
+    setStreamingAgents,
   } = params
 
   streamRefs.reset()
@@ -229,7 +232,13 @@ export const setupStreamingContext = (params: {
     setIsRetrying(false)
     timerController.stop('aborted')
 
-    updater.updateAiMessageBlocks((blocks) => appendInterruptionNotice(blocks))
+    // Clear streaming agents so cancelled status displays correctly in UI
+    setStreamingAgents(() => new Set())
+
+    updater.updateAiMessageBlocks((blocks) => {
+      const cancelledBlocks = markRunningAgentsAsCancelled(blocks)
+      return appendInterruptionNotice(cancelledBlocks)
+    })
     updater.markComplete()
   })
 

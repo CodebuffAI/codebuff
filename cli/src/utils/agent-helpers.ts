@@ -19,6 +19,8 @@ export function getAgentStatusInfo(
       return { indicator: '✗', label: 'failed', color: 'red', text: '✗ failed' }
     case 'complete':
       return { indicator: '✓', label: 'completed', color: theme.foreground, text: 'completed ✓' }
+    case 'cancelled':
+      return { indicator: '⊘', label: 'cancelled', color: 'red', text: '⊘ cancelled' }
     default:
       return { indicator: '○', label: 'waiting', color: theme.muted, text: '○ waiting' }
   }

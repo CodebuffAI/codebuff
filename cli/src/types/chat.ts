@@ -49,7 +49,7 @@ export type AgentContentBlock = {
   agentName: string
   agentType: string
   content: string
-  status: 'running' | 'complete' | 'failed'
+  status: 'running' | 'complete' | 'failed' | 'cancelled'
   blocks?: ContentBlock[]
   initialPrompt?: string
   params?: Record<string, any>
