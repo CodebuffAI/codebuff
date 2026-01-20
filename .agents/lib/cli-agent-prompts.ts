@@ -1,4 +1,5 @@
 import type { CliAgentConfig } from './cli-agent-types'
+import { CLI_AGENT_MODES } from './cli-agent-types'
 
 const TMUX_SESSION_DOCS = `## Session Logs (Paper Trail)
 
@@ -71,18 +72,27 @@ The review should focus on these key areas:
    - Missing or incomplete type definitions`
 
 export function getSpawnerPrompt(config: CliAgentConfig): string {
-  const base = `Expert at testing ${config.cliName} CLI functionality using tmux, or performing code reviews via ${config.cliName}.
+  const defaultMode = config.defaultMode ?? 'work'
+  const modeDescriptions = {
+    work: `Use ${config.cliName} to implement features, fix bugs, refactor code, or complete other coding tasks.`,
+    review: `Uses ${config.cliName} CLI to perform code reviews on specified files or directories.`,
+  }
+  const modeLines = CLI_AGENT_MODES.map(mode => {
+    const isDefault = mode === defaultMode
+    return `- \`${mode}\`${isDefault ? ' (default)' : ''}: ${modeDescriptions[mode]}`
+  }).join('\n')
+
+  const base = `Expert at using ${config.cliName} CLI via tmux for implementation work or code reviews.
 
 **Modes:**
-- \`test\` (default): Spawns tmux sessions, sends input to ${config.cliName} CLI, captures terminal output, and validates behavior.
-- \`review\`: Uses ${config.cliName} CLI to perform code reviews on specified files or directories.
+${modeLines}
 
 **Paper trail:** Session logs are saved to \`debug/tmux-sessions/{session}/\`. Use \`read_files\` to view captures.
 
 **Your responsibilities as the parent agent:**
 1. If \`scriptIssues\` is not empty, fix the scripts in \`scripts/tmux/\` based on the suggested fixes
 2. Use \`read_files\` on the capture paths to see what the CLI displayed
-3. Re-run the test after fixing any script issues`
+3. Re-run the agent after fixing any script issues`
 
   return config.spawnerPromptExtras ? `${base}\n\n${config.spawnerPromptExtras}` : base
 }
@@ -90,14 +100,14 @@ export function getSpawnerPrompt(config: CliAgentConfig): string {
 export function getSystemPrompt(config: CliAgentConfig): string {
   const cliSpecificSection = config.cliSpecificDocs ? `\n${config.cliSpecificDocs}\n` : '\n'
 
-  return `You are an expert at testing ${config.cliName} CLI using tmux. You have access to helper scripts that handle the complexities of tmux communication with TUI apps.
+  return `You are an expert at using ${config.cliName} CLI via tmux for implementation work and code reviews. You have access to helper scripts that handle the complexities of tmux communication with TUI apps.
 
 ## ${config.cliName} Startup
 
-For testing ${config.cliName}, use the \`--command\` flag with permission bypass:
+To start ${config.cliName}, use the \`--command\` flag with permission bypass:
 
 \`\`\`bash
-# Start ${config.cliName} CLI (with permission bypass for testing)
+# Start ${config.cliName} CLI (with permission bypass)
 SESSION=$(./scripts/tmux/tmux-cli.sh start --command "${config.startCommand}")
 
 # Or with specific options
@@ -108,12 +118,12 @@ SESSION=$(./scripts/tmux/tmux-cli.sh start --command "${config.startCommand} --h
 ${cliSpecificSection}
 ## Helper Scripts
 
-Use these scripts in \`scripts/tmux/\` for reliable CLI testing:
+Use these scripts in \`scripts/tmux/\` for reliable CLI interaction:
 
 ### Unified Script (Recommended)
 
 \`\`\`bash
-# Start a ${config.cliName} test session (with permission bypass)
+# Start a ${config.cliName} session (with permission bypass)
 SESSION=$(./scripts/tmux/tmux-cli.sh start --command "${config.startCommand}")
 
 # Send input to the CLI
@@ -162,7 +172,8 @@ ${TMUX_DEBUG_TIPS}`
 }
 
 export function getDefaultReviewModeInstructions(config: CliAgentConfig): string {
-  return `## Review Mode Instructions
+  const isDefault = config.defaultMode === 'review'
+  return `## Review Mode Instructions${isDefault ? ' (Default)' : ''}
 
 In review mode, you send a detailed review prompt to ${config.cliName}. The prompt MUST start with the word "review" and include specific areas of concern.
 
@@ -216,47 +227,85 @@ ${REVIEW_CRITERIA}
    \`\`\``
 }
 
-export function getInstructionsPrompt(config: CliAgentConfig): string {
-  const reviewModeInstructions = config.reviewModeInstructions ?? getDefaultReviewModeInstructions(config)
+export function getWorkModeInstructions(config: CliAgentConfig): string {
+  const isDefault = (config.defaultMode ?? 'work') === 'work'
+  return `## Work Mode Instructions${isDefault ? ' (Default)' : ''}
 
-  return `Instructions:
+Use ${config.cliName} to complete implementation tasks like building features, fixing bugs, or refactoring code.
 
-Check the \`mode\` parameter to determine your operation:
-- If \`mode\` is "review": follow **Review Mode** instructions
-- Otherwise: follow **Test Mode** instructions (default)
+### Workflow
 
----
-
-## Test Mode Instructions
-
-1. **Use the helper scripts** in \`scripts/tmux/\` - they handle bracketed paste mode automatically
-
-2. **Start a ${config.cliName} test session** with permission bypass:
+1. **Start ${config.cliName}** with permission bypass:
    \`\`\`bash
    SESSION=$(./scripts/tmux/tmux-cli.sh start --command "${config.startCommand}")
    \`\`\`
 
-3. **Verify the CLI started** by capturing initial output:
+2. **Wait for CLI to initialize**, then capture:
    \`\`\`bash
-   ./scripts/tmux/tmux-cli.sh capture "$SESSION"
+   sleep 3
+   ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "initial-state"
    \`\`\`
 
-4. **Send commands** and capture responses:
+3. **Send your task** (from the prompt you received) to the CLI:
    \`\`\`bash
-   ./scripts/tmux/tmux-cli.sh send "$SESSION" "your command here"
-   ./scripts/tmux/tmux-cli.sh capture "$SESSION" --wait 3
+   ./scripts/tmux/tmux-cli.sh send "$SESSION" "<the task from your prompt parameter>"
    \`\`\`
 
-5. **Always clean up** when done:
+   Use the exact task description from the prompt the parent agent gave you.
+
+4. **Wait for completion and capture output** (implementation tasks may take a while):
+   \`\`\`bash
+   ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "work-in-progress" --wait 30
+   \`\`\`
+
+   If the work is still in progress, wait and capture again:
+   \`\`\`bash
+   ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "work-continued" --wait 30
+   \`\`\`
+
+5. **Send follow-up prompts** if needed to refine or continue the work:
+   \`\`\`bash
+   ./scripts/tmux/tmux-cli.sh send "$SESSION" "<follow-up instructions>"
+   ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "follow-up" --wait 30
+   \`\`\`
+
+6. **Verify the changes** by checking files or running commands:
+   \`\`\`bash
+   ./scripts/tmux/tmux-cli.sh send "$SESSION" "run the tests to verify the changes"
+   ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "verification" --wait 60
+   \`\`\`
+
+7. **Clean up** when done:
    \`\`\`bash
    ./scripts/tmux/tmux-cli.sh stop "$SESSION"
    \`\`\`
 
-6. **Use labels when capturing** to create a clear paper trail:
-   \`\`\`bash
-   ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "initial-state"
-   ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "after-help-command" --wait 2
-   \`\`\`
+### Tips
+
+- Break complex tasks into smaller prompts
+- Capture frequently to track progress
+- Use descriptive labels for captures
+- Check intermediate results before moving on`
+}
+
+export function getInstructionsPrompt(config: CliAgentConfig): string {
+  const defaultMode = config.defaultMode ?? 'work'
+  const workModeInstructions = config.workModeInstructions ?? getWorkModeInstructions(config)
+  const reviewModeInstructions = config.reviewModeInstructions ?? getDefaultReviewModeInstructions(config)
+
+  const modeNames = { work: 'Work Mode', review: 'Review Mode' }
+  const nonDefaultModes = CLI_AGENT_MODES.filter(m => m !== defaultMode)
+  const modeChecks = nonDefaultModes.map(m => `- If \`mode\` is "${m}": follow **${modeNames[m]}** instructions`).join('\n')
+
+  return `Instructions:
+
+Check the \`mode\` parameter to determine your operation:
+${modeChecks}
+- Otherwise: follow **${modeNames[defaultMode]}** instructions (default)
+
+---
+
+${workModeInstructions}
 
 ---
 
@@ -264,12 +313,12 @@ ${reviewModeInstructions}
 
 ---
 
-## Output (Both Modes)
+## Output (All Modes)
 
 **Report results using set_output** - You MUST call set_output with structured results:
 - \`overallStatus\`: "success", "failure", or "partial"
-- \`summary\`: Brief description of what was tested/reviewed
-- \`testResults\`: Array of test outcomes (for test mode)
+- \`summary\`: Brief description of what was done
+- \`results\`: Array of task outcomes (for work mode)
 - \`scriptIssues\`: Array of any problems with the helper scripts
 - \`captures\`: Array of capture paths with labels
 - \`reviewFindings\`: Array of code review findings (for review mode)
@@ -278,7 +327,7 @@ ${reviewModeInstructions}
 - \`script\`: Which script failed
 - \`issue\`: What went wrong
 - \`errorOutput\`: The actual error message
-- \`suggestedFix\`: How the parent agent should fix the script
+- \`suggestedFix\`: How to fix the script
 
 **Always include captures** in your output so the parent agent can see what you saw.
 

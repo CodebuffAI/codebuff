@@ -1,5 +1,6 @@
 import type { AgentDefinition } from '../types/agent-definition'
 import type { CliAgentConfig } from './cli-agent-types'
+import { CLI_AGENT_MODES } from './cli-agent-types'
 import { outputSchema } from './cli-agent-schemas'
 import {
   getSpawnerPrompt,
@@ -15,11 +16,21 @@ export function createCliAgent(config: CliAgentConfig): AgentDefinition {
     )
   }
 
+  const defaultMode = config.defaultMode ?? 'work'
+  const modeDescriptions = {
+    work: 'implementation tasks',
+    review: `code review via ${config.cliName}`,
+  }
+  const modeDescParts = CLI_AGENT_MODES.map(mode => {
+    const isDefault = mode === defaultMode
+    return `"${mode}" for ${modeDescriptions[mode]}${isDefault ? ' (default)' : ''}`
+  })
+
   const baseInputParams = {
     mode: {
       type: 'string' as const,
-      enum: ['test', 'review'],
-      description: `Operation mode - "test" for CLI testing (default), "review" for code review via ${config.cliName}`,
+      enum: [...CLI_AGENT_MODES],
+      description: `Operation mode - ${modeDescParts.join(', ')}`,
     },
   }
 
@@ -38,7 +49,7 @@ export function createCliAgent(config: CliAgentConfig): AgentDefinition {
       prompt: {
         type: 'string' as const,
         description:
-          'Description of what to do. For test mode: what CLI functionality to test. For review mode: what code to review and any specific concerns.',
+          'Description of what to do. For work mode: implementation task to complete. For review mode: code to review.',
       },
       params: {
         type: 'object' as const,

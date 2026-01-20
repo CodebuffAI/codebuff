@@ -1,29 +1,29 @@
-// Shared output schema for CLI tester agents. testResults for test mode, reviewFindings for review mode.
+// Shared output schema for CLI agents. results for work mode, reviewFindings for review mode.
 export const outputSchema = {
   type: 'object' as const,
   properties: {
     overallStatus: {
       type: 'string' as const,
       enum: ['success', 'failure', 'partial'],
-      description: 'Overall test outcome',
+      description: 'Overall outcome',
     },
     summary: {
       type: 'string' as const,
-      description: 'Brief summary of what was tested and the outcome',
+      description: 'Brief summary of what was done and the outcome',
     },
-    testResults: {
+    results: {
       type: 'array' as const,
       items: {
         type: 'object' as const,
         properties: {
-          testName: { type: 'string' as const, description: 'Name/description of the test' },
-          passed: { type: 'boolean' as const, description: 'Whether the test passed' },
+          name: { type: 'string' as const, description: 'Name/description of the task' },
+          passed: { type: 'boolean' as const, description: 'Whether the task succeeded' },
           details: { type: 'string' as const, description: 'Details about what happened' },
           capturedOutput: { type: 'string' as const, description: 'Relevant output captured from the CLI' },
         },
-        required: ['testName', 'passed'],
+        required: ['name', 'passed'],
       },
-      description: 'Array of individual test results',
+      description: 'Array of individual task results',
     },
     scriptIssues: {
       type: 'array' as const,
@@ -37,7 +37,7 @@ export const outputSchema = {
         },
         required: ['script', 'issue', 'suggestedFix'],
       },
-      description: 'Issues encountered with the helper scripts that the parent agent should fix',
+      description: 'Issues encountered with the helper scripts that should be fixed',
     },
     captures: {
       type: 'array' as const,

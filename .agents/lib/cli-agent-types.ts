@@ -1,11 +1,20 @@
+export type CliAgentMode = 'work' | 'review'
+
+export const CLI_AGENT_MODES: readonly CliAgentMode[] = ['work', 'review'] as const
+
 export interface InputParamDefinition {
   type: 'string' | 'number' | 'boolean' | 'array' | 'object'
   description?: string
   enum?: string[]
 }
 
-// Prevent extraInputParams from overriding 'mode' at compile time
-export type ExtraInputParams = Omit<Record<string, InputParamDefinition>, 'mode'>
+/**
+ * Extra input params that can be added to CLI agent configs.
+ * Uses key remapping to exclude 'mode' at compile time (Omit on Record is a no-op).
+ */
+export type ExtraInputParams = {
+  [K in string as K extends 'mode' ? never : K]?: InputParamDefinition
+}
 
 export interface CliAgentConfig {
   id: string
@@ -16,8 +25,13 @@ export interface CliAgentConfig {
   startCommand: string
   permissionNote: string
   model: string
+  /** Default mode when mode param is not specified. Defaults to 'work' */
+  defaultMode?: CliAgentMode
   spawnerPromptExtras?: string
   extraInputParams?: ExtraInputParams
+  /** Custom instructions for work mode. If not provided, uses getWorkModeInstructions() */
+  workModeInstructions?: string
+  /** Custom instructions for review mode. If not provided, uses getDefaultReviewModeInstructions() */
   reviewModeInstructions?: string
   cliSpecificDocs?: string
 }
