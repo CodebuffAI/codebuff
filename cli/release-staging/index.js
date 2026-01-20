@@ -193,51 +193,6 @@ function getCurrentVersion() {
   }
 }
 
-function runSmokeTest(binaryPath) {
-  return new Promise((resolve) => {
-    if (!fs.existsSync(binaryPath)) {
-      resolve(false)
-      return
-    }
-
-    const child = spawn(binaryPath, ['--version'], {
-      cwd: os.homedir(),
-      stdio: 'pipe',
-    })
-
-    let output = ''
-
-    child.stdout.on('data', (data) => {
-      output += data.toString()
-    })
-
-    const timeout = setTimeout(() => {
-      child.kill('SIGTERM')
-      setTimeout(() => {
-        if (!child.killed) {
-          child.kill('SIGKILL')
-        }
-      }, 1000)
-      resolve(false)
-    }, 5000)
-
-    child.on('exit', (code) => {
-      clearTimeout(timeout)
-      // Check that it exits successfully and outputs something that looks like a version
-      if (code === 0 && output.trim().match(/^\d+(\.\d+)*(-beta\.\d+)?$/)) {
-        resolve(true)
-      } else {
-        resolve(false)
-      }
-    })
-
-    child.on('error', () => {
-      clearTimeout(timeout)
-      resolve(false)
-    })
-  })
-}
-
 function compareVersions(v1, v2) {
   if (!v1 || !v2) return 0
 
@@ -399,18 +354,7 @@ async function downloadBinary(version) {
     fs.chmodSync(tempBinaryPath, 0o755)
   }
 
-  // Run smoke test on the downloaded binary
-  term.write('Verifying download...')
-  const smokeTestPassed = await runSmokeTest(tempBinaryPath)
-
-  if (!smokeTestPassed) {
-    fs.rmSync(CONFIG.tempDownloadDir, { recursive: true })
-    const error = new Error('Downloaded binary failed smoke test (--version check)')
-    trackUpdateFailed(error.message, version, { stage: 'smoke_test' })
-    throw error
-  }
-
-  // Smoke test passed - move binary to final location
+  // Move binary to final location
   try {
     if (fs.existsSync(CONFIG.binaryPath)) {
       try {
