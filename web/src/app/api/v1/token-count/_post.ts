@@ -1,4 +1,5 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { toAnthropicModelId } from '@codebuff/common/constants/claude-oauth'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { env } from '@codebuff/internal/env'
 import { NextResponse } from 'next/server'
@@ -70,23 +71,24 @@ export async function postTokenCount(params: {
 
   const { messages, system, model } = bodyResult.data
 
-  trackEvent({
-    event: AnalyticsEvent.TOKEN_COUNT_REQUEST,
-    userId,
-    properties: {
-      messageCount: messages.length,
-      hasSystem: !!system,
-      model: model ?? 'claude-sonnet-4-20250514',
-    },
-    logger,
-  })
-
   try {
     const inputTokens = await countTokensViaAnthropic({
       messages,
       system,
       model,
       fetch,
+      logger,
+    })
+
+    trackEvent({
+      event: AnalyticsEvent.TOKEN_COUNT_REQUEST,
+      userId,
+      properties: {
+        messageCount: messages.length,
+        hasSystem: !!system,
+        model: model ?? 'claude-opus-4-5-20251101',
+        inputTokens,
+      },
       logger,
     })
 
@@ -125,6 +127,11 @@ async function countTokensViaAnthropic(params: {
   // Convert messages to Anthropic format
   const anthropicMessages = convertToAnthropicMessages(messages)
 
+  // Convert model from OpenRouter format (e.g. "anthropic/claude-opus-4.5") to Anthropic format (e.g. "claude-opus-4-5-20251101")
+  const anthropicModelId = model
+    ? toAnthropicModelId(model)
+    : 'claude-opus-4-5-20251101'
+
   // Use the count_tokens endpoint (beta) or make a minimal request
   const response = await fetch(
     'https://api.anthropic.com/v1/messages/count_tokens',
@@ -137,7 +144,7 @@ async function countTokensViaAnthropic(params: {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: model ?? 'claude-opus-4-5-20251101',
+        model: anthropicModelId,
         messages: anthropicMessages,
         ...(system && { system }),
       }),

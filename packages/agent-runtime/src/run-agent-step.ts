@@ -767,6 +767,7 @@ export async function loopAgentSteps(
       const tokenCountResult = await callTokenCountAPI({
         messages: messagesWithStepPrompt,
         system,
+        model: agentTemplate.model,
         fetch,
         logger,
         env: { clientEnv, ciEnv },
