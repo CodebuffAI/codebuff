@@ -81,6 +81,7 @@ jobs:
   test:
     needs: [build-and-check]
     strategy:
+      fail-fast: false
       matrix:
         package:
           [
@@ -93,15 +94,6 @@ jobs:
             sdk,
             web,
           ]
-        include:
-          - package: .agents
-          - package: cli
-          - package: common
-          - package: packages/agent-runtime
-          - package: packages/billing
-          - package: packages/internal
-          - package: sdk
-          - package: web
     name: test-${{ matrix.package }}
     runs-on: ubuntu-latest
     steps:
@@ -147,7 +139,7 @@ jobs:
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
-          max_attempts: 5
+          max_attempts: 3
           command: |
             cd ${{ matrix.package }}
             if [ "${{ matrix.package }}" = ".agents" ]; then
@@ -168,31 +160,21 @@ jobs:
       #   uses: mxschmitt/action-tmate@v3
       #   timeout-minutes: 15 # optional guard
 
-  # Integration tests job
+  # Integration tests job (packages that don't need a database)
   test-integration:
     needs: [build-and-check]
     strategy:
+      fail-fast: false
       matrix:
         package:
           [
-            .agents,
             cli,
             common,
             packages/agent-runtime,
-            packages/billing,
             packages/internal,
             sdk,
             web,
           ]
-        include:
-          - package: .agents
-          - package: cli
-          - package: common
-          - package: packages/agent-runtime
-          - package: packages/billing
-          - package: packages/internal
-          - package: sdk
-          - package: web
     name: test-integration-${{ matrix.package }}
     runs-on: ubuntu-latest
     steps:
@@ -241,12 +223,93 @@ jobs:
           max_attempts: 3
           command: |
             cd ${{ matrix.package }}
-            if [ "${{ matrix.package }}" = ".agents" ]; then
-              # .agents e2e tests are in e2e/ directory and require real services
-              # They are skipped in CI - run locally with: bun run test:e2e
-              echo "Skipping .agents e2e tests in CI (require real services)"
+            TEST_FILES=$(find src -name '*.integration.test.ts' 2>/dev/null | sort)
+            if [ -n "$TEST_FILES" ]; then
+              echo "$TEST_FILES" | xargs -I {} bun test --timeout=60000 {}
             else
-              find src -name '*.integration.test.ts' | sort | xargs -I {} bun test --timeout=60000 {}
+              echo "No integration tests found in ${{ matrix.package }}"
+            fi
+
+  # Billing integration tests (requires PostgreSQL)
+  # Tests use a hardcoded default DATABASE_URL matching this container config
+  test-billing-integration:
+    needs: [build-and-check]
+    name: test-integration-packages/billing
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.5'
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            */node_modules
+            packages/*/node_modules
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/bun.lock*') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Set environment variables
+        env:
+          SECRETS_CONTEXT: ${{ toJSON(secrets) }}
+        run: |
+          VAR_NAMES=$(bun scripts/generate-ci-env.ts)
+          echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
+            to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
+          ' >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_CB_ENVIRONMENT=test" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_INFISICAL_UP=true" >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
+
+      - name: Build SDK before integration tests
+        run: cd sdk && bun run build
+
+      - name: Setup database schema
+        uses: nick-fields/retry@v3
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/testdb
+        with:
+          timeout_minutes: 2
+          max_attempts: 3
+          command: cd packages/internal && bun run db:migrate
+
+      - name: Run billing integration tests
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 15
+          max_attempts: 3
+          command: |
+            cd packages/billing
+            TEST_FILES=$(find src -name '*.integration.test.ts' 2>/dev/null | sort)
+            if [ -n "$TEST_FILES" ]; then
+              echo "$TEST_FILES" | xargs -I {} bun test --timeout=60000 {}
+            else
+              echo "No integration tests found in packages/billing"
             fi
 
   # E2E tests for web intentionally omitted for now.
