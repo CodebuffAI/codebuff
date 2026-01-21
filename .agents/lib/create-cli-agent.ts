@@ -61,7 +61,11 @@ export function createCliAgent(config: CliAgentConfig): AgentDefinition {
     outputSchema,
     includeMessageHistory: false,
 
-    toolNames: ['run_terminal_command', 'read_files', 'code_search', 'set_output'],
+    toolNames: ['run_terminal_command', 'read_files', 'code_search', 'set_output', 'add_message'],
+
+    // NOTE: handleSteps is NOT defined here - each CLI agent file defines its own
+    // handleSteps with hardcoded config values following the context-pruner pattern.
+    // See claude-code-cli.ts, codex-cli.ts, etc.
 
     systemPrompt: getSystemPrompt(config),
     instructionsPrompt: getInstructionsPrompt(config),

@@ -181,18 +181,15 @@ ${REVIEW_CRITERIA}
 
 ### Workflow
 
-1. **Start ${config.cliName}** with permission bypass:
-   \`\`\`bash
-   SESSION=$(./scripts/tmux/tmux-cli.sh start --command "${config.startCommand}")
-   \`\`\`
+**Note:** A tmux session will be started for you automatically after your preparation phase. Use the session name from the assistant message that announces it.
 
-2. **Wait for CLI to initialize**, then capture:
+1. **Wait for CLI to initialize**, then capture:
    \`\`\`bash
    sleep 3
    ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "initial-state"
    \`\`\`
 
-3. **Send a detailed review prompt** (MUST start with "review"):
+2. **Send a detailed review prompt** (MUST start with "review"):
    \`\`\`bash
    ./scripts/tmux/tmux-cli.sh send "$SESSION" "Review [files/directories from prompt]. Look for:
 
@@ -204,7 +201,7 @@ ${REVIEW_CRITERIA}
    For each issue found, specify the file, line number, what's wrong, and how to fix it. Be direct and specific."
    \`\`\`
 
-4. **Wait for and capture the review output** (reviews take longer):
+3. **Wait for and capture the review output** (reviews take longer):
    \`\`\`bash
    ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "review-output" --wait 60
    \`\`\`
@@ -214,14 +211,14 @@ ${REVIEW_CRITERIA}
    ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "review-output-continued" --wait 30
    \`\`\`
 
-5. **Parse the review output** and populate \`reviewFindings\` with:
+4. **Parse the review output** and populate \`reviewFindings\` with:
    - \`file\`: Path to the file with the issue
    - \`severity\`: "critical", "warning", "suggestion", or "info"
    - \`line\`: Line number if mentioned
    - \`finding\`: Description of the issue
    - \`suggestion\`: How to fix it
 
-6. **Clean up**:
+5. **Clean up**:
    \`\`\`bash
    ./scripts/tmux/tmux-cli.sh stop "$SESSION"
    \`\`\``
@@ -235,25 +232,22 @@ Use ${config.cliName} to complete implementation tasks like building features, f
 
 ### Workflow
 
-1. **Start ${config.cliName}** with permission bypass:
-   \`\`\`bash
-   SESSION=$(./scripts/tmux/tmux-cli.sh start --command "${config.startCommand}")
-   \`\`\`
+**Note:** A tmux session will be started for you automatically after your preparation phase. Use the session name from the assistant message that announces it.
 
-2. **Wait for CLI to initialize**, then capture:
+1. **Wait for CLI to initialize**, then capture:
    \`\`\`bash
    sleep 3
    ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "initial-state"
    \`\`\`
 
-3. **Send your task** (from the prompt you received) to the CLI:
+2. **Send your task** (from the prompt you received) to the CLI:
    \`\`\`bash
    ./scripts/tmux/tmux-cli.sh send "$SESSION" "<the task from your prompt parameter>"
    \`\`\`
 
    Use the exact task description from the prompt the parent agent gave you.
 
-4. **Wait for completion and capture output** (implementation tasks may take a while):
+3. **Wait for completion and capture output** (implementation tasks may take a while):
    \`\`\`bash
    ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "work-in-progress" --wait 30
    \`\`\`
@@ -263,19 +257,19 @@ Use ${config.cliName} to complete implementation tasks like building features, f
    ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "work-continued" --wait 30
    \`\`\`
 
-5. **Send follow-up prompts** if needed to refine or continue the work:
+4. **Send follow-up prompts** if needed to refine or continue the work:
    \`\`\`bash
    ./scripts/tmux/tmux-cli.sh send "$SESSION" "<follow-up instructions>"
    ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "follow-up" --wait 30
    \`\`\`
 
-6. **Verify the changes** by checking files or running commands:
+5. **Verify the changes** by checking files or running commands:
    \`\`\`bash
    ./scripts/tmux/tmux-cli.sh send "$SESSION" "run the tests to verify the changes"
    ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "verification" --wait 60
    \`\`\`
 
-7. **Clean up** when done:
+6. **Clean up** when done:
    \`\`\`bash
    ./scripts/tmux/tmux-cli.sh stop "$SESSION"
    \`\`\`
@@ -299,6 +293,22 @@ export function getInstructionsPrompt(config: CliAgentConfig): string {
 
   return `Instructions:
 
+## Two-Phase Workflow
+
+This agent operates in two phases:
+
+### Phase 1: Preparation (Current Phase)
+You have an opportunity to prepare before the CLI session starts. Use this time to:
+- Read relevant files to understand the codebase
+- Search for code patterns or implementations
+- Understand the task requirements
+- Gather context that will help you guide the CLI effectively
+
+After your preparation turn, a tmux session will be started automatically.
+
+### Phase 2: CLI Execution
+Once the session starts, an assistant message will announce the session name. **Do NOT start a new session** - use the one provided.
+
 Check the \`mode\` parameter to determine your operation:
 ${modeChecks}
 - Otherwise: follow **${modeNames[defaultMode]}** instructions (default)
@@ -318,9 +328,10 @@ ${reviewModeInstructions}
 **Report results using set_output** - You MUST call set_output with structured results:
 - \`overallStatus\`: "success", "failure", or "partial"
 - \`summary\`: Brief description of what was done
+- \`sessionName\`: The tmux session name (REQUIRED - from the session started for you)
 - \`results\`: Array of task outcomes (for work mode)
 - \`scriptIssues\`: Array of any problems with the helper scripts
-- \`captures\`: Array of capture paths with labels
+- \`captures\`: Array of capture paths with labels (MUST have at least one capture)
 - \`reviewFindings\`: Array of code review findings (for review mode)
 
 **If a helper script doesn't work correctly**, report it in \`scriptIssues\` with:

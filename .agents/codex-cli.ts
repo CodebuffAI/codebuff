@@ -1,5 +1,7 @@
 import { createCliAgent } from './lib/create-cli-agent'
 
+import type { AgentDefinition } from './types/agent-definition'
+
 /**
  * Codex-specific review mode instructions.
  * Codex CLI has a built-in /review command with an interactive questionnaire.
@@ -7,6 +9,8 @@ import { createCliAgent } from './lib/create-cli-agent'
 const CODEX_REVIEW_MODE_INSTRUCTIONS = `## Review Mode Instructions
 
 Codex CLI has a built-in \`/review\` command that presents an interactive questionnaire. You must navigate it using arrow keys and Enter.
+
+**Note:** A tmux session will be started for you automatically after your preparation phase. Use the session name from the assistant message that announces it.
 
 ### Review Type Mapping
 
@@ -18,25 +22,20 @@ The \`reviewType\` param maps to menu options (1-indexed from top):
 
 ### Workflow
 
-1. **Start Codex** with permission bypass:
-   \`\`\`bash
-   SESSION=$(./scripts/tmux/tmux-cli.sh start --command "codex -a never -s danger-full-access")
-   \`\`\`
-
-2. **Wait for CLI to initialize**, then capture:
+1. **Wait for CLI to initialize**, then capture:
    \`\`\`bash
    sleep 3
    ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "initial-state"
    \`\`\`
 
-3. **Send the /review command**:
+2. **Send the /review command**:
    \`\`\`bash
    ./scripts/tmux/tmux-cli.sh send "$SESSION" "/review"
    sleep 2
    ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "review-menu"
    \`\`\`
 
-4. **Navigate to the correct option** using arrow keys:
+3. **Navigate to the correct option** using arrow keys:
    - The menu starts with Option 1 selected (PR Style)
    - Use Down arrow to move to the desired option:
      - \`reviewType="pr"\`: No navigation needed, just press Enter
@@ -51,30 +50,30 @@ The \`reviewType\` param maps to menu options (1-indexed from top):
    ./scripts/tmux/tmux-send.sh "$SESSION" --key Enter
    \`\`\`
 
-5. **For "custom" reviewType**, after selecting option 4, you'll need to send the custom instructions from the prompt:
+4. **For "custom" reviewType**, after selecting option 4, you'll need to send the custom instructions from the prompt:
    \`\`\`bash
    sleep 1
    ./scripts/tmux/tmux-cli.sh send "$SESSION" "[custom instructions from the prompt]"
    \`\`\`
 
-6. **Wait for and capture the review output** (reviews take longer):
+5. **Wait for and capture the review output** (reviews take longer):
    \`\`\`bash
    ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "review-output" --wait 60
    \`\`\`
 
-7. **Parse the review output** and populate \`reviewFindings\` with:
+6. **Parse the review output** and populate \`reviewFindings\` with:
    - \`file\`: Path to the file with the issue
    - \`severity\`: "critical", "warning", "suggestion", or "info"
    - \`line\`: Line number if mentioned
    - \`finding\`: Description of the issue
    - \`suggestion\`: How to fix it
 
-8. **Clean up**:
+7. **Clean up**:
    \`\`\`bash
    ./scripts/tmux/tmux-cli.sh stop "$SESSION"
    \`\`\``
 
-export default createCliAgent({
+const baseDefinition = createCliAgent({
   id: 'codex-cli',
   displayName: 'Codex CLI',
   cliName: 'Codex',
@@ -93,3 +92,111 @@ export default createCliAgent({
   },
   reviewModeInstructions: CODEX_REVIEW_MODE_INSTRUCTIONS,
 })
+
+// Constants must be inside handleSteps since it gets serialized via .toString()
+const definition: AgentDefinition = {
+  ...baseDefinition,
+  handleSteps: function* ({ prompt, params, logger }) {
+    const START_COMMAND = 'codex -a never -s danger-full-access'
+    const CLI_NAME = 'Codex'
+
+    yield {
+      toolName: 'add_message',
+      input: {
+        role: 'assistant',
+        content: 'I\'ll first gather context and prepare before starting the ' + CLI_NAME + ' CLI session.\n\n' +
+          'Let me read relevant files and understand the task to provide better guidance to the CLI.',
+      },
+      includeToolCall: false,
+    }
+
+    yield 'STEP'
+
+    logger.info('Starting ' + CLI_NAME + ' tmux session...')
+
+    const { toolResult } = yield {
+      toolName: 'run_terminal_command',
+      input: {
+        command: './scripts/tmux/tmux-cli.sh start --command "' + START_COMMAND + '"',
+        timeout_seconds: 30,
+      },
+    }
+
+    let sessionName = ''
+    let parseError = ''
+
+    if (!toolResult || toolResult.length === 0) {
+      parseError = 'No result returned from run_terminal_command'
+    } else {
+      const result = toolResult[0]
+      if (!result || result.type !== 'json') {
+        logger.warn({ resultType: result?.type }, 'Unexpected toolResult type (expected json)')
+        parseError = 'Unexpected result type: ' + (result?.type ?? 'undefined')
+      } else {
+        const value = result.value
+        if (typeof value === 'string') {
+          sessionName = value.trim()
+        } else if (value && typeof value === 'object') {
+          const obj = value as Record<string, unknown>
+          const exitCode = typeof obj.exitCode === 'number' ? obj.exitCode : undefined
+          const stderr = typeof obj.stderr === 'string' ? obj.stderr : ''
+          const stdout = typeof obj.stdout === 'string' ? obj.stdout : ''
+
+          if (exitCode !== undefined && exitCode !== 0) {
+            logger.error({ exitCode, stderr }, 'tmux-cli.sh start failed with non-zero exit code')
+            parseError = 'Command failed with exit code ' + exitCode + (stderr ? ': ' + stderr : '')
+          } else {
+            const output = typeof obj.output === 'string' ? obj.output : ''
+            sessionName = (stdout || output).trim()
+          }
+        } else {
+          logger.warn({ valueType: typeof value }, 'Unexpected toolResult value format')
+          parseError = 'Unexpected value format: ' + typeof value
+        }
+      }
+    }
+
+    if (!sessionName) {
+      const errorMsg = parseError || 'Session name was empty'
+      logger.error({ parseError: errorMsg }, 'Failed to start tmux session')
+      yield {
+        toolName: 'set_output',
+        input: {
+          overallStatus: 'failure',
+          summary: 'Failed to start ' + CLI_NAME + ' tmux session. ' + errorMsg,
+          sessionName: '',
+          scriptIssues: [
+            {
+              script: 'tmux-cli.sh',
+              issue: errorMsg,
+              errorOutput: JSON.stringify(toolResult),
+              suggestedFix: 'Ensure tmux-cli.sh outputs the session name to stdout and exits with code 0. Check that tmux is installed.',
+            },
+          ],
+          captures: [],
+        },
+      }
+      return
+    }
+
+    logger.info('Successfully started tmux session: ' + sessionName)
+
+    yield {
+      toolName: 'add_message',
+      input: {
+        role: 'assistant',
+        content: 'I have started a ' + CLI_NAME + ' tmux session: `' + sessionName + '`\n\n' +
+          'I will use this session for all CLI interactions. The session name must be included in my final output.\n\n' +
+          'Now I\'ll proceed with the task using the helper scripts:\n' +
+          '- Send commands: `./scripts/tmux/tmux-cli.sh send "' + sessionName + '" "..."`\n' +
+          '- Capture output: `./scripts/tmux/tmux-cli.sh capture "' + sessionName + '" --label "..."`\n' +
+          '- Stop when done: `./scripts/tmux/tmux-cli.sh stop "' + sessionName + '"`',
+      },
+      includeToolCall: false,
+    }
+
+    yield 'STEP_ALL'
+  },
+}
+
+export default definition

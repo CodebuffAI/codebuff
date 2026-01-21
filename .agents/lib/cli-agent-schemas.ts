@@ -11,6 +11,10 @@ export const outputSchema = {
       type: 'string' as const,
       description: 'Brief summary of what was done and the outcome',
     },
+    sessionName: {
+      type: 'string' as const,
+      description: 'The tmux session name that was used for CLI interactions',
+    },
     results: {
       type: 'array' as const,
       items: {
@@ -68,5 +72,5 @@ export const outputSchema = {
       description: 'Code review findings (only populated in review mode)',
     },
   },
-  required: ['overallStatus', 'summary', 'scriptIssues', 'captures'],
+  required: ['overallStatus', 'summary', 'sessionName', 'scriptIssues', 'captures'],
 }
