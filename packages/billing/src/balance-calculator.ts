@@ -6,7 +6,8 @@ import { failure, getErrorObject, success } from '@codebuff/common/util/error'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
 import { withSerializableTransaction } from '@codebuff/internal/db/transaction'
-import { and, asc, gt, isNull, or, eq, sql } from 'drizzle-orm'
+import { and, asc, desc, gt, isNull, ne, or, eq, sql } from 'drizzle-orm'
+import { union } from 'drizzle-orm/pg-core'
 
 import { reportPurchasedCreditsToStripe } from './stripe-metering'
 
@@ -43,6 +44,16 @@ type DbConn = Pick<
   'select' | 'update'
 > /* + whatever else you call */
 
+function buildActiveGrantsFilter(userId: string, now: Date) {
+  return and(
+    eq(schema.creditLedger.user_id, userId),
+    or(
+      isNull(schema.creditLedger.expires_at),
+      gt(schema.creditLedger.expires_at, now),
+    ),
+  )
+}
+
 /**
  * Gets active grants for a user, ordered by expiration (soonest first), then priority, and creation date.
  * Added optional `conn` param so callers inside a transaction can supply their TX object.
@@ -50,27 +61,80 @@ type DbConn = Pick<
 export async function getOrderedActiveGrants(params: {
   userId: string
   now: Date
-  conn?: DbConn // use DbConn instead of typeof db
+  conn?: DbConn
 }) {
   const { userId, now, conn = db } = params
+  const activeGrantsFilter = buildActiveGrantsFilter(userId, now)
   return conn
     .select()
     .from(schema.creditLedger)
-    .where(
-      and(
-        eq(schema.creditLedger.user_id, userId),
-        or(
-          isNull(schema.creditLedger.expires_at),
-          gt(schema.creditLedger.expires_at, now),
-        ),
-      ),
-    )
+    .where(activeGrantsFilter)
     .orderBy(
       // Use grants based on priority, then expiration date, then creation date
       asc(schema.creditLedger.priority),
       asc(schema.creditLedger.expires_at),
       asc(schema.creditLedger.created_at),
     )
+}
+
+/**
+ * Gets active grants ordered for credit consumption, ensuring the "last grant" is always
+ * included even if its balance is zero.
+ *
+ * The "last grant" (lowest priority, latest expiration, latest creation) is preserved because:
+ * - When a user exhausts all credits, debt must be recorded against a grant
+ * - Debt should accumulate on the grant that would be consumed last under normal circumstances
+ * - This is typically a subscription grant (lowest priority) that renews monthly
+ * - Recording debt on the correct grant ensures proper attribution and repayment when
+ *   credits are added (debt is repaid from the same grant it was charged to)
+ *
+ * Uses a single UNION query to fetch both non-zero grants and the "last grant" in one
+ * database round-trip. UNION automatically deduplicates if the last grant already
+ * appears in the non-zero set.
+ */
+async function getOrderedActiveGrantsForConsumption(params: {
+  userId: string
+  now: Date
+  conn?: DbConn
+}) {
+  const { userId, now, conn = db } = params
+  const activeGrantsFilter = buildActiveGrantsFilter(userId, now)
+
+  // Single UNION query combining:
+  // 1. Non-zero grants (consumed in priority order)
+  // 2. The "last grant" (for debt recording, even if balance is zero)
+  //
+  // UNION (not UNION ALL) automatically deduplicates if the last grant has non-zero balance.
+  // Final ORDER BY sorts all results in consumption order.
+  const grants = await union(
+    // First query: all non-zero balance grants
+    conn
+      .select()
+      .from(schema.creditLedger)
+      .where(and(activeGrantsFilter, ne(schema.creditLedger.balance, 0))),
+    // Second query: the single "last grant" that would be consumed last
+    // (highest priority number, latest/never expiration, latest creation)
+    conn
+      .select()
+      .from(schema.creditLedger)
+      .where(activeGrantsFilter)
+      .orderBy(
+        desc(schema.creditLedger.priority),
+        sql`${schema.creditLedger.expires_at} DESC NULLS FIRST`,
+        desc(schema.creditLedger.created_at),
+      )
+      .limit(1),
+  ).orderBy(
+    // Sort in consumption order:
+    // - Lower priority number = consumed first
+    // - Earlier expiration = consumed first (NULL = never expires, consumed last)
+    // - Earlier creation = consumed first
+    asc(schema.creditLedger.priority),
+    sql`${schema.creditLedger.expires_at} ASC NULLS LAST`,
+    asc(schema.creditLedger.created_at),
+  )
+
+  return grants
 }
 
 /**
@@ -343,7 +407,7 @@ export async function consumeCredits(params: {
   const result = await withSerializableTransaction({
     callback: async (tx) => {
       const now = new Date()
-      const activeGrants = await getOrderedActiveGrants({
+      const activeGrants = await getOrderedActiveGrantsForConsumption({
         ...params,
         now,
         conn: tx,
@@ -506,7 +570,7 @@ export async function consumeCreditsAndAddAgentStep(params: {
             break consumeCredits
           }
 
-          const activeGrants = await getOrderedActiveGrants({
+          const activeGrants = await getOrderedActiveGrantsForConsumption({
             ...params,
             now,
             conn: tx,

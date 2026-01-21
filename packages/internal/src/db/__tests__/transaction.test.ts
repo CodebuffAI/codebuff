@@ -208,6 +208,59 @@ describe('transaction error handling', () => {
         const error = createPostgresError('Connection failed', '08006')
         expect(getRetryableErrorDescription(error)).toBe('connection_failure')
       })
+
+      it('should read retryable code from nested cause', () => {
+        const error = { cause: { code: '40001' } }
+        expect(getRetryableErrorDescription(error)).toBe(
+          'serialization_failure',
+        )
+      })
+
+      it('should fall back to nested cause when top-level code is invalid', () => {
+        const error = { code: 40001, cause: { code: '40P01' } }
+        expect(getRetryableErrorDescription(error)).toBe('deadlock_detected')
+      })
+
+      it('should skip non-PG string codes and find real PG code in cause', () => {
+        const error = { code: 'FETCH_ERROR', cause: { code: '40001' } }
+        expect(getRetryableErrorDescription(error)).toBe('serialization_failure')
+      })
+
+      it('should skip ECONNRESET and find PG code deeper in chain', () => {
+        const error = {
+          code: 'ECONNRESET',
+          cause: {
+            code: 'TIMEOUT',
+            cause: {
+              code: '08006',
+            },
+          },
+        }
+        expect(getRetryableErrorDescription(error)).toBe('connection_failure')
+      })
+
+      it('should return null when only non-PG codes exist in chain', () => {
+        const error = {
+          code: 'FETCH_ERROR',
+          cause: {
+            code: 'ECONNRESET',
+            cause: {
+              code: 'TIMEOUT',
+            },
+          },
+        }
+        expect(getRetryableErrorDescription(error)).toBeNull()
+      })
+
+      it('should skip 3-character codes and find valid PG code', () => {
+        const error = { code: 'ERR', cause: { code: '53300' } }
+        expect(getRetryableErrorDescription(error)).toBe('too_many_connections')
+      })
+
+      it('should skip codes with special characters and find valid PG code', () => {
+        const error = { code: 'ERR_CONN', cause: { code: '40P01' } }
+        expect(getRetryableErrorDescription(error)).toBe('deadlock_detected')
+      })
     })
   })
 
@@ -274,6 +327,65 @@ describe('transaction error handling', () => {
 
       it('should return false for numeric code', () => {
         expect(isRetryablePostgresError({ code: 40001 })).toBe(false)
+      })
+
+      it('should return true for nested cause code', () => {
+        expect(isRetryablePostgresError({ cause: { code: '40001' } })).toBe(
+          true,
+        )
+      })
+
+      it('should handle self-referential error cause (cycle of 1)', () => {
+        const error: { code?: number; cause?: unknown } = { code: 40001 }
+        error.cause = error // self-referential
+        expect(isRetryablePostgresError(error)).toBe(false)
+      })
+
+      it('should handle two-object circular reference', () => {
+        const errorA: { cause?: unknown } = {}
+        const errorB: { cause?: unknown; code: string } = { code: '40001' }
+        errorA.cause = errorB
+        errorB.cause = errorA
+        // Should find code in errorB before hitting cycle
+        expect(isRetryablePostgresError(errorA)).toBe(true)
+      })
+
+      it('should find code at max depth (depth 5)', () => {
+        // Build a chain of 5 levels deep (0-indexed: depths 0, 1, 2, 3, 4, 5)
+        const error = {
+          cause: {
+            cause: {
+              cause: {
+                cause: {
+                  cause: {
+                    code: '40001',
+                  },
+                },
+              },
+            },
+          },
+        }
+        expect(isRetryablePostgresError(error)).toBe(true)
+      })
+
+      it('should return false when code is beyond max depth (depth 6+)', () => {
+        // Build a chain of 7 levels deep - code at depth 6 should not be found
+        const error = {
+          cause: {
+            cause: {
+              cause: {
+                cause: {
+                  cause: {
+                    cause: {
+                      code: '40001',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }
+        expect(isRetryablePostgresError(error)).toBe(false)
       })
     })
   })

@@ -40,17 +40,58 @@ const RETRYABLE_PG_ERROR_CODES: Record<string, string> = {
 }
 
 /**
+ * Maximum depth to traverse when searching for PostgreSQL error codes in nested cause chains.
+ * This limit prevents excessive iteration in pathological cases where the seen set check
+ * might not catch very long non-circular chains. In practice, Drizzle/pg errors typically
+ * nest 2-3 levels deep, so 6 provides ample headroom while ensuring bounded execution.
+ */
+const MAX_ERROR_CAUSE_DEPTH = 6
+
+/**
+ * Regular expression to validate PostgreSQL error codes.
+ * PostgreSQL error codes are exactly 5 characters consisting of digits (0-9) and
+ * uppercase letters (A-Z). Examples: 40001, 40P01, 08006, 23505
+ *
+ * This validation ensures we don't mistakenly return non-PG error codes like
+ * 'ECONNRESET', 'TIMEOUT', or 'FETCH_ERROR' that may appear in wrapper errors.
+ */
+const PG_ERROR_CODE_REGEX = /^[0-9A-Z]{5}$/i
+
+function getPostgresErrorCode(error: unknown): string | null {
+  if (!error || typeof error !== 'object') {
+    return null
+  }
+
+  let current: unknown = error
+  const seen = new Set<object>()
+  let depth = 0
+
+  while (current && typeof current === 'object' && depth < MAX_ERROR_CAUSE_DEPTH) {
+    if (seen.has(current)) {
+      return null // Circular reference detected
+    }
+    seen.add(current)
+
+    const record = current as Record<string, unknown>
+    if (typeof record.code === 'string' && PG_ERROR_CODE_REGEX.test(record.code)) {
+      return record.code
+    }
+
+    current = record.cause
+    depth += 1
+  }
+
+  return null
+}
+
+/**
  * Checks if an error is a retryable PostgreSQL error.
  * Returns the error description if retryable, null otherwise.
  */
 export function getRetryableErrorDescription(
   error: unknown,
 ): string | null {
-  if (!error || typeof error !== 'object') {
-    return null
-  }
-
-  const errorCode = (error as Record<string, unknown>).code
+  const errorCode = getPostgresErrorCode(error)
   if (typeof errorCode !== 'string') {
     return null
   }
@@ -118,8 +159,9 @@ export async function withSerializableTransaction<T>({
         return getRetryableErrorDescription(error) !== null
       },
       onRetry: (error, attempt) => {
-        const errorCode = (error as Record<string, unknown>)?.code ?? 'unknown'
-        const errorDescription = getRetryableErrorDescription(error) ?? 'unknown'
+        const errorCode = getPostgresErrorCode(error) ?? 'unknown'
+        const errorDescription =
+          getRetryableErrorDescription(error) ?? 'unknown'
         // Base delay before jitter is applied (actual delay will be ±20%)
         const baseDelayMs = INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1)
         logger.warn(
