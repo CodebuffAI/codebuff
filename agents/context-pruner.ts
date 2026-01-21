@@ -312,6 +312,9 @@ const definition: AgentDefinition = {
     const SUMMARY_HEADER =
       'This is a summary of the conversation so far. The original messages have been condensed to save context space.'
 
+    /** Fudge factor for token count threshold to trigger pruning earlier */
+    const TOKEN_COUNT_FUDGE_FACTOR = 1000
+
     // =============================================================================
     // Helper Functions (must be inside handleSteps since it's serialized to a string)
     // =============================================================================
@@ -598,7 +601,7 @@ const definition: AgentDefinition = {
     // - Prune when context exceeds max, OR
     // - Prune when prompt cache will miss (>5 min gap) to take advantage of fresh context
     // If not, return messages with just the subagent-specific tags removed
-    if (agentState.contextTokenCount <= maxContextLength && !cacheWillMiss) {
+    if (agentState.contextTokenCount + TOKEN_COUNT_FUDGE_FACTOR <= maxContextLength && !cacheWillMiss) {
       yield {
         toolName: 'set_messages',
         input: { messages: currentMessages },
