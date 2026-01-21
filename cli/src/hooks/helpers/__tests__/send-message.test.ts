@@ -28,7 +28,7 @@ ensureEnv()
 
 const { useChatStore } = await import('../../../state/chat-store')
 const { createStreamController } = await import('../../stream-state')
-const { setupStreamingContext, handleRunError, finalizeQueueState } = await import(
+const { setupStreamingContext, handleRunError, finalizeQueueState, resetEarlyReturnState } = await import(
   '../send-message'
 )
 const { createBatchedMessageUpdater } = await import(
@@ -113,7 +113,7 @@ describe('setupStreamingContext', () => {
       // Verify stream status reset
       expect(streamStatus).toBe('idle')
 
-      // Verify queue processing enabled (no isQueuePausedRef)
+      // Verify queue processing enabled (no pause ref)
       expect(canProcessQueue).toBe(true)
 
       // Verify chain in progress reset
@@ -170,7 +170,7 @@ describe('setupStreamingContext', () => {
       // Trigger abort
       abortController.abort()
 
-      // When queue is paused, canProcessQueue should be false
+      // When queue was paused before streaming, canProcessQueue should be false
       expect(canProcessQueue).toBe(false)
     })
 
@@ -374,7 +374,7 @@ describe('finalizeQueueState', () => {
       isQueuePausedRef,
     })
 
-    // When queue is paused, canProcessQueue should be false
+    // When queue was paused before streaming, canProcessQueue should be false
     expect(canProcessQueue).toBe(false)
   })
 })
@@ -583,7 +583,7 @@ describe('handleRunError', () => {
       isQueuePausedRef,
     })
 
-    // When queue is paused, canProcessQueue should be false
+    // When queue was paused before streaming, canProcessQueue should be false
     expect(canProcessQueue).toBe(false)
   })
 
@@ -716,5 +716,250 @@ describe('handleRunError', () => {
 
     // Timer should still be stopped with error
     expect(timerController.stopCalls).toContain('error')
+  })
+})
+
+/**
+ * Tests for early return queue state reset in sendMessage.
+ * These test the resetEarlyReturnState helper used across multiple early return paths:
+ * - prepareUserMessage exception
+ * - validation failure (success: false)
+ * - validation exception
+ */
+describe('resetEarlyReturnState', () => {
+  describe('prepareUserMessage exception path', () => {
+    test('resets chain in progress to false', () => {
+      let chainInProgress = true
+
+      resetEarlyReturnState({
+        updateChainInProgress: (value) => { chainInProgress = value },
+        setCanProcessQueue: () => {},
+      })
+
+      expect(chainInProgress).toBe(false)
+    })
+
+    test('sets canProcessQueue to true when queue is not paused', () => {
+      let canProcessQueue = false
+      const isQueuePausedRef = { current: false }
+
+      resetEarlyReturnState({
+        updateChainInProgress: () => {},
+        setCanProcessQueue: (can) => { canProcessQueue = can },
+        isQueuePausedRef,
+      })
+
+      expect(canProcessQueue).toBe(true)
+    })
+
+    test('sets canProcessQueue to false when queue is paused', () => {
+      let canProcessQueue = true
+      const isQueuePausedRef = { current: true }
+
+      resetEarlyReturnState({
+        updateChainInProgress: () => {},
+        setCanProcessQueue: (can) => { canProcessQueue = can },
+        isQueuePausedRef,
+      })
+
+      expect(canProcessQueue).toBe(false)
+    })
+
+    test('resets isProcessingQueueRef to false', () => {
+      const isProcessingQueueRef = { current: true }
+
+      resetEarlyReturnState({
+        updateChainInProgress: () => {},
+        setCanProcessQueue: () => {},
+        isProcessingQueueRef,
+      })
+
+      expect(isProcessingQueueRef.current).toBe(false)
+    })
+
+    test('handles missing isProcessingQueueRef gracefully', () => {
+      // Should not throw when isProcessingQueueRef is undefined
+      expect(() => {
+        resetEarlyReturnState({
+          updateChainInProgress: () => {},
+          setCanProcessQueue: () => {},
+        })
+      }).not.toThrow()
+    })
+
+    test('handles missing isQueuePausedRef gracefully (defaults to canProcessQueue=true)', () => {
+      let canProcessQueue = false
+
+      resetEarlyReturnState({
+        updateChainInProgress: () => {},
+        setCanProcessQueue: (can) => { canProcessQueue = can },
+        // No isQueuePausedRef - should default to !undefined = true
+      })
+
+      expect(canProcessQueue).toBe(true)
+    })
+  })
+
+  describe('validation failure path (success: false)', () => {
+    test('resets all queue state correctly when processing queued message', () => {
+      let chainInProgress = true
+      let canProcessQueue = false
+      const isProcessingQueueRef = { current: true }
+      const isQueuePausedRef = { current: false }
+
+      resetEarlyReturnState({
+        updateChainInProgress: (value) => { chainInProgress = value },
+        setCanProcessQueue: (can) => { canProcessQueue = can },
+        isProcessingQueueRef,
+        isQueuePausedRef,
+      })
+
+      expect(chainInProgress).toBe(false)
+      expect(canProcessQueue).toBe(true)
+      expect(isProcessingQueueRef.current).toBe(false)
+    })
+
+    test('respects queue paused state after validation failure', () => {
+      let chainInProgress = true
+      let canProcessQueue = true
+      const isProcessingQueueRef = { current: true }
+      const isQueuePausedRef = { current: true }
+
+      resetEarlyReturnState({
+        updateChainInProgress: (value) => { chainInProgress = value },
+        setCanProcessQueue: (can) => { canProcessQueue = can },
+        isProcessingQueueRef,
+        isQueuePausedRef,
+      })
+
+      expect(chainInProgress).toBe(false)
+      expect(canProcessQueue).toBe(false) // Queue was paused, should stay paused
+      expect(isProcessingQueueRef.current).toBe(false)
+    })
+  })
+
+  describe('validation exception path', () => {
+    test('resets all queue state correctly when validation throws', () => {
+      let chainInProgress = true
+      let canProcessQueue = false
+      const isProcessingQueueRef = { current: true }
+      const isQueuePausedRef = { current: false }
+
+      // Simulating what happens after catching validation exception
+      resetEarlyReturnState({
+        updateChainInProgress: (value) => { chainInProgress = value },
+        setCanProcessQueue: (can) => { canProcessQueue = can },
+        isProcessingQueueRef,
+        isQueuePausedRef,
+      })
+
+      expect(chainInProgress).toBe(false)
+      expect(canProcessQueue).toBe(true)
+      expect(isProcessingQueueRef.current).toBe(false)
+    })
+
+    test('preserves queue pause state when validation throws', () => {
+      let canProcessQueue = true
+      const isQueuePausedRef = { current: true }
+      const isProcessingQueueRef = { current: true }
+
+      resetEarlyReturnState({
+        updateChainInProgress: () => {},
+        setCanProcessQueue: (can) => { canProcessQueue = can },
+        isProcessingQueueRef,
+        isQueuePausedRef,
+      })
+
+      // Queue was explicitly paused before, should remain paused after error
+      expect(canProcessQueue).toBe(false)
+      // But processing lock should be released to allow manual resume
+      expect(isProcessingQueueRef.current).toBe(false)
+    })
+  })
+
+  describe('complete early return scenarios', () => {
+    test('queue can process next message after prepareUserMessage exception', () => {
+      // Scenario: Message was being processed from queue, prepareUserMessage throws
+      let chainInProgress = true
+      let canProcessQueue = false
+      const isProcessingQueueRef = { current: true }
+      const isQueuePausedRef = { current: false }
+
+      // After exception, reset is called
+      resetEarlyReturnState({
+        updateChainInProgress: (value) => { chainInProgress = value },
+        setCanProcessQueue: (can) => { canProcessQueue = can },
+        isProcessingQueueRef,
+        isQueuePausedRef,
+      })
+
+      // Queue should be able to process next message
+      expect(chainInProgress).toBe(false)
+      expect(canProcessQueue).toBe(true)
+      expect(isProcessingQueueRef.current).toBe(false)
+    })
+
+    test('queue can process next message after validation returns success=false', () => {
+      // Scenario: Message was being processed, validation returns failure
+      let chainInProgress = true
+      let canProcessQueue = false
+      const isProcessingQueueRef = { current: true }
+      const isQueuePausedRef = { current: false }
+
+      resetEarlyReturnState({
+        updateChainInProgress: (value) => { chainInProgress = value },
+        setCanProcessQueue: (can) => { canProcessQueue = can },
+        isProcessingQueueRef,
+        isQueuePausedRef,
+      })
+
+      // All locks released, queue can continue
+      expect(chainInProgress).toBe(false)
+      expect(canProcessQueue).toBe(true)
+      expect(isProcessingQueueRef.current).toBe(false)
+    })
+
+    test('queue can process next message after validation throws exception', () => {
+      // Scenario: Message was being processed, validation throws
+      let chainInProgress = true
+      let canProcessQueue = false
+      const isProcessingQueueRef = { current: true }
+      const isQueuePausedRef = { current: false }
+
+      resetEarlyReturnState({
+        updateChainInProgress: (value) => { chainInProgress = value },
+        setCanProcessQueue: (can) => { canProcessQueue = can },
+        isProcessingQueueRef,
+        isQueuePausedRef,
+      })
+
+      // All locks released, queue can continue
+      expect(chainInProgress).toBe(false)
+      expect(canProcessQueue).toBe(true)
+      expect(isProcessingQueueRef.current).toBe(false)
+    })
+
+    test('queue remains blocked after error if user had paused it', () => {
+      // Scenario: User paused queue, then an error occurred
+      // Queue should remain paused after error recovery
+      let chainInProgress = true
+      let canProcessQueue = true
+      const isProcessingQueueRef = { current: true }
+      const isQueuePausedRef = { current: true } // User explicitly paused
+
+      resetEarlyReturnState({
+        updateChainInProgress: (value) => { chainInProgress = value },
+        setCanProcessQueue: (can) => { canProcessQueue = can },
+        isProcessingQueueRef,
+        isQueuePausedRef,
+      })
+
+      // Chain is no longer in progress
+      expect(chainInProgress).toBe(false)
+      // But queue should remain blocked because user paused it
+      expect(canProcessQueue).toBe(false)
+      // Processing lock is released though
+      expect(isProcessingQueueRef.current).toBe(false)
+    })
   })
 })

@@ -35,6 +35,29 @@ import type { StreamStatus } from '../use-message-queue'
 import type { MessageContent, RunState } from '@codebuff/sdk'
 import type { MutableRefObject, SetStateAction } from 'react'
 
+/** Resets queue state on early return (before streaming starts). */
+export type ResetEarlyReturnStateParams = {
+  setCanProcessQueue: (can: boolean) => void
+  updateChainInProgress: (value: boolean) => void
+  isProcessingQueueRef?: MutableRefObject<boolean>
+  isQueuePausedRef?: MutableRefObject<boolean>
+}
+
+export const resetEarlyReturnState = (params: ResetEarlyReturnStateParams): void => {
+  const {
+    setCanProcessQueue,
+    updateChainInProgress,
+    isProcessingQueueRef,
+    isQueuePausedRef,
+  } = params
+
+  updateChainInProgress(false)
+  setCanProcessQueue(!isQueuePausedRef?.current)
+  if (isProcessingQueueRef) {
+    isProcessingQueueRef.current = false
+  }
+}
+
 /** Resets queue state after streaming completes, aborts, or errors. */
 export type FinalizeQueueStateParams = {
   setStreamStatus: (status: StreamStatus) => void
@@ -164,7 +187,7 @@ export const prepareUserMessage = async (params: {
       next = postUserMessage(next)
     }
     if (next.length > 100) {
-      return next.slice(-100)
+      next = next.slice(-100)
     }
     return next
   })

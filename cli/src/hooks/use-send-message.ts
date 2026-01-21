@@ -24,6 +24,7 @@ import {
   handleRunCompletion,
   handleRunError,
   prepareUserMessage as prepareUserMessageHelper,
+  resetEarlyReturnState,
   setupStreamingContext,
 } from './helpers/send-message'
 import { NETWORK_ERROR_ID } from '../utils/validation-error-helpers'
@@ -219,6 +220,14 @@ export const useSendMessage = ({
 
   const sendMessage = useCallback<SendMessageFn>(
     async ({ content, agentMode, postUserMessage, attachments }) => {
+      // CRITICAL: Set chain in progress immediately (synchronously) before any async work.
+      // This ensures the router can detect that we're busy and queue subsequent messages.
+      // Set the ref directly first to guarantee immediate visibility to other code paths,
+      // then call updateChainInProgress to also update React state for re-renders.
+      isChainInProgressRef.current = true
+      updateChainInProgress(true)
+      setCanProcessQueue(false)
+
       if (agentMode !== 'PLAN') {
         setHasReceivedPlanResponse(false)
       }
@@ -232,17 +241,41 @@ export const useSendMessage = ({
       setIsRetrying(false)
 
       // Prepare user message (bash context, images, text attachments, mode divider)
-      const {
-        userMessageId,
-        messageContent,
-        bashContextForPrompt,
-        finalContent,
-      } = await prepareUserMessage({
-        content,
-        agentMode,
-        postUserMessage,
-        attachments,
-      })
+      let userMessageId: string
+      let messageContent: MessageContent[] | undefined
+      let bashContextForPrompt: string | undefined
+      let finalContent: string
+
+      try {
+        const prepared = await prepareUserMessage({
+          content,
+          agentMode,
+          postUserMessage,
+          attachments,
+        })
+        userMessageId = prepared.userMessageId
+        messageContent = prepared.messageContent
+        bashContextForPrompt = prepared.bashContextForPrompt
+        finalContent = prepared.finalContent
+      } catch (error) {
+        logger.error(
+          { error },
+          '[send-message] prepareUserMessage failed with exception',
+        )
+        setMessages((prev) => [
+          ...prev,
+          createErrorChatMessage(
+            '⚠️ Failed to prepare message. Please try again.',
+          ),
+        ])
+        resetEarlyReturnState({
+          setCanProcessQueue,
+          updateChainInProgress,
+          isProcessingQueueRef,
+          isQueuePausedRef,
+        })
+        return
+      }
 
       // Validate before sending (e.g., agent config checks)
       try {
@@ -275,6 +308,12 @@ export const useSendMessage = ({
               }
             }),
           )
+          resetEarlyReturnState({
+            setCanProcessQueue,
+            updateChainInProgress,
+            isProcessingQueueRef,
+            isQueuePausedRef,
+          })
           return
         }
       } catch (error) {
@@ -292,6 +331,12 @@ export const useSendMessage = ({
         await yieldToEventLoop()
         setTimeout(() => scrollToLatest(), 0)
 
+        resetEarlyReturnState({
+          setCanProcessQueue,
+          updateChainInProgress,
+          isProcessingQueueRef,
+          isQueuePausedRef,
+        })
         return
       }
 
@@ -317,18 +362,18 @@ export const useSendMessage = ({
         ])
         await yieldToEventLoop()
         setTimeout(() => scrollToLatest(), 0)
-        // Release the queue processing lock since we're returning early (before try block)
-        if (isProcessingQueueRef) {
-          isProcessingQueueRef.current = false
-        }
+        resetEarlyReturnState({
+          setCanProcessQueue,
+          updateChainInProgress,
+          isProcessingQueueRef,
+          isQueuePausedRef,
+        })
         return
       }
 
       // Create AI message shell and setup streaming context
       const aiMessageId = generateAiMessageId()
       const aiMessage = createAiMessageShell(aiMessageId)
-
-      setMessages((prev) => autoCollapsePreviousMessages(prev, aiMessageId))
 
       const { updater, hasReceivedContentRef, abortController } =
         setupStreamingContext({
@@ -346,9 +391,15 @@ export const useSendMessage = ({
           setStreamingAgents,
         })
       setStreamStatus('waiting')
-      setMessages((prev) => [...prev, aiMessage])
-      setCanProcessQueue(false)
-      updateChainInProgress(true)
+      // Combine auto-collapse and AI message addition into single atomic update
+      // to prevent flicker from intermediate render states
+      setMessages((prev) => [
+        ...autoCollapsePreviousMessages(prev, aiMessageId),
+        aiMessage,
+      ])
+      // Note: updateChainInProgress(true) and setCanProcessQueue(false) are already
+      // called at the start of sendMessage to ensure they happen synchronously
+      // before any async work, so the router can correctly detect busy state.
       let actualCredits: number | undefined
 
       // Execute SDK run with streaming handlers
@@ -457,6 +508,7 @@ export const useSendMessage = ({
       addSessionCredits,
       agentId,
       inputRef,
+      isChainInProgressRef,
       isProcessingQueueRef,
       isQueuePausedRef,
       mainAgentTimer,
