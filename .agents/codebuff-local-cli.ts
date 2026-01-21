@@ -11,6 +11,7 @@ const baseDefinition = createCliAgent({
   permissionNote:
     'No permission flags needed for Codebuff local dev server.',
   model: 'anthropic/claude-opus-4.5',
+  skipPrepPhase: true,
   spawnerPromptExtras: `**Use this agent after modifying:**
 - \`cli/src/components/\` - UI components, layouts, rendering
 - \`cli/src/hooks/\` - hooks that affect what users see
@@ -20,7 +21,6 @@ const baseDefinition = createCliAgent({
 })
 
 // Constants must be inside handleSteps since it gets serialized via .toString()
-// No prep phase needed since this tests Codebuff itself, not an external tool
 const definition: AgentDefinition = {
   ...baseDefinition,
   handleSteps: function* ({ prompt, params, logger }) {
@@ -37,38 +37,26 @@ const definition: AgentDefinition = {
       },
     }
 
+    // Parse response from tmux-cli.sh (outputs plain session name on success, error to stderr on failure)
     let sessionName = ''
     let parseError = ''
 
-    if (!toolResult || toolResult.length === 0) {
-      parseError = 'No result returned from run_terminal_command'
-    } else {
-      const result = toolResult[0]
-      if (!result || result.type !== 'json') {
-        logger.warn({ resultType: result?.type }, 'Unexpected toolResult type (expected json)')
-        parseError = 'Unexpected result type: ' + (result?.type ?? 'undefined')
-      } else {
-        const value = result.value
-        if (typeof value === 'string') {
-          sessionName = value.trim()
-        } else if (value && typeof value === 'object') {
-          const obj = value as Record<string, unknown>
-          const exitCode = typeof obj.exitCode === 'number' ? obj.exitCode : undefined
-          const stderr = typeof obj.stderr === 'string' ? obj.stderr : ''
-          const stdout = typeof obj.stdout === 'string' ? obj.stdout : ''
+    const result = toolResult?.[0]
+    if (result && result.type === 'json') {
+      const value = result.value as Record<string, unknown>
+      const stdout = typeof value?.stdout === 'string' ? value.stdout.trim() : ''
+      const stderr = typeof value?.stderr === 'string' ? value.stderr.trim() : ''
+      const exitCode = typeof value?.exitCode === 'number' ? value.exitCode : undefined
 
-          if (exitCode !== undefined && exitCode !== 0) {
-            logger.error({ exitCode, stderr }, 'tmux-cli.sh start failed with non-zero exit code')
-            parseError = 'Command failed with exit code ' + exitCode + (stderr ? ': ' + stderr : '')
-          } else {
-            const output = typeof obj.output === 'string' ? obj.output : ''
-            sessionName = (stdout || output).trim()
-          }
-        } else {
-          logger.warn({ valueType: typeof value }, 'Unexpected toolResult value format')
-          parseError = 'Unexpected value format: ' + typeof value
-        }
+      if (!stdout && !stderr) {
+        parseError = 'tmux-cli.sh returned empty output'
+      } else if (exitCode !== 0 || !stdout) {
+        parseError = stderr || 'tmux-cli.sh failed with no error message'
+      } else {
+        sessionName = stdout
       }
+    } else {
+      parseError = 'Unexpected result type from run_terminal_command'
     }
 
     if (!sessionName) {

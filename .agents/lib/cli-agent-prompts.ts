@@ -102,64 +102,44 @@ export function getSystemPrompt(config: CliAgentConfig): string {
 
   return `You are an expert at using ${config.cliName} CLI via tmux for implementation work and code reviews. You have access to helper scripts that handle the complexities of tmux communication with TUI apps.
 
-## ${config.cliName} Startup
+## Session Management
 
-To start ${config.cliName}, use the \`--command\` flag with permission bypass:
+**A tmux session is started for you automatically.** The session name will be announced in an assistant message. Use that session name (stored in \`$SESSION\`) for all subsequent commands.
 
-\`\`\`bash
-# Start ${config.cliName} CLI (with permission bypass)
-SESSION=$(./scripts/tmux/tmux-cli.sh start --command "${config.startCommand}")
-
-# Or with specific options
-SESSION=$(./scripts/tmux/tmux-cli.sh start --command "${config.startCommand} --help")
-\`\`\`
+**Do NOT start a new session** - use the one that was started for you.
 
 **Important:** ${config.permissionNote}
 ${cliSpecificSection}
 ## Helper Scripts
 
-Use these scripts in \`scripts/tmux/\` for reliable CLI interaction:
-
-### Unified Script (Recommended)
+Use these scripts in \`scripts/tmux/\` to interact with the CLI session:
 
 \`\`\`bash
-# Start a ${config.cliName} session (with permission bypass)
-SESSION=$(./scripts/tmux/tmux-cli.sh start --command "${config.startCommand}")
-
 # Send input to the CLI
 ./scripts/tmux/tmux-cli.sh send "$SESSION" "/help"
 
 # Capture output (optionally wait first)
 ./scripts/tmux/tmux-cli.sh capture "$SESSION" --wait 3
 
+# Capture with a descriptive label
+./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "after-task" --wait 5
+
 # Stop the session when done
 ./scripts/tmux/tmux-cli.sh stop "$SESSION"
-
-# Stop all test sessions
-./scripts/tmux/tmux-cli.sh stop --all
 \`\`\`
 
-### Individual Scripts (More Options)
+### Additional Options
 
 \`\`\`bash
-# Start with custom settings
-./scripts/tmux/tmux-start.sh --command "${config.startCommand}" --name ${config.shortName}-test --width 160 --height 40
-
-# Send text (auto-presses Enter)
-./scripts/tmux/tmux-send.sh ${config.shortName}-test "your prompt here"
-
 # Send without pressing Enter
-./scripts/tmux/tmux-send.sh ${config.shortName}-test "partial" --no-enter
+./scripts/tmux/tmux-send.sh "$SESSION" "partial" --no-enter
 
 # Send special keys
-./scripts/tmux/tmux-send.sh ${config.shortName}-test --key Escape
-./scripts/tmux/tmux-send.sh ${config.shortName}-test --key C-c
+./scripts/tmux/tmux-send.sh "$SESSION" --key Escape
+./scripts/tmux/tmux-send.sh "$SESSION" --key C-c
 
 # Capture with colors
-./scripts/tmux/tmux-capture.sh ${config.shortName}-test --colors
-
-# Save capture to file
-./scripts/tmux/tmux-capture.sh ${config.shortName}-test -o output.txt
+./scripts/tmux/tmux-capture.sh "$SESSION" --colors
 \`\`\`
 
 ## Why These Scripts?
@@ -291,9 +271,11 @@ export function getInstructionsPrompt(config: CliAgentConfig): string {
   const nonDefaultModes = CLI_AGENT_MODES.filter(m => m !== defaultMode)
   const modeChecks = nonDefaultModes.map(m => `- If \`mode\` is "${m}": follow **${modeNames[m]}** instructions`).join('\n')
 
-  return `Instructions:
+  const workflowSection = config.skipPrepPhase
+    ? `## Workflow
 
-## Two-Phase Workflow
+**A tmux session is started for you immediately.** An assistant message will announce the session name. **Do NOT start a new session** - use the one provided.`
+    : `## Two-Phase Workflow
 
 This agent operates in two phases:
 
@@ -307,7 +289,11 @@ You have an opportunity to prepare before the CLI session starts. Use this time 
 After your preparation turn, a tmux session will be started automatically.
 
 ### Phase 2: CLI Execution
-Once the session starts, an assistant message will announce the session name. **Do NOT start a new session** - use the one provided.
+Once the session starts, an assistant message will announce the session name. **Do NOT start a new session** - use the one provided.`
+
+  return `Instructions:
+
+${workflowSection}
 
 Check the \`mode\` parameter to determine your operation:
 ${modeChecks}

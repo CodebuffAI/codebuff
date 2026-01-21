@@ -56,6 +56,11 @@
 #   0 - Success (session name printed to stdout)
 #   1 - Error (tmux not found or session creation failed)
 #
+# OUTPUT FORMAT:
+#   By default, outputs JSON: {"status":"success","sessionName":"..."}
+#   On failure: {"status":"failure","error":"..."}
+#   Use --plain for backward-compatible plain text output (just session name)
+#
 #######################################################################
 
 set -e
@@ -72,6 +77,7 @@ WAIT_SECONDS=4
 DEFAULT_BINARY="$PROJECT_ROOT/cli/bin/codebuff"
 BINARY_PATH="${CODEBUFF_BINARY:-}"  # Environment variable takes precedence
 CUSTOM_COMMAND=""  # Custom command to run (takes priority over binary/default)
+OUTPUT_FORMAT="json"  # json (default) or plain
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -107,8 +113,16 @@ while [[ $# -gt 0 ]]; do
                 shift
             fi
             ;;
+        --json)
+            OUTPUT_FORMAT="json"
+            shift
+            ;;
+        --plain)
+            OUTPUT_FORMAT="plain"
+            shift
+            ;;
         --help)
-            head -n 55 "$0" | tail -n +2 | sed 's/^# //' | sed 's/^#//'
+            head -n 60 "$0" | tail -n +2 | sed 's/^# //' | sed 's/^#//'
             exit 0
             ;;
         *)
@@ -124,14 +138,56 @@ if [[ -z "$SESSION_NAME" ]]; then
     SESSION_NAME="tui-test-$(date +%s)-$$-$RANDOM"
 fi
 
+# Helper function for JSON string escaping
+# Properly escapes backslashes, quotes, newlines, tabs, carriage returns
+# Uses character-by-character loop for cross-platform compatibility (BSD/GNU)
+json_escape() {
+    local input="$1"
+    local result=""
+    local i char
+    for (( i=0; i<${#input}; i++ )); do
+        char="${input:$i:1}"
+        case "$char" in
+            '\') result+='\\' ;;
+            '"') result+='\"' ;;
+            $'\t') result+='\t' ;;
+            $'\n') result+='\n' ;;
+            $'\r') result+='\r' ;;
+            *) result+="$char" ;;
+        esac
+    done
+    printf '%s' "$result"
+}
+
+# Helper function for JSON output
+# In both modes, errors are written to stderr for consistent error handling
+output_error() {
+    local error_msg="$1"
+    # Always write error to stderr for logging/debugging
+    echo "$error_msg" >&2
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+        # Also output JSON to stdout for parsing
+        local escaped_msg
+        escaped_msg=$(json_escape "$error_msg")
+        echo "{\"status\":\"failure\",\"error\":\"$escaped_msg\"}"
+    fi
+}
+
+output_success() {
+    local session_name="$1"
+    if [[ "$OUTPUT_FORMAT" == "json" ]]; then
+        # Session names are safe (alphanumeric + dashes) but escape just in case
+        local escaped_name
+        escaped_name=$(json_escape "$session_name")
+        echo "{\"status\":\"success\",\"sessionName\":\"$escaped_name\"}"
+    else
+        echo "$session_name"
+    fi
+}
+
 # Check if tmux is available
 if ! command -v tmux &> /dev/null; then
-    echo "❌ tmux not found" >&2
-    echo "" >&2
-    echo "📦 Installation:" >&2
-    echo "  macOS:   brew install tmux" >&2
-    echo "  Ubuntu:  sudo apt-get install tmux" >&2
-    echo "  Arch:    sudo pacman -S tmux" >&2
+    output_error "tmux not found. Install with: brew install tmux (macOS) or apt-get install tmux (Ubuntu)"
     exit 1
 fi
 
@@ -144,16 +200,11 @@ if [[ -n "$CUSTOM_COMMAND" ]]; then
 elif [[ -n "$BINARY_PATH" ]]; then
     # Binary mode - validate the binary exists and is executable
     if [[ ! -f "$BINARY_PATH" ]]; then
-        echo "❌ Binary not found: $BINARY_PATH" >&2
-        echo "" >&2
-        echo "💡 Build the binary first:" >&2
-        echo "   cd cli && bun run build:binary" >&2
+        output_error "Binary not found: $BINARY_PATH. Build with: cd cli && bun run build:binary"
         exit 1
     fi
     if [[ ! -x "$BINARY_PATH" ]]; then
-        echo "❌ Binary not executable: $BINARY_PATH" >&2
-        echo "" >&2
-        echo "💡 Fix with: chmod +x '$BINARY_PATH'" >&2
+        output_error "Binary not executable: $BINARY_PATH. Fix with: chmod +x '$BINARY_PATH'"
         exit 1
     fi
     CLI_CMD="cd '$PROJECT_ROOT' && '$BINARY_PATH' 2>&1"
@@ -175,7 +226,7 @@ tmux new-session -d -s "$SESSION_NAME" \
 
 # Verify the session was actually created (more reliable than exit code)
 if ! tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
-    echo "❌ Failed to create tmux session '$SESSION_NAME'" >&2
+    output_error "Failed to create tmux session '$SESSION_NAME'"
     exit 1
 fi
 
@@ -204,5 +255,5 @@ if [[ "$WAIT_SECONDS" -gt 0 ]]; then
     sleep "$WAIT_SECONDS"
 fi
 
-# Output session name for use by other scripts
-echo "$SESSION_NAME"
+# Output result
+output_success "$SESSION_NAME"

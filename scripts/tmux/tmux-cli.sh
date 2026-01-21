@@ -103,7 +103,35 @@ shift
 
 case "$COMMAND" in
     start)
-        exec "$SCRIPT_DIR/tmux-start.sh" "$@"
+        # Run tmux-start.sh and parse its JSON output
+        # This gives callers a plain session name for backward compatibility
+        JSON_OUTPUT=$("$SCRIPT_DIR/tmux-start.sh" "$@" 2>&1) || true
+        
+        # Check if output looks like JSON
+        if [[ "$JSON_OUTPUT" == "{"* ]]; then
+            # Parse JSON to extract session name or error
+            # Use grep/sed for portability (no jq dependency)
+            if echo "$JSON_OUTPUT" | grep -q '"status":"success"'; then
+                # Extract sessionName value
+                SESSION_NAME=$(echo "$JSON_OUTPUT" | sed -n 's/.*"sessionName":"\([^"]*\)".*/\1/p')
+                if [[ -n "$SESSION_NAME" ]]; then
+                    echo "$SESSION_NAME"
+                    exit 0
+                else
+                    echo "Failed to extract session name from: $JSON_OUTPUT" >&2
+                    exit 1
+                fi
+            else
+                # Extract error message
+                ERROR_MSG=$(echo "$JSON_OUTPUT" | sed -n 's/.*"error":"\([^"]*\)".*/\1/p')
+                echo "${ERROR_MSG:-Failed to start session}" >&2
+                exit 1
+            fi
+        else
+            # Not JSON - pass through as-is (plain mode or unexpected output)
+            echo "$JSON_OUTPUT"
+            exit 0
+        fi
         ;;
     send)
         exec "$SCRIPT_DIR/tmux-send.sh" "$@"

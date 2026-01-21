@@ -1,5 +1,14 @@
 export type CliAgentMode = 'work' | 'review'
 
+/**
+ * Result type for tmux-start.sh JSON output.
+ * The shell script outputs this JSON format to stdout.
+ * See: scripts/tmux/tmux-start.sh
+ */
+export type TmuxStartResult =
+  | { status: 'success'; sessionName: string }
+  | { status: 'failure'; error: string }
+
 export const CLI_AGENT_MODES: readonly CliAgentMode[] = ['work', 'review'] as const
 
 export interface InputParamDefinition {
@@ -34,4 +43,10 @@ export interface CliAgentConfig {
   /** Custom instructions for review mode. If not provided, uses getDefaultReviewModeInstructions() */
   reviewModeInstructions?: string
   cliSpecificDocs?: string
+  /** 
+   * If true, skips the preparation phase before starting the tmux session.
+   * Use this for agents that test the CLI itself (like codebuff-local-cli)
+   * rather than external tools that need context gathering.
+   */
+  skipPrepPhase?: boolean
 }
