@@ -291,6 +291,10 @@ jobs:
       - name: Build SDK before integration tests
         run: cd sdk && bun run build
 
+      # Override any DATABASE_URL injected from secrets with our test container URL
+      - name: Override DATABASE_URL for test container
+        run: echo "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/testdb" >> $GITHUB_ENV
+
       - name: Setup database schema
         uses: nick-fields/retry@v3
         env:
