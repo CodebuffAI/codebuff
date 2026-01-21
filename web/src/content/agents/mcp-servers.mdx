@@ -1,0 +1,253 @@
+---
+title: 'MCP Servers'
+section: 'agents'
+tags: ['agents', 'mcp', 'integrations', 'model-context-protocol']
+order: 3
+---
+
+# MCP Servers
+
+The Model Context Protocol (MCP) is an open standard that lets you connect AI agents to external tools and data sources. Codebuff agents can use MCP servers to access APIs, databases, and other services.
+
+## How It Works
+
+To use an MCP server, create an agent in your `.agents/` directory and configure the `mcpServers` field. The MCP server will be started automatically when the agent runs, and its tools will be available to the agent.
+
+## Example: Notion Integration
+
+Here's a complete example that connects to Notion using the official Notion MCP server:
+
+**.agents/notion-agent.ts**
+
+```typescript
+import type { AgentDefinition } from './types/agent-definition'
+
+const definition: AgentDefinition = {
+  id: 'notion-query-agent',
+  displayName: 'Notion Query Agent',
+  model: 'anthropic/claude-sonnet-4.5',
+
+  spawnerPrompt:
+    'Expert at querying Notion databases and pages to find information and answer questions about content stored in Notion workspaces.',
+
+  inputSchema: {
+    prompt: {
+      type: 'string',
+      description:
+        'A question or request about information stored in your Notion workspace',
+    },
+  },
+
+  outputMode: 'last_message',
+  includeMessageHistory: false,
+
+  mcpServers: {
+    notionApi: {
+      command: 'npx',
+      args: ['-y', '@notionhq/notion-mcp-server'],
+      env: {
+        NOTION_TOKEN: '$NOTION_TOKEN',
+      },
+    },
+  },
+
+  systemPrompt: `You are a Notion expert who helps users find and retrieve information from their Notion workspace. You can search across pages and databases, read specific pages, and query databases with filters.`,
+
+  instructionsPrompt: `Instructions:
+1. Use the Notion tools to search for relevant information based on the user's question. Start with a broad search.
+2. If you find relevant pages or databases, read them in detail or query them with appropriate filters
+3. Provide a comprehensive answer based on the information found in Notion.
+`,
+}
+
+export default definition
+```
+
+Steps:
+
+1. Run `/init` within Codebuff to set up your `.agents` directory.
+2. Save this file to `.agents/notion-agent.ts` in your project.
+3. Get your [Notion key](https://developers.notion.com/docs/get-started-with-mcp) and set it as an environment variable.
+4. Start Codebuff and ask it to use your new Notion agent!
+
+Use similar steps to create new agents with other mcp tools!
+
+## Configuration Reference
+
+### `mcpServers` (object)
+
+A map of MCP server configurations. Each key is a name for the server (used for identification), and the value is the server configuration.
+
+There are two types of MCP server configurations:
+
+### Stdio (Local Process)
+
+Runs an MCP server as a local process that communicates via stdin/stdout:
+
+```typescript
+mcpServers: {
+  serverName: {
+    type: 'stdio',        // Optional, defaults to 'stdio'
+    command: string,      // Command to run the MCP server
+    args: string[],       // Arguments to pass to the command
+    env: {                // Environment variables for the server
+      VAR_NAME: string,   // Use '$VAR_NAME' to reference environment variables
+    },
+  },
+}
+```
+
+#### Stdio Fields
+
+- **`type`** (`'stdio'`): Optional. Indicates a local process server (default)
+- **`command`** (`string`): The command to execute (e.g., `'npx'`, `'node'`, `'python'`)
+- **`args`** (`string[]`): Arguments passed to the command
+- **`env`** (`object`): Environment variables for the MCP server process
+
+### Remote (HTTP/SSE)
+
+Connects to a remote MCP server via HTTP or Server-Sent Events (SSE):
+
+```typescript
+mcpServers: {
+  serverName: {
+    type: 'http',         // 'http' or 'sse'
+    url: string,          // URL of the remote MCP server
+    params: {             // Query parameters to include in requests
+      paramName: string,
+    },
+    headers: {            // HTTP headers to include in requests
+      headerName: string, // Use '$VAR_NAME' to reference environment variables
+    },
+  },
+}
+```
+
+#### Remote Fields
+
+- **`type`** (`'http'` | `'sse'`): Required. `'http'` for standard HTTP, `'sse'` for Server-Sent Events
+- **`url`** (`string`): The URL of the remote MCP server
+- **`params`** (`object`): Query parameters to include in requests
+- **`headers`** (`object`): HTTP headers to include in requests (e.g., for authentication)
+
+### Environment Variables
+
+Use the `$VAR_NAME` syntax to reference environment variables from your shell. For example:
+
+```typescript
+env: {
+  NOTION_TOKEN: '$NOTION_TOKEN',
+  API_KEY: '$MY_API_KEY',
+}
+```
+
+This reads `NOTION_TOKEN` and `MY_API_KEY` from your environment and passes them to the MCP server.
+
+**Setup:** Add your token to your shell configuration (e.g., `.bashrc`, `.zshrc`):
+
+```bash
+export NOTION_TOKEN="your-notion-integration-token"
+```
+
+Or use a `.env` file in your project root.
+
+## Using Your MCP Agent
+
+### Spawning with `@`
+
+Reference your agent in the CLI using `@` followed by the agent's display name:
+
+```
+@Notion Query Agent what meetings do I have this week?
+```
+
+Codebuff will spawn your agent to handle the request.
+
+### Spawning from Other Agents
+
+Other agents can spawn your MCP-enabled agent if it's listed in their `spawnableAgents`:
+
+```typescript
+spawnableAgents: ['notion-query-agent']
+```
+
+## Customizing When Your Agent Is Spawned
+
+The `spawnerPrompt` field tells other agents when they should spawn your agent. Write a clear description of your agent's capabilities:
+
+```typescript
+spawnerPrompt:
+  'Expert at querying Notion databases and pages to find information and answer questions about content stored in Notion workspaces.',
+```
+
+The base agent reads this description and decides whether to spawn your agent based on the user's request. Make it specific and descriptive so the base agent knows when your agent is the right choice.
+
+## More MCP Server Examples
+
+### GitHub Integration (Stdio)
+
+```typescript
+mcpServers: {
+  github: {
+    command: 'npx',
+    args: ['-y', '@modelcontextprotocol/server-github'],
+    env: {
+      GITHUB_PERSONAL_ACCESS_TOKEN: '$GITHUB_TOKEN',
+    },
+  },
+}
+```
+
+### Remote API Integration (HTTP)
+
+```typescript
+mcpServers: {
+  myApi: {
+    type: 'http',
+    url: 'https://api.example.com/mcp',
+    headers: {
+      Authorization: '$API_TOKEN',
+    },
+  },
+}
+```
+
+### Streaming Server (SSE)
+
+```typescript
+mcpServers: {
+  streamingApi: {
+    type: 'sse',
+    url: 'https://stream.example.com/mcp/events',
+    headers: {
+      'X-API-Key': '$STREAM_API_KEY',
+    },
+    params: {
+      workspace: 'default',
+    },
+  },
+}
+```
+
+## Finding MCP Servers
+
+Browse available MCP servers at:
+
+- [MCP Server Registry](https://github.com/modelcontextprotocol/servers) - Official and community servers
+- [NPM](https://www.npmjs.com/search?q=mcp-server) - Search for `mcp-server` packages
+
+## Troubleshooting
+
+**Agent not connecting to MCP server:**
+- Verify the command and args are correct
+- Check that environment variables are set in your shell
+- Run the MCP server command manually to test it works
+
+**Environment variable not found:**
+- Ensure the variable is exported in your shell
+- Restart your terminal after adding to `.bashrc`/`.zshrc`
+- Check for typos in the `$VAR_NAME` reference
+
+**MCP server tools not appearing:**
+- The server may take a moment to start
+- Check the server's documentation for required setup steps
