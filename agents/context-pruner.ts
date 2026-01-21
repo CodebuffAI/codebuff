@@ -295,6 +295,8 @@ const definition: AgentDefinition = {
       'glob-matcher',
       'researcher-web',
       'researcher-docs',
+      'commander',
+      'commander-lite',
       'code-reviewer',
       'code-reviewer-multi-prompt',
     ]
