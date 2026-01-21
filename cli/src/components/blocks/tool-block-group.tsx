@@ -11,7 +11,6 @@ interface ToolBlockGroupProps {
   nextIndex: number
   siblingBlocks: ContentBlock[]
   availableWidth: number
-  streamingAgents: Set<string>
   onToggleCollapsed: (id: string) => void
   markdownPalette: MarkdownPalette
 }
@@ -50,7 +49,6 @@ export const ToolBlockGroup = memo(
     nextIndex,
     siblingBlocks,
     availableWidth,
-    streamingAgents,
     onToggleCollapsed,
     markdownPalette,
   }: ToolBlockGroupProps): ReactNode => {
@@ -61,7 +59,6 @@ export const ToolBlockGroup = memo(
           toolBlock={toolBlock}
           keyPrefix={`${keyPrefix}-tool-${toolBlock.toolCallId}`}
           availableWidth={availableWidth}
-          streamingAgents={streamingAgents}
           onToggleCollapsed={onToggleCollapsed}
           markdownPalette={markdownPalette}
         />

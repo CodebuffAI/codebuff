@@ -1,5 +1,5 @@
 import { TextAttributes } from '@opentui/core'
-import React, { useState } from 'react'
+import { memo, useState } from 'react'
 
 import { Button } from './button'
 import { ImageCard } from './image-card'
@@ -40,7 +40,6 @@ interface MessageBlockProps {
   markdownOptions: { codeBlockWidth: number; palette: MarkdownPalette }
   availableWidth: number
   markdownPalette: MarkdownPalette
-  streamingAgents: Set<string>
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
@@ -60,7 +59,7 @@ interface MessageBlockProps {
   isLastMessage?: boolean
 }
 
-const MessageAttachments = ({
+const MessageAttachments = memo(({
   imageAttachments,
   textAttachments,
 }: {
@@ -96,9 +95,9 @@ const MessageAttachments = ({
       ))}
     </box>
   )
-}
+})
 
-export const MessageBlock: React.FC<MessageBlockProps> = ({
+export const MessageBlock = memo(({
   messageId,
   blocks,
   content,
@@ -115,7 +114,6 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
   markdownOptions,
   availableWidth,
   markdownPalette,
-  streamingAgents,
   onToggleCollapsed,
   onBuildFast,
   onBuildMax,
@@ -128,7 +126,7 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
   textAttachments,
   metadata,
   isLastMessage,
-}) => {
+}: MessageBlockProps) => {
   const [showValidationPopover, setShowValidationPopover] = useState(false)
 
   const bashCwd = metadata?.bashCwd ? formatCwd(metadata.bashCwd) : undefined
@@ -153,7 +151,6 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
       markdownOptions,
       availableWidth,
       markdownPalette,
-      streamingAgents,
       onToggleCollapsed,
       onBuildFast,
       onBuildMax,
@@ -276,7 +273,6 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
             textColor={resolvedTextColor}
             availableWidth={availableWidth}
             markdownPalette={markdownPalette}
-            streamingAgents={streamingAgents}
             onToggleCollapsed={onToggleCollapsed}
             onBuildFast={onBuildFast}
             onBuildMax={onBuildMax}
@@ -326,4 +322,4 @@ export const MessageBlock: React.FC<MessageBlockProps> = ({
       )}
     </box>
   )
-}
+})

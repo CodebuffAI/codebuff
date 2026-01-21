@@ -7,7 +7,6 @@ export interface AgentBlockGridProps {
   agentBlocks: AgentContentBlock[]
   keyPrefix: string
   availableWidth: number
-  streamingAgents: Set<string>
   renderAgentBranch: (
     agentBlock: AgentContentBlock,
     keyPrefix: string,

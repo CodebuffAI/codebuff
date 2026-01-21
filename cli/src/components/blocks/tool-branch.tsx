@@ -2,6 +2,7 @@ import { memo, useCallback } from 'react'
 
 import { ContentWithMarkdown } from './content-with-markdown'
 import { useTheme } from '../../hooks/use-theme'
+import { useChatStore } from '../../state/chat-store'
 import { getToolDisplayInfo } from '../../utils/codebuff-client'
 import { shouldCollapseToolByDefault } from '../../utils/constants'
 import { renderToolComponent } from '../tools/registry'
@@ -14,7 +15,6 @@ interface ToolBranchProps {
   toolBlock: Extract<ContentBlock, { type: 'tool' }>
   keyPrefix: string
   availableWidth: number
-  streamingAgents: Set<string>
   onToggleCollapsed: (id: string) => void
   markdownPalette: MarkdownPalette
 }
@@ -24,11 +24,12 @@ export const ToolBranch = memo(
     toolBlock,
     keyPrefix,
     availableWidth,
-    streamingAgents,
     onToggleCollapsed,
     markdownPalette,
   }: ToolBranchProps) => {
     const theme = useTheme()
+    // Derive streaming boolean for this specific tool to avoid re-renders when other tools/agents change
+    const isStreaming = useChatStore((state) => state.streamingAgents.has(toolBlock.toolCallId))
 
     const sanitizePreview = (value: string): string =>
       value.replace(/[#*_`~\[\]()]/g, '').trim()
@@ -45,7 +46,6 @@ export const ToolBranch = memo(
 
     const displayInfo = getToolDisplayInfo(toolBlock.toolName)
     const isCollapsed = toolBlock.isCollapsed ?? shouldCollapseToolByDefault(toolBlock.toolName)
-    const isStreaming = streamingAgents.has(toolBlock.toolCallId)
 
     const inputContent = `\`\`\`json\n${JSON.stringify(toolBlock.input, null, 2)}\n\`\`\``
     const codeBlockLang =

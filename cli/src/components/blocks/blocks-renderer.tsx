@@ -20,7 +20,6 @@ interface BlocksRendererProps {
   textColor: string
   availableWidth: number
   markdownPalette: MarkdownPalette
-  streamingAgents: Set<string>
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
@@ -38,7 +37,6 @@ interface BlocksRendererPropsRef {
   textColor: string
   availableWidth: number
   markdownPalette: MarkdownPalette
-  streamingAgents: Set<string>
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
@@ -57,7 +55,6 @@ export const BlocksRenderer = memo(
     textColor,
     availableWidth,
     markdownPalette,
-    streamingAgents,
     onToggleCollapsed,
     onBuildFast,
     onBuildMax,
@@ -83,7 +80,6 @@ export const BlocksRenderer = memo(
       textColor,
       availableWidth,
       markdownPalette,
-      streamingAgents,
       onToggleCollapsed,
       onBuildFast,
       onBuildMax,
@@ -130,7 +126,6 @@ export const BlocksRenderer = memo(
               nextIndex={nextIndex}
               siblingBlocks={p.sourceBlocks}
               availableWidth={p.availableWidth}
-              streamingAgents={p.streamingAgents}
               onToggleCollapsed={p.onToggleCollapsed}
               markdownPalette={p.markdownPalette}
             />
@@ -157,14 +152,12 @@ export const BlocksRenderer = memo(
               agentBlocks={agentBlocks}
               keyPrefix={`${p.messageId}-agent-grid-${startIndex}`}
               availableWidth={p.availableWidth}
-              streamingAgents={p.streamingAgents}
               renderAgentBranch={(agentBlock, prefix, width) => (
                 <AgentBranchWrapper
                   agentBlock={agentBlock}
                   keyPrefix={prefix}
                   availableWidth={width}
                   markdownPalette={p.markdownPalette}
-                  streamingAgents={p.streamingAgents}
                   onToggleCollapsed={p.onToggleCollapsed}
                   onBuildFast={p.onBuildFast}
                   onBuildMax={p.onBuildMax}
@@ -191,7 +184,6 @@ export const BlocksRenderer = memo(
               textColor={p.textColor}
               availableWidth={p.availableWidth}
               markdownPalette={p.markdownPalette}
-              streamingAgents={p.streamingAgents}
               onToggleCollapsed={p.onToggleCollapsed}
               onBuildFast={p.onBuildFast}
               onBuildMax={p.onBuildMax}

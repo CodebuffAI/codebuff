@@ -9,6 +9,7 @@ import { ContentWithMarkdown } from './content-with-markdown'
 import { ThinkingBlock } from './thinking-block'
 import { trimTrailingNewlines, sanitizePreview } from './block-helpers'
 import { useTheme } from '../../hooks/use-theme'
+import { useChatStore } from '../../state/chat-store'
 import { AGENT_CONTENT_HORIZONTAL_PADDING } from '../../utils/layout-helpers'
 import { shouldRenderAsSimpleText } from '../../utils/constants'
 import { isImplementorAgent, getImplementorIndex } from '../../utils/implementor-helpers'
@@ -30,7 +31,6 @@ interface AgentBodyProps {
   parentIsStreaming: boolean
   availableWidth: number
   markdownPalette: MarkdownPalette
-  streamingAgents: Set<string>
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
@@ -44,7 +44,6 @@ interface AgentBodyPropsRef {
   parentIsStreaming: boolean
   availableWidth: number
   markdownPalette: MarkdownPalette
-  streamingAgents: Set<string>
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
@@ -60,7 +59,6 @@ const AgentBody = memo(
     parentIsStreaming,
     availableWidth,
     markdownPalette,
-    streamingAgents,
     onToggleCollapsed,
     onBuildFast,
     onBuildMax,
@@ -94,7 +92,6 @@ const AgentBody = memo(
       parentIsStreaming,
       availableWidth,
       markdownPalette,
-      streamingAgents,
       onToggleCollapsed,
       onBuildFast,
       onBuildMax,
@@ -130,7 +127,6 @@ const AgentBody = memo(
               nextIndex={nextIndex}
               siblingBlocks={p.nestedBlocks}
               availableWidth={p.availableWidth}
-              streamingAgents={p.streamingAgents}
               onToggleCollapsed={p.onToggleCollapsed}
               markdownPalette={p.markdownPalette}
             />
@@ -157,14 +153,12 @@ const AgentBody = memo(
               agentBlocks={agentBlocks}
               keyPrefix={`${p.keyPrefix}-agent-grid-${startIndex}`}
               availableWidth={p.availableWidth}
-              streamingAgents={p.streamingAgents}
               renderAgentBranch={(innerAgentBlock, prefix, width) => (
                 <AgentBranchWrapper
                   agentBlock={innerAgentBlock}
                   keyPrefix={prefix}
                   availableWidth={width}
                   markdownPalette={p.markdownPalette}
-                  streamingAgents={p.streamingAgents}
                   onToggleCollapsed={p.onToggleCollapsed}
                   onBuildFast={p.onBuildFast}
                   onBuildMax={p.onBuildMax}
@@ -249,7 +243,6 @@ export interface AgentBranchWrapperProps {
   keyPrefix: string
   availableWidth: number
   markdownPalette: MarkdownPalette
-  streamingAgents: Set<string>
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
@@ -263,7 +256,6 @@ export const AgentBranchWrapper = memo(
     keyPrefix,
     availableWidth,
     markdownPalette,
-    streamingAgents,
     onToggleCollapsed,
     onBuildFast,
     onBuildMax,
@@ -271,11 +263,11 @@ export const AgentBranchWrapper = memo(
     isLastMessage,
   }: AgentBranchWrapperProps) => {
     const theme = useTheme()
+    // Derive streaming boolean for this specific agent to avoid re-renders when other agents change
+    const agentIsStreaming = useChatStore((state) => state.streamingAgents.has(agentBlock.agentId))
 
     if (shouldRenderAsSimpleText(agentBlock.agentType)) {
-      const isStreaming =
-        agentBlock.status === 'running' ||
-        streamingAgents.has(agentBlock.agentId)
+      const isStreaming = agentBlock.status === 'running' || agentIsStreaming
 
       const effectiveStatus = isStreaming ? 'running' : agentBlock.status
       const { indicator: statusIndicator, color: statusColor } =
@@ -343,8 +335,7 @@ export const AgentBranchWrapper = memo(
     }
 
     const isCollapsed = agentBlock.isCollapsed ?? false
-    const isStreaming =
-      agentBlock.status === 'running' || streamingAgents.has(agentBlock.agentId)
+    const isStreaming = agentBlock.status === 'running' || agentIsStreaming
 
     const allTextContent =
       agentBlock.blocks
@@ -395,7 +386,6 @@ export const AgentBranchWrapper = memo(
             parentIsStreaming={isStreaming}
             availableWidth={availableWidth}
             markdownPalette={markdownPalette}
-            streamingAgents={streamingAgents}
             onToggleCollapsed={onToggleCollapsed}
             onBuildFast={onBuildFast}
             onBuildMax={onBuildMax}

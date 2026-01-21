@@ -1,6 +1,7 @@
 import { TextAttributes } from '@opentui/core'
 import { memo, useCallback, useMemo, type ReactNode } from 'react'
 import React from 'react'
+import { useShallow } from 'zustand/react/shallow'
 
 import { Button } from './button'
 import { ErrorBoundary } from './error-boundary'
@@ -92,26 +93,28 @@ export const MessageWithAgents = memo(
     const SIDE_GUTTER = 1
     const isAgent = message.variant === 'agent'
 
-    const context = useMessageBlockStore((state) => state.context)
-    const callbacks = useMessageBlockStore((state) => state.callbacks)
-    
-    const {
-      theme,
-      markdownPalette,
-      messageTree,
-      isWaitingForResponse,
-      timerStartTime,
-    } = context
+    // Use useShallow for grouped selectors to prevent unnecessary re-renders
+    const { theme, markdownPalette, messageTree, isWaitingForResponse, timerStartTime } =
+      useMessageBlockStore(
+        useShallow((state) => ({
+          theme: state.context.theme,
+          markdownPalette: state.context.markdownPalette,
+          messageTree: state.context.messageTree,
+          isWaitingForResponse: state.context.isWaitingForResponse,
+          timerStartTime: state.context.timerStartTime,
+        })),
+      )
 
-    const {
-      onToggleCollapsed,
-      onBuildFast,
-      onBuildMax,
-      onFeedback,
-      onCloseFeedback,
-    } = callbacks
-
-    const streamingAgents = useChatStore((state) => state.streamingAgents)
+    const { onToggleCollapsed, onBuildFast, onBuildMax, onFeedback, onCloseFeedback } =
+      useMessageBlockStore(
+        useShallow((state) => ({
+          onToggleCollapsed: state.callbacks.onToggleCollapsed,
+          onBuildFast: state.callbacks.onBuildFast,
+          onBuildMax: state.callbacks.onBuildMax,
+          onFeedback: state.callbacks.onFeedback,
+          onCloseFeedback: state.callbacks.onCloseFeedback,
+        })),
+      )
 
     // Memoize onOpenFeedback to prevent unnecessary re-renders
     const onOpenFeedback = useCallback(
@@ -252,7 +255,6 @@ export const MessageWithAgents = memo(
                   markdownOptions={markdownOptions}
                   availableWidth={availableWidth}
                   markdownPalette={markdownPalette!}
-                  streamingAgents={streamingAgents}
                   onToggleCollapsed={onToggleCollapsed}
                   onBuildFast={onBuildFast}
                   onBuildMax={onBuildMax}
@@ -287,7 +289,6 @@ export const MessageWithAgents = memo(
                 markdownOptions={markdownOptions}
                 availableWidth={availableWidth}
                 markdownPalette={markdownPalette!}
-                streamingAgents={streamingAgents}
                 onToggleCollapsed={onToggleCollapsed}
                 onBuildFast={onBuildFast}
                 onBuildMax={onBuildMax}
@@ -325,14 +326,18 @@ interface AgentMessageProps {
 
 const AgentMessage = memo(
   ({ message, depth, availableWidth }: AgentMessageProps): ReactNode => {
-    // Get values from zustand stores
-    const context = useMessageBlockStore((state) => state.context)
-    const callbacks = useMessageBlockStore((state) => state.callbacks)
-    
-    const { theme, markdownPalette, messageTree } = context
-    const { onToggleCollapsed } = callbacks
+    // Use useShallow for grouped selectors to prevent unnecessary re-renders
+    const { theme, markdownPalette, messageTree, onToggleCollapsed } = useMessageBlockStore(
+      useShallow((state) => ({
+        theme: state.context.theme,
+        markdownPalette: state.context.markdownPalette,
+        messageTree: state.context.messageTree,
+        onToggleCollapsed: state.callbacks.onToggleCollapsed,
+      })),
+    )
 
-    const streamingAgents = useChatStore((state) => state.streamingAgents)
+    // Derive streaming boolean for this specific message to avoid re-renders when other agents change
+    const isStreaming = useChatStore((state) => state.streamingAgents.has(message.id))
     const setFocusedAgentId = useChatStore((state) => state.setFocusedAgentId)
 
     // Guard against missing agent info (should not happen for agent variant messages)
@@ -347,7 +352,6 @@ const AgentMessage = memo(
 
     // Get or initialize collapse state from message metadata
     const isCollapsed = message.metadata?.isCollapsed ?? false
-    const isStreaming = streamingAgents.has(message.id)
 
     const agentChildren = messageTree?.get(message.id) ?? []
 

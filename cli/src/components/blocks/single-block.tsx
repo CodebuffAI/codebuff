@@ -29,7 +29,6 @@ interface SingleBlockProps {
   textColor: string
   availableWidth: number
   markdownPalette: MarkdownPalette
-  streamingAgents: Set<string>
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
@@ -49,7 +48,6 @@ export const SingleBlock = memo(
     textColor,
     availableWidth,
     markdownPalette,
-    streamingAgents,
     onToggleCollapsed,
     onBuildFast,
     onBuildMax,
@@ -176,7 +174,6 @@ export const SingleBlock = memo(
             keyPrefix={`${messageId}-agent-${block.agentId}`}
             availableWidth={availableWidth}
             markdownPalette={markdownPalette}
-            streamingAgents={streamingAgents}
             onToggleCollapsed={onToggleCollapsed}
             onBuildFast={onBuildFast}
             onBuildMax={onBuildMax}
