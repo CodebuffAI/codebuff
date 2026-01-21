@@ -29,7 +29,7 @@
     "node": ">=16"
   },
   "dependencies": {
-    "tar": "^6.2.0"
+    "tar": "^7.0.0"
   },
   "repository": {
     "type": "git",
