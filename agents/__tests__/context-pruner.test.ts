@@ -1409,14 +1409,15 @@ describe('context-pruner threshold behavior', () => {
     return results
   }
 
-  test('does not prune when exactly at max limit', () => {
+  test('does not prune when under max limit minus fudge factor', () => {
     const messages = [
       createMessage('user', 'Hello'),
       createMessage('assistant', 'Hi'),
     ]
 
-    // Set context to exactly max limit - should NOT prune
-    const results = runHandleSteps(messages, 200000, 200000)
+    // Set context to max limit minus fudge factor (1000) - should NOT prune
+    // contextTokenCount + 1000 <= maxContextLength => 199000 + 1000 <= 200000
+    const results = runHandleSteps(messages, 199000, 200000)
 
     // Should preserve original messages (not summarized)
     expect(results[0].input.messages).toHaveLength(2)
@@ -1424,14 +1425,15 @@ describe('context-pruner threshold behavior', () => {
     expect(results[0].input.messages[1].role).toBe('assistant')
   })
 
-  test('prunes when just over max limit', () => {
+  test('prunes when at max limit due to fudge factor', () => {
     const messages = [
       createMessage('user', 'Hello'),
       createMessage('assistant', 'Hi'),
     ]
 
-    // Set context to just over max limit - should prune
-    const results = runHandleSteps(messages, 200001, 200000)
+    // Set context to exactly max limit - should prune due to 1000 token fudge factor
+    // contextTokenCount + 1000 > maxContextLength => 200000 + 1000 > 200000
+    const results = runHandleSteps(messages, 200000, 200000)
 
     // Should have summarized to single message
     expect(results[0].input.messages).toHaveLength(1)
