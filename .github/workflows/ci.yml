@@ -231,11 +231,13 @@ jobs:
             fi
 
   # Billing integration tests (requires PostgreSQL)
-  # Tests use a hardcoded default DATABASE_URL matching this container config
+  # DATABASE_URL is set at job level to override any secrets injection
   test-billing-integration:
     needs: [build-and-check]
     name: test-integration-packages/billing
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/testdb
     services:
       postgres:
         image: postgres:16-alpine
