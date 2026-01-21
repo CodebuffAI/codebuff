@@ -24,9 +24,128 @@ import postgres from 'postgres'
 import { eq, and, asc, desc, ne, or, gt, isNull, sql } from 'drizzle-orm'
 import { union } from 'drizzle-orm/pg-core'
 import * as schema from '@codebuff/internal/db/schema'
-import { consumeFromOrderedGrants } from '../balance-calculator'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+
+// Inlined from balance-calculator.ts to avoid importing db (which has side effects)
+// that would try to connect with env.DATABASE_URL before our test URL is set
+interface CreditConsumptionResult {
+  consumed: number
+  fromPurchased: number
+}
+
+// Minimal type for database connection that works with both db and tx
+type TestDbConn = ReturnType<typeof drizzle<typeof schema>>
+
+async function updateGrantBalance(params: {
+  userId: string
+  grant: typeof schema.creditLedger.$inferSelect
+  consumed: number
+  newBalance: number
+  tx: TestDbConn
+  logger: Logger
+}) {
+  const { grant, newBalance, tx } = params
+  await tx
+    .update(schema.creditLedger)
+    .set({ balance: newBalance })
+    .where(eq(schema.creditLedger.operation_id, grant.operation_id))
+}
+
+async function consumeFromOrderedGrants(params: {
+  userId: string
+  creditsToConsume: number
+  grants: (typeof schema.creditLedger.$inferSelect)[]
+  tx: TestDbConn
+  logger: Logger
+}): Promise<CreditConsumptionResult> {
+  const { userId, creditsToConsume, grants, tx, logger } = params
+
+  let remainingToConsume = creditsToConsume
+  let consumed = 0
+  let fromPurchased = 0
+
+  // First pass: try to repay any debt
+  for (const grant of grants) {
+    if (grant.balance < 0 && remainingToConsume > 0) {
+      const debtAmount = Math.abs(grant.balance)
+      const repayAmount = Math.min(debtAmount, remainingToConsume)
+      const newBalance = grant.balance + repayAmount
+      remainingToConsume -= repayAmount
+      consumed += repayAmount
+
+      await updateGrantBalance({
+        userId,
+        grant,
+        consumed: -repayAmount,
+        newBalance,
+        tx,
+        logger,
+      })
+
+      logger.debug(
+        { userId, grantId: grant.operation_id, repayAmount, newBalance },
+        'Repaid debt in grant',
+      )
+    }
+  }
+
+  // Second pass: consume from positive balances
+  for (const grant of grants) {
+    if (remainingToConsume <= 0) break
+    if (grant.balance <= 0) continue
+
+    const consumeFromThisGrant = Math.min(remainingToConsume, grant.balance)
+    const newBalance = grant.balance - consumeFromThisGrant
+    remainingToConsume -= consumeFromThisGrant
+    consumed += consumeFromThisGrant
+
+    // Track consumption from purchased credits
+    if (grant.type === 'purchase') {
+      fromPurchased += consumeFromThisGrant
+    }
+
+    await updateGrantBalance({
+      userId,
+      grant,
+      consumed: consumeFromThisGrant,
+      newBalance,
+      tx,
+      logger,
+    })
+  }
+
+  // If we still have remaining to consume and no grants left, create debt in the last grant
+  if (remainingToConsume > 0 && grants.length > 0) {
+    const lastGrant = grants[grants.length - 1]
+
+    if (lastGrant.balance <= 0) {
+      const newBalance = lastGrant.balance - remainingToConsume
+      await updateGrantBalance({
+        userId,
+        grant: lastGrant,
+        consumed: remainingToConsume,
+        newBalance,
+        tx,
+        logger,
+      })
+      consumed += remainingToConsume
+
+      logger.warn(
+        {
+          userId,
+          grantId: lastGrant.operation_id,
+          requested: remainingToConsume,
+          consumed: remainingToConsume,
+          newDebt: Math.abs(newBalance),
+        },
+        'Created new debt in grant',
+      )
+    }
+  }
+
+  return { consumed, fromPurchased }
+}
 
 // Test logger that silently discards all logs
 const testLogger: Logger = {
@@ -546,7 +665,7 @@ describe('Balance Calculator - Integration Tests (Real DB)', () => {
         userId: TEST_USER_ID,
         creditsToConsume: 70,
         grants,
-        tx: db as any,
+        tx: db,
         logger: testLogger,
       })
 
@@ -596,7 +715,7 @@ describe('Balance Calculator - Integration Tests (Real DB)', () => {
         userId: TEST_USER_ID,
         creditsToConsume: 100,
         grants,
-        tx: db as any,
+        tx: db,
         logger: testLogger,
       })
 
@@ -654,7 +773,7 @@ describe('Balance Calculator - Integration Tests (Real DB)', () => {
         userId: TEST_USER_ID,
         creditsToConsume: 60,
         grants,
-        tx: db as any,
+        tx: db,
         logger: testLogger,
       })
 
@@ -713,7 +832,7 @@ describe('Balance Calculator - Integration Tests (Real DB)', () => {
         userId: TEST_USER_ID,
         creditsToConsume: 80,
         grants,
-        tx: db as any,
+        tx: db,
         logger: testLogger,
       })
 
@@ -771,7 +890,7 @@ describe('Balance Calculator - Integration Tests (Real DB)', () => {
         userId: TEST_USER_ID,
         creditsToConsume: 50,
         grants,
-        tx: db as any,
+        tx: db,
         logger: testLogger,
       })
 
