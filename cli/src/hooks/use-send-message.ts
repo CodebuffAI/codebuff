@@ -1,18 +1,10 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useRef } from 'react'
 
-import { setCurrentChatId } from '../project-files'
 import { createStreamController } from './stream-state'
+import { useMessageExecution } from './use-message-execution'
+import { useRunStatePersistence } from './use-run-state-persistence'
 import { useChatStore } from '../state/chat-store'
-import { getCodebuffClient } from '../utils/codebuff-client'
-import { AGENT_MODE_TO_ID } from '../utils/constants'
-import { createEventHandlerState } from '../utils/create-event-handler-state'
-import { createRunConfig } from '../utils/create-run-config'
-import { loadAgentDefinitions } from '../utils/local-agent-registry'
 import { logger } from '../utils/logger'
-import {
-  loadMostRecentChatState,
-  saveChatState,
-} from '../utils/run-state-storage'
 import {
   autoCollapsePreviousMessages,
   createAiMessageShell,
@@ -21,12 +13,16 @@ import {
 } from '../utils/send-message-helpers'
 import { createSendMessageTimerController } from '../utils/send-message-timer'
 import {
+  handleExecutionFailure,
   handleRunCompletion,
   handleRunError,
   prepareUserMessage as prepareUserMessageHelper,
   resetEarlyReturnState,
   setupStreamingContext,
 } from './helpers/send-message'
+import { OUT_OF_CREDITS_MESSAGE } from '../utils/error-handling'
+import { invalidateActivityQuery } from './use-activity-query'
+import { usageQueryKeys } from './use-usage-query'
 import { NETWORK_ERROR_ID } from '../utils/validation-error-helpers'
 import { yieldToEventLoop } from '../utils/yield-to-event-loop'
 
@@ -35,9 +31,9 @@ import type { StreamStatus } from './use-message-queue'
 import type { PendingAttachment } from '../state/chat-store'
 import type { ChatMessage } from '../types/chat'
 import type { SendMessageFn } from '../types/contracts/send-message'
+import type { MessageContent } from '@codebuff/sdk'
 import type { AgentMode } from '../utils/constants'
 import type { SendMessageTimerEvent } from '../utils/send-message-timer'
-import type { AgentDefinition, MessageContent, RunState } from '@codebuff/sdk'
 
 interface UseSendMessageOptions {
   inputRef: React.MutableRefObject<any>
@@ -61,37 +57,6 @@ interface UseSendMessageOptions {
   continueChatId?: string
 }
 
-// Choose the agent definition by explicit selection or mode-based fallback.
-const resolveAgent = (
-  agentMode: AgentMode,
-  agentId: string | undefined,
-  agentDefinitions: AgentDefinition[],
-): AgentDefinition | string => {
-  const selectedAgentDefinition =
-    agentId && agentDefinitions.length > 0
-      ? agentDefinitions.find((definition) => definition.id === agentId)
-      : undefined
-
-  return selectedAgentDefinition ?? agentId ?? AGENT_MODE_TO_ID[agentMode]
-}
-
-// Respect bash context, but avoid sending empty prompts when only images are attached.
-const buildPromptWithContext = (
-  promptWithBashContext: string,
-  messageContent: MessageContent[] | undefined,
-) => {
-  const trimmedPrompt = promptWithBashContext.trim()
-  if (trimmedPrompt.length > 0) {
-    return promptWithBashContext
-  }
-
-  if (messageContent && messageContent.length > 0) {
-    return 'See attached image(s)'
-  }
-
-  return ''
-}
-
 export const useSendMessage = ({
   inputRef,
   activeSubagentsRef,
@@ -111,7 +76,7 @@ export const useSendMessage = ({
   continueChatId,
 }: UseSendMessageOptions): {
   sendMessage: SendMessageFn
-  clearMessages: () => void
+  resetRunState: () => void
 } => {
   // Pull setters directly from store - these are stable references that don't need
   // to trigger re-renders, so using getState() outside of callbacks is intentional.
@@ -128,7 +93,22 @@ export const useSendMessage = ({
     setRunState,
     setIsRetrying,
   } = useChatStore.getState()
-  const previousRunStateRef = useRef<RunState | null>(null)
+
+  // Use extracted hooks for run state persistence and message execution
+  const {
+    previousRunStateRef,
+    resetRunState,
+    persistState,
+    updateRunState,
+  } = useRunStatePersistence({
+    continueChat,
+    continueChatId,
+    setMessages,
+    setRunState,
+  })
+
+  const { executeMessage } = useMessageExecution({ agentId })
+
   // Memoize stream controller to maintain referential stability across renders
   const streamRefsRef = useRef<ReturnType<
     typeof createStreamController
@@ -137,20 +117,6 @@ export const useSendMessage = ({
     streamRefsRef.current = createStreamController()
   }
   const streamRefs = streamRefsRef.current
-
-  useEffect(() => {
-    if (continueChat && !previousRunStateRef.current) {
-      const loadedState = loadMostRecentChatState(continueChatId ?? undefined)
-      if (loadedState) {
-        previousRunStateRef.current = loadedState.runState
-        setRunState(loadedState.runState)
-        setMessages(loadedState.messages)
-        if (loadedState.chatId) {
-          setCurrentChatId(loadedState.chatId)
-        }
-      }
-    }
-  }, [continueChat, continueChatId, setMessages, setRunState])
 
   const updateChainInProgress = useCallback(
     (value: boolean) => {
@@ -185,10 +151,6 @@ export const useSendMessage = ({
     },
     [updateActiveSubagents],
   )
-
-  function clearMessages() {
-    previousRunStateRef.current = null
-  }
 
   const prepareUserMessage = useCallback(
     (params: {
@@ -344,33 +306,6 @@ export const useSendMessage = ({
       setFocusedAgentId(null)
       setInputFocused(true)
       inputRef.current?.focus()
-
-      // Get SDK client
-      const client = await getCodebuffClient()
-
-      if (!client) {
-        logger.error(
-          {},
-          '[send-message] No Codebuff client available. Please ensure you are authenticated.',
-        )
-        // Show error to user instead of silently failing
-        setMessages((prev) => [
-          ...prev,
-          createErrorChatMessage(
-            '⚠️ Unable to connect to Codebuff. Please check your authentication and try again.',
-          ),
-        ])
-        await yieldToEventLoop()
-        setTimeout(() => scrollToLatest(), 0)
-        resetEarlyReturnState({
-          setCanProcessQueue,
-          updateChainInProgress,
-          isProcessingQueueRef,
-          isQueuePausedRef,
-        })
-        return
-      }
-
       // Create AI message shell and setup streaming context
       const aiMessageId = generateAiMessageId()
       const aiMessage = createAiMessageShell(aiMessageId)
@@ -404,57 +339,88 @@ export const useSendMessage = ({
 
       // Execute SDK run with streaming handlers
       try {
-        const agentDefinitions = loadAgentDefinitions()
-        const resolvedAgent = resolveAgent(agentMode, agentId, agentDefinitions)
-
-        const promptWithBashContext = bashContextForPrompt
-          ? bashContextForPrompt + finalContent
-          : finalContent
-        const effectivePrompt = buildPromptWithContext(
-          promptWithBashContext,
-          messageContent,
-        )
-
-        const eventHandlerState = createEventHandlerState({
-          streamRefs,
-          setStreamingAgents,
-          setStreamStatus,
-          aiMessageId,
-          updater,
-          hasReceivedContentRef,
-          addActiveSubagent,
-          removeActiveSubagent,
-          agentMode,
-          setHasReceivedPlanResponse,
-          logger,
-          setIsRetrying,
+        const executionResult = await executeMessage({
+          message: {
+            prompt: finalContent,
+            bashContext: bashContextForPrompt,
+            messageContent,
+            agentMode,
+          },
+          streaming: {
+            aiMessageId,
+            streamRefs,
+            updater,
+            hasReceivedContentRef,
+          },
+          execution: {
+            previousRunState: previousRunStateRef.current,
+            signal: abortController.signal,
+          },
+          streamingCallbacks: {
+            setStreamingAgents,
+            setStreamStatus,
+            setHasReceivedPlanResponse,
+            setIsRetrying,
+          },
+          subagentCallbacks: {
+            addActiveSubagent,
+            removeActiveSubagent,
+          },
           onTotalCost: (cost: number) => {
             actualCredits = cost
             addSessionCredits(cost)
           },
         })
 
-        const runConfig = createRunConfig({
-          logger,
-          agent: resolvedAgent,
-          prompt: effectivePrompt,
-          content: messageContent,
-          previousRunState: previousRunStateRef.current,
-          agentDefinitions,
-          eventHandlerState,
-          signal: abortController.signal,
-        })
+        // Handle client or execution errors that didn't throw
+        if (!executionResult.success) {
+          logger.error(
+            { error: executionResult.error },
+            '[send-message] Message execution failed',
+          )
 
-        logger.info({ runConfig }, '[send-message] Sending message with sdk run config')
-        const runState = await client.run(runConfig)
+          // Check for out-of-credits error (402 status code)
+          if (executionResult.statusCode === 402) {
+            handleExecutionFailure({
+              errorMessage: OUT_OF_CREDITS_MESSAGE,
+              timerController,
+              updater,
+              setIsRetrying,
+              setStreamStatus,
+              setCanProcessQueue,
+              updateChainInProgress,
+              isProcessingQueueRef,
+              isQueuePausedRef,
+            })
+            useChatStore.getState().setInputMode('outOfCredits')
+            invalidateActivityQuery(usageQueryKeys.current())
+            return
+          }
+
+          handleExecutionFailure({
+            errorMessage:
+              executionResult.message ||
+              'Message execution failed. Please try again.',
+            timerController,
+            updater,
+            setIsRetrying,
+            setStreamStatus,
+            setCanProcessQueue,
+            updateChainInProgress,
+            isProcessingQueueRef,
+            isQueuePausedRef,
+          })
+          return
+        }
+
+        const runState = executionResult.runState
 
         // Finalize: persist state and mark complete
-        previousRunStateRef.current = runState
-        setRunState(runState)
+        updateRunState(runState)
         setIsRetrying(false)
 
         setMessages((currentMessages) => {
-          saveChatState(runState, currentMessages)
+          persistState(runState, currentMessages)
           return currentMessages
         })
         handleRunCompletion({
@@ -507,6 +473,7 @@ export const useSendMessage = ({
       addActiveSubagent,
       addSessionCredits,
       agentId,
+      executeMessage,
       inputRef,
       isChainInProgressRef,
       isProcessingQueueRef,
@@ -514,7 +481,9 @@ export const useSendMessage = ({
       mainAgentTimer,
       onBeforeMessageSend,
       onTimerEvent,
+      persistState,
       prepareUserMessage,
+      previousRunStateRef,
       removeActiveSubagent,
       resumeQueue,
       scrollToLatest,
@@ -524,16 +493,16 @@ export const useSendMessage = ({
       setInputFocused,
       setIsRetrying,
       setMessages,
-      setRunState,
       setStreamStatus,
       setStreamingAgents,
       streamRefs,
       updateChainInProgress,
+      updateRunState,
     ],
   )
 
   return {
     sendMessage,
-    clearMessages,
+    resetRunState,
   }
 }

@@ -373,6 +373,49 @@ export const handleRunCompletion = (params: {
   })
 }
 
+export type HandleExecutionFailureParams = {
+  errorMessage: string
+  timerController: SendMessageTimerController
+  updater: BatchedMessageUpdater
+  setIsRetrying: (value: boolean) => void
+  setStreamStatus: (status: StreamStatus) => void
+  setCanProcessQueue: (can: boolean) => void
+  updateChainInProgress: (value: boolean) => void
+  isProcessingQueueRef?: MutableRefObject<boolean>
+  isQueuePausedRef?: MutableRefObject<boolean>
+}
+
+/**
+ * Handles execution failures from executeMessage returning { success: false }.
+ * Marks the AI message with an error, finalizes queue state, and stops the timer.
+ */
+export const handleExecutionFailure = (
+  params: HandleExecutionFailureParams,
+): void => {
+  const {
+    errorMessage,
+    timerController,
+    updater,
+    setIsRetrying,
+    setStreamStatus,
+    setCanProcessQueue,
+    updateChainInProgress,
+    isProcessingQueueRef,
+    isQueuePausedRef,
+  } = params
+
+  setIsRetrying(false)
+  finalizeQueueState({
+    setStreamStatus,
+    setCanProcessQueue,
+    updateChainInProgress,
+    isProcessingQueueRef,
+    isQueuePausedRef,
+  })
+  timerController.stop('error')
+  updater.setError(errorMessage)
+}
+
 export const handleRunError = (params: {
   error: unknown
   timerController: SendMessageTimerController
@@ -399,24 +442,34 @@ export const handleRunError = (params: {
   const errorInfo = getErrorObject(error, { includeRawError: true })
 
   logger.error({ error: errorInfo }, 'SDK client.run() failed')
-  setIsRetrying(false)
-  finalizeQueueState({
+
+  if (isOutOfCreditsError(error)) {
+    handleExecutionFailure({
+      errorMessage: OUT_OF_CREDITS_MESSAGE,
+      timerController,
+      updater,
+      setIsRetrying,
+      setStreamStatus,
+      setCanProcessQueue,
+      updateChainInProgress,
+      isProcessingQueueRef,
+      isQueuePausedRef,
+    })
+    useChatStore.getState().setInputMode('outOfCredits')
+    invalidateActivityQuery(usageQueryKeys.current())
+    return
+  }
+
+  const errorMessage = errorInfo.message || 'An unexpected error occurred'
+  handleExecutionFailure({
+    errorMessage,
+    timerController,
+    updater,
+    setIsRetrying,
     setStreamStatus,
     setCanProcessQueue,
     updateChainInProgress,
     isProcessingQueueRef,
     isQueuePausedRef,
   })
-  timerController.stop('error')
-
-  if (isOutOfCreditsError(error)) {
-    updater.setError(OUT_OF_CREDITS_MESSAGE)
-    useChatStore.getState().setInputMode('outOfCredits')
-    invalidateActivityQuery(usageQueryKeys.current())
-    return
-  }
-
-  // Use setError for all errors so they display in UserErrorBanner consistently
-  const errorMessage = errorInfo.message || 'An unexpected error occurred'
-  updater.setError(errorMessage)
 }
