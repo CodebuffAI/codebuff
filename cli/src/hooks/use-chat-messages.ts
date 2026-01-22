@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { toggleBlockCollapse, updateBlockById } from '../utils/block-tree-utils'
 import { buildMessageTree } from '../utils/message-tree-utils'
 import { setAllBlocksCollapsedState, hasAnyExpandedBlocks } from '../utils/collapse-helpers'
 
@@ -108,78 +109,19 @@ export function useChatMessages({
           // Handle blocks within messages
           if (!message.blocks) return message
 
-          const updateBlocksRecursively = (
-            blocks: ContentBlock[],
-          ): ContentBlock[] => {
-            let foundTarget = false
-            const result = blocks.map((block) => {
-              // Handle thinking blocks - just match by thinkingId
-              if (block.type === 'text' && block.thinkingId === id) {
-                foundTarget = true
-                const wasCollapsed = block.isCollapsed ?? false
-                return {
-                  ...block,
-                  isCollapsed: !wasCollapsed,
-                  userOpened: wasCollapsed, // Mark as user-opened if expanding
-                }
-              }
+          // Use unified block tree utility + shared collapse helper
+          const updatedBlocks = updateBlockById(
+            message.blocks,
+            id,
+            toggleBlockCollapse,
+          )
 
-              // Handle agent blocks
-              if (block.type === 'agent' && block.agentId === id) {
-                foundTarget = true
-                const wasCollapsed = block.isCollapsed ?? false
-                return {
-                  ...block,
-                  isCollapsed: !wasCollapsed,
-                  userOpened: wasCollapsed, // Mark as user-opened if expanding
-                }
-              }
-
-              // Handle tool blocks
-              if (block.type === 'tool' && block.toolCallId === id) {
-                foundTarget = true
-                const wasCollapsed = block.isCollapsed ?? false
-                return {
-                  ...block,
-                  isCollapsed: !wasCollapsed,
-                  userOpened: wasCollapsed, // Mark as user-opened if expanding
-                }
-              }
-
-              // Handle agent-list blocks
-              if (block.type === 'agent-list' && block.id === id) {
-                foundTarget = true
-                const wasCollapsed = block.isCollapsed ?? false
-                return {
-                  ...block,
-                  isCollapsed: !wasCollapsed,
-                  userOpened: wasCollapsed, // Mark as user-opened if expanding
-                }
-              }
-
-              // Recursively update nested blocks inside agent blocks
-              if (block.type === 'agent' && block.blocks) {
-                const updatedBlocks = updateBlocksRecursively(block.blocks)
-                // Only create new block if nested blocks actually changed
-                if (updatedBlocks !== block.blocks) {
-                  foundTarget = true
-                  return {
-                    ...block,
-                    blocks: updatedBlocks,
-                  }
-                }
-              }
-
-              return block
-            })
-
-            // Return original array reference if nothing changed
-            return foundTarget ? result : blocks
-          }
+          // Only create new message if blocks actually changed
+          if (updatedBlocks === message.blocks) return message
 
           return {
             ...message,
-            blocks: updateBlocksRecursively(message.blocks),
+            blocks: updatedBlocks,
           }
         })
       })

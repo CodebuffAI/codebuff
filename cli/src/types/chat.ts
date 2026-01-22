@@ -141,6 +141,17 @@ export type ContentBlock =
   | ToolContentBlock
   | PlanContentBlock
 
+/**
+ * Block types that support collapse state (isCollapsed/userOpened).
+ * Used for type-safe collapse toggling operations.
+ */
+export type CollapsibleBlock =
+  | AgentContentBlock
+  | AgentListContentBlock
+  | ImageContentBlock
+  | TextContentBlock
+  | ToolContentBlock
+
 export type AgentMessage = {
   agentName: string
   agentType: string
@@ -224,4 +235,17 @@ export function isAskUserBlock(
 
 export function isImageBlock(block: ContentBlock): block is ImageContentBlock {
   return block.type === 'image'
+}
+
+/**
+ * Type guard for blocks that support collapse state (isCollapsed/userOpened).
+ */
+export function isCollapsibleBlock(block: ContentBlock): block is CollapsibleBlock {
+  return (
+    block.type === 'agent' ||
+    block.type === 'agent-list' ||
+    block.type === 'image' ||
+    block.type === 'text' ||
+    block.type === 'tool'
+  )
 }

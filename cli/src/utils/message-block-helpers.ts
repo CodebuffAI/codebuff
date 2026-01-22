@@ -1,5 +1,8 @@
-import { isEqual } from 'lodash'
-
+import {
+  updateAgentBlockById,
+  findBlockByPredicate,
+  mapBlocks,
+} from './block-tree-utils'
 import { formatToolOutput } from './codebuff-client'
 import { shouldCollapseByDefault, shouldCollapseForParent } from './constants'
 
@@ -76,38 +79,16 @@ export const insertPlanBlock = (
  * Preserves user intent by keeping blocks open if userOpened is true.
  */
 export const autoCollapseBlocks = (blocks: ContentBlock[]): ContentBlock[] => {
-  return blocks.map((block) => {
-    // Handle thinking blocks (grouped text blocks)
-    if (block.type === 'text' && block.thinkingId) {
+  return mapBlocks(blocks, (block) => {
+    // Handle collapsible block types
+    if (
+      (block.type === 'text' && block.thinkingId) ||
+      block.type === 'agent' ||
+      block.type === 'tool' ||
+      block.type === 'agent-list'
+    ) {
       return block.userOpened ? block : { ...block, isCollapsed: true }
     }
-
-    // Handle agent blocks
-    if (block.type === 'agent') {
-      const updatedBlock = block.userOpened
-        ? block
-        : { ...block, isCollapsed: true }
-
-      // Recursively update nested blocks
-      if (updatedBlock.blocks) {
-        return {
-          ...updatedBlock,
-          blocks: autoCollapseBlocks(updatedBlock.blocks),
-        }
-      }
-      return updatedBlock
-    }
-
-    // Handle tool blocks
-    if (block.type === 'tool') {
-      return block.userOpened ? block : { ...block, isCollapsed: true }
-    }
-
-    // Handle agent-list blocks
-    if (block.type === 'agent-list') {
-      return block.userOpened ? block : { ...block, isCollapsed: true }
-    }
-
     return block
   })
 }
@@ -258,20 +239,11 @@ export const findAgentTypeById = (
   blocks: ContentBlock[],
   agentId: string,
 ): string | undefined => {
-  for (const block of blocks) {
-    if (block.type === 'agent') {
-      if (block.agentId === agentId) {
-        return block.agentType
-      }
-      if (block.blocks) {
-        const found = findAgentTypeById(block.blocks, agentId)
-        if (found) {
-          return found
-        }
-      }
-    }
-  }
-  return undefined
+  const found = findBlockByPredicate(
+    blocks,
+    (block) => block.type === 'agent' && block.agentId === agentId,
+  )
+  return found?.type === 'agent' ? found.agentType : undefined
 }
 
 /**
@@ -316,38 +288,13 @@ export const createAgentBlock = (
   }
 }
 
-/**
- * Helper function to recursively update blocks by target agent ID.
- */
+/** Recursively updates blocks by target agent ID. Delegates to updateAgentBlockById. */
 export const updateBlocksRecursively = (
   blocks: ContentBlock[],
   targetAgentId: string,
   updateFn: (block: ContentBlock) => ContentBlock,
 ): ContentBlock[] => {
-  let foundTarget = false
-  const result = blocks.map((block) => {
-    if (block.type === 'agent' && block.agentId === targetAgentId) {
-      foundTarget = true
-      return updateFn(block)
-    }
-    if (block.type === 'agent' && block.blocks) {
-      const updatedBlocks = updateBlocksRecursively(
-        block.blocks,
-        targetAgentId,
-        updateFn,
-      )
-      if (updatedBlocks !== block.blocks) {
-        foundTarget = true
-        return {
-          ...block,
-          blocks: updatedBlocks,
-        }
-      }
-    }
-    return block
-  })
-
-  return foundTarget ? result : blocks
+  return updateAgentBlockById(blocks, targetAgentId, updateFn)
 }
 
 /**
@@ -386,26 +333,6 @@ export const nestBlockUnderParent = (
 }
 
 /**
- * Checks if a block with the given targetId exists anywhere in the children of the blocks.
- */
-const findBlockInChildren = (
-  blocks: ContentBlock[],
-  targetId: string,
-): boolean => {
-  for (const block of blocks) {
-    if (block.type === 'agent' && block.agentId === targetId) {
-      return true
-    }
-    if (block.type === 'agent' && block.blocks) {
-      if (findBlockInChildren(block.blocks, targetId)) {
-        return true
-      }
-    }
-  }
-  return false
-}
-
-/**
  * Checks if a block with the given agentId is already nested under the specified parent.
  */
 const checkBlockIsUnderParent = (
@@ -413,18 +340,19 @@ const checkBlockIsUnderParent = (
   targetAgentId: string,
   parentAgentId: string,
 ): boolean => {
-  for (const block of blocks) {
-    if (block.type === 'agent' && block.agentId === parentAgentId) {
-      // Found the parent, check if target is anywhere in its children
-      return findBlockInChildren(block.blocks || [], targetAgentId)
-    } else if (block.type === 'agent' && block.blocks) {
-      // Recurse into other agent blocks to find the parent
-      if (checkBlockIsUnderParent(block.blocks, targetAgentId, parentAgentId)) {
-        return true
-      }
-    }
+  const parent = findBlockByPredicate(
+    blocks,
+    (block) => block.type === 'agent' && block.agentId === parentAgentId,
+  )
+  if (!parent || parent.type !== 'agent' || !parent.blocks) {
+    return false
   }
-  return false
+  // Check if target is anywhere in the parent's children
+  const target = findBlockByPredicate(
+    parent.blocks,
+    (block) => block.type === 'agent' && block.agentId === targetAgentId,
+  )
+  return target !== undefined
 }
 
 /**
@@ -535,7 +463,7 @@ export const transformAskUserBlocks = (
 ): ContentBlock[] => {
   const { toolCallId, resultValue } = options
 
-  return blocks.map((block) => {
+  return mapBlocks(blocks, (block) => {
     if (
       block.type === 'tool' &&
       block.toolCallId === toolCallId &&
@@ -557,13 +485,6 @@ export const transformAskUserBlocks = (
         answers,
         skipped,
       } as AskUserContentBlock
-    }
-
-    if (block.type === 'agent' && block.blocks) {
-      const updatedBlocks = transformAskUserBlocks(block.blocks, options)
-      if (updatedBlocks !== block.blocks) {
-        return { ...block, blocks: updatedBlocks }
-      }
     }
     return block
   })
@@ -588,7 +509,7 @@ export const updateToolBlockWithOutput = (
 ): ContentBlock[] => {
   const { toolCallId, toolOutput } = options
 
-  return blocks.map((block) => {
+  return mapBlocks(blocks, (block) => {
     if (block.type === 'tool' && block.toolCallId === toolCallId) {
       let output: string
       if (block.toolName === 'run_terminal_command') {
@@ -602,13 +523,6 @@ export const updateToolBlockWithOutput = (
         output = formatToolOutput(toolOutput)
       }
       return { ...block, output }
-    } else if (block.type === 'agent' && block.blocks) {
-      const updatedBlocks = updateToolBlockWithOutput(block.blocks, options)
-      // Avoid creating new block if nested blocks didn't change
-      if (isEqual(block.blocks, updatedBlocks)) {
-        return block
-      }
-      return { ...block, blocks: updatedBlocks }
     }
     return block
   })
