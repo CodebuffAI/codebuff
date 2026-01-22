@@ -18,6 +18,40 @@ const logger: Logger = {
 const futureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
 const pastDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
 
+const createTxMock = (user: {
+  next_quota_reset: Date | null
+  auto_topup_enabled: boolean | null
+} | null) => ({
+  query: {
+    user: {
+      findFirst: async () => user,
+    },
+  },
+  update: () => ({
+    set: () => ({
+      where: () => Promise.resolve(),
+    }),
+  }),
+  insert: () => ({
+    values: () => ({
+      onConflictDoNothing: () => ({
+        returning: () => Promise.resolve([{ id: 'test-id' }]),
+      }),
+    }),
+  }),
+  select: () => ({
+    from: () => ({
+      where: () => ({
+        orderBy: () => ({
+          limit: () => [],
+        }),
+      }),
+      then: (cb: any) => cb([]),
+    }),
+  }),
+  execute: () => Promise.resolve([]),
+})
+
 const createDbMock = (options: {
   user: {
     next_quota_reset: Date | null
@@ -27,34 +61,6 @@ const createDbMock = (options: {
   const { user } = options
 
   return {
-    transaction: async (callback: (tx: any) => Promise<any>) => {
-      const tx = {
-        query: {
-          user: {
-            findFirst: async () => user,
-          },
-        },
-        update: () => ({
-          set: () => ({
-            where: () => Promise.resolve(),
-          }),
-        }),
-        insert: () => ({
-          values: () => Promise.resolve(),
-        }),
-        select: () => ({
-          from: () => ({
-            where: () => ({
-              orderBy: () => ({
-                limit: () => [],
-              }),
-            }),
-            then: (cb: any) => cb([]),
-          }),
-        }),
-      }
-      return callback(tx)
-    },
     select: () => ({
       from: () => ({
         where: () => ({
@@ -67,6 +73,17 @@ const createDbMock = (options: {
   }
 }
 
+const createTransactionMock = (user: {
+  next_quota_reset: Date | null
+  auto_topup_enabled: boolean | null
+} | null) => ({
+  withAdvisoryLockTransaction: async ({
+    callback,
+  }: {
+    callback: (tx: any) => Promise<any>
+  }) => await callback(createTxMock(user)),
+})
+
 describe('grant-credits', () => {
   afterEach(() => {
     clearMockedModules()
@@ -75,14 +92,16 @@ describe('grant-credits', () => {
   describe('triggerMonthlyResetAndGrant', () => {
     describe('autoTopupEnabled return value', () => {
       it('should return autoTopupEnabled: true when user has auto_topup_enabled: true', async () => {
+        const user = {
+          next_quota_reset: futureDate,
+          auto_topup_enabled: true,
+        }
         await mockModule('@codebuff/internal/db', () => ({
-          default: createDbMock({
-            user: {
-              next_quota_reset: futureDate,
-              auto_topup_enabled: true,
-            },
-          }),
+          default: createDbMock({ user }),
         }))
+        await mockModule('@codebuff/internal/db/transaction', () =>
+          createTransactionMock(user),
+        )
 
         // Need to re-import after mocking
         const { triggerMonthlyResetAndGrant: fn } = await import('../grant-credits')
@@ -97,14 +116,16 @@ describe('grant-credits', () => {
       })
 
       it('should return autoTopupEnabled: false when user has auto_topup_enabled: false', async () => {
+        const user = {
+          next_quota_reset: futureDate,
+          auto_topup_enabled: false,
+        }
         await mockModule('@codebuff/internal/db', () => ({
-          default: createDbMock({
-            user: {
-              next_quota_reset: futureDate,
-              auto_topup_enabled: false,
-            },
-          }),
+          default: createDbMock({ user }),
         }))
+        await mockModule('@codebuff/internal/db/transaction', () =>
+          createTransactionMock(user),
+        )
 
         const { triggerMonthlyResetAndGrant: fn } = await import('../grant-credits')
 
@@ -117,14 +138,16 @@ describe('grant-credits', () => {
       })
 
       it('should default autoTopupEnabled to false when user has auto_topup_enabled: null', async () => {
+        const user = {
+          next_quota_reset: futureDate,
+          auto_topup_enabled: null,
+        }
         await mockModule('@codebuff/internal/db', () => ({
-          default: createDbMock({
-            user: {
-              next_quota_reset: futureDate,
-              auto_topup_enabled: null,
-            },
-          }),
+          default: createDbMock({ user }),
         }))
+        await mockModule('@codebuff/internal/db/transaction', () =>
+          createTransactionMock(user),
+        )
 
         const { triggerMonthlyResetAndGrant: fn } = await import('../grant-credits')
 
@@ -138,10 +161,11 @@ describe('grant-credits', () => {
 
       it('should throw error when user is not found', async () => {
         await mockModule('@codebuff/internal/db', () => ({
-          default: createDbMock({
-            user: null,
-          }),
+          default: createDbMock({ user: null }),
         }))
+        await mockModule('@codebuff/internal/db/transaction', () =>
+          createTransactionMock(null),
+        )
 
         const { triggerMonthlyResetAndGrant: fn } = await import('../grant-credits')
 
@@ -156,14 +180,16 @@ describe('grant-credits', () => {
 
     describe('quota reset behavior', () => {
       it('should return existing reset date when it is in the future', async () => {
+        const user = {
+          next_quota_reset: futureDate,
+          auto_topup_enabled: false,
+        }
         await mockModule('@codebuff/internal/db', () => ({
-          default: createDbMock({
-            user: {
-              next_quota_reset: futureDate,
-              auto_topup_enabled: false,
-            },
-          }),
+          default: createDbMock({ user }),
         }))
+        await mockModule('@codebuff/internal/db/transaction', () =>
+          createTransactionMock(user),
+        )
 
         const { triggerMonthlyResetAndGrant: fn } = await import('../grant-credits')
 

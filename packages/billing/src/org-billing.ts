@@ -2,7 +2,7 @@ import { GRANT_PRIORITIES } from '@codebuff/common/constants/grant-priorities'
 import { GrantTypeValues } from '@codebuff/common/types/grant'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { withSerializableTransaction } from '@codebuff/internal/db/transaction'
+import { withAdvisoryLockTransaction } from '@codebuff/internal/db/transaction'
 import { env } from '@codebuff/internal/env'
 import { stripeServer } from '@codebuff/internal/util/stripe'
 import { and, asc, gt, isNull, or, eq } from 'drizzle-orm'
@@ -266,6 +266,7 @@ export async function calculateOrganizationUsageAndBalance(
 
 /**
  * Consumes credits from organization grants in priority order.
+ * Uses advisory locks to serialize credit operations per organization.
  */
 export async function consumeOrganizationCredits(params: {
   organizationId: string
@@ -274,7 +275,7 @@ export async function consumeOrganizationCredits(params: {
 }): Promise<CreditConsumptionResult> {
   const { organizationId, creditsToConsume, logger } = params
 
-  return await withSerializableTransaction({
+  const { result, lockWaitMs } = await withAdvisoryLockTransaction({
     callback: async (tx) => {
       const now = new Date()
       const activeGrants = await getOrderedActiveOrganizationGrants({
@@ -291,7 +292,7 @@ export async function consumeOrganizationCredits(params: {
         throw new Error('No active organization grants found')
       }
 
-      const result = await consumeFromOrderedGrants({
+      const consumeResult = await consumeFromOrderedGrants({
         userId: organizationId,
         creditsToConsume,
         grants: activeGrants,
@@ -299,15 +300,31 @@ export async function consumeOrganizationCredits(params: {
         logger,
       })
 
-      return result
+      return consumeResult
     },
+    lockKey: `org:${organizationId}`,
     context: { organizationId, creditsToConsume },
     logger,
   })
+
+  // Log successful organization credit consumption with lock timing
+  logger.info(
+    {
+      organizationId,
+      creditsConsumed: result.consumed,
+      creditsRequested: creditsToConsume,
+      fromPurchased: result.fromPurchased,
+      lockWaitMs,
+    },
+    'Organization credits consumed',
+  )
+
+  return result
 }
 
 /**
  * Grants credits to an organization.
+ * Uses advisory lock to serialize with other credit operations for the organization.
  */
 export async function grantOrganizationCredits(
   params: OptionalFields<
@@ -338,37 +355,44 @@ export async function grantOrganizationCredits(
     logger,
   } = withDefaults
 
-  const now = new Date()
+  await withAdvisoryLockTransaction({
+    callback: async (tx) => {
+      const now = new Date()
 
-  try {
-    await db.insert(schema.creditLedger).values({
-      operation_id: operationId,
-      user_id: userId,
-      org_id: organizationId,
-      principal: amount,
-      balance: amount,
-      type: 'organization',
-      description,
-      priority: GRANT_PRIORITIES.organization,
-      expires_at: expiresAt,
-      created_at: now,
-    })
+      // Use onConflictDoNothing for idempotency - duplicate operation_ids are silently ignored
+      const result = await tx
+        .insert(schema.creditLedger)
+        .values({
+          operation_id: operationId,
+          user_id: userId,
+          org_id: organizationId,
+          principal: amount,
+          balance: amount,
+          type: 'organization',
+          description,
+          priority: GRANT_PRIORITIES.organization,
+          expires_at: expiresAt,
+          created_at: now,
+        })
+        .onConflictDoNothing({ target: schema.creditLedger.operation_id })
+        .returning({ id: schema.creditLedger.operation_id })
 
-    logger.info(
-      { organizationId, userId, operationId, amount, expiresAt },
-      'Created new organization credit grant',
-    )
-  } catch (error: any) {
-    // Check if this is a unique constraint violation on operation_id
-    if (error.code === '23505' && error.constraint === 'credit_ledger_pkey') {
-      logger.info(
-        { organizationId, userId, operationId, amount },
-        'Skipping duplicate organization credit grant due to idempotency check',
-      )
-      return // Exit successfully, another concurrent request already created this grant
-    }
-    throw error // Re-throw any other error
-  }
+      if (result.length > 0) {
+        logger.info(
+          { organizationId, userId, operationId, amount, expiresAt },
+          'Created new organization credit grant',
+        )
+      } else {
+        logger.debug(
+          { organizationId, userId, operationId, amount },
+          'Skipping duplicate organization credit grant due to idempotency check',
+        )
+      }
+    },
+    lockKey: `org:${organizationId}`,
+    context: { organizationId, userId, operationId },
+    logger,
+  }).then(({ result }) => result)
 }
 
 /**

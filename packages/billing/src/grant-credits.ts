@@ -6,6 +6,7 @@ import { getNextQuotaReset } from '@codebuff/common/util/dates'
 import { withRetry } from '@codebuff/common/util/promise'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
+import { withAdvisoryLockTransaction } from '@codebuff/internal/db/transaction'
 import { logSyncFailure } from '@codebuff/internal/util/sync-failure'
 import { and, desc, eq, gt, isNull, lte, or, sql } from 'drizzle-orm'
 
@@ -107,16 +108,18 @@ export async function calculateTotalReferralBonus(params: {
 }
 
 /**
- * Core grant operation that can be part of a larger transaction.
+ * Core grant operation that performs the actual credit grant logic.
+ * This should be called within a transaction that holds the appropriate advisory lock.
+ * Uses ON CONFLICT DO NOTHING for idempotency - duplicate grants are silently ignored.
  */
-export async function grantCreditOperation(params: {
+async function executeGrantCreditOperation(params: {
   userId: string
   amount: number
   type: GrantType
   description: string
   expiresAt: Date | null
   operationId: string
-  tx?: DbTransaction
+  tx: DbTransaction
   logger: Logger
 }) {
   const {
@@ -130,21 +133,10 @@ export async function grantCreditOperation(params: {
     logger,
   } = params
 
-  const dbClient = tx || db
-
   const now = new Date()
 
-  // If the grant already exists, we can safely ignore this error since
-  // the operation is idempotent - the grant was already created successfully
-  const isUniqueConstraintError = (error: any): boolean => {
-    return (
-      error.code === '23505' ||
-      (error.message && error.message.includes('already exists'))
-    )
-  }
-
   // First check for any negative balances
-  const negativeGrants = await dbClient
+  const negativeGrants = await tx
     .select()
     .from(schema.creditLedger)
     .where(
@@ -158,21 +150,26 @@ export async function grantCreditOperation(params: {
     )
     .then((grants) => grants.filter((g) => g.balance < 0))
 
+  let inserted = false
+  let fullyConsumedByDebt = false
+
   if (negativeGrants.length > 0) {
     const totalDebt = negativeGrants.reduce(
       (sum, g) => sum + Math.abs(g.balance),
       0,
     )
     for (const grant of negativeGrants) {
-      await dbClient
+      await tx
         .update(schema.creditLedger)
         .set({ balance: 0 })
         .where(eq(schema.creditLedger.operation_id, grant.operation_id))
     }
     const remainingAmount = Math.max(0, amount - totalDebt)
     if (remainingAmount > 0) {
-      try {
-        await dbClient.insert(schema.creditLedger).values({
+      // Use onConflictDoNothing for idempotency - duplicate operation_ids are silently ignored
+      const result = await tx
+        .insert(schema.creditLedger)
+        .values({
           operation_id: operationId,
           user_id: userId,
           principal: amount,
@@ -186,21 +183,23 @@ export async function grantCreditOperation(params: {
           expires_at: expiresAt,
           created_at: now,
         })
-      } catch (error: any) {
-        if (isUniqueConstraintError(error)) {
-          logger.info(
-            { userId, operationId, type, amount },
-            'Skipping duplicate credit grant due to idempotency check',
-          )
-          return
-        }
-        throw error
-      }
+        .onConflictDoNothing({ target: schema.creditLedger.operation_id })
+        .returning({ id: schema.creditLedger.operation_id })
+      inserted = result.length > 0
+    } else {
+      // All credits consumed by debt - this is success, not a duplicate
+      fullyConsumedByDebt = true
+      logger.info(
+        { userId, operationId, type, amount, debtCleared: totalDebt },
+        'Credit grant fully applied to existing debt',
+      )
     }
   } else {
     // No debt - create grant normally
-    try {
-      await dbClient.insert(schema.creditLedger).values({
+    // Use onConflictDoNothing for idempotency - duplicate operation_ids are silently ignored
+    const result = await tx
+      .insert(schema.creditLedger)
+      .values({
         operation_id: operationId,
         user_id: userId,
         principal: amount,
@@ -211,35 +210,72 @@ export async function grantCreditOperation(params: {
         expires_at: expiresAt,
         created_at: now,
       })
-    } catch (error: any) {
-      if (isUniqueConstraintError(error)) {
-        logger.info(
-          { userId, operationId, type, amount },
-          'Skipping duplicate credit grant due to idempotency check',
-        )
-        return
-      }
-      throw error
-    }
+      .onConflictDoNothing({ target: schema.creditLedger.operation_id })
+      .returning({ id: schema.creditLedger.operation_id })
+    inserted = result.length > 0
   }
 
-  trackEvent({
-    event: AnalyticsEvent.CREDIT_GRANT,
-    userId,
-    properties: {
-      operationId,
-      type,
-      description,
-      amount,
-      expiresAt,
-    },
-    logger,
-  })
+  // Only log and track analytics if we actually inserted a new grant
+  if (inserted) {
+    trackEvent({
+      event: AnalyticsEvent.CREDIT_GRANT,
+      userId,
+      properties: {
+        operationId,
+        type,
+        description,
+        amount,
+        expiresAt,
+      },
+      logger,
+    })
 
-  logger.info(
-    { userId, operationId, type, amount, expiresAt },
-    'Created new credit grant',
-  )
+    logger.info(
+      { userId, operationId, type, amount, expiresAt },
+      'Created new credit grant',
+    )
+  } else if (!fullyConsumedByDebt) {
+    // Only log as duplicate if we didn't already log as fully consumed by debt
+    logger.debug(
+      { userId, operationId, type, amount },
+      'Skipping duplicate credit grant due to idempotency check',
+    )
+  }
+}
+
+/**
+ * Core grant operation that can be part of a larger transaction.
+ * When called with a transaction (tx), assumes the caller holds the advisory lock.
+ * When called without a transaction, acquires the advisory lock automatically.
+ */
+export async function grantCreditOperation(params: {
+  userId: string
+  amount: number
+  type: GrantType
+  description: string
+  expiresAt: Date | null
+  operationId: string
+  tx?: DbTransaction
+  logger: Logger
+}) {
+  const { userId, tx, logger } = params
+
+  // If a transaction is provided, the caller is responsible for locking
+  // (e.g., triggerMonthlyResetAndGrant which does multiple grants in one tx)
+  if (tx) {
+    await executeGrantCreditOperation({ ...params, tx })
+    return
+  }
+
+  // Otherwise, wrap in advisory lock to serialize with other credit operations for this user
+  await withAdvisoryLockTransaction({
+    callback: async (tx) => {
+      await executeGrantCreditOperation({ ...params, tx })
+    },
+    lockKey: `user:${userId}`,
+    context: { userId, operationId: params.operationId, type: params.type },
+    logger,
+  }).then(({ result }) => result)
 }
 
 /**
@@ -287,6 +323,8 @@ export async function processAndGrantCredit(params: {
  * Revokes credits from a specific grant by operation ID.
  * This sets the balance to 0 and updates the description to indicate a refund.
  *
+ * Uses advisory lock to serialize with other credit operations for the user.
+ *
  * @param operationId The operation ID of the grant to revoke
  * @param reason The reason for revoking the credits (e.g. refund)
  * @returns true if the grant was found and revoked, false otherwise
@@ -298,45 +336,72 @@ export async function revokeGrantByOperationId(params: {
 }): Promise<boolean> {
   const { operationId, reason, logger } = params
 
-  return await db.transaction(async (tx) => {
-    const grant = await tx.query.creditLedger.findFirst({
-      where: eq(schema.creditLedger.operation_id, operationId),
-    })
-
-    if (!grant) {
-      logger.warn({ operationId }, 'Attempted to revoke non-existent grant')
-      return false
-    }
-
-    if (grant.balance < 0) {
-      logger.warn(
-        { operationId, currentBalance: grant.balance },
-        'Cannot revoke grant with negative balance - user has already spent these credits',
-      )
-      return false
-    }
-
-    await tx
-      .update(schema.creditLedger)
-      .set({
-        principal: 0,
-        balance: 0,
-        description: `${grant.description} (Revoked: ${reason})`,
-      })
-      .where(eq(schema.creditLedger.operation_id, operationId))
-
-    logger.info(
-      {
-        operationId,
-        userId: grant.user_id,
-        revokedAmount: grant.balance,
-        reason,
-      },
-      'Revoked credit grant',
-    )
-
-    return true
+  // First, look up the grant to get the user_id for the advisory lock
+  const grant = await db.query.creditLedger.findFirst({
+    where: eq(schema.creditLedger.operation_id, operationId),
   })
+
+  if (!grant) {
+    logger.warn({ operationId }, 'Attempted to revoke non-existent grant')
+    return false
+  }
+
+  // Determine lock key based on whether this is a user or org grant
+  const lockKey = grant.org_id
+    ? `org:${grant.org_id}`
+    : `user:${grant.user_id}`
+
+  const { result } = await withAdvisoryLockTransaction({
+    callback: async (tx) => {
+      // Re-fetch within transaction to get current state
+      const currentGrant = await tx.query.creditLedger.findFirst({
+        where: eq(schema.creditLedger.operation_id, operationId),
+      })
+
+      if (!currentGrant) {
+        logger.warn(
+          { operationId },
+          'Grant no longer exists after acquiring lock',
+        )
+        return false
+      }
+
+      if (currentGrant.balance < 0) {
+        logger.warn(
+          { operationId, currentBalance: currentGrant.balance },
+          'Cannot revoke grant with negative balance - user has already spent these credits',
+        )
+        return false
+      }
+
+      await tx
+        .update(schema.creditLedger)
+        .set({
+          principal: 0,
+          balance: 0,
+          description: `${currentGrant.description} (Revoked: ${reason})`,
+        })
+        .where(eq(schema.creditLedger.operation_id, operationId))
+
+      logger.info(
+        {
+          operationId,
+          userId: currentGrant.user_id,
+          orgId: currentGrant.org_id,
+          revokedAmount: currentGrant.balance,
+          reason,
+        },
+        'Revoked credit grant',
+      )
+
+      return true
+    },
+    lockKey,
+    context: { operationId, userId: grant.user_id, orgId: grant.org_id },
+    logger,
+  })
+
+  return result
 }
 
 /**
@@ -344,7 +409,7 @@ export async function revokeGrantByOperationId(params: {
  * 1. Calculates their new monthly grant amount
  * 2. Issues the grant with the appropriate expiry
  * 3. Updates their next_quota_reset date
- * All of this is done in a single transaction to ensure consistency.
+ * All of this is done in a single transaction with advisory lock to ensure consistency.
  *
  * @param userId The ID of the user
  * @returns The effective quota reset date (either existing or new)
@@ -360,87 +425,94 @@ export async function triggerMonthlyResetAndGrant(params: {
 }): Promise<MonthlyResetResult> {
   const { userId, logger } = params
 
-  return await db.transaction(async (tx) => {
-    const now = new Date()
+  const { result } = await withAdvisoryLockTransaction({
+    callback: async (tx) => {
+      const now = new Date()
 
-    // Get user's current reset date and auto top-up status
-    const user = await tx.query.user.findFirst({
-      where: eq(schema.user.id, userId),
-      columns: {
-        next_quota_reset: true,
-        auto_topup_enabled: true,
-      },
-    })
+      // Get user's current reset date and auto top-up status
+      const user = await tx.query.user.findFirst({
+        where: eq(schema.user.id, userId),
+        columns: {
+          next_quota_reset: true,
+          auto_topup_enabled: true,
+        },
+      })
 
-    if (!user) {
-      throw new Error(`User ${userId} not found`)
-    }
+      if (!user) {
+        throw new Error(`User ${userId} not found`)
+      }
 
-    const autoTopupEnabled = user.auto_topup_enabled ?? false
-    const currentResetDate = user.next_quota_reset
+      const autoTopupEnabled = user.auto_topup_enabled ?? false
+      const currentResetDate = user.next_quota_reset
 
-    // If reset date is in the future, no action needed
-    if (currentResetDate && currentResetDate > now) {
-      return { quotaResetDate: currentResetDate, autoTopupEnabled }
-    }
+      // If reset date is in the future, no action needed
+      if (currentResetDate && currentResetDate > now) {
+        return { quotaResetDate: currentResetDate, autoTopupEnabled }
+      }
 
-    // Calculate new reset date
-    const newResetDate = getNextQuotaReset(currentResetDate)
+      // Calculate new reset date
+      const newResetDate = getNextQuotaReset(currentResetDate)
 
-    // Calculate grant amounts separately
-    const [freeGrantAmount, referralBonus] = await Promise.all([
-      getPreviousFreeGrantAmount(params),
-      calculateTotalReferralBonus(params),
-    ])
+      // Calculate grant amounts separately
+      const [freeGrantAmount, referralBonus] = await Promise.all([
+        getPreviousFreeGrantAmount(params),
+        calculateTotalReferralBonus(params),
+      ])
 
-    // Generate a deterministic operation ID based on userId and reset date to minute precision
-    const timestamp = generateOperationIdTimestamp(newResetDate)
-    const freeOperationId = `free-${userId}-${timestamp}`
-    const referralOperationId = `referral-${userId}-${timestamp}`
+      // Generate a deterministic operation ID based on userId and reset date to minute precision
+      const timestamp = generateOperationIdTimestamp(newResetDate)
+      const freeOperationId = `free-${userId}-${timestamp}`
+      const referralOperationId = `referral-${userId}-${timestamp}`
 
-    // Update the user's next reset date
-    await tx
-      .update(schema.user)
-      .set({ next_quota_reset: newResetDate })
-      .where(eq(schema.user.id, userId))
+      // Update the user's next reset date
+      await tx
+        .update(schema.user)
+        .set({ next_quota_reset: newResetDate })
+        .where(eq(schema.user.id, userId))
 
-    // Always grant free credits - use grantCreditOperation with tx to keep everything in the same transaction
-    await grantCreditOperation({
-      ...params,
-      amount: freeGrantAmount,
-      type: 'free',
-      description: 'Monthly free credits',
-      expiresAt: newResetDate, // Free credits expire at next reset
-      operationId: freeOperationId,
-      tx,
-    })
-
-    // Only grant referral credits if there are any
-    if (referralBonus > 0) {
-      await grantCreditOperation({
+      // Always grant free credits - use executeGrantCreditOperation with tx since we already hold the lock
+      await executeGrantCreditOperation({
         ...params,
-        amount: referralBonus,
-        type: 'referral',
-        description: 'Monthly referral bonus',
-        expiresAt: newResetDate, // Referral credits expire at next reset
-        operationId: referralOperationId,
+        amount: freeGrantAmount,
+        type: 'free',
+        description: 'Monthly free credits',
+        expiresAt: newResetDate, // Free credits expire at next reset
+        operationId: freeOperationId,
         tx,
       })
-    }
 
-    logger.info(
-      {
-        userId,
-        freeOperationId,
-        referralOperationId,
-        freeGrantAmount,
-        referralBonus,
-        newResetDate,
-        previousResetDate: currentResetDate,
-      },
-      'Processed monthly credit grants and reset',
-    )
+      // Only grant referral credits if there are any
+      if (referralBonus > 0) {
+        await executeGrantCreditOperation({
+          ...params,
+          amount: referralBonus,
+          type: 'referral',
+          description: 'Monthly referral bonus',
+          expiresAt: newResetDate, // Referral credits expire at next reset
+          operationId: referralOperationId,
+          tx,
+        })
+      }
 
-    return { quotaResetDate: newResetDate, autoTopupEnabled }
+      logger.info(
+        {
+          userId,
+          freeOperationId,
+          referralOperationId,
+          freeGrantAmount,
+          referralBonus,
+          newResetDate,
+          previousResetDate: currentResetDate,
+        },
+        'Processed monthly credit grants and reset',
+      )
+
+      return { quotaResetDate: newResetDate, autoTopupEnabled }
+    },
+    lockKey: `user:${userId}`,
+    context: { userId },
+    logger,
   })
+
+  return result
 }

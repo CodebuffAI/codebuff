@@ -26,6 +26,10 @@ export enum AnalyticsEvent {
   UNKNOWN_TOOL_CALL = 'backend.unknown_tool_call',
   USER_INPUT = 'backend.user_input',
 
+  // Backend - Database Operations
+  ADVISORY_LOCK_CONTENTION = 'backend.advisory_lock_contention',
+  TRANSACTION_RETRY_THRESHOLD_EXCEEDED = 'backend.transaction_retry_threshold_exceeded',
+
   // Web
   SIGNUP = 'web.signup',
 

@@ -5,7 +5,7 @@ import { GrantTypeValues } from '@codebuff/common/types/grant'
 import { failure, getErrorObject, success } from '@codebuff/common/util/error'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { withSerializableTransaction } from '@codebuff/internal/db/transaction'
+import { withAdvisoryLockTransaction } from '@codebuff/internal/db/transaction'
 import { and, asc, desc, gt, isNull, ne, or, eq, sql } from 'drizzle-orm'
 import { union } from 'drizzle-orm/pg-core'
 
@@ -389,8 +389,10 @@ export async function calculateUsageAndBalance(
  * Follows priority order strictly - higher priority grants (lower number) are consumed first.
  * Returns details about credit consumption including how many came from purchased credits.
  *
- * Uses SERIALIZABLE isolation to prevent concurrent modifications that could lead to
- * incorrect credit usage (e.g., "double spending" credits).
+ * Uses advisory locks to serialize credit operations per user, preventing concurrent
+ * modifications that could lead to incorrect credit usage (e.g., "double spending" credits).
+ * This approach eliminates serialization failures by making concurrent transactions wait
+ * instead of failing and retrying.
  *
  * @param userId The ID of the user
  * @param creditsToConsume Number of credits being consumed
@@ -404,7 +406,7 @@ export async function consumeCredits(params: {
 }): Promise<CreditConsumptionResult> {
   const { userId, creditsToConsume, logger } = params
 
-  const result = await withSerializableTransaction({
+  const { result, lockWaitMs } = await withAdvisoryLockTransaction({
     callback: async (tx) => {
       const now = new Date()
       const activeGrants = await getOrderedActiveGrantsForConsumption({
@@ -421,18 +423,31 @@ export async function consumeCredits(params: {
         throw new Error('No active grants found')
       }
 
-      const result = await consumeFromOrderedGrants({
+      const consumeResult = await consumeFromOrderedGrants({
         ...params,
         creditsToConsume,
         grants: activeGrants,
         tx,
       })
 
-      return result
+      return consumeResult
     },
+    lockKey: `user:${userId}`,
     context: { userId, creditsToConsume },
     logger,
   })
+
+  // Log successful credit consumption with lock timing
+  logger.info(
+    {
+      userId,
+      creditsConsumed: result.consumed,
+      creditsRequested: creditsToConsume,
+      fromPurchased: result.fromPurchased,
+      lockWaitMs,
+    },
+    'Credits consumed',
+  )
 
   // Track credit consumption analytics
   trackEvent({
@@ -556,7 +571,7 @@ export async function consumeCreditsAndAddAgentStep(params: {
     'fetch_grants'
 
   try {
-    const result = await withSerializableTransaction({
+    const { result, lockWaitMs } = await withAdvisoryLockTransaction({
       callback: async (tx) => {
         // Reset state at start of each transaction attempt (in case of retries)
         activeGrantsSnapshot = []
@@ -564,7 +579,7 @@ export async function consumeCreditsAndAddAgentStep(params: {
 
         const now = new Date()
 
-        let result: CreditConsumptionResult | null = null
+        let consumeResult: CreditConsumptionResult | null = null
         consumeCredits: {
           if (byok) {
             break consumeCredits
@@ -594,7 +609,7 @@ export async function consumeCreditsAndAddAgentStep(params: {
           }
 
           phase = 'consume_credits'
-          result = await consumeFromOrderedGrants({
+          consumeResult = await consumeFromOrderedGrants({
             ...params,
             creditsToConsume: credits,
             grants: activeGrants,
@@ -602,7 +617,7 @@ export async function consumeCreditsAndAddAgentStep(params: {
           })
 
           if (userId === TEST_USER_ID) {
-            return { ...result, agentStepId: 'test-step-id' }
+            return { ...consumeResult, agentStepId: 'test-step-id' }
           }
         }
 
@@ -643,17 +658,33 @@ export async function consumeCreditsAndAddAgentStep(params: {
         }
 
         phase = 'complete'
-        if (!result) {
-          result = {
+        if (!consumeResult) {
+          consumeResult = {
             consumed: 0,
             fromPurchased: 0,
           }
         }
-        return { ...result, agentStepId: crypto.randomUUID() }
+        return { ...consumeResult, agentStepId: crypto.randomUUID() }
       },
+      lockKey: `user:${userId}`,
       context: { userId, credits },
       logger,
     })
+
+    // Log successful credit consumption with lock timing
+    logger.info(
+      {
+        userId,
+        messageId,
+        creditsConsumed: result.consumed,
+        creditsRequested: credits,
+        fromPurchased: result.fromPurchased,
+        lockWaitMs,
+        agentId,
+        model,
+      },
+      'Credits consumed and agent step recorded',
+    )
 
     // Track credit consumption analytics
     trackEvent({

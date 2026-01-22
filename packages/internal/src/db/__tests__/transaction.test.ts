@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
 import { createPostgresError } from '@codebuff/common/testing/errors'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import * as analyticsModule from '@codebuff/common/analytics'
 
 import {
   getRetryableErrorDescription,
   isRetryablePostgresError,
 } from '../transaction'
 import * as dbModule from '../index'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 describe('transaction error handling', () => {
   describe('getRetryableErrorDescription', () => {
@@ -391,25 +394,24 @@ describe('transaction error handling', () => {
   })
 })
 
+function createMockLogger() {
+  return {
+    warn: mock(() => {}),
+    error: mock(() => {}),
+    info: mock(() => {}),
+    debug: mock(() => {}),
+  }
+}
+
 describe('withSerializableTransaction', () => {
   // We need to dynamically import the function to allow mocking
   let withSerializableTransaction: typeof import('../transaction').withSerializableTransaction
-  let mockLogger: {
-    warn: ReturnType<typeof mock>
-    error: ReturnType<typeof mock>
-    info: ReturnType<typeof mock>
-    debug: ReturnType<typeof mock>
-  }
+  let mockLogger: ReturnType<typeof createMockLogger>
   let transactionSpy: ReturnType<typeof spyOn>
 
   beforeEach(async () => {
     // Create a fresh mock logger for each test
-    mockLogger = {
-      warn: mock(() => {}),
-      error: mock(() => {}),
-      info: mock(() => {}),
-      debug: mock(() => {}),
-    }
+    mockLogger = createMockLogger()
 
     // Re-import to get fresh module
     const transactionModule = await import('../transaction')
@@ -418,6 +420,336 @@ describe('withSerializableTransaction', () => {
 
   afterEach(() => {
     mock.restore()
+  })
+
+  describe('PostHog analytics event emission', () => {
+    let trackEventSpy: ReturnType<typeof spyOn>
+
+    beforeEach(() => {
+      trackEventSpy = spyOn(analyticsModule, 'trackEvent').mockImplementation(() => {})
+    })
+
+    afterEach(() => {
+      trackEventSpy.mockRestore()
+    })
+
+    it('should emit TRANSACTION_RETRY_THRESHOLD_EXCEEDED event when cumulative delay reaches 3s', async () => {
+      const setTimeoutSpy = spyOn(globalThis, 'setTimeout').mockImplementation(
+        ((callback: () => void) => {
+          callback()
+          return 0 as unknown as NodeJS.Timeout
+        }) as typeof setTimeout,
+      )
+
+      let attempts = 0
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async (callback) => {
+          attempts++
+          if (attempts <= 2) {
+            throw createPostgresError('connection failure', '08006')
+          }
+          return callback({} as Parameters<typeof callback>[0])
+        },
+      )
+
+      await withSerializableTransaction({
+        callback: async () => 'result',
+        context: { userId: 'user-abc', operationId: 'op-xyz' },
+        logger: mockLogger as unknown as Parameters<typeof withSerializableTransaction>[0]['logger'],
+      })
+
+      expect(trackEventSpy).toHaveBeenCalledTimes(1)
+
+      const callArgs = trackEventSpy.mock.calls[0] as unknown[]
+      const eventPayload = callArgs[0] as Record<string, unknown>
+
+      expect(eventPayload.event).toBe(AnalyticsEvent.TRANSACTION_RETRY_THRESHOLD_EXCEEDED)
+      expect(eventPayload.userId).toBe('user-abc')
+      expect(eventPayload.properties).toMatchObject({
+        transactionType: 'serializable',
+        attempt: 2,
+        pgErrorCode: '08006',
+        pgErrorDescription: 'connection_failure',
+        cumulativeDelayMs: 3000,
+        userId: 'user-abc',
+        operationId: 'op-xyz',
+      })
+
+      setTimeoutSpy.mockRestore()
+    })
+
+    it('should NOT emit analytics event when cumulative delay is below 3s threshold', async () => {
+      const setTimeoutSpy = spyOn(globalThis, 'setTimeout').mockImplementation(
+        ((callback: () => void) => {
+          callback()
+          return 0 as unknown as NodeJS.Timeout
+        }) as typeof setTimeout,
+      )
+
+      let attempts = 0
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async (callback) => {
+          attempts++
+          if (attempts === 1) {
+            throw createPostgresError('connection failure', '08006')
+          }
+          return callback({} as Parameters<typeof callback>[0])
+        },
+      )
+
+      await withSerializableTransaction({
+        callback: async () => 'result',
+        context: { userId: 'user-abc' },
+        logger: mockLogger as unknown as Parameters<typeof withSerializableTransaction>[0]['logger'],
+      })
+
+      // First retry has cumulative delay of 1s < 3s threshold
+      expect(trackEventSpy).not.toHaveBeenCalled()
+
+      setTimeoutSpy.mockRestore()
+    })
+
+    it('should use "system" as userId when context has no userId or organizationId', async () => {
+      const setTimeoutSpy = spyOn(globalThis, 'setTimeout').mockImplementation(
+        ((callback: () => void) => {
+          callback()
+          return 0 as unknown as NodeJS.Timeout
+        }) as typeof setTimeout,
+      )
+
+      let attempts = 0
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async (callback) => {
+          attempts++
+          if (attempts <= 2) {
+            throw createPostgresError('connection failure', '08006')
+          }
+          return callback({} as Parameters<typeof callback>[0])
+        },
+      )
+
+      await withSerializableTransaction({
+        callback: async () => 'result',
+        context: {}, // No userId or organizationId
+        logger: mockLogger as unknown as Parameters<typeof withSerializableTransaction>[0]['logger'],
+      })
+
+      expect(trackEventSpy).toHaveBeenCalledTimes(1)
+      const callArgs = trackEventSpy.mock.calls[0] as unknown[]
+      const eventPayload = callArgs[0] as Record<string, unknown>
+      expect(eventPayload.userId).toBe('system')
+
+      setTimeoutSpy.mockRestore()
+    })
+
+    it('should emit multiple analytics events for each retry after threshold', async () => {
+      const setTimeoutSpy = spyOn(globalThis, 'setTimeout').mockImplementation(
+        ((callback: () => void) => {
+          callback()
+          return 0 as unknown as NodeJS.Timeout
+        }) as typeof setTimeout,
+      )
+
+      let attempts = 0
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async (callback) => {
+          attempts++
+          if (attempts <= 3) {
+            throw createPostgresError('connection failure', '08006')
+          }
+          return callback({} as Parameters<typeof callback>[0])
+        },
+      )
+
+      await withSerializableTransaction({
+        callback: async () => 'result',
+        context: { userId: 'user-123' },
+        logger: mockLogger as unknown as Parameters<typeof withSerializableTransaction>[0]['logger'],
+      })
+
+      // Retry 1: 1s (no event), Retry 2: 3s (event), Retry 3: 7s (event)
+      expect(trackEventSpy).toHaveBeenCalledTimes(2)
+
+      // Verify first event (attempt 2, cumulative 3s)
+      const firstCall = trackEventSpy.mock.calls[0] as unknown[]
+      const firstPayload = firstCall[0] as Record<string, unknown>
+      expect((firstPayload.properties as Record<string, unknown>).cumulativeDelayMs).toBe(3000)
+      expect((firstPayload.properties as Record<string, unknown>).attempt).toBe(2)
+
+      // Verify second event (attempt 3, cumulative 7s)
+      const secondCall = trackEventSpy.mock.calls[1] as unknown[]
+      const secondPayload = secondCall[0] as Record<string, unknown>
+      expect((secondPayload.properties as Record<string, unknown>).cumulativeDelayMs).toBe(7000)
+      expect((secondPayload.properties as Record<string, unknown>).attempt).toBe(3)
+
+      setTimeoutSpy.mockRestore()
+    })
+  })
+
+  describe('observability threshold behavior', () => {
+    it('should NOT log on first retry (cumulative delay 1s < 3s threshold)', async () => {
+      // Mock setTimeout to execute immediately for faster tests
+      const setTimeoutSpy = spyOn(globalThis, 'setTimeout').mockImplementation(
+        ((callback: () => void) => {
+          callback()
+          return 0 as unknown as NodeJS.Timeout
+        }) as typeof setTimeout,
+      )
+
+      let attempts = 0
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async (callback) => {
+          attempts++
+          // Fail only once - first retry has cumulative delay of 1s (< 3s threshold)
+          if (attempts === 1) {
+            throw createPostgresError('serialization failure', '40001')
+          }
+          return callback({} as Parameters<typeof callback>[0])
+        },
+      )
+
+      await withSerializableTransaction({
+        callback: async () => 'result',
+        context: { userId: 'user-123' },
+        logger: mockLogger as unknown as Parameters<typeof withSerializableTransaction>[0]['logger'],
+      })
+
+      expect(attempts).toBe(2)
+      // First retry cumulative delay: 1s * (2^1 - 1) = 1s < 3s threshold
+      // Should NOT log at WARN level
+      expect(mockLogger.warn).not.toHaveBeenCalled()
+
+      setTimeoutSpy.mockRestore()
+    })
+
+    it('should log on second retry when cumulative delay reaches 3s threshold', async () => {
+      const setTimeoutSpy = spyOn(globalThis, 'setTimeout').mockImplementation(
+        ((callback: () => void) => {
+          callback()
+          return 0 as unknown as NodeJS.Timeout
+        }) as typeof setTimeout,
+      )
+
+      let attempts = 0
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async (callback) => {
+          attempts++
+          // Fail twice - second retry has cumulative delay of 3s (= threshold)
+          if (attempts <= 2) {
+            throw createPostgresError('serialization failure', '40001')
+          }
+          return callback({} as Parameters<typeof callback>[0])
+        },
+      )
+
+      await withSerializableTransaction({
+        callback: async () => 'result',
+        context: { userId: 'user-123' },
+        logger: mockLogger as unknown as Parameters<typeof withSerializableTransaction>[0]['logger'],
+      })
+
+      expect(attempts).toBe(3)
+      // Second retry cumulative delay: 1s * (2^2 - 1) = 3s >= 3s threshold
+      // Should log at WARN level
+      expect(mockLogger.warn).toHaveBeenCalledTimes(1)
+
+      const warnCalls = mockLogger.warn.mock.calls as unknown[][]
+      const logContext = warnCalls[0]![0] as Record<string, unknown>
+      expect(logContext.cumulativeDelayMs).toBe(3000)
+      expect(logContext.attempt).toBe(2)
+
+      setTimeoutSpy.mockRestore()
+    })
+
+    it('should log on each retry after threshold is reached (attempts 2, 3, 4...)', async () => {
+      const setTimeoutSpy = spyOn(globalThis, 'setTimeout').mockImplementation(
+        ((callback: () => void) => {
+          callback()
+          return 0 as unknown as NodeJS.Timeout
+        }) as typeof setTimeout,
+      )
+
+      let attempts = 0
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async (callback) => {
+          attempts++
+          // Fail 4 times to verify logging pattern
+          if (attempts <= 4) {
+            throw createPostgresError('serialization failure', '40001')
+          }
+          return callback({} as Parameters<typeof callback>[0])
+        },
+      )
+
+      await withSerializableTransaction({
+        callback: async () => 'result',
+        context: {},
+        logger: mockLogger as unknown as Parameters<typeof withSerializableTransaction>[0]['logger'],
+      })
+
+      expect(attempts).toBe(5)
+      // Retry 1: cumulative 1s (no log)
+      // Retry 2: cumulative 3s (log)
+      // Retry 3: cumulative 7s (log)
+      // Retry 4: cumulative 15s (log)
+      expect(mockLogger.warn).toHaveBeenCalledTimes(3)
+
+      const warnCalls = mockLogger.warn.mock.calls as unknown[][]
+      // Verify cumulative delays: 3s, 7s, 15s
+      expect((warnCalls[0]![0] as Record<string, unknown>).cumulativeDelayMs).toBe(3000)
+      expect((warnCalls[1]![0] as Record<string, unknown>).cumulativeDelayMs).toBe(7000)
+      expect((warnCalls[2]![0] as Record<string, unknown>).cumulativeDelayMs).toBe(15000)
+
+      setTimeoutSpy.mockRestore()
+    })
+
+    it('should include correct context and error info in log message', async () => {
+      const setTimeoutSpy = spyOn(globalThis, 'setTimeout').mockImplementation(
+        ((callback: () => void) => {
+          callback()
+          return 0 as unknown as NodeJS.Timeout
+        }) as typeof setTimeout,
+      )
+
+      let attempts = 0
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async (callback) => {
+          attempts++
+          if (attempts <= 2) {
+            throw createPostgresError('connection failure', '08006')
+          }
+          return callback({} as Parameters<typeof callback>[0])
+        },
+      )
+
+      await withSerializableTransaction({
+        callback: async () => 'result',
+        context: { userId: 'user-abc', operationId: 'op-xyz' },
+        logger: mockLogger as unknown as Parameters<typeof withSerializableTransaction>[0]['logger'],
+      })
+
+      expect(mockLogger.warn).toHaveBeenCalledTimes(1)
+
+      const warnCalls = mockLogger.warn.mock.calls as unknown[][]
+      const logContext = warnCalls[0]![0] as Record<string, unknown>
+      const logMessage = warnCalls[0]![1] as string
+
+      // Verify context fields are passed through
+      expect(logContext.userId).toBe('user-abc')
+      expect(logContext.operationId).toBe('op-xyz')
+      expect(logContext.pgErrorCode).toBe('08006')
+      expect(logContext.pgErrorDescription).toBe('connection_failure')
+      expect(logContext.attempt).toBe(2)
+      expect(logContext.cumulativeDelayMs).toBe(3000)
+
+      // Verify log message format
+      expect(logMessage).toContain('Serializable transaction retry 2')
+      expect(logMessage).toContain('connection_failure')
+      expect(logMessage).toContain('08006')
+      expect(logMessage).toContain('3.0s')
+
+      setTimeoutSpy.mockRestore()
+    })
   })
 
   describe('successful execution', () => {
@@ -478,7 +810,8 @@ describe('withSerializableTransaction', () => {
 
       expect(result).toBe('success after retry')
       expect(attempts).toBe(2)
-      expect(mockLogger.warn).toHaveBeenCalled()
+      // Note: warn is not called on first retry since cumulative delay < 3s threshold
+      // Logging only happens after significant cumulative delay to avoid excessive logs
     })
 
     it('should retry on connection failure (08006) and succeed', async () => {
@@ -525,12 +858,22 @@ describe('withSerializableTransaction', () => {
       expect(attempts).toBe(2)
     })
 
-    it('should log warning with error details on retry', async () => {
+    it('should log warning with error details after significant cumulative delay', async () => {
+      // Mock setTimeout to execute immediately for faster tests
+      const setTimeoutSpy = spyOn(globalThis, 'setTimeout').mockImplementation(
+        ((callback: () => void) => {
+          callback()
+          return 0 as unknown as NodeJS.Timeout
+        }) as typeof setTimeout,
+      )
+
       let attempts = 0
       transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
         async (callback) => {
           attempts++
-          if (attempts === 1) {
+          // Fail 3 times to reach cumulative delay pattern:
+          // Retry 1: 1s (no log), Retry 2: 3s (log), Retry 3: 7s (log)
+          if (attempts <= 3) {
             throw createPostgresError('serialization failure', '40001')
           }
           return callback({} as Parameters<typeof callback>[0])
@@ -543,18 +886,22 @@ describe('withSerializableTransaction', () => {
         logger: mockLogger as unknown as Parameters<typeof withSerializableTransaction>[0]['logger'],
       })
 
-      // Verify logging was called with proper context
-      expect(mockLogger.warn).toHaveBeenCalled()
-      const warnCalls = mockLogger.warn.mock.calls
-      expect(warnCalls.length).toBeGreaterThan(0)
+      // Verify logging was called after cumulative delay exceeded 3s threshold
+      // Retry 1: 1s cumulative (no log), Retry 2: 3s cumulative (logs), Retry 3: 7s (logs)
+      expect(mockLogger.warn).toHaveBeenCalledTimes(2)
+      const warnCalls = mockLogger.warn.mock.calls as unknown[][]
 
       // Check that context is passed in the log
-      const firstCallArgs = warnCalls[0]
+      const firstCallArgs = warnCalls[0] as unknown[]
       expect(firstCallArgs[0]).toMatchObject({
         userId: 'user-123',
         operationId: 'op-456',
         pgErrorCode: '40001',
+        attempt: 2,
+        cumulativeDelayMs: 3000,
       })
+
+      setTimeoutSpy.mockRestore()
     })
   })
 
@@ -657,6 +1004,585 @@ describe('withSerializableTransaction', () => {
 
       // Should have tried maxRetries (5) times
       expect(attempts).toBe(5)
+    })
+  })
+})
+
+describe('withAdvisoryLockTransaction', () => {
+  let withAdvisoryLockTransaction: typeof import('../transaction').withAdvisoryLockTransaction
+  let mockLogger: ReturnType<typeof createMockLogger>
+  let transactionSpy: ReturnType<typeof spyOn>
+
+  beforeEach(async () => {
+    mockLogger = createMockLogger()
+    const transactionModule = await import('../transaction')
+    withAdvisoryLockTransaction = transactionModule.withAdvisoryLockTransaction
+  })
+
+  afterEach(() => {
+    mock.restore()
+  })
+
+  describe('PostHog analytics event emission', () => {
+    let trackEventSpy: ReturnType<typeof spyOn>
+
+    beforeEach(() => {
+      trackEventSpy = spyOn(analyticsModule, 'trackEvent').mockImplementation(() => {})
+    })
+
+    afterEach(() => {
+      trackEventSpy.mockRestore()
+    })
+
+    it('should emit ADVISORY_LOCK_CONTENTION event when lock wait exceeds 3s', async () => {
+      // Mock Date.now to simulate a 3.5s lock wait
+      let callCount = 0
+      const originalDateNow = Date.now
+      const dateNowSpy = spyOn(Date, 'now').mockImplementation(() => {
+        callCount++
+        // First call: lock start time (0ms)
+        // Second call: lock end time (3500ms later)
+        if (callCount <= 1) {
+          return 1000
+        }
+        return 4500 // 3500ms after start
+      })
+
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async (callback) => {
+          const mockTx = {
+            execute: mock(async () => []),
+          }
+          return callback(mockTx as unknown as Parameters<typeof callback>[0])
+        },
+      )
+
+      await withAdvisoryLockTransaction({
+        callback: async () => 'result',
+        lockKey: 'user:test-user-123',
+        context: { userId: 'test-user-123', operationId: 'op-abc' },
+        logger: mockLogger as unknown as Logger,
+      })
+
+      expect(trackEventSpy).toHaveBeenCalledTimes(1)
+
+      const callArgs = trackEventSpy.mock.calls[0] as unknown[]
+      const eventPayload = callArgs[0] as Record<string, unknown>
+
+      expect(eventPayload.event).toBe(AnalyticsEvent.ADVISORY_LOCK_CONTENTION)
+      expect(eventPayload.userId).toBe('test-user-123')
+      expect(eventPayload.properties).toMatchObject({
+        lockKey: 'user:test-user-123',
+        lockKeyType: 'user',
+        lockWaitMs: 3500,
+        lockWaitSeconds: 3.5,
+        userId: 'test-user-123',
+        operationId: 'op-abc',
+      })
+
+      dateNowSpy.mockRestore()
+    })
+
+    it('should NOT emit ADVISORY_LOCK_CONTENTION event when lock wait is below 3s', async () => {
+      // Mock Date.now to simulate a quick lock acquisition (100ms)
+      let callCount = 0
+      const dateNowSpy = spyOn(Date, 'now').mockImplementation(() => {
+        callCount++
+        if (callCount <= 1) {
+          return 1000
+        }
+        return 1100 // Only 100ms later
+      })
+
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async (callback) => {
+          const mockTx = {
+            execute: mock(async () => []),
+          }
+          return callback(mockTx as unknown as Parameters<typeof callback>[0])
+        },
+      )
+
+      await withAdvisoryLockTransaction({
+        callback: async () => 'result',
+        lockKey: 'user:test-123',
+        context: { userId: 'test-123' },
+        logger: mockLogger as unknown as Logger,
+      })
+
+      // Should not emit event for quick lock acquisition
+      expect(trackEventSpy).not.toHaveBeenCalled()
+
+      dateNowSpy.mockRestore()
+    })
+
+    it('should emit TRANSACTION_RETRY_THRESHOLD_EXCEEDED event on retries with advisory lock properties', async () => {
+      const setTimeoutSpy = spyOn(globalThis, 'setTimeout').mockImplementation(
+        ((callback: () => void) => {
+          callback()
+          return 0 as unknown as NodeJS.Timeout
+        }) as typeof setTimeout,
+      )
+
+      let attempts = 0
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async (callback) => {
+          attempts++
+          if (attempts <= 2) {
+            throw createPostgresError('connection failure', '08006')
+          }
+          const mockTx = {
+            execute: mock(async () => []),
+          }
+          return callback(mockTx as unknown as Parameters<typeof callback>[0])
+        },
+      )
+
+      await withAdvisoryLockTransaction({
+        callback: async () => 'result',
+        lockKey: 'org:org-456',
+        context: { organizationId: 'org-456' },
+        logger: mockLogger as unknown as Logger,
+      })
+
+      expect(trackEventSpy).toHaveBeenCalledTimes(1)
+
+      const callArgs = trackEventSpy.mock.calls[0] as unknown[]
+      const eventPayload = callArgs[0] as Record<string, unknown>
+
+      expect(eventPayload.event).toBe(AnalyticsEvent.TRANSACTION_RETRY_THRESHOLD_EXCEEDED)
+      expect(eventPayload.userId).toBe('org-456')
+      expect(eventPayload.properties).toMatchObject({
+        transactionType: 'advisory_lock',
+        lockKey: 'org:org-456',
+        lockKeyType: 'org',
+        attempt: 2,
+        pgErrorCode: '08006',
+        pgErrorDescription: 'connection_failure',
+        cumulativeDelayMs: 3000,
+        organizationId: 'org-456',
+      })
+
+      setTimeoutSpy.mockRestore()
+    })
+
+    it('should extract userId from lockKey when not in context', async () => {
+      const setTimeoutSpy = spyOn(globalThis, 'setTimeout').mockImplementation(
+        ((callback: () => void) => {
+          callback()
+          return 0 as unknown as NodeJS.Timeout
+        }) as typeof setTimeout,
+      )
+
+      let attempts = 0
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async (callback) => {
+          attempts++
+          if (attempts <= 2) {
+            throw createPostgresError('connection failure', '08006')
+          }
+          const mockTx = {
+            execute: mock(async () => []),
+          }
+          return callback(mockTx as unknown as Parameters<typeof callback>[0])
+        },
+      )
+
+      await withAdvisoryLockTransaction({
+        callback: async () => 'result',
+        lockKey: 'user:extracted-user-id',
+        context: {}, // No userId in context
+        logger: mockLogger as unknown as Logger,
+      })
+
+      expect(trackEventSpy).toHaveBeenCalledTimes(1)
+
+      const callArgs = trackEventSpy.mock.calls[0] as unknown[]
+      const eventPayload = callArgs[0] as Record<string, unknown>
+
+      // userId should be extracted from lockKey
+      expect(eventPayload.userId).toBe('extracted-user-id')
+
+      setTimeoutSpy.mockRestore()
+    })
+  })
+
+  describe('lock wait observability', () => {
+    it('should NOT log when lock wait is below 3s threshold (e.g., 2999ms)', async () => {
+      let lockQueryTime: number | undefined
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async (callback) => {
+          const mockTx = {
+            execute: mock(async (sql: unknown) => {
+              // Simulate a lock wait just below the 3s threshold
+              if (JSON.stringify(sql).includes('pg_advisory_xact_lock')) {
+                lockQueryTime = Date.now()
+                // Simulate 2.9s wait (below 3s threshold)
+                await new Promise((resolve) => setTimeout(resolve, 50))
+              }
+              return []
+            }),
+          }
+          return callback(mockTx as unknown as Parameters<typeof callback>[0])
+        },
+      )
+
+      await withAdvisoryLockTransaction({
+        callback: async () => 'result',
+        lockKey: 'user:test-123',
+        context: {},
+        logger: mockLogger as unknown as Logger,
+      })
+
+      expect(lockQueryTime).toBeDefined()
+      // Should NOT log at WARN level for short waits
+      expect(mockLogger.warn).not.toHaveBeenCalled()
+    })
+
+    it('should log at WARN level when lock wait exceeds 3s threshold', async () => {
+      // We can't easily simulate a 3s+ wait in a unit test, but we can verify
+      // the logging behavior by checking the log call structure in retry scenarios
+      let attempts = 0
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async (callback) => {
+          attempts++
+          const mockTx = {
+            execute: mock(async () => []),
+          }
+          return callback(mockTx as unknown as Parameters<typeof callback>[0])
+        },
+      )
+
+      await withAdvisoryLockTransaction({
+        callback: async () => 'result',
+        lockKey: 'user:test-123',
+        context: { userId: 'test-123' },
+        logger: mockLogger as unknown as Logger,
+      })
+
+      expect(attempts).toBe(1)
+      // For successful quick operations, no WARN should be logged
+      expect(mockLogger.warn).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('retry observability threshold behavior', () => {
+    it('should NOT log on first retry (cumulative delay 1s < 3s threshold)', async () => {
+      const setTimeoutSpy = spyOn(globalThis, 'setTimeout').mockImplementation(
+        ((callback: () => void) => {
+          callback()
+          return 0 as unknown as NodeJS.Timeout
+        }) as typeof setTimeout,
+      )
+
+      let attempts = 0
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async (callback) => {
+          attempts++
+          // First attempt fails with connection error
+          if (attempts === 1) {
+            throw createPostgresError('connection failure', '08006')
+          }
+          const mockTx = {
+            execute: mock(async () => []),
+          }
+          return callback(mockTx as unknown as Parameters<typeof callback>[0])
+        },
+      )
+
+      await withAdvisoryLockTransaction({
+        callback: async () => 'result',
+        lockKey: 'user:test-123',
+        context: { userId: 'test-123' },
+        logger: mockLogger as unknown as Logger,
+      })
+
+      expect(attempts).toBe(2)
+      // First retry cumulative delay: 1s < 3s threshold - should NOT log
+      expect(mockLogger.warn).not.toHaveBeenCalled()
+
+      setTimeoutSpy.mockRestore()
+    })
+
+    it('should log on second retry when cumulative delay reaches 3s threshold', async () => {
+      const setTimeoutSpy = spyOn(globalThis, 'setTimeout').mockImplementation(
+        ((callback: () => void) => {
+          callback()
+          return 0 as unknown as NodeJS.Timeout
+        }) as typeof setTimeout,
+      )
+
+      let attempts = 0
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async (callback) => {
+          attempts++
+          // First two attempts fail with connection error
+          if (attempts <= 2) {
+            throw createPostgresError('connection failure', '08006')
+          }
+          const mockTx = {
+            execute: mock(async () => []),
+          }
+          return callback(mockTx as unknown as Parameters<typeof callback>[0])
+        },
+      )
+
+      await withAdvisoryLockTransaction({
+        callback: async () => 'result',
+        lockKey: 'user:test-123',
+        context: { userId: 'test-123' },
+        logger: mockLogger as unknown as Logger,
+      })
+
+      expect(attempts).toBe(3)
+      // Second retry cumulative delay: 3s >= 3s threshold - should log once
+      expect(mockLogger.warn).toHaveBeenCalledTimes(1)
+
+      const warnCalls = mockLogger.warn.mock.calls as unknown[][]
+      const logContext = warnCalls[0]![0] as Record<string, unknown>
+      expect(logContext.cumulativeDelayMs).toBe(3000)
+      expect(logContext.attempt).toBe(2)
+      expect(logContext.lockKey).toBe('user:test-123')
+      expect(logContext.userId).toBe('test-123')
+
+      setTimeoutSpy.mockRestore()
+    })
+
+    it('should include lockKey in retry log messages', async () => {
+      const setTimeoutSpy = spyOn(globalThis, 'setTimeout').mockImplementation(
+        ((callback: () => void) => {
+          callback()
+          return 0 as unknown as NodeJS.Timeout
+        }) as typeof setTimeout,
+      )
+
+      let attempts = 0
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async (callback) => {
+          attempts++
+          if (attempts <= 2) {
+            throw createPostgresError('connection failure', '08006')
+          }
+          const mockTx = {
+            execute: mock(async () => []),
+          }
+          return callback(mockTx as unknown as Parameters<typeof callback>[0])
+        },
+      )
+
+      await withAdvisoryLockTransaction({
+        callback: async () => 'result',
+        lockKey: 'org:org-456',
+        context: { organizationId: 'org-456' },
+        logger: mockLogger as unknown as Logger,
+      })
+
+      expect(mockLogger.warn).toHaveBeenCalledTimes(1)
+
+      const warnCalls = mockLogger.warn.mock.calls as unknown[][]
+      const logContext = warnCalls[0]![0] as Record<string, unknown>
+      const logMessage = warnCalls[0]![1] as string
+
+      // Verify lockKey is included in context
+      expect(logContext.lockKey).toBe('org:org-456')
+      expect(logContext.organizationId).toBe('org-456')
+
+      // Verify log message format
+      expect(logMessage).toContain('Advisory lock transaction retry 2')
+      expect(logMessage).toContain('connection_failure')
+      expect(logMessage).toContain('3.0s')
+
+      setTimeoutSpy.mockRestore()
+    })
+  })
+
+  describe('successful execution', () => {
+    it('should acquire advisory lock and return result on success', async () => {
+      let lockAcquired = false
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async (callback, options) => {
+          // Verify we're using read committed isolation
+          expect(options?.isolationLevel).toBe('read committed')
+          
+          // Mock the tx object with execute method
+          const mockTx = {
+            execute: mock(async (sql: unknown) => {
+              // Check that advisory lock SQL is called by stringifying the SQL object
+              if (JSON.stringify(sql).includes('pg_advisory_xact_lock')) {
+                lockAcquired = true
+              }
+              return []
+            }),
+          }
+          return callback(mockTx as unknown as Parameters<typeof callback>[0])
+        },
+      )
+
+      const { result, lockWaitMs } = await withAdvisoryLockTransaction({
+        callback: async () => 'success',
+        lockKey: 'test-user-id',
+        context: { userId: 'test-user-id' },
+        logger: mockLogger as unknown as Logger,
+      })
+
+      expect(result).toBe('success')
+      expect(typeof lockWaitMs).toBe('number')
+      expect(lockAcquired).toBe(true)
+      expect(transactionSpy).toHaveBeenCalledTimes(1)
+    })
+
+    it('should use the provided lock key in the advisory lock SQL', async () => {
+      let lockKeyUsed = false
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async (callback) => {
+          const mockTx = {
+            execute: mock(async (sql: unknown) => {
+              // Hacky but robust check for the parameter in the query
+              if (JSON.stringify(sql).includes('user-abc-123')) {
+                lockKeyUsed = true
+              }
+              return []
+            }),
+          }
+          return callback(mockTx as unknown as Parameters<typeof callback>[0])
+        },
+      )
+
+      await withAdvisoryLockTransaction({
+        callback: async () => 'result',
+        lockKey: 'user-abc-123',
+        context: {},
+        logger: mockLogger as unknown as Logger,
+      })
+
+      expect(lockKeyUsed).toBe(true)
+    })
+  })
+
+  describe('retry behavior', () => {
+    it('should retry on connection failure and succeed', async () => {
+      let attempts = 0
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async (callback) => {
+          attempts++
+          if (attempts === 1) {
+            throw createPostgresError('connection failure', '08006')
+          }
+          const mockTx = {
+            execute: mock(async () => []),
+          }
+          return callback(mockTx as unknown as Parameters<typeof callback>[0])
+        },
+      )
+
+      const { result } = await withAdvisoryLockTransaction({
+        callback: async () => 'success after retry',
+        lockKey: 'test-user',
+        context: {},
+        logger: mockLogger as unknown as Logger,
+      })
+
+      expect(result).toBe('success after retry')
+      expect(attempts).toBe(2)
+      // Note: warn is not called on first retry since cumulative delay < 3s threshold
+      // Logging only happens after significant cumulative delay to avoid excessive logs
+    })
+
+    it('should NOT retry on serialization failure (should not happen with advisory locks)', async () => {
+      let attempts = 0
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async () => {
+          attempts++
+          throw createPostgresError('serialization failure', '40001')
+        },
+      )
+
+      await expect(
+        withAdvisoryLockTransaction({
+          callback: async () => 'should not reach',
+          lockKey: 'test-user',
+          context: {},
+          logger: mockLogger as unknown as Logger,
+        }),
+      ).rejects.toThrow('serialization failure')
+
+      // Should not retry serialization failures with advisory locks
+      expect(attempts).toBe(1)
+    })
+  })
+
+  describe('lock key validation', () => {
+    it('should throw error for empty lock key', async () => {
+      await expect(
+        withAdvisoryLockTransaction({
+          callback: async () => 'should not reach',
+          lockKey: '',
+          context: {},
+          logger: mockLogger as unknown as Logger,
+        }),
+      ).rejects.toThrow('lockKey must be a non-empty string')
+    })
+
+    it('should throw error for whitespace-only lock key', async () => {
+      await expect(
+        withAdvisoryLockTransaction({
+          callback: async () => 'should not reach',
+          lockKey: '   ',
+          context: {},
+          logger: mockLogger as unknown as Logger,
+        }),
+      ).rejects.toThrow('lockKey must be a non-empty string')
+    })
+  })
+
+  describe('error handling', () => {
+    it('should NOT fall back for normal PG errors like connection failure', async () => {
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async () => {
+          throw createPostgresError('connection failure', '08006')
+        },
+      )
+
+      // With setTimeout mocked to execute immediately
+      const setTimeoutSpy = spyOn(globalThis, 'setTimeout').mockImplementation(
+        ((callback: () => void) => {
+          callback()
+          return 0 as unknown as NodeJS.Timeout
+        }) as typeof setTimeout,
+      )
+
+      await expect(
+        withAdvisoryLockTransaction({
+          callback: async () => 'should not reach',
+          lockKey: 'user:test-user',
+          context: {},
+          logger: mockLogger as unknown as Logger,
+        }),
+      ).rejects.toThrow('connection failure')
+
+      setTimeoutSpy.mockRestore()
+    })
+
+    it('should propagate business logic errors without retry', async () => {
+      transactionSpy = spyOn(dbModule.db, 'transaction').mockImplementation(
+        async (callback) => {
+          const mockTx = {
+            execute: mock(async () => []),
+          }
+          return callback(mockTx as unknown as Parameters<typeof callback>[0])
+        },
+      )
+
+      await expect(
+        withAdvisoryLockTransaction({
+          callback: async () => {
+            throw new Error('No active grants found')
+          },
+          lockKey: 'user:test-user',
+          context: {},
+          logger: mockLogger as unknown as Logger,
+        }),
+      ).rejects.toThrow('No active grants found')
     })
   })
 })

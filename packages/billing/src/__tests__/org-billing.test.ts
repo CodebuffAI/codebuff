@@ -52,7 +52,7 @@ const logger: Logger = {
 
 const createDbMock = (options?: {
   grants?: typeof mockGrants | any[]
-  insert?: () => { values: () => Promise<unknown> }
+  insert?: () => { values: () => { onConflictDoNothing: () => { returning: () => Promise<unknown[]> } } }
   update?: () => { set: () => { where: () => Promise<unknown> } }
 }) => {
   const { grants = mockGrants, insert, update } = options ?? {}
@@ -68,7 +68,11 @@ const createDbMock = (options?: {
     insert:
       insert ??
       (() => ({
-        values: () => Promise.resolve(),
+        values: () => ({
+          onConflictDoNothing: () => ({
+            returning: () => Promise.resolve([{ id: 'test-id' }]),
+          }),
+        }),
       })),
     update:
       update ??
@@ -77,6 +81,7 @@ const createDbMock = (options?: {
           where: () => Promise.resolve(),
         }),
       })),
+    execute: () => Promise.resolve([]),
   }
 }
 
@@ -86,7 +91,7 @@ describe('Organization Billing', () => {
       default: createDbMock(),
     }))
     await mockModule('@codebuff/internal/db/transaction', () => ({
-      withSerializableTransaction: async ({
+      withAdvisoryLockTransaction: async ({
         callback,
       }: {
         callback: (tx: any) => Promise<unknown> | unknown
@@ -251,17 +256,15 @@ describe('Organization Billing', () => {
     })
 
     it('should handle duplicate operation IDs gracefully', async () => {
-      // Mock database constraint error
+      // Mock database returning empty result for onConflictDoNothing (duplicate detected)
       await mockModule('@codebuff/internal/db', () => ({
         default: createDbMock({
           insert: () => ({
-            values: () => {
-              throw createPostgresError(
-                'Duplicate key',
-                '23505',
-                'credit_ledger_pkey',
-              )
-            },
+            values: () => ({
+              onConflictDoNothing: () => ({
+                returning: () => Promise.resolve([]), // Empty = duplicate, no insert
+              }),
+            }),
           }),
         }),
       }))
@@ -272,7 +275,7 @@ describe('Organization Billing', () => {
       const operationId = 'duplicate-operation'
       const description = 'Duplicate test'
 
-      // Should not throw, should handle gracefully
+      // Should not throw, should handle gracefully via onConflictDoNothing
       await expect(
         grantOrganizationCredits({
           organizationId,
