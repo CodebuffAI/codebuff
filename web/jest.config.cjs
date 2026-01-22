@@ -23,6 +23,7 @@ const config = {
     '<rootDir>/src/lib/__tests__/ban-conditions.test.ts',
     '<rootDir>/src/app/api/v1/.*/__tests__',
     '<rootDir>/src/app/api/agents/publish/__tests__',
+    '<rootDir>/src/app/api/healthz/__tests__',
   ],
 }
 
