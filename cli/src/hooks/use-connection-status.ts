@@ -100,16 +100,7 @@ export const useConnectionStatus = (
           consecutiveSuccesses++
           const newInterval = getNextInterval(consecutiveSuccesses)
 
-          // Log when interval changes
           if (newInterval !== currentInterval) {
-            logger.debug(
-              {
-                consecutiveSuccesses,
-                oldInterval: currentInterval,
-                newInterval,
-              },
-              'Health check interval increased',
-            )
             currentInterval = newInterval
           }
 

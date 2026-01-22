@@ -4,7 +4,6 @@ import {
   validateAndGetAgentTemplate,
   validateAgentInput,
   createAgentState,
-  logAgentSpawn,
   executeSubagent,
   extractSubagentContextParams,
 } from './spawn-agent-utils'
@@ -101,16 +100,6 @@ export const handleSpawnAgents = (async (
           parentAgentState,
           {},
         )
-
-        logAgentSpawn({
-          agentTemplate,
-          agentType,
-          agentId: subAgentState.agentId,
-          parentId: subAgentState.parentId,
-          prompt,
-          spawnParams,
-          logger,
-        })
 
         // Extract common context params to avoid bugs from spreading all params
         const contextParams = extractSubagentContextParams(params)

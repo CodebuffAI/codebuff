@@ -166,10 +166,6 @@ export const useGravityAd = (): GravityAdState => {
       const data = await response.json()
       const ad = data.ad as AdResponse | null
 
-      logger.info(
-        { ad },
-        '[gravity] Received ad response',
-      )
       return ad
     } catch (err) {
       logger.error({ err }, '[gravity] Failed to fetch ad')

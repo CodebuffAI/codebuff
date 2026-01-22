@@ -1,7 +1,6 @@
 import {
   validateAndGetAgentTemplate,
   validateAgentInput,
-  logAgentSpawn,
   executeSubagent,
   createAgentState,
   extractSubagentContextParams,
@@ -108,17 +107,6 @@ export const handleSpawnAgentInline = (async (
       inputSchema: tool.inputSchema as {},
     })),
   }
-
-  logAgentSpawn({
-    agentTemplate: inlineTemplate,
-    agentType,
-    agentId: childAgentState.agentId,
-    parentId: childAgentState.parentId,
-    prompt,
-    spawnParams,
-    inline: true,
-    logger,
-  })
 
   // Extract common context params to avoid bugs from spreading all params
   const contextParams = extractSubagentContextParams(params)
