@@ -8,7 +8,7 @@ export function generateStaticParams(): Array<{ category: string }> {
   const categories = new Set(
     allDocs
       .filter((doc) => !doc.slug.startsWith('_'))
-      .map((doc) => doc.category)
+      .map((doc) => doc.category),
   )
   return Array.from(categories).map((category) => ({ category }))
 }

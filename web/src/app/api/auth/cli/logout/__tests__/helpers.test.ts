@@ -15,11 +15,15 @@ describe('logout/_helpers', () => {
 
     describe('when fingerprintMatchFound is false', () => {
       test('returns true when stored hash matches provided hash', () => {
-        expect(shouldUnclaim(false, 'matching-hash', 'matching-hash')).toBe(true)
+        expect(shouldUnclaim(false, 'matching-hash', 'matching-hash')).toBe(
+          true,
+        )
       })
 
       test('returns false when stored hash does not match provided hash', () => {
-        expect(shouldUnclaim(false, 'stored-hash', 'different-hash')).toBe(false)
+        expect(shouldUnclaim(false, 'stored-hash', 'different-hash')).toBe(
+          false,
+        )
       })
 
       test('returns false when stored hash is null', () => {

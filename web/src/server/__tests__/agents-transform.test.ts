@@ -1,8 +1,5 @@
 import { describe, it, expect } from '@jest/globals'
-import {
-  buildAgentsData,
-  type AgentRow,
-} from '../agents-transform'
+import { buildAgentsData, type AgentRow } from '../agents-transform'
 
 describe('buildAgentsData', () => {
   it('dedupes by latest and merges metrics + sorts by weekly_spent', () => {
@@ -258,4 +255,3 @@ describe('buildAgentsData', () => {
     })
   })
 })
-

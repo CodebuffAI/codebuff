@@ -17,14 +17,18 @@ async function main() {
     const agents = await fetchAgentsWithMetrics()
     const duration = Date.now() - startTime
 
-    console.log(`[Prebuild] Successfully fetched ${agents.length} agents in ${duration}ms`)
+    console.log(
+      `[Prebuild] Successfully fetched ${agents.length} agents in ${duration}ms`,
+    )
     console.log('[Prebuild] Data pipeline validated - ready for deployment')
 
     process.exit(0)
   } catch (error) {
     console.error('[Prebuild] Failed to fetch agents data:', error)
     // Don't fail the build - health check will warm cache at runtime
-    console.error('[Prebuild] WARNING: Data fetch failed, relying on runtime health check')
+    console.error(
+      '[Prebuild] WARNING: Data fetch failed, relying on runtime health check',
+    )
     process.exit(0)
   }
 }

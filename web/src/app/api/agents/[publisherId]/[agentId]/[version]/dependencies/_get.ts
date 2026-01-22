@@ -32,17 +32,14 @@ interface PendingLookup {
 /**
  * Creates a batching agent lookup function that automatically batches
  * concurrent requests into a single database query.
- * 
+ *
  * This solves the N+1 query problem: when the tree builder processes siblings
  * in parallel with Promise.all, all their lookupAgent calls will be queued
  * and executed in a single batch query.
- * 
+ *
  * Query reduction: ~2N queries -> ~maxDepth queries (typically ≤6 total)
  */
-function createBatchingAgentLookup(
-  publisherSet: Set<string>,
-  logger: Logger,
-) {
+function createBatchingAgentLookup(publisherSet: Set<string>, logger: Logger) {
   const cache = new Map<string, AgentLookupResult | null>()
   const pending: PendingLookup[] = []
   let batchScheduled = false
@@ -95,13 +92,16 @@ function createBatchingAgentLookup(
       // Create lookup map for quick access
       const agentMap = new Map<string, typeof schema.agentConfig.$inferSelect>()
       for (const agent of agents) {
-        agentMap.set(`${agent.publisher_id}:${agent.id}:${agent.version}`, agent)
+        agentMap.set(
+          `${agent.publisher_id}:${agent.id}:${agent.version}`,
+          agent,
+        )
       }
 
       // Resolve all pending requests
       for (const req of batch) {
         const cacheKey = `${req.publisher}/${req.agentId}@${req.version}`
-        
+
         // Resolve duplicates from cache
         if (cache.has(cacheKey)) {
           req.resolve(cache.get(cacheKey) ?? null)

@@ -24,7 +24,7 @@ async function shutdown(exitCode: number = 0) {
   isShuttingDown = true
 
   console.log('Shutting down Discord bot...')
-  
+
   if (discordClient) {
     try {
       discordClient.destroy()
@@ -33,12 +33,12 @@ async function shutdown(exitCode: number = 0) {
     }
     discordClient = null
   }
-  
+
   if (lockHandle) {
     await lockHandle.release()
     lockHandle = null
   }
-  
+
   process.exit(exitCode)
 }
 
@@ -51,7 +51,9 @@ async function main() {
 
   while (!isShuttingDown) {
     attemptCount++
-    console.log(`Attempting to acquire Discord bot lock (attempt ${attemptCount})...`)
+    console.log(
+      `Attempting to acquire Discord bot lock (attempt ${attemptCount})...`,
+    )
 
     let acquired = false
     let handle: LockHandle | null = null
@@ -63,14 +65,17 @@ async function main() {
       consecutiveErrors = 0 // Reset on successful DB connection
     } catch (error) {
       consecutiveErrors++
-      console.error(`Error acquiring lock (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}):`, error)
-      
+      console.error(
+        `Error acquiring lock (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}):`,
+        error,
+      )
+
       if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
         console.error('Too many consecutive errors, exiting...')
         await shutdown(1)
         return
       }
-      
+
       await sleep(LOCK_RETRY_INTERVAL_MS)
       continue
     }
@@ -112,12 +117,12 @@ async function main() {
       return
     } catch (error) {
       console.error('Failed to start Discord bot:', error)
-      
+
       // Release the lock so another instance can try
       await handle.release()
       lockHandle = null
       discordClient = null
-      
+
       // Continue polling - maybe another instance will have better luck,
       // or maybe the issue is transient (Discord outage)
       console.log(`Will retry in ${LOCK_RETRY_INTERVAL_MS / 1000} seconds...`)

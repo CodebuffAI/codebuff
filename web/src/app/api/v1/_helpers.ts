@@ -10,7 +10,10 @@ import type {
   GetUserUsageDataFn,
 } from '@codebuff/common/types/contracts/billing'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
-import type { Logger, LoggerWithContextFn } from '@codebuff/common/types/contracts/logger'
+import type {
+  Logger,
+  LoggerWithContextFn,
+} from '@codebuff/common/types/contracts/logger'
 import type { NextRequest } from 'next/server'
 
 export type HandlerResult<T> =

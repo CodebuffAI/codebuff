@@ -11,7 +11,10 @@ import { getDocsByCategory } from '@/lib/docs'
 import { allDocs } from '.contentlayer/generated'
 
 // Generate static params for all doc pages at build time
-export function generateStaticParams(): Array<{ category: string; slug: string }> {
+export function generateStaticParams(): Array<{
+  category: string
+  slug: string
+}> {
   return allDocs
     .filter((doc) => !doc.slug.startsWith('_'))
     .map((doc) => ({
@@ -39,8 +42,7 @@ const FAQ_ITEMS = [
   },
   {
     question: 'Is Codebuff open source?',
-    answer:
-      "Yes. It's Apache 2.0 at github.com/CodebuffAI/codebuff.",
+    answer: "Yes. It's Apache 2.0 at github.com/CodebuffAI/codebuff.",
   },
   {
     question: 'Do you store my data?',
@@ -205,7 +207,11 @@ const DocNavigation = ({
   )
 }
 
-export default async function DocPage({ params }: { params: Promise<{ category: string; slug: string }> }) {
+export default async function DocPage({
+  params,
+}: {
+  params: Promise<{ category: string; slug: string }>
+}) {
   const { category, slug } = await params
   const docs = getDocsByCategory(category)
   const doc = docs.find((d: Doc) => d.slug === slug)

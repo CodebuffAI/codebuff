@@ -107,12 +107,9 @@ function SetHandleForm({
 
 export default function AffiliatesClient() {
   const { status: sessionStatus } = useSession()
-  const [
-    userProfile,
-    setUserProfile,
-  ] = useState<{ handle: string | null; referralCode: string | null } | undefined>(
-    undefined,
-  )
+  const [userProfile, setUserProfile] = useState<
+    { handle: string | null; referralCode: string | null } | undefined
+  >(undefined)
   const [fetchError, setFetchError] = useState<string | null>(null)
 
   const fetchUserProfile = useCallback(() => {

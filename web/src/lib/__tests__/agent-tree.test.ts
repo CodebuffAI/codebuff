@@ -9,7 +9,9 @@ import {
 } from '../agent-tree'
 
 describe('buildAgentTree', () => {
-  const createMockLookup = (agents: Record<string, AgentLookupResult | null>) => {
+  const createMockLookup = (
+    agents: Record<string, AgentLookupResult | null>,
+  ) => {
     return async (
       publisher: string,
       agentId: string,
@@ -111,7 +113,9 @@ describe('buildAgentTree', () => {
     expect(tree.root.children).toHaveLength(1)
     expect(tree.root.children[0].children).toHaveLength(1)
     expect(tree.root.children[0].children[0].children).toHaveLength(1)
-    expect(tree.root.children[0].children[0].children[0].displayName).toBe('Level 3')
+    expect(tree.root.children[0].children[0].children[0].displayName).toBe(
+      'Level 3',
+    )
     expect(tree.totalAgents).toBe(4)
     expect(tree.maxDepth).toBe(3)
   })
@@ -259,7 +263,9 @@ describe('buildAgentTree', () => {
 })
 
 describe('generateMermaidDiagram', () => {
-  const createSimpleTree = (overrides: Partial<AgentTreeNode> = {}): AgentTreeData => ({
+  const createSimpleTree = (
+    overrides: Partial<AgentTreeNode> = {},
+  ): AgentTreeData => ({
     root: {
       fullId: 'codebuff/root@1.0.0',
       agentId: 'root',

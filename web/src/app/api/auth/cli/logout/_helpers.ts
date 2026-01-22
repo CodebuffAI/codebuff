@@ -3,5 +3,7 @@ export function shouldUnclaim(
   storedHash: string | null | undefined,
   providedHash: string,
 ): boolean {
-  return fingerprintMatchFound || (storedHash != null && storedHash === providedHash)
+  return (
+    fingerprintMatchFound || (storedHash != null && storedHash === providedHash)
+  )
 }

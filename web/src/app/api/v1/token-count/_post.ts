@@ -258,7 +258,10 @@ export function convertContentToAnthropic(
       // Handle image content - the image field can be base64 data or a URL string
       const imageData = part.image
       if (typeof imageData === 'string' && imageData) {
-        if (imageData.startsWith('http://') || imageData.startsWith('https://')) {
+        if (
+          imageData.startsWith('http://') ||
+          imageData.startsWith('https://')
+        ) {
           // URL-based image
           anthropicContent.push({
             type: 'image',

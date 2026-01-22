@@ -59,15 +59,11 @@ if (isBun) {
 
     if (html.match(/Copy: .*--agent/)) {
       // SSR already provided agents; hydration fetch is not expected.
-      await expect(
-        page.getByTitle(/Copy: .*--agent/).first(),
-      ).toBeVisible()
+      await expect(page.getByTitle(/Copy: .*--agent/).first()).toBeVisible()
       return
     }
 
     // Expect the agent card to render after hydration by checking the copy button title
-    await expect(
-      page.getByTitle(/Copy: .*--agent/).first(),
-    ).toBeVisible()
+    await expect(page.getByTitle(/Copy: .*--agent/).first()).toBeVisible()
   })
 }

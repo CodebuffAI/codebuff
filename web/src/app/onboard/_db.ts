@@ -61,7 +61,9 @@ export async function checkFingerprintConflict(
   return { hasConflict: false }
 }
 
-export async function getSessionTokenFromCookies(): Promise<string | undefined> {
+export async function getSessionTokenFromCookies(): Promise<
+  string | undefined
+> {
   const cookieStore = await cookies()
   return (
     cookieStore.get('authjs.session-token')?.value ??

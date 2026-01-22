@@ -284,7 +284,9 @@ export function generateMermaidDiagram(tree: AgentTreeData): string {
   lines.push('  %% Styling')
   lines.push('  classDef default fill:#1e293b,stroke:#475569,color:#e2e8f0')
   lines.push('  classDef root fill:#3b82f6,stroke:#1d4ed8,color:#fff')
-  lines.push('  classDef cyclic fill:#78350f,stroke:#d97706,color:#fef3c7,stroke-dasharray: 5 5')
+  lines.push(
+    '  classDef cyclic fill:#78350f,stroke:#d97706,color:#fef3c7,stroke-dasharray: 5 5',
+  )
   lines.push('  classDef unavailable fill:#374151,stroke:#4b5563,color:#9ca3af')
 
   return lines.join('\n')
@@ -302,7 +304,9 @@ export interface NodeData {
   childCount: number
 }
 
-export function generateNodeDataMap(tree: AgentTreeData): Map<string, NodeData> {
+export function generateNodeDataMap(
+  tree: AgentTreeData,
+): Map<string, NodeData> {
   const nodeMap = new Map<string, NodeData>()
 
   function traverse(node: AgentTreeNode) {

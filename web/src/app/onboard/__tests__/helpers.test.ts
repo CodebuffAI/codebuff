@@ -69,8 +69,17 @@ describe('onboard/_helpers', () => {
     const testExpiresAt = '1704067200000'
 
     test('returns valid=true when hash matches', () => {
-      const expectedHash = genAuthCode(testFingerprintId, testExpiresAt, testSecret)
-      const result = validateAuthCode(expectedHash, testFingerprintId, testExpiresAt, testSecret)
+      const expectedHash = genAuthCode(
+        testFingerprintId,
+        testExpiresAt,
+        testSecret,
+      )
+      const result = validateAuthCode(
+        expectedHash,
+        testFingerprintId,
+        testExpiresAt,
+        testSecret,
+      )
 
       expect(result.valid).toBe(true)
       expect(result.expectedHash).toBe(expectedHash)
@@ -78,29 +87,61 @@ describe('onboard/_helpers', () => {
 
     test('returns valid=false when hash does not match', () => {
       const wrongHash = 'wrong-hash-value'
-      const result = validateAuthCode(wrongHash, testFingerprintId, testExpiresAt, testSecret)
+      const result = validateAuthCode(
+        wrongHash,
+        testFingerprintId,
+        testExpiresAt,
+        testSecret,
+      )
 
       expect(result.valid).toBe(false)
       expect(result.expectedHash).not.toBe(wrongHash)
     })
 
     test('returns valid=false when secret is different', () => {
-      const hashWithDifferentSecret = genAuthCode(testFingerprintId, testExpiresAt, 'different-secret')
-      const result = validateAuthCode(hashWithDifferentSecret, testFingerprintId, testExpiresAt, testSecret)
+      const hashWithDifferentSecret = genAuthCode(
+        testFingerprintId,
+        testExpiresAt,
+        'different-secret',
+      )
+      const result = validateAuthCode(
+        hashWithDifferentSecret,
+        testFingerprintId,
+        testExpiresAt,
+        testSecret,
+      )
 
       expect(result.valid).toBe(false)
     })
 
     test('returns valid=false when fingerprintId is different', () => {
-      const hashWithDifferentFp = genAuthCode('different-fp', testExpiresAt, testSecret)
-      const result = validateAuthCode(hashWithDifferentFp, testFingerprintId, testExpiresAt, testSecret)
+      const hashWithDifferentFp = genAuthCode(
+        'different-fp',
+        testExpiresAt,
+        testSecret,
+      )
+      const result = validateAuthCode(
+        hashWithDifferentFp,
+        testFingerprintId,
+        testExpiresAt,
+        testSecret,
+      )
 
       expect(result.valid).toBe(false)
     })
 
     test('returns valid=false when expiresAt is different', () => {
-      const hashWithDifferentExpiry = genAuthCode(testFingerprintId, '9999999999999', testSecret)
-      const result = validateAuthCode(hashWithDifferentExpiry, testFingerprintId, testExpiresAt, testSecret)
+      const hashWithDifferentExpiry = genAuthCode(
+        testFingerprintId,
+        '9999999999999',
+        testSecret,
+      )
+      const result = validateAuthCode(
+        hashWithDifferentExpiry,
+        testFingerprintId,
+        testExpiresAt,
+        testSecret,
+      )
 
       expect(result.valid).toBe(false)
     })
@@ -108,19 +149,33 @@ describe('onboard/_helpers', () => {
     test('hash is deterministic for same inputs', () => {
       const hash1 = genAuthCode(testFingerprintId, testExpiresAt, testSecret)
       const hash2 = genAuthCode(testFingerprintId, testExpiresAt, testSecret)
-      
+
       expect(hash1).toBe(hash2)
-      
-      const result = validateAuthCode(hash1, testFingerprintId, testExpiresAt, testSecret)
+
+      const result = validateAuthCode(
+        hash1,
+        testFingerprintId,
+        testExpiresAt,
+        testSecret,
+      )
       expect(result.valid).toBe(true)
     })
 
     test('returns the expected hash for verification', () => {
       const wrongHash = 'attacker-supplied-hash'
-      const result = validateAuthCode(wrongHash, testFingerprintId, testExpiresAt, testSecret)
+      const result = validateAuthCode(
+        wrongHash,
+        testFingerprintId,
+        testExpiresAt,
+        testSecret,
+      )
 
       // The expectedHash should be what we'd generate for these inputs
-      const actualExpected = genAuthCode(testFingerprintId, testExpiresAt, testSecret)
+      const actualExpected = genAuthCode(
+        testFingerprintId,
+        testExpiresAt,
+        testSecret,
+      )
       expect(result.expectedHash).toBe(actualExpected)
     })
   })

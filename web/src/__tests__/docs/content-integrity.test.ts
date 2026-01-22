@@ -10,7 +10,14 @@ import path from 'path'
 import matter from 'gray-matter'
 
 const CONTENT_DIR = path.join(process.cwd(), 'src/content')
-const VALID_SECTIONS = ['help', 'tips', 'advanced', 'agents', 'walkthroughs', 'case-studies']
+const VALID_SECTIONS = [
+  'help',
+  'tips',
+  'advanced',
+  'agents',
+  'walkthroughs',
+  'case-studies',
+]
 
 // Get all MDX files recursively
 function getMdxFiles(dir: string): string[] {
@@ -38,7 +45,12 @@ function extractInternalLinks(content: string): string[] {
   while ((match = linkRegex.exec(content)) !== null) {
     const url = match[2]
     // Only collect internal links (starting with / or relative paths to docs)
-    if (url.startsWith('/docs/') || url.startsWith('/publishers/') || url.startsWith('/pricing') || url.startsWith('/store')) {
+    if (
+      url.startsWith('/docs/') ||
+      url.startsWith('/publishers/') ||
+      url.startsWith('/pricing') ||
+      url.startsWith('/store')
+    ) {
       links.push(url)
     }
   }
@@ -63,12 +75,12 @@ describe('Documentation Content Integrity', () => {
         mdxFiles.map((f) => {
           const relative = path.relative(CONTENT_DIR, f)
           return relative.split(path.sep)[0]
-        })
+        }),
       )
 
       // At least some expected sections should exist
       const hasExpectedSections = VALID_SECTIONS.some((section) =>
-        categories.has(section)
+        categories.has(section),
       )
       expect(hasExpectedSections).toBe(true)
     })
@@ -76,7 +88,7 @@ describe('Documentation Content Integrity', () => {
 
   describe('Frontmatter Validation', () => {
     it.each(
-      getMdxFiles(CONTENT_DIR).map((f) => [path.relative(CONTENT_DIR, f), f])
+      getMdxFiles(CONTENT_DIR).map((f) => [path.relative(CONTENT_DIR, f), f]),
     )('%s has valid frontmatter', (relativePath, filePath) => {
       const content = fs.readFileSync(filePath as string, 'utf-8')
       const { data: frontmatter } = matter(content)
@@ -120,7 +132,9 @@ describe('Documentation Content Integrity', () => {
 
         // Check for duplicates
         if (slugsByCategory[category].includes(slug)) {
-          throw new Error(`Duplicate slug "${slug}" found in category "${category}"`)
+          throw new Error(
+            `Duplicate slug "${slug}" found in category "${category}"`,
+          )
         }
 
         slugsByCategory[category].push(slug)
@@ -148,7 +162,7 @@ describe('Documentation Content Integrity', () => {
     })
 
     it.each(
-      getMdxFiles(CONTENT_DIR).map((f) => [path.relative(CONTENT_DIR, f), f])
+      getMdxFiles(CONTENT_DIR).map((f) => [path.relative(CONTENT_DIR, f), f]),
     )('%s has valid internal doc links', (relativePath, filePath) => {
       const content = fs.readFileSync(filePath as string, 'utf-8')
       const links = extractInternalLinks(content)
@@ -181,7 +195,7 @@ describe('Documentation Content Integrity', () => {
 
   describe('Content Quality', () => {
     it.each(
-      getMdxFiles(CONTENT_DIR).map((f) => [path.relative(CONTENT_DIR, f), f])
+      getMdxFiles(CONTENT_DIR).map((f) => [path.relative(CONTENT_DIR, f), f]),
     )('%s has non-empty content', (relativePath, filePath) => {
       const content = fs.readFileSync(filePath as string, 'utf-8')
       const { content: mdxContent } = matter(content)
@@ -191,7 +205,7 @@ describe('Documentation Content Integrity', () => {
     })
 
     it.each(
-      getMdxFiles(CONTENT_DIR).map((f) => [path.relative(CONTENT_DIR, f), f])
+      getMdxFiles(CONTENT_DIR).map((f) => [path.relative(CONTENT_DIR, f), f]),
     )('%s has a heading', (relativePath, filePath) => {
       const content = fs.readFileSync(filePath as string, 'utf-8')
       const { content: mdxContent } = matter(content)

@@ -11,7 +11,7 @@ test.describe('Documentation Pages', { tag: '@docs' }, () => {
   test.describe('Doc Landing Page', () => {
     test('loads the docs index page', async ({ page }) => {
       await page.goto('/docs')
-      
+
       // Should have documentation content or redirect to first doc
       await expect(page).toHaveURL(/\/docs/)
     })
@@ -57,7 +57,9 @@ test.describe('Documentation Pages', { tag: '@docs' }, () => {
 
         // Click and verify navigation
         await firstLink.click()
-        await expect(page).toHaveURL(new RegExp(href!.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+        await expect(page).toHaveURL(
+          new RegExp(href!.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+        )
       }
     })
   })
@@ -67,7 +69,9 @@ test.describe('Documentation Pages', { tag: '@docs' }, () => {
       await page.goto('/docs/help/quick-start')
 
       // Look for next button
-      const nextButton = page.locator('a:has-text("Next"), a[href*="/docs/"]:has(svg)')
+      const nextButton = page.locator(
+        'a:has-text("Next"), a[href*="/docs/"]:has(svg)',
+      )
       const count = await nextButton.count()
 
       if (count > 0) {
@@ -107,11 +111,15 @@ test.describe('Documentation Pages', { tag: '@docs' }, () => {
       await expect(heading).toContainText(/best practices/i)
     })
 
-    test('agents overview renders mermaid diagrams or code', async ({ page }) => {
+    test('agents overview renders mermaid diagrams or code', async ({
+      page,
+    }) => {
       await page.goto('/docs/agents/overview')
 
       // Should have either mermaid diagram or code block for the flowchart
-      const mermaidOrCode = page.locator('.mermaid, pre:has-text("flowchart"), [class*="mermaid"]')
+      const mermaidOrCode = page.locator(
+        '.mermaid, pre:has-text("flowchart"), [class*="mermaid"]',
+      )
       const count = await mermaidOrCode.count()
 
       // Page should at least render without errors - mermaid may or may not render in test env
@@ -128,7 +136,9 @@ test.describe('Documentation Pages', { tag: '@docs' }, () => {
       await page.goto('/docs/help/quick-start')
 
       // Should have a mobile menu trigger (bottom sheet or hamburger)
-      const mobileMenu = page.locator('button:has(svg), [class*="lg:hidden"]').first()
+      const mobileMenu = page
+        .locator('button:has(svg), [class*="lg:hidden"]')
+        .first()
       await expect(mobileMenu).toBeVisible()
     })
   })
@@ -142,7 +152,9 @@ test.describe('Documentation Pages', { tag: '@docs' }, () => {
       expect(h1Count).toBeGreaterThanOrEqual(1)
 
       // h1 should come before h2s in the main content
-      const headings = await page.locator('article h1, article h2, article h3').allTextContents()
+      const headings = await page
+        .locator('article h1, article h2, article h3')
+        .allTextContents()
       expect(headings.length).toBeGreaterThan(0)
     })
 

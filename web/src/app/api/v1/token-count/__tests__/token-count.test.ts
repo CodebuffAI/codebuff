@@ -447,9 +447,7 @@ describe('formatToolContent', () => {
   })
 
   it('formats array content with json parts', () => {
-    const content = [
-      { type: 'json', value: { key: 'value' } },
-    ]
+    const content = [{ type: 'json', value: { key: 'value' } }]
     expect(formatToolContent(content)).toBe('{"key":"value"}')
   })
 

@@ -22,20 +22,24 @@ function isValidAgentIdComponent(value: string): boolean {
   return SAFE_ID_PATTERN.test(value) && value.length > 0 && value.length <= 128
 }
 
-function parseAgentIdFromToken(tokenContent: string): { publisher: string; agentId: string; version: string } | null {
+function parseAgentIdFromToken(
+  tokenContent: string,
+): { publisher: string; agentId: string; version: string } | null {
   const match = tokenContent.match(AGENT_ID_PATTERN)
   if (match) {
     const publisher = match[1]
     const agentId = match[2]
     const version = match[3]
-    
+
     // Validate all components contain only safe characters
-    if (!isValidAgentIdComponent(publisher) || 
-        !isValidAgentIdComponent(agentId) || 
-        !isValidAgentIdComponent(version)) {
+    if (
+      !isValidAgentIdComponent(publisher) ||
+      !isValidAgentIdComponent(agentId) ||
+      !isValidAgentIdComponent(version)
+    ) {
       return null
     }
-    
+
     return { publisher, agentId, version }
   }
   return null
@@ -181,13 +185,16 @@ export function TypeScriptViewer({
                 <div key={i} {...lineProps}>
                   {line.map((token, tokenIndex) => {
                     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                    const { key: _tokenKey, ...tokenProps } = getTokenProps({ token, key: tokenIndex })
-                    
+                    const { key: _tokenKey, ...tokenProps } = getTokenProps({
+                      token,
+                      key: tokenIndex,
+                    })
+
                     // Check if this token is an agent ID string
-                    const agentInfo = token.types.includes('string') 
+                    const agentInfo = token.types.includes('string')
                       ? parseAgentIdFromToken(token.content)
                       : null
-                    
+
                     if (agentInfo) {
                       const agentUrl = `/publishers/${agentInfo.publisher}/agents/${agentInfo.agentId}/${agentInfo.version}`
                       return (
@@ -215,7 +222,7 @@ export function TypeScriptViewer({
                         </span>
                       )
                     }
-                    
+
                     return <span key={tokenIndex} {...tokenProps} />
                   })}
                 </div>

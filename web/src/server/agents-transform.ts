@@ -327,34 +327,36 @@ export function buildAgentsBasicInfo(params: {
     }
   })
 
-  const result = Array.from(latestAgents.values()).map(({ agent, agentName }) => {
-    // Parse tags if they came as a JSON string from the database
-    let tags: string[] = []
-    if (agent.tags) {
-      if (typeof agent.tags === 'string') {
-        try {
-          tags = JSON.parse(agent.tags)
-        } catch {
-          tags = []
+  const result = Array.from(latestAgents.values()).map(
+    ({ agent, agentName }) => {
+      // Parse tags if they came as a JSON string from the database
+      let tags: string[] = []
+      if (agent.tags) {
+        if (typeof agent.tags === 'string') {
+          try {
+            tags = JSON.parse(agent.tags)
+          } catch {
+            tags = []
+          }
+        } else {
+          tags = agent.tags
         }
-      } else {
-        tags = agent.tags
       }
-    }
 
-    return {
-      id: agent.id,
-      name: agentName,
-      description: agent.description || undefined,
-      publisher: agent.publisher,
-      version: agent.version,
-      created_at:
-        agent.created_at instanceof Date
-          ? agent.created_at.toISOString()
-          : (agent.created_at as string),
-      tags,
-    }
-  })
+      return {
+        id: agent.id,
+        name: agentName,
+        description: agent.description || undefined,
+        publisher: agent.publisher,
+        version: agent.version,
+        created_at:
+          agent.created_at instanceof Date
+            ? agent.created_at.toISOString()
+            : (agent.created_at as string),
+        tags,
+      }
+    },
+  )
 
   // Sort alphabetically by name as default (metrics-based sorting happens client-side)
   result.sort((a, b) => a.name.localeCompare(b.name))

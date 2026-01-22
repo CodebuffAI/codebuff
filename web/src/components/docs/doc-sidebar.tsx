@@ -75,7 +75,11 @@ const referenceSections = [
 ]
 
 // Flat list of all sections for compatibility with layout.tsx
-export const sections = [...learnSections, ...buildSections, ...referenceSections]
+export const sections = [
+  ...learnSections,
+  ...buildSections,
+  ...referenceSections,
+]
 
 export function DocSidebar({
   className,
@@ -110,9 +114,7 @@ export function DocSidebar({
     <nav className={cn('space-y-4', className)}>
       {sections.map((section) => (
         <div key={section.href} className="space-y-1">
-          <div
-            className="block px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground/60 select-none"
-          >
+          <div className="block px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground/60 select-none">
             {section.title}
           </div>
           {section.subsections && section.subsections.length > 0 && (
@@ -123,8 +125,7 @@ export function DocSidebar({
                   href={subsection.href}
                   target={section.external ? '_blank' : undefined}
                   onClick={() => {
-                    const sheet =
-                      document.querySelector('[data-state="open"]')
+                    const sheet = document.querySelector('[data-state="open"]')
                     if (sheet) sheet.setAttribute('data-state', 'closed')
                     onNavigate?.()
                   }}

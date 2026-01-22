@@ -78,10 +78,7 @@ export async function GET(
 
     return NextResponse.json({ publishers: response })
   } catch (error) {
-    logger.error(
-      { error },
-      'Error fetching organization publishers',
-    )
+    logger.error({ error }, 'Error fetching organization publishers')
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 },

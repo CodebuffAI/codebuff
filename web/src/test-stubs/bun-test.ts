@@ -8,11 +8,10 @@ import {
   test,
 } from '@jest/globals'
 
-type MockFactory = <T extends (...args: any[]) => any>(
-  impl?: T,
-) => jest.Mock<T>
+type MockFactory = <T extends (...args: any[]) => any>(impl?: T) => jest.Mock<T>
 
-const mock = ((impl?: (...args: any[]) => any) => jest.fn(impl)) as MockFactory & {
+const mock = ((impl?: (...args: any[]) => any) =>
+  jest.fn(impl)) as MockFactory & {
   restore: () => void
   clearAllMocks: () => void
   module: (moduleName: string, factory: () => unknown) => void

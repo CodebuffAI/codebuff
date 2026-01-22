@@ -40,7 +40,6 @@ interface BigQueryTimestamp {
   value?: string | number
 }
 
-
 const STATIC_SESSION_ID = 'relabel-trace-api'
 const DEFAULT_RELABEL_LIMIT = 10
 const FULL_FILE_CONTEXT_SUFFIX = '-with-full-file-context'
@@ -115,9 +114,10 @@ export async function POST(req: NextRequest) {
   const apiKey = getApiKeyFromRequest(req)
   if (!apiKey) {
     return NextResponse.json(
-      { 
+      {
         error: 'API key required',
-        details: 'Provide your API key via Authorization header (Bearer token).',
+        details:
+          'Provide your API key via Authorization header (Bearer token).',
         hint: 'Visit /usage in the web app to create an API key.',
       },
       { status: 401 },
@@ -317,7 +317,7 @@ async function relabelUsingFullFilesForUser(params: {
   }
 
   const results = await Promise.allSettled(relabelPromises)
-  
+
   // Log any failures from parallel relabeling
   for (const result of results) {
     if (result.status === 'rejected') {

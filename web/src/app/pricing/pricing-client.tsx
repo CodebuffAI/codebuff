@@ -95,8 +95,12 @@ function ClaudeSubscriptionIllustration() {
               <Zap className="h-4 w-4 text-green-400" />
             </div>
             <div className="text-left">
-              <div className="text-sm font-medium text-white">Save on credits</div>
-              <div className="text-xs text-white/60">Use your subscription for Claude model requests</div>
+              <div className="text-sm font-medium text-white">
+                Save on credits
+              </div>
+              <div className="text-xs text-white/60">
+                Use your subscription for Claude model requests
+              </div>
             </div>
           </div>
 
@@ -105,8 +109,12 @@ function ClaudeSubscriptionIllustration() {
               <Terminal className="h-4 w-4 text-blue-400" />
             </div>
             <div className="text-left">
-              <div className="text-sm font-medium text-white">Simple CLI setup</div>
-              <div className="text-xs text-white/60">Connect with one command</div>
+              <div className="text-sm font-medium text-white">
+                Simple CLI setup
+              </div>
+              <div className="text-xs text-white/60">
+                Connect with one command
+              </div>
             </div>
           </div>
         </div>
@@ -114,8 +122,12 @@ function ClaudeSubscriptionIllustration() {
         {/* Code snippet */}
         <div className="w-full mt-2 bg-black/50 rounded-lg p-3 border border-white/10 font-mono text-left">
           <div className="text-green-400 text-xs">$ codebuff</div>
-          <div className="text-white/70 text-xs mt-1">{'>'} /connect:claude</div>
-          <div className="text-green-400/80 text-xs mt-1">✓ Connected to Claude subscription</div>
+          <div className="text-white/70 text-xs mt-1">
+            {'>'} /connect:claude
+          </div>
+          <div className="text-green-400/80 text-xs mt-1">
+            ✓ Connected to Claude subscription
+          </div>
         </div>
       </div>
     </div>

@@ -243,7 +243,9 @@ export function CodeDemo({ children, language, rawContent }: CodeDemoProps) {
                     <div key={i} {...lineProps}>
                       {line.map((token, tokenIndex) => {
                         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                        const { key: _tokenKey, ...tokenProps } = getTokenProps({ token, key: tokenIndex })
+                        const { key: _tokenKey, ...tokenProps } = getTokenProps(
+                          { token, key: tokenIndex },
+                        )
                         // Override colors for special languages in render loop
                         const color = tokenColor || tokenProps.style?.color
 
