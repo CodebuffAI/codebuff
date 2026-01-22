@@ -455,3 +455,17 @@ export const getCachedAgentsMetrics = unstable_cache(
     tags: ['agents', 'metrics'],
   },
 )
+
+// ============================================================================
+// LIGHTWEIGHT COUNT - For healthz endpoint, avoids unstable_cache 2MB limit
+// ============================================================================
+
+export const getAgentCount = async (): Promise<number> => {
+  const result = await db
+    .select({
+      count: sql<number>`COUNT(*)`,
+    })
+    .from(schema.agentConfig)
+
+  return Number(result[0]?.count ?? 0)
+}
