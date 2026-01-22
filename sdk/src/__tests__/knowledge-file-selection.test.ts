@@ -333,3 +333,131 @@ describe('selectKnowledgeFilePaths', () => {
     expect(result).toContain('lib/CLAUDE.md')
   })
 })
+
+describe('selectKnowledgeFilePaths - pattern files (*.knowledge.md)', () => {
+  test('includes ALL *.knowledge.md pattern files from same directory', () => {
+    const files = [
+      'src/auth.knowledge.md',
+      'src/api.knowledge.md',
+      'src/database.knowledge.md',
+    ]
+    const result = selectKnowledgeFilePaths(files)
+
+    expect(result).toHaveLength(3)
+    expect(result).toContain('src/auth.knowledge.md')
+    expect(result).toContain('src/api.knowledge.md')
+    expect(result).toContain('src/database.knowledge.md')
+  })
+
+  test('includes pattern files even when standard file exists in same directory', () => {
+    const files = [
+      'src/knowledge.md',
+      'src/AGENTS.md',
+      'src/auth.knowledge.md',
+      'src/api.knowledge.md',
+    ]
+    const result = selectKnowledgeFilePaths(files)
+
+    // Should have 1 standard file (knowledge.md wins by priority) + 2 pattern files
+    expect(result).toHaveLength(3)
+    expect(result).toContain('src/knowledge.md')
+    expect(result).not.toContain('src/AGENTS.md') // Lower priority, same dir
+    expect(result).toContain('src/auth.knowledge.md')
+    expect(result).toContain('src/api.knowledge.md')
+  })
+
+  test('includes pattern files alone in a directory', () => {
+    const files = [
+      'src/auth.knowledge.md',
+      'lib/api.knowledge.md',
+    ]
+    const result = selectKnowledgeFilePaths(files)
+
+    expect(result).toHaveLength(2)
+    expect(result).toContain('src/auth.knowledge.md')
+    expect(result).toContain('lib/api.knowledge.md')
+  })
+
+  test('includes pattern files from multiple directories', () => {
+    const files = [
+      'src/auth.knowledge.md',
+      'src/api.knowledge.md',
+      'lib/database.knowledge.md',
+      'docs/deployment.knowledge.md',
+    ]
+    const result = selectKnowledgeFilePaths(files)
+
+    expect(result).toHaveLength(4)
+    expect(result).toContain('src/auth.knowledge.md')
+    expect(result).toContain('src/api.knowledge.md')
+    expect(result).toContain('lib/database.knowledge.md')
+    expect(result).toContain('docs/deployment.knowledge.md')
+  })
+
+  test('handles mixed standard and pattern files across multiple directories', () => {
+    const files = [
+      'src/knowledge.md',
+      'src/auth.knowledge.md',
+      'lib/AGENTS.md',
+      'lib/api.knowledge.md',
+      'docs/CLAUDE.md',
+      'docs/deployment.knowledge.md',
+      'docs/testing.knowledge.md',
+    ]
+    const result = selectKnowledgeFilePaths(files)
+
+    // 3 standard files (one per directory) + 4 pattern files
+    expect(result).toHaveLength(7)
+    // Standard files (one per directory)
+    expect(result).toContain('src/knowledge.md')
+    expect(result).toContain('lib/AGENTS.md')
+    expect(result).toContain('docs/CLAUDE.md')
+    // ALL pattern files
+    expect(result).toContain('src/auth.knowledge.md')
+    expect(result).toContain('lib/api.knowledge.md')
+    expect(result).toContain('docs/deployment.knowledge.md')
+    expect(result).toContain('docs/testing.knowledge.md')
+  })
+
+  test('orders standard files before pattern files in result', () => {
+    const files = [
+      'src/auth.knowledge.md',
+      'src/knowledge.md',
+      'lib/api.knowledge.md',
+    ]
+    const result = selectKnowledgeFilePaths(files)
+
+    expect(result).toHaveLength(3)
+    // Standard file should come first
+    expect(result[0]).toBe('src/knowledge.md')
+    // Pattern files follow
+    expect(result.slice(1)).toContain('src/auth.knowledge.md')
+    expect(result.slice(1)).toContain('lib/api.knowledge.md')
+  })
+
+  test('handles case-insensitive matching for pattern files', () => {
+    const files = [
+      'src/AUTH.KNOWLEDGE.MD',
+      'lib/Api.Knowledge.md',
+      'docs/database.knowledge.md',
+    ]
+    const result = selectKnowledgeFilePaths(files)
+
+    expect(result).toHaveLength(3)
+    expect(result).toContain('src/AUTH.KNOWLEDGE.MD')
+    expect(result).toContain('lib/Api.Knowledge.md')
+    expect(result).toContain('docs/database.knowledge.md')
+  })
+
+  test('does not match files with knowledge in name but wrong pattern', () => {
+    const files = [
+      'src/myknowledge.md', // Should NOT match - no dot separator
+      'src/knowledge-file.md', // Should NOT match - not exact match
+      'src/auth.knowledge.md', // Should match
+    ]
+    const result = selectKnowledgeFilePaths(files)
+
+    expect(result).toHaveLength(1)
+    expect(result).toContain('src/auth.knowledge.md')
+  })
+})

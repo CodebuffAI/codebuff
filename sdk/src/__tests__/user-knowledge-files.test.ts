@@ -1,10 +1,10 @@
 import { describe, it, expect, mock } from 'bun:test'
 
-import { loadUserKnowledgeFiles } from '../run-state'
+import { loadUserKnowledgeFile } from '../run-state'
 
 const MOCK_HOME = '/mock/home'
 
-describe('loadUserKnowledgeFiles', () => {
+describe('loadUserKnowledgeFile', () => {
   it('should return empty object when no knowledge files exist', async () => {
     const mockFs = {
       readdir: mock(async () => ['.bashrc', '.gitconfig', '.profile']),
@@ -14,7 +14,7 @@ describe('loadUserKnowledgeFiles', () => {
     }
     const mockLogger = { debug: mock(() => {}) }
 
-    const result = await loadUserKnowledgeFiles({
+    const result = await loadUserKnowledgeFile({
       fs: mockFs as any,
       logger: mockLogger as any,
       homeDir: MOCK_HOME,
@@ -35,7 +35,7 @@ describe('loadUserKnowledgeFiles', () => {
     }
     const mockLogger = { debug: mock(() => {}) }
 
-    const result = await loadUserKnowledgeFiles({
+    const result = await loadUserKnowledgeFile({
       fs: mockFs as any,
       logger: mockLogger as any,
       homeDir: MOCK_HOME,
@@ -56,7 +56,7 @@ describe('loadUserKnowledgeFiles', () => {
     }
     const mockLogger = { debug: mock(() => {}) }
 
-    const result = await loadUserKnowledgeFiles({
+    const result = await loadUserKnowledgeFile({
       fs: mockFs as any,
       logger: mockLogger as any,
       homeDir: MOCK_HOME,
@@ -77,7 +77,7 @@ describe('loadUserKnowledgeFiles', () => {
     }
     const mockLogger = { debug: mock(() => {}) }
 
-    const result = await loadUserKnowledgeFiles({
+    const result = await loadUserKnowledgeFile({
       fs: mockFs as any,
       logger: mockLogger as any,
       homeDir: MOCK_HOME,
@@ -101,7 +101,7 @@ describe('loadUserKnowledgeFiles', () => {
     }
     const mockLogger = { debug: mock(() => {}) }
 
-    const result = await loadUserKnowledgeFiles({
+    const result = await loadUserKnowledgeFile({
       fs: mockFs as any,
       logger: mockLogger as any,
       homeDir: MOCK_HOME,
@@ -125,7 +125,7 @@ describe('loadUserKnowledgeFiles', () => {
     }
     const mockLogger = { debug: mock(() => {}) }
 
-    const result = await loadUserKnowledgeFiles({
+    const result = await loadUserKnowledgeFile({
       fs: mockFs as any,
       logger: mockLogger as any,
       homeDir: MOCK_HOME,
@@ -157,7 +157,7 @@ describe('loadUserKnowledgeFiles', () => {
     }
     const mockLogger = { debug: mock(() => {}) }
 
-    const result = await loadUserKnowledgeFiles({
+    const result = await loadUserKnowledgeFile({
       fs: mockFs as any,
       logger: mockLogger as any,
       homeDir: MOCK_HOME,
@@ -180,7 +180,7 @@ describe('loadUserKnowledgeFiles', () => {
       }
       const mockLogger = { debug: mock(() => {}) }
 
-      const result = await loadUserKnowledgeFiles({
+      const result = await loadUserKnowledgeFile({
         fs: mockFs as any,
         logger: mockLogger as any,
         homeDir: MOCK_HOME,
@@ -202,7 +202,7 @@ describe('loadUserKnowledgeFiles', () => {
       }
       const mockLogger = { debug: mock(() => {}) }
 
-      const result = await loadUserKnowledgeFiles({
+      const result = await loadUserKnowledgeFile({
         fs: mockFs as any,
         logger: mockLogger as any,
         homeDir: MOCK_HOME,
@@ -224,7 +224,7 @@ describe('loadUserKnowledgeFiles', () => {
       }
       const mockLogger = { debug: mock(() => {}) }
 
-      const result = await loadUserKnowledgeFiles({
+      const result = await loadUserKnowledgeFile({
         fs: mockFs as any,
         logger: mockLogger as any,
         homeDir: MOCK_HOME,
@@ -246,7 +246,7 @@ describe('loadUserKnowledgeFiles', () => {
       }
       const mockLogger = { debug: mock(() => {}) }
 
-      const result = await loadUserKnowledgeFiles({
+      const result = await loadUserKnowledgeFile({
         fs: mockFs as any,
         logger: mockLogger as any,
         homeDir: MOCK_HOME,
@@ -271,7 +271,7 @@ describe('loadUserKnowledgeFiles', () => {
       }
       const mockLogger = { debug: mock(() => {}) }
 
-      const result = await loadUserKnowledgeFiles({
+      const result = await loadUserKnowledgeFile({
         fs: mockFs as any,
         logger: mockLogger as any,
         homeDir: MOCK_HOME,
@@ -293,7 +293,7 @@ describe('loadUserKnowledgeFiles', () => {
       }
       const mockLogger = { debug: mock(() => {}) }
 
-      const result = await loadUserKnowledgeFiles({
+      const result = await loadUserKnowledgeFile({
         fs: mockFs as any,
         logger: mockLogger as any,
         homeDir: MOCK_HOME,
@@ -314,7 +314,7 @@ describe('loadUserKnowledgeFiles', () => {
       }
       const mockLogger = { debug: mock(() => {}) }
 
-      const result = await loadUserKnowledgeFiles({
+      const result = await loadUserKnowledgeFile({
         fs: mockFs as any,
         logger: mockLogger as any,
         homeDir: MOCK_HOME,
@@ -338,7 +338,7 @@ describe('loadUserKnowledgeFiles', () => {
       }
       const mockLogger = { debug: mock(() => {}) }
 
-      const result = await loadUserKnowledgeFiles({
+      const result = await loadUserKnowledgeFile({
         fs: mockFs as any,
         logger: mockLogger as any,
         homeDir: MOCK_HOME,

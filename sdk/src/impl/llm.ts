@@ -1,4 +1,4 @@
-import { models, PROFIT_MARGIN } from '@codebuff/common/old-constants'
+import { models } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { convertCbToModelMessages } from '@codebuff/common/util/messages'
@@ -18,7 +18,9 @@ import {
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { getModelForRequest, markClaudeOAuthRateLimited, fetchClaudeOAuthResetTime } from './model-provider'
 import { getValidClaudeOAuthCredentials } from '../credentials'
-import { getErrorStatusCode } from '../error-utils'
+import { isClaudeOAuthRateLimitError, isClaudeOAuthAuthError } from './claude-oauth-errors'
+import { createToolCallRepairHandler } from './tool-call-repair'
+import { extractAndTrackCost } from './stream-cost-tracker'
 
 import type { ModelRequestParams } from './model-provider'
 import type { OpenRouterProviderRoutingOptions } from '@codebuff/common/types/agent-template'
@@ -46,12 +48,6 @@ const providerOrder = {
     'Amazon Bedrock',
   ],
   [models.openrouter_claude_opus_4]: ['Google', 'Anthropic'],
-}
-
-function calculateUsedCredits(params: { costDollars: number }): number {
-  const { costDollars } = params
-
-  return Math.round(costDollars * (1 + PROFIT_MARGIN) * 100)
 }
 
 function getProviderOptions(params: {
@@ -102,82 +98,6 @@ function getProviderOptions(params: {
   }
 }
 
-// Usage accounting type for OpenRouter/Codebuff backend responses
-// Forked from https://github.com/OpenRouterTeam/ai-sdk-provider/
-type OpenRouterUsageAccounting = {
-  cost: number | null
-  costDetails: {
-    upstreamInferenceCost: number | null
-  }
-}
-
-/**
- * Check if an error is a Claude OAuth rate limit error that should trigger fallback.
- */
-function isClaudeOAuthRateLimitError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false
-
-  // Check status code (handles both 'status' from AI SDK and 'statusCode' from our errors)
-  const statusCode = getErrorStatusCode(error)
-  if (statusCode === 429) return true
-
-  // Check error message for rate limit indicators
-  const err = error as {
-    message?: string
-    responseBody?: string
-  }
-  const message = (err.message || '').toLowerCase()
-  const responseBody = (err.responseBody || '').toLowerCase()
-
-  if (message.includes('rate_limit') || message.includes('rate limit'))
-    return true
-  if (message.includes('overloaded')) return true
-  if (
-    responseBody.includes('rate_limit') ||
-    responseBody.includes('overloaded')
-  )
-    return true
-
-  return false
-}
-
-/**
- * Check if an error is a Claude OAuth authentication error (expired/invalid token).
- * This indicates we should try refreshing the token.
- */
-function isClaudeOAuthAuthError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false
-
-  // Check status code (handles both 'status' from AI SDK and 'statusCode' from our errors)
-  const statusCode = getErrorStatusCode(error)
-  if (statusCode === 401 || statusCode === 403) return true
-
-  // Check error message for auth indicators
-  const err = error as {
-    message?: string
-    responseBody?: string
-  }
-  const message = (err.message || '').toLowerCase()
-  const responseBody = (err.responseBody || '').toLowerCase()
-
-  if (message.includes('unauthorized') || message.includes('invalid_token'))
-    return true
-  if (message.includes('authentication') || message.includes('expired'))
-    return true
-  if (
-    responseBody.includes('unauthorized') ||
-    responseBody.includes('invalid_token')
-  )
-    return true
-  if (
-    responseBody.includes('authentication') ||
-    responseBody.includes('expired')
-  )
-    return true
-
-  return false
-}
-
 export async function* promptAiSdkStream(
   params: ParamsOf<PromptAiSdkStreamFn> & {
     skipClaudeOAuth?: boolean
@@ -222,6 +142,13 @@ export async function* promptAiSdkStream(
     }
   }
 
+  const { spawnableAgents = [], localAgentTemplates = {} } = params
+  const toolCallRepairHandler = createToolCallRepairHandler({
+    spawnableAgents,
+    localAgentTemplates,
+    logger,
+  })
+
   const response = streamText({
     ...params,
     prompt: undefined,
@@ -237,114 +164,7 @@ export async function* promptAiSdkStream(
     // Handle tool call errors gracefully by passing them through to our validation layer
     // instead of throwing (which would halt the agent). The only special case is when
     // the tool name matches a spawnable agent - transform those to spawn_agents calls.
-    experimental_repairToolCall: async ({ toolCall, tools, error }) => {
-      const { spawnableAgents = [], localAgentTemplates = {} } = params
-      const toolName = toolCall.toolName
-
-      // Check if this is a NoSuchToolError for a spawnable agent
-      // If so, transform to spawn_agents call
-      if (NoSuchToolError.isInstance(error) && 'spawn_agents' in tools) {
-        // Also check for underscore variant (e.g., "file_picker" -> "file-picker")
-        const toolNameWithHyphens = toolName.replace(/_/g, '-')
-
-        const matchingAgentId = spawnableAgents.find((agentId) => {
-          const withoutVersion = agentId.split('@')[0]
-          const parts = withoutVersion.split('/')
-          const agentName = parts[parts.length - 1]
-          return (
-            agentName === toolName ||
-            agentName === toolNameWithHyphens ||
-            agentId === toolName
-          )
-        })
-        const isSpawnableAgent = matchingAgentId !== undefined
-        const isLocalAgent =
-          toolName in localAgentTemplates ||
-          toolNameWithHyphens in localAgentTemplates
-
-        if (isSpawnableAgent || isLocalAgent) {
-          // Transform agent tool call to spawn_agents
-          const deepParseJson = (value: unknown): unknown => {
-            if (typeof value === 'string') {
-              try {
-                return deepParseJson(JSON.parse(value))
-              } catch {
-                return value
-              }
-            }
-            if (Array.isArray(value)) return value.map(deepParseJson)
-            if (value !== null && typeof value === 'object') {
-              return Object.fromEntries(
-                Object.entries(value).map(([k, v]) => [k, deepParseJson(v)]),
-              )
-            }
-            return value
-          }
-
-          let input: Record<string, unknown> = {}
-          try {
-            const rawInput =
-              typeof toolCall.input === 'string'
-                ? JSON.parse(toolCall.input)
-                : (toolCall.input as Record<string, unknown>)
-            input = deepParseJson(rawInput) as Record<string, unknown>
-          } catch {
-            // If parsing fails, use empty object
-          }
-
-          const prompt =
-            typeof input.prompt === 'string' ? input.prompt : undefined
-          const agentParams = Object.fromEntries(
-            Object.entries(input).filter(
-              ([key, value]) =>
-                !(key === 'prompt' && typeof value === 'string'),
-            ),
-          )
-
-          // Use the matching agent ID or corrected name with hyphens
-          const correctedAgentType =
-            matchingAgentId ??
-            (toolNameWithHyphens in localAgentTemplates
-              ? toolNameWithHyphens
-              : toolName)
-
-          const spawnAgentsInput = {
-            agents: [
-              {
-                agent_type: correctedAgentType,
-                ...(prompt !== undefined && { prompt }),
-                ...(Object.keys(agentParams).length > 0 && {
-                  params: agentParams,
-                }),
-              },
-            ],
-          }
-
-          logger.info(
-            { originalToolName: toolName, transformedInput: spawnAgentsInput },
-            'Transformed agent tool call to spawn_agents',
-          )
-
-          return {
-            ...toolCall,
-            toolName: 'spawn_agents',
-            input: JSON.stringify(spawnAgentsInput),
-          }
-        }
-      }
-
-      // For all other cases (invalid args, unknown tools, etc.), pass through
-      // the original tool call.
-      logger.info(
-        {
-          toolName,
-          errorType: error.name,
-          error: error.message,
-        },
-        'Tool error - passing through for graceful error handling',
-      )
-      return toolCall
-    },
+    experimental_repairToolCall: toolCallRepairHandler,
   })
 
   let content = ''
@@ -382,7 +202,7 @@ export async function* promptAiSdkStream(
       const errorMessage = buildArray([mainErrorMessage, errorBody]).join('\n')
 
       // Pass these errors back to the agent so it can see what went wrong and retry.
-      // Note: If you find any other error types that should be passed through to the agent, add them here!
+      // Add other error types that should be passed through to the agent here
       if (
         NoSuchToolError.isInstance(chunkValue.error) ||
         InvalidToolInputError.isInstance(chunkValue.error) ||
@@ -549,26 +369,10 @@ export async function* promptAiSdkStream(
   // Skip cost tracking for Claude OAuth (user is on their own subscription)
   if (!isClaudeOAuth) {
     const providerMetadataResult = await response.providerMetadata
-    const providerMetadata = providerMetadataResult ?? {}
-
-    let costOverrideDollars: number | undefined
-    if (providerMetadata.codebuff) {
-      if (providerMetadata.codebuff.usage) {
-        const openrouterUsage = providerMetadata.codebuff
-          .usage as OpenRouterUsageAccounting
-
-        costOverrideDollars =
-          (openrouterUsage.cost ?? 0) +
-          (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
-      }
-    }
-
-    // Call the cost callback if provided
-    if (params.onCostCalculated && costOverrideDollars) {
-      await params.onCostCalculated(
-        calculateUsedCredits({ costDollars: costOverrideDollars }),
-      )
-    }
+    await extractAndTrackCost({
+      providerMetadata: providerMetadataResult as Record<string, unknown> | undefined,
+      onCostCalculated: params.onCostCalculated,
+    })
   }
 
   return messageId
@@ -609,25 +413,10 @@ export async function promptAiSdk(
   })
   const content = response.text
 
-  const providerMetadata = response.providerMetadata ?? {}
-  let costOverrideDollars: number | undefined
-  if (providerMetadata.codebuff) {
-    if (providerMetadata.codebuff.usage) {
-      const openrouterUsage = providerMetadata.codebuff
-        .usage as OpenRouterUsageAccounting
-
-      costOverrideDollars =
-        (openrouterUsage.cost ?? 0) +
-        (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
-    }
-  }
-
-  // Call the cost callback if provided
-  if (params.onCostCalculated && costOverrideDollars) {
-    await params.onCostCalculated(
-      calculateUsedCredits({ costDollars: costOverrideDollars }),
-    )
-  }
+  await extractAndTrackCost({
+    providerMetadata: response.providerMetadata as Record<string, unknown> | undefined,
+    onCostCalculated: params.onCostCalculated,
+  })
 
   return content
 }
@@ -668,25 +457,10 @@ export async function promptAiSdkStructured<T>(
 
   const content = response.object
 
-  const providerMetadata = response.providerMetadata ?? {}
-  let costOverrideDollars: number | undefined
-  if (providerMetadata.codebuff) {
-    if (providerMetadata.codebuff.usage) {
-      const openrouterUsage = providerMetadata.codebuff
-        .usage as OpenRouterUsageAccounting
-
-      costOverrideDollars =
-        (openrouterUsage.cost ?? 0) +
-        (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
-    }
-  }
-
-  // Call the cost callback if provided
-  if (params.onCostCalculated && costOverrideDollars) {
-    await params.onCostCalculated(
-      calculateUsedCredits({ costDollars: costOverrideDollars }),
-    )
-  }
+  await extractAndTrackCost({
+    providerMetadata: response.providerMetadata as Record<string, unknown> | undefined,
+    onCostCalculated: params.onCostCalculated,
+  })
 
   return content
 }

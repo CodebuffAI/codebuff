@@ -1,22 +1,17 @@
 import * as os from 'os'
-import path from 'path'
 
-import { getFileTokenScores } from '@codebuff/code-map/parse'
-import {
-  KNOWLEDGE_FILE_NAMES,
-  KNOWLEDGE_FILE_NAMES_LOWERCASE,
-  isKnowledgeFile,
-} from '@codebuff/common/constants/knowledge'
-import {
-  getProjectFileTree,
-  getAllFilePaths,
-} from '@codebuff/common/project-file-tree'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import { getErrorObject } from '@codebuff/common/util/error'
 import { cloneDeep } from 'lodash'
-import z from 'zod/v4'
 
 import { loadLocalAgents } from './agents/load-agents'
+import { computeProjectIndex } from './impl/file-tree-builder'
+import { getGitChanges } from './impl/git-operations'
+import { deriveKnowledgeFiles, loadUserKnowledgeFile } from './impl/knowledge-files'
+import { discoverProjectFiles } from './impl/project-discovery'
+import {
+  processAgentDefinitions,
+  processCustomToolDefinitions,
+} from './impl/session-state-processors'
 
 // Re-export for SDK consumers
 export {
@@ -24,6 +19,13 @@ export {
   PRIMARY_KNOWLEDGE_FILE_NAME,
   isKnowledgeFile,
 } from '@codebuff/common/constants/knowledge'
+
+// Re-export for backward compatibility (these are tested individually)
+export {
+  selectHighestPriorityKnowledgeFile,
+  loadUserKnowledgeFile,
+  selectKnowledgeFilePaths,
+} from './impl/knowledge-files'
 
 import type { CustomToolDefinition } from './custom-tool'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
@@ -35,30 +37,8 @@ import type {
   SessionState,
 } from '@codebuff/common/types/session-state'
 import type { CodebuffSpawn } from '@codebuff/common/types/spawn'
-import type {
-  CustomToolDefinitions,
-  FileTreeNode,
-} from '@codebuff/common/util/file'
+import type { FileTreeNode } from '@codebuff/common/util/file'
 import type * as fsType from 'fs'
-
-/**
- * Given a list of candidate file paths, selects the one with highest priority.
- * Priority order: knowledge.md > AGENTS.md > CLAUDE.md (case-insensitive).
- * Returns undefined if no knowledge files are found.
- * @internal Exported for testing
- */
-export function selectHighestPriorityKnowledgeFile(
-  candidates: string[],
-): string | undefined {
-  // Loop through priorities and find the first match directly
-  for (const priorityName of KNOWLEDGE_FILE_NAMES_LOWERCASE) {
-    const match = candidates.find((f) =>
-      f.toLowerCase().endsWith(priorityName),
-    )
-    if (match) return match
-  }
-  return undefined
-}
 
 export type RunState = {
   sessionState?: SessionState
@@ -69,7 +49,6 @@ export type InitialSessionStateOptions = {
   cwd?: string
   projectFiles?: Record<string, string>
   knowledgeFiles?: Record<string, string>
-  /** User-provided knowledge files that will be merged with home directory files */
   userKnowledgeFiles?: Record<string, string>
   agentDefinitions?: AgentDefinition[]
   customToolDefinitions?: CustomToolDefinition[]
@@ -77,331 +56,6 @@ export type InitialSessionStateOptions = {
   fs?: CodebuffFileSystem
   spawn?: CodebuffSpawn
   logger?: Logger
-}
-
-/**
- * Processes agent definitions array and converts handleSteps functions to strings
- */
-function processAgentDefinitions(
-  agentDefinitions: AgentDefinition[],
-): Record<string, any> {
-  const processedAgentTemplates: Record<string, any> = {}
-  agentDefinitions.forEach((definition) => {
-    const processedConfig = { ...definition } as Record<string, any>
-    if (
-      processedConfig.handleSteps &&
-      typeof processedConfig.handleSteps === 'function'
-    ) {
-      processedConfig.handleSteps = processedConfig.handleSteps.toString()
-    }
-    if (processedConfig.id) {
-      processedAgentTemplates[processedConfig.id] = processedConfig
-    }
-  })
-  return processedAgentTemplates
-}
-
-/**
- * Processes custom tool definitions into the format expected by SessionState.
- * Converts Zod schemas to JSON Schema format so they can survive JSON serialization.
- */
-function processCustomToolDefinitions(
-  customToolDefinitions: CustomToolDefinition[],
-): CustomToolDefinitions {
-  return Object.fromEntries(
-    customToolDefinitions.map((toolDefinition) => {
-      // Convert Zod schema to JSON Schema format so it survives JSON serialization
-      // The agent-runtime will wrap this with AI SDK's jsonSchema() helper
-      const jsonSchema = z.toJSONSchema(toolDefinition.inputSchema, {
-        io: 'input',
-      }) as Record<string, unknown>
-      delete jsonSchema['$schema']
-
-      return [
-        toolDefinition.toolName,
-        {
-          inputSchema: jsonSchema,
-          description: toolDefinition.description,
-          endsAgentStep: toolDefinition.endsAgentStep,
-          exampleInputs: toolDefinition.exampleInputs,
-        },
-      ]
-    }),
-  )
-}
-
-/**
- * Computes project file indexes (file tree and token scores)
- */
-async function computeProjectIndex(
-  cwd: string,
-  projectFiles: Record<string, string>,
-): Promise<{
-  fileTree: FileTreeNode[]
-  fileTokenScores: Record<string, any>
-  tokenCallers: Record<string, any>
-}> {
-  const filePaths = Object.keys(projectFiles).sort()
-  const fileTree = buildFileTree(filePaths)
-  let fileTokenScores = {}
-  let tokenCallers = {}
-
-  if (filePaths.length > 0) {
-    try {
-      const tokenData = await getFileTokenScores(
-        cwd,
-        filePaths,
-        (filePath: string) => projectFiles[filePath] || null,
-      )
-      fileTokenScores = tokenData.tokenScores
-      tokenCallers = tokenData.tokenCallers
-    } catch (error) {
-      // If token scoring fails, continue with empty scores
-      console.warn('Failed to generate parsed symbol scores:', error)
-    }
-  }
-
-  return { fileTree, fileTokenScores, tokenCallers }
-}
-
-/**
- * Helper to convert ChildProcess to Promise with stdout/stderr
- */
-function childProcessToPromise(
-  proc: ReturnType<CodebuffSpawn>,
-): Promise<{ stdout: string; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    let stdout = ''
-    let stderr = ''
-
-    proc.stdout?.on('data', (data: Buffer) => {
-      stdout += data.toString()
-    })
-
-    proc.stderr?.on('data', (data: Buffer) => {
-      stderr += data.toString()
-    })
-
-    proc.on('close', (code: number | null) => {
-      if (code === 0) {
-        resolve({ stdout, stderr })
-      } else {
-        reject(new Error(`Command exited with code ${code}`))
-      }
-    })
-
-    proc.on('error', reject)
-  })
-}
-
-/**
- * Retrieves git changes for the project using the provided spawn function
- */
-async function getGitChanges(params: {
-  cwd: string
-  spawn: CodebuffSpawn
-  logger: Logger
-}): Promise<{
-  status: string
-  diff: string
-  diffCached: string
-  lastCommitMessages: string
-}> {
-  const { cwd, spawn, logger } = params
-
-  const status = childProcessToPromise(spawn('git', ['status'], { cwd }))
-    .then(({ stdout }) => stdout)
-    .catch((error) => {
-      logger.debug?.({ error }, 'Failed to get git status')
-      return ''
-    })
-
-  const diff = childProcessToPromise(spawn('git', ['diff'], { cwd }))
-    .then(({ stdout }) => stdout)
-    .catch((error) => {
-      logger.debug?.({ error }, 'Failed to get git diff')
-      return ''
-    })
-
-  const diffCached = childProcessToPromise(
-    spawn('git', ['diff', '--cached'], { cwd }),
-  )
-    .then(({ stdout }) => stdout)
-    .catch((error) => {
-      logger.debug?.({ error }, 'Failed to get git diff --cached')
-      return ''
-    })
-
-  const lastCommitMessages = childProcessToPromise(
-    spawn('git', ['shortlog', 'HEAD~10..HEAD'], { cwd }),
-  )
-    .then(({ stdout }) =>
-      stdout
-        .trim()
-        .split('\n')
-        .slice(1)
-        .reverse()
-        .map((line) => line.trim())
-        .join('\n'),
-    )
-    .catch((error) => {
-      logger.debug?.({ error }, 'Failed to get lastCommitMessages')
-      return ''
-    })
-
-  return {
-    status: await status,
-    diff: await diff,
-    diffCached: await diffCached,
-    lastCommitMessages: await lastCommitMessages,
-  }
-}
-
-/**
- * Discovers project files using .gitignore patterns when projectFiles is undefined
- */
-async function discoverProjectFiles(params: {
-  cwd: string
-  fs: CodebuffFileSystem
-  logger: Logger
-}): Promise<Record<string, string>> {
-  const { cwd, fs, logger } = params
-
-  const fileTree = await getProjectFileTree({ projectRoot: cwd, fs })
-  const filePaths = getAllFilePaths(fileTree)
-  let error
-
-  // Create projectFiles with empty content - the token scorer will read from disk
-  const projectFilePromises = Object.fromEntries(
-    filePaths.map((filePath) => [
-      filePath,
-      fs.readFile(path.join(cwd, filePath), 'utf8').catch((err) => {
-        error = err
-        return '[ERROR_READING_FILE]'
-      }),
-    ]),
-  )
-  if (error) {
-    logger.warn(
-      { error: getErrorObject(error) },
-      'Failed to discover some project files',
-    )
-  }
-
-  const projectFilesResolved: Record<string, string> = {}
-  for (const [filePath, contentPromise] of Object.entries(
-    projectFilePromises,
-  )) {
-    projectFilesResolved[filePath] = await contentPromise
-  }
-  return projectFilesResolved
-}
-
-/**
- * Loads user knowledge files from the home directory.
- * Checks for ~/.knowledge.md, ~/.AGENTS.md, and ~/.CLAUDE.md with priority fallback.
- * Matching is case-insensitive (e.g., ~/.KNOWLEDGE.md will match).
- * Returns a record with the tilde-prefixed path as key (e.g., "~/.knowledge.md").
- * @internal Exported for testing
- */
-export async function loadUserKnowledgeFiles(params: {
-  fs: CodebuffFileSystem
-  logger: Logger
-  /** Optional home directory override for testing */
-  homeDir?: string
-}): Promise<Record<string, string>> {
-  const { fs, logger } = params
-  const homeDir = params.homeDir ?? os.homedir()
-  const userKnowledgeFiles: Record<string, string> = {}
-
-  // List home directory to find knowledge files case-insensitively
-  let entries: string[]
-  try {
-    entries = await fs.readdir(homeDir)
-  } catch {
-    logger.debug?.({ homeDir }, 'Failed to read home directory')
-    return userKnowledgeFiles
-  }
-
-  // Find hidden files that match our knowledge file patterns (case-insensitive)
-  // Build a map of lowercase name -> actual filename for priority selection
-  const candidates = new Map<string, string>()
-  for (const entry of entries) {
-    if (!entry.startsWith('.')) continue
-    const nameWithoutDot = entry.slice(1) // Remove leading dot
-    const lowerName = nameWithoutDot.toLowerCase()
-    if (KNOWLEDGE_FILE_NAMES_LOWERCASE.includes(lowerName)) {
-      candidates.set(lowerName, entry)
-    }
-  }
-
-  // Select highest priority file (priority: knowledge.md > AGENTS.md > CLAUDE.md)
-  for (const priorityName of KNOWLEDGE_FILE_NAMES_LOWERCASE) {
-    const actualFileName = candidates.get(priorityName)
-    if (actualFileName) {
-      const filePath = path.join(homeDir, actualFileName)
-      try {
-        const content = await fs.readFile(filePath, 'utf8')
-        // Use tilde notation with the actual filename (preserving case)
-        const tildeKey = `~/${actualFileName}`
-        userKnowledgeFiles[tildeKey] = content
-        // Only use the first file found (highest priority)
-        break
-      } catch {
-        logger.debug?.({ filePath }, 'Failed to read user knowledge file')
-      }
-    }
-  }
-
-  return userKnowledgeFiles
-}
-
-/**
- * Selects knowledge files from a list of file paths with fallback logic.
- * For each directory, checks for knowledge.md first, then AGENTS.md, then CLAUDE.md.
- * @internal Exported for testing
- */
-export function selectKnowledgeFilePaths(allFilePaths: string[]): string[] {
-  const knowledgeCandidates = allFilePaths.filter(isKnowledgeFile)
-
-  // Group candidates by directory
-  const byDirectory = new Map<string, string[]>()
-  for (const filePath of knowledgeCandidates) {
-    const dir = path.dirname(filePath)
-    if (!byDirectory.has(dir)) {
-      byDirectory.set(dir, [])
-    }
-    byDirectory.get(dir)!.push(filePath)
-  }
-
-  const selectedFiles: string[] = []
-
-  // For each directory, select one knowledge file using priority fallback
-  for (const files of byDirectory.values()) {
-    const selected = selectHighestPriorityKnowledgeFile(files)
-    if (selected) {
-      selectedFiles.push(selected)
-    }
-  }
-
-  return selectedFiles
-}
-
-/**
- * Auto-derives knowledge files from project files if knowledgeFiles is undefined.
- * Implements fallback priority: knowledge.md > AGENTS.md > CLAUDE.md per directory.
- */
-function deriveKnowledgeFiles(
-  projectFiles: Record<string, string>,
-): Record<string, string> {
-  const allFilePaths = Object.keys(projectFiles)
-  const selectedFilePaths = selectKnowledgeFilePaths(allFilePaths)
-
-  const knowledgeFiles: Record<string, string> = {}
-  for (const filePath of selectedFilePaths) {
-    knowledgeFiles[filePath] = projectFiles[filePath]
-  }
-  return knowledgeFiles
 }
 
 export async function initialSessionState(
@@ -418,6 +72,7 @@ export async function initialSessionState(
     spawn,
     logger,
   } = params
+
   if (!agentDefinitions) {
     agentDefinitions = []
   }
@@ -440,7 +95,7 @@ export async function initialSessionState(
     }
   }
 
-  // Auto-discover project files if not provided and cwd is available
+  // Auto-discover project files if not provided
   if (projectFiles === undefined && cwd) {
     projectFiles = await discoverProjectFiles({ cwd, fs, logger })
   }
@@ -448,29 +103,29 @@ export async function initialSessionState(
     knowledgeFiles = projectFiles ? deriveKnowledgeFiles(projectFiles) : {}
   }
 
-  let processedAgentTemplates: Record<string, any> = {}
+  // Process agent templates
+  let processedAgentTemplates: Record<string, unknown> = {}
   if (agentDefinitions && agentDefinitions.length > 0) {
-    processedAgentTemplates = processAgentDefinitions(agentDefinitions)
+    processedAgentTemplates = processAgentDefinitions(agentDefinitions, logger)
   } else {
     processedAgentTemplates = await loadLocalAgents({ verbose: false })
   }
-  const processedCustomToolDefinitions = processCustomToolDefinitions(
-    customToolDefinitions,
-  )
+  const processedCustomToolDefinitions =
+    processCustomToolDefinitions(customToolDefinitions)
 
-  // Generate file tree and token scores from projectFiles if available
+  // Generate file tree and token scores
   let fileTree: FileTreeNode[] = []
-  let fileTokenScores: Record<string, any> = {}
-  let tokenCallers: Record<string, any> = {}
+  let fileTokenScores: Record<string, Record<string, number>> = {}
+  let tokenCallers: Record<string, Record<string, string[]>> = {}
 
   if (cwd && projectFiles) {
-    const result = await computeProjectIndex(cwd, projectFiles)
+    const result = await computeProjectIndex(cwd, projectFiles, logger)
     fileTree = result.fileTree
     fileTokenScores = result.fileTokenScores
     tokenCallers = result.tokenCallers
   }
 
-  // Gather git changes if cwd is available
+  // Gather git changes
   const gitChanges = cwd
     ? await getGitChanges({ cwd, spawn, logger })
     : {
@@ -480,8 +135,8 @@ export async function initialSessionState(
         lastCommitMessages: '',
       }
 
-  // Load user knowledge files from home directory and merge with any provided ones
-  const homeKnowledgeFiles = await loadUserKnowledgeFiles({ fs, logger })
+  // Load user knowledge file from home directory (highest priority only)
+  const homeKnowledgeFiles = await loadUserKnowledgeFile({ fs, logger })
   const userKnowledgeFiles = {
     ...homeKnowledgeFiles,
     ...providedUserKnowledgeFiles,
@@ -577,8 +232,7 @@ export function withMessageHistory({
   runState: RunState
   messages: Message[]
 }): RunState {
-  // Deep copy
-  const newRunState = JSON.parse(JSON.stringify(runState)) as typeof runState
+  const newRunState = cloneDeep(runState)
 
   if (newRunState.sessionState) {
     newRunState.sessionState.mainAgentState.messageHistory = messages
@@ -602,17 +256,12 @@ export async function applyOverridesToSessionState(
     maxAgentSteps?: number
   },
 ): Promise<SessionState> {
-  // Deep clone to avoid mutating the original session state
-  const sessionState = JSON.parse(
-    JSON.stringify(baseSessionState),
-  ) as SessionState
+  const sessionState = cloneDeep(baseSessionState)
 
-  // Apply maxAgentSteps override
   if (overrides.maxAgentSteps !== undefined) {
     sessionState.mainAgentState.stepsRemaining = overrides.maxAgentSteps
   }
 
-  // Apply projectFiles override (recomputes file tree and token scores)
   if (overrides.projectFiles !== undefined) {
     if (cwd) {
       const { fileTree, fileTokenScores, tokenCallers } =
@@ -621,13 +270,11 @@ export async function applyOverridesToSessionState(
       sessionState.fileContext.fileTokenScores = fileTokenScores
       sessionState.fileContext.tokenCallers = tokenCallers
     } else {
-      // If projectFiles are provided but no cwd, reset file context fields
       sessionState.fileContext.fileTree = []
       sessionState.fileContext.fileTokenScores = {}
       sessionState.fileContext.tokenCallers = {}
     }
 
-    // Auto-derive knowledgeFiles if not explicitly provided
     if (overrides.knowledgeFiles === undefined) {
       sessionState.fileContext.knowledgeFiles = deriveKnowledgeFiles(
         overrides.projectFiles,
@@ -635,15 +282,14 @@ export async function applyOverridesToSessionState(
     }
   }
 
-  // Apply knowledgeFiles override
   if (overrides.knowledgeFiles !== undefined) {
     sessionState.fileContext.knowledgeFiles = overrides.knowledgeFiles
   }
 
-  // Apply agentDefinitions override (merge by id, last-in wins)
   if (overrides.agentDefinitions !== undefined) {
     const processedAgentTemplates = processAgentDefinitions(
       overrides.agentDefinitions,
+      // Note: no logger available in this context - consider adding to params if needed
     )
     sessionState.fileContext.agentTemplates = {
       ...sessionState.fileContext.agentTemplates,
@@ -651,7 +297,6 @@ export async function applyOverridesToSessionState(
     }
   }
 
-  // Apply customToolDefinitions override (replace by toolName)
   if (overrides.customToolDefinitions !== undefined) {
     const processedCustomToolDefinitions = processCustomToolDefinitions(
       overrides.customToolDefinitions,
@@ -663,75 +308,4 @@ export async function applyOverridesToSessionState(
   }
 
   return sessionState
-}
-
-/**
- * Builds a hierarchical file tree from a flat list of file paths
- */
-function buildFileTree(filePaths: string[]): FileTreeNode[] {
-  const tree: Record<string, FileTreeNode> = {}
-
-  // Build the tree structure
-  for (const filePath of filePaths) {
-    const parts = filePath.split('/')
-
-    for (let i = 0; i < parts.length; i++) {
-      const currentPath = parts.slice(0, i + 1).join('/')
-      const isFile = i === parts.length - 1
-
-      if (!tree[currentPath]) {
-        tree[currentPath] = {
-          name: parts[i],
-          type: isFile ? 'file' : 'directory',
-          filePath: currentPath,
-          children: isFile ? undefined : [],
-        }
-      }
-    }
-  }
-
-  // Organize into hierarchical structure
-  const rootNodes: FileTreeNode[] = []
-  const processed = new Set<string>()
-
-  for (const [path, node] of Object.entries(tree)) {
-    if (processed.has(path)) continue
-
-    const parentPath = path.substring(0, path.lastIndexOf('/'))
-    if (parentPath && tree[parentPath]) {
-      // This node has a parent, add it to parent's children
-      const parent = tree[parentPath]
-      if (
-        parent.children &&
-        !parent.children.some((child) => child.filePath === path)
-      ) {
-        parent.children.push(node)
-      }
-    } else {
-      // This is a root node
-      rootNodes.push(node)
-    }
-    processed.add(path)
-  }
-
-  // Sort function for nodes
-  function sortNodes(nodes: FileTreeNode[]): void {
-    nodes.sort((a, b) => {
-      // Directories first, then files
-      if (a.type !== b.type) {
-        return a.type === 'directory' ? -1 : 1
-      }
-      return a.name.localeCompare(b.name)
-    })
-
-    // Recursively sort children
-    for (const node of nodes) {
-      if (node.children) {
-        sortNodes(node.children)
-      }
-    }
-  }
-
-  sortNodes(rootNodes)
-  return rootNodes
 }
