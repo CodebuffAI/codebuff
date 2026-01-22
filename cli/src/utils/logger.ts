@@ -1,10 +1,12 @@
 import { appendFileSync, existsSync, mkdirSync, unlinkSync } from 'fs'
 import path, { dirname } from 'path'
 import { format as stringFormat } from 'util'
+import { pino } from 'pino'
 
 import { env, IS_DEV, IS_TEST, IS_CI } from '@codebuff/common/env'
 import { createAnalyticsDispatcher } from '@codebuff/common/util/analytics-dispatcher'
-import { pino } from 'pino'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { getAnalyticsEventId } from '@codebuff/common/util/analytics-log'
 
 import {
   flushAnalytics,
@@ -142,6 +144,18 @@ function sendAnalyticsAndLog(
 
     analyticsPayloads.forEach((payload) => {
       trackEvent(payload.event, payload.properties)
+    })
+  }
+
+  // Send all log events to PostHog in production for better observability
+  // Skip if the log already has an eventId (to avoid duplicate tracking)
+  const hasEventId = includeData && getAnalyticsEventId(normalizedData) !== null
+  if (!IS_DEV && !IS_TEST && !IS_CI && !hasEventId) {
+    trackEvent(AnalyticsEvent.CLI_LOG, {
+      level,
+      msg: stringFormat(normalizedMsg ?? '', ...args),
+      ...(includeData ? { data: normalizedData } : {}),
+      ...loggerContext,
     })
   }
 

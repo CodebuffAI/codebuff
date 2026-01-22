@@ -76,6 +76,7 @@ export async function getCodebuffClient(): Promise<CodebuffClient | null> {
         apiKey,
         cwd: projectRoot,
         agentDefinitions,
+        logger,
         overrideTools: {
           ask_user: async (input: ClientToolCall<'ask_user'>['input']) => {
             const askUserResponse = await AskUserBridge.request(

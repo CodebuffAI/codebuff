@@ -81,12 +81,7 @@ export function getAgentRuntimeImpl(
     trackEvent,
 
     // Other
-    logger: logger ?? {
-      info: () => {},
-      debug: () => {},
-      warn: () => {},
-      error: () => {},
-    },
+    logger: logger ?? noopLogger,
     fetch: globalThis.fetch,
 
     // Client (WebSocket)
@@ -100,4 +95,11 @@ export function getAgentRuntimeImpl(
 
     apiKey,
   }
+}
+
+const noopLogger: Logger = {
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
 }

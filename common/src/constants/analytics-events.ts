@@ -125,4 +125,7 @@ export enum AnalyticsEvent {
 
   // Common
   FLUSH_FAILED = 'common.flush_failed',
+
+  // Client Logging - for sending logger events to PostHog in production
+  CLI_LOG = 'cli.log',
 }
