@@ -171,9 +171,11 @@ export function deleteCacheEntryCore(key: string): void {
   cache.refCounts.delete(key)
   snapshotMemo.delete(key)
   notifyKeyListeners(key)
-  // Clean up generation counter after deletion is complete.
-  // The bump above invalidates any in-flight requests; now we can free the memory.
-  generations.delete(key)
+  // NOTE: We intentionally do NOT delete the generation counter here.
+  // The bumped generation must persist so that in-flight requests see a different
+  // generation when they complete and will not "resurrect" the deleted entry.
+  // Memory impact is minimal (just a number per deleted key). Generations are
+  // cleaned up during resetCache() which is used for testing.
 }
 
 export function resetCache(): void {
@@ -189,8 +191,4 @@ export function resetCache(): void {
 
   snapshotMemo.clear()
   generations.clear()
-}
-
-export function clearGeneration(key: string): void {
-  generations.delete(key)
 }

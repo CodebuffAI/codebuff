@@ -8,6 +8,13 @@ import {
   resetActivityQueryCache,
   isEntryStale,
 } from '../use-activity-query'
+import {
+  bumpGeneration,
+  getGeneration,
+  deleteCacheEntryCore,
+  setCacheEntry,
+  serializeQueryKey,
+} from '../../utils/query-cache'
 
 describe('use-activity-query utilities', () => {
   beforeEach(() => {
@@ -763,5 +770,195 @@ describe('cache edge cases and error handling', () => {
     setActivityQueryData(testKey, 'second')
     
     expect(getActivityQueryData<string>(testKey)).toBe('second')
+  })
+})
+
+/**
+ * Tests for the cache deletion and in-flight request protection.
+ * Verifies that in-flight fetches cannot "resurrect" deleted cache entries.
+ *
+ * The bug scenario was:
+ * 1. Fetch starts, captures myGen = 0 (generation not set defaults to 0)
+ * 2. Entry deleted: bumps generation to 1, then USED TO delete generation entry
+ * 3. Fetch completes, getGeneration(key) returned 0 again (entry was deleted!)
+ * 4. 0 === 0 passed, stale fetch wrote to cache, resurrecting the deleted entry
+ *
+ * The fix: Don't delete the generation entry after bumping it in deleteCacheEntryCore.
+ * The bumped generation persists so in-flight requests see a different generation.
+ */
+describe('cache deletion and in-flight request protection', () => {
+  beforeEach(() => {
+    resetActivityQueryCache()
+  })
+
+  test('deletion bumps generation from 0 to 1', () => {
+    const testKey = ['deletion-gen-test']
+    const serializedKey = serializeQueryKey(testKey)
+
+    // Set initial data
+    setActivityQueryData(testKey, 'initial-data')
+
+    // Before deletion, generation should be 0 (default)
+    expect(getGeneration(serializedKey)).toBe(0)
+
+    // Delete the entry
+    deleteCacheEntryCore(serializedKey)
+
+    // After deletion, generation should be bumped to 1
+    expect(getGeneration(serializedKey)).toBe(1)
+  })
+
+  test('generation persists after deletion (not cleared)', () => {
+    const testKey = ['gen-persist-test']
+    const serializedKey = serializeQueryKey(testKey)
+
+    // Set data and delete it
+    setActivityQueryData(testKey, 'data')
+    deleteCacheEntryCore(serializedKey)
+
+    // Generation should be 1 after first deletion
+    expect(getGeneration(serializedKey)).toBe(1)
+
+    // Data should be gone
+    expect(getActivityQueryData(testKey)).toBeUndefined()
+
+    // Set new data and delete again
+    setActivityQueryData(testKey, 'new-data')
+    deleteCacheEntryCore(serializedKey)
+
+    // Generation should be 2 after second deletion
+    expect(getGeneration(serializedKey)).toBe(2)
+
+    // This proves generation is NOT being deleted, but accumulated
+  })
+
+  test('simulated in-flight fetch cannot resurrect deleted entry', () => {
+    const testKey = ['in-flight-protection-test']
+    const serializedKey = serializeQueryKey(testKey)
+
+    // Step 1: Set initial data (simulating a previous successful fetch)
+    setActivityQueryData(testKey, 'original-data')
+    expect(getActivityQueryData<string>(testKey)).toBe('original-data')
+
+    // Step 2: Simulate a fetch starting - capture the generation
+    // In real code: const myGen = getGeneration(key)
+    const myGen = getGeneration(serializedKey)
+    expect(myGen).toBe(0) // Default generation
+
+    // Step 3: While the fetch is "in flight", the entry gets deleted
+    // (e.g., user navigates away, cache GC runs, or explicit removal)
+    deleteCacheEntryCore(serializedKey)
+
+    // Step 4: Entry is now deleted, but generation was bumped
+    expect(getActivityQueryData(testKey)).toBeUndefined()
+    expect(getGeneration(serializedKey)).toBe(1)
+
+    // Step 5: The in-flight fetch completes and tries to write
+    // In real code, this check happens before setCacheEntry:
+    // if (getGeneration(key) !== myGen) return
+    const currentGen = getGeneration(serializedKey)
+    const wouldSkipWrite = currentGen !== myGen
+
+    // The write SHOULD be skipped because generations don't match
+    expect(wouldSkipWrite).toBe(true)
+    expect(myGen).toBe(0)
+    expect(currentGen).toBe(1)
+
+    // Verify the cache stays empty (entry not resurrected)
+    expect(getActivityQueryData(testKey)).toBeUndefined()
+  })
+
+  test('generation check correctly allows writes when not deleted', () => {
+    const testKey = ['gen-allow-write-test']
+    const serializedKey = serializeQueryKey(testKey)
+
+    // Set initial data
+    setActivityQueryData(testKey, 'initial')
+
+    // Capture generation before fetch
+    const myGen = getGeneration(serializedKey)
+    expect(myGen).toBe(0)
+
+    // Simulate fetch completing WITHOUT any deletion happening
+    // The generation should still be 0
+    const currentGen = getGeneration(serializedKey)
+    const wouldSkipWrite = currentGen !== myGen
+
+    // Write should NOT be skipped - generations match
+    expect(wouldSkipWrite).toBe(false)
+
+    // Normal update should work
+    setActivityQueryData(testKey, 'updated')
+    expect(getActivityQueryData<string>(testKey)).toBe('updated')
+  })
+
+  test('multiple in-flight fetches all see their respective generations', () => {
+    const testKey = ['multi-flight-test']
+    const serializedKey = serializeQueryKey(testKey)
+
+    // Fetch 1 starts
+    const gen1 = getGeneration(serializedKey)
+    expect(gen1).toBe(0)
+
+    // Set some data and delete it
+    setActivityQueryData(testKey, 'data1')
+    deleteCacheEntryCore(serializedKey)
+
+    // Fetch 2 starts after deletion
+    const gen2 = getGeneration(serializedKey)
+    expect(gen2).toBe(1)
+
+    // Another deletion
+    setActivityQueryData(testKey, 'data2')
+    deleteCacheEntryCore(serializedKey)
+
+    // Fetch 3 starts after second deletion
+    const gen3 = getGeneration(serializedKey)
+    expect(gen3).toBe(2)
+
+    // Now check which fetches would be allowed to write
+    const currentGen = getGeneration(serializedKey)
+    expect(currentGen).toBe(2)
+
+    // Fetch 1: captured gen 0, current is 2 -> skip write
+    expect(currentGen !== gen1).toBe(true)
+
+    // Fetch 2: captured gen 1, current is 2 -> skip write
+    expect(currentGen !== gen2).toBe(true)
+
+    // Fetch 3: captured gen 2, current is 2 -> allow write
+    expect(currentGen !== gen3).toBe(false)
+  })
+
+  test('bumpGeneration without deletion also increments generation', () => {
+    const testKey = ['bump-only-test']
+    const serializedKey = serializeQueryKey(testKey)
+
+    expect(getGeneration(serializedKey)).toBe(0)
+
+    bumpGeneration(serializedKey)
+    expect(getGeneration(serializedKey)).toBe(1)
+
+    bumpGeneration(serializedKey)
+    expect(getGeneration(serializedKey)).toBe(2)
+
+    bumpGeneration(serializedKey)
+    expect(getGeneration(serializedKey)).toBe(3)
+  })
+
+  test('resetActivityQueryCache clears generations', () => {
+    const testKey = ['reset-gen-test']
+    const serializedKey = serializeQueryKey(testKey)
+
+    // Set data and delete it to bump generation
+    setActivityQueryData(testKey, 'data')
+    deleteCacheEntryCore(serializedKey)
+    expect(getGeneration(serializedKey)).toBe(1)
+
+    // Reset cache should clear everything including generations
+    resetActivityQueryCache()
+
+    // Generation should be back to 0 (default)
+    expect(getGeneration(serializedKey)).toBe(0)
   })
 })

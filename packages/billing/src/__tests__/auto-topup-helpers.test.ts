@@ -483,16 +483,15 @@ describe('auto-topup-helpers', () => {
         expect(isValidPaymentMethod(card)).toBe(false)
       })
 
-      it('should return false for card expiring in current month', () => {
-        // The logic uses > not >= so cards expiring this month are invalid
-        // as the check creates a date at the START of the expiration month
+      it('should return true for card expiring in current month', () => {
+        // Cards are valid through the END of their expiration month
         const now = new Date()
         const card = createCardPaymentMethod(
           'pm_1',
           now.getFullYear(),
           now.getMonth() + 1,
         )
-        expect(isValidPaymentMethod(card)).toBe(false)
+        expect(isValidPaymentMethod(card)).toBe(true)
       })
 
       it('should return true for card expiring next month', () => {

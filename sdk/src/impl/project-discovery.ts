@@ -9,15 +9,31 @@ import { getErrorObject } from '@codebuff/common/util/error'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
+const DEFAULT_MAX_FILES = 10000
+
 export async function discoverProjectFiles(params: {
   cwd: string
   fs: CodebuffFileSystem
   logger: Logger
+  maxFiles?: number
 }): Promise<Record<string, string>> {
-  const { cwd, fs, logger } = params
+  const { cwd, fs, logger, maxFiles = DEFAULT_MAX_FILES } = params
 
   const fileTree = await getProjectFileTree({ projectRoot: cwd, fs })
-  const filePaths = getAllFilePaths(fileTree)
+  const allFilePaths = getAllFilePaths(fileTree)
+
+  let filePaths = allFilePaths
+  if (allFilePaths.length > maxFiles) {
+    logger.warn(
+      {
+        totalFiles: allFilePaths.length,
+        maxFiles,
+        truncatedCount: allFilePaths.length - maxFiles,
+      },
+      `Project has ${allFilePaths.length} files, exceeding limit of ${maxFiles}. Processing first ${maxFiles} files only.`,
+    )
+    filePaths = allFilePaths.slice(0, maxFiles)
+  }
 
   const errors: Array<{ filePath: string; error: unknown }> = []
   const projectFiles: Record<string, string> = {}

@@ -5,12 +5,22 @@
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { CodebuffSpawn } from '@codebuff/common/types/spawn'
 
+const DEFAULT_GIT_TIMEOUT_MS = 10000 // 10 seconds
+
 function childProcessToPromise(
   proc: ReturnType<CodebuffSpawn>,
+  timeoutMs: number = DEFAULT_GIT_TIMEOUT_MS,
 ): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     let stdout = ''
     let stderr = ''
+    let timedOut = false
+
+    const timeoutId = setTimeout(() => {
+      timedOut = true
+      proc.kill()
+      reject(new Error(`Git command timed out after ${timeoutMs}ms`))
+    }, timeoutMs)
 
     proc.stdout?.on('data', (data: Buffer) => {
       stdout += data.toString()
@@ -21,6 +31,8 @@ function childProcessToPromise(
     })
 
     proc.on('close', (code: number | null) => {
+      clearTimeout(timeoutId)
+      if (timedOut) return
       if (code === 0) {
         resolve({ stdout, stderr })
       } else {
@@ -28,7 +40,11 @@ function childProcessToPromise(
       }
     })
 
-    proc.on('error', reject)
+    proc.on('error', (err) => {
+      clearTimeout(timeoutId)
+      if (timedOut) return
+      reject(err)
+    })
   })
 }
 

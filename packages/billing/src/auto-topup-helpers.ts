@@ -34,10 +34,13 @@ export async function fetchPaymentMethods(
  */
 export function isValidPaymentMethod(pm: Stripe.PaymentMethod): boolean {
   if (pm.type === 'card') {
+    // Cards are valid through the END of their expiration month.
+    // Compare against the first day of the month AFTER expiration.
+    // e.g., card expiring 01/2024 is valid until Feb 1, 2024
     return (
       pm.card?.exp_year !== undefined &&
       pm.card.exp_month !== undefined &&
-      new Date(pm.card.exp_year, pm.card.exp_month - 1) > new Date()
+      new Date() < new Date(pm.card.exp_year, pm.card.exp_month, 1)
     )
   }
   if (pm.type === 'link') {
@@ -122,6 +125,10 @@ export async function getOrSetDefaultPaymentMethod(params: {
   logContext: Record<string, unknown>
 }): Promise<GetOrSetDefaultPaymentMethodResult> {
   const { stripeCustomerId, paymentMethods, logger, logContext } = params
+
+  if (paymentMethods.length === 0) {
+    throw new Error('No payment methods available for this customer')
+  }
 
   const customer = await stripeServer.customers.retrieve(stripeCustomerId)
 
