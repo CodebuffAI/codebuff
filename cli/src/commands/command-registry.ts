@@ -34,7 +34,7 @@ export type RouterParams = {
   logoutMutation: UseMutationResult<boolean, Error, void, unknown>
   streamMessageIdRef: React.MutableRefObject<string | null>
   addToQueue: (message: string, attachments?: PendingAttachment[]) => void
-  clearMessages: () => void
+  resetRunState: () => void
   saveToHistory: (message: string) => void
   scrollToLatest: () => void
   sendMessage: SendMessageFn
@@ -315,7 +315,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
 
       // Clear the conversation
       params.setMessages(() => [])
-      params.clearMessages()
+      params.resetRunState()
       params.saveToHistory(params.inputValue.trim())
       clearInput(params)
       params.stopStreaming()

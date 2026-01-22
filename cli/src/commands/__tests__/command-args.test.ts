@@ -30,7 +30,7 @@ describe('command factory pattern', () => {
       logoutMutation: {} as RouterParams['logoutMutation'],
       streamMessageIdRef: { current: null },
       addToQueue: mock(() => {}),
-      clearMessages: mock(() => {}),
+      resetRunState: mock(() => {}),
       saveToHistory: mock(() => {}),
       scrollToLatest: mock(() => {}),
       sendMessage: mock(async () => {}),
@@ -214,14 +214,14 @@ describe('command factory pattern', () => {
 
       const sendMessage = mock(async () => {})
       const setMessages = mock(() => {})
-      const clearMessages = mock(() => {})
+      const resetRunState = mock(() => {})
       const setCanProcessQueue = mock(() => {})
 
       const params = createMockParams({
         inputValue: '/new hello world',
         sendMessage,
         setMessages,
-        clearMessages,
+        resetRunState,
         setCanProcessQueue,
       })
 
@@ -229,7 +229,7 @@ describe('command factory pattern', () => {
 
       // Should clear messages
       expect(setMessages).toHaveBeenCalled()
-      expect(clearMessages).toHaveBeenCalled()
+      expect(resetRunState).toHaveBeenCalled()
 
       // Should re-enable queue and send message
       expect(setCanProcessQueue).toHaveBeenCalledWith(true)
@@ -245,14 +245,14 @@ describe('command factory pattern', () => {
 
       const sendMessage = mock(async () => {})
       const setMessages = mock(() => {})
-      const clearMessages = mock(() => {})
+      const resetRunState = mock(() => {})
       const setCanProcessQueue = mock(() => {})
 
       const params = createMockParams({
         inputValue: '/new',
         sendMessage,
         setMessages,
-        clearMessages,
+        resetRunState,
         setCanProcessQueue,
       })
 
@@ -260,7 +260,7 @@ describe('command factory pattern', () => {
 
       // Should clear messages
       expect(setMessages).toHaveBeenCalled()
-      expect(clearMessages).toHaveBeenCalled()
+      expect(resetRunState).toHaveBeenCalled()
 
       // Should disable queue and NOT send message
       expect(setCanProcessQueue).toHaveBeenCalledWith(false)
