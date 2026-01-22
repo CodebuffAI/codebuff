@@ -1,7 +1,7 @@
 'use client'
 
 import { DEFAULT_FREE_CREDITS_GRANT } from '@codebuff/common/old-constants'
-import { Gift, Shield } from 'lucide-react'
+import { Gift, Shield, Link2, Zap, Terminal } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 
 import { BlockColor } from '@/components/ui/decorative-blocks'
@@ -57,6 +57,66 @@ function PricingCard() {
     <div className="w-full h-full bg-black overflow-hidden flex flex-col">
       <div className="flex-1 p-6 sm:p-8 flex flex-col justify-center">
         <CreditVisual />
+      </div>
+    </div>
+  )
+}
+
+function ClaudeSubscriptionIllustration() {
+  return (
+    <div className="flex flex-col items-center text-center">
+      <div className="flex flex-col items-center space-y-6 w-full max-w-md">
+        {/* Connection visual */}
+        <div className="flex items-center justify-center gap-4 w-full">
+          {/* Claude card */}
+          <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg p-4 shadow-lg border border-orange-400/30">
+            <div className="text-white font-bold text-sm">Claude</div>
+            <div className="text-white/80 text-xs mt-1">Pro / Max</div>
+          </div>
+
+          {/* Connection arrow */}
+          <div className="flex items-center">
+            <div className="w-8 h-0.5 bg-gradient-to-r from-orange-400 to-green-400"></div>
+            <Link2 className="h-5 w-5 text-green-400 mx-1" />
+            <div className="w-8 h-0.5 bg-gradient-to-r from-green-400 to-green-500"></div>
+          </div>
+
+          {/* Codebuff card */}
+          <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-lg p-4 shadow-lg border border-green-400/30">
+            <div className="text-white font-bold text-sm">Codebuff</div>
+            <div className="text-white/80 text-xs mt-1">CLI</div>
+          </div>
+        </div>
+
+        {/* Benefits grid */}
+        <div className="grid grid-cols-1 gap-3 w-full mt-4">
+          <div className="flex items-center gap-3 bg-black/30 rounded-lg p-3 border border-white/10">
+            <div className="p-2 rounded-full bg-green-500/20">
+              <Zap className="h-4 w-4 text-green-400" />
+            </div>
+            <div className="text-left">
+              <div className="text-sm font-medium text-white">Save on credits</div>
+              <div className="text-xs text-white/60">Use your subscription for Claude model requests</div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 bg-black/30 rounded-lg p-3 border border-white/10">
+            <div className="p-2 rounded-full bg-blue-500/20">
+              <Terminal className="h-4 w-4 text-blue-400" />
+            </div>
+            <div className="text-left">
+              <div className="text-sm font-medium text-white">Simple CLI setup</div>
+              <div className="text-xs text-white/60">Connect with one command</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Code snippet */}
+        <div className="w-full mt-2 bg-black/50 rounded-lg p-3 border border-white/10 font-mono text-left">
+          <div className="text-green-400 text-xs">$ codebuff</div>
+          <div className="text-white/70 text-xs mt-1">{'>'} /connect:claude</div>
+          <div className="text-green-400/80 text-xs mt-1">✓ Connected to Claude subscription</div>
+        </div>
       </div>
     </div>
   )
@@ -161,6 +221,20 @@ export default function PricingClient() {
         illustration={<PricingCard />}
         learnMoreText={status === 'authenticated' ? 'My Usage' : 'Get Started'}
         learnMoreLink={status === 'authenticated' ? '/usage' : '/login'}
+      />
+
+      <FeatureSection
+        title={<span>Connect Your Claude Subscription</span>}
+        description="Already have a Claude Pro or Max subscription? Connect it to Codebuff and use your existing subscription for Claude model requests. Save credits while enjoying the full power of Claude through Codebuff's intelligent orchestration."
+        backdropColor={BlockColor.DarkForestGreen}
+        decorativeColors={[BlockColor.CRTAmber, BlockColor.BetweenGreen]}
+        textColor="text-white"
+        tagline="BRING YOUR OWN SUBSCRIPTION"
+        highlightText="Use your Claude Pro or Max subscription"
+        illustration={<ClaudeSubscriptionIllustration />}
+        learnMoreText="View Documentation"
+        learnMoreLink="/docs"
+        imagePosition="left"
       />
 
       <FeatureSection
