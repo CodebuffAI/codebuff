@@ -159,6 +159,20 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
       setSubmitFocused(false)
       const isCustomOption = optionIndex === CUSTOM_OPTION_INDEX
 
+      // When clicking out of Custom typing mode, first click just exits and highlights
+      // the option without selecting it (requires a second click to actually select)
+      if (source === 'mouse' && isTypingCustom && !isCustomOption) {
+        setIsTypingCustom(false)
+        setFocusedOptionIndex(optionIndex)
+        setShowFocusHighlight(true)
+        // Deselect Custom option but preserve the typed text
+        setAnswerForQuestion(questionIndex, (currentAnswer) => ({
+          ...currentAnswer,
+          isCustom: false,
+        }))
+        return
+      }
+
       if (source === 'mouse' && !isCustomOption) {
         setShowFocusHighlight(false)
         suppressNextHoverFocusRef.current = true
@@ -177,6 +191,7 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
               selectedIndex: optionIndex,
               selectedIndices: undefined,
               isCustom: false,
+              customText: currentAnswer?.customText,  // Preserve custom text when switching away
             },
       )
 
@@ -197,7 +212,7 @@ export const MultipleChoiceForm: React.FC<MultipleChoiceFormProps> = ({
       setExpandedIndex(null)
       focusSubmit({ questionIndex, optionIndex })
     },
-    [questions, openQuestion, focusSubmit, setAnswerForQuestion],
+    [questions, openQuestion, focusSubmit, setAnswerForQuestion, isTypingCustom],
   )
 
   // Handle toggling an option (multi-select)

@@ -160,6 +160,7 @@ interface MultilineInputProps {
   maxHeight?: number
   minHeight?: number
   cursorPosition: number
+  showScrollbar?: boolean
 }
 
 export type MultilineInputHandle = {
@@ -183,6 +184,7 @@ export const MultilineInput = forwardRef<
     minHeight = 1,
     onKeyIntercept,
     cursorPosition,
+    showScrollbar = false,
   }: MultilineInputProps,
   forwardedRef,
 ) {
@@ -1034,9 +1036,13 @@ export const MultilineInput = forwardRef<
 
     const heightLines = Math.max(effectiveMinHeight, rawHeight)
 
+    // Content is scrollable when total lines exceed max height
+    const isScrollable = totalLines > safeMaxHeight
+
     return {
       heightLines,
       gutterEnabled,
+      isScrollable,
     }
   })()
 
@@ -1056,6 +1062,10 @@ export const MultilineInput = forwardRef<
       stickyScroll={true}
       stickyStart="bottom"
       scrollbarOptions={{ visible: false }}
+      verticalScrollbarOptions={{
+        visible: showScrollbar && layoutMetrics.isScrollable,
+        trackOptions: { width: 1 },
+      }}
       onPaste={(event) => onPaste(event.text)}
       onMouseDown={handleMouseDown}
       style={{

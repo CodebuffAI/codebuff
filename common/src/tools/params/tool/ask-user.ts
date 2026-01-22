@@ -110,6 +110,8 @@ The user can either:
 - Type a custom answer in the "Other" text field
 - Skip the questions to provide different instructions instead
 
+IMPORTANT: Do NOT include options like "Custom", "Other", "None of the above", or similar catch-all options. The UI automatically provides a "Custom" text input field for users to type their own answer. Including such options would be redundant and confusing.
+
 Single-select example:
 ${$getNativeToolCallExampleString({
   toolName,
