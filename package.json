@@ -64,7 +64,7 @@
     "lodash": "4.17.23",
     "prettier": "^3.7.4",
     "ts-node": "^10.9.2",
-    "ts-pattern": "^5.5.0",
+    "ts-pattern": "^5.9.0",
     "tsc-alias": "^1.8.16",
     "tsconfig-paths": "4.2.0",
     "types": "^0.1.1",

@@ -27,7 +27,7 @@
         "lodash": "4.17.23",
         "prettier": "^3.7.4",
         "ts-node": "^10.9.2",
-        "ts-pattern": "^5.5.0",
+        "ts-pattern": "^5.9.0",
         "tsc-alias": "^1.8.16",
         "tsconfig-paths": "4.2.0",
         "types": "^0.1.1",
@@ -75,8 +75,6 @@
         "zustand": "^5.0.8",
       },
       "devDependencies": {
-        "@types/bun": "^1.3.5",
-        "@types/node": "22",
         "@types/react": "^18.3.12",
         "@types/react-reconciler": "^0.32.0",
         "react-dom": "^19.0.0",
@@ -122,7 +120,6 @@
         "@oclif/parser": "^3.8.17",
         "async": "^3.2.6",
         "diff": "^8.0.2",
-        "lodash": "4.17.23",
         "p-limit": "^6.2.0",
         "zod": "^4.2.1",
       },
@@ -135,11 +132,8 @@
       "version": "0.0.0",
       "dependencies": {
         "gpt-tokenizer": "^2.8.1",
+        "lodash": "4.17.23",
         "zod-from-json-schema": "0.4.2",
-      },
-      "devDependencies": {
-        "@types/bun": "^1.3.5",
-        "@types/node": "22",
       },
     },
     "packages/bigquery": {
@@ -149,20 +143,12 @@
         "@codebuff/common": "workspace:*",
         "@google-cloud/bigquery": "^7.9.4",
       },
-      "devDependencies": {
-        "@types/bun": "^1.3.5",
-        "@types/node": "22",
-      },
     },
     "packages/billing": {
       "name": "@codebuff/billing",
       "version": "1.0.0",
       "dependencies": {
         "@codebuff/common": "workspace:*",
-      },
-      "devDependencies": {
-        "@types/bun": "^1.3.5",
-        "@types/node": "22",
       },
     },
     "packages/build-tools": {
@@ -180,10 +166,6 @@
         "@vscode/tree-sitter-wasm": "0.1.4",
         "web-tree-sitter": "0.25.6",
       },
-      "devDependencies": {
-        "@types/bun": "^1.3.5",
-        "@types/node": "22",
-      },
     },
     "packages/internal": {
       "name": "@codebuff/internal",
@@ -198,10 +180,6 @@
         "postgres": "^3.4.7",
         "server-only": "0.0.1",
       },
-      "devDependencies": {
-        "@types/bun": "^1.3.5",
-        "@types/node": "22",
-      },
     },
     "scripts": {
       "name": "@codebuff/scripts",
@@ -210,12 +188,6 @@
         "@ai-sdk/openai-compatible": "^1.0.19",
         "@codebuff/bigquery": "workspace:*",
         "@codebuff/common": "workspace:*",
-        "lodash": "4.17.23",
-      },
-      "devDependencies": {
-        "@types/bun": "^1.3.5",
-        "@types/lodash": "^4.17.21",
-        "@types/node": "22",
       },
     },
     "sdk": {
@@ -234,10 +206,8 @@
         "zod": "^4.2.1",
       },
       "devDependencies": {
-        "@types/bun": "^1.3.5",
         "@types/diff": "8.0.0",
         "@types/micromatch": "^4.0.9",
-        "@types/node": "22",
         "adm-zip": "^0.5.12",
         "dts-bundle-generator": "^9.5.1",
         "node-fetch": "^3.3.2",
@@ -247,7 +217,6 @@
       "name": "@codebuff/web",
       "version": "1.0.0",
       "dependencies": {
-        "@auth/drizzle-adapter": "^1.8.0",
         "@codebuff/billing": "workspace:*",
         "@codebuff/common": "workspace:*",
         "@codebuff/internal": "workspace:*",
@@ -287,7 +256,6 @@
         "next-contentlayer2": "^0.5.8",
         "next-themes": "^0.3.0",
         "nextjs-linkedin-insight-tag": "^0.0.6",
-        "pg": "^8.14.1",
         "pino": "^9.6.0",
         "posthog-js": "^1.234.10",
         "prism-react-renderer": "^2.4.1",
@@ -295,9 +263,8 @@
         "react-dom": "18.3.1",
         "react-hook-form": "^7.55.0",
         "server-only": "^0.0.1",
-        "stripe": "^16.11.0",
         "tailwind-merge": "^2.5.2",
-        "ts-pattern": "^5.7.0",
+        "ts-pattern": "^5.9.0",
         "use-debounce": "^10.0.4",
         "zod": "^4.2.1",
       },

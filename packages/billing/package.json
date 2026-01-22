@@ -28,8 +28,5 @@
   "dependencies": {
     "@codebuff/common": "workspace:*"
   },
-  "devDependencies": {
-    "@types/node": "22",
-    "@types/bun": "^1.3.5"
-  }
+  "devDependencies": {}
 }
