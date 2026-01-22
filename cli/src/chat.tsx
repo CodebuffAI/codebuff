@@ -317,7 +317,7 @@ export const Chat = ({
     setForceFileOnlyMentions(true)
   }, [cursorPosition, inputValue, setInputValue])
 
-  const { saveToHistory, navigateUp, navigateDown } = useInputHistory(
+  const { saveToHistory, navigateUp, navigateDown, resetHistoryNavigation } = useInputHistory(
     inputValue,
     setInputValue,
     { inputMode, setInputMode },
@@ -747,7 +747,8 @@ export const Chat = ({
       lastEditDueToNav: false,
     })
     setInputFocused(true)
-  }, [restoreSavedInput, setInputValue, setInputFocused])
+    resetHistoryNavigation()
+  }, [restoreSavedInput, setInputValue, setInputFocused, resetHistoryNavigation])
 
   const handleCloseFeedback = useCallback(() => {
     closeFeedback()

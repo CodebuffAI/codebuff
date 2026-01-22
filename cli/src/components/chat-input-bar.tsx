@@ -117,7 +117,7 @@ export const ChatInputBar = ({
   const { submitAnswers, skip } = useAskUserBridge()
   const [askUserTitle] = React.useState(' Some questions for you ')
 
-  // Shared key intercept handler for suggestion menu navigation
+  // Shared key intercept handler for suggestion menu navigation and history navigation
   const handleKeyIntercept = useEvent(
     (key: {
       name?: string
@@ -126,11 +126,6 @@ export const ChatInputBar = ({
       meta?: boolean
       option?: boolean
     }) => {
-      // Intercept navigation keys when suggestion menu is active
-      // The useChatKeyboard hook will handle menu selection/navigation
-      const hasSuggestions = hasSlashSuggestions || hasMentionSuggestions
-      if (!hasSuggestions) return false
-
       const isPlainEnter =
         (key.name === 'return' || key.name === 'enter') &&
         !key.shift &&
@@ -138,20 +133,29 @@ export const ChatInputBar = ({
         !key.meta &&
         !key.option
       const isTab = key.name === 'tab' && !key.ctrl && !key.meta && !key.option
-      const isUpDown =
-        (key.name === 'up' || key.name === 'down') &&
-        !key.ctrl &&
-        !key.meta &&
-        !key.option
+      const isUp = key.name === 'up' && !key.ctrl && !key.meta && !key.option
+      const isDown = key.name === 'down' && !key.ctrl && !key.meta && !key.option
+      const isUpDown = isUp || isDown
 
-      // Don't intercept Up/Down when user is navigating history
-      if (isUpDown && lastEditDueToNav) {
-        return false
+      const hasSuggestions = hasSlashSuggestions || hasMentionSuggestions
+      if (hasSuggestions) {
+        if (isUpDown && lastEditDueToNav) {
+          return true
+        }
+        if (isPlainEnter || isTab || isUpDown) {
+          return true
+        }
       }
 
-      if (isPlainEnter || isTab || isUpDown) {
+      const historyUpEnabled = lastEditDueToNav || cursorPosition === 0
+      const historyDownEnabled = lastEditDueToNav || cursorPosition === inputValue.length
+      if (isUp && historyUpEnabled) {
         return true
       }
+      if (isDown && historyDownEnabled) {
+        return true
+      }
+
       return false
     },
   )

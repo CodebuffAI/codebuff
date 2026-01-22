@@ -39,6 +39,7 @@ export const useInputHistory = (
   const currentDraftRef = useRef<string>('')
   const currentDraftModeRef = useRef<InputMode>('default')
   const isInitializedRef = useRef<boolean>(false)
+  const isNavigatingRef = useRef<boolean>(false)
 
   // Load history from disk on mount
   useEffect(() => {
@@ -48,6 +49,18 @@ export const useInputHistory = (
       messageHistoryRef.current = savedHistory
     }
   }, [])
+
+  const resetHistoryNavigation = useCallback(() => {
+    historyIndexRef.current = -1
+    currentDraftRef.current = ''
+    currentDraftModeRef.current = 'default'
+  }, [])
+
+  useEffect(() => {
+    if (!isNavigatingRef.current) {
+      resetHistoryNavigation()
+    }
+  }, [inputMode, resetHistoryNavigation])
 
   const saveToHistory = useCallback((message: string) => {
     // Re-read from disk to pick up messages from other terminals
@@ -66,6 +79,8 @@ export const useInputHistory = (
     const history = messageHistoryRef.current
     if (history.length === 0) return
 
+    isNavigatingRef.current = true
+
     if (historyIndexRef.current === -1) {
       // Save current draft and mode before navigating
       currentDraftRef.current =
@@ -77,7 +92,10 @@ export const useInputHistory = (
     }
 
     const historyMessage = history[historyIndexRef.current]
-    if (historyMessage === undefined) return
+    if (historyMessage === undefined) {
+      isNavigatingRef.current = false
+      return
+    }
 
     const { mode, displayText } = parseHistoryItem(historyMessage)
 
@@ -91,6 +109,10 @@ export const useInputHistory = (
       cursorPosition: displayText.length,
       lastEditDueToNav: true,
     })
+
+    setTimeout(() => {
+      isNavigatingRef.current = false
+    }, 0)
   }, [inputValue, inputMode, setInputValue, setInputMode])
 
   const navigateDown = useCallback(() => {
@@ -98,10 +120,15 @@ export const useInputHistory = (
     if (history.length === 0) return
     if (historyIndexRef.current === -1) return
 
+    isNavigatingRef.current = true
+
     if (historyIndexRef.current < history.length - 1) {
       historyIndexRef.current += 1
       const historyMessage = history[historyIndexRef.current]
-      if (historyMessage === undefined) return
+      if (historyMessage === undefined) {
+        isNavigatingRef.current = false
+        return
+      }
 
       const { mode, displayText } = parseHistoryItem(historyMessage)
 
@@ -136,7 +163,11 @@ export const useInputHistory = (
         lastEditDueToNav: true,
       })
     }
+
+    setTimeout(() => {
+      isNavigatingRef.current = false
+    }, 0)
   }, [inputMode, setInputValue, setInputMode])
 
-  return { saveToHistory, navigateUp, navigateDown }
+  return { saveToHistory, navigateUp, navigateDown, resetHistoryNavigation }
 }

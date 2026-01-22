@@ -146,7 +146,7 @@ export function resolveChatKeyboardAction(
     return { type: 'none' }
   }
 
-  // Priority 1: Feedback mode handlers
+  // Priority 1: Feedback mode - block global keys except Escape/Ctrl-C/Ctrl-V
   if (state.feedbackMode) {
     if (isEscape) {
       return { type: 'exit-feedback-mode' }
@@ -156,6 +156,10 @@ export function resolveChatKeyboardAction(
         ? { type: 'exit-feedback-mode' }
         : { type: 'clear-feedback-input' }
     }
+    if (isCtrlV) {
+      return { type: 'paste' }
+    }
+    return { type: 'none' }
   }
 
   // Priority 2: Non-default input mode escape
