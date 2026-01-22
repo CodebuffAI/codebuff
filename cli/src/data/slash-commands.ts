@@ -21,6 +21,13 @@ const MODE_COMMANDS: SlashCommand[] = AGENT_MODES.map((mode) => ({
 
 export const SLASH_COMMANDS: SlashCommand[] = [
   {
+    id: 'help',
+    label: 'help',
+    description: 'Display keyboard shortcuts and tips',
+    aliases: ['h', '?'],
+    implicitCommand: true,
+  },
+  {
     id: 'connect:claude',
     label: 'connect:claude',
     description: 'Connect your Claude Pro/Max subscription',
@@ -92,13 +99,6 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     label: 'image',
     description: 'Attach an image file (or Ctrl+V to paste from clipboard)',
     aliases: ['img', 'attach'],
-  },
-  {
-    id: 'help',
-    label: 'help',
-    description: 'Display keyboard shortcuts and tips',
-    aliases: ['h', '?'],
-    implicitCommand: true,
   },
   ...MODE_COMMANDS,
   {
