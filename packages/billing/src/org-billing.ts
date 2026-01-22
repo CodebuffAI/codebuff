@@ -1,25 +1,24 @@
 import { GRANT_PRIORITIES } from '@codebuff/common/constants/grant-priorities'
-import { GrantTypeValues } from '@codebuff/common/types/grant'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
 import { withAdvisoryLockTransaction } from '@codebuff/internal/db/transaction'
 import { env } from '@codebuff/internal/env'
 import { stripeServer } from '@codebuff/internal/util/stripe'
-import { and, asc, gt, isNull, or, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 
 import { consumeFromOrderedGrants } from './balance-calculator'
+import {
+  calculateUsageAndBalanceFromGrants,
+  getOrderedActiveGrantsForOwner,
+} from './billing-core'
 
 import type {
-  CreditBalance,
   CreditUsageAndBalance,
   CreditConsumptionResult,
 } from './balance-calculator'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { OptionalFields } from '@codebuff/common/types/function-params'
-import type { GrantType } from '@codebuff/internal/db/schema'
-
-// Add a minimal structural type that both `db` and `tx` satisfy
-type DbConn = Pick<typeof db, 'select' | 'update'>
+import type { DbConn } from './billing-core'
 
 /**
  * Syncs organization billing cycle with Stripe subscription and returns the current cycle start date.
@@ -126,6 +125,9 @@ export async function syncOrganizationBillingCycle(params: {
 
 /**
  * Gets active grants for an organization, ordered by expiration, priority, and creation date.
+ *
+ * @param includeExpiredSince - When provided, includes grants that expired after this date.
+ *   Use this for usage calculations to include mid-cycle expired grants.
  */
 export async function getOrderedActiveOrganizationGrants(
   params: OptionalFields<
@@ -133,30 +135,21 @@ export async function getOrderedActiveOrganizationGrants(
       organizationId: string
       now: Date
       conn: DbConn
+      includeExpiredSince?: Date
     },
-    'conn'
+    'conn' | 'includeExpiredSince'
   >,
 ) {
   const withDefaults = { conn: db, ...params }
-  const { organizationId, now, conn } = withDefaults
+  const { organizationId, now, conn, includeExpiredSince } = withDefaults
 
-  return conn
-    .select()
-    .from(schema.creditLedger)
-    .where(
-      and(
-        eq(schema.creditLedger.org_id, organizationId),
-        or(
-          isNull(schema.creditLedger.expires_at),
-          gt(schema.creditLedger.expires_at, now),
-        ),
-      ),
-    )
-    .orderBy(
-      asc(schema.creditLedger.priority),
-      asc(schema.creditLedger.expires_at),
-      asc(schema.creditLedger.created_at),
-    )
+  return getOrderedActiveGrantsForOwner({
+    ownerId: organizationId,
+    ownerType: 'organization',
+    now,
+    conn,
+    includeExpiredSince,
+  })
 }
 
 /**
@@ -179,82 +172,29 @@ export async function calculateOrganizationUsageAndBalance(
     conn: db,
     ...params,
   }
-  const { organizationId, quotaResetDate, now, conn, logger } = withDefaults
+  const { organizationId, quotaResetDate, now, logger } = withDefaults
 
   // Get all relevant grants for the organization
-  const grants = await getOrderedActiveOrganizationGrants(withDefaults)
+  // Include grants that expired after quotaResetDate to count their mid-cycle usage
+  const grants = await getOrderedActiveOrganizationGrants({
+    ...withDefaults,
+    includeExpiredSince: quotaResetDate,
+  })
 
-  // Initialize breakdown and principals with all grant types set to 0
-  const initialBreakdown: Record<GrantType, number> = {} as Record<
-    GrantType,
-    number
-  >
-  const initialPrincipals: Record<GrantType, number> = {} as Record<
-    GrantType,
-    number
-  >
+  const { usageThisCycle, balance, settlement } =
+    calculateUsageAndBalanceFromGrants({
+      grants,
+      quotaResetDate,
+      now,
+    })
 
-  for (const type of GrantTypeValues) {
-    initialBreakdown[type] = 0
-    initialPrincipals[type] = 0
-  }
-
-  // Initialize balance structure
-  const balance: CreditBalance = {
-    totalRemaining: 0,
-    totalDebt: 0,
-    netBalance: 0,
-    breakdown: initialBreakdown,
-    principals: initialPrincipals,
-  }
-
-  // Calculate both metrics in one pass
-  let usageThisCycle = 0
-  let totalPositiveBalance = 0
-  let totalDebt = 0
-
-  // First pass: calculate initial totals and usage
-  for (const grant of grants) {
-    const grantType = grant.type as GrantType
-
-    // Calculate usage if grant was active in this cycle
-    if (
-      grant.created_at > quotaResetDate ||
-      !grant.expires_at ||
-      grant.expires_at > quotaResetDate
-    ) {
-      usageThisCycle += grant.principal - grant.balance
-    }
-
-    // Add to balance if grant is currently active
-    if (!grant.expires_at || grant.expires_at > now) {
-      balance.principals[grantType] += grant.principal
-      if (grant.balance > 0) {
-        totalPositiveBalance += grant.balance
-        balance.breakdown[grantType] += grant.balance
-      } else if (grant.balance < 0) {
-        totalDebt += Math.abs(grant.balance)
-      }
-    }
-  }
-
-  // Perform in-memory settlement if there's both debt and positive balance
-  if (totalDebt > 0 && totalPositiveBalance > 0) {
-    const settlementAmount = Math.min(totalDebt, totalPositiveBalance)
+  // Perform in-memory settlement logging if needed
+  if (settlement) {
     logger.debug(
-      { organizationId, totalDebt, totalPositiveBalance, settlementAmount },
+      { organizationId, ...settlement },
       'Performing in-memory settlement for organization',
     )
-
-    // After settlement:
-    totalPositiveBalance -= settlementAmount
-    totalDebt -= settlementAmount
   }
-
-  // Set final balance values after settlement
-  balance.totalRemaining = totalPositiveBalance
-  balance.totalDebt = totalDebt
-  balance.netBalance = totalPositiveBalance - totalDebt
 
   logger.debug(
     { organizationId, balance, usageThisCycle, grantsCount: grants.length },

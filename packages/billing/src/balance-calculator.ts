@@ -1,14 +1,17 @@
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
-import { GrantTypeValues } from '@codebuff/common/types/grant'
 import { failure, getErrorObject, success } from '@codebuff/common/util/error'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
 import { withAdvisoryLockTransaction } from '@codebuff/internal/db/transaction'
-import { and, asc, desc, gt, isNull, ne, or, eq, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, isNull, ne, or, sql } from 'drizzle-orm'
 import { union } from 'drizzle-orm/pg-core'
 
+import {
+  calculateUsageAndBalanceFromGrants,
+  getOrderedActiveGrantsForOwner,
+} from './billing-core'
 import { reportPurchasedCreditsToStripe } from './stripe-metering'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -18,31 +21,17 @@ import type {
   OptionalFields,
 } from '@codebuff/common/types/function-params'
 import type { ErrorOr } from '@codebuff/common/util/error'
-import type { GrantType } from '@codebuff/internal/db/schema'
+import type {
+  CreditConsumptionResult,
+  CreditUsageAndBalance,
+  DbConn,
+} from './billing-core'
 
-export interface CreditBalance {
-  totalRemaining: number
-  totalDebt: number
-  netBalance: number
-  breakdown: Record<GrantType, number>
-  principals: Record<GrantType, number>
-}
-
-export interface CreditUsageAndBalance {
-  usageThisCycle: number
-  balance: CreditBalance
-}
-
-export interface CreditConsumptionResult {
-  consumed: number
-  fromPurchased: number
-}
-
-// Add a minimal structural type that both `db` and `tx` satisfy
-type DbConn = Pick<
-  typeof db,
-  'select' | 'update'
-> /* + whatever else you call */
+export type {
+  CreditBalance,
+  CreditUsageAndBalance,
+  CreditConsumptionResult,
+} from './billing-core'
 
 function buildActiveGrantsFilter(userId: string, now: Date) {
   return and(
@@ -57,24 +46,24 @@ function buildActiveGrantsFilter(userId: string, now: Date) {
 /**
  * Gets active grants for a user, ordered by expiration (soonest first), then priority, and creation date.
  * Added optional `conn` param so callers inside a transaction can supply their TX object.
+ *
+ * @param includeExpiredSince - When provided, includes grants that expired after this date.
+ *   Use this for usage calculations to include mid-cycle expired grants.
  */
 export async function getOrderedActiveGrants(params: {
   userId: string
   now: Date
   conn?: DbConn
+  includeExpiredSince?: Date
 }) {
-  const { userId, now, conn = db } = params
-  const activeGrantsFilter = buildActiveGrantsFilter(userId, now)
-  return conn
-    .select()
-    .from(schema.creditLedger)
-    .where(activeGrantsFilter)
-    .orderBy(
-      // Use grants based on priority, then expiration date, then creation date
-      asc(schema.creditLedger.priority),
-      asc(schema.creditLedger.expires_at),
-      asc(schema.creditLedger.created_at),
-    )
+  const { userId, now, conn, includeExpiredSince } = params
+  return getOrderedActiveGrantsForOwner({
+    ownerId: userId,
+    ownerType: 'user',
+    now,
+    conn,
+    includeExpiredSince,
+  })
 }
 
 /**
@@ -188,6 +177,10 @@ export async function consumeFromOrderedGrants(
   let consumed = 0
   let fromPurchased = 0
 
+  // Track effective balances for all grants since updateGrantBalance only updates DB, not in-memory
+  // This Map is the single source of truth for grant balances within this function
+  const effectiveBalances = new Map<string, number>()
+
   // First pass: try to repay any debt
   for (const grant of grants) {
     if (grant.balance < 0 && remainingToConsume > 0) {
@@ -196,6 +189,9 @@ export async function consumeFromOrderedGrants(
       const newBalance = grant.balance + repayAmount
       remainingToConsume -= repayAmount
       consumed += repayAmount
+
+      // Track the effective balance after this modification
+      effectiveBalances.set(grant.operation_id, newBalance)
 
       await updateGrantBalance({
         ...params,
@@ -211,13 +207,23 @@ export async function consumeFromOrderedGrants(
     }
   }
 
+  // Track the last grant we consumed from for debt creation
+  let lastConsumedGrant: (typeof grants)[0] | null = null
+
   // Second pass: consume from positive balances
   for (const grant of grants) {
     if (remainingToConsume <= 0) break
-    if (grant.balance <= 0) continue
+    // Use effective balance if we modified this grant in first pass, otherwise use original
+    const currentBalance = effectiveBalances.get(grant.operation_id) ?? grant.balance
+    if (currentBalance <= 0) continue
 
-    const consumeFromThisGrant = Math.min(remainingToConsume, grant.balance)
-    const newBalance = grant.balance - consumeFromThisGrant
+    const consumeFromThisGrant = Math.min(remainingToConsume, currentBalance)
+    const newBalance = currentBalance - consumeFromThisGrant
+
+    // Track for potential debt creation
+    lastConsumedGrant = grant
+    effectiveBalances.set(grant.operation_id, newBalance)
+
     remainingToConsume -= consumeFromThisGrant
     consumed += consumeFromThisGrant
 
@@ -234,31 +240,37 @@ export async function consumeFromOrderedGrants(
     })
   }
 
-  // If we still have remaining to consume and no grants left, create debt in the last grant
+  // If we still have remaining to consume, create debt
+  // Note: We MUST create debt if remainingToConsume > 0, regardless of grant balance state
   if (remainingToConsume > 0 && grants.length > 0) {
-    const lastGrant = grants[grants.length - 1]
+    // Determine which grant to create debt on
+    // Prefer the last grant we consumed from, otherwise use the last grant in the array
+    const grantForDebt = lastConsumedGrant ?? grants[grants.length - 1]
+    // Always use effectiveBalances map - it has post-modification values from both passes
+    // Fall back to original balance only if grant was never modified
+    const effectiveBalance =
+      effectiveBalances.get(grantForDebt.operation_id) ?? grantForDebt.balance
 
-    if (lastGrant.balance <= 0) {
-      const newBalance = lastGrant.balance - remainingToConsume
-      await updateGrantBalance({
-        ...params,
-        grant: lastGrant,
+    const newBalance = effectiveBalance - remainingToConsume
+    await updateGrantBalance({
+      ...params,
+      grant: grantForDebt,
+      consumed: remainingToConsume,
+      newBalance,
+    })
+    consumed += remainingToConsume
+
+    logger.warn(
+      {
+        userId,
+        grantId: grantForDebt.operation_id,
+        requested: remainingToConsume,
         consumed: remainingToConsume,
-        newBalance,
-      })
-      consumed += remainingToConsume
-
-      logger.warn(
-        {
-          userId,
-          grantId: lastGrant.operation_id,
-          requested: remainingToConsume,
-          consumed: remainingToConsume,
-          newDebt: Math.abs(newBalance),
-        },
-        'Created new debt in grant',
-      )
-    }
+        newDebt: Math.abs(newBalance),
+        effectiveBalanceBeforeDebt: effectiveBalance,
+      },
+      'Created new debt in grant',
+    )
   }
 
   return { consumed, fromPurchased }
@@ -291,84 +303,27 @@ export async function calculateUsageAndBalance(
     withDefaults
 
   // Get all relevant grants in one query, using the provided connection
-  const grants = await getOrderedActiveGrants(withDefaults)
+  // Include grants that expired after quotaResetDate to count their mid-cycle usage
+  const grants = await getOrderedActiveGrants({
+    ...withDefaults,
+    includeExpiredSince: quotaResetDate,
+  })
 
-  // Initialize breakdown and principals with all grant types set to 0
-  const initialBreakdown: Record<GrantType, number> = {} as Record<
-    GrantType,
-    number
-  >
-  const initialPrincipals: Record<GrantType, number> = {} as Record<
-    GrantType,
-    number
-  >
+  const { usageThisCycle, balance, settlement } =
+    calculateUsageAndBalanceFromGrants({
+      grants,
+      quotaResetDate,
+      now,
+      isPersonalContext,
+    })
 
-  for (const type of GrantTypeValues) {
-    initialBreakdown[type] = 0
-    initialPrincipals[type] = 0
-  }
-
-  // Initialize balance structure
-  const balance: CreditBalance = {
-    totalRemaining: 0,
-    totalDebt: 0,
-    netBalance: 0,
-    breakdown: initialBreakdown,
-    principals: initialPrincipals,
-  }
-
-  // Calculate both metrics in one pass
-  let usageThisCycle = 0
-  let totalPositiveBalance = 0
-  let totalDebt = 0
-
-  // First pass: calculate initial totals and usage
-  for (const grant of grants) {
-    const grantType = grant.type as GrantType
-
-    // Skip organization credits for personal context
-    if (isPersonalContext && grantType === 'organization') {
-      continue
-    }
-
-    // Calculate usage if grant was active in this cycle
-    if (
-      grant.created_at > quotaResetDate ||
-      !grant.expires_at ||
-      grant.expires_at > quotaResetDate
-    ) {
-      usageThisCycle += grant.principal - grant.balance
-    }
-
-    // Add to balance if grant is currently active
-    if (!grant.expires_at || grant.expires_at > now) {
-      balance.principals[grantType] += grant.principal
-      if (grant.balance > 0) {
-        totalPositiveBalance += grant.balance
-        balance.breakdown[grantType] += grant.balance
-      } else if (grant.balance < 0) {
-        totalDebt += Math.abs(grant.balance)
-      }
-    }
-  }
-
-  // Perform in-memory settlement if there's both debt and positive balance
-  if (totalDebt > 0 && totalPositiveBalance > 0) {
-    const settlementAmount = Math.min(totalDebt, totalPositiveBalance)
+  // Perform in-memory settlement logging if needed
+  if (settlement) {
     logger.debug(
-      { userId, totalDebt, totalPositiveBalance, settlementAmount },
+      { userId, ...settlement },
       'Performing in-memory settlement',
     )
-
-    // After settlement:
-    totalPositiveBalance -= settlementAmount
-    totalDebt -= settlementAmount
   }
-
-  // Set final balance values after settlement
-  balance.totalRemaining = totalPositiveBalance
-  balance.totalDebt = totalDebt
-  balance.netBalance = totalPositiveBalance - totalDebt
 
   logger.debug(
     {
