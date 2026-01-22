@@ -64,6 +64,8 @@
     "@stripe/stripe-js": "^4.4.0",
     "@tanstack/react-query": "^5.90.12",
     "@tanstack/react-virtual": "^3.13.12",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.36.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "contentlayer2": "^0.5.8",
