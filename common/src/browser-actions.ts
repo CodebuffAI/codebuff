@@ -359,30 +359,10 @@ export function parseBrowserActionXML(xmlString: string): BrowserAction {
   // Parse special values (booleans, numbers, objects)
   const parsedAttrs = Object.entries(attrs).reduce(
     (acc, [key, value]) => {
-      try {
-        // Try to parse as JSON for objects
-        if (value.startsWith('{') || value.startsWith('[')) {
-          acc[key] = JSON.parse(value)
-        }
-        // Parse booleans
-        else if (value === 'true' || value === 'false') {
-          acc[key] = value === 'true'
-        }
-        // Parse numbers
-        else if (!isNaN(Number(value))) {
-          acc[key] = Number(value)
-        }
-        // Keep as string
-        else {
-          acc[key] = value
-        }
-      } catch {
-        // If parsing fails, keep as string
-        acc[key] = value
-      }
+      acc[key] = parseActionValue(value)
       return acc
     },
-    {} as Record<string, any>,
+    {} as Record<string, unknown>,
   )
 
   // Construct and validate the BrowserAction
@@ -394,6 +374,38 @@ export type BrowserResponse = z.infer<typeof BrowserResponseSchema>
 export type BrowserAction = z.infer<typeof BrowserActionSchema>
 
 /**
+ * Strict regex for decimal numbers: optional minus, one or more digits, optional decimal part.
+ * This prevents parsing of hex (0x10), binary (0b10), octal (0o10), Infinity, NaN,
+ * scientific notation (1e10), and whitespace strings.
+ */
+const STRICT_DECIMAL_REGEX = /^-?\d+(\.\d+)?$/
+
+/**
+ * Parse a string value into its appropriate JS type (boolean, number, object, or string)
+ */
+export function parseActionValue(value: string): unknown {
+  // Try to parse as JSON for objects/arrays
+  if (value.startsWith('{') || value.startsWith('[')) {
+    try {
+      return JSON.parse(value)
+    } catch {
+      return value
+    }
+  }
+  // Parse booleans
+  if (value === 'true') return true
+  if (value === 'false') return false
+  // Parse numbers using strict decimal regex to avoid edge cases:
+  // - Whitespace strings: Number('   ') === 0
+  // - Hex strings: Number('0x10') === 16
+  // - Infinity: Number('Infinity') === Infinity
+  // - Scientific notation: Number('1e10') === 10000000000
+  if (STRICT_DECIMAL_REGEX.test(value)) return Number(value)
+  // Keep as string
+  return value
+}
+
+/**
  * Parse browser action XML attributes into a typed BrowserAction object
  */
 export function parseBrowserActionAttributes(
@@ -402,12 +414,12 @@ export function parseBrowserActionAttributes(
   const { action, ...rest } = attributes
   return {
     type: action,
-    ...Object.entries(rest).reduce((acc, [key, value]) => {
-      // Convert string values to appropriate types
-      if (value === 'true') return { ...acc, [key]: true }
-      if (value === 'false') return { ...acc, [key]: false }
-      if (!isNaN(Number(value))) return { ...acc, [key]: Number(value) }
-      return { ...acc, [key]: value }
-    }, {}),
+    ...Object.entries(rest).reduce(
+      (acc, [key, value]) => {
+        acc[key] = parseActionValue(value)
+        return acc
+      },
+      {} as Record<string, unknown>,
+    ),
   } as BrowserAction
 }

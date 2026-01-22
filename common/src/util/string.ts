@@ -45,58 +45,44 @@ export const truncateStringWithMessage = ({
  */
 export const isWhitespace = (character: string) => /\s/.test(character)
 
+/**
+ * Regex patterns for detecting lazy edit placeholders in various comment styles.
+ * These patterns match ellipsis with keywords like "rest", "unchanged", "keep", etc.
+ * Note: Patterns are case-insensitive when used.
+ */
+export const LAZY_EDIT_PATTERNS: readonly RegExp[] = Object.freeze([
+  // JSX comments {/* ... */}
+  /{\s*\/\*\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\s*\.{3})?\s*\*\/\s*}/i,
+  // C-style single-line comments // ...
+  /\/\/\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/i,
+  // C-style multi-line comments /* ... */
+  /\/\*\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?\s*\*\//i,
+  // Python, Ruby, R comments # ...
+  /#\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/i,
+  // HTML-style comments <!-- ... -->
+  /<!--\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?\s*-->/i,
+  // SQL, Haskell, Lua comments -- ...
+  /--\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/i,
+  // MATLAB comments % ...
+  /%\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/i,
+])
+
+/**
+ * Pre-computed global versions of LAZY_EDIT_PATTERNS for use in replaceAll().
+ * This avoids creating new RegExp objects on every function call.
+ */
+const LAZY_EDIT_PATTERNS_GLOBAL = Object.freeze(
+  LAZY_EDIT_PATTERNS.map((pattern) => new RegExp(pattern.source, 'gi')),
+)
+
 export const replaceNonStandardPlaceholderComments = (
   content: string,
   replacement: string,
 ): string => {
-  const commentPatterns = [
-    // JSX comments (match this first)
-    {
-      regex:
-        /{\s*\/\*\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\s*\.{3})?\s*\*\/\s*}/gi,
-      placeholder: replacement,
-    },
-    // C-style comments (C, C++, Java, JavaScript, TypeScript, etc.)
-    {
-      regex:
-        /\/\/\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\s*\.{3})?/gi,
-      placeholder: replacement,
-    },
-    {
-      regex:
-        /\/\*\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\s*\.{3})?\s*\*\//gi,
-      placeholder: replacement,
-    },
-    // Python, Ruby, R comments
-    {
-      regex:
-        /#\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\s*\.{3})?/gi,
-      placeholder: replacement,
-    },
-    // HTML-style comments
-    {
-      regex:
-        /<!--\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\s*\.{3})?\s*-->/gi,
-      placeholder: replacement,
-    },
-    // SQL, Haskell, Lua comments
-    {
-      regex:
-        /--\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\s*\.{3})?/gi,
-      placeholder: replacement,
-    },
-    // MATLAB comments
-    {
-      regex:
-        /%\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\s*\.{3})?/gi,
-      placeholder: replacement,
-    },
-  ]
-
   let updatedContent = content
 
-  for (const { regex, placeholder } of commentPatterns) {
-    updatedContent = updatedContent.replaceAll(regex, placeholder)
+  for (const pattern of LAZY_EDIT_PATTERNS_GLOBAL) {
+    updatedContent = updatedContent.replaceAll(pattern, replacement)
   }
 
   return updatedContent
@@ -354,33 +340,16 @@ export const safeReplace = (
 
 export const hasLazyEdit = (content: string) => {
   const cleanedContent = content.toLowerCase().trim()
-  return (
+  // Quick checks for common patterns
+  if (
     cleanedContent.includes('... existing code ...') ||
     cleanedContent.includes('// rest of the') ||
-    cleanedContent.includes('# rest of the') ||
-    // Match various comment styles with ellipsis and specific words
-    /\/\/\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
-      cleanedContent,
-    ) || // C-style single line
-    /\/\*\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?\s*\*\//.test(
-      cleanedContent,
-    ) || // C-style multi-line
-    /#\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
-      cleanedContent,
-    ) || // Python/Ruby style
-    /<!--\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?\s*-->/.test(
-      cleanedContent,
-    ) || // HTML style
-    /--\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
-      cleanedContent,
-    ) || // SQL/Haskell style
-    /%\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
-      cleanedContent,
-    ) || // MATLAB style
-    /{\s*\/\*\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?\s*\*\/\s*}/.test(
-      cleanedContent,
-    ) // JSX style
-  )
+    cleanedContent.includes('# rest of the')
+  ) {
+    return true
+  }
+  // Check against all lazy edit patterns
+  return LAZY_EDIT_PATTERNS.some((pattern) => pattern.test(cleanedContent))
 }
 
 /**

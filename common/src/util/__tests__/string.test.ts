@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'bun:test'
 
 import { EXISTING_CODE_MARKER } from '../../old-constants'
-import { pluralize, replaceNonStandardPlaceholderComments } from '../string'
+import {
+  hasLazyEdit,
+  LAZY_EDIT_PATTERNS,
+  pluralize,
+  replaceNonStandardPlaceholderComments,
+} from '../string'
 
 describe('pluralize', () => {
   it('should handle singular and plural cases correctly', () => {
@@ -235,6 +240,62 @@ describe('pluralize', () => {
     expect(pluralize(2, 'token')).toBe('2 tokens')
     expect(pluralize(2, 'query')).toBe('2 queries')
     expect(pluralize(2, 'dependency')).toBe('2 dependencies')
+  })
+})
+
+describe('LAZY_EDIT_PATTERNS', () => {
+  it('should detect C-style single-line comments', () => {
+    expect(LAZY_EDIT_PATTERNS.some((p) => p.test('// ... existing code ...'))).toBe(true)
+    expect(LAZY_EDIT_PATTERNS.some((p) => p.test('// ... rest of file'))).toBe(true)
+  })
+
+  it('should detect C-style multi-line comments', () => {
+    expect(LAZY_EDIT_PATTERNS.some((p) => p.test('/* ... unchanged ... */'))).toBe(true)
+  })
+
+  it('should detect Python/Ruby comments', () => {
+    expect(LAZY_EDIT_PATTERNS.some((p) => p.test('# ... existing code ...'))).toBe(true)
+  })
+
+  it('should detect HTML comments', () => {
+    expect(LAZY_EDIT_PATTERNS.some((p) => p.test('<!-- ... keep ... -->'))).toBe(true)
+  })
+
+  it('should detect JSX comments', () => {
+    expect(LAZY_EDIT_PATTERNS.some((p) => p.test('{/* ... some code ... */'))).toBe(true)
+  })
+
+  it('should detect SQL/Haskell comments', () => {
+    expect(LAZY_EDIT_PATTERNS.some((p) => p.test('-- ... file ...'))).toBe(true)
+  })
+
+  it('should detect MATLAB comments', () => {
+    expect(LAZY_EDIT_PATTERNS.some((p) => p.test('% ... rest ...'))).toBe(true)
+  })
+
+  it('should not match regular comments', () => {
+    expect(LAZY_EDIT_PATTERNS.some((p) => p.test('// regular comment'))).toBe(false)
+    expect(LAZY_EDIT_PATTERNS.some((p) => p.test('/* normal comment */'))).toBe(false)
+  })
+})
+
+describe('hasLazyEdit', () => {
+  it('should detect common lazy edit patterns', () => {
+    expect(hasLazyEdit('... existing code ...')).toBe(true)
+    expect(hasLazyEdit('// rest of the file')).toBe(true)
+    expect(hasLazyEdit('# rest of the function')).toBe(true)
+  })
+
+  it('should detect regex-based lazy edit patterns', () => {
+    expect(hasLazyEdit('// ... existing code ...')).toBe(true)
+    expect(hasLazyEdit('/* ... unchanged ... */')).toBe(true)
+    expect(hasLazyEdit('# ... keep ...')).toBe(true)
+    expect(hasLazyEdit('<!-- ... file ... -->')).toBe(true)
+  })
+
+  it('should not detect regular code', () => {
+    expect(hasLazyEdit('const x = 1')).toBe(false)
+    expect(hasLazyEdit('// this is a comment')).toBe(false)
   })
 })
 
