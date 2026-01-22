@@ -5,42 +5,44 @@ import { publisher } from '../.agents/constants'
 
 import type { AgentDefinition } from '../.agents/types/agent-definition'
 
-const agentDefinitionContent = readFileSync(
-  join(__dirname, 'types', 'agent-definition.ts'),
-  'utf8',
-)
-const toolsDefinitionContent = readFileSync(
-  join(__dirname, 'types', 'tools.ts'),
-  'utf8',
-)
+/**
+ * Read an agent-related file with graceful error handling.
+ * Returns empty string and logs a warning if the file cannot be read.
+ */
+function readAgentFile(relativePath: string): string {
+  try {
+    return readFileSync(join(__dirname, relativePath), 'utf8')
+  } catch (error) {
+    console.warn(
+      `Failed to read agent file: ${relativePath}`,
+      error instanceof Error ? error.message : error,
+    )
+    return ''
+  }
+}
 
-const researcherDocExampleContent = readFileSync(
-  join(__dirname, 'researcher', 'researcher-docs.ts'),
-  'utf8',
+// Type definition files embedded in system prompt (critical - warn if missing)
+const agentDefinitionContent = readAgentFile('types/agent-definition.ts')
+const toolsDefinitionContent = readAgentFile('types/tools.ts')
+
+if (!agentDefinitionContent || !toolsDefinitionContent) {
+  console.error(
+    'CRITICAL: Agent builder type definitions failed to load. Agent may not function correctly.',
+  )
+}
+
+// Example agent files for inspiration
+const EXAMPLE_AGENT_PATHS = [
+  'researcher/researcher-docs.ts',
+  'researcher/researcher-grok-4-fast.ts',
+  'planners/planner-pro-with-files-input.ts',
+  'reviewer/code-reviewer.ts',
+  'reviewer/multi-prompt/code-reviewer-multi-prompt.ts',
+] as const
+
+const examplesAgentsContent = EXAMPLE_AGENT_PATHS.map(readAgentFile).filter(
+  (content) => content.length > 0,
 )
-const researcherGrok4FastExampleContent = readFileSync(
-  join(__dirname, 'researcher', 'researcher-grok-4-fast.ts'),
-  'utf8',
-)
-const generatePlanExampleContent = readFileSync(
-  join(__dirname, 'planners', 'planner-pro-with-files-input.ts'),
-  'utf8',
-)
-const reviewerExampleContent = readFileSync(
-  join(__dirname, 'reviewer', 'code-reviewer.ts'),
-  'utf8',
-)
-const reviewerMultiPromptExampleContent = readFileSync(
-  join(__dirname, 'reviewer', 'multi-prompt','code-reviewer-multi-prompt.ts'),
-  'utf8',
-)
-const examplesAgentsContent = [
-  researcherDocExampleContent,
-  researcherGrok4FastExampleContent,
-  generatePlanExampleContent,
-  reviewerExampleContent,
-  reviewerMultiPromptExampleContent,
-]
 
 const definition: AgentDefinition = {
   id: 'agent-builder',
