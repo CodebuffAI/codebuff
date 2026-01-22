@@ -291,16 +291,18 @@ describe('computeGridLayout', () => {
       expect(result.columnWidth).toBe(5)
     })
 
-    test('zero availableWidth', () => {
+    test('zero availableWidth clamps columnWidth to 1', () => {
       const result = computeGridLayout(['a'], 0)
       expect(result.columns).toBe(1)
-      expect(result.columnWidth).toBe(0)
+      // columnWidth is clamped to at least 1 to prevent layout issues
+      expect(result.columnWidth).toBe(1)
     })
 
-    test('negative availableWidth', () => {
+    test('negative availableWidth clamps columnWidth to 1', () => {
       const result = computeGridLayout(['a'], -10)
       expect(result.columns).toBe(1)
-      expect(result.columnWidth).toBe(-10)
+      // columnWidth is clamped to at least 1 to prevent layout issues
+      expect(result.columnWidth).toBe(1)
     })
 
     test('large number of items', () => {

@@ -154,6 +154,56 @@ For columns that share space equally within a container, use the **flex trio pat
 - Use `width: '100%'` (string) for parent containers, not numeric values
 - `alignItems: 'flex-start'` prevents children from stretching to fill row height
 
+### Resize Transitions: Unified DOM Structure
+
+**Problem**: When terminal resizes cause column count changes (e.g., 2→1 columns), content can disappear if the component renders different DOM structures for different column counts.
+
+**Root cause**: When transitioning from multi-column to single-column:
+1. The multi-column flex structure renders with shrinking width
+2. Flex columns with `minWidth: 0` collapse to zero width
+3. Content disappears before React can re-render with the new single-column structure
+
+**Solution**: Use a **unified DOM structure** for all column counts + defensive `minWidth`:
+
+```tsx
+// ✅ CORRECT: Same structure for 1, 2, 3, or N columns
+const isMultiColumn = columns > 1
+
+<box style={{ flexDirection: 'row', gap: isMultiColumn ? 1 : 0, width: '100%' }}>
+  {columnGroups.map((columnItems, idx) => (
+    <box
+      key={idx}
+      style={{
+        flexDirection: 'column',
+        flexGrow: 1,
+        flexShrink: 1,
+        flexBasis: 0,
+        minWidth: MIN_COLUMN_WIDTH,  // Use constant, NOT 0!
+      }}
+    >
+      {/* Column content */}
+    </box>
+  ))}
+</box>
+```
+
+**Why this works:**
+1. **Unified structure** = React doesn't need to reconcile different DOM trees during transitions
+2. **`minWidth: MIN_COLUMN_WIDTH`** = columns can't collapse to zero during the brief resize window
+3. Overflow protection in the layout hook handles edge cases by reducing columns when needed
+
+**Anti-pattern:**
+```tsx
+// ❌ WRONG: Different DOM structures for different column counts
+if (columns === 1) {
+  return <SingleColumnLayout />  // Different structure!
+} else {
+  return <MultiColumnLayout />   // React must reconcile between these
+}
+```
+
+The key insight: during resize, there's a timing window where the old structure is rendered with new (smaller) dimensions. A unified structure with defensive `minWidth` survives this window gracefully.
+
 ## OpenTUI Text Rendering Constraints
 
 **CRITICAL**: OpenTUI has strict requirements for text rendering that must be followed:

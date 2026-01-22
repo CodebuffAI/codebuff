@@ -1,6 +1,7 @@
 import React, { memo, type ReactNode } from 'react'
 
 import { useGridLayout } from '../hooks/use-grid-layout'
+import { MIN_COLUMN_WIDTH } from '../utils/layout-helpers'
 
 export interface GridLayoutProps<T> {
   items: T[]
@@ -23,35 +24,15 @@ function GridLayoutInner<T>({
 
   if (items.length === 0) return null
 
-  // Single column layout
-  if (columns === 1) {
-    return (
-      <box
-        style={{
-          flexDirection: 'column',
-          gap: 0,
-          width: '100%',
-          marginTop,
-        }}
-      >
-        <box style={{ flexDirection: 'column', width: '100%', gap: 0 }}>
-          {items.map((item, idx) => (
-            <box key={getItemKey(item)} style={{ width: '100%' }}>
-              {renderItem(item, idx, availableWidth)}
-            </box>
-          ))}
-        </box>
-        {footer}
-      </box>
-    )
-  }
+  // Unified structure for both single and multi-column layouts
+  // Using a consistent DOM structure prevents reconciliation issues during resize transitions
+  const isMultiColumn = columns > 1
 
-  // Multi-column layout
   return (
     <box
       style={{
         flexDirection: 'column',
-        gap: 1,
+        gap: isMultiColumn ? 1 : 0,
         width: '100%',
         marginTop,
       }}
@@ -59,7 +40,7 @@ function GridLayoutInner<T>({
       <box
         style={{
           flexDirection: 'row',
-          gap: 1,
+          gap: isMultiColumn ? 1 : 0,
           width: '100%',
           alignItems: 'flex-start',
         }}
@@ -77,11 +58,13 @@ function GridLayoutInner<T>({
                 flexGrow: 1,
                 flexShrink: 1,
                 flexBasis: 0,
-                minWidth: 0,
+                // Use MIN_COLUMN_WIDTH instead of 0 to prevent columns from collapsing
+                // to zero during resize transitions (prevents 2→1 column transition bug)
+                minWidth: MIN_COLUMN_WIDTH,
               }}
             >
               {columnItems.map((item, idx) => (
-                <box key={getItemKey(item)} style={{ minWidth: 0 }}>
+                <box key={getItemKey(item)} style={{ width: '100%' }}>
                   {renderItem(item, idx, columnWidth)}
                 </box>
               ))}

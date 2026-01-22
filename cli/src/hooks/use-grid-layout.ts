@@ -23,21 +23,24 @@ export interface GridLayoutResult<T> {
   columnGroups: T[][]
 }
 
+/** Gap between columns in multi-column layout */
+const COLUMN_GAP = 1
+
 export function computeGridLayout<T>(
   items: T[],
   availableWidth: number,
 ): GridLayoutResult<T> {
   // Force single column for very narrow terminals where multi-column wouldn't fit
-  const COLUMN_GAP = 1
   const minWidthForTwoColumns = MIN_COLUMN_WIDTH * 2 + COLUMN_GAP
   if (availableWidth < minWidthForTwoColumns) {
     return {
       columns: 1,
-      columnWidth: availableWidth,
+      columnWidth: Math.max(1, availableWidth),
       columnGroups: [items],
     }
   }
 
+  // Determine max columns from width thresholds
   const maxColumns = WIDTH_THRESHOLDS.filter(t => availableWidth >= t).length + 1
 
   const columns = computeSmartColumns(items.length, maxColumns)
