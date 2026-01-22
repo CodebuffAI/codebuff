@@ -12,12 +12,20 @@ const baseDefinition = createCliAgent({
     'No permission flags needed for Codebuff local dev server.',
   model: 'anthropic/claude-opus-4.5',
   skipPrepPhase: true,
-  spawnerPromptExtras: `**Use this agent after modifying:**
-- \`cli/src/components/\` - UI components, layouts, rendering
-- \`cli/src/hooks/\` - hooks that affect what users see
-- Any CLI visual elements: borders, colors, spacing, text formatting
+  spawnerPromptExtras: `**Purpose:** E2E visual testing of the Codebuff CLI itself. This agent starts a local dev Codebuff CLI instance and interacts with it to verify UI behavior.
 
-**When to use:** After implementing CLI UI changes, use this to verify the visual output actually renders correctly. Unit tests and typechecks cannot catch layout bugs, rendering issues, or visual regressions. This agent captures real terminal output including colors and layout.`,
+**When to use:**
+- After modifying \`cli/src/components/\` - UI components, layouts, rendering
+- After modifying \`cli/src/hooks/\` - hooks that affect what users see
+- To test CLI visual elements: borders, colors, spacing, text formatting
+- To verify the CLI responds correctly to user input
+
+**NOT for:**
+- Code review or analysis tasks
+- Reading files and verifying code logic
+- Running unit tests or typechecks
+
+**How it works:** Starts \`bun --cwd=cli run dev\` in tmux, then you send prompts/commands to the CLI and capture the visual output. Unit tests and typechecks cannot catch layout bugs, rendering issues, or visual regressions - this agent captures real terminal output including colors and layout.`,
 })
 
 // Constants must be inside handleSteps since it gets serialized via .toString()
