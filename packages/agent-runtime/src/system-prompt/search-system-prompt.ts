@@ -1,5 +1,4 @@
 import { countTokens, countTokensJson } from '../util/token-counter'
-import { insertTrace } from '@codebuff/bigquery'
 import { buildArray } from '@codebuff/common/util/array'
 
 import {
@@ -63,24 +62,6 @@ export function getSearchSystemPrompt(params: {
     },
     {} as Record<number, string>,
   )
-
-  const trace = {
-    id: crypto.randomUUID(),
-    agent_step_id: options.agentStepId,
-    created_at: new Date(),
-    type: 'file-trees' as const,
-    user_id: options.userId ?? '',
-    payload: {
-      filetrees: truncatedTrees,
-      user_input_id: options.userInputId,
-      client_session_id: options.clientSessionId,
-      fingerprint_id: options.fingerprintId,
-    },
-  }
-
-  insertTrace({ trace, logger }).catch((error: Error) => {
-    logger.error({ error }, 'Failed to insert file trees trace')
-  })
   const fileTreeTokens = countTokensJson(projectFileTreePrompt)
 
   const systemInfoPrompt = getSystemInfoPrompt(fileContext)

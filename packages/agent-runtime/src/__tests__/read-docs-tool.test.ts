@@ -1,4 +1,3 @@
-import * as bigquery from '@codebuff/bigquery'
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
@@ -52,9 +51,6 @@ describe('read_docs tool with researcher agent (via web API facade)', () => {
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
     spyOn(analytics, 'flushAnalytics').mockImplementation(() =>
       Promise.resolve(),
-    )
-    spyOn(bigquery, 'insertTrace').mockImplementation(() =>
-      Promise.resolve(true),
     )
 
     agentRuntimeImpl.requestFiles = async () => ({})

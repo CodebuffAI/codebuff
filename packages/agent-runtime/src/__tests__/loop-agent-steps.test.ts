@@ -37,10 +37,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
   let loopAgentStepsBaseParams: any
 
   beforeAll(async () => {
-    // Mock bigquery
-    await mockModule('@codebuff/bigquery', () => ({
-      insertTrace: () => {},
-    }))
+    // Set up mocks.
   })
 
   beforeEach(() => {
