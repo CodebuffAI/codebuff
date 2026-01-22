@@ -1,5 +1,8 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { toAnthropicModelId } from '@codebuff/common/constants/claude-oauth'
+import {
+  isClaudeModel,
+  toAnthropicModelId,
+} from '@codebuff/common/constants/claude-oauth'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { env } from '@codebuff/internal/env'
 import { NextResponse } from 'next/server'
@@ -115,6 +118,9 @@ export async function postTokenCount(params: {
   }
 }
 
+// Buffer to add to token count for non-Anthropic models since tokenizers differ
+const NON_ANTHROPIC_TOKEN_BUFFER = 0.3
+
 async function countTokensViaAnthropic(params: {
   messages: TokenCountRequest['messages']
   system: string | undefined
@@ -128,9 +134,12 @@ async function countTokensViaAnthropic(params: {
   const anthropicMessages = convertToAnthropicMessages(messages)
 
   // Convert model from OpenRouter format (e.g. "anthropic/claude-opus-4.5") to Anthropic format (e.g. "claude-opus-4-5-20251101")
-  const anthropicModelId = model
-    ? toAnthropicModelId(model)
-    : 'claude-opus-4-5-20251101'
+  // For non-Anthropic models, use the default Anthropic model for token counting
+  const DEFAULT_ANTHROPIC_MODEL = 'claude-opus-4-5-20251101'
+  const isNonAnthropicModel = !model || !isClaudeModel(model)
+  const anthropicModelId = isNonAnthropicModel
+    ? DEFAULT_ANTHROPIC_MODEL
+    : toAnthropicModelId(model)
 
   // Use the count_tokens endpoint (beta) or make a minimal request
   const response = await fetch(
@@ -167,7 +176,14 @@ async function countTokensViaAnthropic(params: {
   }
 
   const data = await response.json()
-  return data.input_tokens
+  const baseTokens = data.input_tokens
+
+  // Add 30% buffer for non-Anthropic models since tokenizers differ
+  if (isNonAnthropicModel) {
+    return Math.ceil(baseTokens * (1 + NON_ANTHROPIC_TOKEN_BUFFER))
+  }
+
+  return baseTokens
 }
 
 export function convertToAnthropicMessages(
