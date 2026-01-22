@@ -4,9 +4,9 @@ import { format as stringFormat } from 'util'
 import { pino } from 'pino'
 
 import { env, IS_DEV, IS_TEST, IS_CI } from '@codebuff/common/env'
-import { createAnalyticsDispatcher } from '@codebuff/common/util/analytics-dispatcher'
+import { createAnalyticsDispatcher } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { getAnalyticsEventId } from '@codebuff/common/util/analytics-log'
+import { getAnalyticsEventId } from '@codebuff/common/analytics'
 
 import {
   flushAnalytics,

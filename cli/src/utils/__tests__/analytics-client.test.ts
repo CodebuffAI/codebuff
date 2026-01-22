@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, mock } from 'bun:test'
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
-import type { AnalyticsClientWithIdentify } from '@codebuff/common/analytics-core'
+import type { AnalyticsClientWithIdentify } from '@codebuff/common/analytics'
 
 import {
   initAnalytics,

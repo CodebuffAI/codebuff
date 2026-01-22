@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
-import { createAnalyticsDispatcher } from '../analytics-dispatcher'
+import { createAnalyticsDispatcher } from '../../analytics'
 
 describe('analytics dispatcher', () => {
   const level = 'info'
@@ -37,11 +37,13 @@ describe('analytics dispatcher', () => {
       event: AnalyticsEvent.APP_LAUNCHED,
       userId: 'u',
       properties: expect.objectContaining({
-        userId: 'u',
+        eventId: AnalyticsEvent.APP_LAUNCHED,
         level,
         msg,
       }),
     })
+    // PII fields should NOT be in properties (security fix)
+    expect(out[0].properties).not.toHaveProperty('userId')
   })
 
   it('buffers when no user and flushes once user appears', () => {

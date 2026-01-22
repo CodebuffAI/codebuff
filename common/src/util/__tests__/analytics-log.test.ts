@@ -6,7 +6,7 @@ import {
   getAnalyticsEventId,
   toTrackableAnalyticsPayload,
   type AnalyticsLogData,
-} from '../analytics-log'
+} from '../../analytics'
 
 describe('analytics-log helpers', () => {
   const baseMsg = 'hello'
@@ -51,19 +51,49 @@ describe('analytics-log helpers', () => {
 
   it('builds payload when event and userId exist', () => {
     const payload = toTrackableAnalyticsPayload({
-      data: { eventId: AnalyticsEvent.APP_LAUNCHED, userId: 'u1', extra: 123 },
+      data: { eventId: AnalyticsEvent.APP_LAUNCHED, userId: 'u1', duration: 123 },
       level: baseLevel,
       msg: baseMsg,
     })!
 
     expect(payload.event).toBe(AnalyticsEvent.APP_LAUNCHED)
     expect(payload.userId).toBe('u1')
+    // Only allowlisted properties are included (userId is extracted separately, not spread)
     expect(payload.properties).toMatchObject({
-      userId: 'u1',
-      extra: 123,
+      eventId: AnalyticsEvent.APP_LAUNCHED,
+      duration: 123,
       level: baseLevel,
       msg: baseMsg,
     })
+    // PII fields should NOT be in properties
+    expect(payload.properties).not.toHaveProperty('userId')
+  })
+
+  it('filters out PII and unknown properties', () => {
+    const payload = toTrackableAnalyticsPayload({
+      data: {
+        eventId: AnalyticsEvent.APP_LAUNCHED,
+        userId: 'u1',
+        email: 'test@example.com',
+        password: 'secret',
+        unknownField: 'value',
+        duration: 500,
+        success: true,
+      },
+      level: baseLevel,
+      msg: baseMsg,
+    })!
+
+    // Safe properties are included
+    expect(payload.properties.duration).toBe(500)
+    expect(payload.properties.success).toBe(true)
+    expect(payload.properties.eventId).toBe(AnalyticsEvent.APP_LAUNCHED)
+    // PII is excluded
+    expect(payload.properties).not.toHaveProperty('userId')
+    expect(payload.properties).not.toHaveProperty('email')
+    expect(payload.properties).not.toHaveProperty('password')
+    // Unknown properties are excluded
+    expect(payload.properties).not.toHaveProperty('unknownField')
   })
 
   it('falls back to nested and underscored user ids', () => {

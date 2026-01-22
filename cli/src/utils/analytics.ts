@@ -3,7 +3,7 @@ import {
   generateAnonymousId,
   type AnalyticsClientWithIdentify,
   type PostHogClientOptions,
-} from '@codebuff/common/analytics-core'
+} from '@codebuff/common/analytics'
 import {
   env as defaultEnv,
   IS_PROD as defaultIsProd,
@@ -14,7 +14,7 @@ import type { AnalyticsEvent } from '@codebuff/common/constants/analytics-events
 
 
 // Re-export types from core for backwards compatibility
-export type { AnalyticsClientWithIdentify as AnalyticsClient } from '@codebuff/common/analytics-core'
+export type { AnalyticsClientWithIdentify as AnalyticsClient } from '@codebuff/common/analytics'
 
 export enum AnalyticsErrorStage {
   Init = 'init',

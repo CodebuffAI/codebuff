@@ -4,7 +4,7 @@ import { format } from 'util'
 
 import { trackEvent } from '@codebuff/common/analytics'
 import { env, IS_DEV, IS_CI } from '@codebuff/common/env'
-import { createAnalyticsDispatcher } from '@codebuff/common/util/analytics-dispatcher'
+import { createAnalyticsDispatcher } from '@codebuff/common/analytics'
 import { splitData } from '@codebuff/common/util/split-data'
 import pino from 'pino'
 
