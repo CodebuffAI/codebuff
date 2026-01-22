@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import { Saxy } from '../saxy'
+import { Saxy } from '../xml'
 
 describe('Saxy XML Parser', () => {
   // Helper function to process XML and get events

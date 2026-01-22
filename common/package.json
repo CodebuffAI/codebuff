@@ -5,6 +5,18 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./analytics": {
+      "bun": "./src/analytics/index.ts",
+      "import": "./src/analytics/index.ts",
+      "types": "./src/analytics/index.ts",
+      "default": "./src/analytics/index.ts"
+    },
+    "./util/xml": {
+      "bun": "./src/util/xml/index.ts",
+      "import": "./src/util/xml/index.ts",
+      "types": "./src/util/xml/index.ts",
+      "default": "./src/util/xml/index.ts"
+    },
     "./*": {
       "bun": "./src/*.ts",
       "import": "./src/*.ts",
