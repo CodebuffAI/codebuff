@@ -510,6 +510,7 @@ export const MultilineInput = forwardRef<
       const hasBackslashBeforeCursor =
         cursorPosition > 0 && value[cursorPosition - 1] === '\\'
 
+      // Plain Enter: no modifiers, sequence is '\r' (macOS) or '\n' (Linux)
       const isPlainEnter =
         isEnterKey &&
         !key.shift &&
@@ -518,10 +519,9 @@ export const MultilineInput = forwardRef<
         !key.option &&
         !isAltLikeModifier &&
         !hasEscapePrefix &&
-        key.sequence === '\r' &&
+        (key.sequence === '\r' || key.sequence === '\n') &&
         !hasBackslashBeforeCursor
-      const isShiftEnter =
-        isEnterKey && (Boolean(key.shift) || key.sequence === '\n')
+      const isShiftEnter = isEnterKey && Boolean(key.shift)
       const isOptionEnter =
         isEnterKey && (isAltLikeModifier || hasEscapePrefix)
       const isBackslashEnter = isEnterKey && hasBackslashBeforeCursor
