@@ -76,11 +76,6 @@ export function saveChatState(runState: RunState, messages: ChatMessage[]): void
     
     fs.writeFileSync(runStatePath, JSON.stringify(runState, null, 2))
     fs.writeFileSync(messagesPath, JSON.stringify(messages, null, 2))
-    
-    logger.debug(
-      { runStatePath, messagesPath, messageCount: messages.length },
-      'Saved chat state to disk'
-    )
   } catch (error) {
     logger.error(
       {

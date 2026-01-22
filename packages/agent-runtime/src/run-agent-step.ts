@@ -260,11 +260,11 @@ export const runAgentStep = async (
   logger.debug(
     {
       iteration: iterationNum,
-      agentId: agentState.agentId,
+      runId: agentState.runId,
       model,
       duration: Date.now() - startTime,
       contextTokenCount: agentState.contextTokenCount,
-      agentMessages: agentState.messageHistory,
+      agentMessages: agentState.messageHistory.concat().reverse(),
       system,
       prompt,
       params: spawnParams,
@@ -432,7 +432,7 @@ export const runAgentStep = async (
       shouldEndTurn,
       duration: Date.now() - startTime,
       fullResponse,
-      finalMessageHistoryWithToolResults: agentState.messageHistory,
+      finalMessageHistoryWithToolResults: agentState.messageHistory.concat().reverse(),
       toolCalls,
       toolResults,
       agentContext,

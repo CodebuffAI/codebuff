@@ -167,7 +167,7 @@ export const useGravityAd = (): GravityAdState => {
       const ad = data.ad as AdResponse | null
 
       logger.info(
-        { ad, request: { messages: adMessages } },
+        { ad },
         '[gravity] Received ad response',
       )
       return ad

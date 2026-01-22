@@ -10,15 +10,8 @@ export const handleSuggestFollowups = (async (params: {
   toolCall: CodebuffToolCall<'suggest_followups'>
   logger: Logger
 }): Promise<{ output: CodebuffToolOutput<'suggest_followups'> }> => {
-  const { previousToolCallFinished, toolCall, logger } = params
+  const { previousToolCallFinished, toolCall } = params
   const { followups } = toolCall.input
-
-  logger.debug(
-    {
-      followupCount: followups.length,
-    },
-    'Suggested followups',
-  )
 
   await previousToolCallFinished
   return { output: [{ type: 'json', value: { message: 'Followups suggested!' } }] }

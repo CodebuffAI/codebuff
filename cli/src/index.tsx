@@ -269,7 +269,6 @@ async function main(): Promise<void> {
             projectRoot: root,
             fs: fs.promises,
           })
-          logger.info({ tree }, 'Loaded file tree')
           setFileTree(tree)
         }
       } catch (error) {

@@ -103,14 +103,6 @@ export async function mainPrompt(
     }
 
     agentType = agentId
-    logger.info(
-      {
-        agentId,
-        promptParams,
-        prompt: prompt?.slice(0, 50),
-      },
-      `Using CLI-specified agent: ${agentId}`,
-    )
   } else {
     agentType = (
       {
@@ -146,7 +138,7 @@ export async function mainPrompt(
     fileContext,
   })
 
-  logger.debug({ agentState, output }, 'Main prompt finished')
+  logger.debug({ output }, 'Main prompt finished')
 
   return {
     sessionState: {

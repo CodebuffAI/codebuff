@@ -232,10 +232,6 @@ export function executeToolCall<T extends ToolName>(
       toolCallId: toolCall.toolCallId,
       content: output,
     }
-    logger.debug(
-      { input, toolResult },
-      `${toolName} tool call & result (${toolResult.toolCallId})`,
-    )
 
     onResponseChunk({
       type: 'tool_result',
