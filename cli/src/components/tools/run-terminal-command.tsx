@@ -50,11 +50,10 @@ export const RunTerminalCommandComponent = defineToolComponent({
   toolName: 'run_terminal_command',
 
   render(toolBlock): ToolRenderConfig {
-    // Extract command from input
-    const command =
-      toolBlock.input && typeof (toolBlock.input as any).command === 'string'
-        ? (toolBlock.input as any).command.trim()
-        : ''
+    // Extract command and timeout from input
+    const input = toolBlock.input as { command?: string; timeout_seconds?: number } | undefined
+    const command = typeof input?.command === 'string' ? input.command.trim() : ''
+    const timeoutSeconds = typeof input?.timeout_seconds === 'number' ? input.timeout_seconds : undefined
 
     // Extract output and startingCwd from tool result
     const { output, startingCwd } = parseTerminalOutput(toolBlock.output)
@@ -67,6 +66,7 @@ export const RunTerminalCommandComponent = defineToolComponent({
         expandable={true}
         maxVisibleLines={5}
         cwd={startingCwd}
+        timeoutSeconds={timeoutSeconds}
       />
     )
 

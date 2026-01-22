@@ -8,11 +8,12 @@ import type { ToolBlock } from '../types'
 const createToolBlock = (
   command: string,
   output?: string,
+  timeoutSeconds?: number,
 ): ToolBlock & { toolName: 'run_terminal_command' } => ({
   type: 'tool',
   toolName: 'run_terminal_command',
   toolCallId: 'test-tool-call-id',
-  input: { command },
+  input: { command, ...(timeoutSeconds !== undefined && { timeout_seconds: timeoutSeconds }) },
   output,
 })
 
@@ -141,6 +142,39 @@ describe('RunTerminalCommandComponent', () => {
       const { output } = parseTerminalOutput(createJsonOutput(''))
 
       expect(output).toBe(null)
+    })
+  })
+
+  describe('timeout extraction', () => {
+    const mockTheme = {} as any
+    const mockOptions = {
+      availableWidth: 80,
+      indentationOffset: 0,
+      labelWidth: 10,
+    }
+
+    test('passes undefined timeoutSeconds when timeout_seconds not provided', () => {
+      const toolBlock = createToolBlock('ls -la', createJsonOutput('output'))
+
+      const result = RunTerminalCommandComponent.render(toolBlock, mockTheme, mockOptions)
+
+      expect((result.content as any).props.timeoutSeconds).toBeUndefined()
+    })
+
+    test('passes timeoutSeconds for positive timeout', () => {
+      const toolBlock = createToolBlock('npm test', createJsonOutput('tests passed'), 60)
+
+      const result = RunTerminalCommandComponent.render(toolBlock, mockTheme, mockOptions)
+
+      expect((result.content as any).props.timeoutSeconds).toBe(60)
+    })
+
+    test('passes timeoutSeconds for no timeout (-1)', () => {
+      const toolBlock = createToolBlock('long-running-task', createJsonOutput('done'), -1)
+
+      const result = RunTerminalCommandComponent.render(toolBlock, mockTheme, mockOptions)
+
+      expect((result.content as any).props.timeoutSeconds).toBe(-1)
     })
   })
 

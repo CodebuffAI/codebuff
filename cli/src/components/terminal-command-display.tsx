@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Button } from './button'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
+import { formatTimeout } from '../utils/format-timeout'
 import { getLastNVisualLines } from '../utils/text-layout'
 
 interface TerminalCommandDisplayProps {
@@ -17,19 +18,21 @@ interface TerminalCommandDisplayProps {
   isRunning?: boolean
   /** Working directory where the command was run */
   cwd?: string
+  /** Timeout in seconds for the command */
+  timeoutSeconds?: number
 }
 
 /**
  * Shared component for displaying terminal command with output.
  * Used in both the ghost message (pending bash) and message history.
  */
-
 export const TerminalCommandDisplay = ({
   command,
   output,
   expandable = true,
   maxVisibleLines,
   isRunning = false,
+  timeoutSeconds,
 }: TerminalCommandDisplayProps) => {
   const theme = useTheme()
   const { contentMaxWidth } = useTerminalDimensions()
@@ -40,6 +43,13 @@ export const TerminalCommandDisplay = ({
   const defaultMaxLines = expandable ? 5 : 10
   const maxLines = maxVisibleLines ?? defaultMaxLines
 
+  // Format timeout display - show when provided and not the default (30s)
+  const DEFAULT_TIMEOUT_SECONDS = 30
+  const timeoutLabel =
+    timeoutSeconds !== undefined && timeoutSeconds !== DEFAULT_TIMEOUT_SECONDS
+      ? formatTimeout(timeoutSeconds)
+      : null
+
   // Command header - shared between output and no-output cases
   const commandHeader = (
     <text style={{ wrapMode: 'word' }}>
@@ -47,6 +57,11 @@ export const TerminalCommandDisplay = ({
       <span fg={theme.foreground} attributes={TextAttributes.BOLD}>
         {command}
       </span>
+      {timeoutLabel && (
+        <span fg={theme.muted} attributes={TextAttributes.DIM}>
+          {' '}({timeoutLabel})
+        </span>
+      )}
     </text>
   )
 
