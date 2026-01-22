@@ -200,6 +200,90 @@ describe('resolveChatKeyboardAction', () => {
     })
   })
 
+  describe('escape closes menus', () => {
+    test('escape closes slash menu when active', () => {
+      const state: ChatKeyboardState = {
+        ...defaultState,
+        slashMenuActive: true,
+        slashMatchesLength: 5,
+        slashSelectedIndex: 2,
+      }
+      expect(resolveChatKeyboardAction(escapeKey, state)).toEqual({
+        type: 'close-slash-menu',
+      })
+    })
+
+    test('escape closes mention menu when active', () => {
+      const state: ChatKeyboardState = {
+        ...defaultState,
+        mentionMenuActive: true,
+        totalMentionMatches: 5,
+        agentSelectedIndex: 2,
+      }
+      expect(resolveChatKeyboardAction(escapeKey, state)).toEqual({
+        type: 'close-mention-menu',
+      })
+    })
+
+    test('escape does not close slash menu when disabled', () => {
+      const state: ChatKeyboardState = {
+        ...defaultState,
+        slashMenuActive: true,
+        slashMatchesLength: 5,
+        disableSlashSuggestions: true,
+      }
+      expect(resolveChatKeyboardAction(escapeKey, state)).toEqual({
+        type: 'none',
+      })
+    })
+
+    test('escape does not close slash menu with no matches', () => {
+      const state: ChatKeyboardState = {
+        ...defaultState,
+        slashMenuActive: true,
+        slashMatchesLength: 0,
+      }
+      expect(resolveChatKeyboardAction(escapeKey, state)).toEqual({
+        type: 'none',
+      })
+    })
+
+    test('escape does not close mention menu with no matches', () => {
+      const state: ChatKeyboardState = {
+        ...defaultState,
+        mentionMenuActive: true,
+        totalMentionMatches: 0,
+      }
+      expect(resolveChatKeyboardAction(escapeKey, state)).toEqual({
+        type: 'none',
+      })
+    })
+
+    test('escape in feedback mode exits feedback before closing menu', () => {
+      const state: ChatKeyboardState = {
+        ...defaultState,
+        feedbackMode: true,
+        slashMenuActive: true,
+        slashMatchesLength: 5,
+      }
+      expect(resolveChatKeyboardAction(escapeKey, state)).toEqual({
+        type: 'exit-feedback-mode',
+      })
+    })
+
+    test('escape in non-default mode exits mode before closing menu', () => {
+      const state: ChatKeyboardState = {
+        ...defaultState,
+        inputMode: 'bash',
+        slashMenuActive: true,
+        slashMatchesLength: 5,
+      }
+      expect(resolveChatKeyboardAction(escapeKey, state)).toEqual({
+        type: 'exit-input-mode',
+      })
+    })
+  })
+
   describe('slash menu navigation', () => {
     const slashMenuState: ChatKeyboardState = {
       ...defaultState,

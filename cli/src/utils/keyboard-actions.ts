@@ -61,6 +61,8 @@ export type ChatKeyboardAction =
   | { type: 'interrupt-stream' }
 
   // Menu navigation
+  | { type: 'close-slash-menu' }
+  | { type: 'close-mention-menu' }
   | { type: 'slash-menu-down' }
   | { type: 'slash-menu-up' }
   | { type: 'slash-menu-tab' }
@@ -193,6 +195,20 @@ export function resolveChatKeyboardAction(
     state.inputValue.length === 0
   ) {
     return { type: 'backspace-exit-mode' }
+  }
+
+  // Priority 5.5: Escape closes active menus
+  if (isEscape) {
+    if (
+      state.slashMenuActive &&
+      state.slashMatchesLength > 0 &&
+      !state.disableSlashSuggestions
+    ) {
+      return { type: 'close-slash-menu' }
+    }
+    if (state.mentionMenuActive && state.totalMentionMatches > 0) {
+      return { type: 'close-mention-menu' }
+    }
   }
 
   // Priority 6: Slash menu navigation (when active and not disabled)

@@ -33,6 +33,7 @@ export type ChatKeyboardHandlers = {
   onInterruptStream: () => void
 
   // Slash menu handlers
+  onCloseSlashMenu: () => void
   onSlashMenuDown: () => void
   onSlashMenuUp: () => void
   onSlashMenuTab: () => void
@@ -41,6 +42,7 @@ export type ChatKeyboardHandlers = {
   onSlashMenuComplete: () => void
 
   // Mention menu handlers
+  onCloseMentionMenu: () => void
   onMentionMenuDown: () => void
   onMentionMenuUp: () => void
   onMentionMenuTab: () => void
@@ -127,6 +129,12 @@ function dispatchAction(
       return true
     case 'interrupt-stream':
       handlers.onInterruptStream()
+      return true
+    case 'close-slash-menu':
+      handlers.onCloseSlashMenu()
+      return true
+    case 'close-mention-menu':
+      handlers.onCloseMentionMenu()
       return true
     case 'slash-menu-down':
       handlers.onSlashMenuDown()

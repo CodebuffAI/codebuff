@@ -403,7 +403,7 @@ export const Chat = ({
     }
   }, [isStreaming, pendingBashMessages, setMessages])
 
-  const { sendMessage, clearMessages } = useSendMessage({
+  const { sendMessage, resetRunState } = useSendMessage({
     inputRef,
     activeSubagentsRef,
     isChainInProgressRef,
@@ -467,7 +467,7 @@ export const Chat = ({
           logoutMutation,
           streamMessageIdRef,
           addToQueue,
-          clearMessages,
+          resetRunState,
           saveToHistory,
           scrollToLatest,
           sendMessage,
@@ -869,6 +869,36 @@ export const Chat = ({
           pauseQueue()
         }
       },
+      onCloseSlashMenu: () => {
+        // Remove the slash and query from input to close the menu
+        if (slashContext.startIndex >= 0) {
+          const before = inputValue.slice(0, slashContext.startIndex)
+          const after = inputValue.slice(
+            slashContext.startIndex + 1 + slashContext.query.length,
+          )
+          setInputValue({
+            text: before + after,
+            cursorPosition: before.length,
+            lastEditDueToNav: false,
+          })
+        }
+        setSlashSelectedIndex(0)
+      },
+      onCloseMentionMenu: () => {
+        // Remove the @ and query from input to close the menu
+        if (mentionContext.startIndex >= 0) {
+          const before = inputValue.slice(0, mentionContext.startIndex)
+          const after = inputValue.slice(
+            mentionContext.startIndex + 1 + mentionContext.query.length,
+          )
+          setInputValue({
+            text: before + after,
+            cursorPosition: before.length,
+            lastEditDueToNav: false,
+          })
+        }
+        setAgentSelectedIndex(0)
+      },
       onSlashMenuDown: () => setSlashSelectedIndex((prev) => prev + 1),
       onSlashMenuUp: () => setSlashSelectedIndex((prev) => prev - 1),
       onSlashMenuTab: () => {
@@ -1063,6 +1093,7 @@ export const Chat = ({
       setSlashSelectedIndex,
       slashMatches,
       slashSelectedIndex,
+      slashContext,
       onSubmitPrompt,
       agentMode,
       handleCommandResult,
@@ -1071,6 +1102,7 @@ export const Chat = ({
       fileMatches,
       agentSelectedIndex,
       mentionContext,
+      inputValue,
       cursorPosition,
       openFileMenuWithTab,
       navigateUp,
