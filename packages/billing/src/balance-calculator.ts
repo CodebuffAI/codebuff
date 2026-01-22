@@ -373,7 +373,7 @@ export async function calculateUsageAndBalance(
   logger.debug(
     {
       userId,
-      balance,
+      netBalance: balance.netBalance,
       usageThisCycle,
       grantsCount: grants.length,
       isPersonalContext,
