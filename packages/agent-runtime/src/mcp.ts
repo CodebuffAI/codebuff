@@ -1,5 +1,7 @@
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
+import { MCP_TOOL_SEPARATOR } from './mcp-constants'
+
 import type { AgentTemplate } from './templates/types'
 import type { RequestMcpToolDataFn } from '@codebuff/common/types/contracts/client'
 import type { OptionalFields } from '@codebuff/common/types/function-params'
@@ -22,13 +24,16 @@ export async function getMCPToolData(
   const withDefaults = { writeTo: {}, ...params }
   const { toolNames, mcpServers, writeTo, requestMcpToolData } = withDefaults
 
+  // User-facing toolNames use '/' as separator (e.g., 'supabase/list_tables')
+  // but internally we use MCP_TOOL_SEPARATOR ('__') for LLM API compatibility
+  const USER_INPUT_SEPARATOR = '/'
   const requestedToolsByMcp: Record<string, string[] | undefined> = {}
   for (const t of toolNames) {
-    if (!t.includes('/')) {
+    if (!t.includes(USER_INPUT_SEPARATOR)) {
       continue
     }
-    const [mcpName, ...remaining] = t.split('/')
-    const toolName = remaining.join('/')
+    const [mcpName, ...remaining] = t.split(USER_INPUT_SEPARATOR)
+    const toolName = remaining.join(USER_INPUT_SEPARATOR)
     if (!requestedToolsByMcp[mcpName]) {
       requestedToolsByMcp[mcpName] = []
     }
@@ -45,7 +50,7 @@ export async function getMCPToolData(
         })
 
         for (const { name, description, inputSchema } of mcpData) {
-          writeTo[mcpName + '/' + name] = {
+          writeTo[mcpName + MCP_TOOL_SEPARATOR + name] = {
             inputSchema: convertJsonSchemaToZod(inputSchema as any) as any,
             endsAgentStep: true,
             description,
