@@ -8,12 +8,14 @@ import { OnboardingFlow } from './onboarding-flow'
 interface OnboardClientWrapperProps {
   hasReferralCode: boolean
   referralCode?: string
+  referrerName?: string
   children: React.ReactNode
 }
 
 export function OnboardClientWrapper({
   hasReferralCode,
   referralCode,
+  referrerName,
   children,
 }: OnboardClientWrapperProps) {
   const [hasStoredReferral, setHasStoredReferral] = useState(false)
@@ -61,6 +63,7 @@ export function OnboardClientWrapper({
         <OnboardingFlow
           hasReferralCode={shouldShowOnboarding}
           referralCode={actualReferralCode || undefined}
+          referrerName={referrerName}
           onComplete={handleOnboardingComplete}
         />
       </div>

@@ -7,8 +7,8 @@ import {
 } from '@codebuff/common/old-constants'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
-import React, { useEffect, useState, useCallback } from 'react'
-import { useFormState, useFormStatus } from 'react-dom'
+import React, { useEffect, useState, useCallback, useActionState } from 'react'
+import { useFormStatus } from 'react-dom'
 
 import { setAffiliateHandleAction } from './actions'
 
@@ -49,7 +49,7 @@ function SetHandleForm({
     success: false,
     fieldErrors: {},
   }
-  const [state, formAction] = useFormState(
+  const [state, formAction] = useActionState(
     setAffiliateHandleAction,
     initialState,
   )

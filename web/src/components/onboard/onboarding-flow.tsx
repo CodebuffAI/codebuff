@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils'
 interface OnboardingFlowProps {
   hasReferralCode: boolean
   referralCode?: string
+  referrerName?: string
   onComplete?: () => void
 }
 
@@ -98,6 +99,7 @@ const detectOS = (): OS => {
 export function OnboardingFlow({
   hasReferralCode,
   referralCode,
+  referrerName,
   onComplete,
 }: OnboardingFlowProps) {
   const [mounted, setMounted] = useState(false)
@@ -213,12 +215,13 @@ export function OnboardingFlow({
     <div className="space-y-4">
       <h3 className="text-xl font-semibold">🎉 Redeem Your Referral Code</h3>
       <p className="text-muted-foreground">
-        You're almost done! Paste your referral code in the CLI to claim your
-        bonus credits.
+        You're almost done! Redeem your code to claim bonus credits
+        {referrerName ? ` — ${referrerName} will earn credits too!` : '.'}
       </p>
       <div className="bg-acid-matrix/30 border border-acid-matrix/40 rounded-lg p-6">
         <p className="text-black dark:text-green-200 text-lg font-semibold mb-3">
-          🎁 Your referral code is ready!
+          🎁 {referrerName ? `You and ${referrerName} will both` : "You'll"} earn
+          bonus credits!
         </p>
         <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md p-3 flex items-center justify-between">
           <code
@@ -314,15 +317,19 @@ export function OnboardingFlow({
 
   const renderInstallStep = () => (
     <div className="space-y-4">
-      <h3 className="text-xl font-semibold">Welcome to Codebuff! 🎉</h3>
+      <h3 className="text-xl font-semibold">
+        {referrerName
+          ? `${referrerName} invited you to Codebuff! 🎉`
+          : 'Welcome to Codebuff! 🎉'}
+      </h3>
       <p className="text-muted-foreground">
         Install the Codebuff CLI tool globally on your system.
       </p>
       {referralCode && (
         <div className="bg-terminal-yellow/20 border border-terminal-yellow/30 rounded-lg p-4">
           <p className="text-yellow-900 dark:text-terminal-yellow font-semibold">
-            🎁 You're almost there! Follow the next steps to redeem your
-            referral code for bonus credits.
+            🎁 Follow the next steps to redeem your referral code for bonus
+            credits.
           </p>
         </div>
       )}

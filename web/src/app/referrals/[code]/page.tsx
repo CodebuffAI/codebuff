@@ -1,4 +1,5 @@
 import { env } from '@codebuff/common/env'
+import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/old-constants'
 import { headers } from 'next/headers'
 import Link from 'next/link'
 import { getServerSession } from 'next-auth'
@@ -113,13 +114,18 @@ export default async function ReferralPage({
 
   // Show onboarding flow for valid referrals
   return (
-    <OnboardClientWrapper hasReferralCode={true} referralCode={code}>
+    <OnboardClientWrapper
+      hasReferralCode={true}
+      referralCode={code}
+      referrerName={referrerDisplayName}
+    >
       <CardWithBeams
-        title="Welcome to Codebuff!"
-        description="You can close this window and continue with the installation."
+        title={`${referrerDisplayName} invited you to Codebuff!`}
+        description={`Sign up and you'll both earn ${CREDITS_REFERRAL_BONUS} bonus credits per month.`}
         content={
           <div className="text-center text-muted-foreground">
-            Your referral code is ready to use in the CLI!
+            Follow the steps below to get started, then redeem your referral
+            code in the CLI!
           </div>
         }
       />
