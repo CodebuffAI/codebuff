@@ -63,9 +63,9 @@ export function createTextPasteHandler(
   text: string,
   cursorPosition: number,
   onChange: (value: InputValue) => void,
-): (fallbackText?: string) => void {
-  return (fallbackText) => {
-    const pasteText = readClipboardText() ?? fallbackText
+): (eventText?: string) => void {
+  return (eventText) => {
+    const pasteText = eventText || readClipboardText()
     if (!pasteText) return
     const { newText, newCursor } = insertTextAtCursor(
       text,
@@ -83,12 +83,12 @@ export function createTextPasteHandler(
 /**
  * Creates a paste handler that supports both image and text paste.
  *
- * When fallbackText is provided (from drag-drop or native paste event),
- * it takes FULL priority over the clipboard. This is because:
+ * When eventText is provided (from drag-drop or native paste event),
+ * it takes priority over the clipboard. This is because:
  * - Drag operations provide file paths directly without updating the clipboard
  * - The clipboard might contain stale data from a previous copy operation
  *
- * Only when NO fallbackText is provided do we read from the clipboard.
+ * Only when NO eventText is provided do we read from the clipboard.
  */
 export function createPasteHandler(options: {
   text: string
@@ -98,7 +98,7 @@ export function createPasteHandler(options: {
   onPasteImagePath?: (imagePath: string) => void
   onPasteLongText?: (text: string) => void
   cwd?: string
-}): (fallbackText?: string) => void {
+}): (eventText?: string) => void {
   const {
     text,
     cursorPosition,
@@ -108,16 +108,16 @@ export function createPasteHandler(options: {
     onPasteLongText,
     cwd,
   } = options
-  return (fallbackText) => {
+  return (eventText) => {
     // If we have direct input text from the paste event (e.g., from terminal paste),
     // check if it looks like an image filename and if we can get the full path from clipboard
-    if (fallbackText && onPasteImagePath) {
+    if (eventText && onPasteImagePath) {
       // The terminal often only passes the filename when pasting a file copied from Finder.
       // Check if this looks like just a filename (no path separators) that's an image.
       const looksLikeImageFilename =
-        isImageFile(fallbackText) &&
-        !fallbackText.includes('/') &&
-        !fallbackText.includes('\\')
+        isImageFile(eventText) &&
+        !eventText.includes('/') &&
+        !eventText.includes('\\')
 
       if (looksLikeImageFilename) {
         // Try to get the full path from the clipboard's file URL
@@ -125,7 +125,7 @@ export function createPasteHandler(options: {
         // Verify the clipboard path's basename matches exactly (not just endsWith)
         if (
           clipboardFilePath &&
-          path.basename(clipboardFilePath) === fallbackText
+          path.basename(clipboardFilePath) === eventText
         ) {
           // The clipboard has the full path to the same file - use it!
           onPasteImagePath(clipboardFilePath)
@@ -133,9 +133,9 @@ export function createPasteHandler(options: {
         }
       }
 
-      // Check if fallbackText is a full path to an image file
+      // Check if eventText is a full path to an image file
       if (cwd) {
-        const imagePath = getImageFilePathFromText(fallbackText, cwd)
+        const imagePath = getImageFilePathFromText(eventText, cwd)
         if (imagePath) {
           onPasteImagePath(imagePath)
           return
@@ -143,11 +143,11 @@ export function createPasteHandler(options: {
       }
     }
 
-    // fallbackText provided but not an image - check if it's long text
-    if (fallbackText) {
+    // eventText provided but not an image - check if it's long text
+    if (eventText) {
       // If text is long, treat it as an attachment
-      if (onPasteLongText && fallbackText.length > LONG_TEXT_THRESHOLD) {
-        onPasteLongText(fallbackText)
+      if (onPasteLongText && eventText.length > LONG_TEXT_THRESHOLD) {
+        onPasteLongText(eventText)
         return
       }
 
@@ -155,7 +155,7 @@ export function createPasteHandler(options: {
       const { newText, newCursor } = insertTextAtCursor(
         text,
         cursorPosition,
-        fallbackText,
+        eventText,
       )
       onChange({
         text: newText,

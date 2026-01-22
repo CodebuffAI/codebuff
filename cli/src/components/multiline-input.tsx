@@ -142,6 +142,12 @@ function isAltModifier(key: KeyEvent): boolean {
   )
 }
 
+// Helper type for scrollbox with focus/blur methods (not exposed in OpenTUI types but available at runtime)
+interface FocusableScrollBox {
+  focus?: () => void
+  blur?: () => void
+}
+
 interface MultilineInputProps {
   value: string
   onChange: (value: InputValue) => void
@@ -158,6 +164,7 @@ interface MultilineInputProps {
 
 export type MultilineInputHandle = {
   focus: () => void
+  blur: () => void
 }
 
 export const MultilineInput = forwardRef<
@@ -224,14 +231,26 @@ export const MultilineInput = forwardRef<
       ).lineInfo
     : null
 
+  // Focus/blur scrollbox when focused prop changes
+  const prevFocusedRef = useRef(false)
+  useEffect(() => {
+    if (focused && !prevFocusedRef.current) {
+      (scrollBoxRef.current as FocusableScrollBox | null)?.focus?.()
+    } else if (!focused && prevFocusedRef.current) {
+      (scrollBoxRef.current as FocusableScrollBox | null)?.blur?.()
+    }
+    prevFocusedRef.current = focused
+  }, [focused])
+
+  // Expose focus/blur for imperative use cases
   useImperativeHandle(
     forwardedRef,
     () => ({
       focus: () => {
-        const node = scrollBoxRef.current
-        if (node && typeof (node as any).focus === 'function') {
-          ;(node as any).focus()
-        }
+        (scrollBoxRef.current as FocusableScrollBox | null)?.focus?.()
+      },
+      blur: () => {
+        (scrollBoxRef.current as FocusableScrollBox | null)?.blur?.()
       },
     }),
     [],
