@@ -1,192 +1,48 @@
+/**
+ * Activity-aware Query Hook
+ *
+ * A custom React hook that provides caching and refetching based on user activity.
+ * Designed for terminal-specific activity awareness:
+ * - Detects when user is active (typing, mouse movement, keyboard shortcuts)
+ * - Can pause polling when user is idle to save resources
+ * - Can refetch stale data when user becomes active again
+ *
+ * This module re-exports utility functions for backwards compatibility with
+ * existing code that imports them from here.
+ */
+
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react'
 
 import { isUserActive, subscribeToActivity } from '../utils/activity-tracker'
+import {
+  serializeQueryKey,
+  subscribeToKey,
+  getKeySnapshot,
+  getCacheEntry,
+  isEntryStale as checkEntryStale,
+  incrementRefCount,
+  decrementRefCount,
+  getRefCount,
+  setGcTimeout,
+  clearGcTimeout,
+  resetCache,
+} from '../utils/query-cache'
+import {
+  createQueryExecutor,
+  clearRetryState,
+  resetExecutorState,
+} from '../utils/query-executor'
+import {
+  invalidateQuery,
+  removeQuery,
+  getQueryData,
+  setQueryData,
+  fullDeleteCacheEntry,
+} from '../utils/query-invalidation'
 
-// Global query cache
-type CacheEntry<T> = {
-  // allow error-only entries (first fetch failure) without pretending data exists
-  data?: T
-  dataUpdatedAt: number // 0 means "no successful data yet" (also stale)
-  error: Error | null
-  errorUpdatedAt: number | null
-}
+// Re-export isEntryStale for backwards compatibility (tests import it)
+export { isEntryStale } from '../utils/query-cache'
 
-type KeySnapshot<T> = {
-  entry: CacheEntry<T> | undefined
-  isFetching: boolean
-}
-
-type CacheState = {
-  entries: Map<string, CacheEntry<unknown>>
-  // Per-key listeners
-  keyListeners: Map<string, Set<() => void>>
-  // Reference counts
-  refCounts: Map<string, number>
-  // Global fetch status per key
-  fetchingKeys: Set<string>
-}
-
-const cache: CacheState = {
-  entries: new Map(),
-  keyListeners: new Map(),
-  refCounts: new Map(),
-  fetchingKeys: new Set(),
-}
-
-// In-flight promises for request deduplication
-const inFlight = new Map<string, Promise<unknown>>()
-
-// Per-key snapshot memoization so fetching-status changes trigger rerenders
-// even if the cache entry object didn’t change.
-const snapshotMemo = new Map<
-  string,
-  {
-    entryRef: CacheEntry<unknown> | undefined
-    fetching: boolean
-    snap: KeySnapshot<unknown>
-  }
->()
-
-/**
- * Notify listeners for a specific cache key.
- */
-function notifyKeyListeners(key: string) {
-  const listeners = cache.keyListeners.get(key)
-  if (!listeners) return
-  for (const listener of listeners) listener()
-}
-
-/**
- * Subscribe to cache changes for a specific key. Used by useSyncExternalStore.
- */
-function subscribeToKey(key: string, callback: () => void): () => void {
-  let listeners = cache.keyListeners.get(key)
-  if (!listeners) {
-    listeners = new Set()
-    cache.keyListeners.set(key, listeners)
-  }
-  listeners.add(callback)
-  return () => {
-    listeners!.delete(callback)
-    if (listeners!.size === 0) {
-      cache.keyListeners.delete(key)
-    }
-  }
-}
-
-/**
- * Snapshot includes BOTH entry + isFetching, and is memoized so Object.is only changes
- * when either changes. This fixes "notify but no rerender" when only fetch-status changes.
- */
-function getKeySnapshot<T>(key: string): KeySnapshot<T> {
-  const entry = cache.entries.get(key) as CacheEntry<T> | undefined
-  const fetching = cache.fetchingKeys.has(key)
-
-  const memo = snapshotMemo.get(key)
-  if (memo && memo.entryRef === (entry as any) && memo.fetching === fetching) {
-    return memo.snap as KeySnapshot<T>
-  }
-
-  const snap: KeySnapshot<T> = { entry, isFetching: fetching }
-  snapshotMemo.set(key, {
-    entryRef: entry as any,
-    fetching,
-    snap: snap as any,
-  })
-  return snap
-}
-
-function setCacheEntry<T>(key: string, entry: CacheEntry<T>): void {
-  cache.entries.set(key, entry as CacheEntry<unknown>)
-  // bust memo for this key
-  snapshotMemo.delete(key)
-  notifyKeyListeners(key)
-}
-
-function getCacheEntry<T>(key: string): CacheEntry<T> | undefined {
-  return cache.entries.get(key) as CacheEntry<T> | undefined
-}
-
-/**
- * Check if a cache entry is stale based on staleTime.
- * Exported for testing purposes.
- */
-export function isEntryStale(key: string, staleTime: number): boolean {
-  const entry = getCacheEntry(key)
-  if (!entry) return true
-  if (entry.dataUpdatedAt === 0) return true
-  return staleTime === 0 || Date.now() - entry.dataUpdatedAt > staleTime
-}
-
-function setQueryFetching(key: string, fetching: boolean): void {
-  const wasFetching = cache.fetchingKeys.has(key)
-  if (fetching) cache.fetchingKeys.add(key)
-  else cache.fetchingKeys.delete(key)
-
-  if (wasFetching !== fetching) {
-    // bust memo so snapshot changes even if entry didn’t
-    snapshotMemo.delete(key)
-    notifyKeyListeners(key)
-  }
-}
-
-function incrementRefCount(key: string): void {
-  const current = cache.refCounts.get(key) ?? 0
-  cache.refCounts.set(key, current + 1)
-}
-
-function decrementRefCount(key: string): number {
-  const current = cache.refCounts.get(key) ?? 0
-  const next = Math.max(0, current - 1)
-  if (next === 0) cache.refCounts.delete(key)
-  else cache.refCounts.set(key, next)
-  return next
-}
-
-function getRefCount(key: string): number {
-  return cache.refCounts.get(key) ?? 0
-}
-
-/**
- * Serialize a query key to a string for cache lookup.
- */
-function serializeQueryKey(queryKey: readonly unknown[]): string {
-  return JSON.stringify(queryKey)
-}
-
-// Module-level map to track GC timeouts (survives component unmount)
-const gcTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
-
-// Per-key retry state (so unmounting one observer doesn’t cancel retries for others)
-const retryCounts = new Map<string, number>()
-const retryTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
-
-// Per-key generation to prevent "resurrecting" deleted entries from late in-flight responses
-const generations = new Map<string, number>()
-function bumpGeneration(key: string) {
-  generations.set(key, (generations.get(key) ?? 0) + 1)
-}
-function getGeneration(key: string) {
-  return generations.get(key) ?? 0
-}
-
-function clearRetryState(key: string) {
-  const t = retryTimeouts.get(key)
-  if (t) clearTimeout(t)
-  retryTimeouts.delete(key)
-  retryCounts.delete(key)
-}
-
-function deleteCacheEntry(key: string): void {
-  bumpGeneration(key)
-  clearRetryState(key)
-  inFlight.delete(key)
-  cache.fetchingKeys.delete(key)
-  cache.entries.delete(key)
-  cache.refCounts.delete(key)
-  snapshotMemo.delete(key)
-  notifyKeyListeners(key)
-}
 export type UseActivityQueryOptions<T> = {
   /** Unique key for caching the query */
   queryKey: readonly unknown[]
@@ -230,11 +86,6 @@ export type UseActivityQueryResult<T> = {
 
 /**
  * Activity-aware query hook that provides caching and refetching based on user activity.
- * 
- * This hook replaces TanStack Query with terminal-specific activity awareness:
- * - Detects when user is active (typing, mouse movement, keyboard shortcuts)
- * - Can pause polling when user is idle to save resources
- * - Can refetch stale data when user becomes active again
  */
 export function useActivityQuery<T>(
   options: UseActivityQueryOptions<T>,
@@ -257,12 +108,20 @@ export function useActivityQuery<T>(
   const mountedRef = useRef(true)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const wasIdleRef = useRef(false)
-  
+
   // Store queryFn in a ref to avoid recreating doFetch when queryFn changes.
-  // This is critical because inline arrow functions create new references on every render,
-  // which would cause the polling interval to reset constantly.
   const queryFnRef = useRef(queryFn)
   queryFnRef.current = queryFn
+
+  // Store config values in refs to avoid triggering refetches when they change
+  // (they only affect the *decision* to fetch, not the fetch itself)
+  const refetchOnMountRef = useRef(refetchOnMount)
+  refetchOnMountRef.current = refetchOnMount
+  const staleTimeRef = useRef(staleTime)
+  staleTimeRef.current = staleTime
+  // Store enabled in a ref so retry callbacks can check current state
+  const enabledRef = useRef(enabled)
+  enabledRef.current = enabled
 
   // Snapshot includes entry + isFetching (so fetch-status updates rerender correctly)
   const snap = useSyncExternalStore(
@@ -278,141 +137,69 @@ export function useActivityQuery<T>(
   const error = cachedEntry?.error ?? null
   const dataUpdatedAt = cachedEntry?.dataUpdatedAt ?? 0
 
-  const isStale = dataUpdatedAt === 0 || staleTime === 0 || Date.now() - dataUpdatedAt > staleTime
-
   // Initial load = fetching with no successful data yet
   const isLoading = isFetching && (cachedEntry == null || dataUpdatedAt === 0)
 
-  const doFetch = useCallback(async (): Promise<void> => {
-    if (!enabled) return
+  // Create the fetch function using the query executor
+  const doFetch = useCallback(() => {
+    if (!enabled) return Promise.resolve()
 
-    // global dedupe
-    const existing = inFlight.get(serializedKey)
-    if (existing) {
-      await existing
-      return
-    }
-
-    const myGen = getGeneration(serializedKey)
-    setQueryFetching(serializedKey, true)
-
-    const fetchPromise = (async () => {
-      try {
-        // Use ref to get latest queryFn without including it in dependencies
-        const result = await queryFnRef.current()
-
-        // If someone removed/GC'd this key while we were in-flight, don’t resurrect it.
-        if (getGeneration(serializedKey) !== myGen) return
-
-        setCacheEntry(serializedKey, {
-          data: result,
-          dataUpdatedAt: Date.now(),
-          error: null,
-          errorUpdatedAt: null,
-        })
-        retryCounts.set(serializedKey, 0)
-      } catch (err) {
-        const e = err instanceof Error ? err : new Error(String(err))
-        const maxRetries = retry === false ? 0 : retry
-        const currentRetries = retryCounts.get(serializedKey) ?? 0
-
-        if (currentRetries < maxRetries && getRefCount(serializedKey) > 0) {
-          const next = currentRetries + 1
-          retryCounts.set(serializedKey, next)
-
-          // allow a new in-flight request for the retry attempt
-          inFlight.delete(serializedKey)
-          setQueryFetching(serializedKey, false)
-
-          clearRetryState(serializedKey)
-          const t = setTimeout(() => {
-            retryTimeouts.delete(serializedKey)
-            // only retry if still mounted somewhere and key not deleted
-            if (getRefCount(serializedKey) > 0 && getGeneration(serializedKey) === myGen) {
-              void doFetch()
-            }
-          }, 1000 * next)
-          retryTimeouts.set(serializedKey, t)
-          return
-        }
-
-        retryCounts.set(serializedKey, 0)
-
-        // Store error even if we have no existing data (error-only entry).
-        if (getGeneration(serializedKey) !== myGen) return
-
-        const existingEntry = getCacheEntry<T>(serializedKey)
-        setCacheEntry(serializedKey, {
-          data: existingEntry?.data,
-          dataUpdatedAt: existingEntry?.dataUpdatedAt ?? 0,
-          error: e,
-          errorUpdatedAt: Date.now(),
-        })
-      } finally {
-        inFlight.delete(serializedKey)
-        setQueryFetching(serializedKey, false)
-
-        // If nobody is watching and the entry was deleted, keep things tidy.
-        if (getRefCount(serializedKey) === 0) {
-          clearRetryState(serializedKey)
-        }
-      }
-    })()
-
-    inFlight.set(serializedKey, fetchPromise)
-    await fetchPromise
+    const executor = createQueryExecutor({
+      key: serializedKey,
+      queryFn: () => queryFnRef.current(),
+      retry,
+      // Pass isEnabled callback so retries can check if query is still enabled
+      isEnabled: () => enabledRef.current,
+    })
+    return executor()
   }, [enabled, serializedKey, retry])
 
   const refetch = useCallback(async (): Promise<void> => {
-    retryCounts.set(serializedKey, 0)
     clearRetryState(serializedKey)
     await doFetch()
   }, [doFetch, serializedKey])
 
   // Refcount + cancel pending GC when (re)subscribing
   useEffect(() => {
-    const existingTimeout = gcTimeouts.get(serializedKey)
-    if (existingTimeout) {
-      clearTimeout(existingTimeout)
-      gcTimeouts.delete(serializedKey)
-    }
-
+    clearGcTimeout(serializedKey)
     wasIdleRef.current = false
     incrementRefCount(serializedKey)
 
     return () => {
       const next = decrementRefCount(serializedKey)
 
-      // If last observer is gone, don’t keep retry timers around.
+      // If last observer is gone, don't keep retry timers around.
       if (next === 0) {
         clearRetryState(serializedKey)
       }
     }
   }, [serializedKey])
 
-  // Initial fetch on mount/key change/enabled toggle (intentionally minimal deps)
+  // Initial fetch on mount/key change/enabled toggle
   useEffect(() => {
     mountedRef.current = true
     if (!enabled) return
 
     const currentEntry = getCacheEntry<T>(serializedKey)
+    const currentStaleTime = staleTimeRef.current
     const currentlyStale =
       !currentEntry ||
       currentEntry.dataUpdatedAt === 0 ||
-      staleTime === 0 ||
-      Date.now() - currentEntry.dataUpdatedAt > staleTime
+      currentStaleTime === 0 ||
+      Date.now() - currentEntry.dataUpdatedAt > currentStaleTime
 
+    const currentRefetchOnMount = refetchOnMountRef.current
     const shouldFetchOnMount =
-      refetchOnMount === 'always' ||
-      (refetchOnMount && currentlyStale) ||
-      (!currentEntry)
+      currentRefetchOnMount === 'always' ||
+      (currentRefetchOnMount && currentlyStale) ||
+      !currentEntry
 
     if (shouldFetchOnMount) void doFetch()
 
     return () => {
       mountedRef.current = false
     }
-  }, [enabled, serializedKey])
+  }, [enabled, serializedKey, doFetch])
 
   // Polling
   useEffect(() => {
@@ -429,7 +216,7 @@ export function useActivityQuery<T>(
         wasIdleRef.current = true
         return
       }
-      if (isEntryStale(serializedKey, staleTime)) {
+      if (checkEntryStale(serializedKey, staleTime)) {
         void doFetch()
       }
     }
@@ -450,7 +237,7 @@ export function useActivityQuery<T>(
     const unsubscribe = subscribeToActivity(() => {
       if (wasIdleRef.current) {
         wasIdleRef.current = false
-        if (isEntryStale(serializedKey, staleTime)) {
+        if (checkEntryStale(serializedKey, staleTime)) {
           void doFetch()
         }
       }
@@ -468,19 +255,21 @@ export function useActivityQuery<T>(
     }
   }, [enabled, refetchOnActivity, idleThreshold, staleTime, serializedKey, doFetch])
 
-  // Garbage collection
+  // Garbage collection - store gcTime in a ref so cleanup uses the value at unmount time
+  const gcTimeRef = useRef(gcTime)
+  gcTimeRef.current = gcTime
   useEffect(() => {
     return () => {
+      const currentGcTime = gcTimeRef.current
       const timeoutId = setTimeout(() => {
         if (getRefCount(serializedKey) === 0) {
-          deleteCacheEntry(serializedKey)
-          gcTimeouts.delete(serializedKey)
+          fullDeleteCacheEntry(serializedKey)
         }
-      }, gcTime)
+      }, currentGcTime)
 
-      gcTimeouts.set(serializedKey, timeoutId)
+      setGcTimeout(serializedKey, timeoutId)
     }
-  }, [serializedKey, gcTime])
+  }, [serializedKey])
 
   return {
     data,
@@ -492,50 +281,34 @@ export function useActivityQuery<T>(
   }
 }
 
+// Backwards-compatible exports that delegate to the new modules
+
 /**
  * Invalidate a query, causing it to refetch on next access.
  */
 export function invalidateActivityQuery(queryKey: readonly unknown[]): void {
-  const key = serializeQueryKey(queryKey)
-  const entry = getCacheEntry(key)
-  if (!entry) return
-  setCacheEntry(key, { ...entry, dataUpdatedAt: 0 })
+  invalidateQuery(queryKey)
 }
 
 /**
  * Remove a query from the cache entirely.
  */
 export function removeActivityQuery(queryKey: readonly unknown[]): void {
-  const key = serializeQueryKey(queryKey)
-
-  const existingTimeout = gcTimeouts.get(key)
-  if (existingTimeout) {
-    clearTimeout(existingTimeout)
-    gcTimeouts.delete(key)
-  }
-
-  deleteCacheEntry(key)
+  removeQuery(queryKey)
 }
 
 /**
  * Read cached data.
  */
 export function getActivityQueryData<T>(queryKey: readonly unknown[]): T | undefined {
-  const key = serializeQueryKey(queryKey)
-  return getCacheEntry<T>(key)?.data
+  return getQueryData<T>(queryKey)
 }
 
 /**
  * Write cached data (optimistic updates).
  */
 export function setActivityQueryData<T>(queryKey: readonly unknown[], data: T): void {
-  const key = serializeQueryKey(queryKey)
-  setCacheEntry(key, {
-    data,
-    dataUpdatedAt: Date.now(),
-    error: null,
-    errorUpdatedAt: null,
-  })
+  setQueryData(queryKey, data)
 }
 
 export function useInvalidateActivityQuery() {
@@ -548,19 +321,6 @@ export function useInvalidateActivityQuery() {
  * Reset the activity query cache (mainly for testing).
  */
 export function resetActivityQueryCache(): void {
-  for (const timeoutId of gcTimeouts.values()) clearTimeout(timeoutId)
-  gcTimeouts.clear()
-
-  for (const t of retryTimeouts.values()) clearTimeout(t)
-  retryTimeouts.clear()
-  retryCounts.clear()
-
-  cache.entries.clear()
-  cache.keyListeners.clear()
-  cache.refCounts.clear()
-  cache.fetchingKeys.clear()
-
-  inFlight.clear()
-  snapshotMemo.clear()
-  generations.clear()
+  resetCache()
+  resetExecutorState()
 }
