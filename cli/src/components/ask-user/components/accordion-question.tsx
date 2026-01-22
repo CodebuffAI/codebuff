@@ -65,12 +65,15 @@ export const AccordionQuestion: React.FC<AccordionQuestionProps> = ({
       (isMultiSelect && (answer.selectedIndices?.size ?? 0) > 0) ||
       answer.selectedIndex !== undefined)
 
-  // Get display text for the current answer
   const getAnswerDisplay = (): string => {
     if (!answer) return '(click to answer)'
 
     if (answer.isCustom && answer.customText) {
-      return `Custom: ${answer.customText}`
+      const flattenedText = answer.customText
+        .replace(/\r?\n/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+      return `Custom: ${flattenedText}`
     }
 
     if (isMultiSelect && answer.selectedIndices) {

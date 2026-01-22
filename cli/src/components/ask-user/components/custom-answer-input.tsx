@@ -41,7 +41,7 @@ export const CustomAnswerInput: React.FC<CustomAnswerInputProps> = memo(
             }
           }}
           focused={focused}
-          maxHeight={3}
+          maxHeight={5}
           minHeight={1}
           placeholder="Type your answer..."
         />

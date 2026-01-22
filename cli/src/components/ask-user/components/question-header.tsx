@@ -50,7 +50,7 @@ export const QuestionHeader: React.FC<QuestionHeaderProps> = memo(
         </text>
         {/* Answer displayed on separate line when collapsed (like User Answers style) */}
         {!isExpanded && (
-          <text style={{ marginLeft: 3 }}>
+          <text truncate wrapMode="none" style={{ marginLeft: 3 }}>
             <span fg={theme.primary}>↳ </span>
             <span
               fg={isAnswered ? theme.primary : theme.muted}
