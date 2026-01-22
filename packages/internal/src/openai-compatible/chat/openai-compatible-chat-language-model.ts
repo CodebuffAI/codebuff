@@ -1,6 +1,5 @@
 import {
   APICallError,
-  InvalidResponseDataError,
   LanguageModelV2,
   LanguageModelV2CallWarning,
   LanguageModelV2Content,
@@ -15,7 +14,6 @@ import {
   createJsonResponseHandler,
   FetchFunction,
   generateId,
-  isParsableJson,
   parseProviderOptions,
   ParseResult,
   postJsonToApi,
@@ -36,6 +34,9 @@ import {
 } from '../openai-compatible-error';
 import { MetadataExtractor } from './openai-compatible-metadata-extractor';
 import { prepareTools } from './openai-compatible-prepare-tools';
+import { createStreamContentTracker } from './stream-content-tracker';
+import { createStreamToolCallHandler } from './stream-tool-call-handler';
+import { createStreamUsageTracker } from './stream-usage-tracker';
 
 export type OpenAICompatibleChatConfig = {
   provider: string;
@@ -344,46 +345,13 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
       fetch: this.config.fetch,
     });
 
-    const toolCalls: Array<{
-      id: string;
-      type: 'function';
-      function: {
-        name: string;
-        arguments: string;
-      };
-      hasFinished: boolean;
-    }> = [];
+    const usageTracker = createStreamUsageTracker();
+    const contentTracker = createStreamContentTracker();
+    const toolCallHandler = createStreamToolCallHandler();
 
     let finishReason: LanguageModelV2FinishReason = 'unknown';
-    const usage: {
-      completionTokens: number | undefined;
-      completionTokensDetails: {
-        reasoningTokens: number | undefined;
-        acceptedPredictionTokens: number | undefined;
-        rejectedPredictionTokens: number | undefined;
-      };
-      promptTokens: number | undefined;
-      promptTokensDetails: {
-        cachedTokens: number | undefined;
-      };
-      totalTokens: number | undefined;
-    } = {
-      completionTokens: undefined,
-      completionTokensDetails: {
-        reasoningTokens: undefined,
-        acceptedPredictionTokens: undefined,
-        rejectedPredictionTokens: undefined,
-      },
-      promptTokens: undefined,
-      promptTokensDetails: {
-        cachedTokens: undefined,
-      },
-      totalTokens: undefined,
-    };
     let isFirstChunk = true;
     const providerOptionsName = this.providerOptionsName;
-    let isActiveReasoning = false;
-    let isActiveText = false;
 
     return {
       stream: response.pipeThrough(
@@ -395,14 +363,13 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
             controller.enqueue({ type: 'stream-start', warnings });
           },
 
-          // TODO we lost type safety on Chunk, most likely due to the error schema. MUST FIX
           transform(chunk, controller) {
             // Emit raw chunk if requested (before anything else)
             if (options.includeRawChunks) {
               controller.enqueue({ type: 'raw', rawValue: chunk.rawValue });
             }
 
-            // handle failed chunk parsing / validation:
+            // Handle failed chunk parsing / validation
             if (!chunk.success) {
               finishReason = 'error';
               controller.enqueue({ type: 'error', error: chunk.error });
@@ -412,54 +379,25 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
 
             metadataExtractor?.processChunk(chunk.rawValue);
 
-            // handle error chunks:
+            // Handle error chunks
             if ('error' in value) {
               finishReason = 'error';
               controller.enqueue({ type: 'error', error: value.error.message });
               return;
             }
 
+            // Emit response metadata on first chunk
             if (isFirstChunk) {
               isFirstChunk = false;
-
               controller.enqueue({
                 type: 'response-metadata',
                 ...getResponseMetadata(value),
               });
             }
 
+            // Update usage tracking
             if (value.usage != null) {
-              const {
-                prompt_tokens,
-                completion_tokens,
-                total_tokens,
-                prompt_tokens_details,
-                completion_tokens_details,
-              } = value.usage;
-
-              usage.promptTokens = prompt_tokens ?? undefined;
-              usage.completionTokens = completion_tokens ?? undefined;
-              usage.totalTokens = total_tokens ?? undefined;
-              if (completion_tokens_details?.reasoning_tokens != null) {
-                usage.completionTokensDetails.reasoningTokens =
-                  completion_tokens_details?.reasoning_tokens;
-              }
-              if (
-                completion_tokens_details?.accepted_prediction_tokens != null
-              ) {
-                usage.completionTokensDetails.acceptedPredictionTokens =
-                  completion_tokens_details?.accepted_prediction_tokens;
-              }
-              if (
-                completion_tokens_details?.rejected_prediction_tokens != null
-              ) {
-                usage.completionTokensDetails.rejectedPredictionTokens =
-                  completion_tokens_details?.rejected_prediction_tokens;
-              }
-              if (prompt_tokens_details?.cached_tokens != null) {
-                usage.promptTokensDetails.cachedTokens =
-                  prompt_tokens_details?.cached_tokens;
-              }
+              usageTracker.update(value.usage);
             }
 
             const choice = value.choices[0];
@@ -476,205 +414,61 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
 
             const delta = choice.delta;
 
-            // enqueue reasoning before text deltas:
+            // Process reasoning deltas (before text deltas)
             const reasoningContent = delta.reasoning_content ?? delta.reasoning;
             if (reasoningContent) {
-              if (!isActiveReasoning) {
-                controller.enqueue({
-                  type: 'reasoning-start',
-                  id: 'reasoning-0',
-                });
-                isActiveReasoning = true;
+              for (const event of contentTracker.processReasoningDelta(reasoningContent)) {
+                controller.enqueue(event);
               }
-
-              controller.enqueue({
-                type: 'reasoning-delta',
-                id: 'reasoning-0',
-                delta: reasoningContent,
-              });
             }
 
+            // Process text deltas
             if (delta.content) {
-              if (!isActiveText) {
-                controller.enqueue({ type: 'text-start', id: 'txt-0' });
-                isActiveText = true;
+              for (const event of contentTracker.processTextDelta(delta.content)) {
+                controller.enqueue(event);
               }
-
-              controller.enqueue({
-                type: 'text-delta',
-                id: 'txt-0',
-                delta: delta.content,
-              });
             }
 
+            // Process tool call deltas
             if (delta.tool_calls != null) {
               for (const toolCallDelta of delta.tool_calls) {
-                const index = toolCallDelta.index;
-
-                if (toolCalls[index] == null) {
-                  if (toolCallDelta.id == null) {
-                    throw new InvalidResponseDataError({
-                      data: toolCallDelta,
-                      message: `Expected 'id' to be a string.`,
-                    });
-                  }
-
-                  if (toolCallDelta.function?.name == null) {
-                    throw new InvalidResponseDataError({
-                      data: toolCallDelta,
-                      message: `Expected 'function.name' to be a string.`,
-                    });
-                  }
-
-                  controller.enqueue({
-                    type: 'tool-input-start',
-                    id: toolCallDelta.id,
-                    toolName: toolCallDelta.function.name,
-                  });
-
-                  toolCalls[index] = {
-                    id: toolCallDelta.id,
-                    type: 'function',
-                    function: {
-                      name: toolCallDelta.function.name,
-                      arguments: toolCallDelta.function.arguments ?? '',
-                    },
-                    hasFinished: false,
-                  };
-
-                  const toolCall = toolCalls[index];
-
-                  if (
-                    toolCall.function?.name != null &&
-                    toolCall.function?.arguments != null
-                  ) {
-                    // send delta if the argument text has already started:
-                    if (toolCall.function.arguments.length > 0) {
-                      controller.enqueue({
-                        type: 'tool-input-delta',
-                        id: toolCall.id,
-                        delta: toolCall.function.arguments,
-                      });
-                    }
-
-                    // check if tool call is complete
-                    // (some providers send the full tool call in one chunk):
-                    if (isParsableJson(toolCall.function.arguments)) {
-                      controller.enqueue({
-                        type: 'tool-input-end',
-                        id: toolCall.id,
-                      });
-
-                      controller.enqueue({
-                        type: 'tool-call',
-                        toolCallId: toolCall.id ?? generateId(),
-                        toolName: toolCall.function.name,
-                        input: toolCall.function.arguments,
-                      });
-                      toolCall.hasFinished = true;
-                    }
-                  }
-
-                  continue;
-                }
-
-                // existing tool call, merge if not finished
-                const toolCall = toolCalls[index];
-
-                if (toolCall.hasFinished) {
-                  continue;
-                }
-
-                if (toolCallDelta.function?.arguments != null) {
-                  toolCall.function!.arguments +=
-                    toolCallDelta.function?.arguments ?? '';
-                }
-
-                // send delta
-                controller.enqueue({
-                  type: 'tool-input-delta',
-                  id: toolCall.id,
-                  delta: toolCallDelta.function.arguments ?? '',
-                });
-
-                // check if tool call is complete
-                if (
-                  toolCall.function?.name != null &&
-                  toolCall.function?.arguments != null &&
-                  isParsableJson(toolCall.function.arguments)
-                ) {
-                  controller.enqueue({
-                    type: 'tool-input-end',
-                    id: toolCall.id,
-                  });
-
-                  controller.enqueue({
-                    type: 'tool-call',
-                    toolCallId: toolCall.id ?? generateId(),
-                    toolName: toolCall.function.name,
-                    input: toolCall.function.arguments,
-                  });
-                  toolCall.hasFinished = true;
+                for (const event of toolCallHandler.processToolCallDelta(toolCallDelta)) {
+                  controller.enqueue(event);
                 }
               }
             }
           },
 
           flush(controller) {
-            if (isActiveReasoning) {
-              controller.enqueue({ type: 'reasoning-end', id: 'reasoning-0' });
+            // Flush content trackers (reasoning-end, text-end)
+            for (const event of contentTracker.flush()) {
+              controller.enqueue(event);
             }
 
-            if (isActiveText) {
-              controller.enqueue({ type: 'text-end', id: 'txt-0' });
+            // Flush unfinished tool calls
+            for (const event of toolCallHandler.flushUnfinishedToolCalls()) {
+              controller.enqueue(event);
             }
 
-            // go through all tool calls and send the ones that are not finished
-            for (const toolCall of toolCalls.filter(
-              toolCall => !toolCall.hasFinished,
-            )) {
-              controller.enqueue({
-                type: 'tool-input-end',
-                id: toolCall.id,
-              });
-
-              controller.enqueue({
-                type: 'tool-call',
-                toolCallId: toolCall.id ?? generateId(),
-                toolName: toolCall.function.name,
-                input: toolCall.function.arguments,
-              });
-            }
-
+            // Build provider metadata
+            const completionTokensDetails = usageTracker.getCompletionTokensDetails();
             const providerMetadata: SharedV2ProviderMetadata = {
               [providerOptionsName]: {},
               ...metadataExtractor?.buildMetadata(),
             };
-            if (
-              usage.completionTokensDetails.acceptedPredictionTokens != null
-            ) {
+            if (completionTokensDetails.acceptedPredictionTokens != null) {
               providerMetadata[providerOptionsName].acceptedPredictionTokens =
-                usage.completionTokensDetails.acceptedPredictionTokens;
+                completionTokensDetails.acceptedPredictionTokens;
             }
-            if (
-              usage.completionTokensDetails.rejectedPredictionTokens != null
-            ) {
+            if (completionTokensDetails.rejectedPredictionTokens != null) {
               providerMetadata[providerOptionsName].rejectedPredictionTokens =
-                usage.completionTokensDetails.rejectedPredictionTokens;
+                completionTokensDetails.rejectedPredictionTokens;
             }
 
             controller.enqueue({
               type: 'finish',
               finishReason,
-              usage: {
-                inputTokens: usage.promptTokens ?? undefined,
-                outputTokens: usage.completionTokens ?? undefined,
-                totalTokens: usage.totalTokens ?? undefined,
-                reasoningTokens:
-                  usage.completionTokensDetails.reasoningTokens ?? undefined,
-                cachedInputTokens:
-                  usage.promptTokensDetails.cachedTokens ?? undefined,
-              },
+              usage: usageTracker.getUsage(),
               providerMetadata,
             });
           },
