@@ -8,7 +8,6 @@ import { HighlightText } from './highlight-text'
 import { DecorativeBlocks, BlockColor } from '../../decorative-blocks'
 import { Section } from '../../section'
 
-import type { KeyPoint } from '../types'
 import type { ReactNode } from 'react'
 
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -58,7 +57,6 @@ interface FeatureSectionProps {
   imagePosition?: 'left' | 'right'
   tagline: string
   decorativeColors?: BlockColor[]
-  keyPoints: KeyPoint[]
   highlightText: string
   illustration: ReactNode
   learnMoreText?: string

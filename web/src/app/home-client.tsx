@@ -12,10 +12,7 @@ import IDEDemo from '@/components/IDEDemo'
 import { BlockColor, DecorativeBlocks } from '@/components/ui/decorative-blocks'
 import { Hero } from '@/components/ui/hero'
 import { CompetitionSection } from '@/components/ui/landing/competition'
-import {
-  FEATURE_POINTS,
-  SECTION_THEMES,
-} from '@/components/ui/landing/constants'
+import { SECTION_THEMES } from '@/components/ui/landing/constants'
 import { CTASection } from '@/components/ui/landing/cta-section'
 import { FeatureSection } from '@/components/ui/landing/feature'
 import { BrowserComparison } from '@/components/ui/landing/feature/browser-comparison'
@@ -282,7 +279,6 @@ export default function HomeClient() {
           highlightText="Indexes your entire codebase in 2 seconds"
           learnMoreText="See How It Works"
           learnMoreLink="/docs/advanced"
-          keyPoints={FEATURE_POINTS.understanding}
           illustration={
             <WorkflowIllustration
               steps={[
@@ -325,7 +321,6 @@ export default function HomeClient() {
           highlightText="Zero setup hurdles, infinite control"
           learnMoreText="View Installation Guide"
           learnMoreLink="/docs/help"
-          keyPoints={FEATURE_POINTS.rightStuff}
           illustration={
             <BrowserComparison
               comparisonData={{
@@ -347,7 +342,6 @@ export default function HomeClient() {
           highlightText="Persists project knowledge between sessions"
           learnMoreText="Learn About Knowledge Files"
           learnMoreLink="/docs/tips#knowledge-files"
-          keyPoints={FEATURE_POINTS.remembers}
           illustration={
             <ChartIllustration
               chartData={{

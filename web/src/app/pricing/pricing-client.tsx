@@ -161,26 +161,6 @@ export default function PricingClient() {
         illustration={<PricingCard />}
         learnMoreText={status === 'authenticated' ? 'My Usage' : 'Get Started'}
         learnMoreLink={status === 'authenticated' ? '/usage' : '/login'}
-        keyPoints={[
-          {
-            icon: '💰',
-            title: 'Predictable Costs',
-            description:
-              'Only pay for what you actually use. No surprises at the end of the month.',
-          },
-          {
-            icon: '🔄',
-            title: 'Monthly Free Credits',
-            description:
-              'Get 500 free credits each month, automatically added to your account.',
-          },
-          {
-            icon: '🛡️',
-            title: 'No Failed Call Charges',
-            description:
-              'Only pay for successful API calls. Failed calls cost nothing.',
-          },
-        ]}
       />
 
       <FeatureSection
@@ -198,26 +178,6 @@ export default function PricingClient() {
         learnMoreText="Contact Sales"
         learnMoreLink="mailto:founders@codebuff.com"
         imagePosition="left"
-        keyPoints={[
-          {
-            icon: '👥',
-            title: 'Team Dashboard',
-            description:
-              "Manage your entire team's usage from a centralized dashboard.",
-          },
-          {
-            icon: '🔋',
-            title: 'Pooled Credits',
-            description:
-              'Share credits across your organization for maximum flexibility.',
-          },
-          {
-            icon: '💼',
-            title: 'Enterprise Options',
-            description:
-              'Custom integrations and dedicated support available for larger teams.',
-          },
-        ]}
       />
     </>
   )

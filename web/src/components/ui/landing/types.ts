@@ -1,11 +1,5 @@
 import type { BlockColor } from '../decorative-blocks'
 
-export interface KeyPoint {
-  icon: string
-  title: string
-  description: string
-}
-
 export interface SectionTheme {
   background: string
   textColor: string
@@ -65,7 +59,6 @@ export interface FeatureSectionProps {
   imagePosition?: 'left' | 'right'
   codeSample?: string[]
   tagline?: string
-  keyPoints?: KeyPoint[]
   highlightText?: string
   illustration?: FeatureIllustration
 }
