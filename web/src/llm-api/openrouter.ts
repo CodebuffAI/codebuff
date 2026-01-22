@@ -372,8 +372,13 @@ export async function handleOpenRouterStream({
     cancel() {
       clearInterval(heartbeatInterval)
       clientDisconnected = true
+      // Log truncated state to prevent OOM during logging (state can be up to 2MB)
       logger.warn(
-        { clientDisconnected, state },
+        {
+          clientDisconnected,
+          responseTextLength: state.responseText.length,
+          reasoningTextLength: state.reasoningText.length,
+        },
         'Client cancelled stream, continuing OpenRouter consumption for billing',
       )
     },
@@ -549,6 +554,10 @@ async function handleStreamChunk({
   agentId: string
   model: string | undefined
 }): Promise<StreamState> {
+  // Define a safe buffer limit to prevent OOM errors on the server while
+  // still storing enough data for logging and billing. 1MB is a generous limit.
+  const MAX_BUFFER_SIZE = 1 * 1024 * 1024 // 1MB
+
   if ('error' in data) {
     // Log detailed error information for stream errors (e.g., Forbidden from Anthropic)
     const errorData = data.error as {
@@ -581,8 +590,34 @@ async function handleStreamChunk({
     return state
   }
   const choice = data.choices[0]
-  state.responseText += choice.delta?.content ?? ''
-  state.reasoningText += choice.delta?.reasoning ?? ''
+
+  // Append content and reasoning, but only up to the buffer limit.
+  const contentDelta = choice.delta?.content ?? ''
+  if (state.responseText.length < MAX_BUFFER_SIZE) {
+    state.responseText += contentDelta
+    if (state.responseText.length >= MAX_BUFFER_SIZE) {
+      state.responseText =
+        state.responseText.slice(0, MAX_BUFFER_SIZE) + '\n---[TRUNCATED]---'
+      logger.warn(
+        { userId, agentId, model },
+        'Response text buffer truncated at 1MB',
+      )
+    }
+  }
+
+  const reasoningDelta = choice.delta?.reasoning ?? ''
+  if (state.reasoningText.length < MAX_BUFFER_SIZE) {
+    state.reasoningText += reasoningDelta
+    if (state.reasoningText.length >= MAX_BUFFER_SIZE) {
+      state.reasoningText =
+        state.reasoningText.slice(0, MAX_BUFFER_SIZE) + '\n---[TRUNCATED]---'
+      logger.warn(
+        { userId, agentId, model },
+        'Reasoning text buffer truncated at 1MB',
+      )
+    }
+  }
+
   return state
 }
 
