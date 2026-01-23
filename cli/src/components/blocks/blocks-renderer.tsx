@@ -100,6 +100,7 @@ export const BlocksRenderer = memo(
               onToggleCollapsed={p.onToggleCollapsed}
               availableWidth={p.availableWidth}
               isNested={false}
+              isMessageComplete={p.isComplete ?? false}
             />
           )
         },

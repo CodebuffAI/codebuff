@@ -6,11 +6,13 @@ import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
 import { getLastNVisualLines } from '../utils/text-layout'
 
-const PREVIEW_LINE_COUNT = 3
+const PREVIEW_LINE_COUNT = 5
 
 interface ThinkingProps {
   content: string
   isCollapsed: boolean
+  /** Whether the thinking has completed (streaming finished) */
+  isThinkingComplete: boolean
   onToggle: () => void
   availableWidth?: number
 }
@@ -19,6 +21,7 @@ export const Thinking = memo(
   ({
     content,
     isCollapsed,
+    isThinkingComplete,
     onToggle,
     availableWidth,
   }: ThinkingProps): ReactNode => {
@@ -36,6 +39,13 @@ export const Thinking = memo(
       PREVIEW_LINE_COUNT,
     )
 
+    // Toggle indicator: show caret when complete, bullet when streaming
+    const toggleIndicator = isThinkingComplete
+      ? isCollapsed
+        ? '▸ '
+        : '▾ '
+      : '• '
+
     return (
       <Button
         style={{
@@ -47,10 +57,13 @@ export const Thinking = memo(
         onClick={onToggle}
       >
         <text style={{ fg: theme.foreground }}>
-          <span>• </span>
+          <span>{toggleIndicator}</span>
           <span attributes={TextAttributes.BOLD}>Thinking</span>
         </text>
         {isCollapsed ? (
+          // When complete: show no preview (just "▸ Thinking")
+          // When streaming: show up to 5 lines preview
+          !isThinkingComplete &&
           lines.length > 0 && (
             <box style={{ paddingLeft: 2 }}>
               <text

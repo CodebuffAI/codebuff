@@ -39,6 +39,7 @@ interface AgentBodyProps {
 
 /** Props stored in ref for stable handler access in AgentBody */
 interface AgentBodyPropsRef {
+  agentBlock: AgentContentBlock
   keyPrefix: string
   nestedBlocks: ContentBlock[]
   parentIsStreaming: boolean
@@ -87,6 +88,7 @@ const AgentBody = memo(
     // Store props in ref for stable handler access (avoids 12+ useMemo dependencies)
     const propsRef = useRef<AgentBodyPropsRef>(null!)
     propsRef.current = {
+      agentBlock,
       keyPrefix,
       nestedBlocks,
       parentIsStreaming,
@@ -112,6 +114,7 @@ const AgentBody = memo(
               onToggleCollapsed={p.onToggleCollapsed}
               availableWidth={p.availableWidth}
               isNested={true}
+              isMessageComplete={p.agentBlock.status === 'complete'}
             />
           )
         },
