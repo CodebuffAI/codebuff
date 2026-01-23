@@ -198,6 +198,17 @@ export const MultilineInput = forwardRef<
 
   const stickyColumnRef = useRef<number | null>(null)
 
+  // Refs to track latest value and cursor position synchronously for IME input handling.
+  // When IME sends multiple character events rapidly (e.g., Chinese input), React batches
+  // state updates, causing subsequent events to see stale closure values. These refs are
+  // updated synchronously to ensure each keystroke builds on the previous one.
+  const valueRef = useRef(value)
+  const cursorPositionRef = useRef(cursorPosition)
+
+  // Keep refs current on every render (synchronous assignment avoids useEffect timing issues)
+  valueRef.current = value
+  cursorPositionRef.current = cursorPosition
+
   // Helper to get or set the sticky column for vertical navigation.
   // When stickyColumnRef.current is set, we return it (preserving column across
   // multiple up/down presses). When null, we calculate from current cursor position.
@@ -337,31 +348,50 @@ export const MultilineInput = forwardRef<
       const selection = getSelectionRange()
       if (selection) {
         // Replace selected text with the new text
-        const newValue =
-          value.slice(0, selection.start) +
-          textToInsert +
-          value.slice(selection.end)
         clearSelection()
+        // Read from refs which have the latest values (updated synchronously below)
+        const currentValue = valueRef.current
+        const newValue =
+          currentValue.slice(0, selection.start) +
+          textToInsert +
+          currentValue.slice(selection.end)
+        const newCursor = selection.start + textToInsert.length
+
+        // Update refs synchronously BEFORE calling onChange - critical for IME input
+        // where multiple characters may arrive before React processes state updates
+        valueRef.current = newValue
+        cursorPositionRef.current = newCursor
+
         onChange({
           text: newValue,
-          cursorPosition: selection.start + textToInsert.length,
+          cursorPosition: newCursor,
           lastEditDueToNav: false,
         })
         return
       }
 
       // No selection, insert at cursor
+      // Read from refs to get latest state (handles rapid IME input)
+      const currentValue = valueRef.current
+      const currentCursor = cursorPositionRef.current
       const newValue =
-        value.slice(0, cursorPosition) +
+        currentValue.slice(0, currentCursor) +
         textToInsert +
-        value.slice(cursorPosition)
+        currentValue.slice(currentCursor)
+      const newCursor = currentCursor + textToInsert.length
+
+      // Update refs synchronously BEFORE calling onChange - critical for IME input
+      // where multiple characters may arrive before React processes state updates
+      valueRef.current = newValue
+      cursorPositionRef.current = newCursor
+
       onChange({
         text: newValue,
-        cursorPosition: cursorPosition + textToInsert.length,
+        cursorPosition: newCursor,
         lastEditDueToNav: false,
       })
     },
-    [cursorPosition, onChange, value, getSelectionRange, clearSelection],
+    [onChange, getSelectionRange, clearSelection],
   )
 
   const moveCursor = useCallback(
