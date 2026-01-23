@@ -74,10 +74,11 @@ export function createBase2(
       'researcher-docs',
       isLite ? 'commander-lite' : 'commander',
       isDefault && 'thinker',
+      (isDefault || isMax) && 'thinker-gpt-5',
+      isMax && 'thinker-best-of-n-opus',
       isLite && 'editor-gpt-5',
       isDefault && 'editor',
       isMax && 'editor-multi-prompt',
-      isMax && 'thinker-best-of-n-opus',
       isDefault && 'code-reviewer',
       isMax && 'code-reviewer-multi-prompt',
       'context-pruner',
@@ -138,7 +139,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
     isDefault &&
       '- Spawn the editor agent to implement the changes after you have gathered all the context you need.',
     (isDefault || isMax) &&
-      `- Spawn the ${isDefault ? 'thinker' : 'thinker-best-of-n-opus'} after gathering context to solve complex problems or when the user asks you to think about a problem.`,
+      `- Spawn the ${isDefault ? 'thinker' : 'thinker-best-of-n-opus'} after gathering context to solve complex problems or when the user asks you to think about a problem. (thinker-gpt-5 is a last resort for complex problems)`,
     isMax &&
       `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
     '- Spawn commanders sequentially if the second command depends on the the first.',
@@ -323,7 +324,7 @@ ${buildArray(
   (isDefault || isMax) &&
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
   (isDefault || isMax) &&
-    `- For quick problems, briefly explain your reasoning to the user. If you need to think longer, write your thoughts within the <think> tags. Finally, for complex problems, spawn the thinker agent to help find the best solution.`,
+    `- For quick problems, briefly explain your reasoning to the user. If you need to think longer, write your thoughts within the <think> tags. Finally, for complex problems, spawn the thinker agent to help find the best solution. (thinker-gpt-5 is a last resort for complex problems)`,
   isLite &&
     '- IMPORTANT: You must spawn the editor-gpt-5 agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
   isDefault &&
