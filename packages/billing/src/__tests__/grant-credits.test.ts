@@ -81,7 +81,7 @@ const createTransactionMock = (user: {
     callback,
   }: {
     callback: (tx: any) => Promise<any>
-  }) => await callback(createTxMock(user)),
+  }) => ({ result: await callback(createTxMock(user)), lockWaitMs: 0 }),
 })
 
 describe('grant-credits', () => {

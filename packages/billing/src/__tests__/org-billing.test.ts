@@ -95,7 +95,7 @@ describe('Organization Billing', () => {
         callback,
       }: {
         callback: (tx: any) => Promise<unknown> | unknown
-      }) => await callback(createDbMock()),
+      }) => ({ result: await callback(createDbMock()), lockWaitMs: 0 }),
     }))
   })
 
