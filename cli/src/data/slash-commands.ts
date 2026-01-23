@@ -73,7 +73,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'new',
     label: 'new',
-    description: 'Start a fresh conversation session',
+    description: 'Clear the conversation history and start a new chat',
     aliases: ['n', 'clear', 'c', 'reset'],
     implicitCommand: true,
   },
