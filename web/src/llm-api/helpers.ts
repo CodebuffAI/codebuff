@@ -1,5 +1,6 @@
 import { setupBigQuery } from '@codebuff/bigquery'
 import { consumeCreditsAndAddAgentStep } from '@codebuff/billing'
+import { isFreeAgent } from '@codebuff/common/constants/free-agents'
 import { PROFIT_MARGIN } from '@codebuff/common/old-constants'
 
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
@@ -101,7 +102,7 @@ export async function consumeCreditsForMessage(params: {
   usageData: UsageData
   byok: boolean
   logger: Logger
-}) {
+}): Promise<number> {
   const {
     messageId,
     userId,
@@ -118,6 +119,11 @@ export async function consumeCreditsForMessage(params: {
     logger,
   } = params
 
+  // Free tier agents (like file-picker) don't charge credits to avoid confusion
+  // when users connect their Claude subscription but subagents use other models
+  const initialCredits = Math.round(usageData.cost * 100 * (1 + PROFIT_MARGIN))
+  const credits = isFreeAgent(agentId) && initialCredits < 5 ? 0 : initialCredits
+
   await consumeCreditsAndAddAgentStep({
     messageId,
     userId,
@@ -130,7 +136,7 @@ export async function consumeCreditsForMessage(params: {
     reasoningText,
     response: responseText,
     cost: usageData.cost,
-    credits: Math.round(usageData.cost * 100 * (1 + PROFIT_MARGIN)),
+    credits,
     inputTokens: usageData.inputTokens,
     cacheCreationInputTokens: null,
     cacheReadInputTokens: usageData.cacheReadInputTokens,
@@ -140,4 +146,6 @@ export async function consumeCreditsForMessage(params: {
     byok,
     logger,
   })
+
+  return credits
 }
