@@ -54,14 +54,11 @@ const DEFAULT_TEST_DATABASE_URL =
   'postgresql://postgres:postgres@127.0.0.1:5432/testdb'
 const TEST_DATABASE_URL = process.env.DATABASE_URL || DEFAULT_TEST_DATABASE_URL
 
-// Skip tests if:
-// 1. Running in GitHub Actions CI (which doesn't have a real Postgres for packages/internal)
-// 2. DATABASE_URL is not configured locally and RUN_INTEGRATION_TESTS is not set
-// Note: CI injects DATABASE_URL as a secret, but there's no actual database running
-// for packages/internal integration tests (only packages/billing has Postgres in CI)
-const SKIP_INTEGRATION_TESTS = 
-  process.env.CODEBUFF_GITHUB_ACTIONS === 'true' ||
-  (!process.env.DATABASE_URL && !process.env.RUN_INTEGRATION_TESTS)
+// Skip tests if DATABASE_URL is not configured and RUN_INTEGRATION_TESTS is not set.
+// In CI, the test-internal-integration job provides a PostgreSQL container and sets DATABASE_URL.
+// Locally, you can either set DATABASE_URL or RUN_INTEGRATION_TESTS=true.
+const SKIP_INTEGRATION_TESTS =
+  !process.env.DATABASE_URL && !process.env.RUN_INTEGRATION_TESTS
 
 // Create test database connection
 let testClient: ReturnType<typeof postgres> | null = null
