@@ -1,6 +1,6 @@
 import { CodebuffClient, type AgentDefinition } from '@codebuff/sdk'
-import fileExplorerDef from '../../agents/file-explorer/file-explorer'
-import findAllReferencerDef from '../../agents/file-explorer/find-all-referencer'
+import fileExplorerDef from '../../agents-graveyard/file-explorer/file-explorer'
+import findAllReferencerDef from '../../agents-graveyard/file-explorer/find-all-referencer'
 import { PLACEHOLDER } from '../../agents/types/secret-agent-definition'
 
 const evalTaskGeneratorAgentDef: AgentDefinition = {
