@@ -7,7 +7,7 @@ import { ReadSubtreeComponent } from './read-subtree'
 import { RunTerminalCommandComponent } from './run-terminal-command'
 import { StrReplaceComponent } from './str-replace'
 import { SuggestFollowupsComponent } from './suggest-followups'
-import { TaskCompleteComponent } from './task-complete'
+import { TaskCompleteComponent } from './task-completed'
 import { WriteFileComponent } from './write-file'
 import { WriteTodosComponent } from './write-todos'
 
