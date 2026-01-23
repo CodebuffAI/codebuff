@@ -2,6 +2,7 @@ import { useRenderer } from '@opentui/react'
 import open from 'open'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 
+import { Button } from './button'
 import { TerminalLink } from './terminal-link'
 import { useLoginMutation } from '../hooks/use-auth-query'
 import { useFetchLoginUrl } from '../hooks/use-fetch-login-url'
@@ -63,6 +64,9 @@ export const LoginModal = ({
   // Generate fingerprint ID (only once on mount)
   const [fingerprintId] = useState(() => generateFingerprintId())
 
+  // Track hover state for copy button
+  const [isCopyButtonHovered, setIsCopyButtonHovered] = useState(false)
+
   // Use TanStack Query for login mutation
   const loginMutation = useLoginMutation()
 
@@ -95,11 +99,8 @@ export const LoginModal = ({
           setJustCopied(false)
         }, 3000)
       } catch (err) {
+        // Silently fail - the URL is visible for manual copying
         logger.error(err, 'Failed to copy to clipboard')
-        setCopyMessage('✗ Failed to copy to clipboard')
-        setTimeout(() => {
-          setCopyMessage(null)
-        }, 3000)
       }
     },
     [setHasClickedLink, setJustCopied, setCopyMessage],
@@ -192,12 +193,6 @@ export const LoginModal = ({
     onCopyUrl: copyToClipboard,
   })
 
-  // Auto-copy URL when browser is opened
-  useEffect(() => {
-    if (hasOpenedBrowser && loginUrl) {
-      copyToClipboard(loginUrl)
-    }
-  }, [hasOpenedBrowser, loginUrl, copyToClipboard])
 
   // Calculate terminal width and height for responsive display
   const terminalWidth = renderer?.width || 80
@@ -363,15 +358,13 @@ export const LoginModal = ({
           >
             <text style={{ wrapMode: 'word' }}>
               <span fg={'#00cc00'}>
-                {isNarrow
-                  ? 'Press ENTER to login...'
-                  : 'Press ENTER to open your browser and login...'}
+                Press ENTER to login...
               </span>
             </text>
           </box>
         )}
 
-        {/* After opening browser - show URL as fallback */}
+        {/* After pressing enter - show URL prominently for all users */}
         {!loading && !error && loginUrl && hasOpenedBrowser && (
           <box
             style={{
@@ -384,15 +377,15 @@ export const LoginModal = ({
             }}
           >
             <text style={{ wrapMode: 'word' }}>
-              <span fg={theme.secondary}>
+              <span fg={theme.foreground}>
                 {isNarrow
-                  ? 'Opening browser...'
-                  : 'Opening browser to complete login...'}
+                  ? 'Open this URL to login:'
+                  : 'Open this URL in your browser to login:'}
               </span>
             </text>
             <box
               style={{
-                marginTop: 0,
+                marginTop: isVerySmall ? 1 : 2,
                 width: '100%',
                 flexShrink: 0,
               }}
@@ -401,7 +394,7 @@ export const LoginModal = ({
                 text={loginUrl}
                 maxWidth={maxUrlWidth}
                 formatLines={formatLoginUrlLines}
-                color={hasClickedLink ? theme.success : theme.link}
+                color={theme.primary}
                 activeColor={theme.success}
                 underlineOnHover={true}
                 isActive={justCopied}
@@ -412,28 +405,6 @@ export const LoginModal = ({
                 }}
               />
             </box>
-            {copyMessage && (
-              <box
-                style={{
-                  marginTop: isVerySmall ? 0 : 1,
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  width: '100%',
-                  flexShrink: 0,
-                }}
-              >
-                <text style={{ wrapMode: 'none' }}>
-                  <span
-                    fg={
-                      copyMessage.startsWith('✓') ? theme.success : theme.error
-                    }
-                  >
-                    {copyMessage}
-                  </span>
-                </text>
-              </box>
-            )}
-            {/* Show raw URL as fallback for devices where open() doesn't work */}
             <box
               style={{
                 marginTop: isVerySmall ? 1 : 2,
@@ -443,14 +414,38 @@ export const LoginModal = ({
                 flexShrink: 0,
               }}
             >
-              <text style={{ wrapMode: 'word' }}>
-                <span fg={theme.muted}>
-                  {isNarrow ? 'Or copy URL:' : "Or copy this URL if browser didn't open:"}
-                </span>
-              </text>
-              <text style={{ wrapMode: 'word' }}>
-                <span fg={theme.muted}>
-                  {loginUrl}
+              <Button
+                onClick={() => copyToClipboard(loginUrl)}
+                onMouseOver={() => setIsCopyButtonHovered(true)}
+                onMouseOut={() => setIsCopyButtonHovered(false)}
+              >
+                <text>
+                  <span
+                    fg={
+                      justCopied
+                        ? theme.foreground
+                        : isCopyButtonHovered
+                          ? theme.foreground
+                          : theme.primary
+                    }
+                  >
+                    {justCopied ? '[ ✓ Copied! ]' : '[ Copy link (c) ]'}
+                  </span>
+                </text>
+              </Button>
+            </box>
+            <box
+              style={{
+                marginTop: isVerySmall ? 1 : 2,
+                flexDirection: 'column',
+                alignItems: 'center',
+                width: '100%',
+                flexShrink: 0,
+              }}
+            >
+              <text style={{ wrapMode: 'none' }}>
+                <span fg={theme.secondary}>
+                  Waiting for login...
                 </span>
               </text>
             </box>
