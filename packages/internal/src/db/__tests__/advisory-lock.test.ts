@@ -116,7 +116,7 @@ describe('advisory-lock', () => {
         const result = await tryAcquireAdvisoryLock(ADVISORY_LOCK_IDS.DISCORD_BOT)
 
         expect(setIntervalSpy).toHaveBeenCalledTimes(1)
-        expect(setIntervalSpy.mock.calls[0][1]).toBe(30_000) // 30 seconds
+        expect(setIntervalSpy.mock.calls[0][1]).toBe(10_000) // 10 seconds
 
         await result.handle?.release()
       })
@@ -384,9 +384,17 @@ describe('advisory-lock', () => {
         expect(lostCallback).toHaveBeenCalledTimes(1)
       })
 
-      it('should do nothing when health check succeeds', async () => {
-        // All calls succeed
-        mockConnection.tagged.mockResolvedValue([{ acquired: true }])
+      it('should do nothing when health check succeeds and lock is still held', async () => {
+        // First call acquires lock, subsequent calls check lock ownership
+        let callCount = 0
+        mockConnection.tagged.mockImplementation(() => {
+          callCount++
+          if (callCount === 1) {
+            return Promise.resolve([{ acquired: true }])
+          }
+          // Health check returns that lock is still held
+          return Promise.resolve([{ held: true }])
+        })
 
         let healthCheckCallback: (() => Promise<void>) | null = null
         setIntervalSpy.mockImplementation((callback: () => Promise<void>) => {
@@ -404,6 +412,84 @@ describe('advisory-lock', () => {
 
         expect(lostCallback).not.toHaveBeenCalled()
         expect(mockConnection.end).not.toHaveBeenCalled()
+
+        // Clean up
+        await result.handle?.release()
+      })
+
+      it('should trigger onLost when lock is no longer held', async () => {
+        // First call acquires lock, subsequent calls show lock is not held
+        let callCount = 0
+        mockConnection.tagged.mockImplementation(() => {
+          callCount++
+          if (callCount === 1) {
+            return Promise.resolve([{ acquired: true }])
+          }
+          // Health check returns that lock is no longer held (e.g., another process took it)
+          return Promise.resolve([{ held: false }])
+        })
+
+        let healthCheckCallback: (() => Promise<void>) | null = null
+        setIntervalSpy.mockImplementation((callback: () => Promise<void>) => {
+          healthCheckCallback = callback
+          return 123 as unknown as NodeJS.Timeout
+        })
+
+        const result = await tryAcquireAdvisoryLock(ADVISORY_LOCK_IDS.DISCORD_BOT)
+
+        const lostCallback = mock(() => {})
+        result.handle?.onLost(lostCallback)
+
+        // Trigger health check
+        await healthCheckCallback!()
+
+        expect(lostCallback).toHaveBeenCalledTimes(1)
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          'Advisory lock health check failed - lock no longer held',
+        )
+      })
+
+      it('should query pg_locks with correct structure in health check', async () => {
+        // First call acquires lock, second call is the health check
+        let callCount = 0
+        mockConnection.tagged.mockImplementation(() => {
+          callCount++
+          if (callCount === 1) {
+            return Promise.resolve([{ acquired: true }])
+          }
+          return Promise.resolve([{ held: true }])
+        })
+
+        let healthCheckCallback: (() => Promise<void>) | null = null
+        setIntervalSpy.mockImplementation((callback: () => Promise<void>) => {
+          healthCheckCallback = callback
+          return 123 as unknown as NodeJS.Timeout
+        })
+
+        const result = await tryAcquireAdvisoryLock(ADVISORY_LOCK_IDS.DISCORD_BOT)
+
+        // Trigger health check
+        await healthCheckCallback!()
+
+        // Verify the health check query was called (second call)
+        expect(mockConnection.tagged).toHaveBeenCalledTimes(2)
+
+        // Get the health check query (second call)
+        const [queryStrings, lockIdArg] = mockConnection.tagged.mock.calls[1]
+        const fullQuery = queryStrings.join('')
+
+        // Verify the query checks pg_locks with all required conditions
+        expect(fullQuery).toContain('SELECT EXISTS')
+        expect(fullQuery).toContain('FROM pg_locks')
+        expect(fullQuery).toContain("locktype = 'advisory'")
+        expect(fullQuery).toContain('classid = 0')
+        expect(fullQuery).toContain('objid =')
+        expect(fullQuery).toContain('pid = pg_backend_pid()')
+        expect(fullQuery).toContain('granted = true')
+        expect(fullQuery).toContain('as held')
+
+        // Verify the lock ID is passed as a parameter
+        expect(lockIdArg).toBe(ADVISORY_LOCK_IDS.DISCORD_BOT)
 
         // Clean up
         await result.handle?.release()

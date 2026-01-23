@@ -12,7 +12,7 @@ export const ADVISORY_LOCK_IDS = {
 
 export type AdvisoryLockId = (typeof ADVISORY_LOCK_IDS)[keyof typeof ADVISORY_LOCK_IDS]
 
-const HEALTH_CHECK_INTERVAL_MS = 30_000 // 30 seconds
+const HEALTH_CHECK_INTERVAL_MS = 10_000 // 10 seconds
 
 export interface LockHandle {
   /** Register a callback to be called if the lock is lost (connection dies) */
@@ -67,11 +67,27 @@ export async function tryAcquireAdvisoryLock(lockId: AdvisoryLockId): Promise<{
       }
     }
 
-    // Start health check interval
+    // Start health check interval - verify we still hold the lock, not just connection liveness
     healthCheckTimer = setInterval(async () => {
       if (isReleased) return
       try {
-        await connection`SELECT 1`
+        // Query pg_locks to verify we still hold this specific advisory lock
+        // This catches cases where the lock was lost but connection stayed alive
+        const result = await connection`
+          SELECT EXISTS (
+            SELECT 1 FROM pg_locks 
+            WHERE locktype = 'advisory' 
+            AND classid = 0
+            AND objid = ${lockId}
+            AND pid = pg_backend_pid()
+            AND granted = true
+          ) as held
+        `
+        const stillHeld = result[0]?.held === true
+        if (!stillHeld) {
+          console.error('Advisory lock health check failed - lock no longer held')
+          triggerLost()
+        }
       } catch {
         console.error('Advisory lock health check failed - connection lost')
         triggerLost()
