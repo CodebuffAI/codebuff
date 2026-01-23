@@ -177,16 +177,6 @@ const handleSubagentStart = (
   )
 
   if (spawnAgentMatch) {
-    state.logger.info(
-      {
-        tempId: spawnAgentMatch.tempId,
-        realAgentId: event.agentId,
-        agentType: event.agentType,
-        hasParentAgentId: !!event.parentAgentId,
-      },
-      'Matching spawn_agents block found',
-    )
-
     state.message.updater.updateAiMessageBlocks((blocks) =>
       resolveSpawnAgentToReal({
         blocks,
