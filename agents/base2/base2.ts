@@ -146,7 +146,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
     isDefault &&
       '- Spawn a code-reviewer to review the changes after you have implemented the changes.',
     isMax &&
-      '- Spawn a reviewer-editor-gpt-5 to review the changes after you have implemented the changes.',
+      '- Spawn a code-reviewer-multi-prompt to review the changes after you have implemented the changes.',
   ).join('\n  ')}
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 - **Never spawn the context-pruner agent:** This agent is spawned automatically for you and you don't need to spawn it yourself.
