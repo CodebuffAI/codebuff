@@ -1,9 +1,7 @@
 import React from 'react'
 
 import { useTheme } from '../hooks/use-theme'
-
 import { formatResetTime } from '../utils/time-format'
-
 import type { ClaudeQuotaData } from '../hooks/use-claude-quota-query'
 
 interface BottomStatusLineProps {
@@ -74,18 +72,46 @@ export const BottomStatusLine: React.FC<BottomStatusLineProps> = ({
         {isExhausted && resetTime ? (
           <text style={{ fg: theme.muted }}>{` · resets in ${formatResetTime(resetTime)}`}</text>
         ) : displayRemaining !== null ? (
-          <text
-            style={{
-              fg:
-                displayRemaining <= 10
-                  ? theme.error
-                  : displayRemaining <= 25
-                    ? theme.warning
-                    : theme.muted,
-            }}
-          >{` ${Math.round(displayRemaining)}%`}</text>
+          <BatteryIndicator value={displayRemaining} theme={theme} />
         ) : null}
       </box>
+    </box>
+  )
+}
+
+/** Battery indicator width in characters */
+const BATTERY_WIDTH = 8
+
+/** Compact battery-style progress indicator for the status line */
+const BatteryIndicator: React.FC<{
+  value: number
+  theme: { muted: string; warning: string; error: string }
+}> = ({ value, theme }) => {
+  const clampedValue = Math.max(0, Math.min(100, value))
+  const filledWidth = Math.round((clampedValue / 100) * BATTERY_WIDTH)
+  const emptyWidth = BATTERY_WIDTH - filledWidth
+
+  const filledChar = '█'
+  const emptyChar = '░'
+
+  const filled = filledChar.repeat(filledWidth)
+  const empty = emptyChar.repeat(emptyWidth)
+
+  // Color based on percentage thresholds
+  // Use muted color for healthy capacity (>25%) to avoid drawing attention,
+  // warning/error colors only when running low
+  const barColor =
+    clampedValue <= 10
+      ? theme.error
+      : clampedValue <= 25
+        ? theme.warning
+        : theme.muted
+
+  return (
+    <box style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
+      <text style={{ fg: theme.muted }}> [</text>
+      <text style={{ fg: barColor }}>{filled}</text>
+      <text style={{ fg: theme.muted }}>{empty}]</text>
     </box>
   )
 }

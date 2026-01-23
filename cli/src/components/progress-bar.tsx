@@ -32,14 +32,16 @@ const getProgressColor = (
 
 /**
  * Get color for the filled portion of the bar
+ * Uses muted color for healthy capacity (>25%) to avoid drawing attention,
+ * warning/error colors only when running low
  */
 const getBarColor = (
   value: number,
-  theme: { primary: string; warning: string; error: string },
+  theme: { muted: string; warning: string; error: string },
 ): string => {
   if (value <= 10) return theme.error
   if (value <= 25) return theme.warning
-  return theme.primary // Use primary for the bar itself
+  return theme.muted
 }
 
 /**
