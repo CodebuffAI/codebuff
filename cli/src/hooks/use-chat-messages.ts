@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { buildMessageTree } from '../utils/message-tree-utils'
+import { setAllBlocksCollapsedState, hasAnyExpandedBlocks } from '../utils/collapse-helpers'
 
 import type { ChatMessage, ContentBlock } from '../types/chat'
 
@@ -42,6 +43,8 @@ export interface UseChatMessagesReturn {
   isUserCollapsing: () => boolean
   /** Handler to load more previous messages */
   handleLoadPreviousMessages: () => void
+  /** Handler to toggle all collapsed/expanded state in all AI responses */
+  handleToggleAll: () => void
 }
 
 /**
@@ -181,7 +184,9 @@ export function useChatMessages({
         })
       })
 
-      // Reset flag after state update completes
+      // Reset flag after state update completes.
+      // Uses setTimeout(0) to defer until after React's batched state updates
+      // have been applied, ensuring the flag stays true during the render cycle.
       setTimeout(() => {
         isUserCollapsingRef.current = false
       }, 0)
@@ -195,6 +200,27 @@ export function useChatMessages({
   const handleLoadPreviousMessages = useCallback(() => {
     setVisibleMessageCount((prev) => prev + MESSAGE_BATCH_SIZE)
   }, [])
+
+  /**
+   * Toggles all collapsible blocks in all AI responses.
+   * If any block is expanded, collapses all. Otherwise expands all.
+   */
+  const handleToggleAll = useCallback(() => {
+    isUserCollapsingRef.current = true
+
+    setMessages((prevMessages) => {
+      // Determine target state: if any expanded, collapse all; otherwise expand all
+      const shouldCollapse = hasAnyExpandedBlocks(prevMessages)
+      return setAllBlocksCollapsedState(prevMessages, shouldCollapse)
+    })
+
+    // Reset flag after state update completes.
+    // Uses setTimeout(0) to defer until after React's batched state updates
+    // have been applied, ensuring the flag stays true during the render cycle.
+    setTimeout(() => {
+      isUserCollapsingRef.current = false
+    }, 0)
+  }, [setMessages])
 
   // Build message tree from flat messages array
   const { tree: messageTree, topLevelMessages } = useMemo(
@@ -221,5 +247,6 @@ export function useChatMessages({
     handleCollapseToggle,
     isUserCollapsing,
     handleLoadPreviousMessages,
+    handleToggleAll,
   }
 }

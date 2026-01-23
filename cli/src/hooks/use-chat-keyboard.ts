@@ -79,6 +79,9 @@ export type ChatKeyboardHandlers = {
   onScrollUp: () => void
   onScrollDown: () => void
 
+  // Toggle all handler
+  onToggleAll: () => void
+
   // Out of credits handler
   onOpenBuyCredits: () => void
 }
@@ -238,6 +241,9 @@ function dispatchAction(
       return true
     case 'scroll-down':
       handlers.onScrollDown()
+      return true
+    case 'toggle-all':
+      handlers.onToggleAll()
       return true
     case 'open-buy-credits':
       handlers.onOpenBuyCredits()

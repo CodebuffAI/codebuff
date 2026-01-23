@@ -176,6 +176,7 @@ export const Chat = ({
     handleCollapseToggle,
     isUserCollapsing,
     handleLoadPreviousMessages,
+    handleToggleAll,
   } = useChatMessages({ messages, setMessages })
 
   // Use extracted UI hook for scroll, terminal dimensions, and theme
@@ -1040,6 +1041,7 @@ export const Chat = ({
       },
       onScrollUp: scrollUp,
       onScrollDown: scrollDown,
+      onToggleAll: handleToggleAll,
       onOpenBuyCredits: () => {
         // If credits have been restored, just return to default mode
         if (areCreditsRestored()) {
@@ -1081,6 +1083,7 @@ export const Chat = ({
       clearQueue,
       scrollUp,
       scrollDown,
+      handleToggleAll,
     ],
   )
 

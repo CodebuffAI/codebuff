@@ -51,17 +51,18 @@ export const HelpBanner = () => {
         {/* Shortcuts Section */}
         <box style={{ flexDirection: 'column', gap: 0 }}>
           <SectionHeader>Shortcuts</SectionHeader>
-          <box style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 2, paddingLeft: 2 }}>
+          <box style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 2, paddingLeft: 2 }}>
             <Shortcut keys="Ctrl+C / Esc" action="stop" />
             <Shortcut keys="Ctrl+J / Opt+Enter" action="newline" />
             <Shortcut keys="↑↓" action="history" />
+            <Shortcut keys="Ctrl+T" action="collapse/expand agents" />
           </box>
         </box>
 
         {/* Features Section */}
         <box style={{ flexDirection: 'column', gap: 0 }}>
           <SectionHeader>Features</SectionHeader>
-          <box style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 2, paddingLeft: 2 }}>
+          <box style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 2, paddingLeft: 2 }}>
             <Shortcut keys="/" action="commands" />
             <Shortcut keys="@files" action="mention" />
             <Shortcut keys="@agents" action="use agent" />
@@ -73,7 +74,7 @@ export const HelpBanner = () => {
         <box style={{ flexDirection: 'column', gap: 0 }}>
           <SectionHeader>Credits</SectionHeader>
           <box style={{ flexDirection: 'column', paddingLeft: 2 }}>
-            <box style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 1 }}>
+            <box style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 1 }}>
               <text style={{ fg: theme.foreground }}>1 credit = 1 cent</text>
               <text style={{ fg: theme.muted }}>·</text>
               <text style={{ fg: theme.foreground }}>/buy-credits</text>

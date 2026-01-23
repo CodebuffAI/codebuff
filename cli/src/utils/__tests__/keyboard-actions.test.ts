@@ -568,4 +568,64 @@ describe('resolveChatKeyboardAction', () => {
       })
     })
   })
+
+  describe('toggle all (Ctrl+T)', () => {
+    const ctrlT = createKey({ name: 't', ctrl: true })
+
+    test('Ctrl+T triggers toggle-all', () => {
+      expect(resolveChatKeyboardAction(ctrlT, defaultState)).toEqual({
+        type: 'toggle-all',
+      })
+    })
+
+    test('Ctrl+T works while streaming', () => {
+      const state: ChatKeyboardState = {
+        ...defaultState,
+        isStreaming: true,
+      }
+      expect(resolveChatKeyboardAction(ctrlT, state)).toEqual({
+        type: 'toggle-all',
+      })
+    })
+
+    test('Ctrl+T works with text in input', () => {
+      const state: ChatKeyboardState = {
+        ...defaultState,
+        inputValue: 'some text',
+      }
+      expect(resolveChatKeyboardAction(ctrlT, state)).toEqual({
+        type: 'toggle-all',
+      })
+    })
+
+    test('Ctrl+T works in bash mode', () => {
+      const state: ChatKeyboardState = {
+        ...defaultState,
+        inputMode: 'bash',
+      }
+      expect(resolveChatKeyboardAction(ctrlT, state)).toEqual({
+        type: 'toggle-all',
+      })
+    })
+
+    test('Ctrl+T blocked in feedback mode', () => {
+      const state: ChatKeyboardState = {
+        ...defaultState,
+        feedbackMode: true,
+      }
+      expect(resolveChatKeyboardAction(ctrlT, state)).toEqual({
+        type: 'none',
+      })
+    })
+
+    test('Ctrl+T blocked in outOfCredits mode', () => {
+      const state: ChatKeyboardState = {
+        ...defaultState,
+        inputMode: 'outOfCredits',
+      }
+      expect(resolveChatKeyboardAction(ctrlT, state)).toEqual({
+        type: 'none',
+      })
+    })
+  })
 })

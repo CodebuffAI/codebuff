@@ -121,6 +121,7 @@ export const ChatInputBar = ({
   const handleKeyIntercept = useEvent(
     (key: {
       name?: string
+      sequence?: string
       shift?: boolean
       ctrl?: boolean
       meta?: boolean
