@@ -1,5 +1,4 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { PROFIT_MARGIN } from '@codebuff/common/old-constants'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
@@ -81,9 +80,8 @@ export async function postDocsSearch(params: {
     logger,
   })
 
-  // Credit cost: flat 1 credit (+profit margin)
-  const baseCost = 1
-  const creditsToCharge = Math.round(baseCost * (1 + PROFIT_MARGIN))
+  // Temporarily free - charge 0 credits
+  const creditsToCharge = 0
 
   const credits = await checkCreditsAndCharge({
     userId,

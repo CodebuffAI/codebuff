@@ -1,5 +1,4 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { PROFIT_MARGIN } from '@codebuff/common/old-constants'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
@@ -85,8 +84,8 @@ export async function postWebSearch(params: {
     logger,
   })
 
-  const baseCost = depth === 'deep' ? 5 : 1
-  const creditsToCharge = Math.round(baseCost * (1 + PROFIT_MARGIN))
+  // Temporarily free - charge 0 credits
+  const creditsToCharge = 0
 
   // Retry credits charge up to 3 times (flaky)
   let credits: Awaited<ReturnType<typeof checkCreditsAndCharge>> | undefined
