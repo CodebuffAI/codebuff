@@ -18,6 +18,34 @@ const listToolsCache: Record<
   ReturnType<typeof Client.prototype.listTools>
 > = {}
 
+/**
+ * Substitutes environment variable references ($VAR_NAME) in a string with their values.
+ * Supports both simple replacement ("$VAR_NAME") and interpolation ("Bearer $VAR_NAME").
+ */
+function substituteEnvInValue(value: string): string {
+  return value.replace(/\$([A-Z_][A-Z0-9_]*)/g, (match, varName) => {
+    const envValue = process.env[varName]
+    if (envValue === undefined) {
+      // Return original if env var not found
+      return match
+    }
+    return envValue
+  })
+}
+
+/**
+ * Substitutes environment variable references in all values of a record.
+ */
+function substituteEnvInRecord(
+  record: Record<string, string>,
+): Record<string, string> {
+  const result: Record<string, string> = {}
+  for (const [key, value] of Object.entries(record)) {
+    result[key] = substituteEnvInValue(value)
+  }
+  return result
+}
+
 function hashConfig(config: MCPConfig): string {
   if (config.type === 'stdio') {
     return JSON.stringify({
@@ -57,7 +85,7 @@ export async function getMCPClient(config: MCPConfig): Promise<string> {
     transport = new StdioClientTransport({
       command: config.command,
       args: config.args,
-      env: config.env,
+      env: substituteEnvInRecord(config.env),
       stderr: 'ignore',
     })
   } else {
@@ -65,16 +93,17 @@ export async function getMCPClient(config: MCPConfig): Promise<string> {
     for (const [key, value] of Object.entries(config.params)) {
       url.searchParams.set(key, value)
     }
+    const headers = substituteEnvInRecord(config.headers)
     if (config.type === 'http') {
       transport = new StreamableHTTPClientTransport(url, {
         requestInit: {
-          headers: config.headers,
+          headers,
         },
       })
     } else if (config.type === 'sse') {
       transport = new SSEClientTransport(url, {
         requestInit: {
-          headers: config.headers,
+          headers,
         },
       })
     } else {
