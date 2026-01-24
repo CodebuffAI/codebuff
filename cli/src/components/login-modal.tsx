@@ -1,10 +1,9 @@
 import { useRenderer } from '@opentui/react'
-import open from 'open'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Button } from './button'
-import { TerminalLink } from './terminal-link'
 import { useLoginMutation } from '../hooks/use-auth-query'
+import { useClipboard } from '../hooks/use-clipboard'
 import { useFetchLoginUrl } from '../hooks/use-fetch-login-url'
 import { useLoginKeyboardHandlers } from '../hooks/use-login-keyboard-handlers'
 import { useLoginPolling } from '../hooks/use-login-polling'
@@ -216,19 +215,6 @@ export const LoginModal = ({
     [maxUrlWidth],
   )
 
-  // Handle login URL activation
-  const handleActivateLoginUrl = useCallback(async () => {
-    if (!loginUrl) {
-      return
-    }
-    try {
-      await open(loginUrl)
-    } catch (err) {
-      logger.error(err, 'Failed to open browser on link click')
-    }
-    return copyToClipboard(loginUrl)
-  }, [loginUrl, copyToClipboard])
-
   // Use custom hook for sheen animation
   const blockColor = getLogoBlockColor(theme.name)
   const accentColor = getLogoAccentColor(theme.name)
@@ -247,6 +233,10 @@ export const LoginModal = ({
     applySheenToChar,
     textColor: theme.foreground,
   })
+
+  // Enable auto-copy when user selects text (drag to select)
+  // hasSelection provides visual feedback when text is being selected
+  const { hasSelection } = useClipboard()
 
   // Format URL for display (wrap if needed)
   return (
@@ -385,29 +375,30 @@ export const LoginModal = ({
             </text>
             <box
               style={{
-                marginTop: isVerySmall ? 1 : 2,
                 width: '100%',
                 flexShrink: 0,
+                flexDirection: 'column',
+                alignItems: 'flex-start',
               }}
             >
-              <TerminalLink
-                text={loginUrl}
-                maxWidth={maxUrlWidth}
-                formatLines={formatLoginUrlLines}
-                color={theme.primary}
-                activeColor={theme.success}
-                underlineOnHover={true}
-                isActive={justCopied}
-                onActivate={handleActivateLoginUrl}
-                containerStyle={{
-                  alignItems: 'flex-start',
-                  flexShrink: 0,
-                }}
-              />
+              {formatLoginUrlLines(loginUrl, maxUrlWidth).map((line, index) => (
+                <text key={index} style={{ wrapMode: 'none' }}>
+                  <span
+                    fg={
+                      justCopied
+                        ? theme.success
+                        : hasSelection
+                          ? theme.info
+                          : theme.primary
+                    }
+                  >
+                    {line}
+                  </span>
+                </text>
+              ))}
             </box>
             <box
               style={{
-                marginTop: isVerySmall ? 1 : 2,
                 flexDirection: 'column',
                 alignItems: 'center',
                 width: '100%',

@@ -8,7 +8,7 @@ interface UseLoginKeyboardHandlersParams {
   hasOpenedBrowser: boolean
   loading: boolean
   onFetchLoginUrl: () => void
-  onCopyUrl: (url: string) => void
+  onCopyUrl: (url: string) => Promise<void> | void
 }
 
 /**
@@ -65,7 +65,9 @@ export function useLoginKeyboardHandlers({
             key.preventDefault()
           }
 
-          onCopyUrl(loginUrl)
+          // Fire-and-forget the async copy function with .catch() to prevent
+          // unhandled promise rejections if the implementation changes
+          void Promise.resolve(onCopyUrl(loginUrl)).catch(() => {})
         }
       },
       [loginUrl, hasOpenedBrowser, loading, onCopyUrl, onFetchLoginUrl],

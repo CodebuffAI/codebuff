@@ -86,19 +86,23 @@ export async function copyTextToClipboard(
     } else if (typeof process !== 'undefined' && process.platform) {
       // NOTE: Inline require() is used because this code path only runs in Node.js
       // environments, and we need to check process.platform at runtime first
-      const { execSync } = require('child_process') as {
-        execSync: (command: string, options: { input: string }) => void
+      const { execSync } = require('child_process') as typeof import('child_process')
+      // Use stdio: ['pipe', 'ignore', 'ignore'] to prevent stderr from corrupting the TUI on headless servers
+      // stdin needs 'pipe' for input, stdout/stderr use 'ignore' to discard any output
+      const execOptions: { input: string; stdio: ('pipe' | 'ignore')[] } = {
+        input: text,
+        stdio: ['pipe', 'ignore', 'ignore'],
       }
       if (process.platform === 'darwin') {
-        execSync('pbcopy', { input: text })
+        execSync('pbcopy', execOptions)
       } else if (process.platform === 'linux') {
         try {
-          execSync('xclip -selection clipboard', { input: text })
+          execSync('xclip -selection clipboard', execOptions)
         } catch {
-          execSync('xsel --clipboard --input', { input: text })
+          execSync('xsel --clipboard --input', execOptions)
         }
       } else if (process.platform === 'win32') {
-        execSync('clip', { input: text })
+        execSync('clip', execOptions)
       }
     } else {
       return
