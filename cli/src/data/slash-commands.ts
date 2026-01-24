@@ -89,6 +89,18 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     aliases: ['chats'],
   },
   {
+    id: 'agent:gpt-5',
+    label: 'agent:gpt-5',
+    description: 'Spawn the GPT-5 agent to help solve complex problems',
+    insertText: '@GPT-5 Agent ',
+  },
+  {
+    id: 'agent:opus',
+    label: 'agent:opus',
+    description: 'Spawn the Opus agent to help solve any problem',
+    insertText: '@Opus Agent ',
+  },
+  {
     id: 'feedback',
     label: 'feedback',
     description: 'Share general feedback about Codebuff',
@@ -116,18 +128,6 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     id: 'publish',
     label: 'publish',
     description: 'Publish agents to the agent store',
-  },
-  {
-    id: 'agent:gpt-5',
-    label: 'agent:gpt-5',
-    description: 'Spawn the GPT-5 agent to help solve complex problems',
-    insertText: '@GPT-5 Agent ',
-  },
-  {
-    id: 'agent:opus',
-    label: 'agent:opus',
-    description: 'Spawn the Opus agent to help solve any problem',
-    insertText: '@Opus Agent ',
   },
   {
     id: 'logout',
