@@ -331,7 +331,7 @@ export default function HomeClient() {
             />
           }
         />
-
+        {/* 
         <FeatureSection
           title={<>Better and Better Over Time</>}
           description="Don't repeat yourself. Codebuff can take notes on your conversations and stores them in human-readable markdown files. Each session teaches it about your specific needs and project setup."
@@ -358,9 +358,9 @@ export default function HomeClient() {
               }}
             />
           }
-        />
+        /> */}
 
-        <CompetitionSection />
+        {/* <CompetitionSection /> */}
         <TestimonialsSection />
         <CTASection />
       </div>
