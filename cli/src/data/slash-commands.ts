@@ -10,6 +10,11 @@ export interface SlashCommand {
    * input matches the command id exactly (no arguments).
    */
   implicitCommand?: boolean
+  /**
+   * If set, selecting this command inserts this text into the input field
+   * instead of executing a command. Useful for agent shortcuts.
+   */
+  insertText?: string
 }
 
 // Generate mode commands from the AGENT_MODES constant
@@ -111,6 +116,12 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     id: 'publish',
     label: 'publish',
     description: 'Publish agents to the agent store',
+  },
+  {
+    id: 'gpt-5-agent',
+    label: 'gpt-5-agent',
+    description: 'Mention the GPT-5 agent to help solve complex problems',
+    insertText: '@gpt-5-agent ',
   },
   {
     id: 'logout',

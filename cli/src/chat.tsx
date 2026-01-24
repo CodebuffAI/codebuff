@@ -675,6 +675,21 @@ export const Chat = ({
       const selected = slashMatches[index]
       if (!selected) return
 
+      // If the command has insertText, insert it instead of executing
+      if (selected.insertText && slashContext.startIndex >= 0) {
+        const before = inputValue.slice(0, slashContext.startIndex)
+        const after = inputValue.slice(
+          slashContext.startIndex + 1 + slashContext.query.length,
+        )
+        setInputValue({
+          text: before + selected.insertText + after,
+          cursorPosition: before.length + selected.insertText.length,
+          lastEditDueToNav: false,
+        })
+        setSlashSelectedIndex(0)
+        return
+      }
+
       // Execute the selected slash command immediately
       const commandString = `/${selected.id}`
       setSlashSelectedIndex(0)
@@ -684,6 +699,9 @@ export const Chat = ({
     },
     [
       slashMatches,
+      slashContext,
+      inputValue,
+      setInputValue,
       setSlashSelectedIndex,
       onSubmitPrompt,
       agentMode,
@@ -883,6 +901,21 @@ export const Chat = ({
       onSlashMenuSelect: async () => {
         const selected = slashMatches[slashSelectedIndex] || slashMatches[0]
         if (!selected) return
+
+        // If the command has insertText, insert it instead of executing
+        if (selected.insertText && slashContext.startIndex >= 0) {
+          const before = inputValue.slice(0, slashContext.startIndex)
+          const after = inputValue.slice(
+            slashContext.startIndex + 1 + slashContext.query.length,
+          )
+          setInputValue({
+            text: before + selected.insertText + after,
+            cursorPosition: before.length + selected.insertText.length,
+            lastEditDueToNav: false,
+          })
+          setSlashSelectedIndex(0)
+          return
+        }
 
         // Execute the selected slash command immediately
         const commandString = `/${selected.id}`
