@@ -15,6 +15,8 @@ export const FREE_TIER_AGENTS = new Set([
   'file-picker',
   'file-picker-max',
   'file-lister',
+  'researcher-web',
+  'researcher-docs',
 ])
 
 /**
