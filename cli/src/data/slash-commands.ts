@@ -118,10 +118,16 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     description: 'Publish agents to the agent store',
   },
   {
-    id: 'gpt-5-agent',
-    label: 'gpt-5-agent',
-    description: 'Mention the GPT-5 agent to help solve complex problems',
+    id: 'agent:gpt-5',
+    label: 'agent:gpt-5',
+    description: 'Spawn the GPT-5 agent to help solve complex problems',
     insertText: '@GPT-5 Agent ',
+  },
+  {
+    id: 'agent:opus',
+    label: 'agent:opus',
+    description: 'Spawn the Opus agent to help solve any problem',
+    insertText: '@Opus Agent ',
   },
   {
     id: 'logout',
