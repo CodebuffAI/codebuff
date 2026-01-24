@@ -160,6 +160,70 @@ export function getMatchingSpawn(
 }
 
 /**
+ * Synchronously transforms spawn_agents input to use 'commander-lite' instead of 'commander'
+ * when the parent agent doesn't have access to 'commander' but does have access to 'commander-lite'.
+ * This should be called BEFORE the tool call is streamed to the UI.
+ */
+export function transformSpawnAgentsInput(
+  input: Record<string, unknown>,
+  spawnableAgents: AgentTemplateType[],
+): Record<string, unknown> {
+  const agents = input.agents
+  if (!Array.isArray(agents)) {
+    return input
+  }
+
+  let hasTransformation = false
+  const transformedAgents = agents.map((agent) => {
+    if (typeof agent !== 'object' || agent === null) {
+      return agent
+    }
+
+    const agentEntry = agent as Record<string, unknown>
+    const agentTypeStr = agentEntry.agent_type
+    if (typeof agentTypeStr !== 'string') {
+      return agent
+    }
+
+    // Check if this is 'commander'
+    const { agentId } = parseAgentId(agentTypeStr)
+    if (agentId !== 'commander') {
+      return agent
+    }
+
+    // Check if 'commander' is available in spawnableAgents
+    const commanderType = getMatchingSpawn(spawnableAgents, agentTypeStr)
+    if (commanderType) {
+      // Commander is available, no transformation needed
+      return agent
+    }
+
+    // Check if 'commander-lite' is available as a fallback
+    const commanderLiteType = getMatchingSpawn(spawnableAgents, 'commander-lite')
+    if (!commanderLiteType) {
+      // Neither available, let validation handle the error
+      return agent
+    }
+
+    // Transform commander -> commander-lite
+    hasTransformation = true
+    return {
+      ...agentEntry,
+      agent_type: commanderLiteType,
+    }
+  })
+
+  if (!hasTransformation) {
+    return input
+  }
+
+  return {
+    ...input,
+    agents: transformedAgents,
+  }
+}
+
+/**
  * Validates agent template and permissions
  */
 export async function validateAndGetAgentTemplate(

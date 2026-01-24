@@ -7,6 +7,7 @@ import { MCP_TOOL_SEPARATOR } from '../mcp-constants'
 import { getMCPToolData } from '../mcp'
 import { getAgentShortName } from '../templates/prompts'
 import { codebuffToolHandlers } from './handlers/list'
+import { transformSpawnAgentsInput } from './handlers/tool/spawn-agent-utils'
 import { ensureZodSchema } from './prompts'
 
 import type { AgentTemplateType } from '@codebuff/common/types/session-state'
@@ -187,12 +188,19 @@ export function executeToolCall<T extends ToolName>(
     return previousToolCallFinished
   }
 
+  // Transform spawn_agents input to use commander-lite fallback before streaming
+  // This ensures the UI shows the correct agent type from the start
+  const transformedInput =
+    toolName === 'spawn_agents'
+      ? transformSpawnAgentsInput(input, agentTemplate.spawnableAgents)
+      : input
+
   // Only emit tool_call event after permission check passes
   onResponseChunk({
     type: 'tool_call',
     toolCallId,
     toolName,
-    input,
+    input: transformedInput,
     agentId: agentState.agentId,
     parentAgentId: agentState.parentId,
     includeToolCall: !excludeToolFromMessageHistory,
@@ -204,8 +212,16 @@ export function executeToolCall<T extends ToolName>(
   const handler = codebuffToolHandlers[
     toolName
   ] as unknown as CodebuffToolHandlerFunction<T>
+
+  // Use transformed input for spawn_agents so the handler receives the correct agent types
+  const finalToolCall =
+    toolName === 'spawn_agents'
+      ? { ...toolCall, input: transformedInput }
+      : toolCall
+
   const toolResultPromise = handler({
     ...params,
+    toolCall: finalToolCall,
     previousToolCallFinished,
     writeToClient: onResponseChunk,
     requestClientToolCall: (async (
@@ -222,7 +238,6 @@ export function executeToolCall<T extends ToolName>(
       })
       return clientToolResult.output as CodebuffToolOutput<T>
     }) as any,
-    toolCall,
   })
 
   return toolResultPromise.then(async ({ output, creditsUsed }) => {
