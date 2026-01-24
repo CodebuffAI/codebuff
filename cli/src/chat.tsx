@@ -75,6 +75,7 @@ import { trackEvent } from './utils/analytics'
 import { logger } from './utils/logger'
 
 import type { CommandResult } from './commands/command-registry'
+import type { MatchedSlashCommand } from './hooks/use-suggestion-engine'
 import type { MultilineInputHandle } from './components/multiline-input'
 import type { User } from './utils/auth'
 import type { AgentMode } from './utils/constants'
@@ -669,14 +670,10 @@ export const Chat = ({
     ],
   )
 
-  // Click handler for slash menu items - executes command immediately
-  const handleSlashItemClick = useCallback(
-    async (index: number) => {
-      const selected = slashMatches[index]
-      if (!selected) return
-
-      // If the command has insertText, insert it instead of executing
-      if (selected.insertText && slashContext.startIndex >= 0) {
+  // Helper to apply insertText for slash commands - returns true if handled
+  const applySlashInsertText = useCallback(
+    (selected: MatchedSlashCommand): boolean => {
+      if (selected.insertText != null && slashContext.startIndex >= 0) {
         const before = inputValue.slice(0, slashContext.startIndex)
         const after = inputValue.slice(
           slashContext.startIndex + 1 + slashContext.query.length,
@@ -687,8 +684,21 @@ export const Chat = ({
           lastEditDueToNav: false,
         })
         setSlashSelectedIndex(0)
-        return
+        return true
       }
+      return false
+    },
+    [slashContext, inputValue, setInputValue, setSlashSelectedIndex],
+  )
+
+  // Click handler for slash menu items - executes command or inserts text
+  const handleSlashItemClick = useCallback(
+    async (index: number) => {
+      const selected = slashMatches[index]
+      if (!selected) return
+
+      // If the command has insertText, insert it instead of executing
+      if (applySlashInsertText(selected)) return
 
       // Execute the selected slash command immediately
       const commandString = `/${selected.id}`
@@ -699,9 +709,7 @@ export const Chat = ({
     },
     [
       slashMatches,
-      slashContext,
-      inputValue,
-      setInputValue,
+      applySlashInsertText,
       setSlashSelectedIndex,
       onSubmitPrompt,
       agentMode,
@@ -903,19 +911,7 @@ export const Chat = ({
         if (!selected) return
 
         // If the command has insertText, insert it instead of executing
-        if (selected.insertText && slashContext.startIndex >= 0) {
-          const before = inputValue.slice(0, slashContext.startIndex)
-          const after = inputValue.slice(
-            slashContext.startIndex + 1 + slashContext.query.length,
-          )
-          setInputValue({
-            text: before + selected.insertText + after,
-            cursorPosition: before.length + selected.insertText.length,
-            lastEditDueToNav: false,
-          })
-          setSlashSelectedIndex(0)
-          return
-        }
+        if (applySlashInsertText(selected)) return
 
         // Execute the selected slash command immediately
         const commandString = `/${selected.id}`
@@ -929,6 +925,10 @@ export const Chat = ({
         // Complete the word without executing - same as clicking on the item
         const selected = slashMatches[slashSelectedIndex] || slashMatches[0]
         if (!selected || slashContext.startIndex < 0) return
+
+        // If the command has insertText, insert it instead of the command
+        if (applySlashInsertText(selected)) return
+
         const before = inputValue.slice(0, slashContext.startIndex)
         const after = inputValue.slice(
           slashContext.startIndex + 1 + slashContext.query.length,
@@ -1096,6 +1096,9 @@ export const Chat = ({
       setSlashSelectedIndex,
       slashMatches,
       slashSelectedIndex,
+      slashContext,
+      inputValue,
+      applySlashInsertText,
       onSubmitPrompt,
       agentMode,
       handleCommandResult,

@@ -121,7 +121,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     id: 'gpt-5-agent',
     label: 'gpt-5-agent',
     description: 'Mention the GPT-5 agent to help solve complex problems',
-    insertText: '@gpt-5-agent ',
+    insertText: '@GPT-5 Agent ',
   },
   {
     id: 'logout',

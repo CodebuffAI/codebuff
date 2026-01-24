@@ -360,7 +360,11 @@ describe('command-registry', () => {
         ...COMMAND_REGISTRY.flatMap((c) => c.aliases),
       ])
 
-      for (const slashCommand of SLASH_COMMANDS) {
+      // Commands with insertText are UI-only shortcuts that insert text into
+      // the input field instead of executing a command.
+      const executableCommands = SLASH_COMMANDS.filter((cmd) => !cmd.insertText)
+
+      for (const slashCommand of executableCommands) {
         expect(registered.has(slashCommand.id)).toBe(true)
         for (const alias of slashCommand.aliases ?? []) {
           expect(registered.has(alias)).toBe(true)
