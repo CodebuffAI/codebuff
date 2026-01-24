@@ -1,14 +1,16 @@
 import { Message, WEBSITE_URL } from '@codebuff/sdk'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { getAdsEnabled } from '../commands/ads'
 import { useChatStore } from '../state/chat-store'
-import { subscribeToActivity } from '../utils/activity-tracker'
+import { isUserActive, subscribeToActivity } from '../utils/activity-tracker'
 import { getAuthToken } from '../utils/auth'
 import { logger } from '../utils/logger'
 
 const AD_ROTATION_INTERVAL_MS = 60 * 1000 // 60 seconds per ad
-const MAX_ADS_AFTER_ACTIVITY = 3 // Show up to 3 ads after last activity, then stop
+const MAX_ADS_AFTER_ACTIVITY = 3 // Show up to 3 ads after last activity, then pause fetching new ads
+const ACTIVITY_THRESHOLD_MS = 30_000 // 30 seconds idle threshold for fetching new ads
+const MAX_AD_CACHE_SIZE = 50 // Maximum number of ads to keep in cache
 
 // Ad response type (matches Gravity API response, credits added after impression)
 export type AdResponse = {
@@ -27,82 +29,111 @@ export type GravityAdState = {
   isLoading: boolean
 }
 
+// Consolidated controller state for the ad rotation logic
+type GravityController = {
+  cache: AdResponse[]
+  cacheIndex: number
+  impressionsFired: Set<string>
+  adsShownSinceActivity: number
+  tickInFlight: boolean
+  intervalId: ReturnType<typeof setInterval> | null
+}
+
+// Pure helper: add an ad to the cache (if not already present)
+function addToCache(ctrl: GravityController, ad: AdResponse): void {
+  if (ctrl.cache.some((x) => x.impUrl === ad.impUrl)) return
+  if (ctrl.cache.length >= MAX_AD_CACHE_SIZE) ctrl.cache.shift()
+  ctrl.cache.push(ad)
+}
+
+// Pure helper: get the next cached ad (cycles through the cache)
+function nextFromCache(ctrl: GravityController): AdResponse | null {
+  if (ctrl.cache.length === 0) return null
+  const ad = ctrl.cache[ctrl.cacheIndex % ctrl.cache.length]!
+  ctrl.cacheIndex = (ctrl.cacheIndex + 1) % ctrl.cache.length
+  return ad
+}
+
 /**
  * Hook for fetching and rotating Gravity ads.
  *
  * Behavior:
  * - Ads only start after the user sends their first message
  * - Ads rotate every 60 seconds
- * - After 3 ads without user activity, rotation stops
- * - Any user activity resets the counter and resumes rotation
+ * - After 3 ads without user activity, stops fetching new ads but continues cycling cached ads
+ * - Any user activity resets the counter and resumes fetching new ads
  *
  * Activity is tracked via the global activity-tracker module.
  */
 export const useGravityAd = (): GravityAdState => {
   const [ad, setAd] = useState<AdResponse | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [isActive, setIsActive] = useState(false)
-  const impressionFiredRef = useRef<Set<string>>(new Set())
 
-  // Counter: how many ads shown since last user activity
-  const adsShownRef = useRef<number>(0)
+  // Use Zustand selector instead of manual subscription - only rerenders when value changes
+  const hasUserMessaged = useChatStore((s) =>
+    s.messages.some((m) => m.variant === 'user'),
+  )
 
-  // Is rotation currently paused (shown 3 ads without activity)?
-  const isPausedRef = useRef<boolean>(false)
+  // Single consolidated controller ref
+  const ctrlRef = useRef<GravityController>({
+    cache: [],
+    cacheIndex: 0,
+    impressionsFired: new Set(),
+    adsShownSinceActivity: 0,
+    tickInFlight: false,
+    intervalId: null,
+  })
 
-  // Rotation timer
-  const rotationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Ref for the tick function (avoids useCallback dependency issues)
+  const tickRef = useRef<() => void>(() => { })
 
-  // Fire impression via web API when ad changes (grants credits)
-  useEffect(() => {
-    if (isActive && ad?.impUrl && !impressionFiredRef.current.has(ad.impUrl)) {
-      const currentImpUrl = ad.impUrl
-      impressionFiredRef.current.add(currentImpUrl)
-      const authToken = getAuthToken()
-      if (!authToken) {
-        logger.warn('[gravity] No auth token, skipping impression recording')
-        return
-      }
+  // Fire impression and update credits (called when showing an ad)
+  const recordImpressionOnce = (impUrl: string): void => {
+    const ctrl = ctrlRef.current
+    if (ctrl.impressionsFired.has(impUrl)) return
+    ctrl.impressionsFired.add(impUrl)
 
-      fetch(`${WEBSITE_URL}/api/v1/ads/impression`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({
-          impUrl: currentImpUrl,
-        }),
+    const authToken = getAuthToken()
+    if (!authToken) {
+      logger.warn('[gravity] No auth token, skipping impression recording')
+      return
+    }
+
+    fetch(`${WEBSITE_URL}/api/v1/ads/impression`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({ impUrl }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.creditsGranted > 0) {
+          logger.info(
+            { creditsGranted: data.creditsGranted },
+            '[gravity] Ad impression credits granted',
+          )
+          setAd((cur) =>
+            cur?.impUrl === impUrl
+              ? { ...cur, credits: data.creditsGranted }
+              : cur,
+          )
+        }
       })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.creditsGranted > 0) {
-            logger.info(
-              { creditsGranted: data.creditsGranted },
-              '[gravity] Ad impression credits granted',
-            )
-            setAd((currentAd) =>
-              currentAd?.impUrl === currentImpUrl
-                ? { ...currentAd, credits: data.creditsGranted }
-                : currentAd,
-            )
-          }
-        })
-        .catch((err) => {
-          logger.debug({ err }, '[gravity] Failed to record ad impression')
-        })
-    }
-  }, [ad, isActive])
+      .catch((err) => {
+        logger.debug({ err }, '[gravity] Failed to record ad impression')
+      })
+  }
 
-  const clearTimer = useCallback(() => {
-    if (rotationTimerRef.current) {
-      clearTimeout(rotationTimerRef.current)
-      rotationTimerRef.current = null
-    }
-  }, [])
+  // Show an ad and fire impression
+  const showAd = (next: AdResponse): void => {
+    setAd(next)
+    recordImpressionOnce(next.impUrl)
+  }
 
   // Fetch an ad via web API
-  const fetchAd = useCallback(async (): Promise<AdResponse | null> => {
+  const fetchAd = async (): Promise<AdResponse | null> => {
     if (!getAdsEnabled()) return null
 
     const authToken = getAuthToken()
@@ -164,114 +195,86 @@ export const useGravityAd = (): GravityAdState => {
       }
 
       const data = await response.json()
-      const ad = data.ad as AdResponse | null
-
-      return ad
+      return data.ad as AdResponse | null
     } catch (err) {
       logger.error({ err }, '[gravity] Failed to fetch ad')
       return null
     }
-  }, [])
+  }
 
-  // Schedule ad rotation
-  const scheduleRotation = useCallback(() => {
-    clearTimer()
+  // Update tick function (uses ref to avoid useCallback dependency issues)
+  tickRef.current = () => {
+    void (async () => {
+      const ctrl = ctrlRef.current
+      if (ctrl.tickInFlight) return
+      ctrl.tickInFlight = true
 
-    if (!getAdsEnabled() || isPausedRef.current) {
-      logger.debug(
-        { isPaused: isPausedRef.current },
-        '[gravity] Not scheduling rotation',
-      )
-      return
-    }
+      try {
+        if (!getAdsEnabled()) return
 
-    rotationTimerRef.current = setTimeout(async () => {
-      adsShownRef.current += 1
+        // Derive "can fetch new ads" from counter and activity (no separate paused ref needed)
+        const canFetchNew =
+          ctrl.adsShownSinceActivity < MAX_ADS_AFTER_ACTIVITY &&
+          isUserActive(ACTIVITY_THRESHOLD_MS)
 
-      if (adsShownRef.current >= MAX_ADS_AFTER_ACTIVITY) {
-        isPausedRef.current = true
-        return
+        let next: AdResponse | null = null
+
+        if (canFetchNew) {
+          next = await fetchAd()
+          if (next) addToCache(ctrl, next)
+        }
+
+        // Fall back to cached ads if no new ad
+        if (!next) {
+          next = nextFromCache(ctrl)
+        }
+
+        if (next) {
+          ctrl.adsShownSinceActivity += 1
+          showAd(next)
+        }
+      } finally {
+        ctrl.tickInFlight = false
       }
+    })()
+  }
 
-      const newAd = await fetchAd()
-      if (newAd) {
-        setAd(newAd)
-      }
-
-      scheduleRotation()
-    }, AD_ROTATION_INTERVAL_MS)
-  }, [clearTimer, fetchAd])
-
-  // Handle activity from the global activity tracker
-  const handleActivity = useCallback(() => {
-    const wasPaused = isPausedRef.current
-    adsShownRef.current = 0
-
-    if (wasPaused) {
-      isPausedRef.current = false
-      scheduleRotation()
-    }
-  }, [scheduleRotation])
-
-  // Subscribe to global activity tracker
+  // Reset ads shown counter on user activity
   useEffect(() => {
     if (!getAdsEnabled()) return
-
-    const unsubscribe = subscribeToActivity(handleActivity)
-    return unsubscribe
-  }, [handleActivity])
-
-  // Subscribe to UI messages to detect first user message
-  // We use UI messages (not runState.messageHistory) because UI messages
-  // update immediately when the user sends a message, allowing us to fetch
-  // ads sooner rather than waiting for the assistant to respond
-  useEffect(() => {
-    if (isActive || !getAdsEnabled()) {
-      return
-    }
-
-    // Check initial state
-    const initialMessages = useChatStore.getState().messages
-    if (initialMessages.some((msg) => msg.variant === 'user')) {
-      setIsActive(true)
-      return
-    }
-
-    const unsubscribe = useChatStore.subscribe((state) => {
-      const hasUserMessage = state.messages.some(
-        (msg) => msg.variant === 'user',
-      )
-
-      if (hasUserMessage) {
-        unsubscribe()
-        setIsActive(true)
-      }
+    return subscribeToActivity(() => {
+      ctrlRef.current.adsShownSinceActivity = 0
     })
+  }, [])
 
-    return unsubscribe
-  }, [isActive])
-
-  // Fetch first ad and start rotation when becoming active
+  // Start rotation when user sends first message
   useEffect(() => {
-    if (!isActive) return
+    if (!hasUserMessaged || !getAdsEnabled()) return
 
     setIsLoading(true)
-    fetchAd().then((firstAd) => {
+
+    // Fetch first ad immediately
+    void (async () => {
+      const firstAd = await fetchAd()
       if (firstAd) {
-        setAd(firstAd)
+        addToCache(ctrlRef.current, firstAd)
+        showAd(firstAd)
+        ctrlRef.current.adsShownSinceActivity = 1
       }
-      // Always start rotation, even if first fetch returned null
-      scheduleRotation()
       setIsLoading(false)
-    })
-  }, [isActive, fetchAd, scheduleRotation])
+    })()
 
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => clearTimer()
-  }, [clearTimer])
+    // Start interval for rotation (consistent 60s intervals)
+    const id = setInterval(() => tickRef.current(), AD_ROTATION_INTERVAL_MS)
+    ctrlRef.current.intervalId = id
 
-  return { ad: isActive ? ad : null, isLoading }
+    return () => {
+      clearInterval(id)
+      ctrlRef.current.intervalId = null
+    }
+  }, [hasUserMessaged])
+
+  return { ad: hasUserMessaged ? ad : null, isLoading }
 }
 
 type AdMessage = { role: 'user' | 'assistant'; content: string }
