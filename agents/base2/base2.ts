@@ -74,7 +74,7 @@ export function createBase2(
       'researcher-docs',
       isLite ? 'commander-lite' : 'commander',
       isDefault && 'thinker',
-      (isDefault || isMax) && 'gpt-5-agent',
+      (isDefault || isMax) && ['opus-agent', 'gpt-5-agent'],
       isMax && 'thinker-best-of-n-opus',
       isLite && 'editor-gpt-5',
       isDefault && 'editor',
@@ -94,12 +94,11 @@ export function createBase2(
 - **Spawn mentioned agents:** If the user uses "@AgentName" in their message, you must spawn that agent.
 - **Validate assumptions:** Use researchers, file pickers, and the read_files tool to verify assumptions about libraries and APIs before implementing.
 - **Proactiveness:** Fulfill the user's request thoroughly, including reasonable, directly implied follow-up actions.
-- **Confirm Ambiguity/Expansion:** Do not take significant actions beyond the clear scope of the request without confirming with the user. If asked *how* to do something, explain first, don't just do it.${
-      noAskUser
+- **Confirm Ambiguity/Expansion:** Do not take significant actions beyond the clear scope of the request without confirming with the user. If asked *how* to do something, explain first, don't just do it.${noAskUser
         ? ''
         : `
 - **Ask the user about important decisions or guidance using the ask_user tool:** You should feel free to stop and ask the user for guidance if there's a an important decision to make or you need an important clarification or you're stuck and don't know what to try next. Use the ask_user tool to collaborate with the user to acheive the best possible result! Prefer to gather context first before asking questions in case you end up answering your own question.`
-    }
+      }
 - **Be careful about terminal commands:** Be careful about instructing subagents to run terminal commands that could be destructive or have effects that are hard to undo (e.g. git push, git commit, running any scripts -- especially ones that could alter production environments (!), installing packages globally, etc). Don't run any of these effectful commands unless the user explicitly asks you to.
 - **Do what the user asks:** If the user asks you to do something, even running a risky terminal command, do it.
 
@@ -133,21 +132,21 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Spawn multiple agents in parallel:** This increases the speed of your response **and** allows you to be more comprehensive by spawning more total agents to synthesize the best response.
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
   ${buildArray(
-    '- Spawn context-gathering agents (file pickers, code-searcher, directory-lister, glob-matcher, and web/docs researchers) before making edits.',
-    isLite &&
-      '- Spawn the editor-gpt-5 agent to implement the changes after you have gathered all the context you need.',
-    isDefault &&
-      '- Spawn the editor agent to implement the changes after you have gathered all the context you need.',
-    (isDefault || isMax) &&
-      `- Spawn the ${isDefault ? 'thinker' : 'thinker-best-of-n-opus'} after gathering context to solve complex problems or when the user asks you to think about a problem. (gpt-5-agent is a last resort for complex problems)`,
-    isMax &&
-      `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
-    '- Spawn commanders sequentially if the second command depends on the the first.',
-    isDefault &&
-      '- Spawn a code-reviewer to review the changes after you have implemented the changes.',
-    isMax &&
-      '- Spawn a code-reviewer-multi-prompt to review the changes after you have implemented the changes.',
-  ).join('\n  ')}
+        '- Spawn context-gathering agents (file pickers, code-searcher, directory-lister, glob-matcher, and web/docs researchers) before making edits.',
+        isLite &&
+        '- Spawn the editor-gpt-5 agent to implement the changes after you have gathered all the context you need.',
+        isDefault &&
+        '- Spawn the editor agent to implement the changes after you have gathered all the context you need.',
+        (isDefault || isMax) &&
+        `- Spawn the ${isDefault ? 'thinker' : 'thinker-best-of-n-opus'} after gathering context to solve complex problems or when the user asks you to think about a problem. (gpt-5-agent is a last resort for complex problems)`,
+        isMax &&
+        `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
+        '- Spawn commanders sequentially if the second command depends on the the first.',
+        isDefault &&
+        '- Spawn a code-reviewer to review the changes after you have implemented the changes.',
+        isMax &&
+        '- Spawn a code-reviewer-multi-prompt to review the changes after you have implemented the changes.',
+      ).join('\n  ')}
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 - **Never spawn the context-pruner agent:** This agent is spawned automatically for you and you don't need to spawn it yourself.
 
@@ -164,19 +163,19 @@ For other questions, you can direct them to codebuff.com, or especially codebuff
 # Other response guidelines
 
 ${buildArray(
-  !isFast &&
-    '- Your goal is to produce the highest quality results, even if it comes at the cost of more credits used.',
-  !isFast && '- Speed is important, but a secondary goal.',
-  isFast &&
-    '- Prioritize speed: quickly getting the user request done is your first priority. Do not call any unnecessary tools. Spawn more agents in parallel to speed up the process. Be extremely concise in your responses. Use 2 words where you would have used 2 sentences.',
-  '- If a tool fails, try again, or try a different tool or approach.',
-  (isDefault || isMax) &&
-    '- **Use <think></think> tags for moderate reasoning:** When you need to work through something moderately complex (e.g., understanding code flow, planning a small refactor, reasoning about edge cases, planning which agents to spawn), wrap your thinking in <think></think> tags. Spawn the thinker agent for anything more complex.',
-  '- Context is managed for you. The context-pruner agent will automatically run as needed. Gather as much context as you need without worrying about it.',
-  isSonnet &&
-    `- **Don't create a summary markdown file:** The user doesn't want markdown files they didn't ask for. Don't create them.`,
-  '- **Keep final summary extremely concise:** Write only a few words for each change you made in the final summary.',
-).join('\n')}
+        !isFast &&
+        '- Your goal is to produce the highest quality results, even if it comes at the cost of more credits used.',
+        !isFast && '- Speed is important, but a secondary goal.',
+        isFast &&
+        '- Prioritize speed: quickly getting the user request done is your first priority. Do not call any unnecessary tools. Spawn more agents in parallel to speed up the process. Be extremely concise in your responses. Use 2 words where you would have used 2 sentences.',
+        '- If a tool fails, try again, or try a different tool or approach.',
+        (isDefault || isMax) &&
+        '- **Use <think></think> tags for moderate reasoning:** When you need to work through something moderately complex (e.g., understanding code flow, planning a small refactor, reasoning about edge cases, planning which agents to spawn), wrap your thinking in <think></think> tags. Spawn the thinker agent for anything more complex.',
+        '- Context is managed for you. The context-pruner agent will automatically run as needed. Gather as much context as you need without worrying about it.',
+        isSonnet &&
+        `- **Don't create a summary markdown file:** The user doesn't want markdown files they didn't ask for. Don't create them.`,
+        '- **Keep final summary extremely concise:** Write only a few words for each change you made in the final summary.',
+      ).join('\n')}
 
 # Response examples
 
@@ -191,34 +190,30 @@ ${buildArray(
 
 [ You spawn one more code-searcher and file-picker ]
 
-[ You read a few other relevant files using the read_files tool ]${
-      !noAskUser
+[ You read a few other relevant files using the read_files tool ]${!noAskUser
         ? `\n\n[ You ask the user for important clarifications on their request or alternate implementation strategies using the ask_user tool ]`
         : ''
-    }
-${
-  isDefault
-    ? `[ You implement the changes using the editor agent ]`
-    : isFast
-      ? '[ You implement the changes using the str_replace or write_file tools ]'
-      : isLite
-        ? '[ You implement the changes using the editor-gpt-5 agent ]'
-        : '[ You implement the changes using the editor-multi-prompt agent ]'
-}
+      }
+${isDefault
+        ? `[ You implement the changes using the editor agent ]`
+        : isFast
+          ? '[ You implement the changes using the str_replace or write_file tools ]'
+          : isLite
+            ? '[ You implement the changes using the editor-gpt-5 agent ]'
+            : '[ You implement the changes using the editor-multi-prompt agent ]'
+      }
 
-${
-  isDefault
-    ? `[ You spawn a code-reviewer, a commander to typecheck the changes, and another commander to run tests, all in parallel ]`
-    : isMax
-      ? `[  You spawn a commander to typecheck the changes, and another commander to run tests, in parallel. Then, you spawn a code-reviewer-multi-prompt to review the changes. ]`
-      : '[ You spawn a commander to typecheck the changes and another commander to run tests, all in parallel ]'
-}
+${isDefault
+        ? `[ You spawn a code-reviewer, a commander to typecheck the changes, and another commander to run tests, all in parallel ]`
+        : isMax
+          ? `[  You spawn a commander to typecheck the changes, and another commander to run tests, in parallel. Then, you spawn a code-reviewer-multi-prompt to review the changes. ]`
+          : '[ You spawn a commander to typecheck the changes and another commander to run tests, all in parallel ]'
+      }
 
-${
-  isDefault || isMax
-    ? `[ You fix the issues found by the ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} and type/test errors ]`
-    : '[ You fix the issues found by the type/test errors and spawn more commanders to confirm ]'
-}
+${isDefault || isMax
+        ? `[ You fix the issues found by the ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} and type/test errors ]`
+        : '[ You fix the issues found by the type/test errors and spawn more commanders to confirm ]'
+      }
 
 [ All tests & typechecks pass -- you write a very short final summary of the changes you made ]
  </reponse>
@@ -249,25 +244,25 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
     instructionsPrompt: planOnly
       ? buildPlanOnlyInstructionsPrompt({})
       : buildImplementationInstructionsPrompt({
-          isSonnet,
-          isFast,
-          isDefault,
-          isMax,
-          isLite,
-          hasNoValidation,
-          noAskUser,
-        }),
+        isSonnet,
+        isFast,
+        isDefault,
+        isMax,
+        isLite,
+        hasNoValidation,
+        noAskUser,
+      }),
     stepPrompt: planOnly
       ? buildPlanOnlyStepPrompt({})
       : buildImplementationStepPrompt({
-          isDefault,
-          isFast,
-          isMax,
-          hasNoValidation,
-          isSonnet,
-          isLite,
-          noAskUser,
-        }),
+        isDefault,
+        isFast,
+        isMax,
+        hasNoValidation,
+        isSonnet,
+        isLite,
+        noAskUser,
+      }),
 
     handleSteps: function* ({ params }) {
       let steps = 0
@@ -316,34 +311,34 @@ function buildImplementationInstructionsPrompt({
 The user asks you to implement a new feature. You respond in multiple steps:
 
 ${buildArray(
-  EXPLORE_PROMPT,
-  isMax &&
+    EXPLORE_PROMPT,
+    isMax &&
     `- Important: Read as many files as could possibly be relevant to the task over several steps to improve your understanding of the user's request and produce the best possible code changes. Find more examples within the codebase similar to the user's request, dependencies that help with understanding how things work, tests, etc. This is frequently 12-20 files, depending on the task.`,
-  !noAskUser &&
+    !noAskUser &&
     'After getting context on the user request from the codebase or from research, use the ask_user tool to ask the user for important clarifications on their request or alternate implementation strategies. You should skip this step if there are no important clarifications to make.',
-  (isDefault || isMax) &&
+    (isDefault || isMax) &&
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
-  (isDefault || isMax) &&
+    (isDefault || isMax) &&
     `- For quick problems, briefly explain your reasoning to the user. If you need to think longer, write your thoughts within the <think> tags. Finally, for complex problems, spawn the thinker agent to help find the best solution. (gpt-5-agent is a last resort for complex problems)`,
-  isLite &&
+    isLite &&
     '- IMPORTANT: You must spawn the editor-gpt-5 agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
-  isDefault &&
+    isDefault &&
     '- IMPORTANT: You must spawn the editor agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all non-trivial changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
-  isMax &&
+    isMax &&
     `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious. You should also prompt it to implement the full task rather than just a single step.`,
-  isFast &&
+    isFast &&
     '- Implement the changes using the str_replace or write_file tools. Implement all the changes in one go.',
-  isFast &&
+    isFast &&
     '- Do a single typecheck targeted for your changes at most (if applicable for the project). Or skip this step if the change was small.',
-  !hasNoValidation &&
+    !hasNoValidation &&
     `- For non-trivial changes, test them by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). Try to run all appropriate commands in parallel. ${isMax ? ' Typecheck and test the specific area of the project that you are editing *AND* then typecheck and test the entire project if necessary.' : ' If you can, only test the area of the project that you are editing, rather than the entire project.'} You may have to explore the project to find the appropriate commands. Don't skip this step, unless the change is very small and targeted (< 10 lines and unlikely to have a type error)!`,
-  (isDefault || isMax) &&
+    (isDefault || isMax) &&
     `- Spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review the changes after you have implemented changes. (Skip this step only if the change is extremely straightforward and obvious.)`,
-  `- Inform the user that you have completed the task in one sentence or a few short bullet points.${isSonnet ? " Don't create any markdown summary files or example documentation files, unless asked by the user." : ''}`,
-  !isFast &&
+    `- Inform the user that you have completed the task in one sentence or a few short bullet points.${isSonnet ? " Don't create any markdown summary files or example documentation files, unless asked by the user." : ''}`,
+    !isFast &&
     !noAskUser &&
     `- After successfully completing an implementation, use the suggest_followups tool to suggest ~3 next steps the user might want to take (e.g., "Add unit tests", "Refactor into smaller files", "Continue with the next step").`,
-).join('\n')}`
+  ).join('\n')}`
 }
 
 function buildImplementationStepPrompt({
@@ -365,19 +360,19 @@ function buildImplementationStepPrompt({
 }) {
   return buildArray(
     isMax &&
-      `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
+    `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
     isMax &&
-      `You must spawn the 'editor-multi-prompt' agent to implement code changes rather than using the str_replace or write_file tools, since it will generate the best code changes.`,
+    `You must spawn the 'editor-multi-prompt' agent to implement code changes rather than using the str_replace or write_file tools, since it will generate the best code changes.`,
     (isDefault || isMax) &&
-      `You must spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review the changes after you have implemented the changes and in parallel with typechecking or testing.`,
+    `You must spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review the changes after you have implemented the changes and in parallel with typechecking or testing.`,
     `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''} Don't repeat yourself, especially if you have already concluded and summarized the changes in a previous step -- just end your turn.`,
     !isFast &&
-      !noAskUser &&
-      `At the end of your turn, use the suggest_followups tool to suggest around 3 next steps the user might want to take.`,
+    !noAskUser &&
+    `At the end of your turn, use the suggest_followups tool to suggest around 3 next steps the user might want to take.`,
   ).join('\n')
 }
 
-function buildPlanOnlyInstructionsPrompt({}: {}) {
+function buildPlanOnlyInstructionsPrompt({ }: {}) {
   return `Orchestrate the completion of the user's request using your specialized sub-agents.
 
  You are in plan mode, so you should default to asking the user clarifying questions, potentially in multiple rounds as needed to fully understand the user's request, and then creating a spec/plan based on the user's request. However, asking questions and creating a plan is not required at all and you should otherwise strive to act as a helpful assistant and answer the user's questions or requests freely.
@@ -387,8 +382,8 @@ function buildPlanOnlyInstructionsPrompt({}: {}) {
 The user asks you to implement a new feature. You respond in multiple steps:
 
 ${buildArray(
-  EXPLORE_PROMPT,
-  `- After exploring the codebase, your goal is to translate the user request into a clear and concise spec. If the user is just asking a question, you can answer it instead of writing a spec.
+    EXPLORE_PROMPT,
+    `- After exploring the codebase, your goal is to translate the user request into a clear and concise spec. If the user is just asking a question, you can answer it instead of writing a spec.
 
 ## Asking questions
 
@@ -417,10 +412,10 @@ It should not include:
 
 This is more like an extremely short PRD which describes the end result of what the user wants. Think of it like fleshing out the user's prompt to make it more precise, although it should be as short as possible.
 `,
-).join('\n')}`
+  ).join('\n')}`
 }
 
-function buildPlanOnlyStepPrompt({}: {}) {
+function buildPlanOnlyStepPrompt({ }: {}) {
   return buildArray(
     `You are in plan mode. Do not make any file changes. Do not call write_file or str_replace. Do not use the write_todos tool.`,
   ).join('\n')
