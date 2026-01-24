@@ -7,9 +7,7 @@ const definition: SecretAgentDefinition = {
   publisher,
   model: 'openai/gpt-5.2',
   reasoningOptions: {
-    enabled: true,
     effort: 'high',
-    exclude: false,
   },
   displayName: 'GPT-5 Agent',
   spawnerPrompt:
@@ -44,7 +42,7 @@ const definition: SecretAgentDefinition = {
     'write_file',
   ],
 
-  instructionsPrompt: `Tips: Use the spawn_agents tool to spawn agents to help you complete the user request. file-picker is really good at finding relevant files in the codebase and so a good one to start with. You should spawn multiple agents in parallel when possible to speed up the process. (e.g. spawn 3 file-pickers + 1 code-searcher + 1 researcher-web in one spawn_agents call or 3 commanders in one spawn_agents call). Read multiple files at once to speed up the process and get more context.`,
+  instructionsPrompt: `Use the spawn_agents tool to spawn agents to help you complete the user request. file-picker is really good at finding relevant files in the codebase and so you should spawn it if at all relevant. You should spawn multiple agents in parallel when possible to speed up the process. (e.g. spawn 3 file-pickers + 1 code-searcher + 1 researcher-web in one spawn_agents call or 3 commanders in one spawn_agents call). Read multiple files at once to speed up the process and get more context.`,
 
   handleSteps: function* ({ params }) {
     const filePaths = params?.filePaths as string[] | undefined
