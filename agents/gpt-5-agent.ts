@@ -1,14 +1,19 @@
-import { publisher } from '../constants'
+import { publisher } from './constants'
 
-import type { SecretAgentDefinition } from '../types/secret-agent-definition'
+import type { SecretAgentDefinition } from './types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
-  id: 'thinker-gpt-5',
+  id: 'gpt-5-agent',
   publisher,
   model: 'openai/gpt-5.2',
-  displayName: 'GPT-5 Thinker',
+  reasoningOptions: {
+    enabled: true,
+    effort: 'high',
+    exclude: false,
+  },
+  displayName: 'GPT-5 Agent',
   spawnerPrompt:
-    'Does deep thinking given the prompt and optionally provided files. Use this to help you solve a specific problem that requires extended reasoning.',
+    'A general-purpose, deep-thinking agent that can be used to solve a wide range of problems. Use this to help you solve a specific problem that requires extended reasoning.',
   inputSchema: {
     prompt: {
       type: 'string',
@@ -31,7 +36,13 @@ const definition: SecretAgentDefinition = {
   },
   outputMode: 'last_message',
   spawnableAgents: ['researcher-web', 'researcher-docs', 'file-picker', 'code-searcher', 'directory-lister', 'glob-matcher', 'commander'],
-  toolNames: ['spawn_agents', 'read_files'],
+  toolNames: [
+    'spawn_agents',
+    'read_files',
+    'read_subtree',
+    'str_replace',
+    'write_file',
+  ],
 
   handleSteps: function* ({ params }) {
     const filePaths = params?.filePaths as string[] | undefined
