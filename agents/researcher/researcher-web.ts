@@ -5,7 +5,7 @@ import { publisher } from '../constants'
 const definition: SecretAgentDefinition = {
   id: 'researcher-web',
   publisher,
-  model: 'x-ai/grok-4-fast',
+  model: 'x-ai/grok-4.1-fast',
   displayName: 'Weeb',
   spawnerPrompt: `Browses the web to find relevant information.`,
   inputSchema: {
