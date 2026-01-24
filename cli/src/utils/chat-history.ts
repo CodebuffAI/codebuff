@@ -89,12 +89,15 @@ export function getAllChats(maxChats: number = 500): ChatHistoryEntry[] {
           lastPrompt = getFirstUserPrompt(messages)
         }
 
-        chats.push({
-          chatId: info.chatId,
-          lastPrompt,
-          timestamp: info.mtime,
-          messageCount,
-        })
+        // Skip empty chats (no messages)
+        if (messageCount > 0) {
+          chats.push({
+            chatId: info.chatId,
+            lastPrompt,
+            timestamp: info.mtime,
+            messageCount,
+          })
+        }
       } catch (error) {
         logger.debug(
           { chatId: info.chatId, error: error instanceof Error ? error.message : String(error) },

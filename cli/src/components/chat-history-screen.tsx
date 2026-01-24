@@ -17,7 +17,7 @@ const LAYOUT = {
   NARROW_WIDTH_THRESHOLD: 70, // Hide buttons when terminal width is below this
   MAIN_CONTENT_PADDING: 2,
   INITIAL_CHATS: 25, // Load this many immediately for fast display
-  BACKGROUND_CHATS: 975, // Load this many more in the background for search
+  BACKGROUND_CHATS: 475, // Load this many more in the background for search
   MAX_RENDERED_CHATS: 100, // Only render this many in the list
   TIME_COL_WIDTH: 12, // e.g., "2 hours ago"
   MSGS_COL_WIDTH: 8, // e.g., "99 msgs"
