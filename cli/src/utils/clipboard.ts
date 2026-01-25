@@ -1,3 +1,4 @@
+import { closeSync, openSync, writeSync } from 'fs'
 import { createRequire } from 'module'
 
 import { logger } from './logger'
@@ -81,31 +82,22 @@ export async function copyTextToClipboard(
   }
 
   try {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      await navigator.clipboard.writeText(text)
-    } else if (typeof process !== 'undefined' && process.platform) {
-      // NOTE: Inline require() is used because this code path only runs in Node.js
-      // environments, and we need to check process.platform at runtime first
+    // Try OSC52 first (works over SSH/headless), then fallback to platform tools
+    if (!tryCopyViaOsc52(text)) {
       const { execSync } = require('child_process') as typeof import('child_process')
-      // Use stdio: ['pipe', 'ignore', 'ignore'] to prevent stderr from corrupting the TUI on headless servers
-      // stdin needs 'pipe' for input, stdout/stderr use 'ignore' to discard any output
-      const execOptions: { input: string; stdio: ('pipe' | 'ignore')[] } = {
-        input: text,
-        stdio: ['pipe', 'ignore', 'ignore'],
-      }
+      const opts = { input: text, stdio: ['pipe', 'ignore', 'ignore'] as ('pipe' | 'ignore')[] }
+
       if (process.platform === 'darwin') {
-        execSync('pbcopy', execOptions)
+        execSync('pbcopy', opts)
       } else if (process.platform === 'linux') {
         try {
-          execSync('xclip -selection clipboard', execOptions)
+          execSync('xclip -selection clipboard', opts)
         } catch {
-          execSync('xsel --clipboard --input', execOptions)
+          execSync('xsel --clipboard --input', opts)
         }
       } else if (process.platform === 'win32') {
-        execSync('clip', execOptions)
+        execSync('clip', opts)
       }
-    } else {
-      return
     }
 
     if (!suppressGlobalMessage) {
@@ -134,4 +126,53 @@ export function clearClipboardMessage() {
     clearTimer = null
   }
   emitClipboardMessage(null)
+}
+
+
+// =============================================================================
+// OSC52 Clipboard Support
+// =============================================================================
+// OSC52 writes to clipboard via terminal escape sequences - works over SSH
+// because the client terminal handles clipboard. Format: ESC ] 52 ; c ; <base64> BEL
+// tmux/screen require passthrough wrapping to forward the sequence.
+
+// 32KB is safe for all environments (tmux is the strictest)
+const OSC52_MAX_PAYLOAD = 32_000
+
+function buildOsc52Sequence(text: string): string | null {
+  if (process.env.TERM === 'dumb') return null
+
+  const base64 = Buffer.from(text, 'utf8').toString('base64')
+  if (base64.length > OSC52_MAX_PAYLOAD) return null
+
+  const osc = `\x1b]52;c;${base64}\x07`
+
+  // tmux: wrap in DCS passthrough with doubled ESC
+  if (process.env.TMUX) {
+    return `\x1bPtmux;${osc.replace(/\x1b/g, '\x1b\x1b')}\x1b\\`
+  }
+
+  // GNU screen: wrap in DCS passthrough
+  if (process.env.STY) {
+    return `\x1bP${osc}\x1b\\`
+  }
+
+  return osc
+}
+
+function tryCopyViaOsc52(text: string): boolean {
+  const sequence = buildOsc52Sequence(text)
+  if (!sequence) return false
+
+  const ttyPath = process.platform === 'win32' ? 'CON' : '/dev/tty'
+  let fd: number | null = null
+  try {
+    fd = openSync(ttyPath, 'w')
+    writeSync(fd, sequence)
+    return true
+  } catch {
+    return false
+  } finally {
+    if (fd !== null) closeSync(fd)
+  }
 }
