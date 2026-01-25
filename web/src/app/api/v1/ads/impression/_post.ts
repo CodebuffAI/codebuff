@@ -92,6 +92,8 @@ function generateImpressionOperationId(userId: string, impUrl: string): string {
 const bodySchema = z.object({
   // Only impUrl needed - we look up the ad data from our database
   impUrl: z.url(),
+  // Mode to determine if credits should be granted (FREE mode gets no credits)
+  mode: z.string().optional(),
 })
 
 export async function postAdImpression(params: {
@@ -115,6 +117,7 @@ export async function postAdImpression(params: {
 
   // Parse and validate request body
   let impUrl: string
+  let mode: string | undefined
   try {
     const json = await req.json()
     const parsed = bodySchema.safeParse(json)
@@ -125,6 +128,7 @@ export async function postAdImpression(params: {
       )
     }
     impUrl = parsed.data.impUrl
+    mode = parsed.data.mode
   } catch {
     return NextResponse.json(
       { error: 'Invalid JSON in request body' },
@@ -230,9 +234,9 @@ export async function postAdImpression(params: {
     Math.floor(userShareDollars * 100),
   )
 
-  // Grant credits if any
   let creditsGranted = 0
-  if (creditsToGrant > 0) {
+  // FREE mode should not grant any credits
+  if (mode !== 'FREE' && creditsToGrant > 0) {
     try {
       await processAndGrantCredit({
         userId,
@@ -282,7 +286,7 @@ export async function postAdImpression(params: {
     }
   }
 
-  // Update the ad_impression record with impression details
+  // Update the ad_impression record with impression details (for ALL modes)
   try {
     await db
       .update(schema.adImpression)
@@ -294,7 +298,7 @@ export async function postAdImpression(params: {
       .where(eq(schema.adImpression.id, adRecord.id))
 
     logger.info(
-      { userId, impUrl, creditsGranted },
+      { userId, impUrl, creditsGranted, creditsToGrant },
       '[ads] Updated ad impression record',
     )
   } catch (error) {
