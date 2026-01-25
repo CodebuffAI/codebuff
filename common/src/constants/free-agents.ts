@@ -3,7 +3,8 @@ import { parseAgentId } from '../util/agent-id-parsing'
 import type { CostMode } from './model-config'
 
 /**
- * The cost mode that indicates FREE mode - all agents in this mode cost 0 credits.
+ * The cost mode that indicates FREE mode.
+ * Only allowlisted agent+model combinations cost 0 credits in this mode.
  */
 export const FREE_COST_MODE = 'free' as const
 
@@ -34,21 +35,6 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   // Editor for free mode
   'editor-glm': new Set(['z-ai/glm-4.7', 'z-ai/glm-4.6']),
 }
-
-/**
- * Set of all agent IDs allowed in FREE mode.
- * Derived from FREE_MODE_AGENT_MODELS for quick lookups.
- */
-export const FREE_MODE_ALLOWED_AGENTS = new Set(Object.keys(FREE_MODE_AGENT_MODELS))
-
-/**
- * Models that are allowed in FREE mode.
- * Derived from FREE_MODE_AGENT_MODELS - this is the union of all allowed models.
- * This prevents abuse by users trying to use expensive models for free.
- */
-export const FREE_MODE_ALLOWED_MODELS = new Set(
-  Object.values(FREE_MODE_AGENT_MODELS).flatMap((models) => Array.from(models)),
-)
 
 /**
  * Agents that don't charge credits when credits would be very small (<5).
@@ -82,57 +68,26 @@ export function isFreeMode(costMode: CostMode | string | undefined): boolean {
 }
 
 /**
- * Check if a model is allowed in FREE mode.
- * Only whitelisted cheap/fast models can be used for free.
- */
-export function isFreeModeAllowedModel(model: string): boolean {
-  return FREE_MODE_ALLOWED_MODELS.has(model)
-}
-
-/**
- * Check if an agent is allowed to run in FREE mode.
- * Validates both the agent ID and optionally the publisher.
- *
- * For security, we only allow:
- * - Internal agents (no publisher, e.g., 'base2-free')
- * - Codebuff-published agents (publisher === 'codebuff')
- *
- * This prevents attackers from creating agents with matching names
- * under different publishers to abuse free mode.
- */
-export function isFreeModeAllowedAgent(fullAgentId: string): boolean {
-  const { publisherId, agentId } = parseAgentId(fullAgentId)
-
-  // Must have a valid agent ID
-  if (!agentId) return false
-
-  // Must be in the allowed agents list
-  if (!FREE_MODE_ALLOWED_AGENTS.has(agentId)) return false
-
-  // Must be either internal (no publisher) or from codebuff
-  if (publisherId && publisherId !== 'codebuff') return false
-
-  return true
-}
-
-/**
  * Check if a specific agent is allowed to use a specific model in FREE mode.
  * This is the strictest check - validates both the agent AND model combination.
  *
  * Returns true only if:
- * 1. The agent is allowed in free mode (isFreeModeAllowedAgent)
- * 2. The model is in that agent's allowed model set
+ * 1. The agent has a valid agent ID
+ * 2. The agent is in the allowed free-mode agents list
+ * 3. The agent is either internal or published by 'codebuff' (prevents spoofing)
+ * 4. The model is in that agent's allowed model set
  */
 export function isFreeModeAllowedAgentModel(
   fullAgentId: string,
   model: string,
 ): boolean {
-  // First check if agent is allowed in free mode (includes publisher validation)
-  if (!isFreeModeAllowedAgent(fullAgentId)) return false
+  const { publisherId, agentId } = parseAgentId(fullAgentId)
 
-  // Parse to get the base agent ID for model lookup
-  const { agentId } = parseAgentId(fullAgentId)
+  // Must have a valid agent ID
   if (!agentId) return false
+
+  // Must be either internal (no publisher) or from codebuff
+  if (publisherId && publisherId !== 'codebuff') return false
 
   // Get the allowed models for this agent
   const allowedModels = FREE_MODE_AGENT_MODELS[agentId]
