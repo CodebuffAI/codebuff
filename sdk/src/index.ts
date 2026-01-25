@@ -35,6 +35,10 @@ export * from './constants'
 export { getUserInfoFromApiKey } from './impl/database'
 export * from './credentials'
 export { loadLocalAgents } from './agents/load-agents'
+export { loadSkills } from './skills/load-skills'
+export { formatAvailableSkillsXml } from '@codebuff/common/util/skills'
+export type { LoadSkillsOptions } from './skills/load-skills'
+export type { SkillDefinition, SkillsMap } from '@codebuff/common/types/skill'
 export type {
   LoadedAgents,
   LoadedAgentDefinition,

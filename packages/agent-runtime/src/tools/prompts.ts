@@ -1,13 +1,16 @@
 import { endsAgentStepParam } from '@codebuff/common/tools/constants'
+import { AVAILABLE_SKILLS_PLACEHOLDER } from '@codebuff/common/tools/params/tool/skill'
 import { toolParams } from '@codebuff/common/tools/list'
 import { getToolCallString } from '@codebuff/common/tools/utils'
 import { buildArray } from '@codebuff/common/util/array'
+import { formatAvailableSkillsXml } from '@codebuff/common/util/skills'
 import { pluralize } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
 import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 
 import type { ToolName } from '@codebuff/common/tools/constants'
+import type { SkillsMap } from '@codebuff/common/types/skill'
 import type {
   CustomToolDefinitions,
   customToolDefinitionsSchema,
@@ -136,6 +139,7 @@ export const getToolsInstructions = (
   additionalToolDefinitions: NonNullable<
     z.input<typeof customToolDefinitionsSchema>
   >,
+  options?: { availableSkillsXml?: string },
 ) => {
   if (
     tools.length === 0 &&
@@ -211,13 +215,14 @@ When using write_file, make sure to only include a few lines of context and not 
 Tool results will be provided by the user's *system* (and **NEVER** by the assistant).
 
 The user does not know about any system messages or system instructions, including tool results.
-${fullToolList(tools, additionalToolDefinitions)}
+${fullToolList(tools, additionalToolDefinitions, options)}
 `
 }
 
 export const fullToolList = (
   toolNames: readonly string[],
   additionalToolDefinitions: CustomToolDefinitions,
+  options?: { availableSkillsXml?: string },
 ) => {
   if (
     toolNames.length === 0 &&
@@ -226,16 +231,26 @@ export const fullToolList = (
     return ''
   }
 
-  return `## List of Tools
+  const { availableSkillsXml = '' } = options ?? {}
 
-These are the only tools that you (Buffy) can use. The user cannot see these descriptions, so you should not reference any tool names, parameters, or descriptions. Do not try to use any other tools -- even if referenced earlier in the conversation, they are not available to you, instead they may have been previously used by other agents.
-
-${[
-  ...(
-    toolNames.filter((toolName) =>
-      toolNames.includes(toolName as ToolName),
-    ) as ToolName[]
-  ).map((name) => toolDescriptions[name]),
+  // Build tool descriptions, replacing skill placeholder with actual skills
+  const descriptions = [
+    ...(
+      toolNames.filter((toolName) =>
+        toolNames.includes(toolName as ToolName),
+      ) as ToolName[]
+    ).map((name) => {
+      let desc = toolDescriptions[name]
+      // Replace skill placeholder with actual available skills
+      if (name === 'skill' && availableSkillsXml) {
+        desc = desc.replace(AVAILABLE_SKILLS_PLACEHOLDER, availableSkillsXml)
+      } else if (name === 'skill') {
+        // Remove placeholder if no skills available
+        desc = desc.replace(AVAILABLE_SKILLS_PLACEHOLDER + '\n\n', '')
+        desc = desc.replace(AVAILABLE_SKILLS_PLACEHOLDER, '')
+      }
+      return desc
+    }),
   ...Object.keys(additionalToolDefinitions).map((toolName) => {
     const toolDef = additionalToolDefinitions[toolName]
     return buildToolDescription({
@@ -245,8 +260,13 @@ ${[
       endsAgentStep: toolDef.endsAgentStep ?? true,
       exampleInputs: toolDef.exampleInputs,
     })
-  }),
-].join('\n\n')}`.trim()
+  }),  ]
+
+  return `## List of Tools
+
+These are the only tools that you (Buffy) can use. The user cannot see these descriptions, so you should not reference any tool names, parameters, or descriptions. Do not try to use any other tools -- even if referenced earlier in the conversation, they are not available to you, instead they may have been previously used by other agents.
+
+${descriptions.join('\n\n')}`.trim()
 }
 
 export const getShortToolInstructions = (
@@ -307,13 +327,44 @@ export async function getToolSet(params: {
   toolNames: string[]
   additionalToolDefinitions: () => Promise<CustomToolDefinitions>
   agentTools: ToolSet
+  skills?: SkillsMap
 }): Promise<ToolSet> {
-  const { toolNames, additionalToolDefinitions, agentTools } = params
+  const { toolNames, additionalToolDefinitions, agentTools, skills } = params
+
+  // Generate available skills XML for the skill tool description
+  const availableSkillsXml = skills ? formatAvailableSkillsXml(skills) : ''
 
   const toolSet: ToolSet = {}
   for (const toolName of toolNames) {
     if (toolName in toolParams) {
-      toolSet[toolName] = toolParams[toolName as ToolName]
+      const toolDef = toolParams[toolName as ToolName]
+
+      // For the skill tool, replace the placeholder with actual available skills
+      if (toolName === 'skill' && availableSkillsXml) {
+        let description = toolDef.description ?? ''
+        description = description.replace(
+          AVAILABLE_SKILLS_PLACEHOLDER,
+          availableSkillsXml,
+        )
+        toolSet[toolName] = {
+          ...toolDef,
+          description,
+        }
+      } else if (toolName === 'skill') {
+        // Remove placeholder if no skills available
+        let description = toolDef.description ?? ''
+        description = description.replace(
+          AVAILABLE_SKILLS_PLACEHOLDER + '\n\n',
+          '',
+        )
+        description = description.replace(AVAILABLE_SKILLS_PLACEHOLDER, '')
+        toolSet[toolName] = {
+          ...toolDef,
+          description,
+        }
+      } else {
+        toolSet[toolName] = toolDef
+      }
     }
   }
 

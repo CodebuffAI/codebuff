@@ -21,6 +21,7 @@ import { runFileChangeHooksParams } from './params/tool/run-file-change-hooks'
 import { runTerminalCommandParams } from './params/tool/run-terminal-command'
 import { setMessagesParams } from './params/tool/set-messages'
 import { setOutputParams } from './params/tool/set-output'
+import { skillParams } from './params/tool/skill'
 import { spawnAgentInlineParams } from './params/tool/spawn-agent-inline'
 import { spawnAgentsParams } from './params/tool/spawn-agents'
 import { strReplaceParams } from './params/tool/str-replace'
@@ -57,6 +58,7 @@ export const toolParams = {
   run_terminal_command: runTerminalCommandParams,
   set_messages: setMessagesParams,
   set_output: setOutputParams,
+  skill: skillParams,
   spawn_agents: spawnAgentsParams,
   spawn_agent_inline: spawnAgentInlineParams,
   str_replace: strReplaceParams,

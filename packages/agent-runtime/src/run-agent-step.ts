@@ -638,6 +638,7 @@ export async function loopAgentSteps(
           return cachedAdditionalToolDefinitions
         },
         agentTools,
+        skills: fileContext.skills,
       })
 
   const hasUserMessage = Boolean(
