@@ -512,13 +512,6 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
                 const index = toolCallDelta.index;
 
                 if (toolCalls[index] == null) {
-                  if (toolCallDelta.id == null) {
-                    throw new InvalidResponseDataError({
-                      data: toolCallDelta,
-                      message: `Expected 'id' to be a string.`,
-                    });
-                  }
-
                   if (toolCallDelta.function?.name == null) {
                     throw new InvalidResponseDataError({
                       data: toolCallDelta,
@@ -526,14 +519,17 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
                     });
                   }
 
+                  // UPDATED (James): Generate an ID if the provider doesn't include one (e.g., GLM models)
+                  const toolCallId = toolCallDelta.id ?? generateId();
+
                   controller.enqueue({
                     type: 'tool-input-start',
-                    id: toolCallDelta.id,
+                    id: toolCallId,
                     toolName: toolCallDelta.function.name,
                   });
 
                   toolCalls[index] = {
-                    id: toolCallDelta.id,
+                    id: toolCallId,
                     type: 'function',
                     function: {
                       name: toolCallDelta.function.name,
