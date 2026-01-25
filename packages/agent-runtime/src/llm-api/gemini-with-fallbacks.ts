@@ -37,7 +37,7 @@ import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 export async function promptFlashWithFallbacks(
   params: {
     messages: Message[]
-    costMode?: CostMode
+    costMode?: string
     useGPT4oInsteadOfClaude?: boolean
     thinkingBudget?: number
     useFinetunedModel?: FinetunedVertexModel | undefined
@@ -83,13 +83,7 @@ export async function promptFlashWithFallbacks(
       messages,
       model: useGPT4oInsteadOfClaude
         ? openaiModels.gpt4o
-        : {
-            free: openrouterModels.openrouter_claude_3_5_haiku,
-            normal: openrouterModels.openrouter_claude_3_5_haiku,
-            max: openrouterModels.openrouter_claude_sonnet_4,
-            experimental: openrouterModels.openrouter_claude_3_5_haiku,
-            ask: openrouterModels.openrouter_claude_3_5_haiku,
-          }[costMode ?? 'normal'],
+        : openrouterModels.openrouter_claude_3_5_haiku,
     })
   }
 }

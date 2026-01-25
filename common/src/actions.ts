@@ -1,6 +1,5 @@
 import { z } from 'zod/v4'
 
-import type { CostMode } from './old-constants'
 import type { GrantType } from './types/grant'
 import type { MCPConfig } from './types/mcp'
 import type { ToolMessage } from './types/messages/codebuff-message'
@@ -30,7 +29,7 @@ type ClientActionPrompt = {
   promptParams?: Record<string, any> // Additional json params.
   fingerprintId: string
   authToken?: string
-  costMode?: CostMode
+  costMode?: string
   sessionState: SessionState
   toolResults: ToolMessage[]
   model?: string
@@ -70,7 +69,7 @@ type ClientActionMcpToolData = {
   tools: {
     name: string
     description?: string
-    inputSchema: { type: 'object'; [k: string]: unknown }
+    inputSchema: { type: 'object';[k: string]: unknown }
   }[]
 }
 

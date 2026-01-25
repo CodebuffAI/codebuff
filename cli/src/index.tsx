@@ -149,7 +149,6 @@ function parseArgs(): ParsedArgs {
 }
 
 async function main(): Promise<void> {
-  console.log()
   // Run OSC theme detection BEFORE anything else.
   // This MUST happen before OpenTUI starts because OSC responses come through stdin,
   // and OpenTUI also listens to stdin. Running detection here ensures stdin is clean.
