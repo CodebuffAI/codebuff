@@ -1,5 +1,6 @@
 import { saveSettings, loadSettings } from '../utils/settings'
 import { getSystemMessage } from '../utils/message-history'
+import { useChatStore } from '../state/chat-store'
 import { logger } from '../utils/logger'
 
 import type { ChatMessage } from '../types/chat'
@@ -8,7 +9,7 @@ export const handleAdsEnable = (): {
   postUserMessage: (messages: ChatMessage[]) => ChatMessage[]
 } => {
   logger.info('[gravity] Enabling ads')
-  
+
   saveSettings({ adsEnabled: true })
 
   return {
@@ -34,6 +35,15 @@ export const handleAdsDisable = (): {
 }
 
 export const getAdsEnabled = (): boolean => {
+  // If no mode provided, get it from the store
+  const mode = useChatStore.getState().agentMode
+
+  // In FREE mode, ads are always enabled regardless of saved setting
+  if (mode === 'FREE') {
+    return true
+  }
+
+  // Otherwise, use the saved setting
   const settings = loadSettings()
   return settings.adsEnabled ?? false
 }
