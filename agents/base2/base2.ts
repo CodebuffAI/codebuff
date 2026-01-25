@@ -76,7 +76,7 @@ export function createBase2(
       isDefault && 'thinker',
       (isDefault || isMax) && ['opus-agent', 'gpt-5-agent'],
       isMax && 'thinker-best-of-n-opus',
-      isLite && 'editor-gpt-5',
+      isLite && 'editor-glm',
       isDefault && 'editor',
       isMax && 'editor-multi-prompt',
       isDefault && 'code-reviewer',
@@ -134,7 +134,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
   ${buildArray(
         '- Spawn context-gathering agents (file pickers, code-searcher, directory-lister, glob-matcher, and web/docs researchers) before making edits.',
         isLite &&
-        '- Spawn the editor-gpt-5 agent to implement the changes after you have gathered all the context you need.',
+        '- Spawn the editor-glm agent to implement the changes after you have gathered all the context you need.',
         isDefault &&
         '- Spawn the editor agent to implement the changes after you have gathered all the context you need.',
         (isDefault || isMax) &&
@@ -199,7 +199,7 @@ ${isDefault
         : isFast
           ? '[ You implement the changes using the str_replace or write_file tools ]'
           : isLite
-            ? '[ You implement the changes using the editor-gpt-5 agent ]'
+            ? '[ You implement the changes using the editor-glm agent ]'
             : '[ You implement the changes using the editor-multi-prompt agent ]'
       }
 
@@ -321,7 +321,7 @@ ${buildArray(
     (isDefault || isMax) &&
     `- For quick problems, briefly explain your reasoning to the user. If you need to think longer, write your thoughts within the <think> tags. Finally, for complex problems, spawn the thinker agent to help find the best solution. (gpt-5-agent is a last resort for complex problems)`,
     isLite &&
-    '- IMPORTANT: You must spawn the editor-gpt-5 agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
+    '- IMPORTANT: You must spawn the editor-glm agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
     isDefault &&
     '- IMPORTANT: You must spawn the editor agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all non-trivial changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
     isMax &&
