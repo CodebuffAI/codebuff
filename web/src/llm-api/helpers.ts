@@ -1,6 +1,10 @@
 import { setupBigQuery } from '@codebuff/bigquery'
 import { consumeCreditsAndAddAgentStep } from '@codebuff/billing'
-import { isFreeAgent, isFreeMode, isFreeModeAllowedModel } from '@codebuff/common/constants/free-agents'
+import {
+  isFreeAgent,
+  isFreeMode,
+  isFreeModeAllowedAgentModel,
+} from '@codebuff/common/constants/free-agents'
 import { PROFIT_MARGIN } from '@codebuff/common/old-constants'
 
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
@@ -123,13 +127,24 @@ export async function consumeCreditsForMessage(params: {
     costMode,
   } = params
 
-  // FREE mode: agents using allowed models cost 0 credits
-  // Only whitelisted cheap models (grok-4.1-fast, gemini flash, gpt-5.1, etc.) are free
-  // This prevents abuse by using expensive models in FREE mode
-  // Free tier agents (like file-picker) also don't charge credits
+  // Calculate initial credits based on cost
   const initialCredits = Math.round(usageData.cost * 100 * (1 + PROFIT_MARGIN))
-  const isFreeModeAndAllowed = isFreeMode(costMode) && isFreeModeAllowedModel(model)
-  const credits = isFreeModeAndAllowed || (isFreeAgent(agentId) && initialCredits < 5) ? 0 : initialCredits
+
+  // FREE mode: only specific agents using their expected models cost 0 credits
+  // This is the strictest check - validates:
+  // 1. The cost mode is 'free'
+  // 2. The agent is in the allowed free-mode agents list
+  // 3. The model matches what that specific agent is allowed to use
+  // 4. The agent is either internal or published by 'codebuff' (prevents publisher spoofing)
+  const isFreeModeAndAllowed =
+    isFreeMode(costMode) && isFreeModeAllowedAgentModel(agentId, model)
+
+  // Free tier agents (like file-picker) also don't charge credits for small requests
+  // This is separate from FREE mode and helps with BYOK users
+  // Also validates publisher to prevent spoofing attacks
+  const isFreeAgentSmallRequest = isFreeAgent(agentId) && initialCredits < 5
+
+  const credits = isFreeModeAndAllowed || isFreeAgentSmallRequest ? 0 : initialCredits
 
   await consumeCreditsAndAddAgentStep({
     messageId,
