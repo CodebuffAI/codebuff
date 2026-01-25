@@ -1443,6 +1443,123 @@ describe('context-pruner threshold behavior', () => {
   })
 })
 
+describe('context-pruner str_replace and write_file tool results', () => {
+  let mockAgentState: any
+
+  beforeEach(() => {
+    mockAgentState = {
+      messageHistory: [] as Message[],
+      contextTokenCount: 0,
+    }
+  })
+
+  const runHandleSteps = (messages: Message[]) => {
+    mockAgentState.messageHistory = messages
+    mockAgentState.contextTokenCount = 250000
+    const mockLogger = {
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+    }
+    const generator = contextPruner.handleSteps!({
+      agentState: mockAgentState,
+      logger: mockLogger,
+      params: { maxContextLength: 200000 },
+    })
+    const results: any[] = []
+    let result = generator.next()
+    while (!result.done) {
+      if (typeof result.value === 'object') {
+        results.push(result.value)
+      }
+      result = generator.next()
+    }
+    return results
+  }
+
+  test('includes str_replace diff in summary', () => {
+    const messages = [
+      createMessage('user', 'Edit this file'),
+      createToolCallMessage('call-1', 'str_replace', {
+        path: 'src/utils.ts',
+        replacements: [{ old: 'foo', new: 'bar' }],
+      }),
+      createToolResultMessage('call-1', 'str_replace', {
+        diff: '--- a/src/utils.ts\n+++ b/src/utils.ts\n@@ -1,1 +1,1 @@\n-foo\n+bar',
+      }),
+    ]
+
+    const results = runHandleSteps(messages)
+    const content = results[0].input.messages[0].content[0].text
+
+    expect(content).toContain('[EDIT RESULT]')
+    expect(content).toContain('-foo')
+    expect(content).toContain('+bar')
+  })
+
+  test('includes write_file diff in summary', () => {
+    const messages = [
+      createMessage('user', 'Create a new file'),
+      createToolCallMessage('call-1', 'write_file', {
+        path: 'src/new-file.ts',
+        content: 'export const hello = "world"',
+      }),
+      createToolResultMessage('call-1', 'write_file', {
+        diff: '--- /dev/null\n+++ b/src/new-file.ts\n@@ -0,0 +1 @@\n+export const hello = "world"',
+      }),
+    ]
+
+    const results = runHandleSteps(messages)
+    const content = results[0].input.messages[0].content[0].text
+
+    expect(content).toContain('[WRITE RESULT]')
+    expect(content).toContain('+export const hello = "world"')
+  })
+
+  test('truncates very long str_replace diffs', () => {
+    const longDiff = 'X'.repeat(3000)
+    const messages = [
+      createMessage('user', 'Make big changes'),
+      createToolCallMessage('call-1', 'str_replace', {
+        path: 'src/big-file.ts',
+        replacements: [],
+      }),
+      createToolResultMessage('call-1', 'str_replace', {
+        diff: longDiff,
+      }),
+    ]
+
+    const results = runHandleSteps(messages)
+    const content = results[0].input.messages[0].content[0].text
+
+    expect(content).toContain('[EDIT RESULT]')
+    expect(content).toContain('...')
+    // Should not contain the full diff
+    expect(content).not.toContain(longDiff)
+  })
+
+  test('does not include edit result when no diff is present', () => {
+    const messages = [
+      createMessage('user', 'Edit file'),
+      createToolCallMessage('call-1', 'str_replace', {
+        path: 'src/file.ts',
+        replacements: [],
+      }),
+      createToolResultMessage('call-1', 'str_replace', {
+        success: true,
+      }),
+    ]
+
+    const results = runHandleSteps(messages)
+    const content = results[0].input.messages[0].content[0].text
+
+    // Should have the tool call summary but not the result
+    expect(content).toContain('Edited file: src/file.ts')
+    expect(content).not.toContain('[EDIT RESULT]')
+  })
+})
+
 describe('context-pruner glob and list_directory tools', () => {
   let mockAgentState: any
 

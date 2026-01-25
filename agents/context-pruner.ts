@@ -803,6 +803,28 @@ const definition: AgentDefinition = {
                   }
                 }
               }
+
+              // Capture str_replace results (diff of changes made)
+              if (toolMessage.toolName === 'str_replace') {
+                const diff = value.diff as string | undefined
+                if (diff) {
+                  // Truncate long diffs to 2000 chars
+                  const truncatedDiff =
+                    diff.length > 2000 ? diff.slice(0, 2000) + '...' : diff
+                  summaryParts.push(`[EDIT RESULT]\n${truncatedDiff}`)
+                }
+              }
+
+              // Capture write_file results (diff of changes made)
+              if (toolMessage.toolName === 'write_file') {
+                const diff = value.diff as string | undefined
+                if (diff) {
+                  // Truncate long diffs to 2000 chars
+                  const truncatedDiff =
+                    diff.length > 2000 ? diff.slice(0, 2000) + '...' : diff
+                  summaryParts.push(`[WRITE RESULT]\n${truncatedDiff}`)
+                }
+              }
             }
           }
         }
