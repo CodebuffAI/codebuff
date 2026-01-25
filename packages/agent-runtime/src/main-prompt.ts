@@ -112,7 +112,7 @@ export async function mainPrompt(
         max: AgentTemplateTypes.base_max,
         experimental: 'base2',
       } satisfies Record<CostMode, AgentTemplateType>
-    )[costMode ?? 'normal']
+    )[costMode ?? 'normal'] ?? 'base2'
   }
 
   mainAgentState.agentType = agentType
