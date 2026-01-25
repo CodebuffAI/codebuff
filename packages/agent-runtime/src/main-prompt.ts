@@ -107,7 +107,7 @@ export async function mainPrompt(
     agentType = (
       {
         ask: AgentTemplateTypes.ask,
-        lite: AgentTemplateTypes.base_lite,
+        free: AgentTemplateTypes.base_free,
         normal: AgentTemplateTypes.base,
         max: AgentTemplateTypes.base_max,
         experimental: 'base2',
@@ -136,6 +136,7 @@ export async function mainPrompt(
     agentType,
     fingerprintId,
     fileContext,
+    costMode,
   })
 
   logger.debug({ output }, 'Main prompt finished')

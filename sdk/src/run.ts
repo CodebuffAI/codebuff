@@ -139,6 +139,8 @@ export type RunOptions = {
   previousRun?: RunState
   extraToolResults?: ToolMessage[]
   signal?: AbortSignal
+  /** Cost mode - 'free' mode makes all agents cost 0 credits */
+  costMode?: 'free' | 'normal' | 'max' | 'experimental' | 'ask'
 }
 
 const createAbortError = (signal?: AbortSignal) => {
@@ -203,6 +205,7 @@ async function runOnce({
   previousRun,
   extraToolResults,
   signal,
+  costMode,
 }: RunExecutionOptions): Promise<RunState> {
   const fsSourceValue = typeof fsSource === 'function' ? fsSource() : fsSource
   const fs = await fsSourceValue
@@ -493,7 +496,7 @@ async function runOnce({
       promptParams: params,
       content: preparedContent,
       fingerprintId: fingerprintId,
-      costMode: 'normal',
+      costMode: costMode ?? 'normal',
       sessionState,
       toolResults: extraToolResults ?? [],
       agentId,

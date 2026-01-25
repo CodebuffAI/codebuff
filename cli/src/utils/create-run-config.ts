@@ -23,6 +23,7 @@ export type CreateRunConfigParams = {
   agentDefinitions: AgentDefinition[]
   eventHandlerState: EventHandlerState
   signal: AbortSignal
+  costMode?: 'free' | 'normal' | 'max' | 'experimental' | 'ask'
 }
 
 const SENSITIVE_EXTENSIONS = new Set([
@@ -98,6 +99,7 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     previousRunState,
     agentDefinitions,
     eventHandlerState,
+    costMode,
   } = params
 
   return {
@@ -111,6 +113,7 @@ export const createRunConfig = (params: CreateRunConfigParams) => {
     handleStreamChunk: createStreamChunkHandler(eventHandlerState),
     handleEvent: createEventHandler(eventHandlerState),
     signal: params.signal,
+    costMode,
     fileFilter: ((filePath: string) => {
       if (isSensitiveFile(filePath)) return { status: 'blocked' }
       if (isEnvTemplateFile(filePath)) return { status: 'allow-example' }

@@ -7,7 +7,7 @@ import {
 } from '../types/secret-agent-definition'
 
 export function createBase2(
-  mode: 'default' | 'lite' | 'max' | 'fast',
+  mode: 'default' | 'free' | 'max' | 'fast',
   options?: {
     hasNoValidation?: boolean
     planOnly?: boolean
@@ -22,15 +22,15 @@ export function createBase2(
   const isDefault = mode === 'default'
   const isFast = mode === 'fast'
   const isMax = mode === 'max'
-  const isLite = mode === 'lite'
+  const isFree = mode === 'free'
 
-  const isOpus = !isLite
+  const isOpus = !isFree
   const isSonnet = false
   const isGemini = false
 
   return {
     publisher,
-    model: isLite ? 'x-ai/grok-4.1-fast' : 'anthropic/claude-opus-4.5',
+    model: isFree ? 'x-ai/grok-4.1-fast' : 'anthropic/claude-opus-4.5',
     displayName: 'Buffy the Orchestrator',
     spawnerPrompt:
       'Advanced base agent that orchestrates planning, editing, and reviewing for complex coding tasks',
@@ -55,7 +55,7 @@ export function createBase2(
       'spawn_agents',
       'read_files',
       'read_subtree',
-      !isFast && !isLite && 'write_todos',
+      !isFast && !isFree && 'write_todos',
       !isFast && !noAskUser && 'suggest_followups',
       'str_replace',
       'write_file',
@@ -72,11 +72,11 @@ export function createBase2(
       'glob-matcher',
       'researcher-web',
       'researcher-docs',
-      isLite ? 'commander-lite' : 'commander',
+      isFree ? 'commander-lite' : 'commander',
       isDefault && 'thinker',
       (isDefault || isMax) && ['opus-agent', 'gpt-5-agent'],
       isMax && 'thinker-best-of-n-opus',
-      isLite && 'editor-glm',
+      isFree && 'editor-glm',
       isDefault && 'editor',
       isMax && 'editor-multi-prompt',
       isDefault && 'code-reviewer',
@@ -133,7 +133,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
   ${buildArray(
         '- Spawn context-gathering agents (file pickers, code-searcher, directory-lister, glob-matcher, and web/docs researchers) before making edits.',
-        isLite &&
+        isFree &&
         '- Spawn the editor-glm agent to implement the changes after you have gathered all the context you need.',
         isDefault &&
         '- Spawn the editor agent to implement the changes after you have gathered all the context you need.',
@@ -198,7 +198,7 @@ ${isDefault
         ? `[ You implement the changes using the editor agent ]`
         : isFast
           ? '[ You implement the changes using the str_replace or write_file tools ]'
-          : isLite
+          : isFree
             ? '[ You implement the changes using the editor-glm agent ]'
             : '[ You implement the changes using the editor-multi-prompt agent ]'
       }
@@ -248,7 +248,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         isFast,
         isDefault,
         isMax,
-        isLite,
+        isFree,
         hasNoValidation,
         noAskUser,
       }),
@@ -260,7 +260,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
         isMax,
         hasNoValidation,
         isSonnet,
-        isLite,
+        isFree,
         noAskUser,
       }),
 
@@ -292,7 +292,7 @@ function buildImplementationInstructionsPrompt({
   isFast,
   isDefault,
   isMax,
-  isLite,
+  isFree,
   hasNoValidation,
   noAskUser,
 }: {
@@ -300,7 +300,7 @@ function buildImplementationInstructionsPrompt({
   isFast: boolean
   isDefault: boolean
   isMax: boolean
-  isLite: boolean
+  isFree: boolean
   hasNoValidation: boolean
   noAskUser: boolean
 }) {
@@ -320,7 +320,7 @@ ${buildArray(
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
     (isDefault || isMax) &&
     `- For quick problems, briefly explain your reasoning to the user. If you need to think longer, write your thoughts within the <think> tags. Finally, for complex problems, spawn the thinker agent to help find the best solution. (gpt-5-agent is a last resort for complex problems)`,
-    isLite &&
+    isFree &&
     '- IMPORTANT: You must spawn the editor-glm agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
     isDefault &&
     '- IMPORTANT: You must spawn the editor agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all non-trivial changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
@@ -347,7 +347,7 @@ function buildImplementationStepPrompt({
   isMax,
   hasNoValidation,
   isSonnet,
-  isLite,
+  isFree,
   noAskUser,
 }: {
   isDefault: boolean
@@ -355,7 +355,7 @@ function buildImplementationStepPrompt({
   isMax: boolean
   hasNoValidation: boolean
   isSonnet: boolean
-  isLite: boolean
+  isFree: boolean
   noAskUser: boolean
 }) {
   return buildArray(

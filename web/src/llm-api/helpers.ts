@@ -1,6 +1,6 @@
 import { setupBigQuery } from '@codebuff/bigquery'
 import { consumeCreditsAndAddAgentStep } from '@codebuff/billing'
-import { isFreeAgent } from '@codebuff/common/constants/free-agents'
+import { isFreeAgent, isFreeMode, isFreeModeAllowedModel } from '@codebuff/common/constants/free-agents'
 import { PROFIT_MARGIN } from '@codebuff/common/old-constants'
 
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
@@ -34,7 +34,9 @@ export function extractRequestMetadata(params: {
   }
 
   const n = (body as any)?.codebuff_metadata?.n
-  return { clientId, clientRequestId, ...(n && { n }) }
+  const rawCostMode = (body as any)?.codebuff_metadata?.cost_mode
+  const costMode = typeof rawCostMode === 'string' ? rawCostMode : undefined
+  return { clientId, clientRequestId, costMode, ...(n && { n }) }
 }
 
 export async function insertMessageToBigQuery(params: {
@@ -102,6 +104,7 @@ export async function consumeCreditsForMessage(params: {
   usageData: UsageData
   byok: boolean
   logger: Logger
+  costMode?: string
 }): Promise<number> {
   const {
     messageId,
@@ -117,12 +120,16 @@ export async function consumeCreditsForMessage(params: {
     usageData,
     byok,
     logger,
+    costMode,
   } = params
 
-  // Free tier agents (like file-picker) don't charge credits to avoid confusion
-  // when users connect their Claude subscription but subagents use other models
+  // FREE mode: agents using allowed models cost 0 credits
+  // Only whitelisted cheap models (grok-4.1-fast, gemini flash, gpt-5.1, etc.) are free
+  // This prevents abuse by using expensive models in FREE mode
+  // Free tier agents (like file-picker) also don't charge credits
   const initialCredits = Math.round(usageData.cost * 100 * (1 + PROFIT_MARGIN))
-  const credits = isFreeAgent(agentId) && initialCredits < 5 ? 0 : initialCredits
+  const isFreeModeAndAllowed = isFreeMode(costMode) && isFreeModeAllowedModel(model)
+  const credits = isFreeModeAndAllowed || (isFreeAgent(agentId) && initialCredits < 5) ? 0 : initialCredits
 
   await consumeCreditsAndAddAgentStep({
     messageId,

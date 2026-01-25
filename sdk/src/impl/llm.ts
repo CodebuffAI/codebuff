@@ -61,6 +61,7 @@ function getProviderOptions(params: {
   providerOptions?: Record<string, JSONObject>
   agentProviderOptions?: OpenRouterProviderRoutingOptions
   n?: number
+  costMode?: string
 }): { codebuff: JSONObject } {
   const {
     model,
@@ -69,6 +70,7 @@ function getProviderOptions(params: {
     providerOptions,
     agentProviderOptions,
     n,
+    costMode,
   } = params
 
   let providerConfig: Record<string, any>
@@ -96,6 +98,7 @@ function getProviderOptions(params: {
         run_id: runId,
         client_id: clientSessionId,
         ...(n && { n }),
+        ...(costMode && { cost_mode: costMode }),
       },
       provider: providerConfig,
     },

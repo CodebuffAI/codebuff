@@ -12,6 +12,8 @@ const DEFAULT_SETTINGS: Settings = {
   adsEnabled: true,
 }
 
+// Note: FREE mode is now a valid AgentMode (was previously LITE)
+
 /**
  * Settings schema - add new settings here as the product evolves
  */

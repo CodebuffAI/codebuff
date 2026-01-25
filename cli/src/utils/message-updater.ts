@@ -1,4 +1,4 @@
-import type { ChatMessage, ContentBlock } from '../types/chat'
+import type { ChatMessage, ContentBlock, TextContentBlock } from '../types/chat'
 
 // Small wrapper to avoid repeating the ai-message map/update pattern.
 export type SetMessagesFn = (
@@ -57,9 +57,25 @@ export const createMessageUpdater = (
   const markComplete = (metadata?: Partial<ChatMessage>) => {
     updateAiMessage((msg) => {
       const { metadata: messageMetadata, ...rest } = metadata ?? {}
+      
+      // Mark native reasoning blocks as complete by setting thinkingOpen = false
+      // This ensures thinking blocks auto-collapse when the message finishes
+      // Check for thinkingOpen !== false to handle both true (native) and undefined (legacy)
+      const updatedBlocks = msg.blocks?.map((block) => {
+        if (
+          block.type === 'text' &&
+          (block as TextContentBlock).textType === 'reasoning' &&
+          (block as TextContentBlock).thinkingOpen !== false
+        ) {
+          return { ...block, thinkingOpen: false } as ContentBlock
+        }
+        return block
+      })
+      
       const nextMessage: ChatMessage = {
         ...msg,
         isComplete: true,
+        ...(updatedBlocks && { blocks: updatedBlocks }),
         ...rest,
       }
 
@@ -184,9 +200,25 @@ export const createBatchedMessageUpdater = (
       prev.map((msg) => {
         if (msg.id !== aiMessageId) return msg
         const { metadata: messageMetadata, ...rest } = metadata ?? {}
+        
+        // Mark native reasoning blocks as complete by setting thinkingOpen = false
+        // This ensures thinking blocks auto-collapse when the message finishes
+        // Check for thinkingOpen !== false to handle both true (native) and undefined (legacy)
+        const updatedBlocks = msg.blocks?.map((block) => {
+          if (
+            block.type === 'text' &&
+            (block as TextContentBlock).textType === 'reasoning' &&
+            (block as TextContentBlock).thinkingOpen !== false
+          ) {
+            return { ...block, thinkingOpen: false } as ContentBlock
+          }
+          return block
+        })
+        
         const nextMessage: ChatMessage = {
           ...msg,
           isComplete: true,
+          ...(updatedBlocks && { blocks: updatedBlocks }),
           ...rest,
         }
         if (messageMetadata) {

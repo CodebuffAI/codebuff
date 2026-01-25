@@ -4,7 +4,7 @@ import { setCurrentChatId } from '../project-files'
 import { createStreamController } from './stream-state'
 import { useChatStore } from '../state/chat-store'
 import { getCodebuffClient } from '../utils/codebuff-client'
-import { AGENT_MODE_TO_ID } from '../utils/constants'
+import { AGENT_MODE_TO_ID, AGENT_MODE_TO_COST_MODE } from '../utils/constants'
 import { createEventHandlerState } from '../utils/create-event-handler-state'
 import { createRunConfig } from '../utils/create-run-config'
 import { loadAgentDefinitions } from '../utils/local-agent-registry'
@@ -443,6 +443,7 @@ export const useSendMessage = ({
           agentDefinitions,
           eventHandlerState,
           signal: abortController.signal,
+          costMode: AGENT_MODE_TO_COST_MODE[agentMode],
         })
 
         logger.info({ runConfig }, '[send-message] Sending message with sdk run config')

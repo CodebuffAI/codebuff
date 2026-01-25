@@ -116,7 +116,7 @@ interface AgentStoreClientProps {
 // Hard-coded list of editor's choice agents
 const EDITORS_CHOICE_AGENTS = [
   'base2',
-  'base2-lite',
+  'base2-free',
   'base2-max',
   'base2-plan',
   'deep-code-reviewer',

@@ -75,7 +75,7 @@ export type AgentOutput = z.infer<typeof AgentOutputSchema>
 export const AgentTemplateTypeList = [
   // Base agents
   'base',
-  'base_lite',
+  'base_free',
   'base_max',
   'base_experimental',
   'claude4_gemini_thinking',

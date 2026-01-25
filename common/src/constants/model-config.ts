@@ -9,7 +9,7 @@ export const ALLOWED_MODEL_PREFIXES = [
 ] as const
 
 export const costModes = [
-  'lite',
+  'free',
   'normal',
   'max',
   'experimental',
@@ -194,7 +194,7 @@ export const getModelForMode = (
 ) => {
   if (operation === 'agent') {
     return {
-      lite: models.openrouter_gemini2_5_flash,
+      free: models.openrouter_gemini2_5_flash,
       normal: models.openrouter_claude_sonnet_4,
       max: models.openrouter_claude_sonnet_4,
       experimental: models.openrouter_gemini2_5_pro_preview,
@@ -203,7 +203,7 @@ export const getModelForMode = (
   }
   if (operation === 'file-requests') {
     return {
-      lite: models.openrouter_claude_3_5_haiku,
+      free: models.openrouter_claude_3_5_haiku,
       normal: models.openrouter_claude_3_5_haiku,
       max: models.openrouter_claude_sonnet_4,
       experimental: models.openrouter_claude_sonnet_4,
@@ -212,7 +212,7 @@ export const getModelForMode = (
   }
   if (operation === 'check-new-files') {
     return {
-      lite: models.openrouter_claude_3_5_haiku,
+      free: models.openrouter_claude_3_5_haiku,
       normal: models.openrouter_claude_sonnet_4,
       max: models.openrouter_claude_sonnet_4,
       experimental: models.openrouter_claude_sonnet_4,
