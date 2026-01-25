@@ -73,6 +73,7 @@ import { computeInputLayoutMetrics } from './utils/text-layout'
 import { reportActivity } from './utils/activity-tracker'
 import { trackEvent } from './utils/analytics'
 import { logger } from './utils/logger'
+import { setTerminalTitle } from './utils/terminal-title'
 
 import type { CommandResult } from './commands/command-registry'
 import type { MatchedSlashCommand } from './hooks/use-suggestion-engine'
@@ -808,6 +809,10 @@ export const Chat = ({
   const handleSubmit = useCallback(async () => {
     // Report activity for ad rotation
     reportActivity()
+    // Update terminal title with truncated user input
+    if (inputValue.trim()) {
+      setTerminalTitle(inputValue)
+    }
     const result = await onSubmitPrompt(inputValue, agentMode)
     handleCommandResult(result)
   }, [onSubmitPrompt, inputValue, agentMode, handleCommandResult])

@@ -1,5 +1,7 @@
 import type { CliRenderer } from '@opentui/core'
 
+import { resetTerminalTitle } from './terminal-title'
+
 let renderer: CliRenderer | null = null
 let handlersInstalled = false
 let terminalStateReset = false
@@ -39,6 +41,8 @@ function resetTerminalState(): void {
   terminalStateReset = true
 
   try {
+    // Reset terminal title to default
+    resetTerminalTitle()
     // Write directly to stdout - this is synchronous and will complete
     // before the process exits, ensuring the terminal is reset
     process.stdout.write(TERMINAL_RESET_SEQUENCES)
