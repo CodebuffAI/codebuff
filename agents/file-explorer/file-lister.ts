@@ -27,7 +27,7 @@ export const createFileLister = (): Omit<SecretAgentDefinition, 'id'> => ({
   },
   outputMode: 'last_message',
   includeMessageHistory: false,
-  toolNames: ['read_subtree'],
+  toolNames: [],
   spawnableAgents: [],
 
   systemPrompt: `You are an expert at finding relevant files in a codebase and listing them out.`,
