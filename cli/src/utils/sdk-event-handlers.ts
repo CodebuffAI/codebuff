@@ -3,6 +3,8 @@ import { match } from 'ts-pattern'
 import {
   appendTextToRootStream,
   appendToolToAgentBlock,
+  closeNativeReasoningBlock,
+  closeNativeReasoningInAgent,
   markAgentComplete,
 } from './block-operations'
 import { shouldHideAgent } from './constants'
@@ -326,6 +328,19 @@ const handleRegularToolCall = (
 }
 
 const handleToolCall = (state: EventHandlerState, event: PrintModeToolCall) => {
+  // Close any open native reasoning blocks when a tool call happens
+  // (agent may go directly from thinking to tool calls without emitting text)
+  // This must happen BEFORE any early returns (spawn_agents, hidden tools)
+  if (event.parentAgentId && event.agentId) {
+    // For agent tool calls, close reasoning in that specific agent
+    state.message.updater.updateAiMessageBlocks((blocks) =>
+      closeNativeReasoningInAgent(blocks, event.agentId as string),
+    )
+  } else if (!event.parentAgentId) {
+    // For root tool calls, close reasoning at root level
+    state.message.updater.updateAiMessageBlocks(closeNativeReasoningBlock)
+  }
+
   if (event.toolName === 'spawn_agents' && event.input?.agents) {
     handleSpawnAgentsToolCall(state, event)
     return

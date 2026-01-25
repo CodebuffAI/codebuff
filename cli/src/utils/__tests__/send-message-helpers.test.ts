@@ -1,6 +1,15 @@
 import { describe, test, expect } from 'bun:test'
 
-import { appendTextToRootStream } from '../block-operations'
+import {
+  appendTextToRootStream,
+  appendTextToAgentBlock,
+  appendToolToAgentBlock,
+  isNativeReasoningBlock,
+  closeNativeReasoningBlock,
+  closeNativeReasoningInAgent,
+  markAgentComplete,
+  markRunningAgentsAsCancelled,
+} from '../block-operations'
 import {
   updateBlocksRecursively,
   scrubPlanTags,
@@ -30,6 +39,7 @@ import type {
   ContentBlock,
   AgentContentBlock,
   ChatMessage,
+  ToolContentBlock,
 } from '../../types/chat'
 
 // ============================================================================
@@ -581,6 +591,657 @@ describe('appendTextToRootStream', () => {
     expect((afterSecondChunk[0] as any).thinkingOpen).toBe(false)
     expect((afterSecondChunk[1] as any).textType).toBe('text')
     expect((afterSecondChunk[1] as any).content).toBe(' after')
+  })
+
+  // Native reasoning tests
+  test('closes native reasoning block when text arrives', () => {
+    // Native reasoning block (thinkingOpen === undefined)
+    const blocks: ContentBlock[] = [
+      {
+        type: 'text',
+        content: 'Thinking...',
+        textType: 'reasoning',
+        isCollapsed: true,
+        thinkingId: 'think-1',
+        // Note: thinkingOpen is undefined for native reasoning
+      },
+    ]
+
+    const result = appendTextToRootStream(blocks, {
+      type: 'text',
+      text: 'Regular text',
+    })
+
+    expect(result).toHaveLength(2)
+    // Native reasoning block should be closed
+    expect((result[0] as any).thinkingOpen).toBe(false)
+    // New text block added
+    expect((result[1] as any).content).toBe('Regular text')
+    expect((result[1] as any).textType).toBe('text')
+  })
+
+  test('appends to existing native reasoning block', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'text',
+        content: 'First thought',
+        textType: 'reasoning',
+        isCollapsed: true,
+        thinkingId: 'think-1',
+        // thinkingOpen is undefined for native reasoning
+      },
+    ]
+
+    const result = appendTextToRootStream(blocks, {
+      type: 'reasoning',
+      text: ' second thought',
+    })
+
+    expect(result).toHaveLength(1)
+    expect((result[0] as any).content).toBe('First thought second thought')
+    expect((result[0] as any).textType).toBe('reasoning')
+  })
+})
+
+// ============================================================================
+// Native Reasoning Block Tests (from block-operations)
+// ============================================================================
+
+describe('isNativeReasoningBlock', () => {
+  test('returns true for native reasoning block (thinkingOpen undefined)', () => {
+    const block: ContentBlock = {
+      type: 'text',
+      content: 'Thinking...',
+      textType: 'reasoning',
+      isCollapsed: true,
+      thinkingId: 'think-1',
+    }
+
+    expect(isNativeReasoningBlock(block)).toBe(true)
+  })
+
+  test('returns false for closed native reasoning block (thinkingOpen false)', () => {
+    const block: ContentBlock = {
+      type: 'text',
+      content: 'Thinking...',
+      textType: 'reasoning',
+      isCollapsed: true,
+      thinkingOpen: false,
+      thinkingId: 'think-1',
+    }
+
+    expect(isNativeReasoningBlock(block)).toBe(false)
+  })
+
+  test('returns false for <think> tag block (thinkingOpen true)', () => {
+    const block: ContentBlock = {
+      type: 'text',
+      content: 'Thinking...',
+      textType: 'reasoning',
+      isCollapsed: true,
+      thinkingOpen: true,
+      thinkingId: 'think-1',
+    }
+
+    expect(isNativeReasoningBlock(block)).toBe(false)
+  })
+
+  test('returns false for regular text block', () => {
+    const block: ContentBlock = {
+      type: 'text',
+      content: 'Hello',
+      textType: 'text',
+    }
+
+    expect(isNativeReasoningBlock(block)).toBe(false)
+  })
+
+  test('returns false for non-text blocks', () => {
+    const agentBlock: ContentBlock = {
+      type: 'agent',
+      agentId: 'agent-1',
+      agentName: 'Test',
+      agentType: 'test',
+      content: '',
+      status: 'running',
+    }
+
+    expect(isNativeReasoningBlock(agentBlock)).toBe(false)
+  })
+
+  test('returns false for undefined', () => {
+    expect(isNativeReasoningBlock(undefined)).toBe(false)
+  })
+})
+
+describe('closeNativeReasoningBlock', () => {
+  test('closes native reasoning block by setting thinkingOpen to false', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'text',
+        content: 'Thinking...',
+        textType: 'reasoning',
+        isCollapsed: true,
+        thinkingId: 'think-1',
+      },
+    ]
+
+    const result = closeNativeReasoningBlock(blocks)
+
+    expect(result).toHaveLength(1)
+    expect((result[0] as any).thinkingOpen).toBe(false)
+    expect((result[0] as any).content).toBe('Thinking...')
+  })
+
+  test('returns original blocks if no native reasoning block exists', () => {
+    const blocks: ContentBlock[] = [
+      { type: 'text', content: 'Hello', textType: 'text' },
+    ]
+
+    const result = closeNativeReasoningBlock(blocks)
+
+    expect(result).toBe(blocks) // Same reference
+  })
+
+  test('does not close already-closed reasoning blocks', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'text',
+        content: 'Already closed',
+        textType: 'reasoning',
+        isCollapsed: true,
+        thinkingOpen: false,
+        thinkingId: 'think-1',
+      },
+    ]
+
+    const result = closeNativeReasoningBlock(blocks)
+
+    expect(result).toBe(blocks) // Same reference, no change
+  })
+
+  test('does not close <think> tag blocks (thinkingOpen true)', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'text',
+        content: 'Think tag block',
+        textType: 'reasoning',
+        isCollapsed: true,
+        thinkingOpen: true,
+        thinkingId: 'think-1',
+      },
+    ]
+
+    const result = closeNativeReasoningBlock(blocks)
+
+    expect(result).toBe(blocks) // Same reference, no change
+  })
+
+  test('finds native reasoning block even when not at end', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'text',
+        content: 'Native reasoning',
+        textType: 'reasoning',
+        isCollapsed: true,
+        thinkingId: 'think-1',
+      },
+      {
+        type: 'agent',
+        agentId: 'agent-1',
+        agentName: 'Test',
+        agentType: 'test',
+        content: '',
+        status: 'running',
+      },
+    ]
+
+    const result = closeNativeReasoningBlock(blocks)
+
+    expect((result[0] as any).thinkingOpen).toBe(false)
+    expect(result[1]).toEqual(blocks[1]) // Agent block unchanged
+  })
+})
+
+describe('closeNativeReasoningInAgent', () => {
+  test('closes native reasoning in specific agent', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'agent',
+        agentId: 'agent-1',
+        agentName: 'Test',
+        agentType: 'test',
+        content: '',
+        status: 'running',
+        blocks: [
+          {
+            type: 'text',
+            content: 'Agent thinking...',
+            textType: 'reasoning',
+            isCollapsed: true,
+            thinkingId: 'think-1',
+          },
+        ],
+      },
+    ]
+
+    const result = closeNativeReasoningInAgent(blocks, 'agent-1')
+
+    const agentBlock = result[0] as AgentContentBlock
+    expect((agentBlock.blocks![0] as any).thinkingOpen).toBe(false)
+  })
+
+  test('does not modify other agents', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'agent',
+        agentId: 'agent-1',
+        agentName: 'Test 1',
+        agentType: 'test',
+        content: '',
+        status: 'running',
+        blocks: [
+          {
+            type: 'text',
+            content: 'Agent 1 thinking...',
+            textType: 'reasoning',
+            isCollapsed: true,
+            thinkingId: 'think-1',
+          },
+        ],
+      },
+      {
+        type: 'agent',
+        agentId: 'agent-2',
+        agentName: 'Test 2',
+        agentType: 'test',
+        content: '',
+        status: 'running',
+        blocks: [
+          {
+            type: 'text',
+            content: 'Agent 2 thinking...',
+            textType: 'reasoning',
+            isCollapsed: true,
+            thinkingId: 'think-2',
+          },
+        ],
+      },
+    ]
+
+    const result = closeNativeReasoningInAgent(blocks, 'agent-1')
+
+    const agent1 = result[0] as AgentContentBlock
+    const agent2 = result[1] as AgentContentBlock
+    expect((agent1.blocks![0] as any).thinkingOpen).toBe(false)
+    // Agent 2 should still have undefined thinkingOpen
+    expect((agent2.blocks![0] as any).thinkingOpen).toBeUndefined()
+  })
+
+  test('returns original blocks if agent not found', () => {
+    const blocks: ContentBlock[] = [
+      { type: 'text', content: 'Hello' },
+    ]
+
+    const result = closeNativeReasoningInAgent(blocks, 'nonexistent')
+
+    expect(result).toBe(blocks)
+  })
+})
+
+describe('appendTextToAgentBlock with native reasoning', () => {
+  test('creates native reasoning block when textType is reasoning', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'agent',
+        agentId: 'agent-1',
+        agentName: 'Test',
+        agentType: 'test',
+        content: '',
+        status: 'running',
+        blocks: [],
+      },
+    ]
+
+    const result = appendTextToAgentBlock(blocks, 'agent-1', 'Thinking...', 'reasoning')
+
+    const agentBlock = result[0] as AgentContentBlock
+    expect(agentBlock.blocks).toHaveLength(1)
+    expect((agentBlock.blocks![0] as any).textType).toBe('reasoning')
+    expect((agentBlock.blocks![0] as any).content).toBe('Thinking...')
+    expect((agentBlock.blocks![0] as any).isCollapsed).toBe(true)
+    // Native reasoning has thinkingOpen undefined
+    expect((agentBlock.blocks![0] as any).thinkingOpen).toBeUndefined()
+  })
+
+  test('appends to existing open native reasoning block', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'agent',
+        agentId: 'agent-1',
+        agentName: 'Test',
+        agentType: 'test',
+        content: 'First',
+        status: 'running',
+        blocks: [
+          {
+            type: 'text',
+            content: 'First',
+            textType: 'reasoning',
+            isCollapsed: true,
+            thinkingId: 'think-1',
+          },
+        ],
+      },
+    ]
+
+    const result = appendTextToAgentBlock(blocks, 'agent-1', ' second', 'reasoning')
+
+    const agentBlock = result[0] as AgentContentBlock
+    expect(agentBlock.blocks).toHaveLength(1)
+    expect((agentBlock.blocks![0] as any).content).toBe('First second')
+  })
+
+  test('does NOT append to closed native reasoning block', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'agent',
+        agentId: 'agent-1',
+        agentName: 'Test',
+        agentType: 'test',
+        content: 'Closed',
+        status: 'running',
+        blocks: [
+          {
+            type: 'text',
+            content: 'Closed',
+            textType: 'reasoning',
+            isCollapsed: true,
+            thinkingOpen: false, // Already closed
+            thinkingId: 'think-1',
+          },
+        ],
+      },
+    ]
+
+    const result = appendTextToAgentBlock(blocks, 'agent-1', 'New thought', 'reasoning')
+
+    const agentBlock = result[0] as AgentContentBlock
+    // Should create a NEW reasoning block, not append to closed one
+    expect(agentBlock.blocks).toHaveLength(2)
+    expect((agentBlock.blocks![0] as any).content).toBe('Closed')
+    expect((agentBlock.blocks![1] as any).content).toBe('New thought')
+  })
+
+  test('does NOT append to <think> tag block', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'agent',
+        agentId: 'agent-1',
+        agentName: 'Test',
+        agentType: 'test',
+        content: 'Think tag',
+        status: 'running',
+        blocks: [
+          {
+            type: 'text',
+            content: 'Think tag',
+            textType: 'reasoning',
+            isCollapsed: true,
+            thinkingOpen: true, // <think> tag block
+            thinkingId: 'think-1',
+          },
+        ],
+      },
+    ]
+
+    const result = appendTextToAgentBlock(blocks, 'agent-1', 'Native thought', 'reasoning')
+
+    const agentBlock = result[0] as AgentContentBlock
+    // Should create a NEW native reasoning block, not append to <think> block
+    expect(agentBlock.blocks).toHaveLength(2)
+    expect((agentBlock.blocks![0] as any).thinkingOpen).toBe(true)
+    expect((agentBlock.blocks![1] as any).thinkingOpen).toBeUndefined()
+  })
+
+  test('closes native reasoning when regular text arrives', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'agent',
+        agentId: 'agent-1',
+        agentName: 'Test',
+        agentType: 'test',
+        content: 'Thinking',
+        status: 'running',
+        blocks: [
+          {
+            type: 'text',
+            content: 'Thinking',
+            textType: 'reasoning',
+            isCollapsed: true,
+            thinkingId: 'think-1',
+          },
+        ],
+      },
+    ]
+
+    const result = appendTextToAgentBlock(blocks, 'agent-1', 'Regular text', 'text')
+
+    const agentBlock = result[0] as AgentContentBlock
+    expect(agentBlock.blocks).toHaveLength(2)
+    // Native reasoning should be closed
+    expect((agentBlock.blocks![0] as any).thinkingOpen).toBe(false)
+    // New text block added
+    expect((agentBlock.blocks![1] as any).content).toBe('Regular text')
+    expect((agentBlock.blocks![1] as any).textType).toBe('text')
+  })
+})
+
+describe('appendToolToAgentBlock closes native reasoning', () => {
+  test('closes native reasoning when tool is appended', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'agent',
+        agentId: 'agent-1',
+        agentName: 'Test',
+        agentType: 'test',
+        content: 'Thinking',
+        status: 'running',
+        blocks: [
+          {
+            type: 'text',
+            content: 'Thinking',
+            textType: 'reasoning',
+            isCollapsed: true,
+            thinkingId: 'think-1',
+          },
+        ],
+      },
+    ]
+
+    const toolBlock: ToolContentBlock = {
+      type: 'tool',
+      toolCallId: 'tool-1',
+      toolName: 'read_files',
+      input: { paths: ['test.ts'] },
+    }
+
+    const result = appendToolToAgentBlock(blocks, 'agent-1', toolBlock)
+
+    const agentBlock = result[0] as AgentContentBlock
+    expect(agentBlock.blocks).toHaveLength(2)
+    // Native reasoning should be closed
+    expect((agentBlock.blocks![0] as any).thinkingOpen).toBe(false)
+    // Tool block added
+    expect(agentBlock.blocks![1].type).toBe('tool')
+  })
+})
+
+describe('markAgentComplete closes native reasoning', () => {
+  test('closes native reasoning when agent completes', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'agent',
+        agentId: 'agent-1',
+        agentName: 'Test',
+        agentType: 'test',
+        content: 'Thinking',
+        status: 'running',
+        blocks: [
+          {
+            type: 'text',
+            content: 'Thinking',
+            textType: 'reasoning',
+            isCollapsed: true,
+            thinkingId: 'think-1',
+          },
+        ],
+      },
+    ]
+
+    const result = markAgentComplete(blocks, 'agent-1')
+
+    const agentBlock = result[0] as AgentContentBlock
+    expect(agentBlock.status).toBe('complete')
+    expect((agentBlock.blocks![0] as any).thinkingOpen).toBe(false)
+  })
+})
+
+describe('markRunningAgentsAsCancelled closes native reasoning', () => {
+  test('closes native reasoning in cancelled agents', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'agent',
+        agentId: 'agent-1',
+        agentName: 'Test',
+        agentType: 'test',
+        content: 'Thinking',
+        status: 'running',
+        blocks: [
+          {
+            type: 'text',
+            content: 'Thinking',
+            textType: 'reasoning',
+            isCollapsed: true,
+            thinkingId: 'think-1',
+          },
+        ],
+      },
+    ]
+
+    const result = markRunningAgentsAsCancelled(blocks)
+
+    const agentBlock = result[0] as AgentContentBlock
+    expect(agentBlock.status).toBe('cancelled')
+    expect((agentBlock.blocks![0] as any).thinkingOpen).toBe(false)
+  })
+
+  test('closes native reasoning in nested cancelled agents', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'agent',
+        agentId: 'parent',
+        agentName: 'Parent',
+        agentType: 'parent',
+        content: '',
+        status: 'running',
+        blocks: [
+          {
+            type: 'agent',
+            agentId: 'child',
+            agentName: 'Child',
+            agentType: 'child',
+            content: 'Child thinking',
+            status: 'running',
+            blocks: [
+              {
+                type: 'text',
+                content: 'Child thinking',
+                textType: 'reasoning',
+                isCollapsed: true,
+                thinkingId: 'think-child',
+              },
+            ],
+          },
+        ],
+      },
+    ]
+
+    const result = markRunningAgentsAsCancelled(blocks)
+
+    const parentBlock = result[0] as AgentContentBlock
+    const childBlock = parentBlock.blocks![0] as AgentContentBlock
+    
+    expect(parentBlock.status).toBe('cancelled')
+    expect(childBlock.status).toBe('cancelled')
+    expect((childBlock.blocks![0] as any).thinkingOpen).toBe(false)
+  })
+
+  test('closes native reasoning even in non-running agents during cancellation', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'agent',
+        agentId: 'agent-1',
+        agentName: 'Test',
+        agentType: 'test',
+        content: '',
+        status: 'complete', // Already complete
+        blocks: [
+          {
+            type: 'agent',
+            agentId: 'child',
+            agentName: 'Child',
+            agentType: 'child',
+            content: 'Thinking',
+            status: 'running',
+            blocks: [
+              {
+                type: 'text',
+                content: 'Thinking',
+                textType: 'reasoning',
+                isCollapsed: true,
+                thinkingId: 'think-1',
+              },
+            ],
+          },
+        ],
+      },
+    ]
+
+    const result = markRunningAgentsAsCancelled(blocks)
+
+    const parentBlock = result[0] as AgentContentBlock
+    const childBlock = parentBlock.blocks![0] as AgentContentBlock
+    
+    // Parent stays complete
+    expect(parentBlock.status).toBe('complete')
+    // Child is cancelled
+    expect(childBlock.status).toBe('cancelled')
+    // Child's reasoning is closed
+    expect((childBlock.blocks![0] as any).thinkingOpen).toBe(false)
+  })
+
+  test('does not modify agents without native reasoning blocks', () => {
+    const blocks: ContentBlock[] = [
+      {
+        type: 'agent',
+        agentId: 'agent-1',
+        agentName: 'Test',
+        agentType: 'test',
+        content: 'Hello',
+        status: 'running',
+        blocks: [
+          { type: 'text', content: 'Hello', textType: 'text' },
+        ],
+      },
+    ]
+
+    const result = markRunningAgentsAsCancelled(blocks)
+
+    const agentBlock = result[0] as AgentContentBlock
+    expect(agentBlock.status).toBe('cancelled')
+    // Text block should be unchanged
+    expect((agentBlock.blocks![0] as any).thinkingOpen).toBeUndefined()
   })
 })
 
