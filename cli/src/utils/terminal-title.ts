@@ -11,34 +11,36 @@
 
 import { closeSync, constants, openSync, writeSync } from 'fs'
 
+import { getCliEnv } from './env'
+
 const MAX_TITLE_LENGTH = 60
 const TITLE_PREFIX = 'Codebuff: '
 const OSC_TERMINATOR = '\x07' // BEL
 
-function isInTmux(): boolean {
-  return Boolean(process.env.TMUX)
+function isInTmux(env: ReturnType<typeof getCliEnv>): boolean {
+  return Boolean(env.TMUX)
 }
 
-function isInScreen(): boolean {
-  if (process.env.STY) return true
-  const term = process.env.TERM ?? ''
-  return term.startsWith('screen') && !isInTmux()
+function isInScreen(env: ReturnType<typeof getCliEnv>): boolean {
+  if (env.STY) return true
+  const term = env.TERM ?? ''
+  return term.startsWith('screen') && !isInTmux(env)
 }
 
 /**
  * Build the OSC title sequence with tmux/screen passthrough if needed
  */
-function buildTitleSequence(title: string): string {
+function buildTitleSequence(title: string, env: ReturnType<typeof getCliEnv>): string {
   const osc = `\x1b]0;${title}${OSC_TERMINATOR}`
 
   // tmux passthrough: wrap in DCS and double ESC characters
-  if (isInTmux()) {
+  if (isInTmux(env)) {
     const escaped = osc.replace(/\x1b/g, '\x1b\x1b')
     return `\x1bPtmux;${escaped}\x1b\\`
   }
 
   // GNU screen passthrough: wrap in DCS
-  if (isInScreen()) {
+  if (isInScreen(env)) {
     return `\x1bP${osc}\x1b\\`
   }
 
@@ -89,7 +91,8 @@ export function setTerminalTitle(title: string): void {
       : sanitized
 
   const fullTitle = `${TITLE_PREFIX}${truncated}`
-  const sequence = buildTitleSequence(fullTitle)
+  const env = getCliEnv()
+  const sequence = buildTitleSequence(fullTitle, env)
 
   writeToTty(sequence)
 }
@@ -100,6 +103,7 @@ export function setTerminalTitle(title: string): void {
  */
 export function resetTerminalTitle(): void {
   // Empty title resets to terminal's default behavior
-  const sequence = buildTitleSequence('')
+  const env = getCliEnv()
+  const sequence = buildTitleSequence('', env)
   writeToTty(sequence)
 }

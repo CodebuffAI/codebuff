@@ -16,6 +16,11 @@ import type {
  * CLI-specific env vars for terminal/IDE detection and editor preferences.
  */
 export type CliEnv = BaseEnv & {
+  // Terminal detection (for tmux/screen passthrough)
+  TERM?: string
+  TMUX?: string
+  STY?: string
+
   // Terminal-specific
   KITTY_WINDOW_ID?: string
   SIXEL_SUPPORT?: string

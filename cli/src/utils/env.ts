@@ -16,6 +16,11 @@ import type { CliEnv } from '../types/env'
 export const getCliEnv = (): CliEnv => ({
   ...getBaseEnv(),
 
+  // Terminal detection (for tmux/screen passthrough)
+  TERM: process.env.TERM,
+  TMUX: process.env.TMUX,
+  STY: process.env.STY,
+
   // Terminal detection
   KITTY_WINDOW_ID: process.env.KITTY_WINDOW_ID,
   SIXEL_SUPPORT: process.env.SIXEL_SUPPORT,

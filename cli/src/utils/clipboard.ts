@@ -1,6 +1,7 @@
 import { closeSync, openSync, writeSync } from 'fs'
 import { createRequire } from 'module'
 
+import { getCliEnv } from './env'
 import { logger } from './logger'
 
 const require = createRequire(import.meta.url)
@@ -140,7 +141,8 @@ export function clearClipboardMessage() {
 const OSC52_MAX_PAYLOAD = 32_000
 
 function buildOsc52Sequence(text: string): string | null {
-  if (process.env.TERM === 'dumb') return null
+  const env = getCliEnv()
+  if (env.TERM === 'dumb') return null
 
   const base64 = Buffer.from(text, 'utf8').toString('base64')
   if (base64.length > OSC52_MAX_PAYLOAD) return null
@@ -148,12 +150,12 @@ function buildOsc52Sequence(text: string): string | null {
   const osc = `\x1b]52;c;${base64}\x07`
 
   // tmux: wrap in DCS passthrough with doubled ESC
-  if (process.env.TMUX) {
+  if (env.TMUX) {
     return `\x1bPtmux;${osc.replace(/\x1b/g, '\x1b\x1b')}\x1b\\`
   }
 
   // GNU screen: wrap in DCS passthrough
-  if (process.env.STY) {
+  if (env.STY) {
     return `\x1bP${osc}\x1b\\`
   }
 
