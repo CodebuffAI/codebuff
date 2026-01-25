@@ -46,6 +46,8 @@ export type PromptAiSdkStreamFn = (
     spawnableAgents?: string[]
     /** Map of locally available agent templates - used to transform agent tool calls */
     localAgentTemplates?: Record<string, AgentTemplate>
+    /** Cost mode - 'free' mode means 0 credits charged for all agents */
+    costMode?: string
     sendAction: SendActionFn
     logger: Logger
     trackEvent: TrackEventFn
@@ -69,6 +71,8 @@ export type PromptAiSdkFn = (
     includeCacheControl?: boolean
     agentProviderOptions?: OpenRouterProviderRoutingOptions
     maxRetries?: number
+    /** Cost mode - 'free' mode means 0 credits charged for all agents */
+    costMode?: string
     sendAction: SendActionFn
     logger: Logger
     trackEvent: TrackEventFn

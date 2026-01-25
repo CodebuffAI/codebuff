@@ -99,13 +99,16 @@ export const useGravityAd = (): GravityAdState => {
       return
     }
 
+    // Include mode in request - FREE mode should not grant credits
+    const agentMode = useChatStore.getState().agentMode
+
     fetch(`${WEBSITE_URL}/api/v1/ads/impression`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${authToken}`,
       },
-      body: JSON.stringify({ impUrl }),
+      body: JSON.stringify({ impUrl, mode: agentMode }),
     })
       .then((res) => res.json())
       .then((data) => {

@@ -107,10 +107,21 @@ export const MAIN_AGENT_ID = 'main-agent'
  */
 export const AGENT_MODE_TO_ID = {
   DEFAULT: 'base2',
-  LITE: 'base2-lite',
+  FREE: 'base2-free',
   MAX: 'base2-max',
   PLAN: 'base2-plan',
 } as const
 
 export type AgentMode = keyof typeof AGENT_MODE_TO_ID
 export const AGENT_MODES = Object.keys(AGENT_MODE_TO_ID) as AgentMode[]
+
+/**
+ * Maps CLI agent mode to cost mode for billing.
+ * FREE mode maps to 'free' cost mode where allowlisted agent+model combos cost 0 credits.
+ */
+export const AGENT_MODE_TO_COST_MODE = {
+  DEFAULT: 'normal',
+  FREE: 'free',
+  MAX: 'max',
+  PLAN: 'normal',
+} as const satisfies Record<AgentMode, 'free' | 'normal' | 'max' | 'experimental' | 'ask'>

@@ -114,7 +114,8 @@ function parseArgs(): ParsedArgs {
       '--cwd <directory>',
       'Set the working directory (default: current directory)',
     )
-    .option('--lite', 'Start in LITE mode')
+    .option('--free', 'Start in FREE mode')
+    .option('--lite', 'Start in FREE mode (deprecated, use --free)')
     .option('--max', 'Start in MAX mode')
     .option('--plan', 'Start in PLAN mode')
     .helpOption('-h, --help', 'Show this help message')
@@ -129,7 +130,7 @@ function parseArgs(): ParsedArgs {
 
   // Determine initial mode from flags (last flag wins if multiple specified)
   let initialMode: AgentMode | undefined
-  if (options.lite) initialMode = 'LITE'
+  if (options.free || options.lite) initialMode = 'FREE'
   if (options.max) initialMode = 'MAX'
   if (options.plan) initialMode = 'PLAN'
 

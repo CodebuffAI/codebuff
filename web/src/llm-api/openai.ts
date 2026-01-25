@@ -80,7 +80,7 @@ export async function handleOpenAINonStream({
   insertMessageBigquery: InsertMessageBigqueryFn
 }) {
   const startTime = new Date()
-  const { clientId, clientRequestId, n } = extractRequestMetadata({
+  const { clientId, clientRequestId, costMode, n } = extractRequestMetadata({
     body,
     logger,
   })
@@ -195,6 +195,7 @@ export async function handleOpenAINonStream({
     usageData,
     byok: false,
     logger,
+    costMode,
   })
 
   return {

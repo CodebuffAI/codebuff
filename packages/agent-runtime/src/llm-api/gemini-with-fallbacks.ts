@@ -29,7 +29,7 @@ import type { Message } from '@codebuff/common/types/messages/codebuff-message'
  * @param options.userId - The ID of the user making the request.
  * @param options.maxTokens - Optional maximum number of tokens for the response.
  * @param options.temperature - Optional temperature setting for generation (0-1).
- * @param options.costMode - Optional cost mode ('lite', 'normal', 'max') influencing fallback model choice.
+ * @param options.costMode - Optional cost mode ('free', 'normal', 'max') influencing fallback model choice.
  * @param options.useGPT4oInsteadOfClaude - Optional flag to use GPT-4o instead of Claude as the final fallback.
  * @returns A promise that resolves to the complete response string from the successful API call.
  * @throws If all API calls (primary and fallbacks) fail.
@@ -37,7 +37,7 @@ import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 export async function promptFlashWithFallbacks(
   params: {
     messages: Message[]
-    costMode?: CostMode
+    costMode?: string
     useGPT4oInsteadOfClaude?: boolean
     thinkingBudget?: number
     useFinetunedModel?: FinetunedVertexModel | undefined
@@ -83,13 +83,7 @@ export async function promptFlashWithFallbacks(
       messages,
       model: useGPT4oInsteadOfClaude
         ? openaiModels.gpt4o
-        : {
-            lite: openrouterModels.openrouter_claude_3_5_haiku,
-            normal: openrouterModels.openrouter_claude_3_5_haiku,
-            max: openrouterModels.openrouter_claude_sonnet_4,
-            experimental: openrouterModels.openrouter_claude_3_5_haiku,
-            ask: openrouterModels.openrouter_claude_3_5_haiku,
-          }[costMode ?? 'normal'],
+        : openrouterModels.openrouter_claude_3_5_haiku,
     })
   }
 }

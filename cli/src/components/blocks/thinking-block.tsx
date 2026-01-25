@@ -42,12 +42,10 @@ export const ThinkingBlock = memo(
       }
     }, [onToggleCollapsed, thinkingId])
 
-    // thinkingOpen === true means still streaming
-    // thinkingOpen === false means explicitly closed with </think> tag
-    // thinkingOpen === undefined means native reasoning block - complete when message is complete
+    // thinkingOpen === false means explicitly closed (with </think> tag or message completion)
+    // Otherwise (true or undefined), completion is determined by message completion
     const isThinkingComplete =
-      firstBlock?.thinkingOpen === false ||
-      (firstBlock?.thinkingOpen === undefined && isMessageComplete)
+      firstBlock?.thinkingOpen === false || isMessageComplete
 
     // Hide if no content or no thinkingId (but NOT when thinking is complete)
     if (!combinedContent || !thinkingId) {

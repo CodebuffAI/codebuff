@@ -60,9 +60,9 @@ function extractRequestMetadataWithN(params: {
   logger: Logger
 }) {
   const { body, logger } = params
-  const { clientId, clientRequestId } = extractRequestMetadata({ body, logger })
+  const { clientId, clientRequestId, costMode } = extractRequestMetadata({ body, logger })
   const n = (body as any)?.codebuff_metadata?.n
-  return { clientId, clientRequestId, ...(n && { n }) }
+  return { clientId, clientRequestId, costMode, ...(n && { n }) }
 }
 
 export async function handleOpenRouterNonStream({
@@ -91,7 +91,7 @@ export async function handleOpenRouterNonStream({
   body.usage.include = true
 
   const startTime = new Date()
-  const { clientId, clientRequestId, n } = extractRequestMetadataWithN({
+  const { clientId, clientRequestId, costMode, n } = extractRequestMetadataWithN({
     body,
     logger,
   })
@@ -166,6 +166,7 @@ export async function handleOpenRouterNonStream({
       usageData: aggregatedUsage,
       byok,
       logger,
+      costMode,
     })
 
     // Return the first response with aggregated data
@@ -236,6 +237,7 @@ export async function handleOpenRouterNonStream({
     usageData,
     byok,
     logger,
+    costMode,
   })
 
   // Overwrite cost so SDK calculates exact credits we charged
@@ -273,7 +275,7 @@ export async function handleOpenRouterStream({
   body.usage.include = true
 
   const startTime = new Date()
-  const { clientId, clientRequestId } = extractRequestMetadata({ body, logger })
+  const { clientId, clientRequestId, costMode } = extractRequestMetadata({ body, logger })
 
   const byok = openrouterApiKey !== null
   const response = await createOpenRouterRequest({
@@ -345,6 +347,7 @@ export async function handleOpenRouterStream({
               agentId,
               clientId,
               clientRequestId,
+              costMode,
               byok,
               startTime,
               request: body,
@@ -414,6 +417,7 @@ async function handleLine({
   agentId,
   clientId,
   clientRequestId,
+  costMode,
   byok,
   startTime,
   request,
@@ -427,6 +431,7 @@ async function handleLine({
   agentId: string
   clientId: string | null
   clientRequestId: string | null
+  costMode: string | undefined
   byok: boolean
   startTime: Date
   request: unknown
@@ -472,6 +477,7 @@ async function handleLine({
     agentId,
     clientId,
     clientRequestId,
+    costMode,
     byok,
     startTime,
     request,
@@ -488,6 +494,7 @@ async function handleResponse({
   agentId,
   clientId,
   clientRequestId,
+  costMode,
   byok,
   startTime,
   request,
@@ -501,6 +508,7 @@ async function handleResponse({
   agentId: string
   clientId: string | null
   clientRequestId: string | null
+  costMode: string | undefined
   byok: boolean
   startTime: Date
   request: unknown
@@ -556,6 +564,7 @@ async function handleResponse({
     usageData,
     byok,
     logger,
+    costMode,
   })
 
   return { state, billedCredits }

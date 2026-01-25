@@ -82,17 +82,17 @@ export type CodebuffClientOptions = {
     chunk:
       | string
       | {
-          type: 'subagent_chunk'
-          agentId: string
-          agentType: string
-          chunk: string
-        }
+        type: 'subagent_chunk'
+        agentId: string
+        agentType: string
+        chunk: string
+      }
       | {
-          type: 'reasoning_chunk'
-          agentId: string
-          ancestorRunIds: string[]
-          chunk: string
-        },
+        type: 'reasoning_chunk'
+        agentId: string
+        ancestorRunIds: string[]
+        chunk: string
+      },
   ) => void | Promise<void>
 
   /** Optional filter to classify files before reading (runs before gitignore check) */
@@ -139,6 +139,7 @@ export type RunOptions = {
   previousRun?: RunState
   extraToolResults?: ToolMessage[]
   signal?: AbortSignal
+  costMode?: string
 }
 
 const createAbortError = (signal?: AbortSignal) => {
@@ -203,6 +204,7 @@ async function runOnce({
   previousRun,
   extraToolResults,
   signal,
+  costMode,
 }: RunExecutionOptions): Promise<RunState> {
   const fsSourceValue = typeof fsSource === 'function' ? fsSource() : fsSource
   const fs = await fsSourceValue
@@ -252,8 +254,8 @@ async function runOnce({
     })
   }
 
-  let resolve: (value: RunReturnType) => any = () => {}
-  let reject: (error: any) => any = () => {}
+  let resolve: (value: RunReturnType) => any = () => { }
+  let reject: (error: any) => any = () => { }
   const promise = new Promise<RunReturnType>((res, rej) => {
     resolve = res
     reject = rej
@@ -366,8 +368,8 @@ async function runOnce({
         overrides: overrideTools ?? {},
         customToolDefinitions: customToolDefinitions
           ? Object.fromEntries(
-              customToolDefinitions.map((def) => [def.toolName, def]),
-            )
+            customToolDefinitions.map((def) => [def.toolName, def]),
+          )
           : {},
         cwd,
         fs,
@@ -493,7 +495,7 @@ async function runOnce({
       promptParams: params,
       content: preparedContent,
       fingerprintId: fingerprintId,
-      costMode: 'normal',
+      costMode: costMode ?? 'normal',
       sessionState,
       toolResults: extraToolResults ?? [],
       agentId,
@@ -671,9 +673,9 @@ async function handleToolCall({
         value: {
           errorMessage:
             error &&
-            typeof error === 'object' &&
-            'message' in error &&
-            typeof error.message === 'string'
+              typeof error === 'object' &&
+              'message' in error &&
+              typeof error.message === 'string'
               ? error.message
               : typeof error === 'string'
                 ? error
