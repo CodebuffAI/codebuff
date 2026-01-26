@@ -188,61 +188,81 @@ export interface StaticParamsAgentData {
 }
 
 export const fetchAgentsForSitemap = async (): Promise<SitemapAgentData[]> => {
-  // Fetch only the fields needed for sitemap URLs - no data blob at all
-  const agentsPromise = db
-    .select({
-      id: schema.agentConfig.id,
-      version: schema.agentConfig.version,
-      created_at: schema.agentConfig.created_at,
-      publisher_id: schema.publisher.id,
-    })
-    .from(schema.agentConfig)
-    .innerJoin(
-      schema.publisher,
-      eq(schema.agentConfig.publisher_id, schema.publisher.id),
+  try {
+    // Fetch only the fields needed for sitemap URLs - no data blob at all
+    const agentsPromise = db
+      .select({
+        id: schema.agentConfig.id,
+        version: schema.agentConfig.version,
+        created_at: schema.agentConfig.created_at,
+        publisher_id: schema.publisher.id,
+      })
+      .from(schema.agentConfig)
+      .innerJoin(
+        schema.publisher,
+        eq(schema.agentConfig.publisher_id, schema.publisher.id),
+      )
+      .orderBy(sql`${schema.agentConfig.created_at} DESC`)
+
+    // Get last_used dates from metrics, grouped by agent_id to match agentConfig.id
+    const metricsPromise = db
+      .select({
+        publisher_id: schema.agentRun.publisher_id,
+        agent_id: schema.agentRun.agent_id,
+        last_used: sql<Date>`MAX(${schema.agentRun.created_at})`,
+      })
+      .from(schema.agentRun)
+      .where(
+        and(
+          eq(schema.agentRun.status, 'completed'),
+          sql`${schema.agentRun.agent_id} IS NOT NULL`,
+          sql`${schema.agentRun.publisher_id} IS NOT NULL`,
+        ),
+      )
+      .groupBy(schema.agentRun.publisher_id, schema.agentRun.agent_id)
+
+    const [agents, metrics] = await Promise.all([agentsPromise, metricsPromise])
+
+    return buildAgentsDataForSitemap({ agents, metrics })
+  } catch (error) {
+    // In CI/build environments without a database, return empty array
+    // so sitemap generation doesn't fail the build
+    console.warn(
+      '[fetchAgentsForSitemap] Database unavailable, returning empty array:',
+      error instanceof Error ? error.message : error,
     )
-    .orderBy(sql`${schema.agentConfig.created_at} DESC`)
-
-  // Get last_used dates from metrics, grouped by agent_id to match agentConfig.id
-  const metricsPromise = db
-    .select({
-      publisher_id: schema.agentRun.publisher_id,
-      agent_id: schema.agentRun.agent_id,
-      last_used: sql<Date>`MAX(${schema.agentRun.created_at})`,
-    })
-    .from(schema.agentRun)
-    .where(
-      and(
-        eq(schema.agentRun.status, 'completed'),
-        sql`${schema.agentRun.agent_id} IS NOT NULL`,
-        sql`${schema.agentRun.publisher_id} IS NOT NULL`,
-      ),
-    )
-    .groupBy(schema.agentRun.publisher_id, schema.agentRun.agent_id)
-
-  const [agents, metrics] = await Promise.all([agentsPromise, metricsPromise])
-
-  return buildAgentsDataForSitemap({ agents, metrics })
+    return []
+  }
 }
 
 export const fetchAgentsForStaticParams = async (): Promise<
   StaticParamsAgentData[]
 > => {
-  // Fetch only the fields needed to build static params for versioned agents.
-  const agents = await db
-    .select({
-      id: schema.agentConfig.id,
-      version: schema.agentConfig.version,
-      publisher_id: schema.publisher.id,
-    })
-    .from(schema.agentConfig)
-    .innerJoin(
-      schema.publisher,
-      eq(schema.agentConfig.publisher_id, schema.publisher.id),
-    )
-    .orderBy(sql`${schema.agentConfig.created_at} DESC`)
+  try {
+    // Fetch only the fields needed to build static params for versioned agents.
+    const agents = await db
+      .select({
+        id: schema.agentConfig.id,
+        version: schema.agentConfig.version,
+        publisher_id: schema.publisher.id,
+      })
+      .from(schema.agentConfig)
+      .innerJoin(
+        schema.publisher,
+        eq(schema.agentConfig.publisher_id, schema.publisher.id),
+      )
+      .orderBy(sql`${schema.agentConfig.created_at} DESC`)
 
-  return agents
+    return agents
+  } catch (error) {
+    // In CI/build environments without a database, return empty array
+    // so pages are dynamically rendered at runtime instead of statically generated
+    console.warn(
+      '[fetchAgentsForStaticParams] Database unavailable, returning empty array:',
+      error instanceof Error ? error.message : error,
+    )
+    return []
+  }
 }
 
 export const getCachedAgentsForSitemap = unstable_cache(
