@@ -35,7 +35,9 @@ export const UserContentWithCopyButton = memo(
       ? trimTrailingNewlines(content)
       : content.trim()
 
-    if (!showCopyButton) {
+    const hasContent = normalizedContent.length > 0
+
+    if (!showCopyButton || !hasContent) {
       return (
         <text
           key={`message-content-${messageId}`}
