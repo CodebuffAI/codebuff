@@ -63,6 +63,7 @@
     "@vscode/tree-sitter-wasm": "0.1.4",
     "ai": "^5.0.52",
     "diff": "8.0.3",
+    "gray-matter": "^4.0.3",
     "ignore": "7.0.5",
     "micromatch": "^4.0.8",
     "web-tree-sitter": "0.25.6",

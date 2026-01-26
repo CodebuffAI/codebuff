@@ -17,6 +17,7 @@ import { cloneDeep } from 'lodash'
 import z from 'zod/v4'
 
 import { loadLocalAgents } from './agents/load-agents'
+import { loadSkills } from './skills/load-skills'
 
 // Re-export for SDK consumers
 export {
@@ -487,6 +488,9 @@ export async function initialSessionState(
     ...providedUserKnowledgeFiles,
   }
 
+  // Load skills from project and home directories
+  const skills = await loadSkills({ cwd: cwd ?? process.cwd(), verbose: false })
+
   const initialState = getInitialSessionState({
     projectRoot: cwd ?? process.cwd(),
     cwd: cwd ?? process.cwd(),
@@ -497,6 +501,7 @@ export async function initialSessionState(
     userKnowledgeFiles,
     agentTemplates: processedAgentTemplates,
     customToolDefinitions: processedCustomToolDefinitions,
+    skills,
     gitChanges,
     changesSinceLastChat: {},
     shellConfigFiles: {},

@@ -62,6 +62,7 @@ export function createBase2(
       'propose_str_replace',
       'propose_write_file',
       !noAskUser && 'ask_user',
+      'skill',
       'set_output',
     ),
     spawnableAgents: buildArray(

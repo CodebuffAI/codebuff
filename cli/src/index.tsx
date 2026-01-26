@@ -27,6 +27,7 @@ import { getAuthTokenDetails } from './utils/auth'
 import { resetCodebuffClient } from './utils/codebuff-client'
 import { getCliEnv } from './utils/env'
 import { initializeAgentRegistry } from './utils/local-agent-registry'
+import { initializeSkillRegistry } from './utils/skill-registry'
 import { clearLogFile, logger } from './utils/logger'
 import { shouldShowProjectPicker } from './utils/project-picker'
 import { saveRecentProject } from './utils/recent-projects'
@@ -189,6 +190,9 @@ async function main(): Promise<void> {
   if (isPublishCommand || !hasAgentOverride) {
     await initializeAgentRegistry()
   }
+
+  // Initialize skill registry (loads skills from .agents/skills)
+  await initializeSkillRegistry()
 
   // Handle publish command before rendering the app
   if (isPublishCommand) {

@@ -1,3 +1,5 @@
+import type { SkillsMap } from '@codebuff/common/types/skill'
+
 import { AGENT_MODES } from '../utils/constants'
 
 export interface SlashCommand {
@@ -150,3 +152,17 @@ export const SLASHLESS_COMMAND_IDS = new Set(
     cmd.id.toLowerCase(),
   ),
 )
+
+/**
+ * Returns SLASH_COMMANDS merged with skill commands.
+ * Skills become slash commands that users can invoke directly.
+ */
+export function getSlashCommandsWithSkills(skills: SkillsMap): SlashCommand[] {
+  const skillCommands: SlashCommand[] = Object.values(skills).map((skill) => ({
+    id: `skill:${skill.name}`,
+    label: `skill:${skill.name}`,
+    description: skill.description,
+  }))
+
+  return [...SLASH_COMMANDS, ...skillCommands]
+}

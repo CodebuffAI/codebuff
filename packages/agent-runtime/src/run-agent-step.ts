@@ -627,7 +627,7 @@ export async function loopAgentSteps(
   const tools = useParentTools
     ? parentTools
     : await getToolSet({
-        toolNames: agentTemplate.toolNames,
+      toolNames: agentTemplate.toolNames,
         additionalToolDefinitions: async () => {
           if (!cachedAdditionalToolDefinitions) {
             cachedAdditionalToolDefinitions = await additionalToolDefinitions({
@@ -638,6 +638,7 @@ export async function loopAgentSteps(
           return cachedAdditionalToolDefinitions
         },
         agentTools,
+        skills: fileContext.skills ?? {},
       })
 
   const hasUserMessage = Boolean(

@@ -15,6 +15,7 @@ import { useLoginStore } from '../state/login-store'
 import { capturePendingAttachments } from '../utils/pending-attachments'
 import { AGENT_MODES } from '../utils/constants'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
+import { getSkillByName } from '../utils/skill-registry'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
 import type { InputValue, PendingAttachment } from '../state/chat-store'
@@ -490,7 +491,81 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
 
 export function findCommand(cmd: string): CommandDefinition | undefined {
   const lowerCmd = cmd.toLowerCase()
-  return COMMAND_REGISTRY.find(
+
+  // First check the static command registry
+  const staticCommand = COMMAND_REGISTRY.find(
     (def) => def.name === lowerCmd || def.aliases.includes(lowerCmd),
   )
+  if (staticCommand) {
+    return staticCommand
+  }
+
+  // Check if this is a skill command (prefixed with "skill:")
+  if (lowerCmd.startsWith('skill:')) {
+    const skillName = lowerCmd.slice('skill:'.length)
+    const skill = getSkillByName(skillName)
+    if (skill) {
+      return createSkillCommand(skill.name)
+    }
+  }
+
+  return undefined
+}
+
+/**
+ * Creates a dynamic command definition for a skill.
+ * When invoked, the skill's content is sent to the agent.
+ */
+function createSkillCommand(skillName: string): CommandDefinition {
+  return defineCommandWithArgs({
+    name: skillName,
+    handler: (params, args) => {
+      const skill = getSkillByName(skillName)
+      if (!skill) {
+        params.setMessages((prev) => [
+          ...prev,
+          getUserMessage(params.inputValue.trim()),
+          getSystemMessage(`Skill not found: ${skillName}`),
+        ])
+        params.saveToHistory(params.inputValue.trim())
+        params.setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+        return
+      }
+
+      const trimmed = params.inputValue.trim()
+      params.saveToHistory(trimmed)
+      params.setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+
+      // Build the message content with skill context and optional user args
+      const skillContext = `<skill name="${skill.name}">
+${skill.content}
+</skill>`
+
+      const userPrompt = `I invoke the following skill:\n\n${skillContext}\n\n`
+        + (args.trim()
+          ? `User request: ${args.trim()}`
+          : '')
+
+      // Check streaming/queue state
+      if (
+        params.isStreaming ||
+        params.streamMessageIdRef.current ||
+        params.isChainInProgressRef.current
+      ) {
+        const pendingAttachments = capturePendingAttachments()
+        params.addToQueue(userPrompt, pendingAttachments)
+        params.setInputFocused(true)
+        params.inputRef.current?.focus()
+        return
+      }
+
+      params.sendMessage({
+        content: userPrompt,
+        agentMode: params.agentMode,
+      })
+      setTimeout(() => {
+        params.scrollToLatest()
+      }, 0)
+    },
+  })
 }

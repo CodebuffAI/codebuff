@@ -18,6 +18,7 @@ import { handleRunFileChangeHooks } from './tool/run-file-change-hooks'
 import { handleRunTerminalCommand } from './tool/run-terminal-command'
 import { handleSetMessages } from './tool/set-messages'
 import { handleSetOutput } from './tool/set-output'
+import { handleSkill } from './tool/skill'
 import { handleSpawnAgentInline } from './tool/spawn-agent-inline'
 import { handleSpawnAgents } from './tool/spawn-agents'
 import { handleStrReplace } from './tool/str-replace'
@@ -62,6 +63,7 @@ export const codebuffToolHandlers = {
   run_terminal_command: handleRunTerminalCommand,
   set_messages: handleSetMessages,
   set_output: handleSetOutput,
+  skill: handleSkill,
   spawn_agents: handleSpawnAgents,
   spawn_agent_inline: handleSpawnAgentInline,
   str_replace: handleStrReplace,

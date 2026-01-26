@@ -21,7 +21,7 @@ import { MessageWithAgents } from './components/message-with-agents'
 import { PendingBashMessage } from './components/pending-bash-message'
 import { StatusBar } from './components/status-bar'
 import { TopBanner } from './components/top-banner'
-import { SLASH_COMMANDS } from './data/slash-commands'
+import { getSlashCommandsWithSkills } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
 import { useAskUserBridge } from './hooks/use-ask-user-bridge'
 import { useChatInput } from './hooks/use-chat-input'
@@ -63,6 +63,7 @@ import {
   createDefaultChatKeyboardState,
 } from './utils/keyboard-actions'
 import { loadLocalAgents } from './utils/local-agent-registry'
+import { getLoadedSkills } from './utils/skill-registry'
 import {
   getStatusIndicatorState,
   type AuthStatus,
@@ -205,15 +206,20 @@ export const Chat = ({
   const setInputMode = useChatStore((state) => state.setInputMode)
   const askUserState = useChatStore((state) => state.askUserState)
 
+  // Get loaded skills for slash commands
+  const loadedSkills = useMemo(() => getLoadedSkills(), [])
+
   // Filter slash commands based on current ads state - only show the option that changes state
+  // Also merge in skill commands
   const filteredSlashCommands = useMemo(() => {
     const adsEnabled = getAdsEnabled()
-    return SLASH_COMMANDS.filter((cmd) => {
+    const allCommands = getSlashCommandsWithSkills(loadedSkills)
+    return allCommands.filter((cmd) => {
       if (cmd.id === 'ads:enable') return !adsEnabled
       if (cmd.id === 'ads:disable') return adsEnabled
       return true
     })
-  }, [inputValue]) // Re-evaluate when input changes (user may have just toggled)
+  }, [inputValue, loadedSkills]) // Re-evaluate when input changes (user may have just toggled)
 
   const {
     slashContext,

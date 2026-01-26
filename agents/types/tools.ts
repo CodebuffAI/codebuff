@@ -19,6 +19,7 @@ export type ToolName =
   | 'run_terminal_command'
   | 'set_messages'
   | 'set_output'
+  | 'skill'
   | 'spawn_agents'
   | 'str_replace'
   | 'suggest_followups'
@@ -49,6 +50,7 @@ export interface ToolParamsMap {
   run_terminal_command: RunTerminalCommandParams
   set_messages: SetMessagesParams
   set_output: SetOutputParams
+  skill: SkillParams
   spawn_agents: SpawnAgentsParams
   str_replace: StrReplaceParams
   suggest_followups: SuggestFollowupsParams
@@ -245,6 +247,14 @@ export interface SetMessagesParams {
  * JSON object to set as the agent output. This completely replaces any previous output. If the agent was spawned, this value will be passed back to its parent. If the agent has an outputSchema defined, the output will be validated against it.
  */
 export interface SetOutputParams {}
+
+/**
+ * Load a skill's full instructions when relevant to the current task. Skills are loaded on-demand - only load them when you need their specific guidance.
+ */
+export interface SkillParams {
+  /** The name of the skill to load */
+  name: string
+}
 
 /**
  * Spawn multiple agents and send a prompt and/or parameters to each of them. These agents will run in parallel. Note that that means they will run independently. If you need to run agents sequentially, use spawn_agents with one agent at a time instead.
