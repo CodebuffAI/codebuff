@@ -11,7 +11,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build 2>&1 | sed '/Contentlayer esbuild warnings:/,/^]/d' && bun run scripts/prebuild-agents-cache.ts",
+    "build": "bun run scripts/build.ts",
     "start": "next start",
     "preview": "bun run build && bun run start",
     "contentlayer": "contentlayer build",

@@ -10,6 +10,7 @@
 
 # next.js
 /.next/
+build.log
 /out/
 /.contentlayer/
 
