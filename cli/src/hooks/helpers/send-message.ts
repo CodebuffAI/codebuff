@@ -301,6 +301,12 @@ export const handleRunCompletion = (params: {
     isQueuePausedRef,
   } = params
 
+  // If user aborted, the abort handler already handled UI updates (interruption notice, etc.)
+  // Don't process the server response as it would interfere with the abort handler's work.
+  if (streamRefs.state.wasAbortedByUser) {
+    return
+  }
+
   const output = runState.output
   const finalizeAfterError = () => {
     finalizeQueueState({
@@ -322,9 +328,6 @@ export const handleRunCompletion = (params: {
   }
 
   if (output.type === 'error') {
-    if (streamRefs.state.wasAbortedByUser) {
-      return
-    }
 
     if (isOutOfCreditsError(output)) {
       updater.setError(OUT_OF_CREDITS_MESSAGE)
