@@ -186,6 +186,7 @@ describe('Schema handling error recovery', () => {
         toolNames: [],
         additionalToolDefinitions: async () => customToolDefs,
         agentTools: {},
+        skills: {},
       })
 
       // Should have the tool defined without throwing
