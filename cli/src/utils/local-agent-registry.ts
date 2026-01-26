@@ -1,4 +1,5 @@
 import fs from 'fs'
+import os from 'os'
 import path from 'path'
 
 import { pluralize } from '@codebuff/common/util/string'
@@ -35,28 +36,45 @@ let userAgentFilePaths: Map<string, string> = new Map()
 /**
  * Initialize the agent registry by loading user agents via the SDK.
  * This must be called at CLI startup before any sync agent loading functions.
+ * 
+ * Agents are loaded from:
+ * - {cwd}/.agents (project)
+ * - {cwd}/../.agents (parent, e.g. monorepo root)
+ * - ~/.agents (global, user's home directory)
+ * 
+ * Later directories take precedence, so project agents override global ones.
  */
 export async function initializeAgentRegistry(): Promise<void> {
-  const agentsDir = findAgentsDirectory()
-  if (agentsDir) {
-    try {
-      userAgentsCache = await sdkLoadLocalAgents({ agentsPath: agentsDir })
-      // Build ID-to-filepath map by scanning agent files
-      userAgentFilePaths = buildAgentFilePathMap(agentsDir)
-    } catch (error) {
-      // Fall back to empty cache if SDK loading fails, but log a warning
-      logger.warn({ error, agentsDir }, 'Failed to load user agents from .agents directory')
-      userAgentsCache = {}
-      userAgentFilePaths = new Map()
-    }
+  try {
+    // Let SDK load from all default directories (cwd, parent, home)
+    userAgentsCache = await sdkLoadLocalAgents({ verbose: false })
+    // Build ID-to-filepath map by scanning all agent directories
+    userAgentFilePaths = buildAgentFilePathMap(getDefaultAgentDirs())
+  } catch (error) {
+    // Fall back to empty cache if SDK loading fails, but log a warning
+    logger.warn({ error }, 'Failed to load user agents from .agents directories')
+    userAgentsCache = {}
+    userAgentFilePaths = new Map()
   }
 }
 
 /**
- * Scan agent directory and build a map from agent ID to source file path.
- * Uses regex to extract IDs from files without requiring module loading.
+ * Get default agent directories to scan.
+ * Matches the SDK's getDefaultAgentDirs() to ensure consistency.
  */
-const buildAgentFilePathMap = (agentsDir: string): Map<string, string> => {
+const getDefaultAgentDirs = (): string[] => {
+  const cwdAgents = path.join(process.cwd(), AGENTS_DIR_NAME)
+  const parentAgents = path.join(process.cwd(), '..', AGENTS_DIR_NAME)
+  const homeAgents = path.join(os.homedir(), AGENTS_DIR_NAME)
+  return [cwdAgents, parentAgents, homeAgents]
+}
+
+/**
+ * Scan agent directories and build a map from agent ID to source file path.
+ * Uses regex to extract IDs from files without requiring module loading.
+ * Later directories in the list take precedence (can override earlier ones).
+ */
+const buildAgentFilePathMap = (agentsDirs: string[]): Map<string, string> => {
   const idToPath = new Map<string, string>()
   const idRegex = /id\s*:\s*['"`]([^'"`]+)['"`]/i
   
@@ -87,7 +105,10 @@ const buildAgentFilePathMap = (agentsDir: string): Map<string, string> => {
     }
   }
   
-  scanDirectory(agentsDir)
+  // Scan all directories - later directories override earlier ones
+  for (const agentsDir of agentsDirs) {
+    scanDirectory(agentsDir)
+  }
   return idToPath
 }
 
