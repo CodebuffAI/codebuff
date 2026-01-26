@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'fs'
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync, realpathSync } from 'fs'
 import os from 'os'
 import path from 'path'
 
@@ -12,6 +12,17 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
+
+// Mock the logger to prevent analytics initialization errors in tests
+mock.module('../../utils/logger', () => ({
+  logger: {
+    debug: () => {},
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+    fatal: () => {},
+  },
+}))
 
 import { setProjectRoot, getProjectRoot } from '../../project-files'
 import {
@@ -396,7 +407,8 @@ describe('Local Agent Integration', () => {
     expect(uiAgent!.displayName).toBe('UI Display Agent')
     expect(uiAgent!.id).toBe('test-ui-agent')
     // File path should be populated for "Open file" UI links
-    expect(uiAgent!.filePath).toBe(path.join(agentsDir, 'ui-agent.ts'))
+    // Use realpathSync to normalize paths (on macOS, /var is a symlink to /private/var)
+    expect(realpathSync(uiAgent!.filePath!)).toBe(realpathSync(path.join(agentsDir, 'ui-agent.ts')))
   })
 
   test('loadLocalAgents sorts agents alphabetically by displayName', async () => {

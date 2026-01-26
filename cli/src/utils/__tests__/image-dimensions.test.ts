@@ -1,12 +1,23 @@
 import { mkdirSync, rmSync } from 'fs'
 import path from 'path'
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
+import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
 import { Jimp } from 'jimp'
 
 import { setProjectRoot } from '../../project-files'
 import { calculateDisplaySize } from '../image-display'
 import { processImageFile } from '../image-handler'
+
+// Mock the logger to prevent analytics initialization errors in tests
+mock.module('../logger', () => ({
+  logger: {
+    debug: () => {},
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+    fatal: () => {},
+  },
+}))
 
 const TEST_DIR = path.join(__dirname, 'temp-test-images')
 
