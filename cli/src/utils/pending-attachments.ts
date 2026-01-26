@@ -170,7 +170,7 @@ export async function validateAndAddImage(
   // Check if file exists
   if (!existsSync(resolvedPath)) {
     const error = 'file not found'
-    addPendingImageWithError(imagePath, `❌ ${error}`)
+    addPendingImageWithError(resolvedPath, `❌ ${error}`)
     return { success: false, error }
   }
   

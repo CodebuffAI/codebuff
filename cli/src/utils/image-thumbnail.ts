@@ -27,12 +27,12 @@ export interface ThumbnailData {
  * @returns Promise resolving to thumbnail data with pixel colors
  */
 export async function extractThumbnailColors(
-  imagePath: string,
+  source: string | Buffer,
   targetWidth: number,
   targetHeight: number,
 ): Promise<ThumbnailData | null> {
   try {
-    const image = await Jimp.read(imagePath)
+    const image = await Jimp.read(source)
 
     // Resize to target dimensions (height * 2 because we use half-blocks)
     // Use bilinear interpolation for smoother downscaling (sharper than nearest-neighbor)
@@ -61,7 +61,7 @@ export async function extractThumbnailColors(
   } catch (error) {
     logger.warn(
       {
-        imagePath,
+        source: typeof source === 'string' ? source : `Buffer(len=${source.length})`,
         error: error instanceof Error ? error.message : String(error),
       },
       'Failed to extract thumbnail colors from image',

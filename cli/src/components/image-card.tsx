@@ -34,6 +34,10 @@ export interface ImageCardImage {
   filename: string
   status?: 'processing' | 'ready' | 'error' // Defaults to 'ready' if not provided
   note?: string // Display note: 'compressed' | error message
+  processedImage?: {
+    base64: string
+    mediaType: string
+  }
 }
 
 interface ImageCardProps {
@@ -56,20 +60,35 @@ export const ImageCard = ({
   // Load thumbnail if terminal supports inline images (iTerm2/Kitty)
   useEffect(() => {
     if (!canShowInlineImages) return
+    // Skip loading while image is processing or has error to avoid race condition and unnecessary failed reads
+    if ((image.status ?? 'ready') !== 'ready') return
 
     let cancelled = false
 
     const loadThumbnail = async () => {
       try {
-        const imageData = fs.readFileSync(image.path)
-        const base64Data = imageData.toString('base64')
-        const sequence = renderInlineImage(base64Data, {
-          width: INLINE_IMAGE_WIDTH,
-          height: INLINE_IMAGE_HEIGHT,
-          filename: image.filename,
-        })
-        if (!cancelled) {
-          setThumbnailSequence(sequence)
+        let base64Data: string | undefined
+
+        if (image.processedImage) {
+          base64Data = image.processedImage.base64
+        } else if (!image.path.startsWith('clipboard:')) {
+          const imageData = fs.readFileSync(image.path)
+          base64Data = imageData.toString('base64')
+        }
+
+        if (base64Data) {
+          const sequence = renderInlineImage(base64Data, {
+            width: INLINE_IMAGE_WIDTH,
+            height: INLINE_IMAGE_HEIGHT,
+            filename: image.filename,
+          })
+          if (!cancelled) {
+            setThumbnailSequence(sequence)
+          }
+        } else {
+          if (!cancelled) {
+            setThumbnailSequence(null)
+          }
         }
       } catch {
         // Failed to load image, will show icon fallback
@@ -84,7 +103,7 @@ export const ImageCard = ({
     return () => {
       cancelled = true
     }
-  }, [image.path, image.filename, canShowInlineImages])
+  }, [image, image.filename, canShowInlineImages])
 
   const truncatedName = truncateFilename(image.filename)
 
@@ -106,7 +125,7 @@ export const ImageCard = ({
           <text>{thumbnailSequence}</text>
         ) : (
           <ImageThumbnail
-            imagePath={image.path}
+            image={image}
             width={THUMBNAIL_WIDTH}
             height={THUMBNAIL_HEIGHT}
             fallback={<text style={{ fg: theme.info }}>🖼️</text>}

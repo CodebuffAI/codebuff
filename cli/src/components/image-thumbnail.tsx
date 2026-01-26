@@ -5,6 +5,7 @@
  */
 
 import React, { useEffect, useState, memo } from 'react'
+import { type ImageCardImage } from './image-card'
 
 import {
   extractThumbnailColors,
@@ -13,7 +14,7 @@ import {
 } from '../utils/image-thumbnail'
 
 interface ImageThumbnailProps {
-  imagePath: string
+  image: ImageCardImage
   width: number // Width in cells
   height: number // Height in rows (each row uses half-blocks for 2 pixel rows)
   fallback?: React.ReactNode
@@ -27,7 +28,7 @@ interface ImageThumbnailProps {
  * - ▀ (upper half block) character
  */
 export const ImageThumbnail = memo(({
-  imagePath,
+  image,
   width,
   height,
   fallback,
@@ -35,10 +36,24 @@ export const ImageThumbnail = memo(({
   const [thumbnailData, setThumbnailData] = useState<ThumbnailData | null>(null)
 
   useEffect(() => {
+    // Skip loading while image is processing or has error to avoid race condition and unnecessary failed reads
+    if ((image.status ?? 'ready') !== 'ready') return
+
     let cancelled = false
 
     const loadThumbnail = async () => {
-      const data = await extractThumbnailColors(imagePath, width, height)
+      let data: ThumbnailData | null = null
+      try {
+        if (image.processedImage) {
+          const imageBuffer = Buffer.from(image.processedImage.base64, 'base64')
+          data = await extractThumbnailColors(imageBuffer, width, height)
+        } else if (!image.path.startsWith('clipboard:')) {
+          data = await extractThumbnailColors(image.path, width, height)
+        }
+      } catch {
+        // Ignore errors, will show fallback
+      }
+
       if (!cancelled) {
         setThumbnailData(data)
       }
@@ -49,7 +64,7 @@ export const ImageThumbnail = memo(({
     return () => {
       cancelled = true
     }
-  }, [imagePath, width, height])
+  }, [image, width, height])
 
   if (!thumbnailData) {
     return <>{fallback}</>
