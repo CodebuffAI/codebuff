@@ -10,6 +10,8 @@ export type ToolName =
   | 'glob'
   | 'list_directory'
   | 'lookup_agent_info'
+  | 'propose_str_replace'
+  | 'propose_write_file'
   | 'read_docs'
   | 'read_files'
   | 'read_subtree'
@@ -17,6 +19,7 @@ export type ToolName =
   | 'run_terminal_command'
   | 'set_messages'
   | 'set_output'
+  | 'skill'
   | 'spawn_agents'
   | 'str_replace'
   | 'suggest_followups'
@@ -38,6 +41,8 @@ export interface ToolParamsMap {
   glob: GlobParams
   list_directory: ListDirectoryParams
   lookup_agent_info: LookupAgentInfoParams
+  propose_str_replace: ProposeStrReplaceParams
+  propose_write_file: ProposeWriteFileParams
   read_docs: ReadDocsParams
   read_files: ReadFilesParams
   read_subtree: ReadSubtreeParams
@@ -45,6 +50,7 @@ export interface ToolParamsMap {
   run_terminal_command: RunTerminalCommandParams
   set_messages: SetMessagesParams
   set_output: SetOutputParams
+  skill: SkillParams
   spawn_agents: SpawnAgentsParams
   str_replace: StrReplaceParams
   suggest_followups: SuggestFollowupsParams
@@ -150,6 +156,35 @@ export interface LookupAgentInfoParams {
 }
 
 /**
+ * Propose string replacements in a file without actually applying them.
+ */
+export interface ProposeStrReplaceParams {
+  /** The path to the file to edit. */
+  path: string
+  /** Array of replacements to make. */
+  replacements: {
+    /** The string to replace. This must be an *exact match* of the string you want to replace, including whitespace and punctuation. */
+    old: string
+    /** The string to replace the corresponding old string with. Can be empty to delete. */
+    new: string
+    /** Whether to allow multiple replacements of old string. */
+    allowMultiple?: boolean
+  }[]
+}
+
+/**
+ * Propose creating or editing a file without actually applying the changes.
+ */
+export interface ProposeWriteFileParams {
+  /** Path to the file relative to the **project root** */
+  path: string
+  /** What the change is intended to do in only one sentence. */
+  instructions: string
+  /** Edit snippet to apply to the file. */
+  content: string
+}
+
+/**
  * Fetch up-to-date documentation for libraries and frameworks using Context7 API.
  */
 export interface ReadDocsParams {
@@ -212,6 +247,14 @@ export interface SetMessagesParams {
  * JSON object to set as the agent output. This completely replaces any previous output. If the agent was spawned, this value will be passed back to its parent. If the agent has an outputSchema defined, the output will be validated against it.
  */
 export interface SetOutputParams {}
+
+/**
+ * Load a skill's full instructions when relevant to the current task. Skills are loaded on-demand - only load them when you need their specific guidance.
+ */
+export interface SkillParams {
+  /** The name of the skill to load */
+  name: string
+}
 
 /**
  * Spawn multiple agents and send a prompt and/or parameters to each of them. These agents will run in parallel. Note that that means they will run independently. If you need to run agents sequentially, use spawn_agents with one agent at a time instead.
