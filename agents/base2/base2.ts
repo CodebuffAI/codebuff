@@ -63,6 +63,7 @@ export function createBase2(
       'propose_write_file',
       !noAskUser && 'ask_user',
       'set_output',
+      'skill',
     ),
     spawnableAgents: buildArray(
       !isMax && 'file-picker',
@@ -232,6 +233,7 @@ ${isDefault || isMax
 
 ${PLACEHOLDER.FILE_TREE_PROMPT_SMALL}
 ${PLACEHOLDER.KNOWLEDGE_FILES_CONTENTS}
+${PLACEHOLDER.SKILLS_PROMPT}
 ${PLACEHOLDER.SYSTEM_INFO_PROMPT}
 
 # Initial Git Changes

@@ -7,6 +7,7 @@ export type AllToolNames =
   | 'add_subgoal'
   | 'browser_logs'
   | 'create_plan'
+  | 'skill'
   | 'spawn_agent_inline'
   | 'update_subgoal'
 
@@ -31,6 +32,7 @@ const placeholderNames = [
   'KNOWLEDGE_FILES_CONTENTS',
   'PROJECT_ROOT',
   'REMAINING_STEPS',
+  'SKILLS_PROMPT',
   'SYSTEM_INFO_PROMPT',
   'TOOLS_PROMPT',
   'USER_CWD',

@@ -1,4 +1,5 @@
 import { KNOWLEDGE_FILE_NAMES_LOWERCASE } from '@codebuff/common/constants/knowledge'
+import { formatSkillsSystemPrompt } from '@codebuff/common/util/skills'
 import { escapeString } from '@codebuff/common/util/string'
 import { z } from 'zod/v4'
 
@@ -131,6 +132,7 @@ export async function formatPrompt(
           return `\`\`\`${path}\n${content.trim()}\n\`\`\``
         })
         .join('\n\n'),
+    [PLACEHOLDER.SKILLS_PROMPT]: () => formatSkillsSystemPrompt(fileContext.skills),
   }
 
   for (const varName of placeholderValues) {
