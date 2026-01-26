@@ -159,8 +159,8 @@ export const SLASHLESS_COMMAND_IDS = new Set(
  */
 export function getSlashCommandsWithSkills(skills: SkillsMap): SlashCommand[] {
   const skillCommands: SlashCommand[] = Object.values(skills).map((skill) => ({
-    id: skill.name,
-    label: skill.name,
+    id: `skill:${skill.name}`,
+    label: `skill:${skill.name}`,
     description: skill.description,
   }))
 

@@ -500,10 +500,13 @@ export function findCommand(cmd: string): CommandDefinition | undefined {
     return staticCommand
   }
 
-  // Check if this is a skill command
-  const skill = getSkillByName(lowerCmd)
-  if (skill) {
-    return createSkillCommand(skill.name)
+  // Check if this is a skill command (prefixed with "skill:")
+  if (lowerCmd.startsWith('skill:')) {
+    const skillName = lowerCmd.slice('skill:'.length)
+    const skill = getSkillByName(skillName)
+    if (skill) {
+      return createSkillCommand(skill.name)
+    }
   }
 
   return undefined
