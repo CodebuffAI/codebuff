@@ -1,7 +1,14 @@
 import { publisher } from './constants'
 
 import type { AgentDefinition, ToolCall } from './types/agent-definition'
-import type { Message, ToolMessage } from './types/util-types'
+import type {
+  FilePart,
+  ImagePart,
+  Message,
+  TextPart,
+  ToolMessage,
+  UserMessage,
+} from './types/util-types'
 
 // =============================================================================
 // Helper Functions (exported for testing)
@@ -682,6 +689,23 @@ const definition: AgentDefinition = {
     // Build the summary
     const summaryParts: string[] = []
 
+    // Find the last user message with images to preserve in the final output
+    // We preserve the most recent user's images since they're likely the most relevant
+    let lastUserImageParts: Array<Record<string, unknown>> = []
+    for (let i = messagesWithoutOldSummaries.length - 1; i >= 0; i--) {
+      const msg = messagesWithoutOldSummaries[i]
+      if (msg.role === 'user' && Array.isArray(msg.content)) {
+        const imageParts = msg.content.filter(
+          (part: Record<string, unknown>) =>
+            part.type === 'image' || part.type === 'media',
+        )
+        if (imageParts.length > 0) {
+          lastUserImageParts = imageParts
+          break
+        }
+      }
+    }
+
     // If there was a previous summary, include it first (no marker needed, already chronological)
     if (previousSummary) {
       summaryParts.push(previousSummary)
@@ -920,21 +944,27 @@ const definition: AgentDefinition = {
     }
 
     // Create the summarized message with fresh sentAt timestamp
+    // Include any images from the last user message that had images
     const now = Date.now()
-    const summarizedMessage: Message = {
-      role: 'user',
-      content: [
-        {
-          type: 'text',
-          text: `<conversation_summary>
+    const textPart: TextPart = {
+      type: 'text',
+      text: `<conversation_summary>
 This is a summary of the conversation so far. The original messages have been condensed to save context space.
 
 ${summaryText}
 </conversation_summary>
 
 Please continue the conversation from here. In particular, try to address the user's latest request detailed in the summary above. You may need to re-gather context (e.g. read some files) to get up to speed and then tackle the user's request.`,
-        },
-      ],
+    }
+    // Build content array with text and any preserved images
+    const summaryContentParts: (TextPart | ImagePart | FilePart)[] = [textPart]
+    // Append image parts (they're already typed correctly from the original message)
+    for (const part of lastUserImageParts) {
+      summaryContentParts.push(part as ImagePart | FilePart)
+    }
+    const summarizedMessage: UserMessage = {
+      role: 'user',
+      content: summaryContentParts,
       sentAt: now,
     }
 
