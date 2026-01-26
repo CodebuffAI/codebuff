@@ -491,7 +491,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
 
 export function findCommand(cmd: string): CommandDefinition | undefined {
   const lowerCmd = cmd.toLowerCase()
-  
+
   // First check the static command registry
   const staticCommand = COMMAND_REGISTRY.find(
     (def) => def.name === lowerCmd || def.aliases.includes(lowerCmd),
@@ -541,9 +541,10 @@ function createSkillCommand(skillName: string): CommandDefinition {
 ${skill.content}
 </skill>`
 
-      const userPrompt = args.trim()
-        ? `${skillContext}\n\nUser request: ${args.trim()}`
-        : `${skillContext}\n\nPlease use this skill to help me.`
+      const userPrompt = `I invoke the following skill:\n\n${skillContext}\n\n`
+        + (args.trim()
+          ? `User request: ${args.trim()}`
+          : '')
 
       // Check streaming/queue state
       if (
