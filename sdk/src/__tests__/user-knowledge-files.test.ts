@@ -1,4 +1,6 @@
-import { describe, it, expect, mock } from 'bun:test'
+import { createMockLogger } from '@codebuff/common/testing/mocks/logger'
+import { createMockFs } from '@codebuff/common/testing/mocks/filesystem'
+import { describe, it, expect } from 'bun:test'
 
 import { loadUserKnowledgeFiles } from '../run-state'
 
@@ -6,17 +8,17 @@ const MOCK_HOME = '/mock/home'
 
 describe('loadUserKnowledgeFiles', () => {
   it('should return empty object when no knowledge files exist', async () => {
-    const mockFs = {
-      readdir: mock(async () => ['.bashrc', '.gitconfig', '.profile']),
-      readFile: mock(async () => {
+    const mockFs = createMockFs({
+      readdirImpl: async () => ['.bashrc', '.gitconfig', '.profile'],
+      readFileImpl: async () => {
         throw new Error('File not found')
-      }),
-    }
-    const mockLogger = { debug: mock(() => {}) }
+      },
+    })
+    const mockLogger = createMockLogger()
 
     const result = await loadUserKnowledgeFiles({
-      fs: mockFs as any,
-      logger: mockLogger as any,
+      fs: mockFs,
+      logger: mockLogger,
       homeDir: MOCK_HOME,
     })
 
@@ -24,20 +26,20 @@ describe('loadUserKnowledgeFiles', () => {
   })
 
   it('should load ~/.knowledge.md when it exists', async () => {
-    const mockFs = {
-      readdir: mock(async () => ['.knowledge.md', '.bashrc']),
-      readFile: mock(async (path: string) => {
+    const mockFs = createMockFs({
+      readdirImpl: async () => ['.knowledge.md', '.bashrc'],
+      readFileImpl: async (path: string) => {
         if (path === '/mock/home/.knowledge.md') {
           return '# My user knowledge'
         }
         throw new Error('File not found')
-      }),
-    }
-    const mockLogger = { debug: mock(() => {}) }
+      },
+    })
+    const mockLogger = createMockLogger()
 
     const result = await loadUserKnowledgeFiles({
-      fs: mockFs as any,
-      logger: mockLogger as any,
+      fs: mockFs,
+      logger: mockLogger,
       homeDir: MOCK_HOME,
     })
 
@@ -45,20 +47,20 @@ describe('loadUserKnowledgeFiles', () => {
   })
 
   it('should load ~/.AGENTS.md when ~/.knowledge.md does not exist', async () => {
-    const mockFs = {
-      readdir: mock(async () => ['.AGENTS.md', '.bashrc']),
-      readFile: mock(async (path: string) => {
+    const mockFs = createMockFs({
+      readdirImpl: async () => ['.AGENTS.md', '.bashrc'],
+      readFileImpl: async (path: string) => {
         if (path === '/mock/home/.AGENTS.md') {
           return '# Agents config'
         }
         throw new Error('File not found')
-      }),
-    }
-    const mockLogger = { debug: mock(() => {}) }
+      },
+    })
+    const mockLogger = createMockLogger()
 
     const result = await loadUserKnowledgeFiles({
-      fs: mockFs as any,
-      logger: mockLogger as any,
+      fs: mockFs,
+      logger: mockLogger,
       homeDir: MOCK_HOME,
     })
 
@@ -66,20 +68,20 @@ describe('loadUserKnowledgeFiles', () => {
   })
 
   it('should load ~/.CLAUDE.md when neither knowledge.md nor AGENTS.md exist', async () => {
-    const mockFs = {
-      readdir: mock(async () => ['.CLAUDE.md', '.bashrc']),
-      readFile: mock(async (path: string) => {
+    const mockFs = createMockFs({
+      readdirImpl: async () => ['.CLAUDE.md', '.bashrc'],
+      readFileImpl: async (path: string) => {
         if (path === '/mock/home/.CLAUDE.md') {
           return '# Claude instructions'
         }
         throw new Error('File not found')
-      }),
-    }
-    const mockLogger = { debug: mock(() => {}) }
+      },
+    })
+    const mockLogger = createMockLogger()
 
     const result = await loadUserKnowledgeFiles({
-      fs: mockFs as any,
-      logger: mockLogger as any,
+      fs: mockFs,
+      logger: mockLogger,
       homeDir: MOCK_HOME,
     })
 
@@ -87,9 +89,9 @@ describe('loadUserKnowledgeFiles', () => {
   })
 
   it('should prefer knowledge.md over AGENTS.md when both exist', async () => {
-    const mockFs = {
-      readdir: mock(async () => ['.AGENTS.md', '.knowledge.md', '.bashrc']),
-      readFile: mock(async (path: string) => {
+    const mockFs = createMockFs({
+      readdirImpl: async () => ['.AGENTS.md', '.knowledge.md', '.bashrc'],
+      readFileImpl: async (path: string) => {
         if (path === '/mock/home/.knowledge.md') {
           return '# Knowledge content'
         }
@@ -97,13 +99,13 @@ describe('loadUserKnowledgeFiles', () => {
           return '# Agents content'
         }
         throw new Error('File not found')
-      }),
-    }
-    const mockLogger = { debug: mock(() => {}) }
+      },
+    })
+    const mockLogger = createMockLogger()
 
     const result = await loadUserKnowledgeFiles({
-      fs: mockFs as any,
-      logger: mockLogger as any,
+      fs: mockFs,
+      logger: mockLogger,
       homeDir: MOCK_HOME,
     })
 
@@ -111,9 +113,9 @@ describe('loadUserKnowledgeFiles', () => {
   })
 
   it('should prefer AGENTS.md over CLAUDE.md when both exist', async () => {
-    const mockFs = {
-      readdir: mock(async () => ['.CLAUDE.md', '.AGENTS.md']),
-      readFile: mock(async (path: string) => {
+    const mockFs = createMockFs({
+      readdirImpl: async () => ['.CLAUDE.md', '.AGENTS.md'],
+      readFileImpl: async (path: string) => {
         if (path === '/mock/home/.AGENTS.md') {
           return '# Agents content'
         }
@@ -121,13 +123,13 @@ describe('loadUserKnowledgeFiles', () => {
           return '# Claude content'
         }
         throw new Error('File not found')
-      }),
-    }
-    const mockLogger = { debug: mock(() => {}) }
+      },
+    })
+    const mockLogger = createMockLogger()
 
     const result = await loadUserKnowledgeFiles({
-      fs: mockFs as any,
-      logger: mockLogger as any,
+      fs: mockFs,
+      logger: mockLogger,
       homeDir: MOCK_HOME,
     })
 
@@ -135,14 +137,14 @@ describe('loadUserKnowledgeFiles', () => {
   })
 
   it('should only return one knowledge file (highest priority)', async () => {
-    const mockFs = {
-      readdir: mock(async () => [
+    const mockFs = createMockFs({
+      readdirImpl: async () => [
         '.knowledge.md',
         '.AGENTS.md',
         '.CLAUDE.md',
         '.bashrc',
-      ]),
-      readFile: mock(async (path: string) => {
+      ],
+      readFileImpl: async (path: string) => {
         if (path === '/mock/home/.knowledge.md') {
           return '# Knowledge'
         }
@@ -153,13 +155,13 @@ describe('loadUserKnowledgeFiles', () => {
           return '# Claude'
         }
         throw new Error('File not found')
-      }),
-    }
-    const mockLogger = { debug: mock(() => {}) }
+      },
+    })
+    const mockLogger = createMockLogger()
 
     const result = await loadUserKnowledgeFiles({
-      fs: mockFs as any,
-      logger: mockLogger as any,
+      fs: mockFs,
+      logger: mockLogger,
       homeDir: MOCK_HOME,
     })
 
@@ -169,20 +171,20 @@ describe('loadUserKnowledgeFiles', () => {
 
   describe('case-insensitive matching', () => {
     it('should find ~/.KNOWLEDGE.md (uppercase) case-insensitively', async () => {
-      const mockFs = {
-        readdir: mock(async () => ['.KNOWLEDGE.md', '.bashrc', '.gitconfig']),
-        readFile: mock(async (path: string) => {
+      const mockFs = createMockFs({
+        readdirImpl: async () => ['.KNOWLEDGE.md', '.bashrc', '.gitconfig'],
+        readFileImpl: async (path: string) => {
           if (path === '/mock/home/.KNOWLEDGE.md') {
             return '# User knowledge (uppercase)'
           }
           throw new Error('File not found')
-        }),
-      }
-      const mockLogger = { debug: mock(() => {}) }
+        },
+      })
+      const mockLogger = createMockLogger()
 
       const result = await loadUserKnowledgeFiles({
-        fs: mockFs as any,
-        logger: mockLogger as any,
+        fs: mockFs,
+        logger: mockLogger,
         homeDir: MOCK_HOME,
       })
 
@@ -191,20 +193,20 @@ describe('loadUserKnowledgeFiles', () => {
     })
 
     it('should find ~/.agents.md (lowercase) case-insensitively', async () => {
-      const mockFs = {
-        readdir: mock(async () => ['.agents.md', '.bashrc']),
-        readFile: mock(async (path: string) => {
+      const mockFs = createMockFs({
+        readdirImpl: async () => ['.agents.md', '.bashrc'],
+        readFileImpl: async (path: string) => {
           if (path === '/mock/home/.agents.md') {
             return '# Agents file (lowercase)'
           }
           throw new Error('File not found')
-        }),
-      }
-      const mockLogger = { debug: mock(() => {}) }
+        },
+      })
+      const mockLogger = createMockLogger()
 
       const result = await loadUserKnowledgeFiles({
-        fs: mockFs as any,
-        logger: mockLogger as any,
+        fs: mockFs,
+        logger: mockLogger,
         homeDir: MOCK_HOME,
       })
 
@@ -213,20 +215,20 @@ describe('loadUserKnowledgeFiles', () => {
     })
 
     it('should find ~/.claude.md (lowercase) case-insensitively', async () => {
-      const mockFs = {
-        readdir: mock(async () => ['.claude.md', '.bashrc']),
-        readFile: mock(async (path: string) => {
+      const mockFs = createMockFs({
+        readdirImpl: async () => ['.claude.md', '.bashrc'],
+        readFileImpl: async (path: string) => {
           if (path === '/mock/home/.claude.md') {
             return '# Claude (lowercase)'
           }
           throw new Error('File not found')
-        }),
-      }
-      const mockLogger = { debug: mock(() => {}) }
+        },
+      })
+      const mockLogger = createMockLogger()
 
       const result = await loadUserKnowledgeFiles({
-        fs: mockFs as any,
-        logger: mockLogger as any,
+        fs: mockFs,
+        logger: mockLogger,
         homeDir: MOCK_HOME,
       })
 
@@ -235,20 +237,20 @@ describe('loadUserKnowledgeFiles', () => {
     })
 
     it('should find ~/.Knowledge.md (mixed case) case-insensitively', async () => {
-      const mockFs = {
-        readdir: mock(async () => ['.Knowledge.md', '.bashrc']),
-        readFile: mock(async (path: string) => {
+      const mockFs = createMockFs({
+        readdirImpl: async () => ['.Knowledge.md', '.bashrc'],
+        readFileImpl: async (path: string) => {
           if (path === '/mock/home/.Knowledge.md') {
             return '# Mixed case'
           }
           throw new Error('File not found')
-        }),
-      }
-      const mockLogger = { debug: mock(() => {}) }
+        },
+      })
+      const mockLogger = createMockLogger()
 
       const result = await loadUserKnowledgeFiles({
-        fs: mockFs as any,
-        logger: mockLogger as any,
+        fs: mockFs,
+        logger: mockLogger,
         homeDir: MOCK_HOME,
       })
 
@@ -257,9 +259,9 @@ describe('loadUserKnowledgeFiles', () => {
     })
 
     it('should prioritize knowledge.md over AGENTS.md regardless of case', async () => {
-      const mockFs = {
-        readdir: mock(async () => ['.AGENTS.md', '.Knowledge.md', '.bashrc']),
-        readFile: mock(async (path: string) => {
+      const mockFs = createMockFs({
+        readdirImpl: async () => ['.AGENTS.md', '.Knowledge.md', '.bashrc'],
+        readFileImpl: async (path: string) => {
           if (path === '/mock/home/.Knowledge.md') {
             return '# Knowledge content'
           }
@@ -267,13 +269,13 @@ describe('loadUserKnowledgeFiles', () => {
             return '# Agents content'
           }
           throw new Error('File not found')
-        }),
-      }
-      const mockLogger = { debug: mock(() => {}) }
+        },
+      })
+      const mockLogger = createMockLogger()
 
       const result = await loadUserKnowledgeFiles({
-        fs: mockFs as any,
-        logger: mockLogger as any,
+        fs: mockFs,
+        logger: mockLogger,
         homeDir: MOCK_HOME,
       })
 
@@ -282,20 +284,20 @@ describe('loadUserKnowledgeFiles', () => {
     })
 
     it('should preserve the original filename case in the key', async () => {
-      const mockFs = {
-        readdir: mock(async () => ['.KNOWLEDGE.MD', '.bashrc']),
-        readFile: mock(async (path: string) => {
+      const mockFs = createMockFs({
+        readdirImpl: async () => ['.KNOWLEDGE.MD', '.bashrc'],
+        readFileImpl: async (path: string) => {
           if (path === '/mock/home/.KNOWLEDGE.MD') {
             return '# All caps'
           }
           throw new Error('File not found')
-        }),
-      }
-      const mockLogger = { debug: mock(() => {}) }
+        },
+      })
+      const mockLogger = createMockLogger()
 
       const result = await loadUserKnowledgeFiles({
-        fs: mockFs as any,
-        logger: mockLogger as any,
+        fs: mockFs,
+        logger: mockLogger,
         homeDir: MOCK_HOME,
       })
 
@@ -306,17 +308,17 @@ describe('loadUserKnowledgeFiles', () => {
 
   describe('error handling', () => {
     it('should handle readdir failure gracefully', async () => {
-      const mockFs = {
-        readdir: mock(async () => {
+      const mockFs = createMockFs({
+        readdirImpl: async () => {
           throw new Error('Permission denied')
-        }),
-        readFile: mock(async () => ''),
-      }
-      const mockLogger = { debug: mock(() => {}) }
+        },
+        readFileImpl: async () => '',
+      })
+      const mockLogger = createMockLogger()
 
       const result = await loadUserKnowledgeFiles({
-        fs: mockFs as any,
-        logger: mockLogger as any,
+        fs: mockFs,
+        logger: mockLogger,
         homeDir: MOCK_HOME,
       })
 
@@ -324,9 +326,9 @@ describe('loadUserKnowledgeFiles', () => {
     })
 
     it('should handle readFile failure gracefully and try next priority', async () => {
-      const mockFs = {
-        readdir: mock(async () => ['.knowledge.md', '.AGENTS.md']),
-        readFile: mock(async (path: string) => {
+      const mockFs = createMockFs({
+        readdirImpl: async () => ['.knowledge.md', '.AGENTS.md'],
+        readFileImpl: async (path: string) => {
           if (path === '/mock/home/.knowledge.md') {
             throw new Error('Read error')
           }
@@ -334,13 +336,13 @@ describe('loadUserKnowledgeFiles', () => {
             return '# Agents fallback'
           }
           throw new Error('File not found')
-        }),
-      }
-      const mockLogger = { debug: mock(() => {}) }
+        },
+      })
+      const mockLogger = createMockLogger()
 
       const result = await loadUserKnowledgeFiles({
-        fs: mockFs as any,
-        logger: mockLogger as any,
+        fs: mockFs,
+        logger: mockLogger,
         homeDir: MOCK_HOME,
       })
 

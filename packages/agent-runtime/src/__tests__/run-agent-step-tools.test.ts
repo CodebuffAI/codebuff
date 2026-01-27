@@ -1,6 +1,7 @@
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import { setupDbSpies } from '@codebuff/common/testing/mocks/database'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import db from '@codebuff/internal/db'
@@ -22,6 +23,7 @@ import { asUserMessage } from '../util/messages'
 import { createToolCallChunk } from './test-utils'
 
 import type { AgentTemplate } from '../templates/types'
+import type { DbSpies } from '@codebuff/common/testing/mocks/database'
 import type {
   AgentRuntimeDeps,
   AgentRuntimeScopedDeps,
@@ -36,6 +38,7 @@ describe('runAgentStep - set_output tool', () => {
     typeof runAgentStep,
     'agentType' | 'prompt' | 'localAgentTemplates' | 'agentState' | 'agentTemplate'
   >
+  let dbSpies: DbSpies
 
   beforeEach(async () => {
     agentRuntimeImpl = { ...TEST_AGENT_RUNTIME_IMPL, sendAction: () => {} }
@@ -58,16 +61,8 @@ describe('runAgentStep - set_output tool', () => {
       stepPrompt: 'Test agent step prompt',
     }
 
-    // Setup spies for database operations
-    spyOn(db, 'insert').mockReturnValue({
-      values: mock(() => Promise.resolve({ id: 'test-run-id' })),
-    } as any)
-
-    spyOn(db, 'update').mockReturnValue({
-      set: mock(() => ({
-        where: mock(() => Promise.resolve()),
-      })),
-    } as any)
+    // Setup spies for database operations using typed helper
+    dbSpies = setupDbSpies(db)
 
     // Mock analytics
     spyOn(analytics, 'trackEvent').mockImplementation(() => {})
@@ -124,6 +119,7 @@ describe('runAgentStep - set_output tool', () => {
   })
 
   afterEach(() => {
+    dbSpies.restore()
     mock.restore()
   })
 

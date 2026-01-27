@@ -245,7 +245,7 @@ export async function processStream(
       } else {
         chunk satisfies never
         throw new Error(
-          `Internal error: unhandled chunk type: ${(chunk as any).type}`,
+          `Internal error: unhandled chunk type: ${(chunk as { type: unknown }).type}`,
         )
       }
       return onResponseChunk(chunk)
@@ -302,7 +302,9 @@ export async function processStream(
       // Tool call handling is done in the processor's onResponseChunk
     } else {
       chunk satisfies never
-      throw new Error(`Unhandled chunk type: ${(chunk as any).type}`)
+      throw new Error(
+        `Unhandled chunk type: ${(chunk as { type: unknown }).type}`,
+      )
     }
   }
 

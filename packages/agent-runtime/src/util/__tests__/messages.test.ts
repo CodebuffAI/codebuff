@@ -25,6 +25,33 @@ import * as tokenCounter from '../token-counter'
 
 import type { CodebuffToolMessage } from '@codebuff/common/tools/list'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { TextPart, ToolCallPart } from '@codebuff/common/types/messages/content-part'
+
+/**
+ * Type guard to check if a content part is a text part.
+ */
+function isTextPart(part: unknown): part is TextPart {
+  return (
+    typeof part === 'object' &&
+    part !== null &&
+    'type' in part &&
+    part.type === 'text' &&
+    'text' in part
+  )
+}
+
+/**
+ * Type guard to check if a content part is a tool-call part.
+ */
+function isToolCallPart(part: unknown): part is ToolCallPart {
+  return (
+    typeof part === 'object' &&
+    part !== null &&
+    'type' in part &&
+    part.type === 'tool-call' &&
+    'toolCallId' in part
+  )
+}
 
 describe('messagesWithSystem', () => {
   it('prepends system message to array', () => {
@@ -44,8 +71,10 @@ describe('buildUserMessageContent', () => {
 
     expect(result).toHaveLength(1)
     expect(result[0].type).toBe('text')
-    expect((result[0] as any).text).toContain('<user_message>')
-    expect((result[0] as any).text).toContain('Hello world')
+    const firstPart = result[0]
+    if (!isTextPart(firstPart)) throw new Error('Expected text part')
+    expect(firstPart.text).toContain('<user_message>')
+    expect(firstPart.text).toContain('Hello world')
   })
 
   it('wraps text content in user_message tags', () => {
@@ -55,8 +84,10 @@ describe('buildUserMessageContent', () => {
 
     expect(result).toHaveLength(1)
     expect(result[0].type).toBe('text')
-    expect((result[0] as any).text).toContain('<user_message>')
-    expect((result[0] as any).text).toContain('Hello from content')
+    const firstPart = result[0]
+    if (!isTextPart(firstPart)) throw new Error('Expected text part')
+    expect(firstPart.text).toContain('<user_message>')
+    expect(firstPart.text).toContain('Hello from content')
   })
 
   it('uses prompt when content has empty text part', () => {
@@ -67,7 +98,9 @@ describe('buildUserMessageContent', () => {
 
     expect(result).toHaveLength(2)
     expect(result[0].type).toBe('text')
-    expect((result[0] as any).text).toContain('See attached image(s)')
+    const firstPart = result[0]
+    if (!isTextPart(firstPart)) throw new Error('Expected text part')
+    expect(firstPart.text).toContain('See attached image(s)')
     expect(result[1].type).toBe('image')
   })
 
@@ -79,7 +112,9 @@ describe('buildUserMessageContent', () => {
 
     expect(result).toHaveLength(2)
     expect(result[0].type).toBe('text')
-    expect((result[0] as any).text).toContain('See attached image(s)')
+    const firstPart = result[0]
+    if (!isTextPart(firstPart)) throw new Error('Expected text part')
+    expect(firstPart.text).toContain('See attached image(s)')
     expect(result[1].type).toBe('image')
   })
 
@@ -90,7 +125,9 @@ describe('buildUserMessageContent', () => {
 
     expect(result).toHaveLength(2)
     expect(result[0].type).toBe('text')
-    expect((result[0] as any).text).toContain('See attached image(s)')
+    const firstPart = result[0]
+    if (!isTextPart(firstPart)) throw new Error('Expected text part')
+    expect(firstPart.text).toContain('See attached image(s)')
     expect(result[1].type).toBe('image')
   })
 
@@ -106,8 +143,10 @@ describe('buildUserMessageContent', () => {
 
     expect(result).toHaveLength(2)
     expect(result[0].type).toBe('text')
-    expect((result[0] as any).text).toContain('User provided text')
-    expect((result[0] as any).text).not.toContain(
+    const firstPart = result[0]
+    if (!isTextPart(firstPart)) throw new Error('Expected text part')
+    expect(firstPart.text).toContain('User provided text')
+    expect(firstPart.text).not.toContain(
       'This prompt should be ignored',
     )
     expect(result[1].type).toBe('image')
@@ -615,7 +654,9 @@ describe('filterUnfinishedToolCalls', () => {
     expect(assistantMsg.content).toHaveLength(2) // text + call-1 (call-2 removed)
     expect(assistantMsg.content[0].type).toBe('text')
     expect(assistantMsg.content[1].type).toBe('tool-call')
-    expect((assistantMsg.content[1] as any).toolCallId).toBe('call-1')
+    const toolCallPart = assistantMsg.content[1]
+    if (!isToolCallPart(toolCallPart)) throw new Error('Expected tool-call part')
+    expect(toolCallPart.toolCallId).toBe('call-1')
   })
 
   it('removes assistant message entirely if all content parts are unfinished tool calls', () => {
@@ -869,14 +910,16 @@ describe('getPreviouslyReadFiles', () => {
   it('handles malformed tool message output gracefully', () => {
     const mockLoggerError = spyOn(logger, 'error').mockImplementation(() => {})
 
-    const messages: Message[] = [
-      {
-        role: 'tool',
-        toolName: 'read_files',
-        toolCallId: 'test-id',
-        content: null, // Invalid output
-      } as any,
-    ]
+    // Use jsonToolResult with non-array data to trigger error handling
+    // The function expects an array of files but we give it an object
+    const malformedMessage: Message = {
+      role: 'tool' as const,
+      toolName: 'read_files',
+      toolCallId: 'test-id',
+      content: jsonToolResult({ unexpectedFormat: true }),
+    }
+
+    const messages: Message[] = [malformedMessage]
 
     const result = getPreviouslyReadFiles({ messages, logger })
     expect(result).toEqual([])

@@ -1,3 +1,4 @@
+import { createMockLogger } from '@codebuff/common/testing/mocks/logger'
 import {
   describe,
   test,
@@ -145,15 +146,10 @@ describe('fetchUsageData', () => {
     globalThis.fetch = mock(
       async () => new Response('Error', { status: 500 }),
     ) as unknown as typeof fetch
-    const mockLogger = {
-      error: mock(() => {}),
-      warn: mock(() => {}),
-      info: mock(() => {}),
-      debug: mock(() => {}),
-    }
+    const mockLogger = createMockLogger()
 
     await expect(
-      fetchUsageData({ authToken: 'test-token', logger: mockLogger as any }),
+      fetchUsageData({ authToken: 'test-token', logger: mockLogger }),
     ).rejects.toThrow('Failed to fetch usage: 500')
   })
 
@@ -161,15 +157,10 @@ describe('fetchUsageData', () => {
     globalThis.fetch = mock(
       async () => new Response('Unauthorized', { status: 401 }),
     ) as unknown as typeof fetch
-    const mockLogger = {
-      error: mock(() => {}),
-      warn: mock(() => {}),
-      info: mock(() => {}),
-      debug: mock(() => {}),
-    }
+    const mockLogger = createMockLogger()
 
     await expect(
-      fetchUsageData({ authToken: 'invalid-token', logger: mockLogger as any }),
+      fetchUsageData({ authToken: 'invalid-token', logger: mockLogger }),
     ).rejects.toThrow('Failed to fetch usage: 401')
   })
 
@@ -177,15 +168,10 @@ describe('fetchUsageData', () => {
     globalThis.fetch = mock(
       async () => new Response('Payment Required', { status: 402 }),
     ) as unknown as typeof fetch
-    const mockLogger = {
-      error: mock(() => {}),
-      warn: mock(() => {}),
-      info: mock(() => {}),
-      debug: mock(() => {}),
-    }
+    const mockLogger = createMockLogger()
 
     await expect(
-      fetchUsageData({ authToken: 'test-token', logger: mockLogger as any }),
+      fetchUsageData({ authToken: 'test-token', logger: mockLogger }),
     ).rejects.toThrow('Failed to fetch usage: 402')
   })
 
@@ -255,19 +241,13 @@ describe('fetchUsageData', () => {
       async () => new Response('Server Error', { status: 503 }),
     ) as unknown as typeof fetch
     
-    const errorMock = mock(() => {})
-    const mockLogger = {
-      error: errorMock,
-      warn: mock(() => {}),
-      info: mock(() => {}),
-      debug: mock(() => {}),
-    }
+    const mockLogger = createMockLogger()
 
     await expect(
-      fetchUsageData({ authToken: 'test-token', logger: mockLogger as any }),
+      fetchUsageData({ authToken: 'test-token', logger: mockLogger }),
     ).rejects.toThrow()
 
-    expect(errorMock).toHaveBeenCalledWith(
+    expect(mockLogger.error).toHaveBeenCalledWith(
       { status: 503 },
       'Failed to fetch usage data from API',
     )

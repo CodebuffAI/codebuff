@@ -1,3 +1,4 @@
+import { createMockTimers } from '@codebuff/common/testing/mocks/timers'
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 
 import {
@@ -9,6 +10,8 @@ import {
   COPY_ICON_COPIED,
 } from '../../components/copy-button'
 import { initializeThemeStore } from '../../hooks/use-theme'
+
+import type { MockTimers } from '@codebuff/common/testing/mocks/timers'
 
 // Initialize theme before tests
 initializeThemeStore()
@@ -101,39 +104,15 @@ describe('CopyButton - exported constants', () => {
 })
 
 describe('CopyButton - copied state reset timing', () => {
-  let originalSetTimeout: typeof setTimeout
-  let originalClearTimeout: typeof clearTimeout
-  let timers: { id: number; ms: number; fn: Function; active: boolean }[]
-  let nextId: number
-
-  const runTimers = () => {
-    for (const t of timers) {
-      if (t.active) t.fn()
-    }
-    timers = []
-  }
+  let mockTimers: MockTimers
 
   beforeEach(() => {
-    timers = []
-    nextId = 1
-    originalSetTimeout = globalThis.setTimeout
-    originalClearTimeout = globalThis.clearTimeout
-
-    globalThis.setTimeout = ((fn: Function, ms?: number) => {
-      const id = nextId++
-      timers.push({ id, ms: Number(ms ?? 0), fn, active: true })
-      return id as any
-    }) as any
-
-    globalThis.clearTimeout = ((id?: any) => {
-      const rec = timers.find((t) => t.id === id)
-      if (rec) rec.active = false
-    }) as any
+    mockTimers = createMockTimers()
+    mockTimers.install()
   })
 
   afterEach(() => {
-    globalThis.setTimeout = originalSetTimeout
-    globalThis.clearTimeout = originalClearTimeout
+    mockTimers.restore()
   })
 
   test('uses the exported COPIED_RESET_DELAY_MS constant (2000ms)', () => {
@@ -150,10 +129,11 @@ describe('CopyButton - copied state reset timing', () => {
 
     handleCopy()
     expect(isCopied).toBe(true)
-    expect(timers.length).toBe(1)
-    expect(timers[0].ms).toBe(COPIED_RESET_DELAY_MS)
+    expect(mockTimers.getPendingCount()).toBe(1)
+    const nextTimer = mockTimers.getNext()
+    expect(nextTimer?.ms).toBe(COPIED_RESET_DELAY_MS)
 
-    runTimers()
+    mockTimers.runAll()
     expect(isCopied).toBe(false)
   })
 
@@ -176,8 +156,7 @@ describe('CopyButton - copied state reset timing', () => {
     handleCopy()
     handleCopy()
 
-    const activeTimers = timers.filter((t) => t.active)
-    expect(activeTimers.length).toBe(1)
+    expect(mockTimers.getPendingCount()).toBe(1)
   })
 })
 

@@ -1,3 +1,9 @@
+import {
+  createMockTreeSitterCaptures,
+  createMockTreeSitterParser,
+  createMockTreeSitterQuery,
+  createMockTree,
+} from '@codebuff/common/testing/mocks/tree-sitter'
 import { describe, it, expect, mock } from 'bun:test'
 import {
   parseTokens,
@@ -11,22 +17,15 @@ import type { LanguageConfig } from '../src/languages-common'
 describe('parse module', () => {
   describe('parseTokens', () => {
     it('should handle valid language config and file content', () => {
-      const mockCaptures = [
-        { name: 'identifier', node: { text: 'hello' } },
-        { name: 'call.identifier', node: { text: 'console' } },
-      ]
+      const mockCaptures = createMockTreeSitterCaptures([
+        { name: 'identifier', text: 'hello' },
+        { name: 'call.identifier', text: 'console' },
+      ])
 
-      const mockTree = {
-        rootNode: { text: 'mock tree' },
-      }
+      const mockTree = createMockTree()
 
-      const mockQuery = {
-        captures: mock(() => mockCaptures),
-      } as any
-
-      const mockParser = {
-        parse: mock(() => mockTree),
-      } as any
+      const mockQuery = createMockTreeSitterQuery({ captures: mockCaptures })
+      const mockParser = createMockTreeSitterParser({ tree: mockTree })
 
       const mockLanguageConfig: LanguageConfig = {
         extensions: ['.ts'],
@@ -55,8 +54,8 @@ describe('parse module', () => {
         extensions: ['.ts'],
         wasmFile: 'tree-sitter-typescript.wasm',
         queryText: 'mock query',
-        parser: mock() as any,
-        query: mock() as any,
+        parser: createMockTreeSitterParser(),
+        query: createMockTreeSitterQuery(),
       }
 
       const result = parseTokens('test.ts', mockLanguageConfig, () => null)
@@ -73,8 +72,8 @@ describe('parse module', () => {
         extensions: ['.ts'],
         wasmFile: 'tree-sitter-typescript.wasm',
         queryText: 'mock query',
-        parser: null as any,
-        query: null as any,
+        parser: null,
+        query: null,
       }
 
       const result = parseTokens(
@@ -95,8 +94,8 @@ describe('parse module', () => {
         extensions: ['.ts'],
         wasmFile: 'tree-sitter-typescript.wasm',
         queryText: 'mock query',
-        parser: mock() as any,
-        query: null as any,
+        parser: createMockTreeSitterParser(),
+        query: null,
       }
 
       const result = parseTokens('test.ts', configWithoutQuery, () => 'content')
@@ -109,10 +108,10 @@ describe('parse module', () => {
     })
 
     it('should count lines correctly', () => {
-      const mockCaptures = [{ name: 'identifier', node: { text: 'test' } }]
-      const mockTree = { rootNode: { text: 'mock tree' } }
-      const mockQuery = { captures: mock(() => mockCaptures) } as any
-      const mockParser = { parse: mock(() => mockTree) } as any
+      const mockCaptures = createMockTreeSitterCaptures([{ name: 'identifier', text: 'test' }])
+      const mockTree = createMockTree()
+      const mockQuery = createMockTreeSitterQuery({ captures: mockCaptures })
+      const mockParser = createMockTreeSitterParser({ tree: mockTree })
 
       const mockLanguageConfig: LanguageConfig = {
         extensions: ['.ts'],
@@ -133,16 +132,16 @@ describe('parse module', () => {
     })
 
     it('should deduplicate identifiers and calls', () => {
-      const mockCaptures = [
-        { name: 'identifier', node: { text: 'hello' } },
-        { name: 'identifier', node: { text: 'hello' } }, // Duplicate
-        { name: 'call.identifier', node: { text: 'console' } },
-        { name: 'call.identifier', node: { text: 'console' } }, // Duplicate
-      ]
+      const mockCaptures = createMockTreeSitterCaptures([
+        { name: 'identifier', text: 'hello' },
+        { name: 'identifier', text: 'hello' }, // Duplicate
+        { name: 'call.identifier', text: 'console' },
+        { name: 'call.identifier', text: 'console' }, // Duplicate
+      ])
 
-      const mockTree = { rootNode: { text: 'mock tree' } }
-      const mockQuery = { captures: mock(() => mockCaptures) } as any
-      const mockParser = { parse: mock(() => mockTree) } as any
+      const mockTree = createMockTree()
+      const mockQuery = createMockTreeSitterQuery({ captures: mockCaptures })
+      const mockParser = createMockTreeSitterParser({ tree: mockTree })
 
       const mockLanguageConfig: LanguageConfig = {
         extensions: ['.ts'],
@@ -159,18 +158,18 @@ describe('parse module', () => {
     })
 
     it('should handle parsing errors gracefully', () => {
-      const mockParser = {
-        parse: mock(() => {
+      const mockParser = createMockTreeSitterParser({
+        parseImpl: () => {
           throw new Error('Parse error')
-        }),
-      } as any
+        },
+      })
 
       const mockLanguageConfig: LanguageConfig = {
         extensions: ['.ts'],
         wasmFile: 'tree-sitter-typescript.wasm',
         queryText: 'mock query',
         parser: mockParser,
-        query: mock() as any,
+        query: createMockTreeSitterQuery(),
       }
 
       const result = parseTokens('test.ts', mockLanguageConfig, () => 'content')
@@ -183,13 +182,13 @@ describe('parse module', () => {
     })
 
     it('should handle query captures errors', () => {
-      const mockTree = { rootNode: { text: 'mock tree' } }
-      const mockQuery = {
-        captures: mock(() => {
+      const mockTree = createMockTree()
+      const mockQuery = createMockTreeSitterQuery({
+        capturesImpl: () => {
           throw new Error('Query error')
-        }),
-      } as any
-      const mockParser = { parse: mock(() => mockTree) } as any
+        },
+      })
+      const mockParser = createMockTreeSitterParser({ tree: mockTree })
 
       const mockLanguageConfig: LanguageConfig = {
         extensions: ['.ts'],
@@ -209,10 +208,10 @@ describe('parse module', () => {
     })
 
     it('should handle empty capture results', () => {
-      const mockCaptures: any[] = [] // Empty captures
-      const mockTree = { rootNode: { text: 'mock tree' } }
-      const mockQuery = { captures: mock(() => mockCaptures) } as any
-      const mockParser = { parse: mock(() => mockTree) } as any
+      const mockCaptures = createMockTreeSitterCaptures([]) // Empty captures
+      const mockTree = createMockTree()
+      const mockQuery = createMockTreeSitterQuery({ captures: mockCaptures })
+      const mockParser = createMockTreeSitterParser({ tree: mockTree })
 
       const mockLanguageConfig: LanguageConfig = {
         extensions: ['.ts'],
@@ -229,11 +228,11 @@ describe('parse module', () => {
     })
 
     it('should handle captures with missing properties', () => {
-      const mockCaptures = [{ name: 'unknown.type', node: { text: 'test' } }]
+      const mockCaptures = createMockTreeSitterCaptures([{ name: 'unknown.type', text: 'test' }])
 
-      const mockTree = { rootNode: { text: 'mock tree' } }
-      const mockQuery = { captures: mock(() => mockCaptures) } as any
-      const mockParser = { parse: mock(() => mockTree) } as any
+      const mockTree = createMockTree()
+      const mockQuery = createMockTreeSitterQuery({ captures: mockCaptures })
+      const mockParser = createMockTreeSitterParser({ tree: mockTree })
 
       const mockLanguageConfig: LanguageConfig = {
         extensions: ['.ts'],
@@ -250,14 +249,14 @@ describe('parse module', () => {
     })
 
     it('should handle null tree from parser', () => {
-      const mockParser = { parse: mock(() => null) } as any
+      const mockParser = createMockTreeSitterParser({ tree: null })
 
       const mockLanguageConfig: LanguageConfig = {
         extensions: ['.ts'],
         wasmFile: 'tree-sitter-typescript.wasm',
         queryText: 'mock query',
         parser: mockParser,
-        query: mock() as any,
+        query: createMockTreeSitterQuery(),
       }
 
       const result = parseTokens('test.ts', mockLanguageConfig, () => 'content')
@@ -309,16 +308,16 @@ describe('parse module', () => {
 
   describe('parseFile internal logic', () => {
     it('should extract identifiers and calls from captures', () => {
-      const mockCaptures = [
-        { name: 'identifier', node: { text: 'myFunction' } },
-        { name: 'identifier', node: { text: 'myVariable' } },
-        { name: 'call.identifier', node: { text: 'console' } },
-        { name: 'call.identifier', node: { text: 'log' } },
-      ]
+      const mockCaptures = createMockTreeSitterCaptures([
+        { name: 'identifier', text: 'myFunction' },
+        { name: 'identifier', text: 'myVariable' },
+        { name: 'call.identifier', text: 'console' },
+        { name: 'call.identifier', text: 'log' },
+      ])
 
-      const mockTree = { rootNode: { text: 'mock tree' } }
-      const mockQuery = { captures: mock(() => mockCaptures) } as any
-      const mockParser = { parse: mock(() => mockTree) } as any
+      const mockTree = createMockTree()
+      const mockQuery = createMockTreeSitterQuery({ captures: mockCaptures })
+      const mockParser = createMockTreeSitterParser({ tree: mockTree })
 
       const mockLanguageConfig: LanguageConfig = {
         extensions: ['.ts'],
@@ -339,16 +338,16 @@ describe('parse module', () => {
     })
 
     it('should handle mixed capture types', () => {
-      const mockCaptures = [
-        { name: 'identifier', node: { text: 'myFunction' } },
-        { name: 'some.other.type', node: { text: 'ignored' } },
-        { name: 'call.identifier', node: { text: 'console' } },
-        { name: 'another.type', node: { text: 'alsoIgnored' } },
-      ]
+      const mockCaptures = createMockTreeSitterCaptures([
+        { name: 'identifier', text: 'myFunction' },
+        { name: 'some.other.type', text: 'ignored' },
+        { name: 'call.identifier', text: 'console' },
+        { name: 'another.type', text: 'alsoIgnored' },
+      ])
 
-      const mockTree = { rootNode: { text: 'mock tree' } }
-      const mockQuery = { captures: mock(() => mockCaptures) } as any
-      const mockParser = { parse: mock(() => mockTree) } as any
+      const mockTree = createMockTree()
+      const mockQuery = createMockTreeSitterQuery({ captures: mockCaptures })
+      const mockParser = createMockTreeSitterParser({ tree: mockTree })
 
       const mockLanguageConfig: LanguageConfig = {
         extensions: ['.ts'],
@@ -397,39 +396,39 @@ console.log('Product:', product);
       `.trim()
 
       // Create a realistic mock of tree-sitter captures based on TypeScript AST
-      const realisticCaptures = [
+      const realisticCaptures = createMockTreeSitterCaptures([
         // Function identifiers
-        { name: 'identifier', node: { text: 'calculateSum' } },
-        { name: 'identifier', node: { text: 'a' } },
-        { name: 'identifier', node: { text: 'b' } },
-        { name: 'identifier', node: { text: 'result' } },
+        { name: 'identifier', text: 'calculateSum' },
+        { name: 'identifier', text: 'a' },
+        { name: 'identifier', text: 'b' },
+        { name: 'identifier', text: 'result' },
 
         // Class and method identifiers
-        { name: 'identifier', node: { text: 'Calculator' } },
-        { name: 'identifier', node: { text: 'multiply' } },
-        { name: 'identifier', node: { text: 'x' } },
-        { name: 'identifier', node: { text: 'y' } },
-        { name: 'identifier', node: { text: 'divide' } },
+        { name: 'identifier', text: 'Calculator' },
+        { name: 'identifier', text: 'multiply' },
+        { name: 'identifier', text: 'x' },
+        { name: 'identifier', text: 'y' },
+        { name: 'identifier', text: 'divide' },
 
         // Variable identifiers
-        { name: 'identifier', node: { text: 'calc' } },
-        { name: 'identifier', node: { text: 'product' } },
+        { name: 'identifier', text: 'calc' },
+        { name: 'identifier', text: 'product' },
 
         // Function/method calls
-        { name: 'call.identifier', node: { text: 'console' } },
-        { name: 'call.identifier', node: { text: 'log' } },
-        { name: 'call.identifier', node: { text: 'Error' } },
-        { name: 'call.identifier', node: { text: 'Calculator' } },
-        { name: 'call.identifier', node: { text: 'multiply' } },
+        { name: 'call.identifier', text: 'console' },
+        { name: 'call.identifier', text: 'log' },
+        { name: 'call.identifier', text: 'Error' },
+        { name: 'call.identifier', text: 'Calculator' },
+        { name: 'call.identifier', text: 'multiply' },
 
         // Some other AST nodes that shouldn't be captured
-        { name: 'type_identifier', node: { text: 'number' } },
-        { name: 'string', node: { text: '"Sum calculated:"' } },
-      ]
+        { name: 'type_identifier', text: 'number' },
+        { name: 'string', text: '"Sum calculated:"' },
+      ])
 
-      const mockTree = { rootNode: { text: 'mock tree' } }
-      const mockQuery = { captures: mock(() => realisticCaptures) } as any
-      const mockParser = { parse: mock(() => mockTree) } as any
+      const mockTree = createMockTree()
+      const mockQuery = createMockTreeSitterQuery({ captures: realisticCaptures })
+      const mockParser = createMockTreeSitterParser({ tree: mockTree })
 
       const mockLanguageConfig: LanguageConfig = {
         extensions: ['.ts'],
@@ -496,26 +495,26 @@ users.forEach(user => {
 });
       `.trim()
 
-      const realisticCaptures = [
+      const realisticCaptures = createMockTreeSitterCaptures([
         // Function identifiers
-        { name: 'identifier', node: { text: 'greetUser' } },
-        { name: 'identifier', node: { text: 'name' } },
-        { name: 'identifier', node: { text: 'greeting' } },
-        { name: 'identifier', node: { text: 'users' } },
-        { name: 'identifier', node: { text: 'user' } },
+        { name: 'identifier', text: 'greetUser' },
+        { name: 'identifier', text: 'name' },
+        { name: 'identifier', text: 'greeting' },
+        { name: 'identifier', text: 'users' },
+        { name: 'identifier', text: 'user' },
 
         // Function/method calls
-        { name: 'call.identifier', node: { text: 'getElementById' } },
-        { name: 'call.identifier', node: { text: 'forEach' } },
-        { name: 'call.identifier', node: { text: 'greetUser' } },
+        { name: 'call.identifier', text: 'getElementById' },
+        { name: 'call.identifier', text: 'forEach' },
+        { name: 'call.identifier', text: 'greetUser' },
 
         // Property access
-        { name: 'call.identifier', node: { text: 'document' } },
-      ]
+        { name: 'call.identifier', text: 'document' },
+      ])
 
-      const mockTree = { rootNode: { text: 'mock tree' } }
-      const mockQuery = { captures: mock(() => realisticCaptures) } as any
-      const mockParser = { parse: mock(() => mockTree) } as any
+      const mockTree = createMockTree()
+      const mockQuery = createMockTreeSitterQuery({ captures: realisticCaptures })
+      const mockParser = createMockTreeSitterParser({ tree: mockTree })
 
       const mockLanguageConfig: LanguageConfig = {
         extensions: ['.js'],

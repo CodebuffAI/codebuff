@@ -247,8 +247,9 @@ export function trimMessagesToFitTokenLimit(params: {
       shortenedMessages.push(terminalResultMessage)
     } else {
       m satisfies never
-      const mAny = m as any
-      throw new AssertionError({ message: `Not a valid role: ${mAny.role}` })
+      throw new AssertionError({
+        message: `Not a valid role: ${(m as { role: unknown }).role}`,
+      })
     }
   }
   shortenedMessages.reverse()

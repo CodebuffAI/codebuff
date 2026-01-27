@@ -10,6 +10,29 @@ import {
   type ToolMessage,
   type JSONValue,
 } from '@codebuff/sdk'
+
+import type { ToolCallPart } from '@codebuff/common/types/messages/content-part'
+
+/**
+ * Type guard to check if a content part is a tool-call part with toolCallId.
+ */
+function isToolCallPart(part: unknown): part is ToolCallPart {
+  return (
+    typeof part === 'object' &&
+    part !== null &&
+    'type' in part &&
+    part.type === 'tool-call' &&
+    'toolCallId' in part &&
+    typeof (part as ToolCallPart).toolCallId === 'string'
+  )
+}
+
+/**
+ * Type guard to check if a message is a tool message with toolCallId.
+ */
+function isToolMessageWithId(msg: Message): msg is ToolMessage & { toolCallId: string } {
+  return msg.role === 'tool' && 'toolCallId' in msg && typeof msg.toolCallId === 'string'
+}
 /**
  * Integration tests for the context-pruner agent.
  * These tests verify that context-pruner correctly prunes message history
@@ -154,8 +177,8 @@ Do not do anything else. Just spawn context-pruner and then report the result.`,
       for (const msg of finalMessages) {
         if (msg.role === 'assistant' && Array.isArray(msg.content)) {
           for (const part of msg.content) {
-            if (part.type === 'tool-call' && (part as any).toolCallId) {
-              toolCallIds.add((part as any).toolCallId)
+            if (isToolCallPart(part)) {
+              toolCallIds.add(part.toolCallId)
             }
           }
         }
@@ -164,8 +187,8 @@ Do not do anything else. Just spawn context-pruner and then report the result.`,
       // Extract all tool result IDs
       const toolResultIds = new Set<string>()
       for (const msg of finalMessages) {
-        if (msg.role === 'tool' && (msg as any).toolCallId) {
-          toolResultIds.add((msg as any).toolCallId)
+        if (isToolMessageWithId(msg)) {
+          toolResultIds.add(msg.toolCallId)
         }
       }
 
@@ -280,13 +303,13 @@ Do not do anything else. Just spawn context-pruner and then report the result.`,
       for (const msg of finalMessages) {
         if (msg.role === 'assistant' && Array.isArray(msg.content)) {
           for (const part of msg.content) {
-            if (part.type === 'tool-call' && (part as any).toolCallId) {
-              toolCallIds.add((part as any).toolCallId)
+            if (isToolCallPart(part)) {
+              toolCallIds.add(part.toolCallId)
             }
           }
         }
-        if (msg.role === 'tool' && (msg as any).toolCallId) {
-          toolResultIds.add((msg as any).toolCallId)
+        if (isToolMessageWithId(msg)) {
+          toolResultIds.add(msg.toolCallId)
         }
       }
 

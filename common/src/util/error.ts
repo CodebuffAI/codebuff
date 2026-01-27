@@ -33,29 +33,37 @@ export function success<T>(value: T): Success<T> {
   }
 }
 
-export function failure(error: any): Failure<ErrorObject> {
+export function failure(error: unknown): Failure<ErrorObject> {
   return {
     success: false,
     error: getErrorObject(error),
   }
 }
 
+// Extended error properties that various libraries add to Error objects
+interface ExtendedErrorProperties {
+  status?: number
+  statusCode?: number
+  code?: string
+}
+
 export function getErrorObject(
-  error: any,
+  error: unknown,
   options: { includeRawError?: boolean } = {},
 ): ErrorObject {
   if (error instanceof Error) {
-    const anyError = error as any
+    const extError = error as Error & Partial<ExtendedErrorProperties>
     return {
       name: error.name,
       message: error.message,
       stack: error.stack,
-      status: typeof anyError.status === 'number' ? anyError.status : undefined,
+      status:
+        typeof extError.status === 'number' ? extError.status : undefined,
       statusCode:
-        typeof anyError.statusCode === 'number'
-          ? anyError.statusCode
+        typeof extError.statusCode === 'number'
+          ? extError.statusCode
           : undefined,
-      code: typeof anyError.code === 'string' ? anyError.code : undefined,
+      code: typeof extError.code === 'string' ? extError.code : undefined,
       rawError: options.includeRawError
         ? JSON.stringify(error, null, 2)
         : undefined,
