@@ -37,7 +37,11 @@ export const UserContentWithCopyButton = memo(
 
     const hasContent = normalizedContent.length > 0
 
-    if (!showCopyButton || !hasContent) {
+    if (!hasContent) {
+      return null
+    }
+
+    if (!showCopyButton) {
       return (
         <text
           key={`message-content-${messageId}`}

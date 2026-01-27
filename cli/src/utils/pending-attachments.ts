@@ -1,7 +1,6 @@
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 
-import { showClipboardMessage } from './clipboard'
 import { processImageFile, resolveFilePath, isImageFile } from './image-handler'
 import {
   useChatStore,
@@ -82,10 +81,9 @@ export async function addPendingImageFromFile(
     }),
   }))
 
-  // Exit image mode and show status message after successfully adding an image
+  // Exit image mode after successfully processing an image
   if (result.success) {
     exitImageModeIfActive()
-    showClipboardMessage(`🖼️ Attached ${filename}`, { durationMs: 5000 })
   }
 }
 

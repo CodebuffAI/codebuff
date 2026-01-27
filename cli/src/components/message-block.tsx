@@ -76,7 +76,6 @@ const MessageAttachments = memo(({
         flexDirection: 'row',
         gap: 1,
         flexWrap: 'wrap',
-        marginTop: 1,
       }}
     >
       {imageAttachments.map((attachment) => (
@@ -255,53 +254,55 @@ export const MessageBlock = memo(({
           </box>
         )}
 
-      {blocks ? (
-        <box
-          style={{
-            flexDirection: 'column',
-            gap: 0,
-            width: '100%',
-            paddingTop: 0,
-          }}
-        >
-          <BlocksRenderer
-            sourceBlocks={blocks}
+      <box style={{ flexDirection: 'column', gap: 1, width: '100%' }}>
+        {blocks ? (
+          <box
+            style={{
+              flexDirection: 'column',
+              gap: 0,
+              width: '100%',
+              paddingTop: 0,
+            }}
+          >
+            <BlocksRenderer
+              sourceBlocks={blocks}
+              messageId={messageId}
+              isLoading={isLoading}
+              isComplete={isComplete}
+              isUser={isUser}
+              textColor={resolvedTextColor}
+              availableWidth={availableWidth}
+              markdownPalette={markdownPalette}
+              onToggleCollapsed={onToggleCollapsed}
+              onBuildFast={onBuildFast}
+              onBuildMax={onBuildMax}
+              isLastMessage={isLastMessage}
+              contentToCopy={isUser ? content : undefined}
+            />
+          </box>
+        ) : (
+          <UserContentWithCopyButton
+            content={content}
             messageId={messageId}
             isLoading={isLoading}
             isComplete={isComplete}
             isUser={isUser}
             textColor={resolvedTextColor}
-            availableWidth={availableWidth}
-            markdownPalette={markdownPalette}
-            onToggleCollapsed={onToggleCollapsed}
-            onBuildFast={onBuildFast}
-            onBuildMax={onBuildMax}
-            isLastMessage={isLastMessage}
-            contentToCopy={isUser ? content : undefined}
-          />
-        </box>
-      ) : (
-        <UserContentWithCopyButton
-          content={content}
-          messageId={messageId}
-          isLoading={isLoading}
-          isComplete={isComplete}
-          isUser={isUser}
-          textColor={resolvedTextColor}
-          codeBlockWidth={markdownOptions.codeBlockWidth}
-          palette={markdownOptions.palette}
-          showCopyButton={isUser}
-        />
-      )}
-      {/* Show attachments for user messages */}
-      {isUser &&
-        ((attachments && attachments.length > 0) ||
-          (textAttachments && textAttachments.length > 0)) && (
-          <MessageAttachments
-            imageAttachments={attachments ?? []}
-            textAttachments={textAttachments ?? []}
+            codeBlockWidth={markdownOptions.codeBlockWidth}
+            palette={markdownOptions.palette}
+            showCopyButton={isUser}
           />
         )}
+        {/* Show attachments for user messages */}
+        {isUser &&
+          ((attachments && attachments.length > 0) ||
+            (textAttachments && textAttachments.length > 0)) && (
+            <MessageAttachments
+              imageAttachments={attachments ?? []}
+              textAttachments={textAttachments ?? []}
+            />
+          )}
+      </box>
 
       {/* Display runtime error banner for AI messages */}
       {isAi && userError && <UserErrorBanner error={userError} />}
