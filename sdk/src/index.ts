@@ -85,4 +85,11 @@ export {
   promptAiSdkStream,
   promptAiSdkStructured,
 } from './impl/llm'
-export { resetClaudeOAuthRateLimit } from './impl/model-provider'
+export { resetClaudeOAuthRateLimit, resetCodexOAuthRateLimit } from './impl/model-provider'
+export {
+  getCodexOAuthCredentials,
+  saveCodexOAuthCredentials,
+  clearCodexOAuthCredentials,
+  isCodexOAuthValid,
+  type CodexOAuthCredentials,
+} from './credentials'

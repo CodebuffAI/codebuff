@@ -127,6 +127,11 @@ export enum AnalyticsEvent {
   CLAUDE_OAUTH_RATE_LIMITED = 'sdk.claude_oauth_rate_limited',
   CLAUDE_OAUTH_AUTH_ERROR = 'sdk.claude_oauth_auth_error',
 
+  // Codex OAuth
+  CODEX_OAUTH_REQUEST = 'sdk.codex_oauth_request',
+  CODEX_OAUTH_RATE_LIMITED = 'sdk.codex_oauth_rate_limited',
+  CODEX_OAUTH_AUTH_ERROR = 'sdk.codex_oauth_auth_error',
+
   // Common
   FLUSH_FAILED = 'common.flush_failed',
 

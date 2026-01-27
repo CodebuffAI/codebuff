@@ -1,6 +1,7 @@
 import React from 'react'
 
 import { ClaudeConnectBanner } from './claude-connect-banner'
+import { CodexConnectBanner } from './codex-connect-banner'
 import { HelpBanner } from './help-banner'
 import { PendingAttachmentsBanner } from './pending-attachments-banner'
 import { ReferralBanner } from './referral-banner'
@@ -26,6 +27,7 @@ const BANNER_REGISTRY: Record<
   referral: () => <ReferralBanner />,
   help: () => <HelpBanner />,
   'connect:claude': () => <ClaudeConnectBanner />,
+  'connect:codex': () => <CodexConnectBanner />,
 }
 
 /**

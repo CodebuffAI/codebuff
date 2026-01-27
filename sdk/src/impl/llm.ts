@@ -16,7 +16,7 @@ import {
 } from 'ai'
 
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { getModelForRequest, markClaudeOAuthRateLimited, fetchClaudeOAuthResetTime } from './model-provider'
+import { getModelForRequest, markClaudeOAuthRateLimited, markCodexOAuthRateLimited, fetchClaudeOAuthResetTime } from './model-provider'
 import { getValidClaudeOAuthCredentials } from '../credentials'
 import { getErrorStatusCode } from '../error-utils'
 
@@ -181,10 +181,79 @@ function isClaudeOAuthAuthError(error: unknown): boolean {
   return false
 }
 
+/**
+ * Check if an error is a Codex OAuth rate limit error that should trigger fallback.
+ */
+function isCodexOAuthRateLimitError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+
+  // Check status code
+  const statusCode = getErrorStatusCode(error)
+  if (statusCode === 429) return true
+
+  // Check error message for rate limit indicators
+  const err = error as {
+    message?: string
+    responseBody?: string
+  }
+  const message = (err.message || '').toLowerCase()
+  const responseBody = (err.responseBody || '').toLowerCase()
+
+  if (message.includes('rate_limit') || message.includes('rate limit'))
+    return true
+  if (message.includes('overloaded') || message.includes('capacity'))
+    return true
+  if (
+    responseBody.includes('rate_limit') ||
+    responseBody.includes('overloaded')
+  )
+    return true
+
+  return false
+}
+
+/**
+ * Check if an error is a Codex OAuth authentication error (expired/invalid token).
+ */
+function isCodexOAuthAuthError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+
+  // Check status code
+  const statusCode = getErrorStatusCode(error)
+  if (statusCode === 401 || statusCode === 403) return true
+
+  // Check error message for auth indicators
+  const err = error as {
+    message?: string
+    responseBody?: string
+  }
+  const message = (err.message || '').toLowerCase()
+  const responseBody = (err.responseBody || '').toLowerCase()
+
+  if (message.includes('unauthorized') || message.includes('invalid_token'))
+    return true
+  if (message.includes('authentication') || message.includes('expired'))
+    return true
+  if (
+    responseBody.includes('unauthorized') ||
+    responseBody.includes('invalid_token')
+  )
+    return true
+  if (
+    responseBody.includes('authentication') ||
+    responseBody.includes('expired')
+  )
+    return true
+
+  return false
+}
+
 export async function* promptAiSdkStream(
   params: ParamsOf<PromptAiSdkStreamFn> & {
     skipClaudeOAuth?: boolean
+    skipCodexOAuth?: boolean
     onClaudeOAuthStatusChange?: (isActive: boolean) => void
+    onCodexOAuthStatusChange?: (isActive: boolean) => void
   },
 ): ReturnType<PromptAiSdkStreamFn> {
   const { logger, trackEvent, userId, userInputId, model: requestedModel } = params
@@ -206,8 +275,9 @@ export async function* promptAiSdkStream(
     apiKey: params.apiKey,
     model: params.model,
     skipClaudeOAuth: params.skipClaudeOAuth,
+    skipCodexOAuth: params.skipCodexOAuth,
   }
-  const { model: aiSDKModel, isClaudeOAuth } = await getModelForRequest(modelParams)
+  const { model: aiSDKModel, isClaudeOAuth, isCodexOAuth } = await getModelForRequest(modelParams)
 
   // Track and notify about Claude OAuth usage
   if (isClaudeOAuth) {
@@ -225,14 +295,30 @@ export async function* promptAiSdkStream(
     }
   }
 
+  // Track and notify about Codex OAuth usage
+  if (isCodexOAuth) {
+    trackEvent({
+      event: AnalyticsEvent.CODEX_OAUTH_REQUEST,
+      userId: userId ?? '',
+      properties: {
+        model: requestedModel,
+        userInputId,
+      },
+      logger,
+    })
+    if (params.onCodexOAuthStatusChange) {
+      params.onCodexOAuthStatusChange(true)
+    }
+  }
+
   const response = streamText({
     ...params,
     prompt: undefined,
     model: aiSDKModel,
     messages: convertCbToModelMessages(params),
-    // When using Claude OAuth, disable retries so we can immediately fall back to Codebuff
+    // When using OAuth, disable retries so we can immediately fall back to Codebuff
     // backend on rate limit errors instead of retrying 4 times first
-    ...(isClaudeOAuth && { maxRetries: 0 }),
+    ...((isClaudeOAuth || isCodexOAuth) && { maxRetries: 0 }),
     providerOptions: getProviderOptions({
       ...params,
       agentProviderOptions: params.agentProviderOptions,
@@ -478,6 +564,72 @@ export async function* promptAiSdkStream(
         return fallbackResult
       }
 
+      // Check if this is a Codex OAuth rate limit error - only fall back if no content yielded yet
+      if (
+        isCodexOAuth &&
+        !params.skipCodexOAuth &&
+        !hasYieldedContent &&
+        isCodexOAuthRateLimitError(chunkValue.error)
+      ) {
+        logger.info(
+          { error: getErrorObject(chunkValue.error) },
+          'Codex OAuth rate limited during stream, falling back to Codebuff backend',
+        )
+        // Track the rate limit event
+        trackEvent({
+          event: AnalyticsEvent.CODEX_OAUTH_RATE_LIMITED,
+          userId: userId ?? '',
+          properties: {
+            model: requestedModel,
+            userInputId,
+          },
+          logger,
+        })
+        // Mark as rate-limited so subsequent requests skip Codex OAuth
+        markCodexOAuthRateLimited()
+        if (params.onCodexOAuthStatusChange) {
+          params.onCodexOAuthStatusChange(false)
+        }
+        // Retry with Codebuff backend
+        const fallbackResult = yield* promptAiSdkStream({
+          ...params,
+          skipCodexOAuth: true,
+        })
+        return fallbackResult
+      }
+
+      // Check if this is a Codex OAuth authentication error (expired token) - only fall back if no content yielded yet
+      if (
+        isCodexOAuth &&
+        !params.skipCodexOAuth &&
+        !hasYieldedContent &&
+        isCodexOAuthAuthError(chunkValue.error)
+      ) {
+        logger.info(
+          { error: getErrorObject(chunkValue.error) },
+          'Codex OAuth auth error during stream, falling back to Codebuff backend',
+        )
+        // Track the auth error event
+        trackEvent({
+          event: AnalyticsEvent.CODEX_OAUTH_AUTH_ERROR,
+          userId: userId ?? '',
+          properties: {
+            model: requestedModel,
+            userInputId,
+          },
+          logger,
+        })
+        if (params.onCodexOAuthStatusChange) {
+          params.onCodexOAuthStatusChange(false)
+        }
+        // Retry with Codebuff backend (skipCodexOAuth will bypass the failed OAuth)
+        const fallbackResult = yield* promptAiSdkStream({
+          ...params,
+          skipCodexOAuth: true,
+        })
+        return fallbackResult
+      }
+
       logger.error(
         {
           chunk: { ...chunkValue, error: undefined },
@@ -549,8 +701,8 @@ export async function* promptAiSdkStream(
   const responseValue = await response.response
   const messageId = responseValue.id
 
-  // Skip cost tracking for Claude OAuth (user is on their own subscription)
-  if (!isClaudeOAuth) {
+  // Skip cost tracking for OAuth (user is on their own subscription)
+  if (!isClaudeOAuth && !isCodexOAuth) {
     const providerMetadataResult = await response.providerMetadata
     const providerMetadata = providerMetadataResult ?? {}
 

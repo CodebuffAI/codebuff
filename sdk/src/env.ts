@@ -8,6 +8,7 @@
 import { getBaseEnv } from '@codebuff/common/env-process'
 import { BYOK_OPENROUTER_ENV_VAR } from '@codebuff/common/constants/byok'
 import { CLAUDE_OAUTH_TOKEN_ENV_VAR } from '@codebuff/common/constants/claude-oauth'
+import { CODEX_OAUTH_TOKEN_ENV_VAR } from '@codebuff/common/constants/codex-oauth'
 import { API_KEY_ENV_VAR } from '@codebuff/common/constants/paths'
 
 import type { SdkEnv } from './types/env'
@@ -48,4 +49,12 @@ export const getByokOpenrouterApiKeyFromEnv = (): string | undefined => {
  */
 export const getClaudeOAuthTokenFromEnv = (): string | undefined => {
   return process.env[CLAUDE_OAUTH_TOKEN_ENV_VAR]
+}
+
+/**
+ * Get Codex OAuth token from environment variable.
+ * This allows users to provide their ChatGPT Plus/Pro OAuth token for direct OpenAI API access.
+ */
+export const getCodexOAuthTokenFromEnv = (): string | undefined => {
+  return process.env[CODEX_OAUTH_TOKEN_ENV_VAR]
 }

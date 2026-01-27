@@ -16,6 +16,7 @@ import {
   parseCommandInput,
 } from './router-utils'
 import { handleClaudeAuthCode } from '../components/claude-connect-banner'
+import { handleCodexAuthCode } from '../components/codex-connect-banner'
 import { getProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
 import {
@@ -344,6 +345,23 @@ export async function routeUserPrompt(
     const code = trimmed
     if (code) {
       const result = await handleClaudeAuthCode(code)
+      setMessages((prev) => [
+        ...prev,
+        getUserMessage(trimmed),
+        getSystemMessage(result.message),
+      ])
+    }
+    saveToHistory(trimmed)
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+    setInputMode('default')
+    return
+  }
+
+  // Handle connect:codex mode input (authorization code)
+  if (inputMode === 'connect:codex') {
+    const code = trimmed
+    if (code) {
+      const result = await handleCodexAuthCode(code)
       setMessages((prev) => [
         ...prev,
         getUserMessage(trimmed),

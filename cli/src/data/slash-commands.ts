@@ -41,6 +41,12 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     aliases: ['claude'],
   },
   {
+    id: 'connect:codex',
+    label: 'connect:codex',
+    description: 'Connect your ChatGPT Plus/Pro subscription',
+    aliases: ['codex', 'openai'],
+  },
+  {
     id: 'ads:enable',
     label: 'ads:enable',
     description: 'Enable contextual ads and earn credits',

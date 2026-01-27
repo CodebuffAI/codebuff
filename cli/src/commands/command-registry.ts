@@ -479,6 +479,16 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     },
   }),
   defineCommand({
+    name: 'connect:codex',
+    aliases: ['codex', 'openai'],
+    handler: (params) => {
+      // Enter connect:codex mode to show the OAuth banner
+      useChatStore.getState().setInputMode('connect:codex')
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  defineCommand({
     name: 'history',
     aliases: ['chats'],
     handler: (params) => {
