@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 
+import { execSync } from 'child_process'
 import { writeFileSync, mkdirSync } from 'fs'
 import { join, dirname } from 'path'
-import { execSync } from 'child_process'
 
 import { compileToolDefinitions } from '@codebuff/common/tools/compile-tool-definitions'
 

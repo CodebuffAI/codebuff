@@ -1,5 +1,6 @@
 'use client'
 
+import { pluralize } from '@codebuff/common/util/string'
 import {
   Activity,
   AlertTriangle,
@@ -13,7 +14,6 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
-import { pluralize } from '@codebuff/common/util/string'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

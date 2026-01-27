@@ -1,9 +1,10 @@
+import * as mainPromptModule from '@codebuff/agent-runtime/main-prompt'
+import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 
-import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import { CodebuffClient } from '../client'
 import * as databaseModule from '../impl/database'
-import * as mainPromptModule from '@codebuff/agent-runtime/main-prompt'
+
 
 describe('Prompt Caching', () => {
   afterEach(() => {

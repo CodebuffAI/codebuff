@@ -1,6 +1,7 @@
-import type { SecretAgentDefinition } from '../types/secret-agent-definition'
-import type { ToolCall } from '../types/agent-definition'
 import { publisher } from '../constants'
+
+import type { ToolCall } from '../types/agent-definition'
+import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
   id: 'researcher-web',

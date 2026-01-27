@@ -6,6 +6,12 @@ import { Calendar } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
+import { AgentUsageMetrics } from './agent-usage-metrics'
+import { CopyIdButton } from './copy-id-button'
+import { RunAgentButton } from './run-agent-button'
+import { SaveAgentButton } from './save-agent-button'
+import { VersionUsageBadge } from './version-usage-badge'
+
 import { AgentDependencyTree } from '@/components/agent/agent-dependency-tree'
 import { TypeScriptViewer } from '@/components/agent/typescript-viewer'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -16,11 +22,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { getCachedAgentsForStaticParams } from '@/server/agents-data'
 
-import { AgentUsageMetrics } from './agent-usage-metrics'
-import { CopyIdButton } from './copy-id-button'
-import { RunAgentButton } from './run-agent-button'
-import { SaveAgentButton } from './save-agent-button'
-import { VersionUsageBadge } from './version-usage-badge'
 
 interface AgentDetailPageProps {
   params: Promise<{

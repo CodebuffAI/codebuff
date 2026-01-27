@@ -4,7 +4,8 @@ import {
   createMockTreeSitterQuery,
   createMockTree,
 } from '@codebuff/common/testing/mocks/tree-sitter'
-import { describe, it, expect, mock } from 'bun:test'
+import { describe, it, expect } from 'bun:test'
+
 import {
   parseTokens,
   DEBUG_PARSING,
@@ -12,6 +13,7 @@ import {
   type TokenCallerMap,
   type FileTokenData,
 } from '../src/parse'
+
 import type { LanguageConfig } from '../src/languages-common'
 
 describe('parse module', () => {

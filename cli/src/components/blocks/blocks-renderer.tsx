@@ -1,13 +1,14 @@
 import React, { memo, useMemo, useRef } from 'react'
 
 import { AgentBlockGrid } from './agent-block-grid'
-import { ImplementorGroup } from './implementor-row'
-import { ToolBlockGroup } from './tool-block-group'
 import { AgentBranchWrapper } from './agent-branch-wrapper'
 import { ImageBlock } from './image-block'
-import { ThinkingBlock } from './thinking-block'
+import { ImplementorGroup } from './implementor-row'
 import { SingleBlock } from './single-block'
+import { ThinkingBlock } from './thinking-block'
+import { ToolBlockGroup } from './tool-block-group'
 import { processBlocks, type BlockProcessorHandlers } from '../../utils/block-processor'
+
 import type { ContentBlock } from '../../types/chat'
 import type { MarkdownPalette } from '../../utils/markdown-renderer'
 

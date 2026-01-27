@@ -1,4 +1,5 @@
 import { describe, expect, test, mock, afterEach } from 'bun:test'
+
 import { CodebuffClient } from '../client'
 
 describe('CodebuffClient', () => {

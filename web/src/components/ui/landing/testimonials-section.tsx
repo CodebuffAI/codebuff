@@ -1,10 +1,10 @@
 'use client'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { ExternalLink } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import posthog from 'posthog-js'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import { Section } from '../section'
 import { SECTION_THEMES } from './constants'

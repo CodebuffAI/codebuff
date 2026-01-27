@@ -1,5 +1,5 @@
-import type { AnalyticsEvent } from '../../constants/analytics-events'
 import type { Logger } from './logger'
+import type { AnalyticsEvent } from '../../constants/analytics-events'
 
 export type TrackEventFn = (params: {
   event: AnalyticsEvent

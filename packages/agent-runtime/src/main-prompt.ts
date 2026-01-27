@@ -1,7 +1,6 @@
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
-import { uniq } from 'lodash'
 
 import { loopAgentSteps } from './run-agent-step'
 import {

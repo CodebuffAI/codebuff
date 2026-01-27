@@ -2,7 +2,6 @@ import { describe, test, expect } from 'bun:test'
 
 import { getHealthz } from '../_get'
 
-import type { HealthzDeps } from '../_get'
 
 describe('/api/healthz route', () => {
   describe('Success cases', () => {

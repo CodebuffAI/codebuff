@@ -1,6 +1,6 @@
+import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
 import { describe, test, expect, beforeEach, afterEach, spyOn } from 'bun:test'
 
-import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
 
 import { useChatStore } from '../../state/chat-store'
 

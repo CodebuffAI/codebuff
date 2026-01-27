@@ -1,6 +1,7 @@
-import { Label } from '@/components/ui/label'
-import { AvatarUpload } from '@/components/ui/avatar-upload'
 import { StepTemplate } from './step-template'
+
+import { AvatarUpload } from '@/components/ui/avatar-upload'
+import { Label } from '@/components/ui/label'
 
 interface ProfileDetailsStepProps {
   formData: {

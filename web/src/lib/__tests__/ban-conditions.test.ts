@@ -1,10 +1,10 @@
 export {}
 
-import { afterAll, beforeEach, describe, expect, it, mock } from 'bun:test'
 import {
   clearMockedModules,
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
+import { afterAll, beforeEach, describe, expect, it, mock } from 'bun:test'
 
 import type { BanConditionContext } from '../ban-conditions'
 

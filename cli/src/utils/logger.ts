@@ -1,12 +1,13 @@
 import { appendFileSync, existsSync, mkdirSync, unlinkSync } from 'fs'
 import path, { dirname } from 'path'
 import { format as stringFormat } from 'util'
-import { pino } from 'pino'
 
+
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { env, IS_DEV, IS_TEST, IS_CI } from '@codebuff/common/env'
 import { createAnalyticsDispatcher } from '@codebuff/common/util/analytics-dispatcher'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { getAnalyticsEventId } from '@codebuff/common/util/analytics-log'
+import { pino } from 'pino'
 
 import {
   flushAnalytics,

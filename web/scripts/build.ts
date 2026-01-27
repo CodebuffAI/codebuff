@@ -10,10 +10,11 @@
  * - On success: runs prebuild-agents-cache validation
  */
 
-import { spawn } from 'bun'
-import { appendFile, unlink, readFile } from 'fs/promises'
 import { existsSync } from 'fs'
+import { appendFile, unlink, readFile } from 'fs/promises'
 import path from 'path'
+
+import { spawn } from 'bun'
 
 const LOG_FILE = path.join(import.meta.dir, '..', 'build.log')
 

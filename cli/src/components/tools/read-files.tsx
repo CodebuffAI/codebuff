@@ -1,12 +1,12 @@
 import { TextAttributes } from '@opentui/core'
 
+import { SimpleToolCallItem } from './tool-call-item'
+import { defineToolComponent } from './types'
 import { useTheme } from '../../hooks/use-theme'
 import {
   isEnvTemplateFile,
   isSensitiveFile,
 } from '../../utils/create-run-config'
-import { SimpleToolCallItem } from './tool-call-item'
-import { defineToolComponent } from './types'
 
 import type { ToolRenderConfig } from './types'
 

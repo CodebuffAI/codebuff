@@ -3,13 +3,13 @@ import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 import { initializeThemeStore } from '../../hooks/use-theme'
-import { chatThemes, createMarkdownPalette } from '../../utils/theme-system'
 import { useChatStore } from '../../state/chat-store'
 import { useMessageBlockStore } from '../../state/message-block-store'
+import { chatThemes, createMarkdownPalette } from '../../utils/theme-system'
 import { MessageWithAgents } from '../message-with-agents'
 
-import type { MarkdownPalette } from '../../utils/markdown-renderer'
 import type { ChatMessage } from '../../types/chat'
+import type { MarkdownPalette } from '../../utils/markdown-renderer'
 
 initializeThemeStore()
 

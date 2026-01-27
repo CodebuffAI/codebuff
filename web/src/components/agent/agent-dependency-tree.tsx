@@ -1,6 +1,5 @@
 'use client'
 
-import React, { useEffect, useState, useMemo } from 'react'
 import {
   GitBranch,
   ChevronDown,
@@ -11,6 +10,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import Link from 'next/link'
+import React, { useEffect, useState, useMemo } from 'react'
 
 import { MermaidDiagram } from '@/components/docs/mdx/mermaid-diagram'
 import { Badge } from '@/components/ui/badge'

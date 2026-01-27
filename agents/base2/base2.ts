@@ -24,9 +24,7 @@ export function createBase2(
   const isMax = mode === 'max'
   const isFree = mode === 'free'
 
-  const isOpus = !isFree
   const isSonnet = false
-  const isGemini = false
 
   return {
     publisher,
@@ -266,9 +264,7 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
       }),
 
     handleSteps: function* ({ params }) {
-      let steps = 0
       while (true) {
-        steps++
         // Run context-pruner before each step
         yield {
           toolName: 'spawn_agent_inline',

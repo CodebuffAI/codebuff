@@ -12,13 +12,12 @@ import {
   spyOn,
 } from 'bun:test'
 
+import { setProjectRoot } from '../../project-files'
 import {
   saveUserCredentials,
   getUserCredentials,
   logoutUser,
 } from '../../utils/auth'
-import { setProjectRoot } from '../../project-files'
-
 import * as AuthModule from '../../utils/auth'
 import * as CodebuffApiModule from '../../utils/codebuff-api'
 

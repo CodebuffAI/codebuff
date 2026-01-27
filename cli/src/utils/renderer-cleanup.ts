@@ -1,6 +1,7 @@
+import { resetTerminalTitle } from './terminal-title'
+
 import type { CliRenderer } from '@opentui/core'
 
-import { resetTerminalTitle } from './terminal-title'
 
 let renderer: CliRenderer | null = null
 let handlersInstalled = false

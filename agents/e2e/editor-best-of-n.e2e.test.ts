@@ -1,7 +1,7 @@
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
+import { CodebuffClient } from '@codebuff/sdk'
 import { describe, expect, it } from 'bun:test'
 
-import { CodebuffClient } from '@codebuff/sdk'
 
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 

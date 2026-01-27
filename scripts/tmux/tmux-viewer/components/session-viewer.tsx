@@ -8,12 +8,13 @@
 
 import { TextAttributes } from '@opentui/core'
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { ScrollBoxRenderable } from '@opentui/core'
+
 
 import { getTheme } from './theme'
 
 import type { SessionData, Capture } from '../types'
 import type { ViewerTheme } from './theme'
+import type { ScrollBoxRenderable } from '@opentui/core'
 
 interface SessionViewerProps {
   data: SessionData

@@ -1,20 +1,22 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { CreditCard, Shield, Users, Key, Menu } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { CreditCard, Shield, Users, Key, Menu } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { useState, useEffect, Suspense } from 'react'
+
 
 // Import components
-import { SecuritySection } from './components/security-section'
-import { ReferralsSection } from './components/referrals-section'
-import { UsageSection } from './components/usage-section'
 import { ApiKeysSection } from './components/api-keys-section'
 import { ProfileLoggedOut } from './components/logged-out'
+import { ReferralsSection } from './components/referrals-section'
+import { SecuritySection } from './components/security-section'
+import { UsageSection } from './components/usage-section'
+
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 
 const sections = [
   {

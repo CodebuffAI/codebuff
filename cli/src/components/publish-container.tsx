@@ -1,8 +1,8 @@
+import { pluralize } from '@codebuff/common/util/string'
 import { TextAttributes } from '@opentui/core'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { pluralize } from '@codebuff/common/util/string'
 
 import { AgentChecklist } from './agent-checklist'
 import { Button } from './button'
@@ -14,10 +14,9 @@ import { useTerminalLayout } from '../hooks/use-terminal-layout'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
 import { usePublishStore } from '../state/publish-store'
-import { BORDER_CHARS } from '../utils/ui-constants'
 import { loadLocalAgents, loadAgentDefinitions } from '../utils/local-agent-registry'
+import { BORDER_CHARS } from '../utils/ui-constants'
 
-import type { LocalAgentInfo } from '../utils/local-agent-registry'
 
 interface PublishContainerProps {
   inputRef: React.MutableRefObject<MultilineInputHandle | null>

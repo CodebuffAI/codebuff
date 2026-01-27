@@ -11,8 +11,8 @@ import { useTheme } from '../../../hooks/use-theme'
 import { Button } from '../../button'
 import { CUSTOM_OPTION_INDEX, SYMBOLS } from '../constants'
 
-import type { AskUserQuestion } from '../../../state/chat-store'
 import type { AccordionAnswer } from './accordion-question'
+import type { AskUserQuestion } from '../../../state/chat-store'
 
 export interface OptionsListProps {
   question: AskUserQuestion

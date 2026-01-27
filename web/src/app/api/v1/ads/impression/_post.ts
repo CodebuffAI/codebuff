@@ -1,5 +1,6 @@
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { createHash } from 'crypto'
+
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
 import { eq } from 'drizzle-orm'
@@ -8,13 +9,13 @@ import { z } from 'zod'
 
 import { requireUserFromApiKey } from '../../_helpers'
 
+import type { processAndGrantCredit as ProcessAndGrantCreditFn } from '@codebuff/billing/grant-credits'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type {
   Logger,
   LoggerWithContextFn,
 } from '@codebuff/common/types/contracts/logger'
-import type { processAndGrantCredit as ProcessAndGrantCreditFn } from '@codebuff/billing/grant-credits'
 import type { NextRequest } from 'next/server'
 
 // Revenue share: users get 75% of payout as credits

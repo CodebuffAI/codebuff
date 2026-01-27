@@ -1,8 +1,8 @@
 'use client'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { motion } from 'framer-motion'
 import posthog from 'posthog-js'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import { HighlightText } from './highlight-text'
 import { DecorativeBlocks, BlockColor } from '../../decorative-blocks'

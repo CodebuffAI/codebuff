@@ -1,9 +1,10 @@
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
+import { CodebuffClient } from '@codebuff/sdk'
 import { describe, expect, it } from 'bun:test'
 
-import { CodebuffClient } from '@codebuff/sdk'
-import filePickerDefinition from '../file-explorer/file-picker'
 import fileListerDefinition from '../file-explorer/file-lister'
+import filePickerDefinition from '../file-explorer/file-picker'
+
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
 /**

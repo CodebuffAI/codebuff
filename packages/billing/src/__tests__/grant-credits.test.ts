@@ -4,7 +4,6 @@ import {
 } from '@codebuff/common/testing/mock-modules'
 import { afterEach, describe, expect, it } from 'bun:test'
 
-import { triggerMonthlyResetAndGrant } from '../grant-credits'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 

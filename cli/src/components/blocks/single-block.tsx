@@ -4,13 +4,14 @@ import React, { memo, type ReactNode } from 'react'
 import { AgentBranchWrapper } from './agent-branch-wrapper'
 import { AgentListBranch } from './agent-list-branch'
 import { AskUserBranch } from './ask-user-branch'
+import { trimTrailingNewlines, isReasoningTextBlock } from './block-helpers'
 import { ContentWithMarkdown } from './content-with-markdown'
 import { ImageBlock } from './image-block'
 import { UserBlockTextWithInlineCopy } from './user-content-copy'
-import { trimTrailingNewlines, isReasoningTextBlock } from './block-helpers'
-import { PlanBox } from '../renderers/plan-box'
 import { useTheme } from '../../hooks/use-theme'
 import { extractTextBlockMargins, extractHtmlBlockMargins } from '../../utils/block-margins'
+import { PlanBox } from '../renderers/plan-box'
+
 import type {
   ContentBlock,
   TextContentBlock,

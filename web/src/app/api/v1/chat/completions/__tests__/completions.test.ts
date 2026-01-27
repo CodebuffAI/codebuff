@@ -1,4 +1,3 @@
-import { env } from '@codebuff/internal/env'
 import { afterEach, beforeEach, describe, expect, mock, it } from 'bun:test'
 import { NextRequest } from 'next/server'
 
@@ -10,7 +9,6 @@ import type { GetUserUsageDataFn } from '@codebuff/common/types/contracts/billin
 import type {
   GetAgentRunFromIdFn,
   GetUserInfoFromApiKeyFn,
-  GetUserInfoFromApiKeyOutput,
 } from '@codebuff/common/types/contracts/database'
 import type {
   Logger,

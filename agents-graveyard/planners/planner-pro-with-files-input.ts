@@ -1,8 +1,8 @@
+import { publisher } from '../../.agents/constants'
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
 } from '../../.agents/types/secret-agent-definition'
-import { publisher } from '../../.agents/constants'
 
 const definition: SecretAgentDefinition = {
   id: 'planner-pro-with-files-input',

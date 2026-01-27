@@ -1,5 +1,5 @@
-import * as schema from '@codebuff/internal/db/schema'
 import { SESSION_TIME_WINDOW_MS } from '@codebuff/common/old-constants'
+import * as schema from '@codebuff/internal/db/schema'
 import { and, eq, gte, isNull, lte } from 'drizzle-orm'
 
 import type { CodebuffPgDatabase } from '@codebuff/internal/db/types'

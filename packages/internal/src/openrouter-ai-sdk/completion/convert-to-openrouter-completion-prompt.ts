@@ -1,3 +1,8 @@
+import {
+  InvalidPromptError,
+  UnsupportedFunctionalityError,
+} from '@ai-sdk/provider'
+
 import type {
   LanguageModelV2FilePart,
   LanguageModelV2Prompt,
@@ -7,10 +12,6 @@ import type {
   LanguageModelV2ToolResultPart,
 } from '@ai-sdk/provider'
 
-import {
-  InvalidPromptError,
-  UnsupportedFunctionalityError,
-} from '@ai-sdk/provider'
 
 export function convertToOpenRouterCompletionPrompt({
   prompt,

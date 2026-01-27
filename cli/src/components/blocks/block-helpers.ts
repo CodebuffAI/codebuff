@@ -1,4 +1,3 @@
-import type { ContentBlock } from '../../types/chat'
 
 export function trimTrailingNewlines(str: string): string {
   return str.replace(/\n+$/, '')

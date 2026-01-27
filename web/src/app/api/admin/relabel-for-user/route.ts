@@ -5,7 +5,6 @@ import {
   insertRelabel,
   setupBigQuery,
   type GetExpandedFileContextForTrainingBlobTrace,
-  type GetExpandedFileContextForTrainingTrace,
   type GetRelevantFilesPayload,
   type GetRelevantFilesTrace,
   type Relabel,
@@ -25,9 +24,9 @@ import { NextResponse } from 'next/server'
 import { checkAdminAuth } from '../../../../lib/admin-auth'
 import { logger } from '../../../../util/logger'
 
+import type { System } from '@codebuff/agent-runtime/llm-api/claude'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { NextRequest } from 'next/server'
-import type { System } from '@codebuff/agent-runtime/llm-api/claude'
 
 // Type for messages stored in BigQuery traces
 interface StoredMessage {

@@ -1,10 +1,10 @@
-import { ToolCall } from '../../agents/types/agent-definition'
 import { publisher } from '../../agents/constants'
-
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
 } from '../../agents/types/secret-agent-definition'
+
+import type { ToolCall } from '../../agents/types/agent-definition'
 
 const definition: SecretAgentDefinition = {
   id: 'find-all-referencer',

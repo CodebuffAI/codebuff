@@ -1,6 +1,7 @@
+import { z } from 'zod/v4'
+
 import type { LanguageModelV2ToolChoice } from '@ai-sdk/provider'
 
-import { z } from 'zod/v4'
 
 const ChatCompletionToolChoiceSchema = z.union([
   z.literal('auto'),

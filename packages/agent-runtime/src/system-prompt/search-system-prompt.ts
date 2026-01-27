@@ -1,4 +1,3 @@
-import { countTokens, countTokensJson } from '../util/token-counter'
 import { buildArray } from '@codebuff/common/util/array'
 
 import {
@@ -6,6 +5,7 @@ import {
   getProjectFileTreePrompt,
   getSystemInfoPrompt,
 } from './prompts'
+import { countTokens, countTokensJson } from '../util/token-counter'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ProjectFileContext } from '@codebuff/common/util/file'

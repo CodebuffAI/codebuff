@@ -1,9 +1,9 @@
 import path from 'path'
 
-import { getCliEnv } from '../utils/env'
 import { getBundledRgPath } from '@codebuff/sdk'
 import { spawnSync } from 'bun'
 
+import { getCliEnv } from '../utils/env'
 import { logger } from '../utils/logger'
 
 const getRipgrepPath = async (): Promise<string> => {

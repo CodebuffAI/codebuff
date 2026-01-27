@@ -23,8 +23,8 @@ import { red, cyan, yellow, dim } from 'picocolors'
 import React from 'react'
 
 import { SessionViewer } from './components/session-viewer'
-import { loadSession, listSessions, sessionToJSON } from './session-loader'
 import { renderSessionToGif, getSuggestedFilename } from './gif-exporter'
+import { loadSession, listSessions, sessionToJSON } from './session-loader'
 
 interface ParsedArgs {
   session: string | null

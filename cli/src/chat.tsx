@@ -139,13 +139,10 @@ export const Chat = ({
     setSlashSelectedIndex,
     agentSelectedIndex,
     setAgentSelectedIndex,
-    streamingAgents,
     focusedAgentId,
     setFocusedAgentId,
     messages,
     setMessages,
-    activeSubagents,
-    isChainInProgress,
     agentMode,
     setAgentMode,
     toggleAgentMode,
@@ -173,7 +170,6 @@ export const Chat = ({
   // Use extracted chat messages hook for message tree and pagination
   const {
     messageTree,
-    topLevelMessages,
     visibleTopLevelMessages,
     hiddenMessageCount,
     handleCollapseToggle,

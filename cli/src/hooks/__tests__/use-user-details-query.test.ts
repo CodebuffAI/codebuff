@@ -9,9 +9,9 @@ import {
 } from 'bun:test'
 
 import { createMockApiClient } from '../../__tests__/helpers/mock-api-client'
+import * as CodebuffApiModule from '../../utils/codebuff-api'
 import { fetchUserDetails } from '../use-user-details-query'
 
-import * as CodebuffApiModule from '../../utils/codebuff-api'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 describe('fetchUserDetails', () => {

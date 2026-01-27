@@ -7,8 +7,8 @@ import {
   withSystemTags,
 } from '@codebuff/agent-runtime/util/messages'
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
-import { getMCPClient, listMCPTools, callMCPTool } from '@codebuff/common/mcp/client'
 import { toOptionalFile } from '@codebuff/common/constants/paths'
+import { getMCPClient, listMCPTools, callMCPTool } from '@codebuff/common/mcp/client'
 import { toolNames } from '@codebuff/common/tools/constants'
 import { clientToolCallSchema } from '@codebuff/common/tools/list'
 import { AgentOutputSchema } from '@codebuff/common/types/session-state'
@@ -25,10 +25,10 @@ import { listDirectory } from './tools/list-directory'
 import { getFiles } from './tools/read-files'
 import { runTerminalCommand } from './tools/run-terminal-command'
 
-import type { FileFilter } from './tools/read-files'
 
 import type { CustomToolDefinition } from './custom-tool'
 import type { RunState } from './run-state'
+import type { FileFilter } from './tools/read-files'
 import type { ServerAction } from '@codebuff/common/actions'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 import type {

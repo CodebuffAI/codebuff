@@ -1,5 +1,7 @@
 import { describe, expect, it, mock, beforeEach, afterEach } from 'bun:test'
+
 import { validateAgents } from '../validate-agents'
+
 import type { AgentDefinition } from '..'
 
 describe('validateAgents', () => {

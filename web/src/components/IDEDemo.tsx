@@ -175,7 +175,6 @@ const HIDE_TERMINAL_DELAY = 1000
 const EXPAND_TERMINAL_DELAY = 500
 
 export function IDEDemo({ className }: IDEDemoProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
   const [showIDE, setShowIDE] = useState(false)
   const [showOriginalTerminal, setShowOriginalTerminal] = useState(true)
   const [expandTerminal, setExpandTerminal] = useState(false)

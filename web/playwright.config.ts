@@ -1,5 +1,5 @@
-import { defineConfig, devices } from '@playwright/test'
 import { getE2EDatabaseUrl } from '@codebuff/internal/db/e2e-constants'
+import { defineConfig, devices } from '@playwright/test'
 
 // Use the same port as the dev server, defaulting to 3000
 const PORT = process.env.NEXT_PUBLIC_WEB_PORT || '3000'

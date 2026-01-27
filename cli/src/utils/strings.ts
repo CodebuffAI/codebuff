@@ -7,6 +7,7 @@ import {
   getImageFilePathFromText,
 } from './clipboard-image'
 import { isImageFile } from './image-handler'
+
 import type { InputValue } from '../state/chat-store'
 
 export function getSubsequenceIndices(

@@ -1,5 +1,5 @@
-import { trackEvent } from '@codebuff/common/analytics'
 import { processAndGrantCredit } from '@codebuff/billing/grant-credits'
+import { trackEvent } from '@codebuff/common/analytics'
 
 import { postAdImpression } from './_post'
 

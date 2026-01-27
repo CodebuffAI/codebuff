@@ -4,6 +4,21 @@ import { processImagesForMessage } from '../image-processor'
 
 import type { PendingImageAttachment } from '../../state/chat-store'
 
+// Type for the processor function used in tests
+type ProcessorResult = 
+  | { success: true; imagePart: { type: 'image'; image: string; mediaType: string } }
+  | { success: false; error: string }
+type MockProcessor = (path: string, projectRoot: string) => Promise<ProcessorResult>
+
+// Minimal logger type for tests - only need warn for these tests
+interface TestLogger {
+  warn: (...args: unknown[]) => void
+  error: (...args: unknown[]) => void
+  debug: (...args: unknown[]) => void
+  info: (...args: unknown[]) => void
+  fatal: (...args: unknown[]) => void
+}
+
 const createPendingImage = (path: string, processedImage?: { base64: string; mediaType: string }): PendingImageAttachment => ({
   kind: 'image',
   path,
@@ -31,7 +46,7 @@ describe('processImagesForMessage', () => {
       content: 'Here is an image @/tmp/pic.png',
       pendingImages,
       projectRoot: '/repo',
-      processor: processor as any,
+      processor: processor as MockProcessor,
     })
 
     // Should NOT call processor since we have pre-processed data
@@ -62,7 +77,7 @@ describe('processImagesForMessage', () => {
       content: 'Here is another image @/tmp/other.jpg',
       pendingImages,
       projectRoot: '/repo',
-      processor: processor as any,
+      processor: processor as MockProcessor,
     })
 
     // Should call processor only for the inline path
@@ -96,8 +111,8 @@ describe('processImagesForMessage', () => {
       content: '',
       pendingImages,
       projectRoot: '/repo',
-      processor: processor as any,
-      log: { warn } as any,
+      processor: processor as MockProcessor,
+      log: { warn, error: () => {}, debug: () => {}, info: () => {}, fatal: () => {} } as TestLogger,
     })
 
     // Should warn about missing processedImage and fall back to disk
@@ -128,7 +143,7 @@ describe('processImagesForMessage', () => {
       content: '',
       pendingImages,
       projectRoot: '/repo',
-      processor: processor as any,
+      processor: processor as MockProcessor,
     })
 
     // Should not call processor at all (ready image has processedImage)
@@ -153,8 +168,8 @@ describe('processImagesForMessage', () => {
       content: 'Here is an image @/tmp/fail.png',
       pendingImages,
       projectRoot: '/repo',
-      processor: processor as any,
-      log: { warn } as any,
+      processor: processor as MockProcessor,
+      log: { warn, error: () => {}, debug: () => {}, info: () => {}, fatal: () => {} } as TestLogger,
     })
 
     expect(warn).toHaveBeenCalled()
@@ -179,7 +194,7 @@ describe('processImagesForMessage', () => {
       content: 'Here is the same image @/tmp/pic.png and again /tmp/pic.png',
       pendingImages,
       projectRoot: '/repo',
-      processor: processor as any,
+      processor: processor as MockProcessor,
     })
 
     // Should not call processor since the path is already in pendingImages

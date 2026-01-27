@@ -1,5 +1,5 @@
-import { type SecretAgentDefinition } from '../../types/secret-agent-definition'
 import { publisher } from '../../constants'
+import { type SecretAgentDefinition } from '../../types/secret-agent-definition'
 import researcher from '../researcher-grok-4-fast'
 
 const definition: SecretAgentDefinition = {

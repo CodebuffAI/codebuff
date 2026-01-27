@@ -2,8 +2,7 @@ import { mock } from 'bun:test'
 
 import type { CodebuffFileSystem } from '../../types/filesystem'
 import type { Mock } from 'bun:test'
-import type { PathLike } from 'node:fs'
-import type { Stats } from 'node:fs'
+import type { PathLike , Stats } from 'node:fs'
 
 export interface CreateMockFsOptions {
   files?: Record<string, string>

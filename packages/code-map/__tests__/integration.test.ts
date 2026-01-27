@@ -1,7 +1,12 @@
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test'
+import { Parser } from 'web-tree-sitter'
+
+import { getLanguageConfig, setWasmDir } from '../src/languages'
 import { parseTokens, getFileTokenScores } from '../src/parse'
-import { getLanguageConfig, LanguageConfig, setWasmDir } from '../src/languages'
-import { Parser, Language, Query } from 'web-tree-sitter'
+
+import type { LanguageConfig} from '../src/languages';
+import type { Language, Query } from 'web-tree-sitter';
+
 
 // Test timeout for async operations
 const TEST_TIMEOUT = 15000

@@ -1,6 +1,4 @@
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
-import { describe, expect, it } from 'bun:test'
-
 import {
   CodebuffClient,
   initialSessionState,
@@ -10,6 +8,8 @@ import {
   type ToolMessage,
   type JSONValue,
 } from '@codebuff/sdk'
+import { describe, expect, it } from 'bun:test'
+
 
 import type { ToolCallPart } from '@codebuff/common/types/messages/content-part'
 

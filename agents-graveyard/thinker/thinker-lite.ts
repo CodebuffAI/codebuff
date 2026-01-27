@@ -1,5 +1,6 @@
-import type { SecretAgentDefinition } from 'types/secret-agent-definition'
 import thinker from './thinker'
+
+import type { SecretAgentDefinition } from 'types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
   ...thinker,

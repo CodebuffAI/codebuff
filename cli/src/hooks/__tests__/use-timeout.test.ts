@@ -1,5 +1,5 @@
-import React from 'react'
 import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
+import React from 'react'
 
 import { useTimeout } from '../use-timeout'
 

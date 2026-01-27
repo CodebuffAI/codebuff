@@ -1,13 +1,6 @@
 import { createMockLogger } from '@codebuff/common/testing/mocks/logger'
 import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
 
-import type { ClientEnv } from '@codebuff/common/types/contracts/env'
-
-import {
-  fetchUsageData,
-  usageQueryKeys,
-  useRefreshUsage,
-} from '../use-usage-query'
 import {
   resetActivityQueryCache,
   getActivityQueryData,
@@ -15,6 +8,13 @@ import {
   invalidateActivityQuery,
   removeActivityQuery,
 } from '../use-activity-query'
+import {
+  fetchUsageData,
+  usageQueryKeys,
+} from '../use-usage-query'
+
+import type { ClientEnv } from '@codebuff/common/types/contracts/env'
+
 
 beforeEach(() => {
   resetActivityQueryCache()

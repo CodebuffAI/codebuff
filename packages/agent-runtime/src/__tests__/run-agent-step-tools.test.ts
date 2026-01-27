@@ -18,8 +18,8 @@ import {
 
 import { runAgentStep } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
-import { asUserMessage } from '../util/messages'
 import { createToolCallChunk } from './test-utils'
+import { asUserMessage } from '../util/messages'
 
 import type { AgentTemplate } from '../templates/types'
 import type { DbSpies } from '@codebuff/common/testing/mocks/database'

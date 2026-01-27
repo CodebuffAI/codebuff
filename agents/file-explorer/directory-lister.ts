@@ -1,7 +1,8 @@
+
 import { publisher } from '../constants'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
-import { JSONObject, JSONValue } from 'types/util-types'
+import type { JSONObject, JSONValue } from 'types/util-types'
 
 interface ListDirectoryQuery {
   path: string

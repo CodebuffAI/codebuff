@@ -5,7 +5,6 @@ import { processImageFile, resolveFilePath, isImageFile } from './image-handler'
 import {
   useChatStore,
   type PendingAttachment,
-  type PendingImageAttachment,
 } from '../state/chat-store'
 
 /**

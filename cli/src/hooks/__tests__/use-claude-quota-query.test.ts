@@ -8,18 +8,18 @@ import {
 } from 'bun:test'
 
 import {
-  fetchClaudeQuota,
-  claudeQuotaQueryKeys,
-  type ClaudeQuotaResponse,
-  type ClaudeQuotaData,
-} from '../use-claude-quota-query'
-import {
   resetActivityQueryCache,
   getActivityQueryData,
   setActivityQueryData,
   invalidateActivityQuery,
   isEntryStale,
 } from '../use-activity-query'
+import {
+  fetchClaudeQuota,
+  claudeQuotaQueryKeys,
+  type ClaudeQuotaResponse,
+  type ClaudeQuotaData,
+} from '../use-claude-quota-query'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 

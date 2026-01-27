@@ -1,8 +1,10 @@
 import {
   InvalidPromptError,
-  LanguageModelV2Prompt,
   UnsupportedFunctionalityError,
 } from '@ai-sdk/provider';
+
+import type {
+  LanguageModelV2Prompt} from '@ai-sdk/provider';
 
 export function convertToOpenAICompatibleCompletionPrompt({
   prompt,

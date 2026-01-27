@@ -1,8 +1,6 @@
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { describe, test, expect, beforeEach, mock } from 'bun:test'
 
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-
-import type { AnalyticsClientWithIdentify } from '@codebuff/common/analytics-core'
 
 import {
   initAnalytics,
@@ -11,6 +9,9 @@ import {
   resetAnalyticsState,
   type AnalyticsDeps,
 } from '../analytics'
+
+import type { AnalyticsClientWithIdentify } from '@codebuff/common/analytics-core'
+
 
 describe('analytics with PostHog alias', () => {
   // Store references to track calls

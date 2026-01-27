@@ -7,8 +7,8 @@ import { useChatStore, type TopBannerType } from '../state/chat-store'
 import { formatCwd } from '../utils/path-helpers'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
-import type { ThemeColorKey, InputMode } from '../utils/input-modes'
 import type { ChatTheme } from '../types/theme-system'
+import type { ThemeColorKey, InputMode } from '../utils/input-modes'
 
 type BannerContentParams = {
   gitRoot?: string | null

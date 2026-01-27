@@ -8,7 +8,7 @@
  * simulate actual re-renders with changing props to catch reconciliation bugs.
  */
 import { describe, test, expect } from 'bun:test'
-import React, { useState, useCallback, useRef, useEffect } from 'react'
+import React, { useCallback } from 'react'
 import { renderToString } from 'react-dom/server'
 
 import { GridLayout } from '../grid-layout'

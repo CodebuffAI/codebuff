@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 
 import { getCliEnv } from '../utils/env'
-
 import { logger } from '../utils/logger'
 
 /**

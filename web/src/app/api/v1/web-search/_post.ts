@@ -1,4 +1,6 @@
+import { searchWeb } from '@codebuff/agent-runtime/llm-api/linkup-api'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { sleep } from '@codebuff/common/util/promise'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
@@ -7,6 +9,8 @@ import {
   parseJsonBody,
   requireUserFromApiKey,
 } from '../_helpers'
+
+import type { LinkupEnv } from '@codebuff/agent-runtime/llm-api/linkup-api'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type {
   GetUserUsageDataFn,
@@ -19,10 +23,8 @@ import type {
 } from '@codebuff/common/types/contracts/logger'
 import type { NextRequest } from 'next/server'
 
-import { searchWeb } from '@codebuff/agent-runtime/llm-api/linkup-api'
 
-import type { LinkupEnv } from '@codebuff/agent-runtime/llm-api/linkup-api'
-import { sleep } from '@codebuff/common/util/promise'
+
 
 const bodySchema = z.object({
   query: z.string().min(1, 'query is required'),

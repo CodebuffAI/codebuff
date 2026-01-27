@@ -6,9 +6,9 @@ import React from 'react'
 
 import type { Doc } from '@/types/docs'
 
+import { allDocs } from '.contentlayer/generated'
 import { Mdx } from '@/components/docs/mdx/mdx-components'
 import { getDocsByCategory } from '@/lib/docs'
-import { allDocs } from '.contentlayer/generated'
 
 // Generate static params for all doc pages at build time
 export function generateStaticParams(): Array<{

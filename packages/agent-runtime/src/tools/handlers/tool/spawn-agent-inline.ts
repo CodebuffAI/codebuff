@@ -1,3 +1,5 @@
+import { mapValues } from 'lodash'
+
 import {
   validateAndGetAgentTemplate,
   validateAgentInput,
@@ -18,7 +20,6 @@ import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type { AgentState } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 import type { ToolSet } from 'ai'
-import { mapValues } from 'lodash'
 
 type ToolName = 'spawn_agent_inline'
 export const handleSpawnAgentInline = (async (

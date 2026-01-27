@@ -2,10 +2,10 @@
  * Chat streaming hook - connection status, timer, queue management, and exit handling.
  */
 
-import { useCallback, useEffect, useState, useTransition } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-
 import { RECONNECTION_MESSAGE_DURATION_MS } from '@codebuff/sdk'
+import { useQueryClient } from '@tanstack/react-query'
+import { useCallback, useEffect, useState, useTransition } from 'react'
+
 
 import { authQueryKeys } from './use-auth-query'
 import { useConnectionStatus } from './use-connection-status'
@@ -18,10 +18,10 @@ import { useTimeout } from './use-timeout'
 import { useChatStore } from '../state/chat-store'
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
+import type { PendingAttachment } from '../state/chat-store'
 import type { SendMessageFn } from '../types/contracts/send-message'
 import type { AgentMode } from '../utils/constants'
 import type { MutableRefObject } from 'react'
-import type { PendingAttachment } from '../state/chat-store'
 
 export interface UseChatStreamingOptions {
   agentMode: AgentMode

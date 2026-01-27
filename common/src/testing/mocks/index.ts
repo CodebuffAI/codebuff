@@ -87,3 +87,15 @@ export type {
   CreateMockQueryOptions,
   CreateMockLanguageConfigOptions,
 } from './tree-sitter'
+
+export {
+  createMockChildProcess,
+  createMockSpawn,
+  asCodeSearchResult,
+  createRgJsonMatch,
+  createRgJsonContext,
+} from './child-process'
+export type {
+  MockChildProcess,
+  CodeSearchResult,
+} from './child-process'

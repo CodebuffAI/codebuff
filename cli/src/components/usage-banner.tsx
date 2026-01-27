@@ -1,22 +1,22 @@
-import React, { useEffect } from 'react'
+import { isClaudeOAuthValid } from '@codebuff/sdk'
 import open from 'open'
+import React, { useEffect } from 'react'
 
 import { BottomBanner } from './bottom-banner'
 import { Button } from './button'
 import { ProgressBar } from './progress-bar'
 import { getActivityQueryData } from '../hooks/use-activity-query'
 import { useClaudeQuotaQuery } from '../hooks/use-claude-quota-query'
+import { useTheme } from '../hooks/use-theme'
 import { usageQueryKeys, useUsageQuery } from '../hooks/use-usage-query'
+import { WEBSITE_URL } from '../login/constants'
 import { useChatStore } from '../state/chat-store'
+import { formatResetTime } from '../utils/time-format'
 import {
   getBannerColorLevel,
   generateLoadingBannerText,
 } from '../utils/usage-banner-state'
-import { WEBSITE_URL } from '../login/constants'
-import { useTheme } from '../hooks/use-theme'
-import { isClaudeOAuthValid } from '@codebuff/sdk'
 
-import { formatResetTime } from '../utils/time-format'
 
 const MANUAL_SHOW_TIMEOUT = 60 * 1000 // 1 minute
 const USAGE_POLL_INTERVAL = 30 * 1000 // 30 seconds

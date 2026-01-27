@@ -1,5 +1,7 @@
-import { AgentDefinition, StepText } from 'types/agent-definition'
+
 import { publisher } from '../constants'
+
+import type { AgentDefinition} from 'types/agent-definition';
 
 export const createCodeEditor = (options: {
   model: 'gpt-5' | 'opus'

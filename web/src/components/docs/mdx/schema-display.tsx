@@ -1,15 +1,15 @@
 'use client'
 
-import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
 import { DynamicAgentTemplateSchema } from '@codebuff/common/types/dynamic-agent-template'
-import { useState, useRef } from 'react'
+import { schemaToJsonStr } from '@codebuff/common/util/zod-schema'
 import { ChevronDown, ChevronUp } from 'lucide-react'
+import { useState, useRef } from 'react'
 
 import { CodeDemo } from './code-demo'
+
 import { Button } from '@/components/ui/button'
 import {
   Collapsible,
-  CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { useIsMobile } from '@/hooks/use-mobile'

@@ -1,7 +1,8 @@
-import { describe, expect, test, beforeEach, afterEach, mock, spyOn } from 'bun:test'
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'fs'
 import os from 'os'
 import path from 'path'
+
+import { describe, expect, test, beforeEach, afterEach, mock, spyOn } from 'bun:test'
 
 import { loadLocalAgents } from '../agents/load-agents'
 

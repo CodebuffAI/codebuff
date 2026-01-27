@@ -6,8 +6,8 @@ import { MultilineInput, type MultilineInputHandle } from './multiline-input'
 import { Separator } from './separator'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
-import { BORDER_CHARS } from '../utils/ui-constants'
 import { createTextPasteHandler } from '../utils/strings'
+import { BORDER_CHARS } from '../utils/ui-constants'
 
 type CategoryHighlightKey = 'success' | 'error' | 'warning' | 'info'
 

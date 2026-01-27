@@ -1,11 +1,10 @@
 import type { TrackEventFn } from './analytics'
 import type { SendActionFn } from './client'
-import type { OpenRouterProviderRoutingOptions } from '../agent-template'
+import type { OpenRouterProviderRoutingOptions , AgentTemplate } from '../agent-template'
 import type { ParamsExcluding } from '../function-params'
 import type { Logger } from './logger'
 import type { Model } from '../../old-constants'
 import type { Message } from '../messages/codebuff-message'
-import type { AgentTemplate } from '../agent-template'
 import type { generateText, streamText, ToolCallPart } from 'ai'
 import type z from 'zod/v4'
 

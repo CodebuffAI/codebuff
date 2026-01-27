@@ -1,14 +1,15 @@
 'use client'
 
-import { signIn } from 'next-auth/react'
-import { useTransition } from 'react'
-import posthog from 'posthog-js'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-
-import { Button } from '@/components/ui/button'
-import { Icons } from '@/components/icons'
-import { toast } from '@/components/ui/use-toast'
 import { sleep } from '@codebuff/common/util/promise'
+import { signIn } from 'next-auth/react'
+import posthog from 'posthog-js'
+import { useTransition } from 'react'
+
+import { Icons } from '@/components/icons'
+import { Button } from '@/components/ui/button'
+import { toast } from '@/components/ui/use-toast'
+
 
 interface GitHubSignInButtonProps {
   referralCode: string

@@ -1,12 +1,13 @@
-import type { AgentDefinition } from '../types/agent-definition'
-import type { CliAgentConfig } from './cli-agent-types'
-import { CLI_AGENT_MODES } from './cli-agent-types'
-import { outputSchema } from './cli-agent-schemas'
 import {
   getSpawnerPrompt,
   getSystemPrompt,
   getInstructionsPrompt,
 } from './cli-agent-prompts'
+import { outputSchema } from './cli-agent-schemas'
+import { CLI_AGENT_MODES } from './cli-agent-types'
+
+import type { CliAgentConfig } from './cli-agent-types'
+import type { AgentDefinition } from '../types/agent-definition'
 
 export function createCliAgent(config: CliAgentConfig): AgentDefinition {
   // Simple validation for shortName since it's used in file paths

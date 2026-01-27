@@ -1,5 +1,5 @@
-import { publisher } from '../../agents/constants.ts'
 import baseLite from './base-lite.ts'
+import { publisher } from '../../agents/constants.ts'
 
 import type { SecretAgentDefinition } from '../../agents/types/secret-agent-definition.ts'
 

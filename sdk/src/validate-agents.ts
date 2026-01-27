@@ -2,8 +2,10 @@ import {
   validateAgents as validateAgentsCommon,
   type DynamicAgentValidationError,
 } from '@codebuff/common/templates/agent-validation'
-import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
+
 import { WEBSITE_URL } from './constants'
+
+import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 
 export interface ValidationResult {
   success: boolean

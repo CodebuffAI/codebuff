@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 
-import { logger } from '@/util/logger'
-import { applyCacheHeaders } from '@/server/apply-cache-headers'
 import { getCachedAgentsMetrics } from '@/server/agents-data'
+import { applyCacheHeaders } from '@/server/apply-cache-headers'
+import { logger } from '@/util/logger'
 
 // ISR Configuration for API route - metrics can be cached
 export const revalidate = 600 // Cache for 10 minutes

@@ -1,6 +1,7 @@
+import { AGENT_MODES } from '../utils/constants'
+
 import type { SkillsMap } from '@codebuff/common/types/skill'
 
-import { AGENT_MODES } from '../utils/constants'
 
 export interface SlashCommand {
   id: string

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 
 import { BottomBanner } from './bottom-banner'
 import { Button } from './button'
+import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
 import {
   openOAuthInBrowser,
@@ -9,7 +10,6 @@ import {
   disconnectClaudeOAuth,
   getClaudeOAuthStatus,
 } from '../utils/claude-oauth'
-import { useTheme } from '../hooks/use-theme'
 
 type FlowState =
   | 'checking'

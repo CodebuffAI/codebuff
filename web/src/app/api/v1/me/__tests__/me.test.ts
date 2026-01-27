@@ -4,10 +4,10 @@ import { NextRequest } from 'next/server'
 
 import { getMe } from '../_get'
 
+import type { VALID_USER_INFO_FIELDS } from '@/db/user'
 import type { AgentRuntimeDeps } from '@codebuff/common/types/contracts/agent-runtime'
 import type { GetUserInfoFromApiKeyOutput } from '@codebuff/common/types/contracts/database'
 
-import { VALID_USER_INFO_FIELDS } from '@/db/user'
 
 describe('/api/v1/me route', () => {
   const mockUserData: Record<

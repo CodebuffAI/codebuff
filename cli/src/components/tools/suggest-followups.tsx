@@ -2,13 +2,13 @@ import { TextAttributes } from '@opentui/core'
 import { useCallback, useEffect, useState } from 'react'
 
 import { defineToolComponent } from './types'
+import { useTerminalDimensions } from '../../hooks/use-terminal-dimensions'
 import { useTheme } from '../../hooks/use-theme'
 import { getLatestFollowupToolCallId, useChatStore } from '../../state/chat-store'
 import { Button } from '../button'
 
 import type { ToolRenderConfig } from './types'
 import type { SuggestedFollowup } from '../../state/chat-store'
-import { useTerminalDimensions } from '../../hooks/use-terminal-dimensions'
 
 const EMPTY_CLICKED_SET = new Set<number>()
 const MIN_LABEL_COLUMN_WIDTH = 12

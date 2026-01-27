@@ -4,9 +4,10 @@ import { Check, Copy } from 'lucide-react'
 import { Highlight, themes } from 'prism-react-renderer'
 import { useMemo, useState } from 'react'
 
+import { MermaidDiagram } from './mermaid-diagram'
+
 import { Separator } from '@/components/ui/separator'
 
-import { MermaidDiagram } from './mermaid-diagram'
 
 type CodeDemoChildren = string | JSX.Element | JSX.Element[]
 

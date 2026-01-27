@@ -1,8 +1,8 @@
+import { publisher } from '../../constants'
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
 } from '../../types/secret-agent-definition'
-import { publisher } from '../../constants'
 
 export const createBestOfNSelector = (options: {
   model: 'sonnet' | 'opus' | 'gpt-5' | 'gemini'

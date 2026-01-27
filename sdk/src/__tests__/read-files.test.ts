@@ -1,3 +1,6 @@
+import { FILE_READ_STATUS } from '@codebuff/common/old-constants'
+import * as projectFileTree from '@codebuff/common/project-file-tree'
+import { createNodeError } from '@codebuff/common/testing/errors'
 import {
   describe,
   test,
@@ -8,14 +11,12 @@ import {
   spyOn,
 } from 'bun:test'
 
-import { FILE_READ_STATUS } from '@codebuff/common/old-constants'
-import * as projectFileTree from '@codebuff/common/project-file-tree'
 
 import { getFiles } from '../tools/read-files'
 
-import type { PathLike } from 'node:fs'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
-import { createNodeError } from '@codebuff/common/testing/errors'
+import type { PathLike } from 'node:fs'
+
 
 // Helper to create a mock filesystem
 function createMockFs(config: {

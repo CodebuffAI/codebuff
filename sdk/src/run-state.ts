@@ -3,7 +3,6 @@ import path from 'path'
 
 import { getFileTokenScores } from '@codebuff/code-map/parse'
 import {
-  KNOWLEDGE_FILE_NAMES,
   KNOWLEDGE_FILE_NAMES_LOWERCASE,
   isKnowledgeFile,
 } from '@codebuff/common/constants/knowledge'

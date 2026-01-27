@@ -1,4 +1,5 @@
 import { createBase2 } from '../../../agents/base2/base2'
+
 import type { SecretAgentDefinition } from '../../../agents/types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {

@@ -2,8 +2,8 @@ import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-run
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { beforeEach, describe, expect, it } from 'bun:test'
 
-import { processStream } from '../tools/stream-parser'
 import { mockFileContext } from './test-utils'
+import { processStream } from '../tools/stream-parser'
 
 import type { AgentTemplate } from '../templates/types'
 import type {

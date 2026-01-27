@@ -18,8 +18,8 @@ import {
   clearAgentGeneratorCache,
   runProgrammaticStep,
 } from '../run-programmatic-step'
-import * as toolExecutor from '../tools/tool-executor'
 import { mockFileContext } from './test-utils'
+import * as toolExecutor from '../tools/tool-executor'
 
 import type { AgentTemplate, StepGenerator } from '../templates/types'
 import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'

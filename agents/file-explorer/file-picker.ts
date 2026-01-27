@@ -1,10 +1,11 @@
-import { StepText, ToolCall } from 'types/agent-definition'
-import { publisher } from '../constants'
 
+import { publisher } from '../constants'
 import {
   PLACEHOLDER,
   type SecretAgentDefinition,
 } from '../types/secret-agent-definition'
+
+import type { StepText, ToolCall } from 'types/agent-definition'
 
 type FilePickerMode = 'default' | 'max'
 

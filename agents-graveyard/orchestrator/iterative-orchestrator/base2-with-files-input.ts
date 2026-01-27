@@ -1,5 +1,7 @@
-import { SecretAgentDefinition } from 'types/secret-agent-definition'
 import { createBase2 } from '../../base2/base2'
+
+import type { SecretAgentDefinition } from 'types/secret-agent-definition'
+
 
 const definition: SecretAgentDefinition = {
   ...createBase2('default'),

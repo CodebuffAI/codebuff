@@ -1,5 +1,4 @@
 import fs from 'fs'
-import matter from 'gray-matter'
 import os from 'os'
 import path from 'path'
 
@@ -13,6 +12,7 @@ import {
   type SkillDefinition,
   type SkillsMap,
 } from '@codebuff/common/types/skill'
+import matter from 'gray-matter'
 
 // Re-export from common for backward compatibility
 export { formatAvailableSkillsXml } from '@codebuff/common/util/skills'

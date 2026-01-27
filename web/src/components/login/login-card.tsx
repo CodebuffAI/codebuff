@@ -1,10 +1,12 @@
 'use client'
 
-import { Suspense } from 'react'
-import { useSession, signIn } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
+import { useSession, signIn } from 'next-auth/react'
+import { Suspense } from 'react'
 
 import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
 import {
   Card,
   CardHeader,
@@ -13,8 +15,6 @@ import {
   CardContent,
   CardFooter,
 } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 
 export function LoginCard({ authCode }: { authCode?: string | null }) {
   const { data: session } = useSession()

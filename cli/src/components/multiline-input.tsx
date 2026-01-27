@@ -11,10 +11,10 @@ import {
 
 import { InputCursor } from './input-cursor'
 import { useTheme } from '../hooks/use-theme'
-import { supportsTruecolor } from '../utils/theme-system'
 import { useChatStore } from '../state/chat-store'
 import { logger } from '../utils/logger'
 import { clamp } from '../utils/math'
+import { supportsTruecolor } from '../utils/theme-system'
 import { calculateNewCursorPosition } from '../utils/word-wrap-utils'
 
 import type { InputValue } from '../state/chat-store'

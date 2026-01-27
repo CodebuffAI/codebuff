@@ -3,8 +3,9 @@
  * Supports iTerm2 inline images protocol and Kitty graphics protocol
  */
 
-import type { CliEnv } from '../types/env'
 import { getCliEnv } from './env'
+
+import type { CliEnv } from '../types/env'
 
 export type TerminalImageProtocol = 'iterm2' | 'kitty' | 'sixel' | 'none'
 

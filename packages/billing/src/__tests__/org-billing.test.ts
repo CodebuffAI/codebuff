@@ -2,7 +2,6 @@ import {
   clearMockedModules,
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
-import { createPostgresError } from '@codebuff/common/testing/errors'
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 
 import {

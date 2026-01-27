@@ -8,9 +8,10 @@ import { z } from 'zod/v4'
 import { redeemReferralCode } from './helpers'
 import { authOptions } from '../auth/[...nextauth]/auth-options'
 
+import type { NextRequest } from 'next/server'
+
 import { extractApiKeyFromHeader } from '@/util/auth'
 
-import type { NextRequest } from 'next/server'
 
 type Referral = Pick<typeof schema.user.$inferSelect, 'id' | 'name' | 'email'> &
   Pick<typeof schema.referral.$inferSelect, 'credits'>

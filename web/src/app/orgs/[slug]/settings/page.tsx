@@ -6,6 +6,8 @@ import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useState, useEffect } from 'react'
 
+import type { PublisherProfileResponse } from '@codebuff/common/types/publisher'
+
 import { BillingStatus } from '@/components/organization/billing-status'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,7 +18,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/components/ui/use-toast'
 import { useOrganizationData } from '@/hooks/use-organization-data'
-import type { PublisherProfileResponse } from '@codebuff/common/types/publisher'
 
 export default function OrganizationSettingsPage() {
   const { data: session, status } = useSession()

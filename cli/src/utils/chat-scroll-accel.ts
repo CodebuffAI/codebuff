@@ -1,9 +1,9 @@
 import { Queue } from './arrays'
-import { clamp } from './math'
 import { getCliEnv } from './env'
+import { clamp } from './math'
 
-import type { ScrollAcceleration } from '@opentui/core'
 import type { CliEnv } from '../types/env'
+import type { ScrollAcceleration } from '@opentui/core'
 
 const ENVIRONMENT_TYPE_VARS = [
   'TERM_PROGRAM',

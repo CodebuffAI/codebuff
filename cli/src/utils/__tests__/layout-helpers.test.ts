@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+
 import { computeSmartColumns } from '../layout-helpers'
 
 describe('computeSmartColumns', () => {

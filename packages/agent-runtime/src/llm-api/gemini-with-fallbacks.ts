@@ -1,7 +1,6 @@
 import { openaiModels, openrouterModels } from '@codebuff/common/old-constants'
 
 import type {
-  CostMode,
   FinetunedVertexModel,
 } from '@codebuff/common/old-constants'
 import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'

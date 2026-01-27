@@ -1,7 +1,11 @@
-import { Metadata } from 'next'
 import { env } from '@codebuff/common/env'
-import { getCachedAgentsBasicInfo } from '@/server/agents-data'
+
 import AgentStoreClient from './store-client'
+
+import type { Metadata } from 'next'
+
+import { getCachedAgentsBasicInfo } from '@/server/agents-data'
+
 
 interface PublisherProfileResponse {
   id: string

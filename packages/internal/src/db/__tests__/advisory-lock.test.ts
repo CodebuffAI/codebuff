@@ -221,8 +221,7 @@ describe('advisory-lock', () => {
         await result.handle?.release()
 
         expect(consoleErrorSpy).toHaveBeenCalledWith(
-          'Error releasing advisory lock:',
-          expect.any(Error),
+          expect.stringContaining('Error closing database connection'),
         )
       })
     })
@@ -272,7 +271,7 @@ describe('advisory-lock', () => {
 
         expect(lostCallback).toHaveBeenCalledTimes(1)
         expect(consoleErrorSpy).toHaveBeenCalledWith(
-          'Advisory lock health check failed - connection lost',
+          expect.stringContaining('Advisory lock health check failed - connection lost'),
         )
       })
 
@@ -445,7 +444,7 @@ describe('advisory-lock', () => {
 
         expect(lostCallback).toHaveBeenCalledTimes(1)
         expect(consoleErrorSpy).toHaveBeenCalledWith(
-          'Advisory lock health check failed - lock no longer held',
+          expect.stringContaining('Advisory lock health check failed - lock no longer held'),
         )
       })
 

@@ -10,6 +10,8 @@ const MIN_FILE_PATH_WIDTH = 10
 /** Minimum inner content width */
 const MIN_INNER_WIDTH = 10
 
+import { useGridLayout } from '../../hooks/use-grid-layout'
+import { useTheme } from '../../hooks/use-theme'
 import { getAgentStatusInfo } from '../../utils/agent-helpers'
 import {
   buildActivityTimeline,
@@ -19,13 +21,12 @@ import {
   truncateWithEllipsis,
   type FileStats,
 } from '../../utils/implementor-helpers'
-import { useTheme } from '../../hooks/use-theme'
-import { useGridLayout } from '../../hooks/use-grid-layout'
 import { getRelativePath } from '../../utils/path-helpers'
 import { PROPOSAL_BORDER_CHARS } from '../../utils/ui-constants'
 import { Button } from '../button'
 import { CollapseButton } from '../collapse-button'
 import { DiffViewer } from '../tools/diff-viewer'
+
 import type { AgentContentBlock, ContentBlock } from '../../types/chat'
 
 interface ImplementorGroupProps {

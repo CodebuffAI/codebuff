@@ -1,80 +1,17 @@
 'use client'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { motion } from 'framer-motion'
 import posthog from 'posthog-js'
-import { useState } from 'react'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
-import { BlockColor } from '../decorative-blocks'
 import { TerminalCopyButton } from '../enhanced-copy-button'
 import { Section } from '../section'
 import { SECTION_THEMES } from './constants'
 
 import { useInstallDialog } from '@/hooks/use-install-dialog'
 
-// Benefit card component for the CTA section
-function BenefitCard({
-  title,
-  description,
-  icon,
-  index,
-}: {
-  title: string
-  description: string
-  icon: string
-  index: number
-}) {
-  return (
-    <motion.div
-      className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4 flex gap-3 items-start"
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: index * 0.1 }}
-      viewport={{ once: true }}
-    >
-      <div className="text-2xl mt-1">{icon}</div>
-      <div>
-        <h3 className={`${SECTION_THEMES.cta.textColor} font-medium text-lg`}>
-          {title}
-        </h3>
-        <p
-          className={`${SECTION_THEMES.cta.textColor}/70 text-sm font-paragraph`}
-        >
-          {description}
-        </p>
-      </div>
-    </motion.div>
-  )
-}
-
 export function CTASection() {
-  const [isHovered, setIsHovered] = useState(false)
   const { open: openInstallDialog } = useInstallDialog()
-
-  const decorativeColors = isHovered
-    ? [BlockColor.AcidMatrix, BlockColor.GenerativeGreen, BlockColor.CRTAmber]
-    : SECTION_THEMES.cta.decorativeColors
-
-  // Benefits data
-  const benefits = [
-    {
-      icon: '⚡',
-      title: 'Lightning Fast',
-      description:
-        'Start using Codebuff in under 30 seconds with a simple install',
-    },
-    {
-      icon: '🔒',
-      title: 'No Card Required',
-      description:
-        'Free tier available with no credit card or complicated signup',
-    },
-    {
-      icon: '🛠️',
-      title: 'Use Anywhere',
-      description: 'Works in any terminal or development environment',
-    },
-  ]
 
   const handleInstallGuideClick = () => {
     posthog.capture(AnalyticsEvent.HOME_CTA_INSTALL_GUIDE_CLICKED)

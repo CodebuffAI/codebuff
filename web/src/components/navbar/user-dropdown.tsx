@@ -1,11 +1,11 @@
 'use client'
 
-import { Gift, CreditCard, Users, Shield, User, Key } from 'lucide-react'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { Gift, Users, User, Key } from 'lucide-react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import posthog from 'posthog-js'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import type { Session } from 'next-auth'
 

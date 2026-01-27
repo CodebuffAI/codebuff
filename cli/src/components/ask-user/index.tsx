@@ -8,7 +8,6 @@ import { TextAttributes } from '@opentui/core'
 import { useKeyboard } from '@opentui/react'
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 
-import type { KeyEvent } from '@opentui/core'
 
 import {
   AccordionQuestion,
@@ -21,6 +20,7 @@ import { BORDER_CHARS } from '../../utils/ui-constants'
 import { Button } from '../button'
 
 import type { AskUserQuestion } from '../../state/chat-store'
+import type { KeyEvent } from '@opentui/core'
 
 export interface MultipleChoiceFormProps {
   questions: AskUserQuestion[]

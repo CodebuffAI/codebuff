@@ -19,7 +19,7 @@ import type {
   ParamsExcluding,
   OptionalFields,
 } from '@codebuff/common/types/function-params'
-import type { ToolSet } from 'ai'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
@@ -27,7 +27,7 @@ import type {
   Subgoal,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { ToolSet } from 'ai'
 
 /**
  * Common context params needed for spawning subagents.

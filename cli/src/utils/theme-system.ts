@@ -2,9 +2,10 @@ import { existsSync, readFileSync, readdirSync, statSync, watch } from 'fs'
 import { homedir } from 'os'
 import { dirname, join } from 'path'
 
-import type { CliEnv } from '../types/env'
 import { getCliEnv } from './env'
+
 import type { MarkdownPalette } from './markdown-renderer'
+import type { CliEnv } from '../types/env'
 import type {
   ChatTheme,
   MarkdownHeadingLevel,

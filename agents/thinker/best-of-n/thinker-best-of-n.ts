@@ -1,11 +1,11 @@
 import { publisher } from '../../constants'
 
-import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
 import type {
   AgentStepContext,
   StepText,
   ToolCall,
 } from '../../types/agent-definition'
+import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
 
 export function createThinkerBestOfN(
   model: 'sonnet' | 'gpt-5' | 'opus',

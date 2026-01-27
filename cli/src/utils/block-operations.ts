@@ -11,7 +11,6 @@ import type {
   ToolContentBlock,
   TextContentBlock,
 } from '../types/chat'
-import { logger } from './logger'
 
 let thinkingIdCounter = 0
 const generateThinkingId = (): string => {

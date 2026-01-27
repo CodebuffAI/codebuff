@@ -5,18 +5,19 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 
-import { cn } from '@/lib/utils'
 
 import { UserDropdown } from './user-dropdown'
 import { Icons } from '../icons'
 import { Button } from '../ui/button'
-import { Skeleton } from '../ui/skeleton'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
+import { Skeleton } from '../ui/skeleton'
+
+import { cn } from '@/lib/utils'
 
 export const Navbar = () => {
   const { data: session, status } = useSession()

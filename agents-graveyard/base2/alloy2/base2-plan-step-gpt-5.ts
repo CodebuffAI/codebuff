@@ -1,4 +1,5 @@
 import planStep from './base2-plan-step'
+
 import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {

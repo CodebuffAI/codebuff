@@ -43,7 +43,6 @@ export function CreditPurchaseSection({
   const [selectedCredits, setSelectedCredits] = useState<number | null>(null)
   const [customCredits, setCustomCredits] = useState<string>('')
   const [customError, setCustomError] = useState<string>('')
-  const [isProcessing, setIsProcessing] = useState(false)
   const [cooldownActive, setCooldownActive] = useState(false)
 
   // Use organization-specific options if isOrganization is true
@@ -53,14 +52,7 @@ export function CreditPurchaseSection({
 
   const handlePurchaseClick = async () => {
     const credits = selectedCredits || parseInt(customCredits)
-    if (
-      !credits ||
-      isProcessing ||
-      isPurchasePending ||
-      isPending ||
-      cooldownActive
-    )
-      return
+    if (!credits || isPurchasePending || isPending || cooldownActive) return
 
     let canProceed = true
     if (isAutoTopupEnabled && onSaveAutoTopupSettings) {
@@ -134,9 +126,7 @@ export function CreditPurchaseSection({
                   ? 'border-primary bg-accent'
                   : 'hover:bg-accent/50',
               )}
-              disabled={
-                isProcessing || isPending || isPurchasePending || cooldownActive
-              }
+              disabled={isPending || isPurchasePending || cooldownActive}
             >
               <span className="text-lg font-semibold">
                 {credits.toLocaleString()}
@@ -164,7 +154,7 @@ export function CreditPurchaseSection({
                   onChange={(e) => handleCustomCreditsChange(e.target.value)}
                   placeholder={`${pluralize(minCredits, 'credit')} - ${pluralize(maxCredits, 'credit')}`}
                   className={cn(customError && 'border-destructive')}
-                  disabled={isProcessing || cooldownActive}
+                  disabled={cooldownActive}
                 />
                 {customError && (
                   <p className="text-xs text-destructive mt-2 pl-1">
@@ -181,16 +171,11 @@ export function CreditPurchaseSection({
               <NeonGradientButton
                 onClick={handlePurchaseClick}
                 disabled={
-                  !isValid ||
-                  isProcessing ||
-                  isPending ||
-                  isPurchasePending ||
-                  cooldownActive
+                  !isValid || isPending || isPurchasePending || cooldownActive
                 }
                 className={cn(
                   'w-full md:w-auto transition-opacity min-w-[120px]',
                   (!isValid ||
-                    isProcessing ||
                     isPending ||
                     isPurchasePending ||
                     cooldownActive) &&
@@ -201,7 +186,7 @@ export function CreditPurchaseSection({
                   secondColor: '#06B6D4',
                 }}
               >
-                {isProcessing || isPurchasePending ? (
+                {isPurchasePending ? (
                   <Loader className="mr-2 size-4 animate-spin" />
                 ) : null}
                 Buy Credits

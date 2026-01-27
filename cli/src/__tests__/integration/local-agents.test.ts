@@ -10,7 +10,6 @@ import {
   beforeEach,
   afterEach,
   mock,
-  spyOn,
 } from 'bun:test'
 
 // Mock the logger to prevent analytics initialization errors in tests

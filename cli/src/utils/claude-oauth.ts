@@ -3,7 +3,7 @@
  */
 
 import crypto from 'crypto'
-import open from 'open'
+
 import { CLAUDE_OAUTH_CLIENT_ID } from '@codebuff/common/constants/claude-oauth'
 import {
   saveClaudeOAuthCredentials,
@@ -12,6 +12,7 @@ import {
   isClaudeOAuthValid,
   resetClaudeOAuthRateLimit,
 } from '@codebuff/sdk'
+import open from 'open'
 
 import type { ClaudeOAuthCredentials } from '@codebuff/sdk'
 

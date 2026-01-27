@@ -7,6 +7,13 @@ import type {
   CodebuffToolOutput,
 } from '@codebuff/common/tools/list'
 
+interface GlobResultValue {
+  files?: string[]
+  count?: number
+  message?: string
+  errorMessage?: string
+}
+
 describe('handleGlob', () => {
   it('delegates to requestClientToolCall and returns matching files', async () => {
     const mockRequestClientToolCall = mock(
@@ -43,7 +50,7 @@ describe('handleGlob', () => {
     expect(mockRequestClientToolCall).toHaveBeenCalledWith(toolCall)
     expect(Array.isArray(output)).toBe(true)
     expect(output[0].type).toBe('json')
-    const value = output[0].value as any
+    const value = output[0].value as GlobResultValue
     expect(value.files).toEqual([
       'src/index.ts',
       'src/utils.ts',
@@ -85,7 +92,7 @@ describe('handleGlob', () => {
 
     expect(mockRequestClientToolCall).toHaveBeenCalledWith(toolCall)
     expect(output[0].type).toBe('json')
-    const value = output[0].value as any
+    const value = output[0].value as GlobResultValue
     expect(value.files).toEqual([
       'src/components/Button.tsx',
       'src/components/Input.tsx',
@@ -129,9 +136,9 @@ describe('handleGlob', () => {
     })
 
     expect(mockRequestClientToolCall).toHaveBeenCalledWith(toolCall)
-    const value = output[0].value as any
+    const value = output[0].value as GlobResultValue
     expect(value.count).toBe(5)
-    expect(value.files.length).toBe(5)
+    expect(value.files?.length).toBe(5)
   })
 
   it('handles glob pattern with no matches', async () => {
@@ -163,7 +170,7 @@ describe('handleGlob', () => {
     })
 
     expect(mockRequestClientToolCall).toHaveBeenCalledWith(toolCall)
-    const value = output[0].value as any
+    const value = output[0].value as GlobResultValue
     expect(value.files).toEqual([])
     expect(value.count).toBe(0)
   })
@@ -202,9 +209,9 @@ describe('handleGlob', () => {
     })
 
     expect(mockRequestClientToolCall).toHaveBeenCalledWith(toolCall)
-    const value = output[0].value as any
+    const value = output[0].value as GlobResultValue
     expect(value.count).toBe(4)
-    expect(value.files.length).toBe(4)
+    expect(value.files?.length).toBe(4)
   })
 
   it('handles error responses from client', async () => {
@@ -234,7 +241,7 @@ describe('handleGlob', () => {
     })
 
     expect(mockRequestClientToolCall).toHaveBeenCalledWith(toolCall)
-    const value = output[0].value as any
+    const value = output[0].value as GlobResultValue
     expect(value.errorMessage).toBeDefined()
     expect(value.errorMessage).toContain('Failed to search for files')
   })
@@ -317,9 +324,9 @@ describe('handleGlob', () => {
     })
 
     expect(mockRequestClientToolCall).toHaveBeenCalledWith(toolCall)
-    const value = output[0].value as any
-    expect(value.files.length).toBe(3)
-    expect(value.files.every((f: string) => f.includes('components'))).toBe(
+    const value = output[0].value as GlobResultValue
+    expect(value.files?.length).toBe(3)
+    expect(value.files?.every((f) => f.includes('components'))).toBe(
       true,
     )
   })

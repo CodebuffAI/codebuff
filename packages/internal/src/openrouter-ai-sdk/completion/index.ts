@@ -1,3 +1,22 @@
+import { UnsupportedFunctionalityError } from '@ai-sdk/provider'
+import {
+  combineHeaders,
+  createEventSourceResponseHandler,
+  createJsonResponseHandler,
+  generateId,
+  postJsonToApi,
+} from '@ai-sdk/provider-utils'
+
+import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-completion-prompt'
+import { OpenRouterCompletionChunkSchema } from './schemas'
+import { openrouterFailedResponseHandler } from '../schemas/error-response'
+import { mapOpenRouterFinishReason } from '../utils/map-finish-reason'
+
+import type { OpenRouterUsageAccounting } from '../types'
+import type {
+  OpenRouterCompletionModelId,
+  OpenRouterCompletionSettings,
+} from '../types/openrouter-completion-settings'
 import type {
   LanguageModelV2,
   LanguageModelV2CallOptions,
@@ -7,24 +26,8 @@ import type {
 import type { ParseResult } from '@ai-sdk/provider-utils'
 import type { FinishReason } from 'ai'
 import type { z } from 'zod/v4'
-import type { OpenRouterUsageAccounting } from '../types'
-import type {
-  OpenRouterCompletionModelId,
-  OpenRouterCompletionSettings,
-} from '../types/openrouter-completion-settings'
 
-import { UnsupportedFunctionalityError } from '@ai-sdk/provider'
-import {
-  combineHeaders,
-  createEventSourceResponseHandler,
-  createJsonResponseHandler,
-  generateId,
-  postJsonToApi,
-} from '@ai-sdk/provider-utils'
-import { openrouterFailedResponseHandler } from '../schemas/error-response'
-import { mapOpenRouterFinishReason } from '../utils/map-finish-reason'
-import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-completion-prompt'
-import { OpenRouterCompletionChunkSchema } from './schemas'
+
 
 type OpenRouterCompletionConfig = {
   provider: string

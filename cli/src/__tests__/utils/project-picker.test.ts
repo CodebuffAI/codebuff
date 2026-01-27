@@ -1,5 +1,6 @@
-import { describe, test, expect } from 'bun:test'
 import path from 'path'
+
+import { describe, test, expect } from 'bun:test'
 
 import { shouldShowProjectPicker } from '../../utils/project-picker'
 

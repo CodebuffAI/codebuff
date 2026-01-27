@@ -1,5 +1,7 @@
+import { modelMessageSchema } from 'ai'
 import { cloneDeep, has, isEqual } from 'lodash'
 
+import type { Logger } from '../types/contracts/logger'
 import type { JSONValue } from '../types/json'
 import type {
   AssistantMessage,
@@ -11,7 +13,6 @@ import type {
 } from '../types/messages/codebuff-message'
 import type { ToolResultOutput } from '../types/messages/content-part'
 import type { ProviderMetadata } from '../types/messages/provider-metadata'
-import { modelMessageSchema } from 'ai'
 import type {
   AssistantModelMessage,
   ModelMessage,
@@ -19,7 +20,7 @@ import type {
   ToolModelMessage,
   UserModelMessage,
 } from 'ai'
-import { Logger } from '../types/contracts/logger'
+
 
 export function toContentString(msg: ModelMessage): string {
   const { content } = msg

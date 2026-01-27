@@ -8,11 +8,11 @@ import { useShallow } from 'zustand/react/shallow'
 
 import { useChatStore } from '../state/chat-store'
 
-import type { MutableRefObject } from 'react'
 import type { InputValue, PendingBashMessage } from '../state/chat-store'
 import type { ChatMessage } from '../types/chat'
 import type { SendMessageFn } from '../types/contracts/send-message'
 import type { AgentMode } from '../utils/constants'
+import type { MutableRefObject } from 'react'
 
 /**
  * Ref objects used to track state across renders.

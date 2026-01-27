@@ -19,8 +19,8 @@ import {
   clearAgentGeneratorCache,
   runProgrammaticStep,
 } from '../run-programmatic-step'
-import { clearAllProposedContent } from '../tools/handlers/tool/proposed-content-store'
 import { mockFileContext } from './test-utils'
+import { clearAllProposedContent } from '../tools/handlers/tool/proposed-content-store'
 import * as toolExecutor from '../tools/tool-executor'
 
 import type { AgentTemplate, StepGenerator } from '../templates/types'

@@ -6,8 +6,8 @@
 
 import { create } from 'zustand'
 
-import { themeConfig, buildTheme } from '../utils/theme-config'
 import { getCliEnv } from '../utils/env'
+import { themeConfig, buildTheme } from '../utils/theme-config'
 import {
   chatThemes,
   cloneChatTheme,

@@ -3,20 +3,21 @@ import React, { memo, useCallback, useMemo, useRef, type ReactNode } from 'react
 
 import { AgentBlockGrid } from './agent-block-grid'
 import { AgentBranchItem } from './agent-branch-item'
-import { ImplementorGroup } from './implementor-row'
-import { ToolBlockGroup } from './tool-block-group'
-import { ContentWithMarkdown } from './content-with-markdown'
-import { ThinkingBlock } from './thinking-block'
 import { trimTrailingNewlines, sanitizePreview } from './block-helpers'
+import { ContentWithMarkdown } from './content-with-markdown'
+import { ImplementorGroup } from './implementor-row'
+import { ThinkingBlock } from './thinking-block'
+import { ToolBlockGroup } from './tool-block-group'
 import { useTheme } from '../../hooks/use-theme'
 import { useChatStore } from '../../state/chat-store'
-import { AGENT_CONTENT_HORIZONTAL_PADDING } from '../../utils/layout-helpers'
-import { shouldRenderAsSimpleText } from '../../utils/constants'
-import { isImplementorAgent, getImplementorIndex } from '../../utils/implementor-helpers'
-import { processBlocks, type BlockProcessorHandlers } from '../../utils/block-processor'
+import { isTextBlock } from '../../types/chat'
 import { getAgentStatusInfo } from '../../utils/agent-helpers'
 import { extractHtmlBlockMargins } from '../../utils/block-margins'
-import { isTextBlock } from '../../types/chat'
+import { processBlocks, type BlockProcessorHandlers } from '../../utils/block-processor'
+import { shouldRenderAsSimpleText } from '../../utils/constants'
+import { isImplementorAgent, getImplementorIndex } from '../../utils/implementor-helpers'
+import { AGENT_CONTENT_HORIZONTAL_PADDING } from '../../utils/layout-helpers'
+
 import type {
   AgentContentBlock,
   ContentBlock,

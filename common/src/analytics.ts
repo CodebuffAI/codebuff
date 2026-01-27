@@ -1,7 +1,9 @@
+import { env, DEBUG_ANALYTICS } from '@codebuff/common/env'
+
 import { createPostHogClient, type AnalyticsClient } from './analytics-core'
 import { AnalyticsEvent } from './constants/analytics-events'
+
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import { env, DEBUG_ANALYTICS } from '@codebuff/common/env'
 
 let client: AnalyticsClient | undefined
 

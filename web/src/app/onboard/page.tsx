@@ -1,14 +1,9 @@
 'use server'
 
+import { env } from '@codebuff/internal/env'
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 
-import { env } from '@codebuff/internal/env'
-
-import { authOptions } from '../api/auth/[...nextauth]/auth-options'
-import CardWithBeams from '@/components/card-with-beams'
-import { logger } from '@/util/logger'
-import { OnboardClientWrapper } from '@/components/onboard/onboard-client-wrapper'
 
 import {
   checkFingerprintConflict,
@@ -17,6 +12,12 @@ import {
   getSessionTokenFromCookies,
 } from './_db'
 import { isAuthCodeExpired, parseAuthCode, validateAuthCode } from './_helpers'
+import { authOptions } from '../api/auth/[...nextauth]/auth-options'
+
+import CardWithBeams from '@/components/card-with-beams'
+import { OnboardClientWrapper } from '@/components/onboard/onboard-client-wrapper'
+import { logger } from '@/util/logger'
+
 
 interface PageProps {
   searchParams?: Promise<{

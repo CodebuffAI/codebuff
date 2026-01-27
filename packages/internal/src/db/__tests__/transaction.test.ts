@@ -1,13 +1,14 @@
-import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
-import { createPostgresError } from '@codebuff/common/testing/errors'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import * as analyticsModule from '@codebuff/common/analytics'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { createPostgresError } from '@codebuff/common/testing/errors'
+import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
 
+import * as dbModule from '../index'
 import {
   getRetryableErrorDescription,
   isRetryablePostgresError,
 } from '../transaction'
-import * as dbModule from '../index'
+
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 describe('transaction error handling', () => {

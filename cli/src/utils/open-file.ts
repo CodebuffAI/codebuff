@@ -1,9 +1,10 @@
 import { spawn } from 'child_process'
 import os from 'os'
 
-import type { CliEnv } from '../types/env'
 import { getCliEnv } from './env'
 import { logger } from './logger'
+
+import type { CliEnv } from '../types/env'
 
 const isWindows = os.platform() === 'win32'
 const isMac = os.platform() === 'darwin'

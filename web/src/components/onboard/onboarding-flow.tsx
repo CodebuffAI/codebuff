@@ -1,20 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import {
   ChevronLeft,
   ChevronRight,
-  Check,
   ExternalLink,
   Terminal,
   HelpCircle,
 } from 'lucide-react'
 import Image from 'next/image'
 import posthog from 'posthog-js'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { useState, useEffect } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { EnhancedCopyButton } from '@/components/ui/enhanced-copy-button'
 import {
   Dialog,
   DialogContent,
@@ -23,6 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { EnhancedCopyButton } from '@/components/ui/enhanced-copy-button'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
 

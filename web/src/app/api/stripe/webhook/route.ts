@@ -22,10 +22,6 @@ import {
 import { getStripeCustomerId } from '@/lib/stripe-utils'
 import { logger } from '@/util/logger'
 
-async function handleCustomerCreated(customer: Stripe.Customer) {
-  logger.info({ customerId: customer.id }, 'New customer created')
-}
-
 async function handleCheckoutSessionCompleted(
   session: Stripe.Checkout.Session,
 ) {

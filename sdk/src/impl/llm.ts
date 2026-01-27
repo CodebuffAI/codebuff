@@ -1,3 +1,4 @@
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { models, PROFIT_MARGIN } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
@@ -15,7 +16,6 @@ import {
   TypeValidationError,
 } from 'ai'
 
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { getModelForRequest, markClaudeOAuthRateLimited, fetchClaudeOAuthResetTime } from './model-provider'
 import { getValidClaudeOAuthCredentials } from '../credentials'
 import { getErrorStatusCode } from '../error-utils'

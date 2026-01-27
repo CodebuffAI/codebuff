@@ -1,7 +1,6 @@
 import { sleep } from '@codebuff/common/util/promise'
 import { useMutation } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { useTheme } from 'next-themes'
 import posthog from 'posthog-js'
 import React, { useState, useEffect, useRef } from 'react'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
@@ -298,43 +297,7 @@ const SAMPLE_RESPONSES = {
   },
 }
 
-// Interactive typing animation component
-const TypingEffect = ({
-  text,
-  delay = 25,
-  onComplete,
-}: {
-  text: string
-  delay?: number
-  onComplete?: () => void
-}) => {
-  const [displayText, setDisplayText] = useState('')
-  const [currentIndex, setCurrentIndex] = useState(0)
-
-  useEffect(() => {
-    if (currentIndex < text.length) {
-      const timeout = setTimeout(() => {
-        setDisplayText((prev) => prev + text[currentIndex])
-        setCurrentIndex((prevIndex) => prevIndex + 1)
-      }, delay)
-
-      return () => clearTimeout(timeout)
-    } else if (onComplete) {
-      onComplete()
-    }
-    return undefined
-  }, [currentIndex, delay, text, onComplete])
-
-  return (
-    <span>
-      {displayText}
-      {currentIndex < text.length && <span className="animate-pulse">▌</span>}
-    </span>
-  )
-}
-
 const TerminalDemo = () => {
-  const colorTheme = useTheme()
   const [terminalLines, setTerminalLines] = useState<React.ReactNode[]>([
     <TerminalOutput key="welcome">
       <span className="text-green-400 font-bold">Codebuff CLI v1.5.0</span>
@@ -365,7 +328,7 @@ const TerminalDemo = () => {
       </div>`)
   const [showError, setShowError] = useState(FIX_BUG_FLAG)
 
-  const [isRainbow, setIsRainbow] = useState(false)
+  const isRainbow = false
   const [previewTheme, setPreviewTheme] = useState<PreviewTheme>('default')
   const [messages, setMessages] = useState<string[]>([])
   const [autoTypeIndex, setAutoTypeIndex] = useState(0)

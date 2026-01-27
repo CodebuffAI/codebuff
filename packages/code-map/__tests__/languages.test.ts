@@ -1,8 +1,7 @@
-import {
-  createMockTreeSitterParser,
-  createMockTreeSitterQuery,
-} from '@codebuff/common/testing/mocks/tree-sitter'
+
+
 import { describe, it, expect, mock } from 'bun:test'
+
 import {
   languageTable,
   WASM_FILES,
@@ -14,10 +13,8 @@ import {
   type RuntimeLanguageLoader,
 } from '../src/languages'
 
-import type {
-  MockParser,
-  MockQuery,
-} from '@codebuff/common/testing/mocks/tree-sitter'
+
+
 
 describe('languages module', () => {
   describe('languageTable', () => {

@@ -1,12 +1,12 @@
 import { TextAttributes } from '@opentui/core'
 import React, { memo, type ReactNode } from 'react'
 
-import { Button } from '../button'
-import { CollapseButton } from '../collapse-button'
 import { useTheme } from '../../hooks/use-theme'
 import { useWhyDidYouUpdateById } from '../../hooks/use-why-did-you-update'
 import { getCliEnv } from '../../utils/env'
 import { BORDER_CHARS } from '../../utils/ui-constants'
+import { Button } from '../button'
+import { CollapseButton } from '../collapse-button'
 
 interface AgentBranchItemProps {
   name: string

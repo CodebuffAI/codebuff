@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+
 import {
   extractValueForKey,
   extractFilePath,
@@ -15,6 +16,7 @@ import {
   groupConsecutiveNonImplementorAgents,
   groupConsecutiveToolBlocks,
 } from '../implementor-helpers'
+
 import type { ToolContentBlock, ContentBlock, AgentContentBlock, TextContentBlock } from '../../types/chat'
 
 describe('extractValueForKey', () => {

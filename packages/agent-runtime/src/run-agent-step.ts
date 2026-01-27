@@ -4,6 +4,7 @@ import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constan
 import { buildArray } from '@codebuff/common/util/array'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { systemMessage, userMessage } from '@codebuff/common/util/messages'
+import { APICallError, type ToolSet } from 'ai'
 import { cloneDeep, mapValues } from 'lodash'
 
 import { callTokenCountAPI } from './llm-api/codebuff-web-api'
@@ -36,7 +37,6 @@ import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   ParamsExcluding,
-  ParamsOf,
 } from '@codebuff/common/types/function-params'
 import type {
   Message,
@@ -56,7 +56,6 @@ import type {
   CustomToolDefinitions,
   ProjectFileContext,
 } from '@codebuff/common/util/file'
-import { APICallError, type ToolSet } from 'ai'
 
 async function additionalToolDefinitions(
   params: {

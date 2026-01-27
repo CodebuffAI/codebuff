@@ -3,7 +3,6 @@ import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures/agent-runtime'
 import {
   clearMockedModules,
-  mockModule,
 } from '@codebuff/common/testing/mock-modules'
 import { setupDbSpies } from '@codebuff/common/testing/mocks/database'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
@@ -26,9 +25,8 @@ import { loopAgentSteps } from '../run-agent-step'
 import { clearAgentGeneratorCache } from '../run-programmatic-step'
 import { createToolCallChunk, mockFileContext } from './test-utils'
 
-import type { DbSpies } from '@codebuff/common/testing/mocks/database'
-
 import type { AgentTemplate } from '../templates/types'
+import type { DbSpies } from '@codebuff/common/testing/mocks/database'
 import type { StepGenerator } from '@codebuff/common/types/agent-template'
 import type { AgentState } from '@codebuff/common/types/session-state'
 

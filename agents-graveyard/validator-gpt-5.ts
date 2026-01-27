@@ -1,5 +1,6 @@
-import type { AgentDefinition } from '../.agents/types/agent-definition'
 import validator from './validator'
+
+import type { AgentDefinition } from '../.agents/types/agent-definition'
 
 const defintion: AgentDefinition = {
   ...validator,

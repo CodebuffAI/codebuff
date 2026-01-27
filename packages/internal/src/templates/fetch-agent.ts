@@ -1,6 +1,7 @@
+import { and, eq } from 'drizzle-orm'
+
 import { db } from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { and, eq } from 'drizzle-orm'
 
 export async function fetchAgent(
   agentId: string,

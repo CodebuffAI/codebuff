@@ -1,4 +1,5 @@
 import { z } from 'zod/v4'
+
 import { OpenRouterErrorResponseSchema } from '../schemas/error-response'
 import { ReasoningDetailArraySchema } from '../schemas/reasoning-details'
 

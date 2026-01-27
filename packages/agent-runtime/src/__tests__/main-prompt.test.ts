@@ -7,7 +7,6 @@ import {
 } from '@codebuff/common/types/session-state'
 import {
   afterEach,
-  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -18,6 +17,7 @@ import {
 
 import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
+import { createToolCallChunk } from './test-utils'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type {
@@ -30,7 +30,6 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 let mainPromptBaseParams: any
 
-import { createToolCallChunk } from './test-utils'
 
 import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
 
