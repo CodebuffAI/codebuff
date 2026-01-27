@@ -143,16 +143,23 @@ jobs:
           command: |
             cd ${{ matrix.package }}
             if [ "${{ matrix.package }}" = ".agents" ]; then
-              TEST_FILES=$(find __tests__ -name '*.test.ts' ! -name '*.integration.test.ts' 2>/dev/null | sort)
+              TEST_FILES=$(find __tests__ -name '*.test.ts' ! -name '*.integration.test.ts' 2>/dev/null | sort | tr '\n' ' ')
               if [ -n "$TEST_FILES" ]; then
-                echo "$TEST_FILES" | xargs -I {} bun test {}
+                bun test $TEST_FILES
               else
                 echo "No regular tests found in .agents"
               fi
             elif [ "${{ matrix.package }}" = "web" ]; then
               bun run test --runInBand
             else
-              find src -name '*.test.ts' ! -name '*.integration.test.ts' | sort | xargs -I {} bun test {}
+              # Run all non-integration tests in a single bun test invocation
+              # This avoids xargs exit code issues with orphaned child processes
+              TEST_FILES=$(find src -name '*.test.ts' ! -name '*.integration.test.ts' 2>/dev/null | sort | tr '\n' ' ')
+              if [ -n "$TEST_FILES" ]; then
+                bun test $TEST_FILES
+              else
+                echo "No tests found in ${{ matrix.package }}"
+              fi
             fi
 
       # - name: Open interactive debug shell
@@ -222,9 +229,9 @@ jobs:
           max_attempts: 3
           command: |
             cd ${{ matrix.package }}
-            TEST_FILES=$(find src -name '*.integration.test.ts' 2>/dev/null | sort)
+            TEST_FILES=$(find src -name '*.integration.test.ts' 2>/dev/null | sort | tr '\n' ' ')
             if [ -n "$TEST_FILES" ]; then
-              echo "$TEST_FILES" | xargs -I {} bun test --timeout=60000 {}
+              bun test --timeout=60000 $TEST_FILES
             else
               echo "No integration tests found in ${{ matrix.package }}"
             fi
@@ -310,9 +317,9 @@ jobs:
           max_attempts: 3
           command: |
             cd packages/billing
-            TEST_FILES=$(find src -name '*.integration.test.ts' 2>/dev/null | sort)
+            TEST_FILES=$(find src -name '*.integration.test.ts' 2>/dev/null | sort | tr '\n' ' ')
             if [ -n "$TEST_FILES" ]; then
-              echo "$TEST_FILES" | xargs -I {} bun test --timeout=60000 {}
+              bun test --timeout=60000 $TEST_FILES
             else
               echo "No integration tests found in packages/billing"
             fi
@@ -398,9 +405,9 @@ jobs:
           max_attempts: 3
           command: |
             cd packages/internal
-            TEST_FILES=$(find src -name '*.integration.test.ts' 2>/dev/null | sort)
+            TEST_FILES=$(find src -name '*.integration.test.ts' 2>/dev/null | sort | tr '\n' ' ')
             if [ -n "$TEST_FILES" ]; then
-              echo "$TEST_FILES" | xargs -I {} bun test --timeout=60000 {}
+              bun test --timeout=60000 $TEST_FILES
             else
               echo "No integration tests found in packages/internal"
             fi
