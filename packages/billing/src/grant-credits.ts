@@ -487,7 +487,7 @@ export async function triggerMonthlyResetAndGrant(params: {
           ...params,
           amount: referralBonus,
           type: 'referral',
-          description: 'Monthly referral bonus',
+          description: 'Referral bonus',
           expiresAt: newResetDate, // Referral credits expire at next reset
           operationId: referralOperationId,
           tx,

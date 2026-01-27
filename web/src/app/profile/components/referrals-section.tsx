@@ -124,7 +124,7 @@ export function ReferralsSection() {
           </CardTitle>
           <CardDescription className="text-green-700 dark:text-green-300">
             Refer a friend and <b>you'll both</b> earn {CREDITS_REFERRAL_BONUS}{' '}
-            credits per month!{' '}
+            bonus credits!{' '}
           </CardDescription>
         </CardHeader>
         <CardContent>

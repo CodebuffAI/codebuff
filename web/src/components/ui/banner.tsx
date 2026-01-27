@@ -45,12 +45,12 @@ function BannerContent() {
             {isPersonalReferral ? (
               <>
                 {capitalize(referrer)} got you an extra {CREDITS_REFERRAL_BONUS}{' '}
-                credits per month!
+                bonus credits!
               </>
             ) : (
               <>
-                Refer a friend, and earn {CREDITS_REFERRAL_BONUS} credits per
-                month for both of you!
+                Refer a friend, and earn {CREDITS_REFERRAL_BONUS} bonus credits
+                for both of you!
               </>
             )}{' '}
             <Link
