@@ -913,8 +913,7 @@ describe('doStream', () => {
               completionTokens: 227,
               promptTokens: 17,
               totalTokens: 244,
-              cost: undefined,
-            } as { completionTokens: number; promptTokens: number; totalTokens: number; cost: number | undefined },
+            },
           },
         },
         usage: {
@@ -1282,8 +1281,7 @@ describe('doStream', () => {
               completionTokens: 17,
               promptTokens: 53,
               totalTokens: 70,
-              cost: undefined,
-            } as { completionTokens: number; promptTokens: number; totalTokens: number; cost: number | undefined },
+            },
           },
         },
         usage: {
@@ -1385,8 +1383,7 @@ describe('doStream', () => {
               completionTokens: 17,
               promptTokens: 53,
               totalTokens: 70,
-              cost: undefined,
-            } as { completionTokens: number; promptTokens: number; totalTokens: number; cost: number | undefined },
+            },
           },
         },
         usage: {

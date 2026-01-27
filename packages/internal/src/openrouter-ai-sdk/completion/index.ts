@@ -301,7 +301,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
                 }
               }
 
-              openrouterUsage.cost = value.usage.cost
+              if (value.usage.cost !== undefined) {
+                openrouterUsage.cost = value.usage.cost
+              }
               openrouterUsage.totalTokens = value.usage.total_tokens
             }
 
