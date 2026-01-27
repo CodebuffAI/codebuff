@@ -4,7 +4,7 @@ import os from 'os'
 
 import { env } from '@codebuff/common/env'
 import { CLAUDE_OAUTH_CLIENT_ID } from '@codebuff/common/constants/claude-oauth'
-import { CODEX_OAUTH_CLIENT_ID } from '@codebuff/common/constants/codex-oauth'
+import { CODEX_OAUTH_CLIENT_ID, CODEX_OAUTH_TOKEN_URL } from '@codebuff/common/constants/codex-oauth'
 import { userSchema } from '@codebuff/common/util/credentials'
 import { z } from 'zod/v4'
 
@@ -461,7 +461,7 @@ export const refreshCodexOAuthToken = async (
       })
 
       const response = await fetch(
-        'https://auth.openai.com/oauth/token',
+        CODEX_OAUTH_TOKEN_URL,
         {
           method: 'POST',
           headers: {

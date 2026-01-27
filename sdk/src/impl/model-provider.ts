@@ -394,24 +394,41 @@ function createCodexFetch(
       try {
         const originalBody = JSON.parse(init.body)
 
+        // Extract system message for instructions and separate non-system messages
+        const allMessages = originalBody.messages || []
+        const systemMessage = allMessages.find(
+          (m: { role: string }) => m.role === 'system',
+        )
+        const nonSystemMessages = allMessages.filter(
+          (m: { role: string }) => m.role !== 'system',
+        )
+
+        // Extract instructions from system message (Codex API REQUIRES this field)
+        let instructions = 'You are a helpful assistant.'
+        if (systemMessage) {
+          instructions =
+            typeof systemMessage.content === 'string'
+              ? systemMessage.content
+              : systemMessage.content
+                  ?.map((p: { text?: string }) => p.text)
+                  .filter(Boolean)
+                  .join('\n') || 'You are a helpful assistant.'
+        }
+
         // Transform from OpenAI chat format to Codex format
         const codexBody: Record<string, unknown> = {
           model: modelId,
-          // Transform messages to Codex input format
-          input: transformMessagesToCodexInput(originalBody.messages || []),
-          // Codex-specific required fields
+          instructions,
+          input: transformMessagesToCodexInput(nonSystemMessages),
           store: false, // ChatGPT backend REQUIRES store=false
           stream: true, // Always stream
-          // Reasoning configuration
           reasoning: {
-            effort: 'medium',
+            effort: 'high',
             summary: 'auto',
           },
-          // Text verbosity
           text: {
             verbosity: 'medium',
           },
-          // Include reasoning in response
           include: ['reasoning.encrypted_content'],
         }
 
@@ -428,36 +445,11 @@ function createCodexFetch(
                 name: fn.name,
                 description: fn.description,
                 parameters: fn.parameters,
-                // Preserve any additional properties
                 ...(fn.strict !== undefined && { strict: fn.strict }),
               }
             }
-            // Already in Codex format or unknown format, pass through
             return tool
           })
-        }
-
-        // Extract system message for instructions (required by Codex API)
-        const systemMessage = (originalBody.messages || []).find(
-          (m: { role: string }) => m.role === 'system',
-        )
-        if (systemMessage) {
-          codexBody.instructions =
-            typeof systemMessage.content === 'string'
-              ? systemMessage.content
-              : systemMessage.content
-                  ?.map((p: { text?: string }) => p.text)
-                  .filter(Boolean)
-                  .join('\n') || 'You are a helpful assistant.'
-          // Remove system message from input (it's now in instructions)
-          codexBody.input = transformMessagesToCodexInput(
-            (originalBody.messages || []).filter(
-              (m: { role: string }) => m.role !== 'system',
-            ),
-          )
-        } else {
-          // Codex API REQUIRES instructions field - provide default if no system message
-          codexBody.instructions = 'You are a helpful assistant.'
         }
 
         transformedBody = JSON.stringify(codexBody)
@@ -471,6 +463,7 @@ function createCodexFetch(
       `${CHATGPT_BACKEND_API_URL}/codex/responses`,
       {
         method: 'POST',
+        signal: init?.signal,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${oauthToken}`,
@@ -510,10 +503,10 @@ function createCodexFetch(
 
         for (const line of lines) {
           const trimmed = line.trim()
-          if (!trimmed) continue
+          // Only parse SSE data: lines, skip event:/id:/retry: and blank lines
+          if (!trimmed.startsWith('data:')) continue
 
-          // Parse the SSE data line
-          const data = trimmed.startsWith('data: ') ? trimmed.slice(6) : trimmed
+          const data = trimmed.slice(5).trim()
           if (data === '[DONE]') continue
 
           try {
@@ -533,9 +526,9 @@ function createCodexFetch(
           const lines = buffer.split('\n')
           for (const line of lines) {
             const trimmed = line.trim()
-            if (!trimmed) continue
+            if (!trimmed.startsWith('data:')) continue
 
-            const data = trimmed.startsWith('data: ') ? trimmed.slice(6) : trimmed
+            const data = trimmed.slice(5).trim()
             if (data === '[DONE]') continue
 
             try {

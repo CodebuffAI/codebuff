@@ -11,9 +11,6 @@ export const CODEX_OAUTH_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann'
 export const CODEX_OAUTH_AUTHORIZE_URL = 'https://auth.openai.com/oauth/authorize'
 export const CODEX_OAUTH_TOKEN_URL = 'https://auth.openai.com/oauth/token'
 
-// OpenAI API endpoint for direct calls (standard API, not ChatGPT backend)
-export const OPENAI_API_BASE_URL = 'https://api.openai.com'
-
 // ChatGPT backend API endpoint for Codex requests
 export const CHATGPT_BACKEND_API_URL = 'https://chatgpt.com/backend-api'
 
@@ -112,9 +109,3 @@ export function toCodexModelId(model: string): string | null {
   return null
 }
 
-/**
- * @deprecated Use toCodexModelId instead
- */
-export function toOpenAIModelId(openrouterModel: string): string | null {
-  return toCodexModelId(openrouterModel)
-}

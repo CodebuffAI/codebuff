@@ -111,7 +111,10 @@ export function transformMessagesToCodexInput(
       if (msg.content) {
         const textContent = typeof msg.content === 'string' 
           ? msg.content 
-          : msg.content.map(p => (p as TextContentPart).text).filter(Boolean).join('')
+          : msg.content
+              .filter((p): p is TextContentPart => p.type === 'text')
+              .map(p => p.text)
+              .join('')
         
         if (textContent) {
           result.push({

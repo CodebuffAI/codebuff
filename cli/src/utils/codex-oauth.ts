@@ -8,6 +8,7 @@ import open from 'open'
 import {
   CODEX_OAUTH_CLIENT_ID,
   CODEX_OAUTH_AUTHORIZE_URL,
+  CODEX_OAUTH_TOKEN_URL,
   CODEX_OAUTH_SCOPES,
   CODEX_OAUTH_REDIRECT_URI,
 } from '@codebuff/common/constants/codex-oauth'
@@ -22,8 +23,8 @@ import {
 import type { CodexOAuthCredentials } from '@codebuff/sdk'
 import type { Server } from 'http'
 
-// Port for the local OAuth callback server
-const OAUTH_CALLBACK_PORT = 1455
+// Port for the local OAuth callback server (derived from redirect URI)
+const OAUTH_CALLBACK_PORT = Number(new URL(CODEX_OAUTH_REDIRECT_URI).port)
 
 /**
  * Generate a nicely styled success HTML page for OAuth callback.
@@ -231,9 +232,8 @@ function generateState(): string {
   return crypto.randomBytes(16).toString('hex')
 }
 
-// Store the code verifier and state during the OAuth flow
+// Store the code verifier during the OAuth flow
 let pendingCodeVerifier: string | null = null
-let pendingState: string | null = null
 let callbackServer: Server | null = null
 
 /**
@@ -246,9 +246,8 @@ export function startOAuthFlow(): { codeVerifier: string; state: string; authUrl
   const codeChallenge = generateCodeChallenge(codeVerifier)
   const state = generateState()
 
-  // Store the code verifier and state for later use
+  // Store the code verifier for later use
   pendingCodeVerifier = codeVerifier
-  pendingState = state
 
   // Build the authorization URL
   const authUrl = new URL(CODEX_OAUTH_AUTHORIZE_URL)
@@ -354,6 +353,7 @@ export function startOAuthFlowWithCallback(
     })
 
     callbackServer.on('error', (err) => {
+      stopCallbackServer()
       const nodeErr = err as NodeJS.ErrnoException
       if (nodeErr.code === 'EADDRINUSE') {
         onStatusChange?.('error', `Port ${OAUTH_CALLBACK_PORT} is already in use`)
@@ -375,16 +375,6 @@ export function startOAuthFlowWithCallback(
       }
     })
   })
-}
-
-/**
- * Open the browser to start OAuth flow (legacy - for manual code entry).
- * @deprecated Use startOAuthFlowWithCallback instead for automatic callback handling.
- */
-export async function openOAuthInBrowser(): Promise<string> {
-  const { authUrl, codeVerifier } = startOAuthFlow()
-  await open(authUrl)
-  return codeVerifier
 }
 
 /**
@@ -423,7 +413,7 @@ export async function exchangeCodeForTokens(
     redirect_uri: CODEX_OAUTH_REDIRECT_URI,
   })
 
-  const response = await fetch('https://auth.openai.com/oauth/token', {
+  const response = await fetch(CODEX_OAUTH_TOKEN_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -438,9 +428,8 @@ export async function exchangeCodeForTokens(
 
   const data = await response.json()
 
-  // Clear the pending code verifier and state
+  // Clear the pending code verifier
   pendingCodeVerifier = null
-  pendingState = null
 
   const credentials: CodexOAuthCredentials = {
     accessToken: data.access_token,

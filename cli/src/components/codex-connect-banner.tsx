@@ -28,27 +28,33 @@ export const CodexConnectBanner = () => {
   const [isDisconnectHovered, setIsDisconnectHovered] = useState(false)
   const [isConnectHovered, setIsConnectHovered] = useState(false)
 
+  const onOAuthStatusChange = (callbackStatus: 'waiting' | 'success' | 'error', message?: string) => {
+    if (callbackStatus === 'success') {
+      setFlowState('connected')
+    } else if (callbackStatus === 'error') {
+      setError(message ?? 'Authorization failed')
+      setFlowState('error')
+    } else if (callbackStatus === 'waiting' && message) {
+      setManualUrl(message)
+    }
+  }
+
+  const startFlow = () => {
+    setFlowState('waiting-for-code')
+    setManualUrl(null)
+    startOAuthFlowWithCallback(onOAuthStatusChange).catch((err) => {
+      setError(err instanceof Error ? err.message : 'Failed to start OAuth flow')
+      setFlowState('error')
+    })
+  }
+
   // Check initial connection status and auto-open browser if not connected
   useEffect(() => {
     const status = getCodexOAuthStatus()
     if (status.connected) {
       setFlowState('connected')
     } else {
-      // Automatically start OAuth flow when not connected
-      setFlowState('waiting-for-code')
-      startOAuthFlowWithCallback((callbackStatus, message) => {
-        if (callbackStatus === 'success') {
-          setFlowState('connected')
-        } else if (callbackStatus === 'error') {
-          setError(message ?? 'Authorization failed')
-          setFlowState('error')
-        } else if (callbackStatus === 'waiting' && message) {
-          setManualUrl(message)
-        }
-      }).catch((err) => {
-        setError(err instanceof Error ? err.message : 'Failed to start OAuth flow')
-        setFlowState('error')
-      })
+      startFlow()
     }
 
     // Cleanup: stop the callback server when the component unmounts
@@ -57,27 +63,8 @@ export const CodexConnectBanner = () => {
     }
   }, [])
 
-  const handleConnect = async () => {
-    try {
-      setFlowState('waiting-for-code')
-      setManualUrl(null)
-      await startOAuthFlowWithCallback((callbackStatus, message) => {
-        if (callbackStatus === 'success') {
-          setFlowState('connected')
-        } else if (callbackStatus === 'error') {
-          setError(message ?? 'Authorization failed')
-          setFlowState('error')
-        } else if (callbackStatus === 'waiting' && message) {
-          setManualUrl(message)
-        }
-      })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start OAuth flow')
-      setFlowState('error')
-    }
-  }
-
   const handleDisconnect = () => {
+    stopCallbackServer()
     disconnectCodexOAuth()
     setFlowState('not-connected')
   }
@@ -159,7 +146,7 @@ export const CodexConnectBanner = () => {
           <text style={{ fg: theme.muted }}>Use your ChatGPT Plus/Pro subscription</text>
           <text style={{ fg: theme.muted }}>·</text>
           <Button
-            onClick={handleConnect}
+            onClick={startFlow}
             onMouseOver={() => setIsConnectHovered(true)}
             onMouseOut={() => setIsConnectHovered(false)}
           >
