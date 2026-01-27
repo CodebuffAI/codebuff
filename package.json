@@ -43,9 +43,7 @@
   "overrides": {
     "baseline-browser-mapping": "^2.9.14",
     "zod": "^4.2.1",
-    "signal-exit": "3.0.7",
-    "@ai-sdk/provider": "2.0.1",
-    "@ai-sdk/provider-utils": "3.0.20"
+    "signal-exit": "3.0.7"
   },
   "devDependencies": {
     "@tanstack/react-query": "^5.90.12",
