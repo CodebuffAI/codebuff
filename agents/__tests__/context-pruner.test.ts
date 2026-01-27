@@ -2,7 +2,25 @@ import { describe, test, expect, beforeEach } from 'bun:test'
 
 import contextPruner from '../context-pruner'
 
-import type { Message, ToolMessage } from '../types/util-types'
+import type { AgentState } from '../types/agent-definition'
+import type { JSONValue, Message, ToolMessage } from '../types/util-types'
+
+// Helper to create a minimal mock AgentState for testing
+function createMockAgentState(
+  messageHistory: Message[],
+  contextTokenCount: number,
+): AgentState {
+  return {
+    agentId: 'test-agent',
+    runId: 'test-run',
+    parentId: undefined,
+    messageHistory,
+    output: undefined,
+    systemPrompt: '',
+    toolDefinitions: {},
+    contextTokenCount,
+  }
+}
 
 /**
  * Regression test: Verify handleSteps can be serialized and run in isolation.
@@ -29,8 +47,8 @@ describe('context-pruner handleSteps serialization', () => {
     const isolatedFunction = new Function(`return (${handleStepsString})`)()
 
     // Create minimal mock data to run the function
-    const mockAgentState = {
-      messageHistory: [
+    const mockAgentState = createMockAgentState(
+      [
         {
           role: 'user',
           content: [{ type: 'text', text: 'Hello' }],
@@ -40,8 +58,8 @@ describe('context-pruner handleSteps serialization', () => {
           content: [{ type: 'text', text: 'Hi there!' }],
         },
       ],
-      contextTokenCount: 100, // Under the limit, so it won't prune
-    }
+      100, // Under the limit, so it won't prune
+    )
 
     const mockLogger = {
       debug: () => {},
@@ -78,8 +96,8 @@ describe('context-pruner handleSteps serialization', () => {
     const isolatedFunction = new Function(`return (${handleStepsString})`)()
 
     // Create mock data that will trigger pruning (context over limit)
-    const mockAgentState = {
-      messageHistory: [
+    const mockAgentState = createMockAgentState(
+      [
         {
           role: 'user',
           content: [{ type: 'text', text: 'Please help me with a task' }],
@@ -107,8 +125,8 @@ describe('context-pruner handleSteps serialization', () => {
           content: [{ type: 'text', text: 'Thanks!' }],
         },
       ],
-      contextTokenCount: 250000, // Over the limit, will trigger pruning
-    }
+      250000, // Over the limit, will trigger pruning
+    )
 
     const mockLogger = {
       debug: () => {},
@@ -177,7 +195,7 @@ const createToolCallMessage = (
 const createToolResultMessage = (
   toolCallId: string,
   toolName: string,
-  value: unknown,
+  value: JSONValue,
 ): ToolMessage => ({
   role: 'tool',
   toolCallId,
@@ -185,19 +203,16 @@ const createToolResultMessage = (
   content: [
     {
       type: 'json',
-      value: value as Record<string, unknown>,
+      value,
     },
   ],
 })
 
 describe('context-pruner handleSteps', () => {
-  let mockAgentState: { messageHistory: Message[]; contextTokenCount: number }
+  let mockAgentState: AgentState
 
   beforeEach(() => {
-    mockAgentState = {
-      messageHistory: [] as Message[],
-      contextTokenCount: 0,
-    }
+    mockAgentState = createMockAgentState([], 0)
   })
 
   const runHandleSteps = (
@@ -284,7 +299,7 @@ describe('context-pruner handleSteps', () => {
       createToolCallMessage('call-1', 'read_files', {
         paths: ['file1.ts', 'file2.ts'],
       }),
-      createToolResultMessage('call-1', 'read_files', { content: 'file data' }),
+      createToolResultMessage('call-1', 'read_files', { content: 'file data' } as JSONValue),
       createMessage('user', 'Now edit this file'),
       createToolCallMessage('call-2', 'str_replace', {
         path: 'file1.ts',
@@ -675,13 +690,10 @@ describe('context-pruner handleSteps', () => {
 })
 
 describe('context-pruner long message truncation', () => {
-  let mockAgentState: { messageHistory: Message[]; contextTokenCount: number }
+  let mockAgentState: AgentState
 
   beforeEach(() => {
-    mockAgentState = {
-      messageHistory: [] as Message[],
-      contextTokenCount: 0,
-    }
+    mockAgentState = createMockAgentState([], 0)
   })
 
   const runHandleSteps = (
@@ -772,13 +784,10 @@ describe('context-pruner long message truncation', () => {
 })
 
 describe('context-pruner code_search with flags', () => {
-  let mockAgentState: { messageHistory: Message[]; contextTokenCount: number }
+  let mockAgentState: AgentState
 
   beforeEach(() => {
-    mockAgentState = {
-      messageHistory: [] as Message[],
-      contextTokenCount: 0,
-    }
+    mockAgentState = createMockAgentState([], 0)
   })
 
   const runHandleSteps = (messages: Message[]) => {
@@ -824,13 +833,10 @@ describe('context-pruner code_search with flags', () => {
 })
 
 describe('context-pruner ask_user with questions and answers', () => {
-  let mockAgentState: { messageHistory: Message[]; contextTokenCount: number }
+  let mockAgentState: AgentState
 
   beforeEach(() => {
-    mockAgentState = {
-      messageHistory: [] as Message[],
-      contextTokenCount: 0,
-    }
+    mockAgentState = createMockAgentState([], 0)
   })
 
   const runHandleSteps = (messages: Message[]) => {
@@ -937,13 +943,10 @@ describe('context-pruner ask_user with questions and answers', () => {
 })
 
 describe('context-pruner terminal command exit codes', () => {
-  let mockAgentState: { messageHistory: Message[]; contextTokenCount: number }
+  let mockAgentState: AgentState
 
   beforeEach(() => {
-    mockAgentState = {
-      messageHistory: [] as Message[],
-      contextTokenCount: 0,
-    }
+    mockAgentState = createMockAgentState([], 0)
   })
 
   const runHandleSteps = (messages: Message[]) => {
@@ -1009,13 +1012,10 @@ describe('context-pruner terminal command exit codes', () => {
 })
 
 describe('context-pruner spawn_agents with prompt and params', () => {
-  let mockAgentState: { messageHistory: Message[]; contextTokenCount: number }
+  let mockAgentState: AgentState
 
   beforeEach(() => {
-    mockAgentState = {
-      messageHistory: [] as Message[],
-      contextTokenCount: 0,
-    }
+    mockAgentState = createMockAgentState([], 0)
   })
 
   const runHandleSteps = (messages: Message[]) => {
@@ -1128,13 +1128,10 @@ describe('context-pruner spawn_agents with prompt and params', () => {
 })
 
 describe('context-pruner repeated compaction', () => {
-  let mockAgentState: { messageHistory: Message[]; contextTokenCount: number }
+  let mockAgentState: AgentState
 
   beforeEach(() => {
-    mockAgentState = {
-      messageHistory: [] as Message[],
-      contextTokenCount: 0,
-    }
+    mockAgentState = createMockAgentState([], 0)
   })
 
   const runHandleSteps = (
@@ -1306,13 +1303,10 @@ First assistant response
 })
 
 describe('context-pruner image token counting', () => {
-  let mockAgentState: { messageHistory: Message[]; contextTokenCount: number }
+  let mockAgentState: AgentState
 
   beforeEach(() => {
-    mockAgentState = {
-      messageHistory: [] as Message[],
-      contextTokenCount: 0,
-    }
+    mockAgentState = createMockAgentState([], 0)
   })
 
   const runHandleSteps = (
@@ -1371,13 +1365,10 @@ describe('context-pruner image token counting', () => {
 })
 
 describe('context-pruner threshold behavior', () => {
-  let mockAgentState: { messageHistory: Message[]; contextTokenCount: number }
+  let mockAgentState: AgentState
 
   beforeEach(() => {
-    mockAgentState = {
-      messageHistory: [] as Message[],
-      contextTokenCount: 0,
-    }
+    mockAgentState = createMockAgentState([], 0)
   })
 
   const runHandleSteps = (
@@ -1444,13 +1435,10 @@ describe('context-pruner threshold behavior', () => {
 })
 
 describe('context-pruner str_replace and write_file tool results', () => {
-  let mockAgentState: { messageHistory: Message[]; contextTokenCount: number }
+  let mockAgentState: AgentState
 
   beforeEach(() => {
-    mockAgentState = {
-      messageHistory: [] as Message[],
-      contextTokenCount: 0,
-    }
+    mockAgentState = createMockAgentState([], 0)
   })
 
   const runHandleSteps = (messages: Message[]) => {
@@ -1561,13 +1549,10 @@ describe('context-pruner str_replace and write_file tool results', () => {
 })
 
 describe('context-pruner glob and list_directory tools', () => {
-  let mockAgentState: { messageHistory: Message[]; contextTokenCount: number }
+  let mockAgentState: AgentState
 
   beforeEach(() => {
-    mockAgentState = {
-      messageHistory: [] as Message[],
-      contextTokenCount: 0,
-    }
+    mockAgentState = createMockAgentState([], 0)
   })
 
   const runHandleSteps = (messages: Message[]) => {

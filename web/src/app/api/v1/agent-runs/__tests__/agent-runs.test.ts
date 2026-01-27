@@ -6,20 +6,14 @@ import { NextRequest } from 'next/server'
 import { postAgentRuns } from '../_post'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
-import type {
-  GetUserInfoFromApiKeyFn,
-  GetUserInfoFromApiKeyOutput,
-} from '@codebuff/common/types/contracts/database'
+import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type {
   Logger,
   LoggerWithContextFn,
 } from '@codebuff/common/types/contracts/logger'
 
 describe('/api/v1/agent-runs POST endpoint', () => {
-  const mockUserData: Record<
-    string,
-    NonNullable<Awaited<GetUserInfoFromApiKeyOutput<'id'>>>
-  > = {
+  const mockUserData: Record<string, { id: string }> = {
     'test-api-key-123': {
       id: 'user-123',
     },
@@ -38,7 +32,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
     if (!userData) {
       return null
     }
-    return { id: userData.id } as unknown as Awaited<GetUserInfoFromApiKeyOutput<'id'>>
+    return { id: userData.id } as Awaited<ReturnType<GetUserInfoFromApiKeyFn>>
   }
 
   let mockLogger: Logger
