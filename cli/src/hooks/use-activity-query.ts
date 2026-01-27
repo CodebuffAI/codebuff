@@ -278,8 +278,6 @@ export function useActivityQuery<T>(
   const error = cachedEntry?.error ?? null
   const dataUpdatedAt = cachedEntry?.dataUpdatedAt ?? 0
 
-  const isStale = dataUpdatedAt === 0 || staleTime === 0 || Date.now() - dataUpdatedAt > staleTime
-
   // Initial load = fetching with no successful data yet
   const isLoading = isFetching && (cachedEntry == null || dataUpdatedAt === 0)
 

@@ -50,7 +50,7 @@ export async function mainPrompt(
   sessionState: SessionState
   output: AgentOutput
 }> {
-  const { action, localAgentTemplates, requestToolCall, logger } = params
+  const { action, localAgentTemplates, logger } = params
 
   const {
     prompt,

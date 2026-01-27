@@ -67,7 +67,6 @@ export const ProjectPickerScreen: React.FC<ProjectPickerScreenProps> = ({
     currentPath,
     setCurrentPath,
     directories,
-    isGitRepo,
     expandPath,
     tryNavigateToPath,
     navigateToDirectory,

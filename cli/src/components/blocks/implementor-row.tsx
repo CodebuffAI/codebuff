@@ -5,8 +5,6 @@ import React, { memo, useCallback, useMemo, useState } from 'react'
 const CARD_HORIZONTAL_PADDING = 4
 /** Fixed width for the +/- bar visualization */
 const STATS_BAR_WIDTH = 5
-/** Minimum width to display file paths */
-const MIN_FILE_PATH_WIDTH = 10
 /** Minimum inner content width */
 const MIN_INNER_WIDTH = 10
 
@@ -41,8 +39,7 @@ export const ImplementorGroup = memo(
     siblingBlocks,
     availableWidth,
   }: ImplementorGroupProps) => {
-    const theme = useTheme()
-    const { columns, columnWidth: cardWidth, columnGroups } = useGridLayout(implementors, availableWidth)
+    const { columnWidth: cardWidth, columnGroups } = useGridLayout(implementors, availableWidth)
 
 
     return (

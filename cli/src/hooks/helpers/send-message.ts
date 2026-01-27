@@ -219,7 +219,6 @@ export const setupStreamingContext = (params: {
   setStreamingAgents: (updater: (prev: Set<string>) => Set<string>) => void
 }) => {
   const {
-    aiMessageId,
     timerController,
     setMessages,
     streamRefs,
@@ -232,6 +231,7 @@ export const setupStreamingContext = (params: {
     setIsRetrying,
     setStreamingAgents,
   } = params
+  const { aiMessageId } = params
 
   streamRefs.reset()
   timerController.start(aiMessageId)
@@ -290,7 +290,6 @@ export const handleRunCompletion = (params: {
     agentMode,
     timerController,
     updater,
-    aiMessageId,
     streamRefs,
     setStreamStatus,
     setCanProcessQueue,

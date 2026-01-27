@@ -143,7 +143,6 @@ export const SelectableList = forwardRef<
           // Use subtle highlight that works in both light and dark themes
           const backgroundColor = isHighlighted ? theme.surfaceHover : 'transparent'
           const textColor = isHighlighted ? theme.foreground : theme.muted
-          const textAttributes = isHighlighted ? TextAttributes.BOLD : undefined
 
           return (
             <Button

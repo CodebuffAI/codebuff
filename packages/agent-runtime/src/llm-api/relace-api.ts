@@ -19,7 +19,7 @@ export async function promptRelaceAI(
   const { initialCode, editSnippet, instructions, promptAiSdk, logger } = params
 
   try {
-    const { tools, ...rest } = params
+    const { tools: _tools, ...rest } = params
     // const model = 'relace-apply-2.5-lite'
     const content = await promptAiSdk({
       ...rest,

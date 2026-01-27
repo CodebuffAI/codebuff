@@ -288,7 +288,6 @@ async function main(): Promise<void> {
     // Callback for when user selects a new project from the picker
     const handleProjectChange = React.useCallback(
       async (newProjectPath: string) => {
-        const previousPath = process.cwd()
         // Change process working directory
         process.chdir(newProjectPath)
 

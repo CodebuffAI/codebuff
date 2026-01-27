@@ -302,11 +302,6 @@ export const PublishConfirmation: React.FC<PublishConfirmationProps> = ({
     [dependentIds, allAgents]
   )
 
-  const totalCount =
-    selectedList.length +
-    dependencyList.length +
-    (includeDependents ? dependentList.length : 0)
-
   const hasDependents = dependentList.length > 0
   const hasDependencies = dependencyList.length > 0
 
