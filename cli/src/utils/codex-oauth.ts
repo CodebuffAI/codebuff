@@ -188,13 +188,22 @@ function getErrorPage(errorMessage: string): string {
       <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
     </div>
     <h1>Authorization Failed</h1>
-    <p class="error-message">${errorMessage}</p>
+    <p class="error-message">${escapeHtml(errorMessage)}</p>
     <div class="hint">
       <p>You can close this window and try again from the terminal.</p>
     </div>
   </div>
 </body>
 </html>`
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 // PKCE code verifier and challenge generation
@@ -361,7 +370,8 @@ export function startOAuthFlowWithCallback(
       try {
         await open(authUrl)
       } catch {
-        // Browser open failed, but server is running - user can manually open the URL
+        // Browser open failed - surface the URL so the user can open it manually
+        onStatusChange?.('waiting', authUrl)
       }
     })
   })
@@ -391,8 +401,17 @@ export async function exchangeCodeForTokens(
     )
   }
 
-  // The authorization code might come with a state parameter
-  const code = authorizationCode.trim().split('#')[0]
+  // The authorization code might be a full callback URL or just the code
+  let code: string
+  const trimmed = authorizationCode.trim()
+  try {
+    const parsed = new URL(trimmed)
+    const extractedCode = parsed.searchParams.get('code')
+    code = extractedCode ?? trimmed.split('#')[0]
+  } catch {
+    // Not a URL - treat as a raw authorization code
+    code = trimmed.split('#')[0]
+  }
 
   // Exchange the code for tokens
   // IMPORTANT: Use application/x-www-form-urlencoded, NOT application/json

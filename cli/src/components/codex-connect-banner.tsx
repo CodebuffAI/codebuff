@@ -24,6 +24,7 @@ export const CodexConnectBanner = () => {
   const theme = useTheme()
   const [flowState, setFlowState] = useState<FlowState>('checking')
   const [error, setError] = useState<string | null>(null)
+  const [manualUrl, setManualUrl] = useState<string | null>(null)
   const [isDisconnectHovered, setIsDisconnectHovered] = useState(false)
   const [isConnectHovered, setIsConnectHovered] = useState(false)
 
@@ -41,6 +42,8 @@ export const CodexConnectBanner = () => {
         } else if (callbackStatus === 'error') {
           setError(message ?? 'Authorization failed')
           setFlowState('error')
+        } else if (callbackStatus === 'waiting' && message) {
+          setManualUrl(message)
         }
       }).catch((err) => {
         setError(err instanceof Error ? err.message : 'Failed to start OAuth flow')
@@ -57,12 +60,15 @@ export const CodexConnectBanner = () => {
   const handleConnect = async () => {
     try {
       setFlowState('waiting-for-code')
+      setManualUrl(null)
       await startOAuthFlowWithCallback((callbackStatus, message) => {
         if (callbackStatus === 'success') {
           setFlowState('connected')
         } else if (callbackStatus === 'error') {
           setError(message ?? 'Authorization failed')
           setFlowState('error')
+        } else if (callbackStatus === 'waiting' && message) {
+          setManualUrl(message)
         }
       })
     } catch (err) {
@@ -128,10 +134,17 @@ export const CodexConnectBanner = () => {
       <BottomBanner borderColorKey="info" onClose={handleClose}>
         <box style={{ flexDirection: 'column', gap: 0, flexGrow: 1 }}>
           <text style={{ fg: theme.info }}>Waiting for authorization</text>
-          <text style={{ fg: theme.muted, marginTop: 1 }}>
-            Sign in with your OpenAI account in the browser. The authorization
-            will complete automatically.
-          </text>
+          {manualUrl ? (
+            <text style={{ fg: theme.muted, marginTop: 1 }}>
+              Could not open browser. Open this URL manually:{' '}
+              {manualUrl}
+            </text>
+          ) : (
+            <text style={{ fg: theme.muted, marginTop: 1 }}>
+              Sign in with your OpenAI account in the browser. The authorization
+              will complete automatically.
+            </text>
+          )}
         </box>
       </BottomBanner>
     )

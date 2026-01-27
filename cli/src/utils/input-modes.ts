@@ -110,7 +110,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
   'connect:codex': {
     icon: '🔗',
     color: 'info',
-    placeholder: 'paste authorization code here...',
+    placeholder: 'waiting for browser authorization...',
     widthAdjustment: 3, // emoji width + padding
     showAgentModeToggle: false,
     disableSlashSuggestions: true,

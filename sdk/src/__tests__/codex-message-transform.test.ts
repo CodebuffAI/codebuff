@@ -7,7 +7,7 @@ import {
   type ChatMessage,
   type ToolCallState,
   type ImageUrlContentPart,
-} from '../impl/model-provider'
+} from '../impl/codex-transform'
 
 /**
  * Unit tests for Codex OAuth message transformation functions.
