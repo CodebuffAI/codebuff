@@ -83,17 +83,15 @@ export async function postTokenCount(params: {
       logger,
     })
 
-    trackEvent({
-      event: AnalyticsEvent.TOKEN_COUNT_REQUEST,
+    logger.info({
       userId,
-      properties: {
-        messageCount: messages.length,
-        hasSystem: !!system,
-        model: model ?? 'claude-opus-4-5-20251101',
-        inputTokens,
-      },
-      logger,
-    })
+      messageCount: messages.length,
+      hasSystem: !!system,
+      model: model ?? 'claude-opus-4-5-20251101',
+      tokenCount: inputTokens,
+    },
+      `Token count: ${inputTokens}`
+    )
 
     return NextResponse.json({ inputTokens })
   } catch (error) {
@@ -101,15 +99,6 @@ export async function postTokenCount(params: {
       { error: getErrorObject(error), userId },
       'Failed to count tokens via Anthropic API',
     )
-
-    trackEvent({
-      event: AnalyticsEvent.TOKEN_COUNT_ERROR,
-      userId,
-      properties: {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      },
-      logger,
-    })
 
     return NextResponse.json(
       { error: 'Failed to count tokens' },
