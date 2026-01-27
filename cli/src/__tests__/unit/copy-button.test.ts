@@ -159,4 +159,3 @@ describe('CopyButton - copied state reset timing', () => {
     expect(mockTimers.getPendingCount()).toBe(1)
   })
 })
-

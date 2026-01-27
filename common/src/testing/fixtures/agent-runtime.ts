@@ -98,7 +98,12 @@ export const TEST_AGENT_RUNTIME_IMPL = Object.freeze({
   trackEvent: () => {},
   logger: testLogger,
   fetch: testFetch,
-  getUserInfoFromApiKey: async <T extends string>({ fields }: { apiKey: string; fields: readonly T[] }) => {
+  getUserInfoFromApiKey: async <T extends string>({
+    fields,
+  }: {
+    apiKey: string
+    fields: readonly T[]
+  }) => {
     const user = {
       id: 'test-user-id',
       email: 'test@example.com',
@@ -107,7 +112,9 @@ export const TEST_AGENT_RUNTIME_IMPL = Object.freeze({
       stripe_customer_id: null,
       banned: false,
     } as const
-    return Object.fromEntries(fields.map((field) => [field, user[field as keyof typeof user]])) as {
+    return Object.fromEntries(
+      fields.map((field) => [field, user[field as keyof typeof user]]),
+    ) as {
       [K in T]: (typeof user)[K & keyof typeof user]
     }
   },
@@ -116,7 +123,9 @@ export const TEST_AGENT_RUNTIME_IMPL = Object.freeze({
   finishAgentRun: async () => {},
   addAgentStep: async () => 'test-agent-step-id',
   consumeCreditsWithFallback: async () => {
-    throw new Error('consumeCreditsWithFallback not implemented in test runtime')
+    throw new Error(
+      'consumeCreditsWithFallback not implemented in test runtime',
+    )
   },
   promptAiSdkStream: async function* () {
     throw new Error('promptAiSdkStream not implemented in test runtime')
@@ -233,7 +242,12 @@ export function createTestAgentRuntimeParams(
       overrides.promptAiSdkStream ??
       mock(async function* () {
         yield { type: 'text' as const, text: 'Mock response\n\n' }
-        yield { type: 'tool-call' as const, toolName: 'end_turn', toolCallId: 'mock-id', input: {} }
+        yield {
+          type: 'tool-call' as const,
+          toolName: 'end_turn',
+          toolCallId: 'mock-id',
+          input: {},
+        }
         return 'mock-message-id'
       }),
     promptAiSdk: overrides.promptAiSdk ?? mock(async () => 'Mock response'),
@@ -261,7 +275,8 @@ export function createTestAgentRuntimeParams(
         email: 'test@example.com',
       })),
     handleStepsLogChunk: overrides.handleStepsLogChunk ?? mock(() => {}),
-    requestOptionalFile: overrides.requestOptionalFile ?? mock(async () => null),
+    requestOptionalFile:
+      overrides.requestOptionalFile ?? mock(async () => null),
     sendSubagentChunk: overrides.sendSubagentChunk ?? mock(() => {}),
     ...overrides,
   }
@@ -274,12 +289,20 @@ export function createTestAgentRuntimeDeps(): Omit<
   return {
     sendAction: mock(() => {}),
     requestFiles: mock(async () => ({})),
-    requestToolCall: mock(async () => ({ success: true, result: 'mock result' })),
+    requestToolCall: mock(async () => ({
+      success: true,
+      result: 'mock result',
+    })),
     onResponseChunk: mock(() => {}),
     fileContext: mockFileContext,
     promptAiSdkStream: mock(async function* () {
       yield { type: 'text' as const, text: 'Mock response\n\n' }
-      yield { type: 'tool-call' as const, toolName: 'end_turn', toolCallId: 'mock-id', input: {} }
+      yield {
+        type: 'tool-call' as const,
+        toolName: 'end_turn',
+        toolCallId: 'mock-id',
+        input: {},
+      }
       return 'mock-message-id'
     }),
     promptAiSdk: mock(async () => 'Mock response'),

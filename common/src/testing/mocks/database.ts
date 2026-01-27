@@ -61,7 +61,9 @@ export interface MockSelectResult<T = unknown> {
  */
 export interface MockSelectFromResult<T = unknown> {
   where: Mock<(condition: unknown) => MockSelectWhereResult<T>>
-  leftJoin: Mock<(table: unknown, condition: unknown) => MockSelectFromResult<T>>
+  leftJoin: Mock<
+    (table: unknown, condition: unknown) => MockSelectFromResult<T>
+  >
   innerJoin: Mock<
     (table: unknown, condition: unknown) => MockSelectFromResult<T>
   >
@@ -76,7 +78,9 @@ export interface MockSelectFromResult<T = unknown> {
  */
 export interface MockSelectWhereResult<T = unknown> {
   then: Mock<(resolve: (value: T[]) => void) => Promise<T[]>>
-  leftJoin: Mock<(table: unknown, condition: unknown) => MockSelectWhereResult<T>>
+  leftJoin: Mock<
+    (table: unknown, condition: unknown) => MockSelectWhereResult<T>
+  >
   innerJoin: Mock<
     (table: unknown, condition: unknown) => MockSelectWhereResult<T>
   >
@@ -100,9 +104,7 @@ export interface MockDbOperations {
   update: Mock<(table: unknown) => MockUpdateResult>
   select: Mock<(columns?: unknown) => MockSelectResult>
   delete: Mock<(table: unknown) => MockDeleteResult>
-  transaction: Mock<
-    <T>(fn: (tx: MockDbOperations) => Promise<T>) => Promise<T>
-  >
+  transaction: Mock<<T>(fn: (tx: MockDbOperations) => Promise<T>) => Promise<T>>
 }
 
 /**

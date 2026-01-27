@@ -25,7 +25,10 @@ import * as tokenCounter from '../token-counter'
 
 import type { CodebuffToolMessage } from '@codebuff/common/tools/list'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
-import type { TextPart, ToolCallPart } from '@codebuff/common/types/messages/content-part'
+import type {
+  TextPart,
+  ToolCallPart,
+} from '@codebuff/common/types/messages/content-part'
 
 /**
  * Type guard to check if a content part is a text part.
@@ -146,9 +149,7 @@ describe('buildUserMessageContent', () => {
     const firstPart = result[0]
     if (!isTextPart(firstPart)) throw new Error('Expected text part')
     expect(firstPart.text).toContain('User provided text')
-    expect(firstPart.text).not.toContain(
-      'This prompt should be ignored',
-    )
+    expect(firstPart.text).not.toContain('This prompt should be ignored')
     expect(result[1].type).toBe('image')
   })
 
@@ -655,7 +656,8 @@ describe('filterUnfinishedToolCalls', () => {
     expect(assistantMsg.content[0].type).toBe('text')
     expect(assistantMsg.content[1].type).toBe('tool-call')
     const toolCallPart = assistantMsg.content[1]
-    if (!isToolCallPart(toolCallPart)) throw new Error('Expected tool-call part')
+    if (!isToolCallPart(toolCallPart))
+      throw new Error('Expected tool-call part')
     expect(toolCallPart.toolCallId).toBe('call-1')
   })
 

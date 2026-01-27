@@ -25,7 +25,9 @@ export function toContentString(msg: ModelMessage): string {
   const { content } = msg
   if (typeof content === 'string') return content
   return content
-    .map((item) => (item && 'text' in item && typeof item.text === 'string' ? item.text : ''))
+    .map((item) =>
+      item && 'text' in item && typeof item.text === 'string' ? item.text : '',
+    )
     .join('\n')
 }
 
@@ -177,7 +179,9 @@ function convertToolMessage(message: Message): ModelMessageWithAuxiliaryData[] {
     return convertToolResultMessage(message)
   }
   message satisfies never
-  throw new Error(`Invalid message role: ${(message as { role: unknown }).role}`)
+  throw new Error(
+    `Invalid message role: ${(message as { role: unknown }).role}`,
+  )
 }
 
 function convertToolMessages(

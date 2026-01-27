@@ -71,10 +71,7 @@ export { mockModule, clearMockedModules } from './mock-modules'
 // ============================================================================
 
 export { createTestSetup, sleep, waitFor, captureCallArgs } from './setup'
-export type {
-  CreateTestSetupOptions,
-  TestSetupResult,
-} from './setup'
+export type { CreateTestSetupOptions, TestSetupResult } from './setup'
 
 // ============================================================================
 // Environment Helpers (re-exported from sibling modules)

@@ -57,8 +57,7 @@ export function getErrorObject(
       name: error.name,
       message: error.message,
       stack: error.stack,
-      status:
-        typeof extError.status === 'number' ? extError.status : undefined,
+      status: typeof extError.status === 'number' ? extError.status : undefined,
       statusCode:
         typeof extError.statusCode === 'number'
           ? extError.statusCode

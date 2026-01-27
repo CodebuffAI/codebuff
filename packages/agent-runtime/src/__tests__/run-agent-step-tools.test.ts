@@ -8,7 +8,6 @@ import db from '@codebuff/internal/db'
 import {
   afterAll,
   afterEach,
-
   beforeEach,
   describe,
   expect,
@@ -36,7 +35,11 @@ describe('runAgentStep - set_output tool', () => {
   let agentRuntimeImpl: AgentRuntimeDeps & AgentRuntimeScopedDeps
   let runAgentStepBaseParams: ParamsExcluding<
     typeof runAgentStep,
-    'agentType' | 'prompt' | 'localAgentTemplates' | 'agentState' | 'agentTemplate'
+    | 'agentType'
+    | 'prompt'
+    | 'localAgentTemplates'
+    | 'agentState'
+    | 'agentTemplate'
   >
   let dbSpies: DbSpies
 

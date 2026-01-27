@@ -88,7 +88,7 @@ export function createMockTimers(): MockTimers {
       currentTime += ms
       const active = getActivePending()
         .filter((t) => t.createdAt + t.ms <= currentTime)
-        .sort((a, b) => (a.createdAt + a.ms) - (b.createdAt + b.ms))
+        .sort((a, b) => a.createdAt + a.ms - (b.createdAt + b.ms))
 
       for (const timer of active) {
         if (timer.active) {
@@ -117,8 +117,9 @@ export function createMockTimers(): MockTimers {
     },
 
     getNext(): PendingTimer | undefined {
-      return getActivePending()
-        .sort((a, b) => (a.createdAt + a.ms) - (b.createdAt + b.ms))[0]
+      return getActivePending().sort(
+        (a, b) => a.createdAt + a.ms - (b.createdAt + b.ms),
+      )[0]
     },
   }
 }

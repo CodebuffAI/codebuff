@@ -130,10 +130,7 @@ export async function processStream(
   // Unified callback factory for both native and custom tools.
   // isXmlMode=true: execute immediately, capture results inline (for XML tool calls)
   // isXmlMode=false: defer execution, results added at end (for native tool calls)
-  function createToolExecutionCallback(
-    toolName: string,
-    isXmlMode: boolean,
-  ) {
+  function createToolExecutionCallback(toolName: string, isXmlMode: boolean) {
     const responseHandler = createResponseHandler(isXmlMode)
     const resultsArray = isXmlMode ? [] : toolResultsToAddAfterStream
 
@@ -158,9 +155,10 @@ export async function processStream(
         // Read previousToolCallFinished at execution time to ensure proper sequential chaining.
         // For XML mode, if this is the first tool call (still pointing to streamDonePromise),
         // start with a resolved promise so we don't wait for the stream to complete.
-        const previousPromise = isXmlMode && previousToolCallFinished === streamDonePromise
-          ? Promise.resolve()
-          : previousToolCallFinished
+        const previousPromise =
+          isXmlMode && previousToolCallFinished === streamDonePromise
+            ? Promise.resolve()
+            : previousToolCallFinished
 
         // Determine which executor to use and with what parameters
         let toolPromise: Promise<void>
@@ -168,7 +166,9 @@ export async function processStream(
           // Use executeToolCall for native tools or transformed agent calls
           toolPromise = executeToolCall({
             ...params,
-            toolName: transformed ? transformed.toolName : (toolName as ToolName),
+            toolName: transformed
+              ? transformed.toolName
+              : (toolName as ToolName),
             input: transformed ? transformed.input : input,
             fromHandleSteps: false,
             skipDirectResultPush: isXmlMode,
@@ -214,12 +214,17 @@ export async function processStream(
   const streamWithTags = processStreamWithTools({
     ...params,
     processors: Object.fromEntries([
-      ...toolNames.map((name) => [name, createToolExecutionCallback(name, false)]),
-      ...Object.keys(fileContext.customToolDefinitions ?? {}).map(
-        (name) => [name, createToolExecutionCallback(name, false)],
-      ),
+      ...toolNames.map((name) => [
+        name,
+        createToolExecutionCallback(name, false),
+      ]),
+      ...Object.keys(fileContext.customToolDefinitions ?? {}).map((name) => [
+        name,
+        createToolExecutionCallback(name, false),
+      ]),
     ]),
-    defaultProcessor: (name: string) => createToolExecutionCallback(name, false),
+    defaultProcessor: (name: string) =>
+      createToolExecutionCallback(name, false),
     onError: (toolName, error) => {
       const toolResult: ToolMessage = {
         role: 'tool',

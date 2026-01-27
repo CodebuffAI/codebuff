@@ -14,7 +14,10 @@ import {
   type RuntimeLanguageLoader,
 } from '../src/languages'
 
-import type { MockParser, MockQuery } from '@codebuff/common/testing/mocks/tree-sitter'
+import type {
+  MockParser,
+  MockQuery,
+} from '@codebuff/common/testing/mocks/tree-sitter'
 
 describe('languages module', () => {
   describe('languageTable', () => {

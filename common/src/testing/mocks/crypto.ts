@@ -83,7 +83,8 @@ export interface CryptoMockSpies {
  * ```
  */
 export function createMockUuid(prefix: string, index?: number): UUID {
-  const indexStr = index !== undefined ? String(index).padStart(12, '0') : '000000000000'
+  const indexStr =
+    index !== undefined ? String(index).padStart(12, '0') : '000000000000'
   return `${prefix}-0000-0000-0000-${indexStr}` as UUID
 }
 

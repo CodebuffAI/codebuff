@@ -50,8 +50,11 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
   })
 
   beforeEach(() => {
-    const { agentTemplate: _, localAgentTemplates: __, ...baseRuntimeParams } =
-      createTestAgentRuntimeParams()
+    const {
+      agentTemplate: _,
+      localAgentTemplates: __,
+      ...baseRuntimeParams
+    } = createTestAgentRuntimeParams()
 
     agentRuntimeImpl = {
       ...baseRuntimeParams,
@@ -133,8 +136,11 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     clearAgentGeneratorCache(agentRuntimeImpl)
     dbSpies.restore()
     mock.restore()
-    const { agentTemplate: _, localAgentTemplates: __, ...baseRuntimeParams } =
-      createTestAgentRuntimeParams()
+    const {
+      agentTemplate: _,
+      localAgentTemplates: __,
+      ...baseRuntimeParams
+    } = createTestAgentRuntimeParams()
     agentRuntimeImpl = {
       ...baseRuntimeParams,
     }
@@ -441,7 +447,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     })
 
     // Verify that stepsComplete was passed correctly:
-    // After yielding STEP and LLM running (which calls end_turn), 
+    // After yielding STEP and LLM running (which calls end_turn),
     // the generator receives stepsComplete: true
     expect(stepsCompleteValues).toHaveLength(1)
     expect(stepsCompleteValues[0]).toBe(true)
@@ -528,7 +534,10 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       llmCallNumber++
       if (llmCallNumber === 1) {
         // First call: agent tries to end turn without setting output
-        yield { type: 'text' as const, text: 'First response without output\n\n' }
+        yield {
+          type: 'text' as const,
+          text: 'First response without output\n\n',
+        }
         yield createToolCallChunk('end_turn', {})
       } else if (llmCallNumber === 2) {
         // Second call: agent sets output after being reminded
@@ -540,7 +549,10 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
           }
         }
         yield { type: 'text' as const, text: 'Setting output now\n\n' }
-        yield createToolCallChunk('set_output', { result: 'test result', status: 'success' })
+        yield createToolCallChunk('set_output', {
+          result: 'test result',
+          status: 'success',
+        })
         yield { type: 'text' as const, text: '\n\n' }
         yield createToolCallChunk('end_turn', {})
       } else {

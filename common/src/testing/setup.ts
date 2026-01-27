@@ -23,7 +23,11 @@ import { setupDbSpies } from './mocks/database'
 import { createMockLogger } from './mocks/logger'
 import { resetToolCallIdCounter } from './mocks/stream'
 
-import type { AnalyticsSpies, TrackEventFn, FlushAnalyticsFn } from './mocks/analytics'
+import type {
+  AnalyticsSpies,
+  TrackEventFn,
+  FlushAnalyticsFn,
+} from './mocks/analytics'
 import type { CryptoMockSpies } from './mocks/crypto'
 import type { DbSpies } from './mocks/database'
 import type { MockLogger } from './mocks/logger'
@@ -63,7 +67,10 @@ export interface CreateTestSetupOptions {
   /**
    * The analytics module to mock (required if analytics is true).
    */
-  analyticsModule?: { trackEvent: TrackEventFn; flushAnalytics: FlushAnalyticsFn }
+  analyticsModule?: {
+    trackEvent: TrackEventFn
+    flushAnalytics: FlushAnalyticsFn
+  }
 
   /**
    * Prefix for crypto mock UUIDs.

@@ -26,7 +26,10 @@ export interface MockFetchCall {
 }
 
 export interface CreateMockFetchOptions {
-  defaultImpl?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+  defaultImpl?: (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => Promise<Response>
 }
 
 /** Creates a Response with JSON body. */
@@ -96,17 +99,20 @@ export function mockErrorResponse(
 }
 
 /** Creates a mock fetch function. */
-export function createMockFetch(options: CreateMockFetchOptions = {}): MockFetch {
+export function createMockFetch(
+  options: CreateMockFetchOptions = {},
+): MockFetch {
   const { defaultImpl } = options
 
-  const baseFn = defaultImpl ?? (async (): Promise<Response> => {
-    throw new Error('Mock fetch not configured for this call')
-  })
+  const baseFn =
+    defaultImpl ??
+    (async (): Promise<Response> => {
+      throw new Error('Mock fetch not configured for this call')
+    })
 
-  const mockFn = Object.assign(
-    mock(baseFn),
-    { preconnect: mock(async () => {}) }
-  ) as unknown as MockFetch
+  const mockFn = Object.assign(mock(baseFn), {
+    preconnect: mock(async () => {}),
+  }) as unknown as MockFetch
 
   return mockFn
 }
@@ -130,31 +136,32 @@ export function installMockFetch(
   })
 
   // Wrap to capture calls
-  const wrappedMockFn = mock(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const call: MockFetchCall = {
-      url: input,
-      init,
-    }
-
-    // Try to parse JSON body if present
-    if (init?.body && typeof init.body === 'string') {
-      try {
-        call.jsonBody = JSON.parse(init.body)
-      } catch {
-        // Not JSON, that's fine
+  const wrappedMockFn = mock(
+    async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const call: MockFetchCall = {
+        url: input,
+        init,
       }
-    }
 
-    capturedCalls.push(call)
+      // Try to parse JSON body if present
+      if (init?.body && typeof init.body === 'string') {
+        try {
+          call.jsonBody = JSON.parse(init.body)
+        } catch {
+          // Not JSON, that's fine
+        }
+      }
 
-    // Call the actual mock implementation
-    return mockFetch(input, init)
-  })
+      capturedCalls.push(call)
 
-  const wrappedMock = Object.assign(
-    wrappedMockFn,
-    { preconnect: mock(async () => {}) }
-  ) as unknown as MockFetch
+      // Call the actual mock implementation
+      return mockFetch(input, init)
+    },
+  )
+
+  const wrappedMock = Object.assign(wrappedMockFn, {
+    preconnect: mock(async () => {}),
+  }) as unknown as MockFetch
 
   ;(globalThis as any).fetch = wrappedMock
 

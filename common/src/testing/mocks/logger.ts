@@ -4,7 +4,11 @@ import type { Mock } from 'bun:test'
 
 export type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal'
 
-export type LogMethod = (data: unknown, msg?: string, ...args: unknown[]) => unknown
+export type LogMethod = (
+  data: unknown,
+  msg?: string,
+  ...args: unknown[]
+) => unknown
 
 export type MockLogMethod = Mock<LogMethod>
 
@@ -30,7 +34,9 @@ export interface CapturedLogEntry {
   timestamp: Date
 }
 
-export function createMockLogger(options: CreateMockLoggerOptions = {}): MockLogger {
+export function createMockLogger(
+  options: CreateMockLoggerOptions = {},
+): MockLogger {
   const { customImplementations = {} } = options
 
   const createLogMethod = (level: LogLevel): MockLogMethod => {
@@ -69,7 +75,10 @@ export function createMockLoggerWithCapture(): MockLoggerWithCapture {
   const createCapturingLogMethod = (level: LogLevel): MockLogMethod => {
     return mock((data: unknown, msg?: string) => {
       const message = typeof data === 'string' ? data : (msg ?? String(data))
-      const meta = typeof data === 'object' && data !== null ? data as Record<string, unknown> : undefined
+      const meta =
+        typeof data === 'object' && data !== null
+          ? (data as Record<string, unknown>)
+          : undefined
       captured.push({
         level,
         message,

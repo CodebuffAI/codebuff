@@ -11,17 +11,27 @@ export interface CreateMockFsOptions {
   readFileImpl?: (path: string) => Promise<string>
   readdirImpl?: (path: string) => Promise<string[]>
   writeFileImpl?: (path: string, content: string) => Promise<void>
-  mkdirImpl?: (path: string, options?: { recursive?: boolean }) => Promise<string | undefined>
+  mkdirImpl?: (
+    path: string,
+    options?: { recursive?: boolean },
+  ) => Promise<string | undefined>
   statImpl?: (path: string) => Promise<Stats>
 }
 
 export interface MockFs extends CodebuffFileSystem {}
 
 export interface MockFsWithMocks {
-  readFile: Mock<(path: PathLike, options?: { encoding?: BufferEncoding }) => Promise<string>>
+  readFile: Mock<
+    (path: PathLike, options?: { encoding?: BufferEncoding }) => Promise<string>
+  >
   readdir: Mock<(path: PathLike) => Promise<string[]>>
   writeFile: Mock<(path: PathLike, data: string) => Promise<void>>
-  mkdir: Mock<(path: PathLike, options?: { recursive?: boolean }) => Promise<string | undefined>>
+  mkdir: Mock<
+    (
+      path: PathLike,
+      options?: { recursive?: boolean },
+    ) => Promise<string | undefined>
+  >
   stat: Mock<(path: PathLike) => Promise<Stats>>
 }
 
@@ -56,7 +66,10 @@ export function createMockFs(options: CreateMockFsOptions = {}): MockFs {
     throw new Error(`Directory not found: ${pathStr}`)
   }
 
-  const defaultWriteFile = async (path: PathLike, data: string): Promise<void> => {
+  const defaultWriteFile = async (
+    path: PathLike,
+    data: string,
+  ): Promise<void> => {
     const pathStr = String(path)
     writtenFiles[pathStr] = data
   }
@@ -118,7 +131,8 @@ export function createMockFs(options: CreateMockFsOptions = {}): MockFs {
     : defaultWriteFile
 
   const mkdirFn = mkdirImpl
-    ? async (path: PathLike, opts?: { recursive?: boolean }) => mkdirImpl(String(path), opts)
+    ? async (path: PathLike, opts?: { recursive?: boolean }) =>
+        mkdirImpl(String(path), opts)
     : defaultMkdir
 
   const statFn = statImpl

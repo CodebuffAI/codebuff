@@ -226,7 +226,9 @@ export interface MockPromptOptions {
  * Mock prompt function result type.
  */
 export type MockPromptFn = Mock<
-  (params: Record<string, unknown>) => AsyncGenerator<StreamChunk, string | null>
+  (
+    params: Record<string, unknown>,
+  ) => AsyncGenerator<StreamChunk, string | null>
 >
 
 /**

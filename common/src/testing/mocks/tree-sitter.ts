@@ -106,8 +106,16 @@ export function createMockLanguageConfig(
     tree,
   } = options
 
-  const finalQuery = query ?? (captures ? createMockTreeSitterQuery({ captures }) : createMockTreeSitterQuery())
-  const finalParser = parser ?? (tree !== undefined ? createMockTreeSitterParser({ tree }) : createMockTreeSitterParser())
+  const finalQuery =
+    query ??
+    (captures
+      ? createMockTreeSitterQuery({ captures })
+      : createMockTreeSitterQuery())
+  const finalParser =
+    parser ??
+    (tree !== undefined
+      ? createMockTreeSitterParser({ tree })
+      : createMockTreeSitterParser())
 
   return {
     extensions,

@@ -30,8 +30,14 @@ function isToolCallPart(part: unknown): part is ToolCallPart {
 /**
  * Type guard to check if a message is a tool message with toolCallId.
  */
-function isToolMessageWithId(msg: Message): msg is ToolMessage & { toolCallId: string } {
-  return msg.role === 'tool' && 'toolCallId' in msg && typeof msg.toolCallId === 'string'
+function isToolMessageWithId(
+  msg: Message,
+): msg is ToolMessage & { toolCallId: string } {
+  return (
+    msg.role === 'tool' &&
+    'toolCallId' in msg &&
+    typeof msg.toolCallId === 'string'
+  )
 }
 /**
  * Integration tests for the context-pruner agent.

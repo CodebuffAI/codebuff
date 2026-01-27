@@ -108,7 +108,9 @@ describe('parse module', () => {
     })
 
     it('should count lines correctly', () => {
-      const mockCaptures = createMockTreeSitterCaptures([{ name: 'identifier', text: 'test' }])
+      const mockCaptures = createMockTreeSitterCaptures([
+        { name: 'identifier', text: 'test' },
+      ])
       const mockTree = createMockTree()
       const mockQuery = createMockTreeSitterQuery({ captures: mockCaptures })
       const mockParser = createMockTreeSitterParser({ tree: mockTree })
@@ -228,7 +230,9 @@ describe('parse module', () => {
     })
 
     it('should handle captures with missing properties', () => {
-      const mockCaptures = createMockTreeSitterCaptures([{ name: 'unknown.type', text: 'test' }])
+      const mockCaptures = createMockTreeSitterCaptures([
+        { name: 'unknown.type', text: 'test' },
+      ])
 
       const mockTree = createMockTree()
       const mockQuery = createMockTreeSitterQuery({ captures: mockCaptures })
@@ -427,7 +431,9 @@ console.log('Product:', product);
       ])
 
       const mockTree = createMockTree()
-      const mockQuery = createMockTreeSitterQuery({ captures: realisticCaptures })
+      const mockQuery = createMockTreeSitterQuery({
+        captures: realisticCaptures,
+      })
       const mockParser = createMockTreeSitterParser({ tree: mockTree })
 
       const mockLanguageConfig: LanguageConfig = {
@@ -513,7 +519,9 @@ users.forEach(user => {
       ])
 
       const mockTree = createMockTree()
-      const mockQuery = createMockTreeSitterQuery({ captures: realisticCaptures })
+      const mockQuery = createMockTreeSitterQuery({
+        captures: realisticCaptures,
+      })
       const mockParser = createMockTreeSitterParser({ tree: mockTree })
 
       const mockLanguageConfig: LanguageConfig = {
@@ -569,7 +577,11 @@ console.log('Total:', formatCurrency(total));
         return testFiles[fullPath as keyof typeof testFiles] || null
       }
 
-      const result = await getFileTokenScores(projectRoot, filePaths, fileProvider)
+      const result = await getFileTokenScores(
+        projectRoot,
+        filePaths,
+        fileProvider,
+      )
 
       // This test actually runs with the real implementation but uses mocked file content
       // The real implementation should gracefully handle when no language config is found

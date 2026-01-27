@@ -41,9 +41,7 @@ export async function setupBigQuery({
     client = new BigQuery()
 
     // Ensure dataset exists
-    const [ds] = await client
-      .dataset(resolvedDataset)
-      .get({ autoCreate: true })
+    const [ds] = await client.dataset(resolvedDataset).get({ autoCreate: true })
 
     // Ensure tables exist
     await ds.table(TRACES_TABLE).get({
