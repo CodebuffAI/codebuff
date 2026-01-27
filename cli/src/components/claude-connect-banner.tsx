@@ -112,6 +112,10 @@ export const ClaudeConnectBanner = () => {
             Sign in with your Claude account in the browser, then paste the code
             here.
           </text>
+          <text style={{ fg: theme.muted, marginTop: 1 }}>
+            Note: Using your Claude Pro/Max subscription in Codebuff is not
+            officially supported by Anthropic.
+          </text>
         </box>
       </BottomBanner>
     )
@@ -135,6 +139,10 @@ export const ClaudeConnectBanner = () => {
             </text>
           </Button>
         </box>
+        <text style={{ fg: theme.warning, marginTop: 1 }}>
+          Using your Claude Pro/Max subscription in Codebuff is not officially
+          supported by Anthropic.
+        </text>
       </box>
     </BottomBanner>
   )

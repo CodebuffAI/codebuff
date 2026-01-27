@@ -237,7 +237,7 @@ export default function PricingClient() {
 
       <FeatureSection
         title={<span>Connect Your Claude Subscription</span>}
-        description="Already have a Claude Pro or Max subscription? Connect it to Codebuff and use your existing subscription for Claude model requests. Save credits while enjoying the full power of Claude through Codebuff's intelligent orchestration."
+        description="Already have a Claude Pro or Max subscription? Connect it to Codebuff and use your existing subscription for Claude model requests. Note: Using your Claude Pro/Max subscription in Codebuff is not officially supported by Anthropic."
         backdropColor={BlockColor.DarkForestGreen}
         decorativeColors={[BlockColor.CRTAmber, BlockColor.BetweenGreen]}
         textColor="text-white"
