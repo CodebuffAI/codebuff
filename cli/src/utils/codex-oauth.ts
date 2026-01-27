@@ -355,7 +355,8 @@ export function startOAuthFlowWithCallback(
       }
     })
 
-    callbackServer.listen(OAUTH_CALLBACK_PORT, async () => {
+    // Bind to loopback only for security - prevents remote access to the callback server
+    callbackServer.listen(OAUTH_CALLBACK_PORT, '127.0.0.1', async () => {
       onStatusChange?.('waiting')
       try {
         await open(authUrl)

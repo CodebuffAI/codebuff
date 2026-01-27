@@ -749,6 +749,7 @@ export async function promptAiSdk(
     apiKey: params.apiKey,
     model: params.model,
     skipClaudeOAuth: true, // Always use Codebuff backend for non-streaming
+    skipCodexOAuth: true, // Always use Codebuff backend for non-streaming
   }
   const { model: aiSDKModel } = await getModelForRequest(modelParams)
 
@@ -806,6 +807,7 @@ export async function promptAiSdkStructured<T>(
     apiKey: params.apiKey,
     model: params.model,
     skipClaudeOAuth: true, // Always use Codebuff backend for non-streaming
+    skipCodexOAuth: true, // Always use Codebuff backend for non-streaming
   }
   const { model: aiSDKModel } = await getModelForRequest(modelParams)
 

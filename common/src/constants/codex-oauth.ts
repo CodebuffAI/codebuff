@@ -68,85 +68,53 @@ export const CODEX_MODEL_MAP: Record<string, string> = {
 
 /**
  * Check if a model is an OpenAI model that can use Codex OAuth.
- * Matches models in the CODEX_MODEL_MAP or with openai/ prefix.
+ * Only returns true for models explicitly in the CODEX_MODEL_MAP.
+ * This prevents unknown openai/* models from accidentally routing through Codex OAuth.
  */
 export function isOpenAIModel(model: string): boolean {
-  // Check if it's in the model map
+  // Only return true for models explicitly in the model map
+  // This is an allowlist approach - unknown models fall back to Codebuff backend
   if (CODEX_MODEL_MAP[model]) {
     return true
   }
-  // Check if it has openai/ prefix
-  if (model.startsWith('openai/')) {
-    return true
+  // Check without provider prefix
+  if (model.includes('/')) {
+    const modelId = model.split('/').pop()!
+    if (CODEX_MODEL_MAP[modelId]) {
+      return true
+    }
   }
-  // Check if it's a known Codex model
-  const modelId = model.startsWith('openai/') ? model.slice(7) : model
-  return (CODEX_OAUTH_MODELS as readonly string[]).includes(modelId)
+  return false
 }
 
 /**
  * Normalize a model ID to the Codex API format.
- * Uses the model map for known models, with fallback pattern matching.
+ * Uses the model map for known models. Returns null for unknown models
+ * to signal that the model cannot be used with Codex OAuth.
  */
-export function toCodexModelId(model: string): string {
+export function toCodexModelId(model: string): string | null {
   // Check the mapping table first
   const mapped = CODEX_MODEL_MAP[model]
   if (mapped) {
     return mapped
   }
 
-  // Strip provider prefix if present
-  const modelId = model.includes('/') ? model.split('/').pop()! : model
-
-  // Check again without prefix
-  const mappedWithoutPrefix = CODEX_MODEL_MAP[modelId]
-  if (mappedWithoutPrefix) {
-    return mappedWithoutPrefix
+  // Strip provider prefix if present and check again
+  if (model.includes('/')) {
+    const modelId = model.split('/').pop()!
+    const mappedWithoutPrefix = CODEX_MODEL_MAP[modelId]
+    if (mappedWithoutPrefix) {
+      return mappedWithoutPrefix
+    }
   }
 
-  // Pattern-based fallback for unknown models
-  const normalized = modelId.toLowerCase()
-
-  // GPT-5.2 Codex
-  if (normalized.includes('gpt-5.2-codex') || normalized.includes('gpt 5.2 codex')) {
-    return 'gpt-5.2-codex'
-  }
-  // GPT-5.2
-  if (normalized.includes('gpt-5.2') || normalized.includes('gpt 5.2')) {
-    return 'gpt-5.2'
-  }
-  // GPT-5.1 Codex Max
-  if (normalized.includes('gpt-5.1-codex-max') || normalized.includes('codex-max')) {
-    return 'gpt-5.1-codex-max'
-  }
-  // GPT-5.1 Codex Mini
-  if (normalized.includes('gpt-5.1-codex-mini') || normalized.includes('codex-mini')) {
-    return 'gpt-5.1-codex-mini'
-  }
-  // GPT-5.1 Codex
-  if (normalized.includes('gpt-5.1-codex') || normalized.includes('gpt 5.1 codex')) {
-    return 'gpt-5.1-codex'
-  }
-  // GPT-5.1
-  if (normalized.includes('gpt-5.1') || normalized.includes('gpt 5.1')) {
-    return 'gpt-5.1'
-  }
-  // Any codex model defaults to gpt-5.1-codex
-  if (normalized.includes('codex')) {
-    return 'gpt-5.1-codex'
-  }
-  // GPT-5 family defaults to gpt-5.1
-  if (normalized.includes('gpt-5') || normalized.includes('gpt 5')) {
-    return 'gpt-5.1'
-  }
-
-  // Default fallback
-  return 'gpt-5.1'
+  // Unknown model - return null to signal fallback to Codebuff backend
+  return null
 }
 
 /**
  * @deprecated Use toCodexModelId instead
  */
-export function toOpenAIModelId(openrouterModel: string): string {
+export function toOpenAIModelId(openrouterModel: string): string | null {
   return toCodexModelId(openrouterModel)
 }

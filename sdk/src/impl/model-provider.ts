@@ -551,6 +551,7 @@ export function transformMessagesToCodexInput(
 export interface ToolCallState {
   currentToolCallId: string | null
   currentToolCallIndex: number
+  modelId: string
 }
 
 /**
@@ -566,13 +567,15 @@ export function transformCodexEventToOpenAI(
   event: Record<string, unknown>,
   toolCallState: ToolCallState,
 ): string | null {
+  const { modelId } = toolCallState
+
   // Handle text delta events - these contain the actual content
   if (event.type === 'response.output_text.delta' && event.delta) {
     const transformed = {
       id: event.response_id || 'chatcmpl-codex',
       object: 'chat.completion.chunk',
       created: Math.floor(Date.now() / 1000),
-      model: 'gpt-5.2',
+      model: modelId,
       choices: [
         {
           index: 0,
@@ -595,7 +598,7 @@ export function transformCodexEventToOpenAI(
         id: 'chatcmpl-codex',
         object: 'chat.completion.chunk',
         created: Math.floor(Date.now() / 1000),
-        model: 'gpt-5.2',
+        model: modelId,
         choices: [
           {
             index: 0,
@@ -626,7 +629,7 @@ export function transformCodexEventToOpenAI(
       id: 'chatcmpl-codex',
       object: 'chat.completion.chunk',
       created: Math.floor(Date.now() / 1000),
-      model: 'gpt-5.2',
+      model: modelId,
       choices: [
         {
           index: 0,
@@ -669,7 +672,7 @@ export function transformCodexEventToOpenAI(
       id: response?.id || 'chatcmpl-codex',
       object: 'chat.completion.chunk',
       created: Math.floor(Date.now() / 1000),
-      model: response?.model || 'gpt-5.2',
+      model: (response?.model as string) || modelId,
       choices: [
         {
           index: 0,
@@ -808,6 +811,7 @@ function createCodexFetch(
     const toolCallState: ToolCallState = {
       currentToolCallId: null,
       currentToolCallIndex: 0,
+      modelId,
     }
 
     const transformStream = new TransformStream({
@@ -887,6 +891,10 @@ function createCodexOAuthModel(
 ): LanguageModel | null {
   // Convert to normalized Codex model ID
   const codexModelId = toCodexModelId(model)
+  if (!codexModelId) {
+    // Unknown model - fall back to Codebuff backend
+    return null
+  }
 
   // Extract the ChatGPT account ID from the JWT token
   // This is REQUIRED for the chatgpt-account-id header

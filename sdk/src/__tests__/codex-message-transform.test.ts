@@ -653,9 +653,10 @@ describe('transformMessagesToCodexInput', () => {
 // ============================================================================
 
 describe('transformCodexEventToOpenAI', () => {
-  const createToolCallState = (): ToolCallState => ({
+  const createToolCallState = (modelId = 'gpt-5.1'): ToolCallState => ({
     currentToolCallId: null,
     currentToolCallIndex: 0,
+    modelId,
   })
 
   describe('text delta events', () => {

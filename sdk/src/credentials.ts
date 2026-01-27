@@ -45,7 +45,7 @@ const credentialsFileSchema = z.object({
 
 const ensureDirectoryExistsSync = (dir: string) => {
   if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true })
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 })
   }
 }
 
@@ -180,7 +180,7 @@ export const saveClaudeOAuthCredentials = (
     claudeOAuth: credentials,
   }
 
-  fs.writeFileSync(credentialsPath, JSON.stringify(updatedData, null, 2))
+  fs.writeFileSync(credentialsPath, JSON.stringify(updatedData, null, 2), { mode: 0o600 })
 }
 
 /**
@@ -391,7 +391,7 @@ export const saveCodexOAuthCredentials = (
     codexOAuth: credentials,
   }
 
-  fs.writeFileSync(credentialsPath, JSON.stringify(updatedData, null, 2))
+  fs.writeFileSync(credentialsPath, JSON.stringify(updatedData, null, 2), { mode: 0o600 })
 }
 
 /**
