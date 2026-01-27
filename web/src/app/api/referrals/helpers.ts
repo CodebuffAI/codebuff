@@ -119,7 +119,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
     }
 
     await db.transaction(async (tx) => {
-      // 1. Create the referral record locally
+      // 1. Create the referral record locally (one-time referral, is_legacy: false)
       const now = new Date()
       const referralRecord = await tx
         .insert(schema.referral)
@@ -128,6 +128,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
           referred_id: userId,
           status: 'completed',
           credits: CREDITS_REFERRAL_BONUS,
+          is_legacy: false,
           created_at: now,
           completed_at: now,
         })
@@ -137,30 +138,17 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
 
       const operationId = referralRecord[0].operation_id
 
-      // Get the user's next quota reset date
-      const user = await tx.query.user.findFirst({
-        where: eq(schema.user.id, userId),
-        columns: {
-          next_quota_reset: true,
-        },
-      })
-
-      if (!user?.next_quota_reset) {
-        throw new Error('User next_quota_reset not found')
-      }
-
-      // 2. Process and grant credits for both users
+      // 2. Process and grant credits for both users (one-time, never expires)
       const grantPromises = []
 
-      // Process Referrer
-      grantPromises.push(
+      const grantForUser = (user: { id: string; role: 'referrer' | 'referred' }) =>
         grantCreditOperation({
-          userId: referrer.id,
+          userId: user.id,
           amount: CREDITS_REFERRAL_BONUS,
           type: 'referral',
-          description: 'Referral bonus (referrer)',
-          expiresAt: user.next_quota_reset,
-          operationId: `${operationId}-referrer`,
+          description: `Referral bonus (${user.role})`,
+          expiresAt: null, // One-time referrals never expire
+          operationId: `${operationId}-${user.role}`,
           tx,
           logger,
         })
@@ -169,42 +157,17 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
             logger.error(
               {
                 error,
-                userId: referrer.id,
-                role: 'referrer',
+                userId: user.id,
+                role: user.role,
                 creditsToGrant: CREDITS_REFERRAL_BONUS,
               },
               'Failed to process referral credit grant',
             )
             return false
-          }),
-      )
+          })
 
-      // Process Referred User
-      grantPromises.push(
-        grantCreditOperation({
-          userId: referred.id,
-          amount: CREDITS_REFERRAL_BONUS,
-          type: 'referral',
-          description: 'Referral bonus (referred)',
-          expiresAt: user.next_quota_reset,
-          operationId: `${operationId}-referred`,
-          tx,
-          logger,
-        })
-          .then(() => true)
-          .catch((error: Error) => {
-            logger.error(
-              {
-                error,
-                userId: referred.id,
-                role: 'referred',
-                creditsToGrant: CREDITS_REFERRAL_BONUS,
-              },
-              'Failed to process referral credit grant',
-            )
-            return false
-          }),
-      )
+      grantPromises.push(grantForUser({ id: referrer.id, role: 'referrer' }))
+      grantPromises.push(grantForUser({ id: referred.id, role: 'referred' }))
 
       const results = await Promise.all(grantPromises)
 
