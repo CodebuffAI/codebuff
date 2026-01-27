@@ -6,7 +6,13 @@ import {
   DEFAULT_FLUSH_INTERVAL_MS,
 } from '../message-updater'
 
-import type { ChatMessage, ContentBlock } from '../../types/chat'
+import type { ChatMessage, ContentBlock, TextContentBlock } from '../../types/chat'
+
+// Type for metadata with runState for testing
+interface TestMessageMetadata {
+  bashCwd?: string
+  runState?: { id: string }
+}
 
 const baseMessages: ChatMessage[] = [
   {
@@ -50,7 +56,7 @@ describe('createMessageUpdater', () => {
 
     expect(state[0].blocks?.[0]).toEqual(block)
     expect(state[0].isComplete).toBe(true)
-    expect((state[0].metadata as any).runState).toEqual({ id: 'run-1' })
+    expect((state[0].metadata as TestMessageMetadata).runState).toEqual({ id: 'run-1' })
   })
 
   test('setError preserves content and blocks, sets userError, and marks complete', () => {
@@ -75,7 +81,7 @@ describe('createMessageUpdater', () => {
     expect(state[0].userError).toBe('boom')
     expect(state[0].isComplete).toBe(true)
     expect(state[0].blocks).toHaveLength(1)
-    expect((state[0].blocks![0] as any).content).toBe('existing block')
+    expect((state[0].blocks![0] as TextContentBlock).content).toBe('existing block')
   })
 
   test('clearUserError removes userError field from message', () => {
@@ -175,8 +181,8 @@ describe('createBatchedMessageUpdater', () => {
     expect(setMessagesCallCount).toBe(1)
     expect(state[0].content).toBe('first')
     expect(state[0].blocks).toHaveLength(2)
-    expect((state[0].blocks![0] as any).content).toBe('block1')
-    expect((state[0].blocks![1] as any).content).toBe('block2')
+    expect((state[0].blocks![0] as TextContentBlock).content).toBe('block1')
+    expect((state[0].blocks![1] as TextContentBlock).content).toBe('block2')
 
     updater.dispose()
   })
@@ -241,8 +247,8 @@ describe('createBatchedMessageUpdater', () => {
     expect(state[0].isComplete).toBe(true)
     // Existing blocks are preserved and pending block was flushed
     expect(state[0].blocks).toHaveLength(2)
-    expect((state[0].blocks![0] as any).content).toBe('existing block')
-    expect((state[0].blocks![1] as any).content).toBe('pending block')
+    expect((state[0].blocks![0] as TextContentBlock).content).toBe('existing block')
+    expect((state[0].blocks![1] as TextContentBlock).content).toBe('pending block')
   })
 
   test('updates after dispose are applied immediately', () => {
@@ -358,7 +364,7 @@ describe('createBatchedMessageUpdater', () => {
 
     // Both existing and new metadata should be present
     expect(state[0].metadata?.bashCwd).toBe('/existing/path')
-    expect(state[0].metadata?.runState).toEqual({ id: 'run-123' })
+    expect((state[0].metadata as TestMessageMetadata)?.runState).toEqual({ id: 'run-123' })
     expect(state[0].isComplete).toBe(true)
   })
 

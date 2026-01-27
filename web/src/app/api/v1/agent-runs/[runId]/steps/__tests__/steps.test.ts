@@ -11,22 +11,44 @@ import type {
   LoggerWithContextFn,
 } from '@codebuff/common/types/contracts/logger'
 
+
+
+interface MockDbResult {
+  user_id: string
+}
+
+// Mock database interface for testing
+interface MockDb {
+  select: () => {
+    from: () => {
+      where: () => {
+        limit: () => MockDbResult[]
+      }
+    }
+  }
+  insert: () => {
+    values: () => Promise<void>
+  }
+}
+
 describe('agentRunsStepsPost', () => {
   let mockGetUserInfoFromApiKey: GetUserInfoFromApiKeyFn
   let mockLogger: Logger
   let mockLoggerWithContext: LoggerWithContextFn
   let mockTrackEvent: TrackEventFn
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mockDb: any
 
   beforeEach(() => {
-    mockGetUserInfoFromApiKey = async ({ apiKey, fields }) => {
+    // Mock getUserInfoFromApiKey with proper typing
+    mockGetUserInfoFromApiKey = (async ({ apiKey, fields }) => {
       if (apiKey === 'valid-key') {
         return Object.fromEntries(
           fields.map((field) => [
             field,
             field === 'id' ? 'user-123' : undefined,
           ]),
-        ) as any
+        )
       }
       if (apiKey === 'test-key') {
         return Object.fromEntries(
@@ -34,10 +56,10 @@ describe('agentRunsStepsPost', () => {
             field,
             field === 'id' ? TEST_USER_ID : undefined,
           ]),
-        ) as any
+        )
       }
       return null
-    }
+    }) as GetUserInfoFromApiKeyFn
 
     mockLogger = {
       error: () => {},
@@ -174,7 +196,7 @@ describe('agentRunsStepsPost', () => {
           }),
         }),
       }),
-    } as any
+    }
 
     const req = new NextRequest(
       'http://localhost/api/v1/agent-runs/run-123/steps',
@@ -210,7 +232,7 @@ describe('agentRunsStepsPost', () => {
           }),
         }),
       }),
-    } as any
+    }
 
     const req = new NextRequest(
       'http://localhost/api/v1/agent-runs/run-123/steps',
@@ -308,7 +330,7 @@ describe('agentRunsStepsPost', () => {
           throw new Error('DB error')
         },
       }),
-    } as any
+    }
 
     const req = new NextRequest(
       'http://localhost/api/v1/agent-runs/run-123/steps',

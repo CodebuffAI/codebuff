@@ -7,10 +7,42 @@ import {
   createStreamChunkHandler,
 } from '../sdk-event-handlers'
 
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { StreamStatus } from '../../hooks/use-message-queue'
-import type { ChatMessage } from '../../types/chat'
+import type { AgentContentBlock, ChatMessage } from '../../types/chat'
 import type { AgentMode } from '../constants'
 import type { EventHandlerState } from '../sdk-event-handlers'
+
+// Type for spawn agent info stored in the map
+interface SpawnAgentInfo {
+  index: number
+  agentType: string
+}
+
+// SDK event types for testing
+interface SubagentStartEvent {
+  type: 'subagent_start'
+  agentId: string
+  agentType: string
+  displayName: string
+  onlyChild: boolean
+  parentAgentId: string | undefined
+  params: Record<string, unknown> | undefined
+  prompt: string | undefined
+}
+
+interface ToolResultEvent {
+  type: 'tool_result'
+  toolCallId: string
+  toolName: string
+  output: Array<{
+    type: 'json'
+    value: Array<{
+      agentName: string
+      value: string
+    }>
+  }>
+}
 
 const createStreamRefs = (): {
   controller: EventHandlerState['streaming']['streamRefs']
@@ -20,7 +52,7 @@ const createStreamRefs = (): {
     rootStreamSeen: boolean
     planExtracted: boolean
     wasAbortedByUser: boolean
-    spawnAgentsMap: Map<string, any>
+    spawnAgentsMap: Map<string, SpawnAgentInfo>
   }
 } => {
   const state = {
@@ -29,7 +61,7 @@ const createStreamRefs = (): {
     rootStreamSeen: false,
     planExtracted: false,
     wasAbortedByUser: false,
-    spawnAgentsMap: new Map<string, any>(),
+    spawnAgentsMap: new Map<string, SpawnAgentInfo>(),
   }
 
   const controller = {
@@ -57,7 +89,7 @@ const createStreamRefs = (): {
       setWasAbortedByUser: (value: boolean) => {
         state.wasAbortedByUser = value
       },
-      setSpawnAgentInfo: (agentId: string, info: any) => {
+      setSpawnAgentInfo: (agentId: string, info: SpawnAgentInfo) => {
         state.spawnAgentsMap.set(agentId, info)
       },
       removeSpawnAgentInfo: (agentId: string) => {
@@ -121,7 +153,7 @@ const createTestContext = (agentMode: AgentMode = 'DEFAULT') => {
       warn: () => {},
       error: () => {},
       debug: () => {},
-    } as any,
+    } as Logger,
     setIsRetrying: () => {},
   }
 
@@ -162,7 +194,7 @@ describe('sdk-event-handlers', () => {
     })
 
     const handleEvent = createEventHandler(ctx)
-    handleEvent({
+    const startEvent: SubagentStartEvent = {
       type: 'subagent_start',
       agentId: 'agent-real',
       agentType: 'codebuff/file-picker@1.0.0',
@@ -171,10 +203,11 @@ describe('sdk-event-handlers', () => {
       parentAgentId: undefined,
       params: undefined,
       prompt: undefined,
-    } as any)
+    }
+    handleEvent(startEvent)
 
-    const agentBlock = (getMessages()[0].blocks ?? [])[0]
-    expect((agentBlock as any).agentId).toBe('agent-real')
+    const agentBlock = (getMessages()[0].blocks ?? [])[0] as AgentContentBlock
+    expect(agentBlock.agentId).toBe('agent-real')
     expect(getStreamingAgents().has('agent-real')).toBe(true)
     expect(getStreamingAgents().has('tool-1-0')).toBe(false)
   })
@@ -192,12 +225,13 @@ describe('sdk-event-handlers', () => {
     ctx.streaming.setStreamingAgents(() => new Set(['tool-1-0']))
 
     const handleEvent = createEventHandler(ctx)
-    handleEvent({
+    const toolResultEvent: ToolResultEvent = {
       type: 'tool_result',
       toolCallId: 'tool-1',
       toolName: 'spawn_agents',
       output: [
         {
+          type: 'json',
           value: [
             {
               agentName: 'child',
@@ -206,11 +240,12 @@ describe('sdk-event-handlers', () => {
           ],
         },
       ],
-    } as any)
+    }
+    handleEvent(toolResultEvent)
 
-    const agentBlock = (getMessages()[0].blocks ?? [])[0]
-    expect((agentBlock as any).status).toBe('complete')
-    expect((agentBlock as any).blocks?.[0]).toMatchObject({
+    const agentBlock = (getMessages()[0].blocks ?? [])[0] as AgentContentBlock
+    expect(agentBlock.status).toBe('complete')
+    expect(agentBlock.blocks?.[0]).toMatchObject({
       type: 'text',
       content: 'child result',
     })

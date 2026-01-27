@@ -3,6 +3,17 @@ import { describe, expect, test } from 'bun:test'
 import { parseTerminalOutput, RunTerminalCommandComponent } from '../run-terminal-command'
 
 import type { ToolBlock } from '../types'
+import type { ReactElement } from 'react'
+
+// Use ChatTheme import for proper typing
+import type { ChatTheme } from '../../../types/theme-system'
+
+// Type for the render result content element
+interface RenderContentElement extends ReactElement {
+  props: {
+    timeoutSeconds?: number
+  }
+}
 
 // Helper to create a mock tool block
 const createToolBlock = (
@@ -36,7 +47,7 @@ describe('RunTerminalCommandComponent', () => {
   describe('render', () => {
     test('returns content and collapsedPreview', () => {
       const toolBlock = createToolBlock('ls -la', createJsonOutput('file1\nfile2'))
-      const mockTheme = {} as any
+      const mockTheme = {} as ChatTheme
       const mockOptions = {
         availableWidth: 80,
         indentationOffset: 0,
@@ -146,7 +157,7 @@ describe('RunTerminalCommandComponent', () => {
   })
 
   describe('timeout extraction', () => {
-    const mockTheme = {} as any
+    const mockTheme = {} as ChatTheme
     const mockOptions = {
       availableWidth: 80,
       indentationOffset: 0,
@@ -158,7 +169,7 @@ describe('RunTerminalCommandComponent', () => {
 
       const result = RunTerminalCommandComponent.render(toolBlock, mockTheme, mockOptions)
 
-      expect((result.content as any).props.timeoutSeconds).toBeUndefined()
+      expect((result.content as RenderContentElement).props.timeoutSeconds).toBeUndefined()
     })
 
     test('passes timeoutSeconds for positive timeout', () => {
@@ -166,7 +177,7 @@ describe('RunTerminalCommandComponent', () => {
 
       const result = RunTerminalCommandComponent.render(toolBlock, mockTheme, mockOptions)
 
-      expect((result.content as any).props.timeoutSeconds).toBe(60)
+      expect((result.content as RenderContentElement).props.timeoutSeconds).toBe(60)
     })
 
     test('passes timeoutSeconds for no timeout (-1)', () => {
@@ -174,7 +185,7 @@ describe('RunTerminalCommandComponent', () => {
 
       const result = RunTerminalCommandComponent.render(toolBlock, mockTheme, mockOptions)
 
-      expect((result.content as any).props.timeoutSeconds).toBe(-1)
+      expect((result.content as RenderContentElement).props.timeoutSeconds).toBe(-1)
     })
   })
 

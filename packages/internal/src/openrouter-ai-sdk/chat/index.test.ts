@@ -7,6 +7,8 @@ import { ReasoningDetailType } from '../schemas/reasoning-details'
 import type { ReasoningDetailUnion } from '../schemas/reasoning-details'
 import type { LanguageModelV2Prompt } from '@ai-sdk/provider'
 
+
+
 const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
 ]
@@ -683,10 +685,10 @@ describe('doGenerate', () => {
     prepareJsonResponse({ content: '{"name": "John", "age": 30}' })
 
     const testSchema = {
-      type: 'object',
+      type: 'object' as const,
       properties: {
-        name: { type: 'string' },
-        age: { type: 'number' },
+        name: { type: 'string' as const },
+        age: { type: 'number' as const },
       },
       required: ['name', 'age'],
       additionalProperties: false,
@@ -696,7 +698,7 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
       responseFormat: {
         type: 'json',
-        schema: testSchema as any,
+        schema: testSchema,
         name: 'PersonResponse',
         description: 'A person object',
       },
@@ -723,10 +725,10 @@ describe('doGenerate', () => {
     prepareJsonResponse({ content: '{"name": "John", "age": 30}' })
 
     const testSchema = {
-      type: 'object',
+      type: 'object' as const,
       properties: {
-        name: { type: 'string' },
-        age: { type: 'number' },
+        name: { type: 'string' as const },
+        age: { type: 'number' as const },
       },
       required: ['name', 'age'],
       additionalProperties: false,
@@ -736,7 +738,7 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
       responseFormat: {
         type: 'json',
-        schema: testSchema as any,
+        schema: testSchema,
       },
     })
 
@@ -912,7 +914,7 @@ describe('doStream', () => {
               promptTokens: 17,
               totalTokens: 244,
               cost: undefined,
-            } as any,
+            } as { completionTokens: number; promptTokens: number; totalTokens: number; cost: number | undefined },
           },
         },
         usage: {
@@ -1281,7 +1283,7 @@ describe('doStream', () => {
               promptTokens: 53,
               totalTokens: 70,
               cost: undefined,
-            } as any,
+            } as { completionTokens: number; promptTokens: number; totalTokens: number; cost: number | undefined },
           },
         },
         usage: {
@@ -1384,7 +1386,7 @@ describe('doStream', () => {
               promptTokens: 53,
               totalTokens: 70,
               cost: undefined,
-            } as any,
+            } as { completionTokens: number; promptTokens: number; totalTokens: number; cost: number | undefined },
           },
         },
         usage: {
@@ -1560,10 +1562,10 @@ describe('doStream', () => {
     prepareStreamResponse({ content: ['{"name": "John", "age": 30}'] })
 
     const testSchema = {
-      type: 'object',
+      type: 'object' as const,
       properties: {
-        name: { type: 'string' },
-        age: { type: 'number' },
+        name: { type: 'string' as const },
+        age: { type: 'number' as const },
       },
       required: ['name', 'age'],
       additionalProperties: false,
@@ -1573,7 +1575,7 @@ describe('doStream', () => {
       prompt: TEST_PROMPT,
       responseFormat: {
         type: 'json',
-        schema: testSchema as any,
+        schema: testSchema,
         name: 'PersonResponse',
         description: 'A person object',
       },
