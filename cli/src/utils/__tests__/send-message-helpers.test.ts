@@ -1428,12 +1428,11 @@ describe('transformAskUserBlocks', () => {
 
     const result = transformAskUserBlocks(blocks, {
       toolCallId: 'tool-1',
-      resultValue: { answers: [{ selectedOption: 'A' }] },
+      resultValue: { answers: [{ questionIndex: 0, selectedOption: 'A' }] },
     })
 
     expect(result[0].type).toBe('ask-user')
-    // Note: transformAskUserBlocks passes answers through as-is without adding questionIndex
-    expect((result[0] as AskUserContentBlock).answers).toEqual([{ selectedOption: 'A' }])
+    expect((result[0] as AskUserContentBlock).answers).toEqual([{ questionIndex: 0, selectedOption: 'A' }])
   })
 
   test('keeps tool block if no answers or skipped', () => {
