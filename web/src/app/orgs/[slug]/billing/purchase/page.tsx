@@ -52,7 +52,7 @@ export default function OrganizationBillingPurchasePage() {
     }
   }, [setupSuccess])
 
-  const handleSetupBilling = async (credits: number) => {
+  const _handleSetupBilling = async (credits: number) => {
     if (!organization) return
 
     setSettingUpBilling(true)

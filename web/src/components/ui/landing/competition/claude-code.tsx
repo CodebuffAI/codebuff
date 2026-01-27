@@ -24,7 +24,7 @@ export function ClaudeCodeVisualization({
   const showSecondResponse = progress >= 90
 
   // Loading animation progress (artificially slowed)
-  const loadingProgress = isLoading
+  const _loadingProgress = isLoading
     ? Math.min(progress * 1.3, 40)
     : showLoadingAgain
       ? 40 + (progress - 45) * 0.4

@@ -3,11 +3,13 @@ import { z } from 'zod/v4'
 
 import { initialSessionState } from '../run-state'
 
+import type { MockStatResult } from '@codebuff/common/testing/mock-types'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
 
 describe('Initial Session State', () => {
   let mockFs: CodebuffFileSystem
-  let mockLogger: any
+  let mockLogger: Logger
 
   beforeEach(() => {
     mockFs = {
@@ -51,21 +53,20 @@ describe('Initial Session State', () => {
               isDirectory: () => false,
               isFile: () => true,
             },
-          ] as any
+          ]
         }
         if (path.includes('src')) {
           return [
             { name: 'index.ts', isDirectory: () => false, isFile: () => true },
             { name: 'utils.ts', isDirectory: () => false, isFile: () => true },
-          ] as any
+          ]
         }
         return []
       },
-      stat: async (path: string) =>
-        ({
-          isDirectory: () => path.includes('src') || path.includes('.git'),
-          isFile: () => !path.includes('src') && !path.includes('.git'),
-        }) as any,
+      stat: async (path: string): Promise<MockStatResult> => ({
+        isDirectory: () => path.includes('src') || path.includes('.git'),
+        isFile: () => !path.includes('src') && !path.includes('.git'),
+      }),
       exists: async (path: string) => {
         if (path.includes('.gitignore')) return true
         if (path.includes('.codebuffignore')) return true
@@ -76,7 +77,9 @@ describe('Initial Session State', () => {
         if (path.includes('README.md')) return true
         return false
       },
-    } as any
+      mkdir: async () => {},
+      writeFile: async () => {},
+    } as unknown as CodebuffFileSystem
 
     mockLogger = {
       debug: () => {},

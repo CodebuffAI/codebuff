@@ -38,7 +38,7 @@ describe('/api/v1/agent-runs POST endpoint', () => {
     if (!userData) {
       return null
     }
-    return { id: userData.id } as any
+    return { id: userData.id } as unknown as Awaited<GetUserInfoFromApiKeyOutput<'id'>>
   }
 
   let mockLogger: Logger

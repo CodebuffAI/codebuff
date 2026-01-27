@@ -2,11 +2,11 @@ import { describe, expect, test } from 'bun:test'
 
 import { parseTerminalOutput, RunTerminalCommandComponent } from '../run-terminal-command'
 
+import type { ChatTheme } from '../../../types/theme-system'
 import type { ToolBlock } from '../types'
 import type { ReactElement } from 'react'
 
 // Use ChatTheme import for proper typing
-import type { ChatTheme } from '../../../types/theme-system'
 
 // Type for the render result content element
 interface RenderContentElement extends ReactElement {

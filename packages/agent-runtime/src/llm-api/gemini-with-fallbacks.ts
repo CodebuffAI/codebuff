@@ -46,7 +46,7 @@ export async function promptFlashWithFallbacks(
 ): Promise<string> {
   const {
     messages,
-    costMode,
+    costMode: _costMode,
     useGPT4oInsteadOfClaude,
     useFinetunedModel,
     promptAiSdk,

@@ -16,7 +16,7 @@ describe('Prompt Caching', () => {
     async () => {
       spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
         id: 'user-123',
-      } as any)
+      } as Awaited<ReturnType<typeof databaseModule.getUserInfoFromApiKey>>)
 
       spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
         async (params) => {

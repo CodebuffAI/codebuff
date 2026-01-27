@@ -284,8 +284,8 @@ export class AuthService {
       }
 
       // Use local agent definitions to test the updated handleSteps
-      const localFilePickerDef = filePickerDefinition as unknown as any
-      const localFileListerDef = fileListerDefinition as unknown as any
+      const localFilePickerDef = filePickerDefinition
+      const localFileListerDef = fileListerDefinition
 
       const client = new CodebuffClient({
         apiKey,

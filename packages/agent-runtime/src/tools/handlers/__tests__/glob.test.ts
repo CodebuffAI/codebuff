@@ -279,7 +279,7 @@ describe('handleGlob', () => {
       },
     }
 
-    const { output } = await handleGlob({
+    const { output: _output } = await handleGlob({
       previousToolCallFinished,
       toolCall,
       requestClientToolCall: mockRequestClientToolCall,

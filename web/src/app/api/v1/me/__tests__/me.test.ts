@@ -46,8 +46,8 @@ describe('/api/v1/me route', () => {
           return null
         }
         return Object.fromEntries(
-          fields.map((field) => [field, (userData as any)[field]]),
-        ) as any
+          fields.map((field) => [field, userData[field as keyof typeof userData]]),
+        ) as Awaited<GetUserInfoFromApiKeyOutput<(typeof VALID_USER_INFO_FIELDS)[number]>>
       },
     }
   })

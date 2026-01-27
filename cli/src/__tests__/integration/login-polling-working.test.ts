@@ -1,22 +1,12 @@
 import { describe, test, expect, mock } from 'bun:test'
 
+import { createMockLogger } from '@codebuff/common/testing/mock-types'
 import { generateLoginUrl, pollLoginStatus } from '../../login/login-flow'
 import { createMockApiClient } from '../helpers/mock-api-client'
 
 import type { LoginUrlResponse } from '../../login/login-flow'
 import type { ApiResponse } from '../../utils/codebuff-api'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-
-type MockLogger = {
-  [K in keyof Logger]: ReturnType<typeof mock> & Logger[K]
-}
-
-const createLogger = (): MockLogger => ({
-  info: mock(() => {}) as ReturnType<typeof mock> & Logger['info'],
-  error: mock(() => {}) as ReturnType<typeof mock> & Logger['error'],
-  warn: mock(() => {}) as ReturnType<typeof mock> & Logger['warn'],
-  debug: mock(() => {}) as ReturnType<typeof mock> & Logger['debug'],
-})
 
 const createClock = () => {
   let current = 0
@@ -30,7 +20,7 @@ const createClock = () => {
 
 describe('Login Polling (Working)', () => {
   test('P0: Polling Lifecycle - should stop polling and return user when login succeeds', async () => {
-    const logger = createLogger()
+    const logger = createMockLogger()
     const apiResponses: Array<ApiResponse<{ user?: unknown }>> = [
       { ok: false, status: 401 },
       {
@@ -85,7 +75,7 @@ describe('Login Polling (Working)', () => {
   })
 
   test('P0: Polling Lifecycle - should keep polling on 401 responses', async () => {
-    const logger = createLogger()
+    const logger = createMockLogger()
     const loginStatusMock = mock(async () => {
       return { ok: false, status: 401 } as ApiResponse<{ user?: unknown }>
     })
@@ -114,7 +104,7 @@ describe('Login Polling (Working)', () => {
   })
 
   test('P0: Polling Lifecycle - should call loginStatus with full metadata', async () => {
-    const logger = createLogger()
+    const logger = createMockLogger()
     const loginStatusMock = mock(
       async (req: {
         fingerprintId: string
@@ -161,7 +151,7 @@ describe('Login Polling (Working)', () => {
   })
 
   test('P1: Error Handling - should log warnings on non-401 responses but continue polling', async () => {
-    const logger = createLogger()
+    const logger = createMockLogger()
     const loginStatusMock = mock(async () => {
       return { ok: false, status: 500, error: 'Server Error' } as ApiResponse<{
         user?: unknown
@@ -192,7 +182,7 @@ describe('Login Polling (Working)', () => {
   })
 
   test('P1: Error Handling - should swallow network errors and keep polling', async () => {
-    const logger = createLogger()
+    const logger = createMockLogger()
     let attempt = 0
     const loginStatusMock = mock(async () => {
       attempt += 1
@@ -242,13 +232,13 @@ describe('Login Polling (Working)', () => {
       if (!payload || typeof payload !== 'object') {
         return false
       }
-      return JSON.stringify(payload as any).includes('network failed')
+      return JSON.stringify(payload as Parameters<Logger['error']>[0]).includes('network failed')
     })
     expect(sawNetworkFailure).toBe(true)
   })
 
   test('P0: generateLoginUrl wrapper - should hit backend and return payload', async () => {
-    const logger = createLogger()
+    const logger = createMockLogger()
     const payload: LoginUrlResponse = {
       loginUrl: 'https://cli.test/login?code=code-123',
       fingerprintHash: 'hash-123',
@@ -274,7 +264,7 @@ describe('Login Polling (Working)', () => {
   })
 
   test('P0: generateLoginUrl wrapper - should throw when backend returns error', async () => {
-    const logger = createLogger()
+    const logger = createMockLogger()
     const loginCodeMock = mock(async () => {
       return {
         ok: false,

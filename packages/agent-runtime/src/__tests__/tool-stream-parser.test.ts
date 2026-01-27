@@ -289,7 +289,7 @@ describe('processStreamWithTags', () => {
       }
     }
 
-    for await (const chunk of processStreamWithTools({
+    for await (const _chunk of processStreamWithTools({
       ...agentRuntimeImpl,
       stream,
       processors,

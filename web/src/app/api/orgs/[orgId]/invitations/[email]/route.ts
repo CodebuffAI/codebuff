@@ -51,7 +51,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Delete the invitation
-    const result = await db
+    const _result = await db
       .delete(schema.orgInvite)
       .where(
         and(

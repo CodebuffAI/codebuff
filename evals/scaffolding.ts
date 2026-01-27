@@ -13,7 +13,7 @@ import {
 
 import type { ProjectFileContext } from '@codebuff/common/util/file'
 
-let projectRootForMocks: string | undefined
+let _projectRootForMocks: string | undefined
 
 function readMockFile(projectRoot: string, filePath: string): string | null {
   const fullPath = path.join(projectRoot, filePath)
@@ -25,13 +25,13 @@ function readMockFile(projectRoot: string, filePath: string): string | null {
 }
 
 export function createFileReadingMock(projectRoot: string) {
-  projectRootForMocks = projectRoot
+  _projectRootForMocks = projectRoot
 }
 
 export async function getProjectFileContext(
   projectPath: string,
 ): Promise<ProjectFileContext> {
-  projectRootForMocks = projectPath
+  _projectRootForMocks = projectPath
   const fileTree = await getProjectFileTree({
     projectRoot: projectPath,
     fs: fs.promises,

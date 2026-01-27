@@ -148,7 +148,7 @@ export function ChartIllustration({
                     // Exponential growth curve for height
                     const curve = Math.pow(i + 1, 1.7) / Math.pow(7, 1.7)
                     const height = Math.max(15, Math.floor(curve * 140))
-                    const Icon = dayData[i].icon
+                    const _Icon = dayData[i].icon
 
                     return (
                       <div

@@ -103,17 +103,17 @@ export async function runProgrammaticStep(
   const {
     agentState,
     template,
-    clientSessionId,
+    clientSessionId: _clientSessionId,
     prompt,
     toolCallParams,
     nResponses,
-    system,
-    userId,
+    system: _system,
+    userId: _userId,
     userInputId,
-    repoId,
-    fingerprintId,
+    repoId: _repoId,
+    fingerprintId: _fingerprintId,
     onResponseChunk,
-    localAgentTemplates,
+    localAgentTemplates: _localAgentTemplates,
     stepsComplete,
     handleStepsLogChunk,
     sendAction,
@@ -193,7 +193,7 @@ export async function runProgrammaticStep(
     firstFileProcessed: false,
   }
   const agentContext = cloneDeep(agentState.agentContext)
-  const sendSubagentChunk = (data: {
+  const _sendSubagentChunk = (data: {
     userInputId: string
     agentId: string
     agentType: string

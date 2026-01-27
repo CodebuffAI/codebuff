@@ -98,7 +98,7 @@ export function TeamManagement({
   const [resendingInvites, setResendingInvites] = useState<Set<string>>(
     new Set(),
   )
-  const [refreshing, setRefreshing] = useState(false)
+  const [_refreshing, setRefreshing] = useState(false)
   const [confirmResendDialogOpen, setConfirmResendDialogOpen] = useState(false)
   const [currentInvitationToResend, setCurrentInvitationToResend] =
     useState<Invitation | null>(null)
@@ -318,7 +318,7 @@ export function TeamManagement({
     }
   }
 
-  const handleResendInvitation = async (email: string) => {
+  const _handleResendInvitation = async (email: string) => {
     setResendingInvites((prev) => new Set(prev).add(email))
 
     try {

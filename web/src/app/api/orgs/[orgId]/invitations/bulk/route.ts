@@ -21,14 +21,7 @@ interface BulkInviteRequest {
   }>
 }
 
-interface BulkInviteResult {
-  success: boolean
-  added: number
-  skipped: Array<{
-    email: string
-    reason: string
-  }>
-}
+// BulkInviteResult interface removed - not used (response type inferred from JSON)
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {

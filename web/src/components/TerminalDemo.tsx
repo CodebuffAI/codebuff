@@ -1,9 +1,9 @@
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { sleep } from '@codebuff/common/util/promise'
 import { useMutation } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import posthog from 'posthog-js'
 import React, { useState, useEffect, useRef } from 'react'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { match, P } from 'ts-pattern'
 
 import Terminal, { ColorMode, TerminalOutput } from './ui/terminal'

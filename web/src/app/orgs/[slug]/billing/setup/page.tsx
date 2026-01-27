@@ -19,7 +19,7 @@ import {
 import { toast } from '@/components/ui/use-toast'
 import { useOrganizationData } from '@/hooks/use-organization-data'
 
-interface OrganizationDetails {
+interface _OrganizationDetails {
   id: string
   name: string
   slug: string
@@ -31,7 +31,7 @@ const stripePromise = loadStripe(env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 export default function BillingSetupPage() {
   const { data: session, status } = useSession()
   const params = useParams() ?? {}
-  const router = useRouter()
+  const _router = useRouter()
   const orgSlug = (params.slug as string) ?? ''
 
   const [settingUp, setSettingUp] = useState(false)

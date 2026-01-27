@@ -49,7 +49,7 @@ export async function getProjectFileTree(params: {
   const { projectRoot, fs } = withDefaults
   let { maxFiles } = withDefaults
 
-  const start = Date.now()
+  const _start = Date.now()
   const defaultIgnore = ignore.default()
   for (const pattern of DEFAULT_IGNORED_PATHS) {
     defaultIgnore.add(pattern)

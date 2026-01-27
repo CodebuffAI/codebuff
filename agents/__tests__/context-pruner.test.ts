@@ -185,13 +185,13 @@ const createToolResultMessage = (
   content: [
     {
       type: 'json',
-      value: value as any,
+      value: value as Record<string, unknown>,
     },
   ],
 })
 
 describe('context-pruner handleSteps', () => {
-  let mockAgentState: any
+  let mockAgentState: { messageHistory: Message[]; contextTokenCount: number }
 
   beforeEach(() => {
     mockAgentState = {
@@ -675,7 +675,7 @@ describe('context-pruner handleSteps', () => {
 })
 
 describe('context-pruner long message truncation', () => {
-  let mockAgentState: any
+  let mockAgentState: { messageHistory: Message[]; contextTokenCount: number }
 
   beforeEach(() => {
     mockAgentState = {
@@ -772,7 +772,7 @@ describe('context-pruner long message truncation', () => {
 })
 
 describe('context-pruner code_search with flags', () => {
-  let mockAgentState: any
+  let mockAgentState: { messageHistory: Message[]; contextTokenCount: number }
 
   beforeEach(() => {
     mockAgentState = {
@@ -824,7 +824,7 @@ describe('context-pruner code_search with flags', () => {
 })
 
 describe('context-pruner ask_user with questions and answers', () => {
-  let mockAgentState: any
+  let mockAgentState: { messageHistory: Message[]; contextTokenCount: number }
 
   beforeEach(() => {
     mockAgentState = {
@@ -937,7 +937,7 @@ describe('context-pruner ask_user with questions and answers', () => {
 })
 
 describe('context-pruner terminal command exit codes', () => {
-  let mockAgentState: any
+  let mockAgentState: { messageHistory: Message[]; contextTokenCount: number }
 
   beforeEach(() => {
     mockAgentState = {
@@ -1009,7 +1009,7 @@ describe('context-pruner terminal command exit codes', () => {
 })
 
 describe('context-pruner spawn_agents with prompt and params', () => {
-  let mockAgentState: any
+  let mockAgentState: { messageHistory: Message[]; contextTokenCount: number }
 
   beforeEach(() => {
     mockAgentState = {
@@ -1128,7 +1128,7 @@ describe('context-pruner spawn_agents with prompt and params', () => {
 })
 
 describe('context-pruner repeated compaction', () => {
-  let mockAgentState: any
+  let mockAgentState: { messageHistory: Message[]; contextTokenCount: number }
 
   beforeEach(() => {
     mockAgentState = {
@@ -1306,7 +1306,7 @@ First assistant response
 })
 
 describe('context-pruner image token counting', () => {
-  let mockAgentState: any
+  let mockAgentState: { messageHistory: Message[]; contextTokenCount: number }
 
   beforeEach(() => {
     mockAgentState = {
@@ -1371,7 +1371,7 @@ describe('context-pruner image token counting', () => {
 })
 
 describe('context-pruner threshold behavior', () => {
-  let mockAgentState: any
+  let mockAgentState: { messageHistory: Message[]; contextTokenCount: number }
 
   beforeEach(() => {
     mockAgentState = {
@@ -1444,7 +1444,7 @@ describe('context-pruner threshold behavior', () => {
 })
 
 describe('context-pruner str_replace and write_file tool results', () => {
-  let mockAgentState: any
+  let mockAgentState: { messageHistory: Message[]; contextTokenCount: number }
 
   beforeEach(() => {
     mockAgentState = {
@@ -1561,7 +1561,7 @@ describe('context-pruner str_replace and write_file tool results', () => {
 })
 
 describe('context-pruner glob and list_directory tools', () => {
-  let mockAgentState: any
+  let mockAgentState: { messageHistory: Message[]; contextTokenCount: number }
 
   beforeEach(() => {
     mockAgentState = {

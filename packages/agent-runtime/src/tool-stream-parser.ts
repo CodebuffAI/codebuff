@@ -47,7 +47,7 @@ export async function* processStreamWithTools(params: {
     stream,
     processors,
     defaultProcessor,
-    onError,
+    onError: _onError,
     onResponseChunk,
     logger,
     loggerOptions,

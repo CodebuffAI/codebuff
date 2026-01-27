@@ -42,12 +42,12 @@ export class CodexRunner implements Runner {
         stdio: ['ignore', 'pipe', 'pipe'],
       })
 
-      let stdout = ''
+      let _stdout = ''
       let stderr = ''
 
       child.stdout.on('data', (data: Buffer) => {
         const chunk = data.toString()
-        stdout += chunk
+        _stdout += chunk
         process.stdout.write(chunk)
 
         // Codex outputs events as JSON lines in some modes

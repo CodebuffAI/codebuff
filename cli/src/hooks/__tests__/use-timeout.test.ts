@@ -10,20 +10,31 @@ import { useTimeout } from '../use-timeout'
  */
 
 describe('useTimeout', () => {
-  const reactInternals = (React as any)
-    .__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE
+  // Access React internals for testing hooks outside a renderer
+  type ReactInternals = {
+    H: {
+      useRef: <T>(value: T) => { current: T }
+      useCallback: <T>(callback: T) => T
+      useEffect: (effect: () => void) => void
+    }
+  }
+  const reactInternals = (
+    React as unknown as {
+      __CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE: ReactInternals
+    }
+  ).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE
   let originalSetTimeout: typeof setTimeout
   let originalClearTimeout: typeof clearTimeout
-  let timers: { id: number; ms: number; fn: Function; cleared: boolean }[]
+  let timers: { id: number; ms: number; fn: () => void; cleared: boolean }[]
   let nextId: number
-  let originalDispatcher: any
+  let originalDispatcher: ReactInternals['H'] | undefined
 
   beforeEach(() => {
     originalDispatcher = reactInternals.H
     reactInternals.H = {
-      useRef: (value: any) => ({ current: value }),
-      useCallback: (callback: any) => callback,
-      useEffect: (effect: any) => {
+      useRef: <T>(value: T) => ({ current: value }),
+      useCallback: <T>(callback: T) => callback,
+      useEffect: (effect: () => void) => {
         effect()
       },
     }
@@ -34,21 +45,21 @@ describe('useTimeout', () => {
     originalClearTimeout = globalThis.clearTimeout
 
     // Mock setTimeout to track all scheduled timers
-    globalThis.setTimeout = ((fn: Function, ms?: number) => {
+    globalThis.setTimeout = ((fn: () => void, ms?: number) => {
       const id = nextId++
       timers.push({ id, ms: Number(ms ?? 0), fn, cleared: false })
-      return id as any
-    }) as any
+      return id as unknown as ReturnType<typeof setTimeout>
+    }) as typeof setTimeout
 
     // Mock clearTimeout to mark timers as cleared
-    globalThis.clearTimeout = ((id?: any) => {
-      const timer = timers.find((t) => t.id === id)
+    globalThis.clearTimeout = ((id?: ReturnType<typeof clearTimeout>) => {
+      const timer = timers.find((t) => t.id === (id as unknown as number))
       if (timer) timer.cleared = true
-    }) as any
+    }) as typeof clearTimeout
   })
 
   afterEach(() => {
-    reactInternals.H = originalDispatcher
+    reactInternals.H = originalDispatcher!
     globalThis.setTimeout = originalSetTimeout
     globalThis.clearTimeout = originalClearTimeout
   })

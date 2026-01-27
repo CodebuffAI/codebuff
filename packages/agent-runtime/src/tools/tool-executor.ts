@@ -142,7 +142,7 @@ export function executeToolCall<T extends ToolName>(
     previousToolCallFinished,
     toolCalls,
     toolResults,
-    toolResultsToAddAfterStream,
+    toolResultsToAddAfterStream: _toolResultsToAddAfterStream,
     userInputId,
 
     onCostCalculated,
@@ -356,7 +356,7 @@ export async function executeCustomToolCall(
     toolCallId,
     toolCalls,
     toolResults,
-    toolResultsToAddAfterStream,
+    toolResultsToAddAfterStream: _toolResultsToAddAfterStream,
     userInputId,
   } = params
   const toolCall: CustomToolCall | ToolCallError = parseRawCustomToolCall({

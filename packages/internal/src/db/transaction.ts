@@ -346,7 +346,7 @@ export async function withAdvisoryLockTransaction<T>({
         const errorCode = getPostgresErrorCode(error) ?? 'unknown'
         const errorDescription =
           getRetryableErrorDescription(error) ?? 'unknown'
-        const baseDelayMs = INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1)
+        const _baseDelayMs = INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1)
         // Calculate cumulative retry delay: 1s + 2s + 4s + ... (geometric series)
         const cumulativeDelayMs = INITIAL_RETRY_DELAY * (Math.pow(2, attempt) - 1)
 

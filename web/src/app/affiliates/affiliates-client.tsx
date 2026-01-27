@@ -194,7 +194,7 @@ export default function AffiliatesClient() {
   }
 
   const userHandle = userProfile?.handle
-  const referralCode = userProfile?.referralCode
+  const _referralCode = userProfile?.referralCode
 
   return (
     <div className="container mx-auto px-4 py-8">

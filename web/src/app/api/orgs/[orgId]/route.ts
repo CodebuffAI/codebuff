@@ -73,7 +73,7 @@ export async function GET(
     ])
 
     // Get organization credit balance
-    let creditBalance: number | undefined
+    let _creditBalance: number | undefined
     try {
       const now = new Date()
       const quotaResetDate = new Date(now.getFullYear(), now.getMonth(), 1) // First of current month
@@ -83,7 +83,7 @@ export async function GET(
         now,
         logger,
       })
-      creditBalance = balance.netBalance
+      _creditBalance = balance.netBalance
     } catch (error) {
       // If no credits exist yet, that's fine
       console.log('No organization credits found:', error)

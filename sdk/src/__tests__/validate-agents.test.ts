@@ -648,7 +648,9 @@ describe('validateAgents', () => {
       mockFetch = mock(() => {
         throw new Error('fetch mock not configured')
       })
-      globalThis.fetch = mockFetch as any
+      globalThis.fetch = Object.assign(mockFetch, {
+        preconnect: () => {},
+      }) as typeof fetch
     })
 
     afterEach(() => {
@@ -716,7 +718,7 @@ describe('validateAgents', () => {
 
       expect(mockFetch).toHaveBeenCalledTimes(1)
       // Verify it called with some URL (the default from environment)
-      const callUrl = (mockFetch.mock.calls[0] as any)[0] as string
+      const callUrl = (mockFetch.mock.calls[0] as [string, ...unknown[]])[0]
       expect(callUrl).toMatch(/\/api\/agents\/validate$/)
       expect(result.success).toBe(true)
     })
@@ -886,7 +888,9 @@ describe('validateAgents', () => {
       expect(result.success).toBe(true)
       expect(mockFetch).toHaveBeenCalledTimes(1)
       // Verify all agents were sent
-      const requestBody = JSON.parse((mockFetch.mock.calls[0] as any)[1].body)
+      const requestBody = JSON.parse(
+        (mockFetch.mock.calls[0] as [string, { body: string }])[1].body,
+      )
       expect(requestBody.agentDefinitions.length).toBe(100)
     })
 

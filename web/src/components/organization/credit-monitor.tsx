@@ -114,7 +114,7 @@ export function CreditMonitor({
 
   // Use the auto-topup hook for toggle functionality
   const {
-    isEnabled: autoTopupEnabled,
+    isEnabled: _autoTopupEnabled,
     canManageAutoTopup,
     handleToggleAutoTopup,
     isPending: isAutoTopupPending,

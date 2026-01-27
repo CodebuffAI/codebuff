@@ -163,7 +163,7 @@ describe('mainPrompt', () => {
     mock.restore()
   })
 
-  class MockWebSocket {
+  class _MockWebSocket {
     send(msg: string) {}
     close() {}
     on(event: string, listener: (...args: any[]) => void) {}

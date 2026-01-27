@@ -13,11 +13,11 @@ import { useShallow } from 'zustand/react/shallow'
 import { getAdsEnabled } from './commands/ads'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
 import { AdBanner } from './components/ad-banner'
-import { ChatInputBar } from './components/chat-input-bar'
 import { BottomStatusLine } from './components/bottom-status-line'
-import { areCreditsRestored } from './components/out-of-credits-banner'
+import { ChatInputBar } from './components/chat-input-bar'
 import { LoadPreviousButton } from './components/load-previous-button'
 import { MessageWithAgents } from './components/message-with-agents'
+import { areCreditsRestored } from './components/out-of-credits-banner'
 import { PendingBashMessage } from './components/pending-bash-message'
 import { StatusBar } from './components/status-bar'
 import { TopBanner } from './components/top-banner'
@@ -25,7 +25,6 @@ import { getSlashCommandsWithSkills } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
 import { useAskUserBridge } from './hooks/use-ask-user-bridge'
 import { useChatInput } from './hooks/use-chat-input'
-import { useClaudeQuotaQuery } from './hooks/use-claude-quota-query'
 import {
   useChatKeyboard,
   type ChatKeyboardHandlers,
@@ -34,9 +33,10 @@ import { useChatMessages } from './hooks/use-chat-messages'
 import { useChatState } from './hooks/use-chat-state'
 import { useChatStreaming } from './hooks/use-chat-streaming'
 import { useChatUI } from './hooks/use-chat-ui'
+import { useClaudeQuotaQuery } from './hooks/use-claude-quota-query'
 import { useClipboard } from './hooks/use-clipboard'
-import { useGravityAd } from './hooks/use-gravity-ad'
 import { useEvent } from './hooks/use-event'
+import { useGravityAd } from './hooks/use-gravity-ad'
 import { useInputHistory } from './hooks/use-input-history'
 import { usePublishMutation } from './hooks/use-publish-mutation'
 import { useSendMessage } from './hooks/use-send-message'
@@ -44,16 +44,14 @@ import { useSuggestionEngine } from './hooks/use-suggestion-engine'
 import { useUsageMonitor } from './hooks/use-usage-monitor'
 import { WEBSITE_URL } from './login/constants'
 import { getProjectRoot } from './project-files'
-import { useChatStore } from './state/chat-store'
 import { useChatHistoryStore } from './state/chat-history-store'
+import { useChatStore } from './state/chat-store'
 import { useFeedbackStore } from './state/feedback-store'
 import { useMessageBlockStore } from './state/message-block-store'
 import { usePublishStore } from './state/publish-store'
-import {
-  addClipboardPlaceholder,
-  addPendingImageFromFile,
-  validateAndAddImage,
-} from './utils/pending-attachments'
+import { reportActivity } from './utils/activity-tracker'
+import { trackEvent } from './utils/analytics'
+import { getClaudeOAuthStatus } from './utils/claude-oauth'
 import { showClipboardMessage } from './utils/clipboard'
 import { readClipboardImage } from './utils/clipboard-image'
 import { getInputModeConfig } from './utils/input-modes'
@@ -62,22 +60,24 @@ import {
   createDefaultChatKeyboardState,
 } from './utils/keyboard-actions'
 import { loadLocalAgents } from './utils/local-agent-registry'
+import { logger } from './utils/logger'
+import {
+  addClipboardPlaceholder,
+  addPendingImageFromFile,
+  validateAndAddImage,
+} from './utils/pending-attachments'
 import { getLoadedSkills } from './utils/skill-registry'
 import {
   getStatusIndicatorState,
   type AuthStatus,
 } from './utils/status-indicator-state'
-import { getClaudeOAuthStatus } from './utils/claude-oauth'
 import { createPasteHandler } from './utils/strings'
-import { computeInputLayoutMetrics } from './utils/text-layout'
-import { reportActivity } from './utils/activity-tracker'
-import { trackEvent } from './utils/analytics'
-import { logger } from './utils/logger'
 import { setTerminalTitle } from './utils/terminal-title'
+import { computeInputLayoutMetrics } from './utils/text-layout'
 
 import type { CommandResult } from './commands/command-registry'
-import type { MatchedSlashCommand } from './hooks/use-suggestion-engine'
 import type { MultilineInputHandle } from './components/multiline-input'
+import type { MatchedSlashCommand } from './hooks/use-suggestion-engine'
 import type { User } from './utils/auth'
 import type { AgentMode } from './utils/constants'
 import type { FileTreeNode } from '@codebuff/common/util/file'

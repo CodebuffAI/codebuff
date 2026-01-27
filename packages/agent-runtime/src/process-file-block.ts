@@ -60,12 +60,12 @@ export async function processFileBlock(
     initialContentPromise,
     newContent,
     messages,
-    fullResponse,
+    fullResponse: _fullResponse,
     lastUserPrompt,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
-    userId,
+    clientSessionId: _clientSessionId,
+    fingerprintId: _fingerprintId,
+    userInputId: _userInputId,
+    userId: _userId,
     logger,
   } = params
   const initialContent = await initialContentPromise

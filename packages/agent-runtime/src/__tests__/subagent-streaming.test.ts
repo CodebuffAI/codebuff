@@ -27,7 +27,7 @@ import type { Mock } from 'bun:test'
 describe('Subagent Streaming', () => {
   let mockSendSubagentChunk: Mock<SendSubagentChunk>
   let mockLoopAgentSteps: Mock<(typeof runAgentStep)['loopAgentSteps']>
-  let mockAgentTemplate: any
+  let mockAgentTemplate: AgentTemplate
   let mockWriteToClient: Mock<
     Parameters<typeof handleSpawnAgents>[0]['writeToClient']
   >
@@ -44,8 +44,8 @@ describe('Subagent Streaming', () => {
       outputMode: 'last_message',
       inputSchema: {
         prompt: {
-          safeParse: () => ({ success: true }),
-        } as any,
+        safeParse: () => ({ success: true }),
+      } as unknown as AgentTemplate['inputSchema']['prompt'],
       },
       spawnerPrompt: '',
       model: '',
@@ -56,6 +56,7 @@ describe('Subagent Streaming', () => {
       systemPrompt: '',
       instructionsPrompt: '',
       stepPrompt: '',
+      mcpServers: {},
     }
 
     handleSpawnAgentsBaseParams = {

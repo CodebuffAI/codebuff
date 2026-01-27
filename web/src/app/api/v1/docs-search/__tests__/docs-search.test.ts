@@ -44,15 +44,15 @@ describe('/api/v1/docs-search POST endpoint', () => {
       nextQuotaReset: 'soon',
     }))
     mockGetUserInfoFromApiKey = mock(async ({ apiKey }) =>
-      apiKey === 'valid' ? ({ id: 'user-1' } as any) : null,
-    )
-    mockConsumeCreditsWithFallback = mock(
-      async () =>
-        ({ success: true, value: { chargedToOrganization: false } }) as any,
-    )
+      apiKey === 'valid' ? { id: 'user-1' } : null,
+    ) as GetUserInfoFromApiKeyFn
+    mockConsumeCreditsWithFallback = mock(async () => ({
+      success: true,
+      value: { chargedToOrganization: false },
+    })) as ConsumeCreditsWithFallbackFn
 
     // Mock fetch for Context7 search and docs endpoints
-    mockFetch = (async (url: any) => {
+    const fetchImpl = async (url: RequestInfo | URL) => {
       const u = typeof url === 'string' ? new URL(url) : url
       if (String(u).includes('/search')) {
         return new Response(
@@ -78,7 +78,8 @@ describe('/api/v1/docs-search POST endpoint', () => {
         status: 200,
         headers: { 'Content-Type': 'text/plain' },
       })
-    }) as any
+    }
+    mockFetch = Object.assign(fetchImpl, { preconnect: () => {} }) as typeof fetch
   })
 
   afterEach(() => {

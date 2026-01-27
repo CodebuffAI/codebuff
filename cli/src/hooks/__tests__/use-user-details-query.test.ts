@@ -202,7 +202,7 @@ describe('fetchUserDetails', () => {
         CodebuffApiModule,
         'setApiClientAuthToken',
       )
-      spyOn(CodebuffApiModule, 'getApiClient').mockReturnValue(apiClient as any)
+      spyOn(CodebuffApiModule, 'getApiClient').mockReturnValue(apiClient as ReturnType<typeof CodebuffApiModule.getApiClient>)
 
       await expect(
         fetchUserDetails({

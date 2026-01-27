@@ -1,8 +1,9 @@
+import os from 'os'
+
 import {
   ADVISORY_LOCK_IDS,
   tryAcquireAdvisoryLock,
 } from '@codebuff/internal/db'
-import os from 'os'
 
 import { startDiscordBot } from '../../src/discord/client'
 

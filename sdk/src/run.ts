@@ -256,10 +256,10 @@ async function runOnce({
   }
 
   let resolve: (value: RunReturnType) => any = () => { }
-  let reject: (error: any) => any = () => { }
+  let _reject: (error: any) => any = () => { }
   const promise = new Promise<RunReturnType>((res, rej) => {
     resolve = res
-    reject = rej
+    _reject = rej
   })
 
   async function onError(error: { message: string }) {

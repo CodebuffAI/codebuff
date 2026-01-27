@@ -155,7 +155,7 @@ export function OnboardingFlow({
     }
   }, [progress, mounted])
 
-  const markStepComplete = (step: number) => {
+  const _markStepComplete = (step: number) => {
     setProgress((prev) => ({
       ...prev,
       completedSteps: new Set([...prev.completedSteps, step]),

@@ -41,7 +41,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     if (!userData) {
       return null
     }
-    return { id: userData.id, banned: userData.banned } as any
+    return { id: userData.id, banned: userData.banned } as Awaited<ReturnType<GetUserInfoFromApiKeyFn>>
   }
 
   let mockLogger: Logger
@@ -168,7 +168,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           },
         )
       }
-    }) as any
+    }) as typeof globalThis.fetch
 
     mockInsertMessageBigquery = mock(async () => true)
   })

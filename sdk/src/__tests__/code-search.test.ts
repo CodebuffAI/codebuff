@@ -723,8 +723,8 @@ describe('codeSearch', () => {
       mockProcess.stdout.emit('data', Buffer.from(output))
       mockProcess.emit('close', 0)
 
-      const result = await searchPromise
-      const value = asCodeSearchResult(result[0])
+      const _result = await searchPromise
+      const value = asCodeSearchResult(_result[0])
 
       // Should work correctly and not have an error
       expect(value.errorMessage).toBeUndefined()

@@ -226,7 +226,7 @@ export async function generateEvalFileV2({
     )
   }
 
-  const batchResults = await mapLimit(
+  const _batchResults = await mapLimit(
     commitShas,
     BATCH_SIZE,
     async (commitSha: string) => {

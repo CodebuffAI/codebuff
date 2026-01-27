@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const { name, expiresInDays } = parsedJson.data
+  const { name: _name, expiresInDays } = parsedJson.data
 
   try {
     // Generate a new session token for the PAT with cb-pat- prefix baked in

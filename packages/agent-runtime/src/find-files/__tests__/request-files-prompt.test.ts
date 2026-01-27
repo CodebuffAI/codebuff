@@ -78,7 +78,7 @@ describe('requestRelevantFiles', () => {
   })
 
   it('should use custom file counts from config', async () => {
-    const customConfig = {
+    const _customConfig = {
       modelName: 'ft_filepicker_005',
       customFileCounts: { normal: 5 },
       maxFilesPerRequest: 10,
@@ -103,7 +103,7 @@ describe('requestRelevantFiles', () => {
   })
 
   it('should use custom maxFilesPerRequest from config', async () => {
-    const customConfig = {
+    const _customConfig = {
       modelName: 'ft_filepicker_005',
       maxFilesPerRequest: 3,
     }
@@ -130,7 +130,7 @@ describe('requestRelevantFiles', () => {
   })
 
   it('should use custom modelName from config', async () => {
-    const customConfig = {
+    const _customConfig = {
       modelName: 'ft_filepicker_010',
     }
 
@@ -157,7 +157,7 @@ describe('requestRelevantFiles', () => {
   })
 
   it('should use default model if custom modelName is invalid', async () => {
-    const customConfig = {
+    const _customConfig = {
       modelName: 'invalid-model-name',
     }
 

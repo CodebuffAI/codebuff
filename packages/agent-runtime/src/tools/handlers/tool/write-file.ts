@@ -212,7 +212,7 @@ export async function postStreamProcessing<T extends FileProcessingTools>(
     >[]
   }
 
-  const toolCallResults: string[] = []
+  // Note: toolCallResults was previously assigned but unused - errors are returned directly now
 
   const errors = fileProcessingState.fileChangeErrors.filter(
     (result) => result.toolCallId === toolCall.toolCallId,

@@ -51,9 +51,11 @@ describe('Cost Aggregation System', () => {
       'test-agent': mockAgentTemplate,
     }
 
+    const baseParams = createTestAgentRuntimeParams()
     params = {
-      ...createTestAgentRuntimeParams(),
+      ...baseParams,
       agentTemplate: mockAgentTemplate,
+      agentState: baseParams.agentState ?? getInitialAgentState(),
       ancestorRunIds: [],
       clientSessionId: 'test-session',
       fileContext: mockFileContext,
@@ -64,7 +66,11 @@ describe('Cost Aggregation System', () => {
       repoUrl: undefined,
       signal: new AbortController().signal,
       system: 'Test system prompt',
-      tools: {},
+      toolCall: {
+        toolName: 'spawn_agents' as const,
+        toolCallId: 'test-call',
+        input: { agents: [] },
+      },
       userId: 'test-user',
       userInputId: 'test-input',
       writeToClient: () => {},
@@ -128,7 +134,7 @@ describe('Cost Aggregation System', () => {
       }
 
       // Mock executeAgent to return results with different credit costs
-      const mockExecuteAgent = spyOn(spawnAgentUtils, 'executeSubagent')
+      const _mockExecuteAgent = spyOn(spawnAgentUtils, 'executeSubagent')
         .mockResolvedValueOnce({
           agentState: {
             ...getInitialAgentState(),
@@ -187,7 +193,7 @@ describe('Cost Aggregation System', () => {
         creditsUsed: 10, // Parent starts with some cost
       }
 
-      const mockValidatedState = {
+      const _mockValidatedState = {
         fingerprintId: 'test-fingerprint',
         userId: 'test-user',
         agentTemplate: mockAgentTemplate,
@@ -198,7 +204,7 @@ describe('Cost Aggregation System', () => {
       }
 
       // Mock executeAgent to return success and failure with partial costs
-      const mockExecuteAgent = spyOn(spawnAgentUtils, 'executeSubagent')
+      const _mockExecuteAgent = spyOn(spawnAgentUtils, 'executeSubagent')
         .mockResolvedValueOnce({
           agentState: {
             ...getInitialAgentState(),
@@ -214,7 +220,7 @@ describe('Cost Aggregation System', () => {
         })
         .mockRejectedValueOnce(
           (() => {
-            const error = new Error('Agent failed') as any
+            const error = new Error('Agent failed') as Error & { agentState?: AgentState; output?: unknown }
             error.agentState = {
               agentId: 'sub-agent-2',
               agentType: 'test-agent',
@@ -338,7 +344,7 @@ describe('Cost Aggregation System', () => {
       mainAgentState.creditsUsed = baseAgentCost
 
       // Mock subagent spawning that adds their costs
-      const mockValidatedState = {
+      const _mockValidatedState = {
         fingerprintId: 'test-fingerprint',
         userId: 'test-user',
         agentTemplate: mockAgentTemplate,
@@ -347,7 +353,7 @@ describe('Cost Aggregation System', () => {
         sendSubagentChunk: () => {},
       }
 
-      const mockExecuteAgent = spyOn(spawnAgentUtils, 'executeSubagent')
+      const _mockExecuteAgent = spyOn(spawnAgentUtils, 'executeSubagent')
         .mockResolvedValueOnce({
           agentState: {
             ...getInitialAgentState(),

@@ -10,7 +10,6 @@ import { useLoginPolling } from '../hooks/use-login-polling'
 import { useLogo } from '../hooks/use-logo'
 import { useSheenAnimation } from '../hooks/use-sheen-animation'
 import { useTheme } from '../hooks/use-theme'
-import { getLogoBlockColor, getLogoAccentColor } from '../utils/theme-system'
 import {
   formatUrl,
   generateFingerprintId,
@@ -19,6 +18,7 @@ import {
 import { useLoginStore } from '../state/login-store'
 import { copyTextToClipboard } from '../utils/clipboard'
 import { logger } from '../utils/logger'
+import { getLogoBlockColor, getLogoAccentColor } from '../utils/theme-system'
 
 import type { User } from '../utils/auth'
 

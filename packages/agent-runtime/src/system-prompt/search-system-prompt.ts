@@ -22,8 +22,8 @@ export function getSearchSystemPrompt(params: {
     userId: string | undefined
   }
 }): string {
-  const { fileContext, messagesTokens, logger, options } = params
-  const startTime = Date.now()
+  const { fileContext, messagesTokens, logger, options: _options } = params
+  const _startTime = Date.now()
 
   const maxTokens = 500_000 // costMode === 'lite' ? 64_000 :
   const maxFilesTokens = 100_000
@@ -48,9 +48,9 @@ export function getSearchSystemPrompt(params: {
     logger,
   })
 
-  const t = Date.now()
+  const _t = Date.now()
   const truncationBudgets = [5_000, 20_000, 40_000, 100_000, 500_000]
-  const truncatedTrees = truncationBudgets.reduce(
+  const _truncatedTrees = truncationBudgets.reduce(
     (acc, budget) => {
       acc[budget] = getProjectFileTreePrompt({
         fileContext,
@@ -62,10 +62,10 @@ export function getSearchSystemPrompt(params: {
     },
     {} as Record<number, string>,
   )
-  const fileTreeTokens = countTokensJson(projectFileTreePrompt)
+  const _fileTreeTokens = countTokensJson(projectFileTreePrompt)
 
   const systemInfoPrompt = getSystemInfoPrompt(fileContext)
-  const systemInfoTokens = countTokens(systemInfoPrompt)
+  const _systemInfoTokens = countTokens(systemInfoPrompt)
 
   const systemPrompt = buildArray([
     projectFileTreePrompt,

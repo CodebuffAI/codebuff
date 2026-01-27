@@ -238,7 +238,7 @@ export async function redeemReferralCode(referralCode: string, userId: string) {
       { userId, referralCode, error },
       'Error applying referral code',
     )
-    const errorMessage =
+    const _errorMessage =
       error instanceof Error ? error.message : 'Internal Server Error'
     return NextResponse.json(
       { error: 'Failed to apply referral code. Please try again later.' },

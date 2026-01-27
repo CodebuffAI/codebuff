@@ -286,7 +286,7 @@ describe('simplifyTerminalCommandResults', () => {
     const malformedInput = {
       invalidStructure: true,
       logger,
-    } as any
+    } as unknown as Parameters<typeof simplifyTerminalCommandResults>[0]
 
     const result = simplifyTerminalCommandResults(malformedInput)
 

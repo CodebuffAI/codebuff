@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const userId = session.user.id
-  const userEmail = session.user.email
+  const _userEmail = session.user.email
 
   let data
   try {

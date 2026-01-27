@@ -1038,7 +1038,7 @@ describe('withAdvisoryLockTransaction', () => {
     it('should emit ADVISORY_LOCK_CONTENTION event when lock wait exceeds 3s', async () => {
       // Mock Date.now to simulate a 3.5s lock wait
       let callCount = 0
-      const originalDateNow = Date.now
+      const _originalDateNow = Date.now
       const dateNowSpy = spyOn(Date, 'now').mockImplementation(() => {
         callCount++
         // First call: lock start time (0ms)

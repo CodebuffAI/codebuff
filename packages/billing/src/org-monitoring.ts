@@ -268,7 +268,7 @@ export async function monitorOrganizationCredits(params: {
     organizationId,
     currentBalance,
     recentUsage,
-    organizationName,
+    organizationName: _organizationName,
     logger,
   } = params
 

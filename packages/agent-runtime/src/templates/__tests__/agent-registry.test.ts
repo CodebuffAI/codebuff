@@ -361,7 +361,7 @@ describe('Agent Registry', () => {
             id: 'invalid-agent',
             displayName: 'Invalid Agent',
             // Missing required fields to trigger validation error
-          } as any,
+          } as Partial<DynamicAgentTemplate>, // invalid - missing required fields
         },
       }
 

@@ -65,7 +65,7 @@ describe('Logout and Re-login helpers', () => {
   const mockLogoutApi = () => {
     spyOn(CodebuffApiModule, 'getApiClient').mockReturnValue({
       logout: async () => ({ ok: true, status: 200 }),
-    } as any)
+    } as ReturnType<typeof CodebuffApiModule.getApiClient>)
   }
 
   test('logoutUser removes credentials file and returns true', async () => {
