@@ -9,9 +9,16 @@ import {
   calculateOrganizationUsageAndBalance,
   syncOrganizationBillingCycle,
 } from './org-billing'
+import { getActiveSubscription } from './subscription'
 
 import type { CreditBalance } from './balance-calculator'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+
+export interface SubscriptionInfo {
+  status: string
+  billingPeriodEnd: string
+  cancelAtPeriodEnd: boolean
+}
 
 export interface UserUsageData {
   usageThisCycle: number
@@ -19,6 +26,7 @@ export interface UserUsageData {
   nextQuotaReset: string
   autoTopupTriggered?: boolean
   autoTopupEnabled?: boolean
+  subscription?: SubscriptionInfo
 }
 
 export interface OrganizationUsageData {
@@ -79,12 +87,24 @@ export async function getUserUsageData(params: {
       isPersonalContext: true, // isPersonalContext: true to exclude organization credits
     })
 
+    // Check for active subscription
+    let subscription: SubscriptionInfo | undefined
+    const activeSub = await getActiveSubscription({ userId, logger })
+    if (activeSub) {
+      subscription = {
+        status: activeSub.status,
+        billingPeriodEnd: activeSub.billing_period_end.toISOString(),
+        cancelAtPeriodEnd: activeSub.cancel_at_period_end,
+      }
+    }
+
     return {
       usageThisCycle,
       balance,
       nextQuotaReset: quotaResetDate.toISOString(),
       autoTopupTriggered,
       autoTopupEnabled,
+      subscription,
     }
   } catch (error) {
     logger.error({ userId, error }, 'Error fetching user usage data')

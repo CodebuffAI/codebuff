@@ -38,6 +38,7 @@ export enum AnalyticsEvent {
   SUBSCRIPTION_BLOCK_LIMIT_HIT = 'backend.subscription_block_limit_hit',
   SUBSCRIPTION_WEEKLY_LIMIT_HIT = 'backend.subscription_weekly_limit_hit',
   SUBSCRIPTION_CREDITS_MIGRATED = 'backend.subscription_credits_migrated',
+  SUBSCRIPTION_TIER_CHANGED = 'backend.subscription_tier_changed',
 
   // Web
   SIGNUP = 'web.signup',

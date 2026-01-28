@@ -486,6 +486,41 @@ export async function checkRateLimit(params: {
 }
 
 // ---------------------------------------------------------------------------
+// Block grant expiration
+// ---------------------------------------------------------------------------
+
+export async function expireActiveBlockGrants(params: {
+  userId: string
+  subscriptionId: string
+  logger: Logger
+}): Promise<number> {
+  const { userId, subscriptionId, logger } = params
+  const now = new Date()
+
+  const expired = await db
+    .update(schema.creditLedger)
+    .set({ balance: 0, expires_at: now })
+    .where(
+      and(
+        eq(schema.creditLedger.user_id, userId),
+        eq(schema.creditLedger.type, 'subscription'),
+        gt(schema.creditLedger.expires_at, now),
+        gt(schema.creditLedger.balance, 0),
+      ),
+    )
+    .returning({ operation_id: schema.creditLedger.operation_id })
+
+  if (expired.length > 0) {
+    logger.info(
+      { userId, subscriptionId, expiredCount: expired.length },
+      'Expired active block grants for tier change',
+    )
+  }
+
+  return expired.length
+}
+
+// ---------------------------------------------------------------------------
 // Subscription lookup
 // ---------------------------------------------------------------------------
 

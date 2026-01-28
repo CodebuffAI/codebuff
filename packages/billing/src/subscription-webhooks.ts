@@ -37,6 +37,14 @@ function getTierFromPriceId(priceId: string): SubscriptionTierPrice | null {
   return priceToTier[priceId] ?? null
 }
 
+const tierToPrice = Object.fromEntries(
+  Object.entries(priceToTier).map(([priceId, tier]) => [tier, priceId]),
+) as Partial<Record<SubscriptionTierPrice, string>>
+
+export function getTierPriceId(tier: SubscriptionTierPrice): string | null {
+  return tierToPrice[tier] ?? null
+}
+
 // ---------------------------------------------------------------------------
 // invoice.paid
 // ---------------------------------------------------------------------------
