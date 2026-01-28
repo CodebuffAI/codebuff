@@ -211,6 +211,84 @@ describe('handleReadSubtree', () => {
     expect(dirEntry!.printedTree).toContain('myClass')
   })
 
+  it('resolves directory paths with trailing slashes', async () => {
+    const fileContext = buildMockFileContext()
+    const logger = createLogger()
+
+    const toolCall: CodebuffToolCall<'read_subtree'> = {
+      toolName: 'read_subtree',
+      toolCallId: 'tc-trailing-slash',
+      input: { paths: ['src/'], maxTokens: 50000 },
+    }
+
+    const { output } = await handleReadSubtree({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall,
+      fileContext,
+      logger,
+    })
+
+    expect(output[0].type).toBe('json')
+    const value = output[0].value as ReadSubtreeResultEntry[]
+    const dirEntry = value.find(
+      (v) => v.type === 'directory' && v.path === 'src',
+    )
+    expect(dirEntry).toBeTruthy()
+    expect(dirEntry!.printedTree).toContain('index.ts')
+  })
+
+  it('resolves nested directory paths with trailing slashes', async () => {
+    const fileContext = buildMockFileContext()
+    const logger = createLogger()
+
+    fileContext.fileTree = [
+      {
+        name: 'packages',
+        type: 'directory',
+        filePath: 'packages',
+        children: [
+          {
+            name: 'backend',
+            type: 'directory',
+            filePath: 'packages/backend',
+            children: [
+              {
+                name: 'index.ts',
+                type: 'file',
+                filePath: 'packages/backend/index.ts',
+                lastReadTime: 0,
+              },
+            ],
+          },
+        ],
+      },
+    ]
+    fileContext.fileTokenScores = {
+      'packages/backend/index.ts': { myFunction: 5.0 },
+    }
+
+    const toolCall: CodebuffToolCall<'read_subtree'> = {
+      toolName: 'read_subtree',
+      toolCallId: 'tc-nested-trailing-slash',
+      input: { paths: ['packages/backend/'], maxTokens: 50000 },
+    }
+
+    const { output } = await handleReadSubtree({
+      previousToolCallFinished: Promise.resolve(),
+      toolCall,
+      fileContext,
+      logger,
+    })
+
+    expect(output[0].type).toBe('json')
+    const value = output[0].value as ReadSubtreeResultEntry[]
+    const dirEntry = value.find(
+      (v) => v.type === 'directory' && v.path === 'packages/backend',
+    )
+    expect(dirEntry).toBeTruthy()
+    expect(dirEntry!.printedTree).toContain('myFunction')
+  })
+
   it('honors maxTokens by reducing token count under a tiny budget', async () => {
     const fileContext = buildMockFileContext()
     const logger = createLogger()
