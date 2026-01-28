@@ -2,7 +2,9 @@ import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
+import { env } from '@codebuff/internal/env'
 import {
+  getStripeId,
   getUserByStripeCustomerId,
   stripeServer,
 } from '@codebuff/internal/util/stripe'
@@ -10,6 +12,7 @@ import { eq } from 'drizzle-orm'
 
 import { handleSubscribe } from './subscription'
 
+import type { SubscriptionTierPrice } from '@codebuff/common/constants/subscription-plans'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type Stripe from 'stripe'
 
@@ -22,6 +25,16 @@ function mapStripeStatus(status: Stripe.Subscription.Status): SubscriptionStatus
   const validStatuses: readonly string[] = schema.subscriptionStatusEnum.enumValues
   if (validStatuses.includes(status)) return status as SubscriptionStatus
   return 'incomplete'
+}
+
+const priceToTier: Record<string, SubscriptionTierPrice> = {
+  ...(env.STRIPE_SUBSCRIPTION_100_PRICE_ID && { [env.STRIPE_SUBSCRIPTION_100_PRICE_ID]: 100 as const }),
+  ...(env.STRIPE_SUBSCRIPTION_200_PRICE_ID && { [env.STRIPE_SUBSCRIPTION_200_PRICE_ID]: 200 as const }),
+  ...(env.STRIPE_SUBSCRIPTION_500_PRICE_ID && { [env.STRIPE_SUBSCRIPTION_500_PRICE_ID]: 500 as const }),
+}
+
+function getTierFromPriceId(priceId: string): SubscriptionTierPrice | null {
+  return priceToTier[priceId] ?? null
 }
 
 // ---------------------------------------------------------------------------
@@ -43,14 +56,8 @@ export async function handleSubscriptionInvoicePaid(params: {
   const { invoice, logger } = params
 
   if (!invoice.subscription) return
-  const subscriptionId =
-    typeof invoice.subscription === 'string'
-      ? invoice.subscription
-      : invoice.subscription.id
-  const customerId =
-    typeof invoice.customer === 'string'
-      ? invoice.customer
-      : invoice.customer?.id
+  const subscriptionId = getStripeId(invoice.subscription)
+  const customerId = getStripeId(invoice.customer)
 
   if (!customerId) {
     logger.warn(
@@ -97,6 +104,7 @@ export async function handleSubscriptionInvoicePaid(params: {
       stripe_customer_id: customerId,
       user_id: userId,
       stripe_price_id: priceId,
+      tier: getTierFromPriceId(priceId),
       status: 'active',
       billing_period_start: new Date(stripeSub.current_period_start * 1000),
       billing_period_end: new Date(stripeSub.current_period_end * 1000),
@@ -108,6 +116,7 @@ export async function handleSubscriptionInvoicePaid(params: {
         status: 'active',
         ...(userId ? { user_id: userId } : {}),
         stripe_price_id: priceId,
+        tier: getTierFromPriceId(priceId),
         billing_period_start: new Date(
           stripeSub.current_period_start * 1000,
         ),
@@ -142,15 +151,8 @@ export async function handleSubscriptionInvoicePaymentFailed(params: {
   const { invoice, logger } = params
 
   if (!invoice.subscription) return
-  const subscriptionId =
-    typeof invoice.subscription === 'string'
-      ? invoice.subscription
-      : invoice.subscription.id
-
-  const customerId =
-    typeof invoice.customer === 'string'
-      ? invoice.customer
-      : invoice.customer?.id
+  const subscriptionId = getStripeId(invoice.subscription)
+  const customerId = getStripeId(invoice.customer)
   const userId = customerId
     ? (await getUserByStripeCustomerId(customerId))?.id ?? null
     : null
@@ -199,10 +201,7 @@ export async function handleSubscriptionUpdated(params: {
     return
   }
 
-  const customerId =
-    typeof stripeSubscription.customer === 'string'
-      ? stripeSubscription.customer
-      : stripeSubscription.customer.id
+  const customerId = getStripeId(stripeSubscription.customer)
   const userId = (await getUserByStripeCustomerId(customerId))?.id ?? null
 
   const status = mapStripeStatus(stripeSubscription.status)
@@ -216,6 +215,7 @@ export async function handleSubscriptionUpdated(params: {
       stripe_customer_id: customerId,
       user_id: userId,
       stripe_price_id: priceId,
+      tier: getTierFromPriceId(priceId),
       status,
       cancel_at_period_end: stripeSubscription.cancel_at_period_end,
       billing_period_start: new Date(
@@ -230,6 +230,7 @@ export async function handleSubscriptionUpdated(params: {
       set: {
         ...(userId ? { user_id: userId } : {}),
         stripe_price_id: priceId,
+        tier: getTierFromPriceId(priceId),
         status,
         cancel_at_period_end: stripeSubscription.cancel_at_period_end,
         billing_period_start: new Date(
@@ -265,10 +266,7 @@ export async function handleSubscriptionDeleted(params: {
   const { stripeSubscription, logger } = params
   const subscriptionId = stripeSubscription.id
 
-  const customerId =
-    typeof stripeSubscription.customer === 'string'
-      ? stripeSubscription.customer
-      : stripeSubscription.customer.id
+  const customerId = getStripeId(stripeSubscription.customer)
   const userId = (await getUserByStripeCustomerId(customerId))?.id ?? null
 
   await db

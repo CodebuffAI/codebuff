@@ -260,6 +260,13 @@
       "when": 1769568664455,
       "tag": "0036_handy_silver_sable",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1769637004165,
+      "tag": "0037_many_millenium_guard",
+      "breakpoints": true
     }
   ]
 }

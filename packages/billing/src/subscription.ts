@@ -4,7 +4,10 @@ import { GRANT_PRIORITIES } from '@codebuff/common/constants/grant-priorities'
 import {
   DEFAULT_TIER,
   SUBSCRIPTION_DISPLAY_NAME,
+  SUBSCRIPTION_TIERS,
 } from '@codebuff/common/constants/subscription-plans'
+
+import type { SubscriptionTierPrice } from '@codebuff/common/constants/subscription-plans'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
 import { withAdvisoryLockTransaction } from '@codebuff/internal/db/transaction'
@@ -137,8 +140,9 @@ export async function getSubscriptionLimits(params: {
   userId: string
   logger: Logger
   conn?: DbConn
+  tier?: number | null
 }): Promise<SubscriptionLimits> {
-  const { userId, logger, conn = db } = params
+  const { userId, logger, conn = db, tier } = params
 
   const overrides = await conn
     .select()
@@ -159,10 +163,15 @@ export async function getSubscriptionLimits(params: {
     }
   }
 
+  const tierConfig =
+    tier != null && tier in SUBSCRIPTION_TIERS
+      ? SUBSCRIPTION_TIERS[tier as SubscriptionTierPrice]
+      : DEFAULT_TIER
+
   return {
-    creditsPerBlock: DEFAULT_TIER.creditsPerBlock,
-    blockDurationHours: DEFAULT_TIER.blockDurationHours,
-    weeklyCreditsLimit: DEFAULT_TIER.weeklyCreditsLimit,
+    creditsPerBlock: tierConfig.creditsPerBlock,
+    blockDurationHours: tierConfig.blockDurationHours,
+    weeklyCreditsLimit: tierConfig.weeklyCreditsLimit,
   }
 }
 
@@ -274,6 +283,7 @@ export async function ensureActiveBlockGrant(params: {
         userId,
         logger,
         conn: tx,
+        tier: subscription.tier,
       })
 
       // 3. Check weekly limit before creating a new block
@@ -394,6 +404,7 @@ export async function checkRateLimit(params: {
   const limits = await getSubscriptionLimits({
     userId,
     logger,
+    tier: subscription.tier,
   })
 
   const weekly = await getWeeklyUsage({

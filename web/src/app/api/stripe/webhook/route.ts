@@ -11,7 +11,7 @@ import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
 import { env } from '@codebuff/internal/env'
 import { sendDisputeNotificationEmail } from '@codebuff/internal/loops'
-import { stripeServer } from '@codebuff/internal/util/stripe'
+import { getStripeId, stripeServer } from '@codebuff/internal/util/stripe'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -23,7 +23,6 @@ import {
   evaluateBanConditions,
   getUserByStripeCustomerId,
 } from '@/lib/ban-conditions'
-import { getStripeCustomerId } from '@/lib/stripe-utils'
 import { logger } from '@/util/logger'
 
 /**
@@ -320,7 +319,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
   let customerId: string | null = null
   if (invoice.customer) {
-    customerId = getStripeCustomerId(invoice.customer)
+    customerId = getStripeId(invoice.customer)
   }
 
   if (creditNotes.data.length > 0) {
@@ -393,10 +392,7 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
       }
       case 'charge.dispute.created': {
         const dispute = event.data.object as Stripe.Dispute
-        const chargeId =
-          typeof dispute.charge === 'string'
-            ? dispute.charge
-            : dispute.charge?.id
+        const chargeId = getStripeId(dispute.charge)
 
         if (!chargeId) {
           logger.warn(
@@ -416,9 +412,7 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
           break
         }
 
-        const customerId = getStripeCustomerId(
-          charge.customer as string | Stripe.Customer | Stripe.DeletedCustomer,
-        )
+        const customerId = getStripeId(charge.customer)
 
         if (!customerId) {
           logger.warn(
@@ -545,9 +539,7 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
       case 'invoice.paid': {
         const invoice = event.data.object as Stripe.Invoice
         if (invoice.subscription) {
-          const customerId = invoice.customer
-            ? getStripeCustomerId(invoice.customer)
-            : null
+          const customerId = getStripeId(invoice.customer)
           if (!customerId) {
             logger.warn(
               { invoiceId: invoice.id },
@@ -564,9 +556,7 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice
         if (invoice.subscription) {
-          const customerId = invoice.customer
-            ? getStripeCustomerId(invoice.customer)
-            : null
+          const customerId = getStripeId(invoice.customer)
           if (!customerId) {
             logger.warn(
               { invoiceId: invoice.id },
