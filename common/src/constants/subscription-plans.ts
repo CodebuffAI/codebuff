@@ -1,26 +1,19 @@
-export const PLAN_NAMES = ['pro'] as const
-export type PlanName = (typeof PLAN_NAMES)[number]
+export const SUBSCRIPTION_DISPLAY_NAME = 'Flex' as const
 
-export interface PlanConfig {
-  name: PlanName
-  displayName: string
+export interface TierConfig {
   monthlyPrice: number
   creditsPerBlock: number
   blockDurationHours: number
   weeklyCreditsLimit: number
 }
 
-export const PLANS = {
-  pro: {
-    name: 'pro',
-    displayName: 'Pro',
+export const SUBSCRIPTION_TIERS = {
+  200: {
     monthlyPrice: 200,
     creditsPerBlock: 1250,
     blockDurationHours: 5,
-    weeklyCreditsLimit: 15000,
+    weeklyCreditsLimit: 12500,
   },
-} as const satisfies Record<PlanName, PlanConfig>
+} as const satisfies Record<number, TierConfig>
 
-export function isPlanName(name: string): name is PlanName {
-  return (PLAN_NAMES as readonly string[]).includes(name)
-}
+export const DEFAULT_TIER = SUBSCRIPTION_TIERS[200]

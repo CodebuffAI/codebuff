@@ -2,8 +2,8 @@ import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { GRANT_PRIORITIES } from '@codebuff/common/constants/grant-priorities'
 import {
-  PLANS,
-  isPlanName,
+  DEFAULT_TIER,
+  SUBSCRIPTION_DISPLAY_NAME,
 } from '@codebuff/common/constants/subscription-plans'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
@@ -131,15 +131,14 @@ export function getWeekEnd(
 
 /**
  * Resolves the effective subscription limits for a user.
- * Checks `limit_override` first, then falls back to the plan constants.
+ * Checks `limit_override` first, then falls back to the default tier constants.
  */
 export async function getSubscriptionLimits(params: {
   userId: string
-  planName: string
   logger: Logger
   conn?: DbConn
 }): Promise<SubscriptionLimits> {
-  const { userId, planName, logger, conn = db } = params
+  const { userId, logger, conn = db } = params
 
   const overrides = await conn
     .select()
@@ -160,15 +159,10 @@ export async function getSubscriptionLimits(params: {
     }
   }
 
-  if (!isPlanName(planName)) {
-    throw new Error(`Unknown plan name: ${planName}`)
-  }
-
-  const plan = PLANS[planName]
   return {
-    creditsPerBlock: plan.creditsPerBlock,
-    blockDurationHours: plan.blockDurationHours,
-    weeklyCreditsLimit: plan.weeklyCreditsLimit,
+    creditsPerBlock: DEFAULT_TIER.creditsPerBlock,
+    blockDurationHours: DEFAULT_TIER.blockDurationHours,
+    weeklyCreditsLimit: DEFAULT_TIER.weeklyCreditsLimit,
   }
 }
 
@@ -282,7 +276,6 @@ export async function ensureActiveBlockGrant(params: {
       // 2. Resolve limits
       const limits = await getSubscriptionLimits({
         userId,
-        planName: subscription.plan_name,
         logger,
         conn: tx,
       })
@@ -331,7 +324,7 @@ export async function ensureActiveBlockGrant(params: {
           balance: limits.creditsPerBlock,
           priority: GRANT_PRIORITIES.subscription,
           expires_at: expiresAt,
-          description: `${subscription.plan_name} block (${limits.blockDurationHours}h)`,
+          description: `${SUBSCRIPTION_DISPLAY_NAME} block (${limits.blockDurationHours}h)`,
         })
         .onConflictDoNothing({ target: schema.creditLedger.operation_id })
         .returning()
@@ -404,7 +397,6 @@ export async function checkRateLimit(params: {
 
   const limits = await getSubscriptionLimits({
     userId,
-    planName: subscription.plan_name,
     logger,
   })
 

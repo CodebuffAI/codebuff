@@ -1,16 +1,13 @@
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { PLANS } from '@codebuff/common/constants/subscription-plans'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { env } from '@codebuff/internal/env'
 import { stripeServer } from '@codebuff/internal/util/stripe'
 import { eq } from 'drizzle-orm'
 
 import { handleSubscribe } from './subscription'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
-import type { PlanConfig } from '@codebuff/common/constants/subscription-plans'
 import type Stripe from 'stripe'
 
 type SubscriptionStatus = (typeof schema.subscriptionStatusEnum.enumValues)[number]
@@ -36,22 +33,6 @@ async function getUserIdByCustomerId(
     .where(eq(schema.user.stripe_customer_id, customerId))
     .limit(1)
   return userRecord[0]?.id ?? null
-}
-
-/**
- * Resolves a PlanConfig from a Stripe price ID.
- * Compares against the configured env var for each plan.
- */
-function getPlanFromPriceId(priceId: string): PlanConfig {
-  if (!env.STRIPE_SUBSCRIPTION_200_PRICE_ID) {
-    throw new Error(
-      'STRIPE_SUBSCRIPTION_200_PRICE_ID env var is not configured',
-    )
-  }
-  if (env.STRIPE_SUBSCRIPTION_200_PRICE_ID === priceId) {
-    return PLANS.pro
-  }
-  throw new Error(`Unknown subscription price ID: ${priceId}`)
 }
 
 // ---------------------------------------------------------------------------
@@ -100,17 +81,6 @@ export async function handleSubscriptionInvoicePaid(params: {
     return
   }
 
-  let plan: PlanConfig
-  try {
-    plan = getPlanFromPriceId(priceId)
-  } catch {
-    logger.warn(
-      { subscriptionId, priceId },
-      'Subscription invoice for unrecognised price — skipping',
-    )
-    return
-  }
-
   // Look up the user for this customer
   const userId = await getUserIdByCustomerId(customerId)
 
@@ -138,7 +108,6 @@ export async function handleSubscriptionInvoicePaid(params: {
       stripe_customer_id: customerId,
       user_id: userId,
       stripe_price_id: priceId,
-      plan_name: plan.name,
       status: 'active',
       billing_period_start: new Date(stripeSub.current_period_start * 1000),
       billing_period_end: new Date(stripeSub.current_period_end * 1000),
@@ -150,7 +119,6 @@ export async function handleSubscriptionInvoicePaid(params: {
         status: 'active',
         ...(userId ? { user_id: userId } : {}),
         stripe_price_id: priceId,
-        plan_name: plan.name,
         billing_period_start: new Date(
           stripeSub.current_period_start * 1000,
         ),
@@ -164,7 +132,6 @@ export async function handleSubscriptionInvoicePaid(params: {
     {
       subscriptionId,
       customerId,
-      planName: plan.name,
       billingReason: invoice.billing_reason,
     },
     'Processed subscription invoice.paid',
@@ -243,18 +210,6 @@ export async function handleSubscriptionUpdated(params: {
     return
   }
 
-  let planName: string
-  try {
-    const plan = getPlanFromPriceId(priceId)
-    planName = plan.name
-  } catch {
-    logger.warn(
-      { subscriptionId, priceId },
-      'Subscription updated with unrecognised price — skipping',
-    )
-    return
-  }
-
   const customerId =
     typeof stripeSubscription.customer === 'string'
       ? stripeSubscription.customer
@@ -272,7 +227,6 @@ export async function handleSubscriptionUpdated(params: {
       stripe_customer_id: customerId,
       user_id: userId,
       stripe_price_id: priceId,
-      plan_name: planName,
       status,
       cancel_at_period_end: stripeSubscription.cancel_at_period_end,
       billing_period_start: new Date(
@@ -287,7 +241,6 @@ export async function handleSubscriptionUpdated(params: {
       set: {
         ...(userId ? { user_id: userId } : {}),
         stripe_price_id: priceId,
-        plan_name: planName,
         status,
         cancel_at_period_end: stripeSubscription.cancel_at_period_end,
         billing_period_start: new Date(
@@ -303,7 +256,6 @@ export async function handleSubscriptionUpdated(params: {
   logger.info(
     {
       subscriptionId,
-      planName,
       cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
     },
     'Processed subscription update',
