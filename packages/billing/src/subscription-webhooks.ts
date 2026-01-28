@@ -21,7 +21,7 @@ type SubscriptionStatus = (typeof schema.subscriptionStatusEnum.enumValues)[numb
 function mapStripeStatus(status: Stripe.Subscription.Status): SubscriptionStatus {
   const validStatuses: readonly string[] = schema.subscriptionStatusEnum.enumValues
   if (validStatuses.includes(status)) return status as SubscriptionStatus
-  return 'active'
+  return 'incomplete'
 }
 
 // ---------------------------------------------------------------------------

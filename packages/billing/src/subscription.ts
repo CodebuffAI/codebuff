@@ -14,6 +14,7 @@ import {
   eq,
   gt,
   gte,
+  inArray,
   isNull,
   lt,
   or,
@@ -284,7 +285,7 @@ export async function ensureActiveBlockGrant(params: {
         conn: tx,
       })
 
-      if (weekly.used >= weekly.limit) {
+      if (weekly.remaining <= 0) {
         trackEvent({
           event: AnalyticsEvent.SUBSCRIPTION_WEEKLY_LIMIT_HIT,
           userId,
@@ -304,7 +305,8 @@ export async function ensureActiveBlockGrant(params: {
         } satisfies WeeklyLimitError
       }
 
-      // 4. Create new block grant
+      // 4. Create new block grant (capped to weekly remaining)
+      const blockCredits = Math.min(limits.creditsPerBlock, weekly.remaining)
       const expiresAt = addHours(now, limits.blockDurationHours)
       const operationId = `block-${subscriptionId}-${now.getTime()}`
 
@@ -315,8 +317,8 @@ export async function ensureActiveBlockGrant(params: {
           user_id: userId,
           stripe_subscription_id: subscriptionId,
           type: 'subscription',
-          principal: limits.creditsPerBlock,
-          balance: limits.creditsPerBlock,
+          principal: blockCredits,
+          balance: blockCredits,
           priority: GRANT_PRIORITIES.subscription,
           expires_at: expiresAt,
           description: `${SUBSCRIPTION_DISPLAY_NAME} block (${limits.blockDurationHours}h)`,
@@ -336,7 +338,7 @@ export async function ensureActiveBlockGrant(params: {
         properties: {
           subscriptionId,
           operationId,
-          credits: limits.creditsPerBlock,
+          credits: blockCredits,
           expiresAt: expiresAt.toISOString(),
           weeklyUsed: weekly.used,
           weeklyLimit: weekly.limit,
@@ -349,7 +351,7 @@ export async function ensureActiveBlockGrant(params: {
           userId,
           subscriptionId,
           operationId,
-          credits: limits.creditsPerBlock,
+          credits: blockCredits,
           expiresAt,
         },
         'Created new subscription block grant',
@@ -357,7 +359,7 @@ export async function ensureActiveBlockGrant(params: {
 
       return {
         grantId: newGrant.operation_id,
-        credits: limits.creditsPerBlock,
+        credits: blockCredits,
         expiresAt,
         isNew: true,
       } satisfies BlockGrant
@@ -414,7 +416,7 @@ export async function checkRateLimit(params: {
     }
   }
 
-  // Find most recent subscription block grant for this user
+  // Find most recent active subscription block grant for this user
   const blocks = await db
     .select()
     .from(schema.creditLedger)
@@ -422,6 +424,7 @@ export async function checkRateLimit(params: {
       and(
         eq(schema.creditLedger.user_id, userId),
         eq(schema.creditLedger.type, 'subscription'),
+        gt(schema.creditLedger.expires_at, now),
       ),
     )
     .orderBy(desc(schema.creditLedger.created_at))
@@ -429,8 +432,8 @@ export async function checkRateLimit(params: {
 
   const currentBlock = blocks[0]
 
-  // No block yet or block expired → can start a new one
-  if (!currentBlock || !currentBlock.expires_at || currentBlock.expires_at <= now) {
+  // No active block → can start a new one
+  if (!currentBlock) {
     return {
       limited: false,
       canStartNewBlock: true,
@@ -449,7 +452,7 @@ export async function checkRateLimit(params: {
       canStartNewBlock: false,
       blockUsed: currentBlock.principal,
       blockLimit: currentBlock.principal,
-      blockResetsAt: currentBlock.expires_at,
+      blockResetsAt: currentBlock.expires_at!,
       weeklyUsed: weekly.used,
       weeklyLimit: weekly.limit,
       weeklyResetsAt: weekly.resetsAt,
@@ -463,7 +466,7 @@ export async function checkRateLimit(params: {
     canStartNewBlock: false,
     blockUsed: currentBlock.principal - currentBlock.balance,
     blockLimit: currentBlock.principal,
-    blockResetsAt: currentBlock.expires_at,
+    blockResetsAt: currentBlock.expires_at!,
     weeklyUsed: weekly.used,
     weeklyLimit: weekly.limit,
     weeklyResetsAt: weekly.resetsAt,
@@ -523,22 +526,25 @@ export async function handleSubscribe(params: {
   const { userId, stripeSubscription, logger } = params
   const newResetDate = new Date(stripeSubscription.current_period_end * 1000)
 
-  await withAdvisoryLockTransaction({
+  const { result: didMigrate } = await withAdvisoryLockTransaction({
     callback: async (tx) => {
-      // Idempotency: skip if this subscription was already processed
-      // Must be inside the lock to prevent TOCTOU races on concurrent webhooks
-      const existing = await tx
-        .select({ stripe_subscription_id: schema.subscription.stripe_subscription_id })
-        .from(schema.subscription)
-        .where(eq(schema.subscription.stripe_subscription_id, stripeSubscription.id))
+      // Idempotency: check if credits were already migrated for this subscription.
+      // We use the credit_ledger instead of the subscription table because
+      // handleSubscriptionUpdated may upsert the subscription row before
+      // invoice.paid fires, which would cause this check to skip migration.
+      const migrationOpId = `subscribe-migrate-${stripeSubscription.id}`
+      const existingMigration = await tx
+        .select({ operation_id: schema.creditLedger.operation_id })
+        .from(schema.creditLedger)
+        .where(eq(schema.creditLedger.operation_id, migrationOpId))
         .limit(1)
 
-      if (existing.length > 0) {
+      if (existingMigration.length > 0) {
         logger.info(
           { userId, subscriptionId: stripeSubscription.id },
-          'Subscription already processed — skipping handleSubscribe',
+          'Credits already migrated — skipping handleSubscribe',
         )
-        return
+        return false
       }
 
       // Move next_quota_reset to align with Stripe billing period
@@ -548,31 +554,41 @@ export async function handleSubscribe(params: {
         .where(eq(schema.user.id, userId))
 
       // Migrate unused credits so nothing is lost
-      await migrateUnusedCredits({ tx, userId, expiresAt: newResetDate, logger })
+      await migrateUnusedCredits({
+        tx,
+        userId,
+        subscriptionId: stripeSubscription.id,
+        expiresAt: newResetDate,
+        logger,
+      })
+
+      return true
     },
     lockKey: `user:${userId}`,
     context: { userId, subscriptionId: stripeSubscription.id },
     logger,
   })
 
-  trackEvent({
-    event: AnalyticsEvent.SUBSCRIPTION_CREATED,
-    userId,
-    properties: {
-      subscriptionId: stripeSubscription.id,
-      newResetDate: newResetDate.toISOString(),
-    },
-    logger,
-  })
-
-  logger.info(
-    {
+  if (didMigrate) {
+    trackEvent({
+      event: AnalyticsEvent.SUBSCRIPTION_CREATED,
       userId,
-      subscriptionId: stripeSubscription.id,
-      newResetDate,
-    },
-    'Processed subscribe: reset date moved and credits migrated',
-  )
+      properties: {
+        subscriptionId: stripeSubscription.id,
+        newResetDate: newResetDate.toISOString(),
+      },
+      logger,
+    })
+
+    logger.info(
+      {
+        userId,
+        subscriptionId: stripeSubscription.id,
+        newResetDate,
+      },
+      'Processed subscribe: reset date moved and credits migrated',
+    )
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -592,13 +608,14 @@ type DbTransaction = Parameters<typeof db.transaction>[0] extends (
 async function migrateUnusedCredits(params: {
   tx: DbTransaction
   userId: string
+  subscriptionId: string
   expiresAt: Date
   logger: Logger
 }): Promise<void> {
-  const { tx, userId, expiresAt, logger } = params
+  const { tx, userId, subscriptionId, expiresAt, logger } = params
   const now = new Date()
 
-  // Find all free/referral grants with remaining balance
+  // Find all free/referral grants with remaining balance (excluding org grants)
   const unusedGrants = await tx
     .select()
     .from(schema.creditLedger)
@@ -606,6 +623,8 @@ async function migrateUnusedCredits(params: {
       and(
         eq(schema.creditLedger.user_id, userId),
         gt(schema.creditLedger.balance, 0),
+        inArray(schema.creditLedger.type, ['free', 'referral']),
+        isNull(schema.creditLedger.org_id),
         or(
           isNull(schema.creditLedger.expires_at),
           gt(schema.creditLedger.expires_at, now),
@@ -618,7 +637,27 @@ async function migrateUnusedCredits(params: {
     0,
   )
 
+  // Deterministic ID ensures idempotency — duplicate webhook deliveries
+  // will hit onConflictDoNothing and the handleSubscribe caller checks
+  // for this operation_id before running.
+  const operationId = `subscribe-migrate-${subscriptionId}`
+
   if (totalUnused === 0) {
+    // Still insert the marker for idempotency so handleSubscribe's check
+    // short-circuits on duplicate webhook deliveries.
+    await tx
+      .insert(schema.creditLedger)
+      .values({
+        operation_id: operationId,
+        user_id: userId,
+        type: 'free',
+        principal: 0,
+        balance: 0,
+        priority: GRANT_PRIORITIES.free,
+        expires_at: expiresAt,
+        description: 'Migrated credits from subscription transition',
+      })
+      .onConflictDoNothing({ target: schema.creditLedger.operation_id })
     logger.debug({ userId }, 'No unused credits to migrate')
     return
   }
@@ -632,7 +671,6 @@ async function migrateUnusedCredits(params: {
   }
 
   // Create a single migration grant preserving the total
-  const operationId = `migration-${userId}-${crypto.randomUUID()}`
   await tx
     .insert(schema.creditLedger)
     .values({

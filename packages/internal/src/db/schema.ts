@@ -145,7 +145,7 @@ export const creditLedger = pgTable(
       .where(sql`${table.balance} != 0 AND ${table.expires_at} IS NULL`),
     index('idx_credit_ledger_org').on(table.org_id),
     index('idx_credit_ledger_subscription').on(
-      table.stripe_subscription_id,
+      table.user_id,
       table.type,
       table.created_at,
     ),
