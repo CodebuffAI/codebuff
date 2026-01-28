@@ -2,6 +2,10 @@ import {
   grantOrganizationCredits,
   processAndGrantCredit,
   revokeGrantByOperationId,
+  handleSubscriptionInvoicePaid,
+  handleSubscriptionInvoicePaymentFailed,
+  handleSubscriptionUpdated,
+  handleSubscriptionDeleted,
 } from '@codebuff/billing'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
@@ -21,6 +25,19 @@ import {
 } from '@/lib/ban-conditions'
 import { getStripeCustomerId } from '@/lib/stripe-utils'
 import { logger } from '@/util/logger'
+
+/**
+ * Checks whether a Stripe subscription ID belongs to an organization.
+ * Used to guard user-subscription handlers from processing org subscriptions.
+ */
+async function isOrgSubscription(subscriptionId: string): Promise<boolean> {
+  const orgs = await db
+    .select({ id: schema.org.id })
+    .from(schema.org)
+    .where(eq(schema.org.stripe_subscription_id, subscriptionId))
+    .limit(1)
+  return orgs.length > 0
+}
 
 async function handleCheckoutSessionCompleted(
   session: Stripe.Checkout.Session,
@@ -354,9 +371,22 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
       case 'customer.created':
         break
       case 'customer.subscription.created':
-      case 'customer.subscription.updated':
+      case 'customer.subscription.updated': {
+        const sub = event.data.object as Stripe.Subscription
+        // Handle org subscriptions (legacy)
+        await handleSubscriptionEvent(sub)
+        // Handle user subscriptions (new) — skip org subscriptions
+        if (!sub.metadata?.organization_id) {
+          await handleSubscriptionUpdated({ stripeSubscription: sub, logger })
+        }
+        break
+      }
       case 'customer.subscription.deleted': {
-        await handleSubscriptionEvent(event.data.object as Stripe.Subscription)
+        const sub = event.data.object as Stripe.Subscription
+        await handleSubscriptionEvent(sub)
+        if (!sub.metadata?.organization_id) {
+          await handleSubscriptionDeleted({ stripeSubscription: sub, logger })
+        }
         break
       }
       case 'charge.dispute.created': {
@@ -511,11 +541,32 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
         break
       }
       case 'invoice.paid': {
-        await handleInvoicePaid(event.data.object as Stripe.Invoice)
+        const invoice = event.data.object as Stripe.Invoice
+        await handleInvoicePaid(invoice)
+        // Handle subscription invoice payments (user subscriptions only)
+        if (invoice.subscription) {
+          const subId =
+            typeof invoice.subscription === 'string'
+              ? invoice.subscription
+              : invoice.subscription.id
+          if (!(await isOrgSubscription(subId))) {
+            await handleSubscriptionInvoicePaid({ invoice, logger })
+          }
+        }
         break
       }
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice
+        // Handle subscription payment failures (user subscriptions only)
+        if (invoice.subscription) {
+          const subId =
+            typeof invoice.subscription === 'string'
+              ? invoice.subscription
+              : invoice.subscription.id
+          if (!(await isOrgSubscription(subId))) {
+            await handleSubscriptionInvoicePaymentFailed({ invoice, logger })
+          }
+        }
         if (
           invoice.metadata?.type === 'auto-topup' &&
           invoice.billing_reason === 'manual'

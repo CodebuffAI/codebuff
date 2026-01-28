@@ -53,6 +53,14 @@ const grantTypeInfo: Record<
     label: 'Monthly Free',
     description: 'Your monthly allowance',
   },
+  subscription: {
+    bg: 'bg-indigo-500',
+    text: 'text-indigo-600 dark:text-indigo-400',
+    gradient: 'from-indigo-500/70 to-indigo-600/70',
+    icon: <Star className="h-4 w-4" />,
+    label: 'Pro Subscription',
+    description: 'Credits from your Pro plan',
+  },
   referral: {
     bg: 'bg-green-500',
     text: 'text-green-600 dark:text-green-400',
@@ -233,6 +241,7 @@ export const UsageDisplay = ({
   // Calculate used credits per type (excluding organization)
   const usedCredits: Record<FilteredGrantType, number> = {
     free: 0,
+    subscription: 0,
     referral: 0,
     purchase: 0,
     admin: 0,
@@ -252,7 +261,7 @@ export const UsageDisplay = ({
   })
 
   // Group credits by expiration type (excluding organization)
-  const expiringTypes: FilteredGrantType[] = ['free', 'referral']
+  const expiringTypes: FilteredGrantType[] = ['subscription', 'free', 'referral']
   const nonExpiringTypes: FilteredGrantType[] = ['admin', 'purchase', 'ad']
 
   const expiringTotal = expiringTypes.reduce(

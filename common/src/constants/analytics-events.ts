@@ -30,6 +30,15 @@ export enum AnalyticsEvent {
   ADVISORY_LOCK_CONTENTION = 'backend.advisory_lock_contention',
   TRANSACTION_RETRY_THRESHOLD_EXCEEDED = 'backend.transaction_retry_threshold_exceeded',
 
+  // Backend - Subscription
+  SUBSCRIPTION_CREATED = 'backend.subscription_created',
+  SUBSCRIPTION_CANCELED = 'backend.subscription_canceled',
+  SUBSCRIPTION_PAYMENT_FAILED = 'backend.subscription_payment_failed',
+  SUBSCRIPTION_BLOCK_CREATED = 'backend.subscription_block_created',
+  SUBSCRIPTION_BLOCK_LIMIT_HIT = 'backend.subscription_block_limit_hit',
+  SUBSCRIPTION_WEEKLY_LIMIT_HIT = 'backend.subscription_weekly_limit_hit',
+  SUBSCRIPTION_CREDITS_MIGRATED = 'backend.subscription_credits_migrated',
+
   // Web
   SIGNUP = 'web.signup',
 
