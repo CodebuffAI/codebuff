@@ -2,7 +2,10 @@ import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { stripeServer } from '@codebuff/internal/util/stripe'
+import {
+  getUserByStripeCustomerId,
+  stripeServer,
+} from '@codebuff/internal/util/stripe'
 import { eq } from 'drizzle-orm'
 
 import { handleSubscribe } from './subscription'
@@ -19,20 +22,6 @@ function mapStripeStatus(status: Stripe.Subscription.Status): SubscriptionStatus
   if (status === 'past_due') return 'past_due'
   if (status === 'canceled') return 'canceled'
   return 'active'
-}
-
-/**
- * Looks up a user ID by Stripe customer ID.
- */
-async function getUserIdByCustomerId(
-  customerId: string,
-): Promise<string | null> {
-  const userRecord = await db
-    .select({ id: schema.user.id })
-    .from(schema.user)
-    .where(eq(schema.user.stripe_customer_id, customerId))
-    .limit(1)
-  return userRecord[0]?.id ?? null
 }
 
 // ---------------------------------------------------------------------------
@@ -82,7 +71,7 @@ export async function handleSubscriptionInvoicePaid(params: {
   }
 
   // Look up the user for this customer
-  const userId = await getUserIdByCustomerId(customerId)
+  const userId = (await getUserByStripeCustomerId(customerId))?.id ?? null
 
   // On first invoice, migrate renewal date & credits (Option B)
   if (invoice.billing_reason === 'subscription_create') {
@@ -163,7 +152,7 @@ export async function handleSubscriptionInvoicePaymentFailed(params: {
       ? invoice.customer
       : invoice.customer?.id
   const userId = customerId
-    ? await getUserIdByCustomerId(customerId)
+    ? (await getUserByStripeCustomerId(customerId))?.id ?? null
     : null
 
   await db
@@ -214,7 +203,7 @@ export async function handleSubscriptionUpdated(params: {
     typeof stripeSubscription.customer === 'string'
       ? stripeSubscription.customer
       : stripeSubscription.customer.id
-  const userId = await getUserIdByCustomerId(customerId)
+  const userId = (await getUserByStripeCustomerId(customerId))?.id ?? null
 
   const status = mapStripeStatus(stripeSubscription.status)
 
@@ -280,7 +269,7 @@ export async function handleSubscriptionDeleted(params: {
     typeof stripeSubscription.customer === 'string'
       ? stripeSubscription.customer
       : stripeSubscription.customer.id
-  const userId = await getUserIdByCustomerId(customerId)
+  const userId = (await getUserByStripeCustomerId(customerId))?.id ?? null
 
   await db
     .update(schema.subscription)
