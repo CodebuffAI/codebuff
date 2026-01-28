@@ -206,13 +206,14 @@ function* handleStepsMultiPrompt({
   }
 
   // Extract suggested improvements from selector output
-  const { suggestedImprovements } = selectorOutput
+  const { reason, suggestedImprovements } = selectorOutput
 
   // Set output with the applied results and suggested improvements
   yield {
     toolName: 'set_output',
     input: {
       chosenStrategy: chosenImplementation.strategy,
+      reason,
       toolResults: appliedToolResults,
       suggestedImprovements,
     },

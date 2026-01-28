@@ -1,5 +1,24 @@
 import path from 'path'
 
+/** Max number of lines to show in collapsed previews */
+export const MAX_COLLAPSED_LINES = 3
+
+/**
+ * Truncate text to a maximum number of lines, adding '...' if truncated.
+ * Returns the input unchanged if it's null/undefined/empty.
+ */
+export function truncateToLines(
+  text: string | null | undefined,
+  maxLines: number,
+): string | null | undefined {
+  if (!text) return text
+  const lines = text.split('\n')
+  if (lines.length <= maxLines) {
+    return text
+  }
+  return lines.slice(0, maxLines).join('\n').trimEnd() + '...'
+}
+
 import {
   hasClipboardImage,
   readClipboardText,

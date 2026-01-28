@@ -482,3 +482,148 @@ export function truncateWithEllipsis(text: string, maxWidth: number): string {
   if (maxWidth <= 3) return text.slice(0, maxWidth)
   return text.slice(0, maxWidth - 3) + '...'
 }
+
+export interface MultiPromptProgress {
+  /** Total number of implementor agents */
+  total: number
+  /** Number of successfully completed implementors */
+  completed: number
+  /** Number of failed/errored implementors */
+  failed: number
+  /** Whether selector is active (all implementors done, selecting best) */
+  isSelecting: boolean
+  /** Whether selector has completed (used to detect applying phase) */
+  isSelectorComplete: boolean
+}
+
+/**
+ * Analyze progress of a multi-prompt editor agent.
+ * Returns counts of implementor agents and current phase.
+ */
+export function getMultiPromptProgress(
+  blocks: ContentBlock[] | undefined,
+): MultiPromptProgress | null {
+  if (!blocks || blocks.length === 0) return null
+
+  const implementors = blocks.filter(
+    (block): block is AgentContentBlock =>
+      block.type === 'agent' && isImplementorAgent(block),
+  )
+
+  if (implementors.length === 0) return null
+
+  const completed = implementors.filter((a) => a.status === 'complete').length
+  const failed = implementors.filter(
+    (a) => a.status === 'failed' || a.status === 'cancelled',
+  ).length
+
+  const selectorAgent = blocks.find(
+    (block): block is AgentContentBlock =>
+      block.type === 'agent' &&
+      block.agentType.includes('best-of-n-selector'),
+  )
+  const isSelecting = selectorAgent?.status === 'running'
+
+  return {
+    total: implementors.length,
+    completed,
+    failed,
+    isSelecting,
+    isSelectorComplete: selectorAgent?.status === 'complete',
+  }
+}
+
+/** Expected shape of the set_output input from editor-multi-prompt */
+interface MultiPromptSetOutputInput {
+  chosenStrategy?: string
+  reason?: string
+  suggestedImprovements?: string
+  toolResults?: unknown[]
+  error?: string
+}
+
+/** Type guard for MultiPromptSetOutputInput */
+function isMultiPromptSetOutput(input: unknown): input is MultiPromptSetOutputInput {
+  return (
+    typeof input === 'object' &&
+    input !== null &&
+    ('reason' in input || 'chosenStrategy' in input || 'error' in input)
+  )
+}
+
+/**
+ * Extract the selection reason from multi-prompt agent's set_output block.
+ */
+function extractSelectionReason(blocks: ContentBlock[] | undefined): string | null {
+  if (!blocks || blocks.length === 0) return null
+
+  const setOutputBlock = blocks.find(
+    (block): block is ToolContentBlock =>
+      block.type === 'tool' &&
+      block.toolName === 'set_output' &&
+      isMultiPromptSetOutput(block.input) &&
+      typeof block.input.reason === 'string',
+  )
+
+  if (!setOutputBlock || !isMultiPromptSetOutput(setOutputBlock.input)) {
+    return null
+  }
+
+  return setOutputBlock.input.reason ?? null
+}
+
+/**
+ * Generate a progress-focused preview string for multi-prompt editor.
+ * @param blocks - The nested content blocks of the agent
+ * @param isAgentComplete - Whether the parent agent has finished (status === 'complete')
+ */
+export function getMultiPromptPreview(
+  blocks: ContentBlock[] | undefined,
+  isAgentComplete?: boolean,
+): string | null {
+  const progress = getMultiPromptProgress(blocks)
+  if (!progress) return null
+
+  const { total, completed, failed, isSelecting, isSelectorComplete } = progress
+  const finished = completed + failed
+
+  // Agent is fully complete - show final state with selection info
+  // Use multi-line format: line 1 = count, lines 2-3 = reason (truncated to fit)
+  if (isAgentComplete) {
+    const reason = extractSelectionReason(blocks)
+    if (reason) {
+      // Capitalize first letter and truncate to 2 lines (line 1 is the count)
+      const formattedReason = reason.charAt(0).toUpperCase() + reason.slice(1)
+      const lines = formattedReason.split('\n')
+      const truncatedReason =
+        lines.length > 2 ? lines.slice(0, 2).join('\n').trimEnd() + '...' : formattedReason
+      return `${total} proposals evaluated\n${truncatedReason}`
+    }
+    return `${total} proposals evaluated`
+  }
+
+  // Selector completed but agent still running = applying phase
+  if (isSelectorComplete) {
+    return 'Applying selected changes...'
+  }
+
+  if (isSelecting) {
+    return `${total} proposals complete • Selecting best...`
+  }
+
+  if (finished === total && total > 0) {
+    if (failed > 0) {
+      return `${completed}/${total} proposals complete (${failed} failed)`
+    }
+    return `${total} proposals complete`
+  }
+
+  if (finished > 0) {
+    if (failed > 0) {
+      return `${completed}/${total} complete, ${failed} failed...`
+    }
+    return `${completed}/${total} proposals complete...`
+  }
+
+  return `Generating ${total} proposals...`
+}
