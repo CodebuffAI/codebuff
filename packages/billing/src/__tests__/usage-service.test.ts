@@ -49,6 +49,10 @@ describe('usage-service', () => {
           }),
         }))
 
+        await mockModule('@codebuff/billing/subscription', () => ({
+          getActiveSubscription: async () => null,
+        }))
+
         const { getUserUsageData } = await import('@codebuff/billing/usage-service')
 
         const result = await getUserUsageData({
@@ -81,6 +85,10 @@ describe('usage-service', () => {
           }),
         }))
 
+        await mockModule('@codebuff/billing/subscription', () => ({
+          getActiveSubscription: async () => null,
+        }))
+
         const { getUserUsageData } = await import('@codebuff/billing/usage-service')
 
         const result = await getUserUsageData({
@@ -108,6 +116,10 @@ describe('usage-service', () => {
             usageThisCycle: 100,
             balance: mockBalance,
           }),
+        }))
+
+        await mockModule('@codebuff/billing/subscription', () => ({
+          getActiveSubscription: async () => null,
         }))
 
         const { getUserUsageData } = await import('@codebuff/billing/usage-service')
@@ -140,6 +152,10 @@ describe('usage-service', () => {
           }),
         }))
 
+        await mockModule('@codebuff/billing/subscription', () => ({
+          getActiveSubscription: async () => null,
+        }))
+
         const { getUserUsageData } = await import('@codebuff/billing/usage-service')
 
         const result = await getUserUsageData({
@@ -169,6 +185,10 @@ describe('usage-service', () => {
             usageThisCycle: 100,
             balance: mockBalance,
           }),
+        }))
+
+        await mockModule('@codebuff/billing/subscription', () => ({
+          getActiveSubscription: async () => null,
         }))
 
         const { getUserUsageData } = await import('@codebuff/billing/usage-service')
