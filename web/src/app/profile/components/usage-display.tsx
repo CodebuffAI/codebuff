@@ -58,8 +58,8 @@ const grantTypeInfo: Record<
     text: 'text-indigo-600 dark:text-indigo-400',
     gradient: 'from-indigo-500/70 to-indigo-600/70',
     icon: <Star className="h-4 w-4" />,
-    label: 'Flex',
-    description: 'Credits from your Flex subscription',
+    label: 'Strong',
+    description: 'Credits from your Strong subscription',
   },
   referral: {
     bg: 'bg-green-500',

@@ -1,4 +1,4 @@
-export const SUBSCRIPTION_DISPLAY_NAME = 'Flex' as const
+export const SUBSCRIPTION_DISPLAY_NAME = 'Strong' as const
 
 export interface TierConfig {
   monthlyPrice: number
