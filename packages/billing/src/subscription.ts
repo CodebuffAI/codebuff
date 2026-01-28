@@ -14,7 +14,6 @@ import {
   eq,
   gt,
   gte,
-  inArray,
   isNull,
   lt,
   or,
@@ -175,14 +174,14 @@ export async function getSubscriptionLimits(params: {
  * billing-aligned week.
  */
 export async function getWeeklyUsage(params: {
-  stripeSubscriptionId: string
+  userId: string
   billingPeriodStart: Date
   weeklyCreditsLimit: number
   logger: Logger
   conn?: DbConn
 }): Promise<WeeklyUsage> {
   const {
-    stripeSubscriptionId,
+    userId,
     billingPeriodStart,
     weeklyCreditsLimit,
     conn = db,
@@ -199,10 +198,7 @@ export async function getWeeklyUsage(params: {
     .from(schema.creditLedger)
     .where(
       and(
-        eq(
-          schema.creditLedger.stripe_subscription_id,
-          stripeSubscriptionId,
-        ),
+        eq(schema.creditLedger.user_id, userId),
         eq(schema.creditLedger.type, 'subscription'),
         gte(schema.creditLedger.created_at, weekStart),
         lt(schema.creditLedger.created_at, weekEnd),
@@ -255,7 +251,6 @@ export async function ensureActiveBlockGrant(params: {
           and(
             eq(schema.creditLedger.user_id, userId),
             eq(schema.creditLedger.type, 'subscription'),
-            eq(schema.creditLedger.stripe_subscription_id, subscriptionId),
             gt(schema.creditLedger.expires_at, now),
             gt(schema.creditLedger.balance, 0),
           ),
@@ -282,7 +277,7 @@ export async function ensureActiveBlockGrant(params: {
 
       // 3. Check weekly limit before creating a new block
       const weekly = await getWeeklyUsage({
-        stripeSubscriptionId: subscriptionId,
+        userId,
         billingPeriodStart: subscription.billing_period_start,
         weeklyCreditsLimit: limits.weeklyCreditsLimit,
         logger,
@@ -392,7 +387,6 @@ export async function checkRateLimit(params: {
   logger: Logger
 }): Promise<RateLimitStatus> {
   const { userId, subscription, logger } = params
-  const subscriptionId = subscription.stripe_subscription_id
   const now = new Date()
 
   const limits = await getSubscriptionLimits({
@@ -401,7 +395,7 @@ export async function checkRateLimit(params: {
   })
 
   const weekly = await getWeeklyUsage({
-    stripeSubscriptionId: subscriptionId,
+    userId,
     billingPeriodStart: subscription.billing_period_start,
     weeklyCreditsLimit: limits.weeklyCreditsLimit,
     logger,
@@ -420,7 +414,7 @@ export async function checkRateLimit(params: {
     }
   }
 
-  // Find most recent block grant for this subscription
+  // Find most recent subscription block grant for this user
   const blocks = await db
     .select()
     .from(schema.creditLedger)
@@ -428,7 +422,6 @@ export async function checkRateLimit(params: {
       and(
         eq(schema.creditLedger.user_id, userId),
         eq(schema.creditLedger.type, 'subscription'),
-        eq(schema.creditLedger.stripe_subscription_id, subscriptionId),
       ),
     )
     .orderBy(desc(schema.creditLedger.created_at))
@@ -616,7 +609,6 @@ async function migrateUnusedCredits(params: {
     .where(
       and(
         eq(schema.creditLedger.user_id, userId),
-        inArray(schema.creditLedger.type, ['free', 'referral']),
         gt(schema.creditLedger.balance, 0),
         or(
           isNull(schema.creditLedger.expires_at),
