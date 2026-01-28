@@ -1,8 +1,7 @@
-
 import { publisher } from '../constants'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
-import type { JSONValue } from 'types/util-types'
+import type { JSONValue } from '../types/util-types'
 
 interface SearchQuery {
   pattern: string

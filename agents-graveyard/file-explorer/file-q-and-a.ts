@@ -1,7 +1,7 @@
 import { publisher } from '../constants'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
-import type { ToolCall } from 'types/agent-definition'
+import type { ToolCall } from '../../agents/types/agent-definition'
 
 const paramsSchema = {
   type: 'object' as const,
