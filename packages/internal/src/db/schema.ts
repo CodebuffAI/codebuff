@@ -53,9 +53,14 @@ export const agentStepStatus = pgEnum('agent_step_status', [
 ])
 
 export const subscriptionStatusEnum = pgEnum('subscription_status', [
+  'incomplete',
+  'incomplete_expired',
+  'trialing',
   'active',
   'past_due',
   'canceled',
+  'unpaid',
+  'paused',
 ])
 
 export const user = pgTable('user', {
@@ -83,7 +88,6 @@ export const user = pgTable('user', {
   auto_topup_threshold: integer('auto_topup_threshold'),
   auto_topup_amount: integer('auto_topup_amount'),
   banned: boolean('banned').notNull().default(false),
-  subscription_count: integer('subscription_count').notNull().default(0),
 })
 
 export const account = pgTable(

@@ -510,9 +510,8 @@ export async function isSubscriber(params: {
 /**
  * Handles the first-time-subscribe side-effects:
  * 1. Moves `next_quota_reset` to Stripe's `current_period_end`.
- * 2. Increments `subscription_count`.
- * 3. Migrates unused free/referral credits into a single grant aligned to
- *    the new reset date.
+ * 2. Migrates unused credits into a single grant aligned to the new reset
+ *    date.
  *
  * All operations run inside an advisory-locked transaction.
  */
@@ -542,13 +541,10 @@ export async function handleSubscribe(params: {
         return
       }
 
-      // Move next_quota_reset and bump subscription_count
+      // Move next_quota_reset to align with Stripe billing period
       await tx
         .update(schema.user)
-        .set({
-          next_quota_reset: newResetDate,
-          subscription_count: sql`${schema.user.subscription_count} + 1`,
-        })
+        .set({ next_quota_reset: newResetDate })
         .where(eq(schema.user.id, userId))
 
       // Migrate unused credits so nothing is lost

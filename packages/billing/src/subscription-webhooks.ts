@@ -19,8 +19,8 @@ type SubscriptionStatus = (typeof schema.subscriptionStatusEnum.enumValues)[numb
  * Maps a Stripe subscription status to our local enum.
  */
 function mapStripeStatus(status: Stripe.Subscription.Status): SubscriptionStatus {
-  if (status === 'past_due') return 'past_due'
-  if (status === 'canceled') return 'canceled'
+  const validStatuses: readonly string[] = schema.subscriptionStatusEnum.enumValues
+  if (validStatuses.includes(status)) return status as SubscriptionStatus
   return 'active'
 }
 
