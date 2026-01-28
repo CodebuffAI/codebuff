@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSession } from 'next-auth/react'
 import { useState } from 'react'
 
+import { SubscriptionSection } from './subscription-section'
 import { UsageDisplay } from './usage-display'
 
 import { CreditManagementSection } from '@/components/credits/CreditManagementSection'
@@ -127,6 +128,7 @@ export function UsageSection() {
           Track your credit usage and purchase additional credits as needed.
         </p>
       </div>
+      {status === 'authenticated' && <SubscriptionSection />}
       {isUsageError && (
         <Card className="border-destructive">
           <CardHeader>
