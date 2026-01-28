@@ -15,7 +15,7 @@ import { getInputModeConfig } from '../utils/input-modes'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { useTheme } from '../hooks/use-theme'
-import type { InputValue } from '../state/chat-store'
+import type { InputValue } from '../types/store'
 import type { AgentMode } from '../utils/constants'
 
 type Theme = ReturnType<typeof useTheme>

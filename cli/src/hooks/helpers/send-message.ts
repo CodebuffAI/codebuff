@@ -26,7 +26,7 @@ import type {
   PendingAttachment,
   PendingImageAttachment,
   PendingTextAttachment,
-} from '../../state/chat-store'
+} from '../../types/store'
 import type { ChatMessage } from '../../types/chat'
 import type { AgentMode } from '../../utils/constants'
 import type { SendMessageTimerController } from '../../utils/send-message-timer'

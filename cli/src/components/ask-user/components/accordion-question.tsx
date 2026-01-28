@@ -9,7 +9,7 @@ import { OptionsList } from './options-list'
 import { QuestionHeader } from './question-header'
 import { getOptionLabel } from '../constants'
 
-import type { AskUserQuestion } from '../../../state/chat-store'
+import type { AskUserQuestion } from '../../../types/store'
 
 /** Answer state for a single question */
 export interface AccordionAnswer {

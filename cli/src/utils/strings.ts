@@ -27,7 +27,7 @@ import {
 } from './clipboard-image'
 import { isImageFile } from './image-handler'
 
-import type { InputValue } from '../state/chat-store'
+import type { InputValue } from '../types/store'
 
 export function getSubsequenceIndices(
   str: string,

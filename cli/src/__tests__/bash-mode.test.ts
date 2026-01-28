@@ -1,6 +1,6 @@
 import { describe, test, expect, mock } from 'bun:test'
 
-import type { InputValue } from '../state/chat-store'
+import type { InputValue } from '../types/store'
 import type { InputMode } from '../utils/input-modes'
 
 /**

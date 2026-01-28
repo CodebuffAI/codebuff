@@ -8,7 +8,7 @@ import { getLatestFollowupToolCallId, useChatStore } from '../../state/chat-stor
 import { Button } from '../button'
 
 import type { ToolRenderConfig } from './types'
-import type { SuggestedFollowup } from '../../state/chat-store'
+import type { SuggestedFollowup } from '../../types/store'
 
 const EMPTY_CLICKED_SET = new Set<number>()
 const MIN_LABEL_COLUMN_WIDTH = 12

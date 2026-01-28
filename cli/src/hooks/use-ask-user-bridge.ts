@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 
 import { useChatStore } from '../state/chat-store'
 
-import type { AskUserQuestion } from '../state/chat-store'
+import type { AskUserQuestion } from '../types/store'
 
 /**
  * Patterns that indicate a "custom" or "other" catch-all option.

@@ -18,7 +18,7 @@ import { useTimeout } from './use-timeout'
 import { useChatStore } from '../state/chat-store'
 
 import type { ElapsedTimeTracker } from './use-elapsed-time'
-import type { PendingAttachment } from '../state/chat-store'
+import type { PendingAttachment } from '../types/store'
 import type { SendMessageFn } from '../types/contracts/send-message'
 import type { AgentMode } from '../utils/constants'
 import type { MutableRefObject } from 'react'
