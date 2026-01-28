@@ -70,11 +70,7 @@ export function getTextContent(message: Message): string {
 
 /**
  * Summarizes a tool call into a human-readable description.
- * Handles various tool types with appropriate formatting.
- *
- * @param toolName - The name of the tool
- * @param input - The tool's input parameters
- * @returns A concise summary of the tool call
+ * DUPLICATE: Keep in sync with the copy inside handleSteps (required for serialization).
  */
 export function summarizeToolCall(
   toolName: string,
@@ -369,7 +365,7 @@ const definition: AgentDefinition = {
     }
 
     /**
-     * Summarizes a tool call into a human-readable description.
+     * DUPLICATE: Keep in sync with module-level summarizeToolCall (required for serialization).
      */
     function summarizeToolCall(
       toolName: string,
