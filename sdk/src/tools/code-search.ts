@@ -104,16 +104,25 @@ export function codeSearch({
     let estimatedOutputLen = 0
     let killedForLimit = false
 
+    // Guard to prevent double-settlement from concurrent timeout and process close events
+    let killTimeoutId: ReturnType<typeof setTimeout> | null = null
+
     const settle = (payload: any) => {
       if (isResolved) return
       isResolved = true
 
-      // Clean up listeners immediately
+      // Clean up listeners immediately to prevent further events
       childProcess.stdout.removeAllListeners()
       childProcess.stderr.removeAllListeners()
       childProcess.removeAllListeners()
 
+      // Clear both the main timeout and the kill timeout to prevent late callbacks
       clearTimeout(timeoutId)
+      if (killTimeoutId) {
+        clearTimeout(killTimeoutId)
+        killTimeoutId = null
+      }
+
       resolve([{ type: 'json', value: payload }])
     }
 
@@ -121,11 +130,16 @@ export function codeSearch({
       try {
         childProcess.kill('SIGTERM')
       } catch {}
-      setTimeout(() => {
+      // Store timeout reference so it can be cleared if process closes normally
+      killTimeoutId = setTimeout(() => {
         try {
-          // SIGKILL doesn't exist on Windows, fall back to no-signal kill
-          childProcess.kill('SIGKILL') || childProcess.kill()
-        } catch {}
+          childProcess.kill('SIGKILL')
+        } catch {
+          try {
+            childProcess.kill()
+          } catch {}
+        }
+        killTimeoutId = null
       }, 1000)
     }
 

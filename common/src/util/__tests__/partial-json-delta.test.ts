@@ -108,6 +108,38 @@ describe('parsePartialJsonObjectSingle', () => {
     })
   })
 
+  describe('comma search optimization', () => {
+    it('should efficiently find last valid comma in deeply nested incomplete JSON', () => {
+      // This tests the O(n) backward comma search optimization
+      const input = '{"a": 1, "b": 2, "c": 3, "d": 4, "e": 5, "incomplete":'
+      const result = parsePartialJsonObjectSingle(input)
+      expect(result).toEqual({
+        lastParamComplete: true,
+        params: { a: 1, b: 2, c: 3, d: 4, e: 5 },
+      })
+    })
+
+    it('should handle comma inside string value when searching backwards', () => {
+      // Comma inside a string should not be treated as a separator
+      const input = '{"message": "Hello, world", "incomplete":'
+      const result = parsePartialJsonObjectSingle(input)
+      expect(result).toEqual({
+        lastParamComplete: true,
+        params: { message: 'Hello, world' },
+      })
+    })
+
+    it('should find valid comma after skipping invalid parse attempts', () => {
+      // Multiple commas, need to find the right one
+      const input = '{"x": [1, 2, 3], "y": {"a": 1, "b": 2}, "z":'
+      const result = parsePartialJsonObjectSingle(input)
+      expect(result).toEqual({
+        lastParamComplete: true,
+        params: { x: [1, 2, 3], y: { a: 1, b: 2 } },
+      })
+    })
+  })
+
   describe('edge cases', () => {
     it('should return empty object for empty string', () => {
       const input = ''

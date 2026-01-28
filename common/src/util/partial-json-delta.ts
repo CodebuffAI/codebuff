@@ -1,4 +1,3 @@
-// TODO: optimize this to not be O(n^2)
 export function parsePartialJsonObjectSingle(content: string): {
   lastParamComplete: boolean
   params: any
@@ -26,16 +25,14 @@ export function parsePartialJsonObjectSingle(content: string): {
     } catch {}
   }
 
-  let lastIndex = content.lastIndexOf(',')
-  while (lastIndex > 0) {
+  let commaPos = content.length
+  while ((commaPos = content.lastIndexOf(',', commaPos - 1)) !== -1) {
     try {
       return {
         lastParamComplete: true,
-        params: JSON.parse(content.slice(0, lastIndex) + '}'),
+        params: JSON.parse(content.slice(0, commaPos) + '}'),
       }
     } catch {}
-
-    lastIndex = content.lastIndexOf(',', lastIndex - 1)
   }
 
   return { lastParamComplete: true, params: {} }
