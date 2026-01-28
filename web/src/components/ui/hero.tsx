@@ -63,9 +63,10 @@ export function Hero() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.3 }}
       >
-        <span className="whitespace-nowrap">100+ seconds faster than</span>{' '}
-        <span className="whitespace-nowrap font-bold">Claude Code</span>{' '}
-        <span className="whitespace-nowrap">with higher-quality output</span>
+        <span className="whitespace-nowrap">Higher quality output and</span>{' '}
+        <span className="whitespace-nowrap font-bold">100+</span>{' '}
+        <span className="whitespace-nowrap">seconds faster</span>{' '}
+        <span className="whitespace-nowrap">than Claude Code</span>
       </motion.h2>
 
       <motion.div
