@@ -14,10 +14,10 @@ import {
   eq,
   gt,
   gte,
-  inArray,
   isNull,
   lt,
-  or,
+  lte,
+  ne,
   sql,
 } from 'drizzle-orm'
 
@@ -602,8 +602,9 @@ type DbTransaction = Parameters<typeof db.transaction>[0] extends (
   : never
 
 /**
- * Migrates unused free & referral credits into a single grant that expires
- * at `expiresAt`. The old grants have their balance zeroed.
+ * Migrates unused credits (any type with a non-null expires_at in the future)
+ * into a single grant that expires at `expiresAt`. The old grants have their
+ * balance zeroed.
  */
 async function migrateUnusedCredits(params: {
   tx: DbTransaction
@@ -615,7 +616,6 @@ async function migrateUnusedCredits(params: {
   const { tx, userId, subscriptionId, expiresAt, logger } = params
   const now = new Date()
 
-  // Find all free/referral grants with remaining balance (excluding org grants)
   const unusedGrants = await tx
     .select()
     .from(schema.creditLedger)
@@ -623,12 +623,10 @@ async function migrateUnusedCredits(params: {
       and(
         eq(schema.creditLedger.user_id, userId),
         gt(schema.creditLedger.balance, 0),
-        inArray(schema.creditLedger.type, ['free', 'referral']),
+        ne(schema.creditLedger.type, 'subscription'),
         isNull(schema.creditLedger.org_id),
-        or(
-          isNull(schema.creditLedger.expires_at),
-          gt(schema.creditLedger.expires_at, now),
-        ),
+        gt(schema.creditLedger.expires_at, now),
+        lte(schema.creditLedger.expires_at, expiresAt),
       ),
     )
 
