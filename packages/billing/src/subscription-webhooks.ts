@@ -13,6 +13,17 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { PlanConfig } from '@codebuff/common/constants/subscription-plans'
 import type Stripe from 'stripe'
 
+type SubscriptionStatus = (typeof schema.subscriptionStatusEnum.enumValues)[number]
+
+/**
+ * Maps a Stripe subscription status to our local enum.
+ */
+function mapStripeStatus(status: Stripe.Subscription.Status): SubscriptionStatus {
+  if (status === 'past_due') return 'past_due'
+  if (status === 'canceled') return 'canceled'
+  return 'active'
+}
+
 /**
  * Looks up a user ID by Stripe customer ID.
  */
@@ -137,7 +148,7 @@ export async function handleSubscriptionInvoicePaid(params: {
       target: schema.subscription.stripe_subscription_id,
       set: {
         status: 'active',
-        user_id: userId,
+        ...(userId ? { user_id: userId } : {}),
         stripe_price_id: priceId,
         plan_name: plan.name,
         billing_period_start: new Date(
@@ -250,6 +261,8 @@ export async function handleSubscriptionUpdated(params: {
       : stripeSubscription.customer.id
   const userId = await getUserIdByCustomerId(customerId)
 
+  const status = mapStripeStatus(stripeSubscription.status)
+
   // Upsert — webhook ordering is not guaranteed by Stripe, so this event
   // may arrive before invoice.paid creates the row.
   await db
@@ -260,6 +273,7 @@ export async function handleSubscriptionUpdated(params: {
       user_id: userId,
       stripe_price_id: priceId,
       plan_name: planName,
+      status,
       cancel_at_period_end: stripeSubscription.cancel_at_period_end,
       billing_period_start: new Date(
         stripeSubscription.current_period_start * 1000,
@@ -271,9 +285,10 @@ export async function handleSubscriptionUpdated(params: {
     .onConflictDoUpdate({
       target: schema.subscription.stripe_subscription_id,
       set: {
-        user_id: userId,
+        ...(userId ? { user_id: userId } : {}),
         stripe_price_id: priceId,
         plan_name: planName,
+        status,
         cancel_at_period_end: stripeSubscription.cancel_at_period_end,
         billing_period_start: new Date(
           stripeSubscription.current_period_start * 1000,

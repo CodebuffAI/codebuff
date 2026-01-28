@@ -251,9 +251,9 @@ async function handleSubscriptionEvent(subscription: Stripe.Subscription) {
   )
 
   if (!organizationId) {
-    logger.warn(
+    logger.debug(
       { subscriptionId: subscription.id },
-      'Subscription event received without organization_id in metadata',
+      'Subscription event received without organization_id in metadata (user subscription)',
     )
     return
   }

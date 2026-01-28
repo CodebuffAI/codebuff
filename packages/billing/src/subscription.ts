@@ -537,26 +537,26 @@ export async function handleSubscribe(params: {
   logger: Logger
 }): Promise<void> {
   const { userId, stripeSubscription, logger } = params
-
-  // Idempotency: skip if this subscription was already processed
-  const existing = await db
-    .select({ stripe_subscription_id: schema.subscription.stripe_subscription_id })
-    .from(schema.subscription)
-    .where(eq(schema.subscription.stripe_subscription_id, stripeSubscription.id))
-    .limit(1)
-
-  if (existing.length > 0) {
-    logger.info(
-      { userId, subscriptionId: stripeSubscription.id },
-      'Subscription already processed — skipping handleSubscribe',
-    )
-    return
-  }
-
   const newResetDate = new Date(stripeSubscription.current_period_end * 1000)
 
   await withAdvisoryLockTransaction({
     callback: async (tx) => {
+      // Idempotency: skip if this subscription was already processed
+      // Must be inside the lock to prevent TOCTOU races on concurrent webhooks
+      const existing = await tx
+        .select({ stripe_subscription_id: schema.subscription.stripe_subscription_id })
+        .from(schema.subscription)
+        .where(eq(schema.subscription.stripe_subscription_id, stripeSubscription.id))
+        .limit(1)
+
+      if (existing.length > 0) {
+        logger.info(
+          { userId, subscriptionId: stripeSubscription.id },
+          'Subscription already processed — skipping handleSubscribe',
+        )
+        return
+      }
+
       // Move next_quota_reset and bump subscription_count
       await tx
         .update(schema.user)
@@ -652,7 +652,7 @@ async function migrateUnusedCredits(params: {
   }
 
   // Create a single migration grant preserving the total
-  const operationId = `migration-${userId}-${Date.now()}`
+  const operationId = `migration-${userId}-${crypto.randomUUID()}`
   await tx
     .insert(schema.creditLedger)
     .values({
