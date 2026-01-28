@@ -381,6 +381,14 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     },
   }),
   defineCommand({
+    name: 'subscribe',
+    aliases: ['strong'],
+    handler: (params) => {
+      open(WEBSITE_URL + '/strong')
+      clearInput(params)
+    },
+  }),
+  defineCommand({
     name: 'buy-credits',
     handler: (params) => {
       open(WEBSITE_URL + '/profile?tab=usage')

@@ -12,6 +12,17 @@ import type {
   TextContentBlock,
 } from '../types/chat'
 
+const SHORT_THINKING_LINE_THRESHOLD = 5
+const SHORT_THINKING_CHAR_LIMIT = 500
+
+/**
+ * Returns true if the thinking content is short enough to stay uncollapsed.
+ */
+export const isShortThinkingContent = (content: string): boolean => {
+  const trimmed = content.trim()
+  return trimmed.split('\n').length <= SHORT_THINKING_LINE_THRESHOLD && trimmed.length <= SHORT_THINKING_CHAR_LIMIT
+}
+
 let thinkingIdCounter = 0
 const generateThinkingId = (): string => {
   thinkingIdCounter++
@@ -234,10 +245,12 @@ const appendTextWithThinkParsingToBlocks = (
       const thinkingOpen =
         !hasMoreSegments && !textToParse.includes(THINK_CLOSE_TAG)
 
+      const closedContent = currentLastBlock.content + firstSegment.content
       nextBlocks[nextBlocks.length - 1] = {
         ...currentLastBlock,
-        content: currentLastBlock.content + firstSegment.content,
+        content: closedContent,
         thinkingOpen,
+        ...(!thinkingOpen && isShortThinkingContent(closedContent) && { isCollapsed: false }),
       }
     }
     segmentStartIdx = 1
@@ -249,6 +262,7 @@ const appendTextWithThinkParsingToBlocks = (
       nextBlocks[nextBlocks.length - 1] = {
         ...currentLastBlock,
         thinkingOpen: false,
+        ...(isShortThinkingContent(currentLastBlock.content) && { isCollapsed: false }),
       }
     }
   }
@@ -385,6 +399,7 @@ export const closeNativeReasoningBlock = (
   nextBlocks[lastReasoningIndex] = {
     ...reasoningBlock,
     thinkingOpen: false,
+    ...(isShortThinkingContent(reasoningBlock.content) && { isCollapsed: false }),
   }
   return nextBlocks
 }

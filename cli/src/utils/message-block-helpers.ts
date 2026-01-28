@@ -1,5 +1,6 @@
 import { isEqual } from 'lodash'
 
+import { isShortThinkingContent } from './block-operations'
 import { formatToolOutput } from './codebuff-client'
 import { shouldCollapseByDefault, shouldCollapseForParent } from './constants'
 
@@ -79,7 +80,9 @@ export const autoCollapseBlocks = (blocks: ContentBlock[]): ContentBlock[] => {
   return blocks.map((block) => {
     // Handle thinking blocks (grouped text blocks)
     if (block.type === 'text' && block.thinkingId) {
-      return block.userOpened ? block : { ...block, isCollapsed: true }
+      if (block.userOpened) return block
+      if (isShortThinkingContent(block.content)) return { ...block, isCollapsed: false }
+      return { ...block, isCollapsed: true }
     }
 
     // Handle agent blocks

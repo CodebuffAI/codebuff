@@ -4,6 +4,7 @@ import { ClaudeConnectBanner } from './claude-connect-banner'
 import { HelpBanner } from './help-banner'
 import { PendingAttachmentsBanner } from './pending-attachments-banner'
 import { ReferralBanner } from './referral-banner'
+import { SubscriptionLimitBanner } from './subscription-limit-banner'
 import { UsageBanner } from './usage-banner'
 import { useChatStore } from '../state/chat-store'
 
@@ -26,6 +27,7 @@ const BANNER_REGISTRY: Record<
   referral: () => <ReferralBanner />,
   help: () => <HelpBanner />,
   'connect:claude': () => <ClaudeConnectBanner />,
+  subscriptionLimit: () => <SubscriptionLimitBanner />,
 }
 
 /**

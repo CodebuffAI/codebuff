@@ -20,6 +20,7 @@ const DEFAULT_SETTINGS: Settings = {
 export interface Settings {
   mode?: AgentMode
   adsEnabled?: boolean
+  alwaysUseALaCarte?: boolean
 }
 
 /**
@@ -92,6 +93,11 @@ const validateSettings = (parsed: unknown): Settings => {
     settings.adsEnabled = obj.adsEnabled
   }
 
+  // Validate alwaysUseALaCarte
+  if (typeof obj.alwaysUseALaCarte === 'boolean') {
+    settings.alwaysUseALaCarte = obj.alwaysUseALaCarte
+  }
+
   return settings
 }
 
@@ -133,4 +139,19 @@ export const loadModePreference = (): AgentMode => {
  */
 export const saveModePreference = (mode: AgentMode): void => {
   saveSettings({ mode })
+}
+
+/**
+ * Load the "always use a-la-carte" preference
+ */
+export const getAlwaysUseALaCarte = (): boolean => {
+  const settings = loadSettings()
+  return settings.alwaysUseALaCarte ?? false
+}
+
+/**
+ * Save the "always use a-la-carte" preference
+ */
+export const setAlwaysUseALaCarte = (value: boolean): void => {
+  saveSettings({ alwaysUseALaCarte: value })
 }

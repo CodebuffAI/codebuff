@@ -13,6 +13,7 @@ export type InputMode =
   | 'help'
   | 'connect:claude'
   | 'outOfCredits'
+  | 'subscriptionLimit'
 
 // Theme color keys that are valid color values (must match ChatTheme keys)
 export type ThemeColorKey =
@@ -107,6 +108,14 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     disableSlashSuggestions: true,
   },
   outOfCredits: {
+    icon: null,
+    color: 'warning',
+    placeholder: '',
+    widthAdjustment: 0,
+    showAgentModeToggle: false,
+    disableSlashSuggestions: true,
+  },
+  subscriptionLimit: {
     icon: null,
     color: 'warning',
     placeholder: '',

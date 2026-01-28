@@ -7,6 +7,7 @@ import { Button } from './button'
 import { ProgressBar } from './progress-bar'
 import { getActivityQueryData } from '../hooks/use-activity-query'
 import { useClaudeQuotaQuery } from '../hooks/use-claude-quota-query'
+import { useSubscriptionQuery } from '../hooks/use-subscription-query'
 import { useTheme } from '../hooks/use-theme'
 import { usageQueryKeys, useUsageQuery } from '../hooks/use-usage-query'
 import { WEBSITE_URL } from '../login/constants'
@@ -51,6 +52,11 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
   const { data: claudeQuota, isLoading: isClaudeLoading } = useClaudeQuotaQuery({
     enabled: isClaudeConnected,
     refetchInterval: 30 * 1000, // Refresh every 30 seconds when banner is open
+  })
+
+  // Fetch subscription data
+  const { data: subscriptionData, isLoading: isSubscriptionLoading } = useSubscriptionQuery({
+    refetchInterval: 30 * 1000,
   })
 
   const {
@@ -99,12 +105,68 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
   const adCredits = activeData.balanceBreakdown?.ad
   const renewalDate = activeData.next_quota_reset ? formatRenewalDate(activeData.next_quota_reset) : null
 
+  const hasSubscription = subscriptionData?.hasSubscription === true
+  const rateLimit = subscriptionData?.rateLimit
+  const subscriptionInfo = subscriptionData?.subscription
+
   return (
     <BottomBanner
       borderColorKey={isLoadingData ? 'muted' : colorLevel}
       onClose={() => setInputMode('default')}
     >
       <box style={{ flexDirection: 'column', gap: 0 }}>
+        {/* Strong subscription section - only show if subscribed */}
+        {hasSubscription && (
+          <box style={{ flexDirection: 'column', marginBottom: 1 }}>
+            <text style={{ fg: theme.foreground }}>
+              {subscriptionData.displayName ?? 'Strong'} subscription
+              {subscriptionInfo?.tier ? ` · $${subscriptionInfo.tier}/mo` : ''}
+              {subscriptionInfo?.billingPeriodEnd
+                ? ` · Renews ${formatRenewalDate(subscriptionInfo.billingPeriodEnd)}`
+                : ''}
+            </text>
+            {isSubscriptionLoading ? (
+              <text style={{ fg: theme.muted }}>Loading subscription data...</text>
+            ) : rateLimit ? (
+              <box style={{ flexDirection: 'column', gap: 0 }}>
+                {/* Block progress - show if there's an active block */}
+                {rateLimit.blockLimit != null && rateLimit.blockUsed != null && (
+                  <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
+                    <text style={{ fg: theme.muted }}>
+                      {subscriptionData.displayName ?? 'Strong'}:
+                    </text>
+                    <ProgressBar
+                      value={Math.max(0, 100 - Math.round((rateLimit.blockUsed / rateLimit.blockLimit) * 100))}
+                      width={12}
+                      showPercentage={false}
+                    />
+                    <text style={{ fg: theme.muted }}>
+                      {Math.round((rateLimit.blockUsed / rateLimit.blockLimit) * 100)}% used
+                    </text>
+                    {rateLimit.blockResetsAt && (
+                      <text style={{ fg: theme.muted }}>
+                        (resets in {formatResetTime(new Date(rateLimit.blockResetsAt))})
+                      </text>
+                    )}
+                  </box>
+                )}
+                {/* Weekly progress */}
+                <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
+                  <text style={{ fg: theme.muted }}>Week: </text>
+                  <ProgressBar
+                    value={100 - rateLimit.weeklyPercentUsed}
+                    width={12}
+                    showPercentage={false}
+                  />
+                  <text style={{ fg: theme.muted }}>
+                    {rateLimit.weeklyPercentUsed}% used · Resets {formatRenewalDate(rateLimit.weeklyResetsAt)}
+                  </text>
+                </box>
+              </box>
+            ) : null}
+          </box>
+        )}
+
         {/* Codebuff credits section - structured layout */}
         <Button
           onClick={() => {
@@ -128,7 +190,7 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
               {adCredits != null && adCredits > 0 && (
                 <text style={{ fg: theme.muted }}>{`(${adCredits} from ads)`}</text>
               )}
-              {renewalDate && (
+              {!hasSubscription && renewalDate && (
                 <>
                   <text style={{ fg: theme.muted }}>· Renews:</text>
                   <text style={{ fg: theme.foreground }}>{renewalDate}</text>
