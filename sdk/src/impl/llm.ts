@@ -350,7 +350,6 @@ export async function* promptAiSdkStream(
     },
   })
 
-  let _content = ''
   const stopSequenceHandler = new StopSequenceHandler(params.stopSequences)
 
   // Track if we've yielded any content - if so, we can't safely fall back
@@ -361,7 +360,6 @@ export async function* promptAiSdkStream(
       const flushed = stopSequenceHandler.flush()
       if (flushed) {
         hasYieldedContent = true
-        _content += flushed
         yield {
           type: 'text',
           text: flushed,
@@ -491,17 +489,6 @@ export async function* promptAiSdkStream(
       throw chunkValue.error
     }
     if (chunkValue.type === 'reasoning-delta') {
-      for (const provider of ['openrouter', 'codebuff'] as const) {
-        if (
-          (
-            params.providerOptions?.[provider] as
-              | OpenRouterProviderOptions
-              | undefined
-          )?.reasoning?.exclude
-        ) {
-          continue
-        }
-      }
       yield {
         type: 'reasoning',
         text: chunkValue.text,
@@ -509,7 +496,6 @@ export async function* promptAiSdkStream(
     }
     if (chunkValue.type === 'text-delta') {
       if (!params.stopSequences) {
-        _content += chunkValue.text
         if (chunkValue.text) {
           hasYieldedContent = true
           yield {
@@ -524,7 +510,6 @@ export async function* promptAiSdkStream(
       const stopSequenceResult = stopSequenceHandler.process(chunkValue.text)
       if (stopSequenceResult.text) {
         hasYieldedContent = true
-        _content += stopSequenceResult.text
         yield {
           type: 'text',
           text: stopSequenceResult.text,
@@ -538,7 +523,6 @@ export async function* promptAiSdkStream(
   }
   const flushed = stopSequenceHandler.flush()
   if (flushed) {
-    _content += flushed
     yield {
       type: 'text',
       text: flushed,
@@ -648,7 +632,7 @@ export async function promptAiSdkStructured<T>(
       },
       'Skipping structured prompt due to canceled user input',
     )
-    return {} as T
+    throw new Error('Request aborted')
   }
   const modelParams: ModelRequestParams = {
     apiKey: params.apiKey,

@@ -221,7 +221,8 @@ async function runOnce({
   // Init session state
   let agentId
   if (typeof agent !== 'string') {
-    agentDefinitions = [...(cloneDeep(agentDefinitions) ?? []), agent]
+    const clonedDefs = agentDefinitions ? cloneDeep(agentDefinitions) : []
+    agentDefinitions = [...clonedDefs, agent]
     agentId = agent.id
   } else {
     agentId = agent
@@ -619,6 +620,10 @@ async function handleToolCall({
       override = overrides['write_file']
     }
     if (override) {
+      // Note: This type assertion is necessary because TypeScript cannot narrow
+      // the union type of all possible tool inputs based on the dynamic toolName.
+      // The input has been validated by clientToolCallSchema.parse above.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       result = await override(input as any)
     } else if (toolName === 'end_turn') {
       result = [{ type: 'json', value: { message: 'Turn ended.' } }]
