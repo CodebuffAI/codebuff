@@ -1,7 +1,17 @@
+/**
+ * Agent data structure from database
+ */
+export interface AgentData {
+  name?: string
+  description?: string
+  tags?: string[]
+  [key: string]: unknown
+}
+
 export interface AgentRow {
   id: string
   version: string
-  data: any
+  data: AgentData | string | unknown
   created_at: string | Date
   publisher: {
     id: string
@@ -244,10 +254,10 @@ export function buildAgentsData(params: {
 
   const latestAgents = new Map<
     string,
-    { agent: AgentRow; agentData: any; agentName: string }
+    { agent: AgentRow; agentData: AgentData; agentName: string }
   >()
   agents.forEach((agent) => {
-    const agentData =
+    const agentData: AgentData =
       typeof agent.data === 'string' ? JSON.parse(agent.data) : agent.data
     const agentName = agentData?.name || agent.id
     const key = `${agent.publisher.id}/${agentName}`
@@ -271,10 +281,10 @@ export function buildAgentsData(params: {
       const versionStatsKey = `${agent.publisher.id}/${agent.id}`
       const rawVersionStats = versionMetricsByAgent.get(versionStatsKey) || {}
       const version_stats = Object.fromEntries(
-        Object.entries(rawVersionStats).map(([version, stats]) => [
-          version,
-          { ...stats, last_used: (stats as any)?.last_used ?? undefined },
-        ]),
+        Object.entries(rawVersionStats).map(([version, stats]) => {
+          const typedStats = stats as { last_used?: string | null } | undefined
+          return [version, { ...stats, last_used: typedStats?.last_used ?? undefined }]
+        }),
       )
 
       return {

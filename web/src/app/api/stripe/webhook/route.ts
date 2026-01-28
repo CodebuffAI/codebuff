@@ -336,13 +336,13 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
       env.STRIPE_WEBHOOK_SECRET_KEY,
     )
   } catch (err) {
-    const error = err as Error
+    const errorMessage = err instanceof Error ? err.message : String(err)
     logger.error(
-      { error: error.message },
+      { error: errorMessage },
       'Webhook signature verification failed',
     )
     return NextResponse.json(
-      { error: { message: `Webhook Error: ${error.message}` } },
+      { error: { message: `Webhook Error: ${errorMessage}` } },
       { status: 400 },
     )
   }
@@ -550,13 +550,13 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
     }
     return NextResponse.json({ received: true })
   } catch (err) {
-    const error = err as Error
+    const errorMessage = err instanceof Error ? err.message : String(err)
     logger.error(
-      { error: error.message, eventType: event.type },
+      { error: errorMessage, eventType: event.type },
       'Error processing webhook',
     )
     return NextResponse.json(
-      { error: { message: `Webhook handler error: ${error.message}` } },
+      { error: { message: `Webhook handler error: ${errorMessage}` } },
       { status: 500 },
     )
   }
