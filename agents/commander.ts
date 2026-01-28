@@ -63,6 +63,12 @@ Do not use any tools! Only analyze the output of the command.`,
   handleSteps: function* ({ params }: AgentStepContext) {
     const command = params?.command as string | undefined
     if (!command) {
+      // Using console.error because agents run in a sandboxed environment without access to structured logger
+      console.error('Commander agent: missing required "command" parameter')
+      yield {
+        toolName: 'set_output',
+        input: { output: 'Error: Missing required "command" parameter' },
+      }
       return
     }
 
@@ -81,7 +87,8 @@ Do not use any tools! Only analyze the output of the command.`,
     if (rawOutput) {
       // Return the raw command output without summarization
       const result = toolResult?.[0]
-      const output = result?.type === 'json' ? result.value : ''
+      // Only return object values (command output objects), not plain strings
+      const output = result?.type === 'json' && typeof result.value === 'object' ? result.value : ''
       yield {
         toolName: 'set_output',
         input: { output },

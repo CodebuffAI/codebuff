@@ -26,8 +26,9 @@ export async function initializeApp(params: { cwd?: string }): Promise<void> {
   // This ensures the subscription status is up-to-date on startup
   const claudeCredentials = getClaudeOAuthCredentials()
   if (claudeCredentials) {
-    void getValidClaudeOAuthCredentials().catch(() => {
-      // Silently ignore refresh errors - will be retried on next API call
+    getValidClaudeOAuthCredentials().catch((error) => {
+      // Log refresh errors at debug level - will be retried on next API call
+      console.debug('Failed to refresh Claude OAuth credentials:', error)
     })
   }
 }

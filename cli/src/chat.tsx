@@ -543,6 +543,7 @@ export const Chat = ({
             { error },
             '[followup-click] onSubmitPrompt failed with error',
           )
+          showClipboardMessage('Failed to send followup', { durationMs: 3000 })
         })
     }
 
@@ -997,12 +998,12 @@ export const Chat = ({
         let replacement: string
         const index = agentSelectedIndex
         if (index < agentMatches.length) {
-          const selected = agentMatches[index] || agentMatches[0]
+          const selected = agentMatches.length > 0 ? (agentMatches[index] || agentMatches[0]) : undefined
           if (!selected) return
           replacement = `@${selected.displayName} `
         } else {
           const fileIndex = index - agentMatches.length
-          const selectedFile = fileMatches[fileIndex] || fileMatches[0]
+          const selectedFile = fileMatches.length > 0 ? (fileMatches[fileIndex] || fileMatches[0]) : undefined
           if (!selectedFile) return
           replacement = `@${selectedFile.filePath} `
         }
@@ -1060,12 +1061,20 @@ export const Chat = ({
           }
 
           const cwd = getProjectRoot() ?? process.cwd()
-          void addPendingImageFromFile(result.imagePath, cwd, placeholderPath)
+          addPendingImageFromFile(result.imagePath, cwd, placeholderPath).catch(
+            (error) => {
+              logger.error({ error }, 'Failed to add pending image from file')
+              showClipboardMessage('Failed to add image', { durationMs: 3000 })
+            }
+          )
         }, 0)
       },
       onPasteImagePath: (imagePath: string) => {
         const cwd = getProjectRoot() ?? process.cwd()
-        void validateAndAddImage(imagePath, cwd)
+        validateAndAddImage(imagePath, cwd).catch((error) => {
+          logger.error({ error, imagePath }, 'Failed to validate and add image')
+          showClipboardMessage('Failed to add image', { durationMs: 3000 })
+        })
       },
       onPasteText: (text: string) => {
         setInputValue((prev) => {
