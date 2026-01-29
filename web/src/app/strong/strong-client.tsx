@@ -18,8 +18,8 @@ import { cn } from '@/lib/utils'
 
 const USAGE_MULTIPLIER: Record<number, string> = {
   100: '1×',
-  200: '2.5×',
-  500: '7×',
+  200: '3×',
+  500: '8×',
 }
 
 function SubscribeButton({
