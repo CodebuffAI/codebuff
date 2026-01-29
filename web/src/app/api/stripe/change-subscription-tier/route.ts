@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
   const rawTier = Number(body?.tier)
   if (!rawTier || !(rawTier in SUBSCRIPTION_TIERS)) {
     return NextResponse.json(
-      { error: 'Invalid tier. Must be 100, 200, or 500.' },
+      { error: `Invalid tier. Must be one of: ${Object.keys(SUBSCRIPTION_TIERS).join(', ')}.` },
       { status: 400 },
     )
   }
