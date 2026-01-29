@@ -6,6 +6,7 @@ import {
   clearMockedModules,
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
+import { promptSuccess } from '@codebuff/common/util/error'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
 import { createPatch } from 'diff'
 
@@ -48,7 +49,7 @@ describe('rewriteWithOpenAI', () => {
 
     agentRuntimeImpl.promptAiSdk = async (params: any) => {
       capturedPromptText = params?.messages?.[0]?.content?.[0]?.text
-      return expectedResult.replace(/\n$/, '')
+      return promptSuccess(expectedResult.replace(/\n$/, ''))
     }
 
     const result = await rewriteWithOpenAI({

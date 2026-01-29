@@ -2,7 +2,7 @@ import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
-import { success } from '@codebuff/common/util/error'
+import { promptSuccess, success } from '@codebuff/common/util/error'
 import {
   afterEach,
 
@@ -38,7 +38,7 @@ function mockAgentStream(chunks: StreamChunk[]) {
     for (const chunk of chunks) {
       yield chunk
     }
-    return 'mock-message-id'
+    return promptSuccess('mock-message-id')
   }
 }
 
@@ -83,7 +83,7 @@ describe('web_search tool with researcher agent (via web API facade)', () => {
 
     // Mock LLM APIs
     runAgentStepBaseParams.promptAiSdk = async function () {
-      return 'Test response'
+      return promptSuccess('Test response')
     }
   })
 

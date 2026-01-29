@@ -20,6 +20,8 @@
 
 import { mock } from 'bun:test'
 
+import { promptSuccess } from '../../util/error'
+
 import type { ProjectFileContext } from '../../util/file'
 
 export const mockFileContext: ProjectFileContext = {
@@ -248,11 +250,11 @@ export function createTestAgentRuntimeParams(
           toolCallId: 'mock-id',
           input: {},
         }
-        return 'mock-message-id'
+        return promptSuccess('mock-message-id')
       }),
-    promptAiSdk: overrides.promptAiSdk ?? mock(async () => 'Mock response'),
+    promptAiSdk: overrides.promptAiSdk ?? mock(async () => promptSuccess('Mock response')),
     promptAiSdkStructured:
-      overrides.promptAiSdkStructured ?? mock(async () => ({})),
+      overrides.promptAiSdkStructured ?? mock(async () => promptSuccess({})),
     requestMcpToolData: overrides.requestMcpToolData ?? mock(async () => ({})),
     startAgentRun: overrides.startAgentRun ?? mock(async () => 'test-run-id'),
     finishAgentRun: overrides.finishAgentRun ?? mock(async () => {}),
@@ -303,10 +305,10 @@ export function createTestAgentRuntimeDeps(): Omit<
         toolCallId: 'mock-id',
         input: {},
       }
-      return 'mock-message-id'
+      return promptSuccess('mock-message-id')
     }),
-    promptAiSdk: mock(async () => 'Mock response'),
-    promptAiSdkStructured: mock(async () => ({})),
+    promptAiSdk: mock(async () => promptSuccess('Mock response')),
+    promptAiSdkStructured: mock(async () => promptSuccess({})),
     requestMcpToolData: mock(async () => ({})),
     startAgentRun: mock(async () => 'test-run-id'),
     finishAgentRun: mock(async () => {}),

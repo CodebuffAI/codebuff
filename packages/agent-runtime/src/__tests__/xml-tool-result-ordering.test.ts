@@ -1,4 +1,5 @@
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import { promptSuccess } from '@codebuff/common/util/error'
 import { beforeEach, describe, expect, it } from 'bun:test'
 
 import { processStreamWithTools } from '../tool-stream-parser'
@@ -11,7 +12,7 @@ describe('XML tool result ordering', () => {
     for (const chunk of chunks) {
       yield chunk
     }
-    return 'mock-message-id'
+    return promptSuccess('mock-message-id')
   }
 
   function textChunk(text: string): StreamChunk {

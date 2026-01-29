@@ -6,6 +6,7 @@ import {
 } from '@codebuff/common/testing/mock-modules'
 import { setupDbSpies } from '@codebuff/common/testing/mocks/database'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
+import { promptSuccess } from '@codebuff/common/util/error'
 import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import db from '@codebuff/internal/db'
 import {
@@ -67,7 +68,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       llmCallCount++
       yield { type: 'text' as const, text: 'LLM response\n\n' }
       yield createToolCallChunk('end_turn', {})
-      return 'mock-message-id'
+      return promptSuccess('mock-message-id')
     })
 
     // Mock analytics
@@ -486,7 +487,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       // LLM always tries to end turn
       yield { type: 'text' as const, text: 'LLM response\n\n' }
       yield createToolCallChunk('end_turn', {})
-      return `mock-message-id-${promptCallCount}`
+      return promptSuccess(`mock-message-id-${promptCallCount}`)
     }
 
     await loopAgentSteps({
@@ -558,7 +559,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         yield { type: 'text' as const, text: 'Ending\n\n' }
         yield createToolCallChunk('end_turn', {})
       }
-      return 'mock-message-id'
+      return promptSuccess('mock-message-id')
     }
 
     mockAgentState.output = undefined
@@ -621,7 +622,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       yield createToolCallChunk('set_output', { result: 'success' })
       yield { type: 'text' as const, text: '\n\n' }
       yield createToolCallChunk('end_turn', {})
-      return 'mock-message-id'
+      return promptSuccess('mock-message-id')
     }
 
     mockAgentState.output = undefined
@@ -659,13 +660,13 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
     // Mock promptAiSdk to capture the n parameter
     loopAgentStepsBaseParams.promptAiSdk = async (params: any) => {
       agentStepN = params.n
-      return JSON.stringify([
+      return promptSuccess(JSON.stringify([
         'Response 1',
         'Response 2',
         'Response 3',
         'Response 4',
         'Response 5',
-      ])
+      ]))
     }
 
     await loopAgentSteps({
@@ -705,7 +706,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       'Implementation C',
     ]
     loopAgentStepsBaseParams.promptAiSdk = async () => {
-      return JSON.stringify(expectedResponses)
+      return promptSuccess(JSON.stringify(expectedResponses))
     }
 
     await loopAgentSteps({
@@ -735,7 +736,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
       llmCallNumber++
       yield { type: 'text' as const, text: 'Response without output\n\n' }
       yield createToolCallChunk('end_turn', {})
-      return 'mock-message-id'
+      return promptSuccess('mock-message-id')
     }
 
     const result = await loopAgentSteps({
@@ -788,7 +789,7 @@ describe('loopAgentSteps - runAgentStep vs runProgrammaticStep behavior', () => 
         yield { type: 'text' as const, text: '\n\n' }
         yield createToolCallChunk('end_turn', {})
       }
-      return 'mock-message-id'
+      return promptSuccess('mock-message-id')
     }
 
     mockAgentState.output = undefined
