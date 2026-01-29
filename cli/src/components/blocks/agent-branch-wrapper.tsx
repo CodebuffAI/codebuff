@@ -36,6 +36,7 @@ import type {
   ContentBlock,
   TextContentBlock,
   HtmlContentBlock,
+  ToolContentBlock,
 } from '../../types/chat'
 import type { MarkdownPalette } from '../../utils/markdown-renderer'
 
@@ -347,16 +348,20 @@ export const AgentBranchWrapper = memo(
       const isComplete = agentBlock.status === 'complete'
       if (isComplete && siblingBlocks) {
         const blocks = agentBlock.blocks ?? []
-        const lastBlock = blocks[blocks.length - 1] as
-          | { input: { implementationId: string; reason: string } }
-          | undefined
-        const implementationId = lastBlock?.input?.implementationId
+        // Find the set_output tool call block (not necessarily the last block)
+        const setOutputBlock = blocks.find(
+          (b): b is ToolContentBlock =>
+            b.type === 'tool' && b.toolName === 'set_output',
+        )
+        const implementationId = setOutputBlock?.input?.implementationId as string | undefined
         if (implementationId) {
           const letterIndex = implementationId.charCodeAt(0) - 65
           const implementors = siblingBlocks.filter(
             (b): b is AgentContentBlock =>
               b.type === 'agent' && isImplementorAgent(b),
           )
+
+          reason = setOutputBlock?.input?.reason as string | undefined
 
           const selectedAgent = implementors[letterIndex]
           if (selectedAgent) {
@@ -365,7 +370,6 @@ export const AgentBranchWrapper = memo(
               index !== undefined
                 ? `Selected Strategy #${index + 1}`
                 : 'Selected'
-            reason = lastBlock?.input?.reason
           }
         }
       }
