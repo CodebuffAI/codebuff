@@ -53,15 +53,15 @@ export async function handleSubscriptionInvoicePaid(params: {
 
   if (!invoice.subscription) return
   const subscriptionId = getStripeId(invoice.subscription)
-  const customerId = getStripeId(invoice.customer)
 
-  if (!customerId) {
+  if (!invoice.customer) {
     logger.warn(
       { invoiceId: invoice.id },
       'Subscription invoice has no customer ID',
     )
     return
   }
+  const customerId = getStripeId(invoice.customer)
 
   const stripeSub = await stripeServer.subscriptions.retrieve(subscriptionId)
   const priceId = stripeSub.items.data[0]?.price.id
@@ -186,9 +186,9 @@ export async function handleSubscriptionInvoicePaymentFailed(params: {
 
   if (!invoice.subscription) return
   const subscriptionId = getStripeId(invoice.subscription)
-  const customerId = getStripeId(invoice.customer)
   let userId = null
-  if (customerId) {
+  if (invoice.customer) {
+    const customerId = getStripeId(invoice.customer)
     const user = await getUserByStripeCustomerId(customerId)
     userId = user?.id
   }

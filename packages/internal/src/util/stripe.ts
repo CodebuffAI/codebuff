@@ -7,10 +7,7 @@ import Stripe from 'stripe'
 /**
  * Extracts the ID string from a Stripe expandable field.
  */
-export function getStripeId(expandable: string | { id: string }): string
-export function getStripeId(expandable: string | { id: string } | null | undefined): string | undefined
-export function getStripeId(expandable: string | { id: string } | null | undefined): string | undefined {
-  if (expandable == null) return undefined
+export function getStripeId(expandable: string | { id: string }): string {
   return typeof expandable === 'string' ? expandable : expandable.id
 }
 
