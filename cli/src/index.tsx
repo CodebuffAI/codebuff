@@ -343,7 +343,4 @@ async function main(): Promise<void> {
   )
 }
 
-main().catch((error) => {
-  logger.error(error, 'Unhandled error in main')
-  process.exit(1)
-})
+void main()
