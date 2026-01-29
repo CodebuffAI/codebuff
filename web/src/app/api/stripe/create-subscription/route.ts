@@ -1,4 +1,4 @@
-import { getActiveSubscription, getTierPriceId } from '@codebuff/billing'
+import { getActiveSubscription, getPriceIdFromTier } from '@codebuff/billing'
 import { SUBSCRIPTION_TIERS } from '@codebuff/common/constants/subscription-plans'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
@@ -22,13 +22,17 @@ export async function POST(req: NextRequest) {
 
   const userId = session.user.id
 
-  const body = await req.json().catch(() => ({}))
-  const rawTier = Number(body.tier)
-  const tier = (rawTier && rawTier in SUBSCRIPTION_TIERS
-    ? rawTier
-    : 200) as SubscriptionTierPrice
+  const body = await req.json().catch(() => null)
+  const rawTier = Number(body?.tier)
+  if (!rawTier || !(rawTier in SUBSCRIPTION_TIERS)) {
+    return NextResponse.json(
+      { error: `Invalid tier. Must be one of: ${Object.keys(SUBSCRIPTION_TIERS).join(', ')}.` },
+      { status: 400 },
+    )
+  }
+  const tier = rawTier as SubscriptionTierPrice
 
-  const priceId = getTierPriceId(tier)
+  const priceId = getPriceIdFromTier(tier)
   if (!priceId) {
     return NextResponse.json(
       { error: 'Subscription tier not available' },
@@ -77,7 +81,7 @@ export async function POST(req: NextRequest) {
         type: 'strong_subscription',
       },
       subscription_data: {
-        description: `Codebuff Strong — $${tier}/mo unlimited coding sessions`,
+        description: `Codebuff Strong — $${tier}/mo`,
         metadata: {
           userId,
         },

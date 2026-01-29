@@ -1,4 +1,5 @@
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
+import { toolNames } from '@codebuff/common/tools/constants'
 import { parseAgentId } from '@codebuff/common/util/agent-id-parsing'
 import { generateCompactId } from '@codebuff/common/util/string'
 
@@ -241,6 +242,11 @@ export async function validateAndGetAgentTemplate(
   })
 
   if (!agentTemplate) {
+    if (toolNames.includes(agentTypeStr as any)) {
+      throw new Error(
+        `"${agentTypeStr}" is a tool, not an agent. Call it directly as a tool instead of wrapping it in spawn_agents.`,
+      )
+    }
     throw new Error(`Agent type ${agentTypeStr} not found.`)
   }
   const BASE_AGENTS = ['base', 'base-free', 'base-max', 'base-experimental']

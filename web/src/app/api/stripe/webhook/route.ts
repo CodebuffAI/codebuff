@@ -354,13 +354,13 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
       env.STRIPE_WEBHOOK_SECRET_KEY,
     )
   } catch (err) {
-    const error = err as Error
+    const errorMessage = err instanceof Error ? err.message : String(err)
     logger.error(
-      { error: error.message },
+      { error: errorMessage },
       'Webhook signature verification failed',
     )
     return NextResponse.json(
-      { error: { message: `Webhook Error: ${error.message}` } },
+      { error: { message: `Webhook Error: ${errorMessage}` } },
       { status: 400 },
     )
   }
@@ -392,15 +392,15 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
       }
       case 'charge.dispute.created': {
         const dispute = event.data.object as Stripe.Dispute
-        const chargeId = getStripeId(dispute.charge)
 
-        if (!chargeId) {
+        if (!dispute.charge) {
           logger.warn(
             { disputeId: dispute.id },
             'Dispute received without charge ID',
           )
           break
         }
+        const chargeId = getStripeId(dispute.charge)
 
         // Get the charge to find the customer
         const charge = await stripeServer.charges.retrieve(chargeId)
@@ -539,14 +539,16 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
       case 'invoice.paid': {
         const invoice = event.data.object as Stripe.Invoice
         if (invoice.subscription) {
-          const customerId = getStripeId(invoice.customer)
-          if (!customerId) {
+          if (!invoice.customer) {
             logger.warn(
               { invoiceId: invoice.id },
               'Subscription invoice has no customer — skipping',
             )
-          } else if (!(await isOrgCustomer(customerId))) {
-            await handleSubscriptionInvoicePaid({ invoice, logger })
+          } else {
+            const customerId = getStripeId(invoice.customer)
+            if (!(await isOrgCustomer(customerId))) {
+              await handleSubscriptionInvoicePaid({ invoice, logger })
+            }
           }
         } else {
           await handleInvoicePaid(invoice)
@@ -556,14 +558,16 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice
         if (invoice.subscription) {
-          const customerId = getStripeId(invoice.customer)
-          if (!customerId) {
+          if (!invoice.customer) {
             logger.warn(
               { invoiceId: invoice.id },
               'Subscription invoice has no customer — skipping',
             )
-          } else if (!(await isOrgCustomer(customerId))) {
-            await handleSubscriptionInvoicePaymentFailed({ invoice, logger })
+          } else {
+            const customerId = getStripeId(invoice.customer)
+            if (!(await isOrgCustomer(customerId))) {
+              await handleSubscriptionInvoicePaymentFailed({ invoice, logger })
+            }
           }
         }
         if (
@@ -600,13 +604,13 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
     }
     return NextResponse.json({ received: true })
   } catch (err) {
-    const error = err as Error
+    const errorMessage = err instanceof Error ? err.message : String(err)
     logger.error(
-      { error: error.message, eventType: event.type },
+      { error: errorMessage, eventType: event.type },
       'Error processing webhook',
     )
     return NextResponse.json(
-      { error: { message: `Webhook handler error: ${error.message}` } },
+      { error: { message: `Webhook handler error: ${errorMessage}` } },
       { status: 500 },
     )
   }

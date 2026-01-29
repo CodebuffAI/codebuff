@@ -1,5 +1,6 @@
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { createSubscriptionPriceMappings } from '@codebuff/common/constants/subscription-plans'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
 import { env } from '@codebuff/internal/env'
@@ -10,9 +11,8 @@ import {
 } from '@codebuff/internal/util/stripe'
 import { eq } from 'drizzle-orm'
 
-import { handleSubscribe } from './subscription'
+import { expireActiveBlockGrants, handleSubscribe } from './subscription'
 
-import type { SubscriptionTierPrice } from '@codebuff/common/constants/subscription-plans'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type Stripe from 'stripe'
 
@@ -27,23 +27,11 @@ function mapStripeStatus(status: Stripe.Subscription.Status): SubscriptionStatus
   return 'incomplete'
 }
 
-const priceToTier: Record<string, SubscriptionTierPrice> = {
-  ...(env.STRIPE_SUBSCRIPTION_100_PRICE_ID && { [env.STRIPE_SUBSCRIPTION_100_PRICE_ID]: 100 as const }),
-  ...(env.STRIPE_SUBSCRIPTION_200_PRICE_ID && { [env.STRIPE_SUBSCRIPTION_200_PRICE_ID]: 200 as const }),
-  ...(env.STRIPE_SUBSCRIPTION_500_PRICE_ID && { [env.STRIPE_SUBSCRIPTION_500_PRICE_ID]: 500 as const }),
-}
-
-function getTierFromPriceId(priceId: string): SubscriptionTierPrice | null {
-  return priceToTier[priceId] ?? null
-}
-
-const tierToPrice = Object.fromEntries(
-  Object.entries(priceToTier).map(([priceId, tier]) => [tier, priceId]),
-) as Partial<Record<SubscriptionTierPrice, string>>
-
-export function getTierPriceId(tier: SubscriptionTierPrice): string | null {
-  return tierToPrice[tier] ?? null
-}
+export const { getTierFromPriceId, getPriceIdFromTier } = createSubscriptionPriceMappings({
+  100: env.STRIPE_SUBSCRIPTION_100_PRICE_ID,
+  200: env.STRIPE_SUBSCRIPTION_200_PRICE_ID,
+  500: env.STRIPE_SUBSCRIPTION_500_PRICE_ID,
+})
 
 // ---------------------------------------------------------------------------
 // invoice.paid
@@ -53,7 +41,7 @@ export function getTierPriceId(tier: SubscriptionTierPrice): string | null {
  * Handles a paid invoice for a subscription.
  *
  * - On first payment (`subscription_create`): calls `handleSubscribe` to
- *   migrate the user's renewal date and unused credits (Option B).
+ *   migrate the user's renewal date and unused credits.
  * - On every payment: upserts the `subscription` row with fresh billing
  *   period dates from Stripe.
  */
@@ -65,15 +53,15 @@ export async function handleSubscriptionInvoicePaid(params: {
 
   if (!invoice.subscription) return
   const subscriptionId = getStripeId(invoice.subscription)
-  const customerId = getStripeId(invoice.customer)
 
-  if (!customerId) {
+  if (!invoice.customer) {
     logger.warn(
       { invoiceId: invoice.id },
       'Subscription invoice has no customer ID',
     )
     return
   }
+  const customerId = getStripeId(invoice.customer)
 
   const stripeSub = await stripeServer.subscriptions.retrieve(subscriptionId)
   const priceId = stripeSub.items.data[0]?.price.id
@@ -85,26 +73,52 @@ export async function handleSubscriptionInvoicePaid(params: {
     return
   }
 
-  // Look up the user for this customer
-  const userId = (await getUserByStripeCustomerId(customerId))?.id ?? null
-
-  // On first invoice, migrate renewal date & credits (Option B)
-  if (invoice.billing_reason === 'subscription_create') {
-    if (userId) {
-      await handleSubscribe({
-        userId,
-        stripeSubscription: stripeSub,
-        logger,
-      })
-    } else {
-      logger.warn(
-        { customerId, subscriptionId },
-        'No user found for customer — skipping handleSubscribe',
-      )
-    }
+  const tier = getTierFromPriceId(priceId)
+  if (!tier) {
+    logger.debug(
+      { subscriptionId, priceId },
+      'Price ID does not match a Strong tier — skipping',
+    )
+    return
   }
 
-  // Upsert subscription row
+  // Look up the user for this customer
+  const user = await getUserByStripeCustomerId(customerId)
+  if (!user) {
+    logger.warn(
+      { customerId, subscriptionId },
+      'No user found for customer — skipping handleSubscribe',
+    )
+    return
+  }
+  const userId = user.id
+
+  // On first invoice, migrate renewal date & credits
+  if (invoice.billing_reason === 'subscription_create') {
+    await handleSubscribe({
+      userId,
+      stripeSubscription: stripeSub,
+      logger,
+    })
+  }
+
+  const status = mapStripeStatus(stripeSub.status)
+
+  // Check for a pending scheduled tier change (downgrade)
+  const existingSub = await db
+    .select({
+      tier: schema.subscription.tier,
+      scheduled_tier: schema.subscription.scheduled_tier,
+    })
+    .from(schema.subscription)
+    .where(eq(schema.subscription.stripe_subscription_id, subscriptionId))
+    .limit(1)
+
+  const previousTier = existingSub[0]?.tier
+  const hadScheduledTier = existingSub[0]?.scheduled_tier != null
+
+  // Upsert subscription row — always apply the Stripe tier and clear
+  // scheduled_tier so pending downgrades take effect on renewal.
   await db
     .insert(schema.subscription)
     .values({
@@ -112,8 +126,9 @@ export async function handleSubscriptionInvoicePaid(params: {
       stripe_customer_id: customerId,
       user_id: userId,
       stripe_price_id: priceId,
-      tier: getTierFromPriceId(priceId),
-      status: 'active',
+      tier,
+      scheduled_tier: null,
+      status,
       billing_period_start: new Date(stripeSub.current_period_start * 1000),
       billing_period_end: new Date(stripeSub.current_period_end * 1000),
       cancel_at_period_end: stripeSub.cancel_at_period_end,
@@ -121,10 +136,11 @@ export async function handleSubscriptionInvoicePaid(params: {
     .onConflictDoUpdate({
       target: schema.subscription.stripe_subscription_id,
       set: {
-        status: 'active',
-        ...(userId ? { user_id: userId } : {}),
+        status,
+        user_id: userId,
         stripe_price_id: priceId,
-        tier: getTierFromPriceId(priceId),
+        tier,
+        scheduled_tier: null,
         billing_period_start: new Date(
           stripeSub.current_period_start * 1000,
         ),
@@ -133,6 +149,16 @@ export async function handleSubscriptionInvoicePaid(params: {
         updated_at: new Date(),
       },
     })
+
+  // If a scheduled downgrade was applied, expire block grants so the user
+  // gets new grants at the lower tier's limits.
+  if (hadScheduledTier) {
+    await expireActiveBlockGrants({ userId, subscriptionId, logger })
+    logger.info(
+      { userId, subscriptionId, previousTier, tier },
+      'Applied scheduled tier change and expired block grants',
+    )
+  }
 
   logger.info(
     {
@@ -160,10 +186,12 @@ export async function handleSubscriptionInvoicePaymentFailed(params: {
 
   if (!invoice.subscription) return
   const subscriptionId = getStripeId(invoice.subscription)
-  const customerId = getStripeId(invoice.customer)
-  const userId = customerId
-    ? (await getUserByStripeCustomerId(customerId))?.id ?? null
-    : null
+  let userId = null
+  if (invoice.customer) {
+    const customerId = getStripeId(invoice.customer)
+    const user = await getUserByStripeCustomerId(customerId)
+    userId = user?.id
+  }
 
   await db
     .update(schema.subscription)
@@ -209,10 +237,41 @@ export async function handleSubscriptionUpdated(params: {
     return
   }
 
+  const tier = getTierFromPriceId(priceId)
+  if (!tier) {
+    logger.debug(
+      { subscriptionId, priceId },
+      'Price ID does not match a Strong tier — skipping',
+    )
+    return
+  }
+
   const customerId = getStripeId(stripeSubscription.customer)
-  const userId = (await getUserByStripeCustomerId(customerId))?.id ?? null
+  const user = await getUserByStripeCustomerId(customerId)
+  if (!user) {
+    logger.warn(
+      { customerId, subscriptionId },
+      'No user found for customer — skipping',
+    )
+    return
+  }
+  const userId = user.id
 
   const status = mapStripeStatus(stripeSubscription.status)
+
+  // Check existing tier to detect downgrades. During a downgrade the old
+  // higher tier is kept in `scheduled_tier` so limits remain until renewal.
+  const existingSub = await db
+    .select({
+      tier: schema.subscription.tier,
+      scheduled_tier: schema.subscription.scheduled_tier,
+    })
+    .from(schema.subscription)
+    .where(eq(schema.subscription.stripe_subscription_id, subscriptionId))
+    .limit(1)
+
+  const existingTier = existingSub[0]?.tier
+  const isDowngrade = existingTier != null && existingTier > tier
 
   // Upsert — webhook ordering is not guaranteed by Stripe, so this event
   // may arrive before invoice.paid creates the row.
@@ -223,7 +282,7 @@ export async function handleSubscriptionUpdated(params: {
       stripe_customer_id: customerId,
       user_id: userId,
       stripe_price_id: priceId,
-      tier: getTierFromPriceId(priceId),
+      tier,
       status,
       cancel_at_period_end: stripeSubscription.cancel_at_period_end,
       billing_period_start: new Date(
@@ -236,9 +295,12 @@ export async function handleSubscriptionUpdated(params: {
     .onConflictDoUpdate({
       target: schema.subscription.stripe_subscription_id,
       set: {
-        ...(userId ? { user_id: userId } : {}),
-        stripe_price_id: priceId,
-        tier: getTierFromPriceId(priceId),
+        user_id: userId,
+        // Downgrade: preserve current tier & stripe_price_id, schedule the
+        // new tier for the next billing period.
+        ...(isDowngrade
+          ? { scheduled_tier: tier }
+          : { tier, stripe_price_id: priceId, scheduled_tier: null }),
         status,
         cancel_at_period_end: stripeSubscription.cancel_at_period_end,
         billing_period_start: new Date(
@@ -251,12 +313,24 @@ export async function handleSubscriptionUpdated(params: {
       },
     })
 
+  // If this is an upgrade, expire old block grants so the user gets new
+  // grants at the higher tier's limits. Also serves as a fallback if the
+  // route handler's DB update failed.
+  const isUpgrade = existingTier != null && tier > existingTier
+  if (isUpgrade) {
+    await expireActiveBlockGrants({ userId, subscriptionId, logger })
+  }
+
   logger.info(
     {
       subscriptionId,
       cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
+      isDowngrade,
+      isUpgrade,
     },
-    'Processed subscription update',
+    isDowngrade
+      ? 'Processed subscription update — downgrade scheduled for next billing period'
+      : 'Processed subscription update',
   )
 }
 
@@ -275,16 +349,22 @@ export async function handleSubscriptionDeleted(params: {
   const subscriptionId = stripeSubscription.id
 
   const customerId = getStripeId(stripeSubscription.customer)
-  const userId = (await getUserByStripeCustomerId(customerId))?.id ?? null
+  const user = await getUserByStripeCustomerId(customerId)
+  const userId = user?.id ?? null
 
   await db
     .update(schema.subscription)
     .set({
       status: 'canceled',
+      scheduled_tier: null,
       canceled_at: new Date(),
       updated_at: new Date(),
     })
     .where(eq(schema.subscription.stripe_subscription_id, subscriptionId))
+
+  if (userId) {
+    await expireActiveBlockGrants({ userId, subscriptionId, logger })
+  }
 
   trackEvent({
     event: AnalyticsEvent.SUBSCRIPTION_CANCELED,

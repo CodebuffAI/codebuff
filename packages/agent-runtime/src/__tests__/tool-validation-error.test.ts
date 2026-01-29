@@ -59,7 +59,7 @@ describe('tool validation error handling', () => {
 
     const responseChunks: (string | PrintModeEvent)[] = []
 
-    await processStream({
+    const result = await processStream({
       ...agentRuntimeImpl,
       agentContext: {},
       agentState,
@@ -96,6 +96,9 @@ describe('tool validation error handling', () => {
     expect(errorEvents.length).toBe(1)
     expect(errorEvents[0].message).toContain('Invalid parameters for spawn_agents')
 
+    // Verify hadToolCallError is true so the agent loop continues
+    expect(result.hadToolCallError).toBe(true)
+
     // Verify NO tool_call event was emitted (since validation failed before that point)
     const toolCallEvents = responseChunks.filter(
       (chunk): chunk is Extract<PrintModeEvent, { type: 'tool_call' }> =>
@@ -125,6 +128,18 @@ describe('tool validation error handling', () => {
     expect(toolMessages.length).toBe(0)
     // And no assistant tool calls either
     expect(assistantToolCalls.length).toBe(0)
+
+    // Verify error message was added to message history for the LLM to see
+    const userMessages = agentState.messageHistory.filter(
+      (m) => m.role === 'user',
+    )
+    const errorUserMessage = userMessages.find((m) => {
+      const contentStr = Array.isArray(m.content)
+        ? m.content.map((p) => ('text' in p ? p.text : '')).join('')
+        : typeof m.content === 'string' ? m.content : ''
+      return contentStr.includes('Error during tool call') && contentStr.includes('Invalid parameters for spawn_agents')
+    })
+    expect(errorUserMessage).toBeDefined()
   })
 
   it('should still emit tool_call and tool_result for valid tool calls', async () => {

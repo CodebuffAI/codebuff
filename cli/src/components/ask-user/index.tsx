@@ -19,7 +19,7 @@ import { useChatStore } from '../../state/chat-store'
 import { BORDER_CHARS } from '../../utils/ui-constants'
 import { Button } from '../button'
 
-import type { AskUserQuestion } from '../../state/chat-store'
+import type { AskUserQuestion } from '../../types/store'
 import type { KeyEvent } from '@opentui/core'
 
 export interface MultipleChoiceFormProps {

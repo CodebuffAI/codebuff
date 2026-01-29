@@ -4,6 +4,7 @@ import React, { memo, type ReactNode } from 'react'
 import { useTheme } from '../../hooks/use-theme'
 import { useWhyDidYouUpdateById } from '../../hooks/use-why-did-you-update'
 import { getCliEnv } from '../../utils/env'
+import { MAX_COLLAPSED_LINES, truncateToLines } from '../../utils/strings'
 import { BORDER_CHARS } from '../../utils/ui-constants'
 import { Button } from '../button'
 import { CollapseButton } from '../collapse-button'
@@ -15,8 +16,8 @@ interface AgentBranchItemProps {
   agentId?: string
   isCollapsed: boolean
   isStreaming: boolean
-  streamingPreview: string
-  finishedPreview: string
+  /** Preview text shown when collapsed (empty string = no preview) */
+  preview: string
   statusLabel?: string
   statusColor?: string
   statusIndicator?: string
@@ -32,8 +33,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
     agentId,
     isCollapsed,
     isStreaming,
-    streamingPreview,
-    finishedPreview,
+    preview,
     statusLabel,
     statusColor,
     statusIndicator = '●',
@@ -64,8 +64,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
         ? `${statusLabel} ${statusIndicator}`
         : `${statusIndicator} ${statusLabel}`
       : null
-  const showCollapsedPreview =
-    (isStreaming && !!streamingPreview) || (!isStreaming && !!finishedPreview)
+  const showCollapsedPreview = preview.length > 0
 
   const isTextRenderable = (value: ReactNode): boolean => {
     if (value === null || value === undefined || typeof value === 'boolean') {
@@ -234,7 +233,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
                 fg={isStreaming ? theme.foreground : theme.muted}
                 attributes={getAttributes(TextAttributes.ITALIC)}
               >
-                {isStreaming ? streamingPreview : finishedPreview}
+                {truncateToLines(preview, MAX_COLLAPSED_LINES)}
               </text>
             </Button>
           ) : null

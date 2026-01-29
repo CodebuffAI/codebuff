@@ -16,18 +16,34 @@ export const SUBSCRIPTION_TIERS = {
   },
   200: {
     monthlyPrice: 200,
-    creditsPerBlock: 1250,
+    creditsPerBlock: 1200,
     blockDurationHours: 5,
-    weeklyCreditsLimit: 12500,
+    weeklyCreditsLimit: 12000,
   },
   500: {
     monthlyPrice: 500,
-    creditsPerBlock: 3125,
+    creditsPerBlock: 3200,
     blockDurationHours: 5,
-    weeklyCreditsLimit: 31250,
+    weeklyCreditsLimit: 32000,
   },
 } as const satisfies Record<number, TierConfig>
 
 export type SubscriptionTierPrice = keyof typeof SUBSCRIPTION_TIERS
 
 export const DEFAULT_TIER = SUBSCRIPTION_TIERS[200]
+
+export function createSubscriptionPriceMappings(priceIds: Record<SubscriptionTierPrice, string>) {
+  const priceToTier = Object.fromEntries(
+    Object.entries(priceIds).map(([tier, priceId]) => [priceId, Number(tier) as SubscriptionTierPrice]),
+  ) as Record<string, SubscriptionTierPrice>
+
+  function getTierFromPriceId(priceId: string): SubscriptionTierPrice | null {
+    return priceToTier[priceId] ?? null
+  }
+
+  function getPriceIdFromTier(tier: SubscriptionTierPrice): string | null {
+    return priceIds[tier] ?? null
+  }
+
+  return { getTierFromPriceId, getPriceIdFromTier }
+}

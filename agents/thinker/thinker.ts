@@ -46,9 +46,12 @@ When satisfied, write out a brief response to the user's request. The parent age
       .find((m) => m.role === 'assistant')
 
     if (!lastAssistantMessage) {
+      const errorMsg = 'Error: No assistant message found in conversation history'
+      // Using console.error because agents run in a sandboxed environment without access to structured logger
+      console.error('Thinker agent:', errorMsg)
       yield {
         toolName: 'set_output',
-        input: { message: 'No response generated' },
+        input: { message: errorMsg },
       }
       return
     }

@@ -1,7 +1,7 @@
 import { AttachmentCard } from './attachment-card'
 import { useTheme } from '../hooks/use-theme'
 
-import type { PendingTextAttachment } from '../state/chat-store'
+import type { PendingTextAttachment } from '../types/store'
 
 const TEXT_CARD_WIDTH = 24
 const MAX_PREVIEW_LINES = 2

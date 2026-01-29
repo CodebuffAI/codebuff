@@ -14,6 +14,21 @@ const FileChangeSchema = z.object({
   content: z.string(),
 })
 
+function containsUpwardTraversal(dirPath: string): boolean {
+  const normalized = path.normalize(dirPath)
+  return normalized.includes('..')
+}
+
+/**
+ * Checks if a path contains path traversal sequences that would escape the root.
+ * Uses proper path normalization to prevent traversal attacks.
+ */
+function containsPathTraversal(filePath: string): boolean {
+  const normalized = path.normalize(filePath)
+  // Check for absolute paths or paths starting with .. that escape root
+  return path.isAbsolute(normalized) || normalized.startsWith('..')
+}
+
 export async function changeFile(params: {
   parameters: unknown
   cwd: string
@@ -21,10 +36,13 @@ export async function changeFile(params: {
 }): Promise<CodebuffToolOutput<'str_replace'>> {
   const { parameters, cwd, fs } = params
 
-  if (cwd.includes('../')) {
-    throw new Error('cwd cannot include ../')
+  if (containsUpwardTraversal(cwd)) {
+    throw new Error('cwd contains invalid path traversal')
   }
   const fileChange = FileChangeSchema.parse(parameters)
+  if (containsPathTraversal(fileChange.path)) {
+    throw new Error('file path contains invalid path traversal')
+  }
   const lines = fileChange.content.split('\n')
 
   const { created, modified, invalid, patchFailed } = await applyChanges({

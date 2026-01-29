@@ -126,7 +126,7 @@ const getAllAgentFiles = (dir: string): string[] => {
       }
     }
   } catch {
-    // Ignore missing agent directories
+    // Expected for user agent directories that may not exist
   }
   return files
 }

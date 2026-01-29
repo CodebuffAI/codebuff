@@ -1,4 +1,4 @@
-import { endsAgentStepParam } from '@codebuff/common/tools/constants'
+import { endsAgentStepParam, toolNames } from '@codebuff/common/tools/constants'
 import { toolParams } from '@codebuff/common/tools/list'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { cloneDeep } from 'lodash'
@@ -7,7 +7,11 @@ import { getMCPToolData } from '../mcp'
 import { MCP_TOOL_SEPARATOR } from '../mcp-constants'
 import { getAgentShortName } from '../templates/prompts'
 import { codebuffToolHandlers } from './handlers/list'
-import { transformSpawnAgentsInput } from './handlers/tool/spawn-agent-utils'
+import {
+  getMatchingSpawn,
+  transformSpawnAgentsInput,
+} from './handlers/tool/spawn-agent-utils'
+import { getAgentTemplate } from '../templates/agent-registry'
 import { ensureZodSchema } from './prompts'
 
 
@@ -127,7 +131,7 @@ export type ExecuteToolCallParams<T extends string = ToolName> = {
 } & AgentRuntimeDeps &
   AgentRuntimeScopedDeps
 
-export function executeToolCall<T extends ToolName>(
+export async function executeToolCall<T extends ToolName>(
   params: ExecuteToolCallParams<T>,
 ): Promise<void> {
   const {
@@ -194,12 +198,102 @@ export function executeToolCall<T extends ToolName>(
       ? transformSpawnAgentsInput(input, agentTemplate.spawnableAgents)
       : input
 
+  // TODO: Allow tools to provide a validation function, and move this logic into the spawn_agents validation function.
+  // Pre-validate spawn_agents to filter out non-existent agents before streaming
+  let effectiveInput = transformedInput
+  if (toolName === 'spawn_agents') {
+    const agents = (transformedInput as Record<string, unknown>).agents
+    if (Array.isArray(agents)) {
+      const BASE_AGENTS = [
+        'base',
+        'base-free',
+        'base-max',
+        'base-experimental',
+      ]
+      const isBaseAgent = BASE_AGENTS.includes(agentTemplate.id)
+
+      const validationResults = await Promise.allSettled(
+        agents.map(async (agent) => {
+          if (!agent || typeof agent !== 'object') {
+            return { valid: false as const, error: 'Invalid agent entry' }
+          }
+          const agentTypeStr = (agent as Record<string, unknown>).agent_type
+          if (typeof agentTypeStr !== 'string' || !agentTypeStr) {
+            return { valid: false as const, error: 'Agent entry missing agent_type' }
+          }
+
+          if (!isBaseAgent) {
+            const matchingSpawn = getMatchingSpawn(
+              agentTemplate.spawnableAgents,
+              agentTypeStr,
+            )
+            if (!matchingSpawn) {
+              if (toolNames.includes(agentTypeStr as ToolName)) {
+                return { valid: false as const, error: `"${agentTypeStr}" is a tool, not an agent. Call it directly as a tool instead of wrapping it in spawn_agents.` }
+              }
+              return { valid: false as const, error: `Agent "${agentTypeStr}" is not available to spawn` }
+            }
+          }
+
+          try {
+            const template = await getAgentTemplate({
+              agentId: agentTypeStr,
+              localAgentTemplates: params.localAgentTemplates,
+              fetchAgentFromDatabase: params.fetchAgentFromDatabase,
+              databaseAgentCache: params.databaseAgentCache,
+              logger,
+              apiKey: params.apiKey,
+            })
+            if (!template) {
+              if (toolNames.includes(agentTypeStr as ToolName)) {
+                return { valid: false as const, error: `"${agentTypeStr}" is a tool, not an agent. Call it directly as a tool instead of wrapping it in spawn_agents.` }
+              }
+              return { valid: false as const, error: `Agent "${agentTypeStr}" does not exist` }
+            }
+          } catch {
+            return { valid: false as const, error: `Agent "${agentTypeStr}" could not be loaded` }
+          }
+
+          return { valid: true as const, agent }
+        }),
+      )
+
+      const validAgents: unknown[] = []
+      const errors: string[] = []
+
+      for (const result of validationResults) {
+        if (result.status === 'rejected') {
+          errors.push('Agent validation failed unexpectedly')
+        } else if (result.value.valid) {
+          validAgents.push(result.value.agent)
+        } else {
+          errors.push(result.value.error)
+        }
+      }
+
+      if (errors.length > 0) {
+        if (validAgents.length === 0) {
+          const errorMsg = `Failed to spawn agents: ${errors.join('; ')}`
+          onResponseChunk({ type: 'error', message: errorMsg })
+          logger.debug(
+            { toolName, errors },
+            'All agents in spawn_agents are invalid, not streaming tool call',
+          )
+          return previousToolCallFinished
+        }
+        const errorMsg = `Some agents could not be spawned: ${errors.join('; ')}. Proceeding with valid agents only.`
+        onResponseChunk({ type: 'error', message: errorMsg })
+        effectiveInput = { ...transformedInput, agents: validAgents }
+      }
+    }
+  }
+
   // Only emit tool_call event after permission check passes
   onResponseChunk({
     type: 'tool_call',
     toolCallId,
     toolName,
-    input: transformedInput,
+    input: effectiveInput,
     agentId: agentState.agentId,
     parentAgentId: agentState.parentId,
     includeToolCall: !excludeToolFromMessageHistory,
@@ -212,10 +306,10 @@ export function executeToolCall<T extends ToolName>(
     toolName
   ] as unknown as CodebuffToolHandlerFunction<T>
 
-  // Use transformed input for spawn_agents so the handler receives the correct agent types
+  // Use effective input for spawn_agents so the handler receives the correct agent types
   const finalToolCall =
     toolName === 'spawn_agents'
-      ? { ...toolCall, input: transformedInput }
+      ? { ...toolCall, input: effectiveInput }
       : toolCall
 
   const toolResultPromise = handler({

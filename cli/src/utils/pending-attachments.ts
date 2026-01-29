@@ -2,10 +2,8 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 
 import { processImageFile, resolveFilePath, isImageFile } from './image-handler'
-import {
-  useChatStore,
-  type PendingAttachment,
-} from '../state/chat-store'
+import { useChatStore } from '../state/chat-store'
+import type { PendingAttachment } from '../types/store'
 
 /**
  * Exit image input mode if currently active.
@@ -116,6 +114,10 @@ const AUTO_REMOVE_ERROR_DELAY_MS = 3000
 // Counter for generating unique placeholder IDs
 let clipboardPlaceholderCounter = 0
 
+// Map to store cleanup timers for error images, keyed by image path
+// This allows clearing the timer if the image is removed before the delay expires
+const errorImageTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
 /**
  * Add a placeholder for a clipboard image immediately and return its path.
  * Use with addPendingImageFromFile's replacePlaceholder parameter.
@@ -134,6 +136,8 @@ export function addClipboardPlaceholder(): string {
  * Add a pending image with an error note (e.g., unsupported format, not found).
  * Used when we want to show the image in the banner with an error state.
  * Error images are automatically removed after a short delay.
+ * 
+ * Error images are automatically removed after AUTO_REMOVE_ERROR_DELAY_MS.
  */
 export function addPendingImageWithError(
   imagePath: string,
@@ -147,10 +151,31 @@ export function addPendingImageWithError(
     note,
   })
   
+  // Clear any existing timer for this path (shouldn't happen, but be safe)
+  const existingTimer = errorImageTimers.get(imagePath)
+  if (existingTimer) {
+    clearTimeout(existingTimer)
+  }
+  
   // Auto-remove error images after a delay
-  setTimeout(() => {
+  const timer = setTimeout(() => {
+    errorImageTimers.delete(imagePath)
     useChatStore.getState().removePendingImage(imagePath)
   }, AUTO_REMOVE_ERROR_DELAY_MS)
+  
+  errorImageTimers.set(imagePath, timer)
+}
+
+/**
+ * Clear the auto-remove timer for an error image.
+ * Call this when manually removing an image to prevent memory leaks.
+ */
+export function clearErrorImageTimer(imagePath: string): void {
+  const timer = errorImageTimers.get(imagePath)
+  if (timer) {
+    clearTimeout(timer)
+    errorImageTimers.delete(imagePath)
+  }
 }
 
 /**

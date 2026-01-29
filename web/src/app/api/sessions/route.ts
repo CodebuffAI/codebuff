@@ -73,7 +73,7 @@ async function revokeStandardSessions(
           eq(schema.session.userId, userId),
           inArray(schema.session.sessionToken, tokensToDelete),
           // Explicitly restrict to web/cli to avoid PATs here
-          inArray(schema.session.type, ['web', 'cli'] as any),
+          inArray(schema.session.type, ['web', 'cli'] as const),
         ),
       )
       .returning({ sessionToken: schema.session.sessionToken })
@@ -109,12 +109,13 @@ export async function DELETE(req: NextRequest) {
       return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    const {
-      sessionIds,
-      tokenIds,
-    }: { sessionIds?: string[]; tokenIds?: string[] } = await req
-      .json()
-      .catch(() => ({}) as any)
+    let body: { sessionIds?: string[]; tokenIds?: string[] } = {}
+    try {
+      body = await req.json()
+    } catch {
+      body = {}
+    }
+    const { sessionIds, tokenIds } = body
 
     const userId = session.user.id
 
@@ -137,11 +138,13 @@ export async function DELETE(req: NextRequest) {
     }
 
     return NextResponse.json({ revokedSessions, revokedTokens })
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const errorMessage = e instanceof Error ? e.message : String(e)
+    const stack = e instanceof Error ? e.stack : undefined
     logger.error(
-      { error: e?.message ?? String(e), stack: e?.stack },
+      { error: errorMessage, stack },
       'Error in DELETE /api/sessions',
     )
-    return new NextResponse(e?.message ?? 'Internal error', { status: 500 })
+    return new NextResponse(errorMessage, { status: 500 })
   }
 }

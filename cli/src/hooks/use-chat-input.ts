@@ -3,7 +3,7 @@ import stringWidth from 'string-width'
 
 import { useChatStore } from '../state/chat-store'
 
-import type { InputValue } from '../state/chat-store'
+import type { InputValue } from '../types/store'
 import type { AgentMode } from '../utils/constants'
 
 interface UseChatInputOptions {

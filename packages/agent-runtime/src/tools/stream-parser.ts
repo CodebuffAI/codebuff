@@ -90,6 +90,8 @@ export async function processStream(
   const toolResultsToAddAfterStream: ToolMessage[] = []
   const toolCalls: (CodebuffToolCall | CustomToolCall)[] = []
   const assistantMessages: Message[] = []
+  let hadToolCallError = false
+  const errorMessages: Message[] = []
   const { promise: streamDonePromise, resolve: resolveStreamDonePromise } =
     Promise.withResolvers<void>()
   let previousToolCallFinished = streamDonePromise
@@ -120,6 +122,15 @@ export async function processStream(
             content: chunk.output,
           }
           assistantMessages.push(toolResultMessage)
+        } else if (chunk.type === 'error') {
+          hadToolCallError = true
+          errorMessages.push(
+            userMessage(
+              withSystemTags(
+                `Error during tool call: ${chunk.message}. Please check the tool name and arguments and try again.`,
+              ),
+            ),
+          )
         }
       }
       return onResponseChunk(chunk)
@@ -267,8 +278,6 @@ export async function processStream(
 
   // === STREAM CONSUMPTION LOOP ===
   let messageId: string | null = null
-  let hadToolCallError = false
-  const errorMessages: Message[] = []
 
   while (true) {
     if (signal.aborted) {

@@ -10,6 +10,8 @@ import { PROFIT_MARGIN } from '@codebuff/common/old-constants'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
+import type { ChatCompletionRequestBody } from './types'
+
 export type UsageData = {
   inputTokens: number
   outputTokens: number
@@ -24,21 +26,24 @@ export function extractRequestMetadata(params: {
 }) {
   const { body, logger } = params
 
-  const rawClientId = (body as any)?.codebuff_metadata?.client_id
+  const typedBody = body as ChatCompletionRequestBody | undefined
+  const metadata = typedBody?.codebuff_metadata
+
+  const rawClientId = metadata?.client_id
   const clientId = typeof rawClientId === 'string' ? rawClientId : null
   if (!clientId) {
     logger.warn({ body }, 'Received request without client_id')
   }
 
-  const rawRunId = (body as any)?.codebuff_metadata?.run_id
+  const rawRunId = metadata?.run_id
   const clientRequestId: string | null =
     typeof rawRunId === 'string' ? rawRunId : null
   if (!clientRequestId) {
     logger.warn({ body }, 'Received request without run_id')
   }
 
-  const n = (body as any)?.codebuff_metadata?.n
-  const rawCostMode = (body as any)?.codebuff_metadata?.cost_mode
+  const n = metadata?.n
+  const rawCostMode = metadata?.cost_mode
   const costMode = typeof rawCostMode === 'string' ? rawCostMode : undefined
   return { clientId, clientRequestId, costMode, ...(n && { n }) }
 }

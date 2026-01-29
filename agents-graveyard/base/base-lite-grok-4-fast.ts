@@ -1,15 +1,13 @@
-import {
-  PLACEHOLDER
-} from 'types/secret-agent-definition'
-
 import { buildArray } from '@codebuff/common/util/array'
 import { closeXml } from '@codebuff/common/util/xml'
 
 import baseLite from './base-lite'
 import { publisher } from '../constants'
 
-import type {
-  SecretAgentDefinition} from 'types/secret-agent-definition';
+import {
+  PLACEHOLDER,
+  type SecretAgentDefinition,
+} from '../../agents/types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
   ...baseLite,

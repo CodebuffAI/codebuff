@@ -5,7 +5,7 @@ import {
   type SecretAgentDefinition,
 } from '../types/secret-agent-definition'
 
-import type { StepText, ToolCall } from 'types/agent-definition'
+import type { StepText, ToolCall } from '../types/agent-definition'
 
 type FilePickerMode = 'default' | 'max'
 

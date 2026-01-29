@@ -37,6 +37,7 @@ export async function GET() {
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
       canceledAt: subscription.canceled_at?.toISOString() ?? null,
       tier: subscription.tier,
+      scheduledTier: subscription.scheduled_tier,
     },
     rateLimit: {
       limited: rateLimit.limited,

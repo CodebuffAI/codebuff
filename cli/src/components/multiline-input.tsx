@@ -17,7 +17,7 @@ import { clamp } from '../utils/math'
 import { supportsTruecolor } from '../utils/theme-system'
 import { calculateNewCursorPosition } from '../utils/word-wrap-utils'
 
-import type { InputValue } from '../state/chat-store'
+import type { InputValue } from '../types/store'
 import type {
   KeyEvent,
   MouseEvent,

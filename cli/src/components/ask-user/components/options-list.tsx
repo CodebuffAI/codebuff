@@ -12,7 +12,7 @@ import { Button } from '../../button'
 import { CUSTOM_OPTION_INDEX, SYMBOLS } from '../constants'
 
 import type { AccordionAnswer } from './accordion-question'
-import type { AskUserQuestion } from '../../../state/chat-store'
+import type { AskUserQuestion } from '../../../types/store'
 
 export interface OptionsListProps {
   question: AskUserQuestion

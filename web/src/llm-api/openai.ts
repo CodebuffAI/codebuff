@@ -9,6 +9,7 @@ import {
 import type { UsageData } from './helpers'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { ChatCompletionRequestBody } from './types'
 
 export const OPENAI_SUPPORTED_MODELS = ['gpt-5', 'gpt-5.1'] as const
 export type OpenAIModel = (typeof OPENAI_SUPPORTED_MODELS)[number]
@@ -71,7 +72,7 @@ export async function handleOpenAINonStream({
   logger,
   insertMessageBigquery,
 }: {
-  body: any
+  body: ChatCompletionRequestBody
   userId: string
   stripeCustomerId?: string | null
   agentId: string
@@ -108,7 +109,7 @@ export async function handleOpenAINonStream({
   // Transform max_tokens to max_completion_tokens
   openaiBody.max_completion_tokens =
     openaiBody.max_completion_tokens ?? openaiBody.max_tokens
-  delete (openaiBody as any).max_tokens
+  delete openaiBody.max_tokens
 
   // Transform reasoning to reasoning_effort
   if (openaiBody.reasoning && typeof openaiBody.reasoning === 'object') {
@@ -122,14 +123,14 @@ export async function handleOpenAINonStream({
       openaiBody.reasoning_effort = reasoning.effort ?? 'medium'
     }
   }
-  delete (openaiBody as any).reasoning
+  delete openaiBody.reasoning
 
   // Remove fields that OpenAI doesn't support
-  delete (openaiBody as any).stop
-  delete (openaiBody as any).usage
-  delete (openaiBody as any).provider
-  delete (openaiBody as any).transforms
-  delete (openaiBody as any).codebuff_metadata
+  delete openaiBody.stop
+  delete openaiBody.usage
+  delete openaiBody.provider
+  delete openaiBody.transforms
+  delete openaiBody.codebuff_metadata
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',

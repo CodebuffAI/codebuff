@@ -2,7 +2,7 @@ import { describe, expect, test, mock } from 'bun:test'
 
 import { processImagesForMessage } from '../image-processor'
 
-import type { PendingImageAttachment } from '../../state/chat-store'
+import type { PendingImageAttachment } from '../../types/store'
 
 // Type for the processor function used in tests
 type ProcessorResult = 

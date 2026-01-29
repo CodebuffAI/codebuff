@@ -68,21 +68,31 @@ const pinoLogger = pino(
 
 const loggingLevels = ['info', 'debug', 'warn', 'error', 'fatal'] as const
 type LogLevel = (typeof loggingLevels)[number]
+
+/**
+ * Log data can be any serializable value
+ */
+export type LogData = unknown
+
+/**
+ * Log arguments (format string arguments)
+ */
+export type LogArgs = unknown[]
 const analyticsDispatcher = createAnalyticsDispatcher({
   envName: env.NEXT_PUBLIC_CB_ENVIRONMENT,
 })
 
 function splitAndLog(
   level: LogLevel,
-  data: any,
+  data: LogData,
   msg?: string,
-  ...args: any[]
+  ...args: LogArgs
 ): void {
   const formattedMsg = format(msg ?? '', ...args)
   const availableDataLimit = MAX_LENGTH - BUFFER - formattedMsg.length
 
   // split data recursively into chunks small enough to log
-  const processedData: any[] = splitData({
+  const processedData: unknown[] = splitData({
     data,
     maxChunkSize: availableDataLimit,
   })
@@ -104,9 +114,9 @@ function splitAndLog(
 // Also output to console so logs remain visible in the terminal
 function logWithSync(
   level: LogLevel,
-  data: any,
+  data: LogData,
   msg?: string,
-  ...args: any[]
+  ...args: LogArgs
 ): void {
   const formattedMsg = format(msg ?? '', ...args)
   if (IS_DEV) {
@@ -139,7 +149,7 @@ function logWithSync(
         event: payload.event,
         userId: payload.userId,
         properties: payload.properties,
-        logger: logger as any,
+        logger: logger as unknown as typeof logger,
       })
     })
 
@@ -152,7 +162,7 @@ export const logger: Record<LogLevel, pino.LogFn> = Object.fromEntries(
   loggingLevels.map((level) => {
     return [
       level,
-      (data: any, msg?: string, ...args: any[]) =>
+      (data: LogData, msg?: string, ...args: LogArgs) =>
         logWithSync(level, data, msg, ...args),
     ]
   }),
@@ -161,12 +171,18 @@ export const logger: Record<LogLevel, pino.LogFn> = Object.fromEntries(
 export function loggerWithContext(
   context: ParamsOf<LoggerWithContextFn>,
 ): ReturnType<LoggerWithContextFn> {
+  const mergeData = (data: LogData) => ({
+    ...context,
+    ...(typeof data === 'object' && data !== null ? data : { data }),
+  })
   return {
-    debug: (data: any, ...args) =>
-      logger.debug({ ...context, ...data }, ...args),
-    info: (data: any, ...args) => logger.info({ ...context, ...data }, ...args),
-    warn: (data: any, ...args) => logger.warn({ ...context, ...data }, ...args),
-    error: (data: any, ...args) =>
-      logger.error({ ...context, ...data }, ...args),
+    debug: (data: LogData, msg?: string, ...args: LogArgs) =>
+      logger.debug(mergeData(data), msg, ...args),
+    info: (data: LogData, msg?: string, ...args: LogArgs) =>
+      logger.info(mergeData(data), msg, ...args),
+    warn: (data: LogData, msg?: string, ...args: LogArgs) =>
+      logger.warn(mergeData(data), msg, ...args),
+    error: (data: LogData, msg?: string, ...args: LogArgs) =>
+      logger.error(mergeData(data), msg, ...args),
   }
 }

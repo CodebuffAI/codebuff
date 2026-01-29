@@ -17,6 +17,18 @@ import type { ZodType } from 'zod'
 
 import { extractApiKeyFromHeader } from '@/util/auth'
 
+/**
+ * User information returned from API key validation
+ */
+export interface UserInfo {
+  id: string
+  email: string
+  discord_id: string | null
+  referral_code?: string | null
+  stripe_customer_id?: string | null
+  banned?: boolean
+}
+
 export type HandlerResult<T> =
   | { ok: true; data: T }
   | { ok: false; response: NextResponse }
@@ -77,7 +89,7 @@ export const requireUserFromApiKey = async (params: {
   trackEvent: TrackEventFn
   authErrorEvent: AnalyticsEvent
 }): Promise<
-  HandlerResult<{ userId: string; userInfo: any; logger: Logger }>
+  HandlerResult<{ userId: string; userInfo: UserInfo; logger: Logger }>
 > => {
   const {
     req,

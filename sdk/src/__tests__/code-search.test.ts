@@ -650,6 +650,70 @@ describe('codeSearch', () => {
       expect(spawnArgs[gFlagIndices[1]! + 1]).toBe('*.tsx')
     })
 
+    it('should strip single quotes from glob pattern arguments (regression: spawn has no shell)', async () => {
+      const searchPromise = codeSearch({
+        projectPath: '/test/project',
+        pattern: 'auth',
+        flags: "-g 'authentication.knowledge.md'",
+      })
+
+      const output = createRgJsonMatch('authentication.knowledge.md', 5, 'auth content')
+
+      mockProcess.stdout.emit('data', Buffer.from(output))
+      mockProcess.emit('close', 0)
+
+      const result = await searchPromise
+      const value = asCodeSearchResult(result[0])
+      expect(value.stdout).toContain('authentication.knowledge.md:')
+
+      // Verify the quotes were stripped before passing to spawn
+      const spawnArgs = mockSpawn.mock.calls[0]![1] as string[]
+      expect(spawnArgs).toContain('authentication.knowledge.md')
+      expect(spawnArgs).not.toContain("'authentication.knowledge.md'")
+    })
+
+    it('should strip double quotes from glob pattern arguments', async () => {
+      const searchPromise = codeSearch({
+        projectPath: '/test/project',
+        pattern: 'import',
+        flags: '-g "*.ts"',
+      })
+
+      const output = createRgJsonMatch('file.ts', 1, 'import foo')
+
+      mockProcess.stdout.emit('data', Buffer.from(output))
+      mockProcess.emit('close', 0)
+
+      const result = await searchPromise
+      const value = asCodeSearchResult(result[0])
+      expect(value.stdout).toContain('file.ts:')
+
+      const spawnArgs = mockSpawn.mock.calls[0]![1] as string[]
+      expect(spawnArgs).toContain('*.ts')
+      expect(spawnArgs).not.toContain('"*.ts"')
+    })
+
+    it('should strip quotes from multiple glob patterns', async () => {
+      const searchPromise = codeSearch({
+        projectPath: '/test/project',
+        pattern: 'import',
+        flags: "-g '*.ts' -g '*.tsx'",
+      })
+
+      const output = createRgJsonMatch('file.tsx', 1, 'import React')
+
+      mockProcess.stdout.emit('data', Buffer.from(output))
+      mockProcess.emit('close', 0)
+
+      await searchPromise
+
+      const spawnArgs = mockSpawn.mock.calls[0]![1] as string[]
+      expect(spawnArgs).toContain('*.ts')
+      expect(spawnArgs).toContain('*.tsx')
+      expect(spawnArgs).not.toContain("'*.ts'")
+      expect(spawnArgs).not.toContain("'*.tsx'")
+    })
+
     it('should not deduplicate flag-argument pairs', async () => {
       const searchPromise = codeSearch({
         projectPath: '/test/project',
