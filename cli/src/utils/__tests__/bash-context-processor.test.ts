@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import { processBashContext } from '../bash-context-processor'
 
-import type { PendingBashMessage } from '../../state/chat-store'
+import type { PendingBashMessage } from '../../types/store'
 
 const createPendingBash = (
   overrides: Partial<PendingBashMessage> = {},
