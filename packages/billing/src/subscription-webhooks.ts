@@ -10,7 +10,7 @@ import {
 } from '@codebuff/internal/util/stripe'
 import { eq } from 'drizzle-orm'
 
-import { handleSubscribe } from './subscription'
+import { expireActiveBlockGrants, handleSubscribe } from './subscription'
 
 import type { SubscriptionTierPrice } from '@codebuff/common/constants/subscription-plans'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -85,6 +85,15 @@ export async function handleSubscriptionInvoicePaid(params: {
     return
   }
 
+  const tier = getTierFromPriceId(priceId)
+  if (!tier) {
+    logger.debug(
+      { subscriptionId, priceId },
+      'Price ID does not match a Strong tier — skipping',
+    )
+    return
+  }
+
   // Look up the user for this customer
   const userId = (await getUserByStripeCustomerId(customerId))?.id ?? null
 
@@ -104,6 +113,8 @@ export async function handleSubscriptionInvoicePaid(params: {
     }
   }
 
+  const status = mapStripeStatus(stripeSub.status)
+
   // Upsert subscription row
   await db
     .insert(schema.subscription)
@@ -112,8 +123,8 @@ export async function handleSubscriptionInvoicePaid(params: {
       stripe_customer_id: customerId,
       user_id: userId,
       stripe_price_id: priceId,
-      tier: getTierFromPriceId(priceId),
-      status: 'active',
+      tier,
+      status,
       billing_period_start: new Date(stripeSub.current_period_start * 1000),
       billing_period_end: new Date(stripeSub.current_period_end * 1000),
       cancel_at_period_end: stripeSub.cancel_at_period_end,
@@ -121,10 +132,10 @@ export async function handleSubscriptionInvoicePaid(params: {
     .onConflictDoUpdate({
       target: schema.subscription.stripe_subscription_id,
       set: {
-        status: 'active',
+        status,
         ...(userId ? { user_id: userId } : {}),
         stripe_price_id: priceId,
-        tier: getTierFromPriceId(priceId),
+        tier,
         billing_period_start: new Date(
           stripeSub.current_period_start * 1000,
         ),
@@ -209,6 +220,15 @@ export async function handleSubscriptionUpdated(params: {
     return
   }
 
+  const tier = getTierFromPriceId(priceId)
+  if (!tier) {
+    logger.debug(
+      { subscriptionId, priceId },
+      'Price ID does not match a Strong tier — skipping',
+    )
+    return
+  }
+
   const customerId = getStripeId(stripeSubscription.customer)
   const userId = (await getUserByStripeCustomerId(customerId))?.id ?? null
 
@@ -223,7 +243,7 @@ export async function handleSubscriptionUpdated(params: {
       stripe_customer_id: customerId,
       user_id: userId,
       stripe_price_id: priceId,
-      tier: getTierFromPriceId(priceId),
+      tier,
       status,
       cancel_at_period_end: stripeSubscription.cancel_at_period_end,
       billing_period_start: new Date(
@@ -238,7 +258,7 @@ export async function handleSubscriptionUpdated(params: {
       set: {
         ...(userId ? { user_id: userId } : {}),
         stripe_price_id: priceId,
-        tier: getTierFromPriceId(priceId),
+        tier,
         status,
         cancel_at_period_end: stripeSubscription.cancel_at_period_end,
         billing_period_start: new Date(
@@ -285,6 +305,10 @@ export async function handleSubscriptionDeleted(params: {
       updated_at: new Date(),
     })
     .where(eq(schema.subscription.stripe_subscription_id, subscriptionId))
+
+  if (userId) {
+    await expireActiveBlockGrants({ userId, subscriptionId, logger })
+  }
 
   trackEvent({
     event: AnalyticsEvent.SUBSCRIPTION_CANCELED,

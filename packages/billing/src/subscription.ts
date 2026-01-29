@@ -499,7 +499,7 @@ export async function expireActiveBlockGrants(params: {
 
   const expired = await db
     .update(schema.creditLedger)
-    .set({ balance: 0, expires_at: now })
+    .set({ expires_at: now })
     .where(
       and(
         eq(schema.creditLedger.user_id, userId),
@@ -513,7 +513,7 @@ export async function expireActiveBlockGrants(params: {
   if (expired.length > 0) {
     logger.info(
       { userId, subscriptionId, expiredCount: expired.length },
-      'Expired active block grants for tier change',
+      'Expired active block grants',
     )
   }
 
@@ -539,6 +539,7 @@ export async function getActiveSubscription(params: {
         eq(schema.subscription.status, 'active'),
       ),
     )
+    .orderBy(desc(schema.subscription.updated_at))
     .limit(1)
 
   return subs[0] ?? null
