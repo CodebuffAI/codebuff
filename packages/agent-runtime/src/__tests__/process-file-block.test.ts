@@ -4,11 +4,12 @@ import {
   clearMockedModules,
   mockModule,
 } from '@codebuff/common/testing/mock-modules'
+import { promptAborted, promptSuccess } from '@codebuff/common/util/error'
 import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
 import { applyPatch } from 'diff'
 
-import { processFileBlock } from '../process-file-block'
+import { handleLargeFile, processFileBlock } from '../process-file-block'
 
 import type {
   AgentRuntimeDeps,
@@ -118,9 +119,9 @@ describe('processFileBlockModule', () => {
           /<update>([\s\S]*)<\/update>/,
         )
         if (!m) {
-          return 'Test response'
+          return promptSuccess('Test response')
         }
-        return m[1].trim()
+        return promptSuccess(m[1].trim())
       }
 
       const result = await processFileBlock({
@@ -194,9 +195,9 @@ describe('processFileBlockModule', () => {
           /<update>([\s\S]*)<\/update>/,
         )
         if (!m) {
-          return 'Test response'
+          return promptSuccess('Test response')
         }
-        return m[1].trim()
+        return promptSuccess(m[1].trim())
       }
 
       const result = await processFileBlock({
@@ -271,6 +272,72 @@ describe('processFileBlockModule', () => {
         expect(result.error).toContain('placeholder comment')
         expect(result.error).toContain('meant to modify an existing file')
       }
+    })
+  })
+
+  describe('handleLargeFile', () => {
+    it('should throw when promptAiSdk returns aborted', async () => {
+      agentRuntimeImpl.promptAiSdk = async () => promptAborted('User cancelled')
+
+      await expect(
+        handleLargeFile({
+          ...agentRuntimeImpl,
+          runId: 'test-run-id',
+          oldContent: 'const x = 1;\nconst y = 2;\nconst z = 3;\n',
+          editSnippet: '// ... existing code ...\nconst y = 999;\n// ... existing code ...',
+          filePath: 'test.ts',
+          clientSessionId: 'clientSessionId',
+          fingerprintId: 'fingerprintId',
+          userInputId: 'userInputId',
+          userId: TEST_USER_ID,
+          signal: new AbortController().signal,
+        }),
+      ).rejects.toThrow('Request aborted')
+    })
+
+    it('should throw when promptAiSdk returns aborted without reason', async () => {
+      agentRuntimeImpl.promptAiSdk = async () => promptAborted()
+
+      await expect(
+        handleLargeFile({
+          ...agentRuntimeImpl,
+          runId: 'test-run-id',
+          oldContent: 'function foo() {\n  return 1;\n}\n',
+          editSnippet: '// ... existing code ...\n  return 42;\n// ... existing code ...',
+          filePath: 'large-file.ts',
+          clientSessionId: 'clientSessionId',
+          fingerprintId: 'fingerprintId',
+          userInputId: 'userInputId',
+          userId: TEST_USER_ID,
+          signal: new AbortController().signal,
+        }),
+      ).rejects.toThrow('Request aborted')
+    })
+
+    it('should return editSnippet directly when no lazy edit markers present', async () => {
+      // When there's no lazy edit, handleLargeFile returns the editSnippet directly
+      // without calling promptAiSdk
+      const mockPromptAiSdk = async () => {
+        throw new Error('Should not be called')
+      }
+      agentRuntimeImpl.promptAiSdk = mockPromptAiSdk
+
+      const editSnippet = 'const x = 100;\nconst y = 200;\n'
+      const result = await handleLargeFile({
+        ...agentRuntimeImpl,
+        runId: 'test-run-id',
+        oldContent: 'const x = 1;\nconst y = 2;\n',
+        editSnippet,
+        filePath: 'test.ts',
+        clientSessionId: 'clientSessionId',
+        fingerprintId: 'fingerprintId',
+        userInputId: 'userInputId',
+        userId: TEST_USER_ID,
+        signal: new AbortController().signal,
+      })
+
+      // Should return the editSnippet directly without calling LLM
+      expect(result).toBe(editSnippet)
     })
   })
 })
