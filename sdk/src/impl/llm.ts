@@ -489,6 +489,17 @@ export async function* promptAiSdkStream(
       throw chunkValue.error
     }
     if (chunkValue.type === 'reasoning-delta') {
+      for (const provider of ['openrouter', 'codebuff'] as const) {
+        if (
+          (
+            params.providerOptions?.[provider] as
+              | OpenRouterProviderOptions
+              | undefined
+          )?.reasoning?.exclude
+        ) {
+          continue
+        }
+      }
       yield {
         type: 'reasoning',
         text: chunkValue.text,
