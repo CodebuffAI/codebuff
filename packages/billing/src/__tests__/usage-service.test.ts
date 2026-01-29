@@ -19,8 +19,8 @@ const mockBalance = {
   totalRemaining: 1000,
   totalDebt: 0,
   netBalance: 1000,
-  breakdown: { free: 500, paid: 500, referral: 0, purchase: 0, admin: 0, organization: 0, ad: 0 },
-  principals: { free: 500, paid: 500, referral: 0, purchase: 0, admin: 0, organization: 0, ad: 0 },
+  breakdown: { free: 500, referral: 0, subscription: 0, purchase: 500, admin: 0, organization: 0, ad: 0 },
+  principals: { free: 500, referral: 0, subscription: 0, purchase: 500, admin: 0, organization: 0, ad: 0 },
 }
 
 describe('usage-service', () => {
@@ -47,6 +47,10 @@ describe('usage-service', () => {
             usageThisCycle: 100,
             balance: mockBalance,
           }),
+        }))
+
+        await mockModule('@codebuff/billing/subscription', () => ({
+          getActiveSubscription: async () => null,
         }))
 
         const { getUserUsageData } = await import('@codebuff/billing/usage-service')
@@ -81,6 +85,10 @@ describe('usage-service', () => {
           }),
         }))
 
+        await mockModule('@codebuff/billing/subscription', () => ({
+          getActiveSubscription: async () => null,
+        }))
+
         const { getUserUsageData } = await import('@codebuff/billing/usage-service')
 
         const result = await getUserUsageData({
@@ -108,6 +116,10 @@ describe('usage-service', () => {
             usageThisCycle: 100,
             balance: mockBalance,
           }),
+        }))
+
+        await mockModule('@codebuff/billing/subscription', () => ({
+          getActiveSubscription: async () => null,
         }))
 
         const { getUserUsageData } = await import('@codebuff/billing/usage-service')
@@ -140,6 +152,10 @@ describe('usage-service', () => {
           }),
         }))
 
+        await mockModule('@codebuff/billing/subscription', () => ({
+          getActiveSubscription: async () => null,
+        }))
+
         const { getUserUsageData } = await import('@codebuff/billing/usage-service')
 
         const result = await getUserUsageData({
@@ -169,6 +185,10 @@ describe('usage-service', () => {
             usageThisCycle: 100,
             balance: mockBalance,
           }),
+        }))
+
+        await mockModule('@codebuff/billing/subscription', () => ({
+          getActiveSubscription: async () => null,
         }))
 
         const { getUserUsageData } = await import('@codebuff/billing/usage-service')

@@ -52,6 +52,17 @@ export const agentStepStatus = pgEnum('agent_step_status', [
   'skipped',
 ])
 
+export const subscriptionStatusEnum = pgEnum('subscription_status', [
+  'incomplete',
+  'incomplete_expired',
+  'trialing',
+  'active',
+  'past_due',
+  'canceled',
+  'unpaid',
+  'paused',
+])
+
 export const user = pgTable('user', {
   id: text('id')
     .primaryKey()
@@ -120,6 +131,7 @@ export const creditLedger = pgTable(
       .notNull()
       .defaultNow(),
     org_id: text('org_id').references(() => org.id, { onDelete: 'cascade' }),
+    stripe_subscription_id: text('stripe_subscription_id'),
   },
   (table) => [
     index('idx_credit_ledger_active_balance')
@@ -132,6 +144,11 @@ export const creditLedger = pgTable(
       )
       .where(sql`${table.balance} != 0 AND ${table.expires_at} IS NULL`),
     index('idx_credit_ledger_org').on(table.org_id),
+    index('idx_credit_ledger_subscription').on(
+      table.user_id,
+      table.type,
+      table.created_at,
+    ),
   ],
 )
 
@@ -441,6 +458,60 @@ export const adImpression = pgTable(
     index('idx_ad_impression_imp_url').on(table.imp_url),
   ],
 )
+
+// Subscription tables
+export const subscription = pgTable(
+  'subscription',
+  {
+    stripe_subscription_id: text('stripe_subscription_id').primaryKey(),
+    stripe_customer_id: text('stripe_customer_id').notNull(),
+    user_id: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
+    stripe_price_id: text('stripe_price_id').notNull(),
+    tier: integer('tier'),
+    scheduled_tier: integer('scheduled_tier'),
+    status: subscriptionStatusEnum('status').notNull().default('active'),
+    billing_period_start: timestamp('billing_period_start', {
+      mode: 'date',
+      withTimezone: true,
+    }).notNull(),
+    billing_period_end: timestamp('billing_period_end', {
+      mode: 'date',
+      withTimezone: true,
+    }).notNull(),
+    cancel_at_period_end: boolean('cancel_at_period_end')
+      .notNull()
+      .default(false),
+    canceled_at: timestamp('canceled_at', { mode: 'date', withTimezone: true }),
+    created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updated_at: timestamp('updated_at', { mode: 'date', withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('idx_subscription_customer').on(table.stripe_customer_id),
+    index('idx_subscription_user').on(table.user_id),
+    index('idx_subscription_status')
+      .on(table.status)
+      .where(sql`${table.status} = 'active'`),
+  ],
+)
+
+export const limitOverride = pgTable('limit_override', {
+  user_id: text('user_id')
+    .primaryKey()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  credits_per_block: integer('credits_per_block').notNull(),
+  block_duration_hours: integer('block_duration_hours').notNull(),
+  weekly_credit_limit: integer('weekly_credit_limit').notNull(),
+  created_at: timestamp('created_at', { mode: 'date', withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updated_at: timestamp('updated_at', { mode: 'date', withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
 
 export type GitEvalMetadata = {
   numCases?: number // Number of eval cases successfully run (total)

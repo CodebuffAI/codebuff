@@ -10,6 +10,7 @@ import {
   CreditCard,
   Star,
   Megaphone,
+  Zap,
 } from 'lucide-react'
 import React from 'react'
 
@@ -84,6 +85,14 @@ const grantTypeInfo: Record<
     icon: <Megaphone className="h-4 w-4" />,
     label: 'Ad Credits',
     description: 'Earned from viewing ads',
+  },
+  subscription: {
+    bg: 'bg-teal-500',
+    text: 'text-teal-600 dark:text-teal-400',
+    gradient: 'from-teal-500/70 to-teal-600/70',
+    icon: <Zap className="h-4 w-4" />,
+    label: 'Subscription',
+    description: 'Credits from your subscription',
   },
 }
 
@@ -234,6 +243,7 @@ export const UsageDisplay = ({
   const usedCredits: Record<FilteredGrantType, number> = {
     free: 0,
     referral: 0,
+    subscription: 0,
     purchase: 0,
     admin: 0,
     ad: 0,
@@ -252,7 +262,7 @@ export const UsageDisplay = ({
   })
 
   // Group credits by expiration type (excluding organization)
-  const expiringTypes: FilteredGrantType[] = ['free', 'referral']
+  const expiringTypes: FilteredGrantType[] = ['free', 'referral', 'subscription']
   const nonExpiringTypes: FilteredGrantType[] = ['admin', 'purchase', 'ad']
 
   const expiringTotal = expiringTypes.reduce(

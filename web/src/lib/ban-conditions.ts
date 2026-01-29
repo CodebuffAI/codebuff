@@ -5,6 +5,8 @@ import { eq } from 'drizzle-orm'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
+export { getUserByStripeCustomerId } from '@codebuff/internal/util/stripe'
+
 // =============================================================================
 // CONFIGURATION - Edit these values to adjust ban thresholds
 // =============================================================================
@@ -101,31 +103,6 @@ const BAN_CONDITIONS: BanCondition[] = [
 // =============================================================================
 // PUBLIC API
 // =============================================================================
-
-/**
- * Look up a user by their Stripe customer ID
- */
-export async function getUserByStripeCustomerId(
-  stripeCustomerId: string,
-): Promise<{
-  id: string
-  banned: boolean
-  email: string
-  name: string | null
-} | null> {
-  const users = await db
-    .select({
-      id: schema.user.id,
-      banned: schema.user.banned,
-      email: schema.user.email,
-      name: schema.user.name,
-    })
-    .from(schema.user)
-    .where(eq(schema.user.stripe_customer_id, stripeCustomerId))
-    .limit(1)
-
-  return users[0] ?? null
-}
 
 /**
  * Ban a user and log the action

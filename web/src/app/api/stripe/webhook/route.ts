@@ -2,12 +2,16 @@ import {
   grantOrganizationCredits,
   processAndGrantCredit,
   revokeGrantByOperationId,
+  handleSubscriptionInvoicePaid,
+  handleSubscriptionInvoicePaymentFailed,
+  handleSubscriptionUpdated,
+  handleSubscriptionDeleted,
 } from '@codebuff/billing'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
 import { env } from '@codebuff/internal/env'
 import { sendDisputeNotificationEmail } from '@codebuff/internal/loops'
-import { stripeServer } from '@codebuff/internal/util/stripe'
+import { getStripeId, stripeServer } from '@codebuff/internal/util/stripe'
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -19,8 +23,23 @@ import {
   evaluateBanConditions,
   getUserByStripeCustomerId,
 } from '@/lib/ban-conditions'
-import { getStripeCustomerId } from '@/lib/stripe-utils'
 import { logger } from '@/util/logger'
+
+/**
+ * Checks whether a Stripe customer ID belongs to an organization.
+ *
+ * Uses `org.stripe_customer_id` which is set at org creation time, making it
+ * reliable regardless of webhook ordering (unlike `stripe_subscription_id`
+ * which may not be populated yet when early invoice events arrive).
+ */
+async function isOrgCustomer(stripeCustomerId: string): Promise<boolean> {
+  const orgs = await db
+    .select({ id: schema.org.id })
+    .from(schema.org)
+    .where(eq(schema.org.stripe_customer_id, stripeCustomerId))
+    .limit(1)
+  return orgs.length > 0
+}
 
 async function handleCheckoutSessionCompleted(
   session: Stripe.Checkout.Session,
@@ -220,8 +239,15 @@ async function handleCheckoutSessionCompleted(
   }
 }
 
-async function handleSubscriptionEvent(subscription: Stripe.Subscription) {
+async function handleOrganizationSubscriptionEvent(subscription: Stripe.Subscription) {
   const organizationId = subscription.metadata?.organization_id
+  if (!organizationId) {
+    logger.warn(
+      { subscriptionId: subscription.id },
+      'Organization subscription event missing organization_id metadata',
+    )
+    return
+  }
 
   logger.info(
     {
@@ -230,16 +256,8 @@ async function handleSubscriptionEvent(subscription: Stripe.Subscription) {
       customerId: subscription.customer,
       organizationId,
     },
-    'Subscription event received',
+    'Organization subscription event received',
   )
-
-  if (!organizationId) {
-    logger.warn(
-      { subscriptionId: subscription.id },
-      'Subscription event received without organization_id in metadata',
-    )
-    return
-  }
 
   try {
     // Handle subscription cancellation
@@ -301,7 +319,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
   let customerId: string | null = null
   if (invoice.customer) {
-    customerId = getStripeCustomerId(invoice.customer)
+    customerId = getStripeId(invoice.customer)
   }
 
   if (creditNotes.data.length > 0) {
@@ -354,25 +372,35 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
       case 'customer.created':
         break
       case 'customer.subscription.created':
-      case 'customer.subscription.updated':
+      case 'customer.subscription.updated': {
+        const sub = event.data.object as Stripe.Subscription
+        if (sub.metadata?.organization_id) {
+          await handleOrganizationSubscriptionEvent(sub)
+        } else {
+          await handleSubscriptionUpdated({ stripeSubscription: sub, logger })
+        }
+        break
+      }
       case 'customer.subscription.deleted': {
-        await handleSubscriptionEvent(event.data.object as Stripe.Subscription)
+        const sub = event.data.object as Stripe.Subscription
+        if (sub.metadata?.organization_id) {
+          await handleOrganizationSubscriptionEvent(sub)
+        } else {
+          await handleSubscriptionDeleted({ stripeSubscription: sub, logger })
+        }
         break
       }
       case 'charge.dispute.created': {
         const dispute = event.data.object as Stripe.Dispute
-        const chargeId =
-          typeof dispute.charge === 'string'
-            ? dispute.charge
-            : dispute.charge?.id
 
-        if (!chargeId) {
+        if (!dispute.charge) {
           logger.warn(
             { disputeId: dispute.id },
             'Dispute received without charge ID',
           )
           break
         }
+        const chargeId = getStripeId(dispute.charge)
 
         // Get the charge to find the customer
         const charge = await stripeServer.charges.retrieve(chargeId)
@@ -384,9 +412,7 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
           break
         }
 
-        const customerId = getStripeCustomerId(
-          charge.customer as string | Stripe.Customer | Stripe.DeletedCustomer,
-        )
+        const customerId = getStripeId(charge.customer)
 
         if (!customerId) {
           logger.warn(
@@ -511,11 +537,39 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
         break
       }
       case 'invoice.paid': {
-        await handleInvoicePaid(event.data.object as Stripe.Invoice)
+        const invoice = event.data.object as Stripe.Invoice
+        if (invoice.subscription) {
+          if (!invoice.customer) {
+            logger.warn(
+              { invoiceId: invoice.id },
+              'Subscription invoice has no customer — skipping',
+            )
+          } else {
+            const customerId = getStripeId(invoice.customer)
+            if (!(await isOrgCustomer(customerId))) {
+              await handleSubscriptionInvoicePaid({ invoice, logger })
+            }
+          }
+        } else {
+          await handleInvoicePaid(invoice)
+        }
         break
       }
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice
+        if (invoice.subscription) {
+          if (!invoice.customer) {
+            logger.warn(
+              { invoiceId: invoice.id },
+              'Subscription invoice has no customer — skipping',
+            )
+          } else {
+            const customerId = getStripeId(invoice.customer)
+            if (!(await isOrgCustomer(customerId))) {
+              await handleSubscriptionInvoicePaymentFailed({ invoice, logger })
+            }
+          }
+        }
         if (
           invoice.metadata?.type === 'auto-topup' &&
           invoice.billing_reason === 'manual'
@@ -546,7 +600,7 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
         break
       }
       default:
-        console.log(`Unhandled event type ${event.type}`)
+        logger.debug({ type: event.type }, 'Unhandled Stripe event type')
     }
     return NextResponse.json({ received: true })
   } catch (err) {
