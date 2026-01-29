@@ -16,15 +16,15 @@ export const SUBSCRIPTION_TIERS = {
   },
   200: {
     monthlyPrice: 200,
-    creditsPerBlock: 1250,
+    creditsPerBlock: 1200,
     blockDurationHours: 5,
-    weeklyCreditsLimit: 12500,
+    weeklyCreditsLimit: 12000,
   },
   500: {
     monthlyPrice: 500,
-    creditsPerBlock: 3125,
+    creditsPerBlock: 3200,
     blockDurationHours: 5,
-    weeklyCreditsLimit: 31250,
+    weeklyCreditsLimit: 32000,
   },
 } as const satisfies Record<number, TierConfig>
 
