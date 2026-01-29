@@ -467,6 +467,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           method: 'POST',
           headers: { Authorization: 'Bearer test-api-key-123' },
           body: JSON.stringify({
+            model: 'test/test-model',
             stream: false,
             codebuff_metadata: {
               run_id: 'run-123',
