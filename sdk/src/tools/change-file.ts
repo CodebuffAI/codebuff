@@ -14,6 +14,11 @@ const FileChangeSchema = z.object({
   content: z.string(),
 })
 
+function containsUpwardTraversal(dirPath: string): boolean {
+  const normalized = path.normalize(dirPath)
+  return normalized.includes('..')
+}
+
 /**
  * Checks if a path contains path traversal sequences that would escape the root.
  * Uses proper path normalization to prevent traversal attacks.
@@ -31,7 +36,7 @@ export async function changeFile(params: {
 }): Promise<CodebuffToolOutput<'str_replace'>> {
   const { parameters, cwd, fs } = params
 
-  if (containsPathTraversal(cwd)) {
+  if (containsUpwardTraversal(cwd)) {
     throw new Error('cwd contains invalid path traversal')
   }
   const fileChange = FileChangeSchema.parse(parameters)
