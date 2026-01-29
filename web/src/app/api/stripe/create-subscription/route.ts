@@ -1,4 +1,4 @@
-import { getActiveSubscription, getTierPriceId } from '@codebuff/billing'
+import { getActiveSubscription, getPriceIdFromTier } from '@codebuff/billing'
 import { SUBSCRIPTION_TIERS } from '@codebuff/common/constants/subscription-plans'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     ? rawTier
     : 200) as SubscriptionTierPrice
 
-  const priceId = getTierPriceId(tier)
+  const priceId = getPriceIdFromTier(tier)
   if (!priceId) {
     return NextResponse.json(
       { error: 'Subscription tier not available' },

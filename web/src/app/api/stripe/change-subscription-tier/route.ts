@@ -1,7 +1,7 @@
 import {
   expireActiveBlockGrants,
   getActiveSubscription,
-  getTierPriceId,
+  getPriceIdFromTier,
 } from '@codebuff/billing'
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const newPriceId = getTierPriceId(tier)
+  const newPriceId = getPriceIdFromTier(tier)
   if (!newPriceId) {
     return NextResponse.json(
       { error: 'Subscription tier not available' },

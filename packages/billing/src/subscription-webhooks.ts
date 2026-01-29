@@ -1,5 +1,6 @@
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { createSubscriptionPriceMappings } from '@codebuff/common/constants/subscription-plans'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
 import { env } from '@codebuff/internal/env'
@@ -12,7 +13,6 @@ import { eq } from 'drizzle-orm'
 
 import { expireActiveBlockGrants, handleSubscribe } from './subscription'
 
-import type { SubscriptionTierPrice } from '@codebuff/common/constants/subscription-plans'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type Stripe from 'stripe'
 
@@ -27,23 +27,11 @@ function mapStripeStatus(status: Stripe.Subscription.Status): SubscriptionStatus
   return 'incomplete'
 }
 
-const priceToTier: Record<string, SubscriptionTierPrice> = {
-  ...(env.STRIPE_SUBSCRIPTION_100_PRICE_ID && { [env.STRIPE_SUBSCRIPTION_100_PRICE_ID]: 100 as const }),
-  ...(env.STRIPE_SUBSCRIPTION_200_PRICE_ID && { [env.STRIPE_SUBSCRIPTION_200_PRICE_ID]: 200 as const }),
-  ...(env.STRIPE_SUBSCRIPTION_500_PRICE_ID && { [env.STRIPE_SUBSCRIPTION_500_PRICE_ID]: 500 as const }),
-}
-
-function getTierFromPriceId(priceId: string): SubscriptionTierPrice | null {
-  return priceToTier[priceId] ?? null
-}
-
-const tierToPrice = Object.fromEntries(
-  Object.entries(priceToTier).map(([priceId, tier]) => [tier, priceId]),
-) as Partial<Record<SubscriptionTierPrice, string>>
-
-export function getTierPriceId(tier: SubscriptionTierPrice): string | null {
-  return tierToPrice[tier] ?? null
-}
+export const { getTierFromPriceId, getPriceIdFromTier } = createSubscriptionPriceMappings({
+  100: env.STRIPE_SUBSCRIPTION_100_PRICE_ID,
+  200: env.STRIPE_SUBSCRIPTION_200_PRICE_ID,
+  500: env.STRIPE_SUBSCRIPTION_500_PRICE_ID,
+})
 
 // ---------------------------------------------------------------------------
 // invoice.paid

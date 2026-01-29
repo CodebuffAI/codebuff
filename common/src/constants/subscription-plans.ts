@@ -31,3 +31,19 @@ export const SUBSCRIPTION_TIERS = {
 export type SubscriptionTierPrice = keyof typeof SUBSCRIPTION_TIERS
 
 export const DEFAULT_TIER = SUBSCRIPTION_TIERS[200]
+
+export function createSubscriptionPriceMappings(priceIds: Record<SubscriptionTierPrice, string>) {
+  const priceToTier = Object.fromEntries(
+    Object.entries(priceIds).map(([tier, priceId]) => [priceId, Number(tier) as SubscriptionTierPrice]),
+  ) as Record<string, SubscriptionTierPrice>
+
+  function getTierFromPriceId(priceId: string): SubscriptionTierPrice | null {
+    return priceToTier[priceId] ?? null
+  }
+
+  function getPriceIdFromTier(tier: SubscriptionTierPrice): string | null {
+    return priceIds[tier] ?? null
+  }
+
+  return { getTierFromPriceId, getPriceIdFromTier }
+}
