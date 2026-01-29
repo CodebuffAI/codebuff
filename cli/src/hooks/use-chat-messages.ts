@@ -203,14 +203,16 @@ export function useChatMessages({
 
   /**
    * Toggles all collapsible blocks in all AI responses.
-   * If any block is expanded, collapses all. Otherwise expands all.
+   * Primary action is to collapse all. Only expands if everything is already collapsed.
    */
   const handleToggleAll = useCallback(() => {
     isUserCollapsingRef.current = true
 
     setMessages((prevMessages) => {
-      // Determine target state: if any expanded, collapse all; otherwise expand all
-      const shouldCollapse = hasAnyExpandedBlocks(prevMessages)
+      // Primary action: collapse all open blocks
+      // Only expand if everything is already collapsed
+      const allCollapsed = !hasAnyExpandedBlocks(prevMessages)
+      const shouldCollapse = !allCollapsed
       return setAllBlocksCollapsedState(prevMessages, shouldCollapse)
     })
 
