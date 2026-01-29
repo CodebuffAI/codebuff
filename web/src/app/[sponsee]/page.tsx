@@ -24,10 +24,13 @@ export const generateMetadata = async ({
 
 export default async function SponseePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ sponsee: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const { sponsee } = await params
+  const resolvedSearchParams = await searchParams
   const sponseeName = sponsee.toLowerCase()
 
   const referralCode = await db
@@ -66,7 +69,20 @@ export default async function SponseePage({
     )
   }
 
-  redirect(
-    `/referrals/${referralCode}?referrer=${encodeURIComponent(sponseeName)}`,
-  )
+  // Build query string preserving all incoming params and adding/overriding referrer
+  const queryParams = new URLSearchParams()
+  for (const [key, value] of Object.entries(resolvedSearchParams)) {
+    if (value !== undefined) {
+      if (Array.isArray(value)) {
+        for (const v of value) {
+          queryParams.append(key, v)
+        }
+      } else {
+        queryParams.set(key, value)
+      }
+    }
+  }
+  queryParams.set('referrer', sponseeName)
+
+  redirect(`/referrals/${referralCode}?${queryParams.toString()}`)
 }
