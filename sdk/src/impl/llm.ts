@@ -1,7 +1,7 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { models, PROFIT_MARGIN } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
-import { getErrorObject } from '@codebuff/common/util/error'
+import { getErrorObject, promptAborted, promptSuccess } from '@codebuff/common/util/error'
 import { convertCbToModelMessages } from '@codebuff/common/util/messages'
 import { isExplicitlyDefinedModel } from '@codebuff/common/util/model-utils'
 import { StopSequenceHandler } from '@codebuff/common/util/stop-sequence'
@@ -199,7 +199,7 @@ export async function* promptAiSdkStream(
       },
       'Skipping stream due to canceled user input',
     )
-    return null
+    return promptAborted('User cancelled input')
   }
 
   const modelParams: ModelRequestParams = {
@@ -569,7 +569,7 @@ export async function* promptAiSdkStream(
     }
   }
 
-  return messageId
+  return promptSuccess(messageId)
 }
 
 export async function promptAiSdk(
@@ -585,7 +585,7 @@ export async function promptAiSdk(
       },
       'Skipping prompt due to canceled user input',
     )
-    return ''
+    return promptAborted('User cancelled input')
   }
 
   const modelParams: ModelRequestParams = {
@@ -627,7 +627,7 @@ export async function promptAiSdk(
     )
   }
 
-  return content
+  return promptSuccess(content)
 }
 
 export async function promptAiSdkStructured<T>(
@@ -643,7 +643,7 @@ export async function promptAiSdkStructured<T>(
       },
       'Skipping structured prompt due to canceled user input',
     )
-    throw new Error('Request aborted')
+    return promptAborted('User cancelled input')
   }
   const modelParams: ModelRequestParams = {
     apiKey: params.apiKey,
@@ -686,5 +686,5 @@ export async function promptAiSdkStructured<T>(
     )
   }
 
-  return content
+  return promptSuccess(content)
 }
