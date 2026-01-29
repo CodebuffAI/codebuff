@@ -505,7 +505,6 @@ export async function expireActiveBlockGrants(params: {
         eq(schema.creditLedger.user_id, userId),
         eq(schema.creditLedger.type, 'subscription'),
         gt(schema.creditLedger.expires_at, now),
-        gt(schema.creditLedger.balance, 0),
       ),
     )
     .returning({ operation_id: schema.creditLedger.operation_id })

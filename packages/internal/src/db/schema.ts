@@ -468,6 +468,7 @@ export const subscription = pgTable(
     user_id: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
     stripe_price_id: text('stripe_price_id').notNull(),
     tier: integer('tier'),
+    scheduled_tier: integer('scheduled_tier'),
     status: subscriptionStatusEnum('status').notNull().default('active'),
     billing_period_start: timestamp('billing_period_start', {
       mode: 'date',

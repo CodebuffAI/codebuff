@@ -104,7 +104,21 @@ export async function handleSubscriptionInvoicePaid(params: {
 
   const status = mapStripeStatus(stripeSub.status)
 
-  // Upsert subscription row
+  // Check for a pending scheduled tier change (downgrade)
+  const existingSub = await db
+    .select({
+      tier: schema.subscription.tier,
+      scheduled_tier: schema.subscription.scheduled_tier,
+    })
+    .from(schema.subscription)
+    .where(eq(schema.subscription.stripe_subscription_id, subscriptionId))
+    .limit(1)
+
+  const previousTier = existingSub[0]?.tier
+  const hadScheduledTier = existingSub[0]?.scheduled_tier != null
+
+  // Upsert subscription row — always apply the Stripe tier and clear
+  // scheduled_tier so pending downgrades take effect on renewal.
   await db
     .insert(schema.subscription)
     .values({
@@ -113,6 +127,7 @@ export async function handleSubscriptionInvoicePaid(params: {
       user_id: userId,
       stripe_price_id: priceId,
       tier,
+      scheduled_tier: null,
       status,
       billing_period_start: new Date(stripeSub.current_period_start * 1000),
       billing_period_end: new Date(stripeSub.current_period_end * 1000),
@@ -125,6 +140,7 @@ export async function handleSubscriptionInvoicePaid(params: {
         user_id: userId,
         stripe_price_id: priceId,
         tier,
+        scheduled_tier: null,
         billing_period_start: new Date(
           stripeSub.current_period_start * 1000,
         ),
@@ -133,6 +149,16 @@ export async function handleSubscriptionInvoicePaid(params: {
         updated_at: new Date(),
       },
     })
+
+  // If a scheduled downgrade was applied, expire block grants so the user
+  // gets new grants at the lower tier's limits.
+  if (hadScheduledTier) {
+    await expireActiveBlockGrants({ userId, subscriptionId, logger })
+    logger.info(
+      { userId, subscriptionId, previousTier, tier },
+      'Applied scheduled tier change and expired block grants',
+    )
+  }
 
   logger.info(
     {
@@ -233,10 +259,13 @@ export async function handleSubscriptionUpdated(params: {
 
   const status = mapStripeStatus(stripeSubscription.status)
 
-  // Check existing tier to detect downgrades — downgrades preserve the
-  // current tier until the next billing period (invoice.paid updates it).
+  // Check existing tier to detect downgrades. During a downgrade the old
+  // higher tier is kept in `scheduled_tier` so limits remain until renewal.
   const existingSub = await db
-    .select({ tier: schema.subscription.tier })
+    .select({
+      tier: schema.subscription.tier,
+      scheduled_tier: schema.subscription.scheduled_tier,
+    })
     .from(schema.subscription)
     .where(eq(schema.subscription.stripe_subscription_id, subscriptionId))
     .limit(1)
@@ -267,8 +296,11 @@ export async function handleSubscriptionUpdated(params: {
       target: schema.subscription.stripe_subscription_id,
       set: {
         user_id: userId,
-        stripe_price_id: priceId,
-        ...(isDowngrade ? {} : { tier }),
+        // Downgrade: preserve current tier & stripe_price_id, schedule the
+        // new tier for the next billing period.
+        ...(isDowngrade
+          ? { scheduled_tier: tier }
+          : { tier, stripe_price_id: priceId, scheduled_tier: null }),
         status,
         cancel_at_period_end: stripeSubscription.cancel_at_period_end,
         billing_period_start: new Date(
@@ -281,14 +313,23 @@ export async function handleSubscriptionUpdated(params: {
       },
     })
 
+  // If this is an upgrade, expire old block grants so the user gets new
+  // grants at the higher tier's limits. Also serves as a fallback if the
+  // route handler's DB update failed.
+  const isUpgrade = existingTier != null && tier > existingTier
+  if (isUpgrade) {
+    await expireActiveBlockGrants({ userId, subscriptionId, logger })
+  }
+
   logger.info(
     {
       subscriptionId,
       cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
       isDowngrade,
+      isUpgrade,
     },
     isDowngrade
-      ? 'Processed subscription update — downgrade deferred to next billing period'
+      ? 'Processed subscription update — downgrade scheduled for next billing period'
       : 'Processed subscription update',
   )
 }
@@ -315,6 +356,7 @@ export async function handleSubscriptionDeleted(params: {
     .update(schema.subscription)
     .set({
       status: 'canceled',
+      scheduled_tier: null,
       canceled_at: new Date(),
       updated_at: new Date(),
     })

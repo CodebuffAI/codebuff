@@ -58,13 +58,33 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const previousTier = subscription.tier
-  if (previousTier === tier) {
+  if (subscription.tier == null) {
+    logger.error(
+      { userId, subscriptionId: subscription.stripe_subscription_id },
+      'Subscription has no tier configured',
+    )
+    return NextResponse.json(
+      { error: 'Subscription has no tier configured.' },
+      { status: 400 },
+    )
+  }
+
+  if (tier === subscription.tier && subscription.scheduled_tier == null) {
     return NextResponse.json(
       { error: 'Already on the requested tier.' },
       { status: 400 },
     )
   }
+
+  if (subscription.scheduled_tier === tier) {
+    return NextResponse.json(
+      { error: 'Already scheduled for that tier.' },
+      { status: 400 },
+    )
+  }
+
+  const isCancelDowngrade = tier === subscription.tier && subscription.scheduled_tier != null
+  const isUpgrade = !isCancelDowngrade && tier > subscription.tier
 
   const newPriceId = getPriceIdFromTier(tier)
   if (!newPriceId) {
@@ -94,27 +114,59 @@ export async function POST(req: NextRequest) {
       subscription.stripe_subscription_id,
       {
         items: [{ id: itemId, price: newPriceId }],
-        proration_behavior: 'create_prorations',
+        proration_behavior: isUpgrade ? 'always_invoice' : 'none',
       },
     )
 
     try {
-      await Promise.all([
-        db
+      if (isCancelDowngrade) {
+        await db
           .update(schema.subscription)
-          .set({ tier, stripe_price_id: newPriceId, updated_at: new Date() })
+          .set({ scheduled_tier: null, updated_at: new Date() })
           .where(
             eq(
               schema.subscription.stripe_subscription_id,
               subscription.stripe_subscription_id,
             ),
-          ),
-        expireActiveBlockGrants({
-          userId,
-          subscriptionId: subscription.stripe_subscription_id,
-          logger,
-        }),
-      ])
+          )
+      } else if (isUpgrade) {
+        await Promise.all([
+          db
+            .update(schema.subscription)
+            .set({
+              tier,
+              stripe_price_id: newPriceId,
+              scheduled_tier: null,
+              updated_at: new Date(),
+            })
+            .where(
+              eq(
+                schema.subscription.stripe_subscription_id,
+                subscription.stripe_subscription_id,
+              ),
+            ),
+          expireActiveBlockGrants({
+            userId,
+            subscriptionId: subscription.stripe_subscription_id,
+            logger,
+          }),
+        ])
+      } else {
+        // Downgrade — only schedule the new lower tier for next billing period.
+        // Keep current tier and stripe_price_id unchanged so limits stay.
+        await db
+          .update(schema.subscription)
+          .set({
+            scheduled_tier: tier,
+            updated_at: new Date(),
+          })
+          .where(
+            eq(
+              schema.subscription.stripe_subscription_id,
+              subscription.stripe_subscription_id,
+            ),
+          )
+      }
     } catch (dbError) {
       logger.error(
         { error: dbError, userId, subscriptionId: subscription.stripe_subscription_id },
@@ -127,23 +179,33 @@ export async function POST(req: NextRequest) {
       userId,
       properties: {
         subscriptionId: subscription.stripe_subscription_id,
-        previousTier,
+        previousTier: subscription.tier,
         newTier: tier,
+        isUpgrade,
+        isCancelDowngrade,
       },
       logger,
     })
+
+    const logMessage = isCancelDowngrade
+      ? 'Pending downgrade canceled'
+      : isUpgrade
+        ? 'Subscription upgraded — billed immediately'
+        : 'Subscription downgraded — scheduled for next billing period'
 
     logger.info(
       {
         userId,
         subscriptionId: subscription.stripe_subscription_id,
-        previousTier,
+        previousTier: subscription.tier,
         newTier: tier,
+        isUpgrade,
+        isCancelDowngrade,
       },
-      'Subscription tier changed',
+      logMessage,
     )
 
-    return NextResponse.json({ success: true, previousTier, newTier: tier })
+    return NextResponse.json({ success: true, previousTier: subscription.tier, newTier: tier })
   } catch (error: unknown) {
     const message = error instanceof Error
       ? error.message
