@@ -37,6 +37,8 @@ The prompt field is a simple string, while params is a JSON object that gets val
 
 Each agent available is already defined as another tool, or, dynamically defined later in the conversation.
 
+**IMPORTANT**: \`agent_type\` must be an actual agent name (e.g., \`commander\`, \`code-searcher\`, \`opus-agent\`), NOT a tool name like \`read_files\`, \`str_replace\`, \`code_search\`, etc. If you need to call a tool, use it directly as a tool call instead of wrapping it in spawn_agents.
+
 You can call agents either as direct tool calls (e.g., \`example-agent\`) or use \`spawn_agents\`. Both formats work, but **prefer using spawn_agents** because it allows you to spawn multiple agents in parallel for better performance. Both use the same schema with nested \`prompt\` and \`params\` fields.
 
 **IMPORTANT**: Many agents have REQUIRED fields in their params schema. Check the agent's schema before spawning - if params has required fields, you MUST include them in the params object. For example, code-searcher requires \`searchQueries\`, commander requires \`command\`.
