@@ -232,7 +232,7 @@ describe('file-picker agent', () => {
       // First yield is spawn_agents
       generator.next()
 
-      // Mock spawn_agents result - wrapped in toolResult object
+      // Mock spawn_agents result - wrapped in toolResult object with production structure
       const mockToolResult = {
         agentState: createMockAgentState(),
         toolResult: [
@@ -240,15 +240,19 @@ describe('file-picker agent', () => {
             type: 'json' as const,
             value: [
               {
-                type: 'lastMessage',
-                value: [
-                  {
-                    role: 'assistant',
-                    content: [
-                      { type: 'text', text: 'src/auth.ts\nsrc/login.ts' },
-                    ],
-                  },
-                ],
+                agentName: 'File Lister',
+                agentType: 'file-lister',
+                value: {
+                  type: 'lastMessage',
+                  value: [
+                    {
+                      role: 'assistant',
+                      content: [
+                        { type: 'text', text: 'src/auth.ts\nsrc/login.ts' },
+                      ],
+                    },
+                  ],
+                },
               },
             ],
           },
@@ -282,7 +286,7 @@ describe('file-picker agent', () => {
 
       generator.next()
 
-      // Result with duplicate paths - wrapped in toolResult
+      // Result with duplicate paths - wrapped in toolResult with production structure
       const mockToolResult = {
         agentState: createMockAgentState(),
         toolResult: [
@@ -290,15 +294,19 @@ describe('file-picker agent', () => {
             type: 'json' as const,
             value: [
               {
-                type: 'lastMessage',
-                value: [
-                  {
-                    role: 'assistant',
-                    content: [
-                      { type: 'text', text: 'src/file.ts\nsrc/file.ts\nsrc/other.ts' },
-                    ],
-                  },
-                ],
+                agentName: 'File Lister',
+                agentType: 'file-lister',
+                value: {
+                  type: 'lastMessage',
+                  value: [
+                    {
+                      role: 'assistant',
+                      content: [
+                        { type: 'text', text: 'src/file.ts\nsrc/file.ts\nsrc/other.ts' },
+                      ],
+                    },
+                  ],
+                },
               },
             ],
           },
@@ -341,13 +349,17 @@ describe('file-picker agent', () => {
             type: 'json' as const,
             value: [
               {
-                type: 'lastMessage',
-                value: [
-                  {
-                    role: 'assistant',
-                    content: [{ type: 'text', text: 'src/file.ts' }],
-                  },
-                ],
+                agentName: 'File Lister',
+                agentType: 'file-lister',
+                value: {
+                  type: 'lastMessage',
+                  value: [
+                    {
+                      role: 'assistant',
+                      content: [{ type: 'text', text: 'src/file.ts' }],
+                    },
+                  ],
+                },
               },
             ],
           },
@@ -381,7 +393,7 @@ describe('file-picker agent', () => {
 
       generator.next()
 
-      // Result with error - wrapped in toolResult
+      // Result with error - wrapped in toolResult with production structure
       const mockToolResult = {
         agentState: createMockAgentState(),
         toolResult: [
@@ -389,8 +401,12 @@ describe('file-picker agent', () => {
             type: 'json' as const,
             value: [
               {
-                type: 'error',
-                message: 'File lister failed',
+                agentName: 'File Lister',
+                agentType: 'file-lister',
+                value: {
+                  type: 'error',
+                  message: 'File lister failed',
+                },
               },
             ],
           },
@@ -456,7 +472,7 @@ describe('file-picker agent', () => {
 
       generator.next()
 
-      // Mock result with two spawned agent results - wrapped in toolResult
+      // Mock result with two spawned agent results - wrapped in toolResult with production structure
       const mockToolResult = {
         agentState: createMockAgentState(),
         toolResult: [
@@ -464,26 +480,34 @@ describe('file-picker agent', () => {
             type: 'json' as const,
             value: [
               {
-                type: 'lastMessage',
-                value: [
-                  {
-                    role: 'assistant',
-                    content: [
-                      { type: 'text', text: 'src/auth.ts\nsrc/login.ts' },
-                    ],
-                  },
-                ],
+                agentName: 'File Lister',
+                agentType: 'file-lister',
+                value: {
+                  type: 'lastMessage',
+                  value: [
+                    {
+                      role: 'assistant',
+                      content: [
+                        { type: 'text', text: 'src/auth.ts\nsrc/login.ts' },
+                      ],
+                    },
+                  ],
+                },
               },
               {
-                type: 'lastMessage',
-                value: [
-                  {
-                    role: 'assistant',
-                    content: [
-                      { type: 'text', text: 'src/user.ts\nsrc/auth.ts' }, // auth.ts is duplicate
-                    ],
-                  },
-                ],
+                agentName: 'File Lister',
+                agentType: 'file-lister',
+                value: {
+                  type: 'lastMessage',
+                  value: [
+                    {
+                      role: 'assistant',
+                      content: [
+                        { type: 'text', text: 'src/user.ts\nsrc/auth.ts' }, // auth.ts is duplicate
+                      ],
+                    },
+                  ],
+                },
               },
             ],
           },
@@ -520,7 +544,7 @@ describe('file-picker agent', () => {
 
       generator.next()
 
-      // One success, one error - wrapped in toolResult
+      // One success, one error - wrapped in toolResult with production structure
       const mockToolResult = {
         agentState: createMockAgentState(),
         toolResult: [
@@ -528,17 +552,25 @@ describe('file-picker agent', () => {
             type: 'json' as const,
             value: [
               {
-                type: 'lastMessage',
-                value: [
-                  {
-                    role: 'assistant',
-                    content: [{ type: 'text', text: 'src/file.ts' }],
-                  },
-                ],
+                agentName: 'File Lister',
+                agentType: 'file-lister',
+                value: {
+                  type: 'lastMessage',
+                  value: [
+                    {
+                      role: 'assistant',
+                      content: [{ type: 'text', text: 'src/file.ts' }],
+                    },
+                  ],
+                },
               },
               {
-                type: 'error',
-                message: 'Second file-lister failed',
+                agentName: 'File Lister',
+                agentType: 'file-lister',
+                value: {
+                  type: 'error',
+                  message: 'Second file-lister failed',
+                },
               },
             ],
           },
