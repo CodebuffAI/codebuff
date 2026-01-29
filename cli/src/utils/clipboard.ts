@@ -83,22 +83,17 @@ export async function copyTextToClipboard(
   }
 
   try {
-    // Try OSC52 first (works over SSH/headless), then fallback to platform tools
-    if (!tryCopyViaOsc52(text)) {
-      const { execSync } = require('child_process') as typeof import('child_process')
-      const opts = { input: text, stdio: ['pipe', 'ignore', 'ignore'] as ('pipe' | 'ignore')[] }
+    let copied: boolean
+    if (isRemoteSession()) {
+      // Remote/SSH: prefer OSC 52 (copies to client terminal's clipboard)
+      copied = tryCopyViaOsc52(text) || tryCopyViaPlatformTool(text)
+    } else {
+      // Local: prefer platform tools (reliable with tmux), OSC 52 as fallback
+      copied = tryCopyViaPlatformTool(text) || tryCopyViaOsc52(text)
+    }
 
-      if (process.platform === 'darwin') {
-        execSync('pbcopy', opts)
-      } else if (process.platform === 'linux') {
-        try {
-          execSync('xclip -selection clipboard', opts)
-        } catch {
-          execSync('xsel --clipboard --input', opts)
-        }
-      } else if (process.platform === 'win32') {
-        execSync('clip', opts)
-      }
+    if (!copied) {
+      throw new Error('No clipboard method available')
     }
 
     if (!suppressGlobalMessage) {
@@ -136,6 +131,35 @@ export function clearClipboardMessage() {
 // OSC52 writes to clipboard via terminal escape sequences - works over SSH
 // because the client terminal handles clipboard. Format: ESC ] 52 ; c ; <base64> BEL
 // tmux/screen require passthrough wrapping to forward the sequence.
+
+function isRemoteSession(): boolean {
+  const env = getCliEnv()
+  return !!(env.SSH_CLIENT || env.SSH_TTY || env.SSH_CONNECTION)
+}
+
+function tryCopyViaPlatformTool(text: string): boolean {
+  const { execSync } = require('child_process') as typeof import('child_process')
+  const opts = { input: text, stdio: ['pipe', 'ignore', 'ignore'] as ('pipe' | 'ignore')[] }
+
+  try {
+    if (process.platform === 'darwin') {
+      execSync('pbcopy', opts)
+    } else if (process.platform === 'linux') {
+      try {
+        execSync('xclip -selection clipboard', opts)
+      } catch {
+        execSync('xsel --clipboard --input', opts)
+      }
+    } else if (process.platform === 'win32') {
+      execSync('clip', opts)
+    } else {
+      return false
+    }
+    return true
+  } catch {
+    return false
+  }
+}
 
 // 32KB is safe for all environments (tmux is the strictest)
 const OSC52_MAX_PAYLOAD = 32_000

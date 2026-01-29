@@ -21,6 +21,11 @@ export const getCliEnv = (): CliEnv => ({
   TMUX: process.env.TMUX,
   STY: process.env.STY,
 
+  // SSH/remote session detection
+  SSH_CLIENT: process.env.SSH_CLIENT,
+  SSH_TTY: process.env.SSH_TTY,
+  SSH_CONNECTION: process.env.SSH_CONNECTION,
+
   // Terminal detection
   KITTY_WINDOW_ID: process.env.KITTY_WINDOW_ID,
   SIXEL_SUPPORT: process.env.SIXEL_SUPPORT,

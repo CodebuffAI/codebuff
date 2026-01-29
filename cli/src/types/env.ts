@@ -21,6 +21,11 @@ export type CliEnv = BaseEnv & {
   TMUX?: string
   STY?: string
 
+  // SSH/remote session detection
+  SSH_CLIENT?: string
+  SSH_TTY?: string
+  SSH_CONNECTION?: string
+
   // Terminal-specific
   KITTY_WINDOW_ID?: string
   SIXEL_SUPPORT?: string
