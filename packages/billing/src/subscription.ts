@@ -554,7 +554,7 @@ export async function isSubscriber(params: {
 }
 
 // ---------------------------------------------------------------------------
-// Subscribe flow (Option B — unify renewal dates)
+// Subscribe flow
 // ---------------------------------------------------------------------------
 
 /**

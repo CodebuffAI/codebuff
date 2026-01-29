@@ -41,7 +41,7 @@ export const { getTierFromPriceId, getPriceIdFromTier } = createSubscriptionPric
  * Handles a paid invoice for a subscription.
  *
  * - On first payment (`subscription_create`): calls `handleSubscribe` to
- *   migrate the user's renewal date and unused credits (Option B).
+ *   migrate the user's renewal date and unused credits.
  * - On every payment: upserts the `subscription` row with fresh billing
  *   period dates from Stripe.
  */
@@ -83,22 +83,23 @@ export async function handleSubscriptionInvoicePaid(params: {
   }
 
   // Look up the user for this customer
-  const userId = (await getUserByStripeCustomerId(customerId))?.id ?? null
+  const user = await getUserByStripeCustomerId(customerId)
+  if (!user) {
+    logger.warn(
+      { customerId, subscriptionId },
+      'No user found for customer — skipping handleSubscribe',
+    )
+    return
+  }
+  const userId = user.id
 
-  // On first invoice, migrate renewal date & credits (Option B)
+  // On first invoice, migrate renewal date & credits
   if (invoice.billing_reason === 'subscription_create') {
-    if (userId) {
-      await handleSubscribe({
-        userId,
-        stripeSubscription: stripeSub,
-        logger,
-      })
-    } else {
-      logger.warn(
-        { customerId, subscriptionId },
-        'No user found for customer — skipping handleSubscribe',
-      )
-    }
+    await handleSubscribe({
+      userId,
+      stripeSubscription: stripeSub,
+      logger,
+    })
   }
 
   const status = mapStripeStatus(stripeSub.status)
@@ -121,7 +122,7 @@ export async function handleSubscriptionInvoicePaid(params: {
       target: schema.subscription.stripe_subscription_id,
       set: {
         status,
-        ...(userId ? { user_id: userId } : {}),
+        user_id: userId,
         stripe_price_id: priceId,
         tier,
         billing_period_start: new Date(
@@ -160,9 +161,11 @@ export async function handleSubscriptionInvoicePaymentFailed(params: {
   if (!invoice.subscription) return
   const subscriptionId = getStripeId(invoice.subscription)
   const customerId = getStripeId(invoice.customer)
-  const userId = customerId
-    ? (await getUserByStripeCustomerId(customerId))?.id ?? null
-    : null
+  let userId = null
+  if (customerId) {
+    const user = await getUserByStripeCustomerId(customerId)
+    userId = user?.id
+  }
 
   await db
     .update(schema.subscription)
@@ -218,9 +221,28 @@ export async function handleSubscriptionUpdated(params: {
   }
 
   const customerId = getStripeId(stripeSubscription.customer)
-  const userId = (await getUserByStripeCustomerId(customerId))?.id ?? null
+  const user = await getUserByStripeCustomerId(customerId)
+  if (!user) {
+    logger.warn(
+      { customerId, subscriptionId },
+      'No user found for customer — skipping',
+    )
+    return
+  }
+  const userId = user.id
 
   const status = mapStripeStatus(stripeSubscription.status)
+
+  // Check existing tier to detect downgrades — downgrades preserve the
+  // current tier until the next billing period (invoice.paid updates it).
+  const existingSub = await db
+    .select({ tier: schema.subscription.tier })
+    .from(schema.subscription)
+    .where(eq(schema.subscription.stripe_subscription_id, subscriptionId))
+    .limit(1)
+
+  const existingTier = existingSub[0]?.tier
+  const isDowngrade = existingTier != null && existingTier > tier
 
   // Upsert — webhook ordering is not guaranteed by Stripe, so this event
   // may arrive before invoice.paid creates the row.
@@ -244,9 +266,9 @@ export async function handleSubscriptionUpdated(params: {
     .onConflictDoUpdate({
       target: schema.subscription.stripe_subscription_id,
       set: {
-        ...(userId ? { user_id: userId } : {}),
+        user_id: userId,
         stripe_price_id: priceId,
-        tier,
+        ...(isDowngrade ? {} : { tier }),
         status,
         cancel_at_period_end: stripeSubscription.cancel_at_period_end,
         billing_period_start: new Date(
@@ -263,8 +285,11 @@ export async function handleSubscriptionUpdated(params: {
     {
       subscriptionId,
       cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
+      isDowngrade,
     },
-    'Processed subscription update',
+    isDowngrade
+      ? 'Processed subscription update — downgrade deferred to next billing period'
+      : 'Processed subscription update',
   )
 }
 
@@ -283,7 +308,8 @@ export async function handleSubscriptionDeleted(params: {
   const subscriptionId = stripeSubscription.id
 
   const customerId = getStripeId(stripeSubscription.customer)
-  const userId = (await getUserByStripeCustomerId(customerId))?.id ?? null
+  const user = await getUserByStripeCustomerId(customerId)
+  const userId = user?.id ?? null
 
   await db
     .update(schema.subscription)
