@@ -164,7 +164,7 @@ Please create a changelog with:
 
 Start your response with a heading using ### (three hashes) and organize the content below it.`
 
-    const response = await promptAiSdk({
+    const result = await promptAiSdk({
       messages: [userMessage(prompt)],
       clientSessionId: generateCompactId(),
       fingerprintId: generateCompactId(),
@@ -179,6 +179,14 @@ Start your response with a heading using ### (three hashes) and organize the con
       runId: 'unused-run-id',
       signal: new AbortController().signal,
     })
+
+    // Handle aborted request
+    if (result.aborted) {
+      console.log(`⏹️  Changelog generation was aborted`)
+      return false
+    }
+
+    const response = result.value
 
     // Clean up the AI response
     console.log(`🧹 Cleaning up AI response...`)
