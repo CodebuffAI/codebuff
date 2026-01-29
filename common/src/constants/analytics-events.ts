@@ -4,6 +4,7 @@
 export enum AnalyticsEvent {
   // CLI
   APP_LAUNCHED = 'cli.app_launched',
+  FINGERPRINT_GENERATED = 'cli.fingerprint_generated',
   CHANGE_DIRECTORY = 'cli.change_directory',
   INVALID_COMMAND = 'cli.invalid_command',
   KNOWLEDGE_FILE_UPDATED = 'cli.knowledge_file_updated',

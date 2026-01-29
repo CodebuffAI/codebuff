@@ -6,6 +6,7 @@ import {
   type FinetunedVertexModel,
 } from '@codebuff/common/old-constants'
 import { getAllFilePaths } from '@codebuff/common/project-file-tree'
+import { isAbortError, unwrapPromptResult } from '@codebuff/common/util/error'
 import { systemMessage, userMessage } from '@codebuff/common/util/messages'
 import { range, shuffle, uniq } from 'lodash'
 
@@ -77,6 +78,10 @@ export async function requestRelevantFiles(
     requestType: 'Key',
     modelId: modelIdForRequest,
   }).catch((error) => {
+    // Don't swallow abort errors - propagate them immediately
+    if (isAbortError(error)) {
+      throw error
+    }
     logger.error({ error }, 'Error requesting key files')
     return { files: [] as string[], duration: 0 }
   })
@@ -227,6 +232,11 @@ async function getRelevantFiles(
   return { files, duration, requestType, response }
 }
 
+/**
+ * Gets relevant files for training using Claude Sonnet.
+ *
+ * @throws {Error} When the request is aborted by user. Check with `isAbortError()`.
+ */
 async function getRelevantFilesForTraining(
   params: {
     messages: Message[]
@@ -264,13 +274,14 @@ async function getRelevantFilesForTraining(
     logger,
   })
   const start = performance.now()
-  let response = await promptAiSdk({
-    ...params,
-    messages: messagesWithSystem({ messages: messagesWithPrompt, system }),
-    model: models.openrouter_claude_sonnet_4,
-    chargeUser: false,
-  })
-
+  const response = unwrapPromptResult(
+    await promptAiSdk({
+      ...params,
+      messages: messagesWithSystem({ messages: messagesWithPrompt, system }),
+      model: models.openrouter_claude_sonnet_4,
+      chargeUser: false,
+    }),
+  )
   const end = performance.now()
   const duration = end - start
 

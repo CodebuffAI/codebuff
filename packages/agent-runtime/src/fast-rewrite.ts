@@ -1,5 +1,6 @@
 import { models, openaiModels } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
+import { unwrapPromptResult } from '@codebuff/common/util/error'
 import { parseMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import { generateCompactId, hasLazyEdit } from '@codebuff/common/util/string'
@@ -13,6 +14,11 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
+/**
+ * Rewrites file content using Relace AI with fallback to OpenAI.
+ *
+ * @throws {Error} When the request is aborted by user. Check with `isAbortError()`.
+ */
 export async function fastRewrite(
   params: {
     initialContent: string
@@ -64,7 +70,12 @@ export async function fastRewrite(
   return response
 }
 
-// Gemini flash can only output 8k tokens, openai models can do at least 16k tokens.
+/**
+ * Rewrites file content using OpenAI's o3-mini model when Gemini Flash output limit is exceeded.
+ * Gemini flash can only output 8k tokens, openai models can do at least 16k tokens.
+ *
+ * @throws {Error} When the request is aborted by user. Check with `isAbortError()`.
+ */
 export async function rewriteWithOpenAI(
   params: {
     oldContent: string
@@ -94,19 +105,26 @@ Important:
 
 Please output just the complete updated file content with the edit applied and no additional text.`
 
-  const response = await promptAiSdk({
-    ...params,
-    messages: [userMessage(prompt), assistantMessage('```\n')],
-    model: openaiModels.o3mini,
-  })
-
-  return parseMarkdownCodeBlock(response) + '\n'
+  return (
+    parseMarkdownCodeBlock(
+      unwrapPromptResult(
+        await promptAiSdk({
+          ...params,
+          messages: [userMessage(prompt), assistantMessage('```\n')],
+          model: openaiModels.o3mini,
+        }),
+      ),
+    ) + '\n'
+  )
 }
 
 /**
- * This whole function is about checking for a specific case where claude
- * sketches an update to a single function, but forgets to add ... existing code ...
- * above and below the function.
+ * Checks if Claude forgot to add "... existing code ..." placeholders.
+ *
+ * This handles a specific case where Claude sketches an update to a single function,
+ * but forgets to add ... existing code ... above and below the function.
+ *
+ * @throws {Error} When the request is aborted by user. Check with `isAbortError()`.
  */
 export const shouldAddFilePlaceholders = async (
   params: {

@@ -14,9 +14,10 @@ import type {
   PrintModeError,
   PrintModeText,
 } from '@codebuff/common/types/print-mode'
+import type { PromptResult } from '@codebuff/common/util/error'
 
 export async function* processStreamWithTools(params: {
-  stream: AsyncGenerator<StreamChunk, string | null>
+  stream: AsyncGenerator<StreamChunk, PromptResult<string | null>>
   processors: Record<
     string,
     {
@@ -42,7 +43,7 @@ export async function* processStreamWithTools(params: {
     toolName: string
     input: Record<string, unknown>
   }) => Promise<void>
-}): AsyncGenerator<StreamChunk, string | null> {
+}): AsyncGenerator<StreamChunk, PromptResult<string | null>> {
   const {
     stream,
     processors,
@@ -151,11 +152,11 @@ export async function* processStreamWithTools(params: {
     yield chunk
   }
 
-  let messageId: string | null = null
+  let result: PromptResult<string | null> = { aborted: false, value: null }
   while (true) {
     const { value, done } = await stream.next()
     if (done) {
-      messageId = value
+      result = value
       break
     }
     if (streamCompleted) {
@@ -167,5 +168,5 @@ export async function* processStreamWithTools(params: {
     // After the stream ends, try parsing one last time in case there's leftover text
     yield* processChunk(undefined)
   }
-  return messageId
+  return result
 }

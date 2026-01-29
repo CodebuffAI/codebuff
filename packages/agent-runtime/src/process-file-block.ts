@@ -1,4 +1,5 @@
 import { models } from '@codebuff/common/constants/model-config'
+import { unwrapPromptResult } from '@codebuff/common/util/error'
 import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { userMessage } from '@codebuff/common/util/messages'
 import { hasLazyEdit } from '@codebuff/common/util/string'
@@ -16,6 +17,11 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
+/**
+ * Processes a file block from the LLM response, applying edits to create updated file content.
+ *
+ * @throws {Error} When the request is aborted by user. Check with `isAbortError()`.
+ */
 export async function processFileBlock(
   params: {
     path: string
@@ -125,6 +131,7 @@ export async function processFileBlock(
     'Write diff created by fast-apply model. May contain errors. Make sure to double check!',
   )
   if (tokenCount > LARGE_FILE_TOKEN_LIMIT) {
+    // handleLargeFile throws on abort (propagates up) but returns null on retry failure
     const largeFileContent = await handleLargeFile({
       ...params,
       oldContent: normalizedInitialContent,
@@ -133,6 +140,7 @@ export async function processFileBlock(
     })
 
     if (!largeFileContent) {
+      // This only handles retry failure case - aborts throw and propagate up
       return {
         tool: 'write_file' as const,
         path,
@@ -224,6 +232,12 @@ export async function processFileBlock(
 
 const LARGE_FILE_TOKEN_LIMIT = 64_000
 
+/**
+ * Handles large file edits by generating SEARCH/REPLACE blocks.
+ *
+ * @returns The updated file content on success, or null if diff blocks failed to match after retry.
+ * @throws {Error} When the request is aborted by user. Check with `isAbortError()`.
+ */
 export async function handleLargeFile(
   params: {
     oldContent: string
@@ -237,6 +251,8 @@ export async function handleLargeFile(
   > &
     ParamsExcluding<PromptAiSdkFn, 'messages' | 'model'>,
 ): Promise<string | null> {
+  // Returns string on success, null on retry failure (diff blocks didn't match)
+  // Throws on abort (via unwrapPromptResult) - aborts propagate up to caller
   const { oldContent, editSnippet, filePath, promptAiSdk, logger } = params
   const startTime = Date.now()
 
@@ -275,12 +291,13 @@ Please output just the SEARCH/REPLACE blocks like this:
 [new content that matches edit snippet intent]
 >>>>>>> REPLACE`
 
-  const response = await promptAiSdk({
-    ...params,
-    messages: [userMessage(prompt)],
-    model: models.o4mini,
-  })
-
+  const response = unwrapPromptResult(
+    await promptAiSdk({
+      ...params,
+      messages: [userMessage(prompt)],
+      model: models.o4mini,
+    }),
+  )
   const { diffBlocks, diffBlocksThatDidntMatch } =
     parseAndGetDiffBlocksSingleFile({
       newContent: response,
