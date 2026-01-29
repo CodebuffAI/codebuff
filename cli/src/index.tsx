@@ -20,6 +20,7 @@ import React from 'react'
 
 import { App } from './app'
 import { handlePublish } from './commands/publish'
+import { runPlainLogin } from './login/plain-login'
 import { initializeApp } from './init/init-app'
 import { getProjectRoot, setProjectRoot } from './project-files'
 import { initAnalytics, trackEvent } from './utils/analytics'
@@ -174,10 +175,17 @@ async function main(): Promise<void> {
     initialMode,
   } = parseArgs()
 
+  const isLoginCommand = process.argv[2] === 'login'
   const isPublishCommand = process.argv.includes('publish')
   const hasAgentOverride = Boolean(agent && agent.trim().length > 0)
 
   await initializeApp({ cwd })
+
+  // Handle login command before rendering the app
+  if (isLoginCommand) {
+    await runPlainLogin()
+    return
+  }
 
   // Show project picker only when user starts at the home directory or an ancestor
   const projectRoot = getProjectRoot()

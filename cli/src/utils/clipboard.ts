@@ -132,7 +132,7 @@ export function clearClipboardMessage() {
 // because the client terminal handles clipboard. Format: ESC ] 52 ; c ; <base64> BEL
 // tmux/screen require passthrough wrapping to forward the sequence.
 
-function isRemoteSession(): boolean {
+export function isRemoteSession(): boolean {
   const env = getCliEnv()
   return !!(env.SSH_CLIENT || env.SSH_TTY || env.SSH_CONNECTION)
 }
