@@ -252,7 +252,7 @@ describe('autoCollapseBlocks', () => {
     ]
 
     const result = autoCollapseBlocks(blocks)
-    expect((result[0] as TextContentBlock).isCollapsed).toBe(true)
+    expect((result[0] as TextContentBlock).thinkingCollapseState).toBe('hidden')
   })
 
   test('does not collapse user-opened blocks', () => {
@@ -441,7 +441,7 @@ describe('appendTextToRootStream', () => {
 
     expect(result).toHaveLength(2)
     expect((result[1] as TextContentBlock).textType).toBe('reasoning')
-    expect((result[1] as TextContentBlock).isCollapsed).toBe(true)
+    expect((result[1] as TextContentBlock).thinkingCollapseState).toBe('preview')
   })
 
   test('returns original blocks for empty text', () => {
@@ -912,7 +912,7 @@ describe('appendTextToAgentBlock with native reasoning', () => {
     expect(agentBlock.blocks).toHaveLength(1)
     expect((agentBlock.blocks![0] as TextContentBlock).textType).toBe('reasoning')
     expect((agentBlock.blocks![0] as TextContentBlock).content).toBe('Thinking...')
-    expect((agentBlock.blocks![0] as TextContentBlock).isCollapsed).toBe(true)
+    expect((agentBlock.blocks![0] as TextContentBlock).thinkingCollapseState).toBe('preview')
     // Native reasoning has thinkingOpen undefined
     expect((agentBlock.blocks![0] as TextContentBlock).thinkingOpen).toBeUndefined()
   })

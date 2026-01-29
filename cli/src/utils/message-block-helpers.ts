@@ -79,7 +79,7 @@ export const autoCollapseBlocks = (blocks: ContentBlock[]): ContentBlock[] => {
   return blocks.map((block) => {
     // Handle thinking blocks (grouped text blocks)
     if (block.type === 'text' && block.thinkingId) {
-      return block.userOpened ? block : { ...block, isCollapsed: true }
+      return block.userOpened ? block : { ...block, thinkingCollapseState: 'hidden' as const }
     }
 
     // Handle agent blocks

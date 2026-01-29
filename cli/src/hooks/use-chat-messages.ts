@@ -116,11 +116,11 @@ export function useChatMessages({
               // Handle thinking blocks - just match by thinkingId
               if (block.type === 'text' && block.thinkingId === id) {
                 foundTarget = true
-                const wasCollapsed = block.isCollapsed ?? false
+                const isExpanded = block.thinkingCollapseState === 'expanded'
                 return {
                   ...block,
-                  isCollapsed: !wasCollapsed,
-                  userOpened: wasCollapsed, // Mark as user-opened if expanding
+                  thinkingCollapseState: isExpanded ? 'preview' as const : 'expanded' as const,
+                  userOpened: !isExpanded, // Mark as user-opened if expanding
                 }
               }
 
