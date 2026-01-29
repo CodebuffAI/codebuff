@@ -153,6 +153,11 @@ const nextConfig = {
           'https://github.com/CodebuffAI/codebuff-community/releases',
         permanent: false,
       },
+      {
+        source: '/b/:hash',
+        destination: 'https://go.trybeluga.ai/:hash',
+        permanent: false,
+      },
     ]
   },
   images: {
