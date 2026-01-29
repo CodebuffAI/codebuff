@@ -33,7 +33,7 @@ import type Stripe from 'stripe'
 
 export type SubscriptionRow = typeof schema.subscription.$inferSelect
 
-type DbConn = Pick<typeof db, 'select' | 'update' | 'insert'>
+export type DbConn = Pick<typeof db, 'select' | 'update' | 'insert'>
 
 export interface SubscriptionLimits {
   creditsPerBlock: number
@@ -241,6 +241,138 @@ export async function getWeeklyUsage(params: {
  *
  * All operations are serialised under an advisory lock for the user.
  */
+export async function ensureActiveBlockGrantCallback(params: {
+  conn: DbConn
+  userId: string
+  subscription: SubscriptionRow
+  logger: Logger
+  now?: Date
+}): Promise<BlockGrantResult> {
+  const { conn, userId, subscription, logger, now = new Date() } = params
+  const subscriptionId = subscription.stripe_subscription_id
+
+  // 1. Check for an existing active block grant
+  const existingGrants = await conn
+    .select()
+    .from(schema.creditLedger)
+    .where(
+      and(
+        eq(schema.creditLedger.user_id, userId),
+        eq(schema.creditLedger.type, 'subscription'),
+        gt(schema.creditLedger.expires_at, now),
+        gt(schema.creditLedger.balance, 0),
+      ),
+    )
+    .orderBy(desc(schema.creditLedger.expires_at))
+    .limit(1)
+
+  if (existingGrants.length > 0) {
+    const g = existingGrants[0]
+    return {
+      grantId: g.operation_id,
+      credits: g.balance,
+      expiresAt: g.expires_at!,
+      isNew: false,
+    } satisfies BlockGrant
+  }
+
+  // 2. Resolve limits
+  const limits = await getSubscriptionLimits({
+    userId,
+    logger,
+    conn,
+    tier: subscription.tier,
+  })
+
+  // 3. Check weekly limit before creating a new block
+  const weekly = await getWeeklyUsage({
+    userId,
+    billingPeriodStart: subscription.billing_period_start,
+    weeklyCreditsLimit: limits.weeklyCreditsLimit,
+    logger,
+    conn,
+  })
+
+  if (weekly.remaining <= 0) {
+    trackEvent({
+      event: AnalyticsEvent.SUBSCRIPTION_WEEKLY_LIMIT_HIT,
+      userId,
+      properties: {
+        subscriptionId,
+        weeklyUsed: weekly.used,
+        weeklyLimit: weekly.limit,
+      },
+      logger,
+    })
+
+    return {
+      error: 'weekly_limit_reached',
+      used: weekly.used,
+      limit: weekly.limit,
+      resetsAt: weekly.resetsAt,
+    } satisfies WeeklyLimitError
+  }
+
+  // 4. Create new block grant (capped to weekly remaining)
+  const blockCredits = Math.min(limits.creditsPerBlock, weekly.remaining)
+  const expiresAt = addHours(now, limits.blockDurationHours)
+  const operationId = `block-${subscriptionId}-${now.getTime()}`
+
+  const [newGrant] = await conn
+    .insert(schema.creditLedger)
+    .values({
+      operation_id: operationId,
+      user_id: userId,
+      stripe_subscription_id: subscriptionId,
+      type: 'subscription',
+      principal: blockCredits,
+      balance: blockCredits,
+      priority: GRANT_PRIORITIES.subscription,
+      expires_at: expiresAt,
+      description: `${SUBSCRIPTION_DISPLAY_NAME} block (${limits.blockDurationHours}h)`,
+    })
+    .onConflictDoNothing({ target: schema.creditLedger.operation_id })
+    .returning()
+
+  if (!newGrant) {
+    throw new Error(
+      'Failed to create block grant — possible duplicate operation',
+    )
+  }
+
+  trackEvent({
+    event: AnalyticsEvent.SUBSCRIPTION_BLOCK_CREATED,
+    userId,
+    properties: {
+      subscriptionId,
+      operationId,
+      credits: blockCredits,
+      expiresAt: expiresAt.toISOString(),
+      weeklyUsed: weekly.used,
+      weeklyLimit: weekly.limit,
+    },
+    logger,
+  })
+
+  logger.info(
+    {
+      userId,
+      subscriptionId,
+      operationId,
+      credits: blockCredits,
+      expiresAt,
+    },
+    'Created new subscription block grant',
+  )
+
+  return {
+    grantId: newGrant.operation_id,
+    credits: blockCredits,
+    expiresAt,
+    isNew: true,
+  } satisfies BlockGrant
+}
+
 export async function ensureActiveBlockGrant(params: {
   userId: string
   subscription: SubscriptionRow
@@ -251,128 +383,12 @@ export async function ensureActiveBlockGrant(params: {
 
   const { result } = await withAdvisoryLockTransaction({
     callback: async (tx) => {
-      const now = new Date()
-
-      // 1. Check for an existing active block grant
-      const existingGrants = await tx
-        .select()
-        .from(schema.creditLedger)
-        .where(
-          and(
-            eq(schema.creditLedger.user_id, userId),
-            eq(schema.creditLedger.type, 'subscription'),
-            gt(schema.creditLedger.expires_at, now),
-            gt(schema.creditLedger.balance, 0),
-          ),
-        )
-        .orderBy(desc(schema.creditLedger.expires_at))
-        .limit(1)
-
-      if (existingGrants.length > 0) {
-        const g = existingGrants[0]
-        return {
-          grantId: g.operation_id,
-          credits: g.balance,
-          expiresAt: g.expires_at!,
-          isNew: false,
-        } satisfies BlockGrant
-      }
-
-      // 2. Resolve limits
-      const limits = await getSubscriptionLimits({
-        userId,
-        logger,
+      return ensureActiveBlockGrantCallback({
         conn: tx,
-        tier: subscription.tier,
-      })
-
-      // 3. Check weekly limit before creating a new block
-      const weekly = await getWeeklyUsage({
         userId,
-        billingPeriodStart: subscription.billing_period_start,
-        weeklyCreditsLimit: limits.weeklyCreditsLimit,
-        logger,
-        conn: tx,
-      })
-
-      if (weekly.remaining <= 0) {
-        trackEvent({
-          event: AnalyticsEvent.SUBSCRIPTION_WEEKLY_LIMIT_HIT,
-          userId,
-          properties: {
-            subscriptionId,
-            weeklyUsed: weekly.used,
-            weeklyLimit: weekly.limit,
-          },
-          logger,
-        })
-
-        return {
-          error: 'weekly_limit_reached',
-          used: weekly.used,
-          limit: weekly.limit,
-          resetsAt: weekly.resetsAt,
-        } satisfies WeeklyLimitError
-      }
-
-      // 4. Create new block grant (capped to weekly remaining)
-      const blockCredits = Math.min(limits.creditsPerBlock, weekly.remaining)
-      const expiresAt = addHours(now, limits.blockDurationHours)
-      const operationId = `block-${subscriptionId}-${now.getTime()}`
-
-      const [newGrant] = await tx
-        .insert(schema.creditLedger)
-        .values({
-          operation_id: operationId,
-          user_id: userId,
-          stripe_subscription_id: subscriptionId,
-          type: 'subscription',
-          principal: blockCredits,
-          balance: blockCredits,
-          priority: GRANT_PRIORITIES.subscription,
-          expires_at: expiresAt,
-          description: `${SUBSCRIPTION_DISPLAY_NAME} block (${limits.blockDurationHours}h)`,
-        })
-        .onConflictDoNothing({ target: schema.creditLedger.operation_id })
-        .returning()
-
-      if (!newGrant) {
-        throw new Error(
-          'Failed to create block grant — possible duplicate operation',
-        )
-      }
-
-      trackEvent({
-        event: AnalyticsEvent.SUBSCRIPTION_BLOCK_CREATED,
-        userId,
-        properties: {
-          subscriptionId,
-          operationId,
-          credits: blockCredits,
-          expiresAt: expiresAt.toISOString(),
-          weeklyUsed: weekly.used,
-          weeklyLimit: weekly.limit,
-        },
+        subscription,
         logger,
       })
-
-      logger.info(
-        {
-          userId,
-          subscriptionId,
-          operationId,
-          credits: blockCredits,
-          expiresAt,
-        },
-        'Created new subscription block grant',
-      )
-
-      return {
-        grantId: newGrant.operation_id,
-        credits: blockCredits,
-        expiresAt,
-        isNew: true,
-      } satisfies BlockGrant
     },
     lockKey: `user:${userId}`,
     context: { userId, subscriptionId },
@@ -397,13 +413,15 @@ export async function checkRateLimit(params: {
   userId: string
   subscription: SubscriptionRow
   logger: Logger
+  conn?: DbConn
 }): Promise<RateLimitStatus> {
-  const { userId, subscription, logger } = params
+  const { userId, subscription, logger, conn = db } = params
   const now = new Date()
 
   const limits = await getSubscriptionLimits({
     userId,
     logger,
+    conn,
     tier: subscription.tier,
   })
 
@@ -412,6 +430,7 @@ export async function checkRateLimit(params: {
     billingPeriodStart: subscription.billing_period_start,
     weeklyCreditsLimit: limits.weeklyCreditsLimit,
     logger,
+    conn,
   })
 
   // Weekly limit takes precedence
@@ -428,7 +447,7 @@ export async function checkRateLimit(params: {
   }
 
   // Find most recent active subscription block grant for this user
-  const blocks = await db
+  const blocks = await conn
     .select()
     .from(schema.creditLedger)
     .where(
@@ -493,11 +512,12 @@ export async function expireActiveBlockGrants(params: {
   userId: string
   subscriptionId: string
   logger: Logger
+  conn?: DbConn
 }): Promise<number> {
-  const { userId, subscriptionId, logger } = params
+  const { userId, subscriptionId, logger, conn = db } = params
   const now = new Date()
 
-  const expired = await db
+  const expired = await conn
     .update(schema.creditLedger)
     .set({ expires_at: now })
     .where(
@@ -641,7 +661,7 @@ export async function handleSubscribe(params: {
 // Internal: credit migration
 // ---------------------------------------------------------------------------
 
-type DbTransaction = Parameters<typeof db.transaction>[0] extends (
+export type DbTransaction = Parameters<typeof db.transaction>[0] extends (
   tx: infer T,
 ) => unknown
   ? T
@@ -652,7 +672,7 @@ type DbTransaction = Parameters<typeof db.transaction>[0] extends (
  * into a single grant that expires at `expiresAt`. The old grants have their
  * balance zeroed.
  */
-async function migrateUnusedCredits(params: {
+export async function migrateUnusedCredits(params: {
   tx: DbTransaction
   userId: string
   subscriptionId: string
