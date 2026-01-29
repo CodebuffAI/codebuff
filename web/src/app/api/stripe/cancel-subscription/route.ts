@@ -30,7 +30,18 @@ export async function POST() {
       subscription.stripe_subscription_id,
       { cancel_at_period_end: true },
     )
+  } catch (error: unknown) {
+    const message =
+      (error as { raw?: { message?: string } })?.raw?.message ||
+      'Failed to cancel subscription in Stripe.'
+    logger.error(
+      { error: message, userId, subscriptionId: subscription.stripe_subscription_id },
+      'Stripe subscription cancellation failed',
+    )
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 
+  try {
     await db
       .update(schema.subscription)
       .set({ cancel_at_period_end: true, scheduled_tier: null, updated_at: new Date() })
@@ -40,21 +51,22 @@ export async function POST() {
           subscription.stripe_subscription_id,
         ),
       )
-
-    logger.info(
-      { userId, subscriptionId: subscription.stripe_subscription_id },
-      'Subscription set to cancel at period end',
-    )
-
-    return NextResponse.json({ success: true })
   } catch (error: unknown) {
-    const message =
-      (error as { raw?: { message?: string } })?.raw?.message ||
-      'Internal server error canceling subscription.'
+    const message = error instanceof Error ? error.message : String(error)
     logger.error(
       { error: message, userId, subscriptionId: subscription.stripe_subscription_id },
-      'Failed to cancel subscription',
+      'Stripe subscription set to cancel but failed to update local DB — data is inconsistent',
     )
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Subscription canceled but failed to update records. Please contact support.' },
+      { status: 500 },
+    )
   }
+
+  logger.info(
+    { userId, subscriptionId: subscription.stripe_subscription_id },
+    'Subscription set to cancel at period end',
+  )
+
+  return NextResponse.json({ success: true })
 }
