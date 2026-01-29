@@ -730,7 +730,10 @@ export async function migrateUnusedCredits(params: {
   for (const grant of unusedGrants) {
     await tx
       .update(schema.creditLedger)
-      .set({ balance: 0 })
+      .set({
+        balance: 0,
+        description: `Migrated ${grant.balance} credits to ${operationId}`,
+      })
       .where(eq(schema.creditLedger.operation_id, grant.operation_id))
   }
 

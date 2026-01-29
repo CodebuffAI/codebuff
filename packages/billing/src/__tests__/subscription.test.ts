@@ -359,8 +359,14 @@ describe('subscription', () => {
       })
 
       expect(captures.updateSets).toHaveLength(2)
-      expect(captures.updateSets[0]).toEqual({ balance: 0 })
-      expect(captures.updateSets[1]).toEqual({ balance: 0 })
+      expect(captures.updateSets[0]).toEqual({
+        balance: 0,
+        description: 'Migrated 300 credits to subscribe-migrate-sub-123',
+      })
+      expect(captures.updateSets[1]).toEqual({
+        balance: 0,
+        description: 'Migrated 200 credits to subscribe-migrate-sub-123',
+      })
 
       expect(captures.insertValues).toHaveLength(1)
       expect(captures.insertValues[0].principal).toBe(500)
