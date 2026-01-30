@@ -4,9 +4,6 @@ import { SUBSCRIPTION_DISPLAY_NAME } from '@codebuff/common/constants/subscripti
 import { env } from '@codebuff/common/env'
 import { useQuery } from '@tanstack/react-query'
 import {
-  Zap,
-  Clock,
-  CalendarDays,
   AlertTriangle,
   ExternalLink,
   Loader2,
@@ -47,45 +44,26 @@ interface SubscriptionApiResponse {
   }
 }
 
-function formatRelativeTime(dateStr: string): string {
+function formatHours(dateStr: string): string {
   const target = new Date(dateStr)
   const now = new Date()
   const diffMs = target.getTime() - now.getTime()
-  if (diffMs <= 0) return 'now'
-  const hours = Math.floor(diffMs / (1000 * 60 * 60))
-  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
-  if (hours > 0) return `${hours}h ${minutes}m`
-  return `${minutes}m`
+  if (isNaN(diffMs) || diffMs <= 0) return '0h'
+  const hours = Math.ceil(diffMs / (1000 * 60 * 60))
+  return `${hours}h`
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
-function formatShortDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  })
-}
 
 function ProgressBar({
-  value,
-  max,
+  percentAvailable,
   label,
   className,
 }: {
-  value: number
-  max: number
+  percentAvailable: number
   label: string
   className?: string
 }) {
-  const percent = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0
+  const percent = Math.min(100, Math.max(0, Math.round(percentAvailable)))
   return (
     <div
       role="progressbar"
@@ -101,11 +79,11 @@ function ProgressBar({
       <div
         className={cn(
           'h-full rounded-full transition-all duration-500',
-          percent >= 100
+          percent <= 0
             ? 'bg-red-500'
-            : percent >= 75
+            : percent <= 25
               ? 'bg-yellow-500'
-              : 'bg-indigo-500',
+              : 'bg-green-500',
         )}
         style={{ width: `${percent}%` }}
       />
@@ -126,23 +104,30 @@ function SubscriptionActive({
   const billingPortalUrl = `${env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}?prefilled_email=${encodeURIComponent(email)}`
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
+    <Card className="max-w-xl">
+      <CardHeader className="pb-5">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Zap className="h-5 w-5 text-indigo-500" />
-            {SUBSCRIPTION_DISPLAY_NAME} · ${subscription?.tier ?? 200}/mo
-          </CardTitle>
-          <span
-            className={cn(
-              'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-              isCanceling
-                ? 'bg-muted text-muted-foreground'
-                : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+          <CardTitle className="flex items-baseline gap-2 text-lg">
+            <span>💪</span>
+            {SUBSCRIPTION_DISPLAY_NAME}
+            <span className="text-sm font-normal text-muted-foreground">
+              ${subscription?.tier ?? 200}/mo
+            </span>
+            {isCanceling && (
+              <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
+                Canceling
+              </span>
             )}
+          </CardTitle>
+          <a
+            href={billingPortalUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
           >
-            {isCanceling ? 'Canceling' : 'Active'}
-          </span>
+            Manage
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -151,64 +136,40 @@ function SubscriptionActive({
           <>
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-1.5 font-medium">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                  Current Block
+                <span className="font-medium">
+                  Session
                 </span>
-                {rateLimit.blockResetsAt ? (
-                  <span className="text-muted-foreground">
-                    Resets in {formatRelativeTime(rateLimit.blockResetsAt)}
-                  </span>
-                ) : rateLimit.canStartNewBlock ? (
-                  <span className="text-muted-foreground">
-                    Ready for new session
-                  </span>
-                ) : null}
+                <span className="text-muted-foreground">
+                  {rateLimit.blockLimit != null && rateLimit.blockUsed != null && rateLimit.blockLimit > 0
+                    ? `${Math.round(100 - (rateLimit.blockUsed / rateLimit.blockLimit) * 100)}%`
+                    : '100%'}
+                  {rateLimit.blockResetsAt && ` · Resets in ${formatHours(rateLimit.blockResetsAt)}`}
+                </span>
               </div>
-              {rateLimit.blockLimit != null &&
-              rateLimit.blockUsed != null ? (
-                <>
-                  <ProgressBar
-                    value={rateLimit.blockUsed}
-                    max={rateLimit.blockLimit}
-                    label="Block usage"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {rateLimit.blockLimit > 0
-                      ? `${Math.round((rateLimit.blockUsed / rateLimit.blockLimit) * 100)}% used`
-                      : '0% used'}
-                  </p>
-                </>
-              ) : (
-                <>
-                  <ProgressBar value={0} max={1} label="Block usage" />
-                  <p className="text-xs text-muted-foreground">
-                    No active block — a new session will start when you use
-                    Codebuff
-                  </p>
-                </>
-              )}
+              <ProgressBar
+                percentAvailable={
+                  rateLimit.blockLimit != null && rateLimit.blockUsed != null && rateLimit.blockLimit > 0
+                    ? 100 - (rateLimit.blockUsed / rateLimit.blockLimit) * 100
+                    : 100
+                }
+                label="Session usage"
+              />
             </div>
 
             {/* Weekly usage */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-1.5 font-medium">
-                  <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-                  Weekly Usage
+                <span className="font-medium">
+                  Weekly
                 </span>
                 <span className="text-muted-foreground">
-                  Resets {formatShortDate(rateLimit.weeklyResetsAt)}
+                  {100 - rateLimit.weeklyPercentUsed}% · Resets in {formatHours(rateLimit.weeklyResetsAt)}
                 </span>
               </div>
               <ProgressBar
-                value={rateLimit.weeklyUsed}
-                max={rateLimit.weeklyLimit}
+                percentAvailable={100 - rateLimit.weeklyPercentUsed}
                 label="Weekly usage"
               />
-              <p className="text-xs text-muted-foreground">
-                {rateLimit.weeklyPercentUsed}% used
-              </p>
             </div>
 
             {/* Rate limit warning */}
@@ -217,33 +178,15 @@ function SubscriptionActive({
                 <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-yellow-600 dark:text-yellow-400" />
                 <p className="text-sm text-yellow-800 dark:text-yellow-300">
                   {rateLimit.reason === 'weekly_limit'
-                    ? `Weekly limit reached. Resets ${formatShortDate(rateLimit.weeklyResetsAt)}. You can still use a-la-carte credits.`
-                    : `Block exhausted. New block in ${rateLimit.blockResetsAt ? formatRelativeTime(rateLimit.blockResetsAt) : 'soon'}. You can still use a-la-carte credits.`}
+                    ? `Weekly limit reached. Resets in ${formatHours(rateLimit.weeklyResetsAt)}. You can still use a-la-carte credits.`
+                    : `Session exhausted. New session in ${rateLimit.blockResetsAt ? formatHours(rateLimit.blockResetsAt) : 'soon'}. You can still use a-la-carte credits.`}
                 </p>
               </div>
             )}
           </>
         )}
 
-        {/* Billing info & manage */}
-        <div className="flex items-center justify-between border-t pt-4">
-          <p className="text-sm text-muted-foreground">
-            {isCanceling
-              ? `Cancels ${subscription ? formatDate(subscription.billingPeriodEnd) : ''}`
-              : `Renews ${subscription ? formatDate(subscription.billingPeriodEnd) : ''}`}
-          </p>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground"
-            asChild
-          >
-            <a href={billingPortalUrl} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-              Manage Subscription
-            </a>
-          </Button>
-        </div>
+
       </CardContent>
     </Card>
   )
@@ -255,7 +198,7 @@ function SubscriptionCta() {
       <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
           <div className="mt-0.5 rounded-lg bg-indigo-100 p-2 dark:bg-indigo-900/30">
-            <Zap className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+            <span className="text-xl">💪</span>
           </div>
           <div>
             <h3 className="font-semibold">
