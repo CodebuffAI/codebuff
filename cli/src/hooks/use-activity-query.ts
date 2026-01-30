@@ -114,8 +114,20 @@ function getCacheEntry<T>(key: string): CacheEntry<T> | undefined {
 export function isEntryStale(key: string, staleTime: number): boolean {
   const entry = getCacheEntry(key)
   if (!entry) return true
-  if (entry.dataUpdatedAt === 0) return true
-  return staleTime === 0 || Date.now() - entry.dataUpdatedAt > staleTime
+  
+  // If we have successful data, use its timestamp for staleness
+  if (entry.dataUpdatedAt !== 0) {
+    return staleTime === 0 || Date.now() - entry.dataUpdatedAt > staleTime
+  }
+  
+  // No successful data - check if we have a recent error
+  // Use errorUpdatedAt to prevent rapid retries on persistent errors
+  if (entry.errorUpdatedAt !== null) {
+    return staleTime === 0 || Date.now() - entry.errorUpdatedAt > staleTime
+  }
+  
+  // No data and no error timestamp - entry is stale
+  return true
 }
 
 function setQueryFetching(key: string, fetching: boolean): void {
