@@ -17,6 +17,11 @@ import type {
   Logger,
   LoggerWithContextFn,
 } from '@codebuff/common/types/contracts/logger'
+
+import type {
+  BlockGrantResult,
+  SubscriptionRow,
+} from '@codebuff/billing/subscription'
 import type { NextRequest } from 'next/server'
 
 import type { ChatCompletionRequestBody } from '@/llm-api/types'
@@ -78,6 +83,8 @@ export async function postChatCompletions(params: {
   getAgentRunFromId: GetAgentRunFromIdFn
   fetch: typeof globalThis.fetch
   insertMessageBigquery: InsertMessageBigqueryFn
+  getActiveSubscription?: (params: { userId: string; logger: Logger }) => Promise<SubscriptionRow | null>
+  ensureActiveBlockGrant?: (params: { userId: string; subscription: SubscriptionRow; logger: Logger }) => Promise<BlockGrantResult>
 }) {
   const {
     req,
@@ -88,6 +95,8 @@ export async function postChatCompletions(params: {
     getAgentRunFromId,
     fetch,
     insertMessageBigquery,
+    getActiveSubscription,
+    ensureActiveBlockGrant,
   } = params
   let { logger } = params
 
@@ -181,6 +190,22 @@ export async function postChatCompletions(params: {
       },
       logger,
     })
+
+    // For subscribers, ensure a block grant exists before checking balance.
+    // This is done here block grants should only start when the user begins working.
+    if (getActiveSubscription && ensureActiveBlockGrant) {
+      try {
+        const activeSub = await getActiveSubscription({ userId, logger })
+        if (activeSub) {
+          await ensureActiveBlockGrant({ userId, subscription: activeSub, logger })
+        }
+      } catch (error) {
+        logger.error(
+          { error: getErrorObject(error), userId },
+          'Error ensuring subscription block grant',
+        )
+      }
+    }
 
     // Check user credits
     const {
