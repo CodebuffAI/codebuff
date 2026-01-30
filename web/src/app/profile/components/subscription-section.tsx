@@ -44,12 +44,17 @@ interface SubscriptionApiResponse {
   }
 }
 
-function formatHours(dateStr: string): string {
+function formatDaysHours(dateStr: string): string {
   const target = new Date(dateStr)
   const now = new Date()
   const diffMs = target.getTime() - now.getTime()
   if (isNaN(diffMs) || diffMs <= 0) return '0h'
-  const hours = Math.ceil(diffMs / (1000 * 60 * 60))
+  const totalHours = Math.ceil(diffMs / (1000 * 60 * 60))
+  const days = Math.floor(totalHours / 24)
+  const hours = totalHours % 24
+  if (days > 0) {
+    return hours > 0 ? `${days}d ${hours}h` : `${days}d`
+  }
   return `${hours}h`
 }
 
@@ -138,12 +143,16 @@ function SubscriptionActive({
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium">
                   Session
+                  {rateLimit.blockResetsAt && (
+                    <span className="font-normal text-muted-foreground ml-1.5">
+                      resets in {formatDaysHours(rateLimit.blockResetsAt)}
+                    </span>
+                  )}
                 </span>
                 <span className="text-muted-foreground">
                   {rateLimit.blockLimit != null && rateLimit.blockUsed != null && rateLimit.blockLimit > 0
                     ? `${Math.round(100 - (rateLimit.blockUsed / rateLimit.blockLimit) * 100)}%`
                     : '100%'}
-                  {rateLimit.blockResetsAt && ` · Resets in ${formatHours(rateLimit.blockResetsAt)}`}
                 </span>
               </div>
               <ProgressBar
@@ -161,9 +170,12 @@ function SubscriptionActive({
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium">
                   Weekly
+                  <span className="font-normal text-muted-foreground ml-1.5">
+                    resets in {formatDaysHours(rateLimit.weeklyResetsAt)}
+                  </span>
                 </span>
                 <span className="text-muted-foreground">
-                  {100 - rateLimit.weeklyPercentUsed}% · Resets in {formatHours(rateLimit.weeklyResetsAt)}
+                  {100 - rateLimit.weeklyPercentUsed}%
                 </span>
               </div>
               <ProgressBar
@@ -178,8 +190,8 @@ function SubscriptionActive({
                 <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-yellow-600 dark:text-yellow-400" />
                 <p className="text-sm text-yellow-800 dark:text-yellow-300">
                   {rateLimit.reason === 'weekly_limit'
-                    ? `Weekly limit reached. Resets in ${formatHours(rateLimit.weeklyResetsAt)}. You can still use a-la-carte credits.`
-                    : `Session exhausted. New session in ${rateLimit.blockResetsAt ? formatHours(rateLimit.blockResetsAt) : 'soon'}. You can still use a-la-carte credits.`}
+                    ? `Weekly limit reached. Resets in ${formatDaysHours(rateLimit.weeklyResetsAt)}. You can still use a-la-carte credits.`
+                    : `Session exhausted. New session in ${rateLimit.blockResetsAt ? formatDaysHours(rateLimit.blockResetsAt) : 'soon'}. You can still use a-la-carte credits.`}
                 </p>
               </div>
             )}
