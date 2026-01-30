@@ -125,7 +125,7 @@ describe('autoCollapseBlocks', () => {
       { type: 'text', content: 'thinking', thinkingId: 'think-1' },
     ]
     const result = autoCollapseBlocks(blocks)
-    expect(result[0]).toHaveProperty('isCollapsed', true)
+    expect(result[0]).toHaveProperty('thinkingCollapseState', 'hidden')
   })
 
   test('preserves user-opened text blocks', () => {
@@ -394,7 +394,7 @@ describe('appendInterruptionNotice', () => {
         status: 'running',
         thinkingId: 'think-1',
         userOpened: true,
-        isCollapsed: true,
+        thinkingCollapseState: 'hidden',
       },
     ]
     const result = appendInterruptionNotice(blocks)
@@ -403,7 +403,7 @@ describe('appendInterruptionNotice', () => {
       status: 'running',
       thinkingId: 'think-1',
       userOpened: true,
-      isCollapsed: true,
+      thinkingCollapseState: 'hidden',
       content: 'Hello\n\n[response interrupted]',
     })
   })

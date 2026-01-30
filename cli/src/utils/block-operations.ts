@@ -124,7 +124,7 @@ const createReasoningBlock = (
   type: 'text',
   content,
   textType: 'reasoning',
-  isCollapsed: true,
+  thinkingCollapseState: 'preview',
   thinkingOpen,
   thinkingId,
 })
@@ -329,7 +329,7 @@ const appendNativeReasoningToBlocks = (
     type: 'text',
     content: text,
     textType: 'reasoning',
-    isCollapsed: true,
+    thinkingCollapseState: 'preview',
     thinkingId: generateThinkingId(),
   }
 
@@ -434,7 +434,7 @@ export const appendTextToRootStream = (
       type: 'text',
       content: delta.text,
       textType: 'reasoning',
-      isCollapsed: true,
+      thinkingCollapseState: 'preview',
       thinkingId: generateThinkingId(),
     }
 

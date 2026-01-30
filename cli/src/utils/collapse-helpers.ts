@@ -2,7 +2,7 @@
  * Pure utility functions for collapse/expand all functionality.
  */
 
-import type { ChatMessage, ContentBlock } from '../types/chat'
+import type { ChatMessage, ContentBlock, TextContentBlock, ThinkingCollapseState } from '../types/chat'
 
 /**
  * Type representing a block that supports collapsing.
@@ -11,6 +11,14 @@ import type { ChatMessage, ContentBlock } from '../types/chat'
 type CollapsibleBlock = ContentBlock & {
   isCollapsed?: boolean
   userOpened?: boolean
+}
+
+/**
+ * Checks if a block is a thinking text block (text with thinkingId).
+ * These use thinkingCollapseState instead of isCollapsed.
+ */
+function isThinkingTextBlock(block: ContentBlock): block is TextContentBlock {
+  return block.type === 'text' && 'thinkingId' in block && !!block.thinkingId
 }
 
 /**
@@ -29,29 +37,46 @@ function isCollapsibleBlock(block: ContentBlock): block is CollapsibleBlock {
 
 /**
  * Checks if a collapsible block is explicitly expanded.
- * A block is considered expanded only if isCollapsed is explicitly set to false.
- * Undefined isCollapsed is treated as collapsed (the default state).
+ * Thinking blocks use thinkingCollapseState; others use isCollapsed.
  */
 function isBlockExpanded(block: CollapsibleBlock): boolean {
+  if (isThinkingTextBlock(block)) {
+    return block.thinkingCollapseState === 'expanded'
+  }
   return block.isCollapsed === false
 }
 
 /**
  * Gets the current collapsed state of a block.
- * Treats undefined as collapsed (true) to match the "undefined means collapsed" semantics.
+ * Thinking blocks use thinkingCollapseState; others use isCollapsed.
  */
 function getBlockCollapsedState(block: CollapsibleBlock): boolean {
+  if (isThinkingTextBlock(block)) {
+    return block.thinkingCollapseState !== 'expanded'
+  }
   return block.isCollapsed ?? true
 }
 
 /**
  * Creates an updated block with new collapsed state if different from current.
  * Returns null if no change is needed.
+ * Thinking blocks use thinkingCollapseState; others use isCollapsed.
  */
 function createUpdatedBlock(
   block: CollapsibleBlock,
   collapsed: boolean,
 ): CollapsibleBlock | null {
+  if (isThinkingTextBlock(block)) {
+    const targetState: ThinkingCollapseState = collapsed ? 'hidden' : 'expanded'
+    if (block.thinkingCollapseState === targetState) {
+      return null
+    }
+    return {
+      ...block,
+      thinkingCollapseState: targetState,
+      userOpened: !collapsed ? true : block.userOpened,
+    }
+  }
   const currentCollapsed = getBlockCollapsedState(block)
   if (currentCollapsed === collapsed) {
     return null

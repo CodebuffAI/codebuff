@@ -4,8 +4,6 @@ import * as schema from '@codebuff/internal/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
 import { notFound, redirect } from 'next/navigation'
 
-import { getCachedAgentsForStaticParams } from '@/server/agents-data'
-
 interface AgentRedirectPageProps {
   params: Promise<{
     id: string // publisher id
@@ -104,21 +102,5 @@ const AgentRedirectPage = async ({ params }: AgentRedirectPageProps) => {
 
 // ISR Configuration - revalidate every 10 minutes
 export const revalidate = 600
-
-// Generate static params for all agents
-export async function generateStaticParams(): Promise<
-  Array<{ id: string; agentId: string }>
-> {
-  const agents = await getCachedAgentsForStaticParams()
-  // Get unique publisher_id + agent_id combinations
-  const uniqueAgents = new Map<string, { id: string; agentId: string }>()
-  for (const agent of agents) {
-    const key = `${agent.publisher_id}/${agent.id}`
-    if (!uniqueAgents.has(key)) {
-      uniqueAgents.set(key, { id: agent.publisher_id, agentId: agent.id })
-    }
-  }
-  return Array.from(uniqueAgents.values())
-}
 
 export default AgentRedirectPage
