@@ -80,6 +80,9 @@ const packageConfigs: PackageConfig[] = [
     name: 'cli',
     rootDir: path.join(cwd, 'cli', 'src'),
     enforceRestrictedImports: true,
+    additionalProcessEnvAllowlist: [
+      'cli/src/init/init-direnv.ts', // Loads direnv vars into process.env at startup
+    ],
   },
   {
     name: 'sdk',
