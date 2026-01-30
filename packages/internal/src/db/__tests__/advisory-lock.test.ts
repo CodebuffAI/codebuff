@@ -92,6 +92,7 @@ describe('advisory-lock', () => {
           max: 1,
           idle_timeout: 0,
           connect_timeout: 10,
+          max_lifetime: 0,
         })
 
         await result.handle?.release()
