@@ -1,6 +1,6 @@
 import { useActivityQuery } from './use-activity-query'
 import { getAuthToken } from '../utils/auth'
-import { getApiClient, setApiClientAuthToken } from '../utils/codebuff-api'
+import { getApiClient } from '../utils/codebuff-api'
 import { logger as defaultLogger } from '../utils/logger'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
@@ -48,8 +48,6 @@ export interface SubscriptionData {
 export async function fetchSubscriptionData(
   logger: Logger = defaultLogger,
 ): Promise<SubscriptionData> {
-  const authToken = getAuthToken()
-  setApiClientAuthToken(authToken)
   const client = getApiClient()
   const response = await client.get<SubscriptionData>(
     '/api/user/subscription',

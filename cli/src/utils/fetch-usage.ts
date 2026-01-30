@@ -1,5 +1,5 @@
 import { getAuthToken } from './auth'
-import { getApiClient, setApiClientAuthToken } from './codebuff-api'
+import { getApiClient } from './codebuff-api'
 import { logger } from './logger'
 import { useChatStore } from '../state/chat-store'
 
@@ -42,11 +42,7 @@ export async function fetchAndUpdateUsage(
   }
 
   const apiClient =
-    providedApiClient ??
-    (() => {
-      setApiClientAuthToken(authToken)
-      return getApiClient()
-    })()
+    providedApiClient ?? getApiClient()
 
   try {
     const response = await apiClient.usage()

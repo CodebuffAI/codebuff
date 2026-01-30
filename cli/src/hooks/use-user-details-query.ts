@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { getAuthToken } from '../utils/auth'
-import { getApiClient, setApiClientAuthToken } from '../utils/codebuff-api'
+import { getApiClient } from '../utils/codebuff-api'
 import { logger as defaultLogger } from '../utils/logger'
 
 import type {
@@ -38,11 +38,7 @@ export async function fetchUserDetails<T extends UserField>({
   apiClient: providedApiClient,
 }: FetchUserDetailsParams<T>): Promise<UserDetails<T> | null> {
   const apiClient =
-    providedApiClient ??
-    (() => {
-      setApiClientAuthToken(authToken)
-      return getApiClient()
-    })()
+    providedApiClient ?? getApiClient()
 
   const response = await apiClient.me(fields)
 
