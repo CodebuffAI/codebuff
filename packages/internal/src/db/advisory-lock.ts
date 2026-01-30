@@ -14,6 +14,17 @@ export type AdvisoryLockId = (typeof ADVISORY_LOCK_IDS)[keyof typeof ADVISORY_LO
 
 const HEALTH_CHECK_INTERVAL_MS = 10_000 // 10 seconds
 
+/**
+ * Coerces a postgres boolean result to a native boolean.
+ * postgres can return 't'/'f' strings when type parsing is disabled,
+ * or actual boolean values depending on configuration.
+ */
+function coerceBool(value: unknown): boolean {
+  if (typeof value === 'boolean') return value
+  if (value === 't' || value === 'true' || value === 1) return true
+  return false
+}
+
 // Diagnostic logging helper with timestamp and process info
 function logLock(level: 'info' | 'error' | 'warn', message: string, data?: Record<string, unknown>): void {
   const timestamp = new Date().toISOString()
@@ -54,12 +65,13 @@ export async function tryAcquireAdvisoryLock(lockId: AdvisoryLockId): Promise<{
     max: 1,
     idle_timeout: 0,
     connect_timeout: 10,
+    max_lifetime: 0, // Disable connection recycling - must keep session alive for advisory lock
   })
 
   try {
     logLock('info', 'Database connection established, attempting pg_try_advisory_lock')
     const result = await connection`SELECT pg_try_advisory_lock(${lockId}) as acquired`
-    const acquired = result[0]?.acquired === true
+    const acquired = coerceBool(result[0]?.acquired)
 
     logLock('info', 'Lock acquisition result', { acquired, lockId })
 
@@ -74,11 +86,14 @@ export async function tryAcquireAdvisoryLock(lockId: AdvisoryLockId): Promise<{
     // Create the lock handle
     let lostCallback: (() => void) | null = null
     let isReleased = false
+    let lostTriggered = false // Track if lost was triggered before callback registered
     let healthCheckTimer: ReturnType<typeof setInterval> | null = null
     let healthCheckCount = 0
+    let healthCheckInFlight = false // Guard against stacking health checks
 
     const triggerLost = () => {
-      if (isReleased) return
+      if (isReleased || lostTriggered) return
+      lostTriggered = true
       logLock('warn', 'Lock lost detected, triggering lost callback', { lockId, healthCheckCount })
       if (healthCheckTimer) {
         clearInterval(healthCheckTimer)
@@ -94,7 +109,8 @@ export async function tryAcquireAdvisoryLock(lockId: AdvisoryLockId): Promise<{
 
     // Start health check interval - verify we still hold the lock, not just connection liveness
     healthCheckTimer = setInterval(async () => {
-      if (isReleased) return
+      if (isReleased || healthCheckInFlight) return
+      healthCheckInFlight = true
       healthCheckCount++
       try {
         // Query pg_locks to verify we still hold this specific advisory lock
@@ -109,7 +125,7 @@ export async function tryAcquireAdvisoryLock(lockId: AdvisoryLockId): Promise<{
             AND granted = true
           ) as held
         `
-        const stillHeld = result[0]?.held === true
+        const stillHeld = coerceBool(result[0]?.held)
         if (!stillHeld) {
           logLock('error', 'Advisory lock health check failed - lock no longer held', { lockId, healthCheckCount })
           triggerLost()
@@ -120,12 +136,18 @@ export async function tryAcquireAdvisoryLock(lockId: AdvisoryLockId): Promise<{
       } catch (error) {
         logLock('error', 'Advisory lock health check failed - connection lost', { lockId, healthCheckCount, error: String(error) })
         triggerLost()
+      } finally {
+        healthCheckInFlight = false
       }
     }, HEALTH_CHECK_INTERVAL_MS)
 
     const handle: LockHandle = {
       onLost(callback: () => void) {
         lostCallback = callback
+        // If lost was already triggered before callback was registered, invoke immediately
+        if (lostTriggered) {
+          callback()
+        }
       },
       async release() {
         if (isReleased) {
