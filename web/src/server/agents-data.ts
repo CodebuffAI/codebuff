@@ -182,12 +182,6 @@ export interface SitemapAgentData {
   last_used?: string
 }
 
-export interface StaticParamsAgentData {
-  id: string
-  version: string
-  publisher_id: string
-}
-
 export const fetchAgentsForSitemap = async (): Promise<SitemapAgentData[]> => {
   try {
     // Fetch only the fields needed for sitemap URLs - no data blob at all
@@ -236,51 +230,12 @@ export const fetchAgentsForSitemap = async (): Promise<SitemapAgentData[]> => {
   }
 }
 
-export const fetchAgentsForStaticParams = async (): Promise<
-  StaticParamsAgentData[]
-> => {
-  try {
-    // Fetch only the fields needed to build static params for versioned agents.
-    const agents = await db
-      .select({
-        id: schema.agentConfig.id,
-        version: schema.agentConfig.version,
-        publisher_id: schema.publisher.id,
-      })
-      .from(schema.agentConfig)
-      .innerJoin(
-        schema.publisher,
-        eq(schema.agentConfig.publisher_id, schema.publisher.id),
-      )
-      .orderBy(sql`${schema.agentConfig.created_at} DESC`)
-
-    return agents
-  } catch (error) {
-    // In CI/build environments without a database, return empty array
-    // so pages are dynamically rendered at runtime instead of statically generated
-    console.warn(
-      '[fetchAgentsForStaticParams] Database unavailable, returning empty array:',
-      error instanceof Error ? error.message : error,
-    )
-    return []
-  }
-}
-
 export const getCachedAgentsForSitemap = unstable_cache(
   fetchAgentsForSitemap,
   ['agents-sitemap'],
   {
     revalidate: 600, // 10 minutes
     tags: ['agents', 'sitemap'],
-  },
-)
-
-export const getCachedAgentsForStaticParams = unstable_cache(
-  fetchAgentsForStaticParams,
-  ['agents-static-params'],
-  {
-    revalidate: 600, // 10 minutes
-    tags: ['agents', 'static-params'],
   },
 )
 

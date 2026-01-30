@@ -20,7 +20,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { getCachedAgentsForStaticParams } from '@/server/agents-data'
 
 
 interface AgentDetailPageProps {
@@ -468,17 +467,5 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
 
 // ISR Configuration - revalidate every 10 minutes
 export const revalidate = 600
-
-// Generate static params for all agent versions
-export async function generateStaticParams(): Promise<
-  Array<{ id: string; agentId: string; version: string }>
-> {
-  const agents = await getCachedAgentsForStaticParams()
-  return agents.map((agent) => ({
-    id: agent.publisher_id,
-    agentId: agent.id,
-    version: agent.version,
-  }))
-}
 
 export default AgentDetailPage
