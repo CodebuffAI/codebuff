@@ -1,35 +1,21 @@
 'use client'
 
-import {
-  SUBSCRIPTION_DISPLAY_NAME,
-  SUBSCRIPTION_TIERS,
-} from '@codebuff/common/constants/subscription-plans'
-
-import type { SubscriptionTierPrice } from '@codebuff/common/constants/subscription-plans'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { SUBSCRIPTION_DISPLAY_NAME } from '@codebuff/common/constants/subscription-plans'
+import { env } from '@codebuff/common/env'
+import { useQuery } from '@tanstack/react-query'
 import {
   Zap,
   Clock,
   CalendarDays,
-  Loader2,
   AlertTriangle,
-  ArrowRightLeft,
+  ExternalLink,
+  Loader2,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
-import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { toast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
 
 interface SubscriptionApiResponse {
@@ -129,77 +115,15 @@ function ProgressBar({
 
 function SubscriptionActive({
   data,
+  email,
 }: {
   data: SubscriptionApiResponse
+  email: string
 }) {
-  const queryClient = useQueryClient()
-  const [showCancelDialog, setShowCancelDialog] = useState(false)
-  const [showChangePlanDialog, setShowChangePlanDialog] = useState(false)
-
-  const cancelMutation = useMutation({
-    mutationFn: async () => {
-      const response = await fetch('/api/stripe/cancel-subscription', {
-        method: 'POST',
-      })
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}))
-        throw new Error(err.error || 'Failed to cancel subscription')
-      }
-      return response.json()
-    },
-    onSuccess: () => {
-      setShowCancelDialog(false)
-      queryClient.invalidateQueries({ queryKey: ['subscription'] })
-      toast({
-        title: 'Subscription canceled',
-        description: `Your ${SUBSCRIPTION_DISPLAY_NAME} subscription will remain active until the end of your billing period.`,
-      })
-    },
-    onError: (error: Error) => {
-      setShowCancelDialog(false)
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      })
-    },
-  })
-
-  const changeTierMutation = useMutation({
-    mutationFn: async (selectedTier: SubscriptionTierPrice) => {
-      const response = await fetch('/api/stripe/change-subscription-tier', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tier: selectedTier }),
-      })
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}))
-        throw new Error(err.error || 'Failed to change plan')
-      }
-      return response.json()
-    },
-    onSuccess: () => {
-      setShowChangePlanDialog(false)
-      queryClient.invalidateQueries({ queryKey: ['subscription'] })
-      toast({
-        title: 'Plan changed',
-        description: 'Your subscription plan has been updated.',
-      })
-    },
-    onError: (error: Error) => {
-      setShowChangePlanDialog(false)
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      })
-    },
-  })
-
   const { subscription, rateLimit } = data
 
   const isCanceling = subscription?.cancelAtPeriodEnd
-  const currentTier = (subscription?.tier ?? 200) as SubscriptionTierPrice
+  const billingPortalUrl = `${env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}?prefilled_email=${encodeURIComponent(email)}`
 
   return (
     <Card>
@@ -301,141 +225,26 @@ function SubscriptionActive({
           </>
         )}
 
-        {/* Billing info & cancel */}
+        {/* Billing info & manage */}
         <div className="flex items-center justify-between border-t pt-4">
           <p className="text-sm text-muted-foreground">
             {isCanceling
               ? `Cancels ${subscription ? formatDate(subscription.billingPeriodEnd) : ''}`
               : `Renews ${subscription ? formatDate(subscription.billingPeriodEnd) : ''}`}
           </p>
-          {!isCanceling && (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground"
-                onClick={() => setShowChangePlanDialog(true)}
-              >
-                <ArrowRightLeft className="mr-1 h-3 w-3" />
-                Change Plan
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground hover:text-destructive"
-                onClick={() => setShowCancelDialog(true)}
-              >
-                Cancel Subscription
-              </Button>
-            </div>
-          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground"
+            asChild
+          >
+            <a href={billingPortalUrl} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+              Manage Subscription
+            </a>
+          </Button>
         </div>
       </CardContent>
-
-      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Cancel subscription?</DialogTitle>
-            <DialogDescription>
-              Your {SUBSCRIPTION_DISPLAY_NAME} subscription will remain active
-              until{' '}
-              {subscription
-                ? formatDate(subscription.billingPeriodEnd)
-                : 'the end of your billing period'}
-              . After that, you'll return to the free tier.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowCancelDialog(false)}
-              disabled={cancelMutation.isPending}
-            >
-              Keep Subscription
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => cancelMutation.mutate()}
-              disabled={cancelMutation.isPending}
-            >
-              {cancelMutation.isPending ? (
-                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-              ) : null}
-              Yes, Cancel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showChangePlanDialog} onOpenChange={setShowChangePlanDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Change Plan</DialogTitle>
-            <DialogDescription>
-              Select a new plan for your {SUBSCRIPTION_DISPLAY_NAME} subscription. The change takes effect immediately with a prorated charge.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-3 py-2">
-            {Object.entries(SUBSCRIPTION_TIERS).map(
-              ([key, tier]) => {
-                const tierPrice = Number(key) as SubscriptionTierPrice
-                const isCurrent = tierPrice === currentTier
-                const tierName =
-                  tierPrice === 100
-                    ? 'Starter'
-                    : tierPrice === 200
-                      ? 'Pro'
-                      : 'Team'
-                const tierDescription =
-                  tierPrice === 100
-                    ? 'Great for individuals getting started.'
-                    : tierPrice === 200
-                      ? 'For professionals who need more capacity.'
-                      : 'For power users and teams with heavy workloads.'
-                return (
-                  <button
-                    key={tierPrice}
-                    disabled={isCurrent || changeTierMutation.isPending}
-                    onClick={() => changeTierMutation.mutate(tierPrice)}
-                    className={cn(
-                      'flex items-center justify-between rounded-lg border p-4 text-left transition-colors',
-                      isCurrent
-                        ? 'cursor-default border-indigo-300 bg-indigo-50 dark:border-indigo-700 dark:bg-indigo-900/20'
-                        : 'hover:border-indigo-300 hover:bg-muted dark:hover:border-indigo-700',
-                    )}
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">{tierName}</span>
-                        {isCurrent && (
-                          <span className="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">
-                            Current
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-0.5 text-sm text-muted-foreground">
-                        {tierDescription}
-                      </p>
-                    </div>
-                    <span className="ml-4 text-lg font-semibold">
-                      ${tier.monthlyPrice}/mo
-                    </span>
-                  </button>
-                )
-              },
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowChangePlanDialog(false)}
-              disabled={changeTierMutation.isPending}
-            >
-              Cancel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Card>
   )
 }
@@ -469,7 +278,7 @@ function SubscriptionCta() {
 }
 
 export function SubscriptionSection() {
-  const { status } = useSession()
+  const { data: session, status } = useSession()
 
   const { data, isLoading } = useQuery<SubscriptionApiResponse>({
     queryKey: ['subscription'],
@@ -500,5 +309,7 @@ export function SubscriptionSection() {
     return <SubscriptionCta />
   }
 
-  return <SubscriptionActive data={data} />
+  const email = session?.user?.email || ''
+
+  return <SubscriptionActive data={data} email={email} />
 }
