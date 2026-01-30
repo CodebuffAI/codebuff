@@ -182,10 +182,14 @@ function getGeneration(key: string) {
   return generations.get(key) ?? 0
 }
 
-function clearRetryState(key: string) {
+function clearRetryTimeout(key: string) {
   const t = retryTimeouts.get(key)
   if (t) clearTimeout(t)
   retryTimeouts.delete(key)
+}
+
+function clearRetryState(key: string) {
+  clearRetryTimeout(key)
   retryCounts.delete(key)
 }
 
@@ -334,7 +338,10 @@ export function useActivityQuery<T>(
           inFlight.delete(serializedKey)
           setQueryFetching(serializedKey, false)
 
-          clearRetryState(serializedKey)
+          // Only clear the previous timeout, NOT the retry count.
+          // Using clearRetryState here would reset retryCounts, causing infinite retries.
+          // (see: _retryTestHelpers.simulateFailedFetch mirrors this logic)
+          clearRetryTimeout(serializedKey)
           const t = setTimeout(() => {
             retryTimeouts.delete(serializedKey)
             // only retry if still mounted somewhere and key not deleted
@@ -374,7 +381,6 @@ export function useActivityQuery<T>(
   }, [enabled, serializedKey, retry])
 
   const refetch = useCallback(async (): Promise<void> => {
-    retryCounts.set(serializedKey, 0)
     clearRetryState(serializedKey)
     await doFetch()
   }, [doFetch, serializedKey])
@@ -406,11 +412,10 @@ export function useActivityQuery<T>(
     if (!enabled) return
 
     const currentEntry = getCacheEntry<T>(serializedKey)
-    const currentlyStale =
-      !currentEntry ||
-      currentEntry.dataUpdatedAt === 0 ||
-      staleTime === 0 ||
-      Date.now() - currentEntry.dataUpdatedAt > staleTime
+    // Use isEntryStale for consistent staleness calculation that considers
+    // both dataUpdatedAt and errorUpdatedAt (prevents rapid refetch loops
+    // when endpoint returns persistent errors)
+    const currentlyStale = isEntryStale(serializedKey, staleTime)
 
     const shouldFetchOnMount =
       refetchOnMount === 'always' ||
@@ -573,4 +578,91 @@ export function resetActivityQueryCache(): void {
   inFlight.clear()
   snapshotMemo.clear()
   generations.clear()
+}
+
+/**
+ * Set an error-only cache entry (for testing).
+ * This simulates what happens when a fetch fails with no prior successful data.
+ */
+export function setErrorOnlyCacheEntry(
+  queryKey: readonly unknown[],
+  error: Error,
+  errorUpdatedAt?: number,
+): void {
+  const key = serializeQueryKey(queryKey)
+  setCacheEntry(key, {
+    data: undefined,
+    dataUpdatedAt: 0,
+    error,
+    errorUpdatedAt: errorUpdatedAt ?? Date.now(),
+  })
+}
+
+/**
+ * Test helpers for verifying retry behavior.
+ * These expose internal retry state to allow unit testing the retry logic
+ * without needing a React renderer.
+ */
+export const _retryTestHelpers = {
+  getRetryCount(queryKey: readonly unknown[]): number {
+    return retryCounts.get(serializeQueryKey(queryKey)) ?? 0
+  },
+  setRetryCount(queryKey: readonly unknown[], count: number): void {
+    retryCounts.set(serializeQueryKey(queryKey), count)
+  },
+  getRetryTimeout(queryKey: readonly unknown[]): ReturnType<typeof setTimeout> | undefined {
+    return retryTimeouts.get(serializeQueryKey(queryKey))
+  },
+  setRefCount(queryKey: readonly unknown[], count: number): void {
+    const key = serializeQueryKey(queryKey)
+    if (count === 0) cache.refCounts.delete(key)
+    else cache.refCounts.set(key, count)
+  },
+  setFetching(queryKey: readonly unknown[], fetching: boolean): void {
+    setQueryFetching(serializeQueryKey(queryKey), fetching)
+  },
+  getInFlight(queryKey: readonly unknown[]): boolean {
+    return inFlight.has(serializeQueryKey(queryKey))
+  },
+  /**
+   * Simulate the exact retry scheduling logic from doFetch's catch block.
+   * This reproduces the code path that caused the infinite retry loop bug.
+   * Returns whether a retry was scheduled (true) or retries were exhausted (false).
+   */
+  simulateFailedFetch(
+    queryKey: readonly unknown[],
+    maxRetries: number,
+  ): { retryScheduled: boolean; retryCount: number } {
+    const key = serializeQueryKey(queryKey)
+    const currentRetries = retryCounts.get(key) ?? 0
+
+    if (currentRetries < maxRetries && (cache.refCounts.get(key) ?? 0) > 0) {
+      const next = currentRetries + 1
+      retryCounts.set(key, next)
+
+      inFlight.delete(key)
+      setQueryFetching(key, false)
+
+      // This is the fixed line — uses clearRetryTimeout instead of clearRetryState
+      clearRetryTimeout(key)
+
+      // Don't actually schedule a setTimeout in tests, just record the intent
+      return { retryScheduled: true, retryCount: next }
+    }
+
+    retryCounts.set(key, 0)
+
+    const existingEntry = getCacheEntry(key)
+    setCacheEntry(key, {
+      data: existingEntry?.data,
+      dataUpdatedAt: existingEntry?.dataUpdatedAt ?? 0,
+      error: new Error('Simulated fetch error'),
+      errorUpdatedAt: Date.now(),
+    })
+
+    inFlight.delete(key)
+    setQueryFetching(key, false)
+
+    return { retryScheduled: false, retryCount: 0 }
+  },
 }
