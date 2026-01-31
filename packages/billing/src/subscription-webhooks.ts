@@ -505,9 +505,14 @@ export async function handleSubscriptionScheduleReleasedOrCanceled(params: {
 }): Promise<void> {
   const { schedule, logger } = params
 
+  // When a schedule is released, the subscription field becomes null and
+  // the subscription ID moves to released_subscription. When canceled,
+  // the subscription field is retained. Check both fields.
   const subscriptionId = schedule.subscription
     ? getStripeId(schedule.subscription)
-    : null
+    : schedule.released_subscription
+      ? getStripeId(schedule.released_subscription)
+      : null
 
   if (!subscriptionId) {
     logger.debug(
