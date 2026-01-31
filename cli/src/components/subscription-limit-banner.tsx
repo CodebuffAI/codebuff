@@ -40,9 +40,6 @@ export const SubscriptionLimitBanner = () => {
     const newValue = !alwaysALaCarte
     setAlwaysALaCarteState(newValue)
     setAlwaysUseALaCarte(newValue)
-    if (newValue) {
-      setInputMode('default')
-    }
   }
 
   if (!subscriptionData) {
@@ -123,10 +120,7 @@ export const SubscriptionLimitBanner = () => {
         ) : isBlockExhausted ? (
           <>
             <text style={{ fg: theme.warning }}>
-              ⏱️  Block limit reached
-            </text>
-            <text style={{ fg: theme.muted }}>
-              You've used all {rateLimit.blockLimit?.toLocaleString()} credits in this 5-hour block.
+              ⏱️  5 hour limit reached
             </text>
             {blockResetsAt && (
               <text style={{ fg: theme.muted }}>
@@ -158,17 +152,20 @@ export const SubscriptionLimitBanner = () => {
           {hasAlaCarteCredits ? (
             <>
               <Button onClick={handleContinueWithCredits}>
-                <text style={{ fg: theme.foreground }}>
-                  [Continue with a-la-carte] ({remainingBalance.toLocaleString()} available)
+                <text style={{ fg: theme.background, bg: theme.foreground }}>
+                  {' '}Continue with a-la-carte{' '}
+                </text>
+                <text style={{ fg: theme.muted }}>
+                  {' '}({remainingBalance.toLocaleString()} credits)
                 </text>
               </Button>
               {isWeeklyLimit ? (
                 <Button onClick={handleBuyCredits}>
-                  <text style={{ fg: theme.muted }}>[Buy Credits]</text>
+                  <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Buy Credits{' '}</text>
                 </Button>
               ) : (
                 <Button onClick={handleWait}>
-                  <text style={{ fg: theme.muted }}>[Wait for new block]</text>
+                  <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Wait for new block{' '}</text>
                 </Button>
               )}
             </>
@@ -176,10 +173,10 @@ export const SubscriptionLimitBanner = () => {
             <>
               <text style={{ fg: theme.muted }}>No a-la-carte credits available.</text>
               <Button onClick={handleBuyCredits}>
-                <text style={{ fg: theme.foreground }}>[Buy Credits]</text>
+                <text style={{ fg: theme.background, bg: theme.foreground }}>{' '}Buy Credits{' '}</text>
               </Button>
               <Button onClick={handleWait}>
-                <text style={{ fg: theme.muted }}>[Wait]</text>
+                <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Wait{' '}</text>
               </Button>
             </>
           )}
