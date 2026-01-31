@@ -24,6 +24,7 @@ interface SubscriptionApiResponse {
     cancelAtPeriodEnd: boolean
     canceledAt: string | null
     tier?: number | null
+    scheduledTier?: number | null
   }
   rateLimit?: {
     limited: boolean
@@ -121,6 +122,11 @@ function SubscriptionActive({
             {isCanceling && (
               <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
                 Canceling
+              </span>
+            )}
+            {subscription?.scheduledTier != null && (
+              <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
+                Renewing at ${subscription.scheduledTier}/mo
               </span>
             )}
           </CardTitle>
