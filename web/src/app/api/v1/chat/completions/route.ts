@@ -1,8 +1,5 @@
 import { insertMessageBigquery } from '@codebuff/bigquery'
-import {
-  ensureActiveBlockGrant,
-  getActiveSubscription,
-} from '@codebuff/billing/subscription'
+import { ensureSubscriberBlockGrant } from '@codebuff/billing/subscription'
 import { getUserUsageData } from '@codebuff/billing/usage-service'
 import { trackEvent } from '@codebuff/common/analytics'
 
@@ -25,7 +22,6 @@ export async function POST(req: NextRequest) {
     getAgentRunFromId,
     fetch,
     insertMessageBigquery,
-    getActiveSubscription,
-    ensureActiveBlockGrant,
+    ensureSubscriberBlockGrant,
   })
 }

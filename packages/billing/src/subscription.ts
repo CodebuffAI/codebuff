@@ -422,6 +422,24 @@ export async function ensureActiveBlockGrant(params: {
   return result
 }
 
+/**
+ * Combined function that gets the active subscription and ensures a block grant exists.
+ * Returns the block grant result if the user has an active subscription, null otherwise.
+ */
+export async function ensureSubscriberBlockGrant(params: {
+  userId: string
+  logger: Logger
+}): Promise<BlockGrantResult | null> {
+  const { userId, logger } = params
+
+  const subscription = await getActiveSubscription({ userId, logger })
+  if (!subscription) {
+    return null
+  }
+
+  return ensureActiveBlockGrant({ userId, subscription, logger })
+}
+
 // ---------------------------------------------------------------------------
 // Rate limiting
 // ---------------------------------------------------------------------------

@@ -18,10 +18,7 @@ import type {
   LoggerWithContextFn,
 } from '@codebuff/common/types/contracts/logger'
 
-import type {
-  BlockGrantResult,
-  SubscriptionRow,
-} from '@codebuff/billing/subscription'
+import type { BlockGrantResult } from '@codebuff/billing/subscription'
 import type { NextRequest } from 'next/server'
 
 import type { ChatCompletionRequestBody } from '@/llm-api/types'
@@ -83,8 +80,7 @@ export async function postChatCompletions(params: {
   getAgentRunFromId: GetAgentRunFromIdFn
   fetch: typeof globalThis.fetch
   insertMessageBigquery: InsertMessageBigqueryFn
-  getActiveSubscription?: (params: { userId: string; logger: Logger }) => Promise<SubscriptionRow | null>
-  ensureActiveBlockGrant?: (params: { userId: string; subscription: SubscriptionRow; logger: Logger }) => Promise<BlockGrantResult>
+  ensureSubscriberBlockGrant?: (params: { userId: string; logger: Logger }) => Promise<BlockGrantResult | null>
 }) {
   const {
     req,
@@ -95,8 +91,7 @@ export async function postChatCompletions(params: {
     getAgentRunFromId,
     fetch,
     insertMessageBigquery,
-    getActiveSubscription,
-    ensureActiveBlockGrant,
+    ensureSubscriberBlockGrant,
   } = params
   let { logger } = params
 
@@ -192,13 +187,10 @@ export async function postChatCompletions(params: {
     })
 
     // For subscribers, ensure a block grant exists before checking balance.
-    // This is done here block grants should only start when the user begins working.
-    if (getActiveSubscription && ensureActiveBlockGrant) {
+    // This is done here because block grants should only start when the user begins working.
+    if (ensureSubscriberBlockGrant) {
       try {
-        const activeSub = await getActiveSubscription({ userId, logger })
-        if (activeSub) {
-          await ensureActiveBlockGrant({ userId, subscription: activeSub, logger })
-        }
+        await ensureSubscriberBlockGrant({ userId, logger })
       } catch (error) {
         logger.error(
           { error: getErrorObject(error), userId },
