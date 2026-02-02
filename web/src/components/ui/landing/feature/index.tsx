@@ -58,6 +58,7 @@ interface FeatureSectionProps {
   tagline: string
   decorativeColors?: BlockColor[]
   highlightText: string
+  highlightIcon?: string
   illustration: ReactNode
   learnMoreText?: string
   learnMoreLink: string
@@ -86,6 +87,7 @@ export function FeatureSection({
   tagline,
   decorativeColors = [BlockColor.GenerativeGreen, BlockColor.DarkForestGreen],
   highlightText,
+  highlightIcon,
   illustration,
   learnMoreText = 'Learn More',
   learnMoreLink,
@@ -106,7 +108,7 @@ export function FeatureSection({
         </span>
       </div>
 
-      <HighlightText text={highlightText} isLight={isLight} />
+      <HighlightText text={highlightText} isLight={isLight} icon={highlightIcon} />
 
       <p className="text-lg leading-relaxed opacity-70 font-paragraph">
         {description}
