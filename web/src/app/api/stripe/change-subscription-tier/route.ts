@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
       if (isCancelDowngrade) {
         await db
           .update(schema.subscription)
-          .set({ scheduled_tier: null, updated_at: new Date() })
+          .set({ scheduled_tier: null })
           .where(
             eq(
               schema.subscription.stripe_subscription_id,
@@ -137,7 +137,6 @@ export async function POST(req: NextRequest) {
               tier,
               stripe_price_id: newPriceId,
               scheduled_tier: null,
-              updated_at: new Date(),
             })
             .where(
               eq(
@@ -158,7 +157,6 @@ export async function POST(req: NextRequest) {
           .update(schema.subscription)
           .set({
             scheduled_tier: tier,
-            updated_at: new Date(),
           })
           .where(
             eq(

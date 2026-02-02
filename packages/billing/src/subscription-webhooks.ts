@@ -146,7 +146,6 @@ export async function handleSubscriptionInvoicePaid(params: {
         ),
         billing_period_end: new Date(stripeSub.current_period_end * 1000),
         cancel_at_period_end: stripeSub.cancel_at_period_end,
-        updated_at: new Date(),
       },
     })
 
@@ -197,7 +196,6 @@ export async function handleSubscriptionInvoicePaymentFailed(params: {
     .update(schema.subscription)
     .set({
       status: 'past_due',
-      updated_at: new Date(),
     })
     .where(eq(schema.subscription.stripe_subscription_id, subscriptionId))
 
@@ -310,7 +308,6 @@ export async function handleSubscriptionUpdated(params: {
         billing_period_end: new Date(
           stripeSubscription.current_period_end * 1000,
         ),
-        updated_at: new Date(),
       },
     })
 
@@ -356,7 +353,6 @@ export async function handleSubscriptionDeleted(params: {
       status: 'canceled',
       scheduled_tier: null,
       canceled_at: new Date(),
-      updated_at: new Date(),
     })
     .where(eq(schema.subscription.stripe_subscription_id, subscriptionId))
 
@@ -456,7 +452,6 @@ export async function handleSubscriptionScheduleCreatedOrUpdated(params: {
     .update(schema.subscription)
     .set({
       scheduled_tier: scheduledTier,
-      updated_at: new Date(),
     })
     .where(eq(schema.subscription.stripe_subscription_id, subscriptionId))
     .returning({ tier: schema.subscription.tier })
@@ -526,7 +521,6 @@ export async function handleSubscriptionScheduleReleasedOrCanceled(params: {
     .update(schema.subscription)
     .set({
       scheduled_tier: null,
-      updated_at: new Date(),
     })
     .where(eq(schema.subscription.stripe_subscription_id, subscriptionId))
     .returning({ tier: schema.subscription.tier })

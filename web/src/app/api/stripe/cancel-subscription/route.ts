@@ -44,7 +44,7 @@ export async function POST() {
   try {
     await db
       .update(schema.subscription)
-      .set({ cancel_at_period_end: true, scheduled_tier: null, updated_at: new Date() })
+      .set({ cancel_at_period_end: true, scheduled_tier: null })
       .where(
         eq(
           schema.subscription.stripe_subscription_id,
