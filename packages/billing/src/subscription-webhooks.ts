@@ -414,7 +414,10 @@ export async function handleSubscriptionScheduleCreatedOrUpdated(params: {
     return
   }
 
-  // Need at least 2 phases to have a scheduled change (current + future)
+  // Stripe subscription schedules use "phases" to represent timeline segments:
+  //   - Phase 0: The current subscription state (e.g., $200/month)
+  //   - Phase 1: The scheduled future state (e.g., $100/month after renewal)
+  // We need at least 2 phases to have a pending change; 1 phase means no scheduled change.
   if (!schedule.phases || schedule.phases.length < 2) {
     logger.debug(
       { scheduleId: schedule.id, subscriptionId, phases: schedule.phases?.length },
@@ -423,7 +426,7 @@ export async function handleSubscriptionScheduleCreatedOrUpdated(params: {
     return
   }
 
-  // Extract the scheduled tier from the next phase (phase 1)
+  // Extract the scheduled tier from phase 1 (the upcoming change)
   const nextPhase = schedule.phases[1]
   const scheduledPriceId = nextPhase?.items?.[0]?.price
   const priceId = typeof scheduledPriceId === 'string'
