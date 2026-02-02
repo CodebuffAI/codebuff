@@ -1,6 +1,5 @@
 import { isEqual } from 'lodash'
 
-import { isShortThinkingContent } from './block-operations'
 import { formatToolOutput } from './codebuff-client'
 import { shouldCollapseByDefault, shouldCollapseForParent } from './constants'
 
