@@ -1,4 +1,5 @@
 import { isClaudeOAuthValid } from '@codebuff/sdk'
+import { TextAttributes } from '@opentui/core'
 import open from 'open'
 import React, { useEffect, useMemo, useState } from 'react'
 
@@ -155,7 +156,7 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
               )}
             </box>
             {/* See more link */}
-            <text style={{ fg: theme.muted }}>↗ See more on codebuff.com</text>
+            <text style={{ fg: theme.muted }}>See more on codebuff.com ↗</text>
           </box>
         </Button>
 
@@ -272,7 +273,7 @@ const SubscriptionUsageSection: React.FC<SubscriptionUsageSectionProps> = ({
           {useALaCarte ? 'spend credits' : 'pause'}
         </text>
         <Button onClick={handleToggleALaCarte}>
-          <text style={{ fg: theme.muted }}>
+          <text style={{ fg: theme.muted, attributes: TextAttributes.UNDERLINE }}>
             [{useALaCarte ? 'switch to pause' : 'switch to spend credits'}]
           </text>
         </Button>
