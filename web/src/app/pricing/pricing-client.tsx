@@ -286,7 +286,7 @@ function CreditVisual() {
         <span>
           {DEFAULT_FREE_CREDITS_GRANT} credits is typically enough for
         </span>{' '}
-        <span>a few hours of intense coding on a new project</span>
+        <span>a few hours of coding on a new project</span>
       </div>
     </div>
   )
@@ -393,7 +393,7 @@ export default function PricingClient() {
       <StrongHeroSection />
 
       <FeatureSection
-        title={<span>Simple, Usage-Based Pricing</span>}
+        title={<span>Usage-Based Pricing</span>}
         description="Get 500 free credits monthly, then pay just 1¢ per credit. Credits are consumed based on task complexity — simple queries cost less, complex changes more. You'll see how many credits each task consumes."
         backdropColor={SECTION_THEMES.competition.background}
         decorativeColors={[BlockColor.GenerativeGreen, BlockColor.AcidMatrix]}
@@ -405,22 +405,7 @@ export default function PricingClient() {
         learnMoreLink={status === 'authenticated' ? '/usage' : '/login'}
       />
 
-      <FeatureSection
-        title={<span>Working with others</span>}
-        description="Collaborate with your team more closely using Codebuff by pooling credits and seeing usage analytics."
-        backdropColor={BlockColor.CRTAmber}
-        decorativeColors={[
-          BlockColor.DarkForestGreen,
-          BlockColor.GenerativeGreen,
-        ]}
-        textColor="text-black"
-        tagline="SCALE UP YOUR TEAM"
-        highlightText="Pooled resources and usage analytics"
-        illustration={<TeamPlanIllustration />}
-        learnMoreText="Contact Sales"
-        learnMoreLink="mailto:founders@codebuff.com"
-        imagePosition="left"
-      />
+
     </>
   )
 }
