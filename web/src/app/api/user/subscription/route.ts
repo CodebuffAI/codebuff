@@ -4,6 +4,8 @@ import {
   getSubscriptionLimits,
 } from '@codebuff/billing'
 import { SUBSCRIPTION_DISPLAY_NAME } from '@codebuff/common/constants/subscription-plans'
+import { env } from '@codebuff/internal/env'
+import { stripeServer } from '@codebuff/internal/util/stripe'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
@@ -29,9 +31,23 @@ export async function GET() {
     return NextResponse.json(response)
   }
 
-  const [rateLimit, limits] = await Promise.all([
+  const stripeCustomerId = session.user.stripe_customer_id
+
+  const [rateLimit, limits, billingPortalUrl] = await Promise.all([
     checkRateLimit({ userId, subscription, logger }),
     getSubscriptionLimits({ userId, logger, tier: subscription.tier }),
+    stripeCustomerId
+      ? stripeServer.billingPortal.sessions
+          .create({
+            customer: stripeCustomerId,
+            return_url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/profile`,
+          })
+          .then((portalSession) => portalSession.url)
+          .catch((error) => {
+            logger.warn({ userId, error }, 'Failed to create billing portal session')
+            return undefined
+          })
+      : Promise.resolve(undefined),
   ])
 
   const response: ActiveSubscriptionResponse = {
@@ -58,6 +74,7 @@ export async function GET() {
       weeklyPercentUsed: rateLimit.weeklyPercentUsed,
     },
     limits,
+    billingPortalUrl,
   }
   return NextResponse.json(response)
 }

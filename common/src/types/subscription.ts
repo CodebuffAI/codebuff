@@ -52,6 +52,7 @@ export interface ActiveSubscriptionResponse {
   subscription: SubscriptionInfo
   rateLimit: SubscriptionRateLimit
   limits: SubscriptionLimits
+  billingPortalUrl?: string
 }
 
 /**

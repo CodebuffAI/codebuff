@@ -48,7 +48,8 @@ function ProgressBar({ percentAvailable, label }: { percentAvailable: number; la
 function SubscriptionActive({ data, email }: { data: ActiveSubscriptionResponse; email: string }) {
   const { subscription, rateLimit } = data
   const isCanceling = subscription.cancelAtPeriodEnd
-  const billingPortalUrl = `${env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}?prefilled_email=${encodeURIComponent(email)}`
+  const fallbackPortalUrl = `${env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}?prefilled_email=${encodeURIComponent(email)}`
+  const billingPortalUrl = data.billingPortalUrl ?? fallbackPortalUrl
 
   return (
     <Card className="max-w-xl">
@@ -155,8 +156,7 @@ function SubscriptionCta() {
               Upgrade to {SUBSCRIPTION_DISPLAY_NAME}
             </h3>
             <p className="text-sm text-muted-foreground">
-              From $100/mo · Work in focused 5-hour sessions with no
-              interruptions.
+              From $100/mo · Save credits with 5-hour work sessions included
             </p>
           </div>
         </div>
