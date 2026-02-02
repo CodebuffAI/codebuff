@@ -12,7 +12,7 @@ import { useTheme } from '../hooks/use-theme'
 import { usageQueryKeys, useUsageQuery } from '../hooks/use-usage-query'
 import { WEBSITE_URL } from '../login/constants'
 import { useChatStore } from '../state/chat-store'
-import { formatResetTime } from '../utils/time-format'
+import { formatResetTime, formatResetTimeLong } from '../utils/time-format'
 import {
   getBannerColorLevel,
   generateLoadingBannerText,
@@ -118,13 +118,14 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
         {/* Strong subscription section - only show if subscribed */}
         {hasSubscription && (
           <box style={{ flexDirection: 'column', marginBottom: 1 }}>
-            <text style={{ fg: theme.foreground }}>
-              {subscriptionData.displayName ?? 'Strong'} subscription
-              {subscriptionInfo?.tier ? ` · $${subscriptionInfo.tier}/mo` : ''}
-              {subscriptionInfo?.billingPeriodEnd
-                ? ` · Renews ${formatRenewalDate(subscriptionInfo.billingPeriodEnd)}`
-                : ''}
-            </text>
+            <box style={{ flexDirection: 'row', gap: 1 }}>
+              <text style={{ fg: theme.foreground }}>
+                {subscriptionData.displayName ?? 'Strong'} subscription
+              </text>
+              {subscriptionInfo?.tier && (
+                <text style={{ fg: theme.muted }}>${subscriptionInfo.tier}/mo</text>
+              )}
+            </box>
             {isSubscriptionLoading ? (
               <text style={{ fg: theme.muted }}>Loading subscription data...</text>
             ) : rateLimit ? (
@@ -132,34 +133,32 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
                 {/* Block progress - show if there's an active block */}
                 {rateLimit.blockLimit != null && rateLimit.blockUsed != null && (
                   <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
-                    <text style={{ fg: theme.muted }}>
-                      {subscriptionData.displayName ?? 'Strong'}:
-                    </text>
+                    <text style={{ fg: theme.muted }}>5h limit:    </text>
                     <ProgressBar
                       value={Math.max(0, 100 - Math.round((rateLimit.blockUsed / rateLimit.blockLimit) * 100))}
                       width={12}
                       showPercentage={false}
                     />
                     <text style={{ fg: theme.muted }}>
-                      {Math.round((rateLimit.blockUsed / rateLimit.blockLimit) * 100)}% used
+                      {Math.max(0, 100 - Math.round((rateLimit.blockUsed / rateLimit.blockLimit) * 100))}% remaining
                     </text>
                     {rateLimit.blockResetsAt && (
                       <text style={{ fg: theme.muted }}>
-                        (resets in {formatResetTime(new Date(rateLimit.blockResetsAt))})
+                        · resets in {formatResetTime(new Date(rateLimit.blockResetsAt))}
                       </text>
                     )}
                   </box>
                 )}
                 {/* Weekly progress */}
                 <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
-                  <text style={{ fg: theme.muted }}>Week: </text>
+                  <text style={{ fg: theme.muted }}>Weekly limit:</text>
                   <ProgressBar
                     value={100 - rateLimit.weeklyPercentUsed}
                     width={12}
                     showPercentage={false}
                   />
                   <text style={{ fg: theme.muted }}>
-                    {rateLimit.weeklyPercentUsed}% used · Resets {formatRenewalDate(rateLimit.weeklyResetsAt)}
+                    {100 - rateLimit.weeklyPercentUsed}% remaining · resets in {formatResetTimeLong(rateLimit.weeklyResetsAt)}
                   </text>
                 </box>
               </box>
@@ -177,14 +176,14 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
             {/* Main stats row */}
             <box style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 1 }}>
               <text style={{ fg: theme.muted }}>Session:</text>
-              <text style={{ fg: theme.foreground }}>{sessionCreditsUsed.toLocaleString()}</text>
+              <text style={{ fg: theme.foreground }}>{sessionCreditsUsed.toLocaleString()} credits</text>
               <text style={{ fg: theme.muted }}>·</text>
               <text style={{ fg: theme.muted }}>Remaining:</text>
               {isLoadingData ? (
                 <text style={{ fg: theme.muted }}>...</text>
               ) : (
                 <text style={{ fg: theme.foreground }}>
-                  {activeData.remainingBalance?.toLocaleString() ?? '?'}
+                  {activeData.remainingBalance?.toLocaleString() ?? '?'} credits
                 </text>
               )}
               {adCredits != null && adCredits > 0 && (
