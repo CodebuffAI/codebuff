@@ -23,6 +23,7 @@ import {
   evaluateBanConditions,
   getUserByStripeCustomerId,
 } from '@/lib/ban-conditions'
+import { ORG_BILLING_ENABLED } from '@/lib/billing-config'
 import { logger } from '@/util/logger'
 
 /**
@@ -33,12 +34,56 @@ import { logger } from '@/util/logger'
  * which may not be populated yet when early invoice events arrive).
  */
 async function isOrgCustomer(stripeCustomerId: string): Promise<boolean> {
-  const orgs = await db
-    .select({ id: schema.org.id })
-    .from(schema.org)
-    .where(eq(schema.org.stripe_customer_id, stripeCustomerId))
-    .limit(1)
-  return orgs.length > 0
+  try {
+    const orgs = await db
+      .select({ id: schema.org.id })
+      .from(schema.org)
+      .where(eq(schema.org.stripe_customer_id, stripeCustomerId))
+      .limit(1)
+    return orgs.length > 0
+  } catch (error) {
+    logger.error(
+      { stripeCustomerId, error },
+      'Failed to check if customer is an org - defaulting to false',
+    )
+    return false
+  }
+}
+
+/**
+ * BILLING_DISABLED: Checks if a Stripe event is related to organization billing.
+ * Used to reject org billing events while keeping personal billing working.
+ */
+async function isOrgBillingEvent(event: Stripe.Event): Promise<boolean> {
+  const eventData = event.data.object as unknown as Record<string, unknown>
+  const metadata = (eventData.metadata || {}) as Record<string, string>
+
+  // Check metadata for organization markers
+  if (metadata.organization_id || metadata.organizationId) {
+    return true
+  }
+  if (metadata.grantType === 'organization_purchase') {
+    return true
+  }
+
+  // For invoice events, check if customer belongs to an org
+  // (metadata.organizationId is already checked above in the generic metadata check)
+  if (event.type.startsWith('invoice.')) {
+    const customerId = eventData.customer
+    if (customerId && typeof customerId === 'string') {
+      return await isOrgCustomer(customerId)
+    }
+  }
+
+  // For subscription events, check if customer is an org
+  if (event.type.startsWith('customer.subscription.')) {
+    const customerId = eventData.customer
+    if (customerId && typeof customerId === 'string') {
+      return await isOrgCustomer(customerId)
+    }
+  }
+
+  return false
 }
 
 async function handleCheckoutSessionCompleted(
@@ -367,6 +412,22 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
 
   logger.info({ type: event.type }, 'Received Stripe webhook event')
 
+  // BILLING_DISABLED: Acknowledge but ignore org-billing related events
+  // Return 200 to prevent Stripe from retrying (503 would cause retry storms)
+  if (!ORG_BILLING_ENABLED) {
+    const isOrgEvent = await isOrgBillingEvent(event)
+    if (isOrgEvent) {
+      logger.warn(
+        { type: event.type, eventId: event.id },
+        'BILLING_DISABLED: Ignoring org billing webhook event',
+      )
+      return NextResponse.json({
+        received: true,
+        ignored: 'org billing disabled',
+      })
+    }
+  }
+
   try {
     switch (event.type) {
       case 'customer.created':
@@ -617,3 +678,6 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
 }
 
 export { webhookHandler as POST }
+
+// Exported for testing
+export { isOrgBillingEvent, isOrgCustomer }

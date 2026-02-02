@@ -8,7 +8,8 @@ import { useState, useEffect } from 'react'
 
 import type { PublisherProfileResponse } from '@codebuff/common/types/publisher'
 
-import { BillingStatus } from '@/components/organization/billing-status'
+// BILLING_DISABLED: BillingStatus component temporarily removed
+// import { BillingStatus } from '@/components/organization/billing-status'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ConfirmationInputDialog } from '@/components/ui/confirmation-input-dialog'
@@ -277,10 +278,11 @@ export default function OrganizationSettingsPage() {
         </div>
 
         <div className="space-y-6">
-          {/* Billing & Seats */}
+          {/* BILLING_DISABLED: Billing & Seats section temporarily removed
           {canManageOrg && organization && (
             <BillingStatus organizationId={organization.id} />
           )}
+          */}
 
           {/* Publisher Management */}
           {canManageOrg && (

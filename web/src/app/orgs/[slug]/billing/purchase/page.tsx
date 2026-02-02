@@ -17,6 +17,7 @@ import { useState, useEffect } from 'react'
 
 import { OrgAutoTopupSettings } from '@/components/auto-topup/OrgAutoTopupSettings'
 import { CreditPurchaseSection } from '@/components/credits/CreditPurchaseSection'
+import { ORG_BILLING_ENABLED } from '@/lib/billing-config'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -24,11 +25,12 @@ import { toast } from '@/components/ui/use-toast'
 import { useOrganizationData } from '@/hooks/use-organization-data'
 
 export default function OrganizationBillingPurchasePage() {
-  const { data: session, status } = useSession()
+  // All hooks must be called before any conditional returns
   const params = useParams() ?? {}
+  const orgSlug = (params.slug ?? '') as string
+  const { data: session, status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams() ?? new URLSearchParams()
-  const orgSlug = (params.slug ?? '') as string
 
   const [purchasing, setPurchasing] = useState(false)
   const [settingUpBilling, setSettingUpBilling] = useState(false)
@@ -51,6 +53,83 @@ export default function OrganizationBillingPurchasePage() {
       })
     }
   }, [setupSuccess])
+
+  // Auto-trigger purchase if we have pending credits after setup
+  // Note: This effect is defined here but the actual purchase logic requires organization data
+  // which may not be available when billing is disabled
+  useEffect(() => {
+    if (!ORG_BILLING_ENABLED) return
+    if (setupSuccess && billingStatus?.is_setup) {
+      const pendingCredits = localStorage.getItem('pendingCreditPurchase')
+      if (pendingCredits) {
+        localStorage.removeItem('pendingCreditPurchase')
+        const credits = parseInt(pendingCredits)
+        if (credits > 0) {
+          // handlePurchaseCredits will be called after the component renders with organization data
+          const purchaseCredits = async () => {
+            if (!organization) return
+            try {
+              const response = await fetch(`/api/orgs/${organization.id}/credits`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount: credits }),
+              })
+              if (!response.ok) {
+                const error = await response.json()
+                throw new Error(error.error || 'Failed to initiate credit purchase')
+              }
+              const responseData = await response.json()
+              if (responseData.direct_charge && responseData.success) {
+                toast({
+                  title: 'Credits Purchased!',
+                  description: `${responseData.credits.toLocaleString()} credits have been added to your organization.`,
+                })
+                window.location.reload()
+              } else if (responseData.checkout_url) {
+                window.location.href = responseData.checkout_url
+              }
+            } catch (error) {
+              toast({
+                title: 'Error',
+                description: error instanceof Error ? error.message : 'Failed to purchase credits',
+                variant: 'destructive',
+              })
+            }
+          }
+          purchaseCredits()
+        }
+      }
+    }
+  }, [setupSuccess, billingStatus?.is_setup, organization])
+
+  // BILLING_DISABLED: Show unavailable message when org billing is disabled
+  if (!ORG_BILLING_ENABLED) {
+    return (
+      <div className="container mx-auto py-6 px-4">
+        <div className="max-w-md mx-auto">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <AlertCircle className="mr-2 h-5 w-5" />
+                Feature Unavailable
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-4">
+                Organization billing is temporarily unavailable.
+              </p>
+              <Link href={`/orgs/${orgSlug}`}>
+                <Button>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Organization
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
 
   const _handleSetupBilling = async (credits: number) => {
     if (!organization) return
@@ -148,20 +227,6 @@ export default function OrganizationBillingPurchasePage() {
       setPurchasing(false)
     }
   }
-
-  // Auto-trigger purchase if we have pending credits after setup
-  useEffect(() => {
-    if (setupSuccess && billingStatus?.is_setup) {
-      const pendingCredits = localStorage.getItem('pendingCreditPurchase')
-      if (pendingCredits) {
-        localStorage.removeItem('pendingCreditPurchase')
-        const credits = parseInt(pendingCredits)
-        if (credits > 0) {
-          handlePurchaseCredits(credits)
-        }
-      }
-    }
-  }, [setupSuccess, billingStatus?.is_setup])
 
   if (status === 'loading' || isLoading) {
     return (

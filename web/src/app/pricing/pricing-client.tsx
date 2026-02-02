@@ -134,89 +134,6 @@ function ClaudeSubscriptionIllustration() {
   )
 }
 
-function TeamPlanIllustration() {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 w-full max-w-screen-lg mx-auto">
-      {/* Team plan */}
-      <div className="bg-white border border-zinc-200 rounded-lg p-4 sm:p-6 flex flex-col h-full shadow-lg">
-        <div className="mb-4">
-          <h3 className="text-xl font-bold text-gray-900 mb-1">Team</h3>
-          <div className="flex items-baseline">
-            <span className="text-2xl sm:text-3xl font-bold text-gray-900">
-              $19
-            </span>
-            <span className="text-sm sm:text-base text-gray-500 ml-1">
-              /user/month
-            </span>
-          </div>
-        </div>
-
-        <ul className="space-y-2 sm:space-y-3 mb-auto">
-          <li className="flex text-gray-700">
-            <span className="text-green-600 mr-2">✓</span>
-            <span className="text-sm sm:text-base">
-              Team management dashboard
-            </span>
-          </li>
-          <li className="flex text-gray-700">
-            <span className="text-green-600 mr-2">✓</span>
-            <span className="text-sm sm:text-base">Pooled credit usage</span>
-          </li>
-          <li className="flex text-gray-700">
-            <span className="text-green-600 mr-2">✓</span>
-            <span className="text-sm sm:text-base">
-              Pay-as-you-go at 1¢ per credit
-            </span>
-          </li>
-        </ul>
-
-        <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-gray-200">
-          <a
-            href="mailto:support@codebuff.com"
-            className="text-blue-600 hover:text-blue-800 text-xs sm:text-sm"
-          >
-            Reach out to support@codebuff.com
-          </a>
-        </div>
-      </div>
-
-      {/* Enterprise plan */}
-      <div className="bg-gradient-to-b from-blue-50 to-white border border-blue-200 rounded-lg p-4 sm:p-6 flex flex-col h-full shadow-lg">
-        <div className="mb-4">
-          <h3 className="text-xl font-bold text-gray-900 mb-1">Enterprise</h3>
-          <div className="text-sm sm:text-base text-gray-500">
-            Custom Pricing
-          </div>
-        </div>
-
-        <ul className="space-y-2 sm:space-y-3 mb-auto">
-          <li className="flex text-gray-700">
-            <span className="text-blue-600 mr-2">✓</span>
-            <span className="text-sm sm:text-base">Everything in Team</span>
-          </li>
-          <li className="flex text-gray-700">
-            <span className="text-blue-600 mr-2">✓</span>
-            <span className="text-sm sm:text-base">Dedicated support</span>
-          </li>
-          <li className="flex text-gray-700">
-            <span className="text-blue-600 mr-2">✓</span>
-            <span className="text-sm sm:text-base">Custom integrations</span>
-          </li>
-        </ul>
-
-        <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-blue-100">
-          <a
-            href="mailto:founders@codebuff.com"
-            className="text-blue-600 hover:text-blue-800 text-xs sm:text-sm"
-          >
-            Reach out to founders@codebuff.com
-          </a>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export default function PricingClient() {
   const { status } = useSession()
 
@@ -249,22 +166,6 @@ export default function PricingClient() {
         imagePosition="left"
       />
 
-      <FeatureSection
-        title={<span>Working with others</span>}
-        description="Collaborate with your team more closely using Codebuff by pooling credits and seeing usage analytics."
-        backdropColor={BlockColor.CRTAmber}
-        decorativeColors={[
-          BlockColor.DarkForestGreen,
-          BlockColor.GenerativeGreen,
-        ]}
-        textColor="text-black"
-        tagline="SCALE UP YOUR TEAM"
-        highlightText="Pooled resources and usage analytics"
-        illustration={<TeamPlanIllustration />}
-        learnMoreText="Contact Sales"
-        learnMoreLink="mailto:founders@codebuff.com"
-        imagePosition="left"
-      />
     </>
   )
 }

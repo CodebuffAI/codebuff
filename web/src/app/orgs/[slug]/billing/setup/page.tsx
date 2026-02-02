@@ -8,6 +8,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useState } from 'react'
 
+import { ORG_BILLING_ENABLED } from '@/lib/billing-config'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -29,15 +30,45 @@ interface _OrganizationDetails {
 const stripePromise = loadStripe(env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
 export default function BillingSetupPage() {
-  const { data: session, status } = useSession()
+  // All hooks must be called before any conditional returns
   const params = useParams() ?? {}
-  const _router = useRouter()
   const orgSlug = (params.slug as string) ?? ''
+  const { data: session, status } = useSession()
+  const _router = useRouter()
 
   const [settingUp, setSettingUp] = useState(false)
 
   // Use the custom hook for organization data
   const { organization, isLoading, error } = useOrganizationData(orgSlug)
+
+  // BILLING_DISABLED: Show unavailable message when org billing is disabled
+  if (!ORG_BILLING_ENABLED) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-2xl mx-auto">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <CreditCard className="h-5 w-5 mr-2" />
+                Feature Unavailable
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-4">
+                Organization billing setup is temporarily unavailable.
+              </p>
+              <Link href={`/orgs/${orgSlug}`}>
+                <Button>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Organization
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
 
   const handleSetupBilling = async () => {
     if (!organization) return
