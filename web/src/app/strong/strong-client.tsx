@@ -72,7 +72,7 @@ function SubscribeButton({
       onClick={handleSubscribe}
       disabled={isLoading}
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-lg px-10 py-3.5 text-base font-semibold transition-all duration-200',
+        'inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 sm:px-10 sm:py-3.5 text-xs sm:text-base font-semibold transition-all duration-200',
         'bg-acid-green text-black hover:bg-acid-green/90 shadow-[0_0_30px_rgba(0,255,149,0.2)] hover:shadow-[0_0_50px_rgba(0,255,149,0.3)]',
         'disabled:opacity-60 disabled:cursor-not-allowed',
         className,
@@ -156,7 +156,7 @@ export default function StrongClient() {
 
       {/* Foreground content */}
       <div className="relative z-10 flex flex-col items-center text-center max-w-4xl">
-        <div className="max-w-lg">
+        <div className="max-w-2xl">
           <motion.p
             className="font-mono text-xs sm:text-sm tracking-[0.3em] text-acid-green/50 uppercase mb-8"
             initial={{ opacity: 0 }}
@@ -167,7 +167,7 @@ export default function StrongClient() {
           </motion.p>
 
           <motion.h1
-            className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-3 tracking-tight"
+            className="text-4xl sm:text-5xl md:text-5xl font-bold text-white mb-3 tracking-tight"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.7 }}
@@ -187,7 +187,7 @@ export default function StrongClient() {
 
         {/* Pricing cards grid */}
         <motion.div
-          className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10 w-full"
+          className="grid grid-cols-3 gap-2 sm:gap-5 mb-10 w-full"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 1.1 }}
@@ -200,20 +200,21 @@ export default function StrongClient() {
               <div
                 key={price}
                 className={cn(
-                  'rounded-xl p-6 backdrop-blur-sm border flex flex-col items-center',
+                  'rounded-xl p-3 sm:p-8 backdrop-blur-sm border flex flex-col items-center transition-all duration-300',
+                  'hover:scale-[1.02]',
                   isHighlighted
-                    ? 'border-acid-green/30 bg-acid-green/[0.04] shadow-[0_0_40px_rgba(0,255,149,0.08)]'
-                    : 'border-white/10 bg-white/[0.02]',
+                    ? 'border-acid-green/30 bg-acid-green/[0.04] shadow-[0_0_40px_rgba(0,255,149,0.08)] hover:shadow-[0_0_60px_rgba(0,255,149,0.15)]'
+                    : 'border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]',
                 )}
               >
                 <div className="flex items-baseline justify-center gap-1 mb-1">
-                  <span className="text-4xl sm:text-5xl font-bold text-white tracking-tight">
+                  <span className="text-xl sm:text-5xl font-bold text-white tracking-tight">
                     ${tier.monthlyPrice}
                   </span>
-                  <span className="text-sm text-white/30">/mo</span>
+                  <span className="text-xs sm:text-sm text-white/30">/mo</span>
                 </div>
 
-                <p className="text-sm text-white/40 mb-6">
+                <p className="text-xs sm:text-sm text-white/40 mb-3 sm:mb-6">
                   {USAGE_MULTIPLIER[price]} usage
                 </p>
 
@@ -236,7 +237,7 @@ export default function StrongClient() {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8, delay: 1.6 }}
         >
-          Cancel anytime
+          Cancel anytime · Tax not included · Usage amounts subject to change
         </motion.p>
       </div>
     </div>
