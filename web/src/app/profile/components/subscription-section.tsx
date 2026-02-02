@@ -15,21 +15,15 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
+import { formatTimeUntil } from '@codebuff/common/util/dates'
+
 import type {
   SubscriptionResponse,
   ActiveSubscriptionResponse,
 } from '@codebuff/common/types/subscription'
 
-function formatDaysHours(dateStr: string): string {
-  const target = new Date(dateStr)
-  const diffMs = target.getTime() - Date.now()
-  if (isNaN(diffMs) || diffMs <= 0) return '0h'
-  const totalHours = Math.ceil(diffMs / (1000 * 60 * 60))
-  const days = Math.floor(totalHours / 24)
-  const hours = totalHours % 24
-  if (days > 0) return hours > 0 ? `${days}d ${hours}h` : `${days}d`
-  return `${hours}h`
-}
+const formatDaysHours = (dateStr: string): string =>
+  formatTimeUntil(dateStr, { fallback: '0h' })
 
 function ProgressBar({ percentAvailable, label }: { percentAvailable: number; label: string }) {
   const percent = Math.min(100, Math.max(0, Math.round(percentAvailable)))
