@@ -135,3 +135,69 @@ Edit schema using Drizzle’s TS DSL (don’t hand-write migration SQL), then ru
 ## Referral System
 
 Referral codes are applied via the CLI (web onboarding only instructs the user); see `web/src/app/api/referrals/helpers.ts`.
+
+## Hippo Memory System
+
+Hippo is a persistent memory system for AI agents. It stores interactions, discovers relationships, and lets you recall prior work across sessions.
+
+### RULE 1: Search Hippo FIRST
+
+Before reading files, planning, or writing code — search Hippo:
+
+```bash
+~/Programming/hippo/build/hippo search '<what the user is asking about>' --limit 10
+```
+
+Hippo may already have analysis, decisions, or dead ends from prior sessions.
+
+### RULE 2: Store to Hippo AFTER every response
+
+After every assistant response — not just task completions:
+
+```bash
+~/Programming/hippo/build/hippo store \
+  --agent codebuff \
+  --session '<descriptive-session-id>' \
+  --input '<what happened — 1-2 sentences>' \
+  --output '<DETAILED: what you read, decided, changed, and WHY>' \
+  --concepts 'topic1,topic2' \
+  --outcome success
+```
+
+Valid outcomes: success, failure, partial, decision, discovery, recall, blocked
+
+### RULE 3: Use ONLY the CLI
+
+Do NOT use the hippo-memory MCP sub-agent — it is unreliable. Always use the hippo CLI via the commander agent with rawOutput: true.
+
+### Quick Reference
+
+| Operation | Command |
+|-----------|----------|
+| Search memory (STEP ZERO!) | `~/Programming/hippo/build/hippo search '<query>' --limit 10` |
+| Store a run (AFTER EVERY RESPONSE!) | `~/Programming/hippo/build/hippo store --agent <name> --session '<id>' ...` |
+| Get semantic context | `~/Programming/hippo/build/hippo context '<query>' --max-tokens 4000` |
+| Get recent snapshot | `~/Programming/hippo/build/hippo snapshot --limit 5 --short` |
+| List sessions | `~/Programming/hippo/build/hippo sessions --limit 10` |
+| Show stats | `~/Programming/hippo/build/hippo stats` |
+
+### Store Metadata Flags
+
+- `--concepts` (Always): e.g., 'auth,security,API'
+- `--outcome` (Always): success, failure, decision, discovery
+- `--files-changed` (Edits): e.g., 'foo.go,bar.go'
+- `--files-read` (Reading): e.g., 'service.go,types.go'
+- `--commands-run` (Commands): e.g., 'make test,make lint'
+
+### The --output Field Must Be DETAILED
+
+BAD: 'Fixed the bug and deleted the file.'
+
+GOOD: 'Analyzed STM usage across 3 files: service.go (write-through cache), recall.go (GetRecent), retrieval.go (tier boost). Removed all 3 usages. Replaced tier boost with recency boost. All tests pass.'
+
+### Feeding Context to Sub-Agents
+
+Sub-agents (editors, reviewers, opus) are stateless — they cannot see conversation history or call Hippo. Before spawning them:
+
+1. Search Hippo: `~/Programming/hippo/build/hippo context '<topic>' --max-tokens 4000`
+2. Include results in the sub-agent prompt under: `## Prior work from Hippo memory:`

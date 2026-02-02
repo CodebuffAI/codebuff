@@ -7,6 +7,7 @@ import { getCodebuffClient } from '../utils/codebuff-client'
 import { AGENT_MODE_TO_ID, AGENT_MODE_TO_COST_MODE } from '../utils/constants'
 import { createEventHandlerState } from '../utils/create-event-handler-state'
 import { createRunConfig } from '../utils/create-run-config'
+import { searchHippoContext } from '../utils/hippo-hooks'
 import { loadAgentDefinitions } from '../utils/local-agent-registry'
 import { logger } from '../utils/logger'
 import {
@@ -415,6 +416,12 @@ export const useSendMessage = ({
           messageContent,
         )
 
+        // Search hippo for prior context (Rule 1: Search Hippo FIRST)
+        const hippoContext = searchHippoContext(effectivePrompt)
+        const promptWithHippoContext = hippoContext
+          ? `## Prior work from Hippo memory:\n${hippoContext}\n\n## Current request:\n${effectivePrompt}`
+          : effectivePrompt
+
         const eventHandlerState = createEventHandlerState({
           streamRefs,
           setStreamingAgents,
@@ -437,7 +444,7 @@ export const useSendMessage = ({
         const runConfig = createRunConfig({
           logger,
           agent: resolvedAgent,
-          prompt: effectivePrompt,
+          prompt: promptWithHippoContext,
           content: messageContent,
           previousRunState: previousRunStateRef.current,
           agentDefinitions,
@@ -462,6 +469,7 @@ export const useSendMessage = ({
           runState,
           actualCredits,
           agentMode,
+          prompt: effectivePrompt, // Use original prompt without hippo context for storage
           timerController,
           updater,
           aiMessageId,

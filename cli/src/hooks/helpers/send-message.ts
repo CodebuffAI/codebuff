@@ -1,6 +1,7 @@
 import { getErrorObject } from '@codebuff/common/util/error'
 
 import { getProjectRoot } from '../../project-files'
+import { storeRunToHippo } from '../../utils/hippo-hooks'
 import { useChatStore } from '../../state/chat-store'
 import { processBashContext } from '../../utils/bash-context-processor'
 import { markRunningAgentsAsCancelled } from '../../utils/block-operations'
@@ -272,6 +273,7 @@ export const handleRunCompletion = (params: {
   runState: RunState
   actualCredits: number | undefined
   agentMode: AgentMode
+  prompt: string
   timerController: SendMessageTimerController
   updater: BatchedMessageUpdater
   aiMessageId: string
@@ -288,6 +290,7 @@ export const handleRunCompletion = (params: {
     runState,
     actualCredits,
     agentMode,
+    prompt,
     timerController,
     updater,
     streamRefs,
@@ -372,6 +375,14 @@ export const handleRunCompletion = (params: {
     metadata: {
       runState,
     },
+  })
+
+  // Store run to hippo memory (background, non-blocking)
+  storeRunToHippo({
+    runState,
+    prompt,
+    agentMode,
+    elapsedMs,
   })
 }
 
