@@ -1,3 +1,4 @@
+import { AbortError } from '@codebuff/common/util/error'
 import { partition } from 'lodash'
 
 import { processFileBlock } from '../../../process-file-block'
@@ -144,7 +145,18 @@ export const handleWriteFile = (async (
     userInputId,
     logger,
   })
+    .then((result) => {
+      // Check for abort and throw at the boundary
+      if (result.aborted) {
+        throw new AbortError(result.reason)
+      }
+      return result.value
+    })
     .catch((error) => {
+      // AbortError propagates up - don't convert to tool error
+      if (error instanceof AbortError) {
+        throw error
+      }
       logger.error(error, 'Error processing write_file block')
       return {
         tool: 'write_file' as const,

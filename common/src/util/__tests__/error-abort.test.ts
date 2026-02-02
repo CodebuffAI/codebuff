@@ -62,24 +62,32 @@ describe('AbortError class', () => {
 })
 
 describe('isAbortError edge cases', () => {
-  describe('exact message matching', () => {
+  describe('message matching with startsWith', () => {
     it('returns true for exact ABORT_ERROR_MESSAGE', () => {
       const error = new Error(ABORT_ERROR_MESSAGE)
       expect(isAbortError(error)).toBe(true)
     })
 
-    it('returns false for message containing ABORT_ERROR_MESSAGE as substring', () => {
+    it('returns true for message with suffix after ABORT_ERROR_MESSAGE (like AbortError with reason)', () => {
+      // This is the format AbortError uses: 'Request aborted: reason'
+      const error = new Error(`${ABORT_ERROR_MESSAGE}: timeout`)
+      expect(isAbortError(error)).toBe(true)
+    })
+
+    it('returns false for message with non-colon suffix after ABORT_ERROR_MESSAGE', () => {
+      // Only 'Request aborted' or 'Request aborted: <reason>' should match
+      // Other patterns like 'Request aborted by user' should NOT match
+      const error = new Error(`${ABORT_ERROR_MESSAGE} due to user action`)
+      expect(isAbortError(error)).toBe(false)
+    })
+
+    it('returns false for message containing ABORT_ERROR_MESSAGE as substring (not prefix)', () => {
       const error = new Error(`Error: ${ABORT_ERROR_MESSAGE} by system`)
       expect(isAbortError(error)).toBe(false)
     })
 
     it('returns false for message with prefix before ABORT_ERROR_MESSAGE', () => {
       const error = new Error(`Something failed: ${ABORT_ERROR_MESSAGE}`)
-      expect(isAbortError(error)).toBe(false)
-    })
-
-    it('returns false for message with suffix after ABORT_ERROR_MESSAGE', () => {
-      const error = new Error(`${ABORT_ERROR_MESSAGE} due to timeout`)
       expect(isAbortError(error)).toBe(false)
     })
   })

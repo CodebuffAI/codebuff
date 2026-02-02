@@ -6,10 +6,11 @@ import {
 } from '@codebuff/common/testing/mock-modules'
 import { promptAborted, promptSuccess } from '@codebuff/common/util/error'
 import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, spyOn } from 'bun:test'
 import { applyPatch } from 'diff'
 
 import { handleLargeFile, processFileBlock } from '../process-file-block'
+import * as tokenCounter from '../util/token-counter'
 
 import type {
   AgentRuntimeDeps,
@@ -89,13 +90,17 @@ describe('processFileBlockModule', () => {
         signal: new AbortController().signal,
       })
 
-      expect(result).not.toBeNull()
-      if ('error' in result) {
-        throw new Error(`Expected success but got error: ${result.error}`)
+      expect(result.aborted).toBe(false)
+      if (result.aborted) {
+        throw new Error('Expected success but got aborted')
       }
-      expect(result.path).toBe('test.ts')
-      expect(result.patch).toBeUndefined()
-      expect(result.content).toBe(expectedContent)
+      const value = result.value
+      if ('error' in value) {
+        throw new Error(`Expected success but got error: ${value.error}`)
+      }
+      expect(value.path).toBe('test.ts')
+      expect(value.patch).toBeUndefined()
+      expect(value.content).toBe(expectedContent)
     })
 
     it('should handle Windows line endings with multi-line changes', async () => {
@@ -141,16 +146,20 @@ describe('processFileBlockModule', () => {
         signal: new AbortController().signal,
       })
 
-      expect(result).not.toBeNull()
-      if ('error' in result) {
-        throw new Error(`Expected success but got error: ${result.error}`)
+      expect(result.aborted).toBe(false)
+      if (result.aborted) {
+        throw new Error('Expected success but got aborted')
+      }
+      const value = result.value
+      if ('error' in value) {
+        throw new Error(`Expected success but got error: ${value.error}`)
       }
 
-      expect(result.path).toBe('test.ts')
-      expect(result.content).toBe(newContent)
-      expect(result.patch).toBeDefined()
-      if (result.patch) {
-        const updatedFile = applyPatch(oldContent, result.patch)
+      expect(value.path).toBe('test.ts')
+      expect(value.content).toBe(newContent)
+      expect(value.patch).toBeDefined()
+      if (value.patch) {
+        const updatedFile = applyPatch(oldContent, value.patch)
         expect(updatedFile).toBe(newContent)
       }
     })
@@ -176,10 +185,14 @@ describe('processFileBlockModule', () => {
         signal: new AbortController().signal,
       })
 
-      expect(result).not.toBeNull()
-      expect('error' in result).toBe(true)
-      if ('error' in result) {
-        expect(result.error).toContain('same as the old content')
+      expect(result.aborted).toBe(false)
+      if (result.aborted) {
+        throw new Error('Expected success but got aborted')
+      }
+      const value = result.value
+      expect('error' in value).toBe(true)
+      if ('error' in value) {
+        expect(value.error).toContain('same as the old content')
       }
     })
 
@@ -217,25 +230,29 @@ describe('processFileBlockModule', () => {
         signal: new AbortController().signal,
       })
 
-      expect(result).not.toBeNull()
-      if ('error' in result) {
-        throw new Error(`Expected success but got error: ${result.error}`)
+      expect(result.aborted).toBe(false)
+      if (result.aborted) {
+        throw new Error('Expected success but got aborted')
+      }
+      const value = result.value
+      if ('error' in value) {
+        throw new Error(`Expected success but got error: ${value.error}`)
       }
 
       // Verify content has Windows line endings
-      expect(result.content).toBe(newContent)
-      expect(result.content).toContain('\r\n')
-      expect(result.content.split('\r\n').length).toBe(3) // 2 lines + empty line
+      expect(value.content).toBe(newContent)
+      expect(value.content).toContain('\r\n')
+      expect(value.content.split('\r\n').length).toBe(3) // 2 lines + empty line
 
       // Verify patch has Windows line endings
-      expect(result.patch).toBeDefined()
-      if (result.patch) {
-        expect(result.patch).toContain('\r\n')
-        const updatedFile = applyPatch(oldContent, result.patch)
+      expect(value.patch).toBeDefined()
+      if (value.patch) {
+        expect(value.patch).toContain('\r\n')
+        const updatedFile = applyPatch(oldContent, value.patch)
         expect(updatedFile).toBe(newContent)
 
         // Verify patch can be applied and preserves line endings
-        const patchLines = result.patch.split('\r\n')
+        const patchLines = value.patch.split('\r\n')
         expect(patchLines.some((line) => line.startsWith('-const y'))).toBe(
           true,
         )
@@ -266,52 +283,59 @@ describe('processFileBlockModule', () => {
         signal: new AbortController().signal,
       })
 
-      expect(result).not.toBeNull()
-      expect('error' in result).toBe(true)
-      if ('error' in result) {
-        expect(result.error).toContain('placeholder comment')
-        expect(result.error).toContain('meant to modify an existing file')
+      expect(result.aborted).toBe(false)
+      if (result.aborted) {
+        throw new Error('Expected success but got aborted')
+      }
+      const value = result.value
+      expect('error' in value).toBe(true)
+      if ('error' in value) {
+        expect(value.error).toContain('placeholder comment')
+        expect(value.error).toContain('meant to modify an existing file')
       }
     })
   })
 
   describe('handleLargeFile', () => {
-    it('should throw when promptAiSdk returns aborted', async () => {
+    it('should return aborted when promptAiSdk returns aborted', async () => {
       agentRuntimeImpl.promptAiSdk = async () => promptAborted('User cancelled')
 
-      await expect(
-        handleLargeFile({
-          ...agentRuntimeImpl,
-          runId: 'test-run-id',
-          oldContent: 'const x = 1;\nconst y = 2;\nconst z = 3;\n',
-          editSnippet: '// ... existing code ...\nconst y = 999;\n// ... existing code ...',
-          filePath: 'test.ts',
-          clientSessionId: 'clientSessionId',
-          fingerprintId: 'fingerprintId',
-          userInputId: 'userInputId',
-          userId: TEST_USER_ID,
-          signal: new AbortController().signal,
-        }),
-      ).rejects.toThrow('Request aborted')
+      const result = await handleLargeFile({
+        ...agentRuntimeImpl,
+        runId: 'test-run-id',
+        oldContent: 'const x = 1;\nconst y = 2;\nconst z = 3;\n',
+        editSnippet: '// ... existing code ...\nconst y = 999;\n// ... existing code ...',
+        filePath: 'test.ts',
+        clientSessionId: 'clientSessionId',
+        fingerprintId: 'fingerprintId',
+        userInputId: 'userInputId',
+        userId: TEST_USER_ID,
+        signal: new AbortController().signal,
+      })
+
+      expect(result.aborted).toBe(true)
+      if (result.aborted) {
+        expect(result.reason).toBe('User cancelled')
+      }
     })
 
-    it('should throw when promptAiSdk returns aborted without reason', async () => {
+    it('should return aborted when promptAiSdk returns aborted without reason', async () => {
       agentRuntimeImpl.promptAiSdk = async () => promptAborted()
 
-      await expect(
-        handleLargeFile({
-          ...agentRuntimeImpl,
-          runId: 'test-run-id',
-          oldContent: 'function foo() {\n  return 1;\n}\n',
-          editSnippet: '// ... existing code ...\n  return 42;\n// ... existing code ...',
-          filePath: 'large-file.ts',
-          clientSessionId: 'clientSessionId',
-          fingerprintId: 'fingerprintId',
-          userInputId: 'userInputId',
-          userId: TEST_USER_ID,
-          signal: new AbortController().signal,
-        }),
-      ).rejects.toThrow('Request aborted')
+      const result = await handleLargeFile({
+        ...agentRuntimeImpl,
+        runId: 'test-run-id',
+        oldContent: 'function foo() {\n  return 1;\n}\n',
+        editSnippet: '// ... existing code ...\n  return 42;\n// ... existing code ...',
+        filePath: 'large-file.ts',
+        clientSessionId: 'clientSessionId',
+        fingerprintId: 'fingerprintId',
+        userInputId: 'userInputId',
+        userId: TEST_USER_ID,
+        signal: new AbortController().signal,
+      })
+
+      expect(result.aborted).toBe(true)
     })
 
     it('should return editSnippet directly when no lazy edit markers present', async () => {
@@ -336,8 +360,83 @@ describe('processFileBlockModule', () => {
         signal: new AbortController().signal,
       })
 
-      // Should return the editSnippet directly without calling LLM
-      expect(result).toBe(editSnippet)
+      // Should return success with the editSnippet directly without calling LLM
+      expect(result.aborted).toBe(false)
+      if (!result.aborted) {
+        expect(result.value).toBe(editSnippet)
+      }
+    })
+  })
+
+  describe('processFileBlock abort propagation', () => {
+    it('should propagate abort from handleLargeFile for large files', async () => {
+      // Mock countTokens to return a value > LARGE_FILE_TOKEN_LIMIT (64000)
+      // This forces processFileBlock to use the large file path
+      const countTokensSpy = spyOn(tokenCounter, 'countTokens').mockReturnValue(100000)
+
+      // Mock promptAiSdk to return aborted
+      agentRuntimeImpl.promptAiSdk = async () => promptAborted('User cancelled during large file edit')
+
+      const oldContent = 'const x = 1;\nconst y = 2;\n'
+      // Edit snippet with lazy edit markers triggers the LLM call in handleLargeFile
+      const newContent = '// ... existing code ...\nconst y = 999;\n// ... existing code ...'
+
+      const result = await processFileBlock({
+        ...agentRuntimeImpl,
+        runId: 'test-run-id',
+        path: 'large-file.ts',
+        instructions: undefined,
+        initialContentPromise: Promise.resolve(oldContent),
+        newContent,
+        messages: [],
+        fullResponse: '',
+        lastUserPrompt: undefined,
+        clientSessionId: 'clientSessionId',
+        fingerprintId: 'fingerprintId',
+        userInputId: 'userInputId',
+        userId: TEST_USER_ID,
+        signal: new AbortController().signal,
+      })
+
+      expect(result.aborted).toBe(true)
+      if (result.aborted) {
+        expect(result.reason).toBe('User cancelled during large file edit')
+      }
+
+      // Verify countTokens was called to trigger the large file path
+      expect(countTokensSpy).toHaveBeenCalled()
+      countTokensSpy.mockRestore()
+    })
+
+    it('should propagate abort from handleLargeFile without reason', async () => {
+      // Mock countTokens to return a value > LARGE_FILE_TOKEN_LIMIT (64000)
+      const countTokensSpy = spyOn(tokenCounter, 'countTokens').mockReturnValue(100000)
+
+      // Mock promptAiSdk to return aborted without a reason
+      agentRuntimeImpl.promptAiSdk = async () => promptAborted()
+
+      const oldContent = 'function foo() {\n  return 1;\n}\n'
+      const newContent = '// ... existing code ...\n  return 42;\n// ... existing code ...'
+
+      const result = await processFileBlock({
+        ...agentRuntimeImpl,
+        runId: 'test-run-id',
+        path: 'another-large-file.ts',
+        instructions: undefined,
+        initialContentPromise: Promise.resolve(oldContent),
+        newContent,
+        messages: [],
+        fullResponse: '',
+        lastUserPrompt: undefined,
+        clientSessionId: 'clientSessionId',
+        fingerprintId: 'fingerprintId',
+        userInputId: 'userInputId',
+        userId: TEST_USER_ID,
+        signal: new AbortController().signal,
+      })
+
+      expect(result.aborted).toBe(true)
+      countTokensSpy.mockRestore()
     })
   })
 })

@@ -1,6 +1,7 @@
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures/agent-runtime'
+import { promptSuccess } from '@codebuff/common/util/error'
 import {
   AgentTemplateTypes,
   getInitialSessionState,
@@ -105,13 +106,13 @@ describe('mainPrompt', () => {
     // Mock processFileBlock
     spyOn(processFileBlockModule, 'processFileBlock').mockImplementation(
       async (params) => {
-        return {
+        return promptSuccess({
           tool: 'write_file' as const,
           path: params.path,
           content: params.newContent,
           patch: undefined,
           messages: [],
-        }
+        })
       },
     )
 

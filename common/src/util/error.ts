@@ -131,19 +131,36 @@ export function promptAborted(reason?: string): PromptAborted {
 export const ABORT_ERROR_MESSAGE = 'Request aborted'
 
 /**
+ * Custom error class for abort errors.
+ * Use this class instead of generic Error for abort errors to ensure
+ * robust detection via isAbortError() (checks error.name === 'AbortError').
+ */
+export class AbortError extends Error {
+  constructor(reason?: string) {
+    super(reason ? `${ABORT_ERROR_MESSAGE}: ${reason}` : ABORT_ERROR_MESSAGE)
+    this.name = 'AbortError'
+  }
+}
+
+/**
  * Check if an error is an abort error.
  * Use this helper to detect abort errors in catch blocks.
  *
  * Detects both:
- * - Errors with message 'Request aborted' (thrown by our code via ABORT_ERROR_MESSAGE)
+ * - Errors with message starting with 'Request aborted' (thrown by our code via AbortError)
  * - Native AbortError (thrown by fetch/AI SDK when AbortSignal is triggered)
  */
 export function isAbortError(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false
   }
-  // Check for our custom abort error message
-  if (error.message === ABORT_ERROR_MESSAGE) {
+  // Check for our custom abort error message:
+  // - Exact match: 'Request aborted'
+  // - With reason: 'Request aborted: <reason>' (from AbortError class)
+  if (
+    error.message === ABORT_ERROR_MESSAGE ||
+    error.message.startsWith(`${ABORT_ERROR_MESSAGE}: `)
+  ) {
     return true
   }
   // Check for native AbortError (DOMException or Error with name 'AbortError')
@@ -161,11 +178,11 @@ export function isAbortError(error: unknown): boolean {
  * as exceptions. Callers should use `isAbortError()` in catch blocks to detect
  * and handle abort errors appropriately (e.g., rethrow instead of logging as errors).
  *
- * @throws {Error} When result.aborted is true. The error message is ABORT_ERROR_MESSAGE.
+ * @throws {AbortError} When result.aborted is true.
  */
 export function unwrapPromptResult<T>(result: PromptResult<T>): T {
   if (result.aborted) {
-    throw new Error(ABORT_ERROR_MESSAGE)
+    throw new AbortError(result.reason)
   }
   return result.value
 }

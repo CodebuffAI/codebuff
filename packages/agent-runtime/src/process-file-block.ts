@@ -1,5 +1,9 @@
 import { models } from '@codebuff/common/constants/model-config'
-import { unwrapPromptResult } from '@codebuff/common/util/error'
+import {
+  promptAborted,
+  promptSuccess,
+  type PromptResult,
+} from '@codebuff/common/util/error'
 import { cleanMarkdownCodeBlock } from '@codebuff/common/util/file'
 import { userMessage } from '@codebuff/common/util/messages'
 import { hasLazyEdit } from '@codebuff/common/util/string'
@@ -17,10 +21,28 @@ import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ParamsExcluding } from '@codebuff/common/types/function-params'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 
+type WriteFileSuccess = {
+  tool: 'write_file'
+  path: string
+  content: string
+  patch: string | undefined
+  messages: string[]
+}
+
+type WriteFileError = {
+  tool: 'write_file'
+  path: string
+  error: string
+}
+
+export type WriteFileResult = WriteFileSuccess | WriteFileError
+
 /**
  * Processes a file block from the LLM response, applying edits to create updated file content.
  *
- * @throws {Error} When the request is aborted by user. Check with `isAbortError()`.
+ * Returns a PromptResult to explicitly handle the abort case:
+ * - `{ aborted: true }` when the user cancels the operation
+ * - `{ aborted: false, value: WriteFileResult }` on success or recoverable error
  */
 export async function processFileBlock(
   params: {
@@ -47,20 +69,7 @@ export async function processFileBlock(
       typeof shouldAddFilePlaceholders,
       'filePath' | 'oldContent' | 'rewrittenNewContent' | 'messageHistory'
     >,
-): Promise<
-  | {
-      tool: 'write_file'
-      path: string
-      content: string // Updated copy of the file
-      patch: string | undefined // Patch diff string. Undefined for a new file
-      messages: string[]
-    }
-  | {
-      tool: 'write_file'
-      path: string
-      error: string // Error message if the file could not be updated
-    }
-> {
+): Promise<PromptResult<WriteFileResult>> {
   const {
     path,
     initialContentPromise,
@@ -84,25 +93,25 @@ export async function processFileBlock(
         { path, newContent },
         `processFileBlock: New file contained a lazy edit for ${path}. Aborting.`,
       )
-      return {
+      return promptSuccess({
         tool: 'write_file' as const,
         path,
         error:
           'You created a new file with a placeholder comment like `// ... existing code ...` (or equivalent for other languages). Are you sure you have the file path right? You probably meant to modify an existing file instead of providing a path to a new file.',
-      }
+      })
     }
 
     logger.debug(
       { path, cleanContent },
       `processFileBlock: Created new file ${path}`,
     )
-    return {
+    return promptSuccess({
       tool: 'write_file' as const,
       path,
       content: cleanContent,
       patch: undefined,
       messages: [`Created new file ${path}`],
-    }
+    })
   }
 
   if (newContent === initialContent) {
@@ -110,11 +119,11 @@ export async function processFileBlock(
       { newContent },
       `processFileBlock: New was same as old, skipping ${path}`,
     )
-    return {
+    return promptSuccess({
       tool: 'write_file' as const,
       path,
       error: 'The new content was the same as the old content, skipping.',
-    }
+    })
   }
 
   const lineEnding = initialContent.includes('\r\n') ? '\r\n' : '\n'
@@ -131,22 +140,26 @@ export async function processFileBlock(
     'Write diff created by fast-apply model. May contain errors. Make sure to double check!',
   )
   if (tokenCount > LARGE_FILE_TOKEN_LIMIT) {
-    // handleLargeFile throws on abort (propagates up) but returns null on retry failure
-    const largeFileContent = await handleLargeFile({
+    const largeFileResult = await handleLargeFile({
       ...params,
       oldContent: normalizedInitialContent,
       editSnippet: normalizedEditSnippet,
       filePath: path,
     })
 
+    // Propagate abort
+    if (largeFileResult.aborted) {
+      return promptAborted(largeFileResult.reason)
+    }
+
+    const largeFileContent = largeFileResult.value
     if (!largeFileContent) {
-      // This only handles retry failure case - aborts throw and propagate up
-      return {
+      return promptSuccess({
         tool: 'write_file' as const,
         path,
         error:
           'Failed to apply the write file change to this large file. You should try using the str_replace tool instead for large files.',
-      }
+      })
     }
 
     updatedContent = largeFileContent
@@ -198,11 +211,11 @@ export async function processFileBlock(
       },
       `processFileBlock: No change to ${path}`,
     )
-    return {
+    return promptSuccess({
       tool: 'write_file' as const,
       path,
       error: editMessages.join('\n\n'),
-    }
+    })
   }
   logger.debug(
     {
@@ -221,13 +234,13 @@ export async function processFileBlock(
     lineEnding,
   )
 
-  return {
+  return promptSuccess({
     tool: 'write_file' as const,
     path,
     content: updatedContentOriginalLineEndings,
     patch: patchOriginalLineEndings,
     messages: editMessages,
-  }
+  })
 }
 
 const LARGE_FILE_TOKEN_LIMIT = 64_000
@@ -235,8 +248,10 @@ const LARGE_FILE_TOKEN_LIMIT = 64_000
 /**
  * Handles large file edits by generating SEARCH/REPLACE blocks.
  *
- * @returns The updated file content on success, or null if diff blocks failed to match after retry.
- * @throws {Error} When the request is aborted by user. Check with `isAbortError()`.
+ * Returns a PromptResult to explicitly handle the abort case:
+ * - `{ aborted: true }` when the user cancels the operation
+ * - `{ aborted: false, value: string }` on success
+ * - `{ aborted: false, value: null }` if diff blocks failed to match after retry
  */
 export async function handleLargeFile(
   params: {
@@ -250,15 +265,13 @@ export async function handleLargeFile(
     'oldContent' | 'diffBlocksThatDidntMatch'
   > &
     ParamsExcluding<PromptAiSdkFn, 'messages' | 'model'>,
-): Promise<string | null> {
-  // Returns string on success, null on retry failure (diff blocks didn't match)
-  // Throws on abort (via unwrapPromptResult) - aborts propagate up to caller
+): Promise<PromptResult<string | null>> {
   const { oldContent, editSnippet, filePath, promptAiSdk, logger } = params
   const startTime = Date.now()
 
   // If the whole file is rewritten, we can just return the new content.
   if (!hasLazyEdit(editSnippet)) {
-    return editSnippet
+    return promptSuccess(editSnippet)
   }
 
   const prompt =
@@ -291,13 +304,17 @@ Please output just the SEARCH/REPLACE blocks like this:
 [new content that matches edit snippet intent]
 >>>>>>> REPLACE`
 
-  const response = unwrapPromptResult(
-    await promptAiSdk({
-      ...params,
-      messages: [userMessage(prompt)],
-      model: models.o4mini,
-    }),
-  )
+  const promptResult = await promptAiSdk({
+    ...params,
+    messages: [userMessage(prompt)],
+    model: models.o4mini,
+  })
+
+  if (promptResult.aborted) {
+    return promptAborted(promptResult.reason)
+  }
+
+  const response = promptResult.value
   const { diffBlocks, diffBlocksThatDidntMatch } =
     parseAndGetDiffBlocksSingleFile({
       newContent: response,
@@ -345,7 +362,7 @@ Please output just the SEARCH/REPLACE blocks like this:
         },
         'Failed to create matching diff blocks for large file after retry',
       )
-      return null
+      return promptSuccess(null)
     }
 
     for (const { searchContent, replaceContent } of newDiffBlocks) {
@@ -364,5 +381,5 @@ Please output just the SEARCH/REPLACE blocks like this:
     },
     `handleLargeFile ${filePath}`,
   )
-  return updatedContent
+  return promptSuccess(updatedContent)
 }
