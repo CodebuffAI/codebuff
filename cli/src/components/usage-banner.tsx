@@ -32,13 +32,13 @@ const formatRenewalDate = (dateStr: string | null): string => {
   const isToday = resetDate.toDateString() === today.toDateString()
   return isToday
     ? resetDate.toLocaleString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-      })
+      hour: 'numeric',
+      minute: '2-digit',
+    })
     : resetDate.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-      })
+      month: 'short',
+      day: 'numeric',
+    })
 }
 
 export const UsageBanner = ({ showTime }: { showTime: number }) => {
@@ -120,7 +120,7 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
           <box style={{ flexDirection: 'column', marginBottom: 1 }}>
             <box style={{ flexDirection: 'row', gap: 1 }}>
               <text style={{ fg: theme.foreground }}>
-                {subscriptionData.displayName ?? 'Strong'} subscription
+                💪 {subscriptionData.displayName ?? 'Strong'} subscription
               </text>
               {subscriptionInfo?.tier && (
                 <text style={{ fg: theme.muted }}>${subscriptionInfo.tier}/mo</text>
@@ -130,37 +130,38 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
               <text style={{ fg: theme.muted }}>Loading subscription data...</text>
             ) : rateLimit ? (
               <box style={{ flexDirection: 'column', gap: 0 }}>
-                {/* Block progress - show if there's an active block */}
-                {rateLimit.blockLimit != null && rateLimit.blockUsed != null && (
-                  <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
-                    <text style={{ fg: theme.muted }}>5h limit:    </text>
-                    <ProgressBar
-                      value={Math.max(0, 100 - Math.round((rateLimit.blockUsed / rateLimit.blockLimit) * 100))}
-                      width={12}
-                      showPercentage={false}
-                    />
-                    <text style={{ fg: theme.muted }}>
-                      {Math.max(0, 100 - Math.round((rateLimit.blockUsed / rateLimit.blockLimit) * 100))}% remaining
-                    </text>
-                    {rateLimit.blockResetsAt && (
+                {/* Block progress - always show for Strong subscription */}
+                {(() => {
+                  const blockPercent = rateLimit.blockLimit != null && rateLimit.blockUsed != null
+                    ? Math.max(0, 100 - Math.round((rateLimit.blockUsed / rateLimit.blockLimit) * 100))
+                    : 100
+                  return (
+                    <box style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
+                      <text style={{ fg: theme.muted }}>5-hour limit </text>
+                      <text style={{ fg: theme.muted }}>{`${blockPercent}%`.padStart(4)} </text>
+                      <ProgressBar value={blockPercent} width={12} showPercentage={false} />
                       <text style={{ fg: theme.muted }}>
-                        · resets in {formatResetTime(new Date(rateLimit.blockResetsAt))}
+                        {rateLimit.blockResetsAt
+                          ? ` resets in ${formatResetTime(new Date(rateLimit.blockResetsAt))}`
+                          : ''}
                       </text>
-                    )}
-                  </box>
-                )}
+                    </box>
+                  )
+                })()}
                 {/* Weekly progress */}
-                <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
-                  <text style={{ fg: theme.muted }}>Weekly limit:</text>
-                  <ProgressBar
-                    value={100 - rateLimit.weeklyPercentUsed}
-                    width={12}
-                    showPercentage={false}
-                  />
-                  <text style={{ fg: theme.muted }}>
-                    {100 - rateLimit.weeklyPercentUsed}% remaining · resets in {formatResetTimeLong(rateLimit.weeklyResetsAt)}
-                  </text>
-                </box>
+                {(() => {
+                  const weeklyPercent = 100 - rateLimit.weeklyPercentUsed
+                  return (
+                    <box style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
+                      <text style={{ fg: theme.muted }}>Weekly limit </text>
+                      <text style={{ fg: theme.muted }}>{`${weeklyPercent}%`.padStart(4)} </text>
+                      <ProgressBar value={weeklyPercent} width={12} showPercentage={false} />
+                      <text style={{ fg: theme.muted }}>
+                        {' '}resets in {formatResetTimeLong(rateLimit.weeklyResetsAt)}
+                      </text>
+                    </box>
+                  )
+                })()}
               </box>
             ) : null}
           </box>

@@ -148,7 +148,7 @@ function SubscriptionActive({
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium">
-                  Session
+                  5-hour limit
                   {rateLimit.blockResetsAt && (
                     <span className="font-normal text-muted-foreground ml-1.5">
                       resets in {formatDaysHours(rateLimit.blockResetsAt)}
@@ -158,7 +158,7 @@ function SubscriptionActive({
                 <span className="text-muted-foreground">
                   {rateLimit.blockLimit != null && rateLimit.blockUsed != null && rateLimit.blockLimit > 0
                     ? `${Math.round(100 - (rateLimit.blockUsed / rateLimit.blockLimit) * 100)}%`
-                    : '100%'}
+                    : '100%'} remaining
                 </span>
               </div>
               <ProgressBar
@@ -175,13 +175,13 @@ function SubscriptionActive({
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium">
-                  Weekly
+                  Weekly limit
                   <span className="font-normal text-muted-foreground ml-1.5">
                     resets in {formatDaysHours(rateLimit.weeklyResetsAt)}
                   </span>
                 </span>
                 <span className="text-muted-foreground">
-                  {100 - rateLimit.weeklyPercentUsed}%
+                  {100 - rateLimit.weeklyPercentUsed}% remaining
                 </span>
               </div>
               <ProgressBar
