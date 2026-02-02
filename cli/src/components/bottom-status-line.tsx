@@ -4,7 +4,6 @@ import { useTheme } from '../hooks/use-theme'
 import { formatResetTime } from '../utils/time-format'
 
 import type { ClaudeQuotaData } from '../hooks/use-claude-quota-query'
-import type { SubscriptionRateLimit } from '../hooks/use-subscription-query'
 
 interface BottomStatusLineProps {
   /** Whether Claude OAuth is connected */
@@ -13,10 +12,6 @@ interface BottomStatusLineProps {
   isClaudeActive: boolean
   /** Quota data from Anthropic API */
   claudeQuota?: ClaudeQuotaData | null
-  /** Whether the user has an active Codebuff Strong subscription */
-  hasSubscription: boolean
-  /** Rate limit data for the subscription */
-  subscriptionRateLimit?: SubscriptionRateLimit | null
 }
 
 /**
@@ -27,8 +22,6 @@ export const BottomStatusLine: React.FC<BottomStatusLineProps> = ({
   isClaudeConnected,
   isClaudeActive,
   claudeQuota,
-  hasSubscription,
-  subscriptionRateLimit,
 }) => {
   const theme = useTheme()
 
@@ -47,13 +40,8 @@ export const BottomStatusLine: React.FC<BottomStatusLineProps> = ({
       : claudeQuota.sevenDayResetsAt
     : null
 
-  // Show Claude when connected and not depleted (takes priority over Strong)
-  const showClaude = isClaudeConnected && !isClaudeExhausted
-  // Show Strong when subscribed AND (no Claude connected OR Claude depleted)
-  const showStrong = hasSubscription && (!isClaudeConnected || isClaudeExhausted)
-
-  // Don't render if there's nothing to show
-  if (!showClaude && !showStrong && !(isClaudeConnected && isClaudeExhausted)) {
+  // Only show when Claude is connected
+  if (!isClaudeConnected) {
     return null
   }
 
@@ -61,28 +49,6 @@ export const BottomStatusLine: React.FC<BottomStatusLineProps> = ({
   const claudeDotColor = isClaudeExhausted
     ? theme.error
     : isClaudeActive
-      ? theme.success
-      : theme.muted
-
-  // Subscription remaining percentage (based on weekly)
-  const subscriptionRemaining = subscriptionRateLimit
-    ? 100 - subscriptionRateLimit.weeklyPercentUsed
-    : null
-  const isSubscriptionLimited = subscriptionRateLimit?.limited === true
-
-  // Get subscription reset time
-  const subscriptionResetTime = subscriptionRateLimit
-    ? subscriptionRateLimit.reason === 'block_exhausted' && subscriptionRateLimit.blockResetsAt
-      ? new Date(subscriptionRateLimit.blockResetsAt)
-      : subscriptionRateLimit.weeklyResetsAt
-        ? new Date(subscriptionRateLimit.weeklyResetsAt)
-        : null
-    : null
-
-  // Determine dot color for Strong: red if limited, green if has remaining credits, muted otherwise
-  const strongDotColor = isSubscriptionLimited
-    ? theme.error
-    : subscriptionRemaining !== null && subscriptionRemaining > 0
       ? theme.success
       : theme.muted
 
@@ -96,8 +62,8 @@ export const BottomStatusLine: React.FC<BottomStatusLineProps> = ({
         gap: 2,
       }}
     >
-      {/* Show Claude subscription when connected (even when depleted, to show reset time) */}
-      {isClaudeConnected && !isClaudeExhausted && (
+      {/* Show Claude subscription when connected and not depleted */}
+      {!isClaudeExhausted && (
         <box
           style={{
             flexDirection: 'row',
@@ -114,7 +80,7 @@ export const BottomStatusLine: React.FC<BottomStatusLineProps> = ({
       )}
 
       {/* Show Claude as depleted when exhausted */}
-      {isClaudeConnected && isClaudeExhausted && (
+      {isClaudeExhausted && (
         <box
           style={{
             flexDirection: 'row',
@@ -127,25 +93,6 @@ export const BottomStatusLine: React.FC<BottomStatusLineProps> = ({
           {claudeResetTime && (
             <text style={{ fg: theme.muted }}>{` · resets in ${formatResetTime(claudeResetTime)}`}</text>
           )}
-        </box>
-      )}
-
-      {/* Show Codebuff Strong when subscribed and Claude not healthy */}
-      {showStrong && (
-        <box
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 0,
-          }}
-        >
-          <text style={{ fg: strongDotColor }}>●</text>
-          <text style={{ fg: theme.muted }}> Codebuff Strong</text>
-          {isSubscriptionLimited && subscriptionResetTime ? (
-            <text style={{ fg: theme.muted }}>{` · resets in ${formatResetTime(subscriptionResetTime)}`}</text>
-          ) : subscriptionRemaining !== null ? (
-            <BatteryIndicator value={subscriptionRemaining} theme={theme} />
-          ) : null}
         </box>
       )}
     </box>

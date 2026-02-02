@@ -1461,8 +1461,6 @@ export const Chat = ({
           isClaudeConnected={isClaudeOAuthActive}
           isClaudeActive={isClaudeActive}
           claudeQuota={claudeQuota}
-          hasSubscription={subscriptionData?.hasSubscription ?? false}
-          subscriptionRateLimit={subscriptionData?.rateLimit}
         />
       </box>
     </box>

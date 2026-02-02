@@ -1,3 +1,4 @@
+import { SUBSCRIPTION_DISPLAY_NAME } from '@codebuff/common/constants/subscription-plans'
 import { pluralize } from '@codebuff/common/util/string'
 import { TextAttributes } from '@opentui/core'
 import React, { useCallback, useMemo } from 'react'
@@ -5,6 +6,7 @@ import React, { useCallback, useMemo } from 'react'
 import { CopyButton } from './copy-button'
 import { ElapsedTimer } from './elapsed-timer'
 import { FeedbackIconButton } from './feedback-icon-button'
+import { useSubscriptionQuery } from '../hooks/use-subscription-query'
 import { useTheme } from '../hooks/use-theme'
 import {
   useFeedbackStore,
@@ -157,19 +159,7 @@ export const MessageFooter: React.FC<MessageFooterProps> = ({
   if (typeof credits === 'number' && credits > 0) {
     footerItems.push({
       key: 'credits',
-      node: (
-        <text
-          attributes={TextAttributes.DIM}
-          style={{
-            wrapMode: 'none',
-            fg: theme.secondary,
-            marginTop: 0,
-            marginBottom: 0,
-          }}
-        >
-          {pluralize(credits, 'credit')}
-        </text>
-      ),
+      node: <CreditsOrSubscriptionIndicator credits={credits} />,
     })
   }
   if (shouldRenderFeedbackButton) {
@@ -220,5 +210,66 @@ export const MessageFooter: React.FC<MessageFooterProps> = ({
         </React.Fragment>
       ))}
     </box>
+  )
+}
+
+/**
+ * Shows either subscription indicator or credits count based on subscription status.
+ * If user has an active subscription with remaining block credits, shows "✓ Strong".
+ * If block is < 15% remaining, also shows the percentage.
+ * Otherwise, shows the regular credits count.
+ */
+const CreditsOrSubscriptionIndicator: React.FC<{ credits: number }> = ({ credits }) => {
+  const theme = useTheme()
+  const { data: subscriptionData } = useSubscriptionQuery({
+    refetchInterval: false, // Don't poll, just use cached data
+    refetchOnActivity: false,
+    pauseWhenIdle: false,
+  })
+
+  const hasActiveSubscription = subscriptionData?.hasSubscription === true
+  const rateLimit = subscriptionData?.rateLimit
+  const isLimited = rateLimit?.limited === true
+
+  // Calculate block remaining percentage
+  const blockPercentRemaining = useMemo(() => {
+    if (!rateLimit?.blockLimit || rateLimit.blockUsed == null) return null
+    const remaining = rateLimit.blockLimit - rateLimit.blockUsed
+    return Math.round((remaining / rateLimit.blockLimit) * 100)
+  }, [rateLimit])
+
+  // Show subscription indicator if user has active subscription and block is not depleted
+  const showSubscriptionIndicator = hasActiveSubscription && !isLimited && blockPercentRemaining !== null && blockPercentRemaining > 0
+
+  if (showSubscriptionIndicator) {
+    const showPercentage = blockPercentRemaining < 20
+    return (
+      <text
+        attributes={TextAttributes.DIM}
+        style={{
+          wrapMode: 'none',
+          fg: theme.success,
+          marginTop: 0,
+          marginBottom: 0,
+        }}
+      >
+        {showPercentage ? `✓ ${SUBSCRIPTION_DISPLAY_NAME} (${blockPercentRemaining}% left)` : `✓ ${SUBSCRIPTION_DISPLAY_NAME}`}
+      </text>
+    )
+  }
+
+  // Default: show credits count
+  return (
+    <text
+      attributes={TextAttributes.DIM}
+      style={{
+        wrapMode: 'none',
+        fg: theme.secondary,
+        marginTop: 0,
+        marginBottom: 0,
+      }}
+    >
+      {pluralize(credits, 'credit')}
+    </text>
   )
 }
