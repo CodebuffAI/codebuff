@@ -1,0 +1,239 @@
+---
+title: 'Skills'
+section: 'tips'
+tags: ['skills', 'customization', 'reusable']
+order: 5
+---
+
+# Skills
+
+Skills are reusable instruction sets that Codebuff can load on-demand. They let you define domain-specific knowledge, workflows, and behaviors that the agent can invoke when needed.
+
+## Why Use Skills?
+
+- **Reusability** — Define instructions once, use them across multiple conversations
+- **On-demand loading** — Skills are only loaded when needed, keeping context clean
+- **Shareable** — Store skills globally or per-project, share with your team
+- **Slash commands** — Every skill becomes a `/skill:name` command you can trigger directly
+
+## Creating a Skill
+
+### 1. Create the skill directory
+
+Skills live in a `skills` directory inside `.agents/` or `.claude/`:
+
+```
+.agents/skills/my-skill/
+```
+
+### 2. Create the SKILL.md file
+
+Each skill needs a `SKILL.md` file with YAML frontmatter:
+
+```markdown
+---
+name: my-skill
+description: A short description of what this skill does and when to invoke it
+license: MIT
+metadata:
+  category: development
+---
+
+# My Skill
+
+Your skill instructions go here...
+
+## Knowledge
+
+Background information and helpful context goes here.
+
+## Instructions
+
+1. Step one
+2. Step two
+3. Step three
+```
+
+### Frontmatter Fields
+
+- **`name`** (required) — Skill name (1-64 chars, lowercase alphanumeric with hyphens)
+- **`description`** (required) — Short description (1-1024 chars) shown when browsing skills
+- **`metadata`** (optional) — Key-value pairs for additional categorization
+
+### Name Validation Rules
+
+Skill names must:
+- Be 1-64 characters long
+- Use only lowercase letters, numbers, and hyphens
+- Not start or end with a hyphen
+- Not contain consecutive hyphens
+- Match the directory name exactly
+
+**Valid:** `git-release`, `api-design`, `review2`, `deploy-prod`
+
+**Invalid:** `Git-Release`, `my--skill`, `-skill`, `skill-`
+
+## Discovery Locations
+
+Skills are loaded from these locations, in order of priority (later overrides earlier):
+
+1. `~/.claude/skills/` — Global (Claude Code compatible)
+2. `~/.agents/skills/` — Global
+3. `.claude/skills/` — Project (Claude Code compatible)
+4. `.agents/skills/` — Project (highest priority)
+
+Project skills override global skills with the same name. The `.claude/` paths provide compatibility with Claude Code.
+
+## Using Skills
+
+### Slash Commands
+
+Every skill becomes a slash command. Type `/skill:` to see available skills:
+
+```
+/skill:git-release
+```
+
+This loads the skill's instructions into the conversation.
+
+### Agent Tool Invocation
+
+Codebuff can also load skills automatically via the `skill` tool when it determines a skill is relevant. The agent sees available skills listed in its tool description and can call:
+
+```typescript
+skill({ name: "my-skill" })
+```
+
+The full `SKILL.md` content is then loaded into the conversation context.
+
+## Example: Git Release Skill
+
+Here's a practical example of a skill for managing releases:
+
+```markdown
+---
+name: git-release
+description: Guidelines for creating Git releases with semantic versioning
+metadata:
+  category: git
+  audience: developers
+---
+
+# Git Release Workflow
+
+Use this skill when creating a new release.
+
+## Versioning
+
+Follow semantic versioning (semver):
+- **MAJOR** (1.0.0) — Breaking changes
+- **MINOR** (0.1.0) — New features, backward compatible
+- **PATCH** (0.0.1) — Bug fixes, backward compatible
+
+## Release Checklist
+
+1. Ensure all tests pass
+2. Update CHANGELOG.md with release notes
+3. Bump version in package.json
+4. Create a git tag: `git tag v1.2.3`
+5. Push with tags: `git push --follow-tags`
+
+## Commit Message Format
+
+Use conventional commits:
+- `feat:` — New feature
+- `fix:` — Bug fix
+- `docs:` — Documentation
+- `chore:` — Maintenance
+```
+
+## Example: Code Review Skill
+
+```markdown
+---
+name: review
+description: Code review checklist and guidelines
+metadata:
+  category: quality
+---
+
+# Code Review Guidelines
+
+## What to Check
+
+1. **Correctness** — Does the code do what it's supposed to?
+2. **Tests** — Are there adequate tests?
+3. **Security** — Any potential vulnerabilities?
+4. **Performance** — Any obvious inefficiencies?
+5. **Readability** — Is the code clear and well-documented?
+
+## Feedback Style
+
+- Be constructive and specific
+- Suggest alternatives, don't just criticize
+- Acknowledge good patterns
+```
+
+## Best Practices
+
+### Keep Skills Focused
+
+Each skill should have a single, clear purpose. Instead of one large "development" skill, create separate skills:
+
+- `git-release` — Release workflow
+- `api-design` — API design guidelines
+- `testing` — Testing conventions
+
+### Write Clear Descriptions
+
+The description is what Codebuff sees when deciding whether to load a skill. Make it specific:
+
+**Good:** `Guidelines for creating Git releases with semantic versioning and changelog updates`
+
+**Bad:** `Git stuff`
+
+### Use Metadata for Organization
+
+Metadata helps categorize skills:
+
+```yaml
+metadata:
+  category: deployment
+  language: typescript
+  framework: nextjs
+```
+
+## Global vs Project Skills
+
+**Global skills** (`~/.agents/skills/`):
+- Personal workflows
+- Cross-project tools
+- Your coding preferences
+
+**Project skills** (`.agents/skills/`):
+- Team conventions
+- Project-specific processes
+- Codebase-specific knowledge
+
+## Troubleshooting
+
+### Skill Not Appearing
+
+1. Check the directory structure: `project-root/.agents/skills/my-skill/SKILL.md`
+2. Verify the name in frontmatter matches the directory name
+3. Ensure the name follows validation rules (lowercase, hyphens only)
+4. Restart Codebuff to reload skills
+
+### Invalid Frontmatter
+
+Ensure your YAML frontmatter:
+- Starts and ends with `---`
+- Has required `name` and `description` fields
+- Uses valid YAML syntax
+
+```markdown
+---
+name: my-skill
+description: This is required
+---
+```
