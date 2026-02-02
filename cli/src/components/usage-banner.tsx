@@ -1,6 +1,6 @@
 import { isClaudeOAuthValid } from '@codebuff/sdk'
 import open from 'open'
-import React, { useEffect } from 'react'
+import React, { useEffect, useMemo } from 'react'
 
 import { BottomBanner } from './bottom-banner'
 import { Button } from './button'
@@ -105,9 +105,8 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
   const adCredits = activeData.balanceBreakdown?.ad
   const renewalDate = activeData.next_quota_reset ? formatRenewalDate(activeData.next_quota_reset) : null
 
-  const hasSubscription = subscriptionData?.hasSubscription === true
-  const rateLimit = subscriptionData?.rateLimit
-  const subscriptionInfo = subscriptionData?.subscription
+  const activeSubscription = subscriptionData?.hasSubscription ? subscriptionData : null
+  const { rateLimit, subscription: subscriptionInfo, displayName } = activeSubscription ?? {}
 
   return (
     <BottomBanner
@@ -115,56 +114,13 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
       onClose={() => setInputMode('default')}
     >
       <box style={{ flexDirection: 'column', gap: 0 }}>
-        {/* Strong subscription section - only show if subscribed */}
-        {hasSubscription && (
-          <box style={{ flexDirection: 'column', marginBottom: 1 }}>
-            <box style={{ flexDirection: 'row', gap: 1 }}>
-              <text style={{ fg: theme.foreground }}>
-                💪 {subscriptionData.displayName ?? 'Strong'} subscription
-              </text>
-              {subscriptionInfo?.tier && (
-                <text style={{ fg: theme.muted }}>${subscriptionInfo.tier}/mo</text>
-              )}
-            </box>
-            {isSubscriptionLoading ? (
-              <text style={{ fg: theme.muted }}>Loading subscription data...</text>
-            ) : rateLimit ? (
-              <box style={{ flexDirection: 'column', gap: 0 }}>
-                {/* Block progress - always show for Strong subscription */}
-                {(() => {
-                  const blockPercent = rateLimit.blockLimit != null && rateLimit.blockUsed != null
-                    ? Math.max(0, 100 - Math.round((rateLimit.blockUsed / rateLimit.blockLimit) * 100))
-                    : 100
-                  return (
-                    <box style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
-                      <text style={{ fg: theme.muted }}>5-hour limit </text>
-                      <text style={{ fg: theme.muted }}>{`${blockPercent}%`.padStart(4)} </text>
-                      <ProgressBar value={blockPercent} width={12} showPercentage={false} />
-                      <text style={{ fg: theme.muted }}>
-                        {rateLimit.blockResetsAt
-                          ? ` resets in ${formatResetTime(new Date(rateLimit.blockResetsAt))}`
-                          : ''}
-                      </text>
-                    </box>
-                  )
-                })()}
-                {/* Weekly progress */}
-                {(() => {
-                  const weeklyPercent = 100 - rateLimit.weeklyPercentUsed
-                  return (
-                    <box style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
-                      <text style={{ fg: theme.muted }}>Weekly limit </text>
-                      <text style={{ fg: theme.muted }}>{`${weeklyPercent}%`.padStart(4)} </text>
-                      <ProgressBar value={weeklyPercent} width={12} showPercentage={false} />
-                      <text style={{ fg: theme.muted }}>
-                        {' '}resets in {formatResetTimeLong(rateLimit.weeklyResetsAt)}
-                      </text>
-                    </box>
-                  )
-                })()}
-              </box>
-            ) : null}
-          </box>
+        {activeSubscription && (
+          <SubscriptionUsageSection
+            displayName={displayName}
+            subscriptionInfo={subscriptionInfo}
+            rateLimit={rateLimit}
+            isLoading={isSubscriptionLoading}
+          />
         )}
 
         {/* Codebuff credits section - structured layout */}
@@ -190,7 +146,7 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
               {adCredits != null && adCredits > 0 && (
                 <text style={{ fg: theme.muted }}>{`(${adCredits} from ads)`}</text>
               )}
-              {!hasSubscription && renewalDate && (
+              {!activeSubscription && renewalDate && (
                 <>
                   <text style={{ fg: theme.muted }}>· Renews:</text>
                   <text style={{ fg: theme.foreground }}>{renewalDate}</text>
@@ -237,5 +193,71 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
         )}
       </box>
     </BottomBanner>
+  )
+}
+
+interface SubscriptionUsageSectionProps {
+  displayName?: string
+  subscriptionInfo?: { tier: number }
+  rateLimit?: {
+    blockLimit?: number
+    blockUsed?: number
+    blockResetsAt?: string
+    weeklyPercentUsed: number
+    weeklyResetsAt: string
+  }
+  isLoading: boolean
+}
+
+const SubscriptionUsageSection: React.FC<SubscriptionUsageSectionProps> = ({
+  displayName,
+  subscriptionInfo,
+  rateLimit,
+  isLoading,
+}) => {
+  const theme = useTheme()
+
+  const blockPercent = useMemo(() => {
+    if (rateLimit?.blockLimit == null || rateLimit.blockUsed == null) return 100
+    return Math.max(0, 100 - Math.round((rateLimit.blockUsed / rateLimit.blockLimit) * 100))
+  }, [rateLimit?.blockLimit, rateLimit?.blockUsed])
+
+  const weeklyPercent = rateLimit ? 100 - rateLimit.weeklyPercentUsed : 100
+
+  return (
+    <box style={{ flexDirection: 'column', marginBottom: 1 }}>
+      <box style={{ flexDirection: 'row', gap: 1 }}>
+        <text style={{ fg: theme.foreground }}>
+          💪 {displayName ?? 'Strong'} subscription
+        </text>
+        {subscriptionInfo?.tier && (
+          <text style={{ fg: theme.muted }}>${subscriptionInfo.tier}/mo</text>
+        )}
+      </box>
+      {isLoading ? (
+        <text style={{ fg: theme.muted }}>Loading subscription data...</text>
+      ) : rateLimit ? (
+        <box style={{ flexDirection: 'column', gap: 0 }}>
+          <box style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
+            <text style={{ fg: theme.muted }}>5-hour limit </text>
+            <text style={{ fg: theme.muted }}>{`${blockPercent}%`.padStart(4)} </text>
+            <ProgressBar value={blockPercent} width={12} showPercentage={false} />
+            <text style={{ fg: theme.muted }}>
+              {rateLimit.blockResetsAt
+                ? ` resets in ${formatResetTime(new Date(rateLimit.blockResetsAt))}`
+                : ''}
+            </text>
+          </box>
+          <box style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
+            <text style={{ fg: theme.muted }}>Weekly limit </text>
+            <text style={{ fg: theme.muted }}>{`${weeklyPercent}%`.padStart(4)} </text>
+            <ProgressBar value={weeklyPercent} width={12} showPercentage={false} />
+            <text style={{ fg: theme.muted }}>
+              {' '}resets in {formatResetTimeLong(rateLimit.weeklyResetsAt)}
+            </text>
+          </box>
+        </box>
+      ) : null}
+    </box>
   )
 }

@@ -28,7 +28,7 @@ export const SubscriptionLimitBanner = () => {
     refetchInterval: 30 * 1000,
   })
 
-  const rateLimit = subscriptionData?.rateLimit
+  const rateLimit = subscriptionData?.hasSubscription ? subscriptionData.rateLimit : undefined
   const remainingBalance = usageData?.remainingBalance ?? 0
   const hasAlaCarteCredits = remainingBalance > 0
 
@@ -42,29 +42,16 @@ export const SubscriptionLimitBanner = () => {
     setAlwaysUseALaCarte(newValue)
   }
 
-  if (!subscriptionData) {
-    return (
-      <box style={{ width: '100%', paddingLeft: 1 }}>
-        <text style={{ fg: theme.muted }}>Loading subscription data...</text>
-      </box>
-    )
-  }
-
-  if (!rateLimit?.limited) {
+  if (!subscriptionData || !rateLimit?.limited) {
     return null
   }
 
-  const isWeeklyLimit = rateLimit.reason === 'weekly_limit'
-  const isBlockExhausted = rateLimit.reason === 'block_exhausted'
-
-  const weeklyRemaining = 100 - rateLimit.weeklyPercentUsed
-  const weeklyResetsAt = rateLimit.weeklyResetsAt
-    ? new Date(rateLimit.weeklyResetsAt)
-    : null
-
-  const blockResetsAt = rateLimit.blockResetsAt
-    ? new Date(rateLimit.blockResetsAt)
-    : null
+  const { reason, weeklyPercentUsed, weeklyResetsAt: weeklyResetsAtStr, blockResetsAt: blockResetsAtStr } = rateLimit
+  const isWeeklyLimit = reason === 'weekly_limit'
+  const isBlockExhausted = reason === 'block_exhausted'
+  const weeklyRemaining = 100 - weeklyPercentUsed
+  const weeklyResetsAt = weeklyResetsAtStr ? new Date(weeklyResetsAtStr) : null
+  const blockResetsAt = blockResetsAtStr ? new Date(blockResetsAtStr) : null
 
   const handleContinueWithCredits = () => {
     setInputMode('default')
@@ -137,7 +124,7 @@ export const SubscriptionLimitBanner = () => {
         <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1, marginTop: 0 }}>
           <text style={{ fg: theme.muted }}>Weekly:</text>
           <ProgressBar value={weeklyRemaining} width={12} showPercentage={false} />
-          <text style={{ fg: theme.muted }}>{rateLimit.weeklyPercentUsed}% used</text>
+          <text style={{ fg: theme.muted }}>{weeklyPercentUsed}% used</text>
         </box>
 
         {hasAlaCarteCredits && (

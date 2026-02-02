@@ -14,19 +14,17 @@ import { getActiveSubscription } from './subscription'
 import type { CreditBalance } from './balance-calculator'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
-export interface SubscriptionInfo {
-  status: string
-  billingPeriodEnd: string
-  cancelAtPeriodEnd: boolean
-}
-
 export interface UserUsageData {
   usageThisCycle: number
   balance: CreditBalance
   nextQuotaReset: string
   autoTopupTriggered?: boolean
   autoTopupEnabled?: boolean
-  subscription?: SubscriptionInfo
+  subscription?: {
+    status: string
+    billingPeriodEnd: string
+    cancelAtPeriodEnd: boolean
+  }
 }
 
 export interface OrganizationUsageData {
@@ -88,7 +86,7 @@ export async function getUserUsageData(params: {
     })
 
     // Check for active subscription
-    let subscription: SubscriptionInfo | undefined
+    let subscription: UserUsageData['subscription']
     const activeSub = await getActiveSubscription({ userId, logger })
     if (activeSub) {
       subscription = {

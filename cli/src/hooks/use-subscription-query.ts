@@ -4,52 +4,20 @@ import { getApiClient } from '../utils/codebuff-api'
 import { logger as defaultLogger } from '../utils/logger'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { SubscriptionResponse } from '@codebuff/common/types/subscription'
+
+export type { SubscriptionResponse }
 
 export const subscriptionQueryKeys = {
   all: ['subscription'] as const,
   current: () => [...subscriptionQueryKeys.all, 'current'] as const,
 }
 
-export interface SubscriptionRateLimit {
-  limited: boolean
-  reason?: 'block_exhausted' | 'weekly_limit'
-  canStartNewBlock: boolean
-  blockUsed?: number
-  blockLimit?: number
-  blockResetsAt?: string
-  weeklyUsed: number
-  weeklyLimit: number
-  weeklyResetsAt: string
-  weeklyPercentUsed: number
-}
-
-export interface SubscriptionInfo {
-  status: string
-  billingPeriodEnd: string
-  cancelAtPeriodEnd: boolean
-  canceledAt: string | null
-  tier: number
-}
-
-export interface SubscriptionLimits {
-  creditsPerBlock: number
-  blockDurationHours: number
-  weeklyCreditsLimit: number
-}
-
-export interface SubscriptionData {
-  hasSubscription: boolean
-  displayName?: string
-  subscription?: SubscriptionInfo
-  rateLimit?: SubscriptionRateLimit
-  limits?: SubscriptionLimits
-}
-
 export async function fetchSubscriptionData(
   logger: Logger = defaultLogger,
-): Promise<SubscriptionData> {
+): Promise<SubscriptionResponse> {
   const client = getApiClient()
-  const response = await client.get<SubscriptionData>(
+  const response = await client.get<SubscriptionResponse>(
     '/api/user/subscription',
     { includeCookie: true },
   )

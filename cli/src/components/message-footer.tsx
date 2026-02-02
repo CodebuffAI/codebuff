@@ -213,61 +213,43 @@ export const MessageFooter: React.FC<MessageFooterProps> = ({
   )
 }
 
-/**
- * Shows either subscription indicator or credits count based on subscription status.
- * If user has an active subscription with remaining block credits, shows "✓ Strong".
- * If block is < 15% remaining, also shows the percentage.
- * Otherwise, shows the regular credits count.
- */
 const CreditsOrSubscriptionIndicator: React.FC<{ credits: number }> = ({ credits }) => {
   const theme = useTheme()
   const { data: subscriptionData } = useSubscriptionQuery({
-    refetchInterval: false, // Don't poll, just use cached data
+    refetchInterval: false,
     refetchOnActivity: false,
     pauseWhenIdle: false,
   })
 
-  const hasActiveSubscription = subscriptionData?.hasSubscription === true
-  const rateLimit = subscriptionData?.rateLimit
-  const isLimited = rateLimit?.limited === true
+  const activeSubscription = subscriptionData?.hasSubscription ? subscriptionData : null
+  const rateLimit = activeSubscription?.rateLimit
 
-  // Calculate block remaining percentage
   const blockPercentRemaining = useMemo(() => {
     if (!rateLimit?.blockLimit || rateLimit.blockUsed == null) return null
-    const remaining = rateLimit.blockLimit - rateLimit.blockUsed
-    return Math.round((remaining / rateLimit.blockLimit) * 100)
+    return Math.round(((rateLimit.blockLimit - rateLimit.blockUsed) / rateLimit.blockLimit) * 100)
   }, [rateLimit])
 
-  // Show subscription indicator if user has active subscription and block is not depleted
-  const showSubscriptionIndicator = hasActiveSubscription && !isLimited && blockPercentRemaining !== null && blockPercentRemaining > 0
+  const showSubscriptionIndicator =
+    activeSubscription && !rateLimit?.limited && blockPercentRemaining != null && blockPercentRemaining > 0
 
   if (showSubscriptionIndicator) {
-    const showPercentage = blockPercentRemaining < 20
+    const label = blockPercentRemaining < 20
+      ? `✓ ${SUBSCRIPTION_DISPLAY_NAME} (${blockPercentRemaining}% left)`
+      : `✓ ${SUBSCRIPTION_DISPLAY_NAME}`
     return (
       <text
         attributes={TextAttributes.DIM}
-        style={{
-          wrapMode: 'none',
-          fg: theme.success,
-          marginTop: 0,
-          marginBottom: 0,
-        }}
+        style={{ wrapMode: 'none', fg: theme.success, marginTop: 0, marginBottom: 0 }}
       >
-        {showPercentage ? `✓ ${SUBSCRIPTION_DISPLAY_NAME} (${blockPercentRemaining}% left)` : `✓ ${SUBSCRIPTION_DISPLAY_NAME}`}
+        {label}
       </text>
     )
   }
 
-  // Default: show credits count
   return (
     <text
       attributes={TextAttributes.DIM}
-      style={{
-        wrapMode: 'none',
-        fg: theme.secondary,
-        marginTop: 0,
-        marginBottom: 0,
-      }}
+      style={{ wrapMode: 'none', fg: theme.secondary, marginTop: 0, marginBottom: 0 }}
     >
       {pluralize(credits, 'credit')}
     </text>

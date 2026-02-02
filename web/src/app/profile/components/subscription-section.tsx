@@ -15,61 +15,25 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
-interface SubscriptionApiResponse {
-  hasSubscription: boolean
-  displayName?: string
-  subscription?: {
-    status: string
-    billingPeriodEnd: string
-    cancelAtPeriodEnd: boolean
-    canceledAt: string | null
-    tier?: number | null
-    scheduledTier?: number | null
-  }
-  rateLimit?: {
-    limited: boolean
-    reason?: 'block_exhausted' | 'weekly_limit'
-    canStartNewBlock: boolean
-    blockUsed?: number
-    blockLimit?: number
-    blockResetsAt?: string
-    weeklyUsed: number
-    weeklyLimit: number
-    weeklyResetsAt: string
-    weeklyPercentUsed: number
-  }
-  limits?: {
-    creditsPerBlock: number
-    blockDurationHours: number
-    weeklyCreditsLimit: number
-  }
-}
+import type {
+  SubscriptionResponse,
+  ActiveSubscriptionResponse,
+} from '@codebuff/common/types/subscription'
 
 function formatDaysHours(dateStr: string): string {
   const target = new Date(dateStr)
-  const now = new Date()
-  const diffMs = target.getTime() - now.getTime()
+  const diffMs = target.getTime() - Date.now()
   if (isNaN(diffMs) || diffMs <= 0) return '0h'
   const totalHours = Math.ceil(diffMs / (1000 * 60 * 60))
   const days = Math.floor(totalHours / 24)
   const hours = totalHours % 24
-  if (days > 0) {
-    return hours > 0 ? `${days}d ${hours}h` : `${days}d`
-  }
+  if (days > 0) return hours > 0 ? `${days}d ${hours}h` : `${days}d`
   return `${hours}h`
 }
 
-
-function ProgressBar({
-  percentAvailable,
-  label,
-  className,
-}: {
-  percentAvailable: number
-  label: string
-  className?: string
-}) {
+function ProgressBar({ percentAvailable, label }: { percentAvailable: number; label: string }) {
   const percent = Math.min(100, Math.max(0, Math.round(percentAvailable)))
+  const colorClass = percent <= 0 ? 'bg-red-500' : percent <= 25 ? 'bg-yellow-500' : 'bg-green-500'
   return (
     <div
       role="progressbar"
@@ -77,36 +41,19 @@ function ProgressBar({
       aria-valuemin={0}
       aria-valuemax={100}
       aria-label={label}
-      className={cn(
-        'h-2.5 w-full rounded-full bg-muted overflow-hidden',
-        className,
-      )}
+      className="h-2.5 w-full rounded-full bg-muted overflow-hidden"
     >
       <div
-        className={cn(
-          'h-full rounded-full transition-all duration-500',
-          percent <= 0
-            ? 'bg-red-500'
-            : percent <= 25
-              ? 'bg-yellow-500'
-              : 'bg-green-500',
-        )}
+        className={cn('h-full rounded-full transition-all duration-500', colorClass)}
         style={{ width: `${percent}%` }}
       />
     </div>
   )
 }
 
-function SubscriptionActive({
-  data,
-  email,
-}: {
-  data: SubscriptionApiResponse
-  email: string
-}) {
+function SubscriptionActive({ data, email }: { data: ActiveSubscriptionResponse; email: string }) {
   const { subscription, rateLimit } = data
-
-  const isCanceling = subscription?.cancelAtPeriodEnd
+  const isCanceling = subscription.cancelAtPeriodEnd
   const billingPortalUrl = `${env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}?prefilled_email=${encodeURIComponent(email)}`
 
   return (
@@ -117,14 +64,14 @@ function SubscriptionActive({
             <span>💪</span>
             {SUBSCRIPTION_DISPLAY_NAME}
             <span className="text-sm font-normal text-muted-foreground">
-              ${subscription?.tier ?? 200}/mo
+              ${subscription.tier}/mo
             </span>
             {isCanceling && (
               <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
                 Canceling
               </span>
             )}
-            {subscription?.scheduledTier != null && (
+            {subscription.scheduledTier != null && (
               <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
                 Renewing at ${subscription.scheduledTier}/mo
               </span>
@@ -142,69 +89,60 @@ function SubscriptionActive({
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
-        {/* Block usage */}
-        {rateLimit && (
-          <>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium">
-                  5-hour limit
-                  {rateLimit.blockResetsAt && (
-                    <span className="font-normal text-muted-foreground ml-1.5">
-                      resets in {formatDaysHours(rateLimit.blockResetsAt)}
-                    </span>
-                  )}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-medium">
+              5-hour limit
+              {rateLimit.blockResetsAt && (
+                <span className="font-normal text-muted-foreground ml-1.5">
+                  resets in {formatDaysHours(rateLimit.blockResetsAt)}
                 </span>
-                <span className="text-muted-foreground">
-                  {rateLimit.blockLimit != null && rateLimit.blockUsed != null && rateLimit.blockLimit > 0
-                    ? `${Math.round(100 - (rateLimit.blockUsed / rateLimit.blockLimit) * 100)}%`
-                    : '100%'} remaining
-                </span>
-              </div>
-              <ProgressBar
-                percentAvailable={
-                  rateLimit.blockLimit != null && rateLimit.blockUsed != null && rateLimit.blockLimit > 0
-                    ? 100 - (rateLimit.blockUsed / rateLimit.blockLimit) * 100
-                    : 100
-                }
-                label="Session usage"
-              />
-            </div>
+              )}
+            </span>
+            <span className="text-muted-foreground">
+              {rateLimit.blockLimit && rateLimit.blockUsed != null
+                ? `${Math.round(100 - (rateLimit.blockUsed / rateLimit.blockLimit) * 100)}%`
+                : '100%'} remaining
+            </span>
+          </div>
+          <ProgressBar
+            percentAvailable={
+              rateLimit.blockLimit && rateLimit.blockUsed != null
+                ? 100 - (rateLimit.blockUsed / rateLimit.blockLimit) * 100
+                : 100
+            }
+            label="5-hour usage"
+          />
+        </div>
 
-            {/* Weekly usage */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium">
-                  Weekly limit
-                  <span className="font-normal text-muted-foreground ml-1.5">
-                    resets in {formatDaysHours(rateLimit.weeklyResetsAt)}
-                  </span>
-                </span>
-                <span className="text-muted-foreground">
-                  {100 - rateLimit.weeklyPercentUsed}% remaining
-                </span>
-              </div>
-              <ProgressBar
-                percentAvailable={100 - rateLimit.weeklyPercentUsed}
-                label="Weekly usage"
-              />
-            </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-medium">
+              Weekly limit
+              <span className="font-normal text-muted-foreground ml-1.5">
+                resets in {formatDaysHours(rateLimit.weeklyResetsAt)}
+              </span>
+            </span>
+            <span className="text-muted-foreground">
+              {100 - rateLimit.weeklyPercentUsed}% remaining
+            </span>
+          </div>
+          <ProgressBar
+            percentAvailable={100 - rateLimit.weeklyPercentUsed}
+            label="Weekly usage"
+          />
+        </div>
 
-            {/* Rate limit warning */}
-            {rateLimit.limited && (
-              <div className="flex items-start gap-2 rounded-md border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-900/20">
-                <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-yellow-600 dark:text-yellow-400" />
-                <p className="text-sm text-yellow-800 dark:text-yellow-300">
-                  {rateLimit.reason === 'weekly_limit'
-                    ? `Weekly limit reached. Resets in ${formatDaysHours(rateLimit.weeklyResetsAt)}. You can still use a-la-carte credits.`
-                    : `Session exhausted. New session in ${rateLimit.blockResetsAt ? formatDaysHours(rateLimit.blockResetsAt) : 'soon'}. You can still use a-la-carte credits.`}
-                </p>
-              </div>
-            )}
-          </>
+        {rateLimit.limited && (
+          <div className="flex items-start gap-2 rounded-md border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-900/20">
+            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-yellow-600 dark:text-yellow-400" />
+            <p className="text-sm text-yellow-800 dark:text-yellow-300">
+              {rateLimit.reason === 'weekly_limit'
+                ? `Weekly limit reached. Resets in ${formatDaysHours(rateLimit.weeklyResetsAt)}. You can still use a-la-carte credits.`
+                : `Session exhausted. New session in ${rateLimit.blockResetsAt ? formatDaysHours(rateLimit.blockResetsAt) : 'soon'}. You can still use a-la-carte credits.`}
+            </p>
+          </div>
         )}
-
-
       </CardContent>
     </Card>
   )
@@ -241,7 +179,7 @@ function SubscriptionCta() {
 export function SubscriptionSection() {
   const { data: session, status } = useSession()
 
-  const { data, isLoading } = useQuery<SubscriptionApiResponse>({
+  const { data, isLoading } = useQuery<SubscriptionResponse>({
     queryKey: ['subscription'],
     queryFn: async () => {
       const res = await fetch('/api/user/subscription')
