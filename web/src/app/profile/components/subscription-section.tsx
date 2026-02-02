@@ -160,7 +160,7 @@ function SubscriptionCta() {
             </p>
           </div>
         </div>
-        <Link href="/strong">
+        <Link href="/pricing">
           <Button className="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600">
             Learn More
           </Button>

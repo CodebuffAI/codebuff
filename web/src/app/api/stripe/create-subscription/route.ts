@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
       line_items: [{ price: priceId, quantity: 1 }],
       allow_promotion_codes: true,
       success_url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/profile?tab=usage&subscription_success=true`,
-      cancel_url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/strong?canceled=true`,
+      cancel_url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/pricing?canceled=true`,
       metadata: {
         userId,
         type: 'strong_subscription',

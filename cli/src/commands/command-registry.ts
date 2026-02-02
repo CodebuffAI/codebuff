@@ -384,7 +384,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     name: 'subscribe',
     aliases: ['strong'],
     handler: (params) => {
-      open(WEBSITE_URL + '/strong')
+      open(WEBSITE_URL + '/pricing')
       clearInput(params)
     },
   }),
