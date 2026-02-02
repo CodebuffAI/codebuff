@@ -1,6 +1,6 @@
 import { isClaudeOAuthValid } from '@codebuff/sdk'
 import open from 'open'
-import React, { useEffect, useMemo } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 
 import { BottomBanner } from './bottom-banner'
 import { Button } from './button'
@@ -11,6 +11,7 @@ import { useSubscriptionQuery } from '../hooks/use-subscription-query'
 import { useTheme } from '../hooks/use-theme'
 import { usageQueryKeys, useUsageQuery } from '../hooks/use-usage-query'
 import { WEBSITE_URL } from '../login/constants'
+import { getAlwaysUseALaCarte, setAlwaysUseALaCarte } from '../utils/settings'
 import { useChatStore } from '../state/chat-store'
 import { formatResetTime, formatResetTimeLong } from '../utils/time-format'
 import {
@@ -216,6 +217,13 @@ const SubscriptionUsageSection: React.FC<SubscriptionUsageSectionProps> = ({
   isLoading,
 }) => {
   const theme = useTheme()
+  const [useALaCarte, setUseALaCarte] = useState(() => getAlwaysUseALaCarte())
+
+  const handleToggleALaCarte = () => {
+    const newValue = !useALaCarte
+    setUseALaCarte(newValue)
+    setAlwaysUseALaCarte(newValue)
+  }
 
   const blockPercent = useMemo(() => {
     if (rateLimit?.blockLimit == null || rateLimit.blockUsed == null) return 100
@@ -258,6 +266,17 @@ const SubscriptionUsageSection: React.FC<SubscriptionUsageSectionProps> = ({
           </box>
         </box>
       ) : null}
+      <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1, marginTop: 1 }}>
+        <text style={{ fg: theme.muted }}>When limit reached:</text>
+        <text style={{ fg: theme.muted }}>
+          {useALaCarte ? 'spend credits' : 'pause'}
+        </text>
+        <Button onClick={handleToggleALaCarte}>
+          <text style={{ fg: theme.muted }}>
+            [{useALaCarte ? 'switch to pause' : 'switch to spend credits'}]
+          </text>
+        </Button>
+      </box>
     </box>
   )
 }

@@ -1254,8 +1254,9 @@ export const Chat = ({
 
   // Auto-show subscription limit banner when rate limit becomes active
   const subscriptionLimitShownRef = useRef(false)
+  const subscriptionRateLimit = subscriptionData?.hasSubscription ? subscriptionData.rateLimit : undefined
   useEffect(() => {
-    const isLimited = subscriptionData?.rateLimit?.limited === true
+    const isLimited = subscriptionRateLimit?.limited === true
     if (isLimited && !subscriptionLimitShownRef.current) {
       subscriptionLimitShownRef.current = true
       // Skip showing the banner if user prefers to always fall back to a-la-carte
@@ -1268,7 +1269,7 @@ export const Chat = ({
         useChatStore.getState().setInputMode('default')
       }
     }
-  }, [subscriptionData?.rateLimit?.limited])
+  }, [subscriptionRateLimit?.limited])
 
   const inputBoxTitle = useMemo(() => {
     const segments: string[] = []
