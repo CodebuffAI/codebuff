@@ -3,7 +3,9 @@ import os from 'os'
 import path from 'path'
 
 import { pluralize } from '@codebuff/common/util/string'
-import { loadLocalAgents as sdkLoadLocalAgents } from '@codebuff/sdk'
+import { loadLocalAgents as sdkLoadLocalAgents, loadMCPConfigSync } from '@codebuff/sdk'
+
+import type { MCPConfig } from '@codebuff/common/types/mcp'
 
 import { getProjectRoot } from '../project-files'
 import { AGENT_MODE_TO_ID, type AgentMode } from './constants'
@@ -32,6 +34,8 @@ export interface LocalAgentInfo {
 let userAgentsCache: Record<string, AgentDefinition> = {}
 // Map from agent ID to source file path (for UI "Open file" links)
 let userAgentFilePaths: Map<string, string> = new Map()
+// Cache for MCP servers loaded from mcp.json in .agents directories
+let mcpServersCache: Record<string, MCPConfig> = {}
 
 /**
  * Initialize the agent registry by loading user agents via the SDK.
@@ -55,6 +59,21 @@ export async function initializeAgentRegistry(): Promise<void> {
     logger.warn({ error }, 'Failed to load user agents from .agents directories')
     userAgentsCache = {}
     userAgentFilePaths = new Map()
+  }
+
+  // Load MCP config from mcp.json files in .agents directories
+  try {
+    const mcpConfig = loadMCPConfigSync({ verbose: false })
+    mcpServersCache = mcpConfig.mcpServers
+    if (Object.keys(mcpServersCache).length > 0) {
+      logger.debug(
+        { mcpServers: Object.keys(mcpServersCache), source: mcpConfig._sourceFilePath },
+        '[agents] Loaded MCP servers from mcp.json',
+      )
+    }
+  } catch (error) {
+    logger.warn({ error }, 'Failed to load MCP config from .agents directories')
+    mcpServersCache = {}
   }
 }
 
@@ -329,6 +348,25 @@ export const loadAgentDefinitions = (): AgentDefinition[] => {
     }
   }
 
+  // Merge MCP servers from mcp.json into base agents
+  // This allows users to configure MCP tools that are available to the main agent
+  if (Object.keys(mcpServersCache).length > 0) {
+    for (const def of definitions) {
+      // Consider any agent with an ID starting with 'base' as a base agent
+      if (def.id.startsWith('base')) {
+        // Initialize mcpServers if not present
+        if (!def.mcpServers) {
+          def.mcpServers = {}
+        }
+        // Merge MCP servers (user config can override existing servers)
+        def.mcpServers = {
+          ...def.mcpServers,
+          ...mcpServersCache,
+        }
+      }
+    }
+  }
+
   return definitions
 }
 
@@ -412,4 +450,13 @@ export const __resetLocalAgentRegistryForTests = (): void => {
   cachedAgentsDir = null
   userAgentsCache = {}
   userAgentFilePaths = new Map()
+  mcpServersCache = {}
+}
+
+/**
+ * Get the currently loaded MCP servers from mcp.json.
+ * Useful for debugging and displaying loaded MCP configuration.
+ */
+export const getLoadedMCPServers = (): Record<string, MCPConfig> => {
+  return { ...mcpServersCache }
 }
