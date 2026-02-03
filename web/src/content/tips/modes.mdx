@@ -1,7 +1,7 @@
 ---
 title: 'Modes'
 section: 'help'
-tags: ['modes', 'lite', 'max', 'plan', 'configuration']
+tags: ['modes', 'free', 'max', 'plan', 'configuration']
 order: 2
 ---
 
@@ -13,9 +13,9 @@ Codebuff has four modes. Switch during a session with `Shift+Tab` or `/mode:` co
 | Mode | Model | Editor Agent | Code Review |
 | --- | --- | --- | --- | --- |
 | Default | Claude Opus 4.5 | editor | Yes |
-| Lite | Grok 4.1 Fast | editor-gpt-5 | No |
 | Max | Claude Opus 4.5 | editor-multi-prompt | Yes |
 | Plan | Claude Opus 4.5 | None | No |
+| Free | Grok 4.1 Fast | editor-glm | No |
 </MarkdownTable>
 
 ## Default
@@ -28,24 +28,7 @@ Standard mode with Claude Opus 4.5:
 - Runs code review after changes
 - Validates with typechecks and tests
 
-```bash
-codebuff  # no flag needed
-```
-
-## Lite
-
-Grok 4.1 Fast, cheaper and faster:
-
-- Less file context gathering
-- Uses GPT-5.1 for code changes ([`editor-gpt-5`](/publishers/codebuff/agents/editor-gpt-5) agent)
-- Skips code review
-- No todo tracking
-
-Good for quick fixes and simple questions.
-
-```bash
-codebuff --lite
-```
+Switch to this mode with `/mode:default`.
 
 ## Max
 
@@ -55,14 +38,12 @@ Claude Opus 4.5 with best-of-N selection:
 - Spawns multiple [editor](/publishers/codebuff/agents/editor) agents in parallel, each with a different strategy
 - A selector compares outputs and picks the best one
 - Spawns [`thinker-best-of-n-opus`](/publishers/codebuff/agents/thinker-best-of-n-opus) for hard problems
-- Full code review after changes
+- Spawns multiple reviewers with different focus areas
 - Runs typechecks and tests on both the changed files and the full project
 
 Use for complex features and refactors.
 
-```bash
-codebuff --max
-```
+Switch to this mode with `/mode:max`.
 
 ## Plan
 
@@ -75,7 +56,18 @@ Planning mode. No file writes.
 
 Use this to scope out work before implementing, or to discuss approaches without making changes.
 
-```bash
-codebuff --plan
-```
+Switch to this mode with `/mode:plan`.
+
+## Free
+
+Grok 4.1 Fast, cheaper and faster:
+
+- Less file context gathering
+- Uses GLM 4.7 for code changes ([`editor-glm`](/publishers/codebuff/agents/editor-glm) agent)
+- Skips code review
+- No todo tracking
+
+Good for quick fixes and simple questions.
+
+Switch to this mode with `/mode:free`.
 
