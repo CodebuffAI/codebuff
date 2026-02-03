@@ -6,8 +6,6 @@ import { useMemo, useState } from 'react'
 
 import { MermaidDiagram } from './mermaid-diagram'
 
-import { Separator } from '@/components/ui/separator'
-
 
 type CodeDemoChildren = string | JSX.Element | JSX.Element[]
 
@@ -177,25 +175,24 @@ export function CodeDemo({ children, language, rawContent }: CodeDemoProps) {
 
   if (isMermaid) {
     return (
-      <div className="rounded-lg border bg-muted/30 px-4 w-full my-3 transition-all group hover:bg-muted/40 overflow-hidden">
-        <div className="flex items-center justify-between h-6 mt-0.5 mb-0.5">
-          <div className="text-[10px] text-muted-foreground/40 font-mono tracking-wide">
+      <div className="bg-zinc-800/60 rounded-md w-full my-3 overflow-hidden">
+        <div className="flex items-center justify-between px-3 py-2">
+          <div className="text-xs text-white/40 font-mono">
             mermaid diagram
           </div>
           <button
             onClick={() => copyToClipboard(childrenContent)}
-            className="p-1 hover:bg-muted rounded-md transition-all md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 focus-visible:outline-none"
+            className="p-2 rounded-md text-white/60 hover:text-white hover:bg-white/5 transition-colors duration-200"
             aria-label={copied ? 'Copied!' : 'Copy diagram code'}
           >
             {copied ? (
-              <Check className="h-3.5 w-3.5 text-green-500" />
+              <Check className="h-4 w-4 text-green-500" />
             ) : (
-              <Copy className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-foreground md:text-muted-foreground" />
+              <Copy className="h-4 w-4" />
             )}
           </button>
         </div>
-        <Separator className="bg-border/20 mb-0.5" />
-        <div className="py-4">
+        <div className="px-3 pb-4">
           <MermaidDiagram code={childrenContent} />
         </div>
       </div>
@@ -203,25 +200,8 @@ export function CodeDemo({ children, language, rawContent }: CodeDemoProps) {
   }
 
   return (
-    <div className="rounded-lg border px-4 w-full my-3 transition-all group overflow-x-auto">
-      <div className="flex items-center justify-between h-6 mt-0.5 mb-0.5">
-        <div className="text-[10px] text-muted-foreground/40 font-mono tracking-wide">
-          {language.toLowerCase()}
-        </div>
-        <button
-          onClick={() => copyToClipboard(childrenContent)}
-          className="p-1 hover:bg-muted rounded-md transition-all md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 focus-visible:outline-none"
-          aria-label={copied ? 'Copied!' : 'Copy code'}
-        >
-          {copied ? (
-            <Check className="h-3.5 w-3.5 text-green-500" />
-          ) : (
-            <Copy className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-foreground md:text-muted-foreground" />
-          )}
-        </button>
-      </div>
-      {language && <Separator className="bg-border/20 mb-0.5" />}
-      <div>
+    <div className="bg-zinc-800/60 rounded-md px-3 py-2.5 w-full my-3 flex items-center justify-between overflow-x-auto">
+      <div className="flex-1 min-w-0">
         <Highlight
           theme={highlightTheme}
           code={childrenContent}
@@ -230,11 +210,12 @@ export function CodeDemo({ children, language, rawContent }: CodeDemoProps) {
           {({ className, style, tokens, getLineProps, getTokenProps }) => {
             return (
               <pre
-                className={`${className} text-[13px] leading-relaxed py-2 bg-transparent rounded-lg scrollbar-thin scrollbar-thumb-muted-foreground/10 scrollbar-track-transparent`}
+                className={`${className} text-sm leading-relaxed bg-transparent scrollbar-thin scrollbar-thumb-muted-foreground/10 scrollbar-track-transparent`}
                 style={{
                   ...style,
                   backgroundColor: 'transparent',
                   color: tokenColor || style.color,
+                  margin: 0,
                 }}
               >
                 {tokens.map((line, i) => {
@@ -269,6 +250,17 @@ export function CodeDemo({ children, language, rawContent }: CodeDemoProps) {
           }}
         </Highlight>
       </div>
+      <button
+        onClick={() => copyToClipboard(childrenContent)}
+        className="flex-shrink-0 p-2 rounded-md text-white/60 hover:text-white hover:bg-white/5 transition-colors duration-200 ml-2"
+        aria-label={copied ? 'Copied!' : 'Copy code'}
+      >
+        {copied ? (
+          <Check className="h-4 w-4 text-green-500" />
+        ) : (
+          <Copy className="h-4 w-4" />
+        )}
+      </button>
     </div>
   )
 }
