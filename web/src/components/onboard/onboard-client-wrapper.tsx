@@ -61,10 +61,8 @@ export function OnboardClientWrapper({
     return (
       <div className="space-y-8">
         <OnboardingFlow
-          hasReferralCode={shouldShowOnboarding}
           referralCode={actualReferralCode || undefined}
           referrerName={referrerName}
-          onComplete={handleOnboardingComplete}
         />
       </div>
     )
