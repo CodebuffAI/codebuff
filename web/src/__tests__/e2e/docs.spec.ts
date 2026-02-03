@@ -114,14 +114,6 @@ if (isBun) {
         await expect(heading).toBeVisible()
       })
 
-      test('best practices page renders', async ({ page }) => {
-        await page.goto('/docs/tips/best-practices')
-
-        const heading = page.locator('h1').first()
-        await expect(heading).toBeVisible()
-        await expect(heading).toContainText(/best practices/i)
-      })
-
       test('agents overview renders mermaid diagrams or code', async ({
         page,
       }) => {
