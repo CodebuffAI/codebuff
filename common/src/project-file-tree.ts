@@ -243,6 +243,27 @@ export function getAllFilePaths(
   })
 }
 
+export interface PathInfo {
+  path: string
+  isDirectory: boolean
+}
+
+export function getAllPathsWithDirectories(
+  nodes: FileTreeNode[],
+  basePath: string = '',
+): PathInfo[] {
+  return nodes.flatMap((node) => {
+    const nodePath = basePath ? path.join(basePath, node.name) : node.name
+    if (node.type === 'file') {
+      return [{ path: nodePath, isDirectory: false }]
+    }
+    // Include the directory itself, plus recurse into children
+    const dirEntry: PathInfo = { path: nodePath, isDirectory: true }
+    const children = getAllPathsWithDirectories(node.children || [], nodePath)
+    return [dirEntry, ...children]
+  })
+}
+
 export function flattenTree(nodes: FileTreeNode[]): FileTreeNode[] {
   return nodes.flatMap((node) => {
     if (node.type === 'file') {
