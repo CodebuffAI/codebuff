@@ -154,6 +154,16 @@ export const SLASHLESS_COMMAND_IDS = new Set(
   ),
 )
 
+/** Maximum description length for skill commands in the slash menu */
+const SKILL_MENU_DESCRIPTION_MAX_LENGTH = 50
+
+function truncateDescription(description: string): string {
+  if (description.length <= SKILL_MENU_DESCRIPTION_MAX_LENGTH) {
+    return description
+  }
+  return description.slice(0, SKILL_MENU_DESCRIPTION_MAX_LENGTH - 1) + '…'
+}
+
 /**
  * Returns SLASH_COMMANDS merged with skill commands.
  * Skills become slash commands that users can invoke directly.
@@ -162,7 +172,7 @@ export function getSlashCommandsWithSkills(skills: SkillsMap): SlashCommand[] {
   const skillCommands: SlashCommand[] = Object.values(skills).map((skill) => ({
     id: `skill:${skill.name}`,
     label: `skill:${skill.name}`,
-    description: skill.description,
+    description: truncateDescription(skill.description),
   }))
 
   return [...SLASH_COMMANDS, ...skillCommands]
