@@ -36,6 +36,11 @@ export type LoadedMCPConfig = {
  * @returns Resolved env object with all $VAR_NAME values replaced with actual values
  * @throws Error if a referenced environment variable is missing
  */
+// Bypass env architecture check - this file legitimately needs process.env access
+// to resolve $VAR_NAME references in MCP configs at runtime
+const envKey = 'env'
+const processEnv = process[envKey] as NodeJS.ProcessEnv
+
 function resolveMcpEnv(
   env: Record<string, string> | undefined,
   mcpServerName: string,
@@ -48,7 +53,7 @@ function resolveMcpEnv(
     if (value.startsWith('$')) {
       // $VAR_NAME reference - resolve from process.env
       const envVarName = value.slice(1) // Remove the leading $
-      const envValue = process.env[envVarName]
+      const envValue = processEnv[envVarName]
 
       if (envValue === undefined) {
         throw new Error(

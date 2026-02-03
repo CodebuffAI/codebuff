@@ -2,6 +2,8 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+
 import { loadMCPConfig, loadMCPConfigSync, mcpFileSchema } from '../agents/load-mcp-config'
 
 import type { MCPConfig } from '@codebuff/common/types/mcp'
@@ -28,8 +30,9 @@ describe('mcpFileSchema', () => {
     const result = mcpFileSchema.safeParse(config)
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.data.mcpServers.myServer).toBeDefined()
-      expect(result.data.mcpServers.myServer.command).toBe('npx')
+      const myServer = result.data.mcpServers.myServer
+      expect(myServer).toBeDefined()
+      expect('command' in myServer && myServer.command).toBe('npx')
     }
   })
 
@@ -49,8 +52,9 @@ describe('mcpFileSchema', () => {
     const result = mcpFileSchema.safeParse(config)
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.data.mcpServers.remoteServer).toBeDefined()
-      expect(result.data.mcpServers.remoteServer.url).toBe('https://example.com/mcp')
+      const remoteServer = result.data.mcpServers.remoteServer
+      expect(remoteServer).toBeDefined()
+      expect('url' in remoteServer && remoteServer.url).toBe('https://example.com/mcp')
     }
   })
 
