@@ -533,8 +533,9 @@ export function getMultiPromptProgress(
   }
 }
 
-/** Expected shape of the set_output input from editor-multi-prompt */
-interface MultiPromptSetOutputInput {
+/** Expected shape of the set_output data from editor-multi-prompt */
+interface MultiPromptSetOutputData {
+  implementationId?: string
   chosenStrategy?: string
   reason?: string
   suggestedImprovements?: string
@@ -542,17 +543,24 @@ interface MultiPromptSetOutputInput {
   error?: string
 }
 
-/** Type guard for MultiPromptSetOutputInput */
-function isMultiPromptSetOutput(input: unknown): input is MultiPromptSetOutputInput {
+/** Expected shape of the set_output input (data is wrapped in a 'data' property) */
+interface SetOutputInput {
+  data?: MultiPromptSetOutputData
+}
+
+/** Type guard for set_output input with data property */
+function hasSetOutputData(input: unknown): input is SetOutputInput {
   return (
     typeof input === 'object' &&
     input !== null &&
-    ('reason' in input || 'chosenStrategy' in input || 'error' in input)
+    'data' in input &&
+    typeof (input as SetOutputInput).data === 'object'
   )
 }
 
 /**
  * Extract the selection reason from multi-prompt agent's set_output block.
+ * set_output wraps data in a 'data' property, so we need to access input.data.reason
  */
 function extractSelectionReason(blocks: ContentBlock[] | undefined): string | null {
   if (!blocks || blocks.length === 0) return null
@@ -561,15 +569,15 @@ function extractSelectionReason(blocks: ContentBlock[] | undefined): string | nu
     (block): block is ToolContentBlock =>
       block.type === 'tool' &&
       block.toolName === 'set_output' &&
-      isMultiPromptSetOutput(block.input) &&
-      typeof block.input.reason === 'string',
+      hasSetOutputData(block.input) &&
+      typeof block.input.data?.reason === 'string',
   )
 
-  if (!setOutputBlock || !isMultiPromptSetOutput(setOutputBlock.input)) {
+  if (!setOutputBlock || !hasSetOutputData(setOutputBlock.input)) {
     return null
   }
 
-  return setOutputBlock.input.reason ?? null
+  return setOutputBlock.input.data?.reason ?? null
 }
 
 /**

@@ -353,7 +353,9 @@ export const AgentBranchWrapper = memo(
           (b): b is ToolContentBlock =>
             b.type === 'tool' && b.toolName === 'set_output',
         )
-        const implementationId = setOutputBlock?.input?.implementationId as string | undefined
+        // set_output wraps data in a 'data' property, so we need to access input.data
+        const outputData = (setOutputBlock?.input as { data?: Record<string, unknown> })?.data
+        const implementationId = outputData?.implementationId as string | undefined
         if (implementationId) {
           const letterIndex = implementationId.charCodeAt(0) - 65
           const implementors = siblingBlocks.filter(
@@ -361,7 +363,7 @@ export const AgentBranchWrapper = memo(
               b.type === 'agent' && isImplementorAgent(b),
           )
 
-          reason = setOutputBlock?.input?.reason as string | undefined
+          reason = outputData?.reason as string | undefined
 
           const selectedAgent = implementors[letterIndex]
           if (selectedAgent) {

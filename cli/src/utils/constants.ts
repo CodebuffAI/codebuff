@@ -85,6 +85,7 @@ export const shouldCollapseForParent = (
 export const SIMPLE_TEXT_AGENT_IDS = [
   'best-of-n-selector',
   'best-of-n-selector-gemini',
+  'best-of-n-selector2',
 ] as const
 
 /**
