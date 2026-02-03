@@ -93,29 +93,6 @@ export function buildUserMessageContent(
   ]
 }
 
-export function getCancelledAdditionalMessages(args: {
-  prompt: string | undefined
-  params: Record<string, any> | undefined
-  content?: Array<TextPart | ImagePart>
-  pendingAgentResponse: string
-  systemMessage: string
-}): Message[] {
-  const { prompt, params, content, pendingAgentResponse, systemMessage } = args
-
-  const messages: Message[] = [
-    {
-      role: 'user',
-      content: buildUserMessageContent(prompt, params, content),
-      tags: ['USER_PROMPT'],
-    },
-    userMessage(
-      `<previous_assistant_message>${pendingAgentResponse}</previous_assistant_message>\n\n${withSystemTags(systemMessage)}`,
-    ),
-  ]
-
-  return messages
-}
-
 export function parseUserMessage(str: string): string | undefined {
   const match = str.match(/<user_message>(.*?)<\/user_message>/s)
   return match ? match[1] : undefined
