@@ -1,3 +1,4 @@
+import { SUBSCRIPTION_TIERS } from '@codebuff/common/constants/subscription-plans'
 import open from 'open'
 import React from 'react'
 
@@ -32,6 +33,11 @@ export const SubscriptionLimitBanner = () => {
   const remainingBalance = usageData?.remainingBalance ?? 0
   const hasAlaCarteCredits = remainingBalance > 0
 
+  // Determine if user can upgrade (not on highest tier)
+  const maxTier = Math.max(...Object.keys(SUBSCRIPTION_TIERS).map(Number))
+  const currentTier = subscriptionData?.hasSubscription ? subscriptionData.subscription.tier : 0
+  const canUpgrade = currentTier < maxTier
+
   const [alwaysALaCarte, setAlwaysALaCarteState] = React.useState(
     () => getAlwaysUseALaCarte(),
   )
@@ -59,6 +65,10 @@ export const SubscriptionLimitBanner = () => {
 
   const handleBuyCredits = () => {
     open(WEBSITE_URL + '/usage')
+  }
+
+  const handleUpgrade = () => {
+    open(WEBSITE_URL + '/pricing')
   }
 
   const handleWait = () => {
@@ -146,22 +156,33 @@ export const SubscriptionLimitBanner = () => {
                   {' '}({remainingBalance.toLocaleString()} credits)
                 </text>
               </Button>
-              {isWeeklyLimit ? (
-                <Button onClick={handleBuyCredits}>
-                  <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Buy Credits{' '}</text>
+              {canUpgrade ? (
+                <Button onClick={handleUpgrade}>
+                  <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Upgrade Plan ↗{' '}</text>
                 </Button>
               ) : (
+                <Button onClick={handleBuyCredits}>
+                  <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Buy Credits ↗{' '}</text>
+                </Button>
+              )}
+              {!isWeeklyLimit &&
                 <Button onClick={handleWait}>
                   <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Wait for new block{' '}</text>
                 </Button>
-              )}
+              }
             </>
           ) : (
             <>
               <text style={{ fg: theme.muted }}>No a-la-carte credits available.</text>
-              <Button onClick={handleBuyCredits}>
-                <text style={{ fg: theme.background, bg: theme.foreground }}>{' '}Buy Credits{' '}</text>
-              </Button>
+              {canUpgrade ? (
+                <Button onClick={handleUpgrade}>
+                  <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Upgrade Plan ↗{' '}</text>
+                </Button>
+              ) : (
+                <Button onClick={handleBuyCredits}>
+                  <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Buy Credits ↗{' '}</text>
+                </Button>
+              )}
               <Button onClick={handleWait}>
                 <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Wait{' '}</text>
               </Button>
