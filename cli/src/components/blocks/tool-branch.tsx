@@ -45,7 +45,19 @@ export const ToolBranch = memo(
     }
 
     const displayInfo = getToolDisplayInfo(toolBlock.toolName)
-    const isCollapsed = toolBlock.isCollapsed ?? shouldCollapseToolByDefault(toolBlock.toolName)
+    
+    // Check if there's a registered custom component for this tool
+    const toolRenderConfig = renderToolComponent(toolBlock, theme, {
+      availableWidth,
+      indentationOffset: 0,
+      previewPrefix: '',
+      labelWidth: 0,
+    })
+    
+    // Tools without a registered component (fallback rendering) should be collapsed by default
+    const hasRegisteredComponent = toolRenderConfig !== undefined
+    const isCollapsed = toolBlock.isCollapsed ?? 
+      (hasRegisteredComponent ? shouldCollapseToolByDefault(toolBlock.toolName) : true)
 
     const inputContent = `\`\`\`json\n${JSON.stringify(toolBlock.input, null, 2)}\n\`\`\``
     const codeBlockLang =
@@ -66,13 +78,6 @@ export const ToolBranch = memo(
       typeof toolBlock.input.command === 'string'
         ? `$ ${toolBlock.input.command.trim()}`
         : null
-
-    let toolRenderConfig = renderToolComponent(toolBlock, theme, {
-      availableWidth,
-      indentationOffset: 0,
-      previewPrefix: '',
-      labelWidth: 0,
-    })
 
     const streamingPreview = isStreaming
       ? commandPreview ?? `${sanitizePreview(firstLine)}...`

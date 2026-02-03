@@ -901,7 +901,7 @@ describe('getMultiPromptPreview', () => {
     type: 'tool',
     toolCallId: 'set-output-1',
     toolName: 'set_output',
-    input: reason ? { chosenStrategy: 'strategy A', reason } : { chosenStrategy: 'strategy A' },
+    input: reason ? { data: { chosenStrategy: 'strategy A', reason } } : { data: { chosenStrategy: 'strategy A' } },
   })
 
   test('returns null for empty blocks', () => {

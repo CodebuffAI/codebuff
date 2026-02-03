@@ -35,6 +35,7 @@ export * from './constants'
 export { getUserInfoFromApiKey } from './impl/database'
 export * from './credentials'
 export { loadLocalAgents } from './agents/load-agents'
+export { loadMCPConfig, loadMCPConfigSync } from './agents/load-mcp-config'
 export { loadSkills } from './skills/load-skills'
 export { formatAvailableSkillsXml } from '@codebuff/common/util/skills'
 export type { LoadSkillsOptions } from './skills/load-skills'
@@ -45,6 +46,10 @@ export type {
   LoadLocalAgentsResult,
   AgentValidationError,
 } from './agents/load-agents'
+export type {
+  MCPFileConfig,
+  LoadedMCPConfig,
+} from './agents/load-mcp-config'
 
 export { validateAgents } from './validate-agents'
 export type { ValidationResult, ValidateAgentsOptions } from './validate-agents'

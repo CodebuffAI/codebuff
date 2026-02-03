@@ -22,6 +22,365 @@ describe('Run Cancellation Handling', () => {
     mock.restore()
   })
 
+  it('does not duplicate user message when server responds with session state', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      referral_code: null,
+      stripe_customer_id: null,
+      banned: false,
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+
+    // Server session state already includes the user's message (as the server would normally do)
+    const serverSessionState = getInitialSessionState(getStubProjectFileContext())
+    serverSessionState.mainAgentState.messageHistory.push(
+      userMessage('Please fix the bug'),  // Server added this
+      assistantMessage('I will help you with that.'),
+    )
+
+    spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
+        const { sendAction, promptId } = params
+
+        await sendAction({
+          action: {
+            type: 'prompt-response',
+            promptId,
+            sessionState: serverSessionState,
+            output: {
+              type: 'lastMessage',
+              value: [],
+            },
+          },
+        })
+
+        return {
+          sessionState: serverSessionState,
+          output: {
+            type: 'lastMessage' as const,
+            value: [],
+          },
+        }
+      },
+    )
+
+    const client = new CodebuffClient({
+      apiKey: 'test-key',
+    })
+
+    const result = await client.run({
+      agent: 'base2',
+      prompt: 'Please fix the bug',
+    })
+
+    // The user's message should NOT be duplicated
+    const messageHistory = result.sessionState!.mainAgentState.messageHistory
+
+    const userMessages = messageHistory.filter((m) => m.role === 'user')
+    
+    // Should have exactly 1 user message, not 2
+    expect(userMessages.length).toBe(1)
+    
+    // Total messages should be 2 (user + assistant), not 3
+    expect(messageHistory.length).toBe(2)
+  })
+
+  it('does not duplicate user message when cancelled and server already processed the prompt', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      referral_code: null,
+      stripe_customer_id: null,
+      banned: false,
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+
+    const abortController = new AbortController()
+
+    // Server session state already includes the user's message (server processed it)
+    const serverSessionState = getInitialSessionState(getStubProjectFileContext())
+    serverSessionState.mainAgentState.messageHistory.push(
+      userMessage('Please fix the bug'),  // Server added the user's message
+      assistantMessage('I will help you with that.'),
+    )
+
+    spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
+        const { sendAction, promptId } = params
+
+        // Stream some content
+        await sendAction({
+          action: {
+            type: 'response-chunk',
+            userInputId: promptId,
+            chunk: 'Working on it...',
+          },
+        })
+
+        // User cancels
+        abortController.abort()
+
+        // Server still responds with its session state
+        await sendAction({
+          action: {
+            type: 'prompt-response',
+            promptId,
+            sessionState: serverSessionState,
+            output: {
+              type: 'lastMessage',
+              value: [],
+            },
+          },
+        })
+
+        return {
+          sessionState: serverSessionState,
+          output: {
+            type: 'lastMessage' as const,
+            value: [],
+          },
+        }
+      },
+    )
+
+    const client = new CodebuffClient({
+      apiKey: 'test-key',
+    })
+
+    const result = await client.run({
+      agent: 'base2',
+      prompt: 'Please fix the bug',
+      signal: abortController.signal,
+    })
+
+    // The user's message should NOT be duplicated
+    const messageHistory = result.sessionState!.mainAgentState.messageHistory
+    
+    // Count user messages (excluding system interruption messages)
+    const userPromptMessages = messageHistory.filter(
+      (m) => m.role === 'user' && 
+        m.content.some((c: any) => c.type === 'text' && c.text.includes('fix the bug'))
+    )
+    
+    // Should have exactly 1 user message with the prompt, not 2
+    expect(userPromptMessages.length).toBe(1)
+    
+    // Total messages should be: 1 user + 1 assistant (original) + 1 partial assistant (streamed) + 1 interruption = 4
+    // NOT: 2 users + 1 assistant + 1 partial assistant + 1 interruption = 5
+    expect(messageHistory.length).toBe(4)
+  })
+
+  it('preserves user message when callMainPrompt throws an error', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      referral_code: null,
+      stripe_customer_id: null,
+      banned: false,
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+
+    // Simulate callMainPrompt throwing an error (network failure, server error, etc.)
+    spyOn(mainPromptModule, 'callMainPrompt').mockRejectedValue(
+      new Error('Network connection failed'),
+    )
+
+    const client = new CodebuffClient({
+      apiKey: 'test-key',
+    })
+
+    const result = await client.run({
+      agent: 'base2',
+      prompt: 'Please fix the bug in my code',
+    })
+
+    // Should return an error output
+    expect(result.output.type).toBe('error')
+    expect((result.output as { type: 'error'; message: string }).message).toBe('Network connection failed')
+
+    // The user's message should be preserved in the session state
+    expect(result.sessionState).toBeDefined()
+    const messageHistory = result.sessionState!.mainAgentState.messageHistory
+
+    // Should have: user message + interruption message
+    expect(messageHistory.length).toBeGreaterThanOrEqual(2)
+
+    // Find the user's original prompt message (should have USER_PROMPT tag)
+    const userPromptMessage = messageHistory.find(
+      (m) => m.role === 'user' && m.tags?.includes('USER_PROMPT'),
+    )
+    expect(userPromptMessage).toBeDefined()
+
+    // Verify the message content contains the original prompt
+    const textContent = userPromptMessage!.content.find((c: any) => c.type === 'text') as { type: 'text'; text: string } | undefined
+    expect(textContent).toBeDefined()
+    expect(textContent!.text).toContain('Please fix the bug in my code')
+  })
+
+  it('does not add empty assistant message when no streaming content', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      referral_code: null,
+      stripe_customer_id: null,
+      banned: false,
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+
+    const abortController = new AbortController()
+    const serverSessionState = getInitialSessionState(getStubProjectFileContext())
+    serverSessionState.mainAgentState.messageHistory.push(
+      userMessage('User prompt'),
+    )
+    const originalHistoryLength = serverSessionState.mainAgentState.messageHistory.length
+
+    spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
+        const { sendAction, promptId } = params
+
+        // Abort immediately WITHOUT any streaming chunks
+        abortController.abort()
+
+        await sendAction({
+          action: {
+            type: 'prompt-response',
+            promptId,
+            sessionState: serverSessionState,
+            output: {
+              type: 'lastMessage',
+              value: [],
+            },
+          },
+        })
+
+        return {
+          sessionState: serverSessionState,
+          output: {
+            type: 'lastMessage' as const,
+            value: [],
+          },
+        }
+      },
+    )
+
+    const client = new CodebuffClient({
+      apiKey: 'test-key',
+    })
+
+    const result = await client.run({
+      agent: 'base2',
+      prompt: 'test prompt',
+      signal: abortController.signal,
+    })
+
+    const messageHistory = result.sessionState!.mainAgentState.messageHistory
+
+    // Should only have: original history + 1 interruption message (NO empty assistant message)
+    expect(messageHistory.length).toBe(originalHistoryLength + 1)
+
+    // The last message should be the interruption (user role), not an empty assistant message
+    const lastMessage = messageHistory[messageHistory.length - 1]
+    expect(lastMessage.role).toBe('user')
+    expect((lastMessage.content[0] as { type: 'text'; text: string }).text).toContain('User interrupted')
+
+    // Verify there's no empty assistant message before the interruption
+    const secondToLastMessage = messageHistory[messageHistory.length - 2]
+    // This should be the original 'User prompt' message, not an empty assistant
+    expect(secondToLastMessage.role).toBe('user')
+  })
+
+  it('preserves user message with USER_PROMPT tag when error thrown during callMainPrompt', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      referral_code: null,
+      stripe_customer_id: null,
+      banned: false,
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+
+    let streamedContent = ''
+    spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
+      async (params: Parameters<typeof mainPromptModule.callMainPrompt>[0]) => {
+        const { sendAction, promptId } = params
+
+        // Simulate some partial streaming before error
+        await sendAction({
+          action: {
+            type: 'response-chunk',
+            userInputId: promptId,
+            chunk: 'Starting to analyze...',
+          },
+        })
+
+        // Then throw an error (simulating connection drop)
+        throw new Error('Connection reset by peer')
+      },
+    )
+
+    const client = new CodebuffClient({
+      apiKey: 'test-key',
+    })
+
+    const result = await client.run({
+      agent: 'base2',
+      prompt: 'Implement the feature',
+      handleStreamChunk: (chunk) => {
+        if (typeof chunk === 'string') {
+          streamedContent += chunk
+        }
+      },
+    })
+
+    // Verify we received some streamed content before the error
+    expect(streamedContent).toBe('Starting to analyze...')
+
+    // Should have error output
+    expect(result.output.type).toBe('error')
+
+    // Session state should be preserved
+    expect(result.sessionState).toBeDefined()
+    const messageHistory = result.sessionState!.mainAgentState.messageHistory
+
+    // Should have: user message (with USER_PROMPT tag) + partial assistant + interruption
+    expect(messageHistory.length).toBe(3)
+
+    // First message should be the user's prompt with the tag
+    const firstMessage = messageHistory[0]
+    expect(firstMessage.role).toBe('user')
+    expect(firstMessage.tags).toContain('USER_PROMPT')
+
+    // Second message should be the partial assistant response
+    const secondMessage = messageHistory[1]
+    expect(secondMessage.role).toBe('assistant')
+    expect((secondMessage.content[0] as { type: 'text'; text: string }).text).toBe('Starting to analyze...')
+
+    // Third message should be the interruption/error message
+    const thirdMessage = messageHistory[2]
+    expect(thirdMessage.role).toBe('user')
+  })
+
   it('preserves session state from server when aborted and appends interruption message', async () => {
     spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
       id: 'user-123',

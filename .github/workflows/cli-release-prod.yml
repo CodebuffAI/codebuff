@@ -148,12 +148,10 @@ jobs:
       - name: Set up Node.js for npm publishing
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           registry-url: https://registry.npmjs.org/
 
       - name: Publish to npm
         run: |
           cd cli/release
           npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

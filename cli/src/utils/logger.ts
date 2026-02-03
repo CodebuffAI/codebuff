@@ -38,6 +38,23 @@ const analyticsDispatcher = createAnalyticsDispatcher({
   bufferWhenNoUser: true,
 })
 
+/**
+ * Safely stringify an object, handling circular references.
+ * Replaces circular references with '[Circular]' placeholder.
+ */
+function safeStringify(obj: unknown): string {
+  const seen = new WeakSet()
+  return JSON.stringify(obj, (_key, value) => {
+    if (typeof value === 'object' && value !== null) {
+      if (seen.has(value)) {
+        return '[Circular]'
+      }
+      seen.add(value)
+    }
+    return value
+  })
+}
+
 function isEmptyObject(value: any): boolean {
   return (
     value != null &&
@@ -163,7 +180,7 @@ function sendAnalyticsAndLog(
   // In dev mode, use appendFileSync for real-time logging (Bun has issues with pino sync)
   // In prod mode, use pino for better performance
   if (IS_DEV && logPath) {
-    const logEntry = JSON.stringify({
+    const logEntry = safeStringify({
       level: level.toUpperCase(),
       timestamp: new Date().toISOString(),
       ...loggerContext,

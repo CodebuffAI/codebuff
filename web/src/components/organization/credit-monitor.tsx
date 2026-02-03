@@ -6,13 +6,12 @@ import {
   CreditCard,
   Users,
   AlertTriangle,
-  Power,
-  Loader2,
+  // BILLING_DISABLED: Power and Loader2 unused while auto-topup banner is hidden
+  // Power,
+  // Loader2,
   BarChart3,
 } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -89,8 +88,6 @@ export function CreditMonitor({
   noCardWrapper = false,
 }: CreditMonitorProps) {
   const isMobile = useIsMobile()
-  const router = useRouter()
-  const [isRedirecting, setIsRedirecting] = useState(false)
 
   const {
     data: creditStatus,
@@ -112,12 +109,13 @@ export function CreditMonitor({
     refetchOnWindowFocus: false,
   })
 
-  // Use the auto-topup hook for toggle functionality
+  // BILLING_DISABLED: Auto-topup hook results unused while billing is disabled
+  // These would be used by handleEnableAutoTopup and the auto-topup banner
   const {
     isEnabled: _autoTopupEnabled,
-    canManageAutoTopup,
-    handleToggleAutoTopup,
-    isPending: isAutoTopupPending,
+    canManageAutoTopup: _canManageAutoTopup,
+    handleToggleAutoTopup: _handleToggleAutoTopup,
+    isPending: _isAutoTopupPending,
   } = useOrgAutoTopup(organizationId)
 
   const queryClient = useQueryClient()
@@ -131,28 +129,30 @@ export function CreditMonitor({
     })
   }
 
+  // BILLING_DISABLED: handleEnableAutoTopup functionality disabled
+  // This function previously enabled auto-topup and navigated to billing page.
+  // Uncomment when re-enabling org billing.
+  /*
   const handleEnableAutoTopup = async () => {
     if (!orgSettings || !canManageAutoTopup) return
 
     setIsRedirecting(true)
 
     try {
-      // Enable auto top-up first
       const success = await handleToggleAutoTopup(true)
 
       if (success) {
-        // Navigate to billing page
         router.push(`/orgs/${orgSettings.slug}/billing/purchase`)
+        setIsRedirecting(false)
       } else {
-        // Reset loading state if enabling failed
         setIsRedirecting(false)
       }
     } catch (error) {
-      // Error handling is already done in the hook
       console.error('Failed to enable auto top-up:', error)
       setIsRedirecting(false)
     }
   }
+  */
 
   if (isLoading || isLoadingSettings) {
     return (
@@ -222,9 +222,9 @@ export function CreditMonitor({
   const usagePercentage =
     totalCredits > 0 ? (creditStatus.usageThisCycle / totalCredits) * 100 : 0
 
-  // Check if auto top-up is disabled and user can manage it
-  const isAutoTopupDisabled = !orgSettings?.autoTopupEnabled
-  const shouldShowAutoTopupBanner = isAutoTopupDisabled && canManageAutoTopup
+  // BILLING_DISABLED: Auto-topup banner hidden since billing pages are disabled
+  // When re-enabling, restore: const shouldShowAutoTopupBanner = !orgSettings?.autoTopupEnabled && canManageAutoTopup
+  const shouldShowAutoTopupBanner = false
 
   return (
     <Card
@@ -288,22 +288,7 @@ export function CreditMonitor({
                     </p>
                   </div>
                 </div>
-                <Button
-                  size={isMobile ? 'sm' : 'default'}
-                  variant="secondary"
-                  className="w-full sm:w-auto"
-                  onClick={handleEnableAutoTopup}
-                  disabled={isAutoTopupPending || isRedirecting}
-                >
-                  {isAutoTopupPending || isRedirecting ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Power className="mr-2 h-4 w-4" />
-                  )}
-                  {isAutoTopupPending || isRedirecting
-                    ? 'Enabling...'
-                    : 'Enable'}
-                </Button>
+{/* BILLING_DISABLED: Button removed while auto-topup banner is hidden */}
               </div>
             </div>
           )}
