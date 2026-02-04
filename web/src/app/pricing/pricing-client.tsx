@@ -15,6 +15,7 @@ import { useSession } from 'next-auth/react'
 import { useState } from 'react'
 
 import { BlockColor } from '@/components/ui/decorative-blocks'
+import { Section } from '@/components/ui/section'
 import { SECTION_THEMES } from '@/components/ui/landing/constants'
 import { FeatureSection } from '@/components/ui/landing/feature'
 import { toast } from '@/components/ui/use-toast'
@@ -93,7 +94,12 @@ function SubscribeButton({
 
 function StrongHeroSection() {
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-black flex flex-col items-center justify-center relative overflow-hidden px-4 py-12">
+    <Section
+      background={SECTION_THEMES.hero.background}
+      hero
+      fullViewport
+      className="overflow-hidden"
+    >
       {/* Subtle radial glow behind content */}
       <div
         className="absolute inset-0 pointer-events-none"
@@ -159,82 +165,87 @@ function StrongHeroSection() {
       </motion.div>
 
       {/* Foreground content */}
-      <div className="relative z-10 flex flex-col items-center text-center max-w-4xl">
-        <div className="max-w-2xl">
-          <motion.p
-            className="font-mono text-md sm:text-lg tracking-[0.3em] text-acid-green/50 uppercase mb-8"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.8, delay: 0.5 }}
-          >
-            codebuff strong
-          </motion.p>
-          <motion.h1
-            className="text-3xl sm:text-4xl md:text-4xl font-bold text-white tracking-tight mb-6"
+      <div className="codebuff-container min-h-[calc(95dvh-64px)] flex flex-col items-center justify-center relative z-10 py-12">
+        <div className="flex flex-col items-center text-center max-w-4xl w-full space-y-12">
+<motion.h1
+            className="text-4xl sm:text-5xl md:text-5xl font-bold text-white tracking-tight"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.7 }}
           >
             Access the strongest coding agent
           </motion.h1>
-        </div>
 
-        {/* Pricing cards grid */}
-        <motion.div
-          className="grid grid-cols-3 gap-2 sm:gap-5 mb-10 w-full"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 1.1 }}
-        >
-          {Object.entries(SUBSCRIPTION_TIERS).map(([key, tier]) => {
-            const price = Number(key) as SubscriptionTierPrice
-            const isHighlighted = price === 200
+          <motion.p
+            className="hero-subtext text-center mx-auto max-w-xl pb-8"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.9 }}
+          >
+            Subscribe for higher usage limits
+          </motion.p>
 
-            return (
-              <div
-                key={price}
-                className={cn(
-                  'rounded-xl p-3 sm:p-8 backdrop-blur-sm border flex flex-col items-center transition-all duration-300',
-                  'hover:scale-[1.02]',
-                  isHighlighted
-                    ? 'border-acid-green/30 bg-acid-green/[0.04] shadow-[0_0_40px_rgba(0,255,149,0.08)] hover:shadow-[0_0_60px_rgba(0,255,149,0.15)]'
-                    : 'border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]',
-                )}
-              >
-                <div className="flex items-baseline justify-center gap-1 mb-1">
-                  <span className="text-xl sm:text-5xl font-bold text-white tracking-tight">
-                    ${tier.monthlyPrice}
-                  </span>
-                  <span className="text-xs sm:text-sm text-white/30">/mo</span>
-                </div>
+          {/* Pricing cards grid with decorative blocks */}
+          <motion.div
+            className="w-full"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 1.1 }}
+          >
+            <div className="grid grid-cols-3 gap-3 sm:gap-6">
+                {Object.entries(SUBSCRIPTION_TIERS).map(([key, tier]) => {
+                  const price = Number(key) as SubscriptionTierPrice
+                  const isHighlighted = price === 200
 
-                <p className="text-sm sm:text-base font-medium text-white/60 mb-3 sm:mb-6">
-                  {USAGE_MULTIPLIER[price]} usage
-                </p>
+                  return (
+                    <div
+                      key={price}
+                      className={cn(
+                        'rounded-xl p-3 sm:p-8 backdrop-blur-sm border flex flex-col items-center transition-all duration-300',
+                        'hover:scale-[1.02]',
+isHighlighted
+                          ? 'border-acid-green/40 bg-acid-green/[0.06] shadow-[0_0_40px_rgba(0,255,149,0.12)] hover:shadow-[0_0_60px_rgba(0,255,149,0.2)]'
+                          : 'border-acid-green/15 bg-black/40 hover:border-acid-green/30 hover:bg-black/60',
+                      )}
+                    >
+                      <div className="flex items-baseline justify-center gap-1 mb-1">
+                        <span className="text-xl sm:text-5xl font-bold text-white tracking-tight">
+                          ${tier.monthlyPrice}
+                        </span>
+                        <span className="text-xs sm:text-sm text-white/30">
+                          /mo
+                        </span>
+                      </div>
 
-                <SubscribeButton
-                  tier={price}
-                  className={cn(
-                    'w-full',
-                    !isHighlighted &&
-                      'bg-white/10 text-white hover:bg-white/20 shadow-none hover:shadow-none',
-                  )}
-                />
+                      <p className="text-sm sm:text-base font-medium text-white/60 mb-3 sm:mb-6">
+                        {USAGE_MULTIPLIER[price]} usage
+                      </p>
+
+<SubscribeButton
+                        tier={price}
+                        className={cn(
+                          'w-full',
+                          !isHighlighted &&
+                            'bg-acid-green/10 text-acid-green border border-acid-green/30 hover:bg-acid-green/20 shadow-none hover:shadow-none',
+                        )}
+                      />
+                    </div>
+                  )
+                })}
               </div>
-            )
-          })}
-        </motion.div>
+          </motion.div>
 
-        <motion.p
-          className="text-xs text-white/30 tracking-wide"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8, delay: 1.6 }}
-        >
-          Cancel anytime · Tax not included · Usage amounts subject to change
-        </motion.p>
+          <motion.p
+            className="text-sm text-white/30 tracking-wide"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, delay: 1.6 }}
+          >
+            Cancel anytime · Applicable taxes not shown · Usage subject to change
+          </motion.p>
+        </div>
       </div>
-    </div>
+    </Section>
   )
 }
 
@@ -381,6 +392,9 @@ export default function PricingClient() {
   return (
     <>
       <StrongHeroSection />
+
+      {/* Visual divider between hero and feature section */}
+      <div className="h-px bg-gradient-to-r from-transparent via-green-500/30 to-transparent" />
 
       <FeatureSection
         title={<span>Usage-Based Pricing</span>}
