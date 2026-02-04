@@ -33,12 +33,18 @@ const copyReferral = (link: string) => {
   })
 }
 
-const CreditsBadge = (credits: number) => {
+const CreditsBadge = ({
+  credits,
+  isLegacy,
+}: {
+  credits: number
+  isLegacy: boolean
+}) => {
   return (
     <span
       className={`flex-none p-2 rounded-full text-xs bg-gradient-to-r from-green-300 to-emerald-300 dark:from-green-600 dark:to-emerald-600 text-green-800 dark:text-white font-semibold item-center text-center shadow-sm`}
     >
-      +{credits} credits
+      +{credits} credits{isLegacy && ' per month'}
     </span>
   )
 }
@@ -111,7 +117,10 @@ export function ReferralsSection() {
               <div className="text-sm flex items-center">
                 <p>{data.referredBy.name} referred you. </p>
               </div>
-              {CreditsBadge(data.referredBy.credits)}
+              <CreditsBadge
+                credits={data.referredBy.credits}
+                isLegacy={data.referredBy.is_legacy}
+              />
             </div>
           </CardContent>
         </Card>
@@ -124,7 +133,7 @@ export function ReferralsSection() {
           </CardTitle>
           <CardDescription className="text-green-700 dark:text-green-300">
             Refer a friend and <b>you'll both</b> earn {CREDITS_REFERRAL_BONUS}{' '}
-            bonus credits!{' '}
+            credits as a one-time bonus!{' '}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -203,9 +212,9 @@ export function ReferralsSection() {
                           className="flex justify-between items-center"
                         >
                           <span>
-                            {r.name} ({r.email})
+                            {r.name} ({r.email}){r.is_legacy && ' (legacy)'}
                           </span>
-                          {CreditsBadge(r.credits)}
+                          <CreditsBadge credits={r.credits} isLegacy={r.is_legacy} />
                         </li>
                       ))}
                     </ul>

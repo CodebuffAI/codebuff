@@ -71,12 +71,13 @@ export async function getPreviousFreeGrantAmount(params: {
 }
 
 /**
- * Calculates the total referral bonus credits a user should receive based on
- * their referral history (both as referrer and referred).
+ * Calculates the total legacy referral bonus credits a user should receive based on
+ * their legacy referral history (both as referrer and referred).
+ * Only counts referrals where is_legacy = true (grandfathered users from old program).
  * @param userId The ID of the user.
- * @returns The total referral bonus credits earned.
+ * @returns The total legacy referral bonus credits earned.
  */
-export async function calculateTotalReferralBonus(params: {
+export async function calculateTotalLegacyReferralBonus(params: {
   userId: string
   logger: Logger
 }): Promise<number> {
@@ -89,19 +90,22 @@ export async function calculateTotalReferralBonus(params: {
       })
       .from(schema.referral)
       .where(
-        or(
-          eq(schema.referral.referrer_id, userId),
-          eq(schema.referral.referred_id, userId),
+        and(
+          or(
+            eq(schema.referral.referrer_id, userId),
+            eq(schema.referral.referred_id, userId),
+          ),
+          eq(schema.referral.is_legacy, true),
         ),
       )
 
     const totalBonus = parseInt(result[0]?.totalCredits ?? '0')
-    logger.debug({ userId, totalBonus }, 'Calculated total referral bonus.')
+    logger.debug({ userId, totalBonus }, 'Calculated total legacy referral bonus.')
     return totalBonus
   } catch (error) {
     logger.error(
       { userId, error },
-      'Error calculating total referral bonus. Returning 0.',
+      'Error calculating total legacy referral bonus. Returning 0.',
     )
     return 0
   }
@@ -456,7 +460,7 @@ export async function triggerMonthlyResetAndGrant(params: {
       // Calculate grant amounts separately
       const [freeGrantAmount, referralBonus] = await Promise.all([
         getPreviousFreeGrantAmount(params),
-        calculateTotalReferralBonus(params),
+        calculateTotalLegacyReferralBonus(params),
       ])
 
       // Generate a deterministic operation ID based on userId and reset date to minute precision
@@ -481,14 +485,14 @@ export async function triggerMonthlyResetAndGrant(params: {
         tx,
       })
 
-      // Only grant referral credits if there are any
+      // Only grant legacy referral credits if there are any (for grandfathered users)
       if (referralBonus > 0) {
         await executeGrantCreditOperation({
           ...params,
           amount: referralBonus,
-          type: 'referral',
-          description: 'Referral bonus',
-          expiresAt: newResetDate, // Referral credits expire at next reset
+          type: 'referral_legacy',
+          description: 'Monthly referral bonus (legacy)',
+          expiresAt: newResetDate, // Legacy referral credits expire at next reset
           operationId: referralOperationId,
           tx,
         })

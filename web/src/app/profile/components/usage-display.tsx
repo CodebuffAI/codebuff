@@ -67,7 +67,15 @@ const grantTypeInfo: Record<
     gradient: 'from-green-500/70 to-green-600/70',
     icon: <Users className="h-4 w-4" />,
     label: 'Referral Bonus',
-    description: 'Earned by referring others',
+    description: 'One-time bonus from referrals',
+  },
+  referral_legacy: {
+    bg: 'bg-emerald-500',
+    text: 'text-emerald-600 dark:text-emerald-400',
+    gradient: 'from-emerald-500/70 to-emerald-600/70',
+    icon: <Users className="h-4 w-4" />,
+    label: 'Referral Bonus (Legacy)',
+    description: 'Monthly recurring referral bonus',
   },
   purchase: {
     bg: 'bg-yellow-500',
@@ -241,8 +249,9 @@ export const UsageDisplay = ({
   // Calculate used credits per type (excluding organization)
   const usedCredits: Record<FilteredGrantType, number> = {
     free: 0,
-    subscription: 0,
     referral: 0,
+    referral_legacy: 0,
+    subscription: 0,
     purchase: 0,
     admin: 0,
     ad: 0,
@@ -261,8 +270,9 @@ export const UsageDisplay = ({
   })
 
   // Group credits by expiration type (excluding organization)
-  const expiringTypes: FilteredGrantType[] = ['free', 'referral', 'subscription']
-  const nonExpiringTypes: FilteredGrantType[] = ['admin', 'purchase', 'ad']
+  // referral_legacy and subscription renew monthly, referral (one-time) never expires
+  const expiringTypes: FilteredGrantType[] = ['free', 'referral_legacy', 'subscription']
+  const nonExpiringTypes: FilteredGrantType[] = ['referral', 'admin', 'purchase', 'ad']
 
   const expiringTotal = expiringTypes.reduce(
     (acc, type) => acc + (principals?.[type] || breakdown[type] || 0),

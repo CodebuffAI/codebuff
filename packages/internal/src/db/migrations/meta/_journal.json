@@ -274,6 +274,13 @@
       "when": 1769649819008,
       "tag": "0038_legal_jimmy_woo",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1769482939158,
+      "tag": "0039_quiet_franklin_storm",
+      "breakpoints": true
     }
   ]
 }
