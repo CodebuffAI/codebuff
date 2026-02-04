@@ -136,11 +136,11 @@ export async function postAds(params: {
   // Build device object for Gravity API
   const device = clientIp
     ? {
-        ip: clientIp,
-        ...(deviceInfo?.os ? { os: deviceInfo.os } : {}),
-        ...(deviceInfo?.timezone ? { timezone: deviceInfo.timezone } : {}),
-        ...(deviceInfo?.locale ? { locale: deviceInfo.locale } : {}),
-      }
+      ip: clientIp,
+      ...(deviceInfo?.os ? { os: deviceInfo.os } : {}),
+      ...(deviceInfo?.timezone ? { timezone: deviceInfo.timezone } : {}),
+      ...(deviceInfo?.locale ? { locale: deviceInfo.locale } : {}),
+    }
     : undefined
 
   try {
@@ -176,13 +176,35 @@ export async function postAds(params: {
       return NextResponse.json({ ad: null }, { status: 200 })
     }
 
-    // Now safe to parse JSON body
+    // Check response.ok BEFORE parsing JSON to handle HTML error pages gracefully
+    if (!response.ok) {
+      // Try to get response body for logging, but don't fail if it's not JSON
+      let errorBody: unknown
+      try {
+        const contentType = response.headers.get('content-type') ?? ''
+        if (contentType.includes('application/json')) {
+          errorBody = await response.json()
+        } else {
+          // Likely an HTML error page from load balancer/CDN
+          errorBody = await response.text()
+        }
+      } catch {
+        errorBody = 'Unable to parse error response'
+      }
+      logger.error(
+        { request: requestBody, response: errorBody, status: response.status },
+        '[ads] Gravity API returned error',
+      )
+      return NextResponse.json({ ad: null }, { status: 200 })
+    }
+
+    // Now safe to parse JSON body since response.ok is true
     const ads = await response.json()
 
-    if (!response.ok) {
-      logger.error(
+    if (!Array.isArray(ads) || ads.length === 0) {
+      logger.debug(
         { request: requestBody, response: ads, status: response.status },
-        '[ads] Gravity API returned error',
+        '[ads] No ads returned from Gravity API',
       )
       return NextResponse.json({ ad: null }, { status: 200 })
     }
