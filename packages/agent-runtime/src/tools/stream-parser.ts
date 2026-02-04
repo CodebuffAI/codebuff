@@ -285,7 +285,12 @@ export async function processStream(
     }
     const { value: chunk, done } = await streamWithTags.next()
     if (done) {
-      messageId = chunk
+      // Handle PromptResult: extract value if success, null if aborted
+      if (chunk && typeof chunk === 'object' && 'aborted' in chunk) {
+        messageId = chunk.aborted ? null : chunk.value
+      } else {
+        messageId = chunk
+      }
       break
     }
 

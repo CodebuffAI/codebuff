@@ -3,6 +3,7 @@ import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { setupDbSpies } from '@codebuff/common/testing/mocks/database'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
+import { promptSuccess } from '@codebuff/common/util/error'
 import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import db from '@codebuff/internal/db'
 import {
@@ -96,7 +97,7 @@ describe('runAgentStep - set_output tool', () => {
 
     // Mock LLM APIs
     agentRuntimeImpl.promptAiSdk = async function () {
-      return 'Test response'
+      return promptSuccess('Test response')
     }
     clearAgentGeneratorCache(agentRuntimeImpl)
 
@@ -161,7 +162,7 @@ describe('runAgentStep - set_output tool', () => {
       yield createToolCallChunk('set_output', { message: 'Hi' })
       yield { type: 'text' as const, text: '\n\n' }
       yield createToolCallChunk('end_turn', {})
-      return 'mock-message-id'
+      return promptSuccess('mock-message-id')
     }
 
     const sessionState = getInitialSessionState(mockFileContext)
@@ -193,7 +194,7 @@ describe('runAgentStep - set_output tool', () => {
         findings: ['Bug in auth.ts', 'Missing validation'],
       })
       yield createToolCallChunk('end_turn', {})
-      return 'mock-message-id'
+      return promptSuccess('mock-message-id')
     }
 
     const sessionState = getInitialSessionState(mockFileContext)
@@ -226,7 +227,7 @@ describe('runAgentStep - set_output tool', () => {
         existingField: 'updated value',
       })
       yield createToolCallChunk('end_turn', {})
-      return 'mock-message-id'
+      return promptSuccess('mock-message-id')
     }
 
     const sessionState = getInitialSessionState(mockFileContext)
@@ -259,7 +260,7 @@ describe('runAgentStep - set_output tool', () => {
     runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
       yield createToolCallChunk('set_output', {})
       yield createToolCallChunk('end_turn', {})
-      return 'mock-message-id'
+      return promptSuccess('mock-message-id')
     }
 
     const sessionState = getInitialSessionState(mockFileContext)
@@ -331,7 +332,7 @@ describe('runAgentStep - set_output tool', () => {
     // Mock the LLM stream to return a response that doesn't end the turn
     runAgentStepBaseParams.promptAiSdkStream = async function* ({}) {
       yield { type: 'text' as const, text: 'Continuing with the analysis...' } // Non-empty response, no tool calls
-      return 'mock-message-id'
+      return promptSuccess('mock-message-id')
     }
 
     const sessionState = getInitialSessionState(mockFileContext)
@@ -475,7 +476,7 @@ describe('runAgentStep - set_output tool', () => {
         agent_type: 'message-deleter-agent',
         prompt: 'Delete the last two assistant messages',
       })
-      return 'mock-message-id'
+      return promptSuccess('mock-message-id')
     }
 
     const sessionState = getInitialSessionState(mockFileContext)

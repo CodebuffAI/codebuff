@@ -1,5 +1,6 @@
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
+import { promptSuccess } from '@codebuff/common/util/error'
 import { beforeEach, describe, expect, it } from 'bun:test'
 
 import { mockFileContext } from './test-utils'
@@ -49,9 +50,9 @@ describe('tool validation error handling', () => {
       },
     }
 
-    async function* mockStream(): AsyncGenerator<StreamChunk, string | null> {
+    async function* mockStream() {
       yield invalidToolCallChunk
-      return 'mock-message-id'
+      return promptSuccess('mock-message-id')
     }
 
     const sessionState = getInitialSessionState(mockFileContext)
@@ -158,9 +159,9 @@ describe('tool validation error handling', () => {
       },
     }
 
-    async function* mockStream(): AsyncGenerator<StreamChunk, string | null> {
+    async function* mockStream() {
       yield validToolCallChunk
-      return 'mock-message-id'
+      return promptSuccess('mock-message-id')
     }
 
     const sessionState = getInitialSessionState(mockFileContext)

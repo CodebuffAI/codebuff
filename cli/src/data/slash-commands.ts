@@ -98,17 +98,22 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     aliases: ['chats'],
   },
   {
+    id: 'review',
+    label: 'review',
+    description: 'Review code changes with GPT-5 Agent',
+  },
+  {
     id: 'agent:gpt-5',
     label: 'agent:gpt-5',
     description: 'Spawn the GPT-5 agent to help solve complex problems',
     insertText: '@GPT-5 Agent ',
   },
-  {
-    id: 'agent:opus',
-    label: 'agent:opus',
-    description: 'Spawn the Opus agent to help solve any problem',
-    insertText: '@Opus Agent ',
-  },
+  // {
+  //   id: 'agent:opus',
+  //   label: 'agent:opus',
+  //   description: 'Spawn the Opus agent to help solve any problem',
+  //   insertText: '@Opus Agent ',
+  // },
   {
     id: 'feedback',
     label: 'feedback',
@@ -133,10 +138,15 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     description: 'Redeem a referral code for bonus credits',
     aliases: ['redeem'],
   },
+  // {
+  //   id: 'publish',
+  //   label: 'publish',
+  //   description: 'Publish agents to the agent store',
+  // },
   {
-    id: 'publish',
-    label: 'publish',
-    description: 'Publish agents to the agent store',
+    id: 'theme:toggle',
+    label: 'theme:toggle',
+    description: 'Toggle between light and dark mode',
   },
   {
     id: 'logout',

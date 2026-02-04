@@ -1,4 +1,5 @@
 import { models } from '@codebuff/common/old-constants'
+import { promptSuccess } from '@codebuff/common/util/error'
 import { spyOn } from 'bun:test'
 import z from 'zod/v4'
 
@@ -362,10 +363,12 @@ async function promptAiSdkMock(
   }
 
   if (params.n && params.n > 1) {
-    return JSON.stringify(Array.from({ length: params.n }, () => responseText))
+    return promptSuccess(
+      JSON.stringify(Array.from({ length: params.n }, () => responseText)),
+    )
   }
 
-  return responseText
+  return promptSuccess(responseText)
 }
 
 async function promptAiSdkStructuredMock<T>(

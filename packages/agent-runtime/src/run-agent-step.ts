@@ -2,7 +2,7 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { supportsCacheControl } from '@codebuff/common/old-constants'
 import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
-import { getErrorObject } from '@codebuff/common/util/error'
+import { getErrorObject, isAbortError } from '@codebuff/common/util/error'
 import { systemMessage, userMessage } from '@codebuff/common/util/messages'
 import { APICallError, type ToolSet } from 'ai'
 import { cloneDeep, mapValues } from 'lodash'
@@ -276,7 +276,7 @@ export const runAgentStep = async (
 
   // Handle n parameter for generating multiple responses
   if (params.n !== undefined) {
-    const responsesString = await promptAiSdk({
+    const result = await promptAiSdk({
       ...params,
       messages: agentState.messageHistory,
       model,
@@ -284,6 +284,17 @@ export const runAgentStep = async (
       onCostCalculated,
     })
 
+    if (result.aborted) {
+      return {
+        agentState,
+        fullResponse: '',
+        shouldEndTurn: true,
+        messageId: null,
+        nResponses: undefined,
+      }
+    }
+
+    const responsesString = result.value
     let nResponses: string[]
     try {
       nResponses = JSON.parse(responsesString) as string[]
@@ -914,6 +925,36 @@ export async function loopAgentSteps(
       output: getAgentOutput(currentAgentState, agentTemplate),
     }
   } catch (error) {
+    // Handle user-initiated aborts separately - don't log as errors
+    if (isAbortError(error)) {
+      logger.info(
+        {
+          agentType,
+          agentId: currentAgentState.agentId,
+          runId,
+          totalSteps,
+        },
+        'Agent run cancelled by user (abort error)',
+      )
+
+      await finishAgentRun({
+        ...params,
+        runId,
+        status: 'cancelled',
+        totalSteps,
+        directCredits: currentAgentState.directCreditsUsed,
+        totalCredits: currentAgentState.creditsUsed,
+      })
+
+      return {
+        agentState: currentAgentState,
+        output: {
+          type: 'error',
+          message: 'Run cancelled by user',
+        },
+      }
+    }
+
     logger.error(
       {
         error: getErrorObject(error),

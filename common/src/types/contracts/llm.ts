@@ -5,6 +5,7 @@ import type { ParamsExcluding } from '../function-params'
 import type { Logger } from './logger'
 import type { Model } from '../../old-constants'
 import type { Message } from '../messages/codebuff-message'
+import type { PromptResult } from '../../util/error'
 import type { generateText, streamText, ToolCallPart } from 'ai'
 import type z from 'zod/v4'
 
@@ -52,7 +53,7 @@ export type PromptAiSdkStreamFn = (
     trackEvent: TrackEventFn
     signal: AbortSignal
   } & ParamsExcluding<typeof streamText, 'model' | 'messages'>,
-) => AsyncGenerator<StreamChunk, string | null>
+) => AsyncGenerator<StreamChunk, PromptResult<string | null>>
 
 export type PromptAiSdkFn = (
   params: {
@@ -78,7 +79,7 @@ export type PromptAiSdkFn = (
     n?: number
     signal: AbortSignal
   } & ParamsExcluding<typeof generateText, 'model' | 'messages'>,
-) => Promise<string>
+) => Promise<PromptResult<string>>
 
 export type PromptAiSdkStructuredInput<T> = {
   apiKey: string
@@ -104,7 +105,7 @@ export type PromptAiSdkStructuredInput<T> = {
   trackEvent: TrackEventFn
   signal: AbortSignal
 }
-export type PromptAiSdkStructuredOutput<T> = Promise<T>
+export type PromptAiSdkStructuredOutput<T> = Promise<PromptResult<T>>
 export type PromptAiSdkStructuredFn = <T>(
   params: PromptAiSdkStructuredInput<T>,
 ) => PromptAiSdkStructuredOutput<T>

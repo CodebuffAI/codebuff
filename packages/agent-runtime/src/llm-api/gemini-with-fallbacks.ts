@@ -1,4 +1,5 @@
 import { openaiModels, openrouterModels } from '@codebuff/common/old-constants'
+import { isAbortError, unwrapPromptResult } from '@codebuff/common/util/error'
 
 import type {
   FinetunedVertexModel,
@@ -31,7 +32,8 @@ import type { Message } from '@codebuff/common/types/messages/codebuff-message'
  * @param options.costMode - Optional cost mode ('free', 'normal', 'max') influencing fallback model choice.
  * @param options.useGPT4oInsteadOfClaude - Optional flag to use GPT-4o instead of Claude as the final fallback.
  * @returns A promise that resolves to the complete response string from the successful API call.
- * @throws If all API calls (primary and fallbacks) fail.
+ * @throws {Error} If all API calls (primary and fallbacks) fail.
+ * @throws {Error} When the request is aborted by user. Check with `isAbortError()`. Aborts are not retried.
  */
 export async function promptFlashWithFallbacks(
   params: {
@@ -56,12 +58,18 @@ export async function promptFlashWithFallbacks(
   // Try finetuned model first if enabled
   if (useFinetunedModel) {
     try {
-      return await promptAiSdk({
-        ...params,
-        messages,
-        model: useFinetunedModel,
-      })
+      return unwrapPromptResult(
+        await promptAiSdk({
+          ...params,
+          messages,
+          model: useFinetunedModel,
+        }),
+      )
     } catch (error) {
+      // Don't fall back on user-initiated aborts - propagate immediately
+      if (isAbortError(error)) {
+        throw error
+      }
       logger.warn(
         { error },
         'Error calling finetuned model, falling back to Gemini API',
@@ -71,18 +79,24 @@ export async function promptFlashWithFallbacks(
 
   try {
     // First try Gemini
-    return await promptAiSdk({ ...params, messages })
+    return unwrapPromptResult(await promptAiSdk({ ...params, messages }))
   } catch (error) {
+    // Don't fall back on user-initiated aborts - propagate immediately
+    if (isAbortError(error)) {
+      throw error
+    }
     logger.warn(
       { error },
       `Error calling Gemini API, falling back to ${useGPT4oInsteadOfClaude ? 'gpt-4o' : 'Claude'}`,
     )
-    return await promptAiSdk({
-      ...params,
-      messages,
-      model: useGPT4oInsteadOfClaude
-        ? openaiModels.gpt4o
-        : openrouterModels.openrouter_claude_3_5_haiku,
-    })
+    return unwrapPromptResult(
+      await promptAiSdk({
+        ...params,
+        messages,
+        model: useGPT4oInsteadOfClaude
+          ? openaiModels.gpt4o
+          : openrouterModels.openrouter_claude_3_5_haiku,
+      }),
+    )
   }
 }

@@ -15,6 +15,7 @@ import {
   models,
   TEST_USER_ID,
 } from '@codebuff/common/old-constants'
+import { unwrapPromptResult } from '@codebuff/common/util/error'
 import { userMessage } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
 import { closeXml } from '@codebuff/common/util/xml'
@@ -206,11 +207,13 @@ async function relabelTraceWithModel(params: {
       system: payload.system as System,
     })
 
-    const output = await promptAiSdk({
-      ...promptContext,
-      model,
-      messages,
-    })
+    const output = unwrapPromptResult(
+      await promptAiSdk({
+        ...promptContext,
+        model,
+        messages,
+      }),
+    )
 
     const relabel: Relabel = {
       id: generateCompactId(),
@@ -350,12 +353,14 @@ async function relabelWithRelace(params: {
     filesWithPath.map((file) => `- ${file.path}`).join('\n'),
   ].join('\n\n')
 
-  const ranked = await promptAiSdk({
-    ...promptContext,
-    model: models.openrouter_claude_sonnet_4,
-    messages: [userMessage(prompt)],
-    includeCacheControl: false,
-  })
+  const ranked = unwrapPromptResult(
+    await promptAiSdk({
+      ...promptContext,
+      model: models.openrouter_claude_sonnet_4,
+      messages: [userMessage(prompt)],
+      includeCacheControl: false,
+    }),
+  )
 
   const rankedFiles =
     ranked
@@ -432,15 +437,17 @@ async function relabelWithClaudeWithFullFileContext(params: {
     system = systemCopy
   }
 
-  const output = await promptAiSdk({
-    ...promptContext,
-    model,
-    messages: messagesWithSystem({
-      messages: (tracePayload.messages || []) as Message[],
-      system,
+  const output = unwrapPromptResult(
+    await promptAiSdk({
+      ...promptContext,
+      model,
+      messages: messagesWithSystem({
+        messages: (tracePayload.messages || []) as Message[],
+        system,
+      }),
+      maxOutputTokens: 1000,
     }),
-    maxOutputTokens: 1000,
-  })
+  )
 
   const relabel: Relabel = {
     id: generateCompactId(),

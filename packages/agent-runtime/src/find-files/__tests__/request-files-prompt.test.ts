@@ -1,5 +1,6 @@
 import { finetunedVertexModels } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import { promptSuccess } from '@codebuff/common/util/error'
 import { userMessage } from '@codebuff/common/util/messages'
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
 
@@ -54,7 +55,7 @@ describe('requestRelevantFiles', () => {
   beforeEach(() => {
     agentRuntimeImpl = {
       ...TEST_AGENT_RUNTIME_IMPL,
-      promptAiSdk: mock(() => Promise.resolve('file1.ts\nfile2.ts')),
+      promptAiSdk: mock(() => Promise.resolve(promptSuccess('file1.ts\nfile2.ts'))),
     }
   })
 
