@@ -1,6 +1,7 @@
 import open from 'open'
 
 import { handleAdsEnable, handleAdsDisable } from './ads'
+import { useThemeStore } from '../hooks/use-theme'
 import { handleHelpCommand } from './help'
 import { handleImageCommand } from './image'
 import { handleInitializationFlowLocally } from './init'
@@ -511,6 +512,20 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
 
       // Otherwise open the selection UI
       return { openReviewScreen: true }
+    },
+  }),
+  defineCommand({
+    name: 'theme:toggle',
+    handler: (params) => {
+      const { theme, setThemeName } = useThemeStore.getState()
+      const newTheme = theme.name === 'dark' ? 'light' : 'dark'
+      setThemeName(newTheme)
+      params.setMessages((prev) => [
+        ...prev,
+        getUserMessage(params.inputValue.trim()),
+        getSystemMessage(`Switched to ${newTheme} theme.`),
+      ])
+      clearInput(params)
     },
   }),
 ]
