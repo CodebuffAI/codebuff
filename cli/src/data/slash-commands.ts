@@ -92,6 +92,11 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     aliases: ['chats'],
   },
   {
+    id: 'review',
+    label: 'review',
+    description: 'Review code changes with GPT-5 Agent',
+  },
+  {
     id: 'agent:gpt-5',
     label: 'agent:gpt-5',
     description: 'Spawn the GPT-5 agent to help solve complex problems',
