@@ -143,7 +143,7 @@ export async function validateAgents(
 
   // Transform validation errors to the SDK format
   const transformedErrors = validationErrors.map((error) => ({
-    id: error.filePath,
+    id: error.filePath ?? 'unknown',
     message: error.message,
   }))
 
