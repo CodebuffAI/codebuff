@@ -1,6 +1,6 @@
 {
-  "id": "14a00b85-f71c-42bf-911c-44fc725de438",
-  "prevId": "7835ce78-4836-46c4-b91b-5941d93544e9",
+  "id": "c08ced84-4b3d-4bd3-8934-aa9531d889ca",
+  "prevId": "43f3712d-1692-4c3f-a029-54a9c66d293c",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1080,7 +1080,7 @@
           "name": "idx_credit_ledger_subscription",
           "columns": [
             {
-              "expression": "stripe_subscription_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2396,6 +2396,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "is_legacy": {
+          "name": "is_legacy",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -2559,6 +2566,18 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "tier": {
+          "name": "tier",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scheduled_tier": {
+          "name": "scheduled_tier",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         },
         "status": {
           "name": "status",
@@ -2998,6 +3017,7 @@
       "values": [
         "free",
         "referral",
+        "referral_legacy",
         "subscription",
         "purchase",
         "admin",
