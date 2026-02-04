@@ -1,8 +1,22 @@
 'use client'
 
-import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Copy, Check, Plus } from 'lucide-react'
+import { useState } from 'react'
+
+import { ProfileSection } from './profile-section'
+
 import { Button } from '@/components/ui/button'
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { EnhancedCopyButton } from '@/components/ui/enhanced-copy-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -13,20 +27,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/use-toast'
-import { Copy, Check, Plus } from 'lucide-react'
-import { EnhancedCopyButton } from '@/components/ui/enhanced-copy-button'
-import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
-import { ProfileSection } from './profile-section'
+
 
 async function fetchTokens(): Promise<{
   tokens: {

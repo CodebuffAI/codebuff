@@ -1,10 +1,10 @@
 'use client'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { sleep } from '@codebuff/common/util/promise'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { signIn } from 'next-auth/react'
 import posthog from 'posthog-js'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { useTransition } from 'react'
 
 import { toast } from '../ui/use-toast'

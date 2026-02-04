@@ -3,8 +3,9 @@ import { buildArray } from '@codebuff/common/util/array'
 import { closeXml } from '@codebuff/common/util/xml'
 
 import { publisher } from '../constants'
-import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 import { PLACEHOLDER } from '../types/secret-agent-definition'
+
+import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
   id: 'ask',

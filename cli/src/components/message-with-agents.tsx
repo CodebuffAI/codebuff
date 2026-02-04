@@ -10,16 +10,16 @@ import { MessageBlock } from './message-block'
 import { ModeDivider } from './mode-divider'
 import { useChatStore } from '../state/chat-store'
 import { useMessageBlockStore } from '../state/message-block-store'
+import { getCliEnv } from '../utils/env'
+import {
+  AGENT_CONTENT_HORIZONTAL_PADDING,
+  MAX_AGENT_DEPTH,
+} from '../utils/layout-helpers'
 import {
   renderMarkdown,
   hasMarkdown,
   type MarkdownPalette,
 } from '../utils/markdown-renderer'
-import {
-  AGENT_CONTENT_HORIZONTAL_PADDING,
-  MAX_AGENT_DEPTH,
-} from '../utils/layout-helpers'
-import { getCliEnv } from '../utils/env'
 
 import type { ChatMessage } from '../types/chat'
 

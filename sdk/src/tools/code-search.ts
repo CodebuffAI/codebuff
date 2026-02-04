@@ -6,6 +6,7 @@ import { formatCodeSearchOutput } from '../../../common/src/util/format-code-sea
 import { getBundledRgPath } from '../native/ripgrep'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
+import { Logger } from '@codebuff/common/types/contracts/logger'
 
 // Hidden directories to include in code search by default.
 // These are searched in addition to '.' to ensure important config/workflow files are discoverable.
@@ -27,6 +28,7 @@ export function codeSearch({
   globalMaxResults = 250,
   maxOutputStringLength = 20_000,
   timeoutSeconds = 10,
+  logger,
 }: {
   projectPath: string
   pattern: string
@@ -36,6 +38,7 @@ export function codeSearch({
   globalMaxResults?: number
   maxOutputStringLength?: number
   timeoutSeconds?: number
+  logger?: Logger
 }): Promise<CodebuffToolOutput<'code_search'>> {
   return new Promise((resolve) => {
     let isResolved = false
@@ -61,7 +64,12 @@ export function codeSearch({
 
     // Parse flags - do NOT deduplicate to preserve flag-argument pairs like '-g *.ts'
     // Deduplicating would break up these pairs and cause errors
-    const flagsArray = (flags || '').split(' ').filter(Boolean)
+    // Strip surrounding quotes from each token since spawn() passes args directly
+    // without shell interpretation (e.g. "'foo.md'" → "foo.md")
+    const flagsArray = (flags || '')
+      .split(' ')
+      .filter(Boolean)
+      .map((token) => token.replace(/^['"]|['"]$/g, ''))
 
     // Use JSON output for robust parsing and early stopping
     // --no-config prevents user/system .ripgreprc from interfering
@@ -89,6 +97,9 @@ export function codeSearch({
     ]
 
     const rgPath = getBundledRgPath(import.meta.url)
+    if (logger) {
+      logger.info({ rgPath, args, searchCwd }, 'code-search: Spawning ripgrep process')
+    }
     const childProcess = spawn(rgPath, args, {
       cwd: searchCwd,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -104,28 +115,42 @@ export function codeSearch({
     let estimatedOutputLen = 0
     let killedForLimit = false
 
+    // Guard to prevent double-settlement from concurrent timeout and process close events
+    let killTimeoutId: ReturnType<typeof setTimeout> | null = null
+
     const settle = (payload: any) => {
       if (isResolved) return
       isResolved = true
 
-      // Clean up listeners immediately
+      // Clean up listeners immediately to prevent further events
       childProcess.stdout.removeAllListeners()
       childProcess.stderr.removeAllListeners()
       childProcess.removeAllListeners()
 
+      // Clear both the main timeout and the kill timeout to prevent late callbacks
       clearTimeout(timeoutId)
+      if (killTimeoutId) {
+        clearTimeout(killTimeoutId)
+        killTimeoutId = null
+      }
+
       resolve([{ type: 'json', value: payload }])
     }
 
     const hardKill = () => {
       try {
         childProcess.kill('SIGTERM')
-      } catch {}
-      setTimeout(() => {
+      } catch { }
+      // Store timeout reference so it can be cleared if process closes normally
+      killTimeoutId = setTimeout(() => {
         try {
-          // SIGKILL doesn't exist on Windows, fall back to no-signal kill
-          childProcess.kill('SIGKILL') || childProcess.kill()
-        } catch {}
+          childProcess.kill('SIGKILL')
+        } catch {
+          try {
+            childProcess.kill()
+          } catch { }
+        }
+        killTimeoutId = null
       }, 1000)
     }
 
@@ -233,7 +258,7 @@ export function codeSearch({
                 const finalOutput =
                   formattedOutput.length > maxOutputStringLength
                     ? formattedOutput.substring(0, maxOutputStringLength) +
-                      '\n\n[Output truncated]'
+                    '\n\n[Output truncated]'
                     : formattedOutput
 
                 const limitReason =
@@ -310,10 +335,10 @@ export function codeSearch({
                   }
                 }
               }
-            } catch {}
+            } catch { }
           }
         }
-      } catch {}
+      } catch { }
 
       // Build final output from collected matches
       const limitedLines: string[] = []
@@ -355,14 +380,14 @@ export function codeSearch({
       const truncatedStdout =
         formattedOutput.length > maxOutputStringLength
           ? formattedOutput.substring(0, maxOutputStringLength) +
-            '\n\n[Output truncated]'
+          '\n\n[Output truncated]'
           : formattedOutput
 
       const truncatedStderr = stderrBuf
         ? stderrBuf +
-          (stderrBuf.length >= Math.floor(maxOutputStringLength / 5)
-            ? '\n\n[Error output truncated]'
-            : '')
+        (stderrBuf.length >= Math.floor(maxOutputStringLength / 5)
+          ? '\n\n[Error output truncated]'
+          : '')
         : ''
 
       settle({

@@ -1,4 +1,5 @@
 import { models } from '@codebuff/common/old-constants'
+import { unwrapPromptResult } from '@codebuff/common/util/error'
 import {
   createMarkdownFileBlock,
   createSearchReplaceBlock,
@@ -134,6 +135,11 @@ export const tryToDoStringReplacementWithExtraIndentation = (params: {
   return null
 }
 
+/**
+ * Retries generating diff blocks when initial blocks failed to match the old file content.
+ *
+ * @throws {Error} When the request is aborted by user. Check with `isAbortError()`.
+ */
 export async function retryDiffBlocksPrompt(
   params: {
     filePath: string
@@ -171,11 +177,13 @@ The search content needs to match an exact substring of the old file content, wh
 
 Provide a new set of SEARCH/REPLACE changes to make the intended edit from the old file.`.trim()
 
-  const response = await promptAiSdk({
-    ...params,
-    messages: [userMessage(newPrompt)],
-    model: models.openrouter_claude_sonnet_4,
-  })
+  const response = unwrapPromptResult(
+    await promptAiSdk({
+      ...params,
+      messages: [userMessage(newPrompt)],
+      model: models.openrouter_claude_sonnet_4,
+    }),
+  )
   const {
     diffBlocks: newDiffBlocks,
     diffBlocksThatDidntMatch: newDiffBlocksThatDidntMatch,

@@ -50,11 +50,11 @@ export async function formatPrompt(
   const {
     fileContext,
     agentState,
-    tools,
-    spawnableAgents,
+    tools: _tools,
+    spawnableAgents: _spawnableAgents,
     agentTemplates,
     intitialAgentPrompt,
-    additionalToolDefinitions,
+    additionalToolDefinitions: _additionalToolDefinitions,
     logger,
   } = params
   let { prompt } = params
@@ -166,7 +166,7 @@ export async function getAgentPrompt<T extends StringField>(
     promptType,
     agentState,
     agentTemplates,
-    additionalToolDefinitions,
+    additionalToolDefinitions: _additionalToolDefinitions,
     useParentTools,
   } = params
 

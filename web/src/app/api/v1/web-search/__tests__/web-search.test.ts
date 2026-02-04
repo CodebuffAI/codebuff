@@ -46,19 +46,22 @@ describe('/api/v1/web-search POST endpoint', () => {
       nextQuotaReset: 'soon',
     }))
     mockGetUserInfoFromApiKey = mock(async ({ apiKey }) =>
-      apiKey === 'valid' ? ({ id: 'user-1' } as any) : null,
-    )
-    mockConsumeCreditsWithFallback = mock(
-      async () =>
-        ({ success: true, value: { chargedToOrganization: false } }) as any,
-    )
+      apiKey === 'valid' ? { id: 'user-1' } : null,
+    ) as GetUserInfoFromApiKeyFn
+    mockConsumeCreditsWithFallback = mock(async () => ({
+      success: true,
+      value: { chargedToOrganization: false },
+    })) as ConsumeCreditsWithFallbackFn
 
     // Mock fetch to return Linkup-like response
-    mockFetch = (async () =>
-      new Response(JSON.stringify({ answer: 'result', sources: [] }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      })) as any
+    mockFetch = Object.assign(
+      async () =>
+        new Response(JSON.stringify({ answer: 'result', sources: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      { preconnect: () => {} },
+    ) as typeof fetch
   })
 
   afterEach(() => {

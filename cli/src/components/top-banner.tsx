@@ -3,12 +3,13 @@ import React from 'react'
 import { Button } from './button'
 import { TerminalLink } from './terminal-link'
 import { useTheme } from '../hooks/use-theme'
-import { useChatStore, type TopBannerType } from '../state/chat-store'
+import { useChatStore } from '../state/chat-store'
+import type { TopBannerType } from '../types/store'
 import { formatCwd } from '../utils/path-helpers'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
-import type { ThemeColorKey, InputMode } from '../utils/input-modes'
 import type { ChatTheme } from '../types/theme-system'
+import type { ThemeColorKey, InputMode } from '../utils/input-modes'
 
 type BannerContentParams = {
   gitRoot?: string | null

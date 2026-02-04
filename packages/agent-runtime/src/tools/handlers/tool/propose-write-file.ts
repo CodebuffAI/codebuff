@@ -33,7 +33,7 @@ export const handleProposeWriteFile = (async (
   const {
     previousToolCallFinished,
     toolCall,
-    logger,
+    logger: _logger,
     runId,
     requestOptionalFile,
   } = params

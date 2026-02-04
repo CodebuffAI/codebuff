@@ -20,7 +20,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from '@/components/ui/use-toast'
 
 export default function TraceDashboardPage() {
-  const router = useRouter()
+  const _router = useRouter()
   const searchParams = useSearchParams() ?? new URLSearchParams()
   const [searchType, setSearchType] = useState<'request' | 'client'>('request')
   const [searchValue, setSearchValue] = useState('')

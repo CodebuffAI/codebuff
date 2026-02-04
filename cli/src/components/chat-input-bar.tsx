@@ -15,7 +15,7 @@ import { getInputModeConfig } from '../utils/input-modes'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { useTheme } from '../hooks/use-theme'
-import type { InputValue } from '../state/chat-store'
+import type { InputValue } from '../types/store'
 import type { AgentMode } from '../utils/constants'
 
 type Theme = ReturnType<typeof useTheme>
@@ -114,6 +114,9 @@ export const ChatInputBar = ({
   const modeConfig = getInputModeConfig(inputMode)
   const askUserState = useChatStore((state) => state.askUserState)
   const hasAnyPreview = hasSuggestionMenu
+
+  // Increase menu size on larger screen heights
+  const normalModeMaxVisible = terminalHeight > 35 ? 15 : 10
   const { submitAnswers, skip } = useAskUserBridge()
   const [askUserTitle] = React.useState(' Some questions for you ')
 
@@ -382,7 +385,7 @@ export const ChatInputBar = ({
           <SuggestionMenu
             items={slashSuggestionItems}
             selectedIndex={slashSelectedIndex}
-            maxVisible={10}
+            maxVisible={normalModeMaxVisible}
             prefix="/"
             onItemClick={onSlashItemClick}
           />
@@ -391,7 +394,7 @@ export const ChatInputBar = ({
           <SuggestionMenu
             items={[...agentSuggestionItems, ...fileSuggestionItems]}
             selectedIndex={agentSelectedIndex}
-            maxVisible={10}
+            maxVisible={normalModeMaxVisible}
             prefix="@"
             onItemClick={onMentionItemClick}
           />

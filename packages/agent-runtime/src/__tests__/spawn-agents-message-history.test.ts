@@ -90,7 +90,7 @@ describe('Spawn Agents Message History', () => {
     inputSchema: {
       prompt: {
         safeParse: () => ({ success: true }),
-      } as any,
+      } as unknown as AgentTemplate['inputSchema']['prompt'],
     },
     spawnerPrompt: '',
     model: '',

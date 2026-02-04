@@ -1,7 +1,7 @@
 import { describe, test, expect, afterEach } from 'bun:test'
 
-import { getCliEnv } from '../../utils/env'
 import { createTestCliEnv } from '../../testing/env'
+import { getCliEnv } from '../../utils/env'
 
 describe('cli/utils/env', () => {
   describe('getCliEnv', () => {

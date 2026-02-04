@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { logger } from '../utils/logger'
 
-import type { PendingAttachment } from '../state/chat-store'
+import type { PendingAttachment } from '../types/store'
 
 export type StreamStatus = 'idle' | 'waiting' | 'streaming'
 

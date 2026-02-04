@@ -23,9 +23,10 @@ import {
   expect,
   it,
 } from 'bun:test'
+import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
-import { eq, sql } from 'drizzle-orm'
+
 import * as schema from '../schema'
 import { withAdvisoryLockTransaction } from '../transaction'
 

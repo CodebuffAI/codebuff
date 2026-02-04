@@ -148,7 +148,7 @@ export async function updateGrantBalance(params: {
   tx: DbConn
   logger: Logger
 }) {
-  const { userId, grant, consumed, newBalance, tx, logger } = params
+  const { userId: _userId, grant, consumed: _consumed, newBalance, tx, logger: _logger } = params
   await tx
     .update(schema.creditLedger)
     .set({ balance: newBalance })

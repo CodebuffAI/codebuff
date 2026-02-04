@@ -61,7 +61,7 @@ const densityMap = {
   high: 6,
 } as const
 
-type Density = keyof typeof densityMap
+type _Density = keyof typeof densityMap
 
 export function DecorativeBlocks(props: DecorativeBlocksProps) {
   const [blocks, setBlocks] = useState<Block[]>([])

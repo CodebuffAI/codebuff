@@ -2,6 +2,7 @@ import React from 'react'
 
 import { useTheme } from '../hooks/use-theme'
 import { formatResetTime } from '../utils/time-format'
+
 import type { ClaudeQuotaData } from '../hooks/use-claude-quota-query'
 
 interface BottomStatusLineProps {

@@ -1,7 +1,7 @@
-import { saveSettings, loadSettings } from '../utils/settings'
-import { getSystemMessage } from '../utils/message-history'
 import { useChatStore } from '../state/chat-store'
 import { logger } from '../utils/logger'
+import { getSystemMessage } from '../utils/message-history'
+import { saveSettings, loadSettings } from '../utils/settings'
 
 import type { ChatMessage } from '../types/chat'
 

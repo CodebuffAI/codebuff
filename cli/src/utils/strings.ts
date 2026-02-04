@@ -1,5 +1,24 @@
 import path from 'path'
 
+/** Max number of lines to show in collapsed previews */
+export const MAX_COLLAPSED_LINES = 3
+
+/**
+ * Truncate text to a maximum number of lines, adding '...' if truncated.
+ * Returns the input unchanged if it's null/undefined/empty.
+ */
+export function truncateToLines(
+  text: string | null | undefined,
+  maxLines: number,
+): string | null | undefined {
+  if (!text) return text
+  const lines = text.split('\n')
+  if (lines.length <= maxLines) {
+    return text
+  }
+  return lines.slice(0, maxLines).join('\n').trimEnd() + '...'
+}
+
 import {
   hasClipboardImage,
   readClipboardText,
@@ -7,7 +26,8 @@ import {
   getImageFilePathFromText,
 } from './clipboard-image'
 import { isImageFile } from './image-handler'
-import type { InputValue } from '../state/chat-store'
+
+import type { InputValue } from '../types/store'
 
 export function getSubsequenceIndices(
   str: string,
@@ -37,7 +57,7 @@ export const BULLET_CHAR = '• '
 
 // Threshold for treating pasted text as an attachment instead of inline insertion
 // Text longer than this value (not equal) becomes an attachment
-export const LONG_TEXT_THRESHOLD = 1000
+export const LONG_TEXT_THRESHOLD = 2000
 
 /**
  * Insert text at cursor position and return the new text and cursor position.

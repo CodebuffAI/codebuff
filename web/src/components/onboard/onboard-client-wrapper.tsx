@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
 import { OnboardingFlow } from './onboarding-flow'
 
@@ -61,10 +61,8 @@ export function OnboardClientWrapper({
     return (
       <div className="space-y-8">
         <OnboardingFlow
-          hasReferralCode={shouldShowOnboarding}
           referralCode={actualReferralCode || undefined}
           referrerName={referrerName}
-          onComplete={handleOnboardingComplete}
         />
       </div>
     )

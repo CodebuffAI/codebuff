@@ -135,7 +135,8 @@ describe('setupStreamingContext', () => {
       // The interruption notice should be added to blocks
       const lastBlock = aiMessage!.blocks?.[aiMessage!.blocks.length - 1]
       expect(lastBlock?.type).toBe('text')
-      expect((lastBlock as any)?.content).toContain('[response interrupted]')
+      const textBlock = lastBlock as { type: 'text'; content: string }
+      expect(textBlock?.content).toContain('[response interrupted]')
 
       // Verify message marked complete
       expect(aiMessage!.isComplete).toBe(true)

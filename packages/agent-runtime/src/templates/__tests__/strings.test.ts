@@ -1,6 +1,5 @@
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { describe, test, expect, mock } from 'bun:test'
-import { z } from 'zod/v4'
 
 import { getAgentPrompt } from '../strings'
 

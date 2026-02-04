@@ -1,7 +1,7 @@
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { motion } from 'framer-motion'
 import posthog from 'posthog-js'
 import { useState, useEffect, useRef } from 'react'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import { CompetitionTabs, type CompetitorType, competitors } from './tabs'
 import { Section } from '../../section'

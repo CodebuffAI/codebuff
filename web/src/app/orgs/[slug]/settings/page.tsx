@@ -6,7 +6,10 @@ import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useState, useEffect } from 'react'
 
-import { BillingStatus } from '@/components/organization/billing-status'
+import type { PublisherProfileResponse } from '@codebuff/common/types/publisher'
+
+// BILLING_DISABLED: BillingStatus component temporarily removed
+// import { BillingStatus } from '@/components/organization/billing-status'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ConfirmationInputDialog } from '@/components/ui/confirmation-input-dialog'
@@ -16,7 +19,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/components/ui/use-toast'
 import { useOrganizationData } from '@/hooks/use-organization-data'
-import type { PublisherProfileResponse } from '@codebuff/common/types/publisher'
 
 export default function OrganizationSettingsPage() {
   const { data: session, status } = useSession()
@@ -276,10 +278,11 @@ export default function OrganizationSettingsPage() {
         </div>
 
         <div className="space-y-6">
-          {/* Billing & Seats */}
+          {/* BILLING_DISABLED: Billing & Seats section temporarily removed
           {canManageOrg && organization && (
             <BillingStatus organizationId={organization.id} />
           )}
+          */}
 
           {/* Publisher Management */}
           {canManageOrg && (

@@ -38,7 +38,6 @@ import type {
   PrintModeFinish,
   PrintModeSubagentFinish,
   PrintModeSubagentStart,
-  PrintModeText,
   PrintModeToolCall,
   PrintModeToolResult,
 } from '@codebuff/common/types/print-mode'

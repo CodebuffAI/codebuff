@@ -1,4 +1,28 @@
 import {
+  combineHeaders,
+  createEventSourceResponseHandler,
+  createJsonErrorResponseHandler,
+  createJsonResponseHandler,
+  parseProviderOptions,
+  postJsonToApi
+} from '@ai-sdk/provider-utils';
+import { z } from 'zod/v4';
+
+import {
+  defaultOpenAICompatibleErrorStructure
+} from '../openai-compatible-error';
+import { convertToOpenAICompatibleCompletionPrompt } from './convert-to-openai-compatible-completion-prompt';
+import { getResponseMetadata } from './get-response-metadata';
+import { mapOpenAICompatibleFinishReason } from './map-openai-compatible-finish-reason';
+import {
+  openaiCompatibleCompletionProviderOptions,
+} from './openai-compatible-completion-options';
+
+import type {
+  OpenAICompatibleCompletionModelId} from './openai-compatible-completion-options';
+import type {
+  ProviderErrorStructure} from '../openai-compatible-error';
+import type {
   APICallError,
   LanguageModelV2,
   LanguageModelV2CallWarning,
@@ -7,29 +31,10 @@ import {
   LanguageModelV2StreamPart,
   LanguageModelV2Usage,
 } from '@ai-sdk/provider';
-import {
-  combineHeaders,
-  createEventSourceResponseHandler,
-  createJsonErrorResponseHandler,
-  createJsonResponseHandler,
+import type {
   FetchFunction,
-  parseProviderOptions,
   ParseResult,
-  postJsonToApi,
-  ResponseHandler,
-} from '@ai-sdk/provider-utils';
-import { z } from 'zod/v4';
-import {
-  defaultOpenAICompatibleErrorStructure,
-  ProviderErrorStructure,
-} from '../openai-compatible-error';
-import { convertToOpenAICompatibleCompletionPrompt } from './convert-to-openai-compatible-completion-prompt';
-import { getResponseMetadata } from './get-response-metadata';
-import { mapOpenAICompatibleFinishReason } from './map-openai-compatible-finish-reason';
-import {
-  OpenAICompatibleCompletionModelId,
-  openaiCompatibleCompletionProviderOptions,
-} from './openai-compatible-completion-options';
+  ResponseHandler} from '@ai-sdk/provider-utils';
 
 type OpenAICompatibleCompletionConfig = {
   provider: string;

@@ -4,7 +4,6 @@ import {
 } from '@codebuff/common/testing/mock-modules'
 import { afterEach, describe, expect, it } from 'bun:test'
 
-import { triggerMonthlyResetAndGrant } from '../grant-credits'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
@@ -16,7 +15,7 @@ const logger: Logger = {
 }
 
 const futureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
-const pastDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
+const _pastDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
 
 const createTxMock = (user: {
   next_quota_reset: Date | null

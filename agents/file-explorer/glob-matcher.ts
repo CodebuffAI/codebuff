@@ -1,7 +1,8 @@
-import { JSONValue } from '@codebuff/common/types/json'
+
 import { publisher } from '../constants'
 
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
+import type { JSONValue } from '@codebuff/common/types/json'
 
 interface GlobQuery {
   pattern: string

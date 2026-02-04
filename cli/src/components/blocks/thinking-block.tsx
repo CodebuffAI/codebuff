@@ -32,7 +32,7 @@ export const ThinkingBlock = memo(
       .join('')
       .trim()
 
-    const isCollapsed = firstBlock?.isCollapsed ?? true
+    const thinkingCollapseState = firstBlock?.thinkingCollapseState ?? 'preview'
     const offset = isNested ? NESTED_WIDTH_OFFSET : WIDTH_OFFSET
     const availWidth = Math.max(10, availableWidth - offset)
 
@@ -56,7 +56,7 @@ export const ThinkingBlock = memo(
       <box>
         <Thinking
           content={combinedContent}
-          isCollapsed={isCollapsed}
+          thinkingCollapseState={thinkingCollapseState}
           isThinkingComplete={isThinkingComplete}
           onToggle={handleToggle}
           availableWidth={availWidth}

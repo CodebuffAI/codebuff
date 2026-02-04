@@ -3,12 +3,11 @@ import path from 'path'
 import { callMainPrompt } from '@codebuff/agent-runtime/main-prompt'
 import {
   buildUserMessageContent,
-  getCancelledAdditionalMessages,
   withSystemTags,
 } from '@codebuff/agent-runtime/util/messages'
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
-import { getMCPClient, listMCPTools, callMCPTool } from '@codebuff/common/mcp/client'
 import { toOptionalFile } from '@codebuff/common/constants/paths'
+import { getMCPClient, listMCPTools, callMCPTool } from '@codebuff/common/mcp/client'
 import { toolNames } from '@codebuff/common/tools/constants'
 import { clientToolCallSchema } from '@codebuff/common/tools/list'
 import { AgentOutputSchema } from '@codebuff/common/types/session-state'
@@ -25,10 +24,10 @@ import { listDirectory } from './tools/list-directory'
 import { getFiles } from './tools/read-files'
 import { runTerminalCommand } from './tools/run-terminal-command'
 
-import type { FileFilter } from './tools/read-files'
 
 import type { CustomToolDefinition } from './custom-tool'
 import type { RunState } from './run-state'
+import type { FileFilter } from './tools/read-files'
 import type { ServerAction } from '@codebuff/common/actions'
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 import type {
@@ -221,7 +220,8 @@ async function runOnce({
   // Init session state
   let agentId
   if (typeof agent !== 'string') {
-    agentDefinitions = [...(cloneDeep(agentDefinitions) ?? []), agent]
+    const clonedDefs = agentDefinitions ? cloneDeep(agentDefinitions) : []
+    agentDefinitions = [...clonedDefs, agent]
     agentId = agent.id
   } else {
     agentId = agent
@@ -256,10 +256,10 @@ async function runOnce({
   }
 
   let resolve: (value: RunReturnType) => any = () => { }
-  let reject: (error: any) => any = () => { }
+  let _reject: (error: any) => any = () => { }
   const promise = new Promise<RunReturnType>((res, rej) => {
     resolve = res
-    reject = rej
+    _reject = rej
   })
 
   async function onError(error: { message: string }) {
@@ -269,21 +269,25 @@ async function runOnce({
   }
 
   let pendingAgentResponse = ''
+
   /** Calculates the current session state if cancelled.
    *
-   * This includes the user's message and pending assistant message.
+   * This is used when callMainPrompt throws an error (the server never processed the request).
+   * We need to add the user's message here since the server didn't get a chance to add it.
    */
   function getCancelledSessionState(message: string): SessionState {
     const state = cloneDeep(sessionState)
-    state.mainAgentState.messageHistory.push(
-      ...getCancelledAdditionalMessages({
-        prompt,
-        params,
-        content: preparedContent,
-        pendingAgentResponse,
-        systemMessage: message,
-      }),
-    )
+    
+    // Add the user's message since the server never processed it
+    if (prompt || preparedContent) {
+      state.mainAgentState.messageHistory.push({
+        role: 'user' as const,
+        content: buildUserMessageContent(prompt, params, preparedContent),
+        tags: ['USER_PROMPT'] as string[],
+      })
+    }
+    
+    addCancellationContext(state, pendingAgentResponse, message)
     return state
   }
   function getCancelledRunState(message?: string): RunState {
@@ -619,6 +623,10 @@ async function handleToolCall({
       override = overrides['write_file']
     }
     if (override) {
+      // Note: This type assertion is necessary because TypeScript cannot narrow
+      // the union type of all possible tool inputs based on the dynamic toolName.
+      // The input has been validated by clientToolCallSchema.parse above.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       result = await override(input as any)
     } else if (toolName === 'end_turn') {
       result = [{ type: 'json', value: { message: 'Turn ended.' } }]
@@ -689,6 +697,32 @@ async function handleToolCall({
   return {
     output: result,
   }
+}
+
+/** 
+ * Adds cancellation context to a session state (mutates in place).
+ * Includes the partial assistant response (if any) and an interruption message.
+ */
+function addCancellationContext(
+  state: SessionState,
+  pendingResponse: string,
+  systemMessage: string
+): void {
+  const messageHistory = state.mainAgentState.messageHistory
+  
+  // Add partial assistant response if there was streaming content
+  if (pendingResponse.trim()) {
+    messageHistory.push({
+      role: 'assistant' as const,
+      content: [{ type: 'text' as const, text: pendingResponse }],
+    })
+  }
+  
+  // Add interruption message
+  messageHistory.push({
+    role: 'user' as const,
+    content: [{ type: 'text' as const, text: withSystemTags(systemMessage) }],
+  })
 }
 
 /**
@@ -815,22 +849,11 @@ async function handlePromptResponse({
     // The session state from the server already contains all tool calls and results.
     if (signal?.aborted && sessionState) {
       sessionState = cloneDeep(sessionState)
-      
-      // If there was partial streamed text, add it as an assistant message
-      // so the context includes what was being written when interrupted
-      if (pendingAgentResponse.trim()) {
-        const partialAssistantMessage = {
-          role: 'assistant' as const,
-          content: [{ type: 'text' as const, text: pendingAgentResponse }],
-        }
-        sessionState.mainAgentState.messageHistory.push(partialAssistantMessage)
-      }
-      
-      const interruptionMessage = {
-        role: 'user' as const,
-        content: [{ type: 'text' as const, text: withSystemTags('User interrupted the response. The assistant\'s previous work has been preserved.') }],
-      }
-      sessionState.mainAgentState.messageHistory.push(interruptionMessage)
+      addCancellationContext(
+        sessionState,
+        pendingAgentResponse,
+        'User interrupted the response. The assistant\'s previous work has been preserved.'
+      )
     }
 
     const state: RunState = {

@@ -441,7 +441,8 @@ function test3() {
     })
 
     expect('content' in result).toBe(true)
-    expect(applyPatch(initialContent, (result as any).patch)).toBe(
+    const successResult = result as { content: string; patch: string }
+    expect(applyPatch(initialContent, successResult.patch)).toBe(
       'line 1\nthis is a new line\nnew line 3\n',
     )
   })
@@ -459,6 +460,7 @@ function test3() {
     })
 
     expect(result).not.toBeNull()
-    expect((result as any)?.content).toBe('line 1\nhello $$world!\nline 2\n')
+    const successResult = result as { content: string }
+    expect(successResult.content).toBe('line 1\nhello $$world!\nline 2\n')
   })
 })

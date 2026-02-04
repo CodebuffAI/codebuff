@@ -11,8 +11,9 @@
 
 import { openSync, closeSync, writeSync, constants } from 'fs'
 
-import type { CliEnv } from '../types/env'
 import { getCliEnv } from './env'
+
+import type { CliEnv } from '../types/env'
 
 // Timeout constants
 const OSC_QUERY_TIMEOUT_MS = 500 // Timeout for individual OSC query

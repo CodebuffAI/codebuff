@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'bun:test'
+
 import {
   processBlocks,
   isReasoningTextBlock,
   type BlockProcessorHandlers,
 } from '../block-processor'
+
 import type {
   ContentBlock,
   TextContentBlock,

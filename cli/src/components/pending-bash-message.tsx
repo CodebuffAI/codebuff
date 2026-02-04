@@ -4,7 +4,7 @@ import { TerminalCommandDisplay } from './terminal-command-display'
 import { useTheme } from '../hooks/use-theme'
 import { DASHED_BORDER_CHARS } from '../utils/ui-constants'
 
-import type { PendingBashMessage as PendingBashMessageType } from '../state/chat-store'
+import type { PendingBashMessage as PendingBashMessageType } from '../types/store'
 
 interface PendingBashMessageProps {
   message: PendingBashMessageType

@@ -7,11 +7,8 @@
 
 import type { ServerEnv } from '../../env-schema'
 import type {
-  BaseCiEnv,
   BaseEnv,
   CiEnv,
-  ProcessEnv,
-  ClientEnv,
 } from '@codebuff/common/types/contracts/env'
 
 // Re-export common base types

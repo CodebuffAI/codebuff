@@ -1,4 +1,5 @@
 import { beforeEach, spyOn } from 'bun:test'
+
 import * as bigquery from '@codebuff/bigquery'
 
 const applyBigQueryMocks = () => {

@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
+import { describe, test, expect, afterEach } from 'bun:test'
 
 import { getProcessEnv, processEnv } from '../env-process'
 import { createTestProcessEnv } from '../testing-env-process'

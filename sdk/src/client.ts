@@ -1,7 +1,8 @@
+import { API_KEY_ENV_VAR } from '@codebuff/common/constants/paths'
+
 import { WEBSITE_URL } from './constants'
 import { getCodebuffApiKeyFromEnv } from './env'
 import { run } from './run'
-import { API_KEY_ENV_VAR } from '@codebuff/common/constants/paths'
 
 import type { RunOptions, CodebuffClientOptions } from './run'
 import type { RunState } from './run-state'

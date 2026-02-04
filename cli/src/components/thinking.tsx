@@ -6,11 +6,13 @@ import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
 import { getLastNVisualLines } from '../utils/text-layout'
 
+import type { ThinkingCollapseState } from '../types/chat'
+
 const PREVIEW_LINE_COUNT = 5
 
 interface ThinkingProps {
   content: string
-  isCollapsed: boolean
+  thinkingCollapseState: ThinkingCollapseState
   /** Whether the thinking has completed (streaming finished) */
   isThinkingComplete: boolean
   onToggle: () => void
@@ -20,7 +22,7 @@ interface ThinkingProps {
 export const Thinking = memo(
   ({
     content,
-    isCollapsed,
+    thinkingCollapseState,
     isThinkingComplete,
     onToggle,
     availableWidth,
@@ -39,12 +41,14 @@ export const Thinking = memo(
       PREVIEW_LINE_COUNT,
     )
 
-    // Toggle indicator: show caret when complete, bullet when streaming
-    const toggleIndicator = isThinkingComplete
-      ? isCollapsed
-        ? '▸ '
-        : '▾ '
-      : '• '
+    const showFull = thinkingCollapseState === 'expanded'
+    const showPreview = thinkingCollapseState === 'preview' && lines.length > 0
+
+    const toggleIndicator =
+      !isThinkingComplete ? '• '
+      : showFull ? '▾ '
+      : showPreview ? '• '
+      : '▸ '
 
     return (
       <Button
@@ -60,24 +64,20 @@ export const Thinking = memo(
           <span>{toggleIndicator}</span>
           <span attributes={TextAttributes.BOLD}>Thinking</span>
         </text>
-        {isCollapsed ? (
-          // When complete: show no preview (just "▸ Thinking")
-          // When streaming: show up to 5 lines preview
-          !isThinkingComplete &&
-          lines.length > 0 && (
-            <box style={{ paddingLeft: 2 }}>
-              <text
-                style={{
-                  wrapMode: 'none',
-                  fg: theme.muted,
-                }}
-                attributes={TextAttributes.ITALIC}
-              >
-                {hasMore ? '...' + lines.join('\n') : lines.join('\n')}
-              </text>
-            </box>
-          )
-        ) : (
+        {showPreview && (
+          <box style={{ paddingLeft: 2 }}>
+            <text
+              style={{
+                wrapMode: 'none',
+                fg: theme.muted,
+              }}
+              attributes={TextAttributes.ITALIC}
+            >
+              {hasMore ? '...' + lines.join('\n') : lines.join('\n')}
+            </text>
+          </box>
+        )}
+        {showFull && (
           <box style={{ paddingLeft: 2 }}>
             <text
               style={{

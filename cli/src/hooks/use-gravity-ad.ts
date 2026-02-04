@@ -1,12 +1,14 @@
-import { Message, WEBSITE_URL } from '@codebuff/sdk'
+import { WEBSITE_URL } from '@codebuff/sdk'
 import { useEffect, useRef, useState } from 'react'
 
-import { getAdsEnabled } from '../commands/ads'
 import { useTerminalLayout } from './use-terminal-layout'
+import { getAdsEnabled } from '../commands/ads'
 import { useChatStore } from '../state/chat-store'
 import { isUserActive, subscribeToActivity } from '../utils/activity-tracker'
 import { getAuthToken } from '../utils/auth'
 import { logger } from '../utils/logger'
+
+import type { Message} from '@codebuff/sdk';
 
 const AD_ROTATION_INTERVAL_MS = 60 * 1000 // 60 seconds per ad
 const MAX_ADS_AFTER_ACTIVITY = 3 // Show up to 3 ads after last activity, then pause fetching new ads

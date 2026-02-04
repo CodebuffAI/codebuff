@@ -27,7 +27,7 @@ function extractTextContent(node: React.ReactNode): string {
 }
 
 export function MarkdownTable({ children }: MarkdownTableProps) {
-  const [copied, setCopied] = useState(false)
+  const [_copied, setCopied] = useState(false)
 
   const { content, tableData } = useMemo(() => {
     // Extract content from children (recursively handles React elements)
@@ -68,7 +68,7 @@ export function MarkdownTable({ children }: MarkdownTableProps) {
     }
   }, [children])
 
-  const copyToClipboard = () => {
+  const _copyToClipboard = () => {
     navigator.clipboard.writeText(content)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
@@ -111,7 +111,7 @@ export function MarkdownTable({ children }: MarkdownTableProps) {
                 {row.map((cell, cellIndex) => {
                   // Determine if the cell is an emoji cell or a feature cell (first column)
                   const isFeatureCell = cellIndex === 0
-                  const isCenteredCell =
+                  const _isCenteredCell =
                     tableData.alignments[cellIndex] === 'center'
 
                   return (

@@ -1,11 +1,11 @@
 import { describe, test, expect, mock } from 'bun:test'
 
+import { useFeedbackStore } from '../../state/feedback-store'
 import {
   COMMAND_REGISTRY,
   defineCommand,
   defineCommandWithArgs,
 } from '../command-registry'
-import { useFeedbackStore } from '../../state/feedback-store'
 
 import type { RouterParams } from '../command-registry'
 

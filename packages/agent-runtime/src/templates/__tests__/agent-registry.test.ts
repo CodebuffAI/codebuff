@@ -1,5 +1,5 @@
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import * as validationModule from '@codebuff/common/templates/agent-validation'
+import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getStubProjectFileContext } from '@codebuff/common/util/file'
 import {
   describe,
@@ -361,7 +361,7 @@ describe('Agent Registry', () => {
             id: 'invalid-agent',
             displayName: 'Invalid Agent',
             // Missing required fields to trigger validation error
-          } as any,
+          } as Partial<DynamicAgentTemplate>, // invalid - missing required fields
         },
       }
 

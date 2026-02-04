@@ -1,4 +1,5 @@
 import codeReviewer from './code-reviewer'
+
 import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {

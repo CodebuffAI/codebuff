@@ -10,7 +10,6 @@ import { notFound } from 'next/navigation'
 import { BackButton } from '@/components/ui/back-button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { getCachedAgentsForStaticParams } from '@/server/agents-data'
 
 interface PublisherPageProps {
   params: Promise<{
@@ -463,13 +462,5 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
 
 // ISR Configuration - revalidate every 10 minutes
 export const revalidate = 600
-
-// Generate static params for all publishers
-export async function generateStaticParams(): Promise<Array<{ id: string }>> {
-  const agents = await getCachedAgentsForStaticParams()
-  // Get unique publisher IDs
-  const publisherIds = [...new Set(agents.map((agent) => agent.publisher_id))]
-  return publisherIds.map((id) => ({ id }))
-}
 
 export default PublisherPage

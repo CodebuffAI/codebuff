@@ -16,9 +16,9 @@ import {
   spyOn,
 } from 'bun:test'
 
+import { setProjectRoot } from '../../project-files'
 import * as authModule from '../../utils/auth'
 import { saveUserCredentials, getUserCredentials } from '../../utils/auth'
-import { setProjectRoot } from '../../project-files'
 
 import type { User } from '../../utils/auth'
 

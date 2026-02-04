@@ -13,8 +13,8 @@ import { createMarkdownPalette } from '../utils/theme-system'
 
 import type { ChatMessage } from '../types/chat'
 import type { ChatTheme } from '../types/theme-system'
-import type { ScrollBoxRenderable } from '@opentui/core'
 import type { MarkdownPalette } from '../utils/markdown-renderer'
+import type { ScrollBoxRenderable } from '@opentui/core'
 
 export interface UseChatUIOptions {
   messages: ChatMessage[]

@@ -1,10 +1,10 @@
 'use client'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { ExternalLink } from 'lucide-react'
 import Image from 'next/image'
 import posthog from 'posthog-js'
 import { useRef } from 'react'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import { Dialog, DialogContent } from './dialog'
 import { EnhancedCopyButton } from './enhanced-copy-button'

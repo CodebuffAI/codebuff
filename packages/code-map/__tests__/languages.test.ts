@@ -1,4 +1,7 @@
+
+
 import { describe, it, expect, mock } from 'bun:test'
+
 import {
   languageTable,
   WASM_FILES,
@@ -9,6 +12,9 @@ import {
   type LanguageConfig,
   type RuntimeLanguageLoader,
 } from '../src/languages'
+
+
+
 
 describe('languages module', () => {
   describe('languageTable', () => {
@@ -188,7 +194,7 @@ describe('languages module', () => {
     it('should return undefined for unsupported file extensions', async () => {
       const mockLoader: RuntimeLanguageLoader = {
         initParser: mock(async () => {}),
-        loadLanguage: mock(async () => ({}) as any),
+        loadLanguage: mock(async () => ({})),
       }
 
       const result = await createLanguageConfig('test.unknown', mockLoader)
@@ -225,7 +231,7 @@ describe('languages module', () => {
     it('should enforce proper interface implementation', () => {
       const loader: RuntimeLanguageLoader = {
         initParser: async () => {},
-        loadLanguage: async (wasmFile: string) => ({}) as any,
+        loadLanguage: async (wasmFile: string) => ({}),
       }
 
       expect(typeof loader.initParser).toBe('function')

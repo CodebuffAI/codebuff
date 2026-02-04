@@ -41,7 +41,7 @@ describe('Streaming: Subagent Streaming', () => {
       if (subagentStarts.length > 0) {
         // Each started subagent should have a finish
         for (const start of subagentStarts) {
-          const matchingFinish = subagentFinishes.find(
+          const _matchingFinish = subagentFinishes.find(
             (f) => f.agentId === start.agentId,
           )
           // Subagent should eventually finish (or the run ends)

@@ -1,19 +1,6 @@
-import {
-  describe,
-  test,
-  expect,
-  beforeEach,
-  afterEach,
-  mock,
-} from 'bun:test'
+import { createMockLogger } from '@codebuff/common/testing/mocks/logger'
+import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test'
 
-import type { ClientEnv } from '@codebuff/common/types/contracts/env'
-
-import {
-  fetchUsageData,
-  usageQueryKeys,
-  useRefreshUsage,
-} from '../use-usage-query'
 import {
   resetActivityQueryCache,
   getActivityQueryData,
@@ -21,6 +8,13 @@ import {
   invalidateActivityQuery,
   removeActivityQuery,
 } from '../use-activity-query'
+import {
+  fetchUsageData,
+  usageQueryKeys,
+} from '../use-usage-query'
+
+import type { ClientEnv } from '@codebuff/common/types/contracts/env'
+
 
 beforeEach(() => {
   resetActivityQueryCache()
@@ -145,15 +139,10 @@ describe('fetchUsageData', () => {
     globalThis.fetch = mock(
       async () => new Response('Error', { status: 500 }),
     ) as unknown as typeof fetch
-    const mockLogger = {
-      error: mock(() => {}),
-      warn: mock(() => {}),
-      info: mock(() => {}),
-      debug: mock(() => {}),
-    }
+    const mockLogger = createMockLogger()
 
     await expect(
-      fetchUsageData({ authToken: 'test-token', logger: mockLogger as any }),
+      fetchUsageData({ authToken: 'test-token', logger: mockLogger }),
     ).rejects.toThrow('Failed to fetch usage: 500')
   })
 
@@ -161,15 +150,10 @@ describe('fetchUsageData', () => {
     globalThis.fetch = mock(
       async () => new Response('Unauthorized', { status: 401 }),
     ) as unknown as typeof fetch
-    const mockLogger = {
-      error: mock(() => {}),
-      warn: mock(() => {}),
-      info: mock(() => {}),
-      debug: mock(() => {}),
-    }
+    const mockLogger = createMockLogger()
 
     await expect(
-      fetchUsageData({ authToken: 'invalid-token', logger: mockLogger as any }),
+      fetchUsageData({ authToken: 'invalid-token', logger: mockLogger }),
     ).rejects.toThrow('Failed to fetch usage: 401')
   })
 
@@ -177,15 +161,10 @@ describe('fetchUsageData', () => {
     globalThis.fetch = mock(
       async () => new Response('Payment Required', { status: 402 }),
     ) as unknown as typeof fetch
-    const mockLogger = {
-      error: mock(() => {}),
-      warn: mock(() => {}),
-      info: mock(() => {}),
-      debug: mock(() => {}),
-    }
+    const mockLogger = createMockLogger()
 
     await expect(
-      fetchUsageData({ authToken: 'test-token', logger: mockLogger as any }),
+      fetchUsageData({ authToken: 'test-token', logger: mockLogger }),
     ).rejects.toThrow('Failed to fetch usage: 402')
   })
 
@@ -254,20 +233,14 @@ describe('fetchUsageData', () => {
     globalThis.fetch = mock(
       async () => new Response('Server Error', { status: 503 }),
     ) as unknown as typeof fetch
-    
-    const errorMock = mock(() => {})
-    const mockLogger = {
-      error: errorMock,
-      warn: mock(() => {}),
-      info: mock(() => {}),
-      debug: mock(() => {}),
-    }
+
+    const mockLogger = createMockLogger()
 
     await expect(
-      fetchUsageData({ authToken: 'test-token', logger: mockLogger as any }),
+      fetchUsageData({ authToken: 'test-token', logger: mockLogger }),
     ).rejects.toThrow()
 
-    expect(errorMock).toHaveBeenCalledWith(
+    expect(mockLogger.error).toHaveBeenCalledWith(
       { status: 503 },
       'Failed to fetch usage data from API',
     )
@@ -299,7 +272,9 @@ describe('usageQueryKeys', () => {
     }
 
     setActivityQueryData(usageQueryKeys.current(), mockData)
-    expect(getActivityQueryData<typeof mockData>(usageQueryKeys.current())).toEqual(mockData)
+    expect(
+      getActivityQueryData<typeof mockData>(usageQueryKeys.current()),
+    ).toEqual(mockData)
   })
 })
 
@@ -323,13 +298,17 @@ describe('useRefreshUsage behavior', () => {
 
     // Pre-populate cache
     setActivityQueryData(usageQueryKeys.current(), mockData)
-    expect(getActivityQueryData<typeof mockData>(usageQueryKeys.current())).toEqual(mockData)
+    expect(
+      getActivityQueryData<typeof mockData>(usageQueryKeys.current()),
+    ).toEqual(mockData)
 
     // Call the underlying invalidation function (what useRefreshUsage wraps)
     invalidateActivityQuery(usageQueryKeys.current())
 
     // Data should still exist (invalidation doesn't remove data)
-    expect(getActivityQueryData<typeof mockData>(usageQueryKeys.current())).toEqual(mockData)
+    expect(
+      getActivityQueryData<typeof mockData>(usageQueryKeys.current()),
+    ).toEqual(mockData)
   })
 
   test('invalidation marks data as stale for refetching', () => {
@@ -344,7 +323,9 @@ describe('useRefreshUsage behavior', () => {
     invalidateActivityQuery(usageQueryKeys.current())
 
     // Data is still accessible (stale but usable)
-    const cached = getActivityQueryData<typeof mockData>(usageQueryKeys.current())
+    const cached = getActivityQueryData<typeof mockData>(
+      usageQueryKeys.current(),
+    )
     expect(cached?.usage).toBe(200)
     expect(cached?.remainingBalance).toBe(300)
   })
@@ -365,7 +346,9 @@ describe('usage query cache behavior', () => {
     }
 
     setActivityQueryData(usageQueryKeys.current(), mockData)
-    expect(getActivityQueryData<typeof mockData>(usageQueryKeys.current())).toEqual(mockData)
+    expect(
+      getActivityQueryData<typeof mockData>(usageQueryKeys.current()),
+    ).toEqual(mockData)
   })
 
   test('should update cache when new data is set', () => {
@@ -384,10 +367,14 @@ describe('usage query cache behavior', () => {
     }
 
     setActivityQueryData(usageQueryKeys.current(), initialData)
-    expect(getActivityQueryData<typeof initialData>(usageQueryKeys.current())?.usage).toBe(100)
+    expect(
+      getActivityQueryData<typeof initialData>(usageQueryKeys.current())?.usage,
+    ).toBe(100)
 
     setActivityQueryData(usageQueryKeys.current(), updatedData)
-    expect(getActivityQueryData<typeof initialData>(usageQueryKeys.current())?.usage).toBe(150)
+    expect(
+      getActivityQueryData<typeof initialData>(usageQueryKeys.current())?.usage,
+    ).toBe(150)
   })
 
   test('should preserve data after invalidation', () => {
@@ -402,7 +389,9 @@ describe('usage query cache behavior', () => {
     invalidateActivityQuery(usageQueryKeys.current())
 
     // Data should still be accessible
-    const cached = getActivityQueryData<typeof mockData>(usageQueryKeys.current())
+    const cached = getActivityQueryData<typeof mockData>(
+      usageQueryKeys.current(),
+    )
     expect(cached).toEqual(mockData)
   })
 
@@ -415,10 +404,14 @@ describe('usage query cache behavior', () => {
     }
 
     setActivityQueryData(usageQueryKeys.current(), mockData)
-    expect(getActivityQueryData<typeof mockData>(usageQueryKeys.current())).toBeDefined()
+    expect(
+      getActivityQueryData<typeof mockData>(usageQueryKeys.current()),
+    ).toBeDefined()
 
     removeActivityQuery(usageQueryKeys.current())
-    expect(getActivityQueryData<typeof mockData>(usageQueryKeys.current())).toBeUndefined()
+    expect(
+      getActivityQueryData<typeof mockData>(usageQueryKeys.current()),
+    ).toBeUndefined()
   })
 
   test('should handle balance breakdown with all credit types', () => {
@@ -437,7 +430,9 @@ describe('usage query cache behavior', () => {
     }
 
     setActivityQueryData(usageQueryKeys.current(), mockData)
-    const cached = getActivityQueryData<typeof mockData>(usageQueryKeys.current())
+    const cached = getActivityQueryData<typeof mockData>(
+      usageQueryKeys.current(),
+    )
 
     expect(cached?.balanceBreakdown?.free).toBe(300)
     expect(cached?.balanceBreakdown?.paid).toBe(700)
@@ -456,7 +451,9 @@ describe('usage query cache behavior', () => {
     }
 
     setActivityQueryData(usageQueryKeys.current(), mockData)
-    const cached = getActivityQueryData<typeof mockData>(usageQueryKeys.current())
+    const cached = getActivityQueryData<typeof mockData>(
+      usageQueryKeys.current(),
+    )
 
     expect(cached?.usage).toBe(0)
     expect(cached?.remainingBalance).toBe(0)
@@ -472,10 +469,14 @@ describe('usage query cache behavior', () => {
     }
 
     setActivityQueryData(usageQueryKeys.current(), mockData)
-    expect(getActivityQueryData<typeof mockData>(usageQueryKeys.current())).toBeDefined()
+    expect(
+      getActivityQueryData<typeof mockData>(usageQueryKeys.current()),
+    ).toBeDefined()
 
     resetActivityQueryCache()
-    expect(getActivityQueryData<typeof mockData>(usageQueryKeys.current())).toBeUndefined()
+    expect(
+      getActivityQueryData<typeof mockData>(usageQueryKeys.current()),
+    ).toBeUndefined()
   })
 
   test('multiple invalidations preserve data', () => {
@@ -494,6 +495,8 @@ describe('usage query cache behavior', () => {
     invalidateActivityQuery(usageQueryKeys.current())
 
     // Data should still be there
-    expect(getActivityQueryData<typeof mockData>(usageQueryKeys.current())).toEqual(mockData)
+    expect(
+      getActivityQueryData<typeof mockData>(usageQueryKeys.current()),
+    ).toEqual(mockData)
   })
 })

@@ -1,35 +1,28 @@
 'use client'
 
+import { motion } from 'framer-motion'
+import Image from 'next/image'
 import { useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import Image from 'next/image'
-import { motion } from 'framer-motion'
-import posthog from 'posthog-js'
 import { useEffect, useState, Suspense } from 'react'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import IDEDemo from '@/components/IDEDemo'
+import { ReferralRedirect } from '@/components/referral-redirect'
 import { BlockColor, DecorativeBlocks } from '@/components/ui/decorative-blocks'
 import { Hero } from '@/components/ui/hero'
-import { CompetitionSection } from '@/components/ui/landing/competition'
 import { SECTION_THEMES } from '@/components/ui/landing/constants'
 import { CTASection } from '@/components/ui/landing/cta-section'
 import { FeatureSection } from '@/components/ui/landing/feature'
 import { BrowserComparison } from '@/components/ui/landing/feature/browser-comparison'
-import { ChartIllustration } from '@/components/ui/landing/feature/chart-illustration'
 import { WorkflowIllustration } from '@/components/ui/landing/feature/workflow-illustration'
 import { TestimonialsSection } from '@/components/ui/landing/testimonials-section'
 import { Section } from '@/components/ui/section'
 import { toast } from '@/components/ui/use-toast'
-import { useIsMobile } from '@/hooks/use-mobile'
 import { storeSearchParams } from '@/lib/trackConversions'
 import { cn } from '@/lib/utils'
-import { ReferralRedirect } from '@/components/referral-redirect'
 
 function SearchParamsHandler() {
   const searchParams = useSearchParams() ?? new URLSearchParams()
-  const isMobile = useIsMobile()
-  const { data: session } = useSession()
 
   useEffect(() => {
     storeSearchParams(searchParams)
@@ -40,7 +33,6 @@ function SearchParamsHandler() {
 
 export default function HomeClient() {
   const [demoSwitched, setDemoSwitched] = useState(false)
-  const isMobile = useIsMobile()
   const { data: session } = useSession()
 
   useEffect(() => {
@@ -85,13 +77,6 @@ export default function HomeClient() {
 
     handleReferralCode()
   }, [session?.user?.id])
-
-  const handleFeatureLearnMoreClick = (featureName: string, link: string) => {
-    posthog.capture(AnalyticsEvent.HOME_FEATURE_LEARN_MORE_CLICKED, {
-      feature: featureName,
-      link,
-    })
-  }
 
   return (
     <div className="relative">

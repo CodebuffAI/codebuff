@@ -1,6 +1,7 @@
-import { SecretAgentDefinition } from '../../types/secret-agent-definition'
 import { publisher } from '../../constants'
 import researcherDocs from '../researcher-docs'
+
+import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {
   ...researcherDocs,

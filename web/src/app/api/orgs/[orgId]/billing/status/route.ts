@@ -9,6 +9,7 @@ import { getServerSession } from 'next-auth'
 import type { NextRequest } from 'next/server'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { ORG_BILLING_ENABLED } from '@/lib/billing-config'
 import { logger } from '@/util/logger'
 
 interface RouteParams {
@@ -18,6 +19,10 @@ interface RouteParams {
 }
 
 export async function GET(req: NextRequest, { params }: RouteParams) {
+  if (!ORG_BILLING_ENABLED) {
+    return NextResponse.json({ error: 'Organization billing is temporarily disabled' }, { status: 503 })
+  }
+
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

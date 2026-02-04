@@ -46,7 +46,6 @@ export default function AdminOrganizationsPage() {
   const [organizations, setOrganizations] = useState<OrganizationSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [sortOrder, setSortOrder] = useState('desc')
   const [selectedOrg, setSelectedOrg] = useState<OrganizationSummary | null>(
     null,
   )

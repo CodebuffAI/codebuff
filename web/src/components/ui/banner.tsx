@@ -1,5 +1,6 @@
 'use client'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/old-constants'
 import { capitalize } from '@codebuff/common/util/string'
 import { X, Gift } from 'lucide-react'
@@ -8,9 +9,9 @@ import { useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import posthog from 'posthog-js'
 import { Suspense, useState } from 'react'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import { Button } from './button'
+
 import { useUserProfile } from '@/hooks/use-user-profile'
 
 function BannerContent() {
@@ -44,12 +45,12 @@ function BannerContent() {
             {isPersonalReferral ? (
               <>
                 {capitalize(referrer)} got you an extra {CREDITS_REFERRAL_BONUS}{' '}
-                credits per month!
+                bonus credits!
               </>
             ) : (
               <>
-                Refer a friend, and earn {CREDITS_REFERRAL_BONUS} credits per
-                month for both of you!
+                Refer a friend, and earn {CREDITS_REFERRAL_BONUS} bonus credits
+                for both of you!
               </>
             )}{' '}
             <Link

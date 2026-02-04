@@ -4,7 +4,7 @@ import {
   formatBashContextForPrompt,
 } from './bash-messages'
 
-import type { PendingBashMessage } from '../state/chat-store'
+import type { PendingBashMessage } from '../types/store'
 import type { ChatMessage } from '../types/chat'
 
 // Turns pending bash executions into chat history messages and prompt context.

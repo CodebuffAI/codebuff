@@ -1,7 +1,9 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import { getLanguageConfig, LanguageConfig } from './languages'
+import { getLanguageConfig } from './languages'
+
+import type { LanguageConfig } from './languages';
 import type { Parser, Query } from 'web-tree-sitter'
 
 export const DEBUG_PARSING = false

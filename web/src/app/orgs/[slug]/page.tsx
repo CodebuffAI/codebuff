@@ -1,7 +1,8 @@
 'use client'
 
-import { env } from '@codebuff/common/env'
-import { loadStripe } from '@stripe/stripe-js'
+// BILLING_DISABLED: Removed billing-related imports (env, loadStripe)
+// import { env } from '@codebuff/common/env'
+// import { loadStripe } from '@stripe/stripe-js'
 import {
   ArrowLeft,
   Building2,
@@ -9,7 +10,8 @@ import {
   GitBranch,
   CreditCard,
   Settings,
-  Plus,
+  // BILLING_DISABLED: Plus icon removed (was used for Purchase Credits button)
+  // Plus,
   AlertCircle,
   ChevronDown,
   ChevronUp,
@@ -43,7 +45,8 @@ export default function OrganizationPage() {
   const orgSlug = (params.slug as string) ?? ''
   const isMobile = useIsMobile()
 
-  const [settingUpBilling, setSettingUpBilling] = useState(false)
+  // BILLING_DISABLED: Removed settingUpBilling state
+  // const [settingUpBilling, setSettingUpBilling] = useState(false)
 
   // Collapsible states - only one can be open at a time
   const [activeSection, setActiveSection] = useState<
@@ -51,11 +54,12 @@ export default function OrganizationPage() {
   >('creditBalance') // Default to showing credit monitor
 
   // Use the custom hook for organization data
-  const { organization, billingStatus, isLoading, error } =
+  // BILLING_DISABLED: billingStatus renamed to _billingStatus (unused while billing is disabled)
+  const { organization, billingStatus: _billingStatus, isLoading, error } =
     useOrganizationData(orgSlug)
 
-  // Define low credit threshold
-  const LOW_CREDIT_THRESHOLD = 2000
+  // BILLING_DISABLED: Removed low credit threshold check
+  // const LOW_CREDIT_THRESHOLD = 2000
 
   // Check for subscription success
   useEffect(() => {
@@ -70,6 +74,8 @@ export default function OrganizationPage() {
     }
   }, [searchParams, orgSlug, router])
 
+  // BILLING_DISABLED: Removed handleSetupBilling function
+  /*
   const handleSetupBilling = async () => {
     if (!organization) return
 
@@ -116,6 +122,7 @@ export default function OrganizationPage() {
       setSettingUpBilling(false)
     }
   }
+  */
 
   const handleSectionToggle = (
     section: 'members' | 'repositories' | 'creditBalance',
@@ -190,14 +197,15 @@ export default function OrganizationPage() {
     return null
   }
 
-  const canManageBilling = organization.userRole === 'owner'
+  // BILLING_DISABLED: canManageBilling kept for potential future use
+  const _canManageBilling = organization.userRole === 'owner'
   const canManageOrg =
     organization.userRole === 'owner' || organization.userRole === 'admin'
 
-  // Check if credits are low
-  const hasLowCredits =
-    organization.hasStripeSubscription &&
-    organization.creditBalance < LOW_CREDIT_THRESHOLD
+  // BILLING_DISABLED: Removed low credits check
+  // const hasLowCredits =
+  //   organization.hasStripeSubscription &&
+  //   organization.creditBalance < LOW_CREDIT_THRESHOLD
 
   return (
     <div className="container mx-auto py-4 sm:py-6 px-4">
@@ -241,7 +249,8 @@ export default function OrganizationPage() {
           </div>
           {canManageOrg && (
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              {canManageBilling && organization.hasStripeSubscription && (
+              {/* BILLING_DISABLED: Buy Credits button temporarily removed
+              {_canManageBilling && organization.hasStripeSubscription && (
                 <Link
                   href={`/orgs/${orgSlug}/billing/purchase`}
                   className="w-full sm:w-auto"
@@ -256,6 +265,7 @@ export default function OrganizationPage() {
                   </Button>
                 </Link>
               )}
+              */}
               <Link
                 href={`/orgs/${orgSlug}/settings`}
                 className="w-full sm:w-auto"
@@ -273,7 +283,7 @@ export default function OrganizationPage() {
           )}
         </div>
 
-        {/* Low Credit Balance Notification */}
+        {/* BILLING_DISABLED: Low Credit Balance Notification temporarily removed
         {hasLowCredits && (
           <Card className="mb-6 sm:mb-8 border-red-200 bg-red-50">
             <CardContent className="py-3 sm:py-4">
@@ -292,7 +302,7 @@ export default function OrganizationPage() {
                     </p>
                   </div>
                 </div>
-                {canManageBilling && (
+                {_canManageBilling && (
                   <Link
                     href={`/orgs/${orgSlug}/billing/purchase`}
                     className="w-full sm:w-auto"
@@ -307,9 +317,10 @@ export default function OrganizationPage() {
             </CardContent>
           </Card>
         )}
+        */}
 
-        {/* Billing Setup Section */}
-        {canManageBilling && !organization.hasStripeSubscription && (
+        {/* BILLING_DISABLED: Billing Setup Section temporarily removed
+        {_canManageBilling && !organization.hasStripeSubscription && (
           <Card className="mb-6 sm:mb-8 border-orange-200 bg-orange-50">
             <CardContent className="py-3 sm:py-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -336,6 +347,7 @@ export default function OrganizationPage() {
             </CardContent>
           </Card>
         )}
+        */}
 
         {/* Stats Cards */}
         <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mb-6 sm:mb-8">
@@ -495,13 +507,15 @@ export default function OrganizationPage() {
                       <div className="text-center py-4 text-muted-foreground">
                         <CreditCard className="mx-auto h-6 w-6 sm:h-8 sm:w-8 mb-2 opacity-50" />
                         <p className="text-xs sm:text-sm">
-                          Set up billing to monitor credit usage
+                          Credit monitoring not available
                         </p>
+                        {/* BILLING_DISABLED: Set up billing link temporarily removed
                         <Link href={`/orgs/${organization.slug}/billing/setup`}>
                           <Button size="sm" className="mt-2 w-full sm:w-auto">
                             Set up billing
                           </Button>
                         </Link>
+                        */}
                       </div>
                     )}
                   </CardContent>
@@ -552,15 +566,17 @@ export default function OrganizationPage() {
                       <div className="text-center py-8 text-muted-foreground">
                         <CreditCard className="mx-auto h-12 w-12 mb-4 opacity-50" />
                         <h3 className="text-lg font-semibold mb-2">
-                          Billing Not Set Up
+                          Credit Monitoring Not Available
                         </h3>
                         <p className="mb-4">
-                          Set up billing to start using organization credits and
-                          monitor usage.
+                          Organization credit monitoring is not currently
+                          available.
                         </p>
+                        {/* BILLING_DISABLED: Set up billing link temporarily removed
                         <Link href={`/orgs/${organization.slug}/billing/setup`}>
                           <Button>Set up billing</Button>
                         </Link>
+                        */}
                       </div>
                     </CardContent>
                   </Card>

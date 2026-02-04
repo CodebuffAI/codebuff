@@ -50,12 +50,18 @@ describe('AgentModeToggle - resolveAgentModeClick', () => {
   })
 })
 
+// Extended Date.now type with test helper method
+interface MockDateNow {
+  (): number
+  set: (v: number) => void
+}
+
 describe('useHoverToggle timing (controller)', () => {
   let originalSetTimeout: typeof setTimeout
   let originalClearTimeout: typeof clearTimeout
   let originalNow: typeof Date.now
 
-  let timers: { id: number; ms: number; fn: Function; active: boolean }[]
+  let timers: { id: number; ms: number; fn: () => void; active: boolean }[]
   let nextId: number
 
   const runAll = () => {
@@ -73,21 +79,22 @@ describe('useHoverToggle timing (controller)', () => {
     originalNow = Date.now
 
     let now = 1_000
-    Date.now = () => now
-    ;(Date.now as any).set = (v: number) => {
-      now = v
-    }
+    const mockDateNow: MockDateNow = Object.assign(
+      () => now,
+      { set: (v: number) => { now = v } }
+    )
+    Date.now = mockDateNow
 
-    globalThis.setTimeout = ((fn: Function, ms?: number) => {
+    globalThis.setTimeout = ((fn: () => void, ms?: number) => {
       const id = nextId++
       timers.push({ id, ms: Number(ms ?? 0), fn, active: true })
-      return id as any
-    }) as any
+      return id as unknown as ReturnType<typeof setTimeout>
+    }) as typeof setTimeout
 
-    globalThis.clearTimeout = ((id?: any) => {
-      const rec = timers.find((t) => t.id === id)
+    globalThis.clearTimeout = ((id?: ReturnType<typeof clearTimeout>) => {
+      const rec = timers.find((t) => t.id === (id as unknown as number))
       if (rec) rec.active = false
-    }) as any
+    }) as typeof clearTimeout
   })
 
   afterEach(() => {
@@ -122,7 +129,7 @@ describe('useHoverToggle timing (controller)', () => {
     ctl.closeNow(true)
     ctl.scheduleOpen()
     expect(timers.length).toBe(0)
-    ;(Date.now as any).set(1_000 + REOPEN_SUPPRESS_MS + 1)
+    ;(Date.now as MockDateNow).set(1_000 + REOPEN_SUPPRESS_MS + 1)
     ctl.scheduleOpen()
     expect(timers.length).toBe(1)
     expect(timers[0].ms).toBe(OPEN_DELAY_MS)

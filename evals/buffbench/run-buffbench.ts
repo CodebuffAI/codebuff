@@ -389,7 +389,7 @@ export async function runBuffBench(options: {
     })
 
   // Load local agent definitions and type definition file for analyzers
-  const agentsPath = path.join(__dirname, '../../.agents')
+  const agentsPath = path.join(__dirname, '../../agents')
   const loadedAgents = await loadLocalAgents({ agentsPath })
   const agentTypeDefinitionPath = path.join(
     agentsPath,

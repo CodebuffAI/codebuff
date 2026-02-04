@@ -1,6 +1,6 @@
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { runTerminalCommand } from '@codebuff/sdk'
 
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import {
   findCommand,
@@ -18,11 +18,7 @@ import {
 import { handleClaudeAuthCode } from '../components/claude-connect-banner'
 import { getProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
-import {
-  capturePendingAttachments,
-  hasProcessingImages,
-  validateAndAddImage,
-} from '../utils/pending-attachments'
+import { trackEvent } from '../utils/analytics'
 import {
   buildBashHistoryMessages,
   createRunTerminalToolResult,
@@ -30,7 +26,11 @@ import {
 import { showClipboardMessage } from '../utils/clipboard'
 import { getSystemProcessEnv } from '../utils/env'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
-import { trackEvent } from '../utils/analytics'
+import {
+  capturePendingAttachments,
+  hasProcessingImages,
+  validateAndAddImage,
+} from '../utils/pending-attachments'
 
 /**
  * Run a bash command with automatic ghost/direct mode selection.

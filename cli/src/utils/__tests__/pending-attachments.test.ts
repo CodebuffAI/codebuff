@@ -1,9 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 
-import {
-  useChatStore,
-  type PendingImageAttachment,
-} from '../../state/chat-store'
+import { useChatStore } from '../../state/chat-store'
+import type { PendingImageAttachment } from '../../types/store'
 import {
   addClipboardPlaceholder,
   addPendingImageFromBase64,

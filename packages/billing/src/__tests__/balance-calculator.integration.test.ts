@@ -11,6 +11,7 @@
  *    docker run -p 5432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=testdb postgres:16-alpine
  * 2. Set DATABASE_URL to point to your test database
  */
+import * as schema from '@codebuff/internal/db/schema'
 import {
   afterAll,
   afterEach,
@@ -19,11 +20,10 @@ import {
   expect,
   it,
 } from 'bun:test'
-import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
 import { eq, and, asc, desc, ne, or, gt, isNull, sql } from 'drizzle-orm'
 import { union } from 'drizzle-orm/pg-core'
-import * as schema from '@codebuff/internal/db/schema'
+import { drizzle } from 'drizzle-orm/postgres-js'
+import postgres from 'postgres'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 

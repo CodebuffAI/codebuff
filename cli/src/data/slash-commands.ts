@@ -1,6 +1,7 @@
+import { AGENT_MODES } from '../utils/constants'
+
 import type { SkillsMap } from '@codebuff/common/types/skill'
 
-import { AGENT_MODES } from '../utils/constants'
 
 export interface SlashCommand {
   id: string
@@ -91,17 +92,22 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     aliases: ['chats'],
   },
   {
+    id: 'review',
+    label: 'review',
+    description: 'Review code changes with GPT-5 Agent',
+  },
+  {
     id: 'agent:gpt-5',
     label: 'agent:gpt-5',
     description: 'Spawn the GPT-5 agent to help solve complex problems',
     insertText: '@GPT-5 Agent ',
   },
-  {
-    id: 'agent:opus',
-    label: 'agent:opus',
-    description: 'Spawn the Opus agent to help solve any problem',
-    insertText: '@Opus Agent ',
-  },
+  // {
+  //   id: 'agent:opus',
+  //   label: 'agent:opus',
+  //   description: 'Spawn the Opus agent to help solve any problem',
+  //   insertText: '@Opus Agent ',
+  // },
   {
     id: 'feedback',
     label: 'feedback',
@@ -126,10 +132,15 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     description: 'Redeem a referral code for bonus credits',
     aliases: ['redeem'],
   },
+  // {
+  //   id: 'publish',
+  //   label: 'publish',
+  //   description: 'Publish agents to the agent store',
+  // },
   {
-    id: 'publish',
-    label: 'publish',
-    description: 'Publish agents to the agent store',
+    id: 'theme:toggle',
+    label: 'theme:toggle',
+    description: 'Toggle between light and dark mode',
   },
   {
     id: 'logout',
@@ -153,6 +164,16 @@ export const SLASHLESS_COMMAND_IDS = new Set(
   ),
 )
 
+/** Maximum description length for skill commands in the slash menu */
+const SKILL_MENU_DESCRIPTION_MAX_LENGTH = 50
+
+function truncateDescription(description: string): string {
+  if (description.length <= SKILL_MENU_DESCRIPTION_MAX_LENGTH) {
+    return description
+  }
+  return description.slice(0, SKILL_MENU_DESCRIPTION_MAX_LENGTH - 1) + '…'
+}
+
 /**
  * Returns SLASH_COMMANDS merged with skill commands.
  * Skills become slash commands that users can invoke directly.
@@ -161,7 +182,7 @@ export function getSlashCommandsWithSkills(skills: SkillsMap): SlashCommand[] {
   const skillCommands: SlashCommand[] = Object.values(skills).map((skill) => ({
     id: `skill:${skill.name}`,
     label: `skill:${skill.name}`,
-    description: skill.description,
+    description: truncateDescription(skill.description),
   }))
 
   return [...SLASH_COMMANDS, ...skillCommands]

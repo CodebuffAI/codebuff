@@ -16,6 +16,10 @@ import type { UsageData } from './helpers'
 import type { OpenRouterStreamChatCompletionChunk } from './type/openrouter'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type {
+  ChatCompletionRequestBody,
+  OpenRouterErrorMetadata,
+} from './types'
 
 type StreamState = { responseText: string; reasoningText: string }
 
@@ -26,7 +30,7 @@ type LineResult = {
 }
 
 function createOpenRouterRequest(params: {
-  body: any
+  body: ChatCompletionRequestBody
   openrouterApiKey: string | null
   fetch: typeof globalThis.fetch
 }) {
@@ -61,7 +65,8 @@ function extractRequestMetadataWithN(params: {
 }) {
   const { body, logger } = params
   const { clientId, clientRequestId, costMode } = extractRequestMetadata({ body, logger })
-  const n = (body as any)?.codebuff_metadata?.n
+  const typedBody = body as ChatCompletionRequestBody | undefined
+  const n = typedBody?.codebuff_metadata?.n
   return { clientId, clientRequestId, costMode, ...(n && { n }) }
 }
 
@@ -75,7 +80,7 @@ export async function handleOpenRouterNonStream({
   logger,
   insertMessageBigquery,
 }: {
-  body: any
+  body: ChatCompletionRequestBody
   userId: string
   stripeCustomerId?: string | null
   agentId: string
@@ -98,7 +103,7 @@ export async function handleOpenRouterNonStream({
   const byok = openrouterApiKey !== null
 
   // If n > 1, make n parallel requests
-  if (n > 1) {
+  if (n && n > 1) {
     const requests = Array.from({ length: n }, () =>
       createOpenRouterRequest({ body, openrouterApiKey, fetch }),
     )
@@ -259,7 +264,7 @@ export async function handleOpenRouterStream({
   logger,
   insertMessageBigquery,
 }: {
-  body: any
+  body: ChatCompletionRequestBody
   userId: string
   stripeCustomerId?: string | null
   agentId: string

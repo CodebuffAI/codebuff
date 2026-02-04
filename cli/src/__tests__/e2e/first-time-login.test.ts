@@ -1,5 +1,6 @@
 import { describe, test, expect, mock } from 'bun:test'
 
+import { createMockLogger } from '@codebuff/common/testing/mock-types'
 import {
   generateLoginUrl,
   pollLoginStatus,
@@ -8,22 +9,10 @@ import {
 import { createMockApiClient } from '../helpers/mock-api-client'
 
 import type { ApiResponse } from '../../utils/codebuff-api'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
-
-type MockLogger = {
-  [K in keyof Logger]: ReturnType<typeof mock> & Logger[K]
-}
-
-const createLogger = (): MockLogger => ({
-  info: mock(() => {}) as ReturnType<typeof mock> & Logger['info'],
-  error: mock(() => {}) as ReturnType<typeof mock> & Logger['error'],
-  warn: mock(() => {}) as ReturnType<typeof mock> & Logger['warn'],
-  debug: mock(() => {}) as ReturnType<typeof mock> & Logger['debug'],
-})
 
 describe('First-Time Login Flow (helpers)', () => {
   test('generateLoginUrl posts fingerprint id and returns payload', async () => {
-    const logger = createLogger()
+    const logger = createMockLogger()
     const responsePayload: LoginUrlResponse = {
       loginUrl: 'https://cli.test/login?code=abc123',
       fingerprintHash: 'hash-123',
@@ -51,7 +40,7 @@ describe('First-Time Login Flow (helpers)', () => {
   })
 
   test('pollLoginStatus resolves with user after handling transient 401 responses', async () => {
-    const logger = createLogger()
+    const logger = createMockLogger()
     const apiResponses: Array<ApiResponse<{ user?: unknown }>> = [
       { ok: false, status: 401 },
       { ok: false, status: 401 },
@@ -114,7 +103,7 @@ describe('First-Time Login Flow (helpers)', () => {
   })
 
   test('pollLoginStatus times out when user never appears', async () => {
-    const logger = createLogger()
+    const logger = createMockLogger()
     let nowTime = 0
     const intervalMs = 5000
     const timeoutMs = 20000
@@ -151,7 +140,7 @@ describe('First-Time Login Flow (helpers)', () => {
   })
 
   test('pollLoginStatus stops when caller aborts', async () => {
-    const logger = createLogger()
+    const logger = createMockLogger()
     const loginStatusMock = mock(async () => {
       return { ok: false, status: 401 } as ApiResponse<{ user?: unknown }>
     })

@@ -10,15 +10,15 @@ import { useLoginPolling } from '../hooks/use-login-polling'
 import { useLogo } from '../hooks/use-logo'
 import { useSheenAnimation } from '../hooks/use-sheen-animation'
 import { useTheme } from '../hooks/use-theme'
-import { getLogoBlockColor, getLogoAccentColor } from '../utils/theme-system'
 import {
   formatUrl,
   generateFingerprintId,
   calculateResponsiveLayout,
 } from '../login/utils'
 import { useLoginStore } from '../state/login-store'
-import { copyTextToClipboard } from '../utils/clipboard'
+import { copyTextToClipboard, isRemoteSession } from '../utils/clipboard'
 import { logger } from '../utils/logger'
+import { getLogoBlockColor, getLogoAccentColor } from '../utils/theme-system'
 
 import type { User } from '../utils/auth'
 
@@ -44,9 +44,7 @@ export const LoginModal = ({
     isWaitingForEnter,
     hasOpenedBrowser,
     sheenPosition,
-    copyMessage,
     justCopied,
-    hasClickedLink,
     setLoginUrl,
     setLoading,
     setError,
@@ -439,6 +437,17 @@ export const LoginModal = ({
                   Waiting for login...
                 </span>
               </text>
+              {isRemoteSession() && !isVerySmall && (
+                <text style={{ wrapMode: 'word' }}>
+                  <span fg={theme.secondary}>
+                    Tip: Can't copy? Exit and run{' '}
+                  </span>
+                  <span fg={theme.primary}>codebuff login</span>
+                  <span fg={theme.secondary}>
+                    {' '}instead.
+                  </span>
+                </text>
+              )}
             </box>
           </box>
         )}

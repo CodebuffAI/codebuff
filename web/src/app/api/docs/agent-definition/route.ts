@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
 import { readFile } from 'fs/promises'
 import { join } from 'path'
+
+import { NextResponse } from 'next/server'
 
 /**
  * API route that serves the content of the agent-definition.ts file

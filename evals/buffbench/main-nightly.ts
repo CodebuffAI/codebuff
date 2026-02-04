@@ -3,8 +3,9 @@ import path from 'path'
 import { sendBasicEmail } from '@codebuff/internal/loops'
 
 import { runBuffBench } from './run-buffbench'
-import type { AgentEvalResults } from './types'
+
 import type { MetaAnalysisResult } from './meta-analyzer'
+import type { AgentEvalResults } from './types'
 
 async function main() {
   console.log('Starting nightly buffbench evaluation...')

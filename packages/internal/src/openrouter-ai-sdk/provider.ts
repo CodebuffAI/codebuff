@@ -1,4 +1,9 @@
-import type { LanguageModelV2 } from '@ai-sdk/provider'
+
+import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils'
+
+import { OpenRouterChatLanguageModel } from './chat'
+import { OpenRouterCompletionLanguageModel } from './completion'
+
 import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
@@ -7,10 +12,7 @@ import type {
   OpenRouterCompletionModelId,
   OpenRouterCompletionSettings,
 } from './types/openrouter-completion-settings'
-
-import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils'
-import { OpenRouterChatLanguageModel } from './chat'
-import { OpenRouterCompletionLanguageModel } from './completion'
+import type { LanguageModelV2 } from '@ai-sdk/provider'
 
 export type { OpenRouterCompletionSettings }
 

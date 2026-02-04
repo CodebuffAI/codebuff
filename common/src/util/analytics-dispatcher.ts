@@ -1,4 +1,3 @@
-import type { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import {
   getAnalyticsEventId,

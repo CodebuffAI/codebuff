@@ -1,4 +1,3 @@
-import { env } from '@codebuff/internal/env'
 import { afterEach, beforeEach, describe, expect, mock, it } from 'bun:test'
 import { NextRequest } from 'next/server'
 
@@ -10,7 +9,6 @@ import type { GetUserUsageDataFn } from '@codebuff/common/types/contracts/billin
 import type {
   GetAgentRunFromIdFn,
   GetUserInfoFromApiKeyFn,
-  GetUserInfoFromApiKeyOutput,
 } from '@codebuff/common/types/contracts/database'
 import type {
   Logger,
@@ -43,7 +41,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
     if (!userData) {
       return null
     }
-    return { id: userData.id, banned: userData.banned } as any
+    return { id: userData.id, banned: userData.banned } as Awaited<ReturnType<GetUserInfoFromApiKeyFn>>
   }
 
   let mockLogger: Logger
@@ -170,7 +168,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           },
         )
       }
-    }) as any
+    }) as typeof globalThis.fetch
 
     mockInsertMessageBigquery = mock(async () => true)
   })
@@ -469,6 +467,7 @@ describe('/api/v1/chat/completions POST endpoint', () => {
           method: 'POST',
           headers: { Authorization: 'Bearer test-api-key-123' },
           body: JSON.stringify({
+            model: 'test/test-model',
             stream: false,
             codebuff_metadata: {
               run_id: 'run-123',

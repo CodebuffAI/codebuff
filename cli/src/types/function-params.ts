@@ -1,5 +1,5 @@
-import type { UnionToIntersection } from 'bun-types/vendor/expect-type'
 import type { Prettify } from './utils'
+import type { UnionToIntersection } from 'bun-types/vendor/expect-type'
 
 type StripExact<T> = T extends infer U & { [x: string]: never } ? U : T
 

@@ -15,7 +15,7 @@ describe('createSendMessageTimerController', () => {
     }
 
     const controller = createSendMessageTimerController({
-      mainAgentTimer: mainAgentTimer as any,
+      mainAgentTimer: mainAgentTimer as unknown as Parameters<typeof createSendMessageTimerController>[0]['mainAgentTimer'],
       onTimerEvent: (event) => events.push(event),
       now: () => nowValue,
     })
@@ -46,7 +46,7 @@ describe('createSendMessageTimerController', () => {
     }
 
     const controller = createSendMessageTimerController({
-      mainAgentTimer: mainAgentTimer as any,
+      mainAgentTimer: mainAgentTimer as unknown as Parameters<typeof createSendMessageTimerController>[0]['mainAgentTimer'],
       onTimerEvent: () => {},
       now: () => nowValue,
     })

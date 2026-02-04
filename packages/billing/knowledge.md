@@ -7,7 +7,7 @@ This package contains Codebuff's billing and credit management system.
 The billing system handles:
 
 - Credit balance calculation and tracking
-- Monthly credit grants and resets
+- Credit grants and resets
 - Auto top-up functionality
 - Credit grant operations (referrals, purchases, etc.)
 

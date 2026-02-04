@@ -1,5 +1,6 @@
-import type { CliAgentConfig } from './cli-agent-types'
 import { CLI_AGENT_MODES } from './cli-agent-types'
+
+import type { CliAgentConfig } from './cli-agent-types'
 
 const TMUX_SESSION_DOCS = `## Session Logs (Paper Trail)
 

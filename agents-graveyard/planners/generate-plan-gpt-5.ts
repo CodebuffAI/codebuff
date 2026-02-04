@@ -1,4 +1,5 @@
 import generatePlan from './generate-plan'
+
 import type { SecretAgentDefinition } from '../../.agents/types/secret-agent-definition'
 
 const definition: SecretAgentDefinition = {

@@ -10,7 +10,7 @@ async function calculateAverageSpend() {
   let totalSpend = 0
   let customerSpends = new Map<string, number>()
   let customerFirstInvoiceDates = new Map<string, number>()
-  let batchCount = 0
+  // batchCount was previously used for debugging but is no longer needed
 
   try {
     // Get all invoices from the last 2 months to establish customer history
@@ -19,7 +19,7 @@ async function calculateAverageSpend() {
 
     // First get all invoices to establish customer history
     while (hasMore) {
-      batchCount++
+      // batch processing iteration
 
       const invoices: Stripe.Response<Stripe.ApiList<Stripe.Invoice>> =
         await stripeServer.invoices.list({

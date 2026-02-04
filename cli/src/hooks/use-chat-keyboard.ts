@@ -1,9 +1,9 @@
 import { useKeyboard } from '@opentui/react'
 import { useCallback, useRef } from 'react'
 
-import { hasClipboardImage, readClipboardText, readClipboardImageFilePath, getImageFilePathFromText } from '../utils/clipboard-image'
 import { getProjectRoot } from '../project-files'
 import { reportActivity } from '../utils/activity-tracker'
+import { hasClipboardImage, readClipboardText, readClipboardImageFilePath, getImageFilePathFromText } from '../utils/clipboard-image'
 import {
   resolveChatKeyboardAction,
   type ChatKeyboardState,

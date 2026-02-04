@@ -215,7 +215,7 @@ try {
 
   // Test 9: Test error handling for invalid directory
   console.log('\n9. Testing error handling...')
-  const invalidResult = await ToolHelpers.codeSearch({
+  const _invalidResult = await ToolHelpers.codeSearch({
     projectPath: '/nonexistent/directory',
     pattern: 'test',
     maxResults: 1,

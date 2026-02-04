@@ -1,7 +1,7 @@
 // Inspired by react-hot-toast library
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import posthog from 'posthog-js'
 import * as React from 'react'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import type { ToastActionElement, ToastProps } from '@/components/ui/toast'
 

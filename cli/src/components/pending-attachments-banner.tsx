@@ -4,7 +4,7 @@ import { TextAttachmentCard } from './text-attachment-card'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
 
-import type { PendingImageAttachment, PendingTextAttachment } from '../state/chat-store'
+import type { PendingImageAttachment, PendingTextAttachment } from '../types/store'
 
 /**
  * Combined banner for both image and text attachments.

@@ -1,6 +1,7 @@
-import type { Config } from 'tailwindcss'
-import tailwindcssAnimate from 'tailwindcss-animate'
 import typography from '@tailwindcss/typography'
+import tailwindcssAnimate from 'tailwindcss-animate'
+
+import type { Config } from 'tailwindcss'
 
 const config = {
   darkMode: ['class'],

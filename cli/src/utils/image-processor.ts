@@ -1,7 +1,7 @@
 import { extractImagePaths, processImageFile } from './image-handler'
 import { logger } from './logger'
 
-import type { PendingImageAttachment } from '../state/chat-store'
+import type { PendingImageAttachment } from '../types/store'
 import type { MessageContent } from '@codebuff/sdk'
 
 // Converts pending images + inline references into SDK-ready message content.

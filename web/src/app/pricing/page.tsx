@@ -1,14 +1,16 @@
-import { Metadata } from 'next'
 import { env } from '@codebuff/common/env'
 
 import PricingClient from './pricing-client'
+
+import type { Metadata } from 'next'
+
 
 export async function generateMetadata(): Promise<Metadata> {
   const canonicalUrl = `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/pricing`
 
   const title = 'Pricing – Simple, Usage-Based Plans | Codebuff'
   const description =
-    'Get 500 free credits monthly, then pay just 1¢ per credit. No subscriptions required. Team and Enterprise plans available for organizations.'
+    'Get 500 free credits monthly, then pay just 1¢ per credit. No subscriptions required. Enterprise plans available for organizations.'
 
   return {
     title,
@@ -76,17 +78,6 @@ function ProductJsonLd() {
         price: '0.01',
         priceCurrency: 'USD',
         description: '1¢ per credit after free tier, no subscription required',
-        availability: 'https://schema.org/InStock',
-        priceValidUntil: '2026-12-31',
-        url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/pricing`,
-      },
-      {
-        '@type': 'Offer',
-        name: 'Team Plan',
-        price: '19',
-        priceCurrency: 'USD',
-        description:
-          'Per user per month. Includes team dashboard, pooled credits, and usage analytics.',
         availability: 'https://schema.org/InStock',
         priceValidUntil: '2026-12-31',
         url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/pricing`,

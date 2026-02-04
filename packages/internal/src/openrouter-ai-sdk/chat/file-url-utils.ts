@@ -1,7 +1,9 @@
-import type { LanguageModelV2FilePart } from '@ai-sdk/provider'
 
 import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils'
+
 import { isUrl } from './is-url'
+
+import type { LanguageModelV2FilePart } from '@ai-sdk/provider'
 
 export function getFileUrl({
   part,

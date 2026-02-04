@@ -22,7 +22,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { orgId, alertId } = await params
+    const { orgId, alertId: _alertId } = await params
 
     // Check if user is a member of this organization
     const membership = await db

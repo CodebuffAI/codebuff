@@ -1,8 +1,8 @@
 'use client'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import posthog from 'posthog-js'
 import { useState, useEffect } from 'react'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'

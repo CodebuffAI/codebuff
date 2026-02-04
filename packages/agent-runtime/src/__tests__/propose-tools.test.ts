@@ -19,8 +19,8 @@ import {
   clearAgentGeneratorCache,
   runProgrammaticStep,
 } from '../run-programmatic-step'
-import { clearAllProposedContent } from '../tools/handlers/tool/proposed-content-store'
 import { mockFileContext } from './test-utils'
+import { clearAllProposedContent } from '../tools/handlers/tool/proposed-content-store'
 import * as toolExecutor from '../tools/tool-executor'
 
 import type { AgentTemplate, StepGenerator } from '../templates/types'
@@ -689,7 +689,7 @@ function generateSimpleDiff(path: string, oldContent: string, newContent: string
   const maxLen = Math.max(oldLines.length, newLines.length)
   
   let inChange = false
-  let changeStart = 0
+  let _changeStart = 0
   
   for (let i = 0; i < maxLen; i++) {
     const oldLine = oldLines[i]
@@ -698,7 +698,7 @@ function generateSimpleDiff(path: string, oldContent: string, newContent: string
     if (oldLine !== newLine) {
       if (!inChange) {
         inChange = true
-        changeStart = i
+        _changeStart = i
         diffLines.push(`@@ -${i + 1},${oldLines.length - i} +${i + 1},${newLines.length - i} @@`)
       }
       if (oldLine !== undefined) {

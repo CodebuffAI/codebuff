@@ -1,6 +1,7 @@
 import React, { memo, useCallback } from 'react'
 
 import { GridLayout } from '../grid-layout'
+
 import type { AgentContentBlock } from '../../types/chat'
 
 export interface AgentBlockGridProps {

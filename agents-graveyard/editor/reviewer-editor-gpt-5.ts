@@ -1,5 +1,7 @@
-import { AgentDefinition } from 'types/agent-definition'
 import { createCodeEditor } from './editor'
+
+import type { AgentDefinition } from '../../agents/types/agent-definition'
+
 
 const definition: AgentDefinition = {
   ...createCodeEditor({ model: 'gpt-5' }),

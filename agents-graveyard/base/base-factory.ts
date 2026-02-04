@@ -7,7 +7,7 @@ import {
 } from './base-prompts'
 
 import type { SecretAgentDefinition } from '../../agents/types/secret-agent-definition'
-import type { ModelName } from 'types/agent-definition'
+import type { ModelName } from '../../agents/types/agent-definition'
 
 export const base = (
   model: ModelName,

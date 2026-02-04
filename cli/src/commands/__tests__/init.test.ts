@@ -1,3 +1,6 @@
+import * as fs from 'fs'
+import path from 'path'
+
 import {
   describe,
   test,
@@ -7,8 +10,6 @@ import {
   mock,
   spyOn,
 } from 'bun:test'
-import * as fs from 'fs'
-import path from 'path'
 
 import * as projectFiles from '../../project-files'
 import { handleInitializationFlowLocally } from '../init'

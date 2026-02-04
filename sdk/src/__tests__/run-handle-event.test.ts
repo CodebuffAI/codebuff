@@ -1,12 +1,14 @@
-import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 
 import * as mainPromptModule from '@codebuff/agent-runtime/main-prompt'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { getStubProjectFileContext } from '@codebuff/common/util/file'
+import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
+
 import { CodebuffClient } from '../client'
 import * as databaseModule from '../impl/database'
-import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
+
 import type { CodebuffClientOptions } from '../run'
+import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
 describe('CodebuffClient handleEvent / handleStreamChunk', () => {
   afterEach(() => {

@@ -1,29 +1,83 @@
 import { TextAttributes } from '@opentui/core'
-import React, { memo, useCallback, useMemo, useRef, type ReactNode } from 'react'
+import React, {
+  memo,
+  useCallback,
+  useMemo,
+  useRef,
+  type ReactNode,
+} from 'react'
 
 import { AgentBlockGrid } from './agent-block-grid'
 import { AgentBranchItem } from './agent-branch-item'
-import { ImplementorGroup } from './implementor-row'
-import { ToolBlockGroup } from './tool-block-group'
-import { ContentWithMarkdown } from './content-with-markdown'
-import { ThinkingBlock } from './thinking-block'
 import { trimTrailingNewlines, sanitizePreview } from './block-helpers'
+import { ContentWithMarkdown } from './content-with-markdown'
+import { ImplementorGroup } from './implementor-row'
+import { ThinkingBlock } from './thinking-block'
+import { ToolBlockGroup } from './tool-block-group'
 import { useTheme } from '../../hooks/use-theme'
 import { useChatStore } from '../../state/chat-store'
-import { AGENT_CONTENT_HORIZONTAL_PADDING } from '../../utils/layout-helpers'
-import { shouldRenderAsSimpleText } from '../../utils/constants'
-import { isImplementorAgent, getImplementorIndex } from '../../utils/implementor-helpers'
-import { processBlocks, type BlockProcessorHandlers } from '../../utils/block-processor'
+import { isTextBlock } from '../../types/chat'
 import { getAgentStatusInfo } from '../../utils/agent-helpers'
 import { extractHtmlBlockMargins } from '../../utils/block-margins'
-import { isTextBlock } from '../../types/chat'
+import {
+  processBlocks,
+  type BlockProcessorHandlers,
+} from '../../utils/block-processor'
+import { shouldRenderAsSimpleText, isMultiPromptEditor } from '../../utils/constants'
+import {
+  isImplementorAgent,
+  getImplementorIndex,
+  getMultiPromptPreview,
+} from '../../utils/implementor-helpers'
+import { AGENT_CONTENT_HORIZONTAL_PADDING } from '../../utils/layout-helpers'
+
 import type {
   AgentContentBlock,
   ContentBlock,
   TextContentBlock,
   HtmlContentBlock,
+  ToolContentBlock,
 } from '../../types/chat'
 import type { MarkdownPalette } from '../../utils/markdown-renderer'
+
+/**
+ * Compute preview text for collapsed agent display.
+ * Returns empty string when preview shouldn't be shown (expanded state).
+ */
+function getCollapsedPreview(
+  agentBlock: AgentContentBlock,
+  isStreaming: boolean,
+  isCollapsed: boolean,
+): string {
+  // No preview needed if expanded and not streaming
+  if (!isStreaming && !isCollapsed) {
+    return ''
+  }
+
+  // For multi-prompt editors, try progress-focused preview first
+  if (isMultiPromptEditor(agentBlock.agentType)) {
+    const multiPromptPreview = getMultiPromptPreview(
+      agentBlock.blocks,
+      agentBlock.status === 'complete',
+    )
+    if (multiPromptPreview) {
+      return multiPromptPreview
+    }
+  }
+
+  // Default preview: use initialPrompt or first line of text content
+  if (agentBlock.initialPrompt) {
+    return sanitizePreview(agentBlock.initialPrompt)
+  }
+
+  const textContent =
+    agentBlock.blocks
+      ?.filter(isTextBlock)
+      .map((b) => b.content)
+      .join('') || ''
+  const firstLine = textContent.split('\n').find((line) => line.trim()) || ''
+  return `${sanitizePreview(firstLine)}...`
+}
 
 interface AgentBodyProps {
   agentBlock: Extract<ContentBlock, { type: 'agent' }>
@@ -50,7 +104,10 @@ interface AgentBodyPropsRef {
   onBuildMax: () => void
   isLastMessage?: boolean
   theme: ReturnType<typeof useTheme>
-  getAgentMarkdownOptions: (indent: number) => { codeBlockWidth: number; palette: MarkdownPalette }
+  getAgentMarkdownOptions: (indent: number) => {
+    codeBlockWidth: number
+    palette: MarkdownPalette
+  }
 }
 
 const AgentBody = memo(
@@ -74,7 +131,9 @@ const AgentBody = memo(
         return {
           codeBlockWidth: Math.max(
             10,
-            availableWidth - AGENT_CONTENT_HORIZONTAL_PADDING - indentationOffset,
+            availableWidth -
+              AGENT_CONTENT_HORIZONTAL_PADDING -
+              indentationOffset,
           ),
           palette: {
             ...markdownPalette,
@@ -109,7 +168,10 @@ const AgentBody = memo(
           const p = propsRef.current
           return (
             <ThinkingBlock
-              key={reasoningBlocks[0]?.thinkingId ?? `${p.keyPrefix}-thinking-${startIndex}`}
+              key={
+                reasoningBlocks[0]?.thinkingId ??
+                `${p.keyPrefix}-thinking-${startIndex}`
+              }
               blocks={reasoningBlocks}
               onToggleCollapsed={p.onToggleCollapsed}
               availableWidth={p.availableWidth}
@@ -178,7 +240,8 @@ const AgentBody = memo(
           if (block.type === 'text') {
             const textBlock = block as TextContentBlock
             const nestedStatus = textBlock.status
-            const isNestedStreamingText = p.parentIsStreaming || nestedStatus === 'running'
+            const isNestedStreamingText =
+              p.parentIsStreaming || nestedStatus === 'running'
             const filteredNestedContent = isNestedStreamingText
               ? trimTrailingNewlines(textBlock.content)
               : textBlock.content.trim()
@@ -210,7 +273,8 @@ const AgentBody = memo(
 
           if (block.type === 'html') {
             const htmlBlock = block as HtmlContentBlock
-            const { marginTop, marginBottom } = extractHtmlBlockMargins(htmlBlock)
+            const { marginTop, marginBottom } =
+              extractHtmlBlockMargins(htmlBlock)
 
             return (
               <box
@@ -267,7 +331,9 @@ export const AgentBranchWrapper = memo(
   }: AgentBranchWrapperProps) => {
     const theme = useTheme()
     // Derive streaming boolean for this specific agent to avoid re-renders when other agents change
-    const agentIsStreaming = useChatStore((state) => state.streamingAgents.has(agentBlock.agentId))
+    const agentIsStreaming = useChatStore((state) =>
+      state.streamingAgents.has(agentBlock.agentId),
+    )
 
     if (shouldRenderAsSimpleText(agentBlock.agentType)) {
       const isStreaming = agentBlock.status === 'running' || agentIsStreaming
@@ -282,16 +348,22 @@ export const AgentBranchWrapper = memo(
       const isComplete = agentBlock.status === 'complete'
       if (isComplete && siblingBlocks) {
         const blocks = agentBlock.blocks ?? []
-        const lastBlock = blocks[blocks.length - 1] as
-          | { input: { implementationId: string; reason: string } }
-          | undefined
-        const implementationId = lastBlock?.input?.implementationId
+        // Find the set_output tool call block (not necessarily the last block)
+        const setOutputBlock = blocks.find(
+          (b): b is ToolContentBlock =>
+            b.type === 'tool' && b.toolName === 'set_output',
+        )
+        // set_output wraps data in a 'data' property, so we need to access input.data
+        const outputData = (setOutputBlock?.input as { data?: Record<string, unknown> })?.data
+        const implementationId = outputData?.implementationId as string | undefined
         if (implementationId) {
           const letterIndex = implementationId.charCodeAt(0) - 65
           const implementors = siblingBlocks.filter(
             (b): b is AgentContentBlock =>
               b.type === 'agent' && isImplementorAgent(b),
           )
+
+          reason = outputData?.reason as string | undefined
 
           const selectedAgent = implementors[letterIndex]
           if (selectedAgent) {
@@ -300,7 +372,6 @@ export const AgentBranchWrapper = memo(
               index !== undefined
                 ? `Selected Strategy #${index + 1}`
                 : 'Selected'
-            reason = lastBlock?.input?.reason
           }
         }
       }
@@ -340,29 +411,15 @@ export const AgentBranchWrapper = memo(
     const isCollapsed = agentBlock.isCollapsed ?? false
     const isStreaming = agentBlock.status === 'running' || agentIsStreaming
 
-    const allTextContent =
-      agentBlock.blocks
-        ?.filter(isTextBlock)
-        .map((nested) => nested.content)
-        .join('') || ''
+    // Compute collapsed preview text
+    const preview = getCollapsedPreview(agentBlock, isStreaming, isCollapsed)
 
-    const lines = allTextContent.split('\n').filter((line) => line.trim())
-    const firstLine = lines[0] || ''
-
-    const streamingPreview = isStreaming
-      ? agentBlock.initialPrompt
-        ? sanitizePreview(agentBlock.initialPrompt)
-        : `${sanitizePreview(firstLine)}...`
-      : ''
-
-    const finishedPreview =
-      !isStreaming && isCollapsed && agentBlock.initialPrompt
-        ? sanitizePreview(agentBlock.initialPrompt)
-        : ''
-
-    const isActive = isStreaming || agentBlock.status === 'running'
-    const { indicator: statusIndicator, label: statusLabel, color: statusColor } =
-      getAgentStatusInfo(isActive ? 'running' : agentBlock.status, theme)
+    const effectiveStatus = isStreaming ? 'running' : agentBlock.status
+    const {
+      indicator: statusIndicator,
+      label: statusLabel,
+      color: statusColor,
+    } = getAgentStatusInfo(effectiveStatus, theme)
 
     const onToggle = useCallback(() => {
       onToggleCollapsed(agentBlock.agentId)
@@ -376,8 +433,7 @@ export const AgentBranchWrapper = memo(
           agentId={agentBlock.agentId}
           isCollapsed={isCollapsed}
           isStreaming={isStreaming}
-          streamingPreview={streamingPreview}
-          finishedPreview={finishedPreview}
+          preview={preview}
           statusLabel={statusLabel ?? undefined}
           statusColor={statusColor}
           statusIndicator={statusIndicator}

@@ -1,6 +1,6 @@
 import { publisher } from './constants'
-import { type SecretAgentDefinition } from './types/secret-agent-definition'
 import readOnlyCommander from './read-only-commander'
+import { type SecretAgentDefinition } from './types/secret-agent-definition'
 
 const readOnlyCommanderLite: SecretAgentDefinition = {
   ...readOnlyCommander,

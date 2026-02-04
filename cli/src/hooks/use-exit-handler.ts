@@ -4,7 +4,7 @@ import { getCurrentChatId } from '../project-files'
 import { flushAnalytics } from '../utils/analytics'
 import { withTimeout } from '../utils/terminal-color-detection'
 
-import type { InputValue } from '../state/chat-store'
+import type { InputValue } from '../types/store'
 
 // Timeout for analytics flush during exit - don't block exit for too long
 const EXIT_FLUSH_TIMEOUT_MS = 1000

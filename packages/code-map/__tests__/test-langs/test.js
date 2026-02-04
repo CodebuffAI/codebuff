@@ -1,5 +1,5 @@
 // Interface-like object (JavaScript doesn't have native interfaces)
-const Greeter = {
+const _Greeter = {
   greet(name) {
     throw new Error('Method not implemented')
   },

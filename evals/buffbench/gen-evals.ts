@@ -1,16 +1,17 @@
 import { execSync } from 'child_process'
-import { createTwoFilesPatch } from 'diff'
 import fs from 'fs'
 import path from 'path'
-import { mapLimit } from 'async'
+
 
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
-
 import { CodebuffClient, getUserCredentials } from '@codebuff/sdk'
-import { extractRepoNameFromUrl } from './setup-test-repo'
-import { withTestRepoAndParent } from '../subagents/test-repo-utils'
+import { mapLimit } from 'async'
+import { createTwoFilesPatch } from 'diff'
+
 import { generateEvalTask } from './eval-task-generator'
 import { filterSupplementalFiles } from './filter-supplemental-files'
+import { extractRepoNameFromUrl } from './setup-test-repo'
+import { withTestRepoAndParent } from '../subagents/test-repo-utils'
 
 import type { EvalDataV2, EvalCommitV2, FileDiff } from './types'
 
@@ -225,7 +226,7 @@ export async function generateEvalFileV2({
     )
   }
 
-  const batchResults = await mapLimit(
+  const _batchResults = await mapLimit(
     commitShas,
     BATCH_SIZE,
     async (commitSha: string) => {

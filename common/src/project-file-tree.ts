@@ -49,7 +49,7 @@ export async function getProjectFileTree(params: {
   const { projectRoot, fs } = withDefaults
   let { maxFiles } = withDefaults
 
-  const start = Date.now()
+  const _start = Date.now()
   const defaultIgnore = ignore.default()
   for (const pattern of DEFAULT_IGNORED_PATHS) {
     defaultIgnore.add(pattern)
@@ -240,6 +240,27 @@ export function getAllFilePaths(
       return [path.join(basePath, node.name)]
     }
     return getAllFilePaths(node.children || [], path.join(basePath, node.name))
+  })
+}
+
+export interface PathInfo {
+  path: string
+  isDirectory: boolean
+}
+
+export function getAllPathsWithDirectories(
+  nodes: FileTreeNode[],
+  basePath: string = '',
+): PathInfo[] {
+  return nodes.flatMap((node) => {
+    const nodePath = basePath ? path.join(basePath, node.name) : node.name
+    if (node.type === 'file') {
+      return [{ path: nodePath, isDirectory: false }]
+    }
+    // Include the directory itself, plus recurse into children
+    const dirEntry: PathInfo = { path: nodePath, isDirectory: true }
+    const children = getAllPathsWithDirectories(node.children || [], nodePath)
+    return [dirEntry, ...children]
   })
 }
 

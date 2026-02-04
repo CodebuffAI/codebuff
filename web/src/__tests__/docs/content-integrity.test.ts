@@ -7,9 +7,11 @@
 
 import fs from 'fs'
 import path from 'path'
+
 import matter from 'gray-matter'
 
-const CONTENT_DIR = path.join(process.cwd(), 'src/content')
+// Use __dirname to get correct path regardless of where tests are run from
+const CONTENT_DIR = path.join(__dirname, '../../content')
 const VALID_SECTIONS = [
   'help',
   'tips',

@@ -1,10 +1,12 @@
-import type { ToolName } from '../../common/src/tools/constants'
-import type { ToolResultOutput } from '../../common/src/types/messages/content-part'
+import type { ToolName } from '@codebuff/common/tools/constants'
+import type { ToolResultOutput } from '@codebuff/common/types/messages/content-part'
 import type { z } from 'zod/v4'
 
 export type CustomToolDefinition<
   N extends string = string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Args extends any = any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Input extends any = any,
 > = {
   toolName: N
@@ -28,7 +30,9 @@ export type CustomToolDefinition<
  */
 export function getCustomToolDefinition<
   TN extends string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Args extends any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Input extends any,
 >({
   toolName,

@@ -13,11 +13,12 @@ import { useShallow } from 'zustand/react/shallow'
 import { getAdsEnabled } from './commands/ads'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
 import { AdBanner } from './components/ad-banner'
-import { ChatInputBar } from './components/chat-input-bar'
 import { BottomStatusLine } from './components/bottom-status-line'
-import { areCreditsRestored } from './components/out-of-credits-banner'
+import { ChatInputBar } from './components/chat-input-bar'
 import { LoadPreviousButton } from './components/load-previous-button'
+import { ReviewScreen } from './components/review-screen'
 import { MessageWithAgents } from './components/message-with-agents'
+import { areCreditsRestored } from './components/out-of-credits-banner'
 import { PendingBashMessage } from './components/pending-bash-message'
 import { StatusBar } from './components/status-bar'
 import { TopBanner } from './components/top-banner'
@@ -25,7 +26,6 @@ import { getSlashCommandsWithSkills } from './data/slash-commands'
 import { useAgentValidation } from './hooks/use-agent-validation'
 import { useAskUserBridge } from './hooks/use-ask-user-bridge'
 import { useChatInput } from './hooks/use-chat-input'
-import { useClaudeQuotaQuery } from './hooks/use-claude-quota-query'
 import {
   useChatKeyboard,
   type ChatKeyboardHandlers,
@@ -34,27 +34,26 @@ import { useChatMessages } from './hooks/use-chat-messages'
 import { useChatState } from './hooks/use-chat-state'
 import { useChatStreaming } from './hooks/use-chat-streaming'
 import { useChatUI } from './hooks/use-chat-ui'
+import { useClaudeQuotaQuery } from './hooks/use-claude-quota-query'
 import { useClipboard } from './hooks/use-clipboard'
-import { useGravityAd } from './hooks/use-gravity-ad'
 import { useEvent } from './hooks/use-event'
+import { useGravityAd } from './hooks/use-gravity-ad'
 import { useInputHistory } from './hooks/use-input-history'
-import { type QueuedMessage } from './hooks/use-message-queue'
 import { usePublishMutation } from './hooks/use-publish-mutation'
 import { useSendMessage } from './hooks/use-send-message'
 import { useSuggestionEngine } from './hooks/use-suggestion-engine'
 import { useUsageMonitor } from './hooks/use-usage-monitor'
 import { WEBSITE_URL } from './login/constants'
 import { getProjectRoot } from './project-files'
-import { useChatStore } from './state/chat-store'
 import { useChatHistoryStore } from './state/chat-history-store'
+import { useChatStore } from './state/chat-store'
+import { useReviewStore } from './state/review-store'
 import { useFeedbackStore } from './state/feedback-store'
 import { useMessageBlockStore } from './state/message-block-store'
 import { usePublishStore } from './state/publish-store'
-import {
-  addClipboardPlaceholder,
-  addPendingImageFromFile,
-  validateAndAddImage,
-} from './utils/pending-attachments'
+import { reportActivity } from './utils/activity-tracker'
+import { trackEvent } from './utils/analytics'
+import { getClaudeOAuthStatus } from './utils/claude-oauth'
 import { showClipboardMessage } from './utils/clipboard'
 import { readClipboardImage } from './utils/clipboard-image'
 import { getInputModeConfig } from './utils/input-modes'
@@ -63,22 +62,24 @@ import {
   createDefaultChatKeyboardState,
 } from './utils/keyboard-actions'
 import { loadLocalAgents } from './utils/local-agent-registry'
+import { logger } from './utils/logger'
+import {
+  addClipboardPlaceholder,
+  addPendingImageFromFile,
+  validateAndAddImage,
+} from './utils/pending-attachments'
 import { getLoadedSkills } from './utils/skill-registry'
 import {
   getStatusIndicatorState,
   type AuthStatus,
 } from './utils/status-indicator-state'
-import { getClaudeOAuthStatus } from './utils/claude-oauth'
 import { createPasteHandler } from './utils/strings'
-import { computeInputLayoutMetrics } from './utils/text-layout'
-import { reportActivity } from './utils/activity-tracker'
-import { trackEvent } from './utils/analytics'
-import { logger } from './utils/logger'
 import { setTerminalTitle } from './utils/terminal-title'
+import { computeInputLayoutMetrics } from './utils/text-layout'
 
 import type { CommandResult } from './commands/command-registry'
-import type { MatchedSlashCommand } from './hooks/use-suggestion-engine'
 import type { MultilineInputHandle } from './components/multiline-input'
+import type { MatchedSlashCommand } from './hooks/use-suggestion-engine'
 import type { User } from './utils/auth'
 import type { AgentMode } from './utils/constants'
 import type { FileTreeNode } from '@codebuff/common/util/file'
@@ -139,13 +140,10 @@ export const Chat = ({
     setSlashSelectedIndex,
     agentSelectedIndex,
     setAgentSelectedIndex,
-    streamingAgents,
     focusedAgentId,
     setFocusedAgentId,
     messages,
     setMessages,
-    activeSubagents,
-    isChainInProgress,
     agentMode,
     setAgentMode,
     toggleAgentMode,
@@ -173,7 +171,6 @@ export const Chat = ({
   // Use extracted chat messages hook for message tree and pagination
   const {
     messageTree,
-    topLevelMessages,
     visibleTopLevelMessages,
     hiddenMessageCount,
     handleCollapseToggle,
@@ -548,6 +545,7 @@ export const Chat = ({
             { error },
             '[followup-click] onSubmitPrompt failed with error',
           )
+          showClipboardMessage('Failed to send followup', { durationMs: 3000 })
         })
     }
 
@@ -637,6 +635,13 @@ export const Chat = ({
       })),
     )
 
+  const { reviewMode, closeReviewScreen } = useReviewStore(
+    useShallow((state) => ({
+      reviewMode: state.reviewMode,
+      closeReviewScreen: state.closeReviewScreen,
+    })),
+  )
+
   const publishMutation = usePublishMutation()
 
   const handleCommandResult = useCallback(
@@ -667,6 +672,10 @@ export const Chat = ({
 
       if (result.openChatHistory) {
         useChatHistoryStore.getState().openChatHistory()
+      }
+
+      if (result.openReviewScreen) {
+        useReviewStore.getState().openReviewScreen()
       }
     },
     [
@@ -793,6 +802,26 @@ export const Chat = ({
     closePublish()
     setInputFocused(true)
   }, [closePublish, setInputFocused])
+
+  const handleReviewOptionSelect = useCallback(
+    (reviewText: string) => {
+      closeReviewScreen()
+      setInputFocused(true)
+      // Submit the review request
+      onSubmitPrompt(reviewText, agentMode)
+        .then((result) => handleCommandResult(result))
+        .catch((error) => {
+          logger.error({ error }, '[review] Failed to submit review prompt')
+          showClipboardMessage('Failed to send review request', { durationMs: 3000 })
+        })
+    },
+    [closeReviewScreen, setInputFocused, onSubmitPrompt, agentMode, handleCommandResult],
+  )
+
+  const handleCloseReviewScreen = useCallback(() => {
+    closeReviewScreen()
+    setInputFocused(true)
+  }, [closeReviewScreen, setInputFocused])
 
   const handlePublish = useCallback(
     async (agentIds: string[]) => {
@@ -1002,12 +1031,12 @@ export const Chat = ({
         let replacement: string
         const index = agentSelectedIndex
         if (index < agentMatches.length) {
-          const selected = agentMatches[index] || agentMatches[0]
+          const selected = agentMatches.length > 0 ? (agentMatches[index] || agentMatches[0]) : undefined
           if (!selected) return
           replacement = `@${selected.displayName} `
         } else {
           const fileIndex = index - agentMatches.length
-          const selectedFile = fileMatches[fileIndex] || fileMatches[0]
+          const selectedFile = fileMatches.length > 0 ? (fileMatches[fileIndex] || fileMatches[0]) : undefined
           if (!selectedFile) return
           replacement = `@${selectedFile.filePath} `
         }
@@ -1065,12 +1094,20 @@ export const Chat = ({
           }
 
           const cwd = getProjectRoot() ?? process.cwd()
-          void addPendingImageFromFile(result.imagePath, cwd, placeholderPath)
+          addPendingImageFromFile(result.imagePath, cwd, placeholderPath).catch(
+            (error) => {
+              logger.error({ error }, 'Failed to add pending image from file')
+              showClipboardMessage('Failed to add image', { durationMs: 3000 })
+            }
+          )
         }, 0)
       },
       onPasteImagePath: (imagePath: string) => {
         const cwd = getProjectRoot() ?? process.cwd()
-        void validateAndAddImage(imagePath, cwd)
+        validateAndAddImage(imagePath, cwd).catch((error) => {
+          logger.error({ error, imagePath }, 'Failed to validate and add image')
+          showClipboardMessage('Failed to add image', { durationMs: 3000 })
+        })
       },
       onPasteText: (text: string) => {
         setInputValue((prev) => {
@@ -1138,7 +1175,7 @@ export const Chat = ({
   useChatKeyboard({
     state: chatKeyboardState,
     handlers: chatKeyboardHandlers,
-    disabled: askUserState !== null,
+    disabled: askUserState !== null || reviewMode,
   })
 
   // Sync message block context to zustand store for child components
@@ -1369,64 +1406,71 @@ export const Chat = ({
 
         {ad && getAdsEnabled() && <AdBanner ad={ad} />}
 
-        <ChatInputBar
-          inputValue={inputValue}
-          cursorPosition={cursorPosition}
-          setInputValue={setInputValue}
-          inputFocused={inputFocused}
-          inputRef={inputRef}
-          inputPlaceholder={inputPlaceholder}
-          lastEditDueToNav={lastEditDueToNav}
-          agentMode={agentMode}
-          toggleAgentMode={toggleAgentMode}
-          setAgentMode={setAgentMode}
-          hasSlashSuggestions={hasSlashSuggestions}
-          hasMentionSuggestions={hasMentionSuggestions}
-          hasSuggestionMenu={hasSuggestionMenu}
-          slashSuggestionItems={slashSuggestionItems}
-          agentSuggestionItems={agentSuggestionItems}
-          fileSuggestionItems={fileSuggestionItems}
-          slashSelectedIndex={slashSelectedIndex}
-          agentSelectedIndex={agentSelectedIndex}
-          onSlashItemClick={handleSlashItemClick}
-          onMentionItemClick={handleMentionItemClick}
-          theme={theme}
-          terminalHeight={terminalHeight}
-          separatorWidth={separatorWidth}
-          shouldCenterInputVertically={shouldCenterInputVertically}
-          inputBoxTitle={inputBoxTitle}
-          isCompactHeight={isCompactHeight}
-          isNarrowWidth={isNarrowWidth}
-          feedbackMode={feedbackMode}
-          handleExitFeedback={handleExitFeedback}
-          publishMode={publishMode}
-          handleExitPublish={handleExitPublish}
-          handlePublish={handlePublish}
-          handleSubmit={handleSubmit}
-          onPaste={createPasteHandler({
-            text: inputValue,
-            cursorPosition,
-            onChange: setInputValue,
-            onPasteImage: chatKeyboardHandlers.onPasteImage,
-            onPasteImagePath: chatKeyboardHandlers.onPasteImagePath,
-            onPasteLongText: (pastedText) => {
-              const id = crypto.randomUUID()
-              const preview = pastedText.slice(0, 100).replace(/\n/g, ' ')
-              useChatStore.getState().addPendingTextAttachment({
-                id,
-                content: pastedText,
-                preview,
-                charCount: pastedText.length,
-              })
-              // Show temporary status message
-              showClipboardMessage(
-                `📋 Pasted text (${pastedText.length.toLocaleString()} chars)`,
-                { durationMs: 5000 },
-              )
-            },
-            cwd: getProjectRoot() ?? process.cwd(),
-          })}
-        />
+        {reviewMode ? (
+          <ReviewScreen
+            onSelectOption={handleReviewOptionSelect}
+            onCancel={handleCloseReviewScreen}
+          />
+        ) : (
+          <ChatInputBar
+            inputValue={inputValue}
+            cursorPosition={cursorPosition}
+            setInputValue={setInputValue}
+            inputFocused={inputFocused}
+            inputRef={inputRef}
+            inputPlaceholder={inputPlaceholder}
+            lastEditDueToNav={lastEditDueToNav}
+            agentMode={agentMode}
+            toggleAgentMode={toggleAgentMode}
+            setAgentMode={setAgentMode}
+            hasSlashSuggestions={hasSlashSuggestions}
+            hasMentionSuggestions={hasMentionSuggestions}
+            hasSuggestionMenu={hasSuggestionMenu}
+            slashSuggestionItems={slashSuggestionItems}
+            agentSuggestionItems={agentSuggestionItems}
+            fileSuggestionItems={fileSuggestionItems}
+            slashSelectedIndex={slashSelectedIndex}
+            agentSelectedIndex={agentSelectedIndex}
+            onSlashItemClick={handleSlashItemClick}
+            onMentionItemClick={handleMentionItemClick}
+            theme={theme}
+            terminalHeight={terminalHeight}
+            separatorWidth={separatorWidth}
+            shouldCenterInputVertically={shouldCenterInputVertically}
+            inputBoxTitle={inputBoxTitle}
+            isCompactHeight={isCompactHeight}
+            isNarrowWidth={isNarrowWidth}
+            feedbackMode={feedbackMode}
+            handleExitFeedback={handleExitFeedback}
+            publishMode={publishMode}
+            handleExitPublish={handleExitPublish}
+            handlePublish={handlePublish}
+            handleSubmit={handleSubmit}
+            onPaste={createPasteHandler({
+              text: inputValue,
+              cursorPosition,
+              onChange: setInputValue,
+              onPasteImage: chatKeyboardHandlers.onPasteImage,
+              onPasteImagePath: chatKeyboardHandlers.onPasteImagePath,
+              onPasteLongText: (pastedText) => {
+                const id = crypto.randomUUID()
+                const preview = pastedText.slice(0, 100).replace(/\n/g, ' ')
+                useChatStore.getState().addPendingTextAttachment({
+                  id,
+                  content: pastedText,
+                  preview,
+                  charCount: pastedText.length,
+                })
+                // Show temporary status message
+                showClipboardMessage(
+                  `📋 Pasted text (${pastedText.length.toLocaleString()} chars)`,
+                  { durationMs: 5000 },
+                )
+              },
+              cwd: getProjectRoot() ?? process.cwd(),
+            })}
+          />
+        )}
 
         <BottomStatusLine
           isClaudeConnected={isClaudeOAuthActive}

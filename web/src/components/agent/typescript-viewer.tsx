@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
 import { Check, Copy, ExternalLink } from 'lucide-react'
-import { Highlight, themes } from 'prism-react-renderer'
 import Link from 'next/link'
+import { Highlight, themes } from 'prism-react-renderer'
+import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 

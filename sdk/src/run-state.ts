@@ -3,7 +3,6 @@ import path from 'path'
 
 import { getFileTokenScores } from '@codebuff/code-map/parse'
 import {
-  KNOWLEDGE_FILE_NAMES,
   KNOWLEDGE_FILE_NAMES_LOWERCASE,
   isKnowledgeFile,
 } from '@codebuff/common/constants/knowledge'
@@ -319,8 +318,8 @@ export async function loadUserKnowledgeFiles(params: {
   let entries: string[]
   try {
     entries = await fs.readdir(homeDir)
-  } catch {
-    logger.debug?.({ homeDir }, 'Failed to read home directory')
+  } catch (error) {
+    logger.debug?.({ homeDir, error: getErrorObject(error) }, 'Failed to read home directory')
     return userKnowledgeFiles
   }
 
@@ -348,8 +347,8 @@ export async function loadUserKnowledgeFiles(params: {
         userKnowledgeFiles[tildeKey] = content
         // Only use the first file found (highest priority)
         break
-      } catch {
-        logger.debug?.({ filePath }, 'Failed to read user knowledge file')
+      } catch (error) {
+        logger.debug?.({ filePath, error: getErrorObject(error) }, 'Failed to read user knowledge file')
       }
     }
   }

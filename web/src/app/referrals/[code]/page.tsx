@@ -100,7 +100,7 @@ export default async function ReferralPage({
             </p>
             <div className="flex justify-center mt-4">
               <Button asChild>
-                <Link href="/pricing">View Pricing</Link>
+<Link href="/pricing">View Pricing</Link>
               </Button>
             </div>
           </>
@@ -121,7 +121,7 @@ export default async function ReferralPage({
     >
       <CardWithBeams
         title={`${referrerDisplayName} invited you to Codebuff!`}
-        description={`Sign up and you'll both earn ${CREDITS_REFERRAL_BONUS} bonus credits per month.`}
+        description={`Sign up and you'll both earn ${CREDITS_REFERRAL_BONUS} bonus credits.`}
         content={
           <div className="text-center text-muted-foreground">
             Follow the steps below to get started, then redeem your referral

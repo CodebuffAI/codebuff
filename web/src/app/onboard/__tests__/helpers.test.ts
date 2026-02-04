@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
-
 import { genAuthCode } from '@codebuff/common/util/credentials'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+
 
 import { parseAuthCode, validateAuthCode, isAuthCodeExpired } from '../_helpers'
 

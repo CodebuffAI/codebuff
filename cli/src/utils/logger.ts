@@ -1,12 +1,13 @@
 import { appendFileSync, existsSync, mkdirSync, unlinkSync } from 'fs'
 import path, { dirname } from 'path'
 import { format as stringFormat } from 'util'
-import { pino } from 'pino'
 
+
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { env, IS_DEV, IS_TEST, IS_CI } from '@codebuff/common/env'
 import { createAnalyticsDispatcher } from '@codebuff/common/util/analytics-dispatcher'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { getAnalyticsEventId } from '@codebuff/common/util/analytics-log'
+import { pino } from 'pino'
 
 import {
   flushAnalytics,
@@ -36,6 +37,23 @@ const analyticsDispatcher = createAnalyticsDispatcher({
   envName: env.NEXT_PUBLIC_CB_ENVIRONMENT,
   bufferWhenNoUser: true,
 })
+
+/**
+ * Safely stringify an object, handling circular references.
+ * Replaces circular references with '[Circular]' placeholder.
+ */
+function safeStringify(obj: unknown): string {
+  const seen = new WeakSet()
+  return JSON.stringify(obj, (_key, value) => {
+    if (typeof value === 'object' && value !== null) {
+      if (seen.has(value)) {
+        return '[Circular]'
+      }
+      seen.add(value)
+    }
+    return value
+  })
+}
 
 function isEmptyObject(value: any): boolean {
   return (
@@ -162,7 +180,7 @@ function sendAnalyticsAndLog(
   // In dev mode, use appendFileSync for real-time logging (Bun has issues with pino sync)
   // In prod mode, use pino for better performance
   if (IS_DEV && logPath) {
-    const logEntry = JSON.stringify({
+    const logEntry = safeStringify({
       level: level.toUpperCase(),
       timestamp: new Date().toISOString(),
       ...loggerContext,

@@ -1,5 +1,6 @@
 'use client'
 
+import { SignInButton } from '@/components/sign-in/sign-in-button'
 import {
   Card,
   CardContent,
@@ -7,7 +8,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { SignInButton } from '@/components/sign-in/sign-in-button'
 
 export function ProfileLoggedOut() {
   return (

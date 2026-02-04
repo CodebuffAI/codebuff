@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod/v4'
 
-import { extractApiKeyFromHeader } from '@/util/auth'
 
 import { shouldUnclaim } from './_helpers'
 
+import type { LogoutDb } from './_db'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { NextRequest } from 'next/server'
-import type { FingerprintData, LogoutDb } from './_db'
+
+import { extractApiKeyFromHeader } from '@/util/auth'
 
 // Re-export for tests
 export type { LogoutDb } from './_db'

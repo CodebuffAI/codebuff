@@ -1,5 +1,6 @@
 'use client'
 
+import { pluralize } from '@codebuff/common/util/string'
 import {
   BarChart3,
   Download,
@@ -9,7 +10,6 @@ import {
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
-import { pluralize } from '@codebuff/common/util/string'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

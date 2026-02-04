@@ -1,8 +1,8 @@
 import React from 'react'
 
 import { BottomBanner } from './bottom-banner'
-import { useChatStore } from '../state/chat-store'
 import { useTheme } from '../hooks/use-theme'
+import { useChatStore } from '../state/chat-store'
 
 const HELP_TIMEOUT = 60 * 1000 // 60 seconds
 

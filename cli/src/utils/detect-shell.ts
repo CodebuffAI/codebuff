@@ -1,7 +1,8 @@
 import { execSync } from 'child_process'
 
-import type { CliEnv } from '../types/env'
 import { getCliEnv } from './env'
+
+import type { CliEnv } from '../types/env'
 
 type KnownShell =
   | 'bash'

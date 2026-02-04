@@ -5,7 +5,7 @@ import {
   saveMessageHistory,
 } from '../utils/message-history'
 
-import type { InputValue } from '../state/chat-store'
+import type { InputValue } from '../types/store'
 import type { InputMode } from '../utils/input-modes'
 
 /**

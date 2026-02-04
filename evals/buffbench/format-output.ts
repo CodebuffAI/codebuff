@@ -164,7 +164,7 @@ export function formatTraceAnalysis(params: {
     recommendations: string[]
   }>
 }): string {
-  const { commit, overallAnalysis, agentFeedback } = params
+  const { overallAnalysis, agentFeedback } = params
 
   const lines: string[] = []
   const separator = '='.repeat(80)
@@ -172,7 +172,7 @@ export function formatTraceAnalysis(params: {
 
   lines.push('')
   lines.push(separator)
-  lines.push(`TRACE ANALYSIS: ${commit.id} (${commit.sha.slice(0, 7)})`)
+  lines.push(`TRACE ANALYSIS`)
   lines.push(separator)
   lines.push('')
 

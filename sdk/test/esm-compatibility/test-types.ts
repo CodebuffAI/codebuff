@@ -1,15 +1,17 @@
 // Test TypeScript type resolution in ESM environment
-import type {
-  CodebuffClient,
-  CustomToolDefinition,
-  RunState,
-} from '@codebuff/sdk'
 import {
   CodebuffClient as ClientClass,
   getCustomToolDefinition,
 } from '@codebuff/sdk'
 import * as FullSDK from '@codebuff/sdk'
-;(async () => {
+;
+
+import type {
+  CodebuffClient,
+  CustomToolDefinition,
+  RunState,
+} from '@codebuff/sdk'
+(async () => {
   // Test 1: Type imports work correctly
   const testClient: CodebuffClient = {} as any
   const testTool: CustomToolDefinition = {} as any

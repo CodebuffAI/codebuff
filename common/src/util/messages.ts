@@ -1,5 +1,7 @@
+import { modelMessageSchema } from 'ai'
 import { cloneDeep, has, isEqual } from 'lodash'
 
+import type { Logger } from '../types/contracts/logger'
 import type { JSONValue } from '../types/json'
 import type {
   AssistantMessage,
@@ -11,7 +13,6 @@ import type {
 } from '../types/messages/codebuff-message'
 import type { ToolResultOutput } from '../types/messages/content-part'
 import type { ProviderMetadata } from '../types/messages/provider-metadata'
-import { modelMessageSchema } from 'ai'
 import type {
   AssistantModelMessage,
   ModelMessage,
@@ -19,12 +20,16 @@ import type {
   ToolModelMessage,
   UserModelMessage,
 } from 'ai'
-import { Logger } from '../types/contracts/logger'
+
 
 export function toContentString(msg: ModelMessage): string {
   const { content } = msg
   if (typeof content === 'string') return content
-  return content.map((item) => (item as any)?.text ?? '').join('\n')
+  return content
+    .map((item) =>
+      item && 'text' in item && typeof item.text === 'string' ? item.text : '',
+    )
+    .join('\n')
 }
 
 export function withCacheControl<
@@ -137,8 +142,9 @@ function convertToolResultMessage(
       })
     }
     c satisfies never
-    const cAny = c as any
-    throw new Error(`Invalid tool output type: ${cAny.type}`)
+    throw new Error(
+      `Invalid tool output type: ${(c as { type: unknown }).type}`,
+    )
   })
 }
 
@@ -174,8 +180,9 @@ function convertToolMessage(message: Message): ModelMessageWithAuxiliaryData[] {
     return convertToolResultMessage(message)
   }
   message satisfies never
-  const messageAny = message as any
-  throw new Error(`Invalid message role: ${messageAny.role}`)
+  throw new Error(
+    `Invalid message role: ${(message as { role: unknown }).role}`,
+  )
 }
 
 function convertToolMessages(

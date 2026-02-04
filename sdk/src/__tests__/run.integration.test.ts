@@ -1,9 +1,10 @@
+import * as mainPromptModule from '@codebuff/agent-runtime/main-prompt'
+import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 
-import { assistantMessage, userMessage } from '@codebuff/common/util/messages'
 import { CodebuffClient } from '../client'
 import * as databaseModule from '../impl/database'
-import * as mainPromptModule from '@codebuff/agent-runtime/main-prompt'
+
 
 describe('Prompt Caching', () => {
   afterEach(() => {
@@ -15,7 +16,7 @@ describe('Prompt Caching', () => {
     async () => {
       spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
         id: 'user-123',
-      } as any)
+      } as Awaited<ReturnType<typeof databaseModule.getUserInfoFromApiKey>>)
 
       spyOn(mainPromptModule, 'callMainPrompt').mockImplementation(
         async (params) => {

@@ -6,7 +6,7 @@ import {
   type SecretAgentDefinition,
 } from '../../types/secret-agent-definition'
 
-import type { ToolCall } from 'types/agent-definition'
+import type { ToolCall } from '../../../agents/types/agent-definition'
 
 export const createBase2WithTaskResearcher: () => Omit<
   SecretAgentDefinition,

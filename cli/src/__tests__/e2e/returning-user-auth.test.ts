@@ -16,6 +16,7 @@ import {
 import { validateApiKey } from '../../hooks/use-auth-query'
 import * as AuthModule from '../../utils/auth'
 import { getAuthTokenDetails, saveUserCredentials } from '../../utils/auth'
+
 import type { GetUserInfoFromApiKeyFn } from '@codebuff/common/types/contracts/database'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 

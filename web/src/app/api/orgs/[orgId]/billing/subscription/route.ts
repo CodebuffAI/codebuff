@@ -17,6 +17,8 @@ interface RouteParams {
 }
 
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
+  // NOTE: Subscription cancellation is allowed even when org billing is disabled
+  // Users must be able to cancel existing subscriptions
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

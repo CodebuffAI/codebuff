@@ -1,13 +1,14 @@
-import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
-import { createPostgresError } from '@codebuff/common/testing/errors'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import * as analyticsModule from '@codebuff/common/analytics'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { createPostgresError } from '@codebuff/common/testing/errors'
+import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
 
+import * as dbModule from '../index'
 import {
   getRetryableErrorDescription,
   isRetryablePostgresError,
 } from '../transaction'
-import * as dbModule from '../index'
+
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 describe('transaction error handling', () => {
@@ -1037,7 +1038,7 @@ describe('withAdvisoryLockTransaction', () => {
     it('should emit ADVISORY_LOCK_CONTENTION event when lock wait exceeds 3s', async () => {
       // Mock Date.now to simulate a 3.5s lock wait
       let callCount = 0
-      const originalDateNow = Date.now
+      const _originalDateNow = Date.now
       const dateNowSpy = spyOn(Date, 'now').mockImplementation(() => {
         callCount++
         // First call: lock start time (0ms)

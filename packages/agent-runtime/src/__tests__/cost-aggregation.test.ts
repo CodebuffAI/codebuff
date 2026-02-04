@@ -51,9 +51,11 @@ describe('Cost Aggregation System', () => {
       'test-agent': mockAgentTemplate,
     }
 
+    const baseParams = createTestAgentRuntimeParams()
     params = {
-      ...createTestAgentRuntimeParams(),
+      ...baseParams,
       agentTemplate: mockAgentTemplate,
+      agentState: getInitialAgentState(),
       ancestorRunIds: [],
       clientSessionId: 'test-session',
       fileContext: mockFileContext,
@@ -64,7 +66,11 @@ describe('Cost Aggregation System', () => {
       repoUrl: undefined,
       signal: new AbortController().signal,
       system: 'Test system prompt',
-      tools: {},
+      toolCall: {
+        toolName: 'spawn_agents' as const,
+        toolCallId: 'test-call',
+        input: { agents: [] },
+      },
       userId: 'test-user',
       userInputId: 'test-input',
       writeToClient: () => {},
@@ -128,7 +134,7 @@ describe('Cost Aggregation System', () => {
       }
 
       // Mock executeAgent to return results with different credit costs
-      const mockExecuteAgent = spyOn(spawnAgentUtils, 'executeSubagent')
+      const _mockExecuteAgent = spyOn(spawnAgentUtils, 'executeSubagent')
         .mockResolvedValueOnce({
           agentState: {
             ...getInitialAgentState(),
@@ -175,59 +181,47 @@ describe('Cost Aggregation System', () => {
 
       // Parent should have aggregated costs: original 50 + subagent 75 + subagent 100 = 225
       expect(parentAgentState.creditsUsed).toBe(225)
-      expect(mockExecuteAgent).toHaveBeenCalledTimes(2)
+      expect(_mockExecuteAgent).toHaveBeenCalledTimes(2)
     })
 
     it('should aggregate partial costs from failed subagents', async () => {
-      const parentAgentState: AgentState = {
-        ...getInitialAgentState(),
-        agentId: 'parent-agent',
-        agentType: 'test-agent',
-        stepsRemaining: 10,
-        creditsUsed: 10, // Parent starts with some cost
-      }
+    const parentAgentState: AgentState = {
+      ...getInitialAgentState(),
+      agentId: 'parent-agent',
+      agentType: 'test-agent',
+      stepsRemaining: 10,
+      creditsUsed: 10, // Parent starts with some cost
+    }
 
-      const mockValidatedState = {
-        fingerprintId: 'test-fingerprint',
-        userId: 'test-user',
-        agentTemplate: mockAgentTemplate,
-        localAgentTemplates: mockLocalAgentTemplates,
-        messages: [],
-        sendSubagentChunk: () => {},
-        system: 'Test system prompt',
-      }
-
-      // Mock executeAgent to return success and failure with partial costs
-      const mockExecuteAgent = spyOn(spawnAgentUtils, 'executeSubagent')
-        .mockResolvedValueOnce({
-          agentState: {
+    // Mock executeAgent to return success and failure with partial costs
+    const mockExecuteAgent2 = spyOn(spawnAgentUtils, 'executeSubagent')
+      .mockResolvedValueOnce({
+        agentState: {
+          ...getInitialAgentState(),
+          agentId: 'sub-agent-1',
+          agentType: 'test-agent',
+          stepsRemaining: 10,
+          creditsUsed: 50, // Successful agent
+        },
+        output: {
+          type: 'lastMessage',
+          value: [assistantMessage('Successful response')],
+        },
+      })
+      .mockRejectedValueOnce(
+        (() => {
+          const error = new Error('Agent failed') as Error & { agentState?: AgentState; output?: unknown }
+          error.agentState = {
             ...getInitialAgentState(),
-            agentId: 'sub-agent-1',
+            agentId: 'sub-agent-2',
             agentType: 'test-agent',
             stepsRemaining: 10,
-            creditsUsed: 50, // Successful agent
-          },
-          output: {
-            type: 'lastMessage',
-            value: [assistantMessage('Successful response')],
-          },
-        })
-        .mockRejectedValueOnce(
-          (() => {
-            const error = new Error('Agent failed') as any
-            error.agentState = {
-              agentId: 'sub-agent-2',
-              agentType: 'test-agent',
-              agentContext: {},
-              subagents: [],
-              messageHistory: [],
-              stepsRemaining: 10,
-              creditsUsed: 25, // Partial cost from failed agent
-            }
-            error.output = { type: 'error', message: 'Agent failed' }
-            return error
-          })(),
-        )
+            creditsUsed: 25, // Partial cost from failed agent
+          }
+          error.output = { type: 'error', message: 'Agent failed' }
+          return error
+        })(),
+      )
 
       const mockToolCall = {
         toolName: 'spawn_agents' as const,
@@ -248,6 +242,7 @@ describe('Cost Aggregation System', () => {
 
       // Parent should aggregate costs: original 10 + successful subagent 50 + failed subagent 25 = 85
       expect(parentAgentState.creditsUsed).toBe(85)
+      expect(mockExecuteAgent2).toHaveBeenCalledTimes(2)
     })
   })
 
@@ -338,16 +333,7 @@ describe('Cost Aggregation System', () => {
       mainAgentState.creditsUsed = baseAgentCost
 
       // Mock subagent spawning that adds their costs
-      const mockValidatedState = {
-        fingerprintId: 'test-fingerprint',
-        userId: 'test-user',
-        agentTemplate: mockAgentTemplate,
-        localAgentTemplates: mockLocalAgentTemplates,
-        messages: [],
-        sendSubagentChunk: () => {},
-      }
-
-      const mockExecuteAgent = spyOn(spawnAgentUtils, 'executeSubagent')
+    const mockExecuteAgent3 = spyOn(spawnAgentUtils, 'executeSubagent')
         .mockResolvedValueOnce({
           agentState: {
             ...getInitialAgentState(),
@@ -402,6 +388,7 @@ describe('Cost Aggregation System', () => {
       expect(mainAgentState.creditsUsed).toBe(
         Math.floor(mainAgentState.creditsUsed),
       ) // Should be integer
+      expect(mockExecuteAgent3).toHaveBeenCalledTimes(2)
     })
   })
 })

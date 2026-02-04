@@ -1,8 +1,8 @@
 import { base } from './base-factory.ts'
+import { baseAgentAgentStepPrompt } from './base-prompts.ts'
 import { publisher } from '../../agents/constants.ts'
 
 import type { SecretAgentDefinition } from '../../agents/types/secret-agent-definition.ts'
-import { baseAgentAgentStepPrompt } from './base-prompts.ts'
 
 const definition: SecretAgentDefinition = {
   id: 'base-lite',

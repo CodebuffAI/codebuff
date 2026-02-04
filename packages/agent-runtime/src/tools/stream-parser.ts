@@ -90,6 +90,8 @@ export async function processStream(
   const toolResultsToAddAfterStream: ToolMessage[] = []
   const toolCalls: (CodebuffToolCall | CustomToolCall)[] = []
   const assistantMessages: Message[] = []
+  let hadToolCallError = false
+  const errorMessages: Message[] = []
   const { promise: streamDonePromise, resolve: resolveStreamDonePromise } =
     Promise.withResolvers<void>()
   let previousToolCallFinished = streamDonePromise
@@ -120,6 +122,15 @@ export async function processStream(
             content: chunk.output,
           }
           assistantMessages.push(toolResultMessage)
+        } else if (chunk.type === 'error') {
+          hadToolCallError = true
+          errorMessages.push(
+            userMessage(
+              withSystemTags(
+                `Error during tool call: ${chunk.message}. Please check the tool name and arguments and try again.`,
+              ),
+            ),
+          )
         }
       }
       return onResponseChunk(chunk)
@@ -130,10 +141,7 @@ export async function processStream(
   // Unified callback factory for both native and custom tools.
   // isXmlMode=true: execute immediately, capture results inline (for XML tool calls)
   // isXmlMode=false: defer execution, results added at end (for native tool calls)
-  function createToolExecutionCallback(
-    toolName: string,
-    isXmlMode: boolean,
-  ) {
+  function createToolExecutionCallback(toolName: string, isXmlMode: boolean) {
     const responseHandler = createResponseHandler(isXmlMode)
     const resultsArray = isXmlMode ? [] : toolResultsToAddAfterStream
 
@@ -158,9 +166,10 @@ export async function processStream(
         // Read previousToolCallFinished at execution time to ensure proper sequential chaining.
         // For XML mode, if this is the first tool call (still pointing to streamDonePromise),
         // start with a resolved promise so we don't wait for the stream to complete.
-        const previousPromise = isXmlMode && previousToolCallFinished === streamDonePromise
-          ? Promise.resolve()
-          : previousToolCallFinished
+        const previousPromise =
+          isXmlMode && previousToolCallFinished === streamDonePromise
+            ? Promise.resolve()
+            : previousToolCallFinished
 
         // Determine which executor to use and with what parameters
         let toolPromise: Promise<void>
@@ -168,7 +177,9 @@ export async function processStream(
           // Use executeToolCall for native tools or transformed agent calls
           toolPromise = executeToolCall({
             ...params,
-            toolName: transformed ? transformed.toolName : (toolName as ToolName),
+            toolName: transformed
+              ? transformed.toolName
+              : (toolName as ToolName),
             input: transformed ? transformed.input : input,
             fromHandleSteps: false,
             skipDirectResultPush: isXmlMode,
@@ -214,12 +225,17 @@ export async function processStream(
   const streamWithTags = processStreamWithTools({
     ...params,
     processors: Object.fromEntries([
-      ...toolNames.map((name) => [name, createToolExecutionCallback(name, false)]),
-      ...Object.keys(fileContext.customToolDefinitions ?? {}).map(
-        (name) => [name, createToolExecutionCallback(name, false)],
-      ),
+      ...toolNames.map((name) => [
+        name,
+        createToolExecutionCallback(name, false),
+      ]),
+      ...Object.keys(fileContext.customToolDefinitions ?? {}).map((name) => [
+        name,
+        createToolExecutionCallback(name, false),
+      ]),
     ]),
-    defaultProcessor: (name: string) => createToolExecutionCallback(name, false),
+    defaultProcessor: (name: string) =>
+      createToolExecutionCallback(name, false),
     onError: (toolName, error) => {
       const toolResult: ToolMessage = {
         role: 'tool',
@@ -245,7 +261,7 @@ export async function processStream(
       } else {
         chunk satisfies never
         throw new Error(
-          `Internal error: unhandled chunk type: ${(chunk as any).type}`,
+          `Internal error: unhandled chunk type: ${(chunk as { type: unknown }).type}`,
         )
       }
       return onResponseChunk(chunk)
@@ -262,8 +278,6 @@ export async function processStream(
 
   // === STREAM CONSUMPTION LOOP ===
   let messageId: string | null = null
-  let hadToolCallError = false
-  const errorMessages: Message[] = []
 
   while (true) {
     if (signal.aborted) {
@@ -271,7 +285,12 @@ export async function processStream(
     }
     const { value: chunk, done } = await streamWithTags.next()
     if (done) {
-      messageId = chunk
+      // Handle PromptResult: extract value if success, null if aborted
+      if (chunk && typeof chunk === 'object' && 'aborted' in chunk) {
+        messageId = chunk.aborted ? null : chunk.value
+      } else {
+        messageId = chunk
+      }
       break
     }
 
@@ -302,7 +321,9 @@ export async function processStream(
       // Tool call handling is done in the processor's onResponseChunk
     } else {
       chunk satisfies never
-      throw new Error(`Unhandled chunk type: ${(chunk as any).type}`)
+      throw new Error(
+        `Unhandled chunk type: ${(chunk as { type: unknown }).type}`,
+      )
     }
   }
 

@@ -193,7 +193,7 @@ export const BrowserNavigateActionSchema =
     OptionalNavigateConfigSchema,
   )
 
-const RangeSchema = z.object({
+const _RangeSchema = z.object({
   min: z.number(),
   max: z.number(),
 })

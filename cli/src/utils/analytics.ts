@@ -88,16 +88,18 @@ function logAnalyticsDebug(message: string, data: Record<string, unknown>) {
   if (!DEBUG_ANALYTICS) {
     return
   }
-  void loadLogger()
+  loadLogger()
     .then(({ logger }) => {
       logger.debug(data, message)
     })
-    .catch(() => {
+    .catch((error) => {
       try {
         console.debug(message, data)
       } catch {
         // Ignore console errors in restricted environments
       }
+      // Log the error to help diagnose logger issues in debug mode
+      console.debug('Failed to load logger for analytics:', error)
     })
 }
 

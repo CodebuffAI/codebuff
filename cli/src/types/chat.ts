@@ -10,6 +10,8 @@ import type { ReactNode } from 'react'
 
 export type ChatVariant = 'ai' | 'user' | 'agent' | 'error'
 
+export type ThinkingCollapseState = 'expanded' | 'preview' | 'hidden'
+
 export type TextContentBlock = {
   type: 'text'
   content: string
@@ -23,6 +25,7 @@ export type TextContentBlock = {
   userOpened?: boolean
   /** True if this is a reasoning block from a <think> tag that hasn't been closed yet */
   thinkingOpen?: boolean
+  thinkingCollapseState?: ThinkingCollapseState
 }
 /** Renders dynamic React content. NOT serializable - don't use for persistent data. */
 export type HtmlContentBlock = {

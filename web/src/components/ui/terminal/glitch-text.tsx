@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
+
 import { cn } from '@/lib/utils'
 
 interface GlitchTextProps {

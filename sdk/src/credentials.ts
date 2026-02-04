@@ -2,8 +2,8 @@ import fs from 'fs'
 import path from 'node:path'
 import os from 'os'
 
-import { env } from '@codebuff/common/env'
 import { CLAUDE_OAUTH_CLIENT_ID } from '@codebuff/common/constants/claude-oauth'
+import { env } from '@codebuff/common/env'
 import { userSchema } from '@codebuff/common/util/credentials'
 import { z } from 'zod/v4'
 

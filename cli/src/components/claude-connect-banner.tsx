@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 
 import { BottomBanner } from './bottom-banner'
 import { Button } from './button'
+import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
 import {
   openOAuthInBrowser,
@@ -9,7 +10,6 @@ import {
   disconnectClaudeOAuth,
   getClaudeOAuthStatus,
 } from '../utils/claude-oauth'
-import { useTheme } from '../hooks/use-theme'
 
 type FlowState =
   | 'checking'
@@ -112,6 +112,10 @@ export const ClaudeConnectBanner = () => {
             Sign in with your Claude account in the browser, then paste the code
             here.
           </text>
+          <text style={{ fg: theme.muted, marginTop: 1 }}>
+            Note: Using your Claude Pro/Max subscription in Codebuff is not
+            officially supported by Anthropic.
+          </text>
         </box>
       </BottomBanner>
     )
@@ -135,6 +139,10 @@ export const ClaudeConnectBanner = () => {
             </text>
           </Button>
         </box>
+        <text style={{ fg: theme.warning, marginTop: 1 }}>
+          Using your Claude Pro/Max subscription in Codebuff is not officially
+          supported by Anthropic.
+        </text>
       </box>
     </BottomBanner>
   )

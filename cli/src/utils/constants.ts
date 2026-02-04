@@ -85,6 +85,7 @@ export const shouldCollapseForParent = (
 export const SIMPLE_TEXT_AGENT_IDS = [
   'best-of-n-selector',
   'best-of-n-selector-gemini',
+  'best-of-n-selector2',
 ] as const
 
 /**
@@ -94,6 +95,16 @@ export const shouldRenderAsSimpleText = (agentType: string): boolean => {
   return SIMPLE_TEXT_AGENT_IDS.some((simpleTextId) =>
     agentType.includes(simpleTextId),
   )
+}
+
+// Agent IDs that show progress-focused previews (multi-prompt editors)
+export const MULTI_PROMPT_EDITOR_IDS = ['editor-multi-prompt'] as const
+
+/**
+ * Check if an agent should show progress-focused preview when collapsed
+ */
+export const isMultiPromptEditor = (agentType: string): boolean => {
+  return MULTI_PROMPT_EDITOR_IDS.some((id) => agentType.includes(id))
 }
 
 /**

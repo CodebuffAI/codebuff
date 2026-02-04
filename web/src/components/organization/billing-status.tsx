@@ -1,5 +1,6 @@
 'use client'
 
+import { pluralize } from '@codebuff/common/util/string'
 import { useQuery } from '@tanstack/react-query'
 import {
   CreditCard,
@@ -9,7 +10,6 @@ import {
   CheckCircle,
 } from 'lucide-react'
 
-import { pluralize } from '@codebuff/common/util/string'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

@@ -3,6 +3,7 @@ import {
   PLACEHOLDER,
   type SecretAgentDefinition,
 } from '../agents/types/secret-agent-definition'
+
 import type { AssistantMessage } from '../agents/types/util-types'
 
 const definition: SecretAgentDefinition = {

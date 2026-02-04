@@ -44,7 +44,7 @@ describe('Spawn Agents Permissions', () => {
     inputSchema: {
       prompt: {
         safeParse: () => ({ success: true }),
-      } as any,
+      } as unknown as AgentTemplate['inputSchema']['prompt'],
     },
     spawnerPrompt: '',
     model: '',

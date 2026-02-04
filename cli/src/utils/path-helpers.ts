@@ -1,9 +1,10 @@
 import os from 'os'
 import path from 'path'
 
-import type { CliEnv } from '../types/env'
 import { getCliEnv } from './env'
 import { getProjectRoot } from '../project-files'
+
+import type { CliEnv } from '../types/env'
 
 /**
  * Format a path for display, replacing home directory with ~

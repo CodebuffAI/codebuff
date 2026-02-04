@@ -1,4 +1,3 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import {
   existsSync,
   mkdirSync,
@@ -9,6 +8,8 @@ import {
 } from 'fs'
 import os from 'os'
 import path from 'path'
+
+import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 
 /**
  * Tests for useDirectoryBrowser hook logic.

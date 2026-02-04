@@ -6,6 +6,12 @@ import { Calendar } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
+import { AgentUsageMetrics } from './agent-usage-metrics'
+import { CopyIdButton } from './copy-id-button'
+import { RunAgentButton } from './run-agent-button'
+import { SaveAgentButton } from './save-agent-button'
+import { VersionUsageBadge } from './version-usage-badge'
+
 import { AgentDependencyTree } from '@/components/agent/agent-dependency-tree'
 import { TypeScriptViewer } from '@/components/agent/typescript-viewer'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -14,13 +20,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { getCachedAgentsForStaticParams } from '@/server/agents-data'
 
-import { AgentUsageMetrics } from './agent-usage-metrics'
-import { CopyIdButton } from './copy-id-button'
-import { RunAgentButton } from './run-agent-button'
-import { SaveAgentButton } from './save-agent-button'
-import { VersionUsageBadge } from './version-usage-badge'
 
 interface AgentDetailPageProps {
   params: Promise<{
@@ -467,17 +467,5 @@ const AgentDetailPage = async ({ params }: AgentDetailPageProps) => {
 
 // ISR Configuration - revalidate every 10 minutes
 export const revalidate = 600
-
-// Generate static params for all agent versions
-export async function generateStaticParams(): Promise<
-  Array<{ id: string; agentId: string; version: string }>
-> {
-  const agents = await getCachedAgentsForStaticParams()
-  return agents.map((agent) => ({
-    id: agent.publisher_id,
-    agentId: agent.id,
-    version: agent.version,
-  }))
-}
 
 export default AgentDetailPage

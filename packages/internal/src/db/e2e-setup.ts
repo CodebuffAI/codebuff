@@ -1,14 +1,14 @@
-import path from 'path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath, URL } from 'node:url'
+import path from 'path'
 
+import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
-import { eq } from 'drizzle-orm'
 import postgres from 'postgres'
 
-import * as schema from './schema'
 import { getE2EDatabaseUrl } from './e2e-constants'
+import * as schema from './schema'
 
 const databaseUrl = getE2EDatabaseUrl()
 

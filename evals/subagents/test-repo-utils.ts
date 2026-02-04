@@ -1,7 +1,8 @@
-import fs from 'fs'
-import path from 'path'
-import * as os from 'os'
 import { execSync } from 'child_process'
+import fs from 'fs'
+import * as os from 'os'
+import path from 'path'
+
 import { getErrorObject } from '@codebuff/common/util/error'
 
 /**

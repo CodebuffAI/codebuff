@@ -72,7 +72,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Member not found' }, { status: 404 })
     }
 
-    const { role: targetRole, email: targetEmail } = targetMembership[0]
+    const { role: targetRole, email: _targetEmail } = targetMembership[0]
 
     // Only owners can change owner roles
     if (targetRole === 'owner') {

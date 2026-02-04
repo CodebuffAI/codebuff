@@ -77,7 +77,7 @@ export const TerminalCommandDisplay = ({
   }
 
   // With output - calculate visual lines
-  const width = Math.max(10, Math.min(contentMaxWidth - padding * 2, 120))
+  const width = Math.max(10, contentMaxWidth - padding * 2)
   const allLines = output.split('\n')
 
   // Calculate total visual lines across all output lines

@@ -239,11 +239,13 @@ export const ToolCallItem = ({
                 paddingRight: 0,
                 paddingTop: 0,
                 paddingBottom: 0,
+                width: '100%',
               }}
             >
               <text
                 fg={isStreaming ? theme.foreground : theme.muted}
                 attributes={getAttributes(TextAttributes.ITALIC)}
+                style={{ wrapMode: 'word' }}
               >
                 {collapsedPreviewText}
               </text>

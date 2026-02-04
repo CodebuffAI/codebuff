@@ -4,9 +4,10 @@
  * Uses node-canvas to render terminal content as frames and gif-encoder-2 to encode.
  */
 
+import path from 'path'
+
 import { createCanvas } from 'canvas'
 import GIFEncoder from 'gif-encoder-2'
-import path from 'path'
 
 import type { SessionData, Capture } from './types'
 import type { CanvasRenderingContext2D } from 'canvas'

@@ -1,6 +1,7 @@
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { models, PROFIT_MARGIN } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
-import { getErrorObject } from '@codebuff/common/util/error'
+import { getErrorObject, promptAborted, promptSuccess } from '@codebuff/common/util/error'
 import { convertCbToModelMessages } from '@codebuff/common/util/messages'
 import { isExplicitlyDefinedModel } from '@codebuff/common/util/model-utils'
 import { StopSequenceHandler } from '@codebuff/common/util/stop-sequence'
@@ -15,7 +16,6 @@ import {
   TypeValidationError,
 } from 'ai'
 
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { getModelForRequest, markClaudeOAuthRateLimited, fetchClaudeOAuthResetTime } from './model-provider'
 import { getValidClaudeOAuthCredentials } from '../credentials'
 import { getErrorStatusCode } from '../error-utils'
@@ -199,7 +199,7 @@ export async function* promptAiSdkStream(
       },
       'Skipping stream due to canceled user input',
     )
-    return null
+    return promptAborted('User cancelled input')
   }
 
   const modelParams: ModelRequestParams = {
@@ -350,7 +350,6 @@ export async function* promptAiSdkStream(
     },
   })
 
-  let content = ''
   const stopSequenceHandler = new StopSequenceHandler(params.stopSequences)
 
   // Track if we've yielded any content - if so, we can't safely fall back
@@ -361,7 +360,6 @@ export async function* promptAiSdkStream(
       const flushed = stopSequenceHandler.flush()
       if (flushed) {
         hasYieldedContent = true
-        content += flushed
         yield {
           type: 'text',
           text: flushed,
@@ -509,7 +507,6 @@ export async function* promptAiSdkStream(
     }
     if (chunkValue.type === 'text-delta') {
       if (!params.stopSequences) {
-        content += chunkValue.text
         if (chunkValue.text) {
           hasYieldedContent = true
           yield {
@@ -524,7 +521,6 @@ export async function* promptAiSdkStream(
       const stopSequenceResult = stopSequenceHandler.process(chunkValue.text)
       if (stopSequenceResult.text) {
         hasYieldedContent = true
-        content += stopSequenceResult.text
         yield {
           type: 'text',
           text: stopSequenceResult.text,
@@ -538,7 +534,6 @@ export async function* promptAiSdkStream(
   }
   const flushed = stopSequenceHandler.flush()
   if (flushed) {
-    content += flushed
     yield {
       type: 'text',
       text: flushed,
@@ -574,7 +569,7 @@ export async function* promptAiSdkStream(
     }
   }
 
-  return messageId
+  return promptSuccess(messageId)
 }
 
 export async function promptAiSdk(
@@ -590,7 +585,7 @@ export async function promptAiSdk(
       },
       'Skipping prompt due to canceled user input',
     )
-    return ''
+    return promptAborted('User cancelled input')
   }
 
   const modelParams: ModelRequestParams = {
@@ -632,7 +627,7 @@ export async function promptAiSdk(
     )
   }
 
-  return content
+  return promptSuccess(content)
 }
 
 export async function promptAiSdkStructured<T>(
@@ -648,7 +643,7 @@ export async function promptAiSdkStructured<T>(
       },
       'Skipping structured prompt due to canceled user input',
     )
-    return {} as T
+    return promptAborted('User cancelled input')
   }
   const modelParams: ModelRequestParams = {
     apiKey: params.apiKey,
@@ -691,5 +686,5 @@ export async function promptAiSdkStructured<T>(
     )
   }
 
-  return content
+  return promptSuccess(content)
 }

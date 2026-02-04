@@ -1,10 +1,10 @@
 import type { AgentMode } from './constants'
+import type { MessageUpdater } from './message-updater'
 import type {
   EventHandlerState,
   SetStreamingAgentsFn,
   SetStreamStatusFn,
 } from './sdk-event-handlers'
-import type { MessageUpdater } from './message-updater'
 import type { StreamController } from '../hooks/stream-state'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { MutableRefObject } from 'react'

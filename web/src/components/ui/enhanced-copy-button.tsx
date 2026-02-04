@@ -1,10 +1,10 @@
 'use client'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { motion } from 'framer-motion'
 import { Check, Copy, Terminal } from 'lucide-react'
 import posthog from 'posthog-js'
 import { forwardRef, useState } from 'react'
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 
 import { BlockColor } from './decorative-blocks'
 
@@ -56,9 +56,10 @@ export const EnhancedCopyButton = forwardRef<
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           style={{ color: BlockColor.AcidMatrix }}
-          className="flex items-center"
+          className="flex items-center gap-1"
         >
           <Check size={16} />
+          <span className="text-xs font-medium">Copied!</span>
         </motion.div>
       ) : (
         <Copy size={16} />

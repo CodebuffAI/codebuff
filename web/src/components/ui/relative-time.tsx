@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+
 import { formatRelativeTime } from '@/lib/date-utils'
 
 interface RelativeTimeProps {

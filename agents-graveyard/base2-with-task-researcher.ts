@@ -3,8 +3,8 @@ import { buildArray } from '@codebuff/common/util/array'
 import { publisher } from '../agents/constants'
 import { type SecretAgentDefinition } from '../agents/types/secret-agent-definition'
 
-import type { ToolCall } from 'types/agent-definition'
-import type { UserMessage } from 'types/util-types'
+import type { ToolCall } from '../agents/types/agent-definition'
+import type { UserMessage } from '../agents/types/util-types'
 
 export const createBase2WithTaskResearcher: () => Omit<
   SecretAgentDefinition,

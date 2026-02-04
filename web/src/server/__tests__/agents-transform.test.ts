@@ -1,5 +1,13 @@
 import { describe, it, expect } from '@jest/globals'
-import { buildAgentsData, type AgentRow } from '../agents-transform'
+
+import {
+  buildAgentsData,
+  type AgentRow,
+  type UsageMetricRow,
+  type WeeklyMetricRow,
+  type PerVersionMetricRow,
+  type PerVersionWeeklyMetricRow,
+} from '../agents-transform'
 
 describe('buildAgentsData', () => {
   it('dedupes by latest and merges metrics + sorts by weekly_spent', () => {
@@ -43,7 +51,7 @@ describe('buildAgentsData', () => {
       },
     ]
 
-    const usageMetrics = [
+    const usageMetrics: UsageMetricRow[] = [
       {
         publisher_id: 'codebuff',
         agent_name: 'Base',
@@ -64,7 +72,7 @@ describe('buildAgentsData', () => {
       },
     ]
 
-    const weeklyMetrics = [
+    const weeklyMetrics: WeeklyMetricRow[] = [
       {
         publisher_id: 'codebuff',
         agent_name: 'Base',
@@ -79,7 +87,7 @@ describe('buildAgentsData', () => {
       },
     ]
 
-    const perVersionMetrics = [
+    const perVersionMetrics: PerVersionMetricRow[] = [
       {
         publisher_id: 'codebuff',
         agent_name: 'base',
@@ -92,7 +100,7 @@ describe('buildAgentsData', () => {
       },
     ]
 
-    const perVersionWeeklyMetrics = [
+    const perVersionWeeklyMetrics: PerVersionWeeklyMetricRow[] = [
       {
         publisher_id: 'codebuff',
         agent_name: 'base',
@@ -104,10 +112,10 @@ describe('buildAgentsData', () => {
 
     const out = buildAgentsData({
       agents,
-      usageMetrics: usageMetrics as any,
-      weeklyMetrics: weeklyMetrics as any,
-      perVersionMetrics: perVersionMetrics as any,
-      perVersionWeeklyMetrics: perVersionWeeklyMetrics as any,
+      usageMetrics,
+      weeklyMetrics,
+      perVersionMetrics,
+      perVersionWeeklyMetrics,
     })
 
     // should have deduped to two agents
@@ -131,7 +139,7 @@ describe('buildAgentsData', () => {
   })
 
   it('handles missing metrics gracefully and normalizes defaults', () => {
-    const agents = [
+    const agents: AgentRow[] = [
       {
         id: 'solo',
         version: '0.1.0',
@@ -144,7 +152,7 @@ describe('buildAgentsData', () => {
           avatar_url: null,
         },
       },
-    ] as any
+    ]
 
     const out = buildAgentsData({
       agents,
@@ -173,7 +181,7 @@ describe('buildAgentsData', () => {
   })
 
   it('uses data.name for aggregate metrics and agent.id for version stats', () => {
-    const agents = [
+    const agents: AgentRow[] = [
       {
         id: 'file-picker',
         version: '1.2.0',
@@ -186,10 +194,10 @@ describe('buildAgentsData', () => {
           avatar_url: null,
         },
       },
-    ] as any
+    ]
 
     // Aggregate metrics keyed by data.name
-    const usageMetrics = [
+    const usageMetrics: UsageMetricRow[] = [
       {
         publisher_id: 'codebuff',
         agent_name: 'File Picker',
@@ -200,7 +208,7 @@ describe('buildAgentsData', () => {
         last_used: new Date('2025-03-02T00:00:00.000Z'),
       },
     ]
-    const weeklyMetrics = [
+    const weeklyMetrics: WeeklyMetricRow[] = [
       {
         publisher_id: 'codebuff',
         agent_name: 'File Picker',
@@ -210,7 +218,7 @@ describe('buildAgentsData', () => {
     ]
 
     // Version stats keyed by agent.id in runs
-    const perVersionMetrics = [
+    const perVersionMetrics: PerVersionMetricRow[] = [
       {
         publisher_id: 'codebuff',
         agent_name: 'file-picker',
@@ -222,7 +230,7 @@ describe('buildAgentsData', () => {
         last_used: new Date('2025-03-02T00:00:00.000Z'),
       },
     ]
-    const perVersionWeeklyMetrics = [
+    const perVersionWeeklyMetrics: PerVersionWeeklyMetricRow[] = [
       {
         publisher_id: 'codebuff',
         agent_name: 'file-picker',
@@ -233,11 +241,11 @@ describe('buildAgentsData', () => {
     ]
 
     const out = buildAgentsData({
-      agents: agents as any,
-      usageMetrics: usageMetrics as any,
-      weeklyMetrics: weeklyMetrics as any,
-      perVersionMetrics: perVersionMetrics as any,
-      perVersionWeeklyMetrics: perVersionWeeklyMetrics as any,
+      agents,
+      usageMetrics,
+      weeklyMetrics,
+      perVersionMetrics,
+      perVersionWeeklyMetrics,
     })
 
     expect(out).toHaveLength(1)

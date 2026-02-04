@@ -12,13 +12,12 @@ import {
   spyOn,
 } from 'bun:test'
 
+import { setProjectRoot } from '../../project-files'
 import {
   saveUserCredentials,
   getUserCredentials,
   logoutUser,
 } from '../../utils/auth'
-import { setProjectRoot } from '../../project-files'
-
 import * as AuthModule from '../../utils/auth'
 import * as CodebuffApiModule from '../../utils/codebuff-api'
 
@@ -66,7 +65,7 @@ describe('Logout and Re-login helpers', () => {
   const mockLogoutApi = () => {
     spyOn(CodebuffApiModule, 'getApiClient').mockReturnValue({
       logout: async () => ({ ok: true, status: 200 }),
-    } as any)
+    } as ReturnType<typeof CodebuffApiModule.getApiClient>)
   }
 
   test('logoutUser removes credentials file and returns true', async () => {

@@ -45,7 +45,6 @@ export async function validateAutoTopupStatus(params: {
   logger: Logger
 }): Promise<AutoTopupValidationResult> {
   const { userId, logger } = params
-  const logContext = { userId }
 
   try {
     const user = await db.query.user.findFirst({

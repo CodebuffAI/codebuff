@@ -3,8 +3,8 @@
 import fs from 'fs'
 import path from 'path'
 
-import { pickCommits } from './pick-commits'
 import { generateEvalFileV2 } from './gen-evals'
+import { pickCommits } from './pick-commits'
 
 export async function generateRepoEvalV2(repoUrl: string): Promise<void> {
   console.log(`\n=== Git Evals V2: Generating Eval for ${repoUrl} ===\n`)

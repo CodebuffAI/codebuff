@@ -1,9 +1,7 @@
+
 import { NextResponse } from 'next/server'
-import type { ZodType } from 'zod'
 
-import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { extractApiKeyFromHeader } from '@/util/auth'
-
+import type { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type {
   ConsumeCreditsWithFallbackFn,
@@ -15,6 +13,21 @@ import type {
   LoggerWithContextFn,
 } from '@codebuff/common/types/contracts/logger'
 import type { NextRequest } from 'next/server'
+import type { ZodType } from 'zod'
+
+import { extractApiKeyFromHeader } from '@/util/auth'
+
+/**
+ * User information returned from API key validation
+ */
+export interface UserInfo {
+  id: string
+  email: string
+  discord_id: string | null
+  referral_code?: string | null
+  stripe_customer_id?: string | null
+  banned?: boolean
+}
 
 export type HandlerResult<T> =
   | { ok: true; data: T }
@@ -76,7 +89,7 @@ export const requireUserFromApiKey = async (params: {
   trackEvent: TrackEventFn
   authErrorEvent: AnalyticsEvent
 }): Promise<
-  HandlerResult<{ userId: string; userInfo: any; logger: Logger }>
+  HandlerResult<{ userId: string; userInfo: UserInfo; logger: Logger }>
 > => {
   const {
     req,

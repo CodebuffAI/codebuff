@@ -1,7 +1,6 @@
 import { trackEvent } from '@codebuff/common/analytics'
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { AgentTemplateTypes } from '@codebuff/common/types/session-state'
-import { uniq } from 'lodash'
 
 import { loopAgentSteps } from './run-agent-step'
 import {
@@ -51,7 +50,7 @@ export async function mainPrompt(
   sessionState: SessionState
   output: AgentOutput
 }> {
-  const { action, localAgentTemplates, requestToolCall, logger } = params
+  const { action, localAgentTemplates, logger } = params
 
   const {
     prompt,

@@ -1,13 +1,13 @@
 import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { createTestAgentRuntimeParams } from '@codebuff/common/testing/fixtures/agent-runtime'
+import { promptSuccess } from '@codebuff/common/util/error'
 import {
   AgentTemplateTypes,
   getInitialSessionState,
 } from '@codebuff/common/types/session-state'
 import {
   afterEach,
-  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -18,6 +18,7 @@ import {
 
 import { mainPrompt } from '../main-prompt'
 import * as processFileBlockModule from '../process-file-block'
+import { createToolCallChunk } from './test-utils'
 
 import type { AgentTemplate } from '@codebuff/common/types/agent-template'
 import type {
@@ -30,7 +31,6 @@ import type { ProjectFileContext } from '@codebuff/common/util/file'
 
 let mainPromptBaseParams: any
 
-import { createToolCallChunk } from './test-utils'
 
 import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
 
@@ -106,13 +106,13 @@ describe('mainPrompt', () => {
     // Mock processFileBlock
     spyOn(processFileBlockModule, 'processFileBlock').mockImplementation(
       async (params) => {
-        return {
+        return promptSuccess({
           tool: 'write_file' as const,
           path: params.path,
           content: params.newContent,
           patch: undefined,
           messages: [],
-        }
+        })
       },
     )
 
@@ -164,7 +164,7 @@ describe('mainPrompt', () => {
     mock.restore()
   })
 
-  class MockWebSocket {
+  class _MockWebSocket {
     send(msg: string) {}
     close() {}
     on(event: string, listener: (...args: any[]) => void) {}

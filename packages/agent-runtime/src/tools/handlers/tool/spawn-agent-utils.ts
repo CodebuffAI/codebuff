@@ -1,4 +1,5 @@
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
+import { toolNames } from '@codebuff/common/tools/constants'
 import { parseAgentId } from '@codebuff/common/util/agent-id-parsing'
 import { generateCompactId } from '@codebuff/common/util/string'
 
@@ -19,7 +20,7 @@ import type {
   ParamsExcluding,
   OptionalFields,
 } from '@codebuff/common/types/function-params'
-import type { ToolSet } from 'ai'
+import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 import type {
   AgentState,
@@ -27,7 +28,7 @@ import type {
   Subgoal,
 } from '@codebuff/common/types/session-state'
 import type { ProjectFileContext } from '@codebuff/common/util/file'
-import { Message } from '@codebuff/common/types/messages/codebuff-message'
+import type { ToolSet } from 'ai'
 
 /**
  * Common context params needed for spawning subagents.
@@ -241,6 +242,11 @@ export async function validateAndGetAgentTemplate(
   })
 
   if (!agentTemplate) {
+    if (toolNames.includes(agentTypeStr as any)) {
+      throw new Error(
+        `"${agentTypeStr}" is a tool, not an agent. Call it directly as a tool instead of wrapping it in spawn_agents.`,
+      )
+    }
     throw new Error(`Agent type ${agentTypeStr} not found.`)
   }
   const BASE_AGENTS = ['base', 'base-free', 'base-max', 'base-experimental']

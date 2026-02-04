@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
 
-import { mkdir, writeFile } from 'fs/promises'
 import { existsSync } from 'fs'
+import { mkdir, writeFile } from 'fs/promises'
 import { join } from 'path'
+
 import AdmZip from 'adm-zip'
 import fetch from 'node-fetch'
 

@@ -1,13 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import {
-  describe,
-  test,
-  expect,
-  beforeEach,
-  afterEach,
-  mock,
-  spyOn,
-} from 'bun:test'
+import { describe, test, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test'
 
 import { usageQueryKeys } from '../../hooks/use-usage-query'
 import { useChatStore } from '../../state/chat-store'
@@ -80,10 +72,7 @@ describe('Usage Refresh on SDK Completion', () => {
       expect(useChatStore.getState().inputMode).toBe('usage')
 
       // Spy on invalidateQueries
-      const invalidateSpy = mock(
-        queryClient.invalidateQueries.bind(queryClient),
-      )
-      queryClient.invalidateQueries = invalidateSpy as any
+      const invalidateSpy = spyOn(queryClient, 'invalidateQueries')
 
       // Simulate SDK run completion triggering invalidation
       const isUsageMode = useChatStore.getState().inputMode === 'usage'
@@ -101,10 +90,7 @@ describe('Usage Refresh on SDK Completion', () => {
     test('should invalidate multiple times for sequential runs', () => {
       useChatStore.getState().setInputMode('usage')
 
-      const invalidateSpy = mock(
-        queryClient.invalidateQueries.bind(queryClient),
-      )
-      queryClient.invalidateQueries = invalidateSpy as any
+      const invalidateSpy = spyOn(queryClient, 'invalidateQueries')
 
       // Simulate three sequential SDK runs
       for (let i = 0; i < 3; i++) {
@@ -123,10 +109,7 @@ describe('Usage Refresh on SDK Completion', () => {
       useChatStore.getState().setInputMode('default')
       expect(useChatStore.getState().inputMode).toBe('default')
 
-      const invalidateSpy = mock(
-        queryClient.invalidateQueries.bind(queryClient),
-      )
-      queryClient.invalidateQueries = invalidateSpy as any
+      const invalidateSpy = spyOn(queryClient, 'invalidateQueries')
 
       // Simulate SDK run completion check
       const isUsageMode = useChatStore.getState().inputMode === 'usage'
@@ -145,10 +128,7 @@ describe('Usage Refresh on SDK Completion', () => {
       // User closes banner before run completes
       useChatStore.getState().setInputMode('default')
 
-      const invalidateSpy = mock(
-        queryClient.invalidateQueries.bind(queryClient),
-      )
-      queryClient.invalidateQueries = invalidateSpy as any
+      const invalidateSpy = spyOn(queryClient, 'invalidateQueries')
 
       // Simulate run completion
       const isUsageMode = useChatStore.getState().inputMode === 'usage'
@@ -165,13 +145,12 @@ describe('Usage Refresh on SDK Completion', () => {
       // Even if banner is visible in store, query won't run if enabled=false
       useChatStore.getState().setInputMode('usage')
 
-      const fetchMock = mock(globalThis.fetch)
-      globalThis.fetch = fetchMock as any
+      const fetchSpy = spyOn(globalThis, 'fetch')
 
       // Query with enabled=false won't execute
       // (This would be the behavior when useUsageQuery({ enabled: false }) is called)
 
-      expect(fetchMock).not.toHaveBeenCalled()
+      expect(fetchSpy).not.toHaveBeenCalled()
     })
   })
 
@@ -180,11 +159,10 @@ describe('Usage Refresh on SDK Completion', () => {
       getAuthTokenSpy.mockReturnValue(undefined)
       useChatStore.getState().setInputMode('usage')
 
-      const fetchMock = mock(globalThis.fetch)
-      globalThis.fetch = fetchMock as any
+      const fetchSpy = spyOn(globalThis, 'fetch')
 
       // Query won't execute without auth token
-      expect(fetchMock).not.toHaveBeenCalled()
+      expect(fetchSpy).not.toHaveBeenCalled()
     })
   })
 })

@@ -15,7 +15,7 @@ import { generateOperationIdTimestamp } from './utils'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { GrantType } from '@codebuff/internal/db/schema'
 
-type CreditGrantSelect = typeof schema.creditLedger.$inferSelect
+type _CreditGrantSelect = typeof schema.creditLedger.$inferSelect
 type DbTransaction = Parameters<typeof db.transaction>[0] extends (
   tx: infer T,
 ) => any

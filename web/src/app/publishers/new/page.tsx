@@ -1,14 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useDebounce } from 'use-debounce'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useSession } from 'next-auth/react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-
 import {
   ArrowLeft,
   User,
@@ -17,10 +9,18 @@ import {
   ChevronLeft,
 } from 'lucide-react'
 import Link from 'next/link'
-import { toast } from '@/components/ui/use-toast'
-import { OwnershipStep } from '@/components/publisher/ownership-step'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
+import { useState, useEffect, Suspense } from 'react'
+import { useDebounce } from 'use-debounce'
+
 import { BasicInfoStep } from '@/components/publisher/basic-info-step'
+import { OwnershipStep } from '@/components/publisher/ownership-step'
 import { ProfileDetailsStep } from '@/components/publisher/profile-details-step'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { toast } from '@/components/ui/use-toast'
 import {
   validatePublisherName,
   validatePublisherId,

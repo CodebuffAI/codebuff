@@ -1,9 +1,6 @@
 'use client'
 
-import { useMemo, useCallback, memo, useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import {
   Search,
   TrendingUp,
@@ -17,11 +14,19 @@ import {
   Copy,
 } from 'lucide-react'
 import Link from 'next/link'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
+import { useMemo, useCallback, memo, useEffect, useRef, useState } from 'react'
+import { create } from 'zustand'
+
+import type { Session } from 'next-auth'
+
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { RelativeTime } from '@/components/ui/relative-time'
 import {
   Select,
   SelectContent,
@@ -30,10 +35,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
-import { RelativeTime } from '@/components/ui/relative-time'
 import { cn } from '@/lib/utils'
-import type { Session } from 'next-auth'
-import { create } from 'zustand'
+
+
 
 // Basic agent info from SSR (no metrics)
 interface AgentBasicInfo {

@@ -112,7 +112,10 @@ export const handleReadSubtree = (async (params: {
     | { path: string; errorMessage: string }
   > = []
 
-  for (const p of requested) {
+  for (const rawPath of requested) {
+    // Strip trailing slashes so paths like 'src/' resolve to 'src'
+    const p = rawPath.replace(/\/+$/, '')
+
     if (p === '.' || p === '/' || p === '') {
       outputs.push(buildDirectoryResult(fileContext.fileTree, p))
       continue

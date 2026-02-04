@@ -1,7 +1,8 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { mkdirSync, mkdtempSync, rmSync } from 'fs'
 import os from 'os'
 import path from 'path'
+
+import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 
 /**
  * Tests for usePathTabCompletion hook logic.

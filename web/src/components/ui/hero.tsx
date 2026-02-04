@@ -1,61 +1,8 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { useState, useEffect } from 'react'
 
 import { HeroButtons } from './hero-buttons'
-
-// Typing effect component for hero headline
-function TypingEffect({ words }: { words: string[] }) {
-  const [currentWordIndex, setCurrentWordIndex] = useState(0)
-  const [currentText, setCurrentText] = useState('')
-  const [isDeleting, setIsDeleting] = useState(false)
-  const isLastWord = currentWordIndex === words.length - 1
-
-  useEffect(() => {
-    const typeSpeed = isDeleting ? 50 : 100
-
-    const timer = setTimeout(() => {
-      const currentWord = words[currentWordIndex]
-
-      if (!isDeleting) {
-        // Typing effect
-        setCurrentText(currentWord.substring(0, currentText.length + 1))
-
-        // If fully typed, start deleting after a delay
-        if (currentText === currentWord) {
-          setTimeout(() => {
-            setIsDeleting(true)
-          }, 2000) // Wait time when word is complete
-        }
-      } else {
-        // Deleting effect
-        setCurrentText(currentWord.substring(0, currentText.length - 1))
-
-        // If fully deleted, move to next word
-        if (currentText === '') {
-          setIsDeleting(false)
-          setCurrentWordIndex((currentWordIndex + 1) % words.length)
-        }
-      }
-    }, typeSpeed)
-
-    return () => clearTimeout(timer)
-  }, [currentText, currentWordIndex, isDeleting, words])
-
-  return (
-    <span
-      className={`text-green-400 relative ${isLastWord ? 'underline decoration-2 underline-offset-2' : ''}`}
-    >
-      {currentText}
-      <motion.span
-        className="absolute -right-[3px] top-0 h-full w-1 bg-green-500"
-        animate={{ opacity: [1, 0] }}
-        transition={{ duration: 0.8, repeat: Infinity }}
-      />
-    </span>
-  )
-}
 
 export function Hero() {
   return (
@@ -116,9 +63,10 @@ export function Hero() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.3 }}
       >
-        <span className="whitespace-nowrap">100+ seconds faster than</span>{' '}
-        <span className="whitespace-nowrap font-bold">Claude Code</span>{' '}
-        <span className="whitespace-nowrap">with higher-quality output</span>
+        <span className="whitespace-nowrap">Higher quality output and</span>{' '}
+        <span className="whitespace-nowrap font-bold">100+</span>{' '}
+        <span className="whitespace-nowrap">seconds faster</span>{' '}
+        <span className="whitespace-nowrap">than Claude Code</span>
       </motion.h2>
 
       <motion.div

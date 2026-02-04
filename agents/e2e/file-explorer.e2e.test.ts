@@ -1,9 +1,10 @@
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
+import { CodebuffClient } from '@codebuff/sdk'
 import { describe, expect, it } from 'bun:test'
 
-import { CodebuffClient } from '@codebuff/sdk'
-import filePickerDefinition from '../file-explorer/file-picker'
 import fileListerDefinition from '../file-explorer/file-lister'
+import filePickerDefinition from '../file-explorer/file-picker'
+
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
 /**
@@ -283,8 +284,8 @@ export class AuthService {
       }
 
       // Use local agent definitions to test the updated handleSteps
-      const localFilePickerDef = filePickerDefinition as unknown as any
-      const localFileListerDef = fileListerDefinition as unknown as any
+      const localFilePickerDef = filePickerDefinition
+      const localFileListerDef = fileListerDefinition
 
       const client = new CodebuffClient({
         apiKey,

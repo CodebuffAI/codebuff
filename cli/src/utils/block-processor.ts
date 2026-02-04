@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react'
 
 import {
   isImplementorAgent,
@@ -7,6 +6,7 @@ import {
   groupConsecutiveToolBlocks,
 } from './implementor-helpers'
 import { isImageBlock } from '../types/chat'
+
 import type {
   ContentBlock,
   AgentContentBlock,
@@ -14,6 +14,7 @@ import type {
   TextContentBlock,
   ImageContentBlock,
 } from '../types/chat'
+import type { ReactNode } from 'react'
 
 /**
  * Type guard for reasoning text blocks (thinking blocks)

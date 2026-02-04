@@ -1,12 +1,12 @@
 import { describe, test, expect } from 'bun:test'
 
+import { MIN_COLUMN_WIDTH } from '../../utils/layout-helpers'
 import {
   computeGridLayout,
   WIDTH_MD_THRESHOLD,
   WIDTH_LG_THRESHOLD,
   WIDTH_XL_THRESHOLD,
 } from '../use-grid-layout'
-import { MIN_COLUMN_WIDTH } from '../../utils/layout-helpers'
 
 describe('computeGridLayout', () => {
   describe('threshold constants', () => {

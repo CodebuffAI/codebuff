@@ -1,5 +1,6 @@
-import type { AgentDefinition } from './types/agent-definition'
 import commander from './commander'
+
+import type { AgentDefinition } from './types/agent-definition'
 
 const definition: AgentDefinition = {
   ...commander,

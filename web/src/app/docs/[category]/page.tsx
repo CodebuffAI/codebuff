@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 
-import { getDocsByCategory } from '@/lib/docs'
 import { allDocs } from '.contentlayer/generated'
+import { getDocsByCategory } from '@/lib/docs'
 
 // Generate static params for all category pages at build time
 export function generateStaticParams(): Array<{ category: string }> {

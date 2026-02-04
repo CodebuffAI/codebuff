@@ -22,6 +22,8 @@ module.exports = {
     '@typescript-eslint/no-explicit-any': 'off',
     '@typescript-eslint/no-unused-vars': 'off',
     'react/no-unescaped-entities': 'off',
+    'react-hooks/exhaustive-deps': 'warn', // Keep as warning, not error
+    '@next/next/no-img-element': 'off', // Allow <img> for external images
     // Prevent using process.env.CODEBUFF_API_KEY in web - users must provide their own API key
     // This prevents accidentally using Codebuff's credits for user operations
     // Note: env.CODEBUFF_API_KEY is already a TypeScript error (not in schema)

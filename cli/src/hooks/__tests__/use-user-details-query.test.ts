@@ -9,9 +9,9 @@ import {
 } from 'bun:test'
 
 import { createMockApiClient } from '../../__tests__/helpers/mock-api-client'
+import * as CodebuffApiModule from '../../utils/codebuff-api'
 import { fetchUserDetails } from '../use-user-details-query'
 
-import * as CodebuffApiModule from '../../utils/codebuff-api'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 describe('fetchUserDetails', () => {
@@ -202,7 +202,7 @@ describe('fetchUserDetails', () => {
         CodebuffApiModule,
         'setApiClientAuthToken',
       )
-      spyOn(CodebuffApiModule, 'getApiClient').mockReturnValue(apiClient as any)
+      spyOn(CodebuffApiModule, 'getApiClient').mockReturnValue(apiClient as ReturnType<typeof CodebuffApiModule.getApiClient>)
 
       await expect(
         fetchUserDetails({

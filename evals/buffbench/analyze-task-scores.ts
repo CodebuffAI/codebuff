@@ -30,12 +30,7 @@ interface EvalResult {
   judgeResult?: JudgeResult
 }
 
-interface TaskScore {
-  taskNum: number
-  taskName: string
-  scores: number[]
-  runs: string[]
-}
+// TaskScore interface removed - not used (inline types used instead)
 
 async function getLogDirectories(): Promise<string[]> {
   const entries = await readdir(LOGS_DIR)

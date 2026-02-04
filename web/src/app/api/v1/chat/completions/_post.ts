@@ -5,16 +5,6 @@ import { pluralize } from '@codebuff/common/util/string'
 import { env } from '@codebuff/internal/env'
 import { NextResponse } from 'next/server'
 
-import {
-  handleOpenAINonStream,
-  OPENAI_SUPPORTED_MODELS,
-} from '@/llm-api/openai'
-import {
-  handleOpenRouterNonStream,
-  handleOpenRouterStream,
-  OpenRouterError,
-} from '@/llm-api/openrouter'
-import { extractApiKeyFromHeader } from '@/util/auth'
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
@@ -28,6 +18,19 @@ import type {
   LoggerWithContextFn,
 } from '@codebuff/common/types/contracts/logger'
 import type { NextRequest } from 'next/server'
+
+import type { ChatCompletionRequestBody } from '@/llm-api/types'
+
+import {
+  handleOpenAINonStream,
+  OPENAI_SUPPORTED_MODELS,
+} from '@/llm-api/openai'
+import {
+  handleOpenRouterNonStream,
+  handleOpenRouterStream,
+  OpenRouterError,
+} from '@/llm-api/openrouter'
+import { extractApiKeyFromHeader } from '@/util/auth'
 
 export const formatQuotaResetCountdown = (
   nextQuotaReset: string | null | undefined,
@@ -108,8 +111,9 @@ export async function postChatCompletions(params: {
       )
     }
 
-    const bodyStream = 'stream' in body && body.stream
-    const runId = (body as any)?.codebuff_metadata?.run_id
+    const typedBody = body as unknown as ChatCompletionRequestBody
+    const bodyStream = typedBody.stream ?? false
+    const runId = typedBody.codebuff_metadata?.run_id
 
     // Extract and validate API key
     const apiKey = extractApiKeyFromHeader(req)
@@ -203,8 +207,7 @@ export async function postChatCompletions(params: {
     }
 
     // Extract and validate agent run ID
-    const runIdFromBody: string | undefined = (body as any).codebuff_metadata
-      ?.run_id
+    const runIdFromBody = typedBody.codebuff_metadata?.run_id
     if (!runIdFromBody || typeof runIdFromBody !== 'string') {
       trackEvent({
         event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
@@ -268,7 +271,7 @@ export async function postChatCompletions(params: {
       if (bodyStream) {
         // Streaming request
         const stream = await handleOpenRouterStream({
-          body,
+          body: typedBody,
           userId,
           stripeCustomerId,
           agentId,
@@ -298,21 +301,20 @@ export async function postChatCompletions(params: {
         })
       } else {
         // Non-streaming request
-        const model = (body as any)?.model
-        const shortModelName =
-          typeof model === 'string' ? model.split('/')[1] : undefined
+        const model = typedBody.model
+        const modelParts = model.split('/')
+        const shortModelName = modelParts.length > 1 ? modelParts[1] : model
         const isOpenAIDirectModel =
-          typeof model === 'string' &&
           model.startsWith('openai/') &&
-          OPENAI_SUPPORTED_MODELS.includes(shortModelName as any)
+          (OPENAI_SUPPORTED_MODELS as readonly string[]).includes(shortModelName)
         // Only use OpenAI endpoint for OpenAI models with n parameter
         // All other models (including non-OpenAI with n parameter) should use OpenRouter
         const shouldUseOpenAIEndpoint =
-          isOpenAIDirectModel && (body as any)?.codebuff_metadata?.n
+          isOpenAIDirectModel && typedBody.codebuff_metadata?.n !== undefined
 
         const nonStreamRequest = shouldUseOpenAIEndpoint
           ? handleOpenAINonStream({
-              body,
+              body: typedBody,
               userId,
               stripeCustomerId,
               agentId,
@@ -321,7 +323,7 @@ export async function postChatCompletions(params: {
               insertMessageBigquery,
             })
           : handleOpenRouterNonStream({
-              body,
+              body: typedBody,
               userId,
               stripeCustomerId,
               agentId,
@@ -359,13 +361,13 @@ export async function postChatCompletions(params: {
           userId,
           agentId,
           runId: runIdFromBody,
-          model: (body as any)?.model,
+          model: typedBody.model,
           streaming: !!bodyStream,
           hasByokKey: !!openrouterApiKey,
-          messageCount: Array.isArray((body as any)?.messages)
-            ? (body as any).messages.length
+          messageCount: Array.isArray(typedBody.messages)
+            ? typedBody.messages.length
             : 0,
-          messages: (body as any)?.messages,
+          messages: typedBody.messages,
           openrouterStatusCode: openrouterError?.statusCode,
           openrouterStatusText: openrouterError?.statusText,
           openrouterErrorCode: errorDetails?.error?.code,

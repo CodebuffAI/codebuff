@@ -3,11 +3,11 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 
-import { getSystemProcessEnv } from '../env'
 import {
   stripColors,
   truncateStringWithMessage,
 } from '../../../common/src/util/string'
+import { getSystemProcessEnv } from '../env'
 
 import type { CodebuffToolOutput } from '../../../common/src/tools/list'
 

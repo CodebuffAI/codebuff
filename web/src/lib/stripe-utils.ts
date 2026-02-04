@@ -4,12 +4,6 @@ import { eq, or, sql } from 'drizzle-orm'
 
 import type Stripe from 'stripe'
 
-export function getStripeCustomerId(
-  customer: string | Stripe.Customer | Stripe.DeletedCustomer,
-): string {
-  return typeof customer === 'string' ? customer : customer.id
-}
-
 export function getSubscriptionItemByType(
   subscription: Stripe.Subscription,
   usageType: 'licensed' | 'metered',

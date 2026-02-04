@@ -5,8 +5,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { buildMessageTree } from '../utils/message-tree-utils'
 import { setAllBlocksCollapsedState, hasAnyExpandedBlocks } from '../utils/collapse-helpers'
+import { buildMessageTree } from '../utils/message-tree-utils'
 
 import type { ChatMessage, ContentBlock } from '../types/chat'
 
@@ -116,11 +116,11 @@ export function useChatMessages({
               // Handle thinking blocks - just match by thinkingId
               if (block.type === 'text' && block.thinkingId === id) {
                 foundTarget = true
-                const wasCollapsed = block.isCollapsed ?? false
+                const isExpanded = block.thinkingCollapseState === 'expanded'
                 return {
                   ...block,
-                  isCollapsed: !wasCollapsed,
-                  userOpened: wasCollapsed, // Mark as user-opened if expanding
+                  thinkingCollapseState: isExpanded ? 'preview' as const : 'expanded' as const,
+                  userOpened: !isExpanded, // Mark as user-opened if expanding
                 }
               }
 
@@ -203,14 +203,16 @@ export function useChatMessages({
 
   /**
    * Toggles all collapsible blocks in all AI responses.
-   * If any block is expanded, collapses all. Otherwise expands all.
+   * Primary action is to collapse all. Only expands if everything is already collapsed.
    */
   const handleToggleAll = useCallback(() => {
     isUserCollapsingRef.current = true
 
     setMessages((prevMessages) => {
-      // Determine target state: if any expanded, collapse all; otherwise expand all
-      const shouldCollapse = hasAnyExpandedBlocks(prevMessages)
+      // Primary action: collapse all open blocks
+      // Only expand if everything is already collapsed
+      const allCollapsed = !hasAnyExpandedBlocks(prevMessages)
+      const shouldCollapse = !allCollapsed
       return setAllBlocksCollapsedState(prevMessages, shouldCollapse)
     })
 

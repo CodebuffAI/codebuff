@@ -1,5 +1,6 @@
 import { finetunedVertexModels } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
+import { promptSuccess } from '@codebuff/common/util/error'
 import { userMessage } from '@codebuff/common/util/messages'
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
 
@@ -54,7 +55,7 @@ describe('requestRelevantFiles', () => {
   beforeEach(() => {
     agentRuntimeImpl = {
       ...TEST_AGENT_RUNTIME_IMPL,
-      promptAiSdk: mock(() => Promise.resolve('file1.ts\nfile2.ts')),
+      promptAiSdk: mock(() => Promise.resolve(promptSuccess('file1.ts\nfile2.ts'))),
     }
   })
 
@@ -78,7 +79,7 @@ describe('requestRelevantFiles', () => {
   })
 
   it('should use custom file counts from config', async () => {
-    const customConfig = {
+    const _customConfig = {
       modelName: 'ft_filepicker_005',
       customFileCounts: { normal: 5 },
       maxFilesPerRequest: 10,
@@ -103,7 +104,7 @@ describe('requestRelevantFiles', () => {
   })
 
   it('should use custom maxFilesPerRequest from config', async () => {
-    const customConfig = {
+    const _customConfig = {
       modelName: 'ft_filepicker_005',
       maxFilesPerRequest: 3,
     }
@@ -130,7 +131,7 @@ describe('requestRelevantFiles', () => {
   })
 
   it('should use custom modelName from config', async () => {
-    const customConfig = {
+    const _customConfig = {
       modelName: 'ft_filepicker_010',
     }
 
@@ -157,7 +158,7 @@ describe('requestRelevantFiles', () => {
   })
 
   it('should use default model if custom modelName is invalid', async () => {
-    const customConfig = {
+    const _customConfig = {
       modelName: 'invalid-model-name',
     }
 

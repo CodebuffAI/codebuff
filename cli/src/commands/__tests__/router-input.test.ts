@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'bun:test'
 
+import { SLASH_COMMANDS } from '../../data/slash-commands'
 import { findCommand, COMMAND_REGISTRY } from '../command-registry'
 import {
   normalizeInput,
@@ -8,7 +9,6 @@ import {
   isReferralCode,
   parseCommandInput,
 } from '../router-utils'
-import { SLASH_COMMANDS } from '../../data/slash-commands'
 
 describe('router-utils', () => {
   describe('normalizeInput', () => {

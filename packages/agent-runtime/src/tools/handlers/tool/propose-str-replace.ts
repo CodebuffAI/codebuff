@@ -1,8 +1,8 @@
-import { processStrReplace } from '../../../process-str-replace'
 import {
   getProposedContent,
   setProposedContent,
 } from './proposed-content-store'
+import { processStrReplace } from '../../../process-str-replace'
 
 import type { CodebuffToolHandlerFunction } from '../handler-function-type'
 import type {

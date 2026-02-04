@@ -5,8 +5,8 @@
  */
 
 import React, { useEffect, useState, memo } from 'react'
-import { type ImageCardImage } from './image-card'
 
+import { type ImageCardImage } from './image-card'
 import {
   extractThumbnailColors,
   rgbToHex,

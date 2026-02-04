@@ -2,6 +2,7 @@ import * as analytics from '@codebuff/common/analytics'
 import { TEST_USER_ID } from '@codebuff/common/old-constants'
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
+import { promptSuccess } from '@codebuff/common/util/error'
 import {
   afterEach,
 
@@ -38,7 +39,7 @@ function mockAgentStream(chunks: StreamChunk[]) {
     for (const chunk of chunks) {
       yield chunk
     }
-    return 'mock-message-id'
+    return promptSuccess('mock-message-id')
   }
   agentRuntimeImpl.promptAiSdkStream = mockPromptAiSdkStream
   runAgentStepBaseParams.promptAiSdkStream = mockPromptAiSdkStream
