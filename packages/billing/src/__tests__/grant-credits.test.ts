@@ -447,15 +447,26 @@ describe('grant-credits', () => {
         }
         const legacyReferralBonus = 500
 
-        // Mock db for calculateTotalLegacyReferralBonus (uses db directly, not tx)
-        // This mock needs to return the referral query result for the legacy bonus calculation
+        // Mock db for both getPreviousFreeGrantAmount and calculateTotalLegacyReferralBonus
+        // getPreviousFreeGrantAmount uses: db.select().from().where().orderBy().limit()
+        // calculateTotalLegacyReferralBonus uses: db.select().from().where() (returns Promise)
+        let queryCount = 0
         await mockModule('@codebuff/internal/db', () => ({
           default: {
             select: () => ({
               from: () => ({
                 where: () => {
+                  queryCount++
+                  // First query is getPreviousFreeGrantAmount (needs orderBy chain)
+                  // Second query is calculateTotalLegacyReferralBonus (returns Promise directly)
+                  if (queryCount === 1) {
+                    return {
+                      orderBy: () => ({
+                        limit: () => [], // No previous free grant, use default
+                      }),
+                    }
+                  }
                   // Return referral bonus for calculateTotalLegacyReferralBonus
-                  // This is a thenable that returns the referral bonus result
                   return Promise.resolve([{ totalCredits: String(legacyReferralBonus) }])
                 },
               }),
@@ -493,12 +504,23 @@ describe('grant-credits', () => {
         }
         const legacyReferralBonus = 0 // No legacy referrals
 
-        // Mock db for calculateTotalLegacyReferralBonus (uses db directly, not tx)
+        // Mock db for both getPreviousFreeGrantAmount and calculateTotalLegacyReferralBonus
+        let queryCount = 0
         await mockModule('@codebuff/internal/db', () => ({
           default: {
             select: () => ({
               from: () => ({
                 where: () => {
+                  queryCount++
+                  // First query is getPreviousFreeGrantAmount (needs orderBy chain)
+                  // Second query is calculateTotalLegacyReferralBonus (returns Promise directly)
+                  if (queryCount === 1) {
+                    return {
+                      orderBy: () => ({
+                        limit: () => [], // No previous free grant, use default
+                      }),
+                    }
+                  }
                   // Return 0 referral bonus for calculateTotalLegacyReferralBonus
                   return Promise.resolve([{ totalCredits: String(legacyReferralBonus) }])
                 },
