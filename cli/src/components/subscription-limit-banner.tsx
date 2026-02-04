@@ -102,7 +102,7 @@ export const SubscriptionLimitBanner = () => {
       >
         {isWeeklyLimit ? (
           <>
-            <text style={{ fg: theme.error }}>
+            <text style={{ fg: theme.error, marginBottom: 1 }}>
               🛑 Weekly limit reached
             </text>
             <text style={{ fg: theme.muted }}>
@@ -116,12 +116,12 @@ export const SubscriptionLimitBanner = () => {
           </>
         ) : isBlockExhausted ? (
           <>
-            <text style={{ fg: theme.warning }}>
-              ⏱️  5 hour limit reached
+            <text style={{ fg: theme.warning, marginBottom: 1 }}>
+              5 hour limit reached
             </text>
             {blockResetsAt && (
               <text style={{ fg: theme.muted }}>
-                New block starts in {formatResetTime(blockResetsAt)}
+                New session starts in {formatResetTime(blockResetsAt)}
               </text>
             )}
           </>
@@ -140,7 +140,7 @@ export const SubscriptionLimitBanner = () => {
         {hasAlaCarteCredits && (
           <Button onClick={handleToggleAlwaysALaCarte}>
             <text style={{ fg: theme.muted }}>
-              {alwaysALaCarte ? '[x]' : '[ ]'} always use a-la-carte if subscription limit is reached
+              {alwaysALaCarte ? '[x]' : '[ ]'} always use credits if subscription limit is reached
             </text>
           </Button>
         )}
@@ -150,26 +150,18 @@ export const SubscriptionLimitBanner = () => {
             <>
               <Button onClick={handleContinueWithCredits}>
                 <text style={{ fg: theme.background, bg: theme.foreground }}>
-                  {' '}Continue with a-la-carte{' '}
-                </text>
-                <text style={{ fg: theme.muted }}>
-                  {' '}({remainingBalance.toLocaleString()} credits)
+                  {' '}Continue with credits ({remainingBalance.toLocaleString()}){' '}
                 </text>
               </Button>
               {canUpgrade ? (
                 <Button onClick={handleUpgrade}>
-                  <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Upgrade Plan ↗{' '}</text>
+                  <text style={{ fg: theme.background, bg: theme.foreground }}>{' '}Upgrade Plan ↗{' '}</text>
                 </Button>
               ) : (
                 <Button onClick={handleBuyCredits}>
                   <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Buy Credits ↗{' '}</text>
                 </Button>
               )}
-              {!isWeeklyLimit &&
-                <Button onClick={handleWait}>
-                  <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Wait for new block{' '}</text>
-                </Button>
-              }
             </>
           ) : (
             <>
