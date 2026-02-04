@@ -102,12 +102,12 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     description: 'Spawn the GPT-5 agent to help solve complex problems',
     insertText: '@GPT-5 Agent ',
   },
-  {
-    id: 'agent:opus',
-    label: 'agent:opus',
-    description: 'Spawn the Opus agent to help solve any problem',
-    insertText: '@Opus Agent ',
-  },
+  // {
+  //   id: 'agent:opus',
+  //   label: 'agent:opus',
+  //   description: 'Spawn the Opus agent to help solve any problem',
+  //   insertText: '@Opus Agent ',
+  // },
   {
     id: 'feedback',
     label: 'feedback',
@@ -132,11 +132,11 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     description: 'Redeem a referral code for bonus credits',
     aliases: ['redeem'],
   },
-  {
-    id: 'publish',
-    label: 'publish',
-    description: 'Publish agents to the agent store',
-  },
+  // {
+  //   id: 'publish',
+  //   label: 'publish',
+  //   description: 'Publish agents to the agent store',
+  // },
   {
     id: 'theme:toggle',
     label: 'theme:toggle',
