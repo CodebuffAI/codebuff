@@ -282,12 +282,5 @@
       "tag": "0039_quiet_franklin_storm",
       "breakpoints": true
     },
-    {
-      "idx": 40,
-      "version": "7",
-      "when": 1769650000000,
-      "tag": "0040_referral_legacy_backfill",
-      "breakpoints": true
-    }
   ]
 }
