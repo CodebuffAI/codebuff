@@ -248,8 +248,7 @@ const SubscriptionUsageSection: React.FC<SubscriptionUsageSectionProps> = ({
       ) : rateLimit ? (
         <box style={{ flexDirection: 'column', gap: 0 }}>
           <box style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
-            <text style={{ fg: theme.muted }}>5-hour limit </text>
-            <text style={{ fg: theme.muted }}>{`${blockPercent}%`.padStart(4)} </text>
+            <text style={{ fg: theme.muted }}>{`5-hour limit ${`${blockPercent}%`.padStart(4)} `}</text>
             <ProgressBar value={blockPercent} width={12} showPercentage={false} />
             <text style={{ fg: theme.muted }}>
               {rateLimit.blockResetsAt
@@ -258,11 +257,10 @@ const SubscriptionUsageSection: React.FC<SubscriptionUsageSectionProps> = ({
             </text>
           </box>
           <box style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
-            <text style={{ fg: theme.muted }}>Weekly limit </text>
-            <text style={{ fg: theme.muted }}>{`${weeklyPercent}%`.padStart(4)} </text>
+            <text style={{ fg: theme.muted }}>{`Weekly limit ${`${weeklyPercent}%`.padStart(4)} `}</text>
             <ProgressBar value={weeklyPercent} width={12} showPercentage={false} />
             <text style={{ fg: theme.muted }}>
-              {' '}resets in {formatResetTimeLong(rateLimit.weeklyResetsAt)}
+              {` resets in ${formatResetTimeLong(rateLimit.weeklyResetsAt)}`}
             </text>
           </box>
         </box>
