@@ -40,12 +40,16 @@ const createTxMock = (user: {
   }),
   select: () => ({
     from: () => ({
-      where: () => ({
-        orderBy: () => ({
-          limit: () => [],
-        }),
-      }),
-      then: (cb: any) => cb([]),
+      where: () => {
+        // Create a thenable object that also supports orderBy for different code paths
+        return {
+          orderBy: () => ({
+            limit: () => [],
+          }),
+          // Make this thenable for the .where().then() pattern used in grant-credits.ts
+          then: (resolve: any, reject?: any) => Promise.resolve([]).then(resolve, reject),
+        }
+      },
     }),
   }),
   execute: () => Promise.resolve([]),
@@ -122,7 +126,7 @@ describe('grant-credits', () => {
 
     it('should return total credits when user has legacy referrals as referred', async () => {
       await mockModule('@codebuff/internal/db', () => ({
-        default: createDbMockForReferralQuery('250'),
+        default: createDbMockForReferralQuery('500'),
       }))
 
       const { calculateTotalLegacyReferralBonus } = await import('../grant-credits')
@@ -132,7 +136,7 @@ describe('grant-credits', () => {
         logger,
       })
 
-      expect(result).toBe(250)
+      expect(result).toBe(500)
     })
 
     it('should return combined total when user has legacy referrals as both referrer and referred', async () => {
@@ -407,12 +411,17 @@ describe('grant-credits', () => {
           }),
           select: () => ({
             from: () => ({
-              where: () => ({
-                orderBy: () => ({
-                  limit: () => [],
-                }),
-              }),
-              then: (cb: any) => cb([{ totalCredits: String(legacyReferralBonus) }]),
+              where: () => {
+                // Create a thenable object that also supports orderBy for different code paths
+                const result = [{ totalCredits: String(legacyReferralBonus) }]
+                return {
+                  orderBy: () => ({
+                    limit: () => [],
+                  }),
+                  // Make this thenable for the .where().then() pattern used in grant-credits.ts
+                  then: (resolve: any, reject?: any) => Promise.resolve(result).then(resolve, reject),
+                }
+              },
             }),
           }),
           execute: () => Promise.resolve([]),
