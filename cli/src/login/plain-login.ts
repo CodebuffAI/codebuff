@@ -1,4 +1,3 @@
-import open from 'open'
 import { cyan, green, red, yellow, bold } from 'picocolors'
 
 import { WEBSITE_URL } from './constants'
@@ -47,15 +46,7 @@ export async function runPlainLogin(): Promise<void> {
   console.log()
   console.log(cyan(loginData.loginUrl))
   console.log()
-
-  // Try to open browser, silently ignore failure (expected on remote servers)
-  try {
-    await open(loginData.loginUrl)
-    console.log(green('Browser opened. Waiting for login...'))
-  } catch {
-    console.log(yellow('Could not open browser — please open the URL above manually.'))
-  }
-
+  console.log(yellow('Please open the URL above manually to complete login.'))
   console.log()
   console.log('Waiting for login...')
 
