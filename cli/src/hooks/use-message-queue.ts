@@ -83,12 +83,7 @@ export const useMessageQueue = (
       return
     }
 
-    // Log why queue is blocked (only when there are messages waiting)
     if (!canProcessQueue) {
-      logger.debug(
-        { queueLength, canProcessQueue },
-        '[message-queue] Queue blocked: canProcessQueue disabled',
-      )
       return
     }
     if (streamStatus !== 'idle') {
