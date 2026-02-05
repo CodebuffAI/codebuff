@@ -347,7 +347,7 @@ export async function handleSubscriptionDeleted(params: {
   const user = await getUserByStripeCustomerId(customerId)
   const userId = user?.id ?? null
 
-  await db
+  const result = await db
     .update(schema.subscription)
     .set({
       status: 'canceled',
@@ -355,6 +355,22 @@ export async function handleSubscriptionDeleted(params: {
       canceled_at: new Date(),
     })
     .where(eq(schema.subscription.stripe_subscription_id, subscriptionId))
+    .returning({ id: schema.subscription.stripe_subscription_id })
+
+  if (result.length === 0) {
+    logger.warn(
+      { subscriptionId, customerId },
+      'No subscription found to cancel — may not exist in our database',
+    )
+    // Still track the event for observability
+    trackEvent({
+      event: AnalyticsEvent.SUBSCRIPTION_CANCELED,
+      userId: userId ?? 'system',
+      properties: { subscriptionId, notFoundInDb: true },
+      logger,
+    })
+    return
+  }
 
   if (userId) {
     await expireActiveBlockGrants({ userId, subscriptionId, logger })
