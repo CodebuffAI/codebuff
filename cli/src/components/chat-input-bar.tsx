@@ -190,6 +190,11 @@ export const ChatInputBar = ({
     return <OutOfCreditsBanner />
   }
 
+  // Subscription limit mode: show only the limit banner (no input box)
+  if (inputMode === 'subscriptionLimit') {
+    return <InputModeBanner />
+  }
+
   // Handle input changes with special mode entry detection
   const handleInputChange = (value: InputValue) => {
     // Detect entering bash mode: user typed exactly '!' when in default mode
