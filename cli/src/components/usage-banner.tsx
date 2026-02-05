@@ -136,7 +136,7 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
               )}
             </box>
             {/* See more link */}
-            <text style={{ fg: theme.muted }}>↗ See more on codebuff.com</text>
+            <text style={{ fg: theme.muted }}>↗ See more on {WEBSITE_URL}</text>
           </box>
         </Button>
 
