@@ -7,6 +7,10 @@ import { CopyButton } from './copy-button'
 import { ElapsedTimer } from './elapsed-timer'
 import { FeedbackIconButton } from './feedback-icon-button'
 import { useSubscriptionQuery } from '../hooks/use-subscription-query'
+import {
+  getBlockPercentRemaining,
+  isCoveredBySubscription,
+} from '../utils/subscription'
 import { useTheme } from '../hooks/use-theme'
 import {
   useFeedbackStore,
@@ -221,19 +225,15 @@ const CreditsOrSubscriptionIndicator: React.FC<{ credits: number }> = ({ credits
     pauseWhenIdle: false,
   })
 
-  const activeSubscription = subscriptionData?.hasSubscription ? subscriptionData : null
-  const rateLimit = activeSubscription?.rateLimit
+  const blockPercentRemaining = useMemo(
+    () => getBlockPercentRemaining(subscriptionData),
+    [subscriptionData],
+  )
 
-  const blockPercentRemaining = useMemo(() => {
-    if (!rateLimit?.blockLimit || rateLimit.blockUsed == null) return null
-    return Math.round(((rateLimit.blockLimit - rateLimit.blockUsed) / rateLimit.blockLimit) * 100)
-  }, [rateLimit])
-
-  const showSubscriptionIndicator =
-    activeSubscription && !rateLimit?.limited && blockPercentRemaining != null && blockPercentRemaining > 0
+  const showSubscriptionIndicator = isCoveredBySubscription(subscriptionData)
 
   if (showSubscriptionIndicator) {
-    const label = blockPercentRemaining < 20
+    const label = (blockPercentRemaining ?? 0) < 20
       ? `✓ ${SUBSCRIPTION_DISPLAY_NAME} (${blockPercentRemaining}% left)`
       : `✓ ${SUBSCRIPTION_DISPLAY_NAME}`
     return (

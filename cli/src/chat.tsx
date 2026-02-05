@@ -163,6 +163,11 @@ export const Chat = ({
   const { statusMessage } = useClipboard()
   const { ad } = useGravityAd()
 
+  // Fetch subscription data early - needed for session credits tracking
+  const { data: subscriptionData } = useSubscriptionQuery({
+    refetchInterval: 60 * 1000,
+  })
+
   // Set initial mode from CLI flag on mount
   useEffect(() => {
     if (initialMode) {
@@ -427,6 +432,7 @@ export const Chat = ({
     resumeQueue,
     continueChat,
     continueChatId,
+    subscriptionData,
   })
 
   sendMessageRef.current = sendMessage
@@ -1278,11 +1284,6 @@ export const Chat = ({
   const { data: claudeQuota } = useClaudeQuotaQuery({
     enabled: isClaudeOAuthActive,
     refetchInterval: 60 * 1000, // Refetch every 60 seconds
-  })
-
-  // Fetch subscription data
-  const { data: subscriptionData } = useSubscriptionQuery({
-    refetchInterval: 60 * 1000,
   })
 
   // Auto-show subscription limit banner when rate limit becomes active
