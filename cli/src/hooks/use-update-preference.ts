@@ -1,5 +1,10 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useCallback, useState } from 'react'
 
+import {
+  getActivityQueryData,
+  invalidateActivityQuery,
+  setActivityQueryData,
+} from './use-activity-query'
 import { subscriptionQueryKeys } from './use-subscription-query'
 import { getApiClient } from '../utils/codebuff-api'
 import { logger } from '../utils/logger'
@@ -11,51 +16,49 @@ interface UpdatePreferenceParams {
 }
 
 export function useUpdatePreference() {
-  const queryClient = useQueryClient()
+  const [isPending, setIsPending] = useState(false)
 
-  return useMutation({
-    mutationFn: async (params: UpdatePreferenceParams) => {
-      const client = getApiClient()
-      const response = await client.patch('/api/user/preferences', {
-        body: params,
-        includeCookie: true,
+  const mutate = useCallback(async (params: UpdatePreferenceParams) => {
+    const queryKey = subscriptionQueryKeys.current()
+
+    // Snapshot the previous value for rollback
+    const previousData = getActivityQueryData<SubscriptionResponse>(queryKey)
+
+    // Optimistically update to the new value
+    if (previousData && params.fallbackToALaCarte !== undefined) {
+      setActivityQueryData<SubscriptionResponse>(queryKey, {
+        ...previousData,
+        fallbackToALaCarte: params.fallbackToALaCarte,
       })
+    }
 
-      if (!response.ok) {
-        throw new Error('Failed to update preference')
-      }
+    setIsPending(true)
 
-      return params
-    },
-    onMutate: async (newParams) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: subscriptionQueryKeys.current() })
-
-      // Snapshot the previous value
-      const previousData = queryClient.getQueryData<SubscriptionResponse>(
-        subscriptionQueryKeys.current()
+    try {
+      const client = getApiClient()
+      const response = await client.patch<{ success: boolean; error?: string }>(
+        '/api/user/preferences',
+        params as Record<string, unknown>,
+        { includeCookie: true },
       )
 
-      // Optimistically update to the new value
-      if (previousData && newParams.fallbackToALaCarte !== undefined) {
-        queryClient.setQueryData<SubscriptionResponse>(
-          subscriptionQueryKeys.current(),
-          { ...previousData, fallbackToALaCarte: newParams.fallbackToALaCarte }
-        )
+      if (!response.ok) {
+        const errorMessage = response.error || 'Failed to update preference'
+        throw new Error(errorMessage)
       }
 
-      return { previousData }
-    },
-    onError: (err, _newParams, context) => {
+      // Invalidate to refetch fresh data from server
+      invalidateActivityQuery(queryKey)
+    } catch (err) {
       // Rollback to previous value on error
-      if (context?.previousData) {
-        queryClient.setQueryData(subscriptionQueryKeys.current(), context.previousData)
+      if (previousData) {
+        setActivityQueryData(queryKey, previousData)
       }
       logger.error({ err }, 'Failed to update preference')
-    },
-    onSettled: () => {
-      // Refetch after mutation
-      queryClient.invalidateQueries({ queryKey: subscriptionQueryKeys.current() })
-    },
-  })
+    } finally {
+      setIsPending(false)
+    }
+  }, [])
+
+  return { mutate, isPending }
 }

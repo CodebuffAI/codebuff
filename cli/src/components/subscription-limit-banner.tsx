@@ -132,9 +132,9 @@ export const SubscriptionLimitBanner = () => {
         </box>
 
         {hasAlaCarteCredits && (
-          <Button onClick={handleToggleFallbackToALaCarte}>
+          <Button onClick={handleToggleFallbackToALaCarte} disabled={updatePreference.isPending}>
             <text style={{ fg: theme.muted }}>
-              {fallbackToALaCarte ? '[x]' : '[ ]'} always use credits if subscription limit is reached
+              {updatePreference.isPending ? '[...]' : fallbackToALaCarte ? '[x]' : '[ ]'} always use credits if subscription limit is reached
             </text>
           </Button>
         )}

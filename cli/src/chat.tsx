@@ -58,7 +58,7 @@ import { getClaudeOAuthStatus } from './utils/claude-oauth'
 import { showClipboardMessage } from './utils/clipboard'
 import { readClipboardImage } from './utils/clipboard-image'
 import { getInputModeConfig } from './utils/input-modes'
-import { getAlwaysUseALaCarte } from './utils/settings'
+
 import {
   type ChatKeyboardState,
   createDefaultChatKeyboardState,
@@ -1288,12 +1288,13 @@ export const Chat = ({
   // Auto-show subscription limit banner when rate limit becomes active
   const subscriptionLimitShownRef = useRef(false)
   const subscriptionRateLimit = subscriptionData?.hasSubscription ? subscriptionData.rateLimit : undefined
+  const fallbackToALaCarte = subscriptionData?.fallbackToALaCarte ?? false
   useEffect(() => {
     const isLimited = subscriptionRateLimit?.limited === true
     if (isLimited && !subscriptionLimitShownRef.current) {
       subscriptionLimitShownRef.current = true
       // Skip showing the banner if user prefers to always fall back to a-la-carte
-      if (!getAlwaysUseALaCarte()) {
+      if (!fallbackToALaCarte) {
         useChatStore.getState().setInputMode('subscriptionLimit')
       }
     } else if (!isLimited) {
@@ -1302,7 +1303,7 @@ export const Chat = ({
         useChatStore.getState().setInputMode('default')
       }
     }
-  }, [subscriptionRateLimit?.limited])
+  }, [subscriptionRateLimit?.limited, fallbackToALaCarte])
 
   const inputBoxTitle = useMemo(() => {
     const segments: string[] = []

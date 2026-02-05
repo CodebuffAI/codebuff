@@ -76,12 +76,16 @@ function SubscriptionActive({ data, email }: { data: ActiveSubscriptionResponse;
         old ? { ...old, fallbackToALaCarte: newValue } : old
       )
     },
-    onError: (error: Error) => {
+    onError: (err: Error) => {
       toast({
         title: 'Error',
-        description: error.message,
+        description: err.message,
         variant: 'destructive',
       })
+    },
+    onSettled: () => {
+      // Refetch to ensure consistency with server
+      queryClient.invalidateQueries({ queryKey: ['subscription'] })
     },
   })
 

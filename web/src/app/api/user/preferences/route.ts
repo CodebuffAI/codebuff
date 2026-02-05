@@ -55,7 +55,7 @@ export async function PATCH(request: Request) {
       .update(schema.user)
       .set(updates)
       .where(eq(schema.user.id, userId))
-the 
+
     logger.info({ userId, updates }, 'User preferences updated')
 
     return NextResponse.json({ success: true, ...parsed.data })

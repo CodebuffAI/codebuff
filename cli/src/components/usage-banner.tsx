@@ -122,7 +122,7 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
             subscriptionInfo={subscriptionInfo}
             rateLimit={rateLimit}
             isLoading={isSubscriptionLoading}
-            fallbackToALaCarte={activeSubscription.fallbackToALaCarte}
+            fallbackToALaCarte={activeSubscription.fallbackToALaCarte ?? false}
           />
         )}
 
@@ -271,9 +271,9 @@ const SubscriptionUsageSection: React.FC<SubscriptionUsageSectionProps> = ({
         <text style={{ fg: theme.muted }}>
           {fallbackToALaCarte ? 'spend credits' : 'pause'}
         </text>
-        <Button onClick={handleToggleFallbackToALaCarte}>
+        <Button onClick={handleToggleFallbackToALaCarte} disabled={updatePreference.isPending}>
           <text style={{ fg: theme.muted, attributes: TextAttributes.UNDERLINE }}>
-            [{fallbackToALaCarte ? 'switch to pause' : 'switch to spend credits'}]
+            {updatePreference.isPending ? '[updating...]' : `[${fallbackToALaCarte ? 'switch to pause' : 'switch to spend credits'}]`}
           </text>
         </Button>
       </box>

@@ -149,19 +149,3 @@ export const saveModePreference = (mode: AgentMode): void => {
   saveSettings({ mode })
 }
 
-/**
- * Load the "always use a-la-carte" preference
- * @deprecated Use server-side fallbackToALaCarte setting via useSubscriptionQuery instead
- */
-export const getAlwaysUseALaCarte = (): boolean => {
-  const settings = loadSettings()
-  return settings.fallbackToALaCarte ?? settings.alwaysUseALaCarte ?? false
-}
-
-/**
- * Save the "always use a-la-carte" preference
- * @deprecated Use server-side fallbackToALaCarte setting via useUpdatePreference instead
- */
-export const setAlwaysUseALaCarte = (value: boolean): void => {
-  saveSettings({ fallbackToALaCarte: value })
-}
