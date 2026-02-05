@@ -63,12 +63,25 @@ export interface WeeklyLimitError {
   resetsAt: Date
 }
 
-export type BlockGrantResult = BlockGrant | WeeklyLimitError
+export interface BlockExhaustedError {
+  error: 'block_exhausted'
+  blockUsed: number
+  blockLimit: number
+  resetsAt: Date
+}
+
+export type BlockGrantResult = BlockGrant | WeeklyLimitError | BlockExhaustedError
 
 export function isWeeklyLimitError(
   result: BlockGrantResult,
 ): result is WeeklyLimitError {
-  return 'error' in result
+  return 'error' in result && result.error === 'weekly_limit_reached'
+}
+
+export function isBlockExhaustedError(
+  result: BlockGrantResult,
+): result is BlockExhaustedError {
+  return 'error' in result && result.error === 'block_exhausted'
 }
 
 export interface RateLimitStatus {
@@ -251,7 +264,7 @@ export async function ensureActiveBlockGrantCallback(params: {
   const { conn, userId, subscription, logger, now = new Date() } = params
   const subscriptionId = subscription.stripe_subscription_id
 
-  // 1. Check for an existing active block grant
+  // 1. Check for an existing non-expired block grant (regardless of balance)
   const existingGrants = await conn
     .select()
     .from(schema.creditLedger)
@@ -260,7 +273,6 @@ export async function ensureActiveBlockGrantCallback(params: {
         eq(schema.creditLedger.user_id, userId),
         eq(schema.creditLedger.type, 'subscription'),
         gt(schema.creditLedger.expires_at, now),
-        gt(schema.creditLedger.balance, 0),
       ),
     )
     .orderBy(desc(schema.creditLedger.expires_at))
@@ -268,12 +280,24 @@ export async function ensureActiveBlockGrantCallback(params: {
 
   if (existingGrants.length > 0) {
     const g = existingGrants[0]
+    
+    // Block exists with credits remaining - return it
+    if (g.balance > 0) {
+      return {
+        grantId: g.operation_id,
+        credits: g.balance,
+        expiresAt: g.expires_at!,
+        isNew: false,
+      } satisfies BlockGrant
+    }
+    
+    // Block exists but is exhausted - don't create a new one until it expires
     return {
-      grantId: g.operation_id,
-      credits: g.balance,
-      expiresAt: g.expires_at!,
-      isNew: false,
-    } satisfies BlockGrant
+      error: 'block_exhausted',
+      blockUsed: g.principal,
+      blockLimit: g.principal,
+      resetsAt: g.expires_at!,
+    } satisfies BlockExhaustedError
   }
 
   // 2. Resolve limits
@@ -396,6 +420,24 @@ export async function ensureActiveBlockGrant(params: {
   })
 
   return result
+}
+
+/**
+ * Combined function that gets the active subscription and ensures a block grant exists.
+ * Returns the block grant result if the user has an active subscription, null otherwise.
+ */
+export async function ensureSubscriberBlockGrant(params: {
+  userId: string
+  logger: Logger
+}): Promise<BlockGrantResult | null> {
+  const { userId, logger } = params
+
+  const subscription = await getActiveSubscription({ userId, logger })
+  if (!subscription) {
+    return null
+  }
+
+  return ensureActiveBlockGrant({ userId, subscription, logger })
 }
 
 // ---------------------------------------------------------------------------

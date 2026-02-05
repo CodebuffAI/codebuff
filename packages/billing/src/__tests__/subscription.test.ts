@@ -412,11 +412,11 @@ describe('subscription', () => {
     const subscription = createMockSubscription()
 
     it('should report weekly_limit when usage reaches limit', async () => {
-      // tier 200 → weeklyCreditsLimit: 12000
+      const weeklyLimit = SUBSCRIPTION_TIERS[200].weeklyCreditsLimit
       const { conn } = createSequentialMock({
         selectResults: [
-          [],                  // no limit overrides
-          [{ total: 12000 }], // weekly usage at limit
+          [],                      // no limit overrides
+          [{ total: weeklyLimit }], // weekly usage at limit
         ],
       })
 
@@ -430,8 +430,8 @@ describe('subscription', () => {
       expect(result.limited).toBe(true)
       expect(result.reason).toBe('weekly_limit')
       expect(result.canStartNewBlock).toBe(false)
-      expect(result.weeklyUsed).toBe(12000)
-      expect(result.weeklyLimit).toBe(SUBSCRIPTION_TIERS[200].weeklyCreditsLimit)
+      expect(result.weeklyUsed).toBe(weeklyLimit)
+      expect(result.weeklyLimit).toBe(weeklyLimit)
     })
 
     it('should allow new block when no active block exists', async () => {
@@ -528,12 +528,12 @@ describe('subscription', () => {
     })
 
     it('should return weekly limit error when limit is reached', async () => {
-      // tier 200 → weeklyCreditsLimit: 12000
+      const weeklyLimit = SUBSCRIPTION_TIERS[200].weeklyCreditsLimit
       const { conn } = createSequentialMock({
         selectResults: [
-          [],                  // no existing grants
-          [],                  // no limit overrides
-          [{ total: 12000 }], // weekly limit reached
+          [],                      // no existing grants
+          [],                      // no limit overrides
+          [{ total: weeklyLimit }], // weekly limit reached
         ],
       })
 
@@ -547,8 +547,8 @@ describe('subscription', () => {
       expect(isWeeklyLimitError(result)).toBe(true)
       const error = result as WeeklyLimitError
       expect(error.error).toBe('weekly_limit_reached')
-      expect(error.used).toBe(12000)
-      expect(error.limit).toBe(SUBSCRIPTION_TIERS[200].weeklyCreditsLimit)
+      expect(error.used).toBe(weeklyLimit)
+      expect(error.limit).toBe(weeklyLimit)
     })
 
     it('should create new block grant when none exists', async () => {
@@ -583,14 +583,15 @@ describe('subscription', () => {
     })
 
     it('should cap block credits to weekly remaining', async () => {
-      // tier 200: creditsPerBlock=1200, weeklyCreditsLimit=12000
-      // weekly used=11500 → remaining=500, block capped to 500
+      const weeklyLimit = SUBSCRIPTION_TIERS[200].weeklyCreditsLimit
+      const expectedRemaining = 500
+      const weeklyUsed = weeklyLimit - expectedRemaining
       const now = new Date('2025-01-15T10:00:00Z')
       const { conn, captures } = createSequentialMock({
         selectResults: [
-          [],                  // no existing grants
-          [],                  // no limit overrides
-          [{ total: 11500 }], // 500 remaining
+          [],                    // no existing grants
+          [],                    // no limit overrides
+          [{ total: weeklyUsed }], // expectedRemaining credits remaining
         ],
         insertResults: [
           [{ operation_id: 'capped-block' }],
@@ -607,9 +608,9 @@ describe('subscription', () => {
 
       expect(isWeeklyLimitError(result)).toBe(false)
       const grant = result as BlockGrant
-      expect(grant.credits).toBe(500)
-      expect(captures.insertValues[0].principal).toBe(500)
-      expect(captures.insertValues[0].balance).toBe(500)
+      expect(grant.credits).toBe(expectedRemaining)
+      expect(captures.insertValues[0].principal).toBe(expectedRemaining)
+      expect(captures.insertValues[0].balance).toBe(expectedRemaining)
     })
 
     it('should throw when insert returns no grant (duplicate operation)', async () => {

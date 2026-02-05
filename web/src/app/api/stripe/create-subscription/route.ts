@@ -72,13 +72,12 @@ export async function POST(req: NextRequest) {
     const checkoutSession = await stripeServer.checkout.sessions.create({
       customer: user.stripe_customer_id,
       mode: 'subscription',
-      invoice_creation: { enabled: true },
       tax_id_collection: { enabled: true },  // optional (EU B2B)
       customer_update: { name: "auto", address: "auto" },
       line_items: [{ price: priceId, quantity: 1 }],
       allow_promotion_codes: true,
       success_url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/profile?tab=usage&subscription_success=true`,
-      cancel_url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/strong?canceled=true`,
+      cancel_url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/pricing?canceled=true`,
       metadata: {
         userId,
         type: 'strong_subscription',

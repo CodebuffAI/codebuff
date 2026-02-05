@@ -17,6 +17,19 @@ import type {
   Logger,
   LoggerWithContextFn,
 } from '@codebuff/common/types/contracts/logger'
+
+import type {
+  BlockGrantResult,
+} from '@codebuff/billing/subscription'
+import {
+  isWeeklyLimitError,
+  isBlockExhaustedError,
+} from '@codebuff/billing/subscription'
+
+export type GetUserPreferencesFn = (params: {
+  userId: string
+  logger: Logger
+}) => Promise<{ fallbackToALaCarte: boolean }>
 import type { NextRequest } from 'next/server'
 
 import type { ChatCompletionRequestBody } from '@/llm-api/types'
@@ -78,6 +91,8 @@ export async function postChatCompletions(params: {
   getAgentRunFromId: GetAgentRunFromIdFn
   fetch: typeof globalThis.fetch
   insertMessageBigquery: InsertMessageBigqueryFn
+  ensureSubscriberBlockGrant?: (params: { userId: string; logger: Logger }) => Promise<BlockGrantResult | null>
+  getUserPreferences?: GetUserPreferencesFn
 }) {
   const {
     req,
@@ -88,6 +103,8 @@ export async function postChatCompletions(params: {
     getAgentRunFromId,
     fetch,
     insertMessageBigquery,
+    ensureSubscriberBlockGrant,
+    getUserPreferences,
   } = params
   let { logger } = params
 
@@ -262,6 +279,59 @@ export async function postChatCompletions(params: {
         { message: `runId Not Running: ${runIdFromBody}` },
         { status: 400 },
       )
+    }
+
+    // For subscribers, ensure a block grant exists before processing the request.
+    // This is done AFTER validation so malformed requests don't start a new 5-hour block.
+    if (ensureSubscriberBlockGrant) {
+      try {
+        const blockGrantResult = await ensureSubscriberBlockGrant({ userId, logger })
+        
+        // Check if user hit subscription limit and should be rate-limited
+        if (blockGrantResult && (isWeeklyLimitError(blockGrantResult) || isBlockExhaustedError(blockGrantResult))) {
+          // Fetch user's preference for falling back to a-la-carte credits
+          const preferences = getUserPreferences
+            ? await getUserPreferences({ userId, logger })
+            : { fallbackToALaCarte: true } // Default to allowing a-la-carte if no preference function
+          
+          if (!preferences.fallbackToALaCarte) {
+            const resetTime = blockGrantResult.resetsAt
+            const resetCountdown = formatQuotaResetCountdown(resetTime.toISOString())
+            const limitType = isWeeklyLimitError(blockGrantResult) ? 'weekly' : '5-hour session'
+            
+            trackEvent({
+              event: AnalyticsEvent.CHAT_COMPLETIONS_INSUFFICIENT_CREDITS,
+              userId,
+              properties: {
+                reason: 'subscription_limit_no_fallback',
+                limitType,
+                fallbackToALaCarte: false,
+              },
+              logger,
+            })
+            
+            return NextResponse.json(
+              {
+                error: 'rate_limit_exceeded',
+                message: `Subscription ${limitType} limit reached. Your limit resets ${resetCountdown}. Enable "Continue with credits" in the CLI to use a-la-carte credits.`,
+              },
+              { status: 429 },
+            )
+          }
+          // If fallbackToALaCarte is true, continue to use a-la-carte credits
+          logger.info(
+            { userId, limitType: isWeeklyLimitError(blockGrantResult) ? 'weekly' : 'session' },
+            'Subscriber hit limit, falling back to a-la-carte credits',
+          )
+        }
+      } catch (error) {
+        logger.error(
+          { error: getErrorObject(error), userId },
+          'Error ensuring subscription block grant',
+        )
+        // Fail open: if we can't check the subscription status, allow the request to proceed
+        // This is intentional - we prefer to allow requests rather than block legitimate users
+      }
     }
 
     const openrouterApiKey = req.headers.get(BYOK_OPENROUTER_HEADER)

@@ -14,6 +14,8 @@ import type {
   Logger,
   LoggerWithContextFn,
 } from '@codebuff/common/types/contracts/logger'
+import type { BlockGrantResult } from '@codebuff/billing/subscription'
+import type { GetUserPreferencesFn } from '../_post'
 
 describe('/api/v1/chat/completions POST endpoint', () => {
   const mockUserData: Record<
@@ -495,6 +497,267 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       const body = await response.json()
       expect(body.id).toBe('test-id')
       expect(body.choices[0].message.content).toBe('test response')
+    })
+  })
+
+  describe('Subscription limit enforcement', () => {
+    const createValidRequest = () =>
+      new NextRequest('http://localhost:3000/api/v1/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer test-api-key-123' },
+        body: JSON.stringify({
+          model: 'test/test-model',
+          stream: false,
+          codebuff_metadata: {
+            run_id: 'run-123',
+            client_id: 'test-client-id-123',
+            client_request_id: 'test-client-session-id-123',
+          },
+        }),
+      })
+
+    it('returns 429 when weekly limit reached and fallback disabled', async () => {
+      const weeklyLimitError: BlockGrantResult = {
+        error: 'weekly_limit_reached',
+        used: 3500,
+        limit: 3500,
+        resetsAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+      }
+      const mockEnsureSubscriberBlockGrant = mock(async () => weeklyLimitError)
+      const mockGetUserPreferences: GetUserPreferencesFn = mock(async () => ({
+        fallbackToALaCarte: false,
+      }))
+
+      const response = await postChatCompletions({
+        req: createValidRequest(),
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
+        getUserPreferences: mockGetUserPreferences,
+      })
+
+      expect(response.status).toBe(429)
+      const body = await response.json()
+      expect(body.error).toBe('rate_limit_exceeded')
+      expect(body.message).toContain('weekly limit reached')
+      expect(body.message).toContain('Enable "Continue with credits"')
+    })
+
+    it('returns 429 when block exhausted and fallback disabled', async () => {
+      const blockExhaustedError: BlockGrantResult = {
+        error: 'block_exhausted',
+        blockUsed: 350,
+        blockLimit: 350,
+        resetsAt: new Date(Date.now() + 4 * 60 * 60 * 1000),
+      }
+      const mockEnsureSubscriberBlockGrant = mock(async () => blockExhaustedError)
+      const mockGetUserPreferences: GetUserPreferencesFn = mock(async () => ({
+        fallbackToALaCarte: false,
+      }))
+
+      const response = await postChatCompletions({
+        req: createValidRequest(),
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
+        getUserPreferences: mockGetUserPreferences,
+      })
+
+      expect(response.status).toBe(429)
+      const body = await response.json()
+      expect(body.error).toBe('rate_limit_exceeded')
+      expect(body.message).toContain('5-hour session limit reached')
+      expect(body.message).toContain('Enable "Continue with credits"')
+    })
+
+    it('continues when weekly limit reached but fallback is enabled', async () => {
+      const weeklyLimitError: BlockGrantResult = {
+        error: 'weekly_limit_reached',
+        used: 3500,
+        limit: 3500,
+        resetsAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+      }
+      const mockEnsureSubscriberBlockGrant = mock(async () => weeklyLimitError)
+      const mockGetUserPreferences: GetUserPreferencesFn = mock(async () => ({
+        fallbackToALaCarte: true,
+      }))
+
+      const response = await postChatCompletions({
+        req: createValidRequest(),
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
+        getUserPreferences: mockGetUserPreferences,
+      })
+
+      expect(response.status).toBe(200)
+      expect(mockLogger.info).toHaveBeenCalled()
+    })
+
+    it('continues when block grant is created successfully', async () => {
+      const blockGrant: BlockGrantResult = {
+        grantId: 'block-123',
+        credits: 350,
+        expiresAt: new Date(Date.now() + 5 * 60 * 60 * 1000),
+        isNew: true,
+      }
+      const mockEnsureSubscriberBlockGrant = mock(async () => blockGrant)
+      const mockGetUserPreferences: GetUserPreferencesFn = mock(async () => ({
+        fallbackToALaCarte: false,
+      }))
+
+      const response = await postChatCompletions({
+        req: createValidRequest(),
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
+        getUserPreferences: mockGetUserPreferences,
+      })
+
+      expect(response.status).toBe(200)
+      // getUserPreferences should not be called when block grant succeeds
+      expect(mockGetUserPreferences).not.toHaveBeenCalled()
+    })
+
+    it('continues when ensureSubscriberBlockGrant throws an error (fail open)', async () => {
+      const mockEnsureSubscriberBlockGrant = mock(async () => {
+        throw new Error('Database connection failed')
+      })
+      const mockGetUserPreferences: GetUserPreferencesFn = mock(async () => ({
+        fallbackToALaCarte: false,
+      }))
+
+      const response = await postChatCompletions({
+        req: createValidRequest(),
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
+        getUserPreferences: mockGetUserPreferences,
+      })
+
+      // Should continue processing (fail open)
+      expect(response.status).toBe(200)
+      expect(mockLogger.error).toHaveBeenCalled()
+    })
+
+    it('continues when user is not a subscriber (null result)', async () => {
+      const mockEnsureSubscriberBlockGrant = mock(async () => null)
+      const mockGetUserPreferences: GetUserPreferencesFn = mock(async () => ({
+        fallbackToALaCarte: false,
+      }))
+
+      const response = await postChatCompletions({
+        req: createValidRequest(),
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
+        getUserPreferences: mockGetUserPreferences,
+      })
+
+      expect(response.status).toBe(200)
+      // getUserPreferences should not be called for non-subscribers
+      expect(mockGetUserPreferences).not.toHaveBeenCalled()
+    })
+
+    it('defaults to allowing fallback when getUserPreferences is not provided', async () => {
+      const weeklyLimitError: BlockGrantResult = {
+        error: 'weekly_limit_reached',
+        used: 3500,
+        limit: 3500,
+        resetsAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+      }
+      const mockEnsureSubscriberBlockGrant = mock(async () => weeklyLimitError)
+
+      const response = await postChatCompletions({
+        req: createValidRequest(),
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
+        // Note: getUserPreferences is NOT provided
+      })
+
+      // Should continue processing (default to allowing a-la-carte)
+      expect(response.status).toBe(200)
+    })
+
+    it('does not call ensureSubscriberBlockGrant before validation passes', async () => {
+      const mockEnsureSubscriberBlockGrant = mock(async () => null)
+
+      // Request with invalid run_id
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: { Authorization: 'Bearer test-api-key-123' },
+          body: JSON.stringify({
+            model: 'test/test-model',
+            stream: false,
+            codebuff_metadata: {
+              run_id: 'run-nonexistent',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletions({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
+      })
+
+      // Should return 400 for invalid run_id
+      expect(response.status).toBe(400)
+      // ensureSubscriberBlockGrant should NOT have been called
+      expect(mockEnsureSubscriberBlockGrant).not.toHaveBeenCalled()
     })
   })
 })

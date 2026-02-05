@@ -72,7 +72,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     <box style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
       {label && <text style={{ fg: theme.muted }}>{label} </text>}
       <text style={{ fg: barColor }}>{filled}</text>
-      <text style={{ fg: theme.muted }}>{empty}</text>
+      {emptyWidth > 0 && <text style={{ fg: theme.muted }}>{empty}</text>}
       {showPercentage && (
         <text style={{ fg: textColor }}> {Math.round(clampedValue)}%</text>
       )}

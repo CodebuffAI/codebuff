@@ -1,13 +1,14 @@
 'use client'
 
 import { pluralize } from '@codebuff/common/util/string'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import {
   CreditCard,
   Users,
   ExternalLink,
   AlertTriangle,
   CheckCircle,
+  Loader2,
 } from 'lucide-react'
 
 
@@ -15,6 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { toast } from '@/components/ui/use-toast'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
 
@@ -29,7 +31,6 @@ interface BillingStatus {
     current_period_end: number
     cancel_at_period_end: boolean
   }
-  billingPortalUrl?: string
   organization: {
     id: string
     name: string
@@ -57,6 +58,30 @@ export function BillingStatus({
   noCardWrapper = false,
 }: BillingStatusProps) {
   const isMobile = useIsMobile()
+
+  const billingPortalMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/orgs/${organizationId}/billing/portal`, {
+        method: 'POST',
+      })
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: 'Failed to open billing portal' }))
+        throw new Error(error.error || 'Failed to open billing portal')
+      }
+      const data = await res.json()
+      return data.url as string
+    },
+    onSuccess: (url) => {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    },
+    onError: (err: Error) => {
+      toast({
+        title: 'Error',
+        description: err.message || 'Failed to open billing portal',
+        variant: 'destructive',
+      })
+    },
+  })
 
   const {
     data: billingStatus,
@@ -233,23 +258,26 @@ export function BillingStatus({
           </div>
 
           {/* Billing Portal Link */}
-          {billingStatus.billingPortalUrl && (
+          {billingStatus.organization && (
             <div className="flex flex-col sm:flex-row gap-2">
               <Button
-                asChild
                 variant="outline"
                 size={isMobile ? 'sm' : 'default'}
                 className="w-full sm:w-auto"
+                onClick={() => billingPortalMutation.mutate()}
+                disabled={billingPortalMutation.isPending}
               >
-                <a
-                  href={billingStatus.billingPortalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center"
-                >
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Manage Billing
-                </a>
+                {billingPortalMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Opening...
+                  </>
+                ) : (
+                  <>
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Manage Billing
+                  </>
+                )}
               </Button>
             </div>
           )}

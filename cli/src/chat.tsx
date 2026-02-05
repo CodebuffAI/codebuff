@@ -35,6 +35,7 @@ import { useChatState } from './hooks/use-chat-state'
 import { useChatStreaming } from './hooks/use-chat-streaming'
 import { useChatUI } from './hooks/use-chat-ui'
 import { useClaudeQuotaQuery } from './hooks/use-claude-quota-query'
+import { useSubscriptionQuery } from './hooks/use-subscription-query'
 import { useClipboard } from './hooks/use-clipboard'
 import { useEvent } from './hooks/use-event'
 import { useGravityAd } from './hooks/use-gravity-ad'
@@ -57,6 +58,7 @@ import { getClaudeOAuthStatus } from './utils/claude-oauth'
 import { showClipboardMessage } from './utils/clipboard'
 import { readClipboardImage } from './utils/clipboard-image'
 import { getInputModeConfig } from './utils/input-modes'
+
 import {
   type ChatKeyboardState,
   createDefaultChatKeyboardState,
@@ -160,6 +162,11 @@ export const Chat = ({
 
   const { statusMessage } = useClipboard()
   const { ad } = useGravityAd()
+
+  // Fetch subscription data early - needed for session credits tracking
+  const { data: subscriptionData } = useSubscriptionQuery({
+    refetchInterval: 60 * 1000,
+  })
 
   // Set initial mode from CLI flag on mount
   useEffect(() => {
@@ -425,6 +432,7 @@ export const Chat = ({
     resumeQueue,
     continueChat,
     continueChatId,
+    subscriptionData,
   })
 
   sendMessageRef.current = sendMessage
@@ -1277,6 +1285,26 @@ export const Chat = ({
     enabled: isClaudeOAuthActive,
     refetchInterval: 60 * 1000, // Refetch every 60 seconds
   })
+
+  // Auto-show subscription limit banner when rate limit becomes active
+  const subscriptionLimitShownRef = useRef(false)
+  const subscriptionRateLimit = subscriptionData?.hasSubscription ? subscriptionData.rateLimit : undefined
+  const fallbackToALaCarte = subscriptionData?.fallbackToALaCarte ?? false
+  useEffect(() => {
+    const isLimited = subscriptionRateLimit?.limited === true
+    if (isLimited && !subscriptionLimitShownRef.current) {
+      subscriptionLimitShownRef.current = true
+      // Skip showing the banner if user prefers to always fall back to a-la-carte
+      if (!fallbackToALaCarte) {
+        useChatStore.getState().setInputMode('subscriptionLimit')
+      }
+    } else if (!isLimited) {
+      subscriptionLimitShownRef.current = false
+      if (useChatStore.getState().inputMode === 'subscriptionLimit') {
+        useChatStore.getState().setInputMode('default')
+      }
+    }
+  }, [subscriptionRateLimit?.limited, fallbackToALaCarte])
 
   const inputBoxTitle = useMemo(() => {
     const segments: string[] = []

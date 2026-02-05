@@ -1,17 +1,20 @@
 import { isClaudeOAuthValid } from '@codebuff/sdk'
+import { TextAttributes } from '@opentui/core'
 import open from 'open'
-import React, { useEffect } from 'react'
+import React, { useEffect, useMemo } from 'react'
 
 import { BottomBanner } from './bottom-banner'
 import { Button } from './button'
 import { ProgressBar } from './progress-bar'
 import { getActivityQueryData } from '../hooks/use-activity-query'
 import { useClaudeQuotaQuery } from '../hooks/use-claude-quota-query'
+import { useSubscriptionQuery } from '../hooks/use-subscription-query'
 import { useTheme } from '../hooks/use-theme'
+import { useUpdatePreference } from '../hooks/use-update-preference'
 import { usageQueryKeys, useUsageQuery } from '../hooks/use-usage-query'
 import { WEBSITE_URL } from '../login/constants'
 import { useChatStore } from '../state/chat-store'
-import { formatResetTime } from '../utils/time-format'
+import { formatResetTime, formatResetTimeLong } from '../utils/time-format'
 import {
   getBannerColorLevel,
   generateLoadingBannerText,
@@ -31,13 +34,13 @@ const formatRenewalDate = (dateStr: string | null): string => {
   const isToday = resetDate.toDateString() === today.toDateString()
   return isToday
     ? resetDate.toLocaleString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-      })
+      hour: 'numeric',
+      minute: '2-digit',
+    })
     : resetDate.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-      })
+      month: 'short',
+      day: 'numeric',
+    })
 }
 
 export const UsageBanner = ({ showTime }: { showTime: number }) => {
@@ -51,6 +54,11 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
   const { data: claudeQuota, isLoading: isClaudeLoading } = useClaudeQuotaQuery({
     enabled: isClaudeConnected,
     refetchInterval: 30 * 1000, // Refresh every 30 seconds when banner is open
+  })
+
+  // Fetch subscription data
+  const { data: subscriptionData, isLoading: isSubscriptionLoading } = useSubscriptionQuery({
+    refetchInterval: 30 * 1000,
   })
 
   const {
@@ -99,12 +107,25 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
   const adCredits = activeData.balanceBreakdown?.ad
   const renewalDate = activeData.next_quota_reset ? formatRenewalDate(activeData.next_quota_reset) : null
 
+  const activeSubscription = subscriptionData?.hasSubscription ? subscriptionData : null
+  const { rateLimit, subscription: subscriptionInfo, displayName } = activeSubscription ?? {}
+
   return (
     <BottomBanner
       borderColorKey={isLoadingData ? 'muted' : colorLevel}
       onClose={() => setInputMode('default')}
     >
       <box style={{ flexDirection: 'column', gap: 0 }}>
+        {activeSubscription && (
+          <SubscriptionUsageSection
+            displayName={displayName}
+            subscriptionInfo={subscriptionInfo}
+            rateLimit={rateLimit}
+            isLoading={isSubscriptionLoading}
+            fallbackToALaCarte={activeSubscription.fallbackToALaCarte ?? false}
+          />
+        )}
+
         {/* Codebuff credits section - structured layout */}
         <Button
           onClick={() => {
@@ -115,20 +136,20 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
             {/* Main stats row */}
             <box style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 1 }}>
               <text style={{ fg: theme.muted }}>Session:</text>
-              <text style={{ fg: theme.foreground }}>{sessionCreditsUsed.toLocaleString()}</text>
+              <text style={{ fg: theme.foreground }}>{sessionCreditsUsed.toLocaleString()} credits</text>
               <text style={{ fg: theme.muted }}>·</text>
               <text style={{ fg: theme.muted }}>Remaining:</text>
               {isLoadingData ? (
                 <text style={{ fg: theme.muted }}>...</text>
               ) : (
                 <text style={{ fg: theme.foreground }}>
-                  {activeData.remainingBalance?.toLocaleString() ?? '?'}
+                  {activeData.remainingBalance?.toLocaleString() ?? '?'} credits
                 </text>
               )}
               {adCredits != null && adCredits > 0 && (
                 <text style={{ fg: theme.muted }}>{`(${adCredits} from ads)`}</text>
               )}
-              {renewalDate && (
+              {!activeSubscription && renewalDate && (
                 <>
                   <text style={{ fg: theme.muted }}>· Renews:</text>
                   <text style={{ fg: theme.foreground }}>{renewalDate}</text>
@@ -136,7 +157,7 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
               )}
             </box>
             {/* See more link */}
-            <text style={{ fg: theme.muted }}>↗ See more on {WEBSITE_URL}</text>
+            <text style={{ fg: theme.muted }}>See more on {WEBSITE_URL} ↗</text>
           </box>
         </Button>
 
@@ -175,5 +196,87 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
         )}
       </box>
     </BottomBanner>
+  )
+}
+
+interface SubscriptionUsageSectionProps {
+  displayName?: string
+  subscriptionInfo?: { tier: number }
+  rateLimit?: {
+    blockLimit?: number
+    blockUsed?: number
+    blockResetsAt?: string
+    weeklyPercentUsed: number
+    weeklyResetsAt: string
+  }
+  isLoading: boolean
+  fallbackToALaCarte: boolean
+}
+
+const SubscriptionUsageSection: React.FC<SubscriptionUsageSectionProps> = ({
+  displayName,
+  subscriptionInfo,
+  rateLimit,
+  isLoading,
+  fallbackToALaCarte,
+}) => {
+  const theme = useTheme()
+  const updatePreference = useUpdatePreference()
+
+  const handleToggleFallbackToALaCarte = () => {
+    updatePreference.mutate({ fallbackToALaCarte: !fallbackToALaCarte })
+  }
+
+  const blockPercent = useMemo(() => {
+    if (rateLimit?.blockLimit == null || rateLimit.blockUsed == null) return 100
+    return Math.max(0, 100 - Math.round((rateLimit.blockUsed / rateLimit.blockLimit) * 100))
+  }, [rateLimit?.blockLimit, rateLimit?.blockUsed])
+
+  const weeklyPercent = rateLimit ? 100 - rateLimit.weeklyPercentUsed : 100
+
+  return (
+    <box style={{ flexDirection: 'column', marginBottom: 1 }}>
+      <box style={{ flexDirection: 'row', gap: 1 }}>
+        <text style={{ fg: theme.foreground }}>
+          💪 {displayName ?? 'Strong'} subscription
+        </text>
+        {subscriptionInfo?.tier && (
+          <text style={{ fg: theme.muted }}>${subscriptionInfo.tier}/mo</text>
+        )}
+      </box>
+      {isLoading ? (
+        <text style={{ fg: theme.muted }}>Loading subscription data...</text>
+      ) : rateLimit ? (
+        <box style={{ flexDirection: 'column', gap: 0 }}>
+          <box style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
+            <text style={{ fg: theme.muted }}>{`5-hour limit ${`${blockPercent}%`.padStart(4)} `}</text>
+            <ProgressBar value={blockPercent} width={12} showPercentage={false} />
+            <text style={{ fg: theme.muted }}>
+              {rateLimit.blockResetsAt
+                ? ` resets in ${formatResetTime(new Date(rateLimit.blockResetsAt))}`
+                : ''}
+            </text>
+          </box>
+          <box style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
+            <text style={{ fg: theme.muted }}>{`Weekly limit ${`${weeklyPercent}%`.padStart(4)} `}</text>
+            <ProgressBar value={weeklyPercent} width={12} showPercentage={false} />
+            <text style={{ fg: theme.muted }}>
+              {` resets in ${formatResetTimeLong(rateLimit.weeklyResetsAt)}`}
+            </text>
+          </box>
+        </box>
+      ) : null}
+      <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1, marginTop: 1 }}>
+        <text style={{ fg: theme.muted }}>When limit reached:</text>
+        <text style={{ fg: theme.muted }}>
+          {fallbackToALaCarte ? 'spend credits' : 'pause'}
+        </text>
+        <Button onClick={handleToggleFallbackToALaCarte} disabled={updatePreference.isPending}>
+          <text style={{ fg: theme.muted, attributes: TextAttributes.UNDERLINE }}>
+            {updatePreference.isPending ? '[updating...]' : `[${fallbackToALaCarte ? 'switch to pause' : 'switch to spend credits'}]`}
+          </text>
+        </Button>
+      </box>
+    </box>
   )
 }

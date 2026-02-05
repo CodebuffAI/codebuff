@@ -326,8 +326,9 @@ export async function calculateUsageAndBalance(
   for (const grant of grants) {
     const grantType = grant.type as GrantType
 
-    // Skip organization credits for personal context
-    if (isPersonalContext && grantType === 'organization') {
+    // Skip organization and subscription credits for personal context
+    // Subscription credits are shown separately in the CLI with progress bars
+    if (isPersonalContext && (grantType === 'organization' || grantType === 'subscription')) {
       continue
     }
 

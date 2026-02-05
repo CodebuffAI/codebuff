@@ -10,7 +10,6 @@ import {
   CreditCard,
   Star,
   Megaphone,
-  Zap,
 } from 'lucide-react'
 import React from 'react'
 
@@ -54,6 +53,14 @@ const grantTypeInfo: Record<
     label: 'Monthly Free',
     description: 'Your monthly allowance',
   },
+  subscription: {
+    bg: 'bg-indigo-500',
+    text: 'text-indigo-600 dark:text-indigo-400',
+    gradient: 'from-indigo-500/70 to-indigo-600/70',
+    icon: <Star className="h-4 w-4" />,
+    label: 'Strong',
+    description: 'Credits from your Strong subscription',
+  },
   referral: {
     bg: 'bg-green-500',
     text: 'text-green-600 dark:text-green-400',
@@ -93,14 +100,6 @@ const grantTypeInfo: Record<
     icon: <Megaphone className="h-4 w-4" />,
     label: 'Ad Credits',
     description: 'Earned from viewing ads',
-  },
-  subscription: {
-    bg: 'bg-teal-500',
-    text: 'text-teal-600 dark:text-teal-400',
-    gradient: 'from-teal-500/70 to-teal-600/70',
-    icon: <Zap className="h-4 w-4" />,
-    label: 'Subscription',
-    description: 'Credits from your subscription',
   },
 }
 
@@ -296,7 +295,7 @@ export const UsageDisplay = ({
   )
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
+    <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-xl font-bold mb-3">Credit Balance</CardTitle>
 
@@ -396,7 +395,7 @@ export const UsageDisplay = ({
 }
 
 export const UsageDisplaySkeleton = () => (
-  <Card className="w-full max-w-2xl mx-auto">
+  <Card>
     <CardHeader className="pb-4">
       <div className="h-7 w-32 bg-muted rounded animate-pulse mb-3" />
       <div className="h-5 w-64 bg-muted/70 rounded animate-pulse mb-3" />

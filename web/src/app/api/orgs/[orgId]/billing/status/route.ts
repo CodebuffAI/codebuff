@@ -1,6 +1,5 @@
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
-import { env } from '@codebuff/internal/env'
 import { stripeServer } from '@codebuff/internal/util/stripe'
 import { eq, and, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
@@ -74,32 +73,21 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     // Get subscription details if it exists
     let subscriptionDetails = null
-    let billingPortalUrl = null
 
-    if (organization.stripe_customer_id) {
+    if (organization.stripe_customer_id && organization.stripe_subscription_id) {
       try {
-        // Create billing portal session
-        const portalSession = await stripeServer.billingPortal.sessions.create({
-          customer: organization.stripe_customer_id,
-          return_url: `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/orgs/${organization.slug}/settings`,
-        })
-        billingPortalUrl = portalSession.url
+        const subscription = await stripeServer.subscriptions.retrieve(
+          organization.stripe_subscription_id,
+        )
 
-        // Get subscription details if subscription exists
-        if (organization.stripe_subscription_id) {
-          const subscription = await stripeServer.subscriptions.retrieve(
-            organization.stripe_subscription_id,
-          )
-
-          subscriptionDetails = {
-            status: subscription.status,
-            current_period_start: subscription.current_period_start,
-            current_period_end: subscription.current_period_end,
-            cancel_at_period_end: subscription.cancel_at_period_end,
-          }
+        subscriptionDetails = {
+          status: subscription.status,
+          current_period_start: subscription.current_period_start,
+          current_period_end: subscription.current_period_end,
+          cancel_at_period_end: subscription.cancel_at_period_end,
         }
       } catch (error) {
-        logger.warn({ orgId, error }, 'Failed to get Stripe billing details')
+        logger.warn({ orgId, error }, 'Failed to get Stripe subscription details')
       }
     }
 
@@ -112,7 +100,6 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       totalMonthlyCost: seatCount * pricePerSeat,
       hasActiveSubscription: !!organization.stripe_subscription_id,
       subscriptionDetails,
-      billingPortalUrl,
       organization: {
         id: organization.id,
         name: organization.name,

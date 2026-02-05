@@ -37,12 +37,13 @@ export async function fetchUserDetails<T extends UserField>({
   logger = defaultLogger,
   apiClient: providedApiClient,
 }: FetchUserDetailsParams<T>): Promise<UserDetails<T> | null> {
-  const apiClient =
-    providedApiClient ??
-    (() => {
-      setApiClientAuthToken(authToken)
-      return getApiClient()
-    })()
+  let apiClient: CodebuffApiClient
+  if (providedApiClient) {
+    apiClient = providedApiClient
+  } else {
+    setApiClientAuthToken(authToken)
+    apiClient = getApiClient()
+  }
 
   const response = await apiClient.me(fields)
 

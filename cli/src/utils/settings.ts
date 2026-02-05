@@ -20,6 +20,10 @@ const DEFAULT_SETTINGS: Settings = {
 export interface Settings {
   mode?: AgentMode
   adsEnabled?: boolean
+  /** @deprecated Use server-side fallbackToALaCarte setting instead */
+  alwaysUseALaCarte?: boolean
+  /** @deprecated Use server-side fallbackToALaCarte setting instead */
+  fallbackToALaCarte?: boolean
 }
 
 /**
@@ -92,6 +96,16 @@ const validateSettings = (parsed: unknown): Settings => {
     settings.adsEnabled = obj.adsEnabled
   }
 
+  // Validate alwaysUseALaCarte (legacy)
+  if (typeof obj.alwaysUseALaCarte === 'boolean') {
+    settings.alwaysUseALaCarte = obj.alwaysUseALaCarte
+  }
+
+  // Validate fallbackToALaCarte (legacy)
+  if (typeof obj.fallbackToALaCarte === 'boolean') {
+    settings.fallbackToALaCarte = obj.fallbackToALaCarte
+  }
+
   return settings
 }
 
@@ -134,3 +148,4 @@ export const loadModePreference = (): AgentMode => {
 export const saveModePreference = (mode: AgentMode): void => {
   saveSettings({ mode })
 }
+

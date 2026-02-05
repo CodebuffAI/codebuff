@@ -1,7 +1,7 @@
 'use client'
 
 import { CreditCard, Shield, Users, Key, Menu } from 'lucide-react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useState, useEffect, Suspense } from 'react'
 
@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { toast } from '@/components/ui/use-toast'
 
 const sections = [
   {
@@ -82,6 +83,7 @@ function ProfileSidebar({
 
 function ProfilePageContent() {
   const { status } = useSession()
+  const router = useRouter()
   const searchParams = useSearchParams() ?? new URLSearchParams()
   const [activeSection, setActiveSection] = useState('usage')
   const [open, setOpen] = useState(false)
@@ -92,6 +94,19 @@ function ProfilePageContent() {
       setActiveSection(tab)
     }
   }, [searchParams])
+
+  // Check for subscription success
+  useEffect(() => {
+    if (searchParams.get('subscription_success') === 'true') {
+      toast({
+        title: 'Welcome to Codebuff Strong! 🎉',
+        description:
+          'Thanks for subscribing! Your subscription is now active.',
+      })
+      // Clean up the URL while preserving the tab
+      router.replace('/profile?tab=usage', { scroll: false })
+    }
+  }, [searchParams, router])
 
   const ActiveComponent =
     sections.find((s) => s.id === activeSection)?.component || UsageSection

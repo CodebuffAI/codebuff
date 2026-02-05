@@ -24,8 +24,9 @@ import { runPlainLogin } from './login/plain-login'
 import { initializeApp } from './init/init-app'
 import { getProjectRoot, setProjectRoot } from './project-files'
 import { initAnalytics, trackEvent } from './utils/analytics'
-import { getAuthTokenDetails } from './utils/auth'
+import { getAuthToken, getAuthTokenDetails } from './utils/auth'
 import { resetCodebuffClient } from './utils/codebuff-client'
+import { setApiClientAuthToken } from './utils/codebuff-api'
 import { getCliEnv } from './utils/env'
 import { initializeAgentRegistry } from './utils/local-agent-registry'
 import { clearLogFile, logger } from './utils/logger'
@@ -180,6 +181,9 @@ async function main(): Promise<void> {
   const hasAgentOverride = Boolean(agent && agent.trim().length > 0)
 
   await initializeApp({ cwd })
+
+  // Set the auth token for the API client
+  setApiClientAuthToken(getAuthToken())
 
   // Handle login command before rendering the app
   if (isLoginCommand) {

@@ -16,7 +16,7 @@ interface BottomStatusLineProps {
 
 /**
  * Bottom status line component - shows below the input box
- * Currently displays Claude subscription status when connected
+ * Displays Claude subscription status and/or Codebuff Strong status
  */
 export const BottomStatusLine: React.FC<BottomStatusLineProps> = ({
   isClaudeConnected,
@@ -25,28 +25,28 @@ export const BottomStatusLine: React.FC<BottomStatusLineProps> = ({
 }) => {
   const theme = useTheme()
 
-  // Don't render if there's nothing to show
-  if (!isClaudeConnected) {
-    return null
-  }
-
   // Use the more restrictive of the two quotas (5-hour window is usually the limiting factor)
-  const displayRemaining = claudeQuota
+  const claudeDisplayRemaining = claudeQuota
     ? Math.min(claudeQuota.fiveHourRemaining, claudeQuota.sevenDayRemaining)
     : null
 
-  // Check if quota is exhausted (0%)
-  const isExhausted = displayRemaining !== null && displayRemaining <= 0
+  // Check if Claude quota is exhausted (0%)
+  const isClaudeExhausted = claudeDisplayRemaining !== null && claudeDisplayRemaining <= 0
 
-  // Get the reset time for the limiting quota window
-  const resetTime = claudeQuota
+  // Get the reset time for the limiting Claude quota window
+  const claudeResetTime = claudeQuota
     ? claudeQuota.fiveHourRemaining <= claudeQuota.sevenDayRemaining
       ? claudeQuota.fiveHourResetsAt
       : claudeQuota.sevenDayResetsAt
     : null
 
-  // Determine dot color: red if exhausted, green if active, muted otherwise
-  const dotColor = isExhausted
+  // Only show when Claude is connected
+  if (!isClaudeConnected) {
+    return null
+  }
+
+  // Determine dot color for Claude: red if exhausted, green if active, muted otherwise
+  const claudeDotColor = isClaudeExhausted
     ? theme.error
     : isClaudeActive
       ? theme.success
@@ -59,23 +59,42 @@ export const BottomStatusLine: React.FC<BottomStatusLineProps> = ({
         flexDirection: 'row',
         justifyContent: 'flex-end',
         paddingRight: 1,
+        gap: 2,
       }}
     >
-      <box
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 0,
-        }}
-      >
-        <text style={{ fg: dotColor }}>●</text>
-        <text style={{ fg: theme.muted }}> Claude subscription</text>
-        {isExhausted && resetTime ? (
-          <text style={{ fg: theme.muted }}>{` · resets in ${formatResetTime(resetTime)}`}</text>
-        ) : displayRemaining !== null ? (
-          <BatteryIndicator value={displayRemaining} theme={theme} />
-        ) : null}
-      </box>
+      {/* Show Claude subscription when connected and not depleted */}
+      {!isClaudeExhausted && (
+        <box
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 0,
+          }}
+        >
+          <text style={{ fg: claudeDotColor }}>●</text>
+          <text style={{ fg: theme.muted }}> Claude subscription</text>
+          {claudeDisplayRemaining !== null ? (
+            <BatteryIndicator value={claudeDisplayRemaining} theme={theme} />
+          ) : null}
+        </box>
+      )}
+
+      {/* Show Claude as depleted when exhausted */}
+      {isClaudeExhausted && (
+        <box
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 0,
+          }}
+        >
+          <text style={{ fg: theme.error }}>●</text>
+          <text style={{ fg: theme.muted }}> Claude</text>
+          {claudeResetTime && (
+            <text style={{ fg: theme.muted }}>{` · resets in ${formatResetTime(claudeResetTime)}`}</text>
+          )}
+        </box>
+      )}
     </box>
   )
 }

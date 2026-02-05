@@ -10,21 +10,21 @@ export interface TierConfig {
 export const SUBSCRIPTION_TIERS = {
   100: {
     monthlyPrice: 100,
-    creditsPerBlock: 400,
+    creditsPerBlock: 350,
     blockDurationHours: 5,
-    weeklyCreditsLimit: 4000,
+    weeklyCreditsLimit: 3500,
   },
   200: {
     monthlyPrice: 200,
-    creditsPerBlock: 1200,
+    creditsPerBlock: 1050,
     blockDurationHours: 5,
-    weeklyCreditsLimit: 12000,
+    weeklyCreditsLimit: 10500,
   },
   500: {
     monthlyPrice: 500,
-    creditsPerBlock: 3200,
+    creditsPerBlock: 2800,
     blockDurationHours: 5,
-    weeklyCreditsLimit: 32000,
+    weeklyCreditsLimit: 28000,
   },
 } as const satisfies Record<number, TierConfig>
 

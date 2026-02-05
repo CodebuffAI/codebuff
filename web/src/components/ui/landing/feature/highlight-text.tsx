@@ -5,9 +5,10 @@ import { cn } from '@/lib/utils'
 interface HighlightTextProps {
   text: string
   isLight?: boolean
+  icon?: string
 }
 
-export function HighlightText({ text, isLight }: HighlightTextProps) {
+export function HighlightText({ text, isLight, icon = '⚡' }: HighlightTextProps) {
   return (
     <motion.div
       className={cn(
@@ -21,7 +22,7 @@ export function HighlightText({ text, isLight }: HighlightTextProps) {
       viewport={{ once: true }}
       transition={{ duration: 0.4, delay: 0.5 }}
     >
-      <div className="mr-3 text-xl text-green-400">⚡</div>
+      <div className="mr-3 text-xl text-green-400">{icon}</div>
       <div className="opacity-80">{text}</div>
     </motion.div>
   )

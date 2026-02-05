@@ -6,6 +6,8 @@ import {
   handleSubscriptionInvoicePaymentFailed,
   handleSubscriptionUpdated,
   handleSubscriptionDeleted,
+  handleSubscriptionScheduleCreatedOrUpdated,
+  handleSubscriptionScheduleReleasedOrCanceled,
 } from '@codebuff/billing'
 import db from '@codebuff/internal/db'
 import * as schema from '@codebuff/internal/db/schema'
@@ -389,6 +391,25 @@ const webhookHandler = async (req: NextRequest): Promise<NextResponse> => {
           await handleOrganizationSubscriptionEvent(sub)
         } else {
           await handleSubscriptionDeleted({ stripeSubscription: sub, logger })
+        }
+        break
+      }
+      case 'subscription_schedule.created':
+      case 'subscription_schedule.updated': {
+        const schedule = event.data.object as Stripe.SubscriptionSchedule
+        // Skip organization schedules (if they have org metadata)
+        if (!schedule.metadata?.organization_id) {
+          await handleSubscriptionScheduleCreatedOrUpdated({ schedule, logger })
+        }
+        break
+      }
+      case 'subscription_schedule.completed':
+      case 'subscription_schedule.released':
+      case 'subscription_schedule.canceled': {
+        const schedule = event.data.object as Stripe.SubscriptionSchedule
+        // Skip organization schedules (if they have org metadata)
+        if (!schedule.metadata?.organization_id) {
+          await handleSubscriptionScheduleReleasedOrCanceled({ schedule, logger })
         }
         break
       }
