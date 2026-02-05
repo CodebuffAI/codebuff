@@ -189,10 +189,10 @@ function SubscriptionActive({ data, email }: { data: ActiveSubscriptionResponse;
 
 function SubscriptionCta() {
   return (
-    <Card className="border-green-200 dark:border-green-800">
+    <Card className="border-acid-green/30 dark:border-acid-green/20">
       <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 rounded-lg bg-green-100 p-2 dark:bg-green-900/30">
+          <div className="mt-0.5 rounded-lg bg-acid-green/10 p-2 dark:bg-acid-green/10">
             <span className="text-xl">💪</span>
           </div>
           <div>
