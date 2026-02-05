@@ -1,11 +1,9 @@
 'use client'
 
 import { SUBSCRIPTION_DISPLAY_NAME } from '@codebuff/common/constants/subscription-plans'
-import { env } from '@codebuff/common/env'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangle,
-  ExternalLink,
   Loader2,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -51,36 +49,10 @@ function ProgressBar({ percentAvailable, label }: { percentAvailable: number; la
   )
 }
 
-function SubscriptionActive({ data, email }: { data: ActiveSubscriptionResponse; email: string }) {
+function SubscriptionActive({ data }: { data: ActiveSubscriptionResponse }) {
   const { subscription, rateLimit, fallbackToALaCarte } = data
   const isCanceling = subscription.cancelAtPeriodEnd
-  const fallbackPortalUrl = `${env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}?prefilled_email=${encodeURIComponent(email)}`
   const queryClient = useQueryClient()
-
-  const billingPortalMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch('/api/user/billing-portal', {
-        method: 'POST',
-      })
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ error: 'Failed to open billing portal' }))
-        throw new Error(error.error || 'Failed to open billing portal')
-      }
-      const data = await res.json()
-      return data.url as string
-    },
-    onSuccess: (url) => {
-      window.open(url, '_blank', 'noopener,noreferrer')
-    },
-    onError: (err: Error) => {
-      // Fall back to the prefilled email portal URL on error
-      window.open(fallbackPortalUrl, '_blank', 'noopener,noreferrer')
-      toast({
-        title: 'Note',
-        description: 'Opened billing portal - you may need to sign in.',
-      })
-    },
-  })
 
   const updatePreferenceMutation = useMutation({
     mutationFn: async (newValue: boolean) => {
@@ -122,42 +94,23 @@ function SubscriptionActive({ data, email }: { data: ActiveSubscriptionResponse;
   return (
     <Card>
       <CardHeader className="pb-5">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-baseline gap-2 text-lg">
-            <span>💪</span>
-            {SUBSCRIPTION_DISPLAY_NAME}
-            <span className="text-sm font-normal text-muted-foreground">
-              ${subscription.tier}/mo
+        <CardTitle className="flex items-baseline gap-2 text-lg">
+          <span>💪</span>
+          {SUBSCRIPTION_DISPLAY_NAME}
+          <span className="text-sm font-normal text-muted-foreground">
+            ${subscription.tier}/mo
+          </span>
+          {isCanceling && (
+            <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
+              Canceling
             </span>
-            {isCanceling && (
-              <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
-                Canceling
-              </span>
-            )}
-            {subscription.scheduledTier != null && (
-              <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
-                Renewing at ${subscription.scheduledTier}/mo
-              </span>
-            )}
-          </CardTitle>
-          <button
-            onClick={() => billingPortalMutation.mutate()}
-            disabled={billingPortalMutation.isPending}
-            className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 disabled:opacity-50"
-          >
-            {billingPortalMutation.isPending ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Opening...
-              </>
-            ) : (
-              <>
-                Manage
-                <ExternalLink className="h-3.5 w-3.5" />
-              </>
-            )}
-          </button>
-        </div>
+          )}
+          {subscription.scheduledTier != null && (
+            <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
+              Renewing at ${subscription.scheduledTier}/mo
+            </span>
+          )}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
         {rateLimit.limited && (
@@ -276,7 +229,5 @@ export function SubscriptionSection() {
     return <SubscriptionCta />
   }
 
-  const email = session?.user?.email || ''
-
-  return <SubscriptionActive data={data} email={email} />
+  return <SubscriptionActive data={data} />
 }
