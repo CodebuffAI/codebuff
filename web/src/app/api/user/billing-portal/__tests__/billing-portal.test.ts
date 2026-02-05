@@ -1,12 +1,8 @@
 import { describe, expect, mock, test } from 'bun:test'
-import { NextRequest } from 'next/server'
 
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 import { postBillingPortal } from '../_post'
-
-// NextRequest import above sets up the global Request polyfill needed by NextResponse
-void NextRequest
 
 import type { CreateBillingPortalSessionFn, GetSessionFn, Session } from '../_post'
 

@@ -7,4 +7,4 @@ linkWorkspacePackages = true
 [test]
 # Exclude test repositories, integration tests, and Playwright e2e tests from test execution by default
 exclude = ["evals/test-repos/**", "**/*.integration.test.*", "web/src/__tests__/e2e/**"]
-preload = ["./sdk/test/setup-env.ts", "./test/setup-bigquery-mocks.ts"]
+preload = ["./sdk/test/setup-env.ts", "./test/setup-bigquery-mocks.ts", "./web/test/setup-globals.ts"]
