@@ -1,3 +1,5 @@
+import { Agent } from 'undici'
+
 import { PROFIT_MARGIN } from '@codebuff/common/constants/limits'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { env } from '@codebuff/internal/env'
@@ -23,6 +25,15 @@ import type {
 
 type StreamState = { responseText: string; reasoningText: string }
 
+// Extended timeout for deep-thinking models (e.g., gpt-5) that can take
+// a long time to start streaming.
+const OPENROUTER_HEADERS_TIMEOUT_MS = 10 * 60 * 1000
+
+const openrouterAgent = new Agent({
+  headersTimeout: OPENROUTER_HEADERS_TIMEOUT_MS,
+  bodyTimeout: 0, // No body timeout for streaming responses
+})
+
 /** Result from processing a line, including optional billed credits for final chunk */
 type LineResult = {
   state: StreamState
@@ -44,6 +55,9 @@ function createOpenRouterRequest(params: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
+    // Use custom agent with extended headers timeout for deep-thinking models
+    // @ts-expect-error - dispatcher is a valid undici option not in fetch types
+    dispatcher: openrouterAgent,
   })
 }
 
