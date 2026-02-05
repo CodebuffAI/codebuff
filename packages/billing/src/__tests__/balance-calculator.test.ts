@@ -139,6 +139,199 @@ function createDbMockForUnion(options: {
   }
 }
 
+describe('Balance Calculator - calculateUsageAndBalance', () => {
+  afterEach(() => {
+    clearMockedModules()
+  })
+
+  describe('isPersonalContext behavior', () => {
+    it('should exclude subscription credits when isPersonalContext is true', async () => {
+      const now = new Date()
+      const quotaResetDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) // 7 days ago
+
+      const grants = [
+        createMockGrant({
+          operation_id: 'free-grant',
+          balance: 500,
+          principal: 1000,
+          priority: 20,
+          type: 'purchase',
+          expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+          created_at: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000),
+        }),
+        createMockGrant({
+          operation_id: 'subscription-grant',
+          balance: 2000,
+          principal: 5000,
+          priority: 10,
+          type: 'subscription',
+          expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+          created_at: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000),
+        }),
+      ]
+
+      // Mock the database to return our test grants
+      await mockModule('@codebuff/internal/db', () => ({
+        default: {
+          select: () => ({
+            from: () => ({
+              where: () => ({
+                orderBy: () => grants,
+              }),
+            }),
+          }),
+        },
+      }))
+
+      // Mock analytics to prevent actual tracking
+      await mockModule('@codebuff/common/analytics', () => ({
+        trackEvent: () => {},
+      }))
+
+      const { calculateUsageAndBalance } = await import(
+        '@codebuff/billing/balance-calculator'
+      )
+
+      const result = await calculateUsageAndBalance({
+        userId: 'user-123',
+        quotaResetDate,
+        now,
+        isPersonalContext: true,
+        logger,
+      })
+
+      // Should only include purchase credits (500), not subscription (2000)
+      expect(result.balance.totalRemaining).toBe(500)
+      expect(result.balance.breakdown.purchase).toBe(500)
+      expect(result.balance.breakdown.subscription).toBe(0)
+
+      // Usage should only include purchase usage (1000 - 500 = 500), not subscription (5000 - 2000 = 3000)
+      expect(result.usageThisCycle).toBe(500)
+    })
+
+    it('should include subscription credits when isPersonalContext is false', async () => {
+      const now = new Date()
+      const quotaResetDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) // 7 days ago
+
+      const grants = [
+        createMockGrant({
+          operation_id: 'free-grant',
+          balance: 500,
+          principal: 1000,
+          priority: 20,
+          type: 'purchase',
+          expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+          created_at: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000),
+        }),
+        createMockGrant({
+          operation_id: 'subscription-grant',
+          balance: 2000,
+          principal: 5000,
+          priority: 10,
+          type: 'subscription',
+          expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+          created_at: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000),
+        }),
+      ]
+
+      await mockModule('@codebuff/internal/db', () => ({
+        default: {
+          select: () => ({
+            from: () => ({
+              where: () => ({
+                orderBy: () => grants,
+              }),
+            }),
+          }),
+        },
+      }))
+
+      await mockModule('@codebuff/common/analytics', () => ({
+        trackEvent: () => {},
+      }))
+
+      const { calculateUsageAndBalance } = await import(
+        '@codebuff/billing/balance-calculator'
+      )
+
+      const result = await calculateUsageAndBalance({
+        userId: 'user-123',
+        quotaResetDate,
+        now,
+        isPersonalContext: false,
+        logger,
+      })
+
+      // Should include both purchase (500) and subscription (2000) credits
+      expect(result.balance.totalRemaining).toBe(2500)
+      expect(result.balance.breakdown.purchase).toBe(500)
+      expect(result.balance.breakdown.subscription).toBe(2000)
+
+      // Usage should include both: (1000 - 500) + (5000 - 2000) = 3500
+      expect(result.usageThisCycle).toBe(3500)
+    })
+
+    it('should exclude organization credits when isPersonalContext is true', async () => {
+      const now = new Date()
+      const quotaResetDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+
+      const grants = [
+        createMockGrant({
+          operation_id: 'free-grant',
+          balance: 500,
+          principal: 1000,
+          priority: 20,
+          type: 'purchase',
+          expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+          created_at: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000),
+        }),
+        createMockGrant({
+          operation_id: 'org-grant',
+          balance: 3000,
+          principal: 5000,
+          priority: 5,
+          type: 'organization',
+          expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+          created_at: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000),
+        }),
+      ]
+
+      await mockModule('@codebuff/internal/db', () => ({
+        default: {
+          select: () => ({
+            from: () => ({
+              where: () => ({
+                orderBy: () => grants,
+              }),
+            }),
+          }),
+        },
+      }))
+
+      await mockModule('@codebuff/common/analytics', () => ({
+        trackEvent: () => {},
+      }))
+
+      const { calculateUsageAndBalance } = await import(
+        '@codebuff/billing/balance-calculator'
+      )
+
+      const result = await calculateUsageAndBalance({
+        userId: 'user-123',
+        quotaResetDate,
+        now,
+        isPersonalContext: true,
+        logger,
+      })
+
+      // Should only include purchase credits (500), not organization (3000)
+      expect(result.balance.totalRemaining).toBe(500)
+      expect(result.balance.breakdown.purchase).toBe(500)
+      expect(result.balance.breakdown.organization).toBe(0)
+    })
+  })
+})
+
 describe('Balance Calculator - Grant Ordering for Consumption', () => {
   // NOTE: This test suite uses a complex mock (createDbMockForUnion) to simulate the
   // behavior of the UNION query in `getOrderedActiveGrantsForConsumption`.
