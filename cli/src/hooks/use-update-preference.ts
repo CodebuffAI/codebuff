@@ -6,6 +6,7 @@ import {
   setActivityQueryData,
 } from './use-activity-query'
 import { subscriptionQueryKeys } from './use-subscription-query'
+import { showClipboardMessage } from '../utils/clipboard'
 import { getApiClient } from '../utils/codebuff-api'
 import { logger } from '../utils/logger'
 
@@ -55,6 +56,7 @@ export function useUpdatePreference() {
         setActivityQueryData(queryKey, previousData)
       }
       logger.error({ err }, 'Failed to update preference')
+      showClipboardMessage('Failed to update preference', { durationMs: 3000 })
     } finally {
       setIsPending(false)
     }

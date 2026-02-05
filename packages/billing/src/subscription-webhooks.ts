@@ -447,7 +447,7 @@ export async function handleSubscriptionScheduleCreatedOrUpdated(params: {
   const scheduledPriceId = nextPhase?.items?.[0]?.price
   const priceId = typeof scheduledPriceId === 'string'
     ? scheduledPriceId
-    : scheduledPriceId?.toString()
+    : scheduledPriceId?.id
 
   if (!priceId) {
     logger.warn(
