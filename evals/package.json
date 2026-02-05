@@ -23,6 +23,7 @@
     "run-eval-set": "bun run git-evals/run-eval-set.ts",
     "run-buffbench": "bun run buffbench/main.ts",
     "run-buffbench-nightly": "bun run buffbench/main-nightly.ts",
+    "trigger-buffbench": "bun run scripts/trigger-buffbench.ts",
     "setup-codebuff-repo": "bun run setup-codebuff-repo.ts"
   },
   "sideEffects": false,
