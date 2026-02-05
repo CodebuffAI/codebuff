@@ -2,6 +2,7 @@
  * Core subscription information for an active subscription.
  */
 export interface SubscriptionInfo {
+  id: string
   status: string
   billingPeriodEnd: string
   cancelAtPeriodEnd: boolean
@@ -64,4 +65,3 @@ export interface ActiveSubscriptionResponse {
  * Use `hasSubscription` to narrow the type.
  */
 export type SubscriptionResponse = NoSubscriptionResponse | ActiveSubscriptionResponse
-

@@ -51,6 +51,7 @@ export async function GET() {
     hasSubscription: true,
     displayName: SUBSCRIPTION_DISPLAY_NAME,
     subscription: {
+      id: subscription.stripe_subscription_id,
       status: subscription.status,
       billingPeriodEnd: subscription.billing_period_end.toISOString(),
       cancelAtPeriodEnd: subscription.cancel_at_period_end,

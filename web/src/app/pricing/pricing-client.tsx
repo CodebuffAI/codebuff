@@ -13,6 +13,7 @@ import { Gift, Shield, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useState } from 'react'
+import { useQuery, useMutation } from '@tanstack/react-query'
 
 import { BlockColor } from '@/components/ui/decorative-blocks'
 import { Section } from '@/components/ui/section'
@@ -21,29 +22,97 @@ import { FeatureSection } from '@/components/ui/landing/feature'
 import { toast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
 
+import type { SubscriptionResponse } from '@codebuff/common/types/subscription'
+
 const USAGE_MULTIPLIER: Record<number, string> = {
   100: '1×',
   200: '3×',
   500: '8×',
 }
 
+type ButtonAction = 'subscribe' | 'current' | 'upgrade' | 'downgrade'
+
+function getButtonAction(tierPrice: number, currentTier: number | null): ButtonAction {
+  if (currentTier === null) return 'subscribe'
+  if (tierPrice === currentTier) return 'current'
+  if (tierPrice > currentTier) return 'upgrade'
+  return 'downgrade'
+}
+
+function getButtonLabel(action: ButtonAction): string {
+  switch (action) {
+    case 'current':
+      return 'Current Plan'
+    case 'upgrade':
+      return 'Upgrade'
+    case 'downgrade':
+      return 'Downgrade'
+    default:
+      return 'Subscribe'
+  }
+}
+
 function SubscribeButton({
   className,
   tier,
+  currentTier,
+  subscriptionId,
+  isHighlighted,
 }: {
   className?: string
-  tier?: number
+  tier: number
+  currentTier: number | null
+  subscriptionId: string | null
+  isHighlighted: boolean
 }) {
   const { status } = useSession()
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubscribe = async () => {
+  const action = getButtonAction(tier, currentTier)
+  const isCurrent = action === 'current'
+
+  // Mutation to open billing portal for upgrades/downgrades
+  const billingPortalMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/user/billing-portal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscriptionId }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Failed to open billing portal')
+      }
+      return res.json()
+    },
+    onSuccess: (data: { url: string }) => {
+      window.location.href = data.url
+    },
+    onError: (err: Error) => {
+      toast({
+        title: 'Error',
+        description: err.message,
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const handleClick = async () => {
     if (status !== 'authenticated') {
       router.push('/login?callbackUrl=/pricing')
       return
     }
 
+    if (isCurrent) return
+
+    // If user has a subscription, redirect to billing portal for confirmation
+    if (currentTier !== null && subscriptionId) {
+      billingPortalMutation.mutate()
+      return
+    }
+
+    // Otherwise, create new subscription
     setIsLoading(true)
     try {
       const res = await fetch('/api/stripe/create-subscription', {
@@ -72,23 +141,113 @@ function SubscribeButton({
     }
   }
 
+  const isLoadingState = isLoading || billingPortalMutation.isPending
+
   return (
     <button
-      onClick={handleSubscribe}
-      disabled={isLoading}
+      onClick={handleClick}
+      disabled={isLoadingState || isCurrent}
       className={cn(
         'inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 sm:px-10 sm:py-3.5 text-xs sm:text-base font-semibold transition-all duration-200',
-        'bg-acid-green text-black hover:bg-acid-green/90 shadow-[0_0_30px_rgba(0,255,149,0.2)] hover:shadow-[0_0_50px_rgba(0,255,149,0.3)]',
+        isCurrent
+          ? 'bg-white/10 text-white/60 border border-white/20 cursor-default'
+          : isHighlighted
+            ? 'bg-acid-green text-black hover:bg-acid-green/90 shadow-[0_0_30px_rgba(0,255,149,0.2)] hover:shadow-[0_0_50px_rgba(0,255,149,0.3)]'
+            : 'bg-acid-green/10 text-acid-green border border-acid-green/30 hover:bg-acid-green/20 shadow-none hover:shadow-none',
         'disabled:opacity-60 disabled:cursor-not-allowed',
+        isCurrent && 'disabled:opacity-100',
         className,
       )}
     >
-      {isLoading ? (
+      {isLoadingState ? (
         <Loader2 className="h-5 w-5 animate-spin" />
       ) : (
-        <>Subscribe</>
+        <>{getButtonLabel(action)}</>
       )}
     </button>
+  )
+}
+
+function PricingCardsGrid() {
+  const { status } = useSession()
+
+  const { data: subscriptionData } = useQuery<SubscriptionResponse>({
+    queryKey: ['subscription'],
+    queryFn: async () => {
+      const res = await fetch('/api/user/subscription')
+      if (!res.ok) throw new Error('Failed to fetch subscription')
+      return res.json()
+    },
+    enabled: status === 'authenticated',
+    staleTime: 30_000,
+  })
+
+  const currentTier = subscriptionData?.hasSubscription
+    ? subscriptionData.subscription.tier
+    : null
+
+  const subscriptionId = subscriptionData?.hasSubscription
+    ? subscriptionData.subscription.id
+    : null
+
+  return (
+    <motion.div
+      className="w-full"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.7, delay: 1.1 }}
+    >
+      <div className="grid grid-cols-3 gap-3 sm:gap-6">
+        {Object.entries(SUBSCRIPTION_TIERS).map(([key, tier]) => {
+          const price = Number(key) as SubscriptionTierPrice
+          const isCurrentPlan = currentTier === price
+          const isHighlighted = currentTier === null ? price === 200 : isCurrentPlan
+
+          return (
+            <div
+              key={price}
+              className={cn(
+                'relative rounded-xl p-3 sm:p-8 backdrop-blur-sm border flex flex-col items-center transition-all duration-300',
+                'hover:scale-[1.02]',
+                isCurrentPlan
+                  ? 'border-acid-green/60 bg-acid-green/[0.08] shadow-[0_0_50px_rgba(0,255,149,0.18)] ring-1 ring-acid-green/30'
+                  : isHighlighted
+                    ? 'border-acid-green/40 bg-acid-green/[0.06] shadow-[0_0_40px_rgba(0,255,149,0.12)] hover:shadow-[0_0_60px_rgba(0,255,149,0.2)]'
+                    : 'border-acid-green/15 bg-black/40 hover:border-acid-green/30 hover:bg-black/60',
+              )}
+            >
+              {isCurrentPlan && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <span className="inline-flex items-center rounded-full bg-acid-green px-2.5 py-0.5 text-xs font-semibold text-black">
+                    Your Plan
+                  </span>
+                </div>
+              )}
+              <div className="flex items-baseline justify-center gap-1 mb-1">
+                <span className="text-xl sm:text-5xl font-bold text-white tracking-tight">
+                  ${tier.monthlyPrice}
+                </span>
+                <span className="text-xs sm:text-sm text-white/30">
+                  /mo
+                </span>
+              </div>
+
+              <p className="text-sm sm:text-base font-medium text-white/60 mb-3 sm:mb-6">
+                {USAGE_MULTIPLIER[price]} usage
+              </p>
+
+              <SubscribeButton
+                tier={price}
+                currentTier={currentTier}
+                subscriptionId={subscriptionId}
+                isHighlighted={isHighlighted && !isCurrentPlan}
+                className="w-full"
+              />
+            </div>
+          )
+        })}
+      </div>
+    </motion.div>
   )
 }
 
@@ -167,7 +326,7 @@ function StrongHeroSection() {
       {/* Foreground content */}
       <div className="codebuff-container min-h-[calc(95dvh-64px)] flex flex-col items-center justify-center relative z-10 py-12">
         <div className="flex flex-col items-center text-center max-w-4xl w-full space-y-12">
-<motion.h1
+          <motion.h1
             className="text-4xl sm:text-5xl md:text-5xl font-bold text-white tracking-tight"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -186,54 +345,7 @@ function StrongHeroSection() {
           </motion.p>
 
           {/* Pricing cards grid with decorative blocks */}
-          <motion.div
-            className="w-full"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 1.1 }}
-          >
-            <div className="grid grid-cols-3 gap-3 sm:gap-6">
-                {Object.entries(SUBSCRIPTION_TIERS).map(([key, tier]) => {
-                  const price = Number(key) as SubscriptionTierPrice
-                  const isHighlighted = price === 200
-
-                  return (
-                    <div
-                      key={price}
-                      className={cn(
-                        'rounded-xl p-3 sm:p-8 backdrop-blur-sm border flex flex-col items-center transition-all duration-300',
-                        'hover:scale-[1.02]',
-isHighlighted
-                          ? 'border-acid-green/40 bg-acid-green/[0.06] shadow-[0_0_40px_rgba(0,255,149,0.12)] hover:shadow-[0_0_60px_rgba(0,255,149,0.2)]'
-                          : 'border-acid-green/15 bg-black/40 hover:border-acid-green/30 hover:bg-black/60',
-                      )}
-                    >
-                      <div className="flex items-baseline justify-center gap-1 mb-1">
-                        <span className="text-xl sm:text-5xl font-bold text-white tracking-tight">
-                          ${tier.monthlyPrice}
-                        </span>
-                        <span className="text-xs sm:text-sm text-white/30">
-                          /mo
-                        </span>
-                      </div>
-
-                      <p className="text-sm sm:text-base font-medium text-white/60 mb-3 sm:mb-6">
-                        {USAGE_MULTIPLIER[price]} usage
-                      </p>
-
-<SubscribeButton
-                        tier={price}
-                        className={cn(
-                          'w-full',
-                          !isHighlighted &&
-                            'bg-acid-green/10 text-acid-green border border-acid-green/30 hover:bg-acid-green/20 shadow-none hover:shadow-none',
-                        )}
-                      />
-                    </div>
-                  )
-                })}
-              </div>
-          </motion.div>
+          <PricingCardsGrid />
 
           <motion.p
             className="text-sm text-white/30 tracking-wide"
@@ -408,8 +520,6 @@ export default function PricingClient() {
         learnMoreText={status === 'authenticated' ? 'My Usage' : 'Get Started'}
         learnMoreLink={status === 'authenticated' ? '/usage' : '/login'}
       />
-
-
     </>
   )
 }

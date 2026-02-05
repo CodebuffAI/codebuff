@@ -13,20 +13,33 @@ export type Session = {
 
 export type GetSessionFn = () => Promise<Session>
 
-export type CreateBillingPortalSessionFn = (params: {
+export type BillingPortalFlowData = {
+  type: 'subscription_update'
+  subscription_update: {
+    subscription: string
+  }
+}
+
+export type CreateBillingPortalSessionParams = {
   customer: string
   return_url: string
-}) => Promise<{ url: string }>
+  flow_data?: BillingPortalFlowData
+}
+
+export type CreateBillingPortalSessionFn = (
+  params: CreateBillingPortalSessionParams
+) => Promise<{ url: string }>
 
 export type PostBillingPortalParams = {
   getSession: GetSessionFn
   createBillingPortalSession: CreateBillingPortalSessionFn
   logger: Logger
   returnUrl: string
+  flowData?: BillingPortalFlowData
 }
 
 export async function postBillingPortal(params: PostBillingPortalParams) {
-  const { getSession, createBillingPortalSession, logger, returnUrl } = params
+  const { getSession, createBillingPortalSession, logger, returnUrl, flowData } = params
 
   const session = await getSession()
   if (!session?.user?.id) {
@@ -42,10 +55,16 @@ export async function postBillingPortal(params: PostBillingPortalParams) {
   }
 
   try {
-    const portalSession = await createBillingPortalSession({
+    const portalParams: CreateBillingPortalSessionParams = {
       customer: stripeCustomerId,
       return_url: returnUrl,
-    })
+    }
+
+    if (flowData) {
+      portalParams.flow_data = flowData
+    }
+
+    const portalSession = await createBillingPortalSession(portalParams)
 
     return NextResponse.json({ url: portalSession.url })
   } catch (error) {
