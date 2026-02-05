@@ -38,9 +38,9 @@ const setupMocks = async () => {
   }))
 
   // Import after mocking
-  const webhookModule = await import('../route')
-  isOrgBillingEvent = webhookModule.isOrgBillingEvent
-  isOrgCustomer = webhookModule.isOrgCustomer
+  const helpersModule = await import('../_helpers')
+  isOrgBillingEvent = helpersModule.isOrgBillingEvent
+  isOrgCustomer = helpersModule.isOrgCustomer
 }
 
 // Setup mocks at module load time (following ban-conditions.test.ts pattern)

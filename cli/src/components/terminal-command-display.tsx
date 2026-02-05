@@ -20,6 +20,8 @@ interface TerminalCommandDisplayProps {
   cwd?: string
   /** Timeout in seconds for the command */
   timeoutSeconds?: number
+  /** Optional width override for wrapping calculations */
+  availableWidth?: number
 }
 
 /**
@@ -33,10 +35,10 @@ export const TerminalCommandDisplay = ({
   maxVisibleLines,
   isRunning = false,
   timeoutSeconds,
+  availableWidth,
 }: TerminalCommandDisplayProps) => {
   const theme = useTheme()
-  const { contentMaxWidth } = useTerminalDimensions()
-  const padding = 5
+  const { separatorWidth } = useTerminalDimensions()
   const [isExpanded, setIsExpanded] = useState(false)
 
   // Default max lines depends on whether expandable
@@ -77,7 +79,7 @@ export const TerminalCommandDisplay = ({
   }
 
   // With output - calculate visual lines
-  const width = Math.max(10, contentMaxWidth - padding * 2)
+  const width = Math.max(10, availableWidth ?? separatorWidth)
   const allLines = output.split('\n')
 
   // Calculate total visual lines across all output lines
