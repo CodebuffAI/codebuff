@@ -11,20 +11,36 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { extractApiKeyFromHeader, getUserIdFromSessionToken } from '@/util/auth'
 import { logger } from '@/util/logger'
 
 import type {
   NoSubscriptionResponse,
   ActiveSubscriptionResponse,
 } from '@codebuff/common/types/subscription'
+import type { NextRequest } from 'next/server'
 
-export async function GET() {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function GET(req: NextRequest) {
+  let userId: string | undefined
+
+  // First, try Bearer token authentication (for CLI clients)
+  const apiKey = extractApiKeyFromHeader(req)
+  if (apiKey) {
+    const userIdFromToken = await getUserIdFromSessionToken(apiKey)
+    if (userIdFromToken) {
+      userId = userIdFromToken
+    }
   }
 
-  const userId = session.user.id
+  // Fall back to NextAuth session authentication (for web clients)
+  if (!userId) {
+    const session = await getServerSession(authOptions)
+    userId = session?.user?.id
+  }
+
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   // Fetch user preference for always use a-la-carte
   const [subscription, userPrefs] = await Promise.all([

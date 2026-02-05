@@ -10,7 +10,10 @@ import { authOptions } from '../auth/[...nextauth]/auth-options'
 
 import type { NextRequest } from 'next/server'
 
-import { extractApiKeyFromHeader } from '@/util/auth'
+import {
+  extractApiKeyFromHeader,
+  getUserIdFromSessionToken,
+} from '@/util/auth'
 
 
 type Referral = Pick<typeof schema.user.$inferSelect, 'id' | 'name' | 'email'> &
@@ -169,16 +172,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const user = await db.query.session.findFirst({
-    where: eq(schema.session.sessionToken, authToken),
-    columns: {
-      userId: true,
-    },
-  })
+  const userId = await getUserIdFromSessionToken(authToken)
 
-  if (!user?.userId) {
+  if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  return redeemReferralCode(referralCode, user.userId)
+  return redeemReferralCode(referralCode, userId)
 }
