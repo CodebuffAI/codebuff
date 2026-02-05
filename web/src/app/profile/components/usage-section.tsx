@@ -16,7 +16,7 @@ import { toast } from '@/components/ui/use-toast'
 
 const ManageCreditsCard = ({ isLoading = false }: { isLoading?: boolean }) => {
   const { data: session } = useSession()
-  const email = encodeURIComponent(session?.user?.email || '')
+  const email = session?.user?.email || ''
   const queryClient = useQueryClient()
   const [showConfetti, setShowConfetti] = useState(false)
   const [purchasedAmount, setPurchasedAmount] = useState(0)
@@ -84,7 +84,7 @@ const ManageCreditsCard = ({ isLoading = false }: { isLoading?: boolean }) => {
             isPurchasePending={buyCreditsMutation.isPending}
             showAutoTopup={true}
             isLoading={isLoading}
-            billingPortalUrl={`${env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}?prefilled_email=${email}`}
+            email={email}
           />
         </div>
       </CardContent>

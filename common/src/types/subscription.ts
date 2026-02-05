@@ -54,7 +54,7 @@ export interface ActiveSubscriptionResponse {
   subscription: SubscriptionInfo
   rateLimit: SubscriptionRateLimit
   limits: SubscriptionLimits
-  billingPortalUrl?: string
+
   /** Whether user prefers to fallback to a-la-carte credits when subscription limits are reached */
   fallbackToALaCarte: boolean
 }
