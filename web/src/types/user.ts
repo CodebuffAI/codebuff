@@ -4,7 +4,6 @@ export interface UserProfile {
   email: string
   image: string | null
   stripe_customer_id: string | null
-  stripe_price_id: string | null
   handle: string | null
   referral_code: string | null
   auto_topup_enabled: boolean

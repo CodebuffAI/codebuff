@@ -26,7 +26,6 @@ const serverDefaults: Record<string, string> = {
   NEXTAUTH_SECRET: 'test-secret',
   STRIPE_SECRET_KEY: 'sk_test_dummy',
   STRIPE_WEBHOOK_SECRET_KEY: 'whsec_dummy',
-  STRIPE_USAGE_PRICE_ID: 'price_test',
   STRIPE_TEAM_FEE_PRICE_ID: 'price_test',
   LOOPS_API_KEY: 'test',
   DISCORD_PUBLIC_KEY: 'test',

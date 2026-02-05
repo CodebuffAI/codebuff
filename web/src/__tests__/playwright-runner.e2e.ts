@@ -31,7 +31,6 @@ describe('playwright e2e suite', () => {
     env.NEXTAUTH_SECRET ||= 'test-secret'
     env.STRIPE_SECRET_KEY ||= 'sk_test_dummy'
     env.STRIPE_WEBHOOK_SECRET_KEY ||= 'whsec_dummy'
-    env.STRIPE_USAGE_PRICE_ID ||= 'price_test'
     env.STRIPE_TEAM_FEE_PRICE_ID ||= 'price_test'
     env.LOOPS_API_KEY ||= 'test'
     env.DISCORD_PUBLIC_KEY ||= 'test'
