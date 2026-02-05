@@ -4,8 +4,11 @@ import {
   getSubscriptionLimits,
 } from '@codebuff/billing'
 import { SUBSCRIPTION_DISPLAY_NAME } from '@codebuff/common/constants/subscription-plans'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
 import { env } from '@codebuff/internal/env'
 import { stripeServer } from '@codebuff/internal/util/stripe'
+import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
@@ -24,10 +27,20 @@ export async function GET() {
   }
 
   const userId = session.user.id
-  const subscription = await getActiveSubscription({ userId, logger })
+
+  // Fetch user preference for always use a-la-carte
+  const [subscription, userPrefs] = await Promise.all([
+    getActiveSubscription({ userId, logger }),
+    db.query.user.findFirst({
+      where: eq(schema.user.id, userId),
+      columns: { fallback_to_a_la_carte: true },
+    }),
+  ])
+
+  const fallbackToALaCarte = userPrefs?.fallback_to_a_la_carte ?? false
 
   if (!subscription || !subscription.tier) {
-    const response: NoSubscriptionResponse = { hasSubscription: false }
+    const response: NoSubscriptionResponse = { hasSubscription: false, fallbackToALaCarte }
     return NextResponse.json(response)
   }
 
@@ -75,6 +88,7 @@ export async function GET() {
     },
     limits,
     billingPortalUrl,
+    fallbackToALaCarte,
   }
   return NextResponse.json(response)
 }

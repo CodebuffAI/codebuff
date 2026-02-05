@@ -1,7 +1,7 @@
 import { isClaudeOAuthValid } from '@codebuff/sdk'
 import { TextAttributes } from '@opentui/core'
 import open from 'open'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo } from 'react'
 
 import { BottomBanner } from './bottom-banner'
 import { Button } from './button'
@@ -10,9 +10,9 @@ import { getActivityQueryData } from '../hooks/use-activity-query'
 import { useClaudeQuotaQuery } from '../hooks/use-claude-quota-query'
 import { useSubscriptionQuery } from '../hooks/use-subscription-query'
 import { useTheme } from '../hooks/use-theme'
+import { useUpdatePreference } from '../hooks/use-update-preference'
 import { usageQueryKeys, useUsageQuery } from '../hooks/use-usage-query'
 import { WEBSITE_URL } from '../login/constants'
-import { getAlwaysUseALaCarte, setAlwaysUseALaCarte } from '../utils/settings'
 import { useChatStore } from '../state/chat-store'
 import { formatResetTime, formatResetTimeLong } from '../utils/time-format'
 import {
@@ -122,6 +122,7 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
             subscriptionInfo={subscriptionInfo}
             rateLimit={rateLimit}
             isLoading={isSubscriptionLoading}
+            fallbackToALaCarte={activeSubscription.fallbackToALaCarte}
           />
         )}
 
@@ -209,6 +210,7 @@ interface SubscriptionUsageSectionProps {
     weeklyResetsAt: string
   }
   isLoading: boolean
+  fallbackToALaCarte: boolean
 }
 
 const SubscriptionUsageSection: React.FC<SubscriptionUsageSectionProps> = ({
@@ -216,14 +218,13 @@ const SubscriptionUsageSection: React.FC<SubscriptionUsageSectionProps> = ({
   subscriptionInfo,
   rateLimit,
   isLoading,
+  fallbackToALaCarte,
 }) => {
   const theme = useTheme()
-  const [useALaCarte, setUseALaCarte] = useState(() => getAlwaysUseALaCarte())
+  const updatePreference = useUpdatePreference()
 
-  const handleToggleALaCarte = () => {
-    const newValue = !useALaCarte
-    setUseALaCarte(newValue)
-    setAlwaysUseALaCarte(newValue)
+  const handleToggleFallbackToALaCarte = () => {
+    updatePreference.mutate({ fallbackToALaCarte: !fallbackToALaCarte })
   }
 
   const blockPercent = useMemo(() => {
@@ -268,11 +269,11 @@ const SubscriptionUsageSection: React.FC<SubscriptionUsageSectionProps> = ({
       <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1, marginTop: 1 }}>
         <text style={{ fg: theme.muted }}>When limit reached:</text>
         <text style={{ fg: theme.muted }}>
-          {useALaCarte ? 'spend credits' : 'pause'}
+          {fallbackToALaCarte ? 'spend credits' : 'pause'}
         </text>
-        <Button onClick={handleToggleALaCarte}>
+        <Button onClick={handleToggleFallbackToALaCarte}>
           <text style={{ fg: theme.muted, attributes: TextAttributes.UNDERLINE }}>
-            [{useALaCarte ? 'switch to pause' : 'switch to spend credits'}]
+            [{fallbackToALaCarte ? 'switch to pause' : 'switch to spend credits'}]
           </text>
         </Button>
       </box>

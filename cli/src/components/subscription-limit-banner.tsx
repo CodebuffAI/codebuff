@@ -6,13 +6,10 @@ import { Button } from './button'
 import { ProgressBar } from './progress-bar'
 import { useSubscriptionQuery } from '../hooks/use-subscription-query'
 import { useTheme } from '../hooks/use-theme'
+import { useUpdatePreference } from '../hooks/use-update-preference'
 import { useUsageQuery } from '../hooks/use-usage-query'
 import { WEBSITE_URL } from '../login/constants'
 import { useChatStore } from '../state/chat-store'
-import {
-  getAlwaysUseALaCarte,
-  setAlwaysUseALaCarte,
-} from '../utils/settings'
 import { formatResetTime } from '../utils/time-format'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
@@ -38,14 +35,11 @@ export const SubscriptionLimitBanner = () => {
   const currentTier = subscriptionData?.hasSubscription ? subscriptionData.subscription.tier : 0
   const canUpgrade = currentTier < maxTier
 
-  const [alwaysALaCarte, setAlwaysALaCarteState] = React.useState(
-    () => getAlwaysUseALaCarte(),
-  )
+  const fallbackToALaCarte = subscriptionData?.fallbackToALaCarte ?? false
+  const updatePreference = useUpdatePreference()
 
-  const handleToggleAlwaysALaCarte = () => {
-    const newValue = !alwaysALaCarte
-    setAlwaysALaCarteState(newValue)
-    setAlwaysUseALaCarte(newValue)
+  const handleToggleFallbackToALaCarte = () => {
+    updatePreference.mutate({ fallbackToALaCarte: !fallbackToALaCarte })
   }
 
   if (!subscriptionData || !rateLimit?.limited) {
@@ -138,9 +132,9 @@ export const SubscriptionLimitBanner = () => {
         </box>
 
         {hasAlaCarteCredits && (
-          <Button onClick={handleToggleAlwaysALaCarte}>
+          <Button onClick={handleToggleFallbackToALaCarte}>
             <text style={{ fg: theme.muted }}>
-              {alwaysALaCarte ? '[x]' : '[ ]'} always use credits if subscription limit is reached
+              {fallbackToALaCarte ? '[x]' : '[ ]'} always use credits if subscription limit is reached
             </text>
           </Button>
         )}

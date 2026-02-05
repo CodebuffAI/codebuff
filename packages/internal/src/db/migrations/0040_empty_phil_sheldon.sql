@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN "fallback_to_a_la_carte" boolean DEFAULT false NOT NULL;

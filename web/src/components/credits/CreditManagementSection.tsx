@@ -57,16 +57,12 @@ export function CreditManagementSection({
           isPurchasePending={isPurchasePending}
           isOrganization={isOrgContext}
         />
-        {showAutoTopup && (
-          <>
-            <div className="border-t border-border" />
-            {isOrgContext && organizationId ? (
-              <OrgAutoTopupSettings organizationId={organizationId} />
-            ) : (
-              <AutoTopupSettings />
-            )}
-          </>
-        )}
+        {showAutoTopup &&
+          (isOrgContext && organizationId ? (
+            <OrgAutoTopupSettings organizationId={organizationId} />
+          ) : (
+            <AutoTopupSettings />
+          ))}
       </div>
     </div>
   )

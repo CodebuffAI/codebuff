@@ -2,7 +2,7 @@
 
 import { SUBSCRIPTION_DISPLAY_NAME } from '@codebuff/common/constants/subscription-plans'
 import { env } from '@codebuff/common/env'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangle,
   ExternalLink,
@@ -13,6 +13,9 @@ import { useSession } from 'next-auth/react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { toast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
 
 import { formatTimeUntil } from '@codebuff/common/util/dates'
@@ -25,6 +28,8 @@ import type {
 const formatDaysHours = (dateStr: string): string =>
   formatTimeUntil(dateStr, { fallback: '0h' })
 
+const clampPercent = (n: number): number => Math.min(100, Math.max(0, Math.round(n)))
+
 function ProgressBar({ percentAvailable, label }: { percentAvailable: number; label: string }) {
   const percent = Math.min(100, Math.max(0, Math.round(percentAvailable)))
   const colorClass = percent <= 0 ? 'bg-red-500' : percent <= 25 ? 'bg-yellow-500' : 'bg-green-500'
@@ -34,8 +39,9 @@ function ProgressBar({ percentAvailable, label }: { percentAvailable: number; la
       aria-valuenow={percent}
       aria-valuemin={0}
       aria-valuemax={100}
+      aria-valuetext={`${percent}% remaining`}
       aria-label={label}
-      className="h-2.5 w-full rounded-full bg-muted overflow-hidden"
+      className="h-3 w-full rounded-full bg-muted overflow-hidden"
     >
       <div
         className={cn('h-full rounded-full transition-all duration-500', colorClass)}
@@ -46,13 +52,47 @@ function ProgressBar({ percentAvailable, label }: { percentAvailable: number; la
 }
 
 function SubscriptionActive({ data, email }: { data: ActiveSubscriptionResponse; email: string }) {
-  const { subscription, rateLimit } = data
+  const { subscription, rateLimit, fallbackToALaCarte } = data
   const isCanceling = subscription.cancelAtPeriodEnd
   const fallbackPortalUrl = `${env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}?prefilled_email=${encodeURIComponent(email)}`
   const billingPortalUrl = data.billingPortalUrl ?? fallbackPortalUrl
+  const queryClient = useQueryClient()
+
+  const updatePreferenceMutation = useMutation({
+    mutationFn: async (newValue: boolean) => {
+      const res = await fetch('/api/user/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fallbackToALaCarte: newValue }),
+      })
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: 'Failed to update preference' }))
+        throw new Error(error.error || 'Failed to update preference')
+      }
+      return newValue
+    },
+    onSuccess: (newValue) => {
+      queryClient.setQueryData(['subscription'], (old: SubscriptionResponse | undefined) =>
+        old ? { ...old, fallbackToALaCarte: newValue } : old
+      )
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const blockRemainingPercent =
+    rateLimit.blockLimit != null && rateLimit.blockUsed != null && rateLimit.blockLimit > 0
+      ? clampPercent(100 - (rateLimit.blockUsed / rateLimit.blockLimit) * 100)
+      : 100
+  const weeklyRemainingPercent = clampPercent(100 - rateLimit.weeklyPercentUsed)
 
   return (
-    <Card className="max-w-xl">
+    <Card>
       <CardHeader className="pb-5">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-baseline gap-2 text-lg">
@@ -84,60 +124,60 @@ function SubscriptionActive({ data, email }: { data: ActiveSubscriptionResponse;
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium">
-              5-hour limit
-              {rateLimit.blockResetsAt && (
-                <span className="font-normal text-muted-foreground ml-1.5">
-                  resets in {formatDaysHours(rateLimit.blockResetsAt)}
-                </span>
-              )}
-            </span>
-            <span className="text-muted-foreground">
-              {rateLimit.blockLimit && rateLimit.blockUsed != null
-                ? `${Math.round(100 - (rateLimit.blockUsed / rateLimit.blockLimit) * 100)}%`
-                : '100%'} remaining
-            </span>
-          </div>
-          <ProgressBar
-            percentAvailable={
-              rateLimit.blockLimit && rateLimit.blockUsed != null
-                ? 100 - (rateLimit.blockUsed / rateLimit.blockLimit) * 100
-                : 100
-            }
-            label="5-hour usage"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium">
-              Weekly limit
-              <span className="font-normal text-muted-foreground ml-1.5">
-                resets in {formatDaysHours(rateLimit.weeklyResetsAt)}
-              </span>
-            </span>
-            <span className="text-muted-foreground">
-              {100 - rateLimit.weeklyPercentUsed}% remaining
-            </span>
-          </div>
-          <ProgressBar
-            percentAvailable={100 - rateLimit.weeklyPercentUsed}
-            label="Weekly usage"
-          />
-        </div>
-
         {rateLimit.limited && (
           <div className="flex items-start gap-2 rounded-md border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-900/20">
             <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-yellow-600 dark:text-yellow-400" />
             <p className="text-sm text-yellow-800 dark:text-yellow-300">
               {rateLimit.reason === 'weekly_limit'
-                ? `Weekly limit reached. Resets in ${formatDaysHours(rateLimit.weeklyResetsAt)}. You can still use a-la-carte credits.`
-                : `Session exhausted. New session in ${rateLimit.blockResetsAt ? formatDaysHours(rateLimit.blockResetsAt) : 'soon'}. You can still use a-la-carte credits.`}
+                ? `Weekly limit reached. Resets in ${formatDaysHours(rateLimit.weeklyResetsAt)}. ${fallbackToALaCarte ? 'Automatically using your credits.' : 'Your credits will not be used.'}`
+                : `Session exhausted. New session in ${rateLimit.blockResetsAt ? formatDaysHours(rateLimit.blockResetsAt) : 'soon'}. ${fallbackToALaCarte ? 'Automatically using your credits.' : 'Your credits will not be used.'}`}
             </p>
           </div>
         )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-10">
+          <div className="space-y-2">
+            <span className="text-sm font-medium">5-hour limit</span>
+            <ProgressBar
+              percentAvailable={blockRemainingPercent}
+              label="5-hour usage"
+            />
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>{blockRemainingPercent}% remaining</span>
+              {rateLimit.blockResetsAt && (
+                <>
+                  <span>·</span>
+                  <span>Resets in {formatDaysHours(rateLimit.blockResetsAt)}</span>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-sm font-medium">Weekly limit</span>
+            <ProgressBar
+              percentAvailable={weeklyRemainingPercent}
+              label="Weekly usage"
+            />
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>{weeklyRemainingPercent}% remaining</span>
+              <span>·</span>
+              <span>Resets in {formatDaysHours(rateLimit.weeklyResetsAt)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Switch
+            id="always-use-credits"
+            checked={fallbackToALaCarte}
+            onCheckedChange={(checked) => updatePreferenceMutation.mutate(checked)}
+            disabled={updatePreferenceMutation.isPending}
+          />
+          <Label htmlFor="always-use-credits" className="text-sm cursor-pointer">
+            Use a-la-carte credits when limit is reached
+          </Label>
+        </div>
       </CardContent>
     </Card>
   )
@@ -160,11 +200,9 @@ function SubscriptionCta() {
             </p>
           </div>
         </div>
-        <Link href="/pricing">
-          <Button className="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600">
-            Learn More
-          </Button>
-        </Link>
+        <Button asChild className="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600">
+          <Link href="/pricing">Learn More</Link>
+        </Button>
       </CardContent>
     </Card>
   )
