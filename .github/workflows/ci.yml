@@ -150,7 +150,13 @@ jobs:
                 echo "No regular tests found in .agents"
               fi
             elif [ "${{ matrix.package }}" = "web" ]; then
-              bun run test --runInBand
+              # Use bun test directly to pick up bunfig.toml preloads for Request global
+              TEST_FILES=$(find src -name '*.test.ts' ! -name '*.integration.test.ts' ! -path 'src/__tests__/e2e/*' 2>/dev/null | sort | tr '\n' ' ')
+              if [ -n "$TEST_FILES" ]; then
+                bun test $TEST_FILES
+              else
+                echo "No tests found in web"
+              fi
             else
               # Run all non-integration tests in a single bun test invocation
               # This avoids xargs exit code issues with orphaned child processes
