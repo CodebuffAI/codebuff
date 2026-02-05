@@ -55,8 +55,32 @@ function SubscriptionActive({ data, email }: { data: ActiveSubscriptionResponse;
   const { subscription, rateLimit, fallbackToALaCarte } = data
   const isCanceling = subscription.cancelAtPeriodEnd
   const fallbackPortalUrl = `${env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL}?prefilled_email=${encodeURIComponent(email)}`
-  const billingPortalUrl = data.billingPortalUrl ?? fallbackPortalUrl
   const queryClient = useQueryClient()
+
+  const billingPortalMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/user/billing-portal', {
+        method: 'POST',
+      })
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: 'Failed to open billing portal' }))
+        throw new Error(error.error || 'Failed to open billing portal')
+      }
+      const data = await res.json()
+      return data.url as string
+    },
+    onSuccess: (url) => {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    },
+    onError: (err: Error) => {
+      // Fall back to the prefilled email portal URL on error
+      window.open(fallbackPortalUrl, '_blank', 'noopener,noreferrer')
+      toast({
+        title: 'Note',
+        description: 'Opened billing portal - you may need to sign in.',
+      })
+    },
+  })
 
   const updatePreferenceMutation = useMutation({
     mutationFn: async (newValue: boolean) => {
@@ -116,15 +140,23 @@ function SubscriptionActive({ data, email }: { data: ActiveSubscriptionResponse;
               </span>
             )}
           </CardTitle>
-          <a
-            href={billingPortalUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
+          <button
+            onClick={() => billingPortalMutation.mutate()}
+            disabled={billingPortalMutation.isPending}
+            className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 disabled:opacity-50"
           >
-            Manage
-            <ExternalLink className="h-3.5 w-3.5" />
-          </a>
+            {billingPortalMutation.isPending ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Opening...
+              </>
+            ) : (
+              <>
+                Manage
+                <ExternalLink className="h-3.5 w-3.5" />
+              </>
+            )}
+          </button>
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
