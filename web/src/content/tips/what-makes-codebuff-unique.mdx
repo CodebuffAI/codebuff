@@ -1,0 +1,166 @@
+---
+title: 'What Makes Codebuff Unique'
+section: 'tips'
+tags: ['features', 'comparison', 'architecture']
+order: 1
+---
+
+# What Makes Codebuff Unique
+
+Codebuff is an open-source AI coding agent that coordinates specialized sub-agents instead of using one model for everything.
+
+ The result: better code quality and up to 3x faster performance than Claude Code, built on a deep agent framework continuously refined by our in-house evals
+
+## 3x Faster Than Claude Code
+
+Codebuff is dramatically faster—often completing tasks in 1/3 the time.
+
+{/* TODO: Add speed comparison image/video */}
+
+In real-world tests:
+- **Claude Code**: 19m 37s for a feature
+- **Codebuff**: 6m 45s for the same feature
+
+That's 100+ seconds faster on average per prompt. We achieve this through parallel agents, prompt caching, and smarter file discovery.
+
+See our detailed [comparison with Claude Code](/docs/advanced/claude-code-comparison).
+
+## Tree-based File Discovery
+
+Claude Code can spend 5+ minutes grep-ing and reading file excerpts one at a time.
+
+{/* TODO: Add file picker screenshot */}
+
+Codebuff's approach:
+1. **Parse your entire codebase**: We analyze all source files and extract function names, class names, and type names
+2. **Build a code tree**: This creates a compact tree of all directories, files, and symbols in your project
+3. **Grok 4.1 Fast scans the tree**: We feed this code tree to Grok 4.1 Fast, which identifies up to 12 relevant files in seconds
+4. **Gemini Flash summarizes**: Those 12 files are read and summarized by Gemini Flash
+5. **Main agent reads multiple files at once**: With the summaries, the main agent knows exactly what to read
+
+This entire process takes just a few seconds and efficiently conveys a lot of information to the agent. No more watching your agent slowly explore your codebase.
+
+## Parallel Multi-Strategy Editing
+
+In MAX mode, Codebuff doesn't just try once—it tries three times in parallel with different strategies and picks the best result.
+
+{/* TODO: Add multi-prompt editing diagram */}
+
+How it works:
+1. The orchestrator spawns multiple editor agents, each with a different strategy
+2. All implementations run in parallel, reusing the prompt cache
+3. A selector agent chooses the best implementation
+4. The selector can incorporate good ideas from other attempts
+
+This is remarkably efficient because all parallel agents share the cached conversation history—you only pay once for reading files.
+
+## Automatic Code Review
+
+Every prompt gets reviewed before Codebuff finishes.
+
+{/* TODO: Add code review screenshot */}
+
+- A reviewer agent spawns automatically
+- It runs in parallel with typechecks and tests
+- Catches bugs, dead code, and quality issues
+- Fixes are applied before you see the result
+
+In MAX mode, multiple reviewers analyze your code from different angles—all reusing the prompt cache.
+
+## Invisible Context Management
+
+Other tools show you "% context used" and make you worry about it.
+
+{/* TODO: Add context management diagram */}
+
+Codebuff handles context automatically:
+- **Smart compaction**: After the prompt cache expires (5 min idle), we automatically summarize the conversation—much more efficient for long sessions
+- **Non-lossy summaries**: 10-20 roundtrips preserved with full details
+- **Deterministic strategy**: User messages, assistant messages, tool calls—all kept
+- **Immediate re-reading**: Codebuff quickly re-reads any relevant files it needs after compaction
+
+You never think about context. It just works.
+
+## Open Source Multi-Agent Framework
+
+Our entire agent framework is [open source](/docs/advanced/sdk). The same code that powers Codebuff powers your custom agents.
+
+{/* TODO: Add agent framework diagram */}
+
+Key innovations:
+- **Agents as the composable unit**: Not individual LLM calls, but complete agents with tools and prompts
+- **Optional inherited context**: Subagents can optionally inherit conversation history (Claude Code's subagents always start with blank context)
+- **Arbitrary nesting**: Agents can spawn agents that spawn agents—unlimited depth (Claude Code only supports 1 level of subagents)
+- **Programmatic control**: Mix LLM calls with TypeScript code using generator functions
+- **Orchestrator pattern**: One agent with no tools except spawning other agents—perfect context management for free
+
+```typescript
+// Simplified example of the orchestrator pattern
+const orchestrator = {
+  tools: [spawnAgent],
+  spawnableAgents: [filePicker, editor, reviewer, thinker, researcher]
+}
+```
+
+Spawned agents contribute only their final output, keeping the orchestrator's context clean and focused.
+
+## Research-Driven Agent Development
+
+We built [BuffBench](https://github.com/CodebuffAI/codebuff/tree/main/evals)—our custom eval suite that tests agent configurations across 175+ real implementation tasks from open source repos.
+
+{/* TODO: Add BuffBench results chart */}
+
+BuffBench takes a fundamentally different approach from benchmarks like SWE Bench. Instead of passing predefined tests, our evals challenge coding agents to reimplement real git commits through multi-turn conversations. An AI judge scores implementations on completion, efficiency, code quality, and overall correctness—comparing against the ground truth commit.
+
+- **Data-driven optimization**: We measure quality, speed, and cost across many agent combinations
+- **Ship what wins**: Only the highest-scoring, fastest, most cost-effective configurations go live
+- **Most complex agent system**: After testing countless subagent combinations, we ship the most robust multi-agent architecture of any major coding agent
+- **Continuous improvement**: We believe going deeper on agent research will unlock significant further advantages that no one else will find
+
+Our research isn't theoretical—it's deployed in production, constantly refined by real-world testing.
+
+## Ad Revenue Share
+
+Codebuff optionally displays ads above the input box. Each impression earns you credits you can spend on more coding agent usage.
+
+{/* TODO: Add ad display screenshot */}
+
+- **Earn while you code**: Ad impressions convert directly to credits
+- **Completely optional**: Turn ads off at any time in settings
+- **Use credits for more prompts**: Earned credits work just like purchased credits
+
+## Polished Terminal UI
+
+Codebuff's CLI is built on [OpenTUI](https://github.com/anomalyco/opentui)—a React-based terminal framework.
+
+{/* TODO: Add CLI screenshot */}
+
+- No flicker, ever
+- Hover and click support
+- Sleek, polished experience
+
+## Clickable Follow-up Suggestions
+
+After every response, Codebuff suggests three follow-up prompts you can click to execute.
+
+{/* TODO: Add follow-up suggestions screenshot */}
+
+- Codebuff often has ideas you didn't think of
+- One click to continue building
+- A step toward Codebuff as a collaborative partner
+
+## No Babysitting Required
+
+When you ask Codebuff to do something, it just does it. No permission prompts. No "Are you sure?" dialogs.
+
+{/* TODO: Add comparison screenshot */}
+
+You can step away and come back to finished work.
+
+## Try It Now
+
+```bash
+npm install -g codebuff
+```
+
+Then `cd` to your project and run `codebuff`. Experience the difference in seconds.
