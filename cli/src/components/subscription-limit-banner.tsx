@@ -65,10 +65,6 @@ export const SubscriptionLimitBanner = () => {
     open(WEBSITE_URL + '/pricing')
   }
 
-  const handleWait = () => {
-    setInputMode('default')
-  }
-
   const borderColor = isWeeklyLimit ? theme.error : theme.warning
 
   return (
@@ -169,9 +165,6 @@ export const SubscriptionLimitBanner = () => {
                   <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Buy Credits ↗{' '}</text>
                 </Button>
               )}
-              <Button onClick={handleWait}>
-                <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Wait{' '}</text>
-              </Button>
             </>
           )}
         </box>

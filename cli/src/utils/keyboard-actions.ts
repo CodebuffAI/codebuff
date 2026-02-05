@@ -1,4 +1,4 @@
-import type { InputMode } from './input-modes'
+import { getInputModeConfig, type InputMode } from './input-modes'
 import type { KeyEvent } from '@opentui/core'
 
 
@@ -168,7 +168,9 @@ export function resolveChatKeyboardAction(
 
   // Priority 2: Non-default input mode escape
   // Escape should exit the current mode BEFORE interrupting streams
-  if (isEscape && state.inputMode !== 'default') {
+  // Exception: modes with blockKeyboardExit cannot be escaped
+  const modeConfig = getInputModeConfig(state.inputMode)
+  if (isEscape && state.inputMode !== 'default' && !modeConfig.blockKeyboardExit) {
     return { type: 'exit-input-mode' }
   }
 
@@ -186,10 +188,12 @@ export function resolveChatKeyboardAction(
   }
 
   // Priority 5: Backspace at position 0 exits non-default mode
+  // Exception: modes with blockKeyboardExit cannot be exited via keyboard
   if (
     isBackspace &&
     state.cursorPosition === 0 &&
     state.inputMode !== 'default' &&
+    !modeConfig.blockKeyboardExit &&
     state.inputValue.length === 0
   ) {
     return { type: 'backspace-exit-mode' }

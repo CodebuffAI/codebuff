@@ -40,6 +40,8 @@ export type InputModeConfig = {
   showAgentModeToggle: boolean
   /** Whether to disable slash command suggestions */
   disableSlashSuggestions: boolean
+  /** Whether keyboard shortcuts (Escape, Backspace) can exit this mode */
+  blockKeyboardExit: boolean
 }
 
 export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
@@ -50,6 +52,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     widthAdjustment: 0,
     showAgentModeToggle: true,
     disableSlashSuggestions: false,
+    blockKeyboardExit: false,
   },
   bash: {
     icon: '!',
@@ -58,6 +61,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     widthAdjustment: 2, // 1 char + 1 padding
     showAgentModeToggle: false,
     disableSlashSuggestions: true,
+    blockKeyboardExit: false,
   },
   homeDir: {
     icon: null,
@@ -66,6 +70,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     widthAdjustment: 0,
     showAgentModeToggle: true,
     disableSlashSuggestions: false,
+    blockKeyboardExit: false,
   },
   referral: {
     icon: '◎',
@@ -74,6 +79,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     widthAdjustment: 2, // 1 char + 1 padding
     showAgentModeToggle: false,
     disableSlashSuggestions: true,
+    blockKeyboardExit: false,
   },
   usage: {
     icon: null,
@@ -82,6 +88,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     widthAdjustment: 0,
     showAgentModeToggle: true,
     disableSlashSuggestions: false,
+    blockKeyboardExit: false,
   },
   image: {
     icon: '📎',
@@ -90,6 +97,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     widthAdjustment: 3, // emoji width + padding
     showAgentModeToggle: false,
     disableSlashSuggestions: true,
+    blockKeyboardExit: false,
   },
   help: {
     icon: null,
@@ -98,6 +106,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     widthAdjustment: 0,
     showAgentModeToggle: true,
     disableSlashSuggestions: false,
+    blockKeyboardExit: false,
   },
   'connect:claude': {
     icon: '🔗',
@@ -106,6 +115,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     widthAdjustment: 3, // emoji width + padding
     showAgentModeToggle: false,
     disableSlashSuggestions: true,
+    blockKeyboardExit: false,
   },
   outOfCredits: {
     icon: null,
@@ -114,6 +124,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     widthAdjustment: 0,
     showAgentModeToggle: false,
     disableSlashSuggestions: true,
+    blockKeyboardExit: false,
   },
   subscriptionLimit: {
     icon: null,
@@ -122,6 +133,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     widthAdjustment: 0,
     showAgentModeToggle: false,
     disableSlashSuggestions: true,
+    blockKeyboardExit: true, // User must click "Continue with credits" or wait for reset
   },
 }
 
