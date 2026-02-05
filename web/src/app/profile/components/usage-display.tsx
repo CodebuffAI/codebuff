@@ -295,7 +295,7 @@ export const UsageDisplay = ({
   )
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
+    <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-xl font-bold mb-3">Credit Balance</CardTitle>
 
@@ -395,7 +395,7 @@ export const UsageDisplay = ({
 }
 
 export const UsageDisplaySkeleton = () => (
-  <Card className="w-full max-w-2xl mx-auto">
+  <Card>
     <CardHeader className="pb-4">
       <div className="h-7 w-32 bg-muted rounded animate-pulse mb-3" />
       <div className="h-5 w-64 bg-muted/70 rounded animate-pulse mb-3" />
