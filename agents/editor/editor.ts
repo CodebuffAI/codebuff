@@ -14,7 +14,7 @@ export const createCodeEditor = (options: {
         ? 'openai/gpt-5.1'
         : options.model === 'glm'
           ? 'z-ai/glm-4.7'
-          : 'anthropic/claude-opus-4.5',
+          : 'anthropic/claude-opus-4.6',
     ...(model === 'glm' && {
       reasoningOptions: {
         effort: 'high',

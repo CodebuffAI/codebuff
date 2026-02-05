@@ -18,7 +18,7 @@ export function createThinkerBestOfN(
     model: isGpt5
       ? 'openai/gpt-5.1'
       : isOpus
-        ? 'anthropic/claude-opus-4.5'
+        ? 'anthropic/claude-opus-4.6'
         : 'anthropic/claude-sonnet-4.5',
     displayName: isGpt5
       ? 'Best-of-N GPT-5 Thinker'
@@ -133,9 +133,9 @@ function* handleStepsDefault({
       .filter((result) => result.type === 'json')
       .map((result) => result.value)
       .flat() as {
-      agentType: string
-      value: { value?: T; errorMessage?: string }
-    }[]
+        agentType: string
+        value: { value?: T; errorMessage?: string }
+      }[]
     return spawnedResults.map(
       (result) =>
         result.value.value ??
@@ -218,9 +218,9 @@ function* handleStepsOpus({
       .filter((result) => result.type === 'json')
       .map((result) => result.value)
       .flat() as {
-      agentType: string
-      value: { value?: T; errorMessage?: string }
-    }[]
+        agentType: string
+        value: { value?: T; errorMessage?: string }
+      }[]
     return spawnedResults.map(
       (result) =>
         result.value.value ??

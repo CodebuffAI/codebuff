@@ -64,7 +64,7 @@ Be extremely concise.`,
 const definition: SecretAgentDefinition = {
   id: 'code-reviewer',
   publisher,
-  ...createReviewer('anthropic/claude-opus-4.5'),
+  ...createReviewer('anthropic/claude-opus-4.6'),
 }
 
 export default definition

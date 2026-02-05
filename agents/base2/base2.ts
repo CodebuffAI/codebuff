@@ -28,7 +28,7 @@ export function createBase2(
 
   return {
     publisher,
-    model: isFree ? 'x-ai/grok-4.1-fast' : 'anthropic/claude-opus-4.5',
+    model: isFree ? 'x-ai/grok-4.1-fast' : 'anthropic/claude-opus-4.6',
     displayName: 'Buffy the Orchestrator',
     spawnerPrompt:
       'Advanced base agent that orchestrates planning, editing, and reviewing for complex coding tasks',
