@@ -189,10 +189,10 @@ function SubscriptionActive({ data, email }: { data: ActiveSubscriptionResponse;
 
 function SubscriptionCta() {
   return (
-    <Card className="border-indigo-200 dark:border-indigo-800">
+    <Card className="border-green-200 dark:border-green-800">
       <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 rounded-lg bg-indigo-100 p-2 dark:bg-indigo-900/30">
+          <div className="mt-0.5 rounded-lg bg-green-100 p-2 dark:bg-green-900/30">
             <span className="text-xl">💪</span>
           </div>
           <div>
@@ -200,11 +200,11 @@ function SubscriptionCta() {
               Upgrade to {SUBSCRIPTION_DISPLAY_NAME}
             </h3>
             <p className="text-sm text-muted-foreground">
-              From $100/mo · Save credits with 5-hour work sessions included
+              From $100/mo · Subscribe to save on credits
             </p>
           </div>
         </div>
-        <Button asChild className="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600">
+        <Button asChild className="bg-acid-green text-black hover:bg-acid-green/90 shadow-[0_0_20px_rgba(0,255,149,0.2)] hover:shadow-[0_0_30px_rgba(0,255,149,0.3)] transition-all duration-200">
           <Link href="/pricing">Learn More</Link>
         </Button>
       </CardContent>
