@@ -13,21 +13,17 @@
 // Bun has built-in support for web APIs, but we need to ensure they're
 // available on globalThis for Next.js server modules
 if (typeof globalThis.Request === 'undefined') {
-  // @ts-expect-error - Bun provides these but TypeScript may not know
   globalThis.Request = Request
 }
 
 if (typeof globalThis.Response === 'undefined') {
-  // @ts-expect-error - Bun provides these but TypeScript may not know
   globalThis.Response = Response
 }
 
 if (typeof globalThis.Headers === 'undefined') {
-  // @ts-expect-error - Bun provides these but TypeScript may not know
   globalThis.Headers = Headers
 }
 
 if (typeof globalThis.fetch === 'undefined') {
-  // @ts-expect-error - Bun provides these but TypeScript may not know
   globalThis.fetch = fetch
 }
