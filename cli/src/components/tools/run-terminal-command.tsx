@@ -49,7 +49,7 @@ export const parseTerminalOutput = (rawOutput: string | undefined): ParsedTermin
 export const RunTerminalCommandComponent = defineToolComponent({
   toolName: 'run_terminal_command',
 
-  render(toolBlock): ToolRenderConfig {
+  render(toolBlock, _theme, options): ToolRenderConfig {
     // Extract command and timeout from input
     const input = toolBlock.input as { command?: string; timeout_seconds?: number } | undefined
     const command = typeof input?.command === 'string' ? input.command.trim() : ''
@@ -67,6 +67,7 @@ export const RunTerminalCommandComponent = defineToolComponent({
         maxVisibleLines={5}
         cwd={startingCwd}
         timeoutSeconds={timeoutSeconds}
+        availableWidth={options.availableWidth}
       />
     )
 
