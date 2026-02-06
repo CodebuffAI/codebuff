@@ -26,6 +26,8 @@ const tokenCountRequestSchema = z.object({
 
 type TokenCountRequest = z.infer<typeof tokenCountRequestSchema>
 
+const DEFAULT_ANTHROPIC_MODEL = 'claude-opus-4-6'
+
 export async function postTokenCount(params: {
   req: NextRequest
   getUserInfoFromApiKey: GetUserInfoFromApiKeyFn
@@ -87,7 +89,7 @@ export async function postTokenCount(params: {
       userId,
       messageCount: messages.length,
       hasSystem: !!system,
-      model: model ?? 'claude-opus-4-5-20251101',
+      model: model ?? DEFAULT_ANTHROPIC_MODEL,
       tokenCount: inputTokens,
     },
       `Token count: ${inputTokens}`
@@ -124,7 +126,6 @@ async function countTokensViaAnthropic(params: {
 
   // Convert model from OpenRouter format (e.g. "anthropic/claude-opus-4.5") to Anthropic format (e.g. "claude-opus-4-5-20251101")
   // For non-Anthropic models, use the default Anthropic model for token counting
-  const DEFAULT_ANTHROPIC_MODEL = 'claude-opus-4-5-20251101'
   const isNonAnthropicModel = !model || !isClaudeModel(model)
   const anthropicModelId = isNonAnthropicModel
     ? DEFAULT_ANTHROPIC_MODEL
