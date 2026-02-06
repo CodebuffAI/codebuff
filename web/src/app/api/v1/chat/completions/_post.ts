@@ -1,5 +1,6 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
+import { isFreeMode } from '@codebuff/common/constants/free-agents'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { pluralize } from '@codebuff/common/util/string'
 import { env } from '@codebuff/internal/env'
@@ -199,12 +200,16 @@ export async function postChatCompletions(params: {
       logger,
     })
 
-    // Check user credits
+    // Check if the request is in FREE mode (costs 0 credits for allowed agent+model combos)
+    const costMode = typedBody.codebuff_metadata?.cost_mode
+    const isFreeModeRequest = isFreeMode(costMode)
+
+    // Check user credits (skip for FREE mode since those requests cost 0 credits)
     const {
       balance: { totalRemaining },
       nextQuotaReset,
     } = await getUserUsageData({ userId, logger })
-    if (totalRemaining <= 0) {
+    if (totalRemaining <= 0 && !isFreeModeRequest) {
       trackEvent({
         event: AnalyticsEvent.CHAT_COMPLETIONS_INSUFFICIENT_CREDITS,
         userId,
@@ -294,7 +299,7 @@ export async function postChatCompletions(params: {
             ? await getUserPreferences({ userId, logger })
             : { fallbackToALaCarte: true } // Default to allowing a-la-carte if no preference function
           
-          if (!preferences.fallbackToALaCarte) {
+          if (!preferences.fallbackToALaCarte && !isFreeModeRequest) {
             const resetTime = blockGrantResult.resetsAt
             const resetCountdown = formatQuotaResetCountdown(resetTime.toISOString())
             const limitType = isWeeklyLimitError(blockGrantResult) ? 'weekly' : '5-hour session'

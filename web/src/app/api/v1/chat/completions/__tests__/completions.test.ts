@@ -420,6 +420,39 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(body.message).toContain(expectedResetCountdown)
       expect(body.message).not.toContain(nextQuotaReset)
     })
+
+    it('skips credit check when in FREE mode even with 0 credits', async () => {
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: { Authorization: 'Bearer test-api-key-no-credits' },
+          body: JSON.stringify({
+            model: 'test/test-model',
+            stream: false,
+            codebuff_metadata: {
+              run_id: 'run-123',
+              client_id: 'test-client-id-123',
+              cost_mode: 'free',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletions({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+      })
+
+      expect(response.status).toBe(200)
+    })
   })
 
   describe('Successful responses', () => {
@@ -547,6 +580,52 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(body.error).toBe('rate_limit_exceeded')
       expect(body.message).toContain('weekly limit reached')
       expect(body.message).toContain('Enable "Continue with credits"')
+    })
+
+    it('skips subscription limit check when in FREE mode even with fallback disabled', async () => {
+      const weeklyLimitError: BlockGrantResult = {
+        error: 'weekly_limit_reached',
+        used: 3500,
+        limit: 3500,
+        resetsAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+      }
+      const mockEnsureSubscriberBlockGrant = mock(async () => weeklyLimitError)
+      const mockGetUserPreferences: GetUserPreferencesFn = mock(async () => ({
+        fallbackToALaCarte: false,
+      }))
+
+      const freeModeRequest = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: { Authorization: 'Bearer test-api-key-123' },
+          body: JSON.stringify({
+            model: 'test/test-model',
+            stream: false,
+            codebuff_metadata: {
+              run_id: 'run-123',
+              client_id: 'test-client-id-123',
+              cost_mode: 'free',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletions({
+        req: freeModeRequest,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
+        getUserPreferences: mockGetUserPreferences,
+      })
+
+      expect(response.status).toBe(200)
     })
 
     it('returns 429 when block exhausted and fallback disabled', async () => {
