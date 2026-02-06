@@ -10,7 +10,7 @@ const baseDefinition = createCliAgent({
   startCommand: 'gemini --yolo',
   permissionNote:
     'Always use `--yolo` (or `--approval-mode yolo`) when testing to auto-approve all tool actions and avoid prompts that would block automated tests.',
-  model: 'anthropic/claude-opus-4.5',
+  model: 'anthropic/claude-opus-4.6',
   cliSpecificDocs: `## Gemini CLI Commands
 
 Gemini CLI uses slash commands for navigation:

@@ -9,49 +9,49 @@ export function createThinkerSelector(
   return {
     publisher,
     model: isOpus
-      ? 'anthropic/claude-opus-4.5'
+      ? 'anthropic/claude-opus-4.6'
       : 'anthropic/claude-sonnet-4.5',
     displayName: isOpus
       ? 'Opus Thinker Output Selector'
       : 'Thinker Output Selector',
     spawnerPrompt: 'Analyzes multiple thinking outputs and selects the best one',
 
-  includeMessageHistory: true,
-  inheritParentSystemPrompt: true,
+    includeMessageHistory: true,
+    inheritParentSystemPrompt: true,
 
-  toolNames: ['set_output'],
-  spawnableAgents: [],
+    toolNames: ['set_output'],
+    spawnableAgents: [],
 
-  inputSchema: {
-    params: {
-      type: 'object',
-      properties: {
-        thoughts: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              id: { type: 'string' },
-              content: { type: 'string' },
+    inputSchema: {
+      params: {
+        type: 'object',
+        properties: {
+          thoughts: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                content: { type: 'string' },
+              },
+              required: ['id', 'content'],
             },
-            required: ['id', 'content'],
           },
         },
-      },
-      required: ['thoughts'],
-    },
-  },
-  outputMode: 'structured_output',
-  outputSchema: {
-    type: 'object',
-    properties: {
-      thoughtId: {
-        type: 'string',
-        description: 'The id of the chosen thinking output',
+        required: ['thoughts'],
       },
     },
-    required: ['thoughtId'],
-  },
+    outputMode: 'structured_output',
+    outputSchema: {
+      type: 'object',
+      properties: {
+        thoughtId: {
+          type: 'string',
+          description: 'The id of the chosen thinking output',
+        },
+      },
+      required: ['thoughtId'],
+    },
 
     instructionsPrompt: `As part of the best-of-n workflow for thinking agents, you are the thinking selector agent.
   

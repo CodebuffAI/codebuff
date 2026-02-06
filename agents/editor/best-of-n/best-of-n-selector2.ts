@@ -16,7 +16,7 @@ export const createBestOfNSelector2 = (options: {
     model: isSonnet
       ? 'anthropic/claude-sonnet-4.5'
       : isOpus
-        ? 'anthropic/claude-opus-4.5'
+        ? 'anthropic/claude-opus-4.6'
         : 'openai/gpt-5.2',
     ...(isGpt5 && {
       reasoningOptions: {
@@ -126,13 +126,12 @@ Try to select an implementation that fulfills all the requirements in the user's
 
 ## Response Format
 
-${
-  isSonnet || isOpus
-    ? `Use <think> tags to write out your thoughts about the implementations as needed to pick the best implementation. IMPORTANT: You should think really really hard to make sure you pick the absolute best implementation! Also analyze the non-chosen implementations for any valuable techniques or approaches that could improve the selected one.
+${isSonnet || isOpus
+        ? `Use <think> tags to write out your thoughts about the implementations as needed to pick the best implementation. IMPORTANT: You should think really really hard to make sure you pick the absolute best implementation! Also analyze the non-chosen implementations for any valuable techniques or approaches that could improve the selected one.
 
 Then, do not write any other explanations AT ALL. You should directly output a single tool call to set_output with the selected implementationId, short reason, and suggestedImprovements array.`
-    : `Output a single tool call to set_output with the selected implementationId, reason, and suggestedImprovements. Do not write anything else.`
-}`,
+        : `Output a single tool call to set_output with the selected implementationId, reason, and suggestedImprovements. Do not write anything else.`
+      }`,
   }
 }
 

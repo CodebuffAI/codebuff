@@ -12,7 +12,7 @@ export const createCodeEditor = (options: {
     model:
       options.model === 'gpt-5'
         ? 'openai/gpt-5.1'
-        : 'anthropic/claude-opus-4.5',
+        : 'anthropic/claude-opus-4.6',
     displayName: 'Code Editor',
     spawnerPrompt:
       'Expert code reviewer that reviews recent code changes and makes improvements.',
@@ -58,10 +58,9 @@ OR for new files or major rewrites:
 }
 </codebuff_tool_call>
 
-${
-  model === 'gpt-5'
-    ? ''
-    : `Before you start writing your implementation, you should use <think> tags to think about the best way to implement the changes.
+${model === 'gpt-5'
+        ? ''
+        : `Before you start writing your implementation, you should use <think> tags to think about the best way to implement the changes.
 
 You can also use <think> tags interspersed between tool calls to think about the best way to implement the changes.
 
@@ -88,7 +87,7 @@ You can also use <think> tags interspersed between tool calls to think about the
 </codebuff_tool_call>
 
 </example>`
-}
+      }
 
 ### Simplify the code.
 

@@ -10,7 +10,7 @@ const baseDefinition = createCliAgent({
   startCommand: 'claude --dangerously-skip-permissions',
   permissionNote:
     'Always use `--dangerously-skip-permissions` when testing to avoid permission prompts that would block automated tests.',
-  model: 'anthropic/claude-opus-4.5',
+  model: 'anthropic/claude-opus-4.6',
 })
 
 // Constants must be inside handleSteps since it gets serialized via .toString()

@@ -13,7 +13,7 @@ export const createBestOfNImplementor2 = (options: {
     model: isGpt5
       ? 'openai/gpt-5.2'
       : isOpus
-        ? 'anthropic/claude-opus-4.5'
+        ? 'anthropic/claude-opus-4.6'
         : 'anthropic/claude-sonnet-4.5',
     displayName: isGpt5
       ? 'GPT-5 Implementation Generator v2'

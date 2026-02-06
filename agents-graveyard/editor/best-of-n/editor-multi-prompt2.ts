@@ -10,7 +10,7 @@ import type { SecretAgentDefinition } from '../../types/secret-agent-definition'
 export function createMultiPromptEditor(): Omit<SecretAgentDefinition, 'id'> {
   return {
     publisher,
-    model: 'anthropic/claude-opus-4.5',
+    model: 'anthropic/claude-opus-4.6',
     displayName: 'Multi-Prompt Editor',
     spawnerPrompt:
       'Edits code by spawning multiple implementor agents with different strategy prompts, selects the best implementation, and applies the changes. It also returns further suggested improvements which you should take seriously and act on. Pass as input an array of short prompts specifying different implementation approaches or strategies. Make sure to read any files intended to be edited before spawning this agent.',
