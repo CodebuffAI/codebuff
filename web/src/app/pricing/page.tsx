@@ -8,9 +8,9 @@ import type { Metadata } from 'next'
 export async function generateMetadata(): Promise<Metadata> {
   const canonicalUrl = `${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/pricing`
 
-  const title = 'Pricing – Simple, Usage-Based Plans | Codebuff'
+  const title = 'Pricing | Codebuff'
   const description =
-    'Get 500 free credits monthly, then pay just 1¢ per credit. No subscriptions required. Enterprise plans available for organizations.'
+    'Subscribe for higher usage limits, or pay as you go at 1¢ per credit. Enterprise plans available for organizations.'
 
   return {
     title,

@@ -6,20 +6,36 @@ import { getServerSession } from 'next-auth'
 import { z } from 'zod'
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options'
+import { extractApiKeyFromHeader, getUserIdFromSessionToken } from '@/util/auth'
 import { logger } from '@/util/logger'
+
+import type { NextRequest } from 'next/server'
 
 const updatePreferencesSchema = z.object({
   fallbackToALaCarte: z.boolean().optional(),
 })
 
-export async function PATCH(request: Request) {
-  const session = await getServerSession(authOptions)
+export async function PATCH(request: NextRequest) {
+  let userId: string | undefined
 
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // First, try Bearer token authentication (for CLI clients)
+  const apiKey = extractApiKeyFromHeader(request)
+  if (apiKey) {
+    const userIdFromToken = await getUserIdFromSessionToken(apiKey)
+    if (userIdFromToken) {
+      userId = userIdFromToken
+    }
   }
 
-  const userId = session.user.id
+  // Fall back to NextAuth session authentication (for web clients)
+  if (!userId) {
+    const session = await getServerSession(authOptions)
+    userId = session?.user?.id
+  }
+
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   let body: unknown
   try {
@@ -68,15 +84,30 @@ export async function PATCH(request: Request) {
   }
 }
 
-export async function GET() {
-  const session = await getServerSession(authOptions)
+export async function GET(request: NextRequest) {
+  let userId: string | undefined
 
-  if (!session?.user?.id) {
+  // First, try Bearer token authentication (for CLI clients)
+  const apiKey = extractApiKeyFromHeader(request)
+  if (apiKey) {
+    const userIdFromToken = await getUserIdFromSessionToken(apiKey)
+    if (userIdFromToken) {
+      userId = userIdFromToken
+    }
+  }
+
+  // Fall back to NextAuth session authentication (for web clients)
+  if (!userId) {
+    const session = await getServerSession(authOptions)
+    userId = session?.user?.id
+  }
+
+  if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const user = await db.query.user.findFirst({
-    where: eq(schema.user.id, session.user.id),
+    where: eq(schema.user.id, userId),
     columns: { fallback_to_a_la_carte: true },
   })
 

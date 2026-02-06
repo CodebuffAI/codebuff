@@ -46,23 +46,16 @@ async function createAndLinkStripeCustomer(params: {
       },
     })
 
-    // Create subscription with the usage price
-    await stripeServer.subscriptions.create({
-      customer: customer.id,
-      items: [{ price: env.STRIPE_USAGE_PRICE_ID }],
-    })
-
     await db
       .update(schema.user)
       .set({
         stripe_customer_id: customer.id,
-        stripe_price_id: env.STRIPE_USAGE_PRICE_ID,
       })
       .where(eq(schema.user.id, userId))
 
     logger.info(
       { userId, customerId: customer.id },
-      'Stripe customer created with usage subscription and linked to user.',
+      'Stripe customer created and linked to user.',
     )
     return customer.id
   } catch (error) {
@@ -156,7 +149,6 @@ export const authOptions: NextAuthOptions = {
         session.user.name = user.name
         session.user.email = user.email
         session.user.stripe_customer_id = user.stripe_customer_id
-        session.user.stripe_price_id = user.stripe_price_id
       }
       return session
     },

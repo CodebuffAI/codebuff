@@ -266,16 +266,23 @@ const SubscriptionUsageSection: React.FC<SubscriptionUsageSectionProps> = ({
           </box>
         </box>
       ) : null}
-      <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1, marginTop: 1 }}>
-        <text style={{ fg: theme.muted }}>When limit reached:</text>
-        <text style={{ fg: theme.muted }}>
-          {fallbackToALaCarte ? 'spend credits' : 'pause'}
-        </text>
-        <Button onClick={handleToggleFallbackToALaCarte} disabled={updatePreference.isPending}>
-          <text style={{ fg: theme.muted, attributes: TextAttributes.UNDERLINE }}>
-            {updatePreference.isPending ? '[updating...]' : `[${fallbackToALaCarte ? 'switch to pause' : 'switch to spend credits'}]`}
+      <box style={{ flexDirection: 'column', gap: 0, marginTop: 1 }}>
+        <box style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
+          <text style={{ fg: theme.muted }}>Credit spending:</text>
+          <text style={{ fg: fallbackToALaCarte ? theme.foreground : theme.warning }}>
+            {fallbackToALaCarte ? 'enabled' : 'disabled'}
           </text>
-        </Button>
+          <Button onClick={handleToggleFallbackToALaCarte} disabled={updatePreference.isPending}>
+            <text style={{ fg: theme.muted, attributes: TextAttributes.UNDERLINE }}>
+              {updatePreference.isPending ? '[updating...]' : `[${fallbackToALaCarte ? 'disable' : 'enable'}]`}
+            </text>
+          </Button>
+        </box>
+        <text style={{ fg: theme.muted }}>
+          {fallbackToALaCarte
+            ? 'Your credits will be used when subscription limits are reached.'
+            : 'Credits will NOT be spent when subscription limits are reached. Enable to use credits.'}
+        </text>
       </box>
     </box>
   )

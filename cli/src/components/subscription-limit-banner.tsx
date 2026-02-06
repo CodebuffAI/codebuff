@@ -127,47 +127,76 @@ export const SubscriptionLimitBanner = () => {
           <text style={{ fg: theme.muted }}>{weeklyPercentUsed}% used</text>
         </box>
 
-        {hasAlaCarteCredits && (
-          <Button onClick={handleToggleFallbackToALaCarte} disabled={updatePreference.isPending}>
-            <text style={{ fg: theme.muted }}>
-              {updatePreference.isPending ? '[...]' : fallbackToALaCarte ? '[x]' : '[ ]'} always use credits if subscription limit is reached
-            </text>
-          </Button>
-        )}
-
-        <box style={{ flexDirection: 'row', gap: 2, marginTop: 1 }}>
-          {hasAlaCarteCredits ? (
-            <>
-              <Button onClick={handleContinueWithCredits}>
-                <text style={{ fg: theme.background, bg: theme.foreground }}>
-                  {' '}Continue with credits ({remainingBalance.toLocaleString()}){' '}
+        {hasAlaCarteCredits ? (
+          <box style={{ flexDirection: 'column', gap: 1, marginTop: 1 }}>
+            {fallbackToALaCarte ? (
+              <>
+                <text style={{ fg: theme.muted }}>
+                  ✓ Credit spending enabled. You can continue using your credits.
                 </text>
+                <box style={{ flexDirection: 'row', gap: 2 }}>
+                  <Button onClick={handleContinueWithCredits}>
+                    <text style={{ fg: theme.background, bg: theme.foreground }}>
+                      {' '}Continue with credits ({remainingBalance.toLocaleString()}){' '}
+                    </text>
+                  </Button>
+                  {canUpgrade ? (
+                    <Button onClick={handleUpgrade}>
+                      <text style={{ fg: theme.background, bg: theme.foreground }}>{' '}Upgrade Plan ↗{' '}</text>
+                    </Button>
+                  ) : (
+                    <Button onClick={handleBuyCredits}>
+                      <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Buy Credits ↗{' '}</text>
+                    </Button>
+                  )}
+                </box>
+                <Button onClick={handleToggleFallbackToALaCarte} disabled={updatePreference.isPending}>
+                  <text style={{ fg: theme.muted }}>
+                    {updatePreference.isPending ? '[updating...]' : '[disable credit spending]'}
+                  </text>
+                </Button>
+              </>
+            ) : (
+              <>
+                <text style={{ fg: theme.warning }}>
+                  Credit spending is disabled. Enable it to continue.
+                </text>
+                <box style={{ flexDirection: 'row', gap: 2 }}>
+                  <Button onClick={handleToggleFallbackToALaCarte} disabled={updatePreference.isPending}>
+                    <text style={{ fg: theme.background, bg: theme.foreground }}>
+                      {updatePreference.isPending ? ' Enabling... ' : ' Enable Credit Spending '}
+                    </text>
+                  </Button>
+                  {canUpgrade ? (
+                    <Button onClick={handleUpgrade}>
+                      <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Upgrade Plan ↗{' '}</text>
+                    </Button>
+                  ) : (
+                    <Button onClick={handleBuyCredits}>
+                      <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Buy Credits ↗{' '}</text>
+                    </Button>
+                  )}
+                </box>
+                <text style={{ fg: theme.muted }}>
+                  You have {remainingBalance.toLocaleString()} credits available.
+                </text>
+              </>
+            )}
+          </box>
+        ) : (
+          <box style={{ flexDirection: 'row', gap: 2, marginTop: 1 }}>
+            <text style={{ fg: theme.muted }}>No a-la-carte credits available.</text>
+            {canUpgrade ? (
+              <Button onClick={handleUpgrade}>
+                <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Upgrade Plan ↗{' '}</text>
               </Button>
-              {canUpgrade ? (
-                <Button onClick={handleUpgrade}>
-                  <text style={{ fg: theme.background, bg: theme.foreground }}>{' '}Upgrade Plan ↗{' '}</text>
-                </Button>
-              ) : (
-                <Button onClick={handleBuyCredits}>
-                  <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Buy Credits ↗{' '}</text>
-                </Button>
-              )}
-            </>
-          ) : (
-            <>
-              <text style={{ fg: theme.muted }}>No a-la-carte credits available.</text>
-              {canUpgrade ? (
-                <Button onClick={handleUpgrade}>
-                  <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Upgrade Plan ↗{' '}</text>
-                </Button>
-              ) : (
-                <Button onClick={handleBuyCredits}>
-                  <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Buy Credits ↗{' '}</text>
-                </Button>
-              )}
-            </>
-          )}
-        </box>
+            ) : (
+              <Button onClick={handleBuyCredits}>
+                <text style={{ fg: theme.background, bg: theme.muted }}>{' '}Buy Credits ↗{' '}</text>
+              </Button>
+            )}
+          </box>
+        )}
       </box>
     </box>
   )

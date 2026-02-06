@@ -5,13 +5,11 @@ declare module 'next-auth' {
     user?: {
       id: string
       stripe_customer_id: string | null
-      stripe_price_id: string | null
     } & DefaultSession['user']
   }
 
   interface User {
     id: string
     stripe_customer_id: string | null
-    stripe_price_id: string | null
   }
 }

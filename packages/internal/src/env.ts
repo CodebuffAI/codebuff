@@ -23,7 +23,6 @@ if (isCI) {
   ensureEnvDefault('NEXTAUTH_SECRET', 'test-secret')
   ensureEnvDefault('STRIPE_SECRET_KEY', 'sk_test_dummy')
   ensureEnvDefault('STRIPE_WEBHOOK_SECRET_KEY', 'whsec_dummy')
-  ensureEnvDefault('STRIPE_USAGE_PRICE_ID', 'price_test')
   ensureEnvDefault('STRIPE_TEAM_FEE_PRICE_ID', 'price_test')
   ensureEnvDefault('LOOPS_API_KEY', 'test')
   ensureEnvDefault('DISCORD_PUBLIC_KEY', 'test')
