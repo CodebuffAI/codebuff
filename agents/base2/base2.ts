@@ -358,6 +358,7 @@ function buildImplementationStepPrompt({
   return buildArray(
     isMax &&
     `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
+    'You must use the skill tool to load any potentially relevant skills.',
     isMax &&
     `You must spawn the 'editor-multi-prompt' agent to implement code changes rather than using the str_replace or write_file tools, since it will generate the best code changes.`,
     (isDefault || isMax) &&
