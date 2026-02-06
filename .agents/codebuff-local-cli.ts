@@ -10,7 +10,7 @@ const baseDefinition = createCliAgent({
   startCommand: 'bun --cwd=cli run dev',
   permissionNote:
     'No permission flags needed for Codebuff local dev server.',
-  model: 'anthropic/claude-opus-4.5',
+  model: 'anthropic/claude-opus-4.6',
   skipPrepPhase: true,
   spawnerPromptExtras: `**Purpose:** E2E visual testing of the Codebuff CLI itself. This agent starts a local dev Codebuff CLI instance and interacts with it to verify UI behavior.
 
