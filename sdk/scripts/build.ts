@@ -112,7 +112,7 @@ async function build() {
         },
       ],
       {
-        preferredConfigPath: join(import.meta.dir, '..', 'tsconfig.json'),
+        preferredConfigPath: join(import.meta.dir, '..', 'tsconfig.build.json'),
       },
     )
 
@@ -120,7 +120,8 @@ async function build() {
     await fixDuplicateImports()
     console.log('  ✓ Created bundled type definitions')
   } catch (error) {
-    console.warn('⚠ TypeScript declaration bundling failed:', error.message)
+    console.error('❌ TypeScript declaration bundling failed:', error.message)
+    process.exit(1)
   }
 
   console.log('📂 Copying WASM files for tree-sitter...')

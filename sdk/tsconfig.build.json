@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2022", "DOM"],
+    "target": "ES2023",
+    "lib": ["ESNext", "DOM"],
     "module": "ES2022",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": false,
@@ -11,13 +11,21 @@
     "declaration": true,
     "declarationMap": true,
     "skipLibCheck": true,
+    "types": ["node"],
     "emitDeclarationOnly": true,
     "esModuleInterop": true,
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
     "noImplicitReturns": true,
     "exactOptionalPropertyTypes": false,
-    "stripInternal": true
+    "stripInternal": true,
+    "baseUrl": ".",
+    "paths": {
+      "@codebuff/common/*": ["../common/src/*"],
+      "@codebuff/agent-runtime/*": ["../packages/agent-runtime/src/*"],
+      "@codebuff/code-map": ["../packages/code-map/src/index.ts"],
+      "@codebuff/code-map/*": ["../packages/code-map/src/*"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["**/*.test.ts", "**/*.spec.ts", "node_modules", "dist"]
