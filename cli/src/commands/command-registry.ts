@@ -384,17 +384,9 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   }),
   defineCommand({
     name: 'subscribe',
-    aliases: ['strong'],
+    aliases: ['strong', 'sub', 'buy-credits'],
     handler: (params) => {
-      open(WEBSITE_URL + '/pricing')
-      clearInput(params)
-    },
-  }),
-  defineCommand({
-    name: 'buy-credits',
-    handler: (params) => {
-      open(WEBSITE_URL + '/profile?tab=usage')
-      // Don't save to history.
+      open(WEBSITE_URL + '/subscribe')
       clearInput(params)
     },
   }),

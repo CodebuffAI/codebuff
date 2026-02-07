@@ -62,7 +62,7 @@ export const SubscriptionLimitBanner = () => {
   }
 
   const handleUpgrade = () => {
-    open(WEBSITE_URL + '/pricing')
+    open(WEBSITE_URL + '/subscribe')
   }
 
   const borderColor = isWeeklyLimit ? theme.error : theme.warning

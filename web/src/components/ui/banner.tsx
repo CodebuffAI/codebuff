@@ -5,7 +5,7 @@ import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/old-constants'
 import { capitalize } from '@codebuff/common/util/string'
 import { X, Gift } from 'lucide-react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import posthog from 'posthog-js'
 import { Suspense, useState } from 'react'
@@ -16,12 +16,14 @@ import { useUserProfile } from '@/hooks/use-user-profile'
 
 function BannerContent() {
   const [isVisible, setIsVisible] = useState(true)
+  const pathname = usePathname()
   const searchParams = useSearchParams() ?? new URLSearchParams()
   const referrer = searchParams.get('referrer')
   const { data: session } = useSession()
 
   const { data: userProfile } = useUserProfile()
 
+  if (pathname === '/subscribe') return null
   if (!isVisible || !session?.user || !userProfile) return null
 
   // Check if account is less than a week old

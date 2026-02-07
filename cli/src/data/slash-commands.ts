@@ -76,13 +76,8 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'subscribe',
     label: 'subscribe',
-    description: 'Subscribe to Codebuff Strong',
-    aliases: ['strong'],
-  },
-  {
-    id: 'buy-credits',
-    label: 'buy-credits',
-    description: 'Open the usage page to buy credits',
+    description: 'Subscribe to get more usage',
+    aliases: ['strong', 'sub', 'buy-credits'],
   },
   {
     id: 'new',

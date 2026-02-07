@@ -77,14 +77,14 @@ export const HelpBanner = () => {
             <box style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 1 }}>
               <text style={{ fg: theme.foreground }}>1 credit = 1 cent</text>
               <text style={{ fg: theme.muted }}>·</text>
-              <text style={{ fg: theme.foreground }}>/buy-credits</text>
+              <text style={{ fg: theme.foreground }}>/subscribe</text>
               <text style={{ fg: theme.muted }}>·</text>
               <text style={{ fg: theme.foreground }}>/usage</text>
               <text style={{ fg: theme.muted }}>·</text>
               <text style={{ fg: theme.foreground }}>/ads:enable</text>
             </box>
             <text style={{ fg: theme.muted }}>
-              Connect your Claude subscription for Default & Max modes
+              Subscribe for the best credit rates — /subscribe
             </text>
           </box>
         </box>

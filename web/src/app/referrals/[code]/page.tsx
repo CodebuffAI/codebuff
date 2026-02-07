@@ -100,7 +100,7 @@ export default async function ReferralPage({
             </p>
             <div className="flex justify-center mt-4">
               <Button asChild>
-<Link href="/pricing">View Pricing</Link>
+<Link href="/subscribe">View Pricing</Link>
               </Button>
             </div>
           </>

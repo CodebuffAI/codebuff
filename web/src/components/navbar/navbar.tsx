@@ -3,6 +3,7 @@
 import { Menu, DollarSign, LogIn, BarChart2, BookHeart } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 
 
@@ -19,8 +20,13 @@ import { Skeleton } from '../ui/skeleton'
 
 import { cn } from '@/lib/utils'
 
+const HIDDEN_PATHS = ['/subscribe']
+
 export const Navbar = () => {
+  const pathname = usePathname()
   const { data: session, status } = useSession()
+
+  if (pathname && HIDDEN_PATHS.includes(pathname)) return null
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">

@@ -44,11 +44,13 @@ const publicPaths = [
   .map((link) => link.href)
   .filter((href) => !href.startsWith('http'))
 
+const FOOTER_HIDDEN_PATHS = ['/subscribe']
+
 export const Footer = () => {
   const pathname = usePathname() ?? '/'
   const isPublicPage = publicPaths.includes(pathname)
 
-  if (!isPublicPage) {
+  if (!isPublicPage || FOOTER_HIDDEN_PATHS.includes(pathname)) {
     return null
   }
 

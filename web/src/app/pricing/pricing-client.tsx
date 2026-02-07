@@ -10,7 +10,7 @@ import { env } from '@codebuff/common/env'
 import { loadStripe } from '@stripe/stripe-js'
 import { motion } from 'framer-motion'
 import { Gift, Shield, Loader2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
@@ -67,6 +67,7 @@ function SubscribeButton({
 }) {
   const { status } = useSession()
   const router = useRouter()
+  const pathname = usePathname()
   const [isLoading, setIsLoading] = useState(false)
 
   const action = getButtonAction(tier, currentTier)
@@ -100,7 +101,7 @@ function SubscribeButton({
 
   const handleClick = async () => {
     if (status !== 'authenticated') {
-      router.push('/login?callbackUrl=/pricing')
+      router.push(`/login?callbackUrl=${pathname ?? '/pricing'}`)
       return
     }
 
@@ -251,13 +252,13 @@ function PricingCardsGrid() {
   )
 }
 
-function StrongHeroSection() {
+export function StrongHeroSection({ compact }: { compact?: boolean }) {
   return (
     <Section
       background={SECTION_THEMES.hero.background}
       hero
       fullViewport
-      className="overflow-hidden"
+      className={cn('overflow-hidden', compact && '!pt-0 !pb-0')}
     >
       {/* Subtle radial glow behind content */}
       <div
@@ -324,7 +325,7 @@ function StrongHeroSection() {
       </motion.div>
 
       {/* Foreground content */}
-      <div className="codebuff-container min-h-[calc(95dvh-64px)] flex flex-col items-center justify-center relative z-10 py-12">
+      <div className="codebuff-container min-h-dvh flex flex-col items-center justify-center relative z-10 py-8">
         <div className="flex flex-col items-center text-center max-w-4xl w-full space-y-12">
           <motion.h1
             className="text-4xl sm:text-5xl md:text-5xl font-bold text-white tracking-tight"
@@ -372,30 +373,9 @@ function CreditVisual() {
           </span>
         </div>
         <div className="w-24 h-[1px] bg-gradient-to-r from-transparent via-green-400/40 to-transparent"></div>
-
-        {/* Grid with improved spacing for mobile and desktop */}
-        <div className="grid grid-cols-2 gap-x-10 gap-y-6 sm:gap-x-16">
-          <div className="flex flex-col items-center group">
-            <div className="p-2 rounded-full bg-blue-500/10 mb-2">
-              <Gift className="h-5 w-5 text-blue-400" />
-            </div>
-            <div className="text-lg font-bold text-blue-400">
-              {DEFAULT_FREE_CREDITS_GRANT}
-            </div>
-            <div className="text-xs sm:text-sm text-white/70">Free monthly</div>
-          </div>
-
-          <div className="flex flex-col items-center group">
-            <div className="p-2 rounded-full bg-purple-500/10 mb-2">
-              <Shield className="h-5 w-5 text-purple-400" />
-            </div>
-            <div className="text-lg font-bold text-white">∞</div>
-            <div className="text-xs sm:text-sm text-white/70">Never expire</div>
-          </div>
-        </div>
       </div>
 
-      <div className="mt-8 text-sm text-white/90 max-w-sm border border-white/20 rounded-md p-3 bg-white/5">
+      <div className="mt-8 text-sm text-white/90 max-w-sm rounded-md p-3 bg-white/5">
         <span>
           {DEFAULT_FREE_CREDITS_GRANT} credits is typically enough for
         </span>{' '}
@@ -505,12 +485,11 @@ export default function PricingClient() {
     <>
       <StrongHeroSection />
 
-      {/* Visual divider between hero and feature section */}
       <div className="h-px bg-gradient-to-r from-transparent via-green-500/30 to-transparent" />
 
       <FeatureSection
         title={<span>Usage-Based Pricing</span>}
-        description="Get 500 free credits monthly, then pay just 1¢ per credit. Credits are consumed based on task complexity — simple queries cost less, complex changes more. You'll see how many credits each task consumes."
+        description="After free credits, pay just 1¢ per credit. Credits are consumed based on task complexity — simple queries cost less, complex changes more. You'll see how many credits each task consumes."
         backdropColor={SECTION_THEMES.competition.background}
         decorativeColors={[BlockColor.GenerativeGreen, BlockColor.AcidMatrix]}
         textColor="text-white"
