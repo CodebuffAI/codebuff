@@ -10,7 +10,7 @@ import {
 } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 
-import { getAdsEnabled } from './commands/ads'
+import { getAdsEnabled, handleAdsDisable } from './commands/ads'
 import { routeUserPrompt, addBashMessageToHistory } from './commands/router'
 import { AdBanner } from './components/ad-banner'
 import { BottomStatusLine } from './components/bottom-status-line'
@@ -162,6 +162,12 @@ export const Chat = ({
 
   const { statusMessage } = useClipboard()
   const { ad } = useGravityAd()
+  const [adsManuallyDisabled, setAdsManuallyDisabled] = useState(false)
+
+  const handleDisableAds = useCallback(() => {
+    handleAdsDisable()
+    setAdsManuallyDisabled(true)
+  }, [])
 
   // Fetch subscription data early - needed for session credits tracking
   const { data: subscriptionData } = useSubscriptionQuery({
@@ -1432,7 +1438,13 @@ export const Chat = ({
           />
         )}
 
-        {ad && getAdsEnabled() && <AdBanner ad={ad} />}
+        {ad && !adsManuallyDisabled && getAdsEnabled() && (
+          <AdBanner
+            ad={ad}
+            onDisableAds={handleDisableAds}
+            isFreeMode={agentMode === 'FREE'}
+          />
+        )}
 
         {reviewMode ? (
           <ReviewScreen
