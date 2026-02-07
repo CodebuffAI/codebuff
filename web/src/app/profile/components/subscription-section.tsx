@@ -96,7 +96,7 @@ function SubscriptionActive({ data }: { data: ActiveSubscriptionResponse }) {
       <CardHeader className="pb-5">
         <CardTitle className="flex items-baseline gap-2 text-lg">
           <span>💪</span>
-          {SUBSCRIPTION_DISPLAY_NAME}
+          {SUBSCRIPTION_DISPLAY_NAME} Subscription
           <span className="text-sm font-normal text-muted-foreground">
             ${subscription.tier}/mo
           </span>
@@ -164,7 +164,7 @@ function SubscriptionActive({ data }: { data: ActiveSubscriptionResponse }) {
             disabled={updatePreferenceMutation.isPending}
           />
           <Label htmlFor="always-use-credits" className="text-sm cursor-pointer">
-            Use a-la-carte credits when limit is reached
+            Automatically use credits when limit is reached
           </Label>
         </div>
       </CardContent>

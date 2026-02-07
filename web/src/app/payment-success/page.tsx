@@ -28,12 +28,12 @@ function PaymentSuccessContent() {
   } = useAutoTopup()
 
   const enableMinimumAutoTopup = async () => {
-    const { MIN_THRESHOLD_CREDITS, MIN_TOPUP_DOLLARS } = AUTO_TOPUP_CONSTANTS
+    const { MIN_THRESHOLD_CREDITS, DEFAULT_TOPUP_DOLLARS } =
+      AUTO_TOPUP_CONSTANTS
 
-    // Enable auto top-up with minimum values
     await handleToggleAutoTopup(true)
     handleThresholdChange(MIN_THRESHOLD_CREDITS)
-    handleTopUpAmountChange(MIN_TOPUP_DOLLARS)
+    handleTopUpAmountChange(DEFAULT_TOPUP_DOLLARS)
   }
 
   useEffect(() => {

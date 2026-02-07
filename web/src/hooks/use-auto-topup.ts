@@ -14,6 +14,7 @@ const {
   MIN_THRESHOLD_CREDITS,
   MAX_THRESHOLD_CREDITS,
   MIN_TOPUP_DOLLARS,
+  DEFAULT_TOPUP_DOLLARS,
   MAX_TOPUP_DOLLARS,
   CENTS_PER_CREDIT,
 } = AUTO_TOPUP_CONSTANTS
@@ -23,7 +24,7 @@ export function useAutoTopup(): AutoTopupState {
   const [isEnabled, setIsEnabled] = useState(false)
   const [threshold, setThreshold] = useState<number>(MIN_THRESHOLD_CREDITS)
   const [topUpAmountDollars, setTopUpAmountDollars] =
-    useState<number>(MIN_TOPUP_DOLLARS)
+    useState<number>(DEFAULT_TOPUP_DOLLARS)
   const isInitialLoad = useRef(true)
   const pendingSettings = useRef<{
     threshold: number
@@ -40,7 +41,7 @@ export function useAutoTopup(): AutoTopupState {
       const data = await response.json()
       const thresholdCredits =
         data.auto_topup_threshold ?? MIN_THRESHOLD_CREDITS
-      const topUpAmount = data.auto_topup_amount ?? MIN_TOPUP_DOLLARS * 100
+      const topUpAmount = data.auto_topup_amount ?? DEFAULT_TOPUP_DOLLARS * 100
       const topUpDollars = topUpAmount / 100
 
       return {
@@ -52,7 +53,7 @@ export function useAutoTopup(): AutoTopupState {
           MAX_THRESHOLD_CREDITS,
         ),
         initialTopUpDollars: clamp(
-          topUpDollars > 0 ? topUpDollars : MIN_TOPUP_DOLLARS,
+          topUpDollars > 0 ? topUpDollars : DEFAULT_TOPUP_DOLLARS,
           MIN_TOPUP_DOLLARS,
           MAX_TOPUP_DOLLARS,
         ),
@@ -76,7 +77,7 @@ export function useAutoTopup(): AutoTopupState {
       setIsEnabled(userProfile.auto_topup_enabled ?? false)
       setThreshold(userProfile.auto_topup_threshold ?? MIN_THRESHOLD_CREDITS)
       setTopUpAmountDollars(
-        userProfile.initialTopUpDollars ?? MIN_TOPUP_DOLLARS,
+        userProfile.initialTopUpDollars ?? DEFAULT_TOPUP_DOLLARS,
       )
       setTimeout(() => {
         isInitialLoad.current = false
@@ -190,13 +191,13 @@ export function useAutoTopup(): AutoTopupState {
           initialTopUpDollars:
             savedEnabled && savedAmountCents
               ? savedAmountCents / 100
-              : MIN_TOPUP_DOLLARS,
+              : DEFAULT_TOPUP_DOLLARS,
         }
 
         setIsEnabled(updatedData.auto_topup_enabled ?? false)
         setThreshold(updatedData.auto_topup_threshold ?? MIN_THRESHOLD_CREDITS)
         setTopUpAmountDollars(
-          updatedData.initialTopUpDollars ?? MIN_TOPUP_DOLLARS,
+          updatedData.initialTopUpDollars ?? DEFAULT_TOPUP_DOLLARS,
         )
 
         return updatedData
@@ -214,7 +215,7 @@ export function useAutoTopup(): AutoTopupState {
         setIsEnabled(userProfile.auto_topup_enabled ?? false)
         setThreshold(userProfile.auto_topup_threshold ?? MIN_THRESHOLD_CREDITS)
         setTopUpAmountDollars(
-          userProfile.initialTopUpDollars ?? MIN_TOPUP_DOLLARS,
+          userProfile.initialTopUpDollars ?? DEFAULT_TOPUP_DOLLARS,
         )
       }
       pendingSettings.current = null
