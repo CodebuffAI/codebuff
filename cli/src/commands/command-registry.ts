@@ -230,8 +230,8 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     },
   }),
   defineCommandWithArgs({
-    name: 'referral',
-    aliases: ['redeem'],
+    name: 'refer-friends',
+    aliases: ['referral', 'redeem'],
     handler: async (params, args) => {
       const trimmedArgs = args.trim()
 

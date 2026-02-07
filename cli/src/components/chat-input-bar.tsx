@@ -195,6 +195,11 @@ export const ChatInputBar = ({
     return <InputModeBanner />
   }
 
+  // Referral mode: show only the referral banner (no input box)
+  if (inputMode === 'referral') {
+    return <InputModeBanner />
+  }
+
   // Handle input changes with special mode entry detection
   const handleInputChange = (value: InputValue) => {
     // Detect entering bash mode: user typed exactly '!' when in default mode

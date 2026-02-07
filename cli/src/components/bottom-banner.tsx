@@ -32,6 +32,8 @@ export interface BottomBannerConfig {
   children?: React.ReactNode
   /** Called when close button is clicked. If not provided, no close button is shown. */
   onClose?: () => void
+  /** Which border sides to render. Defaults to ['bottom', 'left', 'right']. */
+  border?: ('top' | 'bottom' | 'left' | 'right')[]
 }
 
 export type BottomBannerProps = BottomBannerConfig
@@ -66,6 +68,7 @@ export const BottomBanner: React.FC<BottomBannerProps> = ({
   text,
   children,
   onClose,
+  border,
 }) => {
   const { width, terminalWidth } = useTerminalLayout()
   const theme = useTheme()
@@ -96,7 +99,7 @@ export const BottomBanner: React.FC<BottomBannerProps> = ({
         marginTop: 0,
         marginBottom: 0,
       }}
-      border={['bottom', 'left', 'right']}
+      border={border ?? ['bottom', 'left', 'right']}
       customBorderChars={BORDER_CHARS}
     >
       {hasTextContent ? (
