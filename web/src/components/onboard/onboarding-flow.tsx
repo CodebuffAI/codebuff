@@ -305,7 +305,7 @@ export function OnboardingFlow({
 
           {/* What is Codebuff blurb */}
           <p className="text-muted-foreground">
-            Get free bonus credits for Codebuff, a powerful AI coding agent. It takes only seconds!
+            Get free bonus credits for Codebuff, a powerful AI coding agent. Takes only seconds!
           </p>
         </motion.div>
 
@@ -316,7 +316,7 @@ export function OnboardingFlow({
             <div className="flex items-start gap-4">
               <StepBadge number={1} />
               <div className="flex-1 space-y-4">
-                <h3 className="text-lg font-semibold">Install the Codebuff CLI</h3>
+                <h3 className="text-lg font-semibold">Get the CLI</h3>
                 <div className="bg-zinc-800/60 rounded-md px-3 py-2.5 flex items-center justify-between">
                   <code className="font-mono text-white/90 select-all text-sm">
                     {INSTALL_COMMAND}
@@ -360,9 +360,9 @@ export function OnboardingFlow({
             <div className="flex items-start gap-4">
               <StepBadge number={2} />
               <div className="flex-1 space-y-4">
-                <h3 className="text-lg font-semibold">Navigate to your project and run Codebuff</h3>
+                <h3 className="text-lg font-semibold">Run Codebuff in your project</h3>
                 <p className="text-muted-foreground text-sm">
-                  In your terminal, navigate to any project folder, and run Codebuff.
+                  Navigate to your project folder and run codebuff.
                 </p>
                 <div className="space-y-2">
                   <div className="bg-zinc-800/60 rounded-md px-3 py-2.5 flex items-center justify-between">
@@ -389,20 +389,13 @@ export function OnboardingFlow({
                 <StepBadge number={3} />
                 <div className="flex-1 space-y-4">
                   <h3 className="text-lg font-semibold">
-                    Redeem Your Referral Code 🎉
+                    Redeem bonus credits
                   </h3>
                   <p className="text-muted-foreground text-sm">
-                    You're almost done! Paste your code into the CLI to claim bonus credits
-                    {referrerName ? ` — ${referrerName} will earn credits too!` : '.'}
+                    Finally, login to the CLI and paste in the code below.
+                    {referrerName ? ` ${referrerName} will earn credits too!` : '.'}
                   </p>
                   <div className="bg-acid-matrix/20 rounded-lg p-6">
-                    <p className="text-green-200 text-lg font-semibold mb-3">
-                      🎁{' '}
-                      {referrerName
-                        ? `You and ${referrerName} will both`
-                        : "You'll"}{' '}
-                      earn bonus credits!
-                    </p>
                     <div className="bg-zinc-800 rounded-md p-3 flex items-center justify-between">
                       <code
                         className="font-mono text-white font-bold text-lg"
@@ -413,8 +406,7 @@ export function OnboardingFlow({
                       <EnhancedCopyButton value={referralCode} />
                     </div>
                     <p className="text-green-200/80 text-sm mt-2">
-                      Paste this code in the CLI input box after logging in to claim your
-                      bonus credits!
+                      Paste this code in the input box and hit Enter to claim your bonus 🎁 
                     </p>
                   </div>
                 </div>
