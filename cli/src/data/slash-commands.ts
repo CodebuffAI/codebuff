@@ -43,6 +43,12 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     aliases: ['claude'],
   },
   {
+    id: 'connect:anthropic',
+    label: 'connect:anthropic',
+    description: 'Connect your own Anthropic API key and proxy',
+    aliases: ['anthropic'],
+  },
+  {
     id: 'ads:enable',
     label: 'ads:enable',
     description: 'Enable contextual ads and earn credits',

@@ -1,7 +1,9 @@
+import { BYOK_LOCAL_API_KEY } from '@codebuff/common/constants/byok'
 import { API_KEY_ENV_VAR } from '@codebuff/common/old-constants'
 import { AskUserBridge } from '@codebuff/common/utils/ask-user-bridge'
 import { CodebuffClient } from '@codebuff/sdk'
 
+import { isByokOnlyMode } from './anthropic-byok'
 import { getAuthTokenDetails } from './auth'
 import { getCliEnv, getSystemProcessEnv } from './env'
 import { loadAgentDefinitions } from './local-agent-registry'
@@ -46,14 +48,18 @@ export function resetCodebuffClient(): void {
 
 export async function getCodebuffClient(): Promise<CodebuffClient | null> {
   if (!clientInstance) {
-    const { token: apiKey } = getAuthTokenDetails()
+    let { token: apiKey } = getAuthTokenDetails()
 
     if (!apiKey) {
-      logger.warn(
-        {},
-        `No authentication token found. Please run the login flow or set ${API_KEY_ENV_VAR}.`,
-      )
-      return null
+      if (isByokOnlyMode()) {
+        apiKey = BYOK_LOCAL_API_KEY
+      } else {
+        logger.warn(
+          {},
+          `No authentication token found. Please run the login flow or set ${API_KEY_ENV_VAR}.`,
+        )
+        return null
+      }
     }
 
     const projectRoot = getProjectRoot()

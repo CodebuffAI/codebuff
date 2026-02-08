@@ -481,6 +481,16 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     },
   }),
   defineCommand({
+    name: 'connect:anthropic',
+    aliases: ['anthropic'],
+    handler: (params) => {
+      // Enter connect:anthropic mode for BYOK Anthropic setup
+      useChatStore.getState().setInputMode('connect:anthropic')
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+    },
+  }),
+  defineCommand({
     name: 'history',
     aliases: ['chats'],
     handler: (params) => {

@@ -207,7 +207,7 @@ export async function* promptAiSdkStream(
     model: params.model,
     skipClaudeOAuth: params.skipClaudeOAuth,
   }
-  const { model: aiSDKModel, isClaudeOAuth } = await getModelForRequest(modelParams)
+  const { model: aiSDKModel, isClaudeOAuth, isByokAnthropic } = await getModelForRequest(modelParams)
 
   // Track and notify about Claude OAuth usage
   if (isClaudeOAuth) {
@@ -544,8 +544,8 @@ export async function* promptAiSdkStream(
   const responseValue = await response.response
   const messageId = responseValue.id
 
-  // Skip cost tracking for Claude OAuth (user is on their own subscription)
-  if (!isClaudeOAuth) {
+  // Skip cost tracking for Claude OAuth and BYOK Anthropic (user is on their own subscription/key)
+  if (!isClaudeOAuth && !isByokAnthropic) {
     const providerMetadataResult = await response.providerMetadata
     const providerMetadata = providerMetadataResult ?? {}
 
@@ -591,9 +591,9 @@ export async function promptAiSdk(
   const modelParams: ModelRequestParams = {
     apiKey: params.apiKey,
     model: params.model,
-    skipClaudeOAuth: true, // Always use Codebuff backend for non-streaming
+    skipClaudeOAuth: true, // Skip Claude OAuth; will use BYOK if configured, otherwise Codebuff backend
   }
-  const { model: aiSDKModel } = await getModelForRequest(modelParams)
+  const { model: aiSDKModel, isByokAnthropic } = await getModelForRequest(modelParams)
 
   const response = await generateText({
     ...params,
@@ -607,24 +607,27 @@ export async function promptAiSdk(
   })
   const content = response.text
 
-  const providerMetadata = response.providerMetadata ?? {}
-  let costOverrideDollars: number | undefined
-  if (providerMetadata.codebuff) {
-    if (providerMetadata.codebuff.usage) {
-      const openrouterUsage = providerMetadata.codebuff
-        .usage as OpenRouterUsageAccounting
+  // Skip cost tracking for BYOK Anthropic (user is on their own key)
+  if (!isByokAnthropic) {
+    const providerMetadata = response.providerMetadata ?? {}
+    let costOverrideDollars: number | undefined
+    if (providerMetadata.codebuff) {
+      if (providerMetadata.codebuff.usage) {
+        const openrouterUsage = providerMetadata.codebuff
+          .usage as OpenRouterUsageAccounting
 
-      costOverrideDollars =
-        (openrouterUsage.cost ?? 0) +
-        (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
+        costOverrideDollars =
+          (openrouterUsage.cost ?? 0) +
+          (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
+      }
     }
-  }
 
-  // Call the cost callback if provided
-  if (params.onCostCalculated && costOverrideDollars) {
-    await params.onCostCalculated(
-      calculateUsedCredits({ costDollars: costOverrideDollars }),
-    )
+    // Call the cost callback if provided
+    if (params.onCostCalculated && costOverrideDollars) {
+      await params.onCostCalculated(
+        calculateUsedCredits({ costDollars: costOverrideDollars }),
+      )
+    }
   }
 
   return promptSuccess(content)
@@ -648,9 +651,9 @@ export async function promptAiSdkStructured<T>(
   const modelParams: ModelRequestParams = {
     apiKey: params.apiKey,
     model: params.model,
-    skipClaudeOAuth: true, // Always use Codebuff backend for non-streaming
+    skipClaudeOAuth: true, // Skip Claude OAuth; will use BYOK if configured, otherwise Codebuff backend
   }
-  const { model: aiSDKModel } = await getModelForRequest(modelParams)
+  const { model: aiSDKModel, isByokAnthropic } = await getModelForRequest(modelParams)
 
   const response = await generateObject<z.ZodType<T>, 'object'>({
     ...params,
@@ -666,24 +669,27 @@ export async function promptAiSdkStructured<T>(
 
   const content = response.object
 
-  const providerMetadata = response.providerMetadata ?? {}
-  let costOverrideDollars: number | undefined
-  if (providerMetadata.codebuff) {
-    if (providerMetadata.codebuff.usage) {
-      const openrouterUsage = providerMetadata.codebuff
-        .usage as OpenRouterUsageAccounting
+  // Skip cost tracking for BYOK Anthropic (user is on their own key)
+  if (!isByokAnthropic) {
+    const providerMetadata = response.providerMetadata ?? {}
+    let costOverrideDollars: number | undefined
+    if (providerMetadata.codebuff) {
+      if (providerMetadata.codebuff.usage) {
+        const openrouterUsage = providerMetadata.codebuff
+          .usage as OpenRouterUsageAccounting
 
-      costOverrideDollars =
-        (openrouterUsage.cost ?? 0) +
-        (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
+        costOverrideDollars =
+          (openrouterUsage.cost ?? 0) +
+          (openrouterUsage.costDetails?.upstreamInferenceCost ?? 0)
+      }
     }
-  }
 
-  // Call the cost callback if provided
-  if (params.onCostCalculated && costOverrideDollars) {
-    await params.onCostCalculated(
-      calculateUsedCredits({ costDollars: costOverrideDollars }),
-    )
+    // Call the cost callback if provided
+    if (params.onCostCalculated && costOverrideDollars) {
+      await params.onCostCalculated(
+        calculateUsedCredits({ costDollars: costOverrideDollars }),
+      )
+    }
   }
 
   return promptSuccess(content)

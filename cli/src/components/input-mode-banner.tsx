@@ -1,5 +1,6 @@
 import React from 'react'
 
+import { AnthropicConnectBanner } from './anthropic-connect-banner'
 import { ClaudeConnectBanner } from './claude-connect-banner'
 import { HelpBanner } from './help-banner'
 import { PendingAttachmentsBanner } from './pending-attachments-banner'
@@ -27,6 +28,7 @@ const BANNER_REGISTRY: Record<
   referral: () => <ReferralBanner />,
   help: () => <HelpBanner />,
   'connect:claude': () => <ClaudeConnectBanner />,
+  'connect:anthropic': () => <AnthropicConnectBanner />,
   subscriptionLimit: () => <SubscriptionLimitBanner />,
 }
 

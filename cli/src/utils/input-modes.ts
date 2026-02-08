@@ -12,6 +12,7 @@ export type InputMode =
   | 'image'
   | 'help'
   | 'connect:claude'
+  | 'connect:anthropic'
   | 'outOfCredits'
   | 'subscriptionLimit'
 
@@ -112,6 +113,15 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     icon: '🔗',
     color: 'info',
     placeholder: 'paste authorization code here...',
+    widthAdjustment: 3, // emoji width + padding
+    showAgentModeToggle: false,
+    disableSlashSuggestions: true,
+    blockKeyboardExit: false,
+  },
+  'connect:anthropic': {
+    icon: '🔑',
+    color: 'info',
+    placeholder: 'enter value or press Enter for default...',
     widthAdjustment: 3, // emoji width + padding
     showAgentModeToggle: false,
     disableSlashSuggestions: true,

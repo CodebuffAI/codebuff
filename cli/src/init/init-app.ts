@@ -6,6 +6,7 @@ import { enableMapSet } from 'immer'
 
 import { initializeThemeStore } from '../hooks/use-theme'
 import { setProjectRoot } from '../project-files'
+import { initByokAnthropic } from '../utils/anthropic-byok'
 import { initTimestampFormatter } from '../utils/helpers'
 import { enableManualThemeRefresh } from '../utils/theme-system'
 import { initializeDirenv } from './init-direnv'
@@ -24,6 +25,9 @@ export async function initializeApp(params: { cwd?: string }): Promise<void> {
   initializeThemeStore()
   enableManualThemeRefresh()
   initTimestampFormatter()
+
+  // Load BYOK Anthropic config from disk and apply to env vars
+  initByokAnthropic()
 
   // Refresh Claude OAuth credentials in the background if they exist
   // This ensures the subscription status is up-to-date on startup

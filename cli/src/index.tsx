@@ -24,6 +24,7 @@ import { runPlainLogin } from './login/plain-login'
 import { initializeApp } from './init/init-app'
 import { getProjectRoot, setProjectRoot } from './project-files'
 import { initAnalytics, trackEvent } from './utils/analytics'
+import { isByokOnlyMode } from './utils/anthropic-byok'
 import { getAuthToken, getAuthTokenDetails } from './utils/auth'
 import { resetCodebuffClient } from './utils/codebuff-client'
 import { setApiClientAuthToken } from './utils/codebuff-api'
@@ -270,8 +271,13 @@ async function main(): Promise<void> {
       const apiKey = getAuthTokenDetails().token ?? ''
 
       if (!apiKey) {
-        setRequireAuth(true)
-        setHasInvalidCredentials(false)
+        if (isByokOnlyMode()) {
+          setRequireAuth(false)
+          setHasInvalidCredentials(false)
+        } else {
+          setRequireAuth(true)
+          setHasInvalidCredentials(false)
+        }
         return
       }
 

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
+import { isByokOnlyMode } from '../utils/anthropic-byok'
 import { getCodebuffClient } from '../utils/codebuff-client'
 import { logger } from '../utils/logger'
 
@@ -60,6 +61,24 @@ export const useConnectionStatus = (
     }
 
     const checkConnection = async () => {
+      if (isByokOnlyMode()) {
+        if (isMounted) {
+          const prevConnected = previousConnectedRef.current
+          setIsConnected(true)
+          previousConnectedRef.current = true
+          if (prevConnected !== true && typeof onReconnect === 'function') {
+            onReconnect(prevConnected === null)
+          }
+          consecutiveSuccesses++
+          const newInterval = getNextInterval(consecutiveSuccesses)
+          if (newInterval !== currentInterval) {
+            currentInterval = newInterval
+          }
+          scheduleNextCheck(currentInterval)
+        }
+        return
+      }
+
       const client = await getCodebuffClient()
       if (!client) {
         if (isMounted) {

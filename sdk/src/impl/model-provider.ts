@@ -11,6 +11,7 @@ import path from 'path'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import {
+  ANTHROPIC_API_BASE_URL,
   CLAUDE_CODE_SYSTEM_PROMPT_PREFIX,
   CLAUDE_OAUTH_BETA_HEADERS,
   isClaudeModel,
@@ -23,7 +24,12 @@ import {
 
 import { WEBSITE_URL } from '../constants'
 import { getValidClaudeOAuthCredentials } from '../credentials'
-import { getByokOpenrouterApiKeyFromEnv } from '../env'
+import {
+  getByokAnthropicApiKeyFromEnv,
+  getByokAnthropicBaseUrlFromEnv,
+  getByokAnthropicModelsFromEnv,
+  getByokOpenrouterApiKeyFromEnv,
+} from '../env'
 
 import type { LanguageModel } from 'ai'
 
@@ -149,6 +155,8 @@ export interface ModelResult {
   model: LanguageModel
   /** Whether this model uses Claude OAuth direct (affects cost tracking) */
   isClaudeOAuth: boolean
+  /** Whether this model uses BYOK Anthropic API key (affects cost tracking) */
+  isByokAnthropic: boolean
 }
 
 // Usage accounting type for OpenRouter/Codebuff backend responses
@@ -170,7 +178,21 @@ type OpenRouterUsageAccounting = {
 export async function getModelForRequest(params: ModelRequestParams): Promise<ModelResult> {
   const { apiKey, model, skipClaudeOAuth } = params
 
-  // Check if we should use Claude OAuth direct
+  // Priority 1: BYOK Anthropic (user's own API key + optional proxy)
+  if (isClaudeModel(model)) {
+    const byokApiKey = getByokAnthropicApiKeyFromEnv()
+    if (byokApiKey) {
+      const byokBaseUrl = getByokAnthropicBaseUrlFromEnv() ?? ANTHROPIC_API_BASE_URL
+      const byokModelsConfig = getByokAnthropicModelsFromEnv()
+      return {
+        model: createByokAnthropicModel(model, byokApiKey, byokBaseUrl, byokModelsConfig),
+        isClaudeOAuth: false,
+        isByokAnthropic: true,
+      }
+    }
+  }
+
+  // Priority 2: Claude OAuth direct
   // Skip if explicitly requested, if rate-limited, or if not a Claude model
   if (!skipClaudeOAuth && !isClaudeOAuthRateLimited() && isClaudeModel(model)) {
     // Get valid credentials (will refresh if needed)
@@ -182,15 +204,72 @@ export async function getModelForRequest(params: ModelRequestParams): Promise<Mo
           claudeOAuthCredentials.accessToken,
         ),
         isClaudeOAuth: true,
+        isByokAnthropic: false,
       }
     }
   }
 
-  // Default: use Codebuff backend
+  // Priority 3: Codebuff backend
   return {
     model: createCodebuffBackendModel(apiKey, model),
     isClaudeOAuth: false,
+    isByokAnthropic: false,
   }
+}
+
+/**
+ * Resolve the model ID for BYOK Anthropic requests.
+ * Supports optional model aliases (e.g., "haiku:claude-sonnet-4-5,sonnet:claude-sonnet-4-5-thinking")
+ * that map model tiers to custom model IDs on the user's proxy.
+ */
+function resolveByokModelId(model: string, modelsConfig: string | undefined): string {
+  const anthropicId = toAnthropicModelId(model)
+
+  if (!modelsConfig) return anthropicId
+
+  const aliases: Record<string, string> = {}
+  for (const pair of modelsConfig.split(',')) {
+    const colonIndex = pair.indexOf(':')
+    if (colonIndex > 0) {
+      const alias = pair.slice(0, colonIndex).trim()
+      const target = pair.slice(colonIndex + 1).trim()
+      if (alias && target) aliases[alias] = target
+    }
+  }
+
+  const lowerModel = model.toLowerCase()
+  if (lowerModel.includes('opus') && aliases.opus) return aliases.opus
+  if (lowerModel.includes('sonnet') && aliases.sonnet) return aliases.sonnet
+  if (lowerModel.includes('haiku') && aliases.haiku) return aliases.haiku
+
+  return anthropicId
+}
+
+/**
+ * Create an Anthropic model that uses the user's own API key and optional custom base URL.
+ * This routes requests to the user's proxy or directly to Anthropic with their key.
+ */
+function createByokAnthropicModel(
+  model: string,
+  apiKey: string,
+  baseURL: string,
+  modelsConfig: string | undefined,
+): LanguageModel {
+  const resolvedModelId = resolveByokModelId(model, modelsConfig)
+
+  // The @ai-sdk/anthropic SDK appends "/messages" to baseURL.
+  // Most proxies serve at /v1/messages, so ensure the URL ends with /v1.
+  let normalizedBaseURL = baseURL.replace(/\/+$/, '')
+  if (!normalizedBaseURL.endsWith('/v1')) {
+    normalizedBaseURL += '/v1'
+  }
+
+  const anthropic = createAnthropic({
+    apiKey,
+    baseURL: normalizedBaseURL,
+  })
+
+  return anthropic(resolvedModelId) as unknown as LanguageModel
 }
 
 /**

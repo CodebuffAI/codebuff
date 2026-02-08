@@ -16,6 +16,7 @@ import {
   parseCommandInput,
 } from './router-utils'
 import { handleClaudeAuthCode } from '../components/claude-connect-banner'
+import { handleByokStepInput } from '../utils/anthropic-byok'
 import { getProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
 import { trackEvent } from '../utils/analytics'
@@ -274,6 +275,30 @@ export async function routeUserPrompt(
   )
 
   const trimmed = inputValue.trim()
+
+  // Handle connect:anthropic mode input (multi-step: empty input = "use default")
+  if (inputMode === 'connect:anthropic') {
+    const result = handleByokStepInput(trimmed)
+    if (trimmed) {
+      setMessages((prev) => [
+        ...prev,
+        getUserMessage(trimmed),
+        getSystemMessage(result.message),
+      ])
+    } else {
+      setMessages((prev) => [
+        ...prev,
+        getSystemMessage(result.message),
+      ])
+    }
+    if (trimmed) saveToHistory(trimmed)
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+    if (result.done) {
+      setInputMode('default')
+    }
+    return
+  }
+
   // Allow empty messages if there are pending attachments (images or text)
   const hasAttachments = pendingAttachments.length > 0
   if (!trimmed && !hasAttachments) return
