@@ -121,7 +121,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
   'connect:anthropic': {
     icon: '🔑',
     color: 'info',
-    placeholder: 'enter value or press Enter for default...',
+    placeholder: 'enter your Anthropic API key...',
     widthAdjustment: 3, // emoji width + padding
     showAgentModeToggle: false,
     disableSlashSuggestions: true,

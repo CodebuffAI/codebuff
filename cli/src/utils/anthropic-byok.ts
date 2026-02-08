@@ -121,18 +121,36 @@ export function getByokAnthropicStatus(): {
 // Multi-step input flow
 // ============================================================================
 
-type ByokStep = 'api-key' | 'base-url' | 'models'
+type ByokStep = 'api-key' | 'base-url' | 'model-opus' | 'model-sonnet' | 'model-haiku'
+
+export const DEFAULT_OPUS_MODEL = 'claude-opus-4-6'
+export const DEFAULT_SONNET_MODEL = 'claude-sonnet-4-5'
+export const DEFAULT_HAIKU_MODEL = 'claude-haiku-4-5'
 
 let currentStep: ByokStep = 'api-key'
 let pendingConfig: Partial<ByokAnthropicConfig> = {}
+let pendingModels: { opus?: string; sonnet?: string; haiku?: string } = {}
 
 export function getCurrentByokStep(): ByokStep {
   return currentStep
 }
 
+const BYOK_PLACEHOLDERS: Record<ByokStep, string> = {
+  'api-key': 'enter your Anthropic API key...',
+  'base-url': 'enter base URL or press Enter for default...',
+  'model-opus': `enter opus model name (default: ${DEFAULT_OPUS_MODEL})...`,
+  'model-sonnet': `enter sonnet model name (default: ${DEFAULT_SONNET_MODEL})...`,
+  'model-haiku': `enter haiku model name (default: ${DEFAULT_HAIKU_MODEL})...`,
+}
+
+export function getByokPlaceholder(): string {
+  return BYOK_PLACEHOLDERS[currentStep]
+}
+
 export function resetByokFlow(): void {
   currentStep = 'api-key'
   pendingConfig = {}
+  pendingModels = {}
 }
 
 export interface ByokStepResult {
@@ -161,20 +179,42 @@ export function handleByokStepInput(input: string): ByokStepResult {
 
   if (currentStep === 'base-url') {
     pendingConfig.baseUrl = trimmed || undefined
-    currentStep = 'models'
+    currentStep = 'model-opus'
     const urlMsg = trimmed ? `Base URL set to ${trimmed}.` : 'Using default Anthropic API URL.'
     return {
       done: false,
-      message: `${urlMsg} Enter model aliases (e.g. haiku:model-id,sonnet:model-id,opus:model-id) or press Enter to skip:`,
+      message: `${urlMsg} Enter opus model name or press Enter for default (${DEFAULT_OPUS_MODEL}):`,
     }
   }
 
-  // models step
-  pendingConfig.models = trimmed || undefined
+  if (currentStep === 'model-opus') {
+    pendingModels.opus = trimmed || DEFAULT_OPUS_MODEL
+    currentStep = 'model-sonnet'
+    return {
+      done: false,
+      message: `Opus model: ${pendingModels.opus}. Enter sonnet model name or press Enter for default (${DEFAULT_SONNET_MODEL}):`,
+    }
+  }
+
+  if (currentStep === 'model-sonnet') {
+    pendingModels.sonnet = trimmed || DEFAULT_SONNET_MODEL
+    currentStep = 'model-haiku'
+    return {
+      done: false,
+      message: `Sonnet model: ${pendingModels.sonnet}. Enter haiku model name or press Enter for default (${DEFAULT_HAIKU_MODEL}):`,
+    }
+  }
+
+  // model-haiku step (final)
+  pendingModels.haiku = trimmed || DEFAULT_HAIKU_MODEL
+  const opusModel = pendingModels.opus!
+  const sonnetModel = pendingModels.sonnet!
+  const haikuModel = pendingModels.haiku
+  const modelsString = `opus:${opusModel},sonnet:${sonnetModel},haiku:${haikuModel}`
   const config: ByokAnthropicConfig = {
     apiKey: pendingConfig.apiKey!,
     baseUrl: pendingConfig.baseUrl,
-    models: pendingConfig.models,
+    models: modelsString,
   }
   saveByokAnthropicConfig(config)
   applyByokAnthropicEnv(config)
@@ -183,7 +223,9 @@ export function handleByokStepInput(input: string): ByokStepResult {
   const parts = ['✅ Connected to Anthropic API!']
   parts.push(`  API Key: ${maskApiKey(config.apiKey)}`)
   if (config.baseUrl) parts.push(`  Base URL: ${config.baseUrl}`)
-  if (config.models) parts.push(`  Models: ${config.models}`)
+  parts.push(`  Opus:   ${opusModel}`)
+  parts.push(`  Sonnet: ${sonnetModel}`)
+  parts.push(`  Haiku:  ${haikuModel}`)
   return { done: true, message: parts.join('\n') }
 }
 

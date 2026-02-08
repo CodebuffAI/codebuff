@@ -10,6 +10,9 @@ import {
   getCurrentByokStep,
   resetByokFlow,
   maskApiKey,
+  DEFAULT_OPUS_MODEL,
+  DEFAULT_SONNET_MODEL,
+  DEFAULT_HAIKU_MODEL,
 } from '../utils/anthropic-byok'
 
 export const AnthropicConnectBanner = () => {
@@ -53,7 +56,18 @@ export const AnthropicConnectBanner = () => {
               <text style={{ fg: theme.muted }}>Base URL: {config.baseUrl}</text>
             )}
             {config.models && (
-              <text style={{ fg: theme.muted }}>Models: {config.models}</text>
+              <box style={{ flexDirection: 'column' }}>
+                {config.models.split(',').map((pair, i) => {
+                  const colonIdx = pair.indexOf(':')
+                  const alias = colonIdx > 0 ? pair.slice(0, colonIdx).trim() : ''
+                  const model = colonIdx > 0 ? pair.slice(colonIdx + 1).trim() : pair.trim()
+                  return (
+                    <text key={i} style={{ fg: theme.muted }}>
+                      {alias ? `${alias.charAt(0).toUpperCase() + alias.slice(1)}: ${model}` : model}
+                    </text>
+                  )
+                })}
+              </box>
             )}
           </box>
           <box style={{ flexDirection: 'row', gap: 2, marginTop: 1 }}>
@@ -95,13 +109,33 @@ export const AnthropicConnectBanner = () => {
             </text>
           </box>
         )}
-        {step === 'models' && (
+        {step === 'model-opus' && (
           <box style={{ flexDirection: 'column', marginTop: 1 }}>
             <text style={{ fg: theme.muted }}>
-              Enter model aliases, or press Enter to skip:
+              Enter opus model name, or press Enter for default:
             </text>
             <text style={{ fg: theme.muted }}>
-              (format: haiku:model-id,sonnet:model-id,opus:model-id)
+              (default: {DEFAULT_OPUS_MODEL})
+            </text>
+          </box>
+        )}
+        {step === 'model-sonnet' && (
+          <box style={{ flexDirection: 'column', marginTop: 1 }}>
+            <text style={{ fg: theme.muted }}>
+              Enter sonnet model name, or press Enter for default:
+            </text>
+            <text style={{ fg: theme.muted }}>
+              (default: {DEFAULT_SONNET_MODEL})
+            </text>
+          </box>
+        )}
+        {step === 'model-haiku' && (
+          <box style={{ flexDirection: 'column', marginTop: 1 }}>
+            <text style={{ fg: theme.muted }}>
+              Enter haiku model name, or press Enter for default:
+            </text>
+            <text style={{ fg: theme.muted }}>
+              (default: {DEFAULT_HAIKU_MODEL})
             </text>
           </box>
         )}

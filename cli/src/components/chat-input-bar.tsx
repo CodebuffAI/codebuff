@@ -11,6 +11,7 @@ import { SuggestionMenu, type SuggestionItem } from './suggestion-menu'
 import { useAskUserBridge } from '../hooks/use-ask-user-bridge'
 import { useEvent } from '../hooks/use-event'
 import { useChatStore } from '../state/chat-store'
+import { getByokPlaceholder } from '../utils/anthropic-byok'
 import { getInputModeConfig } from '../utils/input-modes'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
@@ -286,7 +287,11 @@ export const ChatInputBar = ({
   }
 
   const effectivePlaceholder =
-    inputMode === 'default' ? inputPlaceholder : modeConfig.placeholder
+    inputMode === 'default'
+      ? inputPlaceholder
+      : inputMode === 'connect:anthropic'
+        ? getByokPlaceholder()
+        : modeConfig.placeholder
   const borderColor = theme[modeConfig.color]
 
   if (askUserState) {
