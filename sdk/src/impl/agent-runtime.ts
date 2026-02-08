@@ -1,5 +1,4 @@
 import { trackEvent } from '@codebuff/common/analytics'
-import { BYOK_LOCAL_API_KEY } from '@codebuff/common/constants/byok'
 import { env as clientEnvDefault } from '@codebuff/common/env'
 import { getCiEnv } from '@codebuff/common/env-ci'
 import { success } from '@codebuff/common/util/error'
@@ -57,22 +56,12 @@ export function getAgentRuntimeImpl(
     clientEnv,
     ciEnv: getCiEnv(),
 
-    // Database (no-op when BYOK-only mode to avoid failing backend requests with retries)
-    getUserInfoFromApiKey: apiKey === BYOK_LOCAL_API_KEY
-      ? async () => null
-      : getUserInfoFromApiKey,
-    fetchAgentFromDatabase: apiKey === BYOK_LOCAL_API_KEY
-      ? async () => null
-      : fetchAgentFromDatabase,
-    startAgentRun: apiKey === BYOK_LOCAL_API_KEY
-      ? async () => `byok-${crypto.randomUUID()}`
-      : startAgentRun,
-    finishAgentRun: apiKey === BYOK_LOCAL_API_KEY
-      ? async () => {}
-      : finishAgentRun,
-    addAgentStep: apiKey === BYOK_LOCAL_API_KEY
-      ? async () => `byok-step-${crypto.randomUUID()}`
-      : addAgentStep,
+    // Database
+    getUserInfoFromApiKey,
+    fetchAgentFromDatabase,
+    startAgentRun,
+    finishAgentRun,
+    addAgentStep,
 
     // Billing
     consumeCreditsWithFallback: async () =>

@@ -13,8 +13,6 @@ import { clientToolCallSchema } from '@codebuff/common/tools/list'
 import { AgentOutputSchema } from '@codebuff/common/types/session-state'
 import { cloneDeep } from 'lodash'
 
-import { BYOK_LOCAL_API_KEY } from '@codebuff/common/constants/byok'
-
 import { getErrorStatusCode } from './error-utils'
 import { getAgentRuntimeImpl } from './impl/agent-runtime'
 import { getUserInfoFromApiKey } from './impl/database'
@@ -478,20 +476,15 @@ async function runOnce({
   const promptId = Math.random().toString(36).substring(2, 15)
 
   // Send input
-  let userId: string
-  if (apiKey === BYOK_LOCAL_API_KEY) {
-    userId = 'byok-local-user'
-  } else {
-    const userInfo = await getUserInfoFromApiKey({
-      ...agentRuntimeImpl,
-      apiKey,
-      fields: ['id'],
-    })
-    if (!userInfo) {
-      return getCancelledRunState('Invalid API key or user not found')
-    }
-    userId = userInfo.id
+  const userInfo = await getUserInfoFromApiKey({
+    ...agentRuntimeImpl,
+    apiKey,
+    fields: ['id'],
+  })
+  if (!userInfo) {
+    return getCancelledRunState('Invalid API key or user not found')
   }
+  const userId = userInfo.id
 
   if (signal?.aborted) {
     return getCancelledRunState()

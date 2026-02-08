@@ -12,7 +12,7 @@ import {
   BYOK_ANTHROPIC_MODELS_ENV_VAR,
 } from '@codebuff/common/constants/byok'
 
-import { getAuthToken, getConfigDir } from './auth'
+import { getConfigDir } from './auth'
 
 export interface ByokAnthropicConfig {
   apiKey: string
@@ -92,15 +92,6 @@ export function initByokAnthropic(): void {
   if (config) {
     applyByokAnthropicEnv(config)
   }
-}
-
-/**
- * Check if BYOK-only mode is active: BYOK Anthropic is configured
- * AND there is no Codebuff auth token (user has not logged in).
- * In this mode, the CLI bypasses Codebuff login and backend entirely.
- */
-export function isByokOnlyMode(): boolean {
-  return !!process.env[BYOK_ANTHROPIC_API_KEY_ENV_VAR] && !getAuthToken()
 }
 
 /**
