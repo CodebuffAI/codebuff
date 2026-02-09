@@ -1,16 +1,20 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
+import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
+
 interface FeedbackState {
   feedbackMessageId: string | null
   feedbackMode: boolean
   feedbackText: string
   feedbackCursor: number
-  feedbackCategory: string
+  feedbackCategory: FeedbackCategory
+  isSubmitting: boolean
+  clientFeedbackId: string | null
   savedInputValue: string
   savedCursorPosition: number
   messagesWithFeedback: Set<string>
-  messageFeedbackCategories: Map<string, string>
+  messageFeedbackCategories: Map<string, FeedbackCategory>
   feedbackFooterMessage: string | null
   errors: Array<{ id: string; message: string }> | null
 }
@@ -19,7 +23,7 @@ interface FeedbackActions {
   openFeedbackForMessage: (
     messageId: string | null,
     options?: {
-      category?: string
+      category?: FeedbackCategory
       footerMessage?: string
       errors?: Array<{ id: string; message: string }>
     },
@@ -27,10 +31,11 @@ interface FeedbackActions {
   closeFeedback: () => void
   setFeedbackText: (text: string) => void
   setFeedbackCursor: (cursor: number) => void
-  setFeedbackCategory: (category: string) => void
+  setFeedbackCategory: (category: FeedbackCategory) => void
+  setIsSubmitting: (isSubmitting: boolean) => void
   saveCurrentInput: (value: string, cursor: number) => void
   restoreSavedInput: () => { value: string; cursor: number }
-  markMessageFeedbackSubmitted: (messageId: string, category: string) => void
+  markMessageFeedbackSubmitted: (messageId: string, category: FeedbackCategory) => void
   resetFeedbackForm: () => void
   reset: () => void
 }
@@ -43,6 +48,8 @@ const initialState: FeedbackState = {
   feedbackText: '',
   feedbackCursor: 0,
   feedbackCategory: 'other',
+  isSubmitting: false,
+  clientFeedbackId: null,
   savedInputValue: '',
   savedCursorPosition: 0,
   messagesWithFeedback: new Set(),
@@ -62,6 +69,8 @@ export const useFeedbackStore = create<FeedbackStore>()(
         state.feedbackText = ''
         state.feedbackCursor = 0
         state.feedbackCategory = options?.category || 'other'
+        state.isSubmitting = false
+        state.clientFeedbackId = crypto.randomUUID()
         state.feedbackFooterMessage = options?.footerMessage || null
         state.errors = options?.errors || null
       }),
@@ -70,6 +79,10 @@ export const useFeedbackStore = create<FeedbackStore>()(
       set((state) => {
         state.feedbackMode = false
         state.feedbackMessageId = null
+        state.clientFeedbackId = null
+        state.feedbackText = ''
+        state.feedbackCursor = 0
+        state.feedbackCategory = 'other'
       }),
 
     setFeedbackText: (text) =>
@@ -85,6 +98,11 @@ export const useFeedbackStore = create<FeedbackStore>()(
     setFeedbackCategory: (category) =>
       set((state) => {
         state.feedbackCategory = category
+      }),
+
+    setIsSubmitting: (isSubmitting) =>
+      set((state) => {
+        state.isSubmitting = isSubmitting
       }),
 
     saveCurrentInput: (value, cursor) =>
@@ -113,6 +131,7 @@ export const useFeedbackStore = create<FeedbackStore>()(
         state.feedbackCursor = 0
         state.feedbackCategory = 'other'
         state.feedbackMessageId = null
+        state.clientFeedbackId = null
         state.feedbackFooterMessage = null
         state.errors = null
       }),

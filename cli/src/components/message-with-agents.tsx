@@ -22,6 +22,7 @@ import {
 } from '../utils/markdown-renderer'
 
 import type { ChatMessage } from '../types/chat'
+import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
 
 interface AgentChildrenGridProps {
   agentChildren: ChatMessage[]
@@ -119,7 +120,7 @@ export const MessageWithAgents = memo(
     // Memoize onOpenFeedback to prevent unnecessary re-renders
     const onOpenFeedback = useCallback(
       (options?: {
-        category?: string
+        category?: FeedbackCategory
         footerMessage?: string
         errors?: Array<{ id: string; message: string }>
       }) => {

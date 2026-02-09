@@ -14,7 +14,6 @@ export enum AnalyticsEvent {
   TERMINAL_COMMAND_COMPLETED = 'cli.terminal_command_completed',
   USER_INPUT_COMPLETE = 'cli.user_input_complete',
   UPDATE_CODEBUFF_FAILED = 'cli.update_codebuff_failed',
-  FEEDBACK_SUBMITTED = 'cli.feedback_submitted',
   FEEDBACK_BUTTON_HOVERED = 'cli.feedback_button_hovered',
   FOLLOWUP_CLICKED = 'cli.followup_clicked',
 
@@ -123,6 +122,11 @@ export enum AnalyticsEvent {
   DOCS_SEARCH_VALIDATION_ERROR = 'api.docs_search_validation_error',
   DOCS_SEARCH_INSUFFICIENT_CREDITS = 'api.docs_search_insufficient_credits',
   DOCS_SEARCH_ERROR = 'api.docs_search_error',
+
+  // Web - Feedback API
+  FEEDBACK_SUBMITTED = 'api.feedback_submitted',
+  FEEDBACK_AUTH_ERROR = 'api.feedback_auth_error',
+  FEEDBACK_VALIDATION_ERROR = 'api.feedback_validation_error',
 
   // Web - Ads API
   ADS_API_AUTH_ERROR = 'api.ads_auth_error',

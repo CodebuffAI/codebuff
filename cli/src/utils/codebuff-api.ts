@@ -3,6 +3,7 @@ import { WEBSITE_URL } from '@codebuff/sdk'
 import type {
   PublishAgentsResponse,
 } from '@codebuff/common/types/api/agents/publish'
+import type { FeedbackRequest } from '@codebuff/common/schemas/feedback'
 
 /**
  * API response types for consistent error handling.
@@ -70,6 +71,10 @@ export interface LogoutRequest {
   userId?: string
   fingerprintId?: string
   fingerprintHash?: string
+}
+
+export interface FeedbackResponse {
+  success: boolean
 }
 
 /**
@@ -197,6 +202,9 @@ export interface CodebuffApiClient {
 
   /** Logout via /api/auth/cli/logout */
   logout(req?: LogoutRequest): Promise<ApiResponse<void>>
+
+  /** Submit feedback via /api/v1/feedback */
+  feedback(req: FeedbackRequest): Promise<ApiResponse<FeedbackResponse>>
 }
 
 /**
@@ -516,6 +524,13 @@ export function createCodebuffApiClient(
         userId: req.userId,
         fingerprintId: req.fingerprintId,
         fingerprintHash: req.fingerprintHash,
+      })
+    },
+
+    feedback(req: FeedbackRequest): Promise<ApiResponse<FeedbackResponse>> {
+      return request<FeedbackResponse>('POST', '/api/v1/feedback', req, {
+        // Feedback submissions are not idempotent server-side yet, so avoid automatic retries.
+        retry: false,
       })
     },
   }

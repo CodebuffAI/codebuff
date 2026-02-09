@@ -39,8 +39,10 @@ export const parseJsonBody = async <T>(params: {
   logger: Logger
   trackEvent: TrackEventFn
   validationErrorEvent: AnalyticsEvent
+  userId?: string
 }): Promise<HandlerResult<T>> => {
-  const { req, schema, logger, trackEvent, validationErrorEvent } = params
+  const { req, schema, logger, trackEvent, validationErrorEvent, userId } = params
+  const trackingUserId = userId ?? 'unknown'
 
   let json: unknown
   try {
@@ -48,7 +50,7 @@ export const parseJsonBody = async <T>(params: {
   } catch {
     trackEvent({
       event: validationErrorEvent,
-      userId: 'unknown',
+      userId: trackingUserId,
       properties: { error: 'Invalid JSON' },
       logger,
     })
@@ -65,7 +67,7 @@ export const parseJsonBody = async <T>(params: {
   if (!parsed.success) {
     trackEvent({
       event: validationErrorEvent,
-      userId: 'unknown',
+      userId: trackingUserId,
       properties: { issues: parsed.error.format() },
       logger,
     })

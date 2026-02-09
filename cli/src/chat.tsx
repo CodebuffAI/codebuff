@@ -1,4 +1,5 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
 import open from 'open'
 import {
   useCallback,
@@ -623,6 +624,7 @@ export const Chat = ({
 
   const {
     feedbackMode,
+    feedbackText,
     openFeedbackForMessage,
     closeFeedback,
     saveCurrentInput,
@@ -631,6 +633,7 @@ export const Chat = ({
   } = useFeedbackStore(
     useShallow((state) => ({
       feedbackMode: state.feedbackMode,
+      feedbackText: state.feedbackText,
       openFeedbackForMessage: state.openFeedbackForMessage,
       closeFeedback: state.closeFeedback,
       saveCurrentInput: state.saveCurrentInput,
@@ -771,7 +774,7 @@ export const Chat = ({
     (
       id: string | null,
       options?: {
-        category?: string
+        category?: FeedbackCategory
         footerMessage?: string
         errors?: Array<{ id: string; message: string }>
       },
@@ -786,7 +789,7 @@ export const Chat = ({
     (
       id: string,
       options?: {
-        category?: string
+        category?: FeedbackCategory
         footerMessage?: string
         errors?: Array<{ id: string; message: string }>
       },
@@ -887,7 +890,7 @@ export const Chat = ({
     () => ({
       ...createDefaultChatKeyboardState(),
       inputMode,
-      inputValue,
+      inputValue: feedbackMode ? feedbackText : inputValue,
       cursorPosition,
       isStreaming,
       isWaitingForResponse,
@@ -910,6 +913,7 @@ export const Chat = ({
     [
       inputMode,
       inputValue,
+      feedbackText,
       cursorPosition,
       isStreaming,
       isWaitingForResponse,
@@ -938,7 +942,6 @@ export const Chat = ({
       onClearFeedbackInput: () => {
         setFeedbackText('')
         useFeedbackStore.getState().setFeedbackCursor(0)
-        useFeedbackStore.getState().setFeedbackCategory('other')
       },
       onClearInput: () =>
         setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false }),

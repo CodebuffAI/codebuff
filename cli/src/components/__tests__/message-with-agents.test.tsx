@@ -477,10 +477,10 @@ describe('callback invocation', () => {
     })
 
     const storedCallback = useMessageBlockStore.getState().callbacks.onFeedback
-    storedCallback('msg-123', { category: 'bug' })
+    storedCallback('msg-123', { category: 'app_bug' })
 
     expect(feedbackMessageId).toBe('msg-123')
-    expect(feedbackOptions).toEqual({ category: 'bug' })
+    expect(feedbackOptions).toEqual({ category: 'app_bug' })
   })
 })
 

@@ -15,6 +15,8 @@ import { getCliEnv } from '../utils/env'
 import { type MarkdownPalette } from '../utils/markdown-renderer'
 import { formatCwd } from '../utils/path-helpers'
 
+import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
+
 import type {
   ContentBlock,
   ImageAttachment,
@@ -49,7 +51,7 @@ interface MessageBlockProps {
   /** Runtime error to display in UI but NOT send to LLM */
   userError?: string
   onOpenFeedback?: (options?: {
-    category?: string
+    category?: FeedbackCategory
     footerMessage?: string
     errors?: Array<{ id: string; message: string }>
   }) => void

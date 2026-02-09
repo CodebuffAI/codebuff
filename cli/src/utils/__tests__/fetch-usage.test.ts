@@ -53,6 +53,9 @@ describe('fetchAndUpdateUsage (deprecated)', () => {
     logout: mock(() =>
       Promise.resolve({ ok: true, status: 200, data: {} }),
     ) as CodebuffApiClient['logout'],
+    feedback: mock(() =>
+      Promise.resolve({ ok: true, status: 200, data: {} }),
+    ) as CodebuffApiClient['feedback'],
     baseUrl: 'https://test.codebuff.com',
     authToken: 'test-auth-token',
   })
