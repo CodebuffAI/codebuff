@@ -83,7 +83,6 @@ export async function POST(req: NextRequest) {
         type: 'strong_subscription',
       },
       subscription_data: {
-        description: `Codebuff Strong — $${tier}/mo`,
         metadata: {
           userId,
         },
