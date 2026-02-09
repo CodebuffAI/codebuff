@@ -38,8 +38,8 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   },
   {
     id: 'connect:claude',
-    label: 'connect:claude',
-    description: 'Connect your Claude Pro/Max subscription',
+    label: 'connect:claude (deprecated)',
+    description: 'Claude subscription will be removed March 1st',
     aliases: ['claude'],
   },
   {

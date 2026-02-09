@@ -71,6 +71,12 @@ export const ClaudeConnectBanner = () => {
       <BottomBanner borderColorKey="success" onClose={handleClose}>
         <box style={{ flexDirection: 'column', gap: 0, flexGrow: 1 }}>
           <text style={{ fg: theme.success }}>✓ Connected to Claude</text>
+          <text style={{ fg: theme.warning, marginTop: 1 }}>
+            Deprecated — Claude subscription support will be removed March 1st, based on user reports of bans.
+          </text>
+          <text style={{ fg: theme.muted, marginTop: 1 }}>
+            Use /subscribe to switch to Codebuff Strong for usage across all models.
+          </text>
           <box style={{ flexDirection: 'row', gap: 2, marginTop: 1 }}>
             <text style={{ fg: theme.muted }}>Since {connectedDate}</text>
             <text style={{ fg: theme.muted }}>·</text>
@@ -112,9 +118,11 @@ export const ClaudeConnectBanner = () => {
             Sign in with your Claude account in the browser, then paste the code
             here.
           </text>
+          <text style={{ fg: theme.warning, marginTop: 1 }}>
+            Deprecated — Claude subscription support will be removed March 1st, based on user reports of bans.
+          </text>
           <text style={{ fg: theme.muted, marginTop: 1 }}>
-            Note: Using your Claude Pro/Max subscription in Codebuff is not
-            officially supported by Anthropic.
+            Use /subscribe to switch to Codebuff Strong for usage across all models.
           </text>
         </box>
       </BottomBanner>
@@ -125,7 +133,7 @@ export const ClaudeConnectBanner = () => {
   return (
     <BottomBanner borderColorKey="info" onClose={handleClose}>
       <box style={{ flexDirection: 'column', gap: 0, flexGrow: 1 }}>
-        <text style={{ fg: theme.info }}>Connect to Claude</text>
+        <text style={{ fg: theme.info }}>Connect to Claude (Deprecated)</text>
         <box style={{ flexDirection: 'row', gap: 2, marginTop: 1 }}>
           <text style={{ fg: theme.muted }}>Use your Pro/Max subscription</text>
           <text style={{ fg: theme.muted }}>·</text>
@@ -140,8 +148,10 @@ export const ClaudeConnectBanner = () => {
           </Button>
         </box>
         <text style={{ fg: theme.warning, marginTop: 1 }}>
-          Using your Claude Pro/Max subscription in Codebuff is not officially
-          supported by Anthropic.
+          Deprecated — Claude subscription support will be removed March 1st, based on user reports of bans.
+        </text>
+        <text style={{ fg: theme.muted, marginTop: 1 }}>
+          Use /subscribe to switch to Codebuff Strong for usage across all models.
         </text>
       </box>
     </BottomBanner>
