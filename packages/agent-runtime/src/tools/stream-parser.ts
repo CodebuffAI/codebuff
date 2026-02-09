@@ -313,10 +313,27 @@ export async function processStream(
   // Build message history from the current agentState.messageHistory so that
   // inline agent modifications (e.g. set_messages) are preserved, while
   // tool_calls and tool_results are still appended in deterministic order.
+  //
+  // When the signal was aborted, tool calls are added synchronously but tool
+  // results arrive asynchronously via .then(). Because we skip awaiting
+  // previousToolCallFinished on abort, some tool calls may not have matching
+  // tool results yet. Including orphaned tool calls in the message history
+  // causes provider errors ("unexpected tool_use_id found in tool_result
+  // blocks"). Filter them out so every tool_call has a corresponding
+  // tool_result.
+  const completedToolCallIds = new Set(
+    toolResultsToAddToMessageHistory.map((r) => r.toolCallId),
+  )
+  const filteredToolCalls = signal.aborted
+    ? toolCallsToAddToMessageHistory.filter((tc) =>
+        completedToolCallIds.has(tc.toolCallId),
+      )
+    : toolCallsToAddToMessageHistory
+
   agentState.messageHistory = buildArray<Message>([
     ...agentState.messageHistory,
     ...assistantMessages,
-    ...toolCallsToAddToMessageHistory.map((toolCall) => assistantMessage({ ...toolCall, type: 'tool-call' })),
+    ...filteredToolCalls.map((toolCall) => assistantMessage({ ...toolCall, type: 'tool-call' })),
     ...toolResultsToAddToMessageHistory,
     ...errorMessages,
   ])
