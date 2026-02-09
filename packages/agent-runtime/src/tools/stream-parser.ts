@@ -82,7 +82,6 @@ export async function processStream(
     userId,
   } = params
   const fullResponseChunks: string[] = [fullResponse]
-  const messageHistoryBeforeStream = [...agentState.messageHistory]
 
   // === MUTABLE STATE ===
   const toolResults: ToolMessage[] = []
@@ -311,10 +310,11 @@ export async function processStream(
   }
 
   // === FINALIZATION ===
-  // Build message history from the pre-stream snapshot so tool_calls and
-  // tool_results are always appended in deterministic order.
+  // Build message history from the current agentState.messageHistory so that
+  // inline agent modifications (e.g. set_messages) are preserved, while
+  // tool_calls and tool_results are still appended in deterministic order.
   agentState.messageHistory = buildArray<Message>([
-    ...messageHistoryBeforeStream,
+    ...agentState.messageHistory,
     ...assistantMessages,
     ...toolCallsToAddToMessageHistory.map((toolCall) => assistantMessage({ ...toolCall, type: 'tool-call' })),
     ...toolResultsToAddToMessageHistory,
