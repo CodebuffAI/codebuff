@@ -323,13 +323,13 @@ codebuff "implement feature" --verbose
     expect(nodes[2]).toBe(' to commit.')
   })
 
-  test('truncates table columns when content exceeds available width', () => {
-    // Table with very long content that should be truncated
-    const markdown = `| ID | This is a very long column header that should be truncated |
-| -- | ---------------------------------------------------------- |
+  test('wraps table columns when content exceeds available width', () => {
+    // Table with very long content that should be wrapped
+    const markdown = `| ID | This is a very long column header that should wrap |
+| -- | -------------------------------------------------- |
 | 1  | This cell has extremely long content that definitely exceeds the width |`
     
-    // Use a narrow codeBlockWidth to force truncation
+    // Use a narrow codeBlockWidth to force wrapping
     const output = renderMarkdown(markdown, { codeBlockWidth: 50 })
     const nodes = flattenNodes(output)
 
@@ -343,24 +343,28 @@ codebuff "implement feature" --verbose
       })
       .join('')
 
-    // Should contain ellipsis indicating truncation of the long column
-    expect(textContent).toContain('…')
-    // The short column content should be present (ID and 1 are short enough)
+    // Should NOT contain ellipsis - content wraps instead of truncating
+    expect(textContent).not.toContain('…')
+    // The short column content should be present
     expect(textContent).toContain('ID')
     expect(textContent).toContain('1')
     // Box-drawing characters should still be present
     expect(textContent).toContain('│')
     expect(textContent).toContain('─')
-    // The long header should be truncated (not fully present)
-    expect(textContent).not.toContain('This is a very long column header that should be truncated')
+    // The full content should be present across wrapped lines
+    expect(textContent).toContain('long')
+    expect(textContent).toContain('header')
+    expect(textContent).toContain('wrap')
+    expect(textContent).toContain('extremely')
+    expect(textContent).toContain('exceeds')
   })
 
-  test('does not truncate table columns when content fits available width', () => {
+  test('does not wrap table columns when content fits available width', () => {
     const markdown = `| Name | Age |
 | ---- | --- |
 | John | 30  |`
     
-    // Use a wide codeBlockWidth so no truncation is needed
+    // Use a wide codeBlockWidth so no wrapping is needed
     const output = renderMarkdown(markdown, { codeBlockWidth: 80 })
     const nodes = flattenNodes(output)
 
@@ -374,8 +378,6 @@ codebuff "implement feature" --verbose
       })
       .join('')
 
-    // Should NOT contain ellipsis when content fits
-    expect(textContent).not.toContain('…')
     // All content should be present in full
     expect(textContent).toContain('Name')
     expect(textContent).toContain('Age')
@@ -383,13 +385,13 @@ codebuff "implement feature" --verbose
     expect(textContent).toContain('30')
   })
 
-  test('proportionally shrinks table columns when table is too wide', () => {
+  test('wraps and shows full content when table is too wide', () => {
     // Three columns of roughly equal width
     const markdown = `| Column One | Column Two | Column Three |
 | ---------- | ---------- | ------------ |
 | Value1     | Value2     | Value3       |`
     
-    // Very narrow width to force significant shrinking
+    // Very narrow width to force significant wrapping
     const output = renderMarkdown(markdown, { codeBlockWidth: 30 })
     const nodes = flattenNodes(output)
 
@@ -407,7 +409,11 @@ codebuff "implement feature" --verbose
     expect(textContent).toContain('│')
     expect(textContent).toContain('┌')
     expect(textContent).toContain('└')
-    // With such narrow width, some content should be truncated
-    expect(textContent).toContain('…')
+    // Full content should still be visible (wrapped, not truncated)
+    expect(textContent).not.toContain('…')
+    // All values should be present
+    expect(textContent).toContain('Value1')
+    expect(textContent).toContain('Value2')
+    expect(textContent).toContain('Value3')
   })
 })

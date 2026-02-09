@@ -644,28 +644,55 @@ const renderLink = (link: Link, state: RenderState): ReactNode[] => {
 }
 
 /**
- * Truncates text to fit within a specified width, adding ellipsis if needed.
+ * Wraps text to fit within a specified width, returning an array of lines.
  * Uses stringWidth to properly measure Unicode and wide characters.
+ * Performs word-wrapping where possible, falling back to character-level
+ * breaking for words that exceed the column width.
  */
-const truncateText = (text: string, maxWidth: number): string => {
-  if (maxWidth < 1) return ''
+const wrapText = (text: string, maxWidth: number): string[] => {
+  if (maxWidth < 1) return ['']
+  if (!text) return ['']
   const textWidth = stringWidth(text)
-  if (textWidth <= maxWidth) {
-    return text
+  if (textWidth <= maxWidth) return [text]
+
+  const lines: string[] = []
+  let currentLine = ''
+  let currentWidth = 0
+  const tokens = text.split(/(\s+)/)
+
+  for (const token of tokens) {
+    if (!token) continue
+    const tokenWidth = stringWidth(token)
+    const isWhitespace = /^\s+$/.test(token)
+
+    // Skip leading whitespace on new lines
+    if (isWhitespace && currentWidth === 0) continue
+
+    if (tokenWidth > maxWidth && !isWhitespace) {
+      // Break long words character by character
+      for (const char of token) {
+        const charWidth = stringWidth(char)
+        if (currentWidth + charWidth > maxWidth) {
+          if (currentLine) lines.push(currentLine)
+          currentLine = char
+          currentWidth = charWidth
+        } else {
+          currentLine += char
+          currentWidth += charWidth
+        }
+      }
+    } else if (currentWidth + tokenWidth > maxWidth) {
+      if (currentLine) lines.push(currentLine.trimEnd())
+      currentLine = isWhitespace ? '' : token
+      currentWidth = isWhitespace ? 0 : tokenWidth
+    } else {
+      currentLine += token
+      currentWidth += tokenWidth
+    }
   }
-  
-  // Need to truncate - leave room for ellipsis
-  if (maxWidth === 1) return '…'
-  
-  let truncated = ''
-  let width = 0
-  for (const char of text) {
-    const charWidth = stringWidth(char)
-    if (width + charWidth + 1 > maxWidth) break // +1 for ellipsis
-    truncated += char
-    width += charWidth
-  }
-  return truncated + '…'
+
+  if (currentLine) lines.push(currentLine.trimEnd())
+  return lines.length > 0 ? lines : ['']
 }
 
 /**
@@ -756,53 +783,60 @@ const renderTable = (table: Table, state: RenderState): ReactNode[] => {
     nodes.push('\n')
   }
 
+  // Pre-wrap all cell contents so we know the height of each row
+  const wrappedRows: string[][][] = rows.map((row) =>
+    Array.from({ length: numCols }, (_, i) => {
+      const cellText = row[i] || ''
+      return wrapText(cellText, columnWidths[i])
+    }),
+  )
+
   // Render top border
   renderSeparator('┌', '┬', '┐')
 
-  // Render each row
-  table.children.forEach((row, rowIdx) => {
+  // Render each row with word-wrapped cells
+  wrappedRows.forEach((wrappedCells, rowIdx) => {
     const isHeader = rowIdx === 0
-    const cells = (row as TableRow).children as TableCell[]
+    const rowHeight = Math.max(...wrappedCells.map((lines) => lines.length), 1)
 
-    // Render row content
-    for (let cellIdx = 0; cellIdx < numCols; cellIdx++) {
-      const cell = cells[cellIdx]
-      const cellText = cell ? nodeToPlainText(cell).trim() : ''
-      const colWidth = columnWidths[cellIdx]
-      
-      // Truncate and pad the cell content
-      const displayText = padText(truncateText(cellText, colWidth), colWidth)
+    // Render each visual line in the row
+    for (let lineIdx = 0; lineIdx < rowHeight; lineIdx++) {
+      for (let cellIdx = 0; cellIdx < numCols; cellIdx++) {
+        const colWidth = columnWidths[cellIdx]
+        const lineText = wrappedCells[cellIdx][lineIdx] || ''
+        const displayText = padText(lineText, colWidth)
 
-      // Left border for first cell
-      if (cellIdx === 0) {
+        // Left border for first cell
+        if (cellIdx === 0) {
+          nodes.push(
+            <span key={nextKey()} fg={palette.dividerFg}>
+              │
+            </span>,
+          )
+        }
+
+        // Cell content with padding
+        nodes.push(
+          <span
+            key={nextKey()}
+            fg={isHeader ? palette.headingFg[3] : undefined}
+            attributes={isHeader ? TextAttributes.BOLD : undefined}
+          >
+            {' '}
+            {displayText}
+            {' '}
+          </span>,
+        )
+
+        // Separator or right border
         nodes.push(
           <span key={nextKey()} fg={palette.dividerFg}>
             │
           </span>,
         )
       }
-
-      // Cell content with padding
-      nodes.push(
-        <span
-          key={nextKey()}
-          fg={isHeader ? palette.headingFg[3] : undefined}
-          attributes={isHeader ? TextAttributes.BOLD : undefined}
-        >
-          {' '}
-          {displayText}
-          {' '}
-        </span>,
-      )
-
-      // Separator or right border
-      nodes.push(
-        <span key={nextKey()} fg={palette.dividerFg}>
-          │
-        </span>,
-      )
+      nodes.push('\n')
     }
-    nodes.push('\n')
 
     // Add separator line after header
     if (isHeader) {
