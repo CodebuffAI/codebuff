@@ -59,7 +59,6 @@ describe('XML tool result ordering', () => {
       stream,
       processors: {},
       defaultProcessor,
-      onError: () => {},
       onResponseChunk,
       executeXmlToolCall: async ({ toolName, input }) => {
         executionOrder.push(`executeXmlToolCall:${toolName}`)
@@ -136,7 +135,6 @@ describe('XML tool result ordering', () => {
       stream,
       processors: {},
       defaultProcessor,
-      onError: () => {},
       onResponseChunk,
       executeXmlToolCall: async ({ toolName }) => {
         // Simulate tool_call event
@@ -206,7 +204,6 @@ describe('XML tool result ordering', () => {
         stream,
         processors: {},
         defaultProcessor: () => ({ onTagStart: () => {}, onTagEnd: () => {} }),
-        onError: () => {},
         onResponseChunk: () => {},
         executeXmlToolCall: async () => {
           // Simulate tool execution with async work

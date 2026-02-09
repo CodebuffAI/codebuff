@@ -1,6 +1,7 @@
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { getInitialSessionState } from '@codebuff/common/types/session-state'
 import { promptSuccess } from '@codebuff/common/util/error'
+import { jsonToolResult } from '@codebuff/common/util/messages'
 import { beforeEach, describe, expect, it } from 'bun:test'
 
 import { mockFileContext } from './test-utils'
@@ -12,6 +13,10 @@ import type {
   AgentRuntimeScopedDeps,
 } from '@codebuff/common/types/contracts/agent-runtime'
 import type { StreamChunk } from '@codebuff/common/types/contracts/llm'
+import type {
+  AssistantMessage,
+  ToolMessage,
+} from '@codebuff/common/types/messages/codebuff-message'
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
 describe('tool validation error handling', () => {
@@ -224,5 +229,128 @@ describe('tool validation error handling', () => {
         typeof chunk !== 'string' && chunk.type === 'error',
     )
     expect(errorEvents.length).toBe(0)
+  })
+
+  it('should preserve tool_call/tool_result ordering when custom tool setup is async', async () => {
+    const toolName = 'delayed_custom_tool'
+    const agentWithCustomTool: AgentTemplate = {
+      ...testAgentTemplate,
+      toolNames: [toolName, 'end_turn'],
+    }
+
+    const delayedToolCallChunk: StreamChunk = {
+      type: 'tool-call',
+      toolName,
+      toolCallId: 'delayed-custom-tool-call-id',
+      input: {
+        query: 'test',
+      },
+    }
+
+    async function* mockStream() {
+      yield delayedToolCallChunk
+      return promptSuccess('mock-message-id')
+    }
+
+    const fileContextWithCustomTool = {
+      ...mockFileContext,
+      customToolDefinitions: {
+        [toolName]: {
+          inputSchema: {
+            type: 'object',
+            properties: {
+              query: { type: 'string' },
+            },
+            required: ['query'],
+            additionalProperties: false,
+          },
+          endsAgentStep: false,
+          description: 'A delayed custom tool for ordering tests',
+        },
+      },
+    }
+
+    const sessionState = getInitialSessionState(fileContextWithCustomTool)
+    const agentState = sessionState.mainAgentState
+
+    agentRuntimeImpl.requestMcpToolData = async () => {
+      // Force an async gap so tool_call emission happens after stream completion.
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      return []
+    }
+    agentRuntimeImpl.requestToolCall = async () => ({
+      output: jsonToolResult({ ok: true }),
+    })
+
+    await processStream({
+      ...agentRuntimeImpl,
+      agentContext: {},
+      agentState,
+      agentStepId: 'test-step-id',
+      agentTemplate: agentWithCustomTool,
+      ancestorRunIds: [],
+      clientSessionId: 'test-session',
+      fileContext: fileContextWithCustomTool,
+      fingerprintId: 'test-fingerprint',
+      fullResponse: '',
+      localAgentTemplates: { 'test-agent': agentWithCustomTool },
+      messages: [],
+      prompt: 'test prompt',
+      repoId: undefined,
+      repoUrl: undefined,
+      runId: 'test-run-id',
+      signal: new AbortController().signal,
+      stream: mockStream(),
+      system: 'test system',
+      tools: {},
+      userId: 'test-user',
+      userInputId: 'test-input-id',
+      onCostCalculated: async () => {},
+      onResponseChunk: () => {},
+    })
+
+    const assistantToolCallMessages = agentState.messageHistory.filter(
+      (m): m is AssistantMessage =>
+        m.role === 'assistant' &&
+        m.content.some((c) => c.type === 'tool-call' && c.toolName === toolName),
+    )
+    const toolMessages = agentState.messageHistory.filter(
+      (m): m is ToolMessage => m.role === 'tool' && m.toolName === toolName,
+    )
+
+    expect(assistantToolCallMessages.length).toBe(1)
+    expect(toolMessages.length).toBe(1)
+
+    const assistantToolCallPart = assistantToolCallMessages[0].content.find(
+      (
+        c,
+      ): c is Extract<AssistantMessage['content'][number], { type: 'tool-call' }> =>
+        c.type === 'tool-call' && c.toolName === toolName,
+    )
+    expect(assistantToolCallPart).toBeDefined()
+    expect(toolMessages[0].toolCallId).toBe(assistantToolCallPart!.toolCallId)
+
+    const assistantIndex = agentState.messageHistory.indexOf(
+      assistantToolCallMessages[0],
+    )
+    const toolResultIndex = agentState.messageHistory.indexOf(toolMessages[0])
+    expect(assistantIndex).toBeGreaterThanOrEqual(0)
+    expect(toolResultIndex).toBeGreaterThan(assistantIndex)
+
+    const assistantToolCallIds = new Set(
+      agentState.messageHistory.flatMap((message) => {
+        if (message.role !== 'assistant') {
+          return []
+        }
+        return message.content.flatMap((part) =>
+          part.type === 'tool-call' ? [part.toolCallId] : [],
+        )
+      }),
+    )
+    const orphanToolResults = agentState.messageHistory.filter(
+      (message): message is ToolMessage =>
+        message.role === 'tool' && !assistantToolCallIds.has(message.toolCallId),
+    )
+    expect(orphanToolResults.length).toBe(0)
   })
 })

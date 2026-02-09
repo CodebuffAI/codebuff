@@ -21,15 +21,26 @@ export async function* processStreamWithTools(params: {
   processors: Record<
     string,
     {
-      onTagStart: (tagName: string, attributes: Record<string, string>) => void
-      onTagEnd: (tagName: string, params: Record<string, any>) => void
+      onTagStart: (
+        tagName: string,
+        attributes: Record<string, string>,
+      ) => void | Promise<void>
+      onTagEnd: (
+        tagName: string,
+        params: Record<string, any>,
+      ) => void | Promise<void>
     }
   >
   defaultProcessor: (toolName: string) => {
-    onTagStart: (tagName: string, attributes: Record<string, string>) => void
-    onTagEnd: (tagName: string, params: Record<string, any>) => void
+    onTagStart: (
+      tagName: string,
+      attributes: Record<string, string>,
+    ) => void | Promise<void>
+    onTagEnd: (
+      tagName: string,
+      params: Record<string, any>,
+    ) => void | Promise<void>
   }
-  onError: (tagName: string, errorMessage: string) => void
   onResponseChunk: (chunk: PrintModeText | PrintModeError) => void
   logger: Logger
   loggerOptions?: {
@@ -48,7 +59,6 @@ export async function* processStreamWithTools(params: {
     stream,
     processors,
     defaultProcessor,
-    onError: _onError,
     onResponseChunk,
     logger,
     loggerOptions,
@@ -62,11 +72,11 @@ export async function* processStreamWithTools(params: {
   // State for parsing XML tool calls from text stream
   const xmlParserState: StreamParserState = createStreamParserState()
 
-  function processToolCallObject(params: {
+  async function processToolCallObject(params: {
     toolName: string
     input: any
     contents?: string
-  }): void {
+  }): Promise<void> {
     const { toolName, input, contents } = params
 
     const processor = processors[toolName] ?? defaultProcessor(toolName)
@@ -85,8 +95,8 @@ export async function* processStreamWithTools(params: {
       logger,
     })
 
-    processor.onTagStart(toolName, {})
-    processor.onTagEnd(toolName, input)
+    await processor.onTagStart(toolName, {})
+    await processor.onTagEnd(toolName, input)
   }
 
   function flush() {
@@ -146,7 +156,7 @@ export async function* processStreamWithTools(params: {
     }
 
     if (chunk.type === 'tool-call') {
-      processToolCallObject(chunk)
+      await processToolCallObject(chunk)
     }
 
     yield chunk

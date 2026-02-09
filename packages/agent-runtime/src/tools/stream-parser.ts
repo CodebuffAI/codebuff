@@ -1,12 +1,10 @@
 import { toolNames } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
 import {
-  jsonToolResult,
   assistantMessage,
   userMessage,
 } from '@codebuff/common/util/messages'
 import { generateCompactId } from '@codebuff/common/util/string'
-import { cloneDeep } from 'lodash'
 
 import { processStreamWithTools } from '../tool-stream-parser'
 import {
@@ -14,7 +12,7 @@ import {
   executeToolCall,
   tryTransformAgentToolCall,
 } from './tool-executor'
-import { expireMessages, withSystemTags } from '../util/messages'
+import { withSystemTags } from '../util/messages'
 
 import type { CustomToolCall, ExecuteToolCallParams } from './tool-executor'
 import type { AgentTemplate } from '../templates/types'
@@ -58,15 +56,15 @@ export async function processStream(
     | 'state'
     | 'toolCallId'
     | 'toolCalls'
+    | 'toolCallsToAddToMessageHistory'
     | 'toolName'
     | 'toolResults'
-    | 'toolResultsToAddAfterStream'
+    | 'toolResultsToAddToMessageHistory'
   > &
     ParamsExcluding<
       typeof processStreamWithTools,
       | 'processors'
       | 'defaultProcessor'
-      | 'onError'
       | 'loggerOptions'
       | 'executeXmlToolCall'
     >,
@@ -87,8 +85,9 @@ export async function processStream(
 
   // === MUTABLE STATE ===
   const toolResults: ToolMessage[] = []
-  const toolResultsToAddAfterStream: ToolMessage[] = []
+  const toolResultsToAddToMessageHistory: ToolMessage[] = []
   const toolCalls: (CodebuffToolCall | CustomToolCall)[] = []
+  const toolCallsToAddToMessageHistory: (CodebuffToolCall | CustomToolCall)[] = []
   const assistantMessages: Message[] = []
   let hadToolCallError = false
   const errorMessages: Message[] = []
@@ -107,22 +106,10 @@ export async function processStream(
   // === RESPONSE HANDLER ===
   // Creates a response handler that captures tool events into assistantMessages.
   // When isXmlMode=true, also captures tool_result events for interleaved ordering.
-  function createResponseHandler(isXmlMode: boolean) {
+  function createResponseHandler() {
     return (chunk: string | PrintModeEvent) => {
       if (typeof chunk !== 'string') {
-        if (chunk.type === 'tool_call') {
-          assistantMessages.push(
-            assistantMessage({ ...chunk, type: 'tool-call' }),
-          )
-        } else if (isXmlMode && chunk.type === 'tool_result') {
-          const toolResultMessage: ToolMessage = {
-            role: 'tool',
-            toolName: chunk.toolName,
-            toolCallId: chunk.toolCallId,
-            content: chunk.output,
-          }
-          assistantMessages.push(toolResultMessage)
-        } else if (chunk.type === 'error') {
+        if (chunk.type === 'error') {
           hadToolCallError = true
           errorMessages.push(
             userMessage(
@@ -139,14 +126,10 @@ export async function processStream(
 
   // === TOOL EXECUTION ===
   // Unified callback factory for both native and custom tools.
-  // isXmlMode=true: execute immediately, capture results inline (for XML tool calls)
-  // isXmlMode=false: defer execution, results added at end (for native tool calls)
   function createToolExecutionCallback(toolName: string, isXmlMode: boolean) {
-    const responseHandler = createResponseHandler(isXmlMode)
-    const resultsArray = isXmlMode ? [] : toolResultsToAddAfterStream
-
+    const responseHandler = createResponseHandler()
     return {
-      onTagStart: () => {},
+      onTagStart: () => { },
       onTagEnd: async (_: string, input: Record<string, string>) => {
         if (signal.aborted) {
           return
@@ -157,10 +140,10 @@ export async function processStream(
         // Check if this is an agent tool call that should be transformed to spawn_agents
         const transformed = !isNativeTool
           ? tryTransformAgentToolCall({
-              toolName,
-              input,
-              spawnableAgents: agentTemplate.spawnableAgents,
-            })
+            toolName,
+            input,
+            spawnableAgents: agentTemplate.spawnableAgents,
+          })
           : null
 
         // Read previousToolCallFinished at execution time to ensure proper sequential chaining.
@@ -182,14 +165,16 @@ export async function processStream(
               : (toolName as ToolName),
             input: transformed ? transformed.input : input,
             fromHandleSteps: false,
-            skipDirectResultPush: isXmlMode,
+
             fileProcessingState,
             fullResponse: fullResponseChunks.join(''),
             previousToolCallFinished: previousPromise,
             toolCallId,
             toolCalls,
+            toolCallsToAddToMessageHistory,
             toolResults,
-            toolResultsToAddAfterStream: resultsArray,
+            toolResultsToAddToMessageHistory,
+            excludeToolFromMessageHistory: false,
             onCostCalculated,
             onResponseChunk: responseHandler,
           })
@@ -199,14 +184,16 @@ export async function processStream(
             ...params,
             toolName,
             input,
-            skipDirectResultPush: isXmlMode,
+
             fileProcessingState,
             fullResponse: fullResponseChunks.join(''),
             previousToolCallFinished: previousPromise,
             toolCallId,
             toolCalls,
+            toolCallsToAddToMessageHistory,
             toolResults,
-            toolResultsToAddAfterStream: resultsArray,
+            toolResultsToAddToMessageHistory,
+            excludeToolFromMessageHistory: false,
             onResponseChunk: responseHandler,
           })
         }
@@ -236,16 +223,6 @@ export async function processStream(
     ]),
     defaultProcessor: (name: string) =>
       createToolExecutionCallback(name, false),
-    onError: (toolName, error) => {
-      const toolResult: ToolMessage = {
-        role: 'tool',
-        toolName,
-        toolCallId: generateCompactId(),
-        content: jsonToolResult({ errorMessage: error }),
-      }
-      toolResults.push(cloneDeep(toolResult))
-      toolResultsToAddAfterStream.push(cloneDeep(toolResult))
-    },
     loggerOptions: {
       userId,
       model: agentTemplate.model,
@@ -327,20 +304,22 @@ export async function processStream(
     }
   }
 
-  // === FINALIZATION ===
-  agentState.messageHistory = buildArray<Message>([
-    ...expireMessages(agentState.messageHistory, 'agentStep'),
-    ...assistantMessages,
-    ...toolResultsToAddAfterStream,
-  ])
-
   if (!signal.aborted) {
     resolveStreamDonePromise()
     await previousToolCallFinished
   }
 
-  // Error messages must come AFTER tool results for proper API ordering
-  agentState.messageHistory.push(...errorMessages)
+  // === FINALIZATION ===
+  // Build message history from the current agentState.messageHistory so that
+  // inline agent modifications (e.g. set_messages) are preserved, while
+  // tool_calls and tool_results are still appended in deterministic order.
+  agentState.messageHistory = buildArray<Message>([
+    ...agentState.messageHistory,
+    ...assistantMessages,
+    ...toolCallsToAddToMessageHistory.map((toolCall) => assistantMessage({ ...toolCall, type: 'tool-call' })),
+    ...toolResultsToAddToMessageHistory,
+    ...errorMessages,
+  ])
 
   return {
     fullResponse: fullResponseChunks.join(''),
