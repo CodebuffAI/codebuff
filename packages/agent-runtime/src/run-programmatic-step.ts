@@ -543,6 +543,7 @@ async function executeSingleToolCall(
     },
   })
 
+  agentState.messageHistory = [...agentState.messageHistory]
   agentState.messageHistory.push(...toolResultsToAddToMessageHistory)
 
   // Get the latest tool result
