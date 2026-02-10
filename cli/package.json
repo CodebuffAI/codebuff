@@ -45,6 +45,7 @@
     "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
     "string-width": "^7.2.0",
+    "systeminformation": "^5.30.7",
     "terminal-image": "^4.1.0",
     "ts-pattern": "^5.9.0",
     "unified": "^11.0.0",
