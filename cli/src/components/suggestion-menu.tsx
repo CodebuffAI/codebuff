@@ -67,14 +67,8 @@ export const SuggestionMenu = ({
     ),
   )
 
-  // Find the longest description to determine if we can use same-line layout
-  const maxDescriptionLength = Math.max(
-    ...visibleItems.map((item) => item.description.length),
-  )
-
-  // Check if all items can fit on same line with aligned descriptions
-  const minWidthForSameLine = maxLabelLength + 2 + maxDescriptionLength
-  const useSameLine = menuWidth >= minWidthForSameLine
+  // Account for button padding (paddingLeft + paddingRight = 2)
+  const availableWidth = menuWidth - 2
 
   const renderSuggestionItem = (item: SuggestionItem, idx: number) => {
     const absoluteIndex = start + idx
@@ -92,7 +86,10 @@ export const SuggestionMenu = ({
       setHasHoveredSinceOpen(true)
     }
 
-    if (useSameLine) {
+    // Check per-item if description fits on the same line (using maxLabelLength for alignment padding)
+    const itemFitsOnSameLine = availableWidth >= maxLabelLength + 2 + item.description.length
+
+    if (itemFitsOnSameLine) {
       // Calculate padding to align descriptions
       const paddingLength = maxLabelLength - labelLength
       const padding = ' '.repeat(paddingLength)
