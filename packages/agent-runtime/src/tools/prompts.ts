@@ -245,9 +245,11 @@ export const fullToolList = (
       if (name === 'skill' && availableSkillsXml) {
         desc = desc.replace(AVAILABLE_SKILLS_PLACEHOLDER, availableSkillsXml)
       } else if (name === 'skill') {
-        // Remove placeholder if no skills available
-        desc = desc.replace(AVAILABLE_SKILLS_PLACEHOLDER + '\n\n', '')
-        desc = desc.replace(AVAILABLE_SKILLS_PLACEHOLDER, '')
+        // Explicitly state no skills are available
+        desc = desc.replace(
+          AVAILABLE_SKILLS_PLACEHOLDER,
+          'There are no skills available. Do not use this tool because there are no skills to load.',
+        )
       }
       return desc
     }),
@@ -264,7 +266,7 @@ export const fullToolList = (
 
   return `## List of Tools
 
-These are the only tools that you (Buffy) can use. The user cannot see these descriptions, so you should not reference any tool names, parameters, or descriptions. Do not try to use any other tools -- even if referenced earlier in the conversation, they are not available to you, instead they may have been previously used by other agents.
+These are the only tools that you can use. The user cannot see these descriptions, so you should not reference any tool names, parameters, or descriptions. Do not try to use any other tools -- even if referenced earlier in the conversation, they are not available to you, instead they may have been previously used by other agents.
 
 ${descriptions.join('\n\n')}`.trim()
 }
@@ -350,13 +352,12 @@ export async function getToolSet(params: {
           description,
         }
       } else if (toolName === 'skill') {
-        // Remove placeholder if no skills available
+        // Explicitly state no skills are available
         let description = toolDef.description ?? ''
         description = description.replace(
-          AVAILABLE_SKILLS_PLACEHOLDER + '\n\n',
-          '',
+          AVAILABLE_SKILLS_PLACEHOLDER,
+          'There are no skills available. Do not use this tool because there are no skills to load.',
         )
-        description = description.replace(AVAILABLE_SKILLS_PLACEHOLDER, '')
         toolSet[toolName] = {
           ...toolDef,
           description,

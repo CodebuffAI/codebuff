@@ -34,6 +34,7 @@ export const AVAILABLE_SKILLS_PLACEHOLDER = '{{AVAILABLE_SKILLS}}'
 // Base description - the full description with available skills is generated dynamically
 const baseDescription = `Load a skill by name to get its full instructions. Skills provide reusable behaviors and domain-specific knowledge that you can use to complete tasks.
 
+The following are the only skills that are currently available (do not try to use any other skills):
 ${AVAILABLE_SKILLS_PLACEHOLDER}
 
 Example:
