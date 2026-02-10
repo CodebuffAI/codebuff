@@ -396,6 +396,17 @@ export const runAgentStep = async (
       call.toolName === 'task_completed' || call.toolName === 'end_turn',
   )
 
+  // If the response is only <think>...</think> tags with no other non-whitespace content,
+  // the model was just thinking and should continue rather than end its turn.
+  const responseWithoutThinkTags = fullResponse
+    .replace(/<think>[\s\S]*?<\/think>/g, '')
+    .replace(/<think>[\s\S]*$/, '')
+    .trim()
+  const isThinkOnly =
+    hasNoToolResults &&
+    responseWithoutThinkTags.length === 0 &&
+    fullResponse.trim().length > 0
+
   // If the agent has the task_completed tool, it must be called to end its turn.
   const requiresExplicitCompletion =
     agentTemplate.toolNames.includes('task_completed')
@@ -408,7 +419,8 @@ export const runAgentStep = async (
     shouldEndTurn = hasTaskCompleted
   } else {
     // For other models, also end turn when there are no tool calls
-    shouldEndTurn = hasTaskCompleted || hasNoToolResults
+    // Exception: if the response is only <think> tags, continue the turn
+    shouldEndTurn = hasTaskCompleted || (hasNoToolResults && !isThinkOnly)
   }
 
   agentState = {
