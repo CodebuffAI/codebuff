@@ -1,5 +1,6 @@
 import { toolNames } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
+import { AbortError } from '@codebuff/common/util/error'
 import {
   assistantMessage,
   userMessage,
@@ -256,87 +257,103 @@ export async function processStream(
   // === STREAM CONSUMPTION LOOP ===
   let messageId: string | null = null
 
-  while (true) {
-    if (signal.aborted) {
-      break
-    }
-    const { value: chunk, done } = await streamWithTags.next()
-    if (done) {
-      // Handle PromptResult: extract value if success, null if aborted
-      if (chunk && typeof chunk === 'object' && 'aborted' in chunk) {
-        messageId = chunk.aborted ? null : chunk.value
-      } else {
-        messageId = chunk
+  // Wrap in try/finally so that the finalization (message history update) always
+  // runs even when the stream throws an AbortError mid-iteration.
+  try {
+    while (true) {
+      if (signal.aborted) {
+        break
       }
-      break
-    }
+      const { value: chunk, done } = await streamWithTags.next()
+      if (done) {
+        // Handle PromptResult: extract value if success, null if aborted
+        if (chunk && typeof chunk === 'object' && 'aborted' in chunk) {
+          messageId = chunk.aborted ? null : chunk.value
+        } else {
+          messageId = chunk
+        }
+        break
+      }
 
-    if (chunk.type === 'reasoning') {
-      onResponseChunk({
-        type: 'reasoning_delta',
-        text: chunk.text,
-        ancestorRunIds,
-        runId,
-      })
-    } else if (chunk.type === 'text') {
-      onResponseChunk(chunk.text)
-      fullResponseChunks.push(chunk.text)
-    } else if (chunk.type === 'error') {
-      onResponseChunk(chunk)
-      hadToolCallError = true
-      // Collect error messages to add AFTER all tool results
-      // This ensures proper message ordering for Anthropic's API which requires
-      // tool results to immediately follow the assistant message with tool calls
-      errorMessages.push(
-        userMessage(
-          withSystemTags(
-            `Error during tool call: ${chunk.message}. Please check the tool name and arguments and try again.`,
+      if (chunk.type === 'reasoning') {
+        onResponseChunk({
+          type: 'reasoning_delta',
+          text: chunk.text,
+          ancestorRunIds,
+          runId,
+        })
+      } else if (chunk.type === 'text') {
+        onResponseChunk(chunk.text)
+        fullResponseChunks.push(chunk.text)
+      } else if (chunk.type === 'error') {
+        onResponseChunk(chunk)
+        hadToolCallError = true
+        errorMessages.push(
+          userMessage(
+            withSystemTags(
+              `Error during tool call: ${chunk.message}. Please check the tool name and arguments and try again.`,
+            ),
           ),
-        ),
-      )
-    } else if (chunk.type === 'tool-call') {
-      // Tool call handling is done in the processor's onResponseChunk
-    } else {
-      chunk satisfies never
-      throw new Error(
-        `Unhandled chunk type: ${(chunk as { type: unknown }).type}`,
-      )
+        )
+      } else if (chunk.type === 'tool-call') {
+      } else {
+        chunk satisfies never
+        throw new Error(
+          `Unhandled chunk type: ${(chunk as { type: unknown }).type}`,
+        )
+      }
     }
-  }
 
-  if (!signal.aborted) {
-    resolveStreamDonePromise()
-    await previousToolCallFinished
-  }
+    if (!signal.aborted) {
+      resolveStreamDonePromise()
+      await previousToolCallFinished
+    }
+  } finally {
+    // === FINALIZATION ===
+    // Trigger cleanup of the processStreamWithTools generator so it flushes any
+    // remaining buffered text to assistantMessages before we build the history.
+    // On path B (AbortError thrown mid-stream) the generator is already completed
+    // so .return() is a no-op. On path A (cooperative signal.aborted break) the
+    // generator is still suspended and .return() triggers its finally → flush().
+    try {
+      await streamWithTags.return({ aborted: true })
+    } catch {
+      // Generator cleanup failed; assistantMessages may be incomplete but
+      // we must not swallow the original error.
+    }
 
-  // === FINALIZATION ===
-  // Build message history from the current agentState.messageHistory so that
-  // inline agent modifications (e.g. set_messages) are preserved, while
-  // tool_calls and tool_results are still appended in deterministic order.
-  //
-  // When the signal was aborted, tool calls are added synchronously but tool
-  // results arrive asynchronously via .then(). Because we skip awaiting
-  // previousToolCallFinished on abort, some tool calls may not have matching
-  // tool results yet. Including orphaned tool calls in the message history
-  // causes provider errors ("unexpected tool_use_id found in tool_result
-  // blocks"). Filter them out so every tool_call has a corresponding
-  // tool_result.
-  const completedToolCallIds = new Set(
-    toolResultsToAddToMessageHistory.map((r) => r.toolCallId),
-  )
-  const filteredToolCalls = signal.aborted
-    ? toolCallsToAddToMessageHistory.filter((tc) =>
+    // This runs even when the stream throws (e.g., AbortError mid-iteration).
+    // Build message history from the current agentState.messageHistory so that
+    // inline agent modifications (e.g. set_messages) are preserved, while
+    // tool_calls and tool_results are still appended in deterministic order.
+    //
+    // When the signal was aborted, tool calls are added synchronously but tool
+    // results arrive asynchronously via .then(). Because we skip awaiting
+    // previousToolCallFinished on abort, some tool calls may not have matching
+    // tool results yet. Including orphaned tool calls in the message history
+    // causes provider errors ("unexpected tool_use_id found in tool_result
+    // blocks"). Filter them out so every tool_call has a corresponding
+    // tool_result.
+    const completedToolCallIds = new Set(
+      toolResultsToAddToMessageHistory.map((r) => r.toolCallId),
+    )
+    const filteredToolCalls =
+      toolCallsToAddToMessageHistory.filter((tc) =>
         completedToolCallIds.has(tc.toolCallId),
       )
-    : toolCallsToAddToMessageHistory
 
-  agentState.messageHistory = buildArray<Message>([
-    ...agentState.messageHistory,
-    ...assistantMessages,
-    ...filteredToolCalls.map((toolCall) => assistantMessage({ ...toolCall, type: 'tool-call' })),
-    ...toolResultsToAddToMessageHistory,
-    ...errorMessages,
-  ])
+    agentState.messageHistory = buildArray<Message>([
+      ...agentState.messageHistory,
+      ...assistantMessages,
+      ...filteredToolCalls.map((toolCall) => assistantMessage({ ...toolCall, type: 'tool-call' })),
+      ...toolResultsToAddToMessageHistory,
+      ...errorMessages,
+    ])
+  }
+
+  if (signal.aborted) {
+    throw new AbortError()
+  }
 
   return {
     fullResponse: fullResponseChunks.join(''),

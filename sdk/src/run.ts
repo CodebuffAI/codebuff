@@ -268,8 +268,6 @@ async function runOnce({
     }
   }
 
-  let pendingAgentResponse = ''
-
   /** Calculates the current session state if cancelled.
    *
    * This is used when callMainPrompt throws an error (the server never processed the request).
@@ -287,7 +285,11 @@ async function runOnce({
       })
     }
     
-    addCancellationContext(state, pendingAgentResponse, message)
+    // Add error context message
+    state.mainAgentState.messageHistory.push({
+      role: 'user' as const,
+      content: [{ type: 'text' as const, text: withSystemTags(message) }],
+    })
     return state
   }
   function getCancelledRunState(message?: string): RunState {
@@ -308,14 +310,6 @@ async function runOnce({
       return
     }
     const { chunk } = action
-    addToPendingAssistantMessage: if (typeof chunk === 'string') {
-      pendingAgentResponse += chunk
-    } else if (
-      chunk.type === 'reasoning_delta' &&
-      chunk.ancestorRunIds.length === 0
-    ) {
-      pendingAgentResponse += chunk.text
-    }
 
     if (typeof chunk !== 'string') {
       if (chunk.type === 'reasoning_delta') {
@@ -436,8 +430,6 @@ async function runOnce({
           resolve,
           onError,
           initialSessionState: sessionState,
-          signal,
-          pendingAgentResponse,
         })
         return
       }
@@ -447,8 +439,6 @@ async function runOnce({
           resolve,
           onError,
           initialSessionState: sessionState,
-          signal,
-          pendingAgentResponse,
         })
         return
       }
@@ -488,7 +478,7 @@ async function runOnce({
   const userId = userInfo.id
 
   if (signal?.aborted) {
-    return getCancelledRunState()
+    return getCancelledRunState('Run cancelled by user.')
   }
 
   callMainPrompt({
@@ -699,32 +689,6 @@ async function handleToolCall({
   }
 }
 
-/** 
- * Adds cancellation context to a session state (mutates in place).
- * Includes the partial assistant response (if any) and an interruption message.
- */
-function addCancellationContext(
-  state: SessionState,
-  pendingResponse: string,
-  systemMessage: string
-): void {
-  const messageHistory = state.mainAgentState.messageHistory
-  
-  // Add partial assistant response if there was streaming content
-  if (pendingResponse.trim()) {
-    messageHistory.push({
-      role: 'assistant' as const,
-      content: [{ type: 'text' as const, text: pendingResponse }],
-    })
-  }
-  
-  // Add interruption message
-  messageHistory.push({
-    role: 'user' as const,
-    content: [{ type: 'text' as const, text: withSystemTags(systemMessage) }],
-  })
-}
-
 /**
  * Extracts an HTTP status code from an error message string.
  * Parses common error patterns to identify the underlying status code.
@@ -800,15 +764,11 @@ async function handlePromptResponse({
   resolve,
   onError,
   initialSessionState,
-  signal,
-  pendingAgentResponse,
 }: {
   action: ServerAction<'prompt-response'> | ServerAction<'prompt-error'>
   resolve: (value: RunReturnType) => any
   onError: (error: { message: string }) => void
   initialSessionState: SessionState
-  signal?: AbortSignal
-  pendingAgentResponse: string
 }) {
   if (action.type === 'prompt-error') {
     onError({ message: action.message })
@@ -842,19 +802,7 @@ async function handlePromptResponse({
       })
       return
     }
-    let { sessionState, output } = action
-
-    // If the request was aborted by the user, preserve partial streamed content
-    // and append an interruption message so the next prompt knows what happened.
-    // The session state from the server already contains all tool calls and results.
-    if (signal?.aborted && sessionState) {
-      sessionState = cloneDeep(sessionState)
-      addCancellationContext(
-        sessionState,
-        pendingAgentResponse,
-        'User interrupted the response. The assistant\'s previous work has been preserved.'
-      )
-    }
+    const { sessionState, output } = action
 
     const state: RunState = {
       sessionState,

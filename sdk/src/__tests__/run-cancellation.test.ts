@@ -129,6 +129,11 @@ describe('Run Cancellation Handling', () => {
         // User cancels
         abortController.abort()
 
+        // Simulate agent runtime adding interruption message on abort
+        serverSessionState.mainAgentState.messageHistory.push(
+          userMessage(withSystemTags("User interrupted the response. The assistant's previous work has been preserved."))
+        )
+
         // Server still responds with its session state
         await sendAction({
           action: {
@@ -174,9 +179,9 @@ describe('Run Cancellation Handling', () => {
     // Should have exactly 1 user message with the prompt, not 2
     expect(userPromptMessages.length).toBe(1)
     
-    // Total messages should be: 1 user + 1 assistant (original) + 1 partial assistant (streamed) + 1 interruption = 4
-    // NOT: 2 users + 1 assistant + 1 partial assistant + 1 interruption = 5
-    expect(messageHistory.length).toBe(4)
+    // Total messages should be: 1 user + 1 assistant (original) + 1 interruption = 3
+    // The server state already has the content; pendingAgentResponse is not duplicated.
+    expect(messageHistory.length).toBe(3)
   })
 
   it('preserves user message when callMainPrompt throws an error', async () => {
@@ -257,6 +262,11 @@ describe('Run Cancellation Handling', () => {
 
         // Abort immediately WITHOUT any streaming chunks
         abortController.abort()
+
+        // Simulate agent runtime adding interruption message on abort
+        serverSessionState.mainAgentState.messageHistory.push(
+          userMessage(withSystemTags("User interrupted the response. The assistant's previous work has been preserved."))
+        )
 
         await sendAction({
           action: {
@@ -363,22 +373,17 @@ describe('Run Cancellation Handling', () => {
     expect(result.sessionState).toBeDefined()
     const messageHistory = result.sessionState!.mainAgentState.messageHistory
 
-    // Should have: user message (with USER_PROMPT tag) + partial assistant + interruption
-    expect(messageHistory.length).toBe(3)
+    // Should have: user message (with USER_PROMPT tag) + error context
+    expect(messageHistory.length).toBe(2)
 
     // First message should be the user's prompt with the tag
     const firstMessage = messageHistory[0]
     expect(firstMessage.role).toBe('user')
     expect(firstMessage.tags).toContain('USER_PROMPT')
 
-    // Second message should be the partial assistant response
+    // Second message should be the error context
     const secondMessage = messageHistory[1]
-    expect(secondMessage.role).toBe('assistant')
-    expect((secondMessage.content[0] as { type: 'text'; text: string }).text).toBe('Starting to analyze...')
-
-    // Third message should be the interruption/error message
-    const thirdMessage = messageHistory[2]
-    expect(thirdMessage.role).toBe('user')
+    expect(secondMessage.role).toBe('user')
   })
 
   it('preserves session state from server when aborted and appends interruption message', async () => {
@@ -442,6 +447,11 @@ describe('Run Cancellation Handling', () => {
         // Abort the signal to simulate user cancellation
         abortController.abort()
 
+        // Simulate agent runtime adding interruption message on abort
+        serverSessionState.mainAgentState.messageHistory.push(
+          userMessage(withSystemTags("User interrupted the response. The assistant's previous work has been preserved."))
+        )
+
         // Server still sends the prompt-response with the full session state
         await sendAction({
           action: {
@@ -482,8 +492,9 @@ describe('Run Cancellation Handling', () => {
     // Verify the original message history is preserved
     const messageHistory = result.sessionState!.mainAgentState.messageHistory
 
-    // Should have original messages + 1 partial assistant message (from streamed chunks) + 1 interruption message
-    expect(messageHistory.length).toBe(originalHistoryLength + 2)
+    // Should have original messages + 1 interruption message
+    // The server state already has the content; pendingAgentResponse is not duplicated.
+    expect(messageHistory.length).toBe(originalHistoryLength + 1)
 
     // Verify the original tool call is still present (work was preserved)
     const toolCallMessage = messageHistory.find(
@@ -526,6 +537,11 @@ describe('Run Cancellation Handling', () => {
 
         // Abort before sending response
         abortController.abort()
+
+        // Simulate agent runtime adding interruption message on abort
+        serverSessionState.mainAgentState.messageHistory.push(
+          userMessage(withSystemTags("User interrupted the response. The assistant's previous work has been preserved."))
+        )
 
         await sendAction({
           action: {
@@ -753,6 +769,11 @@ describe('Run Cancellation Handling', () => {
         // User aborts mid-stream
         abortController.abort()
 
+        // Simulate agent runtime adding interruption message on abort
+        serverSessionState.mainAgentState.messageHistory.push(
+          userMessage(withSystemTags("User interrupted the response. The assistant's previous work has been preserved."))
+        )
+
         // Server still returns the full session state
         await sendAction({
           action: {
@@ -795,19 +816,15 @@ describe('Run Cancellation Handling', () => {
     expect(result.sessionState).toBeDefined()
     const messageHistory = result.sessionState!.mainAgentState.messageHistory
 
-    // Should have: user message + 4 assistant/tool messages + 1 partial assistant (streamed) + 1 interruption
-    expect(messageHistory.length).toBe(7)
+    // Should have: user message + 4 assistant/tool messages + 1 interruption
+    // The server state already has the content; pendingAgentResponse is not duplicated.
+    expect(messageHistory.length).toBe(6)
 
     // Verify the write_file tool result is still there (work was preserved)
     const writeToolResult = messageHistory.find(
       (m) => m.role === 'tool' && m.toolCallId === 'write-1',
     )
     expect(writeToolResult).toBeDefined()
-
-    // Verify partial streamed text was preserved as an assistant message
-    const partialAssistantMessage = messageHistory[messageHistory.length - 2]
-    expect(partialAssistantMessage.role).toBe('assistant')
-    expect((partialAssistantMessage.content[0] as { type: 'text'; text: string }).text).toBe('Working on the next step')
 
     // Verify interruption message was added at the end
     const lastMessage = messageHistory[messageHistory.length - 1]

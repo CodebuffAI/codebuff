@@ -163,20 +163,27 @@ export async function* processStreamWithTools(params: {
   }
 
   let result: PromptResult<string | null> = { aborted: false, value: null }
-  while (true) {
-    const { value, done } = await stream.next()
-    if (done) {
-      result = value
-      break
+  try {
+    while (true) {
+      const { value, done } = await stream.next()
+      if (done) {
+        result = value
+        break
+      }
+      if (streamCompleted) {
+        break
+      }
+      yield* processChunk(value)
     }
-    if (streamCompleted) {
-      break
+    if (!streamCompleted) {
+      // After the stream ends, try parsing one last time in case there's leftover text
+      yield* processChunk(undefined)
     }
-    yield* processChunk(value)
-  }
-  if (!streamCompleted) {
-    // After the stream ends, try parsing one last time in case there's leftover text
-    yield* processChunk(undefined)
+  } finally {
+    // Flush any remaining buffered text so it reaches onResponseChunk even on
+    // abort. Without this, text streamed after the last tool call would be lost
+    // from the message history.
+    flush()
   }
   return result
 }

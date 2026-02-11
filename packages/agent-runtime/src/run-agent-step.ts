@@ -2,7 +2,7 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { supportsCacheControl } from '@codebuff/common/old-constants'
 import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
-import { getErrorObject, isAbortError } from '@codebuff/common/util/error'
+import { AbortError, getErrorObject, isAbortError } from '@codebuff/common/util/error'
 import { systemMessage, userMessage } from '@codebuff/common/util/messages'
 import { APICallError, type ToolSet } from 'ai'
 import { cloneDeep, mapValues } from 'lodash'
@@ -230,14 +230,14 @@ export const runAgentStep = async (
     ...expireMessages(agentState.messageHistory, 'agentStep'),
 
     stepPrompt &&
-      userMessage({
-        content: stepPrompt,
-        tags: ['STEP_PROMPT'],
+    userMessage({
+      content: stepPrompt,
+      tags: ['STEP_PROMPT'],
 
-        // James: Deprecate the below, only use tags, which are not prescriptive.
-        timeToLive: 'agentStep' as const,
-        keepDuringTruncation: true,
-      }),
+      // James: Deprecate the below, only use tags, which are not prescriptive.
+      timeToLive: 'agentStep' as const,
+      keepDuringTruncation: true,
+    }),
   )
 
   agentState.messageHistory = agentMessagesUntruncated
@@ -641,27 +641,27 @@ export async function loopAgentSteps(
   const agentTools = useParentTools
     ? {}
     : await buildAgentToolSet({
-        ...params,
-        spawnableAgents: agentTemplate.spawnableAgents,
-        agentTemplates: localAgentTemplates,
-      })
+      ...params,
+      spawnableAgents: agentTemplate.spawnableAgents,
+      agentTemplates: localAgentTemplates,
+    })
 
   const tools = useParentTools
     ? parentTools
     : await getToolSet({
       toolNames: agentTemplate.toolNames,
-        additionalToolDefinitions: async () => {
-          if (!cachedAdditionalToolDefinitions) {
-            cachedAdditionalToolDefinitions = await additionalToolDefinitions({
-              ...params,
-              agentTemplate,
-            })
-          }
-          return cachedAdditionalToolDefinitions
-        },
-        agentTools,
-        skills: fileContext.skills ?? {},
-      })
+      additionalToolDefinitions: async () => {
+        if (!cachedAdditionalToolDefinitions) {
+          cachedAdditionalToolDefinitions = await additionalToolDefinitions({
+            ...params,
+            agentTemplate,
+          })
+        }
+        return cachedAdditionalToolDefinitions
+      },
+      agentTools,
+      skills: fileContext.skills ?? {},
+    })
 
   const hasUserMessage = Boolean(
     prompt ||
@@ -684,25 +684,25 @@ export async function loopAgentSteps(
         keepDuringTruncation: true,
       },
       prompt &&
-        prompt in additionalSystemPrompts &&
-        userMessage(
-          withSystemInstructionTags(
-            additionalSystemPrompts[
-              prompt as keyof typeof additionalSystemPrompts
-            ],
-          ),
+      prompt in additionalSystemPrompts &&
+      userMessage(
+        withSystemInstructionTags(
+          additionalSystemPrompts[
+          prompt as keyof typeof additionalSystemPrompts
+          ],
         ),
+      ),
       ,
     ],
 
     instructionsPrompt &&
-      userMessage({
-        content: instructionsPrompt,
-        tags: ['INSTRUCTIONS_PROMPT'],
+    userMessage({
+      content: instructionsPrompt,
+      tags: ['INSTRUCTIONS_PROMPT'],
 
-        // James: Deprecate the below, only use tags, which are not prescriptive.
-        keepLastTags: ['INSTRUCTIONS_PROMPT'],
-      }),
+      // James: Deprecate the below, only use tags, which are not prescriptive.
+      keepLastTags: ['INSTRUCTIONS_PROMPT'],
+    }),
   )
 
   // Convert tools to a serializable format for context-pruner token counting
@@ -738,17 +738,7 @@ export async function loopAgentSteps(
     while (true) {
       totalSteps++
       if (signal.aborted) {
-        logger.info(
-          {
-            userId,
-            userInputId,
-            clientSessionId,
-            totalSteps,
-            runId,
-          },
-          'Agent run cancelled by user',
-        )
-        break
+        throw new AbortError()
       }
 
       const startTime = new Date()
@@ -766,9 +756,9 @@ export async function loopAgentSteps(
       const messagesWithStepPrompt = buildArray(
         ...currentAgentState.messageHistory,
         stepPrompt &&
-          userMessage({
-            content: stepPrompt,
-          }),
+        userMessage({
+          content: stepPrompt,
+        }),
       )
 
       // Check context token count via Anthropic API
@@ -922,11 +912,10 @@ export async function loopAgentSteps(
       )
     }
 
-    const status = signal.aborted ? 'cancelled' : 'completed'
     await finishAgentRun({
       ...params,
       runId,
-      status,
+      status: 'completed',
       totalSteps,
       directCredits: currentAgentState.directCreditsUsed,
       totalCredits: currentAgentState.creditsUsed,
@@ -939,12 +928,30 @@ export async function loopAgentSteps(
   } catch (error) {
     // Handle user-initiated aborts separately - don't log as errors
     if (isAbortError(error)) {
+      if (clearUserPromptMessagesAfterResponse) {
+        currentAgentState.messageHistory = expireMessages(
+          currentAgentState.messageHistory,
+          'userPrompt',
+        )
+      }
+
+      currentAgentState.messageHistory = [
+        ...currentAgentState.messageHistory,
+        userMessage(
+          withSystemTags(
+            "User interrupted the response. The assistant's previous work has been preserved.",
+          ),
+        ),
+      ]
+
       logger.info(
         {
           agentType,
           agentId: currentAgentState.agentId,
           runId,
           totalSteps,
+          messageHistory: currentAgentState.messageHistory,
+
         },
         'Agent run cancelled by user (abort error)',
       )
