@@ -12,7 +12,6 @@ import {
 import { InputCursor } from './input-cursor'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
-import { logger } from '../utils/logger'
 import { clamp } from '../utils/math'
 import { supportsTruecolor } from '../utils/theme-system'
 import { calculateNewCursorPosition } from '../utils/word-wrap-utils'
@@ -615,14 +614,6 @@ export const MultilineInput = forwardRef<
         preventKeyDefault(key)
         if (handleSelectionDeletion()) return true
         const visualLineStart = lineInfo?.lineStarts?.[cursorRow] ?? lineStart
-
-        logger.debug('Ctrl+U:', {
-          cursorPosition,
-          cursorRow,
-          visualLineStart,
-          oldLineStart: lineStart,
-          lineStarts: lineInfo?.lineStarts,
-        })
 
         if (cursorPosition > visualLineStart) {
           const newValue =
