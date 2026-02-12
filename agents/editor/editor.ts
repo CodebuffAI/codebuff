@@ -13,7 +13,7 @@ export const createCodeEditor = (options: {
       options.model === 'gpt-5'
         ? 'openai/gpt-5.1'
         : options.model === 'glm'
-          ? 'z-ai/glm-4.7'
+          ? 'minimax/minimax-m2.5'
           : 'anthropic/claude-opus-4.6',
     ...(model === 'glm' && {
       reasoningOptions: {

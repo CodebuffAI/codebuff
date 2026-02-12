@@ -13,7 +13,7 @@ Codebuff has four modes. Switch during a session with `Shift+Tab` or `/mode:` co
   | Mode | Model | Editor Agent | Code Review | | --- | --- | --- | --- | --- |
   | Default | Claude Opus 4.6 | editor | Yes | | Max | Claude Opus 4.6 |
   editor-multi-prompt | Yes | | Plan | Claude Opus 4.6 | None | No | | Free |
-  Grok 4.1 Fast | editor-glm | No |
+  MiniMax M2.5 | editor-lite | No |
 </MarkdownTable>
 
 ## Default
@@ -58,10 +58,9 @@ Switch to this mode with `/mode:plan`.
 
 ## Free
 
-Grok 4.1 Fast, cheaper and faster:
+MiniMax M2.5, cheaper and faster:
 
 - Less file context gathering
-- Uses GLM 4.7 for code changes ([`editor-glm`](/publishers/codebuff/agents/editor-glm) agent)
 - Skips code review
 - No todo tracking
 
