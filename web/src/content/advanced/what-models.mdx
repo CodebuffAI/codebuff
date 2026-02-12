@@ -15,7 +15,7 @@ The main agent ("Buffy") coordinates everything:
 
 <MarkdownTable>
   | Mode | Model | |------|-------| | Default | Claude Opus 4.6 | | Max | Claude
-  Opus 4.6 | | Free | Grok 4.1 Fast |
+  Opus 4.6 | | Free | MiniMax M2.5 |
 </MarkdownTable>
 
 ## Subagents
@@ -30,6 +30,6 @@ The orchestrator spawns these for specific jobs:
   Grok 4.1 Fast |
 </MarkdownTable>
 
-Max mode runs multiple implementations in parallel and picks the best one. Default mode runs a single implementation pass. Free mode uses GLM 4.7 for editing.
+Max mode runs multiple implementations in parallel and picks the best one. Default mode runs a single implementation pass. Free mode uses MiniMax M2.5 and includes code review support.
 
 File rewrites use speculative decoding from Relace AI.
