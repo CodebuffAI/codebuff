@@ -43,6 +43,9 @@ export function createCliAgent(config: CliAgentConfig): AgentDefinition {
     id: config.id,
     displayName: config.displayName,
     model: config.model,
+    providerOptions: {
+      ignore: ['Amazon Bedrock'],
+    },
 
     spawnerPrompt: getSpawnerPrompt(config),
 

@@ -95,10 +95,10 @@ const definition: AgentDefinition = {
     yield {
       toolName: 'add_message',
       input: {
-        role: 'assistant',
-        content: 'I have started a ' + CLI_NAME + ' tmux session: `' + sessionName + '`\n\n' +
-          'I will use this session for all CLI interactions. The session name must be included in my final output.\n\n' +
-          'Now I\'ll proceed with the task using the helper scripts:\n' +
+        role: 'user',
+        content: 'A ' + CLI_NAME + ' tmux session has been started: `' + sessionName + '`\n\n' +
+          'Use this session for all CLI interactions. The session name must be included in your final output.\n\n' +
+          'Proceed with the task using the helper scripts:\n' +
           '- Send commands: `./scripts/tmux/tmux-cli.sh send "' + sessionName + '" "..."`\n' +
           '- Capture output: `./scripts/tmux/tmux-cli.sh capture "' + sessionName + '" --label "..."`\n' +
           '- Stop when done: `./scripts/tmux/tmux-cli.sh stop "' + sessionName + '"`',
