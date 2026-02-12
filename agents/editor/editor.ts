@@ -4,7 +4,7 @@ import { publisher } from '../constants'
 import type { AgentDefinition } from '../types/agent-definition'
 
 export const createCodeEditor = (options: {
-  model: 'gpt-5' | 'opus' | 'glm'
+  model: 'gpt-5' | 'opus' | 'minimax'
 }): Omit<AgentDefinition, 'id'> => {
   const { model } = options
   return {
@@ -12,14 +12,9 @@ export const createCodeEditor = (options: {
     model:
       options.model === 'gpt-5'
         ? 'openai/gpt-5.1'
-        : options.model === 'glm'
+        : options.model === 'minimax'
           ? 'minimax/minimax-m2.5'
           : 'anthropic/claude-opus-4.6',
-    ...(model === 'glm' && {
-      reasoningOptions: {
-        effort: 'high',
-      },
-    }),
     displayName: 'Code Editor',
     spawnerPrompt:
       "Expert code editor that implements code changes based on the user's request. Do not specify an input prompt for this agent; it inherits the context of the entire conversation with the user. Make sure to read any files intended to be edited before spawning this agent as it cannot read files on its own.",
@@ -65,7 +60,7 @@ OR for new files or major rewrites:
 }
 </codebuff_tool_call>
 
-${model === 'gpt-5' || model === 'glm'
+${model === 'gpt-5' || model === 'minimax'
         ? ''
         : `Before you start writing your implementation, you should use <think> tags to think about the best way to implement the changes.
 

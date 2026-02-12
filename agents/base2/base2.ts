@@ -75,9 +75,9 @@ export function createBase2(
       isDefault && 'thinker',
       (isDefault || isMax) && ['opus-agent', 'gpt-5-agent'],
       isMax && 'thinker-best-of-n-opus',
-      isFree && 'editor-lite',
       isDefault && 'editor',
       isMax && 'editor-multi-prompt',
+      isFree && 'code-reviewer-lite',
       isDefault && 'code-reviewer',
       isMax && 'code-reviewer-multi-prompt',
       'context-pruner',
@@ -140,6 +140,10 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
         `- Spawn the ${isDefault ? 'thinker' : 'thinker-best-of-n-opus'} after gathering context to solve complex problems or when the user asks you to think about a problem. (gpt-5-agent is a last resort for complex problems)`,
         isMax &&
         `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
+        isFree &&
+        '- Implement code changes using the str_replace or write_file tools directly.',
+        isFree &&
+        '- Spawn a code-reviewer-lite to review the changes after you have implemented the changes.',
         '- Spawn commanders sequentially if the second command depends on the the first.',
         isDefault &&
         '- Spawn a code-reviewer to review the changes after you have implemented the changes.',
@@ -195,23 +199,27 @@ ${buildArray(
       }
 ${isDefault
         ? `[ You implement the changes using the editor agent ]`
-        : isFast
+        : isFast || isFree
           ? '[ You implement the changes using the str_replace or write_file tools ]'
-          : isFree
-            ? '[ You implement the changes using the editor-lite agent ]'
-            : '[ You implement the changes using the editor-multi-prompt agent ]'
+          : '[ You implement the changes using the editor-multi-prompt agent ]'
       }
 
 ${isDefault
         ? `[ You spawn a code-reviewer, a commander to typecheck the changes, and another commander to run tests, all in parallel ]`
-        : isMax
-          ? `[  You spawn a commander to typecheck the changes, and another commander to run tests, in parallel. Then, you spawn a code-reviewer-multi-prompt to review the changes. ]`
-          : '[ You spawn a commander to typecheck the changes and another commander to run tests, all in parallel ]'
+        : isFree
+          ? `[ You spawn a code-reviewer-lite to review the changes, and a commander to typecheck the changes, and another commander to run tests, all in parallel ]`
+          : isMax
+            ? `[  You spawn a commander to typecheck the changes, and another commander to run tests, in parallel. Then, you spawn a code-reviewer-multi-prompt to review the changes. ]`
+            : '[ You spawn a commander to typecheck the changes and another commander to run tests, all in parallel ]'
       }
 
-${isDefault || isMax
-        ? `[ You fix the issues found by the ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} and type/test errors ]`
-        : '[ You fix the issues found by the type/test errors and spawn more commanders to confirm ]'
+${isDefault
+        ? `[ You fix the issues found by the code-reviewer and type/test errors ]`
+        : isFree
+          ? `[ You fix the issues found by the code-reviewer-lite and type/test errors ]`
+          : isMax
+            ? `[ You fix the issues found by the code-reviewer-multi-prompt and type/test errors ]`
+            : '[ You fix the issues found by the type/test errors and spawn more commanders to confirm ]'
       }
 
 [ All tests & typechecks pass -- you write a very short final summary of the changes you made ]
@@ -317,8 +325,6 @@ ${buildArray(
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
     (isDefault || isMax) &&
     `- For quick problems, briefly explain your reasoning to the user. If you need to think longer, write your thoughts within the <think> tags. Finally, for complex problems, spawn the thinker agent to help find the best solution. (gpt-5-agent is a last resort for complex problems)`,
-    isFree &&
-    '- IMPORTANT: You must spawn the editor-lite agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
     isDefault &&
     '- IMPORTANT: You must spawn the editor agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all non-trivial changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
     isMax &&
@@ -331,6 +337,8 @@ ${buildArray(
     `- For non-trivial changes, test them by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). Try to run all appropriate commands in parallel. ${isMax ? ' Typecheck and test the specific area of the project that you are editing *AND* then typecheck and test the entire project if necessary.' : ' If you can, only test the area of the project that you are editing, rather than the entire project.'} You may have to explore the project to find the appropriate commands. Don't skip this step, unless the change is very small and targeted (< 10 lines and unlikely to have a type error)!`,
     (isDefault || isMax) &&
     `- Spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review the changes after you have implemented changes. (Skip this step only if the change is extremely straightforward and obvious.)`,
+    isFree &&
+    `- Spawn a code-reviewer-lite to review the changes after you have implemented changes. (Skip this step only if the change is extremely straightforward and obvious.)`,
     `- Inform the user that you have completed the task in one sentence or a few short bullet points.${isSonnet ? " Don't create any markdown summary files or example documentation files, unless asked by the user." : ''}`,
     !isFast &&
     !noAskUser &&
@@ -363,6 +371,8 @@ function buildImplementationStepPrompt({
     `You must spawn the 'editor-multi-prompt' agent to implement code changes rather than using the str_replace or write_file tools, since it will generate the best code changes.`,
     (isDefault || isMax) &&
     `You must spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review the changes after you have implemented the changes and in parallel with typechecking or testing.`,
+    isFree &&
+    `You must spawn a code-reviewer-lite to review the changes after you have implemented the changes and in parallel with typechecking or testing.`,
     `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''} Don't repeat yourself, especially if you have already concluded and summarized the changes in a previous step -- just end your turn.`,
     !isFast &&
     !noAskUser &&
