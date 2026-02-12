@@ -252,6 +252,36 @@ describe('convertCbToModelMessages', () => {
       ])
     })
 
+    it('should convert tool messages with empty content', () => {
+      const messages: Message[] = [
+        {
+          role: 'tool',
+          toolName: 'scraper_page_to_markdown',
+          toolCallId: 'call_empty',
+          content: [],
+        },
+      ]
+
+      const result = convertCbToModelMessages({
+        messages,
+        includeCacheControl: false,
+      })
+
+      expect(result).toEqual([
+        expect.objectContaining({
+          role: 'tool',
+          content: [
+            expect.objectContaining({
+              type: 'tool-result',
+              toolCallId: 'call_empty',
+              toolName: 'scraper_page_to_markdown',
+              output: { type: 'json', value: '(empty result)' },
+            } satisfies ToolResultPart),
+          ],
+        }),
+      ])
+    })
+
     it('should handle multiple tool outputs', () => {
       const messages: Message[] = [
         {
