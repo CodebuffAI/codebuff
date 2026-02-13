@@ -34,6 +34,9 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
 
   // Editor for free mode
   'editor-lite': new Set(['minimax/minimax-m2.5']),
+
+  // Code reviewer for free mode
+  'code-reviewer-lite': new Set(['minimax/minimax-m2.5']),
 }
 
 /**
