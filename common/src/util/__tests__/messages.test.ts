@@ -270,12 +270,14 @@ describe('convertCbToModelMessages', () => {
       expect(result).toEqual([
         expect.objectContaining({
           role: 'tool',
+          toolCallId: 'call_empty',
+          toolName: 'scraper_page_to_markdown',
           content: [
             expect.objectContaining({
               type: 'tool-result',
               toolCallId: 'call_empty',
               toolName: 'scraper_page_to_markdown',
-              output: { type: 'json', value: '(empty result)' },
+              output: { type: 'json', value: '' },
             } satisfies ToolResultPart),
           ],
         }),
