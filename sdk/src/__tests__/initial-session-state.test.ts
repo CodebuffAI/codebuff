@@ -1,3 +1,7 @@
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs'
+import os from 'os'
+import path from 'path'
+
 import { describe, expect, test, beforeEach } from 'bun:test'
 import { z } from 'zod/v4'
 
@@ -308,6 +312,62 @@ describe('Initial Session State', () => {
       process.version,
     )
     expect(sessionState.fileContext.systemInfo.cpus).toBeGreaterThan(0)
+  })
+
+  test('loads skills from skillsDir when provided', async () => {
+    const tmpDir = mkdtempSync(path.join(os.tmpdir(), 'sdk-skills-test-'))
+    try {
+      const skillDir = path.join(tmpDir, 'my-skill')
+      mkdirSync(skillDir, { recursive: true })
+      writeFileSync(
+        path.join(skillDir, 'SKILL.md'),
+        [
+          '---',
+          'name: my-skill',
+          'description: A test skill',
+          '---',
+          '',
+          '# My Skill',
+          '',
+          'Some instructions here.',
+        ].join('\n'),
+      )
+
+      const sessionState = await initialSessionState({
+        cwd: '/test-project',
+        skillsDir: tmpDir,
+        projectFiles: { 'src/index.ts': 'console.log("hello");' },
+        fs: mockFs,
+        logger: mockLogger,
+      })
+
+      expect(sessionState.fileContext.skills).toBeDefined()
+      expect(sessionState.fileContext.skills!['my-skill']).toBeDefined()
+      expect(sessionState.fileContext.skills!['my-skill'].name).toBe('my-skill')
+      expect(sessionState.fileContext.skills!['my-skill'].description).toBe(
+        'A test skill',
+      )
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true })
+    }
+  })
+
+  test('skillsDir with no valid skills results in empty skills map', async () => {
+    const tmpDir = mkdtempSync(path.join(os.tmpdir(), 'sdk-skills-test-'))
+    try {
+      const sessionState = await initialSessionState({
+        cwd: '/test-project',
+        skillsDir: tmpDir,
+        projectFiles: { 'src/index.ts': 'console.log("hello");' },
+        fs: mockFs,
+        logger: mockLogger,
+      })
+
+      expect(sessionState.fileContext.skills).toBeDefined()
+      expect(Object.keys(sessionState.fileContext.skills!)).toHaveLength(0)
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true })
+    }
   })
 
   test('initializes empty agent state correctly', async () => {

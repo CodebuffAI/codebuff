@@ -71,6 +71,8 @@ export type CodebuffClientOptions = {
   apiKey?: string
 
   cwd?: string
+  /** Optional directory path to load skills from. Skills found here will be available to the `skill` tool. */
+  skillsDir?: string
   projectFiles?: Record<string, string>
   knowledgeFiles?: Record<string, string>
   agentDefinitions?: AgentDefinition[]
@@ -180,6 +182,7 @@ async function runOnce({
   fingerprintId,
 
   cwd,
+  skillsDir,
   projectFiles,
   knowledgeFiles,
   agentDefinitions,
@@ -244,6 +247,7 @@ async function runOnce({
     // No previous run, so create a fresh session state
     sessionState = await initialSessionState({
       cwd,
+      skillsDir,
       knowledgeFiles,
       agentDefinitions,
       customToolDefinitions,

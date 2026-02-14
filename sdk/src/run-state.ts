@@ -67,6 +67,8 @@ export type RunState = {
 
 export type InitialSessionStateOptions = {
   cwd?: string
+  /** Optional directory path to load skills from. When provided, skills are loaded from this directory instead of the default locations. */
+  skillsDir?: string
   projectFiles?: Record<string, string>
   knowledgeFiles?: Record<string, string>
   /** User-provided knowledge files that will be merged with home directory files */
@@ -407,7 +409,7 @@ function deriveKnowledgeFiles(
 export async function initialSessionState(
   params: InitialSessionStateOptions,
 ): Promise<SessionState> {
-  const { cwd, maxAgentSteps } = params
+  const { cwd, maxAgentSteps, skillsDir } = params
   let {
     agentDefinitions,
     customToolDefinitions,
@@ -488,7 +490,7 @@ export async function initialSessionState(
   }
 
   // Load skills from project and home directories
-  const skills = await loadSkills({ cwd: cwd ?? process.cwd(), verbose: false })
+  const skills = await loadSkills({ cwd: cwd ?? process.cwd(), skillsPath: skillsDir, verbose: false })
 
   const initialState = getInitialSessionState({
     projectRoot: cwd ?? process.cwd(),
@@ -523,6 +525,7 @@ export async function initialSessionState(
 
 export async function generateInitialRunState({
   cwd,
+  skillsDir,
   projectFiles,
   knowledgeFiles,
   userKnowledgeFiles,
@@ -532,6 +535,7 @@ export async function generateInitialRunState({
   fs,
 }: {
   cwd: string
+  skillsDir?: string
   projectFiles?: Record<string, string>
   knowledgeFiles?: Record<string, string>
   userKnowledgeFiles?: Record<string, string>
@@ -543,6 +547,7 @@ export async function generateInitialRunState({
   return {
     sessionState: await initialSessionState({
       cwd,
+      skillsDir,
       projectFiles,
       knowledgeFiles,
       userKnowledgeFiles,
