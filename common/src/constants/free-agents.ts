@@ -30,7 +30,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'researcher-docs': new Set(['x-ai/grok-4.1-fast']),
 
   // Command execution
-  'commander-lite': new Set(['minimax/minimax-m2.5']),
+  'commander-lite': new Set(['x-ai/grok-4.1-fast']),
 
   // Editor for free mode
   'editor-lite': new Set(['minimax/minimax-m2.5']),
