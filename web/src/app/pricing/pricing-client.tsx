@@ -9,7 +9,7 @@ import {
 import { env } from '@codebuff/common/env'
 import { loadStripe } from '@stripe/stripe-js'
 import { motion } from 'framer-motion'
-import { Gift, Shield, Loader2 } from 'lucide-react'
+import { Gift, Shield, Loader2, HelpCircle } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useState } from 'react'
@@ -20,6 +20,12 @@ import { Section } from '@/components/ui/section'
 import { SECTION_THEMES } from '@/components/ui/landing/constants'
 import { FeatureSection } from '@/components/ui/landing/feature'
 import { toast } from '@/components/ui/use-toast'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 import type { SubscriptionResponse } from '@codebuff/common/types/subscription'
@@ -325,7 +331,7 @@ export function StrongHeroSection({ compact }: { compact?: boolean }) {
       </motion.div>
 
       {/* Foreground content */}
-      <div className="codebuff-container min-h-dvh flex flex-col items-center justify-center relative z-10 py-8">
+      <div className="codebuff-container min-h-dvh flex flex-col items-center justify-center relative z-10 pb-12">
         <div className="flex flex-col items-center text-center max-w-4xl w-full space-y-12">
           <motion.h1
             className="text-4xl sm:text-5xl md:text-5xl font-bold text-white tracking-tight"
@@ -342,7 +348,22 @@ export function StrongHeroSection({ compact }: { compact?: boolean }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.9 }}
           >
-            Subscribe for higher usage limits
+            Subscribe to use all modes with higher usage limits
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span tabIndex={0} className="inline-flex items-center ml-1.5 cursor-help align-middle">
+                    <HelpCircle className="h-4 w-4 text-white/40 hover:text-white/70 transition-colors" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="bottom"
+                  className="bg-black/90 border-white/10 text-white/80 text-sm max-w-xs"
+                >
+                  Includes 5-hour sessions with weekly limits
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </motion.p>
 
           {/* Pricing cards grid with decorative blocks */}
