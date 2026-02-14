@@ -2,6 +2,10 @@
 
 All notable changes to the @codebuff/sdk package will be documented in this file.
 
+## [0.10.6]
+
+Added `skillsDir` parameter to specify a directory to load skills from.
+
 ## [0.10.5]
 
 Fixed a bug with missing tool calls/results.
