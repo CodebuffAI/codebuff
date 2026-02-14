@@ -38,6 +38,7 @@ import type { ToolSet } from 'ai'
 export type SubagentContextParams = AgentRuntimeDeps &
   AgentRuntimeScopedDeps & {
     clientSessionId: string
+    costMode?: string
     fileContext: ProjectFileContext
     localAgentTemplates: Record<string, AgentTemplate>
     repoId: string | undefined
@@ -90,6 +91,7 @@ export function extractSubagentContextParams(
 
     // Core context params
     clientSessionId: params.clientSessionId,
+    costMode: params.costMode,
     fileContext: params.fileContext,
     localAgentTemplates: params.localAgentTemplates,
     repoId: params.repoId,
