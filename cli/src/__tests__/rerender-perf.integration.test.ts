@@ -43,6 +43,7 @@ const RERENDER_THRESHOLDS = {
     'onToggleCollapsed',
     'onBuildFast',
     'onBuildMax',
+    'onBuildFree',
     'onCloseFeedback',
   ],
 

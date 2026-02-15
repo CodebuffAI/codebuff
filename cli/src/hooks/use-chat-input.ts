@@ -71,6 +71,19 @@ export const useChatInput = ({
     }, 0)
   }, [setAgentMode, setInputValue, onSubmitPrompt])
 
+  const handleBuildFree = useCallback(() => {
+    setAgentMode('FREE')
+    setInputValue({
+      text: BUILD_IT_TEXT,
+      cursorPosition: BUILD_IT_TEXT.length,
+      lastEditDueToNav: true,
+    })
+    setTimeout(() => {
+      onSubmitPrompt(BUILD_IT_TEXT, 'FREE')
+      setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+    }, 0)
+  }, [setAgentMode, setInputValue, onSubmitPrompt])
+
   useEffect(() => {
     if (initialPrompt && !hasAutoSubmittedRef.current) {
       hasAutoSubmittedRef.current = true
@@ -86,5 +99,6 @@ export const useChatInput = ({
     inputWidth,
     handleBuildFast,
     handleBuildMax,
+    handleBuildFree,
   }
 }

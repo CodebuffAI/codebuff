@@ -42,6 +42,7 @@ const baseProps = {
   onToggleCollapsed: () => {},
   onBuildFast: () => {},
   onBuildMax: () => {},
+  onBuildFree: () => {},
   setCollapsedAgents: () => {},
   addAutoCollapsedAgent: () => {},
 }

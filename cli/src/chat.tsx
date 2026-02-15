@@ -611,7 +611,7 @@ export const Chat = ({
     ],
   )
 
-  const { inputWidth, handleBuildFast, handleBuildMax } = useChatInput({
+  const { inputWidth, handleBuildFast, handleBuildMax, handleBuildFree } = useChatInput({
     setInputValue,
     agentMode,
     setAgentMode,
@@ -1230,6 +1230,7 @@ export const Chat = ({
       onToggleCollapsed: handleCollapseToggle,
       onBuildFast: handleBuildFast,
       onBuildMax: handleBuildMax,
+      onBuildFree: handleBuildFree,
       onFeedback: handleMessageFeedback,
       onCloseFeedback: handleCloseFeedback,
     })
@@ -1237,6 +1238,7 @@ export const Chat = ({
     handleCollapseToggle,
     handleBuildFast,
     handleBuildMax,
+    handleBuildFree,
     handleMessageFeedback,
     handleCloseFeedback,
     setMessageBlockCallbacks,

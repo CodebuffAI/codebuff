@@ -45,6 +45,7 @@ interface MessageBlockProps {
   onToggleCollapsed: (id: string) => void
   onBuildFast: () => void
   onBuildMax: () => void
+  onBuildFree: () => void
   onFeedback?: (messageId: string) => void
   onCloseFeedback?: () => void
   validationErrors?: Array<{ id: string; message: string }>
@@ -118,6 +119,7 @@ export const MessageBlock = memo(({
   onToggleCollapsed,
   onBuildFast,
   onBuildMax,
+  onBuildFree,
   onFeedback,
   onCloseFeedback,
   validationErrors,
@@ -155,6 +157,7 @@ export const MessageBlock = memo(({
       onToggleCollapsed,
       onBuildFast,
       onBuildMax,
+      onBuildFree,
       onFeedback,
       onCloseFeedback,
       validationErrors,
@@ -278,6 +281,7 @@ export const MessageBlock = memo(({
               onToggleCollapsed={onToggleCollapsed}
               onBuildFast={onBuildFast}
               onBuildMax={onBuildMax}
+              onBuildFree={onBuildFree}
               isLastMessage={isLastMessage}
               contentToCopy={isUser ? content : undefined}
             />

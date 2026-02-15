@@ -10,12 +10,14 @@ export const BuildModeButtons = ({
   theme,
   onBuildFast,
   onBuildMax,
+  onBuildFree,
 }: {
   theme: ChatTheme
   onBuildFast: () => void
   onBuildMax: () => void
+  onBuildFree: () => void
 }) => {
-  const [hoveredButton, setHoveredButton] = useState<'fast' | 'max' | null>(
+  const [hoveredButton, setHoveredButton] = useState<'fast' | 'max' | 'free' | null>(
     null,
   )
   const { width } = useTerminalLayout()
@@ -78,6 +80,25 @@ export const BuildModeButtons = ({
         >
           <text wrapMode="none">
             <span fg={theme.foreground}>Build MAX</span>
+          </text>
+        </Button>
+        <Button
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingLeft: 2,
+            paddingRight: 2,
+            borderStyle: 'single',
+            borderColor:
+              hoveredButton === 'free' ? theme.foreground : theme.secondary,
+            customBorderChars: BORDER_CHARS,
+          }}
+          onClick={onBuildFree}
+          onMouseOver={() => setHoveredButton('free')}
+          onMouseOut={() => setHoveredButton(null)}
+        >
+          <text wrapMode="none">
+            <span fg={theme.foreground}>Build FREE</span>
           </text>
         </Button>
       </box>
