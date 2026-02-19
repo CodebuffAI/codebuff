@@ -151,6 +151,7 @@ export async function postAds(params: {
         { placement: 'below_response', placement_id: 'code-assist-ad' },
       ],
       testAd: serverEnv.CB_ENVIRONMENT !== 'prod',
+      relevancy: 0.3,
       ...(device ? { device } : {}),
       user: {
         id: userId,
