@@ -116,13 +116,29 @@ export const AdBanner: React.FC<AdBannerProps> = ({ ad, onDisableAds, isFreeMode
               style={{
                 fg: theme.name === 'light' ? '#ffffff' : theme.background,
                 bg: isLinkHovered ? theme.link : theme.muted,
+                attributes: TextAttributes.BOLD,
               }}
             >
               {` ${ctaText} `}
             </text>
           </Button>
         )}
-        {domain && <text style={{ fg: theme.muted }}>{domain}</text>}
+        {domain && (
+          <Button
+            onClick={handleClick}
+            onMouseOver={() => setIsLinkHovered(true)}
+            onMouseOut={() => setIsLinkHovered(false)}
+          >
+            <text
+              style={{
+                fg: theme.muted,
+                attributes: TextAttributes.UNDERLINE,
+              }}
+            >
+              {domain}
+            </text>
+          </Button>
+        )}
         <box style={{ flexGrow: 1 }} />
         {ad.credits != null && ad.credits > 0 && (
           <text style={{ fg: theme.muted }}>+{ad.credits} credits</text>
