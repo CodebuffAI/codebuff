@@ -169,7 +169,7 @@ export function ReferralsSection() {
                         value={link}
                         placeholder={'Your referral link'}
                         readOnly
-                        className="bg-gray-100 dark:bg-gray-800 pr-10 focus-visible:ring-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
+                        className="bg-muted pr-10 focus-visible:ring-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
                       />
                     )}
                     <Button

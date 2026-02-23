@@ -111,11 +111,11 @@ export function TerminalCopyButton({
           } as React.CSSProperties
         }
         className={cn(
-          'bg-zinc-800/60 border rounded-md overflow-hidden group relative',
+          'bg-[#0d1117] border rounded-md overflow-hidden group relative',
           size === 'default' ? 'px-3 py-2.5' : 'px-3 py-4',
           pulseBorder
             ? `border-[${BlockColor.AcidMatrix}80]`
-            : `border-zinc-700/50 hover:border-[${BlockColor.AcidMatrix}50] hover:shadow-[var(--acid-matrix-shadow)]`,
+            : `border-white/10 hover:border-[${BlockColor.AcidMatrix}50] hover:shadow-[var(--acid-matrix-shadow)]`,
           'flex items-center justify-between h-full',
           'transition-all duration-300',
         )}

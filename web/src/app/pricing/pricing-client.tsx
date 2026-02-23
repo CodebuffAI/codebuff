@@ -157,7 +157,7 @@ function SubscribeButton({
       className={cn(
         'inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 sm:px-10 sm:py-3.5 text-xs sm:text-base font-semibold transition-all duration-200',
         isCurrent
-          ? 'bg-white/10 text-white/60 border border-white/20 cursor-default'
+          ? 'bg-muted text-muted-foreground border border-border cursor-default dark:bg-white/10 dark:text-white/60 dark:border-white/20'
           : isHighlighted
             ? 'bg-acid-green text-black hover:bg-acid-green/90 shadow-[0_0_30px_rgba(0,255,149,0.2)] hover:shadow-[0_0_50px_rgba(0,255,149,0.3)]'
             : 'bg-acid-green/10 text-acid-green border border-acid-green/30 hover:bg-acid-green/20 shadow-none hover:shadow-none',
@@ -220,7 +220,7 @@ function PricingCardsGrid() {
                   ? 'border-acid-green/60 bg-acid-green/[0.08] shadow-[0_0_50px_rgba(0,255,149,0.18)] ring-1 ring-acid-green/30'
                   : isHighlighted
                     ? 'border-acid-green/40 bg-acid-green/[0.06] shadow-[0_0_40px_rgba(0,255,149,0.12)] hover:shadow-[0_0_60px_rgba(0,255,149,0.2)]'
-                    : 'border-acid-green/15 bg-black/40 hover:border-acid-green/30 hover:bg-black/60',
+                    : 'border-acid-green/20 bg-muted/60 hover:border-acid-green/40 hover:bg-muted dark:border-acid-green/15 dark:bg-black/40 dark:hover:border-acid-green/30 dark:hover:bg-black/60',
               )}
             >
               {isCurrentPlan && (
@@ -231,15 +231,15 @@ function PricingCardsGrid() {
                 </div>
               )}
               <div className="flex items-baseline justify-center gap-1 mb-1">
-                <span className="text-xl sm:text-5xl font-bold text-white tracking-tight">
+                <span className="text-xl sm:text-5xl font-bold tracking-tight text-foreground dark:text-white">
                   ${tier.monthlyPrice}
                 </span>
-                <span className="text-xs sm:text-sm text-white/30">
+                <span className="text-xs sm:text-sm text-muted-foreground dark:text-white/30">
                   /mo
                 </span>
               </div>
 
-              <p className="text-sm sm:text-base font-medium text-white/60 mb-3 sm:mb-6">
+              <p className="text-sm sm:text-base font-medium mb-3 sm:mb-6 text-muted-foreground dark:text-white/60">
                 {USAGE_MULTIPLIER[price]} usage
               </p>
 
@@ -334,7 +334,7 @@ export function StrongHeroSection({ compact }: { compact?: boolean }) {
       <div className="codebuff-container min-h-dvh flex flex-col items-center justify-center relative z-10 pb-12">
         <div className="flex flex-col items-center text-center max-w-4xl w-full space-y-12">
           <motion.h1
-            className="text-4xl sm:text-5xl md:text-5xl font-bold text-white tracking-tight"
+            className="text-4xl sm:text-5xl md:text-5xl font-bold tracking-tight text-foreground dark:text-white"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.7 }}
@@ -370,7 +370,7 @@ export function StrongHeroSection({ compact }: { compact?: boolean }) {
           <PricingCardsGrid />
 
           <motion.p
-            className="text-sm text-white/30 tracking-wide"
+            className="text-sm tracking-wide text-muted-foreground dark:text-white/30"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.8, delay: 1.6 }}
@@ -420,31 +420,31 @@ function TeamPlanIllustration() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 w-full max-w-screen-lg mx-auto">
       {/* Team plan */}
-      <div className="bg-white border border-zinc-200 rounded-lg p-4 sm:p-6 flex flex-col h-full shadow-lg">
+      <div className="bg-card border border-border rounded-lg p-4 sm:p-6 flex flex-col h-full shadow-lg">
         <div className="mb-4">
-          <h3 className="text-xl font-bold text-gray-900 mb-1">Team</h3>
+          <h3 className="text-xl font-bold text-card-foreground mb-1">Team</h3>
           <div className="flex items-baseline">
-            <span className="text-2xl sm:text-3xl font-bold text-gray-900">
+            <span className="text-2xl sm:text-3xl font-bold text-card-foreground">
               $19
             </span>
-            <span className="text-sm sm:text-base text-gray-500 ml-1">
+            <span className="text-sm sm:text-base text-muted-foreground ml-1">
               /user/month
             </span>
           </div>
         </div>
 
         <ul className="space-y-2 sm:space-y-3 mb-auto">
-          <li className="flex text-gray-700">
+          <li className="flex text-card-foreground">
             <span className="text-green-600 mr-2">✓</span>
             <span className="text-sm sm:text-base">
               Team management dashboard
             </span>
           </li>
-          <li className="flex text-gray-700">
+          <li className="flex text-card-foreground">
             <span className="text-green-600 mr-2">✓</span>
             <span className="text-sm sm:text-base">Pooled credit usage</span>
           </li>
-          <li className="flex text-gray-700">
+          <li className="flex text-card-foreground">
             <span className="text-green-600 mr-2">✓</span>
             <span className="text-sm sm:text-base">
               Pay-as-you-go at 1¢ per credit
@@ -452,10 +452,10 @@ function TeamPlanIllustration() {
           </li>
         </ul>
 
-        <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-gray-200">
+        <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-border">
           <a
             href="mailto:support@codebuff.com"
-            className="text-blue-600 hover:text-blue-800 text-xs sm:text-sm"
+            className="text-blue-600 hover:text-blue-500 text-xs sm:text-sm"
           >
             Reach out to support@codebuff.com
           </a>
@@ -463,33 +463,33 @@ function TeamPlanIllustration() {
       </div>
 
       {/* Enterprise plan */}
-      <div className="bg-gradient-to-b from-blue-50 to-white border border-blue-200 rounded-lg p-4 sm:p-6 flex flex-col h-full shadow-lg">
+      <div className="bg-card border border-border rounded-lg p-4 sm:p-6 flex flex-col h-full shadow-lg">
         <div className="mb-4">
-          <h3 className="text-xl font-bold text-gray-900 mb-1">Enterprise</h3>
-          <div className="text-sm sm:text-base text-gray-500">
+          <h3 className="text-xl font-bold text-card-foreground mb-1">Enterprise</h3>
+          <div className="text-sm sm:text-base text-muted-foreground">
             Custom Pricing
           </div>
         </div>
 
         <ul className="space-y-2 sm:space-y-3 mb-auto">
-          <li className="flex text-gray-700">
-            <span className="text-blue-600 mr-2">✓</span>
+          <li className="flex text-card-foreground">
+            <span className="text-blue-500 mr-2">✓</span>
             <span className="text-sm sm:text-base">Everything in Team</span>
           </li>
-          <li className="flex text-gray-700">
-            <span className="text-blue-600 mr-2">✓</span>
+          <li className="flex text-card-foreground">
+            <span className="text-blue-500 mr-2">✓</span>
             <span className="text-sm sm:text-base">Dedicated support</span>
           </li>
-          <li className="flex text-gray-700">
-            <span className="text-blue-600 mr-2">✓</span>
+          <li className="flex text-card-foreground">
+            <span className="text-blue-500 mr-2">✓</span>
             <span className="text-sm sm:text-base">Custom integrations</span>
           </li>
         </ul>
 
-        <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-blue-100">
+        <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-border">
           <a
             href="mailto:founders@codebuff.com"
-            className="text-blue-600 hover:text-blue-800 text-xs sm:text-sm"
+            className="text-blue-600 hover:text-blue-500 text-xs sm:text-sm"
           >
             Reach out to founders@codebuff.com
           </a>

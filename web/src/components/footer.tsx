@@ -67,7 +67,7 @@ export const Footer = () => {
                 width={200}
                 height={100}
                 priority
-                className="rounded-sm"
+                className="rounded-sm brightness-0 dark:brightness-100"
               />
             </Link>
           </div>

@@ -301,7 +301,7 @@ export function EvalsTable({ results, isAdmin }: EvalsTableProps) {
                                 }}
                               />
                               <div className="absolute left-1 top-0 h-full flex items-center">
-                                <span className="text-sm font-medium bg-black bg-opacity-10 px-1 rounded text-gray-900">
+                                <span className="text-sm font-medium bg-foreground/10 px-1 rounded text-foreground">
                                   {formatScore(result.avgScore)}
                                 </span>
                               </div>

@@ -8,6 +8,7 @@ import { useSession } from 'next-auth/react'
 
 
 import { UserDropdown } from './user-dropdown'
+import { ThemeSwitcher } from '../theme-switcher'
 import { Icons } from '../icons'
 import { Button } from '../ui/button'
 import {
@@ -41,7 +42,7 @@ export const Navbar = () => {
             width={200}
             height={100}
             priority
-            className="rounded-sm transition-all duration-300 group-hover:brightness-110"
+            className="rounded-sm transition-all duration-300 brightness-0 dark:brightness-100 group-hover:brightness-[0.7] dark:group-hover:brightness-110"
           />
         </Link>
         <nav className="hidden md:flex items-center space-x-1 ml-auto">
@@ -179,7 +180,7 @@ export const Navbar = () => {
               </Button>
             </Link>
           )}
-          {/* <ThemeSwitcher /> */}
+          <ThemeSwitcher />
         </div>
       </div>
     </header>

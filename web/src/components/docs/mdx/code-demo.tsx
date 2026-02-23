@@ -39,7 +39,6 @@ const trimLeadingWhitespace = (content: string): string => {
 
   if (nonEmptyLines.length === 0) return content
 
-  // Find the minimum indentation among non-empty lines
   const minIndent = Math.min(
     ...nonEmptyLines.map((line) => {
       const match = line.match(/^\s*/)
@@ -47,16 +46,14 @@ const trimLeadingWhitespace = (content: string): string => {
     }),
   )
 
-  // Remove the minimum indentation from all lines
   const trimmedLines = lines.map((line) => {
-    if (line.trim() === '') return line // Keep empty lines as-is
+    if (line.trim() === '') return line
     return line.slice(minIndent)
   })
 
   return trimmedLines.join('\n')
 }
 
-// Map common language aliases to Prism language identifiers
 const languageMap: Record<string, string> = {
   js: 'javascript',
   ts: 'typescript',
@@ -94,14 +91,33 @@ const languageMap: Record<string, string> = {
   prisma: 'prisma',
 }
 
-// Language-specific color constants
+// Accent dot color per language
+const LANGUAGE_DOT_COLORS: Record<string, string> = {
+  typescript: '#3178c6',
+  tsx: '#3178c6',
+  javascript: '#f7df1e',
+  jsx: '#61dafb',
+  python: '#3572a5',
+  bash: '#89e051',
+  json: '#f97316',
+  yaml: '#fbbf24',
+  css: '#a855f7',
+  html: '#e34c26',
+  rust: '#dea584',
+  go: '#00add8',
+  markdown: '#94a3b8',
+  text: '#6b7280',
+  sql: '#e88c00',
+  graphql: '#e10098',
+  docker: '#0db7ed',
+}
+
 const LANGUAGE_COLORS = {
-  bash: '#8FE457', // BetweenGreen for bash commands
-  white: '#ffffff', // White for text/plain/markdown
-  default: null, // Use theme default for other languages
+  bash: '#8FE457',
+  white: '#ffffff',
+  default: null,
 } as const
 
-// Define which languages should use which color scheme
 const LANGUAGE_COLOR_MAP: Record<string, keyof typeof LANGUAGE_COLORS> = {
   bash: 'bash',
   text: 'white',
@@ -114,7 +130,6 @@ const getLanguageTheme = (language: string) => {
   const colorScheme = LANGUAGE_COLOR_MAP[language]
   const overrideColor = colorScheme && LANGUAGE_COLORS[colorScheme]
 
-  // For white-only languages, use minimal theme with no token styles
   if (colorScheme === 'white') {
     return {
       theme: {
@@ -137,7 +152,6 @@ const getLanguageTheme = (language: string) => {
 export function CodeDemo({ children, language, rawContent }: CodeDemoProps) {
   const [copied, setCopied] = useState(false)
 
-  // Enforce that language is required
   if (!language || language.trim() === '') {
     throw new Error('CodeDemo requires a language to be specified')
   }
@@ -149,15 +163,12 @@ export function CodeDemo({ children, language, rawContent }: CodeDemoProps) {
   }
 
   const childrenContent = useMemo(() => {
-    // Use rawContent if available (from remark plugin), otherwise fall back to processing children
     const content = rawContent || getContent(children)
     return trimLeadingWhitespace(content)
   }, [children, rawContent])
 
-  // Check if this is a mermaid diagram
   const isMermaid = language?.toLowerCase() === 'mermaid'
 
-  // Normalize language and get theme/color - must be called unconditionally
   const {
     normalizedLanguage,
     theme: highlightTheme,
@@ -166,33 +177,52 @@ export function CodeDemo({ children, language, rawContent }: CodeDemoProps) {
     const normalized = language.toLowerCase().trim()
     const normalizedLang = languageMap[normalized] || normalized
     const { theme, tokenColor } = getLanguageTheme(normalizedLang)
-    return {
-      normalizedLanguage: normalizedLang,
-      theme,
-      tokenColor,
-    }
+    return { normalizedLanguage: normalizedLang, theme, tokenColor }
   }, [language])
+
+  const isMultiLine = useMemo(() => {
+    const nonEmpty = childrenContent.split('\n').filter((l) => l.trim() !== '')
+    return nonEmpty.length > 1
+  }, [childrenContent])
+
+  const dotColor = LANGUAGE_DOT_COLORS[normalizedLanguage] ?? '#6b7280'
+  const displayLang = language.toLowerCase().trim()
+
+  const CopyButton = ({ small }: { small?: boolean }) => (
+    <button
+      onClick={() => copyToClipboard(childrenContent)}
+      className={`flex items-center gap-1.5 font-mono transition-colors duration-150 rounded hover:bg-white/5 ${
+        small
+          ? 'text-xs text-white/40 hover:text-white/70 px-2 py-1'
+          : 'text-xs text-white/40 hover:text-white/70 px-2 py-1'
+      }`}
+      aria-label={copied ? 'Copied!' : 'Copy code'}
+    >
+      {copied ? (
+        <>
+          <Check className="h-3.5 w-3.5 text-green-400 flex-shrink-0" />
+          <span className="text-green-400">Copied!</span>
+        </>
+      ) : (
+        <>
+          <Copy className="h-3.5 w-3.5 flex-shrink-0" />
+          <span>Copy</span>
+        </>
+      )}
+    </button>
+  )
 
   if (isMermaid) {
     return (
-      <div className="bg-zinc-800/60 rounded-md w-full my-3 overflow-hidden">
-        <div className="flex items-center justify-between px-3 py-2">
-          <div className="text-xs text-white/40 font-mono">
-            mermaid diagram
+      <div className="rounded-xl overflow-hidden border border-white/10 my-4 bg-[#0d1117]">
+        <div className="flex items-center justify-between px-4 py-2.5 bg-white/[0.04] border-b border-white/[0.08]">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />
+            <span className="text-xs text-white/50 font-mono">mermaid</span>
           </div>
-          <button
-            onClick={() => copyToClipboard(childrenContent)}
-            className="p-2 rounded-md text-white/60 hover:text-white hover:bg-white/5 transition-colors duration-200"
-            aria-label={copied ? 'Copied!' : 'Copy diagram code'}
-          >
-            {copied ? (
-              <Check className="h-4 w-4 text-green-500" />
-            ) : (
-              <Copy className="h-4 w-4" />
-            )}
-          </button>
+          <CopyButton />
         </div>
-        <div className="px-3 pb-4">
+        <div className="px-4 py-4">
           <MermaidDiagram code={childrenContent} />
         </div>
       </div>
@@ -200,67 +230,74 @@ export function CodeDemo({ children, language, rawContent }: CodeDemoProps) {
   }
 
   return (
-    <div className="bg-zinc-800/60 rounded-md px-3 py-2.5 w-full my-3 flex items-center justify-between overflow-x-auto">
-      <div className="flex-1 min-w-0">
+    <div className="rounded-xl overflow-hidden border border-white/10 my-4 bg-[#0d1117]">
+      {/* Header bar */}
+      <div className="flex items-center justify-between px-4 py-2.5 bg-white/[0.04] border-b border-white/[0.08]">
+        <div className="flex items-center gap-2">
+          <div
+            className="w-2 h-2 rounded-full flex-shrink-0"
+            style={{ backgroundColor: dotColor }}
+          />
+          <span className="text-xs text-white/50 font-mono">{displayLang}</span>
+        </div>
+        <CopyButton />
+      </div>
+
+      {/* Code area */}
+      <div className="overflow-x-auto">
         <Highlight
           theme={highlightTheme}
           code={childrenContent}
           language={normalizedLanguage}
         >
-          {({ className, style, tokens, getLineProps, getTokenProps }) => {
-            return (
-              <pre
-                className={`${className} text-sm leading-relaxed bg-transparent scrollbar-thin scrollbar-thumb-muted-foreground/10 scrollbar-track-transparent`}
-                style={{
-                  ...style,
-                  backgroundColor: 'transparent',
-                  color: tokenColor || style.color,
-                  margin: 0,
-                }}
-              >
-                {tokens.map((line, i) => {
-                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                  const { key: _lineKey, ...lineProps } = getLineProps({ line })
-                  return (
-                    <div key={i} {...lineProps}>
+          {({ className, style, tokens, getLineProps, getTokenProps }) => (
+            <pre
+              className={`${className} text-sm leading-6`}
+              style={{
+                ...style,
+                backgroundColor: 'transparent',
+                color: tokenColor || style.color,
+                margin: 0,
+                padding: isMultiLine ? '1rem 1.25rem' : '0.75rem 1.25rem',
+              }}
+            >
+              {tokens.map((line, i) => {
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { key: _lineKey, ...lineProps } = getLineProps({ line })
+                return (
+                  <div key={i} {...lineProps} className="flex">
+                    {isMultiLine && (
+                      <span
+                        className="select-none text-right mr-5 text-white/20 flex-shrink-0 tabular-nums"
+                        style={{ minWidth: '1.25rem' }}
+                      >
+                        {i + 1}
+                      </span>
+                    )}
+                    <span className="flex-1 min-w-0">
                       {line.map((token, tokenIndex) => {
                         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                        const { key: _tokenKey, ...tokenProps } = getTokenProps(
-                          { token, key: tokenIndex },
-                        )
-                        // Override colors for special languages in render loop
+                        const { key: _tokenKey, ...tokenProps } = getTokenProps({
+                          token,
+                          key: tokenIndex,
+                        })
                         const color = tokenColor || tokenProps.style?.color
-
                         return (
                           <span
                             key={tokenIndex}
                             {...tokenProps}
-                            style={{
-                              ...tokenProps.style,
-                              color,
-                            }}
+                            style={{ ...tokenProps.style, color }}
                           />
                         )
                       })}
-                    </div>
-                  )
-                })}
-              </pre>
-            )
-          }}
+                    </span>
+                  </div>
+                )
+              })}
+            </pre>
+          )}
         </Highlight>
       </div>
-      <button
-        onClick={() => copyToClipboard(childrenContent)}
-        className="flex-shrink-0 p-2 rounded-md text-white/60 hover:text-white hover:bg-white/5 transition-colors duration-200 ml-2"
-        aria-label={copied ? 'Copied!' : 'Copy code'}
-      >
-        {copied ? (
-          <Check className="h-4 w-4 text-green-500" />
-        ) : (
-          <Copy className="h-4 w-4" />
-        )}
-      </button>
     </div>
   )
 }

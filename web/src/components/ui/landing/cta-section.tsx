@@ -3,7 +3,6 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { motion } from 'framer-motion'
 import posthog from 'posthog-js'
-
 import { TerminalCopyButton } from '../enhanced-copy-button'
 import { Section } from '../section'
 import { SECTION_THEMES } from './constants'
@@ -27,7 +26,7 @@ export function CTASection() {
           transition={{ duration: 0.7 }}
         >
           <motion.h1
-            className={`hero-heading text-center mb-8 ${SECTION_THEMES.cta.textColor} text-balance`}
+            className="hero-heading text-center mb-8 text-foreground dark:text-white text-balance"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{
@@ -76,11 +75,11 @@ export function CTASection() {
             <TerminalCopyButton size="large" pulseBorder={true} />
           </div>
 
-          <div className="mt-2 text-center text-sm text-white/70">
+          <div className="mt-2 text-center text-sm text-muted-foreground dark:text-white/70">
             First time? Check out our{' '}
             <button
               onClick={handleInstallGuideClick}
-              className="relative py-0.5 text-green-400 hover:text-green-300 transition-colors rounded-md hover:underline"
+              className="relative py-0.5 text-green-600 hover:text-green-500 dark:text-green-400 dark:hover:text-green-300 transition-colors rounded-md hover:underline"
             >
               step-by-step guide
             </button>

@@ -71,7 +71,7 @@ export function InstallInstructions() {
               {editors.map((ed) => (
                 <button
                   key={ed.name}
-                  className="relative w-full bg-zinc-800/60 hover:bg-zinc-800/80 rounded-lg border border-zinc-600/70 hover:border-white/40 flex flex-row items-center justify-between group transition-all duration-200 py-1 px-3"
+                  className="relative w-full bg-[#0d1117] hover:bg-white/5 rounded-lg border border-white/10 hover:border-white/30 flex flex-row items-center justify-between group transition-all duration-200 py-1 px-3"
                   onClick={() => handleEditorClick(ed.name, ed.href)}
                   aria-label={`Open in ${ed.name}`}
                 >
@@ -102,7 +102,7 @@ export function InstallInstructions() {
             <span>Navigate to your project directory</span>
             <div className="mt-3">
               <div
-                className="bg-zinc-800/60 border border-zinc-700/50 hover:border-acid-green/50 hover:shadow-[0_0_15px_rgba(0,255,149,0.25)] rounded-md overflow-hidden relative px-3 py-2.5 flex items-center justify-between transition-all duration-300 cursor-pointer group"
+                className="bg-[#0d1117] border border-white/10 hover:border-acid-green/50 hover:shadow-[0_0_15px_rgba(0,255,149,0.25)] rounded-md overflow-hidden relative px-3 py-2.5 flex items-center justify-between transition-all duration-300 cursor-pointer group"
                 onClick={handleCdCommandCopy}
                 tabIndex={0}
                 aria-label="Copy command: cd /path/to/your-repo"
@@ -124,7 +124,7 @@ export function InstallInstructions() {
             <span>Install Codebuff</span>
             <div className="mt-3">
               <div
-                className="bg-zinc-800/60 border border-zinc-700/50 hover:border-acid-green/50 hover:shadow-[0_0_15px_rgba(0,255,149,0.25)] rounded-md overflow-hidden relative px-3 py-2.5 flex items-center justify-between transition-all duration-300 cursor-pointer group"
+                className="bg-[#0d1117] border border-white/10 hover:border-acid-green/50 hover:shadow-[0_0_15px_rgba(0,255,149,0.25)] rounded-md overflow-hidden relative px-3 py-2.5 flex items-center justify-between transition-all duration-300 cursor-pointer group"
                 onClick={handleInstallCommandCopy}
                 tabIndex={0}
                 aria-label="Copy command: npm install -g codebuff"
@@ -148,7 +148,7 @@ export function InstallInstructions() {
             <span>Run Codebuff</span>
             <div className="mt-3">
               <div
-                className="bg-zinc-800/60 border border-zinc-700/50 hover:border-acid-green/50 hover:shadow-[0_0_15px_rgba(0,255,149,0.25)] rounded-md overflow-hidden relative px-3 py-2.5 flex items-center justify-between transition-all duration-300 cursor-pointer group"
+                className="bg-[#0d1117] border border-white/10 hover:border-acid-green/50 hover:shadow-[0_0_15px_rgba(0,255,149,0.25)] rounded-md overflow-hidden relative px-3 py-2.5 flex items-center justify-between transition-all duration-300 cursor-pointer group"
                 onClick={handleRunCommandCopy}
                 tabIndex={0}
                 aria-label="Copy command: codebuff"

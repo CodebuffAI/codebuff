@@ -312,8 +312,8 @@ const PublisherPage = async ({ params }: PublisherPageProps) => {
                     className="rounded-full flex-shrink-0"
                   />
                 ) : (
-                  <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
-                    <User className="h-10 w-10 text-gray-500" />
+                  <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center flex-shrink-0">
+                    <User className="h-10 w-10 text-muted-foreground" />
                   </div>
                 )}
                 <div className="flex-1 min-w-0">

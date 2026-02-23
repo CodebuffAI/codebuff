@@ -13,7 +13,7 @@ export function Hero() {
         transition={{ duration: 0.7 }}
       >
         <motion.h1
-          className="hero-heading text-center mb-8 text-white text-balance"
+          className="hero-heading text-center mb-8 text-foreground text-balance"
           variants={{
             animate: {
               transition: {

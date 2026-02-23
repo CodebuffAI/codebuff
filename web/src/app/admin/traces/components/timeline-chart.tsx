@@ -216,7 +216,7 @@ export function TimelineChart({
       spawned_agent: 'bg-purple-500',
     }
 
-    const color = baseColors[type as keyof typeof baseColors] || 'bg-gray-500'
+    const color = baseColors[type as keyof typeof baseColors] || 'bg-muted-foreground'
 
     if (isSelected) {
       return `${color} ring-2 ring-offset-2 ring-offset-background ring-blue-600`
@@ -306,14 +306,14 @@ export function TimelineChart({
             {/* Connection line to parent */}
             {event.parentId && depth > 0 && (
               <div
-                className="absolute h-0.5 bg-gray-400 opacity-50"
+                className="absolute h-0.5 bg-border opacity-70"
                 style={{
                   left: `${left - 20}px`,
                   width: '20px',
                   top: '16px',
                 }}
               >
-                <ArrowRight className="absolute -right-1 -top-2 h-4 w-4 text-gray-400" />
+                <ArrowRight className="absolute -right-1 -top-2 h-4 w-4 text-muted-foreground" />
               </div>
             )}
           </div>
@@ -404,7 +404,7 @@ export function TimelineChart({
                       transform: 'translateY(-50%)',
                     }}
                   >
-                    <div className="h-4 w-px bg-gray-300" />
+                    <div className="h-4 w-px bg-border" />
                     <span className="text-xs text-muted-foreground ml-1">
                       {seconds}s
                     </span>

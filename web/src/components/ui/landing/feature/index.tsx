@@ -25,6 +25,7 @@ function LearnMoreLink({
   isLight: boolean
   textColor?: string
 }) {
+  const darkIsBlack = isLight || textColor === 'text-black'
   return (
     <a
       href={href}
@@ -38,11 +39,10 @@ function LearnMoreLink({
       }}
       className={cn(
         'inline-block mt-4 text-sm font-medium border-b border-dotted pb-0.5 transition-colors',
-        textColor
-          ? `${textColor} ${textColor.replace('text-', 'border-')}/40 hover:text-blue-500 hover:border-blue-500`
-          : isLight
-            ? 'text-black border-black/40 hover:text-blue-600 hover:border-blue-600'
-            : 'text-white/80 border-white/40 hover:text-blue-400 hover:border-blue-400',
+        'text-foreground/80 border-foreground/30 hover:text-blue-600 hover:border-blue-600',
+        darkIsBlack
+          ? 'dark:text-black dark:border-black/40 dark:hover:text-blue-600 dark:hover:border-blue-600'
+          : 'dark:text-white/80 dark:border-white/40 dark:hover:text-blue-400 dark:hover:border-blue-400',
       )}
     >
       {text} →
@@ -127,9 +127,9 @@ export function FeatureSection({
     <Section background={backdropColor}>
       <div
         className={cn(
-          'text-white max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
-          { 'text-black': isLight },
-          textColor,
+          'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
+          'text-foreground',
+          isLight ? 'dark:text-black' : 'dark:text-white',
         )}
       >
         <div

@@ -38,6 +38,46 @@
   }
 
   :root {
+    /* Section background colors — light mode equivalents of dark brand colors */
+    --section-bg-black: hsl(0 0% 99%);
+    --section-bg-dark-forest-green: hsl(138 60% 97%);
+    --section-bg-generative-green: hsl(138 40% 95%);
+
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 10% 3.9%;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    /* Section background colors — dark mode (original brand colors) */
+    --section-bg-black: rgb(0, 0, 0);
+    --section-bg-dark-forest-green: rgba(3, 29, 10, 1);
+    --section-bg-generative-green: rgb(18, 73, 33);
+
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
     --card: 240 10% 3.9%;
@@ -115,7 +155,7 @@
 }
 
 .hero-subtext {
-  @apply text-lg md:text-xl text-zinc-300 max-w-3xl mx-auto font-paragraph;
+  @apply text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto font-paragraph;
 }
 
 /* Terminal demo section */
@@ -192,7 +232,7 @@
   font-size: 0.9em;
   font-weight: inherit;
   border-radius: 2px;
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: hsl(var(--muted));
 }
 
 /* Ensure proper text wrapping in headings on mobile */

@@ -146,10 +146,10 @@ export default function HomeClient() {
                     BENCHMARK RESULTS
                   </motion.div>
                 </div>
-                <h2 className="text-4xl md:text-5xl font-bold text-white">
+                <h2 className="text-4xl md:text-5xl font-bold text-foreground dark:text-white">
                   BuffBench Results
                 </h2>
-                <p className="text-xl text-white/70 max-w-2xl mx-auto">
+                <p className="text-xl max-w-2xl mx-auto text-muted-foreground dark:text-white/70">
                   State of the art coding agent evaluation using generated
                   workflows and judging from open source repositories
                 </p>
@@ -162,7 +162,7 @@ export default function HomeClient() {
                 transition={{ duration: 0.7, delay: 0.2 }}
                 className="relative"
               >
-                <div className="bg-zinc-900/50 border-2 border-green-500/30 rounded-xl p-8 shadow-2xl shadow-green-500/10">
+                <div className="border-2 border-green-500/30 rounded-xl p-8 shadow-2xl shadow-green-500/10 bg-white/80 dark:bg-zinc-900/50">
                   <Image
                     src="/codebuff-vs-claude-code.png"
                     alt="Codebuff vs Claude Code Performance Comparison"
@@ -180,15 +180,15 @@ export default function HomeClient() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.5, delay: 0.4 }}
-                  className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-6"
+                  className="border rounded-lg p-6 bg-white border-border shadow-sm dark:bg-zinc-800/50 dark:border-zinc-700/50"
                 >
-                  <div className="text-3xl font-bold text-green-400 mb-2">
+                  <div className="text-3xl font-bold text-green-500 mb-2">
                     175+
                   </div>
-                  <div className="text-white font-semibold mb-1">
+                  <div className="font-semibold mb-1 text-foreground dark:text-white">
                     Real Tasks
                   </div>
-                  <div className="text-white/60 text-sm">
+                  <div className="text-sm text-muted-foreground dark:text-white/60">
                     Git commit reconstruction from open source projects
                   </div>
                 </motion.div>
@@ -198,15 +198,15 @@ export default function HomeClient() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.5, delay: 0.6 }}
-                  className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-6"
+                  className="border rounded-lg p-6 bg-white border-border shadow-sm dark:bg-zinc-800/50 dark:border-zinc-700/50"
                 >
-                  <div className="text-3xl font-bold text-green-400 mb-2">
+                  <div className="text-3xl font-bold text-green-500 mb-2">
                     5
                   </div>
-                  <div className="text-white font-semibold mb-1">
+                  <div className="font-semibold mb-1 text-foreground dark:text-white">
                     Turn Conversations
                   </div>
-                  <div className="text-white/60 text-sm">
+                  <div className="text-sm text-muted-foreground dark:text-white/60">
                     Prompting agent simulates human for multiple turns
                   </div>
                 </motion.div>
@@ -216,15 +216,15 @@ export default function HomeClient() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.5, delay: 0.8 }}
-                  className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-6"
+                  className="border rounded-lg p-6 bg-white border-border shadow-sm dark:bg-zinc-800/50 dark:border-zinc-700/50"
                 >
-                  <div className="text-3xl font-bold text-green-400 mb-2">
+                  <div className="text-3xl font-bold text-green-500 mb-2">
                     4D
                   </div>
-                  <div className="text-white font-semibold mb-1">
+                  <div className="font-semibold mb-1 text-foreground dark:text-white">
                     Scoring System
                   </div>
-                  <div className="text-white/60 text-sm">
+                  <div className="text-sm text-muted-foreground dark:text-white/60">
                     Completion, efficiency, code quality, and overall scores
                   </div>
                 </motion.div>
@@ -239,7 +239,7 @@ export default function HomeClient() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.5, delay: 1.0 }}
-                  className="inline-flex items-center gap-2 text-green-400 hover:text-green-300 transition-colors"
+                  className="inline-flex items-center gap-2 text-green-600 hover:text-green-500 dark:text-green-400 dark:hover:text-green-300 transition-colors"
                 >
                   <span>View evaluation methodology</span>
                   <span className="text-xs">↗</span>

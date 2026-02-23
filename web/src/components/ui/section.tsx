@@ -20,6 +20,14 @@ export interface SectionProps {
   style?: CSSProperties
 }
 
+// Map dark brand colors to CSS custom properties that switch instantly via .dark class
+// (no JS hydration delay — eliminates flash of wrong background color)
+const BG_CSS_VAR: Record<string, string> = {
+  'rgb(0, 0, 0)': 'var(--section-bg-black)',
+  'rgba(3, 29, 10, 1)': 'var(--section-bg-dark-forest-green)',
+  'rgb(18, 73, 33)': 'var(--section-bg-generative-green)',
+}
+
 const _defaultAnimationProps = {
   initial: { opacity: 0, y: 20 },
   whileInView: { opacity: 1, y: 0 },
@@ -39,11 +47,14 @@ export function Section({
   style: customStyle,
   ...props
 }: SectionProps) {
+  const isMobile = useIsMobile()
+
+  const effectiveBg = background ? (BG_CSS_VAR[background] ?? background) : background
+
   const style = {
-    backgroundColor: background,
+    backgroundColor: effectiveBg,
     ...customStyle,
   }
-  const isMobile = useIsMobile()
 
   const content = contained ? (
     <div className={cn('codebuff-container relative z-10', containerClassName)}>

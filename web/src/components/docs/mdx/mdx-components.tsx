@@ -271,7 +271,7 @@ const components = {
   pre: ({ className, ...props }: HTMLAttributes<HTMLPreElement>) => (
     <pre
       className={cn(
-        'mb-4 mt-4 overflow-x-auto rounded-lg border bg-black/5 dark:bg-white/5 py-4',
+        'mb-4 mt-4 overflow-x-auto rounded-xl border border-white/10 bg-[#0d1117] px-5 py-4 text-sm text-white/80 leading-6',
         className,
       )}
       {...props}
@@ -280,7 +280,7 @@ const components = {
   code: ({ className, ...props }: HTMLAttributes<HTMLElement>) => (
     <code
       className={cn(
-        'relative rounded px-[0.3rem] py-[0.2rem] mx-2 font-mono text-sm bg-muted',
+        'relative rounded-md px-[0.35rem] py-[0.2rem] font-mono text-sm bg-muted border border-border/60',
         className,
       )}
       {...props}

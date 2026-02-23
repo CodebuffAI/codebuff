@@ -259,7 +259,7 @@ export function SecuritySection() {
                           {s.isCurrent && (
                             <Badge
                               variant="outline"
-                              className="text-green-600 border-green-200 bg-green-50"
+                              className="text-green-600 dark:text-green-400 border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30"
                             >
                               Current
                             </Badge>
