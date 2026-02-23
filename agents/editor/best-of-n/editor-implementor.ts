@@ -64,7 +64,7 @@ OR for new files or major rewrites:
   "cb_tool_name": "propose_write_file",
   "path": "path/to/file",
   "instructions": "What the change does",
-  "content": "Complete file content or edit snippet"
+  "content": "Complete file content"
 }
 </codebuff_tool_call>
 ${isGpt5 || isGemini

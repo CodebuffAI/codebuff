@@ -16,19 +16,13 @@ const inputSchema = z
     instructions: z
       .string()
       .describe('What the change is intended to do in only one sentence.'),
-    content: z.string().describe(`Edit snippet to apply to the file.`),
+    content: z.string().describe(`Complete file content to write to the file.`),
   })
-  .describe(`Create or edit a file with the given content.`)
+  .describe(`Create or overwrite a file with the given content.`)
 const description = `
 Create or replace a file with the given content.
 
-####  Edit Snippet
-
-Format the \`content\` parameter with the entire content of the file or as an edit snippet that describes how you would like to modify the provided existing code.
-
-You may abbreviate any sections of the code in your response that will remain the same with placeholder comments: "// ... existing code ...". Abbreviate as much as possible to save the user credits!
-
-If you don't use any placeholder comments, the entire file will be replaced. E.g. don't write out a single function without using placeholder comments unless you want to replace the entire file with that function.
+Format the \`content\` parameter with the entire content of the file.
 
 #### Additional Info
 
@@ -50,28 +44,21 @@ ${$getNativeToolCallExampleString({
   endsAgentStep,
 })}
 
-Example 2 - Editing with placeholder comments:
+Example 2 - Overwriting a file:
 ${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
   input: {
     path: 'foo.ts',
-    instructions: 'Update foo and remove console.log',
-    content: `// ... existing code ...
-
-function foo() {
-  console.log('foo');
-  for (let i = 0; i < 10; i++) {
-    console.log(i);
-  }
-  doSomething();
-
-  // Delete the console.log line from here
-
-  doSomethingElse();
+    instructions: 'Update foo function',
+    content: `function foo() {
+  doSomethingNew();
 }
-
-// ... existing code ...`,
+  
+function bar() {
+  doSomethingOld();
+}
+`,
   },
   endsAgentStep,
 })}

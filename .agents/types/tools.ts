@@ -178,7 +178,7 @@ export interface ProposeWriteFileParams {
   path: string
   /** What the change is intended to do in only one sentence. */
   instructions: string
-  /** Edit snippet to apply to the file. */
+  /** Complete file content to write to the file. */
   content: string
 }
 
@@ -319,14 +319,14 @@ export interface WebSearchParams {
 }
 
 /**
- * Create or edit a file with the given content.
+ * Create or overwrite a file with the given content.
  */
 export interface WriteFileParams {
   /** Path to the file relative to the **project root** */
   path: string
   /** What the change is intended to do in only one sentence. */
   instructions: string
-  /** Edit snippet to apply to the file. */
+  /** Complete file content to write to the file. */
   content: string
 }
 

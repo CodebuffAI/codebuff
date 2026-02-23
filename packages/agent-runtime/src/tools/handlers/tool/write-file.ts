@@ -78,35 +78,20 @@ export const handleWriteFile = (async (
     ) => Promise<CodebuffToolOutput<'write_file'>>
     requestOptionalFile: RequestOptionalFileFn
     writeToClient: (chunk: string) => void
-  } & ParamsExcluding<
-    typeof processFileBlock,
-    | 'path'
-    | 'instructions'
-    | 'fingerprintId'
-    | 'initialContentPromise'
-    | 'newContent'
-    | 'messages'
-    | 'lastUserPrompt'
-  > &
-    ParamsExcluding<RequestOptionalFileFn, 'filePath'>,
+  } & ParamsExcluding<RequestOptionalFileFn, 'filePath'>,
 ): Promise<{ output: CodebuffToolOutput<'write_file'> }> => {
   const {
     previousToolCallFinished,
     toolCall,
 
-    agentState,
-    clientSessionId,
     fileProcessingState,
-    fingerprintId,
     logger,
-    prompt,
-    userInputId,
 
     requestClientToolCall,
     requestOptionalFile,
     writeToClient,
   } = params
-  const { path, instructions, content } = toolCall.input
+  const { path, content } = toolCall.input
 
   const fileProcessingPromisesByPath = fileProcessingState.promisesByPath
   const fileProcessingPromises = fileProcessingState.allPromises
@@ -133,16 +118,9 @@ export const handleWriteFile = (async (
   logger.debug({ path, content }, `write_file ${path}`)
 
   const newPromise = processFileBlock({
-    ...params,
     path,
-    instructions,
     initialContentPromise: latestContentPromise,
     newContent: fileContentWithoutStartNewline,
-    messages: agentState.messageHistory,
-    lastUserPrompt: prompt,
-    clientSessionId,
-    fingerprintId,
-    userInputId,
     logger,
   })
     .then((result) => {

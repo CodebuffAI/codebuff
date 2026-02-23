@@ -45,63 +45,6 @@ export const truncateStringWithMessage = ({
  */
 export const isWhitespace = (character: string) => /\s/.test(character)
 
-export const replaceNonStandardPlaceholderComments = (
-  content: string,
-  replacement: string,
-): string => {
-  const commentPatterns = [
-    // JSX comments (match this first)
-    {
-      regex:
-        /{\s*\/\*\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\s*\.{3})?\s*\*\/\s*}/gi,
-      placeholder: replacement,
-    },
-    // C-style comments (C, C++, Java, JavaScript, TypeScript, etc.)
-    {
-      regex:
-        /\/\/\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\s*\.{3})?/gi,
-      placeholder: replacement,
-    },
-    {
-      regex:
-        /\/\*\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\s*\.{3})?\s*\*\//gi,
-      placeholder: replacement,
-    },
-    // Python, Ruby, R comments
-    {
-      regex:
-        /#\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\s*\.{3})?/gi,
-      placeholder: replacement,
-    },
-    // HTML-style comments
-    {
-      regex:
-        /<!--\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\s*\.{3})?\s*-->/gi,
-      placeholder: replacement,
-    },
-    // SQL, Haskell, Lua comments
-    {
-      regex:
-        /--\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\s*\.{3})?/gi,
-      placeholder: replacement,
-    },
-    // MATLAB comments
-    {
-      regex:
-        /%\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\s*\.{3})?/gi,
-      placeholder: replacement,
-    },
-  ]
-
-  let updatedContent = content
-
-  for (const { regex, placeholder } of commentPatterns) {
-    updatedContent = updatedContent.replaceAll(regex, placeholder)
-  }
-
-  return updatedContent
-}
-
 export const randBoolFromStr = (str: string) => {
   return sumBy(str.split(''), (char) => char.charCodeAt(0)) % 2 === 0
 }
@@ -350,37 +293,6 @@ export const safeReplace = (
 ): string => {
   const escapedReplaceStr = replaceStr.replace(/\$/g, '$$$$')
   return content.replace(searchStr, escapedReplaceStr)
-}
-
-export const hasLazyEdit = (content: string) => {
-  const cleanedContent = content.toLowerCase().trim()
-  return (
-    cleanedContent.includes('... existing code ...') ||
-    cleanedContent.includes('// rest of the') ||
-    cleanedContent.includes('# rest of the') ||
-    // Match various comment styles with ellipsis and specific words
-    /\/\/\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
-      cleanedContent,
-    ) || // C-style single line
-    /\/\*\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?\s*\*\//.test(
-      cleanedContent,
-    ) || // C-style multi-line
-    /#\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
-      cleanedContent,
-    ) || // Python/Ruby style
-    /<!--\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?\s*-->/.test(
-      cleanedContent,
-    ) || // HTML style
-    /--\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
-      cleanedContent,
-    ) || // SQL/Haskell style
-    /%\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?/.test(
-      cleanedContent,
-    ) || // MATLAB style
-    /{\s*\/\*\s*\.{3}.*(?:rest|unchanged|keep|file|existing|some).*(?:\.{3})?\s*\*\/\s*}/.test(
-      cleanedContent,
-    ) // JSX style
-  )
 }
 
 /**

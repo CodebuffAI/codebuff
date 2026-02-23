@@ -1,141 +1,110 @@
-import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
-import { expect, describe, it } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 
-import { parseAndGetDiffBlocksSingleFile } from '../generate-diffs-prompt'
+import { tryToDoStringReplacementWithExtraIndentation } from '../generate-diffs-prompt'
 
-describe('parseAndGetDiffBlocksSingleFile', () => {
-  it('should parse diff blocks with newline before closing marker', () => {
-    const oldContent = 'function test() {\n  return true;\n}\n'
-    const newContent = `<<<<<<< SEARCH
-function test() {
-  return true;
-}
-=======
-function test() {
-  if (!condition) return false;
-  return true;
-}
->>>>>>> REPLACE`
+describe('tryToDoStringReplacementWithExtraIndentation', () => {
+  it('should return null when search content is found without extra indentation', () => {
+    const oldFileContent = 'function foo() {\n  return 1;\n}\n'
+    const searchContent = 'function foo() {\n  return 1;\n}\n'
+    const replaceContent = 'function foo() {\n  return 2;\n}\n'
 
-    const result = parseAndGetDiffBlocksSingleFile({
-      ...TEST_AGENT_RUNTIME_IMPL,
-      newContent,
-      oldFileContent: oldContent,
+    const result = tryToDoStringReplacementWithExtraIndentation({
+      oldFileContent,
+      searchContent,
+      replaceContent,
     })
-    console.log(JSON.stringify({ result }))
 
-    expect(result.diffBlocks.length).toBe(1)
-    expect(result.diffBlocksThatDidntMatch.length).toBe(0)
-    expect(result.diffBlocks[0].searchContent).toBe(
-      'function test() {\n  return true;\n}\n',
+    expect(result).toBeNull()
+  })
+
+  it('should match with extra space indentation', () => {
+    const oldFileContent = '  function foo() {\n    return 1;\n  }\n'
+    const searchContent = 'function foo() {\n  return 1;\n}\n'
+    const replaceContent = 'function foo() {\n  return 2;\n}\n'
+
+    const result = tryToDoStringReplacementWithExtraIndentation({
+      oldFileContent,
+      searchContent,
+      replaceContent,
+    })
+
+    expect(result).not.toBeNull()
+    expect(result!.searchContent).toBe(
+      '  function foo() {\n    return 1;\n  }\n',
     )
-    expect(result.diffBlocks[0].replaceContent).toBe(
-      'function test() {\n  if (!condition) return false;\n  return true;\n}\n',
+    expect(result!.replaceContent).toBe(
+      '  function foo() {\n    return 2;\n  }\n',
     )
   })
 
-  it('should parse diff blocks without newline before closing marker', () => {
-    const oldContent = 'function test() {\n  return true;\n}\n'
-    const newContent = `<<<<<<< SEARCH
-function test() {
-  return true;
-}
-=======
-function test() {
-  if (!condition) return false;
-  return true;
-}>>>>>>> REPLACE`
+  it('should match with extra tab indentation', () => {
+    const oldFileContent = '\tfunction foo() {\n\t\treturn 1;\n\t}\n'
+    const searchContent = 'function foo() {\n\treturn 1;\n}\n'
+    const replaceContent = 'function foo() {\n\treturn 2;\n}\n'
 
-    const result = parseAndGetDiffBlocksSingleFile({
-      ...TEST_AGENT_RUNTIME_IMPL,
-      newContent,
-      oldFileContent: oldContent,
+    const result = tryToDoStringReplacementWithExtraIndentation({
+      oldFileContent,
+      searchContent,
+      replaceContent,
     })
 
-    expect(result.diffBlocks.length).toBe(1)
-    expect(result.diffBlocksThatDidntMatch.length).toBe(0)
-    expect(result.diffBlocks[0].searchContent).toBe(
-      'function test() {\n  return true;\n}\n',
+    expect(result).not.toBeNull()
+    expect(result!.searchContent).toBe(
+      '\tfunction foo() {\n\t\treturn 1;\n\t}\n',
     )
-    expect(result.diffBlocks[0].replaceContent).toBe(
-      'function test() {\n  if (!condition) return false;\n  return true;\n}',
+    expect(result!.replaceContent).toBe(
+      '\tfunction foo() {\n\t\treturn 2;\n\t}\n',
     )
   })
 
-  it('should handle multiple diff blocks with mixed newline patterns', () => {
-    const oldContent = `function add(a, b) {
-  return a + b;
-}
+  it('should return null when content does not match with any indentation', () => {
+    const oldFileContent = 'function foo() {\n  return 1;\n}\n'
+    const searchContent = 'function bar() {\n  return 1;\n}\n'
+    const replaceContent = 'function bar() {\n  return 2;\n}\n'
 
-function subtract(a, b) {
-  return a - b;
-}
-`
-
-    const newContent = `<<<<<<< SEARCH
-function add(a, b) {
-  return a + b;
-}
-=======
-function add(a, b) {
-  // Add type checking
-  if (typeof a !== 'number' || typeof b !== 'number') {
-    throw new Error('Invalid arguments');
-  }
-  return a + b;
-}>>>>>>> REPLACE
-
-<<<<<<< SEARCH
-function subtract(a, b) {
-  return a - b;
-}
-=======
-function subtract(a, b) {
-  // Add type checking
-  if (typeof a !== 'number' || typeof b !== 'number') {
-    throw new Error('Invalid arguments');
-  }
-  return a - b;
-}
->>>>>>> REPLACE`
-
-    const result = parseAndGetDiffBlocksSingleFile({
-      ...TEST_AGENT_RUNTIME_IMPL,
-      newContent,
-      oldFileContent: oldContent,
+    const result = tryToDoStringReplacementWithExtraIndentation({
+      oldFileContent,
+      searchContent,
+      replaceContent,
     })
 
-    expect(result.diffBlocks.length).toBe(2)
-    expect(result.diffBlocksThatDidntMatch.length).toBe(0)
-    expect(result.diffBlocks[0].searchContent).toBe(
-      'function add(a, b) {\n  return a + b;\n}\n',
+    expect(result).toBeNull()
+  })
+
+  it('should not add indentation to empty lines', () => {
+    const oldFileContent =
+      '    const x = 1;\n\n    const y = 2;\n'
+    const searchContent = 'const x = 1;\n\nconst y = 2;\n'
+    const replaceContent = 'const x = 10;\n\nconst y = 20;\n'
+
+    const result = tryToDoStringReplacementWithExtraIndentation({
+      oldFileContent,
+      searchContent,
+      replaceContent,
+    })
+
+    expect(result).not.toBeNull()
+    expect(result!.searchContent).toBe(
+      '    const x = 1;\n\n    const y = 2;\n',
     )
-    expect(result.diffBlocks[1].searchContent).toBe(
-      'function subtract(a, b) {\n  return a - b;\n}\n',
+    expect(result!.replaceContent).toBe(
+      '    const x = 10;\n\n    const y = 20;\n',
     )
   })
 
-  it('should handle empty replace content (with just one newline)', () => {
-    const oldContent = `function add(a, b) {
-  // This is a comment
-  return a + b;
-}
-`
+  it('should find the smallest matching indentation level', () => {
+    const oldFileContent = ' const x = 1;\n'
+    const searchContent = 'const x = 1;\n'
+    const replaceContent = 'const x = 2;\n'
 
-    const newContent = `<<<<<<< SEARCH
-  // This is a comment
-=======
->>>>>>> REPLACE`
-
-    const result = parseAndGetDiffBlocksSingleFile({
-      ...TEST_AGENT_RUNTIME_IMPL,
-      newContent,
-      oldFileContent: oldContent,
+    const result = tryToDoStringReplacementWithExtraIndentation({
+      oldFileContent,
+      searchContent,
+      replaceContent,
     })
 
-    expect(result.diffBlocks.length).toBe(1)
-    expect(result.diffBlocksThatDidntMatch.length).toBe(0)
-    expect(result.diffBlocks[0].searchContent).toBe('  // This is a comment\n')
-    expect(result.diffBlocks[0].replaceContent).toBe('')
+    expect(result).not.toBeNull()
+    expect(result!.searchContent).toBe(' const x = 1;\n')
+    expect(result!.replaceContent).toBe(' const x = 2;\n')
   })
 })
