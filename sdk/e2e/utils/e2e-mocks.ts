@@ -344,7 +344,7 @@ async function* promptAiSdkStreamMock(
     await params.onCostCalculated(0)
   }
 
-  return `mock-message-${Math.random().toString(36).slice(2, 10)}`
+  return promptSuccess(`mock-message-${Math.random().toString(36).slice(2, 10)}`)
 }
 
 async function promptAiSdkMock(
@@ -393,7 +393,7 @@ export function setupE2eMocks(): void {
     async ({ fields }) =>
       Object.fromEntries(
         fields.map((field) => [field, MOCK_USER[field]]),
-      ) as Awaited<ReturnType<typeof databaseModule.getUserInfoFromApiKey>>,
+      ) as unknown as Awaited<ReturnType<typeof databaseModule.getUserInfoFromApiKey>>,
   )
   spyOn(databaseModule, 'fetchAgentFromDatabase').mockImplementation(
     async ({ parsedAgentId }) => buildMockAgentTemplate(parsedAgentId),
