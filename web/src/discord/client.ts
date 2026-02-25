@@ -79,7 +79,7 @@ export function startDiscordBot(): Promise<Client> {
 
         if (!email) {
           await command.reply({
-            content: 'Please provide your email address with the command.',
+            content: `Please provide the primary email for your GitHub account used for Codebuff. You can find it at ${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/profile?tab=account`,
             ephemeral: true,
           })
           return
@@ -110,7 +110,7 @@ export function startDiscordBot(): Promise<Client> {
             userRecord.discordId !== null
           ) {
             await command.reply({
-              content: `I couldn't link that email to your Discord account. Make sure you're using the correct email and that it isn't already linked to another Discord account. Contact ${env.NEXT_PUBLIC_SUPPORT_EMAIL} if you need help.`,
+              content: `I couldn't link that email to your Discord account. Make sure you're using the correct email (the primary email on your GitHub account) and that it isn't already linked to another Discord account. You can find your Codebuff email at ${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/profile?tab=account.`,
               ephemeral: true,
             })
             return
