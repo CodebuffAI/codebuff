@@ -33,19 +33,23 @@ Codebuff is a tool for editing codebases via natural-language instructions to Bu
 
 ## Development
 
-Start everything:
-
-```bash
-bun dev
-```
-
-Or run services + CLI separately:
+Start the web server first:
 
 ```bash
 bun up
+```
+
+Then start the CLI separately:
+
+```bash
 bun start-cli
-bun ps
-bun down
+```
+
+Other service commands:
+
+```bash
+bun ps    # check running services
+bun down  # stop services
 ```
 
 Worktrees (run multiple stacks on different ports): create `.env.development.local`:

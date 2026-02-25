@@ -197,6 +197,26 @@ async function main(): Promise<void> {
   const startCwd = process.cwd()
   const showProjectPicker = shouldShowProjectPicker(startCwd, homeDir)
 
+  // Initialize analytics early, before anything that might use the logger
+  // (the logger calls trackEvent, which throws if analytics isn't initialized)
+  try {
+    initAnalytics()
+
+    // Track app launch event
+    trackEvent(AnalyticsEvent.APP_LAUNCHED, {
+      version: loadPackageVersion(),
+      platform: process.platform,
+      arch: process.arch,
+      hasInitialPrompt: Boolean(initialPrompt),
+      hasAgentOverride: hasAgentOverride,
+      continueChat,
+      initialMode: initialMode ?? 'DEFAULT',
+    })
+  } catch (error) {
+    // Analytics initialization is optional - don't fail the app if it errors
+    logger.debug(error, 'Failed to initialize analytics')
+  }
+
   // Initialize agent registry (loads user agents via SDK).
   // When --agent is provided, skip local .agents to avoid overrides.
   if (isPublishCommand || !hasAgentOverride) {
@@ -229,25 +249,6 @@ async function main(): Promise<void> {
       if (result.hint) logger.warn(yellow(`Hint: ${result.hint}`))
       process.exit(1)
     }
-  }
-
-  // Initialize analytics
-  try {
-    initAnalytics()
-
-    // Track app launch event
-    trackEvent(AnalyticsEvent.APP_LAUNCHED, {
-      version: loadPackageVersion(),
-      platform: process.platform,
-      arch: process.arch,
-      hasInitialPrompt: Boolean(initialPrompt),
-      hasAgentOverride: hasAgentOverride,
-      continueChat,
-      initialMode: initialMode ?? 'DEFAULT',
-    })
-  } catch (error) {
-    // Analytics initialization is optional - don't fail the app if it errors
-    logger.debug(error, 'Failed to initialize analytics')
   }
 
   if (clearLogs) {
