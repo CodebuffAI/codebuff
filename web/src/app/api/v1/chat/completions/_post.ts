@@ -204,29 +204,11 @@ export async function postChatCompletions(params: {
     const costMode = typedBody.codebuff_metadata?.cost_mode
     const isFreeModeRequest = isFreeMode(costMode)
 
-    // Check user credits (skip for FREE mode since those requests cost 0 credits)
+    // Fetch user credit data early (actual credit check happens after subscription block grant logic)
     const {
       balance: { totalRemaining },
       nextQuotaReset,
     } = await getUserUsageData({ userId, logger })
-    if (totalRemaining <= 0 && !isFreeModeRequest) {
-      trackEvent({
-        event: AnalyticsEvent.CHAT_COMPLETIONS_INSUFFICIENT_CREDITS,
-        userId,
-        properties: {
-          totalRemaining,
-          nextQuotaReset,
-        },
-        logger,
-      })
-      const resetCountdown = formatQuotaResetCountdown(nextQuotaReset)
-      return NextResponse.json(
-        {
-          message: `Out of credits. Please add credits at ${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage. Your free credits reset ${resetCountdown}.`,
-        },
-        { status: 402 },
-      )
-    }
 
     // Extract and validate agent run ID
     const runIdFromBody = typedBody.codebuff_metadata?.run_id
@@ -288,6 +270,7 @@ export async function postChatCompletions(params: {
 
     // For subscribers, ensure a block grant exists before processing the request.
     // This is done AFTER validation so malformed requests don't start a new 5-hour block.
+    let subscriberHasAvailableCredits = false
     if (ensureSubscriberBlockGrant) {
       try {
         const blockGrantResult = await ensureSubscriberBlockGrant({ userId, logger })
@@ -328,15 +311,40 @@ export async function postChatCompletions(params: {
             { userId, limitType: isWeeklyLimitError(blockGrantResult) ? 'weekly' : 'session' },
             'Subscriber hit limit, falling back to a-la-carte credits',
           )
+        } else if (blockGrantResult) {
+          subscriberHasAvailableCredits = true
         }
       } catch (error) {
         logger.error(
           { error: getErrorObject(error), userId },
           'Error ensuring subscription block grant',
         )
-        // Fail open: if we can't check the subscription status, allow the request to proceed
-        // This is intentional - we prefer to allow requests rather than block legitimate users
+        // Fail open: if we can't check the subscription status, allow the request to proceed.
+        // Assume the user may be a subscriber so the credit check below doesn't reject them.
+        subscriberHasAvailableCredits = true
       }
+    }
+
+    // Credit check: reject if user has no a-la-carte credits AND is not covered by subscription.
+    // Subscribers with available block grant credits bypass this check since their
+    // subscription credits are excluded from totalRemaining (isPersonalContext: true).
+    if (totalRemaining <= 0 && !isFreeModeRequest && !subscriberHasAvailableCredits) {
+      trackEvent({
+        event: AnalyticsEvent.CHAT_COMPLETIONS_INSUFFICIENT_CREDITS,
+        userId,
+        properties: {
+          totalRemaining,
+          nextQuotaReset,
+        },
+        logger,
+      })
+      const resetCountdown = formatQuotaResetCountdown(nextQuotaReset)
+      return NextResponse.json(
+        {
+          message: `Out of credits. Please add credits at ${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage. Your free credits reset ${resetCountdown}.`,
+        },
+        { status: 402 },
+      )
     }
 
     const openrouterApiKey = req.headers.get(BYOK_OPENROUTER_HEADER)

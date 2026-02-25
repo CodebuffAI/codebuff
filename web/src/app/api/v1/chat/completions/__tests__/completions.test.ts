@@ -801,6 +801,85 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       expect(response.status).toBe(200)
     })
 
+    it('allows subscriber with 0 a-la-carte credits but active block grant', async () => {
+      const blockGrant: BlockGrantResult = {
+        grantId: 'block-123',
+        credits: 350,
+        expiresAt: new Date(Date.now() + 5 * 60 * 60 * 1000),
+        isNew: true,
+      }
+      const mockEnsureSubscriberBlockGrant = mock(async () => blockGrant)
+
+      // Use the no-credits user (totalRemaining = 0)
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: { Authorization: 'Bearer test-api-key-no-credits' },
+          body: JSON.stringify({
+            model: 'test/test-model',
+            stream: false,
+            codebuff_metadata: {
+              run_id: 'run-123',
+              client_id: 'test-client-id-123',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletions({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
+      })
+
+      // Should succeed - subscriber has block grant credits despite 0 a-la-carte credits
+      expect(response.status).toBe(200)
+    })
+
+    it('returns 402 for non-subscriber with 0 credits when ensureSubscriberBlockGrant returns null', async () => {
+      const mockEnsureSubscriberBlockGrant = mock(async () => null)
+
+      const req = new NextRequest(
+        'http://localhost:3000/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: { Authorization: 'Bearer test-api-key-no-credits' },
+          body: JSON.stringify({
+            model: 'test/test-model',
+            stream: false,
+            codebuff_metadata: {
+              run_id: 'run-123',
+              client_id: 'test-client-id-123',
+            },
+          }),
+        },
+      )
+
+      const response = await postChatCompletions({
+        req,
+        getUserInfoFromApiKey: mockGetUserInfoFromApiKey,
+        logger: mockLogger,
+        trackEvent: mockTrackEvent,
+        getUserUsageData: mockGetUserUsageData,
+        getAgentRunFromId: mockGetAgentRunFromId,
+        fetch: mockFetch,
+        insertMessageBigquery: mockInsertMessageBigquery,
+        loggerWithContext: mockLoggerWithContext,
+        ensureSubscriberBlockGrant: mockEnsureSubscriberBlockGrant,
+      })
+
+      // Non-subscriber with 0 credits should get 402
+      expect(response.status).toBe(402)
+    })
+
     it('does not call ensureSubscriberBlockGrant before validation passes', async () => {
       const mockEnsureSubscriberBlockGrant = mock(async () => null)
 
