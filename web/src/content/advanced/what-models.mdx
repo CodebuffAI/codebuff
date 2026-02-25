@@ -14,8 +14,12 @@ Codebuff uses different models for different tasks. The orchestrator coordinates
 The main agent ("Buffy") coordinates everything:
 
 <MarkdownTable>
-  | Mode | Model | |------|-------| | Default | Claude Opus 4.6 | | Max | Claude
-  Opus 4.6 | | Free | MiniMax M2.5 |
+  | Mode | Model |
+  |------|-------|
+  | Default | Opus 4.6 |
+  | Plan | Opus 4.6 |
+  | Max | Opus 4.6 |
+  | Free | MiniMax M2.5 |
 </MarkdownTable>
 
 ## Subagents
@@ -23,11 +27,14 @@ The main agent ("Buffy") coordinates everything:
 The orchestrator spawns these for specific jobs:
 
 <MarkdownTable>
-  | Task | Models | |------|--------| | Code editing | Claude Opus 4.6, GLM 4.7
-  | | Thinking/reasoning | Claude Opus 4.6, GPT-5.2 | | Code review | Claude
-  Opus 4.6, GPT-5.2 | | File discovery | Gemini 2.5 Flash Lite, Grok 4.1 Fast |
-  | Terminal commands | Claude Haiku 4.5, Grok 4.1 Fast | | Web/docs research |
-  Grok 4.1 Fast |
+  | Task | Models |
+  |------|--------|
+  | Code editing | Claude Opus 4.6, GLM 4.7 |
+  | Thinking/reasoning | Claude Opus 4.6, GPT-5.2 |
+  | Code review | Claude Opus 4.6, GPT-5.2 |
+  | File discovery | Gemini 2.5 Flash Lite, Grok 4.1 Fast |
+  | Terminal commands | Claude Haiku 4.5, Grok 4.1 Fast |
+  | Web/docs research | Grok 4.1 Fast |
 </MarkdownTable>
 
 Max mode runs multiple implementations in parallel and picks the best one. Default mode runs a single implementation pass. Free mode uses MiniMax M2.5 and includes code review support.

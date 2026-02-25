@@ -9,6 +9,14 @@ order: 1
 
 [Open an issue](https://github.com/CodebuffAI/codebuff/issues) or check existing reports.
 
+## Install Node
+
+If you don't have `npm`, [get Node here](https://nodejs.org/en/download).
+
+## Delete local cache
+
+Codebuff stores files at `~/.config/manicode` including the binary `codebuff`. Sometimes deleting the binary and restarting codebuff will fix issues.
+
 ## Version
 
 The latest version of the Codebuff client can be found on the [npm page](https://www.npmjs.com/package/codebuff).
@@ -16,10 +24,6 @@ The latest version of the Codebuff client can be found on the [npm page](https:/
 Run `codebuff --version` to make sure you're on the latest version.
 
 Codebuff should auto-update. If not, try the steps below.
-
-## Codebuff not updating
-
-If you see the npm install run but Codebuff still isn't at the latest version, this is most likely an issue with npm's cache. Try running `npm cache clean --force` and then `npm install -g codebuff`.
 
 ## Install failed
 
@@ -38,27 +42,6 @@ Your conversation history with Codebuff is stored locally (and nowhere else) at 
 Include recent chats if you ask for help.
 
 ## Common Issues
-
-### Connection Issues
-
-If you see a message like this:
-
-```bash
-/Users/<youruser>/Library/pnpm/global/5/.pnpm/codebuff@someversion/node_modules/codebuff/dist/common/websockets/websocket-client.js:158
-                    reject(new Error(`Websocket message with txid ${txid} timed out.`));                           ^
-
-Error: Websocket message with txid 32 timed out.
-    at Timeout._onTimeout (/Users/<youruser>/Library/pnpm/global/5/.pnpm/codebuff@someversion/node_modules/codebuff/dist/common/websockets/websocket-client.js:158:28)
-    at listOnTimeout (node:internal/timers:594:17)
-    at process.processTimers (node:internal/timers:529:7)
-
-Node.js v22.12.0
-```
-
-it means you're having connection issues. In that case, try:
-
-1. Check your internet connection.
-2. Try logging out and back in with `logout` followed by `login`.
 
 ### Endless Auto-Updates
 

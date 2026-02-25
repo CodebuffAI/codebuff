@@ -50,28 +50,17 @@ Before you begin, you'll need to install a few tools:
 
 5. **Start development services**:
 
-   **Option A: All-in-one (recommended)**
-
    ```bash
-   bun run dev
-   # Starts the web server, builds the SDK, and launches the CLI automatically
-   ```
-
-   **Option B: Separate terminals (for more control)**
-
-   ```bash
-   # Terminal 1 - Web server (start first)
+   # Terminal 1 - Start the web server first
    bun run start-web
    # Expected: Ready on http://localhost:3000
 
-   # Terminal 2 - CLI client (requires web server to be running first)
+   # Terminal 2 - Start the CLI (requires web server to be running)
    bun run start-cli
    # Expected: Welcome to Codebuff! + agent list
    ```
 
    Now, you should be able to run the CLI and send commands, but it will error out because you don't have any credits.
-
-   **Note**: CLI requires the web server running for authentication.
 
 6. **Giving yourself credits**:
 

@@ -27,34 +27,19 @@ cd /path/to/your-repo
 codebuff
 ```
 
-Codebuff has multiple [modes](/docs/tips/modes): `plan` for planning without file changes, `max` for better results at higher cost and time. You can invoke them in the slash menu with `/mode`.
+Check out the [modes](/docs/tips/modes) for using Codebuff, such as Free, Max, or Plan.
 
 ## 4. Initialize Your Project (Optional)
 
-Run the `/init` command inside Codebuff to set up project-specific files:
-
-```
-/init
-```
-
-### What `/init` Creates
-
-- `knowledge.md` — A starter file for documenting your project's setup commands, architecture, and coding conventions. Codebuff reads this to understand your project better.
-- `.agents/types/` — TypeScript type definitions for creating custom agents.
-
-### When to Use `/init`
+Run the `/init` command inside Codebuff to set up project-specific files. Useful for:
 
 - **New projects** — if you don't already have an AGENTS.md or CLAUDE.md (Codebuff will also read these files).
 - **Building custom agents** — running /init is the first step to [creating your own agents](/docs/walkthroughs/creating-your-first-agent)!
 
 ## Troubleshooting
 
-If you run into issues during installation:
+- Make sure you have [node installed](https://nodejs.org/en/download) (which includes npm).
 
-1. **Permission issues** — The best fix is to install Node.js using [nvm](https://github.com/nvm-sh/nvm) or [fnm](https://github.com/Schniz/fnm), which avoids permission problems entirely. Then run `npm install -g codebuff` again.
+- Try deleting the downloaded binary at `~/.config/manicode/codebuff` and restarting codebuff.
 
-2. **Still Having Problems?**
-   - On Mac/Linux, you can fix permissions with: `sudo chown -R $(whoami) $(npm config get prefix)/{lib/node_modules,bin,share}`
-   - On Windows, run your terminal as administrator
-
-[Troubleshooting](/docs/advanced/troubleshooting) | [Discord](https://codebuff.com/discord)
+See [here](/docs/advanced/troubleshooting) for more help or ask in our [Discord](https://codebuff.com/discord).
