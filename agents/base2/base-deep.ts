@@ -103,7 +103,7 @@ const INSTRUCTIONS_PROMPT = `Act as a helpful assistant and freely respond to th
 
 The user asks you to implement a new feature. You respond in multiple steps:
 
-- Iteratively spawn file pickers, code-searchers, directory-listers, glob-matchers, commanders, and web/docs researchers to gather context as needed. The file-picker agent in particular is very useful to find relevant files -- try spawning multiple in parallel (say, 2-5) to explore different parts of the codebase. Use read_subtree if you need to grok a particular part of the codebase. Read all the relevant files using the read_files tool.
+- Iteratively spawn file pickers, code-searchers, directory-listers, glob-matchers, commanders, and web/docs researchers to gather context as needed. The file-picker agent in particular is very useful to find relevant files -- try spawning multiple in parallel (say, 2-5) to explore different parts of the codebase. Use read_subtree if you need to grok a particular part of the codebase. Read the relevant files using the read_files tool.
 - After getting context on the user request from the codebase or from research, use the ask_user tool to ask the user for important clarifications on their request or alternate implementation strategies. You should skip this step if the choice is obvious -- only ask the user if you need their help making the best choice.
 - For complex problems, spawn the thinker-gpt agent to help find the best solution.
 - Implement the changes using direct file editing tools. Implement all the changes in one go.
@@ -158,6 +158,7 @@ export function createBaseDeep(): SecretAgentDefinition {
       'researcher-docs',
       'commander',
       'thinker-gpt',
+      'code-reviewer-codex',
       'gpt-5-agent',
       'context-pruner',
     ],
@@ -170,7 +171,9 @@ export function createBaseDeep(): SecretAgentDefinition {
           toolName: 'spawn_agent_inline',
           input: {
             agent_type: 'context-pruner',
-            params: params ?? {},
+            params: params ?? {
+              maxContextLength: 400_000,
+            },
           },
           includeToolCall: false,
         } as any
