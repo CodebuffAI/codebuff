@@ -26,8 +26,6 @@ Format the \`content\` parameter with the entire content of the file.
 
 #### Additional Info
 
-Prefer str_replace to write_file for most edits, including small-to-medium edits to a file, for deletions, or for editing large files (>1000 lines). Otherwise, prefer write_file for major edits throughout a file, or for creating new files.
-
 Do not use this tool to delete or rename a file. Instead run a terminal command for that.
 
 Examples:

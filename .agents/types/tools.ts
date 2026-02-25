@@ -3,6 +3,7 @@
  */
 export type ToolName =
   | 'add_message'
+  | 'apply_patch'
   | 'ask_user'
   | 'code_search'
   | 'end_turn'
@@ -33,6 +34,7 @@ export type ToolName =
  */
 export interface ToolParamsMap {
   add_message: AddMessageParams
+  apply_patch: ApplyPatchParams
   ask_user: AskUserParams
   code_search: CodeSearchParams
   end_turn: EndTurnParams
@@ -65,6 +67,14 @@ export interface ToolParamsMap {
 export interface AddMessageParams {
   role: 'user' | 'assistant'
   content: string
+}
+
+/**
+ * Apply edits using a Codex-style patch envelope.
+ */
+export interface ApplyPatchParams {
+  /** Patch text in Codex apply_patch format. */
+  patch: string
 }
 
 /**
