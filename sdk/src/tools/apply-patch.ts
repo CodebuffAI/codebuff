@@ -2,95 +2,25 @@ import path from 'path'
 
 import { applyPatch as applyUnifiedPatch } from 'diff'
 
+import type { ApplyPatchOperation } from '@codebuff/common/tools/params/tool/apply-patch'
 import type { CodebuffToolOutput } from '@codebuff/common/tools/list'
 import type { CodebuffFileSystem } from '@codebuff/common/types/filesystem'
-
-type PatchOp =
-  | { type: 'add'; path: string; content: string }
-  | { type: 'delete'; path: string }
-  | { type: 'update'; path: string; moveTo?: string; hunks: string }
 
 function hasTraversal(targetPath: string): boolean {
   const normalized = path.normalize(targetPath)
   return path.isAbsolute(normalized) || normalized.startsWith('..')
 }
 
-function parseApplyPatchEnvelope(rawPatch: string): PatchOp[] {
-  const normalized = rawPatch.replace(/\r\n/g, '\n')
-  const lines = normalized.split('\n')
-  if (lines[0] !== '*** Begin Patch') {
-    throw new Error('Patch must start with *** Begin Patch')
+function extractCreateFileContent(diff: string): string {
+  const lines = diff.replace(/\r\n/g, '\n').split('\n')
+  const contentLines: string[] = []
+  for (const line of lines) {
+    if (line.startsWith('@@')) continue
+    if (line.startsWith('+')) {
+      contentLines.push(line.slice(1))
+    }
   }
-  if (lines[lines.length - 1] !== '*** End Patch') {
-    throw new Error('Patch must end with *** End Patch')
-  }
-
-  const ops: PatchOp[] = []
-  let i = 1
-  const endIndex = lines.length - 1
-
-  while (i < endIndex) {
-    const line = lines[i]
-    if (!line) {
-      i++
-      continue
-    }
-
-    if (line.startsWith('*** Add File: ')) {
-      const filePath = line.slice('*** Add File: '.length)
-      i++
-      const contentLines: string[] = []
-      while (i < endIndex && !lines[i].startsWith('*** ')) {
-        if (!lines[i].startsWith('+')) {
-          throw new Error(`Add file lines must start with + (${filePath})`)
-        }
-        contentLines.push(lines[i].slice(1))
-        i++
-      }
-      ops.push({
-        type: 'add',
-        path: filePath,
-        content: contentLines.join('\n'),
-      })
-      continue
-    }
-
-    if (line.startsWith('*** Delete File: ')) {
-      const filePath = line.slice('*** Delete File: '.length)
-      ops.push({ type: 'delete', path: filePath })
-      i++
-      continue
-    }
-
-    if (line.startsWith('*** Update File: ')) {
-      const filePath = line.slice('*** Update File: '.length)
-      i++
-      let moveTo: string | undefined
-      if (i < endIndex && lines[i].startsWith('*** Move to: ')) {
-        moveTo = lines[i].slice('*** Move to: '.length)
-        i++
-      }
-      const hunkLines: string[] = []
-      while (i < endIndex && !lines[i].startsWith('*** ')) {
-        if (lines[i] !== '*** End of File') {
-          hunkLines.push(lines[i])
-        }
-        i++
-      }
-      const hunks = hunkLines.join('\n').trim()
-      if (!hunks.includes('@@')) {
-        throw new Error(
-          `Update file operation requires at least one @@ hunk (${filePath})`,
-        )
-      }
-      ops.push({ type: 'update', path: filePath, moveTo, hunks })
-      continue
-    }
-
-    throw new Error(`Unsupported patch operation: ${line}`)
-  }
-
-  return ops
+  return contentLines.join('\n')
 }
 
 export async function applyPatchTool(params: {
@@ -99,74 +29,67 @@ export async function applyPatchTool(params: {
   fs: CodebuffFileSystem
 }): Promise<CodebuffToolOutput<'apply_patch'>> {
   const { parameters, cwd, fs } = params
-  const patch =
+
+  const operation =
     typeof parameters === 'object' &&
     parameters !== null &&
-    'patch' in parameters &&
-    typeof (parameters as { patch: unknown }).patch === 'string'
-      ? (parameters as { patch: string }).patch
+    'operation' in parameters &&
+    typeof (parameters as { operation: unknown }).operation === 'object'
+      ? (parameters as { operation: ApplyPatchOperation }).operation
       : null
 
-  if (!patch) {
-    return [{ type: 'json', value: { errorMessage: 'Missing patch string.' } }]
+  if (!operation) {
+    return [{ type: 'json', value: { errorMessage: 'Missing or invalid operation object.' } }]
   }
 
   try {
-    const ops = parseApplyPatchEnvelope(patch)
-    const applied: {
-      file: string
-      action: 'add' | 'update' | 'delete' | 'move'
-    }[] = []
-
-    for (const op of ops) {
-      if (hasTraversal(op.path)) {
-        throw new Error(`Invalid path: ${op.path}`)
-      }
-
-      if (op.type === 'add') {
-        const fullPath = path.join(cwd, op.path)
-        await fs.mkdir(path.dirname(fullPath), { recursive: true })
-        await fs.writeFile(fullPath, op.content)
-        applied.push({ file: op.path, action: 'add' })
-        continue
-      }
-
-      if (op.type === 'delete') {
-        const fullPath = path.join(cwd, op.path)
-        await fs.unlink(fullPath)
-        applied.push({ file: op.path, action: 'delete' })
-        continue
-      }
-
-      const originalPath = path.join(cwd, op.path)
-      const oldContent = await fs.readFile(originalPath, 'utf-8')
-      const patched = applyUnifiedPatch(oldContent, op.hunks)
-      if (patched === false) {
-        throw new Error(`Failed to apply hunks for ${op.path}`)
-      }
-
-      const outputPath = op.moveTo ?? op.path
-      if (hasTraversal(outputPath)) {
-        throw new Error(`Invalid path: ${outputPath}`)
-      }
-      const targetPath = path.join(cwd, outputPath)
-      await fs.mkdir(path.dirname(targetPath), { recursive: true })
-      await fs.writeFile(targetPath, patched)
-
-      if (op.moveTo && op.moveTo !== op.path) {
-        await fs.unlink(originalPath)
-        applied.push({ file: outputPath, action: 'move' })
-      } else {
-        applied.push({ file: outputPath, action: 'update' })
-      }
+    if (hasTraversal(operation.path)) {
+      throw new Error(`Invalid path: ${operation.path}`)
     }
 
+    const fullPath = path.join(cwd, operation.path)
+
+    if (operation.type === 'create_file') {
+      const content = extractCreateFileContent(operation.diff)
+      await fs.mkdir(path.dirname(fullPath), { recursive: true })
+      await fs.writeFile(fullPath, content)
+      return [
+        {
+          type: 'json',
+          value: {
+            message: 'Applied 1 patch operation.',
+            applied: [{ file: operation.path, action: 'add' as const }],
+          },
+        },
+      ]
+    }
+
+    if (operation.type === 'delete_file') {
+      await fs.unlink(fullPath)
+      return [
+        {
+          type: 'json',
+          value: {
+            message: 'Applied 1 patch operation.',
+            applied: [{ file: operation.path, action: 'delete' as const }],
+          },
+        },
+      ]
+    }
+
+    // update_file
+    const oldContent = await fs.readFile(fullPath, 'utf-8')
+    const patched = applyUnifiedPatch(oldContent, operation.diff)
+    if (patched === false) {
+      throw new Error(`Failed to apply diff for ${operation.path}`)
+    }
+    await fs.writeFile(fullPath, patched)
     return [
       {
         type: 'json',
         value: {
-          message: `Applied ${applied.length} patch operation${applied.length === 1 ? '' : 's'}.`,
-          applied,
+          message: 'Applied 1 patch operation.',
+          applied: [{ file: operation.path, action: 'update' as const }],
         },
       },
     ]

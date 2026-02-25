@@ -204,11 +204,11 @@ function buildMockToolCall(params: {
     return {
       toolName: 'apply_patch',
       input: {
-        patch:
-          '*** Begin Patch\n' +
-          '*** Add File: hello-from-apply-patch.txt\n' +
-          '+hello from apply_patch\n' +
-          '*** End Patch',
+        operation: {
+          type: 'create_file' as const,
+          path: 'hello-from-apply-patch.txt',
+          diff: '@@\n+hello from apply_patch\n',
+        },
       },
     }
   }

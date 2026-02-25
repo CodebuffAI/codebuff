@@ -70,11 +70,18 @@ export interface AddMessageParams {
 }
 
 /**
- * Apply edits using a Codex-style patch envelope.
+ * Apply a file operation (create, update, or delete) using Codex-style apply_patch format.
  */
 export interface ApplyPatchParams {
-  /** Patch text in Codex apply_patch format. */
-  patch: string
+  /** The file operation to perform. */
+  operation: {
+    /** Operation type: create_file, update_file, or delete_file */
+    type: 'create_file' | 'update_file' | 'delete_file'
+    /** File path relative to project root */
+    path: string
+    /** Diff content. Required for create_file and update_file. Lines prefixed with + for creates, unified diff with @@ hunks for updates. */
+    diff?: string
+  }
 }
 
 /**

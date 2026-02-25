@@ -10,7 +10,7 @@ export const applyPatchResultSchema = z.union([
     applied: z.array(
       z.object({
         file: z.string(),
-        action: z.enum(['add', 'update', 'delete', 'move']),
+        action: z.enum(['add', 'update', 'delete']),
       }),
     ),
   }),
@@ -21,30 +21,81 @@ export const applyPatchResultSchema = z.union([
 
 const toolName = 'apply_patch'
 const endsAgentStep = false
+
+const operationSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('create_file'),
+    path: z.string().min(1, 'Path cannot be empty'),
+    diff: z.string().min(1, 'Diff cannot be empty'),
+  }),
+  z.object({
+    type: z.literal('update_file'),
+    path: z.string().min(1, 'Path cannot be empty'),
+    diff: z.string().min(1, 'Diff cannot be empty'),
+  }),
+  z.object({
+    type: z.literal('delete_file'),
+    path: z.string().min(1, 'Path cannot be empty'),
+  }),
+])
+
+export type ApplyPatchOperation = z.infer<typeof operationSchema>
+
 const inputSchema = z
   .object({
-    patch: z
-      .string()
-      .min(1, 'Patch cannot be empty')
-      .describe('Patch text in Codex apply_patch format.'),
+    operation: operationSchema.describe(
+      'The file operation to perform. type is one of create_file, update_file, or delete_file.',
+    ),
   })
-  .describe('Apply a unified-diff style multi-file patch.')
+  .describe('Apply a file operation (create, update, or delete).')
 
 const description = `
-Use this tool to edit files using Codex-style patch format.
+Use this tool to apply file operations using Codex-style apply_patch format.
 
-Patch format:
-- Start with *** Begin Patch
-- End with *** End Patch
-- Use file ops: *** Add File, *** Update File, *** Delete File
-- Use @@ hunks inside update operations
+Each call performs a single operation on one file.
 
-Example:
+Operation types:
+- create_file: Create a new file. Requires path and diff (lines prefixed with +).
+- update_file: Update an existing file. Requires path and diff (unified diff with @@ hunks).
+- delete_file: Delete a file. Requires only path.
+
+Example (create):
 ${$getNativeToolCallExampleString({
   toolName,
   inputSchema,
   input: {
-    patch: `*** Begin Patch\n*** Add File: hello.txt\n+Hello world\n*** End Patch`,
+    operation: {
+      type: 'create_file',
+      path: 'hello.txt',
+      diff: '@@\n+Hello world\n',
+    },
+  },
+  endsAgentStep,
+})}
+
+Example (update):
+${$getNativeToolCallExampleString({
+  toolName,
+  inputSchema,
+  input: {
+    operation: {
+      type: 'update_file',
+      path: 'lib/fib.py',
+      diff: '@@\n-def fib(n):\n+def fibonacci(n):\n     if n <= 1:\n         return n\n-    return fib(n-1) + fib(n-2)\n+    return fibonacci(n-1) + fibonacci(n-2)\n',
+    },
+  },
+  endsAgentStep,
+})}
+
+Example (delete):
+${$getNativeToolCallExampleString({
+  toolName,
+  inputSchema,
+  input: {
+    operation: {
+      type: 'delete_file',
+      path: 'old-file.txt',
+    },
   },
   endsAgentStep,
 })}
