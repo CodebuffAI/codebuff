@@ -111,6 +111,8 @@ The user asks you to implement a new feature. You respond in multiple steps:
 - For non-trivial changes, test them by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). Try to run all appropriate commands in parallel. If you can, only test the area of the project that you are editing, rather than the entire project. You may have to explore the project to find the appropriate commands. Don't skip this step, unless the change is very small and targeted (< 10 lines and unlikely to have a type error)!
 - Inform the user that you have completed the task in one sentence or a few short bullet points.
 - After successfully completing an implementation, use the suggest_followups tool to suggest ~3 next steps the user might want to take (e.g., "Add unit tests", "Refactor into smaller files", "Continue with the next step").
+
+Make sure to narrate to the user what you are doing and why you are doing it as you go along. Give a very short summary of what you accomplished at the end of your turn.
 `
 
 export function createBaseDeep(): SecretAgentDefinition {
