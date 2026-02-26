@@ -30,6 +30,14 @@ import { cn } from '@/lib/utils'
 
 import type { SubscriptionResponse } from '@codebuff/common/types/subscription'
 
+const WEEKS_PER_MONTH = 4
+const CREDITS_PER_DOLLAR = Object.fromEntries(
+  Object.entries(SUBSCRIPTION_TIERS).map(([key, tier]) => [
+    Number(key),
+    Math.floor(tier.weeklyCreditsLimit * WEEKS_PER_MONTH / tier.monthlyPrice),
+  ]),
+) as Record<number, number>
+
 const USAGE_MULTIPLIER: Record<number, string> = {
   100: '1×',
   200: '3×',
@@ -241,6 +249,21 @@ function PricingCardsGrid() {
 
               <p className="text-sm sm:text-base font-medium text-white/60 mb-3 sm:mb-6">
                 {USAGE_MULTIPLIER[price]} usage
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span tabIndex={0} className="inline-flex items-center ml-1 cursor-help align-middle">
+                        <HelpCircle className="h-3.5 w-3.5 text-white/30 hover:text-white/60 transition-colors" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="bottom"
+                      className="bg-black/90 border-white/10 text-white/80 text-sm max-w-xs"
+                    >
+                      Up to {CREDITS_PER_DOLLAR[price]} credits per dollar
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </p>
 
               <SubscribeButton
