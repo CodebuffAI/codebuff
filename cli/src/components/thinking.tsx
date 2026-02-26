@@ -30,6 +30,14 @@ export const Thinking = memo(
     const theme = useTheme()
     const { contentMaxWidth } = useTerminalDimensions()
 
+    // Special case: single **bold** string under 100 chars gets compact rendering
+    const singleBoldMatch = content.length < 100 ? content.trim().match(/^\*\*([^*]+)\*\*$/) : null
+    if (singleBoldMatch) {
+      return (
+        null
+      )
+    }
+
     const width = Math.max(10, availableWidth ?? contentMaxWidth)
     // Normalize content to single line for consistent preview
     const normalizedContent = content.replace(/\n+/g, ' ').trim()
@@ -46,9 +54,9 @@ export const Thinking = memo(
 
     const toggleIndicator =
       !isThinkingComplete ? '• '
-      : showFull ? '▾ '
-      : showPreview ? '• '
-      : '▸ '
+        : showFull ? '▾ '
+          : showPreview ? '• '
+            : '▸ '
 
     return (
       <Button

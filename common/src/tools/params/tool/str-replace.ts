@@ -55,7 +55,7 @@ const inputSchema = z
   })
   .describe(`Replace strings in a file with new strings.`)
 const description = `
-Use this tool to make edits within existing files. Prefer this tool over the write_file tool for existing files, unless you need to make major changes throughout the file, in which case use write_file.
+Use this tool to make edits within existing files.
 
 Important:
 If you are making multiple edits in a row to a file, use only one str_replace call with multiple replacements instead of multiple str_replace tool calls.

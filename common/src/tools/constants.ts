@@ -20,6 +20,7 @@ export const TOOLS_WHICH_WONT_FORCE_NEXT_STEP = [
 
 // List of all available tools
 export const toolNames = [
+  'apply_patch',
   'add_subgoal',
   'add_message',
   'ask_user',
@@ -54,6 +55,7 @@ export const toolNames = [
 ] as const
 
 export const publishedTools = [
+  'apply_patch',
   'add_message',
   'ask_user',
   'code_search',
