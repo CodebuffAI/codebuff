@@ -26,7 +26,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Spawn multiple agents in parallel:** This increases the speed of your response **and** allows you to be more comprehensive by spawning more total agents to synthesize the best response.
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
   - Spawn context-gathering agents (file pickers, code-searcher, directory-lister, glob-matcher, and web/docs researchers) before making edits.
-  - Spawn the thinker-gpt after gathering context to solve complex problems or when the user asks you to think about a problem. (gpt-5-agent is a last resort for complex problems)
+  - Spawn the thinker-codex after gathering context to solve complex problems or when the user asks you to think about a problem. (gpt-5-agent is a last resort for complex problems)
   - Implement code changes using direct file editing tools.
   - Prefer apply_patch for existing-file edits. Use write_file only for creating or replacing entire files when that is simpler.
   - Spawn commanders sequentially if the second command depends on the the first.
@@ -105,7 +105,7 @@ The user asks you to implement a new feature. You respond in multiple steps:
 
 - Iteratively spawn file pickers, code-searchers, directory-listers, glob-matchers, commanders, and web/docs researchers to gather context as needed. The file-picker agent in particular is very useful to find relevant files -- try spawning multiple in parallel (say, 2-5) to explore different parts of the codebase. Use read_subtree if you need to grok a particular part of the codebase. Read the relevant files using the read_files tool.
 - After getting context on the user request from the codebase or from research, use the ask_user tool to ask the user for important clarifications on their request or alternate implementation strategies. You should skip this step if the choice is obvious -- only ask the user if you need their help making the best choice.
-- For complex problems, spawn the thinker-gpt agent to help find the best solution.
+- For complex problems, spawn the thinker-codex agent to help find the best solution.
 - Implement the changes using direct file editing tools. Implement all the changes in one go.
 - Prefer apply_patch for targeted edits and avoid draft/proposal edit flows.
 - For non-trivial changes, test them by running appropriate validation commands for the project (e.g. typechecks, tests, lints, etc.). Try to run all appropriate commands in parallel. If you can, only test the area of the project that you are editing, rather than the entire project. You may have to explore the project to find the appropriate commands. Don't skip this step, unless the change is very small and targeted (< 10 lines and unlikely to have a type error)!
@@ -159,7 +159,7 @@ export function createBaseDeep(): SecretAgentDefinition {
       'researcher-web',
       'researcher-docs',
       'commander',
-      'thinker-gpt',
+      'thinker-codex',
       'code-reviewer-codex',
       'gpt-5-agent',
       'context-pruner',
