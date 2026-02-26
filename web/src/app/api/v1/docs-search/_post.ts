@@ -19,6 +19,7 @@ import type {
   Logger,
   LoggerWithContextFn,
 } from '@codebuff/common/types/contracts/logger'
+import type { BlockGrantResult } from '@codebuff/billing/subscription'
 import type { NextRequest } from 'next/server'
 
 
@@ -38,6 +39,7 @@ export async function postDocsSearch(params: {
   getUserUsageData: GetUserUsageDataFn
   consumeCreditsWithFallback: ConsumeCreditsWithFallbackFn
   fetch: typeof globalThis.fetch
+  ensureSubscriberBlockGrant?: (params: { userId: string; logger: Logger }) => Promise<BlockGrantResult | null>
 }) {
   const {
     req,
@@ -47,6 +49,7 @@ export async function postDocsSearch(params: {
     getUserUsageData,
     consumeCreditsWithFallback,
     fetch,
+    ensureSubscriberBlockGrant,
   } = params
   const baseLogger = params.logger
 
@@ -95,6 +98,7 @@ export async function postDocsSearch(params: {
     insufficientCreditsEvent: AnalyticsEvent.DOCS_SEARCH_INSUFFICIENT_CREDITS,
     getUserUsageData,
     consumeCreditsWithFallback,
+    ensureSubscriberBlockGrant,
   })
   if (!credits.ok) return credits.response
 

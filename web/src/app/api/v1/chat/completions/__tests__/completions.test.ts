@@ -810,7 +810,19 @@ describe('/api/v1/chat/completions POST endpoint', () => {
       }
       const mockEnsureSubscriberBlockGrant = mock(async () => blockGrant)
 
-      // Use the no-credits user (totalRemaining = 0)
+      // Override mock: when subscription credits are included, simulate the block grant's credits
+      mockGetUserUsageData = mock(async ({ includeSubscriptionCredits }: { includeSubscriptionCredits?: boolean }) => ({
+        usageThisCycle: 0,
+        balance: {
+          totalRemaining: includeSubscriptionCredits ? 350 : 0,
+          totalDebt: 0,
+          netBalance: includeSubscriptionCredits ? 350 : 0,
+          breakdown: {},
+        },
+        nextQuotaReset,
+      }))
+
+      // Use the no-credits user (totalRemaining = 0 without subscription)
       const req = new NextRequest(
         'http://localhost:3000/api/v1/chat/completions',
         {

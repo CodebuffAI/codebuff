@@ -204,12 +204,6 @@ export async function postChatCompletions(params: {
     const costMode = typedBody.codebuff_metadata?.cost_mode
     const isFreeModeRequest = isFreeMode(costMode)
 
-    // Fetch user credit data early (actual credit check happens after subscription block grant logic)
-    const {
-      balance: { totalRemaining },
-      nextQuotaReset,
-    } = await getUserUsageData({ userId, logger })
-
     // Extract and validate agent run ID
     const runIdFromBody = typedBody.codebuff_metadata?.run_id
     if (!runIdFromBody || typeof runIdFromBody !== 'string') {
@@ -270,7 +264,9 @@ export async function postChatCompletions(params: {
 
     // For subscribers, ensure a block grant exists before processing the request.
     // This is done AFTER validation so malformed requests don't start a new 5-hour block.
-    let subscriberHasAvailableCredits = false
+    // When the function is provided, always include subscription credits in the balance:
+    // error/null results mean subscription grants have 0 balance, so including them is harmless.
+    const includeSubscriptionCredits = !!ensureSubscriberBlockGrant
     if (ensureSubscriberBlockGrant) {
       try {
         const blockGrantResult = await ensureSubscriberBlockGrant({ userId, logger })
@@ -311,24 +307,24 @@ export async function postChatCompletions(params: {
             { userId, limitType: isWeeklyLimitError(blockGrantResult) ? 'weekly' : 'session' },
             'Subscriber hit limit, falling back to a-la-carte credits',
           )
-        } else if (blockGrantResult) {
-          subscriberHasAvailableCredits = true
         }
       } catch (error) {
         logger.error(
           { error: getErrorObject(error), userId },
           'Error ensuring subscription block grant',
         )
-        // Fail open: if we can't check the subscription status, allow the request to proceed.
-        // Assume the user may be a subscriber so the credit check below doesn't reject them.
-        subscriberHasAvailableCredits = true
+        // Fail open: proceed with subscription credits included in balance check
       }
     }
 
-    // Credit check: reject if user has no a-la-carte credits AND is not covered by subscription.
-    // Subscribers with available block grant credits bypass this check since their
-    // subscription credits are excluded from totalRemaining (isPersonalContext: true).
-    if (totalRemaining <= 0 && !isFreeModeRequest && !subscriberHasAvailableCredits) {
+    // Fetch user credit data (includes subscription credits when block grant was ensured)
+    const {
+      balance: { totalRemaining },
+      nextQuotaReset,
+    } = await getUserUsageData({ userId, logger, includeSubscriptionCredits })
+
+    // Credit check
+    if (totalRemaining <= 0 && !isFreeModeRequest) {
       trackEvent({
         event: AnalyticsEvent.CHAT_COMPLETIONS_INSUFFICIENT_CREDITS,
         userId,

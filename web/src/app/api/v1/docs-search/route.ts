@@ -1,4 +1,5 @@
 import { consumeCreditsWithFallback } from '@codebuff/billing/credit-delegation'
+import { ensureSubscriberBlockGrant } from '@codebuff/billing/subscription'
 import { getUserUsageData } from '@codebuff/billing/usage-service'
 import { trackEvent } from '@codebuff/common/analytics'
 
@@ -19,5 +20,6 @@ export async function POST(req: NextRequest) {
     getUserUsageData,
     consumeCreditsWithFallback,
     fetch,
+    ensureSubscriberBlockGrant,
   })
 }

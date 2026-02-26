@@ -53,8 +53,9 @@ export interface OrganizationUsageData {
 export async function getUserUsageData(params: {
   userId: string
   logger: Logger
+  includeSubscriptionCredits?: boolean
 }): Promise<UserUsageData> {
-  const { userId, logger } = params
+  const { userId, logger, includeSubscriptionCredits } = params
   try {
     const now = new Date()
 
@@ -79,10 +80,12 @@ export async function getUserUsageData(params: {
     // Use the canonical balance calculation function with the effective reset date
     // Pass isPersonalContext: true to exclude organization credits from personal usage
     const { usageThisCycle, balance } = await calculateUsageAndBalance({
-      ...params,
+      userId,
+      logger,
       quotaResetDate,
       now,
-      isPersonalContext: true, // isPersonalContext: true to exclude organization credits
+      isPersonalContext: true,
+      includeSubscriptionCredits: includeSubscriptionCredits ?? false,
     })
 
     // Check for active subscription

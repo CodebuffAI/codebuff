@@ -276,18 +276,20 @@ export async function calculateUsageAndBalance(
       now: Date
       conn: DbConn
       isPersonalContext: boolean
+      includeSubscriptionCredits: boolean
       logger: Logger
     } & ParamsOf<typeof getOrderedActiveGrants>,
-    'now' | 'conn' | 'isPersonalContext'
+    'now' | 'conn' | 'isPersonalContext' | 'includeSubscriptionCredits'
   >,
 ): Promise<CreditUsageAndBalance> {
   const withDefaults = {
     now: new Date(),
     conn: db, // Add optional conn parameter to pass transaction
     isPersonalContext: false, // Add flag to exclude organization credits for personal usage
+    includeSubscriptionCredits: false,
     ...params,
   }
-  const { userId, quotaResetDate, now, isPersonalContext, logger } =
+  const { userId, quotaResetDate, now, isPersonalContext, includeSubscriptionCredits, logger } =
     withDefaults
 
   // Get all relevant grants in one query, using the provided connection
@@ -326,9 +328,14 @@ export async function calculateUsageAndBalance(
   for (const grant of grants) {
     const grantType = grant.type as GrantType
 
-    // Skip organization and subscription credits for personal context
-    // Subscription credits are shown separately in the CLI with progress bars
-    if (isPersonalContext && (grantType === 'organization' || grantType === 'subscription')) {
+    // Skip organization credits for personal context
+    if (isPersonalContext && grantType === 'organization') {
+      continue
+    }
+    // Skip subscription credits for personal context unless explicitly included
+    // (subscription credits are shown separately in the CLI with progress bars,
+    // but need to be included for credit gating after ensureSubscriberBlockGrant)
+    if (isPersonalContext && grantType === 'subscription' && !includeSubscriptionCredits) {
       continue
     }
 
