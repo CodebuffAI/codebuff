@@ -2,6 +2,11 @@
 
 All notable changes to the @codebuff/sdk package will be documented in this file.
 
+## [0.10.7]
+
+- New code editing tool `apply_patch` which works well with Codex models (e.g. openai/gpt-5.3-codex)
+- `write_file` is now a deterministic tool that creates or replaces the file. Previously, it also accepted edit snippet comments which could expand to keep a portion of the previous file, e.g. "// ... rest of the function ...". That behavior is removed to keep things simple. `str_replace` or `apply_patch` should be used if not overwriting the whole file.
+
 ## [0.10.6]
 
 Added `skillsDir` parameter to specify a directory to load skills from.
