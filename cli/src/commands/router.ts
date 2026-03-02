@@ -1,4 +1,5 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { CLAUDE_OAUTH_ENABLED } from '@codebuff/common/constants/claude-oauth'
 import { runTerminalCommand } from '@codebuff/sdk'
 
 
@@ -341,6 +342,10 @@ export async function routeUserPrompt(
 
   // Handle connect:claude mode input (authorization code)
   if (inputMode === 'connect:claude') {
+    if (!CLAUDE_OAUTH_ENABLED) {
+      setInputMode('default')
+      return
+    }
     const code = trimmed
     if (code) {
       const result = await handleClaudeAuthCode(code)

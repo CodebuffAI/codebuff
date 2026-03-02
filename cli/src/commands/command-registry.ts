@@ -1,3 +1,4 @@
+import { CLAUDE_OAUTH_ENABLED } from '@codebuff/common/constants/claude-oauth'
 import open from 'open'
 
 import { handleAdsEnable, handleAdsDisable } from './ads'
@@ -474,6 +475,17 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     name: 'connect:claude',
     aliases: ['claude'],
     handler: (params) => {
+      if (!CLAUDE_OAUTH_ENABLED) {
+        params.setMessages((prev) => [
+          ...prev,
+          getUserMessage(params.inputValue.trim()),
+          getSystemMessage(
+            'Claude OAuth connection has been disabled. Use /subscribe for usage across all models.',
+          ),
+        ])
+        clearInput(params)
+        return
+      }
       // Enter connect:claude mode to show the OAuth banner
       useChatStore.getState().setInputMode('connect:claude')
       params.saveToHistory(params.inputValue.trim())

@@ -53,6 +53,7 @@ import { useReviewStore } from './state/review-store'
 import { useFeedbackStore } from './state/feedback-store'
 import { useMessageBlockStore } from './state/message-block-store'
 import { usePublishStore } from './state/publish-store'
+import { CLAUDE_OAUTH_ENABLED } from '@codebuff/common/constants/claude-oauth'
 import { reportActivity } from './utils/activity-tracker'
 import { trackEvent } from './utils/analytics'
 import { getClaudeOAuthStatus } from './utils/claude-oauth'
@@ -1292,7 +1293,7 @@ export const Chat = ({
   })
   const hasStatusIndicatorContent = statusIndicatorState.kind !== 'idle'
 
-  const isClaudeOAuthActive = getClaudeOAuthStatus().connected
+  const isClaudeOAuthActive = CLAUDE_OAUTH_ENABLED && getClaudeOAuthStatus().connected
 
   // Fetch Claude quota when OAuth is active
   const { data: claudeQuota } = useClaudeQuotaQuery({
