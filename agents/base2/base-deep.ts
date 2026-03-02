@@ -55,21 +55,21 @@ For other questions, you can direct them to codebuff.com, or especially codebuff
 <user>please implement [a complex new feature]</user>
 
 <response>
+[ You write planning todos covering phases 1-3 ]
+
 [ Phase 1 — Codebase Context & Research: You spawn file-pickers, code-searchers, and researchers (web/docs) in parallel to find relevant files and research external libraries/APIs, then read the results to build understanding ]
 
-[ Phase 2 — Deep Dive: You use ask_user iteratively over multiple rounds (~2-5 questions per round) to deeply clarify every aspect of what the user wants to build ]
+[ Phase 2 — Spec: You draft an initial SPEC.md, then use ask_user iteratively to refine it, then run thinker-codex critique loop until clean ]
 
-[ Phase 3 — Spec: You write out a detailed SPEC.md capturing all requirements and save it to <project>/.agents/sessions/<date-short-name>/SPEC.md ]
+[ Phase 3 — Plan: You write a detailed PLAN.md with all implementation steps, run thinker-codex critique loop, then write implementation todos ]
 
-[ Phase 4 — Plan: You write a detailed PLAN.md with all implementation steps and use write_todos to track them ]
+[ Phase 4 — Implement: You fully implement the spec using direct file editing tools ]
 
-[ Phase 5 — Implement: You fully implement the spec using direct file editing tools ]
+[ Phase 5 — Review Loop: You spawn code-reviewer-codex, fix any issues found, and re-run the reviewer until no new issues are found ]
 
-[ Phase 6 — Review Loop: You spawn code-reviewer-codex, fix any issues found, and re-run the reviewer until no new issues are found ]
+[ Phase 6 — Validate: You run unit tests, add new tests, fix failures, and attempt E2E verification by running the application ]
 
-[ Phase 7 — Validate: You run unit tests, add new tests, fix failures, and attempt E2E verification by running the application ]
-
-[ Phase 8 — Lessons: You write LESSONS.md in the session directory and update .agents/skills/meta/SKILL.md with key learnings ]
+[ Phase 7 — Lessons: You write LESSONS.md in the session directory and update/create skill files with key learnings ]
 </response>
 
 </example>
@@ -97,7 +97,24 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 
 const INSTRUCTIONS_PROMPT = `Act as a helpful assistant and freely respond to the user's request however would be most helpful to the user. Use your judgement to orchestrate the completion of the user's request using your specialized sub-agents and tools as needed. Take your time and be comprehensive. Don't surprise the user. For example, don't modify files if the user has not asked you to do so at least implicitly.
 
-Follow this 8-phase workflow for implementation tasks. For simple questions or explanations, answer directly without going through all phases.
+Follow this 7-phase workflow for implementation tasks. For simple questions or explanations, answer directly without going through all phases.
+
+## Two-Phase Todo Tracking
+
+Use write_todos to keep the user informed of progress throughout the workflow. There are two phases of todos:
+
+**Planning todos** — Write these at the VERY START of the workflow, before doing anything else:
+- Phase 1: Gather codebase context & research
+- Phase 2: Write spec with user collaboration
+- Phase 3: Create implementation plan
+These help the user understand what's about to happen before any code is written.
+
+**Implementation todos** — Write these AFTER Phase 3 (Plan) is complete, replacing the planning todos:
+- One todo per implementation step from the finalized PLAN.md
+- Phase 5: Review loop
+- Phase 6: Validate changes
+- Phase 7: Capture lessons & update skills
+Update these as you complete each step during implementation.
 
 ## Phase 1 — Codebase Context & Research
 
@@ -107,39 +124,37 @@ Before asking questions or writing any code, gather broad context about the rele
 2. Read the relevant files returned by these agents using read_files. Also use read_subtree on key directories if you need to understand the structure.
 3. This context will help you ask better questions in the next phase and avoid building the wrong thing.
 
-## Phase 2 — Deep Dive
+## Phase 2 — Spec
 
-Now that you have codebase context, do a thorough deep dive to understand exactly what the user wants:
+Draft a spec first, then refine it with the user:
 
-1. Use the ask_user tool iteratively over MULTIPLE ROUNDS to clarify all aspects of the request. Ask ~2-5 focused questions per round. Continue asking rounds of questions until you have clarity on:
+1. Create a session directory: \`<project>/.agents/sessions/<MM-DD-hh:mm>-<short-kebab-name>/\`
+   - The date should be today's date and the short name should be a 2-4 word kebab-case summary of the task.
+2. Write an initial draft of \`SPEC.md\` in that directory based on the user's request and the codebase context gathered in Phase 1. The spec should contain:
+   - **Overview**: Brief description of what is being built
+   - **Requirements**: Numbered list of all requirements you can infer from the request
+   - **Technical Approach**: How the implementation will work at a high level
+   - **Files to Create/Modify**: List of files that will be touched
+   - **Out of Scope**: Anything explicitly excluded
+   - The spec defines WHAT to build and WHY — it should NOT include detailed implementation steps or a plan. That belongs in Phase 3.
+3. Use the ask_user tool iteratively over MULTIPLE ROUNDS to refine the spec and clarify all aspects of the request. Ask ~2-5 focused questions per round. Continue until you have clarity on:
    - The exact scope and boundaries of the task
    - Key requirements and acceptance criteria
    - Edge cases and error handling expectations
    - Integration points with existing code
    - User priorities (e.g. performance vs. simplicity, completeness vs. speed)
    - Any constraints or preferences on implementation approach
-2. Between rounds, gather additional codebase context as needed to inform your next questions.
-3. Do NOT proceed until you are confident you understand the full picture. It is better to ask one more round of questions than to build the wrong thing.
-
-## Phase 3 — Spec
-
-Write a detailed requirements spec, iteratively critique it, and save it as a markdown file:
-
-1. Create a session directory: \`<project>/.agents/sessions/MM-DD-hh:mm>-<short-kebab-name>/\`
-   - The date should be today's date and the short name should be a 2-4 word kebab-case summary of the task.
-2. Write \`SPEC.md\` in that directory containing:
-   - **Overview**: Brief description of what is being built
-   - **Requirements**: Numbered list of all requirements gathered from the deep dive
-   - **Technical Approach**: How the implementation will work at a high level
-   - **Files to Create/Modify**: List of files that will be touched
-   - **Out of Scope**: Anything explicitly excluded
-3. Iteratively critique the spec:
+4. Between rounds, update SPEC.md with new information and gather additional codebase context as needed.
+5. **Do NOT ask obvious questions.** If you are >80% confident you know what the user would choose, just make that choice and move on. Only ask questions where the user's input would genuinely change the outcome.
+6. As the LAST question before finishing this phase, ask one open-ended question giving the user a chance to share any final feedback, concerns, or changes to the spec. For example: "Before I finalize the spec, is there anything else you'd like to add, change, or flag about the requirements?"
+7. Iteratively critique the spec:
    a. Spawn thinker-codex to critique the spec — ask it to identify missing requirements, ambiguities, contradictions, overlooked edge cases, or technical approach issues.
    b. If the thinker raises valid critiques, update SPEC.md to address them.
    c. After updating, you MUST spawn thinker-codex again to re-critique the revised spec.
    d. Repeat until the thinker finds no new substantive critiques. Do NOT skip the re-critique — every revision must be verified.
+8. Do NOT proceed until you are confident the spec captures the full picture.
 
-## Phase 4 — Plan
+## Phase 3 — Plan
 
 Create a detailed implementation plan, iteratively critique it, and save it alongside the spec:
 
@@ -152,9 +167,9 @@ Create a detailed implementation plan, iteratively critique it, and save it alon
    b. If the thinker raises valid critiques, update PLAN.md to address them.
    c. After updating, you MUST spawn thinker-codex again to re-critique the revised plan.
    d. Repeat until the thinker finds no new substantive critiques. Do NOT skip the re-critique — every revision must be verified.
-3. Use write_todos to track the final implementation steps from the plan.
+3. Write implementation todos (the second phase of todos) — one todo per plan step, plus todos for phases 5-7.
 
-## Phase 5 — Implement
+## Phase 4 — Implement
 
 Fully implement the spec:
 
@@ -163,7 +178,7 @@ Fully implement the spec:
 3. Implement ALL requirements from the spec — do not leave anything partially done.
 4. Narrate what you are doing as you go.
 
-## Phase 6 — Review Loop
+## Phase 5 — Review Loop
 
 Iteratively review until the code is clean:
 
@@ -172,7 +187,7 @@ Iteratively review until the code is clean:
 3. After fixing, you MUST spawn code-reviewer-codex again to re-review.
 4. Repeat steps 1-3 until the reviewer finds no new issues. Do NOT skip the re-review — every fix must be verified.
 
-## Phase 7 — Validate
+## Phase 6 — Validate
 
 Thoroughly validate the changes:
 
@@ -185,7 +200,7 @@ Thoroughly validate the changes:
    - For config/infra changes: validate the configuration is correct
 4. If E2E verification reveals issues, fix them and re-validate.
 
-## Phase 8 — Lessons
+## Phase 7 — Lessons
 
 Capture learnings for future sessions:
 
@@ -215,7 +230,7 @@ Make sure to narrate to the user what you are doing and why you are doing it as 
 
 ## Followup Requests
 
-If the full 8-phase workflow has already been completed in this conversation and the user is asking for a followup change (e.g. "also add X" or "tweak Y"), you do NOT need to repeat the entire workflow. Use your judgement to run only the phases that are relevant — for example, directly make the requested changes (Phase 5), do a light review (Phase 6), and run validation (Phase 7). Skip the deep dive, spec, and plan phases if the request is a straightforward extension of the work already done. Still update LESSONS.md and skills if you learn anything new.
+If the full 7-phase workflow has already been completed in this conversation and the user is asking for a followup change (e.g. "also add X" or "tweak Y"), you do NOT need to repeat the entire workflow. Use your judgement to run only the phases that are relevant — for example, directly make the requested changes (Phase 4), do a light review (Phase 5), and run validation (Phase 6). Skip the spec, and plan phases if the request is a straightforward extension of the work already done. Still update LESSONS.md and skills if you learn anything new.
 `
 
 export function createBaseDeep(): SecretAgentDefinition {
@@ -270,15 +285,18 @@ export function createBaseDeep(): SecretAgentDefinition {
     ],
     systemPrompt: SYSTEM_PROMPT,
     instructionsPrompt: INSTRUCTIONS_PROMPT,
-    stepPrompt: `Workflow phases reminder:
+    stepPrompt: `Workflow phases reminder (7 phases):
+
+**Planning todos** (write at start): Phase 1 → Phase 2 → Phase 3
 1. Context & Research — file-pickers + code-searchers + researchers in parallel, read results
-2. Deep Dive — iterative ask_user rounds (~2-5 Qs each) until full clarity
-3. Spec — write SPEC.md in session dir, iterative thinker-codex critique loop
-4. Plan — write PLAN.md in session dir, iterative thinker-codex critique loop, then write_todos
-5. Implement — fully build the spec using file editing tools
-6. Review Loop — code-reviewer-codex → fix → re-review until clean
-7. Validate — run tests + typechecks, add new tests, do E2E verification
-8. Lessons — write LESSONS.md, update/create skills, iterative thinker-codex brainstorm loop`,
+2. Spec — draft SPEC.md, iterative ask_user to refine (skip obvious Qs), open-ended final Q, thinker-codex critique loop
+3. Plan — write PLAN.md, thinker-codex critique loop
+
+**Implementation todos** (write after Plan): one todo per plan step + phases 5-7
+4. Implement — fully build the spec using file editing tools
+5. Review Loop — code-reviewer-codex → fix → re-review until clean
+6. Validate — run tests + typechecks, add new tests, do E2E verification
+7. Lessons — write LESSONS.md, update/create skills, iterative thinker-codex brainstorm loop`,
     handleSteps: function* ({ params }) {
       while (true) {
         // Run context-pruner before each step.
