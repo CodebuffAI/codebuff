@@ -68,7 +68,8 @@ function nextFromCache(ctrl: GravityController): AdResponse | null {
  *
  * Activity is tracked via the global activity-tracker module.
  */
-export const useGravityAd = (): GravityAdState => {
+export const useGravityAd = (options?: { enabled?: boolean }): GravityAdState => {
+  const enabled = options?.enabled ?? true
   const [ad, setAd] = useState<AdResponse | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -81,7 +82,8 @@ export const useGravityAd = (): GravityAdState => {
   const isFreeMode = agentMode === 'FREE'
 
   // Skip ads on very compact screens unless in FREE mode (where ads are mandatory)
-  const shouldHideAds = isVeryCompactHeight && !isFreeMode
+  // Also skip if explicitly disabled (e.g. user has a subscription)
+  const shouldHideAds = !enabled || (isVeryCompactHeight && !isFreeMode)
 
   // Use Zustand selector instead of manual subscription - only rerenders when value changes
   const hasUserMessaged = useChatStore((s) =>
