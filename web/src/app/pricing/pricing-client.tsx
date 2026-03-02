@@ -40,8 +40,8 @@ const CREDITS_PER_DOLLAR = Object.fromEntries(
 
 const USAGE_MULTIPLIER: Record<number, string> = {
   100: '1×',
-  200: '3×',
-  500: '8×',
+  200: '2.5×',
+  500: '7×',
 }
 
 type ButtonAction = 'subscribe' | 'current' | 'upgrade' | 'downgrade'
