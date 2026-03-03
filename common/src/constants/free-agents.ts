@@ -100,7 +100,16 @@ export function isFreeModeAllowedAgentModel(
   // For these, any model check should fail (they shouldn't be making LLM calls)
   if (allowedModels.size === 0) return false
 
-  return allowedModels.has(model)
+  // Exact match first
+  if (allowedModels.has(model)) return true
+
+  // OpenRouter may return dated variants (e.g. "minimax/minimax-m2.5-20260211")
+  // so also check if the returned model starts with any allowed model prefix.
+  for (const allowed of allowedModels) {
+    if (model.startsWith(allowed + '-')) return true
+  }
+
+  return false
 }
 
 /**
