@@ -16,7 +16,7 @@ Insert one `console.log('Codebuff CLI starting')` call as the first statement in
 
 ## Files to Create/Modify
 - `cli/src/index.tsx` (modify)
-- `.agents/sessions/03-03-09:09-add-console-log/SPEC.md` (this spec)
+- `.agents/sessions/03-03-0909-add-console-log/SPEC.md` (this spec)
 
 ## Out of Scope
 - Replacing existing logger usage with `console.log`

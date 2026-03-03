@@ -136,7 +136,7 @@ Before asking questions or writing any code, gather broad context about the rele
 
 Draft a spec first, then refine it with the user:
 
-1. Create a session directory: \`<project>/.agents/sessions/<MM-DD-hh:mm>-<short-kebab-name>/\`
+1. Create a session directory: \`<project>/.agents/sessions/<MM-DD-hhmm>-<short-kebab-name>/\`
    - The date should be today's date and the short name should be a 2-4 word kebab-case summary of the task.
 2. Write an initial draft of \`SPEC.md\` in that directory based on the user's request and the codebase context gathered in Phase 1. The spec should contain:
    - **Overview**: Brief description of what is being built
