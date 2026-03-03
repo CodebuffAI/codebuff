@@ -1,5 +1,4 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
-import { isOpenAIProviderModel } from '@codebuff/common/constants/chatgpt-oauth'
 import {
   isClaudeModel,
   toAnthropicModelId,
@@ -78,7 +77,7 @@ export async function postTokenCount(params: {
   const { messages, system, model } = bodyResult.data
 
   try {
-    const useOpenAI = model != null && isOpenAIProviderModel(model)
+    const useOpenAI = model != null && false // isOpenAIProviderModel(model)
     const inputTokens = useOpenAI
       ? await countTokensViaOpenAI({ messages, system, model, fetch, logger })
       : await countTokensViaAnthropic({
