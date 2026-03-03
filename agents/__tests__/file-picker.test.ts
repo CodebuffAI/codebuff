@@ -80,7 +80,7 @@ describe('file-picker agent', () => {
   })
 
   describe('createFilePicker - max mode', () => {
-    test('spawns two file-listers in parallel', () => {
+    test('spawns single file-lister-max', () => {
       const maxPicker = createFilePicker('max')
       const mockAgentState = createMockAgentState()
       const mockLogger = {
@@ -100,9 +100,13 @@ describe('file-picker agent', () => {
 
       const toolCall = result.value as ToolCall<'spawn_agents'>
       expect(toolCall.toolName).toBe('spawn_agents')
-      expect(toolCall.input.agents).toHaveLength(2)
-      expect(toolCall.input.agents[0].agent_type).toBe('file-lister')
-      expect(toolCall.input.agents[1].agent_type).toBe('file-lister')
+      expect(toolCall.input.agents).toHaveLength(1)
+      expect(toolCall.input.agents[0].agent_type).toBe('file-lister-max')
+    })
+
+    test('includes file-lister-max in spawnableAgents', () => {
+      const maxPicker = createFilePicker('max')
+      expect(maxPicker.spawnableAgents).toContain('file-lister-max')
     })
   })
 
@@ -419,7 +423,7 @@ describe('file-picker agent', () => {
   })
 
   describe('handleStepsMax', () => {
-    test('spawns two file-listers in parallel', () => {
+    test('spawns single file-lister-max with prompt and params', () => {
       const maxPicker = createFilePicker('max')
       const mockAgentState = createMockAgentState()
       const mockLogger = {
@@ -440,16 +444,13 @@ describe('file-picker agent', () => {
 
       const toolCall = result.value as ToolCall<'spawn_agents'>
       expect(toolCall.toolName).toBe('spawn_agents')
-      expect(toolCall.input.agents).toHaveLength(2)
-
-      // Both should have same prompt and params
+      expect(toolCall.input.agents).toHaveLength(1)
+      expect(toolCall.input.agents[0].agent_type).toBe('file-lister-max')
       expect(toolCall.input.agents[0].prompt).toBe('Find auth files')
-      expect(toolCall.input.agents[1].prompt).toBe('Find auth files')
       expect(toolCall.input.agents[0].params).toEqual({ directories: ['src'] })
-      expect(toolCall.input.agents[1].params).toEqual({ directories: ['src'] })
     })
 
-    test('merges results from both file-listers', () => {
+    test('extracts results from file-lister-max', () => {
       const maxPicker = createFilePicker('max')
       const mockAgentState = createMockAgentState()
       const mockLogger = {
@@ -467,7 +468,6 @@ describe('file-picker agent', () => {
 
       generator.next()
 
-      // Mock result with two spawned agent results - wrapped in toolResult with production structure
       const mockToolResult = {
         agentState: createMockAgentState(),
         toolResult: [
@@ -476,29 +476,14 @@ describe('file-picker agent', () => {
             value: [
               {
                 agentName: 'File Lister',
-                agentType: 'file-lister',
+                agentType: 'file-lister-max',
                 value: {
                   type: 'lastMessage',
                   value: [
                     {
                       role: 'assistant',
                       content: [
-                        { type: 'text', text: 'src/auth.ts\nsrc/login.ts' },
-                      ],
-                    },
-                  ],
-                },
-              },
-              {
-                agentName: 'File Lister',
-                agentType: 'file-lister',
-                value: {
-                  type: 'lastMessage',
-                  value: [
-                    {
-                      role: 'assistant',
-                      content: [
-                        { type: 'text', text: 'src/user.ts\nsrc/auth.ts' }, // auth.ts is duplicate
+                        { type: 'text', text: 'src/auth.ts\nsrc/login.ts\nsrc/user.ts' },
                       ],
                     },
                   ],
@@ -512,7 +497,6 @@ describe('file-picker agent', () => {
 
       const result = generator.next(mockToolResult)
 
-      // Should merge and deduplicate
       const toolCall = result.value as ToolCall<'read_files'>
       const paths = toolCall.input.paths
       expect(paths).toHaveLength(3)
@@ -521,7 +505,7 @@ describe('file-picker agent', () => {
       expect(paths).toContain('src/user.ts')
     })
 
-    test('handles partial failures in max mode', () => {
+    test('handles error from file-lister-max', () => {
       const maxPicker = createFilePicker('max')
       const mockAgentState = createMockAgentState()
       const mockLogger = {
@@ -539,7 +523,6 @@ describe('file-picker agent', () => {
 
       generator.next()
 
-      // One success, one error - wrapped in toolResult with production structure
       const mockToolResult = {
         agentState: createMockAgentState(),
         toolResult: [
@@ -548,23 +531,10 @@ describe('file-picker agent', () => {
             value: [
               {
                 agentName: 'File Lister',
-                agentType: 'file-lister',
-                value: {
-                  type: 'lastMessage',
-                  value: [
-                    {
-                      role: 'assistant',
-                      content: [{ type: 'text', text: 'src/file.ts' }],
-                    },
-                  ],
-                },
-              },
-              {
-                agentName: 'File Lister',
-                agentType: 'file-lister',
+                agentType: 'file-lister-max',
                 value: {
                   type: 'error',
-                  message: 'Second file-lister failed',
+                  message: 'File lister max failed',
                 },
               },
             ],
@@ -575,10 +545,10 @@ describe('file-picker agent', () => {
 
       const result = generator.next(mockToolResult)
 
-      // Should still proceed with successful results
-      const toolCall = result.value as ToolCall<'read_files'>
-      expect(toolCall.toolName).toBe('read_files')
-      expect(toolCall.input.paths).toContain('src/file.ts')
+      const stepText = result.value as StepText
+      expect(stepText.type).toBe('STEP_TEXT')
+      expect(stepText.text).toContain('Error from file-lister')
+      expect(stepText.text).toContain('File lister max failed')
     })
   })
 

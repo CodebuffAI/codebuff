@@ -24,8 +24,7 @@ export const createFilePicker = (
       effort: 'low',
       exclude: false,
     },
-    spawnerPrompt:
-      'Spawn to find relevant files in a codebase related to the prompt. Outputs up to 12 file paths with short summaries for each file. Cannot do string searches on the codebase, but does a fuzzy search. Unless you know which directories are relevant, omit the directories parameter. This agent is extremely effective at finding files in the codebase that could be relevant to the prompt.',
+    spawnerPrompt: `Spawn to find relevant files in a codebase related to the prompt. Outputs up to ${isMax ? 20 : 12} file paths with short summaries for each file. Cannot do string searches on the codebase, but does a fuzzy search. Unless you know which directories are relevant, omit the directories parameter. This agent is extremely effective at finding files in the codebase that could be relevant to the prompt.`,
     inputSchema: {
       prompt: {
         type: 'string',
@@ -48,7 +47,9 @@ export const createFilePicker = (
     outputMode: 'last_message',
     includeMessageHistory: false,
     toolNames: ['spawn_agents'],
-    spawnableAgents: ['file-lister'],
+    spawnableAgents: isMax
+      ? ['file-lister-max']
+      : ['file-lister'],
 
     systemPrompt: `You are an expert at finding relevant files in a codebase. ${PLACEHOLDER.FILE_TREE_PROMPT}`,
     instructionsPrompt: `Instructions:
@@ -159,7 +160,7 @@ const handleStepsDefault: SecretAgentDefinition['handleSteps'] = function* ({
   }
 }
 
-// handleSteps for max mode - spawns 2 file-listers in parallel
+// handleSteps for max mode - spawns 1 file-lister-max
 const handleStepsMax: SecretAgentDefinition['handleSteps'] = function* ({
   prompt,
   params,
@@ -169,12 +170,7 @@ const handleStepsMax: SecretAgentDefinition['handleSteps'] = function* ({
     input: {
       agents: [
         {
-          agent_type: 'file-lister',
-          prompt: prompt ?? '',
-          params: params ?? {},
-        },
-        {
-          agent_type: 'file-lister',
+          agent_type: 'file-lister-max',
           prompt: prompt ?? '',
           params: params ?? {},
         },
