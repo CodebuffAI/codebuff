@@ -92,6 +92,8 @@ ${PLACEHOLDER.SYSTEM_INFO_PROMPT}
 
 The following is the state of the git repository at the start of the conversation. Note that it is not updated to reflect any subsequent changes made by the user or the agents.
 
+**IMPORTANT:** There may be other files changed in the git status/diff that are unrelated to the current request. The user may be working on multiple tasks simultaneously. Preserve those changes — do NOT revert, discard, or modify files that are not part of the current task.
+
 ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 `
 
@@ -209,10 +211,16 @@ Capture learnings for future sessions:
    - Unexpected behaviors or gotchas encountered
    - Useful patterns or approaches discovered
    - Anything that would help a future agent work more efficiently on this project
-2. Update or create skill files in \`.agents/skills/\`. You may update multiple skills or create new ones as appropriate:
+2. Update or create skill files in \`.agents/skills/\`. There is a HIGH BAR for contributing to skills — only add genuinely valuable, non-obvious insights. You may update multiple skills or create new ones as appropriate:
    - **Dedicated skills**: If there are substantial, detailed learnings about a specific topic (e.g. E2E validation, database migrations, authentication patterns), create or update a dedicated skill file at \`.agents/skills/<topic>/SKILL.md\`. Use the same frontmatter format as existing skills (name, description).
    - **Existing skills**: If learnings are relevant to an already-existing skill (check \`.agents/skills/\` for what exists), update that skill with the new information.
    - **Meta skill**: For general/miscellaneous learnings about the project as a whole, or tips that don't fit neatly into a specific topic, use \`.agents/skills/meta/SKILL.md\`.
+   - **IMPORTANT: Skills must NEVER include specifics about this particular run, feature, or task.** Skills are meant to be broadly applicable knowledge. For example:
+     - ✅ DO: "E2E tests for the web app require starting the dev server first with \`bun dev\` and waiting for port 3000"
+     - ✅ DO: "The \`packages/internal/\` directory contains server-only code — never import from it in \`cli/\` or \`common/\`"
+     - ✅ DO: "Drizzle migrations must be generated via the internal DB scripts, not hand-written"
+     - ❌ DON'T: "When implementing the auth token refresh feature, we had to..."
+     - ❌ DON'T: "The spec for this task required 3 rounds of revision because..."
    - For each skill file you update or create:
      - Read the existing file first (if it exists)
      - Concisely incorporate the most important learnings from this session
