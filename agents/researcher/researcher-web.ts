@@ -6,7 +6,7 @@ import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 const definition: SecretAgentDefinition = {
   id: 'researcher-web',
   publisher,
-  model: 'x-ai/grok-4.1-fast',
+  model: 'google/gemini-3.1-flash-lite-preview',
   displayName: 'Weeb',
   spawnerPrompt: `Browses the web to find relevant information.`,
   inputSchema: {
@@ -38,9 +38,9 @@ Then, write up a concise report that includes key findings for the user's prompt
     const results = (toolResult
       ?.filter((r) => r.type === 'json')
       ?.map((r) => r.value)?.[0] ?? {}) as {
-      result: string | undefined
-      errorMessage: string | undefined
-    }
+        result: string | undefined
+        errorMessage: string | undefined
+      }
 
     yield {
       type: 'STEP_TEXT',

@@ -16,7 +16,7 @@ async function main() {
   // Define your own custom agents!
   const myCustomAgent: AgentDefinition = {
     id: 'my-custom-agent',
-    model: 'x-ai/grok-4-fast',
+    model: 'google/gemini-3.1-flash-lite-preview',
     displayName: 'Sentiment analyzer',
     toolNames: ['fetch_api_data'], // Defined below!
     instructionsPrompt: `

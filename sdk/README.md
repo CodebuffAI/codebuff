@@ -75,7 +75,7 @@ async function main() {
   // Define your own custom agents!
   const myCustomAgent: AgentDefinition = {
     id: 'my-custom-agent',
-    model: 'x-ai/grok-4-fast',
+    model: 'google/gemini-3.1-flash-lite-preview',
     displayName: 'Sentiment analyzer',
     toolNames: ['fetch_api_data'], // Defined below!
     instructionsPrompt: `
@@ -214,6 +214,7 @@ const result = await client.run({
 Returns a `Promise<LoadedAgents>` - a `Record<string, LoadedAgentDefinition>` of agent definitions keyed by their ID.
 
 Each `LoadedAgentDefinition` extends `AgentDefinition` with:
+
 - **`_sourceFilePath`** (string): The file path the agent was loaded from
 
 #### Supported File Types

@@ -22,15 +22,15 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
 
   // File exploration agents
   'file-picker': new Set(['google/gemini-2.5-flash-lite']),
-  'file-picker-max': new Set(['x-ai/grok-4.1-fast']),
-  'file-lister': new Set(['x-ai/grok-4.1-fast']),
+  'file-picker-max': new Set(['google/gemini-3.1-flash-lite-preview']),
+  'file-lister': new Set(['google/gemini-3.1-flash-lite-preview']),
 
   // Research agents
-  'researcher-web': new Set(['x-ai/grok-4.1-fast']),
-  'researcher-docs': new Set(['x-ai/grok-4.1-fast']),
+  'researcher-web': new Set(['google/gemini-3.1-flash-lite-preview']),
+  'researcher-docs': new Set(['google/gemini-3.1-flash-lite-preview']),
 
   // Command execution
-  'commander-lite': new Set(['x-ai/grok-4.1-fast']),
+  'commander-lite': new Set(['google/gemini-3.1-flash-lite-preview']),
 
   // Editor for free mode
   'editor-lite': new Set(['minimax/minimax-m2.5']),
