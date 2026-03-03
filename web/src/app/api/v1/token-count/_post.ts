@@ -1,4 +1,5 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { isOpenAIProviderModel } from '@codebuff/common/constants/chatgpt-oauth'
 import {
   isClaudeModel,
   toAnthropicModelId,
@@ -77,13 +78,16 @@ export async function postTokenCount(params: {
   const { messages, system, model } = bodyResult.data
 
   try {
-    const inputTokens = await countTokensViaAnthropic({
-      messages,
-      system,
-      model,
-      fetch,
-      logger,
-    })
+    const useOpenAI = model != null && isOpenAIProviderModel(model)
+    const inputTokens = useOpenAI
+      ? await countTokensViaOpenAI({ messages, system, model, fetch, logger })
+      : await countTokensViaAnthropic({
+          messages,
+          system,
+          model,
+          fetch,
+          logger,
+        })
 
     logger.info({
       userId,
@@ -91,6 +95,7 @@ export async function postTokenCount(params: {
       hasSystem: !!system,
       model: model ?? DEFAULT_ANTHROPIC_MODEL,
       tokenCount: inputTokens,
+      provider: useOpenAI ? 'openai' : 'anthropic',
     },
       `Token count: ${inputTokens}`
     )
@@ -99,7 +104,7 @@ export async function postTokenCount(params: {
   } catch (error) {
     logger.error(
       { error: getErrorObject(error), userId },
-      'Failed to count tokens via Anthropic API',
+      'Failed to count tokens',
     )
 
     return NextResponse.json(
@@ -111,6 +116,171 @@ export async function postTokenCount(params: {
 
 // Buffer to add to token count for non-Anthropic models since tokenizers differ
 const NON_ANTHROPIC_TOKEN_BUFFER = 0.3
+
+export async function countTokensViaOpenAI(params: {
+  messages: TokenCountRequest['messages']
+  system: string | undefined
+  model: string
+  fetch: typeof globalThis.fetch
+  logger: Logger
+}): Promise<number> {
+  const { messages, system, model, fetch, logger } = params
+
+  const openaiModelId = model.startsWith('openai/')
+    ? model.slice('openai/'.length)
+    : model
+
+  const input = convertToResponsesApiInput(messages)
+
+  const response = await fetch(
+    'https://api.openai.com/v1/responses/input_tokens',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: openaiModelId,
+        input,
+        ...(system && { instructions: system }),
+      }),
+    },
+  )
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    logger.error(
+      { status: response.status, errorText, model },
+      'OpenAI token count API error',
+    )
+    throw new Error(`OpenAI API error: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json()
+  return data.input_tokens
+}
+
+export type ResponsesApiContentPart =
+  | { type: 'input_text'; text: string }
+  | { type: 'input_image'; image_url: string }
+
+export type ResponsesApiInputItem =
+  | { type: 'message'; role: 'user' | 'assistant' | 'developer'; content: string | ResponsesApiContentPart[] }
+  | { type: 'function_call'; id: string; name: string; arguments: string }
+  | { type: 'function_call_output'; call_id: string; output: string }
+
+export function convertToResponsesApiInput(
+  messages: TokenCountRequest['messages'],
+): ResponsesApiInputItem[] {
+  const input: ResponsesApiInputItem[] = []
+
+  for (const message of messages) {
+    if (message.role === 'system') {
+      const content = buildMessageContent(message.content)
+      if (content) {
+        input.push({ type: 'message', role: 'developer', content })
+      }
+      continue
+    }
+
+    if (message.role === 'tool') {
+      input.push({
+        type: 'function_call_output',
+        call_id: message.toolCallId ?? 'unknown',
+        output: formatToolContent(message.content),
+      })
+      continue
+    }
+
+    if (message.role === 'user') {
+      const content = buildMessageContent(message.content)
+      if (content) {
+        input.push({ type: 'message', role: 'user', content })
+      }
+      continue
+    }
+
+    if (message.role === 'assistant') {
+      const content = buildMessageContent(message.content)
+      if (content) {
+        input.push({ type: 'message', role: 'assistant', content })
+      }
+      if (Array.isArray(message.content)) {
+        for (const part of message.content) {
+          if (part.type === 'tool-call') {
+            input.push({
+              type: 'function_call',
+              id: part.toolCallId ?? 'unknown',
+              name: part.toolName,
+              arguments: JSON.stringify(part.input ?? {}),
+            })
+          }
+        }
+      }
+    }
+  }
+
+  return input
+}
+
+function buildMessageContent(
+  content: unknown,
+): string | ResponsesApiContentPart[] | null {
+  if (typeof content === 'string') return content || null
+  if (!Array.isArray(content)) {
+    const text = JSON.stringify(content)
+    return text || null
+  }
+
+  const hasImages = content.some(
+    (part) => part.type === 'image' && typeof part.image === 'string' && part.image,
+  )
+
+  if (!hasImages) {
+    const text = extractTextParts(content)
+    return text || null
+  }
+
+  const parts: ResponsesApiContentPart[] = []
+  for (const part of content) {
+    if (part.type === 'text' && typeof part.text === 'string' && part.text) {
+      parts.push({ type: 'input_text', text: part.text })
+    } else if (part.type === 'json') {
+      const text = typeof part.value === 'string' ? part.value : JSON.stringify(part.value)
+      if (text) {
+        parts.push({ type: 'input_text', text })
+      }
+    } else if (part.type === 'image') {
+      const imageUrl = toImageUrl(part.image, part.mediaType)
+      if (imageUrl) {
+        parts.push({ type: 'input_image', image_url: imageUrl })
+      }
+    }
+  }
+
+  return parts.length > 0 ? parts : null
+}
+
+function toImageUrl(image: unknown, mediaType?: string): string | null {
+  if (typeof image !== 'string' || !image) return null
+  if (image.startsWith('http://') || image.startsWith('https://') || image.startsWith('data:')) {
+    return image
+  }
+  return `data:${mediaType ?? 'image/png'};base64,${image}`
+}
+
+function extractTextParts(content: Array<Record<string, unknown>>): string {
+  const parts: string[] = []
+  for (const part of content) {
+    if (part.type === 'text' && typeof part.text === 'string') {
+      parts.push(part.text)
+    } else if (part.type === 'json') {
+      parts.push(typeof part.value === 'string' ? part.value : JSON.stringify(part.value))
+    }
+  }
+  return parts.join('\n')
+}
 
 async function countTokensViaAnthropic(params: {
   messages: TokenCountRequest['messages']
