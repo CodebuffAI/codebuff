@@ -4,7 +4,7 @@ import { type SecretAgentDefinition } from '../types/secret-agent-definition'
 export const createFileLister = (): Omit<SecretAgentDefinition, 'id'> => ({
   displayName: 'Liszt the File Lister',
   publisher,
-  model: 'x-ai/grok-4.1-fast',
+  model: 'google/gemini-3.1-flash-lite-preview',
   spawnerPrompt:
     'Lists up to 12 files that are relevant to the prompt within the given directories. Unless you know which directories are relevant, omit the directories parameter. This agent is great for finding files that could be relevant to the prompt.',
   inputSchema: {

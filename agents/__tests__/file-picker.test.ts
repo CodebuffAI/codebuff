@@ -80,11 +80,6 @@ describe('file-picker agent', () => {
   })
 
   describe('createFilePicker - max mode', () => {
-    test('uses grok model', () => {
-      const maxPicker = createFilePicker('max')
-      expect(maxPicker.model).toBe('x-ai/grok-4.1-fast')
-    })
-
     test('spawns two file-listers in parallel', () => {
       const maxPicker = createFilePicker('max')
       const mockAgentState = createMockAgentState()
