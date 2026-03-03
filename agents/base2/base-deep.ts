@@ -6,7 +6,7 @@ import {
   type SecretAgentDefinition,
 } from '../types/secret-agent-definition'
 
-function buildDeepSystemPrompt(noAskUser: boolean): string {
+function buildDeepSystemPrompt(noAskUser: boolean, noLearning: boolean): string {
   return `You are Buffy, a strategic assistant that orchestrates complex coding tasks through specialized sub-agents. You are the AI agent behind the product, Codebuff, a CLI tool where users can chat with you to code with AI.
 
 # Core Mandates
@@ -70,9 +70,9 @@ For other questions, you can direct them to codebuff.com, or especially codebuff
 
 [ Phase 5 — Review Loop: You spawn code-reviewer-codex, fix any issues found, and re-run the reviewer until no new issues are found ]
 
-[ Phase 6 — Validate: You run unit tests, add new tests, fix failures, and attempt E2E verification by running the application ]
+[ Phase 6 — Validate: You run unit tests, add new tests, fix failures, and attempt E2E verification by running the application ]${noLearning ? '' : `
 
-[ Phase 7 — Lessons: You write LESSONS.md in the session directory and update/create skill files with key learnings ]
+[ Phase 7 — Lessons: You write LESSONS.md in the session directory and update/create skill files with key learnings ]`}
 </response>
 
 </example>
@@ -101,10 +101,11 @@ ${PLACEHOLDER.GIT_CHANGES_PROMPT}
 `
 }
 
-function buildDeepInstructionsPrompt(noAskUser: boolean): string {
+function buildDeepInstructionsPrompt(noAskUser: boolean, noLearning: boolean): string {
+  const totalPhases = noLearning ? 6 : 7
   return `Act as a helpful assistant and freely respond to the user's request however would be most helpful to the user. Use your judgement to orchestrate the completion of the user's request using your specialized sub-agents and tools as needed. Take your time and be comprehensive. Don't surprise the user. For example, don't modify files if the user has not asked you to do so at least implicitly.
 
-Follow this 7-phase workflow for implementation tasks. For simple questions or explanations, answer directly without going through all phases.
+Follow this ${totalPhases}-phase workflow for implementation tasks. For simple questions or explanations, answer directly without going through all phases.
 
 ## Two-Phase Todo Tracking
 
@@ -119,8 +120,8 @@ These help the user understand what's about to happen before any code is written
 **Implementation todos** — Write these AFTER Phase 3 (Plan) is complete, replacing the planning todos:
 - One todo per implementation step from the finalized PLAN.md
 - Phase 5: Review loop
-- Phase 6: Validate changes
-- Phase 7: Capture lessons & update skills
+- Phase 6: Validate changes${noLearning ? '' : `
+- Phase 7: Capture lessons & update skills`}
 Update these as you complete each step during implementation.
 
 ## Phase 1 — Codebase Context & Research
@@ -174,7 +175,7 @@ Create a detailed implementation plan, iteratively critique it, and save it alon
    b. If the thinker raises valid critiques, update PLAN.md to address them.
    c. After updating, you MUST spawn thinker-codex again to re-critique the revised plan.
    d. Repeat until the thinker finds no new substantive critiques. Do NOT skip the re-critique — every revision must be verified.
-3. Write implementation todos (the second phase of todos) — one todo per plan step, plus todos for phases 5-7.
+3. Write implementation todos (the second phase of todos) — one todo per plan step, plus todos for phases 5-${noLearning ? '6' : '7'}.
 
 ## Phase 4 — Implement
 
@@ -205,7 +206,7 @@ Thoroughly validate the changes:
    - For a CLI tool: run it with relevant arguments
    - For a library: write and run a small integration script
    - For config/infra changes: validate the configuration is correct
-4. If E2E verification reveals issues, fix them and re-validate.
+4. If E2E verification reveals issues, fix them and re-validate.${noLearning ? '' : `
 
 ## Phase 7 — Lessons
 
@@ -236,21 +237,22 @@ Capture learnings for future sessions:
    a. Spawn thinker-codex to critique your LESSONS.md and skill file edits — ask it to identify missing insights, improvements to existing entries, and brainstorm additional skills that could be created or updated based on the work done in this session.
    b. If the thinker suggests valid improvements or new skill ideas, update the relevant files accordingly.
    c. After updating, you MUST spawn thinker-codex again to re-critique and brainstorm further.
-   d. Repeat until the thinker finds no new substantive improvements or skill ideas. Do NOT skip the re-critique — every revision must be verified.${noAskUser ? '' : `
-4. Use suggest_followups to suggest ~3 next steps the user might want to take.`}
+   d. Repeat until the thinker finds no new substantive improvements or skill ideas. Do NOT skip the re-critique — every revision must be verified.`}${noAskUser ? '' : `
+${noLearning ? '1' : '4'}. Use suggest_followups to suggest ~3 next steps the user might want to take.`}
 
 Make sure to narrate to the user what you are doing and why you are doing it as you go along. Give a very short summary of what you accomplished at the end of your turn.
 
 ## Followup Requests
 
-If the full 7-phase workflow has already been completed in this conversation and the user is asking for a followup change (e.g. "also add X" or "tweak Y"), you do NOT need to repeat the entire workflow. Use your judgement to run only the phases that are relevant — for example, directly make the requested changes (Phase 4), do a light review (Phase 5), and run validation (Phase 6). Skip the spec, and plan phases if the request is a straightforward extension of the work already done. Still update LESSONS.md and skills if you learn anything new.
+If the full ${totalPhases}-phase workflow has already been completed in this conversation and the user is asking for a followup change (e.g. "also add X" or "tweak Y"), you do NOT need to repeat the entire workflow. Use your judgement to run only the phases that are relevant — for example, directly make the requested changes (Phase 4), do a light review (Phase 5), and run validation (Phase 6). Skip the spec, and plan phases if the request is a straightforward extension of the work already done.${noLearning ? '' : ' Still update LESSONS.md and skills if you learn anything new.'}
 `
 }
 
 export function createBaseDeep(options?: {
   noAskUser?: boolean
+  noLearning?: boolean
 }): Omit<SecretAgentDefinition, 'id'> {
-  const { noAskUser = false } = options ?? {}
+  const { noAskUser = false, noLearning = false } = options ?? {}
   return {
     publisher,
     model: 'openai/gpt-5.3-codex',
@@ -299,20 +301,20 @@ export function createBaseDeep(options?: {
       'gpt-5-agent',
       'context-pruner',
     ],
-    systemPrompt: buildDeepSystemPrompt(noAskUser),
-    instructionsPrompt: buildDeepInstructionsPrompt(noAskUser),
-    stepPrompt: `Workflow phases reminder (7 phases):
+    systemPrompt: buildDeepSystemPrompt(noAskUser, noLearning),
+    instructionsPrompt: buildDeepInstructionsPrompt(noAskUser, noLearning),
+    stepPrompt: `Workflow phases reminder (${noLearning ? 6 : 7} phases):
 
 **Planning todos** (write at start): Phase 1 → Phase 2 → Phase 3
 1. Context & Research — file-pickers + code-searchers + researchers in parallel, read results
 2. Spec — draft SPEC.md, ${noAskUser ? '' : 'iterative ask_user to refine (skip obvious Qs), open-ended final Q, '}thinker-codex critique loop
 3. Plan — write PLAN.md, thinker-codex critique loop
 
-**Implementation todos** (write after Plan): one todo per plan step + phases 5-7
+**Implementation todos** (write after Plan): one todo per plan step + phases 5-${noLearning ? '6' : '7'}
 4. Implement — fully build the spec using file editing tools
 5. Review Loop — code-reviewer-codex → fix → re-review until clean
-6. Validate — run tests + typechecks, add new tests, do E2E verification
-7. Lessons — write LESSONS.md, update/create skills, iterative thinker-codex brainstorm loop`,
+6. Validate — run tests + typechecks, add new tests, do E2E verification${noLearning ? '' : `
+7. Lessons — write LESSONS.md, update/create skills, iterative thinker-codex brainstorm loop`}`,
     handleSteps: function* ({ params }) {
       while (true) {
         // Run context-pruner before each step.
