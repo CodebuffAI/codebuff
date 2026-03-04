@@ -11,17 +11,23 @@ import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/b
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ChatCompletionRequestBody } from './types'
 
-// Novita pricing (approximate, adjust as needed)
+// Novita pricing ($/M tokens, based on Novita pricing page)
 const INPUT_TOKEN_COSTS: Record<string, number> = {
   'deepseek/deepseek-r1': 0.6,
-  'deepseek/deepseek-v3': 0.6,
+  'deepseek/deepseek-v3.2': 0.269,
+  'deepseek/deepseek-v3': 0.269, // alias
+  'zai-org/glm-5': 1.0,
+  'minimax/minimax-m2.5': 0.3,
   'meta-llama/llama-3.3-70b-instruct': 0.6,
   'default': 0.6,
 } as const
 
 const OUTPUT_TOKEN_COSTS: Record<string, number> = {
   'deepseek/deepseek-r1': 2.4,
-  'deepseek/deepseek-v3': 2.4,
+  'deepseek/deepseek-v3.2': 0.4,
+  'deepseek/deepseek-v3': 0.4, // alias
+  'zai-org/glm-5': 3.2,
+  'minimax/minimax-m2.5': 1.2,
   'meta-llama/llama-3.3-70b-instruct': 2.4,
   'default': 2.4,
 } as const
