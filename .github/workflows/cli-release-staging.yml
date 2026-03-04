@@ -22,7 +22,7 @@ jobs:
     outputs:
       new_version: ${{ steps.bump_version.outputs.new_version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
@@ -111,7 +111,7 @@ jobs:
           git push origin "v${{ steps.bump_version.outputs.new_version }}"
 
       - name: Upload staging metadata
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cli-staging-metadata
           path: cli/release-staging/
@@ -131,7 +131,7 @@ jobs:
     needs: [prepare-and-commit-staging, build-staging-binaries]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
@@ -165,12 +165,12 @@ jobs:
           fi
 
       - name: Download all binary artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: binaries/
 
       - name: Download staging metadata
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: cli-staging-metadata
           path: cli/release-staging/
@@ -211,18 +211,18 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
       - name: Download CLI staging package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: cli-staging-metadata
           path: cli/release-staging/
 
       - name: Set up Node.js with npm registry
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'

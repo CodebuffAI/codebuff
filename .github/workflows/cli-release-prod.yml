@@ -26,7 +26,7 @@ jobs:
     outputs:
       new_version: ${{ steps.bump_version.outputs.new_version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -68,7 +68,7 @@ jobs:
           git push origin "v${{ steps.bump_version.outputs.new_version }}"
 
       - name: Upload updated package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: updated-package
           path: cli/release/
@@ -89,15 +89,15 @@ jobs:
     needs: [prepare-and-commit-prod, build-prod-binaries]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download all binary artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: binaries/
 
       - name: Download updated package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: updated-package
           path: cli/release/
@@ -137,16 +137,16 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download updated package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: updated-package
           path: cli/release/
 
       - name: Set up Node.js for npm publishing
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org/
