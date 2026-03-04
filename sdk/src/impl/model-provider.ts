@@ -24,9 +24,13 @@ import {
 
 import { WEBSITE_URL } from '../constants'
 import { getValidClaudeOAuthCredentials } from '../credentials'
-import { getByokOpenrouterApiKeyFromEnv } from '../env'
+import {
+  getByokOpenrouterApiKeyFromEnv,
+  getByokNovitaApiKeyFromEnv,
+} from '../env'
 
 import type { LanguageModel } from 'ai'
+import { createOpenAICompatible } from '@codebuff/internal/openai-compatible/index'
 
 // ============================================================================
 // Claude OAuth Rate Limit Cache
@@ -188,10 +192,36 @@ export async function getModelForRequest(params: ModelRequestParams): Promise<Mo
   }
 
   // Default: use Codebuff backend
+  if (model.startsWith('novita/')) {
+    const novitaApiKey = getByokNovitaApiKeyFromEnv()
+    if (novitaApiKey) {
+      return {
+        model: createNovitaDirectModel(model, novitaApiKey),
+        isClaudeOAuth: false,
+      }
+    }
+  }
+
   return {
     model: createCodebuffBackendModel(apiKey, model),
     isClaudeOAuth: false,
   }
+}
+
+/**
+ * Create a direct Novita model.
+ */
+function createNovitaDirectModel(
+  model: string,
+  apiKey: string,
+): LanguageModel {
+  const novitaModelId = model.startsWith('novita/') ? model.slice(7) : model
+  const novita = createOpenAICompatible({
+    name: 'novita',
+    baseURL: 'https://api.novita.ai/openai',
+    apiKey,
+  })
+  return novita.chatModel(novitaModelId) as unknown as LanguageModel
 }
 
 /**

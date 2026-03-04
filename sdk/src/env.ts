@@ -5,7 +5,10 @@
  * process env with SDK-specific vars for binary paths and WASM.
  */
 
-import { BYOK_OPENROUTER_ENV_VAR } from '@codebuff/common/constants/byok'
+import {
+  BYOK_OPENROUTER_ENV_VAR,
+  BYOK_NOVITA_ENV_VAR,
+} from '@codebuff/common/constants/byok'
 import { CLAUDE_OAUTH_TOKEN_ENV_VAR } from '@codebuff/common/constants/claude-oauth'
 import { API_KEY_ENV_VAR } from '@codebuff/common/constants/paths'
 import { getBaseEnv } from '@codebuff/common/env-process'
@@ -40,6 +43,10 @@ export const getSystemProcessEnv = (): NodeJS.ProcessEnv => {
 
 export const getByokOpenrouterApiKeyFromEnv = (): string | undefined => {
   return process.env[BYOK_OPENROUTER_ENV_VAR]
+}
+
+export const getByokNovitaApiKeyFromEnv = (): string | undefined => {
+  return process.env[BYOK_NOVITA_ENV_VAR]
 }
 
 /**

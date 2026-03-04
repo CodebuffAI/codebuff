@@ -39,6 +39,7 @@ import {
   handleOpenAINonStream,
   OPENAI_SUPPORTED_MODELS,
 } from '@/llm-api/openai'
+import { handleNovitaNonStream } from '@/llm-api/novita'
 import {
   handleOpenRouterNonStream,
   handleOpenRouterStream,
@@ -390,27 +391,41 @@ export async function postChatCompletions(params: {
         // All other models (including non-OpenAI with n parameter) should use OpenRouter
         const shouldUseOpenAIEndpoint =
           isOpenAIDirectModel && typedBody.codebuff_metadata?.n !== undefined
+        const shouldUseNovitaEndpoint = model.startsWith('novita/')
 
-        const nonStreamRequest = shouldUseOpenAIEndpoint
-          ? handleOpenAINonStream({
-              body: typedBody,
-              userId,
-              stripeCustomerId,
-              agentId,
-              fetch,
-              logger,
-              insertMessageBigquery,
-            })
-          : handleOpenRouterNonStream({
-              body: typedBody,
-              userId,
-              stripeCustomerId,
-              agentId,
-              openrouterApiKey,
-              fetch,
-              logger,
-              insertMessageBigquery,
-            })
+        let nonStreamRequest
+        if (shouldUseNovitaEndpoint) {
+          nonStreamRequest = handleNovitaNonStream({
+            body: typedBody,
+            userId,
+            stripeCustomerId,
+            agentId,
+            fetch,
+            logger,
+            insertMessageBigquery,
+          })
+        } else if (shouldUseOpenAIEndpoint) {
+          nonStreamRequest = handleOpenAINonStream({
+            body: typedBody,
+            userId,
+            stripeCustomerId,
+            agentId,
+            fetch,
+            logger,
+            insertMessageBigquery,
+          })
+        } else {
+          nonStreamRequest = handleOpenRouterNonStream({
+            body: typedBody,
+            userId,
+            stripeCustomerId,
+            agentId,
+            openrouterApiKey,
+            fetch,
+            logger,
+            insertMessageBigquery,
+          })
+        }
         const result = await nonStreamRequest
 
         trackEvent({
