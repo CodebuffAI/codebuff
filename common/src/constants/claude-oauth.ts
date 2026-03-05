@@ -3,6 +3,15 @@
  * These are used by the CLI for the OAuth PKCE flow and by the SDK for direct Anthropic API calls.
  */
 
+/**
+ * Feature flag for Claude OAuth (connect:claude) functionality.
+ * Set to true to re-enable Claude OAuth across:
+ * - CLI: /connect:claude command, OAuth banner, usage display
+ * - SDK: Direct Anthropic API routing via OAuth token
+ * - Init: Background credential refresh on startup
+ */
+export const CLAUDE_OAUTH_ENABLED = false
+
 // OAuth client ID used by Claude Code and third-party apps like opencode
 export const CLAUDE_OAUTH_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e'
 
@@ -66,6 +75,7 @@ export const OPENROUTER_TO_ANTHROPIC_MODEL_MAP: Record<string, string> = {
   'anthropic/claude-haiku-4': 'claude-haiku-4-20250514',
 
   // Claude 4.x Sonnet models
+  'anthropic/claude-sonnet-4.6': 'claude-sonnet-4-6',
   'anthropic/claude-sonnet-4.5': 'claude-sonnet-4-5-20250929',
   'anthropic/claude-sonnet-4': 'claude-sonnet-4-20250514',
   'anthropic/claude-4-sonnet-20250522': 'claude-sonnet-4-20250514',

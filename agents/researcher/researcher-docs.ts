@@ -5,7 +5,7 @@ import type { SecretAgentDefinition } from '../types/secret-agent-definition'
 const definition: SecretAgentDefinition = {
   id: 'researcher-docs',
   publisher,
-  model: 'x-ai/grok-4.1-fast',
+  model: 'google/gemini-3.1-flash-lite-preview',
   displayName: 'Doc',
   spawnerPrompt: `Expert at reading technical documentation of major public libraries and frameworks to find relevant information. (e.g. React, MongoDB, Postgres, etc.)`,
   inputSchema: {

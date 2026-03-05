@@ -6,7 +6,7 @@ const definition: AgentDefinition = {
   ...commander,
   id: 'commander-lite',
   displayName: 'Commander Lite',
-  model: 'x-ai/grok-4.1-fast',
+  model: 'google/gemini-3.1-flash-lite-preview',
 }
 
 export default definition

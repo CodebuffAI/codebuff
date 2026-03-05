@@ -1,6 +1,7 @@
 import React from 'react'
 
 import { BottomBanner } from './bottom-banner'
+import { useSubscriptionQuery } from '../hooks/use-subscription-query'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
 
@@ -33,6 +34,8 @@ const Shortcut = ({
 export const HelpBanner = () => {
   const setInputMode = useChatStore((state) => state.setInputMode)
   const theme = useTheme()
+  const { data: subscriptionData } = useSubscriptionQuery()
+  const hasSubscription = subscriptionData?.hasSubscription ?? false
 
   // Auto-hide after timeout
   React.useEffect(() => {
@@ -80,8 +83,12 @@ export const HelpBanner = () => {
               <text style={{ fg: theme.foreground }}>/subscribe</text>
               <text style={{ fg: theme.muted }}>·</text>
               <text style={{ fg: theme.foreground }}>/usage</text>
-              <text style={{ fg: theme.muted }}>·</text>
-              <text style={{ fg: theme.foreground }}>/ads:enable</text>
+              {!hasSubscription && (
+                <>
+                  <text style={{ fg: theme.muted }}>·</text>
+                  <text style={{ fg: theme.foreground }}>/ads:enable</text>
+                </>
+              )}
             </box>
             <text style={{ fg: theme.muted }}>
               Subscribe for the best credit rates — /subscribe

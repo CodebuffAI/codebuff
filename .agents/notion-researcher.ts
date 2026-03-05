@@ -6,7 +6,7 @@ const definition: AgentDefinition = {
   id: 'notion-researcher',
   publisher,
   displayName: 'Notion Researcher',
-  model: 'x-ai/grok-4-fast',
+  model: 'google/gemini-3.1-flash-lite-preview',
 
   spawnerPrompt:
     'Expert at conducting comprehensive research across Notion workspaces by spawning multiple notion agents in parallel waves to gather information from different angles and sources.',

@@ -8,7 +8,7 @@ import type {
 const commander: AgentDefinition = {
   id: 'commander',
   publisher,
-  model: 'anthropic/claude-haiku-4.5',
+  model: 'google/gemini-3.1-flash-lite-preview',
   displayName: 'Commander',
   spawnerPrompt:
     'Runs a single terminal command and describes its output using an LLM based on what information is requested.',

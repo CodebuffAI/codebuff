@@ -7,7 +7,11 @@ import {
 } from '@codebuff/agent-runtime/util/messages'
 import { MAX_AGENT_STEPS_DEFAULT } from '@codebuff/common/constants/agents'
 import { toOptionalFile } from '@codebuff/common/constants/paths'
-import { getMCPClient, listMCPTools, callMCPTool } from '@codebuff/common/mcp/client'
+import {
+  getMCPClient,
+  listMCPTools,
+  callMCPTool,
+} from '@codebuff/common/mcp/client'
 import { toolNames } from '@codebuff/common/tools/constants'
 import { clientToolCallSchema } from '@codebuff/common/tools/list'
 import { AgentOutputSchema } from '@codebuff/common/types/session-state'
@@ -18,12 +22,12 @@ import { getAgentRuntimeImpl } from './impl/agent-runtime'
 import { getUserInfoFromApiKey } from './impl/database'
 import { initialSessionState, applyOverridesToSessionState } from './run-state'
 import { changeFile } from './tools/change-file'
+import { applyPatchTool } from './tools/apply-patch'
 import { codeSearch } from './tools/code-search'
 import { glob } from './tools/glob'
 import { listDirectory } from './tools/list-directory'
 import { getFiles } from './tools/read-files'
 import { runTerminalCommand } from './tools/run-terminal-command'
-
 
 import type { CustomToolDefinition } from './custom-tool'
 import type { RunState } from './run-state'
@@ -84,17 +88,17 @@ export type CodebuffClientOptions = {
     chunk:
       | string
       | {
-        type: 'subagent_chunk'
-        agentId: string
-        agentType: string
-        chunk: string
-      }
+          type: 'subagent_chunk'
+          agentId: string
+          agentType: string
+          chunk: string
+        }
       | {
-        type: 'reasoning_chunk'
-        agentId: string
-        ancestorRunIds: string[]
-        chunk: string
-      },
+          type: 'reasoning_chunk'
+          agentId: string
+          ancestorRunIds: string[]
+          chunk: string
+        },
   ) => void | Promise<void>
 
   /** Optional filter to classify files before reading (runs before gitignore check) */
@@ -259,8 +263,8 @@ async function runOnce({
     })
   }
 
-  let resolve: (value: RunReturnType) => any = () => { }
-  let _reject: (error: any) => any = () => { }
+  let resolve: (value: RunReturnType) => any = () => {}
+  let _reject: (error: any) => any = () => {}
   const promise = new Promise<RunReturnType>((res, rej) => {
     resolve = res
     _reject = rej
@@ -279,7 +283,7 @@ async function runOnce({
    */
   function getCancelledSessionState(message: string): SessionState {
     const state = cloneDeep(sessionState)
-    
+
     // Add the user's message since the server never processed it
     if (prompt || preparedContent) {
       state.mainAgentState.messageHistory.push({
@@ -288,7 +292,7 @@ async function runOnce({
         tags: ['USER_PROMPT'] as string[],
       })
     }
-    
+
     // Add error context message
     state.mainAgentState.messageHistory.push({
       role: 'user' as const,
@@ -371,8 +375,8 @@ async function runOnce({
         overrides: overrideTools ?? {},
         customToolDefinitions: customToolDefinitions
           ? Object.fromEntries(
-            customToolDefinitions.map((def) => [def.toolName, def]),
-          )
+              customToolDefinitions.map((def) => [def.toolName, def]),
+            )
           : {},
         cwd,
         fs,
@@ -549,7 +553,12 @@ async function readFiles({
   if (override) {
     return await override({ filePaths })
   }
-  return getFiles({ filePaths, cwd: requireCwd(cwd, 'read_files'), fs, fileFilter })
+  return getFiles({
+    filePaths,
+    cwd: requireCwd(cwd, 'read_files'),
+    fs,
+    fileFilter,
+  })
 }
 
 async function handleToolCall({
@@ -612,8 +621,11 @@ async function handleToolCall({
 
   try {
     let override = overrides[toolName as PublishedClientToolName]
-    if (!override && toolName === 'str_replace') {
-      // Note: write_file and str_replace have the same implementation, so reuse their write_file override.
+    if (
+      !override &&
+      (toolName === 'str_replace' || toolName === 'apply_patch')
+    ) {
+      // Reuse the write_file override for file editing tools.
       override = overrides['write_file']
     }
     if (override) {
@@ -626,6 +638,12 @@ async function handleToolCall({
       result = [{ type: 'json', value: { message: 'Turn ended.' } }]
     } else if (toolName === 'write_file' || toolName === 'str_replace') {
       result = await changeFile({
+        parameters: input,
+        cwd: requireCwd(cwd, toolName),
+        fs,
+      })
+    } else if (toolName === 'apply_patch') {
+      result = await applyPatchTool({
         parameters: input,
         cwd: requireCwd(cwd, toolName),
         fs,
@@ -677,9 +695,9 @@ async function handleToolCall({
         value: {
           errorMessage:
             error &&
-              typeof error === 'object' &&
-              'message' in error &&
-              typeof error.message === 'string'
+            typeof error === 'object' &&
+            'message' in error &&
+            typeof error.message === 'string'
               ? error.message
               : typeof error === 'string'
                 ? error

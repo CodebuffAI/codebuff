@@ -112,6 +112,7 @@ const getAllAgentFiles = (dir: string): string[] => {
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name)
       if (entry.isDirectory()) {
+        if (entry.name === 'skills') continue
         files.push(...getAllAgentFiles(fullPath))
         continue
       }

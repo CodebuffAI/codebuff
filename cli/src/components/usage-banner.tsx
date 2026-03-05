@@ -1,3 +1,4 @@
+import { CLAUDE_OAUTH_ENABLED } from '@codebuff/common/constants/claude-oauth'
 import { isClaudeOAuthValid } from '@codebuff/sdk'
 import { TextAttributes } from '@opentui/core'
 import open from 'open'
@@ -47,8 +48,8 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
   const sessionCreditsUsed = useChatStore((state) => state.sessionCreditsUsed)
   const setInputMode = useChatStore((state) => state.setInputMode)
 
-  // Check if Claude OAuth is connected
-  const isClaudeConnected = isClaudeOAuthValid()
+  // Check if Claude OAuth is connected (only when feature is enabled)
+  const isClaudeConnected = CLAUDE_OAUTH_ENABLED && isClaudeOAuthValid()
 
   // Fetch Claude quota data if connected
   const { data: claudeQuota, isLoading: isClaudeLoading } = useClaudeQuotaQuery({

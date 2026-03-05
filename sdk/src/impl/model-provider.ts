@@ -13,6 +13,7 @@ import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import {
   CLAUDE_CODE_SYSTEM_PROMPT_PREFIX,
   CLAUDE_OAUTH_BETA_HEADERS,
+  CLAUDE_OAUTH_ENABLED,
   isClaudeModel,
   toAnthropicModelId,
 } from '@codebuff/common/constants/claude-oauth'
@@ -171,8 +172,8 @@ export async function getModelForRequest(params: ModelRequestParams): Promise<Mo
   const { apiKey, model, skipClaudeOAuth } = params
 
   // Check if we should use Claude OAuth direct
-  // Skip if explicitly requested, if rate-limited, or if not a Claude model
-  if (!skipClaudeOAuth && !isClaudeOAuthRateLimited() && isClaudeModel(model)) {
+  // Skip if feature disabled, explicitly requested, if rate-limited, or if not a Claude model
+  if (CLAUDE_OAUTH_ENABLED && !skipClaudeOAuth && !isClaudeOAuthRateLimited() && isClaudeModel(model)) {
     // Get valid credentials (will refresh if needed)
     const claudeOAuthCredentials = await getValidClaudeOAuthCredentials()
     if (claudeOAuthCredentials) {

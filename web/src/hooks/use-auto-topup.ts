@@ -10,8 +10,16 @@ import { AUTO_TOPUP_CONSTANTS } from '@/components/auto-topup/constants'
 import { toast } from '@/components/ui/use-toast'
 import { clamp } from '@/lib/utils'
 
+async function fetchCurrentBalance(): Promise<number> {
+  const response = await fetch('/api/user/usage')
+  if (!response.ok) throw new Error('Failed to fetch balance')
+  const data = await response.json()
+  return data.balance?.totalRemaining ?? 0
+}
+
 const {
   MIN_THRESHOLD_CREDITS,
+  DEFAULT_THRESHOLD_CREDITS,
   MAX_THRESHOLD_CREDITS,
   MIN_TOPUP_DOLLARS,
   DEFAULT_TOPUP_DOLLARS,
@@ -22,7 +30,7 @@ const {
 export function useAutoTopup(): AutoTopupState {
   const queryClient = useQueryClient()
   const [isEnabled, setIsEnabled] = useState(false)
-  const [threshold, setThreshold] = useState<number>(MIN_THRESHOLD_CREDITS)
+  const [threshold, setThreshold] = useState<number>(DEFAULT_THRESHOLD_CREDITS)
   const [topUpAmountDollars, setTopUpAmountDollars] =
     useState<number>(DEFAULT_TOPUP_DOLLARS)
   const isInitialLoad = useRef(true)
@@ -30,6 +38,11 @@ export function useAutoTopup(): AutoTopupState {
     threshold: number
     topUpAmountDollars: number
   } | null>(null)
+  const [isCheckingBalance, setIsCheckingBalance] = useState(false)
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [confirmDialogBalance, setConfirmDialogBalance] = useState<
+    number | null
+  >(null)
 
   const { data: userProfile, isLoading: isLoadingProfile } = useQuery<
     UserProfile & { initialTopUpDollars?: number }
@@ -40,7 +53,7 @@ export function useAutoTopup(): AutoTopupState {
       if (!response.ok) throw new Error('Failed to fetch profile')
       const data = await response.json()
       const thresholdCredits =
-        data.auto_topup_threshold ?? MIN_THRESHOLD_CREDITS
+        data.auto_topup_threshold ?? DEFAULT_THRESHOLD_CREDITS
       const topUpAmount = data.auto_topup_amount ?? DEFAULT_TOPUP_DOLLARS * 100
       const topUpDollars = topUpAmount / 100
 
@@ -75,7 +88,7 @@ export function useAutoTopup(): AutoTopupState {
   useEffect(() => {
     if (userProfile) {
       setIsEnabled(userProfile.auto_topup_enabled ?? false)
-      setThreshold(userProfile.auto_topup_threshold ?? MIN_THRESHOLD_CREDITS)
+      setThreshold(userProfile.auto_topup_threshold ?? DEFAULT_THRESHOLD_CREDITS)
       setTopUpAmountDollars(
         userProfile.initialTopUpDollars ?? DEFAULT_TOPUP_DOLLARS,
       )
@@ -176,7 +189,7 @@ export function useAutoTopup(): AutoTopupState {
         const savedThreshold =
           data?.auto_topup_threshold ??
           variables.auto_topup_threshold ??
-          MIN_THRESHOLD_CREDITS
+          DEFAULT_THRESHOLD_CREDITS
         const savedAmountCents =
           data?.auto_topup_amount ??
           (variables.auto_topup_amount
@@ -195,7 +208,7 @@ export function useAutoTopup(): AutoTopupState {
         }
 
         setIsEnabled(updatedData.auto_topup_enabled ?? false)
-        setThreshold(updatedData.auto_topup_threshold ?? MIN_THRESHOLD_CREDITS)
+        setThreshold(updatedData.auto_topup_threshold ?? DEFAULT_THRESHOLD_CREDITS)
         setTopUpAmountDollars(
           updatedData.initialTopUpDollars ?? DEFAULT_TOPUP_DOLLARS,
         )
@@ -213,7 +226,7 @@ export function useAutoTopup(): AutoTopupState {
       })
       if (userProfile) {
         setIsEnabled(userProfile.auto_topup_enabled ?? false)
-        setThreshold(userProfile.auto_topup_threshold ?? MIN_THRESHOLD_CREDITS)
+        setThreshold(userProfile.auto_topup_threshold ?? DEFAULT_THRESHOLD_CREDITS)
         setTopUpAmountDollars(
           userProfile.initialTopUpDollars ?? DEFAULT_TOPUP_DOLLARS,
         )
@@ -289,6 +302,39 @@ export function useAutoTopup(): AutoTopupState {
     }
   }
 
+  const enableAutoTopup = useCallback(() => {
+    setIsEnabled(true)
+    autoTopupMutation.mutate(
+      {
+        auto_topup_enabled: true,
+        auto_topup_threshold: threshold,
+        auto_topup_amount: topUpAmountDollars,
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: 'Auto Top-up enabled!',
+            description: `We'll automatically add credits when your balance falls below ${threshold.toLocaleString()} credits.`,
+          })
+        },
+        onError: () => {
+          setIsEnabled(false)
+        },
+      },
+    )
+  }, [autoTopupMutation, threshold, topUpAmountDollars])
+
+  const confirmEnableAutoTopup = useCallback(() => {
+    setShowConfirmDialog(false)
+    setConfirmDialogBalance(null)
+    enableAutoTopup()
+  }, [enableAutoTopup])
+
+  const cancelEnableAutoTopup = useCallback(() => {
+    setShowConfirmDialog(false)
+    setConfirmDialogBalance(null)
+  }, [])
+
   const handleToggleAutoTopup = (checked: boolean) => {
     if (checked && userProfile?.auto_topup_blocked_reason) {
       toast({
@@ -299,7 +345,6 @@ export function useAutoTopup(): AutoTopupState {
       return
     }
 
-    setIsEnabled(checked)
     debouncedSaveSettings.cancel()
     pendingSettings.current = null
 
@@ -316,29 +361,27 @@ export function useAutoTopup(): AutoTopupState {
             'Cannot enable auto top-up with current values. Please ensure they are within limits.',
           variant: 'destructive',
         })
-        setIsEnabled(false)
         return
       }
 
-      autoTopupMutation.mutate(
-        {
-          auto_topup_enabled: true,
-          auto_topup_threshold: threshold,
-          auto_topup_amount: topUpAmountDollars,
-        },
-        {
-          onSuccess: () => {
-            toast({
-              title: 'Auto Top-up enabled!',
-              description: `We'll automatically add credits when your balance falls below ${threshold.toLocaleString()} credits.`,
-            })
-          },
-          onError: () => {
-            setIsEnabled(false)
-          },
-        },
-      )
+      setIsCheckingBalance(true)
+      fetchCurrentBalance()
+        .then((balance) => {
+          if (balance < threshold) {
+            setConfirmDialogBalance(balance)
+            setShowConfirmDialog(true)
+          } else {
+            enableAutoTopup()
+          }
+        })
+        .catch(() => {
+          enableAutoTopup()
+        })
+        .finally(() => {
+          setIsCheckingBalance(false)
+        })
     } else {
+      setIsEnabled(false)
       autoTopupMutation.mutate(
         {
           auto_topup_enabled: false,
@@ -362,10 +405,14 @@ export function useAutoTopup(): AutoTopupState {
     threshold,
     topUpAmountDollars,
     isLoadingProfile,
-    isPending: autoTopupMutation.isPending,
+    isPending: autoTopupMutation.isPending || isCheckingBalance,
     userProfile: userProfile ?? null,
     handleToggleAutoTopup,
     handleThresholdChange,
     handleTopUpAmountChange,
+    showConfirmDialog,
+    confirmDialogBalance,
+    confirmEnableAutoTopup,
+    cancelEnableAutoTopup,
   }
 }

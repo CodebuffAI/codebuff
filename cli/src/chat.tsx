@@ -53,6 +53,7 @@ import { useReviewStore } from './state/review-store'
 import { useFeedbackStore } from './state/feedback-store'
 import { useMessageBlockStore } from './state/message-block-store'
 import { usePublishStore } from './state/publish-store'
+import { CLAUDE_OAUTH_ENABLED } from '@codebuff/common/constants/claude-oauth'
 import { reportActivity } from './utils/activity-tracker'
 import { trackEvent } from './utils/analytics'
 import { getClaudeOAuthStatus } from './utils/claude-oauth'
@@ -162,18 +163,20 @@ export const Chat = ({
   } = useChatState()
 
   const { statusMessage } = useClipboard()
-  const { ad } = useGravityAd()
+
+  // Fetch subscription data early - needed for session credits tracking and ad gating
+  const { data: subscriptionData } = useSubscriptionQuery({
+    refetchInterval: 60 * 1000,
+  })
+  const hasSubscription = subscriptionData?.hasSubscription ?? false
+
+  const { ad } = useGravityAd({ enabled: !hasSubscription })
   const [adsManuallyDisabled, setAdsManuallyDisabled] = useState(false)
 
   const handleDisableAds = useCallback(() => {
     handleAdsDisable()
     setAdsManuallyDisabled(true)
   }, [])
-
-  // Fetch subscription data early - needed for session credits tracking
-  const { data: subscriptionData } = useSubscriptionQuery({
-    refetchInterval: 60 * 1000,
-  })
 
   // Set initial mode from CLI flag on mount
   useEffect(() => {
@@ -221,16 +224,17 @@ export const Chat = ({
   const loadedSkills = useMemo(() => getLoadedSkills(), [])
 
   // Filter slash commands based on current ads state - only show the option that changes state
+  // Hide both ads commands entirely for subscribers
   // Also merge in skill commands
   const filteredSlashCommands = useMemo(() => {
     const adsEnabled = getAdsEnabled()
     const allCommands = getSlashCommandsWithSkills(loadedSkills)
     return allCommands.filter((cmd) => {
-      if (cmd.id === 'ads:enable') return !adsEnabled
-      if (cmd.id === 'ads:disable') return adsEnabled
+      if (cmd.id === 'ads:enable') return !hasSubscription && !adsEnabled
+      if (cmd.id === 'ads:disable') return !hasSubscription && adsEnabled
       return true
     })
-  }, [inputValue, loadedSkills]) // Re-evaluate when input changes (user may have just toggled)
+  }, [inputValue, loadedSkills, hasSubscription]) // Re-evaluate when input changes (user may have just toggled)
 
   const {
     slashContext,
@@ -1289,7 +1293,7 @@ export const Chat = ({
   })
   const hasStatusIndicatorContent = statusIndicatorState.kind !== 'idle'
 
-  const isClaudeOAuthActive = getClaudeOAuthStatus().connected
+  const isClaudeOAuthActive = CLAUDE_OAUTH_ENABLED && getClaudeOAuthStatus().connected
 
   // Fetch Claude quota when OAuth is active
   const { data: claudeQuota } = useClaudeQuotaQuery({

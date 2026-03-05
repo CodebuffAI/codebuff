@@ -204,30 +204,6 @@ export async function postChatCompletions(params: {
     const costMode = typedBody.codebuff_metadata?.cost_mode
     const isFreeModeRequest = isFreeMode(costMode)
 
-    // Check user credits (skip for FREE mode since those requests cost 0 credits)
-    const {
-      balance: { totalRemaining },
-      nextQuotaReset,
-    } = await getUserUsageData({ userId, logger })
-    if (totalRemaining <= 0 && !isFreeModeRequest) {
-      trackEvent({
-        event: AnalyticsEvent.CHAT_COMPLETIONS_INSUFFICIENT_CREDITS,
-        userId,
-        properties: {
-          totalRemaining,
-          nextQuotaReset,
-        },
-        logger,
-      })
-      const resetCountdown = formatQuotaResetCountdown(nextQuotaReset)
-      return NextResponse.json(
-        {
-          message: `Out of credits. Please add credits at ${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage. Your free credits reset ${resetCountdown}.`,
-        },
-        { status: 402 },
-      )
-    }
-
     // Extract and validate agent run ID
     const runIdFromBody = typedBody.codebuff_metadata?.run_id
     if (!runIdFromBody || typeof runIdFromBody !== 'string') {
@@ -288,6 +264,9 @@ export async function postChatCompletions(params: {
 
     // For subscribers, ensure a block grant exists before processing the request.
     // This is done AFTER validation so malformed requests don't start a new 5-hour block.
+    // When the function is provided, always include subscription credits in the balance:
+    // error/null results mean subscription grants have 0 balance, so including them is harmless.
+    const includeSubscriptionCredits = !!ensureSubscriberBlockGrant
     if (ensureSubscriberBlockGrant) {
       try {
         const blockGrantResult = await ensureSubscriberBlockGrant({ userId, logger })
@@ -334,9 +313,34 @@ export async function postChatCompletions(params: {
           { error: getErrorObject(error), userId },
           'Error ensuring subscription block grant',
         )
-        // Fail open: if we can't check the subscription status, allow the request to proceed
-        // This is intentional - we prefer to allow requests rather than block legitimate users
+        // Fail open: proceed with subscription credits included in balance check
       }
+    }
+
+    // Fetch user credit data (includes subscription credits when block grant was ensured)
+    const {
+      balance: { totalRemaining },
+      nextQuotaReset,
+    } = await getUserUsageData({ userId, logger, includeSubscriptionCredits })
+
+    // Credit check
+    if (totalRemaining <= 0 && !isFreeModeRequest) {
+      trackEvent({
+        event: AnalyticsEvent.CHAT_COMPLETIONS_INSUFFICIENT_CREDITS,
+        userId,
+        properties: {
+          totalRemaining,
+          nextQuotaReset,
+        },
+        logger,
+      })
+      const resetCountdown = formatQuotaResetCountdown(nextQuotaReset)
+      return NextResponse.json(
+        {
+          message: `Out of credits. Please add credits at ${env.NEXT_PUBLIC_CODEBUFF_APP_URL}/usage. Your free credits reset ${resetCountdown}.`,
+        },
+        { status: 402 },
+      )
     }
 
     const openrouterApiKey = req.headers.get(BYOK_OPENROUTER_HEADER)

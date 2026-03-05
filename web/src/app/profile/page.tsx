@@ -1,12 +1,13 @@
 'use client'
 
-import { CreditCard, Shield, Users, Key, Menu } from 'lucide-react'
+import { CreditCard, Shield, Users, Key, Menu, User } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useState, useEffect, Suspense } from 'react'
 
 
 // Import components
+import { AccountSection } from './components/account-section'
 import { ApiKeysSection } from './components/api-keys-section'
 import { ProfileLoggedOut } from './components/logged-out'
 import { ReferralsSection } from './components/referrals-section'
@@ -43,6 +44,12 @@ const sections = [
     title: 'Referrals',
     icon: Users,
     component: ReferralsSection,
+  },
+  {
+    id: 'account',
+    title: 'Account',
+    icon: User,
+    component: AccountSection,
   },
 ]
 

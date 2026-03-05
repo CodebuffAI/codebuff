@@ -1,3 +1,4 @@
+import { ApplyPatchComponent } from './apply-patch'
 import { CodeSearchComponent } from './code-search'
 import { GlobComponent } from './glob'
 import { ListDirectoryComponent } from './list-directory'
@@ -26,6 +27,7 @@ import type { ToolName } from '@codebuff/sdk'
  * Add new tool components here to make them available in the CLI.
  */
 const toolComponentRegistry = new Map<ToolName, ToolComponent>([
+  [ApplyPatchComponent.toolName, ApplyPatchComponent],
   [CodeSearchComponent.toolName, CodeSearchComponent],
   [GlobComponent.toolName, GlobComponent],
   [ListDirectoryComponent.toolName, ListDirectoryComponent],

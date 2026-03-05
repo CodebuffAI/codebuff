@@ -212,6 +212,39 @@ describe('loadLocalAgents', () => {
       expect(result['nested-agent']).toBeDefined()
     })
 
+    test('skips files inside the skills directory', async () => {
+      mkdirSync(agentsDir, { recursive: true })
+      const skillsDir: string = path.join(agentsDir, 'skills')
+      mkdirSync(skillsDir, { recursive: true })
+      writeAgentFile(
+        skillsDir,
+        'some-skill.ts',
+        `
+          export default {
+            id: 'skill-agent',
+            displayName: 'Skill Agent',
+            model: '${MODEL_NAME}'
+          }
+        `,
+      )
+      writeAgentFile(
+        agentsDir,
+        'real-agent.ts',
+        `
+          export default {
+            id: 'real-agent',
+            displayName: 'Real Agent',
+            model: '${MODEL_NAME}'
+          }
+        `,
+      )
+
+      const result: LoadedAgents = await loadLocalAgents({ agentsPath: agentsDir })
+
+      expect(result['skill-agent']).toBeUndefined()
+      expect(result['real-agent']).toBeDefined()
+    })
+
     test('converts handleSteps function to string', async () => {
       mkdirSync(agentsDir, { recursive: true })
       writeAgentFile(

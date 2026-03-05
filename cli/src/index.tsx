@@ -178,7 +178,7 @@ async function main(): Promise<void> {
 
   const isLoginCommand = process.argv[2] === 'login'
   const isPublishCommand = process.argv.includes('publish')
-  const hasAgentOverride = Boolean(agent && agent.trim().length > 0)
+  const hasAgentOverride = Boolean(agent?.trim())
 
   await initializeApp({ cwd })
 

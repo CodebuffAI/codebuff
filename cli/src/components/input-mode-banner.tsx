@@ -1,3 +1,4 @@
+import { CLAUDE_OAUTH_ENABLED } from '@codebuff/common/constants/claude-oauth'
 import React from 'react'
 
 import { ClaudeConnectBanner } from './claude-connect-banner'
@@ -26,7 +27,10 @@ const BANNER_REGISTRY: Record<
   usage: ({ showTime }) => <UsageBanner showTime={showTime} />,
   referral: () => <ReferralBanner />,
   help: () => <HelpBanner />,
-  'connect:claude': () => <ClaudeConnectBanner />,
+  ...(CLAUDE_OAUTH_ENABLED
+    ? { 'connect:claude': () => <ClaudeConnectBanner /> }
+    : {}),
+
   subscriptionLimit: () => <SubscriptionLimitBanner />,
 }
 

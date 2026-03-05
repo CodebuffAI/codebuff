@@ -21,6 +21,7 @@ import type {
   Logger,
   LoggerWithContextFn,
 } from '@codebuff/common/types/contracts/logger'
+import type { BlockGrantResult } from '@codebuff/billing/subscription'
 import type { NextRequest } from 'next/server'
 
 
@@ -42,6 +43,7 @@ export async function postWebSearch(params: {
   consumeCreditsWithFallback: ConsumeCreditsWithFallbackFn
   fetch: typeof globalThis.fetch
   serverEnv: LinkupEnv
+  ensureSubscriberBlockGrant?: (params: { userId: string; logger: Logger }) => Promise<BlockGrantResult | null>
 }) {
   const {
     req,
@@ -52,6 +54,7 @@ export async function postWebSearch(params: {
     consumeCreditsWithFallback,
     fetch,
     serverEnv,
+    ensureSubscriberBlockGrant,
   } = params
   const baseLogger = params.logger
 
@@ -102,6 +105,7 @@ export async function postWebSearch(params: {
       insufficientCreditsEvent: AnalyticsEvent.WEB_SEARCH_INSUFFICIENT_CREDITS,
       getUserUsageData,
       consumeCreditsWithFallback,
+      ensureSubscriberBlockGrant,
     })
     if (credits.ok) break
     if (attempt < 3) {

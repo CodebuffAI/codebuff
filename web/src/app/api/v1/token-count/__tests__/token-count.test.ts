@@ -3,6 +3,8 @@ import { describe, expect, it } from 'bun:test'
 import {
   convertContentToAnthropic,
   convertToAnthropicMessages,
+  convertToResponsesApiInput,
+  countTokensViaOpenAI,
   formatToolContent,
 } from '../_post'
 
@@ -430,6 +432,483 @@ describe('convertToAnthropicMessages', () => {
     const result = convertToAnthropicMessages(messages)
 
     expect(result).toEqual([{ role: 'user', content: 'Valid message' }])
+  })
+})
+
+describe('convertToResponsesApiInput', () => {
+  it('converts a simple user message', () => {
+    const result = convertToResponsesApiInput([
+      { role: 'user', content: 'Hello world' },
+    ])
+    expect(result).toEqual([
+      { type: 'message', role: 'user', content: 'Hello world' },
+    ])
+  })
+
+  it('maps system messages to developer role', () => {
+    const result = convertToResponsesApiInput([
+      { role: 'system', content: 'You are helpful' },
+      { role: 'user', content: 'Hi' },
+    ])
+    expect(result).toEqual([
+      { type: 'message', role: 'developer', content: 'You are helpful' },
+      { type: 'message', role: 'user', content: 'Hi' },
+    ])
+  })
+
+  it('converts tool messages to function_call_output', () => {
+    const result = convertToResponsesApiInput([
+      { role: 'tool', toolCallId: 'call-1', content: 'File contents here' },
+    ])
+    expect(result).toEqual([
+      { type: 'function_call_output', call_id: 'call-1', output: 'File contents here' },
+    ])
+  })
+
+  it('uses unknown call_id when toolCallId is missing', () => {
+    const result = convertToResponsesApiInput([
+      { role: 'tool', content: 'Some output' },
+    ])
+    expect(result).toEqual([
+      { type: 'function_call_output', call_id: 'unknown', output: 'Some output' },
+    ])
+  })
+
+  it('converts assistant messages', () => {
+    const result = convertToResponsesApiInput([
+      { role: 'assistant', content: 'I can help with that.' },
+    ])
+    expect(result).toEqual([
+      { type: 'message', role: 'assistant', content: 'I can help with that.' },
+    ])
+  })
+
+  it('handles array content with text parts', () => {
+    const result = convertToResponsesApiInput([
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'What is TypeScript?' }],
+      },
+    ])
+    expect(result).toEqual([
+      { type: 'message', role: 'user', content: 'What is TypeScript?' },
+    ])
+  })
+
+  it('converts tool-call content to function_call items', () => {
+    const result = convertToResponsesApiInput([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'read_file',
+            input: { path: 'src/index.ts' },
+          },
+        ],
+      },
+    ])
+    expect(result).toEqual([
+      {
+        type: 'function_call',
+        id: 'call-1',
+        name: 'read_file',
+        arguments: '{"path":"src/index.ts"}',
+      },
+    ])
+  })
+
+  it('splits assistant messages with text and tool-calls', () => {
+    const result = convertToResponsesApiInput([
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'Let me read that file.' },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-2',
+            toolName: 'read_file',
+            input: { path: 'test.ts' },
+          },
+        ],
+      },
+    ])
+    expect(result).toEqual([
+      { type: 'message', role: 'assistant', content: 'Let me read that file.' },
+      {
+        type: 'function_call',
+        id: 'call-2',
+        name: 'read_file',
+        arguments: '{"path":"test.ts"}',
+      },
+    ])
+  })
+
+  it('handles json content parts', () => {
+    const result = convertToResponsesApiInput([
+      {
+        role: 'user',
+        content: [{ type: 'json', value: { key: 'value' } }],
+      },
+    ])
+    expect(result).toEqual([
+      { type: 'message', role: 'user', content: '{"key":"value"}' },
+    ])
+  })
+
+  it('converts a multi-turn conversation', () => {
+    const result = convertToResponsesApiInput([
+      { role: 'user', content: 'Hello' },
+      { role: 'assistant', content: 'Hi there!' },
+      { role: 'user', content: 'How are you?' },
+    ])
+    expect(result).toEqual([
+      { type: 'message', role: 'user', content: 'Hello' },
+      { type: 'message', role: 'assistant', content: 'Hi there!' },
+      { type: 'message', role: 'user', content: 'How are you?' },
+    ])
+  })
+
+  describe('image handling', () => {
+    it('converts user message with URL image to content array', () => {
+      const result = convertToResponsesApiInput([
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'What is in this image?' },
+            {
+              type: 'image',
+              image: 'https://example.com/photo.png',
+            },
+          ],
+        },
+      ])
+      expect(result).toEqual([
+        {
+          type: 'message',
+          role: 'user',
+          content: [
+            { type: 'input_text', text: 'What is in this image?' },
+            { type: 'input_image', image_url: 'https://example.com/photo.png' },
+          ],
+        },
+      ])
+    })
+
+    it('converts base64 image to data: URI', () => {
+      const result = convertToResponsesApiInput([
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Describe this' },
+            {
+              type: 'image',
+              image: 'iVBORw0KGgoAAAANSUhEUg',
+              mediaType: 'image/png',
+            },
+          ],
+        },
+      ])
+      expect(result).toEqual([
+        {
+          type: 'message',
+          role: 'user',
+          content: [
+            { type: 'input_text', text: 'Describe this' },
+            { type: 'input_image', image_url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg' },
+          ],
+        },
+      ])
+    })
+
+    it('uses default media type for base64 when not specified', () => {
+      const result = convertToResponsesApiInput([
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              image: 'base64data',
+            },
+          ],
+        },
+      ])
+      expect(result).toEqual([
+        {
+          type: 'message',
+          role: 'user',
+          content: [
+            { type: 'input_image', image_url: 'data:image/png;base64,base64data' },
+          ],
+        },
+      ])
+    })
+
+    it('passes through data: URIs as-is', () => {
+      const result = convertToResponsesApiInput([
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              image: 'data:image/jpeg;base64,/9j/4AAQ',
+              mediaType: 'image/jpeg',
+            },
+          ],
+        },
+      ])
+      expect(result).toEqual([
+        {
+          type: 'message',
+          role: 'user',
+          content: [
+            { type: 'input_image', image_url: 'data:image/jpeg;base64,/9j/4AAQ' },
+          ],
+        },
+      ])
+    })
+
+    it('handles http:// image URLs', () => {
+      const result = convertToResponsesApiInput([
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              image: 'http://example.com/image.jpg',
+            },
+          ],
+        },
+      ])
+      expect(result).toEqual([
+        {
+          type: 'message',
+          role: 'user',
+          content: [
+            { type: 'input_image', image_url: 'http://example.com/image.jpg' },
+          ],
+        },
+      ])
+    })
+
+    it('handles multiple images with text', () => {
+      const result = convertToResponsesApiInput([
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Compare these images' },
+            { type: 'image', image: 'https://example.com/a.png' },
+            { type: 'image', image: 'https://example.com/b.png' },
+          ],
+        },
+      ])
+      expect(result).toEqual([
+        {
+          type: 'message',
+          role: 'user',
+          content: [
+            { type: 'input_text', text: 'Compare these images' },
+            { type: 'input_image', image_url: 'https://example.com/a.png' },
+            { type: 'input_image', image_url: 'https://example.com/b.png' },
+          ],
+        },
+      ])
+    })
+
+    it('skips images with missing image field', () => {
+      const result = convertToResponsesApiInput([
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Hello' },
+            { type: 'image' },
+          ],
+        },
+      ])
+      expect(result).toEqual([
+        { type: 'message', role: 'user', content: 'Hello' },
+      ])
+    })
+
+    it('skips images with empty string image field', () => {
+      const result = convertToResponsesApiInput([
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Hello' },
+            { type: 'image', image: '' },
+          ],
+        },
+      ])
+      expect(result).toEqual([
+        { type: 'message', role: 'user', content: 'Hello' },
+      ])
+    })
+
+    it('uses plain string content when no valid images are present', () => {
+      const result = convertToResponsesApiInput([
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Just text' },
+            { type: 'image' },
+          ],
+        },
+      ])
+      expect(result).toEqual([
+        { type: 'message', role: 'user', content: 'Just text' },
+      ])
+    })
+  })
+
+  it('handles a full tool-use round trip', () => {
+    const result = convertToResponsesApiInput([
+      { role: 'user', content: 'Read the file' },
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-abc',
+            toolName: 'read_file',
+            input: { path: 'index.ts' },
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        toolCallId: 'call-abc',
+        content: 'console.log("hello")',
+      },
+      { role: 'assistant', content: 'The file contains a log statement.' },
+    ])
+    expect(result).toEqual([
+      { type: 'message', role: 'user', content: 'Read the file' },
+      {
+        type: 'function_call',
+        id: 'call-abc',
+        name: 'read_file',
+        arguments: '{"path":"index.ts"}',
+      },
+      {
+        type: 'function_call_output',
+        call_id: 'call-abc',
+        output: 'console.log("hello")',
+      },
+      {
+        type: 'message',
+        role: 'assistant',
+        content: 'The file contains a log statement.',
+      },
+    ])
+  })
+})
+
+describe('countTokensViaOpenAI', () => {
+  const mockLogger = {
+    info: () => {},
+    error: () => {},
+    warn: () => {},
+    debug: () => {},
+  } as any
+
+  function createMockFetch(inputTokens: number) {
+    return (async () =>
+      new Response(JSON.stringify({ object: 'response.input_tokens', input_tokens: inputTokens }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })) as unknown as typeof globalThis.fetch
+  }
+
+  it('returns token count from OpenAI API', async () => {
+    const result = await countTokensViaOpenAI({
+      messages: [{ role: 'user', content: 'Hello world' }],
+      system: undefined,
+      model: 'openai/gpt-5.3-codex',
+      fetch: createMockFetch(42),
+      logger: mockLogger,
+    })
+    expect(result).toBe(42)
+  })
+
+  it('passes system prompt as instructions', async () => {
+    let capturedBody: any
+    const mockFetch = async (_url: string, init: RequestInit) => {
+      capturedBody = JSON.parse(init.body as string)
+      return new Response(
+        JSON.stringify({ object: 'response.input_tokens', input_tokens: 10 }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
+    await countTokensViaOpenAI({
+      messages: [{ role: 'user', content: 'Hi' }],
+      system: 'You are a helpful assistant.',
+      model: 'openai/gpt-5.3',
+      fetch: mockFetch as any,
+      logger: mockLogger,
+    })
+
+    expect(capturedBody.instructions).toBe('You are a helpful assistant.')
+    expect(capturedBody.model).toBe('gpt-5.3')
+  })
+
+  it('strips openai/ prefix from model', async () => {
+    let capturedBody: any
+    const mockFetch = async (_url: string, init: RequestInit) => {
+      capturedBody = JSON.parse(init.body as string)
+      return new Response(
+        JSON.stringify({ object: 'response.input_tokens', input_tokens: 5 }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
+    await countTokensViaOpenAI({
+      messages: [{ role: 'user', content: 'Test' }],
+      system: undefined,
+      model: 'openai/gpt-5.3-codex',
+      fetch: mockFetch as any,
+      logger: mockLogger,
+    })
+
+    expect(capturedBody.model).toBe('gpt-5.3-codex')
+  })
+
+  it('omits instructions when system is undefined', async () => {
+    let capturedBody: any
+    const mockFetch = async (_url: string, init: RequestInit) => {
+      capturedBody = JSON.parse(init.body as string)
+      return new Response(
+        JSON.stringify({ object: 'response.input_tokens', input_tokens: 5 }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
+    await countTokensViaOpenAI({
+      messages: [{ role: 'user', content: 'Test' }],
+      system: undefined,
+      model: 'openai/gpt-5.3',
+      fetch: mockFetch as any,
+      logger: mockLogger,
+    })
+
+    expect(capturedBody.instructions).toBeUndefined()
+  })
+
+  it('throws on API error', async () => {
+    const mockFetch = async () =>
+      new Response('Internal Server Error', { status: 500 })
+
+    await expect(
+      countTokensViaOpenAI({
+        messages: [{ role: 'user', content: 'Test' }],
+        system: undefined,
+        model: 'openai/gpt-5.3-codex',
+        fetch: mockFetch as any,
+        logger: mockLogger,
+      }),
+    ).rejects.toThrow('OpenAI API error: 500')
   })
 })
 

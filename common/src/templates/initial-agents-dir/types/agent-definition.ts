@@ -370,26 +370,32 @@ export type ModelName =
   // Recommended Models
 
   // OpenAI
+  | 'openai/gpt-5.3'
+  | 'openai/gpt-5.3-codex'
+  | 'openai/gpt-5.2'
   | 'openai/gpt-5.1'
   | 'openai/gpt-5.1-chat'
   | 'openai/gpt-5-mini'
   | 'openai/gpt-5-nano'
 
   // Anthropic
+  | 'anthropic/claude-sonnet-4.6'
+  | 'anthropic/claude-opus-4.6'
+  | 'anthropic/claude-haiku-4.5'
   | 'anthropic/claude-sonnet-4.5'
   | 'anthropic/claude-opus-4.1'
-  | 'anthropic/claude-opus-4.6'
 
   // Gemini
+  | 'google/gemini-3-pro-preview'
+  | 'google/gemini-3-flash-preview'
+  | 'google/gemini-3.1-flash-lite-preview'
   | 'google/gemini-2.5-pro'
   | 'google/gemini-2.5-flash'
   | 'google/gemini-2.5-flash-lite'
-  | 'google/gemini-2.5-flash-preview-09-2025'
-  | 'google/gemini-2.5-flash-lite-preview-09-2025'
 
   // X-AI
-  | 'x-ai/grok-4-07-09'
   | 'x-ai/grok-4-fast'
+  | 'x-ai/grok-4.1-fast'
   | 'x-ai/grok-code-fast-1'
 
   // Qwen
@@ -415,10 +421,15 @@ export type ModelName =
   | 'moonshotai/kimi-k2'
   | 'moonshotai/kimi-k2:nitro'
   | 'moonshotai/kimi-k2.5'
+  | 'moonshotai/kimi-k2.5:nitro'
+  | 'z-ai/glm-5'
   | 'z-ai/glm-4.6'
   | 'z-ai/glm-4.6:nitro'
   | 'z-ai/glm-4.7'
+  | 'z-ai/glm-4.7:nitro'
   | 'z-ai/glm-4.7-flash'
+  | 'z-ai/glm-4.7-flash:nitro'
+  | 'minimax/minimax-m2.5'
   | (string & {})
 
 import type { ToolName, GetToolParams } from './tools'

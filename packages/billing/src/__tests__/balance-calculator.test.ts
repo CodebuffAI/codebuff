@@ -209,6 +209,69 @@ describe('Balance Calculator - calculateUsageAndBalance', () => {
       expect(result.usageThisCycle).toBe(500)
     })
 
+    it('should include subscription credits when isPersonalContext is true and includeSubscriptionCredits is true', async () => {
+      const now = new Date()
+      const quotaResetDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) // 7 days ago
+
+      const grants = [
+        createMockGrant({
+          operation_id: 'free-grant',
+          balance: 500,
+          principal: 1000,
+          priority: 20,
+          type: 'purchase',
+          expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+          created_at: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000),
+        }),
+        createMockGrant({
+          operation_id: 'subscription-grant',
+          balance: 2000,
+          principal: 5000,
+          priority: 10,
+          type: 'subscription',
+          expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+          created_at: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000),
+        }),
+      ]
+
+      await mockModule('@codebuff/internal/db', () => ({
+        default: {
+          select: () => ({
+            from: () => ({
+              where: () => ({
+                orderBy: () => grants,
+              }),
+            }),
+          }),
+        },
+      }))
+
+      await mockModule('@codebuff/common/analytics', () => ({
+        trackEvent: () => {},
+      }))
+
+      const { calculateUsageAndBalance } = await import(
+        '@codebuff/billing/balance-calculator'
+      )
+
+      const result = await calculateUsageAndBalance({
+        userId: 'user-123',
+        quotaResetDate,
+        now,
+        isPersonalContext: true,
+        includeSubscriptionCredits: true,
+        logger,
+      })
+
+      // Should include both purchase (500) and subscription (2000) credits
+      expect(result.balance.totalRemaining).toBe(2500)
+      expect(result.balance.breakdown.purchase).toBe(500)
+      expect(result.balance.breakdown.subscription).toBe(2000)
+
+      // Usage should include both: (1000 - 500) + (5000 - 2000) = 3500
+      expect(result.usageThisCycle).toBe(3500)
+    })
+
     it('should include subscription credits when isPersonalContext is false', async () => {
       const now = new Date()
       const quotaResetDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) // 7 days ago

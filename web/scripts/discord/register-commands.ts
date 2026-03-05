@@ -10,7 +10,7 @@ const commands = [
     .addStringOption((option) =>
       option
         .setName('email')
-        .setDescription('The email address you used to register with Codebuff')
+        .setDescription('The primary email for your GitHub account used for Codebuff')
         .setRequired(true),
     ),
 ]

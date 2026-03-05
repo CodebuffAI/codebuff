@@ -10,6 +10,10 @@ export interface AutoTopupState {
   handleToggleAutoTopup: (checked: boolean) => void
   handleThresholdChange: (value: number) => void
   handleTopUpAmountChange: (value: number) => void
+  showConfirmDialog: boolean
+  confirmDialogBalance: number | null
+  confirmEnableAutoTopup: () => void
+  cancelEnableAutoTopup: () => void
 }
 
 export interface AutoTopupSwitchProps {
