@@ -9,7 +9,7 @@ import { beforeAll, describe, expect, it } from 'bun:test'
 import { $ } from 'bun'
 
 import baseDeep from '../base2/base-deep'
-import thinkerCodex from '../thinker/thinker-codex'
+import thinkerCodex from '../thinker/thinker-gpt'
 
 import type { PrintModeEvent } from '@codebuff/common/types/print-mode'
 
