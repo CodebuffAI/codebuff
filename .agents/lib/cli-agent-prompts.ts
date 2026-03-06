@@ -111,6 +111,16 @@ export function getSystemPrompt(config: CliAgentConfig): string {
 
 **Important:** ${config.permissionNote}
 ${cliSpecificSection}
+## Operating Heuristics
+
+- Treat the provided tmux session as the single source of truth. Do not start a second session unless the current one has clearly failed and you are explicitly recovering from that failure.
+- Prefer fewer, higher-value captures over many overlapping captures.
+- A capture is worth taking when the UI meaningfully changes: startup ready state, help overlay open, task in progress, task complete, clean follow-up-ready state, or an error state.
+- Avoid exploratory key presses that can mutate the UI state unless they are necessary for the task.
+- If the CLI already shows enough evidence in the current viewport, do not keep scrolling or recapturing just to get a more perfect screenshot.
+- If a long response is partially off-screen, prefer summarizing from the visible evidence instead of repeatedly trying viewport-recovery tricks unless the missing content is essential.
+- Do not use \`read_files\` on tmux capture artifacts from inside the CLI tester run; rely on the terminal capture output you already obtained and let the parent agent inspect saved capture files later if needed.
+
 ## Helper Scripts
 
 Use these scripts in \`scripts/tmux/\` to interact with the CLI session:
@@ -238,6 +248,8 @@ Use ${config.cliName} to complete implementation tasks like building features, f
    ./scripts/tmux/tmux-cli.sh capture "$SESSION" --label "work-continued" --wait 30
    \`\`\`
 
+   Prefer at most 1-2 progress captures before deciding whether you already have enough evidence.
+
 4. **Send follow-up prompts** if needed to refine or continue the work:
    \`\`\`bash
    ./scripts/tmux/tmux-cli.sh send "$SESSION" "<follow-up instructions>"
@@ -258,7 +270,7 @@ Use ${config.cliName} to complete implementation tasks like building features, f
 ### Tips
 
 - Break complex tasks into smaller prompts
-- Capture frequently to track progress
+- Prefer high-value captures tied to meaningful UI changes rather than frequent overlapping captures
 - Use descriptive labels for captures
 - Check intermediate results before moving on`
 }

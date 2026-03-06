@@ -12,6 +12,16 @@ const baseDefinition = createCliAgent({
     'No permission flags needed for Codebuff local dev server.',
   model: 'anthropic/claude-opus-4.6',
   skipPrepPhase: true,
+  cliSpecificDocs: `## Codebuff CLI Specific Guidance
+
+- The ready state is the Codebuff banner, working directory, and bordered input box with the agent selector.
+- For smoke tests, \`/help\` is useful because it validates the overlay, shortcuts, features, and credits copy in one step.
+- For implementation-oriented tests, prefer asking the CLI to inspect or reason about a specific file rather than making edits unless the parent prompt explicitly asks for edits.
+- Long Codebuff responses live in a scrollable viewport. If the bottom of the answer already shows the core recommendation, do not spend many extra steps trying to reconstruct every hidden line.
+- Avoid key combinations like Shift+Arrow or repeated history/navigation probing unless you have a clear reason; they can open overlays or mutate the input state unexpectedly.
+- A good implementation-test flow is usually: initial ready capture → task sent/in-progress capture → response-complete capture → optional follow-up-ready or follow-up-complete capture.
+- If you need a follow-up, keep it narrow and specific rather than re-asking the whole task.
+- If the current session becomes clearly unusable, report that failure; do not silently start a replacement session and continue as though nothing happened.`,
   spawnerPromptExtras: `**Purpose:** E2E visual testing of the Codebuff CLI itself. This agent starts a local dev Codebuff CLI instance and interacts with it to verify UI behavior.
 
 **When to use:**
@@ -97,7 +107,7 @@ const definition: AgentDefinition = {
       input: {
         role: 'user',
         content: 'A ' + CLI_NAME + ' tmux session has been started: `' + sessionName + '`\n\n' +
-          'Use this session for all CLI interactions. The session name must be included in your final output.\n\n' +
+          'Use this session for all CLI interactions. Treat it as the canonical session for this run. If it fails, report that explicitly instead of silently starting another session. The session name must be included in your final output.\n\n' +
           'Proceed with the task using the helper scripts:\n' +
           '- Send commands: `./scripts/tmux/tmux-cli.sh send "' + sessionName + '" "..."`\n' +
           '- Capture output: `./scripts/tmux/tmux-cli.sh capture "' + sessionName + '" --label "..."`\n' +
