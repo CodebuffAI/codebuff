@@ -1,3 +1,5 @@
+import { createHash } from 'crypto'
+
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { supportsCacheControl } from '@codebuff/common/old-constants'
 import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
@@ -7,6 +9,7 @@ import { systemMessage, userMessage } from '@codebuff/common/util/messages'
 import { APICallError, type ToolSet } from 'ai'
 import { cloneDeep, mapValues } from 'lodash'
 
+import { CACHE_DEBUG_FULL_LOGGING } from './constants'
 import { callTokenCountAPI } from './llm-api/codebuff-web-api'
 import { getMCPToolData } from './mcp'
 import { getAgentStreamFromTemplate } from './prompt-agent-stream'
@@ -18,6 +21,7 @@ import { getAgentPrompt } from './templates/strings'
 import { getToolSet } from './tools/prompts'
 import { processStream } from './tools/stream-parser'
 import { getAgentOutput } from './util/agent-output'
+import { writeCacheDebugSnapshot } from './util/cache-debug'
 import {
   withSystemInstructionTags,
   withSystemTags as withSystemTags,
@@ -461,7 +465,7 @@ export async function loopAgentSteps(
   params: {
     addAgentStep: AddAgentStepFn
     agentState: AgentState
-    agentType: AgentTemplateType
+    agentType: string
     clearUserPromptMessagesAfterResponse?: boolean
     clientSessionId: string
     content?: Array<TextPart | ImagePart>
@@ -710,6 +714,36 @@ export async function loopAgentSteps(
     description: tool.description,
     inputSchema: tool.inputSchema as {},
   }))
+
+  if (CACHE_DEBUG_FULL_LOGGING) {
+    // Debug: hash the system prompt and tool definitions to detect prompt cache invalidation
+    const systemHash = createHash('sha256').update(system).digest('hex').slice(0, 8)
+    const sortedToolDefs = Object.keys(toolDefinitions).sort().reduce((acc, key) => {
+      acc[key] = toolDefinitions[key]
+      return acc
+    }, {} as Record<string, unknown>)
+    const toolsHash = createHash('sha256').update(JSON.stringify(sortedToolDefs)).digest('hex').slice(0, 8)
+    logger.debug(
+      {
+        systemHash,
+        toolsHash,
+        systemLength: system.length,
+        toolCount: Object.keys(toolDefinitions).length,
+        toolNames: Object.keys(toolDefinitions).sort(),
+        agentType,
+      },
+      `[Cache Debug] System prompt hash: ${systemHash}, Tools hash: ${toolsHash}`,
+    )
+
+    writeCacheDebugSnapshot({
+      agentType: String(agentType),
+      system,
+      toolDefinitions: sortedToolDefs,
+      messages: initialMessages,
+      logger,
+      projectRoot: fileContext.projectRoot,
+    })
+  }
 
   const additionalToolDefinitionsWithCache = async () => {
     if (!cachedAdditionalToolDefinitions) {
