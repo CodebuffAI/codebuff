@@ -256,6 +256,9 @@ export function createBaseDeep(options?: {
   return {
     publisher,
     model: 'openai/gpt-5.4',
+    reasoningOptions: {
+      effort: 'high',
+    },
     displayName: 'Buffy the GPT Orchestrator',
     spawnerPrompt:
       'Advanced base agent that orchestrates planning, editing, and reviewing for complex coding tasks',
