@@ -26,6 +26,12 @@ export const getAgentStreamFromTemplate = (params: {
   tools: ToolSet
   userId: string | undefined
   userInputId: string
+  cacheDebugCorrelation?: string
+  onCacheDebugProviderRequestBuilt?: (params: {
+    provider: string
+    rawBody: unknown
+    normalizedBody?: unknown
+  }) => void
 
   onCostCalculated?: (credits: number) => Promise<void>
   promptAiSdkStream: PromptAiSdkStreamFn
@@ -47,6 +53,8 @@ export const getAgentStreamFromTemplate = (params: {
     tools,
     userId,
     userInputId,
+    cacheDebugCorrelation,
+    onCacheDebugProviderRequestBuilt,
 
     sendAction,
     onCostCalculated,
@@ -80,6 +88,8 @@ export const getAgentStreamFromTemplate = (params: {
     tools,
     userId,
     userInputId,
+    cacheDebugCorrelation,
+    onCacheDebugProviderRequestBuilt,
 
     onCostCalculated,
     sendAction,

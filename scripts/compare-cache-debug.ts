@@ -19,18 +19,37 @@ import { readdirSync, readFileSync } from 'fs'
 import { join } from 'path'
 
 interface Snapshot {
+  id: string
   index: number
+  filename: string
+  filePath: string
   timestamp: string
   agentType: string
-  systemPrompt: string
-  toolDefinitions: Record<string, { description: string; inputSchema: unknown }>
-  messages: Array<{
-    role: string
-    content: unknown
-    tags?: string[]
-    timeToLive?: string
-    sentAt?: number
-  }>
+  runId?: string
+  userInputId?: string
+  agentStepId?: string
+  model?: string
+  systemHash?: string
+  toolsHash?: string
+  preConversion: {
+    systemPrompt: string
+    toolDefinitions: Record<string, unknown>
+    messages: Array<{
+      role: string
+      content: unknown
+      tags?: string[]
+      timeToLive?: string
+      sentAt?: number
+      providerOptions?: unknown
+      toolCallId?: string
+      toolName?: string
+    }>
+  }
+  providerRequest?: {
+    provider: string
+    rawBody: unknown
+    normalized: unknown
+  }
 }
 
 function findFirstDifference(
@@ -62,8 +81,8 @@ function findFirstDifference(
 }
 
 function compareTools(
-  a: Snapshot['toolDefinitions'],
-  b: Snapshot['toolDefinitions'],
+  a: Record<string, unknown>,
+  b: Record<string, unknown>,
 ): { added: string[]; removed: string[]; changed: string[] } {
   const keysA = new Set(Object.keys(a))
   const keysB = new Set(Object.keys(b))
@@ -86,8 +105,8 @@ function compareTools(
 }
 
 function compareMessages(
-  a: Snapshot['messages'],
-  b: Snapshot['messages'],
+  a: Snapshot['preConversion']['messages'],
+  b: Snapshot['preConversion']['messages'],
 ): { firstDiffIndex: number; description: string } | null {
   const minLen = Math.min(a.length, b.length)
   for (let i = 0; i < minLen; i++) {
@@ -115,6 +134,88 @@ function printSectionHeader(title: string) {
   console.log(`${'─'.repeat(80)}`)
 }
 
+function compareProviderRequests(
+  prev: Snapshot['providerRequest'],
+  curr: Snapshot['providerRequest'],
+) {
+  console.log('\n  🌐 Provider Request (post-conversion):')
+
+  if (!prev && !curr) {
+    console.log('     ⚠️  No provider request data in either snapshot')
+    return
+  }
+  if (!prev) {
+    console.log('     ⚠️  No provider request data in previous snapshot')
+    return
+  }
+  if (!curr) {
+    console.log('     ⚠️  No provider request data in current snapshot')
+    return
+  }
+
+  console.log(`     Provider: ${prev.provider} → ${curr.provider}`)
+
+  const prevNorm = JSON.stringify(prev.normalized, null, 2)
+  const currNorm = JSON.stringify(curr.normalized, null, 2)
+
+  if (prevNorm === currNorm) {
+    console.log(`     ✅ Normalized request bodies are IDENTICAL`)
+  } else {
+    console.log(`     ❌ Normalized request bodies DIFFER`)
+    const diff = findFirstDifference(prevNorm, currNorm)
+    if (diff) {
+      console.log(`     First difference at character ${diff.index}:`)
+      console.log(`     A: ...${JSON.stringify(diff.contextA)}...`)
+      console.log(`     B: ...${JSON.stringify(diff.contextB)}...`)
+    }
+
+    if (
+      prev.normalized &&
+      typeof prev.normalized === 'object' &&
+      !Array.isArray(prev.normalized) &&
+      curr.normalized &&
+      typeof curr.normalized === 'object' &&
+      !Array.isArray(curr.normalized)
+    ) {
+      const prevObj = prev.normalized as Record<string, unknown>
+      const currObj = curr.normalized as Record<string, unknown>
+
+      for (const key of ['model', 'tools', 'tool_choice', 'response_format']) {
+        if (key in prevObj || key in currObj) {
+          const prevVal = JSON.stringify(prevObj[key])
+          const currVal = JSON.stringify(currObj[key])
+          const status = prevVal === currVal ? '✅' : '❌'
+          console.log(`       ${status} ${key}: ${prevVal === currVal ? 'identical' : 'differs'}`)
+        }
+      }
+
+      if ('messages' in prevObj && 'messages' in currObj) {
+        const prevMsgs = prevObj.messages as unknown[]
+        const currMsgs = currObj.messages as unknown[]
+        if (Array.isArray(prevMsgs) && Array.isArray(currMsgs)) {
+          const prevMsgsJson = JSON.stringify(prevMsgs)
+          const currMsgsJson = JSON.stringify(currMsgs)
+          if (prevMsgsJson === currMsgsJson) {
+            console.log(`       ✅ messages: identical (${prevMsgs.length} messages)`)
+          } else {
+            console.log(`       ❌ messages: differ (${prevMsgs.length} → ${currMsgs.length})`)
+            const minLen = Math.min(prevMsgs.length, currMsgs.length)
+            for (let i = 0; i < minLen; i++) {
+              if (JSON.stringify(prevMsgs[i]) !== JSON.stringify(currMsgs[i])) {
+                console.log(`          First diff at message index ${i}`)
+                break
+              }
+            }
+            if (prevMsgs.length !== currMsgs.length) {
+              console.log(`          Message count: ${prevMsgs.length} → ${currMsgs.length}`)
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 function comparePair(prev: Snapshot, curr: Snapshot, prevFile: string, currFile: string) {
   printSectionHeader(
     `Comparing snapshot ${prev.index} → ${curr.index}  (${prev.agentType})`,
@@ -122,16 +223,32 @@ function comparePair(prev: Snapshot, curr: Snapshot, prevFile: string, currFile:
   console.log(`  File A: ${prevFile}`)
   console.log(`  File B: ${currFile}`)
   console.log(`  Time:   ${prev.timestamp} → ${curr.timestamp}`)
+  if (prev.model || curr.model) {
+    console.log(`  Model:  ${prev.model ?? 'unknown'} → ${curr.model ?? 'unknown'}`)
+  }
+  if (prev.systemHash || curr.systemHash) {
+    console.log(`  Hashes: system=${prev.systemHash ?? '?'}→${curr.systemHash ?? '?'}  tools=${prev.toolsHash ?? '?'}→${curr.toolsHash ?? '?'}`)
+  }
+  if (prev.runId || curr.runId) {
+    console.log(`  RunId:  ${prev.runId ?? '?'} → ${curr.runId ?? '?'}`)
+  }
+
+  const prevSystem = prev.preConversion.systemPrompt
+  const currSystem = curr.preConversion.systemPrompt
+  const prevTools = prev.preConversion.toolDefinitions
+  const currTools = curr.preConversion.toolDefinitions
+  const prevMessages = prev.preConversion.messages
+  const currMessages = curr.preConversion.messages
 
   // Compare system prompt
-  console.log('\n  📝 System Prompt:')
-  if (prev.systemPrompt === curr.systemPrompt) {
-    console.log(`     ✅ IDENTICAL (${prev.systemPrompt.length} chars)`)
+  console.log('\n  📝 System Prompt (pre-conversion):')
+  if (prevSystem === currSystem) {
+    console.log(`     ✅ IDENTICAL (${prevSystem.length} chars)`)
   } else {
     console.log(
-      `     ❌ DIFFERS (${prev.systemPrompt.length} chars → ${curr.systemPrompt.length} chars)`,
+      `     ❌ DIFFERS (${prevSystem.length} chars → ${currSystem.length} chars)`,
     )
-    const diff = findFirstDifference(prev.systemPrompt, curr.systemPrompt)
+    const diff = findFirstDifference(prevSystem, currSystem)
     if (diff) {
       console.log(`     First difference at character ${diff.index}:`)
       console.log(`     A: ...${JSON.stringify(diff.contextA)}...`)
@@ -140,13 +257,13 @@ function comparePair(prev: Snapshot, curr: Snapshot, prevFile: string, currFile:
   }
 
   // Compare tool definitions
-  console.log('\n  🔧 Tool Definitions:')
-  const toolDiff = compareTools(prev.toolDefinitions, curr.toolDefinitions)
-  const prevToolJson = JSON.stringify(prev.toolDefinitions)
-  const currToolJson = JSON.stringify(curr.toolDefinitions)
+  console.log('\n  🔧 Tool Definitions (pre-conversion):')
+  const toolDiff = compareTools(prevTools, currTools)
+  const prevToolJson = JSON.stringify(prevTools)
+  const currToolJson = JSON.stringify(currTools)
   if (prevToolJson === currToolJson) {
     console.log(
-      `     ✅ IDENTICAL (${Object.keys(prev.toolDefinitions).length} tools)`,
+      `     ✅ IDENTICAL (${Object.keys(prevTools).length} tools)`,
     )
   } else {
     console.log(`     ❌ DIFFERS`)
@@ -159,8 +276,8 @@ function comparePair(prev: Snapshot, curr: Snapshot, prevFile: string, currFile:
     if (toolDiff.changed.length > 0) {
       console.log(`     Changed: ${toolDiff.changed.join(', ')}`)
       for (const toolName of toolDiff.changed) {
-        const toolA = JSON.stringify(prev.toolDefinitions[toolName], null, 2)
-        const toolB = JSON.stringify(curr.toolDefinitions[toolName], null, 2)
+        const toolA = JSON.stringify(prevTools[toolName], null, 2)
+        const toolB = JSON.stringify(currTools[toolName], null, 2)
         const charDiff = findFirstDifference(toolA, toolB)
         if (charDiff) {
           console.log(`       ${toolName} - first diff at char ${charDiff.index}:`)
@@ -171,12 +288,12 @@ function comparePair(prev: Snapshot, curr: Snapshot, prevFile: string, currFile:
     }
   }
 
-  // Compare messages
-  console.log('\n  💬 Messages:')
+  // Compare messages (pre-conversion)
+  console.log('\n  💬 Messages (pre-conversion):')
   console.log(
-    `     Count: ${prev.messages.length} → ${curr.messages.length}`,
+    `     Count: ${prevMessages.length} → ${currMessages.length}`,
   )
-  const msgDiff = compareMessages(prev.messages, curr.messages)
+  const msgDiff = compareMessages(prevMessages, currMessages)
   if (!msgDiff) {
     console.log(`     ✅ IDENTICAL`)
   } else {
@@ -186,11 +303,10 @@ function comparePair(prev: Snapshot, curr: Snapshot, prevFile: string, currFile:
         `     ✅ First ${msgDiff.firstDiffIndex} messages are identical (shared prefix)`,
       )
     }
-    // Show the differing message content
     const idx = msgDiff.firstDiffIndex
-    if (idx < prev.messages.length && idx < curr.messages.length) {
-      const msgA = JSON.stringify(prev.messages[idx], null, 2)
-      const msgB = JSON.stringify(curr.messages[idx], null, 2)
+    if (idx < prevMessages.length && idx < currMessages.length) {
+      const msgA = JSON.stringify(prevMessages[idx], null, 2)
+      const msgB = JSON.stringify(currMessages[idx], null, 2)
       const charDiff = findFirstDifference(msgA, msgB)
       if (charDiff) {
         console.log(`     Diff in message ${idx} at char ${charDiff.index}:`)
@@ -200,19 +316,43 @@ function comparePair(prev: Snapshot, curr: Snapshot, prevFile: string, currFile:
     }
   }
 
+  // Compare provider requests (post-conversion)
+  compareProviderRequests(prev.providerRequest, curr.providerRequest)
+
   // Overall cache verdict
   console.log('\n  🎯 Cache Verdict:')
-  const systemIdentical = prev.systemPrompt === curr.systemPrompt
+  const systemIdentical = prevSystem === currSystem
   const toolsIdentical = prevToolJson === currToolJson
+  const providerNormIdentical =
+    prev.providerRequest && curr.providerRequest
+      ? JSON.stringify(prev.providerRequest.normalized) ===
+        JSON.stringify(curr.providerRequest.normalized)
+      : undefined
+
   if (systemIdentical && toolsIdentical) {
     console.log(
-      '     ✅ System prompt and tools are IDENTICAL — cache should hit if TTL hasn\'t expired',
+      '     ✅ Pre-conversion system prompt and tools are IDENTICAL — cache should hit if TTL hasn\'t expired',
     )
   } else {
     const causes: string[] = []
     if (!systemIdentical) causes.push('system prompt changed')
     if (!toolsIdentical) causes.push('tool definitions changed')
-    console.log(`     ❌ CACHE MISS expected — ${causes.join(' and ')}`)
+    console.log(`     ❌ PRE-CONVERSION CACHE MISS expected — ${causes.join(' and ')}`)
+  }
+
+  if (providerNormIdentical === true) {
+    console.log(
+      '     ✅ Post-conversion (provider) request bodies are IDENTICAL',
+    )
+  } else if (providerNormIdentical === false) {
+    console.log(
+      '     ❌ Post-conversion (provider) request bodies DIFFER — conversion layer may be introducing instability',
+    )
+    if (systemIdentical && toolsIdentical) {
+      console.log(
+        '     ⚠️  Pre-conversion was identical but post-conversion differs — bug is in the conversion layer!',
+      )
+    }
   }
 }
 
@@ -260,7 +400,8 @@ function main() {
   let allSnapshots: Array<{ snapshot: Snapshot; filename: string }> = []
   for (const file of files) {
     const content = readFileSync(join(dir, file), 'utf-8')
-    allSnapshots.push({ snapshot: JSON.parse(content), filename: file })
+    const snapshot = JSON.parse(content) as Snapshot
+    allSnapshots.push({ snapshot, filename: file })
   }
 
   if (agentFilter) {
@@ -282,6 +423,9 @@ function main() {
       )
     }
   }
+
+  const withProviderRequest = allSnapshots.filter((s) => s.snapshot.providerRequest !== undefined).length
+  console.log(`  Provider request data: ${withProviderRequest}/${allSnapshots.length} snapshots`)
 
   console.log(
     '\nFiles:',

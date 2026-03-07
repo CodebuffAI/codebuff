@@ -1,6 +1,7 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { models, PROFIT_MARGIN } from '@codebuff/common/old-constants'
 import { buildArray } from '@codebuff/common/util/array'
+import { normalizeProviderRequestBodyForCacheDebug } from '@codebuff/common/util/cache-debug'
 import { getErrorObject, promptAborted, promptSuccess } from '@codebuff/common/util/error'
 import { convertCbToModelMessages } from '@codebuff/common/util/messages'
 import { isExplicitlyDefinedModel } from '@codebuff/common/util/model-utils'
@@ -31,6 +32,7 @@ import type {
 import type { ParamsOf } from '@codebuff/common/types/function-params'
 import type { JSONObject } from '@codebuff/common/types/json'
 import type { OpenRouterProviderOptions } from '@codebuff/internal/openrouter-ai-sdk'
+import type { LanguageModel } from 'ai'
 import type z from 'zod/v4'
 
 // Provider routing documentation: https://openrouter.ai/docs/features/provider-routing
@@ -62,6 +64,7 @@ function getProviderOptions(params: {
   agentProviderOptions?: OpenRouterProviderRoutingOptions
   n?: number
   costMode?: string
+  cacheDebugCorrelation?: string
 }): { codebuff: JSONObject } {
   const {
     model,
@@ -71,6 +74,7 @@ function getProviderOptions(params: {
     agentProviderOptions,
     n,
     costMode,
+    cacheDebugCorrelation,
   } = params
 
   let providerConfig: Record<string, any>
@@ -99,6 +103,9 @@ function getProviderOptions(params: {
         client_id: clientSessionId,
         ...(n && { n }),
         ...(costMode && { cost_mode: costMode }),
+        ...(cacheDebugCorrelation && {
+          cache_debug_correlation: cacheDebugCorrelation,
+        }),
       },
       provider: providerConfig,
     },
@@ -181,6 +188,34 @@ function isClaudeOAuthAuthError(error: unknown): boolean {
   return false
 }
 
+function getModelProvider(model: LanguageModel): string {
+  if (typeof model === 'string') return model
+  return model.provider
+}
+
+function emitCacheDebugProviderRequest(params: {
+  callback?: (params: {
+    provider: string
+    rawBody: unknown
+    normalizedBody?: unknown
+  }) => void
+  provider: string
+  rawBody: unknown
+}) {
+  if (!params.callback) return
+
+  const normalized = normalizeProviderRequestBodyForCacheDebug({
+    provider: params.provider,
+    body: params.rawBody,
+  })
+
+  params.callback({
+    provider: params.provider,
+    rawBody: params.rawBody,
+    normalizedBody: normalized,
+  })
+}
+
 export async function* promptAiSdkStream(
   params: ParamsOf<PromptAiSdkStreamFn> & {
     skipClaudeOAuth?: boolean
@@ -236,6 +271,7 @@ export async function* promptAiSdkStream(
     providerOptions: getProviderOptions({
       ...params,
       agentProviderOptions: params.agentProviderOptions,
+      cacheDebugCorrelation: params.cacheDebugCorrelation,
     }),
     // Handle tool call errors gracefully by passing them through to our validation layer
     // instead of throwing (which would halt the agent). The only special case is when
@@ -348,6 +384,13 @@ export async function* promptAiSdkStream(
       )
       return toolCall
     },
+  })
+
+  const requestMetadata = await response.request
+  emitCacheDebugProviderRequest({
+    callback: params.onCacheDebugProviderRequestBuilt,
+    provider: getModelProvider(aiSDKModel),
+    rawBody: requestMetadata.body,
   })
 
   const stopSequenceHandler = new StopSequenceHandler(params.stopSequences)
@@ -603,7 +646,13 @@ export async function promptAiSdk(
     providerOptions: getProviderOptions({
       ...params,
       agentProviderOptions: params.agentProviderOptions,
+      cacheDebugCorrelation: params.cacheDebugCorrelation,
     }),
+  })
+  emitCacheDebugProviderRequest({
+    callback: params.onCacheDebugProviderRequestBuilt,
+    provider: getModelProvider(aiSDKModel),
+    rawBody: response.request?.body,
   })
   const content = response.text
 
@@ -661,7 +710,14 @@ export async function promptAiSdkStructured<T>(
     providerOptions: getProviderOptions({
       ...params,
       agentProviderOptions: params.agentProviderOptions,
+      cacheDebugCorrelation: params.cacheDebugCorrelation,
     }),
+  })
+
+  emitCacheDebugProviderRequest({
+    callback: params.onCacheDebugProviderRequestBuilt,
+    provider: getModelProvider(aiSDKModel),
+    rawBody: response.request?.body,
   })
 
   const content = response.object

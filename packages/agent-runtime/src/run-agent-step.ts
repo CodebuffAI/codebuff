@@ -1,10 +1,9 @@
-import { createHash } from 'crypto'
-
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { supportsCacheControl } from '@codebuff/common/old-constants'
 import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
 import { AbortError, getErrorObject, isAbortError } from '@codebuff/common/util/error'
+import { serializeCacheDebugCorrelation } from '@codebuff/common/util/cache-debug'
 import { systemMessage, userMessage } from '@codebuff/common/util/messages'
 import { APICallError, type ToolSet } from 'ai'
 import { cloneDeep, mapValues } from 'lodash'
@@ -21,7 +20,10 @@ import { getAgentPrompt } from './templates/strings'
 import { getToolSet } from './tools/prompts'
 import { processStream } from './tools/stream-parser'
 import { getAgentOutput } from './util/agent-output'
-import { writeCacheDebugSnapshot } from './util/cache-debug'
+import {
+  createCacheDebugSnapshot,
+  enrichCacheDebugSnapshotWithProviderRequest,
+} from './util/cache-debug'
 import {
   withSystemInstructionTags,
   withSystemTags as withSystemTags,
@@ -259,6 +261,52 @@ export const runAgentStep = async (
   const iterationNum = agentState.messageHistory.length
   const systemTokens = countTokensJson(system)
 
+  const cacheDebugCorrelation = CACHE_DEBUG_FULL_LOGGING
+    ? createCacheDebugSnapshot({
+        agentType: String(agentType),
+        system,
+        toolDefinitions: params.tools
+          ? Object.fromEntries(
+              Object.entries(params.tools).map(([name, tool]) => [
+                name,
+                {
+                  description: tool.description,
+                  inputSchema: tool.inputSchema as {},
+                },
+              ]),
+            )
+          : {},
+        messages: [systemMessage(system), ...agentState.messageHistory],
+        logger,
+        projectRoot: fileContext.projectRoot,
+        runId: agentState.runId,
+        userInputId,
+        agentStepId,
+        model,
+      })
+    : undefined
+
+  const onCacheDebugProviderRequestBuilt =
+    cacheDebugCorrelation
+      ? ({
+          provider,
+          rawBody,
+          normalizedBody,
+        }: {
+          provider: string
+          rawBody: unknown
+          normalizedBody?: unknown
+        }) => {
+          enrichCacheDebugSnapshotWithProviderRequest({
+            correlation: cacheDebugCorrelation,
+            provider,
+            rawBody,
+            normalized: normalizedBody ?? rawBody,
+            logger,
+          })
+        }
+      : undefined
+
   logger.debug(
     {
       iteration: iterationNum,
@@ -286,6 +334,10 @@ export const runAgentStep = async (
       model,
       n: params.n,
       onCostCalculated,
+      cacheDebugCorrelation: cacheDebugCorrelation
+        ? serializeCacheDebugCorrelation(cacheDebugCorrelation)
+        : undefined,
+      onCacheDebugProviderRequestBuilt,
     })
 
     if (result.aborted) {
@@ -336,8 +388,12 @@ export const runAgentStep = async (
     ...params,
     agentId: agentState.parentId ? agentState.agentId : undefined,
     costMode: params.costMode,
+    cacheDebugCorrelation: cacheDebugCorrelation
+      ? serializeCacheDebugCorrelation(cacheDebugCorrelation)
+      : undefined,
     includeCacheControl: supportsCacheControl(agentTemplate.model),
     messages: [systemMessage(system), ...agentState.messageHistory],
+    onCacheDebugProviderRequestBuilt,
     template: agentTemplate,
     onCostCalculated,
   })
@@ -714,36 +770,6 @@ export async function loopAgentSteps(
     description: tool.description,
     inputSchema: tool.inputSchema as {},
   }))
-
-  if (CACHE_DEBUG_FULL_LOGGING) {
-    // Debug: hash the system prompt and tool definitions to detect prompt cache invalidation
-    const systemHash = createHash('sha256').update(system).digest('hex').slice(0, 8)
-    const sortedToolDefs = Object.keys(toolDefinitions).sort().reduce((acc, key) => {
-      acc[key] = toolDefinitions[key]
-      return acc
-    }, {} as Record<string, unknown>)
-    const toolsHash = createHash('sha256').update(JSON.stringify(sortedToolDefs)).digest('hex').slice(0, 8)
-    logger.debug(
-      {
-        systemHash,
-        toolsHash,
-        systemLength: system.length,
-        toolCount: Object.keys(toolDefinitions).length,
-        toolNames: Object.keys(toolDefinitions).sort(),
-        agentType,
-      },
-      `[Cache Debug] System prompt hash: ${systemHash}, Tools hash: ${toolsHash}`,
-    )
-
-    writeCacheDebugSnapshot({
-      agentType: String(agentType),
-      system,
-      toolDefinitions: sortedToolDefs,
-      messages: initialMessages,
-      logger,
-      projectRoot: fileContext.projectRoot,
-    })
-  }
 
   const additionalToolDefinitionsWithCache = async () => {
     if (!cachedAdditionalToolDefinitions) {
