@@ -29,6 +29,12 @@ export function createBase2(
   return {
     publisher,
     model: isFree ? 'minimax/minimax-m2.5' : 'anthropic/claude-opus-4.6',
+    providerOptions: isFree ? {
+      only: ['fireworks'],
+      order: ['fireworks'],
+      allow_fallbacks: false,
+      data_collection: 'deny',
+    } : undefined,
     displayName: 'Buffy the Orchestrator',
     spawnerPrompt:
       'Advanced base agent that orchestrates planning, editing, and reviewing for complex coding tasks',
