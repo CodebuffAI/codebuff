@@ -1,5 +1,6 @@
 import { TEST_AGENT_RUNTIME_IMPL } from '@codebuff/common/testing/impl/agent-runtime'
 import { describe, test, expect, mock } from 'bun:test'
+import { convertJsonSchemaToZod } from 'zod-from-json-schema'
 import { z } from 'zod/v4'
 
 import { buildAgentToolInputSchema, buildAgentToolSet } from '../templates/prompts'
@@ -170,6 +171,30 @@ describe('Schema handling error recovery', () => {
       // The schema properties should be in the JSON output
       expect(description).toContain('path')
       expect(description).toContain('content')
+    })
+
+    test('buildToolDescription preserves MCP params when schema is represented as allOf', () => {
+      const mcpSchema = convertJsonSchemaToZod({
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+        },
+        required: ['name'],
+        additionalProperties: false,
+      })
+
+      const description = buildToolDescription({
+        toolName: 'greet__greet',
+        schema: mcpSchema,
+        description: 'Call greet',
+        endsAgentStep: true,
+      })
+
+      expect(description).toContain('greet__greet')
+      expect(description).toContain('Params: {')
+      expect(description).toContain('allOf')
+      expect(description).toContain('name')
+      expect(description).not.toContain('Params: None')
     })
 
     test('getToolSet handles custom tools with problematic schemas', async () => {
