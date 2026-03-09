@@ -25,12 +25,35 @@ Before you begin, you'll need to install a few tools:
    ```bash
    # Copy the example file
    cp .env.example .env.local
-   
+
    # Edit .env.local and update DATABASE_URL to match Docker:
    # DATABASE_URL=postgresql://manicode_user_local:secretpassword_local@localhost:5432/manicode_db_local
    ```
 
-   > **Team members**: For shared secrets management, see the [Infisical Setup Guide](./INFISICAL_SETUP_GUIDE.md).
+### Required local env changes
+
+The `.env.example` provides defaults. When you create ` .env.local` make sure to update the following important fields for local development:
+
+- **OPEN_ROUTER_API_KEY**: set to your OpenRouter key (used for LLM calls). Example:
+  - `OPEN_ROUTER_API_KEY=sk-or-v1-...`
+- **GRAVITY_API_KEY**: optional; use `test` for ad/analytics testing in dev.
+- **PORT**: the example defaults to `4242`. This repo commonly runs on `3000` during development — set `PORT=3000` if you want the web app on `http://localhost:3000`.
+- **NEXTAUTH_URL**: when using port 3000 set `NEXTAUTH_URL=http://localhost:3000` to ensure OAuth callbacks work.
+- **CODEBUFF_GITHUB_ID** / **CODEBUFF_GITHUB_SECRET**: your GitHub OAuth app credentials — required to sign in locally via GitHub.
+- **DATABASE_URL**: confirm this points to your local Docker Postgres (default is fine for the built-in Docker setup):
+  - `DATABASE_URL=postgresql://manicode_user_local:secretpassword_local@localhost:5432/manicode_db_local`
+- **CODEBUFF_API_KEY**: optional CLI fallback — you can `export CODEBUFF_API_KEY=<your-key>` for CLI commands.
+
+Notes / gotchas:
+
+- After editing `.env.local` you must restart the dev server (`bun run start-web`) — environment variables are loaded at startup.
+- If you use OpenRouter, ensure the account associated with your API key has credits (OpenRouter will return 402 Payment Required otherwise).
+- If you see Postgres role errors during migrations, re-create the DB and wait for it to fully initialize:
+  ```bash
+  cd packages/internal/src/db && docker compose down -v && docker compose up --wait
+  ```
+
+> **Team members**: For shared secrets management, see the [Infisical Setup Guide](./INFISICAL_SETUP_GUIDE.md).
 
 3. **Install dependencies**:
 
@@ -39,7 +62,6 @@ Before you begin, you'll need to install a few tools:
    ```
 
 4. **Setup a Github OAuth app**
-
    1. Follow these instructions to set up a [Github OAuth app](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app)
    2. Add your Github client ID and secret to `.env.local`:
 
@@ -63,7 +85,6 @@ Before you begin, you'll need to install a few tools:
    Now, you should be able to run the CLI and send commands, but it will error out because you don't have any credits.
 
 6. **Giving yourself credits**:
-
    1. Log into Codebuff at [http://localhost:3000/login](http://localhost:3000/login)
 
    2. Then give yourself lots of credits. Be generous, you're the boss now!
@@ -97,7 +118,6 @@ In order to run the CLI from other directories, you need to first publish the ag
   ```
 
 - Repeat this until there are no more errors.
-
   - As of the time of writing, the command required is:
 
   ```bash
