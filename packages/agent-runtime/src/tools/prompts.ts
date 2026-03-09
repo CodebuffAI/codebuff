@@ -53,6 +53,27 @@ function toJsonSchemaSafe(schema: z.ZodType): Record<string, unknown> {
   }
 }
 
+function hasMeaningfulJsonSchema(jsonSchema: Record<string, unknown>): boolean {
+  const properties = jsonSchema.properties
+  if (properties && typeof properties === 'object' && Object.keys(properties).length > 0) {
+    return true
+  }
+
+  for (const key of ['allOf', 'anyOf', 'oneOf']) {
+    const value = jsonSchema[key]
+    if (Array.isArray(value) && value.length > 0) {
+      return true
+    }
+  }
+
+  const required = jsonSchema.required
+  if (Array.isArray(required) && required.length > 0) {
+    return true
+  }
+
+  return false
+}
+
 function paramsSection(params: { schema: z.ZodType; endsAgentStep: boolean }) {
   const { schema, endsAgentStep } = params
   const safeSchema = ensureJsonSchemaCompatible(schema)
@@ -68,7 +89,7 @@ function paramsSection(params: { schema: z.ZodType; endsAgentStep: boolean }) {
   const jsonSchema = toJsonSchemaSafe(schemaWithEndsAgentStepParam)
   delete jsonSchema.description
   delete jsonSchema['$schema']
-  const paramsDescription = Object.keys(jsonSchema.properties ?? {}).length
+  const paramsDescription = hasMeaningfulJsonSchema(jsonSchema)
     ? JSON.stringify(jsonSchema, null, 2)
     : 'None'
 
