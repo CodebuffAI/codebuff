@@ -58,14 +58,14 @@ jobs:
             arch: x64
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.checkout-ref || github.sha }}
 
       - uses: ./.github/actions/setup-project
 
       - name: Download updated package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ inputs.artifact-name }}
           path: ${{ inputs.artifact-name == 'updated-staging-package' && 'npm-app/release-staging/' || 'npm-app/release/' }}
@@ -126,7 +126,7 @@ jobs:
           tar -czf ${{ inputs.binary-name }}-${{ matrix.target }}.tar.gz -C npm-app/bin $BINARY_FILE
 
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.binary-name }}-${{ matrix.target }}
           path: ${{ inputs.binary-name }}-${{ matrix.target }}.*

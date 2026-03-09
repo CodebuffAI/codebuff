@@ -56,7 +56,7 @@ jobs:
             arch: arm64
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.checkout-ref || github.sha }}
 
@@ -64,7 +64,7 @@ jobs:
 
       - name: Download staging metadata
         if: inputs.artifact-name != ''
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ inputs.artifact-name }}
           path: cli/release-staging/
@@ -191,7 +191,7 @@ jobs:
           tar -czf ${{ inputs.binary-name }}-${{ matrix.target }}.tar.gz -C cli/bin "$BINARY_FILE"
 
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.binary-name }}-${{ matrix.target }}
           path: ${{ inputs.binary-name }}-${{ matrix.target }}.tar.gz
@@ -199,7 +199,7 @@ jobs:
   build-windows-binary:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.checkout-ref || github.sha }}
 
@@ -207,7 +207,7 @@ jobs:
 
       - name: Download staging metadata
         if: inputs.artifact-name != ''
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ inputs.artifact-name }}
           path: cli/release-staging/
@@ -326,7 +326,7 @@ jobs:
           tar -czf ${{ inputs.binary-name }}-win32-x64.tar.gz -C cli/bin "$BINARY_FILE"
 
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.binary-name }}-win32-x64
           path: ${{ inputs.binary-name }}-win32-x64.tar.gz

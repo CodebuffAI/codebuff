@@ -24,7 +24,7 @@ jobs:
     outputs:
       new_version: ${{ steps.bump_version.outputs.new_version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -94,7 +94,7 @@ jobs:
           bun run verify
 
       - name: Set up Node.js for npm publishing
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org/
