@@ -42,6 +42,7 @@ const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
   'agent:gpt-5',
   'image',
   'publish',
+  'init',
 ])
 
 const ALL_SLASH_COMMANDS: SlashCommand[] = [

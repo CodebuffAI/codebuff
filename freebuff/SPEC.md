@@ -91,7 +91,6 @@ Freebuff only supports **FREE mode**. All mode-related features are stripped.
 | Command | Notes |
 |---|---|
 | `/help` | Modified help content (see §6) |
-| `/init` | Create knowledge.md |
 | `/new` (+ `/clear`, `/reset`, `/n`, `/c`) | Clear conversation |
 | `/history` (+ `/chats`) | Browse past conversations |
 | `/feedback` (+ `/bug`, `/report`) | Share feedback |
@@ -278,7 +277,7 @@ These features work identically in Freebuff:
 - **Agent mentions** (`@agents`) — Use available agents (free-tier agents only)
 - **Bash mode** — Run terminal commands
 - **Image attachments** — Attach and paste images
-- **Knowledge files** — `knowledge.md`, `/init`
+- **Knowledge files** — `knowledge.md`
 - **Chat history** — `/history`, resume conversations
 - **Feedback** — `/feedback` command
 - **Theme** — Light/dark toggle
