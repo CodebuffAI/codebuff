@@ -1,6 +1,8 @@
-# FreeBuff
+# Freebuff
 
-Free AI coding assistant — powered by [Codebuff](https://codebuff.com).
+**The world's strongest free coding agent.** 3–10x faster than Claude Code.
+
+Freebuff is a free AI coding agent that runs in your terminal. It's blazing fast — describe what you want, and Freebuff edits your code in seconds. No subscription or credits required.
 
 ## Install
 
@@ -15,13 +17,9 @@ cd ~/my-project
 freebuff
 ```
 
-FreeBuff runs in FREE mode — no subscription or credits required. Just log in and start building.
-
-## Commands
-
-Type `/` to see all available commands, or `/help` for keyboard shortcuts.
-
 ## Links
 
 - [Documentation](https://codebuff.com/docs)
 - [Website](https://codebuff.com)
+
+> Freebuff is built on the [Codebuff](https://codebuff.com) platform.

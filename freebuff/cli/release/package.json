@@ -1,14 +1,13 @@
 {
   "name": "freebuff",
-  "version": "1.0.0",
-  "description": "Free AI coding assistant",
+  "version": "0.0.1",
+  "description": "The world's strongest free coding agent",
   "license": "MIT",
   "bin": {
     "freebuff": "index.js"
   },
   "scripts": {
-    "postinstall": "node postinstall.js",
-    "preuninstall": "node -e \"const fs = require('fs'); const path = require('path'); const os = require('os'); const binaryPath = path.join(os.homedir(), '.config', 'manicode', process.platform === 'win32' ? 'freebuff.exe' : 'freebuff'); try { fs.unlinkSync(binaryPath) } catch (e) { /* ignore if file doesn't exist */ }\""
+    "postinstall": "node postinstall.js"
   },
   "files": [
     "index.js",
@@ -26,9 +25,6 @@
   ],
   "engines": {
     "node": ">=16"
-  },
-  "dependencies": {
-    "tar": "^7.0.0"
   },
   "repository": {
     "type": "git",
