@@ -17,8 +17,11 @@ export async function GET(
     return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
   }
 
+  // Freebuff releases use a "freebuff-v" tag prefix to avoid colliding with codebuff releases
+  const tagPrefix = filename.startsWith('freebuff-') ? 'freebuff-v' : 'v'
+
   // Current download location - can be changed in the future without affecting old clients
-  const downloadUrl = `https://github.com/CodebuffAI/codebuff-community/releases/download/v${version}/${filename}`
+  const downloadUrl = `https://github.com/CodebuffAI/codebuff-community/releases/download/${tagPrefix}${version}/${filename}`
 
   return NextResponse.redirect(downloadUrl, 302)
 }
