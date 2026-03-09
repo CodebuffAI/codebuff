@@ -1,10 +1,12 @@
 import type { ToolName } from '@codebuff/sdk'
 
+import { getCliEnv } from './env'
+
 /**
  * Freebuff build-time flag. When true, the CLI is built as Freebuff (free-only variant).
  * Injected via --define at compile time; enables dead-code elimination by the bundler.
  */
-export const IS_FREEBUFF = process.env.FREEBUFF_MODE === 'true'
+export const IS_FREEBUFF = getCliEnv().FREEBUFF_MODE === 'true'
 
 // Agent IDs that should not be rendered in the CLI UI
 export const HIDDEN_AGENT_IDS = ['codebuff/context-pruner'] as const
