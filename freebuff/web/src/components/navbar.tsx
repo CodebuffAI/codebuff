@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 
@@ -18,9 +19,15 @@ export function Navbar() {
           href="/"
           className="flex items-center space-x-2 group transition-all duration-300 hover:scale-105"
         >
-          <span className="text-xl font-bold tracking-tight">
-            <span className="text-acid-green">Free</span>
-            <span className="text-white">buff</span>
+          <Image
+            src="/logo-icon.png"
+            alt="Freebuff"
+            width={28}
+            height={28}
+            className="rounded-sm transition-all duration-300 group-hover:brightness-110"
+          />
+          <span className="text-xl tracking-widest font-serif text-white">
+            freebuff
           </span>
         </Link>
 
@@ -49,7 +56,7 @@ export function Navbar() {
             ) : session ? (
               <div className="flex items-center gap-3">
                 <span className="text-sm text-muted-foreground hidden sm:inline">
-                  {session.user?.name || session.user?.email}
+                  {session.user?.email || session.user?.name}
                 </span>
                 <Button
                   variant="ghost"

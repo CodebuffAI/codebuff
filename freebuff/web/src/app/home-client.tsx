@@ -61,7 +61,7 @@ const features = [
   },
 ]
 
-const headlineWords = ["The", "world's", "strongest"]
+const headlineWords = ["The", "strongest"]
 const greenWords = ["free", "coding", "agent."]
 
 const faqs = [
@@ -199,8 +199,6 @@ export default function HomeClient() {
               <span className="text-acid-green text-sm font-semibold tracking-wide">
                 100% Free
               </span>
-              <span className="text-zinc-600 text-sm">•</span>
-              <span className="text-zinc-400 text-sm">No credits required</span>
             </div>
           </motion.div>
 
@@ -246,9 +244,7 @@ export default function HomeClient() {
             transition={{ duration: 0.6, delay: 0.8 }}
             className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed"
           >
-            Describe what you want, and Freebuff edits your code.
-            <br className="hidden sm:block" />
-            No subscription. No credits. Just code.
+             No subscription. No API key. 5x faster than Claude Code.
           </motion.p>
 
           {/* Install command */}
@@ -259,36 +255,6 @@ export default function HomeClient() {
             className="max-w-md mx-auto mb-8"
           >
             <InstallCommand />
-          </motion.div>
-
-          {/* CTA buttons */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 1.15 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
-          >
-            <Link href="/login">
-              <Button
-                size="lg"
-                className="bg-acid-green text-black hover:bg-acid-green/90 font-semibold px-8 shadow-[0_0_25px_rgba(0,255,149,0.25)] hover:shadow-[0_0_35px_rgba(0,255,149,0.4)] transition-all duration-300"
-              >
-                Get Started
-              </Button>
-            </Link>
-            <Link
-              href="https://codebuff.com/docs"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-zinc-700 hover:border-zinc-500 hover:bg-white/[0.03]"
-              >
-                Read the Docs
-              </Button>
-            </Link>
           </motion.div>
 
           {/* Terminal demo */}
@@ -338,69 +304,6 @@ export default function HomeClient() {
                 <p className="text-sm text-zinc-400 leading-relaxed">
                   {feature.description}
                 </p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Divider */}
-      <div className="h-px bg-gradient-to-r from-transparent via-zinc-800 to-transparent" />
-
-      {/* ─── How It Works ─── */}
-      <section className="py-24 px-4 bg-zinc-950/50">
-        <div className="container mx-auto max-w-3xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.3 }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-12"
-          >
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Up and running in 30 seconds
-            </h2>
-          </motion.div>
-
-          <div className="space-y-8">
-            {[
-              {
-                step: '1',
-                title: 'Install Freebuff',
-                command: 'npm install -g freebuff',
-              },
-              {
-                step: '2',
-                title: 'Navigate to your project',
-                command: 'cd ~/my-project',
-              },
-              {
-                step: '3',
-                title: 'Start coding',
-                command: 'freebuff',
-              },
-            ].map((item, i) => (
-              <motion.div
-                key={item.step}
-                initial={{ opacity: 0, x: -20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: i * 0.15 }}
-                className="flex items-start gap-4"
-              >
-                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-acid-green/10 border border-acid-green/30 flex items-center justify-center text-acid-green font-bold">
-                  {item.step}
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold mb-2">{item.title}</h3>
-                  <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2.5 font-mono text-sm">
-                    <span className="text-acid-green select-none">$</span>
-                    <code className="text-white/90 select-all flex-1">
-                      {item.command}
-                    </code>
-                    <CopyButton value={item.command} />
-                  </div>
-                </div>
               </motion.div>
             ))}
           </div>

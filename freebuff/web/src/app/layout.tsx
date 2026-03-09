@@ -19,6 +19,11 @@ export const generateMetadata = (): Metadata => ({
   description: siteConfig.description,
   keywords: siteConfig.keywords(),
   robots: { index: true, follow: true },
+  icons: {
+    icon: '/favicon/favicon-32x32.ico',
+    shortcut: '/favicon/favicon-16x16.ico',
+    apple: '/favicon/apple-touch-icon.png',
+  },
   openGraph: {
     url: siteConfig.url(),
     title: siteConfig.title,

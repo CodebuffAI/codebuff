@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Domine:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
 
 @tailwind base;
@@ -40,9 +42,14 @@
 
 /* Hero heading styles */
 .hero-heading {
-  @apply text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight;
+  @apply text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight;
+  font-family: 'Domine', serif;
   line-height: 1.05;
+  letter-spacing: 0.005em;
   text-wrap: balance;
+  font-kerning: normal;
+  font-feature-settings: 'kern' 1, 'liga' 1;
+  text-rendering: optimizeLegibility;
 }
 
 /* Neon green glow text */

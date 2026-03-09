@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import Link from 'next/link'
 
 export function Footer() {
@@ -6,10 +7,18 @@ export function Footer() {
       <div className="container mx-auto flex flex-col gap-4 py-8 px-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
           <div>
-            <span className="text-lg font-bold tracking-tight">
-              <span className="text-acid-green">Free</span>
-              <span className="text-white">buff</span>
-            </span>
+            <div className="flex items-center space-x-2">
+              <Image
+                src="/logo-icon.png"
+                alt="Freebuff"
+                width={24}
+                height={24}
+                className="rounded-sm"
+              />
+              <span className="text-lg tracking-widest font-serif text-white">
+                freebuff
+              </span>
+            </div>
             <p className="mt-2 text-sm text-muted-foreground">
               The world&apos;s strongest free coding agent.
             </p>
