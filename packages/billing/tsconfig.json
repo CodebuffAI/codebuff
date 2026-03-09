@@ -2,7 +2,12 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2022",
-    "types": ["bun", "node"]
+    "types": ["bun", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "drizzle-orm": ["../internal/node_modules/drizzle-orm"],
+      "drizzle-orm/*": ["../internal/node_modules/drizzle-orm/*"]
+    }
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules"]

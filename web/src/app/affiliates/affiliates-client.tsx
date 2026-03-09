@@ -8,7 +8,6 @@ import {
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import React, { useEffect, useState, useCallback, useActionState } from 'react'
-import { useFormStatus } from 'react-dom'
 
 import { setAffiliateHandleAction } from './actions'
 
@@ -29,8 +28,7 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/use-toast'
 
-function SubmitButton() {
-  const { pending } = useFormStatus()
+function SubmitButton({ pending }: { pending: boolean }) {
   return (
     <Button type="submit" disabled={pending} aria-disabled={pending}>
       {pending ? 'Setting Handle...' : 'Set Handle'}
@@ -49,7 +47,7 @@ function SetHandleForm({
     success: false,
     fieldErrors: {},
   }
-  const [state, formAction] = useActionState(
+  const [state, formAction, isPending] = useActionState(
     setAffiliateHandleAction,
     initialState,
   )
@@ -100,7 +98,7 @@ function SetHandleForm({
           <p className="text-sm text-red-600 mt-1">{state.message}</p>
         )}
       </div>
-      <SubmitButton />
+      <SubmitButton pending={isPending} />
     </form>
   )
 }

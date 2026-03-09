@@ -5,7 +5,9 @@
     "baseUrl": "..",
     "paths": {
       "@codebuff/sdk": ["./sdk/src/index.ts"],
-      "@codebuff/sdk/*": ["./sdk/src/*"]
+      "@codebuff/sdk/*": ["./sdk/src/*"],
+      "drizzle-orm": ["./packages/internal/node_modules/drizzle-orm"],
+      "drizzle-orm/*": ["./packages/internal/node_modules/drizzle-orm/*"]
     }
   },
   "include": ["**/*.ts"],
