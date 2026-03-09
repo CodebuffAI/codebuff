@@ -170,61 +170,6 @@ codebuff
 
 This creates a custom agent structure in `.agents/` that you can customize.
 
-### Using Different Models
-
-Codebuff supports any model on OpenRouter. Override the default model per task:
-
-```typescript
-const result = await client.run({
-  agent: 'editor',
-  prompt: 'Refactor this function',
-  model: 'deepseek/deepseek-chat', // Use DeepSeek for this task
-})
-```
-
-### Multi-Agent Orchestration
-
-Codebuff's strength is coordinating multiple specialized agents:
-
-```typescript
-const result = await client.run({
-  agent: 'commander', // The orchestrator agent
-  prompt: 'Add authentication to the API - use file-picker to find relevant files, planner to plan changes, editor to make edits, and reviewer to validate',
-})
-```
-
-### CI/CD Integration
-
-Integrate Codebuff into your CI pipeline for automated code reviews:
-
-```bash
-# In your CI script
-codebuff "Review the changes in this PR for security issues"
-```
-
-### Environment Variables
-
-Configure Codebuff behavior via environment variables:
-
-```bash
-# Use a specific OpenRouter API key
-export OPENROUTER_API_KEY=sk-or-v1-xxxx
-
-# Set default model
-export CODEBUFF_MODEL=anthropic/claude-3.5-sonnet
-
-# Enable debug mode
-export DEBUG=codebuff*
-```
-
-### Keyboard Shortcuts (Interactive Mode)
-
-- `Ctrl+C` - Cancel current operation
-- `Ctrl+L` - Clear screen
-- `Ctrl+U` - Clear current input
-- `Ctrl+P/N` - Navigate command history
-- `Tab` - Autocomplete
-
 ## Contributing to Codebuff
 
 We ❤️ contributions from the community - whether you're fixing bugs, tweaking our agents, or improving documentation.
