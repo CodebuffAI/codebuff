@@ -1,0 +1,225 @@
+// TODO: Extract shared auth config to packages/auth to avoid duplication with web/src/app/api/auth/[...nextauth]/auth-options.ts
+import { DrizzleAdapter } from '@auth/drizzle-adapter'
+import { processAndGrantCredit } from '@codebuff/billing'
+import { trackEvent } from '@codebuff/common/analytics'
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import {
+  DEFAULT_FREE_CREDITS_GRANT,
+  SESSION_MAX_AGE_SECONDS,
+} from '@codebuff/common/old-constants'
+import { getNextQuotaReset } from '@codebuff/common/util/dates'
+import { generateCompactId } from '@codebuff/common/util/string'
+import { loops } from '@codebuff/internal'
+import db from '@codebuff/internal/db'
+import * as schema from '@codebuff/internal/db/schema'
+import { env } from '@codebuff/internal/env'
+import { stripeServer } from '@codebuff/internal/util/stripe'
+import { logSyncFailure } from '@codebuff/internal/util/sync-failure'
+import { eq } from 'drizzle-orm'
+import GitHubProvider from 'next-auth/providers/github'
+
+import type { Logger } from '@codebuff/common/types/contracts/logger'
+import type { NextAuthOptions } from 'next-auth'
+import type { Adapter } from 'next-auth/adapters'
+
+import { logger } from '@/util/logger'
+
+async function createAndLinkStripeCustomer(params: {
+  userId: string
+  email: string | null
+  name: string | null
+}): Promise<string | null> {
+  const { userId, email, name } = params
+
+  if (!email || !name) {
+    logger.warn(
+      { userId },
+      'User email or name missing, cannot create Stripe customer.',
+    )
+    return null
+  }
+  try {
+    const customer = await stripeServer.customers.create({
+      email,
+      name,
+      metadata: {
+        user_id: userId,
+      },
+    })
+
+    await db
+      .update(schema.user)
+      .set({
+        stripe_customer_id: customer.id,
+      })
+      .where(eq(schema.user.id, userId))
+
+    logger.info(
+      { userId, customerId: customer.id },
+      'Stripe customer created and linked to user.',
+    )
+    return customer.id
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : 'Unknown error creating Stripe customer'
+    logger.error(
+      { userId, error },
+      'Failed to create Stripe customer or update user record.',
+    )
+    await logSyncFailure({
+      id: userId,
+      errorMessage,
+      provider: 'stripe',
+      logger,
+    })
+    return null
+  }
+}
+
+async function createInitialCreditGrant(params: {
+  userId: string
+  expiresAt: Date | null
+  logger: Logger
+}): Promise<void> {
+  const { userId, expiresAt, logger } = params
+
+  try {
+    const operationId = `free-${userId}-${generateCompactId()}`
+    const nextQuotaReset = getNextQuotaReset(expiresAt)
+
+    await processAndGrantCredit({
+      ...params,
+      amount: DEFAULT_FREE_CREDITS_GRANT,
+      type: 'free',
+      description: 'Initial free credits',
+      expiresAt: nextQuotaReset,
+      operationId,
+    })
+
+    logger.info(
+      {
+        userId,
+        operationId,
+        creditsGranted: DEFAULT_FREE_CREDITS_GRANT,
+        expiresAt: nextQuotaReset,
+      },
+      'Initial free credit grant created.',
+    )
+  } catch (grantError) {
+    const errorMessage =
+      grantError instanceof Error
+        ? grantError.message
+        : 'Unknown error creating initial credit grant'
+    logger.error(
+      { userId, error: grantError },
+      'Failed to create initial credit grant.',
+    )
+    await logSyncFailure({
+      id: userId,
+      errorMessage,
+      provider: 'stripe',
+      logger,
+    })
+  }
+}
+
+export const authOptions: NextAuthOptions = {
+  adapter: DrizzleAdapter(db, {
+    usersTable: schema.user,
+    accountsTable: schema.account,
+    sessionsTable: schema.session,
+    verificationTokensTable: schema.verificationToken,
+  }) as Adapter,
+  providers: [
+    GitHubProvider({
+      clientId: env.CODEBUFF_GITHUB_ID,
+      clientSecret: env.CODEBUFF_GITHUB_SECRET,
+    }),
+  ],
+  session: {
+    strategy: 'database',
+    maxAge: SESSION_MAX_AGE_SECONDS,
+  },
+  callbacks: {
+    async session({ session, user }) {
+      if (session.user) {
+        session.user.id = user.id
+        session.user.image = user.image
+        session.user.name = user.name
+        session.user.email = user.email
+        session.user.stripe_customer_id = user.stripe_customer_id
+      }
+      return session
+    },
+    async redirect({ url, baseUrl }) {
+      const potentialRedirectUrl = new URL(url, baseUrl)
+      const authCode = potentialRedirectUrl.searchParams.get('auth_code')
+
+      if (authCode) {
+        const onboardUrl = new URL(`${baseUrl}/onboard`)
+        potentialRedirectUrl.searchParams.forEach((value, key) => {
+          onboardUrl.searchParams.set(key, value)
+        })
+        return onboardUrl.toString()
+      }
+
+      if (url.startsWith('/') || potentialRedirectUrl.origin === baseUrl) {
+        return potentialRedirectUrl.toString()
+      }
+
+      return baseUrl
+    },
+  },
+  events: {
+    createUser: async ({ user }) => {
+      logger.info(
+        { userId: user.id, email: user.email },
+        'createUser event triggered',
+      )
+
+      const userData = await db.query.user.findFirst({
+        where: eq(schema.user.id, user.id),
+        columns: {
+          id: true,
+          email: true,
+          name: true,
+          next_quota_reset: true,
+        },
+      })
+
+      if (!userData) {
+        logger.error({ userId: user.id }, 'User data not found after creation')
+        return
+      }
+
+      const customerId = await createAndLinkStripeCustomer({
+        ...userData,
+        userId: userData.id,
+      })
+
+      if (customerId) {
+        await createInitialCreditGrant({
+          userId: userData.id,
+          expiresAt: userData.next_quota_reset,
+          logger,
+        })
+      }
+
+      await loops.sendSignupEventToLoops({
+        ...userData,
+        userId: userData.id,
+        logger,
+      })
+
+      trackEvent({
+        event: AnalyticsEvent.SIGNUP,
+        userId: userData.id,
+        logger,
+      })
+
+      logger.info({ user }, 'createUser event processing finished.')
+    },
+  },
+}

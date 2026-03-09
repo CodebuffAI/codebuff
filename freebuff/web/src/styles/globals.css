@@ -1,0 +1,91 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 3% 73%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 240 4.8% 95.9%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Hero heading styles */
+.hero-heading {
+  @apply text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight;
+  line-height: 1.05;
+  text-wrap: balance;
+}
+
+/* Neon green glow text */
+.neon-text {
+  text-shadow:
+    0 0 20px rgba(0, 255, 149, 0.4),
+    0 0 40px rgba(0, 255, 149, 0.2),
+    0 0 80px rgba(0, 255, 149, 0.1);
+}
+
+/* Gradient border shine effect */
+.gradient-border-shine {
+  position: relative;
+}
+
+.gradient-border-shine::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(0, 255, 149, 0.3),
+    transparent 40%,
+    transparent 60%,
+    rgba(0, 255, 149, 0.15)
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-glow-pulse,
+  .animate-scan-line,
+  .animate-terminal-cursor {
+    animation: none;
+  }
+  .neon-text {
+    text-shadow: none;
+  }
+}
