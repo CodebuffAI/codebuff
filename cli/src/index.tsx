@@ -189,7 +189,7 @@ async function main(): Promise<void> {
   } = parseArgs()
 
   const isLoginCommand = process.argv[2] === 'login'
-  const isPublishCommand = process.argv.includes('publish')
+  const isPublishCommand = process.argv[2] === 'publish'
   const hasAgentOverride = Boolean(agent?.trim())
 
   await initializeApp({ cwd })
