@@ -101,37 +101,50 @@ type ParsedArgs = {
 function parseArgs(): ParsedArgs {
   const program = new Command()
 
-  program
-    .name(IS_FREEBUFF ? 'freebuff' : 'codebuff')
-    .description(IS_FREEBUFF ? 'Freebuff - Free AI coding assistant' : 'Codebuff CLI - AI-powered coding assistant')
-    .version(loadPackageVersion(), '-v, --version', 'Print the CLI version')
-    .option(
-      '--agent <agent-id>',
-      'Run a specific agent id (skips loading local .agents overrides)',
-    )
-    .option('--clear-logs', 'Remove any existing CLI log files before starting')
-    .option(
-      '--continue [conversation-id]',
-      'Continue from a previous conversation (optionally specify a conversation id)',
-    )
-    .option(
-      '--cwd <directory>',
-      'Set the working directory (default: current directory)',
-    )
-
-  if (!IS_FREEBUFF) {
+  if (IS_FREEBUFF) {
+    // Freebuff: simplified CLI - no prompt args, no agent override, no clear-logs
     program
+      .name('freebuff')
+      .description('Freebuff - Free AI coding assistant')
+      .version(loadPackageVersion(), '-v, --version', 'Print the CLI version')
+      .option(
+        '--continue [conversation-id]',
+        'Continue from a previous conversation (optionally specify a conversation id)',
+      )
+      .option(
+        '--cwd <directory>',
+        'Set the working directory (default: current directory)',
+      )
+      .helpOption('-h, --help', 'Show this help message')
+      .parse(process.argv)
+  } else {
+    // Codebuff: full CLI with all options
+    program
+      .name('codebuff')
+      .description('Codebuff CLI - AI-powered coding assistant')
+      .version(loadPackageVersion(), '-v, --version', 'Print the CLI version')
+      .option(
+        '--agent <agent-id>',
+        'Run a specific agent id (skips loading local .agents overrides)',
+      )
+      .option('--clear-logs', 'Remove any existing CLI log files before starting')
+      .option(
+        '--continue [conversation-id]',
+        'Continue from a previous conversation (optionally specify a conversation id)',
+      )
+      .option(
+        '--cwd <directory>',
+        'Set the working directory (default: current directory)',
+      )
       .option('--free', 'Start in FREE mode')
       .option('--lite', 'Start in FREE mode (deprecated, use --free)')
       .option('--max', 'Start in MAX mode')
       .option('--plan', 'Start in PLAN mode')
+      .helpOption('-h, --help', 'Show this help message')
+      .argument('[prompt...]', 'Initial prompt to send to the agent')
+      .allowExcessArguments(true)
+      .parse(process.argv)
   }
-
-  program
-    .helpOption('-h, --help', 'Show this help message')
-    .argument('[prompt...]', 'Initial prompt to send to the agent')
-    .allowExcessArguments(true)
-    .parse(process.argv)
 
   const options = program.opts()
   const args = program.args
