@@ -139,7 +139,7 @@ export const handleWriteFile = (async (
       return {
         tool: 'write_file' as const,
         path,
-        error: `Error: Failed to process the write_file block. ${typeof error === 'string' ? error : error.msg}`,
+        error: `Error: Failed to process the write_file block. ${typeof error === 'string' ? error : error.message}`,
       }
     })
     .then(async (fileProcessingResult) => ({
