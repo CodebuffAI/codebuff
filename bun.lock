@@ -127,6 +127,10 @@
         "@types/async": "^3.2.24",
       },
     },
+    "freebuff": {
+      "name": "@codebuff/freebuff",
+      "version": "1.0.0",
+    },
     "freebuff/web": {
       "name": "@codebuff/freebuff-web",
       "version": "1.0.0",
@@ -480,6 +484,8 @@
     "@codebuff/common": ["@codebuff/common@workspace:common"],
 
     "@codebuff/evals": ["@codebuff/evals@workspace:evals"],
+
+    "@codebuff/freebuff": ["@codebuff/freebuff@workspace:freebuff"],
 
     "@codebuff/freebuff-web": ["@codebuff/freebuff-web@workspace:freebuff/web"],
 
