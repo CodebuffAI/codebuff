@@ -176,7 +176,7 @@ jobs:
           path: cli/release-staging/
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.prepare-and-commit-staging.outputs.new_version }}
           name: Codecane v${{ needs.prepare-and-commit-staging.outputs.new_version }} (Staging)
