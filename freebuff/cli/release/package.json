@@ -1,0 +1,41 @@
+{
+  "name": "freebuff",
+  "version": "1.0.0",
+  "description": "Free AI coding assistant",
+  "license": "MIT",
+  "bin": {
+    "freebuff": "index.js"
+  },
+  "scripts": {
+    "postinstall": "node postinstall.js",
+    "preuninstall": "node -e \"const fs = require('fs'); const path = require('path'); const os = require('os'); const binaryPath = path.join(os.homedir(), '.config', 'manicode', process.platform === 'win32' ? 'freebuff.exe' : 'freebuff'); try { fs.unlinkSync(binaryPath) } catch (e) { /* ignore if file doesn't exist */ }\""
+  },
+  "files": [
+    "index.js",
+    "postinstall.js",
+    "README.md"
+  ],
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
+  "dependencies": {
+    "tar": "^7.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CodebuffAI/codebuff.git"
+  },
+  "homepage": "https://codebuff.com",
+  "publishConfig": {
+    "access": "public"
+  }
+}

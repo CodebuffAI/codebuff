@@ -8,4 +8,4 @@ export const globalStopSequence = `${JSON.stringify(endsAgentStepParam)}`
  *   bun scripts/compare-cache-debug.ts
  * to diff sequential requests and find what's breaking prompt caching.
  */
-export const CACHE_DEBUG_FULL_LOGGING = false
+export const CACHE_DEBUG_FULL_LOGGING = true

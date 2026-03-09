@@ -1,0 +1,155 @@
+name: FreeBuff Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+concurrency:
+  group: freebuff-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-and-commit:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.bump_version.outputs.new_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: ./.github/actions/setup-project
+
+      - name: Calculate and update version
+        id: bump_version
+        run: |
+          cd freebuff/cli/release
+
+          CURRENT_VERSION=$(bun -e "console.log(require('./package.json').version)")
+          echo "Current version: $CURRENT_VERSION"
+
+          npm version ${{ inputs.version_type }} --no-git-tag-version
+          NEW_VERSION=$(bun -e "console.log(require('./package.json').version)")
+
+          echo "New FreeBuff version: $NEW_VERSION"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Configure git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push version bump
+        run: |
+          git stash
+          git pull --rebase origin main
+          git stash pop
+          git add freebuff/cli/release/package.json
+          git commit -m "Bump FreeBuff version to ${{ steps.bump_version.outputs.new_version }}"
+          git push
+
+      - name: Create and push tag
+        run: |
+          git tag "freebuff-v${{ steps.bump_version.outputs.new_version }}"
+          git push origin "freebuff-v${{ steps.bump_version.outputs.new_version }}"
+
+      - name: Upload updated package
+        uses: actions/upload-artifact@v4
+        with:
+          name: freebuff-updated-package
+          path: freebuff/cli/release/
+
+  build-binaries:
+    needs: prepare-and-commit
+    uses: ./.github/workflows/cli-release-build.yml
+    with:
+      binary-name: freebuff
+      new-version: ${{ needs.prepare-and-commit.outputs.new_version }}
+      artifact-name: freebuff-updated-package
+      checkout-ref: ${{ github.sha }}
+      env-overrides: '{"FREEBUFF_MODE": "true", "NEXT_PUBLIC_CB_ENVIRONMENT": "prod"}'
+    secrets: inherit
+
+  create-release:
+    needs: [prepare-and-commit, build-binaries]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries/
+
+      - name: Download updated package
+        uses: actions/download-artifact@v4
+        with:
+          name: freebuff-updated-package
+          path: freebuff/cli/release/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: freebuff-v${{ needs.prepare-and-commit.outputs.new_version }}
+          name: FreeBuff v${{ needs.prepare-and-commit.outputs.new_version }}
+          prerelease: false
+          body: |
+            ## FreeBuff v${{ needs.prepare-and-commit.outputs.new_version }}
+
+            Free AI coding assistant — binary releases for all supported platforms.
+
+            ### Installation
+            ```bash
+            npm install -g freebuff
+            ```
+
+            ### Platform Binaries
+            - `freebuff-linux-x64.tar.gz` - Linux x64
+            - `freebuff-linux-arm64.tar.gz` - Linux ARM64
+            - `freebuff-darwin-x64.tar.gz` - macOS Intel
+            - `freebuff-darwin-arm64.tar.gz` - macOS Apple Silicon
+            - `freebuff-win32-x64.tar.gz` - Windows x64
+          files: |
+            binaries/*/freebuff-*
+          repository: CodebuffAI/codebuff-community
+          token: ${{ secrets.CODEBUFF_GITHUB_TOKEN }}
+
+  publish-npm:
+    needs: [prepare-and-commit, create-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download updated package
+        uses: actions/download-artifact@v4
+        with:
+          name: freebuff-updated-package
+          path: freebuff/cli/release/
+
+      - name: Set up Node.js for npm publishing
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org/
+
+      - name: Publish to npm
+        run: |
+          cd freebuff/cli/release
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
