@@ -1,6 +1,8 @@
-# FreeBuff
+# Freebuff
 
-FreeBuff is a free-only variant of the [Codebuff](https://codebuff.com) CLI — an AI coding assistant that runs in your terminal.
+**The world's strongest free coding agent.** 3–10x faster than Claude Code.
+
+Freebuff is a free AI coding agent that runs in your terminal. It's blazing fast — describe what you want, and Freebuff edits your code in seconds. No subscription or credits required.
 
 ## Installation
 
@@ -15,11 +17,9 @@ cd ~/my-project
 freebuff
 ```
 
-FreeBuff runs in FREE mode only — no subscription or credits required. Just log in and start coding.
-
 ## Features
 
-- **AI-powered coding** — Describe what you want, and FreeBuff edits your code
+- **AI-powered coding** — Describe what you want, and Freebuff edits your code
 - **File mentions** — Use `@filename` to reference specific files
 - **Agent mentions** — Use `@AgentName` to invoke specialized agents
 - **Bash mode** — Run terminal commands with `!command` or `/bash`
@@ -44,14 +44,14 @@ FreeBuff runs in FREE mode only — no subscription or credits required. Just lo
 
 ## How It Works
 
-FreeBuff connects to the Codebuff backend and uses the FREE mode agent, which is optimized for fast, cost-effective assistance. Ads are shown to support the free tier.
+Freebuff connects to a cloud backend and uses a model optimized for fast, high-quality assistance. Ads are shown to support the free tier.
 
 ## Project Structure
 
 ```
 freebuff/
 ├── cli/       # CLI build & npm release files
-└── web/       # (Future) FreeBuff website
+└── web/       # (Future) Freebuff website
 ```
 
 ## Building from Source
@@ -65,8 +65,10 @@ This produces a `freebuff` binary in `cli/bin/`.
 
 ## Links
 
-- [Codebuff Documentation](https://codebuff.com/docs)
-- [Codebuff Website](https://codebuff.com)
+- [Documentation](https://codebuff.com/docs)
+- [Website](https://codebuff.com)
+
+> Freebuff is built on the [Codebuff](https://codebuff.com) platform.
 
 ## License
 

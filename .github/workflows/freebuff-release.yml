@@ -1,4 +1,4 @@
-name: FreeBuff Release
+name: Freebuff Release
 
 on:
   workflow_dispatch:
@@ -43,7 +43,7 @@ jobs:
           npm version ${{ inputs.version_type }} --no-git-tag-version
           NEW_VERSION=$(bun -e "console.log(require('./package.json').version)")
 
-          echo "New FreeBuff version: $NEW_VERSION"
+          echo "New Freebuff version: $NEW_VERSION"
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: Configure git
@@ -57,7 +57,7 @@ jobs:
           git pull --rebase origin main
           git stash pop
           git add freebuff/cli/release/package.json
-          git commit -m "Bump FreeBuff version to ${{ steps.bump_version.outputs.new_version }}"
+          git commit -m "Bump Freebuff version to ${{ steps.bump_version.outputs.new_version }}"
           git push
 
       - name: Create and push tag
@@ -103,10 +103,10 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: freebuff-v${{ needs.prepare-and-commit.outputs.new_version }}
-          name: FreeBuff v${{ needs.prepare-and-commit.outputs.new_version }}
+          name: Freebuff v${{ needs.prepare-and-commit.outputs.new_version }}
           prerelease: false
           body: |
-            ## FreeBuff v${{ needs.prepare-and-commit.outputs.new_version }}
+            ## Freebuff v${{ needs.prepare-and-commit.outputs.new_version }}
 
             Free AI coding assistant — binary releases for all supported platforms.
 
@@ -150,6 +150,4 @@ jobs:
       - name: Publish to npm
         run: |
           cd freebuff/cli/release
-          npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          npm publish --access public --provenance

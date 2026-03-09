@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { IS_FREEBUFF } from '../utils/constants'
 
 import { ShimmerText } from './shimmer-text'
 import { getActivityQueryData } from '../hooks/use-activity-query'
@@ -15,6 +16,8 @@ let creditsRestoredGlobal = false
 export const areCreditsRestored = () => creditsRestoredGlobal
 
 export const OutOfCreditsBanner = () => {
+  if (IS_FREEBUFF) return null
+
   const sessionCreditsUsed = useChatStore((state) => state.sessionCreditsUsed)
   const [creditsRestored, setCreditsRestored] = useState(false)
 

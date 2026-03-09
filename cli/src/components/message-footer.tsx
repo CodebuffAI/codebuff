@@ -1,4 +1,5 @@
 import { SUBSCRIPTION_DISPLAY_NAME } from '@codebuff/common/constants/subscription-plans'
+import { IS_FREEBUFF } from '../utils/constants'
 import { pluralize } from '@codebuff/common/util/string'
 import { TextAttributes } from '@opentui/core'
 import React, { useCallback, useMemo } from 'react'
@@ -160,7 +161,7 @@ export const MessageFooter: React.FC<MessageFooterProps> = ({
       ),
     })
   }
-  if (typeof credits === 'number' && credits > 0) {
+  if (typeof credits === 'number' && credits > 0 && !IS_FREEBUFF) {
     footerItems.push({
       key: 'credits',
       node: <CreditsOrSubscriptionIndicator credits={credits} />,

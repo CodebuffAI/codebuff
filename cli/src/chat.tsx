@@ -59,6 +59,7 @@ import { trackEvent } from './utils/analytics'
 import { getClaudeOAuthStatus } from './utils/claude-oauth'
 import { showClipboardMessage } from './utils/clipboard'
 import { readClipboardImage } from './utils/clipboard-image'
+import { IS_FREEBUFF } from './utils/constants'
 import { getInputModeConfig } from './utils/input-modes'
 
 import {
@@ -170,7 +171,7 @@ export const Chat = ({
   })
   const hasSubscription = subscriptionData?.hasSubscription ?? false
 
-  const { ad } = useGravityAd({ enabled: !hasSubscription })
+  const { ad } = useGravityAd({ enabled: IS_FREEBUFF || !hasSubscription })
   const [adsManuallyDisabled, setAdsManuallyDisabled] = useState(false)
 
   const handleDisableAds = useCallback(() => {
@@ -1447,11 +1448,11 @@ export const Chat = ({
           />
         )}
 
-        {ad && !adsManuallyDisabled && getAdsEnabled() && (
+        {ad && (IS_FREEBUFF || (!adsManuallyDisabled && getAdsEnabled())) && (
           <AdBanner
             ad={ad}
             onDisableAds={handleDisableAds}
-            isFreeMode={agentMode === 'FREE'}
+            isFreeMode={IS_FREEBUFF || agentMode === 'FREE'}
           />
         )}
 

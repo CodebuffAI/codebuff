@@ -27,6 +27,7 @@ import { initAnalytics, trackEvent } from './utils/analytics'
 import { getAuthToken, getAuthTokenDetails } from './utils/auth'
 import { resetCodebuffClient } from './utils/codebuff-client'
 import { setApiClientAuthToken } from './utils/codebuff-api'
+import { IS_FREEBUFF } from './utils/constants'
 import { getCliEnv } from './utils/env'
 import { initializeAgentRegistry } from './utils/local-agent-registry'
 import { clearLogFile, logger } from './utils/logger'
@@ -101,8 +102,8 @@ function parseArgs(): ParsedArgs {
   const program = new Command()
 
   program
-    .name('codebuff')
-    .description('Codebuff CLI - AI-powered coding assistant')
+    .name(IS_FREEBUFF ? 'freebuff' : 'codebuff')
+    .description(IS_FREEBUFF ? 'Freebuff - Free AI coding assistant' : 'Codebuff CLI - AI-powered coding assistant')
     .version(loadPackageVersion(), '-v, --version', 'Print the CLI version')
     .option(
       '--agent <agent-id>',
@@ -117,10 +118,16 @@ function parseArgs(): ParsedArgs {
       '--cwd <directory>',
       'Set the working directory (default: current directory)',
     )
-    .option('--free', 'Start in FREE mode')
-    .option('--lite', 'Start in FREE mode (deprecated, use --free)')
-    .option('--max', 'Start in MAX mode')
-    .option('--plan', 'Start in PLAN mode')
+
+  if (!IS_FREEBUFF) {
+    program
+      .option('--free', 'Start in FREE mode')
+      .option('--lite', 'Start in FREE mode (deprecated, use --free)')
+      .option('--max', 'Start in MAX mode')
+      .option('--plan', 'Start in PLAN mode')
+  }
+
+  program
     .helpOption('-h, --help', 'Show this help message')
     .argument('[prompt...]', 'Initial prompt to send to the agent')
     .allowExcessArguments(true)
@@ -132,10 +139,15 @@ function parseArgs(): ParsedArgs {
   const continueFlag = options.continue
 
   // Determine initial mode from flags (last flag wins if multiple specified)
+  // Freebuff always uses FREE mode
   let initialMode: AgentMode | undefined
-  if (options.free || options.lite) initialMode = 'FREE'
-  if (options.max) initialMode = 'MAX'
-  if (options.plan) initialMode = 'PLAN'
+  if (IS_FREEBUFF) {
+    initialMode = 'FREE'
+  } else {
+    if (options.free || options.lite) initialMode = 'FREE'
+    if (options.max) initialMode = 'MAX'
+    if (options.plan) initialMode = 'PLAN'
+  }
 
   return {
     initialPrompt: args.length > 0 ? args.join(' ') : null,
@@ -211,6 +223,7 @@ async function main(): Promise<void> {
       hasAgentOverride: hasAgentOverride,
       continueChat,
       initialMode: initialMode ?? 'DEFAULT',
+      isFreeBuff: IS_FREEBUFF,
     })
   } catch (error) {
     // Analytics initialization is optional - don't fail the app if it errors

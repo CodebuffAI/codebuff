@@ -16,6 +16,7 @@ import {
   calculateResponsiveLayout,
 } from '../login/utils'
 import { useLoginStore } from '../state/login-store'
+import { IS_FREEBUFF } from '../utils/constants'
 import { copyTextToClipboard, isRemoteSession } from '../utils/clipboard'
 import { logger } from '../utils/logger'
 import { getLogoBlockColor, getLogoAccentColor } from '../utils/theme-system'
@@ -442,7 +443,7 @@ export const LoginModal = ({
                   <span fg={theme.secondary}>
                     Tip: Can't copy? Exit and run{' '}
                   </span>
-                  <span fg={theme.primary}>codebuff login</span>
+                  <span fg={theme.primary}>{IS_FREEBUFF ? 'freebuff' : 'codebuff'} login</span>
                   <span fg={theme.secondary}>
                     {' '}instead.
                   </span>

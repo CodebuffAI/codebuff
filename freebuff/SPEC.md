@@ -1,6 +1,6 @@
-# FreeBuff Spec
+# Freebuff Spec
 
-FreeBuff is a free-only variant of the Codebuff CLI, distributed as a separate npm package (`freebuff`). It reuses the entire `cli/` package but builds with a compile-time flag that strips out paid features, subscription logic, credits display, and mode switching — leaving only the FREE mode experience.
+Freebuff is a free-only variant of the Codebuff CLI, distributed as a separate npm package (`freebuff`). It reuses the entire `cli/` package but builds with a compile-time flag that strips out paid features, subscription logic, credits display, and mode switching — leaving only the FREE mode experience.
 
 ---
 
@@ -8,7 +8,7 @@ FreeBuff is a free-only variant of the Codebuff CLI, distributed as a separate n
 
 ### Environment Variable
 
-- **`FREEBUFF_MODE=true`** — set during the build to produce a FreeBuff binary.
+- **`FREEBUFF_MODE=true`** — set during the build to produce a Freebuff binary.
 - Injected via `--define process.env.FREEBUFF_MODE="true"` in `bun build`, following the same pattern as `CODEBUFF_IS_BINARY` and `CODEBUFF_CLI_VERSION`.
 
 ### Runtime Constant
@@ -25,13 +25,13 @@ This enables dead-code elimination in production builds — all `if (!IS_FREEBUF
 
 ## 2. Branding Changes
 
-| Area | Codebuff | FreeBuff |
+| Area | Codebuff | Freebuff |
 |---|---|---|
-| Terminal title prefix | `Codebuff: ` | `FreeBuff: ` |
+| Terminal title prefix | `Codebuff: ` | `Freebuff: ` |
 | CLI commander name | `codebuff` | `freebuff` |
 | npm package name | `codebuff` | `freebuff` |
 | Binary name | `codebuff` | `freebuff` |
-| App header text | "Codebuff will run commands on your behalf to help you build." | "FreeBuff will run commands on your behalf to help you build." |
+| App header text | "Codebuff will run commands on your behalf to help you build." | "Freebuff will run commands on your behalf to help you build." |
 | ASCII logo | `CODEBUFF` block letters | `FREEBUFF` block letters (new logo) |
 | Description | "AI coding agent" | "Free AI coding assistant" |
 | Homepage | codebuff.com | codebuff.com/free (or same) |
@@ -39,21 +39,21 @@ This enables dead-code elimination in production builds — all `if (!IS_FREEBUF
 
 ### Files to modify (conditional on `IS_FREEBUFF`)
 
-- **`cli/src/utils/terminal-title.ts`** — Change `TITLE_PREFIX` from `'Codebuff: '` to `'FreeBuff: '` when `IS_FREEBUFF`.
+- **`cli/src/utils/terminal-title.ts`** — Change `TITLE_PREFIX` from `'Codebuff: '` to `'Freebuff: '` when `IS_FREEBUFF`.
 - **`cli/src/login/constants.ts`** — Add a `LOGO_FREEBUFF` ASCII art variant, select based on `IS_FREEBUFF`.
-- **`cli/src/app.tsx`** — Conditional header text ("FreeBuff will run commands...").
+- **`cli/src/app.tsx`** — Conditional header text ("Freebuff will run commands...").
 - **`cli/src/index.tsx`** — Change commander `.name('freebuff')` and `.description(...)` when `IS_FREEBUFF`.
 
 ---
 
 ## 3. Mode Restrictions
 
-FreeBuff only supports **FREE mode**. All mode-related features are stripped.
+Freebuff only supports **FREE mode**. All mode-related features are stripped.
 
 ### Behavior
 
 - `agentMode` is always `'FREE'` and never changes.
-- The initial mode flag (`--free`, `--max`, `--plan`) CLI options are removed in FreeBuff; mode is hardcoded.
+- The initial mode flag (`--free`, `--max`, `--plan`) CLI options are removed in Freebuff; mode is hardcoded.
 - No mode divider messages are ever inserted into chat history.
 
 ### Files to modify
@@ -70,7 +70,7 @@ FreeBuff only supports **FREE mode**. All mode-related features are stripped.
 
 ## 4. Slash Commands
 
-### Commands to REMOVE in FreeBuff
+### Commands to REMOVE in Freebuff
 
 | Command | Reason |
 |---|---|
@@ -111,7 +111,7 @@ FreeBuff only supports **FREE mode**. All mode-related features are stripped.
 
 ## 5. Credits & Subscription UI
 
-FreeBuff never displays credits, usage, subscription info, or out-of-credits states.
+Freebuff never displays credits, usage, subscription info, or out-of-credits states.
 
 ### Components to suppress (render `null` when `IS_FREEBUFF`)
 
@@ -150,9 +150,9 @@ When `IS_FREEBUFF`, these input modes should be unreachable:
 
 ## 6. Help Menu
 
-The `/help` banner in FreeBuff should be simplified. Remove the **Credits** section entirely.
+The `/help` banner in Freebuff should be simplified. Remove the **Credits** section entirely.
 
-### FreeBuff Help Content
+### Freebuff Help Content
 
 ```
 Shortcuts
@@ -178,7 +178,7 @@ No "Credits" section. No `/subscribe`, `/usage`, or `/ads:enable` references.
 
 ## 7. Ads Behavior
 
-In FreeBuff, ads are **always enabled** and **cannot be disabled**.
+In Freebuff, ads are **always enabled** and **cannot be disabled**.
 
 - The ad banner always renders (when an ad is available).
 - The "Hide ads" link in the info panel is replaced with "Ads are required in Free mode." (this already exists in `ad-banner.tsx` when `isFreeMode` is true).
@@ -209,7 +209,7 @@ freebuff/
 │       ├── index.js      # Entry point (finds/runs binary)
 │       ├── postinstall.js# Downloads platform binary on install
 │       └── README.md     # npm package README
-└── web/              # (Future) FreeBuff website code
+└── web/              # (Future) Freebuff website code
 ```
 
 This structure allows `freebuff/web/` (or other surfaces) to be added alongside the CLI without restructuring.
@@ -260,7 +260,7 @@ const defineFlags = [
   ['process.env.CODEBUFF_IS_BINARY', '"true"'],
   ['process.env.CODEBUFF_CLI_VERSION', `"${version}"`],
   ['process.env.CODEBUFF_CLI_TARGET', `"${targetInfo.platform}-${targetInfo.arch}"`],
-  // FreeBuff mode flag
+  // Freebuff mode flag
   ['process.env.FREEBUFF_MODE', `"${process.env.FREEBUFF_MODE ?? 'false'}"`],
   ...nextPublicEnvVars,
 ]
@@ -270,7 +270,7 @@ const defineFlags = [
 
 ## 10. Features That Stay Unchanged
 
-These features work identically in FreeBuff:
+These features work identically in Freebuff:
 
 - **Authentication** — Login/logout flow, API key storage
 - **Chat** — Message history, streaming, agent spawning
@@ -291,7 +291,7 @@ These features work identically in FreeBuff:
 
 When `IS_FREEBUFF`:
 
-- `APP_LAUNCHED` event includes `isFreeBuff: true`
+- `APP_LAUNCHED` event includes `isFreebuff: true`
 - All existing analytics events continue to fire (helps understand free vs paid usage)
 - No new analytics events needed initially
 
@@ -306,7 +306,7 @@ The server already handles FREE mode correctly:
 - Free-mode-allowed agent+model combos cost 0 credits
 - Ad impressions in FREE mode already don't grant credits
 
-No server-side changes are needed for FreeBuff, **except** the release download API (`/api/releases/download/`) must be configured to serve `freebuff-*` binary tarballs. This may require updating the download route to recognize FreeBuff release tags (`freebuff-v*`).
+No server-side changes are needed for Freebuff, **except** the release download API (`/api/releases/download/`) must be configured to serve `freebuff-*` binary tarballs. This may require updating the download route to recognize Freebuff release tags (`freebuff-v*`).
 
 ---
 
@@ -321,8 +321,8 @@ No server-side changes are needed for FreeBuff, **except** the release download 
 
 ### Integration Tests
 
-- Build a FreeBuff binary and verify:
-  - Title says "FreeBuff"
+- Build a Freebuff binary and verify:
+  - Title says "Freebuff"
   - No mode toggle visible
   - `/subscribe`, `/usage` commands not found
   - Help menu has no Credits section

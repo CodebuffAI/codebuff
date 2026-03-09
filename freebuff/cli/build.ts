@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 /**
- * FreeBuff CLI build script.
+ * Freebuff CLI build script.
  *
  * Wraps the existing CLI build-binary.ts with FREEBUFF_MODE=true
  * to produce a free-only variant of the Codebuff CLI.
@@ -26,7 +26,7 @@ if (!version) {
   process.exit(1)
 }
 
-console.log(`Building FreeBuff v${version}...`)
+console.log(`Building Freebuff v${version}...`)
 
 const result = spawnSync(
   'bun',
@@ -42,8 +42,8 @@ const result = spawnSync(
 )
 
 if (result.status !== 0) {
-  console.error('FreeBuff build failed')
+  console.error('Freebuff build failed')
   process.exit(result.status ?? 1)
 }
 
-console.log(`✅ FreeBuff v${version} built successfully`)
+console.log(`✅ Freebuff v${version} built successfully`)

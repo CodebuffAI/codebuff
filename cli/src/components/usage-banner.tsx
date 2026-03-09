@@ -1,4 +1,5 @@
 import { CLAUDE_OAUTH_ENABLED } from '@codebuff/common/constants/claude-oauth'
+import { IS_FREEBUFF } from '../utils/constants'
 import { isClaudeOAuthValid } from '@codebuff/sdk'
 import { TextAttributes } from '@opentui/core'
 import open from 'open'
@@ -45,6 +46,8 @@ const formatRenewalDate = (dateStr: string | null): string => {
 }
 
 export const UsageBanner = ({ showTime }: { showTime: number }) => {
+  if (IS_FREEBUFF) return null
+
   const sessionCreditsUsed = useChatStore((state) => state.sessionCreditsUsed)
   const setInputMode = useChatStore((state) => state.setInputMode)
 

@@ -1,4 +1,5 @@
 import { getClaudeOAuthCredentials, isClaudeOAuthValid } from '@codebuff/sdk'
+import { IS_FREEBUFF } from '../utils/constants'
 
 import { useActivityQuery } from './use-activity-query'
 import { logger as defaultLogger } from '../utils/logger'
@@ -122,7 +123,7 @@ export function useClaudeQuotaQuery(deps: UseClaudeQuotaQueryDeps = {}) {
       }
       return fetchClaudeQuota(credentials.accessToken, logger)
     },
-    enabled: enabled && isConnected,
+    enabled: enabled && isConnected && !IS_FREEBUFF,
     staleTime: 30 * 1000, // Consider data stale after 30 seconds
     gcTime: 5 * 60 * 1000, // 5 minutes
     retry: 1, // Only retry once on failure

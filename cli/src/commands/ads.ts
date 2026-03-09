@@ -1,4 +1,5 @@
 import { useChatStore } from '../state/chat-store'
+import { IS_FREEBUFF } from '../utils/constants'
 import { logger } from '../utils/logger'
 import { getSystemMessage } from '../utils/message-history'
 import { saveSettings, loadSettings } from '../utils/settings'
@@ -35,6 +36,8 @@ export const handleAdsDisable = (): {
 }
 
 export const getAdsEnabled = (): boolean => {
+  if (IS_FREEBUFF) return true
+
   // If no mode provided, get it from the store
   const mode = useChatStore.getState().agentMode
 

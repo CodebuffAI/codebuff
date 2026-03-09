@@ -4,6 +4,7 @@ import { WEBSITE_URL } from './constants'
 import { generateLoginUrl, pollLoginStatus } from './login-flow'
 import { generateFingerprintId } from './utils'
 import { saveUserCredentials } from '../utils/auth'
+import { IS_FREEBUFF } from '../utils/constants'
 import { logger } from '../utils/logger'
 
 import type { User } from '../utils/auth'
@@ -20,7 +21,7 @@ export async function runPlainLogin(): Promise<void> {
   const fingerprintId = generateFingerprintId()
 
   console.log()
-  console.log(bold('Codebuff Login'))
+  console.log(bold(IS_FREEBUFF ? 'Freebuff Login' : 'Codebuff Login'))
   console.log()
   console.log('Generating login URL...')
 
@@ -71,7 +72,8 @@ export async function runPlainLogin(): Promise<void> {
     console.log()
     console.log(green(`✓ Logged in as ${user.name} (${user.email})`))
     console.log()
-    console.log('You can now run ' + cyan('codebuff') + ' to start.')
+    const cliName = IS_FREEBUFF ? 'freebuff' : 'codebuff'
+    console.log('You can now run ' + cyan(cliName) + ' to start.')
     process.exit(0)
   } else if (result.status === 'timeout') {
     console.error(red('Login timed out. Please try again.'))

@@ -4,7 +4,7 @@ import { setCurrentChatId } from '../project-files'
 import { createStreamController } from './stream-state'
 import { useChatStore } from '../state/chat-store'
 import { getCodebuffClient } from '../utils/codebuff-client'
-import { AGENT_MODE_TO_ID, AGENT_MODE_TO_COST_MODE } from '../utils/constants'
+import { AGENT_MODE_TO_ID, AGENT_MODE_TO_COST_MODE, IS_FREEBUFF } from '../utils/constants'
 import { createEventHandlerState } from '../utils/create-event-handler-state'
 import { createRunConfig } from '../utils/create-run-config'
 import { loadAgentDefinitions } from '../utils/local-agent-registry'
@@ -360,10 +360,11 @@ export const useSendMessage = ({
           '[send-message] No Codebuff client available. Please ensure you are authenticated.',
         )
         // Show error to user instead of silently failing
+        const brandName = IS_FREEBUFF ? 'Freebuff' : 'Codebuff'
         setMessages((prev) => [
           ...prev,
           createErrorChatMessage(
-            '⚠️ Unable to connect to Codebuff. Please check your authentication and try again.',
+            `⚠️ Unable to connect to ${brandName}. Please check your authentication and try again.`,
           ),
         ])
         await yieldToEventLoop()

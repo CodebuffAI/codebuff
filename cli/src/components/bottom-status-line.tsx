@@ -1,6 +1,7 @@
 import React from 'react'
 
 import { useTheme } from '../hooks/use-theme'
+import { IS_FREEBUFF } from '../utils/constants'
 import { formatResetTime } from '../utils/time-format'
 
 import type { ClaudeQuotaData } from '../hooks/use-claude-quota-query'
@@ -23,6 +24,8 @@ export const BottomStatusLine: React.FC<BottomStatusLineProps> = ({
   isClaudeActive,
   claudeQuota,
 }) => {
+  if (IS_FREEBUFF) return null
+
   const theme = useTheme()
 
   // Use the more restrictive of the two quotas (5-hour window is usually the limiting factor)

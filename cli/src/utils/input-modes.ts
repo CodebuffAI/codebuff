@@ -1,3 +1,5 @@
+import { IS_FREEBUFF } from './constants'
+
 // Input mode types and configurations
 // To add a new mode:
 // 1. Add it to the InputMode type
@@ -135,6 +137,13 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     disableSlashSuggestions: true,
     blockKeyboardExit: true, // User must click "Continue with credits" or wait for reset
   },
+}
+
+// In Freebuff, never show the agent mode toggle
+if (IS_FREEBUFF) {
+  for (const key of Object.keys(INPUT_MODE_CONFIGS) as InputMode[]) {
+    INPUT_MODE_CONFIGS[key].showAgentModeToggle = false
+  }
 }
 
 export function getInputModeConfig(mode: InputMode): InputModeConfig {

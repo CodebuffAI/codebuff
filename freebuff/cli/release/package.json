@@ -7,7 +7,8 @@
     "freebuff": "index.js"
   },
   "scripts": {
-    "postinstall": "node postinstall.js"
+    "postinstall": "node postinstall.js",
+    "preuninstall": "node -e \"const fs = require('fs'); const path = require('path'); const os = require('os'); const binaryPath = path.join(os.homedir(), '.config', 'manicode', process.platform === 'win32' ? 'freebuff.exe' : 'freebuff'); try { fs.unlinkSync(binaryPath) } catch (e) { /* ignore if file doesn't exist */ }\""
   },
   "files": [
     "index.js",
@@ -25,6 +26,9 @@
   ],
   "engines": {
     "node": ">=16"
+  },
+  "dependencies": {
+    "tar": "^7.0.0"
   },
   "repository": {
     "type": "git",

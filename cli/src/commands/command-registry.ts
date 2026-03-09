@@ -14,7 +14,7 @@ import { WEBSITE_URL } from '../login/constants'
 import { useChatStore } from '../state/chat-store'
 import { useFeedbackStore } from '../state/feedback-store'
 import { useLoginStore } from '../state/login-store'
-import { AGENT_MODES } from '../utils/constants'
+import { AGENT_MODES, IS_FREEBUFF } from '../utils/constants'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 import { capturePendingAttachments } from '../utils/pending-attachments'
 import { getSkillByName } from '../utils/skill-registry'
@@ -163,7 +163,20 @@ const clearInput = (params: RouterParams) => {
   params.setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
 }
 
-export const COMMAND_REGISTRY: CommandDefinition[] = [
+const FREEBUFF_REMOVED_COMMANDS = new Set([
+  'ads:enable',
+  'ads:disable',
+  'refer-friends',
+  'usage',
+  'subscribe',
+  'image',
+  'publish',
+  'gpt-5-agent',
+  'connect:claude',
+  'review',
+])
+
+const ALL_COMMANDS: CommandDefinition[] = [
   defineCommand({
     name: 'ads:enable',
     handler: (params) => {
@@ -411,8 +424,8 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       clearInput(params)
     },
   }),
-  // Mode commands generated from AGENT_MODES
-  ...AGENT_MODES.map((mode) =>
+  // Mode commands generated from AGENT_MODES (excluded in Freebuff)
+  ...(IS_FREEBUFF ? [] : AGENT_MODES).map((mode) =>
     defineCommandWithArgs({
       name: `mode:${mode.toLowerCase()}`,
       handler: (params, args) => {
@@ -541,6 +554,10 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     },
   }),
 ]
+
+export const COMMAND_REGISTRY: CommandDefinition[] = IS_FREEBUFF
+  ? ALL_COMMANDS.filter((cmd) => !FREEBUFF_REMOVED_COMMANDS.has(cmd.name))
+  : ALL_COMMANDS
 
 export function findCommand(cmd: string): CommandDefinition | undefined {
   const lowerCmd = cmd.toLowerCase()

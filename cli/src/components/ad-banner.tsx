@@ -5,6 +5,7 @@ import React, { useCallback, useState } from 'react'
 import { Button } from './button'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
+import { IS_FREEBUFF } from '../utils/constants'
 import { logger } from '../utils/logger'
 
 import type { AdResponse } from '../hooks/use-gravity-ad'
@@ -140,7 +141,7 @@ export const AdBanner: React.FC<AdBannerProps> = ({ ad, onDisableAds, isFreeMode
           </Button>
         )}
         <box style={{ flexGrow: 1 }} />
-        {ad.credits != null && ad.credits > 0 && (
+        {!IS_FREEBUFF && ad.credits != null && ad.credits > 0 && (
           <text style={{ fg: theme.muted }}>+{ad.credits} credits</text>
         )}
       </box>
@@ -165,7 +166,9 @@ export const AdBanner: React.FC<AdBannerProps> = ({ ad, onDisableAds, isFreeMode
             }}
           >
             <text style={{ fg: theme.muted, flexShrink: 1 }}>
-              Ads are optional and earn you credits on each impression. Feel free to hide them anytime.
+              {IS_FREEBUFF
+                ? 'Ads help keep Freebuff free.'
+                : 'Ads are optional and earn you credits on each impression. Feel free to hide them anytime.'}
             </text>
             <Button
               onClick={() => setShowInfoPanel(false)}
