@@ -22,12 +22,14 @@ export interface SlashCommand {
   insertText?: string
 }
 
-// Generate mode commands from the AGENT_MODES constant
-const MODE_COMMANDS: SlashCommand[] = AGENT_MODES.map((mode) => ({
-  id: `mode:${mode.toLowerCase()}`,
-  label: `mode:${mode.toLowerCase()}`,
-  description: `Switch to ${mode} mode`,
-}))
+// Generate mode commands from the AGENT_MODES constant (excluded in Freebuff)
+const MODE_COMMANDS: SlashCommand[] = IS_FREEBUFF
+  ? []
+  : AGENT_MODES.map((mode) => ({
+      id: `mode:${mode.toLowerCase()}`,
+      label: `mode:${mode.toLowerCase()}`,
+      description: `Switch to ${mode} mode`,
+    }))
 
 const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
   'connect:claude',
