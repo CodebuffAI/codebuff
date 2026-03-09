@@ -1,0 +1,8 @@
+{
+  "name": "@codebuff/freebuff",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "release": "bun cli/release.ts"
+  }
+}
