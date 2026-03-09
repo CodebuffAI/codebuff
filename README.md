@@ -157,6 +157,19 @@ Learn more about the SDK [here](https://www.npmjs.com/package/@codebuff/sdk).
 
 **SDK**: Build Codebuff into your applications. Create custom tools, integrate with CI/CD, or embed coding assistance into your products.
 
+## Advanced Usage
+
+### Custom Agent Workflows
+
+Create your own agents with specialized workflows using the `/init` command:
+
+```bash
+codebuff
+/init
+```
+
+This creates a custom agent structure in `.agents/` that you can customize.
+
 ## Contributing to Codebuff
 
 We ❤️ contributions from the community - whether you're fixing bugs, tweaking our agents, or improving documentation.
