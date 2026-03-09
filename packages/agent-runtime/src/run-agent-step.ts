@@ -261,8 +261,10 @@ export const runAgentStep = async (
   const iterationNum = agentState.messageHistory.length
   const systemTokens = countTokensJson(system)
 
-  const cacheDebugCorrelation = CACHE_DEBUG_FULL_LOGGING
-    ? createCacheDebugSnapshot({
+  let cacheDebugCorrelation: ReturnType<typeof createCacheDebugSnapshot> | undefined
+  if (CACHE_DEBUG_FULL_LOGGING) {
+    try {
+      cacheDebugCorrelation = createCacheDebugSnapshot({
         agentType: String(agentType),
         system,
         toolDefinitions: params.tools
@@ -284,7 +286,10 @@ export const runAgentStep = async (
         agentStepId,
         model,
       })
-    : undefined
+    } catch (err) {
+      logger.warn({ error: err }, '[Cache Debug] Failed to create snapshot')
+    }
+  }
 
   const onCacheDebugProviderRequestBuilt =
     cacheDebugCorrelation
