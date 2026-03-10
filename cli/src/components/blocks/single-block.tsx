@@ -9,7 +9,6 @@ import { ContentWithMarkdown } from './content-with-markdown'
 import { ImageBlock } from './image-block'
 import { UserBlockTextWithInlineCopy } from './user-content-copy'
 import { useTheme } from '../../hooks/use-theme'
-import { extractTextBlockMargins, extractHtmlBlockMargins } from '../../utils/block-margins'
 import { PlanBox } from '../renderers/plan-box'
 
 import type {
@@ -70,9 +69,10 @@ export const SingleBlock = memo(
         const filteredContent = isStreamingText
           ? trimNewlines(textBlock.content)
           : textBlock.content.trim()
+        if (!filteredContent) {
+          return null
+        }
         const renderKey = `${messageId}-text-${idx}`
-        const prevBlock = idx > 0 && blocks ? blocks[idx - 1] : null
-        const { marginTop, marginBottom } = extractTextBlockMargins(textBlock, prevBlock)
         const explicitColor = textBlock.color
         const blockTextColor = explicitColor ?? textColor
 
@@ -86,8 +86,8 @@ export const SingleBlock = memo(
               textColor={blockTextColor}
               codeBlockWidth={codeBlockWidth}
               palette={markdownPalette}
-              marginTop={marginTop}
-              marginBottom={marginBottom}
+              marginTop={0}
+              marginBottom={0}
             />
           )
         }
@@ -98,8 +98,6 @@ export const SingleBlock = memo(
             style={{
               wrapMode: 'word',
               fg: blockTextColor,
-              marginTop,
-              marginBottom,
             }}
             attributes={isUser ? TextAttributes.ITALIC : undefined}
           >
@@ -129,15 +127,12 @@ export const SingleBlock = memo(
       }
 
       case 'html': {
-        const { marginTop, marginBottom } = extractHtmlBlockMargins(block)
         return (
           <box
             key={`${messageId}-html-${idx}`}
             style={{
               flexDirection: 'column',
               gap: 0,
-              marginTop,
-              marginBottom,
               width: '100%',
             }}
           >

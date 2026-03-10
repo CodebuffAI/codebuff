@@ -125,7 +125,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
     if (React.isValidElement(value)) {
       if (value.key === null || value.key === undefined) {
         return (
-          <box key="expanded-node" style={{ flexDirection: 'column', gap: 0 }}>
+          <box key="expanded-node" style={{ flexDirection: 'column', gap: 1 }}>
             {value}
           </box>
         )
@@ -135,7 +135,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
 
     if (Array.isArray(value)) {
       return (
-        <box key="expanded-array" style={{ flexDirection: 'column', gap: 0 }}>
+        <box key="expanded-array" style={{ flexDirection: 'column', gap: 1 }}>
           {value.map((child, idx) => (
             <box
               key={`expanded-array-${idx}`}
@@ -149,7 +149,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
     }
 
     return (
-      <box key="expanded-unknown" style={{ flexDirection: 'column', gap: 0 }}>
+      <box key="expanded-unknown" style={{ flexDirection: 'column', gap: 1 }}>
         {value}
       </box>
     )

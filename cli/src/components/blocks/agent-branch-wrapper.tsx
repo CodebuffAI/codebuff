@@ -18,7 +18,6 @@ import { useTheme } from '../../hooks/use-theme'
 import { useChatStore } from '../../state/chat-store'
 import { isTextBlock } from '../../types/chat'
 import { getAgentStatusInfo } from '../../utils/agent-helpers'
-import { extractHtmlBlockMargins } from '../../utils/block-margins'
 import {
   processBlocks,
   type BlockProcessorHandlers,
@@ -250,9 +249,10 @@ const AgentBody = memo(
             const filteredNestedContent = isNestedStreamingText
               ? trimNewlines(textBlock.content)
               : textBlock.content.trim()
+            if (!filteredNestedContent) {
+              return null
+            }
             const markdownOptionsForLevel = p.getAgentMarkdownOptions(0)
-            const marginTop = textBlock.marginTop ?? 0
-            const marginBottom = textBlock.marginBottom ?? 0
             const explicitColor = textBlock.color
             const nestedTextColor = explicitColor ?? p.theme.foreground
 
@@ -262,8 +262,6 @@ const AgentBody = memo(
                 style={{
                   wrapMode: 'word',
                   fg: nestedTextColor,
-                  marginTop,
-                  marginBottom,
                 }}
               >
                 <ContentWithMarkdown
@@ -278,8 +276,6 @@ const AgentBody = memo(
 
           if (block.type === 'html') {
             const htmlBlock = block as HtmlContentBlock
-            const { marginTop, marginBottom } =
-              extractHtmlBlockMargins(htmlBlock)
 
             return (
               <box
@@ -287,8 +283,6 @@ const AgentBody = memo(
                 style={{
                   flexDirection: 'column',
                   gap: 0,
-                  marginTop,
-                  marginBottom,
                 }}
               >
                 {htmlBlock.render({
@@ -390,7 +384,6 @@ export const AgentBranchWrapper = memo(
             flexDirection: 'column',
             gap: 0,
             width: '100%',
-            marginTop: 1,
           }}
         >
           <text style={{ wrapMode: 'word' }}>

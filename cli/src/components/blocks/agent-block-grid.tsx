@@ -41,7 +41,6 @@ export const AgentBlockGrid = memo(
         availableWidth={availableWidth}
         getItemKey={getItemKey}
         renderItem={renderItem}
-        marginTop={1}
       />
     )
   },

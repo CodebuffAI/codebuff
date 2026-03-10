@@ -65,8 +65,6 @@ export const Thinking = memo(
         style={{
           flexDirection: 'column',
           gap: 0,
-          marginTop: 0,
-          marginBottom: 0,
         }}
         onClick={onToggle}
       >

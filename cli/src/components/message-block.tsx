@@ -264,9 +264,8 @@ export const MessageBlock = memo(({
           <box
             style={{
               flexDirection: 'column',
-              gap: 0,
+              gap: 1,
               width: '100%',
-              paddingTop: 0,
             }}
           >
             <BlocksRenderer

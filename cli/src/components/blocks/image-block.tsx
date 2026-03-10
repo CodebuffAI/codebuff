@@ -62,7 +62,7 @@ export const ImageBlock = memo(({ block, availableWidth }: ImageBlockProps) => {
   if (inlineSequence) {
     // Render inline image using terminal escape sequence
     return (
-      <box style={{ flexDirection: 'column', gap: 0, marginTop: 1, marginBottom: 1 }}>
+      <box style={{ flexDirection: 'column', gap: 0 }}>
         {/* Image caption/metadata */}
         <text style={{ wrapMode: 'none', fg: theme.muted }}>
           <span attributes={TextAttributes.DIM}>📷 </span>
@@ -84,8 +84,6 @@ export const ImageBlock = memo(({ block, availableWidth }: ImageBlockProps) => {
       style={{
         flexDirection: 'column',
         gap: 0,
-        marginTop: 1,
-        marginBottom: 1,
         paddingLeft: 1,
         borderStyle: 'single',
         borderColor: theme.border,
