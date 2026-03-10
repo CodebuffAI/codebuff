@@ -20,7 +20,7 @@ export function Footer() {
               </span>
             </div>
             <p className="mt-2 text-sm text-muted-foreground">
-              The world&apos;s strongest free coding agent.
+              The free coding agent
             </p>
           </div>
 
@@ -28,10 +28,11 @@ export function Footer() {
             <h3 className="font-semibold mb-3">Links</h3>
             <nav className="flex flex-col space-y-2">
               <Link
-                href="https://codebuff.com/docs"
+                href="https://codebuff.com"
+                target="_blank"
                 className="text-sm text-muted-foreground hover:text-primary"
               >
-                Docs
+                Codebuff
               </Link>
               <Link
                 href="https://github.com/CodebuffAI/codebuff"

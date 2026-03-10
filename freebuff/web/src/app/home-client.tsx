@@ -2,73 +2,29 @@
 
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  Terminal,
-  Brain,
-  Scissors,
-  Zap,
-  MessageSquare,
-  FileText,
   ChevronDown,
 } from 'lucide-react'
 import { useState } from 'react'
-import Link from 'next/link'
 
 import { BackgroundBeams } from '@/components/background-beams'
 import { CopyButton } from '@/components/copy-button'
 import { HeroGrid } from '@/components/hero-grid'
-import { TerminalDemo } from '@/components/terminal-demo'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 const INSTALL_COMMAND = 'npm install -g freebuff'
 
-const features = [
-  {
-    icon: Brain,
-    title: 'Deep Codebase Understanding',
-    description:
-      'Indexes your entire project to generate code that fits your patterns and conventions.',
-  },
-  {
-    icon: Scissors,
-    title: 'Surgical Code Edits',
-    description:
-      "Makes precise changes across files while respecting your codebase's structure.",
-  },
-  {
-    icon: Terminal,
-    title: 'Terminal Integration',
-    description:
-      'Runs commands on your behalf — install packages, run tests, and more.',
-  },
-  {
-    icon: FileText,
-    title: 'Knowledge Files',
-    description:
-      'Add knowledge.md to teach Freebuff about your project conventions.',
-  },
-  {
-    icon: MessageSquare,
-    title: 'Chat History',
-    description:
-      'Resume past conversations and pick up right where you left off.',
-  },
-  {
-    icon: Zap,
-    title: 'Custom Agents',
-    description:
-      'Load custom agents from your .agents/ directory for specialized workflows.',
-  },
-]
-
-const headlineWords = ["The", "strongest"]
-const greenWords = ["free", "coding", "agent."]
+const headlineWords = ["The", "free", "coding", "agent"]
 
 const faqs = [
   {
-    question: 'Is it really free?',
+    question: 'How can it be free?',
     answer:
-      'Yes! Freebuff is completely free to use. The service is supported by ads shown in the CLI.',
+      'Freebuff is supported by ads shown in the CLI.',
+  },
+  {
+    question: 'What model do you use?',
+    answer:
+      'MiniMax M2.5 as the main coding agent, Gemini 3.1 Flash Lite for finding files and research, and GPT-5.4 for deep thinking if you connect your ChatGPT subscription.',
   },
   {
     question: 'Are you training on my data?',
@@ -79,11 +35,6 @@ const faqs = [
     question: 'What data do you store?',
     answer:
       "We don't store your codebase. We only collect minimal logs for debugging purposes.",
-  },
-  {
-    question: 'What model do you use?',
-    answer:
-      'We use multiple models: MiniMax M2.5 as the main coding agent, Gemini 3.1 Flash Lite for finding files, and GPT-5.4 for deep thinking if you connect your ChatGPT subscription.',
   },
 ]
 
@@ -184,24 +135,6 @@ export default function HomeClient() {
 
         {/* Hero content */}
         <div className="relative z-10 container mx-auto px-4 pt-20 pb-12 text-center">
-          {/* Pill badge */}
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="mb-10"
-          >
-            <div className="inline-flex items-center gap-2 bg-acid-green/[0.08] border border-acid-green/20 rounded-full px-5 py-2 backdrop-blur-sm">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-acid-green opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-acid-green" />
-              </span>
-              <span className="text-acid-green text-sm font-semibold tracking-wide">
-                100% Free
-              </span>
-            </div>
-          </motion.div>
-
           {/* Headline with staggered word animation */}
           <motion.h1
             className="hero-heading mb-8"
@@ -213,23 +146,12 @@ export default function HomeClient() {
             initial="initial"
             animate="animate"
           >
-            <span className="block text-white mb-2">
+            <span className="block">
               {headlineWords.map((word, i) => (
                 <motion.span
                   key={i}
                   variants={wordVariant}
-                  className="inline-block mr-[0.3em]"
-                >
-                  {word}
-                </motion.span>
-              ))}
-            </span>
-            <span className="block">
-              {greenWords.map((word, i) => (
-                <motion.span
-                  key={i}
-                  variants={wordVariant}
-                  className="inline-block mr-[0.3em] text-acid-green neon-text animate-glow-pulse"
+                  className={word === 'free' ? 'inline-block mr-[0.3em] text-acid-green neon-text animate-glow-pulse' : 'inline-block mr-[0.3em] text-white'}
                 >
                   {word}
                 </motion.span>
@@ -244,7 +166,7 @@ export default function HomeClient() {
             transition={{ duration: 0.6, delay: 0.8 }}
             className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed"
           >
-             No subscription. No API key. 5x faster than Claude Code.
+            No subscription. No API key. Zero configuration.
           </motion.p>
 
           {/* Install command */}
@@ -256,9 +178,6 @@ export default function HomeClient() {
           >
             <InstallCommand />
           </motion.div>
-
-          {/* Terminal demo */}
-          <TerminalDemo />
         </div>
 
         {/* Bottom fade */}
@@ -267,48 +186,6 @@ export default function HomeClient() {
 
       {/* Divider */}
       <div className="h-px bg-gradient-to-r from-transparent via-acid-green/30 to-transparent" />
-
-      {/* ─── Features Section ─── */}
-      <section className="py-24 px-4">
-        <div className="container mx-auto max-w-6xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.3 }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Everything you need. Nothing you don&apos;t.
-            </h2>
-            <p className="text-zinc-400 text-lg max-w-xl mx-auto">
-              Freebuff brings the full power of an AI coding agent to your
-              terminal — completely free.
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((feature, i) => (
-              <motion.div
-                key={feature.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.3 }}
-                transition={{ duration: 0.5, delay: i * 0.1 }}
-                className="group bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 hover:border-acid-green/30 hover:bg-zinc-900/80 transition-all duration-300"
-              >
-                <div className="h-10 w-10 rounded-lg bg-acid-green/10 border border-acid-green/20 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-acid-green/15 transition-all duration-300">
-                  <feature.icon className="h-5 w-5 text-acid-green" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
-                <p className="text-sm text-zinc-400 leading-relaxed">
-                  {feature.description}
-                </p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* ─── FAQ Section ─── */}
       <section className="py-24 px-4">
@@ -326,42 +203,6 @@ export default function HomeClient() {
           </motion.div>
 
           <FAQList />
-        </div>
-      </section>
-
-      {/* Divider */}
-      <div className="h-px bg-gradient-to-r from-transparent via-zinc-800 to-transparent" />
-
-      {/* ─── CTA Section ─── */}
-      <section className="relative py-24 px-4 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,255,149,0.04),transparent_70%)]" />
-        <div className="container mx-auto max-w-2xl text-center relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.3 }}
-            transition={{ duration: 0.6 }}
-          >
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Start coding for free
-            </h2>
-            <p className="text-zinc-400 text-lg mb-8">
-              No credit card. No trial period. Just install and go.
-            </p>
-
-            <InstallCommand className="max-w-md mx-auto mb-8" />
-
-            <p className="text-xs text-zinc-500">
-              Want more power?{' '}
-              <Link
-                href="https://codebuff.com/pricing"
-                className="text-acid-green hover:underline"
-              >
-                Check out Codebuff
-              </Link>{' '}
-              for premium models and higher limits.
-            </p>
-          </motion.div>
         </div>
       </section>
     </div>
