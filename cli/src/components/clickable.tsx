@@ -28,18 +28,18 @@ export function makeTextUnselectable(node: ReactNode): ReactNode {
 
   if (!isValidElement(node)) return node
 
-  const el = node as ReactElement
+  const el = node as ReactElement<{ children?: ReactNode; [key: string]: unknown }>
   const type = el.type
 
   // Ensure text and span nodes are not selectable
   if (typeof type === 'string' && (type === 'text' || type === 'span')) {
     const nextProps = { ...el.props, selectable: false }
-    const nextChildren = el.props?.children ? makeTextUnselectable(el.props.children) : el.props?.children
+    const nextChildren = el.props.children ? makeTextUnselectable(el.props.children) : el.props.children
     return cloneElement(el, nextProps, nextChildren)
   }
 
   // Recurse into other host elements and components' children
-  const nextChildren = el.props?.children ? makeTextUnselectable(el.props.children) : el.props?.children
+  const nextChildren = el.props.children ? makeTextUnselectable(el.props.children) : el.props.children
   return cloneElement(el, el.props, nextChildren)
 }
 

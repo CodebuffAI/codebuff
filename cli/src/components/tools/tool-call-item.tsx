@@ -33,8 +33,9 @@ const isTextRenderable = (value: ReactNode): boolean => {
   }
 
   if (React.isValidElement(value)) {
+    const elProps = value.props as Record<string, unknown>
     if (value.type === React.Fragment) {
-      return isTextRenderable(value.props.children)
+      return isTextRenderable(elProps.children as ReactNode)
     }
 
     if (typeof value.type === 'string') {
@@ -43,7 +44,7 @@ const isTextRenderable = (value: ReactNode): boolean => {
         value.type === 'strong' ||
         value.type === 'em'
       ) {
-        return isTextRenderable(value.props.children)
+        return isTextRenderable(elProps.children as ReactNode)
       }
 
       return false

@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { BackgroundBeams } from './ui/background-beams'
 import {
   Card,

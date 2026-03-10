@@ -20,7 +20,7 @@ function extractTextContent(node: React.ReactNode): string {
     return node.map(extractTextContent).join('')
   }
   if (typeof node === 'object' && 'props' in node) {
-    const element = node as React.ReactElement
+    const element = node as React.ReactElement<{ children?: React.ReactNode }>
     return extractTextContent(element.props.children)
   }
   return ''

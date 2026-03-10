@@ -80,8 +80,9 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
     }
 
     if (React.isValidElement(value)) {
+      const elProps = value.props as Record<string, unknown>
       if (value.type === React.Fragment) {
-        return isTextRenderable(value.props.children)
+        return isTextRenderable(elProps.children as ReactNode)
       }
 
       if (typeof value.type === 'string') {
@@ -90,7 +91,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
           value.type === 'strong' ||
           value.type === 'em'
         ) {
-          return isTextRenderable(value.props.children)
+          return isTextRenderable(elProps.children as ReactNode)
         }
 
         return false

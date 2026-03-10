@@ -54,7 +54,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
-    "@types/react": "^18.3.12",
+    "@types/react": "19.2.14",
     "@types/react-reconciler": "^0.32.0",
     "react-dom": "^19.0.0",
     "strip-ansi": "^7.1.2"

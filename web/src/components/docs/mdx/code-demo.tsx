@@ -3,6 +3,7 @@
 import { Check, Copy } from 'lucide-react'
 import { Highlight, themes } from 'prism-react-renderer'
 import { useMemo, useState } from 'react'
+import type { JSX } from 'react'
 
 import { MermaidDiagram } from './mermaid-diagram'
 

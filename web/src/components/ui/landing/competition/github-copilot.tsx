@@ -225,7 +225,7 @@ function MatrixRainEffect({
   isActive?: boolean
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const requestRef = useRef<number>()
+  const requestRef = useRef<number | undefined>(undefined)
 
   // Only render if enabled and active
   const shouldRender = enabled && isActive

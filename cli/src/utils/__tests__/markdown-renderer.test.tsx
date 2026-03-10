@@ -4,10 +4,12 @@ import React from 'react'
 
 import { renderMarkdown, renderStreamingMarkdown } from '../markdown-renderer'
 
-const flattenNodes = (input: React.ReactNode): React.ReactNode[] => {
+type El = React.ReactElement<Record<string, unknown>>
+
+const flattenNodes = (input: unknown): React.ReactNode[] => {
   const result: React.ReactNode[] = []
 
-  const visit = (value: React.ReactNode): void => {
+  const visit = (value: unknown): void => {
     if (value === null || value === undefined || typeof value === 'boolean') {
       return
     }
@@ -18,18 +20,18 @@ const flattenNodes = (input: React.ReactNode): React.ReactNode[] => {
     }
 
     if (React.isValidElement(value) && value.type === React.Fragment) {
-      visit(value.props.children)
+      visit((value as El).props.children)
       return
     }
 
-    result.push(value)
+    result.push(value as React.ReactNode)
   }
 
   visit(input)
   return result
 }
 
-const flattenChildren = (value: React.ReactNode): React.ReactNode[] =>
+const flattenChildren = (value: unknown): React.ReactNode[] =>
   flattenNodes(value)
 
 describe('markdown renderer', () => {
@@ -39,13 +41,13 @@ describe('markdown renderer', () => {
 
     expect(nodes[0]).toBe('Hello ')
 
-    const bold = nodes[1] as React.ReactElement
+    const bold = nodes[1] as El
     expect(bold.props.attributes).toBe(TextAttributes.BOLD)
     expect(flattenChildren(bold.props.children)).toEqual(['bold'])
 
     expect(nodes[2]).toBe(' and ')
 
-    const italic = nodes[3] as React.ReactElement
+    const italic = nodes[3] as El
     expect(italic.props.attributes).toBe(TextAttributes.ITALIC)
     expect(flattenChildren(italic.props.children)).toEqual(['italic'])
 
@@ -58,7 +60,7 @@ describe('markdown renderer', () => {
 
     expect(nodes[0]).toBe('Use ')
 
-    const inlineCode = nodes[1] as React.ReactElement
+    const inlineCode = nodes[1] as El
     expect(inlineCode.props.fg).toBe('#86efac')
     expect(inlineCode.props.bg).toBe('#0d1117')
     expect(flattenChildren(inlineCode.props.children)).toEqual([' ls '])
@@ -70,7 +72,7 @@ describe('markdown renderer', () => {
     const output = renderMarkdown('# Heading One')
     const nodes = flattenNodes(output)
 
-    const heading = nodes[0] as React.ReactElement
+    const heading = nodes[0] as El
     expect(heading.props.attributes).toBe(TextAttributes.BOLD)
     expect(heading.props.fg).toBe('magenta')
     expect(flattenChildren(heading.props.children)).toEqual(['Heading One'])
@@ -82,12 +84,12 @@ describe('markdown renderer', () => {
     )
     const nodes = flattenNodes(output)
 
-    const heading = nodes[0] as React.ReactElement
+    const heading = nodes[0] as El
     const contents = flattenChildren(heading.props.children)
 
     expect(contents[0]).toBe('Other')
 
-    const strong = contents[1] as React.ReactElement
+    const strong = contents[1] as El
     expect(strong.props.attributes).toBe(TextAttributes.BOLD)
     expect(flattenChildren(strong.props.children)).toEqual(['.github/'])
 
@@ -98,11 +100,11 @@ describe('markdown renderer', () => {
     const output = renderMarkdown('> note')
     const nodes = flattenNodes(output)
 
-    const prefixSpan = nodes[0] as React.ReactElement
+    const prefixSpan = nodes[0] as El
     expect(prefixSpan.props.fg).toBe('gray')
     expect(flattenChildren(prefixSpan.props.children)).toEqual(['> '])
 
-    const textSpan = nodes[1] as React.ReactElement
+    const textSpan = nodes[1] as El
     expect(textSpan.props.fg).toBe('gray')
     expect(flattenChildren(textSpan.props.children)).toEqual(['note'])
   })
@@ -112,10 +114,10 @@ describe('markdown renderer', () => {
     const nodes = flattenNodes(output)
 
     const bulletSpans = nodes.filter(
-      (node): node is React.ReactElement =>
+      (node): node is El =>
         React.isValidElement(node) &&
         node.type === 'span' &&
-        flattenChildren(node.props.children).join('') === '- ',
+        flattenChildren((node as El).props.children).join('') === '- ',
     )
 
     expect(bulletSpans).toHaveLength(2)
@@ -135,10 +137,10 @@ describe('markdown renderer', () => {
     const nodes = flattenNodes(output)
 
     const boldNode = nodes.find(
-      (node): node is React.ReactElement =>
+      (node): node is El =>
         React.isValidElement(node) &&
-        node.props !== undefined &&
-        node.props.attributes === TextAttributes.BOLD,
+        (node as El).props !== undefined &&
+        (node as El).props.attributes === TextAttributes.BOLD,
     )
 
     expect(boldNode).toBeDefined()
@@ -152,7 +154,7 @@ describe('markdown renderer', () => {
 
     expect(nodes[0]).toBe('This is ')
 
-    const strikethrough = nodes[1] as React.ReactElement
+    const strikethrough = nodes[1] as El
     expect(strikethrough.props.attributes).toBe(TextAttributes.DIM)
     expect(flattenChildren(strikethrough.props.children)).toEqual(['deleted'])
 
@@ -164,11 +166,11 @@ describe('markdown renderer', () => {
     const nodes = flattenNodes(output)
 
     const checkboxSpans = nodes.filter(
-      (node): node is React.ReactElement =>
+      (node): node is El =>
         React.isValidElement(node) &&
         node.type === 'span' &&
-        (flattenChildren(node.props.children).join('') === '[ ] ' ||
-          flattenChildren(node.props.children).join('') === '[x] '),
+        (flattenChildren((node as El).props.children).join('') === '[ ] ' ||
+          flattenChildren((node as El).props.children).join('') === '[x] '),
     )
 
     expect(checkboxSpans).toHaveLength(2)
@@ -187,7 +189,7 @@ describe('markdown renderer', () => {
       .map((node) => {
         if (typeof node === 'string') return node
         if (React.isValidElement(node)) {
-          return flattenChildren(node.props.children).join('')
+          return flattenChildren((node as El).props.children).join('')
         }
         return ''
       })
@@ -217,7 +219,7 @@ codebuff "add a new feature to handle user authentication"
       .map((node) => {
         if (typeof node === 'string') return node
         if (React.isValidElement(node)) {
-          return flattenChildren(node.props.children).join('')
+          return flattenChildren((node as El).props.children).join('')
         }
         return ''
       })
@@ -241,7 +243,7 @@ codebuff "add a new feature to handle user authentication"
 
     expect(nodes[0]).toBe('Use ')
 
-    const inlineCode = nodes[1] as React.ReactElement
+    const inlineCode = nodes[1] as El
     expect(inlineCode.props.fg).toBe('#86efac')
     const inlineContent = flattenChildren(inlineCode.props.children).join('')
     expect(inlineContent).toContain('codebuff "fix bug"')
@@ -271,7 +273,7 @@ console.log("world")
       .map((node) => {
         if (typeof node === 'string') return node
         if (React.isValidElement(node)) {
-          return flattenChildren(node.props.children).join('')
+          return flattenChildren((node as El).props.children).join('')
         }
         return ''
       })
@@ -299,7 +301,7 @@ codebuff "implement feature" --verbose
       .map((node) => {
         if (typeof node === 'string') return node
         if (React.isValidElement(node)) {
-          return flattenChildren(node.props.children).join('')
+          return flattenChildren((node as El).props.children).join('')
         }
         return ''
       })
@@ -315,7 +317,7 @@ codebuff "implement feature" --verbose
     const output = renderMarkdown(markdown)
     const nodes = flattenNodes(output)
 
-    const inlineCode = nodes[1] as React.ReactElement
+    const inlineCode = nodes[1] as El
     const inlineContent = flattenChildren(inlineCode.props.children).join('')
 
     // Should preserve quotes and special characters within inline code
@@ -337,7 +339,7 @@ codebuff "implement feature" --verbose
       .map((node) => {
         if (typeof node === 'string') return node
         if (React.isValidElement(node)) {
-          return flattenChildren(node.props.children).join('')
+          return flattenChildren((node as El).props.children).join('')
         }
         return ''
       })
@@ -372,7 +374,7 @@ codebuff "implement feature" --verbose
       .map((node) => {
         if (typeof node === 'string') return node
         if (React.isValidElement(node)) {
-          return flattenChildren(node.props.children).join('')
+          return flattenChildren((node as El).props.children).join('')
         }
         return ''
       })
@@ -399,7 +401,7 @@ codebuff "implement feature" --verbose
       .map((node) => {
         if (typeof node === 'string') return node
         if (React.isValidElement(node)) {
-          return flattenChildren(node.props.children).join('')
+          return flattenChildren((node as El).props.children).join('')
         }
         return ''
       })

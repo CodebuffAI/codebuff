@@ -1,5 +1,6 @@
 'use client'
 
+import type { JSX } from 'react'
 import { User, Bot, Clock, Coins, Hash, Wrench } from 'lucide-react'
 
 import {
