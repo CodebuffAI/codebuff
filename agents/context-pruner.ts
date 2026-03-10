@@ -297,9 +297,6 @@ const definition: AgentDefinition = {
     /** Agent IDs whose output should be excluded from spawn_agents results */
     const SPAWN_AGENTS_OUTPUT_BLACKLIST = [
       'file-picker',
-      'code-searcher',
-      'directory-lister',
-      'glob-matcher',
       'researcher-web',
       'researcher-docs',
       'commander',

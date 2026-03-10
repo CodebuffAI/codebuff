@@ -1087,26 +1087,6 @@ describe('context-pruner spawn_agents with prompt and params', () => {
     expect(content).toContain('params: {"command":"npm test"}')
   })
 
-  test('includes both prompt and params for spawn_agent_inline', () => {
-    const messages = [
-      createMessage('user', 'Search code'),
-      createToolCallMessage('call-1', 'spawn_agent_inline', {
-        agent_type: 'code-searcher',
-        prompt: 'Find usages of deprecated API',
-        params: { searchQueries: [{ pattern: 'oldFunction' }] },
-      }),
-      createToolResultMessage('call-1', 'spawn_agent_inline', { output: {} }),
-    ]
-
-    const results = runHandleSteps(messages)
-    const content = results[0].input.messages[0].content[0].text
-
-    expect(content).toContain('Spawned agent: code-searcher')
-    expect(content).toContain('prompt: "Find usages of deprecated API"')
-    expect(content).toContain('params:')
-    expect(content).toContain('oldFunction')
-  })
-
   test('truncates very long prompts (over 1000 chars)', () => {
     const longPrompt = 'X'.repeat(1500)
     const messages = [
