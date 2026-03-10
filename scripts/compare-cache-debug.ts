@@ -54,6 +54,12 @@ interface Snapshot {
     rawBody: unknown
     normalized: unknown
   }
+  usage?: {
+    inputTokens: number
+    outputTokens: number
+    cachedInputTokens: number
+    totalTokens: number
+  }
 }
 
 function findFirstDifference(
@@ -260,6 +266,13 @@ function comparePair(prev: Snapshot, curr: Snapshot, prevFile: string, currFile:
   }
   if (prev.systemHash || curr.systemHash) {
     console.log(`  Hashes: system=${prev.systemHash ?? '?'}→${curr.systemHash ?? '?'}  tools=${prev.toolsHash ?? '?'}→${curr.toolsHash ?? '?'}`)
+  }
+  for (const snap of [{ label: 'A', data: prev }, { label: 'B', data: curr }]) {
+    if (snap.data.usage) {
+      const u = snap.data.usage
+      const hitRate = u.inputTokens > 0 ? ((u.cachedInputTokens / u.inputTokens) * 100).toFixed(1) : '0.0'
+      console.log(`  Usage ${snap.label}: ${u.inputTokens} in, ${u.outputTokens} out, ${u.cachedInputTokens} cached (${hitRate}% cache hit)`)
+    }
   }
   if (prev.runId !== curr.runId) {
     console.log(`  ⚠️  Different runs: ${prev.runId ?? '?'} → ${curr.runId ?? '?'}`)

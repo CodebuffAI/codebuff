@@ -25,6 +25,13 @@ export type StreamChunk =
     >
   | { type: 'error'; message: string }
 
+export type CacheDebugUsageData = {
+  inputTokens: number
+  outputTokens: number
+  cachedInputTokens: number
+  totalTokens: number
+}
+
 export type PromptAiSdkStreamFn = (
   params: {
     apiKey: string
@@ -45,6 +52,7 @@ export type PromptAiSdkStreamFn = (
       rawBody: unknown
       normalizedBody?: unknown
     }) => void
+    onCacheDebugUsageReceived?: (usage: CacheDebugUsageData) => void
     includeCacheControl?: boolean
     cacheDebugCorrelation?: string
     agentProviderOptions?: OpenRouterProviderRoutingOptions
@@ -79,6 +87,7 @@ export type PromptAiSdkFn = (
       rawBody: unknown
       normalizedBody?: unknown
     }) => void
+    onCacheDebugUsageReceived?: (usage: CacheDebugUsageData) => void
     includeCacheControl?: boolean
     cacheDebugCorrelation?: string
     agentProviderOptions?: OpenRouterProviderRoutingOptions
@@ -114,6 +123,7 @@ export type PromptAiSdkStructuredInput<T> = {
     rawBody: unknown
     normalizedBody?: unknown
   }) => void
+  onCacheDebugUsageReceived?: (usage: CacheDebugUsageData) => void
   includeCacheControl?: boolean
   cacheDebugCorrelation?: string
   agentProviderOptions?: OpenRouterProviderRoutingOptions

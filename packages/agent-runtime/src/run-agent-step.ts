@@ -23,6 +23,7 @@ import { getAgentOutput } from './util/agent-output'
 import {
   createCacheDebugSnapshot,
   enrichCacheDebugSnapshotWithProviderRequest,
+  enrichCacheDebugSnapshotWithUsage,
 } from './util/cache-debug'
 import {
   withSystemInstructionTags,
@@ -39,7 +40,7 @@ import type {
   FinishAgentRunFn,
   StartAgentRunFn,
 } from '@codebuff/common/types/contracts/database'
-import type { PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
+import type { CacheDebugUsageData, PromptAiSdkFn } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   ParamsExcluding,
@@ -312,6 +313,17 @@ export const runAgentStep = async (
         }
       : undefined
 
+  const onCacheDebugUsageReceived =
+    cacheDebugCorrelation
+      ? (usage: CacheDebugUsageData) => {
+          enrichCacheDebugSnapshotWithUsage({
+            correlation: cacheDebugCorrelation,
+            usage,
+            logger,
+          })
+        }
+      : undefined
+
   logger.debug(
     {
       iteration: iterationNum,
@@ -343,6 +355,7 @@ export const runAgentStep = async (
         ? serializeCacheDebugCorrelation(cacheDebugCorrelation)
         : undefined,
       onCacheDebugProviderRequestBuilt,
+      onCacheDebugUsageReceived,
     })
 
     if (result.aborted) {
@@ -399,6 +412,7 @@ export const runAgentStep = async (
     includeCacheControl: supportsCacheControl(agentTemplate.model),
     messages: [systemMessage(system), ...agentState.messageHistory],
     onCacheDebugProviderRequestBuilt,
+    onCacheDebugUsageReceived,
     template: agentTemplate,
     onCostCalculated,
   })

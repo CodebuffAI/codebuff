@@ -5,6 +5,7 @@ import { dirname, join } from 'path'
 import {
   type CacheDebugCorrelation,
 } from '@codebuff/common/util/cache-debug'
+import type { CacheDebugUsageData } from '@codebuff/common/types/contracts/llm'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { Message } from '@codebuff/common/types/messages/codebuff-message'
 import type { ProviderMetadata } from '@codebuff/common/types/messages/provider-metadata'
@@ -50,6 +51,7 @@ export type CacheDebugSnapshot = {
   toolsHash?: string
   preConversion: CacheDebugPreConversionSnapshot
   providerRequest?: CacheDebugProviderRequestSnapshot
+  usage?: CacheDebugUsageData
 }
 
 function getCacheDebugDir(projectRoot: string) {
@@ -239,6 +241,42 @@ export function createCacheDebugSnapshot(params: {
   writeSnapshot({ snapshot, logger })
 
   return { snapshotId, filename, projectRoot }
+}
+
+export function enrichCacheDebugSnapshotWithUsage(params: {
+  correlation: CacheDebugCorrelation
+  usage: CacheDebugUsageData
+  logger: Logger
+}) {
+  const { correlation, usage, logger } = params
+  try {
+    const existing = loadSnapshot({
+      projectRoot: correlation.projectRoot,
+      filename: correlation.filename,
+    })
+    if (!existing) {
+      logger.warn(
+        `[Cache Debug] Could not find snapshot ${correlation.filename} to enrich with usage`,
+      )
+      return
+    }
+
+    if (existing.id !== correlation.snapshotId) {
+      logger.warn(
+        `[Cache Debug] Snapshot ID mismatch while enriching ${correlation.filename} with usage`,
+      )
+      return
+    }
+
+    const updated: CacheDebugSnapshot = {
+      ...existing,
+      usage,
+    }
+
+    writeSnapshot({ snapshot: updated, logger })
+  } catch (err) {
+    logger.warn({ error: err }, '[Cache Debug] Failed to enrich snapshot with usage')
+  }
 }
 
 export function enrichCacheDebugSnapshotWithProviderRequest(params: {
