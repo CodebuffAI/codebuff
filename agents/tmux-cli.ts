@@ -450,137 +450,84 @@ esac
     const sessionName = 'tui-test-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)
     const helperPath = '/tmp/tmux-helper-' + sessionName + '.sh'
 
-    logger.info('Writing helper script to ' + helperPath)
+    logger.info('Setting up tmux session: ' + sessionName)
 
-    // Write the self-contained helper script to /tmp
-    const { toolResult: writeResult } = yield {
+    // Combined setup: write helper script, start session, send command (single yield to reduce round-trips)
+    const escapedCommand = startCommand.replace(/'/g, "'\\''")
+    const setupScript =
+      'set -e\n' +
+      'cat > ' + helperPath + " << 'TMUX_HELPER_EOF'\n" + helperScript + 'TMUX_HELPER_EOF\n' +
+      'chmod +x ' + helperPath + '\n' +
+      'OUTPUT=$(' + helperPath + " start '" + sessionName + "') || { echo \"FAIL_START\" >&2; exit 1; }\n" +
+      helperPath + " send '" + sessionName + "' '" + escapedCommand + "' || { " + helperPath + " stop '" + sessionName + "' 2>/dev/null; echo \"FAIL_SEND\" >&2; exit 1; }\n" +
+      'echo "$OUTPUT"'
+
+    const { toolResult: setupResult } = yield {
       toolName: 'run_terminal_command',
       input: {
-        command: 'cat > ' + helperPath + " << 'TMUX_HELPER_EOF'\n" + helperScript + "TMUX_HELPER_EOF\nchmod +x " + helperPath,
-        timeout_seconds: 10,
-      },
-    }
-
-    const writeOutput = writeResult?.[0]
-    if (writeOutput && writeOutput.type === 'json') {
-      const value = writeOutput.value as Record<string, unknown>
-      const exitCode = typeof value?.exitCode === 'number' ? value.exitCode : undefined
-      if (exitCode !== 0) {
-        const stderr = typeof value?.stderr === 'string' ? value.stderr.trim() : 'unknown error'
-        logger.error('Failed to write helper script: ' + stderr)
-        yield {
-          toolName: 'set_output',
-          input: {
-            overallStatus: 'failure',
-            summary: 'Failed to write helper script to /tmp. ' + stderr,
-            sessionName: '',
-            scriptIssues: [{ script: helperPath, issue: stderr, suggestedFix: 'Check /tmp is writable' }],
-            captures: [],
-          },
-        }
-        return
-      }
-    }
-
-    logger.info('Starting tmux session (bash)')
-
-    // Start the tmux session with bash (not the user's command directly)
-    const { toolResult } = yield {
-      toolName: 'run_terminal_command',
-      input: {
-        command: helperPath + " start '" + sessionName + "'",
+        command: setupScript,
         timeout_seconds: 30,
       },
+      includeToolCall: false,
     }
 
-    let started = false
-    let parseError = ''
+    let setupSuccess = false
+    let setupError = ''
 
-    const result = toolResult?.[0]
-    if (result && result.type === 'json') {
-      const value = result.value as Record<string, unknown>
+    const setupOutput = setupResult?.[0]
+    if (setupOutput && setupOutput.type === 'json') {
+      const value = setupOutput.value as Record<string, unknown>
       const stdout = typeof value?.stdout === 'string' ? value.stdout.trim() : ''
       const stderr = typeof value?.stderr === 'string' ? value.stderr.trim() : ''
       const exitCode = typeof value?.exitCode === 'number' ? value.exitCode : undefined
 
-      if (exitCode !== 0) {
-        parseError = stderr || 'Helper script failed with no error message'
-      } else if (stdout === sessionName) {
-        started = true
+      if (exitCode === 0 && stdout === sessionName) {
+        setupSuccess = true
       } else {
-        parseError = 'Unexpected output: ' + stdout
+        setupError = stderr || stdout || 'Setup failed with no error message'
       }
     } else {
-      parseError = 'Unexpected result type from run_terminal_command'
+      setupError = 'Unexpected result type from run_terminal_command'
     }
 
-    if (!started) {
-      const errorMsg = parseError || 'Failed to start session'
-      logger.error({ parseError: errorMsg }, 'Failed to start tmux session')
+    if (!setupSuccess) {
+      const isSendFailure = setupError.includes('FAIL_SEND')
+      const isStartFailure = setupError.includes('FAIL_START')
+
+      let summary: string
+      let suggestedFix: string
+      if (isSendFailure) {
+        summary = 'Started session but failed to send command. ' + setupError
+        suggestedFix = 'Check that the command is valid.'
+      } else if (isStartFailure) {
+        summary = 'Failed to start tmux session. ' + setupError
+        suggestedFix = 'Ensure tmux is installed and the command is valid.'
+      } else {
+        summary = 'Failed to write helper script to /tmp. ' + setupError
+        suggestedFix = 'Check /tmp is writable'
+      }
+
+      logger.error(setupError, 'Setup failed')
       yield {
         toolName: 'set_output',
         input: {
           overallStatus: 'failure',
-          summary: 'Failed to start tmux session. ' + errorMsg,
-          sessionName: '',
-          scriptIssues: [
-            {
-              script: helperPath,
-              issue: errorMsg,
-              errorOutput: JSON.stringify(toolResult),
-              suggestedFix: 'Ensure tmux is installed and the command is valid.',
-            },
-          ],
+          summary,
+          sessionName: isSendFailure ? sessionName : '',
+          scriptIssues: [{ script: helperPath, issue: setupError, suggestedFix }],
           captures: [],
         },
       }
       return
     }
 
-    logger.info('Successfully started tmux session: ' + sessionName)
+    logger.info('Session ready: ' + sessionName)
 
-    // Send the user's command to the bash session
-    const escapedCommand = startCommand.replace(/'/g, "'\\''")
-    const { toolResult: sendResult } = yield {
-      toolName: 'run_terminal_command',
-      input: {
-        command: helperPath + " send '" + sessionName + "' '" + escapedCommand + "'",
-        timeout_seconds: 15,
-      },
-    }
-
-    const sendOutput = sendResult?.[0]
-    if (sendOutput && sendOutput.type === 'json') {
-      const value = sendOutput.value as Record<string, unknown>
-      const exitCode = typeof value?.exitCode === 'number' ? value.exitCode : undefined
-      if (exitCode !== 0) {
-        const stderr = typeof value?.stderr === 'string' ? value.stderr.trim() : 'send failed'
-        logger.error('Failed to send command: ' + stderr)
-        yield {
-          toolName: 'run_terminal_command',
-          input: { command: helperPath + " stop '" + sessionName + "'", timeout_seconds: 5 },
-        }
-        yield {
-          toolName: 'set_output',
-          input: {
-            overallStatus: 'failure',
-            summary: 'Started session but failed to send command. ' + stderr,
-            sessionName,
-            scriptIssues: [{ script: helperPath, issue: stderr, suggestedFix: 'Check that the command is valid.' }],
-            captures: [],
-          },
-        }
-        return
-      }
-    }
-
-    logger.info('Sent command to session: ' + startCommand)
-
-    // Wait briefly then capture initial state so the agent starts with context
+    // Capture initial state so the agent starts with context (0.5s is enough since send already waits ~0.6s)
     const { toolResult: initCapture } = yield {
       toolName: 'run_terminal_command',
       input: {
-        command: 'sleep 1.5 && ' + helperPath + " capture '" + sessionName + "' --wait 0 --label startup-check",
+        command: 'sleep 0.5 && ' + helperPath + " capture '" + sessionName + "' --wait 0 --label startup-check",
         timeout_seconds: 10,
       },
     }
@@ -606,7 +553,10 @@ esac
           '**Captures dir:** `' + captureDir + '/`\n\n' +
           '**Initial terminal output:**\n```\n' + initialOutput + '\n```\n\n' +
           'Check the initial output above — if you see errors like "command not found" or "No such file", report failure immediately.\n\n' +
-          'Commands:\n' +
+          '## Helper Script Implementation\n\n' +
+          'The helper script at `' + helperPath + '` is a Bash script that wraps tmux commands to interact with the CLI. Here is its full implementation:\n\n' +
+          '```bash\n' + helperScript.replace(/```/g, '\\`\\`\\`') + '\n```\n\n' +
+          '## Quick Reference\n\n' +
           '- Send input: `' + helperPath + ' send "' + sessionName + '" "..."`\n' +
           '- Send with paste mode: `' + helperPath + ' send "' + sessionName + '" "..." --paste`\n' +
           '- Send + wait for output: `' + helperPath + ' send "' + sessionName + '" "..." --wait-idle 3`\n' +

@@ -85,7 +85,7 @@ export function createBase2(
       isFree && 'code-reviewer-lite',
       isDefault && 'code-reviewer',
       isMax && 'code-reviewer-multi-prompt',
-      isDefault && 'tmux-cli',
+      'tmux-cli',
       'context-pruner',
     ),
 
