@@ -30,10 +30,6 @@
     "tailwind-merge": "^2.5.2",
     "zod": "^4.2.1"
   },
-  "overrides": {
-    "@types/react": "$@types/react",
-    "@types/react-dom": "$@types/react-dom"
-  },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.15",
     "@types/node": "^22.14.0",

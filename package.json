@@ -45,6 +45,8 @@
     "zod": "^4.2.1"
   },
   "overrides": {
+    "@types/react": "18.3.26",
+    "@types/react-dom": "18.3.7",
     "baseline-browser-mapping": "^2.9.14",
     "zod": "^4.2.1",
     "signal-exit": "3.0.7"

@@ -89,10 +89,6 @@
     "use-debounce": "^10.0.4",
     "zod": "^4.2.1"
   },
-  "overrides": {
-    "@types/react": "$@types/react",
-    "@types/react-dom": "$@types/react-dom"
-  },
   "devDependencies": {
     "@commitlint/cli": "^19.8.0",
     "@commitlint/config-conventional": "^19.8.0",
