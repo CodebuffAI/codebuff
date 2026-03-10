@@ -2,7 +2,7 @@ import { TextAttributes } from '@opentui/core'
 import React, { memo } from 'react'
 
 import { CopyButton } from '../copy-button'
-import { trimTrailingNewlines } from './block-helpers'
+import { trimNewlines } from './block-helpers'
 import { ContentWithMarkdown } from './content-with-markdown'
 
 import type { MarkdownPalette } from '../../utils/markdown-renderer'
@@ -33,7 +33,7 @@ export const UserContentWithCopyButton = memo(
   }: UserContentWithCopyButtonProps) => {
     const isStreamingMessage = isLoading || !isComplete
     const normalizedContent = isStreamingMessage
-      ? trimTrailingNewlines(content)
+      ? trimNewlines(content)
       : content.trim()
 
     const hasContent = normalizedContent.length > 0

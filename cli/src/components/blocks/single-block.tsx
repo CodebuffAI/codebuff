@@ -4,7 +4,7 @@ import React, { memo, type ReactNode } from 'react'
 import { AgentBranchWrapper } from './agent-branch-wrapper'
 import { AgentListBranch } from './agent-list-branch'
 import { AskUserBranch } from './ask-user-branch'
-import { trimTrailingNewlines, isReasoningTextBlock } from './block-helpers'
+import { trimNewlines, isReasoningTextBlock } from './block-helpers'
 import { ContentWithMarkdown } from './content-with-markdown'
 import { ImageBlock } from './image-block'
 import { UserBlockTextWithInlineCopy } from './user-content-copy'
@@ -68,7 +68,7 @@ export const SingleBlock = memo(
         const textBlock = block as TextContentBlock
         const isStreamingText = isLoading || !isComplete
         const filteredContent = isStreamingText
-          ? trimTrailingNewlines(textBlock.content)
+          ? trimNewlines(textBlock.content)
           : textBlock.content.trim()
         const renderKey = `${messageId}-text-${idx}`
         const prevBlock = idx > 0 && blocks ? blocks[idx - 1] : null

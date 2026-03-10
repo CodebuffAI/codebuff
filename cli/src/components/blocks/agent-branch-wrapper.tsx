@@ -9,7 +9,7 @@ import React, {
 
 import { AgentBlockGrid } from './agent-block-grid'
 import { AgentBranchItem } from './agent-branch-item'
-import { trimTrailingNewlines, sanitizePreview } from './block-helpers'
+import { trimNewlines, sanitizePreview } from './block-helpers'
 import { ContentWithMarkdown } from './content-with-markdown'
 import { ImplementorGroup } from './implementor-row'
 import { ThinkingBlock } from './thinking-block'
@@ -248,7 +248,7 @@ const AgentBody = memo(
             const isNestedStreamingText =
               p.parentIsStreaming || nestedStatus === 'running'
             const filteredNestedContent = isNestedStreamingText
-              ? trimTrailingNewlines(textBlock.content)
+              ? trimNewlines(textBlock.content)
               : textBlock.content.trim()
             const markdownOptionsForLevel = p.getAgentMarkdownOptions(0)
             const marginTop = textBlock.marginTop ?? 0
