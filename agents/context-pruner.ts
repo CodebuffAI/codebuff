@@ -251,8 +251,12 @@ export function summarizeToolCall(
       return query ? `Web search: "${query}"` : 'Web search'
     }
     case 'read_docs': {
-      const query = input.query as string | undefined
-      return query ? `Read docs: "${query}"` : 'Read docs'
+      const libraryTitle = input.libraryTitle as string | undefined
+      const topic = input.topic as string | undefined
+      if (libraryTitle && topic) {
+        return `Read docs: "${libraryTitle} - ${topic}"`
+      }
+      return libraryTitle ? `Read docs: "${libraryTitle}"` : 'Read docs'
     }
     case 'set_output':
       return 'Set output'
@@ -543,8 +547,12 @@ const definition: AgentDefinition = {
           return query ? `Web search: "${query}"` : 'Web search'
         }
         case 'read_docs': {
-          const query = input.query as string | undefined
-          return query ? `Read docs: "${query}"` : 'Read docs'
+          const libraryTitle = input.libraryTitle as string | undefined
+          const topic = input.topic as string | undefined
+          if (libraryTitle && topic) {
+            return `Read docs: "${libraryTitle} - ${topic}"`
+          }
+          return libraryTitle ? `Read docs: "${libraryTitle}"` : 'Read docs'
         }
         case 'set_output':
           return 'Set output'
