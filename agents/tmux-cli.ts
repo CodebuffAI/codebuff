@@ -75,9 +75,6 @@ const definition: AgentDefinition = {
   // Provider options are tightly coupled to the model choice above.
   // If you change the model, update these accordingly.
   providerOptions: {
-    only: ['inceptron/fp8'],
-    order: ['inceptron/fp8'],
-    allow_fallbacks: false,
     data_collection: 'deny',
   },
 

@@ -15,28 +15,28 @@ import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/b
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ChatCompletionRequestBody } from './types'
 
-const FIREWORKS_BASE_URL = 'https://api.fireworks.ai/inference/v1'
+const BASETEN_BASE_URL = 'https://inference.baseten.co/v1'
 
 // Extended timeout for deep-thinking models that can take
 // a long time to start streaming.
-const FIREWORKS_HEADERS_TIMEOUT_MS = 10 * 60 * 1000
+const BASETEN_HEADERS_TIMEOUT_MS = 10 * 60 * 1000
 
-const fireworksAgent = new Agent({
-  headersTimeout: FIREWORKS_HEADERS_TIMEOUT_MS,
+const basetenAgent = new Agent({
+  headersTimeout: BASETEN_HEADERS_TIMEOUT_MS,
   bodyTimeout: 0,
 })
 
-/** Map from OpenRouter model IDs to Fireworks model IDs */
-const FIREWORKS_MODEL_MAP: Record<string, string> = {
-  // 'minimax/minimax-m2.5': 'accounts/fireworks/models/minimax-m2p5',
+/** Map from OpenRouter model IDs to Baseten model IDs */
+const BASETEN_MODEL_MAP: Record<string, string> = {
+  'minimax/minimax-m2.5': 'MiniMaxAI/MiniMax-M2.5',
 }
 
-export function isFireworksModel(model: string): boolean {
-  return model in FIREWORKS_MODEL_MAP
+export function isBasetenModel(model: string): boolean {
+  return model in BASETEN_MODEL_MAP
 }
 
-function getFireworksModelId(openrouterModel: string): string {
-  return FIREWORKS_MODEL_MAP[openrouterModel] ?? openrouterModel
+function getBasetenModelId(openrouterModel: string): string {
+  return BASETEN_MODEL_MAP[openrouterModel] ?? openrouterModel
 }
 
 type StreamState = { responseText: string; reasoningText: string }
@@ -47,44 +47,49 @@ type LineResult = {
   patchedLine: string
 }
 
-function createFireworksRequest(params: {
+function createBasetenRequest(params: {
   body: ChatCompletionRequestBody
   originalModel: string
   fetch: typeof globalThis.fetch
 }) {
   const { body, originalModel, fetch } = params
-  const fireworksBody: Record<string, unknown> = {
+  const basetenBody: Record<string, unknown> = {
     ...body,
-    model: getFireworksModelId(originalModel),
+    model: getBasetenModelId(originalModel),
   }
 
   // Strip OpenRouter-specific / internal fields
-  delete fireworksBody.provider
-  delete fireworksBody.transforms
-  delete fireworksBody.codebuff_metadata
-  delete fireworksBody.usage
+  delete basetenBody.provider
+  delete basetenBody.transforms
+  delete basetenBody.codebuff_metadata
+  delete basetenBody.usage
 
   // For streaming, request usage in the final chunk
-  if (fireworksBody.stream) {
-    fireworksBody.stream_options = { include_usage: true }
+  if (basetenBody.stream) {
+    basetenBody.stream_options = { include_usage: true }
   }
 
-  return fetch(`${FIREWORKS_BASE_URL}/chat/completions`, {
+  if (!env.BASETEN_API_KEY) {
+    throw new Error('BASETEN_API_KEY is not configured')
+  }
+
+  return fetch(`${BASETEN_BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${env.FIREWORKS_API_KEY}`,
+      Authorization: `Bearer ${env.BASETEN_API_KEY}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(fireworksBody),
+    body: JSON.stringify(basetenBody),
     // @ts-expect-error - dispatcher is a valid undici option not in fetch types
-    dispatcher: fireworksAgent,
+    dispatcher: basetenAgent,
   })
 }
 
-// Fireworks per-token pricing (dollars per token)
-const FIREWORKS_INPUT_COST_PER_TOKEN = 0.30 / 1_000_000
-const FIREWORKS_CACHED_INPUT_COST_PER_TOKEN = 0.03 / 1_000_000
-const FIREWORKS_OUTPUT_COST_PER_TOKEN = 1.20 / 1_000_000
+// Baseten per-token pricing (dollars per token)
+// TODO: Verify these costs against Baseten's actual pricing
+const BASETEN_INPUT_COST_PER_TOKEN = 0.30 / 1_000_000
+const BASETEN_CACHED_INPUT_COST_PER_TOKEN = 0.03 / 1_000_000
+const BASETEN_OUTPUT_COST_PER_TOKEN = 1.20 / 1_000_000
 
 function extractUsageAndCost(usage: Record<string, unknown> | undefined | null): UsageData {
   if (!usage) return { inputTokens: 0, outputTokens: 0, cacheReadInputTokens: 0, reasoningTokens: 0, cost: 0 }
@@ -96,17 +101,17 @@ function extractUsageAndCost(usage: Record<string, unknown> | undefined | null):
   const cacheReadInputTokens = typeof promptDetails?.cached_tokens === 'number' ? promptDetails.cached_tokens : 0
   const reasoningTokens = typeof completionDetails?.reasoning_tokens === 'number' ? completionDetails.reasoning_tokens : 0
 
-  // Fireworks doesn't return cost — compute from token counts and known pricing
+  // Baseten doesn't return cost — compute from token counts and known pricing
   const nonCachedInputTokens = Math.max(0, inputTokens - cacheReadInputTokens)
   const cost =
-    nonCachedInputTokens * FIREWORKS_INPUT_COST_PER_TOKEN +
-    cacheReadInputTokens * FIREWORKS_CACHED_INPUT_COST_PER_TOKEN +
-    outputTokens * FIREWORKS_OUTPUT_COST_PER_TOKEN
+    nonCachedInputTokens * BASETEN_INPUT_COST_PER_TOKEN +
+    cacheReadInputTokens * BASETEN_CACHED_INPUT_COST_PER_TOKEN +
+    outputTokens * BASETEN_OUTPUT_COST_PER_TOKEN
 
   return { inputTokens, outputTokens, cacheReadInputTokens, reasoningTokens, cost }
 }
 
-export async function handleFireworksNonStream({
+export async function handleBasetenNonStream({
   body,
   userId,
   stripeCustomerId,
@@ -127,10 +132,10 @@ export async function handleFireworksNonStream({
   const startTime = new Date()
   const { clientId, clientRequestId, costMode } = extractRequestMetadata({ body, logger })
 
-  const response = await createFireworksRequest({ body, originalModel, fetch })
+  const response = await createBasetenRequest({ body, originalModel, fetch })
 
   if (!response.ok) {
-    throw await parseFireworksError(response)
+    throw await parseBasetenError(response)
   }
 
   const data = await response.json()
@@ -177,12 +182,12 @@ export async function handleFireworksNonStream({
 
   // Normalise model name back to OpenRouter format for client compatibility
   data.model = originalModel
-  if (!data.provider) data.provider = 'Fireworks'
+  if (!data.provider) data.provider = 'Baseten'
 
   return data
 }
 
-export async function handleFireworksStream({
+export async function handleBasetenStream({
   body,
   userId,
   stripeCustomerId,
@@ -203,10 +208,10 @@ export async function handleFireworksStream({
   const startTime = new Date()
   const { clientId, clientRequestId, costMode } = extractRequestMetadata({ body, logger })
 
-  const response = await createFireworksRequest({ body, originalModel, fetch })
+  const response = await createBasetenRequest({ body, originalModel, fetch })
 
   if (!response.ok) {
-    throw await parseFireworksError(response)
+    throw await parseBasetenError(response)
   }
 
   const reader = response.body?.getReader()
@@ -296,7 +301,7 @@ export async function handleFireworksStream({
         } else {
           logger.warn(
             getErrorObject(error),
-            'Error after client disconnect in Fireworks stream',
+            'Error after client disconnect in Baseten stream',
           )
         }
       } finally {
@@ -312,7 +317,7 @@ export async function handleFireworksStream({
           responseTextLength: state.responseText.length,
           reasoningTextLength: state.reasoningText.length,
         },
-        'Client cancelled stream, continuing Fireworks consumption for billing',
+        'Client cancelled stream, continuing Baseten consumption for billing',
       )
     },
   })
@@ -364,14 +369,14 @@ async function handleLine({
   } catch (error) {
     logger.warn(
       { error: getErrorObject(error, { includeRawError: true }) },
-      'Received non-JSON Fireworks response',
+      'Received non-JSON Baseten response',
     )
     return { state, patchedLine: line }
   }
 
   // Patch model and provider for SDK compatibility
   if (obj.model) obj.model = originalModel
-  if (!obj.provider) obj.provider = 'Fireworks'
+  if (!obj.provider) obj.provider = 'Baseten'
 
   // Process the chunk for billing / state tracking
   const result = await handleResponse({
@@ -501,7 +506,7 @@ function handleStreamChunk({
         errorType: errorData?.type,
         errorMessage: errorData?.message,
       },
-      'Received error chunk in Fireworks stream',
+      'Received error chunk in Baseten stream',
     )
     return state
   }
@@ -538,7 +543,7 @@ function handleStreamChunk({
   return state
 }
 
-export class FireworksError extends Error {
+export class BasetenError extends Error {
   constructor(
     public readonly statusCode: number,
     public readonly statusText: string,
@@ -551,7 +556,7 @@ export class FireworksError extends Error {
     },
   ) {
     super(errorBody.error.message)
-    this.name = 'FireworksError'
+    this.name = 'BasetenError'
   }
 
   toJSON() {
@@ -565,9 +570,9 @@ export class FireworksError extends Error {
   }
 }
 
-async function parseFireworksError(response: Response): Promise<FireworksError> {
+async function parseBasetenError(response: Response): Promise<BasetenError> {
   const errorText = await response.text()
-  let errorBody: FireworksError['errorBody']
+  let errorBody: BasetenError['errorBody']
   try {
     const parsed = JSON.parse(errorText)
     if (parsed?.error?.message) {
@@ -594,7 +599,7 @@ async function parseFireworksError(response: Response): Promise<FireworksError> 
       },
     }
   }
-  return new FireworksError(response.status, response.statusText, errorBody)
+  return new BasetenError(response.status, response.statusText, errorBody)
 }
 
 function creditsToFakeCost(credits: number): number {

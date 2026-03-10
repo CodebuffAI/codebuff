@@ -36,6 +36,12 @@ import type { NextRequest } from 'next/server'
 import type { ChatCompletionRequestBody } from '@/llm-api/types'
 
 import {
+  BasetenError,
+  handleBasetenNonStream,
+  handleBasetenStream,
+  isBasetenModel,
+} from '@/llm-api/baseten'
+import {
   FireworksError,
   handleFireworksNonStream,
   handleFireworksStream,
@@ -354,9 +360,20 @@ export async function postChatCompletions(params: {
     // Handle streaming vs non-streaming
     try {
       if (bodyStream) {
-        // Streaming request — route to Fireworks for supported models
-        const useFireworks = isFireworksModel(typedBody.model)
-        const stream = useFireworks
+        // Streaming request — route to Baseten/Fireworks for supported models
+        const useBaseten = isBasetenModel(typedBody.model)
+        const useFireworks = !useBaseten && isFireworksModel(typedBody.model)
+        const stream = useBaseten
+          ? await handleBasetenStream({
+              body: typedBody,
+              userId,
+              stripeCustomerId,
+              agentId,
+              fetch,
+              logger,
+              insertMessageBigquery,
+            })
+          : useFireworks
           ? await handleFireworksStream({
               body: typedBody,
               userId,
@@ -396,9 +413,10 @@ export async function postChatCompletions(params: {
           },
         })
       } else {
-        // Non-streaming request — route to Fireworks for supported models
+        // Non-streaming request — route to Baseten/Fireworks for supported models
         const model = typedBody.model
-        const useFireworks = isFireworksModel(model)
+        const useBaseten = isBasetenModel(model)
+        const useFireworks = !useBaseten && isFireworksModel(model)
         const modelParts = model.split('/')
         const shortModelName = modelParts.length > 1 ? modelParts[1] : model
         const isOpenAIDirectModel =
@@ -409,7 +427,17 @@ export async function postChatCompletions(params: {
         const shouldUseOpenAIEndpoint =
           isOpenAIDirectModel && typedBody.codebuff_metadata?.n !== undefined
 
-        const nonStreamRequest = useFireworks
+        const nonStreamRequest = useBaseten
+          ? handleBasetenNonStream({
+              body: typedBody,
+              userId,
+              stripeCustomerId,
+              agentId,
+              fetch,
+              logger,
+              insertMessageBigquery,
+            })
+          : useFireworks
           ? handleFireworksNonStream({
               body: typedBody,
               userId,
@@ -463,10 +491,14 @@ export async function postChatCompletions(params: {
       if (error instanceof FireworksError) {
         fireworksError = error
       }
+      let basetenError: BasetenError | undefined
+      if (error instanceof BasetenError) {
+        basetenError = error
+      }
 
       // Log detailed error information for debugging
       const errorDetails = openrouterError?.toJSON()
-      const providerLabel = fireworksError ? 'Fireworks' : 'OpenRouter'
+      const providerLabel = basetenError ? 'Baseten' : fireworksError ? 'Fireworks' : 'OpenRouter'
       logger.error(
         {
           error: getErrorObject(error),
@@ -480,8 +512,8 @@ export async function postChatCompletions(params: {
             ? typedBody.messages.length
             : 0,
           messages: typedBody.messages,
-          providerStatusCode: (openrouterError ?? fireworksError)?.statusCode,
-          providerStatusText: (openrouterError ?? fireworksError)?.statusText,
+          providerStatusCode: (openrouterError ?? fireworksError ?? basetenError)?.statusCode,
+          providerStatusText: (openrouterError ?? fireworksError ?? basetenError)?.statusText,
           openrouterErrorCode: errorDetails?.error?.code,
           openrouterErrorType: errorDetails?.error?.type,
           openrouterErrorMessage: errorDetails?.error?.message,
@@ -507,6 +539,9 @@ export async function postChatCompletions(params: {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
       if (error instanceof FireworksError) {
+        return NextResponse.json(error.toJSON(), { status: error.statusCode })
+      }
+      if (error instanceof BasetenError) {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
 
