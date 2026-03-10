@@ -86,6 +86,22 @@
   pointer-events: none;
 }
 
+/* Giant keyword wall — hollow outlined text */
+.keyword-hollow {
+  color: transparent;
+  -webkit-text-stroke: 1.5px rgba(0, 255, 149, 0.4);
+  transition: color 0.5s ease, -webkit-text-stroke-color 0.5s ease, text-shadow 0.5s ease;
+}
+
+.group:hover .keyword-hollow,
+.keyword-filled {
+  color: #00FF95;
+  -webkit-text-stroke: 1.5px #00FF95;
+  text-shadow:
+    0 0 40px rgba(0, 255, 149, 0.3),
+    0 0 80px rgba(0, 255, 149, 0.1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-glow-pulse,
   .animate-scan-line,
