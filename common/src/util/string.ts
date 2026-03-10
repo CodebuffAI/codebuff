@@ -1,4 +1,4 @@
-import { sumBy } from 'lodash'
+// Native implementation replaces lodash sumBy to reduce bundle size
 
 export const truncateString = (str: string, maxLength: number) => {
   if (str.length <= maxLength) {
@@ -46,7 +46,12 @@ export const truncateStringWithMessage = ({
 export const isWhitespace = (character: string) => /\s/.test(character)
 
 export const randBoolFromStr = (str: string) => {
-  return sumBy(str.split(''), (char) => char.charCodeAt(0)) % 2 === 0
+  // Native implementation replaces lodash sumBy
+  let sum = 0
+  for (const char of str.split('')) {
+    sum += char.charCodeAt(0)
+  }
+  return sum % 2 === 0
 }
 
 // Irregular plurals that cannot be derived from rules

@@ -1,4 +1,7 @@
-import { compact, flattenDeep, isEqual } from 'lodash'
+// Native implementations replace lodash imports to reduce bundle size
+// isEqual is kept from lodash for deep equality comparison
+
+import isEqual from 'lodash/isEqual'
 
 export function filterDefined<T>(array: (T | null | undefined)[]) {
   return array.filter((item) => item !== null && item !== undefined) as T[]
@@ -8,7 +11,13 @@ type Falsey = false | undefined | null | 0 | ''
 type FalseyValueArray<T> = T | Falsey | FalseyValueArray<T>[]
 
 export function buildArray<T>(...params: FalseyValueArray<T>[]) {
-  return compact(flattenDeep(params)) as T[]
+  // Native implementation replaces lodash compact + flattenDeep
+  const flatten = <T>(arr: unknown): T[] => {
+    return Array.isArray(arr)
+      ? arr.flatMap((item) => flatten<T>(item))
+      : [arr] as T[]
+  }
+  return flatten<T>(params).filter((item) => item != null) as T[]
 }
 
 export function groupConsecutive<T, U>(xs: T[], key: (x: T) => U) {

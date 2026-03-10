@@ -1,4 +1,7 @@
-import { isEqual, mapValues, union } from 'lodash'
+import isEqual from 'lodash/isEqual'
+
+// Using native implementations instead of lodash to reduce bundle size
+// isEqual is kept from lodash as it handles deep equality complex cases
 
 type RemoveUndefined<T extends object> = {
   [K in keyof T as T[K] extends undefined ? never : K]: Exclude<T[K], undefined>
@@ -41,7 +44,8 @@ export const addObjects = <T extends { [key: string]: number }>(
   obj1: T,
   obj2: T,
 ): T => {
-  const keys = union(Object.keys(obj1), Object.keys(obj2))
+  // Native implementation replaces lodash union
+  const keys = [...new Set([...Object.keys(obj1), ...Object.keys(obj2)])]
   const newObj: { [key: string]: number } = {}
 
   for (const key of keys) {
@@ -55,7 +59,8 @@ export const subtractObjects = <T extends { [key: string]: number }>(
   obj1: T,
   obj2: T,
 ): T => {
-  const keys = union(Object.keys(obj1), Object.keys(obj2))
+  // Native implementation replaces lodash union
+  const keys = [...new Set([...Object.keys(obj1), ...Object.keys(obj2)])]
   const newObj: { [key: string]: number } = {}
 
   for (const key of keys) {
@@ -66,8 +71,11 @@ export const subtractObjects = <T extends { [key: string]: number }>(
 }
 
 export const hasChanges = <T extends object>(obj: T, partial: Partial<T>) => {
-  const currValues = mapValues(partial, (_, key: keyof T) => obj[key])
-  return !isEqual(currValues, partial)
+  // Native implementation replaces lodash mapValues
+  const currValues = Object.fromEntries(
+    Object.keys(partial).map((key) => [key, obj[key as keyof T]])
+  )
+  return JSON.stringify(currValues) !== JSON.stringify(partial)
 }
 
 export const hasSignificantDeepChanges = <T extends object>(
