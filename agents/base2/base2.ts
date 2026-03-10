@@ -34,7 +34,9 @@ export function createBase2(
       order: ['inceptron/fp8'],
       allow_fallbacks: false,
       data_collection: 'deny',
-    } : undefined,
+    } : {
+      only: ['amazon-bedrock'],
+    },
     displayName: 'Buffy the Orchestrator',
     spawnerPrompt:
       'Advanced base agent that orchestrates planning, editing, and reviewing for complex coding tasks',

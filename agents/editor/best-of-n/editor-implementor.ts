@@ -20,6 +20,11 @@ export const createBestOfNImplementor = (options: {
         : isGemini
           ? 'google/gemini-3-pro-preview'
           : 'openai/gpt-5.1',
+    ...(isOpus && {
+      providerOptions: {
+        only: ['amazon-bedrock'],
+      },
+    }),
     displayName: 'Implementation Generator',
     spawnerPrompt:
       'Generates a complete implementation using propose_* tools that draft changes without applying them',

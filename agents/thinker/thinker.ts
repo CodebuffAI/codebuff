@@ -6,6 +6,9 @@ const definition: SecretAgentDefinition = {
   id: 'thinker',
   publisher,
   model: 'anthropic/claude-opus-4.6',
+  providerOptions: {
+    only: ['amazon-bedrock'],
+  },
   displayName: 'Theo the Theorizer',
   spawnerPrompt:
     'Does deep thinking given the current conversation history and a specific prompt to focus on. Use this to help you solve a specific problem. It is better to gather any relevant context before spawning this agent.',

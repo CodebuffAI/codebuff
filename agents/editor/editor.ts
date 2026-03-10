@@ -15,6 +15,11 @@ export const createCodeEditor = (options: {
         : options.model === 'minimax'
           ? 'minimax/minimax-m2.5'
           : 'anthropic/claude-opus-4.6',
+    ...(options.model === 'opus' && {
+      providerOptions: {
+        only: ['amazon-bedrock'],
+      },
+    }),
     displayName: 'Code Editor',
     spawnerPrompt:
       "Expert code editor that implements code changes based on the user's request. Do not specify an input prompt for this agent; it inherits the context of the entire conversation with the user. Make sure to read any files intended to be edited before spawning this agent as it cannot read files on its own.",

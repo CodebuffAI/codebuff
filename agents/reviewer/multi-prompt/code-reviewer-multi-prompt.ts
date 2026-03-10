@@ -15,6 +15,9 @@ export function createCodeReviewerMultiPrompt(): Omit<
   return {
     publisher,
     model: 'anthropic/claude-opus-4.6',
+    providerOptions: {
+      only: ['amazon-bedrock'],
+    },
     displayName: 'Multi-Prompt Code Reviewer',
     spawnerPrompt:
       'Reviews code by spawning multiple code-reviewer agents with different focus prompts, then combines all review outputs into a comprehensive review. Make sure to read relevant files before spawning this agent. Pass an input array of short prompts specifying several different review focuses or perspectives.',

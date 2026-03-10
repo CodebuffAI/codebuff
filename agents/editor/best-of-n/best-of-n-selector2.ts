@@ -23,6 +23,11 @@ export const createBestOfNSelector2 = (options: {
         effort: 'high',
       },
     }),
+    ...(isOpus && {
+      providerOptions: {
+        only: ['amazon-bedrock'],
+      },
+    }),
     displayName: isGpt5
       ? 'Best-of-N GPT-5 Diff Selector'
       : isOpus
