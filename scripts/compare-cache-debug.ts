@@ -4,10 +4,14 @@
  * Compare sequential cache debug snapshots to find what's causing prompt cache misses.
  *
  * Usage:
- *   bun scripts/compare-cache-debug.ts [directory] [--agent <type>]
+ *   bun scripts/compare-cache-debug.ts [directory] [--agent <type>] [--run <runId>] [--cross-run]
  *
  * Options:
- *   --agent <type>  Only compare snapshots from this agent type (e.g. base2)
+ *   --agent <type>     Only compare snapshots from this agent type (e.g. base2)
+ *   --run <runId>      Only compare snapshots from this specific run
+ *   --cross-run        Compare all snapshots sequentially (old behavior, across runs)
+ *
+ * Default: groups snapshots by runId and compares consecutive steps within each run.
  *
  * Default directory: debug/cache-debug/
  *
@@ -134,6 +138,20 @@ function printSectionHeader(title: string) {
   console.log(`${'─'.repeat(80)}`)
 }
 
+function stripCacheControlFromMessage(msg: unknown): unknown {
+  if (!msg || typeof msg !== 'object') return msg
+  const obj = JSON.parse(JSON.stringify(msg))
+  delete obj.cache_control
+  if (Array.isArray(obj.content)) {
+    for (const part of obj.content) {
+      if (part && typeof part === 'object') {
+        delete part.cache_control
+      }
+    }
+  }
+  return obj
+}
+
 function compareProviderRequests(
   prev: Snapshot['providerRequest'],
   curr: Snapshot['providerRequest'],
@@ -199,12 +217,26 @@ function compareProviderRequests(
             console.log(`       ✅ messages: identical (${prevMsgs.length} messages)`)
           } else {
             console.log(`       ❌ messages: differ (${prevMsgs.length} → ${currMsgs.length})`)
+
+            // Compare with cache_control stripped to check structural stability
             const minLen = Math.min(prevMsgs.length, currMsgs.length)
+            let firstRawDiff = -1
+            let firstStructDiff = -1
             for (let i = 0; i < minLen; i++) {
-              if (JSON.stringify(prevMsgs[i]) !== JSON.stringify(currMsgs[i])) {
-                console.log(`          First diff at message index ${i}`)
-                break
+              if (firstRawDiff < 0 && JSON.stringify(prevMsgs[i]) !== JSON.stringify(currMsgs[i])) {
+                firstRawDiff = i
               }
+              if (firstStructDiff < 0 && JSON.stringify(stripCacheControlFromMessage(prevMsgs[i])) !== JSON.stringify(stripCacheControlFromMessage(currMsgs[i]))) {
+                firstStructDiff = i
+              }
+            }
+            if (firstRawDiff >= 0) {
+              console.log(`          First raw diff at message index ${firstRawDiff}`)
+            }
+            if (firstStructDiff >= 0) {
+              console.log(`          First structural diff (ignoring cache_control) at message index ${firstStructDiff}`)
+            } else if (prevMsgs.length === currMsgs.length) {
+              console.log(`          ✅ Structurally identical (only cache_control placement differs)`)
             }
             if (prevMsgs.length !== currMsgs.length) {
               console.log(`          Message count: ${prevMsgs.length} → ${currMsgs.length}`)
@@ -218,7 +250,7 @@ function compareProviderRequests(
 
 function comparePair(prev: Snapshot, curr: Snapshot, prevFile: string, currFile: string) {
   printSectionHeader(
-    `Comparing snapshot ${prev.index} → ${curr.index}  (${prev.agentType})`,
+    `Comparing step ${prev.index} → ${curr.index}  (${prev.agentType})`,
   )
   console.log(`  File A: ${prevFile}`)
   console.log(`  File B: ${currFile}`)
@@ -229,8 +261,8 @@ function comparePair(prev: Snapshot, curr: Snapshot, prevFile: string, currFile:
   if (prev.systemHash || curr.systemHash) {
     console.log(`  Hashes: system=${prev.systemHash ?? '?'}→${curr.systemHash ?? '?'}  tools=${prev.toolsHash ?? '?'}→${curr.toolsHash ?? '?'}`)
   }
-  if (prev.runId || curr.runId) {
-    console.log(`  RunId:  ${prev.runId ?? '?'} → ${curr.runId ?? '?'}`)
+  if (prev.runId !== curr.runId) {
+    console.log(`  ⚠️  Different runs: ${prev.runId ?? '?'} → ${curr.runId ?? '?'}`)
   }
 
   const prevSystem = prev.preConversion.systemPrompt
@@ -323,11 +355,6 @@ function comparePair(prev: Snapshot, curr: Snapshot, prevFile: string, currFile:
   console.log('\n  🎯 Cache Verdict:')
   const systemIdentical = prevSystem === currSystem
   const toolsIdentical = prevToolJson === currToolJson
-  const providerNormIdentical =
-    prev.providerRequest && curr.providerRequest
-      ? JSON.stringify(prev.providerRequest.normalized) ===
-        JSON.stringify(curr.providerRequest.normalized)
-      : undefined
 
   if (systemIdentical && toolsIdentical) {
     console.log(
@@ -340,40 +367,54 @@ function comparePair(prev: Snapshot, curr: Snapshot, prevFile: string, currFile:
     console.log(`     ❌ PRE-CONVERSION CACHE MISS expected — ${causes.join(' and ')}`)
   }
 
-  if (providerNormIdentical === true) {
-    console.log(
-      '     ✅ Post-conversion (provider) request bodies are IDENTICAL',
-    )
-  } else if (providerNormIdentical === false) {
-    console.log(
-      '     ❌ Post-conversion (provider) request bodies DIFFER — conversion layer may be introducing instability',
-    )
-    if (systemIdentical && toolsIdentical) {
-      console.log(
-        '     ⚠️  Pre-conversion was identical but post-conversion differs — bug is in the conversion layer!',
-      )
+  // Check post-conversion structural stability (ignoring cache_control positions)
+  if (prev.providerRequest?.normalized && curr.providerRequest?.normalized) {
+    const prevObj = prev.providerRequest.normalized as Record<string, unknown>
+    const currObj = curr.providerRequest.normalized as Record<string, unknown>
+    if (Array.isArray(prevObj.messages) && Array.isArray(currObj.messages)) {
+      const prevMsgs = prevObj.messages as unknown[]
+      const currMsgs = currObj.messages as unknown[]
+      const minLen = Math.min(prevMsgs.length, currMsgs.length)
+      let sharedStructural = 0
+      for (let i = 0; i < minLen; i++) {
+        if (JSON.stringify(stripCacheControlFromMessage(prevMsgs[i])) === JSON.stringify(stripCacheControlFromMessage(currMsgs[i]))) {
+          sharedStructural++
+        } else {
+          break
+        }
+      }
+      console.log(`     📊 Post-conversion shared prefix: ${sharedStructural}/${minLen} messages (ignoring cache_control)`)
+      if (sharedStructural < minLen && systemIdentical && toolsIdentical) {
+        console.log(`     ⚠️  Structural content differs in shared prefix — possible conversion issue`)
+      }
     }
   }
 }
 
-function parseArgs(): { dir: string; agentFilter?: string } {
+function parseArgs(): { dir: string; agentFilter?: string; runFilter?: string; crossRun: boolean } {
   const args = process.argv.slice(2)
   let dir = join(process.cwd(), 'debug', 'cache-debug')
   let agentFilter: string | undefined
+  let runFilter: string | undefined
+  let crossRun = false
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--agent' && i + 1 < args.length) {
       agentFilter = args[++i]
+    } else if (args[i] === '--run' && i + 1 < args.length) {
+      runFilter = args[++i]
+    } else if (args[i] === '--cross-run') {
+      crossRun = true
     } else if (!args[i].startsWith('--')) {
       dir = args[i]
     }
   }
 
-  return { dir, agentFilter }
+  return { dir, agentFilter, runFilter, crossRun }
 }
 
 function main() {
-  const { dir, agentFilter } = parseArgs()
+  const { dir, agentFilter, runFilter, crossRun } = parseArgs()
 
   let files: string[]
   try {
@@ -408,46 +449,118 @@ function main() {
     allSnapshots = allSnapshots.filter(
       (s) => s.snapshot.agentType === agentFilter,
     )
-    console.log(
-      `Filtered to ${allSnapshots.length} snapshot(s) for agent type: ${agentFilter}`,
+  }
+
+  if (runFilter) {
+    allSnapshots = allSnapshots.filter(
+      (s) => s.snapshot.runId === runFilter || s.snapshot.runId?.startsWith(runFilter),
     )
-  } else {
-    console.log(`Found ${allSnapshots.length} snapshot(s) in ${dir}`)
-    const agentTypes = [...new Set(allSnapshots.map((s) => s.snapshot.agentType))]
-    if (agentTypes.length > 1) {
-      console.log(
-        `\n⚠️  Multiple agent types found: ${agentTypes.join(', ')}`,
-      )
-      console.log(
-        '   Use --agent <type> to filter (e.g. --agent base2)',
-      )
-    }
+  }
+
+  console.log(`Found ${allSnapshots.length} snapshot(s) in ${dir}`)
+  if (agentFilter) {
+    console.log(`  Filtered to agent type: ${agentFilter}`)
+  }
+  if (runFilter) {
+    console.log(`  Filtered to run: ${runFilter}`)
   }
 
   const withProviderRequest = allSnapshots.filter((s) => s.snapshot.providerRequest !== undefined).length
   console.log(`  Provider request data: ${withProviderRequest}/${allSnapshots.length} snapshots`)
-
-  console.log(
-    '\nFiles:',
-    allSnapshots.map((s) => `  ${s.filename}`).join('\n'),
-  )
 
   if (allSnapshots.length < 2) {
     console.error('\nNeed at least 2 snapshots to compare. Send another prompt.')
     process.exit(1)
   }
 
-  for (let i = 1; i < allSnapshots.length; i++) {
-    comparePair(
-      allSnapshots[i - 1].snapshot,
-      allSnapshots[i].snapshot,
-      allSnapshots[i - 1].filename,
-      allSnapshots[i].filename,
+  if (crossRun) {
+    // Old behavior: compare all snapshots sequentially
+    console.log('\nMode: cross-run (comparing all snapshots sequentially)')
+    console.log(
+      '\nFiles:',
+      allSnapshots.map((s) => `  ${s.filename}`).join('\n'),
     )
+
+    let totalPairs = 0
+    for (let i = 1; i < allSnapshots.length; i++) {
+      comparePair(
+        allSnapshots[i - 1].snapshot,
+        allSnapshots[i].snapshot,
+        allSnapshots[i - 1].filename,
+        allSnapshots[i].filename,
+      )
+      totalPairs++
+    }
+
+    console.log(`\n${'═'.repeat(80)}`)
+    console.log(`  Summary: compared ${totalPairs} consecutive pair(s) across all runs`)
+    console.log(`${'═'.repeat(80)}\n`)
+    return
+  }
+
+  // Default: group by runId and compare within each run
+  const byRun = new Map<string, Array<{ snapshot: Snapshot; filename: string }>>()
+  const noRunId: Array<{ snapshot: Snapshot; filename: string }> = []
+
+  for (const s of allSnapshots) {
+    const runId = s.snapshot.runId
+    if (!runId) {
+      noRunId.push(s)
+      continue
+    }
+    if (!byRun.has(runId)) {
+      byRun.set(runId, [])
+    }
+    byRun.get(runId)!.push(s)
+  }
+
+  // Filter to runs with at least 2 steps
+  const multiStepRuns = [...byRun.entries()].filter(([, snaps]) => snaps.length >= 2)
+  const singleStepRuns = [...byRun.entries()].filter(([, snaps]) => snaps.length < 2)
+
+  console.log(`\n  Runs: ${byRun.size} total, ${multiStepRuns.length} with multiple steps`)
+  if (singleStepRuns.length > 0) {
+    console.log(`  Skipping ${singleStepRuns.length} single-step run(s)`)
+  }
+  if (noRunId.length > 0) {
+    console.log(`  Skipping ${noRunId.length} snapshot(s) without runId`)
+  }
+
+  let totalPairs = 0
+
+  for (const [runId, snaps] of multiStepRuns) {
+    // Sort by index (step number), then by timestamp as tiebreaker
+    snaps.sort((a, b) => {
+      if (a.snapshot.index !== b.snapshot.index) {
+        return a.snapshot.index - b.snapshot.index
+      }
+      return a.snapshot.timestamp.localeCompare(b.snapshot.timestamp)
+    })
+
+    console.log(`\n${'═'.repeat(80)}`)
+    console.log(`  Run: ${runId}  (${snaps.length} steps)`)
+    console.log(`  Agent: ${snaps[0].snapshot.agentType}  Model: ${snaps[0].snapshot.model ?? 'unknown'}`)
+    console.log(`${'═'.repeat(80)}`)
+
+    // Print step overview
+    for (const s of snaps) {
+      console.log(`    Step ${s.snapshot.index}: ${s.snapshot.preConversion.messages.length} msgs  (${s.filename})`)
+    }
+
+    // Compare consecutive steps
+    for (let i = 1; i < snaps.length; i++) {
+      comparePair(
+        snaps[i - 1].snapshot,
+        snaps[i].snapshot,
+        snaps[i - 1].filename,
+        snaps[i].filename,
+      )
+      totalPairs++
+    }
   }
 
   console.log(`\n${'═'.repeat(80)}`)
-  console.log(`  Summary: compared ${allSnapshots.length - 1} consecutive pair(s)`)
+  console.log(`  Summary: compared ${totalPairs} consecutive step pair(s) across ${multiStepRuns.length} run(s)`)
   console.log(`${'═'.repeat(80)}\n`)
 }
 
