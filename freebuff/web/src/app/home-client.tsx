@@ -22,7 +22,7 @@ const faqs = [
       'Freebuff is supported by ads shown in the CLI.',
   },
   {
-    question: 'What model do you use?',
+    question: 'What models do you use?',
     answer:
       'MiniMax M2.5 as the main coding agent, Gemini 3.1 Flash Lite for finding files and research, and GPT-5.4 for deep thinking if you connect your ChatGPT subscription.',
   },
@@ -107,6 +107,12 @@ function FAQList() {
   )
 }
 
+const PHILOSOPHY_WORDS = [
+  { word: 'FAST', description: '3× the speed of Claude Code' },
+  { word: 'SIMPLE', description: 'No modes. No config. Just code.' },
+  { word: 'LOADED', description: 'Web research, browser use, and more — built in' },
+]
+
 const wordVariant = {
   initial: { opacity: 0, y: 30, filter: 'blur(8px)' },
   animate: {
@@ -166,7 +172,7 @@ export default function HomeClient() {
             transition={{ duration: 0.6, delay: 0.8 }}
             className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed"
           >
-            No subscription. No API key. Zero configuration.
+            No subscription. No configuration. Start in seconds.
           </motion.p>
 
           {/* Install command */}
@@ -182,6 +188,31 @@ export default function HomeClient() {
 
         {/* Bottom fade */}
         <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-black to-transparent" />
+      </section>
+
+      {/* ─── Philosophy Section ─── */}
+      <section className="relative py-24 md:py-32 px-4 overflow-hidden">
+        <div className="relative z-10 container mx-auto max-w-5xl">
+          <div className="flex flex-col gap-12 md:gap-16">
+            {PHILOSOPHY_WORDS.map((item, i) => (
+              <motion.div
+                key={item.word}
+                initial={{ opacity: 0, filter: 'blur(12px)' }}
+                whileInView={{ opacity: 1, filter: 'blur(0px)' }}
+                viewport={{ once: true, amount: 0.5 }}
+                transition={{ duration: 0.7, delay: i * 0.1 }}
+                className="group"
+              >
+                <div className="keyword-hollow font-dm-mono text-7xl md:text-[8rem] lg:text-[10rem] font-medium leading-[0.85] tracking-tighter select-none">
+                  {item.word}
+                </div>
+                <p className="mt-3 md:mt-4 text-zinc-500 text-sm md:text-base font-mono tracking-wide">
+                  {item.description}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* Divider */}
