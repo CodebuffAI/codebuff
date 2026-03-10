@@ -41,7 +41,7 @@ const WriteTodosItem = ({ todos }: WriteTodosItemProps) => {
           <text style={{ wrapMode: 'word' }}>
             {todo.completed ? (
               <>
-                <span fg={theme.success}>✓ </span>
+                <span fg={theme.success}>✓  </span>
                 <span
                   fg={theme.muted}
                   attributes={TextAttributes.STRIKETHROUGH}
@@ -51,7 +51,7 @@ const WriteTodosItem = ({ todos }: WriteTodosItemProps) => {
               </>
             ) : (
               <>
-                <span fg={theme.foreground}>☐ </span>
+                <span fg={theme.foreground}>☐  </span>
                 <span fg={theme.foreground}>{todo.task}</span>
               </>
             )}
