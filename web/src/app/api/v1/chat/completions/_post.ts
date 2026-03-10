@@ -48,6 +48,12 @@ import {
   isFireworksModel,
 } from '@/llm-api/fireworks'
 import {
+  SiliconFlowError,
+  handleSiliconFlowNonStream,
+  handleSiliconFlowStream,
+  isSiliconFlowModel,
+} from '@/llm-api/siliconflow'
+import {
   handleOpenAINonStream,
   OPENAI_SUPPORTED_MODELS,
 } from '@/llm-api/openai'
@@ -360,10 +366,22 @@ export async function postChatCompletions(params: {
     // Handle streaming vs non-streaming
     try {
       if (bodyStream) {
-        // Streaming request — route to CanopyWave/Fireworks for supported models
-        const useCanopyWave = isCanopyWaveModel(typedBody.model)
-        const useFireworks = !useCanopyWave && isFireworksModel(typedBody.model)
-        const stream = useCanopyWave
+        // Streaming request — route to SiliconFlow/CanopyWave/Fireworks for supported models
+        // CanopyWave and Fireworks TEMPORARILY DISABLED: route through OpenRouter
+        const useSiliconFlow = isSiliconFlowModel(typedBody.model)
+        const useCanopyWave = false // isCanopyWaveModel(typedBody.model)
+        const useFireworks = false // isFireworksModel(typedBody.model)
+        const stream = useSiliconFlow
+          ? await handleSiliconFlowStream({
+              body: typedBody,
+              userId,
+              stripeCustomerId,
+              agentId,
+              fetch,
+              logger,
+              insertMessageBigquery,
+            })
+          : useCanopyWave
           ? await handleCanopyWaveStream({
               body: typedBody,
               userId,
@@ -413,10 +431,12 @@ export async function postChatCompletions(params: {
           },
         })
       } else {
-        // Non-streaming request — route to CanopyWave/Fireworks for supported models
+        // Non-streaming request — route to SiliconFlow/CanopyWave/Fireworks for supported models
+        // CanopyWave and Fireworks TEMPORARILY DISABLED: route through OpenRouter
         const model = typedBody.model
-        const useCanopyWave = isCanopyWaveModel(model)
-        const useFireworks = !useCanopyWave && isFireworksModel(model)
+        const useSiliconFlow = isSiliconFlowModel(model)
+        const useCanopyWave = false // isCanopyWaveModel(model)
+        const useFireworks = false // isFireworksModel(model)
         const modelParts = model.split('/')
         const shortModelName = modelParts.length > 1 ? modelParts[1] : model
         const isOpenAIDirectModel =
@@ -427,7 +447,17 @@ export async function postChatCompletions(params: {
         const shouldUseOpenAIEndpoint =
           isOpenAIDirectModel && typedBody.codebuff_metadata?.n !== undefined
 
-        const nonStreamRequest = useCanopyWave
+        const nonStreamRequest = useSiliconFlow
+          ? handleSiliconFlowNonStream({
+              body: typedBody,
+              userId,
+              stripeCustomerId,
+              agentId,
+              fetch,
+              logger,
+              insertMessageBigquery,
+            })
+          : useCanopyWave
           ? handleCanopyWaveNonStream({
               body: typedBody,
               userId,
@@ -495,10 +525,14 @@ export async function postChatCompletions(params: {
       if (error instanceof CanopyWaveError) {
         canopywaveError = error
       }
+      let siliconflowError: SiliconFlowError | undefined
+      if (error instanceof SiliconFlowError) {
+        siliconflowError = error
+      }
 
       // Log detailed error information for debugging
       const errorDetails = openrouterError?.toJSON()
-      const providerLabel = canopywaveError ? 'CanopyWave' : fireworksError ? 'Fireworks' : 'OpenRouter'
+      const providerLabel = siliconflowError ? 'SiliconFlow' : canopywaveError ? 'CanopyWave' : fireworksError ? 'Fireworks' : 'OpenRouter'
       logger.error(
         {
           error: getErrorObject(error),
@@ -512,8 +546,8 @@ export async function postChatCompletions(params: {
             ? typedBody.messages.length
             : 0,
           messages: typedBody.messages,
-          providerStatusCode: (openrouterError ?? fireworksError ?? canopywaveError)?.statusCode,
-          providerStatusText: (openrouterError ?? fireworksError ?? canopywaveError)?.statusText,
+          providerStatusCode: (openrouterError ?? fireworksError ?? canopywaveError ?? siliconflowError)?.statusCode,
+          providerStatusText: (openrouterError ?? fireworksError ?? canopywaveError ?? siliconflowError)?.statusText,
           openrouterErrorCode: errorDetails?.error?.code,
           openrouterErrorType: errorDetails?.error?.type,
           openrouterErrorMessage: errorDetails?.error?.message,
@@ -542,6 +576,9 @@ export async function postChatCompletions(params: {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
       if (error instanceof CanopyWaveError) {
+        return NextResponse.json(error.toJSON(), { status: error.statusCode })
+      }
+      if (error instanceof SiliconFlowError) {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
 
