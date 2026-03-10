@@ -1,77 +1,49 @@
 #!/usr/bin/env bun
 
 /**
- * Test script to verify Fireworks AI integration with minimax-m2.5.
+ * Test script to verify CanopyWave integration and usage/token reporting.
  *
  * Usage:
- *   # Test 1: Hit Fireworks API directly
- *   bun scripts/test-fireworks.ts direct
+ *   # Test 1: Hit CanopyWave API directly
+ *   bun scripts/test-canopywave.ts direct
  *
  *   # Test 2: Hit our chat completions endpoint (requires running web server + valid API key)
- *   CODEBUFF_API_KEY=<key> bun scripts/test-fireworks.ts endpoint
+ *   CODEBUFF_API_KEY=<key> bun scripts/test-canopywave.ts endpoint
  *
  *   # Run both tests
- *   CODEBUFF_API_KEY=<key> bun scripts/test-fireworks.ts both
+ *   CODEBUFF_API_KEY=<key> bun scripts/test-canopywave.ts both
  */
 
 export {}
 
-const FIREWORKS_BASE_URL = 'https://api.fireworks.ai/inference/v1'
-const FIREWORKS_MODEL = 'accounts/fireworks/models/minimax-m2p5'
+const CANOPYWAVE_BASE_URL = 'https://inference.canopywave.io/v1'
+const CANOPYWAVE_MODEL = 'minimax/minimax-m2.5'
 const OPENROUTER_MODEL = 'minimax/minimax-m2.5'
-
-// Same pricing constants as web/src/llm-api/fireworks.ts
-const FIREWORKS_INPUT_COST_PER_TOKEN = 0.30 / 1_000_000
-const FIREWORKS_CACHED_INPUT_COST_PER_TOKEN = 0.03 / 1_000_000
-const FIREWORKS_OUTPUT_COST_PER_TOKEN = 1.20 / 1_000_000
-
-function computeCost(usage: Record<string, unknown>): { cost: number; breakdown: string } {
-  const inputTokens = typeof usage.prompt_tokens === 'number' ? usage.prompt_tokens : 0
-  const outputTokens = typeof usage.completion_tokens === 'number' ? usage.completion_tokens : 0
-  const promptDetails = usage.prompt_tokens_details as Record<string, unknown> | undefined
-  const cachedTokens = typeof promptDetails?.cached_tokens === 'number' ? promptDetails.cached_tokens : 0
-  const nonCachedInput = Math.max(0, inputTokens - cachedTokens)
-
-  const inputCost = nonCachedInput * FIREWORKS_INPUT_COST_PER_TOKEN
-  const cachedCost = cachedTokens * FIREWORKS_CACHED_INPUT_COST_PER_TOKEN
-  const outputCost = outputTokens * FIREWORKS_OUTPUT_COST_PER_TOKEN
-  const totalCost = inputCost + cachedCost + outputCost
-
-  const breakdown = [
-    `${nonCachedInput} input × $0.30/M = $${inputCost.toFixed(8)}`,
-    `${cachedTokens} cached × $0.03/M = $${cachedCost.toFixed(8)}`,
-    `${outputTokens} output × $1.20/M = $${outputCost.toFixed(8)}`,
-    `Total: $${totalCost.toFixed(8)}`,
-  ].join('\n         ')
-
-  return { cost: totalCost, breakdown }
-}
 
 const testPrompt = 'Say "hello world" and nothing else.'
 
-// ─── Direct Fireworks API Test ──────────────────────────────────────────────
-
-async function testFireworksDirect() {
-  const apiKey = process.env.FIREWORKS_API_KEY
+async function testCanopyWaveDirect() {
+  const apiKey = process.env.CANOPYWAVE_API_KEY
   if (!apiKey) {
-    console.error('❌ FIREWORKS_API_KEY is not set. Add it to .env.local or pass it directly.')
+    console.error('❌ CANOPYWAVE_API_KEY is not set. Add it to .env.local or pass it directly.')
     process.exit(1)
   }
 
-  console.log('── Test 1: Fireworks API (non-streaming) ──')
-  console.log(`Model: ${FIREWORKS_MODEL}`)
+  // ── Non-streaming ──
+  console.log('── Test 1: CanopyWave API (non-streaming) ──')
+  console.log(`Model: ${CANOPYWAVE_MODEL}`)
   console.log(`Prompt: "${testPrompt}"`)
   console.log()
 
   const startTime = Date.now()
-  const response = await fetch(`${FIREWORKS_BASE_URL}/chat/completions`, {
+  const response = await fetch(`${CANOPYWAVE_BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: FIREWORKS_MODEL,
+      model: CANOPYWAVE_MODEL,
       messages: [{ role: 'user', content: testPrompt }],
       max_tokens: 64,
     }),
@@ -79,35 +51,43 @@ async function testFireworksDirect() {
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error(`❌ Fireworks API returned ${response.status}: ${errorText}`)
+    console.error(`❌ CanopyWave API returned ${response.status}: ${errorText}`)
     process.exit(1)
   }
 
   const data = await response.json()
   const elapsed = Date.now() - startTime
   const content = data.choices?.[0]?.message?.content ?? '<no content>'
-  const usage = data.usage ?? {}
 
-  const { cost, breakdown } = computeCost(usage)
   console.log(`✅ Response (${elapsed}ms):`)
   console.log(`   Content: ${content}`)
   console.log(`   Model: ${data.model}`)
-  console.log(`   Usage: ${JSON.stringify(usage)}`)
-  console.log(`   Computed cost: $${cost.toFixed(8)}`)
-  console.log(`         ${breakdown}`)
+  console.log()
+  console.log('   ── Raw usage object ──')
+  console.log(JSON.stringify(data.usage, null, 2))
+  console.log()
+  console.log('   ── Full raw response (excluding choices content) ──')
+  const debugData = { ...data }
+  if (debugData.choices) {
+    debugData.choices = debugData.choices.map((c: Record<string, unknown>) => ({
+      ...c,
+      message: { ...(c.message as Record<string, unknown>), content: '<truncated>' },
+    }))
+  }
+  console.log(JSON.stringify(debugData, null, 2))
   console.log()
 
-  // Streaming test
-  console.log('── Test 1b: Fireworks API (streaming) ──')
+  // ── Streaming ──
+  console.log('── Test 2: CanopyWave API (streaming, include_usage only) ──')
   const streamStart = Date.now()
-  const streamResponse = await fetch(`${FIREWORKS_BASE_URL}/chat/completions`, {
+  const streamResponse = await fetch(`${CANOPYWAVE_BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: FIREWORKS_MODEL,
+      model: CANOPYWAVE_MODEL,
       messages: [{ role: 'user', content: testPrompt }],
       max_tokens: 64,
       stream: true,
@@ -117,10 +97,14 @@ async function testFireworksDirect() {
 
   if (!streamResponse.ok) {
     const errorText = await streamResponse.text()
-    console.error(`❌ Fireworks streaming API returned ${streamResponse.status}: ${errorText}`)
+    console.error(`❌ CanopyWave streaming API returned ${streamResponse.status}: ${errorText}`)
     process.exit(1)
   }
 
+  await consumeStream(streamResponse, streamStart, 'include_usage only')
+}
+
+async function consumeStream(streamResponse: Response, streamStart: number, label: string) {
   const reader = streamResponse.body?.getReader()
   if (!reader) {
     console.error('❌ No response body reader')
@@ -129,8 +113,9 @@ async function testFireworksDirect() {
 
   const decoder = new TextDecoder()
   let streamContent = ''
-  let streamUsage: Record<string, unknown> | null = null
   let chunkCount = 0
+  const allUsageChunks: unknown[] = []
+  const allRawChunks: unknown[] = []
 
   let done = false
   while (!done) {
@@ -153,7 +138,13 @@ async function testFireworksDirect() {
         if (delta?.reasoning_content) {
           console.log(`   [reasoning chunk] ${delta.reasoning_content.slice(0, 80)}...`)
         }
-        if (chunk.usage) streamUsage = chunk.usage
+        if (chunk.usage) {
+          allUsageChunks.push(chunk.usage)
+        }
+        // Capture first 3 chunks for debugging
+        if (chunkCount <= 3) {
+          allRawChunks.push(chunk)
+        }
       } catch {
         // skip non-JSON lines
       }
@@ -161,13 +152,21 @@ async function testFireworksDirect() {
   }
 
   const streamElapsed = Date.now() - streamStart
-  console.log(`✅ Stream response (${streamElapsed}ms, ${chunkCount} chunks):`)
+  console.log(`✅ Stream response [${label}] (${streamElapsed}ms, ${chunkCount} chunks):`)
   console.log(`   Content: ${streamContent}`)
-  if (streamUsage) {
-    const { cost: streamCost, breakdown: streamBreakdown } = computeCost(streamUsage as Record<string, unknown>)
-    console.log(`   Usage: ${JSON.stringify(streamUsage)}`)
-    console.log(`   Computed cost: $${streamCost.toFixed(8)}`)
-    console.log(`         ${streamBreakdown}`)
+  console.log()
+  console.log(`   ── First 3 raw chunks ──`)
+  for (const chunk of allRawChunks) {
+    console.log(JSON.stringify(chunk, null, 2))
+    console.log()
+  }
+  console.log(`   ── All usage chunks (${allUsageChunks.length} total) ──`)
+  for (const usage of allUsageChunks) {
+    console.log(JSON.stringify(usage, null, 2))
+    console.log()
+  }
+  if (allUsageChunks.length === 0) {
+    console.log('   ⚠️  No usage data received in stream!')
   }
   console.log()
 }
@@ -178,23 +177,20 @@ async function testChatCompletionsEndpoint() {
   const codebuffApiKey = process.env.CODEBUFF_API_KEY
   if (!codebuffApiKey) {
     console.error('❌ CODEBUFF_API_KEY is not set. Pass it as an env var.')
-    console.error('   Example: CODEBUFF_API_KEY=<key> bun scripts/test-fireworks.ts endpoint')
+    console.error('   Example: CODEBUFF_API_KEY=<key> bun scripts/test-canopywave.ts endpoint')
     process.exit(1)
   }
 
   const appUrl = process.env.NEXT_PUBLIC_CODEBUFF_APP_URL ?? 'http://localhost:3000'
   const endpoint = `${appUrl}/api/v1/chat/completions`
+  const runId = process.env.RUN_ID ?? 'test-run-id-canopywave'
 
-  console.log('── Test 2: Chat Completions Endpoint (non-streaming) ──')
+  // ── Non-streaming ──
+  console.log('── Test: Chat Completions Endpoint (non-streaming) ──')
   console.log(`Endpoint: ${endpoint}`)
-  console.log(`Model: ${OPENROUTER_MODEL} (should route to Fireworks)`)
+  console.log(`Model: ${OPENROUTER_MODEL} (should route to CanopyWave)`)
   console.log(`Prompt: "${testPrompt}"`)
   console.log()
-
-  // We need a valid run_id. This is tricky without a full setup,
-  // so we'll just fire the request and check the error to confirm routing.
-  // If you have a valid run_id, set it via RUN_ID env var.
-  const runId = process.env.RUN_ID ?? 'test-run-id-fireworks'
 
   const startTime = Date.now()
   const response = await fetch(endpoint, {
@@ -210,7 +206,7 @@ async function testChatCompletionsEndpoint() {
       stream: false,
       codebuff_metadata: {
         run_id: runId,
-        client_id: 'test-fireworks-script',
+        client_id: 'test-canopywave-script',
         cost_mode: 'free',
       },
     }),
@@ -225,22 +221,32 @@ async function testChatCompletionsEndpoint() {
     console.log(`   Content: ${content}`)
     console.log(`   Model: ${data.model}`)
     console.log(`   Provider: ${data.provider}`)
-    console.log(`   Usage: ${JSON.stringify(data.usage)}`)
+    console.log()
+    console.log('   ── Usage object ──')
+    console.log(JSON.stringify(data.usage, null, 2))
+    console.log()
+    if (data.usage) {
+      const u = data.usage
+      console.log(`   prompt_tokens:     ${u.prompt_tokens ?? 'N/A'}`)
+      console.log(`   completion_tokens: ${u.completion_tokens ?? 'N/A'}`)
+      console.log(`   total_tokens:      ${u.total_tokens ?? 'N/A'}`)
+      console.log(`   cost:              ${u.cost ?? 'N/A'}`)
+      console.log(`   cost_details:      ${JSON.stringify(u.cost_details)}`)
+    }
   } else {
-    // Even an auth/validation error confirms the endpoint is reachable
     console.log(`⚠️  Response ${response.status} (${elapsed}ms):`)
     console.log(`   ${JSON.stringify(data)}`)
     if (response.status === 400 && data.message?.includes('runId')) {
       console.log('   ℹ️  This is expected if you don\'t have a valid run_id.')
-      console.log('   ℹ️  The request reached the endpoint successfully — routing is wired up.')
+      console.log('   ℹ️  The request reached the endpoint — routing to CanopyWave is wired up.')
     } else if (response.status === 401) {
       console.log('   ℹ️  Auth failed. Make sure CODEBUFF_API_KEY is valid.')
     }
   }
   console.log()
 
-  // Streaming test
-  console.log('── Test 2b: Chat Completions Endpoint (streaming) ──')
+  // ── Streaming ──
+  console.log('── Test: Chat Completions Endpoint (streaming) ──')
   const streamStart = Date.now()
   const streamResponse = await fetch(endpoint, {
     method: 'POST',
@@ -255,7 +261,7 @@ async function testChatCompletionsEndpoint() {
       stream: true,
       codebuff_metadata: {
         run_id: runId,
-        client_id: 'test-fireworks-script',
+        client_id: 'test-canopywave-script',
         cost_mode: 'free',
       },
     }),
@@ -273,6 +279,8 @@ async function testChatCompletionsEndpoint() {
     const decoder = new TextDecoder()
     let streamContent = ''
     let chunkCount = 0
+    let chunksWithUsage = 0
+    let lastUsage: unknown = null
 
     let done = false
     while (!done) {
@@ -292,6 +300,10 @@ async function testChatCompletionsEndpoint() {
           chunkCount++
           const delta = chunk.choices?.[0]?.delta
           if (delta?.content) streamContent += delta.content
+          if (chunk.usage) {
+            chunksWithUsage++
+            lastUsage = chunk.usage
+          }
         } catch {
           // skip non-JSON lines
         }
@@ -300,6 +312,26 @@ async function testChatCompletionsEndpoint() {
 
     console.log(`✅ Stream response (${streamElapsed}ms, ${chunkCount} chunks):`)
     console.log(`   Content: ${streamContent}`)
+    console.log(`   Chunks with usage: ${chunksWithUsage} (should be exactly 1)`)
+    if (chunksWithUsage > 1) {
+      console.log(`   ⚠️  Multiple usage chunks detected — billing fix may not be working!`)
+    } else if (chunksWithUsage === 1) {
+      console.log(`   ✅ Only 1 usage chunk — billing fix is working correctly!`)
+    } else {
+      console.log(`   ⚠️  No usage chunks received!`)
+    }
+    if (lastUsage) {
+      console.log()
+      console.log('   ── Final usage object ──')
+      console.log(JSON.stringify(lastUsage, null, 2))
+      const u = lastUsage as Record<string, unknown>
+      console.log()
+      console.log(`   prompt_tokens:     ${u.prompt_tokens ?? 'N/A'}`)
+      console.log(`   completion_tokens: ${u.completion_tokens ?? 'N/A'}`)
+      console.log(`   total_tokens:      ${u.total_tokens ?? 'N/A'}`)
+      console.log(`   cost:              ${u.cost ?? 'N/A'}`)
+      console.log(`   cost_details:      ${JSON.stringify(u.cost_details)}`)
+    }
   } else {
     const data = await streamResponse.json()
     console.log(`⚠️  Response ${streamResponse.status} (${streamElapsed}ms):`)
@@ -316,24 +348,24 @@ async function testChatCompletionsEndpoint() {
 async function main() {
   const mode = process.argv[2] ?? 'direct'
 
-  console.log('🔥 Fireworks Integration Test')
+  console.log('🔌 CanopyWave Integration Test')
   console.log('='.repeat(50))
   console.log()
 
   switch (mode) {
     case 'direct':
-      await testFireworksDirect()
+      await testCanopyWaveDirect()
       break
     case 'endpoint':
       await testChatCompletionsEndpoint()
       break
     case 'both':
-      await testFireworksDirect()
+      await testCanopyWaveDirect()
       await testChatCompletionsEndpoint()
       break
     default:
       console.error(`Unknown mode: ${mode}`)
-      console.error('Usage: bun scripts/test-fireworks.ts [direct|endpoint|both]')
+      console.error('Usage: bun scripts/test-canopywave.ts [direct|endpoint|both]')
       process.exit(1)
   }
 

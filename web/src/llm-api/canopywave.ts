@@ -15,31 +15,31 @@ import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/b
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type { ChatCompletionRequestBody } from './types'
 
-const BASETEN_BASE_URL = 'https://inference.baseten.co/v1'
+const CANOPYWAVE_BASE_URL = 'https://inference.canopywave.io/v1'
 
 // Extended timeout for deep-thinking models that can take
 // a long time to start streaming.
-const BASETEN_HEADERS_TIMEOUT_MS = 10 * 60 * 1000
+const CANOPYWAVE_HEADERS_TIMEOUT_MS = 10 * 60 * 1000
 
-const basetenAgent = new Agent({
-  headersTimeout: BASETEN_HEADERS_TIMEOUT_MS,
+const canopywaveAgent = new Agent({
+  headersTimeout: CANOPYWAVE_HEADERS_TIMEOUT_MS,
   bodyTimeout: 0,
 })
 
-/** Map from OpenRouter model IDs to Baseten model IDs */
-const BASETEN_MODEL_MAP: Record<string, string> = {
-  'minimax/minimax-m2.5': 'MiniMaxAI/MiniMax-M2.5',
+/** Map from OpenRouter model IDs to CanopyWave model IDs */
+const CANOPYWAVE_MODEL_MAP: Record<string, string> = {
+  'minimax/minimax-m2.5': 'minimax/minimax-m2.5',
 }
 
-export function isBasetenModel(model: string): boolean {
-  return model in BASETEN_MODEL_MAP
+export function isCanopyWaveModel(model: string): boolean {
+  return model in CANOPYWAVE_MODEL_MAP
 }
 
-function getBasetenModelId(openrouterModel: string): string {
-  return BASETEN_MODEL_MAP[openrouterModel] ?? openrouterModel
+function getCanopyWaveModelId(openrouterModel: string): string {
+  return CANOPYWAVE_MODEL_MAP[openrouterModel] ?? openrouterModel
 }
 
-type StreamState = { responseText: string; reasoningText: string }
+type StreamState = { responseText: string; reasoningText: string; billedAlready: boolean }
 
 type LineResult = {
   state: StreamState
@@ -47,49 +47,48 @@ type LineResult = {
   patchedLine: string
 }
 
-function createBasetenRequest(params: {
+function createCanopyWaveRequest(params: {
   body: ChatCompletionRequestBody
   originalModel: string
   fetch: typeof globalThis.fetch
 }) {
   const { body, originalModel, fetch } = params
-  const basetenBody: Record<string, unknown> = {
+  const canopywaveBody: Record<string, unknown> = {
     ...body,
-    model: getBasetenModelId(originalModel),
+    model: getCanopyWaveModelId(originalModel),
   }
 
   // Strip OpenRouter-specific / internal fields
-  delete basetenBody.provider
-  delete basetenBody.transforms
-  delete basetenBody.codebuff_metadata
-  delete basetenBody.usage
+  delete canopywaveBody.provider
+  delete canopywaveBody.transforms
+  delete canopywaveBody.codebuff_metadata
+  delete canopywaveBody.usage
 
   // For streaming, request usage in the final chunk
-  if (basetenBody.stream) {
-    basetenBody.stream_options = { include_usage: true }
+  if (canopywaveBody.stream) {
+    canopywaveBody.stream_options = { include_usage: true }
   }
 
-  if (!env.BASETEN_API_KEY) {
-    throw new Error('BASETEN_API_KEY is not configured')
+  if (!env.CANOPYWAVE_API_KEY) {
+    throw new Error('CANOPYWAVE_API_KEY is not configured')
   }
 
-  return fetch(`${BASETEN_BASE_URL}/chat/completions`, {
+  return fetch(`${CANOPYWAVE_BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${env.BASETEN_API_KEY}`,
+      Authorization: `Bearer ${env.CANOPYWAVE_API_KEY}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(basetenBody),
+    body: JSON.stringify(canopywaveBody),
     // @ts-expect-error - dispatcher is a valid undici option not in fetch types
-    dispatcher: basetenAgent,
+    dispatcher: canopywaveAgent,
   })
 }
 
-// Baseten per-token pricing (dollars per token)
-// TODO: Verify these costs against Baseten's actual pricing
-const BASETEN_INPUT_COST_PER_TOKEN = 0.30 / 1_000_000
-const BASETEN_CACHED_INPUT_COST_PER_TOKEN = 0.03 / 1_000_000
-const BASETEN_OUTPUT_COST_PER_TOKEN = 1.20 / 1_000_000
+// CanopyWave per-token pricing (dollars per token) for MiniMax M2.5
+const CANOPYWAVE_INPUT_COST_PER_TOKEN = 0.27 / 1_000_000
+const CANOPYWAVE_CACHED_INPUT_COST_PER_TOKEN = 0.03 / 1_000_000
+const CANOPYWAVE_OUTPUT_COST_PER_TOKEN = 1.08 / 1_000_000
 
 function extractUsageAndCost(usage: Record<string, unknown> | undefined | null): UsageData {
   if (!usage) return { inputTokens: 0, outputTokens: 0, cacheReadInputTokens: 0, reasoningTokens: 0, cost: 0 }
@@ -101,17 +100,16 @@ function extractUsageAndCost(usage: Record<string, unknown> | undefined | null):
   const cacheReadInputTokens = typeof promptDetails?.cached_tokens === 'number' ? promptDetails.cached_tokens : 0
   const reasoningTokens = typeof completionDetails?.reasoning_tokens === 'number' ? completionDetails.reasoning_tokens : 0
 
-  // Baseten doesn't return cost — compute from token counts and known pricing
   const nonCachedInputTokens = Math.max(0, inputTokens - cacheReadInputTokens)
   const cost =
-    nonCachedInputTokens * BASETEN_INPUT_COST_PER_TOKEN +
-    cacheReadInputTokens * BASETEN_CACHED_INPUT_COST_PER_TOKEN +
-    outputTokens * BASETEN_OUTPUT_COST_PER_TOKEN
+    nonCachedInputTokens * CANOPYWAVE_INPUT_COST_PER_TOKEN +
+    cacheReadInputTokens * CANOPYWAVE_CACHED_INPUT_COST_PER_TOKEN +
+    outputTokens * CANOPYWAVE_OUTPUT_COST_PER_TOKEN
 
   return { inputTokens, outputTokens, cacheReadInputTokens, reasoningTokens, cost }
 }
 
-export async function handleBasetenNonStream({
+export async function handleCanopyWaveNonStream({
   body,
   userId,
   stripeCustomerId,
@@ -132,10 +130,10 @@ export async function handleBasetenNonStream({
   const startTime = new Date()
   const { clientId, clientRequestId, costMode } = extractRequestMetadata({ body, logger })
 
-  const response = await createBasetenRequest({ body, originalModel, fetch })
+  const response = await createCanopyWaveRequest({ body, originalModel, fetch })
 
   if (!response.ok) {
-    throw await parseBasetenError(response)
+    throw await parseCanopyWaveError(response)
   }
 
   const data = await response.json()
@@ -182,12 +180,12 @@ export async function handleBasetenNonStream({
 
   // Normalise model name back to OpenRouter format for client compatibility
   data.model = originalModel
-  if (!data.provider) data.provider = 'Baseten'
+  if (!data.provider) data.provider = 'CanopyWave'
 
   return data
 }
 
-export async function handleBasetenStream({
+export async function handleCanopyWaveStream({
   body,
   userId,
   stripeCustomerId,
@@ -208,10 +206,10 @@ export async function handleBasetenStream({
   const startTime = new Date()
   const { clientId, clientRequestId, costMode } = extractRequestMetadata({ body, logger })
 
-  const response = await createBasetenRequest({ body, originalModel, fetch })
+  const response = await createCanopyWaveRequest({ body, originalModel, fetch })
 
   if (!response.ok) {
-    throw await parseBasetenError(response)
+    throw await parseCanopyWaveError(response)
   }
 
   const reader = response.body?.getReader()
@@ -220,7 +218,7 @@ export async function handleBasetenStream({
   }
 
   let heartbeatInterval: NodeJS.Timeout
-  let state: StreamState = { responseText: '', reasoningText: '' }
+  let state: StreamState = { responseText: '', reasoningText: '', billedAlready: false }
   let clientDisconnected = false
 
   const stream = new ReadableStream({
@@ -301,7 +299,7 @@ export async function handleBasetenStream({
         } else {
           logger.warn(
             getErrorObject(error),
-            'Error after client disconnect in Baseten stream',
+            'Error after client disconnect in CanopyWave stream',
           )
         }
       } finally {
@@ -317,7 +315,7 @@ export async function handleBasetenStream({
           responseTextLength: state.responseText.length,
           reasoningTextLength: state.reasoningText.length,
         },
-        'Client cancelled stream, continuing Baseten consumption for billing',
+        'Client cancelled stream, continuing CanopyWave consumption for billing',
       )
     },
   })
@@ -369,14 +367,14 @@ async function handleLine({
   } catch (error) {
     logger.warn(
       { error: getErrorObject(error, { includeRawError: true }) },
-      'Received non-JSON Baseten response',
+      'Received non-JSON CanopyWave response',
     )
     return { state, patchedLine: line }
   }
 
   // Patch model and provider for SDK compatibility
   if (obj.model) obj.model = originalModel
-  if (!obj.provider) obj.provider = 'Baseten'
+  if (!obj.provider) obj.provider = 'CanopyWave'
 
   // Process the chunk for billing / state tracking
   const result = await handleResponse({
@@ -404,6 +402,12 @@ async function handleLine({
 
   const patchedLine = `data: ${JSON.stringify(obj)}\n`
   return { state: result.state, billedCredits: result.billedCredits, patchedLine }
+}
+
+function isFinalChunk(data: Record<string, unknown>): boolean {
+  const choices = data.choices as Array<Record<string, unknown>> | undefined
+  if (!choices || choices.length === 0) return true
+  return choices.some(c => c.finish_reason != null)
 }
 
 async function handleResponse({
@@ -437,12 +441,21 @@ async function handleResponse({
 }): Promise<{ state: StreamState; billedCredits?: number }> {
   state = handleStreamChunk({ data, state, logger, userId, agentId, model: originalModel })
 
-  if ('error' in data || !data.usage) {
+  // Some providers send cumulative usage on EVERY chunk (not just the final one),
+  // so we must only bill once on the final chunk to avoid charging N times.
+  if ('error' in data || !data.usage || state.billedAlready || !isFinalChunk(data)) {
+    // Strip usage from non-final chunks and duplicate final chunks
+    // so the SDK doesn't see multiple usage objects
+    if (data.usage && (!isFinalChunk(data) || state.billedAlready)) {
+      delete data.usage
+    }
     return { state }
   }
 
   const usageData = extractUsageAndCost(data.usage as Record<string, unknown>)
   const messageId = typeof data.id === 'string' ? data.id : 'unknown'
+
+  state.billedAlready = true
 
   insertMessageToBigQuery({
     messageId,
@@ -506,7 +519,7 @@ function handleStreamChunk({
         errorType: errorData?.type,
         errorMessage: errorData?.message,
       },
-      'Received error chunk in Baseten stream',
+      'Received error chunk in CanopyWave stream',
     )
     return state
   }
@@ -543,7 +556,7 @@ function handleStreamChunk({
   return state
 }
 
-export class BasetenError extends Error {
+export class CanopyWaveError extends Error {
   constructor(
     public readonly statusCode: number,
     public readonly statusText: string,
@@ -556,7 +569,7 @@ export class BasetenError extends Error {
     },
   ) {
     super(errorBody.error.message)
-    this.name = 'BasetenError'
+    this.name = 'CanopyWaveError'
   }
 
   toJSON() {
@@ -570,9 +583,9 @@ export class BasetenError extends Error {
   }
 }
 
-async function parseBasetenError(response: Response): Promise<BasetenError> {
+async function parseCanopyWaveError(response: Response): Promise<CanopyWaveError> {
   const errorText = await response.text()
-  let errorBody: BasetenError['errorBody']
+  let errorBody: CanopyWaveError['errorBody']
   try {
     const parsed = JSON.parse(errorText)
     if (parsed?.error?.message) {
@@ -599,7 +612,7 @@ async function parseBasetenError(response: Response): Promise<BasetenError> {
       },
     }
   }
-  return new BasetenError(response.status, response.statusText, errorBody)
+  return new CanopyWaveError(response.status, response.statusText, errorBody)
 }
 
 function creditsToFakeCost(credits: number): number {

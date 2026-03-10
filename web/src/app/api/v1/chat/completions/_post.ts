@@ -36,11 +36,11 @@ import type { NextRequest } from 'next/server'
 import type { ChatCompletionRequestBody } from '@/llm-api/types'
 
 import {
-  BasetenError,
-  handleBasetenNonStream,
-  handleBasetenStream,
-  isBasetenModel,
-} from '@/llm-api/baseten'
+  CanopyWaveError,
+  handleCanopyWaveNonStream,
+  handleCanopyWaveStream,
+  isCanopyWaveModel,
+} from '@/llm-api/canopywave'
 import {
   FireworksError,
   handleFireworksNonStream,
@@ -360,11 +360,11 @@ export async function postChatCompletions(params: {
     // Handle streaming vs non-streaming
     try {
       if (bodyStream) {
-        // Streaming request — route to Baseten/Fireworks for supported models
-        const useBaseten = isBasetenModel(typedBody.model)
-        const useFireworks = !useBaseten && isFireworksModel(typedBody.model)
-        const stream = useBaseten
-          ? await handleBasetenStream({
+        // Streaming request — route to CanopyWave/Fireworks for supported models
+        const useCanopyWave = isCanopyWaveModel(typedBody.model)
+        const useFireworks = !useCanopyWave && isFireworksModel(typedBody.model)
+        const stream = useCanopyWave
+          ? await handleCanopyWaveStream({
               body: typedBody,
               userId,
               stripeCustomerId,
@@ -413,10 +413,10 @@ export async function postChatCompletions(params: {
           },
         })
       } else {
-        // Non-streaming request — route to Baseten/Fireworks for supported models
+        // Non-streaming request — route to CanopyWave/Fireworks for supported models
         const model = typedBody.model
-        const useBaseten = isBasetenModel(model)
-        const useFireworks = !useBaseten && isFireworksModel(model)
+        const useCanopyWave = isCanopyWaveModel(model)
+        const useFireworks = !useCanopyWave && isFireworksModel(model)
         const modelParts = model.split('/')
         const shortModelName = modelParts.length > 1 ? modelParts[1] : model
         const isOpenAIDirectModel =
@@ -427,8 +427,8 @@ export async function postChatCompletions(params: {
         const shouldUseOpenAIEndpoint =
           isOpenAIDirectModel && typedBody.codebuff_metadata?.n !== undefined
 
-        const nonStreamRequest = useBaseten
-          ? handleBasetenNonStream({
+        const nonStreamRequest = useCanopyWave
+          ? handleCanopyWaveNonStream({
               body: typedBody,
               userId,
               stripeCustomerId,
@@ -491,14 +491,14 @@ export async function postChatCompletions(params: {
       if (error instanceof FireworksError) {
         fireworksError = error
       }
-      let basetenError: BasetenError | undefined
-      if (error instanceof BasetenError) {
-        basetenError = error
+      let canopywaveError: CanopyWaveError | undefined
+      if (error instanceof CanopyWaveError) {
+        canopywaveError = error
       }
 
       // Log detailed error information for debugging
       const errorDetails = openrouterError?.toJSON()
-      const providerLabel = basetenError ? 'Baseten' : fireworksError ? 'Fireworks' : 'OpenRouter'
+      const providerLabel = canopywaveError ? 'CanopyWave' : fireworksError ? 'Fireworks' : 'OpenRouter'
       logger.error(
         {
           error: getErrorObject(error),
@@ -512,8 +512,8 @@ export async function postChatCompletions(params: {
             ? typedBody.messages.length
             : 0,
           messages: typedBody.messages,
-          providerStatusCode: (openrouterError ?? fireworksError ?? basetenError)?.statusCode,
-          providerStatusText: (openrouterError ?? fireworksError ?? basetenError)?.statusText,
+          providerStatusCode: (openrouterError ?? fireworksError ?? canopywaveError)?.statusCode,
+          providerStatusText: (openrouterError ?? fireworksError ?? canopywaveError)?.statusText,
           openrouterErrorCode: errorDetails?.error?.code,
           openrouterErrorType: errorDetails?.error?.type,
           openrouterErrorMessage: errorDetails?.error?.message,
@@ -541,7 +541,7 @@ export async function postChatCompletions(params: {
       if (error instanceof FireworksError) {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
-      if (error instanceof BasetenError) {
+      if (error instanceof CanopyWaveError) {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
 
