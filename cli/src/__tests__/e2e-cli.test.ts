@@ -1,4 +1,4 @@
-import { spawn } from 'child_process'
+import { spawn, spawnSync } from 'child_process'
 import path from 'path'
 
 import { describe, test, expect } from 'bun:test'
@@ -14,46 +14,24 @@ ensureCliTestEnv()
 
 function runCLI(
   args: string[],
-): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn('bun', ['run', CLI_PATH, ...args], {
-      cwd: path.join(__dirname, '../..'),
-      stdio: 'pipe',
-    })
-
-    let stdout = ''
-    let stderr = ''
-
-    proc.stdout?.on('data', (data) => {
-      stdout += data.toString()
-    })
-
-    proc.stderr?.on('data', (data) => {
-      stderr += data.toString()
-    })
-
-    const timeout = setTimeout(() => {
-      proc.kill('SIGTERM')
-      reject(new Error('Process timeout'))
-    }, TIMEOUT_MS)
-
-    proc.on('close', (code) => {
-      clearTimeout(timeout)
-      resolve({ stdout, stderr, exitCode: code })
-    })
-
-    proc.on('error', (err) => {
-      clearTimeout(timeout)
-      reject(err)
-    })
+): { stdout: string; stderr: string; exitCode: number | null } {
+  const result = spawnSync('bun', ['run', CLI_PATH, ...args], {
+    cwd: path.join(__dirname, '../..'),
+    timeout: TIMEOUT_MS,
+    env: process.env,
   })
+  return {
+    stdout: result.stdout?.toString() ?? '',
+    stderr: result.stderr?.toString() ?? '',
+    exitCode: result.status,
+  }
 }
 
 describe.skipIf(!sdkBuilt)('CLI End-to-End Tests', () => {
   test(
     'CLI shows help with --help flag',
-    async () => {
-      const { stdout, stderr, exitCode } = await runCLI(['--help'])
+    () => {
+      const { stdout, stderr, exitCode } = runCLI(['--help'])
 
       const cleanOutput = stripAnsi(stdout + stderr)
       expect(cleanOutput).toContain('--agent')
@@ -65,8 +43,8 @@ describe.skipIf(!sdkBuilt)('CLI End-to-End Tests', () => {
 
   test(
     'CLI shows help with -h flag',
-    async () => {
-      const { stdout, stderr, exitCode } = await runCLI(['-h'])
+    () => {
+      const { stdout, stderr, exitCode } = runCLI(['-h'])
 
       const cleanOutput = stripAnsi(stdout + stderr)
       expect(cleanOutput).toContain('--agent')
@@ -77,8 +55,8 @@ describe.skipIf(!sdkBuilt)('CLI End-to-End Tests', () => {
 
   test(
     'CLI shows version with --version flag',
-    async () => {
-      const { stdout, stderr, exitCode } = await runCLI(['--version'])
+    () => {
+      const { stdout, stderr, exitCode } = runCLI(['--version'])
 
       const cleanOutput = stripAnsi(stdout + stderr)
       expect(cleanOutput).toMatch(/\d+\.\d+\.\d+|dev/)
@@ -89,8 +67,8 @@ describe.skipIf(!sdkBuilt)('CLI End-to-End Tests', () => {
 
   test(
     'CLI shows version with -v flag',
-    async () => {
-      const { stdout, stderr, exitCode } = await runCLI(['-v'])
+    () => {
+      const { stdout, stderr, exitCode } = runCLI(['-v'])
 
       const cleanOutput = stripAnsi(stdout + stderr)
       expect(cleanOutput).toMatch(/\d+\.\d+\.\d+|dev/)
@@ -171,8 +149,8 @@ describe.skipIf(!sdkBuilt)('CLI End-to-End Tests', () => {
 
   test(
     'CLI handles invalid flags gracefully',
-    async () => {
-      const { stderr, exitCode } = await runCLI(['--invalid-flag'])
+    () => {
+      const { stderr, exitCode } = runCLI(['--invalid-flag'])
 
       // Commander should show an error
       expect(exitCode).not.toBe(0)
