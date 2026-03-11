@@ -367,7 +367,6 @@ export async function postChatCompletions(params: {
     try {
       if (bodyStream) {
         // Streaming request — route to SiliconFlow/CanopyWave/Fireworks for supported models
-        // SiliconFlow, CanopyWave, and Fireworks TEMPORARILY DISABLED: route through OpenRouter
         const useSiliconFlow = false // isSiliconFlowModel(typedBody.model)
         const useCanopyWave = false // isCanopyWaveModel(typedBody.model)
         const useFireworks = isFireworksModel(typedBody.model)
@@ -432,7 +431,7 @@ export async function postChatCompletions(params: {
         })
       } else {
         // Non-streaming request — route to SiliconFlow/CanopyWave/Fireworks for supported models
-        // SiliconFlow, CanopyWave, and Fireworks TEMPORARILY DISABLED: route through OpenRouter
+        // TEMPORARILY DISABLED: route through OpenRouter
         const model = typedBody.model
         const useSiliconFlow = false // isSiliconFlowModel(model)
         const useCanopyWave = false // isCanopyWaveModel(model)

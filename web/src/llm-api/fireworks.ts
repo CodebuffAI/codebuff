@@ -28,7 +28,7 @@ const fireworksAgent = new Agent({
 
 /** Map from OpenRouter model IDs to Fireworks model IDs */
 const FIREWORKS_MODEL_MAP: Record<string, string> = {
-  // 'minimax/minimax-m2.5': 'accounts/fireworks/models/minimax-m2p5',
+  'minimax/minimax-m2.5': 'accounts/fireworks/models/minimax-m2p5',
 }
 
 export function isFireworksModel(model: string): boolean {
