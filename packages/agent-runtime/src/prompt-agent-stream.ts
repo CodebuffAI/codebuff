@@ -79,7 +79,7 @@ export const getAgentStreamFromTemplate = (params: {
     includeCacheControl,
     logger,
     localAgentTemplates,
-    maxOutputTokens: 32_000,
+    maxOutputTokens: undefined,
     maxRetries: 3,
     messages,
     model,
