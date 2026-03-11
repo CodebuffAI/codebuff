@@ -30,7 +30,6 @@ export function createBase2(
     publisher,
     model: isFree ? 'minimax/minimax-m2.5' : 'anthropic/claude-opus-4.6',
     providerOptions: isFree ? {
-      only: ['siliconflow/fp8'],
       data_collection: 'deny',
     } : {
       only: ['amazon-bedrock'],

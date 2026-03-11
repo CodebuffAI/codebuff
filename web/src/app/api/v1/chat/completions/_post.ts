@@ -367,10 +367,15 @@ export async function postChatCompletions(params: {
     try {
       if (bodyStream) {
         // Streaming request — route to SiliconFlow/CanopyWave/Fireworks for supported models
-        // CanopyWave and Fireworks TEMPORARILY DISABLED: route through OpenRouter
-        const useSiliconFlow = isSiliconFlowModel(typedBody.model)
+        // SiliconFlow, CanopyWave, and Fireworks TEMPORARILY DISABLED: route through OpenRouter
+        const useSiliconFlow = false // isSiliconFlowModel(typedBody.model)
         const useCanopyWave = false // isCanopyWaveModel(typedBody.model)
         const useFireworks = false // isFireworksModel(typedBody.model)
+
+        // Route minimax models through OpenRouter via SiliconFlow provider
+        if (isSiliconFlowModel(typedBody.model)) {
+          typedBody.provider = { ...typedBody.provider, only: ['siliconflow/fp8'] }
+        }
         const stream = useSiliconFlow
           ? await handleSiliconFlowStream({
               body: typedBody,
@@ -432,11 +437,16 @@ export async function postChatCompletions(params: {
         })
       } else {
         // Non-streaming request — route to SiliconFlow/CanopyWave/Fireworks for supported models
-        // CanopyWave and Fireworks TEMPORARILY DISABLED: route through OpenRouter
+        // SiliconFlow, CanopyWave, and Fireworks TEMPORARILY DISABLED: route through OpenRouter
         const model = typedBody.model
-        const useSiliconFlow = isSiliconFlowModel(model)
+        const useSiliconFlow = false // isSiliconFlowModel(model)
         const useCanopyWave = false // isCanopyWaveModel(model)
         const useFireworks = false // isFireworksModel(model)
+
+        // Route minimax models through OpenRouter via SiliconFlow provider
+        if (isSiliconFlowModel(model)) {
+          typedBody.provider = { ...typedBody.provider, only: ['siliconflow/fp8'] }
+        }
         const modelParts = model.split('/')
         const shortModelName = modelParts.length > 1 ? modelParts[1] : model
         const isOpenAIDirectModel =
