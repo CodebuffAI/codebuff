@@ -60,7 +60,34 @@
     0 0 80px rgba(124, 255, 63, 0.1);
 }
 
+.hover-glow-flare {
+  transition: text-shadow 0.5s ease, filter 0.5s ease;
+}
+
+.hover-glow-flare:hover {
+  animation: none !important;
+  text-shadow:
+    0 0 30px rgba(124, 255, 63, 0.9),
+    0 0 60px rgba(124, 255, 63, 0.6),
+    0 0 120px rgba(124, 255, 63, 0.35),
+    0 0 200px rgba(124, 255, 63, 0.15);
+  filter: brightness(1.2);
+}
+
 /* Gradient border shine effect */
+.install-box-glow {
+  animation: install-glow-breathe 3s ease-in-out infinite;
+}
+
+@keyframes install-glow-breathe {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(124, 255, 63, 0.25), 0 0 40px rgba(124, 255, 63, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(124, 255, 63, 0.35), 0 0 50px rgba(124, 255, 63, 0.15);
+  }
+}
+
 .gradient-border-shine {
   position: relative;
 }
@@ -101,6 +128,26 @@
     0 0 40px rgba(124, 255, 63, 0.3),
     0 0 80px rgba(124, 255, 63, 0.1);
   transition: text-shadow 0.5s ease;
+  animation: keyword-glow-enter 0.8s ease-out;
+}
+
+@keyframes keyword-glow-enter {
+  0% {
+    text-shadow:
+      0 0 40px rgba(124, 255, 63, 0.3),
+      0 0 80px rgba(124, 255, 63, 0.1);
+  }
+  40% {
+    text-shadow:
+      0 0 60px rgba(124, 255, 63, 0.6),
+      0 0 120px rgba(124, 255, 63, 0.3),
+      0 0 200px rgba(124, 255, 63, 0.15);
+  }
+  100% {
+    text-shadow:
+      0 0 40px rgba(124, 255, 63, 0.3),
+      0 0 80px rgba(124, 255, 63, 0.1);
+  }
 }
 
 

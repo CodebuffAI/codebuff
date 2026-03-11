@@ -2,11 +2,13 @@
 
 import { AnimatePresence, motion } from 'framer-motion'
 import {
+  Check,
   ChevronDown,
+  Copy,
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import { BackgroundBeams } from '@/components/background-beams'
 import { CopyButton } from '@/components/copy-button'
@@ -120,21 +122,107 @@ function SetupGuide() {
   )
 }
 
+const PARTICLE_COUNT = 14
+
 function InstallCommand({ className }: { className?: string }) {
+  const [copied, setCopied] = useState(false)
+  const [copyCount, setCopyCount] = useState(0)
+
+  const particles = useMemo(() =>
+    Array.from({ length: PARTICLE_COUNT }).map((_, i) => ({
+      angle: (i / PARTICLE_COUNT) * 360 + (Math.random() - 0.5) * 25,
+      distance: 35 + Math.random() * 35,
+      size: 3 + Math.random() * 4,
+      durationExtra: Math.random() * 0.3,
+    })),
+    [copyCount],
+  )
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(INSTALL_COMMAND)
+    setCopied(true)
+    setCopyCount(c => c + 1)
+    setTimeout(() => setCopied(false), 1800)
+  }
+
   return (
-    <div
-      className={cn(
-        'flex items-center gap-2 bg-zinc-900/80 border border-zinc-700/50 rounded-lg px-4 py-3 font-mono text-sm',
-        'hover:border-acid-matrix/50 hover:shadow-[0_0_20px_rgba(124,255,63,0.12)] transition-all duration-300',
-        'gradient-border-shine',
-        className,
-      )}
-    >
-      <span className="text-acid-matrix select-none">$</span>
-      <code className="text-white/90 select-all flex-1">
-        {INSTALL_COMMAND}
-      </code>
-      <CopyButton value={INSTALL_COMMAND} />
+    <div className="relative">
+      <div
+        className={cn(
+          'flex items-center gap-2 bg-zinc-900/80 border rounded-lg px-4 py-3 font-mono text-sm',
+          'gradient-border-shine',
+          copied
+            ? 'border-acid-matrix shadow-[0_0_30px_rgba(124,255,63,0.45),0_0_60px_rgba(124,255,63,0.2)]'
+            : 'border-acid-matrix/60 install-box-glow hover:border-acid-matrix hover:shadow-[0_0_30px_rgba(124,255,63,0.35),0_0_60px_rgba(124,255,63,0.15)]',
+          'transition-all duration-300',
+          className,
+        )}
+      >
+        <span className="text-acid-matrix select-none">$</span>
+        <code className="text-white/90 select-all flex-1">
+          {INSTALL_COMMAND}
+        </code>
+        <button
+          onClick={handleCopy}
+          className="p-1.5 rounded-md transition-colors hover:bg-white/10 cursor-pointer"
+          aria-label={`Copy: ${INSTALL_COMMAND}`}
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            {copied ? (
+              <motion.span
+                key="check"
+                initial={{ scale: 0, rotate: -90 }}
+                animate={{ scale: 1, rotate: 0 }}
+                exit={{ scale: 0, rotate: 90 }}
+                transition={{ duration: 0.2 }}
+                className="block"
+              >
+                <Check className="h-4 w-4 text-acid-matrix" />
+              </motion.span>
+            ) : (
+              <motion.span
+                key="copy"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0 }}
+                transition={{ duration: 0.15 }}
+                className="block"
+              >
+                <Copy className="h-4 w-4 text-white/60" />
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </button>
+      </div>
+
+      {/* Celebration particles */}
+      <AnimatePresence>
+        {copied &&
+          particles.map((p, i) => {
+            const rad = (p.angle * Math.PI) / 180
+            return (
+              <motion.span
+                key={i}
+                initial={{ opacity: 1, scale: 1, x: 0, y: 0 }}
+                animate={{
+                  opacity: 0,
+                  scale: 0,
+                  x: Math.cos(rad) * p.distance,
+                  y: Math.sin(rad) * p.distance,
+                }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.5 + p.durationExtra, ease: 'easeOut' }}
+                className="absolute right-5 top-1/2 rounded-full pointer-events-none"
+                style={{
+                  width: p.size,
+                  height: p.size,
+                  backgroundColor:
+                    i % 3 === 0 ? '#7CFF3F' : i % 3 === 1 ? '#a8ff7a' : '#ffffff',
+                }}
+              />
+            )
+          })}
+      </AnimatePresence>
     </div>
   )
 }
@@ -143,28 +231,50 @@ function FAQList() {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
 
   return (
-    <div className="space-y-3">
+    <div className="divide-y divide-zinc-800/60">
       {faqs.map((faq, i) => {
         const isOpen = openIndex === i
         return (
           <motion.div
             key={i}
-            initial={{ opacity: 0, y: 15 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.4, delay: i * 0.08 }}
+            initial={{ opacity: 0, filter: 'blur(8px)', x: 20 }}
+            whileInView={{ opacity: 1, filter: 'blur(0px)', x: 0 }}
+            viewport={{ once: true, amount: 0.5 }}
+            transition={{ duration: 0.5, delay: i * 0.1 }}
+            className={cn(
+              'transition-all duration-300',
+              isOpen && 'bg-acid-matrix/[0.03]',
+            )}
           >
             <button
               onClick={() => setOpenIndex(isOpen ? null : i)}
-              className="w-full flex items-center justify-between gap-4 bg-zinc-900/50 border border-zinc-800 rounded-xl px-6 py-4 text-left hover:border-acid-matrix/30 hover:bg-zinc-900/80 transition-all duration-300 cursor-pointer"
+              className="w-full flex items-center gap-4 px-4 py-5 text-left transition-all duration-300 cursor-pointer group"
             >
-              <span className="font-semibold text-white">{faq.question}</span>
+              <span
+                className={cn(
+                  'flex-shrink-0 font-mono text-xs transition-colors duration-300',
+                  isOpen ? 'text-acid-matrix' : 'text-zinc-600 group-hover:text-zinc-400',
+                )}
+              >
+                {String(i + 1).padStart(2, '0')}
+              </span>
+              <span
+                className={cn(
+                  'font-semibold flex-1 transition-colors duration-300',
+                  isOpen ? 'text-white' : 'text-zinc-300 group-hover:text-white',
+                )}
+              >
+                {faq.question}
+              </span>
               <motion.span
                 animate={{ rotate: isOpen ? 180 : 0 }}
                 transition={{ duration: 0.25 }}
-                className="flex-shrink-0 text-zinc-400"
+                className={cn(
+                  'flex-shrink-0 transition-colors duration-300',
+                  isOpen ? 'text-acid-matrix' : 'text-zinc-600',
+                )}
               >
-                <ChevronDown className="h-5 w-5" />
+                <ChevronDown className="h-4 w-4" />
               </motion.span>
             </button>
             <AnimatePresence initial={false}>
@@ -176,9 +286,14 @@ function FAQList() {
                   transition={{ duration: 0.25, ease: 'easeInOut' }}
                   className="overflow-hidden"
                 >
-                  <p className="px-6 pt-3 pb-1 text-zinc-400 leading-relaxed">
-                    {faq.answer}
-                  </p>
+                  <div className="flex gap-4 px-4 pb-5">
+                    <span className="flex-shrink-0 w-[1.5ch]"></span>
+                    <div className="border-l-2 border-acid-matrix/40 pl-4">
+                      <p className="text-zinc-300 leading-relaxed text-sm">
+                        {faq.answer}
+                      </p>
+                    </div>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -190,9 +305,9 @@ function FAQList() {
 }
 
 const PHILOSOPHY_WORDS = [
-  { word: 'SIMPLE', description: 'No modes. No config. Just code.' },
+  { word: 'SIMPLE', description: 'No modes. No config. Just works.' },
   { word: 'FAST', description: 'Up to 3× the speed of Claude Code' },
-  { word: 'LOADED', description: 'Built in web research, browser use, and more' },
+  { word: 'LOADED', description: 'Built-in web research, browser use, and more' },
 ]
 
 function PhilosophySection() {
@@ -215,34 +330,32 @@ function PhilosophySection() {
   }
 
   return (
-    <div className="relative z-10 container mx-auto max-w-5xl px-4 pt-16 md:pt-24 pb-24 md:pb-32">
-      <div className="flex flex-col gap-12 md:gap-16">
-        {PHILOSOPHY_WORDS.map((item, i) => (
+    <div className="flex flex-col gap-12 md:gap-16">
+      {PHILOSOPHY_WORDS.map((item, i) => (
+        <motion.div
+          key={item.word}
+          initial={{ opacity: 0, filter: 'blur(12px)' }}
+          whileInView={{ opacity: 1, filter: 'blur(0px)' }}
+          viewport={{ once: true, amount: 0.5 }}
+          transition={{ duration: 0.7, delay: i * 0.1 }}
+          className="group"
+        >
           <motion.div
-            key={item.word}
-            initial={{ opacity: 0, filter: 'blur(12px)' }}
-            whileInView={{ opacity: 1, filter: 'blur(0px)' }}
-            viewport={{ once: true, amount: 0.5 }}
-            transition={{ duration: 0.7, delay: i * 0.1 }}
-            className="group"
+            onViewportEnter={() => lightUp(i)}
+            onViewportLeave={() => dimDown(i)}
+            viewport={{ margin: '0px 0px -50% 0px' }}
+            className={cn(
+              'font-dm-mono text-7xl md:text-[8rem] lg:text-[6rem] xl:text-[8rem] font-medium leading-[0.85] tracking-tighter select-none transition-all duration-500',
+              litWords.has(i) ? 'keyword-filled' : 'keyword-hollow',
+            )}
           >
-            <motion.div
-              onViewportEnter={() => lightUp(i)}
-              onViewportLeave={() => dimDown(i)}
-              viewport={{ margin: '0px 0px -55% 0px' }}
-              className={cn(
-                'font-dm-mono text-7xl md:text-[8rem] lg:text-[10rem] font-medium leading-[0.85] tracking-tighter select-none transition-all duration-500',
-                litWords.has(i) ? 'keyword-filled' : 'keyword-hollow',
-              )}
-            >
-              {item.word}
-            </motion.div>
-            <p className="mt-3 md:mt-4 text-zinc-500 text-sm md:text-base font-mono tracking-wide">
-              {item.description}
-            </p>
+            {item.word}
           </motion.div>
-        ))}
-      </div>
+          <p className="mt-3 md:mt-4 text-zinc-500 text-sm md:text-base font-mono tracking-wide">
+            {item.description}
+          </p>
+        </motion.div>
+      ))}
     </div>
   )
 }
@@ -282,7 +395,7 @@ export default function HomeClient() {
         >
           <Link
             href="/"
-            className="flex items-center space-x-2 group transition-all duration-300 hover:scale-105"
+            className="flex items-center space-x-2 group transition-all duration-300 hover:translate-x-0.5"
           >
             <Image
               src="/logo-icon.png"
@@ -301,7 +414,7 @@ export default function HomeClient() {
               href="https://github.com/CodebuffAI/codebuff"
               target="_blank"
               rel="noopener noreferrer"
-              className="relative font-medium px-3 py-2 rounded-md transition-all duration-200 hover:bg-white/10 text-zinc-400 hover:text-white flex items-center gap-2 text-sm"
+              className="relative font-medium px-3 py-2 rounded-md transition-all duration-200 text-zinc-400 hover:text-white flex items-center gap-2 text-sm"
             >
               <Icons.github className="h-4 w-4" />
               <span className="hidden sm:inline">GitHub</span>
@@ -327,7 +440,7 @@ export default function HomeClient() {
                 <motion.span
                   key={i}
                   variants={wordVariant}
-                  className={word === 'free' ? 'inline-block mr-[0.3em] text-acid-matrix neon-text animate-glow-pulse' : 'inline-block mr-[0.3em] text-white'}
+                  className={word === 'free' ? 'inline-block mr-[0.3em] text-acid-matrix neon-text animate-glow-pulse cursor-default hover-glow-flare' : 'inline-block mr-[0.3em] text-white'}
                 >
                   {word}
                 </motion.span>
@@ -365,25 +478,30 @@ export default function HomeClient() {
           </motion.div>
         </div>
 
-        {/* Philosophy content — same background, continuous flow */}
-        <PhilosophySection />
+        {/* ─── Philosophy + FAQ: side-by-side on large screens ─── */}
+        <div className="relative z-10 container mx-auto max-w-7xl px-4 pt-16 md:pt-24 pb-24 md:pb-32 lg:pb-[25vh]">
+          <div className="flex flex-col lg:flex-row lg:gap-16 xl:gap-24">
+            {/* Philosophy — left side */}
+            <div className="lg:flex-1 min-w-0">
+              <PhilosophySection />
+            </div>
 
-        {/* ─── FAQ Section ─── */}
-        <div className="relative z-10 py-24 px-4">
-          <div className="container mx-auto max-w-2xl">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 0.6 }}
-              className="text-center mb-12"
-            >
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                Frequently asked questions
-              </h2>
-            </motion.div>
+            {/* FAQ — right side (sticky on lg) */}
+            <div className="lg:flex-1 min-w-0 mt-20 lg:mt-0 lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.3 }}
+                transition={{ duration: 0.6 }}
+                className="text-center lg:text-left mb-12"
+              >
+                <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                  FAQ
+                </h2>
+              </motion.div>
 
-            <FAQList />
+              <FAQList />
+            </div>
           </div>
         </div>
       </div>
