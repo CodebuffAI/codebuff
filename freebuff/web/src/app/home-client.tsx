@@ -4,11 +4,14 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   ChevronDown,
 } from 'lucide-react'
+import Image from 'next/image'
+import Link from 'next/link'
 import { useState } from 'react'
 
 import { BackgroundBeams } from '@/components/background-beams'
 import { CopyButton } from '@/components/copy-button'
 import { HeroGrid } from '@/components/hero-grid'
+import { Icons } from '@/components/icons'
 import { cn } from '@/lib/utils'
 
 const INSTALL_COMMAND = 'npm install -g freebuff'
@@ -187,8 +190,8 @@ function FAQList() {
 }
 
 const PHILOSOPHY_WORDS = [
-  { word: 'FAST', description: '3× the speed of Claude Code' },
   { word: 'SIMPLE', description: 'No modes. No config. Just code.' },
+  { word: 'FAST', description: 'Up to 3× the speed of Claude Code' },
   { word: 'LOADED', description: 'Web research, browser use, and more — built in' },
 ]
 
@@ -217,6 +220,42 @@ export default function HomeClient() {
 
         <HeroGrid />
         <BackgroundBeams />
+
+        {/* Inline nav overlay */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="absolute top-0 left-0 right-0 z-20 container mx-auto px-4 py-4 flex justify-between items-center"
+        >
+          <Link
+            href="/"
+            className="flex items-center space-x-2 group transition-all duration-300 hover:scale-105"
+          >
+            <Image
+              src="/logo-icon.png"
+              alt="Freebuff"
+              width={28}
+              height={28}
+              className="rounded-sm transition-all duration-300 group-hover:brightness-110"
+            />
+            <span className="text-xl tracking-widest font-serif text-white">
+              freebuff
+            </span>
+          </Link>
+
+          <nav className="flex items-center space-x-1">
+            <Link
+              href="https://github.com/CodebuffAI/codebuff"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="relative font-medium px-3 py-2 rounded-md transition-all duration-200 hover:bg-white/10 text-zinc-400 hover:text-white flex items-center gap-2 text-sm"
+            >
+              <Icons.github className="h-4 w-4" />
+              <span className="hidden sm:inline">GitHub</span>
+            </Link>
+          </nav>
+        </motion.div>
 
         {/* Hero content */}
         <div className="relative z-10 container mx-auto px-4 pt-20 pb-12 text-center">

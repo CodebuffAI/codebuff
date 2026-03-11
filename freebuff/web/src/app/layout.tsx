@@ -3,7 +3,6 @@ import '@/styles/globals.css'
 import type { Metadata } from 'next'
 
 import { Footer } from '@/components/footer'
-import { Navbar } from '@/components/navbar'
 import { ThemeProvider } from '@/components/theme-provider'
 import { siteConfig } from '@/lib/constant'
 import { fonts } from '@/lib/fonts'
@@ -54,7 +53,6 @@ export default function RootLayout({
       >
         <ThemeProvider attribute="class">
           <SessionProvider>
-            <Navbar />
             <div className="flex-grow">{children}</div>
             <Footer />
           </SessionProvider>
