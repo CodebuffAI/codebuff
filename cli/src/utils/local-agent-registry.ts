@@ -10,6 +10,7 @@ import type { MCPConfig } from '@codebuff/common/types/mcp'
 import { getProjectRoot } from '../project-files'
 import { AGENT_MODE_TO_ID, type AgentMode } from './constants'
 import { logger } from './logger'
+import * as bundledAgentsModule from '../agents/bundled-agents.generated'
 
 import type { AgentDefinition } from '@codebuff/common/templates/initial-agents-dir/types/agent-definition'
 
@@ -153,26 +154,12 @@ const getUserAgentDefinitions = (): AgentDefinition[] => {
 // Bundled agents loading (generated at build time by prebuild-agents.ts)
 // ============================================================================
 
-interface BundledAgentsModule {
-  bundledAgents: Record<string, AgentDefinition>
-  getBundledAgentsAsLocalInfo: () => LocalAgentInfo[]
-}
-
-// NOTE: Inline require() with try/catch is used because this file is generated at
-// build time by prebuild-agents.ts and may not exist during development
-let bundledAgentsModule: BundledAgentsModule | null = null
-try {
-  bundledAgentsModule = require('../agents/bundled-agents.generated')
-} catch {
-  // File not generated yet - running in development without prebuild
-}
-
 const getBundledAgents = (): Record<string, AgentDefinition> => {
-  return bundledAgentsModule?.bundledAgents ?? {}
+  return bundledAgentsModule.bundledAgents ?? {}
 }
 
 const getBundledAgentsAsLocalInfo = (): LocalAgentInfo[] => {
-  return bundledAgentsModule?.getBundledAgentsAsLocalInfo?.() ?? []
+  return bundledAgentsModule.getBundledAgentsAsLocalInfo?.() ?? []
 }
 
 // ============================================================================
