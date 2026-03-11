@@ -135,6 +135,10 @@ jobs:
       - name: Build SDK before tests
         run: cd sdk && bun run build
 
+      - name: Prebuild CLI agents
+        if: matrix.package == 'cli'
+        run: cd cli && bun run prebuild:agents
+
       - name: Run ${{ matrix.package }} tests
         uses: nick-fields/retry@v3
         with:
@@ -227,6 +231,10 @@ jobs:
 
       - name: Build SDK before integration tests
         run: cd sdk && bun run build
+
+      - name: Prebuild CLI agents
+        if: matrix.package == 'cli'
+        run: cd cli && bun run prebuild:agents
 
       - name: Run ${{ matrix.package }} integration tests
         uses: nick-fields/retry@v3
