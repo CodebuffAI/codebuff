@@ -370,12 +370,7 @@ export async function postChatCompletions(params: {
         // SiliconFlow, CanopyWave, and Fireworks TEMPORARILY DISABLED: route through OpenRouter
         const useSiliconFlow = false // isSiliconFlowModel(typedBody.model)
         const useCanopyWave = false // isCanopyWaveModel(typedBody.model)
-        const useFireworks = false // isFireworksModel(typedBody.model)
-
-        // Route minimax models through OpenRouter via SiliconFlow provider
-        if (isSiliconFlowModel(typedBody.model)) {
-          typedBody.provider = { ...typedBody.provider, only: ['siliconflow/fp8'] }
-        }
+        const useFireworks = isFireworksModel(typedBody.model)
         const stream = useSiliconFlow
           ? await handleSiliconFlowStream({
               body: typedBody,
@@ -441,12 +436,7 @@ export async function postChatCompletions(params: {
         const model = typedBody.model
         const useSiliconFlow = false // isSiliconFlowModel(model)
         const useCanopyWave = false // isCanopyWaveModel(model)
-        const useFireworks = false // isFireworksModel(model)
-
-        // Route minimax models through OpenRouter via SiliconFlow provider
-        if (isSiliconFlowModel(model)) {
-          typedBody.provider = { ...typedBody.provider, only: ['siliconflow/fp8'] }
-        }
+        const useFireworks = isFireworksModel(model)
         const modelParts = model.split('/')
         const shortModelName = modelParts.length > 1 ? modelParts[1] : model
         const isOpenAIDirectModel =
