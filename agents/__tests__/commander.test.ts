@@ -26,8 +26,8 @@ describe('commander agent', () => {
       expect(commander.displayName).toBe('Commander')
     })
 
-    test('uses haiku model', () => {
-      expect(commander.model).toBe('anthropic/claude-haiku-4.5')
+    test('uses flash-lite model', () => {
+      expect(commander.model).toBe('google/gemini-3.1-flash-lite-preview')
     })
 
     test('has output mode set to last_message', () => {

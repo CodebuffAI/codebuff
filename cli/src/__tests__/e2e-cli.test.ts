@@ -37,7 +37,7 @@ function runCLI(
       reject(new Error('Process timeout'))
     }, TIMEOUT_MS)
 
-    proc.on('exit', (code) => {
+    proc.on('close', (code) => {
       clearTimeout(timeout)
       resolve({ stdout, stderr, exitCode: code })
     })
