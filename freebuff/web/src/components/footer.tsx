@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 export function Footer() {
   return (
-    <footer className="w-full border-t">
+    <footer className="w-full">
       <div className="container mx-auto flex flex-col gap-4 py-8 px-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
           <div>
@@ -66,19 +66,11 @@ export function Footer() {
               >
                 Terms of Service
               </Link>
+              <span className="text-xs text-muted-foreground mt-1">
+                © {new Date().getFullYear()} Freebuff
+              </span>
             </nav>
           </div>
-        </div>
-
-        <div className="border-t pt-4 text-center text-xs text-muted-foreground">
-          © {new Date().getFullYear()} Freebuff. Built on the{' '}
-          <Link
-            href="https://codebuff.com"
-            className="hover:text-primary underline underline-offset-4"
-          >
-            Codebuff
-          </Link>{' '}
-          platform.
         </div>
       </div>
     </footer>

@@ -55,9 +55,9 @@
 /* Neon green glow text */
 .neon-text {
   text-shadow:
-    0 0 20px rgba(0, 255, 149, 0.4),
-    0 0 40px rgba(0, 255, 149, 0.2),
-    0 0 80px rgba(0, 255, 149, 0.1);
+    0 0 20px rgba(124, 255, 63, 0.4),
+    0 0 40px rgba(124, 255, 63, 0.2),
+    0 0 80px rgba(124, 255, 63, 0.1);
 }
 
 /* Gradient border shine effect */
@@ -73,10 +73,10 @@
   padding: 1px;
   background: linear-gradient(
     135deg,
-    rgba(0, 255, 149, 0.3),
+    rgba(124, 255, 63, 0.3),
     transparent 40%,
     transparent 60%,
-    rgba(0, 255, 149, 0.15)
+    rgba(124, 255, 63, 0.15)
   );
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
@@ -89,18 +89,20 @@
 /* Giant keyword wall — hollow outlined text */
 .keyword-hollow {
   color: transparent;
-  -webkit-text-stroke: 1.5px rgba(0, 255, 149, 0.4);
+  -webkit-text-stroke: 1.5px rgba(124, 255, 63, 0.45);
   transition: color 0.5s ease, -webkit-text-stroke-color 0.5s ease, text-shadow 0.5s ease;
 }
 
-.group:hover .keyword-hollow,
+
 .keyword-filled {
-  color: #00FF95;
-  -webkit-text-stroke: 1.5px #00FF95;
+  color: #7CFF3F;
+  -webkit-text-stroke: 1.5px #7CFF3F;
   text-shadow:
-    0 0 40px rgba(0, 255, 149, 0.3),
-    0 0 80px rgba(0, 255, 149, 0.1);
+    0 0 40px rgba(124, 255, 63, 0.3),
+    0 0 80px rgba(124, 255, 63, 0.1);
+  transition: text-shadow 0.5s ease;
 }
+
 
 @media (prefers-reduced-motion: reduce) {
   .animate-glow-pulse,

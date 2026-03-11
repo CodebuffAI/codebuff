@@ -37,7 +37,7 @@ export function BackgroundBeams({ className }: { className?: string }) {
         className="absolute left-[--beam-x] top-[--beam-y] h-px w-px"
         style={{
           boxShadow:
-            '0 0 150px 80px rgba(0, 255, 149, 0.08), 0 0 300px 150px rgba(0, 255, 149, 0.04)',
+            '0 0 150px 80px rgba(124, 255, 63, 0.08), 0 0 300px 150px rgba(124, 255, 63, 0.04)',
           transform: 'translate(-50%, -50%)',
         }}
       />

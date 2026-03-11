@@ -10,7 +10,7 @@ export function HeroGrid({ className }: { className?: string }) {
         className="absolute inset-0 opacity-[0.03]"
         style={{
           backgroundImage:
-            'radial-gradient(circle, #00FF95 1px, transparent 1px)',
+            'radial-gradient(circle, #7CFF3F 1px, transparent 1px)',
           backgroundSize: '32px 32px',
         }}
       />
@@ -20,7 +20,7 @@ export function HeroGrid({ className }: { className?: string }) {
           className="h-px w-full"
           style={{
             background:
-              'linear-gradient(90deg, transparent, rgba(0,255,149,0.15) 20%, rgba(0,255,149,0.3) 50%, rgba(0,255,149,0.15) 80%, transparent)',
+              'linear-gradient(90deg, transparent, rgba(124,255,63,0.15) 20%, rgba(124,255,63,0.3) 50%, rgba(124,255,63,0.15) 80%, transparent)',
           }}
         />
       </div>
@@ -29,7 +29,7 @@ export function HeroGrid({ className }: { className?: string }) {
         className="absolute inset-0 opacity-[0.025]"
         style={{
           backgroundImage:
-            'linear-gradient(90deg, #00FF95 1px, transparent 1px)',
+            'linear-gradient(90deg, #7CFF3F 1px, transparent 1px)',
           backgroundSize: '120px 120px',
         }}
       />

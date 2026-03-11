@@ -42,13 +42,13 @@ export function TerminalDemo() {
   const getLineColor = (type: string) => {
     switch (type) {
       case 'prompt':
-        return 'text-acid-green'
+        return 'text-acid-matrix'
       case 'user':
         return 'text-white font-medium'
       case 'agent':
         return 'text-zinc-300'
       case 'success':
-        return 'text-acid-green font-medium'
+        return 'text-acid-matrix font-medium'
       default:
         return 'text-zinc-500'
     }
@@ -62,7 +62,7 @@ export function TerminalDemo() {
       className="relative mx-auto max-w-2xl"
     >
       {/* Glow behind terminal */}
-      <div className="absolute -inset-4 bg-acid-green/[0.03] blur-2xl rounded-3xl" />
+      <div className="absolute -inset-4 bg-acid-matrix/[0.03] blur-2xl rounded-3xl" />
 
       <div className="relative rounded-xl border border-zinc-800/80 bg-zinc-950/90 backdrop-blur-sm overflow-hidden shadow-2xl shadow-black/50">
         {/* Title bar */}
@@ -93,7 +93,7 @@ export function TerminalDemo() {
             ))}
           </AnimatePresence>
           {visibleLines < DEMO_LINES.length && (
-            <span className="inline-block w-2 h-4 bg-acid-green/70 animate-terminal-cursor" />
+            <span className="inline-block w-2 h-4 bg-acid-matrix/70 animate-terminal-cursor" />
           )}
         </div>
       </div>

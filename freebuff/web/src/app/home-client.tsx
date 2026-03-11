@@ -68,7 +68,7 @@ function SetupGuide() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         aria-expanded={isOpen}
-        className="flex items-center gap-2 mx-auto text-sm text-zinc-400 hover:text-acid-green transition-colors duration-200 cursor-pointer group"
+        className="flex items-center gap-2 mx-auto text-sm text-zinc-400 hover:text-acid-matrix transition-colors duration-200 cursor-pointer group"
       >
         <span>Install guide</span>
         <motion.span
@@ -92,7 +92,7 @@ function SetupGuide() {
               <ol className="space-y-4">
                 {setupSteps.map((step, i) => (
                   <li key={i} className="flex gap-3">
-                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-acid-green/10 border border-acid-green/30 flex items-center justify-center text-xs font-mono text-acid-green">
+                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-acid-matrix/10 border border-acid-matrix/30 flex items-center justify-center text-xs font-mono text-acid-matrix">
                       {i + 1}
                     </span>
                     <div className="flex-1 min-w-0">
@@ -101,7 +101,7 @@ function SetupGuide() {
                         <p className="text-xs text-zinc-500 mt-0.5">{step.description}</p>
                       )}
                       {'command' in step && step.command && (
-                        <div className="mt-1.5 flex items-center gap-2 bg-zinc-800/60 border border-zinc-700/40 rounded-md px-3 py-1.5 hover:border-acid-green/30 transition-colors duration-200">
+                        <div className="mt-1.5 flex items-center gap-2 bg-zinc-800/60 border border-zinc-700/40 rounded-md px-3 py-1.5 hover:border-acid-matrix/30 transition-colors duration-200">
                           <code className="font-mono text-xs text-white/80 flex-1 select-all">
                             {step.command}
                           </code>
@@ -125,12 +125,12 @@ function InstallCommand({ className }: { className?: string }) {
     <div
       className={cn(
         'flex items-center gap-2 bg-zinc-900/80 border border-zinc-700/50 rounded-lg px-4 py-3 font-mono text-sm',
-        'hover:border-acid-green/50 hover:shadow-[0_0_20px_rgba(0,255,149,0.12)] transition-all duration-300',
+        'hover:border-acid-matrix/50 hover:shadow-[0_0_20px_rgba(124,255,63,0.12)] transition-all duration-300',
         'gradient-border-shine',
         className,
       )}
     >
-      <span className="text-acid-green select-none">$</span>
+      <span className="text-acid-matrix select-none">$</span>
       <code className="text-white/90 select-all flex-1">
         {INSTALL_COMMAND}
       </code>
@@ -156,7 +156,7 @@ function FAQList() {
           >
             <button
               onClick={() => setOpenIndex(isOpen ? null : i)}
-              className="w-full flex items-center justify-between gap-4 bg-zinc-900/50 border border-zinc-800 rounded-xl px-6 py-4 text-left hover:border-acid-green/30 hover:bg-zinc-900/80 transition-all duration-300 cursor-pointer"
+              className="w-full flex items-center justify-between gap-4 bg-zinc-900/50 border border-zinc-800 rounded-xl px-6 py-4 text-left hover:border-acid-matrix/30 hover:bg-zinc-900/80 transition-all duration-300 cursor-pointer"
             >
               <span className="font-semibold text-white">{faq.question}</span>
               <motion.span
@@ -192,8 +192,60 @@ function FAQList() {
 const PHILOSOPHY_WORDS = [
   { word: 'SIMPLE', description: 'No modes. No config. Just code.' },
   { word: 'FAST', description: 'Up to 3× the speed of Claude Code' },
-  { word: 'LOADED', description: 'Web research, browser use, and more — built in' },
+  { word: 'LOADED', description: 'Built in web research, browser use, and more' },
 ]
+
+function PhilosophySection() {
+  const [litWords, setLitWords] = useState<Set<number>>(new Set())
+
+  const lightUp = (i: number) => {
+    setLitWords(prev => {
+      const next = new Set(prev)
+      next.add(i)
+      return next
+    })
+  }
+
+  const dimDown = (i: number) => {
+    setLitWords(prev => {
+      const next = new Set(prev)
+      next.delete(i)
+      return next
+    })
+  }
+
+  return (
+    <div className="relative z-10 container mx-auto max-w-5xl px-4 pt-16 md:pt-24 pb-24 md:pb-32">
+      <div className="flex flex-col gap-12 md:gap-16">
+        {PHILOSOPHY_WORDS.map((item, i) => (
+          <motion.div
+            key={item.word}
+            initial={{ opacity: 0, filter: 'blur(12px)' }}
+            whileInView={{ opacity: 1, filter: 'blur(0px)' }}
+            viewport={{ once: true, amount: 0.5 }}
+            transition={{ duration: 0.7, delay: i * 0.1 }}
+            className="group"
+          >
+            <motion.div
+              onViewportEnter={() => lightUp(i)}
+              onViewportLeave={() => dimDown(i)}
+              viewport={{ margin: '0px 0px -55% 0px' }}
+              className={cn(
+                'font-dm-mono text-7xl md:text-[8rem] lg:text-[10rem] font-medium leading-[0.85] tracking-tighter select-none transition-all duration-500',
+                litWords.has(i) ? 'keyword-filled' : 'keyword-hollow',
+              )}
+            >
+              {item.word}
+            </motion.div>
+            <p className="mt-3 md:mt-4 text-zinc-500 text-sm md:text-base font-mono tracking-wide">
+              {item.description}
+            </p>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 const wordVariant = {
   initial: { opacity: 0, y: 30, filter: 'blur(8px)' },
@@ -211,12 +263,12 @@ const wordVariant = {
 export default function HomeClient() {
   return (
     <div className="relative">
-      {/* ─── Hero Section ─── */}
-      <section className="relative min-h-[90vh] flex flex-col items-center justify-center overflow-hidden">
-        {/* Layered backgrounds */}
-        <div className="absolute inset-0 bg-gradient-to-b from-dark-forest-green via-black to-black" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(0,255,149,0.12),transparent_60%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_80%_at_50%_100%,rgba(0,255,149,0.04),transparent_60%)]" />
+      {/* ─── Hero + Philosophy: unified section ─── */}
+      <div className="relative overflow-hidden">
+        {/* Shared layered backgrounds */}
+        <div className="absolute inset-0 bg-gradient-to-b from-dark-forest-green via-black/95 to-black" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(124,255,63,0.12),transparent_50%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_50%_65%,rgba(124,255,63,0.06),transparent_50%)]" />
 
         <HeroGrid />
         <BackgroundBeams />
@@ -237,9 +289,9 @@ export default function HomeClient() {
               alt="Freebuff"
               width={28}
               height={28}
-              className="rounded-sm transition-all duration-300 group-hover:brightness-110"
+              className="rounded-sm opacity-60 group-hover:opacity-100 transition-all duration-300 group-hover:brightness-110"
             />
-            <span className="text-xl tracking-widest font-serif text-white">
+            <span className="text-xl tracking-widest font-serif text-zinc-400 group-hover:text-white transition-colors duration-200">
               freebuff
             </span>
           </Link>
@@ -258,7 +310,7 @@ export default function HomeClient() {
         </motion.div>
 
         {/* Hero content */}
-        <div className="relative z-10 container mx-auto px-4 pt-20 pb-12 text-center">
+        <div className="relative z-10 container mx-auto px-4 pt-32 pb-16 md:pt-40 md:pb-20 text-center min-h-screen flex flex-col items-center justify-center">
           {/* Headline with staggered word animation */}
           <motion.h1
             className="hero-heading mb-8"
@@ -275,7 +327,7 @@ export default function HomeClient() {
                 <motion.span
                   key={i}
                   variants={wordVariant}
-                  className={word === 'free' ? 'inline-block mr-[0.3em] text-acid-green neon-text animate-glow-pulse' : 'inline-block mr-[0.3em] text-white'}
+                  className={word === 'free' ? 'inline-block mr-[0.3em] text-acid-matrix neon-text animate-glow-pulse' : 'inline-block mr-[0.3em] text-white'}
                 >
                   {word}
                 </motion.span>
@@ -298,7 +350,7 @@ export default function HomeClient() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 1.0 }}
-            className="max-w-md mx-auto mb-4"
+            className="max-w-lg w-full mx-auto mb-4"
           >
             <InstallCommand />
           </motion.div>
@@ -313,56 +365,28 @@ export default function HomeClient() {
           </motion.div>
         </div>
 
-        {/* Bottom fade */}
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-black to-transparent" />
-      </section>
+        {/* Philosophy content — same background, continuous flow */}
+        <PhilosophySection />
 
-      {/* ─── Philosophy Section ─── */}
-      <section className="relative py-24 md:py-32 px-4 overflow-hidden">
-        <div className="relative z-10 container mx-auto max-w-5xl">
-          <div className="flex flex-col gap-12 md:gap-16">
-            {PHILOSOPHY_WORDS.map((item, i) => (
-              <motion.div
-                key={item.word}
-                initial={{ opacity: 0, filter: 'blur(12px)' }}
-                whileInView={{ opacity: 1, filter: 'blur(0px)' }}
-                viewport={{ once: true, amount: 0.5 }}
-                transition={{ duration: 0.7, delay: i * 0.1 }}
-                className="group"
-              >
-                <div className="keyword-hollow font-dm-mono text-7xl md:text-[8rem] lg:text-[10rem] font-medium leading-[0.85] tracking-tighter select-none">
-                  {item.word}
-                </div>
-                <p className="mt-3 md:mt-4 text-zinc-500 text-sm md:text-base font-mono tracking-wide">
-                  {item.description}
-                </p>
-              </motion.div>
-            ))}
+        {/* ─── FAQ Section ─── */}
+        <div className="relative z-10 py-24 px-4">
+          <div className="container mx-auto max-w-2xl">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.6 }}
+              className="text-center mb-12"
+            >
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                Frequently asked questions
+              </h2>
+            </motion.div>
+
+            <FAQList />
           </div>
         </div>
-      </section>
-
-      {/* Divider */}
-      <div className="h-px bg-gradient-to-r from-transparent via-acid-green/30 to-transparent" />
-
-      {/* ─── FAQ Section ─── */}
-      <section className="py-24 px-4">
-        <div className="container mx-auto max-w-2xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.3 }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-12"
-          >
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Frequently asked questions
-            </h2>
-          </motion.div>
-
-          <FAQList />
-        </div>
-      </section>
+      </div>
     </div>
   )
 }
