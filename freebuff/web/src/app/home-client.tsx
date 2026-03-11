@@ -38,6 +38,85 @@ const faqs = [
   },
 ]
 
+const setupSteps = [
+  {
+    label: 'Open your terminal',
+    description: 'Use any terminal — within VS Code, plain terminal, PowerShell, etc.',
+  },
+  {
+    label: 'Navigate to your project',
+    command: 'cd /path/to/your-repo',
+  },
+  {
+    label: 'Install Freebuff',
+    command: 'npm install -g freebuff',
+  },
+  {
+    label: 'Run Freebuff',
+    command: 'freebuff',
+  },
+]
+
+function SetupGuide() {
+  const [isOpen, setIsOpen] = useState(false)
+
+  return (
+    <div className="max-w-md mx-auto">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        className="flex items-center gap-2 mx-auto text-sm text-zinc-400 hover:text-acid-green transition-colors duration-200 cursor-pointer group"
+      >
+        <span>Install guide</span>
+        <motion.span
+          animate={{ rotate: isOpen ? 180 : 0 }}
+          transition={{ duration: 0.25 }}
+        >
+          <ChevronDown className="h-3.5 w-3.5" />
+        </motion.span>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: 'easeInOut' }}
+            className="overflow-hidden"
+          >
+            <div className="mt-4 bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 text-left">
+              <ol className="space-y-4">
+                {setupSteps.map((step, i) => (
+                  <li key={i} className="flex gap-3">
+                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-acid-green/10 border border-acid-green/30 flex items-center justify-center text-xs font-mono text-acid-green">
+                      {i + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white/90">{step.label}</p>
+                      {'description' in step && step.description && (
+                        <p className="text-xs text-zinc-500 mt-0.5">{step.description}</p>
+                      )}
+                      {'command' in step && step.command && (
+                        <div className="mt-1.5 flex items-center gap-2 bg-zinc-800/60 border border-zinc-700/40 rounded-md px-3 py-1.5 hover:border-acid-green/30 transition-colors duration-200">
+                          <code className="font-mono text-xs text-white/80 flex-1 select-all">
+                            {step.command}
+                          </code>
+                          <CopyButton value={step.command} />
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 function InstallCommand({ className }: { className?: string }) {
   return (
     <div
@@ -180,9 +259,18 @@ export default function HomeClient() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 1.0 }}
-            className="max-w-md mx-auto mb-8"
+            className="max-w-md mx-auto mb-4"
           >
             <InstallCommand />
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 1.3 }}
+            className="mb-8"
+          >
+            <SetupGuide />
           </motion.div>
         </div>
 
