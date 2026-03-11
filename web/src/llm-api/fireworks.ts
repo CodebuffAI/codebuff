@@ -28,6 +28,7 @@ const fireworksAgent = new Agent({
 
 /** Map from OpenRouter model IDs to Fireworks model IDs */
 const FIREWORKS_MODEL_MAP: Record<string, string> = {
+  // 'minimax/minimax-m2.5': 'accounts/james-65d217/deployments/qne3jo8v' //'accounts/fireworks/models/minimax-m2p5',
   'minimax/minimax-m2.5': 'accounts/fireworks/models/minimax-m2p5',
 }
 
@@ -525,7 +526,7 @@ function handleStreamChunk({
 
   const reasoningDelta = typeof delta?.reasoning_content === 'string' ? delta.reasoning_content
     : typeof delta?.reasoning === 'string' ? delta.reasoning
-    : ''
+      : ''
   if (state.reasoningText.length < MAX_BUFFER_SIZE) {
     state.reasoningText += reasoningDelta
     if (state.reasoningText.length >= MAX_BUFFER_SIZE) {
