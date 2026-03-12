@@ -1,34 +1,19 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 
-import type { RouterParams } from '../command-registry'
-import * as analytics from '../../utils/analytics'
+import { useChatStore } from '../../state/chat-store'
 
-const setInputMode = mock(() => {})
-const setMessages = mock(() => {})
+import type { RouterParams } from '../command-registry'
+
 const saveToHistory = mock(() => {})
 const setInputValue = mock(() => {})
+const setMessages = mock(() => {})
 const handleChatGptAuthCode = mock(async () => ({
   success: true,
   message: 'ok',
 }))
 
-mock.module('../../state/chat-store', () => ({
-  useChatStore: {
-    getState: () => ({
-      inputMode: 'connect:chatgpt',
-      setInputMode,
-      pendingAttachments: [],
-    }),
-  },
-}))
-
 mock.module('../../components/chatgpt-connect-banner', () => ({
   handleChatGptAuthCode,
-}))
-
-mock.module('../../utils/analytics', () => ({
-  ...analytics,
-  trackEvent: () => {},
 }))
 
 mock.module('@codebuff/common/constants/chatgpt-oauth', () => ({
@@ -37,19 +22,16 @@ mock.module('@codebuff/common/constants/chatgpt-oauth', () => ({
 
 describe('routeUserPrompt connect:chatgpt mode', () => {
   beforeEach(() => {
-    setInputMode.mockClear()
-    setMessages.mockClear()
+    useChatStore.getState().reset()
+    useChatStore.getState().setInputMode('connect:chatgpt')
     saveToHistory.mockClear()
     setInputValue.mockClear()
+    setMessages.mockClear()
     handleChatGptAuthCode.mockClear()
   })
 
   afterEach(() => {
-    setInputMode.mockClear()
-    setMessages.mockClear()
-    saveToHistory.mockClear()
-    setInputValue.mockClear()
-    handleChatGptAuthCode.mockClear()
+    useChatStore.getState().reset()
   })
 
   test('when in connect:chatgpt mode, it exchanges the auth code and updates messages', async () => {
@@ -82,6 +64,6 @@ describe('routeUserPrompt connect:chatgpt mode', () => {
 
     expect(handleChatGptAuthCode).toHaveBeenCalledWith('auth-code-123')
     expect(setMessages).toHaveBeenCalled()
-    expect(setInputMode).toHaveBeenCalledWith('default')
+    expect(useChatStore.getState().inputMode).toBe('default')
   })
 })

@@ -37,7 +37,28 @@ export const isOutOfCreditsError = (error: unknown): boolean => {
   return false
 }
 
+/**
+ * Check if an error indicates free mode is not available in the user's country.
+ * Standardized on statusCode === 403 + error === 'free_mode_unavailable'.
+ */
+export const isFreeModeUnavailableError = (error: unknown): boolean => {
+  if (
+    error &&
+    typeof error === 'object' &&
+    'statusCode' in error &&
+    (error as { statusCode: unknown }).statusCode === 403 &&
+    'error' in error &&
+    (error as { error: unknown }).error === 'free_mode_unavailable'
+  ) {
+    return true
+  }
+  return false
+}
+
 export const OUT_OF_CREDITS_MESSAGE = `Out of credits. Please add credits at ${defaultAppUrl}/usage`
+
+export const FREE_MODE_UNAVAILABLE_MESSAGE =
+  'Free mode is not available outside of the United States and Canada. Please upgrade to a paid plan to use Codebuff outside the US and Canada.'
 
 export const createErrorMessage = (
   error: unknown,

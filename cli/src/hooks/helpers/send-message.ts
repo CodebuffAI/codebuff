@@ -6,7 +6,9 @@ import { processBashContext } from '../../utils/bash-context-processor'
 import { markRunningAgentsAsCancelled } from '../../utils/block-operations'
 import {
   isOutOfCreditsError,
+  isFreeModeUnavailableError,
   OUT_OF_CREDITS_MESSAGE,
+  FREE_MODE_UNAVAILABLE_MESSAGE,
 } from '../../utils/error-handling'
 import { formatElapsedTime } from '../../utils/format-elapsed-time'
 import { processImagesForMessage } from '../../utils/image-processor'
@@ -336,6 +338,12 @@ export const handleRunCompletion = (params: {
       return
     }
 
+    if (isFreeModeUnavailableError(output)) {
+      updater.setError(FREE_MODE_UNAVAILABLE_MESSAGE)
+      finalizeAfterError()
+      return
+    }
+
     // Pass the raw error message to setError (displayed in UserErrorBanner without additional wrapper formatting)
     updater.setError(output.message ?? DEFAULT_RUN_OUTPUT_ERROR_MESSAGE)
 
@@ -415,6 +423,11 @@ export const handleRunError = (params: {
     updater.setError(OUT_OF_CREDITS_MESSAGE)
     useChatStore.getState().setInputMode('outOfCredits')
     invalidateActivityQuery(usageQueryKeys.current())
+    return
+  }
+
+  if (isFreeModeUnavailableError(error)) {
+    updater.setError(FREE_MODE_UNAVAILABLE_MESSAGE)
     return
   }
 

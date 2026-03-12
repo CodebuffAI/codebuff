@@ -4,8 +4,8 @@ import { isFreeMode } from '@codebuff/common/constants/free-agents'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { pluralize } from '@codebuff/common/util/string'
 import { env } from '@codebuff/internal/env'
+import geoip from 'geoip-lite'
 import { NextResponse } from 'next/server'
-
 
 import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
@@ -63,6 +63,24 @@ import {
   OpenRouterError,
 } from '@/llm-api/openrouter'
 import { extractApiKeyFromHeader } from '@/util/auth'
+
+const FREE_MODE_ALLOWED_COUNTRIES = new Set(['US', 'CA'])
+
+function extractClientIp(req: NextRequest): string | undefined {
+  const forwardedFor = req.headers.get('x-forwarded-for')
+  if (forwardedFor) {
+    return forwardedFor.split(',')[0].trim()
+  }
+  return req.headers.get('x-real-ip') ?? undefined
+}
+
+function getCountryFromIp(clientIp: string | undefined): string | null {
+  if (!clientIp) {
+    return null
+  }
+  const geo = geoip.lookup(clientIp)
+  return geo?.country ?? null
+}
 
 export const formatQuotaResetCountdown = (
   nextQuotaReset: string | null | undefined,
@@ -221,6 +239,35 @@ export async function postChatCompletions(params: {
     // Check if the request is in FREE mode (costs 0 credits for allowed agent+model combos)
     const costMode = typedBody.codebuff_metadata?.cost_mode
     const isFreeModeRequest = isFreeMode(costMode)
+
+    // For free mode requests, check if user is in US or Canada
+    if (isFreeModeRequest) {
+      const clientIp = extractClientIp(req)
+      const countryCode = getCountryFromIp(clientIp)
+
+      // If we couldn't determine country (null), allow the request (fail open)
+      // This handles users behind VPNs, corporate proxies, or localhost
+      if (countryCode && !FREE_MODE_ALLOWED_COUNTRIES.has(countryCode)) {
+        trackEvent({
+          event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
+          userId,
+          properties: {
+            error: 'free_mode_not_available_in_country',
+            countryCode,
+            clientIp: clientIp ? '[redacted]' : undefined,
+          },
+          logger,
+        })
+
+        return NextResponse.json(
+          {
+            error: 'free_mode_unavailable',
+            message: 'Free mode is not available outside of the United States and Canada. Please upgrade to a paid plan to use Codebuff outside the US and Canada.',
+          },
+          { status: 403 },
+        )
+      }
+    }
 
     // Extract and validate agent run ID
     const runIdFromBody = typedBody.codebuff_metadata?.run_id
