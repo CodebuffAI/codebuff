@@ -31,6 +31,9 @@ const FIREWORKS_MODEL_MAP: Record<string, string> = {
   'minimax/minimax-m2.5': 'accounts/fireworks/models/minimax-m2p5',
 }
 
+/** Flag to enable custom Fireworks deployments (set to false to use global API only) */
+const FIREWORKS_USE_CUSTOM_DEPLOYMENT = false
+
 /** Custom deployment IDs for models with dedicated Fireworks deployments */
 const FIREWORKS_DEPLOYMENT_MAP: Record<string, string> = {
   'minimax/minimax-m2.5': 'accounts/james-65d217/deployments/qne3jo8v',
@@ -657,7 +660,10 @@ export async function createFireworksRequestWithFallback(params: {
   const { body, originalModel, fetch, logger } = params
   const deploymentModelId = FIREWORKS_DEPLOYMENT_MAP[originalModel]
   const shouldTryDeployment =
-    deploymentModelId && isDeploymentHours() && !isDeploymentCoolingDown()
+    FIREWORKS_USE_CUSTOM_DEPLOYMENT &&
+    deploymentModelId &&
+    isDeploymentHours() &&
+    !isDeploymentCoolingDown()
 
   if (shouldTryDeployment) {
     logger.info(
