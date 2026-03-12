@@ -194,7 +194,7 @@ export const AdBanner: React.FC<AdBannerProps> = ({ ad, onDisableAds, isFreeMode
               gap: 2,
             }}
           >
-            {isFreeMode ? (
+            {isFreeMode && !IS_FREEBUFF ? (
               <text style={{ fg: theme.muted }}>
                 Ads are required in Free mode.
               </text>
