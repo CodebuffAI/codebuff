@@ -174,7 +174,6 @@ const FREEBUFF_REMOVED_COMMANDS = new Set([
   'publish',
   'gpt-5-agent',
   'connect:claude',
-  'review',
 ])
 
 const ALL_COMMANDS: CommandDefinition[] = [

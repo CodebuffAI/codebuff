@@ -6,7 +6,7 @@
  * Feature flag for ChatGPT OAuth (connect:chatgpt) functionality.
  * Default OFF until validated.
  */
-export const CHATGPT_OAUTH_ENABLED = false
+export const CHATGPT_OAUTH_ENABLED = true
 
 /** OAuth client id used by Codex-compatible OAuth ecosystems. */
 export const CHATGPT_OAUTH_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann'

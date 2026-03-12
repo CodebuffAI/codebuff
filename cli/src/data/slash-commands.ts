@@ -39,7 +39,6 @@ const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
   'refer-friends',
   'usage',
   'subscribe',
-  'review',
   'agent:gpt-5',
   'image',
   'publish',
