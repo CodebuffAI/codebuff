@@ -54,6 +54,12 @@ import {
   isSiliconFlowModel,
 } from '@/llm-api/siliconflow'
 import {
+  MiniMaxError,
+  handleMiniMaxNonStream,
+  handleMiniMaxStream,
+  isMiniMaxModel,
+} from '@/llm-api/minimax'
+import {
   handleOpenAINonStream,
   OPENAI_SUPPORTED_MODELS,
 } from '@/llm-api/openai'
@@ -366,11 +372,22 @@ export async function postChatCompletions(params: {
     // Handle streaming vs non-streaming
     try {
       if (bodyStream) {
-        // Streaming request — route to SiliconFlow/CanopyWave/Fireworks for supported models
+        // Streaming request — route to MiniMax/SiliconFlow/CanopyWave/Fireworks for supported models
+        const useMiniMax = isMiniMaxModel(typedBody.model)
         const useSiliconFlow = false // isSiliconFlowModel(typedBody.model)
         const useCanopyWave = false // isCanopyWaveModel(typedBody.model)
-        const useFireworks = isFireworksModel(typedBody.model)
-        const stream = useSiliconFlow
+        const useFireworks = !useMiniMax && isFireworksModel(typedBody.model)
+        const stream = useMiniMax
+          ? await handleMiniMaxStream({
+              body: typedBody,
+              userId,
+              stripeCustomerId,
+              agentId,
+              fetch,
+              logger,
+              insertMessageBigquery,
+            })
+          : useSiliconFlow
           ? await handleSiliconFlowStream({
               body: typedBody,
               userId,
@@ -430,12 +447,13 @@ export async function postChatCompletions(params: {
           },
         })
       } else {
-        // Non-streaming request — route to SiliconFlow/CanopyWave/Fireworks for supported models
+        // Non-streaming request — route to MiniMax/SiliconFlow/CanopyWave/Fireworks for supported models
         // TEMPORARILY DISABLED: route through OpenRouter
         const model = typedBody.model
+        const useMiniMaxDirect = isMiniMaxModel(model)
         const useSiliconFlow = false // isSiliconFlowModel(model)
         const useCanopyWave = false // isCanopyWaveModel(model)
-        const useFireworks = isFireworksModel(model)
+        const useFireworks = !useMiniMaxDirect && isFireworksModel(model)
         const modelParts = model.split('/')
         const shortModelName = modelParts.length > 1 ? modelParts[1] : model
         const isOpenAIDirectModel =
@@ -446,7 +464,17 @@ export async function postChatCompletions(params: {
         const shouldUseOpenAIEndpoint =
           isOpenAIDirectModel && typedBody.codebuff_metadata?.n !== undefined
 
-        const nonStreamRequest = useSiliconFlow
+        const nonStreamRequest = useMiniMaxDirect
+          ? handleMiniMaxNonStream({
+              body: typedBody,
+              userId,
+              stripeCustomerId,
+              agentId,
+              fetch,
+              logger,
+              insertMessageBigquery,
+            })
+          : useSiliconFlow
           ? handleSiliconFlowNonStream({
               body: typedBody,
               userId,
@@ -528,10 +556,14 @@ export async function postChatCompletions(params: {
       if (error instanceof SiliconFlowError) {
         siliconflowError = error
       }
+      let minimaxError: MiniMaxError | undefined
+      if (error instanceof MiniMaxError) {
+        minimaxError = error
+      }
 
       // Log detailed error information for debugging
       const errorDetails = openrouterError?.toJSON()
-      const providerLabel = siliconflowError ? 'SiliconFlow' : canopywaveError ? 'CanopyWave' : fireworksError ? 'Fireworks' : 'OpenRouter'
+      const providerLabel = minimaxError ? 'MiniMax' : siliconflowError ? 'SiliconFlow' : canopywaveError ? 'CanopyWave' : fireworksError ? 'Fireworks' : 'OpenRouter'
       logger.error(
         {
           error: getErrorObject(error),
@@ -545,8 +577,8 @@ export async function postChatCompletions(params: {
             ? typedBody.messages.length
             : 0,
           messages: typedBody.messages,
-          providerStatusCode: (openrouterError ?? fireworksError ?? canopywaveError ?? siliconflowError)?.statusCode,
-          providerStatusText: (openrouterError ?? fireworksError ?? canopywaveError ?? siliconflowError)?.statusText,
+          providerStatusCode: (openrouterError ?? fireworksError ?? canopywaveError ?? siliconflowError ?? minimaxError)?.statusCode,
+          providerStatusText: (openrouterError ?? fireworksError ?? canopywaveError ?? siliconflowError ?? minimaxError)?.statusText,
           openrouterErrorCode: errorDetails?.error?.code,
           openrouterErrorType: errorDetails?.error?.type,
           openrouterErrorMessage: errorDetails?.error?.message,
@@ -578,6 +610,9 @@ export async function postChatCompletions(params: {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
       if (error instanceof SiliconFlowError) {
+        return NextResponse.json(error.toJSON(), { status: error.statusCode })
+      }
+      if (error instanceof MiniMaxError) {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
 

@@ -6,6 +6,7 @@ export const ALLOWED_MODEL_PREFIXES = [
   'openai',
   'google',
   'x-ai',
+  'minimax',
 ] as const
 
 export const costModes = [
@@ -47,6 +48,8 @@ export const openrouterModels = {
   openrouter_gemini2_5_flash_thinking:
     'google/gemini-2.5-flash-preview:thinking',
   openrouter_grok_4: 'x-ai/grok-4-07-09',
+  openrouter_minimax_m2_5: 'minimax/minimax-m2.5',
+  openrouter_minimax_m2_5_highspeed: 'minimax/minimax-m2.5-highspeed',
 } as const
 export type openrouterModel =
   (typeof openrouterModels)[keyof typeof openrouterModels]
@@ -171,6 +174,7 @@ export const providerDomains = {
   openai: 'chatgpt.com',
   deepseek: 'deepseek.com',
   xai: 'x.ai',
+  minimax: 'minimax.io',
 } as const
 
 export function getLogoForModel(modelName: string): string | undefined {
@@ -182,6 +186,7 @@ export function getLogoForModel(modelName: string): string | undefined {
     domain = providerDomains.deepseek
   else if (modelName.includes('claude')) domain = providerDomains.anthropic
   else if (modelName.includes('grok')) domain = providerDomains.xai
+  else if (modelName.includes('minimax')) domain = providerDomains.minimax
 
   return domain
     ? `https://www.google.com/s2/favicons?domain=${domain}&sz=256`
