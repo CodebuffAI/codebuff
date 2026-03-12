@@ -26,10 +26,46 @@ const fireworksAgent = new Agent({
   bodyTimeout: 0,
 })
 
-/** Map from OpenRouter model IDs to Fireworks model IDs */
+/** Map from OpenRouter model IDs to Fireworks standard API model IDs */
 const FIREWORKS_MODEL_MAP: Record<string, string> = {
-  // 'minimax/minimax-m2.5': 'accounts/james-65d217/deployments/qne3jo8v' //'accounts/fireworks/models/minimax-m2p5',
   'minimax/minimax-m2.5': 'accounts/fireworks/models/minimax-m2p5',
+}
+
+/** Custom deployment IDs for models with dedicated Fireworks deployments */
+const FIREWORKS_DEPLOYMENT_MAP: Record<string, string> = {
+  'minimax/minimax-m2.5': 'accounts/james-65d217/deployments/qne3jo8v',
+}
+
+/** Check if current time is within deployment hours (10am–8pm ET) */
+export function isDeploymentHours(now: Date = new Date()): boolean {
+  const etHour = parseInt(
+    now.toLocaleString('en-US', {
+      timeZone: 'America/New_York',
+      hour: 'numeric',
+      hour12: false,
+    }),
+    10,
+  )
+  return etHour >= 10 && etHour < 20
+}
+
+/**
+ * In-memory cooldown to avoid repeatedly hitting a deployment that is scaling up.
+ * After a DEPLOYMENT_SCALING_UP 503, we skip the deployment for this many ms.
+ */
+export const DEPLOYMENT_COOLDOWN_MS = 2 * 60 * 1000
+let deploymentScalingUpUntil = 0
+
+export function isDeploymentCoolingDown(): boolean {
+  return Date.now() < deploymentScalingUpUntil
+}
+
+export function markDeploymentScalingUp(): void {
+  deploymentScalingUpUntil = Date.now() + DEPLOYMENT_COOLDOWN_MS
+}
+
+export function resetDeploymentCooldown(): void {
+  deploymentScalingUpUntil = 0
 }
 
 export function isFireworksModel(model: string): boolean {
@@ -52,11 +88,12 @@ function createFireworksRequest(params: {
   body: ChatCompletionRequestBody
   originalModel: string
   fetch: typeof globalThis.fetch
+  modelIdOverride?: string
 }) {
-  const { body, originalModel, fetch } = params
+  const { body, originalModel, fetch, modelIdOverride } = params
   const fireworksBody: Record<string, unknown> = {
     ...body,
-    model: getFireworksModelId(originalModel),
+    model: modelIdOverride ?? getFireworksModelId(originalModel),
   }
 
   // Strip OpenRouter-specific / internal fields
@@ -128,7 +165,7 @@ export async function handleFireworksNonStream({
   const startTime = new Date()
   const { clientId, clientRequestId, costMode } = extractRequestMetadata({ body, logger })
 
-  const response = await createFireworksRequest({ body, originalModel, fetch })
+  const response = await createFireworksRequestWithFallback({ body, originalModel, fetch, logger })
 
   if (!response.ok) {
     throw await parseFireworksError(response)
@@ -204,7 +241,7 @@ export async function handleFireworksStream({
   const startTime = new Date()
   const { clientId, clientRequestId, costMode } = extractRequestMetadata({ body, logger })
 
-  const response = await createFireworksRequest({ body, originalModel, fetch })
+  const response = await createFireworksRequestWithFallback({ body, originalModel, fetch, logger })
 
   if (!response.ok) {
     throw await parseFireworksError(response)
@@ -566,8 +603,11 @@ export class FireworksError extends Error {
   }
 }
 
-async function parseFireworksError(response: Response): Promise<FireworksError> {
-  const errorText = await response.text()
+function parseFireworksErrorFromText(
+  statusCode: number,
+  statusText: string,
+  errorText: string,
+): FireworksError {
   let errorBody: FireworksError['errorBody']
   try {
     const parsed = JSON.parse(errorText)
@@ -582,20 +622,74 @@ async function parseFireworksError(response: Response): Promise<FireworksError> 
     } else {
       errorBody = {
         error: {
-          message: errorText || response.statusText,
-          code: response.status,
+          message: errorText || statusText,
+          code: statusCode,
         },
       }
     }
   } catch {
     errorBody = {
       error: {
-        message: errorText || response.statusText,
-        code: response.status,
+        message: errorText || statusText,
+        code: statusCode,
       },
     }
   }
-  return new FireworksError(response.status, response.statusText, errorBody)
+  return new FireworksError(statusCode, statusText, errorBody)
+}
+
+async function parseFireworksError(response: Response): Promise<FireworksError> {
+  const errorText = await response.text()
+  return parseFireworksErrorFromText(response.status, response.statusText, errorText)
+}
+
+/**
+ * Tries the custom Fireworks deployment during business hours (10am–8pm ET),
+ * falling back to the standard API if the deployment returns 503 DEPLOYMENT_SCALING_UP.
+ * Outside deployment hours or during cooldown, goes straight to the standard API.
+ */
+export async function createFireworksRequestWithFallback(params: {
+  body: ChatCompletionRequestBody
+  originalModel: string
+  fetch: typeof globalThis.fetch
+  logger: Logger
+}): Promise<Response> {
+  const { body, originalModel, fetch, logger } = params
+  const deploymentModelId = FIREWORKS_DEPLOYMENT_MAP[originalModel]
+  const shouldTryDeployment =
+    deploymentModelId && isDeploymentHours() && !isDeploymentCoolingDown()
+
+  if (shouldTryDeployment) {
+    logger.info(
+      { model: originalModel, deploymentModel: deploymentModelId },
+      'Trying Fireworks custom deployment (business hours)',
+    )
+    const response = await createFireworksRequest({
+      body,
+      originalModel,
+      fetch,
+      modelIdOverride: deploymentModelId,
+    })
+
+    if (response.status === 503) {
+      const errorText = await response.text()
+      if (errorText.includes('DEPLOYMENT_SCALING_UP')) {
+        logger.info(
+          { model: originalModel },
+          'Fireworks deployment scaling up, falling back to standard API',
+        )
+        markDeploymentScalingUp()
+        // Fall through to standard API request below
+      } else {
+        // Non-scaling 503 — treat as a real error
+        throw parseFireworksErrorFromText(response.status, response.statusText, errorText)
+      }
+    } else {
+      return response
+    }
+  }
+
+  return createFireworksRequest({ body, originalModel, fetch })
 }
 
 function creditsToFakeCost(credits: number): number {
