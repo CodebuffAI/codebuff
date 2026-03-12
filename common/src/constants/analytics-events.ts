@@ -142,6 +142,11 @@ export enum AnalyticsEvent {
   CLAUDE_OAUTH_RATE_LIMITED = 'sdk.claude_oauth_rate_limited',
   CLAUDE_OAUTH_AUTH_ERROR = 'sdk.claude_oauth_auth_error',
 
+  // ChatGPT OAuth
+  CHATGPT_OAUTH_REQUEST = 'sdk.chatgpt_oauth_request',
+  CHATGPT_OAUTH_RATE_LIMITED = 'sdk.chatgpt_oauth_rate_limited',
+  CHATGPT_OAUTH_AUTH_ERROR = 'sdk.chatgpt_oauth_auth_error',
+
   // Common
   FLUSH_FAILED = 'common.flush_failed',
 

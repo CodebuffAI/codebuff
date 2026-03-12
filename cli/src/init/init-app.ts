@@ -1,6 +1,9 @@
+import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
 import { CLAUDE_OAUTH_ENABLED } from '@codebuff/common/constants/claude-oauth'
 import {
+  getChatGptOAuthCredentials,
   getClaudeOAuthCredentials,
+  getValidChatGptOAuthCredentials,
   getValidClaudeOAuthCredentials,
 } from '@codebuff/sdk'
 import { enableMapSet } from 'immer'
@@ -34,6 +37,15 @@ export async function initializeApp(params: { cwd?: string }): Promise<void> {
       getValidClaudeOAuthCredentials().catch((error) => {
         // Log refresh errors at debug level - will be retried on next API call
         console.debug('Failed to refresh Claude OAuth credentials:', error)
+      })
+    }
+  }
+
+  if (CHATGPT_OAUTH_ENABLED) {
+    const chatGptCredentials = getChatGptOAuthCredentials()
+    if (chatGptCredentials) {
+      getValidChatGptOAuthCredentials().catch(() => {
+        // Best-effort background refresh.
       })
     }
   }

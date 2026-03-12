@@ -371,5 +371,23 @@ describe('command-registry', () => {
         }
       }
     })
+
+    test('connect:chatgpt slash command presence matches feature flag', () => {
+      const { CHATGPT_OAUTH_ENABLED } = require('@codebuff/common/constants/chatgpt-oauth')
+      const hasChatGptSlashCommand = SLASH_COMMANDS.some(
+        (cmd) => cmd.id === 'connect:chatgpt',
+      )
+      expect(hasChatGptSlashCommand).toBe(CHATGPT_OAUTH_ENABLED)
+    })
+
+    test('connect:chatgpt command registry availability matches feature flag', () => {
+      const { CHATGPT_OAUTH_ENABLED } = require('@codebuff/common/constants/chatgpt-oauth')
+      const command = findCommand('connect:chatgpt')
+      if (CHATGPT_OAUTH_ENABLED) {
+        expect(command).toBeDefined()
+      } else {
+        expect(command).toBeUndefined()
+      }
+    })
   })
 })

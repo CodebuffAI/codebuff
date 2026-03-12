@@ -3,6 +3,7 @@
  *
  * This module handles:
  * - Claude OAuth: Direct requests to Anthropic API using user's OAuth token
+ * - ChatGPT OAuth: Direct requests to OpenAI API using user's OAuth token
  * - Default: Requests through Codebuff backend (which routes to OpenRouter)
  */
 
@@ -10,6 +11,15 @@ import path from 'path'
 
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
+import { isFreeMode } from '@codebuff/common/constants/free-agents'
+import {
+  CHATGPT_OAUTH_OPENAI_MODEL_ALLOWLIST,
+  CHATGPT_OAUTH_ENABLED,
+  isChatGptOAuthModelAllowed,
+  isOpenAIProviderModel,
+  OPENAI_API_BASE_URL,
+  toOpenAIModelId,
+} from '@codebuff/common/constants/chatgpt-oauth'
 import {
   CLAUDE_CODE_SYSTEM_PROMPT_PREFIX,
   CLAUDE_OAUTH_BETA_HEADERS,
@@ -23,7 +33,10 @@ import {
 } from '@codebuff/internal/openai-compatible/index'
 
 import { WEBSITE_URL } from '../constants'
-import { getValidClaudeOAuthCredentials } from '../credentials'
+import {
+  getValidChatGptOAuthCredentials,
+  getValidClaudeOAuthCredentials,
+} from '../credentials'
 import { getByokOpenrouterApiKeyFromEnv } from '../env'
 
 import type { LanguageModel } from 'ai'
@@ -67,6 +80,46 @@ export function isClaudeOAuthRateLimited(): boolean {
  */
 export function resetClaudeOAuthRateLimit(): void {
   claudeOAuthRateLimitedUntil = null
+}
+
+// ============================================================================
+// ChatGPT OAuth Rate Limit Cache
+// ============================================================================
+
+/** Timestamp (ms) when ChatGPT OAuth rate limit expires, or null if not rate-limited */
+let chatGptOAuthRateLimitedUntil: number | null = null
+
+/**
+ * Mark ChatGPT OAuth as rate-limited. Subsequent requests will skip direct ChatGPT OAuth
+ * and use Codebuff backend until the reset time.
+ */
+export function markChatGptOAuthRateLimited(resetAt?: Date): void {
+  const fiveMinutesFromNow = Date.now() + 5 * 60 * 1000
+  chatGptOAuthRateLimitedUntil = resetAt
+    ? resetAt.getTime()
+    : fiveMinutesFromNow
+}
+
+/**
+ * Check if ChatGPT OAuth is currently rate-limited.
+ */
+export function isChatGptOAuthRateLimited(): boolean {
+  if (chatGptOAuthRateLimitedUntil === null) {
+    return false
+  }
+  if (Date.now() >= chatGptOAuthRateLimitedUntil) {
+    chatGptOAuthRateLimitedUntil = null
+    return false
+  }
+  return true
+}
+
+/**
+ * Reset the ChatGPT OAuth rate-limit cache.
+ * Call this when user reconnects their ChatGPT subscription.
+ */
+export function resetChatGptOAuthRateLimit(): void {
+  chatGptOAuthRateLimitedUntil = null
 }
 
 // ============================================================================
@@ -140,6 +193,10 @@ export interface ModelRequestParams {
   model: string
   /** If true, skip Claude OAuth and use Codebuff backend (for fallback after rate limit) */
   skipClaudeOAuth?: boolean
+  /** If true, skip ChatGPT OAuth and use Codebuff backend (for fallback after rate limit) */
+  skipChatGptOAuth?: boolean
+  /** Cost mode (e.g. 'free') — affects fallback behavior for OAuth routes */
+  costMode?: string
 }
 
 /**
@@ -150,6 +207,8 @@ export interface ModelResult {
   model: LanguageModel
   /** Whether this model uses Claude OAuth direct (affects cost tracking) */
   isClaudeOAuth: boolean
+  /** Whether this model uses ChatGPT OAuth direct (affects cost tracking) */
+  isChatGptOAuth: boolean
 }
 
 // Usage accounting type for OpenRouter/Codebuff backend responses
@@ -169,7 +228,7 @@ type OpenRouterUsageAccounting = {
  * This function is async because it may need to refresh the OAuth token.
  */
 export async function getModelForRequest(params: ModelRequestParams): Promise<ModelResult> {
-  const { apiKey, model, skipClaudeOAuth } = params
+  const { apiKey, model, skipClaudeOAuth, skipChatGptOAuth, costMode } = params
 
   // Check if we should use Claude OAuth direct
   // Skip if feature disabled, explicitly requested, if rate-limited, or if not a Claude model
@@ -183,6 +242,43 @@ export async function getModelForRequest(params: ModelRequestParams): Promise<Mo
           claudeOAuthCredentials.accessToken,
         ),
         isClaudeOAuth: true,
+        isChatGptOAuth: false,
+      }
+    }
+  }
+
+  // Check if we should use ChatGPT OAuth direct
+  // Only attempt for allowlisted models; non-allowlisted models silently fall through to backend.
+  if (
+    CHATGPT_OAUTH_ENABLED &&
+    !skipChatGptOAuth &&
+    isOpenAIProviderModel(model) &&
+    isChatGptOAuthModelAllowed(model)
+  ) {
+    // In free mode, rate-limited ChatGPT OAuth must not silently fall through to
+    // the Codebuff backend — freebuff should only use the direct OpenAI route or fail.
+    if (isChatGptOAuthRateLimited()) {
+      if (isFreeMode(costMode)) {
+        throw new Error(
+          'ChatGPT rate limit reached. Please wait a few minutes and try again.',
+        )
+      }
+    } else {
+      const chatGptOAuthCredentials = await getValidChatGptOAuthCredentials()
+
+      if (chatGptOAuthCredentials) {
+        return {
+          model: createOpenAIOAuthModel(model, chatGptOAuthCredentials.accessToken),
+          isClaudeOAuth: false,
+          isChatGptOAuth: true,
+        }
+      }
+
+      // In free mode, if credentials are unavailable, don't fall through to backend.
+      if (isFreeMode(costMode)) {
+        throw new Error(
+          'ChatGPT OAuth credentials unavailable. Please reconnect with /connect:chatgpt.',
+        )
       }
     }
   }
@@ -191,7 +287,31 @@ export async function getModelForRequest(params: ModelRequestParams): Promise<Mo
   return {
     model: createCodebuffBackendModel(apiKey, model),
     isClaudeOAuth: false,
+    isChatGptOAuth: false,
   }
+}
+
+/**
+ * Create an OpenAI model that uses OAuth Bearer token authentication.
+ */
+function createOpenAIOAuthModel(model: string, oauthToken: string): LanguageModel {
+  const openAIModelId = toOpenAIModelId(model)
+
+  return new OpenAICompatibleChatLanguageModel(openAIModelId, {
+    provider: 'openai',
+    url: ({ path: endpoint }) => {
+      const normalizedPath = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+      return `${OPENAI_API_BASE_URL}/v1${normalizedPath}`
+    },
+    headers: () => ({
+      Authorization: `Bearer ${oauthToken}`,
+      'Content-Type': 'application/json',
+      'user-agent': `ai-sdk/openai-compatible/${VERSION}/codebuff-chatgpt-oauth`,
+    }),
+    supportsStructuredOutputs: true,
+    fetch: undefined,
+    includeUsage: undefined,
+  })
 }
 
 /**

@@ -1,6 +1,6 @@
 import { describe, test, expect, afterEach } from 'bun:test'
 
-import { getSdkEnv } from '../env'
+import { getChatGptOAuthTokenFromEnv, getSdkEnv } from '../env'
 import { createTestSdkEnv } from '../testing/env'
 
 describe('sdk/env', () => {
@@ -109,6 +109,29 @@ describe('sdk/env', () => {
       })
       expect(env.HOME).toBe('/custom/home')
       expect(env.NODE_ENV).toBe('production')
+    })
+  })
+
+  describe('getChatGptOAuthTokenFromEnv', () => {
+    const originalEnv = { ...process.env }
+
+    afterEach(() => {
+      Object.keys(process.env).forEach((key) => {
+        if (!(key in originalEnv)) {
+          delete process.env[key]
+        }
+      })
+      Object.assign(process.env, originalEnv)
+    })
+
+    test('returns undefined when token env var is unset', () => {
+      delete process.env.CODEBUFF_CHATGPT_OAUTH_TOKEN
+      expect(getChatGptOAuthTokenFromEnv()).toBeUndefined()
+    })
+
+    test('returns token from CODEBUFF_CHATGPT_OAUTH_TOKEN', () => {
+      process.env.CODEBUFF_CHATGPT_OAUTH_TOKEN = 'chatgpt-oauth-token'
+      expect(getChatGptOAuthTokenFromEnv()).toBe('chatgpt-oauth-token')
     })
   })
 })

@@ -1,6 +1,7 @@
+import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
 import { CLAUDE_OAUTH_ENABLED } from '@codebuff/common/constants/claude-oauth'
 import { IS_FREEBUFF } from '../utils/constants'
-import { isClaudeOAuthValid } from '@codebuff/sdk'
+import { isChatGptOAuthValid, isClaudeOAuthValid } from '@codebuff/sdk'
 import { TextAttributes } from '@opentui/core'
 import open from 'open'
 import React, { useEffect, useMemo } from 'react'
@@ -53,6 +54,7 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
 
   // Check if Claude OAuth is connected (only when feature is enabled)
   const isClaudeConnected = CLAUDE_OAUTH_ENABLED && isClaudeOAuthValid()
+  const isChatGptConnected = CHATGPT_OAUTH_ENABLED && isChatGptOAuthValid()
 
   // Fetch Claude quota data if connected
   const { data: claudeQuota, isLoading: isClaudeLoading } = useClaudeQuotaQuery({
@@ -196,6 +198,15 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
             ) : (
               <text style={{ fg: theme.muted }}>Unable to fetch quota</text>
             )}
+          </box>
+        )}
+
+        {isChatGptConnected && (
+          <box style={{ flexDirection: 'column', marginTop: 1 }}>
+            <text style={{ fg: theme.muted }}>ChatGPT subscription</text>
+            <text style={{ fg: theme.muted }}>
+              Connected for supported OpenAI streaming models
+            </text>
           </box>
         )}
       </box>

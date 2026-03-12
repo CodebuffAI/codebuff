@@ -1,3 +1,4 @@
+import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
 import { CLAUDE_OAUTH_ENABLED } from '@codebuff/common/constants/claude-oauth'
 import open from 'open'
 
@@ -505,6 +506,19 @@ const ALL_COMMANDS: CommandDefinition[] = [
       clearInput(params)
     },
   }),
+  ...(CHATGPT_OAUTH_ENABLED
+    ? [
+        defineCommand({
+          name: 'connect:chatgpt',
+          aliases: ['chatgpt'],
+          handler: (params) => {
+            useChatStore.getState().setInputMode('connect:chatgpt')
+            params.saveToHistory(params.inputValue.trim())
+            clearInput(params)
+          },
+        }),
+      ]
+    : []),
   defineCommand({
     name: 'history',
     aliases: ['chats'],

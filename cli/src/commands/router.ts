@@ -1,4 +1,5 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
+import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
 import { CLAUDE_OAUTH_ENABLED } from '@codebuff/common/constants/claude-oauth'
 import { runTerminalCommand } from '@codebuff/sdk'
 
@@ -17,6 +18,7 @@ import {
   parseCommandInput,
 } from './router-utils'
 import { handleClaudeAuthCode } from '../components/claude-connect-banner'
+import { handleChatGptAuthCode } from '../components/chatgpt-connect-banner'
 import { getProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
 import { trackEvent } from '../utils/analytics'
@@ -355,6 +357,28 @@ export async function routeUserPrompt(
         getSystemMessage(result.message),
       ])
     }
+    saveToHistory(trimmed)
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+    setInputMode('default')
+    return
+  }
+
+  if (inputMode === 'connect:chatgpt') {
+    if (!CHATGPT_OAUTH_ENABLED) {
+      setInputMode('default')
+      return
+    }
+
+    const code = trimmed
+    if (code) {
+      const result = await handleChatGptAuthCode(code)
+      setMessages((prev) => [
+        ...prev,
+        getUserMessage(trimmed),
+        getSystemMessage(result.message),
+      ])
+    }
+
     saveToHistory(trimmed)
     setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
     setInputMode('default')
