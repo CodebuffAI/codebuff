@@ -32,6 +32,11 @@ const faqs = [
       'MiniMax M2.5 as the main coding agent, Gemini 3.1 Flash Lite for finding files and research, and GPT-5.4 for deep thinking if you connect your ChatGPT subscription.',
   },
   {
+    question: 'Which countries is Freebuff available in?',
+    answer:
+      'Freebuff is currently available in the United States, Canada, United Kingdom, Australia, Norway, Sweden, Netherlands, Denmark, Germany, Finland, Belgium, Luxembourg, Switzerland, Ireland, and Iceland.',
+  },
+  {
     question: 'Are you training on my data?',
     answer:
       'No. We only use model providers that do not train on our requests. Your code stays yours.',
