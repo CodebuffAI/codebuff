@@ -53,6 +53,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
     }
   }, [])
 
+  const reviewBasePrompt = 'Please gather all relevant context and then spawn @thinker-gpt to review:'
   const handleSelect = useCallback(
     (option: ReviewOption) => {
       if (option.id === 'custom') {
@@ -63,10 +64,10 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
       let reviewText: string
       switch (option.id) {
         case 'uncommitted':
-          reviewText = '@GPT-5 Agent Please review: uncommitted changes'
+          reviewText = `${reviewBasePrompt} uncommitted changes`
           break
         case 'branch':
-          reviewText = '@GPT-5 Agent Please review: this branch compared to main'
+          reviewText = `${reviewBasePrompt} this branch compared to main`
           break
         default:
           return
@@ -78,7 +79,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
 
   const handleCustomSubmit = useCallback(() => {
     if (customInput.trim()) {
-      onSelectOption(`@GPT-5 Agent Please review: ${customInput.trim()}`)
+      onSelectOption(`${reviewBasePrompt} ${customInput.trim()}`)
     }
   }, [customInput, onSelectOption])
 

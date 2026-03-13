@@ -82,7 +82,7 @@ Freebuff only supports **FREE mode**. All mode-related features are stripped.
 | `/refer-friends` (+ `/referral`, `/redeem`) | Referrals earn credits, not applicable |
 | `/mode:*` (all mode commands) | Only FREE mode |
 | `/agent:gpt-5` | Premium agent, not available in free tier |
-| `/review` | Uses GPT-5 Agent under the hood |
+| `/review` | Uses thinker-gpt under the hood |
 | `/publish` | Agent publishing not available in free tier |
 | `/image` (+ `/img`, `/attach`) | Image attachments unavailable with free model (MiniMax M2.5) |
 

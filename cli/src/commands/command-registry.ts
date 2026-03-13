@@ -537,7 +537,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
 
       // If user provided review text directly, send it immediately without showing the screen
       if (trimmedArgs) {
-        const reviewPrompt = `@GPT-5 Agent Please review: ${trimmedArgs}`
+        const reviewPrompt = `@thinker-gpt Please review: ${trimmedArgs}`
         params.sendMessage({
           content: reviewPrompt,
           agentMode: params.agentMode,

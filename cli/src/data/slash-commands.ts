@@ -134,7 +134,7 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'review',
     label: 'review',
-    description: 'Review code changes with GPT-5 Agent',
+    description: 'Review code changes with thinker-gpt',
   },
   {
     id: 'agent:gpt-5',

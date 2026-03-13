@@ -85,6 +85,7 @@ export function createBase2(
       isFree && 'code-reviewer-lite',
       isDefault && 'code-reviewer',
       isMax && 'code-reviewer-multi-prompt',
+      'thinker-gpt',
       'tmux-cli',
       'context-pruner',
     ),
@@ -139,8 +140,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
   ${buildArray(
         '- Spawn context-gathering agents (file pickers and web/docs researchers) before making edits. Use the code_search, list_directory, and glob tools directly for searching and exploring the codebase.',
-        isFree &&
-        '- Spawn the editor-lite agent to implement the changes after you have gathered all the context you need.',
+        isFree && 'Do not spawn the thinker-gpt agent, unless the user asks. Not everyone has connected their ChatGPT subscription to Codebuff to allow for it.',
         isDefault &&
         '- Spawn the editor agent to implement the changes after you have gathered all the context you need.',
         (isDefault || isMax) &&
