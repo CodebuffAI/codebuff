@@ -18,8 +18,8 @@ export const CHATGPT_OAUTH_TOKEN_URL = 'https://auth.openai.com/oauth/token'
 /** Pinned redirect URI for paste-based localhost callback flow. */
 export const CHATGPT_OAUTH_REDIRECT_URI = 'http://localhost:1455/auth/callback'
 
-/** Base URL for direct OpenAI API calls. */
-export const OPENAI_API_BASE_URL = 'https://api.openai.com'
+/** Base URL for ChatGPT backend API (Codex endpoint). */
+export const CHATGPT_BACKEND_BASE_URL = 'https://chatgpt.com/backend-api'
 
 /** Environment variable for OAuth token override. */
 export const CHATGPT_OAUTH_TOKEN_ENV_VAR = 'CODEBUFF_CHATGPT_OAUTH_TOKEN'

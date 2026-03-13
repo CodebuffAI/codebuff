@@ -527,7 +527,7 @@ describe('credentials', () => {
       }
     })
 
-    test('clears credentials and returns null on refresh failure', async () => {
+    test('preserves credentials and returns null on refresh failure', async () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'refresh-fail-test-'))
       const env = { NEXT_PUBLIC_CB_ENVIRONMENT: 'test' } as any
       const originalHomedir = os.homedir
@@ -558,9 +558,10 @@ describe('credentials', () => {
         const result = await refreshClaudeOAuthToken(env)
 
         expect(result).toBeNull()
-        // Credentials should be cleared
+        // Credentials should be preserved (not cleared) so future retries can attempt refresh again
         const saved = JSON.parse(fs.readFileSync(path.join(configDir, 'credentials.json'), 'utf8'))
-        expect(saved.claudeOAuth).toBeUndefined()
+        expect(saved.claudeOAuth).toBeDefined()
+        expect(saved.claudeOAuth.refreshToken).toBe('invalid-refresh')
       } finally {
         ;(os as any).homedir = originalHomedir
         fs.rmSync(tmpDir, { recursive: true })

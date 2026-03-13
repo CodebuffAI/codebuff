@@ -147,10 +147,9 @@ function isOAuthRateLimitError(error: unknown): boolean {
 
   if (message.includes('rate_limit') || message.includes('rate limit'))
     return true
-  if (message.includes('overloaded')) return true
   if (
     responseBody.includes('rate_limit') ||
-    responseBody.includes('overloaded')
+    responseBody.includes('rate limit')
   )
     return true
 
@@ -575,7 +574,8 @@ export async function* promptAiSdkStream(
       })
 
       if (chatGptErrorPolicy === 'fallback-rate-limit') {
-        logger.info(
+        const rateLimitErrorDetails = chunkValue.error instanceof Error ? chunkValue.error.message : String(chunkValue.error)
+        logger.warn(
           { error: getErrorObject(chunkValue.error) },
           'ChatGPT OAuth rate limited during stream',
         )
@@ -595,7 +595,7 @@ export async function* promptAiSdkStream(
         // In free mode, don't fall back to Codebuff backend — fail instead
         if (isFreeMode(params.costMode)) {
           throw new Error(
-            'ChatGPT rate limit reached. Please wait a few minutes and try again.',
+            `ChatGPT rate limit reached. Please wait a few minutes and try again. (${rateLimitErrorDetails})`,
           )
         }
 
@@ -679,6 +679,7 @@ export async function* promptAiSdkStream(
             })
             return retryResult
           }
+          logger.warn({ model: requestedModel }, 'ChatGPT OAuth token refresh failed, unable to recover')
         }
 
         // Refresh failed or already retried

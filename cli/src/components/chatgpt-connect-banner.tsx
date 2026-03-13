@@ -5,10 +5,11 @@ import { Button } from './button'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
 import {
+  connectChatGptOAuth,
   disconnectChatGptOAuth,
   exchangeChatGptCodeForTokens,
   getChatGptOAuthStatus,
-  openChatGptOAuthInBrowser,
+  stopChatGptOAuthServer,
 } from '../utils/chatgpt-oauth'
 
 type FlowState =
@@ -32,20 +33,30 @@ export const ChatGptConnectBanner = () => {
     }
 
     setFlowState('waiting-for-code')
-    openChatGptOAuthInBrowser().catch((err) => {
-      setError(err instanceof Error ? err.message : 'Failed to open browser')
-      setFlowState('error')
-    })
+    connectChatGptOAuth()
+      .then(() => {
+        setFlowState('connected')
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Failed to connect')
+        setFlowState('error')
+      })
+
+    return () => {
+      stopChatGptOAuthServer()
+    }
   }, [])
 
   const handleConnect = async () => {
-    try {
-      setFlowState('waiting-for-code')
-      await openChatGptOAuthInBrowser()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to open browser')
-      setFlowState('error')
-    }
+    setFlowState('waiting-for-code')
+    connectChatGptOAuth()
+      .then(() => {
+        setFlowState('connected')
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Failed to connect')
+        setFlowState('error')
+      })
   }
 
   const handleDisconnect = () => {
@@ -96,7 +107,8 @@ export const ChatGptConnectBanner = () => {
         <box style={{ flexDirection: 'column', gap: 0 }}>
           <text style={{ fg: theme.info }}>Waiting for ChatGPT authorization</text>
           <text style={{ fg: theme.muted, marginTop: 1 }}>
-            Complete sign-in in your browser, then paste the auth code or callback URL here.
+            Complete sign-in in your browser — it should connect automatically.
+            If not, paste the callback URL here.
           </text>
         </box>
       </BottomBanner>
@@ -121,6 +133,7 @@ export async function handleChatGptAuthCode(code: string): Promise<{
 }> {
   try {
     await exchangeChatGptCodeForTokens(code)
+    stopChatGptOAuthServer()
     return {
       success: true,
       message:

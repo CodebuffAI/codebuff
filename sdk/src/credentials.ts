@@ -255,8 +255,7 @@ export const refreshClaudeOAuthToken = async (
       )
 
       if (!response.ok) {
-        // Refresh failed, clear credentials
-        clearClaudeOAuthCredentials(clientEnv)
+        console.debug(`Claude OAuth token refresh failed (status ${response.status})`)
         return null
       }
 
@@ -273,9 +272,8 @@ export const refreshClaudeOAuthToken = async (
       saveClaudeOAuthCredentials(newCredentials, clientEnv)
 
       return newCredentials
-    } catch {
-      // Refresh failed, clear credentials
-      clearClaudeOAuthCredentials(clientEnv)
+    } catch (error) {
+      console.debug('Claude OAuth token refresh failed:', error instanceof Error ? error.message : String(error))
       return null
     } finally {
       // Clear the mutex after completion
@@ -434,7 +432,7 @@ export const refreshChatGptOAuthToken = async (
       })
 
       if (!response.ok) {
-        clearChatGptOAuthCredentials(clientEnv)
+        console.debug(`ChatGPT OAuth token refresh failed (status ${response.status})`)
         return null
       }
 
@@ -444,7 +442,7 @@ export const refreshChatGptOAuthToken = async (
         typeof data?.access_token !== 'string' ||
         data.access_token.trim().length === 0
       ) {
-        clearChatGptOAuthCredentials(clientEnv)
+        console.debug('ChatGPT OAuth token refresh returned empty access token')
         return null
       }
 
@@ -461,8 +459,8 @@ export const refreshChatGptOAuthToken = async (
       saveChatGptOAuthCredentials(newCredentials, clientEnv)
 
       return newCredentials
-    } catch {
-      clearChatGptOAuthCredentials(clientEnv)
+    } catch (error) {
+      console.debug('ChatGPT OAuth token refresh failed:', error instanceof Error ? error.message : String(error))
       return null
     } finally {
       chatGptRefreshPromise = null

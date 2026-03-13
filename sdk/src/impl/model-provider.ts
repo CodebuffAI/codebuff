@@ -13,11 +13,10 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { BYOK_OPENROUTER_HEADER } from '@codebuff/common/constants/byok'
 import { isFreeMode } from '@codebuff/common/constants/free-agents'
 import {
-  CHATGPT_OAUTH_OPENAI_MODEL_ALLOWLIST,
+  CHATGPT_BACKEND_BASE_URL,
   CHATGPT_OAUTH_ENABLED,
   isChatGptOAuthModelAllowed,
   isOpenAIProviderModel,
-  OPENAI_API_BASE_URL,
   toOpenAIModelId,
 } from '@codebuff/common/constants/chatgpt-oauth'
 import {
@@ -38,6 +37,10 @@ import {
   getValidClaudeOAuthCredentials,
 } from '../credentials'
 import { getByokOpenrouterApiKeyFromEnv } from '../env'
+import {
+  createChatGptBackendFetch,
+  extractChatGptAccountId,
+} from './chatgpt-backend-fetch'
 
 import type { LanguageModel } from 'ai'
 
@@ -292,24 +295,27 @@ export async function getModelForRequest(params: ModelRequestParams): Promise<Mo
 }
 
 /**
- * Create an OpenAI model that uses OAuth Bearer token authentication.
+ * Create an OpenAI model that routes through the ChatGPT backend API (Codex endpoint).
+ * Uses a custom fetch that transforms between Chat Completions and Responses API formats.
  */
 function createOpenAIOAuthModel(model: string, oauthToken: string): LanguageModel {
   const openAIModelId = toOpenAIModelId(model)
+  const accountId = extractChatGptAccountId(oauthToken)
 
   return new OpenAICompatibleChatLanguageModel(openAIModelId, {
     provider: 'openai',
-    url: ({ path: endpoint }) => {
-      const normalizedPath = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
-      return `${OPENAI_API_BASE_URL}/v1${normalizedPath}`
-    },
+    url: () => `${CHATGPT_BACKEND_BASE_URL}/codex/responses`,
     headers: () => ({
       Authorization: `Bearer ${oauthToken}`,
       'Content-Type': 'application/json',
+      'OpenAI-Beta': 'responses=experimental',
+      originator: 'codex_cli_rs',
+      accept: 'text/event-stream',
       'user-agent': `ai-sdk/openai-compatible/${VERSION}/codebuff-chatgpt-oauth`,
+      ...(accountId ? { 'chatgpt-account-id': accountId } : {}),
     }),
+    fetch: createChatGptBackendFetch(),
     supportsStructuredOutputs: true,
-    fetch: undefined,
     includeUsage: undefined,
   })
 }
