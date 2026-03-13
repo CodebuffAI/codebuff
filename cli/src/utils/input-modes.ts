@@ -63,11 +63,11 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     blockKeyboardExit: false,
   },
   bash: {
-    icon: '!',
-    label: null,
-    color: 'success',
+    icon: null,
+    label: '!',
+    color: 'info',
     placeholder: 'enter bash command...',
-    widthAdjustment: 2, // 1 char + 1 padding
+    widthAdjustment: 4, // ` ! ` (3 chars) + 1 padding
     showAgentModeToggle: false,
     disableSlashSuggestions: true,
     blockKeyboardExit: false,
