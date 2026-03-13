@@ -178,6 +178,10 @@ const FREEBUFF_REMOVED_COMMANDS = new Set([
   'connect:claude',
 ])
 
+const FREEBUFF_ONLY_COMMANDS = new Set([
+  'plan',
+])
+
 const ALL_COMMANDS: CommandDefinition[] = [
   defineCommand({
     name: 'ads:enable',
@@ -625,7 +629,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
 
 export const COMMAND_REGISTRY: CommandDefinition[] = IS_FREEBUFF
   ? ALL_COMMANDS.filter((cmd) => !FREEBUFF_REMOVED_COMMANDS.has(cmd.name))
-  : ALL_COMMANDS
+  : ALL_COMMANDS.filter((cmd) => !FREEBUFF_ONLY_COMMANDS.has(cmd.name))
 
 export function findCommand(cmd: string): CommandDefinition | undefined {
   const lowerCmd = cmd.toLowerCase()

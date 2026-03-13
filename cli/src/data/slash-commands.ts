@@ -46,6 +46,10 @@ const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
   'init',
 ])
 
+const FREEBUFF_ONLY_COMMAND_IDS = new Set([
+  'plan',
+])
+
 const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'help',
@@ -202,7 +206,9 @@ export const SLASH_COMMANDS = IS_FREEBUFF
   ? ALL_SLASH_COMMANDS.filter(
       (cmd) => !FREEBUFF_REMOVED_COMMAND_IDS.has(cmd.id),
     )
-  : ALL_SLASH_COMMANDS
+  : ALL_SLASH_COMMANDS.filter(
+      (cmd) => !FREEBUFF_ONLY_COMMAND_IDS.has(cmd.id),
+    )
 
 export const SLASHLESS_COMMAND_IDS = new Set(
   SLASH_COMMANDS.filter((cmd) => cmd.implicitCommand).map((cmd) =>
