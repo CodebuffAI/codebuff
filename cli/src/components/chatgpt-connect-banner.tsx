@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react'
 
-import { BottomBanner } from './bottom-banner'
 import { Button } from './button'
 import { useTheme } from '../hooks/use-theme'
-import { useChatStore } from '../state/chat-store'
 import {
   connectChatGptOAuth,
   disconnectChatGptOAuth,
@@ -11,6 +9,7 @@ import {
   getChatGptOAuthStatus,
   stopChatGptOAuthServer,
 } from '../utils/chatgpt-oauth'
+import { BORDER_CHARS } from '../utils/ui-constants'
 
 type FlowState =
   | 'checking'
@@ -20,36 +19,40 @@ type FlowState =
   | 'error'
 
 export const ChatGptConnectBanner = () => {
-  const setInputMode = useChatStore((state) => state.setInputMode)
   const theme = useTheme()
   const [flowState, setFlowState] = useState<FlowState>('checking')
   const [error, setError] = useState<string | null>(null)
+  const [authUrl, setAuthUrl] = useState<string | null>(null)
+  const [hovered, setHovered] = useState(false)
 
   useEffect(() => {
     const status = getChatGptOAuthStatus()
-    if (status.connected) {
+    if (!status.connected) {
+      setFlowState('waiting-for-code')
+      const result = connectChatGptOAuth()
+      setAuthUrl(result.authUrl)
+      result.credentials
+        .then(() => {
+          setFlowState('connected')
+        })
+        .catch((err) => {
+          setError(err instanceof Error ? err.message : 'Failed to connect')
+          setFlowState('error')
+        })
+    } else {
       setFlowState('connected')
-      return
     }
-
-    setFlowState('waiting-for-code')
-    connectChatGptOAuth()
-      .then(() => {
-        setFlowState('connected')
-      })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : 'Failed to connect')
-        setFlowState('error')
-      })
 
     return () => {
       stopChatGptOAuthServer()
     }
   }, [])
 
-  const handleConnect = async () => {
+  const handleConnect = () => {
     setFlowState('waiting-for-code')
-    connectChatGptOAuth()
+    const result = connectChatGptOAuth()
+    setAuthUrl(result.authUrl)
+    result.credentials
       .then(() => {
         setFlowState('connected')
       })
@@ -64,67 +67,111 @@ export const ChatGptConnectBanner = () => {
     setFlowState('not-connected')
   }
 
-  const handleClose = () => setInputMode('default')
+  const panelStyle = {
+    width: '100%' as const,
+    borderStyle: 'single' as const,
+    borderColor: theme.border,
+    customBorderChars: BORDER_CHARS,
+    paddingLeft: 1,
+    paddingRight: 1,
+  }
+
+  const actionButtonStyle = {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    paddingLeft: 1,
+    paddingRight: 1,
+    borderStyle: 'single' as const,
+    borderColor: hovered ? theme.foreground : theme.border,
+    customBorderChars: BORDER_CHARS,
+  }
+
+  const escHint = (
+    <text style={{ fg: theme.muted }}> esc</text>
+  )
 
   if (flowState === 'connected') {
-    const status = getChatGptOAuthStatus()
-    const connectedDate = status.connectedAt
-      ? new Date(status.connectedAt).toLocaleDateString()
-      : 'Unknown'
-
     return (
-      <BottomBanner borderColorKey="success" onClose={handleClose}>
-        <box style={{ flexDirection: 'column', gap: 0 }}>
-          <text style={{ fg: theme.success }}>✓ Connected to ChatGPT</text>
-          <text style={{ fg: theme.muted, marginTop: 1 }}>
-            Streaming requests for supported OpenAI models can now route directly through your ChatGPT subscription.
-          </text>
-          <box style={{ flexDirection: 'row', gap: 2, marginTop: 1 }}>
-            <text style={{ fg: theme.muted }}>Since {connectedDate}</text>
-            <text style={{ fg: theme.muted }}>·</text>
-            <Button onClick={handleDisconnect}>
-              <text style={{ fg: theme.error }}>Disconnect</text>
-            </Button>
-          </box>
+      <box style={{ ...panelStyle, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <text style={{ fg: theme.foreground }}>✓ ChatGPT connected</text>
+        <box style={{ flexDirection: 'row', gap: 1, alignItems: 'center' }}>
+          <Button
+            style={actionButtonStyle}
+            onClick={handleDisconnect}
+            onMouseOver={() => setHovered(true)}
+            onMouseOut={() => setHovered(false)}
+          >
+            <text wrapMode="none">
+              <span fg={theme.muted}>Disconnect</span>
+            </text>
+          </Button>
+          {escHint}
         </box>
-      </BottomBanner>
+      </box>
     )
   }
 
   if (flowState === 'error') {
     return (
-      <BottomBanner
-        borderColorKey="error"
-        text={`Error: ${error ?? 'Unknown error'}. Press Escape to close.`}
-        onClose={handleClose}
-      />
+      <box style={{ ...panelStyle, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <text style={{ fg: theme.error, flexShrink: 1 }}>
+          {error ?? 'Unknown error'}
+        </text>
+        <box style={{ flexDirection: 'row', gap: 1, alignItems: 'center' }}>
+          <Button
+            style={actionButtonStyle}
+            onClick={handleConnect}
+            onMouseOver={() => setHovered(true)}
+            onMouseOut={() => setHovered(false)}
+          >
+            <text wrapMode="none">
+              <span fg={theme.foreground}>Retry</span>
+            </text>
+          </Button>
+          {escHint}
+        </box>
+      </box>
     )
   }
 
   if (flowState === 'waiting-for-code') {
     return (
-      <BottomBanner borderColorKey="info" onClose={handleClose}>
-        <box style={{ flexDirection: 'column', gap: 0 }}>
-          <text style={{ fg: theme.info }}>Waiting for ChatGPT authorization</text>
-          <text style={{ fg: theme.muted, marginTop: 1 }}>
-            Complete sign-in in your browser — it should connect automatically.
-            If not, paste the callback URL here.
-          </text>
+      <box style={{ ...panelStyle, flexDirection: 'column' }}>
+        <box style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <text style={{ fg: theme.foreground }}>Connecting to ChatGPT...</text>
+          {escHint}
         </box>
-      </BottomBanner>
+        <text style={{ fg: theme.muted }}>
+          Sign in via your browser to connect.
+        </text>
+        {authUrl ? (
+          <text style={{ fg: theme.muted }}>
+            {authUrl}
+          </text>
+        ) : null}
+      </box>
     )
   }
 
-  return (
-    <BottomBanner borderColorKey="info" onClose={handleClose}>
-      <box style={{ flexDirection: 'column', gap: 0 }}>
-        <text style={{ fg: theme.info }}>Connect to ChatGPT</text>
-        <Button onClick={handleConnect}>
-          <text style={{ fg: theme.link, marginTop: 1 }}>Click to connect →</text>
+  if (flowState === 'not-connected') {
+    return (
+      <box style={{ ...panelStyle, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Button
+          style={actionButtonStyle}
+          onClick={handleConnect}
+          onMouseOver={() => setHovered(true)}
+          onMouseOut={() => setHovered(false)}
+        >
+          <text wrapMode="none">
+            <span fg={theme.link}>Connect to ChatGPT</span>
+          </text>
         </Button>
+        {escHint}
       </box>
-    </BottomBanner>
-  )
+    )
+  }
+
+  return null
 }
 
 export async function handleChatGptAuthCode(code: string): Promise<{

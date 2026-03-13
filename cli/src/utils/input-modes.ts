@@ -123,7 +123,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
   'connect:chatgpt': {
     icon: '🔐',
     color: 'info',
-    placeholder: 'paste ChatGPT auth code or callback URL...',
+    placeholder: 'authorizing in browser... press Escape to cancel',
     widthAdjustment: 3,
     showAgentModeToggle: false,
     disableSlashSuggestions: true,

@@ -200,6 +200,11 @@ export const ChatInputBar = ({
     return <InputModeBanner />
   }
 
+  // ChatGPT connect mode: show only the connect panel (no input box)
+  if (inputMode === 'connect:chatgpt') {
+    return <InputModeBanner />
+  }
+
   // Handle input changes with special mode entry detection
   const handleInputChange = (value: InputValue) => {
     // Detect entering bash mode: user typed exactly '!' when in default mode
