@@ -122,12 +122,12 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   {
     id: 'plan',
     label: 'plan',
-    description: 'Create a plan using GPT',
+    description: 'Create a plan with GPT 5.4',
   },
   {
     id: 'review',
     label: 'review',
-    description: 'Review code changes with GPT',
+    description: 'Review code changes with GPT 5.4',
   },
   {
     id: 'new',
