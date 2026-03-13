@@ -311,8 +311,8 @@ function FAQList() {
 
 const PHILOSOPHY_WORDS = [
   { word: 'SIMPLE', description: 'No modes. No config. Just works.' },
-  { word: 'FAST', description: 'Up to 3× the speed of Claude Code' },
-  { word: 'LOADED', description: 'Built-in web research, browser use, and more' },
+  { word: 'FAST', description: '5–10× speed up via fast models and quick context gathering.' },
+  { word: 'LOADED', description: 'Built in web research, plan/review using your ChatGPT subscription, and more.' },
 ]
 
 function PhilosophySection() {

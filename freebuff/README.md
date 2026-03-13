@@ -1,10 +1,10 @@
 # Freebuff
 
-**The world's strongest free coding agent.** 3–10x faster than Claude Code.
+**The free coding agent.** No subscription. No configuration. Start in seconds.
 
-Freebuff is a free AI coding agent that runs in your terminal. It's blazing fast — describe what you want, and Freebuff edits your code in seconds. No subscription or credits required.
+An AI coding agent that runs in your terminal — describe what you want, and Freebuff edits your code.
 
-## Installation
+## Install
 
 ```bash
 npm install -g freebuff
@@ -17,13 +17,21 @@ cd ~/my-project
 freebuff
 ```
 
+## Why Freebuff?
+
+**Simple** — No modes. No config. Just works.
+
+**Fast** — 5–10× speed up. 3–5× tokens per second compared to Claude, plus context gathering in seconds.
+
+**Loaded** — Built-in web research, browser use, and more.
+
+**Connect ChatGPT** — Link your ChatGPT subscription for planning and review.
+
 ## Features
 
-- **AI-powered coding** — Describe what you want, and Freebuff edits your code
 - **File mentions** — Use `@filename` to reference specific files
 - **Agent mentions** — Use `@AgentName` to invoke specialized agents
 - **Bash mode** — Run terminal commands with `!command` or `/bash`
-- **Image attachments** — Attach images with `/image` or `Ctrl+V`
 - **Chat history** — Resume past conversations with `/history`
 - **Knowledge files** — Add `knowledge.md` to your project for context
 - **Themes** — Toggle light/dark mode with `/theme:toggle`
@@ -42,16 +50,26 @@ freebuff
 | `/logout` | Sign out |
 | `/exit` | Quit |
 
+## FAQ
+
+**How can it be free?** Freebuff is supported by ads shown in the CLI.
+
+**What models do you use?** MiniMax M2.5 as the main coding agent, Gemini 3.1 Flash Lite for finding files and research, and GPT-5.4 for deep thinking if you connect your ChatGPT subscription.
+
+**Are you training on my data?** No. We only use model providers that do not train on our requests. Your code stays yours.
+
+**What data do you store?** We don't store your codebase. We only collect minimal logs for debugging purposes.
+
 ## How It Works
 
-Freebuff connects to a cloud backend and uses a model optimized for fast, high-quality assistance. Ads are shown to support the free tier.
+Freebuff connects to a cloud backend and uses models optimized for fast, high-quality assistance. Ads are shown to support the free tier.
 
 ## Project Structure
 
 ```
 freebuff/
 ├── cli/       # CLI build & npm release files
-└── web/       # (Future) Freebuff website
+└── web/       # Freebuff website
 ```
 
 ## Building from Source
@@ -61,14 +79,13 @@ freebuff/
 bun freebuff/cli/build.ts 1.0.0
 ```
 
-This produces a `freebuff` binary in `cli/bin/`.
-
 ## Links
 
 - [Documentation](https://codebuff.com/docs)
+- [GitHub](https://github.com/CodebuffAI/codebuff)
 - [Website](https://codebuff.com)
 
-> Freebuff is built on the [Codebuff](https://codebuff.com) platform.
+> Built on the [Codebuff](https://codebuff.com) platform.
 
 ## License
 
