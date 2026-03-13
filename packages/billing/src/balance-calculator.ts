@@ -475,6 +475,7 @@ export async function consumeCredits(params: {
     stripeCustomerId: params.stripeCustomerId,
     purchasedCredits: result.fromPurchased,
     logger,
+    eventId: crypto.randomUUID(),
     extraPayload: {
       source: 'consumeCredits',
     },

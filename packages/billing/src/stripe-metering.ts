@@ -50,7 +50,8 @@ export async function reportPurchasedCreditsToStripe(params: {
   if (userId === TEST_USER_ID) return
   if (!shouldAttemptStripeMetering()) return
 
-  const logContext = { userId, purchasedCredits, eventId }
+  const identifier = eventId ?? crypto.randomUUID()
+  const logContext = { userId, purchasedCredits, eventId, identifier }
 
   let stripeCustomerId = providedStripeCustomerId
   if (stripeCustomerId === undefined) {
@@ -76,7 +77,7 @@ export async function reportPurchasedCreditsToStripe(params: {
   }
 
   const stripeTimestamp = Math.floor(timestamp.getTime() / 1000)
-  const idempotencyKey = eventId ? `meter-${eventId}` : undefined
+  const idempotencyKey = `meter-${identifier}`
 
   try {
     await withTimeout(
@@ -85,15 +86,15 @@ export async function reportPurchasedCreditsToStripe(params: {
           stripeServer.billing.meterEvents.create(
             {
               event_name: STRIPE_METER_EVENT_NAME,
+              identifier,
               timestamp: stripeTimestamp,
               payload: {
                 stripe_customer_id: stripeCustomerId,
                 value: purchasedCredits.toString(),
-                ...(eventId ? { event_id: eventId } : {}),
                 ...(extraPayload ?? {}),
               },
             },
-            idempotencyKey ? { idempotencyKey } : undefined,
+            { idempotencyKey },
           ),
         {
           maxRetries: 3,
