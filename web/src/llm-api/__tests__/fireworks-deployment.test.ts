@@ -181,6 +181,7 @@ describe('Fireworks deployment routing', () => {
           originalModel: 'minimax/minimax-m2.5',
           fetch: mockFetch,
           logger,
+          useCustomDeployment: true,
         })
 
         expect(response.status).toBe(200)
@@ -223,6 +224,7 @@ describe('Fireworks deployment routing', () => {
           originalModel: 'minimax/minimax-m2.5',
           fetch: mockFetch,
           logger,
+          useCustomDeployment: true,
         })
 
         expect(response.status).toBe(200)
@@ -259,6 +261,7 @@ describe('Fireworks deployment routing', () => {
             originalModel: 'minimax/minimax-m2.5',
             fetch: mockFetch,
             logger,
+            useCustomDeployment: true,
           }),
         ).rejects.toBeInstanceOf(FireworksError)
       } finally {
@@ -283,6 +286,7 @@ describe('Fireworks deployment routing', () => {
           originalModel: 'minimax/minimax-m2.5',
           fetch: mockFetch,
           logger,
+          useCustomDeployment: true,
         })
 
         expect(response.status).toBe(200)
@@ -309,6 +313,7 @@ describe('Fireworks deployment routing', () => {
           originalModel: 'some-other/model',
           fetch: mockFetch,
           logger,
+          useCustomDeployment: true,
         })
 
         expect(response.status).toBe(200)
@@ -339,6 +344,7 @@ describe('Fireworks deployment routing', () => {
           originalModel: 'minimax/minimax-m2.5',
           fetch: mockFetch,
           logger,
+          useCustomDeployment: true,
         })
 
         // Non-503 errors from deployment are returned as-is (caller handles them)
@@ -377,6 +383,7 @@ describe('Fireworks deployment routing', () => {
           originalModel: 'minimax/minimax-m2.5',
           fetch: mockFetch,
           logger,
+          useCustomDeployment: true,
         })
 
         expect(logger.info).toHaveBeenCalledTimes(2)

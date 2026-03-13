@@ -411,14 +411,15 @@ describe('bash command', () => {
   })
 
   describe('bash mode configuration', () => {
-    test('bash mode has correct icon', () => {
+    test('bash mode has correct label', () => {
       const config = getInputModeConfig('bash')
-      expect(config.icon).toBe('!')
+      expect(config.icon).toBe(null)
+      expect(config.label).toBe('!')
     })
 
-    test('bash mode uses success color (green)', () => {
+    test('bash mode uses info color', () => {
       const config = getInputModeConfig('bash')
-      expect(config.color).toBe('success')
+      expect(config.color).toBe('info')
     })
 
     test('bash mode has correct placeholder', () => {
@@ -426,9 +427,9 @@ describe('bash command', () => {
       expect(config.placeholder).toBe('enter bash command...')
     })
 
-    test('bash mode has width adjustment of 2', () => {
+    test('bash mode has width adjustment of 4', () => {
       const config = getInputModeConfig('bash')
-      expect(config.widthAdjustment).toBe(2)
+      expect(config.widthAdjustment).toBe(4)
     })
 
     test('bash mode hides agent mode toggle', () => {

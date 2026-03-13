@@ -656,11 +656,13 @@ export async function createFireworksRequestWithFallback(params: {
   originalModel: string
   fetch: typeof globalThis.fetch
   logger: Logger
+  useCustomDeployment?: boolean
 }): Promise<Response> {
   const { body, originalModel, fetch, logger } = params
+  const useCustomDeployment = params.useCustomDeployment ?? FIREWORKS_USE_CUSTOM_DEPLOYMENT
   const deploymentModelId = FIREWORKS_DEPLOYMENT_MAP[originalModel]
   const shouldTryDeployment =
-    FIREWORKS_USE_CUSTOM_DEPLOYMENT &&
+    useCustomDeployment &&
     deploymentModelId &&
     isDeploymentHours() &&
     !isDeploymentCoolingDown()
