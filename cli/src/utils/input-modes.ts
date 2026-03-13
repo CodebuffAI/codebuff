@@ -9,6 +9,8 @@ export type InputMode =
   | 'default'
   | 'bash'
   | 'homeDir'
+  | 'plan'
+  | 'review'
   | 'referral'
   | 'usage'
   | 'image'
@@ -33,6 +35,8 @@ export type ThemeColorKey =
 export type InputModeConfig = {
   /** Prefix icon shown before input (e.g., "!" for bash) */
   icon: string | null
+  /** Colored label shown before input (e.g., "Plan") */
+  label: string | null
   /** Theme color key for icon and border */
   color: ThemeColorKey
   /** Input placeholder text */
@@ -50,6 +54,7 @@ export type InputModeConfig = {
 export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
   default: {
     icon: null,
+    label: null,
     color: 'foreground',
     placeholder: 'enter a coding task or / for commands',
     widthAdjustment: 0,
@@ -59,6 +64,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
   },
   bash: {
     icon: '!',
+    label: null,
     color: 'success',
     placeholder: 'enter bash command...',
     widthAdjustment: 2, // 1 char + 1 padding
@@ -68,6 +74,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
   },
   homeDir: {
     icon: null,
+    label: null,
     color: 'warning',
     placeholder: 'enter a coding task or / for commands',
     widthAdjustment: 0,
@@ -75,8 +82,29 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     disableSlashSuggestions: false,
     blockKeyboardExit: false,
   },
+  plan: {
+    icon: null,
+    label: 'Plan',
+    color: 'info',
+    placeholder: 'describe what you want to plan...',
+    widthAdjustment: 7,
+    showAgentModeToggle: false,
+    disableSlashSuggestions: true,
+    blockKeyboardExit: false,
+  },
+  review: {
+    icon: null,
+    label: 'Review',
+    color: 'info',
+    placeholder: 'describe what to review...',
+    widthAdjustment: 9,
+    showAgentModeToggle: false,
+    disableSlashSuggestions: true,
+    blockKeyboardExit: false,
+  },
   referral: {
     icon: '◎',
+    label: null,
     color: 'warning',
     placeholder: 'have a code? enter it here',
     widthAdjustment: 2, // 1 char + 1 padding
@@ -86,6 +114,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
   },
   usage: {
     icon: null,
+    label: null,
     color: 'foreground',
     placeholder: 'enter a coding task or / for commands',
     widthAdjustment: 0,
@@ -95,6 +124,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
   },
   image: {
     icon: '📎',
+    label: null,
     color: 'imageCardBorder',
     placeholder: 'enter image path or Ctrl+V to paste',
     widthAdjustment: 3, // emoji width + padding
@@ -104,6 +134,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
   },
   help: {
     icon: null,
+    label: null,
     color: 'info',
     placeholder: 'enter a coding task or / for commands',
     widthAdjustment: 0,
@@ -113,6 +144,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
   },
   'connect:claude': {
     icon: '🔗',
+    label: null,
     color: 'info',
     placeholder: 'paste authorization code here...',
     widthAdjustment: 3, // emoji width + padding
@@ -122,6 +154,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
   },
   'connect:chatgpt': {
     icon: '🔐',
+    label: null,
     color: 'info',
     placeholder: 'authorizing in browser... press Escape to cancel',
     widthAdjustment: 3,
@@ -131,6 +164,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
   },
   outOfCredits: {
     icon: null,
+    label: null,
     color: 'warning',
     placeholder: '',
     widthAdjustment: 0,
@@ -140,6 +174,7 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
   },
   subscriptionLimit: {
     icon: null,
+    label: null,
     color: 'warning',
     placeholder: '',
     widthAdjustment: 0,

@@ -1,94 +1,57 @@
 import { useKeyboard } from '@opentui/react'
-import React, { useCallback, useEffect, useState } from 'react'
-import { useShallow } from 'zustand/react/shallow'
+import React, { useCallback, useState } from 'react'
 
-import { MultilineInput } from './multiline-input'
+import { buildReviewPrompt, REVIEW_BASE_PROMPT } from '../commands/prompt-builders'
 import { useTheme } from '../hooks/use-theme'
-import { useReviewStore } from '../state/review-store'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { KeyEvent } from '@opentui/core'
 
-type ReviewMode = 'select' | 'custom'
-
 interface ReviewOption {
   id: string
   label: string
-  icon: string
 }
 
 const REVIEW_OPTIONS: ReviewOption[] = [
-  { id: 'uncommitted', label: 'Uncommitted changes', icon: '' },
-  { id: 'branch', label: 'This branch vs main', icon: '' },
-  { id: 'custom', label: 'Custom...', icon: '' },
+  { id: 'uncommitted', label: 'Uncommitted changes' },
+  { id: 'branch', label: 'This branch vs main' },
+  { id: 'custom', label: 'Custom...' },
 ]
+
+// Re-export for backward compatibility
+export { REVIEW_BASE_PROMPT }
 
 interface ReviewScreenProps {
   onSelectOption: (reviewText: string) => void
+  onCustom: () => void
   onCancel: () => void
 }
 
 export const ReviewScreen: React.FC<ReviewScreenProps> = ({
   onSelectOption,
+  onCustom,
   onCancel,
 }) => {
   const theme = useTheme()
   const [selectedIndex, setSelectedIndex] = useState(0)
-  const [mode, setMode] = useState<ReviewMode>('select')
 
-  const { customInput, customCursor, setCustomText, setCustomCursor } =
-    useReviewStore(
-      useShallow((state) => ({
-        customInput: state.customText,
-        customCursor: state.customCursor,
-        setCustomText: state.setCustomText,
-        setCustomCursor: state.setCustomCursor,
-      })),
-    )
-
-  // If there's prefilled custom text, go directly to custom mode
-  useEffect(() => {
-    if (useReviewStore.getState().customText.length > 0) {
-      setMode('custom')
-    }
-  }, [])
-
-  const reviewBasePrompt = 'Please gather all relevant context and then spawn @thinker-gpt to review:'
   const handleSelect = useCallback(
     (option: ReviewOption) => {
       if (option.id === 'custom') {
-        setMode('custom')
+        onCustom()
         return
       }
 
-      let reviewText: string
-      switch (option.id) {
-        case 'uncommitted':
-          reviewText = `${reviewBasePrompt} uncommitted changes`
-          break
-        case 'branch':
-          reviewText = `${reviewBasePrompt} this branch compared to main`
-          break
-        default:
-          return
-      }
+      const scope = option.id as 'uncommitted' | 'branch'
+      const reviewText = buildReviewPrompt(scope)
       onSelectOption(reviewText)
     },
-    [onSelectOption],
+    [onSelectOption, onCustom],
   )
 
-  const handleCustomSubmit = useCallback(() => {
-    if (customInput.trim()) {
-      onSelectOption(`${reviewBasePrompt} ${customInput.trim()}`)
-    }
-  }, [customInput, onSelectOption])
-
-  // Handle keyboard in select mode
   useKeyboard(
     useCallback(
       (key: KeyEvent) => {
-        if (mode !== 'select') return
-
         if (key.name === 'up') {
           setSelectedIndex((prev) => Math.max(0, prev - 1))
           return
@@ -109,79 +72,9 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
           return
         }
       },
-      [mode, selectedIndex, handleSelect, onCancel],
+      [selectedIndex, handleSelect, onCancel],
     ),
   )
-
-  // Handle key intercept for custom mode
-  const handleKeyIntercept = useCallback(
-    (key: KeyEvent) => {
-      if (key.name === 'escape') {
-        if (customInput.length > 0) {
-          setCustomText('')
-          setCustomCursor(0)
-        } else {
-          setMode('select')
-        }
-        return true
-      }
-      if (key.ctrl && key.name === 'c') {
-        onCancel()
-        return true
-      }
-      return false
-    },
-    [customInput, onCancel, setCustomText, setCustomCursor],
-  )
-
-  const handlePaste = useCallback(
-    (text?: string) => {
-      if (!text) return
-      const before = customInput.slice(0, customCursor)
-      const after = customInput.slice(customCursor)
-      const newText = before + text + after
-      setCustomText(newText)
-      setCustomCursor(before.length + text.length)
-    },
-    [customInput, customCursor, setCustomText, setCustomCursor],
-  )
-
-  if (mode === 'custom') {
-    return (
-      <box
-        title=" Custom review "
-        titleAlignment="center"
-        style={{
-          width: '100%',
-          borderStyle: 'single',
-          borderColor: theme.primary,
-          customBorderChars: BORDER_CHARS,
-          paddingLeft: 1,
-          paddingRight: 1,
-          flexDirection: 'column',
-        }}
-      >
-        <MultilineInput
-          value={customInput}
-          onChange={({ text, cursorPosition }) => {
-            setCustomText(text)
-            setCustomCursor(cursorPosition)
-          }}
-          onSubmit={handleCustomSubmit}
-          onPaste={handlePaste}
-          onKeyIntercept={handleKeyIntercept}
-          placeholder="What would you like to review?"
-          focused={true}
-          maxHeight={3}
-          minHeight={1}
-          cursorPosition={customCursor}
-        />
-        <text style={{ fg: theme.muted }}>
-          Enter to submit · Esc to clear/back
-        </text>
-      </box>
-    )
-  }
 
   return (
     <box
@@ -190,7 +83,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
       style={{
         width: '100%',
         borderStyle: 'single',
-        borderColor: theme.primary,
+        borderColor: theme.border,
         customBorderChars: BORDER_CHARS,
         paddingLeft: 1,
         paddingRight: 1,
@@ -203,7 +96,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
           <text
             key={option.id}
             style={{
-              fg: isSelected ? theme.primary : theme.foreground,
+              fg: isSelected ? theme.info : theme.foreground,
               bg: isSelected ? theme.surface : undefined,
             }}
           >

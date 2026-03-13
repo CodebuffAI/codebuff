@@ -1,6 +1,7 @@
 import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
 import { CLAUDE_OAUTH_ENABLED } from '@codebuff/common/constants/claude-oauth'
 import { AGENT_MODES, IS_FREEBUFF } from '../utils/constants'
+import { getChatGptOAuthStatus } from '../utils/chatgpt-oauth'
 import { CREDITS_REFERRAL_BONUS } from '@codebuff/common/old-constants'
 
 import type { SkillsMap } from '@codebuff/common/types/skill'
@@ -66,10 +67,10 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
   ...(CHATGPT_OAUTH_ENABLED
     ? [
         {
-          id: 'connect:chatgpt',
-          label: 'connect:chatgpt',
-          description: 'Connect your ChatGPT subscription for direct OpenAI streaming',
-          aliases: ['chatgpt'],
+          id: 'connect',
+          label: 'connect',
+          description: 'Connect your ChatGPT account',
+          aliases: ['connect:chatgpt', 'chatgpt'],
         },
       ]
     : []),
@@ -119,6 +120,16 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     aliases: ['strong', 'sub', 'buy-credits'],
   },
   {
+    id: 'plan',
+    label: 'plan',
+    description: 'Create a plan using GPT',
+  },
+  {
+    id: 'review',
+    label: 'review',
+    description: 'Review code changes with GPT',
+  },
+  {
     id: 'new',
     label: 'new',
     description: 'Clear the conversation history and start a new chat',
@@ -130,11 +141,6 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     label: 'history',
     description: 'Browse and resume past conversations',
     aliases: ['chats'],
-  },
-  {
-    id: 'review',
-    label: 'review',
-    description: 'Review code changes with thinker-gpt',
   },
   {
     id: 'agent:gpt-5',
@@ -225,5 +231,16 @@ export function getSlashCommandsWithSkills(skills: SkillsMap): SlashCommand[] {
     description: truncateDescription(skill.description),
   }))
 
-  return [...SLASH_COMMANDS, ...skillCommands]
+  let commands = [...SLASH_COMMANDS, ...skillCommands]
+
+  if (IS_FREEBUFF && !getChatGptOAuthStatus().connected) {
+    commands = commands.map((cmd) => {
+      if (cmd.id === 'review' || cmd.id === 'plan') {
+        return { ...cmd, description: 'Connect required. ' + cmd.description }
+      }
+      return cmd
+    })
+  }
+
+  return commands
 }

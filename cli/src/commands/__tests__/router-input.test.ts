@@ -372,12 +372,12 @@ describe('command-registry', () => {
       }
     })
 
-    test('connect:chatgpt slash command presence matches feature flag', () => {
+    test('connect slash command presence matches feature flag', () => {
       const { CHATGPT_OAUTH_ENABLED } = require('@codebuff/common/constants/chatgpt-oauth')
-      const hasChatGptSlashCommand = SLASH_COMMANDS.some(
-        (cmd) => cmd.id === 'connect:chatgpt',
+      const hasConnectSlashCommand = SLASH_COMMANDS.some(
+        (cmd) => cmd.id === 'connect',
       )
-      expect(hasChatGptSlashCommand).toBe(CHATGPT_OAUTH_ENABLED)
+      expect(hasConnectSlashCommand).toBe(CHATGPT_OAUTH_ENABLED)
     })
 
     test('connect:chatgpt command registry availability matches feature flag', () => {

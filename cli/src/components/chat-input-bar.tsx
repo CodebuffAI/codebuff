@@ -348,6 +348,13 @@ export const ChatInputBar = ({
             backgroundColor: theme.surface,
           }}
         >
+          {modeConfig.label && (
+            <box style={{ flexShrink: 0, paddingRight: 1 }}>
+              <text>
+                <span bg={theme.info} fg={theme.background}>{` ${modeConfig.label} `}</span>
+              </text>
+            </box>
+          )}
           {modeConfig.icon && (
             <box
               style={{
@@ -431,6 +438,13 @@ export const ChatInputBar = ({
               width: '100%',
             }}
           >
+            {modeConfig.label && (
+              <box style={{ flexShrink: 0, paddingRight: 1 }}>
+                <text>
+                  <span bg={theme.info} fg={theme.background}>{` ${modeConfig.label} `}</span>
+                </text>
+              </box>
+            )}
             {modeConfig.icon && (
               <box
                 style={{

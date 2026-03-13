@@ -841,6 +841,12 @@ export const Chat = ({
     setInputFocused(true)
   }, [closeReviewScreen, setInputFocused])
 
+  const handleReviewCustom = useCallback(() => {
+    closeReviewScreen()
+    setInputMode('review')
+    setInputFocused(true)
+  }, [closeReviewScreen, setInputMode, setInputFocused])
+
   const handlePublish = useCallback(
     async (agentIds: string[]) => {
       await publishMutation.mutateAsync(agentIds)
@@ -1444,6 +1450,7 @@ export const Chat = ({
         {reviewMode ? (
           <ReviewScreen
             onSelectOption={handleReviewOptionSelect}
+            onCustom={handleReviewCustom}
             onCancel={handleCloseReviewScreen}
           />
         ) : (
