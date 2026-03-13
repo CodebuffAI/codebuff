@@ -11,7 +11,7 @@ const definition: SecretAgentDefinition = {
   },
   displayName: 'Theo the Theorizer',
   spawnerPrompt:
-    'Does deep thinking given the current conversation history and a specific prompt to focus on. Use this to help you solve a specific problem. You must gather any relevant context before spawning this agent because the thinker agent has no access to tools.',
+    'Does deep thinking given the current conversation history and a specific prompt to focus on. Use this to help you solve a specific problem. You must gather any relevant context before spawning this agent because the thinker agent has no access to tools. You can keep the prompt very short, because the thinker agent can see the entire conversation history for context.',
   inputSchema: {
     prompt: {
       type: 'string',
