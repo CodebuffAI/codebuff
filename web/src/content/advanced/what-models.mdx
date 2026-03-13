@@ -29,14 +29,12 @@ The orchestrator spawns these for specific jobs:
 <MarkdownTable>
   | Task | Models |
   |------|--------|
-  | Code editing | Claude Opus 4.6, GLM 4.7 |
-  | Thinking/reasoning | Claude Opus 4.6, GPT-5.2 |
-  | Code review | Claude Opus 4.6, GPT-5.2 |
-  | File discovery | Gemini 2.5 Flash Lite, Grok 4.1 Fast |
-  | Terminal commands | Claude Haiku 4.5, Grok 4.1 Fast |
-  | Web/docs research | Grok 4.1 Fast |
+  | Code editing | Claude Opus 4.6, Minimax M2.5 |
+  | Thinking/reasoning | Claude Opus 4.6, GPT-5.4 |
+  | Code review | Claude Opus 4.6, GPT-5.4 |
+  | File discovery | Gemini 3.1 Flash Lite, Gemini 2.5 Flash Lite |
+  | Terminal commands | Gemini 3.1 Flash Lite |
+  | Web/docs research | Gemini 3.1 Flash Lite |
 </MarkdownTable>
 
 Max mode runs multiple implementations in parallel and picks the best one. Default mode runs a single implementation pass. Free mode uses MiniMax M2.5 and includes code review support.
-
-File rewrites use speculative decoding from Relace AI.
