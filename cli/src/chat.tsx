@@ -584,7 +584,7 @@ export const Chat = ({
       if (index < agentMatches.length) {
         const selected = agentMatches[index]
         if (!selected) return
-        replacement = `@${selected.displayName} `
+        replacement = `@${selected.id} `
       } else {
         const fileIndex = index - agentMatches.length
         const selectedFile = fileMatches[fileIndex]
@@ -1025,7 +1025,7 @@ export const Chat = ({
           if (index < agentMatches.length) {
             const selected = agentMatches[index]
             if (!selected) return false
-            replacement = `@${selected.displayName} `
+            replacement = `@${selected.id} `
           } else {
             const fileIndex = index - agentMatches.length
             const selectedFile = fileMatches[fileIndex]
@@ -1057,7 +1057,7 @@ export const Chat = ({
         if (index < agentMatches.length) {
           const selected = agentMatches.length > 0 ? (agentMatches[index] || agentMatches[0]) : undefined
           if (!selected) return
-          replacement = `@${selected.displayName} `
+          replacement = `@${selected.id} `
         } else {
           const fileIndex = index - agentMatches.length
           const selectedFile = fileMatches.length > 0 ? (fileMatches[fileIndex] || fileMatches[0]) : undefined

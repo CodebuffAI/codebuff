@@ -740,10 +740,10 @@ export const useSuggestionEngine = ({
   const agentSuggestionItems = useMemo<SuggestionItem[]>(() => {
     return agentMatches.map((agent) => ({
       id: agent.id,
-      label: agent.displayName,
-      labelHighlightIndices: agent.nameHighlightIndices,
-      description: agent.id,
-      descriptionHighlightIndices: agent.idHighlightIndices,
+      label: agent.id,
+      labelHighlightIndices: agent.idHighlightIndices,
+      description: '',
+      descriptionHighlightIndices: null,
     }))
   }, [agentMatches])
 
