@@ -55,7 +55,9 @@ import {
 } from '@/llm-api/siliconflow'
 import {
   handleOpenAINonStream,
-  OPENAI_SUPPORTED_MODELS,
+  handleOpenAIStream,
+  isOpenAIDirectModel,
+  OpenAIError,
 } from '@/llm-api/openai'
 import {
   handleOpenRouterNonStream,
@@ -266,7 +268,7 @@ export async function postChatCompletions(params: {
         return NextResponse.json(
           {
             error: 'free_mode_unavailable',
-            message: 'Free mode is not available outside of the United States and Canada. Please upgrade to a paid plan to use Codebuff outside the US and Canada.',
+            message: 'Free mode is not available in your country.',
           },
           { status: 403 },
         )
@@ -421,6 +423,7 @@ export async function postChatCompletions(params: {
         const useSiliconFlow = false // isSiliconFlowModel(typedBody.model)
         const useCanopyWave = false // isCanopyWaveModel(typedBody.model)
         const useFireworks = isFireworksModel(typedBody.model)
+        const useOpenAIDirect = !useFireworks && isOpenAIDirectModel(typedBody.model)
         const stream = useSiliconFlow
           ? await handleSiliconFlowStream({
               body: typedBody,
@@ -443,6 +446,16 @@ export async function postChatCompletions(params: {
             })
           : useFireworks
           ? await handleFireworksStream({
+              body: typedBody,
+              userId,
+              stripeCustomerId,
+              agentId,
+              fetch,
+              logger,
+              insertMessageBigquery,
+            })
+          : useOpenAIDirect
+          ? await handleOpenAIStream({
               body: typedBody,
               userId,
               stripeCustomerId,
@@ -487,15 +500,7 @@ export async function postChatCompletions(params: {
         const useSiliconFlow = false // isSiliconFlowModel(model)
         const useCanopyWave = false // isCanopyWaveModel(model)
         const useFireworks = isFireworksModel(model)
-        const modelParts = model.split('/')
-        const shortModelName = modelParts.length > 1 ? modelParts[1] : model
-        const isOpenAIDirectModel =
-          model.startsWith('openai/') &&
-          (OPENAI_SUPPORTED_MODELS as readonly string[]).includes(shortModelName)
-        // Only use OpenAI endpoint for OpenAI models with n parameter
-        // All other models (including non-OpenAI with n parameter) should use OpenRouter
-        const shouldUseOpenAIEndpoint =
-          isOpenAIDirectModel && typedBody.codebuff_metadata?.n !== undefined
+        const shouldUseOpenAIEndpoint = !useFireworks && isOpenAIDirectModel(model)
 
         const nonStreamRequest = useSiliconFlow
           ? handleSiliconFlowNonStream({
@@ -579,10 +584,14 @@ export async function postChatCompletions(params: {
       if (error instanceof SiliconFlowError) {
         siliconflowError = error
       }
+      let openaiError: OpenAIError | undefined
+      if (error instanceof OpenAIError) {
+        openaiError = error
+      }
 
       // Log detailed error information for debugging
       const errorDetails = openrouterError?.toJSON()
-      const providerLabel = siliconflowError ? 'SiliconFlow' : canopywaveError ? 'CanopyWave' : fireworksError ? 'Fireworks' : 'OpenRouter'
+      const providerLabel = siliconflowError ? 'SiliconFlow' : canopywaveError ? 'CanopyWave' : fireworksError ? 'Fireworks' : openaiError ? 'OpenAI' : 'OpenRouter'
       logger.error(
         {
           error: getErrorObject(error),
@@ -596,8 +605,8 @@ export async function postChatCompletions(params: {
             ? typedBody.messages.length
             : 0,
           messages: typedBody.messages,
-          providerStatusCode: (openrouterError ?? fireworksError ?? canopywaveError ?? siliconflowError)?.statusCode,
-          providerStatusText: (openrouterError ?? fireworksError ?? canopywaveError ?? siliconflowError)?.statusText,
+          providerStatusCode: (openrouterError ?? fireworksError ?? canopywaveError ?? siliconflowError ?? openaiError)?.statusCode,
+          providerStatusText: (openrouterError ?? fireworksError ?? canopywaveError ?? siliconflowError ?? openaiError)?.statusText,
           openrouterErrorCode: errorDetails?.error?.code,
           openrouterErrorType: errorDetails?.error?.type,
           openrouterErrorMessage: errorDetails?.error?.message,
@@ -629,6 +638,9 @@ export async function postChatCompletions(params: {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
       if (error instanceof SiliconFlowError) {
+        return NextResponse.json(error.toJSON(), { status: error.statusCode })
+      }
+      if (error instanceof OpenAIError) {
         return NextResponse.json(error.toJSON(), { status: error.statusCode })
       }
 
