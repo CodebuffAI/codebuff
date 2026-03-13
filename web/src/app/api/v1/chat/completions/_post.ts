@@ -64,7 +64,11 @@ import {
 } from '@/llm-api/openrouter'
 import { extractApiKeyFromHeader } from '@/util/auth'
 
-const FREE_MODE_ALLOWED_COUNTRIES = new Set(['US', 'CA'])
+const FREE_MODE_ALLOWED_COUNTRIES = new Set([
+  'US', 'CA',
+  'GB', 'AU',
+  'NO', 'SE', 'NL', 'DK', 'DE', 'FI', 'BE', 'LU', 'CH', 'IE', 'IS',
+])
 
 function extractClientIp(req: NextRequest): string | undefined {
   const forwardedFor = req.headers.get('x-forwarded-for')
