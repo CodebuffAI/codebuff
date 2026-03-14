@@ -68,7 +68,7 @@ import { extractApiKeyFromHeader } from '@/util/auth'
 
 const FREE_MODE_ALLOWED_COUNTRIES = new Set([
   'US', 'CA',
-  'GB', 'AU',
+  'GB', 'AU', 'NZ',
   'NO', 'SE', 'NL', 'DK', 'DE', 'FI', 'BE', 'LU', 'CH', 'IE', 'IS',
 ])
 
