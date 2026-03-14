@@ -5,6 +5,7 @@ import { useSubscriptionQuery } from '../hooks/use-subscription-query'
 import { useTheme } from '../hooks/use-theme'
 import { IS_FREEBUFF } from '../utils/constants'
 import { useChatStore } from '../state/chat-store'
+import { getChatGptOAuthStatus } from '../utils/chatgpt-oauth'
 
 const HELP_TIMEOUT = 60 * 1000 // 60 seconds
 
@@ -71,6 +72,24 @@ export const HelpBanner = () => {
             <Shortcut keys="@files" action="mention" />
             <Shortcut keys="@agents" action="use agent" />
             <Shortcut keys="!bash" action="run command" />
+          </box>
+        </box>
+
+        {/* Tips Section */}
+        <box style={{ flexDirection: 'column', gap: 0 }}>
+          <SectionHeader>Tips</SectionHeader>
+          <box style={{ flexDirection: 'column', paddingLeft: 2 }}>
+            {IS_FREEBUFF && !getChatGptOAuthStatus().connected && (
+              <text style={{ fg: theme.muted }}>
+                Connect via /connect to unlock /plan & /review
+              </text>
+            )}
+            <text style={{ fg: theme.muted }}>
+              Use @ to reference agents to spawn or files to read
+            </text>
+            <text style={{ fg: theme.muted }}>
+              Esc to cancel the current response
+            </text>
           </box>
         </box>
 
