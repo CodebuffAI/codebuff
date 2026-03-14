@@ -2,7 +2,9 @@ import { describe, test, expect } from 'bun:test'
 
 import {
   isOutOfCreditsError,
+  isFreeModeUnavailableError,
   OUT_OF_CREDITS_MESSAGE,
+  FREE_MODE_UNAVAILABLE_MESSAGE,
   createErrorMessage,
 } from '../error-handling'
 
@@ -63,6 +65,50 @@ describe('error-handling', () => {
         timestamp: new Date().toISOString(),
       }
       expect(isOutOfCreditsError(error)).toBe(true)
+    })
+  })
+
+  describe('isFreeModeUnavailableError', () => {
+    test('returns true for error with statusCode 403 and error free_mode_unavailable', () => {
+      const error = { statusCode: 403, error: 'free_mode_unavailable', message: 'Free mode is not available in your country.' }
+      expect(isFreeModeUnavailableError(error)).toBe(true)
+    })
+
+    test('returns false for 403 without error field', () => {
+      const error = { statusCode: 403, message: 'Forbidden' }
+      expect(isFreeModeUnavailableError(error)).toBe(false)
+    })
+
+    test('returns false for 403 with different error code', () => {
+      const error = { statusCode: 403, error: 'account_suspended', message: 'Suspended' }
+      expect(isFreeModeUnavailableError(error)).toBe(false)
+    })
+
+    test('returns false for non-403 status with free_mode_unavailable error', () => {
+      const error = { statusCode: 400, error: 'free_mode_unavailable', message: 'Bad request' }
+      expect(isFreeModeUnavailableError(error)).toBe(false)
+    })
+
+    test('returns false for null', () => {
+      expect(isFreeModeUnavailableError(null)).toBe(false)
+    })
+
+    test('returns false for undefined', () => {
+      expect(isFreeModeUnavailableError(undefined)).toBe(false)
+    })
+
+    test('returns false for plain Error object', () => {
+      expect(isFreeModeUnavailableError(new Error('Forbidden'))).toBe(false)
+    })
+  })
+
+  describe('FREE_MODE_UNAVAILABLE_MESSAGE', () => {
+    test('mentions free mode', () => {
+      expect(FREE_MODE_UNAVAILABLE_MESSAGE.toLowerCase()).toContain('free mode')
+    })
+
+    test('mentions paid plan', () => {
+      expect(FREE_MODE_UNAVAILABLE_MESSAGE.toLowerCase()).toContain('paid plan')
     })
   })
 

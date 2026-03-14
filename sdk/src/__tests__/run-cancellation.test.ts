@@ -184,6 +184,121 @@ describe('Run Cancellation Handling', () => {
     expect(messageHistory.length).toBe(3)
   })
 
+  it('extracts error code and message from AI SDK responseBody on 403', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      referral_code: null,
+      stripe_customer_id: null,
+      banned: false,
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+
+    // Simulate AI SDK's AI_APICallError with responseBody (what the server returns for free_mode_unavailable)
+    const apiError = new Error('Forbidden') as Error & { statusCode: number; responseBody: string }
+    apiError.statusCode = 403
+    apiError.responseBody = JSON.stringify({
+      error: 'free_mode_unavailable',
+      message: 'Free mode is not available in your country.',
+    })
+
+    spyOn(mainPromptModule, 'callMainPrompt').mockRejectedValue(apiError)
+
+    const client = new CodebuffClient({
+      apiKey: 'test-key',
+    })
+
+    const result = await client.run({
+      agent: 'base2',
+      prompt: 'hello',
+    })
+
+    expect(result.output.type).toBe('error')
+    const output = result.output as { type: 'error'; message: string; statusCode?: number; error?: string }
+    // Should use the message from the response body, not the generic "Forbidden"
+    expect(output.message).toBe('Free mode is not available in your country.')
+    expect(output.statusCode).toBe(403)
+    // Should propagate the error code so isFreeModeUnavailableError can match
+    expect(output.error).toBe('free_mode_unavailable')
+  })
+
+  it('extracts error code from responseBody for account_suspended 403', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      referral_code: null,
+      stripe_customer_id: null,
+      banned: false,
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+
+    const apiError = new Error('Forbidden') as Error & { statusCode: number; responseBody: string }
+    apiError.statusCode = 403
+    apiError.responseBody = JSON.stringify({
+      error: 'account_suspended',
+      message: 'Your account has been suspended due to billing issues.',
+    })
+
+    spyOn(mainPromptModule, 'callMainPrompt').mockRejectedValue(apiError)
+
+    const client = new CodebuffClient({
+      apiKey: 'test-key',
+    })
+
+    const result = await client.run({
+      agent: 'base2',
+      prompt: 'hello',
+    })
+
+    const output = result.output as { type: 'error'; message: string; statusCode?: number; error?: string }
+    expect(output.message).toBe('Your account has been suspended due to billing issues.')
+    expect(output.statusCode).toBe(403)
+    expect(output.error).toBe('account_suspended')
+  })
+
+  it('falls back to error.message when responseBody is not valid JSON', async () => {
+    spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
+      id: 'user-123',
+      email: 'test@example.com',
+      discord_id: null,
+      referral_code: null,
+      stripe_customer_id: null,
+      banned: false,
+    })
+    spyOn(databaseModule, 'fetchAgentFromDatabase').mockResolvedValue(null)
+    spyOn(databaseModule, 'startAgentRun').mockResolvedValue('run-1')
+    spyOn(databaseModule, 'finishAgentRun').mockResolvedValue(undefined)
+    spyOn(databaseModule, 'addAgentStep').mockResolvedValue('step-1')
+
+    const apiError = new Error('Forbidden') as Error & { statusCode: number; responseBody: string }
+    apiError.statusCode = 403
+    apiError.responseBody = 'not valid json'
+
+    spyOn(mainPromptModule, 'callMainPrompt').mockRejectedValue(apiError)
+
+    const client = new CodebuffClient({
+      apiKey: 'test-key',
+    })
+
+    const result = await client.run({
+      agent: 'base2',
+      prompt: 'hello',
+    })
+
+    const output = result.output as { type: 'error'; message: string; statusCode?: number; error?: string }
+    expect(output.message).toBe('Forbidden')
+    expect(output.statusCode).toBe(403)
+    expect(output.error).toBeUndefined()
+  })
+
   it('preserves user message when callMainPrompt throws an error', async () => {
     spyOn(databaseModule, 'getUserInfoFromApiKey').mockResolvedValue({
       id: 'user-123',

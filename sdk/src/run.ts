@@ -510,15 +510,40 @@ async function runOnce({
     userId,
     signal: signal ?? new AbortController().signal,
   }).catch((error) => {
-    const errorMessage =
+    let errorMessage =
       error instanceof Error ? error.message : String(error ?? '')
     const statusCode = getErrorStatusCode(error)
+
+    // Extract structured error details from the API response body
+    // (e.g., AI SDK's AI_APICallError includes a responseBody with the server's JSON response)
+    let errorCode: string | undefined
+    const responseBody =
+      error && typeof error === 'object' && 'responseBody' in error
+        ? (error as { responseBody: unknown }).responseBody
+        : undefined
+    if (typeof responseBody === 'string') {
+      try {
+        const parsed: unknown = JSON.parse(responseBody)
+        if (parsed && typeof parsed === 'object') {
+          if ('error' in parsed && typeof (parsed as { error: unknown }).error === 'string') {
+            errorCode = (parsed as { error: string }).error
+          }
+          if ('message' in parsed && typeof (parsed as { message: unknown }).message === 'string') {
+            errorMessage = (parsed as { message: string }).message
+          }
+        }
+      } catch {
+        // responseBody wasn't valid JSON; keep original errorMessage
+      }
+    }
+
     resolve({
       sessionState: getCancelledSessionState(errorMessage),
       output: {
         type: 'error',
         message: errorMessage,
         ...(statusCode !== undefined && { statusCode }),
+        ...(errorCode !== undefined && { error: errorCode }),
       },
     })
   })
