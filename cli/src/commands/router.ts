@@ -19,7 +19,7 @@ import {
 } from './router-utils'
 import { handleClaudeAuthCode } from '../components/claude-connect-banner'
 import { handleChatGptAuthCode } from '../components/chatgpt-connect-banner'
-import { buildPlanPrompt, buildReviewPrompt } from './prompt-builders'
+import { buildInterviewPrompt, buildPlanPrompt, buildReviewPrompt } from './prompt-builders'
 import { getProjectRoot } from '../project-files'
 import { useChatStore } from '../state/chat-store'
 import { trackEvent } from '../utils/analytics'
@@ -322,6 +322,22 @@ export async function routeUserPrompt(
     inputRef.current?.focus()
 
     sendMessage({ content: buildPlanPrompt(trimmed), agentMode })
+    setTimeout(() => {
+      scrollToLatest()
+    }, 0)
+    return
+  }
+
+  // Handle interview mode input
+  if (inputMode === 'interview') {
+    if (!trimmed) return
+    saveToHistory(trimmed)
+    setInputValue({ text: '', cursorPosition: 0, lastEditDueToNav: false })
+    setInputMode('default')
+    setInputFocused(true)
+    inputRef.current?.focus()
+
+    sendMessage({ content: buildInterviewPrompt(trimmed), agentMode })
     setTimeout(() => {
       scrollToLatest()
     }, 0)

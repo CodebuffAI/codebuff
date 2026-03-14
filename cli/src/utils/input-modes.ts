@@ -11,6 +11,7 @@ export type InputMode =
   | 'homeDir'
   | 'plan'
   | 'review'
+  | 'interview'
   | 'referral'
   | 'usage'
   | 'image'
@@ -80,6 +81,16 @@ export const INPUT_MODE_CONFIGS: Record<InputMode, InputModeConfig> = {
     widthAdjustment: 0,
     showAgentModeToggle: true,
     disableSlashSuggestions: false,
+    blockKeyboardExit: false,
+  },
+  interview: {
+    icon: null,
+    label: 'Interview',
+    color: 'info',
+    placeholder: 'describe a feature/bug or other request to be fleshed out...',
+    widthAdjustment: 12,
+    showAgentModeToggle: false,
+    disableSlashSuggestions: true,
     blockKeyboardExit: false,
   },
   plan: {

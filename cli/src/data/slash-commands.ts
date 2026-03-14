@@ -134,6 +134,11 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     description: 'Review code changes with GPT 5.4',
   },
   {
+    id: 'interview',
+    label: 'interview',
+    description: 'AI asks a series of questions to flesh out request into a spec',
+  },
+  {
     id: 'new',
     label: 'new',
     description: 'Clear the conversation history and start a new chat',

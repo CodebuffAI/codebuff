@@ -3,7 +3,7 @@ import { CLAUDE_OAUTH_ENABLED } from '@codebuff/common/constants/claude-oauth'
 import open from 'open'
 
 import { handleAdsEnable, handleAdsDisable } from './ads'
-import { buildPlanPrompt, buildReviewPromptFromArgs } from './prompt-builders'
+import { buildInterviewPrompt, buildPlanPrompt, buildReviewPromptFromArgs } from './prompt-builders'
 import { useThemeStore } from '../hooks/use-theme'
 import { handleHelpCommand } from './help'
 import { handleImageCommand } from './image'
@@ -570,6 +570,30 @@ const ALL_COMMANDS: CommandDefinition[] = [
 
       // Otherwise enter plan mode
       useChatStore.getState().setInputMode('plan')
+    },
+  }),
+  defineCommandWithArgs({
+    name: 'interview',
+    handler: (params, args) => {
+      const trimmedArgs = args.trim()
+
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+
+      // If user provided text directly, send it immediately
+      if (trimmedArgs) {
+        params.sendMessage({
+          content: buildInterviewPrompt(trimmedArgs),
+          agentMode: params.agentMode,
+        })
+        setTimeout(() => {
+          params.scrollToLatest()
+        }, 0)
+        return
+      }
+
+      // Otherwise enter interview mode
+      useChatStore.getState().setInputMode('interview')
     },
   }),
   defineCommandWithArgs({
