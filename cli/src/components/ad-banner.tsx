@@ -1,8 +1,9 @@
 import { TextAttributes } from '@opentui/core'
 import open from 'open'
-import React, { useCallback, useState } from 'react'
+import React, { useState } from 'react'
 
 import { Button } from './button'
+import { Clickable } from './clickable'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
 import { IS_FREEBUFF } from '../utils/constants'
@@ -34,14 +35,6 @@ export const AdBanner: React.FC<AdBannerProps> = ({ ad, onDisableAds, isFreeMode
   const [isHideHovered, setIsHideHovered] = useState(false)
   const [isCloseHovered, setIsCloseHovered] = useState(false)
 
-  const handleClick = useCallback(() => {
-    if (ad.clickUrl) {
-      open(ad.clickUrl).catch((err) => {
-        logger.error(err, 'Failed to open ad link')
-      })
-    }
-  }, [ad.clickUrl])
-
   // Use 'url' field for display domain (the actual destination)
   const domain = extractDomain(ad.url)
   // Use cta field for button text, with title as fallback
@@ -50,6 +43,17 @@ export const AdBanner: React.FC<AdBannerProps> = ({ ad, onDisableAds, isFreeMode
   // Calculate available width for ad text
   // Account for: padding (2), "Ad ?" label with space (5)
   const maxTextWidth = separatorWidth - 7
+
+  // Wrapper for hover detection - makes entire ad content clickable
+  const handleAdMouseOver = () => setIsLinkHovered(true)
+  const handleAdMouseOut = () => setIsLinkHovered(false)
+  const handleAdClick = () => {
+    if (ad.clickUrl) {
+      open(ad.clickUrl).catch((err) => {
+        logger.error(err, 'Failed to open ad link')
+      })
+    }
+  }
 
   return (
     <box
@@ -60,59 +64,75 @@ export const AdBanner: React.FC<AdBannerProps> = ({ ad, onDisableAds, isFreeMode
     >
       {/* Horizontal divider line */}
       <text style={{ fg: theme.muted }}>{'─'.repeat(terminalWidth)}</text>
-      {/* Top line: ad text + Ad label */}
-      <box
+      {/* Clickable ad content area - wrapped in Button for click detection */}
+      <Button
+        onClick={handleAdClick}
+        onMouseOver={handleAdMouseOver}
+        onMouseOut={handleAdMouseOut}
         style={{
           width: '100%',
-          paddingLeft: 1,
-          paddingRight: 1,
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
+          flexDirection: 'column',
         }}
       >
-        <text
+        {/* Top line: ad text + Ad label */}
+        <box
           style={{
-            fg: theme.foreground,
-            flexShrink: 1,
-            maxWidth: maxTextWidth,
+            width: '100%',
+            paddingLeft: 1,
+            paddingRight: 1,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
           }}
-        >
-          {ad.adText}
-        </text>
-        <Button
-          onClick={() => setShowInfoPanel(true)}
-          onMouseOver={() => setIsAdLabelHovered(true)}
-          onMouseOut={() => setIsAdLabelHovered(false)}
         >
           <text
             style={{
-              fg: isAdLabelHovered && !showInfoPanel ? theme.foreground : theme.muted,
-              flexShrink: 0,
+              fg: theme.foreground,
+              flexShrink: 1,
+              maxWidth: maxTextWidth,
             }}
           >
-            {isAdLabelHovered && !showInfoPanel ? 'Ad ?' : '  Ad'}
+            {ad.adText}
           </text>
-        </Button>
-      </box>
-      {/* Bottom line: button, domain, credits */}
-      <box
-        style={{
-          width: '100%',
-          paddingLeft: 1,
-          paddingRight: 1,
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          columnGap: 2,
-          alignItems: 'center',
-        }}
-      >
-        {ctaText && (
-          <Button
-            onClick={handleClick}
-            onMouseOver={() => setIsLinkHovered(true)}
-            onMouseOut={() => setIsLinkHovered(false)}
-          >
+          {!IS_FREEBUFF ? (
+            <Clickable
+              onMouseDown={() => setShowInfoPanel(true)}
+              onMouseOver={() => setIsAdLabelHovered(true)}
+              onMouseOut={() => setIsAdLabelHovered(false)}
+            >
+              <text
+                style={{
+                  fg: isAdLabelHovered && !showInfoPanel ? theme.foreground : theme.muted,
+                  flexShrink: 0,
+                }}
+              >
+                {isAdLabelHovered && !showInfoPanel ? 'Ad ?' : '  Ad'}
+              </text>
+            </Clickable>
+          ) : (
+            <text
+              style={{
+                fg: theme.muted,
+                flexShrink: 0,
+              }}
+            >
+              {'  Ad'}
+            </text>
+          )}
+        </box>
+        {/* Bottom line: button, domain, credits */}
+        <box
+          style={{
+            width: '100%',
+            paddingLeft: 1,
+            paddingRight: 1,
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            columnGap: 2,
+            alignItems: 'center',
+          }}
+        >
+          {ctaText && (
             <text
               style={{
                 fg: theme.name === 'light' ? '#ffffff' : theme.background,
@@ -122,14 +142,8 @@ export const AdBanner: React.FC<AdBannerProps> = ({ ad, onDisableAds, isFreeMode
             >
               {` ${ctaText} `}
             </text>
-          </Button>
-        )}
-        {domain && (
-          <Button
-            onClick={handleClick}
-            onMouseOver={() => setIsLinkHovered(true)}
-            onMouseOut={() => setIsLinkHovered(false)}
-          >
+          )}
+          {domain && (
             <text
               style={{
                 fg: theme.muted,
@@ -138,13 +152,13 @@ export const AdBanner: React.FC<AdBannerProps> = ({ ad, onDisableAds, isFreeMode
             >
               {domain}
             </text>
-          </Button>
-        )}
-        <box style={{ flexGrow: 1 }} />
-        {!IS_FREEBUFF && ad.credits != null && ad.credits > 0 && (
-          <text style={{ fg: theme.muted }}>+{ad.credits} credits</text>
-        )}
-      </box>
+          )}
+          <box style={{ flexGrow: 1 }} />
+          {!IS_FREEBUFF && ad.credits != null && ad.credits > 0 && (
+            <text style={{ fg: theme.muted }}>+{ad.credits} credits</text>
+          )}
+        </box>
+      </Button>
       {/* Info panel: shown when Ad label is clicked, below the ad */}
       {showInfoPanel && (
         <box
