@@ -2,7 +2,7 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { supportsCacheControl } from '@codebuff/common/old-constants'
 import { TOOLS_WHICH_WONT_FORCE_NEXT_STEP } from '@codebuff/common/tools/constants'
 import { buildArray } from '@codebuff/common/util/array'
-import { AbortError, getErrorObject, isAbortError } from '@codebuff/common/util/error'
+import { AbortError, getErrorObject, isAbortError, parseApiErrorResponseBody } from '@codebuff/common/util/error'
 import { serializeCacheDebugCorrelation } from '@codebuff/common/util/cache-debug'
 import { systemMessage, userMessage } from '@codebuff/common/util/messages'
 import { APICallError, type ToolSet } from 'ai'
@@ -1069,8 +1069,16 @@ export async function loopAgentSteps(
     )
 
     let errorMessage = ''
+    let errorCode: string | undefined
+    let hasServerMessage = false
     if (error instanceof APICallError) {
       errorMessage = `${error.message}`
+      const parsed = parseApiErrorResponseBody(error.responseBody)
+      if (parsed.errorCode) errorCode = parsed.errorCode
+      if (parsed.message) {
+        errorMessage = parsed.message
+        hasServerMessage = true
+      }
     } else {
       // Extract clean error message (just the message, not name:message format)
       errorMessage =
@@ -1101,8 +1109,9 @@ export async function loopAgentSteps(
       agentState: currentAgentState,
       output: {
         type: 'error',
-        message: 'Agent run error: ' + errorMessage,
+        message: hasServerMessage ? errorMessage : 'Agent run error: ' + errorMessage,
         ...(statusCode !== undefined && { statusCode }),
+        ...(errorCode !== undefined && { error: errorCode }),
       },
     }
   }

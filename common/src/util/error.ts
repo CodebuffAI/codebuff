@@ -187,6 +187,35 @@ export function unwrapPromptResult<T>(result: PromptResult<T>): T {
   return result.value
 }
 
+/**
+ * Parses a JSON response body string from an API error to extract structured error details.
+ * Used to extract machine-readable error codes and human-readable messages from API responses
+ * (e.g., AI SDK's APICallError includes a responseBody with the server's JSON response).
+ *
+ * Returns extracted fields, or an empty object if the responseBody is not a valid JSON string
+ * with the expected shape.
+ */
+export function parseApiErrorResponseBody(responseBody: unknown): {
+  errorCode?: string
+  message?: string
+} {
+  if (typeof responseBody !== 'string') return {}
+  try {
+    const parsed: unknown = JSON.parse(responseBody)
+    if (!parsed || typeof parsed !== 'object') return {}
+    const result: { errorCode?: string; message?: string } = {}
+    if ('error' in parsed && typeof (parsed as { error: unknown }).error === 'string') {
+      result.errorCode = (parsed as { error: string }).error
+    }
+    if ('message' in parsed && typeof (parsed as { message: unknown }).message === 'string') {
+      result.message = (parsed as { message: string }).message
+    }
+    return result
+  } catch {
+    return {}
+  }
+}
+
 // Extended error properties that various libraries add to Error objects
 interface ExtendedErrorProperties {
   status?: number
