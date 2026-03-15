@@ -287,7 +287,7 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
             {onToggle && <CollapseButton onClick={onToggle} />}
           </box>
         )}
-        {isStreaming && (
+        {isStreaming && isExpanded && (
           <text
             style={{
               paddingLeft: 1,
