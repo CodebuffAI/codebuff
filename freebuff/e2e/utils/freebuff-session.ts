@@ -103,9 +103,33 @@ export class FreebuffSession {
     } catch {
       // ignore
     }
+    const terminalOutput = await this.capture()
     throw new Error(
       `Timed out after ${timeoutMs}ms waiting for "${pattern}" in ${relativePath}.\n` +
-        `Last content:\n${finalContent}`,
+        `Last content:\n${finalContent}\n` +
+        `Terminal output:\n${terminalOutput}`,
+    )
+  }
+
+  /**
+   * Wait for the CLI to be fully initialized and ready for input.
+   * Polls terminal output until enough non-empty lines are visible,
+   * indicating the TUI has rendered its initial layout.
+   */
+  async waitForReady(timeoutMs = 15_000, minLines = 5): Promise<void> {
+    const start = Date.now()
+    while (Date.now() - start < timeoutMs) {
+      const output = await this.capture()
+      const nonEmptyLines = output
+        .split('\n')
+        .filter((line) => line.trim().length > 0)
+      if (nonEmptyLines.length >= minLines) return
+      await new Promise((resolve) => setTimeout(resolve, 250))
+    }
+    const finalOutput = await this.capture()
+    throw new Error(
+      `Timed out after ${timeoutMs}ms waiting for CLI to be ready.\n` +
+        `Last output:\n${finalOutput}`,
     )
   }
 

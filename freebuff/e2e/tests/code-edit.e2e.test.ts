@@ -52,11 +52,14 @@ describe('Freebuff: Code Edit', () => {
         initialFiles: { 'index.js': initialContent },
       })
 
+      // Wait for the CLI to be fully ready before sending input
+      await session.waitForReady()
+
       // Verify the file was created
       expect(session.readFile('index.js')).toBe(initialContent)
 
       // Send a prompt asking freebuff to add a console.log
-      await session.send("Add a console.log('hello world') to index.js")
+      await session.send('Add console.log("hello world") to index.js')
 
       // Wait for the file to be modified with the console.log
       const finalContent = await session.waitForFileContent(

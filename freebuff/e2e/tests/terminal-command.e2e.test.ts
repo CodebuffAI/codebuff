@@ -41,10 +41,13 @@ describe('Freebuff: Terminal Command', () => {
       const binary = requireFreebuffBinary()
       session = await FreebuffSession.start(binary, { waitSeconds: 5 })
 
+      // Wait for the CLI to be fully ready before sending input
+      await session.waitForReady()
+
       // Ask freebuff to run a shell command whose output can only come from
       // actual terminal execution (not file-writing tools)
       await session.send(
-        'Use the terminal to run: date +%s > timestamp.txt && echo done',
+        'Execute a shell command in the terminal to write the current Unix timestamp in seconds to timestamp.txt',
       )
 
       // Wait for the file to be created by the terminal command
