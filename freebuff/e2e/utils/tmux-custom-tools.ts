@@ -54,7 +54,8 @@ export function createFreebuffTmuxTools(binaryPath: string): {
         ]
       }
       session = await FreebuffSession.start(binaryPath)
-      const initialOutput = await session.capture(2)
+      await session.waitForReady()
+      const initialOutput = await session.capture()
       return [
         {
           type: 'json',

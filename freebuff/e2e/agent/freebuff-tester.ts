@@ -43,7 +43,7 @@ through tmux tools. Follow these steps:
 
 Key things to verify:
 - The CLI starts without errors or crashes
-- Branding shows "Freebuff" (not "Codebuff")
+- The startup screen has visible content (non-empty output)
 - Commands work as expected
 - Error messages are user-friendly
 

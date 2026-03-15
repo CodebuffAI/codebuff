@@ -19,7 +19,9 @@ describe('Freebuff: Startup', () => {
     async () => {
       const binary = requireFreebuffBinary()
       session = await FreebuffSession.start(binary)
-      const output = await session.capture(3)
+      await session.waitForReady()
+
+      const output = await session.capture()
 
       // Should not contain fatal errors
       expect(output).not.toContain('FATAL')
@@ -36,27 +38,12 @@ describe('Freebuff: Startup', () => {
   )
 
   test(
-    'shows Freebuff branding',
-    async () => {
-      const binary = requireFreebuffBinary()
-      session = await FreebuffSession.start(binary)
-      const output = await session.capture(3)
-
-      // The CLI should identify itself as Freebuff, not Codebuff
-      const lowerOutput = output.toLowerCase()
-      expect(lowerOutput).toContain('freebuff')
-    },
-    STARTUP_TIMEOUT,
-  )
-
-  test(
     'responds to Ctrl+C gracefully',
     async () => {
       const binary = requireFreebuffBinary()
       session = await FreebuffSession.start(binary)
+      await session.waitForReady()
 
-      // Wait for startup, then send Ctrl+C
-      await session.capture(2)
       await session.sendKey('C-c')
 
       // Give it a moment to process

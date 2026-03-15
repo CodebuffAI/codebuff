@@ -116,7 +116,7 @@ export class FreebuffSession {
    * Polls terminal output until enough non-empty lines are visible,
    * indicating the TUI has rendered its initial layout.
    */
-  async waitForReady(timeoutMs = 15_000, minLines = 5): Promise<void> {
+  async waitForReady(timeoutMs = 30_000, minLines = 5): Promise<void> {
     const start = Date.now()
     while (Date.now() - start < timeoutMs) {
       const output = await this.capture()

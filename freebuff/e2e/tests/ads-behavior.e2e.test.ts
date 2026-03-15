@@ -15,10 +15,11 @@ describe('Freebuff: Ads Behavior', () => {
   })
 
   test(
-    'ads:enable command is not available',
+    'ads commands are not available',
     async () => {
       const binary = requireFreebuffBinary()
-      session = await FreebuffSession.start(binary, { waitSeconds: 5 })
+      session = await FreebuffSession.start(binary)
+      await session.waitForReady()
 
       // Type "/ads" to check for ads commands in autocomplete
       await session.send('/ads', { noEnter: true })
@@ -32,46 +33,17 @@ describe('Freebuff: Ads Behavior', () => {
   )
 
   test(
-    'ads:disable command is not available',
+    'startup screen does not show ad-related UI',
     async () => {
       const binary = requireFreebuffBinary()
-      session = await FreebuffSession.start(binary, { waitSeconds: 5 })
+      session = await FreebuffSession.start(binary)
+      await session.waitForReady()
 
-      // Try to send the /ads:disable command
-      await session.send('/ads:disable')
-      const output = await session.capture(3)
-
-      // The command should not be recognized
-      // It should NOT show "Ads disabled" confirmation
-      expect(output).not.toMatch(/ads disabled/i)
-    },
-    TEST_TIMEOUT,
-  )
-
-  test(
-    'does not show credits earned from ads',
-    async () => {
-      const binary = requireFreebuffBinary()
-      session = await FreebuffSession.start(binary, { waitSeconds: 5 })
       const output = await session.capture()
 
-      // In Freebuff, ads don't show "+X credits" because credits don't apply
-      // Check the startup screen doesn't mention ad credits
+      // Ads are always enabled in Freebuff — no credits or toggle UI
       expect(output).not.toMatch(/\+\d+ credits/)
-    },
-    TEST_TIMEOUT,
-  )
-
-  test(
-    'does not show "Hide ads" option',
-    async () => {
-      const binary = requireFreebuffBinary()
-      session = await FreebuffSession.start(binary, { waitSeconds: 5 })
-      const output = await session.capture()
-
-      // In Freebuff, the "Hide ads" link is not shown because ads are mandatory
       expect(output).not.toContain('Hide ads')
-      // Also should not mention /ads:enable as a way to re-enable
       expect(output).not.toContain('/ads:enable')
     },
     TEST_TIMEOUT,

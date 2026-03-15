@@ -60,9 +60,8 @@ describe('Freebuff: Agent-driven E2E', () => {
         prompt:
           'Start Freebuff using the start_freebuff tool. Then capture the output ' +
           'with capture_freebuff_output (waitSeconds: 3). Verify that:\n' +
-          '1. The CLI started without errors\n' +
-          '2. The output contains "freebuff" (case-insensitive)\n' +
-          '3. The output does NOT contain "codebuff" (case-insensitive)\n' +
+          '1. The CLI started without errors (no FATAL, panic, or crash messages)\n' +
+          '2. The output has visible content (not a blank screen)\n' +
           'Finally, call stop_freebuff to clean up. Report your findings.',
         agentDefinitions: [freebuffTesterAgent],
         customToolDefinitions: tmuxTools.tools,

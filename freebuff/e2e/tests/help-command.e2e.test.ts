@@ -47,7 +47,8 @@ describe('Freebuff: /help slash command', () => {
     'shows help content when /help is entered',
     async () => {
       const binary = requireFreebuffBinary()
-      session = await FreebuffSession.start(binary, { waitSeconds: 5 })
+      session = await FreebuffSession.start(binary)
+      await session.waitForReady()
 
       await session.send('/help')
       const output = await session.capture(2)
@@ -62,7 +63,8 @@ describe('Freebuff: /help slash command', () => {
     'does not show subscription commands in help',
     async () => {
       const binary = requireFreebuffBinary()
-      session = await FreebuffSession.start(binary, { waitSeconds: 5 })
+      session = await FreebuffSession.start(binary)
+      await session.waitForReady()
 
       await session.send('/help')
       const output = await session.capture(2)
