@@ -23,7 +23,7 @@ const definition: AgentDefinition = {
 3. Check \`consoleErrors\` for any JavaScript errors found
 4. Check \`lessons\` for advice on improving future runs
 
-**Requirements:** Chrome must be installed on the user's machine. The MCP server downloads automatically via npx on first use.`,
+**Requirements:** Chrome must be installed. Check System Info for "Chrome: installed" before spawning. If Chrome is not found, do NOT spawn this agent — instead inform the user that the browser-use agent requires Google Chrome or Chromium to be installed.`,
 
   inputSchema: {
     prompt: {

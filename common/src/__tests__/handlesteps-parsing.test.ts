@@ -43,6 +43,7 @@ describe('handleSteps Parsing Tests', () => {
         arch: 'test',
         homedir: '/test',
         cpus: 1,
+        chromeAvailable: false,
       },
       tokenCallers: {},
     }

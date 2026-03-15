@@ -39,6 +39,7 @@ describe('requestRelevantFiles', () => {
       arch: 'arm64',
       homedir: '/Users/test',
       cpus: 8,
+      chromeAvailable: false,
     },
     agentTemplates: {},
     customToolDefinitions: {},

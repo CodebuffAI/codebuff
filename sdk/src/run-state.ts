@@ -2,6 +2,7 @@ import * as os from 'os'
 import path from 'path'
 
 import { getFileTokenScores } from '@codebuff/code-map/parse'
+import { getSystemInfo } from '@codebuff/common/util/system-info'
 import {
   KNOWLEDGE_FILE_NAMES_LOWERCASE,
   isKnowledgeFile,
@@ -506,14 +507,7 @@ export async function initialSessionState(
     gitChanges,
     changesSinceLastChat: {},
     shellConfigFiles: {},
-    systemInfo: {
-      platform: process.platform,
-      shell: 'bash',
-      nodeVersion: process.version,
-      arch: process.arch,
-      homedir: os.homedir(),
-      cpus: os.cpus().length ?? 1,
-    },
+    systemInfo: getSystemInfo(),
   })
 
   if (maxAgentSteps) {

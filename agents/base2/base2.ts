@@ -82,11 +82,12 @@ export function createBase2(
       isMax && 'thinker-best-of-n-opus',
       isDefault && 'editor',
       isMax && 'editor-multi-prompt',
+      'tmux-cli',
+      'browser-use',
       isFree && 'code-reviewer-lite',
       isDefault && 'code-reviewer',
       isMax && 'code-reviewer-multi-prompt',
       'thinker-gpt',
-      'tmux-cli',
       'context-pruner',
     ),
 

@@ -152,6 +152,7 @@ describe('runAgentStep - set_output tool', () => {
       arch: 'test',
       homedir: '/home/test',
       cpus: 1,
+      chromeAvailable: false,
     },
     agentTemplates: {},
     customToolDefinitions: {},

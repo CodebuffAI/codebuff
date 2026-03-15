@@ -48,6 +48,7 @@ export const mockFileContext: ProjectFileContext = {
     arch: 'test',
     homedir: '/home/test',
     cpus: 1,
+    chromeAvailable: false,
   },
 }
 

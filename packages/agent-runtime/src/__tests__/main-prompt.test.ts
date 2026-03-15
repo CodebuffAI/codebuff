@@ -194,6 +194,7 @@ describe('mainPrompt', () => {
       arch: 'test',
       homedir: '/home/test',
       cpus: 1,
+      chromeAvailable: false,
     },
   }
 

@@ -174,6 +174,7 @@ export const getSystemInfoPrompt = (fileContext: ProjectFileContext) => {
 Operating System: ${systemInfo.platform}
 ${systemInfo.platform === 'win32' ? windowsNote + '\n' : ''}
 Shell: ${systemInfo.shell}
+Chrome: ${systemInfo.chromeAvailable ? 'installed' : 'not found'}
 
 <user_shell_config_files>
 ${Object.entries(shellConfigFiles)
