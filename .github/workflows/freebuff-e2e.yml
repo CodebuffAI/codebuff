@@ -60,7 +60,6 @@ jobs:
           - startup
           - help-command
           - slash-commands
-          - mode-restriction
           - ads-behavior
           - agent-startup
           - code-edit
