@@ -30,7 +30,7 @@ export const FREE_MODE_AGENT_MODELS: Record<string, Set<string>> = {
   'researcher-docs': new Set(['google/gemini-3.1-flash-lite-preview']),
 
   // Command execution
-  'commander-lite': new Set(['google/gemini-3.1-flash-lite-preview']),
+  'basher': new Set(['google/gemini-3.1-flash-lite-preview']),
 
   // Editor for free mode
   'editor-lite': new Set(['minimax/minimax-m2.5']),

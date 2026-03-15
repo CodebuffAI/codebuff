@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'bun:test'
 
-import commander from '../commander'
+import commander from '../basher'
 
 import type { AgentState } from '../types/agent-definition'
 import type { ToolResultOutput } from '../types/util-types'
@@ -19,11 +19,11 @@ describe('commander agent', () => {
 
   describe('definition', () => {
     test('has correct id', () => {
-      expect(commander.id).toBe('commander')
+      expect(commander.id).toBe('basher')
     })
 
     test('has display name', () => {
-      expect(commander.displayName).toBe('Commander')
+      expect(commander.displayName).toBe('Basher')
     })
 
     test('uses flash-lite model', () => {

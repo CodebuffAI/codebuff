@@ -5,13 +5,13 @@ import type {
   AgentStepContext,
 } from './types/agent-definition'
 
-const commander: AgentDefinition = {
-  id: 'commander',
+const basher: AgentDefinition = {
+  id: 'basher',
   publisher,
   model: 'google/gemini-3.1-flash-lite-preview',
-  displayName: 'Commander',
+  displayName: 'Basher',
   spawnerPrompt:
-    'Runs a single terminal command and describes its output using an LLM based on what information is requested.',
+    'Runs a single terminal command and describes its output using an LLM. A lightweight shell command executor.',
 
   inputSchema: {
     prompt: {
@@ -64,7 +64,7 @@ Do not use any tools! Only analyze the output of the command.`,
     const command = params?.command as string | undefined
     if (!command) {
       // Using console.error because agents run in a sandboxed environment without access to structured logger
-      console.error('Commander agent: missing required "command" parameter')
+      console.error('Basher agent: missing required "command" parameter')
       yield {
         toolName: 'set_output',
         input: { output: 'Error: Missing required "command" parameter' },
@@ -102,4 +102,4 @@ Do not use any tools! Only analyze the output of the command.`,
   },
 }
 
-export default commander
+export default basher

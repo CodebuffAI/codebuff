@@ -9,7 +9,6 @@ import { getAgentShortName } from '../templates/prompts'
 import { codebuffToolHandlers } from './handlers/list'
 import {
   getMatchingSpawn,
-  transformSpawnAgentsInput,
 } from './handlers/tool/spawn-agent-utils'
 import { getAgentTemplate } from '../templates/agent-registry'
 import { ensureZodSchema } from './prompts'
@@ -192,18 +191,11 @@ export async function executeToolCall<T extends ToolName>(
     return previousToolCallFinished
   }
 
-  // Transform spawn_agents input to use commander-lite fallback before streaming
-  // This ensures the UI shows the correct agent type from the start
-  const transformedInput =
-    toolName === 'spawn_agents'
-      ? transformSpawnAgentsInput(input, agentTemplate.spawnableAgents)
-      : input
-
   // TODO: Allow tools to provide a validation function, and move this logic into the spawn_agents validation function.
   // Pre-validate spawn_agents to filter out non-existent agents before streaming
-  let effectiveInput = transformedInput
+  let effectiveInput = input
   if (toolName === 'spawn_agents') {
-    const agents = (transformedInput as Record<string, unknown>).agents
+    const agents = (input as Record<string, unknown>).agents
     if (Array.isArray(agents)) {
       const BASE_AGENTS = [
         'base',
@@ -284,7 +276,7 @@ export async function executeToolCall<T extends ToolName>(
         }
         const errorMsg = `Some agents could not be spawned: ${errors.join('; ')}. Proceeding with valid agents only.`
         onResponseChunk({ type: 'error', message: errorMsg })
-        effectiveInput = { ...transformedInput, agents: validAgents }
+        effectiveInput = { ...input, agents: validAgents }
       }
     }
   }

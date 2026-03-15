@@ -299,8 +299,7 @@ const definition: AgentDefinition = {
       'file-picker',
       'researcher-web',
       'researcher-docs',
-      'commander',
-      'commander-lite',
+      'basher',
       'code-reviewer',
       'code-reviewer-multi-prompt',
     ]

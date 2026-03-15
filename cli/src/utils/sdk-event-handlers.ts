@@ -371,7 +371,7 @@ const updateSpawnAgentBlocks = (
 
       if (result?.value) {
         const { content, hasError } = extractSpawnAgentResultContent(result.value)
-        // Preserve streamed content (agents like commander stream their output)
+        // Preserve streamed content (agents like basher stream their output)
         const hasStreamedContent = block.blocks.length > 0
         if (hasError || content || hasStreamedContent) {
           return {

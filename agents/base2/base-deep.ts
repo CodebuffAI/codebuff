@@ -32,7 +32,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
   - Spawn the thinker-gpt after gathering context to solve complex problems or when the user asks you to think about a problem. (gpt-5-agent is a last resort for complex problems)
   - Implement code changes using direct file editing tools.
   - Prefer apply_patch for existing-file edits. Use write_file only for creating or replacing entire files when that is simpler.
-  - Spawn commanders sequentially if the second command depends on the the first.
+  - Spawn bashers sequentially if the second command depends on the the first.
 - **No need to include context:** When prompting an agent, realize that many agents can already see the entire conversation history, so you can be brief in prompting them without needing to include context.
 - **Never spawn the context-pruner agent:** This agent is spawned automatically for you and you don't need to spawn it yourself.
 
@@ -199,7 +199,7 @@ Iteratively review until the code is clean:
 
 Thoroughly validate the changes:
 
-1. Run any existing unit tests that cover the modified code (spawn commanders in parallel for typechecks, tests, lints as appropriate).
+1. Run any existing unit tests that cover the modified code (spawn bashers in parallel for typechecks, tests, lints as appropriate).
 2. Write and run additional unit tests for new functionality. Fix any test failures.
 3. You MUST attempt end-to-end verification: use tools to run the actual application (or equivalent) and verify the changes work in practice. For example:
    - For a web app: start the server and check the relevant endpoints
@@ -298,7 +298,7 @@ export function createBaseDeep(options?: {
       'glob-matcher',
       'researcher-web',
       'researcher-docs',
-      'commander',
+      'basher',
       'thinker-gpt',
       'code-reviewer-gpt',
       'gpt-5-agent',

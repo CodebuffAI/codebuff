@@ -92,7 +92,7 @@ Prompt-based and programmatic agent definitions that ship with Codebuff.
   - `reviewer/` — Code review agent with multi-prompt variant
   - `researcher/` — Web search and docs search agents
   - `general-agent/` — General-purpose agents (opus-agent, gpt-5-agent)
-  - `commander.ts` / `commander-lite.ts` — Terminal command execution agents
+  - `basher.ts` — Terminal command execution agent (id: 'basher', displayName: 'Basher')
   - `context-pruner.ts` — Conversation summarization to manage context length
 - **Depends on:** `common` (for agent definition types and tool params)
 
