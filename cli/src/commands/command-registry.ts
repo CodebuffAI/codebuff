@@ -534,6 +534,30 @@ const ALL_COMMANDS: CommandDefinition[] = [
     },
   }),
   defineCommandWithArgs({
+    name: 'interview',
+    handler: (params, args) => {
+      const trimmedArgs = args.trim()
+
+      params.saveToHistory(params.inputValue.trim())
+      clearInput(params)
+
+      // If user provided text directly, send it immediately
+      if (trimmedArgs) {
+        params.sendMessage({
+          content: buildInterviewPrompt(trimmedArgs),
+          agentMode: params.agentMode,
+        })
+        setTimeout(() => {
+          params.scrollToLatest()
+        }, 0)
+        return
+      }
+
+      // Otherwise enter interview mode
+      useChatStore.getState().setInputMode('interview')
+    },
+  }),
+  defineCommandWithArgs({
     name: 'plan',
     handler: (params, args) => {
       // In freebuff mode, require ChatGPT connection
@@ -570,30 +594,6 @@ const ALL_COMMANDS: CommandDefinition[] = [
 
       // Otherwise enter plan mode
       useChatStore.getState().setInputMode('plan')
-    },
-  }),
-  defineCommandWithArgs({
-    name: 'interview',
-    handler: (params, args) => {
-      const trimmedArgs = args.trim()
-
-      params.saveToHistory(params.inputValue.trim())
-      clearInput(params)
-
-      // If user provided text directly, send it immediately
-      if (trimmedArgs) {
-        params.sendMessage({
-          content: buildInterviewPrompt(trimmedArgs),
-          agentMode: params.agentMode,
-        })
-        setTimeout(() => {
-          params.scrollToLatest()
-        }, 0)
-        return
-      }
-
-      // Otherwise enter interview mode
-      useChatStore.getState().setInputMode('interview')
     },
   }),
   defineCommandWithArgs({

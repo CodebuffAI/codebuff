@@ -124,6 +124,11 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     aliases: ['strong', 'sub', 'buy-credits'],
   },
   {
+    id: 'interview',
+    label: 'interview',
+    description: 'AI asks a series of questions to flesh out request into a spec',
+  },
+  {
     id: 'plan',
     label: 'plan',
     description: 'Create a plan with GPT 5.4',
@@ -132,11 +137,6 @@ const ALL_SLASH_COMMANDS: SlashCommand[] = [
     id: 'review',
     label: 'review',
     description: 'Review code changes with GPT 5.4',
-  },
-  {
-    id: 'interview',
-    label: 'interview',
-    description: 'AI asks a series of questions to flesh out request into a spec',
   },
   {
     id: 'new',
