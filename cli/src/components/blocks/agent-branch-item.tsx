@@ -8,6 +8,7 @@ import { MAX_COLLAPSED_LINES, truncateToLines } from '../../utils/strings'
 import { BORDER_CHARS } from '../../utils/ui-constants'
 import { Button } from '../button'
 import { CollapseButton } from '../collapse-button'
+import { ShimmerText } from '../shimmer-text'
 
 interface AgentBranchItemProps {
   name: string
@@ -285,6 +286,20 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
             {renderExpandedContent(children)}
             {onToggle && <CollapseButton onClick={onToggle} />}
           </box>
+        )}
+        {isStreaming && (
+          <text
+            style={{
+              paddingLeft: 1,
+              paddingBottom: 0,
+            }}
+          >
+            <ShimmerText
+              text="working..."
+              interval={160}
+              primaryColor={theme.secondary}
+            />
+          </text>
         )}
       </box>
     </box>
