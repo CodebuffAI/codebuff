@@ -1,0 +1,112 @@
+name: Freebuff E2E Tests
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+    branches: ['main']
+  workflow_dispatch: # Manual trigger
+
+concurrency:
+  group: freebuff-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-freebuff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-project
+
+      - name: Set environment variables
+        env:
+          SECRETS_CONTEXT: ${{ toJSON(secrets) }}
+        run: |
+          VAR_NAMES=$(bun scripts/generate-ci-env.ts --scope client)
+          echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
+            to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
+          ' >> $GITHUB_ENV
+          echo "FREEBUFF_MODE=true" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_CB_ENVIRONMENT=prod" >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
+
+      - name: Build Freebuff binary
+        run: bun freebuff/cli/build.ts 0.0.0-e2e
+
+      - name: Smoke test binary
+        run: |
+          chmod +x cli/bin/freebuff
+          cli/bin/freebuff --version
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: freebuff-binary
+          path: cli/bin/freebuff
+          retention-days: 1
+
+  e2e:
+    needs: build-freebuff
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        test:
+          - version
+          - startup
+          - help-command
+          - slash-commands
+          - mode-restriction
+          - ads-behavior
+          - agent-startup
+          - code-edit
+          - terminal-command
+    name: e2e-${{ matrix.test }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-project
+
+      - name: Install tmux
+        run: sudo apt-get update && sudo apt-get install -y tmux
+
+      - name: Download Freebuff binary
+        uses: actions/download-artifact@v4
+        with:
+          name: freebuff-binary
+          path: cli/bin/
+
+      - name: Make binary executable
+        run: chmod +x cli/bin/freebuff
+
+      - name: Set environment variables
+        env:
+          SECRETS_CONTEXT: ${{ toJSON(secrets) }}
+        run: |
+          VAR_NAMES=$(bun scripts/generate-ci-env.ts)
+          echo "$SECRETS_CONTEXT" | jq -r --argjson vars "$VAR_NAMES" '
+            to_entries | .[] | select(.key as $k | $vars | index($k)) | .key + "=" + .value
+          ' >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_ACTIONS=true" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_CB_ENVIRONMENT=test" >> $GITHUB_ENV
+          echo "CODEBUFF_GITHUB_TOKEN=${{ secrets.CODEBUFF_GITHUB_TOKEN }}" >> $GITHUB_ENV
+          echo "CODEBUFF_API_KEY=${{ secrets.CODEBUFF_API_KEY }}" >> $GITHUB_ENV
+
+      - name: Build SDK
+        run: cd sdk && bun run build
+
+      - name: Run e2e test - ${{ matrix.test }}
+        run: bun test freebuff/e2e/tests/${{ matrix.test }}.e2e.test.ts --timeout=120000
+
+      - name: Upload tmux session logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: tmux-logs-${{ matrix.test }}
+          path: debug/tmux-sessions/
+          retention-days: 7
