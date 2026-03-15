@@ -1,21 +1,21 @@
 #!/usr/bin/env bun
 
 /**
- * Test script to verify SiliconFlow prompt caching across a 10-turn conversation.
+ * Test script to verify CanopyWave prompt caching across a 10-turn conversation.
  *
  * Uses a very large system prompt (~5k+ input tokens) with low output (max 100 tokens)
- * to measure how well SiliconFlow caches the shared prefix across turns.
+ * to measure how well CanopyWave caches the shared prefix across turns.
  *
  * Usage:
- *   bun scripts/test-siliconflow.ts
+ *   bun scripts/test-canopywave-long.ts
  */
 
-export {}
+export { }
 
-const SILICONFLOW_BASE_URL = 'https://api.siliconflow.com/v1'
-const SILICONFLOW_MODEL = 'MiniMaxAI/MiniMax-M2.5'
+const CANOPYWAVE_BASE_URL = 'https://inference.canopywave.io/v1'
+const CANOPYWAVE_MODEL = 'minimax/minimax-m2.5'
 
-// Pricing constants — https://siliconflow.com/pricing
+// Pricing constants — same model as Fireworks/SiliconFlow
 const INPUT_COST_PER_TOKEN = 0.30 / 1_000_000
 const CACHED_INPUT_COST_PER_TOKEN = 0.03 / 1_000_000
 const OUTPUT_COST_PER_TOKEN = 1.20 / 1_000_000
@@ -45,7 +45,11 @@ function computeCost(usage: Record<string, unknown>): { cost: number; breakdown:
 }
 
 // Very large system prompt to push input tokens to ~5k+
+// Random seed to prevent cache hits on repeated runs
+const SEED_STRING = `Seed: ${Math.random().toString(36).slice(2, 10)}`
+
 const SYSTEM_PROMPT = `You are an expert software architect, technical writer, and senior engineering consultant.
+${SEED_STRING}
 You always respond with brief, concise answers — one or two sentences at most.
 You provide practical advice grounded in real-world engineering experience.
 
@@ -165,14 +169,14 @@ async function makeConversationStreamRequest(
   const startTime = Date.now()
   let ttftMs: number | undefined
 
-  const response = await fetch(`${SILICONFLOW_BASE_URL}/chat/completions`, {
+  const response = await fetch(`${CANOPYWAVE_BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: SILICONFLOW_MODEL,
+      model: CANOPYWAVE_MODEL,
       messages: conversationMessages,
       max_tokens: MAX_TOKENS,
       stream: true,
@@ -182,7 +186,7 @@ async function makeConversationStreamRequest(
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error(`❌ SiliconFlow streaming API returned ${response.status}: ${errorText}`)
+    console.error(`❌ CanopyWave streaming API returned ${response.status}: ${errorText}`)
     return { label, usage: null, elapsedMs: Date.now() - startTime, outputTokens: 0, responseContent: '' }
   }
 
@@ -222,6 +226,9 @@ async function makeConversationStreamRequest(
           }
           streamContent += delta.content
         }
+        if (delta?.reasoning_content) {
+          // Skip reasoning content for this test
+        }
         if (chunk.usage) streamUsage = chunk.usage
       } catch {
         // skip non-JSON lines
@@ -256,16 +263,16 @@ async function makeConversationStreamRequest(
 }
 
 async function main() {
-  const apiKey = process.env.SILICON_FLOW_API_KEY
+  const apiKey = process.env.CANOPYWAVE_API_KEY
   if (!apiKey) {
-    console.error('❌ SILICON_FLOW_API_KEY is not set. Add it to .env.local or pass it directly.')
+    console.error('❌ CANOPYWAVE_API_KEY is not set. Add it to .env.local or pass it directly.')
     process.exit(1)
   }
 
-  console.log('🧪 SiliconFlow 10-Turn Conversation Caching Test')
+  console.log('🧪 CanopyWave 10-Turn Conversation Caching Test')
   console.log('='.repeat(60))
-  console.log(`Model:       ${SILICONFLOW_MODEL}`)
-  console.log(`Base URL:    ${SILICONFLOW_BASE_URL}`)
+  console.log(`Model:       ${CANOPYWAVE_MODEL}`)
+  console.log(`Base URL:    ${CANOPYWAVE_BASE_URL}`)
   console.log(`Max tokens:  ${MAX_TOKENS} (low output per turn)`)
   console.log(`Turns:       ${TURN_PROMPTS.length}`)
   console.log(`Pricing:     $0.30/M input, $0.03/M cached, $1.20/M output`)
