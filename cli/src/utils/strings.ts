@@ -89,7 +89,9 @@ export function createTextPasteHandler(
   onChange: (value: InputValue) => void,
 ): (eventText?: string) => void {
   return (eventText) => {
-    const pasteText = eventText || readClipboardText()
+    const rawPaste = eventText || readClipboardText()
+    if (!rawPaste) return
+    const pasteText = Bun.stripANSI(rawPaste)
     if (!pasteText) return
     const { newText, newCursor } = insertTextAtCursor(
       text,
@@ -135,6 +137,12 @@ export function createPasteHandler(options: {
     cwd,
   } = options
   return (eventText) => {
+    // Strip ANSI escape sequences from pasted text — terminal paste events
+    // (bracketed paste) may include ANSI sequences from the source content.
+    if (eventText) {
+      eventText = Bun.stripANSI(eventText)
+    }
+
     // If we have direct input text from the paste event (e.g., from terminal paste),
     // check if it looks like an image filename and if we can get the full path from clipboard
     if (eventText && onPasteImagePath) {
@@ -222,7 +230,8 @@ export function createPasteHandler(options: {
       }
     }
 
-    const clipboardText = readClipboardText()
+    const rawClipboardText = readClipboardText()
+    const clipboardText = rawClipboardText ? Bun.stripANSI(rawClipboardText) : null
 
     // Check if clipboard text is a path to an image file
     if (clipboardText && onPasteImagePath && cwd) {

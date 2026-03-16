@@ -226,7 +226,8 @@ function dispatchAction(
       // Next, read clipboard text to check if it's a file path
       // This handles the case where a file is dragged/dropped - we want to use
       // the file path, not any stale image data that might be in the clipboard
-      const text = readClipboardText()
+      const rawText = readClipboardText()
+      const text = rawText ? Bun.stripANSI(rawText) : null
       if (text) {
         // Check if the text is a path to an image file
         const imagePath = getImageFilePathFromText(text, cwd)

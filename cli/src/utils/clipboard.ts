@@ -4,6 +4,20 @@ import { createRequire } from 'module'
 import { getCliEnv } from './env'
 import { logger } from './logger'
 
+// Global renderer reference for clipboard operations.
+// Registered once by the useClipboard hook so all callers of
+// copyTextToClipboard automatically benefit from renderer-based
+// OSC 52 without threading the renderer through every call site.
+let registeredRenderer: Record<string, unknown> | null = null
+
+export function registerClipboardRenderer(renderer: Record<string, unknown>): void {
+  registeredRenderer = renderer
+}
+
+export function unregisterClipboardRenderer(): void {
+  registeredRenderer = null
+}
+
 const require = createRequire(import.meta.url)
 
 type ClipboardListener = (message: string | null) => void
@@ -85,11 +99,13 @@ export async function copyTextToClipboard(
   try {
     let copied: boolean
     if (isRemoteSession()) {
-      // Remote/SSH: prefer OSC 52 (copies to client terminal's clipboard)
-      copied = tryCopyViaOsc52(text) || tryCopyViaPlatformTool(text)
+      // Remote/SSH: prefer renderer OSC 52 (through render pipeline),
+      // then our manual OSC 52, then platform tools
+      copied = tryCopyViaRenderer(text) || tryCopyViaOsc52(text) || tryCopyViaPlatformTool(text)
     } else {
-      // Local: prefer platform tools (reliable with tmux), OSC 52 as fallback
-      copied = tryCopyViaPlatformTool(text) || tryCopyViaOsc52(text)
+      // Local: prefer platform tools (reliable with tmux),
+      // then renderer OSC 52, then our manual OSC 52 as fallback
+      copied = tryCopyViaPlatformTool(text) || tryCopyViaRenderer(text) || tryCopyViaOsc52(text)
     }
 
     if (!copied) {
@@ -156,6 +172,17 @@ function tryCopyViaPlatformTool(text: string): boolean {
       return false
     }
     return true
+  } catch {
+    return false
+  }
+}
+
+function tryCopyViaRenderer(text: string): boolean {
+  if (!registeredRenderer) return false
+  const copyFn = registeredRenderer.copyToClipboardOSC52
+  if (typeof copyFn !== 'function') return false
+  try {
+    return Boolean(copyFn.call(registeredRenderer, text))
   } catch {
     return false
   }

@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import { CURSOR_CHAR } from '../components/multiline-input'
 import {
   copyTextToClipboard,
+  registerClipboardRenderer,
   subscribeClipboardMessages,
+  unregisterClipboardRenderer,
 } from '../utils/clipboard'
 
 function formatDefaultClipboardMessage(text: string): string | null {
@@ -29,6 +31,18 @@ export const useClipboard = () => {
   useEffect(() => {
     return subscribeClipboardMessages(setStatusMessage)
   }, [])
+
+  // Register the renderer globally so all copyTextToClipboard callers
+  // can use the renderer's OSC 52 method when available.
+  useEffect(() => {
+    if (renderer) {
+      registerClipboardRenderer(renderer as unknown as Record<string, unknown>)
+      return () => {
+        unregisterClipboardRenderer()
+      }
+    }
+    return undefined
+  }, [renderer])
 
   useEffect(() => {
     const handleSelection = (selectionEvent: any) => {

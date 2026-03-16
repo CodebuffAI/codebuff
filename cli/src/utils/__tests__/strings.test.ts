@@ -1,6 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 
-import { truncateToLines, MAX_COLLAPSED_LINES } from '../strings'
+import {
+  truncateToLines,
+  MAX_COLLAPSED_LINES,
+  createTextPasteHandler,
+  createPasteHandler,
+  LONG_TEXT_THRESHOLD,
+} from '../strings'
+
+import type { InputValue } from '../../types/store'
 
 describe('MAX_COLLAPSED_LINES', () => {
   test('is set to 3', () => {
@@ -61,5 +69,124 @@ describe('truncateToLines', () => {
     const text = 'line 1\nline 2\nline 3\n'
     // 4 lines when split (last is empty), but only 3 visible lines of content
     expect(truncateToLines(text, 3)).toBe('line 1\nline 2\nline 3...')
+  })
+})
+
+describe('createTextPasteHandler - ANSI stripping', () => {
+  test('strips ANSI escape sequences from pasted text', () => {
+    let result: InputValue | null = null
+    const handler = createTextPasteHandler('', 0, (value) => { result = value })
+
+    handler('\x1b[31mred text\x1b[0m')
+
+    expect(result).not.toBeNull()
+    expect(result!.text).toBe('red text')
+    expect(result!.cursorPosition).toBe(8)
+  })
+
+  test('passes through plain text unchanged', () => {
+    let result: InputValue | null = null
+    const handler = createTextPasteHandler('', 0, (value) => { result = value })
+
+    handler('plain text')
+
+    expect(result).not.toBeNull()
+    expect(result!.text).toBe('plain text')
+  })
+
+  test('strips complex ANSI sequences (bold, 256-color)', () => {
+    let result: InputValue | null = null
+    const handler = createTextPasteHandler('', 0, (value) => { result = value })
+
+    handler('\x1b[1m\x1b[38;5;196mbold colored\x1b[0m')
+
+    expect(result).not.toBeNull()
+    expect(result!.text).toBe('bold colored')
+  })
+
+  test('does not insert when text is only ANSI codes (empty after stripping)', () => {
+    let result: InputValue | null = null
+    const handler = createTextPasteHandler('', 0, (value) => { result = value })
+
+    handler('\x1b[31m\x1b[0m')
+
+    expect(result).toBeNull()
+  })
+
+  test('inserts stripped text at cursor position in existing text', () => {
+    let result: InputValue | null = null
+    const handler = createTextPasteHandler('hello world', 5, (value) => { result = value })
+
+    handler('\x1b[32m pasted\x1b[0m')
+
+    expect(result).not.toBeNull()
+    expect(result!.text).toBe('hello pasted world')
+    expect(result!.cursorPosition).toBe(12)
+  })
+})
+
+describe('createPasteHandler - ANSI stripping', () => {
+  test('strips ANSI from eventText for regular text paste', () => {
+    let result: InputValue | null = null
+    const handler = createPasteHandler({
+      text: '',
+      cursorPosition: 0,
+      onChange: (value) => { result = value },
+    })
+
+    handler('\x1b[31mhello\x1b[0m')
+
+    expect(result).not.toBeNull()
+    expect(result!.text).toBe('hello')
+    expect(result!.cursorPosition).toBe(5)
+  })
+
+  test('strips ANSI from eventText before checking long text threshold', () => {
+    let longTextResult: string | null = null
+    const handler = createPasteHandler({
+      text: '',
+      cursorPosition: 0,
+      onChange: () => {},
+      onPasteLongText: (text) => { longTextResult = text },
+    })
+
+    // Create text that is over threshold BEFORE stripping but under AFTER
+    const ansiOverhead = '\x1b[31m'.repeat(400) + '\x1b[0m'.repeat(400)
+    const shortContent = 'a'.repeat(100)
+    handler(ansiOverhead + shortContent)
+
+    // Should NOT be treated as long text since stripped content is short
+    expect(longTextResult).toBeNull()
+  })
+
+  test('strips ANSI but preserves plain text content', () => {
+    let result: InputValue | null = null
+    const handler = createPasteHandler({
+      text: 'existing ',
+      cursorPosition: 9,
+      onChange: (value) => { result = value },
+    })
+
+    handler('\x1b[1m\x1b[34mblue bold text\x1b[0m')
+
+    expect(result).not.toBeNull()
+    expect(result!.text).toBe('existing blue bold text')
+    expect(result!.cursorPosition).toBe(23)
+  })
+
+  test('long text handler receives stripped text', () => {
+    let longTextResult: string | null = null
+    const handler = createPasteHandler({
+      text: '',
+      cursorPosition: 0,
+      onChange: () => {},
+      onPasteLongText: (text) => { longTextResult = text },
+    })
+
+    const longContent = 'x'.repeat(LONG_TEXT_THRESHOLD + 1)
+    handler(`\x1b[31m${longContent}\x1b[0m`)
+
+    expect(longTextResult).not.toBeNull()
+    expect(longTextResult!).toBe(longContent)
   })
 })
