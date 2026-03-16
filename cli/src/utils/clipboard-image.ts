@@ -1,5 +1,5 @@
 import { spawnSync } from 'child_process'
-import { existsSync, mkdirSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, statSync, writeFileSync } from 'fs'
 import os from 'os'
 import path from 'path'
 
@@ -307,6 +307,48 @@ export function readClipboardImage(): ClipboardImageResult {
         success: false,
         error: `Unsupported platform: ${platform}`,
       }
+  }
+}
+
+/**
+ * Check if text looks like a single file path pointing to an existing non-image
+ * file or folder. Used to detect drag-drop of files/folders into the terminal.
+ * Returns the resolved path and whether it's a directory, or null.
+ */
+export function getFileOrFolderPathFromText(text: string, cwd: string): { path: string; isDirectory: boolean } | null {
+  // Must be single line
+  if (text.includes('\n') || text.includes('\r')) return null
+  
+  let trimmed = text.trim()
+  if (!trimmed) return null
+  
+  // Handle file:// URLs
+  if (trimmed.startsWith('file://')) {
+    trimmed = decodeURIComponent(trimmed.slice(7))
+  }
+  
+  // Skip other URLs
+  if (trimmed.includes('://')) return null
+  
+  // Remove surrounding quotes
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    trimmed = trimmed.slice(1, -1)
+  }
+  
+  try {
+    const resolvedPath = resolveFilePath(trimmed, cwd)
+    if (!existsSync(resolvedPath)) return null
+    // Skip images — they're handled by image-specific logic
+    if (isImageFile(resolvedPath)) return null
+    
+    const stats = statSync(resolvedPath)
+    return {
+      path: resolvedPath,
+      isDirectory: stats.isDirectory(),
+    }
+  } catch {
+    return null
   }
 }
 

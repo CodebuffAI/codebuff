@@ -268,6 +268,7 @@ export const MessageWithAgents = memo(
                   onOpenFeedback={onOpenFeedback}
                   attachments={message.attachments}
                   textAttachments={message.textAttachments}
+                  fileAttachments={message.fileAttachments}
                   metadata={message.metadata}
                   isLastMessage={isLastMessage}
                 />
@@ -303,6 +304,7 @@ export const MessageWithAgents = memo(
                 onOpenFeedback={onOpenFeedback}
                 attachments={message.attachments}
                 textAttachments={message.textAttachments}
+                fileAttachments={message.fileAttachments}
                 metadata={message.metadata}
                 isLastMessage={isLastMessage}
               />

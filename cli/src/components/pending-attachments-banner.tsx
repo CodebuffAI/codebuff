@@ -1,10 +1,15 @@
 import { BottomBanner } from './bottom-banner'
+import { FileAttachmentCard } from './file-attachment-card'
 import { ImageCard } from './image-card'
 import { TextAttachmentCard } from './text-attachment-card'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
 
-import type { PendingImageAttachment, PendingTextAttachment } from '../types/store'
+import type {
+  PendingFileAttachment,
+  PendingImageAttachment,
+  PendingTextAttachment,
+} from '../types/store'
 
 /**
  * Combined banner for both image and text attachments.
@@ -24,6 +29,9 @@ export const PendingAttachmentsBanner = () => {
   const pendingTextAttachments = pendingAttachments.filter(
     (a): a is PendingTextAttachment => a.kind === 'text',
   )
+  const pendingFileAttachments = pendingAttachments.filter(
+    (a): a is PendingFileAttachment => a.kind === 'file',
+  )
 
   // Separate error messages from actual images
   const errorImages: PendingImageAttachment[] = []
@@ -38,10 +46,11 @@ export const PendingAttachmentsBanner = () => {
 
   const hasValidImages = validImages.length > 0
   const hasTextAttachments = pendingTextAttachments.length > 0
-  const hasErrorsOnly = errorImages.length > 0 && !hasValidImages && !hasTextAttachments
+  const hasFileAttachments = pendingFileAttachments.length > 0
+  const hasErrorsOnly = errorImages.length > 0 && !hasValidImages && !hasTextAttachments && !hasFileAttachments
 
   // Nothing to show
-  if (!hasValidImages && !hasTextAttachments && errorImages.length === 0) {
+  if (!hasValidImages && !hasTextAttachments && !hasFileAttachments && errorImages.length === 0) {
     return null
   }
 
@@ -90,6 +99,15 @@ export const PendingAttachmentsBanner = () => {
             key={attachment.id}
             attachment={attachment}
             onRemove={() => removePendingAttachment(attachment.id)}
+          />
+        ))}
+
+        {/* File/folder attachment cards */}
+        {pendingFileAttachments.map((attachment) => (
+          <FileAttachmentCard
+            key={attachment.id}
+            attachment={attachment}
+            onRemove={() => removePendingAttachment(attachment.path)}
           />
         ))}
       </box>

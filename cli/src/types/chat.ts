@@ -133,6 +133,13 @@ export type TextAttachment = {
   charCount: number
 }
 
+export type FileAttachment = {
+  path: string
+  filename: string
+  isDirectory: boolean
+  note?: string
+}
+
 export type ContentBlock =
   | AgentContentBlock
   | AgentListContentBlock
@@ -184,6 +191,7 @@ export type ChatMessage = {
   userError?: string
   attachments?: ImageAttachment[]
   textAttachments?: TextAttachment[]
+  fileAttachments?: FileAttachment[]
 }
 
 // Type guard functions for safe type narrowing

@@ -32,6 +32,7 @@ import { getSystemProcessEnv } from '../utils/env'
 import { getSystemMessage, getUserMessage } from '../utils/message-history'
 import {
   capturePendingAttachments,
+  hasProcessingFiles,
   hasProcessingImages,
   validateAndAddImage,
 } from '../utils/pending-attachments'
@@ -522,9 +523,9 @@ export async function routeUserPrompt(
 
   // Regular message or unknown slash command - send to agent
 
-  // Block sending if images are still processing
-  if (hasProcessingImages()) {
-    showClipboardMessage('processing images...', {
+  // Block sending if attachments are still processing
+  if (hasProcessingImages() || hasProcessingFiles()) {
+    showClipboardMessage('processing attachments...', {
       durationMs: 2000,
     })
     return

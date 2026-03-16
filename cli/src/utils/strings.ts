@@ -19,11 +19,15 @@ export function truncateToLines(
   return lines.slice(0, maxLines).join('\n').trimEnd() + '...'
 }
 
+import { statSync } from 'fs'
+
 import {
-  hasClipboardImage,
-  readClipboardText,
-  readClipboardImageFilePath,
+  getFileOrFolderPathFromText,
   getImageFilePathFromText,
+  hasClipboardImage,
+  readClipboardFilePath,
+  readClipboardImageFilePath,
+  readClipboardText,
 } from './clipboard-image'
 import { isImageFile } from './image-handler'
 
@@ -116,6 +120,7 @@ export function createPasteHandler(options: {
   onChange: (value: InputValue) => void
   onPasteImage?: () => void
   onPasteImagePath?: (imagePath: string) => void
+  onPasteFilePath?: (filePath: string, isDirectory: boolean) => void
   onPasteLongText?: (text: string) => void
   cwd?: string
 }): (eventText?: string) => void {
@@ -125,6 +130,7 @@ export function createPasteHandler(options: {
     onChange,
     onPasteImage,
     onPasteImagePath,
+    onPasteFilePath,
     onPasteLongText,
     cwd,
   } = options
@@ -163,6 +169,15 @@ export function createPasteHandler(options: {
       }
     }
 
+    // Check if eventText is a path to a file or folder (drag-and-drop)
+    if (eventText && onPasteFilePath && cwd) {
+      const fileInfo = getFileOrFolderPathFromText(eventText, cwd)
+      if (fileInfo) {
+        onPasteFilePath(fileInfo.path, fileInfo.isDirectory)
+        return
+      }
+    }
+
     // eventText provided but not an image - check if it's long text
     if (eventText) {
       // If text is long, treat it as an attachment
@@ -187,12 +202,23 @@ export function createPasteHandler(options: {
 
     // No direct text provided - read from clipboard
 
-    // First, check if clipboard contains a copied image file (e.g., from Finder)
-    if (onPasteImagePath) {
-      const copiedImagePath = readClipboardImageFilePath()
-      if (copiedImagePath) {
-        onPasteImagePath(copiedImagePath)
-        return
+    // First, check if clipboard contains a copied file (e.g., from Finder)
+    if (onPasteImagePath || onPasteFilePath) {
+      const copiedFilePath = readClipboardFilePath()
+      if (copiedFilePath) {
+        if (isImageFile(copiedFilePath) && onPasteImagePath) {
+          onPasteImagePath(copiedFilePath)
+          return
+        }
+        if (!isImageFile(copiedFilePath) && onPasteFilePath) {
+          try {
+            const stats = statSync(copiedFilePath)
+            onPasteFilePath(copiedFilePath, stats.isDirectory())
+            return
+          } catch {
+            // Fall through to other paste handlers
+          }
+        }
       }
     }
 

@@ -61,8 +61,20 @@ export type PendingTextAttachment = {
   charCount: number
 }
 
+/** File or folder attachment (dragged or copied from file manager) */
+export type PendingFileAttachment = {
+  kind: 'file'
+  id: string
+  path: string
+  filename: string
+  isDirectory: boolean
+  content: string
+  status: 'processing' | 'ready' | 'error'
+  note?: string // e.g. "3.2 KB" / "12 items" / error message
+}
+
 /** Unified attachment type with discriminator */
-export type PendingAttachment = PendingImageAttachment | PendingTextAttachment
+export type PendingAttachment = PendingImageAttachment | PendingTextAttachment | PendingFileAttachment
 
 /** @deprecated Use PendingImageAttachment instead */
 export type PendingImage = PendingImageAttachment

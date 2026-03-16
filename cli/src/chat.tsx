@@ -66,6 +66,7 @@ import { loadLocalAgents } from './utils/local-agent-registry'
 import { logger } from './utils/logger'
 import {
   addClipboardPlaceholder,
+  addPendingFileFromPath,
   addPendingImageFromFile,
   validateAndAddImage,
 } from './utils/pending-attachments'
@@ -1133,6 +1134,9 @@ export const Chat = ({
           showClipboardMessage('Failed to add image', { durationMs: 3000 })
         })
       },
+      onPasteFilePath: (filePath: string, isDirectory: boolean) => {
+        addPendingFileFromPath(filePath, isDirectory)
+      },
       onPasteText: (text: string) => {
         setInputValue((prev) => {
           const before = prev.text.slice(0, prev.cursorPosition)
@@ -1494,6 +1498,7 @@ export const Chat = ({
               onChange: setInputValue,
               onPasteImage: chatKeyboardHandlers.onPasteImage,
               onPasteImagePath: chatKeyboardHandlers.onPasteImagePath,
+              onPasteFilePath: chatKeyboardHandlers.onPasteFilePath,
               onPasteLongText: (pastedText) => {
                 const id = crypto.randomUUID()
                 const preview = pastedText.slice(0, 100).replace(/\n/g, ' ')
