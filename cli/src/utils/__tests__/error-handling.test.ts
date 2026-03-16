@@ -103,12 +103,8 @@ describe('error-handling', () => {
   })
 
   describe('FREE_MODE_UNAVAILABLE_MESSAGE', () => {
-    test('mentions free mode', () => {
-      expect(FREE_MODE_UNAVAILABLE_MESSAGE.toLowerCase()).toContain('free mode')
-    })
-
-    test('mentions paid plan', () => {
-      expect(FREE_MODE_UNAVAILABLE_MESSAGE.toLowerCase()).toContain('paid plan')
+    test('mentions unavailability in country', () => {
+      expect(FREE_MODE_UNAVAILABLE_MESSAGE.toLowerCase()).toContain('not available in your country')
     })
   })
 

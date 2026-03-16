@@ -21,7 +21,7 @@ freebuff
 
 **Simple** — No modes. No config. Just works.
 
-**Fast** — 5–10× speed up. 3–5× tokens per second compared to Claude, plus context gathering in seconds.
+**Fast** — 5–10× speed up. Faster models plus context gathering in seconds rather than minutes.
 
 **Loaded** — Built-in web research, browser use, and more.
 
@@ -57,6 +57,8 @@ freebuff
 **What models do you use?** MiniMax M2.5 as the main coding agent, Gemini 3.1 Flash Lite for finding files and research, and GPT-5.4 for deep thinking if you connect your ChatGPT subscription.
 
 **Are you training on my data?** No. We only use model providers that do not train on our requests. Your code stays yours.
+
+**Which countries is Freebuff available in?** Freebuff is currently available in select countries. See [freebuff.com](https://freebuff.com) for the full list.
 
 **What data do you store?** We don't store your codebase. We only collect minimal logs for debugging purposes.
 

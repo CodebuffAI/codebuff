@@ -35,7 +35,7 @@ Used for errors that the client needs to identify programmatically:
 | Status | `error` code | Example `message` |
 |--------|-------------|-------------------|
 | 403 | `account_suspended` | `"Your account has been suspended due to billing issues. Please contact support@codebuff.com to resolve this."` |
-| 403 | `free_mode_unavailable` | `"Free mode is not available in your country."` |
+| 403 | `free_mode_unavailable` | `"Free mode is not available in your country."` (Freebuff: `"Freebuff is not available in your country."`) |
 | 429 | `rate_limit_exceeded` | `"Subscription weekly limit reached. Your limit resets in 2 hours. Enable 'Continue with credits' in the CLI to use a-la-carte credits."` |
 
 ### Catch-all server error

@@ -34,7 +34,7 @@ const faqs = [
   {
     question: 'Which countries is Freebuff available in?',
     answer:
-      'Freebuff is currently available in the United States, Canada, United Kingdom, Australia, Norway, Sweden, Netherlands, Denmark, Germany, Finland, Belgium, Luxembourg, Switzerland, Ireland, and Iceland.',
+      'Freebuff is currently available in the United States, Canada, United Kingdom, Australia, New Zealand, Norway, Sweden, Netherlands, Denmark, Germany, Finland, Belgium, Luxembourg, Switzerland, Ireland, and Iceland.',
   },
   {
     question: 'Are you training on my data?',

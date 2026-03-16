@@ -2,6 +2,8 @@ import { env } from '@codebuff/common/env'
 
 import type { ChatMessage } from '../types/chat'
 
+import { IS_FREEBUFF } from './constants'
+
 const defaultAppUrl = env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com'
 
 // Normalize unknown errors to a user-facing string.
@@ -57,8 +59,9 @@ export const isFreeModeUnavailableError = (error: unknown): boolean => {
 
 export const OUT_OF_CREDITS_MESSAGE = `Out of credits. Please add credits at ${defaultAppUrl}/usage`
 
-export const FREE_MODE_UNAVAILABLE_MESSAGE =
-  'Free mode is not available outside of the United States and Canada. Please upgrade to a paid plan to use Codebuff outside the US and Canada.'
+export const FREE_MODE_UNAVAILABLE_MESSAGE = IS_FREEBUFF
+  ? 'Freebuff is not available in your country.'
+  : 'Free mode is not available in your country. You can use another mode to continue.'
 
 export const createErrorMessage = (
   error: unknown,
