@@ -5,7 +5,7 @@
   "scripts": {
     "release": "bun cli/release.ts",
     "build:binary": "bun cli/build.ts 0.0.0-dev",
-    "e2e": "bun test e2e/tests/",
+    "e2e": "bun run build:binary && bun test e2e/tests/",
     "e2e:version": "bun test e2e/tests/version.e2e.test.ts",
     "e2e:startup": "bun test e2e/tests/startup.e2e.test.ts",
     "e2e:help": "bun test e2e/tests/help-command.e2e.test.ts",

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import { FreebuffSession, requireFreebuffBinary } from '../utils'
 
 const TEST_TIMEOUT = 60_000
+const SESSION_HEIGHT = 40
 
 /**
  * Commands that should be REMOVED in Freebuff.
@@ -51,11 +52,13 @@ describe('Freebuff: Slash Commands', () => {
     'slash command menu does not show removed commands',
     async () => {
       const binary = requireFreebuffBinary()
-      session = await FreebuffSession.start(binary, { waitSeconds: 5 })
+      session = await FreebuffSession.start(binary, { waitSeconds: 5, height: SESSION_HEIGHT })
 
       // Type "/" to trigger the slash command autocomplete menu
-      await session.send('/', { noEnter: true })
-      const output = await session.capture(2)
+      // Use sendKey instead of send to avoid C-u clearing keystroke that
+      // interferes with opentui's input handling in newer versions
+      await session.sendKey('/')
+      const output = await session.capture(4)
 
       // Removed commands should NOT appear in the autocomplete menu
       for (const cmd of REMOVED_COMMANDS) {
@@ -71,11 +74,11 @@ describe('Freebuff: Slash Commands', () => {
     'slash command menu shows kept commands',
     async () => {
       const binary = requireFreebuffBinary()
-      session = await FreebuffSession.start(binary, { waitSeconds: 5 })
+      session = await FreebuffSession.start(binary, { waitSeconds: 5, height: SESSION_HEIGHT })
 
       // Type "/" to trigger the slash command autocomplete menu
-      await session.send('/', { noEnter: true })
-      const output = await session.capture(2)
+      await session.sendKey('/')
+      const output = await session.capture(4)
 
       // Kept commands SHOULD appear in the autocomplete menu
       for (const cmd of KEPT_COMMANDS) {
@@ -90,11 +93,12 @@ describe('Freebuff: Slash Commands', () => {
     'no mode-related slash commands are visible',
     async () => {
       const binary = requireFreebuffBinary()
-      session = await FreebuffSession.start(binary, { waitSeconds: 5 })
+      session = await FreebuffSession.start(binary, { waitSeconds: 5, height: SESSION_HEIGHT })
 
       // Type "/mode" to check for mode commands
-      await session.send('/mode', { noEnter: true })
-      const output = await session.capture(2)
+      // Use sendKey for the full string to avoid C-u clearing the input
+      await session.sendKey('/mode')
+      const output = await session.capture(4)
 
       // Mode commands should not exist in Freebuff
       expect(output).not.toContain('mode:max')
