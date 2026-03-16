@@ -230,6 +230,10 @@ if ! tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
     exit 1
 fi
 
+# Keep the session alive even if the process exits, so we can still capture
+# the last terminal output for diagnostics.
+tmux set-option -t "$SESSION_NAME" remain-on-exit on 2>/dev/null || true
+
 # Create session logs directory
 SESSION_DIR="$PROJECT_ROOT/debug/tmux-sessions/$SESSION_NAME"
 mkdir -p "$SESSION_DIR"
