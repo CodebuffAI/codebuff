@@ -274,7 +274,7 @@ export const MultilineInput = forwardRef<
   const cursorRow = lineInfo
     ? Math.max(
         0,
-        lineInfo.lineStarts.findLastIndex(
+        lineInfo.lineStartCols.findLastIndex(
           (lineStart) => lineStart <= cursorPosition,
         ),
       )
@@ -420,7 +420,7 @@ export const MultilineInput = forwardRef<
       const scrollBox = scrollBoxRef.current
       if (!scrollBox) return
 
-      const lineStarts = lineInfo?.lineStarts ?? [0]
+      const lineStarts = lineInfo?.lineStartCols ?? [0]
 
       const viewport = (scrollBox as any).viewport
       const viewportTop = Number(viewport?.y ?? 0)
@@ -616,7 +616,7 @@ export const MultilineInput = forwardRef<
       if (key.ctrl && lowerKeyName === 'u' && !key.meta && !key.option) {
         preventKeyDefault(key)
         if (handleSelectionDeletion()) return true
-        const visualLineStart = lineInfo?.lineStarts?.[cursorRow] ?? lineStart
+        const visualLineStart = lineInfo?.lineStartCols?.[cursorRow] ?? lineStart
 
         if (cursorPosition > visualLineStart) {
           const newValue =
@@ -801,7 +801,7 @@ export const MultilineInput = forwardRef<
 
       // Calculate visual line boundaries from lineInfo (accounts for word wrap)
       // Fall back to logical line boundaries if visual info is unavailable
-      const lineStarts = currentLineInfo?.lineStarts ?? []
+      const lineStarts = currentLineInfo?.lineStartCols ?? []
       const visualLineIndex = lineStarts.findLastIndex(
         (start) => start <= cursorPosition,
       )
@@ -1091,7 +1091,7 @@ export const MultilineInput = forwardRef<
     const effectiveMinHeight = Math.max(1, Math.min(minHeight, safeMaxHeight))
 
     const totalLines =
-      lineInfo === null ? 0 : lineInfo.lineStarts.length
+      lineInfo === null ? 0 : lineInfo.lineStartCols.length
 
     // Add bottom gutter when cursor is on line 2 of exactly 2 lines
     const gutterEnabled =
