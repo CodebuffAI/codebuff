@@ -288,18 +288,20 @@ export const AgentBranchItem = memo((props: AgentBranchItemProps) => {
           </box>
         )}
         {isStreaming && isExpanded && (
-          <text
+          <box
             style={{
               paddingLeft: 1,
               paddingBottom: 0,
             }}
           >
-            <ShimmerText
-              text="working..."
-              interval={160}
-              primaryColor={theme.secondary}
-            />
-          </text>
+            <text>
+              <ShimmerText
+                text="working..."
+                interval={160}
+                primaryColor={theme.secondary}
+              />
+            </text>
+          </box>
         )}
       </box>
     </box>
