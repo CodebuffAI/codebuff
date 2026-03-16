@@ -7,7 +7,7 @@
  * to build, publish, and release the Freebuff CLI to npm.
  *
  * Usage:
- *   bun freebuff/cli/release.ts [patch|minor|major]
+ *   bun freebuff/cli/release.ts [patch|minor|major] [--ref <commit-sha>]
  *
  * Requires:
  *   CODEBUFF_GITHUB_TOKEN environment variable
@@ -16,7 +16,18 @@
 import { execSync } from 'child_process'
 
 const args = process.argv.slice(2)
-const versionType = args[0] || 'patch'
+
+let versionType = 'patch'
+let checkoutRef = ''
+
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === '--ref' && args[i + 1]) {
+    checkoutRef = args[i + 1]
+    i++
+  } else if (!args[i].startsWith('--')) {
+    versionType = args[i]
+  }
+}
 
 function log(message: string) {
   console.log(`${message}`)
@@ -53,18 +64,24 @@ function checkGitHubToken() {
   return token
 }
 
-async function triggerWorkflow(versionType: string) {
+async function triggerWorkflow(versionType: string, checkoutRef: string) {
   if (!process.env.GITHUB_TOKEN) {
     error('GITHUB_TOKEN environment variable is required but not set')
   }
 
   try {
+    const inputs: Record<string, string> = { version_type: versionType }
+    if (checkoutRef) {
+      inputs.checkout_ref = checkoutRef
+    }
+    const payload = JSON.stringify({ ref: 'main', inputs })
+
     const triggerCmd = `curl -s -w "HTTP Status: %{http_code}" -X POST \
       -H "Accept: application/vnd.github.v3+json" \
       -H "Authorization: token ${process.env.GITHUB_TOKEN}" \
       -H "Content-Type: application/json" \
       https://api.github.com/repos/CodebuffAI/codebuff/actions/workflows/freebuff-release.yml/dispatches \
-      -d '{"ref":"main","inputs":{"version_type":"${versionType}"}}'`
+      -d '${payload}'`
 
     const response = execSync(triggerCmd, { encoding: 'utf8' })
 
@@ -93,8 +110,11 @@ async function main() {
   log('✅ Using local CODEBUFF_GITHUB_TOKEN')
 
   log(`Version bump type: ${versionType}`)
+  if (checkoutRef) {
+    log(`Building from ref: ${checkoutRef}`)
+  }
 
-  await triggerWorkflow(versionType)
+  await triggerWorkflow(versionType, checkoutRef)
 
   log('')
   log(

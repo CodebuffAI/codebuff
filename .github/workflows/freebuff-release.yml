@@ -12,6 +12,11 @@ on:
           - patch
           - minor
           - major
+      checkout_ref:
+        description: 'Git ref to build from (commit SHA, branch, or tag). Defaults to latest main.'
+        required: false
+        default: ''
+        type: string
 
 concurrency:
   group: freebuff-release
@@ -78,7 +83,7 @@ jobs:
       binary-name: freebuff
       new-version: ${{ needs.prepare-and-commit.outputs.new_version }}
       artifact-name: freebuff-updated-package
-      checkout-ref: ${{ github.sha }}
+      checkout-ref: ${{ inputs.checkout_ref || github.sha }}
       env-overrides: '{"FREEBUFF_MODE": "true", "NEXT_PUBLIC_CB_ENVIRONMENT": "prod"}'
     secrets: inherit
 
