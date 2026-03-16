@@ -6,9 +6,10 @@ on:
   pull_request:
     branches: ['main']
   workflow_dispatch: # Manual trigger
+  workflow_call: # Called by freebuff-release.yml
 
 concurrency:
-  group: freebuff-e2e-${{ github.ref }}
+  group: freebuff-e2e-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

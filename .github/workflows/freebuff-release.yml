@@ -76,6 +76,11 @@ jobs:
           name: freebuff-updated-package
           path: freebuff/cli/release/
 
+  e2e-tests:
+    needs: prepare-and-commit
+    uses: ./.github/workflows/freebuff-e2e.yml
+    secrets: inherit
+
   build-binaries:
     needs: prepare-and-commit
     uses: ./.github/workflows/cli-release-build.yml
@@ -88,7 +93,7 @@ jobs:
     secrets: inherit
 
   create-release:
-    needs: [prepare-and-commit, build-binaries]
+    needs: [prepare-and-commit, build-binaries, e2e-tests]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
