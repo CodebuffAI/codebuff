@@ -29,22 +29,27 @@ const faqs = [
   {
     question: 'What models do you use?',
     answer:
-      'MiniMax M2.5 as the main coding agent, Gemini 3.1 Flash Lite for finding files and research, and GPT-5.4 for deep thinking if you connect your ChatGPT subscription.',
+      'MiniMax M2.5 as the main coding agent. Gemini 3.1 Flash Lite for finding files and research.\n\nConnect your ChatGPT subscription to unlock GPT-5.4 for deep thinking.',
   },
   {
     question: 'Which countries is Freebuff available in?',
     answer:
-      'Freebuff is currently available in the United States, Canada, United Kingdom, Australia, New Zealand, Norway, Sweden, Netherlands, Denmark, Germany, Finland, Belgium, Luxembourg, Switzerland, Ireland, and Iceland.',
+      'Freebuff is currently available in:\n\nUnited States, Canada, United Kingdom, Australia, New Zealand, Norway, Sweden, Netherlands, Denmark, Germany, Finland, Belgium, Luxembourg, Switzerland, Ireland, and Iceland.',
   },
   {
     question: 'Are you training on my data?',
     answer:
-      'No. We only use model providers that do not train on our requests. Your code stays yours.',
+      'No. We do not share your data with third parties that would train on it or use it for another purpose.\n\nIn the future, we may use request data to train custom models to improve Freebuff — this will be opt-out, so you\'ll always have control.',
   },
   {
     question: 'What data do you store?',
     answer:
       "We don't store your codebase. We only collect minimal logs for debugging purposes.",
+  },
+  {
+    question: 'What else is cool in Freebuff?',
+    answer:
+      'Freebuff comes with specialized subagents: file-picker finds relevant files across your codebase, code-reviewer gives critical feedback on your changes, and browser-use lets the AI control a real browser to test your app.\n\nAfter every response, it generates 3 clickable follow-up suggestions so you always know what to do next.\n\nFor big tasks, try the /interview → /plan → implement → /review workflow to go from idea to polished code.',
   },
 ]
 
@@ -294,7 +299,7 @@ function FAQList() {
                   <div className="flex gap-4 px-4 pb-5">
                     <span className="flex-shrink-0 w-[1.5ch]"></span>
                     <div className="border-l-2 border-acid-matrix/40 pl-4">
-                      <p className="text-zinc-300 leading-relaxed text-sm">
+                      <p className="text-zinc-300 leading-relaxed text-sm whitespace-pre-line">
                         {faq.answer}
                       </p>
                     </div>
@@ -312,7 +317,7 @@ function FAQList() {
 const PHILOSOPHY_WORDS = [
   { word: 'SIMPLE', description: 'No modes. No config. Just works.' },
   { word: 'FAST', description: '5–10× speed up via fast models and quick context gathering.' },
-  { word: 'LOADED', description: 'Built in web research, plan/review using your ChatGPT subscription, and more.' },
+  { word: 'LOADED', description: 'Built in web research, browser use, plan/review using your ChatGPT subscription, and more.' },
 ]
 
 function PhilosophySection() {
