@@ -1,5 +1,5 @@
 import { TextAttributes } from '@opentui/core'
-import { useKeyboard, useRenderer } from '@opentui/react'
+import { useAppContext, useKeyboard, useRenderer } from '@opentui/react'
 import {
   forwardRef,
   useCallback,
@@ -20,6 +20,7 @@ import type { InputValue } from '../types/store'
 import type {
   KeyEvent,
   MouseEvent,
+  PasteEvent,
   ScrollBoxRenderable,
   TextBufferView,
   TextRenderable,
@@ -189,6 +190,8 @@ export const MultilineInput = forwardRef<
 ) {
   const theme = useTheme()
   const renderer = useRenderer()
+  const appContext = useAppContext()
+  const { keyHandler } = appContext
   const hookBlinkValue = useChatStore((state) => state.isFocusSupported)
   const effectiveShouldBlinkCursor = shouldBlinkCursor ?? hookBlinkValue
 
@@ -1005,6 +1008,50 @@ export const MultilineInput = forwardRef<
     [insertTextAtCursor],
   )
 
+  // Increase StdinParser timeout from default 10ms to 100ms.
+  // Some terminals (Ghostty, iTerm2, VS Code) split bracketed paste sequences
+  // across multiple stdin reads when drag-dropping files. The default 10ms
+  // timeout causes the parser to flush partial escape sequences as keypresses,
+  // corrupting paste detection. 100ms is still fast for keyboard input but
+  // gives enough time for split paste sequences to arrive.
+  useEffect(() => {
+    const cliRenderer = appContext.renderer as Record<string, unknown> | null
+    const stdinBuffer = cliRenderer?._stdinBuffer as Record<string, unknown> | undefined
+    if (stdinBuffer && typeof stdinBuffer.timeoutMs === 'number') {
+      stdinBuffer.timeoutMs = 100
+    }
+  }, [appContext])
+
+  // Global paste event listener — catches paste events (e.g. from drag-and-drop)
+  // at the global level, plus a scrollbox-level backup. Some terminals may not
+  // deliver paste events reliably via one mechanism alone, so we use both with
+  // dedup to prevent double-handling.
+  const onPasteRef = useRef(onPaste)
+  onPasteRef.current = onPaste
+  const pasteHandledRef = useRef(false)
+
+  // Always listen for paste events regardless of terminal focus state.
+  // Drag-and-drop inherently causes the terminal to lose focus (the file
+  // manager has focus during the drag), so the paste listener must stay
+  // active even when `focused` is false.
+  useEffect(() => {
+    if (!keyHandler) return
+
+    const handlePaste = (event: PasteEvent) => {
+      pasteHandledRef.current = true
+      onPasteRef.current(event.text)
+      // Reset dedup flag after microtask so scrollbox handler (which fires
+      // synchronously after global listeners) sees it as handled, but future
+      // paste events are not blocked.
+      queueMicrotask(() => { pasteHandledRef.current = false })
+    }
+
+    keyHandler.on('paste', handlePaste)
+    return () => {
+      keyHandler.off('paste', handlePaste)
+    }
+  }, [keyHandler])
+
   // Main keyboard handler - delegates to specialized handlers
   useKeyboard(
     useCallback(
@@ -1087,7 +1134,12 @@ export const MultilineInput = forwardRef<
         visible: showScrollbar && layoutMetrics.isScrollable,
         trackOptions: { width: 1 },
       }}
-      onPaste={(event) => onPaste(event.text)}
+      onPaste={(event) => {
+        // Backup paste handler: fires if the global keyHandler listener
+        // didn't catch this event (dedup prevents double-handling)
+        if (pasteHandledRef.current) return
+        onPasteRef.current(event.text)
+      }}
       onMouseDown={handleMouseDown}
       style={{
         flexGrow: 0,
