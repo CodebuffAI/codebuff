@@ -203,38 +203,24 @@ main().catch((error: unknown) => {
   process.exit(1)
 })
 
-function findOpenTuiCoreDir(): string | null {
-  const candidates = [
-    join(cliRoot, 'node_modules', '@opentui', 'core'),
-    join(repoRoot, 'node_modules', '@opentui', 'core'),
-  ]
-  return candidates.find((dir) => existsSync(dir)) ?? null
-}
-
-function findOpenTuiCoreBundlePath(): string | null {
-  const coreDir = findOpenTuiCoreDir()
-  if (!coreDir) return null
-
-  // Prefer the hashed bundle file (e.g. index-0wbvecnk.js) over index.js
-  const bundleFile = readdirSync(coreDir).find(
-    (file) => file.startsWith('index-') && file.endsWith('.js'),
-  )
-  if (bundleFile) return join(coreDir, bundleFile)
+function patchOpenTuiAssetPaths() {
+  const coreDir = join(cliRoot, 'node_modules', '@opentui', 'core')
+  if (!existsSync(coreDir)) {
+    log('OpenTUI core package not found; skipping asset patch')
+    return
+  }
 
   const indexFile = readdirSync(coreDir).find(
     (file) => file.startsWith('index') && file.endsWith('.js'),
   )
-  return indexFile ? join(coreDir, indexFile) : null
-}
 
-function patchOpenTuiAssetPaths() {
-  const bundlePath = findOpenTuiCoreBundlePath()
-  if (!bundlePath) {
-    log('OpenTUI core bundle not found; skipping asset patch')
+  if (!indexFile) {
+    log('OpenTUI core index bundle not found; skipping asset patch')
     return
   }
 
-  const content = readFileSync(bundlePath, 'utf8')
+  const indexPath = join(coreDir, indexFile)
+  const content = readFileSync(indexPath, 'utf8')
 
   const absolutePathPattern =
     /var __dirname = ".*?packages\/core\/src\/lib\/tree-sitter\/assets";/
@@ -247,7 +233,7 @@ function patchOpenTuiAssetPaths() {
     'var __dirname = path3.join(path3.dirname(fileURLToPath(new URL(".", import.meta.url))), "lib/tree-sitter/assets");'
 
   const patched = content.replace(absolutePathPattern, replacement)
-  writeFileSync(bundlePath, patched)
+  writeFileSync(indexPath, patched)
   logAlways('Patched OpenTUI core tree-sitter asset paths')
 }
 
