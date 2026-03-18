@@ -22,14 +22,13 @@ async function queryUsageStats() {
 
     token_stats AS (
       SELECT
-        ROUND(AVG(input_tokens + cache_read_input_tokens + cache_creation_input_tokens))
+        ROUND(AVG(input_tokens))
           AS avg_total_input_tokens,
         ROUND(
           AVG(
             CASE
-              WHEN (input_tokens + cache_read_input_tokens + cache_creation_input_tokens) > 0
-              THEN cache_read_input_tokens::numeric
-                   / (input_tokens + cache_read_input_tokens + cache_creation_input_tokens)
+              WHEN input_tokens > 0
+              THEN cache_read_input_tokens::numeric / input_tokens
               ELSE 0
             END
           ) * 100, 1
