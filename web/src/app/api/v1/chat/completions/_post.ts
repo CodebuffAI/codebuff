@@ -80,7 +80,18 @@ function extractClientIp(req: NextRequest): string | undefined {
   return req.headers.get('x-real-ip') ?? undefined
 }
 
-function getCountryFromIp(clientIp: string | undefined): string | null {
+function getCountryCode(req: NextRequest): string | null {
+  const cfCountry = req.headers.get('cf-ipcountry')
+  if (cfCountry && cfCountry !== 'XX' && cfCountry !== 'T1') {
+    return cfCountry.toUpperCase()
+  }
+
+  const vercelCountry = req.headers.get('x-vercel-ip-country')
+  if (vercelCountry && vercelCountry !== 'XX') {
+    return vercelCountry.toUpperCase()
+  }
+
+  const clientIp = extractClientIp(req)
   if (!clientIp) {
     return null
   }
@@ -248,8 +259,16 @@ export async function postChatCompletions(params: {
 
     // For free mode requests, check if user is in US or Canada
     if (isFreeModeRequest) {
+      const countryCode = getCountryCode(req)
       const clientIp = extractClientIp(req)
-      const countryCode = getCountryFromIp(clientIp)
+
+      const cfHeader = req.headers.get('cf-ipcountry')
+      const vercelHeader = req.headers.get('x-vercel-ip-country')
+      const geoipResult = clientIp ? geoip.lookup(clientIp)?.country ?? null : null
+      logger.info(
+        { cfHeader, vercelHeader, geoipResult, resolvedCountry: countryCode, clientIp: clientIp ? '[redacted]' : undefined },
+        'Free mode country detection',
+      )
 
       // If we couldn't determine country (null), allow the request (fail open)
       // This handles users behind VPNs, corporate proxies, or localhost
