@@ -179,6 +179,7 @@ const FREEBUFF_REMOVED_COMMANDS = new Set([
 ])
 
 const FREEBUFF_ONLY_COMMANDS = new Set([
+  'connect',
   'plan',
 ])
 

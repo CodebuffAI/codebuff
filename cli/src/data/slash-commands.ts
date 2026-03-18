@@ -47,6 +47,7 @@ const FREEBUFF_REMOVED_COMMAND_IDS = new Set([
 ])
 
 const FREEBUFF_ONLY_COMMAND_IDS = new Set([
+  'connect',
   'plan',
 ])
 
