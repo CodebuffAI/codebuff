@@ -92,8 +92,9 @@ function createFireworksRequest(params: {
   originalModel: string
   fetch: typeof globalThis.fetch
   modelIdOverride?: string
+  sessionId: string
 }) {
-  const { body, originalModel, fetch, modelIdOverride } = params
+  const { body, originalModel, fetch, modelIdOverride, sessionId } = params
   const fireworksBody: Record<string, unknown> = {
     ...body,
     model: modelIdOverride ?? getFireworksModelId(originalModel),
@@ -115,6 +116,7 @@ function createFireworksRequest(params: {
     headers: {
       Authorization: `Bearer ${env.FIREWORKS_API_KEY}`,
       'Content-Type': 'application/json',
+      'x-session-affinity': sessionId
     },
     body: JSON.stringify(fireworksBody),
     // @ts-expect-error - dispatcher is a valid undici option not in fetch types
@@ -168,7 +170,7 @@ export async function handleFireworksNonStream({
   const startTime = new Date()
   const { clientId, clientRequestId, costMode } = extractRequestMetadata({ body, logger })
 
-  const response = await createFireworksRequestWithFallback({ body, originalModel, fetch, logger })
+  const response = await createFireworksRequestWithFallback({ body, originalModel, fetch, logger, sessionId: userId })
 
   if (!response.ok) {
     throw await parseFireworksError(response)
@@ -244,7 +246,7 @@ export async function handleFireworksStream({
   const startTime = new Date()
   const { clientId, clientRequestId, costMode } = extractRequestMetadata({ body, logger })
 
-  const response = await createFireworksRequestWithFallback({ body, originalModel, fetch, logger })
+  const response = await createFireworksRequestWithFallback({ body, originalModel, fetch, logger, sessionId: userId })
 
   if (!response.ok) {
     throw await parseFireworksError(response)
@@ -657,8 +659,9 @@ export async function createFireworksRequestWithFallback(params: {
   fetch: typeof globalThis.fetch
   logger: Logger
   useCustomDeployment?: boolean
+  sessionId: string
 }): Promise<Response> {
-  const { body, originalModel, fetch, logger } = params
+  const { body, originalModel, fetch, logger, sessionId } = params
   const useCustomDeployment = params.useCustomDeployment ?? FIREWORKS_USE_CUSTOM_DEPLOYMENT
   const deploymentModelId = FIREWORKS_DEPLOYMENT_MAP[originalModel]
   const shouldTryDeployment =
@@ -677,6 +680,7 @@ export async function createFireworksRequestWithFallback(params: {
       originalModel,
       fetch,
       modelIdOverride: deploymentModelId,
+      sessionId,
     })
 
     if (response.status === 503) {
@@ -697,7 +701,7 @@ export async function createFireworksRequestWithFallback(params: {
     }
   }
 
-  return createFireworksRequest({ body, originalModel, fetch })
+  return createFireworksRequest({ body, originalModel, fetch, sessionId })
 }
 
 function creditsToFakeCost(credits: number): number {
