@@ -23,6 +23,9 @@ const OUTPUT_COST_PER_TOKEN = 1.20 / 1_000_000
 
 const MAX_TOKENS = 100
 
+// Stable session ID so all turns route to the same machine for prompt caching
+const SESSION_ID = `bench-${Math.random().toString(36).slice(2, 10)}`
+
 function computeCost(usage: Record<string, unknown>): { cost: number; breakdown: string } {
   const inputTokens = typeof usage.prompt_tokens === 'number' ? usage.prompt_tokens : 0
   const outputTokens = typeof usage.completion_tokens === 'number' ? usage.completion_tokens : 0
@@ -175,6 +178,7 @@ async function makeConversationStreamRequest(
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
+      'x-session-affinity': SESSION_ID,
     },
     body: JSON.stringify({
       model: FIREWORKS_MODEL,
@@ -277,6 +281,7 @@ async function main() {
   console.log(`Max tokens:  ${MAX_TOKENS} (low output per turn)`)
   console.log(`Turns:       ${TURN_PROMPTS.length}`)
   console.log(`Pricing:     $0.30/M input, $0.03/M cached, $1.20/M output`)
+  console.log(`Session ID:  ${SESSION_ID} (x-session-affinity header)`)
   console.log('='.repeat(60))
   console.log()
 

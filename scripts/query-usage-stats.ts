@@ -42,7 +42,9 @@ async function queryUsageStats() {
 
     client_stats AS (
       SELECT
-        ROUND(AVG(cnt)) AS avg_requests_per_client
+        ROUND(AVG(cnt)) AS avg_requests_per_client,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY cnt) AS median_requests_per_client,
+        MAX(cnt) AS max_requests_per_client
       FROM (
         SELECT client_id, COUNT(*) AS cnt
         FROM recent
@@ -70,6 +72,8 @@ async function queryUsageStats() {
       t.avg_cache_rate_pct,
       t.avg_output_tokens,
       c.avg_requests_per_client,
+      c.median_requests_per_client,
+      c.max_requests_per_client,
       r.median_rps,
       r.peak_rps,
       t.total_requests
@@ -90,6 +94,8 @@ async function queryUsageStats() {
   console.log(`Median RPS:              ${row.median_rps}`)
   console.log(`Peak RPS:                ${row.peak_rps}`)
   console.log(`Avg requests/client:     ${row.avg_requests_per_client}`)
+  console.log(`Median requests/client:  ${row.median_requests_per_client}`)
+  console.log(`Max requests/client:     ${row.max_requests_per_client}`)
   console.log(`Total requests (7d):     ${row.total_requests}`)
 }
 
