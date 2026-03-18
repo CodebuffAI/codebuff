@@ -155,6 +155,7 @@ describe('Fireworks deployment routing', () => {
           originalModel: 'minimax/minimax-m2.5',
           fetch: mockFetch,
           logger,
+          sessionId: 'test-user-id',
         })
 
         expect(response.status).toBe(200)
@@ -182,6 +183,7 @@ describe('Fireworks deployment routing', () => {
           fetch: mockFetch,
           logger,
           useCustomDeployment: true,
+          sessionId: 'test-user-id',
         })
 
         expect(response.status).toBe(200)
@@ -225,6 +227,7 @@ describe('Fireworks deployment routing', () => {
           fetch: mockFetch,
           logger,
           useCustomDeployment: true,
+          sessionId: 'test-user-id',
         })
 
         expect(response.status).toBe(200)
@@ -262,6 +265,7 @@ describe('Fireworks deployment routing', () => {
             fetch: mockFetch,
             logger,
             useCustomDeployment: true,
+            sessionId: 'test-user-id',
           }),
         ).rejects.toBeInstanceOf(FireworksError)
       } finally {
@@ -287,6 +291,7 @@ describe('Fireworks deployment routing', () => {
           fetch: mockFetch,
           logger,
           useCustomDeployment: true,
+          sessionId: 'test-user-id',
         })
 
         expect(response.status).toBe(200)
@@ -314,6 +319,7 @@ describe('Fireworks deployment routing', () => {
           fetch: mockFetch,
           logger,
           useCustomDeployment: true,
+          sessionId: 'test-user-id',
         })
 
         expect(response.status).toBe(200)
@@ -345,6 +351,7 @@ describe('Fireworks deployment routing', () => {
           fetch: mockFetch,
           logger,
           useCustomDeployment: true,
+          sessionId: 'test-user-id',
         })
 
         // Non-503 errors from deployment are returned as-is (caller handles them)
@@ -384,6 +391,7 @@ describe('Fireworks deployment routing', () => {
           fetch: mockFetch,
           logger,
           useCustomDeployment: true,
+          sessionId: 'test-user-id',
         })
 
         expect(logger.info).toHaveBeenCalledTimes(2)
