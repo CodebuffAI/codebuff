@@ -52,6 +52,9 @@ const definition: AgentDefinition = {
       'basher',
       'code-reviewer',
       'code-reviewer-multi-prompt',
+      'librarian',
+      'tmux-cli',
+      'browser-use',
     ]
 
     /** Limits for truncating long messages in the summary (estimated tokens) */
@@ -574,22 +577,20 @@ const definition: AgentDefinition = {
                 }
               }
 
-              if (toolMessage.toolName === 'str_replace') {
-                const diff = value.diff as string | undefined
-                if (diff) {
-                  const truncatedDiff =
-                    diff.length > 2000 ? diff.slice(0, 2000) + '...' : diff
-                  entryParts.push(`[EDIT RESULT]\n${truncatedDiff}`)
-                }
-              }
-
-              if (toolMessage.toolName === 'write_file') {
-                const diff = value.diff as string | undefined
-                if (diff) {
-                  const truncatedDiff =
-                    diff.length > 2000 ? diff.slice(0, 2000) + '...' : diff
-                  entryParts.push(`[WRITE RESULT]\n${truncatedDiff}`)
-                }
+              if (
+                toolMessage.toolName === 'str_replace' ||
+                toolMessage.toolName === 'propose_str_replace' ||
+                toolMessage.toolName === 'write_file' ||
+                toolMessage.toolName === 'propose_write_file'
+              ) {
+                const resultStr = JSON.stringify(value)
+                const truncatedResult =
+                  resultStr.length > 2000
+                    ? resultStr.slice(0, 2000) + '...'
+                    : resultStr
+                entryParts.push(
+                  `[EDIT RESULT: ${toolMessage.toolName}]\n${truncatedResult}`,
+                )
               }
             }
           }

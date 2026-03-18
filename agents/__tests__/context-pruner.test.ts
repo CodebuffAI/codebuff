@@ -1552,7 +1552,7 @@ describe('context-pruner str_replace and write_file tool results', () => {
     return results
   }
 
-  test('includes str_replace diff in summary', () => {
+  test('includes str_replace result in summary', () => {
     const messages = [
       createMessage('user', 'Edit this file'),
       createToolCallMessage('call-1', 'str_replace', {
@@ -1560,19 +1560,22 @@ describe('context-pruner str_replace and write_file tool results', () => {
         replacements: [{ old: 'foo', new: 'bar' }],
       }),
       createToolResultMessage('call-1', 'str_replace', {
-        diff: '--- a/src/utils.ts\n+++ b/src/utils.ts\n@@ -1,1 +1,1 @@\n-foo\n+bar',
+        file: 'src/utils.ts',
+        message: 'Updated file',
+        unifiedDiff: '--- a/src/utils.ts\n+++ b/src/utils.ts\n@@ -1,1 +1,1 @@\n-foo\n+bar',
       }),
     ]
 
     const results = runHandleSteps(messages)
     const content = results[0].input.messages[0].content[0].text
 
-    expect(content).toContain('[EDIT RESULT]')
+    expect(content).toContain('[EDIT RESULT: str_replace]')
+    expect(content).toContain('unifiedDiff')
     expect(content).toContain('-foo')
     expect(content).toContain('+bar')
   })
 
-  test('includes write_file diff in summary', () => {
+  test('includes write_file result in summary', () => {
     const messages = [
       createMessage('user', 'Create a new file'),
       createToolCallMessage('call-1', 'write_file', {
@@ -1580,18 +1583,20 @@ describe('context-pruner str_replace and write_file tool results', () => {
         content: 'export const hello = "world"',
       }),
       createToolResultMessage('call-1', 'write_file', {
-        diff: '--- /dev/null\n+++ b/src/new-file.ts\n@@ -0,0 +1 @@\n+export const hello = "world"',
+        file: 'src/new-file.ts',
+        message: 'Created file',
+        unifiedDiff: '--- /dev/null\n+++ b/src/new-file.ts\n@@ -0,0 +1 @@\n+export const hello = "world"',
       }),
     ]
 
     const results = runHandleSteps(messages)
     const content = results[0].input.messages[0].content[0].text
 
-    expect(content).toContain('[WRITE RESULT]')
-    expect(content).toContain('+export const hello = "world"')
+    expect(content).toContain('[EDIT RESULT: write_file]')
+    expect(content).toContain('export const hello')
   })
 
-  test('truncates very long str_replace diffs', () => {
+  test('truncates very long str_replace results', () => {
     const longDiff = 'X'.repeat(3000)
     const messages = [
       createMessage('user', 'Make big changes'),
@@ -1600,14 +1605,16 @@ describe('context-pruner str_replace and write_file tool results', () => {
         replacements: [],
       }),
       createToolResultMessage('call-1', 'str_replace', {
-        diff: longDiff,
+        file: 'src/big-file.ts',
+        message: 'Updated file',
+        unifiedDiff: longDiff,
       }),
     ]
 
     const results = runHandleSteps(messages)
     const content = results[0].input.messages[0].content[0].text
 
-    expect(content).toContain('[EDIT RESULT]')
+    expect(content).toContain('[EDIT RESULT: str_replace]')
     expect(content).toContain('...')
     // Should not contain the full diff
     expect(content).not.toContain(longDiff)
@@ -1656,7 +1663,7 @@ describe('context-pruner str_replace and write_file tool results', () => {
     expect(content).toContain('AGENT_0_START_')
   })
 
-  test('does not include edit result when no diff is present', () => {
+  test('includes all result properties even without unifiedDiff', () => {
     const messages = [
       createMessage('user', 'Edit file'),
       createToolCallMessage('call-1', 'str_replace', {
@@ -1664,16 +1671,19 @@ describe('context-pruner str_replace and write_file tool results', () => {
         replacements: [],
       }),
       createToolResultMessage('call-1', 'str_replace', {
-        success: true,
+        file: 'src/file.ts',
+        errorMessage: 'No match found for old string',
       }),
     ]
 
     const results = runHandleSteps(messages)
     const content = results[0].input.messages[0].content[0].text
 
-    // Should have the tool call summary but not the result
+    // Should have both the tool call summary and the full result
     expect(content).toContain('Edited file: src/file.ts')
-    expect(content).not.toContain('[EDIT RESULT]')
+    expect(content).toContain('[EDIT RESULT: str_replace]')
+    expect(content).toContain('errorMessage')
+    expect(content).toContain('No match found for old string')
   })
 })
 
@@ -1910,12 +1920,12 @@ describe('context-pruner dual-budget behavior', () => {
   })
 
   test('counts tool result summaries against assistant+tool budget', () => {
-    // Use str_replace with a large diff — this produces a summarized [EDIT RESULT] entry
+    // Use str_replace with a large result — this produces a summarized [EDIT RESULT] entry
     const largeDiff = 'LARGE_DIFF_CONTENT_' + 'X'.repeat(900)
     const messages = [
       createMessage('user', 'Do something'),
       createToolCallMessage('call-1', 'str_replace', { path: 'big.ts', replacements: [] }),
-      createToolResultMessage('call-1', 'str_replace', { diff: largeDiff }),
+      createToolResultMessage('call-1', 'str_replace', { file: 'big.ts', message: 'Updated', unifiedDiff: largeDiff }),
       createMessage('user', 'Recent question'),
       createMessage('assistant', 'Recent answer'),
     ]
@@ -2179,7 +2189,7 @@ describe('context-pruner dual-budget behavior', () => {
       createMessage('user', longUserMessage),
       assistantWithToolCalls,
       createToolResultMessage('call-1', 'read_files', { content: 'file data' } as JSONValue),
-      createToolResultMessage('call-2', 'str_replace', { diff: largeDiff }),
+      createToolResultMessage('call-2', 'str_replace', { file: 'src/model.ts', message: 'Updated', unifiedDiff: largeDiff }),
       {
         role: 'tool',
         toolCallId: 'call-3',
@@ -2223,10 +2233,10 @@ describe('context-pruner dual-budget behavior', () => {
     expect(content).toContain('Edited file: src/model.ts')
     expect(content).toContain('Spawned agents:')
 
-    // === str_replace diff: present but truncated at 2k chars ===
-    expect(content).toContain('[EDIT RESULT]')
+    // === str_replace result: present but truncated at 2k chars ===
+    expect(content).toContain('[EDIT RESULT: str_replace]')
     expect(content).toContain('DIFF_START_MARKER_')
-    expect(content).not.toContain('_DIFF_END_MARKER') // Truncated by 2k diff limit
+    expect(content).not.toContain('_DIFF_END_MARKER') // Truncated by 2k result limit
 
     // === spawn_agents tool entry: truncated by TOOL_ENTRY_LIMIT ===
     expect(content).toContain('AGENT_0_OUTPUT_START_') // First agent's start in 80% prefix
@@ -2272,7 +2282,9 @@ describe('context-pruner dual-budget behavior', () => {
 
     // Tool result with a diff
     const toolResult = createToolResultMessage('call-1', 'str_replace', {
-      diff: '--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1 +1 @@\n-old\n+SURVIVED_DIFF_CONTENT',
+      file: 'src/app.ts',
+      message: 'Updated file',
+      unifiedDiff: '--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1 +1 @@\n-old\n+SURVIVED_DIFF_CONTENT',
     })
 
     const messages: Message[] = [
@@ -2285,10 +2297,10 @@ describe('context-pruner dual-budget behavior', () => {
     ]
 
     // Tight budgets: enough for new entries but not old summary entries
-    // New assistant entries: ~15 + ~30 + ~30 = ~75 assistant tokens
-    // Old assistant entries: ~20+ each would push over budget of 80
+    // New assistant entries: ~25 (assistant text+tool) + ~56 (edit result JSON) + ~13 (final) = ~94 tokens
+    // Old assistant entries: ~20 for OLD_DROPPED_ASSISTANT_2 would push over budget of 100
     const results = runHandleSteps(messages, 250000, 200000, {
-      assistantToolBudget: 80,
+      assistantToolBudget: 100,
       userBudget: 4200,
     })
 
