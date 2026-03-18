@@ -23,7 +23,7 @@ import { handlePublish } from './commands/publish'
 import { runPlainLogin } from './login/plain-login'
 import { initializeApp } from './init/init-app'
 import { getProjectRoot, setProjectRoot } from './project-files'
-import { initAnalytics, trackEvent } from './utils/analytics'
+import { trackEvent } from './utils/analytics'
 import { getAuthToken, getAuthTokenDetails } from './utils/auth'
 import { resetCodebuffClient } from './utils/codebuff-client'
 import { setApiClientAuthToken } from './utils/codebuff-api'
@@ -66,7 +66,7 @@ function loadPackageVersion(): string {
 // Without this, refetchInterval won't work because TanStack Query thinks the app is "unfocused"
 focusManager.setEventListener(() => {
   // No-op: no event listeners in CLI environment (no window focus/visibility events)
-  return () => {}
+  return () => { }
 })
 focusManager.setFocused(true)
 
@@ -222,26 +222,17 @@ async function main(): Promise<void> {
   const startCwd = process.cwd()
   const showProjectPicker = shouldShowProjectPicker(startCwd, homeDir)
 
-  // Initialize analytics early, before anything that might use the logger
-  // (the logger calls trackEvent, which throws if analytics isn't initialized)
-  try {
-    initAnalytics()
-
-    // Track app launch event
-    trackEvent(AnalyticsEvent.APP_LAUNCHED, {
-      version: loadPackageVersion(),
-      platform: process.platform,
-      arch: process.arch,
-      hasInitialPrompt: Boolean(initialPrompt),
-      hasAgentOverride: hasAgentOverride,
-      continueChat,
-      initialMode: initialMode ?? 'DEFAULT',
-      isFreeBuff: IS_FREEBUFF,
-    })
-  } catch (error) {
-    // Analytics initialization is optional - don't fail the app if it errors
-    logger.debug(error, 'Failed to initialize analytics')
-  }
+  // Requires analytics to be initialized, which is done in initializeApp
+  trackEvent(AnalyticsEvent.APP_LAUNCHED, {
+    version: loadPackageVersion(),
+    platform: process.platform,
+    arch: process.arch,
+    hasInitialPrompt: Boolean(initialPrompt),
+    hasAgentOverride: hasAgentOverride,
+    continueChat,
+    initialMode: initialMode ?? 'DEFAULT',
+    isFreeBuff: IS_FREEBUFF,
+  })
 
   // Initialize agent registry (loads user agents via SDK).
   // When --agent is provided, skip local .agents to avoid overrides.
