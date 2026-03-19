@@ -32,7 +32,7 @@ const FIREWORKS_MODEL_MAP: Record<string, string> = {
 }
 
 /** Flag to enable custom Fireworks deployments (set to false to use global API only) */
-const FIREWORKS_USE_CUSTOM_DEPLOYMENT = false
+const FIREWORKS_USE_CUSTOM_DEPLOYMENT = true
 
 /** Custom deployment IDs for models with dedicated Fireworks deployments */
 const FIREWORKS_DEPLOYMENT_MAP: Record<string, string> = {
