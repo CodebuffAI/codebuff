@@ -13,6 +13,8 @@
 // ---------------------------------------------------------------------------
 
 export const FREE_MODE_RATE_LIMITS = {
+  /** Max requests per 1-second window */
+  PER_SECOND: 1,
   /** Max requests per 1-minute window */
   PER_MINUTE: 15,
   /** Max requests per 30-minute window */
@@ -50,11 +52,13 @@ export type RateLimitResult = {
 // Window definitions (derived from the constants above)
 // ---------------------------------------------------------------------------
 
-const MINUTE_MS = 60 * 1000
+const SECOND_MS = 1000
+const MINUTE_MS = 60 * SECOND_MS
 const HOUR_MS = 60 * MINUTE_MS
 const DAY_MS = 24 * HOUR_MS
 
 const RATE_WINDOWS: RateWindow[] = [
+  { name: '1 second',    windowMs: 1 * SECOND_MS,  maxRequests: FREE_MODE_RATE_LIMITS.PER_SECOND },
   { name: '1 minute',    windowMs: 1 * MINUTE_MS,  maxRequests: FREE_MODE_RATE_LIMITS.PER_MINUTE },
   { name: '30 minutes',  windowMs: 30 * MINUTE_MS, maxRequests: FREE_MODE_RATE_LIMITS.PER_30_MINUTES },
   { name: '5 hours',     windowMs: 5 * HOUR_MS,    maxRequests: FREE_MODE_RATE_LIMITS.PER_5_HOURS },
