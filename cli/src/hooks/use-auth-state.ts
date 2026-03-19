@@ -6,6 +6,7 @@ import { useLoginStore } from '../state/login-store'
 import { identifyUser, trackEvent } from '../utils/analytics'
 import { getUserCredentials } from '../utils/auth'
 import { resetCodebuffClient } from '../utils/codebuff-client'
+import { IS_FREEBUFF } from '../utils/constants'
 import { loggerContext } from '../utils/logger'
 
 import type { MultilineInputHandle } from '../components/multiline-input'
@@ -14,7 +15,7 @@ import type { User } from '../utils/auth'
 const setAuthLoggerContext = (params: { userId: string; email: string }) => {
   loggerContext.userId = params.userId
   loggerContext.userEmail = params.email
-  identifyUser(params.userId, { email: params.email })
+  identifyUser(params.userId, { email: params.email, is_freebuff: IS_FREEBUFF })
 }
 
 const clearAuthLoggerContext = () => {
