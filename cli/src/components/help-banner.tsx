@@ -38,6 +38,7 @@ export const HelpBanner = () => {
   const theme = useTheme()
   const { data: subscriptionData } = useSubscriptionQuery()
   const hasSubscription = subscriptionData?.hasSubscription ?? false
+  const chatGptOAuth = getChatGptOAuthStatus()
 
   // Auto-hide after timeout
   React.useEffect(() => {
@@ -79,9 +80,14 @@ export const HelpBanner = () => {
         <box style={{ flexDirection: 'column', gap: 0 }}>
           <SectionHeader>Tips</SectionHeader>
           <box style={{ flexDirection: 'column', paddingLeft: 2 }}>
-            {IS_FREEBUFF && !getChatGptOAuthStatus().connected && (
+            {IS_FREEBUFF && !chatGptOAuth.connected && (
               <text style={{ fg: theme.muted }}>
                 Connect via /connect to unlock /plan & /review
+              </text>
+            )}
+            {IS_FREEBUFF && chatGptOAuth.connected && (
+              <text style={{ fg: theme.muted }}>
+                Try workflow: /interview → /plan → implement → /review
               </text>
             )}
             <text style={{ fg: theme.muted }}>
