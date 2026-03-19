@@ -52,13 +52,24 @@ export const handleSetOutput = (async (params: {
         agentTemplate.outputSchema.parse(data)
         finalOutput = data
       } catch (error2) {
-        const errorMessage = `Output validation error: Output failed to match the output schema and was ignored. You might want to try again! Issues: ${error}`
+        // Show whichever error has fewer issues — that represents the "closer" parse
+        // attempt and gives the agent more actionable feedback for retrying.
+        const issues1 = getZodIssueCount(error)
+        const issues2 = getZodIssueCount(error2)
+        const usedData = issues2 < issues1
+        const bestError = usedData ? error2 : error
+        const prefix = usedData
+          ? 'Output validation error: Your output was found inside the `data` field but still failed validation. Please fix the issues and try again without wrapping in `data`. Issues: '
+          : 'Output validation error: Output failed to match the output schema and was ignored. You might want to try again! Issues: '
+        const errorMessage = `${prefix}${bestError}`
         logger.error(
           {
             output,
             agentType: agentState.agentType,
             agentId: agentState.agentId,
-            error,
+            topLevelError: error,
+            dataFieldError: error2,
+            usedDataFieldError: usedData,
           },
           'set_output validation error',
         )
@@ -78,3 +89,15 @@ export const handleSetOutput = (async (params: {
 
   return { output: jsonToolResult({ message: 'Output set' }) }
 }) satisfies CodebuffToolHandlerFunction<ToolName>
+
+function getZodIssueCount(error: unknown): number {
+  if (
+    error != null &&
+    typeof error === 'object' &&
+    'issues' in error &&
+    Array.isArray((error as { issues: unknown }).issues)
+  ) {
+    return (error as { issues: unknown[] }).issues.length
+  }
+  return Infinity
+}

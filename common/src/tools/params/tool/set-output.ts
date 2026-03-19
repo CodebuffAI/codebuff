@@ -6,6 +6,21 @@ import type { $ToolParams } from '../../constants'
 
 const toolName = 'set_output'
 const endsAgentStep = false
+
+// WHY `data` EXISTS IN THE INPUT SCHEMA:
+// Subagents inherit their parent's tool definitions, and because of prompt caching
+// we cannot modify or add tools mid-conversation. OpenAI models enforce the tool's
+// input schema strictly, so we need a permissive shape that any model can call.
+// An empty schema or `z.object({}).passthrough()` would be rejected by OpenAI's
+// strict schema enforcement. The `data: z.record(...)` field is a deliberately
+// vague shape that satisfies OpenAI while allowing us to inject the real
+// outputSchema later in the conversation (in the instructions prompt).
+//
+// At runtime, the handler (`packages/agent-runtime/src/tools/handlers/tool/set-output.ts`)
+// tries parsing against the real outputSchema in two ways:
+//   1. Parse the raw output (agent passed fields at top level)
+//   2. Fallback: parse `output.data` (agent wrapped fields in `data`)
+// This means both `{ results: [...] }` and `{ data: { results: [...] } }` are accepted.
 const inputSchema = z
   .looseObject({
     data: z.record(z.string(), z.any()).optional(),
