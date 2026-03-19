@@ -47,7 +47,10 @@ describe('free-mode-rate-limiter', () => {
     })
 
     it('limits when per-second limit is exceeded', () => {
-      makeRequests('user-1', FREE_MODE_RATE_LIMITS.PER_SECOND)
+      // Make all requests within the same second (no time advancement)
+      for (let i = 0; i < FREE_MODE_RATE_LIMITS.PER_SECOND; i++) {
+        expect(checkFreeModeRateLimit('user-1').limited).toBe(false)
+      }
 
       const result = checkFreeModeRateLimit('user-1')
       expect(result.limited).toBe(true)
@@ -57,7 +60,9 @@ describe('free-mode-rate-limiter', () => {
     })
 
     it('resets per-second window after expiry', () => {
-      makeRequests('user-1', FREE_MODE_RATE_LIMITS.PER_SECOND)
+      for (let i = 0; i < FREE_MODE_RATE_LIMITS.PER_SECOND; i++) {
+        checkFreeModeRateLimit('user-1')
+      }
       expect(checkFreeModeRateLimit('user-1').limited).toBe(true)
 
       advanceTime(1 * SECOND_MS + 1)
@@ -104,8 +109,8 @@ describe('free-mode-rate-limiter', () => {
         }
       }
 
-      // Advance past the 1-second window so the per-30-minute window is the one that triggers
-      advanceTime(1 * SECOND_MS + 1)
+      // Advance past the 1-minute window so the per-30-minute window is the one that triggers
+      advanceTime(1 * MINUTE_MS + 1)
 
       const result = checkFreeModeRateLimit('user-1')
       expect(result.limited).toBe(true)
@@ -250,7 +255,9 @@ describe('free-mode-rate-limiter', () => {
     })
 
     it('retryAfterMs is never negative', () => {
-      makeRequests('user-1', FREE_MODE_RATE_LIMITS.PER_SECOND)
+      for (let i = 0; i < FREE_MODE_RATE_LIMITS.PER_SECOND; i++) {
+        checkFreeModeRateLimit('user-1')
+      }
 
       const result = checkFreeModeRateLimit('user-1')
       expect(result.limited).toBe(true)
@@ -281,7 +288,9 @@ describe('free-mode-rate-limiter', () => {
 
   describe('resetFreeModeRateLimits', () => {
     it('clears all rate limit state', () => {
-      makeRequests('user-1', FREE_MODE_RATE_LIMITS.PER_SECOND)
+      for (let i = 0; i < FREE_MODE_RATE_LIMITS.PER_SECOND; i++) {
+        checkFreeModeRateLimit('user-1')
+      }
       expect(checkFreeModeRateLimit('user-1').limited).toBe(true)
 
       resetFreeModeRateLimits()
@@ -291,8 +300,10 @@ describe('free-mode-rate-limiter', () => {
     })
 
     it('clears state for all users', () => {
-      makeRequests('user-1', FREE_MODE_RATE_LIMITS.PER_SECOND)
-      makeRequests('user-2', FREE_MODE_RATE_LIMITS.PER_SECOND)
+      for (let i = 0; i < FREE_MODE_RATE_LIMITS.PER_SECOND; i++) {
+        checkFreeModeRateLimit('user-1')
+        checkFreeModeRateLimit('user-2')
+      }
 
       expect(checkFreeModeRateLimit('user-1').limited).toBe(true)
       expect(checkFreeModeRateLimit('user-2').limited).toBe(true)
