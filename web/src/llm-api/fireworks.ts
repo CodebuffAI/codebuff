@@ -36,7 +36,7 @@ const FIREWORKS_USE_CUSTOM_DEPLOYMENT = false
 
 /** Custom deployment IDs for models with dedicated Fireworks deployments */
 const FIREWORKS_DEPLOYMENT_MAP: Record<string, string> = {
-  'minimax/minimax-m2.5': 'accounts/james-65d217/deployments/qne3jo8v',
+  'minimax/minimax-m2.5': 'accounts/james-65d217/deployments/Infid5h9',
 }
 
 /** Check if current time is within deployment hours (10am–8pm ET) */

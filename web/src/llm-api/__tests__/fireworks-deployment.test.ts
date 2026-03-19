@@ -13,7 +13,7 @@ import {
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 const STANDARD_MODEL_ID = 'accounts/fireworks/models/minimax-m2p5'
-const DEPLOYMENT_MODEL_ID = 'accounts/james-65d217/deployments/qne3jo8v'
+const DEPLOYMENT_MODEL_ID = 'accounts/james-65d217/deployments/Infid5h9'
 
 function createMockLogger(): Logger {
   return {
