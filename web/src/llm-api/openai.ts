@@ -304,6 +304,7 @@ export async function handleOpenAINonStream({
       byok: false,
       logger,
       costMode,
+      ttftMs: null, // Non-stream - no TTFT to report
     })
 
     return {
@@ -359,6 +360,7 @@ export async function handleOpenAINonStream({
     byok: false,
     logger,
     costMode,
+    ttftMs: null, // Non-stream - no TTFT to report
   })
 
   if (data.usage) {
@@ -424,6 +426,7 @@ export async function handleOpenAIStream({
   let heartbeatInterval: NodeJS.Timeout
   let responseText = ''
   let reasoningText = ''
+  let ttftMs: number | null = null
   let clientDisconnected = false
   const MAX_BUFFER_SIZE = 1 * 1024 * 1024 // 1MB
 
@@ -476,6 +479,14 @@ export async function handleOpenAIStream({
                 try {
                   const obj = JSON.parse(raw)
                   const delta = obj.choices?.[0]?.delta
+
+                  // Track time to first token (TTFT) - set on first meaningful delta (content, reasoning, or tool_calls)
+                  const hasContentDelta = delta?.content && responseText.length === 0
+                  const hasReasoningDelta = delta?.reasoning && reasoningText.length === 0
+                  const hasToolCallsDelta = delta?.tool_calls && delta.tool_calls.length > 0
+                  if (ttftMs === null && (hasContentDelta || hasReasoningDelta || hasToolCallsDelta)) {
+                    ttftMs = Date.now() - startTime.getTime()
+                  }
 
                   if (delta?.content && responseText.length < MAX_BUFFER_SIZE) {
                     responseText += delta.content
@@ -544,6 +555,7 @@ export async function handleOpenAIStream({
                       byok: false,
                       logger,
                       costMode,
+                      ttftMs,
                     })
                   }
                 } catch {
@@ -631,6 +643,7 @@ export async function handleOpenAIStream({
                     byok: false,
                     logger,
                     costMode,
+                    ttftMs,
                   })
                 }
               } catch {

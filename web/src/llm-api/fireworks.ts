@@ -79,7 +79,7 @@ function getFireworksModelId(openrouterModel: string): string {
   return FIREWORKS_MODEL_MAP[openrouterModel] ?? openrouterModel
 }
 
-type StreamState = { responseText: string; reasoningText: string }
+type StreamState = { responseText: string; reasoningText: string; ttftMs: number | null }
 
 type LineResult = {
   state: StreamState
@@ -210,6 +210,7 @@ export async function handleFireworksNonStream({
     byok: false,
     logger,
     costMode,
+    ttftMs: null, // Non-stream - no TTFT to report
   })
 
   // Overwrite cost so SDK calculates exact credits we charged
@@ -258,7 +259,7 @@ export async function handleFireworksStream({
   }
 
   let heartbeatInterval: NodeJS.Timeout
-  let state: StreamState = { responseText: '', reasoningText: '' }
+  let state: StreamState = { responseText: '', reasoningText: '', ttftMs: null }
   let clientDisconnected = false
 
   const stream = new ReadableStream({
@@ -473,7 +474,7 @@ async function handleResponse({
   logger: Logger
   insertMessage: InsertMessageBigqueryFn
 }): Promise<{ state: StreamState; billedCredits?: number }> {
-  state = handleStreamChunk({ data, state, logger, userId, agentId, model: originalModel })
+  state = handleStreamChunk({ data, state, startTime, logger, userId, agentId, model: originalModel })
 
   if ('error' in data || !data.usage) {
     return { state }
@@ -511,6 +512,7 @@ async function handleResponse({
     byok: false,
     logger,
     costMode,
+    ttftMs: state.ttftMs,
   })
 
   return { state, billedCredits }
@@ -519,6 +521,7 @@ async function handleResponse({
 function handleStreamChunk({
   data,
   state,
+  startTime,
   logger,
   userId,
   agentId,
@@ -526,6 +529,7 @@ function handleStreamChunk({
 }: {
   data: Record<string, unknown>
   state: StreamState
+  startTime: Date
   logger: Logger
   userId: string
   agentId: string
@@ -569,6 +573,13 @@ function handleStreamChunk({
   const reasoningDelta = typeof delta?.reasoning_content === 'string' ? delta.reasoning_content
     : typeof delta?.reasoning === 'string' ? delta.reasoning
       : ''
+
+  // Track time to first token (TTFT) - set on first meaningful delta (content, reasoning, or tool_calls)
+  const hasToolCallsDelta = delta?.tool_calls != null && (delta.tool_calls as unknown[])?.length > 0
+  if (state.ttftMs === null && (contentDelta !== '' || reasoningDelta !== '' || hasToolCallsDelta)) {
+    state.ttftMs = Date.now() - startTime.getTime()
+  }
+
   if (state.reasoningText.length < MAX_BUFFER_SIZE) {
     state.reasoningText += reasoningDelta
     if (state.reasoningText.length >= MAX_BUFFER_SIZE) {

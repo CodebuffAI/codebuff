@@ -23,7 +23,7 @@ import type {
   OpenRouterErrorMetadata,
 } from './types'
 
-type StreamState = { responseText: string; reasoningText: string }
+type StreamState = { responseText: string; reasoningText: string; ttftMs: number | null }
 
 // Extended timeout for deep-thinking models (e.g., gpt-5) that can take
 // a long time to start streaming.
@@ -186,6 +186,7 @@ export async function handleOpenRouterNonStream({
       byok,
       logger,
       costMode,
+      ttftMs: null, // Non-stream - no TTFT to report
     })
 
     // Return the first response with aggregated data
@@ -257,6 +258,7 @@ export async function handleOpenRouterNonStream({
     byok,
     logger,
     costMode,
+    ttftMs: null, // Non-stream - no TTFT to report
   })
 
   // Overwrite cost so SDK calculates exact credits we charged
@@ -313,7 +315,7 @@ export async function handleOpenRouterStream({
   }
 
   let heartbeatInterval: NodeJS.Timeout
-  let state: StreamState = { responseText: '', reasoningText: '' }
+  let state: StreamState = { responseText: '', reasoningText: '', ttftMs: null }
   let clientDisconnected = false
 
   // Create a ReadableStream that Next.js can handle
@@ -540,6 +542,7 @@ async function handleResponse({
   state = await handleStreamChunk({
     data,
     state,
+    startTime,
     logger,
     userId,
     agentId,
@@ -584,6 +587,7 @@ async function handleResponse({
     byok,
     logger,
     costMode,
+    ttftMs: state.ttftMs,
   })
 
   return { state, billedCredits }
@@ -592,6 +596,7 @@ async function handleResponse({
 async function handleStreamChunk({
   data,
   state,
+  startTime,
   logger,
   userId,
   agentId,
@@ -599,6 +604,7 @@ async function handleStreamChunk({
 }: {
   data: OpenRouterStreamChatCompletionChunk
   state: StreamState
+  startTime: Date
   logger: Logger
   userId: string
   agentId: string
@@ -640,6 +646,14 @@ async function handleStreamChunk({
     return state
   }
   const choice = data.choices[0]
+
+  // Track time to first token (TTFT) - set on first meaningful delta (content, reasoning, or tool_calls)
+  const hasContentDelta = choice?.delta?.content != null && choice?.delta?.content !== ''
+  const hasReasoningDelta = choice?.delta?.reasoning != null && choice?.delta?.reasoning !== ''
+  const hasToolCallsDelta = choice?.delta?.tool_calls != null && (choice?.delta?.tool_calls as unknown[])?.length > 0
+  if (state.ttftMs === null && (hasContentDelta || hasReasoningDelta || hasToolCallsDelta)) {
+    state.ttftMs = Date.now() - startTime.getTime()
+  }
 
   // Append content and reasoning, but only up to the buffer limit.
   const contentDelta = choice.delta?.content ?? ''

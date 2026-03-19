@@ -114,6 +114,7 @@ export async function consumeCreditsForMessage(params: {
   byok: boolean
   logger: Logger
   costMode?: string
+  ttftMs?: number | null
 }): Promise<number> {
   const {
     messageId,
@@ -130,6 +131,7 @@ export async function consumeCreditsForMessage(params: {
     byok,
     logger,
     costMode,
+    ttftMs,
   } = params
 
   // Calculate initial credits based on cost
@@ -172,6 +174,7 @@ export async function consumeCreditsForMessage(params: {
     outputTokens: usageData.outputTokens,
     byok,
     logger,
+    ttftMs: ttftMs ?? null,
   })
 
   return credits

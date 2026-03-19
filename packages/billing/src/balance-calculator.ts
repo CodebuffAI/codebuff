@@ -536,6 +536,7 @@ export async function consumeCreditsAndAddAgentStep(params: {
   cacheReadInputTokens: number
   reasoningTokens: number | null
   outputTokens: number
+  ttftMs: number | null
 
   logger: Logger
 }): Promise<ErrorOr<CreditConsumptionResult & { agentStepId: string }>> {
@@ -561,6 +562,7 @@ export async function consumeCreditsAndAddAgentStep(params: {
     cacheReadInputTokens,
     reasoningTokens,
     outputTokens,
+    ttftMs,
 
     logger,
   } = params
@@ -650,6 +652,7 @@ export async function consumeCreditsAndAddAgentStep(params: {
             credits,
             byok,
             latency_ms: latencyMs,
+            ttft_ms: ttftMs,
             user_id: userId,
           })
         } catch (error) {

@@ -232,6 +232,7 @@ export const message = pgTable(
     credits: integer('credits').notNull(),
     byok: boolean('byok').notNull().default(false),
     latency_ms: integer('latency_ms'),
+    ttft_ms: integer('ttft_ms'),
     user_id: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
 
     org_id: text('org_id').references(() => org.id, { onDelete: 'cascade' }),
