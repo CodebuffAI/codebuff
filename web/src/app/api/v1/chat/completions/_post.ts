@@ -65,6 +65,7 @@ import {
   OpenRouterError,
 } from '@/llm-api/openrouter'
 import { extractApiKeyFromHeader } from '@/util/auth'
+import { checkFreeModeRateLimit } from './free-mode-rate-limiter'
 
 const FREE_MODE_ALLOWED_COUNTRIES = new Set([
   'US', 'CA',
@@ -84,11 +85,6 @@ function getCountryCode(req: NextRequest): string | null {
   const cfCountry = req.headers.get('cf-ipcountry')
   if (cfCountry && cfCountry !== 'XX' && cfCountry !== 'T1') {
     return cfCountry.toUpperCase()
-  }
-
-  const vercelCountry = req.headers.get('x-vercel-ip-country')
-  if (vercelCountry && vercelCountry !== 'XX') {
-    return vercelCountry.toUpperCase()
   }
 
   const clientIp = extractClientIp(req)
@@ -263,10 +259,9 @@ export async function postChatCompletions(params: {
       const clientIp = extractClientIp(req)
 
       const cfHeader = req.headers.get('cf-ipcountry')
-      const vercelHeader = req.headers.get('x-vercel-ip-country')
       const geoipResult = clientIp ? geoip.lookup(clientIp)?.country ?? null : null
       logger.info(
-        { cfHeader, vercelHeader, geoipResult, resolvedCountry: countryCode, clientIp: clientIp ? '[redacted]' : undefined },
+        { cfHeader, geoipResult, resolvedCountry: countryCode, clientIp: clientIp ? '[redacted]' : undefined },
         'Free mode country detection',
       )
 
@@ -290,6 +285,36 @@ export async function postChatCompletions(params: {
             message: 'Free mode is not available in your country.',
           },
           { status: 403 },
+        )
+      }
+
+      // Rate limit free mode requests
+      const rateLimitResult = checkFreeModeRateLimit(userId)
+      if (rateLimitResult.limited) {
+        const retryAfterSeconds = Math.ceil(rateLimitResult.retryAfterMs / 1000)
+        const resetTime = new Date(Date.now() + rateLimitResult.retryAfterMs).toISOString()
+        const resetCountdown = formatQuotaResetCountdown(resetTime)
+
+        trackEvent({
+          event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
+          userId,
+          properties: {
+            error: 'free_mode_rate_limited',
+            windowName: rateLimitResult.windowName,
+            retryAfterSeconds,
+          },
+          logger,
+        })
+
+        return NextResponse.json(
+          {
+            error: 'free_mode_rate_limited',
+            message: `Free mode rate limit exceeded (${rateLimitResult.windowName} limit). Try again ${resetCountdown}.`,
+          },
+          {
+            status: 429,
+            headers: { 'Retry-After': String(retryAfterSeconds) },
+          },
         )
       }
     }
