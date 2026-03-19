@@ -13,8 +13,8 @@
 export { }
 
 const FIREWORKS_BASE_URL = 'https://api.fireworks.ai/inference/v1'
-const FIREWORKS_MODEL = 'accounts/james-65d217/deployments/lnfid5h9'
-// const FIREWORKS_MODEL = 'accounts/fireworks/models/minimax-m2p5'
+// const FIREWORKS_MODEL = 'accounts/james-65d217/deployments/lnfid5h9'
+const FIREWORKS_MODEL = 'accounts/fireworks/models/minimax-m2p5'
 
 // Pricing constants — https://fireworks.ai/pricing
 const INPUT_COST_PER_TOKEN = 0.30 / 1_000_000

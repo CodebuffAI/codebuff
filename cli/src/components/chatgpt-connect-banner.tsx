@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 
 import { Button } from './button'
 import { useTheme } from '../hooks/use-theme'
+import { useChatStore } from '../state/chat-store'
 import {
   connectChatGptOAuth,
   disconnectChatGptOAuth,
@@ -20,10 +21,12 @@ type FlowState =
 
 export const ChatGptConnectBanner = () => {
   const theme = useTheme()
+  const setInputMode = useChatStore((state) => state.setInputMode)
   const [flowState, setFlowState] = useState<FlowState>('checking')
   const [error, setError] = useState<string | null>(null)
   const [authUrl, setAuthUrl] = useState<string | null>(null)
   const [hovered, setHovered] = useState(false)
+  const [isCloseHovered, setIsCloseHovered] = useState(false)
 
   useEffect(() => {
     const status = getChatGptOAuthStatus()
@@ -86,8 +89,20 @@ export const ChatGptConnectBanner = () => {
     customBorderChars: BORDER_CHARS,
   }
 
-  const escHint = (
-    <text style={{ fg: theme.muted }}> esc</text>
+  const handleClose = () => {
+    setInputMode('default')
+  }
+
+  const closeButton = (
+    <Button
+      onClick={handleClose}
+      onMouseOver={() => setIsCloseHovered(true)}
+      onMouseOut={() => setIsCloseHovered(false)}
+    >
+      <text style={{ fg: isCloseHovered ? theme.error : theme.muted }}>
+        x
+      </text>
+    </Button>
   )
 
   if (flowState === 'connected') {
@@ -105,7 +120,7 @@ export const ChatGptConnectBanner = () => {
               <span fg={theme.muted}>Disconnect</span>
             </text>
           </Button>
-          {escHint}
+          {closeButton}
         </box>
       </box>
     )
@@ -128,7 +143,7 @@ export const ChatGptConnectBanner = () => {
               <span fg={theme.foreground}>Retry</span>
             </text>
           </Button>
-          {escHint}
+          {closeButton}
         </box>
       </box>
     )
@@ -139,7 +154,7 @@ export const ChatGptConnectBanner = () => {
       <box style={{ ...panelStyle, flexDirection: 'column' }}>
         <box style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <text style={{ fg: theme.foreground }}>Connecting to ChatGPT...</text>
-          {escHint}
+          {closeButton}
         </box>
         <text style={{ fg: theme.muted }}>
           Sign in via your browser to connect.
@@ -166,7 +181,7 @@ export const ChatGptConnectBanner = () => {
             <span fg={theme.link}>Connect to ChatGPT</span>
           </text>
         </Button>
-        {escHint}
+        {closeButton}
       </box>
     )
   }
