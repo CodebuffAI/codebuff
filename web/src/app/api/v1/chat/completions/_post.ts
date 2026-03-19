@@ -65,6 +65,7 @@ import {
   OpenRouterError,
 } from '@/llm-api/openrouter'
 import { extractApiKeyFromHeader } from '@/util/auth'
+import { withDefaultProperties } from '@codebuff/common/analytics'
 import { checkFreeModeRateLimit } from './free-mode-rate-limiter'
 
 const FREE_MODE_ALLOWED_COUNTRIES = new Set([
@@ -148,7 +149,6 @@ export async function postChatCompletions(params: {
     req,
     getUserInfoFromApiKey,
     loggerWithContext,
-    trackEvent,
     getUserUsageData,
     getAgentRunFromId,
     fetch,
@@ -157,6 +157,7 @@ export async function postChatCompletions(params: {
     getUserPreferences,
   } = params
   let { logger } = params
+  let { trackEvent } = params
 
   try {
     // Parse request body
@@ -181,6 +182,12 @@ export async function postChatCompletions(params: {
     const typedBody = body as unknown as ChatCompletionRequestBody
     const bodyStream = typedBody.stream ?? false
     const runId = typedBody.codebuff_metadata?.run_id
+
+    // Check if the request is in FREE mode (costs 0 credits for allowed agent+model combos)
+    const costMode = typedBody.codebuff_metadata?.cost_mode
+    const isFreeModeRequest = isFreeMode(costMode)
+
+    trackEvent = withDefaultProperties(trackEvent, { freebuff: isFreeModeRequest })
 
     // Extract and validate API key
     const apiKey = extractApiKeyFromHeader(req)
@@ -249,10 +256,6 @@ export async function postChatCompletions(params: {
       logger,
     })
 
-    // Check if the request is in FREE mode (costs 0 credits for allowed agent+model combos)
-    const costMode = typedBody.codebuff_metadata?.cost_mode
-    const isFreeModeRequest = isFreeMode(costMode)
-
     // For free mode requests, check if user is in US or Canada
     if (isFreeModeRequest) {
       const countryCode = getCountryCode(req)
@@ -288,35 +291,6 @@ export async function postChatCompletions(params: {
         )
       }
 
-      // Rate limit free mode requests
-      const rateLimitResult = checkFreeModeRateLimit(userId)
-      if (rateLimitResult.limited) {
-        const retryAfterSeconds = Math.ceil(rateLimitResult.retryAfterMs / 1000)
-        const resetTime = new Date(Date.now() + rateLimitResult.retryAfterMs).toISOString()
-        const resetCountdown = formatQuotaResetCountdown(resetTime)
-
-        trackEvent({
-          event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
-          userId,
-          properties: {
-            error: 'free_mode_rate_limited',
-            windowName: rateLimitResult.windowName,
-            retryAfterSeconds,
-          },
-          logger,
-        })
-
-        return NextResponse.json(
-          {
-            error: 'free_mode_rate_limited',
-            message: `Free mode rate limit exceeded (${rateLimitResult.windowName} limit). Try again ${resetCountdown}.`,
-          },
-          {
-            status: 429,
-            headers: { 'Retry-After': String(retryAfterSeconds) },
-          },
-        )
-      }
     }
 
     // Extract and validate agent run ID
@@ -375,6 +349,38 @@ export async function postChatCompletions(params: {
         { message: `runId Not Running: ${runIdFromBody}` },
         { status: 400 },
       )
+    }
+
+    // Rate limit free mode requests (after validation so invalid requests don't consume quota)
+    if (isFreeModeRequest) {
+      const rateLimitResult = checkFreeModeRateLimit(userId)
+      if (rateLimitResult.limited) {
+        const retryAfterSeconds = Math.ceil(rateLimitResult.retryAfterMs / 1000)
+        const resetTime = new Date(Date.now() + rateLimitResult.retryAfterMs).toISOString()
+        const resetCountdown = formatQuotaResetCountdown(resetTime)
+
+        trackEvent({
+          event: AnalyticsEvent.CHAT_COMPLETIONS_VALIDATION_ERROR,
+          userId,
+          properties: {
+            error: 'free_mode_rate_limited',
+            windowName: rateLimitResult.windowName,
+            retryAfterSeconds,
+          },
+          logger,
+        })
+
+        return NextResponse.json(
+          {
+            error: 'free_mode_rate_limited',
+            message: `Free mode rate limit exceeded (${rateLimitResult.windowName} limit). Try again ${resetCountdown}.`,
+          },
+          {
+            status: 429,
+            headers: { 'Retry-After': String(retryAfterSeconds) },
+          },
+        )
+      }
     }
 
     // For subscribers, ensure a block grant exists before processing the request.

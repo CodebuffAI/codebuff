@@ -3,6 +3,7 @@ import { env, DEBUG_ANALYTICS } from '@codebuff/common/env'
 import { createPostHogClient, type AnalyticsClient } from './analytics-core'
 import { AnalyticsEvent } from './constants/analytics-events'
 
+import type { TrackEventFn } from '@codebuff/common/types/contracts/analytics'
 import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 let client: AnalyticsClient | undefined
@@ -29,6 +30,18 @@ export async function flushAnalytics(logger?: Logger) {
     } catch {
       // Silently ignore if we can't even track the failure
     }
+  }
+}
+
+export function withDefaultProperties(
+  trackEventFn: TrackEventFn,
+  defaultProperties: Record<string, unknown>,
+): TrackEventFn {
+  return (params) => {
+    trackEventFn({
+      ...params,
+      properties: { ...defaultProperties, ...params.properties },
+    })
   }
 }
 
