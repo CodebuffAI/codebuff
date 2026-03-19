@@ -14,9 +14,9 @@
 
 export const FREE_MODE_RATE_LIMITS = {
   /** Max requests per 1-second window */
-  PER_SECOND: 1,
+  PER_SECOND: 2,
   /** Max requests per 1-minute window */
-  PER_MINUTE: 15,
+  PER_MINUTE: 20,
   /** Max requests per 30-minute window */
   PER_30_MINUTES: 200,
   /** Max requests per 5-hour window */
