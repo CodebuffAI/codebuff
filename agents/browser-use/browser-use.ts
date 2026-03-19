@@ -127,7 +127,7 @@ const definition: AgentDefinition = {
   mcpServers: {
     'chrome-devtools': {
       command: 'npx',
-      args: ['-y', 'chrome-devtools-mcp@latest', '--headless'],
+      args: ['-y', 'chrome-devtools-mcp@latest', '--headless', '--isolated'],
     },
   },
 
