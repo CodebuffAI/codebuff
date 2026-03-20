@@ -5,7 +5,6 @@ import {
   DEPLOYMENT_COOLDOWN_MS,
   FireworksError,
   isDeploymentCoolingDown,
-  isDeploymentHours,
   markDeploymentScalingUp,
   resetDeploymentCooldown,
 } from '../fireworks'
@@ -36,40 +35,6 @@ function dateAtEtHour(hour: number): Date {
 }
 
 describe('Fireworks deployment routing', () => {
-  describe('isDeploymentHours', () => {
-    it('returns true at 10am ET (start of window)', () => {
-      expect(isDeploymentHours(dateAtEtHour(10))).toBe(true)
-    })
-
-    it('returns true at 2pm ET (mid-day)', () => {
-      expect(isDeploymentHours(dateAtEtHour(14))).toBe(true)
-    })
-
-    it('returns true at 7pm ET (19:00, near end of window)', () => {
-      expect(isDeploymentHours(dateAtEtHour(19))).toBe(true)
-    })
-
-    it('returns false at 9am ET (before window)', () => {
-      expect(isDeploymentHours(dateAtEtHour(9))).toBe(false)
-    })
-
-    it('returns false at 8pm ET (20:00, window closed)', () => {
-      expect(isDeploymentHours(dateAtEtHour(20))).toBe(false)
-    })
-
-    it('returns false at midnight ET', () => {
-      expect(isDeploymentHours(dateAtEtHour(0))).toBe(false)
-    })
-
-    it('returns false at 3am ET', () => {
-      expect(isDeploymentHours(dateAtEtHour(3))).toBe(false)
-    })
-
-    it('returns false at 11pm ET', () => {
-      expect(isDeploymentHours(dateAtEtHour(23))).toBe(false)
-    })
-  })
-
   describe('deployment cooldown', () => {
     beforeEach(() => {
       resetDeploymentCooldown()
@@ -139,8 +104,7 @@ describe('Fireworks deployment routing', () => {
       return spy
     }
 
-    it('uses standard API outside deployment hours', async () => {
-      const spy = spyDeploymentHours(false)
+    it('uses standard API when custom deployment is disabled', async () => {
       const fetchCalls: string[] = []
 
       const mockFetch = mock(async (_url: string | URL | Request, init?: RequestInit) => {
@@ -149,21 +113,18 @@ describe('Fireworks deployment routing', () => {
         return new Response(JSON.stringify({ ok: true }), { status: 200 })
       }) as unknown as typeof globalThis.fetch
 
-      try {
-        const response = await createFireworksRequestWithFallback({
-          body: minimalBody as never,
-          originalModel: 'minimax/minimax-m2.5',
-          fetch: mockFetch,
-          logger,
-          sessionId: 'test-user-id',
-        })
+      const response = await createFireworksRequestWithFallback({
+        body: minimalBody as never,
+        originalModel: 'minimax/minimax-m2.5',
+        fetch: mockFetch,
+        logger,
+        useCustomDeployment: false,
+        sessionId: 'test-user-id',
+      })
 
-        expect(response.status).toBe(200)
-        expect(fetchCalls).toHaveLength(1)
-        expect(fetchCalls[0]).toBe(STANDARD_MODEL_ID)
-      } finally {
-        spy.restore()
-      }
+      expect(response.status).toBe(200)
+      expect(fetchCalls).toHaveLength(1)
+      expect(fetchCalls[0]).toBe(STANDARD_MODEL_ID)
     })
 
     it('tries custom deployment during deployment hours', async () => {
