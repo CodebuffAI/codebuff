@@ -49,7 +49,7 @@ export function isDeploymentHours(now: Date = new Date()): boolean {
     }),
     10,
   )
-  return etHour >= 10 && etHour < 20
+  return true // etHour >= 10 && etHour < 20
 }
 
 /**

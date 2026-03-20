@@ -381,10 +381,10 @@ function buildImplementationStepPrompt({
     `You must spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review the changes after you have implemented the changes and in parallel with typechecking or testing.`,
     isFree &&
     `You must spawn a code-reviewer-lite to review the changes after you have implemented the changes and in parallel with typechecking or testing.`,
-    `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''} Don't repeat yourself, especially if you have already concluded and summarized the changes in a previous step -- just end your turn.`,
+    `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}.`,
     !isFast &&
     !noAskUser &&
-    `At the end of your turn, use the suggest_followups tool to suggest around 3 next steps the user might want to take.`,
+    `At the end of your turn, you must use the suggest_followups tool to suggest around 3 next steps the user might want to take even if the user just asks a question.`,
   ).join('\n')
 }
 
