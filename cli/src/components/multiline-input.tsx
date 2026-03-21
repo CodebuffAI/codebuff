@@ -275,7 +275,7 @@ export const MultilineInput = forwardRef<
     ? Math.max(
       0,
       lineInfo.lineStartCols.findLastIndex(
-        (lineStart) => lineStart <= cursorPosition,
+        (lineStart: number) => lineStart <= cursorPosition,
       ),
     )
     : 0
@@ -803,7 +803,7 @@ export const MultilineInput = forwardRef<
       // Fall back to logical line boundaries if visual info is unavailable
       const lineStarts = currentLineInfo?.lineStartCols ?? []
       const visualLineIndex = lineStarts.findLastIndex(
-        (start) => start <= cursorPosition,
+        (start: number) => start <= cursorPosition,
       )
       const visualLineStart = visualLineIndex >= 0
         ? lineStarts[visualLineIndex]
