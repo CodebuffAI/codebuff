@@ -1,8 +1,8 @@
-import { Agent } from 'undici'
 
 import { PROFIT_MARGIN } from '@codebuff/common/constants/limits'
 import { getErrorObject } from '@codebuff/common/util/error'
 import { env } from '@codebuff/internal/env'
+import { Agent } from 'undici'
 
 import {
   consumeCreditsForMessage,
@@ -16,12 +16,11 @@ import {
 
 import type { UsageData } from './helpers'
 import type { OpenRouterStreamChatCompletionChunk } from './type/openrouter'
-import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
-import type { Logger } from '@codebuff/common/types/contracts/logger'
 import type {
   ChatCompletionRequestBody,
-  OpenRouterErrorMetadata,
 } from './types'
+import type { InsertMessageBigqueryFn } from '@codebuff/common/types/contracts/bigquery'
+import type { Logger } from '@codebuff/common/types/contracts/logger'
 
 type StreamState = { responseText: string; reasoningText: string; ttftMs: number | null }
 
@@ -545,22 +544,8 @@ async function handleLine({
         },
         'OpenRouter response matches error pattern but schema validation failed',
       )
-      // Continue processing as error response
-      return handleResponse({
-        userId,
-        stripeCustomerId,
-        agentId,
-        clientId,
-        clientRequestId,
-        costMode,
-        byok,
-        startTime,
-        request,
-        data: obj as OpenRouterStreamChatCompletionChunk,
-        state,
-        logger,
-        insertMessage,
-      })
+      // handleResponse already returns { state } for error data, so skip processing
+      return { state }
     }
 
     // Not an error, likely a malformed chunk - log and skip
@@ -725,7 +710,7 @@ async function handleStreamChunk({
 
   if (!data.choices || !Array.isArray(data.choices) || !data.choices.length) {
     logger.debug(
-      { 
+      {
         hasChoices: 'choices' in data,
         choicesLength: Array.isArray(data.choices) ? data.choices.length : 'N/A',
         streamChunk: JSON.stringify(data).slice(0, 500),
