@@ -13,6 +13,7 @@ import { InputCursor } from './input-cursor'
 import { useTheme } from '../hooks/use-theme'
 import { useChatStore } from '../state/chat-store'
 import { clamp } from '../utils/math'
+import { isLinefeedActingAsEnter, markReturnKeySeen } from '../utils/terminal-enter-detection'
 import { supportsTruecolor } from '../utils/theme-system'
 import { calculateNewCursorPosition } from '../utils/word-wrap-utils'
 
@@ -523,11 +524,17 @@ export const MultilineInput = forwardRef<
   const handleEnterKeys = useCallback(
     (key: KeyEvent): boolean => {
       const lowerKeyName = (key.name ?? '').toLowerCase()
-      const isEnterKey = key.name === 'return' || key.name === 'enter'
-      // Ctrl+J is translated by the terminal to a linefeed character (0x0a)
-      // So we detect it by checking for name === 'linefeed' rather than ctrl + j
+      const isReturnOrEnter = key.name === 'return' || key.name === 'enter'
+
+      if (isReturnOrEnter) {
+        markReturnKeySeen()
+      }
+
+      const linefeedIsEnter = lowerKeyName === 'linefeed' && isLinefeedActingAsEnter()
+      const isEnterKey = isReturnOrEnter || linefeedIsEnter
+
       const isCtrlJ =
-        lowerKeyName === 'linefeed' ||
+        (lowerKeyName === 'linefeed' && !linefeedIsEnter) ||
         (key.ctrl &&
           !key.meta &&
           !key.option &&

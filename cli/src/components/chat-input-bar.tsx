@@ -12,6 +12,7 @@ import { useAskUserBridge } from '../hooks/use-ask-user-bridge'
 import { useEvent } from '../hooks/use-event'
 import { useChatStore } from '../state/chat-store'
 import { getInputModeConfig } from '../utils/input-modes'
+import { isLinefeedActingAsEnter } from '../utils/terminal-enter-detection'
 import { BORDER_CHARS } from '../utils/ui-constants'
 
 import type { useTheme } from '../hooks/use-theme'
@@ -131,7 +132,8 @@ export const ChatInputBar = ({
       option?: boolean
     }) => {
       const isPlainEnter =
-        (key.name === 'return' || key.name === 'enter') &&
+        (key.name === 'return' || key.name === 'enter' ||
+          (key.name === 'linefeed' && isLinefeedActingAsEnter())) &&
         !key.shift &&
         !key.ctrl &&
         !key.meta &&
