@@ -176,8 +176,8 @@ const definition: AgentDefinition = {
           return path ? `Listed dir: ${path}` : 'Listed directory'
         }
         case 'find_files': {
-          const pattern = input.pattern as string | undefined
-          return pattern ? `Find files: "${pattern}"` : 'Find files'
+          const prompt = input.prompt as string | undefined
+          return prompt ? `Find files: "${prompt}"` : 'Find files'
         }
         case 'run_terminal_command': {
           const command = input.command as string | undefined
@@ -289,8 +289,12 @@ const definition: AgentDefinition = {
           return query ? `Web search: "${query}"` : 'Web search'
         }
         case 'read_docs': {
-          const query = input.query as string | undefined
-          return query ? `Read docs: "${query}"` : 'Read docs'
+          const libraryTitle = input.libraryTitle as string | undefined
+          const topic = input.topic as string | undefined
+          if (libraryTitle && topic) {
+            return `Read docs: ${libraryTitle} - ${topic}`
+          }
+          return libraryTitle ? `Read docs: ${libraryTitle}` : 'Read docs'
         }
         case 'set_output':
           return 'Set output'
