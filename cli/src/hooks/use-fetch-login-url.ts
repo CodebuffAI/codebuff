@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { safeOpen } from '../utils/open-url'
 
-import { WEBSITE_URL } from '../login/constants'
+import { LOGIN_WEBSITE_URL } from '../login/constants'
 import { generateLoginUrl } from '../login/login-flow'
 import { logger } from '../utils/logger'
 
@@ -32,7 +32,7 @@ export function useFetchLoginUrl({
           logger,
         },
         {
-          baseUrl: WEBSITE_URL,
+          baseUrl: LOGIN_WEBSITE_URL,
           fingerprintId,
         },
       )

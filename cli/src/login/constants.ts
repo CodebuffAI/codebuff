@@ -1,9 +1,13 @@
-import { env } from '@codebuff/common/env'
+import { env, IS_DEV } from '@codebuff/common/env'
 
 import { IS_FREEBUFF } from '../utils/constants'
 
 // Get the website URL from environment or use default
 export const WEBSITE_URL = env.NEXT_PUBLIC_CODEBUFF_APP_URL
+
+// Freebuff login flow uses the freebuff web app instead of codebuff.com
+const FREEBUFF_WEB_URL = IS_DEV ? 'http://localhost:3002' : 'https://freebuff.com'
+export const LOGIN_WEBSITE_URL = IS_FREEBUFF ? FREEBUFF_WEB_URL : WEBSITE_URL
 
 // Codebuff ASCII Logo - compact version for 80-width terminals
 const LOGO_CODEBUFF = `

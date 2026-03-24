@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 
-import { WEBSITE_URL } from '../login/constants'
+import { LOGIN_WEBSITE_URL } from '../login/constants'
 import { pollLoginStatus } from '../login/login-flow'
 import { logger } from '../utils/logger'
 
@@ -66,7 +66,7 @@ export function useLoginPolling({
         logger,
       },
       {
-        baseUrl: WEBSITE_URL,
+        baseUrl: LOGIN_WEBSITE_URL,
         fingerprintId,
         fingerprintHash,
         expiresAt,

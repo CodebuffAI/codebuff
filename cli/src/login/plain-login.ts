@@ -1,6 +1,6 @@
 import { cyan, green, red, yellow, bold } from 'picocolors'
 
-import { WEBSITE_URL } from './constants'
+import { LOGIN_WEBSITE_URL } from './constants'
 import { generateLoginUrl, pollLoginStatus } from './login-flow'
 import { generateFingerprintId } from './utils'
 import { saveUserCredentials } from '../utils/auth'
@@ -29,7 +29,7 @@ export async function runPlainLogin(): Promise<void> {
   try {
     loginData = await generateLoginUrl(
       { logger },
-      { baseUrl: WEBSITE_URL, fingerprintId },
+      { baseUrl: LOGIN_WEBSITE_URL, fingerprintId },
     )
   } catch (error) {
     console.error(
@@ -59,7 +59,7 @@ export async function runPlainLogin(): Promise<void> {
   const result = await pollLoginStatus(
     { sleep, logger },
     {
-      baseUrl: WEBSITE_URL,
+      baseUrl: LOGIN_WEBSITE_URL,
       fingerprintId,
       fingerprintHash: loginData.fingerprintHash,
       expiresAt: loginData.expiresAt,
