@@ -224,6 +224,7 @@ export const authOptions: NextAuthOptions = {
         ...userData,
         userId: userData.id,
         logger,
+        signupSource: 'codebuff',
       })
 
       trackEvent({

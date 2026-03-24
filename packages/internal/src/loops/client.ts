@@ -86,8 +86,9 @@ export async function sendSignupEventToLoops(params: {
   email: string | null
   name: string | null
   logger: Logger
+  signupSource?: 'codebuff' | 'freebuff'
 }): Promise<void> {
-  const { userId, email, name, logger } = params
+  const { userId, email, name, logger, signupSource } = params
 
   if (!loopsClient) {
     logger.warn({ userId }, 'Loops SDK not initialized. Skipping signup event.')
@@ -108,6 +109,7 @@ export async function sendSignupEventToLoops(params: {
       userId,
       contactProperties: {
         firstName: name?.split(' ')[0] ?? '',
+        signupSource: signupSource ?? 'codebuff',
       },
     })
 
