@@ -116,44 +116,8 @@ export default function GetStartedClient({
       <HeroGrid />
       <BackgroundBeams />
 
-      {/* Nav */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
-        className="absolute top-0 left-0 right-0 z-20 container mx-auto px-4 py-4 flex justify-between items-center"
-      >
-        <Link
-          href="/"
-          className="flex items-center space-x-2 group transition-all duration-300 hover:translate-x-0.5"
-        >
-          <Image
-            src="/logo-icon.png"
-            alt="Freebuff"
-            width={28}
-            height={28}
-            className="rounded-sm opacity-60 group-hover:opacity-100 transition-all duration-300 group-hover:brightness-110"
-          />
-          <span className="text-xl tracking-widest font-serif text-zinc-400 group-hover:text-white transition-colors duration-200">
-            freebuff
-          </span>
-        </Link>
-
-        <nav className="flex items-center space-x-1">
-          <Link
-            href="https://github.com/CodebuffAI/codebuff"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="relative font-medium px-3 py-2 rounded-md transition-all duration-200 text-zinc-400 hover:text-white flex items-center gap-2 text-sm"
-          >
-            <Icons.github className="h-4 w-4" />
-            <span className="hidden sm:inline">GitHub</span>
-          </Link>
-        </nav>
-      </motion.div>
-
       {/* Main content */}
-      <div className="relative z-10 container mx-auto px-4 pt-16 pb-16 md:pt-36 md:pb-24 flex flex-col items-center">
+      <div className="relative z-10 container mx-auto px-4 pt-16 pb-16 md:pt-16 md:pb-24 flex flex-col items-center">
         <div className="w-full max-w-2xl">
           <div className="bg-background/80 backdrop-blur-sm border border-zinc-800 rounded-xl overflow-hidden">
             {/* Header */}
@@ -240,7 +204,7 @@ export default function GetStartedClient({
                                         className={cn(
                                           'w-5 h-5 relative flex-shrink-0',
                                           editor.needsWhiteBg &&
-                                            'bg-white rounded-sm p-[1px]',
+                                          'bg-white rounded-sm p-[1px]',
                                         )}
                                       >
                                         <Image
