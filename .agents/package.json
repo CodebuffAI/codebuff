@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "typecheck": "bun x tsc --noEmit -p tsconfig.json",
-    "test": "bun test __tests__",
-    "test:e2e": "bun test e2e"
+    "test": "bun test __tests__"
   }
 }

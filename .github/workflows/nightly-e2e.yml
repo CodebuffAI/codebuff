@@ -49,8 +49,8 @@ jobs:
       - name: Build SDK
         run: cd sdk && bun run build
 
-      - name: Run .agents e2e tests
-        run: cd .agents && bun run test:e2e --timeout=120000
+      - name: Run agents e2e tests
+        run: cd agents && bun run test:e2e --timeout=120000
 
       # Documentation quality checks
       - name: Install Vale
