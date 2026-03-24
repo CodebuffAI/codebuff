@@ -2,11 +2,13 @@
 
 import { useSearchParams } from 'next/navigation'
 import { useSession, signIn } from 'next-auth/react'
-import { Suspense } from 'react'
+import { Suspense, useCallback, useRef, useState } from 'react'
 
 import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
+import { TurnstileWidget } from '@/components/turnstile-widget'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
+import { toast } from '@/components/ui/use-toast'
 import {
   Card,
   CardHeader,
@@ -16,9 +18,55 @@ import {
   CardFooter,
 } from '@/components/ui/card'
 
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+
 export function LoginCard({ authCode }: { authCode?: string | null }) {
   const { data: session } = useSession()
   const searchParams = useSearchParams() ?? new URLSearchParams()
+  const [turnstileVerified, setTurnstileVerified] = useState(
+    !TURNSTILE_SITE_KEY,
+  )
+  const turnstileErrorShownRef = useRef(false)
+
+  const handleTurnstileVerify = useCallback(async (token: string) => {
+    try {
+      const response = await fetch('/api/auth/verify-turnstile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      })
+      const result = await response.json()
+      if (result.success) {
+        setTurnstileVerified(true)
+        turnstileErrorShownRef.current = false
+      } else {
+        toast({
+          title: 'Verification failed',
+          description: 'Please refresh the page and try again.',
+        })
+      }
+    } catch {
+      toast({
+        title: 'Verification failed',
+        description: 'Please refresh the page and try again.',
+      })
+    }
+  }, [])
+
+  const handleTurnstileError = useCallback((errorCode: string) => {
+    console.error('Turnstile error:', errorCode)
+    if (!turnstileErrorShownRef.current) {
+      turnstileErrorShownRef.current = true
+      toast({
+        title: 'Verification error',
+        description: 'Please refresh the page and try again.',
+      })
+    }
+  }, [])
+
+  const handleTurnstileExpired = useCallback(() => {
+    setTurnstileVerified(false)
+  }, [])
 
   const handleContinueAsUser = () => {
     const referralCode = searchParams.get('referral_code')
@@ -107,7 +155,19 @@ export function LoginCard({ authCode }: { authCode?: string | null }) {
                 </CardFooter>
               </>
             ) : (
-              <SignInCardFooter />
+              <>
+                {TURNSTILE_SITE_KEY && (
+                  <CardContent className="flex justify-center">
+                    <TurnstileWidget
+                      siteKey={TURNSTILE_SITE_KEY}
+                      onVerify={handleTurnstileVerify}
+                      onError={handleTurnstileError}
+                      onExpired={handleTurnstileExpired}
+                    />
+                  </CardContent>
+                )}
+                <SignInCardFooter disabled={!turnstileVerified} />
+              </>
             )}
           </Card>
         </Suspense>

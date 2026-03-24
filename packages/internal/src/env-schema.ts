@@ -30,6 +30,7 @@ export const serverEnvSchema = clientEnvSchema.extend({
   DISCORD_PUBLIC_KEY: z.string().min(1),
   DISCORD_BOT_TOKEN: z.string().min(1),
   DISCORD_APPLICATION_ID: z.string().min(1),
+  TURNSTILE_SECRET_KEY: z.string().optional(),
 })
 export const serverEnvVars = serverEnvSchema.keyof().options
 export type ServerEnvVar = (typeof serverEnvVars)[number]
@@ -75,4 +76,5 @@ export const serverProcessEnv: ServerInput = {
   DISCORD_PUBLIC_KEY: process.env.DISCORD_PUBLIC_KEY,
   DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN,
   DISCORD_APPLICATION_ID: process.env.DISCORD_APPLICATION_ID,
+  TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY,
 }

@@ -3,9 +3,10 @@
 import Image from 'next/image'
 import { useSearchParams } from 'next/navigation'
 import { useSession, signIn } from 'next-auth/react'
-import { Suspense } from 'react'
+import { Suspense, useCallback, useRef, useState } from 'react'
 
 import { SignInCardFooter } from '@/components/sign-in/sign-in-card-footer'
+import { TurnstileWidget } from '@/components/turnstile-widget'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -15,9 +16,48 @@ import {
   CardFooter,
 } from '@/components/ui/card'
 
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+
 export function LoginCard({ authCode }: { authCode?: string | null }) {
   const { data: session } = useSession()
   const searchParams = useSearchParams() ?? new URLSearchParams()
+  const [turnstileVerified, setTurnstileVerified] = useState(
+    !TURNSTILE_SITE_KEY,
+  )
+  const [turnstileError, setTurnstileError] = useState<string | null>(null)
+  const turnstileErrorShownRef = useRef(false)
+
+  const handleTurnstileVerify = useCallback(async (token: string) => {
+    try {
+      const response = await fetch('/api/auth/verify-turnstile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      })
+      const result = await response.json()
+      if (result.success) {
+        setTurnstileVerified(true)
+        setTurnstileError(null)
+        turnstileErrorShownRef.current = false
+      } else {
+        setTurnstileError('Verification failed. Please refresh and try again.')
+      }
+    } catch {
+      setTurnstileError('Verification failed. Please refresh and try again.')
+    }
+  }, [])
+
+  const handleTurnstileError = useCallback((errorCode: string) => {
+    console.error('Turnstile error:', errorCode)
+    if (!turnstileErrorShownRef.current) {
+      turnstileErrorShownRef.current = true
+      setTurnstileError('Verification error. Please refresh and try again.')
+    }
+  }, [])
+
+  const handleTurnstileExpired = useCallback(() => {
+    setTurnstileVerified(false)
+  }, [])
 
   const handleContinueAsUser = () => {
     const referralCode = searchParams.get('referral_code')
@@ -129,7 +169,22 @@ export function LoginCard({ authCode }: { authCode?: string | null }) {
                 </CardFooter>
               </>
             ) : (
-              <SignInCardFooter />
+              <>
+                {TURNSTILE_SITE_KEY && (
+                  <CardContent className="flex flex-col items-center gap-2">
+                    <TurnstileWidget
+                      siteKey={TURNSTILE_SITE_KEY}
+                      onVerify={handleTurnstileVerify}
+                      onError={handleTurnstileError}
+                      onExpired={handleTurnstileExpired}
+                    />
+                    {turnstileError && (
+                      <p className="text-sm text-red-400">{turnstileError}</p>
+                    )}
+                  </CardContent>
+                )}
+                <SignInCardFooter disabled={!turnstileVerified} />
+              </>
             )}
           </Card>
         </Suspense>

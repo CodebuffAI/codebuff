@@ -12,9 +12,11 @@ import type { OAuthProviderType } from 'next-auth/providers/oauth-types'
 export function SignInButton({
   providerName,
   providerDomain,
+  disabled,
 }: {
   providerName: OAuthProviderType
   providerDomain: string
+  disabled?: boolean
 }) {
   const [isPending, startTransition] = useTransition()
   const pathname = usePathname()
@@ -52,7 +54,7 @@ export function SignInButton({
   return (
     <Button
       onClick={handleSignIn}
-      disabled={isPending}
+      disabled={isPending || disabled}
       className="flex items-center gap-2 w-full bg-zinc-900 border border-zinc-700 text-white hover:bg-zinc-800 hover:border-acid-matrix/60 hover:shadow-[0_0_20px_rgba(124,255,63,0.15)] transition-all duration-300"
     >
       {isPending ? (

@@ -18,10 +18,12 @@ export const SignInButton = ({
   providerName,
   providerDomain,
   onClick, // Additional handler for analytics/tracking
+  disabled,
 }: {
   providerName: OAuthProviderType
   providerDomain: string
   onClick?: () => void
+  disabled?: boolean
 }) => {
   const [isPending, startTransition] = useTransition()
   const pathname = usePathname()
@@ -123,7 +125,7 @@ export const SignInButton = ({
   return (
     <Button
       onClick={handleSignIn}
-      disabled={isPending}
+      disabled={isPending || disabled}
       className="flex items-center gap-2"
     >
       {isPending && <Icons.loader className="mr-2 size-4 animate-spin" />}
