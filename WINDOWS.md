@@ -54,21 +54,40 @@ Codebuff checks GitHub for the latest release on first run. This fails when:
 
 **Solutions**:
 
-1. **Verify GitHub access**:
+1. **Set the `HTTPS_PROXY` environment variable** (if behind corporate proxy):
+
+   Codebuff natively supports proxy environment variables. This is the recommended fix:
+
+   **PowerShell:**
    ```powershell
-   curl https://github.com/CodebuffAI/codebuff/releases.atom
+   $env:HTTPS_PROXY = "http://your-proxy-server:port"
+   codebuff
+   ```
+
+   **CMD:**
+   ```cmd
+   set HTTPS_PROXY=http://your-proxy-server:port
+   codebuff
+   ```
+
+   To make it permanent, add `HTTPS_PROXY` to your Windows System Environment Variables (Settings → System → Advanced → Environment Variables).
+
+2. **Verify network access**:
+   ```powershell
+   curl https://registry.npmjs.org/codebuff/latest
    ```
    If this fails, you have a network/firewall issue.
 
-2. **Configure npm proxy** (if behind corporate proxy):
+3. **Configure npm proxy** (for the `npm install` step only):
    ```powershell
    npm config set proxy http://your-proxy-server:port
    npm config set https-proxy http://your-proxy-server:port
    ```
+   Note: This only helps with `npm install`. Codebuff's own downloads use `HTTPS_PROXY` instead.
 
-3. **Disable VPN temporarily** or whitelist GitHub in your firewall
+4. **Disable VPN temporarily** or whitelist `registry.npmjs.org` and `codebuff.com` in your firewall
 
-4. **Clear npm cache and reinstall**:
+5. **Clear npm cache and reinstall**:
    ```powershell
    npm cache clean --force
    npm uninstall -g codebuff

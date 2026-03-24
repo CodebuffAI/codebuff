@@ -6,6 +6,7 @@ const http = require('http')
 const https = require('https')
 const os = require('os')
 const path = require('path')
+const tls = require('tls')
 const zlib = require('zlib')
 
 const tar = require('tar')
@@ -95,6 +96,76 @@ function trackUpdateFailed(errorMessage, version, context = {}) {
   }
 }
 
+function getProxyUrl() {
+  return (
+    process.env.HTTPS_PROXY ||
+    process.env.https_proxy ||
+    process.env.HTTP_PROXY ||
+    process.env.http_proxy ||
+    null
+  )
+}
+
+function shouldBypassProxy(hostname) {
+  const noProxy = process.env.NO_PROXY || process.env.no_proxy || ''
+  if (!noProxy) return false
+  const domains = noProxy.split(',').map((d) => d.trim().toLowerCase().replace(/:\d+$/, ''))
+  const host = hostname.toLowerCase()
+  return domains.some((d) => {
+    if (d === '*') return true
+    if (d.startsWith('.')) return host.endsWith(d) || host === d.slice(1)
+    return host === d || host.endsWith('.' + d)
+  })
+}
+
+function connectThroughProxy(proxyUrl, targetHost, targetPort) {
+  return new Promise((resolve, reject) => {
+    const proxy = new URL(proxyUrl)
+    const isHttpsProxy = proxy.protocol === 'https:'
+    const connectOptions = {
+      hostname: proxy.hostname,
+      port: proxy.port || (isHttpsProxy ? 443 : 80),
+      method: 'CONNECT',
+      path: `${targetHost}:${targetPort}`,
+      headers: {
+        Host: `${targetHost}:${targetPort}`,
+      },
+    }
+
+    if (proxy.username || proxy.password) {
+      const auth = Buffer.from(
+        `${decodeURIComponent(proxy.username || '')}:${decodeURIComponent(proxy.password || '')}`,
+      ).toString('base64')
+      connectOptions.headers['Proxy-Authorization'] = `Basic ${auth}`
+    }
+
+    const transport = isHttpsProxy ? https : http
+    const req = transport.request(connectOptions)
+
+    req.on('connect', (res, socket) => {
+      if (res.statusCode === 200) {
+        resolve(socket)
+      } else {
+        socket.destroy()
+        reject(
+          new Error(`Proxy CONNECT failed with status ${res.statusCode}`),
+        )
+      }
+    })
+
+    req.on('error', (err) => {
+      reject(new Error(`Proxy connection failed: ${err.message}`))
+    })
+
+    req.setTimeout(CONFIG.requestTimeout, () => {
+      req.destroy()
+      reject(new Error('Proxy connection timeout.'))
+    })
+
+    req.end()
+  })
+}
+
 const PLATFORM_TARGETS = {
   'linux-x64': `${packageName}-linux-x64.tar.gz`,
   'linux-arm64': `${packageName}-linux-arm64.tar.gz`,
@@ -119,20 +190,37 @@ const term = {
   },
 }
 
-function httpGet(url, options = {}) {
-  return new Promise((resolve, reject) => {
-    const parsedUrl = new URL(url)
-    const reqOptions = {
-      hostname: parsedUrl.hostname,
-      path: parsedUrl.pathname + parsedUrl.search,
-      headers: {
-        'User-Agent': CONFIG.userAgent,
-        ...options.headers,
-      },
-    }
+async function httpGet(url, options = {}) {
+  const parsedUrl = new URL(url)
+  const proxyUrl = getProxyUrl()
 
+  const reqOptions = {
+    hostname: parsedUrl.hostname,
+    path: parsedUrl.pathname + parsedUrl.search,
+    headers: {
+      'User-Agent': CONFIG.userAgent,
+      ...options.headers,
+    },
+  }
+
+  if (proxyUrl && !shouldBypassProxy(parsedUrl.hostname)) {
+    const tunnelSocket = await connectThroughProxy(
+      proxyUrl,
+      parsedUrl.hostname,
+      parsedUrl.port || 443,
+    )
+    reqOptions.agent = false
+    reqOptions.createConnection = () =>
+      tls.connect({
+        socket: tunnelSocket,
+        servername: parsedUrl.hostname,
+      })
+  }
+
+  return new Promise((resolve, reject) => {
     const req = https.get(reqOptions, (res) => {
       if (res.statusCode === 302 || res.statusCode === 301) {
+        res.resume()
         return httpGet(new URL(res.headers.location, url).href, options)
           .then(resolve)
           .catch(reject)
@@ -388,6 +476,11 @@ async function ensureBinaryExists() {
   if (!version) {
     console.error('❌ Failed to determine latest version')
     console.error('Please check your internet connection and try again')
+    if (!getProxyUrl()) {
+      console.error(
+        'If you are behind a proxy, set the HTTPS_PROXY environment variable',
+      )
+    }
     process.exit(1)
   }
 
@@ -397,6 +490,11 @@ async function ensureBinaryExists() {
     term.clearLine()
     console.error('❌ Failed to download freebuff:', error.message)
     console.error('Please check your internet connection and try again')
+    if (!getProxyUrl()) {
+      console.error(
+        'If you are behind a proxy, set the HTTPS_PROXY environment variable',
+      )
+    }
     process.exit(1)
   }
 }
