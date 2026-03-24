@@ -115,6 +115,7 @@ function parseArgs(): ParsedArgs {
         '--cwd <directory>',
         'Set the working directory (default: current directory)',
       )
+      .addHelpText('after', '\nCommands:\n  login                          Log in to your account')
       .helpOption('-h, --help', 'Show this help message')
       .parse(process.argv)
   } else {
@@ -140,6 +141,7 @@ function parseArgs(): ParsedArgs {
       .option('--lite', 'Start in FREE mode (deprecated, use --free)')
       .option('--max', 'Start in MAX mode')
       .option('--plan', 'Start in PLAN mode')
+      .addHelpText('after', '\nCommands:\n  login                          Log in to your account\n  publish                        Publish agents to the registry')
       .helpOption('-h, --help', 'Show this help message')
       .argument('[prompt...]', 'Initial prompt to send to the agent')
       .allowExcessArguments(true)
