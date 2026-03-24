@@ -6,6 +6,7 @@ import { Footer } from '@/components/footer'
 import { ThemeProvider } from '@/components/theme-provider'
 import { siteConfig } from '@/lib/constant'
 import { fonts } from '@/lib/fonts'
+import { PostHogProvider } from '@/lib/PostHogProvider'
 import SessionProvider from '@/lib/SessionProvider'
 import { cn } from '@/lib/utils'
 
@@ -53,8 +54,10 @@ export default function RootLayout({
       >
         <ThemeProvider attribute="class">
           <SessionProvider>
-            <div className="flex-grow">{children}</div>
-            <Footer />
+            <PostHogProvider>
+              <div className="flex-grow">{children}</div>
+              <Footer />
+            </PostHogProvider>
           </SessionProvider>
         </ThemeProvider>
       </body>

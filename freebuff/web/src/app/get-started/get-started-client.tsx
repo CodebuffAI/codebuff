@@ -1,5 +1,6 @@
 'use client'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ChevronDown,
@@ -9,6 +10,7 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
+import posthog from 'posthog-js'
 import { useEffect, useState } from 'react'
 
 import { BackgroundBeams } from '@/components/background-beams'
@@ -98,7 +100,10 @@ export default function GetStartedClient({
 
   useEffect(() => {
     setOs(detectOS())
-  }, [])
+    posthog.capture(AnalyticsEvent.FREEBUFF_GET_STARTED_VIEWED, {
+      referrer: referrerName,
+    })
+  }, [referrerName])
 
   return (
     <div className="relative min-h-screen">
@@ -145,7 +150,7 @@ export default function GetStartedClient({
       </motion.div>
 
       {/* Main content */}
-      <div className="relative z-10 container mx-auto px-4 pt-28 pb-16 md:pt-36 md:pb-24 flex flex-col items-center">
+      <div className="relative z-10 container mx-auto px-4 pt-16 pb-16 md:pt-36 md:pb-24 flex flex-col items-center">
         <div className="w-full max-w-2xl">
           <div className="bg-background/80 backdrop-blur-sm border border-zinc-800 rounded-xl overflow-hidden">
             {/* Header */}
@@ -180,7 +185,14 @@ export default function GetStartedClient({
                     {/* Collapsible help */}
                     <div className="rounded-lg overflow-hidden">
                       <button
-                        onClick={() => setHelpExpanded(!helpExpanded)}
+                        onClick={() => {
+                          if (!helpExpanded) {
+                            posthog.capture(
+                              AnalyticsEvent.FREEBUFF_GET_STARTED_HELP_EXPANDED,
+                            )
+                          }
+                          setHelpExpanded(!helpExpanded)
+                        }}
                         className="w-full flex items-center justify-between px-4 py-3 text-sm text-muted-foreground hover:text-foreground hover:bg-zinc-800/50 transition-colors cursor-pointer"
                       >
                         <span>Need help setting up?</span>
@@ -210,9 +222,16 @@ export default function GetStartedClient({
                                 </p>
                                 <div className="grid grid-cols-2 gap-2">
                                   {editors.map((editor) => (
-                                    <div
+                                    <button
                                       key={editor.name}
-                                      className="flex items-center gap-2 px-3 py-2 bg-zinc-800/60 border border-zinc-700/40 rounded-lg hover:border-zinc-600 transition-colors duration-200 cursor-default"
+                                      type="button"
+                                      className="flex items-center gap-2 px-3 py-2 bg-zinc-800/60 border border-zinc-700/40 rounded-lg hover:border-zinc-600 transition-colors duration-200 cursor-pointer"
+                                      onClick={() =>
+                                        posthog.capture(
+                                          AnalyticsEvent.FREEBUFF_GET_STARTED_EDITOR_CLICKED,
+                                          { editor: editor.name },
+                                        )
+                                      }
                                     >
                                       <div
                                         className={cn(
@@ -231,7 +250,7 @@ export default function GetStartedClient({
                                       <span className="text-sm font-medium text-zinc-200">
                                         {editor.name}
                                       </span>
-                                    </div>
+                                    </button>
                                   ))}
                                 </div>
                               </div>

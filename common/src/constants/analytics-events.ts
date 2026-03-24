@@ -147,6 +147,17 @@ export enum AnalyticsEvent {
   CHATGPT_OAUTH_RATE_LIMITED = 'sdk.chatgpt_oauth_rate_limited',
   CHATGPT_OAUTH_AUTH_ERROR = 'sdk.chatgpt_oauth_auth_error',
 
+  // Freebuff - Get Started Page
+  FREEBUFF_GET_STARTED_VIEWED = 'freebuff.get_started_viewed',
+  FREEBUFF_GET_STARTED_HELP_EXPANDED = 'freebuff.get_started_help_expanded',
+  FREEBUFF_GET_STARTED_EDITOR_CLICKED = 'freebuff.get_started_editor_clicked',
+
+  // Freebuff - Home Page
+  FREEBUFF_HOME_INSTALL_COMMAND_COPIED = 'freebuff.home_install_command_copied',
+  FREEBUFF_HOME_GITHUB_CLICKED = 'freebuff.home_github_clicked',
+  FREEBUFF_HOME_INSTALL_GUIDE_EXPANDED = 'freebuff.home_install_guide_expanded',
+  FREEBUFF_HOME_FAQ_OPENED = 'freebuff.home_faq_opened',
+
   // Common
   FLUSH_FAILED = 'common.flush_failed',
 

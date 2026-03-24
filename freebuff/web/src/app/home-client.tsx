@@ -1,5 +1,6 @@
 'use client'
 
+import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Check,
@@ -8,6 +9,7 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
+import posthog from 'posthog-js'
 import { useMemo, useState } from 'react'
 
 import { BackgroundBeams } from '@/components/background-beams'
@@ -78,7 +80,14 @@ function SetupGuide() {
   return (
     <div className="max-w-md mx-auto">
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          if (!isOpen) {
+            posthog.capture(
+              AnalyticsEvent.FREEBUFF_HOME_INSTALL_GUIDE_EXPANDED,
+            )
+          }
+          setIsOpen(!isOpen)
+        }}
         aria-expanded={isOpen}
         className="flex items-center gap-2 mx-auto text-sm text-zinc-400 hover:text-acid-matrix transition-colors duration-200 cursor-pointer group"
       >
@@ -152,6 +161,7 @@ function InstallCommand({ className }: { className?: string }) {
     navigator.clipboard.writeText(INSTALL_COMMAND)
     setCopied(true)
     setCopyCount(c => c + 1)
+    posthog.capture(AnalyticsEvent.FREEBUFF_HOME_INSTALL_COMMAND_COPIED)
     setTimeout(() => setCopied(false), 1800)
   }
 
@@ -257,7 +267,15 @@ function FAQList() {
             )}
           >
             <button
-              onClick={() => setOpenIndex(isOpen ? null : i)}
+              onClick={() => {
+                if (!isOpen) {
+                  posthog.capture(
+                    AnalyticsEvent.FREEBUFF_HOME_FAQ_OPENED,
+                    { question: faq.question },
+                  )
+                }
+                setOpenIndex(isOpen ? null : i)
+              }}
               className="w-full flex items-center gap-4 px-4 py-5 text-left transition-all duration-300 cursor-pointer group"
             >
               <span
@@ -425,6 +443,9 @@ export default function HomeClient() {
               target="_blank"
               rel="noopener noreferrer"
               className="relative font-medium px-3 py-2 rounded-md transition-all duration-200 text-zinc-400 hover:text-white flex items-center gap-2 text-sm"
+              onClick={() =>
+                posthog.capture(AnalyticsEvent.FREEBUFF_HOME_GITHUB_CLICKED)
+              }
             >
               <Icons.github className="h-4 w-4" />
               <span className="hidden sm:inline">GitHub</span>
