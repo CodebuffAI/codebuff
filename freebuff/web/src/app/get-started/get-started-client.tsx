@@ -103,6 +103,9 @@ export default function GetStartedClient({
     posthog.capture(AnalyticsEvent.FREEBUFF_GET_STARTED_VIEWED, {
       referrer: referrerName,
     })
+    if (referrerName) {
+      localStorage.setItem('freebuff_referrer', referrerName)
+    }
   }, [referrerName])
 
   return (

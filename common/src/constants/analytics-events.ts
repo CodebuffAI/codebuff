@@ -147,6 +147,9 @@ export enum AnalyticsEvent {
   CHATGPT_OAUTH_RATE_LIMITED = 'sdk.chatgpt_oauth_rate_limited',
   CHATGPT_OAUTH_AUTH_ERROR = 'sdk.chatgpt_oauth_auth_error',
 
+  // Freebuff - Referral Attribution
+  FREEBUFF_REFERRER_ATTRIBUTED = 'freebuff.referrer_attributed',
+
   // Freebuff - Get Started Page
   FREEBUFF_GET_STARTED_VIEWED = 'freebuff.get_started_viewed',
   FREEBUFF_GET_STARTED_HELP_EXPANDED = 'freebuff.get_started_help_expanded',
