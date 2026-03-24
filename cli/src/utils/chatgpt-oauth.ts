@@ -19,7 +19,7 @@ import {
   resetChatGptOAuthRateLimit,
   saveChatGptOAuthCredentials,
 } from '@codebuff/sdk'
-import open from 'open'
+import { safeOpen } from './open-url'
 
 import type { ChatGptOAuthCredentials } from '@codebuff/sdk'
 
@@ -218,12 +218,7 @@ export function connectChatGptOAuth(): {
   const { codeVerifier, authUrl } = startChatGptOAuthFlow()
   const credentials = startCallbackServer(codeVerifier)
 
-  open(authUrl).catch(() => {
-    console.debug(
-      'Failed to open browser for ChatGPT OAuth. Manual URL:',
-      authUrl,
-    )
-  })
+  void safeOpen(authUrl)
 
   return { authUrl, credentials }
 }

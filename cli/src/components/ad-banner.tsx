@@ -1,5 +1,5 @@
 import { TextAttributes } from '@opentui/core'
-import open from 'open'
+import { safeOpen } from '../utils/open-url'
 import React, { useState } from 'react'
 
 import { Button } from './button'
@@ -7,7 +7,6 @@ import { Clickable } from './clickable'
 import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
 import { useTheme } from '../hooks/use-theme'
 import { IS_FREEBUFF } from '../utils/constants'
-import { logger } from '../utils/logger'
 
 import type { AdResponse } from '../hooks/use-gravity-ad'
 
@@ -49,9 +48,7 @@ export const AdBanner: React.FC<AdBannerProps> = ({ ad, onDisableAds, isFreeMode
   const handleAdMouseOut = () => setIsLinkHovered(false)
   const handleAdClick = () => {
     if (ad.clickUrl) {
-      open(ad.clickUrl).catch((err) => {
-        logger.error(err, 'Failed to open ad link')
-      })
+      safeOpen(ad.clickUrl)
     }
   }
 

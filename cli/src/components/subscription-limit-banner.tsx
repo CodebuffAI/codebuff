@@ -1,6 +1,6 @@
 import { SUBSCRIPTION_TIERS } from '@codebuff/common/constants/subscription-plans'
 import { IS_FREEBUFF } from '../utils/constants'
-import open from 'open'
+import { safeOpen } from '../utils/open-url'
 import React from 'react'
 
 import { Button } from './button'
@@ -61,11 +61,11 @@ export const SubscriptionLimitBanner = () => {
   }
 
   const handleBuyCredits = () => {
-    open(WEBSITE_URL + '/usage')
+    safeOpen(WEBSITE_URL + '/usage')
   }
 
   const handleUpgrade = () => {
-    open(WEBSITE_URL + '/subscribe')
+    safeOpen(WEBSITE_URL + '/subscribe')
   }
 
   const borderColor = isWeeklyLimit ? theme.error : theme.warning

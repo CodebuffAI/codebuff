@@ -1,6 +1,6 @@
 import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import type { FeedbackCategory } from '@codebuff/common/constants/feedback'
-import open from 'open'
+import { safeOpen } from './utils/open-url'
 import {
   useCallback,
   useEffect,
@@ -1158,7 +1158,7 @@ export const Chat = ({
           return
         }
         // Otherwise open the buy credits page
-        open(WEBSITE_URL + '/usage')
+        safeOpen(WEBSITE_URL + '/usage')
       },
     }),
     [

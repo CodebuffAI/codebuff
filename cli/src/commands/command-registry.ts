@@ -1,6 +1,6 @@
 import { CHATGPT_OAUTH_ENABLED } from '@codebuff/common/constants/chatgpt-oauth'
 import { CLAUDE_OAUTH_ENABLED } from '@codebuff/common/constants/claude-oauth'
-import open from 'open'
+import { safeOpen } from '../utils/open-url'
 
 import { handleAdsEnable, handleAdsDisable } from './ads'
 import { buildInterviewPrompt, buildPlanPrompt, buildReviewPromptFromArgs } from './prompt-builders'
@@ -407,7 +407,7 @@ const ALL_COMMANDS: CommandDefinition[] = [
     name: 'subscribe',
     aliases: ['strong', 'sub', 'buy-credits'],
     handler: (params) => {
-      open(WEBSITE_URL + '/subscribe')
+      safeOpen(WEBSITE_URL + '/subscribe')
       clearInput(params)
     },
   }),

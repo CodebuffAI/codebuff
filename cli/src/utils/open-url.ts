@@ -1,0 +1,37 @@
+import os from 'os'
+
+import open from 'open'
+
+import { logger } from './logger'
+
+/**
+ * Safely open a URL in the user's default browser.
+ *
+ * On headless Linux (no DISPLAY or WAYLAND_DISPLAY), calling `open()` spawns
+ * `xdg-open` which can crash the entire process — even inside a try/catch —
+ * because the child process may trigger fatal signals. This wrapper detects
+ * headless environments and skips the call entirely.
+ *
+ * @returns `true` if the browser was (likely) opened, `false` if skipped.
+ */
+export async function safeOpen(url: string): Promise<boolean> {
+  if (os.platform() === 'linux') {
+    const hasDisplay = Boolean(
+      process.env.DISPLAY || process.env.WAYLAND_DISPLAY,
+    )
+    if (!hasDisplay) {
+      logger.warn(
+        'No display server detected (DISPLAY / WAYLAND_DISPLAY unset). Skipping browser open.',
+      )
+      return false
+    }
+  }
+
+  try {
+    await open(url)
+    return true
+  } catch (err) {
+    logger.error(err, 'Failed to open browser')
+    return false
+  }
+}

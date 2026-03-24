@@ -12,7 +12,7 @@ import {
   isClaudeOAuthValid,
   resetClaudeOAuthRateLimit,
 } from '@codebuff/sdk'
-import open from 'open'
+import { safeOpen } from './open-url'
 
 import type { ClaudeOAuthCredentials } from '@codebuff/sdk'
 
@@ -78,7 +78,7 @@ export function startOAuthFlow(): { codeVerifier: string; authUrl: string } {
  */
 export async function openOAuthInBrowser(): Promise<string> {
   const { authUrl, codeVerifier } = startOAuthFlow()
-  await open(authUrl)
+  await safeOpen(authUrl)
   return codeVerifier
 }
 

@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
-import open from 'open'
+import { safeOpen } from '../utils/open-url'
 
 import { WEBSITE_URL } from '../login/constants'
 import { generateLoginUrl } from '../login/login-flow'
@@ -45,12 +45,7 @@ export function useFetchLoginUrl({
       setHasOpenedBrowser(true)
 
       // Open browser after fetching URL
-      try {
-        await open(data.loginUrl)
-      } catch (err) {
-        logger.error(err, 'Failed to open browser')
-        // Don't show error, user can still click the URL
-      }
+      await safeOpen(data.loginUrl)
     },
     onError: (err) => {
       setError(err instanceof Error ? err.message : 'Failed to get login URL')

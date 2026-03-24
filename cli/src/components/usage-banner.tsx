@@ -3,7 +3,7 @@ import { CLAUDE_OAUTH_ENABLED } from '@codebuff/common/constants/claude-oauth'
 import { IS_FREEBUFF } from '../utils/constants'
 import { isChatGptOAuthValid, isClaudeOAuthValid } from '@codebuff/sdk'
 import { TextAttributes } from '@opentui/core'
-import open from 'open'
+import { safeOpen } from '../utils/open-url'
 import React, { useEffect, useMemo } from 'react'
 
 import { BottomBanner } from './bottom-banner'
@@ -135,7 +135,7 @@ export const UsageBanner = ({ showTime }: { showTime: number }) => {
         {/* Codebuff credits section - structured layout */}
         <Button
           onClick={() => {
-            open(WEBSITE_URL + '/usage')
+            safeOpen(WEBSITE_URL + '/usage')
           }}
         >
           <box style={{ flexDirection: 'column', gap: 0 }}>
