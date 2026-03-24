@@ -41,13 +41,15 @@ export function buildInterviewPrompt(input: string): string {
 /**
  * Review scope presets for the review screen.
  */
-type ReviewScope = 'uncommitted' | 'branch' | 'custom'
+type ReviewScope = 'conversation' | 'uncommitted' | 'branch' | 'custom'
 
 /**
  * Get the default text for a review scope preset.
  */
 function getReviewScopeText(scope: ReviewScope): string {
   switch (scope) {
+    case 'conversation':
+      return 'all changes made in this conversation'
     case 'uncommitted':
       return 'uncommitted changes'
     case 'branch':
@@ -59,7 +61,7 @@ function getReviewScopeText(scope: ReviewScope): string {
 
 /**
  * Build a review prompt from scope or custom input.
- * @param scope - The selected review scope (uncommitted, branch, or custom)
+ * @param scope - The selected review scope (conversation, uncommitted, branch, or custom)
  * @param customInput - Optional custom review focus (when scope is 'custom')
  * @returns The full prompt to send to the agent
  */

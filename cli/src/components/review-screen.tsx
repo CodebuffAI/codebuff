@@ -13,6 +13,7 @@ interface ReviewOption {
 }
 
 const REVIEW_OPTIONS: ReviewOption[] = [
+  { id: 'conversation', label: 'Changes this conversation' },
   { id: 'uncommitted', label: 'Uncommitted changes' },
   { id: 'branch', label: 'This branch vs main' },
   { id: 'custom', label: 'Custom...' },
@@ -42,7 +43,7 @@ export const ReviewScreen: React.FC<ReviewScreenProps> = ({
         return
       }
 
-      const scope = option.id as 'uncommitted' | 'branch'
+      const scope = option.id as 'conversation' | 'uncommitted' | 'branch'
       const reviewText = buildReviewPrompt(scope)
       onSelectOption(reviewText)
     },
