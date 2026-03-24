@@ -2,6 +2,7 @@ import os from 'os'
 
 import open from 'open'
 
+import { getCliEnv } from './env'
 import { logger } from './logger'
 
 /**
@@ -16,9 +17,8 @@ import { logger } from './logger'
  */
 export async function safeOpen(url: string): Promise<boolean> {
   if (os.platform() === 'linux') {
-    const hasDisplay = Boolean(
-      process.env.DISPLAY || process.env.WAYLAND_DISPLAY,
-    )
+    const env = getCliEnv()
+    const hasDisplay = Boolean(env.DISPLAY || env.WAYLAND_DISPLAY)
     if (!hasDisplay) {
       logger.warn(
         'No display server detected (DISPLAY / WAYLAND_DISPLAY unset). Skipping browser open.',

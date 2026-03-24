@@ -16,6 +16,10 @@ import type { CliEnv } from '../types/env'
 export const getCliEnv = (): CliEnv => ({
   ...getBaseEnv(),
 
+  // Display server detection (Linux headless check)
+  DISPLAY: process.env.DISPLAY,
+  WAYLAND_DISPLAY: process.env.WAYLAND_DISPLAY,
+
   // Terminal detection (for tmux/screen passthrough)
   TERM: process.env.TERM,
   TMUX: process.env.TMUX,

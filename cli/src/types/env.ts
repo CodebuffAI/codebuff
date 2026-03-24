@@ -26,6 +26,10 @@ export type CliEnv = BaseEnv & {
   SSH_TTY?: string
   SSH_CONNECTION?: string
 
+  // Display server detection (Linux headless check)
+  DISPLAY?: string
+  WAYLAND_DISPLAY?: string
+
   // Terminal-specific
   KITTY_WINDOW_ID?: string
   SIXEL_SUPPORT?: string
