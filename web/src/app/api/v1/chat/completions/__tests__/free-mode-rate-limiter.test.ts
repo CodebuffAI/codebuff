@@ -127,6 +127,7 @@ describe('free-mode-rate-limiter', () => {
       // Spread requests across multiple 30-minute windows
       let sent = 0
       while (sent < per5Hours) {
+        const batchStart = fakeNow
         const batchFor30Min = Math.min(per30Min, per5Hours - sent)
         // Within each 30-min window, spread across 1-min windows
         let sentInWindow = 0
@@ -139,10 +140,16 @@ describe('free-mode-rate-limiter', () => {
           }
         }
         sent += sentInWindow
-        // Always advance past 30-min window to reset it for the next batch
-        // (stays well within the 5-hour window)
-        advanceTime(30 * MINUTE_MS + 1)
+        if (sent < per5Hours) {
+          // Advance just past the 30-min window boundary to reset it,
+          // accounting for time already elapsed in the inner loop
+          const elapsed = fakeNow - batchStart
+          advanceTime(30 * MINUTE_MS - elapsed + 1)
+        }
       }
+
+      // Advance past the 30-minute window so the per-5-hour window is the one that triggers
+      advanceTime(30 * MINUTE_MS + 1)
 
       const result = checkFreeModeRateLimit('user-1')
       expect(result.limited).toBe(true)
