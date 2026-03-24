@@ -53,7 +53,7 @@ export function SignInButton({
     <Button
       onClick={handleSignIn}
       disabled={isPending}
-      className="flex items-center gap-2 w-full bg-zinc-900 border border-zinc-700 text-white hover:border-acid-matrix/60 hover:shadow-[0_0_20px_rgba(124,255,63,0.15)] transition-all duration-300"
+      className="flex items-center gap-2 w-full bg-zinc-900 border border-zinc-700 text-white hover:bg-zinc-800 hover:border-acid-matrix/60 hover:shadow-[0_0_20px_rgba(124,255,63,0.15)] transition-all duration-300"
     >
       {isPending ? (
         <Icons.loader className="mr-2 size-4 animate-spin" />
