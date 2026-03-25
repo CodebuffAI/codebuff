@@ -85,7 +85,7 @@ export function createBase2(
       'tmux-cli',
       'browser-use',
       isFree && 'editor-gpt',
-      isFree && 'code-reviewer-lite',
+      isFree && 'code-reviewer-gpt',
       isDefault && 'code-reviewer',
       isMax && 'code-reviewer-multi-prompt',
       'thinker-gpt',
@@ -152,7 +152,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
         isFree &&
         '- Implement code changes using the editor-gpt agent after you have gathered all the context you need. You must spawn this agent for all non-trivial changes since it is much better at writing code than you.',
         isFree &&
-        '- Spawn a code-reviewer-lite to review the changes after you have implemented the changes.',
+        '- Spawn a code-reviewer-gpt to review the changes after you have implemented the changes.',
         '- Spawn bashers sequentially if the second command depends on the the first.',
         isDefault &&
         '- Spawn a code-reviewer to review the changes after you have implemented the changes.',
@@ -216,7 +216,7 @@ ${isDefault
 ${isDefault
         ? `[ You spawn a code-reviewer, a basher to typecheck the changes, and another basher to run tests, all in parallel ]`
         : isFree
-          ? `[ You spawn a code-reviewer-lite to review the changes, and a basher to typecheck the changes, and another basher to run tests, all in parallel ]`
+          ? `[ You spawn a code-reviewer-gpt to review the changes, and a basher to typecheck the changes, and another basher to run tests, all in parallel ]`
           : isMax
             ? `[  You spawn a basher to typecheck the changes, and another basher to run tests, in parallel. Then, you spawn a code-reviewer-multi-prompt to review the changes. ]`
             : '[ You spawn a basher to typecheck the changes and another basher to run tests, all in parallel ]'
@@ -225,7 +225,7 @@ ${isDefault
 ${isDefault
         ? `[ You fix the issues found by the code-reviewer and type/test errors ]`
         : isFree
-          ? `[ You fix the issues found by the code-reviewer-lite and type/test errors ]`
+          ? `[ You fix the issues found by the code-reviewer-gpt and type/test errors ]`
           : isMax
             ? `[ You fix the issues found by the code-reviewer-multi-prompt and type/test errors ]`
             : '[ You fix the issues found by the type/test errors and spawn more bashers to confirm ]'
@@ -349,7 +349,7 @@ ${buildArray(
     (isDefault || isMax) &&
     `- Spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review the changes after you have implemented changes. (Skip this step only if the change is extremely straightforward and obvious.)`,
     isFree &&
-    `- Spawn a code-reviewer-lite to review the changes after you have implemented changes. (Skip this step only if the change is extremely straightforward and obvious.)`,
+    `- Spawn a code-reviewer-gpt to review the changes after you have implemented changes. (Skip this step only if the change is extremely straightforward and obvious.)`,
     `- Inform the user that you have completed the task in one sentence or a few short bullet points.${isSonnet ? " Don't create any markdown summary files or example documentation files, unless asked by the user." : ''}`,
     !isFast &&
     !noAskUser &&
@@ -385,7 +385,7 @@ function buildImplementationStepPrompt({
     (isDefault || isMax) &&
     `You must spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review the changes after you have implemented the changes and in parallel with typechecking or testing.`,
     isFree &&
-    `You must spawn a code-reviewer-lite to review the changes after you have implemented the changes and in parallel with typechecking or testing.`,
+    `You must spawn a code-reviewer-gpt to review the changes after you have implemented the changes and in parallel with typechecking or testing.`,
     `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}.`,
     !isFast &&
     !noAskUser &&

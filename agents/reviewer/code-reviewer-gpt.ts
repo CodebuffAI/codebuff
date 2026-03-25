@@ -5,6 +5,7 @@ import { createReviewer } from './code-reviewer'
 const definition: SecretAgentDefinition = {
   id: 'code-reviewer-gpt',
   publisher,
+  inheritParentSystemPrompt: false,
   ...createReviewer('openai/gpt-5.4'),
 }
 
