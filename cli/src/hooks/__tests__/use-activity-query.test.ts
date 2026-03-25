@@ -131,6 +131,14 @@ describe('use-activity-query utilities', () => {
       )
     })
 
+    test('object key property order does not create duplicate cache entries', () => {
+      setActivityQueryData(['query', { page: 1, sort: 'asc' }], 'page1')
+
+      expect(
+        getActivityQueryData<string>(['query', { sort: 'asc', page: 1 }]),
+      ).toBe('page1')
+    })
+
     test('nested objects in keys work correctly', () => {
       setActivityQueryData(
         ['query', { filter: { status: 'active', type: 'user' } }],
@@ -140,6 +148,20 @@ describe('use-activity-query utilities', () => {
         getActivityQueryData<string>([
           'query',
           { filter: { status: 'active', type: 'user' } },
+        ]),
+      ).toBe('filtered')
+    })
+
+    test('nested object property order does not create duplicate cache entries', () => {
+      setActivityQueryData(
+        ['query', { page: 1, filter: { status: 'active', type: 'user' } }],
+        'filtered',
+      )
+
+      expect(
+        getActivityQueryData<string>([
+          'query',
+          { filter: { type: 'user', status: 'active' }, page: 1 },
         ]),
       ).toBe('filtered')
     })
@@ -419,7 +441,6 @@ describe('polling and staleness simulation', () => {
 
   test('data becomes stale after staleTime passes', () => {
     const testKey = ['stale-time-test']
-    const serializedKey = JSON.stringify(testKey)
     const staleTime = 30000 // 30 seconds
     
     // Set data at t=0
@@ -427,16 +448,16 @@ describe('polling and staleness simulation', () => {
     
     // Data was set at mockNow (1000000), so dataUpdatedAt = 1000000
     expect(getActivityQueryData<string>(testKey)).toBe('fresh-data')
-    expect(isEntryStale(serializedKey, staleTime)).toBe(false) // Fresh
+    expect(isEntryStale(testKey, staleTime)).toBe(false) // Fresh
     
     // Advance time by 25 seconds - still fresh
     mockNow += 25000
-    expect(isEntryStale(serializedKey, staleTime)).toBe(false)
+    expect(isEntryStale(testKey, staleTime)).toBe(false)
     
     // Advance time past staleTime
     mockNow += 10000 // Now 35 seconds have passed
     // Data should now be considered stale (35s > 30s staleTime)
-    expect(isEntryStale(serializedKey, staleTime)).toBe(true)
+    expect(isEntryStale(testKey, staleTime)).toBe(true)
     
     // The data is still accessible even when stale
     expect(getActivityQueryData<string>(testKey)).toBe('fresh-data')
@@ -444,16 +465,15 @@ describe('polling and staleness simulation', () => {
 
   test('invalidated data is immediately stale', () => {
     const testKey = ['invalidate-stale-test']
-    const serializedKey = JSON.stringify(testKey)
     const staleTime = 30000
     
     // Set fresh data
     setActivityQueryData(testKey, 'data')
-    expect(isEntryStale(serializedKey, staleTime)).toBe(false)
+    expect(isEntryStale(testKey, staleTime)).toBe(false)
     
     // Invalidate immediately makes it stale (dataUpdatedAt = 0)
     invalidateActivityQuery(testKey)
-    expect(isEntryStale(serializedKey, staleTime)).toBe(true)
+    expect(isEntryStale(testKey, staleTime)).toBe(true)
     
     // Data still exists but would be refetched on next access
     expect(getActivityQueryData<string>(testKey)).toBe('data')
@@ -461,46 +481,43 @@ describe('polling and staleness simulation', () => {
 
   test('updating data resets the staleness timer', () => {
     const testKey = ['reset-timer-test']
-    const serializedKey = JSON.stringify(testKey)
     const staleTime = 30000
     
     // Set initial data
     setActivityQueryData(testKey, 'initial')
-    expect(isEntryStale(serializedKey, staleTime)).toBe(false)
+    expect(isEntryStale(testKey, staleTime)).toBe(false)
     
     // Advance time past staleTime
     mockNow += 35000
-    expect(isEntryStale(serializedKey, staleTime)).toBe(true)
+    expect(isEntryStale(testKey, staleTime)).toBe(true)
     
     // Update data - should reset the timer
     setActivityQueryData(testKey, 'updated')
-    expect(isEntryStale(serializedKey, staleTime)).toBe(false) // Fresh again
+    expect(isEntryStale(testKey, staleTime)).toBe(false) // Fresh again
     
     // Data is fresh again
     expect(getActivityQueryData<string>(testKey)).toBe('updated')
     
     // Advance a little bit - should still be fresh
     mockNow += 10000
-    expect(isEntryStale(serializedKey, staleTime)).toBe(false)
+    expect(isEntryStale(testKey, staleTime)).toBe(false)
     expect(getActivityQueryData<string>(testKey)).toBe('updated')
   })
 
   test('staleTime of 0 means always stale', () => {
     const testKey = ['zero-stale-test']
-    const serializedKey = JSON.stringify(testKey)
     
     // Set data
     setActivityQueryData(testKey, 'data')
     
     // With staleTime=0, data is always considered stale
     // (this means refetch should happen on every interval tick)
-    expect(isEntryStale(serializedKey, 0)).toBe(true)
+    expect(isEntryStale(testKey, 0)).toBe(true)
     expect(getActivityQueryData<string>(testKey)).toBe('data')
   })
 
   test('non-existent key is always stale', () => {
-    const serializedKey = JSON.stringify(['non-existent'])
-    expect(isEntryStale(serializedKey, 30000)).toBe(true)
+    expect(isEntryStale(['non-existent'], 30000)).toBe(true)
   })
 })
 
@@ -624,7 +641,7 @@ describe('Claude subscription update scenarios', () => {
     mockNow += 35000 // 35 seconds
     
     // Data is now stale, polling tick should trigger refetch
-    // In real code: if (isEntryStale(serializedKey, staleTime)) void doFetch()
+    // In real code: if (isEntryStale(testKey, staleTime)) void doFetch()
     
     // Simulate what refetch would do
     const newQuota = { fiveHourRemaining: 75, sevenDayRemaining: 95 }
@@ -809,7 +826,6 @@ describe('error-only entries and persistent error handling', () => {
     // 5. This prevents immediate refetch loop
     
     const testKey = ['error-only-fresh-test']
-    const serializedKey = JSON.stringify(testKey)
     const staleTime = 30000 // 30 seconds
     const error = new Error('API error')
     
@@ -819,12 +835,11 @@ describe('error-only entries and persistent error handling', () => {
     // Entry has errorUpdatedAt = 1000000, current time = 1000000
     // Time since error: 0ms, staleTime: 30000ms
     // Should NOT be stale because error is recent
-    expect(isEntryStale(serializedKey, staleTime)).toBe(false)
+    expect(isEntryStale(testKey, staleTime)).toBe(false)
   })
 
   test('error-only entry becomes stale after staleTime passes', () => {
     const testKey = ['error-stale-after-time-test']
-    const serializedKey = JSON.stringify(testKey)
     const staleTime = 30000 // 30 seconds
     const error = new Error('API error')
     
@@ -832,15 +847,15 @@ describe('error-only entries and persistent error handling', () => {
     setErrorOnlyCacheEntry(testKey, error, mockNow)
     
     // Initially not stale
-    expect(isEntryStale(serializedKey, staleTime)).toBe(false)
+    expect(isEntryStale(testKey, staleTime)).toBe(false)
     
     // Advance time by 25 seconds - still fresh
     mockNow += 25000
-    expect(isEntryStale(serializedKey, staleTime)).toBe(false)
+    expect(isEntryStale(testKey, staleTime)).toBe(false)
     
     // Advance time past staleTime (now 35 seconds since error)
     mockNow += 10000
-    expect(isEntryStale(serializedKey, staleTime)).toBe(true)
+    expect(isEntryStale(testKey, staleTime)).toBe(true)
   })
 
   test('simulates subscription query polling with persistent errors', () => {
@@ -851,7 +866,6 @@ describe('error-only entries and persistent error handling', () => {
     // - With fix: isEntryStale uses errorUpdatedAt, preventing rapid refetches
     
     const subscriptionKey = ['subscription', 'current']
-    const serializedKey = JSON.stringify(subscriptionKey)
     const staleTime = 30000 // 30 seconds (matches useSubscriptionQuery)
     const refetchInterval = 60000 // 60 seconds
     const error = new Error('Failed to fetch subscription: 500')
@@ -861,75 +875,72 @@ describe('error-only entries and persistent error handling', () => {
     
     // Immediately after error, entry should NOT be stale
     // This is the critical fix - prevents immediate refetch loop
-    expect(isEntryStale(serializedKey, staleTime)).toBe(false)
+    expect(isEntryStale(subscriptionKey, staleTime)).toBe(false)
     
     // Simulate polling interval at t=1s (as reported in bug)
     mockNow += 1000
     // Entry should still NOT be stale (only 1s since error, staleTime is 30s)
-    expect(isEntryStale(serializedKey, staleTime)).toBe(false)
+    expect(isEntryStale(subscriptionKey, staleTime)).toBe(false)
     
     // Simulate many 1-second intervals - none should trigger refetch until staleTime
     for (let i = 0; i < 28; i++) {
       mockNow += 1000
-      expect(isEntryStale(serializedKey, staleTime)).toBe(false)
+      expect(isEntryStale(subscriptionKey, staleTime)).toBe(false)
     }
     
     // Now at t=29s - should still be fresh (29s is not > 30s)
-    expect(isEntryStale(serializedKey, staleTime)).toBe(false)
+    expect(isEntryStale(subscriptionKey, staleTime)).toBe(false)
     
     // At t=30s - should still be fresh (30s is not > 30s, need strictly greater)
     mockNow += 1000
-    expect(isEntryStale(serializedKey, staleTime)).toBe(false)
+    expect(isEntryStale(subscriptionKey, staleTime)).toBe(false)
     
     // At t=31s - now stale, refetch should be allowed (31s > 30s)
     mockNow += 1000
-    expect(isEntryStale(serializedKey, staleTime)).toBe(true)
+    expect(isEntryStale(subscriptionKey, staleTime)).toBe(true)
   })
 
   test('staleTime of 0 means always stale even for error-only entries', () => {
     const testKey = ['zero-stale-error-test']
-    const serializedKey = JSON.stringify(testKey)
     const error = new Error('Some error')
     
     setErrorOnlyCacheEntry(testKey, error, mockNow)
-    
+
     // With staleTime=0, entry is always considered stale
-    expect(isEntryStale(serializedKey, 0)).toBe(true)
+    expect(isEntryStale(testKey, 0)).toBe(true)
   })
 
   test('error-only entry with null errorUpdatedAt is stale', () => {
     // Edge case: if somehow errorUpdatedAt is null, entry should be stale
     // This shouldn't happen in practice but tests defensive coding
     const testKey = ['null-error-time-test']
-    const serializedKey = JSON.stringify(testKey)
     const staleTime = 30000
     
     // Create entry without errorUpdatedAt (using undefined which gets stored as null)
     // Note: setErrorOnlyCacheEntry always sets errorUpdatedAt, so we test via regular data
     // and then invalidate it
-    
+
     // Non-existent key is stale
-    expect(isEntryStale(serializedKey, staleTime)).toBe(true)
+    expect(isEntryStale(testKey, staleTime)).toBe(true)
   })
 
   test('successful data takes precedence over errorUpdatedAt for staleness', () => {
     const testKey = ['data-precedence-test']
-    const serializedKey = JSON.stringify(testKey)
     const staleTime = 30000
     
     // First, set an error-only entry
     setErrorOnlyCacheEntry(testKey, new Error('Initial error'), mockNow)
-    expect(isEntryStale(serializedKey, staleTime)).toBe(false) // Fresh error
+    expect(isEntryStale(testKey, staleTime)).toBe(false) // Fresh error
     
     // Now set successful data (this is what happens on successful retry)
     setActivityQueryData(testKey, { subscription: 'active' })
-    
+
     // Staleness should now be based on dataUpdatedAt, not errorUpdatedAt
-    expect(isEntryStale(serializedKey, staleTime)).toBe(false) // Fresh data
+    expect(isEntryStale(testKey, staleTime)).toBe(false) // Fresh data
     
     // Advance time past staleTime
     mockNow += 35000
-    expect(isEntryStale(serializedKey, staleTime)).toBe(true) // Stale based on dataUpdatedAt
+    expect(isEntryStale(testKey, staleTime)).toBe(true) // Stale based on dataUpdatedAt
   })
 })
 
@@ -1105,10 +1116,9 @@ describe('retry infinite loop bug fix (subscription 401 scenario)', () => {
 
     // Error entry should exist (data is undefined but entry exists)
     // The entry has error set, which we can verify via isEntryStale behavior
-    const serializedKey = JSON.stringify(queryKey)
     // Entry exists (not stale due to "no entry" - stale due to other reasons)
     // Since we just set errorUpdatedAt = Date.now(), it should not be stale
     // for a reasonable staleTime
-    expect(isEntryStale(serializedKey, 30000)).toBe(false)
+    expect(isEntryStale(queryKey, 30000)).toBe(false)
   })
 })

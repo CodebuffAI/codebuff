@@ -47,6 +47,8 @@ const snapshotMemo = new Map<
   }
 >()
 
+type ActivityQueryKey = readonly unknown[]
+
 /**
  * Notify listeners for a specific cache key.
  */
@@ -111,8 +113,8 @@ function getCacheEntry<T>(key: string): CacheEntry<T> | undefined {
  * Check if a cache entry is stale based on staleTime.
  * Exported for testing purposes.
  */
-export function isEntryStale(key: string, staleTime: number): boolean {
-  const entry = getCacheEntry(key)
+export function isEntryStale(queryKey: ActivityQueryKey | string, staleTime: number): boolean {
+  const entry = getCacheEntry(resolveQueryCacheKey(queryKey))
   if (!entry) return true
   
   // If we have successful data, use its timestamp for staleness
@@ -162,8 +164,36 @@ function getRefCount(key: string): number {
 /**
  * Serialize a query key to a string for cache lookup.
  */
-function serializeQueryKey(queryKey: readonly unknown[]): string {
-  return JSON.stringify(queryKey)
+function normalizeQueryKeyPart(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeQueryKeyPart(item))
+  }
+
+  if (value instanceof Date) {
+    return value.toJSON()
+  }
+
+  if (value instanceof URL) {
+    return value.toString()
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, entryValue]) => [key, normalizeQueryKeyPart(entryValue)]),
+    )
+  }
+
+  return value
+}
+
+function serializeQueryKey(queryKey: ActivityQueryKey): string {
+  return JSON.stringify(normalizeQueryKeyPart(queryKey))
+}
+
+function resolveQueryCacheKey(queryKey: ActivityQueryKey | string): string {
+  return typeof queryKey === 'string' ? queryKey : serializeQueryKey(queryKey)
 }
 
 // Module-level map to track GC timeouts (survives component unmount)
@@ -205,7 +235,7 @@ function deleteCacheEntry(key: string): void {
 }
 export type UseActivityQueryOptions<T> = {
   /** Unique key for caching the query */
-  queryKey: readonly unknown[]
+  queryKey: ActivityQueryKey
   /** Function that fetches the data */
   queryFn: () => Promise<T>
   /** Whether the query is enabled (default: true) */
@@ -270,7 +300,6 @@ export function useActivityQuery<T>(
   } = options
 
   const serializedKey = serializeQueryKey(queryKey)
-  const mountedRef = useRef(true)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const wasIdleRef = useRef(false)
   
@@ -408,7 +437,6 @@ export function useActivityQuery<T>(
 
   // Initial fetch on mount/key change/enabled toggle (intentionally minimal deps)
   useEffect(() => {
-    mountedRef.current = true
     if (!enabled) return
 
     const currentEntry = getCacheEntry<T>(serializedKey)
@@ -423,10 +451,6 @@ export function useActivityQuery<T>(
       (!currentEntry)
 
     if (shouldFetchOnMount) void doFetch()
-
-    return () => {
-      mountedRef.current = false
-    }
   }, [enabled, serializedKey])
 
   // Polling
@@ -510,7 +534,7 @@ export function useActivityQuery<T>(
 /**
  * Invalidate a query, causing it to refetch on next access.
  */
-export function invalidateActivityQuery(queryKey: readonly unknown[]): void {
+export function invalidateActivityQuery(queryKey: ActivityQueryKey): void {
   const key = serializeQueryKey(queryKey)
   const entry = getCacheEntry(key)
   if (!entry) return
@@ -520,7 +544,7 @@ export function invalidateActivityQuery(queryKey: readonly unknown[]): void {
 /**
  * Remove a query from the cache entirely.
  */
-export function removeActivityQuery(queryKey: readonly unknown[]): void {
+export function removeActivityQuery(queryKey: ActivityQueryKey): void {
   const key = serializeQueryKey(queryKey)
 
   const existingTimeout = gcTimeouts.get(key)
@@ -535,7 +559,7 @@ export function removeActivityQuery(queryKey: readonly unknown[]): void {
 /**
  * Read cached data.
  */
-export function getActivityQueryData<T>(queryKey: readonly unknown[]): T | undefined {
+export function getActivityQueryData<T>(queryKey: ActivityQueryKey): T | undefined {
   const key = serializeQueryKey(queryKey)
   return getCacheEntry<T>(key)?.data
 }
@@ -543,7 +567,7 @@ export function getActivityQueryData<T>(queryKey: readonly unknown[]): T | undef
 /**
  * Write cached data (optimistic updates).
  */
-export function setActivityQueryData<T>(queryKey: readonly unknown[], data: T): void {
+export function setActivityQueryData<T>(queryKey: ActivityQueryKey, data: T): void {
   const key = serializeQueryKey(queryKey)
   setCacheEntry(key, {
     data,
@@ -585,7 +609,7 @@ export function resetActivityQueryCache(): void {
  * This simulates what happens when a fetch fails with no prior successful data.
  */
 export function setErrorOnlyCacheEntry(
-  queryKey: readonly unknown[],
+  queryKey: ActivityQueryKey,
   error: Error,
   errorUpdatedAt?: number,
 ): void {

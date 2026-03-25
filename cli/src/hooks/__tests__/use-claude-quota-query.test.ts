@@ -594,7 +594,7 @@ describe('Polling and cache freshness', () => {
 
   test('data should become stale after staleTime (30s)', () => {
     const staleTime = 30000 // 30 seconds
-    const serializedKey = JSON.stringify(claudeQuotaQueryKeys.current())
+    const queryKey = claudeQuotaQueryKeys.current()
 
     // Set quota data at t=0
     const quota: ClaudeQuotaData = {
@@ -603,18 +603,18 @@ describe('Polling and cache freshness', () => {
       sevenDayRemaining: 60,
       sevenDayResetsAt: null,
     }
-    setActivityQueryData(claudeQuotaQueryKeys.current(), quota)
+    setActivityQueryData(queryKey, quota)
 
     // At this point, dataUpdatedAt = mockNow (1000000)
-    expect(getActivityQueryData<ClaudeQuotaData>(claudeQuotaQueryKeys.current())).toBeDefined()
-    expect(isEntryStale(serializedKey, staleTime)).toBe(false)
+    expect(getActivityQueryData<ClaudeQuotaData>(queryKey)).toBeDefined()
+    expect(isEntryStale(queryKey, staleTime)).toBe(false)
 
     // Advance time by 35 seconds (past staleTime)
     mockNow += 35000
 
     // Data is stale but still accessible
-    expect(isEntryStale(serializedKey, staleTime)).toBe(true)
-    const cached = getActivityQueryData<ClaudeQuotaData>(claudeQuotaQueryKeys.current())
+    expect(isEntryStale(queryKey, staleTime)).toBe(true)
+    const cached = getActivityQueryData<ClaudeQuotaData>(queryKey)
     expect(cached?.fiveHourRemaining).toBe(50)
     
     // In the actual hook, this would trigger a refetch on the next interval tick
@@ -622,46 +622,46 @@ describe('Polling and cache freshness', () => {
 
   test('refreshed data should reset staleness', () => {
     const staleTime = 30000
-    const serializedKey = JSON.stringify(claudeQuotaQueryKeys.current())
+    const queryKey = claudeQuotaQueryKeys.current()
 
     // Set initial data
-    setActivityQueryData(claudeQuotaQueryKeys.current(), { fiveHourRemaining: 100 })
-    expect(isEntryStale(serializedKey, staleTime)).toBe(false)
+    setActivityQueryData(queryKey, { fiveHourRemaining: 100 })
+    expect(isEntryStale(queryKey, staleTime)).toBe(false)
 
     // Advance past staleTime
     mockNow += 35000
-    expect(isEntryStale(serializedKey, staleTime)).toBe(true)
+    expect(isEntryStale(queryKey, staleTime)).toBe(true)
 
     // "Refetch" by setting new data
-    setActivityQueryData(claudeQuotaQueryKeys.current(), { fiveHourRemaining: 80 })
-    expect(isEntryStale(serializedKey, staleTime)).toBe(false) // Fresh again
+    setActivityQueryData(queryKey, { fiveHourRemaining: 80 })
+    expect(isEntryStale(queryKey, staleTime)).toBe(false) // Fresh again
 
     // Data is now fresh
     expect(
-      getActivityQueryData<{ fiveHourRemaining: number }>(claudeQuotaQueryKeys.current())?.fiveHourRemaining,
+      getActivityQueryData<{ fiveHourRemaining: number }>(queryKey)?.fiveHourRemaining,
     ).toBe(80)
 
     // Advance a little (less than staleTime)
     mockNow += 10000
-    expect(isEntryStale(serializedKey, staleTime)).toBe(false) // Still fresh
+    expect(isEntryStale(queryKey, staleTime)).toBe(false) // Still fresh
   })
 
   test('invalidation should mark data for immediate refetch', () => {
     const staleTime = 30000
-    const serializedKey = JSON.stringify(claudeQuotaQueryKeys.current())
+    const queryKey = claudeQuotaQueryKeys.current()
 
     // Set data
-    setActivityQueryData(claudeQuotaQueryKeys.current(), { fiveHourRemaining: 70 })
-    expect(isEntryStale(serializedKey, staleTime)).toBe(false)
+    setActivityQueryData(queryKey, { fiveHourRemaining: 70 })
+    expect(isEntryStale(queryKey, staleTime)).toBe(false)
 
     // Invalidate (sets dataUpdatedAt to 0)
-    invalidateActivityQuery(claudeQuotaQueryKeys.current())
-    expect(isEntryStale(serializedKey, staleTime)).toBe(true) // Immediately stale
+    invalidateActivityQuery(queryKey)
+    expect(isEntryStale(queryKey, staleTime)).toBe(true) // Immediately stale
 
     // Data exists but is immediately stale (dataUpdatedAt === 0)
     // Next poll interval will trigger refetch regardless of time elapsed
     expect(
-      getActivityQueryData<{ fiveHourRemaining: number }>(claudeQuotaQueryKeys.current())?.fiveHourRemaining,
+      getActivityQueryData<{ fiveHourRemaining: number }>(queryKey)?.fiveHourRemaining,
     ).toBe(70)
   })
 
@@ -672,15 +672,15 @@ describe('Polling and cache freshness', () => {
     
     const staleTime = 30 * 1000 // useClaudeQuotaQuery config
     const refetchInterval = 60 * 1000 // chat.tsx config
-    const serializedKey = JSON.stringify(claudeQuotaQueryKeys.current())
+    const queryKey = claudeQuotaQueryKeys.current()
 
     // Initial fetch
-    setActivityQueryData(claudeQuotaQueryKeys.current(), { fiveHourRemaining: 100 })
-    expect(isEntryStale(serializedKey, staleTime)).toBe(false)
+    setActivityQueryData(queryKey, { fiveHourRemaining: 100 })
+    expect(isEntryStale(queryKey, staleTime)).toBe(false)
 
     // After 60 seconds (when refetch interval fires), data should be stale
     mockNow += refetchInterval
-    expect(isEntryStale(serializedKey, staleTime)).toBe(true)
+    expect(isEntryStale(queryKey, staleTime)).toBe(true)
     
     // This confirms that the refetch interval tick WILL trigger a new fetch
     // because the data is stale at that point (60s > 30s staleTime)
