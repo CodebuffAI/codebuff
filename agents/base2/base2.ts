@@ -84,6 +84,7 @@ export function createBase2(
       isMax && 'editor-multi-prompt',
       'tmux-cli',
       'browser-use',
+      isFree && 'editor-gpt',
       isFree && 'code-reviewer-lite',
       isDefault && 'code-reviewer',
       isMax && 'code-reviewer-multi-prompt',
@@ -149,7 +150,7 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
         isMax &&
         `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
         isFree &&
-        '- Implement code changes using the str_replace or write_file tools directly.',
+        '- Implement code changes using the editor-gpt agent after you have gathered all the context you need. You must spawn this agent for all non-trivial changes since it is much better at writing code than you.',
         isFree &&
         '- Spawn a code-reviewer-lite to review the changes after you have implemented the changes.',
         '- Spawn bashers sequentially if the second command depends on the the first.',
@@ -208,7 +209,7 @@ ${buildArray(
 ${isDefault
         ? `[ You implement the changes using the editor agent ]`
         : isFast || isFree
-          ? '[ You implement the changes using the str_replace or write_file tools ]'
+          ? '[ You implement the changes using the editor-gpt agent ]'
           : '[ You implement the changes using the editor-multi-prompt agent ]'
       }
 
@@ -333,6 +334,8 @@ ${buildArray(
     `- For any task requiring 3+ steps, use the write_todos tool to write out your step-by-step implementation plan. Include ALL of the applicable tasks in the list.${isFast ? '' : ' You should include a step to review the changes after you have implemented the changes.'}:${hasNoValidation ? '' : ' You should include at least one step to validate/test your changes: be specific about whether to typecheck, run tests, run lints, etc.'} You may be able to do reviewing and validation in parallel in the same step. Skip write_todos for simple tasks like quick edits or answering questions.`,
     (isDefault || isMax) &&
     `- For quick problems, briefly explain your reasoning to the user. If you need to think longer, write your thoughts within the <think> tags. Finally, for complex problems, spawn the thinker agent to help find the best solution. (gpt-5-agent is a last resort for complex problems)`,
+    isFree &&
+    '- IMPORTANT: You must spawn the editor-gpt agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all non-trivial changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do. For quick follow-ups or simple changes, you can use the str_replace or write_file tools directly to make the changes.',
     isDefault &&
     '- IMPORTANT: You must spawn the editor agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all non-trivial changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
     isMax &&
@@ -375,6 +378,8 @@ function buildImplementationStepPrompt({
     isMax &&
     `Keep working until the user's request is completely satisfied${!hasNoValidation ? ' and validated' : ''}, or until you require more information from the user.`,
     'You must use the skill tool to load any potentially relevant skills.',
+    isFree &&
+    `You must spawn the editor-gpt agent to implement non-trivial code changes. For obvious or simple changes, you can use the str_replace or write_file tools directly to make the changes.`,
     isMax &&
     `You must spawn the 'editor-multi-prompt' agent to implement code changes rather than using the str_replace or write_file tools, since it will generate the best code changes.`,
     (isDefault || isMax) &&
