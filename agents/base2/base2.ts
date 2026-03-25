@@ -141,15 +141,15 @@ Use the spawn_agents tool to spawn specialized agents to help you complete the u
 - **Sequence agents properly:** Keep in mind dependencies when spawning different agents. Don't spawn agents in parallel that depend on each other.
   ${buildArray(
         '- Spawn context-gathering agents (file pickers and web/docs researchers) before making edits. Use the code_search, list_directory, and glob tools directly for searching and exploring the codebase.',
-        // isFree && 'Important: Do not spawn the thinker-gpt agent, unless the user asks. Not everyone has connected their ChatGPT subscription to Codebuff to allow for it.',
-        isFree &&
-        '- You must spawn the thinker-gpt agent to plan your response, except for extremely simple requests that are obvious.',
+        isFree && 'Do not spawn the thinker-gpt agent, unless the user asks. Not everyone has connected their ChatGPT subscription to Codebuff to allow for it.',
         isDefault &&
         '- Spawn the editor agent to implement the changes after you have gathered all the context you need.',
         (isDefault || isMax) &&
         `- Spawn the ${isDefault ? 'thinker' : 'thinker-best-of-n-opus'} after gathering context to solve complex problems or when the user asks you to think about a problem. (gpt-5-agent is a last resort for complex problems)`,
         isMax &&
         `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement the changes after you have gathered all the context you need. You must spawn this agent for non-trivial changes, since it writes much better code than you would with the str_replace or write_file tools. Don't spawn the editor in parallel with context-gathering agents.`,
+        isFree &&
+        '- Implement code changes using the str_replace or write_file tools directly.',
         isFree &&
         '- Spawn a code-reviewer-lite to review the changes after you have implemented the changes.',
         '- Spawn bashers sequentially if the second command depends on the the first.',
@@ -204,10 +204,8 @@ ${buildArray(
 [ You read a few other relevant files using the read_files tool ]${!noAskUser
         ? `\n\n[ You ask the user for important clarifications on their request or alternate implementation strategies using the ask_user tool ]`
         : ''
-      }${isFree
-        ? `\n\n[ You spawn the thinker-gpt agent to plan your response ]`
-        : ''
-      }${isDefault
+      }
+${isDefault
         ? `[ You implement the changes using the editor agent ]`
         : isFast || isFree
           ? '[ You implement the changes using the str_replace or write_file tools ]'
@@ -339,8 +337,6 @@ ${buildArray(
     '- IMPORTANT: You must spawn the editor agent to implement the changes after you have gathered all the context you need. This agent will do the best job of implementing the changes so you must spawn it for all non-trivial changes. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best choices of what to do.',
     isMax &&
     `- IMPORTANT: You must spawn the editor-multi-prompt agent to implement non-trivial code changes, since it will generate the best code changes from multiple implementation proposals. This is the best way to make high quality code changes -- strongly prefer using this agent over the str_replace or write_file tools, unless the change is very straightforward and obvious. You should also prompt it to implement the full task rather than just a single step.`,
-    isFree &&
-    '- IMPORTANT: You must spawn the thinker-gpt agent to plan your response after you have gathered all the context you need. This agent will do the best job of thinking and planning your best response so you must spawn it for all non-trivial requests. Do not pass any prompt or params to the editor agent when spawning it. It will make its own best recommendations of what to do.',
     isFast &&
     '- Implement the changes using the str_replace or write_file tools. Implement all the changes in one go.',
     isFast &&
@@ -383,8 +379,6 @@ function buildImplementationStepPrompt({
     `You must spawn the 'editor-multi-prompt' agent to implement code changes rather than using the str_replace or write_file tools, since it will generate the best code changes.`,
     (isDefault || isMax) &&
     `You must spawn a ${isDefault ? 'code-reviewer' : 'code-reviewer-multi-prompt'} to review the changes after you have implemented the changes and in parallel with typechecking or testing.`,
-    isFree &&
-    `You must spawn a thinker-gpt to plan your response after you have gathered all the relevant context.`,
     isFree &&
     `You must spawn a code-reviewer-lite to review the changes after you have implemented the changes and in parallel with typechecking or testing.`,
     `After completing the user request, summarize your changes in a sentence${isFast ? '' : ' or a few short bullet points'}.${isSonnet ? " Don't create any summary markdown files or example documentation files, unless asked by the user." : ''}.`,
