@@ -25,6 +25,7 @@ import {
 import { withTestRepo } from './test-repo-utils'
 
 import type { QualityCriteria } from './criteria'
+import type { ReviewerAgentType } from './judge'
 import type { EvalbuffLogEntry } from './morning-report'
 import type { EvalCommitV2, EvalDataV2 } from './types'
 
@@ -37,6 +38,7 @@ export interface EvalbuffOptions {
   scoreThreshold: number
   agentTimeoutMs: number
   criteriaPath?: string
+  reviewerAgents?: ReviewerAgentType[]
 }
 
 interface EvalbuffState {
@@ -126,6 +128,7 @@ export async function runEvalbuff(options: EvalbuffOptions): Promise<void> {
     scoreThreshold,
     agentTimeoutMs,
     criteriaPath,
+    reviewerAgents,
   } = options
 
   const statePath = path.join(repoPath, 'evalbuff-state.json')
@@ -137,11 +140,13 @@ export async function runEvalbuff(options: EvalbuffOptions): Promise<void> {
   let criteria = loadCriteria(defaultCriteriaPath)
   const tasks = loadEvalTasks(evalDataPaths)
 
+  // CodebuffClient is only used for doc writer (analyzeFailure), not for judging
   const client = new CodebuffClient({})
 
   console.log(`Evalbuff starting:`)
   console.log(`  Repo: ${repoPath}`)
   console.log(`  Agent: ${agentCommand}`)
+  console.log(`  Reviewer agents: ${(reviewerAgents || ['claude', 'codex']).join(', ')}`)
   console.log(`  Tasks: ${tasks.length}`)
   console.log(`  Max iterations: ${maxIterations}`)
   console.log(`  Max cost: $${maxCostUsd}`)
@@ -189,9 +194,9 @@ export async function runEvalbuff(options: EvalbuffOptions): Promise<void> {
     }
 
     try {
-      // Step 1: Run agent with current docs
+      // Step 1: Run agent with current docs, then judge in the same repo
       console.log(`Running agent on task ${task.id}...`)
-      const oldResult = await withTestRepo(
+      const oldJudging = await withTestRepo(
         {
           repoUrl: evalData.repoUrl,
           parentSha: task.parentSha,
@@ -211,26 +216,28 @@ export async function runEvalbuff(options: EvalbuffOptions): Promise<void> {
           })
 
           const contextFiles = getContextFiles(repoDir, task)
+          logEntry.costUsd += result.durationMs * 0.001
 
-          return { ...result, contextFiles }
+          // Judge the result — reviewer agents run IN the repo
+          // so they can build, test, start the app, use browser tools, etc.
+          console.log(`Judging result with reviewer agents...`)
+          const judging = await judgeCommitResult({
+            commit: task,
+            contextFiles,
+            agentDiff: result.diff,
+            repoDir,
+            error: result.exitCode !== 0 ? result.stderr : undefined,
+            criteria,
+            reviewerAgents,
+            env: evalData.env,
+          })
+
+          return judging
         },
       )
 
-      // Judge the result
-      console.log(`Judging result...`)
-      const oldJudging = await judgeCommitResult({
-        client,
-        commit: task,
-        contextFiles: oldResult.contextFiles,
-        agentDiff: oldResult.diff,
-        error: oldResult.exitCode !== 0 ? oldResult.stderr : undefined,
-        criteria,
-      })
-
       logEntry.oldScore = oldJudging.overallScore
-      logEntry.costUsd += oldResult.durationMs * 0.001 // rough estimate
-
-      console.log(`Score: ${oldJudging.overallScore.toFixed(1)}/10`)
+      console.log(`Score: ${oldJudging.overallScore.toFixed(1)}/10 (e2e: ${oldJudging.e2eScore.toFixed(1)})`)
 
       // Step 2: If score is low, try to improve docs
       if (oldJudging.overallScore < scoreThreshold) {
@@ -246,7 +253,7 @@ export async function runEvalbuff(options: EvalbuffOptions): Promise<void> {
           client,
           judgeResult: oldJudging,
           taskPrompt: task.prompt,
-          agentDiff: oldResult.diff,
+          agentDiff: '', // agent diff not preserved after withTestRepo cleanup
           groundTruthDiff,
           currentDocs,
           scoreThreshold,
@@ -261,9 +268,9 @@ export async function runEvalbuff(options: EvalbuffOptions): Promise<void> {
             reasoning: docSuggestion.reasoning,
           }
 
-          // Re-run with updated docs on a FRESH repo
+          // Re-run with updated docs on a FRESH repo, judge inside
           console.log(`Re-running agent with new doc...`)
-          const newResult = await withTestRepo(
+          const newJudging = await withTestRepo(
             {
               repoUrl: evalData.repoUrl,
               parentSha: task.parentSha,
@@ -271,7 +278,6 @@ export async function runEvalbuff(options: EvalbuffOptions): Promise<void> {
               env: evalData.env,
             },
             async (freshRepoDir) => {
-              // Copy existing docs + new doc
               copyDocsIntoRepo(repoPath, freshRepoDir)
               applyDocEdit(
                 freshRepoDir,
@@ -288,22 +294,23 @@ export async function runEvalbuff(options: EvalbuffOptions): Promise<void> {
               })
 
               const contextFiles = getContextFiles(freshRepoDir, task)
-              return { ...result, contextFiles }
+              logEntry.costUsd += result.durationMs * 0.001
+
+              console.log(`Re-judging with reviewer agents...`)
+              return await judgeCommitResult({
+                commit: task,
+                contextFiles,
+                agentDiff: result.diff,
+                repoDir: freshRepoDir,
+                error: result.exitCode !== 0 ? result.stderr : undefined,
+                criteria,
+                reviewerAgents,
+                env: evalData.env,
+              })
             },
           )
 
-          // Judge the new result
-          const newJudging = await judgeCommitResult({
-            client,
-            commit: task,
-            contextFiles: newResult.contextFiles,
-            agentDiff: newResult.diff,
-            error: newResult.exitCode !== 0 ? newResult.stderr : undefined,
-            criteria,
-          })
-
           logEntry.newScore = newJudging.overallScore
-          logEntry.costUsd += newResult.durationMs * 0.001
           logEntry.scoreComparison = compareScores(
             oldJudging.overallScore,
             newJudging.overallScore,
@@ -322,7 +329,6 @@ export async function runEvalbuff(options: EvalbuffOptions): Promise<void> {
               docSuggestion.suggestedContent,
             )
 
-            // Commit the doc change
             try {
               execSync('git add docs/ AGENTS.md', {
                 cwd: repoPath,
@@ -409,6 +415,12 @@ async function main() {
   const criteriaPath = args.includes('--criteria')
     ? getArg('criteria')
     : undefined
+  const reviewerAgentsArg = args.includes('--reviewers')
+    ? getArg('reviewers')
+    : undefined
+  const reviewerAgents = reviewerAgentsArg
+    ? (reviewerAgentsArg.split(',') as ReviewerAgentType[])
+    : undefined
 
   await runEvalbuff({
     repoPath,
@@ -419,6 +431,7 @@ async function main() {
     scoreThreshold,
     agentTimeoutMs,
     criteriaPath,
+    reviewerAgents,
   })
 }
 

@@ -55,8 +55,10 @@ mock.module('../judge', () => ({
       analysis: `Mock analysis for call ${judgeCallCount}`,
       strengths: ['Correctly identified the problem'],
       weaknesses: ['Missing error handling', 'No tests added'],
+      e2eTestsPerformed: ['Started dev server', 'Tested API endpoint'],
       completionScore: score,
       codeQualityScore: score,
+      e2eScore: score,
       overallScore: score,
     } satisfies JudgingResult
   },

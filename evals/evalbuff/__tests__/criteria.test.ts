@@ -26,32 +26,34 @@ describe('getCriteriaForLevel', () => {
     const criteria = getCriteriaForLevel(1)
     expect(criteria).toHaveLength(3)
     expect(criteria.map((c) => c.name)).toEqual([
-      'Correctness',
-      'Completeness',
-      'Basic Style',
+      'Builds & Compiles',
+      'Existing Tests Pass',
+      'Basic Completeness',
     ])
   })
 
   it('accumulates criteria up to level 3', () => {
     const criteria = getCriteriaForLevel(3)
     expect(criteria.map((c) => c.name)).toEqual([
-      'Correctness',
-      'Completeness',
-      'Basic Style',
-      'Pattern Consistency',
-      'Test Quality',
+      'Builds & Compiles',
+      'Existing Tests Pass',
+      'Basic Completeness',
+      'Feature Works E2E',
+      'Logs & Observability',
+      'Edge Cases & Error States',
+      'UI/UX Verification',
     ])
   })
 
   it('includes all criteria at level 5', () => {
     const criteria = getCriteriaForLevel(5)
-    expect(criteria).toHaveLength(7)
-    expect(criteria[criteria.length - 1].name).toBe('Fluency')
+    expect(criteria).toHaveLength(10)
+    expect(criteria[criteria.length - 1].name).toBe('Production Readiness')
   })
 
   it('caps at level 5 even if higher number passed', () => {
     const criteria = getCriteriaForLevel(10)
-    expect(criteria).toHaveLength(7)
+    expect(criteria).toHaveLength(10)
   })
 })
 
@@ -86,7 +88,6 @@ describe('maybePromoteCriteria', () => {
 
   it('uses only the last N scores in the window', () => {
     const criteria = makeCriteria(2, 8.0, 3)
-    // Old scores are low, but last 3 are high
     const scores = [3.0, 4.0, 5.0, 8.5, 9.0, 8.5]
     const newLevel = maybePromoteCriteria(criteria, scores)
     expect(newLevel).toBe(3)
@@ -94,18 +95,25 @@ describe('maybePromoteCriteria', () => {
 })
 
 describe('formatCriteriaForPrompt', () => {
-  it('includes level and all criteria names', () => {
+  it('includes level and E2E-focused criteria names', () => {
     const criteria = makeCriteria(2)
     const prompt = formatCriteriaForPrompt(criteria)
     expect(prompt).toContain('Level 2/5')
-    expect(prompt).toContain('Correctness')
-    expect(prompt).toContain('Pattern Consistency')
+    expect(prompt).toContain('Builds & Compiles')
+    expect(prompt).toContain('Feature Works E2E')
   })
 
   it('includes weights', () => {
     const criteria = makeCriteria(1)
     const prompt = formatCriteriaForPrompt(criteria)
     expect(prompt).toContain('weight: 3')
-    expect(prompt).toContain('weight: 1')
+    expect(prompt).toContain('weight: 2')
+  })
+
+  it('instructs E2E verification', () => {
+    const criteria = makeCriteria(1)
+    const prompt = formatCriteriaForPrompt(criteria)
+    expect(prompt).toContain('MUST verify')
+    expect(prompt).toContain('E2E testing')
   })
 })

@@ -56,8 +56,10 @@ mock.module('../judge', () => ({
       analysis: 'Mock analysis',
       strengths: ['Good'],
       weaknesses: ['Could improve'],
+      e2eTestsPerformed: ['Mock E2E test'],
       completionScore: score,
       codeQualityScore: score,
+      e2eScore: score,
       overallScore: score,
     } satisfies JudgingResult
   },

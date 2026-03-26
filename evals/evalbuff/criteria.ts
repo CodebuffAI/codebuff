@@ -16,54 +16,72 @@ export interface QualityCriteria {
 export const DEFAULT_CRITERIA: Record<number, QualityCriterion[]> = {
   1: [
     {
-      name: 'Correctness',
+      name: 'Builds & Compiles',
       weight: 3,
       description:
-        'The code compiles, runs without errors, and produces the expected behavior.',
+        'The code compiles, builds, and the project starts without errors. Run the build command and verify it succeeds.',
     },
     {
-      name: 'Completeness',
+      name: 'Existing Tests Pass',
       weight: 3,
       description:
-        'All aspects of the prompt are addressed. No partial implementations or TODO comments.',
+        'All pre-existing tests still pass. Run the test suite and confirm no regressions were introduced.',
     },
     {
-      name: 'Basic Style',
-      weight: 1,
+      name: 'Basic Completeness',
+      weight: 2,
       description:
-        'Code follows basic formatting conventions and is readable.',
+        'All aspects of the prompt are addressed. No partial implementations or TODO comments left behind.',
     },
   ],
   2: [
     {
-      name: 'Pattern Consistency',
-      weight: 2,
+      name: 'Feature Works E2E',
+      weight: 4,
       description:
-        'New code follows the same patterns, naming conventions, and architectural style as existing code in the codebase.',
+        'The new feature or bug fix actually works when you use the application. Start the app, navigate to the relevant page or endpoint, and exercise the feature. Use browser tools, curl, or the appropriate client to verify the happy path end-to-end.',
+    },
+    {
+      name: 'Logs & Observability',
+      weight: 1,
+      description:
+        'Check application logs for errors, warnings, or stack traces during E2E testing. Verify no unexpected errors appear when exercising the feature.',
     },
   ],
   3: [
     {
-      name: 'Test Quality',
+      name: 'Edge Cases & Error States',
+      weight: 3,
+      description:
+        'Test error states and edge cases E2E. Submit invalid inputs, trigger error conditions, test boundary values. Verify the app handles them gracefully without crashing.',
+    },
+    {
+      name: 'UI/UX Verification',
       weight: 2,
       description:
-        'Tests are meaningful, cover edge cases, and test behavior rather than implementation details.',
+        'For UI changes: visually verify the rendered output. Check layout, responsiveness, and that the UI matches expectations. Take screenshots to document.',
     },
   ],
   4: [
     {
-      name: 'Optimal Design',
+      name: 'Cross-Component Integration',
       weight: 2,
       description:
-        'Code is DRY, uses the right abstractions, and the diff is minimal — no unnecessary changes.',
+        'Verify the change works correctly with related features. Test flows that cross component boundaries. If a backend change was made, verify the frontend still works. If a DB migration was added, verify queries work.',
+    },
+    {
+      name: 'Performance & No Regressions',
+      weight: 2,
+      description:
+        'Verify no performance regressions. Check page load times, API response times, or resource usage. Ensure the change does not break unrelated features.',
     },
   ],
   5: [
     {
-      name: 'Fluency',
-      weight: 1,
+      name: 'Production Readiness',
+      weight: 2,
       description:
-        'Code reads like a senior engineer wrote it. Idiomatic usage of the language and framework. No over-engineering.',
+        'Full production readiness check. Verify migrations, environment variable handling, error recovery, and graceful degradation. The change should be safe to deploy.',
     },
   ],
 }
@@ -122,13 +140,13 @@ export function maybePromoteCriteria(
 }
 
 /**
- * Format criteria as text for injection into judge prompts.
+ * Format criteria as text for injection into reviewer agent prompts.
  */
 export function formatCriteriaForPrompt(criteria: QualityCriteria): string {
   const lines = [
     `## Quality Criteria (Level ${criteria.level}/5)`,
     '',
-    'Apply these additional quality criteria when scoring. Higher levels add stricter standards:',
+    'You MUST verify each of these criteria. Higher levels require deeper E2E testing:',
     '',
   ]
 
@@ -138,7 +156,9 @@ export function formatCriteriaForPrompt(criteria: QualityCriteria): string {
 
   lines.push(
     '',
-    'Weight these criteria proportionally when computing scores. A violation of a high-weight criterion should have a bigger impact on the score than a low-weight one.',
+    'For each criterion, describe what you tested and what you observed. If you cannot test a criterion (e.g., no UI for a backend change), note that and explain why.',
+    '',
+    'Weight these criteria proportionally when computing scores. A failure on a high-weight criterion should have a bigger impact on the score than a low-weight one.',
   )
 
   return lines.join('\n')

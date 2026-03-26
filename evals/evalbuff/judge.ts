@@ -1,24 +1,25 @@
+import { execSync, spawn } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-import { withTimeout } from '@codebuff/common/util/promise'
 import { z } from 'zod/v4'
 
-import type { QualityCriteria } from './criteria'
 import { formatCriteriaForPrompt } from './criteria'
-import type { EvalCommitV2 } from './types'
-import type { AgentDefinition, CodebuffClient } from '@codebuff/sdk'
 
-const DEBUG_ERROR = true
+import type { QualityCriteria } from './criteria'
+import type { EvalCommitV2 } from './types'
 
 export const JudgingResultSchema = z.object({
   analysis: z
     .string()
-    .describe('Detailed analysis comparing agent changes to ground truth'),
+    .describe('Detailed analysis of what was tested and found'),
   strengths: z
     .array(z.string())
     .describe('Key strengths of the implementation'),
   weaknesses: z.array(z.string()).describe('Key weaknesses or issues found'),
+  e2eTestsPerformed: z
+    .array(z.string())
+    .describe('List of E2E tests that were actually performed'),
   completionScore: z
     .number()
     .min(0)
@@ -29,213 +30,120 @@ export const JudgingResultSchema = z.object({
     .min(0)
     .max(10)
     .describe('Code structure and maintainability'),
+  e2eScore: z
+    .number()
+    .min(0)
+    .max(10)
+    .describe('How well the change works when tested end-to-end'),
   overallScore: z.number().min(0).max(10).describe('Combined assessment'),
 })
 
 export type JudgingResult = z.infer<typeof JudgingResultSchema>
 
-const judgeAgentBase: Omit<AgentDefinition, 'id' | 'model'> = {
-  displayName: 'Judge',
-  toolNames: ['set_output'],
-  inputSchema: {
-    prompt: { type: 'string', description: 'The evaluation prompt' },
-  },
-  outputMode: 'structured_output',
-  outputSchema: {
-    type: 'object',
-    properties: {
-      analysis: {
-        type: 'string',
-        description:
-          'Detailed analysis comparing agent changes to ground truth',
-      },
-      strengths: {
-        type: 'array',
-        items: { type: 'string' },
-        description: 'Key strengths of the implementation',
-      },
-      weaknesses: {
-        type: 'array',
-        items: { type: 'string' },
-        description: 'Key weaknesses or issues found',
-      },
-      completionScore: {
-        type: 'number',
-        minimum: 0,
-        maximum: 10,
-        description: 'How completely the prompt was addressed',
-      },
-      codeQualityScore: {
-        type: 'number',
-        minimum: 0,
-        maximum: 10,
-        description: 'Code structure and maintainability',
-      },
-      overallScore: {
-        type: 'number',
-        minimum: 0,
-        maximum: 10,
-        description: 'Combined assessment',
-      },
-    },
-    required: [
-      'analysis',
-      'strengths',
-      'weaknesses',
-      'completionScore',
-      'codeQualityScore',
-      'overallScore',
+// --- Reviewer agent types ---
+
+export type ReviewerAgentType = 'claude' | 'codex' | 'gemini'
+
+interface ReviewerConfig {
+  type: ReviewerAgentType
+  command: string[]
+  env?: Record<string, string>
+  timeoutMs: number
+}
+
+const REVIEWER_CONFIGS: Record<ReviewerAgentType, ReviewerConfig> = {
+  claude: {
+    type: 'claude',
+    command: [
+      'claude',
+      '-p',
+      '__PROMPT__',
+      '--output-format',
+      'stream-json',
+      '--dangerously-skip-permissions',
     ],
+    timeoutMs: 30 * 60 * 1000, // 30 min — needs time for E2E testing
   },
-  systemPrompt: `You are an expert software engineer evaluating AI-generated code changes with empathy for the task given.
-
-## Your Role
-
-You will receive:
-1. The user prompt that the coding agent was given
-2. Context files from the codebase
-3. The ground truth changes (expected outcome)
-4. The agent's actual changes
-
-## Evaluation Philosophy
-
-**Judge based on what the agent was asked to do, not on perfection.**
-
-- If the prompt is vague or high-level (e.g., "add authentication"), be lenient and accept any reasonable implementation that achieves the goal
-- If the prompt is specific and detailed, expect the implementation to match those details more closely
-- Focus on whether the agent understood and addressed the user's intent
-- Consider that there are often multiple valid ways to implement the same feature
-
-## Evaluation Criteria
-
-- **Completion** (0-10): How well did the agent address what was asked in the prompt? Consider the specificity of the prompt.
-- **Code Quality** (0-10): How well-structured and maintainable is the code?
-- **Overall** (0-10): Combined assessment of whether the agent successfully completed the task as requested
-
-## Ground Truth
-
-The ground truth shows ONE valid implementation, but it's not the only correct answer. The agent's implementation should be judged on:
-- Does it achieve the same functional outcome?
-- Is it a reasonable approach given the prompt?
-- Does it maintain code quality?
-
-Provide detailed analysis, strengths, weaknesses, and numerical scores.`,
-}
-
-const judgeAgents: Record<string, AgentDefinition> = {
-  'judge-gpt': {
-    id: 'judge-gpt',
-    model: 'openai/gpt-5.1',
-    ...judgeAgentBase,
+  codex: {
+    type: 'codex',
+    command: [
+      'codex',
+      'exec',
+      '--full-auto',
+      '--json',
+      '-m',
+      'gpt-5.1-codex',
+      '__PROMPT__',
+    ],
+    timeoutMs: 30 * 60 * 1000,
   },
-  'judge-gemini': {
-    id: 'judge-gemini',
-    model: 'google/gemini-3-pro-preview',
-    ...judgeAgentBase,
-  },
-  'judge-sonnet': {
-    id: 'judge-claude',
-    model: 'anthropic/claude-sonnet-4.5',
-    ...judgeAgentBase,
+  gemini: {
+    type: 'gemini',
+    command: ['gemini', '--yolo', '-p', '__PROMPT__'],
+    timeoutMs: 30 * 60 * 1000,
   },
 }
 
-interface JudgeCommitResultInput {
-  client: CodebuffClient
+// The result file name the reviewer agent is instructed to write
+const RESULT_FILE_NAME = 'evalbuff-review-result.json'
+
+function buildReviewerPrompt(input: {
   commit: EvalCommitV2
   contextFiles: Record<string, string>
   agentDiff: string
   error?: string
-  finalCheckOutputs?: string
   criteria?: QualityCriteria
-}
+  docsDir?: string
+}): string {
+  const { commit, contextFiles, agentDiff, error, criteria, docsDir } = input
 
-async function runSingleJudge(
-  input: JudgeCommitResultInput,
-  judgePrompt: string,
-  judgeAgentId: string,
-): Promise<JudgingResult | null> {
-  const { client } = input
-
-  const judgeAgent = judgeAgents[judgeAgentId]
-  const agentOutput: string[] = []
-  try {
-    const judgeResult = await withTimeout(
-      client.run({
-        agent: judgeAgent.id,
-        prompt: judgePrompt,
-        agentDefinitions: Object.values(judgeAgents),
-        handleEvent: (event) => {
-          if (event.type === 'text') {
-            agentOutput.push(event.text)
-          } else if (event.type === 'tool_call') {
-            agentOutput.push(JSON.stringify(event, null, 2))
-          } else if (event.type === 'error') {
-            console.warn(`[Judge ${judgeAgentId}] Error event:`, event.message)
-          }
-        },
-      }),
-      20 * 60 * 1000,
-      'Judge agent timed out after 20 minutes',
-    )
-
-    if (judgeResult.output.type !== 'structuredOutput') {
-      console.error(
-        `Judge ${judgeAgentId} - not structured output`,
-        JSON.stringify(judgeResult.output, null, 2),
-      )
-      console.error(
-        'Judge agent output:',
-        JSON.stringify(judgeResult.output, null, 2),
-        'Judge agent output trace:',
-        agentOutput.join(''),
-      )
-      if (DEBUG_ERROR) {
-        fs.writeFileSync(
-          path.join(
-            __dirname,
-            '..',
-            `${input.commit.id}-${judgeAgentId}-agent-output-error.json`,
-          ),
-          JSON.stringify(
-            { output: judgeResult.output, trace: agentOutput },
-            null,
-            2,
-          ),
-        )
-      }
-      return null
-    }
-
-    return judgeResult.output.value as JudgingResult
-  } catch (error) {
-    console.warn(`Judge ${judgeAgentId} failed:`, error)
-    return null
-  }
-}
-
-export async function judgeCommitResult(
-  input: JudgeCommitResultInput,
-): Promise<JudgingResult> {
-  const { commit, contextFiles, agentDiff, error, finalCheckOutputs, criteria } =
-    input
-
-  const { prompt, fileDiffs } = commit
-
-  const groundTruthDiffs = fileDiffs
-    .map(({ path, diff }) => {
-      return `### ${path}\n\`\`\`diff\n${diff}\n\`\`\``
-    })
+  const groundTruthDiffs = commit.fileDiffs
+    .map(({ path: p, diff }) => `### ${p}\n\`\`\`diff\n${diff}\n\`\`\``)
     .join('\n\n')
 
   const contextFilesContent = Object.entries(contextFiles)
-    .map(([filePath, content]) => {
-      return `### ${filePath}\n\`\`\`\n${content}\n\`\`\``
-    })
+    .map(([filePath, content]) => `### ${filePath}\n\`\`\`\n${content}\n\`\`\``)
     .join('\n\n')
 
-  const judgePrompt = `## User Prompt (What the agent was asked to do)
-${prompt}
+  const criteriaText = criteria
+    ? formatCriteriaForPrompt(criteria)
+    : ''
+
+  const docsSection = docsDir
+    ? `\n## Project Docs\nRead the docs in the \`docs/\` directory and \`AGENTS.md\` for project-specific patterns and conventions before reviewing.\n`
+    : ''
+
+  return `You are a senior engineer performing a thorough code review with E2E testing.
+
+## Your Mission
+
+You have been given a coding task, the ground truth solution, and an AI agent's attempt. Your job is to:
+
+1. **Read the project docs** (if present) to understand conventions and patterns
+2. **Review the agent's diff** against the ground truth
+3. **Actually test the changes** end-to-end:
+   - Start the application if possible (check package.json for start/dev scripts)
+   - Use browser tools, curl, or the appropriate client to exercise the feature
+   - Check logs for errors
+   - Test edge cases and error states
+   - Take screenshots of UI changes if applicable
+4. **Write your judgment** to a JSON file
+
+## Important: You have full access to the repository and can run any commands.
+
+Use whatever tools you need to verify the change actually works:
+- Run the build/compile step
+- Run the test suite
+- Start the dev server
+- Use browser tools to test the UI
+- curl API endpoints
+- Check logs
+- Use tmux for long-running processes
+- Any other verification method appropriate for the change
+
+${docsSection}
+## User Prompt (What the agent was asked to do)
+${commit.prompt}
 
 ## Context Files (from parent commit)
 ${contextFilesContent || '(No context files)'}
@@ -247,62 +155,325 @@ ${groundTruthDiffs}
 \`\`\`diff
 ${agentDiff || '(No changes made)'}
 \`\`\`
-${error ? `\n## Error Encountered\n${error}` : ''}
-${finalCheckOutputs ? `\n## Final Check Command Outputs\n${finalCheckOutputs}` : ''}
-${criteria ? `\n${formatCriteriaForPrompt(criteria)}` : ''}`
+${error ? `\n## Error Encountered During Agent Run\n${error}\n` : ''}
+${criteriaText}
 
-  // Run 2 judges in parallel
-  const judgePromises = [
-    runSingleJudge(input, judgePrompt, 'judge-gpt'),
-    runSingleJudge(input, judgePrompt, 'judge-gemini'),
+## Required Output
+
+After your review and testing, write your judgment to the file \`${RESULT_FILE_NAME}\` in the current working directory. The JSON must have exactly this structure:
+
+\`\`\`json
+{
+  "analysis": "Detailed analysis of what you tested and found...",
+  "strengths": ["strength 1", "strength 2"],
+  "weaknesses": ["weakness 1", "weakness 2"],
+  "e2eTestsPerformed": ["Started dev server and loaded /dashboard", "Submitted form with invalid email", "Checked network tab for API errors"],
+  "completionScore": 7,
+  "codeQualityScore": 8,
+  "e2eScore": 6,
+  "overallScore": 7
+}
+\`\`\`
+
+All scores are 0-10. The e2eScore specifically measures how well the change works when actually tested, not just how the code looks.
+
+IMPORTANT: You MUST write the result file. This is the only way your review gets recorded. Do it as your very last action.`
+}
+
+/**
+ * Run a single reviewer agent in the given repo directory.
+ * The agent writes its judgment to a JSON file which we parse.
+ */
+async function runReviewerAgent(
+  agentType: ReviewerAgentType,
+  prompt: string,
+  cwd: string,
+  env?: Record<string, string>,
+): Promise<JudgingResult | null> {
+  const config = REVIEWER_CONFIGS[agentType]
+  const args = config.command
+    .slice(1)
+    .map((a) => (a === '__PROMPT__' ? prompt : a))
+
+  const cmd = config.command[0]
+
+  console.log(`[Reviewer:${agentType}] Starting review in ${cwd}`)
+
+  return new Promise((resolve) => {
+    const child = spawn(cmd, args, {
+      cwd,
+      env: { ...process.env, ...config.env, ...env },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+
+    let stdout = ''
+    let stderr = ''
+
+    const timer = setTimeout(() => {
+      console.warn(
+        `[Reviewer:${agentType}] Timed out after ${config.timeoutMs / 1000}s`,
+      )
+      child.kill('SIGTERM')
+      setTimeout(() => {
+        if (!child.killed) child.kill('SIGKILL')
+      }, 5000)
+    }, config.timeoutMs)
+
+    child.stdout.on('data', (data: Buffer) => {
+      stdout += data.toString()
+    })
+
+    child.stderr.on('data', (data: Buffer) => {
+      stderr += data.toString()
+    })
+
+    child.on('error', (error) => {
+      clearTimeout(timer)
+      console.error(
+        `[Reviewer:${agentType}] Failed to start: ${error.message}`,
+      )
+      resolve(null)
+    })
+
+    child.on('close', (code) => {
+      clearTimeout(timer)
+      console.log(
+        `[Reviewer:${agentType}] Exited with code ${code}`,
+      )
+
+      // Try to read the result file the agent wrote
+      const resultPath = path.join(cwd, RESULT_FILE_NAME)
+      const result = parseResultFile(resultPath, agentType)
+
+      if (result) {
+        resolve(result)
+        return
+      }
+
+      // Fallback: try to extract JSON from stdout
+      const extracted = extractJsonFromOutput(stdout, agentType)
+      if (extracted) {
+        resolve(extracted)
+        return
+      }
+
+      console.warn(
+        `[Reviewer:${agentType}] No result file or parseable output found`,
+      )
+      resolve(null)
+    })
+  })
+}
+
+/**
+ * Try to parse the result file written by the reviewer agent.
+ */
+function parseResultFile(
+  resultPath: string,
+  agentType: string,
+): JudgingResult | null {
+  try {
+    if (!fs.existsSync(resultPath)) return null
+    const raw = JSON.parse(fs.readFileSync(resultPath, 'utf-8'))
+    const parsed = JudgingResultSchema.safeParse(raw)
+    if (parsed.success) {
+      console.log(
+        `[Reviewer:${agentType}] Parsed result file successfully`,
+      )
+      return parsed.data
+    }
+    console.warn(
+      `[Reviewer:${agentType}] Result file failed validation:`,
+      parsed.error,
+    )
+    // Try to salvage partial result
+    return salvagePartialResult(raw)
+  } catch (error) {
+    console.warn(
+      `[Reviewer:${agentType}] Failed to parse result file:`,
+      error,
+    )
+    return null
+  }
+}
+
+/**
+ * Try to extract JSON from the agent's stdout as a fallback.
+ * Looks for the last JSON block that matches our schema.
+ */
+function extractJsonFromOutput(
+  output: string,
+  agentType: string,
+): JudgingResult | null {
+  // Try to find JSON blocks in the output (between ``` or raw JSON objects)
+  const jsonPatterns = [
+    // Match JSON in code fences
+    /```(?:json)?\s*\n({[\s\S]*?})\n\s*```/g,
+    // Match standalone JSON objects (greedy, last match wins)
+    /(\{[^{}]*"overallScore"[^{}]*\})/g,
   ]
 
-  const judgeResults = await Promise.all(judgePromises)
-  const validResults = judgeResults.filter(
-    (result): result is JudgingResult => result !== null,
+  for (const pattern of jsonPatterns) {
+    const matches = [...output.matchAll(pattern)]
+    // Try last match first (most likely to be the final result)
+    for (let i = matches.length - 1; i >= 0; i--) {
+      try {
+        const raw = JSON.parse(matches[i][1])
+        const parsed = JudgingResultSchema.safeParse(raw)
+        if (parsed.success) {
+          console.log(
+            `[Reviewer:${agentType}] Extracted result from stdout`,
+          )
+          return parsed.data
+        }
+        const salvaged = salvagePartialResult(raw)
+        if (salvaged) return salvaged
+      } catch {
+        continue
+      }
+    }
+  }
+
+  return null
+}
+
+/**
+ * Try to salvage a partially valid result by filling in defaults.
+ */
+function salvagePartialResult(raw: any): JudgingResult | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  if (typeof raw.overallScore !== 'number') return null
+
+  return {
+    analysis: raw.analysis || 'No analysis provided',
+    strengths: Array.isArray(raw.strengths) ? raw.strengths : [],
+    weaknesses: Array.isArray(raw.weaknesses) ? raw.weaknesses : [],
+    e2eTestsPerformed: Array.isArray(raw.e2eTestsPerformed)
+      ? raw.e2eTestsPerformed
+      : [],
+    completionScore:
+      typeof raw.completionScore === 'number' ? raw.completionScore : raw.overallScore,
+    codeQualityScore:
+      typeof raw.codeQualityScore === 'number'
+        ? raw.codeQualityScore
+        : raw.overallScore,
+    e2eScore:
+      typeof raw.e2eScore === 'number' ? raw.e2eScore : raw.overallScore,
+    overallScore: raw.overallScore,
+  }
+}
+
+// --- Public API ---
+
+export interface JudgeCommitResultInput {
+  commit: EvalCommitV2
+  contextFiles: Record<string, string>
+  agentDiff: string
+  repoDir: string // the test repo where the agent's changes live
+  error?: string
+  criteria?: QualityCriteria
+  reviewerAgents?: ReviewerAgentType[]
+  env?: Record<string, string>
+}
+
+/**
+ * Judge a commit result by running reviewer agents in the repo.
+ * Each reviewer agent can read docs, run the app, test E2E, and write a result file.
+ */
+export async function judgeCommitResult(
+  input: JudgeCommitResultInput,
+): Promise<JudgingResult> {
+  const {
+    commit,
+    contextFiles,
+    agentDiff,
+    repoDir,
+    error,
+    criteria,
+    reviewerAgents = ['claude', 'codex'],
+    env,
+  } = input
+
+  const prompt = buildReviewerPrompt({
+    commit,
+    contextFiles,
+    agentDiff,
+    error,
+    criteria,
+    docsDir: fs.existsSync(path.join(repoDir, 'docs')) ? repoDir : undefined,
+  })
+
+  // Run reviewer agents in parallel, each in their own copy of the repo
+  const reviewPromises = reviewerAgents.map(async (agentType) => {
+    // Each reviewer gets its own copy of the repo so they don't interfere
+    const reviewDir = `${repoDir}-review-${agentType}`
+    try {
+      execSync(`cp -r ${repoDir} ${reviewDir}`, { stdio: 'ignore' })
+      return await runReviewerAgent(agentType, prompt, reviewDir, env)
+    } finally {
+      try {
+        fs.rmSync(reviewDir, { recursive: true, force: true })
+      } catch {
+        // ignore cleanup errors
+      }
+    }
+  })
+
+  const results = await Promise.all(reviewPromises)
+  const validResults = results.filter(
+    (r): r is JudgingResult => r !== null,
   )
 
   if (validResults.length === 0) {
-    console.error('All judges failed to provide results')
+    console.error(
+      `All reviewer agents failed (${reviewerAgents.join(', ')})`,
+    )
     return {
-      analysis: 'Error running judge agent - all judges failed',
+      analysis: 'Error: all reviewer agents failed to provide results',
       strengths: [],
-      weaknesses: ['All judges failed to provide structured output'],
+      weaknesses: ['All reviewer agents failed'],
+      e2eTestsPerformed: [],
       completionScore: 0,
       codeQualityScore: 0,
+      e2eScore: 0,
       overallScore: 0,
     }
   }
 
-  // Sort judges by overall score and select the median for analysis
-  const sortedResults = validResults.sort(
+  // Sort by overall score, pick median for analysis
+  const sorted = validResults.sort(
     (a, b) => a.overallScore - b.overallScore,
   )
-  const medianIndex = Math.floor(sortedResults.length / 2)
-  const medianResult = sortedResults[medianIndex]
+  const medianIdx = Math.floor(sorted.length / 2)
+  const medianResult = sorted[medianIdx]
 
-  // Calculate average scores across all valid judges
-  const averageCompletionScore =
-    validResults.reduce((sum, r) => sum + r.completionScore, 0) /
+  // Average scores across all valid reviewers
+  const avg = (key: keyof JudgingResult) =>
+    validResults.reduce((sum, r) => sum + (r[key] as number), 0) /
     validResults.length
-  const averageCodeQualityScore =
-    validResults.reduce((sum, r) => sum + r.codeQualityScore, 0) /
-    validResults.length
-  const averageOverallScore =
-    validResults.reduce((sum, r) => sum + r.overallScore, 0) /
-    validResults.length
+
+  const avgCompletionScore = avg('completionScore')
+  const avgCodeQualityScore = avg('codeQualityScore')
+  const avgE2eScore = avg('e2eScore')
+  const avgOverallScore = avg('overallScore')
+
+  // Merge e2eTestsPerformed from all reviewers
+  const allE2eTests = [
+    ...new Set(validResults.flatMap((r) => r.e2eTestsPerformed)),
+  ]
 
   console.log(
-    `Judging results overall score: ${averageOverallScore.toFixed(1)} (individual scores: ${validResults.map((r) => r.overallScore.toFixed(1)).join(', ')})`,
+    `Review results: overall=${avgOverallScore.toFixed(1)}, e2e=${avgE2eScore.toFixed(1)} (${validResults.length}/${reviewerAgents.length} reviewers)`,
   )
 
-  // Return median judge's analysis with averaged scores
   return {
     analysis: medianResult.analysis,
     strengths: medianResult.strengths,
     weaknesses: medianResult.weaknesses,
-    completionScore: averageCompletionScore,
-    codeQualityScore: averageCodeQualityScore,
-    overallScore: averageOverallScore,
+    e2eTestsPerformed: allE2eTests,
+    completionScore: avgCompletionScore,
+    codeQualityScore: avgCodeQualityScore,
+    e2eScore: avgE2eScore,
+    overallScore: avgOverallScore,
   }
 }
