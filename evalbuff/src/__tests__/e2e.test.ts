@@ -11,7 +11,7 @@
  * This test uses mock.module to replace LLM calls but runs the full
  * orchestrator, CLI runner, and git operations for real.
  *
- * Run: bun test evals/evalbuff/__tests__/e2e.test.ts
+ * Run: bun test evalbuff/src/__tests__/e2e.test.ts
  */
 import { execSync } from 'child_process'
 import fs from 'fs'

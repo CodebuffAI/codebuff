@@ -10,7 +10,7 @@
  *   - (Optional) `codex` CLI installed with OPENAI_API_KEY set
  *
  * Usage:
- *   bun run evals/evalbuff/run-e2e-test.ts
+ *   bun run evalbuff/src/run-e2e-test.ts
  */
 import { execSync } from 'child_process'
 import fs from 'fs'

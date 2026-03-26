@@ -82,7 +82,7 @@ This prevents the system from penalizing an agent for style issues when it can't
 ### Command Line
 
 ```bash
-bun run evals/evalbuff/run-evalbuff.ts \
+bun run evalbuff/src/run-evalbuff.ts \
   --repo /path/to/target-repo \
   --agent "claude -p" \
   --evals evals/buffbench/eval-codebuff.json,evals/buffbench/eval-manifold.json \
@@ -95,7 +95,7 @@ bun run evals/evalbuff/run-evalbuff.ts \
 Or via the workspace script:
 
 ```bash
-bun run --filter @codebuff/evals run-evalbuff -- \
+bun run --filter @codebuff/evalbuff run -- \
   --repo /path/to/target-repo \
   --agent "codex exec --full-auto" \
   --evals evals/buffbench/eval-codebuff.json
@@ -119,7 +119,7 @@ bun run --filter @codebuff/evals run-evalbuff -- \
 For an overnight run, set generous limits and let it go:
 
 ```bash
-nohup bun run evals/evalbuff/run-evalbuff.ts \
+nohup bun run evalbuff/src/run-evalbuff.ts \
   --repo /path/to/repo \
   --agent "claude -p" \
   --evals evals/buffbench/eval-codebuff.json \
