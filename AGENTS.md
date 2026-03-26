@@ -24,6 +24,7 @@ Codebuff is a tool for editing codebases via natural-language instructions to Bu
 - `common/` — shared types, tools, schemas, utilities
 - `agents/` — main agents shipped with codebuff
 - `.agents/` — local agent templates (prompt + programmatic agents)
+- `evalbuff/` — automated docs optimization loop (run agent → judge → analyze → improve docs)
 
 ## Request Flow
 
@@ -48,3 +49,4 @@ Codebuff is a tool for editing codebases via natural-language instructions to Bu
 - [`docs/testing.md`](docs/testing.md) — DI over mocking, tmux CLI testing
 - [`docs/environment-variables.md`](docs/environment-variables.md) — Env var rules, DI helpers, loading order
 - [`docs/agents-and-tools.md`](docs/agents-and-tools.md) — Agent system, shell shims, tool definitions
+- [`docs/patterns/handle-steps-generators.md`](docs/patterns/handle-steps-generators.md) — handleSteps generator patterns and spawn_agents tool calls

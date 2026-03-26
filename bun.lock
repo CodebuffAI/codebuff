@@ -107,6 +107,15 @@
         "@types/parse-path": "^7.1.0",
       },
     },
+    "evalbuff": {
+      "name": "@codebuff/evalbuff",
+      "version": "1.0.0",
+      "dependencies": {
+        "@codebuff/common": "workspace:*",
+        "@codebuff/sdk": "workspace:*",
+        "zod": "^4.2.1",
+      },
+    },
     "evals": {
       "name": "@codebuff/evals",
       "version": "1.0.0",
@@ -488,6 +497,8 @@
     "@codebuff/code-map": ["@codebuff/code-map@workspace:packages/code-map"],
 
     "@codebuff/common": ["@codebuff/common@workspace:common"],
+
+    "@codebuff/evalbuff": ["@codebuff/evalbuff@workspace:evalbuff"],
 
     "@codebuff/evals": ["@codebuff/evals@workspace:evals"],
 
