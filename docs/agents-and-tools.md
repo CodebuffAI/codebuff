@@ -19,6 +19,3 @@ base-lite "fix this bug"
 
 - Tool definitions live in `common/src/tools` and are executed via the SDK helpers + agent-runtime.
 
-## Referral System
-
-Referral codes are applied via the CLI (web onboarding only instructs the user); see `web/src/app/api/referrals/helpers.ts`.
