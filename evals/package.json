@@ -24,6 +24,7 @@
     "run-buffbench": "bun run buffbench/main.ts",
     "run-buffbench-nightly": "bun run buffbench/main-nightly.ts",
     "run-evalbuff": "bun run evalbuff/run-evalbuff.ts",
+    "test:evalbuff": "bun test evalbuff/__tests__/criteria.test.ts evalbuff/__tests__/docs-optimizer.test.ts evalbuff/__tests__/morning-report.test.ts evalbuff/__tests__/cli-runner.test.ts && bun test evalbuff/__tests__/loop.integration.test.ts",
     "trigger-buffbench": "bun run scripts/trigger-buffbench.ts",
     "setup-codebuff-repo": "bun run setup-codebuff-repo.ts"
   },

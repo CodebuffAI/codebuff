@@ -422,7 +422,10 @@ async function main() {
   })
 }
 
-main().catch((error) => {
-  console.error('Evalbuff failed:', error)
-  process.exit(1)
-})
+// Only run CLI when executed directly (not when imported)
+if (import.meta.main) {
+  main().catch((error) => {
+    console.error('Evalbuff failed:', error)
+    process.exit(1)
+  })
+}
