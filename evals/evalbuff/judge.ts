@@ -58,8 +58,6 @@ const REVIEWER_CONFIGS: Record<ReviewerAgentType, ReviewerConfig> = {
       'claude',
       '-p',
       '__PROMPT__',
-      '--output-format',
-      'stream-json',
       '--dangerously-skip-permissions',
     ],
     timeoutMs: 30 * 60 * 1000, // 30 min — needs time for E2E testing
@@ -70,7 +68,6 @@ const REVIEWER_CONFIGS: Record<ReviewerAgentType, ReviewerConfig> = {
       'codex',
       'exec',
       '--full-auto',
-      '--json',
       '-m',
       'gpt-5.1-codex',
       '__PROMPT__',
@@ -180,9 +177,14 @@ All scores are 0-10. The e2eScore specifically measures how well the change work
 IMPORTANT: You MUST write the result file. This is the only way your review gets recorded. Do it as your very last action.`
 }
 
+const PROMPT_FILE_NAME = 'EVALBUFF_REVIEW_PROMPT.md'
+
+const BOOTSTRAP_PROMPT = `Read the file ${PROMPT_FILE_NAME} in the current directory and follow all instructions in it exactly. The file contains a code review task. After your review and testing, you MUST write your judgment to ${RESULT_FILE_NAME} as specified in the prompt file.`
+
 /**
  * Run a single reviewer agent in the given repo directory.
- * The agent writes its judgment to a JSON file which we parse.
+ * Writes the full prompt to a file in the repo, then gives the agent
+ * a short bootstrap prompt to read it (avoids CLI arg length limits).
  */
 async function runReviewerAgent(
   agentType: ReviewerAgentType,
@@ -191,9 +193,13 @@ async function runReviewerAgent(
   env?: Record<string, string>,
 ): Promise<JudgingResult | null> {
   const config = REVIEWER_CONFIGS[agentType]
+
+  // Write the full prompt to a file in the repo
+  fs.writeFileSync(path.join(cwd, PROMPT_FILE_NAME), prompt)
+
   const args = config.command
     .slice(1)
-    .map((a) => (a === '__PROMPT__' ? prompt : a))
+    .map((a) => (a === '__PROMPT__' ? BOOTSTRAP_PROMPT : a))
 
   const cmd = config.command[0]
 
@@ -240,6 +246,14 @@ async function runReviewerAgent(
       console.log(
         `[Reviewer:${agentType}] Exited with code ${code}`,
       )
+      if (code !== 0) {
+        console.warn(
+          `[Reviewer:${agentType}] stderr (last 1000 chars): ${stderr.slice(-1000)}`,
+        )
+        console.warn(
+          `[Reviewer:${agentType}] stdout (last 500 chars): ${stdout.slice(-500)}`,
+        )
+      }
 
       // Try to read the result file the agent wrote
       const resultPath = path.join(cwd, RESULT_FILE_NAME)
@@ -408,8 +422,20 @@ export async function judgeCommitResult(
     // Each reviewer gets its own copy of the repo so they don't interfere
     const reviewDir = `${repoDir}-review-${agentType}`
     try {
-      execSync(`cp -r ${repoDir} ${reviewDir}`, { stdio: 'ignore' })
-      return await runReviewerAgent(agentType, prompt, reviewDir, env)
+      // Fast copy: use rsync to exclude heavy dirs, then symlink them
+      const nodeModulesPath = path.join(repoDir, 'node_modules')
+      const hasNodeModules = fs.existsSync(nodeModulesPath)
+      if (hasNodeModules) {
+        execSync(
+          `rsync -a --exclude node_modules "${repoDir}/" "${reviewDir}/"`,
+          { stdio: 'ignore' },
+        )
+        fs.symlinkSync(nodeModulesPath, path.join(reviewDir, 'node_modules'))
+      } else {
+        execSync(`cp -r "${repoDir}" "${reviewDir}"`, { stdio: 'ignore' })
+      }
+      // Don't pass eval env to reviewers — they need real API keys, not test ones
+      return await runReviewerAgent(agentType, prompt, reviewDir)
     } finally {
       try {
         fs.rmSync(reviewDir, { recursive: true, force: true })

@@ -2,8 +2,6 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
-import { CodebuffClient } from '@codebuff/sdk'
-
 import { runCliAgent } from './cli-runner'
 import {
   getCriteriaForLevel,
@@ -133,6 +131,18 @@ export async function runEvalbuff(options: EvalbuffOptions): Promise<void> {
 
   const statePath = path.join(repoPath, 'evalbuff-state.json')
   const logPath = path.join(repoPath, 'evalbuff-log.jsonl')
+
+  // Strip API key env vars — eval data provides test keys for init commands
+  // but agents need their real API keys to function
+  const API_KEY_PATTERN = /(_KEY|_SECRET|_TOKEN|_API_KEY)$/i
+  const stripApiKeys = (env?: Record<string, string>) => {
+    if (!env) return undefined
+    return Object.fromEntries(
+      Object.entries(env).filter(([k]) => !API_KEY_PATTERN.test(k)),
+    )
+  }
+  const safeEnv = (evalData: { env?: Record<string, string> }) =>
+    stripApiKeys(evalData.env)
   const defaultCriteriaPath =
     criteriaPath || path.join(repoPath, 'evalbuff-criteria.json')
 
@@ -140,8 +150,6 @@ export async function runEvalbuff(options: EvalbuffOptions): Promise<void> {
   let criteria = loadCriteria(defaultCriteriaPath)
   const tasks = loadEvalTasks(evalDataPaths)
 
-  // CodebuffClient is only used for doc writer (analyzeFailure), not for judging
-  const client = new CodebuffClient({})
 
   console.log(`Evalbuff starting:`)
   console.log(`  Repo: ${repoPath}`)
@@ -212,11 +220,11 @@ export async function runEvalbuff(options: EvalbuffOptions): Promise<void> {
             prompt: task.prompt,
             cwd: repoDir,
             timeoutMs: agentTimeoutMs,
-            env: evalData.env,
+            env: safeEnv(evalData),
           })
 
           const contextFiles = getContextFiles(repoDir, task)
-          logEntry.costUsd += result.durationMs * 0.001
+          logEntry.costUsd += result.durationMs * 0.00001 // ~$0.01/sec rough estimate
 
           // Judge the result — reviewer agents run IN the repo
           // so they can build, test, start the app, use browser tools, etc.
@@ -229,7 +237,6 @@ export async function runEvalbuff(options: EvalbuffOptions): Promise<void> {
             error: result.exitCode !== 0 ? result.stderr : undefined,
             criteria,
             reviewerAgents,
-            env: evalData.env,
           })
 
           return judging
@@ -250,7 +257,6 @@ export async function runEvalbuff(options: EvalbuffOptions): Promise<void> {
         const currentDocs = readCurrentDocs(repoPath)
 
         const docSuggestion = await analyzeFailure({
-          client,
           judgeResult: oldJudging,
           taskPrompt: task.prompt,
           agentDiff: '', // agent diff not preserved after withTestRepo cleanup
@@ -290,11 +296,11 @@ export async function runEvalbuff(options: EvalbuffOptions): Promise<void> {
                 prompt: task.prompt,
                 cwd: freshRepoDir,
                 timeoutMs: agentTimeoutMs,
-                env: evalData.env,
+                env: safeEnv(evalData),
               })
 
               const contextFiles = getContextFiles(freshRepoDir, task)
-              logEntry.costUsd += result.durationMs * 0.001
+              logEntry.costUsd += result.durationMs * 0.00001 // ~$0.01/sec rough estimate
 
               console.log(`Re-judging with reviewer agents...`)
               return await judgeCommitResult({
@@ -305,7 +311,6 @@ export async function runEvalbuff(options: EvalbuffOptions): Promise<void> {
                 error: result.exitCode !== 0 ? result.stderr : undefined,
                 criteria,
                 reviewerAgents,
-                env: evalData.env,
               })
             },
           )
