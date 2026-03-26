@@ -1,0 +1,22 @@
+{
+  "level": 1,
+  "criteria": [
+    {
+      "name": "Correctness",
+      "weight": 3,
+      "description": "The code compiles, runs without errors, and produces the expected behavior."
+    },
+    {
+      "name": "Completeness",
+      "weight": 3,
+      "description": "All aspects of the prompt are addressed. No partial implementations or TODO comments."
+    },
+    {
+      "name": "Basic Style",
+      "weight": 1,
+      "description": "Code follows basic formatting conventions and is readable."
+    }
+  ],
+  "promotionThreshold": 8.0,
+  "promotionWindow": 10
+}
