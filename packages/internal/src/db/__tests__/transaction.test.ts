@@ -3,13 +3,24 @@ import { AnalyticsEvent } from '@codebuff/common/constants/analytics-events'
 import { createPostgresError } from '@codebuff/common/testing/errors'
 import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
 
-import * as dbModule from '../index'
-import {
-  getRetryableErrorDescription,
-  isRetryablePostgresError,
-} from '../transaction'
-
 import type { Logger } from '@codebuff/common/types/contracts/logger'
+
+// Mock postgres and env before any module that imports db/index.ts is loaded.
+// db/index.ts calls postgres(env.DATABASE_URL) and drizzle() at the top level,
+// which fails without real env vars / DB. These tests only need db.transaction (spied).
+mock.module('postgres', () => ({
+  default: () => ({
+    options: { parsers: {}, serializers: {} },
+  }),
+}))
+mock.module('@codebuff/internal/env', () => ({
+  env: { DATABASE_URL: 'postgres://mock:mock@localhost:5432/mock' },
+}))
+
+// Now safe to import modules that depend on db/index.ts
+const dbModule = await import('../index')
+const { getRetryableErrorDescription, isRetryablePostgresError } =
+  await import('../transaction')
 
 describe('transaction error handling', () => {
   describe('getRetryableErrorDescription', () => {
