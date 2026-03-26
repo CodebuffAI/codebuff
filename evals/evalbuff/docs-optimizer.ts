@@ -1,10 +1,9 @@
+import { execSync } from 'child_process'
 import fs from 'fs'
+import os from 'os'
 import path from 'path'
 
-import { withTimeout } from '@codebuff/common/util/promise'
-
 import type { JudgingResult } from './judge'
-import type { AgentDefinition, CodebuffClient } from '@codebuff/sdk'
 
 export interface DocSuggestion {
   reasoning: string
@@ -12,36 +11,7 @@ export interface DocSuggestion {
   suggestedContent: string
 }
 
-const docWriterAgent: AgentDefinition = {
-  id: 'doc-writer',
-  model: 'anthropic/claude-sonnet-4.5',
-  displayName: 'Doc Writer',
-  toolNames: ['set_output'],
-  inputSchema: {
-    prompt: { type: 'string', description: 'The analysis prompt' },
-  },
-  outputMode: 'structured_output',
-  outputSchema: {
-    type: 'object',
-    properties: {
-      reasoning: {
-        type: 'string',
-        description:
-          'Why this doc would help the agent avoid the identified failure',
-      },
-      suggestedDocPath: {
-        type: 'string',
-        description:
-          'File path relative to docs/ directory, e.g. "patterns/error-handling.md"',
-      },
-      suggestedContent: {
-        type: 'string',
-        description: 'The markdown content to write to the doc file',
-      },
-    },
-    required: ['reasoning', 'suggestedDocPath', 'suggestedContent'],
-  },
-  systemPrompt: `You are an expert at writing developer documentation that helps AI coding agents perform better.
+const DOC_WRITER_SYSTEM_PROMPT = `You are an expert at writing developer documentation that helps AI coding agents perform better.
 
 Your job: Given a coding agent's failure on a task, write a targeted documentation file that would prevent this class of error in the future.
 
@@ -53,15 +23,23 @@ Your job: Given a coding agent's failure on a task, write a targeted documentati
 4. Write docs that a coding agent will read and immediately know what to do differently.
 5. Keep docs concise — under 200 lines. Dense information beats verbose explanations.
 6. Use a logical file path that groups related docs together (e.g., "patterns/", "conventions/", "architecture/").
-7. Include examples of correct patterns from the codebase when possible.`,
-}
+7. Include examples of correct patterns from the codebase when possible.
+
+## Output Format
+
+You MUST respond with ONLY a JSON object (no markdown fences, no explanation). The JSON must have exactly these fields:
+{
+  "reasoning": "Why this doc would help",
+  "suggestedDocPath": "path/relative/to/docs/dir.md",
+  "suggestedContent": "The markdown content"
+}`
 
 /**
  * Analyze a failure and suggest a doc edit to prevent it.
+ * Uses Claude CLI to generate suggestions.
  * Returns null if score is above threshold (no improvement needed).
  */
 export async function analyzeFailure({
-  client,
   judgeResult,
   taskPrompt,
   agentDiff,
@@ -69,13 +47,13 @@ export async function analyzeFailure({
   currentDocs,
   scoreThreshold,
 }: {
-  client: CodebuffClient
   judgeResult: JudgingResult
   taskPrompt: string
   agentDiff: string
   groundTruthDiff: string
   currentDocs: Record<string, string>
   scoreThreshold: number
+  client?: unknown // kept for backwards compat, ignored
 }): Promise<DocSuggestion | null> {
   if (judgeResult.overallScore >= scoreThreshold) {
     return null
@@ -85,7 +63,9 @@ export async function analyzeFailure({
     .map(([docPath, content]) => `### ${docPath}\n\`\`\`\n${content}\n\`\`\``)
     .join('\n\n')
 
-  const prompt = `## Task Prompt
+  const prompt = `${DOC_WRITER_SYSTEM_PROMPT}
+
+## Task Prompt
 ${taskPrompt}
 
 ## Judge Analysis
@@ -107,26 +87,47 @@ ${agentDiff || '(No changes made)'}
 ## Current Docs (already available to the agent)
 ${docsContent || '(No docs yet)'}
 
-Based on the gap between what the agent did and what it should have done, write a doc file that would help the agent get it right next time. Focus on the specific weakness identified by the judge.`
+Based on the gap between what the agent did and what it should have done, write a doc file that would help the agent get it right next time. Focus on the specific weakness identified by the judge.
+
+Respond with ONLY the JSON object.`
 
   try {
-    const result = await withTimeout(
-      client.run({
-        agent: docWriterAgent.id,
-        prompt,
-        agentDefinitions: [docWriterAgent],
-        handleEvent: () => {},
-      }),
-      10 * 60 * 1000,
-      'Doc writer agent timed out after 10 minutes',
-    )
+    // Write prompt to temp file to avoid CLI arg length limits
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'evalbuff-docwriter-'))
+    const promptFile = path.join(tmpDir, 'DOC_WRITER_PROMPT.md')
+    fs.writeFileSync(promptFile, prompt)
 
-    if (result.output.type !== 'structuredOutput') {
-      console.error('Doc writer did not return structured output')
+    let output: string
+    try {
+      output = execSync(
+        `claude --dangerously-skip-permissions -p "Read the file ${promptFile} and follow all instructions in it. Respond with ONLY the JSON object as specified."`,
+        {
+          encoding: 'utf-8',
+          timeout: 5 * 60 * 1000,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          maxBuffer: 10 * 1024 * 1024,
+        },
+      ).trim()
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true })
+    }
+
+    // Try to extract JSON from the output
+    let jsonStr = output
+    // Strip markdown code fences if present
+    const jsonMatch = output.match(/```(?:json)?\s*\n([\s\S]*?)\n\s*```/)
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1]
+    }
+    // Try to find a JSON object
+    const objMatch = jsonStr.match(/\{[\s\S]*\}/)
+    if (!objMatch) {
+      console.error('Doc writer did not return JSON')
       return null
     }
 
-    const value = result.output.value as DocSuggestion
+    const value = JSON.parse(objMatch[0]) as DocSuggestion
+
     // Validate the path is under docs/
     if (
       value.suggestedDocPath.startsWith('/') ||
@@ -135,6 +136,11 @@ Based on the gap between what the agent did and what it should have done, write 
       console.error(
         `Doc writer suggested invalid path: ${value.suggestedDocPath}`,
       )
+      return null
+    }
+
+    if (!value.reasoning || !value.suggestedDocPath || !value.suggestedContent) {
+      console.error('Doc writer returned incomplete suggestion')
       return null
     }
 
