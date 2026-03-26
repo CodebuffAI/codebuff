@@ -1,12 +1,12 @@
 # Codebuff
 
-Codebuff is a tool for editing codebases via natural-language instructions to Buffy (an expert AI programming assistant).
+Codebuff is an advanced coding agent with a composable agent framework. It also includes:
+- freebuff, the free coding agent
+- evalbuff, a project to improve an agent through evals
 
-## Goals
+## Goal
 
-- Make expert engineers faster (power-user focus).
-- Reduce time/effort for common programming tasks.
-- Improve via iteration/feedback (learn/adapt from usage).
+Make an efficient learning agent that can do anything.
 
 ## Key Technologies
 
@@ -24,21 +24,13 @@ Codebuff is a tool for editing codebases via natural-language instructions to Bu
 - `common/` — shared types, tools, schemas, utilities
 - `agents/` — main agents shipped with codebuff
 - `.agents/` — local agent templates (prompt + programmatic agents)
+- `freebuff/` - a free coding agent built from configuring codebuff cli
 - `evalbuff/` — automated docs optimization loop (run agent → judge → analyze → improve docs)
-
-## Request Flow
-
-1. CLI/SDK sends user input + context to the Codebuff web API.
-2. Agent runtime streams events/chunks back through SDK callbacks.
-3. Tools execute locally (file edits, terminal commands, search) to satisfy tool calls.
 
 ## Conventions
 
-- Prefer `ErrorOr<T>` return values (`success(...)`/`failure(...)` in `common/src/util/error.ts`) over throwing.
 - Never force-push `main` unless explicitly requested.
-- To exclude files from a commit: stage only what you want (`git add <paths>`). Never use `git restore`/`git checkout HEAD -- <file>` to "uncommit" changes.
 - Run interactive git commands in tmux (anything that opens an editor or prompts).
-- Referral codes are applied via the CLI (web onboarding only instructs the user); see `web/src/app/api/referrals/helpers.ts`.
 
 ## Docs
 
