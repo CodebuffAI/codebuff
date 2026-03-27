@@ -35,7 +35,7 @@ const outputSchema = {
       items: {
         type: 'object' as const,
         properties: {
-          script: { type: 'string' as const, description: 'Which helper command had the issue (e.g., "send", "capture", "wait-for")' },
+          script: { type: 'string' as const, description: 'Which helper command had the issue (e.g., "send", "capture", "wait-idle")' },
           issue: { type: 'string' as const, description: 'What went wrong when using the helper script' },
           errorOutput: { type: 'string' as const, description: 'The actual error message or unexpected output' },
           suggestedFix: { type: 'string' as const, description: 'Suggested fix for the parent agent to implement' },
@@ -178,11 +178,6 @@ Captures show the **visible pane** by default. Add \`--full\` for the entire scr
 ### Waiting
 
 \`\`\`bash
-# Wait until a pattern appears in the visible pane (regex, default timeout: 30s)
-$HELPER wait-for "$SESSION" "Your guess:"
-$HELPER wait-for "$SESSION" "\\$" --timeout 10
-$HELPER wait-for "$SESSION" "ready" --timeout 60
-
 # Wait until output is stable for N seconds (max 120s)
 $HELPER wait-idle "$SESSION" 3
 \`\`\`
@@ -210,8 +205,7 @@ If the CLI appears hung, try \`$HELPER key "$SESSION" C-c\` to interrupt. If it'
 - Use the provided tmux session as the single source of truth. Do not start a second session.
 - **Capture discipline:** Aim for 3-8 captures per run. Capture at key milestones: startup, after important interactions, on errors, and final state. Do NOT capture after every single input.
 - **Use \`--full\` on the final capture** to get complete scrollback history. Regular captures only show the visible pane (~30 lines), keeping them small and focused.
-- **Use \`wait-for\` before sending input** when you need to wait for a prompt or specific output to appear. This is more reliable than guessing wait times.
-- **Wait guidance:** Most CLIs need 1-2 seconds to process input. Use \`--wait-idle 2\` on send or \`--wait 2\` on capture. For streaming CLIs, use \`--wait-idle 3\` or higher.
+- **Wait guidance:** Most CLIs need 1-2 seconds to process input. Use \`--wait-idle 2\` on send or \`--wait 2\` on capture. For streaming CLIs, use \`--wait-idle 3\` or higher. Use \`wait-idle\` to wait for output to stabilize before sending more input.
 - Use \`--label\` on captures to make filenames descriptive.
 - If the CLI already shows enough evidence in the current viewport, do not keep recapturing.`,
 
@@ -222,8 +216,8 @@ If the CLI appears hung, try \`$HELPER key "$SESSION" C-c\` to interrupt. If it'
 A tmux session has been started for you. A setup message will announce the session name, helper script path, and the initial terminal output. Your command has already been sent to the session.
 
 1. **Check the initial output** provided in the setup message. If you see errors like "command not found" or "No such file", report failure immediately.
-2. **Interact with the CLI** using the helper commands documented in the system prompt (send, key, capture, wait-for, etc.).
-3. **Capture output** at key milestones. Use \`wait-for\` to wait for expected prompts before sending input.
+2. **Interact with the CLI** using the helper commands documented in the system prompt (send, key, capture, wait-idle, etc.).
+3. **Capture output** at key milestones. Use \`wait-idle\` to wait for output to stabilize before sending more input.
 4. **Final capture** with full scrollback before stopping: \`$HELPER capture "$SESSION" --full --label "final"\`
 5. **Stop the session**: \`$HELPER stop "$SESSION"\`
 
@@ -248,7 +242,7 @@ set -e
 
 usage() {
   echo "Usage: $0 <command> [args]"
-  echo "Commands: start, send, capture, stop, key, raw, wait-for, wait-idle, status"
+  echo "Commands: start, send, capture, stop, key, raw, wait-idle, status"
   exit 1
 }
 
@@ -360,33 +354,6 @@ case "$CMD" in
     TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     echo "[Saved: $CAPTURE_FILE] [$TIMESTAMP]"
     cat "$CAPTURE_FILE"
-    ;;
-
-  wait-for)
-    # wait-for <session> <pattern> [--timeout N]
-    # Polls visible pane until grep matches the pattern (default timeout: 30s)
-    SESSION="$1"; shift
-    PATTERN=""; TIMEOUT=30
-    while [[ $# -gt 0 ]]; do
-      case $1 in
-        --timeout) TIMEOUT="$2"; shift 2 ;;
-        *) PATTERN="$1"; shift ;;
-      esac
-    done
-    [[ -z "$SESSION" || -z "$PATTERN" ]] && { echo "Usage: wait-for <session> <pattern> [--timeout N]" >&2; exit 1; }
-    MAX_END=$(( $(date +%s) + TIMEOUT ))
-    while true; do
-      if tmux capture-pane -t "$SESSION" -p 2>/dev/null | grep -q "$PATTERN"; then
-        echo "Found: $PATTERN"
-        break
-      fi
-      NOW=$(date +%s)
-      if (( NOW >= MAX_END )); then
-        echo "Timed out after \${TIMEOUT}s waiting for: $PATTERN" >&2
-        exit 1
-      fi
-      sleep 0.25
-    done
     ;;
 
   wait-idle)
@@ -562,7 +529,6 @@ esac
           '- Send + wait for output: `' + helperPath + ' send "' + sessionName + '" "..." --wait-idle 3`\n' +
           '- Send key: `' + helperPath + ' key "' + sessionName + '" C-c`\n' +
           '- Raw tmux send-keys: `' + helperPath + ' raw "' + sessionName + '" "text" Enter`\n' +
-          '- Wait for pattern: `' + helperPath + ' wait-for "' + sessionName + '" "pattern" --timeout 30`\n' +
           '- Capture visible pane: `' + helperPath + ' capture "' + sessionName + '" --label "..."`\n' +
           '- Capture full scrollback: `' + helperPath + ' capture "' + sessionName + '" --full --label "final"`\n' +
           '- Capture without ANSI colors: `' + helperPath + ' capture "' + sessionName + '" --strip-ansi`\n' +
