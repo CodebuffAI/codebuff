@@ -1,0 +1,269 @@
+import { execSync } from 'child_process'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
+
+export interface CommitTask {
+  sha: string
+  parentSha: string
+  message: string
+  prompt: string
+  diff: string
+  filesChanged: string[]
+}
+
+const MAX_DIFF_CHARS = 200_000
+
+/**
+ * Get a list of commits from the repo, oldest first.
+ * Starts from `startAfterSha` (exclusive) or HEAD~commitCount if no state.
+ */
+export function getCommitList(
+  repoPath: string,
+  commitCount: number,
+  startAfterSha?: string,
+): string[] {
+  if (startAfterSha) {
+    // Get all commits from startAfterSha (exclusive) to HEAD
+    const output = execSync(
+      `git log --format=%H --reverse ${startAfterSha}..HEAD`,
+      { cwd: repoPath, encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 },
+    ).trim()
+    return output ? output.split('\n') : []
+  }
+
+  // Get last N commits, oldest first
+  const output = execSync(
+    `git log --format=%H -n ${commitCount} --reverse`,
+    { cwd: repoPath, encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 },
+  ).trim()
+  return output ? output.split('\n') : []
+}
+
+/**
+ * Extract commit info needed to build a task.
+ * Returns null for merge commits or commits with no parent.
+ */
+export function getCommitInfo(
+  repoPath: string,
+  sha: string,
+): { parentSha: string; message: string; diff: string; filesChanged: string[] } | null {
+  try {
+    // Get parent SHA
+    const parents = execSync(`git log --pretty=%P -n 1 ${sha}`, {
+      cwd: repoPath,
+      encoding: 'utf-8',
+    }).trim()
+
+    if (!parents) return null // initial commit
+
+    const parentList = parents.split(' ')
+    if (parentList.length > 1) return null // merge commit
+
+    const parentSha = parentList[0]
+
+    // Get commit message
+    const message = execSync(`git log --format=%B -n 1 ${sha}`, {
+      cwd: repoPath,
+      encoding: 'utf-8',
+    }).trim()
+
+    // Get diff
+    const diff = execSync(`git diff ${parentSha} ${sha}`, {
+      cwd: repoPath,
+      encoding: 'utf-8',
+      maxBuffer: 10 * 1024 * 1024,
+    })
+
+    // Get files changed
+    const filesOutput = execSync(`git diff --name-only ${parentSha} ${sha}`, {
+      cwd: repoPath,
+      encoding: 'utf-8',
+    }).trim()
+    const filesChanged = filesOutput ? filesOutput.split('\n') : []
+
+    return { parentSha, message, diff, filesChanged }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Read a file's content at a specific commit SHA.
+ * Returns null if the file doesn't exist at that commit.
+ */
+function readFileAtCommit(
+  repoPath: string,
+  sha: string,
+  filePath: string,
+): string | null {
+  try {
+    return execSync(`git show ${sha}:${JSON.stringify(filePath)}`, {
+      cwd: repoPath,
+      encoding: 'utf-8',
+      maxBuffer: 10 * 1024 * 1024,
+    })
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Read the full contents of all files being modified at the parent commit.
+ * This gives the prompt generator context about what the code looks like
+ * before the change, so it can write a realistic human prompt.
+ */
+function readFilesAtParent(
+  repoPath: string,
+  parentSha: string,
+  filesChanged: string[],
+): Record<string, string> {
+  const files: Record<string, string> = {}
+  let totalSize = 0
+  const maxTotalSize = 500_000 // 500K total for all files
+
+  for (const filePath of filesChanged) {
+    if (totalSize >= maxTotalSize) break
+
+    const content = readFileAtCommit(repoPath, parentSha, filePath)
+    if (content != null && content.length > 0) {
+      files[filePath] = content
+      totalSize += content.length
+    }
+  }
+
+  return files
+}
+
+const PROMPT_GEN_SYSTEM = `You are generating a task prompt that a human developer would realistically write to ask an AI coding agent to make changes to their codebase.
+
+You will receive:
+- A git diff showing exactly what was changed
+- The full contents of all files being modified (as they looked BEFORE the change)
+- The commit message (as a hint, but don't just copy it)
+
+Your job is to write a natural, human-sounding prompt — the kind of thing a developer would type into a chat with an AI assistant.
+
+## Key Principles
+
+1. Focus on high-level functional requirements, not implementation details
+   - GOOD: "add user authentication to the API"
+   - BAD: "implement an authenticateUser function in src/auth/middleware.ts"
+
+2. Use natural language — like a Slack message or ticket description
+   - GOOD: "the nightly CI is pointing at the wrong directory, it should be agents not .agents"
+   - BAD: "Update the directory reference in .github/workflows/nightly-e2e.yml from .agents to agents"
+
+3. Describe what you WANT or what's WRONG, not how to fix it
+   - GOOD: "the hover state on buttons looks broken"
+   - BAD: "change the CSS hover opacity from 0.5 to 0.8 in Button.tsx"
+
+4. Don't reference specific file paths unless a human naturally would. Humans describe the feature area, not the file tree.
+   - GOOD: "our login page needs to redirect to freebuff.com instead of codebuff.com"
+   - BAD: "update src/auth/login.ts, src/config/urls.ts, and tests/auth.test.ts to change codebuff.com to freebuff.com"
+
+5. Don't over-specify. Leave room for the agent to figure out the implementation.
+
+6. Keep it to 1-4 sentences.
+
+7. Read the FULL file contents to understand context. The diff alone can be misleading — understanding the surrounding code helps you write a prompt that makes sense for this codebase.
+
+## Output
+
+Respond with ONLY the prompt text. No quotes, no preamble, no explanation.`
+
+/**
+ * Generate a human-like task prompt from a commit.
+ * Reads the full files at the parent commit for context, similar to how
+ * buffbench uses file-explorer agents to understand the codebase.
+ */
+export async function generatePromptFromCommit(
+  repoPath: string,
+  parentSha: string,
+  message: string,
+  diff: string,
+  filesChanged: string[],
+): Promise<string> {
+  // Read full file contents at the parent commit for context
+  const fileContents = readFilesAtParent(repoPath, parentSha, filesChanged)
+
+  let filesSection = ''
+  if (Object.keys(fileContents).length > 0) {
+    filesSection = `## File Contents (before the change)\n\n`
+    for (const [filePath, content] of Object.entries(fileContents)) {
+      filesSection += `### ${filePath}\n\`\`\`\n${content}\n\`\`\`\n\n`
+    }
+  }
+
+  const userPrompt = `## Commit Message
+${message}
+
+${filesSection}## Diff
+\`\`\`diff
+${diff}
+\`\`\``
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'evalbuff-promptgen-'))
+  const promptFile = path.join(tmpDir, 'PROMPT_GEN.md')
+
+  try {
+    fs.writeFileSync(promptFile, `${PROMPT_GEN_SYSTEM}\n\n---\n\n${userPrompt}`)
+
+    const output = execSync(
+      `claude --dangerously-skip-permissions -p "Read ${promptFile} and follow all instructions. Respond with ONLY the task prompt text."`,
+      {
+        encoding: 'utf-8',
+        timeout: 2 * 60 * 1000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        maxBuffer: 10 * 1024 * 1024,
+      },
+    ).trim()
+
+    return output || message
+  } catch {
+    // Fallback to the commit message itself
+    return message
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true })
+  }
+}
+
+/**
+ * Build a full CommitTask from a SHA.
+ * Returns null if the commit can't be used (merge, initial, too large diff, etc).
+ */
+export async function buildCommitTask(
+  repoPath: string,
+  sha: string,
+): Promise<CommitTask | null> {
+  const info = getCommitInfo(repoPath, sha)
+  if (!info) return null
+
+  // Skip commits with diffs that exceed our limit
+  if (info.diff.length > MAX_DIFF_CHARS) {
+    console.log(`Skipping ${sha.slice(0, 8)}: diff too large (${info.diff.length} chars)`)
+    return null
+  }
+
+  // Skip commits with no meaningful code changes
+  if (info.filesChanged.length === 0) {
+    return null
+  }
+
+  const prompt = await generatePromptFromCommit(
+    repoPath,
+    info.parentSha,
+    info.message,
+    info.diff,
+    info.filesChanged,
+  )
+
+  return {
+    sha,
+    parentSha: info.parentSha,
+    message: info.message,
+    prompt,
+    diff: info.diff,
+    filesChanged: info.filesChanged,
+  }
+}

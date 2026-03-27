@@ -28,23 +28,39 @@ export async function runCliAgent(
 
     console.log(`[CliRunner] Running: ${cmd} ${baseArgs.join(' ')} <prompt>`)
 
+    // Use detached + process group so we can kill the entire tree on timeout
     const child = spawn(cmd, args, {
       cwd,
       env: { ...process.env, ...env },
       stdio: ['ignore', 'pipe', 'pipe'],
+      detached: true,
     })
 
     let stdout = ''
     let stderr = ''
 
-    const timer = setTimeout(() => {
-      child.kill('SIGTERM')
-      // Give it 5 seconds to clean up, then force kill
-      setTimeout(() => {
-        if (!child.killed) {
-          child.kill('SIGKILL')
+    const killTree = () => {
+      const pid = child.pid
+      if (pid != null) {
+        try {
+          // Kill the entire process group (negative pid)
+          process.kill(-pid, 'SIGTERM')
+        } catch {
+          // Process may already be dead
         }
-      }, 5000)
+        setTimeout(() => {
+          try {
+            process.kill(-pid, 'SIGKILL')
+          } catch {
+            // ignore
+          }
+        }, 5000)
+      }
+    }
+
+    const timer = setTimeout(() => {
+      console.warn(`[CliRunner] Timeout after ${timeoutMs}ms, killing process tree`)
+      killTree()
     }, timeoutMs)
 
     child.stdout.on('data', (data: Buffer) => {
@@ -90,5 +106,8 @@ export async function runCliAgent(
         stderr,
       })
     })
+
+    // Don't let the detached child keep the parent alive
+    child.unref()
   })
 }

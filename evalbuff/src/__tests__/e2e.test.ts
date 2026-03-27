@@ -1,15 +1,12 @@
 /**
  * E2E test for evalbuff.
  *
- * This test runs the full evalbuff loop with a real (mock) agent on a local
- * git repo with synthetic eval tasks. It verifies:
+ * This test runs the full evalbuff loop with mocked LLM calls but real
+ * orchestration. It verifies:
  * - The morning report is generated
  * - Log entries are written
- * - State file tracks completed tasks
+ * - State file tracks processed commits
  * - Doc edits are committed to the repo when they improve scores
- *
- * This test uses mock.module to replace LLM calls but runs the full
- * orchestrator, CLI runner, and git operations for real.
  *
  * Run: bun test evalbuff/src/__tests__/e2e.test.ts
  */
@@ -22,7 +19,6 @@ import { afterAll, beforeAll, describe, expect, it, mock } from 'bun:test'
 
 import type { JudgingResult } from '../judge'
 import type { DocSuggestion } from '../docs-optimizer'
-import type { EvalDataV2 } from '../types'
 
 // --- Mocks for LLM calls only ---
 
@@ -30,7 +26,6 @@ let judgeCallCount = 0
 
 mock.module('../test-repo-utils', () => ({
   withTestRepo: async (_config: any, fn: (cwd: string) => Promise<any>) => {
-    // Create a real local git repo for each call
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'evalbuff-e2e-repo-'))
     execSync('git init && git add . && git commit --allow-empty -m "init"', {
       cwd: dir,
@@ -45,9 +40,19 @@ mock.module('../test-repo-utils', () => ({
   },
 }))
 
+mock.module('../cli-runner', () => ({
+  runCliAgent: async () => ({
+    diff: 'mock diff content',
+    durationMs: 1000,
+    exitCode: 0,
+    stdout: 'mock stdout',
+    stderr: '',
+  }),
+}))
+
 // Judge returns alternating scores: low (triggers doc edit), then higher (confirms improvement)
 mock.module('../judge', () => ({
-  judgeCommitResult: async () => {
+  judgeTaskResult: async () => {
     const scores = [3.0, 6.0, 8.5, 5.0, 7.0, 9.0]
     const score = scores[judgeCallCount % scores.length]
     judgeCallCount++
@@ -72,87 +77,40 @@ mock.module('../docs-optimizer', () => ({
       reasoning: 'Agent consistently misses error handling patterns in async code',
       suggestedDocPath: 'patterns/async-error-handling.md',
       suggestedContent:
-        '# Async Error Handling\n\nAll async functions should use try/catch blocks.\nPropagate errors with meaningful messages.\n\n## Examples\n\n```ts\nasync function fetchData() {\n  try {\n    const result = await api.get("/data")\n    return result\n  } catch (error) {\n    throw new Error(`Failed to fetch data: ${error.message}`)\n  }\n}\n```\n',
+        '# Async Error Handling\n\nAll async functions should use try/catch blocks.\nPropagate errors with meaningful messages.\n',
     }) satisfies DocSuggestion,
 }))
 
-mock.module('@codebuff/sdk', () => ({
-  CodebuffClient: class {
-    constructor() {}
-  },
+// Mock commit-task-generator
+mock.module('../commit-task-generator', () => ({
+  getCommitList: () => ['sha-1', 'sha-2', 'sha-3'],
+  buildCommitTask: async (_repoPath: string, sha: string) => ({
+    sha,
+    parentSha: `parent-${sha}`,
+    message: `Commit ${sha}`,
+    prompt: `Do the thing for ${sha}`,
+    diff: `mock diff for ${sha}`,
+    filesChanged: ['src/file.ts'],
+  }),
 }))
 
-const { runEvalbuff } = await import('../run-evalbuff')
+const { runLearnMode } = await import('../run-evalbuff')
 
 // --- Test setup ---
 
 let repoDir: string
-let evalFilePath: string
 
 beforeAll(() => {
-  // Create a "target repo" where docs will be written
   repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'evalbuff-e2e-target-'))
   execSync('git init && git add . && git commit --allow-empty -m "init"', {
     cwd: repoDir,
     stdio: 'ignore',
     env: { ...process.env, GIT_AUTHOR_NAME: 'test', GIT_AUTHOR_EMAIL: 'test@test.com', GIT_COMMITTER_NAME: 'test', GIT_COMMITTER_EMAIL: 'test@test.com' },
   })
-
-  // Create eval file with 3 tasks
-  const evalData: EvalDataV2 = {
-    repoUrl: 'https://github.com/test/repo',
-    generationDate: '2026-03-25',
-    evalCommits: [
-      {
-        id: 'e2e-task-1',
-        sha: 'aaa111',
-        parentSha: 'aaa000',
-        spec: 'Add error handling to fetchData',
-        prompt: 'Add try/catch error handling to the fetchData function in src/api.ts',
-        supplementalFiles: [],
-        fileDiffs: [
-          {
-            path: 'src/api.ts',
-            status: 'modified',
-            diff: '@@ -5,3 +5,7 @@\n-const data = await fetch(url)\n+try {\n+  const data = await fetch(url)\n+} catch (e) {\n+  throw new Error(`Fetch failed: ${e.message}`)\n+}',
-          },
-        ],
-      },
-      {
-        id: 'e2e-task-2',
-        sha: 'bbb222',
-        parentSha: 'bbb000',
-        spec: 'Add input validation',
-        prompt: 'Add input validation to the createUser endpoint',
-        supplementalFiles: [],
-        fileDiffs: [
-          {
-            path: 'src/routes/users.ts',
-            status: 'modified',
-            diff: '@@ -1 +1,5 @@\n+if (!name || !email) {\n+  throw new Error("name and email required")\n+}',
-          },
-        ],
-      },
-      {
-        id: 'e2e-task-3',
-        sha: 'ccc333',
-        parentSha: 'ccc000',
-        spec: 'Refactor logger',
-        prompt: 'Refactor the logger to use structured JSON output',
-        supplementalFiles: [],
-        fileDiffs: [
-          {
-            path: 'src/logger.ts',
-            status: 'modified',
-            diff: '@@ -1 +1,3 @@\n-console.log(msg)\n+const entry = { timestamp: Date.now(), message: msg }\n+process.stdout.write(JSON.stringify(entry) + "\\n")',
-          },
-        ],
-      },
-    ],
-  }
-
-  evalFilePath = path.join(repoDir, 'eval-e2e.json')
-  fs.writeFileSync(evalFilePath, JSON.stringify(evalData))
+  execSync('git remote add origin https://github.com/test/repo', {
+    cwd: repoDir,
+    stdio: 'ignore',
+  })
 
   judgeCallCount = 0
 })
@@ -164,15 +122,15 @@ afterAll(() => {
 // --- E2E tests ---
 
 describe('evalbuff E2E', () => {
-  it('runs full loop: agent, judge, doc edit, morning report', async () => {
-    await runEvalbuff({
+  it('runs full learn loop: processes commits, improves docs, generates report', async () => {
+    await runLearnMode({
+      mode: 'learn',
       repoPath: repoDir,
-      agentCommand: 'echo', // echo just prints the prompt and exits
-      evalDataPaths: [evalFilePath],
-      maxIterations: 3,
+      agentCommand: 'echo',
+      parallelism: 1,
       maxCostUsd: 50,
-      scoreThreshold: 7.0,
       agentTimeoutMs: 10_000,
+      commitCount: 500,
     })
 
     // 1. Morning report exists
@@ -185,27 +143,23 @@ describe('evalbuff E2E', () => {
       'utf-8',
     )
     expect(report).toContain('# Evalbuff Morning Report')
-    expect(report).toContain('Iterations | 3')
 
-    // 2. Log has 3 entries
+    // 2. Log has entries
     const logPath = path.join(repoDir, 'evalbuff-log.jsonl')
     expect(fs.existsSync(logPath)).toBe(true)
     const logLines = fs
       .readFileSync(logPath, 'utf-8')
       .trim()
       .split('\n')
-    expect(logLines).toHaveLength(3)
+    expect(logLines.length).toBeGreaterThan(0)
 
-    // 3. State tracks all 3 completed tasks
+    // 3. State tracks last processed commit
     const statePath = path.join(repoDir, 'evalbuff-state.json')
     const state = JSON.parse(fs.readFileSync(statePath, 'utf-8'))
-    expect(state.completedTaskIds).toEqual([
-      'e2e-task-1',
-      'e2e-task-2',
-      'e2e-task-3',
-    ])
+    expect(state.lastProcessedCommitSha).toBe('sha-3')
+    expect(state.processedCommitCount).toBe(3)
 
-    // 4. At least one doc was written (first task scores 3.0, below threshold)
+    // 4. At least one doc was written (first task scores 3.0)
     const docsDir = path.join(repoDir, 'docs')
     expect(fs.existsSync(docsDir)).toBe(true)
 
@@ -221,13 +175,5 @@ describe('evalbuff E2E', () => {
       encoding: 'utf-8',
     })
     expect(gitLog).toContain('evalbuff:')
-
-    // 7. Log entries have correct task IDs
-    const parsedEntries = logLines.map((l) => JSON.parse(l))
-    expect(parsedEntries.map((e: any) => e.taskId)).toEqual([
-      'e2e-task-1',
-      'e2e-task-2',
-      'e2e-task-3',
-    ])
   })
 })

@@ -60,7 +60,7 @@ const REVIEWER_CONFIGS: Record<ReviewerAgentType, ReviewerConfig> = {
       '__PROMPT__',
       '--dangerously-skip-permissions',
     ],
-    timeoutMs: 30 * 60 * 1000, // 30 min — needs time for E2E testing
+    timeoutMs: 30 * 60 * 1000,
   },
   codex: {
     type: 'codex',
@@ -81,26 +81,44 @@ const REVIEWER_CONFIGS: Record<ReviewerAgentType, ReviewerConfig> = {
   },
 }
 
-// The result file name the reviewer agent is instructed to write
 const RESULT_FILE_NAME = 'evalbuff-review-result.json'
 
 function buildReviewerPrompt(input: {
-  commit: EvalCommitV2
-  contextFiles: Record<string, string>
+  commit?: EvalCommitV2
+  taskPrompt: string
+  contextFiles?: Record<string, string>
   agentDiff: string
+  groundTruthDiff?: string
   error?: string
   criteria?: QualityCriteria
   docsDir?: string
 }): string {
-  const { commit, contextFiles, agentDiff, error, criteria, docsDir } = input
+  const { commit, taskPrompt, contextFiles, agentDiff, groundTruthDiff, error, criteria, docsDir } = input
 
-  const groundTruthDiffs = commit.fileDiffs
-    .map(({ path: p, diff }) => `### ${p}\n\`\`\`diff\n${diff}\n\`\`\``)
-    .join('\n\n')
+  const groundTruthSection = groundTruthDiff
+    ? `## Ground Truth Changes (One valid implementation)
+${groundTruthDiff}`
+    : `## Ground Truth
+No reference implementation is available. You must judge the agent's work solely by testing it end-to-end. Focus heavily on:
+- Does it build and run?
+- Does the feature actually work when you test it?
+- Are there errors in the logs?
+- Does it handle edge cases?`
 
-  const contextFilesContent = Object.entries(contextFiles)
-    .map(([filePath, content]) => `### ${filePath}\n\`\`\`\n${content}\n\`\`\``)
-    .join('\n\n')
+  const contextFilesContent = contextFiles
+    ? Object.entries(contextFiles)
+        .map(([filePath, content]) => `### ${filePath}\n\`\`\`\n${content}\n\`\`\``)
+        .join('\n\n')
+    : ''
+
+  // Legacy support: build ground truth from commit fileDiffs if no explicit groundTruthDiff
+  const groundTruth = groundTruthDiff
+    ? groundTruthSection
+    : commit?.fileDiffs
+      ? `## Ground Truth Changes (One valid implementation)\n${commit.fileDiffs
+          .map(({ path: p, diff }) => `### ${p}\n\`\`\`diff\n${diff}\n\`\`\``)
+          .join('\n\n')}`
+      : groundTruthSection
 
   const criteriaText = criteria
     ? formatCriteriaForPrompt(criteria)
@@ -114,10 +132,10 @@ function buildReviewerPrompt(input: {
 
 ## Your Mission
 
-You have been given a coding task, the ground truth solution, and an AI agent's attempt. Your job is to:
+You have been given a coding task and an AI agent's attempt. Your job is to:
 
 1. **Read the project docs** (if present) to understand conventions and patterns
-2. **Review the agent's diff** against the ground truth
+2. **Review the agent's diff** ${groundTruthDiff || commit?.fileDiffs ? 'against the ground truth' : 'for correctness and completeness'}
 3. **Actually test the changes** end-to-end:
    - Start the application if possible (check package.json for start/dev scripts)
    - Use browser tools, curl, or the appropriate client to exercise the feature
@@ -140,13 +158,11 @@ Use whatever tools you need to verify the change actually works:
 
 ${docsSection}
 ## User Prompt (What the agent was asked to do)
-${commit.prompt}
+${taskPrompt}
 
-## Context Files (from parent commit)
-${contextFilesContent || '(No context files)'}
+${contextFilesContent ? `## Context Files (from parent commit)\n${contextFilesContent}` : ''}
 
-## Ground Truth Changes (One valid implementation)
-${groundTruthDiffs}
+${groundTruth}
 
 ## Agent's Changes (What the agent actually did)
 \`\`\`diff
@@ -181,11 +197,6 @@ const PROMPT_FILE_NAME = 'EVALBUFF_REVIEW_PROMPT.md'
 
 const BOOTSTRAP_PROMPT = `Read the file ${PROMPT_FILE_NAME} in the current directory and follow all instructions in it exactly. The file contains a code review task. After your review and testing, you MUST write your judgment to ${RESULT_FILE_NAME} as specified in the prompt file.`
 
-/**
- * Run a single reviewer agent in the given repo directory.
- * Writes the full prompt to a file in the repo, then gives the agent
- * a short bootstrap prompt to read it (avoids CLI arg length limits).
- */
 async function runReviewerAgent(
   agentType: ReviewerAgentType,
   prompt: string,
@@ -194,7 +205,6 @@ async function runReviewerAgent(
 ): Promise<JudgingResult | null> {
   const config = REVIEWER_CONFIGS[agentType]
 
-  // Write the full prompt to a file in the repo
   fs.writeFileSync(path.join(cwd, PROMPT_FILE_NAME), prompt)
 
   const args = config.command
@@ -255,7 +265,6 @@ async function runReviewerAgent(
         )
       }
 
-      // Try to read the result file the agent wrote
       const resultPath = path.join(cwd, RESULT_FILE_NAME)
       const result = parseResultFile(resultPath, agentType)
 
@@ -264,7 +273,6 @@ async function runReviewerAgent(
         return
       }
 
-      // Fallback: try to extract JSON from stdout
       const extracted = extractJsonFromOutput(stdout, agentType)
       if (extracted) {
         resolve(extracted)
@@ -279,9 +287,6 @@ async function runReviewerAgent(
   })
 }
 
-/**
- * Try to parse the result file written by the reviewer agent.
- */
 function parseResultFile(
   resultPath: string,
   agentType: string,
@@ -300,7 +305,6 @@ function parseResultFile(
       `[Reviewer:${agentType}] Result file failed validation:`,
       parsed.error,
     )
-    // Try to salvage partial result
     return salvagePartialResult(raw)
   } catch (error) {
     console.warn(
@@ -311,25 +315,17 @@ function parseResultFile(
   }
 }
 
-/**
- * Try to extract JSON from the agent's stdout as a fallback.
- * Looks for the last JSON block that matches our schema.
- */
 function extractJsonFromOutput(
   output: string,
   agentType: string,
 ): JudgingResult | null {
-  // Try to find JSON blocks in the output (between ``` or raw JSON objects)
   const jsonPatterns = [
-    // Match JSON in code fences
     /```(?:json)?\s*\n({[\s\S]*?})\n\s*```/g,
-    // Match standalone JSON objects (greedy, last match wins)
     /(\{[^{}]*"overallScore"[^{}]*\})/g,
   ]
 
   for (const pattern of jsonPatterns) {
     const matches = [...output.matchAll(pattern)]
-    // Try last match first (most likely to be the final result)
     for (let i = matches.length - 1; i >= 0; i--) {
       try {
         const raw = JSON.parse(matches[i][1])
@@ -351,9 +347,6 @@ function extractJsonFromOutput(
   return null
 }
 
-/**
- * Try to salvage a partially valid result by filling in defaults.
- */
 function salvagePartialResult(raw: any): JudgingResult | null {
   if (typeof raw !== 'object' || raw === null) return null
   if (typeof raw.overallScore !== 'number') return null
@@ -383,7 +376,7 @@ export interface JudgeCommitResultInput {
   commit: EvalCommitV2
   contextFiles: Record<string, string>
   agentDiff: string
-  repoDir: string // the test repo where the agent's changes live
+  repoDir: string
   error?: string
   criteria?: QualityCriteria
   reviewerAgents?: ReviewerAgentType[]
@@ -410,6 +403,7 @@ export async function judgeCommitResult(
 
   const prompt = buildReviewerPrompt({
     commit,
+    taskPrompt: commit.prompt,
     contextFiles,
     agentDiff,
     error,
@@ -417,12 +411,62 @@ export async function judgeCommitResult(
     docsDir: fs.existsSync(path.join(repoDir, 'docs')) ? repoDir : undefined,
   })
 
-  // Run reviewer agents in parallel, each in their own copy of the repo
+  return runReviewersAndAggregate(prompt, repoDir, reviewerAgents, env)
+}
+
+/**
+ * Judge an agent's work on a task prompt — no ground truth commit needed.
+ * Used for both commit-learning mode (with ground truth diff) and prompt mode (without).
+ */
+export interface JudgeTaskResultInput {
+  taskPrompt: string
+  agentDiff: string
+  groundTruthDiff?: string
+  repoDir: string
+  error?: string
+  criteria?: QualityCriteria
+  reviewerAgents?: ReviewerAgentType[]
+  env?: Record<string, string>
+}
+
+export async function judgeTaskResult(
+  input: JudgeTaskResultInput,
+): Promise<JudgingResult> {
+  const {
+    taskPrompt,
+    agentDiff,
+    groundTruthDiff,
+    repoDir,
+    error,
+    criteria,
+    reviewerAgents = ['claude', 'codex'],
+    env,
+  } = input
+
+  const prompt = buildReviewerPrompt({
+    taskPrompt,
+    agentDiff,
+    groundTruthDiff,
+    error,
+    criteria,
+    docsDir: fs.existsSync(path.join(repoDir, 'docs')) ? repoDir : undefined,
+  })
+
+  return runReviewersAndAggregate(prompt, repoDir, reviewerAgents, env)
+}
+
+/**
+ * Shared logic: run reviewer agents in parallel and aggregate results.
+ */
+async function runReviewersAndAggregate(
+  prompt: string,
+  repoDir: string,
+  reviewerAgents: ReviewerAgentType[],
+  env?: Record<string, string>,
+): Promise<JudgingResult> {
   const reviewPromises = reviewerAgents.map(async (agentType) => {
-    // Each reviewer gets its own copy of the repo so they don't interfere
     const reviewDir = `${repoDir}-review-${agentType}`
     try {
-      // Fast copy: use rsync to exclude heavy dirs, then symlink them
       const nodeModulesPath = path.join(repoDir, 'node_modules')
       const hasNodeModules = fs.existsSync(nodeModulesPath)
       if (hasNodeModules) {
@@ -434,7 +478,6 @@ export async function judgeCommitResult(
       } else {
         execSync(`cp -r "${repoDir}" "${reviewDir}"`, { stdio: 'ignore' })
       }
-      // Don't pass eval env to reviewers — they need real API keys, not test ones
       return await runReviewerAgent(agentType, prompt, reviewDir)
     } finally {
       try {
@@ -466,14 +509,12 @@ export async function judgeCommitResult(
     }
   }
 
-  // Sort by overall score, pick median for analysis
   const sorted = validResults.sort(
     (a, b) => a.overallScore - b.overallScore,
   )
   const medianIdx = Math.floor(sorted.length / 2)
   const medianResult = sorted[medianIdx]
 
-  // Average scores across all valid reviewers
   const avg = (key: keyof JudgingResult) =>
     validResults.reduce((sum, r) => sum + (r[key] as number), 0) /
     validResults.length
@@ -483,7 +524,6 @@ export async function judgeCommitResult(
   const avgE2eScore = avg('e2eScore')
   const avgOverallScore = avg('overallScore')
 
-  // Merge e2eTestsPerformed from all reviewers
   const allE2eTests = [
     ...new Set(validResults.flatMap((r) => r.e2eTestsPerformed)),
   ]
