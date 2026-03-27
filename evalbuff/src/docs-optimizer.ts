@@ -63,11 +63,37 @@ You MUST respond with ONLY a JSON object (no markdown fences, no explanation). T
 Or if too task-specific:
 {"skip": true, "reasoning": "explanation"}`
 
+function formatEditHistory(history?: DocEditHistoryEntry[]): string {
+  if (!history || history.length === 0) return ''
+
+  const lines = history.map((entry) => {
+    const score =
+      entry.scoreBefore != null && entry.scoreAfter != null
+        ? ` (score: ${entry.scoreBefore.toFixed(1)} → ${entry.scoreAfter.toFixed(1)})`
+        : ''
+    return `- **${entry.outcome.toUpperCase()}**: \`${entry.path}\`${score}\n  Reasoning: ${entry.reasoning}`
+  })
+
+  return `## Edit History (previous doc edits tried this session)
+
+Use this history to avoid repeating rejected approaches and to build on what worked.
+
+${lines.join('\n')}`
+}
+
 /**
  * Analyze agent run results and suggest a doc edit to improve future performance.
  * Always analyzes — no score threshold check.
  * Returns null if the doc writer decides the failure is too task-specific to generalize.
  */
+export interface DocEditHistoryEntry {
+  path: string
+  reasoning: string
+  outcome: 'accepted' | 'rejected'
+  scoreBefore?: number
+  scoreAfter?: number
+}
+
 export async function analyzeFailure({
   judgeResult,
   taskPrompt,
@@ -75,6 +101,7 @@ export async function analyzeFailure({
   agentTrace,
   groundTruthDiff,
   currentDocs,
+  editHistory,
 }: {
   judgeResult: JudgingResult
   taskPrompt: string
@@ -82,6 +109,7 @@ export async function analyzeFailure({
   agentTrace?: string // stdout from the agent — reasoning, tool calls, errors
   groundTruthDiff?: string // optional — not available in prompt mode
   currentDocs: Record<string, string>
+  editHistory?: DocEditHistoryEntry[]
 }): Promise<DocSuggestion | null> {
   const docsContent = Object.entries(currentDocs)
     .map(([docPath, content]) => `### ${docPath}\n\`\`\`\n${content}\n\`\`\``)
@@ -145,6 +173,8 @@ ${traceSection}
 ## Current Docs (already available to the agent)
 ${docsContent || '(No docs yet)'}
 
+${formatEditHistory(editHistory)}
+
 Based on the agent's trace (if available), the gap between what the agent did and what it should have done, and the judge's analysis, write a doc file that captures a GENERAL PATTERN that would help the agent across many similar tasks. Focus on what the agent MISUNDERSTOOD (visible in the trace) rather than just what it got wrong (visible in the diff). If this failure doesn't reveal a generalizable pattern, respond with {"skip": true, "reasoning": "..."}.
 
 Respond with ONLY the JSON object.`
@@ -156,9 +186,12 @@ Respond with ONLY the JSON object.`
 
     let output: string
     try {
+      // IMPORTANT: Run in tmpDir to avoid Claude reading the repo's CLAUDE.md/AGENTS.md,
+      // which can pollute the doc writer's analysis with unrelated project context.
       output = execSync(
         `claude --dangerously-skip-permissions -p "Read the file ${promptFile} and follow all instructions in it. Respond with ONLY the JSON object as specified."`,
         {
+          cwd: tmpDir,
           encoding: 'utf-8',
           timeout: 5 * 60 * 1000,
           stdio: ['ignore', 'pipe', 'pipe'],
@@ -298,13 +331,18 @@ export function revertDocEdit(
 
 /**
  * Compare scores to determine if a doc edit improved things.
+ * Requires a minimum improvement of 0.3 points to count as "improved"
+ * to avoid accepting docs based on noise (especially with low parallelism).
  */
+const MIN_IMPROVEMENT_THRESHOLD = 0.3
+
 export function compareScores(
   oldScore: number,
   newScore: number,
 ): 'improved' | 'same' | 'worse' {
-  if (newScore > oldScore) return 'improved'
-  if (newScore < oldScore) return 'worse'
+  const delta = newScore - oldScore
+  if (delta >= MIN_IMPROVEMENT_THRESHOLD) return 'improved'
+  if (delta <= -MIN_IMPROVEMENT_THRESHOLD) return 'worse'
   return 'same'
 }
 
