@@ -69,6 +69,15 @@ const nextConfig = {
     ]
   },
   reactStrictMode: false,
+  async redirects() {
+    return [
+      {
+        source: '/b/:hash',
+        destination: 'https://go.trybeluga.ai/:hash',
+        permanent: false,
+      },
+    ]
+  },
   async rewrites() {
     return [
       {
