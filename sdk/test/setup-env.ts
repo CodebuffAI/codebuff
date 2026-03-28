@@ -33,6 +33,30 @@ const serverDefaults: Record<string, string> = {
   DISCORD_APPLICATION_ID: 'test',
 }
 
+/**
+ * Strip wrapping single or double quotes from env var values.
+ * Infisical export and some .env loaders may produce values like:
+ *   NEXT_PUBLIC_SUPPORT_EMAIL='support@codebuff.com'
+ * which sets the value to the literal string `'support@codebuff.com'`
+ * (with quotes), causing Zod format validators (z.email(), z.url()) to fail.
+ */
+function stripEnvQuotes(defaults: Record<string, string>) {
+  for (const key of Object.keys(defaults)) {
+    const value = process.env[key]
+    if (
+      value &&
+      value.length >= 2 &&
+      ((value.startsWith("'") && value.endsWith("'")) ||
+        (value.startsWith('"') && value.endsWith('"')))
+    ) {
+      process.env[key] = value.slice(1, -1)
+    }
+  }
+}
+
+stripEnvQuotes(testDefaults)
+stripEnvQuotes(serverDefaults)
+
 for (const [key, value] of Object.entries(testDefaults)) {
   if (!process.env[key]) {
     process.env[key] = value
