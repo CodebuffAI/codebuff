@@ -12,6 +12,7 @@ let terminalStateReset = false
  * These are written directly to stdout to ensure they're sent even if the renderer is in a bad state.
  *
  * Sequences:
+ * - \x1b[?1049l: Exit alternate screen buffer (restores main screen)
  * - \x1b[?1000l: Disable X10 mouse mode
  * - \x1b[?1002l: Disable button event mouse mode
  * - \x1b[?1003l: Disable any-event mouse mode (all motion tracking)
@@ -21,6 +22,7 @@ let terminalStateReset = false
  * - \x1b[?25h: Show cursor (safety measure)
  */
 const TERMINAL_RESET_SEQUENCES =
+  '\x1b[?1049l' + // Exit alternate screen buffer
   '\x1b[?1000l' + // Disable X10 mouse mode
   '\x1b[?1002l' + // Disable button event mouse mode
   '\x1b[?1003l' + // Disable any-event mouse mode (all motion)
