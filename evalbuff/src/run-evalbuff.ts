@@ -260,8 +260,8 @@ async function improveDocs(opts: {
   } = opts
 
   let totalCost = 0
-  const docsKept: Array<{ path: string; reasoning: string }> = []
-  const docsRejected: Array<{ path: string; reasoning: string }> = []
+  const docsKept: Array<{ path: string; reasoning: string; scoreBefore: number; scoreAfter: number }> = []
+  const docsRejected: Array<{ path: string; reasoning: string; scoreBefore: number; scoreAfter: number }> = []
 
   // Step 1: Baseline run
   console.log(`\n  Running ${parallelism} agents in parallel (baseline)...`)
