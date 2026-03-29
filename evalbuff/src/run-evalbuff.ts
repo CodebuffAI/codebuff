@@ -173,6 +173,13 @@ async function runAgentsInParallel(opts: {
   }
 }
 
+/**
+ * Copy docs into a test repo and commit them so they don't appear in the agent's diff.
+ *
+ * Without this commit, `git diff HEAD` after the agent runs would include
+ * the pre-copied docs as "new files", corrupting the diff attribution —
+ * the judge would penalize or credit the agent for docs it didn't create.
+ */
 function copyDocsIntoRepo(
   sourceRepoPath: string,
   targetRepoPath: string,
@@ -182,11 +189,31 @@ function copyDocsIntoRepo(
   const targetDocsDir = path.join(targetRepoPath, 'docs')
   const targetAgentsMd = path.join(targetRepoPath, 'AGENTS.md')
 
+  let copied = false
   if (fs.existsSync(sourceDocsDir)) {
     fs.cpSync(sourceDocsDir, targetDocsDir, { recursive: true })
+    copied = true
   }
   if (fs.existsSync(sourceAgentsMd)) {
     fs.cpSync(sourceAgentsMd, targetAgentsMd)
+    copied = true
+  }
+
+  // Commit the docs so they become part of HEAD — otherwise git diff HEAD
+  // after the agent runs will include these docs as agent-created changes.
+  if (copied) {
+    try {
+      execSync('git add docs/ AGENTS.md 2>/dev/null; git add -u docs/ AGENTS.md 2>/dev/null', {
+        cwd: targetRepoPath,
+        stdio: 'ignore',
+      })
+      execSync('git commit -m "evalbuff: pre-load docs" --allow-empty', {
+        cwd: targetRepoPath,
+        stdio: 'ignore',
+      })
+    } catch {
+      // If nothing to commit, that's fine
+    }
   }
 }
 
@@ -213,8 +240,8 @@ async function improveDocs(opts: {
 }): Promise<{
   finalScore: number
   baselineScore: number
-  docsKept: Array<{ path: string; reasoning: string }>
-  docsRejected: Array<{ path: string; reasoning: string }>
+  docsKept: Array<{ path: string; reasoning: string; scoreBefore: number; scoreAfter: number }>
+  docsRejected: Array<{ path: string; reasoning: string; scoreBefore: number; scoreAfter: number }>
   totalCost: number
 }> {
   const {
@@ -233,8 +260,8 @@ async function improveDocs(opts: {
   } = opts
 
   let totalCost = 0
-  const docsKept: Array<{ path: string; reasoning: string }> = []
-  const docsRejected: Array<{ path: string; reasoning: string }> = []
+  const docsKept: Array<{ path: string; reasoning: string; scoreBefore: number; scoreAfter: number }> = []
+  const docsRejected: Array<{ path: string; reasoning: string; scoreBefore: number; scoreAfter: number }> = []
 
   // Step 1: Baseline run
   console.log(`\n  Running ${parallelism} agents in parallel (baseline)...`)
@@ -259,7 +286,14 @@ async function improveDocs(opts: {
 
   // Step 2: Iterative doc improvement
   let improving = true
+  const MAX_IMPROVEMENT_ITERATIONS = 5
+  let iterationCount = 0
   while (improving) {
+    iterationCount++
+    if (iterationCount > MAX_IMPROVEMENT_ITERATIONS) {
+      console.log(`  Hit max improvement iterations (${MAX_IMPROVEMENT_ITERATIONS}), stopping.`)
+      break
+    }
     // Pick the worst-scoring judging for analysis
     const worstIdx = baseline.judgings.reduce(
       (minIdx, j, idx, arr) =>
@@ -273,6 +307,10 @@ async function improveDocs(opts: {
     const currentDocs = readCurrentDocs(repoPath)
 
     console.log(`  Analyzing for doc improvements...`)
+    const editHistory = [
+      ...docsKept.map((d) => ({ ...d, outcome: 'accepted' as const })),
+      ...docsRejected.map((d) => ({ ...d, outcome: 'rejected' as const })),
+    ]
     const docSuggestion = await analyzeFailure({
       judgeResult: worstJudging,
       taskPrompt: prompt,
@@ -280,6 +318,7 @@ async function improveDocs(opts: {
       agentTrace: worstTrace,
       groundTruthDiff,
       currentDocs,
+      editHistory,
     })
 
     if (!docSuggestion) {
@@ -325,6 +364,8 @@ async function improveDocs(opts: {
       docsKept.push({
         path: docSuggestion.suggestedDocPath,
         reasoning: docSuggestion.reasoning,
+        scoreBefore: currentScore,
+        scoreAfter: rerun.avgScore,
       })
 
       // Commit the doc change
@@ -351,6 +392,8 @@ async function improveDocs(opts: {
       docsRejected.push({
         path: docSuggestion.suggestedDocPath,
         reasoning: docSuggestion.reasoning,
+        scoreBefore: currentScore,
+        scoreAfter: rerun.avgScore,
       })
 
       // Revert the doc edit — restore previous content if it existed

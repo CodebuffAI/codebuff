@@ -15,6 +15,28 @@ export interface CommitTask {
 const MAX_DIFF_CHARS = 200_000
 
 /**
+ * Files that add noise to diffs without useful signal.
+ * Lockfiles are huge and auto-generated — agents shouldn't replicate them.
+ */
+const NOISE_FILE_PATTERNS = [
+  'bun.lock',
+  'bun.lockb',
+  'package-lock.json',
+  'yarn.lock',
+  'pnpm-lock.yaml',
+  'Gemfile.lock',
+  'Cargo.lock',
+  'poetry.lock',
+  'composer.lock',
+  'go.sum',
+]
+
+function isNoiseFile(filePath: string): boolean {
+  const basename = filePath.split('/').pop() || ''
+  return NOISE_FILE_PATTERNS.includes(basename)
+}
+
+/**
  * Get a list of commits from the repo, oldest first.
  * Starts from `startAfterSha` (exclusive) or HEAD~commitCount if no state.
  */
@@ -68,19 +90,24 @@ export function getCommitInfo(
       encoding: 'utf-8',
     }).trim()
 
-    // Get diff
-    const diff = execSync(`git diff ${parentSha} ${sha}`, {
-      cwd: repoPath,
-      encoding: 'utf-8',
-      maxBuffer: 10 * 1024 * 1024,
-    })
-
-    // Get files changed
+    // Get files changed (filter out noise files like lockfiles)
     const filesOutput = execSync(`git diff --name-only ${parentSha} ${sha}`, {
       cwd: repoPath,
       encoding: 'utf-8',
     }).trim()
-    const filesChanged = filesOutput ? filesOutput.split('\n') : []
+    const allFiles = filesOutput ? filesOutput.split('\n') : []
+    const filesChanged = allFiles.filter((f) => !isNoiseFile(f))
+
+    // Get diff, excluding noise files (lockfiles etc.)
+    const excludeArgs = NOISE_FILE_PATTERNS.map((p) => `':!${p}'`).join(' ')
+    const diff = execSync(
+      `git diff ${parentSha} ${sha} -- . ${excludeArgs}`,
+      {
+        cwd: repoPath,
+        encoding: 'utf-8',
+        maxBuffer: 10 * 1024 * 1024,
+      },
+    )
 
     return { parentSha, message, diff, filesChanged }
   } catch {
@@ -124,6 +151,7 @@ function readFilesAtParent(
 
   for (const filePath of filesChanged) {
     if (totalSize >= maxTotalSize) break
+    if (isNoiseFile(filePath)) continue
 
     const content = readFileAtCommit(repoPath, parentSha, filePath)
     if (content != null && content.length > 0) {
@@ -209,9 +237,12 @@ ${diff}
   try {
     fs.writeFileSync(promptFile, `${PROMPT_GEN_SYSTEM}\n\n---\n\n${userPrompt}`)
 
+    // IMPORTANT: Run in tmpDir to avoid Claude reading the repo's CLAUDE.md/AGENTS.md,
+    // which can confuse prompt generation (e.g., generating prompts about evalbuff itself).
     const output = execSync(
       `claude --dangerously-skip-permissions -p "Read ${promptFile} and follow all instructions. Respond with ONLY the task prompt text."`,
       {
+        cwd: tmpDir,
         encoding: 'utf-8',
         timeout: 2 * 60 * 1000,
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -245,8 +276,14 @@ export async function buildCommitTask(
     return null
   }
 
-  // Skip commits with no meaningful code changes
+  // Skip commits with no meaningful code changes (after filtering noise files)
   if (info.filesChanged.length === 0) {
+    return null
+  }
+
+  // Skip commits where the diff is empty after filtering noise files
+  if (info.diff.trim().length === 0) {
+    console.log(`Skipping ${sha.slice(0, 8)}: only noise files changed (lockfiles, etc.)`)
     return null
   }
 
